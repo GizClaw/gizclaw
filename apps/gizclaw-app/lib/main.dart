@@ -86,7 +86,11 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final pages = <Widget>[
-      BrowsePage(onOpenWorkflow: _openWorkflow),
+      BrowsePage(
+        onOpenWorkflow: _openWorkflow,
+        onOpenCollection: _openCollection,
+        onViewAllWorkflows: _openAllWorkflows,
+      ),
       const ChatsPage(),
       const FriendsPage(),
       const PetPage(),
@@ -130,6 +134,20 @@ class _HomeShellState extends State<HomeShell> {
         builder: (_) => WorkflowDetailPage(workflow: workflow),
       ),
     );
+  }
+
+  void _openCollection(WorkflowCollection collection) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CollectionPage(collection: collection),
+      ),
+    );
+  }
+
+  void _openAllWorkflows() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const AllWorkflowsPage()));
   }
 }
 
@@ -244,9 +262,16 @@ class GizDock extends StatelessWidget {
 }
 
 class BrowsePage extends StatelessWidget {
-  const BrowsePage({super.key, required this.onOpenWorkflow});
+  const BrowsePage({
+    super.key,
+    required this.onOpenWorkflow,
+    required this.onOpenCollection,
+    required this.onViewAllWorkflows,
+  });
 
   final ValueChanged<WorkflowCard> onOpenWorkflow;
+  final ValueChanged<WorkflowCollection> onOpenCollection;
+  final VoidCallback onViewAllWorkflows;
 
   @override
   Widget build(BuildContext context) {
@@ -276,14 +301,14 @@ class BrowsePage extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               scrollDirection: Axis.horizontal,
               itemBuilder: (context, index) {
-                final workflow = featuredWorkflows[index];
-                return FeaturedWorkflowCard(
-                  workflow: workflow,
-                  onTap: () => onOpenWorkflow(workflow),
+                final collection = featuredCollections[index];
+                return FeaturedCollectionCard(
+                  collection: collection,
+                  onTap: () => onOpenCollection(collection),
                 );
               },
               separatorBuilder: (_, _) => const SizedBox(width: 12),
-              itemCount: featuredWorkflows.length,
+              itemCount: featuredCollections.length,
             ),
           ),
         ),
@@ -307,11 +332,24 @@ class BrowsePage extends StatelessWidget {
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(20, 28, 20, 10),
           sliver: SliverToBoxAdapter(
-            child: Text(
-              'All Workflows',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'All Workflows',
+                    style: theme.textTheme.titleLarge,
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: onViewAllWorkflows,
+                  iconAlignment: IconAlignment.end,
+                  icon: const Icon(Icons.arrow_forward, size: 18),
+                  label: const Text('View all'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF111916),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -329,7 +367,7 @@ class BrowsePage extends StatelessWidget {
                   .slideY(begin: 0.08, end: 0, curve: Curves.easeOutCubic);
             },
             separatorBuilder: (_, _) => const SizedBox.shrink(),
-            itemCount: allWorkflows.length,
+            itemCount: allWorkflows.length > 3 ? 3 : allWorkflows.length,
           ),
         ),
       ],
@@ -458,7 +496,7 @@ class WorkflowArtworkHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imagePath = workflow.imagePath!;
-    final radius = BorderRadius.circular(compact ? 18 : 0);
+    final radius = BorderRadius.circular(compact ? 18 : 24);
     return Hero(
       tag: 'workflow-${workflow.name}',
       transitionOnUserGestures: true,
@@ -466,8 +504,8 @@ class WorkflowArtworkHero extends StatelessWidget {
       flightShuttleBuilder:
           (flightContext, animation, direction, fromContext, toContext) {
             final pushing = direction == HeroFlightDirection.push;
-            final begin = BorderRadius.circular(pushing ? 18 : 0);
-            final end = BorderRadius.circular(pushing ? 0 : 18);
+            final begin = BorderRadius.circular(pushing ? 18 : 24);
+            final end = BorderRadius.circular(pushing ? 24 : 18);
             return AnimatedBuilder(
               animation: animation,
               builder: (context, child) => ClipRRect(
@@ -488,14 +526,14 @@ class WorkflowArtworkHero extends StatelessWidget {
   }
 }
 
-class FeaturedWorkflowCard extends StatelessWidget {
-  const FeaturedWorkflowCard({
+class FeaturedCollectionCard extends StatelessWidget {
+  const FeaturedCollectionCard({
     super.key,
-    required this.workflow,
+    required this.collection,
     required this.onTap,
   });
 
-  final WorkflowCard workflow;
+  final WorkflowCollection collection;
   final VoidCallback onTap;
 
   @override
@@ -510,10 +548,12 @@ class FeaturedWorkflowCard extends StatelessWidget {
           onTap: onTap,
           child: Stack(
             children: [
-              if (workflow.imagePath != null)
-                Positioned.fill(
-                  child: WorkflowArtworkHero(workflow: workflow, compact: true),
+              Positioned.fill(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: Image.asset(collection.imagePath, fit: BoxFit.cover),
                 ),
+              ),
               Positioned.fill(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
@@ -545,7 +585,7 @@ class FeaturedWorkflowCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Text(
-                        workflow.driverLabel.toUpperCase(),
+                        collection.label.toUpperCase(),
                         style: const TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w900,
@@ -554,7 +594,7 @@ class FeaturedWorkflowCard extends StatelessWidget {
                     ),
                     const Spacer(),
                     Text(
-                      workflow.title,
+                      collection.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.headlineSmall
@@ -565,7 +605,7 @@ class FeaturedWorkflowCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      workflow.subtitle,
+                      collection.subtitle,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -581,6 +621,120 @@ class FeaturedWorkflowCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class CollectionPage extends StatelessWidget {
+  const CollectionPage({super.key, required this.collection});
+
+  final WorkflowCollection collection;
+
+  @override
+  Widget build(BuildContext context) {
+    final workflows = allWorkflows
+        .where((workflow) => collection.workflowNames.contains(workflow.name))
+        .toList();
+    return Scaffold(
+      appBar: AppBar(title: const Text('Collection')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+        children: [
+          AspectRatio(
+            aspectRatio: 4 / 3,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.asset(collection.imagePath, fit: BoxFit.cover),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          const Color(0xFF07100E).withValues(alpha: 0.85),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 20,
+                    right: 20,
+                    bottom: 20,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          collection.label.toUpperCase(),
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(color: const Color(0xFFB9F82E)),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          collection.title,
+                          style: Theme.of(context).textTheme.headlineMedium
+                              ?.copyWith(color: Colors.white),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          collection.subtitle,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: Colors.white70),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 28),
+          Text(
+            'Inside this collection',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 8),
+          ...workflows.map(
+            (workflow) => WorkflowListTile(
+              workflow: workflow,
+              onTap: () => _openWorkflow(context, workflow),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class AllWorkflowsPage extends StatelessWidget {
+  const AllWorkflowsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('All Workflows')),
+      body: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+        itemCount: allWorkflows.length,
+        itemBuilder: (context, index) {
+          final workflow = allWorkflows[index];
+          return WorkflowListTile(
+            workflow: workflow,
+            onTap: () => _openWorkflow(context, workflow),
+          );
+        },
+      ),
+    );
+  }
+}
+
+void _openWorkflow(BuildContext context, WorkflowCard workflow) {
+  Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => WorkflowDetailPage(workflow: workflow),
+    ),
+  );
 }
 
 class WorkspaceStrip extends StatelessWidget {
@@ -746,44 +900,54 @@ class WorkflowDetailPage extends StatelessWidget {
         slivers: [
           SliverAppBar.large(
             pinned: true,
-            expandedHeight: 220,
+            expandedHeight: 236,
             title: Text(workflow.title),
             backgroundColor: workflow.bannerColor,
             foregroundColor: Colors.white,
             flexibleSpace: FlexibleSpaceBar(
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (workflow.imagePath != null)
-                    WorkflowArtworkHero(workflow: workflow, compact: false)
-                  else
-                    ColoredBox(color: workflow.bannerColor),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          const Color(0xFF07100E).withValues(alpha: 0.88),
-                        ],
+              background: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (workflow.imagePath != null)
+                      WorkflowArtworkHero(workflow: workflow, compact: false)
+                    else
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(24),
+                        child: ColoredBox(color: workflow.bannerColor),
+                      ),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              const Color(0xFF07100E).withValues(alpha: 0.88),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                  Positioned(
-                    left: 20,
-                    right: 110,
-                    bottom: 24,
-                    child: Text(
-                      workflow.subtitle,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.9),
+                    Positioned(
+                      left: 20,
+                      right: 110,
+                      bottom: 24,
+                      child: Text(
+                        workflow.subtitle,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.9),
+                            ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -1313,7 +1477,7 @@ class FriendsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 110),
       children: [
         Row(
           children: [
@@ -1332,51 +1496,109 @@ class FriendsPage extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        ...friends.map(
-          (friend) => Card(
-            elevation: 0,
-            color: Colors.white,
-            margin: const EdgeInsets.only(bottom: 10),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: ListTile(
-              leading: Stack(
+        const SizedBox(height: 20),
+        Text('YOUR CIRCLE', style: Theme.of(context).textTheme.labelMedium),
+        const SizedBox(height: 8),
+        ...friends.asMap().entries.map(
+          (entry) => FriendRow(friend: entry.value, index: entry.key),
+        ),
+      ],
+    );
+  }
+}
+
+class FriendRow extends StatelessWidget {
+  const FriendRow({super.key, required this.friend, required this.index});
+
+  final FriendCard friend;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final avatarColors = [
+      const Color(0xFFFFDCD0),
+      const Color(0xFFD9F2EA),
+      const Color(0xFFD9E8FF),
+    ];
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {},
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: Color(0xFFD8DDD6))),
+          ),
+          child: Row(
+            children: [
+              Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  CircleAvatar(child: Text(friend.name.substring(0, 1))),
+                  Container(
+                    width: 52,
+                    height: 52,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: avatarColors[index % avatarColors.length],
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      friend.name.substring(0, 1),
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                  ),
                   Positioned(
-                    right: -1,
-                    bottom: -1,
+                    right: -2,
+                    bottom: -2,
                     child: Container(
-                      width: 12,
-                      height: 12,
+                      width: 14,
+                      height: 14,
                       decoration: BoxDecoration(
                         color: friend.online
-                            ? const Color(0xFF2E9B65)
+                            ? const Color(0xFF35B879)
                             : const Color(0xFF9AA0A6),
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
+                        border: Border.all(
+                          color: const Color(0xFFF4F5F1),
+                          width: 3,
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
-              title: Text(
-                friend.name,
-                style: const TextStyle(fontWeight: FontWeight.w700),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      friend.name,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      friend.status,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: const Color(0xFF65706C),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              subtitle: Text(friend.status),
-              trailing: IconButton(
+              IconButton.filled(
                 tooltip: 'Message ${friend.name}',
+                style: IconButton.styleFrom(
+                  backgroundColor: const Color(0xFFE4E9E2),
+                  foregroundColor: const Color(0xFF111916),
+                ),
                 onPressed: () {},
-                icon: const Icon(Icons.chat_bubble_outline),
+                icon: const Icon(Icons.chat_bubble_outline, size: 19),
               ),
-            ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
@@ -1387,7 +1609,7 @@ class PetPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 110),
       children: [
         Text(
           'Pet',
@@ -1395,39 +1617,94 @@ class PetPage extends StatelessWidget {
             context,
           ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
         ),
-        const SizedBox(height: 16),
-        Card(
-          elevation: 0,
-          color: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Row(
+        const SizedBox(height: 18),
+        AspectRatio(
+          aspectRatio: 0.72,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(26),
+            child: Stack(
+              fit: StackFit.expand,
               children: [
-                Container(
-                  width: 72,
-                  height: 72,
+                Image.asset('assets/pet/miso-cover.png', fit: BoxFit.cover)
+                    .animate(
+                      onPlay: (controller) => controller.repeat(reverse: true),
+                    )
+                    .scaleXY(
+                      begin: 1,
+                      end: 1.035,
+                      duration: 5200.ms,
+                      curve: Curves.easeInOut,
+                    )
+                    .moveY(
+                      begin: 3,
+                      end: -3,
+                      duration: 4200.ms,
+                      curve: Curves.easeInOut,
+                    ),
+                DecoratedBox(
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFD166).withValues(alpha: 0.24),
-                    borderRadius: BorderRadius.circular(8),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.transparent,
+                        const Color(0xFF07100E).withValues(alpha: 0.88),
+                      ],
+                      stops: const [0, 0.52, 1],
+                    ),
                   ),
-                  child: const Icon(Icons.pets, size: 36),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
+                Positioned(
+                  left: 18,
+                  top: 18,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 11,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.88),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Text(
+                      'CURIOUS TODAY',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 20,
+                  right: 20,
+                  bottom: 22,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Miso',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
+                        style: Theme.of(context).textTheme.headlineMedium
+                            ?.copyWith(color: Colors.white),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Level 7  ·  620 friendship XP',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                      ),
+                      const SizedBox(height: 14),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: const LinearProgressIndicator(
+                          value: 0.62,
+                          minHeight: 6,
+                          backgroundColor: Colors.white24,
+                          valueColor: AlwaysStoppedAnimation(Color(0xFFB9F82E)),
                         ),
                       ),
-                      const SizedBox(height: 6),
-                      const Text('Level 7'),
-                      const SizedBox(height: 10),
-                      const LinearProgressIndicator(value: 0.62),
                     ],
                   ),
                 ),
@@ -1446,7 +1723,7 @@ class MePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 110),
       children: [
         Text(
           'Me',
@@ -1454,7 +1731,56 @@ class MePage extends StatelessWidget {
             context,
           ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 18),
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: const Color(0xFF111916),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 54,
+                height: 54,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFB9F82E),
+                  shape: BoxShape.circle,
+                ),
+                child: const Text(
+                  'GC',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Local client',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.titleMedium?.copyWith(color: Colors.white),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Connected over WebRTC',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.copyWith(color: Colors.white60),
+                    ),
+                  ],
+                ),
+              ),
+              const SignalPulse(size: 28),
+            ],
+          ),
+        ),
+        const SizedBox(height: 28),
+        Text('CLIENT', style: Theme.of(context).textTheme.labelMedium),
+        const SizedBox(height: 8),
         const SettingsRow(
           icon: Icons.key_outlined,
           title: 'Identity',
@@ -1489,19 +1815,57 @@ class SettingsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      color: Colors.white,
-      margin: const EdgeInsets.only(bottom: 10),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: ListTile(
-        leading: Icon(icon),
-        title: Text(title),
-        subtitle: Text(value),
-        trailing: const Icon(Icons.chevron_right),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {},
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 15),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: Color(0xFFD8DDD6))),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 22),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 4),
+                    Text(
+                      value,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: const Color(0xFF65706C),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward, size: 20),
+            ],
+          ),
+        ),
       ),
     );
   }
+}
+
+class WorkflowCollection {
+  const WorkflowCollection({
+    required this.title,
+    required this.subtitle,
+    required this.label,
+    required this.imagePath,
+    required this.workflowNames,
+  });
+
+  final String title;
+  final String subtitle;
+  final String label;
+  final String imagePath;
+  final List<String> workflowNames;
 }
 
 class WorkflowCard {
@@ -1556,6 +1920,30 @@ class FriendCard {
   final String status;
   final bool online;
 }
+
+const featuredCollections = [
+  WorkflowCollection(
+    title: 'Everyday companions',
+    subtitle: 'Agents made for daily rituals, planning, and conversation.',
+    label: 'Curated collection',
+    imagePath: 'assets/workflows/daily-companion.png',
+    workflowNames: ['chatroom-daily', 'realtime-lab'],
+  ),
+  WorkflowCollection(
+    title: 'Build something',
+    subtitle: 'Structured workflows for turning ideas into working systems.',
+    label: 'Editor pick',
+    imagePath: 'assets/workflows/flowcraft-studio.png',
+    workflowNames: ['flowcraft-studio', 'ast-translate'],
+  ),
+  WorkflowCollection(
+    title: 'Realtime playground',
+    subtitle: 'Low-latency voice experiments and live agent sessions.',
+    label: 'New this week',
+    imagePath: 'assets/workflows/realtime-lab.png',
+    workflowNames: ['realtime-lab', 'chatroom-daily'],
+  ),
+];
 
 const featuredWorkflows = [
   WorkflowCard(

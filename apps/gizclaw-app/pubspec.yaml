@@ -62,6 +62,7 @@ flutter:
 
   assets:
     - assets/workflows/
+    - assets/pet/
 
   fonts:
     - family: Manrope
