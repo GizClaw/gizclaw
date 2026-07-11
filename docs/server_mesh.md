@@ -166,9 +166,9 @@ any peer -> configured upstream server
 The route API should still be shaped for the long-term case:
 
 ```text
-edge.route.resolve(peer_public_key)
-edge.route.watch(since_generation)
-edge.peer.lookup(peer_public_key)
+server.route.resolve(peer_public_key)
+server.route.watch(since_generation)
+server.peer.lookup(peer_public_key)
 ```
 
 ### Data Classes
@@ -335,11 +335,11 @@ headers, and the server performs final authorization.
 `ServiceEdgeRPC` carries control-plane operations:
 
 ```text
-edge.cert.get
-edge.cert.watch
-edge.route.resolve
-edge.route.watch
-edge.peer.lookup
+server.cert.get
+server.cert.watch
+server.route.resolve
+server.route.watch
+server.peer.lookup
 ```
 
 ### Token And Authorization
@@ -364,7 +364,7 @@ authoritative server remains the source of final permission checks.
 
 Certificate issuance belongs to server mesh capabilities. A server can own the
 ACME account and DNS-01 credentials, renew domain or wildcard certificates, and
-serve cert bundles to authorized edge nodes through `edge.cert.get`.
+serve cert bundles to authorized edge nodes through `server.cert.get`.
 
 Edge nodes should not need DNS provider credentials or ACME account keys.
 

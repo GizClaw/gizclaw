@@ -110,11 +110,11 @@ the final token validation, peer ownership checks, and business operation.
 include:
 
 ```text
-edge.cert.get
-edge.cert.watch
-edge.route.resolve
-edge.route.watch
-edge.peer.lookup
+server.cert.get
+server.cert.watch
+server.route.resolve
+server.route.watch
+server.peer.lookup
 ```
 
 ### Token Model
@@ -172,8 +172,8 @@ Edge nodes should not need DNS provider credentials or ACME account keys. They
 should call:
 
 ```text
-edge.cert.get
-edge.cert.watch
+server.cert.get
+server.cert.watch
 ```
 
 over `ServiceEdgeRPC`, verify the server identity, store the returned cert
