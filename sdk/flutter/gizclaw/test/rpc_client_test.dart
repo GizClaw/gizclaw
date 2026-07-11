@@ -81,6 +81,45 @@ void main() {
     );
   });
 
+  test('rejects mismatched RPC response ids', () async {
+    final factory = FakeDataChannelFactory();
+    final client = PeerRpcClient(factory, createId: () => 'rpc-want');
+
+    final future = client.call<payload.WorkspaceGetResponse>(
+      'server.workspace.get',
+      payload.WorkspaceGetRequest(name: 'demo-workspace'),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    factory.channels.single.addMessage(
+      concatBytes([
+        ...encodeEnvelopeFrames(
+          common.RpcResponse(
+            id: 'rpc-got',
+            payload: encodeRpcResponsePayload(
+              'server.workspace.get',
+              payload.WorkspaceGetResponse(
+                value: payload.Workspace(name: 'demo-workspace'),
+              ),
+            ),
+          ).writeToBuffer(),
+        ),
+        encodeFrame(rpcFrameTypeEos),
+      ]),
+    );
+
+    await expectLater(
+      future,
+      throwsA(
+        isA<FormatException>().having(
+          (error) => error.message,
+          'message',
+          contains('RPC response id mismatch'),
+        ),
+      ),
+    );
+  });
+
   test('completes plain RPC responses with continuation envelopes', () async {
     final factory = FakeDataChannelFactory();
     final client = PeerRpcClient(factory, createId: () => 'rpc-continuation');

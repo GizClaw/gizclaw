@@ -1,7 +1,7 @@
 # GizClaw Dart SDK
 
-`sdk/dart/gizclaw` is the Dart and Flutter client SDK for GizClaw peer
-connections over WebRTC.
+`sdk/flutter/gizclaw` is the Flutter client SDK for GizClaw peer connections
+over WebRTC.
 
 The SDK mirrors the existing JavaScript peer transport contract:
 
@@ -10,6 +10,9 @@ The SDK mirrors the existing JavaScript peer transport contract:
 - Peer RPC frame and protobuf envelopes from `docs/rpc_protocol.md`;
 - service IDs from `docs/service_layout.md`;
 - generated RPC method and payload metadata from `api/rpc/peer.proto`.
+
+The protocol core is plain Dart, but WebRTC transport support is a Flutter
+adapter over `flutter_webrtc` and native platform WebRTC implementations.
 
 ## Development
 

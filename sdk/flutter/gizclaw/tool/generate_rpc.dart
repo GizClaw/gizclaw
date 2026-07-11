@@ -3,7 +3,7 @@ import 'dart:io';
 
 void main() {
   final repo = _repoRoot();
-  final package = '$repo/sdk/dart/gizclaw';
+  final package = '$repo/sdk/flutter/gizclaw';
   final outDir = '$package/lib/src/generated/rpc';
   final output = Directory(outDir);
   if (output.existsSync()) {

@@ -90,7 +90,11 @@ class PeerRpcClient {
       options: const GizClawDataChannelOptions(ordered: true),
     );
     final encodedRequest = encodeRpcRequest(methodName, request, id: requestId);
-    final responseReader = _ResponseReader(methodName, expectBody: expectBody);
+    final responseReader = _ResponseReader(
+      methodName,
+      expectBody: expectBody,
+      requestId: requestId,
+    );
     final completer = Completer<RpcCallResult>();
     var requestSent = false;
     Timer? timer;
@@ -201,8 +205,14 @@ RpcCallResult decodeRpcResponse(
   String methodName,
   List<int> envelopeBytes,
   List<int> body,
+  String requestId,
 ) {
   final envelope = common.RpcResponse.fromBuffer(envelopeBytes);
+  if (envelope.id.isNotEmpty && envelope.id != requestId) {
+    throw FormatException(
+      'RPC response id mismatch: got ${envelope.id}, want $requestId',
+    );
+  }
   if (envelope.hasError()) {
     throw RpcError(
       envelope.error.code.value,
@@ -225,10 +235,15 @@ String _defaultRpcId() {
 }
 
 class _ResponseReader {
-  _ResponseReader(this.methodName, {required this.expectBody});
+  _ResponseReader(
+    this.methodName, {
+    required this.expectBody,
+    required this.requestId,
+  });
 
   final bool expectBody;
   final String methodName;
+  final String requestId;
   final _body = BytesBuilder(copy: false);
   final _envelopeChunks = <Uint8List>[];
   Uint8List _buffer = Uint8List(0);
@@ -273,7 +288,12 @@ class _ResponseReader {
         _responseEnvelope = concatBytes(_envelopeChunks);
         _envelopeRead = true;
         if (!expectBody || _responseEnvelopeHasError(_responseEnvelope!)) {
-          return decodeRpcResponse(methodName, _responseEnvelope!, const []);
+          return decodeRpcResponse(
+            methodName,
+            _responseEnvelope!,
+            const [],
+            requestId,
+          );
         }
         return null;
       }
@@ -294,7 +314,12 @@ class _ResponseReader {
       if (envelope == null) {
         throw const FormatException('RPC response missing envelope');
       }
-      return decodeRpcResponse(methodName, envelope, _body.takeBytes());
+      return decodeRpcResponse(
+        methodName,
+        envelope,
+        _body.takeBytes(),
+        requestId,
+      );
     }
     throw FormatException('expected RPC response body/EOS, got ${frame.type}');
   }
