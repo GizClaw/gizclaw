@@ -48,24 +48,35 @@ class ServiceHttpClient {
   final Duration requestTimeout;
   final int service;
 
-  Future<ServiceHttpResponse> send(ServiceHttpRequest request) async {
-    final requestBytes = encodeHttpRequest(request, host: host);
-    final channel = await _factory.createDataChannel(
-      giznetServiceDataChannelLabel(service),
-      options: const GizClawDataChannelOptions(ordered: true),
-    );
+  Future<ServiceHttpResponse> send(ServiceHttpRequest request) {
+    late final Uint8List requestBytes;
+    try {
+      requestBytes = encodeHttpRequest(request, host: host);
+    } catch (error, stackTrace) {
+      return Future<ServiceHttpResponse>.error(error, stackTrace);
+    }
     final completer = Completer<ServiceHttpResponse>();
     final buffer = BytesBuilder(copy: false);
+    GizClawDataChannel? channel;
     var requestSent = false;
     Timer? timer;
-    late StreamSubscription<Uint8List> messages;
-    late StreamSubscription<GizClawDataChannelState> states;
+    StreamSubscription<Uint8List>? messages;
+    StreamSubscription<GizClawDataChannelState>? states;
 
     Future<void> cleanup() async {
       timer?.cancel();
-      await messages.cancel();
-      await states.cancel();
-      await channel.close();
+      final messageSubscription = messages;
+      if (messageSubscription != null) {
+        await messageSubscription.cancel();
+      }
+      final stateSubscription = states;
+      if (stateSubscription != null) {
+        await stateSubscription.cancel();
+      }
+      final activeChannel = channel;
+      if (activeChannel != null) {
+        await activeChannel.close();
+      }
     }
 
     void fail(Object error, [StackTrace? stackTrace]) {
@@ -74,18 +85,6 @@ class ServiceHttpClient {
       }
       completer.completeError(error, stackTrace);
       _unawaited(cleanup());
-    }
-
-    Future<void> sendRequest() async {
-      if (requestSent || completer.isCompleted) {
-        return;
-      }
-      requestSent = true;
-      try {
-        await channel.send(requestBytes);
-      } catch (error, stackTrace) {
-        fail(error, stackTrace);
-      }
     }
 
     void tryComplete({bool closed = false}) {
@@ -110,30 +109,67 @@ class ServiceHttpClient {
       }
     }
 
-    messages = channel.messages.listen(
-      (chunk) {
-        buffer.add(chunk);
-        tryComplete();
-      },
-      onError: fail,
-      onDone: () => tryComplete(closed: true),
-    );
-    states = channel.states.listen((state) {
-      if (state == GizClawDataChannelState.open) {
-        _unawaited(sendRequest());
-      } else if (state == GizClawDataChannelState.closed) {
-        tryComplete(closed: true);
-      }
-    }, onError: fail);
     timer = Timer(requestTimeout, () {
       fail(TimeoutException('HTTP service request timed out', requestTimeout));
     });
 
-    if (channel.state == GizClawDataChannelState.open) {
-      await sendRequest();
-    } else if (channel.state == GizClawDataChannelState.closed) {
-      fail(StateError('HTTP service data channel is closed'));
+    Future<void> openChannel() async {
+      try {
+        channel = await _factory.createDataChannel(
+          giznetServiceDataChannelLabel(service),
+          options: const GizClawDataChannelOptions(ordered: true),
+        );
+      } catch (error, stackTrace) {
+        fail(error, stackTrace);
+        return;
+      }
+
+      final activeChannel = channel;
+      if (activeChannel == null) {
+        fail(StateError('HTTP service data channel was not created'));
+        return;
+      }
+      if (completer.isCompleted) {
+        _unawaited(activeChannel.close());
+        return;
+      }
+
+      Future<void> sendRequest() async {
+        if (requestSent || completer.isCompleted) {
+          return;
+        }
+        requestSent = true;
+        try {
+          await activeChannel.send(requestBytes);
+        } catch (error, stackTrace) {
+          fail(error, stackTrace);
+        }
+      }
+
+      messages = activeChannel.messages.listen(
+        (chunk) {
+          buffer.add(chunk);
+          tryComplete();
+        },
+        onError: fail,
+        onDone: () => tryComplete(closed: true),
+      );
+      states = activeChannel.states.listen((state) {
+        if (state == GizClawDataChannelState.open) {
+          _unawaited(sendRequest());
+        } else if (state == GizClawDataChannelState.closed) {
+          tryComplete(closed: true);
+        }
+      }, onError: fail);
+
+      if (activeChannel.state == GizClawDataChannelState.open) {
+        _unawaited(sendRequest());
+      } else if (activeChannel.state == GizClawDataChannelState.closed) {
+        fail(StateError('HTTP service data channel is closed'));
+      }
     }
+
+    _unawaited(openChannel());
     return completer.future;
   }
 }

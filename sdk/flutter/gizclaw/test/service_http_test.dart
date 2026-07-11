@@ -228,6 +228,43 @@ void main() {
     expect(factory.channels.single.sent, isEmpty);
   });
 
+  test('times out while waiting for the service channel to open', () async {
+    final gate = Completer<void>();
+    final factory = FakeDataChannelFactory(createGate: gate.future);
+    final client = ServiceHttpClient(
+      factory,
+      requestTimeout: const Duration(milliseconds: 10),
+    );
+
+    final future = client.send(const ServiceHttpRequest(path: '/slow-open'));
+
+    await expectLater(future, throwsA(isA<TimeoutException>()));
+    expect(factory.channels, isEmpty);
+
+    gate.complete();
+    await Future<void>.delayed(Duration.zero);
+    expect(factory.channels.single.state, GizClawDataChannelState.closed);
+  });
+
+  test('times out when the initial service request write stalls', () async {
+    final gate = Completer<void>();
+    final factory = FakeDataChannelFactory(sendGate: gate.future);
+    final client = ServiceHttpClient(
+      factory,
+      requestTimeout: const Duration(milliseconds: 10),
+    );
+
+    final future = client.send(const ServiceHttpRequest(path: '/slow-write'));
+
+    await expectLater(future, throwsA(isA<TimeoutException>()));
+    await Future<void>.delayed(Duration.zero);
+    expect(factory.channels.single.state, GizClawDataChannelState.closed);
+
+    gate.complete();
+    await Future<void>.delayed(Duration.zero);
+    expect(factory.channels.single.sent, isEmpty);
+  });
+
   test('times out when service channel never returns headers', () {
     final factory = FakeDataChannelFactory();
     final client = ServiceHttpClient(

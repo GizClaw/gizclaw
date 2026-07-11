@@ -231,6 +231,13 @@ void _writePayloadCodec(String package, List<_Method> methods) {
   buffer
     ..writeln('};')
     ..writeln()
+    ..writeln('final _messageTypes = <String, Type>{');
+  for (final type in sortedTypes) {
+    buffer.writeln("  '$type': payload.$type,");
+  }
+  buffer
+    ..writeln('};')
+    ..writeln()
     ..writeln('GeneratedMessage newPayloadMessage(String type) {')
     ..writeln('  final factory = _messageFactories[type];')
     ..writeln('  if (factory == null) {')
@@ -283,13 +290,19 @@ void _writePayloadCodec(String package, List<_Method> methods) {
     ..writeln('  String expected,')
     ..writeln('  GeneratedMessage message,')
     ..writeln(') {')
-    ..writeln(
-      "  final actual = message.info_.qualifiedMessageName.split('.').last;",
-    )
-    ..writeln('  if (actual != expected) {')
+    ..writeln('  final expectedType = _messageTypes[expected];')
+    ..writeln('  if (expectedType == null) {')
+    ..writeln('    throw ArgumentError.value(')
+    ..writeln('      expected,')
+    ..writeln("      'expected',")
+    ..writeln("      'unknown RPC payload type',")
+    ..writeln('    );')
+    ..writeln('  }')
+    ..writeln('  final actualType = message.runtimeType;')
+    ..writeln('  if (actualType != expectedType) {')
     ..writeln('    throw ArgumentError(')
     ..writeln(
-      "      'RPC payload type mismatch: got \$actual, want \$expected',",
+      "      'RPC payload type mismatch: got \$actualType, want \$expected',",
     )
     ..writeln('    );')
     ..writeln('  }')

@@ -7,11 +7,13 @@ class FakeDataChannelFactory implements GizClawDataChannelFactory {
   FakeDataChannelFactory({
     this.createGate,
     this.initialState = GizClawDataChannelState.open,
+    this.sendGate,
   });
 
   final Future<void>? createGate;
   final channels = <FakeDataChannel>[];
   final GizClawDataChannelState initialState;
+  final Future<void>? sendGate;
 
   @override
   Future<GizClawDataChannel> createDataChannel(
@@ -22,7 +24,11 @@ class FakeDataChannelFactory implements GizClawDataChannelFactory {
     if (gate != null) {
       await gate;
     }
-    final channel = FakeDataChannel(label, initialState: initialState);
+    final channel = FakeDataChannel(
+      label,
+      initialState: initialState,
+      sendGate: sendGate,
+    );
     channels.add(channel);
     return channel;
   }
@@ -32,6 +38,7 @@ class FakeDataChannel implements GizClawDataChannel {
   FakeDataChannel(
     this.label, {
     GizClawDataChannelState initialState = GizClawDataChannelState.open,
+    this.sendGate,
   }) : _state = initialState {
     if (initialState == GizClawDataChannelState.closed) {
       _closeStreams();
@@ -39,6 +46,7 @@ class FakeDataChannel implements GizClawDataChannel {
   }
 
   final sent = <Uint8List>[];
+  final Future<void>? sendGate;
   final _messages = StreamController<Uint8List>.broadcast();
   final _states = StreamController<GizClawDataChannelState>.broadcast();
   GizClawDataChannelState _state;
@@ -82,6 +90,13 @@ class FakeDataChannel implements GizClawDataChannel {
 
   @override
   Future<void> send(Uint8List bytes) async {
+    final gate = sendGate;
+    if (gate != null) {
+      await gate;
+    }
+    if (_state == GizClawDataChannelState.closed) {
+      throw StateError('data channel is closed');
+    }
     sent.add(bytes);
   }
 
