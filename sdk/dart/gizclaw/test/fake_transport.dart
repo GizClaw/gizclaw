@@ -1,0 +1,67 @@
+import 'dart:async';
+import 'dart:typed_data';
+
+import 'package:gizclaw/src/transport.dart';
+
+class FakeDataChannelFactory implements GizClawDataChannelFactory {
+  final channels = <FakeDataChannel>[];
+
+  @override
+  Future<GizClawDataChannel> createDataChannel(
+    String label, {
+    GizClawDataChannelOptions options = const GizClawDataChannelOptions(),
+  }) async {
+    final channel = FakeDataChannel(label);
+    channels.add(channel);
+    return channel;
+  }
+}
+
+class FakeDataChannel implements GizClawDataChannel {
+  FakeDataChannel(this.label);
+
+  final sent = <Uint8List>[];
+  final _messages = StreamController<Uint8List>.broadcast();
+  final _states = StreamController<GizClawDataChannelState>.broadcast();
+  GizClawDataChannelState _state = GizClawDataChannelState.open;
+
+  void addMessage(List<int> bytes) {
+    _messages.add(Uint8List.fromList(bytes));
+  }
+
+  void setState(GizClawDataChannelState state) {
+    _state = state;
+    _states.add(state);
+    if (state == GizClawDataChannelState.closed) {
+      _messages.close();
+      _states.close();
+    }
+  }
+
+  @override
+  int? get bufferedAmount => null;
+
+  @override
+  final String label;
+
+  @override
+  Stream<Uint8List> get messages => _messages.stream;
+
+  @override
+  GizClawDataChannelState get state => _state;
+
+  @override
+  Stream<GizClawDataChannelState> get states => _states.stream;
+
+  @override
+  Future<void> close() async {
+    if (_state != GizClawDataChannelState.closed) {
+      setState(GizClawDataChannelState.closed);
+    }
+  }
+
+  @override
+  Future<void> send(Uint8List bytes) async {
+    sent.add(bytes);
+  }
+}
