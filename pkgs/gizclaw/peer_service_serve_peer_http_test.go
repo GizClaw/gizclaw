@@ -7,12 +7,15 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 )
@@ -168,6 +171,92 @@ func TestPeerServicePublicRoundTrip(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d body=%s", resp.StatusCode, string(body))
 	}
+}
+
+func TestPeerServiceEdgePublicRequiresActiveClientPeer(t *testing.T) {
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(server) error = %v", err)
+	}
+	peersServer := &peer.Server{
+		Store:           mustBadgerInMemory(t, nil),
+		BuildCommit:     "test-build",
+		ServerPublicKey: serverKey.Public,
+	}
+	loginServer := publiclogin.NewServer(serverKey, mustBadgerInMemory(t, nil))
+	service := &PeerService{
+		manager:  NewManager(peersServer),
+		sessions: loginServer.SessionManager(),
+		public: &peerHTTP{
+			PeerHTTPService: peersServer,
+			Self:            peersServer,
+		},
+	}
+	handler := service.edgePublicHTTPHandler(service.sessions)
+
+	tests := []struct {
+		name       string
+		role       apitypes.PeerRole
+		status     apitypes.PeerRegistrationStatus
+		wantStatus int
+	}{
+		{name: "client", role: apitypes.PeerRoleClient, status: apitypes.PeerRegistrationStatusActive, wantStatus: http.StatusOK},
+		{name: "admin", role: apitypes.PeerRoleAdmin, status: apitypes.PeerRegistrationStatusActive, wantStatus: http.StatusForbidden},
+		{name: "server", role: apitypes.PeerRoleServer, status: apitypes.PeerRegistrationStatusActive, wantStatus: http.StatusForbidden},
+		{name: "edge", role: apitypes.PeerRoleEdgeNode, status: apitypes.PeerRegistrationStatusActive, wantStatus: http.StatusForbidden},
+		{name: "blocked client", role: apitypes.PeerRoleClient, status: apitypes.PeerRegistrationStatusBlocked, wantStatus: http.StatusForbidden},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			keyPair, err := giznet.GenerateKeyPair()
+			if err != nil {
+				t.Fatalf("GenerateKeyPair(peer) error = %v", err)
+			}
+			if _, err := peersServer.SavePeer(context.Background(), apitypes.Peer{
+				PublicKey:     keyPair.Public.String(),
+				Role:          tc.role,
+				Status:        tc.status,
+				Device:        apitypes.DeviceInfo{},
+				Configuration: apitypes.Configuration{},
+			}); err != nil {
+				t.Fatalf("SavePeer error = %v", err)
+			}
+
+			accessToken := issuePeerHTTPSession(t, loginServer, keyPair, serverKey.Public)
+			req := httptest.NewRequest(http.MethodGet, "/me", nil)
+			req.Header.Set(publiclogin.PublicKeyHeader, keyPair.Public.String())
+			req.Header.Set("Authorization", "Bearer "+accessToken)
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+
+			if rec.Code != tc.wantStatus {
+				t.Fatalf("status = %d body=%s, want %d", rec.Code, rec.Body.String(), tc.wantStatus)
+			}
+		})
+	}
+}
+
+func issuePeerHTTPSession(t testing.TB, loginServer *publiclogin.Server, keyPair *giznet.KeyPair, serverPublicKey giznet.PublicKey) string {
+	t.Helper()
+
+	assertion, err := publiclogin.NewLoginAssertion(keyPair, serverPublicKey, time.Minute)
+	if err != nil {
+		t.Fatalf("NewLoginAssertion error = %v", err)
+	}
+	resp, err := loginServer.Login(context.Background(), peerhttp.LoginRequestObject{
+		Params: peerhttp.LoginParams{
+			XPublicKey:    keyPair.Public.String(),
+			Authorization: "Bearer " + assertion,
+		},
+	})
+	if err != nil {
+		t.Fatalf("Login error = %v", err)
+	}
+	ok, isOK := resp.(peerhttp.Login200JSONResponse)
+	if !isOK {
+		t.Fatalf("Login response = %T", resp)
+	}
+	return ok.AccessToken
 }
 
 func TestPeerServiceEdgePublicRoundTrip(t *testing.T) {

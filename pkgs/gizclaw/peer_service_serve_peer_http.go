@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -17,7 +18,7 @@ func (s *PeerService) servePublic(conn giznet.Conn) error {
 }
 
 func (s *PeerService) serveEdgePublic(conn giznet.Conn) error {
-	server := gizhttp.NewServer(conn, ServiceEdgeHTTP, s.publicHTTPHandler(s.sessions))
+	server := gizhttp.NewServer(conn, ServiceEdgeHTTP, s.edgePublicHTTPHandler(s.sessions))
 	defer func() {
 		_ = server.Shutdown(context.Background())
 	}()
@@ -44,7 +45,19 @@ func (s *PeerService) servePublicService(conn giznet.Conn, service uint64) error
 	return server.Serve()
 }
 
+type publicHTTPOptions struct {
+	requireClientPeer bool
+}
+
 func (s *PeerService) publicHTTPHandler(sessions *publiclogin.SessionManager) http.Handler {
+	return s.publicHTTPHandlerWithOptions(sessions, publicHTTPOptions{})
+}
+
+func (s *PeerService) edgePublicHTTPHandler(sessions *publiclogin.SessionManager) http.Handler {
+	return s.publicHTTPHandlerWithOptions(sessions, publicHTTPOptions{requireClientPeer: true})
+}
+
+func (s *PeerService) publicHTTPHandlerWithOptions(sessions *publiclogin.SessionManager, opts publicHTTPOptions) http.Handler {
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 	app.Use(func(ctx *fiber.Ctx) error {
 		base := ctx.UserContext()
@@ -64,11 +77,27 @@ func (s *PeerService) publicHTTPHandler(sessions *publiclogin.SessionManager) ht
 		if !ok {
 			return nil
 		}
+		if opts.requireClientPeer && !s.allowEdgeClientPeer(ctx.UserContext(), publicKey) {
+			ctx.Status(http.StatusForbidden)
+			_ = ctx.JSON(apitypes.NewErrorResponse("EDGE_CLIENT_REQUIRED", "edge public HTTP only proxies active client peers"))
+			return nil
+		}
 		ctx.SetUserContext(peerhttp.WithCallerPublicKey(base, publicKey))
 		return ctx.Next()
 	})
 	peerhttp.RegisterHandlers(app, peerhttp.NewStrictHandler(s.public, nil))
 	return fiberHTTPHandler(app)
+}
+
+func (s *PeerService) allowEdgeClientPeer(ctx context.Context, publicKey giznet.PublicKey) bool {
+	if s == nil || s.manager == nil || s.manager.Peers == nil {
+		return false
+	}
+	peer, err := s.manager.Peers.LoadPeer(ctx, publicKey)
+	if err != nil {
+		return false
+	}
+	return peer.Status == apitypes.PeerRegistrationStatusActive && peer.Role == apitypes.PeerRoleClient
 }
 
 func setPeerHTTPCORSHeaders(ctx *fiber.Ctx) {
