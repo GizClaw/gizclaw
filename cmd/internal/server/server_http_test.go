@@ -84,14 +84,10 @@ func TestCmdServerPrivateIngressRequiresAuthorizedSession(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/server-info", nil)
 	rec := httptest.NewRecorder()
 	srv.ServeHTTP(rec, req)
-	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("GET /server-info without session status = %d body=%s", rec.Code, rec.Body.String())
-	}
+	assertHTTPError(t, rec, http.StatusUnauthorized, "INVALID_SESSION")
 
 	clientLogin := cmdServerTestLogin(t, srv, serverKey.Public, clientKey)
-	if clientLogin.Code != http.StatusUnauthorized {
-		t.Fatalf("client POST /login status = %d body=%s", clientLogin.Code, clientLogin.Body.String())
-	}
+	assertHTTPError(t, clientLogin, http.StatusUnauthorized, "INVALID_ASSERTION")
 
 	adminLogin := cmdServerTestLogin(t, srv, serverKey.Public, adminKey)
 	if adminLogin.Code != http.StatusOK {
@@ -104,10 +100,52 @@ func TestCmdServerPrivateIngressRequiresAuthorizedSession(t *testing.T) {
 
 	req = httptest.NewRequest(http.MethodGet, "/server-info", nil)
 	req.Header.Set("Authorization", "Bearer "+session.AccessToken)
+	req.Header.Set(publiclogin.PublicKeyHeader, clientKey.Public.String())
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	assertHTTPError(t, rec, http.StatusUnauthorized, "PUBLIC_KEY_MISMATCH")
+
+	req = httptest.NewRequest(http.MethodGet, "/server-info", nil)
+	req.Header.Set("Authorization", "Bearer "+session.AccessToken)
+	req.Header.Set(publiclogin.PublicKeyHeader, adminKey.Public.String())
 	rec = httptest.NewRecorder()
 	srv.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("authorized GET /server-info status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	if _, err := peers.SavePeer(context.Background(), apitypes.Peer{
+		PublicKey:     adminKey.Public.String(),
+		Role:          apitypes.PeerRoleClient,
+		Status:        apitypes.PeerRegistrationStatusActive,
+		Device:        apitypes.DeviceInfo{},
+		Configuration: apitypes.Configuration{},
+	}); err != nil {
+		t.Fatalf("SavePeer(demoted admin) error = %v", err)
+	}
+	req = httptest.NewRequest(http.MethodGet, "/server-info", nil)
+	req.Header.Set("Authorization", "Bearer "+session.AccessToken)
+	req.Header.Set(publiclogin.PublicKeyHeader, adminKey.Public.String())
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	assertHTTPError(t, rec, http.StatusForbidden, "PRIVATE_INGRESS_DENIED")
+}
+
+func assertHTTPError(t *testing.T, rec *httptest.ResponseRecorder, status int, code string) {
+	t.Helper()
+	if rec.Code != status {
+		t.Fatalf("status = %d body=%s, want %d", rec.Code, rec.Body.String(), status)
+	}
+	var body struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode error body %q: %v", rec.Body.String(), err)
+	}
+	if body.Error.Code != code {
+		t.Fatalf("error code = %q body=%s, want %q", body.Error.Code, rec.Body.String(), code)
 	}
 }
 
