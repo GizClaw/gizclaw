@@ -3361,6 +3361,12 @@ type ToolTriggerExample struct {
 	Output *string                 `json:"output,omitempty"`
 }
 
+// ToolkitPolicy Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
+type ToolkitPolicy struct {
+	// ToolIds Allowed persisted Tool IDs.
+	ToolIds *[]string `json:"tool_ids,omitempty"`
+}
+
 // Voice defines model for Voice.
 type Voice struct {
 	CreatedAt   time.Time     `json:"created_at"`
@@ -3530,6 +3536,9 @@ type WorkflowSpec struct {
 	DoubaoRealtime *DoubaoRealtimeWorkflowSpec `json:"doubao_realtime,omitempty"`
 	Driver         WorkflowDriver              `json:"driver"`
 	Flowcraft      *FlowcraftWorkflowSpec      `json:"flowcraft,omitempty"`
+
+	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
+	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
 }
 
 // Workspace defines model for Workspace.
@@ -3541,9 +3550,12 @@ type Workspace struct {
 	Name         string    `json:"name"`
 
 	// Parameters Agent-specific workspace parameters. The shape is selected by agent_type.
-	Parameters   *WorkspaceParameters `json:"parameters,omitempty"`
-	UpdatedAt    time.Time            `json:"updated_at"`
-	WorkflowName string               `json:"workflow_name"`
+	Parameters *WorkspaceParameters `json:"parameters,omitempty"`
+
+	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
+	Toolkit      *ToolkitPolicy `json:"toolkit,omitempty"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	WorkflowName string         `json:"workflow_name"`
 }
 
 // WorkspaceInputMode defines model for WorkspaceInputMode.
@@ -3572,6 +3584,9 @@ type WorkspaceResourceKind string
 type WorkspaceSpec struct {
 	// Parameters Agent-specific workspace parameters. The shape is selected by agent_type.
 	Parameters *WorkspaceParameters `json:"parameters,omitempty"`
+
+	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
+	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
 
 	// WorkflowName Referenced workflow custom ID.
 	WorkflowName string `json:"workflow_name"`

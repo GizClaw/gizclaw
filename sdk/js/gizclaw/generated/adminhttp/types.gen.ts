@@ -165,6 +165,7 @@ export type WorkspaceUpsert = {
     name: string;
     workflow_name: string;
     parameters?: WorkspaceParameters;
+    toolkit?: ToolkitPolicy;
 };
 
 export type WorkspaceList = {
@@ -1721,6 +1722,16 @@ export type ToolTriggerExample = {
     output?: string;
 };
 
+/**
+ * Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
+ */
+export type ToolkitPolicy = {
+    /**
+     * Allowed persisted Tool IDs.
+     */
+    tool_ids?: Array<string>;
+};
+
 export type Voice = {
     id: string;
     source: VoiceSource;
@@ -1840,6 +1851,7 @@ export type WorkflowDriver = 'flowcraft' | 'doubao-realtime' | 'ast-translate' |
 
 export type WorkflowSpec = {
     driver: WorkflowDriver;
+    toolkit?: ToolkitPolicy;
     flowcraft?: FlowcraftWorkflowSpec;
     doubao_realtime?: DoubaoRealtimeWorkflowSpec;
     ast_translate?: AstTranslateWorkflowSpec;
@@ -2042,6 +2054,7 @@ export type Workspace = {
     name: string;
     workflow_name: string;
     parameters?: WorkspaceParameters;
+    toolkit?: ToolkitPolicy;
     created_at: string;
     /**
      * Last user-visible workspace conversation or history activity time. Configuration-only updates must not modify this field.
@@ -2184,6 +2197,7 @@ export type WorkspaceSpec = {
      */
     workflow_name: string;
     parameters?: WorkspaceParameters;
+    toolkit?: ToolkitPolicy;
 };
 
 /**

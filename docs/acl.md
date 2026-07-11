@@ -126,7 +126,7 @@ for the resource kind being created.
 | `server.tool.list/get` | Concrete `tool` + `read`; list omits denied Tools |
 | `server.tool.create` | `tool:__collection__` + `create`; the ID must use the authenticated peer's `peer.<public-key>.` namespace and the Tool must be `source: device` |
 | `server.tool.put/delete` | Concrete `tool` + `admin`; peers may modify only their own device Tool namespace |
-| ToolKit construction and Tool invocation | Concrete `tool` + `use`; runtime availability and executor registration are checked separately |
+| ToolKit construction and Tool invocation | Concrete `tool` + `use`; runtime availability and executor registration are checked separately. Workflow/workspace Toolkit policies only choose the candidate Tool IDs; they do not bypass ACL. |
 | `server.voice.list/get` | Concrete `voice` + `read` |
 | `server.firmware.list/get/download` | Concrete `firmware` + `read` |
 | `server.run.agent.set` | Target concrete `workspace` + `use` |

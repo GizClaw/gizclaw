@@ -26,8 +26,11 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/google/jsonschema-go/jsonschema"
 )
 
 func TestAgentStatusReportsRunning(t *testing.T) {
@@ -1809,6 +1812,37 @@ func TestLockedString(t *testing.T) {
 	}
 }
 
+func toolkitTestContext(t *testing.T, subject string, allowed []string) *agenthost.ToolkitContext {
+	t.Helper()
+	ctx := context.Background()
+	ptr := func(value string) *string { return &value }
+	store := &toolkit.Server{Store: kv.NewMemory(nil)}
+	tool := toolkit.Tool{
+		ID:          "system.music.play",
+		Name:        ptr("play_music"),
+		Description: ptr("Play music"),
+		Source:      toolkit.ToolSourceBuiltin,
+		Enabled:     true,
+		InputSchema: jsonschema.Schema{Type: "object"},
+		Executor: toolkit.ToolExecutor{
+			Kind: toolkit.ToolExecutorKindBuiltin,
+			Name: ptr("music.play"),
+		},
+	}
+	if _, err := store.PutTool(ctx, tool); err != nil {
+		t.Fatalf("PutTool() error = %v", err)
+	}
+	return &agenthost.ToolkitContext{
+		Builder:   &toolkit.Builder{Tools: store},
+		Executors: toolkit.NewExecutorRegistry(),
+		BuildRequest: toolkit.BuildRequest{
+			Subject:         acl.PublicKeySubject(subject),
+			AllowedToolIDs:  allowed,
+			RestrictToolIDs: true,
+		},
+	}
+}
+
 func TestSliceStreamCloseWithError(t *testing.T) {
 	stream := &sliceStream{chunks: []*genx.MessageChunk{{}}}
 	want := errors.New("closed")
@@ -1880,6 +1914,84 @@ func TestBuildClawConfigInjectsPeerResolvedOpenAIModel(t *testing.T) {
 	agent := got["agent"].(map[string]any)
 	if agent["system_prompt"] != "short" || agent["model"] != "generate_model" {
 		t.Fatalf("agent config = %#v", agent)
+	}
+}
+
+func TestBuildClawConfigInjectsToolkitTools(t *testing.T) {
+	ctx := context.Background()
+	events := []string{}
+	service := peergenx.New(peergenx.Service{
+		Peer:            testPeer{},
+		Authorizer:      recordingAuthorizer{events: &events},
+		Models:          fakeModels{events: &events},
+		Credentials:     fakeCredentials{events: &events},
+		ProviderTenants: fakeTenants{events: &events},
+	})
+	generateModel := "chat"
+	var workspaceParams apitypes.WorkspaceParameters
+	if err := workspaceParams.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{GenerateModel: &generateModel}); err != nil {
+		t.Fatalf("FromFlowcraftWorkspaceParameters() error = %v", err)
+	}
+	tools := toolkitTestContext(t, "peer-a", []string{"system.music.play"})
+	cfg := workflowConfig{}
+	cfg.Spec.Flowcraft = map[string]any{
+		"agent": map[string]any{
+			"tools": []any{
+				"legacy_tool",
+				map[string]any{"name": "play_music", "description": "old description"},
+			},
+		},
+	}
+
+	got, err := buildClawConfig(ctx, service, agenthost.Spec{
+		Workspace: apitypes.Workspace{Name: "ws", Parameters: &workspaceParams},
+		Toolkit:   tools,
+	}, cfg)
+	if err != nil {
+		t.Fatalf("buildClawConfig() error = %v", err)
+	}
+	agent := got["agent"].(map[string]any)
+	toolItems := agent["tools"].([]any)
+	if len(toolItems) != 2 {
+		t.Fatalf("agent.tools = %#v, want legacy + toolkit tool", toolItems)
+	}
+	if toolItems[0].(string) != "legacy_tool" {
+		t.Fatalf("agent.tools[0] = %#v, want legacy_tool", toolItems[0])
+	}
+	toolCfg := toolItems[1].(map[string]any)
+	if toolCfg["name"] != "play_music" || toolCfg["description"] != "Play music" {
+		t.Fatalf("tool config = %#v", toolCfg)
+	}
+	schema := toolCfg["input_schema"].(map[string]any)
+	if schema["type"] != "object" {
+		t.Fatalf("input_schema = %#v", schema)
+	}
+}
+
+func TestToolkitToolHandlerInvokesToolkit(t *testing.T) {
+	ctx := context.Background()
+	tools := toolkitTestContext(t, "peer-a", []string{"system.music.play"})
+	if err := tools.Executors.Register("music.play", toolkit.ExecutorFunc(func(_ context.Context, call toolkit.Call) (toolkit.Result, error) {
+		if call.SubjectID != "peer-a" {
+			t.Fatalf("SubjectID = %q, want peer-a", call.SubjectID)
+		}
+		if call.Tool.ID != "system.music.play" {
+			t.Fatalf("Tool.ID = %q, want system.music.play", call.Tool.ID)
+		}
+		if string(call.Args) != `{"query":"song"}` {
+			t.Fatalf("Args = %s, want query song", call.Args)
+		}
+		return toolkit.Result{Data: json.RawMessage(`{"queued":true}`)}, nil
+	})); err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+
+	got, err := toolkitToolHandler(tools)(ctx, "play_music", json.RawMessage(`{"query":"song"}`))
+	if err != nil {
+		t.Fatalf("handler() error = %v", err)
+	}
+	if got != `{"queued":true}` {
+		t.Fatalf("handler() = %q, want queued JSON", got)
 	}
 }
 

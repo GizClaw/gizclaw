@@ -27,6 +27,9 @@
           "parameters": {
             "$ref": "./workspace_parameters.json#/components/schemas/WorkspaceParameters"
           },
+          "toolkit": {
+            "$ref": "./toolkit_policy.json#/components/schemas/ToolkitPolicy"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time"

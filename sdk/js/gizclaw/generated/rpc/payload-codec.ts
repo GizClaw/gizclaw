@@ -1148,6 +1148,10 @@ export type ToolTriggerExample = {
   "args"?: Record<string, unknown>;
   "output"?: string;
 };
+export type ToolkitPolicy = {
+  "tool_ids"?: ToolkitPolicyToolIds;
+};
+export type ToolkitPolicyToolIds = string[];
 export type Voice = {
   "created_at": string;
   "description"?: string;
@@ -1243,6 +1247,7 @@ export type WorkflowSpec = {
   "doubao_realtime"?: DoubaoRealtimeWorkflowSpec;
   "driver": string | number;
   "flowcraft"?: FlowcraftWorkflowSpec;
+  "toolkit"?: ToolkitPolicy;
 };
 export type Workspace = {
   "created_at": string;
@@ -1251,6 +1256,7 @@ export type Workspace = {
   "parameters"?: WorkspaceParameters;
   "updated_at": string;
   "workflow_name": string;
+  "toolkit"?: ToolkitPolicy;
 };
 export type WorkspaceCreateRequest = Workspace;
 export type WorkspaceCreateResponse = Workspace;
@@ -6745,6 +6751,26 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "ToolkitPolicy": {
+    "fields": [
+      {
+        "name": "tool_ids",
+        "number": 1,
+        "optional": true,
+        "type": "ToolkitPolicyToolIds"
+      }
+    ]
+  },
+  "ToolkitPolicyToolIds": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "repeated": true,
+        "type": "string"
+      }
+    ]
+  },
   "ToolListRequest": {
     "fields": [
       {
@@ -7331,6 +7357,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 5,
         "optional": true,
         "type": "FlowcraftWorkflowSpec"
+      },
+      {
+        "name": "toolkit",
+        "number": 6,
+        "optional": true,
+        "type": "ToolkitPolicy"
       }
     ]
   },
@@ -7366,6 +7398,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "workflow_name",
         "number": 6,
         "type": "string"
+      },
+      {
+        "name": "toolkit",
+        "number": 7,
+        "optional": true,
+        "type": "ToolkitPolicy"
       }
     ]
   },

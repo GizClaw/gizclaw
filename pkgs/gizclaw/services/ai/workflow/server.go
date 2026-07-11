@@ -12,6 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -194,8 +195,13 @@ func validateDocument(doc apitypes.WorkflowDocument, expectedName string) (apity
 	if err := validateDriverSpec(doc.Spec); err != nil {
 		return apitypes.WorkflowDocument{}, env, nil, err
 	}
+	policy, err := toolkit.NormalizePolicy(doc.Spec.Toolkit)
+	if err != nil {
+		return apitypes.WorkflowDocument{}, env, nil, fmt.Errorf("spec.toolkit: %w", err)
+	}
 
 	doc.Metadata.Name = env.Metadata.Name
+	doc.Spec.Toolkit = policy
 	raw, err = json.Marshal(doc)
 	if err != nil {
 		return apitypes.WorkflowDocument{}, env, nil, err

@@ -26,6 +26,9 @@
           "driver": {
             "$ref": "#/components/schemas/WorkflowDriver"
           },
+          "toolkit": {
+            "$ref": "./toolkit_policy.json#/components/schemas/ToolkitPolicy"
+          },
           "flowcraft": {
             "$ref": "./workflows/flowcraft.json#/components/schemas/FlowcraftWorkflowSpec"
           },

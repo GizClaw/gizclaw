@@ -16,6 +16,7 @@ type Spec struct {
 	Workflow  apitypes.WorkflowDocument
 	AgentType string
 	Runtime   workspace.Runtime
+	Toolkit   *ToolkitContext
 }
 
 func resolveAgentType(workspace apitypes.Workspace, workflow apitypes.WorkflowDocument) (string, error) {

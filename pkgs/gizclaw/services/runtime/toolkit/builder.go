@@ -20,8 +20,9 @@ type AvailabilityChecker interface {
 }
 
 type BuildRequest struct {
-	Subject        apitypes.ACLSubject
-	AllowedToolIDs []string
+	Subject         apitypes.ACLSubject
+	AllowedToolIDs  []string
+	RestrictToolIDs bool
 }
 
 type Builder struct {
@@ -38,7 +39,7 @@ func (b *Builder) Build(ctx context.Context, req BuildRequest) (ToolKit, error) 
 	if err != nil {
 		return ToolKit{}, err
 	}
-	allowedPolicy := toolIDSet(req.AllowedToolIDs)
+	allowedPolicy := toolIDSet(req.AllowedToolIDs, req.RestrictToolIDs || len(req.AllowedToolIDs) > 0)
 	out := make([]Tool, 0, len(tools))
 	advertised := make(map[string]string)
 	for _, tool := range tools {
@@ -92,8 +93,8 @@ func (b *Builder) available(ctx context.Context, tool Tool) (bool, error) {
 	return b.Availability.ToolAvailable(ctx, tool)
 }
 
-func toolIDSet(ids []string) map[string]bool {
-	if len(ids) == 0 {
+func toolIDSet(ids []string, restrict bool) map[string]bool {
+	if !restrict {
 		return nil
 	}
 	out := make(map[string]bool, len(ids))
@@ -101,9 +102,6 @@ func toolIDSet(ids []string) map[string]bool {
 		if id != "" {
 			out[id] = true
 		}
-	}
-	if len(out) == 0 {
-		return nil
 	}
 	return out
 }
