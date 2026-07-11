@@ -501,6 +501,9 @@ func TestCatalogMigratesLegacyPetDefOnRead(t *testing.T) {
 	if petDef.Spec.Character.Prompt == "" || petDef.Spec.Voice.Prompt == "" {
 		t.Fatalf("legacy prompts were not populated: %#v %#v", petDef.Spec.Character, petDef.Spec.Voice)
 	}
+	if len(petDef.Spec.Drive.Actions) != 0 {
+		t.Fatalf("legacy migration synthesized drive actions: %#v", petDef.Spec.Drive.Actions)
+	}
 	if petDef.Spec.Visual.Pixa.Metadata.Canvas.Width != 32 || petDef.Spec.Visual.Pixa.Metadata.Canvas.Height != 24 {
 		t.Fatalf("legacy pixa canvas = %#v, want 32x24", petDef.Spec.Visual.Pixa.Metadata.Canvas)
 	}
@@ -557,6 +560,17 @@ func TestCatalogAcceptsOptionalDefaultLocaleI18nText(t *testing.T) {
 		t.Fatalf("CreatePetDef() optional i18n error = %v", err)
 	}
 	requireResponse[adminhttp.CreatePetDef200JSONResponse](t, resp)
+
+	missingDefaultLocaleSpec := testPetDefSpec("Bad Locale Pet")
+	missingDefaultLocaleSpec.DefaultLocale = "zh"
+	missingDefaultLocaleResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
+		Id:   "bad-locale-pet",
+		Spec: missingDefaultLocaleSpec,
+	}})
+	if err != nil {
+		t.Fatalf("CreatePetDef() missing default locale error = %v", err)
+	}
+	requireResponse[adminhttp.CreatePetDef400JSONResponse](t, missingDefaultLocaleResp)
 }
 
 func requireResponse[T any](t *testing.T, value any) T {

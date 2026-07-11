@@ -62,10 +62,6 @@ func petDefAction(petDef apitypes.PetDef, action string) (apitypes.PetDefActionS
 	return apitypes.PetDefActionSpec{}, false
 }
 
-func isNoopPetDefAction(action apitypes.PetDefActionSpec) bool {
-	return action.Cost == 0 && action.Effect == nil
-}
-
 func actionEffectReward(action apitypes.PetDefActionSpec) apitypes.GameRewardSpec {
 	if action.Effect == nil || int64Value(action.Effect.PetExpDelta) == 0 {
 		return apitypes.GameRewardSpec{}

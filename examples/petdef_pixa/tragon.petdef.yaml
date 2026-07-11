@@ -84,7 +84,7 @@ spec:
         clips:
         - id: idle
           action_id: idle
-          pixa_clip_name: default
+          pixa_clip_name: idle
         - id: feed
           action_id: feed
           pixa_clip_name: feed

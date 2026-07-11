@@ -542,6 +542,58 @@ func TestRuntimeDrivesLegacyRulesetActionFallback(t *testing.T) {
 	}
 }
 
+func TestRuntimeDoesNotApplyLegacyRulesetActionWhenPetDefDefinesNoop(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 5, 12, 0, 0, 0, time.UTC)
+	catalog := testCatalog(t, now)
+	seedGameplayCatalog(t, ctx, catalog)
+	rulesetStore, err := catalog.store(catalog.GameRulesets, "game rulesets")
+	if err != nil {
+		t.Fatalf("ruleset store error = %v", err)
+	}
+	if err := rulesetStore.Set(ctx, rulesetKey("default"), []byte(`{
+		"name":"default",
+		"spec":{
+			"enabled":true,
+			"points":{"initial_balance":50},
+			"pet_pool":[{"petdef_id":"petdef-basic","weight":1}],
+			"drive":{
+				"action_costs":{"idle":3},
+				"action_rewards":{"idle":{"points_delta":4,"pet_exp_delta":5,"life_delta":{"hunger":10}}}
+			}
+		},
+		"created_at":"2026-07-05T11:00:00Z",
+		"updated_at":"2026-07-05T11:00:00Z"
+	}`)); err != nil {
+		t.Fatalf("seed legacy ruleset: %v", err)
+	}
+	runtime := &Runtime{
+		DB:         testDB(t),
+		Catalog:    catalog,
+		Workspaces: &recordingWorkspaceService{},
+		Now:        func() time.Time { return now },
+		NewID:      sequentialIDs("pet-1", "adopt-txn"),
+		PickWeight: func(int64) int64 { return 0 },
+	}
+	adopted, err := runtime.AdoptPet(ctx, "peer-a", apitypes.PetAdoptRequest{})
+	if err != nil {
+		t.Fatalf("AdoptPet() error = %v", err)
+	}
+	drive, err := runtime.DrivePet(ctx, "peer-a", apitypes.PetDriveRequest{PetId: adopted.Pet.Id, Action: stringPtr("idle")})
+	if err != nil {
+		t.Fatalf("DrivePet() noop action error = %v", err)
+	}
+	if drive.Pet.Life["hunger"] != 100 || drive.Pet.Progression["xp"] != 0 {
+		t.Fatalf("noop action pet = %#v", drive.Pet)
+	}
+	if drive.Points.Balance != 50 {
+		t.Fatalf("noop action points = %d, want 50", drive.Points.Balance)
+	}
+	if len(drive.Transactions) != 0 || len(drive.RewardGrants) != 0 {
+		t.Fatalf("noop action should not apply legacy data: txns=%#v grants=%#v", drive.Transactions, drive.RewardGrants)
+	}
+}
+
 func TestRuntimeHelperBranches(t *testing.T) {
 	if got := (&Runtime{PickWeight: func(int64) int64 { return -5 }}).pickWeight(10); got != 0 {
 		t.Fatalf("negative pickWeight = %d", got)

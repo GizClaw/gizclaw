@@ -710,6 +710,9 @@ func validatePetDefSpec(spec apitypes.PetDefSpec) error {
 	if err := validatePetDefDrive(spec.Drive, spec.Visual.Pixa.Metadata.Clips, spec.Attr); err != nil {
 		return err
 	}
+	if _, ok := spec.I18n[spec.DefaultLocale]; !ok {
+		return fmt.Errorf("i18n.%s is required", spec.DefaultLocale)
+	}
 	if err := validatePetDefI18n(spec); err != nil {
 		return err
 	}
@@ -1117,9 +1120,7 @@ func (c *Catalog) migrateLegacyPetDefJSON(data []byte) (apitypes.PetDef, error) 
 			VoiceId: legacy.Spec.Voice["voice_id"],
 			Prompt:  legacy.Spec.Voice["prompt"],
 		},
-		Drive: apitypes.PetDefDriveSpec{Actions: []apitypes.PetDefActionSpec{
-			{Id: "idle", Cost: 0, VisualClipId: stringPtr("idle")},
-		}},
+		Drive: apitypes.PetDefDriveSpec{},
 		Visual: apitypes.PetDefVisualSpec{
 			Refs: apitypes.PetDefVisualRefsSpec{},
 			Pixa: apitypes.PetDefPixaSpec{
@@ -1151,7 +1152,7 @@ func (c *Catalog) migrateLegacyPetDefJSON(data []byte) (apitypes.PetDef, error) 
 	if strings.TrimSpace(spec.Voice.Prompt) == "" {
 		spec.Voice.Prompt = legacy.Spec.DisplayName
 	}
-	if err := validatePetDefSpec(spec); err != nil {
+	if err := validateMigratedLegacyPetDefSpec(spec); err != nil {
 		return apitypes.PetDef{}, err
 	}
 	return apitypes.PetDef{
@@ -1168,7 +1169,7 @@ func (c *Catalog) legacyPetDefPixaMetadata(pixaPath *string) apitypes.PetDefPixa
 		Version: "1",
 		Canvas:  apitypes.PetDefPixaCanvasMetadata{Width: 60, Height: 60},
 		Clips: []apitypes.PetDefPixaClipMetadata{
-			{Id: "idle", ActionId: stringPtr("idle"), PixaClipName: "idle"},
+			{Id: "idle", PixaClipName: "idle"},
 		},
 	}
 	if pixaPath == nil {
@@ -1192,6 +1193,37 @@ func (c *Catalog) legacyPetDefPixaMetadata(pixaPath *string) apitypes.PetDefPixa
 		Height: int64(asset.height),
 	}
 	return metadata
+}
+
+func validateMigratedLegacyPetDefSpec(spec apitypes.PetDefSpec) error {
+	if strings.TrimSpace(spec.DefaultLocale) == "" {
+		return errors.New("default_locale is required")
+	}
+	if err := validatePetAttrGroup("attr.life", spec.Attr.Life); err != nil {
+		return err
+	}
+	if err := validatePetAttrGroup("attr.progression", spec.Attr.Progression); err != nil {
+		return err
+	}
+	if _, ok := spec.Attr.Progression["xp"]; !ok {
+		return errors.New("attr.progression.xp is required")
+	}
+	if strings.TrimSpace(spec.Character.Prompt) == "" {
+		return errors.New("character.prompt is required")
+	}
+	if strings.TrimSpace(spec.Voice.VoiceId) == "" {
+		return errors.New("voice.voice_id is required")
+	}
+	if strings.TrimSpace(spec.Voice.Prompt) == "" {
+		return errors.New("voice.prompt is required")
+	}
+	if err := validatePetDefVisual(spec.Visual); err != nil {
+		return err
+	}
+	if _, ok := spec.I18n[spec.DefaultLocale]; !ok {
+		return fmt.Errorf("i18n.%s is required", spec.DefaultLocale)
+	}
+	return validatePetDefI18n(spec)
 }
 
 func (c *Catalog) legacyGameRulesetAction(ctx context.Context, rulesetName, actionID string) (legacyGameRulesetAction, bool, error) {
