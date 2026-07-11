@@ -131,6 +131,8 @@ class ServiceHttpClient {
 
     if (channel.state == GizClawDataChannelState.open) {
       await sendRequest();
+    } else if (channel.state == GizClawDataChannelState.closed) {
+      fail(StateError('HTTP service data channel is closed'));
     }
     return completer.future;
   }

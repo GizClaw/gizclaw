@@ -212,6 +212,22 @@ void main() {
     },
   );
 
+  test('fails immediately when the service channel starts closed', () async {
+    final factory = FakeDataChannelFactory(
+      initialState: GizClawDataChannelState.closed,
+    );
+    final client = ServiceHttpClient(
+      factory,
+      requestTimeout: const Duration(minutes: 1),
+    );
+
+    await expectLater(
+      client.send(const ServiceHttpRequest(path: '/closed')),
+      throwsA(isA<StateError>()),
+    );
+    expect(factory.channels.single.sent, isEmpty);
+  });
+
   test('times out when service channel never returns headers', () {
     final factory = FakeDataChannelFactory();
     final client = ServiceHttpClient(

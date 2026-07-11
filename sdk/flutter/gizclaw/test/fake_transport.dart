@@ -4,26 +4,45 @@ import 'dart:typed_data';
 import 'package:gizclaw/src/transport.dart';
 
 class FakeDataChannelFactory implements GizClawDataChannelFactory {
+  FakeDataChannelFactory({
+    this.createGate,
+    this.initialState = GizClawDataChannelState.open,
+  });
+
+  final Future<void>? createGate;
   final channels = <FakeDataChannel>[];
+  final GizClawDataChannelState initialState;
 
   @override
   Future<GizClawDataChannel> createDataChannel(
     String label, {
     GizClawDataChannelOptions options = const GizClawDataChannelOptions(),
   }) async {
-    final channel = FakeDataChannel(label);
+    final gate = createGate;
+    if (gate != null) {
+      await gate;
+    }
+    final channel = FakeDataChannel(label, initialState: initialState);
     channels.add(channel);
     return channel;
   }
 }
 
 class FakeDataChannel implements GizClawDataChannel {
-  FakeDataChannel(this.label);
+  FakeDataChannel(
+    this.label, {
+    GizClawDataChannelState initialState = GizClawDataChannelState.open,
+  }) : _state = initialState {
+    if (initialState == GizClawDataChannelState.closed) {
+      _closeStreams();
+    }
+  }
 
   final sent = <Uint8List>[];
   final _messages = StreamController<Uint8List>.broadcast();
   final _states = StreamController<GizClawDataChannelState>.broadcast();
-  GizClawDataChannelState _state = GizClawDataChannelState.open;
+  GizClawDataChannelState _state;
+  var _streamsClosed = false;
 
   void addMessage(List<int> bytes) {
     _messages.add(Uint8List.fromList(bytes));
@@ -33,8 +52,7 @@ class FakeDataChannel implements GizClawDataChannel {
     _state = state;
     _states.add(state);
     if (state == GizClawDataChannelState.closed) {
-      _messages.close();
-      _states.close();
+      _closeStreams();
     }
   }
 
@@ -57,11 +75,22 @@ class FakeDataChannel implements GizClawDataChannel {
   Future<void> close() async {
     if (_state != GizClawDataChannelState.closed) {
       setState(GizClawDataChannelState.closed);
+    } else {
+      _closeStreams();
     }
   }
 
   @override
   Future<void> send(Uint8List bytes) async {
     sent.add(bytes);
+  }
+
+  void _closeStreams() {
+    if (_streamsClosed) {
+      return;
+    }
+    _streamsClosed = true;
+    _messages.close();
+    _states.close();
   }
 }

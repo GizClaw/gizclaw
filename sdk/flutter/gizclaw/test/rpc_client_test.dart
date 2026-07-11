@@ -169,6 +169,17 @@ void main() {
     expect(factory.channels, isEmpty);
   });
 
+  test('does not open a channel when binary request encoding fails', () async {
+    final factory = FakeDataChannelFactory();
+    final client = PeerRpcClient(factory);
+
+    await expectLater(
+      client.callBinary('unknown.method', payload.PingRequest()),
+      throwsArgumentError,
+    );
+    expect(factory.channels, isEmpty);
+  });
+
   test('completes plain RPC responses with continuation envelopes', () async {
     final factory = FakeDataChannelFactory();
     final client = PeerRpcClient(factory, createId: () => 'rpc-continuation');
@@ -287,5 +298,27 @@ void main() {
     );
 
     expect(future, throwsA(isA<TimeoutException>()));
+  });
+
+  test('times out while waiting for the RPC channel to open', () async {
+    final gate = Completer<void>();
+    final factory = FakeDataChannelFactory(createGate: gate.future);
+    final client = PeerRpcClient(
+      factory,
+      createId: () => 'rpc-open-timeout',
+      requestTimeout: const Duration(milliseconds: 10),
+    );
+
+    final future = client.call<payload.WorkspaceGetResponse>(
+      'server.workspace.get',
+      payload.WorkspaceGetRequest(name: 'slow-open'),
+    );
+
+    await expectLater(future, throwsA(isA<TimeoutException>()));
+    expect(factory.channels, isEmpty);
+
+    gate.complete();
+    await Future<void>.delayed(Duration.zero);
+    expect(factory.channels.single.state, GizClawDataChannelState.closed);
   });
 }

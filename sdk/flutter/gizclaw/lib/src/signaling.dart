@@ -287,10 +287,10 @@ Future<_SignalingKeys> _deriveSignalingKeys({
     info: utf8.encode('giznet/gizwebrtc/http-signaling/v1 s2c nonce'),
   );
   return _SignalingKeys(
-    requestKey: requestKey.bytes,
-    requestNonce: requestNonce.bytes,
-    responseKey: responseKey.bytes,
-    responseNonce: responseNonce.bytes,
+    requestKey: await requestKey.extractBytes(),
+    requestNonce: await requestNonce.extractBytes(),
+    responseKey: await responseKey.extractBytes(),
+    responseNonce: await responseNonce.extractBytes(),
   );
 }
 

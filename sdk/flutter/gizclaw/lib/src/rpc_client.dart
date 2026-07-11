@@ -83,29 +83,43 @@ class PeerRpcClient {
     required bool expectBody,
     String? id,
     Duration? timeout,
-  }) async {
-    final requestId = id ?? _createId();
-    final encodedRequest = encodeRpcRequest(methodName, request, id: requestId);
-    final responseReader = _ResponseReader(
-      methodName,
-      expectBody: expectBody,
-      requestId: requestId,
-    );
-    final channel = await _factory.createDataChannel(
-      _channelLabel,
-      options: const GizClawDataChannelOptions(ordered: true),
-    );
+  }) {
+    late final String requestId;
+    late final Uint8List encodedRequest;
+    late final _ResponseReader responseReader;
+    try {
+      requestId = id ?? _createId();
+      encodedRequest = encodeRpcRequest(methodName, request, id: requestId);
+      responseReader = _ResponseReader(
+        methodName,
+        expectBody: expectBody,
+        requestId: requestId,
+      );
+    } catch (error, stackTrace) {
+      return Future<RpcCallResult>.error(error, stackTrace);
+    }
     final completer = Completer<RpcCallResult>();
+    final requestTimeout = timeout ?? _requestTimeout;
+    GizClawDataChannel? channel;
     var requestSent = false;
     Timer? timer;
-    late StreamSubscription<Uint8List> messages;
-    late StreamSubscription<GizClawDataChannelState> states;
+    StreamSubscription<Uint8List>? messages;
+    StreamSubscription<GizClawDataChannelState>? states;
 
     Future<void> cleanup() async {
       timer?.cancel();
-      await messages.cancel();
-      await states.cancel();
-      await channel.close();
+      final messageSubscription = messages;
+      if (messageSubscription != null) {
+        await messageSubscription.cancel();
+      }
+      final stateSubscription = states;
+      if (stateSubscription != null) {
+        await stateSubscription.cancel();
+      }
+      final activeChannel = channel;
+      if (activeChannel != null) {
+        await activeChannel.close();
+      }
     }
 
     void fail(Object error, [StackTrace? stackTrace]) {
@@ -124,57 +138,78 @@ class PeerRpcClient {
       unawaited(cleanup());
     }
 
-    Future<void> sendRequest() async {
-      if (requestSent || completer.isCompleted) {
-        return;
-      }
-      requestSent = true;
+    timer = Timer(requestTimeout, () {
+      fail(TimeoutException('RPC request timed out', requestTimeout));
+    });
+
+    Future<void> openChannel() async {
       try {
-        await channel.send(encodedRequest);
+        channel = await _factory.createDataChannel(
+          _channelLabel,
+          options: const GizClawDataChannelOptions(ordered: true),
+        );
       } catch (error, stackTrace) {
         fail(error, stackTrace);
+        return;
       }
-    }
 
-    messages = channel.messages.listen(
-      (chunk) {
+      final activeChannel = channel;
+      if (activeChannel == null) {
+        fail(StateError('RPC data channel was not created'));
+        return;
+      }
+      if (completer.isCompleted) {
+        _unawaited(activeChannel.close());
+        return;
+      }
+
+      Future<void> sendRequest() async {
+        if (requestSent || completer.isCompleted) {
+          return;
+        }
+        requestSent = true;
         try {
-          final result = responseReader.add(chunk);
-          if (result != null) {
-            complete(result);
-          }
+          await activeChannel.send(encodedRequest);
         } catch (error, stackTrace) {
           fail(error, stackTrace);
         }
-      },
-      onError: fail,
-      onDone: () {
-        if (!completer.isCompleted) {
-          fail(StateError('RPC data channel closed before EOS'));
-        }
-      },
-    );
-    states = channel.states.listen((state) {
-      if (state == GizClawDataChannelState.open) {
-        _unawaited(sendRequest());
-      } else if (state == GizClawDataChannelState.closed &&
-          !completer.isCompleted) {
-        fail(StateError('RPC data channel closed before response'));
       }
-    }, onError: fail);
 
-    timer = Timer(timeout ?? _requestTimeout, () {
-      fail(
-        TimeoutException('RPC request timed out', timeout ?? _requestTimeout),
+      messages = activeChannel.messages.listen(
+        (chunk) {
+          try {
+            final result = responseReader.add(chunk);
+            if (result != null) {
+              complete(result);
+            }
+          } catch (error, stackTrace) {
+            fail(error, stackTrace);
+          }
+        },
+        onError: fail,
+        onDone: () {
+          if (!completer.isCompleted) {
+            fail(StateError('RPC data channel closed before EOS'));
+          }
+        },
       );
-    });
+      states = activeChannel.states.listen((state) {
+        if (state == GizClawDataChannelState.open) {
+          _unawaited(sendRequest());
+        } else if (state == GizClawDataChannelState.closed &&
+            !completer.isCompleted) {
+          fail(StateError('RPC data channel closed before response'));
+        }
+      }, onError: fail);
 
-    if (channel.state == GizClawDataChannelState.open) {
-      await sendRequest();
-    } else if (channel.state == GizClawDataChannelState.closed) {
-      fail(StateError('RPC data channel is closed'));
+      if (activeChannel.state == GizClawDataChannelState.open) {
+        await sendRequest();
+      } else if (activeChannel.state == GizClawDataChannelState.closed) {
+        fail(StateError('RPC data channel is closed'));
+      }
     }
 
+    _unawaited(openChannel());
     return completer.future;
   }
 }
