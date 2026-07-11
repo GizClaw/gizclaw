@@ -373,6 +373,12 @@ int gzc_rpc_call_stream(
         }
         continue;
       }
+      if (saw_response) {
+        rc = on_frame(userdata, &frame);
+        if (rc != GZC_OK) {
+          break;
+        }
+      }
       rc = saw_response ? GZC_OK : GZC_ERR_RPC;
       break;
     }
