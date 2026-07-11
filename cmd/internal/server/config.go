@@ -18,7 +18,7 @@ type Config struct {
 	KeyPair        *giznet.KeyPair
 	Listen         string
 	Endpoint       string
-	ServingPublic  bool
+	ServeToClients bool
 	EdgeNodes      []giznet.PublicKey
 	AdminPublicKey giznet.PublicKey
 	Storage        map[string]storage.Config
@@ -45,7 +45,7 @@ type ConfigFile struct {
 	Identity       IdentityConfig            `yaml:"identity"`
 	Listen         string                    `yaml:"listen"`
 	Endpoint       string                    `yaml:"endpoint"`
-	ServingPublic  bool                      `yaml:"serving-public"`
+	ServeToClients bool                      `yaml:"serve-to-clients"`
 	EdgeNodes      []giznet.PublicKey        `yaml:"edge-nodes"`
 	AdminPublicKey giznet.PublicKey          `yaml:"admin-public-key"`
 	Storage        map[string]storage.Config `yaml:"storage"`
@@ -97,7 +97,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		Identity       *IdentityConfig           `yaml:"identity"`
 		Listen         string                    `yaml:"listen"`
 		Endpoint       string                    `yaml:"endpoint"`
-		ServingPublic  bool                      `yaml:"serving-public"`
+		ServeToClients bool                      `yaml:"serve-to-clients"`
 		EdgeNodes      []giznet.PublicKey        `yaml:"edge-nodes"`
 		AdminPublicKey *giznet.PublicKey         `yaml:"admin-public-key"`
 		Storage        map[string]storage.Config `yaml:"storage"`
@@ -133,7 +133,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		Identity:       identity,
 		Listen:         raw.Listen,
 		Endpoint:       raw.Endpoint,
-		ServingPublic:  raw.ServingPublic,
+		ServeToClients: raw.ServeToClients,
 		EdgeNodes:      raw.EdgeNodes,
 		AdminPublicKey: adminPublicKey,
 		Storage:        raw.Storage,
@@ -170,8 +170,8 @@ func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	if cfg.Endpoint == "" {
 		cfg.Endpoint = fileCfg.Endpoint
 	}
-	if !cfg.ServingPublic {
-		cfg.ServingPublic = fileCfg.ServingPublic
+	if !cfg.ServeToClients {
+		cfg.ServeToClients = fileCfg.ServeToClients
 	}
 	if len(cfg.EdgeNodes) == 0 {
 		cfg.EdgeNodes = fileCfg.EdgeNodes

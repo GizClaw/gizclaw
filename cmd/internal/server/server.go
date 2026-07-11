@@ -23,7 +23,7 @@ var BuildCommit = "dev"
 type CmdServer struct {
 	*gizclaw.Server
 	AdminPublicKey giznet.PublicKey
-	ServingPublic  bool
+	ServeToClients bool
 	stores         *stores.Stores
 }
 
@@ -48,7 +48,7 @@ func (s *CmdServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if !s.ServingPublic && isPublicHTTPRoute(r.URL.Path) {
+	if !s.ServeToClients && isPublicHTTPRoute(r.URL.Path) {
 		if !isPublicHTTPLoginRoute(r.Method, r.URL.Path) && !s.authorizePrivateHTTPIngress(w, r) {
 			return
 		}
@@ -120,7 +120,7 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		return nil, fmt.Errorf("server: peers store: %w", err)
 	}
 
-	cmdSrv := &CmdServer{stores: ss, AdminPublicKey: cfg.AdminPublicKey, ServingPublic: cfg.ServingPublic}
+	cmdSrv := &CmdServer{stores: ss, AdminPublicKey: cfg.AdminPublicKey, ServeToClients: cfg.ServeToClients}
 	var gizServer *gizclaw.Server
 	gizServer = &gizclaw.Server{
 		LocalStatic:    *cfg.KeyPair,
@@ -182,7 +182,7 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 			PublicKey: cfg.AdminPublicKey,
 		}
 	}
-	if !cfg.ServingPublic {
+	if !cfg.ServeToClients {
 		gizServer.PublicLoginAuthorizer = gizclaw.PrivateHTTPIngressLoginAuthorizer(gizServer)
 	}
 	if len(cfg.Storage) > 0 {

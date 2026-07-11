@@ -114,7 +114,7 @@ func TestServeContextServerInfoReportsTCPICE(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), []byte(fmt.Sprintf(`
 listen: %q
 endpoint: %q
-serving-public: true
+serve-to-clients: true
 stores:
   peers:
     kind: keyvalue
@@ -188,7 +188,7 @@ stores:
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	t.Fatalf("server-info status = %d err = %v, want 401 over active TCP mux when serving-public is disabled", lastStatus, lastErr)
+	t.Fatalf("server-info status = %d err = %v, want 401 over active TCP mux when serve-to-clients is disabled", lastStatus, lastErr)
 }
 
 func localTCPUDPAddr(t *testing.T) string {

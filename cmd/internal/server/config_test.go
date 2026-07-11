@@ -51,25 +51,25 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.Endpoint != "0.0.0.0:9820" {
 		t.Fatalf("Endpoint = %q", cfg.Endpoint)
 	}
-	if cfg.ServingPublic {
-		t.Fatal("ServingPublic should default to false")
+	if cfg.ServeToClients {
+		t.Fatal("ServeToClients should default to false")
 	}
 	if cfg.Log.Level != "info" {
 		t.Fatalf("Log.Level = %q, want info", cfg.Log.Level)
 	}
 }
 
-func TestParseConfigServingPublic(t *testing.T) {
+func TestParseConfigServeToClients(t *testing.T) {
 	cfg, err := parseConfigData([]byte(`
-serving-public: true
+serve-to-clients: true
 listen: 127.0.0.1:9820
 endpoint: 127.0.0.1:9820
 `))
 	if err != nil {
 		t.Fatalf("parseConfigData error = %v", err)
 	}
-	if !cfg.ServingPublic {
-		t.Fatal("ServingPublic = false, want true")
+	if !cfg.ServeToClients {
+		t.Fatal("ServeToClients = false, want true")
 	}
 }
 
