@@ -20,14 +20,18 @@ class FlutterWebRtcDataChannelFactory implements GizClawDataChannelFactory {
     GizClawDataChannelOptions options = const GizClawDataChannelOptions(),
   }) async {
     final init = rtc.RTCDataChannelInit()
+      ..id = -1
       ..ordered = options.ordered
       ..binaryType = 'binary';
     final maxRetransmits = options.maxRetransmits;
     if (maxRetransmits != null) {
       init.maxRetransmits = maxRetransmits;
     }
+    final channel = await peerConnection.createDataChannel(label, init);
+    await _waitForDataChannelOpen(channel);
     return FlutterWebRtcDataChannel(
-      await peerConnection.createDataChannel(label, init),
+      channel,
+      initialState: GizClawDataChannelState.open,
     );
   }
 }
@@ -60,12 +64,17 @@ Future<rtc.RTCPeerConnection> connectFlutterGiznetWebRtc({
 }) async {
   final pc = peerConnection ?? await rtc.createPeerConnection(configuration);
   serveFlutterGiznetWebRtcRpc(pc);
+  rtc.RTCDataChannel? packetDataChannel;
   if (createPacketDataChannel) {
     final init = rtc.RTCDataChannelInit()
+      ..id = -1
       ..ordered = false
       ..maxRetransmits = 0
       ..binaryType = 'binary';
-    await pc.createDataChannel(giznetWebRtcPacketDataChannelLabel, init);
+    packetDataChannel = await pc.createDataChannel(
+      giznetWebRtcPacketDataChannelLabel,
+      init,
+    );
   }
   if (addAudioTransceiver) {
     await pc.addTransceiver(
@@ -87,11 +96,17 @@ Future<rtc.RTCPeerConnection> connectFlutterGiznetWebRtc({
   final encryptedAnswer = await sendOffer(prepared);
   final answerSdp = await prepared.openAnswer(encryptedAnswer);
   await pc.setRemoteDescription(rtc.RTCSessionDescription(answerSdp, 'answer'));
+  if (packetDataChannel != null) {
+    await _waitForDataChannelOpen(packetDataChannel);
+  }
   return pc;
 }
 
 class FlutterWebRtcDataChannel implements GizClawDataChannel {
-  FlutterWebRtcDataChannel(this._channel) {
+  FlutterWebRtcDataChannel(
+    this._channel, {
+    GizClawDataChannelState? initialState,
+  }) : _state = initialState ?? _convertState(_channel.state) {
     _channel.onMessage = (message) {
       if (message.isBinary) {
         _messages.add(Uint8List.fromList(message.binary));
@@ -100,7 +115,8 @@ class FlutterWebRtcDataChannel implements GizClawDataChannel {
       }
     };
     _channel.onDataChannelState = (state) {
-      _states.add(_convertState(state));
+      _state = _convertState(state);
+      _states.add(_state);
       if (state == rtc.RTCDataChannelState.RTCDataChannelClosed) {
         _unawaited(_messages.close());
         _unawaited(_states.close());
@@ -109,6 +125,7 @@ class FlutterWebRtcDataChannel implements GizClawDataChannel {
   }
 
   final rtc.RTCDataChannel _channel;
+  GizClawDataChannelState _state;
   final _messages = StreamController<Uint8List>.broadcast();
   final _states = StreamController<GizClawDataChannelState>.broadcast();
 
@@ -122,7 +139,7 @@ class FlutterWebRtcDataChannel implements GizClawDataChannel {
   Stream<Uint8List> get messages => _messages.stream;
 
   @override
-  GizClawDataChannelState get state => _convertState(_channel.state);
+  GizClawDataChannelState get state => _state;
 
   @override
   Stream<GizClawDataChannelState> get states => _states.stream;
@@ -167,4 +184,24 @@ Future<void> _waitForIceGatheringComplete(rtc.RTCPeerConnection pc) {
     }
   };
   return completer.future.timeout(const Duration(seconds: 30));
+}
+
+Future<void> _waitForDataChannelOpen(rtc.RTCDataChannel channel) {
+  return _pollDataChannelOpen(channel).timeout(const Duration(seconds: 30));
+}
+
+Future<void> _pollDataChannelOpen(rtc.RTCDataChannel channel) async {
+  for (;;) {
+    final state = channel.state;
+    if (state == rtc.RTCDataChannelState.RTCDataChannelOpen) return;
+    if (state == rtc.RTCDataChannelState.RTCDataChannelClosed) {
+      throw StateError('WebRTC data channel closed');
+    }
+    try {
+      await channel.getBufferedAmount();
+      return;
+    } catch (_) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+  }
 }

@@ -27,6 +27,7 @@ void main() {
       );
       expect(pc.dataChannelInits.single.ordered, isFalse);
       expect(pc.dataChannelInits.single.maxRetransmits, 0);
+      expect(pc.dataChannelInits.single.id, -1);
       expect(pc.addTransceiverCalls, hasLength(1));
       expect(
         pc.addTransceiverCalls.single.kind,
@@ -38,6 +39,16 @@ void main() {
       );
     },
   );
+
+  test('waits for native readiness when the open event was missed', () async {
+    final pc = _FakePeerConnection(channelsNativeReady: true);
+    final factory = FlutterWebRtcDataChannelFactory(pc);
+
+    final channel = await factory.createDataChannel('giznet/v1/service/0');
+
+    expect(pc.dataChannelInits.single.id, -1);
+    expect(channel.state, GizClawDataChannelState.open);
+  });
 
   test('treats a newly created native data channel as connecting', () async {
     final native = _FakeRtcDataChannel();
@@ -67,6 +78,9 @@ class _AddTransceiverCall {
 }
 
 class _FakePeerConnection extends rtc.RTCPeerConnection {
+  _FakePeerConnection({this.channelsNativeReady = false});
+
+  final bool channelsNativeReady;
   final addTransceiverCalls = <_AddTransceiverCall>[];
   final createdDataChannels = <_FakeRtcDataChannel>[];
   final dataChannelInits = <rtc.RTCDataChannelInit>[];
@@ -87,7 +101,10 @@ class _FakePeerConnection extends rtc.RTCPeerConnection {
     rtc.RTCDataChannelInit dataChannelDict,
   ) async {
     dataChannelInits.add(dataChannelDict);
-    final channel = _FakeRtcDataChannel(label);
+    final channel = _FakeRtcDataChannel(
+      label: label,
+      nativeReady: channelsNativeReady,
+    );
     createdDataChannels.add(channel);
     return channel;
   }
@@ -237,12 +254,14 @@ class _FakePeerConnection extends rtc.RTCPeerConnection {
 }
 
 class _FakeRtcDataChannel extends rtc.RTCDataChannel {
-  _FakeRtcDataChannel([this._label = 'test']) {
+  _FakeRtcDataChannel({String label = 'test', this.nativeReady = false})
+    : _label = label {
     stateChangeStream = const Stream.empty();
     messageStream = const Stream.empty();
   }
 
   final String _label;
+  final bool nativeReady;
   rtc.RTCDataChannelState? _state;
 
   void emitState(rtc.RTCDataChannelState state) {
@@ -252,6 +271,12 @@ class _FakeRtcDataChannel extends rtc.RTCDataChannel {
 
   @override
   int? get bufferedAmount => 0;
+
+  @override
+  Future<int> getBufferedAmount() async {
+    if (!nativeReady) throw StateError('Data channel is not open');
+    return 0;
+  }
 
   @override
   Future<void> close() async {}
