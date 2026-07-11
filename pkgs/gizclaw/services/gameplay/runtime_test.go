@@ -435,6 +435,19 @@ func TestScanPetIgnoresLegacyAbilityStats(t *testing.T) {
 	if got := pet.Progression["xp"]; got != 42 {
 		t.Fatalf("progression xp = %d, want 42", got)
 	}
+
+	_, err = db.ExecContext(ctx, `INSERT INTO gameplay_pets (owner_public_key, id, ruleset_name, petdef_id, display_name, workspace_name, workflow_name, life_json, ability_json, exp, level, last_active_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"peer-a", "pet-b", "default", "petdef-a", "Pet B", "pet-pet-b", "pet-chat", `{"hunger":100}`, `{"xp":7,"rank":2}`, int64(7), int64(1), formatTime(now), formatTime(now), formatTime(now))
+	if err != nil {
+		t.Fatalf("insert progression pet error = %v", err)
+	}
+	pet, err = scanPet(db.QueryRowContext(ctx, petSelectSQL()+` WHERE id = ?`, "pet-b"))
+	if err != nil {
+		t.Fatalf("scanPet() progression error = %v", err)
+	}
+	if pet.Progression["xp"] != 7 || pet.Progression["rank"] != 2 {
+		t.Fatalf("stored progression not preserved: %#v", pet.Progression)
+	}
 }
 
 func TestRuntimeDrivesLegacyRulesetActionFallback(t *testing.T) {

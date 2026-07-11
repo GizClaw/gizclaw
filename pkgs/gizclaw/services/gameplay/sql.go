@@ -40,8 +40,10 @@ func scanPet(row rowScanner) (apitypes.Pet, error) {
 		return apitypes.Pet{}, err
 	}
 	pet.Progression = apitypes.PetProgression{}
-	if xp, ok := storedProgression["xp"]; ok {
-		pet.Progression["xp"] = xp
+	if _, ok := storedProgression["xp"]; ok {
+		for key, value := range storedProgression {
+			pet.Progression[key] = value
+		}
 	}
 	if _, ok := pet.Progression["xp"]; !ok && legacyExp != 0 {
 		pet.Progression["xp"] = legacyExp

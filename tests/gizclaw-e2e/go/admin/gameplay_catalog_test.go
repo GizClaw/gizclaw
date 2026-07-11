@@ -39,7 +39,7 @@ func TestAdminAPIGameplayCatalogUserStory(t *testing.T) {
 	if petResp.JSON200 == nil || petResp.JSON200.Id != petID {
 		t.Fatalf("create pet def = %#v", petResp.JSON200)
 	}
-	petPixa := makeGameplayCatalogTestPixa(t, []string{"idle", "feed"})
+	petPixa := makeGameplayCatalogTestPixa(t, []string{"default", "feed"})
 	assetResp, err := env.api.UploadPetDefPixaWithBodyWithResponse(env.ctx, petID, "application/octet-stream", bytes.NewReader(petPixa))
 	if err != nil {
 		t.Fatalf("upload pet def pixa: %v", err)

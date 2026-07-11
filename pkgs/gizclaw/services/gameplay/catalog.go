@@ -1096,12 +1096,15 @@ func migrateLegacyPetDefJSON(data []byte) (apitypes.PetDef, error) {
 	if err := json.Unmarshal(data, &legacy); err != nil {
 		return apitypes.PetDef{}, err
 	}
-	if legacy.Id == "" || legacy.Spec.DisplayName == "" || len(legacy.Spec.InitialLife) == 0 {
+	if legacy.Id == "" || legacy.Spec.DisplayName == "" {
 		var item apitypes.PetDef
 		if err := json.Unmarshal(data, &item); err != nil {
 			return apitypes.PetDef{}, err
 		}
 		return apitypes.PetDef{}, validatePetDefSpec(item.Spec)
+	}
+	if len(legacy.Spec.InitialLife) == 0 {
+		legacy.Spec.InitialLife = map[string]int64{"hunger": 100}
 	}
 	description := legacy.Spec.Description
 	if strings.TrimSpace(description) == "" {

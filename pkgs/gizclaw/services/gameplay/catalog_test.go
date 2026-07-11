@@ -488,6 +488,34 @@ func TestCatalogMigratesLegacyPetDefOnRead(t *testing.T) {
 	}
 }
 
+func TestCatalogMigratesDisplayNameOnlyLegacyPetDef(t *testing.T) {
+	ctx := context.Background()
+	catalog := testCatalog(t, time.Date(2026, 7, 5, 11, 0, 0, 0, time.UTC))
+	store, err := catalog.store(catalog.PetDefs, "pet defs")
+	if err != nil {
+		t.Fatalf("store() error = %v", err)
+	}
+	data := []byte(`{
+		"id":"name-only-pet",
+		"spec":{"display_name":"Name Only Pet"},
+		"created_at":"2026-07-05T11:00:00Z",
+		"updated_at":"2026-07-05T11:00:00Z"
+	}`)
+	if err := store.Set(ctx, petDefKey("name-only-pet"), data); err != nil {
+		t.Fatalf("store.Set() error = %v", err)
+	}
+	petDef, err := catalog.GetPetDefByID(ctx, "name-only-pet")
+	if err != nil {
+		t.Fatalf("GetPetDefByID() error = %v", err)
+	}
+	if got := petDef.Spec.Attr.Life["hunger"].Initial; got != 100 {
+		t.Fatalf("default legacy hunger = %d, want 100", got)
+	}
+	if got := valueOrZero(petDef.Spec.I18n["en"].DisplayName); got != "Name Only Pet" {
+		t.Fatalf("legacy display name = %q", got)
+	}
+}
+
 func requireResponse[T any](t *testing.T, value any) T {
 	t.Helper()
 	resp, ok := value.(T)
