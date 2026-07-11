@@ -89,6 +89,7 @@ func (s *Server) CreateWorkspace(ctx context.Context, request adminhttp.CreateWo
 		LastActiveAt: now,
 		Name:         normalized.Name,
 		Parameters:   cloneParameters(normalized.Parameters),
+		Toolkit:      cloneToolkitPolicy(normalized.Toolkit),
 		UpdatedAt:    now,
 		WorkflowName: normalized.WorkflowName,
 	}
@@ -196,6 +197,7 @@ func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspac
 		LastActiveAt: now,
 		Name:         normalized.Name,
 		Parameters:   cloneParameters(normalized.Parameters),
+		Toolkit:      cloneToolkitPolicy(normalized.Toolkit),
 		UpdatedAt:    now,
 		WorkflowName: normalized.WorkflowName,
 	}
@@ -284,6 +286,7 @@ func normalizeWorkspaceUpsert(in adminhttp.WorkspaceUpsert, expectedName string)
 	return adminhttp.WorkspaceUpsert{
 		Name:         string(name),
 		Parameters:   cloneParameters(in.Parameters),
+		Toolkit:      cloneToolkitPolicy(in.Toolkit),
 		WorkflowName: string(workflowName),
 	}, nil
 }
@@ -364,6 +367,18 @@ func cloneParameters(parameters *apitypes.WorkspaceParameters) *apitypes.Workspa
 	var cloned apitypes.WorkspaceParameters
 	if err := cloned.UnmarshalJSON(data); err != nil {
 		return nil
+	}
+	return &cloned
+}
+
+func cloneToolkitPolicy(policy *apitypes.ToolkitPolicy) *apitypes.ToolkitPolicy {
+	if policy == nil {
+		return nil
+	}
+	cloned := *policy
+	if policy.ToolIds != nil {
+		ids := append([]string(nil), (*policy.ToolIds)...)
+		cloned.ToolIds = &ids
 	}
 	return &cloned
 }

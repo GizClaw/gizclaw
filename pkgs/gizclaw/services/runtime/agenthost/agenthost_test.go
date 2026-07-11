@@ -12,6 +12,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 )
 
 func TestRegistryRegisterAndGet(t *testing.T) {
@@ -111,6 +113,93 @@ func TestServiceResolverUsesWorkflowDriverAsAgentType(t *testing.T) {
 	}
 	if spec.AgentType != "flowcraft" {
 		t.Fatalf("AgentType = %q, want flowcraft", spec.AgentType)
+	}
+}
+
+func TestServiceResolverResolvesToolkitPolicy(t *testing.T) {
+	workflowToolIDs := []string{"system.mode.switch", "system.music.play"}
+	workspaceToolIDs := []string{"system.music.play"}
+	resolver := ServiceResolver{
+		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
+			"demo": {
+				Name:         "demo",
+				WorkflowName: "workflow-1",
+				Toolkit:      &apitypes.ToolkitPolicy{ToolIds: &workspaceToolIDs},
+			},
+		}},
+		Workflows: fakeWorkflowService{items: map[string]apitypes.WorkflowDocument{
+			"workflow-1": {
+				Metadata: apitypes.WorkflowMetadata{Name: "workflow-1"},
+				Spec: apitypes.WorkflowSpec{
+					Driver:  apitypes.WorkflowDriverFlowcraft,
+					Toolkit: &apitypes.ToolkitPolicy{ToolIds: &workflowToolIDs},
+				},
+			},
+		}},
+		ToolBuilder:   &toolkit.Builder{},
+		ToolExecutors: toolkit.NewExecutorRegistry(),
+	}
+
+	spec, err := resolver.Resolve(WithACLSubject(context.Background(), acl.PublicKeySubject("peer-a")), "demo")
+	if err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+	if spec.Toolkit == nil {
+		t.Fatal("Toolkit = nil")
+	}
+	build := spec.Toolkit.BuildRequest
+	if build.Subject != acl.PublicKeySubject("peer-a") {
+		t.Fatalf("Toolkit subject = %#v", build.Subject)
+	}
+	if !build.RestrictToolIDs || len(build.AllowedToolIDs) != 1 || build.AllowedToolIDs[0] != "system.music.play" {
+		t.Fatalf("Toolkit build request = %#v, want only system.music.play", build)
+	}
+}
+
+func TestServiceResolverWorkspaceToolkitCanExposeNoTools(t *testing.T) {
+	emptyToolIDs := []string{}
+	resolver := ServiceResolver{
+		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
+			"demo": {
+				Name:         "demo",
+				WorkflowName: "workflow-1",
+				Toolkit:      &apitypes.ToolkitPolicy{ToolIds: &emptyToolIDs},
+			},
+		}},
+		Workflows: fakeWorkflowService{items: map[string]apitypes.WorkflowDocument{
+			"workflow-1": mustWorkflow(t, "workflow-1"),
+		}},
+		ToolBuilder:   &toolkit.Builder{},
+		ToolExecutors: toolkit.NewExecutorRegistry(),
+	}
+
+	spec, err := resolver.Resolve(WithACLSubject(context.Background(), acl.PublicKeySubject("peer-a")), "demo")
+	if err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+	if spec.Toolkit == nil || !spec.Toolkit.BuildRequest.RestrictToolIDs || len(spec.Toolkit.BuildRequest.AllowedToolIDs) != 0 {
+		t.Fatalf("Toolkit build request = %#v, want explicit empty allowlist", spec.Toolkit)
+	}
+}
+
+func TestServiceResolverRequiresSubjectForToolkit(t *testing.T) {
+	resolver := ServiceResolver{
+		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
+			"demo": {
+				Name:         "demo",
+				WorkflowName: "workflow-1",
+				Toolkit:      &apitypes.ToolkitPolicy{},
+			},
+		}},
+		Workflows: fakeWorkflowService{items: map[string]apitypes.WorkflowDocument{
+			"workflow-1": mustWorkflow(t, "workflow-1"),
+		}},
+		ToolBuilder:   &toolkit.Builder{},
+		ToolExecutors: toolkit.NewExecutorRegistry(),
+	}
+
+	if _, err := resolver.Resolve(context.Background(), "demo"); err == nil || !strings.Contains(err.Error(), "authenticated subject") {
+		t.Fatalf("Resolve() error = %v, want authenticated subject error", err)
 	}
 }
 

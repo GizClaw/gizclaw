@@ -102,7 +102,8 @@ func (s *Service) Reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 		err := errors.New("agenthost: input stream is required")
 		return s.setErrorStatus(selection.WorkspaceName, err), err
 	}
-	runCtx, cancel := context.WithCancel(withHistoryGearID(context.WithoutCancel(ctx), s.PublicKey.String()))
+	subject := acl.PublicKeySubject(s.PublicKey.String())
+	runCtx, cancel := context.WithCancel(WithACLSubject(withHistoryGearID(context.WithoutCancel(ctx), s.PublicKey.String()), subject))
 	pattern := workspacePattern(selection.WorkspaceName)
 	agent, release, output, err := s.openAgentOutput(runCtx, pattern, input)
 	if err != nil {

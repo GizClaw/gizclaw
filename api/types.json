@@ -167,6 +167,9 @@
       "Model": {
         "$ref": "./type/model.json#/components/schemas/Model"
       },
+      "ToolkitPolicy": {
+        "$ref": "./type/toolkit_policy.json#/components/schemas/ToolkitPolicy"
+      },
       "Tool": {
         "$ref": "./type/tool.json#/components/schemas/Tool"
       },

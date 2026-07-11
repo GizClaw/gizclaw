@@ -1,0 +1,76 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: ResourceList
+metadata:
+  name: toolkit-smoke
+spec:
+  items:
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Tool
+    metadata:
+      name: system.music.play
+      description: Toolkit smoke Tool exposed to Flowcraft.
+    spec:
+      name: play_music
+      description: Play music by query.
+      source: admin
+      enabled: true
+      input_schema:
+        type: object
+        required:
+        - query
+        properties:
+          query:
+            type: string
+      executor:
+        kind: builtin
+        name: music.play
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Workflow
+    metadata:
+      name: flowcraft-toolkit-smoke
+      description: Flowcraft workflow whose tools come from ToolKit.
+    spec:
+      driver: flowcraft
+      toolkit:
+        tool_ids:
+        - system.music.play
+      flowcraft:
+        workspace:
+          memory_root: memory
+          state_root: state
+          history_root: history
+        conversation:
+          starts: peer
+          context_id: flowcraft-toolkit-smoke
+        history:
+          enabled: true
+          kind: buffer
+          max_messages: 20
+        memory:
+          enabled: false
+        agent:
+          id: toolkit-smoke
+          name: Toolkit Smoke
+          model: generate_model
+          system_prompt: 你是一个简短、自然的中文语音聊天助手。需要播放音乐时调用 play_music。
+          max_iterations: 4
+        voice_adapter:
+          asr_model: volc-bigasr-sauc
+          default_voice: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+          node_voices:
+            answer: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Workspace
+    metadata:
+      name: workspace-flowcraft-toolkit-smoke
+    spec:
+      workflow_name: flowcraft-toolkit-smoke
+      toolkit:
+        tool_ids:
+        - system.music.play
+      parameters:
+        agent_type: flowcraft
+        generate_model: doubao-lite-chat
+        extract_model: doubao-lite-chat
+        input: push-to-talk

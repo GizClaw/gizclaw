@@ -611,8 +611,11 @@ type WorkspaceUpsert struct {
 	Name string `json:"name"`
 
 	// Parameters Agent-specific workspace parameters. The shape is selected by agent_type.
-	Parameters   *externalRef0.WorkspaceParameters `json:"parameters,omitempty"`
-	WorkflowName string                            `json:"workflow_name"`
+	Parameters *externalRef0.WorkspaceParameters `json:"parameters,omitempty"`
+
+	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
+	Toolkit      *externalRef0.ToolkitPolicy `json:"toolkit,omitempty"`
+	WorkflowName string                      `json:"workflow_name"`
 }
 
 // ModelProviderKind Provider resource kind usable by model runtime.

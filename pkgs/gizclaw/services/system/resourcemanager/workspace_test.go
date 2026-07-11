@@ -36,6 +36,48 @@ func TestApplyWorkspaceCreatesResource(t *testing.T) {
 	}
 }
 
+func TestWorkspaceResourceRoundTripsToolkitPolicy(t *testing.T) {
+	toolIDs := []string{"system.music.play"}
+	workspaces := newFakeWorkspaces()
+	workspaces.items["demo"] = apitypes.Workspace{
+		CreatedAt:    time.Now().UTC(),
+		Name:         "demo",
+		Toolkit:      &apitypes.ToolkitPolicy{ToolIds: &toolIDs},
+		UpdatedAt:    time.Now().UTC(),
+		WorkflowName: "workflow",
+	}
+	manager := New(Services{Workspaces: workspaces})
+
+	resource, err := manager.Get(context.Background(), apitypes.ResourceKindWorkspace, "demo")
+	if err != nil {
+		t.Fatalf("Get returned error: %v", err)
+	}
+	workspace, err := resource.AsWorkspaceResource()
+	if err != nil {
+		t.Fatalf("AsWorkspaceResource returned error: %v", err)
+	}
+	if workspace.Spec.Toolkit == nil || workspace.Spec.Toolkit.ToolIds == nil || len(*workspace.Spec.Toolkit.ToolIds) != 1 || (*workspace.Spec.Toolkit.ToolIds)[0] != "system.music.play" {
+		t.Fatalf("workspace resource toolkit = %#v", workspace.Spec.Toolkit)
+	}
+
+	_, err = manager.Put(context.Background(), mustResource(t, `{
+		"apiVersion": "gizclaw.admin/v1alpha1",
+		"kind": "Workspace",
+		"metadata": {"name": "demo"},
+		"spec": {
+			"workflow_name": "workflow",
+			"toolkit": {"tool_ids": ["system.mode.switch"]}
+		}
+	}`))
+	if err != nil {
+		t.Fatalf("Put returned error: %v", err)
+	}
+	got := workspaces.items["demo"].Toolkit
+	if got == nil || got.ToolIds == nil || len(*got.ToolIds) != 1 || (*got.ToolIds)[0] != "system.mode.switch" {
+		t.Fatalf("stored workspace toolkit = %#v", got)
+	}
+}
+
 func TestGetWorkspaceReturnsResource(t *testing.T) {
 	workspaces := newFakeWorkspaces()
 	workspaces.items["demo"] = apitypes.Workspace{
@@ -216,6 +258,7 @@ func (f *fakeWorkspaces) PutWorkspace(_ context.Context, request adminhttp.PutWo
 		CreatedAt:    now,
 		Name:         body.Name,
 		Parameters:   body.Parameters,
+		Toolkit:      body.Toolkit,
 		UpdatedAt:    now,
 		WorkflowName: body.WorkflowName,
 	}

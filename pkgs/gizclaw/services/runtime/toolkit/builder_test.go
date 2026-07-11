@@ -79,6 +79,24 @@ func TestBuilderReturnsUnexpectedAuthorizeError(t *testing.T) {
 	}
 }
 
+func TestBuilderExplicitEmptyPolicyExposesNoTools(t *testing.T) {
+	ctx := context.Background()
+	store := &Server{Store: kv.NewMemory(nil)}
+	for _, id := range []string{"system.music.play", "system.mode.switch"} {
+		if _, err := store.PutTool(ctx, testBuiltinTool(id)); err != nil {
+			t.Fatalf("PutTool(%s) error = %v", id, err)
+		}
+	}
+
+	kit, err := (&Builder{Tools: store}).Build(ctx, BuildRequest{RestrictToolIDs: true})
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	if len(kit.Tools) != 0 {
+		t.Fatalf("ToolKit tools = %#v, want none", toolIDs(kit.Tools))
+	}
+}
+
 func TestBuilderConfigAndAvailabilityErrors(t *testing.T) {
 	ctx := context.Background()
 	if _, err := (*Builder)(nil).Build(ctx, BuildRequest{}); !errors.Is(err, ErrNotConfigured) {

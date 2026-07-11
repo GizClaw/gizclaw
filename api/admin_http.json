@@ -10872,6 +10872,9 @@
           },
           "parameters": {
             "$ref": "./types.json#/components/schemas/WorkspaceParameters"
+          },
+          "toolkit": {
+            "$ref": "./types.json#/components/schemas/ToolkitPolicy"
           }
         }
       },

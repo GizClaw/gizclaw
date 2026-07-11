@@ -452,8 +452,10 @@ func (s *Server) init() error {
 	manager.ToolExecutors = toolExecutors
 	manager.ToolBuilder = &toolkit.Builder{Tools: toolServer, Authorizer: aclServer, Availability: toolExecutors}
 	manager.AgentHost = agenthost.New(agenthost.ServiceResolver{
-		Workspaces: workspaceServer,
-		Workflows:  workflowServer,
+		Workspaces:    workspaceServer,
+		Workflows:     workflowServer,
+		ToolBuilder:   manager.ToolBuilder,
+		ToolExecutors: toolExecutors,
 	})
 	manager.Workspaces = workspaceServer
 	manager.Workflows = workflowServer

@@ -181,6 +181,8 @@ type Spec struct {
 	Workspace apitypes.Workspace
 	Workflow  apitypes.WorkflowDocument
 	AgentType string
+	Runtime   workspace.Runtime
+	Toolkit   *ToolkitContext
 }
 ```
 
@@ -200,6 +202,20 @@ Agent type resolution:
 workspace.parameters["agent_type"]
 └── else workflow apiVersion group
 ```
+
+Toolkit resolution is policy based. `workflow.spec.toolkit.tool_ids` defines the
+workflow-level allowlist; `workspace.toolkit.tool_ids` can further narrow it.
+If both lists are present, AgentHost exposes their intersection. An empty
+workspace list explicitly exposes no tools. When a Toolkit policy is configured,
+AgentHost resolves it with the authenticated peer subject from `Reload`, so
+ToolKit construction and invocation use the same `tool:use` ACL checks as direct
+ToolKit APIs.
+
+Flowcraft agents consume the resolved Toolkit through their Claw config and
+runtime handlers. Each resolved Tool becomes one `agent.tools` entry using the
+Tool's advertised name, description, and JSON input schema; the registered
+handler calls back into ToolKit invocation with the same subject and effective
+policy.
 
 ## PeerConn Wiring
 

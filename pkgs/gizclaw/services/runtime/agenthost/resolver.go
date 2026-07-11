@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"sort"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 )
 
 type Resolver interface {
@@ -17,8 +19,10 @@ type Resolver interface {
 }
 
 type ServiceResolver struct {
-	Workspaces workspace.WorkspaceAdminService
-	Workflows  workflow.WorkflowAdminService
+	Workspaces    workspace.WorkspaceAdminService
+	Workflows     workflow.WorkflowAdminService
+	ToolBuilder   *toolkit.Builder
+	ToolExecutors *toolkit.ExecutorRegistry
 }
 
 type workspaceRuntimeProvider interface {
@@ -56,12 +60,94 @@ func (r ServiceResolver) Resolve(ctx context.Context, pattern string) (Spec, err
 			return Spec{}, err
 		}
 	}
+	tools, err := r.resolveToolkit(ctx, ws, workflow)
+	if err != nil {
+		return Spec{}, err
+	}
 	return Spec{
 		Workspace: ws,
 		Workflow:  workflow,
 		AgentType: agentType,
 		Runtime:   runtime,
+		Toolkit:   tools,
 	}, nil
+}
+
+func (r ServiceResolver) resolveToolkit(ctx context.Context, ws apitypes.Workspace, workflow apitypes.WorkflowDocument) (*ToolkitContext, error) {
+	if ws.Toolkit == nil && workflow.Spec.Toolkit == nil {
+		return nil, nil
+	}
+	if r.ToolBuilder == nil || r.ToolExecutors == nil {
+		return nil, fmt.Errorf("agenthost: toolkit services are required")
+	}
+	subject, ok := aclSubjectFromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("agenthost: authenticated subject is required for toolkit")
+	}
+	workflowIDs, workflowRestrict, err := policyToolIDs(workflow.Spec.Toolkit)
+	if err != nil {
+		return nil, fmt.Errorf("agenthost: workflow toolkit policy: %w", err)
+	}
+	workspaceIDs, workspaceRestrict, err := policyToolIDs(ws.Toolkit)
+	if err != nil {
+		return nil, fmt.Errorf("agenthost: workspace toolkit policy: %w", err)
+	}
+	restrict := workflowRestrict || workspaceRestrict
+	ids := workflowIDs
+	switch {
+	case workflowRestrict && workspaceRestrict:
+		ids = intersectToolIDs(workflowIDs, workspaceIDs)
+	case workspaceRestrict:
+		ids = workspaceIDs
+	}
+	return &ToolkitContext{
+		Builder:   r.ToolBuilder,
+		Executors: r.ToolExecutors,
+		BuildRequest: toolkit.BuildRequest{
+			Subject:         subject,
+			AllowedToolIDs:  ids,
+			RestrictToolIDs: restrict,
+		},
+	}, nil
+}
+
+func policyToolIDs(policy *apitypes.ToolkitPolicy) ([]string, bool, error) {
+	if policy == nil || policy.ToolIds == nil {
+		return nil, false, nil
+	}
+	seen := map[string]bool{}
+	out := make([]string, 0, len(*policy.ToolIds))
+	for _, raw := range *policy.ToolIds {
+		id := strings.TrimSpace(raw)
+		if id == "" {
+			return nil, false, fmt.Errorf("tool_ids contains an empty Tool ID")
+		}
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		out = append(out, id)
+	}
+	sort.Strings(out)
+	return out, true, nil
+}
+
+func intersectToolIDs(left, right []string) []string {
+	if len(left) == 0 || len(right) == 0 {
+		return []string{}
+	}
+	rightSet := make(map[string]bool, len(right))
+	for _, id := range right {
+		rightSet[id] = true
+	}
+	out := make([]string, 0, min(len(left), len(right)))
+	for _, id := range left {
+		if rightSet[id] {
+			out = append(out, id)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 func ParseWorkspacePattern(pattern string) (string, error) {

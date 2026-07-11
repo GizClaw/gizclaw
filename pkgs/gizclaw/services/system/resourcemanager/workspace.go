@@ -109,6 +109,7 @@ func (m *Manager) deleteWorkspace(ctx context.Context, name string) (apitypes.Wo
 func workspaceSpec(workspace apitypes.Workspace) apitypes.WorkspaceSpec {
 	return apitypes.WorkspaceSpec{
 		Parameters:   workspace.Parameters,
+		Toolkit:      workspace.Toolkit,
 		WorkflowName: workspace.WorkflowName,
 	}
 }
@@ -117,6 +118,7 @@ func workspaceUpsert(resource apitypes.WorkspaceResource) adminhttp.WorkspaceUps
 	return adminhttp.WorkspaceUpsert{
 		Name:         string(resource.Metadata.Name),
 		Parameters:   resource.Spec.Parameters,
+		Toolkit:      resource.Spec.Toolkit,
 		WorkflowName: resource.Spec.WorkflowName,
 	}
 }

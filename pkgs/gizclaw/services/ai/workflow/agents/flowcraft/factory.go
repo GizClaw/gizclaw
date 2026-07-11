@@ -28,6 +28,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 )
 
 const Type = "flowcraft"
@@ -97,6 +98,9 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	}
 	claw, err := flowclaw.New(ws)
 	if err != nil {
+		return nil, err
+	}
+	if err := registerToolkitHandlers(ctx, claw, spec.Toolkit); err != nil {
 		return nil, err
 	}
 	starts, initiativePolicy := flowcraftConversationSettings(workspaceParams, cfg.Spec.Flowcraft)
@@ -2473,7 +2477,156 @@ func buildClawConfig(ctx context.Context, genxService *peergenx.Service, spec ag
 		llm[modelID] = modelCfg
 	}
 	ensureDefaultAgent(out)
+	if err := addToolkitToolsToClawConfig(ctx, out, spec.Toolkit); err != nil {
+		return nil, err
+	}
 	return out, nil
+}
+
+func addToolkitToolsToClawConfig(ctx context.Context, cfg map[string]any, tools *agenthost.ToolkitContext) error {
+	resolved, err := flowcraftToolkitTools(ctx, tools)
+	if err != nil {
+		return fmt.Errorf("flowcraft: build toolkit: %w", err)
+	}
+	if len(resolved) == 0 {
+		return nil
+	}
+	return mergeToolkitToolConfigs(cfg, resolved)
+}
+
+func registerToolkitHandlers(ctx context.Context, claw *flowclaw.Claw, tools *agenthost.ToolkitContext) error {
+	resolved, err := flowcraftToolkitTools(ctx, tools)
+	if err != nil {
+		return fmt.Errorf("flowcraft: build toolkit handlers: %w", err)
+	}
+	for _, tool := range resolved {
+		name := flowcraftToolkitToolName(tool)
+		if name == "" {
+			return fmt.Errorf("flowcraft: toolkit tool %q has no callable name", tool.ID)
+		}
+		claw.Handle(name, toolkitToolHandler(tools))
+	}
+	return nil
+}
+
+func flowcraftToolkitTools(ctx context.Context, tools *agenthost.ToolkitContext) ([]toolkit.Tool, error) {
+	if tools == nil {
+		return nil, nil
+	}
+	kit, err := tools.BuildToolkit(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return kit.Tools, nil
+}
+
+func mergeToolkitToolConfigs(cfg map[string]any, tools []toolkit.Tool) error {
+	agent := ensureMap(cfg, "agent")
+	items, index, err := flowcraftToolConfigList(agent["tools"])
+	if err != nil {
+		return err
+	}
+	for _, tool := range tools {
+		item, err := flowcraftToolkitToolConfig(tool)
+		if err != nil {
+			return err
+		}
+		name := item["name"].(string)
+		if pos, ok := index[name]; ok {
+			items[pos] = item
+			continue
+		}
+		index[name] = len(items)
+		items = append(items, item)
+	}
+	agent["tools"] = items
+	return nil
+}
+
+func flowcraftToolConfigList(raw any) ([]any, map[string]int, error) {
+	index := map[string]int{}
+	if raw == nil {
+		return nil, index, nil
+	}
+	items, ok := raw.([]any)
+	if !ok {
+		return nil, nil, fmt.Errorf("flowcraft: agent.tools must be an array")
+	}
+	out := append([]any(nil), items...)
+	for i, item := range out {
+		name := flowcraftToolConfigName(item)
+		if name != "" {
+			index[name] = i
+		}
+	}
+	return out, index, nil
+}
+
+func flowcraftToolConfigName(item any) string {
+	switch value := item.(type) {
+	case string:
+		return strings.TrimSpace(value)
+	case map[string]any:
+		name, _ := value["name"].(string)
+		return strings.TrimSpace(name)
+	default:
+		return ""
+	}
+}
+
+func flowcraftToolkitToolConfig(tool toolkit.Tool) (map[string]any, error) {
+	name := flowcraftToolkitToolName(tool)
+	if name == "" {
+		return nil, fmt.Errorf("flowcraft: toolkit tool %q has no callable name", tool.ID)
+	}
+	schema, err := flowcraftToolkitInputSchema(tool)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]any{
+		"name":         name,
+		"input_schema": schema,
+	}
+	if description := firstString(tool.Description); description != "" {
+		out["description"] = description
+	}
+	return out, nil
+}
+
+func flowcraftToolkitToolName(tool toolkit.Tool) string {
+	if name := firstString(tool.Name); name != "" {
+		return name
+	}
+	return strings.TrimSpace(tool.ID)
+}
+
+func flowcraftToolkitInputSchema(tool toolkit.Tool) (map[string]any, error) {
+	data, err := json.Marshal(tool.InputSchema)
+	if err != nil {
+		return nil, fmt.Errorf("flowcraft: encode toolkit tool %q schema: %w", tool.ID, err)
+	}
+	var out map[string]any
+	if err := json.Unmarshal(data, &out); err != nil {
+		return nil, fmt.Errorf("flowcraft: decode toolkit tool %q schema: %w", tool.ID, err)
+	}
+	if out == nil {
+		out = map[string]any{"type": "object", "properties": map[string]any{}}
+	}
+	return out, nil
+}
+
+func toolkitToolHandler(tools *agenthost.ToolkitContext) flowclaw.ToolHandler {
+	return func(ctx context.Context, name string, args json.RawMessage) (string, error) {
+		result, err := tools.Invoke(ctx, "", name, args)
+		if err != nil {
+			return "", err
+		}
+		data := bytes.TrimSpace(result.Data)
+		if len(data) == 0 {
+			return "{}", nil
+		}
+		return string(data), nil
+	}
 }
 
 func accessibleGeneratorModels(ctx context.Context, genxService *peergenx.Service) (map[string]peergenx.GeneratorConfig, error) {
