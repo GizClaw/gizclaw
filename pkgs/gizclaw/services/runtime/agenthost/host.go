@@ -75,12 +75,12 @@ func (h *Host) OpenAgent(ctx context.Context, pattern string) (Agent, func(), er
 	return h.runtimeRegistry().Acquire(ctx, h, workspaceName, spec)
 }
 
-func (h *Host) openWorkspaceAgent(ctx context.Context, leaseName string, spec Spec) (Agent, func(), error) {
+func (h *Host) openWorkspaceAgent(ctx context.Context, workspaceName string, spec Spec) (Agent, func(), error) {
 	coordinator := h.coordinator()
 	if coordinator == nil {
 		return nil, nil, fmt.Errorf("agenthost: coordinator is required")
 	}
-	lease, err := coordinator.Acquire(ctx, leaseName)
+	lease, err := coordinator.Acquire(ctx, workspaceName)
 	if err != nil {
 		return nil, nil, err
 	}

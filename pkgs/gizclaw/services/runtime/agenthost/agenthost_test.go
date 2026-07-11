@@ -2,6 +2,7 @@ package agenthost
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"strings"
@@ -14,6 +15,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/google/jsonschema-go/jsonschema"
 )
 
 func TestRegistryRegisterAndGet(t *testing.T) {
@@ -222,6 +225,56 @@ func TestServiceResolverUsesToolkitAuthorizerFromContext(t *testing.T) {
 	}
 }
 
+func TestToolkitContextInvokeUsesCurrentContextSubject(t *testing.T) {
+	ctx := context.Background()
+	toolName := "echo"
+	store := &toolkit.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.PutTool(ctx, toolkit.Tool{
+		ID:          "system.toolkit.echo",
+		Name:        &toolName,
+		Source:      toolkit.ToolSourceBuiltin,
+		Enabled:     true,
+		InputSchema: jsonschema.Schema{Type: "object"},
+		Executor: toolkit.ToolExecutor{
+			Kind: toolkit.ToolExecutorKindBuiltin,
+			Name: &toolName,
+		},
+	}); err != nil {
+		t.Fatalf("PutTool() error = %v", err)
+	}
+
+	authorizer := &recordingToolkitAuthorizer{}
+	executors := toolkit.NewExecutorRegistry()
+	var callSubject string
+	if err := executors.Register(toolName, toolkit.ExecutorFunc(func(_ context.Context, call toolkit.Call) (toolkit.Result, error) {
+		callSubject = call.SubjectID
+		return toolkit.Result{Data: json.RawMessage(`{"ok":true}`)}, nil
+	})); err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+	tools := &ToolkitContext{
+		Builder: &toolkit.Builder{
+			Tools:      store,
+			Authorizer: authorizer,
+		},
+		Executors: executors,
+		BuildRequest: toolkit.BuildRequest{
+			Subject:        acl.PublicKeySubject("peer-a"),
+			AllowedToolIDs: []string{"system.toolkit.echo"},
+		},
+	}
+
+	if _, err := tools.Invoke(WithACLSubject(ctx, acl.PublicKeySubject("peer-b")), "call-1", toolName, json.RawMessage(`{}`)); err != nil {
+		t.Fatalf("Invoke() error = %v", err)
+	}
+	if len(authorizer.subjects) != 1 || authorizer.subjects[0] != "peer-b" {
+		t.Fatalf("authorized subjects = %#v, want peer-b", authorizer.subjects)
+	}
+	if callSubject != "peer-b" {
+		t.Fatalf("call subject = %q, want peer-b", callSubject)
+	}
+}
+
 func TestServiceResolverRequiresSubjectForToolkit(t *testing.T) {
 	resolver := ServiceResolver{
 		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
@@ -379,7 +432,7 @@ func TestHostTransformReusesAgentForConcurrentSameWorkspace(t *testing.T) {
 	}
 }
 
-func TestHostTransformDoesNotReuseToolkitRuntimeAcrossSubjects(t *testing.T) {
+func TestHostTransformReusesToolkitRuntimeAcrossSubjects(t *testing.T) {
 	host := New(subjectToolkitResolver{})
 	var subjects []string
 	if err := host.Register("echo", FactoryFunc(func(_ context.Context, spec Spec) (genx.Transformer, error) {
@@ -400,8 +453,8 @@ func TestHostTransformDoesNotReuseToolkitRuntimeAcrossSubjects(t *testing.T) {
 	}
 	defer second.Close()
 
-	if len(subjects) != 2 || subjects[0] != "peer-a" || subjects[1] != "peer-b" {
-		t.Fatalf("factory subjects = %#v, want distinct peer subjects", subjects)
+	if len(subjects) != 1 || subjects[0] != "peer-a" {
+		t.Fatalf("factory subjects = %#v, want one workspace runtime for peer-a", subjects)
 	}
 }
 
@@ -565,6 +618,15 @@ func (subjectToolkitResolver) Resolve(ctx context.Context, _ string) (Spec, erro
 type testToolkitAuthorizer struct{}
 
 func (*testToolkitAuthorizer) Authorize(context.Context, acl.AuthorizeRequest) error {
+	return nil
+}
+
+type recordingToolkitAuthorizer struct {
+	subjects []string
+}
+
+func (a *recordingToolkitAuthorizer) Authorize(_ context.Context, req acl.AuthorizeRequest) error {
+	a.subjects = append(a.subjects, req.Subject.Id)
 	return nil
 }
 

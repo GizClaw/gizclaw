@@ -1855,8 +1855,12 @@ message WorkflowMetadata {
   string name = 2;
 }
 
+message ToolkitPolicyToolIds {
+  repeated string value = 1;
+}
+
 message ToolkitPolicy {
-  repeated string tool_ids = 1;
+  optional ToolkitPolicyToolIds tool_ids = 1;
 }
 
 message WorkflowPutRequest {

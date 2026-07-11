@@ -2167,8 +2167,13 @@ typedef struct _gizclaw_rpc_v1_WorkflowMetadata {
     pb_callback_t name;
 } gizclaw_rpc_v1_WorkflowMetadata;
 
+typedef struct _gizclaw_rpc_v1_ToolkitPolicyToolIds {
+    pb_callback_t value;
+} gizclaw_rpc_v1_ToolkitPolicyToolIds;
+
 typedef struct _gizclaw_rpc_v1_ToolkitPolicy {
-    pb_callback_t tool_ids;
+    bool has_tool_ids;
+    gizclaw_rpc_v1_ToolkitPolicyToolIds tool_ids;
 } gizclaw_rpc_v1_ToolkitPolicy;
 
 typedef struct _gizclaw_rpc_v1_WorkflowSpec {
@@ -2904,6 +2909,7 @@ extern "C" {
 
 
 
+
 #define gizclaw_rpc_v1_WorkflowSpec_driver_ENUMTYPE gizclaw_rpc_v1_WorkflowDriver
 
 
@@ -3243,7 +3249,8 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkflowListRequest_init_default {{{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_WorkflowListResponse_init_default {0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkflowMetadata_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_ToolkitPolicy_init_default {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_ToolkitPolicyToolIds_init_default {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_ToolkitPolicy_init_default {false, gizclaw_rpc_v1_ToolkitPolicyToolIds_init_default}
 #define gizclaw_rpc_v1_WorkflowPutRequest_init_default {false, gizclaw_rpc_v1_WorkflowDocument_init_default, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkflowPutResponse_init_default {false, gizclaw_rpc_v1_WorkflowDocument_init_default}
 #define gizclaw_rpc_v1_WorkflowSpec_init_default {false, gizclaw_rpc_v1_ASTTranslateWorkflowSpec_init_default, false, gizclaw_rpc_v1_ChatRoomWorkflowSpec_init_default, false, gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_init_default, _gizclaw_rpc_v1_WorkflowDriver_MIN, false, gizclaw_rpc_v1_FlowcraftWorkflowSpec_init_default, false, gizclaw_rpc_v1_ToolkitPolicy_init_default}
@@ -3579,7 +3586,8 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkflowListRequest_init_zero {{{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_WorkflowListResponse_init_zero {0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkflowMetadata_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_ToolkitPolicy_init_zero   {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_ToolkitPolicyToolIds_init_zero {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_ToolkitPolicy_init_zero   {false, gizclaw_rpc_v1_ToolkitPolicyToolIds_init_zero}
 #define gizclaw_rpc_v1_WorkflowPutRequest_init_zero {false, gizclaw_rpc_v1_WorkflowDocument_init_zero, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkflowPutResponse_init_zero {false, gizclaw_rpc_v1_WorkflowDocument_init_zero}
 #define gizclaw_rpc_v1_WorkflowSpec_init_zero    {false, gizclaw_rpc_v1_ASTTranslateWorkflowSpec_init_zero, false, gizclaw_rpc_v1_ChatRoomWorkflowSpec_init_zero, false, gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_init_zero, _gizclaw_rpc_v1_WorkflowDriver_MIN, false, gizclaw_rpc_v1_FlowcraftWorkflowSpec_init_zero, false, gizclaw_rpc_v1_ToolkitPolicy_init_zero}
@@ -4406,6 +4414,7 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkflowListResponse_next_cursor_tag 3
 #define gizclaw_rpc_v1_WorkflowMetadata_description_tag 1
 #define gizclaw_rpc_v1_WorkflowMetadata_name_tag 2
+#define gizclaw_rpc_v1_ToolkitPolicyToolIds_value_tag 1
 #define gizclaw_rpc_v1_ToolkitPolicy_tool_ids_tag 1
 #define gizclaw_rpc_v1_WorkflowSpec_ast_translate_tag 1
 #define gizclaw_rpc_v1_WorkflowSpec_chatroom_tag 2
@@ -6736,10 +6745,16 @@ X(a, CALLBACK, SINGULAR, STRING,   name,              2)
 #define gizclaw_rpc_v1_WorkflowMetadata_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_WorkflowMetadata_DEFAULT NULL
 
+#define gizclaw_rpc_v1_ToolkitPolicyToolIds_FIELDLIST(X, a) \
+X(a, CALLBACK, REPEATED, STRING,   value,             1)
+#define gizclaw_rpc_v1_ToolkitPolicyToolIds_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_ToolkitPolicyToolIds_DEFAULT NULL
+
 #define gizclaw_rpc_v1_ToolkitPolicy_FIELDLIST(X, a) \
-X(a, CALLBACK, REPEATED, STRING,   tool_ids,          1)
-#define gizclaw_rpc_v1_ToolkitPolicy_CALLBACK pb_default_field_callback
+X(a, STATIC,   OPTIONAL, MESSAGE,  tool_ids,          1)
+#define gizclaw_rpc_v1_ToolkitPolicy_CALLBACK NULL
 #define gizclaw_rpc_v1_ToolkitPolicy_DEFAULT NULL
+#define gizclaw_rpc_v1_ToolkitPolicy_tool_ids_MSGTYPE gizclaw_rpc_v1_ToolkitPolicyToolIds
 
 #define gizclaw_rpc_v1_WorkflowPutRequest_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  body,              1) \
@@ -7321,6 +7336,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowGetResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowListRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowListResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowMetadata_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ToolkitPolicyToolIds_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ToolkitPolicy_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowPutRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowPutResponse_msg;
@@ -7659,6 +7675,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 #define gizclaw_rpc_v1_WorkflowListRequest_fields &gizclaw_rpc_v1_WorkflowListRequest_msg
 #define gizclaw_rpc_v1_WorkflowListResponse_fields &gizclaw_rpc_v1_WorkflowListResponse_msg
 #define gizclaw_rpc_v1_WorkflowMetadata_fields &gizclaw_rpc_v1_WorkflowMetadata_msg
+#define gizclaw_rpc_v1_ToolkitPolicyToolIds_fields &gizclaw_rpc_v1_ToolkitPolicyToolIds_msg
 #define gizclaw_rpc_v1_ToolkitPolicy_fields &gizclaw_rpc_v1_ToolkitPolicy_msg
 #define gizclaw_rpc_v1_WorkflowPutRequest_fields &gizclaw_rpc_v1_WorkflowPutRequest_msg
 #define gizclaw_rpc_v1_WorkflowPutResponse_fields &gizclaw_rpc_v1_WorkflowPutResponse_msg
@@ -7968,6 +7985,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 /* gizclaw_rpc_v1_WorkflowListRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_WorkflowListResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_WorkflowMetadata_size depends on runtime parameters */
+/* gizclaw_rpc_v1_ToolkitPolicyToolIds_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ToolkitPolicy_size depends on runtime parameters */
 /* gizclaw_rpc_v1_WorkflowPutRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_WorkflowPutResponse_size depends on runtime parameters */

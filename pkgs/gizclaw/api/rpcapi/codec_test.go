@@ -372,8 +372,34 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 	if workspaceCreateProto.GetValue().GetName() != "demo" || workspaceCreateProto.GetValue().GetWorkflowName() != "chat" {
 		t.Fatalf("workspace create = %+v", workspaceCreateProto.GetValue())
 	}
-	if got := workspaceCreateProto.GetValue().GetToolkit().GetToolIds(); len(got) != 1 || got[0] != "system.toolkit.echo" {
+	if got := workspaceCreateProto.GetValue().GetToolkit().GetToolIds().GetValue(); len(got) != 1 || got[0] != "system.toolkit.echo" {
 		t.Fatalf("workspace toolkit = %#v", got)
+	}
+	emptyToolIDs := []string{}
+	var emptyWorkspaceCreate RPCPayload
+	if err := emptyWorkspaceCreate.FromWorkspaceCreateRequest(WorkspaceCreateRequest{
+		Name:         "demo-empty",
+		Toolkit:      &ToolkitPolicy{ToolIds: &emptyToolIDs},
+		WorkflowName: "chat",
+	}); err != nil {
+		t.Fatalf("FromWorkspaceCreateRequest(empty toolkit) error = %v", err)
+	}
+	var emptyWorkspaceCreateProto rpcpb.WorkspaceCreateRequest
+	if err := proto.Unmarshal(emptyWorkspaceCreate.payload, &emptyWorkspaceCreateProto); err != nil {
+		t.Fatalf("unmarshal empty workspace create payload error = %v", err)
+	}
+	if emptyWorkspaceCreateProto.GetValue().GetToolkit().GetToolIds() == nil {
+		t.Fatalf("workspace empty toolkit tool_ids presence lost: %+v", emptyWorkspaceCreateProto.GetValue().GetToolkit())
+	}
+	if got := emptyWorkspaceCreateProto.GetValue().GetToolkit().GetToolIds().GetValue(); len(got) != 0 {
+		t.Fatalf("workspace empty toolkit = %#v, want empty list", got)
+	}
+	emptyWorkspaceDecoded, err := emptyWorkspaceCreate.AsWorkspaceCreateRequest()
+	if err != nil {
+		t.Fatalf("AsWorkspaceCreateRequest(empty toolkit) error = %v", err)
+	}
+	if emptyWorkspaceDecoded.Toolkit == nil || emptyWorkspaceDecoded.Toolkit.ToolIds == nil || len(*emptyWorkspaceDecoded.Toolkit.ToolIds) != 0 {
+		t.Fatalf("decoded empty toolkit = %#v, want explicit empty list", emptyWorkspaceDecoded.Toolkit)
 	}
 
 	var workflowCreate RPCPayload
@@ -391,7 +417,7 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 	if err := proto.Unmarshal(workflowCreate.payload, &workflowCreateProto); err != nil {
 		t.Fatalf("unmarshal workflow create payload error = %v", err)
 	}
-	if got := workflowCreateProto.GetValue().GetSpec().GetToolkit().GetToolIds(); len(got) != 1 || got[0] != "system.toolkit.echo" {
+	if got := workflowCreateProto.GetValue().GetSpec().GetToolkit().GetToolIds().GetValue(); len(got) != 1 || got[0] != "system.toolkit.echo" {
 		t.Fatalf("workflow toolkit = %#v", got)
 	}
 

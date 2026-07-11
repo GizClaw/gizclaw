@@ -5,6 +5,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 )
 
 func (m *Manager) applyWorkspace(ctx context.Context, resource apitypes.Resource) (apitypes.ApplyResult, error) {
@@ -18,6 +19,11 @@ func (m *Manager) applyWorkspace(ctx context.Context, resource apitypes.Resource
 	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
+	spec, err := normalizeWorkspaceResourceSpec(item.Spec)
+	if err != nil {
+		return apitypes.ApplyResult{}, applyError(400, "INVALID_WORKSPACE_RESOURCE", err.Error())
+	}
+	item.Spec = spec
 	name := string(pathParam(item.Metadata.Name))
 	existing, exists, err := m.getWorkspace(ctx, name)
 	if err != nil {
@@ -53,6 +59,15 @@ func (m *Manager) applyWorkspace(ctx context.Context, resource apitypes.Resource
 		return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindWorkspace, item.Metadata.Name), nil
 	}
 	return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindWorkspace, item.Metadata.Name), nil
+}
+
+func normalizeWorkspaceResourceSpec(spec apitypes.WorkspaceSpec) (apitypes.WorkspaceSpec, error) {
+	policy, err := toolkit.NormalizePolicy(spec.Toolkit)
+	if err != nil {
+		return spec, err
+	}
+	spec.Toolkit = policy
+	return spec, nil
 }
 
 func (m *Manager) getWorkspace(ctx context.Context, name string) (apitypes.Workspace, bool, error) {

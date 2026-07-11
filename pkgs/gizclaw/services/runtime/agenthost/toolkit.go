@@ -22,7 +22,7 @@ func (c *ToolkitContext) BuildToolkit(ctx context.Context) (toolkit.ToolKit, err
 	if c.Builder == nil {
 		return toolkit.ToolKit{}, fmt.Errorf("%w: builder is required", toolkit.ErrNotConfigured)
 	}
-	return c.Builder.Build(ctx, c.BuildRequest)
+	return c.Builder.Build(ctx, c.requestForContext(ctx))
 }
 
 func (c *ToolkitContext) Invoke(ctx context.Context, callID, name string, args json.RawMessage) (toolkit.Result, error) {
@@ -30,9 +30,17 @@ func (c *ToolkitContext) Invoke(ctx context.Context, callID, name string, args j
 		return toolkit.Result{}, toolkit.ErrNotConfigured
 	}
 	return c.Builder.Invoke(ctx, c.Executors, toolkit.InvokeRequest{
-		Build:  c.BuildRequest,
+		Build:  c.requestForContext(ctx),
 		CallID: callID,
 		Name:   name,
 		Args:   args,
 	})
+}
+
+func (c *ToolkitContext) requestForContext(ctx context.Context) toolkit.BuildRequest {
+	req := c.BuildRequest
+	if subject, ok := aclSubjectFromContext(ctx); ok {
+		req.Subject = subject
+	}
+	return req
 }

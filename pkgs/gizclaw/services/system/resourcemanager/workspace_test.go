@@ -154,6 +154,38 @@ func TestApplyWorkspaceUnchangedSkipsPut(t *testing.T) {
 	}
 }
 
+func TestApplyWorkspaceNormalizesToolkitPolicyBeforeCompare(t *testing.T) {
+	toolIDs := []string{"system.mode.switch", "system.music.play"}
+	workspaces := newFakeWorkspaces()
+	workspaces.items["demo"] = apitypes.Workspace{
+		CreatedAt:    time.Now().UTC(),
+		Name:         "demo",
+		Toolkit:      &apitypes.ToolkitPolicy{ToolIds: &toolIDs},
+		UpdatedAt:    time.Now().UTC(),
+		WorkflowName: "workflow",
+	}
+	manager := New(Services{Workspaces: workspaces})
+
+	result, err := manager.Apply(context.Background(), mustResource(t, `{
+		"apiVersion": "gizclaw.admin/v1alpha1",
+		"kind": "Workspace",
+		"metadata": {"name": "demo"},
+		"spec": {
+			"workflow_name": "workflow",
+			"toolkit": {"tool_ids": [" system.music.play ", "system.mode.switch", "system.music.play"]}
+		}
+	}`))
+	if err != nil {
+		t.Fatalf("Apply returned error: %v", err)
+	}
+	if result.Action != apitypes.ApplyActionUnchanged {
+		t.Fatalf("action = %q, want unchanged", result.Action)
+	}
+	if workspaces.putCount != 0 {
+		t.Fatalf("putCount = %d, want 0", workspaces.putCount)
+	}
+}
+
 func TestApplyWorkspaceUpdatesResource(t *testing.T) {
 	workspaces := newFakeWorkspaces()
 	workspaces.items["demo"] = apitypes.Workspace{

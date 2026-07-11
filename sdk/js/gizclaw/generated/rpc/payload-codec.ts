@@ -1149,8 +1149,9 @@ export type ToolTriggerExample = {
   "output"?: string;
 };
 export type ToolkitPolicy = {
-  "tool_ids": string[];
+  "tool_ids"?: ToolkitPolicyToolIds;
 };
+export type ToolkitPolicyToolIds = string[];
 export type Voice = {
   "created_at": string;
   "description"?: string;
@@ -6754,6 +6755,16 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
     "fields": [
       {
         "name": "tool_ids",
+        "number": 1,
+        "optional": true,
+        "type": "ToolkitPolicyToolIds"
+      }
+    ]
+  },
+  "ToolkitPolicyToolIds": {
+    "fields": [
+      {
+        "name": "value",
         "number": 1,
         "repeated": true,
         "type": "string"

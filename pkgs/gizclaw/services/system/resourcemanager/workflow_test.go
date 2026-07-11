@@ -111,6 +111,39 @@ func TestApplyWorkflowUnchangedSkipsPut(t *testing.T) {
 	}
 }
 
+func TestApplyWorkflowNormalizesToolkitPolicyBeforeCompare(t *testing.T) {
+	workflows := newFakeWorkflows()
+	workflows.items["workflow"] = mustWorkflowDocument(t, `{
+		"metadata": {"name": "workflow"},
+		"spec": {
+			"driver": "flowcraft",
+			"toolkit": {"tool_ids": ["system.mode.switch", "system.music.play"]},
+			"flowcraft": {"prompt": "hello"}
+		}
+	}`)
+	manager := New(Services{Workflows: workflows})
+
+	result, err := manager.Apply(context.Background(), mustResource(t, `{
+		"apiVersion": "gizclaw.admin/v1alpha1",
+		"kind": "Workflow",
+		"metadata": {"name": "workflow"},
+		"spec": {
+			"driver": "flowcraft",
+			"toolkit": {"tool_ids": [" system.music.play ", "system.mode.switch", "system.music.play"]},
+			"flowcraft": {"prompt": "hello"}
+		}
+	}`))
+	if err != nil {
+		t.Fatalf("Apply returned error: %v", err)
+	}
+	if result.Action != apitypes.ApplyActionUnchanged {
+		t.Fatalf("action = %q, want unchanged", result.Action)
+	}
+	if workflows.putCount != 0 {
+		t.Fatalf("putCount = %d, want 0", workflows.putCount)
+	}
+}
+
 func TestApplyWorkflowUpdatesResource(t *testing.T) {
 	workflows := newFakeWorkflows()
 	workflows.items["workflow"] = mustWorkflowDocument(t, `{
