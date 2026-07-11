@@ -1120,7 +1120,7 @@ func (c *Catalog) migrateLegacyPetDefJSON(data []byte) (apitypes.PetDef, error) 
 			VoiceId: legacy.Spec.Voice["voice_id"],
 			Prompt:  legacy.Spec.Voice["prompt"],
 		},
-		Drive: apitypes.PetDefDriveSpec{},
+		Drive: apitypes.PetDefDriveSpec{Actions: []apitypes.PetDefActionSpec{}},
 		Visual: apitypes.PetDefVisualSpec{
 			Refs: apitypes.PetDefVisualRefsSpec{},
 			Pixa: apitypes.PetDefPixaSpec{

@@ -46,6 +46,7 @@ import {
   getPeerFriendInviteToken,
   getPeerGameRuleset,
   getPeerBadgeDefPixa,
+  getPeerPetPresentation,
   getPeerPoints,
   getPeerPetDefPixa,
   getPeerWorkspaceHistoryAudio,
@@ -98,6 +99,7 @@ import {
   type PeerRunRecallHit,
   type PeerRunRecallResponse,
   type PetObject,
+  type PetPresentationObject,
   type PlayWorkspaceMode,
   type PlayWorkspaceState,
   type PlayVoiceStreamEvent,
@@ -516,7 +518,11 @@ function GameplayPanel(): JSX.Element {
         };
       }
       await expectData(drivePeerPet({ body }));
-      setPetClipByID((current) => ({ ...current, [selectedPetID.trim()]: driveAction.trim() || "idle" }));
+      const petID = selectedPetID.trim();
+      const actionID = driveAction.trim();
+      const presentation = await getPeerPetPresentation({ body: { id: petID } });
+      const clipName = presentation.data == null ? actionID || "idle" : petActionPixaClipName(presentation.data as PetPresentationObject, actionID);
+      setPetClipByID((current) => ({ ...current, [petID]: clipName }));
       await refreshAll();
     } catch (err) {
       setError(toMessage(err));
@@ -707,6 +713,22 @@ function GameplayPetTable({ busy, onDelete, onRename, pager, petClipByID }: { bu
       </CardContent>
     </Card>
   );
+}
+
+function petActionPixaClipName(presentation: PetPresentationObject, actionID: string): string {
+  if (actionID === "") {
+    return pixaClipNameByID(presentation, "idle") ?? presentation.pixa_metadata.clips[0]?.pixa_clip_name ?? "idle";
+  }
+  const action = presentation.drive.actions.find((candidate) => candidate.id === actionID);
+  const visualClipID = action?.visual_clip_id ?? actionID;
+  return pixaClipNameByID(presentation, visualClipID)
+    ?? presentation.pixa_metadata.clips.find((clip) => clip.action_id === actionID)?.pixa_clip_name
+    ?? presentation.pixa_metadata.clips.find((clip) => clip.pixa_clip_name === actionID)?.pixa_clip_name
+    ?? "idle";
+}
+
+function pixaClipNameByID(presentation: PetPresentationObject, clipID: string): string | null {
+  return presentation.pixa_metadata.clips.find((clip) => clip.id === clipID)?.pixa_clip_name ?? null;
 }
 
 function GameplayBadgeTable({ pager }: { pager: ReturnType<typeof usePagedList<BadgeObject>> }): JSX.Element {

@@ -13,6 +13,7 @@ import {
   type GameResult as RPCGameResult,
   type GameRuleset as RPCGameRuleset,
   type Pet as RPCPet,
+  type PetPresentation as RPCPetPresentation,
   type PointsAccount as RPCPointsAccount,
   type PointsTransaction as RPCPointsTransaction,
   type RewardGrant as RPCRewardGrant,
@@ -53,6 +54,7 @@ type PlayDataClientLike = {
   getGameResult?(params: Record<string, unknown>): Promise<unknown>;
   getGameRuleset?(params: Record<string, unknown>): Promise<unknown>;
   getPet?(params: Record<string, unknown>): Promise<unknown>;
+  getPetPresentation?(params: Record<string, unknown>): Promise<unknown>;
   getPoints?(params: Record<string, unknown>): Promise<unknown>;
   getPointsTransaction?(params: Record<string, unknown>): Promise<unknown>;
   getRewardGrant?(params: Record<string, unknown>): Promise<unknown>;
@@ -177,6 +179,7 @@ export type Firmware = RPCFirmware;
 export type GameResultObject = RPCGameResult;
 export type GameRulesetObject = RPCGameRuleset;
 export type PetObject = RPCPet;
+export type PetPresentationObject = RPCPetPresentation;
 export type PointsAccountObject = RPCPointsAccount;
 export type PointsTransactionObject = RPCPointsTransaction;
 export type RewardGrantObject = RPCRewardGrant;
@@ -313,6 +316,7 @@ export const listClientVoices = listPeerVoices;
 export const getPeerGameRuleset = (options?: RequestOptions) => currentDataClient ? injectedResult("getGameRuleset", options) : callRPC(RPC_METHODS["server.game_ruleset.get"], options);
 export const listPeerPets = (options?: RequestOptions) => currentDataClient ? injectedResult("listPets", options) : callRPC(RPC_METHODS["server.pet.list"], options);
 export const getPeerPet = (options: RequestOptions) => currentDataClient ? injectedResult("getPet", options) : callRPC(RPC_METHODS["server.pet.get"], options);
+export const getPeerPetPresentation = (options: RequestOptions) => currentDataClient?.getPetPresentation ? injectedResult("getPetPresentation", options) : callRPC(RPC_METHODS["server.pet.presentation.get"], options);
 export const adoptPeerPet = (options: RequestOptions) => currentDataClient ? injectedResult("adoptPet", options) : callRPC(RPC_METHODS["server.pet.adopt"], options);
 export const putPeerPet = (options: RequestOptions) => currentDataClient ? injectedResult("putPet", options) : callRPC(RPC_METHODS["server.pet.put"], options);
 export const deletePeerPet = (options: RequestOptions) => currentDataClient ? injectedResult("deletePet", options) : callRPC(RPC_METHODS["server.pet.delete"], options);

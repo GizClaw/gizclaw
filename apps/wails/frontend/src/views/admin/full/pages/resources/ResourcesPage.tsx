@@ -312,7 +312,12 @@ export function ResourcesPage(): JSX.Element {
     if (kind !== "PetDef") {
       return null;
     }
-    const source = resource ?? JSON.parse(resourceText) as unknown;
+    let source: unknown;
+    try {
+      source = JSON.parse(resourceText) as unknown;
+    } catch (err) {
+      throw new Error(`PetDef JSON is invalid: ${toMessage(err)}`);
+    }
     return readPetDefPixaMetadata(source);
   };
 

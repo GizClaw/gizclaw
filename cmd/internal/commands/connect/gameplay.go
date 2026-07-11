@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -124,20 +125,29 @@ func newPetPixaCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
 				path := strings.TrimSpace(output)
-				out, err := os.Create(path)
+				out, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".tmp-*")
 				if err != nil {
 					return nil, err
 				}
+				tmpPath := out.Name()
+				committed := false
+				defer func() {
+					if !committed {
+						_ = os.Remove(tmpPath)
+					}
+				}()
 				result, err := c.DownloadPetPixa(ctx, "server.pet.pixa.download", rpcapi.PetPixaDownloadRequest{PetId: args[0]}, out)
 				closeErr := out.Close()
 				if err != nil {
-					_ = os.Remove(path)
 					return nil, err
 				}
 				if closeErr != nil {
-					_ = os.Remove(path)
 					return nil, closeErr
 				}
+				if err := os.Rename(tmpPath, path); err != nil {
+					return nil, err
+				}
+				committed = true
 				return struct {
 					Metadata rpcapi.PetPixaDownloadResponse `json:"metadata"`
 					Output   string                         `json:"output"`

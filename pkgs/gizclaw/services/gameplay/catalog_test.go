@@ -504,6 +504,9 @@ func TestCatalogMigratesLegacyPetDefOnRead(t *testing.T) {
 	if len(petDef.Spec.Drive.Actions) != 0 {
 		t.Fatalf("legacy migration synthesized drive actions: %#v", petDef.Spec.Drive.Actions)
 	}
+	if petDef.Spec.Drive.Actions == nil {
+		t.Fatal("legacy migration drive actions is nil, want empty array")
+	}
 	if petDef.Spec.Visual.Pixa.Metadata.Canvas.Width != 32 || petDef.Spec.Visual.Pixa.Metadata.Canvas.Height != 24 {
 		t.Fatalf("legacy pixa canvas = %#v, want 32x24", petDef.Spec.Visual.Pixa.Metadata.Canvas)
 	}

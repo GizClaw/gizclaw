@@ -186,6 +186,37 @@ test.beforeEach(async ({ page }) => {
       async getPet(req) {
         return findByID(snapshot.pets, req.id);
       },
+      async getPetPresentation(req) {
+        const pet = findByID(snapshot.pets, req.id);
+        if (pet == null) {
+          throw new Error("pet not found");
+        }
+        return {
+          attr: {
+            life: { clean: { initial: 100 }, hunger: { initial: 100 } },
+            progression: { xp: { initial: 0 } },
+          },
+          default_locale: "en",
+          drive: {
+            actions: [
+              { cost: 0, id: "idle", visual_clip_id: "idle" },
+              { cost: 5, id: "bath", visual_clip_id: "bath" },
+            ],
+          },
+          i18n: {},
+          pet_id: pet.id,
+          petdef_id: pet.petdef_id,
+          petdef_updated_at: "2026-07-01T00:00:00Z",
+          pixa_metadata: {
+            canvas: { height: 60, width: 60 },
+            clips: [
+              { id: "idle", pixa_clip_name: "idle" },
+              { action_id: "bath", id: "bath", pixa_clip_name: "bath" },
+            ],
+            version: "1",
+          },
+        };
+      },
       async getPoints() {
         return snapshot.points;
       },

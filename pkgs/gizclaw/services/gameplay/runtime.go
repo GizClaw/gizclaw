@@ -350,6 +350,9 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 		var ok bool
 		actionSpec, ok = petDefAction(petDef, action)
 		if !ok {
+			if !isLegacyMigratedPetDef(petDef) {
+				return apitypes.PetDriveResponse{}, fmt.Errorf("pet action %q is not defined by petdef %q", action, petDef.Id)
+			}
 			legacyAction, legacyOK, err := r.Catalog.legacyGameRulesetAction(ctx, ruleset.Name, action)
 			if err != nil {
 				return apitypes.PetDriveResponse{}, err
@@ -470,6 +473,10 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 		return apitypes.PetDriveResponse{}, err
 	}
 	return apitypes.PetDriveResponse{Pet: pet, Points: account, GameResult: result, Badges: badges, RewardGrants: grants, Transactions: transactions}, nil
+}
+
+func isLegacyMigratedPetDef(petDef apitypes.PetDef) bool {
+	return len(petDef.Spec.Drive.Actions) == 0 && petDef.Spec.Visual.Pixa.AssetRef == "asset://pets/"+petDef.Id+"/pet.pixa"
 }
 
 func (r *Runtime) GetPoints(ctx context.Context, owner, rulesetName string) (apitypes.PointsAccount, error) {
