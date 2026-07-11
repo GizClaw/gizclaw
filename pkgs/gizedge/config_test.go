@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
@@ -199,7 +200,7 @@ func TestServeContextForwardsToUpstreamGizHTTP(t *testing.T) {
 		t.Fatalf("Listen upstream: %v", err)
 	}
 	defer upstreamListener.Close()
-	signaling := httptest.NewServer(upstreamListener.SignalingHandler())
+	signaling := newTestUpstreamSignalingServer(upstreamListener.SignalingHandler())
 	defer signaling.Close()
 
 	accepted := make(chan error, 1)
@@ -271,6 +272,11 @@ func TestUpstreamTransportReconnectsAfterClosedConn(t *testing.T) {
 	var mu sync.Mutex
 	var signalingHandler http.Handler
 	signaling := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/login" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"access_token":"edge-session","token_type":"Bearer","expires_at":4102444800000}`))
+			return
+		}
 		mu.Lock()
 		handler := signalingHandler
 		mu.Unlock()
@@ -465,6 +471,9 @@ func TestEdgeCORSHandlerHandlesBrowserPreflight(t *testing.T) {
 	if got := rec.Header().Get("Access-Control-Allow-Headers"); !strings.Contains(got, "X-Public-Key") {
 		t.Fatalf("Access-Control-Allow-Headers = %q, want X-Public-Key", got)
 	}
+	if got := rec.Header().Get("Access-Control-Allow-Methods"); !strings.Contains(got, http.MethodPut) {
+		t.Fatalf("Access-Control-Allow-Methods = %q, want PUT", got)
+	}
 }
 
 func TestEdgeCORSHandlerAddsHeadersToForwardedRequests(t *testing.T) {
@@ -503,6 +512,73 @@ func TestUpstreamSignalingURLPreservesConfiguredPath(t *testing.T) {
 	if got := upstreamSignalingURL(upstreamURL); got != "http://server:9822/custom-offer" {
 		t.Fatalf("upstreamSignalingURL = %q", got)
 	}
+}
+
+func TestPrivateIngressHTTPClientAddsEdgeSessionHeaders(t *testing.T) {
+	edgeKey := testKeyPair(t, 0x99)
+	upstreamKey := testKeyPair(t, 0x9a)
+	loginCount := 0
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/login":
+			loginCount++
+			if got := r.Header.Get(publiclogin.PublicKeyHeader); got != edgeKey.Public.String() {
+				t.Fatalf("login %s = %q, want edge public key", publiclogin.PublicKeyHeader, got)
+			}
+			if got := r.Header.Get("Authorization"); !strings.HasPrefix(got, "Bearer ") || strings.Contains(got, "edge-session") {
+				t.Fatalf("login Authorization = %q, want bearer assertion", got)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"access_token":"edge-session","token_type":"Bearer","expires_at":4102444800000}`))
+		case gizwebrtc.SignalingPath:
+			if got := r.Header.Get(publiclogin.PublicKeyHeader); got != edgeKey.Public.String() {
+				t.Fatalf("signaling %s = %q, want edge public key", publiclogin.PublicKeyHeader, got)
+			}
+			if got := r.Header.Get("Authorization"); got != "Bearer edge-session" {
+				t.Fatalf("signaling Authorization = %q, want bearer session", got)
+			}
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer upstream.Close()
+
+	upstreamURL, err := (&Config{Upstream: UpstreamConfig{Endpoint: upstream.URL}}).UpstreamURL()
+	if err != nil {
+		t.Fatalf("UpstreamURL error = %v", err)
+	}
+	client := newPrivateIngressHTTPClient(Config{
+		KeyPair: edgeKey,
+		Upstream: UpstreamConfig{
+			PublicKey: upstreamKey.Public,
+		},
+	}, upstreamURL)
+
+	for i := 0; i < 2; i++ {
+		resp, err := client.Post(upstream.URL+gizwebrtc.SignalingPath, "application/octet-stream", nil)
+		if err != nil {
+			t.Fatalf("Post signaling error = %v", err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusNoContent {
+			t.Fatalf("signaling status = %d", resp.StatusCode)
+		}
+	}
+	if loginCount != 1 {
+		t.Fatalf("loginCount = %d, want cached session", loginCount)
+	}
+}
+
+func newTestUpstreamSignalingServer(handler http.Handler) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/login" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"access_token":"edge-session","token_type":"Bearer","expires_at":4102444800000}`))
+			return
+		}
+		handler.ServeHTTP(w, r)
+	}))
 }
 
 func TestE2EEdgeWorkspaceTemplateParses(t *testing.T) {

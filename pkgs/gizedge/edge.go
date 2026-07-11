@@ -2,6 +2,7 @@ package gizedge
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -10,11 +11,13 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
@@ -84,6 +87,7 @@ func dialUpstream(ctx context.Context, cfg Config, upstreamURL *url.URL) (giznet
 	defer cancel()
 	listener, conn, err := gizwebrtc.Dial(dialCtx, cfg.KeyPair, cfg.Upstream.PublicKey, gizwebrtc.DialConfig{
 		SignalingURL:   upstreamSignalingURL(upstreamURL),
+		HTTPClient:     newPrivateIngressHTTPClient(cfg, upstreamURL),
 		SecurityPolicy: edgeSecurityPolicy{},
 	})
 	if err != nil {
@@ -98,6 +102,89 @@ func upstreamSignalingURL(upstreamURL *url.URL) string {
 		next.Path = gizwebrtc.SignalingPath
 	}
 	return next.String()
+}
+
+func upstreamLoginURL(upstreamURL *url.URL) string {
+	next := *upstreamURL
+	next.Path = "/login"
+	next.RawQuery = ""
+	next.Fragment = ""
+	return next.String()
+}
+
+func newPrivateIngressHTTPClient(cfg Config, upstreamURL *url.URL) *http.Client {
+	return &http.Client{
+		Transport: &privateIngressRoundTripper{
+			base:     http.DefaultTransport,
+			cfg:      cfg,
+			loginURL: upstreamLoginURL(upstreamURL),
+		},
+	}
+}
+
+type privateIngressRoundTripper struct {
+	base     http.RoundTripper
+	cfg      Config
+	loginURL string
+
+	mu        sync.Mutex
+	token     string
+	expiresAt time.Time
+}
+
+func (t *privateIngressRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	token, err := t.sessionToken(req.Context())
+	if err != nil {
+		return nil, err
+	}
+	next := req.Clone(req.Context())
+	next.Header = req.Header.Clone()
+	next.Header.Set("Authorization", "Bearer "+token)
+	next.Header.Set(publiclogin.PublicKeyHeader, t.cfg.KeyPair.Public.String())
+	return t.transport().RoundTrip(next)
+}
+
+func (t *privateIngressRoundTripper) sessionToken(ctx context.Context) (string, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.token != "" && time.Until(t.expiresAt) > time.Minute {
+		return t.token, nil
+	}
+	assertion, err := publiclogin.NewLoginAssertion(t.cfg.KeyPair, t.cfg.Upstream.PublicKey, time.Minute)
+	if err != nil {
+		return "", fmt.Errorf("edge: create upstream login assertion: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, t.loginURL, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+assertion)
+	req.Header.Set(publiclogin.PublicKeyHeader, t.cfg.KeyPair.Public.String())
+	resp, err := t.transport().RoundTrip(req)
+	if err != nil {
+		return "", fmt.Errorf("edge: login upstream private ingress: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("edge: login upstream private ingress: %s", resp.Status)
+	}
+	var result publiclogin.LoginResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("edge: decode upstream login response: %w", err)
+	}
+	if result.AccessToken == "" {
+		return "", fmt.Errorf("edge: upstream login response missing access token")
+	}
+	t.token = result.AccessToken
+	t.expiresAt = time.UnixMilli(result.ExpiresAt)
+	return t.token, nil
+}
+
+func (t *privateIngressRoundTripper) transport() http.RoundTripper {
+	if t.base != nil {
+		return t.base
+	}
+	return http.DefaultTransport
 }
 
 type upstreamTransport struct {
@@ -216,17 +303,17 @@ func edgeCORSHandler(next http.Handler) http.Handler {
 func setEdgeCORSHeaders(w http.ResponseWriter) {
 	header := w.Header()
 	header.Set("Access-Control-Allow-Origin", "*")
-	header.Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+	header.Set("Access-Control-Allow-Methods", "GET,POST,PUT,OPTIONS")
 	header.Set("Access-Control-Allow-Headers", "Authorization,Content-Type,X-Public-Key,X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp")
 	header.Set("Access-Control-Expose-Headers", "Content-Length,Content-Type")
 }
 
 func isEdgePeerHTTPPath(path string) bool {
 	switch path {
-	case "/login", "/server-info", "/webrtc/v1/offer":
+	case "/login", "/server-info", "/webrtc/v1/offer", "/me", "/me/status", "/me/runtime":
 		return true
 	default:
-		return false
+		return strings.HasPrefix(path, "/openai/v1/")
 	}
 }
 

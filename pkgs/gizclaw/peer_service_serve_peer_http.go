@@ -2,6 +2,7 @@ package gizclaw
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 
 	"github.com/gofiber/fiber/v2"
@@ -18,7 +19,7 @@ func (s *PeerService) servePublic(conn giznet.Conn) error {
 }
 
 func (s *PeerService) serveEdgePublic(conn giznet.Conn) error {
-	server := gizhttp.NewServer(conn, ServiceEdgeHTTP, s.edgePublicHTTPHandler(s.sessions))
+	server := gizhttp.NewServer(conn, ServiceEdgeHTTP, s.edgeHTTPHandler(s.sessions))
 	defer func() {
 		_ = server.Shutdown(context.Background())
 	}()
@@ -55,6 +56,40 @@ func (s *PeerService) publicHTTPHandler(sessions *publiclogin.SessionManager) ht
 
 func (s *PeerService) edgePublicHTTPHandler(sessions *publiclogin.SessionManager) http.Handler {
 	return s.publicHTTPHandlerWithOptions(sessions, publicHTTPOptions{requireClientPeer: true})
+}
+
+func (s *PeerService) edgeHTTPHandler(sessions *publiclogin.SessionManager) http.Handler {
+	mux := http.NewServeMux()
+	publicHandler := s.edgePublicHTTPHandler(sessions)
+	mux.Handle("/login", publicHandler)
+	mux.Handle("/server-info", publicHandler)
+	mux.Handle("/webrtc/v1/offer", publicHandler)
+	mux.Handle("/me", publicHandler)
+	mux.Handle("/me/status", publicHandler)
+	mux.Handle("/me/runtime", publicHandler)
+	mux.Handle("/openai/v1/", s.edgeOpenAIHTTPHandler(sessions))
+	return mux
+}
+
+func (s *PeerService) edgeOpenAIHTTPHandler(sessions *publiclogin.SessionManager) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		setPublicHTTPCORSHeaders(w.Header())
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		publicKey, ok := authenticateHTTPSession(w, r, sessions)
+		if !ok {
+			return
+		}
+		if !s.allowEdgeClientPeer(r.Context(), publicKey) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			_ = json.NewEncoder(w).Encode(apitypes.NewErrorResponse("EDGE_CLIENT_REQUIRED", "edge public HTTP only proxies active client peers"))
+			return
+		}
+		http.StripPrefix("/openai", s.openAIHTTPHandlerForPeer(publicKey, nil)).ServeHTTP(w, r)
+	})
 }
 
 func (s *PeerService) publicHTTPHandlerWithOptions(sessions *publiclogin.SessionManager, opts publicHTTPOptions) http.Handler {

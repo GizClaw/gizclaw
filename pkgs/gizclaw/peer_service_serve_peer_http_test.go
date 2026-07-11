@@ -236,6 +236,68 @@ func TestPeerServiceEdgePublicRequiresActiveClientPeer(t *testing.T) {
 	}
 }
 
+func TestPeerServiceEdgeOpenAIRequiresActiveClientPeer(t *testing.T) {
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(server) error = %v", err)
+	}
+	peersServer := &peer.Server{
+		Store:           mustBadgerInMemory(t, nil),
+		BuildCommit:     "test-build",
+		ServerPublicKey: serverKey.Public,
+	}
+	loginServer := publiclogin.NewServer(serverKey, mustBadgerInMemory(t, nil))
+	service := &PeerService{
+		manager:  NewManager(peersServer),
+		sessions: loginServer.SessionManager(),
+		public: &peerHTTP{
+			PeerHTTPService: peersServer,
+			Self:            peersServer,
+		},
+	}
+	handler := service.edgeHTTPHandler(service.sessions)
+
+	tests := []struct {
+		name       string
+		role       apitypes.PeerRole
+		status     apitypes.PeerRegistrationStatus
+		wantStatus int
+	}{
+		{name: "client reaches openai handler", role: apitypes.PeerRoleClient, status: apitypes.PeerRegistrationStatusActive, wantStatus: http.StatusBadRequest},
+		{name: "admin forbidden", role: apitypes.PeerRoleAdmin, status: apitypes.PeerRegistrationStatusActive, wantStatus: http.StatusForbidden},
+		{name: "server forbidden", role: apitypes.PeerRoleServer, status: apitypes.PeerRegistrationStatusActive, wantStatus: http.StatusForbidden},
+		{name: "edge forbidden", role: apitypes.PeerRoleEdgeNode, status: apitypes.PeerRegistrationStatusActive, wantStatus: http.StatusForbidden},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			keyPair, err := giznet.GenerateKeyPair()
+			if err != nil {
+				t.Fatalf("GenerateKeyPair(peer) error = %v", err)
+			}
+			if _, err := peersServer.SavePeer(context.Background(), apitypes.Peer{
+				PublicKey:     keyPair.Public.String(),
+				Role:          tc.role,
+				Status:        tc.status,
+				Device:        apitypes.DeviceInfo{},
+				Configuration: apitypes.Configuration{},
+			}); err != nil {
+				t.Fatalf("SavePeer error = %v", err)
+			}
+
+			accessToken := issuePeerHTTPSession(t, loginServer, keyPair, serverKey.Public)
+			req := httptest.NewRequest(http.MethodGet, "/openai/v1/models", nil)
+			req.Header.Set(publiclogin.PublicKeyHeader, keyPair.Public.String())
+			req.Header.Set("Authorization", "Bearer "+accessToken)
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+
+			if rec.Code != tc.wantStatus {
+				t.Fatalf("status = %d body=%s, want %d", rec.Code, rec.Body.String(), tc.wantStatus)
+			}
+		})
+	}
+}
+
 func issuePeerHTTPSession(t testing.TB, loginServer *publiclogin.Server, keyPair *giznet.KeyPair, serverPublicKey giznet.PublicKey) string {
 	t.Helper()
 

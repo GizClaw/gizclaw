@@ -71,7 +71,7 @@ mv "$workspace_dir/config.yaml.tmp" "$workspace_dir/config.yaml"
 
 "$setup_dir/build.sh" >/dev/null
 find "$GIZCLAW_E2E_CONFIG_HOME" -type f -name config.yaml -print0 |
-  xargs -0 perl -0pi -e 's/^(\s*endpoint:\s*)[^\s]+/${1}127.0.0.1:9822/mg'
+  xargs -0 perl -0pi -e 's/^(\s*endpoint:\s*)[^\s]+/${1}127.0.0.1:9820/mg'
 "$setup_dir/reset_data.sh" clear
 
 nohup "$bin_path" serve --force "$workspace_dir" >"$log_file" 2>&1 </dev/null &
@@ -84,12 +84,12 @@ for _ in {1..300}; do
     tail -80 "$log_file" >&2 || true
     exit 1
   fi
-  if curl -fsS --max-time 1 "http://127.0.0.1:9822/server-info" >/dev/null 2>&1; then
+  if curl -fsS --max-time 1 "http://127.0.0.1:9820/server-info" >/dev/null 2>&1; then
     break
   fi
   sleep 0.1
 done
-if ! curl -fsS --max-time 1 "http://127.0.0.1:9822/server-info" >/dev/null 2>&1; then
+if ! curl -fsS --max-time 1 "http://127.0.0.1:9820/server-info" >/dev/null 2>&1; then
   echo "gizclaw server did not become ready; log=$log_file" >&2
   tail -80 "$log_file" >&2 || true
   exit 1

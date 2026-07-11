@@ -2,6 +2,7 @@ package gizclaw
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -123,6 +124,44 @@ func TestServerSecurityPolicyAllowsEdgeServicesOnlyForActiveEdgeNode(t *testing.
 	}
 	if policy.AllowService(blockedKey.Public, ServiceEdgeRPC) {
 		t.Fatal("blocked edge-node should not allow edge RPC")
+	}
+}
+
+func TestServerAllowsActiveEdgeNodeForPrivateHTTPIngress(t *testing.T) {
+	ctx := context.Background()
+	edgeKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(edge) error = %v", err)
+	}
+	clientKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(client) error = %v", err)
+	}
+	service := &peer.Server{Store: mustBadgerInMemory(t, nil)}
+	for _, item := range []struct {
+		key  giznet.PublicKey
+		role apitypes.PeerRole
+	}{
+		{key: edgeKey.Public, role: apitypes.PeerRoleEdgeNode},
+		{key: clientKey.Public, role: apitypes.PeerRoleClient},
+	} {
+		if _, err := service.SavePeer(ctx, apitypes.Peer{
+			PublicKey:     item.key.String(),
+			Role:          item.role,
+			Status:        apitypes.PeerRegistrationStatusActive,
+			Device:        apitypes.DeviceInfo{},
+			Configuration: apitypes.Configuration{},
+		}); err != nil {
+			t.Fatalf("SavePeer(%s) error = %v", item.key, err)
+		}
+	}
+
+	srv := &Server{manager: NewManager(service)}
+	if err := srv.AuthorizePrivateHTTPIngress(ctx, edgeKey.Public); err != nil {
+		t.Fatalf("AuthorizePrivateHTTPIngress(edge-node) error = %v", err)
+	}
+	if err := srv.AuthorizePrivateHTTPIngress(ctx, clientKey.Public); !errors.Is(err, ErrPrivateHTTPIngressDenied) {
+		t.Fatalf("AuthorizePrivateHTTPIngress(client) error = %v, want denied", err)
 	}
 }
 

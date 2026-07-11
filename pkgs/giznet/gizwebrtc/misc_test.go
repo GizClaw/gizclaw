@@ -441,6 +441,20 @@ func TestPostOfferRejectsEmptySignalingURLAndDialRejectsNilKey(t *testing.T) {
 	}
 }
 
+func TestWaitForGatheringRespectsContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := waitForGathering(ctx, make(chan struct{})); !errors.Is(err, context.Canceled) {
+		t.Fatalf("waitForGathering canceled error = %v, want context.Canceled", err)
+	}
+
+	done := make(chan struct{})
+	close(done)
+	if err := waitForGathering(context.Background(), done); err != nil {
+		t.Fatalf("waitForGathering completed error = %v", err)
+	}
+}
+
 func TestPostOfferAndDialReportSignalingHTTPError(t *testing.T) {
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {
@@ -479,7 +493,7 @@ func TestSignalingHandlerClosedListenerAndAcceptOfferInvalidSDP(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateKeyPair(client) error = %v", err)
 	}
-	if _, _, err := listener.acceptOffer(clientKey.Public, "not sdp"); err == nil {
+	if _, _, err := listener.acceptOffer(context.Background(), clientKey.Public, "not sdp"); err == nil {
 		t.Fatal("acceptOffer invalid SDP error = nil")
 	}
 	if err := listener.Close(); err != nil {

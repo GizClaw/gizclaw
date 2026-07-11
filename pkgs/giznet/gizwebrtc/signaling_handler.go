@@ -1,6 +1,7 @@
 package gizwebrtc
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -80,7 +81,7 @@ func (l *Listener) handleOffer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	answerSDP, conn, err := l.acceptOffer(clientPK, string(offerSDP))
+	answerSDP, conn, err := l.acceptOffer(r.Context(), clientPK, string(offerSDP))
 	if err != nil {
 		writeSignalingError(w, http.StatusInternalServerError, "answer_failed")
 		return
@@ -101,7 +102,7 @@ func (l *Listener) handleOffer(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
-func (l *Listener) acceptOffer(clientPK giznet.PublicKey, offerSDP string) (string, *Conn, error) {
+func (l *Listener) acceptOffer(ctx context.Context, clientPK giznet.PublicKey, offerSDP string) (string, *Conn, error) {
 	pc, err := l.api.NewPeerConnection(peerConnectionConfiguration(l.cfg.ICEServers, l.cfg.ICETransportPolicy))
 	if err != nil {
 		return "", nil, err
@@ -125,7 +126,10 @@ func (l *Listener) acceptOffer(clientPK giznet.PublicKey, offerSDP string) (stri
 		_ = conn.Close()
 		return "", nil, err
 	}
-	<-gatherComplete
+	if err := waitForGathering(ctx, gatherComplete); err != nil {
+		_ = conn.Close()
+		return "", nil, err
+	}
 	if pc.LocalDescription() == nil {
 		_ = conn.Close()
 		return "", nil, fmt.Errorf("gizwebrtc: missing local answer")

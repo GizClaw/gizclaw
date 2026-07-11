@@ -104,7 +104,11 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 		_ = l.Close()
 		return nil, nil, err
 	}
-	<-gatherComplete
+	if err := waitForGathering(ctx, gatherComplete); err != nil {
+		_ = conn.Close()
+		_ = l.Close()
+		return nil, nil, err
+	}
 	if pc.LocalDescription() == nil {
 		_ = conn.Close()
 		_ = l.Close()
@@ -133,6 +137,15 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 		_ = conn.Close()
 		_ = l.Close()
 		return nil, nil, fmt.Errorf("gizwebrtc: timeout waiting for packet channel")
+	}
+}
+
+func waitForGathering(ctx context.Context, gatherComplete <-chan struct{}) error {
+	select {
+	case <-gatherComplete:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
 

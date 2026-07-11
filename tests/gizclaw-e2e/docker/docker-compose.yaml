@@ -22,7 +22,7 @@ services:
         bind:
           create_host_path: false
     healthcheck:
-      test: ["CMD-SHELL", "test -f /tmp/gizclaw-e2e-server-http-ready && curl -fsS http://127.0.0.1:9822/server-info >/dev/null"]
+      test: ["CMD-SHELL", "test -f /tmp/gizclaw-e2e-server-http-ready && curl -fsS http://127.0.0.1:9820/server-info >/dev/null"]
       interval: 2s
       timeout: 1s
       retries: 60
@@ -52,7 +52,7 @@ services:
       GIZCLAW_E2E_TURN_CREDENTIAL: ${GIZCLAW_E2E_TURN_CREDENTIAL:?set by docker-compose-up.sh}
       GIZCLAW_E2E_TURN_RELAY_MIN_PORT: ${GIZCLAW_E2E_TURN_RELAY_MIN_PORT:?set by docker-compose-up.sh}
       GIZCLAW_E2E_TURN_RELAY_MAX_PORT: ${GIZCLAW_E2E_TURN_RELAY_MAX_PORT:?set by docker-compose-up.sh}
-      GIZCLAW_E2E_EDGE_UPSTREAM_ENDPOINT: http://server:9822
+      GIZCLAW_E2E_EDGE_UPSTREAM_ENDPOINT: http://server:9820
     ports:
       - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_EDGE_PORT:?set by docker-compose-up.sh}:9821/tcp"
       - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_TURN_PORT:?set by docker-compose-up.sh}:9823/udp"

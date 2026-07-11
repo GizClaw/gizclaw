@@ -32,7 +32,8 @@ func (s *Server) AuthorizePrivateHTTPIngress(ctx context.Context, publicKey gizn
 	if err != nil {
 		return ErrPrivateHTTPIngressDenied
 	}
-	if peer.Status == apitypes.PeerRegistrationStatusActive && peer.Role == apitypes.PeerRoleServer {
+	if peer.Status == apitypes.PeerRegistrationStatusActive &&
+		(peer.Role == apitypes.PeerRoleServer || peer.Role == apitypes.PeerRoleEdgeNode) {
 		return nil
 	}
 	return ErrPrivateHTTPIngressDenied
