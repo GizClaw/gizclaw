@@ -79,6 +79,27 @@ void main() {
     expect(pc.disposeCalls, 0);
   });
 
+  test(
+    'closes caller-owned packet channel when connection setup fails',
+    () async {
+      final pc = _FakePeerConnection(stopAfterAudio: false);
+
+      await expectLater(
+        connectFlutterGiznetWebRtc(
+          addAudioTransceiver: false,
+          peerConnection: pc,
+          prepareOffer: (_) async => _preparedOffer(),
+          sendOffer: (_) async => throw StateError('send failed'),
+        ),
+        throwsStateError,
+      );
+
+      expect(pc.closeCalls, 0);
+      expect(pc.disposeCalls, 0);
+      expect(pc.createdDataChannels.single.closeCalls, 1);
+    },
+  );
+
   test('rechecks ICE state after installing the gathering handler', () async {
     final pc = _FakePeerConnection(
       completeIceAfterHandler: true,
@@ -112,6 +133,20 @@ void main() {
 
     expect(pc.dataChannelInits.single.id, -1);
     expect(channel.state, GizClawDataChannelState.open);
+  });
+
+  test('closes native data channel when open wait fails', () async {
+    final pc = _FakePeerConnection(
+      channelInitialState: rtc.RTCDataChannelState.RTCDataChannelClosed,
+    );
+    final factory = FlutterWebRtcDataChannelFactory(pc);
+
+    await expectLater(
+      factory.createDataChannel('giznet/v1/service/0'),
+      throwsStateError,
+    );
+
+    expect(pc.createdDataChannels.single.closeCalls, 1);
   });
 
   test('reinstalls inbound RPC handler after app handler replacement', () {
@@ -180,11 +215,13 @@ class _AddTransceiverCall {
 
 class _FakePeerConnection extends rtc.RTCPeerConnection {
   _FakePeerConnection({
+    this.channelInitialState,
     this.channelsNativeReady = false,
     this.completeIceAfterHandler = false,
     this.stopAfterAudio = true,
   });
 
+  final rtc.RTCDataChannelState? channelInitialState;
   final bool channelsNativeReady;
   final bool completeIceAfterHandler;
   final bool stopAfterAudio;
@@ -216,6 +253,7 @@ class _FakePeerConnection extends rtc.RTCPeerConnection {
   ) async {
     dataChannelInits.add(dataChannelDict);
     final channel = _FakeRtcDataChannel(
+      initialState: channelInitialState,
       label: label,
       nativeReady: channelsNativeReady,
     );
@@ -376,8 +414,12 @@ class _FakePeerConnection extends rtc.RTCPeerConnection {
 }
 
 class _FakeRtcDataChannel extends rtc.RTCDataChannel {
-  _FakeRtcDataChannel({String label = 'test', this.nativeReady = false})
-    : _label = label {
+  _FakeRtcDataChannel({
+    rtc.RTCDataChannelState? initialState,
+    String label = 'test',
+    this.nativeReady = false,
+  }) : _label = label,
+       _state = initialState {
     stateChangeStream = const Stream.empty();
     messageStream = const Stream.empty();
   }
@@ -385,6 +427,7 @@ class _FakeRtcDataChannel extends rtc.RTCDataChannel {
   final String _label;
   final bool nativeReady;
   rtc.RTCDataChannelState? _state;
+  int closeCalls = 0;
 
   void emitState(rtc.RTCDataChannelState state) {
     _state = state;
@@ -405,7 +448,10 @@ class _FakeRtcDataChannel extends rtc.RTCDataChannel {
   }
 
   @override
-  Future<void> close() async {}
+  Future<void> close() async {
+    closeCalls++;
+    _state = rtc.RTCDataChannelState.RTCDataChannelClosed;
+  }
 
   @override
   int? get id => 1;

@@ -29,7 +29,12 @@ class FlutterWebRtcDataChannelFactory implements GizClawDataChannelFactory {
       init.maxRetransmits = maxRetransmits;
     }
     final channel = await peerConnection.createDataChannel(label, init);
-    await _waitForDataChannelOpen(channel);
+    try {
+      await _waitForDataChannelOpen(channel);
+    } catch (_) {
+      await channel.close();
+      rethrow;
+    }
     return FlutterWebRtcDataChannel(
       channel,
       initialState: GizClawDataChannelState.open,
@@ -71,9 +76,9 @@ Future<rtc.RTCPeerConnection> connectFlutterGiznetWebRtc({
 }) async {
   final ownsPeerConnection = peerConnection == null;
   final pc = peerConnection ?? await createPeerConnection(configuration);
+  rtc.RTCDataChannel? packetDataChannel;
   try {
     serveFlutterGiznetWebRtcRpc(pc);
-    rtc.RTCDataChannel? packetDataChannel;
     if (createPacketDataChannel) {
       final init = rtc.RTCDataChannelInit()
         ..id = -1
@@ -112,6 +117,9 @@ Future<rtc.RTCPeerConnection> connectFlutterGiznetWebRtc({
     }
     return pc;
   } catch (_) {
+    if (packetDataChannel != null) {
+      await packetDataChannel.close();
+    }
     if (ownsPeerConnection) {
       await _disposePeerConnection(pc);
     }

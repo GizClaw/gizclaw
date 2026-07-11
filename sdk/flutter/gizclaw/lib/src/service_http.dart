@@ -49,11 +49,11 @@ class ServiceHttpClient {
   final int service;
 
   Future<ServiceHttpResponse> send(ServiceHttpRequest request) async {
+    final requestBytes = encodeHttpRequest(request, host: host);
     final channel = await _factory.createDataChannel(
       giznetServiceDataChannelLabel(service),
       options: const GizClawDataChannelOptions(ordered: true),
     );
-    final requestBytes = encodeHttpRequest(request, host: host);
     final completer = Completer<ServiceHttpResponse>();
     final buffer = BytesBuilder(copy: false);
     var requestSent = false;

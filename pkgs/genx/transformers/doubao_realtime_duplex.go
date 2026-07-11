@@ -931,6 +931,8 @@ func (r *doubaoRealtimeDuplexInputReader) Next() (*genx.MessageChunk, error) {
 
 func (r *doubaoRealtimeDuplexInputReader) NextOrDone(done <-chan struct{}) (*genx.MessageChunk, error, bool) {
 	select {
+	case <-done:
+		return nil, nil, true
 	case result, ok := <-r.results:
 		if !ok {
 			return nil, io.EOF, false
@@ -939,21 +941,13 @@ func (r *doubaoRealtimeDuplexInputReader) NextOrDone(done <-chan struct{}) (*gen
 	default:
 	}
 	select {
+	case <-done:
+		return nil, nil, true
 	case result, ok := <-r.results:
 		if !ok {
 			return nil, io.EOF, false
 		}
 		return result.chunk, result.err, false
-	case <-done:
-		select {
-		case result, ok := <-r.results:
-			if !ok {
-				return nil, io.EOF, false
-			}
-			return result.chunk, result.err, false
-		default:
-			return nil, nil, true
-		}
 	}
 }
 

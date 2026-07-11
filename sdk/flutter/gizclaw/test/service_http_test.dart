@@ -141,6 +141,18 @@ void main() {
     expect(ascii.decode(response.body), '{}');
   });
 
+  test('validates requests before opening a service channel', () async {
+    final factory = FakeDataChannelFactory();
+    final client = ServiceHttpClient(factory);
+
+    await expectLater(
+      client.send(const ServiceHttpRequest(path: '/bad\r\nInjected: yes')),
+      throwsArgumentError,
+    );
+
+    expect(factory.channels, isEmpty);
+  });
+
   test(
     'sends service HTTP request once when open state is emitted again',
     () async {

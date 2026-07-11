@@ -731,6 +731,12 @@ func TestDoubaoRealtimeDuplexSessionClosedWhileWaitingForInputDoesNotDropNextChu
 	if got := firstSession.audioCount() + secondSession.audioCount(); got != 1 {
 		t.Fatalf("total SendAudio calls = %d, want 1", got)
 	}
+	if got := firstSession.audioCount(); got != 0 {
+		t.Fatalf("first session SendAudio calls = %d, want 0", got)
+	}
+	if got := secondSession.audioCount(); got != 1 {
+		t.Fatalf("second session SendAudio calls = %d, want 1", got)
+	}
 }
 
 func TestDoubaoRealtimeDuplexTextDoneAfterAudioDoneAllowsNextTurn(t *testing.T) {
