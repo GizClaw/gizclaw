@@ -47,11 +47,13 @@ class WorkspaceChatController extends ChangeNotifier {
     this.client,
     this.dataChannelFactory,
     this.peerConnection,
+    this.onTransportClosed,
   });
 
   final GizClawClient? client;
   final GizClawDataChannelFactory? dataChannelFactory;
   final rtc.RTCPeerConnection? peerConnection;
+  final Future<void> Function()? onTransportClosed;
   final WorkspaceChatRepository repository;
   final String? serverId;
   final String workspaceName;
@@ -70,6 +72,7 @@ class WorkspaceChatController extends ChangeNotifier {
   bool recording = false;
   bool startingInput = false;
   bool _finishPending = false;
+  bool _transportRecoveryRequested = false;
   String? replayingHistoryId;
   bool _disposed = false;
 
@@ -139,6 +142,7 @@ class WorkspaceChatController extends ChangeNotifier {
         _handleEvent,
         onError: (Object error) => _handleError(error),
         onDone: () {
+          if (_disposed) return;
           assert(() {
             debugPrint('Workspace event channel closed for $workspaceName');
             return true;
@@ -148,6 +152,7 @@ class WorkspaceChatController extends ChangeNotifier {
             state = WorkspaceChatState.offline;
             notifyListeners();
           }
+          _requestTransportRecovery();
         },
       );
       state = WorkspaceChatState.connected;
@@ -377,6 +382,17 @@ class WorkspaceChatController extends ChangeNotifier {
       state = WorkspaceChatState.error;
     }
     notifyListeners();
+  }
+
+  void _requestTransportRecovery() {
+    final recover = onTransportClosed;
+    if (_disposed || recover == null || _transportRecoveryRequested) return;
+    _transportRecoveryRequested = true;
+    unawaited(
+      recover().catchError((Object error) {
+        if (!_disposed) _handleError(error);
+      }),
+    );
   }
 
   void _resetRecording() {

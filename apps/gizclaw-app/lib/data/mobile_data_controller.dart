@@ -201,6 +201,10 @@ class MobileDataController extends ChangeNotifier {
     }
   }
 
+  Future<void> recoverTransport() async {
+    await _reconnect();
+  }
+
   Future<GizClawClient> _reconnect() {
     final active = _reconnecting;
     if (active != null) return active;
@@ -298,6 +302,7 @@ class MobileDataController extends ChangeNotifier {
       client: connection.client,
       dataChannelFactory: connection.dataChannelFactory,
       peerConnection: connection.peerConnection,
+      onTransportClosed: recoverTransport,
     );
   }
 

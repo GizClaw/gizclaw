@@ -586,7 +586,7 @@ class _PetConversationDrift extends StatelessWidget {
         .where((message) => message.text.trim().isNotEmpty)
         .toList(growable: false)
         .reversed
-        .take(6)
+        .take(8)
         .toList(growable: false);
     return IgnorePointer(
       child: LayoutBuilder(
@@ -605,7 +605,7 @@ class _PetConversationDrift extends StatelessWidget {
                   right: visible[index].incoming
                       ? constraints.maxWidth * 0.23
                       : 0,
-                  bottom: 30 + index * 72,
+                  bottom: 154 + index * 62,
                   child: TweenAnimationBuilder<double>(
                     tween: Tween(begin: 18, end: 0),
                     duration: const Duration(milliseconds: 460),
@@ -615,7 +615,7 @@ class _PetConversationDrift extends StatelessWidget {
                       child: child,
                     ),
                     child: AnimatedOpacity(
-                      opacity: (0.72 - index * 0.11).clamp(0.14, 0.72),
+                      opacity: (0.84 - index * 0.1).clamp(0.12, 0.84),
                       duration: const Duration(milliseconds: 520),
                       curve: Curves.easeOutCubic,
                       child: _PetDriftingMessage(message: visible[index]),
