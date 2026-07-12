@@ -201,15 +201,3 @@ class ChatroomWorkspaceMetadata {
   final String title;
   final String workspaceName;
 }
-
-class FriendCard {
-  const FriendCard({
-    required this.name,
-    required this.status,
-    required this.online,
-  });
-
-  final String name;
-  final String status;
-  final bool online;
-}

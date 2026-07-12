@@ -255,6 +255,19 @@ void main() {
     expect(find.text('Connected over WebRTC'), findsOneWidget);
   });
 
+  testWidgets('opens a friend chatroom workspace', (tester) async {
+    await pumpApp(tester);
+
+    await tester.tap(find.text('Friends'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Avery'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ChatroomWorkspacePage), findsOneWidget);
+    expect(find.text('Avery'), findsOneWidget);
+    expect(find.text('Direct chat'), findsOneWidget);
+  });
+
   testWidgets('fits the compact iPhone viewport', (tester) async {
     tester.view.physicalSize = const Size(375, 667);
     tester.view.devicePixelRatio = 1;

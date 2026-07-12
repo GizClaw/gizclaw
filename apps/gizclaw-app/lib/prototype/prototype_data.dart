@@ -148,12 +148,6 @@ const chatroomWorkspaceMetadata = [
   ),
 ];
 
-const friends = [
-  FriendCard(name: 'Avery', status: 'Building in Flowcraft', online: true),
-  FriendCard(name: 'Morgan', status: 'Online', online: true),
-  FriendCard(name: 'Rin', status: 'Last active yesterday', online: false),
-];
-
 WorkflowCard workflowByName(String name) {
   return allWorkflows.firstWhere(
     (workflow) => workflow.name == name,

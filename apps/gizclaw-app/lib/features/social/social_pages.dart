@@ -1,8 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../data/mobile_data_controller.dart';
 import '../../giz_ui/giz_ui.dart';
-import '../../prototype/prototype_data.dart';
 import '../../prototype/prototype_models.dart';
 
 class FriendsPage extends StatelessWidget {
@@ -10,6 +11,9 @@ class FriendsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final friendChats = MobileDataScope.watch(context).chatroomWorkspaces
+        .where((item) => item.kind == ChatroomWorkspaceKind.direct)
+        .toList(growable: false);
     return CupertinoPageScaffold(
       child: SafeArea(
         bottom: false,
@@ -46,15 +50,26 @@ class FriendsPage extends StatelessWidget {
                 ),
               ),
             ),
-            SliverList.builder(
-              itemCount: friends.length,
-              itemBuilder: (context, index) {
-                return FriendRow(friend: friends[index], index: index)
-                    .animate(delay: (index * 45).ms)
-                    .fadeIn(duration: 280.ms)
-                    .slideY(begin: 0.05, end: 0, curve: Curves.easeOutCubic);
-              },
-            ),
+            if (friendChats.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: Text(
+                    'No friends yet.',
+                    style: GizText.body.copyWith(color: GizColors.secondaryInk),
+                  ),
+                ),
+              )
+            else
+              SliverList.builder(
+                itemCount: friendChats.length,
+                itemBuilder: (context, index) {
+                  return FriendRow(friend: friendChats[index], index: index)
+                      .animate(delay: (index * 45).ms)
+                      .fadeIn(duration: 280.ms)
+                      .slideY(begin: 0.05, end: 0, curve: Curves.easeOutCubic);
+                },
+              ),
             const SliverPadding(padding: EdgeInsets.only(bottom: 112)),
           ],
         ),
@@ -66,7 +81,7 @@ class FriendsPage extends StatelessWidget {
 class FriendRow extends StatelessWidget {
   const FriendRow({super.key, required this.friend, required this.index});
 
-  final FriendCard friend;
+  final ChatroomWorkspaceMetadata friend;
   final int index;
 
   @override
@@ -77,54 +92,43 @@ class FriendRow extends StatelessWidget {
       Color(0xFFD9E8FF),
     ];
     return GizListRow(
-      leading: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: avatarColors[index % avatarColors.length],
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              friend.name.substring(0, 1),
-              style: GizText.sectionTitle,
-            ),
-          ),
-          Positioned(
-            right: -3,
-            bottom: -3,
-            child: Container(
-              width: 15,
-              height: 15,
-              decoration: BoxDecoration(
-                color: friend.online
-                    ? GizColors.success
-                    : const Color(0xFF9AA0A6),
-                shape: BoxShape.circle,
-                border: Border.all(color: GizColors.canvas, width: 3),
-              ),
-            ),
-          ),
-        ],
+      leading: Container(
+        width: 52,
+        height: 52,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: avatarColors[index % avatarColors.length],
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          friend.title.substring(0, 1).toUpperCase(),
+          style: GizText.sectionTitle,
+        ),
       ),
-      title: friend.name,
-      subtitle: friend.status,
-      onPressed: () {},
-      trailing: CupertinoButton(
-        minimumSize: const Size.square(40),
-        padding: EdgeInsets.zero,
-        color: const Color(0xFFE3E8E1),
-        borderRadius: BorderRadius.circular(20),
-        onPressed: () {},
+      title: friend.title,
+      subtitle: 'Direct chat',
+      onPressed: () => _openChat(context),
+      trailing: Container(
+        width: 40,
+        height: 40,
+        alignment: Alignment.center,
+        decoration: const BoxDecoration(
+          color: Color(0xFFE3E8E1),
+          shape: BoxShape.circle,
+        ),
         child: const Icon(
           CupertinoIcons.chat_bubble,
           size: 18,
           color: GizColors.ink,
         ),
       ),
+    );
+  }
+
+  void _openChat(BuildContext context) {
+    context.push(
+      '/chats/drivers/chatroom/'
+      '${Uri.encodeComponent(friend.workspaceName)}',
     );
   }
 }
