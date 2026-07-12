@@ -203,7 +203,7 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
+          _scrollController.position.minScrollExtent,
           duration: const Duration(milliseconds: 220),
           curve: Curves.easeOutCubic,
         );
@@ -303,6 +303,7 @@ class _WorkspaceMessageList extends StatelessWidget {
     }
     return ListView.separated(
       controller: controller,
+      reverse: true,
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 18),
       itemCount: messages.length + (error == null ? 0 : 1),
       separatorBuilder: (_, _) => const SizedBox(height: 10),
@@ -314,7 +315,7 @@ class _WorkspaceMessageList extends StatelessWidget {
             style: GizText.label.copyWith(color: GizColors.secondaryInk),
           );
         }
-        final message = messages[index];
+        final message = messages[messages.length - 1 - index];
         return _ChatBubble(
           text: message.text.isEmpty ? '...' : message.text,
           incoming: message.incoming,
