@@ -228,24 +228,23 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
     final workflow = data.workflow(workspace.workflowName);
     final chat = _chat;
     final messages = chat?.messages ?? const <WorkspaceChatMessage>[];
+    final signal = _SignalPalette.of(context);
+    final accent = _driverAccent(workflow.driver, signal.brightness);
     return CupertinoPageScaffold(
-      backgroundColor: _SignalColors.canvas,
+      backgroundColor: signal.canvas,
       navigationBar: CupertinoNavigationBar(
-        backgroundColor: _SignalColors.chrome,
-        brightness: Brightness.dark,
+        backgroundColor: signal.chrome,
+        brightness: signal.brightness,
         middle: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               workspace.title,
-              style: GizText.title.copyWith(color: CupertinoColors.white),
+              style: GizText.title.copyWith(color: signal.text),
             ),
             Text(
               '${workflow.driver.label}  /  ${_connectionLabel(chat?.state)}',
-              style: GizText.label.copyWith(
-                color: _SignalColors.muted,
-                fontSize: 9,
-              ),
+              style: GizText.label.copyWith(color: signal.muted, fontSize: 9),
             ),
           ],
         ),
@@ -268,21 +267,20 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
                 workflowTitle: workflow.title,
                 state: chat?.state ?? WorkspaceChatState.loading,
                 recording: chat?.recording ?? false,
-                accent: _driverAccent(workflow.driver),
+                accent: accent,
+                signal: signal,
               ),
               Expanded(
                 child: _WorkspaceMessageList(
                   controller: _scrollController,
                   messages: messages,
                   state: chat?.state ?? WorkspaceChatState.loading,
-                  color: _driverAccent(workflow.driver),
+                  color: accent,
+                  signal: signal,
                   error: chat?.lastError,
                 ),
               ),
-              _PushToTalkControl(
-                chat: chat,
-                accent: _driverAccent(workflow.driver),
-              ),
+              _PushToTalkControl(chat: chat, accent: accent, signal: signal),
             ],
           ),
         ),
@@ -299,22 +297,78 @@ String _connectionLabel(WorkspaceChatState? state) => switch (state) {
   null => 'LINKING',
 };
 
-Color _driverAccent(WorkflowDriverKind driver) => switch (driver) {
-  WorkflowDriverKind.astTranslate => const Color(0xFF8CFFB5),
-  WorkflowDriverKind.doubaoRealtime => const Color(0xFFFF8B6A),
-  WorkflowDriverKind.flowcraft => const Color(0xFF70D8FF),
-  WorkflowDriverKind.chatroom => const Color(0xFFFFD166),
-  WorkflowDriverKind.unsupported => GizColors.accent,
+Color _driverAccent(
+  WorkflowDriverKind driver,
+  Brightness brightness,
+) => switch ((driver, brightness)) {
+  (WorkflowDriverKind.astTranslate, Brightness.light) => const Color(
+    0xFF2AAE72,
+  ),
+  (WorkflowDriverKind.doubaoRealtime, Brightness.light) => const Color(
+    0xFFE66843,
+  ),
+  (WorkflowDriverKind.flowcraft, Brightness.light) => const Color(0xFF1687B5),
+  (WorkflowDriverKind.chatroom, Brightness.light) => const Color(0xFFC68B11),
+  (WorkflowDriverKind.astTranslate, Brightness.dark) => const Color(0xFF8CFFB5),
+  (WorkflowDriverKind.doubaoRealtime, Brightness.dark) => const Color(
+    0xFFFF8B6A,
+  ),
+  (WorkflowDriverKind.flowcraft, Brightness.dark) => const Color(0xFF70D8FF),
+  (WorkflowDriverKind.chatroom, Brightness.dark) => const Color(0xFFFFD166),
+  (WorkflowDriverKind.unsupported, _) => GizColors.accent,
 };
 
-abstract final class _SignalColors {
-  static const canvas = Color(0xFF080B0A);
-  static const chrome = Color(0xED080B0A);
-  static const panel = Color(0xFF121715);
-  static const panelStrong = Color(0xFF19201D);
-  static const line = Color(0xFF2A332F);
-  static const muted = Color(0xFF8E9B95);
-  static const text = Color(0xFFF4F8F5);
+class _SignalPalette {
+  const _SignalPalette({
+    required this.brightness,
+    required this.canvas,
+    required this.chrome,
+    required this.panel,
+    required this.panelStrong,
+    required this.line,
+    required this.muted,
+    required this.text,
+    required this.onAccent,
+  });
+
+  static const light = _SignalPalette(
+    brightness: Brightness.light,
+    canvas: Color(0xFFF1F5F1),
+    chrome: Color(0xF2F1F5F1),
+    panel: Color(0xFFFFFFFF),
+    panelStrong: Color(0xFFE4EBE6),
+    line: Color(0xFFCBD6CF),
+    muted: Color(0xFF627169),
+    text: Color(0xFF101713),
+    onAccent: Color(0xFF07110C),
+  );
+
+  static const dark = _SignalPalette(
+    brightness: Brightness.dark,
+    canvas: Color(0xFF080B0A),
+    chrome: Color(0xED080B0A),
+    panel: Color(0xFF121715),
+    panelStrong: Color(0xFF19201D),
+    line: Color(0xFF2A332F),
+    muted: Color(0xFF8E9B95),
+    text: Color(0xFFF4F8F5),
+    onAccent: Color(0xFF07110C),
+  );
+
+  final Brightness brightness;
+  final Color canvas;
+  final Color chrome;
+  final Color line;
+  final Color muted;
+  final Color onAccent;
+  final Color panel;
+  final Color panelStrong;
+  final Color text;
+
+  static _SignalPalette of(BuildContext context) =>
+      MediaQuery.platformBrightnessOf(context) == Brightness.dark
+      ? dark
+      : light;
 }
 
 class _AgentSignalStage extends StatefulWidget {
@@ -324,11 +378,13 @@ class _AgentSignalStage extends StatefulWidget {
     required this.state,
     required this.recording,
     required this.accent,
+    required this.signal,
   });
 
   final Color accent;
   final String? imagePath;
   final bool recording;
+  final _SignalPalette signal;
   final WorkspaceChatState state;
   final String workflowTitle;
 
@@ -385,6 +441,7 @@ class _AgentSignalStageState extends State<_AgentSignalStage>
                       : _connectionLabel(widget.state),
                   accent: widget.accent,
                   active: active,
+                  signal: widget.signal,
                 ),
               ),
               Transform.translate(
@@ -396,6 +453,7 @@ class _AgentSignalStageState extends State<_AgentSignalStage>
                   imagePath: widget.imagePath,
                   accent: widget.accent,
                   energy: energy,
+                  signal: widget.signal,
                 ),
               ),
               Positioned(
@@ -405,7 +463,7 @@ class _AgentSignalStageState extends State<_AgentSignalStage>
                   style: GizText.label.copyWith(
                     color: widget.recording
                         ? widget.accent
-                        : _SignalColors.muted,
+                        : widget.signal.muted,
                     fontSize: 10,
                   ),
                 ),
@@ -423,11 +481,13 @@ class _SignalStatusPill extends StatelessWidget {
     required this.label,
     required this.accent,
     required this.active,
+    required this.signal,
   });
 
   final Color accent;
   final bool active;
   final String label;
+  final _SignalPalette signal;
 
   @override
   Widget build(BuildContext context) {
@@ -438,9 +498,9 @@ class _SignalStatusPill extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
-            color: const Color(0x99121715),
+            color: signal.panel.withValues(alpha: 0.72),
             borderRadius: BorderRadius.circular(99),
-            border: Border.all(color: _SignalColors.line),
+            border: Border.all(color: signal.line),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -449,7 +509,7 @@ class _SignalStatusPill extends StatelessWidget {
                 width: 6,
                 height: 6,
                 decoration: BoxDecoration(
-                  color: active ? accent : _SignalColors.muted,
+                  color: active ? accent : signal.muted,
                   shape: BoxShape.circle,
                   boxShadow: active
                       ? [BoxShadow(color: accent, blurRadius: 8)]
@@ -459,10 +519,7 @@ class _SignalStatusPill extends StatelessWidget {
               const SizedBox(width: 7),
               Text(
                 label,
-                style: GizText.label.copyWith(
-                  color: _SignalColors.text,
-                  fontSize: 9,
-                ),
+                style: GizText.label.copyWith(color: signal.text, fontSize: 9),
               ),
             ],
           ),
@@ -477,11 +534,13 @@ class _AgentCore extends StatelessWidget {
     required this.imagePath,
     required this.accent,
     required this.energy,
+    required this.signal,
   });
 
   final Color accent;
   final double energy;
   final String? imagePath;
+  final _SignalPalette signal;
 
   @override
   Widget build(BuildContext context) {
@@ -514,7 +573,7 @@ class _AgentCore extends StatelessWidget {
               height: 72,
               padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
-                color: _SignalColors.panelStrong,
+                color: signal.panelStrong,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: accent.withValues(alpha: 0.46)),
               ),
@@ -596,6 +655,7 @@ class _WorkspaceMessageList extends StatelessWidget {
     required this.messages,
     required this.state,
     required this.color,
+    required this.signal,
     required this.error,
   });
 
@@ -603,6 +663,7 @@ class _WorkspaceMessageList extends StatelessWidget {
   final ScrollController controller;
   final Object? error;
   final List<WorkspaceChatMessage> messages;
+  final _SignalPalette signal;
   final WorkspaceChatState state;
 
   @override
@@ -610,9 +671,7 @@ class _WorkspaceMessageList extends StatelessWidget {
     if (messages.isEmpty &&
         (state == WorkspaceChatState.loading ||
             state == WorkspaceChatState.connecting)) {
-      return const Center(
-        child: CupertinoActivityIndicator(color: _SignalColors.muted),
-      );
+      return Center(child: CupertinoActivityIndicator(color: signal.muted));
     }
     if (messages.isEmpty) {
       final unavailable =
@@ -626,10 +685,7 @@ class _WorkspaceMessageList extends StatelessWidget {
                 ? 'This conversation is unavailable right now.'
                 : 'The channel is clear.\nHold the signal to speak.',
             textAlign: TextAlign.center,
-            style: GizText.body.copyWith(
-              color: _SignalColors.muted,
-              height: 1.65,
-            ),
+            style: GizText.body.copyWith(color: signal.muted, height: 1.65),
           ),
         ),
       );
@@ -645,21 +701,30 @@ class _WorkspaceMessageList extends StatelessWidget {
           return Text(
             'Live updates paused. Showing saved messages.',
             textAlign: TextAlign.center,
-            style: GizText.label.copyWith(color: _SignalColors.muted),
+            style: GizText.label.copyWith(color: signal.muted),
           );
         }
         final message = messages[messages.length - 1 - index];
-        return _WorkspaceSignalMessage(message: message, accent: color);
+        return _WorkspaceSignalMessage(
+          message: message,
+          accent: color,
+          signal: signal,
+        );
       },
     );
   }
 }
 
 class _WorkspaceSignalMessage extends StatelessWidget {
-  const _WorkspaceSignalMessage({required this.message, required this.accent});
+  const _WorkspaceSignalMessage({
+    required this.message,
+    required this.accent,
+    required this.signal,
+  });
 
   final Color accent;
   final WorkspaceChatMessage message;
+  final _SignalPalette signal;
 
   @override
   Widget build(BuildContext context) {
@@ -672,9 +737,7 @@ class _WorkspaceSignalMessage extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.fromLTRB(14, 11, 14, 12),
           decoration: BoxDecoration(
-            color: incoming
-                ? _SignalColors.panel
-                : accent.withValues(alpha: 0.92),
+            color: incoming ? signal.panel : accent.withValues(alpha: 0.92),
             borderRadius: BorderRadius.only(
               topLeft: const Radius.circular(18),
               topRight: const Radius.circular(18),
@@ -682,9 +745,7 @@ class _WorkspaceSignalMessage extends StatelessWidget {
               bottomRight: Radius.circular(incoming ? 18 : 5),
             ),
             border: Border.all(
-              color: incoming
-                  ? _SignalColors.line
-                  : accent.withValues(alpha: 0.24),
+              color: incoming ? signal.line : accent.withValues(alpha: 0.24),
             ),
             boxShadow: incoming
                 ? null
@@ -706,7 +767,7 @@ class _WorkspaceSignalMessage extends StatelessWidget {
                         ? CupertinoIcons.sparkles
                         : CupertinoIcons.waveform,
                     size: 13,
-                    color: incoming ? accent : _SignalColors.canvas,
+                    color: incoming ? accent : signal.onAccent,
                   ),
                   const SizedBox(width: 7),
                   Text(
@@ -714,13 +775,13 @@ class _WorkspaceSignalMessage extends StatelessWidget {
                     style: GizText.label.copyWith(
                       color: incoming
                           ? accent
-                          : _SignalColors.canvas.withValues(alpha: 0.68),
+                          : signal.onAccent.withValues(alpha: 0.68),
                       fontSize: 8,
                     ),
                   ),
                   if (!incoming) ...[
                     const Spacer(),
-                    _MiniWaveform(color: _SignalColors.canvas),
+                    _MiniWaveform(color: signal.onAccent),
                   ],
                 ],
               ),
@@ -728,7 +789,7 @@ class _WorkspaceSignalMessage extends StatelessWidget {
               Text(
                 message.text.isEmpty ? '...' : message.text,
                 style: GizText.body.copyWith(
-                  color: incoming ? _SignalColors.text : _SignalColors.canvas,
+                  color: incoming ? signal.text : signal.onAccent,
                   fontSize: incoming ? 15 : 14,
                   height: 1.5,
                   fontWeight: incoming ? FontWeight.w500 : FontWeight.w700,
@@ -746,14 +807,14 @@ class _WorkspaceSignalMessage extends StatelessWidget {
                         height: 10,
                         child: CupertinoActivityIndicator(
                           radius: 5,
-                          color: incoming ? accent : _SignalColors.canvas,
+                          color: incoming ? accent : signal.onAccent,
                         ),
                       )
                     else
                       Icon(
                         CupertinoIcons.exclamationmark_circle_fill,
                         size: 11,
-                        color: incoming ? accent : _SignalColors.canvas,
+                        color: incoming ? accent : signal.onAccent,
                       ),
                     const SizedBox(width: 5),
                     Text(
@@ -762,8 +823,8 @@ class _WorkspaceSignalMessage extends StatelessWidget {
                           : 'STREAMING',
                       style: GizText.label.copyWith(
                         color: incoming
-                            ? _SignalColors.muted
-                            : _SignalColors.canvas.withValues(alpha: 0.62),
+                            ? signal.muted
+                            : signal.onAccent.withValues(alpha: 0.62),
                         fontSize: 8,
                       ),
                     ),
@@ -805,10 +866,15 @@ class _MiniWaveform extends StatelessWidget {
 }
 
 class _PushToTalkControl extends StatefulWidget {
-  const _PushToTalkControl({required this.chat, required this.accent});
+  const _PushToTalkControl({
+    required this.chat,
+    required this.accent,
+    required this.signal,
+  });
 
   final WorkspaceChatController? chat;
   final Color accent;
+  final _SignalPalette signal;
 
   @override
   State<_PushToTalkControl> createState() => _PushToTalkControlState();
@@ -852,6 +918,7 @@ class _PushToTalkControlState extends State<_PushToTalkControl>
               accent: widget.accent,
               active: recording,
               enabled: enabled,
+              signal: widget.signal,
             ),
             child: child,
           );
@@ -887,9 +954,9 @@ class _PushToTalkControlState extends State<_PushToTalkControl>
                       shape: BoxShape.circle,
                       color: enabled
                           ? widget.accent
-                          : _SignalColors.panelStrong,
+                          : widget.signal.panelStrong,
                       border: Border.all(
-                        color: enabled ? widget.accent : _SignalColors.line,
+                        color: enabled ? widget.accent : widget.signal.line,
                         width: 1.5,
                       ),
                       boxShadow: enabled
@@ -910,8 +977,8 @@ class _PushToTalkControlState extends State<_PushToTalkControl>
                           : CupertinoIcons.mic_fill,
                       size: 26,
                       color: enabled
-                          ? _SignalColors.canvas
-                          : _SignalColors.muted,
+                          ? widget.signal.onAccent
+                          : widget.signal.muted,
                     ),
                   ),
                 ),
@@ -921,7 +988,7 @@ class _PushToTalkControlState extends State<_PushToTalkControl>
             Text(
               label,
               style: GizText.label.copyWith(
-                color: recording ? widget.accent : _SignalColors.muted,
+                color: recording ? widget.accent : widget.signal.muted,
                 fontSize: 9,
               ),
             ),
@@ -939,12 +1006,14 @@ class _VoiceDockPainter extends CustomPainter {
     required this.accent,
     required this.active,
     required this.enabled,
+    required this.signal,
   });
 
   final Color accent;
   final bool active;
   final bool enabled;
   final double progress;
+  final _SignalPalette signal;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -953,10 +1022,10 @@ class _VoiceDockPainter extends CustomPainter {
     final field = Paint()
       ..shader = RadialGradient(
         colors: [
-          (enabled ? accent : _SignalColors.panelStrong).withValues(
+          (enabled ? accent : signal.panelStrong).withValues(
             alpha: active ? 0.28 : 0.13,
           ),
-          _SignalColors.canvas.withValues(alpha: 0),
+          signal.canvas.withValues(alpha: 0),
         ],
       ).createShader(Rect.fromCircle(center: center, radius: radius));
     canvas.drawCircle(center, radius, field);
@@ -972,7 +1041,7 @@ class _VoiceDockPainter extends CustomPainter {
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1
-          ..color = (enabled ? accent : _SignalColors.line).withValues(
+          ..color = (enabled ? accent : signal.line).withValues(
             alpha: (1 - pulse) * (active ? 0.34 : 0.12),
           ),
       );
@@ -984,7 +1053,8 @@ class _VoiceDockPainter extends CustomPainter {
       oldDelegate.progress != progress ||
       oldDelegate.active != active ||
       oldDelegate.enabled != enabled ||
-      oldDelegate.accent != accent;
+      oldDelegate.accent != accent ||
+      oldDelegate.signal != signal;
 }
 
 class ChatroomWorkspacePage extends StatelessWidget {

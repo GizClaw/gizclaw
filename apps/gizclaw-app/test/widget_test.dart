@@ -179,6 +179,44 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('follows system brightness in the workspace signal room', (
+    tester,
+  ) async {
+    tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+    addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+    await pumpApp(tester);
+
+    await tester.tap(find.text('Chats'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('AST Translate'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Parser pass'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is CupertinoPageScaffold &&
+            widget.backgroundColor == const Color(0xFF080B0A),
+      ),
+      findsOneWidget,
+    );
+
+    tester.platformDispatcher.platformBrightnessTestValue = Brightness.light;
+    await tester.pump();
+
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is CupertinoPageScaffold &&
+            widget.backgroundColor == const Color(0xFFF1F5F1),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('shows five primary destinations', (tester) async {
     await pumpApp(tester);
 
