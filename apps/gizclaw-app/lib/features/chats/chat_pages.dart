@@ -303,10 +303,9 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
     final messages = chat?.messages ?? const <WorkspaceChatMessage>[];
     final signal = _SignalPalette.of(context);
     final isDirectChat = chatroomMetadata?.kind == ChatroomWorkspaceKind.direct;
-    final accent = _driverAccent(
-      isDirectChat ? WorkflowDriverKind.chatroom : workflow.driver,
-      signal.brightness,
-    );
+    final accent = isDirectChat
+        ? _workspaceVoiceAccent(signal.brightness)
+        : _driverAccent(workflow.driver, signal.brightness);
     return CupertinoPageScaffold(
       backgroundColor: signal.canvas,
       navigationBar: CupertinoNavigationBar(
@@ -396,15 +395,12 @@ Color _driverAccent(
   WorkflowDriverKind driver,
   Brightness brightness,
 ) => switch ((driver, brightness)) {
-  (WorkflowDriverKind.astTranslate, Brightness.light) => const Color(
-    0xFF2AAE72,
-  ),
+  (WorkflowDriverKind.astTranslate, _) => _workspaceVoiceAccent(brightness),
   (WorkflowDriverKind.doubaoRealtime, Brightness.light) => const Color(
     0xFFE66843,
   ),
   (WorkflowDriverKind.flowcraft, Brightness.light) => const Color(0xFF1687B5),
   (WorkflowDriverKind.chatroom, Brightness.light) => const Color(0xFFC68B11),
-  (WorkflowDriverKind.astTranslate, Brightness.dark) => const Color(0xFF8CFFB5),
   (WorkflowDriverKind.doubaoRealtime, Brightness.dark) => const Color(
     0xFFFF8B6A,
   ),
@@ -412,6 +408,11 @@ Color _driverAccent(
   (WorkflowDriverKind.chatroom, Brightness.dark) => const Color(0xFFFFD166),
   (WorkflowDriverKind.unsupported, _) => GizColors.accent,
 };
+
+Color _workspaceVoiceAccent(Brightness brightness) =>
+    brightness == Brightness.dark
+    ? const Color(0xFF8CFFB5)
+    : const Color(0xFF2AAE72);
 
 class _SignalPalette {
   const _SignalPalette({
