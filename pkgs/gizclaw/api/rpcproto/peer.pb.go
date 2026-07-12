@@ -129,6 +129,8 @@ const (
 	RpcMethod_RPC_METHOD_SERVER_PEER_LOOKUP                      RpcMethod = 101
 	RpcMethod_RPC_METHOD_SERVER_PEER_ASSIGN                      RpcMethod = 102
 	RpcMethod_RPC_METHOD_SERVER_ROUTE_RESOLVE                    RpcMethod = 103
+	RpcMethod_RPC_METHOD_SERVER_PET_PRESENTATION_GET             RpcMethod = 104
+	RpcMethod_RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD                RpcMethod = 105
 )
 
 // Enum value maps for RpcMethod.
@@ -238,6 +240,8 @@ var (
 		101: "RPC_METHOD_SERVER_PEER_LOOKUP",
 		102: "RPC_METHOD_SERVER_PEER_ASSIGN",
 		103: "RPC_METHOD_SERVER_ROUTE_RESOLVE",
+		104: "RPC_METHOD_SERVER_PET_PRESENTATION_GET",
+		105: "RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD",
 	}
 	RpcMethod_value = map[string]int32{
 		"RPC_METHOD_UNSPECIFIED":                             0,
@@ -344,6 +348,8 @@ var (
 		"RPC_METHOD_SERVER_PEER_LOOKUP":                      101,
 		"RPC_METHOD_SERVER_PEER_ASSIGN":                      102,
 		"RPC_METHOD_SERVER_ROUTE_RESOLVE":                    103,
+		"RPC_METHOD_SERVER_PET_PRESENTATION_GET":             104,
+		"RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD":                105,
 	}
 )
 
@@ -527,7 +533,7 @@ const file_peer_proto_rawDesc = "" +
 	"\x06method\x18\x02 \x01(\x0e2\x19.gizclaw.rpc.v1.RpcMethodR\x06method\x12\x1d\n" +
 	"\apayload\x18\x03 \x01(\fH\x00R\apayload\x88\x01\x01B\n" +
 	"\n" +
-	"\b_payload*\xb1a\n" +
+	"\b_payload*\xcbc\n" +
 	"\tRpcMethod\x12\x1a\n" +
 	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12B\n" +
 	"\x13RPC_METHOD_ALL_PING\x10\x01\x1a)\xc2\xf3\x18%\n" +
@@ -736,7 +742,11 @@ const file_peer_proto_rawDesc = "" +
 	"\x1dRPC_METHOD_SERVER_PEER_ASSIGN\x10f\x1aK\xc2\xf3\x18G\n" +
 	"\x12server.peer.assign\x12\x17ServerPeerAssignRequest\x1a\x18ServerPeerAssignResponse\x12v\n" +
 	"\x1fRPC_METHOD_SERVER_ROUTE_RESOLVE\x10g\x1aQ\xc2\xf3\x18M\n" +
-	"\x14server.route.resolve\x12\x19ServerRouteResolveRequest\x1a\x1aServerRouteResolveResponse:d\n" +
+	"\x14server.route.resolve\x12\x19ServerRouteResolveRequest\x1a\x1aServerRouteResolveResponse\x12\x90\x01\n" +
+	"&RPC_METHOD_SERVER_PET_PRESENTATION_GET\x10h\x1ad\xc2\xf3\x18`\n" +
+	"\x1bserver.pet.presentation.get\x12\x1fServerPetPresentationGetRequest\x1a ServerPetPresentationGetResponse\x12\x84\x01\n" +
+	"#RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD\x10i\x1a[\xc2\xf3\x18W\n" +
+	"\x18server.pet.pixa.download\x12\x1cServerPetPixaDownloadRequest\x1a\x1dServerPetPixaDownloadResponse:d\n" +
 	"\n" +
 	"rpc_method\x12!.google.protobuf.EnumValueOptions\x18\xb8\x8e\x03 \x01(\v2 .gizclaw.rpc.v1.RpcMethodOptionsR\trpcMethodB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 

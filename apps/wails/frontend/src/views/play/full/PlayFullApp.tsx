@@ -46,8 +46,10 @@ import {
   getPeerFriendInviteToken,
   getPeerGameRuleset,
   getPeerBadgeDefPixa,
+  getPeerPetPresentation,
   getPeerPoints,
   getPeerPetDefPixa,
+  getPeerPetPixa,
   getPeerWorkspaceHistoryAudio,
   getPeerRunWorkspace,
   getPeerRunWorkspaceDetails,
@@ -98,6 +100,7 @@ import {
   type PeerRunRecallHit,
   type PeerRunRecallResponse,
   type PetObject,
+  type PetPresentationObject,
   type PlayWorkspaceMode,
   type PlayWorkspaceState,
   type PlayVoiceStreamEvent,
@@ -516,7 +519,11 @@ function GameplayPanel(): JSX.Element {
         };
       }
       await expectData(drivePeerPet({ body }));
-      setPetClipByID((current) => ({ ...current, [selectedPetID.trim()]: driveAction.trim() || "idle" }));
+      const petID = selectedPetID.trim();
+      const actionID = driveAction.trim();
+      const presentation = await getPeerPetPresentation({ body: { id: petID } });
+      const clipName = presentation.data == null ? actionID || "idle" : petActionPixaClipName(presentation.data as PetPresentationObject, actionID);
+      setPetClipByID((current) => ({ ...current, [petID]: clipName }));
       await refreshAll();
     } catch (err) {
       setError(toMessage(err));
@@ -665,8 +672,8 @@ function GameplayPetTable({ busy, onDelete, onRename, pager, petClipByID }: { bu
               <TableRow>
                 <TableHead>Pet</TableHead>
                 <TableHead>PetDef</TableHead>
-                <TableHead>Level</TableHead>
-                <TableHead>Exp</TableHead>
+                <TableHead>XP</TableHead>
+                <TableHead>Progression</TableHead>
                 <TableHead>Life</TableHead>
                 <TableHead>Workspace</TableHead>
                 <TableHead className="w-36 text-right">Actions</TableHead>
@@ -677,7 +684,7 @@ function GameplayPetTable({ busy, onDelete, onRename, pager, petClipByID }: { bu
                 <TableRow key={pet.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <GameplayPixaSprite clipName={petClipByID[pet.id] ?? "idle"} id={pet.petdef_id} type="petdef" />
+                      <GameplayPixaSprite clipName={petClipByID[pet.id] ?? "idle"} id={pet.id} type="pet" />
                       <div>
                         <div className="font-medium">{pet.display_name || pet.id}</div>
                         <div className="font-mono text-xs text-muted-foreground">{pet.id}</div>
@@ -685,8 +692,8 @@ function GameplayPetTable({ busy, onDelete, onRename, pager, petClipByID }: { bu
                     </div>
                   </TableCell>
                   <TableCell className="font-mono text-xs">{pet.petdef_id}</TableCell>
-                  <TableCell>{pet.level}</TableCell>
-                  <TableCell>{pet.exp}</TableCell>
+                  <TableCell>{petXP(pet)}</TableCell>
+                  <TableCell className="max-w-52 truncate font-mono text-xs" title={jsonSummary(pet.progression)}>{jsonSummary(pet.progression)}</TableCell>
                   <TableCell className="max-w-52 truncate font-mono text-xs" title={jsonSummary(pet.life)}>{jsonSummary(pet.life)}</TableCell>
                   <TableCell className="max-w-52 truncate font-mono text-xs" title={pet.workspace_name}>{pet.workspace_name}</TableCell>
                   <TableCell>
@@ -707,6 +714,22 @@ function GameplayPetTable({ busy, onDelete, onRename, pager, petClipByID }: { bu
       </CardContent>
     </Card>
   );
+}
+
+function petActionPixaClipName(presentation: PetPresentationObject, actionID: string): string {
+  if (actionID === "") {
+    return pixaClipNameByID(presentation, "idle") ?? presentation.pixa_metadata.clips[0]?.pixa_clip_name ?? "idle";
+  }
+  const action = presentation.drive.actions.find((candidate) => candidate.id === actionID);
+  const visualClipID = action?.visual_clip_id ?? actionID;
+  return pixaClipNameByID(presentation, visualClipID)
+    ?? presentation.pixa_metadata.clips.find((clip) => clip.action_id === actionID)?.pixa_clip_name
+    ?? presentation.pixa_metadata.clips.find((clip) => clip.pixa_clip_name === actionID)?.pixa_clip_name
+    ?? "idle";
+}
+
+function pixaClipNameByID(presentation: PetPresentationObject, clipID: string): string | null {
+  return presentation.pixa_metadata.clips.find((clip) => clip.id === clipID)?.pixa_clip_name ?? null;
 }
 
 function GameplayBadgeTable({ pager }: { pager: ReturnType<typeof usePagedList<BadgeObject>> }): JSX.Element {
@@ -758,7 +781,7 @@ function GameplayBadgeTable({ pager }: { pager: ReturnType<typeof usePagedList<B
   );
 }
 
-function GameplayPixaSprite({ clipName, id, type }: { clipName: string; id: string; type: "petdef" | "badgedef" }): JSX.Element {
+function GameplayPixaSprite({ clipName, id, type }: { clipName: string; id: string; type: "pet" | "petdef" | "badgedef" }): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [asset, setAsset] = useState<PixaAsset | null>(null);
   const [error, setError] = useState("");
@@ -771,7 +794,11 @@ function GameplayPixaSprite({ clipName, id, type }: { clipName: string; id: stri
       return;
     }
     void (async () => {
-      const result = type === "petdef" ? await getPeerPetDefPixa({ body: { id } }) : await getPeerBadgeDefPixa({ body: { id } });
+      const result = type === "pet"
+        ? await getPeerPetPixa({ body: { pet_id: id } })
+        : type === "petdef"
+          ? await getPeerPetDefPixa({ body: { id } })
+          : await getPeerBadgeDefPixa({ body: { id } });
       if (cancelled) {
         return;
       }
@@ -5173,6 +5200,15 @@ function jsonSummary(value: unknown): string {
     return "";
   }
   return text.length > 96 ? `${text.slice(0, 93)}...` : text;
+}
+
+function petXP(pet: PetObject): string {
+  const progression = pet.progression;
+  if (typeof progression !== "object" || progression == null || Array.isArray(progression)) {
+    return "0";
+  }
+  const xp = (progression as Record<string, unknown>).xp;
+  return typeof xp === "number" ? String(xp) : "0";
 }
 
 function gameplayCell(value: unknown): string {

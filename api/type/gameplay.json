@@ -12,11 +12,342 @@
         "type": "object",
         "additionalProperties": true
       },
-      "StatMap": {
+      "PetAttrValueSpec": {
+        "type": "object",
+        "required": [
+          "initial"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "initial": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "PetAttrGroupSpec": {
+        "type": "object",
+        "additionalProperties": {
+          "$ref": "#/components/schemas/PetAttrValueSpec"
+        }
+      },
+      "PetDefAttrSpec": {
+        "type": "object",
+        "required": [
+          "life",
+          "progression"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "life": {
+            "$ref": "#/components/schemas/PetAttrGroupSpec"
+          },
+          "progression": {
+            "$ref": "#/components/schemas/PetAttrGroupSpec"
+          }
+        }
+      },
+      "PetLife": {
         "type": "object",
         "additionalProperties": {
           "type": "integer",
           "format": "int64"
+        }
+      },
+      "PetProgression": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "PetAttrDelta": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "life": {
+            "$ref": "#/components/schemas/PetLife"
+          }
+        }
+      },
+      "PetDefCharacterSpec": {
+        "type": "object",
+        "required": [
+          "prompt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "prompt": {
+            "type": "string"
+          }
+        }
+      },
+      "PetDefVoiceSpec": {
+        "type": "object",
+        "required": [
+          "voice_id",
+          "prompt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "voice_id": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          }
+        }
+      },
+      "PetDefActionEffectSpec": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "attr_delta": {
+            "$ref": "#/components/schemas/PetAttrDelta"
+          },
+          "pet_exp_delta": {
+            "type": "integer",
+            "format": "int64",
+            "default": 0
+          }
+        }
+      },
+      "PetDefActionSpec": {
+        "type": "object",
+        "required": [
+          "id",
+          "cost"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "cost": {
+            "type": "integer",
+            "format": "int64",
+            "default": 0
+          },
+          "visual_clip_id": {
+            "type": "string"
+          },
+          "effect": {
+            "$ref": "#/components/schemas/PetDefActionEffectSpec"
+          }
+        }
+      },
+      "PetDefDriveSpec": {
+        "type": "object",
+        "required": [
+          "actions"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PetDefActionSpec"
+            }
+          }
+        }
+      },
+      "PetDefVisualRefSpec": {
+        "type": "object",
+        "required": [
+          "id",
+          "uri",
+          "purpose"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "uri": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      },
+      "PetDefVisualRefsSpec": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "images": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PetDefVisualRefSpec"
+            }
+          },
+          "videos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PetDefVisualRefSpec"
+            }
+          }
+        }
+      },
+      "PetDefPixaClipMetadata": {
+        "type": "object",
+        "required": [
+          "id",
+          "pixa_clip_name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "action_id": {
+            "type": "string"
+          },
+          "pixa_clip_name": {
+            "type": "string"
+          }
+        }
+      },
+      "PetDefPixaCanvasMetadata": {
+        "type": "object",
+        "required": [
+          "width",
+          "height"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "width": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "height": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "PetDefPixaMetadata": {
+        "type": "object",
+        "required": [
+          "version",
+          "canvas",
+          "clips"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "canvas": {
+            "$ref": "#/components/schemas/PetDefPixaCanvasMetadata"
+          },
+          "clips": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PetDefPixaClipMetadata"
+            }
+          }
+        }
+      },
+      "PetDefPixaSpec": {
+        "type": "object",
+        "required": [
+          "asset_ref",
+          "metadata"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "asset_ref": {
+            "type": "string"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/PetDefPixaMetadata"
+          }
+        }
+      },
+      "PetDefVisualSpec": {
+        "type": "object",
+        "required": [
+          "refs",
+          "pixa"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "refs": {
+            "$ref": "#/components/schemas/PetDefVisualRefsSpec"
+          },
+          "pixa": {
+            "$ref": "#/components/schemas/PetDefPixaSpec"
+          }
+        }
+      },
+      "PetDefI18nDisplayText": {
+        "type": "object",
+        "required": [
+          "display_name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {
+            "type": "string"
+          }
+        }
+      },
+      "PetDefI18nAttrGroup": {
+        "type": "object",
+        "additionalProperties": {
+          "$ref": "#/components/schemas/PetDefI18nDisplayText"
+        }
+      },
+      "PetDefI18nAttrSpec": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "life": {
+            "$ref": "#/components/schemas/PetDefI18nAttrGroup"
+          },
+          "progression": {
+            "$ref": "#/components/schemas/PetDefI18nAttrGroup"
+          }
+        }
+      },
+      "PetDefI18nDriveSpec": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PetDefI18nDisplayText"
+            }
+          }
+        }
+      },
+      "PetDefI18nCatalog": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "attr": {
+            "$ref": "#/components/schemas/PetDefI18nAttrSpec"
+          },
+          "drive": {
+            "$ref": "#/components/schemas/PetDefI18nDriveSpec"
+          }
+        }
+      },
+      "PetDefI18nSpec": {
+        "type": "object",
+        "additionalProperties": {
+          "$ref": "#/components/schemas/PetDefI18nCatalog"
         }
       },
       "GameRulesetPointsSpec": {
@@ -79,12 +410,6 @@
               "type": "integer",
               "format": "int64"
             }
-          },
-          "life_delta": {
-            "$ref": "#/components/schemas/StatMap"
-          },
-          "ability_delta": {
-            "$ref": "#/components/schemas/StatMap"
           }
         }
       },
@@ -92,30 +417,14 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "action_costs": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "integer",
-              "format": "int64"
-            }
-          },
           "default_reward": {
             "$ref": "#/components/schemas/GameRewardSpec"
-          },
-          "action_rewards": {
-            "type": "object",
-            "additionalProperties": {
-              "$ref": "#/components/schemas/GameRewardSpec"
-            }
           },
           "game_rewards": {
             "type": "object",
             "additionalProperties": {
               "$ref": "#/components/schemas/GameRewardSpec"
             }
-          },
-          "life_decay_per_hour": {
-            "$ref": "#/components/schemas/StatMap"
           }
         }
       },
@@ -194,33 +503,39 @@
       "PetDefSpec": {
         "type": "object",
         "required": [
-          "display_name"
+          "default_locale",
+          "attr",
+          "character",
+          "voice",
+          "drive",
+          "visual",
+          "i18n"
         ],
         "additionalProperties": false,
         "properties": {
-          "display_name": {
-            "type": "string"
-          },
-          "description": {
+          "default_locale": {
             "type": "string"
           },
           "workflow_name": {
             "type": "string"
           },
-          "initial_life": {
-            "$ref": "#/components/schemas/StatMap"
+          "attr": {
+            "$ref": "#/components/schemas/PetDefAttrSpec"
           },
-          "initial_ability": {
-            "$ref": "#/components/schemas/StatMap"
+          "character": {
+            "$ref": "#/components/schemas/PetDefCharacterSpec"
           },
-          "tags": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+          "voice": {
+            "$ref": "#/components/schemas/PetDefVoiceSpec"
           },
-          "metadata": {
-            "$ref": "#/components/schemas/GameplayMetadata"
+          "drive": {
+            "$ref": "#/components/schemas/PetDefDriveSpec"
+          },
+          "visual": {
+            "$ref": "#/components/schemas/PetDefVisualSpec"
+          },
+          "i18n": {
+            "$ref": "#/components/schemas/PetDefI18nSpec"
           }
         }
       },
@@ -375,9 +690,7 @@
           "display_name",
           "workspace_name",
           "life",
-          "ability",
-          "exp",
-          "level",
+          "progression",
           "last_active_at",
           "created_at",
           "updated_at"
@@ -406,18 +719,10 @@
             "type": "string"
           },
           "life": {
-            "$ref": "#/components/schemas/StatMap"
+            "$ref": "#/components/schemas/PetLife"
           },
-          "ability": {
-            "$ref": "#/components/schemas/StatMap"
-          },
-          "exp": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "level": {
-            "type": "integer",
-            "format": "int64"
+          "progression": {
+            "$ref": "#/components/schemas/PetProgression"
           },
           "last_active_at": {
             "type": "string",
@@ -675,12 +980,6 @@
               "type": "integer",
               "format": "int64"
             }
-          },
-          "life_delta": {
-            "$ref": "#/components/schemas/StatMap"
-          },
-          "ability_delta": {
-            "$ref": "#/components/schemas/StatMap"
           },
           "source_type": {
             "type": "string"

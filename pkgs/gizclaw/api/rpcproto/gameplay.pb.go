@@ -506,9 +506,7 @@ func (x *GameResultListResponse) GetNextCursor() string {
 
 type GameRewardSpec struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	AbilityDelta  *StatMap               `protobuf:"bytes,1,opt,name=ability_delta,json=abilityDelta,proto3,oneof" json:"ability_delta,omitempty"`
 	BadgeExpDelta map[string]int64       `protobuf:"bytes,2,rep,name=badge_exp_delta,json=badgeExpDelta,proto3" json:"badge_exp_delta,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
-	LifeDelta     *StatMap               `protobuf:"bytes,3,opt,name=life_delta,json=lifeDelta,proto3,oneof" json:"life_delta,omitempty"`
 	PetExpDelta   *int64                 `protobuf:"varint,4,opt,name=pet_exp_delta,json=petExpDelta,proto3,oneof" json:"pet_exp_delta,omitempty"`
 	PointsDelta   *int64                 `protobuf:"varint,5,opt,name=points_delta,json=pointsDelta,proto3,oneof" json:"points_delta,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -545,23 +543,9 @@ func (*GameRewardSpec) Descriptor() ([]byte, []int) {
 	return file_payload_gameplay_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *GameRewardSpec) GetAbilityDelta() *StatMap {
-	if x != nil {
-		return x.AbilityDelta
-	}
-	return nil
-}
-
 func (x *GameRewardSpec) GetBadgeExpDelta() map[string]int64 {
 	if x != nil {
 		return x.BadgeExpDelta
-	}
-	return nil
-}
-
-func (x *GameRewardSpec) GetLifeDelta() *StatMap {
-	if x != nil {
-		return x.LifeDelta
 	}
 	return nil
 }
@@ -649,14 +633,11 @@ func (x *GameRuleset) GetUpdatedAt() string {
 }
 
 type GameRulesetDriveSpec struct {
-	state            protoimpl.MessageState     `protogen:"open.v1"`
-	ActionCosts      map[string]int64           `protobuf:"bytes,1,rep,name=action_costs,json=actionCosts,proto3" json:"action_costs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
-	ActionRewards    map[string]*GameRewardSpec `protobuf:"bytes,2,rep,name=action_rewards,json=actionRewards,proto3" json:"action_rewards,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	DefaultReward    *GameRewardSpec            `protobuf:"bytes,3,opt,name=default_reward,json=defaultReward,proto3,oneof" json:"default_reward,omitempty"`
-	GameRewards      map[string]*GameRewardSpec `protobuf:"bytes,4,rep,name=game_rewards,json=gameRewards,proto3" json:"game_rewards,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	LifeDecayPerHour *StatMap                   `protobuf:"bytes,5,opt,name=life_decay_per_hour,json=lifeDecayPerHour,proto3,oneof" json:"life_decay_per_hour,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	state         protoimpl.MessageState     `protogen:"open.v1"`
+	DefaultReward *GameRewardSpec            `protobuf:"bytes,3,opt,name=default_reward,json=defaultReward,proto3,oneof" json:"default_reward,omitempty"`
+	GameRewards   map[string]*GameRewardSpec `protobuf:"bytes,4,rep,name=game_rewards,json=gameRewards,proto3" json:"game_rewards,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GameRulesetDriveSpec) Reset() {
@@ -689,20 +670,6 @@ func (*GameRulesetDriveSpec) Descriptor() ([]byte, []int) {
 	return file_payload_gameplay_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *GameRulesetDriveSpec) GetActionCosts() map[string]int64 {
-	if x != nil {
-		return x.ActionCosts
-	}
-	return nil
-}
-
-func (x *GameRulesetDriveSpec) GetActionRewards() map[string]*GameRewardSpec {
-	if x != nil {
-		return x.ActionRewards
-	}
-	return nil
-}
-
 func (x *GameRulesetDriveSpec) GetDefaultReward() *GameRewardSpec {
 	if x != nil {
 		return x.DefaultReward
@@ -713,13 +680,6 @@ func (x *GameRulesetDriveSpec) GetDefaultReward() *GameRewardSpec {
 func (x *GameRulesetDriveSpec) GetGameRewards() map[string]*GameRewardSpec {
 	if x != nil {
 		return x.GameRewards
-	}
-	return nil
-}
-
-func (x *GameRulesetDriveSpec) GetLifeDecayPerHour() *StatMap {
-	if x != nil {
-		return x.LifeDecayPerHour
 	}
 	return nil
 }
@@ -1094,20 +1054,18 @@ func (x *GameplayMetadata) GetFields() *structpb.Struct {
 
 type Pet struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	Ability        *StatMap               `protobuf:"bytes,1,opt,name=ability,proto3" json:"ability,omitempty"`
 	CreatedAt      string                 `protobuf:"bytes,2,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	DisplayName    string                 `protobuf:"bytes,3,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
-	Exp            int64                  `protobuf:"varint,4,opt,name=exp,proto3" json:"exp,omitempty"`
 	Id             string                 `protobuf:"bytes,5,opt,name=id,proto3" json:"id,omitempty"`
 	LastActiveAt   string                 `protobuf:"bytes,6,opt,name=last_active_at,json=lastActiveAt,proto3" json:"last_active_at,omitempty"`
-	Level          int64                  `protobuf:"varint,7,opt,name=level,proto3" json:"level,omitempty"`
-	Life           *StatMap               `protobuf:"bytes,8,opt,name=life,proto3" json:"life,omitempty"`
+	Life           *PetLife               `protobuf:"bytes,8,opt,name=life,proto3" json:"life,omitempty"`
 	OwnerPublicKey string                 `protobuf:"bytes,9,opt,name=owner_public_key,json=ownerPublicKey,proto3" json:"owner_public_key,omitempty"`
 	PetdefId       string                 `protobuf:"bytes,10,opt,name=petdef_id,json=petdefId,proto3" json:"petdef_id,omitempty"`
 	RulesetName    string                 `protobuf:"bytes,11,opt,name=ruleset_name,json=rulesetName,proto3" json:"ruleset_name,omitempty"`
 	UpdatedAt      string                 `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	WorkflowName   *string                `protobuf:"bytes,13,opt,name=workflow_name,json=workflowName,proto3,oneof" json:"workflow_name,omitempty"`
 	WorkspaceName  string                 `protobuf:"bytes,14,opt,name=workspace_name,json=workspaceName,proto3" json:"workspace_name,omitempty"`
+	Progression    *PetProgression        `protobuf:"bytes,15,opt,name=progression,proto3" json:"progression,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -1142,13 +1100,6 @@ func (*Pet) Descriptor() ([]byte, []int) {
 	return file_payload_gameplay_proto_rawDescGZIP(), []int{15}
 }
 
-func (x *Pet) GetAbility() *StatMap {
-	if x != nil {
-		return x.Ability
-	}
-	return nil
-}
-
 func (x *Pet) GetCreatedAt() string {
 	if x != nil {
 		return x.CreatedAt
@@ -1161,13 +1112,6 @@ func (x *Pet) GetDisplayName() string {
 		return x.DisplayName
 	}
 	return ""
-}
-
-func (x *Pet) GetExp() int64 {
-	if x != nil {
-		return x.Exp
-	}
-	return 0
 }
 
 func (x *Pet) GetId() string {
@@ -1184,14 +1128,7 @@ func (x *Pet) GetLastActiveAt() string {
 	return ""
 }
 
-func (x *Pet) GetLevel() int64 {
-	if x != nil {
-		return x.Level
-	}
-	return 0
-}
-
-func (x *Pet) GetLife() *StatMap {
+func (x *Pet) GetLife() *PetLife {
 	if x != nil {
 		return x.Life
 	}
@@ -1238,6 +1175,13 @@ func (x *Pet) GetWorkspaceName() string {
 		return x.WorkspaceName
 	}
 	return ""
+}
+
+func (x *Pet) GetProgression() *PetProgression {
+	if x != nil {
+		return x.Progression
+	}
+	return nil
 }
 
 type PetAdoptRequest struct {
@@ -1456,6 +1400,1042 @@ func (x *PetDefPixaDownloadResponse) GetSizeBytes() int64 {
 	return 0
 }
 
+type PetPixaDownloadRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PetId         string                 `protobuf:"bytes,1,opt,name=pet_id,json=petId,proto3" json:"pet_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PetPixaDownloadRequest) Reset() {
+	*x = PetPixaDownloadRequest{}
+	mi := &file_payload_gameplay_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PetPixaDownloadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PetPixaDownloadRequest) ProtoMessage() {}
+
+func (x *PetPixaDownloadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_gameplay_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PetPixaDownloadRequest.ProtoReflect.Descriptor instead.
+func (*PetPixaDownloadRequest) Descriptor() ([]byte, []int) {
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *PetPixaDownloadRequest) GetPetId() string {
+	if x != nil {
+		return x.PetId
+	}
+	return ""
+}
+
+type PetPixaDownloadResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PetId         string                 `protobuf:"bytes,1,opt,name=pet_id,json=petId,proto3" json:"pet_id,omitempty"`
+	PetdefId      string                 `protobuf:"bytes,2,opt,name=petdef_id,json=petdefId,proto3" json:"petdef_id,omitempty"`
+	PixaPath      *string                `protobuf:"bytes,3,opt,name=pixa_path,json=pixaPath,proto3,oneof" json:"pixa_path,omitempty"`
+	SizeBytes     int64                  `protobuf:"varint,4,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PetPixaDownloadResponse) Reset() {
+	*x = PetPixaDownloadResponse{}
+	mi := &file_payload_gameplay_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PetPixaDownloadResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PetPixaDownloadResponse) ProtoMessage() {}
+
+func (x *PetPixaDownloadResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_gameplay_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PetPixaDownloadResponse.ProtoReflect.Descriptor instead.
+func (*PetPixaDownloadResponse) Descriptor() ([]byte, []int) {
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *PetPixaDownloadResponse) GetPetId() string {
+	if x != nil {
+		return x.PetId
+	}
+	return ""
+}
+
+func (x *PetPixaDownloadResponse) GetPetdefId() string {
+	if x != nil {
+		return x.PetdefId
+	}
+	return ""
+}
+
+func (x *PetPixaDownloadResponse) GetPixaPath() string {
+	if x != nil && x.PixaPath != nil {
+		return *x.PixaPath
+	}
+	return ""
+}
+
+func (x *PetPixaDownloadResponse) GetSizeBytes() int64 {
+	if x != nil {
+		return x.SizeBytes
+	}
+	return 0
+}
+
+type PetPresentation struct {
+	state           protoimpl.MessageState       `protogen:"open.v1"`
+	PetId           string                       `protobuf:"bytes,1,opt,name=pet_id,json=petId,proto3" json:"pet_id,omitempty"`
+	PetdefId        string                       `protobuf:"bytes,2,opt,name=petdef_id,json=petdefId,proto3" json:"petdef_id,omitempty"`
+	DefaultLocale   string                       `protobuf:"bytes,3,opt,name=default_locale,json=defaultLocale,proto3" json:"default_locale,omitempty"`
+	Attr            *PetPresentationAttrSpec     `protobuf:"bytes,4,opt,name=attr,proto3" json:"attr,omitempty"`
+	Drive           *PetPresentationDriveSpec    `protobuf:"bytes,5,opt,name=drive,proto3" json:"drive,omitempty"`
+	PixaMetadata    *PetPresentationPixaMetadata `protobuf:"bytes,6,opt,name=pixa_metadata,json=pixaMetadata,proto3" json:"pixa_metadata,omitempty"`
+	I18N            *PetPresentationI18NSpec     `protobuf:"bytes,7,opt,name=i18n,proto3" json:"i18n,omitempty"`
+	PixaPath        *string                      `protobuf:"bytes,8,opt,name=pixa_path,json=pixaPath,proto3,oneof" json:"pixa_path,omitempty"`
+	PetdefUpdatedAt string                       `protobuf:"bytes,9,opt,name=petdef_updated_at,json=petdefUpdatedAt,proto3" json:"petdef_updated_at,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *PetPresentation) Reset() {
+	*x = PetPresentation{}
+	mi := &file_payload_gameplay_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PetPresentation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PetPresentation) ProtoMessage() {}
+
+func (x *PetPresentation) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_gameplay_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PetPresentation.ProtoReflect.Descriptor instead.
+func (*PetPresentation) Descriptor() ([]byte, []int) {
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *PetPresentation) GetPetId() string {
+	if x != nil {
+		return x.PetId
+	}
+	return ""
+}
+
+func (x *PetPresentation) GetPetdefId() string {
+	if x != nil {
+		return x.PetdefId
+	}
+	return ""
+}
+
+func (x *PetPresentation) GetDefaultLocale() string {
+	if x != nil {
+		return x.DefaultLocale
+	}
+	return ""
+}
+
+func (x *PetPresentation) GetAttr() *PetPresentationAttrSpec {
+	if x != nil {
+		return x.Attr
+	}
+	return nil
+}
+
+func (x *PetPresentation) GetDrive() *PetPresentationDriveSpec {
+	if x != nil {
+		return x.Drive
+	}
+	return nil
+}
+
+func (x *PetPresentation) GetPixaMetadata() *PetPresentationPixaMetadata {
+	if x != nil {
+		return x.PixaMetadata
+	}
+	return nil
+}
+
+func (x *PetPresentation) GetI18N() *PetPresentationI18NSpec {
+	if x != nil {
+		return x.I18N
+	}
+	return nil
+}
+
+func (x *PetPresentation) GetPixaPath() string {
+	if x != nil && x.PixaPath != nil {
+		return *x.PixaPath
+	}
+	return ""
+}
+
+func (x *PetPresentation) GetPetdefUpdatedAt() string {
+	if x != nil {
+		return x.PetdefUpdatedAt
+	}
+	return ""
+}
+
+type PetPresentationActionEffectSpec struct {
+	state         protoimpl.MessageState    `protogen:"open.v1"`
+	AttrDelta     *PetPresentationAttrDelta `protobuf:"bytes,1,opt,name=attr_delta,json=attrDelta,proto3,oneof" json:"attr_delta,omitempty"`
+	PetExpDelta   *int64                    `protobuf:"varint,2,opt,name=pet_exp_delta,json=petExpDelta,proto3,oneof" json:"pet_exp_delta,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PetPresentationActionEffectSpec) Reset() {
+	*x = PetPresentationActionEffectSpec{}
+	mi := &file_payload_gameplay_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PetPresentationActionEffectSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PetPresentationActionEffectSpec) ProtoMessage() {}
+
+func (x *PetPresentationActionEffectSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_gameplay_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PetPresentationActionEffectSpec.ProtoReflect.Descriptor instead.
+func (*PetPresentationActionEffectSpec) Descriptor() ([]byte, []int) {
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *PetPresentationActionEffectSpec) GetAttrDelta() *PetPresentationAttrDelta {
+	if x != nil {
+		return x.AttrDelta
+	}
+	return nil
+}
+
+func (x *PetPresentationActionEffectSpec) GetPetExpDelta() int64 {
+	if x != nil && x.PetExpDelta != nil {
+		return *x.PetExpDelta
+	}
+	return 0
+}
+
+type PetPresentationActionSpec struct {
+	state         protoimpl.MessageState           `protogen:"open.v1"`
+	Id            string                           `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Cost          int64                            `protobuf:"varint,2,opt,name=cost,proto3" json:"cost,omitempty"`
+	Effect        *PetPresentationActionEffectSpec `protobuf:"bytes,3,opt,name=effect,proto3,oneof" json:"effect,omitempty"`
+	VisualClipId  *string                          `protobuf:"bytes,4,opt,name=visual_clip_id,json=visualClipId,proto3,oneof" json:"visual_clip_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PetPresentationActionSpec) Reset() {
+	*x = PetPresentationActionSpec{}
+	mi := &file_payload_gameplay_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PetPresentationActionSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PetPresentationActionSpec) ProtoMessage() {}
+
+func (x *PetPresentationActionSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_gameplay_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PetPresentationActionSpec.ProtoReflect.Descriptor instead.
+func (*PetPresentationActionSpec) Descriptor() ([]byte, []int) {
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *PetPresentationActionSpec) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *PetPresentationActionSpec) GetCost() int64 {
+	if x != nil {
+		return x.Cost
+	}
+	return 0
+}
+
+func (x *PetPresentationActionSpec) GetEffect() *PetPresentationActionEffectSpec {
+	if x != nil {
+		return x.Effect
+	}
+	return nil
+}
+
+func (x *PetPresentationActionSpec) GetVisualClipId() string {
+	if x != nil && x.VisualClipId != nil {
+		return *x.VisualClipId
+	}
+	return ""
+}
+
+type PetPresentationAttrDelta struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Life          *PetLife               `protobuf:"bytes,1,opt,name=life,proto3,oneof" json:"life,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PetPresentationAttrDelta) Reset() {
+	*x = PetPresentationAttrDelta{}
+	mi := &file_payload_gameplay_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PetPresentationAttrDelta) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PetPresentationAttrDelta) ProtoMessage() {}
+
+func (x *PetPresentationAttrDelta) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_gameplay_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PetPresentationAttrDelta.ProtoReflect.Descriptor instead.
+func (*PetPresentationAttrDelta) Descriptor() ([]byte, []int) {
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *PetPresentationAttrDelta) GetLife() *PetLife {
+	if x != nil {
+		return x.Life
+	}
+	return nil
+}
+
+type PetPresentationAttrGroupSpec struct {
+	state         protoimpl.MessageState                   `protogen:"open.v1"`
+	Value         map[string]*PetPresentationAttrValueSpec `protobuf:"bytes,1,rep,name=value,proto3" json:"value,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PetPresentationAttrGroupSpec) Reset() {
+	*x = PetPresentationAttrGroupSpec{}
+	mi := &file_payload_gameplay_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PetPresentationAttrGroupSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PetPresentationAttrGroupSpec) ProtoMessage() {}
+
+func (x *PetPresentationAttrGroupSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_gameplay_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PetPresentationAttrGroupSpec.ProtoReflect.Descriptor instead.
+func (*PetPresentationAttrGroupSpec) Descriptor() ([]byte, []int) {
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *PetPresentationAttrGroupSpec) GetValue() map[string]*PetPresentationAttrValueSpec {
+	if x != nil {
+		return x.Value
+	}
+	return nil
+}
+
+type PetPresentationAttrSpec struct {
+	state         protoimpl.MessageState        `protogen:"open.v1"`
+	Life          *PetPresentationAttrGroupSpec `protobuf:"bytes,1,opt,name=life,proto3" json:"life,omitempty"`
+	Progression   *PetPresentationAttrGroupSpec `protobuf:"bytes,2,opt,name=progression,proto3" json:"progression,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PetPresentationAttrSpec) Reset() {
+	*x = PetPresentationAttrSpec{}
+	mi := &file_payload_gameplay_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PetPresentationAttrSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PetPresentationAttrSpec) ProtoMessage() {}
+
+func (x *PetPresentationAttrSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_gameplay_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PetPresentationAttrSpec.ProtoReflect.Descriptor instead.
+func (*PetPresentationAttrSpec) Descriptor() ([]byte, []int) {
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *PetPresentationAttrSpec) GetLife() *PetPresentationAttrGroupSpec {
+	if x != nil {
+		return x.Life
+	}
+	return nil
+}
+
+func (x *PetPresentationAttrSpec) GetProgression() *PetPresentationAttrGroupSpec {
+	if x != nil {
+		return x.Progression
+	}
+	return nil
+}
+
+type PetPresentationAttrValueSpec struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Initial       int64                  `protobuf:"varint,1,opt,name=initial,proto3" json:"initial,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PetPresentationAttrValueSpec) Reset() {
+	*x = PetPresentationAttrValueSpec{}
+	mi := &file_payload_gameplay_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PetPresentationAttrValueSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PetPresentationAttrValueSpec) ProtoMessage() {}
+
+func (x *PetPresentationAttrValueSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_gameplay_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PetPresentationAttrValueSpec.ProtoReflect.Descriptor instead.
+func (*PetPresentationAttrValueSpec) Descriptor() ([]byte, []int) {
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *PetPresentationAttrValueSpec) GetInitial() int64 {
+	if x != nil {
+		return x.Initial
+	}
+	return 0
+}
+
+type PetPresentationDriveSpec struct {
+	state         protoimpl.MessageState       `protogen:"open.v1"`
+	Actions       []*PetPresentationActionSpec `protobuf:"bytes,1,rep,name=actions,proto3" json:"actions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PetPresentationDriveSpec) Reset() {
+	*x = PetPresentationDriveSpec{}
+	mi := &file_payload_gameplay_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PetPresentationDriveSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PetPresentationDriveSpec) ProtoMessage() {}
+
+func (x *PetPresentationDriveSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_gameplay_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PetPresentationDriveSpec.ProtoReflect.Descriptor instead.
+func (*PetPresentationDriveSpec) Descriptor() ([]byte, []int) {
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *PetPresentationDriveSpec) GetActions() []*PetPresentationActionSpec {
+	if x != nil {
+		return x.Actions
+	}
+	return nil
+}
+
+type PetPresentationI18NAttrGroup struct {
+	state         protoimpl.MessageState                     `protogen:"open.v1"`
+	Value         map[string]*PetPresentationI18NDisplayText `protobuf:"bytes,1,rep,name=value,proto3" json:"value,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PetPresentationI18NAttrGroup) Reset() {
+	*x = PetPresentationI18NAttrGroup{}
+	mi := &file_payload_gameplay_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PetPresentationI18NAttrGroup) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PetPresentationI18NAttrGroup) ProtoMessage() {}
+
+func (x *PetPresentationI18NAttrGroup) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_gameplay_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PetPresentationI18NAttrGroup.ProtoReflect.Descriptor instead.
+func (*PetPresentationI18NAttrGroup) Descriptor() ([]byte, []int) {
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *PetPresentationI18NAttrGroup) GetValue() map[string]*PetPresentationI18NDisplayText {
+	if x != nil {
+		return x.Value
+	}
+	return nil
+}
+
+type PetPresentationI18NAttrSpec struct {
+	state         protoimpl.MessageState        `protogen:"open.v1"`
+	Life          *PetPresentationI18NAttrGroup `protobuf:"bytes,1,opt,name=life,proto3,oneof" json:"life,omitempty"`
+	Progression   *PetPresentationI18NAttrGroup `protobuf:"bytes,2,opt,name=progression,proto3,oneof" json:"progression,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PetPresentationI18NAttrSpec) Reset() {
+	*x = PetPresentationI18NAttrSpec{}
+	mi := &file_payload_gameplay_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PetPresentationI18NAttrSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PetPresentationI18NAttrSpec) ProtoMessage() {}
+
+func (x *PetPresentationI18NAttrSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_gameplay_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PetPresentationI18NAttrSpec.ProtoReflect.Descriptor instead.
+func (*PetPresentationI18NAttrSpec) Descriptor() ([]byte, []int) {
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *PetPresentationI18NAttrSpec) GetLife() *PetPresentationI18NAttrGroup {
+	if x != nil {
+		return x.Life
+	}
+	return nil
+}
+
+func (x *PetPresentationI18NAttrSpec) GetProgression() *PetPresentationI18NAttrGroup {
+	if x != nil {
+		return x.Progression
+	}
+	return nil
+}
+
+type PetPresentationI18NCatalog struct {
+	state         protoimpl.MessageState        `protogen:"open.v1"`
+	DisplayName   *string                       `protobuf:"bytes,1,opt,name=display_name,json=displayName,proto3,oneof" json:"display_name,omitempty"`
+	Description   *string                       `protobuf:"bytes,2,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	Attr          *PetPresentationI18NAttrSpec  `protobuf:"bytes,3,opt,name=attr,proto3,oneof" json:"attr,omitempty"`
+	Drive         *PetPresentationI18NDriveSpec `protobuf:"bytes,4,opt,name=drive,proto3,oneof" json:"drive,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PetPresentationI18NCatalog) Reset() {
+	*x = PetPresentationI18NCatalog{}
+	mi := &file_payload_gameplay_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PetPresentationI18NCatalog) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PetPresentationI18NCatalog) ProtoMessage() {}
+
+func (x *PetPresentationI18NCatalog) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_gameplay_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PetPresentationI18NCatalog.ProtoReflect.Descriptor instead.
+func (*PetPresentationI18NCatalog) Descriptor() ([]byte, []int) {
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *PetPresentationI18NCatalog) GetDisplayName() string {
+	if x != nil && x.DisplayName != nil {
+		return *x.DisplayName
+	}
+	return ""
+}
+
+func (x *PetPresentationI18NCatalog) GetDescription() string {
+	if x != nil && x.Description != nil {
+		return *x.Description
+	}
+	return ""
+}
+
+func (x *PetPresentationI18NCatalog) GetAttr() *PetPresentationI18NAttrSpec {
+	if x != nil {
+		return x.Attr
+	}
+	return nil
+}
+
+func (x *PetPresentationI18NCatalog) GetDrive() *PetPresentationI18NDriveSpec {
+	if x != nil {
+		return x.Drive
+	}
+	return nil
+}
+
+type PetPresentationI18NDisplayText struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DisplayName   string                 `protobuf:"bytes,1,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PetPresentationI18NDisplayText) Reset() {
+	*x = PetPresentationI18NDisplayText{}
+	mi := &file_payload_gameplay_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PetPresentationI18NDisplayText) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PetPresentationI18NDisplayText) ProtoMessage() {}
+
+func (x *PetPresentationI18NDisplayText) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_gameplay_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PetPresentationI18NDisplayText.ProtoReflect.Descriptor instead.
+func (*PetPresentationI18NDisplayText) Descriptor() ([]byte, []int) {
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *PetPresentationI18NDisplayText) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+type PetPresentationI18NDriveSpec struct {
+	state         protoimpl.MessageState                     `protogen:"open.v1"`
+	Actions       map[string]*PetPresentationI18NDisplayText `protobuf:"bytes,1,rep,name=actions,proto3" json:"actions,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PetPresentationI18NDriveSpec) Reset() {
+	*x = PetPresentationI18NDriveSpec{}
+	mi := &file_payload_gameplay_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PetPresentationI18NDriveSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PetPresentationI18NDriveSpec) ProtoMessage() {}
+
+func (x *PetPresentationI18NDriveSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_gameplay_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PetPresentationI18NDriveSpec.ProtoReflect.Descriptor instead.
+func (*PetPresentationI18NDriveSpec) Descriptor() ([]byte, []int) {
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *PetPresentationI18NDriveSpec) GetActions() map[string]*PetPresentationI18NDisplayText {
+	if x != nil {
+		return x.Actions
+	}
+	return nil
+}
+
+type PetPresentationI18NSpec struct {
+	state         protoimpl.MessageState                 `protogen:"open.v1"`
+	Value         map[string]*PetPresentationI18NCatalog `protobuf:"bytes,1,rep,name=value,proto3" json:"value,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PetPresentationI18NSpec) Reset() {
+	*x = PetPresentationI18NSpec{}
+	mi := &file_payload_gameplay_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PetPresentationI18NSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PetPresentationI18NSpec) ProtoMessage() {}
+
+func (x *PetPresentationI18NSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_gameplay_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PetPresentationI18NSpec.ProtoReflect.Descriptor instead.
+func (*PetPresentationI18NSpec) Descriptor() ([]byte, []int) {
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *PetPresentationI18NSpec) GetValue() map[string]*PetPresentationI18NCatalog {
+	if x != nil {
+		return x.Value
+	}
+	return nil
+}
+
+type PetPresentationPixaCanvasMetadata struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Width         int64                  `protobuf:"varint,1,opt,name=width,proto3" json:"width,omitempty"`
+	Height        int64                  `protobuf:"varint,2,opt,name=height,proto3" json:"height,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PetPresentationPixaCanvasMetadata) Reset() {
+	*x = PetPresentationPixaCanvasMetadata{}
+	mi := &file_payload_gameplay_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PetPresentationPixaCanvasMetadata) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PetPresentationPixaCanvasMetadata) ProtoMessage() {}
+
+func (x *PetPresentationPixaCanvasMetadata) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_gameplay_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PetPresentationPixaCanvasMetadata.ProtoReflect.Descriptor instead.
+func (*PetPresentationPixaCanvasMetadata) Descriptor() ([]byte, []int) {
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *PetPresentationPixaCanvasMetadata) GetWidth() int64 {
+	if x != nil {
+		return x.Width
+	}
+	return 0
+}
+
+func (x *PetPresentationPixaCanvasMetadata) GetHeight() int64 {
+	if x != nil {
+		return x.Height
+	}
+	return 0
+}
+
+type PetPresentationPixaClipMetadata struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ActionId      *string                `protobuf:"bytes,2,opt,name=action_id,json=actionId,proto3,oneof" json:"action_id,omitempty"`
+	PixaClipName  string                 `protobuf:"bytes,3,opt,name=pixa_clip_name,json=pixaClipName,proto3" json:"pixa_clip_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PetPresentationPixaClipMetadata) Reset() {
+	*x = PetPresentationPixaClipMetadata{}
+	mi := &file_payload_gameplay_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PetPresentationPixaClipMetadata) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PetPresentationPixaClipMetadata) ProtoMessage() {}
+
+func (x *PetPresentationPixaClipMetadata) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_gameplay_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PetPresentationPixaClipMetadata.ProtoReflect.Descriptor instead.
+func (*PetPresentationPixaClipMetadata) Descriptor() ([]byte, []int) {
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *PetPresentationPixaClipMetadata) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *PetPresentationPixaClipMetadata) GetActionId() string {
+	if x != nil && x.ActionId != nil {
+		return *x.ActionId
+	}
+	return ""
+}
+
+func (x *PetPresentationPixaClipMetadata) GetPixaClipName() string {
+	if x != nil {
+		return x.PixaClipName
+	}
+	return ""
+}
+
+type PetPresentationPixaMetadata struct {
+	state         protoimpl.MessageState             `protogen:"open.v1"`
+	Version       string                             `protobuf:"bytes,1,opt,name=version,proto3" json:"version,omitempty"`
+	Canvas        *PetPresentationPixaCanvasMetadata `protobuf:"bytes,2,opt,name=canvas,proto3" json:"canvas,omitempty"`
+	Clips         []*PetPresentationPixaClipMetadata `protobuf:"bytes,3,rep,name=clips,proto3" json:"clips,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PetPresentationPixaMetadata) Reset() {
+	*x = PetPresentationPixaMetadata{}
+	mi := &file_payload_gameplay_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PetPresentationPixaMetadata) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PetPresentationPixaMetadata) ProtoMessage() {}
+
+func (x *PetPresentationPixaMetadata) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_gameplay_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PetPresentationPixaMetadata.ProtoReflect.Descriptor instead.
+func (*PetPresentationPixaMetadata) Descriptor() ([]byte, []int) {
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *PetPresentationPixaMetadata) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *PetPresentationPixaMetadata) GetCanvas() *PetPresentationPixaCanvasMetadata {
+	if x != nil {
+		return x.Canvas
+	}
+	return nil
+}
+
+func (x *PetPresentationPixaMetadata) GetClips() []*PetPresentationPixaClipMetadata {
+	if x != nil {
+		return x.Clips
+	}
+	return nil
+}
+
 type PetDeleteRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -1465,7 +2445,7 @@ type PetDeleteRequest struct {
 
 func (x *PetDeleteRequest) Reset() {
 	*x = PetDeleteRequest{}
-	mi := &file_payload_gameplay_proto_msgTypes[20]
+	mi := &file_payload_gameplay_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1477,7 +2457,7 @@ func (x *PetDeleteRequest) String() string {
 func (*PetDeleteRequest) ProtoMessage() {}
 
 func (x *PetDeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[20]
+	mi := &file_payload_gameplay_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1490,7 +2470,7 @@ func (x *PetDeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PetDeleteRequest.ProtoReflect.Descriptor instead.
 func (*PetDeleteRequest) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{20}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *PetDeleteRequest) GetId() string {
@@ -1517,7 +2497,7 @@ type PetDriveGameResultInput struct {
 
 func (x *PetDriveGameResultInput) Reset() {
 	*x = PetDriveGameResultInput{}
-	mi := &file_payload_gameplay_proto_msgTypes[21]
+	mi := &file_payload_gameplay_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1529,7 +2509,7 @@ func (x *PetDriveGameResultInput) String() string {
 func (*PetDriveGameResultInput) ProtoMessage() {}
 
 func (x *PetDriveGameResultInput) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[21]
+	mi := &file_payload_gameplay_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1542,7 +2522,7 @@ func (x *PetDriveGameResultInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PetDriveGameResultInput.ProtoReflect.Descriptor instead.
 func (*PetDriveGameResultInput) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{21}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *PetDriveGameResultInput) GetDifficulty() string {
@@ -1619,7 +2599,7 @@ type PetDriveRequest struct {
 
 func (x *PetDriveRequest) Reset() {
 	*x = PetDriveRequest{}
-	mi := &file_payload_gameplay_proto_msgTypes[22]
+	mi := &file_payload_gameplay_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1631,7 +2611,7 @@ func (x *PetDriveRequest) String() string {
 func (*PetDriveRequest) ProtoMessage() {}
 
 func (x *PetDriveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[22]
+	mi := &file_payload_gameplay_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1644,7 +2624,7 @@ func (x *PetDriveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PetDriveRequest.ProtoReflect.Descriptor instead.
 func (*PetDriveRequest) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{22}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *PetDriveRequest) GetAction() string {
@@ -1682,7 +2662,7 @@ type PetDriveResponse struct {
 
 func (x *PetDriveResponse) Reset() {
 	*x = PetDriveResponse{}
-	mi := &file_payload_gameplay_proto_msgTypes[23]
+	mi := &file_payload_gameplay_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1694,7 +2674,7 @@ func (x *PetDriveResponse) String() string {
 func (*PetDriveResponse) ProtoMessage() {}
 
 func (x *PetDriveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[23]
+	mi := &file_payload_gameplay_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1707,7 +2687,7 @@ func (x *PetDriveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PetDriveResponse.ProtoReflect.Descriptor instead.
 func (*PetDriveResponse) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{23}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *PetDriveResponse) GetBadges() []*Badge {
@@ -1761,7 +2741,7 @@ type PetGetRequest struct {
 
 func (x *PetGetRequest) Reset() {
 	*x = PetGetRequest{}
-	mi := &file_payload_gameplay_proto_msgTypes[24]
+	mi := &file_payload_gameplay_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1773,7 +2753,7 @@ func (x *PetGetRequest) String() string {
 func (*PetGetRequest) ProtoMessage() {}
 
 func (x *PetGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[24]
+	mi := &file_payload_gameplay_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1786,7 +2766,7 @@ func (x *PetGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PetGetRequest.ProtoReflect.Descriptor instead.
 func (*PetGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{24}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *PetGetRequest) GetId() string {
@@ -1807,7 +2787,7 @@ type PetListResponse struct {
 
 func (x *PetListResponse) Reset() {
 	*x = PetListResponse{}
-	mi := &file_payload_gameplay_proto_msgTypes[25]
+	mi := &file_payload_gameplay_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1819,7 +2799,7 @@ func (x *PetListResponse) String() string {
 func (*PetListResponse) ProtoMessage() {}
 
 func (x *PetListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[25]
+	mi := &file_payload_gameplay_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1832,7 +2812,7 @@ func (x *PetListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PetListResponse.ProtoReflect.Descriptor instead.
 func (*PetListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{25}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *PetListResponse) GetHasNext() bool {
@@ -1866,7 +2846,7 @@ type PetPutRequest struct {
 
 func (x *PetPutRequest) Reset() {
 	*x = PetPutRequest{}
-	mi := &file_payload_gameplay_proto_msgTypes[26]
+	mi := &file_payload_gameplay_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1878,7 +2858,7 @@ func (x *PetPutRequest) String() string {
 func (*PetPutRequest) ProtoMessage() {}
 
 func (x *PetPutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[26]
+	mi := &file_payload_gameplay_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1891,7 +2871,7 @@ func (x *PetPutRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PetPutRequest.ProtoReflect.Descriptor instead.
 func (*PetPutRequest) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{26}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *PetPutRequest) GetDisplayName() string {
@@ -1921,7 +2901,7 @@ type PointsAccount struct {
 
 func (x *PointsAccount) Reset() {
 	*x = PointsAccount{}
-	mi := &file_payload_gameplay_proto_msgTypes[27]
+	mi := &file_payload_gameplay_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1933,7 +2913,7 @@ func (x *PointsAccount) String() string {
 func (*PointsAccount) ProtoMessage() {}
 
 func (x *PointsAccount) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[27]
+	mi := &file_payload_gameplay_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1946,7 +2926,7 @@ func (x *PointsAccount) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PointsAccount.ProtoReflect.Descriptor instead.
 func (*PointsAccount) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{27}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *PointsAccount) GetBalance() int64 {
@@ -2004,7 +2984,7 @@ type PointsTransaction struct {
 
 func (x *PointsTransaction) Reset() {
 	*x = PointsTransaction{}
-	mi := &file_payload_gameplay_proto_msgTypes[28]
+	mi := &file_payload_gameplay_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2016,7 +2996,7 @@ func (x *PointsTransaction) String() string {
 func (*PointsTransaction) ProtoMessage() {}
 
 func (x *PointsTransaction) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[28]
+	mi := &file_payload_gameplay_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2029,7 +3009,7 @@ func (x *PointsTransaction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PointsTransaction.ProtoReflect.Descriptor instead.
 func (*PointsTransaction) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{28}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *PointsTransaction) GetBalanceAfter() int64 {
@@ -2127,7 +3107,7 @@ type PointsTransactionListResponse struct {
 
 func (x *PointsTransactionListResponse) Reset() {
 	*x = PointsTransactionListResponse{}
-	mi := &file_payload_gameplay_proto_msgTypes[29]
+	mi := &file_payload_gameplay_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2139,7 +3119,7 @@ func (x *PointsTransactionListResponse) String() string {
 func (*PointsTransactionListResponse) ProtoMessage() {}
 
 func (x *PointsTransactionListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[29]
+	mi := &file_payload_gameplay_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2152,7 +3132,7 @@ func (x *PointsTransactionListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PointsTransactionListResponse.ProtoReflect.Descriptor instead.
 func (*PointsTransactionListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{29}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *PointsTransactionListResponse) GetHasNext() bool {
@@ -2178,12 +3158,10 @@ func (x *PointsTransactionListResponse) GetNextCursor() string {
 
 type RewardGrant struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	AbilityDelta   *StatMap               `protobuf:"bytes,1,opt,name=ability_delta,json=abilityDelta,proto3,oneof" json:"ability_delta,omitempty"`
 	BadgeExpDelta  map[string]int64       `protobuf:"bytes,2,rep,name=badge_exp_delta,json=badgeExpDelta,proto3" json:"badge_exp_delta,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 	CreatedAt      string                 `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	GameResultId   *string                `protobuf:"bytes,4,opt,name=game_result_id,json=gameResultId,proto3,oneof" json:"game_result_id,omitempty"`
 	Id             string                 `protobuf:"bytes,5,opt,name=id,proto3" json:"id,omitempty"`
-	LifeDelta      *StatMap               `protobuf:"bytes,6,opt,name=life_delta,json=lifeDelta,proto3,oneof" json:"life_delta,omitempty"`
 	OwnerPublicKey string                 `protobuf:"bytes,7,opt,name=owner_public_key,json=ownerPublicKey,proto3" json:"owner_public_key,omitempty"`
 	PetExpDelta    int64                  `protobuf:"varint,8,opt,name=pet_exp_delta,json=petExpDelta,proto3" json:"pet_exp_delta,omitempty"`
 	PetId          *string                `protobuf:"bytes,9,opt,name=pet_id,json=petId,proto3,oneof" json:"pet_id,omitempty"`
@@ -2198,7 +3176,7 @@ type RewardGrant struct {
 
 func (x *RewardGrant) Reset() {
 	*x = RewardGrant{}
-	mi := &file_payload_gameplay_proto_msgTypes[30]
+	mi := &file_payload_gameplay_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2210,7 +3188,7 @@ func (x *RewardGrant) String() string {
 func (*RewardGrant) ProtoMessage() {}
 
 func (x *RewardGrant) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[30]
+	mi := &file_payload_gameplay_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2223,14 +3201,7 @@ func (x *RewardGrant) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RewardGrant.ProtoReflect.Descriptor instead.
 func (*RewardGrant) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{30}
-}
-
-func (x *RewardGrant) GetAbilityDelta() *StatMap {
-	if x != nil {
-		return x.AbilityDelta
-	}
-	return nil
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *RewardGrant) GetBadgeExpDelta() map[string]int64 {
@@ -2259,13 +3230,6 @@ func (x *RewardGrant) GetId() string {
 		return x.Id
 	}
 	return ""
-}
-
-func (x *RewardGrant) GetLifeDelta() *StatMap {
-	if x != nil {
-		return x.LifeDelta
-	}
-	return nil
 }
 
 func (x *RewardGrant) GetOwnerPublicKey() string {
@@ -2335,7 +3299,7 @@ type RewardGrantListResponse struct {
 
 func (x *RewardGrantListResponse) Reset() {
 	*x = RewardGrantListResponse{}
-	mi := &file_payload_gameplay_proto_msgTypes[31]
+	mi := &file_payload_gameplay_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2347,7 +3311,7 @@ func (x *RewardGrantListResponse) String() string {
 func (*RewardGrantListResponse) ProtoMessage() {}
 
 func (x *RewardGrantListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[31]
+	mi := &file_payload_gameplay_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2360,7 +3324,7 @@ func (x *RewardGrantListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RewardGrantListResponse.ProtoReflect.Descriptor instead.
 func (*RewardGrantListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{31}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *RewardGrantListResponse) GetHasNext() bool {
@@ -2393,7 +3357,7 @@ type ServerBadgeGetRequest struct {
 
 func (x *ServerBadgeGetRequest) Reset() {
 	*x = ServerBadgeGetRequest{}
-	mi := &file_payload_gameplay_proto_msgTypes[32]
+	mi := &file_payload_gameplay_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2405,7 +3369,7 @@ func (x *ServerBadgeGetRequest) String() string {
 func (*ServerBadgeGetRequest) ProtoMessage() {}
 
 func (x *ServerBadgeGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[32]
+	mi := &file_payload_gameplay_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2418,7 +3382,7 @@ func (x *ServerBadgeGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerBadgeGetRequest.ProtoReflect.Descriptor instead.
 func (*ServerBadgeGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{32}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *ServerBadgeGetRequest) GetValue() *GameplayGetRequest {
@@ -2437,7 +3401,7 @@ type ServerBadgeGetResponse struct {
 
 func (x *ServerBadgeGetResponse) Reset() {
 	*x = ServerBadgeGetResponse{}
-	mi := &file_payload_gameplay_proto_msgTypes[33]
+	mi := &file_payload_gameplay_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2449,7 +3413,7 @@ func (x *ServerBadgeGetResponse) String() string {
 func (*ServerBadgeGetResponse) ProtoMessage() {}
 
 func (x *ServerBadgeGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[33]
+	mi := &file_payload_gameplay_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2462,7 +3426,7 @@ func (x *ServerBadgeGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerBadgeGetResponse.ProtoReflect.Descriptor instead.
 func (*ServerBadgeGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{33}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *ServerBadgeGetResponse) GetValue() *Badge {
@@ -2481,7 +3445,7 @@ type ServerBadgeListRequest struct {
 
 func (x *ServerBadgeListRequest) Reset() {
 	*x = ServerBadgeListRequest{}
-	mi := &file_payload_gameplay_proto_msgTypes[34]
+	mi := &file_payload_gameplay_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2493,7 +3457,7 @@ func (x *ServerBadgeListRequest) String() string {
 func (*ServerBadgeListRequest) ProtoMessage() {}
 
 func (x *ServerBadgeListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[34]
+	mi := &file_payload_gameplay_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2506,7 +3470,7 @@ func (x *ServerBadgeListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerBadgeListRequest.ProtoReflect.Descriptor instead.
 func (*ServerBadgeListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{34}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *ServerBadgeListRequest) GetValue() *GameplayListRequest {
@@ -2525,7 +3489,7 @@ type ServerBadgeListResponse struct {
 
 func (x *ServerBadgeListResponse) Reset() {
 	*x = ServerBadgeListResponse{}
-	mi := &file_payload_gameplay_proto_msgTypes[35]
+	mi := &file_payload_gameplay_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2537,7 +3501,7 @@ func (x *ServerBadgeListResponse) String() string {
 func (*ServerBadgeListResponse) ProtoMessage() {}
 
 func (x *ServerBadgeListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[35]
+	mi := &file_payload_gameplay_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2550,7 +3514,7 @@ func (x *ServerBadgeListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerBadgeListResponse.ProtoReflect.Descriptor instead.
 func (*ServerBadgeListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{35}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *ServerBadgeListResponse) GetValue() *BadgeListResponse {
@@ -2569,7 +3533,7 @@ type ServerGameResultGetRequest struct {
 
 func (x *ServerGameResultGetRequest) Reset() {
 	*x = ServerGameResultGetRequest{}
-	mi := &file_payload_gameplay_proto_msgTypes[36]
+	mi := &file_payload_gameplay_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2581,7 +3545,7 @@ func (x *ServerGameResultGetRequest) String() string {
 func (*ServerGameResultGetRequest) ProtoMessage() {}
 
 func (x *ServerGameResultGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[36]
+	mi := &file_payload_gameplay_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2594,7 +3558,7 @@ func (x *ServerGameResultGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerGameResultGetRequest.ProtoReflect.Descriptor instead.
 func (*ServerGameResultGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{36}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *ServerGameResultGetRequest) GetValue() *GameplayGetRequest {
@@ -2613,7 +3577,7 @@ type ServerGameResultGetResponse struct {
 
 func (x *ServerGameResultGetResponse) Reset() {
 	*x = ServerGameResultGetResponse{}
-	mi := &file_payload_gameplay_proto_msgTypes[37]
+	mi := &file_payload_gameplay_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2625,7 +3589,7 @@ func (x *ServerGameResultGetResponse) String() string {
 func (*ServerGameResultGetResponse) ProtoMessage() {}
 
 func (x *ServerGameResultGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[37]
+	mi := &file_payload_gameplay_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2638,7 +3602,7 @@ func (x *ServerGameResultGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerGameResultGetResponse.ProtoReflect.Descriptor instead.
 func (*ServerGameResultGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{37}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *ServerGameResultGetResponse) GetValue() *GameResult {
@@ -2657,7 +3621,7 @@ type ServerGameResultListRequest struct {
 
 func (x *ServerGameResultListRequest) Reset() {
 	*x = ServerGameResultListRequest{}
-	mi := &file_payload_gameplay_proto_msgTypes[38]
+	mi := &file_payload_gameplay_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2669,7 +3633,7 @@ func (x *ServerGameResultListRequest) String() string {
 func (*ServerGameResultListRequest) ProtoMessage() {}
 
 func (x *ServerGameResultListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[38]
+	mi := &file_payload_gameplay_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2682,7 +3646,7 @@ func (x *ServerGameResultListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerGameResultListRequest.ProtoReflect.Descriptor instead.
 func (*ServerGameResultListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{38}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *ServerGameResultListRequest) GetValue() *GameplayListRequest {
@@ -2701,7 +3665,7 @@ type ServerGameResultListResponse struct {
 
 func (x *ServerGameResultListResponse) Reset() {
 	*x = ServerGameResultListResponse{}
-	mi := &file_payload_gameplay_proto_msgTypes[39]
+	mi := &file_payload_gameplay_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2713,7 +3677,7 @@ func (x *ServerGameResultListResponse) String() string {
 func (*ServerGameResultListResponse) ProtoMessage() {}
 
 func (x *ServerGameResultListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[39]
+	mi := &file_payload_gameplay_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2726,7 +3690,7 @@ func (x *ServerGameResultListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerGameResultListResponse.ProtoReflect.Descriptor instead.
 func (*ServerGameResultListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{39}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *ServerGameResultListResponse) GetValue() *GameResultListResponse {
@@ -2745,7 +3709,7 @@ type ServerGameRulesetGetRequest struct {
 
 func (x *ServerGameRulesetGetRequest) Reset() {
 	*x = ServerGameRulesetGetRequest{}
-	mi := &file_payload_gameplay_proto_msgTypes[40]
+	mi := &file_payload_gameplay_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2757,7 +3721,7 @@ func (x *ServerGameRulesetGetRequest) String() string {
 func (*ServerGameRulesetGetRequest) ProtoMessage() {}
 
 func (x *ServerGameRulesetGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[40]
+	mi := &file_payload_gameplay_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2770,7 +3734,7 @@ func (x *ServerGameRulesetGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerGameRulesetGetRequest.ProtoReflect.Descriptor instead.
 func (*ServerGameRulesetGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{40}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *ServerGameRulesetGetRequest) GetName() string {
@@ -2789,7 +3753,7 @@ type ServerGameRulesetGetResponse struct {
 
 func (x *ServerGameRulesetGetResponse) Reset() {
 	*x = ServerGameRulesetGetResponse{}
-	mi := &file_payload_gameplay_proto_msgTypes[41]
+	mi := &file_payload_gameplay_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2801,7 +3765,7 @@ func (x *ServerGameRulesetGetResponse) String() string {
 func (*ServerGameRulesetGetResponse) ProtoMessage() {}
 
 func (x *ServerGameRulesetGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[41]
+	mi := &file_payload_gameplay_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2814,7 +3778,7 @@ func (x *ServerGameRulesetGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerGameRulesetGetResponse.ProtoReflect.Descriptor instead.
 func (*ServerGameRulesetGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{41}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *ServerGameRulesetGetResponse) GetValue() *GameRuleset {
@@ -2833,7 +3797,7 @@ type ServerPetAdoptRequest struct {
 
 func (x *ServerPetAdoptRequest) Reset() {
 	*x = ServerPetAdoptRequest{}
-	mi := &file_payload_gameplay_proto_msgTypes[42]
+	mi := &file_payload_gameplay_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2845,7 +3809,7 @@ func (x *ServerPetAdoptRequest) String() string {
 func (*ServerPetAdoptRequest) ProtoMessage() {}
 
 func (x *ServerPetAdoptRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[42]
+	mi := &file_payload_gameplay_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2858,7 +3822,7 @@ func (x *ServerPetAdoptRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPetAdoptRequest.ProtoReflect.Descriptor instead.
 func (*ServerPetAdoptRequest) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{42}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *ServerPetAdoptRequest) GetValue() *PetAdoptRequest {
@@ -2877,7 +3841,7 @@ type ServerPetAdoptResponse struct {
 
 func (x *ServerPetAdoptResponse) Reset() {
 	*x = ServerPetAdoptResponse{}
-	mi := &file_payload_gameplay_proto_msgTypes[43]
+	mi := &file_payload_gameplay_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2889,7 +3853,7 @@ func (x *ServerPetAdoptResponse) String() string {
 func (*ServerPetAdoptResponse) ProtoMessage() {}
 
 func (x *ServerPetAdoptResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[43]
+	mi := &file_payload_gameplay_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2902,7 +3866,7 @@ func (x *ServerPetAdoptResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPetAdoptResponse.ProtoReflect.Descriptor instead.
 func (*ServerPetAdoptResponse) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{43}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *ServerPetAdoptResponse) GetValue() *PetAdoptResponse {
@@ -2921,7 +3885,7 @@ type ServerPetDeleteRequest struct {
 
 func (x *ServerPetDeleteRequest) Reset() {
 	*x = ServerPetDeleteRequest{}
-	mi := &file_payload_gameplay_proto_msgTypes[44]
+	mi := &file_payload_gameplay_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2933,7 +3897,7 @@ func (x *ServerPetDeleteRequest) String() string {
 func (*ServerPetDeleteRequest) ProtoMessage() {}
 
 func (x *ServerPetDeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[44]
+	mi := &file_payload_gameplay_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2946,7 +3910,7 @@ func (x *ServerPetDeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPetDeleteRequest.ProtoReflect.Descriptor instead.
 func (*ServerPetDeleteRequest) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{44}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *ServerPetDeleteRequest) GetValue() *PetDeleteRequest {
@@ -2965,7 +3929,7 @@ type ServerPetDeleteResponse struct {
 
 func (x *ServerPetDeleteResponse) Reset() {
 	*x = ServerPetDeleteResponse{}
-	mi := &file_payload_gameplay_proto_msgTypes[45]
+	mi := &file_payload_gameplay_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2977,7 +3941,7 @@ func (x *ServerPetDeleteResponse) String() string {
 func (*ServerPetDeleteResponse) ProtoMessage() {}
 
 func (x *ServerPetDeleteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[45]
+	mi := &file_payload_gameplay_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2990,7 +3954,7 @@ func (x *ServerPetDeleteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPetDeleteResponse.ProtoReflect.Descriptor instead.
 func (*ServerPetDeleteResponse) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{45}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *ServerPetDeleteResponse) GetValue() *Pet {
@@ -3009,7 +3973,7 @@ type ServerPetDriveRequest struct {
 
 func (x *ServerPetDriveRequest) Reset() {
 	*x = ServerPetDriveRequest{}
-	mi := &file_payload_gameplay_proto_msgTypes[46]
+	mi := &file_payload_gameplay_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3021,7 +3985,7 @@ func (x *ServerPetDriveRequest) String() string {
 func (*ServerPetDriveRequest) ProtoMessage() {}
 
 func (x *ServerPetDriveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[46]
+	mi := &file_payload_gameplay_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3034,7 +3998,7 @@ func (x *ServerPetDriveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPetDriveRequest.ProtoReflect.Descriptor instead.
 func (*ServerPetDriveRequest) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{46}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *ServerPetDriveRequest) GetValue() *PetDriveRequest {
@@ -3053,7 +4017,7 @@ type ServerPetDriveResponse struct {
 
 func (x *ServerPetDriveResponse) Reset() {
 	*x = ServerPetDriveResponse{}
-	mi := &file_payload_gameplay_proto_msgTypes[47]
+	mi := &file_payload_gameplay_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3065,7 +4029,7 @@ func (x *ServerPetDriveResponse) String() string {
 func (*ServerPetDriveResponse) ProtoMessage() {}
 
 func (x *ServerPetDriveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[47]
+	mi := &file_payload_gameplay_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3078,7 +4042,7 @@ func (x *ServerPetDriveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPetDriveResponse.ProtoReflect.Descriptor instead.
 func (*ServerPetDriveResponse) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{47}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *ServerPetDriveResponse) GetValue() *PetDriveResponse {
@@ -3097,7 +4061,7 @@ type ServerPetGetRequest struct {
 
 func (x *ServerPetGetRequest) Reset() {
 	*x = ServerPetGetRequest{}
-	mi := &file_payload_gameplay_proto_msgTypes[48]
+	mi := &file_payload_gameplay_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3109,7 +4073,7 @@ func (x *ServerPetGetRequest) String() string {
 func (*ServerPetGetRequest) ProtoMessage() {}
 
 func (x *ServerPetGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[48]
+	mi := &file_payload_gameplay_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3122,7 +4086,7 @@ func (x *ServerPetGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPetGetRequest.ProtoReflect.Descriptor instead.
 func (*ServerPetGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{48}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *ServerPetGetRequest) GetValue() *PetGetRequest {
@@ -3141,7 +4105,7 @@ type ServerPetGetResponse struct {
 
 func (x *ServerPetGetResponse) Reset() {
 	*x = ServerPetGetResponse{}
-	mi := &file_payload_gameplay_proto_msgTypes[49]
+	mi := &file_payload_gameplay_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3153,7 +4117,7 @@ func (x *ServerPetGetResponse) String() string {
 func (*ServerPetGetResponse) ProtoMessage() {}
 
 func (x *ServerPetGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[49]
+	mi := &file_payload_gameplay_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3166,10 +4130,186 @@ func (x *ServerPetGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPetGetResponse.ProtoReflect.Descriptor instead.
 func (*ServerPetGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{49}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *ServerPetGetResponse) GetValue() *Pet {
+	if x != nil {
+		return x.Value
+	}
+	return nil
+}
+
+type ServerPetPixaDownloadRequest struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	Value         *PetPixaDownloadRequest `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ServerPetPixaDownloadRequest) Reset() {
+	*x = ServerPetPixaDownloadRequest{}
+	mi := &file_payload_gameplay_proto_msgTypes[69]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerPetPixaDownloadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerPetPixaDownloadRequest) ProtoMessage() {}
+
+func (x *ServerPetPixaDownloadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_gameplay_proto_msgTypes[69]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerPetPixaDownloadRequest.ProtoReflect.Descriptor instead.
+func (*ServerPetPixaDownloadRequest) Descriptor() ([]byte, []int) {
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{69}
+}
+
+func (x *ServerPetPixaDownloadRequest) GetValue() *PetPixaDownloadRequest {
+	if x != nil {
+		return x.Value
+	}
+	return nil
+}
+
+type ServerPetPixaDownloadResponse struct {
+	state         protoimpl.MessageState   `protogen:"open.v1"`
+	Value         *PetPixaDownloadResponse `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ServerPetPixaDownloadResponse) Reset() {
+	*x = ServerPetPixaDownloadResponse{}
+	mi := &file_payload_gameplay_proto_msgTypes[70]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerPetPixaDownloadResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerPetPixaDownloadResponse) ProtoMessage() {}
+
+func (x *ServerPetPixaDownloadResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_gameplay_proto_msgTypes[70]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerPetPixaDownloadResponse.ProtoReflect.Descriptor instead.
+func (*ServerPetPixaDownloadResponse) Descriptor() ([]byte, []int) {
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{70}
+}
+
+func (x *ServerPetPixaDownloadResponse) GetValue() *PetPixaDownloadResponse {
+	if x != nil {
+		return x.Value
+	}
+	return nil
+}
+
+type ServerPetPresentationGetRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Value         *PetGetRequest         `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ServerPetPresentationGetRequest) Reset() {
+	*x = ServerPetPresentationGetRequest{}
+	mi := &file_payload_gameplay_proto_msgTypes[71]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerPetPresentationGetRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerPetPresentationGetRequest) ProtoMessage() {}
+
+func (x *ServerPetPresentationGetRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_gameplay_proto_msgTypes[71]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerPetPresentationGetRequest.ProtoReflect.Descriptor instead.
+func (*ServerPetPresentationGetRequest) Descriptor() ([]byte, []int) {
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{71}
+}
+
+func (x *ServerPetPresentationGetRequest) GetValue() *PetGetRequest {
+	if x != nil {
+		return x.Value
+	}
+	return nil
+}
+
+type ServerPetPresentationGetResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Value         *PetPresentation       `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ServerPetPresentationGetResponse) Reset() {
+	*x = ServerPetPresentationGetResponse{}
+	mi := &file_payload_gameplay_proto_msgTypes[72]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerPetPresentationGetResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerPetPresentationGetResponse) ProtoMessage() {}
+
+func (x *ServerPetPresentationGetResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_gameplay_proto_msgTypes[72]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerPetPresentationGetResponse.ProtoReflect.Descriptor instead.
+func (*ServerPetPresentationGetResponse) Descriptor() ([]byte, []int) {
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{72}
+}
+
+func (x *ServerPetPresentationGetResponse) GetValue() *PetPresentation {
 	if x != nil {
 		return x.Value
 	}
@@ -3185,7 +4325,7 @@ type ServerPetListRequest struct {
 
 func (x *ServerPetListRequest) Reset() {
 	*x = ServerPetListRequest{}
-	mi := &file_payload_gameplay_proto_msgTypes[50]
+	mi := &file_payload_gameplay_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3197,7 +4337,7 @@ func (x *ServerPetListRequest) String() string {
 func (*ServerPetListRequest) ProtoMessage() {}
 
 func (x *ServerPetListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[50]
+	mi := &file_payload_gameplay_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3210,7 +4350,7 @@ func (x *ServerPetListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPetListRequest.ProtoReflect.Descriptor instead.
 func (*ServerPetListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{50}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *ServerPetListRequest) GetValue() *GameplayListRequest {
@@ -3229,7 +4369,7 @@ type ServerPetListResponse struct {
 
 func (x *ServerPetListResponse) Reset() {
 	*x = ServerPetListResponse{}
-	mi := &file_payload_gameplay_proto_msgTypes[51]
+	mi := &file_payload_gameplay_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3241,7 +4381,7 @@ func (x *ServerPetListResponse) String() string {
 func (*ServerPetListResponse) ProtoMessage() {}
 
 func (x *ServerPetListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[51]
+	mi := &file_payload_gameplay_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3254,7 +4394,7 @@ func (x *ServerPetListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPetListResponse.ProtoReflect.Descriptor instead.
 func (*ServerPetListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{51}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *ServerPetListResponse) GetValue() *PetListResponse {
@@ -3273,7 +4413,7 @@ type ServerPetPutRequest struct {
 
 func (x *ServerPetPutRequest) Reset() {
 	*x = ServerPetPutRequest{}
-	mi := &file_payload_gameplay_proto_msgTypes[52]
+	mi := &file_payload_gameplay_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3285,7 +4425,7 @@ func (x *ServerPetPutRequest) String() string {
 func (*ServerPetPutRequest) ProtoMessage() {}
 
 func (x *ServerPetPutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[52]
+	mi := &file_payload_gameplay_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3298,7 +4438,7 @@ func (x *ServerPetPutRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPetPutRequest.ProtoReflect.Descriptor instead.
 func (*ServerPetPutRequest) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{52}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *ServerPetPutRequest) GetValue() *PetPutRequest {
@@ -3317,7 +4457,7 @@ type ServerPetPutResponse struct {
 
 func (x *ServerPetPutResponse) Reset() {
 	*x = ServerPetPutResponse{}
-	mi := &file_payload_gameplay_proto_msgTypes[53]
+	mi := &file_payload_gameplay_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3329,7 +4469,7 @@ func (x *ServerPetPutResponse) String() string {
 func (*ServerPetPutResponse) ProtoMessage() {}
 
 func (x *ServerPetPutResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[53]
+	mi := &file_payload_gameplay_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3342,7 +4482,7 @@ func (x *ServerPetPutResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPetPutResponse.ProtoReflect.Descriptor instead.
 func (*ServerPetPutResponse) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{53}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *ServerPetPutResponse) GetValue() *Pet {
@@ -3361,7 +4501,7 @@ type ServerPointsGetRequest struct {
 
 func (x *ServerPointsGetRequest) Reset() {
 	*x = ServerPointsGetRequest{}
-	mi := &file_payload_gameplay_proto_msgTypes[54]
+	mi := &file_payload_gameplay_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3373,7 +4513,7 @@ func (x *ServerPointsGetRequest) String() string {
 func (*ServerPointsGetRequest) ProtoMessage() {}
 
 func (x *ServerPointsGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[54]
+	mi := &file_payload_gameplay_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3386,7 +4526,7 @@ func (x *ServerPointsGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPointsGetRequest.ProtoReflect.Descriptor instead.
 func (*ServerPointsGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{54}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{77}
 }
 
 func (x *ServerPointsGetRequest) GetRulesetName() string {
@@ -3405,7 +4545,7 @@ type ServerPointsGetResponse struct {
 
 func (x *ServerPointsGetResponse) Reset() {
 	*x = ServerPointsGetResponse{}
-	mi := &file_payload_gameplay_proto_msgTypes[55]
+	mi := &file_payload_gameplay_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3417,7 +4557,7 @@ func (x *ServerPointsGetResponse) String() string {
 func (*ServerPointsGetResponse) ProtoMessage() {}
 
 func (x *ServerPointsGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[55]
+	mi := &file_payload_gameplay_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3430,7 +4570,7 @@ func (x *ServerPointsGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPointsGetResponse.ProtoReflect.Descriptor instead.
 func (*ServerPointsGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{55}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *ServerPointsGetResponse) GetValue() *PointsAccount {
@@ -3449,7 +4589,7 @@ type ServerPointsTransactionGetRequest struct {
 
 func (x *ServerPointsTransactionGetRequest) Reset() {
 	*x = ServerPointsTransactionGetRequest{}
-	mi := &file_payload_gameplay_proto_msgTypes[56]
+	mi := &file_payload_gameplay_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3461,7 +4601,7 @@ func (x *ServerPointsTransactionGetRequest) String() string {
 func (*ServerPointsTransactionGetRequest) ProtoMessage() {}
 
 func (x *ServerPointsTransactionGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[56]
+	mi := &file_payload_gameplay_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3474,7 +4614,7 @@ func (x *ServerPointsTransactionGetRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use ServerPointsTransactionGetRequest.ProtoReflect.Descriptor instead.
 func (*ServerPointsTransactionGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{56}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *ServerPointsTransactionGetRequest) GetValue() *GameplayGetRequest {
@@ -3493,7 +4633,7 @@ type ServerPointsTransactionGetResponse struct {
 
 func (x *ServerPointsTransactionGetResponse) Reset() {
 	*x = ServerPointsTransactionGetResponse{}
-	mi := &file_payload_gameplay_proto_msgTypes[57]
+	mi := &file_payload_gameplay_proto_msgTypes[80]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3505,7 +4645,7 @@ func (x *ServerPointsTransactionGetResponse) String() string {
 func (*ServerPointsTransactionGetResponse) ProtoMessage() {}
 
 func (x *ServerPointsTransactionGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[57]
+	mi := &file_payload_gameplay_proto_msgTypes[80]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3518,7 +4658,7 @@ func (x *ServerPointsTransactionGetResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use ServerPointsTransactionGetResponse.ProtoReflect.Descriptor instead.
 func (*ServerPointsTransactionGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{57}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{80}
 }
 
 func (x *ServerPointsTransactionGetResponse) GetValue() *PointsTransaction {
@@ -3537,7 +4677,7 @@ type ServerPointsTransactionListRequest struct {
 
 func (x *ServerPointsTransactionListRequest) Reset() {
 	*x = ServerPointsTransactionListRequest{}
-	mi := &file_payload_gameplay_proto_msgTypes[58]
+	mi := &file_payload_gameplay_proto_msgTypes[81]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3549,7 +4689,7 @@ func (x *ServerPointsTransactionListRequest) String() string {
 func (*ServerPointsTransactionListRequest) ProtoMessage() {}
 
 func (x *ServerPointsTransactionListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[58]
+	mi := &file_payload_gameplay_proto_msgTypes[81]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3562,7 +4702,7 @@ func (x *ServerPointsTransactionListRequest) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use ServerPointsTransactionListRequest.ProtoReflect.Descriptor instead.
 func (*ServerPointsTransactionListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{58}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{81}
 }
 
 func (x *ServerPointsTransactionListRequest) GetValue() *GameplayListRequest {
@@ -3581,7 +4721,7 @@ type ServerPointsTransactionListResponse struct {
 
 func (x *ServerPointsTransactionListResponse) Reset() {
 	*x = ServerPointsTransactionListResponse{}
-	mi := &file_payload_gameplay_proto_msgTypes[59]
+	mi := &file_payload_gameplay_proto_msgTypes[82]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3593,7 +4733,7 @@ func (x *ServerPointsTransactionListResponse) String() string {
 func (*ServerPointsTransactionListResponse) ProtoMessage() {}
 
 func (x *ServerPointsTransactionListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[59]
+	mi := &file_payload_gameplay_proto_msgTypes[82]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3606,7 +4746,7 @@ func (x *ServerPointsTransactionListResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use ServerPointsTransactionListResponse.ProtoReflect.Descriptor instead.
 func (*ServerPointsTransactionListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{59}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{82}
 }
 
 func (x *ServerPointsTransactionListResponse) GetValue() *PointsTransactionListResponse {
@@ -3625,7 +4765,7 @@ type ServerRewardGrantGetRequest struct {
 
 func (x *ServerRewardGrantGetRequest) Reset() {
 	*x = ServerRewardGrantGetRequest{}
-	mi := &file_payload_gameplay_proto_msgTypes[60]
+	mi := &file_payload_gameplay_proto_msgTypes[83]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3637,7 +4777,7 @@ func (x *ServerRewardGrantGetRequest) String() string {
 func (*ServerRewardGrantGetRequest) ProtoMessage() {}
 
 func (x *ServerRewardGrantGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[60]
+	mi := &file_payload_gameplay_proto_msgTypes[83]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3650,7 +4790,7 @@ func (x *ServerRewardGrantGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerRewardGrantGetRequest.ProtoReflect.Descriptor instead.
 func (*ServerRewardGrantGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{60}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{83}
 }
 
 func (x *ServerRewardGrantGetRequest) GetValue() *GameplayGetRequest {
@@ -3669,7 +4809,7 @@ type ServerRewardGrantGetResponse struct {
 
 func (x *ServerRewardGrantGetResponse) Reset() {
 	*x = ServerRewardGrantGetResponse{}
-	mi := &file_payload_gameplay_proto_msgTypes[61]
+	mi := &file_payload_gameplay_proto_msgTypes[84]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3681,7 +4821,7 @@ func (x *ServerRewardGrantGetResponse) String() string {
 func (*ServerRewardGrantGetResponse) ProtoMessage() {}
 
 func (x *ServerRewardGrantGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[61]
+	mi := &file_payload_gameplay_proto_msgTypes[84]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3694,7 +4834,7 @@ func (x *ServerRewardGrantGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerRewardGrantGetResponse.ProtoReflect.Descriptor instead.
 func (*ServerRewardGrantGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{61}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{84}
 }
 
 func (x *ServerRewardGrantGetResponse) GetValue() *RewardGrant {
@@ -3713,7 +4853,7 @@ type ServerRewardGrantListRequest struct {
 
 func (x *ServerRewardGrantListRequest) Reset() {
 	*x = ServerRewardGrantListRequest{}
-	mi := &file_payload_gameplay_proto_msgTypes[62]
+	mi := &file_payload_gameplay_proto_msgTypes[85]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3725,7 +4865,7 @@ func (x *ServerRewardGrantListRequest) String() string {
 func (*ServerRewardGrantListRequest) ProtoMessage() {}
 
 func (x *ServerRewardGrantListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[62]
+	mi := &file_payload_gameplay_proto_msgTypes[85]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3738,7 +4878,7 @@ func (x *ServerRewardGrantListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerRewardGrantListRequest.ProtoReflect.Descriptor instead.
 func (*ServerRewardGrantListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{62}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{85}
 }
 
 func (x *ServerRewardGrantListRequest) GetValue() *GameplayListRequest {
@@ -3757,7 +4897,7 @@ type ServerRewardGrantListResponse struct {
 
 func (x *ServerRewardGrantListResponse) Reset() {
 	*x = ServerRewardGrantListResponse{}
-	mi := &file_payload_gameplay_proto_msgTypes[63]
+	mi := &file_payload_gameplay_proto_msgTypes[86]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3769,7 +4909,7 @@ func (x *ServerRewardGrantListResponse) String() string {
 func (*ServerRewardGrantListResponse) ProtoMessage() {}
 
 func (x *ServerRewardGrantListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[63]
+	mi := &file_payload_gameplay_proto_msgTypes[86]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3782,7 +4922,7 @@ func (x *ServerRewardGrantListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerRewardGrantListResponse.ProtoReflect.Descriptor instead.
 func (*ServerRewardGrantListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{63}
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{86}
 }
 
 func (x *ServerRewardGrantListResponse) GetValue() *RewardGrantListResponse {
@@ -3792,28 +4932,28 @@ func (x *ServerRewardGrantListResponse) GetValue() *RewardGrantListResponse {
 	return nil
 }
 
-type StatMap struct {
+type PetLife struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Value         map[string]int64       `protobuf:"bytes,1,rep,name=value,proto3" json:"value,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *StatMap) Reset() {
-	*x = StatMap{}
-	mi := &file_payload_gameplay_proto_msgTypes[64]
+func (x *PetLife) Reset() {
+	*x = PetLife{}
+	mi := &file_payload_gameplay_proto_msgTypes[87]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *StatMap) String() string {
+func (x *PetLife) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*StatMap) ProtoMessage() {}
+func (*PetLife) ProtoMessage() {}
 
-func (x *StatMap) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_gameplay_proto_msgTypes[64]
+func (x *PetLife) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_gameplay_proto_msgTypes[87]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3824,12 +4964,56 @@ func (x *StatMap) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use StatMap.ProtoReflect.Descriptor instead.
-func (*StatMap) Descriptor() ([]byte, []int) {
-	return file_payload_gameplay_proto_rawDescGZIP(), []int{64}
+// Deprecated: Use PetLife.ProtoReflect.Descriptor instead.
+func (*PetLife) Descriptor() ([]byte, []int) {
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{87}
 }
 
-func (x *StatMap) GetValue() map[string]int64 {
+func (x *PetLife) GetValue() map[string]int64 {
+	if x != nil {
+		return x.Value
+	}
+	return nil
+}
+
+type PetProgression struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Value         map[string]int64       `protobuf:"bytes,1,rep,name=value,proto3" json:"value,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PetProgression) Reset() {
+	*x = PetProgression{}
+	mi := &file_payload_gameplay_proto_msgTypes[88]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PetProgression) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PetProgression) ProtoMessage() {}
+
+func (x *PetProgression) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_gameplay_proto_msgTypes[88]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PetProgression.ProtoReflect.Descriptor instead.
+func (*PetProgression) Descriptor() ([]byte, []int) {
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{88}
+}
+
+func (x *PetProgression) GetValue() map[string]int64 {
 	if x != nil {
 		return x.Value
 	}
@@ -3906,45 +5090,31 @@ const file_payload_gameplay_proto_rawDesc = "" +
 	"\x05items\x18\x02 \x03(\v2\x1a.gizclaw.rpc.v1.GameResultR\x05items\x12$\n" +
 	"\vnext_cursor\x18\x03 \x01(\tH\x00R\n" +
 	"nextCursor\x88\x01\x01B\x0e\n" +
-	"\f_next_cursor\"\xc2\x03\n" +
-	"\x0eGameRewardSpec\x12A\n" +
-	"\rability_delta\x18\x01 \x01(\v2\x17.gizclaw.rpc.v1.StatMapH\x00R\fabilityDelta\x88\x01\x01\x12Y\n" +
-	"\x0fbadge_exp_delta\x18\x02 \x03(\v21.gizclaw.rpc.v1.GameRewardSpec.BadgeExpDeltaEntryR\rbadgeExpDelta\x12;\n" +
-	"\n" +
-	"life_delta\x18\x03 \x01(\v2\x17.gizclaw.rpc.v1.StatMapH\x01R\tlifeDelta\x88\x01\x01\x12'\n" +
-	"\rpet_exp_delta\x18\x04 \x01(\x03H\x02R\vpetExpDelta\x88\x01\x01\x12&\n" +
-	"\fpoints_delta\x18\x05 \x01(\x03H\x03R\vpointsDelta\x88\x01\x01\x1a@\n" +
+	"\f_next_cursor\"\xc8\x02\n" +
+	"\x0eGameRewardSpec\x12Y\n" +
+	"\x0fbadge_exp_delta\x18\x02 \x03(\v21.gizclaw.rpc.v1.GameRewardSpec.BadgeExpDeltaEntryR\rbadgeExpDelta\x12'\n" +
+	"\rpet_exp_delta\x18\x04 \x01(\x03H\x00R\vpetExpDelta\x88\x01\x01\x12&\n" +
+	"\fpoints_delta\x18\x05 \x01(\x03H\x01R\vpointsDelta\x88\x01\x01\x1a@\n" +
 	"\x12BadgeExpDeltaEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01B\x10\n" +
-	"\x0e_ability_deltaB\r\n" +
-	"\v_life_deltaB\x10\n" +
 	"\x0e_pet_exp_deltaB\x0f\n" +
-	"\r_points_delta\"\x94\x01\n" +
+	"\r_points_deltaJ\x04\b\x01\x10\x02J\x04\b\x03\x10\x04R\rability_deltaR\n" +
+	"life_delta\"\x94\x01\n" +
 	"\vGameRuleset\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x01 \x01(\tR\tcreatedAt\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x123\n" +
 	"\x04spec\x18\x03 \x01(\v2\x1f.gizclaw.rpc.v1.GameRulesetSpecR\x04spec\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\x04 \x01(\tR\tupdatedAt\"\xf0\x05\n" +
-	"\x14GameRulesetDriveSpec\x12X\n" +
-	"\faction_costs\x18\x01 \x03(\v25.gizclaw.rpc.v1.GameRulesetDriveSpec.ActionCostsEntryR\vactionCosts\x12^\n" +
-	"\x0eaction_rewards\x18\x02 \x03(\v27.gizclaw.rpc.v1.GameRulesetDriveSpec.ActionRewardsEntryR\ractionRewards\x12J\n" +
+	"updated_at\x18\x04 \x01(\tR\tupdatedAt\"\xf4\x02\n" +
+	"\x14GameRulesetDriveSpec\x12J\n" +
 	"\x0edefault_reward\x18\x03 \x01(\v2\x1e.gizclaw.rpc.v1.GameRewardSpecH\x00R\rdefaultReward\x88\x01\x01\x12X\n" +
-	"\fgame_rewards\x18\x04 \x03(\v25.gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntryR\vgameRewards\x12K\n" +
-	"\x13life_decay_per_hour\x18\x05 \x01(\v2\x17.gizclaw.rpc.v1.StatMapH\x01R\x10lifeDecayPerHour\x88\x01\x01\x1a>\n" +
-	"\x10ActionCostsEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01\x1a`\n" +
-	"\x12ActionRewardsEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x124\n" +
-	"\x05value\x18\x02 \x01(\v2\x1e.gizclaw.rpc.v1.GameRewardSpecR\x05value:\x028\x01\x1a^\n" +
+	"\fgame_rewards\x18\x04 \x03(\v25.gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntryR\vgameRewards\x1a^\n" +
 	"\x10GameRewardsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x124\n" +
 	"\x05value\x18\x02 \x01(\v2\x1e.gizclaw.rpc.v1.GameRewardSpecR\x05value:\x028\x01B\x11\n" +
-	"\x0f_default_rewardB\x16\n" +
-	"\x14_life_decay_per_hour\"\xee\x01\n" +
+	"\x0f_default_rewardJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03J\x04\b\x05\x10\x06R\faction_costsR\x0eaction_rewardsR\x13life_decay_per_hour\"\xee\x01\n" +
 	"\x17GameRulesetPetPoolEntry\x12(\n" +
 	"\radoption_cost\x18\x01 \x01(\x03H\x00R\fadoptionCost\x88\x01\x01\x12\x1b\n" +
 	"\tpetdef_id\x18\x02 \x01(\tR\bpetdefId\x12\x1b\n" +
@@ -3981,17 +5151,14 @@ const file_payload_gameplay_proto_rawDesc = "" +
 	"\a_cursorB\b\n" +
 	"\x06_limit\"C\n" +
 	"\x10GameplayMetadata\x12/\n" +
-	"\x06fields\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06fields\"\xf1\x03\n" +
-	"\x03Pet\x121\n" +
-	"\aability\x18\x01 \x01(\v2\x17.gizclaw.rpc.v1.StatMapR\aability\x12\x1d\n" +
+	"\x06fields\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06fields\"\xff\x03\n" +
+	"\x03Pet\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x02 \x01(\tR\tcreatedAt\x12!\n" +
-	"\fdisplay_name\x18\x03 \x01(\tR\vdisplayName\x12\x10\n" +
-	"\x03exp\x18\x04 \x01(\x03R\x03exp\x12\x0e\n" +
+	"\fdisplay_name\x18\x03 \x01(\tR\vdisplayName\x12\x0e\n" +
 	"\x02id\x18\x05 \x01(\tR\x02id\x12$\n" +
-	"\x0elast_active_at\x18\x06 \x01(\tR\flastActiveAt\x12\x14\n" +
-	"\x05level\x18\a \x01(\x03R\x05level\x12+\n" +
-	"\x04life\x18\b \x01(\v2\x17.gizclaw.rpc.v1.StatMapR\x04life\x12(\n" +
+	"\x0elast_active_at\x18\x06 \x01(\tR\flastActiveAt\x12+\n" +
+	"\x04life\x18\b \x01(\v2\x17.gizclaw.rpc.v1.PetLifeR\x04life\x12(\n" +
 	"\x10owner_public_key\x18\t \x01(\tR\x0eownerPublicKey\x12\x1b\n" +
 	"\tpetdef_id\x18\n" +
 	" \x01(\tR\bpetdefId\x12!\n" +
@@ -3999,8 +5166,9 @@ const file_payload_gameplay_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\f \x01(\tR\tupdatedAt\x12(\n" +
 	"\rworkflow_name\x18\r \x01(\tH\x00R\fworkflowName\x88\x01\x01\x12%\n" +
-	"\x0eworkspace_name\x18\x0e \x01(\tR\rworkspaceNameB\x10\n" +
-	"\x0e_workflow_name\"\x83\x01\n" +
+	"\x0eworkspace_name\x18\x0e \x01(\tR\rworkspaceName\x12@\n" +
+	"\vprogression\x18\x0f \x01(\v2\x1e.gizclaw.rpc.v1.PetProgressionR\vprogressionB\x10\n" +
+	"\x0e_workflow_nameJ\x04\b\x01\x10\x02J\x04\b\x04\x10\x05J\x04\b\a\x10\bR\aabilityR\x03expR\x05level\"\x83\x01\n" +
 	"\x0fPetAdoptRequest\x12&\n" +
 	"\fdisplay_name\x18\x01 \x01(\tH\x00R\vdisplayName\x88\x01\x01\x12&\n" +
 	"\fruleset_name\x18\x02 \x01(\tH\x01R\vrulesetName\x88\x01\x01B\x0f\n" +
@@ -4018,7 +5186,104 @@ const file_payload_gameplay_proto_rawDesc = "" +
 	"\n" +
 	"size_bytes\x18\x03 \x01(\x03R\tsizeBytesB\f\n" +
 	"\n" +
-	"_pixa_path\"\"\n" +
+	"_pixa_path\"/\n" +
+	"\x16PetPixaDownloadRequest\x12\x15\n" +
+	"\x06pet_id\x18\x01 \x01(\tR\x05petId\"\x9c\x01\n" +
+	"\x17PetPixaDownloadResponse\x12\x15\n" +
+	"\x06pet_id\x18\x01 \x01(\tR\x05petId\x12\x1b\n" +
+	"\tpetdef_id\x18\x02 \x01(\tR\bpetdefId\x12 \n" +
+	"\tpixa_path\x18\x03 \x01(\tH\x00R\bpixaPath\x88\x01\x01\x12\x1d\n" +
+	"\n" +
+	"size_bytes\x18\x04 \x01(\x03R\tsizeBytesB\f\n" +
+	"\n" +
+	"_pixa_path\"\xd4\x03\n" +
+	"\x0fPetPresentation\x12\x15\n" +
+	"\x06pet_id\x18\x01 \x01(\tR\x05petId\x12\x1b\n" +
+	"\tpetdef_id\x18\x02 \x01(\tR\bpetdefId\x12%\n" +
+	"\x0edefault_locale\x18\x03 \x01(\tR\rdefaultLocale\x12;\n" +
+	"\x04attr\x18\x04 \x01(\v2'.gizclaw.rpc.v1.PetPresentationAttrSpecR\x04attr\x12>\n" +
+	"\x05drive\x18\x05 \x01(\v2(.gizclaw.rpc.v1.PetPresentationDriveSpecR\x05drive\x12P\n" +
+	"\rpixa_metadata\x18\x06 \x01(\v2+.gizclaw.rpc.v1.PetPresentationPixaMetadataR\fpixaMetadata\x12;\n" +
+	"\x04i18n\x18\a \x01(\v2'.gizclaw.rpc.v1.PetPresentationI18nSpecR\x04i18n\x12 \n" +
+	"\tpixa_path\x18\b \x01(\tH\x00R\bpixaPath\x88\x01\x01\x12*\n" +
+	"\x11petdef_updated_at\x18\t \x01(\tR\x0fpetdefUpdatedAtB\f\n" +
+	"\n" +
+	"_pixa_path\"\xb9\x01\n" +
+	"\x1fPetPresentationActionEffectSpec\x12L\n" +
+	"\n" +
+	"attr_delta\x18\x01 \x01(\v2(.gizclaw.rpc.v1.PetPresentationAttrDeltaH\x00R\tattrDelta\x88\x01\x01\x12'\n" +
+	"\rpet_exp_delta\x18\x02 \x01(\x03H\x01R\vpetExpDelta\x88\x01\x01B\r\n" +
+	"\v_attr_deltaB\x10\n" +
+	"\x0e_pet_exp_delta\"\xd6\x01\n" +
+	"\x19PetPresentationActionSpec\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04cost\x18\x02 \x01(\x03R\x04cost\x12L\n" +
+	"\x06effect\x18\x03 \x01(\v2/.gizclaw.rpc.v1.PetPresentationActionEffectSpecH\x00R\x06effect\x88\x01\x01\x12)\n" +
+	"\x0evisual_clip_id\x18\x04 \x01(\tH\x01R\fvisualClipId\x88\x01\x01B\t\n" +
+	"\a_effectB\x11\n" +
+	"\x0f_visual_clip_id\"U\n" +
+	"\x18PetPresentationAttrDelta\x120\n" +
+	"\x04life\x18\x01 \x01(\v2\x17.gizclaw.rpc.v1.PetLifeH\x00R\x04life\x88\x01\x01B\a\n" +
+	"\x05_life\"\xd5\x01\n" +
+	"\x1cPetPresentationAttrGroupSpec\x12M\n" +
+	"\x05value\x18\x01 \x03(\v27.gizclaw.rpc.v1.PetPresentationAttrGroupSpec.ValueEntryR\x05value\x1af\n" +
+	"\n" +
+	"ValueEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12B\n" +
+	"\x05value\x18\x02 \x01(\v2,.gizclaw.rpc.v1.PetPresentationAttrValueSpecR\x05value:\x028\x01\"\xab\x01\n" +
+	"\x17PetPresentationAttrSpec\x12@\n" +
+	"\x04life\x18\x01 \x01(\v2,.gizclaw.rpc.v1.PetPresentationAttrGroupSpecR\x04life\x12N\n" +
+	"\vprogression\x18\x02 \x01(\v2,.gizclaw.rpc.v1.PetPresentationAttrGroupSpecR\vprogression\"8\n" +
+	"\x1cPetPresentationAttrValueSpec\x12\x18\n" +
+	"\ainitial\x18\x01 \x01(\x03R\ainitial\"_\n" +
+	"\x18PetPresentationDriveSpec\x12C\n" +
+	"\aactions\x18\x01 \x03(\v2).gizclaw.rpc.v1.PetPresentationActionSpecR\aactions\"\xd7\x01\n" +
+	"\x1cPetPresentationI18nAttrGroup\x12M\n" +
+	"\x05value\x18\x01 \x03(\v27.gizclaw.rpc.v1.PetPresentationI18nAttrGroup.ValueEntryR\x05value\x1ah\n" +
+	"\n" +
+	"ValueEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12D\n" +
+	"\x05value\x18\x02 \x01(\v2..gizclaw.rpc.v1.PetPresentationI18nDisplayTextR\x05value:\x028\x01\"\xd2\x01\n" +
+	"\x1bPetPresentationI18nAttrSpec\x12E\n" +
+	"\x04life\x18\x01 \x01(\v2,.gizclaw.rpc.v1.PetPresentationI18nAttrGroupH\x00R\x04life\x88\x01\x01\x12S\n" +
+	"\vprogression\x18\x02 \x01(\v2,.gizclaw.rpc.v1.PetPresentationI18nAttrGroupH\x01R\vprogression\x88\x01\x01B\a\n" +
+	"\x05_lifeB\x0e\n" +
+	"\f_progression\"\xae\x02\n" +
+	"\x1aPetPresentationI18nCatalog\x12&\n" +
+	"\fdisplay_name\x18\x01 \x01(\tH\x00R\vdisplayName\x88\x01\x01\x12%\n" +
+	"\vdescription\x18\x02 \x01(\tH\x01R\vdescription\x88\x01\x01\x12D\n" +
+	"\x04attr\x18\x03 \x01(\v2+.gizclaw.rpc.v1.PetPresentationI18nAttrSpecH\x02R\x04attr\x88\x01\x01\x12G\n" +
+	"\x05drive\x18\x04 \x01(\v2,.gizclaw.rpc.v1.PetPresentationI18nDriveSpecH\x03R\x05drive\x88\x01\x01B\x0f\n" +
+	"\r_display_nameB\x0e\n" +
+	"\f_descriptionB\a\n" +
+	"\x05_attrB\b\n" +
+	"\x06_drive\"C\n" +
+	"\x1ePetPresentationI18nDisplayText\x12!\n" +
+	"\fdisplay_name\x18\x01 \x01(\tR\vdisplayName\"\xdf\x01\n" +
+	"\x1cPetPresentationI18nDriveSpec\x12S\n" +
+	"\aactions\x18\x01 \x03(\v29.gizclaw.rpc.v1.PetPresentationI18nDriveSpec.ActionsEntryR\aactions\x1aj\n" +
+	"\fActionsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12D\n" +
+	"\x05value\x18\x02 \x01(\v2..gizclaw.rpc.v1.PetPresentationI18nDisplayTextR\x05value:\x028\x01\"\xc9\x01\n" +
+	"\x17PetPresentationI18nSpec\x12H\n" +
+	"\x05value\x18\x01 \x03(\v22.gizclaw.rpc.v1.PetPresentationI18nSpec.ValueEntryR\x05value\x1ad\n" +
+	"\n" +
+	"ValueEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12@\n" +
+	"\x05value\x18\x02 \x01(\v2*.gizclaw.rpc.v1.PetPresentationI18nCatalogR\x05value:\x028\x01\"Q\n" +
+	"!PetPresentationPixaCanvasMetadata\x12\x14\n" +
+	"\x05width\x18\x01 \x01(\x03R\x05width\x12\x16\n" +
+	"\x06height\x18\x02 \x01(\x03R\x06height\"\x87\x01\n" +
+	"\x1fPetPresentationPixaClipMetadata\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12 \n" +
+	"\taction_id\x18\x02 \x01(\tH\x00R\bactionId\x88\x01\x01\x12$\n" +
+	"\x0epixa_clip_name\x18\x03 \x01(\tR\fpixaClipNameB\f\n" +
+	"\n" +
+	"_action_id\"\xc9\x01\n" +
+	"\x1bPetPresentationPixaMetadata\x12\x18\n" +
+	"\aversion\x18\x01 \x01(\tR\aversion\x12I\n" +
+	"\x06canvas\x18\x02 \x01(\v21.gizclaw.rpc.v1.PetPresentationPixaCanvasMetadataR\x06canvas\x12E\n" +
+	"\x05clips\x18\x03 \x03(\v2/.gizclaw.rpc.v1.PetPresentationPixaClipMetadataR\x05clips\"\"\n" +
 	"\x10PetDeleteRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\xe8\x03\n" +
 	"\x17PetDriveGameResultInput\x12#\n" +
@@ -4105,34 +5370,30 @@ const file_payload_gameplay_proto_rawDesc = "" +
 	"\x05items\x18\x02 \x03(\v2!.gizclaw.rpc.v1.PointsTransactionR\x05items\x12$\n" +
 	"\vnext_cursor\x18\x03 \x01(\tH\x00R\n" +
 	"nextCursor\x88\x01\x01B\x0e\n" +
-	"\f_next_cursor\"\xd6\x05\n" +
-	"\vRewardGrant\x12A\n" +
-	"\rability_delta\x18\x01 \x01(\v2\x17.gizclaw.rpc.v1.StatMapH\x00R\fabilityDelta\x88\x01\x01\x12V\n" +
+	"\f_next_cursor\"\xdc\x04\n" +
+	"\vRewardGrant\x12V\n" +
 	"\x0fbadge_exp_delta\x18\x02 \x03(\v2..gizclaw.rpc.v1.RewardGrant.BadgeExpDeltaEntryR\rbadgeExpDelta\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x03 \x01(\tR\tcreatedAt\x12)\n" +
-	"\x0egame_result_id\x18\x04 \x01(\tH\x01R\fgameResultId\x88\x01\x01\x12\x0e\n" +
-	"\x02id\x18\x05 \x01(\tR\x02id\x12;\n" +
-	"\n" +
-	"life_delta\x18\x06 \x01(\v2\x17.gizclaw.rpc.v1.StatMapH\x02R\tlifeDelta\x88\x01\x01\x12(\n" +
+	"\x0egame_result_id\x18\x04 \x01(\tH\x00R\fgameResultId\x88\x01\x01\x12\x0e\n" +
+	"\x02id\x18\x05 \x01(\tR\x02id\x12(\n" +
 	"\x10owner_public_key\x18\a \x01(\tR\x0eownerPublicKey\x12\"\n" +
 	"\rpet_exp_delta\x18\b \x01(\x03R\vpetExpDelta\x12\x1a\n" +
-	"\x06pet_id\x18\t \x01(\tH\x03R\x05petId\x88\x01\x01\x12!\n" +
+	"\x06pet_id\x18\t \x01(\tH\x01R\x05petId\x88\x01\x01\x12!\n" +
 	"\fpoints_delta\x18\n" +
 	" \x01(\x03R\vpointsDelta\x12\x1b\n" +
-	"\x06reason\x18\v \x01(\tH\x04R\x06reason\x88\x01\x01\x12!\n" +
+	"\x06reason\x18\v \x01(\tH\x02R\x06reason\x88\x01\x01\x12!\n" +
 	"\fruleset_name\x18\f \x01(\tR\vrulesetName\x12\x1b\n" +
 	"\tsource_id\x18\r \x01(\tR\bsourceId\x12\x1f\n" +
 	"\vsource_type\x18\x0e \x01(\tR\n" +
 	"sourceType\x1a@\n" +
 	"\x12BadgeExpDeltaEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01B\x10\n" +
-	"\x0e_ability_deltaB\x11\n" +
-	"\x0f_game_result_idB\r\n" +
-	"\v_life_deltaB\t\n" +
+	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01B\x11\n" +
+	"\x0f_game_result_idB\t\n" +
 	"\a_pet_idB\t\n" +
-	"\a_reason\"\x9d\x01\n" +
+	"\a_reasonJ\x04\b\x01\x10\x02J\x04\b\x06\x10\aR\rability_deltaR\n" +
+	"life_delta\"\x9d\x01\n" +
 	"\x17RewardGrantListResponse\x12\x19\n" +
 	"\bhas_next\x18\x01 \x01(\bR\ahasNext\x121\n" +
 	"\x05items\x18\x02 \x03(\v2\x1b.gizclaw.rpc.v1.RewardGrantR\x05items\x12$\n" +
@@ -4175,7 +5436,15 @@ const file_payload_gameplay_proto_rawDesc = "" +
 	"\x13ServerPetGetRequest\x123\n" +
 	"\x05value\x18\x01 \x01(\v2\x1d.gizclaw.rpc.v1.PetGetRequestR\x05value\"A\n" +
 	"\x14ServerPetGetResponse\x12)\n" +
-	"\x05value\x18\x01 \x01(\v2\x13.gizclaw.rpc.v1.PetR\x05value\"Q\n" +
+	"\x05value\x18\x01 \x01(\v2\x13.gizclaw.rpc.v1.PetR\x05value\"\\\n" +
+	"\x1cServerPetPixaDownloadRequest\x12<\n" +
+	"\x05value\x18\x01 \x01(\v2&.gizclaw.rpc.v1.PetPixaDownloadRequestR\x05value\"^\n" +
+	"\x1dServerPetPixaDownloadResponse\x12=\n" +
+	"\x05value\x18\x01 \x01(\v2'.gizclaw.rpc.v1.PetPixaDownloadResponseR\x05value\"V\n" +
+	"\x1fServerPetPresentationGetRequest\x123\n" +
+	"\x05value\x18\x01 \x01(\v2\x1d.gizclaw.rpc.v1.PetGetRequestR\x05value\"Y\n" +
+	" ServerPetPresentationGetResponse\x125\n" +
+	"\x05value\x18\x01 \x01(\v2\x1f.gizclaw.rpc.v1.PetPresentationR\x05value\"Q\n" +
 	"\x14ServerPetListRequest\x129\n" +
 	"\x05value\x18\x01 \x01(\v2#.gizclaw.rpc.v1.GameplayListRequestR\x05value\"N\n" +
 	"\x15ServerPetListResponse\x125\n" +
@@ -4205,8 +5474,14 @@ const file_payload_gameplay_proto_rawDesc = "" +
 	"\x05value\x18\x01 \x01(\v2#.gizclaw.rpc.v1.GameplayListRequestR\x05value\"^\n" +
 	"\x1dServerRewardGrantListResponse\x12=\n" +
 	"\x05value\x18\x01 \x01(\v2'.gizclaw.rpc.v1.RewardGrantListResponseR\x05value\"}\n" +
-	"\aStatMap\x128\n" +
-	"\x05value\x18\x01 \x03(\v2\".gizclaw.rpc.v1.StatMap.ValueEntryR\x05value\x1a8\n" +
+	"\aPetLife\x128\n" +
+	"\x05value\x18\x01 \x03(\v2\".gizclaw.rpc.v1.PetLife.ValueEntryR\x05value\x1a8\n" +
+	"\n" +
+	"ValueEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01\"\x8b\x01\n" +
+	"\x0ePetProgression\x12?\n" +
+	"\x05value\x18\x01 \x03(\v2).gizclaw.rpc.v1.PetProgression.ValueEntryR\x05value\x1a8\n" +
 	"\n" +
 	"ValueEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
@@ -4224,7 +5499,7 @@ func file_payload_gameplay_proto_rawDescGZIP() []byte {
 	return file_payload_gameplay_proto_rawDescData
 }
 
-var file_payload_gameplay_proto_msgTypes = make([]protoimpl.MessageInfo, 71)
+var file_payload_gameplay_proto_msgTypes = make([]protoimpl.MessageInfo, 98)
 var file_payload_gameplay_proto_goTypes = []any{
 	(*Badge)(nil),                               // 0: gizclaw.rpc.v1.Badge
 	(*BadgeDefPixaDownloadRequest)(nil),         // 1: gizclaw.rpc.v1.BadgeDefPixaDownloadRequest
@@ -4246,134 +5521,182 @@ var file_payload_gameplay_proto_goTypes = []any{
 	(*PetAdoptResponse)(nil),                    // 17: gizclaw.rpc.v1.PetAdoptResponse
 	(*PetDefPixaDownloadRequest)(nil),           // 18: gizclaw.rpc.v1.PetDefPixaDownloadRequest
 	(*PetDefPixaDownloadResponse)(nil),          // 19: gizclaw.rpc.v1.PetDefPixaDownloadResponse
-	(*PetDeleteRequest)(nil),                    // 20: gizclaw.rpc.v1.PetDeleteRequest
-	(*PetDriveGameResultInput)(nil),             // 21: gizclaw.rpc.v1.PetDriveGameResultInput
-	(*PetDriveRequest)(nil),                     // 22: gizclaw.rpc.v1.PetDriveRequest
-	(*PetDriveResponse)(nil),                    // 23: gizclaw.rpc.v1.PetDriveResponse
-	(*PetGetRequest)(nil),                       // 24: gizclaw.rpc.v1.PetGetRequest
-	(*PetListResponse)(nil),                     // 25: gizclaw.rpc.v1.PetListResponse
-	(*PetPutRequest)(nil),                       // 26: gizclaw.rpc.v1.PetPutRequest
-	(*PointsAccount)(nil),                       // 27: gizclaw.rpc.v1.PointsAccount
-	(*PointsTransaction)(nil),                   // 28: gizclaw.rpc.v1.PointsTransaction
-	(*PointsTransactionListResponse)(nil),       // 29: gizclaw.rpc.v1.PointsTransactionListResponse
-	(*RewardGrant)(nil),                         // 30: gizclaw.rpc.v1.RewardGrant
-	(*RewardGrantListResponse)(nil),             // 31: gizclaw.rpc.v1.RewardGrantListResponse
-	(*ServerBadgeGetRequest)(nil),               // 32: gizclaw.rpc.v1.ServerBadgeGetRequest
-	(*ServerBadgeGetResponse)(nil),              // 33: gizclaw.rpc.v1.ServerBadgeGetResponse
-	(*ServerBadgeListRequest)(nil),              // 34: gizclaw.rpc.v1.ServerBadgeListRequest
-	(*ServerBadgeListResponse)(nil),             // 35: gizclaw.rpc.v1.ServerBadgeListResponse
-	(*ServerGameResultGetRequest)(nil),          // 36: gizclaw.rpc.v1.ServerGameResultGetRequest
-	(*ServerGameResultGetResponse)(nil),         // 37: gizclaw.rpc.v1.ServerGameResultGetResponse
-	(*ServerGameResultListRequest)(nil),         // 38: gizclaw.rpc.v1.ServerGameResultListRequest
-	(*ServerGameResultListResponse)(nil),        // 39: gizclaw.rpc.v1.ServerGameResultListResponse
-	(*ServerGameRulesetGetRequest)(nil),         // 40: gizclaw.rpc.v1.ServerGameRulesetGetRequest
-	(*ServerGameRulesetGetResponse)(nil),        // 41: gizclaw.rpc.v1.ServerGameRulesetGetResponse
-	(*ServerPetAdoptRequest)(nil),               // 42: gizclaw.rpc.v1.ServerPetAdoptRequest
-	(*ServerPetAdoptResponse)(nil),              // 43: gizclaw.rpc.v1.ServerPetAdoptResponse
-	(*ServerPetDeleteRequest)(nil),              // 44: gizclaw.rpc.v1.ServerPetDeleteRequest
-	(*ServerPetDeleteResponse)(nil),             // 45: gizclaw.rpc.v1.ServerPetDeleteResponse
-	(*ServerPetDriveRequest)(nil),               // 46: gizclaw.rpc.v1.ServerPetDriveRequest
-	(*ServerPetDriveResponse)(nil),              // 47: gizclaw.rpc.v1.ServerPetDriveResponse
-	(*ServerPetGetRequest)(nil),                 // 48: gizclaw.rpc.v1.ServerPetGetRequest
-	(*ServerPetGetResponse)(nil),                // 49: gizclaw.rpc.v1.ServerPetGetResponse
-	(*ServerPetListRequest)(nil),                // 50: gizclaw.rpc.v1.ServerPetListRequest
-	(*ServerPetListResponse)(nil),               // 51: gizclaw.rpc.v1.ServerPetListResponse
-	(*ServerPetPutRequest)(nil),                 // 52: gizclaw.rpc.v1.ServerPetPutRequest
-	(*ServerPetPutResponse)(nil),                // 53: gizclaw.rpc.v1.ServerPetPutResponse
-	(*ServerPointsGetRequest)(nil),              // 54: gizclaw.rpc.v1.ServerPointsGetRequest
-	(*ServerPointsGetResponse)(nil),             // 55: gizclaw.rpc.v1.ServerPointsGetResponse
-	(*ServerPointsTransactionGetRequest)(nil),   // 56: gizclaw.rpc.v1.ServerPointsTransactionGetRequest
-	(*ServerPointsTransactionGetResponse)(nil),  // 57: gizclaw.rpc.v1.ServerPointsTransactionGetResponse
-	(*ServerPointsTransactionListRequest)(nil),  // 58: gizclaw.rpc.v1.ServerPointsTransactionListRequest
-	(*ServerPointsTransactionListResponse)(nil), // 59: gizclaw.rpc.v1.ServerPointsTransactionListResponse
-	(*ServerRewardGrantGetRequest)(nil),         // 60: gizclaw.rpc.v1.ServerRewardGrantGetRequest
-	(*ServerRewardGrantGetResponse)(nil),        // 61: gizclaw.rpc.v1.ServerRewardGrantGetResponse
-	(*ServerRewardGrantListRequest)(nil),        // 62: gizclaw.rpc.v1.ServerRewardGrantListRequest
-	(*ServerRewardGrantListResponse)(nil),       // 63: gizclaw.rpc.v1.ServerRewardGrantListResponse
-	(*StatMap)(nil),                             // 64: gizclaw.rpc.v1.StatMap
-	nil,                                         // 65: gizclaw.rpc.v1.GameRewardSpec.BadgeExpDeltaEntry
-	nil,                                         // 66: gizclaw.rpc.v1.GameRulesetDriveSpec.ActionCostsEntry
-	nil,                                         // 67: gizclaw.rpc.v1.GameRulesetDriveSpec.ActionRewardsEntry
-	nil,                                         // 68: gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntry
-	nil,                                         // 69: gizclaw.rpc.v1.RewardGrant.BadgeExpDeltaEntry
-	nil,                                         // 70: gizclaw.rpc.v1.StatMap.ValueEntry
-	(*structpb.Struct)(nil),                     // 71: google.protobuf.Struct
+	(*PetPixaDownloadRequest)(nil),              // 20: gizclaw.rpc.v1.PetPixaDownloadRequest
+	(*PetPixaDownloadResponse)(nil),             // 21: gizclaw.rpc.v1.PetPixaDownloadResponse
+	(*PetPresentation)(nil),                     // 22: gizclaw.rpc.v1.PetPresentation
+	(*PetPresentationActionEffectSpec)(nil),     // 23: gizclaw.rpc.v1.PetPresentationActionEffectSpec
+	(*PetPresentationActionSpec)(nil),           // 24: gizclaw.rpc.v1.PetPresentationActionSpec
+	(*PetPresentationAttrDelta)(nil),            // 25: gizclaw.rpc.v1.PetPresentationAttrDelta
+	(*PetPresentationAttrGroupSpec)(nil),        // 26: gizclaw.rpc.v1.PetPresentationAttrGroupSpec
+	(*PetPresentationAttrSpec)(nil),             // 27: gizclaw.rpc.v1.PetPresentationAttrSpec
+	(*PetPresentationAttrValueSpec)(nil),        // 28: gizclaw.rpc.v1.PetPresentationAttrValueSpec
+	(*PetPresentationDriveSpec)(nil),            // 29: gizclaw.rpc.v1.PetPresentationDriveSpec
+	(*PetPresentationI18NAttrGroup)(nil),        // 30: gizclaw.rpc.v1.PetPresentationI18nAttrGroup
+	(*PetPresentationI18NAttrSpec)(nil),         // 31: gizclaw.rpc.v1.PetPresentationI18nAttrSpec
+	(*PetPresentationI18NCatalog)(nil),          // 32: gizclaw.rpc.v1.PetPresentationI18nCatalog
+	(*PetPresentationI18NDisplayText)(nil),      // 33: gizclaw.rpc.v1.PetPresentationI18nDisplayText
+	(*PetPresentationI18NDriveSpec)(nil),        // 34: gizclaw.rpc.v1.PetPresentationI18nDriveSpec
+	(*PetPresentationI18NSpec)(nil),             // 35: gizclaw.rpc.v1.PetPresentationI18nSpec
+	(*PetPresentationPixaCanvasMetadata)(nil),   // 36: gizclaw.rpc.v1.PetPresentationPixaCanvasMetadata
+	(*PetPresentationPixaClipMetadata)(nil),     // 37: gizclaw.rpc.v1.PetPresentationPixaClipMetadata
+	(*PetPresentationPixaMetadata)(nil),         // 38: gizclaw.rpc.v1.PetPresentationPixaMetadata
+	(*PetDeleteRequest)(nil),                    // 39: gizclaw.rpc.v1.PetDeleteRequest
+	(*PetDriveGameResultInput)(nil),             // 40: gizclaw.rpc.v1.PetDriveGameResultInput
+	(*PetDriveRequest)(nil),                     // 41: gizclaw.rpc.v1.PetDriveRequest
+	(*PetDriveResponse)(nil),                    // 42: gizclaw.rpc.v1.PetDriveResponse
+	(*PetGetRequest)(nil),                       // 43: gizclaw.rpc.v1.PetGetRequest
+	(*PetListResponse)(nil),                     // 44: gizclaw.rpc.v1.PetListResponse
+	(*PetPutRequest)(nil),                       // 45: gizclaw.rpc.v1.PetPutRequest
+	(*PointsAccount)(nil),                       // 46: gizclaw.rpc.v1.PointsAccount
+	(*PointsTransaction)(nil),                   // 47: gizclaw.rpc.v1.PointsTransaction
+	(*PointsTransactionListResponse)(nil),       // 48: gizclaw.rpc.v1.PointsTransactionListResponse
+	(*RewardGrant)(nil),                         // 49: gizclaw.rpc.v1.RewardGrant
+	(*RewardGrantListResponse)(nil),             // 50: gizclaw.rpc.v1.RewardGrantListResponse
+	(*ServerBadgeGetRequest)(nil),               // 51: gizclaw.rpc.v1.ServerBadgeGetRequest
+	(*ServerBadgeGetResponse)(nil),              // 52: gizclaw.rpc.v1.ServerBadgeGetResponse
+	(*ServerBadgeListRequest)(nil),              // 53: gizclaw.rpc.v1.ServerBadgeListRequest
+	(*ServerBadgeListResponse)(nil),             // 54: gizclaw.rpc.v1.ServerBadgeListResponse
+	(*ServerGameResultGetRequest)(nil),          // 55: gizclaw.rpc.v1.ServerGameResultGetRequest
+	(*ServerGameResultGetResponse)(nil),         // 56: gizclaw.rpc.v1.ServerGameResultGetResponse
+	(*ServerGameResultListRequest)(nil),         // 57: gizclaw.rpc.v1.ServerGameResultListRequest
+	(*ServerGameResultListResponse)(nil),        // 58: gizclaw.rpc.v1.ServerGameResultListResponse
+	(*ServerGameRulesetGetRequest)(nil),         // 59: gizclaw.rpc.v1.ServerGameRulesetGetRequest
+	(*ServerGameRulesetGetResponse)(nil),        // 60: gizclaw.rpc.v1.ServerGameRulesetGetResponse
+	(*ServerPetAdoptRequest)(nil),               // 61: gizclaw.rpc.v1.ServerPetAdoptRequest
+	(*ServerPetAdoptResponse)(nil),              // 62: gizclaw.rpc.v1.ServerPetAdoptResponse
+	(*ServerPetDeleteRequest)(nil),              // 63: gizclaw.rpc.v1.ServerPetDeleteRequest
+	(*ServerPetDeleteResponse)(nil),             // 64: gizclaw.rpc.v1.ServerPetDeleteResponse
+	(*ServerPetDriveRequest)(nil),               // 65: gizclaw.rpc.v1.ServerPetDriveRequest
+	(*ServerPetDriveResponse)(nil),              // 66: gizclaw.rpc.v1.ServerPetDriveResponse
+	(*ServerPetGetRequest)(nil),                 // 67: gizclaw.rpc.v1.ServerPetGetRequest
+	(*ServerPetGetResponse)(nil),                // 68: gizclaw.rpc.v1.ServerPetGetResponse
+	(*ServerPetPixaDownloadRequest)(nil),        // 69: gizclaw.rpc.v1.ServerPetPixaDownloadRequest
+	(*ServerPetPixaDownloadResponse)(nil),       // 70: gizclaw.rpc.v1.ServerPetPixaDownloadResponse
+	(*ServerPetPresentationGetRequest)(nil),     // 71: gizclaw.rpc.v1.ServerPetPresentationGetRequest
+	(*ServerPetPresentationGetResponse)(nil),    // 72: gizclaw.rpc.v1.ServerPetPresentationGetResponse
+	(*ServerPetListRequest)(nil),                // 73: gizclaw.rpc.v1.ServerPetListRequest
+	(*ServerPetListResponse)(nil),               // 74: gizclaw.rpc.v1.ServerPetListResponse
+	(*ServerPetPutRequest)(nil),                 // 75: gizclaw.rpc.v1.ServerPetPutRequest
+	(*ServerPetPutResponse)(nil),                // 76: gizclaw.rpc.v1.ServerPetPutResponse
+	(*ServerPointsGetRequest)(nil),              // 77: gizclaw.rpc.v1.ServerPointsGetRequest
+	(*ServerPointsGetResponse)(nil),             // 78: gizclaw.rpc.v1.ServerPointsGetResponse
+	(*ServerPointsTransactionGetRequest)(nil),   // 79: gizclaw.rpc.v1.ServerPointsTransactionGetRequest
+	(*ServerPointsTransactionGetResponse)(nil),  // 80: gizclaw.rpc.v1.ServerPointsTransactionGetResponse
+	(*ServerPointsTransactionListRequest)(nil),  // 81: gizclaw.rpc.v1.ServerPointsTransactionListRequest
+	(*ServerPointsTransactionListResponse)(nil), // 82: gizclaw.rpc.v1.ServerPointsTransactionListResponse
+	(*ServerRewardGrantGetRequest)(nil),         // 83: gizclaw.rpc.v1.ServerRewardGrantGetRequest
+	(*ServerRewardGrantGetResponse)(nil),        // 84: gizclaw.rpc.v1.ServerRewardGrantGetResponse
+	(*ServerRewardGrantListRequest)(nil),        // 85: gizclaw.rpc.v1.ServerRewardGrantListRequest
+	(*ServerRewardGrantListResponse)(nil),       // 86: gizclaw.rpc.v1.ServerRewardGrantListResponse
+	(*PetLife)(nil),                             // 87: gizclaw.rpc.v1.PetLife
+	(*PetProgression)(nil),                      // 88: gizclaw.rpc.v1.PetProgression
+	nil,                                         // 89: gizclaw.rpc.v1.GameRewardSpec.BadgeExpDeltaEntry
+	nil,                                         // 90: gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntry
+	nil,                                         // 91: gizclaw.rpc.v1.PetPresentationAttrGroupSpec.ValueEntry
+	nil,                                         // 92: gizclaw.rpc.v1.PetPresentationI18nAttrGroup.ValueEntry
+	nil,                                         // 93: gizclaw.rpc.v1.PetPresentationI18nDriveSpec.ActionsEntry
+	nil,                                         // 94: gizclaw.rpc.v1.PetPresentationI18nSpec.ValueEntry
+	nil,                                         // 95: gizclaw.rpc.v1.RewardGrant.BadgeExpDeltaEntry
+	nil,                                         // 96: gizclaw.rpc.v1.PetLife.ValueEntry
+	nil,                                         // 97: gizclaw.rpc.v1.PetProgression.ValueEntry
+	(*structpb.Struct)(nil),                     // 98: google.protobuf.Struct
 }
 var file_payload_gameplay_proto_depIdxs = []int32{
 	0,  // 0: gizclaw.rpc.v1.BadgeListResponse.items:type_name -> gizclaw.rpc.v1.Badge
 	14, // 1: gizclaw.rpc.v1.GameResult.payload:type_name -> gizclaw.rpc.v1.GameplayMetadata
 	4,  // 2: gizclaw.rpc.v1.GameResultListResponse.items:type_name -> gizclaw.rpc.v1.GameResult
-	64, // 3: gizclaw.rpc.v1.GameRewardSpec.ability_delta:type_name -> gizclaw.rpc.v1.StatMap
-	65, // 4: gizclaw.rpc.v1.GameRewardSpec.badge_exp_delta:type_name -> gizclaw.rpc.v1.GameRewardSpec.BadgeExpDeltaEntry
-	64, // 5: gizclaw.rpc.v1.GameRewardSpec.life_delta:type_name -> gizclaw.rpc.v1.StatMap
-	11, // 6: gizclaw.rpc.v1.GameRuleset.spec:type_name -> gizclaw.rpc.v1.GameRulesetSpec
-	66, // 7: gizclaw.rpc.v1.GameRulesetDriveSpec.action_costs:type_name -> gizclaw.rpc.v1.GameRulesetDriveSpec.ActionCostsEntry
-	67, // 8: gizclaw.rpc.v1.GameRulesetDriveSpec.action_rewards:type_name -> gizclaw.rpc.v1.GameRulesetDriveSpec.ActionRewardsEntry
-	6,  // 9: gizclaw.rpc.v1.GameRulesetDriveSpec.default_reward:type_name -> gizclaw.rpc.v1.GameRewardSpec
-	68, // 10: gizclaw.rpc.v1.GameRulesetDriveSpec.game_rewards:type_name -> gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntry
-	64, // 11: gizclaw.rpc.v1.GameRulesetDriveSpec.life_decay_per_hour:type_name -> gizclaw.rpc.v1.StatMap
-	8,  // 12: gizclaw.rpc.v1.GameRulesetSpec.drive:type_name -> gizclaw.rpc.v1.GameRulesetDriveSpec
-	14, // 13: gizclaw.rpc.v1.GameRulesetSpec.metadata:type_name -> gizclaw.rpc.v1.GameplayMetadata
-	9,  // 14: gizclaw.rpc.v1.GameRulesetSpec.pet_pool:type_name -> gizclaw.rpc.v1.GameRulesetPetPoolEntry
-	10, // 15: gizclaw.rpc.v1.GameRulesetSpec.points:type_name -> gizclaw.rpc.v1.GameRulesetPointsSpec
-	71, // 16: gizclaw.rpc.v1.GameplayMetadata.fields:type_name -> google.protobuf.Struct
-	64, // 17: gizclaw.rpc.v1.Pet.ability:type_name -> gizclaw.rpc.v1.StatMap
-	64, // 18: gizclaw.rpc.v1.Pet.life:type_name -> gizclaw.rpc.v1.StatMap
-	15, // 19: gizclaw.rpc.v1.PetAdoptResponse.pet:type_name -> gizclaw.rpc.v1.Pet
-	27, // 20: gizclaw.rpc.v1.PetAdoptResponse.points:type_name -> gizclaw.rpc.v1.PointsAccount
-	28, // 21: gizclaw.rpc.v1.PetAdoptResponse.transaction:type_name -> gizclaw.rpc.v1.PointsTransaction
-	14, // 22: gizclaw.rpc.v1.PetDriveGameResultInput.payload:type_name -> gizclaw.rpc.v1.GameplayMetadata
-	21, // 23: gizclaw.rpc.v1.PetDriveRequest.game_result:type_name -> gizclaw.rpc.v1.PetDriveGameResultInput
-	0,  // 24: gizclaw.rpc.v1.PetDriveResponse.badges:type_name -> gizclaw.rpc.v1.Badge
-	4,  // 25: gizclaw.rpc.v1.PetDriveResponse.game_result:type_name -> gizclaw.rpc.v1.GameResult
-	15, // 26: gizclaw.rpc.v1.PetDriveResponse.pet:type_name -> gizclaw.rpc.v1.Pet
-	27, // 27: gizclaw.rpc.v1.PetDriveResponse.points:type_name -> gizclaw.rpc.v1.PointsAccount
-	30, // 28: gizclaw.rpc.v1.PetDriveResponse.reward_grants:type_name -> gizclaw.rpc.v1.RewardGrant
-	28, // 29: gizclaw.rpc.v1.PetDriveResponse.transactions:type_name -> gizclaw.rpc.v1.PointsTransaction
-	15, // 30: gizclaw.rpc.v1.PetListResponse.items:type_name -> gizclaw.rpc.v1.Pet
-	28, // 31: gizclaw.rpc.v1.PointsTransactionListResponse.items:type_name -> gizclaw.rpc.v1.PointsTransaction
-	64, // 32: gizclaw.rpc.v1.RewardGrant.ability_delta:type_name -> gizclaw.rpc.v1.StatMap
-	69, // 33: gizclaw.rpc.v1.RewardGrant.badge_exp_delta:type_name -> gizclaw.rpc.v1.RewardGrant.BadgeExpDeltaEntry
-	64, // 34: gizclaw.rpc.v1.RewardGrant.life_delta:type_name -> gizclaw.rpc.v1.StatMap
-	30, // 35: gizclaw.rpc.v1.RewardGrantListResponse.items:type_name -> gizclaw.rpc.v1.RewardGrant
-	12, // 36: gizclaw.rpc.v1.ServerBadgeGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
-	0,  // 37: gizclaw.rpc.v1.ServerBadgeGetResponse.value:type_name -> gizclaw.rpc.v1.Badge
-	13, // 38: gizclaw.rpc.v1.ServerBadgeListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
-	3,  // 39: gizclaw.rpc.v1.ServerBadgeListResponse.value:type_name -> gizclaw.rpc.v1.BadgeListResponse
-	12, // 40: gizclaw.rpc.v1.ServerGameResultGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
-	4,  // 41: gizclaw.rpc.v1.ServerGameResultGetResponse.value:type_name -> gizclaw.rpc.v1.GameResult
-	13, // 42: gizclaw.rpc.v1.ServerGameResultListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
-	5,  // 43: gizclaw.rpc.v1.ServerGameResultListResponse.value:type_name -> gizclaw.rpc.v1.GameResultListResponse
-	7,  // 44: gizclaw.rpc.v1.ServerGameRulesetGetResponse.value:type_name -> gizclaw.rpc.v1.GameRuleset
-	16, // 45: gizclaw.rpc.v1.ServerPetAdoptRequest.value:type_name -> gizclaw.rpc.v1.PetAdoptRequest
-	17, // 46: gizclaw.rpc.v1.ServerPetAdoptResponse.value:type_name -> gizclaw.rpc.v1.PetAdoptResponse
-	20, // 47: gizclaw.rpc.v1.ServerPetDeleteRequest.value:type_name -> gizclaw.rpc.v1.PetDeleteRequest
-	15, // 48: gizclaw.rpc.v1.ServerPetDeleteResponse.value:type_name -> gizclaw.rpc.v1.Pet
-	22, // 49: gizclaw.rpc.v1.ServerPetDriveRequest.value:type_name -> gizclaw.rpc.v1.PetDriveRequest
-	23, // 50: gizclaw.rpc.v1.ServerPetDriveResponse.value:type_name -> gizclaw.rpc.v1.PetDriveResponse
-	24, // 51: gizclaw.rpc.v1.ServerPetGetRequest.value:type_name -> gizclaw.rpc.v1.PetGetRequest
-	15, // 52: gizclaw.rpc.v1.ServerPetGetResponse.value:type_name -> gizclaw.rpc.v1.Pet
-	13, // 53: gizclaw.rpc.v1.ServerPetListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
-	25, // 54: gizclaw.rpc.v1.ServerPetListResponse.value:type_name -> gizclaw.rpc.v1.PetListResponse
-	26, // 55: gizclaw.rpc.v1.ServerPetPutRequest.value:type_name -> gizclaw.rpc.v1.PetPutRequest
-	15, // 56: gizclaw.rpc.v1.ServerPetPutResponse.value:type_name -> gizclaw.rpc.v1.Pet
-	27, // 57: gizclaw.rpc.v1.ServerPointsGetResponse.value:type_name -> gizclaw.rpc.v1.PointsAccount
-	12, // 58: gizclaw.rpc.v1.ServerPointsTransactionGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
-	28, // 59: gizclaw.rpc.v1.ServerPointsTransactionGetResponse.value:type_name -> gizclaw.rpc.v1.PointsTransaction
-	13, // 60: gizclaw.rpc.v1.ServerPointsTransactionListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
-	29, // 61: gizclaw.rpc.v1.ServerPointsTransactionListResponse.value:type_name -> gizclaw.rpc.v1.PointsTransactionListResponse
-	12, // 62: gizclaw.rpc.v1.ServerRewardGrantGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
-	30, // 63: gizclaw.rpc.v1.ServerRewardGrantGetResponse.value:type_name -> gizclaw.rpc.v1.RewardGrant
-	13, // 64: gizclaw.rpc.v1.ServerRewardGrantListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
-	31, // 65: gizclaw.rpc.v1.ServerRewardGrantListResponse.value:type_name -> gizclaw.rpc.v1.RewardGrantListResponse
-	70, // 66: gizclaw.rpc.v1.StatMap.value:type_name -> gizclaw.rpc.v1.StatMap.ValueEntry
-	6,  // 67: gizclaw.rpc.v1.GameRulesetDriveSpec.ActionRewardsEntry.value:type_name -> gizclaw.rpc.v1.GameRewardSpec
-	6,  // 68: gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntry.value:type_name -> gizclaw.rpc.v1.GameRewardSpec
-	69, // [69:69] is the sub-list for method output_type
-	69, // [69:69] is the sub-list for method input_type
-	69, // [69:69] is the sub-list for extension type_name
-	69, // [69:69] is the sub-list for extension extendee
-	0,  // [0:69] is the sub-list for field type_name
+	89, // 3: gizclaw.rpc.v1.GameRewardSpec.badge_exp_delta:type_name -> gizclaw.rpc.v1.GameRewardSpec.BadgeExpDeltaEntry
+	11, // 4: gizclaw.rpc.v1.GameRuleset.spec:type_name -> gizclaw.rpc.v1.GameRulesetSpec
+	6,  // 5: gizclaw.rpc.v1.GameRulesetDriveSpec.default_reward:type_name -> gizclaw.rpc.v1.GameRewardSpec
+	90, // 6: gizclaw.rpc.v1.GameRulesetDriveSpec.game_rewards:type_name -> gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntry
+	8,  // 7: gizclaw.rpc.v1.GameRulesetSpec.drive:type_name -> gizclaw.rpc.v1.GameRulesetDriveSpec
+	14, // 8: gizclaw.rpc.v1.GameRulesetSpec.metadata:type_name -> gizclaw.rpc.v1.GameplayMetadata
+	9,  // 9: gizclaw.rpc.v1.GameRulesetSpec.pet_pool:type_name -> gizclaw.rpc.v1.GameRulesetPetPoolEntry
+	10, // 10: gizclaw.rpc.v1.GameRulesetSpec.points:type_name -> gizclaw.rpc.v1.GameRulesetPointsSpec
+	98, // 11: gizclaw.rpc.v1.GameplayMetadata.fields:type_name -> google.protobuf.Struct
+	87, // 12: gizclaw.rpc.v1.Pet.life:type_name -> gizclaw.rpc.v1.PetLife
+	88, // 13: gizclaw.rpc.v1.Pet.progression:type_name -> gizclaw.rpc.v1.PetProgression
+	15, // 14: gizclaw.rpc.v1.PetAdoptResponse.pet:type_name -> gizclaw.rpc.v1.Pet
+	46, // 15: gizclaw.rpc.v1.PetAdoptResponse.points:type_name -> gizclaw.rpc.v1.PointsAccount
+	47, // 16: gizclaw.rpc.v1.PetAdoptResponse.transaction:type_name -> gizclaw.rpc.v1.PointsTransaction
+	27, // 17: gizclaw.rpc.v1.PetPresentation.attr:type_name -> gizclaw.rpc.v1.PetPresentationAttrSpec
+	29, // 18: gizclaw.rpc.v1.PetPresentation.drive:type_name -> gizclaw.rpc.v1.PetPresentationDriveSpec
+	38, // 19: gizclaw.rpc.v1.PetPresentation.pixa_metadata:type_name -> gizclaw.rpc.v1.PetPresentationPixaMetadata
+	35, // 20: gizclaw.rpc.v1.PetPresentation.i18n:type_name -> gizclaw.rpc.v1.PetPresentationI18nSpec
+	25, // 21: gizclaw.rpc.v1.PetPresentationActionEffectSpec.attr_delta:type_name -> gizclaw.rpc.v1.PetPresentationAttrDelta
+	23, // 22: gizclaw.rpc.v1.PetPresentationActionSpec.effect:type_name -> gizclaw.rpc.v1.PetPresentationActionEffectSpec
+	87, // 23: gizclaw.rpc.v1.PetPresentationAttrDelta.life:type_name -> gizclaw.rpc.v1.PetLife
+	91, // 24: gizclaw.rpc.v1.PetPresentationAttrGroupSpec.value:type_name -> gizclaw.rpc.v1.PetPresentationAttrGroupSpec.ValueEntry
+	26, // 25: gizclaw.rpc.v1.PetPresentationAttrSpec.life:type_name -> gizclaw.rpc.v1.PetPresentationAttrGroupSpec
+	26, // 26: gizclaw.rpc.v1.PetPresentationAttrSpec.progression:type_name -> gizclaw.rpc.v1.PetPresentationAttrGroupSpec
+	24, // 27: gizclaw.rpc.v1.PetPresentationDriveSpec.actions:type_name -> gizclaw.rpc.v1.PetPresentationActionSpec
+	92, // 28: gizclaw.rpc.v1.PetPresentationI18nAttrGroup.value:type_name -> gizclaw.rpc.v1.PetPresentationI18nAttrGroup.ValueEntry
+	30, // 29: gizclaw.rpc.v1.PetPresentationI18nAttrSpec.life:type_name -> gizclaw.rpc.v1.PetPresentationI18nAttrGroup
+	30, // 30: gizclaw.rpc.v1.PetPresentationI18nAttrSpec.progression:type_name -> gizclaw.rpc.v1.PetPresentationI18nAttrGroup
+	31, // 31: gizclaw.rpc.v1.PetPresentationI18nCatalog.attr:type_name -> gizclaw.rpc.v1.PetPresentationI18nAttrSpec
+	34, // 32: gizclaw.rpc.v1.PetPresentationI18nCatalog.drive:type_name -> gizclaw.rpc.v1.PetPresentationI18nDriveSpec
+	93, // 33: gizclaw.rpc.v1.PetPresentationI18nDriveSpec.actions:type_name -> gizclaw.rpc.v1.PetPresentationI18nDriveSpec.ActionsEntry
+	94, // 34: gizclaw.rpc.v1.PetPresentationI18nSpec.value:type_name -> gizclaw.rpc.v1.PetPresentationI18nSpec.ValueEntry
+	36, // 35: gizclaw.rpc.v1.PetPresentationPixaMetadata.canvas:type_name -> gizclaw.rpc.v1.PetPresentationPixaCanvasMetadata
+	37, // 36: gizclaw.rpc.v1.PetPresentationPixaMetadata.clips:type_name -> gizclaw.rpc.v1.PetPresentationPixaClipMetadata
+	14, // 37: gizclaw.rpc.v1.PetDriveGameResultInput.payload:type_name -> gizclaw.rpc.v1.GameplayMetadata
+	40, // 38: gizclaw.rpc.v1.PetDriveRequest.game_result:type_name -> gizclaw.rpc.v1.PetDriveGameResultInput
+	0,  // 39: gizclaw.rpc.v1.PetDriveResponse.badges:type_name -> gizclaw.rpc.v1.Badge
+	4,  // 40: gizclaw.rpc.v1.PetDriveResponse.game_result:type_name -> gizclaw.rpc.v1.GameResult
+	15, // 41: gizclaw.rpc.v1.PetDriveResponse.pet:type_name -> gizclaw.rpc.v1.Pet
+	46, // 42: gizclaw.rpc.v1.PetDriveResponse.points:type_name -> gizclaw.rpc.v1.PointsAccount
+	49, // 43: gizclaw.rpc.v1.PetDriveResponse.reward_grants:type_name -> gizclaw.rpc.v1.RewardGrant
+	47, // 44: gizclaw.rpc.v1.PetDriveResponse.transactions:type_name -> gizclaw.rpc.v1.PointsTransaction
+	15, // 45: gizclaw.rpc.v1.PetListResponse.items:type_name -> gizclaw.rpc.v1.Pet
+	47, // 46: gizclaw.rpc.v1.PointsTransactionListResponse.items:type_name -> gizclaw.rpc.v1.PointsTransaction
+	95, // 47: gizclaw.rpc.v1.RewardGrant.badge_exp_delta:type_name -> gizclaw.rpc.v1.RewardGrant.BadgeExpDeltaEntry
+	49, // 48: gizclaw.rpc.v1.RewardGrantListResponse.items:type_name -> gizclaw.rpc.v1.RewardGrant
+	12, // 49: gizclaw.rpc.v1.ServerBadgeGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
+	0,  // 50: gizclaw.rpc.v1.ServerBadgeGetResponse.value:type_name -> gizclaw.rpc.v1.Badge
+	13, // 51: gizclaw.rpc.v1.ServerBadgeListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
+	3,  // 52: gizclaw.rpc.v1.ServerBadgeListResponse.value:type_name -> gizclaw.rpc.v1.BadgeListResponse
+	12, // 53: gizclaw.rpc.v1.ServerGameResultGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
+	4,  // 54: gizclaw.rpc.v1.ServerGameResultGetResponse.value:type_name -> gizclaw.rpc.v1.GameResult
+	13, // 55: gizclaw.rpc.v1.ServerGameResultListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
+	5,  // 56: gizclaw.rpc.v1.ServerGameResultListResponse.value:type_name -> gizclaw.rpc.v1.GameResultListResponse
+	7,  // 57: gizclaw.rpc.v1.ServerGameRulesetGetResponse.value:type_name -> gizclaw.rpc.v1.GameRuleset
+	16, // 58: gizclaw.rpc.v1.ServerPetAdoptRequest.value:type_name -> gizclaw.rpc.v1.PetAdoptRequest
+	17, // 59: gizclaw.rpc.v1.ServerPetAdoptResponse.value:type_name -> gizclaw.rpc.v1.PetAdoptResponse
+	39, // 60: gizclaw.rpc.v1.ServerPetDeleteRequest.value:type_name -> gizclaw.rpc.v1.PetDeleteRequest
+	15, // 61: gizclaw.rpc.v1.ServerPetDeleteResponse.value:type_name -> gizclaw.rpc.v1.Pet
+	41, // 62: gizclaw.rpc.v1.ServerPetDriveRequest.value:type_name -> gizclaw.rpc.v1.PetDriveRequest
+	42, // 63: gizclaw.rpc.v1.ServerPetDriveResponse.value:type_name -> gizclaw.rpc.v1.PetDriveResponse
+	43, // 64: gizclaw.rpc.v1.ServerPetGetRequest.value:type_name -> gizclaw.rpc.v1.PetGetRequest
+	15, // 65: gizclaw.rpc.v1.ServerPetGetResponse.value:type_name -> gizclaw.rpc.v1.Pet
+	20, // 66: gizclaw.rpc.v1.ServerPetPixaDownloadRequest.value:type_name -> gizclaw.rpc.v1.PetPixaDownloadRequest
+	21, // 67: gizclaw.rpc.v1.ServerPetPixaDownloadResponse.value:type_name -> gizclaw.rpc.v1.PetPixaDownloadResponse
+	43, // 68: gizclaw.rpc.v1.ServerPetPresentationGetRequest.value:type_name -> gizclaw.rpc.v1.PetGetRequest
+	22, // 69: gizclaw.rpc.v1.ServerPetPresentationGetResponse.value:type_name -> gizclaw.rpc.v1.PetPresentation
+	13, // 70: gizclaw.rpc.v1.ServerPetListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
+	44, // 71: gizclaw.rpc.v1.ServerPetListResponse.value:type_name -> gizclaw.rpc.v1.PetListResponse
+	45, // 72: gizclaw.rpc.v1.ServerPetPutRequest.value:type_name -> gizclaw.rpc.v1.PetPutRequest
+	15, // 73: gizclaw.rpc.v1.ServerPetPutResponse.value:type_name -> gizclaw.rpc.v1.Pet
+	46, // 74: gizclaw.rpc.v1.ServerPointsGetResponse.value:type_name -> gizclaw.rpc.v1.PointsAccount
+	12, // 75: gizclaw.rpc.v1.ServerPointsTransactionGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
+	47, // 76: gizclaw.rpc.v1.ServerPointsTransactionGetResponse.value:type_name -> gizclaw.rpc.v1.PointsTransaction
+	13, // 77: gizclaw.rpc.v1.ServerPointsTransactionListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
+	48, // 78: gizclaw.rpc.v1.ServerPointsTransactionListResponse.value:type_name -> gizclaw.rpc.v1.PointsTransactionListResponse
+	12, // 79: gizclaw.rpc.v1.ServerRewardGrantGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
+	49, // 80: gizclaw.rpc.v1.ServerRewardGrantGetResponse.value:type_name -> gizclaw.rpc.v1.RewardGrant
+	13, // 81: gizclaw.rpc.v1.ServerRewardGrantListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
+	50, // 82: gizclaw.rpc.v1.ServerRewardGrantListResponse.value:type_name -> gizclaw.rpc.v1.RewardGrantListResponse
+	96, // 83: gizclaw.rpc.v1.PetLife.value:type_name -> gizclaw.rpc.v1.PetLife.ValueEntry
+	97, // 84: gizclaw.rpc.v1.PetProgression.value:type_name -> gizclaw.rpc.v1.PetProgression.ValueEntry
+	6,  // 85: gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntry.value:type_name -> gizclaw.rpc.v1.GameRewardSpec
+	28, // 86: gizclaw.rpc.v1.PetPresentationAttrGroupSpec.ValueEntry.value:type_name -> gizclaw.rpc.v1.PetPresentationAttrValueSpec
+	33, // 87: gizclaw.rpc.v1.PetPresentationI18nAttrGroup.ValueEntry.value:type_name -> gizclaw.rpc.v1.PetPresentationI18nDisplayText
+	33, // 88: gizclaw.rpc.v1.PetPresentationI18nDriveSpec.ActionsEntry.value:type_name -> gizclaw.rpc.v1.PetPresentationI18nDisplayText
+	32, // 89: gizclaw.rpc.v1.PetPresentationI18nSpec.ValueEntry.value:type_name -> gizclaw.rpc.v1.PetPresentationI18nCatalog
+	90, // [90:90] is the sub-list for method output_type
+	90, // [90:90] is the sub-list for method input_type
+	90, // [90:90] is the sub-list for extension type_name
+	90, // [90:90] is the sub-list for extension extendee
+	0,  // [0:90] is the sub-list for field type_name
 }
 
 func init() { file_payload_gameplay_proto_init() }
@@ -4397,20 +5720,28 @@ func file_payload_gameplay_proto_init() {
 	file_payload_gameplay_proto_msgTypes[21].OneofWrappers = []any{}
 	file_payload_gameplay_proto_msgTypes[22].OneofWrappers = []any{}
 	file_payload_gameplay_proto_msgTypes[23].OneofWrappers = []any{}
+	file_payload_gameplay_proto_msgTypes[24].OneofWrappers = []any{}
 	file_payload_gameplay_proto_msgTypes[25].OneofWrappers = []any{}
-	file_payload_gameplay_proto_msgTypes[28].OneofWrappers = []any{}
-	file_payload_gameplay_proto_msgTypes[29].OneofWrappers = []any{}
-	file_payload_gameplay_proto_msgTypes[30].OneofWrappers = []any{}
 	file_payload_gameplay_proto_msgTypes[31].OneofWrappers = []any{}
+	file_payload_gameplay_proto_msgTypes[32].OneofWrappers = []any{}
+	file_payload_gameplay_proto_msgTypes[37].OneofWrappers = []any{}
 	file_payload_gameplay_proto_msgTypes[40].OneofWrappers = []any{}
-	file_payload_gameplay_proto_msgTypes[54].OneofWrappers = []any{}
+	file_payload_gameplay_proto_msgTypes[41].OneofWrappers = []any{}
+	file_payload_gameplay_proto_msgTypes[42].OneofWrappers = []any{}
+	file_payload_gameplay_proto_msgTypes[44].OneofWrappers = []any{}
+	file_payload_gameplay_proto_msgTypes[47].OneofWrappers = []any{}
+	file_payload_gameplay_proto_msgTypes[48].OneofWrappers = []any{}
+	file_payload_gameplay_proto_msgTypes[49].OneofWrappers = []any{}
+	file_payload_gameplay_proto_msgTypes[50].OneofWrappers = []any{}
+	file_payload_gameplay_proto_msgTypes[59].OneofWrappers = []any{}
+	file_payload_gameplay_proto_msgTypes[77].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payload_gameplay_proto_rawDesc), len(file_payload_gameplay_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   71,
+			NumMessages:   98,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

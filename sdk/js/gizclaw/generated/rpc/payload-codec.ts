@@ -607,9 +607,7 @@ export type GameResultListResponse = {
   "next_cursor"?: string;
 };
 export type GameRewardSpec = {
-  "ability_delta"?: StatMap;
   "badge_exp_delta": Record<string, number>;
-  "life_delta"?: StatMap;
   "pet_exp_delta"?: number;
   "points_delta"?: number;
 };
@@ -620,11 +618,8 @@ export type GameRuleset = {
   "updated_at": string;
 };
 export type GameRulesetDriveSpec = {
-  "action_costs": Record<string, number>;
-  "action_rewards": Record<string, GameRewardSpec>;
   "default_reward"?: GameRewardSpec;
   "game_rewards": Record<string, GameRewardSpec>;
-  "life_decay_per_hour"?: StatMap;
 };
 export type GameRulesetPetPoolEntry = {
   "adoption_cost"?: number;
@@ -891,20 +886,18 @@ export type PeerStatus = {
   "volume"?: number;
 };
 export type Pet = {
-  "ability": StatMap;
   "created_at": string;
   "display_name": string;
-  "exp": number;
   "id": string;
   "last_active_at": string;
-  "level": number;
-  "life": StatMap;
+  "life": PetLife;
   "owner_public_key": string;
   "petdef_id": string;
   "ruleset_name": string;
   "updated_at": string;
   "workflow_name"?: string;
   "workspace_name": string;
+  "progression": PetProgression;
 };
 export type PetAdoptRequest = {
   "display_name"?: string;
@@ -953,11 +946,89 @@ export type PetDriveResponse = {
 export type PetGetRequest = {
   "id": string;
 };
+export type PetLife = Record<string, number>;
 export type PetListResponse = {
   "has_next": boolean;
   "items": Pet[];
   "next_cursor"?: string;
 };
+export type PetPixaDownloadRequest = {
+  "pet_id": string;
+};
+export type PetPixaDownloadResponse = {
+  "pet_id": string;
+  "petdef_id": string;
+  "pixa_path"?: string;
+  "size_bytes": number;
+};
+export type PetPresentation = {
+  "pet_id": string;
+  "petdef_id": string;
+  "default_locale": string;
+  "attr": PetPresentationAttrSpec;
+  "drive": PetPresentationDriveSpec;
+  "pixa_metadata": PetPresentationPixaMetadata;
+  "i18n": PetPresentationI18nSpec;
+  "pixa_path"?: string;
+  "petdef_updated_at": string;
+};
+export type PetPresentationActionEffectSpec = {
+  "attr_delta"?: PetPresentationAttrDelta;
+  "pet_exp_delta"?: number;
+};
+export type PetPresentationActionSpec = {
+  "id": string;
+  "cost": number;
+  "effect"?: PetPresentationActionEffectSpec;
+  "visual_clip_id"?: string;
+};
+export type PetPresentationAttrDelta = {
+  "life"?: PetLife;
+};
+export type PetPresentationAttrGroupSpec = Record<string, PetPresentationAttrValueSpec>;
+export type PetPresentationAttrSpec = {
+  "life": PetPresentationAttrGroupSpec;
+  "progression": PetPresentationAttrGroupSpec;
+};
+export type PetPresentationAttrValueSpec = {
+  "initial": number;
+};
+export type PetPresentationDriveSpec = {
+  "actions": PetPresentationActionSpec[];
+};
+export type PetPresentationI18nAttrGroup = Record<string, PetPresentationI18nDisplayText>;
+export type PetPresentationI18nAttrSpec = {
+  "life"?: PetPresentationI18nAttrGroup;
+  "progression"?: PetPresentationI18nAttrGroup;
+};
+export type PetPresentationI18nCatalog = {
+  "display_name"?: string;
+  "description"?: string;
+  "attr"?: PetPresentationI18nAttrSpec;
+  "drive"?: PetPresentationI18nDriveSpec;
+};
+export type PetPresentationI18nDisplayText = {
+  "display_name": string;
+};
+export type PetPresentationI18nDriveSpec = {
+  "actions": Record<string, PetPresentationI18nDisplayText>;
+};
+export type PetPresentationI18nSpec = Record<string, PetPresentationI18nCatalog>;
+export type PetPresentationPixaCanvasMetadata = {
+  "width": number;
+  "height": number;
+};
+export type PetPresentationPixaClipMetadata = {
+  "id": string;
+  "action_id"?: string;
+  "pixa_clip_name": string;
+};
+export type PetPresentationPixaMetadata = {
+  "version": string;
+  "canvas": PetPresentationPixaCanvasMetadata;
+  "clips": PetPresentationPixaClipMetadata[];
+};
+export type PetProgression = Record<string, number>;
 export type PetPutRequest = {
   "display_name": string;
   "id": string;
@@ -1006,12 +1077,10 @@ export type RefreshInfo = {
   "name"?: string;
 };
 export type RewardGrant = {
-  "ability_delta"?: StatMap;
   "badge_exp_delta": Record<string, number>;
   "created_at": string;
   "game_result_id"?: string;
   "id": string;
-  "life_delta"?: StatMap;
   "owner_public_key": string;
   "pet_exp_delta": number;
   "pet_id"?: string;
@@ -1084,6 +1153,10 @@ export type ServerPetGetRequest = PetGetRequest;
 export type ServerPetGetResponse = Pet;
 export type ServerPetListRequest = GameplayListRequest;
 export type ServerPetListResponse = PetListResponse;
+export type ServerPetPixaDownloadRequest = PetPixaDownloadRequest;
+export type ServerPetPixaDownloadResponse = PetPixaDownloadResponse;
+export type ServerPetPresentationGetRequest = PetGetRequest;
+export type ServerPetPresentationGetResponse = PetPresentation;
 export type ServerPetPutRequest = PetPutRequest;
 export type ServerPetPutResponse = Pet;
 export type ServerPlayRunWorkspaceHistoryRequest = PeerRunHistoryPlayRequest;
@@ -1137,7 +1210,6 @@ export type SpeedTestResponse = {
   "down_content_length": number;
   "up_content_length": number;
 };
-export type StatMap = Record<string, number>;
 export type Tool = {
   "id": string;
   "name"?: string;
@@ -1427,6 +1499,8 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.pet.drive": "ServerPetDriveRequest",
   "server.pet.get": "ServerPetGetRequest",
   "server.pet.list": "ServerPetListRequest",
+  "server.pet.pixa.download": "ServerPetPixaDownloadRequest",
+  "server.pet.presentation.get": "ServerPetPresentationGetRequest",
   "server.pet.put": "ServerPetPutRequest",
   "server.points.get": "ServerPointsGetRequest",
   "server.points.transactions.get": "ServerPointsTransactionGetRequest",
@@ -1532,6 +1606,8 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.pet.drive": "ServerPetDriveResponse",
   "server.pet.get": "ServerPetGetResponse",
   "server.pet.list": "ServerPetListResponse",
+  "server.pet.pixa.download": "ServerPetPixaDownloadResponse",
+  "server.pet.presentation.get": "ServerPetPresentationGetResponse",
   "server.pet.put": "ServerPetPutResponse",
   "server.points.get": "ServerPointsGetResponse",
   "server.points.transactions.get": "ServerPointsTransactionGetResponse",
@@ -4127,22 +4203,10 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "GameRewardSpec": {
     "fields": [
       {
-        "name": "ability_delta",
-        "number": 1,
-        "optional": true,
-        "type": "StatMap"
-      },
-      {
         "mapValue": "int64",
         "name": "badge_exp_delta",
         "number": 2,
         "type": "map"
-      },
-      {
-        "name": "life_delta",
-        "number": 3,
-        "optional": true,
-        "type": "StatMap"
       },
       {
         "name": "pet_exp_delta",
@@ -4185,18 +4249,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "GameRulesetDriveSpec": {
     "fields": [
       {
-        "mapValue": "int64",
-        "name": "action_costs",
-        "number": 1,
-        "type": "map"
-      },
-      {
-        "mapValue": "GameRewardSpec",
-        "name": "action_rewards",
-        "number": 2,
-        "type": "map"
-      },
-      {
         "name": "default_reward",
         "number": 3,
         "optional": true,
@@ -4207,12 +4259,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "game_rewards",
         "number": 4,
         "type": "map"
-      },
-      {
-        "name": "life_decay_per_hour",
-        "number": 5,
-        "optional": true,
-        "type": "StatMap"
       }
     ]
   },
@@ -5424,11 +5470,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "Pet": {
     "fields": [
       {
-        "name": "ability",
-        "number": 1,
-        "type": "StatMap"
-      },
-      {
         "name": "created_at",
         "number": 2,
         "type": "string"
@@ -5437,11 +5478,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "display_name",
         "number": 3,
         "type": "string"
-      },
-      {
-        "name": "exp",
-        "number": 4,
-        "type": "int64"
       },
       {
         "name": "id",
@@ -5454,14 +5490,9 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "level",
-        "number": 7,
-        "type": "int64"
-      },
-      {
         "name": "life",
         "number": 8,
-        "type": "StatMap"
+        "type": "PetLife"
       },
       {
         "name": "owner_public_key",
@@ -5493,6 +5524,11 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "workspace_name",
         "number": 14,
         "type": "string"
+      },
+      {
+        "name": "progression",
+        "number": 15,
+        "type": "PetProgression"
       }
     ]
   },
@@ -5694,6 +5730,16 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "PetLife": {
+    "fields": [
+      {
+        "mapValue": "int64",
+        "name": "value",
+        "number": 1,
+        "type": "map"
+      }
+    ]
+  },
   "PetListResponse": {
     "fields": [
       {
@@ -5712,6 +5758,332 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 3,
         "optional": true,
         "type": "string"
+      }
+    ]
+  },
+  "PetPixaDownloadRequest": {
+    "fields": [
+      {
+        "name": "pet_id",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "PetPixaDownloadResponse": {
+    "fields": [
+      {
+        "name": "pet_id",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "petdef_id",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "pixa_path",
+        "number": 3,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "size_bytes",
+        "number": 4,
+        "type": "int64"
+      }
+    ]
+  },
+  "PetPresentation": {
+    "fields": [
+      {
+        "name": "pet_id",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "petdef_id",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "default_locale",
+        "number": 3,
+        "type": "string"
+      },
+      {
+        "name": "attr",
+        "number": 4,
+        "type": "PetPresentationAttrSpec"
+      },
+      {
+        "name": "drive",
+        "number": 5,
+        "type": "PetPresentationDriveSpec"
+      },
+      {
+        "name": "pixa_metadata",
+        "number": 6,
+        "type": "PetPresentationPixaMetadata"
+      },
+      {
+        "name": "i18n",
+        "number": 7,
+        "type": "PetPresentationI18nSpec"
+      },
+      {
+        "name": "pixa_path",
+        "number": 8,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "petdef_updated_at",
+        "number": 9,
+        "type": "string"
+      }
+    ]
+  },
+  "PetPresentationActionEffectSpec": {
+    "fields": [
+      {
+        "name": "attr_delta",
+        "number": 1,
+        "optional": true,
+        "type": "PetPresentationAttrDelta"
+      },
+      {
+        "name": "pet_exp_delta",
+        "number": 2,
+        "optional": true,
+        "type": "int64"
+      }
+    ]
+  },
+  "PetPresentationActionSpec": {
+    "fields": [
+      {
+        "name": "id",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "cost",
+        "number": 2,
+        "type": "int64"
+      },
+      {
+        "name": "effect",
+        "number": 3,
+        "optional": true,
+        "type": "PetPresentationActionEffectSpec"
+      },
+      {
+        "name": "visual_clip_id",
+        "number": 4,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
+  "PetPresentationAttrDelta": {
+    "fields": [
+      {
+        "name": "life",
+        "number": 1,
+        "optional": true,
+        "type": "PetLife"
+      }
+    ]
+  },
+  "PetPresentationAttrGroupSpec": {
+    "fields": [
+      {
+        "mapValue": "PetPresentationAttrValueSpec",
+        "name": "value",
+        "number": 1,
+        "type": "map"
+      }
+    ]
+  },
+  "PetPresentationAttrSpec": {
+    "fields": [
+      {
+        "name": "life",
+        "number": 1,
+        "type": "PetPresentationAttrGroupSpec"
+      },
+      {
+        "name": "progression",
+        "number": 2,
+        "type": "PetPresentationAttrGroupSpec"
+      }
+    ]
+  },
+  "PetPresentationAttrValueSpec": {
+    "fields": [
+      {
+        "name": "initial",
+        "number": 1,
+        "type": "int64"
+      }
+    ]
+  },
+  "PetPresentationDriveSpec": {
+    "fields": [
+      {
+        "name": "actions",
+        "number": 1,
+        "repeated": true,
+        "type": "PetPresentationActionSpec"
+      }
+    ]
+  },
+  "PetPresentationI18nAttrGroup": {
+    "fields": [
+      {
+        "mapValue": "PetPresentationI18nDisplayText",
+        "name": "value",
+        "number": 1,
+        "type": "map"
+      }
+    ]
+  },
+  "PetPresentationI18nAttrSpec": {
+    "fields": [
+      {
+        "name": "life",
+        "number": 1,
+        "optional": true,
+        "type": "PetPresentationI18nAttrGroup"
+      },
+      {
+        "name": "progression",
+        "number": 2,
+        "optional": true,
+        "type": "PetPresentationI18nAttrGroup"
+      }
+    ]
+  },
+  "PetPresentationI18nCatalog": {
+    "fields": [
+      {
+        "name": "display_name",
+        "number": 1,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "description",
+        "number": 2,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "attr",
+        "number": 3,
+        "optional": true,
+        "type": "PetPresentationI18nAttrSpec"
+      },
+      {
+        "name": "drive",
+        "number": 4,
+        "optional": true,
+        "type": "PetPresentationI18nDriveSpec"
+      }
+    ]
+  },
+  "PetPresentationI18nDisplayText": {
+    "fields": [
+      {
+        "name": "display_name",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "PetPresentationI18nDriveSpec": {
+    "fields": [
+      {
+        "mapValue": "PetPresentationI18nDisplayText",
+        "name": "actions",
+        "number": 1,
+        "type": "map"
+      }
+    ]
+  },
+  "PetPresentationI18nSpec": {
+    "fields": [
+      {
+        "mapValue": "PetPresentationI18nCatalog",
+        "name": "value",
+        "number": 1,
+        "type": "map"
+      }
+    ]
+  },
+  "PetPresentationPixaCanvasMetadata": {
+    "fields": [
+      {
+        "name": "width",
+        "number": 1,
+        "type": "int64"
+      },
+      {
+        "name": "height",
+        "number": 2,
+        "type": "int64"
+      }
+    ]
+  },
+  "PetPresentationPixaClipMetadata": {
+    "fields": [
+      {
+        "name": "id",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "action_id",
+        "number": 2,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "pixa_clip_name",
+        "number": 3,
+        "type": "string"
+      }
+    ]
+  },
+  "PetPresentationPixaMetadata": {
+    "fields": [
+      {
+        "name": "version",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "canvas",
+        "number": 2,
+        "type": "PetPresentationPixaCanvasMetadata"
+      },
+      {
+        "name": "clips",
+        "number": 3,
+        "repeated": true,
+        "type": "PetPresentationPixaClipMetadata"
+      }
+    ]
+  },
+  "PetProgression": {
+    "fields": [
+      {
+        "mapValue": "int64",
+        "name": "value",
+        "number": 1,
+        "type": "map"
       }
     ]
   },
@@ -5919,12 +6291,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "RewardGrant": {
     "fields": [
       {
-        "name": "ability_delta",
-        "number": 1,
-        "optional": true,
-        "type": "StatMap"
-      },
-      {
         "mapValue": "int64",
         "name": "badge_exp_delta",
         "number": 2,
@@ -5945,12 +6311,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "id",
         "number": 5,
         "type": "string"
-      },
-      {
-        "name": "life_delta",
-        "number": 6,
-        "optional": true,
-        "type": "StatMap"
       },
       {
         "name": "owner_public_key",
@@ -6380,6 +6740,42 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "ServerPetPixaDownloadRequest": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "PetPixaDownloadRequest"
+      }
+    ]
+  },
+  "ServerPetPixaDownloadResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "PetPixaDownloadResponse"
+      }
+    ]
+  },
+  "ServerPetPresentationGetRequest": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "PetGetRequest"
+      }
+    ]
+  },
+  "ServerPetPresentationGetResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "PetPresentation"
+      }
+    ]
+  },
   "ServerPetPutRequest": {
     "fields": [
       {
@@ -6694,16 +7090,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "up_content_length",
         "number": 2,
         "type": "int64"
-      }
-    ]
-  },
-  "StatMap": {
-    "fields": [
-      {
-        "mapValue": "int64",
-        "name": "value",
-        "number": 1,
-        "type": "map"
       }
     ]
   },

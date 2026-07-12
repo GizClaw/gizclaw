@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/url"
 	"path"
+	"reflect"
 	"strings"
 	"time"
 
@@ -174,7 +175,7 @@ func (c *Catalog) ListPetDefs(ctx context.Context, request adminhttp.ListPetDefs
 		return adminhttp.ListPetDefs500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	cursor, limit := normalizeListParams(request.Params.Cursor, request.Params.Limit)
-	items, hasNext, nextCursor, err := listJSON[apitypes.PetDef](ctx, store, petDefsRoot, cursor, limit)
+	items, hasNext, nextCursor, err := c.listPetDefJSON(ctx, store, cursor, limit)
 	if err != nil {
 		return adminhttp.ListPetDefs500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -253,7 +254,7 @@ func (c *Catalog) PutPetDef(ctx context.Context, request adminhttp.PutPetDefRequ
 	if err != nil {
 		return nil, err
 	}
-	previous, err := readJSON[apitypes.PetDef](ctx, store, petDefKey(id))
+	previous, err := c.readPetDefJSON(ctx, store, petDefKey(id))
 	if err != nil && !errors.Is(err, kv.ErrNotFound) {
 		return adminhttp.PutPetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -262,8 +263,11 @@ func (c *Catalog) PutPetDef(ctx context.Context, request adminhttp.PutPetDefRequ
 	if err == nil {
 		createdAt = previous.CreatedAt
 		pixaPath = previous.PixaPath
+		if pixaPath != nil && !reflect.DeepEqual(previous.Spec.Visual.Pixa.Metadata, request.Body.Spec.Visual.Pixa.Metadata) {
+			pixaPath = nil
+		}
 	}
-	item, err := c.buildPetDef(id, request.Body.Spec, pixaPath, createdAt)
+	item, err := c.buildPetDefForUpdate(id, request.Body.Spec, previous, err == nil, pixaPath, createdAt)
 	if err != nil {
 		return adminhttp.PutPetDef400JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF", err.Error())), nil
 	}
@@ -307,7 +311,7 @@ func (c *Catalog) UploadPetDefPixa(ctx context.Context, request adminhttp.Upload
 	if err != nil {
 		return adminhttp.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := validatePetDefPixa(data); err != nil {
+	if err := validatePetDefPixa(data, item.Spec.Visual.Pixa.Metadata); err != nil {
 		return adminhttp.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF_PIXA", err.Error())), nil
 	}
 	pixaPath := path.Join("pet-defs", item.Id, "pixa")
@@ -601,7 +605,7 @@ func (c *Catalog) GetPetDefByID(ctx context.Context, id string) (apitypes.PetDef
 	if err != nil {
 		return apitypes.PetDef{}, err
 	}
-	item, err := readJSON[apitypes.PetDef](ctx, store, petDefKey(id))
+	item, err := c.readPetDefJSON(ctx, store, petDefKey(id))
 	if errors.Is(err, kv.ErrNotFound) {
 		return apitypes.PetDef{}, fmt.Errorf("pet def %q not found: %w", id, kv.ErrNotFound)
 	}
@@ -664,18 +668,260 @@ func (c *Catalog) buildGameRuleset(name string, spec apitypes.GameRulesetSpec, c
 }
 
 func (c *Catalog) buildPetDef(id string, spec apitypes.PetDefSpec, pixaPath *string, createdAt time.Time) (apitypes.PetDef, error) {
+	return c.buildPetDefWithValidator(id, spec, pixaPath, createdAt, validatePetDefSpec)
+}
+
+func (c *Catalog) buildPetDefForUpdate(id string, spec apitypes.PetDefSpec, previous apitypes.PetDef, hasPrevious bool, pixaPath *string, createdAt time.Time) (apitypes.PetDef, error) {
+	validate := func(spec apitypes.PetDefSpec) error {
+		err := validatePetDefSpec(spec)
+		if err == nil {
+			return nil
+		}
+		if hasPrevious && isLegacyMigratedPetDef(previous) && isLegacyMigratedPetDefSpec(id, spec) {
+			if legacyErr := validateMigratedLegacyPetDefSpec(spec); legacyErr == nil {
+				return nil
+			}
+		}
+		return err
+	}
+	return c.buildPetDefWithValidator(id, spec, pixaPath, createdAt, validate)
+}
+
+func (c *Catalog) buildPetDefWithValidator(id string, spec apitypes.PetDefSpec, pixaPath *string, createdAt time.Time, validate func(apitypes.PetDefSpec) error) (apitypes.PetDef, error) {
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return apitypes.PetDef{}, errors.New("id is required")
 	}
-	if strings.TrimSpace(spec.DisplayName) == "" {
-		return apitypes.PetDef{}, errors.New("display_name is required")
+	if err := validate(spec); err != nil {
+		return apitypes.PetDef{}, err
 	}
 	now := c.now()
 	if createdAt.IsZero() {
 		createdAt = now
 	}
 	return apitypes.PetDef{Id: id, Spec: spec, PixaPath: pixaPath, CreatedAt: createdAt, UpdatedAt: now}, nil
+}
+
+func validatePetDefSpec(spec apitypes.PetDefSpec) error {
+	if strings.TrimSpace(spec.DefaultLocale) == "" {
+		return errors.New("default_locale is required")
+	}
+	if err := validatePetAttrGroup("attr.life", spec.Attr.Life); err != nil {
+		return err
+	}
+	if err := validatePetAttrGroup("attr.progression", spec.Attr.Progression); err != nil {
+		return err
+	}
+	if _, ok := spec.Attr.Progression["xp"]; !ok {
+		return errors.New("attr.progression.xp is required")
+	}
+	if strings.TrimSpace(spec.Character.Prompt) == "" {
+		return errors.New("character.prompt is required")
+	}
+	if strings.TrimSpace(spec.Voice.VoiceId) == "" {
+		return errors.New("voice.voice_id is required")
+	}
+	if strings.TrimSpace(spec.Voice.Prompt) == "" {
+		return errors.New("voice.prompt is required")
+	}
+	if err := validatePetDefVisual(spec.Visual); err != nil {
+		return err
+	}
+	if err := validatePetDefDrive(spec.Drive, spec.Visual.Pixa.Metadata.Clips, spec.Attr); err != nil {
+		return err
+	}
+	if _, ok := spec.I18n[spec.DefaultLocale]; !ok {
+		return fmt.Errorf("i18n.%s is required", spec.DefaultLocale)
+	}
+	if err := validatePetDefI18n(spec); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validatePetAttrGroup(path string, group apitypes.PetAttrGroupSpec) error {
+	if len(group) == 0 {
+		return fmt.Errorf("%s must define at least one attribute", path)
+	}
+	for id := range group {
+		if id == "" {
+			return fmt.Errorf("%s contains an empty attribute id", path)
+		}
+		if strings.TrimSpace(id) != id {
+			return fmt.Errorf("%s.%s must not contain leading or trailing whitespace", path, id)
+		}
+		switch id {
+		case "initial", "display_name", "description", petProgressionStorageMarker:
+			return fmt.Errorf("%s.%s uses a reserved attribute id", path, id)
+		}
+	}
+	return nil
+}
+
+func validatePetDefVisual(visual apitypes.PetDefVisualSpec) error {
+	if strings.TrimSpace(visual.Pixa.AssetRef) == "" {
+		return errors.New("visual.pixa.asset_ref is required")
+	}
+	if strings.TrimSpace(visual.Pixa.Metadata.Version) == "" {
+		return errors.New("visual.pixa.metadata.version is required")
+	}
+	if strings.TrimSpace(visual.Pixa.Metadata.Version) != "1" {
+		return errors.New("visual.pixa.metadata.version must be 1")
+	}
+	if visual.Pixa.Metadata.Canvas.Width <= 0 || visual.Pixa.Metadata.Canvas.Height <= 0 {
+		return errors.New("visual.pixa.metadata.canvas width and height must be positive")
+	}
+	if visual.Pixa.Metadata.Canvas.Width > pixaMaxCanvasSize || visual.Pixa.Metadata.Canvas.Height > pixaMaxCanvasSize {
+		return fmt.Errorf("visual.pixa.metadata.canvas width and height must be <= %d", pixaMaxCanvasSize)
+	}
+	if len(visual.Pixa.Metadata.Clips) == 0 {
+		return errors.New("visual.pixa.metadata.clips is required")
+	}
+	seenIDs := map[string]struct{}{}
+	seenPixaClipNames := map[string]struct{}{}
+	for i, clip := range visual.Pixa.Metadata.Clips {
+		id := strings.TrimSpace(clip.Id)
+		if id == "" {
+			return fmt.Errorf("visual.pixa.metadata.clips[%d].id is required", i)
+		}
+		if id != clip.Id {
+			return fmt.Errorf("visual.pixa.metadata.clips[%d].id must not contain leading or trailing whitespace", i)
+		}
+		if _, ok := seenIDs[id]; ok {
+			return fmt.Errorf("visual.pixa.metadata.clips[%d].id %q is duplicated", i, id)
+		}
+		seenIDs[id] = struct{}{}
+		pixaClipName := strings.TrimSpace(clip.PixaClipName)
+		if pixaClipName == "" {
+			return fmt.Errorf("visual.pixa.metadata.clips[%d].pixa_clip_name is required", i)
+		}
+		if pixaClipName != clip.PixaClipName {
+			return fmt.Errorf("visual.pixa.metadata.clips[%d].pixa_clip_name must not contain leading or trailing whitespace", i)
+		}
+		if len([]byte(pixaClipName)) > pixaClipNameSize {
+			return fmt.Errorf("visual.pixa.metadata.clips[%d].pixa_clip_name must be at most %d bytes", i, pixaClipNameSize)
+		}
+		if _, ok := seenPixaClipNames[pixaClipName]; ok {
+			return fmt.Errorf("visual.pixa.metadata.clips[%d].pixa_clip_name %q is duplicated", i, pixaClipName)
+		}
+		seenPixaClipNames[pixaClipName] = struct{}{}
+	}
+	return nil
+}
+
+func validatePetDefDrive(drive apitypes.PetDefDriveSpec, clips []apitypes.PetDefPixaClipMetadata, attr apitypes.PetDefAttrSpec) error {
+	if len(drive.Actions) == 0 {
+		return errors.New("drive.actions is required")
+	}
+	clipIDs := map[string]struct{}{}
+	for _, clip := range clips {
+		clipIDs[clip.Id] = struct{}{}
+	}
+	seen := map[string]struct{}{}
+	for i, action := range drive.Actions {
+		id := strings.TrimSpace(action.Id)
+		if id == "" {
+			return fmt.Errorf("drive.actions[%d].id is required", i)
+		}
+		if id != action.Id {
+			return fmt.Errorf("drive.actions[%d].id must not contain leading or trailing whitespace", i)
+		}
+		if _, ok := seen[id]; ok {
+			return fmt.Errorf("drive.actions[%d].id %q is duplicated", i, id)
+		}
+		seen[id] = struct{}{}
+		if action.Cost < 0 {
+			return fmt.Errorf("drive.actions[%d].cost must be non-negative", i)
+		}
+		if action.VisualClipId != nil {
+			clipID := strings.TrimSpace(*action.VisualClipId)
+			if clipID == "" {
+				return fmt.Errorf("drive.actions[%d].visual_clip_id must not be empty", i)
+			}
+			if clipID != *action.VisualClipId {
+				return fmt.Errorf("drive.actions[%d].visual_clip_id must not contain leading or trailing whitespace", i)
+			}
+			if _, ok := clipIDs[clipID]; !ok {
+				return fmt.Errorf("drive.actions[%d].visual_clip_id %q is not in visual.pixa.metadata.clips", i, clipID)
+			}
+		}
+		if action.Effect != nil && action.Effect.AttrDelta != nil && action.Effect.AttrDelta.Life != nil {
+			for attrID := range *action.Effect.AttrDelta.Life {
+				if strings.TrimSpace(attrID) == "" {
+					return fmt.Errorf("drive.actions[%d].effect.attr_delta.life contains an empty attribute id", i)
+				}
+				if strings.TrimSpace(attrID) != attrID {
+					return fmt.Errorf("drive.actions[%d].effect.attr_delta.life.%s must not contain leading or trailing whitespace", i, attrID)
+				}
+				if _, ok := attr.Life[attrID]; !ok {
+					return fmt.Errorf("drive.actions[%d].effect.attr_delta.life.%s does not match a PetDef life attribute", i, attrID)
+				}
+			}
+		}
+	}
+	for i, clip := range clips {
+		if clip.ActionId == nil {
+			continue
+		}
+		actionID := strings.TrimSpace(*clip.ActionId)
+		if actionID == "" {
+			return fmt.Errorf("visual.pixa.metadata.clips[%d].action_id must not be empty", i)
+		}
+		if actionID != *clip.ActionId {
+			return fmt.Errorf("visual.pixa.metadata.clips[%d].action_id must not contain leading or trailing whitespace", i)
+		}
+		if _, ok := seen[actionID]; !ok {
+			return fmt.Errorf("visual.pixa.metadata.clips[%d].action_id %q is not in drive.actions", i, actionID)
+		}
+	}
+	return nil
+}
+
+func validatePetDefI18n(spec apitypes.PetDefSpec) error {
+	for localeName, locale := range spec.I18n {
+		if strings.TrimSpace(localeName) == "" {
+			return errors.New("i18n contains an empty locale")
+		}
+		if locale.Attr != nil {
+			if err := validateI18nAttrGroup("i18n."+localeName+".attr.life", locale.Attr.Life, spec.Attr.Life); err != nil {
+				return err
+			}
+			if err := validateI18nAttrGroup("i18n."+localeName+".attr.progression", locale.Attr.Progression, spec.Attr.Progression); err != nil {
+				return err
+			}
+		}
+		if locale.Drive != nil && locale.Drive.Actions != nil {
+			actionIDs := map[string]struct{}{}
+			for _, action := range spec.Drive.Actions {
+				actionIDs[action.Id] = struct{}{}
+			}
+			for actionID := range *locale.Drive.Actions {
+				text := (*locale.Drive.Actions)[actionID]
+				if _, ok := actionIDs[actionID]; !ok {
+					return fmt.Errorf("i18n.%s.drive.actions.%s does not match a drive action", localeName, actionID)
+				}
+				if strings.TrimSpace(text.DisplayName) == "" {
+					return fmt.Errorf("i18n.%s.drive.actions.%s.display_name is required", localeName, actionID)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func validateI18nAttrGroup(path string, values *apitypes.PetDefI18nAttrGroup, defs apitypes.PetAttrGroupSpec) error {
+	if values == nil {
+		return nil
+	}
+	for attrID, text := range *values {
+		if _, ok := defs[attrID]; !ok {
+			return fmt.Errorf("%s.%s does not match a PetDef attribute", path, attrID)
+		}
+		if strings.TrimSpace(text.DisplayName) == "" {
+			return fmt.Errorf("%s.%s.display_name is required", path, attrID)
+		}
+	}
+	return nil
 }
 
 func (c *Catalog) buildBadgeDef(id string, spec apitypes.BadgeDefSpec, pixaPath *string, createdAt time.Time) (apitypes.BadgeDef, error) {
@@ -779,6 +1025,284 @@ func readJSON[T any](ctx context.Context, store kv.Store, key kv.Key) (T, error)
 		return out, err
 	}
 	return out, nil
+}
+
+type legacyPetDefJSON struct {
+	Id   string `json:"id"`
+	Spec struct {
+		DisplayName    string            `json:"display_name"`
+		Description    string            `json:"description"`
+		WorkflowName   *string           `json:"workflow_name,omitempty"`
+		InitialLife    map[string]int64  `json:"initial_life"`
+		InitialAbility map[string]int64  `json:"initial_ability"`
+		Character      map[string]string `json:"character,omitempty"`
+		Voice          map[string]string `json:"voice,omitempty"`
+	} `json:"spec"`
+	PixaPath  *string   `json:"pixa_path,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type legacyGameRulesetAction struct {
+	Cost   int64
+	Reward apitypes.GameRewardSpec
+	Effect apitypes.PetDefActionEffectSpec
+}
+
+type legacyGameRulesetJSON struct {
+	Spec struct {
+		Drive *struct {
+			ActionCosts   map[string]int64            `json:"action_costs"`
+			ActionRewards map[string]legacyRewardSpec `json:"action_rewards"`
+		} `json:"drive"`
+	} `json:"spec"`
+}
+
+type legacyRewardSpec struct {
+	BadgeExpDelta map[string]int64 `json:"badge_exp_delta"`
+	LifeDelta     map[string]int64 `json:"life_delta"`
+	PetExpDelta   *int64           `json:"pet_exp_delta"`
+	PointsDelta   *int64           `json:"points_delta"`
+}
+
+func (c *Catalog) readPetDefJSON(ctx context.Context, store kv.Store, key kv.Key) (apitypes.PetDef, error) {
+	data, err := store.Get(ctx, key)
+	if err != nil {
+		return apitypes.PetDef{}, err
+	}
+	var item apitypes.PetDef
+	if err := json.Unmarshal(data, &item); err != nil {
+		return apitypes.PetDef{}, err
+	}
+	if err := validatePetDefSpec(item.Spec); err == nil {
+		return item, nil
+	}
+	if isLegacyMigratedPetDef(item) {
+		if err := validateMigratedLegacyPetDefSpec(item.Spec); err == nil {
+			return item, nil
+		}
+	}
+	return c.migrateLegacyPetDefJSON(data)
+}
+
+func (c *Catalog) listPetDefJSON(ctx context.Context, store kv.Store, cursor string, limit int) ([]apitypes.PetDef, bool, *string, error) {
+	entries, err := kv.ListAfter(ctx, store, petDefsRoot, cursorAfterKey(petDefsRoot, cursor), limit+1)
+	if err != nil {
+		return nil, false, nil, err
+	}
+	pageEntries, hasNext, nextCursor := paginateEntries(entries, limit)
+	items := make([]apitypes.PetDef, 0, len(pageEntries))
+	for _, entry := range pageEntries {
+		item, err := c.migratePetDefData(entry.Value)
+		if err != nil {
+			return nil, false, nil, err
+		}
+		items = append(items, item)
+	}
+	return items, hasNext, nextCursor, nil
+}
+
+func (c *Catalog) migratePetDefData(data []byte) (apitypes.PetDef, error) {
+	var item apitypes.PetDef
+	if err := json.Unmarshal(data, &item); err != nil {
+		return apitypes.PetDef{}, err
+	}
+	if err := validatePetDefSpec(item.Spec); err == nil {
+		return item, nil
+	}
+	if isLegacyMigratedPetDef(item) {
+		if err := validateMigratedLegacyPetDefSpec(item.Spec); err == nil {
+			return item, nil
+		}
+	}
+	return c.migrateLegacyPetDefJSON(data)
+}
+
+func (c *Catalog) migrateLegacyPetDefJSON(data []byte) (apitypes.PetDef, error) {
+	var legacy legacyPetDefJSON
+	if err := json.Unmarshal(data, &legacy); err != nil {
+		return apitypes.PetDef{}, err
+	}
+	if legacy.Id == "" || legacy.Spec.DisplayName == "" {
+		var item apitypes.PetDef
+		if err := json.Unmarshal(data, &item); err != nil {
+			return apitypes.PetDef{}, err
+		}
+		return apitypes.PetDef{}, validatePetDefSpec(item.Spec)
+	}
+	if len(legacy.Spec.InitialLife) == 0 {
+		legacy.Spec.InitialLife = map[string]int64{"hunger": 100}
+	}
+	description := legacy.Spec.Description
+	if strings.TrimSpace(description) == "" {
+		description = legacy.Spec.DisplayName
+	}
+	pixaMetadata := c.legacyPetDefPixaMetadata(legacy.PixaPath)
+	spec := apitypes.PetDefSpec{
+		DefaultLocale: "en",
+		WorkflowName:  legacy.Spec.WorkflowName,
+		Attr: apitypes.PetDefAttrSpec{
+			Life:        apitypes.PetAttrGroupSpec{},
+			Progression: apitypes.PetAttrGroupSpec{"xp": {Initial: 0}},
+		},
+		Character: apitypes.PetDefCharacterSpec{Prompt: legacy.Spec.Character["prompt"]},
+		Voice: apitypes.PetDefVoiceSpec{
+			VoiceId: legacy.Spec.Voice["voice_id"],
+			Prompt:  legacy.Spec.Voice["prompt"],
+		},
+		Drive: apitypes.PetDefDriveSpec{Actions: []apitypes.PetDefActionSpec{}},
+		Visual: apitypes.PetDefVisualSpec{
+			Refs: apitypes.PetDefVisualRefsSpec{},
+			Pixa: apitypes.PetDefPixaSpec{
+				AssetRef: "asset://pets/" + legacy.Id + "/pet.pixa",
+				Metadata: pixaMetadata,
+			},
+		},
+		I18n: apitypes.PetDefI18nSpec{
+			"en": {
+				DisplayName: &legacy.Spec.DisplayName,
+				Description: &description,
+			},
+		},
+	}
+	for id, initial := range legacy.Spec.InitialLife {
+		spec.Attr.Life[id] = apitypes.PetAttrValueSpec{Initial: initial}
+	}
+	if legacy.Spec.InitialAbility != nil {
+		if xp, ok := legacy.Spec.InitialAbility["xp"]; ok {
+			spec.Attr.Progression["xp"] = apitypes.PetAttrValueSpec{Initial: xp}
+		}
+	}
+	if strings.TrimSpace(spec.Character.Prompt) == "" {
+		spec.Character.Prompt = legacy.Spec.DisplayName
+	}
+	if strings.TrimSpace(spec.Voice.VoiceId) == "" {
+		spec.Voice.VoiceId = "default"
+	}
+	if strings.TrimSpace(spec.Voice.Prompt) == "" {
+		spec.Voice.Prompt = legacy.Spec.DisplayName
+	}
+	if err := validateMigratedLegacyPetDefSpec(spec); err != nil {
+		return apitypes.PetDef{}, err
+	}
+	return apitypes.PetDef{
+		Id:        legacy.Id,
+		Spec:      spec,
+		PixaPath:  legacy.PixaPath,
+		CreatedAt: legacy.CreatedAt,
+		UpdatedAt: legacy.UpdatedAt,
+	}, nil
+}
+
+func (c *Catalog) legacyPetDefPixaMetadata(pixaPath *string) apitypes.PetDefPixaMetadata {
+	metadata := apitypes.PetDefPixaMetadata{
+		Version: "1",
+		Canvas:  apitypes.PetDefPixaCanvasMetadata{Width: 60, Height: 60},
+		Clips: []apitypes.PetDefPixaClipMetadata{
+			{Id: "idle", PixaClipName: "idle"},
+		},
+	}
+	if pixaPath == nil {
+		return metadata
+	}
+	reader, _, err := c.openAsset(*pixaPath)
+	if err != nil {
+		return metadata
+	}
+	defer reader.Close()
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return metadata
+	}
+	asset, err := parsePixa(data)
+	if err != nil {
+		return metadata
+	}
+	metadata.Canvas = apitypes.PetDefPixaCanvasMetadata{
+		Width:  int64(asset.width),
+		Height: int64(asset.height),
+	}
+	return metadata
+}
+
+func validateMigratedLegacyPetDefSpec(spec apitypes.PetDefSpec) error {
+	if strings.TrimSpace(spec.DefaultLocale) == "" {
+		return errors.New("default_locale is required")
+	}
+	if err := validatePetAttrGroup("attr.life", spec.Attr.Life); err != nil {
+		return err
+	}
+	if err := validatePetAttrGroup("attr.progression", spec.Attr.Progression); err != nil {
+		return err
+	}
+	if _, ok := spec.Attr.Progression["xp"]; !ok {
+		return errors.New("attr.progression.xp is required")
+	}
+	if strings.TrimSpace(spec.Character.Prompt) == "" {
+		return errors.New("character.prompt is required")
+	}
+	if strings.TrimSpace(spec.Voice.VoiceId) == "" {
+		return errors.New("voice.voice_id is required")
+	}
+	if strings.TrimSpace(spec.Voice.Prompt) == "" {
+		return errors.New("voice.prompt is required")
+	}
+	if err := validatePetDefVisual(spec.Visual); err != nil {
+		return err
+	}
+	if _, ok := spec.I18n[spec.DefaultLocale]; !ok {
+		return fmt.Errorf("i18n.%s is required", spec.DefaultLocale)
+	}
+	return validatePetDefI18n(spec)
+}
+
+func (c *Catalog) legacyGameRulesetAction(ctx context.Context, rulesetName, actionID string) (legacyGameRulesetAction, bool, error) {
+	store, err := c.store(c.GameRulesets, "game rulesets")
+	if err != nil {
+		return legacyGameRulesetAction{}, false, err
+	}
+	name, err := pathID(rulesetName)
+	if err != nil {
+		return legacyGameRulesetAction{}, false, err
+	}
+	data, err := store.Get(ctx, rulesetKey(name))
+	if err != nil {
+		return legacyGameRulesetAction{}, false, err
+	}
+	var legacy legacyGameRulesetJSON
+	if err := json.Unmarshal(data, &legacy); err != nil {
+		return legacyGameRulesetAction{}, false, err
+	}
+	actionID = strings.TrimSpace(actionID)
+	if legacy.Spec.Drive == nil || actionID == "" {
+		return legacyGameRulesetAction{}, false, nil
+	}
+	out := legacyGameRulesetAction{}
+	found := false
+	if cost, ok := legacy.Spec.Drive.ActionCosts[actionID]; ok {
+		out.Cost = cost
+		found = true
+	}
+	if reward, ok := legacy.Spec.Drive.ActionRewards[actionID]; ok {
+		out.Reward = legacyReward(reward)
+		if len(reward.LifeDelta) > 0 {
+			life := apitypes.PetLife(reward.LifeDelta)
+			out.Effect.AttrDelta = &apitypes.PetAttrDelta{Life: &life}
+		}
+		found = true
+	}
+	return out, found, nil
+}
+
+func legacyReward(in legacyRewardSpec) apitypes.GameRewardSpec {
+	out := apitypes.GameRewardSpec{
+		PetExpDelta: in.PetExpDelta,
+		PointsDelta: in.PointsDelta,
+	}
+	if len(in.BadgeExpDelta) > 0 {
+		out.BadgeExpDelta = &in.BadgeExpDelta
+	}
+	return out
 }
 
 func listJSON[T any](ctx context.Context, store kv.Store, prefix kv.Key, cursor string, limit int) ([]T, bool, *string, error) {

@@ -1,0 +1,133 @@
+apiVersion: gizclaw.admin/v1alpha1
+kind: PetDef
+metadata:
+  name: petdef-tragon
+spec:
+  default_locale: en
+  workflow_name: pet-care-flowcraft
+  attr:
+    life:
+      hp:
+        initial: 100
+      wellness:
+        initial: 100
+      energy:
+        initial: 100
+      cleanliness:
+        initial: 100
+    progression:
+      xp:
+        initial: 0
+  character:
+    prompt: Compact pixel dragon with a rounded head, small horns, tiny wings, short legs, and playful brave behavior. Keep the sprite readable in a small pixel-art canvas.
+  voice:
+    voice_id: gizclaw-cute-dragon
+    prompt: Bright, curious, short spoken replies with childlike confidence.
+  drive:
+    actions:
+    - id: idle
+      cost: 0
+      visual_clip_id: idle
+    - id: feed
+      cost: 6
+      visual_clip_id: feed
+      effect:
+        attr_delta:
+          life:
+            wellness: 8
+            energy: 4
+        pet_exp_delta: 8
+    - id: bath
+      cost: 5
+      visual_clip_id: bath
+      effect:
+        attr_delta:
+          life:
+            cleanliness: 15
+        pet_exp_delta: 6
+    - id: heal
+      cost: 8
+      visual_clip_id: heal
+      effect:
+        attr_delta:
+          life:
+            hp: 15
+            wellness: 8
+        pet_exp_delta: 8
+    - id: run_left
+      cost: 0
+      visual_clip_id: run_left
+      effect:
+        attr_delta:
+          life:
+            energy: -2
+        pet_exp_delta: 2
+    - id: run_right
+      cost: 0
+      visual_clip_id: run_right
+      effect:
+        attr_delta:
+          life:
+            energy: -2
+        pet_exp_delta: 2
+  visual:
+    refs:
+      images: []
+      videos: []
+    pixa:
+      asset_ref: asset://h106/tiga/pets/tragon/tragon.pixa
+      metadata:
+        version: "1"
+        canvas:
+          width: 60
+          height: 60
+        clips:
+        - id: idle
+          action_id: idle
+          pixa_clip_name: idle
+        - id: feed
+          action_id: feed
+          pixa_clip_name: feed
+        - id: bath
+          action_id: bath
+          pixa_clip_name: bath
+        - id: heal
+          action_id: heal
+          pixa_clip_name: heal
+        - id: run_left
+          action_id: run_left
+          pixa_clip_name: run_left
+        - id: run_right
+          action_id: run_right
+          pixa_clip_name: run_right
+  i18n:
+    en:
+      display_name: Tragon
+      description: A brave little dragon who gets excited when it runs and perks up when you feed, bathe, or heal it.
+      attr:
+        life:
+          hp:
+            display_name: HP
+          wellness:
+            display_name: Wellness
+          energy:
+            display_name: Energy
+          cleanliness:
+            display_name: Cleanliness
+        progression:
+          xp:
+            display_name: EXP
+      drive:
+        actions:
+          idle:
+            display_name: Idle
+          feed:
+            display_name: Feed
+          bath:
+            display_name: Bath
+          heal:
+            display_name: Heal
+          run_left:
+            display_name: Run Left
+          run_right:
+            display_name: Run Right

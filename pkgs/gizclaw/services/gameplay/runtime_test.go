@@ -95,10 +95,10 @@ func TestRuntimeAdoptAndDrive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DrivePet() error = %v", err)
 	}
-	if drive.Pet.Exp != 110 || drive.Pet.Level != 2 {
-		t.Fatalf("pet exp/level = %d/%d, want 110/2", drive.Pet.Exp, drive.Pet.Level)
+	if drive.Pet.Progression["xp"] != 110 {
+		t.Fatalf("pet progression = %#v, want xp=110", drive.Pet.Progression)
 	}
-	if drive.Pet.Life["hunger"] != 90 || drive.Pet.Life["clean"] != 110 {
+	if drive.Pet.Life["hunger"] != 100 || drive.Pet.Life["clean"] != 110 {
 		t.Fatalf("pet life = %#v", drive.Pet.Life)
 	}
 	if drive.Points.Balance != 55 {
@@ -113,7 +113,7 @@ func TestRuntimeAdoptAndDrive(t *testing.T) {
 	if len(drive.RewardGrants) != 1 || drive.RewardGrants[0].Id != "grant-1" || drive.RewardGrants[0].BadgeExpDelta["badge-basic"] != 100 {
 		t.Fatalf("reward grants = %#v", drive.RewardGrants)
 	}
-	if drive.RewardGrants[0].SourceType != "game_result" || drive.RewardGrants[0].SourceId != "game-result-1" || drive.RewardGrants[0].LifeDelta == nil || (*drive.RewardGrants[0].LifeDelta)["clean"] != 10 {
+	if drive.RewardGrants[0].SourceType != "game_result" || drive.RewardGrants[0].SourceId != "game-result-1" || drive.RewardGrants[0].PetExpDelta != 110 {
 		t.Fatalf("reward grant details = %#v", drive.RewardGrants[0])
 	}
 	if len(drive.Badges) != 1 || !drive.Badges[0].Active || drive.Badges[0].Level != 1 || drive.Badges[0].Progress != 0 {
@@ -360,7 +360,7 @@ func TestRuntimeErrorsPaginationAndTimeDrive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DrivePet() time drive error = %v", err)
 	}
-	if timeDrive.Pet.Life["hunger"] != 85 || len(timeDrive.Transactions) != 0 || len(timeDrive.RewardGrants) != 0 {
+	if timeDrive.Pet.Life["hunger"] != 100 || len(timeDrive.Transactions) != 0 || len(timeDrive.RewardGrants) != 0 {
 		t.Fatalf("time drive = %#v", timeDrive)
 	}
 
@@ -412,6 +412,230 @@ func TestRuntimeErrorsPaginationAndTimeDrive(t *testing.T) {
 	}
 }
 
+func TestScanPetIgnoresLegacyAbilityStats(t *testing.T) {
+	ctx := context.Background()
+	db := testDB(t)
+	runtime := &Runtime{DB: db}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatalf("Migration() error = %v", err)
+	}
+	now := time.Date(2026, 7, 5, 12, 0, 0, 0, time.UTC)
+	_, err := db.ExecContext(ctx, `INSERT INTO gameplay_pets (owner_public_key, id, ruleset_name, petdef_id, display_name, workspace_name, workflow_name, life_json, ability_json, exp, level, last_active_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"peer-a", "pet-a", "default", "petdef-a", "Pet A", "pet-pet-a", "pet-chat", `{"hunger":100}`, `{"play":1}`, int64(42), int64(1), formatTime(now), formatTime(now), formatTime(now))
+	if err != nil {
+		t.Fatalf("insert legacy pet error = %v", err)
+	}
+	pet, err := scanPet(db.QueryRowContext(ctx, petSelectSQL()+` WHERE id = ?`, "pet-a"))
+	if err != nil {
+		t.Fatalf("scanPet() error = %v", err)
+	}
+	if _, ok := pet.Progression["play"]; ok {
+		t.Fatalf("legacy ability stat leaked into progression: %#v", pet.Progression)
+	}
+	if got := pet.Progression["xp"]; got != 42 {
+		t.Fatalf("progression xp = %d, want 42", got)
+	}
+
+	_, err = db.ExecContext(ctx, `INSERT INTO gameplay_pets (owner_public_key, id, ruleset_name, petdef_id, display_name, workspace_name, workflow_name, life_json, ability_json, exp, level, last_active_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"peer-a", "pet-c", "default", "petdef-a", "Pet C", "pet-pet-c", "pet-chat", `{"hunger":100}`, `{"xp":1,"play":1}`, int64(42), int64(1), formatTime(now), formatTime(now), formatTime(now))
+	if err != nil {
+		t.Fatalf("insert legacy xp ability pet error = %v", err)
+	}
+	pet, err = scanPet(db.QueryRowContext(ctx, petSelectSQL()+` WHERE id = ?`, "pet-c"))
+	if err != nil {
+		t.Fatalf("scanPet() legacy xp ability error = %v", err)
+	}
+	if _, ok := pet.Progression["play"]; ok {
+		t.Fatalf("legacy xp ability stat leaked into progression: %#v", pet.Progression)
+	}
+	if got := pet.Progression["xp"]; got != 42 {
+		t.Fatalf("legacy xp ability progression xp = %d, want 42", got)
+	}
+
+	progressionJSON, err := marshalStoredPetProgression(apitypes.PetProgression{"xp": 7, "rank": 2})
+	if err != nil {
+		t.Fatalf("marshalStoredPetProgression() error = %v", err)
+	}
+	_, err = db.ExecContext(ctx, `INSERT INTO gameplay_pets (owner_public_key, id, ruleset_name, petdef_id, display_name, workspace_name, workflow_name, life_json, ability_json, exp, level, last_active_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"peer-a", "pet-b", "default", "petdef-a", "Pet B", "pet-pet-b", "pet-chat", `{"hunger":100}`, progressionJSON, int64(7), int64(1), formatTime(now), formatTime(now), formatTime(now))
+	if err != nil {
+		t.Fatalf("insert progression pet error = %v", err)
+	}
+	pet, err = scanPet(db.QueryRowContext(ctx, petSelectSQL()+` WHERE id = ?`, "pet-b"))
+	if err != nil {
+		t.Fatalf("scanPet() progression error = %v", err)
+	}
+	if pet.Progression["xp"] != 7 || pet.Progression["rank"] != 2 {
+		t.Fatalf("stored progression not preserved: %#v", pet.Progression)
+	}
+}
+
+func TestRuntimeDrivesLegacyRulesetActionFallback(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 5, 12, 0, 0, 0, time.UTC)
+	catalog := testCatalog(t, now)
+	petStore, err := catalog.store(catalog.PetDefs, "pet defs")
+	if err != nil {
+		t.Fatalf("pet store error = %v", err)
+	}
+	rulesetStore, err := catalog.store(catalog.GameRulesets, "game rulesets")
+	if err != nil {
+		t.Fatalf("ruleset store error = %v", err)
+	}
+	if err := petStore.Set(ctx, petDefKey("legacy-pet"), []byte(`{
+		"id":"legacy-pet",
+		"spec":{
+			"display_name":"Legacy Pet",
+			"description":"Legacy description",
+			"workflow_name":"pet-chat",
+			"initial_life":{"hunger":100},
+			"initial_ability":{"play":1}
+		},
+		"created_at":"2026-07-05T11:00:00Z",
+		"updated_at":"2026-07-05T11:00:00Z"
+	}`)); err != nil {
+		t.Fatalf("seed legacy petdef: %v", err)
+	}
+	if err := rulesetStore.Set(ctx, rulesetKey("default"), []byte(`{
+		"name":"default",
+		"spec":{
+			"enabled":true,
+			"points":{"initial_balance":50},
+				"pet_pool":[{"petdef_id":"legacy-pet","weight":1}],
+				"drive":{
+					"action_costs":{"idle":3},
+					"action_rewards":{"idle":{"points_delta":4,"pet_exp_delta":5,"life_delta":{"hunger":10}}}
+				}
+		},
+		"created_at":"2026-07-05T11:00:00Z",
+		"updated_at":"2026-07-05T11:00:00Z"
+	}`)); err != nil {
+		t.Fatalf("seed legacy ruleset: %v", err)
+	}
+	runtime := &Runtime{
+		DB:         testDB(t),
+		Catalog:    catalog,
+		Workspaces: &recordingWorkspaceService{},
+		Now:        func() time.Time { return now },
+		NewID:      sequentialIDs("pet-1", "adopt-txn", "idle-cost-txn", "grant-1", "reward-txn"),
+		PickWeight: func(int64) int64 { return 0 },
+	}
+	adopted, err := runtime.AdoptPet(ctx, "peer-a", apitypes.PetAdoptRequest{})
+	if err != nil {
+		t.Fatalf("AdoptPet() error = %v", err)
+	}
+	drive, err := runtime.DrivePet(ctx, "peer-a", apitypes.PetDriveRequest{PetId: adopted.Pet.Id, Action: stringPtr("idle")})
+	if err != nil {
+		t.Fatalf("DrivePet() legacy action error = %v", err)
+	}
+	if drive.Pet.Life["hunger"] != 110 || drive.Pet.Progression["xp"] != 5 {
+		t.Fatalf("legacy action pet = %#v", drive.Pet)
+	}
+	if drive.Points.Balance != 51 {
+		t.Fatalf("legacy action points = %d, want 51", drive.Points.Balance)
+	}
+	if len(drive.Transactions) != 2 || drive.Transactions[0].Delta != -3 || drive.Transactions[1].Delta != 4 {
+		t.Fatalf("legacy action transactions = %#v", drive.Transactions)
+	}
+	if len(drive.RewardGrants) != 1 || drive.RewardGrants[0].PetExpDelta != 5 || drive.RewardGrants[0].PointsDelta != 4 {
+		t.Fatalf("legacy action grants = %#v", drive.RewardGrants)
+	}
+}
+
+func TestRuntimeDoesNotApplyLegacyRulesetActionWhenPetDefDefinesNoop(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 5, 12, 0, 0, 0, time.UTC)
+	catalog := testCatalog(t, now)
+	seedGameplayCatalog(t, ctx, catalog)
+	rulesetStore, err := catalog.store(catalog.GameRulesets, "game rulesets")
+	if err != nil {
+		t.Fatalf("ruleset store error = %v", err)
+	}
+	if err := rulesetStore.Set(ctx, rulesetKey("default"), []byte(`{
+		"name":"default",
+		"spec":{
+			"enabled":true,
+			"points":{"initial_balance":50},
+			"pet_pool":[{"petdef_id":"petdef-basic","weight":1}],
+			"drive":{
+				"action_costs":{"idle":3},
+				"action_rewards":{"idle":{"points_delta":4,"pet_exp_delta":5,"life_delta":{"hunger":10}}}
+			}
+		},
+		"created_at":"2026-07-05T11:00:00Z",
+		"updated_at":"2026-07-05T11:00:00Z"
+	}`)); err != nil {
+		t.Fatalf("seed legacy ruleset: %v", err)
+	}
+	runtime := &Runtime{
+		DB:         testDB(t),
+		Catalog:    catalog,
+		Workspaces: &recordingWorkspaceService{},
+		Now:        func() time.Time { return now },
+		NewID:      sequentialIDs("pet-1", "adopt-txn"),
+		PickWeight: func(int64) int64 { return 0 },
+	}
+	adopted, err := runtime.AdoptPet(ctx, "peer-a", apitypes.PetAdoptRequest{})
+	if err != nil {
+		t.Fatalf("AdoptPet() error = %v", err)
+	}
+	drive, err := runtime.DrivePet(ctx, "peer-a", apitypes.PetDriveRequest{PetId: adopted.Pet.Id, Action: stringPtr("idle")})
+	if err != nil {
+		t.Fatalf("DrivePet() noop action error = %v", err)
+	}
+	if drive.Pet.Life["hunger"] != 100 || drive.Pet.Progression["xp"] != 0 {
+		t.Fatalf("noop action pet = %#v", drive.Pet)
+	}
+	if drive.Points.Balance != 50 {
+		t.Fatalf("noop action points = %d, want 50", drive.Points.Balance)
+	}
+	if len(drive.Transactions) != 0 || len(drive.RewardGrants) != 0 {
+		t.Fatalf("noop action should not apply legacy data: txns=%#v grants=%#v", drive.Transactions, drive.RewardGrants)
+	}
+}
+
+func TestRuntimeDoesNotFallbackToLegacyRulesetActionForCurrentPetDefMissingAction(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 5, 12, 0, 0, 0, time.UTC)
+	catalog := testCatalog(t, now)
+	seedGameplayCatalog(t, ctx, catalog)
+	rulesetStore, err := catalog.store(catalog.GameRulesets, "game rulesets")
+	if err != nil {
+		t.Fatalf("ruleset store error = %v", err)
+	}
+	if err := rulesetStore.Set(ctx, rulesetKey("default"), []byte(`{
+		"name":"default",
+		"spec":{
+			"enabled":true,
+			"points":{"initial_balance":50},
+			"pet_pool":[{"petdef_id":"petdef-basic","weight":1}],
+			"drive":{
+				"action_costs":{"legacy-only":3},
+				"action_rewards":{"legacy-only":{"points_delta":4,"pet_exp_delta":5,"life_delta":{"hunger":10}}}
+			}
+		},
+		"created_at":"2026-07-05T11:00:00Z",
+		"updated_at":"2026-07-05T11:00:00Z"
+	}`)); err != nil {
+		t.Fatalf("seed legacy ruleset: %v", err)
+	}
+	runtime := &Runtime{
+		DB:         testDB(t),
+		Catalog:    catalog,
+		Workspaces: &recordingWorkspaceService{},
+		Now:        func() time.Time { return now },
+		NewID:      sequentialIDs("pet-1", "adopt-txn"),
+		PickWeight: func(int64) int64 { return 0 },
+	}
+	adopted, err := runtime.AdoptPet(ctx, "peer-a", apitypes.PetAdoptRequest{})
+	if err != nil {
+		t.Fatalf("AdoptPet() error = %v", err)
+	}
+	if _, err := runtime.DrivePet(ctx, "peer-a", apitypes.PetDriveRequest{PetId: adopted.Pet.Id, Action: stringPtr("legacy-only")}); err == nil {
+		t.Fatal("DrivePet() should reject legacy-only action for current PetDef")
+	}
+}
+
 func TestRuntimeHelperBranches(t *testing.T) {
 	if got := (&Runtime{PickWeight: func(int64) int64 { return -5 }}).pickWeight(10); got != 0 {
 		t.Fatalf("negative pickWeight = %d", got)
@@ -432,12 +656,12 @@ func TestRuntimeHelperBranches(t *testing.T) {
 		t.Fatalf("petLevel(-100) = %d", got)
 	}
 
-	life := apitypes.StatMap{"hunger": 1}
-	applyStatDelta(life, &apitypes.StatMap{"hunger": -5, "clean": 3})
+	life := apitypes.PetLife{"hunger": 1}
+	applyLifeDelta(life, &apitypes.PetLife{"hunger": -5, "clean": 3})
 	if life["hunger"] != 0 || life["clean"] != 3 {
-		t.Fatalf("applyStatDelta() = %#v", life)
+		t.Fatalf("applyLifeDelta() = %#v", life)
 	}
-	applyStatDelta(nil, &apitypes.StatMap{"hunger": 1})
+	applyLifeDelta(nil, &apitypes.PetLife{"hunger": 1})
 
 	result := apitypes.GameResult{GameDefId: "game-a"}
 	if got := rewardReason("", nil); got != "time" {
@@ -508,17 +732,10 @@ func testCatalog(t *testing.T, now time.Time) *Catalog {
 
 func seedGameplayCatalog(t *testing.T, ctx context.Context, catalog *Catalog) {
 	t.Helper()
-	life := apitypes.StatMap{"hunger": 100, "clean": 100}
-	ability := apitypes.StatMap{"play": 1}
 	petResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{
 		Body: &adminhttp.PetDefUpsert{
-			Id: "petdef-basic",
-			Spec: apitypes.PetDefSpec{
-				DisplayName:    "Spark",
-				WorkflowName:   stringPtr("pet-chat"),
-				InitialLife:    &life,
-				InitialAbility: &ability,
-			},
+			Id:   "petdef-basic",
+			Spec: testPetDefSpec("Spark"),
 		},
 	})
 	if err != nil {
@@ -547,12 +764,8 @@ func seedGameplayCatalog(t *testing.T, ctx context.Context, catalog *Catalog) {
 	}
 	initialBalance := int64(50)
 	adoptionCost := int64(15)
-	actionCosts := map[string]int64{"bath": 10}
-	petExp := int64(90)
 	points := int64(30)
 	gameExp := int64(20)
-	cleanDelta := apitypes.StatMap{"clean": 10}
-	decay := apitypes.StatMap{"hunger": 5}
 	badgeDelta := map[string]int64{"badge-basic": 100}
 	gameIDs := []string{"game-basic"}
 	rulesetResp, err := catalog.CreateGameRuleset(ctx, adminhttp.CreateGameRulesetRequestObject{
@@ -568,11 +781,6 @@ func seedGameplayCatalog(t *testing.T, ctx context.Context, catalog *Catalog) {
 				}},
 				GameDefIds: &gameIDs,
 				Drive: &apitypes.GameRulesetDriveSpec{
-					ActionCosts:      &actionCosts,
-					LifeDecayPerHour: &decay,
-					ActionRewards: &map[string]apitypes.GameRewardSpec{
-						"bath": {PetExpDelta: &petExp, LifeDelta: &cleanDelta},
-					},
 					GameRewards: &map[string]apitypes.GameRewardSpec{
 						"game-basic": {PointsDelta: &points, PetExpDelta: &gameExp, BadgeExpDelta: &badgeDelta},
 					},

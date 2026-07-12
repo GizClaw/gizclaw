@@ -1072,8 +1072,6 @@ export type GameRewardSpec = {
     badge_exp_delta?: {
         [key: string]: number;
     };
-    life_delta?: StatMap;
-    ability_delta?: StatMap;
 };
 
 export type GameRuleset = {
@@ -1084,17 +1082,10 @@ export type GameRuleset = {
 };
 
 export type GameRulesetDriveSpec = {
-    action_costs?: {
-        [key: string]: number;
-    };
     default_reward?: GameRewardSpec;
-    action_rewards?: {
-        [key: string]: GameRewardSpec;
-    };
     game_rewards?: {
         [key: string]: GameRewardSpec;
     };
-    life_decay_per_hour?: StatMap;
 };
 
 export type GameRulesetPetPoolEntry = {
@@ -1133,13 +1124,23 @@ export type Pet = {
     display_name: string;
     workspace_name: string;
     workflow_name?: string;
-    life: StatMap;
-    ability: StatMap;
-    exp: number;
-    level: number;
+    life: PetLife;
+    progression: PetProgression;
     last_active_at: string;
     created_at: string;
     updated_at: string;
+};
+
+export type PetAttrDelta = {
+    life?: PetLife;
+};
+
+export type PetAttrGroupSpec = {
+    [key: string]: PetAttrValueSpec;
+};
+
+export type PetAttrValueSpec = {
+    initial: number;
 };
 
 export type PetDef = {
@@ -1150,20 +1151,128 @@ export type PetDef = {
     updated_at: string;
 };
 
-export type PetDefSpec = {
-    display_name: string;
+export type PetDefActionEffectSpec = {
+    attr_delta?: PetAttrDelta;
+    pet_exp_delta?: number;
+};
+
+export type PetDefActionSpec = {
+    id: string;
+    cost: number;
+    visual_clip_id?: string;
+    effect?: PetDefActionEffectSpec;
+};
+
+export type PetDefAttrSpec = {
+    life: PetAttrGroupSpec;
+    progression: PetAttrGroupSpec;
+};
+
+export type PetDefCharacterSpec = {
+    prompt: string;
+};
+
+export type PetDefDriveSpec = {
+    actions: Array<PetDefActionSpec>;
+};
+
+export type PetDefI18nAttrGroup = {
+    [key: string]: PetDefI18nDisplayText;
+};
+
+export type PetDefI18nAttrSpec = {
+    life?: PetDefI18nAttrGroup;
+    progression?: PetDefI18nAttrGroup;
+};
+
+export type PetDefI18nCatalog = {
+    display_name?: string;
     description?: string;
+    attr?: PetDefI18nAttrSpec;
+    drive?: PetDefI18nDriveSpec;
+};
+
+export type PetDefI18nDisplayText = {
+    display_name: string;
+};
+
+export type PetDefI18nDriveSpec = {
+    actions?: {
+        [key: string]: PetDefI18nDisplayText;
+    };
+};
+
+export type PetDefI18nSpec = {
+    [key: string]: PetDefI18nCatalog;
+};
+
+export type PetDefPixaCanvasMetadata = {
+    width: number;
+    height: number;
+};
+
+export type PetDefPixaClipMetadata = {
+    id: string;
+    action_id?: string;
+    pixa_clip_name: string;
+};
+
+export type PetDefPixaMetadata = {
+    version: string;
+    canvas: PetDefPixaCanvasMetadata;
+    clips: Array<PetDefPixaClipMetadata>;
+};
+
+export type PetDefPixaSpec = {
+    asset_ref: string;
+    metadata: PetDefPixaMetadata;
+};
+
+export type PetDefSpec = {
+    default_locale: string;
     workflow_name?: string;
-    initial_life?: StatMap;
-    initial_ability?: StatMap;
-    tags?: Array<string>;
-    metadata?: GameplayMetadata;
+    attr: PetDefAttrSpec;
+    character: PetDefCharacterSpec;
+    voice: PetDefVoiceSpec;
+    drive: PetDefDriveSpec;
+    visual: PetDefVisualSpec;
+    i18n: PetDefI18nSpec;
+};
+
+export type PetDefVisualRefSpec = {
+    id: string;
+    uri: string;
+    purpose: string;
+    notes?: string;
+};
+
+export type PetDefVisualRefsSpec = {
+    images?: Array<PetDefVisualRefSpec>;
+    videos?: Array<PetDefVisualRefSpec>;
+};
+
+export type PetDefVisualSpec = {
+    refs: PetDefVisualRefsSpec;
+    pixa: PetDefPixaSpec;
+};
+
+export type PetDefVoiceSpec = {
+    voice_id: string;
+    prompt: string;
+};
+
+export type PetLife = {
+    [key: string]: number;
 };
 
 export type PetListResponse = {
     items: Array<Pet>;
     has_next: boolean;
     next_cursor?: string;
+};
+
+export type PetProgression = {
+    [key: string]: number;
 };
 
 export type PointsAccount = {
@@ -1206,8 +1315,6 @@ export type RewardGrant = {
     badge_exp_delta: {
         [key: string]: number;
     };
-    life_delta?: StatMap;
-    ability_delta?: StatMap;
     source_type: string;
     source_id: string;
     reason?: string;
@@ -1218,10 +1325,6 @@ export type RewardGrantListResponse = {
     items: Array<RewardGrant>;
     has_next: boolean;
     next_cursor?: string;
-};
-
-export type StatMap = {
-    [key: string]: number;
 };
 
 export type GeminiTenant = {

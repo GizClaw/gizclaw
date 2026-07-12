@@ -147,7 +147,7 @@ caller public key == owner_public_key
 
 This owner check applies to:
 
-- `server.pet.{list,get,put,delete,drive}`
+- `server.pet.{list,get,put,delete,drive,presentation.get,pixa.download}`
 - `server.points.get`
 - `server.points.transactions.{list,get}`
 - `server.badge.{list,get}`

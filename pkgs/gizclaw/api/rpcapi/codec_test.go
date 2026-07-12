@@ -489,12 +489,12 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 	}
 
 	var statPayload RPCPayload
-	if err := statPayload.encode("StatMap", StatMap{"hunger": 1, "clean": 2}); err != nil {
-		t.Fatalf("encode StatMap error = %v", err)
+	if err := statPayload.encode("PetLife", PetLife{"hunger": 1, "clean": 2}); err != nil {
+		t.Fatalf("encode PetLife error = %v", err)
 	}
-	var statProto rpcpb.StatMap
+	var statProto rpcpb.PetLife
 	if err := proto.Unmarshal(statPayload.payload, &statProto); err != nil {
-		t.Fatalf("unmarshal stat map payload error = %v", err)
+		t.Fatalf("unmarshal pet life payload error = %v", err)
 	}
 	if statProto.GetValue()["hunger"] != 1 || statProto.GetValue()["clean"] != 2 {
 		t.Fatalf("stat map = %+v", statProto.GetValue())

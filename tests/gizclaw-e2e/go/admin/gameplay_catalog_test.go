@@ -29,11 +29,8 @@ func TestAdminAPIGameplayCatalogUserStory(t *testing.T) {
 	})
 
 	petResp, err := env.api.CreatePetDefWithResponse(env.ctx, adminhttp.PetDefUpsert{
-		Id: petID,
-		Spec: apitypes.PetDefSpec{
-			DisplayName: "Admin E2E PetDef",
-			Description: ptr("created by admin gameplay catalog e2e"),
-		},
+		Id:   petID,
+		Spec: adminGameplayPetDefSpec("Admin E2E PetDef"),
 	})
 	if err != nil {
 		t.Fatalf("create pet def: %v", err)
@@ -42,7 +39,7 @@ func TestAdminAPIGameplayCatalogUserStory(t *testing.T) {
 	if petResp.JSON200 == nil || petResp.JSON200.Id != petID {
 		t.Fatalf("create pet def = %#v", petResp.JSON200)
 	}
-	petPixa := makeGameplayCatalogTestPixa(t, []string{"idle", "feed"})
+	petPixa := makeGameplayCatalogTestPixa(t, []string{"default", "feed"})
 	assetResp, err := env.api.UploadPetDefPixaWithBodyWithResponse(env.ctx, petID, "application/octet-stream", bytes.NewReader(petPixa))
 	if err != nil {
 		t.Fatalf("upload pet def pixa: %v", err)
@@ -175,6 +172,59 @@ func newIsolatedGameplayAdminAPIHarness(t *testing.T) *adminAPIHarness {
 		api:      api,
 		adminKey: h.ContextPublicKey("admin-gameplay"),
 		adminSN:  "admin",
+	}
+}
+
+func adminGameplayPetDefSpec(displayName string) apitypes.PetDefSpec {
+	description := "Admin E2E pet."
+	return apitypes.PetDefSpec{
+		DefaultLocale: "en",
+		Attr: apitypes.PetDefAttrSpec{
+			Life: apitypes.PetAttrGroupSpec{
+				"hunger": {Initial: 100},
+				"clean":  {Initial: 100},
+			},
+			Progression: apitypes.PetAttrGroupSpec{
+				"xp": {Initial: 0},
+			},
+		},
+		Character: apitypes.PetDefCharacterSpec{Prompt: "Admin E2E pixel pet."},
+		Voice:     apitypes.PetDefVoiceSpec{VoiceId: "gizclaw-admin-e2e", Prompt: "Short friendly replies."},
+		Drive: apitypes.PetDefDriveSpec{Actions: []apitypes.PetDefActionSpec{
+			{Id: "idle", Cost: 0, VisualClipId: ptr("idle")},
+			{Id: "feed", Cost: 1, VisualClipId: ptr("feed"), Effect: &apitypes.PetDefActionEffectSpec{PetExpDelta: ptr[int64](1)}},
+		}},
+		Visual: apitypes.PetDefVisualSpec{
+			Refs: apitypes.PetDefVisualRefsSpec{Images: &[]apitypes.PetDefVisualRefSpec{}, Videos: &[]apitypes.PetDefVisualRefSpec{}},
+			Pixa: apitypes.PetDefPixaSpec{
+				AssetRef: "asset://pets/admin-e2e/pet.pixa",
+				Metadata: apitypes.PetDefPixaMetadata{
+					Version: "1",
+					Canvas:  apitypes.PetDefPixaCanvasMetadata{Width: 16, Height: 16},
+					Clips: []apitypes.PetDefPixaClipMetadata{
+						{Id: "idle", ActionId: ptr("idle"), PixaClipName: "default"},
+						{Id: "feed", ActionId: ptr("feed"), PixaClipName: "feed"},
+					},
+				},
+			},
+		},
+		I18n: apitypes.PetDefI18nSpec{
+			"en": {
+				DisplayName: &displayName,
+				Description: &description,
+				Attr: &apitypes.PetDefI18nAttrSpec{
+					Life: &apitypes.PetDefI18nAttrGroup{
+						"hunger": {DisplayName: "Hunger"},
+						"clean":  {DisplayName: "Clean"},
+					},
+					Progression: &apitypes.PetDefI18nAttrGroup{"xp": {DisplayName: "XP"}},
+				},
+				Drive: &apitypes.PetDefI18nDriveSpec{Actions: &map[string]apitypes.PetDefI18nDisplayText{
+					"idle": {DisplayName: "Idle"},
+					"feed": {DisplayName: "Feed"},
+				}},
+			},
+		},
 	}
 }
 

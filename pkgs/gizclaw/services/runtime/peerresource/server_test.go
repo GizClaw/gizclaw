@@ -628,9 +628,9 @@ func TestServerGameplayPixaDownloads(t *testing.T) {
 		Assets:       objectstore.Dir(t.TempDir()),
 		Now:          func() time.Time { return now },
 	}
-	petPixa := peerresourceTestPixa(t, []string{"idle", "feed"})
+	petPixa := peerresourceTestPixa(t, []string{"default", "feed"})
 	badgePixa := peerresourceTestPixa(t, []string{"icon"})
-	if resp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{Id: "petdef-a", Spec: apitypes.PetDefSpec{DisplayName: "Pet A"}}}); err != nil {
+	if resp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{Id: "petdef-a", Spec: peerresourcePetDefSpec("Pet A")}}); err != nil {
 		t.Fatalf("CreatePetDef error = %v", err)
 	} else if _, ok := resp.(adminhttp.CreatePetDef200JSONResponse); !ok {
 		t.Fatalf("CreatePetDef response = %T", resp)
@@ -709,6 +709,33 @@ func TestServerGameplayPixaDownloads(t *testing.T) {
 	auth := newRuleAuthorizer()
 	auth.allow(acl.ResourceKindGameRuleset, "default", apitypes.ACLPermissionRead)
 	srv := &Server{Caller: caller, ACL: auth, Gameplay: runtime}
+	presentationResp := callRPC(t, srv, "pet-presentation-get", rpcapi.RPCMethodServerPetPresentationGet, rpcParams(t, (*rpcapi.RPCPayload).FromServerPetPresentationGetRequest, rpcapi.ServerPetPresentationGetRequest{Id: adopted.Pet.Id}))
+	gotPresentation := mustResult(t, presentationResp.Result.AsServerPetPresentationGetResponse)
+	if gotPresentation.PetId != adopted.Pet.Id || gotPresentation.PetdefId != "petdef-a" || gotPresentation.DefaultLocale != "en" {
+		t.Fatalf("pet presentation identity = %#v", gotPresentation)
+	}
+	if gotPresentation.Attr.Life["hunger"].Initial != 100 || gotPresentation.Attr.Progression["xp"].Initial != 0 {
+		t.Fatalf("pet presentation attr = %#v", gotPresentation.Attr)
+	}
+	if len(gotPresentation.Drive.Actions) != 2 || gotPresentation.Drive.Actions[1].Id != "feed" || gotPresentation.Drive.Actions[1].VisualClipId == nil || *gotPresentation.Drive.Actions[1].VisualClipId != "feed" {
+		t.Fatalf("pet presentation actions = %#v", gotPresentation.Drive.Actions)
+	}
+	if gotPresentation.PixaMetadata.Canvas.Width != 16 || gotPresentation.PixaMetadata.Clips[0].PixaClipName != "default" {
+		t.Fatalf("pet presentation pixa metadata = %#v", gotPresentation.PixaMetadata)
+	}
+	petPixaResp := callRPC(t, srv, "pet-pixa-download", rpcapi.RPCMethodServerPetPixaDownload, rpcParams(t, (*rpcapi.RPCPayload).FromServerPetPixaDownloadRequest, rpcapi.PetPixaDownloadRequest{PetId: adopted.Pet.Id}))
+	gotPetPixa := mustResult(t, petPixaResp.Result.AsServerPetPixaDownloadResponse)
+	if gotPetPixa.PetId != adopted.Pet.Id || gotPetPixa.PetdefId != "petdef-a" || gotPetPixa.SizeBytes != int64(len(petPixa)) || valueOrZero(gotPetPixa.PixaPath) != "pet-defs/petdef-a/pixa" {
+		t.Fatalf("pet pixa metadata = %#v", gotPetPixa)
+	}
+	gotPetPixaMetadata, petPixaReader, rpcErr, err := srv.PreparePetPixaDownload(ctx, rpcapi.PetPixaDownloadRequest{PetId: adopted.Pet.Id})
+	if err != nil || rpcErr != nil {
+		t.Fatalf("PreparePetPixaDownload err = %v rpcErr = %+v", err, rpcErr)
+	}
+	defer petPixaReader.Close()
+	if data, err := io.ReadAll(petPixaReader); err != nil || !bytes.Equal(data, petPixa) || gotPetPixaMetadata.SizeBytes != int64(len(petPixa)) {
+		t.Fatalf("pet pixa data len=%d metadata=%#v err=%v", len(data), gotPetPixaMetadata, err)
+	}
 	petResp := callRPC(t, srv, "petdef-pixa-download", rpcapi.RPCMethodServerPetDefPixaDownload, rpcParams(t, (*rpcapi.RPCPayload).FromPetDefPixaDownloadRequest, rpcapi.PetDefPixaDownloadRequest{Id: "petdef-a"}))
 	gotPet := mustResult(t, petResp.Result.AsPetDefPixaDownloadResponse)
 	if gotPet.Id != "petdef-a" || gotPet.SizeBytes != int64(len(petPixa)) || valueOrZero(gotPet.PixaPath) != "pet-defs/petdef-a/pixa" {
@@ -732,6 +759,10 @@ func TestServerGameplayPixaDownloads(t *testing.T) {
 	}
 
 	other := &Server{Caller: giznet.PublicKey{8}, ACL: newRuleAuthorizer(), Gameplay: runtime}
+	presentationDenied := callRPC(t, other, "pet-presentation-denied", rpcapi.RPCMethodServerPetPresentationGet, rpcParams(t, (*rpcapi.RPCPayload).FromServerPetPresentationGetRequest, rpcapi.ServerPetPresentationGetRequest{Id: adopted.Pet.Id}))
+	requireRPCError(t, presentationDenied, rpcapi.RPCErrorCodeNotFound)
+	petPixaDenied := callRPC(t, other, "pet-pixa-denied", rpcapi.RPCMethodServerPetPixaDownload, rpcParams(t, (*rpcapi.RPCPayload).FromServerPetPixaDownloadRequest, rpcapi.PetPixaDownloadRequest{PetId: adopted.Pet.Id}))
+	requireRPCError(t, petPixaDenied, rpcapi.RPCErrorCodeNotFound)
 	denied := callRPC(t, other, "petdef-pixa-denied", rpcapi.RPCMethodServerPetDefPixaDownload, rpcParams(t, (*rpcapi.RPCPayload).FromPetDefPixaDownloadRequest, rpcapi.PetDefPixaDownloadRequest{Id: "petdef-a"}))
 	requireRPCError(t, denied, rpcapi.RPCErrorCodeForbidden)
 }
@@ -955,6 +986,59 @@ func (s fixedPeerConfigService) LoadPeer(context.Context, giznet.PublicKey) (api
 
 func stringPtr(value string) *string {
 	return &value
+}
+
+func int64Ptr(value int64) *int64 {
+	return &value
+}
+
+func peerresourcePetDefSpec(displayName string) apitypes.PetDefSpec {
+	description := "Peer resource pet."
+	return apitypes.PetDefSpec{
+		DefaultLocale: "en",
+		Attr: apitypes.PetDefAttrSpec{
+			Life: apitypes.PetAttrGroupSpec{
+				"hunger": {Initial: 100},
+			},
+			Progression: apitypes.PetAttrGroupSpec{
+				"xp": {Initial: 0},
+			},
+		},
+		Character: apitypes.PetDefCharacterSpec{Prompt: "Small friendly pixel pet."},
+		Voice:     apitypes.PetDefVoiceSpec{VoiceId: "gizclaw-soft", Prompt: "Soft and curious."},
+		Drive: apitypes.PetDefDriveSpec{Actions: []apitypes.PetDefActionSpec{
+			{Id: "idle", Cost: 0, VisualClipId: stringPtr("idle")},
+			{Id: "feed", Cost: 0, VisualClipId: stringPtr("feed")},
+		}},
+		Visual: apitypes.PetDefVisualSpec{
+			Refs: apitypes.PetDefVisualRefsSpec{},
+			Pixa: apitypes.PetDefPixaSpec{
+				AssetRef: "asset://pets/test/pet.pixa",
+				Metadata: apitypes.PetDefPixaMetadata{
+					Version: "1",
+					Canvas:  apitypes.PetDefPixaCanvasMetadata{Width: 16, Height: 16},
+					Clips: []apitypes.PetDefPixaClipMetadata{
+						{Id: "idle", ActionId: stringPtr("idle"), PixaClipName: "default"},
+						{Id: "feed", ActionId: stringPtr("feed"), PixaClipName: "feed"},
+					},
+				},
+			},
+		},
+		I18n: apitypes.PetDefI18nSpec{
+			"en": {
+				DisplayName: &displayName,
+				Description: &description,
+				Attr: &apitypes.PetDefI18nAttrSpec{
+					Life:        &apitypes.PetDefI18nAttrGroup{"hunger": {DisplayName: "Hunger"}},
+					Progression: &apitypes.PetDefI18nAttrGroup{"xp": {DisplayName: "XP"}},
+				},
+				Drive: &apitypes.PetDefI18nDriveSpec{Actions: &map[string]apitypes.PetDefI18nDisplayText{
+					"idle": {DisplayName: "Idle"},
+					"feed": {DisplayName: "Feed"},
+				}},
+			},
+		},
+	}
 }
 
 func callRPC(t *testing.T, srv *Server, id string, method rpcapi.RPCMethod, params *rpcapi.RPCPayload) *rpcapi.RPCResponse {

@@ -127,4 +127,6 @@ enum RpcMethod {
   RPC_METHOD_SERVER_PEER_LOOKUP = 101 [(rpc_method) = { name: "server.peer.lookup" request: "ServerPeerLookupRequest" response: "ServerPeerLookupResponse" }];
   RPC_METHOD_SERVER_PEER_ASSIGN = 102 [(rpc_method) = { name: "server.peer.assign" request: "ServerPeerAssignRequest" response: "ServerPeerAssignResponse" }];
   RPC_METHOD_SERVER_ROUTE_RESOLVE = 103 [(rpc_method) = { name: "server.route.resolve" request: "ServerRouteResolveRequest" response: "ServerRouteResolveResponse" }];
+  RPC_METHOD_SERVER_PET_PRESENTATION_GET = 104 [(rpc_method) = { name: "server.pet.presentation.get" request: "ServerPetPresentationGetRequest" response: "ServerPetPresentationGetResponse" }];
+  RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD = 105 [(rpc_method) = { name: "server.pet.pixa.download" request: "ServerPetPixaDownloadRequest" response: "ServerPetPixaDownloadResponse" }];
 }

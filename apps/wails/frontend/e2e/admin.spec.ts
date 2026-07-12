@@ -191,7 +191,7 @@ test("admin view covers provider, AI, social, and settings sections", async ({ p
   await page.getByRole("combobox").click();
   await page.getByRole("option", { name: "PetDef" }).click();
   await expect(resourceJSON).toHaveValue(/"kind": "PetDef"/);
-  await expect(resourceJSON).toHaveValue(/"initial_life"/);
+  await expect(resourceJSON).toHaveValue(/"default_locale"/);
 
   await page.getByRole("button", { name: "Access Control" }).click();
   await expect(page.getByRole("heading", { name: "Access Control" })).toBeVisible();

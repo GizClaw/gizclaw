@@ -256,7 +256,7 @@ export function ResourcesPage(): JSX.Element {
     setNotice("");
     try {
       const buffer = await file.arrayBuffer();
-      const asset = validatePixa(buffer, mode);
+      const asset = validateResourcePixa(buffer, mode, await persistedPetDefPixaMetadata());
       setPixaPreview({ asset, blob: new Blob([buffer], { type: "application/octet-stream" }), mode, pendingUpload: true });
     } catch (err) {
       setError(toMessage(err));
@@ -296,7 +296,7 @@ export function ResourcesPage(): JSX.Element {
     setNotice("");
     try {
       const blob = await expectData(kind === "PetDef" ? downloadPetDefPixa({ path: { id: name.trim() } }) : downloadBadgeDefPixa({ path: { id: name.trim() } }));
-      const asset = validatePixa(await blob.arrayBuffer(), mode);
+      const asset = validateResourcePixa(await blob.arrayBuffer(), mode, await persistedPetDefPixaMetadata());
       setPixaPreview({ asset, mode, pendingUpload: false });
     } catch (err) {
       setError(toMessage(err));
@@ -307,6 +307,21 @@ export function ResourcesPage(): JSX.Element {
 
   const selectedSummary = useMemo(() => resourceSummary(kind), [kind]);
   const supportsPixa = kind === "PetDef" || kind === "BadgeDef";
+
+  const persistedPetDefPixaMetadata = async (): Promise<PetDefPixaMetadata | null> => {
+    if (kind !== "PetDef") {
+      return null;
+    }
+    let source: unknown = resource;
+    if (canAddressResource) {
+      source = await expectData(getResource({ path: { kind: "PetDef", name: name.trim() } }));
+      setResource(source as Resource);
+    }
+    if (source == null) {
+      throw new Error("Load or save the PetDef before uploading PIXA.");
+    }
+    return readPetDefPixaMetadata(source);
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -376,7 +391,7 @@ export function ResourcesPage(): JSX.Element {
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium">Pixa</p>
-                    <p className="text-xs text-muted-foreground">{kind === "PetDef" ? "Requires an idle clip." : "Requires a single-frame icon clip."}</p>
+                    <p className="text-xs text-muted-foreground">{kind === "PetDef" ? "Requires clips listed in visual.pixa.metadata." : "Requires a single-frame icon clip."}</p>
                   </div>
                   <Button disabled={!canAddressResource || acting !== ""} onClick={() => void previewSavedPixa()} size="icon" type="button" variant="outline">
                     <Download className="size-4" />
@@ -466,6 +481,64 @@ export function ResourcesPage(): JSX.Element {
   );
 }
 
+type PetDefPixaMetadata = {
+  canvas: {
+    height: number;
+    width: number;
+  };
+  clips: Array<{
+    pixa_clip_name: string;
+  }>;
+};
+
+function validateResourcePixa(input: ArrayBuffer | ArrayBufferView, mode: "petdef" | "badgedef", metadata: PetDefPixaMetadata | null): PixaAsset {
+  if (mode === "badgedef") {
+    return validatePixa(input, "badgedef");
+  }
+  const asset = validatePixa(input);
+  if (asset.clipCount === 0 || asset.frameCount === 0) {
+    throw new Error("PetDef PIXA must contain at least one clip and one frame.");
+  }
+  if (metadata == null) {
+    throw new Error("PetDef visual.pixa.metadata is required to validate PIXA uploads.");
+  }
+  if (asset.canvas.width !== metadata.canvas.width || asset.canvas.height !== metadata.canvas.height) {
+    throw new Error(`PetDef PIXA canvas is ${asset.canvas.width}x${asset.canvas.height}, expected ${metadata.canvas.width}x${metadata.canvas.height}.`);
+  }
+  for (const clip of metadata.clips) {
+    if (!asset.clips.some((candidate) => candidate.name === clip.pixa_clip_name)) {
+      throw new Error(`PetDef PIXA is missing clip "${clip.pixa_clip_name}".`);
+    }
+  }
+  return asset;
+}
+
+function readPetDefPixaMetadata(value: unknown): PetDefPixaMetadata | null {
+  if (!isRecord(value) || value.kind !== "PetDef" || !isRecord(value.spec)) {
+    return null;
+  }
+  const visual = value.spec.visual;
+  if (!isRecord(visual) || !isRecord(visual.pixa) || !isRecord(visual.pixa.metadata)) {
+    return null;
+  }
+  const metadata = visual.pixa.metadata;
+  if (!isRecord(metadata.canvas) || !Array.isArray(metadata.clips)) {
+    return null;
+  }
+  const width = metadata.canvas.width;
+  const height = metadata.canvas.height;
+  if (typeof width !== "number" || typeof height !== "number") {
+    return null;
+  }
+  const clips = metadata.clips.flatMap((clip) => {
+    if (!isRecord(clip) || typeof clip.pixa_clip_name !== "string") {
+      return [];
+    }
+    return [{ pixa_clip_name: clip.pixa_clip_name }];
+  });
+  return { canvas: { height, width }, clips };
+}
+
 function parseResourceKind(value: string | null): ResourceKind | null {
   if (value === null) {
     return null;
@@ -514,17 +587,58 @@ function resourceSpecTemplate(kind: ResourceKind): unknown {
         badge_def_ids: ["badge-basic"],
         game_def_ids: ["game-basic"],
         drive: {
-          action_costs: { bath: 5 },
-          action_rewards: { bath: { pet_exp_delta: 10, life_delta: { clean: 20 } } },
           game_rewards: { "game-basic": { points_delta: 10, pet_exp_delta: 20, badge_exp_delta: { "badge-basic": 100 } } },
-          life_decay_per_hour: { hunger: 1 },
         },
       };
     case "PetDef":
       return {
-        display_name: "Starter Pet",
-        initial_life: { hunger: 100, clean: 100 },
-        initial_ability: { play: 1 },
+        default_locale: "en",
+        attr: {
+          life: { hunger: { initial: 100 }, clean: { initial: 100 } },
+          progression: { xp: { initial: 0 } },
+        },
+        character: { prompt: "Small friendly pixel pet." },
+        voice: { voice_id: "gizclaw-soft", prompt: "Soft and curious." },
+        drive: {
+          actions: [
+            {
+              id: "idle",
+              cost: 0,
+              visual_clip_id: "idle",
+            },
+            {
+              id: "bath",
+              cost: 5,
+              visual_clip_id: "bath",
+              effect: { attr_delta: { life: { clean: 10 } }, pet_exp_delta: 10 },
+            },
+          ],
+        },
+        visual: {
+          refs: { images: [], videos: [] },
+          pixa: {
+            asset_ref: "asset://pets/starter/pet.pixa",
+            metadata: {
+              version: "1",
+              canvas: { width: 60, height: 60 },
+              clips: [
+                { id: "idle", action_id: "idle", pixa_clip_name: "idle" },
+                { id: "bath", action_id: "bath", pixa_clip_name: "bath" },
+              ],
+            },
+          },
+        },
+        i18n: {
+          en: {
+            display_name: "Starter Pet",
+            description: "Starter pet for gameplay resource editing.",
+            attr: {
+              life: { hunger: { display_name: "Hunger" }, clean: { display_name: "Clean" } },
+              progression: { xp: { display_name: "XP" } },
+            },
+            drive: { actions: { idle: { display_name: "Idle" }, bath: { display_name: "Bath" } } },
+          },
+        },
       };
     case "BadgeDef":
       return { display_name: "Starter Badge" };

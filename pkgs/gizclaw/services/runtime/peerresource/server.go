@@ -125,6 +125,8 @@ func IsMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerBadgeDefPixaDownload,
 		rpcapi.RPCMethodServerPetList,
 		rpcapi.RPCMethodServerPetGet,
+		rpcapi.RPCMethodServerPetPresentationGet,
+		rpcapi.RPCMethodServerPetPixaDownload,
 		rpcapi.RPCMethodServerPetAdopt,
 		rpcapi.RPCMethodServerPetPut,
 		rpcapi.RPCMethodServerPetDelete,
@@ -274,6 +276,10 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 		return s.handlePetList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerPetGet:
 		return s.handlePetGet(ctx, req), true, nil
+	case rpcapi.RPCMethodServerPetPresentationGet:
+		return s.handlePetPresentationGet(ctx, req), true, nil
+	case rpcapi.RPCMethodServerPetPixaDownload:
+		return s.handlePetPixaDownload(ctx, req), true, nil
 	case rpcapi.RPCMethodServerPetAdopt:
 		return s.handlePetAdopt(ctx, req), true, nil
 	case rpcapi.RPCMethodServerPetPut:
@@ -1235,6 +1241,22 @@ func convertValue(dst reflect.Value, src reflect.Value) error {
 		dst.Set(reflect.ValueOf(body))
 		return nil
 	}
+	if dst.Type() == reflect.TypeOf(rpcapi.Pet{}) && src.Type() == reflect.TypeOf(apitypes.Pet{}) {
+		dst.Set(reflect.ValueOf(apiPetToRPC(src.Interface().(apitypes.Pet))))
+		return nil
+	}
+	if dst.Type() == reflect.TypeOf(apitypes.Pet{}) && src.Type() == reflect.TypeOf(rpcapi.Pet{}) {
+		dst.Set(reflect.ValueOf(rpcPetToAPI(src.Interface().(rpcapi.Pet))))
+		return nil
+	}
+	if dst.Type() == reflect.TypeOf(rpcapi.PetDriveResponse{}) && src.Type() == reflect.TypeOf(apitypes.PetDriveResponse{}) {
+		body, err := apiPetDriveResponseToRPC(src.Interface().(apitypes.PetDriveResponse))
+		if err != nil {
+			return err
+		}
+		dst.Set(reflect.ValueOf(body))
+		return nil
+	}
 	if src.Type().AssignableTo(dst.Type()) {
 		dst.Set(src)
 		return nil
@@ -1313,6 +1335,64 @@ func convertValue(dst reflect.Value, src reflect.Value) error {
 		return nil
 	default:
 		return fmt.Errorf("cannot convert %s to %s", src.Type(), dst.Type())
+	}
+}
+
+func apiPetDriveResponseToRPC(in apitypes.PetDriveResponse) (rpcapi.PetDriveResponse, error) {
+	var out rpcapi.PetDriveResponse
+	out.Pet = apiPetToRPC(in.Pet)
+	if err := convertValue(reflect.ValueOf(&out.Points).Elem(), reflect.ValueOf(in.Points)); err != nil {
+		return rpcapi.PetDriveResponse{}, fmt.Errorf("Points: %w", err)
+	}
+	if in.GameResult != nil {
+		out.GameResult = &rpcapi.GameResult{}
+		if err := convertValue(reflect.ValueOf(out.GameResult).Elem(), reflect.ValueOf(*in.GameResult)); err != nil {
+			return rpcapi.PetDriveResponse{}, fmt.Errorf("GameResult: %w", err)
+		}
+	}
+	if err := convertValue(reflect.ValueOf(&out.Badges).Elem(), reflect.ValueOf(in.Badges)); err != nil {
+		return rpcapi.PetDriveResponse{}, fmt.Errorf("Badges: %w", err)
+	}
+	if err := convertValue(reflect.ValueOf(&out.RewardGrants).Elem(), reflect.ValueOf(in.RewardGrants)); err != nil {
+		return rpcapi.PetDriveResponse{}, fmt.Errorf("RewardGrants: %w", err)
+	}
+	if err := convertValue(reflect.ValueOf(&out.Transactions).Elem(), reflect.ValueOf(in.Transactions)); err != nil {
+		return rpcapi.PetDriveResponse{}, fmt.Errorf("Transactions: %w", err)
+	}
+	return out, nil
+}
+
+func apiPetToRPC(in apitypes.Pet) rpcapi.Pet {
+	return rpcapi.Pet{
+		CreatedAt:      in.CreatedAt,
+		DisplayName:    in.DisplayName,
+		Id:             in.Id,
+		LastActiveAt:   in.LastActiveAt,
+		Life:           rpcapi.PetLife(in.Life),
+		OwnerPublicKey: in.OwnerPublicKey,
+		PetdefId:       in.PetdefId,
+		Progression:    rpcapi.PetProgression(in.Progression),
+		RulesetName:    in.RulesetName,
+		UpdatedAt:      in.UpdatedAt,
+		WorkflowName:   in.WorkflowName,
+		WorkspaceName:  in.WorkspaceName,
+	}
+}
+
+func rpcPetToAPI(in rpcapi.Pet) apitypes.Pet {
+	return apitypes.Pet{
+		CreatedAt:      in.CreatedAt,
+		DisplayName:    in.DisplayName,
+		Id:             in.Id,
+		LastActiveAt:   in.LastActiveAt,
+		Life:           apitypes.PetLife(in.Life),
+		OwnerPublicKey: in.OwnerPublicKey,
+		PetdefId:       in.PetdefId,
+		Progression:    apitypes.PetProgression(in.Progression),
+		RulesetName:    in.RulesetName,
+		UpdatedAt:      in.UpdatedAt,
+		WorkflowName:   in.WorkflowName,
+		WorkspaceName:  in.WorkspaceName,
 	}
 }
 
