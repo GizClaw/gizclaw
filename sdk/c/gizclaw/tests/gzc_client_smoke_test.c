@@ -731,7 +731,6 @@ int main(void) {
   webrtc.channel_send = test_channel_send;
   webrtc.channel_close = fake_channel_close;
   webrtc.peer_close = fake_peer_close;
-  webrtc.peer_add_ice_server = test_peer_add_ice_server;
 
   gzc_http_vtable_t http;
   memset(&http, 0, sizeof(http));
@@ -753,6 +752,11 @@ int main(void) {
   gzc_client_t *client = NULL;
   rc = gzc_client_create(&config, &client);
   if (expect(rc == GZC_OK, "client create") != 0) {
+    return 1;
+  }
+  rc = gzc_client_set_peer_add_ice_server(client, test_peer_add_ice_server);
+  if (expect(rc == GZC_OK, "client ICE hook") != 0) {
+    gzc_client_destroy(client);
     return 1;
   }
   rc = gzc_client_connect(client);
@@ -1567,7 +1571,6 @@ int main(void) {
 
   gzc_webrtc_vtable_t webrtc_no_ice_hook = webrtc;
   webrtc_no_ice_hook.userdata = &fake_webrtc_no_ice_hook;
-  webrtc_no_ice_hook.peer_add_ice_server = NULL;
 
   gzc_http_vtable_t http_no_ice_hook = http;
   http_no_ice_hook.userdata = &fake_http_no_ice_hook;

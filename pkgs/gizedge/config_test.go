@@ -2,6 +2,7 @@ package gizedge
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -478,7 +479,7 @@ func TestEdgeCORSHandlerHandlesBrowserPreflight(t *testing.T) {
 }
 
 func TestEdgeCORSHandlerAddsHeadersToForwardedRequests(t *testing.T) {
-	handler := newPeerHTTPProxy(roundTripFunc(func(req *http.Request) (*http.Response, error) {
+	handler := newPeerHTTPProxy("edge.example.com:9821", roundTripFunc(func(req *http.Request) (*http.Response, error) {
 		header := http.Header{}
 		header.Add("Access-Control-Allow-Origin", "https://upstream.example")
 		header.Add("Access-Control-Allow-Origin", "https://duplicate.example")
@@ -491,7 +492,7 @@ func TestEdgeCORSHandlerAddsHeadersToForwardedRequests(t *testing.T) {
 		}, nil
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/server-info", nil)
+	req := httptest.NewRequest(http.MethodGet, "/login", nil)
 	req.Header.Set("Origin", "wails://wails.localhost")
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
@@ -504,6 +505,41 @@ func TestEdgeCORSHandlerAddsHeadersToForwardedRequests(t *testing.T) {
 	}
 	if got := rec.Header().Get("Access-Control-Allow-Methods"); !strings.Contains(got, http.MethodPut) {
 		t.Fatalf("Access-Control-Allow-Methods = %q, want edge methods", got)
+	}
+}
+
+func TestEdgeProxyRewritesServerInfoEndpoint(t *testing.T) {
+	handler := newPeerHTTPProxy("edge.example.com:9821", roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if req.URL.Path != "/server-info" {
+			t.Fatalf("request path = %q, want /server-info", req.URL.Path)
+		}
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"endpoint":"server.internal:9820","public_key":"server-key","ice_servers":[{"urls":["turn:edge.example.com:3478"]}]}`)),
+			Request:    req,
+		}, nil
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/server-info", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if got := body["endpoint"]; got != "edge.example.com:9821" {
+		t.Fatalf("endpoint = %q, want edge.example.com:9821", got)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "*" {
+		t.Fatalf("Access-Control-Allow-Origin = %q, want *", got)
+	}
+	if got := rec.Header().Get("Content-Length"); got == "" {
+		t.Fatal("Content-Length was not set after rewrite")
 	}
 }
 

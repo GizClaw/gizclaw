@@ -1,10 +1,12 @@
 package gizedge
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -58,7 +60,7 @@ func ServeContext(ctx context.Context, root string) error {
 	}
 	defer listener.Close()
 
-	proxy := newPeerHTTPProxy(upstreamTransport)
+	proxy := newPeerHTTPProxy(cfg.Endpoint, upstreamTransport)
 	server := &http.Server{Handler: proxy}
 	errCh := make(chan error, 1)
 	go func() {
@@ -326,7 +328,7 @@ func canRetryUpstreamRequest(method string) bool {
 	}
 }
 
-func newPeerHTTPProxy(transport http.RoundTripper) http.Handler {
+func newPeerHTTPProxy(edgeEndpoint string, transport http.RoundTripper) http.Handler {
 	proxy := &httputil.ReverseProxy{
 		Director: func(req *http.Request) {
 			req.URL.Scheme = "http"
@@ -336,10 +338,41 @@ func newPeerHTTPProxy(transport http.RoundTripper) http.Handler {
 		Transport: transport,
 		ModifyResponse: func(resp *http.Response) error {
 			setEdgeCORSHeaders(resp.Header)
+			if resp.Request != nil && resp.Request.URL != nil && resp.Request.URL.Path == "/server-info" && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				return rewriteServerInfoEndpoint(resp, edgeEndpoint)
+			}
 			return nil
 		},
 	}
 	return edgeCORSHandler(proxy)
+}
+
+func rewriteServerInfoEndpoint(resp *http.Response, edgeEndpoint string) error {
+	if resp == nil || resp.Body == nil || edgeEndpoint == "" {
+		return nil
+	}
+	bodyBytes, err := io.ReadAll(resp.Body)
+	closeErr := resp.Body.Close()
+	if err != nil {
+		return err
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	var body map[string]any
+	if err := json.Unmarshal(bodyBytes, &body); err != nil {
+		return err
+	}
+	body["endpoint"] = edgeEndpoint
+	rewritten, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	resp.Body = io.NopCloser(bytes.NewReader(rewritten))
+	resp.ContentLength = int64(len(rewritten))
+	resp.Header.Set("Content-Length", fmt.Sprintf("%d", len(rewritten)))
+	resp.Header.Set("Content-Type", "application/json")
+	return nil
 }
 
 func edgeCORSHandler(next http.Handler) http.Handler {

@@ -28,6 +28,7 @@ struct gzc_service_channel {
 
 struct gzc_client {
   gzc_client_config_t config;
+  gzc_peer_add_ice_server_fn peer_add_ice_server;
   gzc_rtc_peer_t *peer;
   gzc_rtc_channel_t *packet_channel;
   gzc_rtc_channel_t *rpc_channel;
@@ -307,8 +308,8 @@ static int apply_ice_servers(gzc_client_t *client, gzc_str_t body) {
         result = rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
         break;
       }
-      if (client->config.webrtc->peer_add_ice_server != NULL) {
-        rc = client->config.webrtc->peer_add_ice_server(client->peer, url, username, credential);
+      if (client->peer_add_ice_server != NULL) {
+        rc = client->peer_add_ice_server(client->peer, url, username, credential);
         if (rc != GZC_OK) {
           result = rc;
           break;
@@ -680,6 +681,14 @@ int gzc_client_create(const gzc_client_config_t *config, gzc_client_t **out_clie
   gzc_buf_init(&client->rpc_rx);
   gzc_buf_init(&client->rpc_response);
   *out_client = client;
+  return GZC_OK;
+}
+
+int gzc_client_set_peer_add_ice_server(gzc_client_t *client, gzc_peer_add_ice_server_fn fn) {
+  if (client == NULL || client->peer != NULL || client->packet_channel != NULL || client->rpc_channel != NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  client->peer_add_ice_server = fn;
   return GZC_OK;
 }
 
