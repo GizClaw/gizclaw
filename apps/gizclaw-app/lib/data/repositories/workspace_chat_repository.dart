@@ -60,7 +60,7 @@ class WorkspaceChatRepository {
     );
   }
 
-  Future<void> refresh({
+  Future<List<CachedWorkspaceMessage>> refresh({
     required GizClawClient client,
     required String serverId,
     required String workspaceName,
@@ -127,6 +127,17 @@ class WorkspaceChatRepository {
             ),
           );
     });
+    return items
+        .map(
+          (entry) => CachedWorkspaceMessage(
+            id: entry.id,
+            incoming: entry.type.value != 1,
+            text: entry.text,
+            createdAt: DateTime.tryParse(entry.createdAt)?.toUtc(),
+            replayAvailable: entry.replayAvailable,
+          ),
+        )
+        .toList(growable: false);
   }
 }
 

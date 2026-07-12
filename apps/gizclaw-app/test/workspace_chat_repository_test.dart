@@ -27,11 +27,12 @@ void main() {
       ],
     ]);
 
-    await repository.refresh(
+    final refreshed = await repository.refresh(
       client: client,
       serverId: 'server-a',
       workspaceName: 'workspace-a',
     );
+    expect(refreshed.first.replayAvailable, isTrue);
 
     final messages = await repository
         .watchHistory('server-a', 'workspace-a')

@@ -98,6 +98,15 @@ class WorkspaceChatController extends ChangeNotifier {
                   ),
                 )
                 .toList(growable: false);
+            _transient.removeWhere(
+              (message) =>
+                  message.state == WorkspaceMessageState.complete &&
+                  _cached.any(
+                    (cached) =>
+                        cached.incoming == message.incoming &&
+                        cached.text == message.text,
+                  ),
+            );
             notifyListeners();
           });
     }
@@ -280,6 +289,22 @@ class WorkspaceChatController extends ChangeNotifier {
     final id = 'stream-${event.streamId ?? 'assistant'}-$label';
     var index = _transient.indexWhere((message) => message.id == id);
     final done = event.type == 'text.done';
+    if (done) {
+      final completedText = text.isNotEmpty
+          ? text
+          : index < 0
+          ? ''
+          : _transient[index].text;
+      final alreadyCached = _cached.any(
+        (cached) =>
+            cached.incoming == !transcript && cached.text == completedText,
+      );
+      if (alreadyCached) {
+        if (index >= 0) _transient.removeAt(index);
+        notifyListeners();
+        return;
+      }
+    }
     if (index < 0) {
       _transient.add(
         WorkspaceChatMessage(
@@ -315,11 +340,23 @@ class WorkspaceChatController extends ChangeNotifier {
     final stableServerId = serverId;
     if (activeClient == null || stableServerId == null) return;
     try {
-      await repository.refresh(
+      final history = await repository.refresh(
         client: activeClient,
         serverId: stableServerId,
         workspaceName: workspaceName,
       );
+      _cached = history
+          .map(
+            (entry) => WorkspaceChatMessage(
+              id: entry.id,
+              incoming: entry.incoming,
+              text: entry.text,
+              state: WorkspaceMessageState.complete,
+              replayAvailable: entry.replayAvailable,
+              createdAt: entry.createdAt,
+            ),
+          )
+          .toList(growable: false);
       lastError = null;
       _transient.clear();
       notifyListeners();
