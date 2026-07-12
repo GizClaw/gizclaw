@@ -364,6 +364,27 @@ class _PetDetailPageState extends State<PetDetailPage> {
     }
   }
 
+  Future<void> _activateMenuAction(_PetMenuAction action) async {
+    final driveAction = action.driveAction;
+    if (driveAction != null) {
+      await _drive(driveAction);
+      return;
+    }
+    if (_drivingAction != null) return;
+    final duration = _clipDuration(_pixa, action.clipName);
+    setState(() {
+      _drivingAction = action.id;
+      _error = null;
+      _clipName = action.clipName;
+    });
+    await Future<void>.delayed(duration);
+    if (!mounted || _drivingAction != action.id) return;
+    setState(() {
+      _drivingAction = null;
+      _clipName = _defaultClip(_presentation, _pet);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final data = MobileDataScope.watch(context);
@@ -397,10 +418,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
         : pet.progression.value.entries
               .map((entry) => '${_title(entry.key)} ${entry.value}')
               .join('  |  ');
-    final actions =
-        (_presentation?.drive.actions ?? const <PetPresentationActionSpec>[])
-            .where((action) => action.id.toLowerCase() != 'idle')
-            .toList();
+    final actions = _petMenuActions(_presentation);
     final chat = _chat;
     final messages = chat?.messages ?? const <WorkspaceChatMessage>[];
     return CupertinoPageScaffold(
@@ -476,7 +494,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
                         actions: actions,
                         catalog: catalog,
                         activeAction: _drivingAction,
-                        onAction: _drive,
+                        onAction: _activateMenuAction,
                         onExpand: () {
                           if (_statusVisible) {
                             setState(() => _statusVisible = false);
@@ -1593,6 +1611,20 @@ class _NameplateMetric extends StatelessWidget {
   }
 }
 
+class _PetMenuAction {
+  const _PetMenuAction({
+    required this.id,
+    required this.clipName,
+    this.driveAction,
+    this.icon,
+  });
+
+  final String id;
+  final String? clipName;
+  final PetPresentationActionSpec? driveAction;
+  final String? icon;
+}
+
 class _PetActionFab extends StatefulWidget {
   const _PetActionFab({
     super.key,
@@ -1603,10 +1635,10 @@ class _PetActionFab extends StatefulWidget {
     required this.onExpand,
   });
 
-  final List<PetPresentationActionSpec> actions;
+  final List<_PetMenuAction> actions;
   final PetPresentationI18nCatalog? catalog;
   final String? activeAction;
-  final ValueChanged<PetPresentationActionSpec> onAction;
+  final ValueChanged<_PetMenuAction> onAction;
   final VoidCallback onExpand;
 
   @override
@@ -1651,7 +1683,7 @@ class _PetActionFabState extends State<_PetActionFab>
     _controller.reverse();
   }
 
-  void _select(PetPresentationActionSpec action) {
+  void _select(_PetMenuAction action) {
     if (widget.activeAction != null) return;
     setState(() => _expanded = false);
     _controller.reverse();
@@ -1734,7 +1766,7 @@ class _PetActionFabState extends State<_PetActionFab>
     );
   }
 
-  Widget _buildAction(PetPresentationActionSpec action, int index) {
+  Widget _buildAction(_PetMenuAction action, int index) {
     final count = widget.actions.length;
     final start = count <= 1 ? 0.0 : index * 0.08;
     final animation = CurvedAnimation(
@@ -1744,11 +1776,11 @@ class _PetActionFabState extends State<_PetActionFab>
     );
     final verticalOffset = 70.0 + index * 52.0;
     final arcProgress = (index + 1) / math.max(count, 1);
-    const arcStrength = 2.0;
+    const arcStrength = 1.6;
     final horizontalOffset =
         ((math.exp(arcStrength * arcProgress) - 1) /
             (math.exp(arcStrength) - 1)) *
-        72;
+        42;
     return Positioned(
       left: horizontalOffset * animation.value,
       bottom: verticalOffset * animation.value,
@@ -1778,13 +1810,7 @@ class _PetActionFabState extends State<_PetActionFab>
                         ),
                       ],
                     ),
-                    child: Icon(
-                      _actionIcon(
-                        action.hasIcon() ? action.icon : null,
-                        action.id,
-                      ),
-                      size: 20,
-                    ),
+                    child: Icon(_actionIcon(action.icon, action.id), size: 20),
                   ),
                   const SizedBox(width: 9),
                   DecoratedBox(
@@ -2089,6 +2115,35 @@ String _petProgressionLabel(Pet pet) {
 String _actionName(PetPresentationI18nCatalog? catalog, String id) =>
     catalog?.drive.actions[id]?.displayName ?? _title(id);
 
+List<_PetMenuAction> _petMenuActions(PetPresentation? presentation) {
+  if (presentation == null) return const [];
+  final actions = <_PetMenuAction>[];
+  final claimedClips = <String>{};
+  for (final action in presentation.drive.actions) {
+    if (action.id.toLowerCase() == 'idle') continue;
+    final clipName = _clipForAction(presentation, action.id);
+    if (clipName != null) claimedClips.add(clipName);
+    actions.add(
+      _PetMenuAction(
+        id: action.id,
+        clipName: clipName,
+        driveAction: action,
+        icon: action.hasIcon() ? action.icon : null,
+      ),
+    );
+  }
+  for (final clip in presentation.pixaMetadata.clips) {
+    final id = clip.id.isEmpty ? clip.pixaClipName : clip.id;
+    if (id.toLowerCase() == 'idle' ||
+        clip.pixaClipName.toLowerCase() == 'idle' ||
+        claimedClips.contains(clip.pixaClipName)) {
+      continue;
+    }
+    actions.add(_PetMenuAction(id: id, clipName: clip.pixaClipName));
+  }
+  return actions;
+}
+
 String? _defaultClip(PetPresentation? presentation, [Pet? pet]) {
   if (presentation == null) return null;
   final stateClip = _petStateClip(presentation, pet);
@@ -2164,6 +2219,13 @@ IconData _actionIcon(String? token, String id) {
     return CupertinoIcons.cart_fill;
   }
   if (value.contains('heal')) return CupertinoIcons.plus_circle_fill;
+  if (value.contains('hungry')) return CupertinoIcons.cart_fill;
+  if (value.contains('sick')) return CupertinoIcons.bandage_fill;
+  if (value.contains('dirty')) return CupertinoIcons.drop_fill;
+  if (value.contains('confuse')) return CupertinoIcons.question_circle_fill;
+  if (value.contains('dying')) return CupertinoIcons.heart_slash_fill;
+  if (value.contains('dead')) return CupertinoIcons.xmark_circle_fill;
+  if (value.contains('reborn')) return CupertinoIcons.sparkles;
   if (value.contains('sleep')) return CupertinoIcons.moon_fill;
   if (value.contains('play')) return CupertinoIcons.game_controller_solid;
   return CupertinoIcons.sparkles;
