@@ -508,12 +508,32 @@ func TestGetServerInfoReportsICETCP(t *testing.T) {
 	}
 }
 
-func TestServerInfoICEServersMintShortLivedCredentials(t *testing.T) {
+func TestServerInfoICEServersPreserveStaticCredentials(t *testing.T) {
 	now := time.Unix(1_700_000_000, 0)
 	servers := serverInfoICEServersAt([]gizwebrtc.ICEServer{{
 		URLs:       []string{"turn:edge.example.com:3478?transport=udp"},
 		Username:   "edge",
-		Credential: "long-term-secret",
+		Credential: "static-password",
+	}}, now)
+	if servers == nil || len(*servers) != 1 {
+		t.Fatalf("serverInfoICEServersAt = %#v, want one server", servers)
+	}
+	got := (*servers)[0]
+	if got.Username == nil || *got.Username != "edge" {
+		t.Fatalf("username = %v, want static username", got.Username)
+	}
+	if got.Credential == nil || *got.Credential != "static-password" {
+		t.Fatalf("credential = %v, want static credential", got.Credential)
+	}
+}
+
+func TestServerInfoICEServersMintShortLivedCredentials(t *testing.T) {
+	now := time.Unix(1_700_000_000, 0)
+	servers := serverInfoICEServersAt([]gizwebrtc.ICEServer{{
+		URLs:           []string{"turn:edge.example.com:3478?transport=udp"},
+		Username:       "edge",
+		Credential:     "long-term-secret",
+		CredentialMode: gizwebrtc.ICECredentialModeTURNREST,
 	}}, now)
 	if servers == nil || len(*servers) != 1 {
 		t.Fatalf("serverInfoICEServersAt = %#v, want one server", servers)

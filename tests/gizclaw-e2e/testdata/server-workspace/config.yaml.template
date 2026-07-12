@@ -8,6 +8,7 @@ ice-servers:
       - turn:${GIZCLAW_E2E_TURN_ENDPOINT}?transport=udp
     username: ${GIZCLAW_E2E_TURN_USERNAME}
     credential: ${GIZCLAW_E2E_TURN_CREDENTIAL}
+    credential-mode: turn-rest
 edge-nodes:
   - FNSseo3ePDEyJR27qEbDCSKBX4baMg826xXcanV4Huqs
 admin-public-key: "6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee"

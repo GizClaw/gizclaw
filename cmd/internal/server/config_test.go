@@ -15,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -360,6 +361,7 @@ ice-servers:
       - stun:edge.example.com:3478
     username: user
     credential: pass
+    credential-mode: turn-rest
 `), 0o600); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
 	}
@@ -379,6 +381,9 @@ ice-servers:
 	}
 	if cfg.ICEServers[0].Credential != "pass" {
 		t.Fatalf("ICEServers[0].Credential = %q", cfg.ICEServers[0].Credential)
+	}
+	if cfg.ICEServers[0].CredentialMode != gizwebrtc.ICECredentialModeTURNREST {
+		t.Fatalf("ICEServers[0].CredentialMode = %q", cfg.ICEServers[0].CredentialMode)
 	}
 }
 

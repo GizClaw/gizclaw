@@ -20,6 +20,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/pion/webrtc/v4"
 )
 
 var BuildCommit = "dev"
@@ -383,7 +384,7 @@ func bootstrapEdgeNodes(ctx context.Context, peers *runtimepeer.Server, publicKe
 
 func webRTCListenConfig(cfg Config, opts gizclaw.PeerListenerOptions, iceTCPListener net.Listener) gizwebrtc.ListenConfig {
 	publicAddr := publicICEAddr(cfg)
-	return gizwebrtc.ListenConfig{
+	listenConfig := gizwebrtc.ListenConfig{
 		ICEUDPAddr:       cfg.ICEListenAddr(),
 		ICETCPListener:   iceTCPListener,
 		PublicICEUDPAddr: publicAddr,
@@ -392,6 +393,10 @@ func webRTCListenConfig(cfg Config, opts gizclaw.PeerListenerOptions, iceTCPList
 		SecurityPolicy:   opts.SecurityPolicy,
 		PeerEventHandler: opts.PeerEventHandler,
 	}
+	if len(cfg.ICEServers) > 0 {
+		listenConfig.ICETransportPolicy = webrtc.ICETransportPolicyRelay
+	}
+	return listenConfig
 }
 
 func publicICEAddr(cfg Config) string {

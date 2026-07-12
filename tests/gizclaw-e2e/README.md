@@ -59,7 +59,6 @@ that use the edge endpoint.
 For LAN firmware clients, publish an address that the client can reach:
 
 ```sh
-GIZCLAW_E2E_SERVER_HOST=192.168.1.20 \
 GIZCLAW_E2E_EDGE_HOST=192.168.1.20 \
   bash tests/gizclaw-e2e/setup/docker-compose-up.sh
 ```
@@ -67,18 +66,16 @@ GIZCLAW_E2E_EDGE_HOST=192.168.1.20 \
 To choose the mapped ports explicitly:
 
 ```sh
-GIZCLAW_E2E_DOCKER_SERVER_PORT=19820 \
 GIZCLAW_E2E_DOCKER_EDGE_PORT=19821 \
-GIZCLAW_E2E_SERVER_ENDPOINT=192.168.1.20:19820 \
 GIZCLAW_E2E_EDGE_ENDPOINT=192.168.1.20:19821 \
   bash tests/gizclaw-e2e/setup/docker-compose-up.sh
 ```
 
-The server host port maps to container `9820/tcp` and `9820/udp`. The edge host
-port maps to container `9821/tcp`, and TURN uses its own UDP listener plus relay
-range. Generated client contexts use `GIZCLAW_E2E_EDGE_ENDPOINT`; the direct
-`GIZCLAW_E2E_SERVER_ENDPOINT` remains published for server readiness checks,
-admin contexts, admin/debug workflows, and transition coverage.
+The server is reachable only inside the Docker network as `server:9820`. The
+edge host port maps to container `9821/tcp`, and TURN uses its own UDP listener
+plus relay range. Generated client contexts use `GIZCLAW_E2E_EDGE_ENDPOINT`;
+server readiness is checked through the container healthcheck and ready marker
+rather than a host-published server port.
 
 ## Runtime Env
 
@@ -107,8 +104,8 @@ Important values in `current.env`:
 
 - `GIZCLAW_E2E_EDGE_ENDPOINT`: client-facing edge endpoint used by generated
   peer/client contexts.
-- `GIZCLAW_E2E_SERVER_ENDPOINT`: direct server endpoint published for
-  admin contexts and readiness/debug coverage.
+- `GIZCLAW_E2E_SERVER_ENDPOINT`: server endpoint used inside the Docker
+  network, normally `server:9820`.
 - `GIZCLAW_E2E_CONFIG_HOME`: generated CLI config home used by cmd tests.
 - `GIZCLAW_E2E_IDENTITIES_HOME`: generated identity directory used by Go/JS
   harnesses.

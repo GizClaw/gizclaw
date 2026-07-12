@@ -370,13 +370,18 @@ func serverInfoICEServersAt(servers []gizwebrtc.ICEServer, now time.Time) *[]str
 		}{
 			Urls: server.URLs,
 		}
-		if server.Credential != "" {
+		if server.CredentialMode == gizwebrtc.ICECredentialModeTURNREST {
 			username := turnRESTUsername(now.Add(turnCredentialTTL), server.Username)
 			credential := turnRESTCredential(server.Credential, username)
 			item.Username = &username
 			item.Credential = &credential
-		} else if server.Username != "" {
-			item.Username = &server.Username
+		} else {
+			if server.Username != "" {
+				item.Username = &server.Username
+			}
+			if server.Credential != "" {
+				item.Credential = &server.Credential
+			}
 		}
 		out = append(out, item)
 	}

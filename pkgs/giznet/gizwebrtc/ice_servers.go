@@ -8,15 +8,30 @@ import (
 )
 
 type ICEServer struct {
-	URLs       []string `json:"urls" yaml:"urls"`
-	Username   string   `json:"username,omitempty" yaml:"username,omitempty"`
-	Credential string   `json:"credential,omitempty" yaml:"credential,omitempty"`
+	URLs           []string `json:"urls" yaml:"urls"`
+	Username       string   `json:"username,omitempty" yaml:"username,omitempty"`
+	Credential     string   `json:"credential,omitempty" yaml:"credential,omitempty"`
+	CredentialMode string   `json:"credential_mode,omitempty" yaml:"credential-mode,omitempty"`
 }
+
+const (
+	ICECredentialModeStatic   = "static"
+	ICECredentialModeTURNREST = "turn-rest"
+)
 
 func validateICEServers(servers []ICEServer) error {
 	for i, server := range servers {
 		if len(server.URLs) == 0 {
 			return fmt.Errorf("gizwebrtc: ice_servers[%d].urls is required", i)
+		}
+		switch server.CredentialMode {
+		case "", ICECredentialModeStatic:
+		case ICECredentialModeTURNREST:
+			if strings.TrimSpace(server.Credential) == "" {
+				return fmt.Errorf("gizwebrtc: ice_servers[%d].credential is required for credential-mode %q", i, ICECredentialModeTURNREST)
+			}
+		default:
+			return fmt.Errorf("gizwebrtc: ice_servers[%d].credential-mode has unsupported value %q", i, server.CredentialMode)
 		}
 		for j, rawURL := range server.URLs {
 			url := strings.TrimSpace(rawURL)
