@@ -37,7 +37,9 @@ func newAdminAPIHarness(t *testing.T) *adminAPIHarness {
 
 	h := clitest.NewSetupHarness(t, "client-admin")
 	h.InstallFixedAdminContext(adminAPIAdminContext).MustSucceed(t)
+	h.RequireAdminContextEndpoint(adminAPIAdminContext)
 	h.CreateContext("admin-api-peer").MustSucceed(t)
+	h.RequireClientContextEndpoint("admin-api-peer")
 	adminKey := h.ContextPublicKey(adminAPIAdminContext)
 	peerKey := h.ContextPublicKey("admin-api-peer")
 	adminSN := "admin"
@@ -198,7 +200,10 @@ func openAIModelProviderData(t *testing.T, upstream string) *apitypes.ModelProvi
 func flowcraftWorkspaceParameters(t *testing.T, input apitypes.WorkspaceInputMode) *apitypes.WorkspaceParameters {
 	t.Helper()
 	var params apitypes.WorkspaceParameters
-	if err := params.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{Input: &input}); err != nil {
+	if err := params.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{
+		AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+		Input:     &input,
+	}); err != nil {
 		t.Fatalf("build Flowcraft workspace parameters: %v", err)
 	}
 	return &params

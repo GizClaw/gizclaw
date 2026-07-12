@@ -379,12 +379,53 @@ func loadSetupWorkflowResources(t *testing.T) map[string]setupWorkflowResource {
 		if err := json.Unmarshal(jsonData, &resource); err != nil {
 			t.Fatalf("decode setup workflow resource %s: %v", path, err)
 		}
+		hydrateSetupWorkflowResourceUnions(t, path, jsonData, &resource)
 		if resource.Kind != "Workflow" {
 			continue
 		}
 		resources[resource.Metadata.Name] = resource
 	}
 	return resources
+}
+
+func hydrateSetupWorkflowResourceUnions(t *testing.T, path string, data []byte, resource *setupWorkflowResource) {
+	t.Helper()
+	ast := resource.Spec.AstTranslate
+	if ast == nil || ast.Voice == nil || ast.Voice.Value != nil {
+		return
+	}
+	var raw struct {
+		Spec struct {
+			AstTranslate struct {
+				Voice map[string]json.RawMessage `json:"voice"`
+			} `json:"ast_translate"`
+		} `json:"spec"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("decode raw setup workflow resource %s: %v", path, err)
+	}
+	voiceData, err := json.Marshal(raw.Spec.AstTranslate.Voice)
+	if err != nil {
+		t.Fatalf("marshal raw ast translate voice %s: %v", path, err)
+	}
+	switch {
+	case raw.Spec.AstTranslate.Voice["tts_voice"] != nil:
+		var voice rpcapi.ASTTranslateExternalVoiceParameters
+		if err := json.Unmarshal(voiceData, &voice); err != nil {
+			t.Fatalf("decode external ast translate voice %s: %v", path, err)
+		}
+		if err := ast.Voice.FromASTTranslateExternalVoiceParameters(voice); err != nil {
+			t.Fatalf("hydrate external ast translate voice %s: %v", path, err)
+		}
+	case raw.Spec.AstTranslate.Voice["speaker_id"] != nil:
+		var voice rpcapi.ASTTranslateInternalSpeakerParameters
+		if err := json.Unmarshal(voiceData, &voice); err != nil {
+			t.Fatalf("decode internal ast translate voice %s: %v", path, err)
+		}
+		if err := ast.Voice.FromASTTranslateInternalSpeakerParameters(voice); err != nil {
+			t.Fatalf("hydrate internal ast translate voice %s: %v", path, err)
+		}
+	}
 }
 
 func TestPrintWorkspaceRuntimeAndInterruptSummaries(t *testing.T) {

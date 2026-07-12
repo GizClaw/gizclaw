@@ -13,7 +13,7 @@ services:
       GIZCLAW_E2E_TURN_REALM: ${GIZCLAW_E2E_TURN_REALM:?set by docker-compose-up.sh}
       GIZCLAW_E2E_TURN_USERNAME: ${GIZCLAW_E2E_TURN_USERNAME:?set by docker-compose-up.sh}
       GIZCLAW_E2E_TURN_CREDENTIAL: ${GIZCLAW_E2E_TURN_CREDENTIAL:?set by docker-compose-up.sh}
-      GIZCLAW_E2E_SKIP_PROVIDER_SYNC: "1"
+      GIZCLAW_E2E_SKIP_PROVIDER_SYNC: ${GIZCLAW_E2E_SKIP_PROVIDER_SYNC:-0}
     volumes:
       - type: bind
         source: ../.env

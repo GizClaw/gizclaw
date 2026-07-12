@@ -452,7 +452,7 @@ func (s *Server) handleWorkspaceGet(ctx context.Context, req *rpcapi.RPCRequest)
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitGetWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspaceGetResponse)
+	return workspaceAdminRPCResponse(req.Id, adminResp.VisitGetWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspaceGetResponse)
 }
 
 func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
@@ -477,7 +477,7 @@ func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCReque
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitCreateWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspaceCreateResponse), true, nil
+	return workspaceAdminRPCResponse(req.Id, adminResp.VisitCreateWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspaceCreateResponse), true, nil
 }
 
 func (s *Server) handleWorkspacePut(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
@@ -502,7 +502,7 @@ func (s *Server) handleWorkspacePut(ctx context.Context, req *rpcapi.RPCRequest)
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitPutWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspacePutResponse), true, nil
+	return workspaceAdminRPCResponse(req.Id, adminResp.VisitPutWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspacePutResponse), true, nil
 }
 
 func (s *Server) handleWorkspaceDelete(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -520,7 +520,7 @@ func (s *Server) handleWorkspaceDelete(ctx context.Context, req *rpcapi.RPCReque
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitDeleteWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspaceDeleteResponse)
+	return workspaceAdminRPCResponse(req.Id, adminResp.VisitDeleteWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspaceDeleteResponse)
 }
 
 func (s *Server) handleWorkspaceHistoryList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -1090,6 +1090,17 @@ func (s *Server) authorizeErr(ctx context.Context, resource apitypes.ACLResource
 
 func adminRPCResponse[T any](id string, visit func(*fiber.Ctx) error, encode func(*rpcapi.RPCPayload, T) error) *rpcapi.RPCResponse {
 	result, rpcResp, err := adminResult[T](visit)
+	if err != nil {
+		return internalError(id, err.Error())
+	}
+	if rpcResp != nil {
+		return withRequestID(id, rpcResp)
+	}
+	return resultResponse(id, result, encode)
+}
+
+func workspaceAdminRPCResponse[T any](id string, visit func(*fiber.Ctx) error, encode func(*rpcapi.RPCPayload, T) error) *rpcapi.RPCResponse {
+	result, rpcResp, err := adminResult[apitypes.Workspace](visit)
 	if err != nil {
 		return internalError(id, err.Error())
 	}

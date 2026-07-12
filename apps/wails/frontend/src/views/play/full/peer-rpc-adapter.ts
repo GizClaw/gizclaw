@@ -14,6 +14,7 @@ import {
   type GameRuleset as RPCGameRuleset,
   type Pet as RPCPet,
   type PetPresentation as RPCPetPresentation,
+  type PeerRPCMethodName,
   type PointsAccount as RPCPointsAccount,
   type PointsTransaction as RPCPointsTransaction,
   type RewardGrant as RPCRewardGrant,
@@ -24,7 +25,6 @@ import {
   type PeerRunRecallResponse as RPCPeerRunRecallResponse,
   type PeerRunWorkspaceState as RPCPeerRunWorkspaceState,
   type RPCMethodMap,
-  type RPCMethodName,
   type Workspace as RPCWorkspace,
   type WorkspaceParameters as RPCWorkspaceParameters,
 } from "@gizclaw/gizclaw/rpc";
@@ -105,7 +105,7 @@ export function hasInjectedPlayDataClient(): boolean {
   return currentDataClient != null;
 }
 
-async function rpcResult<M extends RPCMethodName>(method: M, params: RPCMethodMap[M]["request"]): Promise<ApiResult<RPCMethodMap[M]["response"]>> {
+async function rpcResult<M extends PeerRPCMethodName>(method: M, params: RPCMethodMap[M]["request"]): Promise<ApiResult<RPCMethodMap[M]["response"]>> {
   if (currentRPC == null) {
     return { error: new Error("Play RPC client is not connected.") };
   }
@@ -137,7 +137,7 @@ function params(options?: RequestOptions): Record<string, unknown> {
   };
 }
 
-function callRPC<M extends RPCMethodName>(method: M, options?: RequestOptions): Promise<ApiResult<RPCMethodMap[M]["response"]>> {
+function callRPC<M extends PeerRPCMethodName>(method: M, options?: RequestOptions): Promise<ApiResult<RPCMethodMap[M]["response"]>> {
   return rpcResult(method, params(options) as RPCMethodMap[M]["request"]);
 }
 
@@ -156,7 +156,7 @@ async function injectedResult<T>(method: keyof PlayDataClientLike, options?: Req
   }
 }
 
-async function callRPCBinary<M extends RPCMethodName>(method: M, options?: RequestOptions): Promise<ApiResult<{ body: Uint8Array; result: RPCMethodMap[M]["response"] }>> {
+async function callRPCBinary<M extends PeerRPCMethodName>(method: M, options?: RequestOptions): Promise<ApiResult<{ body: Uint8Array; result: RPCMethodMap[M]["response"] }>> {
   if (currentRPC == null) {
     return { error: new Error("Play RPC client is not connected.") };
   }

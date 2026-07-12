@@ -502,13 +502,7 @@ func CSDKChatWorkspace(t *testing.T, identityDir string) {
 	if workspace == nil || workspace.GetName() != "direct-chatroom-workspace" || workspace.GetWorkflowName() != "chatroom-direct" {
 		t.Fatalf("invalid server.workspace.get: %s", workspaceResponse.String())
 	}
-	var setResponse rpcpb.ServerSetRunWorkspaceResponse
-	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_SET, &rpcpb.ServerSetRunWorkspaceRequest{
-		Value: &rpcpb.AgentSelection{WorkspaceName: "direct-chatroom-workspace"},
-	}, &setResponse)
-	if setResponse.GetValue().GetWorkspaceName() != "direct-chatroom-workspace" {
-		t.Fatalf("invalid server.run.workspace.set: %s", setResponse.String())
-	}
+	setChatWorkspace(t, client, "direct-chatroom-workspace")
 	var getResponse rpcpb.ServerGetRunWorkspaceResponse
 	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_GET, &rpcpb.ServerGetRunWorkspaceRequest{}, &getResponse)
 	if getResponse.GetValue().GetWorkspaceName() != "direct-chatroom-workspace" ||
@@ -524,7 +518,7 @@ func CSDKChatWorkspace(t *testing.T, identityDir string) {
 	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY, &rpcpb.ServerListRunWorkspaceHistoryRequest{
 		Value: &rpcpb.PeerRunHistoryListRequest{Limit: ptr(int64(5))},
 	}, &historyResponse)
-	if historyResponse.GetValue() == nil || historyResponse.GetValue().GetItems() == nil {
+	if historyResponse.GetValue() == nil || !historyResponse.GetValue().GetAvailable() {
 		t.Fatalf("invalid server.run.workspace.history: %s", historyResponse.String())
 	}
 }

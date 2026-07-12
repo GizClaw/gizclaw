@@ -29,6 +29,7 @@ func newSocialSimulatorHarness(t *testing.T) *clitest.Harness {
 	configureSocialPeerContext(t, h, "peer-b", "GIZCLAW_E2E_SOCIAL_PERSON_B_IDENTITY", "social-b", "client-social-peer-b-sn")
 	for _, peer := range []string{"peer-c", "peer-d"} {
 		h.CreateContext(peer).MustSucceed(t)
+		h.RequireClientContextEndpoint(peer)
 		h.RegisterContext(peer, "--sn", "client-social-"+peer+"-sn").MustSucceed(t)
 	}
 	return h
@@ -46,6 +47,7 @@ func configureSocialAdminContext(t *testing.T, h *clitest.Harness) {
 		contextName = "admin"
 	}
 	h.SetContextDirAlias("admin-a", filepath.Join(identitiesHome, contextName))
+	h.RequireAdminContextEndpoint("admin-a")
 }
 
 func configureSocialPeerContext(t *testing.T, h *clitest.Harness, alias, contextEnv, defaultContext, sn string) {
@@ -60,6 +62,7 @@ func configureSocialPeerContext(t *testing.T, h *clitest.Harness, alias, context
 		identitiesHome = filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "identities")
 	}
 	h.SetContextDirAlias(alias, filepath.Join(identitiesHome, contextName))
+	h.RequireClientContextEndpoint(alias)
 	h.RegisterContext(alias, "--sn", sn).MustSucceed(t)
 }
 

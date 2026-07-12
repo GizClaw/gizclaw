@@ -13,7 +13,7 @@ import {
 } from "../common/webrtc.ts";
 
 const adminIdentityDir = process.env.GIZCLAW_E2E_JS_ADMIN_IDENTITY_DIR ?? path.join(repoRoot, "tests/gizclaw-e2e/testdata/identities/admin");
-const peerIdentityDir = process.env.GIZCLAW_E2E_JS_PEER_IDENTITY_DIR ?? path.join(repoRoot, "tests/gizclaw-e2e/testdata/identities/peer");
+const peerIdentityDir = process.env.GIZCLAW_E2E_JS_IDENTITY_DIR ?? path.join(repoRoot, "tests/gizclaw-e2e/testdata/identities/peer");
 
 async function main(): Promise<void> {
   const adminIdentity = await loadIdentity(adminIdentityDir);

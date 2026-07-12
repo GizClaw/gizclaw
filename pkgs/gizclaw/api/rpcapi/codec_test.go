@@ -403,6 +403,37 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 		t.Fatalf("chatroom input = %s", chatProto.GetInput())
 	}
 
+	input := WorkspaceInputModeRealtime
+	var workspaceParams WorkspaceParameters
+	if err := workspaceParams.FromFlowcraftWorkspaceParameters(FlowcraftWorkspaceParameters{Input: &input}); err != nil {
+		t.Fatalf("FromFlowcraftWorkspaceParameters error = %v", err)
+	}
+	var workspacePayload RPCPayload
+	if err := workspacePayload.FromWorkspacePutRequest(WorkspacePutRequest{
+		Name: "workspace-a",
+		Body: Workspace{
+			Name:         "workspace-a",
+			WorkflowName: "workflow-a",
+			Parameters:   &workspaceParams,
+		},
+	}); err != nil {
+		t.Fatalf("FromWorkspacePutRequest error = %v", err)
+	}
+	gotWorkspace, err := workspacePayload.AsWorkspacePutRequest()
+	if err != nil {
+		t.Fatalf("AsWorkspacePutRequest error = %v", err)
+	}
+	if gotWorkspace.Body.Parameters == nil {
+		t.Fatalf("workspace parameters were dropped: %#v", gotWorkspace)
+	}
+	gotFlowcraft, err := gotWorkspace.Body.Parameters.AsFlowcraftWorkspaceParameters()
+	if err != nil {
+		t.Fatalf("AsFlowcraftWorkspaceParameters error = %v", err)
+	}
+	if gotFlowcraft.Input == nil || *gotFlowcraft.Input != WorkspaceInputModeRealtime {
+		t.Fatalf("workspace input = %#v, want realtime", gotFlowcraft.Input)
+	}
+
 	var modelPayload RPCPayload
 	if err := modelPayload.FromModelCreateRequest(ModelCreateRequest{
 		Id:     "m1",

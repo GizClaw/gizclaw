@@ -279,6 +279,27 @@ func (h *Harness) ClientEndpoint() string {
 	return h.clientEndpoint()
 }
 
+func (h *Harness) RequireClientContextEndpoint(name string) {
+	h.t.Helper()
+	h.requireContextEndpoint(name, h.clientEndpoint(), "client")
+}
+
+func (h *Harness) RequireAdminContextEndpoint(name string) {
+	h.t.Helper()
+	h.requireContextEndpoint(name, h.adminEndpoint(), "admin")
+}
+
+func (h *Harness) requireContextEndpoint(name, want, role string) {
+	h.t.Helper()
+	cfg, err := h.readContextConfig(name)
+	if err != nil {
+		h.t.Fatalf("read %s context %s endpoint: %v", role, name, err)
+	}
+	if got := cliContextDialAddr(cfg); got != want {
+		h.t.Fatalf("%s context %s endpoint = %q, want %q", role, name, got, want)
+	}
+}
+
 func (h *Harness) adminEndpoint() string {
 	return h.ServerAddr
 }
