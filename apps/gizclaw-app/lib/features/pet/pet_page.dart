@@ -228,6 +228,7 @@ class PetDetailPage extends StatefulWidget {
 }
 
 class _PetDetailPageState extends State<PetDetailPage> {
+  final _actionFabKey = GlobalKey<_PetActionFabState>();
   GizClawClient? _client;
   WorkspaceChatController? _chat;
   String? _chatWorkspaceName;
@@ -471,14 +472,20 @@ class _PetDetailPageState extends State<PetDetailPage> {
                       left: 0,
                       bottom: 10,
                       child: _PetActionFab(
+                        key: _actionFabKey,
                         actions: actions,
                         catalog: catalog,
                         activeAction: _drivingAction,
                         onAction: _drive,
+                        onExpand: () {
+                          if (_statusVisible) {
+                            setState(() => _statusVisible = false);
+                          }
+                        },
                       ),
                     ),
                     Positioned(
-                      right: 0,
+                      left: 122,
                       bottom: 88,
                       width: 158,
                       child: IgnorePointer(
@@ -491,7 +498,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
                           curve: Curves.easeOutCubic,
                           child: AnimatedScale(
                             scale: _statusVisible ? 1 : 0.94,
-                            alignment: Alignment.bottomRight,
+                            alignment: Alignment.bottomCenter,
                             duration: const Duration(milliseconds: 240),
                             curve: Curves.easeOutCubic,
                             child: AnimatedOpacity(
@@ -514,8 +521,10 @@ class _PetDetailPageState extends State<PetDetailPage> {
                       bottom: 10,
                       child: _PetStatusFab(
                         visible: _statusVisible,
-                        onPressed: () =>
-                            setState(() => _statusVisible = !_statusVisible),
+                        onPressed: () {
+                          _actionFabKey.currentState?.collapse();
+                          setState(() => _statusVisible = !_statusVisible);
+                        },
                       ),
                     ),
                   ],
@@ -1586,16 +1595,19 @@ class _NameplateMetric extends StatelessWidget {
 
 class _PetActionFab extends StatefulWidget {
   const _PetActionFab({
+    super.key,
     required this.actions,
     required this.catalog,
     required this.activeAction,
     required this.onAction,
+    required this.onExpand,
   });
 
   final List<PetPresentationActionSpec> actions;
   final PetPresentationI18nCatalog? catalog;
   final String? activeAction;
   final ValueChanged<PetPresentationActionSpec> onAction;
+  final VoidCallback onExpand;
 
   @override
   State<_PetActionFab> createState() => _PetActionFabState();
@@ -1626,10 +1638,17 @@ class _PetActionFabState extends State<_PetActionFab>
     if (widget.actions.isEmpty) return;
     setState(() => _expanded = !_expanded);
     if (_expanded) {
+      widget.onExpand();
       _controller.forward();
     } else {
       _controller.reverse();
     }
+  }
+
+  void collapse() {
+    if (!_expanded) return;
+    setState(() => _expanded = false);
+    _controller.reverse();
   }
 
   void _select(PetPresentationActionSpec action) {
@@ -1723,10 +1742,16 @@ class _PetActionFabState extends State<_PetActionFab>
       curve: Interval(start.clamp(0.0, 0.65), 1, curve: Curves.easeOutBack),
       reverseCurve: Curves.easeIn,
     );
-    final offset = 70.0 + index * 52.0;
+    final verticalOffset = 70.0 + index * 52.0;
+    final arcProgress = (index + 1) / math.max(count, 1);
+    const arcStrength = 2.0;
+    final horizontalOffset =
+        ((math.exp(arcStrength * arcProgress) - 1) /
+            (math.exp(arcStrength) - 1)) *
+        72;
     return Positioned(
-      left: 0,
-      bottom: offset * animation.value,
+      left: horizontalOffset * animation.value,
+      bottom: verticalOffset * animation.value,
       child: IgnorePointer(
         ignoring: animation.value < 0.8 || widget.activeAction != null,
         child: Opacity(
