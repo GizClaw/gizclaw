@@ -1,9 +1,24 @@
+import 'dart:typed_data';
+
 import 'package:fixnum/fixnum.dart';
 
 import 'generated/rpc/payload.pb.dart' as payload;
+import 'pixa.dart';
 import 'rpc_client.dart';
 import 'service_http.dart';
 import 'transport.dart';
+
+class PixaDownloadResult<T> {
+  const PixaDownloadResult({
+    required this.metadata,
+    required this.bytes,
+    required this.asset,
+  });
+
+  final T metadata;
+  final Uint8List bytes;
+  final PixaAsset asset;
+}
 
 class GizClawClient {
   GizClawClient(
@@ -67,6 +82,36 @@ class GizClawClient {
     return rpc.call<payload.WorkspaceGetResponse>(
       'server.workspace.get',
       payload.WorkspaceGetRequest(name: name),
+    );
+  }
+
+  Future<PixaDownloadResult<payload.PetDefPixaDownloadResponse>>
+  downloadPetDefPixa(String id) async {
+    final response = await rpc.callBinary(
+      'server.pet_def.pixa.download',
+      payload.PetDefPixaDownloadRequest(id: id),
+    );
+    final metadata = response.response as payload.PetDefPixaDownloadResponse;
+    final bytes = Uint8List.fromList(response.body);
+    return PixaDownloadResult(
+      metadata: metadata,
+      bytes: bytes,
+      asset: validatePixa(bytes, mode: PixaValidationMode.petdef),
+    );
+  }
+
+  Future<PixaDownloadResult<payload.BadgeDefPixaDownloadResponse>>
+  downloadBadgeDefPixa(String id) async {
+    final response = await rpc.callBinary(
+      'server.badge_def.pixa.download',
+      payload.BadgeDefPixaDownloadRequest(id: id),
+    );
+    final metadata = response.response as payload.BadgeDefPixaDownloadResponse;
+    final bytes = Uint8List.fromList(response.body);
+    return PixaDownloadResult(
+      metadata: metadata,
+      bytes: bytes,
+      asset: validatePixa(bytes, mode: PixaValidationMode.badgedef),
     );
   }
 }
