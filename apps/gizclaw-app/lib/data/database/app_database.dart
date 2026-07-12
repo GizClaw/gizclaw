@@ -62,6 +62,31 @@ class WorkspaceChatEntries extends Table {
   Set<Column<Object>> get primaryKey => {serverId, workspaceName, historyId};
 }
 
+class FriendEntries extends Table {
+  TextColumn get serverId => text()();
+  TextColumn get id => text()();
+  TextColumn get peerPublicKey => text()();
+  TextColumn get workspaceName => text().nullable()();
+  BlobColumn get rawProtobuf => blob()();
+  DateTimeColumn get refreshedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {serverId, id};
+}
+
+class FriendGroupEntries extends Table {
+  TextColumn get serverId => text()();
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  TextColumn get description => text()();
+  TextColumn get workspaceName => text().nullable()();
+  BlobColumn get rawProtobuf => blob()();
+  DateTimeColumn get refreshedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {serverId, id};
+}
+
 @DriftDatabase(
   tables: [
     Servers,
@@ -69,6 +94,8 @@ class WorkspaceChatEntries extends Table {
     WorkspaceEntries,
     SyncStates,
     WorkspaceChatEntries,
+    FriendEntries,
+    FriendGroupEntries,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -77,7 +104,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -85,6 +112,10 @@ class AppDatabase extends _$AppDatabase {
     onUpgrade: (migrator, from, to) async {
       if (from < 2) {
         await migrator.createTable(workspaceChatEntries);
+      }
+      if (from < 3) {
+        await migrator.createTable(friendEntries);
+        await migrator.createTable(friendGroupEntries);
       }
     },
   );

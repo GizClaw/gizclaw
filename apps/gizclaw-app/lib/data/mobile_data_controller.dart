@@ -29,6 +29,7 @@ class MobileDataController extends ChangeNotifier {
     final controller = MobileDataController();
     controller.workflows = allWorkflows;
     controller.workspaces = workflowWorkspaces;
+    controller.chatroomWorkspaces = chatroomWorkspaceMetadata;
     return controller;
   }
 
@@ -40,8 +41,14 @@ class MobileDataController extends ChangeNotifier {
 
   StreamSubscription<List<WorkflowCard>>? _workflowSubscription;
   StreamSubscription<List<WorkspaceCard>>? _workspaceSubscription;
+  StreamSubscription<List<ChatroomWorkspaceMetadata>>? _friendChatSubscription;
+  StreamSubscription<List<ChatroomWorkspaceMetadata>>?
+  _friendGroupChatSubscription;
   List<WorkflowCard> workflows = const [];
   List<WorkspaceCard> workspaces = const [];
+  List<ChatroomWorkspaceMetadata> chatroomWorkspaces = const [];
+  List<ChatroomWorkspaceMetadata> _friendChats = const [];
+  List<ChatroomWorkspaceMetadata> _friendGroupChats = const [];
   String? activeServerId;
   MobileConnectionState connectionState = MobileConnectionState.unconfigured;
   Object? lastError;
@@ -121,6 +128,8 @@ class MobileDataController extends ChangeNotifier {
     activeServerId = serverId;
     await _workflowSubscription?.cancel();
     await _workspaceSubscription?.cancel();
+    await _friendChatSubscription?.cancel();
+    await _friendGroupChatSubscription?.cancel();
     _workflowSubscription = repository.watchWorkflows(serverId).listen((value) {
       workflows = value;
       notifyListeners();
@@ -131,6 +140,23 @@ class MobileDataController extends ChangeNotifier {
       workspaces = value;
       notifyListeners();
     });
+    _friendChatSubscription = repository.watchFriendChats(serverId).listen((
+      value,
+    ) {
+      _friendChats = value;
+      _updateChatroomWorkspaces();
+    });
+    _friendGroupChatSubscription = repository
+        .watchFriendGroupChats(serverId)
+        .listen((value) {
+          _friendGroupChats = value;
+          _updateChatroomWorkspaces();
+        });
+  }
+
+  void _updateChatroomWorkspaces() {
+    chatroomWorkspaces = [..._friendChats, ..._friendGroupChats];
+    notifyListeners();
   }
 
   Future<void> refresh({GizClawClient? client, String? serverId}) async {
@@ -178,6 +204,13 @@ class MobileDataController extends ChangeNotifier {
     );
   }
 
+  ChatroomWorkspaceMetadata? chatroomWorkspace(String workspaceName) {
+    for (final metadata in chatroomWorkspaces) {
+      if (metadata.workspaceName == workspaceName) return metadata;
+    }
+    return null;
+  }
+
   WorkspaceChatController createWorkspaceChat(String workspaceName) {
     return WorkspaceChatController(
       workspaceName: workspaceName,
@@ -193,6 +226,8 @@ class MobileDataController extends ChangeNotifier {
   void dispose() {
     unawaited(_workflowSubscription?.cancel());
     unawaited(_workspaceSubscription?.cancel());
+    unawaited(_friendChatSubscription?.cancel());
+    unawaited(_friendGroupChatSubscription?.cancel());
     unawaited(connection.close());
     unawaited(database.close());
     super.dispose();

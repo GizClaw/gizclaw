@@ -111,7 +111,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Chatroom'));
     await tester.pumpAndSettle();
-    expect(find.text('Morning check-in'), findsOneWidget);
+    expect(find.text('Avery'), findsOneWidget);
+    expect(find.textContaining('DIRECT CHAT'), findsOneWidget);
+    expect(find.text('Builder Crew'), findsOneWidget);
+    expect(find.textContaining('GROUP CHAT'), findsOneWidget);
     expect(find.text('Mobile app plan'), findsNothing);
   });
 

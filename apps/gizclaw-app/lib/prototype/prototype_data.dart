@@ -84,6 +84,7 @@ const recentWorkspaces = [
     name: 'Morning check-in',
     workflowName: 'chatroom-daily',
     lastActive: '12 min ago',
+    chatroomKind: ChatroomWorkspaceKind.direct,
   ),
   WorkspaceCard(
     name: 'Mobile app plan',
@@ -94,6 +95,12 @@ const recentWorkspaces = [
 
 const workflowWorkspaces = [
   ...recentWorkspaces,
+  WorkspaceCard(
+    name: 'Builder crew room',
+    workflowName: 'chatroom-daily',
+    lastActive: 'Today',
+    chatroomKind: ChatroomWorkspaceKind.group,
+  ),
   WorkspaceCard(
     name: 'Hands-free test',
     workflowName: 'realtime-lab',
@@ -124,6 +131,20 @@ const chatrooms = [
     name: 'Game Night',
     subtitle: 'Invite token available',
     memberCount: 5,
+  ),
+];
+
+const chatroomWorkspaceMetadata = [
+  ChatroomWorkspaceMetadata(
+    workspaceName: 'Morning check-in',
+    title: 'Avery',
+    kind: ChatroomWorkspaceKind.direct,
+  ),
+  ChatroomWorkspaceMetadata(
+    workspaceName: 'Builder crew room',
+    title: 'Builder Crew',
+    description: 'Shipping the mobile client',
+    kind: ChatroomWorkspaceKind.group,
   ),
 ];
 

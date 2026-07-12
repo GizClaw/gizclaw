@@ -37,6 +37,45 @@ class MobileDataRepository {
     );
   }
 
+  Stream<List<ChatroomWorkspaceMetadata>> watchFriendChats(String serverId) {
+    final query = database.select(database.friendEntries)
+      ..where((row) => row.serverId.equals(serverId))
+      ..orderBy([(row) => OrderingTerm.asc(row.peerPublicKey)]);
+    return query.watch().map(
+      (rows) => rows
+          .where((row) => row.workspaceName?.isNotEmpty ?? false)
+          .map(
+            (row) => ChatroomWorkspaceMetadata(
+              workspaceName: row.workspaceName!,
+              title: _compactPeerKey(row.peerPublicKey),
+              kind: ChatroomWorkspaceKind.direct,
+            ),
+          )
+          .toList(growable: false),
+    );
+  }
+
+  Stream<List<ChatroomWorkspaceMetadata>> watchFriendGroupChats(
+    String serverId,
+  ) {
+    final query = database.select(database.friendGroupEntries)
+      ..where((row) => row.serverId.equals(serverId))
+      ..orderBy([(row) => OrderingTerm.asc(row.name)]);
+    return query.watch().map(
+      (rows) => rows
+          .where((row) => row.workspaceName?.isNotEmpty ?? false)
+          .map(
+            (row) => ChatroomWorkspaceMetadata(
+              workspaceName: row.workspaceName!,
+              title: row.name.trim().isEmpty ? 'Group chat' : row.name,
+              description: row.description,
+              kind: ChatroomWorkspaceKind.group,
+            ),
+          )
+          .toList(growable: false),
+    );
+  }
+
   Future<bool> hasWorkflow(String serverId, String name) async {
     final query = database.select(database.workflowEntries)
       ..where((row) => row.serverId.equals(serverId) & row.name.equals(name))
@@ -59,6 +98,8 @@ class MobileDataRepository {
   }) async {
     final workflows = await _allWorkflows(client);
     final workspaces = await _allWorkspaces(client);
+    final friends = await _allFriends(client);
+    final friendGroups = await _allFriendGroups(client);
     final refreshedAt = DateTime.now().toUtc();
 
     await database.transaction(() async {
@@ -101,13 +142,55 @@ class MobileDataRepository {
             );
           }).toList(),
         );
+        batch.insertAllOnConflictUpdate(
+          database.friendEntries,
+          friends.map((friend) {
+            return FriendEntriesCompanion.insert(
+              serverId: serverId,
+              id: _friendKey(friend),
+              peerPublicKey: friend.peerPublicKey,
+              workspaceName: Value(
+                friend.hasWorkspaceName() ? friend.workspaceName : null,
+              ),
+              rawProtobuf: Uint8List.fromList(friend.writeToBuffer()),
+              refreshedAt: refreshedAt,
+            );
+          }).toList(),
+        );
+        batch.insertAllOnConflictUpdate(
+          database.friendGroupEntries,
+          friendGroups.map((group) {
+            return FriendGroupEntriesCompanion.insert(
+              serverId: serverId,
+              id: _friendGroupKey(group),
+              name: group.name,
+              description: group.description,
+              workspaceName: Value(
+                group.hasWorkspaceName() ? group.workspaceName : null,
+              ),
+              rawProtobuf: Uint8List.fromList(group.writeToBuffer()),
+              refreshedAt: refreshedAt,
+            );
+          }).toList(),
+        );
       });
 
       final workflowNames = workflows.map((item) => item.metadata.name).toSet();
       final workspaceNames = workspaces.map((item) => item.name).toSet();
+      final friendIds = friends.map(_friendKey).toSet();
+      final friendGroupIds = friendGroups.map(_friendGroupKey).toSet();
       await (database.delete(database.workflowEntries)..where(
             (row) =>
                 row.serverId.equals(serverId) & row.name.isNotIn(workflowNames),
+          ))
+          .go();
+      await (database.delete(database.friendEntries)..where(
+            (row) => row.serverId.equals(serverId) & row.id.isNotIn(friendIds),
+          ))
+          .go();
+      await (database.delete(database.friendGroupEntries)..where(
+            (row) =>
+                row.serverId.equals(serverId) & row.id.isNotIn(friendGroupIds),
           ))
           .go();
       await (database.delete(database.workspaceEntries)..where(
@@ -151,6 +234,48 @@ Future<List<Workspace>> _allWorkspaces(GizClawClient client) async {
   return items;
 }
 
+Future<List<FriendObject>> _allFriends(GizClawClient client) async {
+  final items = <FriendObject>[];
+  String? cursor;
+  do {
+    final response = await client.listFriends(cursor: cursor, limit: 100);
+    items.addAll(response.items);
+    cursor = response.hasNext ? response.nextCursor : null;
+  } while (cursor != null && cursor.isNotEmpty);
+  return items.where((item) => _friendKey(item).isNotEmpty).toList();
+}
+
+Future<List<FriendGroupObject>> _allFriendGroups(GizClawClient client) async {
+  final items = <FriendGroupObject>[];
+  String? cursor;
+  do {
+    final response = await client.listFriendGroups(cursor: cursor, limit: 100);
+    items.addAll(response.items);
+    cursor = response.hasNext ? response.nextCursor : null;
+  } while (cursor != null && cursor.isNotEmpty);
+  return items.where((item) => _friendGroupKey(item).isNotEmpty).toList();
+}
+
+String _friendKey(FriendObject friend) {
+  if (friend.id.trim().isNotEmpty) return friend.id.trim();
+  if (friend.peerPublicKey.trim().isNotEmpty) {
+    return friend.peerPublicKey.trim();
+  }
+  return friend.workspaceName.trim();
+}
+
+String _friendGroupKey(FriendGroupObject group) {
+  if (group.id.trim().isNotEmpty) return group.id.trim();
+  if (group.workspaceName.trim().isNotEmpty) return group.workspaceName.trim();
+  return group.name.trim();
+}
+
+String _compactPeerKey(String value) {
+  final trimmed = value.trim();
+  if (trimmed.length <= 14) return trimmed.isEmpty ? 'Friend' : trimmed;
+  return '${trimmed.substring(0, 7)}...${trimmed.substring(trimmed.length - 5)}';
+}
+
 WorkflowCard _workflowCardFromRow(WorkflowEntry row) {
   return WorkflowCard.fromServer(
     name: row.name,
@@ -162,6 +287,7 @@ WorkflowCard _workflowCardFromRow(WorkflowEntry row) {
 WorkspaceCard _workspaceCardFromRow(WorkspaceEntry row) {
   final workspace = Workspace.fromBuffer(row.rawProtobuf);
   return WorkspaceCard(
+    chatroomKind: _chatroomKind(workspace),
     displayName: workspace.displayName,
     name: row.name,
     workflowName: row.workflowName,
@@ -169,6 +295,18 @@ WorkspaceCard _workspaceCardFromRow(WorkspaceEntry row) {
       row.lastActiveAt ?? row.updatedAt ?? row.createdAt,
     ),
   );
+}
+
+ChatroomWorkspaceKind? _chatroomKind(Workspace workspace) {
+  if (!workspace.hasParameters() ||
+      !workspace.parameters.hasChatRoomWorkspaceParameters()) {
+    return null;
+  }
+  return switch (workspace.parameters.chatRoomWorkspaceParameters.mode) {
+    ChatRoomMode.CHAT_ROOM_MODE_DIRECT => ChatroomWorkspaceKind.direct,
+    ChatRoomMode.CHAT_ROOM_MODE_GROUP => ChatroomWorkspaceKind.group,
+    _ => null,
+  };
 }
 
 DateTime? _dateTimeOrNull(String value) {

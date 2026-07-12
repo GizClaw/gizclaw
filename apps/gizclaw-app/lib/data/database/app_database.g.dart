@@ -2109,6 +2109,933 @@ class WorkspaceChatEntriesCompanion
   }
 }
 
+class $FriendEntriesTable extends FriendEntries
+    with TableInfo<$FriendEntriesTable, FriendEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FriendEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _serverIdMeta = const VerificationMeta(
+    'serverId',
+  );
+  @override
+  late final GeneratedColumn<String> serverId = GeneratedColumn<String>(
+    'server_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _peerPublicKeyMeta = const VerificationMeta(
+    'peerPublicKey',
+  );
+  @override
+  late final GeneratedColumn<String> peerPublicKey = GeneratedColumn<String>(
+    'peer_public_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _workspaceNameMeta = const VerificationMeta(
+    'workspaceName',
+  );
+  @override
+  late final GeneratedColumn<String> workspaceName = GeneratedColumn<String>(
+    'workspace_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _rawProtobufMeta = const VerificationMeta(
+    'rawProtobuf',
+  );
+  @override
+  late final GeneratedColumn<Uint8List> rawProtobuf =
+      GeneratedColumn<Uint8List>(
+        'raw_protobuf',
+        aliasedName,
+        false,
+        type: DriftSqlType.blob,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _refreshedAtMeta = const VerificationMeta(
+    'refreshedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> refreshedAt = GeneratedColumn<DateTime>(
+    'refreshed_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    serverId,
+    id,
+    peerPublicKey,
+    workspaceName,
+    rawProtobuf,
+    refreshedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'friend_entries';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<FriendEntry> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('server_id')) {
+      context.handle(
+        _serverIdMeta,
+        serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_serverIdMeta);
+    }
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('peer_public_key')) {
+      context.handle(
+        _peerPublicKeyMeta,
+        peerPublicKey.isAcceptableOrUnknown(
+          data['peer_public_key']!,
+          _peerPublicKeyMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_peerPublicKeyMeta);
+    }
+    if (data.containsKey('workspace_name')) {
+      context.handle(
+        _workspaceNameMeta,
+        workspaceName.isAcceptableOrUnknown(
+          data['workspace_name']!,
+          _workspaceNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('raw_protobuf')) {
+      context.handle(
+        _rawProtobufMeta,
+        rawProtobuf.isAcceptableOrUnknown(
+          data['raw_protobuf']!,
+          _rawProtobufMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_rawProtobufMeta);
+    }
+    if (data.containsKey('refreshed_at')) {
+      context.handle(
+        _refreshedAtMeta,
+        refreshedAt.isAcceptableOrUnknown(
+          data['refreshed_at']!,
+          _refreshedAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_refreshedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {serverId, id};
+  @override
+  FriendEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FriendEntry(
+      serverId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}server_id'],
+      )!,
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      peerPublicKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}peer_public_key'],
+      )!,
+      workspaceName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}workspace_name'],
+      ),
+      rawProtobuf: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}raw_protobuf'],
+      )!,
+      refreshedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}refreshed_at'],
+      )!,
+    );
+  }
+
+  @override
+  $FriendEntriesTable createAlias(String alias) {
+    return $FriendEntriesTable(attachedDatabase, alias);
+  }
+}
+
+class FriendEntry extends DataClass implements Insertable<FriendEntry> {
+  final String serverId;
+  final String id;
+  final String peerPublicKey;
+  final String? workspaceName;
+  final Uint8List rawProtobuf;
+  final DateTime refreshedAt;
+  const FriendEntry({
+    required this.serverId,
+    required this.id,
+    required this.peerPublicKey,
+    this.workspaceName,
+    required this.rawProtobuf,
+    required this.refreshedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['server_id'] = Variable<String>(serverId);
+    map['id'] = Variable<String>(id);
+    map['peer_public_key'] = Variable<String>(peerPublicKey);
+    if (!nullToAbsent || workspaceName != null) {
+      map['workspace_name'] = Variable<String>(workspaceName);
+    }
+    map['raw_protobuf'] = Variable<Uint8List>(rawProtobuf);
+    map['refreshed_at'] = Variable<DateTime>(refreshedAt);
+    return map;
+  }
+
+  FriendEntriesCompanion toCompanion(bool nullToAbsent) {
+    return FriendEntriesCompanion(
+      serverId: Value(serverId),
+      id: Value(id),
+      peerPublicKey: Value(peerPublicKey),
+      workspaceName: workspaceName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(workspaceName),
+      rawProtobuf: Value(rawProtobuf),
+      refreshedAt: Value(refreshedAt),
+    );
+  }
+
+  factory FriendEntry.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FriendEntry(
+      serverId: serializer.fromJson<String>(json['serverId']),
+      id: serializer.fromJson<String>(json['id']),
+      peerPublicKey: serializer.fromJson<String>(json['peerPublicKey']),
+      workspaceName: serializer.fromJson<String?>(json['workspaceName']),
+      rawProtobuf: serializer.fromJson<Uint8List>(json['rawProtobuf']),
+      refreshedAt: serializer.fromJson<DateTime>(json['refreshedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'serverId': serializer.toJson<String>(serverId),
+      'id': serializer.toJson<String>(id),
+      'peerPublicKey': serializer.toJson<String>(peerPublicKey),
+      'workspaceName': serializer.toJson<String?>(workspaceName),
+      'rawProtobuf': serializer.toJson<Uint8List>(rawProtobuf),
+      'refreshedAt': serializer.toJson<DateTime>(refreshedAt),
+    };
+  }
+
+  FriendEntry copyWith({
+    String? serverId,
+    String? id,
+    String? peerPublicKey,
+    Value<String?> workspaceName = const Value.absent(),
+    Uint8List? rawProtobuf,
+    DateTime? refreshedAt,
+  }) => FriendEntry(
+    serverId: serverId ?? this.serverId,
+    id: id ?? this.id,
+    peerPublicKey: peerPublicKey ?? this.peerPublicKey,
+    workspaceName: workspaceName.present
+        ? workspaceName.value
+        : this.workspaceName,
+    rawProtobuf: rawProtobuf ?? this.rawProtobuf,
+    refreshedAt: refreshedAt ?? this.refreshedAt,
+  );
+  FriendEntry copyWithCompanion(FriendEntriesCompanion data) {
+    return FriendEntry(
+      serverId: data.serverId.present ? data.serverId.value : this.serverId,
+      id: data.id.present ? data.id.value : this.id,
+      peerPublicKey: data.peerPublicKey.present
+          ? data.peerPublicKey.value
+          : this.peerPublicKey,
+      workspaceName: data.workspaceName.present
+          ? data.workspaceName.value
+          : this.workspaceName,
+      rawProtobuf: data.rawProtobuf.present
+          ? data.rawProtobuf.value
+          : this.rawProtobuf,
+      refreshedAt: data.refreshedAt.present
+          ? data.refreshedAt.value
+          : this.refreshedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FriendEntry(')
+          ..write('serverId: $serverId, ')
+          ..write('id: $id, ')
+          ..write('peerPublicKey: $peerPublicKey, ')
+          ..write('workspaceName: $workspaceName, ')
+          ..write('rawProtobuf: $rawProtobuf, ')
+          ..write('refreshedAt: $refreshedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    serverId,
+    id,
+    peerPublicKey,
+    workspaceName,
+    $driftBlobEquality.hash(rawProtobuf),
+    refreshedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FriendEntry &&
+          other.serverId == this.serverId &&
+          other.id == this.id &&
+          other.peerPublicKey == this.peerPublicKey &&
+          other.workspaceName == this.workspaceName &&
+          $driftBlobEquality.equals(other.rawProtobuf, this.rawProtobuf) &&
+          other.refreshedAt == this.refreshedAt);
+}
+
+class FriendEntriesCompanion extends UpdateCompanion<FriendEntry> {
+  final Value<String> serverId;
+  final Value<String> id;
+  final Value<String> peerPublicKey;
+  final Value<String?> workspaceName;
+  final Value<Uint8List> rawProtobuf;
+  final Value<DateTime> refreshedAt;
+  final Value<int> rowid;
+  const FriendEntriesCompanion({
+    this.serverId = const Value.absent(),
+    this.id = const Value.absent(),
+    this.peerPublicKey = const Value.absent(),
+    this.workspaceName = const Value.absent(),
+    this.rawProtobuf = const Value.absent(),
+    this.refreshedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  FriendEntriesCompanion.insert({
+    required String serverId,
+    required String id,
+    required String peerPublicKey,
+    this.workspaceName = const Value.absent(),
+    required Uint8List rawProtobuf,
+    required DateTime refreshedAt,
+    this.rowid = const Value.absent(),
+  }) : serverId = Value(serverId),
+       id = Value(id),
+       peerPublicKey = Value(peerPublicKey),
+       rawProtobuf = Value(rawProtobuf),
+       refreshedAt = Value(refreshedAt);
+  static Insertable<FriendEntry> custom({
+    Expression<String>? serverId,
+    Expression<String>? id,
+    Expression<String>? peerPublicKey,
+    Expression<String>? workspaceName,
+    Expression<Uint8List>? rawProtobuf,
+    Expression<DateTime>? refreshedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (serverId != null) 'server_id': serverId,
+      if (id != null) 'id': id,
+      if (peerPublicKey != null) 'peer_public_key': peerPublicKey,
+      if (workspaceName != null) 'workspace_name': workspaceName,
+      if (rawProtobuf != null) 'raw_protobuf': rawProtobuf,
+      if (refreshedAt != null) 'refreshed_at': refreshedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  FriendEntriesCompanion copyWith({
+    Value<String>? serverId,
+    Value<String>? id,
+    Value<String>? peerPublicKey,
+    Value<String?>? workspaceName,
+    Value<Uint8List>? rawProtobuf,
+    Value<DateTime>? refreshedAt,
+    Value<int>? rowid,
+  }) {
+    return FriendEntriesCompanion(
+      serverId: serverId ?? this.serverId,
+      id: id ?? this.id,
+      peerPublicKey: peerPublicKey ?? this.peerPublicKey,
+      workspaceName: workspaceName ?? this.workspaceName,
+      rawProtobuf: rawProtobuf ?? this.rawProtobuf,
+      refreshedAt: refreshedAt ?? this.refreshedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (serverId.present) {
+      map['server_id'] = Variable<String>(serverId.value);
+    }
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (peerPublicKey.present) {
+      map['peer_public_key'] = Variable<String>(peerPublicKey.value);
+    }
+    if (workspaceName.present) {
+      map['workspace_name'] = Variable<String>(workspaceName.value);
+    }
+    if (rawProtobuf.present) {
+      map['raw_protobuf'] = Variable<Uint8List>(rawProtobuf.value);
+    }
+    if (refreshedAt.present) {
+      map['refreshed_at'] = Variable<DateTime>(refreshedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FriendEntriesCompanion(')
+          ..write('serverId: $serverId, ')
+          ..write('id: $id, ')
+          ..write('peerPublicKey: $peerPublicKey, ')
+          ..write('workspaceName: $workspaceName, ')
+          ..write('rawProtobuf: $rawProtobuf, ')
+          ..write('refreshedAt: $refreshedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $FriendGroupEntriesTable extends FriendGroupEntries
+    with TableInfo<$FriendGroupEntriesTable, FriendGroupEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FriendGroupEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _serverIdMeta = const VerificationMeta(
+    'serverId',
+  );
+  @override
+  late final GeneratedColumn<String> serverId = GeneratedColumn<String>(
+    'server_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _workspaceNameMeta = const VerificationMeta(
+    'workspaceName',
+  );
+  @override
+  late final GeneratedColumn<String> workspaceName = GeneratedColumn<String>(
+    'workspace_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _rawProtobufMeta = const VerificationMeta(
+    'rawProtobuf',
+  );
+  @override
+  late final GeneratedColumn<Uint8List> rawProtobuf =
+      GeneratedColumn<Uint8List>(
+        'raw_protobuf',
+        aliasedName,
+        false,
+        type: DriftSqlType.blob,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _refreshedAtMeta = const VerificationMeta(
+    'refreshedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> refreshedAt = GeneratedColumn<DateTime>(
+    'refreshed_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    serverId,
+    id,
+    name,
+    description,
+    workspaceName,
+    rawProtobuf,
+    refreshedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'friend_group_entries';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<FriendGroupEntry> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('server_id')) {
+      context.handle(
+        _serverIdMeta,
+        serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_serverIdMeta);
+    }
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_descriptionMeta);
+    }
+    if (data.containsKey('workspace_name')) {
+      context.handle(
+        _workspaceNameMeta,
+        workspaceName.isAcceptableOrUnknown(
+          data['workspace_name']!,
+          _workspaceNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('raw_protobuf')) {
+      context.handle(
+        _rawProtobufMeta,
+        rawProtobuf.isAcceptableOrUnknown(
+          data['raw_protobuf']!,
+          _rawProtobufMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_rawProtobufMeta);
+    }
+    if (data.containsKey('refreshed_at')) {
+      context.handle(
+        _refreshedAtMeta,
+        refreshedAt.isAcceptableOrUnknown(
+          data['refreshed_at']!,
+          _refreshedAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_refreshedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {serverId, id};
+  @override
+  FriendGroupEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FriendGroupEntry(
+      serverId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}server_id'],
+      )!,
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      )!,
+      workspaceName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}workspace_name'],
+      ),
+      rawProtobuf: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}raw_protobuf'],
+      )!,
+      refreshedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}refreshed_at'],
+      )!,
+    );
+  }
+
+  @override
+  $FriendGroupEntriesTable createAlias(String alias) {
+    return $FriendGroupEntriesTable(attachedDatabase, alias);
+  }
+}
+
+class FriendGroupEntry extends DataClass
+    implements Insertable<FriendGroupEntry> {
+  final String serverId;
+  final String id;
+  final String name;
+  final String description;
+  final String? workspaceName;
+  final Uint8List rawProtobuf;
+  final DateTime refreshedAt;
+  const FriendGroupEntry({
+    required this.serverId,
+    required this.id,
+    required this.name,
+    required this.description,
+    this.workspaceName,
+    required this.rawProtobuf,
+    required this.refreshedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['server_id'] = Variable<String>(serverId);
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    map['description'] = Variable<String>(description);
+    if (!nullToAbsent || workspaceName != null) {
+      map['workspace_name'] = Variable<String>(workspaceName);
+    }
+    map['raw_protobuf'] = Variable<Uint8List>(rawProtobuf);
+    map['refreshed_at'] = Variable<DateTime>(refreshedAt);
+    return map;
+  }
+
+  FriendGroupEntriesCompanion toCompanion(bool nullToAbsent) {
+    return FriendGroupEntriesCompanion(
+      serverId: Value(serverId),
+      id: Value(id),
+      name: Value(name),
+      description: Value(description),
+      workspaceName: workspaceName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(workspaceName),
+      rawProtobuf: Value(rawProtobuf),
+      refreshedAt: Value(refreshedAt),
+    );
+  }
+
+  factory FriendGroupEntry.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FriendGroupEntry(
+      serverId: serializer.fromJson<String>(json['serverId']),
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      description: serializer.fromJson<String>(json['description']),
+      workspaceName: serializer.fromJson<String?>(json['workspaceName']),
+      rawProtobuf: serializer.fromJson<Uint8List>(json['rawProtobuf']),
+      refreshedAt: serializer.fromJson<DateTime>(json['refreshedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'serverId': serializer.toJson<String>(serverId),
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'description': serializer.toJson<String>(description),
+      'workspaceName': serializer.toJson<String?>(workspaceName),
+      'rawProtobuf': serializer.toJson<Uint8List>(rawProtobuf),
+      'refreshedAt': serializer.toJson<DateTime>(refreshedAt),
+    };
+  }
+
+  FriendGroupEntry copyWith({
+    String? serverId,
+    String? id,
+    String? name,
+    String? description,
+    Value<String?> workspaceName = const Value.absent(),
+    Uint8List? rawProtobuf,
+    DateTime? refreshedAt,
+  }) => FriendGroupEntry(
+    serverId: serverId ?? this.serverId,
+    id: id ?? this.id,
+    name: name ?? this.name,
+    description: description ?? this.description,
+    workspaceName: workspaceName.present
+        ? workspaceName.value
+        : this.workspaceName,
+    rawProtobuf: rawProtobuf ?? this.rawProtobuf,
+    refreshedAt: refreshedAt ?? this.refreshedAt,
+  );
+  FriendGroupEntry copyWithCompanion(FriendGroupEntriesCompanion data) {
+    return FriendGroupEntry(
+      serverId: data.serverId.present ? data.serverId.value : this.serverId,
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
+      workspaceName: data.workspaceName.present
+          ? data.workspaceName.value
+          : this.workspaceName,
+      rawProtobuf: data.rawProtobuf.present
+          ? data.rawProtobuf.value
+          : this.rawProtobuf,
+      refreshedAt: data.refreshedAt.present
+          ? data.refreshedAt.value
+          : this.refreshedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FriendGroupEntry(')
+          ..write('serverId: $serverId, ')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('description: $description, ')
+          ..write('workspaceName: $workspaceName, ')
+          ..write('rawProtobuf: $rawProtobuf, ')
+          ..write('refreshedAt: $refreshedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    serverId,
+    id,
+    name,
+    description,
+    workspaceName,
+    $driftBlobEquality.hash(rawProtobuf),
+    refreshedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FriendGroupEntry &&
+          other.serverId == this.serverId &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.description == this.description &&
+          other.workspaceName == this.workspaceName &&
+          $driftBlobEquality.equals(other.rawProtobuf, this.rawProtobuf) &&
+          other.refreshedAt == this.refreshedAt);
+}
+
+class FriendGroupEntriesCompanion extends UpdateCompanion<FriendGroupEntry> {
+  final Value<String> serverId;
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String> description;
+  final Value<String?> workspaceName;
+  final Value<Uint8List> rawProtobuf;
+  final Value<DateTime> refreshedAt;
+  final Value<int> rowid;
+  const FriendGroupEntriesCompanion({
+    this.serverId = const Value.absent(),
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.description = const Value.absent(),
+    this.workspaceName = const Value.absent(),
+    this.rawProtobuf = const Value.absent(),
+    this.refreshedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  FriendGroupEntriesCompanion.insert({
+    required String serverId,
+    required String id,
+    required String name,
+    required String description,
+    this.workspaceName = const Value.absent(),
+    required Uint8List rawProtobuf,
+    required DateTime refreshedAt,
+    this.rowid = const Value.absent(),
+  }) : serverId = Value(serverId),
+       id = Value(id),
+       name = Value(name),
+       description = Value(description),
+       rawProtobuf = Value(rawProtobuf),
+       refreshedAt = Value(refreshedAt);
+  static Insertable<FriendGroupEntry> custom({
+    Expression<String>? serverId,
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? description,
+    Expression<String>? workspaceName,
+    Expression<Uint8List>? rawProtobuf,
+    Expression<DateTime>? refreshedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (serverId != null) 'server_id': serverId,
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (description != null) 'description': description,
+      if (workspaceName != null) 'workspace_name': workspaceName,
+      if (rawProtobuf != null) 'raw_protobuf': rawProtobuf,
+      if (refreshedAt != null) 'refreshed_at': refreshedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  FriendGroupEntriesCompanion copyWith({
+    Value<String>? serverId,
+    Value<String>? id,
+    Value<String>? name,
+    Value<String>? description,
+    Value<String?>? workspaceName,
+    Value<Uint8List>? rawProtobuf,
+    Value<DateTime>? refreshedAt,
+    Value<int>? rowid,
+  }) {
+    return FriendGroupEntriesCompanion(
+      serverId: serverId ?? this.serverId,
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      workspaceName: workspaceName ?? this.workspaceName,
+      rawProtobuf: rawProtobuf ?? this.rawProtobuf,
+      refreshedAt: refreshedAt ?? this.refreshedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (serverId.present) {
+      map['server_id'] = Variable<String>(serverId.value);
+    }
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
+    if (workspaceName.present) {
+      map['workspace_name'] = Variable<String>(workspaceName.value);
+    }
+    if (rawProtobuf.present) {
+      map['raw_protobuf'] = Variable<Uint8List>(rawProtobuf.value);
+    }
+    if (refreshedAt.present) {
+      map['refreshed_at'] = Variable<DateTime>(refreshedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FriendGroupEntriesCompanion(')
+          ..write('serverId: $serverId, ')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('description: $description, ')
+          ..write('workspaceName: $workspaceName, ')
+          ..write('rawProtobuf: $rawProtobuf, ')
+          ..write('refreshedAt: $refreshedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2122,6 +3049,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $SyncStatesTable syncStates = $SyncStatesTable(this);
   late final $WorkspaceChatEntriesTable workspaceChatEntries =
       $WorkspaceChatEntriesTable(this);
+  late final $FriendEntriesTable friendEntries = $FriendEntriesTable(this);
+  late final $FriendGroupEntriesTable friendGroupEntries =
+      $FriendGroupEntriesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2132,6 +3062,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     workspaceEntries,
     syncStates,
     workspaceChatEntries,
+    friendEntries,
+    friendGroupEntries,
   ];
 }
 
@@ -3248,6 +4180,492 @@ typedef $$WorkspaceChatEntriesTableProcessedTableManager =
       WorkspaceChatEntry,
       PrefetchHooks Function()
     >;
+typedef $$FriendEntriesTableCreateCompanionBuilder =
+    FriendEntriesCompanion Function({
+      required String serverId,
+      required String id,
+      required String peerPublicKey,
+      Value<String?> workspaceName,
+      required Uint8List rawProtobuf,
+      required DateTime refreshedAt,
+      Value<int> rowid,
+    });
+typedef $$FriendEntriesTableUpdateCompanionBuilder =
+    FriendEntriesCompanion Function({
+      Value<String> serverId,
+      Value<String> id,
+      Value<String> peerPublicKey,
+      Value<String?> workspaceName,
+      Value<Uint8List> rawProtobuf,
+      Value<DateTime> refreshedAt,
+      Value<int> rowid,
+    });
+
+class $$FriendEntriesTableFilterComposer
+    extends Composer<_$AppDatabase, $FriendEntriesTable> {
+  $$FriendEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get peerPublicKey => $composableBuilder(
+    column: $table.peerPublicKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get workspaceName => $composableBuilder(
+    column: $table.workspaceName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<Uint8List> get rawProtobuf => $composableBuilder(
+    column: $table.rawProtobuf,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get refreshedAt => $composableBuilder(
+    column: $table.refreshedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$FriendEntriesTableOrderingComposer
+    extends Composer<_$AppDatabase, $FriendEntriesTable> {
+  $$FriendEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get peerPublicKey => $composableBuilder(
+    column: $table.peerPublicKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get workspaceName => $composableBuilder(
+    column: $table.workspaceName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<Uint8List> get rawProtobuf => $composableBuilder(
+    column: $table.rawProtobuf,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get refreshedAt => $composableBuilder(
+    column: $table.refreshedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$FriendEntriesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FriendEntriesTable> {
+  $$FriendEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get serverId =>
+      $composableBuilder(column: $table.serverId, builder: (column) => column);
+
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get peerPublicKey => $composableBuilder(
+    column: $table.peerPublicKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get workspaceName => $composableBuilder(
+    column: $table.workspaceName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<Uint8List> get rawProtobuf => $composableBuilder(
+    column: $table.rawProtobuf,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get refreshedAt => $composableBuilder(
+    column: $table.refreshedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$FriendEntriesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $FriendEntriesTable,
+          FriendEntry,
+          $$FriendEntriesTableFilterComposer,
+          $$FriendEntriesTableOrderingComposer,
+          $$FriendEntriesTableAnnotationComposer,
+          $$FriendEntriesTableCreateCompanionBuilder,
+          $$FriendEntriesTableUpdateCompanionBuilder,
+          (
+            FriendEntry,
+            BaseReferences<_$AppDatabase, $FriendEntriesTable, FriendEntry>,
+          ),
+          FriendEntry,
+          PrefetchHooks Function()
+        > {
+  $$FriendEntriesTableTableManager(_$AppDatabase db, $FriendEntriesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FriendEntriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FriendEntriesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FriendEntriesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> serverId = const Value.absent(),
+                Value<String> id = const Value.absent(),
+                Value<String> peerPublicKey = const Value.absent(),
+                Value<String?> workspaceName = const Value.absent(),
+                Value<Uint8List> rawProtobuf = const Value.absent(),
+                Value<DateTime> refreshedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FriendEntriesCompanion(
+                serverId: serverId,
+                id: id,
+                peerPublicKey: peerPublicKey,
+                workspaceName: workspaceName,
+                rawProtobuf: rawProtobuf,
+                refreshedAt: refreshedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String serverId,
+                required String id,
+                required String peerPublicKey,
+                Value<String?> workspaceName = const Value.absent(),
+                required Uint8List rawProtobuf,
+                required DateTime refreshedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => FriendEntriesCompanion.insert(
+                serverId: serverId,
+                id: id,
+                peerPublicKey: peerPublicKey,
+                workspaceName: workspaceName,
+                rawProtobuf: rawProtobuf,
+                refreshedAt: refreshedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$FriendEntriesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $FriendEntriesTable,
+      FriendEntry,
+      $$FriendEntriesTableFilterComposer,
+      $$FriendEntriesTableOrderingComposer,
+      $$FriendEntriesTableAnnotationComposer,
+      $$FriendEntriesTableCreateCompanionBuilder,
+      $$FriendEntriesTableUpdateCompanionBuilder,
+      (
+        FriendEntry,
+        BaseReferences<_$AppDatabase, $FriendEntriesTable, FriendEntry>,
+      ),
+      FriendEntry,
+      PrefetchHooks Function()
+    >;
+typedef $$FriendGroupEntriesTableCreateCompanionBuilder =
+    FriendGroupEntriesCompanion Function({
+      required String serverId,
+      required String id,
+      required String name,
+      required String description,
+      Value<String?> workspaceName,
+      required Uint8List rawProtobuf,
+      required DateTime refreshedAt,
+      Value<int> rowid,
+    });
+typedef $$FriendGroupEntriesTableUpdateCompanionBuilder =
+    FriendGroupEntriesCompanion Function({
+      Value<String> serverId,
+      Value<String> id,
+      Value<String> name,
+      Value<String> description,
+      Value<String?> workspaceName,
+      Value<Uint8List> rawProtobuf,
+      Value<DateTime> refreshedAt,
+      Value<int> rowid,
+    });
+
+class $$FriendGroupEntriesTableFilterComposer
+    extends Composer<_$AppDatabase, $FriendGroupEntriesTable> {
+  $$FriendGroupEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get workspaceName => $composableBuilder(
+    column: $table.workspaceName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<Uint8List> get rawProtobuf => $composableBuilder(
+    column: $table.rawProtobuf,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get refreshedAt => $composableBuilder(
+    column: $table.refreshedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$FriendGroupEntriesTableOrderingComposer
+    extends Composer<_$AppDatabase, $FriendGroupEntriesTable> {
+  $$FriendGroupEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get workspaceName => $composableBuilder(
+    column: $table.workspaceName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<Uint8List> get rawProtobuf => $composableBuilder(
+    column: $table.rawProtobuf,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get refreshedAt => $composableBuilder(
+    column: $table.refreshedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$FriendGroupEntriesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FriendGroupEntriesTable> {
+  $$FriendGroupEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get serverId =>
+      $composableBuilder(column: $table.serverId, builder: (column) => column);
+
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get workspaceName => $composableBuilder(
+    column: $table.workspaceName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<Uint8List> get rawProtobuf => $composableBuilder(
+    column: $table.rawProtobuf,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get refreshedAt => $composableBuilder(
+    column: $table.refreshedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$FriendGroupEntriesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $FriendGroupEntriesTable,
+          FriendGroupEntry,
+          $$FriendGroupEntriesTableFilterComposer,
+          $$FriendGroupEntriesTableOrderingComposer,
+          $$FriendGroupEntriesTableAnnotationComposer,
+          $$FriendGroupEntriesTableCreateCompanionBuilder,
+          $$FriendGroupEntriesTableUpdateCompanionBuilder,
+          (
+            FriendGroupEntry,
+            BaseReferences<
+              _$AppDatabase,
+              $FriendGroupEntriesTable,
+              FriendGroupEntry
+            >,
+          ),
+          FriendGroupEntry,
+          PrefetchHooks Function()
+        > {
+  $$FriendGroupEntriesTableTableManager(
+    _$AppDatabase db,
+    $FriendGroupEntriesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FriendGroupEntriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FriendGroupEntriesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FriendGroupEntriesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> serverId = const Value.absent(),
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> description = const Value.absent(),
+                Value<String?> workspaceName = const Value.absent(),
+                Value<Uint8List> rawProtobuf = const Value.absent(),
+                Value<DateTime> refreshedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FriendGroupEntriesCompanion(
+                serverId: serverId,
+                id: id,
+                name: name,
+                description: description,
+                workspaceName: workspaceName,
+                rawProtobuf: rawProtobuf,
+                refreshedAt: refreshedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String serverId,
+                required String id,
+                required String name,
+                required String description,
+                Value<String?> workspaceName = const Value.absent(),
+                required Uint8List rawProtobuf,
+                required DateTime refreshedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => FriendGroupEntriesCompanion.insert(
+                serverId: serverId,
+                id: id,
+                name: name,
+                description: description,
+                workspaceName: workspaceName,
+                rawProtobuf: rawProtobuf,
+                refreshedAt: refreshedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$FriendGroupEntriesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $FriendGroupEntriesTable,
+      FriendGroupEntry,
+      $$FriendGroupEntriesTableFilterComposer,
+      $$FriendGroupEntriesTableOrderingComposer,
+      $$FriendGroupEntriesTableAnnotationComposer,
+      $$FriendGroupEntriesTableCreateCompanionBuilder,
+      $$FriendGroupEntriesTableUpdateCompanionBuilder,
+      (
+        FriendGroupEntry,
+        BaseReferences<
+          _$AppDatabase,
+          $FriendGroupEntriesTable,
+          FriendGroupEntry
+        >,
+      ),
+      FriendGroupEntry,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3262,4 +4680,8 @@ class $AppDatabaseManager {
       $$SyncStatesTableTableManager(_db, _db.syncStates);
   $$WorkspaceChatEntriesTableTableManager get workspaceChatEntries =>
       $$WorkspaceChatEntriesTableTableManager(_db, _db.workspaceChatEntries);
+  $$FriendEntriesTableTableManager get friendEntries =>
+      $$FriendEntriesTableTableManager(_db, _db.friendEntries);
+  $$FriendGroupEntriesTableTableManager get friendGroupEntries =>
+      $$FriendGroupEntriesTableTableManager(_db, _db.friendGroupEntries);
 }

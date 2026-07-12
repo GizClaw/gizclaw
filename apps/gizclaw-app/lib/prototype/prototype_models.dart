@@ -157,8 +157,10 @@ class WorkspaceCard {
     required this.workflowName,
     required this.lastActive,
     this.displayName,
+    this.chatroomKind,
   });
 
+  final ChatroomWorkspaceKind? chatroomKind;
   final String? displayName;
   final String name;
   final String workflowName;
@@ -182,6 +184,22 @@ class ChatroomCard {
   final String name;
   final String subtitle;
   final int memberCount;
+}
+
+enum ChatroomWorkspaceKind { direct, group }
+
+class ChatroomWorkspaceMetadata {
+  const ChatroomWorkspaceMetadata({
+    required this.workspaceName,
+    required this.title,
+    required this.kind,
+    this.description = '',
+  });
+
+  final String description;
+  final ChatroomWorkspaceKind kind;
+  final String title;
+  final String workspaceName;
 }
 
 class FriendCard {

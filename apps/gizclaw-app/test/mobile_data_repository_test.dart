@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gizclaw/gizclaw.dart';
 import 'package:gizclaw_app/data/database/app_database.dart';
 import 'package:gizclaw_app/data/repositories/mobile_data_repository.dart';
+import 'package:gizclaw_app/prototype/prototype_models.dart';
 
 void main() {
   test('refreshes workflow and workspace snapshots into Drift', () async {
@@ -26,6 +27,30 @@ void main() {
           workflowName: 'build-helper',
           lastActiveAt: '2026-07-12T00:00:00Z',
         ),
+        Workspace(
+          name: 'social-group-a',
+          workflowName: 'chatroom',
+          parameters: WorkspaceParameters(
+            chatRoomWorkspaceParameters: ChatRoomWorkspaceParameters(
+              mode: ChatRoomMode.CHAT_ROOM_MODE_GROUP,
+            ),
+          ),
+        ),
+      ],
+      friends: [
+        FriendObject(
+          id: 'friend-a',
+          peerPublicKey: 'peer-public-key-a',
+          workspaceName: 'social-direct-a',
+        ),
+      ],
+      friendGroups: [
+        FriendGroupObject(
+          id: 'group-a',
+          name: 'Builder Crew',
+          description: 'Shipping together',
+          workspaceName: 'social-group-a',
+        ),
       ],
     );
 
@@ -40,9 +65,17 @@ void main() {
     expect(workflows.single.name, 'build-helper');
     expect(workflows.single.title, 'Build Helper');
     expect(workflows.single.driverLabel, 'Flowcraft');
-    expect(workspaces.single.name, 'mobile-plan');
-    expect(workspaces.single.title, 'My Mobile Plan');
-    expect(workspaces.single.workflowName, 'build-helper');
+    final mobileWorkspace = workspaces.firstWhere(
+      (workspace) => workspace.name == 'mobile-plan',
+    );
+    expect(mobileWorkspace.title, 'My Mobile Plan');
+    expect(mobileWorkspace.workflowName, 'build-helper');
+    expect(
+      workspaces
+          .firstWhere((workspace) => workspace.name == 'social-group-a')
+          .chatroomKind,
+      ChatroomWorkspaceKind.group,
+    );
     expect(await repository.serverIdForEndpoint('127.0.0.1:23820'), 'server-a');
     expect(await repository.hasWorkflow('server-a', 'build-helper'), isTrue);
     expect(await repository.hasWorkflow('server-a', 'missing'), isFalse);
@@ -54,6 +87,13 @@ void main() {
       'build-helper',
     );
     expect(await repository.workspaceDocument('server-a', 'missing'), isNull);
+    final friendChats = await repository.watchFriendChats('server-a').first;
+    expect(friendChats.single.workspaceName, 'social-direct-a');
+    expect(friendChats.single.title, 'peer-pu...key-a');
+    final groupChats = await repository.watchFriendGroupChats('server-a').first;
+    expect(groupChats.single.workspaceName, 'social-group-a');
+    expect(groupChats.single.title, 'Builder Crew');
+    expect(groupChats.single.description, 'Shipping together');
   });
 
   test('complete refresh removes rows absent from the snapshot', () async {
@@ -91,9 +131,15 @@ void main() {
 }
 
 class _FakeClient extends GizClawClient {
-  _FakeClient({required this.workflows, required this.workspaces})
-    : super(_NeverDataChannelFactory());
+  _FakeClient({
+    required this.workflows,
+    required this.workspaces,
+    this.friends = const [],
+    this.friendGroups = const [],
+  }) : super(_NeverDataChannelFactory());
 
+  final List<FriendGroupObject> friendGroups;
+  final List<FriendObject> friends;
   final List<WorkflowDocument> workflows;
   final List<Workspace> workspaces;
 
@@ -112,6 +158,19 @@ class _FakeClient extends GizClawClient {
     String? prefix,
   }) async {
     return WorkspaceListResponse(items: workspaces);
+  }
+
+  @override
+  Future<FriendListResponse> listFriends({String? cursor, int? limit}) async {
+    return FriendListResponse(items: friends);
+  }
+
+  @override
+  Future<FriendGroupListResponse> listFriendGroups({
+    String? cursor,
+    int? limit,
+  }) async {
+    return FriendGroupListResponse(items: friendGroups);
   }
 }
 

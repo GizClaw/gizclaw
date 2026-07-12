@@ -130,15 +130,24 @@ class DriverWorkspacesPage extends StatelessWidget {
         transitionBetweenRoutes: false,
       ),
       child: SafeArea(
-        child: _DriverWorkspaceList(driver: driver, workspaces: workspaces),
+        child: _DriverWorkspaceList(
+          driver: driver,
+          workspaces: workspaces,
+          chatroomMetadata: data.chatroomWorkspaces,
+        ),
       ),
     );
   }
 }
 
 class _DriverWorkspaceList extends StatelessWidget {
-  const _DriverWorkspaceList({required this.driver, required this.workspaces});
+  const _DriverWorkspaceList({
+    required this.driver,
+    required this.workspaces,
+    required this.chatroomMetadata,
+  });
 
+  final List<ChatroomWorkspaceMetadata> chatroomMetadata;
   final WorkflowDriverKind driver;
   final List<WorkspaceCard> workspaces;
 
@@ -158,17 +167,81 @@ class _DriverWorkspaceList extends StatelessWidget {
       itemCount: workspaces.length,
       itemBuilder: (context, index) {
         final workspace = workspaces[index];
-        return WorkspaceListTile(
-              workspace: workspace,
-              onPressed: () => context.push(
-                '/chats/drivers/${driver.routeKey}/'
-                '${Uri.encodeComponent(workspace.name)}',
-              ),
-            )
+        final metadata = driver == WorkflowDriverKind.chatroom
+            ? _metadataForWorkspace(workspace.name)
+            : null;
+        void onPressed() {
+          context.push(
+            '/chats/drivers/${driver.routeKey}/'
+            '${Uri.encodeComponent(workspace.name)}',
+          );
+        }
+
+        return (driver == WorkflowDriverKind.chatroom
+                ? _ChatroomWorkspaceListTile(
+                    workspace: workspace,
+                    metadata: metadata,
+                    onPressed: onPressed,
+                  )
+                : WorkspaceListTile(workspace: workspace, onPressed: onPressed))
             .animate(delay: (index * 45).ms)
             .fadeIn(duration: 280.ms)
             .slideY(begin: 0.05, end: 0, curve: Curves.easeOutCubic);
       },
+    );
+  }
+
+  ChatroomWorkspaceMetadata? _metadataForWorkspace(String name) {
+    for (final metadata in chatroomMetadata) {
+      if (metadata.workspaceName == name) return metadata;
+    }
+    return null;
+  }
+}
+
+class _ChatroomWorkspaceListTile extends StatelessWidget {
+  const _ChatroomWorkspaceListTile({
+    required this.workspace,
+    required this.metadata,
+    required this.onPressed,
+  });
+
+  final ChatroomWorkspaceMetadata? metadata;
+  final VoidCallback onPressed;
+  final WorkspaceCard workspace;
+
+  @override
+  Widget build(BuildContext context) {
+    final kind = metadata?.kind ?? workspace.chatroomKind;
+    final isDirect = kind == ChatroomWorkspaceKind.direct;
+    final title = metadata?.title.trim();
+    final description = metadata?.description.trim();
+    final typeLabel = switch (kind) {
+      ChatroomWorkspaceKind.direct => 'DIRECT CHAT',
+      ChatroomWorkspaceKind.group => 'GROUP CHAT',
+      null => 'CHATROOM',
+    };
+    return GizListRow(
+      leading: Container(
+        width: 50,
+        height: 50,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isDirect ? const Color(0xFFD9F2EA) : const Color(0xFFDDE8FF),
+          shape: isDirect ? BoxShape.circle : BoxShape.rectangle,
+          borderRadius: isDirect ? null : BorderRadius.circular(8),
+        ),
+        child: Icon(
+          isDirect ? CupertinoIcons.person_fill : CupertinoIcons.person_2_fill,
+          color: isDirect ? const Color(0xFF17795B) : const Color(0xFF315E9D),
+          size: 22,
+        ),
+      ),
+      title: title == null || title.isEmpty ? workspace.title : title,
+      subtitle:
+          '$typeLabel  |  '
+          '${description == null || description.isEmpty ? workspace.lastActive : description}',
+      onPressed: onPressed,
     );
   }
 }
@@ -1036,15 +1109,24 @@ class ChatroomWorkspacePage extends StatelessWidget {
     final data = MobileDataScope.watch(context);
     final workspace = data.workspace(workspaceName);
     final workflow = data.workflow(workspace.workflowName);
+    final metadata = data.chatroomWorkspace(workspaceName);
     return GroupChatPage(
       room: ChatroomCard(
         id: workspace.name,
-        name: workspace.title,
-        subtitle: workflow.title,
+        name: metadata?.title ?? workspace.title,
+        subtitle: _chatroomSubtitle(metadata, workflow.title),
         memberCount: 0,
       ),
     );
   }
+}
+
+String _chatroomSubtitle(ChatroomWorkspaceMetadata? metadata, String fallback) {
+  if (metadata == null) return fallback;
+  if (metadata.kind == ChatroomWorkspaceKind.direct) return 'Direct chat';
+  return metadata.description.trim().isEmpty
+      ? 'Group chat'
+      : metadata.description;
 }
 
 class GroupChatPage extends StatefulWidget {
