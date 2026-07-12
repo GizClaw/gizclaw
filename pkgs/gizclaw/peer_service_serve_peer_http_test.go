@@ -320,7 +320,7 @@ func TestPeerServiceEdgeSignalingRequiresActiveClientPeer(t *testing.T) {
 	}
 }
 
-func TestPeerServiceEdgeLoginBypassesPrivateIngressAuthorizer(t *testing.T) {
+func TestPeerServiceEdgeLoginRequiresActiveClientBeforeBypass(t *testing.T) {
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {
 		t.Fatalf("GenerateKeyPair(server) error = %v", err)
@@ -357,18 +357,30 @@ func TestPeerServiceEdgeLoginBypassesPrivateIngressAuthorizer(t *testing.T) {
 	}
 	handler := service.edgeHTTPHandler(service.sessions)
 
-	assertion, err := publiclogin.NewLoginAssertion(clientKey, serverKey.Public, time.Minute)
-	if err != nil {
-		t.Fatalf("NewLoginAssertion error = %v", err)
+	login := func(t *testing.T, keyPair *giznet.KeyPair) int {
+		t.Helper()
+		assertion, err := publiclogin.NewLoginAssertion(keyPair, serverKey.Public, time.Minute)
+		if err != nil {
+			t.Fatalf("NewLoginAssertion error = %v", err)
+		}
+		req := httptest.NewRequest(http.MethodPost, "/login", nil)
+		req.Header.Set(publiclogin.PublicKeyHeader, keyPair.Public.String())
+		req.Header.Set("Authorization", "Bearer "+assertion)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		return rec.Code
 	}
-	req := httptest.NewRequest(http.MethodPost, "/login", nil)
-	req.Header.Set(publiclogin.PublicKeyHeader, clientKey.Public.String())
-	req.Header.Set("Authorization", "Bearer "+assertion)
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf("edge login status = %d body=%s, want %d", rec.Code, rec.Body.String(), http.StatusOK)
+	if got := login(t, clientKey); got != http.StatusOK {
+		t.Fatalf("active edge login status = %d, want %d", got, http.StatusOK)
+	}
+
+	unregisteredKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(unregistered) error = %v", err)
+	}
+	if got := login(t, unregisteredKey); got != http.StatusUnauthorized {
+		t.Fatalf("unregistered edge login status = %d, want %d", got, http.StatusUnauthorized)
 	}
 }
 

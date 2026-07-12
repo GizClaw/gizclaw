@@ -270,6 +270,32 @@ func TestWebRTCListenConfigUsesRelayOnlyWithICEServers(t *testing.T) {
 	}
 }
 
+func TestWebRTCListenConfigMintsTURNRESTCredentials(t *testing.T) {
+	now := time.Unix(1_700_000_000, 0)
+	servers := serverListenICEServersAt([]gizwebrtc.ICEServer{{
+		URLs:           []string{"turn:edge.example.com:3478?transport=udp"},
+		Username:       "edge",
+		Credential:     "long-term-secret",
+		CredentialMode: gizwebrtc.ICECredentialModeTURNREST,
+	}}, now)
+	if len(servers) != 1 {
+		t.Fatalf("servers len = %d, want 1", len(servers))
+	}
+	got := servers[0]
+	if got.Username != "1700000600:edge" {
+		t.Fatalf("username = %q, want short-lived REST username", got.Username)
+	}
+	if got.Credential == "" || got.Credential == "long-term-secret" {
+		t.Fatalf("credential = %q, want minted credential", got.Credential)
+	}
+	if want := turnRESTCredential("long-term-secret", got.Username); got.Credential != want {
+		t.Fatalf("credential = %q, want %q", got.Credential, want)
+	}
+	if got.CredentialMode != gizwebrtc.ICECredentialModeStatic {
+		t.Fatalf("CredentialMode = %q, want static", got.CredentialMode)
+	}
+}
+
 func TestWebRTCListenConfigKeepsDefaultPolicyWithSTUNOnlyICEServers(t *testing.T) {
 	cfg := webRTCListenConfig(Config{
 		Listen:   "0.0.0.0:9820",

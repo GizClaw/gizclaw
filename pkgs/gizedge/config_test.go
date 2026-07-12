@@ -571,7 +571,7 @@ func TestEdgeProxyRewritesServerInfoEndpoint(t *testing.T) {
 		return &http.Response{
 			StatusCode: http.StatusOK,
 			Header:     http.Header{"Content-Type": []string{"application/json"}},
-			Body:       io.NopCloser(strings.NewReader(`{"endpoint":"server.internal:9820","public_key":"server-key","ice_servers":[{"urls":["turn:edge.example.com:3478"]}]}`)),
+			Body:       io.NopCloser(strings.NewReader(`{"endpoint":"server.internal:9820","public_key":"server-key","signaling_path":"/custom/offer","ice_servers":[{"urls":["turn:edge.example.com:3478"]}]}`)),
 			Request:    req,
 		}, nil
 	}))
@@ -589,6 +589,9 @@ func TestEdgeProxyRewritesServerInfoEndpoint(t *testing.T) {
 	}
 	if got := body["endpoint"]; got != "edge.example.com:9821" {
 		t.Fatalf("endpoint = %q, want edge.example.com:9821", got)
+	}
+	if got := body["signaling_path"]; got != gizwebrtc.SignalingPath {
+		t.Fatalf("signaling_path = %q, want %q", got, gizwebrtc.SignalingPath)
 	}
 	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "*" {
 		t.Fatalf("Access-Control-Allow-Origin = %q, want *", got)

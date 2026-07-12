@@ -378,6 +378,7 @@ func rewriteServerInfoEndpoint(resp *http.Response, edgeEndpoint string) error {
 		return err
 	}
 	body["endpoint"] = edgeEndpoint
+	body["signaling_path"] = gizwebrtc.SignalingPath
 	rewritten, err := json.Marshal(body)
 	if err != nil {
 		return err

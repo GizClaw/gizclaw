@@ -2,10 +2,14 @@ package server
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha1"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -384,12 +388,13 @@ func bootstrapEdgeNodes(ctx context.Context, peers *runtimepeer.Server, publicKe
 
 func webRTCListenConfig(cfg Config, opts gizclaw.PeerListenerOptions, iceTCPListener net.Listener) gizwebrtc.ListenConfig {
 	publicAddr := publicICEAddr(cfg)
+	iceServers := serverListenICEServersAt(cfg.ICEServers, time.Now())
 	listenConfig := gizwebrtc.ListenConfig{
 		ICEUDPAddr:       cfg.ICEListenAddr(),
 		ICETCPListener:   iceTCPListener,
 		PublicICEUDPAddr: publicAddr,
 		PublicICETCPAddr: publicAddr,
-		ICEServers:       cfg.ICEServers,
+		ICEServers:       iceServers,
 		SecurityPolicy:   opts.SecurityPolicy,
 		PeerEventHandler: opts.PeerEventHandler,
 	}
@@ -397,6 +402,37 @@ func webRTCListenConfig(cfg Config, opts gizclaw.PeerListenerOptions, iceTCPList
 		listenConfig.ICETransportPolicy = webrtc.ICETransportPolicyRelay
 	}
 	return listenConfig
+}
+
+func serverListenICEServersAt(servers []gizwebrtc.ICEServer, now time.Time) []gizwebrtc.ICEServer {
+	if len(servers) == 0 {
+		return nil
+	}
+	out := make([]gizwebrtc.ICEServer, 0, len(servers))
+	for _, server := range servers {
+		next := server
+		if server.CredentialMode == gizwebrtc.ICECredentialModeTURNREST {
+			next.Username = turnRESTUsername(now.Add(10*time.Minute), server.Username)
+			next.Credential = turnRESTCredential(server.Credential, next.Username)
+			next.CredentialMode = gizwebrtc.ICECredentialModeStatic
+		}
+		out = append(out, next)
+	}
+	return out
+}
+
+func turnRESTUsername(expiresAt time.Time, configuredUsername string) string {
+	expires := strconv.FormatInt(expiresAt.Unix(), 10)
+	if configuredUsername == "" {
+		return expires
+	}
+	return expires + ":" + configuredUsername
+}
+
+func turnRESTCredential(secret, username string) string {
+	mac := hmac.New(sha1.New, []byte(secret))
+	_, _ = mac.Write([]byte(username))
+	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
 }
 
 func publicICEAddr(cfg Config) string {

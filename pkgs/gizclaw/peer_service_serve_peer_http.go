@@ -80,9 +80,17 @@ type loginWithoutAuthorizer interface {
 
 type edgeLoginPeerHTTP struct {
 	publiclogin.PeerHTTP
+	allowClientPeer func(context.Context, giznet.PublicKey) bool
 }
 
 func (h edgeLoginPeerHTTP) Login(ctx context.Context, request peerhttp.LoginRequestObject) (peerhttp.LoginResponseObject, error) {
+	var publicKey giznet.PublicKey
+	if err := publicKey.UnmarshalText([]byte(request.Params.XPublicKey)); err != nil || publicKey.IsZero() {
+		return peerhttp.Login401JSONResponse(apitypes.NewErrorResponse("INVALID_PUBLIC_KEY", "invalid X-Public-Key")), nil
+	}
+	if h.allowClientPeer == nil || !h.allowClientPeer(ctx, publicKey) {
+		return peerhttp.Login401JSONResponse(apitypes.NewErrorResponse("EDGE_CLIENT_REQUIRED", "edge public HTTP only proxies active client peers")), nil
+	}
 	if login, ok := h.PeerHTTP.(loginWithoutAuthorizer); ok {
 		return login.LoginWithoutAuthorizer(ctx, request)
 	}
@@ -92,7 +100,10 @@ func (h edgeLoginPeerHTTP) Login(ctx context.Context, request peerhttp.LoginRequ
 func (s *PeerService) edgeLoginHTTPHandler(sessions *publiclogin.SessionManager) http.Handler {
 	var login publiclogin.PeerHTTP
 	if s != nil && s.public != nil && s.public.PeerHTTP != nil {
-		login = edgeLoginPeerHTTP{PeerHTTP: s.public.PeerHTTP}
+		login = edgeLoginPeerHTTP{
+			PeerHTTP:        s.public.PeerHTTP,
+			allowClientPeer: s.allowEdgeClientPeer,
+		}
 	}
 	return s.publicHTTPHandlerWithOptions(sessions, publicHTTPOptions{
 		requireClientPeer: true,
