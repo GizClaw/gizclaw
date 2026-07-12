@@ -2,9 +2,13 @@ package peer
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha1"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/url"
+	"strconv"
 	"sync"
 	"time"
 
@@ -23,8 +27,9 @@ var (
 )
 
 const (
-	defaultListLimit = 50
-	maxListLimit     = 200
+	defaultListLimit  = 50
+	maxListLimit      = 200
+	turnCredentialTTL = 10 * time.Minute
 )
 
 type PeerManager interface {
@@ -332,11 +337,19 @@ func (s *Server) GetServerInfo(_ context.Context, _ peerhttp.GetServerInfoReques
 		PublicKey:     s.ServerPublicKey.String(),
 		ServerTime:    time.Now().UnixMilli(),
 		SignalingPath: signalingPath,
-		IceServers:    serverInfoICEServers(s.ICEServers),
+		IceServers:    serverInfoICEServersAt(s.ICEServers, time.Now()),
 	}), nil
 }
 
 func serverInfoICEServers(servers []gizwebrtc.ICEServer) *[]struct {
+	Credential *string  `json:"credential,omitempty"`
+	Urls       []string `json:"urls"`
+	Username   *string  `json:"username,omitempty"`
+} {
+	return serverInfoICEServersAt(servers, time.Now())
+}
+
+func serverInfoICEServersAt(servers []gizwebrtc.ICEServer, now time.Time) *[]struct {
 	Credential *string  `json:"credential,omitempty"`
 	Urls       []string `json:"urls"`
 	Username   *string  `json:"username,omitempty"`
@@ -357,15 +370,31 @@ func serverInfoICEServers(servers []gizwebrtc.ICEServer) *[]struct {
 		}{
 			Urls: server.URLs,
 		}
-		if server.Username != "" {
-			item.Username = &server.Username
-		}
 		if server.Credential != "" {
-			item.Credential = &server.Credential
+			username := turnRESTUsername(now.Add(turnCredentialTTL), server.Username)
+			credential := turnRESTCredential(server.Credential, username)
+			item.Username = &username
+			item.Credential = &credential
+		} else if server.Username != "" {
+			item.Username = &server.Username
 		}
 		out = append(out, item)
 	}
 	return &out
+}
+
+func turnRESTUsername(expiresAt time.Time, configuredUsername string) string {
+	expires := strconv.FormatInt(expiresAt.Unix(), 10)
+	if configuredUsername == "" {
+		return expires
+	}
+	return expires + ":" + configuredUsername
+}
+
+func turnRESTCredential(secret, username string) string {
+	mac := hmac.New(sha1.New, []byte(secret))
+	_, _ = mac.Write([]byte(username))
+	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
 }
 
 func pathUnescape(value string) (string, error) {

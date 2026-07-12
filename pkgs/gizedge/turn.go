@@ -1,10 +1,15 @@
 package gizedge
 
 import (
+	"crypto/hmac"
+	"crypto/sha1"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pion/turn/v4"
 )
@@ -43,10 +48,7 @@ func startTURN(cfg TURNConfig) (*turnRuntime, error) {
 	server, err := turn.NewServer(turn.ServerConfig{
 		Realm: cfg.Realm,
 		AuthHandler: func(username, realm string, _ net.Addr) ([]byte, bool) {
-			if username != cfg.Username || realm != cfg.Realm {
-				return nil, false
-			}
-			return turn.GenerateAuthKey(username, realm, cfg.Credential), true
+			return turnAuthKey(cfg, username, realm, time.Now())
 		},
 		PacketConnConfigs: []turn.PacketConnConfig{
 			{
@@ -66,6 +68,41 @@ func startTURN(cfg TURNConfig) (*turnRuntime, error) {
 	}
 	runtime.server = server
 	return runtime, nil
+}
+
+func turnAuthKey(cfg TURNConfig, username, realm string, now time.Time) ([]byte, bool) {
+	if realm != cfg.Realm {
+		return nil, false
+	}
+	if username == cfg.Username {
+		return turn.GenerateAuthKey(username, realm, cfg.Credential), true
+	}
+	if credential, ok := turnRESTCredential(cfg, username, now); ok {
+		return turn.GenerateAuthKey(username, realm, credential), true
+	}
+	return nil, false
+}
+
+func turnRESTCredential(cfg TURNConfig, username string, now time.Time) (string, bool) {
+	username = strings.TrimSpace(username)
+	if username == "" || strings.TrimSpace(cfg.Credential) == "" {
+		return "", false
+	}
+	parts := strings.SplitN(username, ":", 2)
+	if strings.TrimSpace(cfg.Username) != "" {
+		if len(parts) != 2 || parts[1] != cfg.Username {
+			return "", false
+		}
+	} else if len(parts) != 1 {
+		return "", false
+	}
+	expires, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil || expires < now.Unix() {
+		return "", false
+	}
+	mac := hmac.New(sha1.New, []byte(cfg.Credential))
+	_, _ = mac.Write([]byte(username))
+	return base64.StdEncoding.EncodeToString(mac.Sum(nil)), true
 }
 
 func turnRelayBindAddress(listen string) (string, error) {

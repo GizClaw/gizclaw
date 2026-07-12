@@ -1,6 +1,7 @@
 package gizedge
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -21,6 +22,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	"github.com/pion/turn/v4"
 )
 
 func TestPrepareWorkspaceConfigLoadsStaticUpstream(t *testing.T) {
@@ -702,6 +704,34 @@ func TestTURNRelayBindAddressFollowsListenHost(t *testing.T) {
 				t.Fatalf("turnRelayBindAddress = %q, want %q", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestTURNAcceptsShortLivedRESTCredentials(t *testing.T) {
+	cfg := TURNConfig{
+		Realm:      "gizclaw-e2e",
+		Username:   "edge",
+		Credential: "shared-secret",
+	}
+	now := time.Unix(1_700_000_000, 0)
+	username := "1700000060:edge"
+	credential, ok := turnRESTCredential(cfg, username, now)
+	if !ok {
+		t.Fatal("turnRESTCredential rejected fresh credential")
+	}
+	key, ok := turnAuthKey(cfg, username, cfg.Realm, now)
+	if !ok {
+		t.Fatal("turnAuthKey rejected fresh credential")
+	}
+	want := turn.GenerateAuthKey(username, cfg.Realm, credential)
+	if !bytes.Equal(key, want) {
+		t.Fatalf("auth key = %x, want %x", key, want)
+	}
+	if _, ok := turnAuthKey(cfg, "1699999999:edge", cfg.Realm, now); ok {
+		t.Fatal("expired credential was accepted")
+	}
+	if _, ok := turnAuthKey(cfg, username, "other-realm", now); ok {
+		t.Fatal("wrong realm was accepted")
 	}
 }
 

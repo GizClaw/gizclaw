@@ -132,6 +132,19 @@ func (s *PeerService) publicHTTPHandlerWithOptions(sessions *publiclogin.Session
 		}
 		base = withPeerHTTPContentType(base, ctx.Get(fiber.HeaderContentType))
 		ctx.SetUserContext(base)
+		if opts.requireClientPeer && ctx.Method() == http.MethodPost && ctx.Path() == "/webrtc/v1/offer" {
+			publicKey, ok := s.edgeSignalingPublicKey(ctx)
+			if !ok {
+				return nil
+			}
+			if !s.allowEdgeClientPeer(ctx.UserContext(), publicKey) {
+				ctx.Status(http.StatusForbidden)
+				_ = ctx.JSON(apitypes.NewErrorResponse("EDGE_CLIENT_REQUIRED", "edge public HTTP only proxies active client peers"))
+				return nil
+			}
+			ctx.SetUserContext(peerhttp.WithCallerPublicKey(base, publicKey))
+			return ctx.Next()
+		}
 		if isUnauthenticatedPeerHTTPRoute(ctx.Method(), ctx.Path()) {
 			return ctx.Next()
 		}
@@ -166,6 +179,19 @@ func (s *PeerService) allowEdgeClientPeer(ctx context.Context, publicKey giznet.
 		return false
 	}
 	return peer.Status == apitypes.PeerRegistrationStatusActive && peer.Role == apitypes.PeerRoleClient
+}
+
+func (s *PeerService) edgeSignalingPublicKey(ctx *fiber.Ctx) (giznet.PublicKey, bool) {
+	var publicKey giznet.PublicKey
+	if ctx == nil {
+		return publicKey, false
+	}
+	if err := publicKey.UnmarshalText([]byte(ctx.Get("X-Giznet-Public-Key"))); err != nil || publicKey.IsZero() {
+		ctx.Status(http.StatusBadRequest)
+		_ = ctx.JSON(apitypes.NewErrorResponse("INVALID_PUBLIC_KEY", "invalid X-Giznet-Public-Key"))
+		return giznet.PublicKey{}, false
+	}
+	return publicKey, true
 }
 
 func setPeerHTTPCORSHeaders(ctx *fiber.Ctx) {

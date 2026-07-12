@@ -237,6 +237,74 @@ func TestPeerServiceEdgePublicRequiresActiveClientPeer(t *testing.T) {
 	}
 }
 
+func TestPeerServiceEdgeSignalingRequiresActiveClientPeer(t *testing.T) {
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(server) error = %v", err)
+	}
+	peersServer := &peer.Server{
+		Store:           mustBadgerInMemory(t, nil),
+		BuildCommit:     "test-build",
+		ServerPublicKey: serverKey.Public,
+	}
+	loginServer := publiclogin.NewServer(serverKey, mustBadgerInMemory(t, nil))
+	service := &PeerService{
+		manager:  NewManager(peersServer),
+		sessions: loginServer.SessionManager(),
+		public: &peerHTTP{
+			PeerHTTPService: peersServer,
+			Self:            peersServer,
+		},
+	}
+	handler := service.edgePublicHTTPHandler(service.sessions)
+
+	tests := []struct {
+		name       string
+		role       apitypes.PeerRole
+		status     apitypes.PeerRegistrationStatus
+		wantStatus int
+	}{
+		{name: "client passes edge gate", role: apitypes.PeerRoleClient, status: apitypes.PeerRegistrationStatusActive, wantStatus: http.StatusBadRequest},
+		{name: "admin forbidden", role: apitypes.PeerRoleAdmin, status: apitypes.PeerRegistrationStatusActive, wantStatus: http.StatusForbidden},
+		{name: "server forbidden", role: apitypes.PeerRoleServer, status: apitypes.PeerRegistrationStatusActive, wantStatus: http.StatusForbidden},
+		{name: "edge forbidden", role: apitypes.PeerRoleEdgeNode, status: apitypes.PeerRegistrationStatusActive, wantStatus: http.StatusForbidden},
+		{name: "blocked client forbidden", role: apitypes.PeerRoleClient, status: apitypes.PeerRegistrationStatusBlocked, wantStatus: http.StatusForbidden},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			keyPair, err := giznet.GenerateKeyPair()
+			if err != nil {
+				t.Fatalf("GenerateKeyPair(peer) error = %v", err)
+			}
+			if _, err := peersServer.SavePeer(context.Background(), apitypes.Peer{
+				PublicKey:     keyPair.Public.String(),
+				Role:          tc.role,
+				Status:        tc.status,
+				Device:        apitypes.DeviceInfo{},
+				Configuration: apitypes.Configuration{},
+			}); err != nil {
+				t.Fatalf("SavePeer error = %v", err)
+			}
+
+			req := httptest.NewRequest(http.MethodPost, "/webrtc/v1/offer", strings.NewReader("offer"))
+			req.Header.Set("X-Giznet-Public-Key", keyPair.Public.String())
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+
+			if rec.Code != tc.wantStatus {
+				t.Fatalf("status = %d body=%s, want %d", rec.Code, rec.Body.String(), tc.wantStatus)
+			}
+		})
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/webrtc/v1/offer", strings.NewReader("offer"))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("missing public key status = %d body=%s, want %d", rec.Code, rec.Body.String(), http.StatusBadRequest)
+	}
+}
+
 func TestPeerServiceEdgeLoginBypassesPrivateIngressAuthorizer(t *testing.T) {
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {
