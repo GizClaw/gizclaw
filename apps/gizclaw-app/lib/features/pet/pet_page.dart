@@ -7,6 +7,7 @@ import 'package:gizclaw/gizclaw.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../data/mobile_data_controller.dart';
+import '../../data/workspace_chat_controller.dart';
 import '../../giz_ui/giz_ui.dart';
 import '../../pixa_sprite.dart';
 
@@ -228,6 +229,8 @@ class PetDetailPage extends StatefulWidget {
 
 class _PetDetailPageState extends State<PetDetailPage> {
   GizClawClient? _client;
+  WorkspaceChatController? _chat;
+  String? _chatWorkspaceName;
   Pet? _pet;
   PetPresentation? _presentation;
   PixaAsset? _pixa;
@@ -246,6 +249,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
         ? data.connection.client
         : null;
     if (identical(client, _client)) return;
+    _replaceChat(null);
     _client = client;
     _request += 1;
     if (client == null) {
@@ -257,16 +261,33 @@ class _PetDetailPageState extends State<PetDetailPage> {
       });
       return;
     }
-    unawaited(_load());
+    unawaited(_load(data));
   }
 
   @override
   void dispose() {
     _request += 1;
+    _replaceChat(null);
     super.dispose();
   }
 
-  Future<void> _load() async {
+  void _handleChatChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _replaceChat(WorkspaceChatController? chat, [String? workspaceName]) {
+    if (identical(chat, _chat)) return;
+    _chat?.removeListener(_handleChatChanged);
+    _chat?.dispose();
+    _chat = chat;
+    _chatWorkspaceName = workspaceName;
+    if (chat != null) {
+      chat.addListener(_handleChatChanged);
+      unawaited(chat.start());
+    }
+  }
+
+  Future<void> _load(MobileDataController data) async {
     final client = _client;
     if (client == null || _loading) return;
     final request = ++_request;
@@ -287,6 +308,12 @@ class _PetDetailPageState extends State<PetDetailPage> {
         pixaError = error;
       }
       if (!mounted || request != _request) return;
+      if (_chatWorkspaceName != pet.workspaceName) {
+        _replaceChat(
+          data.createWorkspaceChat(pet.workspaceName),
+          pet.workspaceName,
+        );
+      }
       setState(() {
         _pet = pet;
         _presentation = presentation;
@@ -358,7 +385,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
       return _PetDetailMessage(
         message: _error == null ? 'Pet not found.' : _petError(_error!),
         loading: false,
-        onRetry: _load,
+        onRetry: () => _load(MobileDataScope.watch(context)),
       );
     }
 
@@ -373,12 +400,21 @@ class _PetDetailPageState extends State<PetDetailPage> {
         (_presentation?.drive.actions ?? const <PetPresentationActionSpec>[])
             .where((action) => action.id.toLowerCase() != 'idle')
             .toList();
+    final chat = _chat;
+    final messages = chat?.messages ?? const <WorkspaceChatMessage>[];
     return CupertinoPageScaffold(
       backgroundColor: _petDetailBackground,
       child: Stack(
         fit: StackFit.expand,
         children: [
           const Positioned.fill(child: _PetMosaicBackground()),
+          Positioned(
+            left: 14,
+            right: 14,
+            top: MediaQuery.paddingOf(context).top + 86,
+            bottom: MediaQuery.paddingOf(context).bottom + 106,
+            child: _PetConversationDrift(messages: messages),
+          ),
           Positioned(
             left: 18,
             top: MediaQuery.paddingOf(context).top + 12,
@@ -403,7 +439,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
             left: 20,
             right: 20,
             top: MediaQuery.paddingOf(context).top + 76,
-            bottom: MediaQuery.paddingOf(context).bottom + 86,
+            bottom: MediaQuery.paddingOf(context).bottom + 106,
             child: SingleChildScrollView(
               child: _PetGameConsole(
                 pixa: _pixa,
@@ -416,7 +452,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
             Positioned(
               left: 72,
               right: 18,
-              bottom: MediaQuery.paddingOf(context).bottom + 22,
+              bottom: MediaQuery.paddingOf(context).bottom + 108,
               child: _PetErrorToast(error: _petError(_error!)),
             ),
           Positioned(
@@ -431,7 +467,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
           ),
           Positioned(
             right: 18,
-            bottom: MediaQuery.paddingOf(context).bottom + 86,
+            bottom: MediaQuery.paddingOf(context).bottom + 106,
             width: 158,
             child: IgnorePointer(
               ignoring: !_statusVisible,
@@ -466,7 +502,104 @@ class _PetDetailPageState extends State<PetDetailPage> {
               onPressed: () => setState(() => _statusVisible = !_statusVisible),
             ),
           ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: MediaQuery.paddingOf(context).bottom + 8,
+            child: Center(child: _PetVoiceFab(chat: chat)),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _PetConversationDrift extends StatelessWidget {
+  const _PetConversationDrift({required this.messages});
+
+  final List<WorkspaceChatMessage> messages;
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = messages
+        .where((message) => message.text.trim().isNotEmpty)
+        .toList(growable: false)
+        .reversed
+        .take(6)
+        .toList(growable: false);
+    return IgnorePointer(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              for (var index = 0; index < visible.length; index++)
+                AnimatedPositioned(
+                  key: ValueKey(visible[index].id),
+                  duration: const Duration(milliseconds: 520),
+                  curve: Curves.easeOutCubic,
+                  left: visible[index].incoming
+                      ? 0
+                      : constraints.maxWidth * 0.25,
+                  right: visible[index].incoming
+                      ? constraints.maxWidth * 0.23
+                      : 0,
+                  bottom: 30 + index * 72,
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 18, end: 0),
+                    duration: const Duration(milliseconds: 460),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, offset, child) => Transform.translate(
+                      offset: Offset(0, offset),
+                      child: child,
+                    ),
+                    child: AnimatedOpacity(
+                      opacity: (0.72 - index * 0.11).clamp(0.14, 0.72),
+                      duration: const Duration(milliseconds: 520),
+                      curve: Curves.easeOutCubic,
+                      child: _PetDriftingMessage(message: visible[index]),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _PetDriftingMessage extends StatelessWidget {
+  const _PetDriftingMessage({required this.message});
+
+  final WorkspaceChatMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    return GizSquircle(
+      borderRadius: BorderRadius.circular(12),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 9, sigmaY: 9),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: message.incoming
+                ? const Color(0x8CFFFFFF)
+                : const Color(0x8C18342D),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            child: Text(
+              message.text.trim(),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: GizText.body.copyWith(
+                color: message.incoming ? GizColors.ink : GizColors.surface,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -640,70 +773,195 @@ class _PetCoverCard extends StatelessWidget {
     return GizPressable(
       onPressed: onPressed,
       borderRadius: BorderRadius.circular(12),
-      scaleWhenPressed: 0.985,
+      scaleWhenPressed: 0.975,
       child: AspectRatio(
-        aspectRatio: compact ? 0.78 : 1.08,
-        child: ClipRRect(
+        aspectRatio: compact ? 0.78 : 0.86,
+        child: GizSquircle(
           borderRadius: BorderRadius.circular(12),
-          child: ColoredBox(
-            color: _petSceneColor,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Positioned(
-                  left: compact ? 16 : 34,
-                  right: compact ? 16 : 34,
-                  top: compact ? 18 : 24,
-                  bottom: compact ? 58 : 72,
-                  child: visual?.pixa == null
-                      ? const Center(child: CupertinoActivityIndicator())
-                      : AnimatedOpacity(
-                          opacity: 1,
-                          duration: const Duration(milliseconds: 280),
-                          child: _AnimatedPetSprite(
-                            asset: visual!.pixa!,
-                            clipName: _defaultClip(visual!.presentation, pet),
-                          ),
-                        ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              const _PetMosaicBackground(),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0x00FFFFFF),
+                      Color(0x0AFFFFFF),
+                      Color(0x40101916),
+                    ],
+                    stops: [0, 0.58, 1],
+                  ),
                 ),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    color: GizColors.ink,
-                    padding: EdgeInsets.fromLTRB(
-                      compact ? 12 : 18,
-                      compact ? 10 : 14,
-                      compact ? 10 : 16,
-                      compact ? 11 : 15,
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            _petName(pet, catalog),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GizText.sectionTitle.copyWith(
-                              color: GizColors.surface,
-                              fontSize: compact ? 15 : null,
+              ),
+              Positioned(
+                left: compact ? 16 : 48,
+                right: compact ? 16 : 48,
+                top: compact ? 38 : 64,
+                bottom: compact ? 82 : 124,
+                child: visual?.pixa == null
+                    ? const Center(child: CupertinoActivityIndicator())
+                    : GizSquircle(
+                        borderRadius: BorderRadius.circular(compact ? 13 : 18),
+                        child: ColoredBox(
+                          color: const Color(0x8CFFFFFF),
+                          child: Padding(
+                            padding: const EdgeInsets.all(2),
+                            child: GizSquircle(
+                              borderRadius: BorderRadius.circular(
+                                compact ? 11 : 16,
+                              ),
+                              child: ColoredBox(
+                                color: _petSceneColor,
+                                child: Padding(
+                                  padding: EdgeInsets.all(compact ? 6 : 10),
+                                  child: _PetCoverSprite(
+                                    child: _AnimatedPetSprite(
+                                      asset: visual!.pixa!,
+                                      clipName: _defaultClip(
+                                        visual!.presentation,
+                                        pet,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                        Icon(
-                          CupertinoIcons.arrow_up_right,
-                          color: GizColors.surface,
-                          size: compact ? 17 : 21,
-                        ),
-                      ],
+                      ),
+              ),
+              Positioned(
+                top: compact ? 12 : 16,
+                right: compact ? 12 : 16,
+                child: GizSquircle(
+                  borderRadius: BorderRadius.circular(9),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    child: Container(
+                      color: const Color(0x8CFFFFFF),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 7,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox.square(
+                            dimension: 6,
+                            child: ColoredBox(color: GizColors.accent),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _petStateLabel(visual?.presentation, pet),
+                            style: GizText.label.copyWith(fontSize: 9),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: ClipRect(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                    child: Container(
+                      color: const Color(0x9E101916),
+                      padding: EdgeInsets.fromLTRB(
+                        compact ? 13 : 18,
+                        compact ? 11 : 15,
+                        compact ? 11 : 14,
+                        compact ? 12 : 16,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  _petName(pet, catalog),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GizText.sectionTitle.copyWith(
+                                    color: GizColors.surface,
+                                    fontSize: compact ? 15 : null,
+                                  ),
+                                ),
+                                if (!compact) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${pet.rulesetName}  |  ${_petProgressionLabel(pet)}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GizText.label.copyWith(
+                                      color: const Color(0xBFFFFFFF),
+                                      fontSize: 9,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          GizIconTile(
+                            icon: CupertinoIcons.arrow_up_right,
+                            size: compact ? 34 : 38,
+                            iconSize: compact ? 16 : 18,
+                            backgroundColor: const Color(0x2EFFFFFF),
+                            foregroundColor: GizColors.surface,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PetCoverSprite extends StatefulWidget {
+  const _PetCoverSprite({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_PetCoverSprite> createState() => _PetCoverSpriteState();
+}
+
+class _PetCoverSpriteState extends State<_PetCoverSprite>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2600),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      child: widget.child,
+      builder: (context, child) => Transform.translate(
+        offset: Offset(0, -5 * Curves.easeInOut.transform(_controller.value)),
+        child: child,
       ),
     );
   }
@@ -838,6 +1096,93 @@ class _PetStatusFab extends StatelessWidget {
   }
 }
 
+class _PetVoiceFab extends StatefulWidget {
+  const _PetVoiceFab({required this.chat});
+
+  final WorkspaceChatController? chat;
+
+  @override
+  State<_PetVoiceFab> createState() => _PetVoiceFabState();
+}
+
+class _PetVoiceFabState extends State<_PetVoiceFab>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1300),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final chat = widget.chat;
+    final enabled = chat?.canRecord ?? false;
+    final recording = chat?.recording ?? false;
+    final preparing = chat?.startingInput ?? false;
+    final label = recording
+        ? 'Release to send voice'
+        : preparing
+        ? 'Opening microphone'
+        : enabled
+        ? 'Hold to speak'
+        : 'Voice unavailable';
+    return Listener(
+      onPointerDown: enabled ? (_) => unawaited(chat!.startInput()) : null,
+      onPointerUp: enabled ? (_) => unawaited(chat!.finishInput()) : null,
+      onPointerCancel: enabled
+          ? (_) => unawaited(chat!.finishInput(error: 'recording canceled'))
+          : null,
+      child: Semantics(
+        button: true,
+        enabled: enabled,
+        label: label,
+        child: AnimatedBuilder(
+          animation: _pulse,
+          builder: (context, child) {
+            final energy = recording ? _pulse.value : 0.0;
+            return AnimatedScale(
+              scale: recording ? 0.92 : 1,
+              duration: const Duration(milliseconds: 140),
+              curve: Curves.easeOutCubic,
+              child: Container(
+                width: 78,
+                height: 78,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: enabled ? GizColors.accent : const Color(0xFF91A099),
+                  border: Border.all(color: const Color(0x66FFFFFF)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: (enabled ? GizColors.accent : GizColors.ink)
+                          .withValues(alpha: 0.2 + energy * 0.3),
+                      blurRadius: 22 + energy * 18,
+                      spreadRadius: 2 + energy * 7,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: child,
+              ),
+            );
+          },
+          child: preparing
+              ? const CupertinoActivityIndicator(color: GizColors.ink)
+              : Icon(
+                  recording ? CupertinoIcons.waveform : CupertinoIcons.mic_fill,
+                  size: recording ? 29 : 27,
+                  color: enabled ? GizColors.ink : const Color(0xCCFFFFFF),
+                ),
+        ),
+      ),
+    );
+  }
+}
+
 class _PetDevice extends StatelessWidget {
   const _PetDevice({
     required this.pixa,
@@ -862,7 +1207,7 @@ class _PetDevice extends StatelessWidget {
               top: 12 + shellExtent * 0.287,
               width: shellExtent * 0.386,
               height: shellExtent * 0.392,
-              child: ClipRRect(
+              child: ClipRSuperellipse(
                 borderRadius: BorderRadius.circular(extent * 0.018),
                 child: ColoredBox(
                   color: _petSceneColor,
@@ -973,7 +1318,7 @@ class _PetStatusNameplateState extends State<_PetStatusNameplate>
           ),
         ],
       ),
-      child: ClipRRect(
+      child: ClipRSuperellipse(
         borderRadius: BorderRadius.circular(18),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 19, sigmaY: 19),
@@ -1661,6 +2006,22 @@ String _petName(Pet pet, PetPresentationI18nCatalog? catalog) {
     return catalog!.displayName;
   }
   return 'Unnamed pet';
+}
+
+String _petStateLabel(PetPresentation? presentation, Pet pet) {
+  final activeClip = _defaultClip(presentation, pet);
+  if (presentation != null && activeClip != null) {
+    for (final clip in presentation.pixaMetadata.clips) {
+      if (clip.pixaClipName == activeClip) return _title(clip.id).toUpperCase();
+    }
+  }
+  return 'IDLE';
+}
+
+String _petProgressionLabel(Pet pet) {
+  if (pet.progression.value.isEmpty) return pet.rulesetName;
+  final entry = pet.progression.value.entries.first;
+  return '${entry.key.toUpperCase()} ${entry.value}';
 }
 
 String _actionName(PetPresentationI18nCatalog? catalog, String id) =>
