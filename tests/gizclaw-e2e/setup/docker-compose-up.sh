@@ -46,7 +46,14 @@ pick_free_udp_range() {
       if [[ "$in_use" == "1" ]]; then
         break
       fi
-      if command -v lsof >/dev/null 2>&1 && lsof -nP -iUDP:"$port" >/dev/null 2>&1; then
+      if udp_port_available "$port"; then
+        continue
+      fi
+      local available_rc=$?
+      if [[ "$available_rc" == "2" ]]; then
+        return 2
+      fi
+      if [[ "$available_rc" != "0" ]]; then
         in_use=1
         break
       fi
