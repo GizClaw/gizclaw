@@ -437,6 +437,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
     const actionLayerHeight = _petActionMenuHeight + 10;
     final chat = _chat;
     final messages = chat?.messages ?? const <WorkspaceChatMessage>[];
+    final visibleError = chat?.lastError ?? _error;
     return CupertinoPageScaffold(
       backgroundColor: _petDetailBackground,
       child: Stack(
@@ -483,12 +484,12 @@ class _PetDetailPageState extends State<PetDetailPage> {
               ),
             ),
           ),
-          if (_error != null)
+          if (visibleError != null)
             Positioned(
               left: 72,
               right: 18,
               bottom: MediaQuery.paddingOf(context).bottom + 108,
-              child: _PetErrorToast(error: _petError(_error!)),
+              child: _PetErrorToast(error: _petError(visibleError)),
             ),
           Positioned(
             left: 0,
@@ -2315,6 +2316,9 @@ String _title(String value) {
 
 String _petError(Object error) {
   final text = error.toString();
+  if (text.contains('ASR produced empty transcript')) {
+    return "I couldn't hear that. Hold the mic and speak again.";
+  }
   return text.startsWith('Bad state: ') ? text.substring(11) : text;
 }
 
