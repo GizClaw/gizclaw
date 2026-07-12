@@ -497,13 +497,13 @@ class _PetDetailPageState extends State<PetDetailPage> {
             height: actionLayerHeight,
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final dockLeft = (constraints.maxWidth - 230) / 2;
+                final dockLeft = (constraints.maxWidth - 206) / 2;
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
                     Positioned(
                       left: dockLeft - _petActionAnchor,
-                      bottom: 10,
+                      bottom: 14,
                       child: _PetActionFab(
                         key: _actionFabKey,
                         actions: actions,
@@ -518,7 +518,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
                       ),
                     ),
                     Positioned(
-                      left: dockLeft + 122,
+                      left: dockLeft + 104,
                       bottom: 88,
                       width: 158,
                       child: IgnorePointer(
@@ -554,8 +554,8 @@ class _PetDetailPageState extends State<PetDetailPage> {
                       child: _PetVoiceFab(chat: chat),
                     ),
                     Positioned(
-                      left: dockLeft + 172,
-                      bottom: 10,
+                      left: dockLeft + 156,
+                      bottom: 14,
                       child: _PetStatusFab(
                         visible: _statusVisible,
                         onPressed: () {
@@ -1149,8 +1149,8 @@ class _PetStatusFab extends StatelessWidget {
       child: GestureDetector(
         onTap: onPressed,
         child: Container(
-          width: 58,
-          height: 58,
+          width: 50,
+          height: 50,
           decoration: BoxDecoration(
             color: GizColors.ink,
             shape: BoxShape.circle,
@@ -1173,7 +1173,7 @@ class _PetStatusFab extends StatelessWidget {
               visible ? CupertinoIcons.xmark : CupertinoIcons.waveform_path_ecg,
               key: ValueKey(visible),
               color: GizColors.surface,
-              size: visible ? 22 : 25,
+              size: visible ? 20 : 22,
             ),
           ),
         ),
@@ -1182,34 +1182,17 @@ class _PetStatusFab extends StatelessWidget {
   }
 }
 
-class _PetVoiceFab extends StatefulWidget {
+class _PetVoiceFab extends StatelessWidget {
   const _PetVoiceFab({required this.chat});
 
   final WorkspaceChatController? chat;
 
   @override
-  State<_PetVoiceFab> createState() => _PetVoiceFabState();
-}
-
-class _PetVoiceFabState extends State<_PetVoiceFab>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _pulse = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1300),
-  )..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _pulse.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final chat = widget.chat;
-    final enabled = chat?.canRecord ?? false;
-    final recording = chat?.recording ?? false;
-    final preparing = chat?.startingInput ?? false;
+    final controller = chat;
+    final enabled = controller?.canRecord ?? false;
+    final recording = controller?.recording ?? false;
+    final preparing = controller?.startingInput ?? false;
     final label = recording
         ? 'Release to send voice'
         : preparing
@@ -1217,54 +1200,21 @@ class _PetVoiceFabState extends State<_PetVoiceFab>
         : enabled
         ? 'Hold to speak'
         : 'Voice unavailable';
-    return Listener(
-      onPointerDown: enabled ? (_) => unawaited(chat!.startInput()) : null,
-      onPointerUp: enabled ? (_) => unawaited(chat!.finishInput()) : null,
-      onPointerCancel: enabled
-          ? (_) => unawaited(chat!.finishInput(error: 'recording canceled'))
+    return GizVoiceButton(
+      enabled: enabled,
+      recording: recording,
+      preparing: preparing,
+      label: label,
+      accent: GizColors.accent,
+      disabledColor: const Color(0xFF91A099),
+      foregroundColor: GizColors.ink,
+      disabledForegroundColor: const Color(0xCCFFFFFF),
+      onStart: enabled ? () => unawaited(controller!.startInput()) : null,
+      onFinish: enabled ? () => unawaited(controller!.finishInput()) : null,
+      onCancel: enabled
+          ? () =>
+                unawaited(controller!.finishInput(error: 'recording canceled'))
           : null,
-      child: Semantics(
-        button: true,
-        enabled: enabled,
-        label: label,
-        child: AnimatedBuilder(
-          animation: _pulse,
-          builder: (context, child) {
-            final energy = recording ? _pulse.value : 0.0;
-            return AnimatedScale(
-              scale: recording ? 0.92 : 1,
-              duration: const Duration(milliseconds: 140),
-              curve: Curves.easeOutCubic,
-              child: Container(
-                width: 78,
-                height: 78,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: enabled ? GizColors.accent : const Color(0xFF91A099),
-                  border: Border.all(color: const Color(0x66FFFFFF)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: (enabled ? GizColors.accent : GizColors.ink)
-                          .withValues(alpha: 0.2 + energy * 0.3),
-                      blurRadius: 22 + energy * 18,
-                      spreadRadius: 2 + energy * 7,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: child,
-              ),
-            );
-          },
-          child: preparing
-              ? const CupertinoActivityIndicator(color: GizColors.ink)
-              : Icon(
-                  recording ? CupertinoIcons.waveform : CupertinoIcons.mic_fill,
-                  size: recording ? 29 : 27,
-                  color: enabled ? GizColors.ink : const Color(0xCCFFFFFF),
-                ),
-        ),
-      ),
     );
   }
 }
@@ -1650,7 +1600,13 @@ class _PetMenuAction {
 const _petActionAnchor = 160.0;
 const _petActionItemExtent = 52.0;
 const _petActionRailHeight = 270.0;
-const _petActionMenuHeight = _petActionRailHeight + 68;
+const _petActionMenuHeight = _petActionRailHeight + 58;
+const _petActionCircleCenterX = 300.0;
+const _petActionCircleCenterY = 110.0;
+final _petActionCircleRadius = math.sqrt(
+  _petActionCircleCenterX * _petActionCircleCenterX +
+      _petActionCircleCenterY * _petActionCircleCenterY,
+);
 
 class _PetActionFab extends StatefulWidget {
   const _PetActionFab({
@@ -1746,7 +1702,7 @@ class _PetActionFabState extends State<_PetActionFab>
               Positioned(
                 left: 0,
                 right: 0,
-                bottom: 68,
+                bottom: 58,
                 height: _petActionRailHeight,
                 child: IgnorePointer(
                   ignoring:
@@ -1773,8 +1729,8 @@ class _PetActionFabState extends State<_PetActionFab>
                   child: GestureDetector(
                     onTap: _toggle,
                     child: Container(
-                      width: 58,
-                      height: 58,
+                      width: 50,
+                      height: 50,
                       decoration: BoxDecoration(
                         color: GizColors.ink,
                         shape: BoxShape.circle,
@@ -1797,7 +1753,7 @@ class _PetActionFabState extends State<_PetActionFab>
                                     child: const Icon(
                                       CupertinoIcons.game_controller_solid,
                                       color: GizColors.surface,
-                                      size: 27,
+                                      size: 24,
                                     ),
                                   ),
                                 ),
@@ -1809,7 +1765,7 @@ class _PetActionFabState extends State<_PetActionFab>
                                     child: const Icon(
                                       CupertinoIcons.xmark,
                                       color: GizColors.surface,
-                                      size: 23,
+                                      size: 20,
                                     ),
                                   ),
                                 ),
@@ -1868,20 +1824,26 @@ class _PetActionFabState extends State<_PetActionFab>
         final scrollPosition = _scrollController.hasClients
             ? _scrollController.offset / _petActionItemExtent
             : 0.0;
-        final distance = (index - scrollPosition).abs();
-        final edgeProgress = (distance / 2.5).clamp(0.0, 1.0);
-        final horizontalOffset = 52 * (1 - edgeProgress * edgeProgress);
-        final scale = 1 - edgeProgress * 0.14;
-        final opacity = 1 - edgeProgress * 0.62;
-        return Opacity(
-          opacity: opacity,
-          child: Transform.translate(
-            offset: Offset(_petActionAnchor - 28 + horizontalOffset, 0),
-            child: Transform.scale(
-              alignment: Alignment.centerRight,
-              scale: scale,
-              child: FractionalTranslation(
-                translation: const Offset(-1, 0),
+        final itemCenter =
+            _petActionRailHeight / 2 +
+            (index - scrollPosition) * _petActionItemExtent;
+        final distanceFromCenter =
+            ((itemCenter - _petActionRailHeight / 2).abs() /
+                    (_petActionRailHeight / 2))
+                .clamp(0.0, 1.0);
+        final yFromBottom = _petActionRailHeight - itemCenter;
+        final horizontalOffset = _petActionArcOffset(yFromBottom);
+        final scale = 1 - distanceFromCenter * 0.12;
+        final opacity = 1 - distanceFromCenter * 0.7;
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: Opacity(
+            opacity: opacity,
+            child: Transform.translate(
+              offset: Offset(_petActionAnchor + 3 + horizontalOffset, 0),
+              child: Transform.scale(
+                alignment: Alignment.centerLeft,
+                scale: scale,
                 child: child,
               ),
             ),
@@ -1894,23 +1856,6 @@ class _PetActionFabState extends State<_PetActionFab>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: GizColors.ink,
-                borderRadius: GizCorners.compactCard,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                child: Text(
-                  _actionName(widget.catalog, action.id),
-                  style: GizText.label.copyWith(color: GizColors.surface),
-                ),
-              ),
-            ),
-            const SizedBox(width: 9),
             Container(
               width: 44,
               height: 44,
@@ -1927,11 +1872,44 @@ class _PetActionFabState extends State<_PetActionFab>
               ),
               child: Icon(_actionIcon(action.icon, action.id), size: 20),
             ),
+            const SizedBox(width: 9),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: GizColors.ink,
+                borderRadius: GizCorners.compactCard,
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 132),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  child: Text(
+                    _actionName(widget.catalog, action.id),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GizText.label.copyWith(color: GizColors.surface),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
+}
+
+double _petActionArcOffset(double yFromBottom) {
+  final dy = (yFromBottom - _petActionCircleCenterY).clamp(
+    -_petActionCircleRadius,
+    _petActionCircleRadius,
+  );
+  final chord = math.sqrt(
+    math.max(0, _petActionCircleRadius * _petActionCircleRadius - dy * dy),
+  );
+  return _petActionCircleCenterX - chord;
 }
 
 class _SceneButton extends StatelessWidget {

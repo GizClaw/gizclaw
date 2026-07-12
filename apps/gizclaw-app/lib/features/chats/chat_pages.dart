@@ -1045,63 +1045,26 @@ class _PushToTalkControlState extends State<_PushToTalkControl>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            Listener(
-              onPointerDown: enabled
-                  ? (_) => unawaited(controller!.startInput())
+            GizVoiceButton(
+              enabled: enabled,
+              recording: recording,
+              preparing: preparing,
+              label: label,
+              accent: widget.accent,
+              disabledColor: widget.signal.panelStrong,
+              foregroundColor: widget.signal.onAccent,
+              disabledForegroundColor: widget.signal.muted,
+              onStart: enabled
+                  ? () => unawaited(controller!.startInput())
                   : null,
-              onPointerUp: enabled
-                  ? (_) => unawaited(controller!.finishInput())
+              onFinish: enabled
+                  ? () => unawaited(controller!.finishInput())
                   : null,
-              onPointerCancel: enabled
-                  ? (_) => unawaited(
+              onCancel: enabled
+                  ? () => unawaited(
                       controller!.finishInput(error: 'recording canceled'),
                     )
                   : null,
-              child: Semantics(
-                button: true,
-                enabled: enabled,
-                label: label,
-                child: AnimatedScale(
-                  scale: recording ? 0.92 : 1,
-                  duration: const Duration(milliseconds: 140),
-                  curve: Curves.easeOutCubic,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    width: 70,
-                    height: 70,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: enabled
-                          ? widget.accent
-                          : widget.signal.panelStrong,
-                      border: Border.all(
-                        color: enabled ? widget.accent : widget.signal.line,
-                        width: 1.5,
-                      ),
-                      boxShadow: enabled
-                          ? [
-                              BoxShadow(
-                                color: widget.accent.withValues(
-                                  alpha: recording ? 0.48 : 0.2,
-                                ),
-                                blurRadius: recording ? 34 : 20,
-                                spreadRadius: recording ? 8 : 2,
-                              ),
-                            ]
-                          : null,
-                    ),
-                    child: Icon(
-                      recording
-                          ? CupertinoIcons.waveform
-                          : CupertinoIcons.mic_fill,
-                      size: 26,
-                      color: enabled
-                          ? widget.signal.onAccent
-                          : widget.signal.muted,
-                    ),
-                  ),
-                ),
-              ),
             ),
             const SizedBox(height: 10),
             Text(

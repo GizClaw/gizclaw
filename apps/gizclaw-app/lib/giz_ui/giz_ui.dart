@@ -148,6 +148,117 @@ class GizIconTile extends StatelessWidget {
   }
 }
 
+class GizVoiceButton extends StatefulWidget {
+  const GizVoiceButton({
+    super.key,
+    required this.enabled,
+    required this.recording,
+    required this.preparing,
+    required this.label,
+    required this.accent,
+    required this.disabledColor,
+    required this.foregroundColor,
+    required this.disabledForegroundColor,
+    required this.onStart,
+    required this.onFinish,
+    required this.onCancel,
+    this.size = 78,
+  });
+
+  final Color accent;
+  final Color disabledColor;
+  final Color disabledForegroundColor;
+  final bool enabled;
+  final Color foregroundColor;
+  final String label;
+  final VoidCallback? onCancel;
+  final VoidCallback? onFinish;
+  final VoidCallback? onStart;
+  final bool preparing;
+  final bool recording;
+  final double size;
+
+  @override
+  State<GizVoiceButton> createState() => _GizVoiceButtonState();
+}
+
+class _GizVoiceButtonState extends State<GizVoiceButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1500),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerDown: widget.enabled ? (_) => widget.onStart?.call() : null,
+      onPointerUp: widget.enabled ? (_) => widget.onFinish?.call() : null,
+      onPointerCancel: widget.enabled ? (_) => widget.onCancel?.call() : null,
+      child: Semantics(
+        button: true,
+        enabled: widget.enabled,
+        label: widget.label,
+        child: AnimatedBuilder(
+          animation: _pulse,
+          builder: (context, child) {
+            final energy = widget.recording ? _pulse.value : 0.0;
+            return AnimatedScale(
+              scale: widget.recording ? 0.92 : 1,
+              duration: const Duration(milliseconds: 140),
+              curve: Curves.easeOutCubic,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: widget.size,
+                height: widget.size,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: widget.enabled ? widget.accent : widget.disabledColor,
+                  border: Border.all(
+                    color: widget.enabled
+                        ? widget.accent
+                        : widget.disabledForegroundColor.withValues(alpha: 0.3),
+                    width: 1.5,
+                  ),
+                  boxShadow: widget.enabled
+                      ? [
+                          BoxShadow(
+                            color: widget.accent.withValues(
+                              alpha: 0.2 + energy * 0.28,
+                            ),
+                            blurRadius: 20 + energy * 14,
+                            spreadRadius: 2 + energy * 6,
+                          ),
+                        ]
+                      : null,
+                ),
+                child: child,
+              ),
+            );
+          },
+          child: widget.preparing
+              ? CupertinoActivityIndicator(color: widget.foregroundColor)
+              : Icon(
+                  widget.recording
+                      ? CupertinoIcons.waveform
+                      : CupertinoIcons.mic_fill,
+                  size: widget.recording ? 30 : 28,
+                  color: widget.enabled
+                      ? widget.foregroundColor
+                      : widget.disabledForegroundColor,
+                ),
+        ),
+      ),
+    );
+  }
+}
+
 class GizPressable extends StatefulWidget {
   const GizPressable({
     super.key,
