@@ -16,12 +16,14 @@ class WorkspaceChatMessage {
     required this.incoming,
     required this.text,
     required this.state,
+    this.replayAvailable = false,
     this.createdAt,
   });
 
   final DateTime? createdAt;
   final String id;
   final bool incoming;
+  final bool replayAvailable;
   final WorkspaceMessageState state;
   final String text;
 
@@ -29,6 +31,7 @@ class WorkspaceChatMessage {
     return WorkspaceChatMessage(
       id: id,
       incoming: incoming,
+      replayAvailable: replayAvailable,
       text: text ?? this.text,
       state: state ?? this.state,
       createdAt: createdAt,
@@ -67,6 +70,7 @@ class WorkspaceChatController extends ChangeNotifier {
   bool recording = false;
   bool startingInput = false;
   bool _finishPending = false;
+  String? replayingHistoryId;
   bool _disposed = false;
 
   List<WorkspaceChatMessage> get messages => [..._cached, ..._transient];
@@ -89,6 +93,7 @@ class WorkspaceChatController extends ChangeNotifier {
                     incoming: entry.incoming,
                     text: entry.text,
                     state: WorkspaceMessageState.complete,
+                    replayAvailable: entry.replayAvailable,
                     createdAt: entry.createdAt,
                   ),
                 )
@@ -186,6 +191,31 @@ class WorkspaceChatController extends ChangeNotifier {
       _inputTrack?.enabled = false;
       _activeStreamId = null;
       recording = false;
+      notifyListeners();
+      _historyRefreshTimer?.cancel();
+      _historyRefreshTimer = Timer(
+        const Duration(milliseconds: 900),
+        _refreshHistory,
+      );
+    }
+  }
+
+  Future<void> replayHistory(String historyId) async {
+    final activeClient = client;
+    if (activeClient == null || replayingHistoryId != null) return;
+    replayingHistoryId = historyId;
+    lastError = null;
+    notifyListeners();
+    try {
+      final response = await activeClient.playRunWorkspaceHistory(historyId);
+      if (!response.value.accepted) {
+        final message = response.value.message.trim();
+        throw StateError(message.isEmpty ? 'Replay was not accepted' : message);
+      }
+    } catch (error) {
+      _handleError(error, changeState: false);
+    } finally {
+      replayingHistoryId = null;
       notifyListeners();
     }
   }

@@ -9,11 +9,13 @@ class CachedWorkspaceMessage {
     required this.incoming,
     required this.text,
     required this.createdAt,
+    required this.replayAvailable,
   });
 
   final DateTime? createdAt;
   final String id;
   final bool incoming;
+  final bool replayAvailable;
   final String text;
 }
 
@@ -21,6 +23,7 @@ class WorkspaceChatRepository {
   WorkspaceChatRepository(this.database);
 
   final AppDatabase database;
+  final Map<String, bool> _replayAvailability = {};
 
   Stream<List<CachedWorkspaceMessage>> watchHistory(
     String serverId,
@@ -42,6 +45,13 @@ class WorkspaceChatRepository {
             (row) => CachedWorkspaceMessage(
               id: row.historyId,
               incoming: row.role != 'gear',
+              replayAvailable:
+                  _replayAvailability[_historyKey(
+                    serverId,
+                    workspaceName,
+                    row.historyId,
+                  )] ??
+                  false,
               text: row.content,
               createdAt: row.createdAt,
             ),
@@ -72,6 +82,11 @@ class WorkspaceChatRepository {
       items.addAll(response.value.items);
       cursor = response.value.hasNext ? response.value.nextCursor : null;
     } while (cursor != null && cursor.isNotEmpty);
+
+    for (final item in items) {
+      _replayAvailability[_historyKey(serverId, workspaceName, item.id)] =
+          item.replayAvailable;
+    }
 
     final refreshedAt = DateTime.now().toUtc();
     await database.transaction(() async {
@@ -114,3 +129,6 @@ class WorkspaceChatRepository {
     });
   }
 }
+
+String _historyKey(String serverId, String workspaceName, String historyId) =>
+    '$serverId\u0000$workspaceName\u0000$historyId';

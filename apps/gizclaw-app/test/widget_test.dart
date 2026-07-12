@@ -119,10 +119,13 @@ void main() {
     expect(find.text('Mobile app plan'), findsNothing);
 
     await tester.tap(find.text('Builder Crew'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
     expect(find.byType(ChatroomWorkspacePage), findsOneWidget);
-    expect(find.byType(GroupChatPage), findsOneWidget);
-    expect(find.byType(WorkspaceChatPage), findsNothing);
+    expect(find.byType(WorkspaceChatPage), findsOneWidget);
+    expect(find.text('Builder Crew'), findsOneWidget);
+    expect(find.textContaining('Chatroom'), findsOneWidget);
+    expect(find.byType(CupertinoTextField), findsNothing);
   });
 
   testWidgets('keeps drivers visible without matching workspaces', (
@@ -273,7 +276,6 @@ void main() {
 
     expect(find.byType(ChatroomWorkspacePage), findsOneWidget);
     expect(find.byType(WorkspaceChatPage), findsOneWidget);
-    expect(find.byType(GroupChatPage), findsNothing);
     expect(find.text('Avery'), findsOneWidget);
     expect(find.textContaining('Direct chat'), findsOneWidget);
     expect(find.textContaining('Unavailable'), findsNothing);

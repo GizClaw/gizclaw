@@ -14,6 +14,7 @@ void main() {
         _entry(
           id: 'gear-1',
           text: '你好',
+          replayAvailable: true,
           type: PeerRunHistoryEntryType.PEER_RUN_HISTORY_ENTRY_TYPE_GEAR,
         ),
       ],
@@ -37,6 +38,7 @@ void main() {
         .first;
     expect(messages, hasLength(2));
     expect(messages.first.incoming, isFalse);
+    expect(messages.first.replayAvailable, isTrue);
     expect(messages.last.incoming, isTrue);
     expect(messages.last.text, '你好，移动端。');
     expect(
@@ -119,6 +121,7 @@ PeerRunHistoryEntry _entry({
   required String id,
   required String text,
   required PeerRunHistoryEntryType type,
+  bool replayAvailable = false,
 }) {
   return PeerRunHistoryEntry(
     id: id,
@@ -126,6 +129,7 @@ PeerRunHistoryEntry _entry({
         ? 'transcript'
         : 'assistant',
     text: text,
+    replayAvailable: replayAvailable,
     type: type,
     createdAt:
         '2026-07-12T00:00:0${type == PeerRunHistoryEntryType.PEER_RUN_HISTORY_ENTRY_TYPE_GEAR ? '0' : '1'}Z',

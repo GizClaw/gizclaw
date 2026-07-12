@@ -349,6 +349,8 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
                         state: chat?.state ?? WorkspaceChatState.loading,
                         signal: signal,
                         error: chat?.lastError,
+                        replayingHistoryId: chat?.replayingHistoryId,
+                        onReplay: chat?.replayHistory,
                       ),
                     ),
                     Positioned(
@@ -713,11 +715,15 @@ class _WorkspaceMessageList extends StatelessWidget {
     required this.state,
     required this.signal,
     required this.error,
+    required this.replayingHistoryId,
+    required this.onReplay,
   });
 
   final ScrollController controller;
   final Object? error;
   final List<WorkspaceChatMessage> messages;
+  final ValueChanged<String>? onReplay;
+  final String? replayingHistoryId;
   final _SignalPalette signal;
   final WorkspaceChatState state;
 
@@ -760,16 +766,30 @@ class _WorkspaceMessageList extends StatelessWidget {
           );
         }
         final message = messages[messages.length - 1 - index];
-        return _WorkspaceSignalMessage(message: message, signal: signal);
+        return _WorkspaceSignalMessage(
+          message: message,
+          signal: signal,
+          replaying: replayingHistoryId == message.id,
+          onReplay: message.replayAvailable && onReplay != null
+              ? () => onReplay!(message.id)
+              : null,
+        );
       },
     );
   }
 }
 
 class _WorkspaceSignalMessage extends StatelessWidget {
-  const _WorkspaceSignalMessage({required this.message, required this.signal});
+  const _WorkspaceSignalMessage({
+    required this.message,
+    required this.signal,
+    required this.replaying,
+    required this.onReplay,
+  });
 
   final WorkspaceChatMessage message;
+  final VoidCallback? onReplay;
+  final bool replaying;
   final _SignalPalette signal;
 
   @override
@@ -780,109 +800,150 @@ class _WorkspaceSignalMessage extends StatelessWidget {
       alignment: incoming ? Alignment.centerLeft : Alignment.centerRight,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: width * 0.82),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(14, 11, 14, 12),
-          decoration: BoxDecoration(
-            color: incoming ? signal.panel : signal.outgoingFill,
-            borderRadius: BorderRadius.only(
-              topLeft: const Radius.circular(14),
-              topRight: const Radius.circular(14),
-              bottomLeft: Radius.circular(incoming ? 4 : 14),
-              bottomRight: Radius.circular(incoming ? 14 : 4),
-            ),
-            border: Border.all(
-              color: incoming ? signal.line : signal.outgoingFill,
-            ),
-            boxShadow: signal.brightness == Brightness.light
-                ? [
-                    const BoxShadow(
-                      color: Color(0x0F111916),
-                      blurRadius: 14,
-                      offset: Offset(0, 5),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    incoming
-                        ? CupertinoIcons.sparkles
-                        : CupertinoIcons.waveform,
-                    size: 13,
-                    color: incoming ? signal.brandAccent : signal.outgoingText,
-                  ),
-                  const SizedBox(width: 7),
-                  Text(
-                    incoming ? 'AGENT TRANSMISSION' : 'YOUR VOICE',
-                    style: GizText.label.copyWith(
-                      color: incoming
-                          ? signal.brandAccent
-                          : signal.outgoingText.withValues(alpha: 0.68),
-                      fontSize: 8,
-                    ),
-                  ),
-                  if (!incoming) ...[
-                    const SizedBox(width: 12),
-                    _MiniWaveform(color: signal.outgoingText),
-                  ],
-                ],
+        child: CupertinoButton(
+          minimumSize: Size.zero,
+          padding: EdgeInsets.zero,
+          pressedOpacity: onReplay == null ? 1 : 0.72,
+          onPressed: onReplay,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(14, 11, 14, 12),
+            decoration: BoxDecoration(
+              color: incoming ? signal.panel : signal.outgoingFill,
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(14),
+                topRight: const Radius.circular(14),
+                bottomLeft: Radius.circular(incoming ? 4 : 14),
+                bottomRight: Radius.circular(incoming ? 14 : 4),
               ),
-              const SizedBox(height: 8),
-              Text(
-                message.text.isEmpty ? '...' : message.text,
-                style: GizText.body.copyWith(
-                  color: incoming ? signal.text : signal.outgoingText,
-                  fontSize: incoming ? 15 : 14,
-                  height: 1.5,
-                  fontWeight: incoming ? FontWeight.w500 : FontWeight.w700,
-                ),
+              border: Border.all(
+                color: incoming ? signal.line : signal.outgoingFill,
               ),
-              if (message.state == WorkspaceMessageState.streaming ||
-                  message.state == WorkspaceMessageState.failed) ...[
-                const SizedBox(height: 8),
+              boxShadow: signal.brightness == Brightness.light
+                  ? [
+                      const BoxShadow(
+                        color: Color(0x0F111916),
+                        blurRadius: 14,
+                        offset: Offset(0, 5),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (message.state == WorkspaceMessageState.streaming)
-                      SizedBox(
-                        width: 10,
-                        height: 10,
-                        child: CupertinoActivityIndicator(
-                          radius: 5,
+                    Icon(
+                      incoming
+                          ? CupertinoIcons.sparkles
+                          : CupertinoIcons.waveform,
+                      size: 13,
+                      color: incoming
+                          ? signal.brandAccent
+                          : signal.outgoingText,
+                    ),
+                    const SizedBox(width: 7),
+                    Text(
+                      incoming ? 'AGENT TRANSMISSION' : 'YOUR VOICE',
+                      style: GizText.label.copyWith(
+                        color: incoming
+                            ? signal.brandAccent
+                            : signal.outgoingText.withValues(alpha: 0.68),
+                        fontSize: 8,
+                      ),
+                    ),
+                    if (!incoming) ...[
+                      const SizedBox(width: 12),
+                      _MiniWaveform(color: signal.outgoingText),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  message.text.isEmpty ? '...' : message.text,
+                  style: GizText.body.copyWith(
+                    color: incoming ? signal.text : signal.outgoingText,
+                    fontSize: incoming ? 15 : 14,
+                    height: 1.5,
+                    fontWeight: incoming ? FontWeight.w500 : FontWeight.w700,
+                  ),
+                ),
+                if (message.replayAvailable) ...[
+                  const SizedBox(height: 9),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (replaying)
+                        CupertinoActivityIndicator(
+                          radius: 6,
+                          color: incoming
+                              ? signal.brandAccent
+                              : signal.outgoingText,
+                        )
+                      else
+                        Icon(
+                          CupertinoIcons.play_fill,
+                          size: 11,
                           color: incoming
                               ? signal.brandAccent
                               : signal.outgoingText,
                         ),
-                      )
-                    else
-                      Icon(
-                        CupertinoIcons.exclamationmark_circle_fill,
-                        size: 11,
-                        color: incoming
-                            ? signal.brandAccent
-                            : signal.outgoingText,
+                      const SizedBox(width: 6),
+                      Text(
+                        replaying ? 'STARTING REPLAY' : 'TAP TO REPLAY',
+                        style: GizText.label.copyWith(
+                          color: incoming
+                              ? signal.muted
+                              : signal.outgoingText.withValues(alpha: 0.68),
+                          fontSize: 8,
+                        ),
                       ),
-                    const SizedBox(width: 5),
-                    Text(
-                      message.state == WorkspaceMessageState.failed
-                          ? 'SIGNAL INTERRUPTED'
-                          : 'STREAMING',
-                      style: GizText.label.copyWith(
-                        color: incoming
-                            ? signal.muted
-                            : signal.outgoingText.withValues(alpha: 0.62),
-                        fontSize: 8,
+                    ],
+                  ),
+                ],
+                if (message.state == WorkspaceMessageState.streaming ||
+                    message.state == WorkspaceMessageState.failed) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (message.state == WorkspaceMessageState.streaming)
+                        SizedBox(
+                          width: 10,
+                          height: 10,
+                          child: CupertinoActivityIndicator(
+                            radius: 5,
+                            color: incoming
+                                ? signal.brandAccent
+                                : signal.outgoingText,
+                          ),
+                        )
+                      else
+                        Icon(
+                          CupertinoIcons.exclamationmark_circle_fill,
+                          size: 11,
+                          color: incoming
+                              ? signal.brandAccent
+                              : signal.outgoingText,
+                        ),
+                      const SizedBox(width: 5),
+                      Text(
+                        message.state == WorkspaceMessageState.failed
+                            ? 'SIGNAL INTERRUPTED'
+                            : 'STREAMING',
+                        style: GizText.label.copyWith(
+                          color: incoming
+                              ? signal.muted
+                              : signal.outgoingText.withValues(alpha: 0.62),
+                          fontSize: 8,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -1115,189 +1176,6 @@ class ChatroomWorkspacePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final data = MobileDataScope.watch(context);
-    final workspace = data.workspace(workspaceName);
-    final workflow = data.workflow(workspace.workflowName);
-    final metadata = data.chatroomWorkspace(workspaceName);
-    final kind = metadata?.kind ?? workspace.chatroomKind;
-    if (kind == ChatroomWorkspaceKind.direct) {
-      return WorkspaceChatPage(workspaceName: workspaceName);
-    }
-    return GroupChatPage(
-      room: ChatroomCard(
-        id: workspace.name,
-        name: metadata?.title ?? workspace.title,
-        subtitle: _chatroomSubtitle(metadata, workflow.title),
-        memberCount: 0,
-      ),
-    );
-  }
-}
-
-String _chatroomSubtitle(ChatroomWorkspaceMetadata? metadata, String fallback) {
-  if (metadata == null) return fallback;
-  if (metadata.kind == ChatroomWorkspaceKind.direct) return 'Direct chat';
-  return metadata.description.trim().isEmpty
-      ? 'Group chat'
-      : metadata.description;
-}
-
-class GroupChatPage extends StatefulWidget {
-  const GroupChatPage({super.key, required this.room});
-
-  final ChatroomCard room;
-
-  @override
-  State<GroupChatPage> createState() => _GroupChatPageState();
-}
-
-class _GroupChatPageState extends State<GroupChatPage> {
-  final _controller = TextEditingController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(widget.room.name, style: GizText.title),
-            Text(
-              widget.room.memberCount > 0
-                  ? '${widget.room.memberCount} members'
-                  : widget.room.subtitle,
-              style: GizText.label.copyWith(color: GizColors.secondaryInk),
-            ),
-          ],
-        ),
-        border: null,
-        transitionBetweenRoutes: false,
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 18),
-                children: const [
-                  _ChatBubble(
-                    text: 'Avery: The new workflow is live.',
-                    incoming: true,
-                    color: GizColors.blue,
-                  ),
-                  SizedBox(height: 10),
-                  _ChatBubble(
-                    text: 'I will test it from mobile.',
-                    incoming: false,
-                    color: GizColors.ink,
-                  ),
-                ],
-              ),
-            ),
-            _Composer(controller: _controller),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ChatBubble extends StatelessWidget {
-  const _ChatBubble({
-    required this.text,
-    required this.incoming,
-    required this.color,
-  });
-
-  final String text;
-  final bool incoming;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: incoming ? Alignment.centerLeft : Alignment.centerRight,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 290),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: incoming ? GizColors.surface : color,
-            borderRadius: BorderRadius.circular(8),
-            border: incoming ? Border.all(color: GizColors.separator) : null,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-            child: Text(
-              text,
-              style: GizText.body.copyWith(
-                color: incoming ? GizColors.ink : GizColors.surface,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Composer extends StatelessWidget {
-  const _Composer({required this.controller});
-
-  final TextEditingController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Color(0xFAF4F5F1),
-        border: Border(top: BorderSide(color: GizColors.separator)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 9, 10, 9),
-        child: Row(
-          children: [
-            Expanded(
-              child: CupertinoTextField(
-                controller: controller,
-                minLines: 1,
-                maxLines: 4,
-                placeholder: 'Message',
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 11,
-                ),
-                style: GizText.body,
-                textInputAction: TextInputAction.send,
-                onSubmitted: (_) => controller.clear(),
-                decoration: BoxDecoration(
-                  color: GizColors.surface,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: GizColors.separator),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            CupertinoButton(
-              minimumSize: const Size.square(42),
-              padding: EdgeInsets.zero,
-              color: GizColors.ink,
-              borderRadius: BorderRadius.circular(21),
-              onPressed: controller.clear,
-              child: const Icon(
-                CupertinoIcons.arrow_up,
-                size: 20,
-                color: GizColors.surface,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    return WorkspaceChatPage(workspaceName: workspaceName);
   }
 }
