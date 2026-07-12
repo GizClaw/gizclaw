@@ -45,7 +45,8 @@ void main() {
     await pumpApp(tester);
 
     await tester.tap(find.text('Morning check-in'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
 
     expect(find.byType(ChatroomWorkspacePage), findsOneWidget);
     expect(find.text('No routes for location'), findsNothing);
@@ -116,6 +117,12 @@ void main() {
     expect(find.text('Builder Crew'), findsOneWidget);
     expect(find.textContaining('GROUP CHAT'), findsOneWidget);
     expect(find.text('Mobile app plan'), findsNothing);
+
+    await tester.tap(find.text('Builder Crew'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ChatroomWorkspacePage), findsOneWidget);
+    expect(find.byType(GroupChatPage), findsOneWidget);
+    expect(find.byType(WorkspaceChatPage), findsNothing);
   });
 
   testWidgets('keeps drivers visible without matching workspaces', (
@@ -261,11 +268,17 @@ void main() {
     await tester.tap(find.text('Friends'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Avery'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
 
     expect(find.byType(ChatroomWorkspacePage), findsOneWidget);
+    expect(find.byType(WorkspaceChatPage), findsOneWidget);
+    expect(find.byType(GroupChatPage), findsNothing);
     expect(find.text('Avery'), findsOneWidget);
-    expect(find.text('Direct chat'), findsOneWidget);
+    expect(find.textContaining('Direct chat'), findsOneWidget);
+    expect(find.textContaining('Unavailable'), findsNothing);
+    expect(find.text('VOICE LINK UNAVAILABLE'), findsOneWidget);
+    expect(find.byType(CupertinoTextField), findsNothing);
   });
 
   testWidgets('fits the compact iPhone viewport', (tester) async {

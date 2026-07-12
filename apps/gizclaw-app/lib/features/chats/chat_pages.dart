@@ -298,10 +298,15 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
     final data = MobileDataScope.watch(context);
     final workspace = data.workspace(widget.workspaceName);
     final workflow = data.workflow(workspace.workflowName);
+    final chatroomMetadata = data.chatroomWorkspace(widget.workspaceName);
     final chat = _chat;
     final messages = chat?.messages ?? const <WorkspaceChatMessage>[];
     final signal = _SignalPalette.of(context);
-    final accent = _driverAccent(workflow.driver, signal.brightness);
+    final isDirectChat = chatroomMetadata?.kind == ChatroomWorkspaceKind.direct;
+    final accent = _driverAccent(
+      isDirectChat ? WorkflowDriverKind.chatroom : workflow.driver,
+      signal.brightness,
+    );
     return CupertinoPageScaffold(
       backgroundColor: signal.canvas,
       navigationBar: CupertinoNavigationBar(
@@ -311,11 +316,12 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              workspace.title,
+              chatroomMetadata?.title ?? workspace.title,
               style: GizText.title.copyWith(color: signal.text),
             ),
             Text(
-              '${workflow.driver.label}  /  ${_connectionLabel(chat?.state)}',
+              '${isDirectChat ? 'Direct chat' : workflow.driver.label}'
+              '  /  ${_connectionLabel(chat?.state)}',
               style: GizText.label.copyWith(color: signal.muted, fontSize: 9),
             ),
           ],
@@ -352,7 +358,9 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
                       right: 0,
                       child: IgnorePointer(
                         child: _AgentSignalStage(
-                          imagePath: workflow.driver.imagePath,
+                          imagePath: isDirectChat
+                              ? null
+                              : workflow.driver.imagePath,
                           state: chat?.state ?? WorkspaceChatState.loading,
                           recording: chat?.recording ?? false,
                           accent: accent,
@@ -1110,6 +1118,10 @@ class ChatroomWorkspacePage extends StatelessWidget {
     final workspace = data.workspace(workspaceName);
     final workflow = data.workflow(workspace.workflowName);
     final metadata = data.chatroomWorkspace(workspaceName);
+    final kind = metadata?.kind ?? workspace.chatroomKind;
+    if (kind == ChatroomWorkspaceKind.direct) {
+      return WorkspaceChatPage(workspaceName: workspaceName);
+    }
     return GroupChatPage(
       room: ChatroomCard(
         id: workspace.name,
