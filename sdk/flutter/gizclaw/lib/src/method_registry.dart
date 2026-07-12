@@ -633,6 +633,18 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'ServerRouteResolveRequest',
     responseType: 'ServerRouteResolveResponse',
   ),
+  'server.pet.presentation.get': RpcMethodDescriptor(
+    id: 104,
+    name: 'server.pet.presentation.get',
+    requestType: 'ServerPetPresentationGetRequest',
+    responseType: 'ServerPetPresentationGetResponse',
+  ),
+  'server.pet.pixa.download': RpcMethodDescriptor(
+    id: 105,
+    name: 'server.pet.pixa.download',
+    requestType: 'ServerPetPixaDownloadRequest',
+    responseType: 'ServerPetPixaDownloadResponse',
+  ),
 };
 
 const rpcMethodNamesById = <int, String>{
@@ -739,6 +751,8 @@ const rpcMethodNamesById = <int, String>{
   101: 'server.peer.lookup',
   102: 'server.peer.assign',
   103: 'server.route.resolve',
+  104: 'server.pet.presentation.get',
+  105: 'server.pet.pixa.download',
 };
 
 RpcMethodDescriptor rpcMethodByName(String name) {

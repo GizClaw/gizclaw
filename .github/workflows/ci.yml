@@ -52,3 +52,49 @@ jobs:
 
       - name: Run tests
         run: go test -count=1 ./...
+
+  flutter:
+    name: Flutter Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          lfs: true
+
+      - name: Ensure Git LFS assets are available
+        run: git lfs pull
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: "3.38.1"
+          channel: stable
+          cache: true
+
+      - name: Install SDK dependencies
+        working-directory: sdk/flutter/gizclaw
+        run: flutter pub get
+
+      - name: Analyze SDK
+        working-directory: sdk/flutter/gizclaw
+        run: flutter analyze
+
+      - name: Test SDK
+        working-directory: sdk/flutter/gizclaw
+        run: flutter test
+
+      - name: Install app dependencies
+        working-directory: apps/gizclaw-app
+        run: flutter pub get
+
+      - name: Analyze app
+        working-directory: apps/gizclaw-app
+        run: flutter analyze
+
+      - name: Test app
+        working-directory: apps/gizclaw-app
+        run: flutter test
