@@ -157,6 +157,28 @@ void main() {
     expect(find.byType(WorkspaceChatPage), findsOneWidget);
   });
 
+  testWidgets('renders the workspace signal room', (tester) async {
+    await pumpApp(tester);
+
+    await tester.tap(find.text('Chats'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('AST Translate'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Parser pass'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+
+    expect(find.byType(WorkspaceChatPage), findsOneWidget);
+    expect(find.text('AGENT SIGNAL ONLINE'), findsNothing);
+    expect(find.text('OFFLINE'), findsOneWidget);
+    expect(find.text('VOICE LINK UNAVAILABLE'), findsOneWidget);
+    expect(
+      find.image(const AssetImage('assets/drivers/ast-translate.png')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('shows five primary destinations', (tester) async {
     await pumpApp(tester);
 

@@ -67,6 +67,7 @@ class WorkspaceChatController extends ChangeNotifier {
   bool recording = false;
   bool startingInput = false;
   bool _finishPending = false;
+  bool _disposed = false;
 
   List<WorkspaceChatMessage> get messages => [..._cached, ..._transient];
 
@@ -319,7 +320,14 @@ class WorkspaceChatController extends ChangeNotifier {
   }
 
   @override
+  void notifyListeners() {
+    if (_disposed) return;
+    super.notifyListeners();
+  }
+
+  @override
   void dispose() {
+    _disposed = true;
     _historyRefreshTimer?.cancel();
     _resetRecording();
     _inputTrack?.stop();

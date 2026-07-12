@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -227,14 +229,23 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
     final chat = _chat;
     final messages = chat?.messages ?? const <WorkspaceChatMessage>[];
     return CupertinoPageScaffold(
+      backgroundColor: _SignalColors.canvas,
       navigationBar: CupertinoNavigationBar(
+        backgroundColor: _SignalColors.chrome,
+        brightness: Brightness.dark,
         middle: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(workspace.title, style: GizText.title),
             Text(
-              workflow.title,
-              style: GizText.label.copyWith(color: GizColors.secondaryInk),
+              workspace.title,
+              style: GizText.title.copyWith(color: CupertinoColors.white),
+            ),
+            Text(
+              '${workflow.driver.label}  /  ${_connectionLabel(chat?.state)}',
+              style: GizText.label.copyWith(
+                color: _SignalColors.muted,
+                fontSize: 9,
+              ),
             ),
           ],
         ),
@@ -243,23 +254,340 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
         transitionBetweenRoutes: false,
       ),
       child: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: _WorkspaceMessageList(
-                controller: _scrollController,
-                messages: messages,
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.only(
+            top:
+                MediaQuery.paddingOf(context).top +
+                kMinInteractiveDimensionCupertino,
+          ),
+          child: Column(
+            children: [
+              _AgentSignalStage(
+                imagePath: workflow.driver.imagePath,
+                workflowTitle: workflow.title,
                 state: chat?.state ?? WorkspaceChatState.loading,
-                color: workflow.bannerColor,
-                error: chat?.lastError,
+                recording: chat?.recording ?? false,
+                accent: _driverAccent(workflow.driver),
               ),
-            ),
-            _PushToTalkControl(chat: chat),
-          ],
+              Expanded(
+                child: _WorkspaceMessageList(
+                  controller: _scrollController,
+                  messages: messages,
+                  state: chat?.state ?? WorkspaceChatState.loading,
+                  color: _driverAccent(workflow.driver),
+                  error: chat?.lastError,
+                ),
+              ),
+              _PushToTalkControl(
+                chat: chat,
+                accent: _driverAccent(workflow.driver),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+String _connectionLabel(WorkspaceChatState? state) => switch (state) {
+  WorkspaceChatState.connected => 'LIVE',
+  WorkspaceChatState.connecting || WorkspaceChatState.loading => 'LINKING',
+  WorkspaceChatState.offline => 'OFFLINE',
+  WorkspaceChatState.error => 'SIGNAL LOST',
+  null => 'LINKING',
+};
+
+Color _driverAccent(WorkflowDriverKind driver) => switch (driver) {
+  WorkflowDriverKind.astTranslate => const Color(0xFF8CFFB5),
+  WorkflowDriverKind.doubaoRealtime => const Color(0xFFFF8B6A),
+  WorkflowDriverKind.flowcraft => const Color(0xFF70D8FF),
+  WorkflowDriverKind.chatroom => const Color(0xFFFFD166),
+  WorkflowDriverKind.unsupported => GizColors.accent,
+};
+
+abstract final class _SignalColors {
+  static const canvas = Color(0xFF080B0A);
+  static const chrome = Color(0xED080B0A);
+  static const panel = Color(0xFF121715);
+  static const panelStrong = Color(0xFF19201D);
+  static const line = Color(0xFF2A332F);
+  static const muted = Color(0xFF8E9B95);
+  static const text = Color(0xFFF4F8F5);
+}
+
+class _AgentSignalStage extends StatefulWidget {
+  const _AgentSignalStage({
+    required this.imagePath,
+    required this.workflowTitle,
+    required this.state,
+    required this.recording,
+    required this.accent,
+  });
+
+  final Color accent;
+  final String? imagePath;
+  final bool recording;
+  final WorkspaceChatState state;
+  final String workflowTitle;
+
+  @override
+  State<_AgentSignalStage> createState() => _AgentSignalStageState();
+}
+
+class _AgentSignalStageState extends State<_AgentSignalStage>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 3600),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final active = widget.state == WorkspaceChatState.connected;
+    return SizedBox(
+      height: 190,
+      width: double.infinity,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          final energy = widget.recording
+              ? 0.78 + math.sin(_controller.value * math.pi * 10) * 0.18
+              : active
+              ? 0.42 + math.sin(_controller.value * math.pi * 2) * 0.08
+              : 0.18;
+          return Stack(
+            alignment: Alignment.center,
+            children: [
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _SignalFieldPainter(
+                    progress: _controller.value,
+                    accent: widget.accent,
+                    energy: energy,
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 13,
+                child: _SignalStatusPill(
+                  label: widget.recording
+                      ? 'RECEIVING YOUR VOICE'
+                      : active
+                      ? 'AGENT SIGNAL ONLINE'
+                      : _connectionLabel(widget.state),
+                  accent: widget.accent,
+                  active: active,
+                ),
+              ),
+              Transform.translate(
+                offset: Offset(
+                  0,
+                  math.sin(_controller.value * math.pi * 2) * 3,
+                ),
+                child: _AgentCore(
+                  imagePath: widget.imagePath,
+                  accent: widget.accent,
+                  energy: energy,
+                ),
+              ),
+              Positioned(
+                bottom: 12,
+                child: Text(
+                  widget.recording ? 'LISTENING' : widget.workflowTitle,
+                  style: GizText.label.copyWith(
+                    color: widget.recording
+                        ? widget.accent
+                        : _SignalColors.muted,
+                    fontSize: 10,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _SignalStatusPill extends StatelessWidget {
+  const _SignalStatusPill({
+    required this.label,
+    required this.accent,
+    required this.active,
+  });
+
+  final Color accent;
+  final bool active;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(99),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: const Color(0x99121715),
+            borderRadius: BorderRadius.circular(99),
+            border: Border.all(color: _SignalColors.line),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: active ? accent : _SignalColors.muted,
+                  shape: BoxShape.circle,
+                  boxShadow: active
+                      ? [BoxShadow(color: accent, blurRadius: 8)]
+                      : null,
+                ),
+              ),
+              const SizedBox(width: 7),
+              Text(
+                label,
+                style: GizText.label.copyWith(
+                  color: _SignalColors.text,
+                  fontSize: 9,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AgentCore extends StatelessWidget {
+  const _AgentCore({
+    required this.imagePath,
+    required this.accent,
+    required this.energy,
+  });
+
+  final Color accent;
+  final double energy;
+  final String? imagePath;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: 112,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 94 + energy * 10,
+            height: 94 + energy * 10,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: accent.withValues(alpha: 0.16 + energy * 0.18),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: accent.withValues(alpha: 0.12 + energy * 0.14),
+                  blurRadius: 32,
+                  spreadRadius: 4,
+                ),
+              ],
+            ),
+          ),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Container(
+              width: 72,
+              height: 72,
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: _SignalColors.panelStrong,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: accent.withValues(alpha: 0.46)),
+              ),
+              child: imagePath == null
+                  ? Icon(CupertinoIcons.waveform, color: accent, size: 30)
+                  : ClipRRect(
+                      borderRadius: BorderRadius.circular(19),
+                      child: Image.asset(imagePath!, fit: BoxFit.cover),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SignalFieldPainter extends CustomPainter {
+  const _SignalFieldPainter({
+    required this.progress,
+    required this.accent,
+    required this.energy,
+  });
+
+  final Color accent;
+  final double energy;
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height * 0.52);
+    final glow = Paint()
+      ..shader =
+          RadialGradient(
+            colors: [
+              accent.withValues(alpha: 0.13 * energy),
+              accent.withValues(alpha: 0),
+            ],
+          ).createShader(
+            Rect.fromCircle(center: center, radius: size.width * 0.48),
+          );
+    canvas.drawCircle(center, size.width * 0.48, glow);
+
+    for (var line = 0; line < 6; line++) {
+      final path = Path();
+      final baseline = size.height * (0.26 + line * 0.1);
+      for (var x = 0.0; x <= size.width; x += 4) {
+        final distance = (x - center.dx).abs() / center.dx;
+        final focus = math.pow(math.max(0, 1 - distance), 2).toDouble();
+        final phase = progress * math.pi * 2 + line * 0.72;
+        final y =
+            baseline + math.sin(x * 0.046 + phase) * (3 + 11 * focus * energy);
+        if (x == 0) {
+          path.moveTo(x, y);
+        } else {
+          path.lineTo(x, y);
+        }
+      }
+      canvas.drawPath(
+        path,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = line == 2 ? 1.2 : 0.7
+          ..color = accent.withValues(alpha: 0.08 + energy * 0.08),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SignalFieldPainter oldDelegate) =>
+      oldDelegate.progress != progress ||
+      oldDelegate.energy != energy ||
+      oldDelegate.accent != accent;
 }
 
 class _WorkspaceMessageList extends StatelessWidget {
@@ -282,7 +610,9 @@ class _WorkspaceMessageList extends StatelessWidget {
     if (messages.isEmpty &&
         (state == WorkspaceChatState.loading ||
             state == WorkspaceChatState.connecting)) {
-      return const Center(child: CupertinoActivityIndicator());
+      return const Center(
+        child: CupertinoActivityIndicator(color: _SignalColors.muted),
+      );
     }
     if (messages.isEmpty) {
       final unavailable =
@@ -294,9 +624,12 @@ class _WorkspaceMessageList extends StatelessWidget {
           child: Text(
             unavailable
                 ? 'This conversation is unavailable right now.'
-                : 'Start a new conversation.',
+                : 'The channel is clear.\nHold the signal to speak.',
             textAlign: TextAlign.center,
-            style: GizText.body.copyWith(color: GizColors.secondaryInk),
+            style: GizText.body.copyWith(
+              color: _SignalColors.muted,
+              height: 1.65,
+            ),
           ),
         ),
       );
@@ -304,7 +637,7 @@ class _WorkspaceMessageList extends StatelessWidget {
     return ListView.separated(
       controller: controller,
       reverse: true,
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 18),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
       itemCount: messages.length + (error == null ? 0 : 1),
       separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
@@ -312,121 +645,346 @@ class _WorkspaceMessageList extends StatelessWidget {
           return Text(
             'Live updates paused. Showing saved messages.',
             textAlign: TextAlign.center,
-            style: GizText.label.copyWith(color: GizColors.secondaryInk),
+            style: GizText.label.copyWith(color: _SignalColors.muted),
           );
         }
         final message = messages[messages.length - 1 - index];
-        return _ChatBubble(
-          text: message.text.isEmpty ? '...' : message.text,
-          incoming: message.incoming,
-          color: color,
-          state: message.state,
-        );
+        return _WorkspaceSignalMessage(message: message, accent: color);
       },
     );
   }
 }
 
-class _PushToTalkControl extends StatelessWidget {
-  const _PushToTalkControl({required this.chat});
+class _WorkspaceSignalMessage extends StatelessWidget {
+  const _WorkspaceSignalMessage({required this.message, required this.accent});
 
-  final WorkspaceChatController? chat;
+  final Color accent;
+  final WorkspaceChatMessage message;
 
   @override
   Widget build(BuildContext context) {
-    final controller = chat;
-    final enabled = controller?.canRecord ?? false;
-    final recording = controller?.recording ?? false;
-    final preparing = controller?.startingInput ?? false;
-    final label = recording
-        ? 'Release to send'
-        : preparing
-        ? 'Opening microphone'
-        : enabled
-        ? 'Hold to talk'
-        : 'Voice unavailable';
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Color(0xFAF4F5F1),
-        border: Border(top: BorderSide(color: GizColors.separator)),
-      ),
-      child: SizedBox(
-        height: 116,
-        width: double.infinity,
-        child: Center(
-          child: Listener(
-            onPointerDown: enabled
-                ? (_) => unawaited(controller!.startInput())
-                : null,
-            onPointerUp: enabled
-                ? (_) => unawaited(controller!.finishInput())
-                : null,
-            onPointerCancel: enabled
-                ? (_) => unawaited(
-                    controller!.finishInput(error: 'recording canceled'),
-                  )
-                : null,
-            child: Semantics(
-              button: true,
-              enabled: enabled,
-              label: label,
-              child: AnimatedScale(
-                scale: recording ? 1.08 : 1,
-                duration: const Duration(milliseconds: 160),
-                curve: Curves.easeOutCubic,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOutCubic,
-                  width: 190,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: recording ? GizColors.accent : GizColors.ink,
-                    borderRadius: BorderRadius.circular(32),
-                    boxShadow: recording
-                        ? [
-                            BoxShadow(
-                              color: GizColors.accent.withValues(alpha: 0.28),
-                              blurRadius: 20,
-                              spreadRadius: 5,
-                            ),
-                          ]
-                        : const [],
+    final incoming = message.incoming;
+    final width = MediaQuery.sizeOf(context).width;
+    return Align(
+      alignment: incoming ? Alignment.centerLeft : Alignment.centerRight,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: width * 0.82),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(14, 11, 14, 12),
+          decoration: BoxDecoration(
+            color: incoming
+                ? _SignalColors.panel
+                : accent.withValues(alpha: 0.92),
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(18),
+              topRight: const Radius.circular(18),
+              bottomLeft: Radius.circular(incoming ? 5 : 18),
+              bottomRight: Radius.circular(incoming ? 18 : 5),
+            ),
+            border: Border.all(
+              color: incoming
+                  ? _SignalColors.line
+                  : accent.withValues(alpha: 0.24),
+            ),
+            boxShadow: incoming
+                ? null
+                : [
+                    BoxShadow(
+                      color: accent.withValues(alpha: 0.1),
+                      blurRadius: 18,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    incoming
+                        ? CupertinoIcons.sparkles
+                        : CupertinoIcons.waveform,
+                    size: 13,
+                    color: incoming ? accent : _SignalColors.canvas,
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        recording
-                            ? CupertinoIcons.waveform
-                            : CupertinoIcons.mic_fill,
-                        size: 22,
-                        color: recording ? GizColors.ink : GizColors.surface,
-                      ),
-                      const SizedBox(width: 9),
-                      Flexible(
-                        child: Text(
-                          label,
-                          maxLines: 1,
-                          overflow: TextOverflow.fade,
-                          softWrap: false,
-                          style: GizText.label.copyWith(
-                            color: recording
-                                ? GizColors.ink
-                                : GizColors.surface,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ],
+                  const SizedBox(width: 7),
+                  Text(
+                    incoming ? 'AGENT TRANSMISSION' : 'YOUR VOICE',
+                    style: GizText.label.copyWith(
+                      color: incoming
+                          ? accent
+                          : _SignalColors.canvas.withValues(alpha: 0.68),
+                      fontSize: 8,
+                    ),
                   ),
+                  if (!incoming) ...[
+                    const Spacer(),
+                    _MiniWaveform(color: _SignalColors.canvas),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                message.text.isEmpty ? '...' : message.text,
+                style: GizText.body.copyWith(
+                  color: incoming ? _SignalColors.text : _SignalColors.canvas,
+                  fontSize: incoming ? 15 : 14,
+                  height: 1.5,
+                  fontWeight: incoming ? FontWeight.w500 : FontWeight.w700,
                 ),
               ),
-            ),
+              if (message.state == WorkspaceMessageState.streaming ||
+                  message.state == WorkspaceMessageState.failed) ...[
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (message.state == WorkspaceMessageState.streaming)
+                      SizedBox(
+                        width: 10,
+                        height: 10,
+                        child: CupertinoActivityIndicator(
+                          radius: 5,
+                          color: incoming ? accent : _SignalColors.canvas,
+                        ),
+                      )
+                    else
+                      Icon(
+                        CupertinoIcons.exclamationmark_circle_fill,
+                        size: 11,
+                        color: incoming ? accent : _SignalColors.canvas,
+                      ),
+                    const SizedBox(width: 5),
+                    Text(
+                      message.state == WorkspaceMessageState.failed
+                          ? 'SIGNAL INTERRUPTED'
+                          : 'STREAMING',
+                      style: GizText.label.copyWith(
+                        color: incoming
+                            ? _SignalColors.muted
+                            : _SignalColors.canvas.withValues(alpha: 0.62),
+                        fontSize: 8,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
           ),
         ),
       ),
     );
   }
+}
+
+class _MiniWaveform extends StatelessWidget {
+  const _MiniWaveform({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    const heights = [5.0, 10.0, 7.0, 13.0, 8.0, 11.0, 5.0];
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        for (final height in heights)
+          Container(
+            width: 2,
+            height: height,
+            margin: const EdgeInsets.only(left: 2),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.58),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _PushToTalkControl extends StatefulWidget {
+  const _PushToTalkControl({required this.chat, required this.accent});
+
+  final WorkspaceChatController? chat;
+  final Color accent;
+
+  @override
+  State<_PushToTalkControl> createState() => _PushToTalkControlState();
+}
+
+class _PushToTalkControlState extends State<_PushToTalkControl>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _energy = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1500),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _energy.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.chat;
+    final enabled = controller?.canRecord ?? false;
+    final recording = controller?.recording ?? false;
+    final preparing = controller?.startingInput ?? false;
+    final label = recording
+        ? 'RELEASE TO TRANSMIT'
+        : preparing
+        ? 'OPENING MICROPHONE'
+        : enabled
+        ? 'HOLD TO SPEAK'
+        : 'VOICE LINK UNAVAILABLE';
+    return SizedBox(
+      height: 132,
+      width: double.infinity,
+      child: AnimatedBuilder(
+        animation: _energy,
+        builder: (context, child) {
+          return CustomPaint(
+            painter: _VoiceDockPainter(
+              progress: _energy.value,
+              accent: widget.accent,
+              active: recording,
+              enabled: enabled,
+            ),
+            child: child,
+          );
+        },
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Listener(
+              onPointerDown: enabled
+                  ? (_) => unawaited(controller!.startInput())
+                  : null,
+              onPointerUp: enabled
+                  ? (_) => unawaited(controller!.finishInput())
+                  : null,
+              onPointerCancel: enabled
+                  ? (_) => unawaited(
+                      controller!.finishInput(error: 'recording canceled'),
+                    )
+                  : null,
+              child: Semantics(
+                button: true,
+                enabled: enabled,
+                label: label,
+                child: AnimatedScale(
+                  scale: recording ? 0.92 : 1,
+                  duration: const Duration(milliseconds: 140),
+                  curve: Curves.easeOutCubic,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    width: 70,
+                    height: 70,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: enabled
+                          ? widget.accent
+                          : _SignalColors.panelStrong,
+                      border: Border.all(
+                        color: enabled ? widget.accent : _SignalColors.line,
+                        width: 1.5,
+                      ),
+                      boxShadow: enabled
+                          ? [
+                              BoxShadow(
+                                color: widget.accent.withValues(
+                                  alpha: recording ? 0.48 : 0.2,
+                                ),
+                                blurRadius: recording ? 34 : 20,
+                                spreadRadius: recording ? 8 : 2,
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Icon(
+                      recording
+                          ? CupertinoIcons.waveform
+                          : CupertinoIcons.mic_fill,
+                      size: 26,
+                      color: enabled
+                          ? _SignalColors.canvas
+                          : _SignalColors.muted,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              label,
+              style: GizText.label.copyWith(
+                color: recording ? widget.accent : _SignalColors.muted,
+                fontSize: 9,
+              ),
+            ),
+            const SizedBox(height: 9),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VoiceDockPainter extends CustomPainter {
+  const _VoiceDockPainter({
+    required this.progress,
+    required this.accent,
+    required this.active,
+    required this.enabled,
+  });
+
+  final Color accent;
+  final bool active;
+  final bool enabled;
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height + 4);
+    final radius = size.width * (active ? 0.62 : 0.5);
+    final field = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          (enabled ? accent : _SignalColors.panelStrong).withValues(
+            alpha: active ? 0.28 : 0.13,
+          ),
+          _SignalColors.canvas.withValues(alpha: 0),
+        ],
+      ).createShader(Rect.fromCircle(center: center, radius: radius));
+    canvas.drawCircle(center, radius, field);
+
+    for (var ring = 0; ring < 3; ring++) {
+      final pulse = (progress + ring * 0.3) % 1;
+      final ringRadius = 54 + pulse * (active ? 92 : 55);
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: ringRadius),
+        math.pi,
+        math.pi,
+        false,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1
+          ..color = (enabled ? accent : _SignalColors.line).withValues(
+            alpha: (1 - pulse) * (active ? 0.34 : 0.12),
+          ),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_VoiceDockPainter oldDelegate) =>
+      oldDelegate.progress != progress ||
+      oldDelegate.active != active ||
+      oldDelegate.enabled != enabled ||
+      oldDelegate.accent != accent;
 }
 
 class ChatroomWorkspacePage extends StatelessWidget {
@@ -521,13 +1079,11 @@ class _ChatBubble extends StatelessWidget {
     required this.text,
     required this.incoming,
     required this.color,
-    this.state,
   });
 
   final String text;
   final bool incoming;
   final Color color;
-  final WorkspaceMessageState? state;
 
   @override
   Widget build(BuildContext context) {
@@ -543,30 +1099,11 @@ class _ChatBubble extends StatelessWidget {
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  text,
-                  style: GizText.body.copyWith(
-                    color: incoming ? GizColors.ink : GizColors.surface,
-                  ),
-                ),
-                if (state == WorkspaceMessageState.streaming ||
-                    state == WorkspaceMessageState.failed) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    state == WorkspaceMessageState.failed
-                        ? 'Not delivered'
-                        : 'Responding',
-                    style: GizText.label.copyWith(
-                      color: incoming
-                          ? GizColors.secondaryInk
-                          : GizColors.surface.withValues(alpha: 0.72),
-                    ),
-                  ),
-                ],
-              ],
+            child: Text(
+              text,
+              style: GizText.body.copyWith(
+                color: incoming ? GizColors.ink : GizColors.surface,
+              ),
             ),
           ),
         ),
