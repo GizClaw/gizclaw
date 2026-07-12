@@ -154,17 +154,17 @@ class FriendRow extends StatelessWidget {
       Color(0xFFD9E8FF),
     ];
     return GizListRow(
-      leading: Container(
-        width: 52,
-        height: 52,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
+      leading: GizSquircle(
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          width: 52,
+          height: 52,
+          alignment: Alignment.center,
           color: avatarColors[index % avatarColors.length],
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          friend.title.substring(0, 1).toUpperCase(),
-          style: GizText.sectionTitle,
+          child: Text(
+            friend.title.substring(0, 1).toUpperCase(),
+            style: GizText.sectionTitle,
+          ),
         ),
       ),
       title: friend.title,
@@ -458,36 +458,36 @@ class _FriendConnectSheetState extends State<_FriendConnectSheet> {
       key: const ValueKey('my-invite'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(
-          constraints: const BoxConstraints(minHeight: 74),
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
+        GizSquircle(
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 74),
+            padding: const EdgeInsets.all(14),
             color: secondary,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: _busy && _token.isEmpty
-              ? const Center(child: CupertinoActivityIndicator())
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CupertinoTextField(
-                      controller: _tokenController,
-                      readOnly: true,
-                      padding: EdgeInsets.zero,
-                      decoration: null,
-                      style: GizText.title,
-                    ),
-                    if (_expiresAt.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        'Expires ${_formatInviteExpiry(_expiresAt)}',
-                        style: GizText.label.copyWith(
-                          color: GizColors.secondaryInk,
-                        ),
+            child: _busy && _token.isEmpty
+                ? const Center(child: CupertinoActivityIndicator())
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CupertinoTextField(
+                        controller: _tokenController,
+                        readOnly: true,
+                        padding: EdgeInsets.zero,
+                        decoration: null,
+                        style: GizText.title,
                       ),
+                      if (_expiresAt.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          'Expires ${_formatInviteExpiry(_expiresAt)}',
+                          style: GizText.label.copyWith(
+                            color: GizColors.secondaryInk,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
-                ),
+                  ),
+          ),
         ),
         const SizedBox(height: 12),
         Row(
@@ -574,7 +574,7 @@ class PrototypePetPage extends StatelessWidget {
             const SizedBox(height: 18),
             AspectRatio(
               aspectRatio: 0.72,
-              child: ClipRRect(
+              child: ClipRSuperellipse(
                 borderRadius: BorderRadius.circular(12),
                 child: Stack(
                   fit: StackFit.expand,
@@ -719,29 +719,29 @@ class _PetStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 92,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
+    return GizSquircle(
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        height: 92,
+        padding: const EdgeInsets.all(14),
         color: color,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 24, color: GizColors.ink),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: GizText.label),
-                const SizedBox(height: 4),
-                Text(value, style: GizText.title),
-              ],
+        child: Row(
+          children: [
+            Icon(icon, size: 24, color: GizColors.ink),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: GizText.label),
+                  const SizedBox(height: 4),
+                  Text(value, style: GizText.title),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -766,45 +766,45 @@ class MePage extends StatelessWidget {
             const SizedBox(height: 18),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
+              child: GizSquircle(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.all(18),
                   color: GizColors.ink,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Row(
-                  children: [
-                    _ProfileMark(),
-                    SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Local client',
-                            style: TextStyle(
-                              fontFamily: 'Manrope',
-                              color: GizColors.surface,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0,
+                  child: const Row(
+                    children: [
+                      _ProfileMark(),
+                      SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Local client',
+                              style: TextStyle(
+                                fontFamily: 'Manrope',
+                                color: GizColors.surface,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0,
+                              ),
                             ),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'Connected over WebRTC',
-                            style: TextStyle(
-                              fontFamily: 'Manrope',
-                              color: Color(0xAFFFFFFF),
-                              fontSize: 13,
-                              letterSpacing: 0,
+                            SizedBox(height: 4),
+                            Text(
+                              'Connected over WebRTC',
+                              style: TextStyle(
+                                fontFamily: 'Manrope',
+                                color: Color(0xAFFFFFFF),
+                                fontSize: 13,
+                                letterSpacing: 0,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    GizSignalPulse(size: 28),
-                  ],
+                      GizSignalPulse(size: 28),
+                    ],
+                  ),
                 ),
               ),
             ),

@@ -143,7 +143,7 @@ class FeaturedCollectionCard extends StatelessWidget {
         onPressed: onPressed,
         borderRadius: BorderRadius.circular(12),
         scaleWhenPressed: 0.985,
-        child: ClipRRect(
+        child: ClipRSuperellipse(
           borderRadius: BorderRadius.circular(12),
           child: Stack(
             fit: StackFit.expand,
@@ -217,12 +217,12 @@ class CollectionArtworkHero extends StatelessWidget {
       placeholderBuilder: (_, _, child) => child,
       flightShuttleBuilder:
           (flightContext, animation, direction, fromContext, toContext) {
-            return ClipRRect(
+            return ClipRSuperellipse(
               borderRadius: radius,
               child: Image.asset(collection.imagePath, fit: BoxFit.cover),
             );
           },
-      child: ClipRRect(
+      child: ClipRSuperellipse(
         borderRadius: radius,
         child: Image.asset(collection.imagePath, fit: BoxFit.cover),
       ),
@@ -276,18 +276,18 @@ class _WorkspaceStrip extends StatelessWidget {
                   padding: const EdgeInsets.all(14),
                   child: Row(
                     children: [
-                      Container(
-                        width: 42,
-                        height: 88,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
+                      GizSquircle(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          width: 42,
+                          height: 88,
+                          alignment: Alignment.center,
                           color: workflow.bannerColor,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Icon(
-                          workflow.icon,
-                          color: GizColors.surface,
-                          size: 21,
+                          child: Icon(
+                            workflow.icon,
+                            color: GizColors.surface,
+                            size: 21,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 13),
@@ -413,7 +413,7 @@ class WorkflowArtworkHero extends StatelessWidget {
             return AnimatedBuilder(
               animation: animation,
               builder: (context, child) {
-                return ClipRRect(
+                return ClipRSuperellipse(
                   borderRadius: BorderRadius.lerp(
                     begin,
                     end,
@@ -425,7 +425,7 @@ class WorkflowArtworkHero extends StatelessWidget {
               child: _WorkflowArtwork(workflow: workflow),
             );
           },
-      child: ClipRRect(borderRadius: radius, child: artwork),
+      child: ClipRSuperellipse(borderRadius: radius, child: artwork),
     );
   }
 }
@@ -496,7 +496,7 @@ class CollectionPage extends StatelessWidget {
             sliver: SliverPadding(
               padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
               sliver: SliverToBoxAdapter(
-                child: ClipRRect(
+                child: ClipRSuperellipse(
                   borderRadius: BorderRadius.circular(12),
                   child: AspectRatio(
                     aspectRatio: 4 / 3,
@@ -567,7 +567,7 @@ class _CollectionWorkflowRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GizListRow(
-      leading: ClipRRect(
+      leading: ClipRSuperellipse(
         borderRadius: BorderRadius.circular(8),
         child: SizedBox(
           width: 58,
@@ -690,24 +690,23 @@ class WorkspaceListTile extends StatelessWidget {
       context,
     ).workflow(workspace.workflowName);
     return GizListRow(
-      leading: Container(
-        width: 50,
-        height: 50,
-        alignment: Alignment.center,
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
+      leading: GizSquircle(
+        borderRadius: BorderRadius.circular(12),
+        child: ColoredBox(
           color: workflow.bannerColor,
-          borderRadius: BorderRadius.circular(8),
+          child: SizedBox.square(
+            dimension: 50,
+            child: workflow.driver.imagePath == null
+                ? Icon(workflow.icon, color: GizColors.surface, size: 22)
+                : Image.asset(
+                    workflow.driver.imagePath!,
+                    width: 50,
+                    height: 50,
+                    fit: BoxFit.cover,
+                    filterQuality: FilterQuality.high,
+                  ),
+          ),
         ),
-        child: workflow.driver.imagePath == null
-            ? Icon(workflow.icon, color: GizColors.surface, size: 22)
-            : Image.asset(
-                workflow.driver.imagePath!,
-                width: 50,
-                height: 50,
-                fit: BoxFit.cover,
-                filterQuality: FilterQuality.high,
-              ),
       ),
       title: workspace.title,
       subtitle: '${workflow.title}  |  ${workspace.lastActive}',

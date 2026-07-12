@@ -87,6 +87,59 @@ const gizCupertinoTheme = CupertinoThemeData(
   ),
 );
 
+class GizSquircle extends StatelessWidget {
+  const GizSquircle({
+    super.key,
+    required this.child,
+    this.borderRadius = const BorderRadius.all(Radius.circular(12)),
+    this.clipBehavior = Clip.antiAlias,
+  });
+
+  final BorderRadiusGeometry borderRadius;
+  final Widget child;
+  final Clip clipBehavior;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRSuperellipse(
+      borderRadius: borderRadius,
+      clipBehavior: clipBehavior,
+      child: child,
+    );
+  }
+}
+
+class GizIconTile extends StatelessWidget {
+  const GizIconTile({
+    super.key,
+    required this.icon,
+    required this.backgroundColor,
+    this.foregroundColor = GizColors.ink,
+    this.size = 44,
+    this.iconSize = 21,
+  });
+
+  final Color backgroundColor;
+  final Color foregroundColor;
+  final IconData icon;
+  final double iconSize;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return GizSquircle(
+      borderRadius: BorderRadius.circular(size * 0.28),
+      child: ColoredBox(
+        color: backgroundColor,
+        child: SizedBox.square(
+          dimension: size,
+          child: Icon(icon, size: iconSize, color: foregroundColor),
+        ),
+      ),
+    );
+  }
+}
+
 class GizPressable extends StatefulWidget {
   const GizPressable({
     super.key,
@@ -130,14 +183,14 @@ class _GizPressableState extends State<GizPressable> {
           duration: 90.ms,
           curve: Curves.easeOut,
           scale: _pressed ? widget.scaleWhenPressed : 1,
-          child: AnimatedContainer(
-            duration: 90.ms,
-            curve: Curves.easeOut,
-            decoration: BoxDecoration(
+          child: GizSquircle(
+            borderRadius: widget.borderRadius,
+            child: AnimatedContainer(
+              duration: 90.ms,
+              curve: Curves.easeOut,
               color: _pressed ? widget.pressedColor : const Color(0x00000000),
-              borderRadius: widget.borderRadius,
+              child: widget.child,
             ),
-            child: widget.child,
           ),
         ),
       ),

@@ -86,7 +86,7 @@ class _ChatTypeIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imagePath = driver.imagePath;
-    return ClipRRect(
+    return ClipRSuperellipse(
       borderRadius: BorderRadius.circular(8),
       child: Container(
         width: 50,
@@ -222,21 +222,28 @@ class _ChatroomWorkspaceListTile extends StatelessWidget {
       null => 'CHATROOM',
     };
     return GizListRow(
-      leading: Container(
-        width: 50,
-        height: 50,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: isDirect ? const Color(0xFFD9F2EA) : const Color(0xFFDDE8FF),
-          shape: isDirect ? BoxShape.circle : BoxShape.rectangle,
-          borderRadius: isDirect ? null : BorderRadius.circular(8),
-        ),
-        child: Icon(
-          isDirect ? CupertinoIcons.person_fill : CupertinoIcons.person_2_fill,
-          color: isDirect ? const Color(0xFF17795B) : const Color(0xFF315E9D),
-          size: 22,
-        ),
-      ),
+      leading: isDirect
+          ? Container(
+              width: 50,
+              height: 50,
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                color: Color(0xFFD9F2EA),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                CupertinoIcons.person_fill,
+                color: Color(0xFF17795B),
+                size: 22,
+              ),
+            )
+          : const GizIconTile(
+              icon: CupertinoIcons.person_2_fill,
+              backgroundColor: Color(0xFFDDE8FF),
+              foregroundColor: Color(0xFF315E9D),
+              size: 50,
+              iconSize: 22,
+            ),
       title: title == null || title.isEmpty ? workspace.title : title,
       subtitle:
           '$typeLabel  |  '
