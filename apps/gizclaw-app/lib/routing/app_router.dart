@@ -120,6 +120,16 @@ GoRouter createAppRouter() {
               GoRoute(
                 path: '/pet',
                 pageBuilder: (context, state) => _page(state, const PetPage()),
+                routes: [
+                  GoRoute(
+                    path: ':petId',
+                    parentNavigatorKey: rootNavigatorKey,
+                    pageBuilder: (context, state) => _page(
+                      state,
+                      PetDetailPage(petId: state.pathParameters['petId']!),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

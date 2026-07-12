@@ -1,11 +1,16 @@
 import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:gizclaw/gizclaw.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../data/mobile_data_controller.dart';
 import '../../giz_ui/giz_ui.dart';
 import '../../pixa_sprite.dart';
+
+const _petSceneColor = Color(0xFFDCEFE8);
 
 class PetPage extends StatefulWidget {
   const PetPage({super.key});
@@ -17,16 +22,10 @@ class PetPage extends StatefulWidget {
 class _PetPageState extends State<PetPage> {
   GizClawClient? _client;
   List<Pet> _pets = const [];
-  Pet? _pet;
-  PetPresentation? _presentation;
-  PixaAsset? _pixa;
+  final Map<String, _PetVisual> _visuals = {};
   Object? _error;
-  Object? _pixaError;
   bool _loading = false;
   bool _adopting = false;
-  String? _drivingAction;
-  String? _clipName;
-  Timer? _idleTimer;
   int _request = 0;
 
   @override
@@ -41,11 +40,9 @@ class _PetPageState extends State<PetPage> {
     _request += 1;
     if (client == null) {
       setState(() {
-        _loading = false;
         _pets = const [];
-        _pet = null;
-        _presentation = null;
-        _pixa = null;
+        _visuals.clear();
+        _loading = false;
       });
       return;
     }
@@ -55,11 +52,10 @@ class _PetPageState extends State<PetPage> {
   @override
   void dispose() {
     _request += 1;
-    _idleTimer?.cancel();
     super.dispose();
   }
 
-  Future<void> _loadPets({String? selectedId}) async {
+  Future<void> _loadPets() async {
     final client = _client;
     if (client == null || _loading) return;
     final request = ++_request;
@@ -76,24 +72,14 @@ class _PetPageState extends State<PetPage> {
         cursor = response.value.hasNext ? response.value.nextCursor : null;
       } while (cursor != null && cursor.isNotEmpty);
       if (!mounted || request != _request) return;
-      _pets = pets;
-      if (pets.isEmpty) {
-        setState(() {
-          _pet = null;
-          _presentation = null;
-          _pixa = null;
-          _loading = false;
-        });
-        return;
-      }
-      Pet selected = pets.first;
-      final wantedId = selectedId ?? _pet?.id;
-      if (wantedId != null) {
-        for (final candidate in pets) {
-          if (candidate.id == wantedId) selected = candidate;
-        }
-      }
-      await _loadPet(selected, request: request);
+      setState(() {
+        _pets = pets;
+        _visuals.removeWhere((id, _) => !pets.any((pet) => pet.id == id));
+        _loading = false;
+      });
+      await Future.wait([
+        for (final pet in pets) _loadVisual(client, pet, request),
+      ]);
     } catch (error) {
       if (!mounted || request != _request) return;
       setState(() {
@@ -103,42 +89,21 @@ class _PetPageState extends State<PetPage> {
     }
   }
 
-  Future<void> _loadPet(Pet pet, {int? request}) async {
-    final client = _client;
-    if (client == null) return;
-    final activeRequest = request ?? ++_request;
-    setState(() {
-      _pet = pet;
-      _loading = true;
-      _error = null;
-      _pixaError = null;
-      _presentation = null;
-      _pixa = null;
-    });
+  Future<void> _loadVisual(GizClawClient client, Pet pet, int request) async {
     try {
-      final response = await client.getPetPresentation(pet.id);
+      final presentation = (await client.getPetPresentation(pet.id)).value;
       PixaAsset? pixa;
-      Object? pixaError;
       try {
         pixa = (await client.downloadPetPixa(pet.id)).asset;
-      } catch (error) {
-        pixaError = error;
+      } catch (_) {
+        // A PetDef can be visible before its optional PIXA asset is uploaded.
       }
-      if (!mounted || activeRequest != _request) return;
-      final presentation = response.value;
+      if (!mounted || request != _request) return;
       setState(() {
-        _presentation = presentation;
-        _pixa = pixa;
-        _pixaError = pixaError;
-        _clipName = _defaultClip(presentation);
-        _loading = false;
+        _visuals[pet.id] = _PetVisual(presentation: presentation, pixa: pixa);
       });
-    } catch (error) {
-      if (!mounted || activeRequest != _request) return;
-      setState(() {
-        _loading = false;
-        _error = error;
-      });
+    } catch (_) {
+      // Keep the cover usable even if its presentation is temporarily missing.
     }
   }
 
@@ -155,41 +120,12 @@ class _PetPageState extends State<PetPage> {
       final response = await client.adoptPet(
         displayName: name.trim().isEmpty ? null : name.trim(),
       );
-      await _loadPets(selectedId: response.value.pet.id);
+      await _loadPets();
+      if (mounted) context.push('/pet/${response.value.pet.id}');
     } catch (error) {
       if (mounted) setState(() => _error = error);
     } finally {
       if (mounted) setState(() => _adopting = false);
-    }
-  }
-
-  Future<void> _drive(PetPresentationActionSpec action) async {
-    final client = _client;
-    final pet = _pet;
-    if (client == null || pet == null || _drivingAction != null) return;
-    setState(() {
-      _drivingAction = action.id;
-      _error = null;
-      _clipName = _clipForAction(_presentation, action.id) ?? _clipName;
-    });
-    try {
-      final response = await client.drivePet(pet.id, action: action.id);
-      if (!mounted) return;
-      final updated = response.value.pet;
-      setState(() {
-        _pet = updated;
-        _pets = [
-          for (final item in _pets) item.id == updated.id ? updated : item,
-        ];
-      });
-      _idleTimer?.cancel();
-      _idleTimer = Timer(const Duration(seconds: 3), () {
-        if (mounted) setState(() => _clipName = _defaultClip(_presentation));
-      });
-    } catch (error) {
-      if (mounted) setState(() => _error = error);
-    } finally {
-      if (mounted) setState(() => _drivingAction = null);
     }
   }
 
@@ -205,7 +141,7 @@ class _PetPageState extends State<PetPage> {
         loading: data.connectionState == MobileConnectionState.connecting,
       );
     }
-    if (_loading && _pet == null) {
+    if (_loading && _pets.isEmpty) {
       return const _PetMessagePage(
         title: 'Pet',
         message: 'Looking for your pets...',
@@ -221,80 +157,55 @@ class _PetPageState extends State<PetPage> {
       );
     }
 
-    final pet = _pet ?? _pets.first;
-    final presentation = _presentation;
-    final catalog = _catalogFor(context, presentation);
-    final metrics = _petMetrics(pet, catalog);
-    final actions = presentation?.drive.actions ?? const [];
     return CupertinoPageScaffold(
       child: SafeArea(
         bottom: false,
         child: CustomScrollView(
-          key: const PageStorageKey('pet-scroll'),
+          key: const PageStorageKey('pet-covers'),
           slivers: [
-            CupertinoSliverRefreshControl(
-              onRefresh: () => _loadPets(selectedId: pet.id),
-            ),
+            CupertinoSliverRefreshControl(onRefresh: _loadPets),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 112),
               sliver: SliverList.list(
                 children: [
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Text('Pet', style: GizText.pageTitle),
-                      ),
-                      if (_pets.length > 1)
-                        CupertinoButton(
-                          padding: const EdgeInsets.all(8),
-                          onPressed: () => _choosePet(context),
-                          child: const Icon(
-                            CupertinoIcons.chevron_up_chevron_down,
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  _PetPortrait(
-                    pet: pet,
-                    catalog: catalog,
-                    pixa: _pixa,
-                    pixaError: _pixaError,
-                    clipName: _clipName,
-                    loading: _loading,
-                  ),
+                  _PetPageHeader(adopting: _adopting, onAdopt: _adopt),
                   if (_error != null) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     Text(
                       _petError(_error!),
-                      textAlign: TextAlign.center,
                       style: GizText.body.copyWith(
                         color: CupertinoColors.systemRed.resolveFrom(context),
                       ),
                     ),
                   ],
-                  if (metrics.isNotEmpty) ...[
-                    const SizedBox(height: 22),
-                    const Text('Vitals', style: GizText.sectionTitle),
-                    const SizedBox(height: 10),
-                    _PetMetricGrid(metrics: metrics),
-                  ],
-                  if (actions.isNotEmpty) ...[
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Spend time together',
-                      style: GizText.sectionTitle,
+                  const SizedBox(height: 20),
+                  if (_pets.length == 1)
+                    _PetCoverCard(
+                      pet: _pets.first,
+                      visual: _visuals[_pets.first.id],
+                      onPressed: () => context.push('/pet/${_pets.first.id}'),
                     ),
-                    const SizedBox(height: 10),
-                    for (final action in actions)
-                      _PetActionRow(
-                        action: action,
-                        title: _actionName(catalog, action.id),
-                        busy: _drivingAction == action.id,
-                        enabled: _drivingAction == null,
-                        onPressed: () => _drive(action),
+                  if (_pets.length > 1)
+                    GridView.builder(
+                      padding: EdgeInsets.zero,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: 0.78,
+                          ),
+                      itemCount: _pets.length,
+                      itemBuilder: (context, index) => _PetCoverCard(
+                        pet: _pets[index],
+                        visual: _visuals[_pets[index].id],
+                        compact: true,
+                        onPressed: () =>
+                            context.push('/pet/${_pets[index].id}'),
                       ),
-                  ],
+                    ),
                 ],
               ),
             ),
@@ -303,131 +214,342 @@ class _PetPageState extends State<PetPage> {
       ),
     );
   }
-
-  Future<void> _choosePet(BuildContext context) async {
-    final id = await showCupertinoModalPopup<String>(
-      context: context,
-      builder: (context) => CupertinoActionSheet(
-        title: const Text('Choose a pet'),
-        actions: [
-          for (final pet in _pets)
-            CupertinoActionSheetAction(
-              onPressed: () => Navigator.pop(context, pet.id),
-              child: Text(pet.displayName.isEmpty ? pet.id : pet.displayName),
-            ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-      ),
-    );
-    if (!mounted || id == null || id == _pet?.id) return;
-    await _loadPet(_pets.firstWhere((pet) => pet.id == id));
-  }
 }
 
-class _PetPortrait extends StatelessWidget {
-  const _PetPortrait({
-    required this.pet,
-    required this.catalog,
-    required this.pixa,
-    required this.pixaError,
-    required this.clipName,
-    required this.loading,
-  });
+class PetDetailPage extends StatefulWidget {
+  const PetDetailPage({super.key, required this.petId});
 
-  final Pet pet;
-  final PetPresentationI18nCatalog? catalog;
-  final PixaAsset? pixa;
-  final Object? pixaError;
-  final String? clipName;
-  final bool loading;
+  final String petId;
+
+  @override
+  State<PetDetailPage> createState() => _PetDetailPageState();
+}
+
+class _PetDetailPageState extends State<PetDetailPage> {
+  GizClawClient? _client;
+  Pet? _pet;
+  PetPresentation? _presentation;
+  PixaAsset? _pixa;
+  Object? _error;
+  bool _loading = false;
+  String? _clipName;
+  String? _drivingAction;
+  int _request = 0;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final data = MobileDataScope.watch(context);
+    final client = data.connectionState == MobileConnectionState.connected
+        ? data.connection.client
+        : null;
+    if (identical(client, _client)) return;
+    _client = client;
+    _request += 1;
+    if (client == null) {
+      setState(() {
+        _pet = null;
+        _presentation = null;
+        _pixa = null;
+        _loading = false;
+      });
+      return;
+    }
+    unawaited(_load());
+  }
+
+  @override
+  void dispose() {
+    _request += 1;
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    final client = _client;
+    if (client == null || _loading) return;
+    final request = ++_request;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final pet = (await client.getPet(widget.petId)).value;
+      final presentation = (await client.getPetPresentation(
+        widget.petId,
+      )).value;
+      PixaAsset? pixa;
+      Object? pixaError;
+      try {
+        pixa = (await client.downloadPetPixa(widget.petId)).asset;
+      } catch (error) {
+        pixaError = error;
+      }
+      if (!mounted || request != _request) return;
+      setState(() {
+        _pet = pet;
+        _presentation = presentation;
+        _pixa = pixa;
+        _clipName = _defaultClip(presentation);
+        _loading = false;
+        _error = pixaError;
+      });
+    } catch (error) {
+      if (!mounted || request != _request) return;
+      setState(() {
+        _loading = false;
+        _error = error;
+      });
+    }
+  }
+
+  Future<void> _drive(PetPresentationActionSpec action) async {
+    final client = _client;
+    final pet = _pet;
+    if (client == null || pet == null || _drivingAction != null) return;
+    final actionClip = _clipForAction(_presentation, action.id);
+    final duration = _clipDuration(_pixa, actionClip);
+    setState(() {
+      _drivingAction = action.id;
+      _error = null;
+      _clipName = actionClip ?? _clipName;
+    });
+    try {
+      final animation = Future<void>.delayed(duration);
+      final response = await client.drivePet(pet.id, action: action.id);
+      if (!mounted) return;
+      setState(() => _pet = response.value.pet);
+      await animation;
+      if (!mounted) return;
+      setState(() {
+        _drivingAction = null;
+        _clipName = _defaultClip(_presentation);
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _drivingAction = null;
+        _clipName = _defaultClip(_presentation);
+        _error = error;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final name = pet.displayName.trim().isEmpty
-        ? (catalog?.displayName.trim().isNotEmpty == true
-              ? catalog!.displayName
-              : 'Unnamed pet')
-        : pet.displayName;
-    final progression = pet.progression.value.entries.isEmpty
-        ? pet.rulesetName
-        : pet.progression.value.entries
-              .map((entry) => '${_title(entry.key)} ${entry.value}')
-              .join('  |  ');
-    return AspectRatio(
-      aspectRatio: 0.78,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: ColoredBox(
-          color: const Color(0xFFDDEFE6),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Positioned(
-                left: 26,
-                right: 26,
-                top: 42,
-                bottom: 126,
-                child: pixa == null
-                    ? Center(
-                        child: loading
-                            ? const CupertinoActivityIndicator(radius: 14)
-                            : Icon(
-                                pixaError == null
-                                    ? CupertinoIcons.sparkles
-                                    : CupertinoIcons.exclamationmark_triangle,
-                                size: 56,
-                                color: GizColors.secondaryInk,
-                              ),
-                      )
-                    : _AnimatedPetSprite(asset: pixa!, clipName: clipName),
+    final data = MobileDataScope.watch(context);
+    if (_client == null) {
+      return _PetDetailMessage(
+        message: data.connectionState == MobileConnectionState.connecting
+            ? 'Connecting...'
+            : 'Pet is unavailable while disconnected.',
+        loading: data.connectionState == MobileConnectionState.connecting,
+      );
+    }
+    if (_loading && _pet == null) {
+      return const _PetDetailMessage(
+        message: 'Waking your pet...',
+        loading: true,
+      );
+    }
+    final pet = _pet;
+    if (pet == null) {
+      return _PetDetailMessage(
+        message: _error == null ? 'Pet not found.' : _petError(_error!),
+        loading: false,
+        onRetry: _load,
+      );
+    }
+
+    final catalog = _catalogFor(context, _presentation);
+    final metrics = _petMetrics(pet, catalog).take(4).toList();
+    final actions =
+        (_presentation?.drive.actions ?? const <PetPresentationActionSpec>[])
+            .where((action) => action.id.toLowerCase() != 'idle')
+            .toList();
+    return CupertinoPageScaffold(
+      backgroundColor: GizColors.canvas,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Positioned(
+            left: 18,
+            top: MediaQuery.paddingOf(context).top + 12,
+            child: _SceneButton(
+              label: 'Back',
+              icon: CupertinoIcons.back,
+              onPressed: () => context.pop(),
+            ),
+          ),
+          Positioned(
+            left: 76,
+            right: 20,
+            top: MediaQuery.paddingOf(context).top + 14,
+            child: Text(
+              _petName(pet, catalog),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GizText.sectionTitle,
+            ),
+          ),
+          Positioned(
+            left: 20,
+            right: 20,
+            top: MediaQuery.paddingOf(context).top + 76,
+            bottom: MediaQuery.paddingOf(context).bottom + 86,
+            child: SingleChildScrollView(
+              child: _PetGameConsole(
+                pet: pet,
+                pixa: _pixa,
+                clipName: _clipName,
+                metrics: metrics,
+                loading: _loading,
               ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  color: GizColors.ink,
-                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        style: GizText.pageTitle.copyWith(
-                          color: GizColors.surface,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        progression,
-                        style: GizText.body.copyWith(
-                          color: const Color(0xCFFFFFFF),
-                        ),
-                      ),
-                      if (catalog?.description.trim().isNotEmpty == true) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          catalog!.description,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: GizText.label.copyWith(
-                            color: const Color(0xAFFFFFFF),
+            ),
+          ),
+          if (_error != null)
+            Positioned(
+              left: 72,
+              right: 18,
+              bottom: MediaQuery.paddingOf(context).bottom + 22,
+              child: _PetErrorToast(error: _petError(_error!)),
+            ),
+          Positioned(
+            left: 18,
+            bottom: MediaQuery.paddingOf(context).bottom + 18,
+            child: _PetActionFab(
+              actions: actions,
+              catalog: catalog,
+              activeAction: _drivingAction,
+              onAction: _drive,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PetPageHeader extends StatelessWidget {
+  const _PetPageHeader({required this.adopting, required this.onAdopt});
+
+  final bool adopting;
+  final VoidCallback onAdopt;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Expanded(child: Text('Pet', style: GizText.pageTitle)),
+        Semantics(
+          label: 'Adopt a pet',
+          button: true,
+          child: CupertinoButton(
+            padding: EdgeInsets.zero,
+            minimumSize: const Size(44, 44),
+            onPressed: adopting ? null : onAdopt,
+            child: adopting
+                ? const CupertinoActivityIndicator()
+                : const Icon(CupertinoIcons.add_circled_solid, size: 30),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PetCoverCard extends StatelessWidget {
+  const _PetCoverCard({
+    required this.pet,
+    required this.visual,
+    required this.onPressed,
+    this.compact = false,
+  });
+
+  final Pet pet;
+  final _PetVisual? visual;
+  final VoidCallback onPressed;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final catalog = _catalogFor(context, visual?.presentation);
+    return GizPressable(
+      onPressed: onPressed,
+      borderRadius: BorderRadius.circular(12),
+      scaleWhenPressed: 0.985,
+      child: AspectRatio(
+        aspectRatio: compact ? 0.78 : 1.08,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: ColoredBox(
+            color: _petSceneColor,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Positioned(
+                  left: compact ? 16 : 34,
+                  right: compact ? 16 : 34,
+                  top: compact ? 18 : 24,
+                  bottom: compact ? 58 : 72,
+                  child: visual?.pixa == null
+                      ? const Center(child: CupertinoActivityIndicator())
+                      : AnimatedOpacity(
+                          opacity: 1,
+                          duration: const Duration(milliseconds: 280),
+                          child: _AnimatedPetSprite(
+                            asset: visual!.pixa!,
+                            clipName: _defaultClip(visual!.presentation),
                           ),
                         ),
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    color: GizColors.ink,
+                    padding: EdgeInsets.fromLTRB(
+                      compact ? 12 : 18,
+                      compact ? 10 : 14,
+                      compact ? 10 : 16,
+                      compact ? 11 : 15,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _petName(pet, catalog),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GizText.sectionTitle.copyWith(
+                              color: GizColors.surface,
+                              fontSize: compact ? 15 : null,
+                            ),
+                          ),
+                        ),
+                        Icon(
+                          CupertinoIcons.arrow_up_right,
+                          color: GizColors.surface,
+                          size: compact ? 17 : 21,
+                        ),
                       ],
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+class _PetVisual {
+  const _PetVisual({required this.presentation, required this.pixa});
+
+  final PetPresentation presentation;
+  final PixaAsset? pixa;
 }
 
 class _AnimatedPetSprite extends StatefulWidget {
@@ -447,11 +569,20 @@ class _AnimatedPetSpriteState extends State<_AnimatedPetSprite> {
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+    _timer = Timer.periodic(const Duration(milliseconds: 80), (_) {
       if (mounted) {
-        setState(() => _elapsed += const Duration(milliseconds: 100));
+        setState(() => _elapsed += const Duration(milliseconds: 80));
       }
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnimatedPetSprite oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.asset, widget.asset) ||
+        oldWidget.clipName != widget.clipName) {
+      _elapsed = Duration.zero;
+    }
   }
 
   @override
@@ -471,76 +602,558 @@ class _AnimatedPetSpriteState extends State<_AnimatedPetSprite> {
   }
 }
 
-class _PetMetricGrid extends StatelessWidget {
-  const _PetMetricGrid({required this.metrics});
+class _PetGameConsole extends StatelessWidget {
+  const _PetGameConsole({
+    required this.pet,
+    required this.pixa,
+    required this.clipName,
+    required this.metrics,
+    required this.loading,
+  });
 
+  final Pet pet;
+  final PixaAsset? pixa;
+  final String? clipName;
   final List<_PetMetric> metrics;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
+    final progression = pet.progression.value.entries.isEmpty
+        ? pet.rulesetName
+        : pet.progression.value.entries
+              .map((entry) => '${_title(entry.key)} ${entry.value}')
+              .join('  |  ');
+    return Column(
       children: [
-        for (var index = 0; index < metrics.length; index++)
-          SizedBox(
-            width: (MediaQuery.sizeOf(context).width - 50) / 2,
-            child: Container(
-              height: 88,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: index.isEven
-                    ? GizColors.accent
-                    : const Color(0xFFFFDDD2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(metrics[index].label, style: GizText.label),
-                  const SizedBox(height: 5),
-                  Text('${metrics[index].value}', style: GizText.title),
-                ],
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: AspectRatio(
+              aspectRatio: 1,
+              child: _PetDevice(
+                pixa: pixa,
+                clipName: clipName,
+                metrics: metrics,
+                loading: loading,
               ),
             ),
           ),
+        ),
+        const SizedBox(height: 14),
+        _PetMetricLegend(metrics: metrics),
+        const SizedBox(height: 16),
+        Text(
+          progression,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: GizText.label.copyWith(color: GizColors.secondaryInk),
+        ),
       ],
     );
   }
 }
 
-class _PetActionRow extends StatelessWidget {
-  const _PetActionRow({
-    required this.action,
-    required this.title,
-    required this.busy,
-    required this.enabled,
+class _PetDevice extends StatelessWidget {
+  const _PetDevice({
+    required this.pixa,
+    required this.clipName,
+    required this.metrics,
+    required this.loading,
+  });
+
+  final PixaAsset? pixa;
+  final String? clipName;
+  final List<_PetMetric> metrics;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final extent = constraints.maxWidth;
+        final shellExtent = extent - 24;
+        return _PetAttributeOrbit(
+          metrics: metrics,
+          child: Stack(
+            children: [
+              Positioned(
+                left: 12 + shellExtent * 0.307,
+                top: 12 + shellExtent * 0.287,
+                width: shellExtent * 0.386,
+                height: shellExtent * 0.392,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(extent * 0.018),
+                  child: ColoredBox(
+                    color: _petSceneColor,
+                    child: Padding(
+                      padding: EdgeInsets.all(extent * 0.025),
+                      child: pixa == null
+                          ? Center(
+                              child: loading
+                                  ? const CupertinoActivityIndicator(
+                                      color: GizColors.ink,
+                                    )
+                                  : const Icon(
+                                      CupertinoIcons.sparkles,
+                                      color: GizColors.secondaryInk,
+                                      size: 36,
+                                    ),
+                            )
+                          : _AnimatedPetSprite(
+                              asset: pixa!,
+                              clipName: clipName,
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Image.asset(
+                    'assets/pet/digipet-console.png',
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.high,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _PetAttributeOrbit extends StatefulWidget {
+  const _PetAttributeOrbit({required this.metrics, required this.child});
+
+  final List<_PetMetric> metrics;
+  final Widget child;
+
+  @override
+  State<_PetAttributeOrbit> createState() => _PetAttributeOrbitState();
+}
+
+class _PetAttributeOrbitState extends State<_PetAttributeOrbit>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late List<double> _from;
+  late List<double> _to;
+
+  @override
+  void initState() {
+    super.initState();
+    _from = List.filled(4, 0);
+    _to = _values(widget.metrics);
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    )..forward();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PetAttributeOrbit oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final next = _values(widget.metrics);
+    if (_sameValues(next, _to)) return;
+    final progress = Curves.easeOutCubic.transform(_controller.value);
+    _from = List.generate(
+      4,
+      (index) => _from[index] + (_to[index] - _from[index]) * progress,
+    );
+    _to = next;
+    _controller.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      child: widget.child,
+      builder: (context, child) {
+        final progress = Curves.easeOutCubic.transform(_controller.value);
+        final values = List.generate(
+          4,
+          (index) => _from[index] + (_to[index] - _from[index]) * progress,
+        );
+        return CustomPaint(
+          foregroundPainter: _PetAttributePainter(values),
+          child: child,
+        );
+      },
+    );
+  }
+
+  static List<double> _values(List<_PetMetric> metrics) => List.generate(
+    4,
+    (index) => index < metrics.length
+        ? (metrics[index].value / 100).clamp(0.0, 1.0)
+        : 0.0,
+  );
+
+  static bool _sameValues(List<double> a, List<double> b) {
+    for (var index = 0; index < a.length; index++) {
+      if (a[index] != b[index]) return false;
+    }
+    return true;
+  }
+}
+
+class _PetAttributePainter extends CustomPainter {
+  const _PetAttributePainter(this.values);
+
+  final List<double> values;
+
+  static const _colors = [
+    GizColors.accent,
+    Color(0xFFFF9470),
+    Color(0xFF55BDA7),
+    Color(0xFFA690D2),
+  ];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromCircle(
+      center: size.center(Offset.zero),
+      radius: size.shortestSide / 2 - 4,
+    );
+    const sweep = math.pi * 0.36;
+    const gap = math.pi * 0.14;
+    for (var index = 0; index < 4; index++) {
+      final start = -math.pi / 2 + gap / 2 + index * (sweep + gap);
+      canvas.drawArc(
+        rect,
+        start,
+        sweep,
+        false,
+        Paint()
+          ..color = const Color(0x14111916)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 6
+          ..strokeCap = StrokeCap.round,
+      );
+      canvas.drawArc(
+        rect,
+        start,
+        sweep * values[index],
+        false,
+        Paint()
+          ..color = _colors[index]
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 6
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _PetAttributePainter oldDelegate) {
+    return !_PetAttributeOrbitState._sameValues(values, oldDelegate.values);
+  }
+}
+
+class _PetMetricLegend extends StatelessWidget {
+  const _PetMetricLegend({required this.metrics});
+
+  final List<_PetMetric> metrics;
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      padding: EdgeInsets.zero,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisExtent: 42,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 8,
+      ),
+      itemCount: metrics.length,
+      itemBuilder: (context, index) {
+        final metric = metrics[index];
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: GizColors.surface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0x12111916)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: _PetAttributePainter._colors[index],
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  metric.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GizText.label.copyWith(color: GizColors.secondaryInk),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text('${metric.value}', style: GizText.label),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _PetActionFab extends StatefulWidget {
+  const _PetActionFab({
+    required this.actions,
+    required this.catalog,
+    required this.activeAction,
+    required this.onAction,
+  });
+
+  final List<PetPresentationActionSpec> actions;
+  final PetPresentationI18nCatalog? catalog;
+  final String? activeAction;
+  final ValueChanged<PetPresentationActionSpec> onAction;
+
+  @override
+  State<_PetActionFab> createState() => _PetActionFabState();
+}
+
+class _PetActionFabState extends State<_PetActionFab>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  bool _expanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 320),
+      reverseDuration: const Duration(milliseconds: 220),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _toggle() {
+    if (widget.actions.isEmpty) return;
+    setState(() => _expanded = !_expanded);
+    if (_expanded) {
+      _controller.forward();
+    } else {
+      _controller.reverse();
+    }
+  }
+
+  void _select(PetPresentationActionSpec action) {
+    if (widget.activeAction != null) return;
+    setState(() => _expanded = false);
+    _controller.reverse();
+    widget.onAction(action);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final menuHeight =
+        math.max(0, widget.actions.length - 1) * 52.0 +
+        (widget.actions.isEmpty ? 0 : 58.0);
+    return SizedBox(
+      width: 210,
+      height: menuHeight + 64,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) {
+          return Stack(
+            alignment: Alignment.bottomLeft,
+            children: [
+              for (var index = 0; index < widget.actions.length; index++)
+                _buildAction(widget.actions[index], index),
+              Semantics(
+                label: _expanded ? 'Close pet actions' : 'Open pet actions',
+                button: true,
+                child: GestureDetector(
+                  onTap: _toggle,
+                  child: Container(
+                    width: 58,
+                    height: 58,
+                    decoration: BoxDecoration(
+                      color: GizColors.ink,
+                      shape: BoxShape.circle,
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x33000000),
+                          blurRadius: 20,
+                          offset: Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Transform.rotate(
+                      angle: _controller.value * math.pi / 4,
+                      child: widget.activeAction == null
+                          ? const Icon(
+                              CupertinoIcons.add,
+                              color: GizColors.surface,
+                              size: 27,
+                            )
+                          : const CupertinoActivityIndicator(
+                              color: GizColors.surface,
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildAction(PetPresentationActionSpec action, int index) {
+    final count = widget.actions.length;
+    final start = count <= 1 ? 0.0 : index * 0.08;
+    final animation = CurvedAnimation(
+      parent: _controller,
+      curve: Interval(start.clamp(0.0, 0.65), 1, curve: Curves.easeOutBack),
+      reverseCurve: Curves.easeIn,
+    );
+    final offset = 70.0 + index * 52.0;
+    return Positioned(
+      left: 0,
+      bottom: offset * animation.value,
+      child: IgnorePointer(
+        ignoring: animation.value < 0.8 || widget.activeAction != null,
+        child: Opacity(
+          opacity: animation.value.clamp(0.0, 1.0),
+          child: Transform.scale(
+            alignment: Alignment.bottomLeft,
+            scale: 0.82 + animation.value * 0.18,
+            child: GestureDetector(
+              onTap: () => _select(action),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: const BoxDecoration(
+                      color: GizColors.surface,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0x22000000),
+                          blurRadius: 12,
+                          offset: Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: Icon(_actionIcon(action.id), size: 20),
+                  ),
+                  const SizedBox(width: 9),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: GizColors.ink,
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 11,
+                        vertical: 8,
+                      ),
+                      child: Text(
+                        _actionName(widget.catalog, action.id),
+                        style: GizText.label.copyWith(color: GizColors.surface),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SceneButton extends StatelessWidget {
+  const _SceneButton({
+    required this.label,
+    required this.icon,
     required this.onPressed,
   });
 
-  final PetPresentationActionSpec action;
-  final String title;
-  final bool busy;
-  final bool enabled;
+  final String label;
+  final IconData icon;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return GizListRow(
-      leading: Container(
-        width: 46,
-        height: 46,
-        alignment: Alignment.center,
-        color: const Color(0xFFDDEFE6),
-        child: Icon(_actionIcon(action.id), color: GizColors.ink),
+    return Semantics(
+      label: label,
+      button: true,
+      child: GestureDetector(
+        onTap: onPressed,
+        child: ClipOval(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: const Color(0xCFFFFFFF),
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0x16000000)),
+              ),
+              child: Icon(icon, size: 21),
+            ),
+          ),
+        ),
       ),
-      title: title,
-      subtitle: action.cost == 0 ? 'Free' : '${action.cost} points',
-      onPressed: enabled ? onPressed : () {},
-      trailing: busy
-          ? const CupertinoActivityIndicator()
-          : const Icon(CupertinoIcons.chevron_forward, size: 18),
+    );
+  }
+}
+
+class _PetErrorToast extends StatelessWidget {
+  const _PetErrorToast({required this.error});
+
+  final String error;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: const Color(0xE6FFFFFF),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        error,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: GizText.label.copyWith(
+          color: CupertinoColors.systemRed.resolveFrom(context),
+        ),
+      ),
     );
   }
 }
@@ -568,7 +1181,7 @@ class _PetEmptyPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Pet', style: GizText.pageTitle),
+              _PetPageHeader(adopting: adopting, onAdopt: onAdopt),
               const Spacer(),
               const Icon(CupertinoIcons.sparkles, size: 64),
               const SizedBox(height: 22),
@@ -579,7 +1192,7 @@ class _PetEmptyPage extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Adoption uses the active GizClaw gameplay ruleset.',
+                'Use the add button to adopt your first pet.',
                 textAlign: TextAlign.center,
                 style: GizText.body.copyWith(color: GizColors.secondaryInk),
               ),
@@ -592,16 +1205,8 @@ class _PetEmptyPage extends StatelessWidget {
                     color: CupertinoColors.systemRed.resolveFrom(context),
                   ),
                 ),
-              ],
-              const SizedBox(height: 22),
-              CupertinoButton.filled(
-                onPressed: adopting ? null : onAdopt,
-                child: adopting
-                    ? const CupertinoActivityIndicator()
-                    : const Text('Adopt a pet'),
-              ),
-              if (error != null)
                 CupertinoButton(onPressed: onRetry, child: const Text('Retry')),
+              ],
               const Spacer(),
             ],
           ),
@@ -650,6 +1255,59 @@ class _PetMessagePage extends StatelessWidget {
   }
 }
 
+class _PetDetailMessage extends StatelessWidget {
+  const _PetDetailMessage({
+    required this.message,
+    required this.loading,
+    this.onRetry,
+  });
+
+  final String message;
+  final bool loading;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoPageScaffold(
+      backgroundColor: _petSceneColor,
+      child: SafeArea(
+        child: Stack(
+          children: [
+            Positioned(
+              left: 18,
+              top: 12,
+              child: _SceneButton(
+                label: 'Back',
+                icon: CupertinoIcons.back,
+                onPressed: () => context.pop(),
+              ),
+            ),
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (loading) const CupertinoActivityIndicator(radius: 15),
+                  if (loading) const SizedBox(height: 16),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: GizText.body,
+                  ),
+                  if (onRetry != null)
+                    CupertinoButton(
+                      onPressed: onRetry,
+                      child: const Text('Retry'),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _PetMetric {
   const _PetMetric(this.label, this.value);
 
@@ -686,6 +1344,14 @@ PetPresentationI18nCatalog? _catalogFor(
       catalogs.values.first;
 }
 
+String _petName(Pet pet, PetPresentationI18nCatalog? catalog) {
+  if (pet.displayName.trim().isNotEmpty) return pet.displayName;
+  if (catalog?.displayName.trim().isNotEmpty == true) {
+    return catalog!.displayName;
+  }
+  return 'Unnamed pet';
+}
+
 String _actionName(PetPresentationI18nCatalog? catalog, String id) =>
     catalog?.drive.actions[id]?.displayName ?? _title(id);
 
@@ -709,6 +1375,16 @@ String? _clipForAction(PetPresentation? presentation, String actionId) {
   return null;
 }
 
+Duration _clipDuration(PixaAsset? asset, String? clipName) {
+  if (asset == null || clipName == null) return const Duration(seconds: 2);
+  for (final clip in asset.clips) {
+    if (clip.name == clipName) {
+      return Duration(milliseconds: math.max(900, clip.totalDurationMs + 120));
+    }
+  }
+  return const Duration(seconds: 2);
+}
+
 IconData _actionIcon(String id) {
   final value = id.toLowerCase();
   if (value.contains('bath') || value.contains('clean')) {
@@ -717,6 +1393,7 @@ IconData _actionIcon(String id) {
   if (value.contains('feed') || value.contains('eat')) {
     return CupertinoIcons.heart_fill;
   }
+  if (value.contains('heal')) return CupertinoIcons.plus_circle_fill;
   if (value.contains('sleep')) return CupertinoIcons.moon_fill;
   if (value.contains('play')) return CupertinoIcons.game_controller_solid;
   return CupertinoIcons.sparkles;
