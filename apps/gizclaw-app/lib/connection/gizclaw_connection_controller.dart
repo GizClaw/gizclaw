@@ -41,11 +41,18 @@ class GizClawConnectionController {
   rtc.RTCPeerConnection? get peerConnection => _peerConnection;
   String? get clientPublicKey => _clientPublicKey;
   String? get serverId => _serverId;
+  bool get isConnected =>
+      _peerConnection?.connectionState ==
+      rtc.RTCPeerConnectionState.RTCPeerConnectionStateConnected;
 
   Future<GizClawClient> connect() async {
-    if (_client != null) return _client!;
+    if (_client != null && isConnected) return _client!;
     if (!profile.isConfigured) {
       throw StateError('No GizClaw development connection is configured');
+    }
+
+    if (_client != null || _peerConnection != null) {
+      await close();
     }
 
     final baseUri = _baseUri(profile.endpoint);
@@ -69,6 +76,11 @@ class GizClawConnectionController {
     _peerConnection = peerConnection;
     _dataChannelFactory = FlutterWebRtcDataChannelFactory(peerConnection);
     return _client = GizClawClient(_dataChannelFactory!);
+  }
+
+  Future<GizClawClient> reconnect() async {
+    await close();
+    return connect();
   }
 
   Future<void> close() async {

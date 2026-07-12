@@ -53,6 +53,7 @@ class MobileDataController extends ChangeNotifier {
   MobileConnectionState connectionState = MobileConnectionState.unconfigured;
   Object? lastError;
   bool refreshing = false;
+  Future<GizClawClient>? _reconnecting;
 
   Future<void> start() async {
     if (!connection.profile.isConfigured) {
@@ -186,6 +187,55 @@ class MobileDataController extends ChangeNotifier {
     }
   }
 
+  Future<T> runRpc<T>(Future<T> Function(GizClawClient client) request) async {
+    final client = connection.client;
+    if (connectionState != MobileConnectionState.connected || client == null) {
+      throw StateError('Connect to GizClaw before sending an RPC request');
+    }
+    try {
+      return await request(client);
+    } catch (error) {
+      if (!_isRecoverableTransportError(error)) rethrow;
+      final reconnected = await _reconnect();
+      return request(reconnected);
+    }
+  }
+
+  Future<GizClawClient> _reconnect() {
+    final active = _reconnecting;
+    if (active != null) return active;
+    final reconnecting = _performReconnect();
+    _reconnecting = reconnecting;
+    unawaited(
+      reconnecting.then<void>(
+        (_) => _clearReconnect(reconnecting),
+        onError: (_, _) => _clearReconnect(reconnecting),
+      ),
+    );
+    return reconnecting;
+  }
+
+  void _clearReconnect(Future<GizClawClient> reconnecting) {
+    if (identical(_reconnecting, reconnecting)) _reconnecting = null;
+  }
+
+  Future<GizClawClient> _performReconnect() async {
+    connectionState = MobileConnectionState.connecting;
+    notifyListeners();
+    try {
+      final client = await connection.reconnect();
+      connectionState = MobileConnectionState.connected;
+      lastError = null;
+      notifyListeners();
+      return client;
+    } catch (error) {
+      connectionState = MobileConnectionState.offline;
+      lastError = error;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
   GizClawClient _friendClient() {
     final client = connection.client;
     if (connectionState != MobileConnectionState.connected || client == null) {
@@ -261,6 +311,13 @@ class MobileDataController extends ChangeNotifier {
     unawaited(database.close());
     super.dispose();
   }
+}
+
+bool _isRecoverableTransportError(Object error) {
+  if (error is TimeoutException) return true;
+  if (error is! StateError) return false;
+  final message = error.toString().toLowerCase();
+  return message.contains('webrtc') || message.contains('data channel');
 }
 
 class MobileDataScope extends InheritedNotifier<MobileDataController> {

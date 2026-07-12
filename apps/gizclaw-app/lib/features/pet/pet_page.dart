@@ -60,6 +60,7 @@ class _PetPageState extends State<PetPage> {
   Future<void> _loadPets() async {
     final client = _client;
     if (client == null || _loading) return;
+    final data = MobileDataScope.watch(context);
     final request = ++_request;
     setState(() {
       _loading = true;
@@ -69,7 +70,9 @@ class _PetPageState extends State<PetPage> {
       final pets = <Pet>[];
       String? cursor;
       do {
-        final response = await client.listPets(cursor: cursor, limit: 100);
+        final response = await data.runRpc(
+          (client) => client.listPets(cursor: cursor, limit: 100),
+        );
         pets.addAll(response.value.items);
         cursor = response.value.hasNext ? response.value.nextCursor : null;
       } while (cursor != null && cursor.isNotEmpty);
@@ -79,9 +82,7 @@ class _PetPageState extends State<PetPage> {
         _visuals.removeWhere((id, _) => !pets.any((pet) => pet.id == id));
         _loading = false;
       });
-      await Future.wait([
-        for (final pet in pets) _loadVisual(client, pet, request),
-      ]);
+      await Future.wait([for (final pet in pets) _loadVisual(pet, request)]);
     } catch (error) {
       if (!mounted || request != _request) return;
       setState(() {
@@ -91,12 +92,17 @@ class _PetPageState extends State<PetPage> {
     }
   }
 
-  Future<void> _loadVisual(GizClawClient client, Pet pet, int request) async {
+  Future<void> _loadVisual(Pet pet, int request) async {
     try {
-      final presentation = (await client.getPetPresentation(pet.id)).value;
+      final data = MobileDataScope.watch(context);
+      final presentation = (await data.runRpc(
+        (client) => client.getPetPresentation(pet.id),
+      )).value;
       PixaAsset? pixa;
       try {
-        pixa = (await client.downloadPetPixa(pet.id)).asset;
+        pixa = (await data.runRpc(
+          (client) => client.downloadPetPixa(pet.id),
+        )).asset;
       } catch (_) {
         // A PetDef can be visible before its optional PIXA asset is uploaded.
       }
@@ -119,8 +125,10 @@ class _PetPageState extends State<PetPage> {
       _error = null;
     });
     try {
-      final response = await client.adoptPet(
-        displayName: name.trim().isEmpty ? null : name.trim(),
+      final response = await MobileDataScope.watch(context).runRpc(
+        (client) => client.adoptPet(
+          displayName: name.trim().isEmpty ? null : name.trim(),
+        ),
       );
       await _loadPets();
       if (mounted) context.push('/pet/${response.value.pet.id}');
@@ -297,14 +305,18 @@ class _PetDetailPageState extends State<PetDetailPage> {
       _error = null;
     });
     try {
-      final pet = (await client.getPet(widget.petId)).value;
-      final presentation = (await client.getPetPresentation(
-        widget.petId,
+      final pet = (await data.runRpc(
+        (client) => client.getPet(widget.petId),
+      )).value;
+      final presentation = (await data.runRpc(
+        (client) => client.getPetPresentation(widget.petId),
       )).value;
       PixaAsset? pixa;
       Object? pixaError;
       try {
-        pixa = (await client.downloadPetPixa(widget.petId)).asset;
+        pixa = (await data.runRpc(
+          (client) => client.downloadPetPixa(widget.petId),
+        )).asset;
       } catch (error) {
         pixaError = error;
       }
@@ -345,7 +357,9 @@ class _PetDetailPageState extends State<PetDetailPage> {
     });
     try {
       final animation = Future<void>.delayed(duration);
-      final response = await client.drivePet(pet.id, action: action.id);
+      final response = await MobileDataScope.watch(
+        context,
+      ).runRpc((client) => client.drivePet(pet.id, action: action.id));
       if (!mounted) return;
       setState(() => _pet = response.value.pet);
       await animation;
