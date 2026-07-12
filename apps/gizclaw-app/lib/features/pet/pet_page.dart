@@ -419,6 +419,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
               .map((entry) => '${_title(entry.key)} ${entry.value}')
               .join('  |  ');
     final actions = _petMenuActions(_presentation);
+    final actionLayerHeight = _petActionMenuHeight(actions.length) + 10;
     final chat = _chat;
     final messages = chat?.messages ?? const <WorkspaceChatMessage>[];
     return CupertinoPageScaffold(
@@ -478,16 +479,15 @@ class _PetDetailPageState extends State<PetDetailPage> {
             left: 0,
             right: 0,
             bottom: MediaQuery.paddingOf(context).bottom + 8,
-            child: Center(
-              child: SizedBox(
-                width: 230,
-                height: 78,
-                child: Stack(
+            height: actionLayerHeight,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final dockLeft = (constraints.maxWidth - 230) / 2;
+                return Stack(
                   clipBehavior: Clip.none,
-                  alignment: Alignment.bottomCenter,
                   children: [
                     Positioned(
-                      left: 0,
+                      left: dockLeft - _petActionAnchor,
                       bottom: 10,
                       child: _PetActionFab(
                         key: _actionFabKey,
@@ -503,7 +503,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
                       ),
                     ),
                     Positioned(
-                      left: 122,
+                      left: dockLeft + 122,
                       bottom: 88,
                       width: 158,
                       child: IgnorePointer(
@@ -533,9 +533,13 @@ class _PetDetailPageState extends State<PetDetailPage> {
                         ),
                       ),
                     ),
-                    _PetVoiceFab(chat: chat),
                     Positioned(
-                      right: 0,
+                      left: (constraints.maxWidth - 78) / 2,
+                      bottom: 0,
+                      child: _PetVoiceFab(chat: chat),
+                    ),
+                    Positioned(
+                      left: dockLeft + 172,
                       bottom: 10,
                       child: _PetStatusFab(
                         visible: _statusVisible,
@@ -546,8 +550,8 @@ class _PetDetailPageState extends State<PetDetailPage> {
                       ),
                     ),
                   ],
-                ),
-              ),
+                );
+              },
             ),
           ),
         ],
@@ -1625,6 +1629,14 @@ class _PetMenuAction {
   final String? icon;
 }
 
+const _petActionAnchor = 160.0;
+
+double _petActionMenuHeight(int actionCount) {
+  final menuHeight =
+      math.max(0, actionCount - 1) * 52.0 + (actionCount == 0 ? 0 : 58.0);
+  return menuHeight + 64;
+}
+
 class _PetActionFab extends StatefulWidget {
   const _PetActionFab({
     super.key,
@@ -1692,12 +1704,9 @@ class _PetActionFabState extends State<_PetActionFab>
 
   @override
   Widget build(BuildContext context) {
-    final menuHeight =
-        math.max(0, widget.actions.length - 1) * 52.0 +
-        (widget.actions.isEmpty ? 0 : 58.0);
     return SizedBox(
-      width: 210,
-      height: menuHeight + 64,
+      width: 400,
+      height: _petActionMenuHeight(widget.actions.length),
       child: AnimatedBuilder(
         animation: _controller,
         builder: (context, _) {
@@ -1707,56 +1716,61 @@ class _PetActionFabState extends State<_PetActionFab>
             children: [
               for (var index = 0; index < widget.actions.length; index++)
                 _buildAction(widget.actions[index], index),
-              Semantics(
-                label: _expanded ? 'Close pet actions' : 'Open pet actions',
-                button: true,
-                child: GestureDetector(
-                  onTap: _toggle,
-                  child: Container(
-                    width: 58,
-                    height: 58,
-                    decoration: BoxDecoration(
-                      color: GizColors.ink,
-                      shape: BoxShape.circle,
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x33000000),
-                          blurRadius: 20,
-                          offset: Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: widget.activeAction == null
-                        ? Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              Opacity(
-                                opacity: 1 - _controller.value,
-                                child: Transform.scale(
-                                  scale: 1 - _controller.value * 0.2,
-                                  child: const Icon(
-                                    CupertinoIcons.game_controller_solid,
-                                    color: GizColors.surface,
-                                    size: 27,
-                                  ),
-                                ),
-                              ),
-                              Opacity(
-                                opacity: _controller.value,
-                                child: Transform.rotate(
-                                  angle: (1 - _controller.value) * -math.pi / 4,
-                                  child: const Icon(
-                                    CupertinoIcons.xmark,
-                                    color: GizColors.surface,
-                                    size: 23,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          )
-                        : const CupertinoActivityIndicator(
-                            color: GizColors.surface,
+              Positioned(
+                left: _petActionAnchor,
+                bottom: 0,
+                child: Semantics(
+                  label: _expanded ? 'Close pet actions' : 'Open pet actions',
+                  button: true,
+                  child: GestureDetector(
+                    onTap: _toggle,
+                    child: Container(
+                      width: 58,
+                      height: 58,
+                      decoration: BoxDecoration(
+                        color: GizColors.ink,
+                        shape: BoxShape.circle,
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x33000000),
+                            blurRadius: 20,
+                            offset: Offset(0, 8),
                           ),
+                        ],
+                      ),
+                      child: widget.activeAction == null
+                          ? Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Opacity(
+                                  opacity: 1 - _controller.value,
+                                  child: Transform.scale(
+                                    scale: 1 - _controller.value * 0.2,
+                                    child: const Icon(
+                                      CupertinoIcons.game_controller_solid,
+                                      color: GizColors.surface,
+                                      size: 27,
+                                    ),
+                                  ),
+                                ),
+                                Opacity(
+                                  opacity: _controller.value,
+                                  child: Transform.rotate(
+                                    angle:
+                                        (1 - _controller.value) * -math.pi / 4,
+                                    child: const Icon(
+                                      CupertinoIcons.xmark,
+                                      color: GizColors.surface,
+                                      size: 23,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : const CupertinoActivityIndicator(
+                              color: GizColors.surface,
+                            ),
+                    ),
                   ),
                 ),
               ),
@@ -1785,7 +1799,7 @@ class _PetActionFabState extends State<_PetActionFab>
             (math.exp(arcStrength) - 1)) *
         arcExtent;
     return Positioned(
-      left: 0,
+      left: _petActionAnchor,
       bottom: verticalOffset * animation.value,
       child: Transform.translate(
         offset: Offset(44 + horizontalOffset * animation.value, 0),
