@@ -87,11 +87,19 @@ const gizCupertinoTheme = CupertinoThemeData(
   ),
 );
 
+abstract final class GizCorners {
+  static const compactCard = BorderRadius.all(Radius.circular(16));
+  static const card = BorderRadius.all(Radius.circular(20));
+  static const hero = BorderRadius.all(Radius.circular(26));
+
+  static BorderRadius icon(double size) => BorderRadius.circular(size * 0.28);
+}
+
 class GizSquircle extends StatelessWidget {
   const GizSquircle({
     super.key,
     required this.child,
-    this.borderRadius = const BorderRadius.all(Radius.circular(12)),
+    this.borderRadius = GizCorners.compactCard,
     this.clipBehavior = Clip.antiAlias,
   });
 
@@ -128,7 +136,7 @@ class GizIconTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GizSquircle(
-      borderRadius: BorderRadius.circular(size * 0.28),
+      borderRadius: GizCorners.icon(size),
       child: ColoredBox(
         color: backgroundColor,
         child: SizedBox.square(

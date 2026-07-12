@@ -637,7 +637,7 @@ class _PetDriftingMessage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GizSquircle(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: GizCorners.compactCard,
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 9, sigmaY: 9),
         child: DecoratedBox(
@@ -852,14 +852,15 @@ class _PetCoverCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final catalog = _catalogFor(context, visual?.presentation);
+    final cardRadius = compact ? GizCorners.card : GizCorners.hero;
     return GizPressable(
       onPressed: onPressed,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: cardRadius,
       scaleWhenPressed: 0.975,
       child: AspectRatio(
         aspectRatio: compact ? 0.78 : 0.86,
         child: GizSquircle(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: cardRadius,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -886,7 +887,9 @@ class _PetCoverCard extends StatelessWidget {
                 child: visual?.pixa == null
                     ? const Center(child: CupertinoActivityIndicator())
                     : GizSquircle(
-                        borderRadius: BorderRadius.circular(compact ? 13 : 18),
+                        borderRadius: compact
+                            ? GizCorners.icon(50)
+                            : GizCorners.card,
                         child: ColoredBox(
                           color: const Color(0x8CFFFFFF),
                           child: Padding(
@@ -1391,7 +1394,7 @@ class _PetStatusNameplateState extends State<_PetStatusNameplate>
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: GizCorners.card,
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF17241F).withValues(alpha: 0.28),
@@ -1401,12 +1404,12 @@ class _PetStatusNameplateState extends State<_PetStatusNameplate>
         ],
       ),
       child: ClipRSuperellipse(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: GizCorners.card,
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 19, sigmaY: 19),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: GizCorners.card,
               border: Border.all(color: const Color(0x70FFFFFF)),
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,

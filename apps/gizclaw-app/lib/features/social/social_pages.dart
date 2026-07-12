@@ -155,7 +155,7 @@ class FriendRow extends StatelessWidget {
     ];
     return GizListRow(
       leading: GizSquircle(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: GizCorners.icon(52),
         child: Container(
           width: 52,
           height: 52,
@@ -459,7 +459,7 @@ class _FriendConnectSheetState extends State<_FriendConnectSheet> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         GizSquircle(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: GizCorners.compactCard,
           child: Container(
             constraints: const BoxConstraints(minHeight: 74),
             padding: const EdgeInsets.all(14),
@@ -575,7 +575,7 @@ class PrototypePetPage extends StatelessWidget {
             AspectRatio(
               aspectRatio: 0.72,
               child: ClipRSuperellipse(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: GizCorners.hero,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -720,7 +720,7 @@ class _PetStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GizSquircle(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: GizCorners.compactCard,
       child: Container(
         height: 92,
         padding: const EdgeInsets.all(14),
@@ -767,7 +767,7 @@ class MePage extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: GizSquircle(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: GizCorners.card,
                 child: Container(
                   padding: const EdgeInsets.all(18),
                   color: GizColors.ink,
@@ -849,15 +849,15 @@ class _ProfileMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 54,
-      height: 54,
-      alignment: Alignment.center,
-      decoration: const BoxDecoration(
+    return GizSquircle(
+      borderRadius: GizCorners.icon(54),
+      child: Container(
+        width: 54,
+        height: 54,
+        alignment: Alignment.center,
         color: GizColors.accent,
-        shape: BoxShape.circle,
+        child: const Text('GC', style: GizText.title),
       ),
-      child: const Text('GC', style: GizText.title),
     );
   }
 }

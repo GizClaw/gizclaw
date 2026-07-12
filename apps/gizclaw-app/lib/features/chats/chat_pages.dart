@@ -87,7 +87,7 @@ class _ChatTypeIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     final imagePath = driver.imagePath;
     return ClipRSuperellipse(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: GizCorners.icon(50),
       child: Container(
         width: 50,
         height: 50,
@@ -223,18 +223,18 @@ class _ChatroomWorkspaceListTile extends StatelessWidget {
     };
     return GizListRow(
       leading: isDirect
-          ? Container(
-              width: 50,
-              height: 50,
-              alignment: Alignment.center,
-              decoration: const BoxDecoration(
-                color: Color(0xFFD9F2EA),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                CupertinoIcons.person_fill,
-                color: Color(0xFF17795B),
-                size: 22,
+          ? GizSquircle(
+              borderRadius: GizCorners.icon(50),
+              child: Container(
+                width: 50,
+                height: 50,
+                alignment: Alignment.center,
+                color: const Color(0xFFD9F2EA),
+                child: const Icon(
+                  CupertinoIcons.person_fill,
+                  color: Color(0xFF17795B),
+                  size: 22,
+                ),
               ),
             )
           : const GizIconTile(

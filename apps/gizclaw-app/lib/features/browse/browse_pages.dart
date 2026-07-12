@@ -141,10 +141,10 @@ class FeaturedCollectionCard extends StatelessWidget {
       width: 328,
       child: GizPressable(
         onPressed: onPressed,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: GizCorners.hero,
         scaleWhenPressed: 0.985,
         child: ClipRSuperellipse(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: GizCorners.hero,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -210,7 +210,7 @@ class CollectionArtworkHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const radius = BorderRadius.all(Radius.circular(12));
+    const radius = GizCorners.hero;
     return Hero(
       tag: 'collection-${collection.id}',
       transitionOnUserGestures: true,
@@ -264,12 +264,12 @@ class _WorkspaceStrip extends StatelessWidget {
                 '/chats/drivers/${workflow.driver.routeKey}/'
                 '${Uri.encodeComponent(workspace.name)}',
               ),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: GizCorners.card,
               scaleWhenPressed: 0.985,
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: GizColors.surface,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: GizCorners.card,
                   border: Border.all(color: GizColors.separator),
                 ),
                 child: Padding(
@@ -277,7 +277,7 @@ class _WorkspaceStrip extends StatelessWidget {
                   child: Row(
                     children: [
                       GizSquircle(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: GizCorners.icon(50),
                         child: Container(
                           width: 42,
                           height: 88,
@@ -399,7 +399,7 @@ class WorkflowArtworkHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(compact ? 10 : 14);
+    final radius = compact ? GizCorners.icon(66) : GizCorners.card;
     final artwork = _WorkflowArtwork(workflow: workflow);
     return Hero(
       tag: 'workflow-${workflow.name}',
@@ -408,8 +408,8 @@ class WorkflowArtworkHero extends StatelessWidget {
       flightShuttleBuilder:
           (flightContext, animation, direction, fromContext, toContext) {
             final pushing = direction == HeroFlightDirection.push;
-            final begin = BorderRadius.circular(pushing ? 10 : 14);
-            final end = BorderRadius.circular(pushing ? 14 : 10);
+            final begin = pushing ? GizCorners.icon(66) : GizCorners.card;
+            final end = pushing ? GizCorners.card : GizCorners.icon(66);
             return AnimatedBuilder(
               animation: animation,
               builder: (context, child) {
@@ -497,7 +497,7 @@ class CollectionPage extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
               sliver: SliverToBoxAdapter(
                 child: ClipRSuperellipse(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: GizCorners.hero,
                   child: AspectRatio(
                     aspectRatio: 4 / 3,
                     child: Stack(
@@ -568,7 +568,7 @@ class _CollectionWorkflowRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return GizListRow(
       leading: ClipRSuperellipse(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: GizCorners.icon(58),
         child: SizedBox(
           width: 58,
           height: 58,
@@ -691,7 +691,7 @@ class WorkspaceListTile extends StatelessWidget {
     ).workflow(workspace.workflowName);
     return GizListRow(
       leading: GizSquircle(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: GizCorners.icon(50),
         child: ColoredBox(
           color: workflow.bannerColor,
           child: SizedBox.square(
