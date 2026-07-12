@@ -51,19 +51,28 @@ void main() {
       badRange,
     ).setUint32(32, badRange.length + 1, Endian.little);
     expect(() => parsePixa(badRange), throwsA(isA<PixaParseException>()));
+
+    expect(
+      () => parsePixa(makePixa(width: 0)),
+      throwsA(isA<PixaParseException>()),
+    );
+
+    final emptyClip = makePixa();
+    ByteData.sublistView(emptyClip).setUint32(82, 0, Endian.little);
+    expect(() => parsePixa(emptyClip), throwsA(isA<PixaParseException>()));
   });
 
   test('validates petdef and badgedef pixa contracts', () {
-    expect(validatePixa(makePixa(clips: ['idle'])), isA<PixaAsset>());
+    expect(validatePixa(makePixa(clips: ['default'])), isA<PixaAsset>());
     expect(
-      validatePixa(makePixa(clips: ['idle']), mode: PixaValidationMode.petdef),
+      validatePixa(
+        makePixa(clips: ['default']),
+        mode: PixaValidationMode.petdef,
+      ),
       isA<PixaAsset>(),
     );
     expect(
-      () => validatePixa(
-        makePixa(clips: ['blink']),
-        mode: PixaValidationMode.petdef,
-      ),
+      () => validatePixa(makePixa(clips: []), mode: PixaValidationMode.petdef),
       throwsA(isA<PixaParseException>()),
     );
 
@@ -91,19 +100,22 @@ void main() {
     expect(selectPixaClip(asset, 'missing')?.name, 'idle');
     expect(selectPixaClip(asset)?.name, 'idle');
 
-    const clip = PixaClip(
-      name: 'idle',
-      anchorX: 0,
-      anchorY: 0,
-      firstFrame: 3,
-      frameCount: 4,
-      totalDurationMs: 400,
-      loop: true,
+    final timed = parsePixa(
+      makePixa(
+        frameDurations: [50, 350],
+        framePayloads: [
+          [0x00, 0xf8, 0xe0, 0x07],
+          [0x1f, 0x00, 0xff, 0xff],
+        ],
+      ),
     );
-    expect(pixaClipFrameIndex(clip, 0), 3);
-    expect(pixaClipFrameIndex(clip, 199), 4);
-    expect(pixaClipFrameIndex(clip, 499), 3);
-    expect(pixaClipFrameIndex(clip, -1), 6);
+    final clip = timed.clips.single;
+    expect(pixaClipFrameIndex(timed, clip, 0), 0);
+    expect(pixaClipFrameIndex(timed, clip, 49), 0);
+    expect(pixaClipFrameIndex(timed, clip, 50), 1);
+    expect(pixaClipFrameIndex(timed, clip, 399), 1);
+    expect(pixaClipFrameIndex(timed, clip, 400), 0);
+    expect(pixaClipFrameIndex(timed, clip, -1), 1);
   });
 
   test('renders RGB565 key frames to RGBA', () {

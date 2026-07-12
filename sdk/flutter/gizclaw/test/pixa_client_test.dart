@@ -17,7 +17,7 @@ void main() {
   test('downloads and validates petdef pixa resources', () async {
     final factory = FakeDataChannelFactory();
     final client = GizClawClient(factory);
-    final bytes = makePixa(clips: ['idle']);
+    final bytes = makePixa(clips: ['default']);
 
     final future = client.downloadPetDefPixa('petdef-miso');
     await Future<void>.delayed(Duration.zero);
@@ -48,7 +48,47 @@ void main() {
     final result = await future;
     expect(result.metadata.id, 'petdef-miso');
     expect(result.bytes, bytes);
-    expect(result.asset.clips.single.name, 'idle');
+    expect(result.asset.clips.single.name, 'default');
+  });
+
+  test('downloads and validates owned pet pixa resources', () async {
+    final factory = FakeDataChannelFactory();
+    final client = GizClawClient(factory);
+    final bytes = makePixa(clips: ['default']);
+
+    final future = client.downloadPetPixa('pet-miso');
+    await Future<void>.delayed(Duration.zero);
+    final request = peer.RpcRequest.fromBuffer(
+      decodeFrames(factory.channels.single.sent.single).first.payload,
+    );
+
+    factory.channels.single.addMessage(
+      concatBytes([
+        ...encodeEnvelopeFrames(
+          common.RpcResponse(
+            id: request.id,
+            payload: encodeRpcResponsePayload(
+              'server.pet.pixa.download',
+              payload.ServerPetPixaDownloadResponse(
+                value: payload.PetPixaDownloadResponse(
+                  petId: 'pet-miso',
+                  petdefId: 'petdef-miso',
+                  pixaPath: 'pets/miso.pixa',
+                  sizeBytes: Int64(bytes.length),
+                ),
+              ),
+            ),
+          ).writeToBuffer(),
+        ),
+        encodeFrame(rpcFrameTypeBinary, bytes),
+        encodeFrame(rpcFrameTypeEos),
+      ]),
+    );
+
+    final result = await future;
+    expect(result.metadata.value.petId, 'pet-miso');
+    expect(result.bytes, bytes);
+    expect(result.asset.clips.single.name, 'default');
   });
 
   test('downloads and validates badgedef pixa resources', () async {

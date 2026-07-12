@@ -150,6 +150,12 @@ final _messageFactories = <String, MessageFactory>{
   'ServerPetGetResponse': payload.ServerPetGetResponse.new,
   'ServerPetListRequest': payload.ServerPetListRequest.new,
   'ServerPetListResponse': payload.ServerPetListResponse.new,
+  'ServerPetPixaDownloadRequest': payload.ServerPetPixaDownloadRequest.new,
+  'ServerPetPixaDownloadResponse': payload.ServerPetPixaDownloadResponse.new,
+  'ServerPetPresentationGetRequest':
+      payload.ServerPetPresentationGetRequest.new,
+  'ServerPetPresentationGetResponse':
+      payload.ServerPetPresentationGetResponse.new,
   'ServerPetPutRequest': payload.ServerPetPutRequest.new,
   'ServerPetPutResponse': payload.ServerPetPutResponse.new,
   'ServerPlayRunWorkspaceHistoryRequest':
@@ -380,6 +386,10 @@ final _messageTypes = <String, Type>{
   'ServerPetGetResponse': payload.ServerPetGetResponse,
   'ServerPetListRequest': payload.ServerPetListRequest,
   'ServerPetListResponse': payload.ServerPetListResponse,
+  'ServerPetPixaDownloadRequest': payload.ServerPetPixaDownloadRequest,
+  'ServerPetPixaDownloadResponse': payload.ServerPetPixaDownloadResponse,
+  'ServerPetPresentationGetRequest': payload.ServerPetPresentationGetRequest,
+  'ServerPetPresentationGetResponse': payload.ServerPetPresentationGetResponse,
   'ServerPetPutRequest': payload.ServerPetPutRequest,
   'ServerPetPutResponse': payload.ServerPetPutResponse,
   'ServerPlayRunWorkspaceHistoryRequest':

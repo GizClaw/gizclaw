@@ -171,6 +171,10 @@ PixaAsset parsePixa(Uint8List input) {
   final payloadOffset = data.getUint32(32, Endian.little);
   final payloadLength = data.getUint32(36, Endian.little);
 
+  if (width == 0 || height == 0) {
+    throw PixaParseException('Invalid PIXA canvas size', bytes, 8);
+  }
+
   _requireRange(
     bytes,
     paletteOffset,
@@ -192,6 +196,13 @@ PixaAsset parsePixa(Uint8List input) {
     final name = _readNullTerminatedUtf8(bytes, base, pixaClipNameSize);
     final firstFrame = data.getUint32(base + 36, Endian.little);
     final clipFrameCount = data.getUint32(base + 40, Endian.little);
+    if (clipFrameCount == 0) {
+      throw PixaParseException(
+        'PIXA clip "$name" contains no frames',
+        bytes,
+        base,
+      );
+    }
     if (firstFrame > frameCount || clipFrameCount > frameCount - firstFrame) {
       throw PixaParseException(
         'PIXA clip "$name" references frames outside the frame table',
@@ -292,7 +303,7 @@ PixaClip? selectPixaClip(PixaAsset asset, [String? preferredName]) {
   return asset.clips.isEmpty ? null : asset.clips.first;
 }
 
-int pixaClipFrameIndex(PixaClip clip, int elapsedMs) {
+int pixaClipFrameIndex(PixaAsset asset, PixaClip clip, int elapsedMs) {
   if (clip.frameCount <= 0) {
     return clip.firstFrame;
   }
@@ -301,15 +312,27 @@ int pixaClipFrameIndex(PixaClip clip, int elapsedMs) {
     return clip.firstFrame;
   }
 
+  if (clip.firstFrame >= asset.frames.length ||
+      clip.frameCount > asset.frames.length - clip.firstFrame) {
+    throw PixaParseException(
+      'PIXA clip "${clip.name}" references frames outside the frame table',
+      asset.bytes,
+    );
+  }
+
   final bounded = clip.loop
       ? _positiveModulo(elapsedMs, clip.totalDurationMs)
       : elapsedMs.clamp(0, clip.totalDurationMs - 1);
-  final averageFrameMs = clip.totalDurationMs / clip.frameCount;
-  final offset = (bounded / averageFrameMs).floor().clamp(
-    0,
-    clip.frameCount - 1,
-  );
-  return clip.firstFrame + offset;
+  var elapsedInClip = bounded;
+  for (var offset = 0; offset < clip.frameCount; offset += 1) {
+    final frameIndex = clip.firstFrame + offset;
+    final duration = asset.frames[frameIndex].durationMs;
+    if (duration <= 0 || elapsedInClip < duration) {
+      return frameIndex;
+    }
+    elapsedInClip -= duration;
+  }
+  return clip.firstFrame + clip.frameCount - 1;
 }
 
 PixaFrameRgba renderPixaFrameRgba(PixaAsset asset, int frameIndex) {
@@ -365,12 +388,6 @@ void _validatePetDefPixa(PixaAsset asset) {
   if (asset.frames.isEmpty) {
     throw PixaParseException(
       'PetDef PIXA must contain at least one frame',
-      asset.bytes,
-    );
-  }
-  if (!asset.clips.any((clip) => clip.name == 'idle')) {
-    throw PixaParseException(
-      'PetDef PIXA must contain an idle clip',
       asset.bytes,
     );
   }

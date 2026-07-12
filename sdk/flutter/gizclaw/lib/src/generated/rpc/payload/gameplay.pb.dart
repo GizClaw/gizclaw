@@ -665,16 +665,12 @@ class GameResultListResponse extends $pb.GeneratedMessage {
 
 class GameRewardSpec extends $pb.GeneratedMessage {
   factory GameRewardSpec({
-    StatMap? abilityDelta,
     $core.Iterable<$core.MapEntry<$core.String, $fixnum.Int64>>? badgeExpDelta,
-    StatMap? lifeDelta,
     $fixnum.Int64? petExpDelta,
     $fixnum.Int64? pointsDelta,
   }) {
     final result = create();
-    if (abilityDelta != null) result.abilityDelta = abilityDelta;
     if (badgeExpDelta != null) result.badgeExpDelta.addEntries(badgeExpDelta);
-    if (lifeDelta != null) result.lifeDelta = lifeDelta;
     if (petExpDelta != null) result.petExpDelta = petExpDelta;
     if (pointsDelta != null) result.pointsDelta = pointsDelta;
     return result;
@@ -693,15 +689,11 @@ class GameRewardSpec extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'GameRewardSpec',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOM<StatMap>(1, _omitFieldNames ? '' : 'abilityDelta',
-        subBuilder: StatMap.create)
     ..m<$core.String, $fixnum.Int64>(2, _omitFieldNames ? '' : 'badgeExpDelta',
         entryClassName: 'GameRewardSpec.BadgeExpDeltaEntry',
         keyFieldType: $pb.PbFieldType.OS,
         valueFieldType: $pb.PbFieldType.O6,
         packageName: const $pb.PackageName('gizclaw.rpc.v1'))
-    ..aOM<StatMap>(3, _omitFieldNames ? '' : 'lifeDelta',
-        subBuilder: StatMap.create)
     ..aInt64(4, _omitFieldNames ? '' : 'petExpDelta')
     ..aInt64(5, _omitFieldNames ? '' : 'pointsDelta')
     ..hasRequiredFields = false;
@@ -725,46 +717,24 @@ class GameRewardSpec extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<GameRewardSpec>(create);
   static GameRewardSpec? _defaultInstance;
 
-  @$pb.TagNumber(1)
-  StatMap get abilityDelta => $_getN(0);
-  @$pb.TagNumber(1)
-  set abilityDelta(StatMap value) => $_setField(1, value);
-  @$pb.TagNumber(1)
-  $core.bool hasAbilityDelta() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearAbilityDelta() => $_clearField(1);
-  @$pb.TagNumber(1)
-  StatMap ensureAbilityDelta() => $_ensure(0);
-
   @$pb.TagNumber(2)
-  $pb.PbMap<$core.String, $fixnum.Int64> get badgeExpDelta => $_getMap(1);
-
-  @$pb.TagNumber(3)
-  StatMap get lifeDelta => $_getN(2);
-  @$pb.TagNumber(3)
-  set lifeDelta(StatMap value) => $_setField(3, value);
-  @$pb.TagNumber(3)
-  $core.bool hasLifeDelta() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearLifeDelta() => $_clearField(3);
-  @$pb.TagNumber(3)
-  StatMap ensureLifeDelta() => $_ensure(2);
+  $pb.PbMap<$core.String, $fixnum.Int64> get badgeExpDelta => $_getMap(0);
 
   @$pb.TagNumber(4)
-  $fixnum.Int64 get petExpDelta => $_getI64(3);
+  $fixnum.Int64 get petExpDelta => $_getI64(1);
   @$pb.TagNumber(4)
-  set petExpDelta($fixnum.Int64 value) => $_setInt64(3, value);
+  set petExpDelta($fixnum.Int64 value) => $_setInt64(1, value);
   @$pb.TagNumber(4)
-  $core.bool hasPetExpDelta() => $_has(3);
+  $core.bool hasPetExpDelta() => $_has(1);
   @$pb.TagNumber(4)
   void clearPetExpDelta() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  $fixnum.Int64 get pointsDelta => $_getI64(4);
+  $fixnum.Int64 get pointsDelta => $_getI64(2);
   @$pb.TagNumber(5)
-  set pointsDelta($fixnum.Int64 value) => $_setInt64(4, value);
+  set pointsDelta($fixnum.Int64 value) => $_setInt64(2, value);
   @$pb.TagNumber(5)
-  $core.bool hasPointsDelta() => $_has(4);
+  $core.bool hasPointsDelta() => $_has(2);
   @$pb.TagNumber(5)
   void clearPointsDelta() => $_clearField(5);
 }
@@ -864,18 +834,12 @@ class GameRuleset extends $pb.GeneratedMessage {
 
 class GameRulesetDriveSpec extends $pb.GeneratedMessage {
   factory GameRulesetDriveSpec({
-    $core.Iterable<$core.MapEntry<$core.String, $fixnum.Int64>>? actionCosts,
-    $core.Iterable<$core.MapEntry<$core.String, GameRewardSpec>>? actionRewards,
     GameRewardSpec? defaultReward,
     $core.Iterable<$core.MapEntry<$core.String, GameRewardSpec>>? gameRewards,
-    StatMap? lifeDecayPerHour,
   }) {
     final result = create();
-    if (actionCosts != null) result.actionCosts.addEntries(actionCosts);
-    if (actionRewards != null) result.actionRewards.addEntries(actionRewards);
     if (defaultReward != null) result.defaultReward = defaultReward;
     if (gameRewards != null) result.gameRewards.addEntries(gameRewards);
-    if (lifeDecayPerHour != null) result.lifeDecayPerHour = lifeDecayPerHour;
     return result;
   }
 
@@ -892,18 +856,6 @@ class GameRulesetDriveSpec extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'GameRulesetDriveSpec',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..m<$core.String, $fixnum.Int64>(1, _omitFieldNames ? '' : 'actionCosts',
-        entryClassName: 'GameRulesetDriveSpec.ActionCostsEntry',
-        keyFieldType: $pb.PbFieldType.OS,
-        valueFieldType: $pb.PbFieldType.O6,
-        packageName: const $pb.PackageName('gizclaw.rpc.v1'))
-    ..m<$core.String, GameRewardSpec>(2, _omitFieldNames ? '' : 'actionRewards',
-        entryClassName: 'GameRulesetDriveSpec.ActionRewardsEntry',
-        keyFieldType: $pb.PbFieldType.OS,
-        valueFieldType: $pb.PbFieldType.OM,
-        valueCreator: GameRewardSpec.create,
-        valueDefaultOrMaker: GameRewardSpec.getDefault,
-        packageName: const $pb.PackageName('gizclaw.rpc.v1'))
     ..aOM<GameRewardSpec>(3, _omitFieldNames ? '' : 'defaultReward',
         subBuilder: GameRewardSpec.create)
     ..m<$core.String, GameRewardSpec>(4, _omitFieldNames ? '' : 'gameRewards',
@@ -913,8 +865,6 @@ class GameRulesetDriveSpec extends $pb.GeneratedMessage {
         valueCreator: GameRewardSpec.create,
         valueDefaultOrMaker: GameRewardSpec.getDefault,
         packageName: const $pb.PackageName('gizclaw.rpc.v1'))
-    ..aOM<StatMap>(5, _omitFieldNames ? '' : 'lifeDecayPerHour',
-        subBuilder: StatMap.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -936,36 +886,19 @@ class GameRulesetDriveSpec extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<GameRulesetDriveSpec>(create);
   static GameRulesetDriveSpec? _defaultInstance;
 
-  @$pb.TagNumber(1)
-  $pb.PbMap<$core.String, $fixnum.Int64> get actionCosts => $_getMap(0);
-
-  @$pb.TagNumber(2)
-  $pb.PbMap<$core.String, GameRewardSpec> get actionRewards => $_getMap(1);
-
   @$pb.TagNumber(3)
-  GameRewardSpec get defaultReward => $_getN(2);
+  GameRewardSpec get defaultReward => $_getN(0);
   @$pb.TagNumber(3)
   set defaultReward(GameRewardSpec value) => $_setField(3, value);
   @$pb.TagNumber(3)
-  $core.bool hasDefaultReward() => $_has(2);
+  $core.bool hasDefaultReward() => $_has(0);
   @$pb.TagNumber(3)
   void clearDefaultReward() => $_clearField(3);
   @$pb.TagNumber(3)
-  GameRewardSpec ensureDefaultReward() => $_ensure(2);
+  GameRewardSpec ensureDefaultReward() => $_ensure(0);
 
   @$pb.TagNumber(4)
-  $pb.PbMap<$core.String, GameRewardSpec> get gameRewards => $_getMap(3);
-
-  @$pb.TagNumber(5)
-  StatMap get lifeDecayPerHour => $_getN(4);
-  @$pb.TagNumber(5)
-  set lifeDecayPerHour(StatMap value) => $_setField(5, value);
-  @$pb.TagNumber(5)
-  $core.bool hasLifeDecayPerHour() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearLifeDecayPerHour() => $_clearField(5);
-  @$pb.TagNumber(5)
-  StatMap ensureLifeDecayPerHour() => $_ensure(4);
+  $pb.PbMap<$core.String, GameRewardSpec> get gameRewards => $_getMap(1);
 }
 
 class GameRulesetPetPoolEntry extends $pb.GeneratedMessage {
@@ -1448,29 +1381,24 @@ class GameplayMetadata extends $pb.GeneratedMessage {
 
 class Pet extends $pb.GeneratedMessage {
   factory Pet({
-    StatMap? ability,
     $core.String? createdAt,
     $core.String? displayName,
-    $fixnum.Int64? exp,
     $core.String? id,
     $core.String? lastActiveAt,
-    $fixnum.Int64? level,
-    StatMap? life,
+    PetLife? life,
     $core.String? ownerPublicKey,
     $core.String? petdefId,
     $core.String? rulesetName,
     $core.String? updatedAt,
     $core.String? workflowName,
     $core.String? workspaceName,
+    PetProgression? progression,
   }) {
     final result = create();
-    if (ability != null) result.ability = ability;
     if (createdAt != null) result.createdAt = createdAt;
     if (displayName != null) result.displayName = displayName;
-    if (exp != null) result.exp = exp;
     if (id != null) result.id = id;
     if (lastActiveAt != null) result.lastActiveAt = lastActiveAt;
-    if (level != null) result.level = level;
     if (life != null) result.life = life;
     if (ownerPublicKey != null) result.ownerPublicKey = ownerPublicKey;
     if (petdefId != null) result.petdefId = petdefId;
@@ -1478,6 +1406,7 @@ class Pet extends $pb.GeneratedMessage {
     if (updatedAt != null) result.updatedAt = updatedAt;
     if (workflowName != null) result.workflowName = workflowName;
     if (workspaceName != null) result.workspaceName = workspaceName;
+    if (progression != null) result.progression = progression;
     return result;
   }
 
@@ -1494,21 +1423,19 @@ class Pet extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'Pet',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOM<StatMap>(1, _omitFieldNames ? '' : 'ability',
-        subBuilder: StatMap.create)
     ..aOS(2, _omitFieldNames ? '' : 'createdAt')
     ..aOS(3, _omitFieldNames ? '' : 'displayName')
-    ..aInt64(4, _omitFieldNames ? '' : 'exp')
     ..aOS(5, _omitFieldNames ? '' : 'id')
     ..aOS(6, _omitFieldNames ? '' : 'lastActiveAt')
-    ..aInt64(7, _omitFieldNames ? '' : 'level')
-    ..aOM<StatMap>(8, _omitFieldNames ? '' : 'life', subBuilder: StatMap.create)
+    ..aOM<PetLife>(8, _omitFieldNames ? '' : 'life', subBuilder: PetLife.create)
     ..aOS(9, _omitFieldNames ? '' : 'ownerPublicKey')
     ..aOS(10, _omitFieldNames ? '' : 'petdefId')
     ..aOS(11, _omitFieldNames ? '' : 'rulesetName')
     ..aOS(12, _omitFieldNames ? '' : 'updatedAt')
     ..aOS(13, _omitFieldNames ? '' : 'workflowName')
     ..aOS(14, _omitFieldNames ? '' : 'workspaceName')
+    ..aOM<PetProgression>(15, _omitFieldNames ? '' : 'progression',
+        subBuilder: PetProgression.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1529,135 +1456,117 @@ class Pet extends $pb.GeneratedMessage {
       _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Pet>(create);
   static Pet? _defaultInstance;
 
-  @$pb.TagNumber(1)
-  StatMap get ability => $_getN(0);
-  @$pb.TagNumber(1)
-  set ability(StatMap value) => $_setField(1, value);
-  @$pb.TagNumber(1)
-  $core.bool hasAbility() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearAbility() => $_clearField(1);
-  @$pb.TagNumber(1)
-  StatMap ensureAbility() => $_ensure(0);
-
   @$pb.TagNumber(2)
-  $core.String get createdAt => $_getSZ(1);
+  $core.String get createdAt => $_getSZ(0);
   @$pb.TagNumber(2)
-  set createdAt($core.String value) => $_setString(1, value);
+  set createdAt($core.String value) => $_setString(0, value);
   @$pb.TagNumber(2)
-  $core.bool hasCreatedAt() => $_has(1);
+  $core.bool hasCreatedAt() => $_has(0);
   @$pb.TagNumber(2)
   void clearCreatedAt() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $core.String get displayName => $_getSZ(2);
+  $core.String get displayName => $_getSZ(1);
   @$pb.TagNumber(3)
-  set displayName($core.String value) => $_setString(2, value);
+  set displayName($core.String value) => $_setString(1, value);
   @$pb.TagNumber(3)
-  $core.bool hasDisplayName() => $_has(2);
+  $core.bool hasDisplayName() => $_has(1);
   @$pb.TagNumber(3)
   void clearDisplayName() => $_clearField(3);
 
-  @$pb.TagNumber(4)
-  $fixnum.Int64 get exp => $_getI64(3);
-  @$pb.TagNumber(4)
-  set exp($fixnum.Int64 value) => $_setInt64(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasExp() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearExp() => $_clearField(4);
-
   @$pb.TagNumber(5)
-  $core.String get id => $_getSZ(4);
+  $core.String get id => $_getSZ(2);
   @$pb.TagNumber(5)
-  set id($core.String value) => $_setString(4, value);
+  set id($core.String value) => $_setString(2, value);
   @$pb.TagNumber(5)
-  $core.bool hasId() => $_has(4);
+  $core.bool hasId() => $_has(2);
   @$pb.TagNumber(5)
   void clearId() => $_clearField(5);
 
   @$pb.TagNumber(6)
-  $core.String get lastActiveAt => $_getSZ(5);
+  $core.String get lastActiveAt => $_getSZ(3);
   @$pb.TagNumber(6)
-  set lastActiveAt($core.String value) => $_setString(5, value);
+  set lastActiveAt($core.String value) => $_setString(3, value);
   @$pb.TagNumber(6)
-  $core.bool hasLastActiveAt() => $_has(5);
+  $core.bool hasLastActiveAt() => $_has(3);
   @$pb.TagNumber(6)
   void clearLastActiveAt() => $_clearField(6);
 
-  @$pb.TagNumber(7)
-  $fixnum.Int64 get level => $_getI64(6);
-  @$pb.TagNumber(7)
-  set level($fixnum.Int64 value) => $_setInt64(6, value);
-  @$pb.TagNumber(7)
-  $core.bool hasLevel() => $_has(6);
-  @$pb.TagNumber(7)
-  void clearLevel() => $_clearField(7);
-
   @$pb.TagNumber(8)
-  StatMap get life => $_getN(7);
+  PetLife get life => $_getN(4);
   @$pb.TagNumber(8)
-  set life(StatMap value) => $_setField(8, value);
+  set life(PetLife value) => $_setField(8, value);
   @$pb.TagNumber(8)
-  $core.bool hasLife() => $_has(7);
+  $core.bool hasLife() => $_has(4);
   @$pb.TagNumber(8)
   void clearLife() => $_clearField(8);
   @$pb.TagNumber(8)
-  StatMap ensureLife() => $_ensure(7);
+  PetLife ensureLife() => $_ensure(4);
 
   @$pb.TagNumber(9)
-  $core.String get ownerPublicKey => $_getSZ(8);
+  $core.String get ownerPublicKey => $_getSZ(5);
   @$pb.TagNumber(9)
-  set ownerPublicKey($core.String value) => $_setString(8, value);
+  set ownerPublicKey($core.String value) => $_setString(5, value);
   @$pb.TagNumber(9)
-  $core.bool hasOwnerPublicKey() => $_has(8);
+  $core.bool hasOwnerPublicKey() => $_has(5);
   @$pb.TagNumber(9)
   void clearOwnerPublicKey() => $_clearField(9);
 
   @$pb.TagNumber(10)
-  $core.String get petdefId => $_getSZ(9);
+  $core.String get petdefId => $_getSZ(6);
   @$pb.TagNumber(10)
-  set petdefId($core.String value) => $_setString(9, value);
+  set petdefId($core.String value) => $_setString(6, value);
   @$pb.TagNumber(10)
-  $core.bool hasPetdefId() => $_has(9);
+  $core.bool hasPetdefId() => $_has(6);
   @$pb.TagNumber(10)
   void clearPetdefId() => $_clearField(10);
 
   @$pb.TagNumber(11)
-  $core.String get rulesetName => $_getSZ(10);
+  $core.String get rulesetName => $_getSZ(7);
   @$pb.TagNumber(11)
-  set rulesetName($core.String value) => $_setString(10, value);
+  set rulesetName($core.String value) => $_setString(7, value);
   @$pb.TagNumber(11)
-  $core.bool hasRulesetName() => $_has(10);
+  $core.bool hasRulesetName() => $_has(7);
   @$pb.TagNumber(11)
   void clearRulesetName() => $_clearField(11);
 
   @$pb.TagNumber(12)
-  $core.String get updatedAt => $_getSZ(11);
+  $core.String get updatedAt => $_getSZ(8);
   @$pb.TagNumber(12)
-  set updatedAt($core.String value) => $_setString(11, value);
+  set updatedAt($core.String value) => $_setString(8, value);
   @$pb.TagNumber(12)
-  $core.bool hasUpdatedAt() => $_has(11);
+  $core.bool hasUpdatedAt() => $_has(8);
   @$pb.TagNumber(12)
   void clearUpdatedAt() => $_clearField(12);
 
   @$pb.TagNumber(13)
-  $core.String get workflowName => $_getSZ(12);
+  $core.String get workflowName => $_getSZ(9);
   @$pb.TagNumber(13)
-  set workflowName($core.String value) => $_setString(12, value);
+  set workflowName($core.String value) => $_setString(9, value);
   @$pb.TagNumber(13)
-  $core.bool hasWorkflowName() => $_has(12);
+  $core.bool hasWorkflowName() => $_has(9);
   @$pb.TagNumber(13)
   void clearWorkflowName() => $_clearField(13);
 
   @$pb.TagNumber(14)
-  $core.String get workspaceName => $_getSZ(13);
+  $core.String get workspaceName => $_getSZ(10);
   @$pb.TagNumber(14)
-  set workspaceName($core.String value) => $_setString(13, value);
+  set workspaceName($core.String value) => $_setString(10, value);
   @$pb.TagNumber(14)
-  $core.bool hasWorkspaceName() => $_has(13);
+  $core.bool hasWorkspaceName() => $_has(10);
   @$pb.TagNumber(14)
   void clearWorkspaceName() => $_clearField(14);
+
+  @$pb.TagNumber(15)
+  PetProgression get progression => $_getN(11);
+  @$pb.TagNumber(15)
+  set progression(PetProgression value) => $_setField(15, value);
+  @$pb.TagNumber(15)
+  $core.bool hasProgression() => $_has(11);
+  @$pb.TagNumber(15)
+  void clearProgression() => $_clearField(15);
+  @$pb.TagNumber(15)
+  PetProgression ensureProgression() => $_ensure(11);
 }
 
 class PetAdoptRequest extends $pb.GeneratedMessage {
@@ -1945,6 +1854,1419 @@ class PetDefPixaDownloadResponse extends $pb.GeneratedMessage {
   $core.bool hasSizeBytes() => $_has(2);
   @$pb.TagNumber(3)
   void clearSizeBytes() => $_clearField(3);
+}
+
+class PetPixaDownloadRequest extends $pb.GeneratedMessage {
+  factory PetPixaDownloadRequest({
+    $core.String? petId,
+  }) {
+    final result = create();
+    if (petId != null) result.petId = petId;
+    return result;
+  }
+
+  PetPixaDownloadRequest._();
+
+  factory PetPixaDownloadRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PetPixaDownloadRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PetPixaDownloadRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'petId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPixaDownloadRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPixaDownloadRequest copyWith(
+          void Function(PetPixaDownloadRequest) updates) =>
+      super.copyWith((message) => updates(message as PetPixaDownloadRequest))
+          as PetPixaDownloadRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PetPixaDownloadRequest create() => PetPixaDownloadRequest._();
+  @$core.override
+  PetPixaDownloadRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PetPixaDownloadRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PetPixaDownloadRequest>(create);
+  static PetPixaDownloadRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get petId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set petId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasPetId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearPetId() => $_clearField(1);
+}
+
+class PetPixaDownloadResponse extends $pb.GeneratedMessage {
+  factory PetPixaDownloadResponse({
+    $core.String? petId,
+    $core.String? petdefId,
+    $core.String? pixaPath,
+    $fixnum.Int64? sizeBytes,
+  }) {
+    final result = create();
+    if (petId != null) result.petId = petId;
+    if (petdefId != null) result.petdefId = petdefId;
+    if (pixaPath != null) result.pixaPath = pixaPath;
+    if (sizeBytes != null) result.sizeBytes = sizeBytes;
+    return result;
+  }
+
+  PetPixaDownloadResponse._();
+
+  factory PetPixaDownloadResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PetPixaDownloadResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PetPixaDownloadResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'petId')
+    ..aOS(2, _omitFieldNames ? '' : 'petdefId')
+    ..aOS(3, _omitFieldNames ? '' : 'pixaPath')
+    ..aInt64(4, _omitFieldNames ? '' : 'sizeBytes')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPixaDownloadResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPixaDownloadResponse copyWith(
+          void Function(PetPixaDownloadResponse) updates) =>
+      super.copyWith((message) => updates(message as PetPixaDownloadResponse))
+          as PetPixaDownloadResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PetPixaDownloadResponse create() => PetPixaDownloadResponse._();
+  @$core.override
+  PetPixaDownloadResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PetPixaDownloadResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PetPixaDownloadResponse>(create);
+  static PetPixaDownloadResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get petId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set petId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasPetId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearPetId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get petdefId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set petdefId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasPetdefId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearPetdefId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get pixaPath => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set pixaPath($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasPixaPath() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearPixaPath() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get sizeBytes => $_getI64(3);
+  @$pb.TagNumber(4)
+  set sizeBytes($fixnum.Int64 value) => $_setInt64(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSizeBytes() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSizeBytes() => $_clearField(4);
+}
+
+class PetPresentation extends $pb.GeneratedMessage {
+  factory PetPresentation({
+    $core.String? petId,
+    $core.String? petdefId,
+    $core.String? defaultLocale,
+    PetPresentationAttrSpec? attr,
+    PetPresentationDriveSpec? drive,
+    PetPresentationPixaMetadata? pixaMetadata,
+    PetPresentationI18nSpec? i18n,
+    $core.String? pixaPath,
+    $core.String? petdefUpdatedAt,
+  }) {
+    final result = create();
+    if (petId != null) result.petId = petId;
+    if (petdefId != null) result.petdefId = petdefId;
+    if (defaultLocale != null) result.defaultLocale = defaultLocale;
+    if (attr != null) result.attr = attr;
+    if (drive != null) result.drive = drive;
+    if (pixaMetadata != null) result.pixaMetadata = pixaMetadata;
+    if (i18n != null) result.i18n = i18n;
+    if (pixaPath != null) result.pixaPath = pixaPath;
+    if (petdefUpdatedAt != null) result.petdefUpdatedAt = petdefUpdatedAt;
+    return result;
+  }
+
+  PetPresentation._();
+
+  factory PetPresentation.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PetPresentation.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PetPresentation',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'petId')
+    ..aOS(2, _omitFieldNames ? '' : 'petdefId')
+    ..aOS(3, _omitFieldNames ? '' : 'defaultLocale')
+    ..aOM<PetPresentationAttrSpec>(4, _omitFieldNames ? '' : 'attr',
+        subBuilder: PetPresentationAttrSpec.create)
+    ..aOM<PetPresentationDriveSpec>(5, _omitFieldNames ? '' : 'drive',
+        subBuilder: PetPresentationDriveSpec.create)
+    ..aOM<PetPresentationPixaMetadata>(6, _omitFieldNames ? '' : 'pixaMetadata',
+        subBuilder: PetPresentationPixaMetadata.create)
+    ..aOM<PetPresentationI18nSpec>(7, _omitFieldNames ? '' : 'i18n',
+        subBuilder: PetPresentationI18nSpec.create)
+    ..aOS(8, _omitFieldNames ? '' : 'pixaPath')
+    ..aOS(9, _omitFieldNames ? '' : 'petdefUpdatedAt')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentation clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentation copyWith(void Function(PetPresentation) updates) =>
+      super.copyWith((message) => updates(message as PetPresentation))
+          as PetPresentation;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PetPresentation create() => PetPresentation._();
+  @$core.override
+  PetPresentation createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PetPresentation getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PetPresentation>(create);
+  static PetPresentation? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get petId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set petId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasPetId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearPetId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get petdefId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set petdefId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasPetdefId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearPetdefId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get defaultLocale => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set defaultLocale($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasDefaultLocale() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearDefaultLocale() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  PetPresentationAttrSpec get attr => $_getN(3);
+  @$pb.TagNumber(4)
+  set attr(PetPresentationAttrSpec value) => $_setField(4, value);
+  @$pb.TagNumber(4)
+  $core.bool hasAttr() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearAttr() => $_clearField(4);
+  @$pb.TagNumber(4)
+  PetPresentationAttrSpec ensureAttr() => $_ensure(3);
+
+  @$pb.TagNumber(5)
+  PetPresentationDriveSpec get drive => $_getN(4);
+  @$pb.TagNumber(5)
+  set drive(PetPresentationDriveSpec value) => $_setField(5, value);
+  @$pb.TagNumber(5)
+  $core.bool hasDrive() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearDrive() => $_clearField(5);
+  @$pb.TagNumber(5)
+  PetPresentationDriveSpec ensureDrive() => $_ensure(4);
+
+  @$pb.TagNumber(6)
+  PetPresentationPixaMetadata get pixaMetadata => $_getN(5);
+  @$pb.TagNumber(6)
+  set pixaMetadata(PetPresentationPixaMetadata value) => $_setField(6, value);
+  @$pb.TagNumber(6)
+  $core.bool hasPixaMetadata() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearPixaMetadata() => $_clearField(6);
+  @$pb.TagNumber(6)
+  PetPresentationPixaMetadata ensurePixaMetadata() => $_ensure(5);
+
+  @$pb.TagNumber(7)
+  PetPresentationI18nSpec get i18n => $_getN(6);
+  @$pb.TagNumber(7)
+  set i18n(PetPresentationI18nSpec value) => $_setField(7, value);
+  @$pb.TagNumber(7)
+  $core.bool hasI18n() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearI18n() => $_clearField(7);
+  @$pb.TagNumber(7)
+  PetPresentationI18nSpec ensureI18n() => $_ensure(6);
+
+  @$pb.TagNumber(8)
+  $core.String get pixaPath => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set pixaPath($core.String value) => $_setString(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasPixaPath() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearPixaPath() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.String get petdefUpdatedAt => $_getSZ(8);
+  @$pb.TagNumber(9)
+  set petdefUpdatedAt($core.String value) => $_setString(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasPetdefUpdatedAt() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearPetdefUpdatedAt() => $_clearField(9);
+}
+
+class PetPresentationActionEffectSpec extends $pb.GeneratedMessage {
+  factory PetPresentationActionEffectSpec({
+    PetPresentationAttrDelta? attrDelta,
+    $fixnum.Int64? petExpDelta,
+  }) {
+    final result = create();
+    if (attrDelta != null) result.attrDelta = attrDelta;
+    if (petExpDelta != null) result.petExpDelta = petExpDelta;
+    return result;
+  }
+
+  PetPresentationActionEffectSpec._();
+
+  factory PetPresentationActionEffectSpec.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PetPresentationActionEffectSpec.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PetPresentationActionEffectSpec',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOM<PetPresentationAttrDelta>(1, _omitFieldNames ? '' : 'attrDelta',
+        subBuilder: PetPresentationAttrDelta.create)
+    ..aInt64(2, _omitFieldNames ? '' : 'petExpDelta')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationActionEffectSpec clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationActionEffectSpec copyWith(
+          void Function(PetPresentationActionEffectSpec) updates) =>
+      super.copyWith(
+              (message) => updates(message as PetPresentationActionEffectSpec))
+          as PetPresentationActionEffectSpec;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationActionEffectSpec create() =>
+      PetPresentationActionEffectSpec._();
+  @$core.override
+  PetPresentationActionEffectSpec createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationActionEffectSpec getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PetPresentationActionEffectSpec>(
+          create);
+  static PetPresentationActionEffectSpec? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  PetPresentationAttrDelta get attrDelta => $_getN(0);
+  @$pb.TagNumber(1)
+  set attrDelta(PetPresentationAttrDelta value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasAttrDelta() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAttrDelta() => $_clearField(1);
+  @$pb.TagNumber(1)
+  PetPresentationAttrDelta ensureAttrDelta() => $_ensure(0);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get petExpDelta => $_getI64(1);
+  @$pb.TagNumber(2)
+  set petExpDelta($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasPetExpDelta() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearPetExpDelta() => $_clearField(2);
+}
+
+class PetPresentationActionSpec extends $pb.GeneratedMessage {
+  factory PetPresentationActionSpec({
+    $core.String? id,
+    $fixnum.Int64? cost,
+    PetPresentationActionEffectSpec? effect,
+    $core.String? visualClipId,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (cost != null) result.cost = cost;
+    if (effect != null) result.effect = effect;
+    if (visualClipId != null) result.visualClipId = visualClipId;
+    return result;
+  }
+
+  PetPresentationActionSpec._();
+
+  factory PetPresentationActionSpec.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PetPresentationActionSpec.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PetPresentationActionSpec',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aInt64(2, _omitFieldNames ? '' : 'cost')
+    ..aOM<PetPresentationActionEffectSpec>(3, _omitFieldNames ? '' : 'effect',
+        subBuilder: PetPresentationActionEffectSpec.create)
+    ..aOS(4, _omitFieldNames ? '' : 'visualClipId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationActionSpec clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationActionSpec copyWith(
+          void Function(PetPresentationActionSpec) updates) =>
+      super.copyWith((message) => updates(message as PetPresentationActionSpec))
+          as PetPresentationActionSpec;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationActionSpec create() => PetPresentationActionSpec._();
+  @$core.override
+  PetPresentationActionSpec createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationActionSpec getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PetPresentationActionSpec>(create);
+  static PetPresentationActionSpec? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get cost => $_getI64(1);
+  @$pb.TagNumber(2)
+  set cost($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCost() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCost() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  PetPresentationActionEffectSpec get effect => $_getN(2);
+  @$pb.TagNumber(3)
+  set effect(PetPresentationActionEffectSpec value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasEffect() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearEffect() => $_clearField(3);
+  @$pb.TagNumber(3)
+  PetPresentationActionEffectSpec ensureEffect() => $_ensure(2);
+
+  @$pb.TagNumber(4)
+  $core.String get visualClipId => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set visualClipId($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasVisualClipId() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearVisualClipId() => $_clearField(4);
+}
+
+class PetPresentationAttrDelta extends $pb.GeneratedMessage {
+  factory PetPresentationAttrDelta({
+    PetLife? life,
+  }) {
+    final result = create();
+    if (life != null) result.life = life;
+    return result;
+  }
+
+  PetPresentationAttrDelta._();
+
+  factory PetPresentationAttrDelta.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PetPresentationAttrDelta.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PetPresentationAttrDelta',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOM<PetLife>(1, _omitFieldNames ? '' : 'life', subBuilder: PetLife.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationAttrDelta clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationAttrDelta copyWith(
+          void Function(PetPresentationAttrDelta) updates) =>
+      super.copyWith((message) => updates(message as PetPresentationAttrDelta))
+          as PetPresentationAttrDelta;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationAttrDelta create() => PetPresentationAttrDelta._();
+  @$core.override
+  PetPresentationAttrDelta createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationAttrDelta getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PetPresentationAttrDelta>(create);
+  static PetPresentationAttrDelta? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  PetLife get life => $_getN(0);
+  @$pb.TagNumber(1)
+  set life(PetLife value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasLife() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearLife() => $_clearField(1);
+  @$pb.TagNumber(1)
+  PetLife ensureLife() => $_ensure(0);
+}
+
+class PetPresentationAttrGroupSpec extends $pb.GeneratedMessage {
+  factory PetPresentationAttrGroupSpec({
+    $core.Iterable<$core.MapEntry<$core.String, PetPresentationAttrValueSpec>>?
+        value,
+  }) {
+    final result = create();
+    if (value != null) result.value.addEntries(value);
+    return result;
+  }
+
+  PetPresentationAttrGroupSpec._();
+
+  factory PetPresentationAttrGroupSpec.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PetPresentationAttrGroupSpec.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PetPresentationAttrGroupSpec',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..m<$core.String, PetPresentationAttrValueSpec>(
+        1, _omitFieldNames ? '' : 'value',
+        entryClassName: 'PetPresentationAttrGroupSpec.ValueEntry',
+        keyFieldType: $pb.PbFieldType.OS,
+        valueFieldType: $pb.PbFieldType.OM,
+        valueCreator: PetPresentationAttrValueSpec.create,
+        valueDefaultOrMaker: PetPresentationAttrValueSpec.getDefault,
+        packageName: const $pb.PackageName('gizclaw.rpc.v1'))
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationAttrGroupSpec clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationAttrGroupSpec copyWith(
+          void Function(PetPresentationAttrGroupSpec) updates) =>
+      super.copyWith(
+              (message) => updates(message as PetPresentationAttrGroupSpec))
+          as PetPresentationAttrGroupSpec;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationAttrGroupSpec create() =>
+      PetPresentationAttrGroupSpec._();
+  @$core.override
+  PetPresentationAttrGroupSpec createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationAttrGroupSpec getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PetPresentationAttrGroupSpec>(create);
+  static PetPresentationAttrGroupSpec? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbMap<$core.String, PetPresentationAttrValueSpec> get value =>
+      $_getMap(0);
+}
+
+class PetPresentationAttrSpec extends $pb.GeneratedMessage {
+  factory PetPresentationAttrSpec({
+    PetPresentationAttrGroupSpec? life,
+    PetPresentationAttrGroupSpec? progression,
+  }) {
+    final result = create();
+    if (life != null) result.life = life;
+    if (progression != null) result.progression = progression;
+    return result;
+  }
+
+  PetPresentationAttrSpec._();
+
+  factory PetPresentationAttrSpec.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PetPresentationAttrSpec.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PetPresentationAttrSpec',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOM<PetPresentationAttrGroupSpec>(1, _omitFieldNames ? '' : 'life',
+        subBuilder: PetPresentationAttrGroupSpec.create)
+    ..aOM<PetPresentationAttrGroupSpec>(2, _omitFieldNames ? '' : 'progression',
+        subBuilder: PetPresentationAttrGroupSpec.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationAttrSpec clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationAttrSpec copyWith(
+          void Function(PetPresentationAttrSpec) updates) =>
+      super.copyWith((message) => updates(message as PetPresentationAttrSpec))
+          as PetPresentationAttrSpec;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationAttrSpec create() => PetPresentationAttrSpec._();
+  @$core.override
+  PetPresentationAttrSpec createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationAttrSpec getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PetPresentationAttrSpec>(create);
+  static PetPresentationAttrSpec? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  PetPresentationAttrGroupSpec get life => $_getN(0);
+  @$pb.TagNumber(1)
+  set life(PetPresentationAttrGroupSpec value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasLife() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearLife() => $_clearField(1);
+  @$pb.TagNumber(1)
+  PetPresentationAttrGroupSpec ensureLife() => $_ensure(0);
+
+  @$pb.TagNumber(2)
+  PetPresentationAttrGroupSpec get progression => $_getN(1);
+  @$pb.TagNumber(2)
+  set progression(PetPresentationAttrGroupSpec value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasProgression() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearProgression() => $_clearField(2);
+  @$pb.TagNumber(2)
+  PetPresentationAttrGroupSpec ensureProgression() => $_ensure(1);
+}
+
+class PetPresentationAttrValueSpec extends $pb.GeneratedMessage {
+  factory PetPresentationAttrValueSpec({
+    $fixnum.Int64? initial,
+  }) {
+    final result = create();
+    if (initial != null) result.initial = initial;
+    return result;
+  }
+
+  PetPresentationAttrValueSpec._();
+
+  factory PetPresentationAttrValueSpec.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PetPresentationAttrValueSpec.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PetPresentationAttrValueSpec',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aInt64(1, _omitFieldNames ? '' : 'initial')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationAttrValueSpec clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationAttrValueSpec copyWith(
+          void Function(PetPresentationAttrValueSpec) updates) =>
+      super.copyWith(
+              (message) => updates(message as PetPresentationAttrValueSpec))
+          as PetPresentationAttrValueSpec;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationAttrValueSpec create() =>
+      PetPresentationAttrValueSpec._();
+  @$core.override
+  PetPresentationAttrValueSpec createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationAttrValueSpec getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PetPresentationAttrValueSpec>(create);
+  static PetPresentationAttrValueSpec? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get initial => $_getI64(0);
+  @$pb.TagNumber(1)
+  set initial($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasInitial() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearInitial() => $_clearField(1);
+}
+
+class PetPresentationDriveSpec extends $pb.GeneratedMessage {
+  factory PetPresentationDriveSpec({
+    $core.Iterable<PetPresentationActionSpec>? actions,
+  }) {
+    final result = create();
+    if (actions != null) result.actions.addAll(actions);
+    return result;
+  }
+
+  PetPresentationDriveSpec._();
+
+  factory PetPresentationDriveSpec.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PetPresentationDriveSpec.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PetPresentationDriveSpec',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..pPM<PetPresentationActionSpec>(1, _omitFieldNames ? '' : 'actions',
+        subBuilder: PetPresentationActionSpec.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationDriveSpec clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationDriveSpec copyWith(
+          void Function(PetPresentationDriveSpec) updates) =>
+      super.copyWith((message) => updates(message as PetPresentationDriveSpec))
+          as PetPresentationDriveSpec;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationDriveSpec create() => PetPresentationDriveSpec._();
+  @$core.override
+  PetPresentationDriveSpec createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationDriveSpec getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PetPresentationDriveSpec>(create);
+  static PetPresentationDriveSpec? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<PetPresentationActionSpec> get actions => $_getList(0);
+}
+
+class PetPresentationI18nAttrGroup extends $pb.GeneratedMessage {
+  factory PetPresentationI18nAttrGroup({
+    $core
+        .Iterable<$core.MapEntry<$core.String, PetPresentationI18nDisplayText>>?
+        value,
+  }) {
+    final result = create();
+    if (value != null) result.value.addEntries(value);
+    return result;
+  }
+
+  PetPresentationI18nAttrGroup._();
+
+  factory PetPresentationI18nAttrGroup.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PetPresentationI18nAttrGroup.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PetPresentationI18nAttrGroup',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..m<$core.String, PetPresentationI18nDisplayText>(
+        1, _omitFieldNames ? '' : 'value',
+        entryClassName: 'PetPresentationI18nAttrGroup.ValueEntry',
+        keyFieldType: $pb.PbFieldType.OS,
+        valueFieldType: $pb.PbFieldType.OM,
+        valueCreator: PetPresentationI18nDisplayText.create,
+        valueDefaultOrMaker: PetPresentationI18nDisplayText.getDefault,
+        packageName: const $pb.PackageName('gizclaw.rpc.v1'))
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationI18nAttrGroup clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationI18nAttrGroup copyWith(
+          void Function(PetPresentationI18nAttrGroup) updates) =>
+      super.copyWith(
+              (message) => updates(message as PetPresentationI18nAttrGroup))
+          as PetPresentationI18nAttrGroup;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationI18nAttrGroup create() =>
+      PetPresentationI18nAttrGroup._();
+  @$core.override
+  PetPresentationI18nAttrGroup createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationI18nAttrGroup getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PetPresentationI18nAttrGroup>(create);
+  static PetPresentationI18nAttrGroup? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbMap<$core.String, PetPresentationI18nDisplayText> get value =>
+      $_getMap(0);
+}
+
+class PetPresentationI18nAttrSpec extends $pb.GeneratedMessage {
+  factory PetPresentationI18nAttrSpec({
+    PetPresentationI18nAttrGroup? life,
+    PetPresentationI18nAttrGroup? progression,
+  }) {
+    final result = create();
+    if (life != null) result.life = life;
+    if (progression != null) result.progression = progression;
+    return result;
+  }
+
+  PetPresentationI18nAttrSpec._();
+
+  factory PetPresentationI18nAttrSpec.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PetPresentationI18nAttrSpec.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PetPresentationI18nAttrSpec',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOM<PetPresentationI18nAttrGroup>(1, _omitFieldNames ? '' : 'life',
+        subBuilder: PetPresentationI18nAttrGroup.create)
+    ..aOM<PetPresentationI18nAttrGroup>(2, _omitFieldNames ? '' : 'progression',
+        subBuilder: PetPresentationI18nAttrGroup.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationI18nAttrSpec clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationI18nAttrSpec copyWith(
+          void Function(PetPresentationI18nAttrSpec) updates) =>
+      super.copyWith(
+              (message) => updates(message as PetPresentationI18nAttrSpec))
+          as PetPresentationI18nAttrSpec;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationI18nAttrSpec create() =>
+      PetPresentationI18nAttrSpec._();
+  @$core.override
+  PetPresentationI18nAttrSpec createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationI18nAttrSpec getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PetPresentationI18nAttrSpec>(create);
+  static PetPresentationI18nAttrSpec? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  PetPresentationI18nAttrGroup get life => $_getN(0);
+  @$pb.TagNumber(1)
+  set life(PetPresentationI18nAttrGroup value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasLife() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearLife() => $_clearField(1);
+  @$pb.TagNumber(1)
+  PetPresentationI18nAttrGroup ensureLife() => $_ensure(0);
+
+  @$pb.TagNumber(2)
+  PetPresentationI18nAttrGroup get progression => $_getN(1);
+  @$pb.TagNumber(2)
+  set progression(PetPresentationI18nAttrGroup value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasProgression() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearProgression() => $_clearField(2);
+  @$pb.TagNumber(2)
+  PetPresentationI18nAttrGroup ensureProgression() => $_ensure(1);
+}
+
+class PetPresentationI18nCatalog extends $pb.GeneratedMessage {
+  factory PetPresentationI18nCatalog({
+    $core.String? displayName,
+    $core.String? description,
+    PetPresentationI18nAttrSpec? attr,
+    PetPresentationI18nDriveSpec? drive,
+  }) {
+    final result = create();
+    if (displayName != null) result.displayName = displayName;
+    if (description != null) result.description = description;
+    if (attr != null) result.attr = attr;
+    if (drive != null) result.drive = drive;
+    return result;
+  }
+
+  PetPresentationI18nCatalog._();
+
+  factory PetPresentationI18nCatalog.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PetPresentationI18nCatalog.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PetPresentationI18nCatalog',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'displayName')
+    ..aOS(2, _omitFieldNames ? '' : 'description')
+    ..aOM<PetPresentationI18nAttrSpec>(3, _omitFieldNames ? '' : 'attr',
+        subBuilder: PetPresentationI18nAttrSpec.create)
+    ..aOM<PetPresentationI18nDriveSpec>(4, _omitFieldNames ? '' : 'drive',
+        subBuilder: PetPresentationI18nDriveSpec.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationI18nCatalog clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationI18nCatalog copyWith(
+          void Function(PetPresentationI18nCatalog) updates) =>
+      super.copyWith(
+              (message) => updates(message as PetPresentationI18nCatalog))
+          as PetPresentationI18nCatalog;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationI18nCatalog create() => PetPresentationI18nCatalog._();
+  @$core.override
+  PetPresentationI18nCatalog createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationI18nCatalog getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PetPresentationI18nCatalog>(create);
+  static PetPresentationI18nCatalog? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get displayName => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set displayName($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasDisplayName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearDisplayName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get description => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set description($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDescription() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDescription() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  PetPresentationI18nAttrSpec get attr => $_getN(2);
+  @$pb.TagNumber(3)
+  set attr(PetPresentationI18nAttrSpec value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasAttr() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearAttr() => $_clearField(3);
+  @$pb.TagNumber(3)
+  PetPresentationI18nAttrSpec ensureAttr() => $_ensure(2);
+
+  @$pb.TagNumber(4)
+  PetPresentationI18nDriveSpec get drive => $_getN(3);
+  @$pb.TagNumber(4)
+  set drive(PetPresentationI18nDriveSpec value) => $_setField(4, value);
+  @$pb.TagNumber(4)
+  $core.bool hasDrive() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearDrive() => $_clearField(4);
+  @$pb.TagNumber(4)
+  PetPresentationI18nDriveSpec ensureDrive() => $_ensure(3);
+}
+
+class PetPresentationI18nDisplayText extends $pb.GeneratedMessage {
+  factory PetPresentationI18nDisplayText({
+    $core.String? displayName,
+  }) {
+    final result = create();
+    if (displayName != null) result.displayName = displayName;
+    return result;
+  }
+
+  PetPresentationI18nDisplayText._();
+
+  factory PetPresentationI18nDisplayText.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PetPresentationI18nDisplayText.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PetPresentationI18nDisplayText',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'displayName')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationI18nDisplayText clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationI18nDisplayText copyWith(
+          void Function(PetPresentationI18nDisplayText) updates) =>
+      super.copyWith(
+              (message) => updates(message as PetPresentationI18nDisplayText))
+          as PetPresentationI18nDisplayText;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationI18nDisplayText create() =>
+      PetPresentationI18nDisplayText._();
+  @$core.override
+  PetPresentationI18nDisplayText createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationI18nDisplayText getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PetPresentationI18nDisplayText>(create);
+  static PetPresentationI18nDisplayText? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get displayName => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set displayName($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasDisplayName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearDisplayName() => $_clearField(1);
+}
+
+class PetPresentationI18nDriveSpec extends $pb.GeneratedMessage {
+  factory PetPresentationI18nDriveSpec({
+    $core
+        .Iterable<$core.MapEntry<$core.String, PetPresentationI18nDisplayText>>?
+        actions,
+  }) {
+    final result = create();
+    if (actions != null) result.actions.addEntries(actions);
+    return result;
+  }
+
+  PetPresentationI18nDriveSpec._();
+
+  factory PetPresentationI18nDriveSpec.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PetPresentationI18nDriveSpec.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PetPresentationI18nDriveSpec',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..m<$core.String, PetPresentationI18nDisplayText>(
+        1, _omitFieldNames ? '' : 'actions',
+        entryClassName: 'PetPresentationI18nDriveSpec.ActionsEntry',
+        keyFieldType: $pb.PbFieldType.OS,
+        valueFieldType: $pb.PbFieldType.OM,
+        valueCreator: PetPresentationI18nDisplayText.create,
+        valueDefaultOrMaker: PetPresentationI18nDisplayText.getDefault,
+        packageName: const $pb.PackageName('gizclaw.rpc.v1'))
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationI18nDriveSpec clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationI18nDriveSpec copyWith(
+          void Function(PetPresentationI18nDriveSpec) updates) =>
+      super.copyWith(
+              (message) => updates(message as PetPresentationI18nDriveSpec))
+          as PetPresentationI18nDriveSpec;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationI18nDriveSpec create() =>
+      PetPresentationI18nDriveSpec._();
+  @$core.override
+  PetPresentationI18nDriveSpec createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationI18nDriveSpec getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PetPresentationI18nDriveSpec>(create);
+  static PetPresentationI18nDriveSpec? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbMap<$core.String, PetPresentationI18nDisplayText> get actions =>
+      $_getMap(0);
+}
+
+class PetPresentationI18nSpec extends $pb.GeneratedMessage {
+  factory PetPresentationI18nSpec({
+    $core.Iterable<$core.MapEntry<$core.String, PetPresentationI18nCatalog>>?
+        value,
+  }) {
+    final result = create();
+    if (value != null) result.value.addEntries(value);
+    return result;
+  }
+
+  PetPresentationI18nSpec._();
+
+  factory PetPresentationI18nSpec.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PetPresentationI18nSpec.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PetPresentationI18nSpec',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..m<$core.String, PetPresentationI18nCatalog>(
+        1, _omitFieldNames ? '' : 'value',
+        entryClassName: 'PetPresentationI18nSpec.ValueEntry',
+        keyFieldType: $pb.PbFieldType.OS,
+        valueFieldType: $pb.PbFieldType.OM,
+        valueCreator: PetPresentationI18nCatalog.create,
+        valueDefaultOrMaker: PetPresentationI18nCatalog.getDefault,
+        packageName: const $pb.PackageName('gizclaw.rpc.v1'))
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationI18nSpec clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationI18nSpec copyWith(
+          void Function(PetPresentationI18nSpec) updates) =>
+      super.copyWith((message) => updates(message as PetPresentationI18nSpec))
+          as PetPresentationI18nSpec;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationI18nSpec create() => PetPresentationI18nSpec._();
+  @$core.override
+  PetPresentationI18nSpec createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationI18nSpec getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PetPresentationI18nSpec>(create);
+  static PetPresentationI18nSpec? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbMap<$core.String, PetPresentationI18nCatalog> get value => $_getMap(0);
+}
+
+class PetPresentationPixaCanvasMetadata extends $pb.GeneratedMessage {
+  factory PetPresentationPixaCanvasMetadata({
+    $fixnum.Int64? width,
+    $fixnum.Int64? height,
+  }) {
+    final result = create();
+    if (width != null) result.width = width;
+    if (height != null) result.height = height;
+    return result;
+  }
+
+  PetPresentationPixaCanvasMetadata._();
+
+  factory PetPresentationPixaCanvasMetadata.fromBuffer(
+          $core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PetPresentationPixaCanvasMetadata.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PetPresentationPixaCanvasMetadata',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aInt64(1, _omitFieldNames ? '' : 'width')
+    ..aInt64(2, _omitFieldNames ? '' : 'height')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationPixaCanvasMetadata clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationPixaCanvasMetadata copyWith(
+          void Function(PetPresentationPixaCanvasMetadata) updates) =>
+      super.copyWith((message) =>
+              updates(message as PetPresentationPixaCanvasMetadata))
+          as PetPresentationPixaCanvasMetadata;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationPixaCanvasMetadata create() =>
+      PetPresentationPixaCanvasMetadata._();
+  @$core.override
+  PetPresentationPixaCanvasMetadata createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationPixaCanvasMetadata getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PetPresentationPixaCanvasMetadata>(
+          create);
+  static PetPresentationPixaCanvasMetadata? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get width => $_getI64(0);
+  @$pb.TagNumber(1)
+  set width($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasWidth() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearWidth() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get height => $_getI64(1);
+  @$pb.TagNumber(2)
+  set height($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasHeight() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearHeight() => $_clearField(2);
+}
+
+class PetPresentationPixaClipMetadata extends $pb.GeneratedMessage {
+  factory PetPresentationPixaClipMetadata({
+    $core.String? id,
+    $core.String? actionId,
+    $core.String? pixaClipName,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (actionId != null) result.actionId = actionId;
+    if (pixaClipName != null) result.pixaClipName = pixaClipName;
+    return result;
+  }
+
+  PetPresentationPixaClipMetadata._();
+
+  factory PetPresentationPixaClipMetadata.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PetPresentationPixaClipMetadata.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PetPresentationPixaClipMetadata',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'actionId')
+    ..aOS(3, _omitFieldNames ? '' : 'pixaClipName')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationPixaClipMetadata clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationPixaClipMetadata copyWith(
+          void Function(PetPresentationPixaClipMetadata) updates) =>
+      super.copyWith(
+              (message) => updates(message as PetPresentationPixaClipMetadata))
+          as PetPresentationPixaClipMetadata;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationPixaClipMetadata create() =>
+      PetPresentationPixaClipMetadata._();
+  @$core.override
+  PetPresentationPixaClipMetadata createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationPixaClipMetadata getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PetPresentationPixaClipMetadata>(
+          create);
+  static PetPresentationPixaClipMetadata? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get actionId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set actionId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasActionId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearActionId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get pixaClipName => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set pixaClipName($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasPixaClipName() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearPixaClipName() => $_clearField(3);
+}
+
+class PetPresentationPixaMetadata extends $pb.GeneratedMessage {
+  factory PetPresentationPixaMetadata({
+    $core.String? version,
+    PetPresentationPixaCanvasMetadata? canvas,
+    $core.Iterable<PetPresentationPixaClipMetadata>? clips,
+  }) {
+    final result = create();
+    if (version != null) result.version = version;
+    if (canvas != null) result.canvas = canvas;
+    if (clips != null) result.clips.addAll(clips);
+    return result;
+  }
+
+  PetPresentationPixaMetadata._();
+
+  factory PetPresentationPixaMetadata.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PetPresentationPixaMetadata.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PetPresentationPixaMetadata',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'version')
+    ..aOM<PetPresentationPixaCanvasMetadata>(2, _omitFieldNames ? '' : 'canvas',
+        subBuilder: PetPresentationPixaCanvasMetadata.create)
+    ..pPM<PetPresentationPixaClipMetadata>(3, _omitFieldNames ? '' : 'clips',
+        subBuilder: PetPresentationPixaClipMetadata.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationPixaMetadata clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPresentationPixaMetadata copyWith(
+          void Function(PetPresentationPixaMetadata) updates) =>
+      super.copyWith(
+              (message) => updates(message as PetPresentationPixaMetadata))
+          as PetPresentationPixaMetadata;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationPixaMetadata create() =>
+      PetPresentationPixaMetadata._();
+  @$core.override
+  PetPresentationPixaMetadata createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PetPresentationPixaMetadata getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PetPresentationPixaMetadata>(create);
+  static PetPresentationPixaMetadata? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get version => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set version($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasVersion() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearVersion() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  PetPresentationPixaCanvasMetadata get canvas => $_getN(1);
+  @$pb.TagNumber(2)
+  set canvas(PetPresentationPixaCanvasMetadata value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCanvas() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCanvas() => $_clearField(2);
+  @$pb.TagNumber(2)
+  PetPresentationPixaCanvasMetadata ensureCanvas() => $_ensure(1);
+
+  @$pb.TagNumber(3)
+  $pb.PbList<PetPresentationPixaClipMetadata> get clips => $_getList(2);
 }
 
 class PetDeleteRequest extends $pb.GeneratedMessage {
@@ -2900,12 +4222,10 @@ class PointsTransactionListResponse extends $pb.GeneratedMessage {
 
 class RewardGrant extends $pb.GeneratedMessage {
   factory RewardGrant({
-    StatMap? abilityDelta,
     $core.Iterable<$core.MapEntry<$core.String, $fixnum.Int64>>? badgeExpDelta,
     $core.String? createdAt,
     $core.String? gameResultId,
     $core.String? id,
-    StatMap? lifeDelta,
     $core.String? ownerPublicKey,
     $fixnum.Int64? petExpDelta,
     $core.String? petId,
@@ -2916,12 +4236,10 @@ class RewardGrant extends $pb.GeneratedMessage {
     $core.String? sourceType,
   }) {
     final result = create();
-    if (abilityDelta != null) result.abilityDelta = abilityDelta;
     if (badgeExpDelta != null) result.badgeExpDelta.addEntries(badgeExpDelta);
     if (createdAt != null) result.createdAt = createdAt;
     if (gameResultId != null) result.gameResultId = gameResultId;
     if (id != null) result.id = id;
-    if (lifeDelta != null) result.lifeDelta = lifeDelta;
     if (ownerPublicKey != null) result.ownerPublicKey = ownerPublicKey;
     if (petExpDelta != null) result.petExpDelta = petExpDelta;
     if (petId != null) result.petId = petId;
@@ -2946,8 +4264,6 @@ class RewardGrant extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'RewardGrant',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOM<StatMap>(1, _omitFieldNames ? '' : 'abilityDelta',
-        subBuilder: StatMap.create)
     ..m<$core.String, $fixnum.Int64>(2, _omitFieldNames ? '' : 'badgeExpDelta',
         entryClassName: 'RewardGrant.BadgeExpDeltaEntry',
         keyFieldType: $pb.PbFieldType.OS,
@@ -2956,8 +4272,6 @@ class RewardGrant extends $pb.GeneratedMessage {
     ..aOS(3, _omitFieldNames ? '' : 'createdAt')
     ..aOS(4, _omitFieldNames ? '' : 'gameResultId')
     ..aOS(5, _omitFieldNames ? '' : 'id')
-    ..aOM<StatMap>(6, _omitFieldNames ? '' : 'lifeDelta',
-        subBuilder: StatMap.create)
     ..aOS(7, _omitFieldNames ? '' : 'ownerPublicKey')
     ..aInt64(8, _omitFieldNames ? '' : 'petExpDelta')
     ..aOS(9, _omitFieldNames ? '' : 'petId')
@@ -2987,127 +4301,105 @@ class RewardGrant extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<RewardGrant>(create);
   static RewardGrant? _defaultInstance;
 
-  @$pb.TagNumber(1)
-  StatMap get abilityDelta => $_getN(0);
-  @$pb.TagNumber(1)
-  set abilityDelta(StatMap value) => $_setField(1, value);
-  @$pb.TagNumber(1)
-  $core.bool hasAbilityDelta() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearAbilityDelta() => $_clearField(1);
-  @$pb.TagNumber(1)
-  StatMap ensureAbilityDelta() => $_ensure(0);
-
   @$pb.TagNumber(2)
-  $pb.PbMap<$core.String, $fixnum.Int64> get badgeExpDelta => $_getMap(1);
+  $pb.PbMap<$core.String, $fixnum.Int64> get badgeExpDelta => $_getMap(0);
 
   @$pb.TagNumber(3)
-  $core.String get createdAt => $_getSZ(2);
+  $core.String get createdAt => $_getSZ(1);
   @$pb.TagNumber(3)
-  set createdAt($core.String value) => $_setString(2, value);
+  set createdAt($core.String value) => $_setString(1, value);
   @$pb.TagNumber(3)
-  $core.bool hasCreatedAt() => $_has(2);
+  $core.bool hasCreatedAt() => $_has(1);
   @$pb.TagNumber(3)
   void clearCreatedAt() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $core.String get gameResultId => $_getSZ(3);
+  $core.String get gameResultId => $_getSZ(2);
   @$pb.TagNumber(4)
-  set gameResultId($core.String value) => $_setString(3, value);
+  set gameResultId($core.String value) => $_setString(2, value);
   @$pb.TagNumber(4)
-  $core.bool hasGameResultId() => $_has(3);
+  $core.bool hasGameResultId() => $_has(2);
   @$pb.TagNumber(4)
   void clearGameResultId() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  $core.String get id => $_getSZ(4);
+  $core.String get id => $_getSZ(3);
   @$pb.TagNumber(5)
-  set id($core.String value) => $_setString(4, value);
+  set id($core.String value) => $_setString(3, value);
   @$pb.TagNumber(5)
-  $core.bool hasId() => $_has(4);
+  $core.bool hasId() => $_has(3);
   @$pb.TagNumber(5)
   void clearId() => $_clearField(5);
 
-  @$pb.TagNumber(6)
-  StatMap get lifeDelta => $_getN(5);
-  @$pb.TagNumber(6)
-  set lifeDelta(StatMap value) => $_setField(6, value);
-  @$pb.TagNumber(6)
-  $core.bool hasLifeDelta() => $_has(5);
-  @$pb.TagNumber(6)
-  void clearLifeDelta() => $_clearField(6);
-  @$pb.TagNumber(6)
-  StatMap ensureLifeDelta() => $_ensure(5);
-
   @$pb.TagNumber(7)
-  $core.String get ownerPublicKey => $_getSZ(6);
+  $core.String get ownerPublicKey => $_getSZ(4);
   @$pb.TagNumber(7)
-  set ownerPublicKey($core.String value) => $_setString(6, value);
+  set ownerPublicKey($core.String value) => $_setString(4, value);
   @$pb.TagNumber(7)
-  $core.bool hasOwnerPublicKey() => $_has(6);
+  $core.bool hasOwnerPublicKey() => $_has(4);
   @$pb.TagNumber(7)
   void clearOwnerPublicKey() => $_clearField(7);
 
   @$pb.TagNumber(8)
-  $fixnum.Int64 get petExpDelta => $_getI64(7);
+  $fixnum.Int64 get petExpDelta => $_getI64(5);
   @$pb.TagNumber(8)
-  set petExpDelta($fixnum.Int64 value) => $_setInt64(7, value);
+  set petExpDelta($fixnum.Int64 value) => $_setInt64(5, value);
   @$pb.TagNumber(8)
-  $core.bool hasPetExpDelta() => $_has(7);
+  $core.bool hasPetExpDelta() => $_has(5);
   @$pb.TagNumber(8)
   void clearPetExpDelta() => $_clearField(8);
 
   @$pb.TagNumber(9)
-  $core.String get petId => $_getSZ(8);
+  $core.String get petId => $_getSZ(6);
   @$pb.TagNumber(9)
-  set petId($core.String value) => $_setString(8, value);
+  set petId($core.String value) => $_setString(6, value);
   @$pb.TagNumber(9)
-  $core.bool hasPetId() => $_has(8);
+  $core.bool hasPetId() => $_has(6);
   @$pb.TagNumber(9)
   void clearPetId() => $_clearField(9);
 
   @$pb.TagNumber(10)
-  $fixnum.Int64 get pointsDelta => $_getI64(9);
+  $fixnum.Int64 get pointsDelta => $_getI64(7);
   @$pb.TagNumber(10)
-  set pointsDelta($fixnum.Int64 value) => $_setInt64(9, value);
+  set pointsDelta($fixnum.Int64 value) => $_setInt64(7, value);
   @$pb.TagNumber(10)
-  $core.bool hasPointsDelta() => $_has(9);
+  $core.bool hasPointsDelta() => $_has(7);
   @$pb.TagNumber(10)
   void clearPointsDelta() => $_clearField(10);
 
   @$pb.TagNumber(11)
-  $core.String get reason => $_getSZ(10);
+  $core.String get reason => $_getSZ(8);
   @$pb.TagNumber(11)
-  set reason($core.String value) => $_setString(10, value);
+  set reason($core.String value) => $_setString(8, value);
   @$pb.TagNumber(11)
-  $core.bool hasReason() => $_has(10);
+  $core.bool hasReason() => $_has(8);
   @$pb.TagNumber(11)
   void clearReason() => $_clearField(11);
 
   @$pb.TagNumber(12)
-  $core.String get rulesetName => $_getSZ(11);
+  $core.String get rulesetName => $_getSZ(9);
   @$pb.TagNumber(12)
-  set rulesetName($core.String value) => $_setString(11, value);
+  set rulesetName($core.String value) => $_setString(9, value);
   @$pb.TagNumber(12)
-  $core.bool hasRulesetName() => $_has(11);
+  $core.bool hasRulesetName() => $_has(9);
   @$pb.TagNumber(12)
   void clearRulesetName() => $_clearField(12);
 
   @$pb.TagNumber(13)
-  $core.String get sourceId => $_getSZ(12);
+  $core.String get sourceId => $_getSZ(10);
   @$pb.TagNumber(13)
-  set sourceId($core.String value) => $_setString(12, value);
+  set sourceId($core.String value) => $_setString(10, value);
   @$pb.TagNumber(13)
-  $core.bool hasSourceId() => $_has(12);
+  $core.bool hasSourceId() => $_has(10);
   @$pb.TagNumber(13)
   void clearSourceId() => $_clearField(13);
 
   @$pb.TagNumber(14)
-  $core.String get sourceType => $_getSZ(13);
+  $core.String get sourceType => $_getSZ(11);
   @$pb.TagNumber(14)
-  set sourceType($core.String value) => $_setString(13, value);
+  set sourceType($core.String value) => $_setString(11, value);
   @$pb.TagNumber(14)
-  $core.bool hasSourceType() => $_has(13);
+  $core.bool hasSourceType() => $_has(11);
   @$pb.TagNumber(14)
   void clearSourceType() => $_clearField(14);
 }
@@ -4233,6 +5525,249 @@ class ServerPetGetResponse extends $pb.GeneratedMessage {
   Pet ensureValue() => $_ensure(0);
 }
 
+class ServerPetPixaDownloadRequest extends $pb.GeneratedMessage {
+  factory ServerPetPixaDownloadRequest({
+    PetPixaDownloadRequest? value,
+  }) {
+    final result = create();
+    if (value != null) result.value = value;
+    return result;
+  }
+
+  ServerPetPixaDownloadRequest._();
+
+  factory ServerPetPixaDownloadRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ServerPetPixaDownloadRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ServerPetPixaDownloadRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOM<PetPixaDownloadRequest>(1, _omitFieldNames ? '' : 'value',
+        subBuilder: PetPixaDownloadRequest.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerPetPixaDownloadRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerPetPixaDownloadRequest copyWith(
+          void Function(ServerPetPixaDownloadRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as ServerPetPixaDownloadRequest))
+          as ServerPetPixaDownloadRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ServerPetPixaDownloadRequest create() =>
+      ServerPetPixaDownloadRequest._();
+  @$core.override
+  ServerPetPixaDownloadRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ServerPetPixaDownloadRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ServerPetPixaDownloadRequest>(create);
+  static ServerPetPixaDownloadRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  PetPixaDownloadRequest get value => $_getN(0);
+  @$pb.TagNumber(1)
+  set value(PetPixaDownloadRequest value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasValue() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearValue() => $_clearField(1);
+  @$pb.TagNumber(1)
+  PetPixaDownloadRequest ensureValue() => $_ensure(0);
+}
+
+class ServerPetPixaDownloadResponse extends $pb.GeneratedMessage {
+  factory ServerPetPixaDownloadResponse({
+    PetPixaDownloadResponse? value,
+  }) {
+    final result = create();
+    if (value != null) result.value = value;
+    return result;
+  }
+
+  ServerPetPixaDownloadResponse._();
+
+  factory ServerPetPixaDownloadResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ServerPetPixaDownloadResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ServerPetPixaDownloadResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOM<PetPixaDownloadResponse>(1, _omitFieldNames ? '' : 'value',
+        subBuilder: PetPixaDownloadResponse.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerPetPixaDownloadResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerPetPixaDownloadResponse copyWith(
+          void Function(ServerPetPixaDownloadResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as ServerPetPixaDownloadResponse))
+          as ServerPetPixaDownloadResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ServerPetPixaDownloadResponse create() =>
+      ServerPetPixaDownloadResponse._();
+  @$core.override
+  ServerPetPixaDownloadResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ServerPetPixaDownloadResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ServerPetPixaDownloadResponse>(create);
+  static ServerPetPixaDownloadResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  PetPixaDownloadResponse get value => $_getN(0);
+  @$pb.TagNumber(1)
+  set value(PetPixaDownloadResponse value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasValue() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearValue() => $_clearField(1);
+  @$pb.TagNumber(1)
+  PetPixaDownloadResponse ensureValue() => $_ensure(0);
+}
+
+class ServerPetPresentationGetRequest extends $pb.GeneratedMessage {
+  factory ServerPetPresentationGetRequest({
+    PetGetRequest? value,
+  }) {
+    final result = create();
+    if (value != null) result.value = value;
+    return result;
+  }
+
+  ServerPetPresentationGetRequest._();
+
+  factory ServerPetPresentationGetRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ServerPetPresentationGetRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ServerPetPresentationGetRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOM<PetGetRequest>(1, _omitFieldNames ? '' : 'value',
+        subBuilder: PetGetRequest.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerPetPresentationGetRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerPetPresentationGetRequest copyWith(
+          void Function(ServerPetPresentationGetRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as ServerPetPresentationGetRequest))
+          as ServerPetPresentationGetRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ServerPetPresentationGetRequest create() =>
+      ServerPetPresentationGetRequest._();
+  @$core.override
+  ServerPetPresentationGetRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ServerPetPresentationGetRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ServerPetPresentationGetRequest>(
+          create);
+  static ServerPetPresentationGetRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  PetGetRequest get value => $_getN(0);
+  @$pb.TagNumber(1)
+  set value(PetGetRequest value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasValue() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearValue() => $_clearField(1);
+  @$pb.TagNumber(1)
+  PetGetRequest ensureValue() => $_ensure(0);
+}
+
+class ServerPetPresentationGetResponse extends $pb.GeneratedMessage {
+  factory ServerPetPresentationGetResponse({
+    PetPresentation? value,
+  }) {
+    final result = create();
+    if (value != null) result.value = value;
+    return result;
+  }
+
+  ServerPetPresentationGetResponse._();
+
+  factory ServerPetPresentationGetResponse.fromBuffer(
+          $core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ServerPetPresentationGetResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ServerPetPresentationGetResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOM<PetPresentation>(1, _omitFieldNames ? '' : 'value',
+        subBuilder: PetPresentation.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerPetPresentationGetResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerPetPresentationGetResponse copyWith(
+          void Function(ServerPetPresentationGetResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as ServerPetPresentationGetResponse))
+          as ServerPetPresentationGetResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ServerPetPresentationGetResponse create() =>
+      ServerPetPresentationGetResponse._();
+  @$core.override
+  ServerPetPresentationGetResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ServerPetPresentationGetResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ServerPetPresentationGetResponse>(
+          create);
+  static ServerPetPresentationGetResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  PetPresentation get value => $_getN(0);
+  @$pb.TagNumber(1)
+  set value(PetPresentation value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasValue() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearValue() => $_clearField(1);
+  @$pb.TagNumber(1)
+  PetPresentation ensureValue() => $_ensure(0);
+}
+
 class ServerPetListRequest extends $pb.GeneratedMessage {
   factory ServerPetListRequest({
     GameplayListRequest? value,
@@ -5062,8 +6597,8 @@ class ServerRewardGrantListResponse extends $pb.GeneratedMessage {
   RewardGrantListResponse ensureValue() => $_ensure(0);
 }
 
-class StatMap extends $pb.GeneratedMessage {
-  factory StatMap({
+class PetLife extends $pb.GeneratedMessage {
+  factory PetLife({
     $core.Iterable<$core.MapEntry<$core.String, $fixnum.Int64>>? value,
   }) {
     final result = create();
@@ -5071,43 +6606,95 @@ class StatMap extends $pb.GeneratedMessage {
     return result;
   }
 
-  StatMap._();
+  PetLife._();
 
-  factory StatMap.fromBuffer($core.List<$core.int> data,
+  factory PetLife.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory StatMap.fromJson($core.String json,
+  factory PetLife.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'StatMap',
+      _omitMessageNames ? '' : 'PetLife',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..m<$core.String, $fixnum.Int64>(1, _omitFieldNames ? '' : 'value',
-        entryClassName: 'StatMap.ValueEntry',
+        entryClassName: 'PetLife.ValueEntry',
         keyFieldType: $pb.PbFieldType.OS,
         valueFieldType: $pb.PbFieldType.O6,
         packageName: const $pb.PackageName('gizclaw.rpc.v1'))
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  StatMap clone() => deepCopy();
+  PetLife clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  StatMap copyWith(void Function(StatMap) updates) =>
-      super.copyWith((message) => updates(message as StatMap)) as StatMap;
+  PetLife copyWith(void Function(PetLife) updates) =>
+      super.copyWith((message) => updates(message as PetLife)) as PetLife;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static StatMap create() => StatMap._();
+  static PetLife create() => PetLife._();
   @$core.override
-  StatMap createEmptyInstance() => create();
+  PetLife createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static StatMap getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<StatMap>(create);
-  static StatMap? _defaultInstance;
+  static PetLife getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<PetLife>(create);
+  static PetLife? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbMap<$core.String, $fixnum.Int64> get value => $_getMap(0);
+}
+
+class PetProgression extends $pb.GeneratedMessage {
+  factory PetProgression({
+    $core.Iterable<$core.MapEntry<$core.String, $fixnum.Int64>>? value,
+  }) {
+    final result = create();
+    if (value != null) result.value.addEntries(value);
+    return result;
+  }
+
+  PetProgression._();
+
+  factory PetProgression.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PetProgression.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PetProgression',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..m<$core.String, $fixnum.Int64>(1, _omitFieldNames ? '' : 'value',
+        entryClassName: 'PetProgression.ValueEntry',
+        keyFieldType: $pb.PbFieldType.OS,
+        valueFieldType: $pb.PbFieldType.O6,
+        packageName: const $pb.PackageName('gizclaw.rpc.v1'))
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetProgression clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetProgression copyWith(void Function(PetProgression) updates) =>
+      super.copyWith((message) => updates(message as PetProgression))
+          as PetProgression;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PetProgression create() => PetProgression._();
+  @$core.override
+  PetProgression createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PetProgression getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PetProgression>(create);
+  static PetProgression? _defaultInstance;
 
   @$pb.TagNumber(1)
   $pb.PbMap<$core.String, $fixnum.Int64> get value => $_getMap(0);

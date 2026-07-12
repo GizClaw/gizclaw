@@ -33,6 +33,8 @@ class _PixaSpriteState extends State<PixaSprite> {
   late Future<ui.Image> _image;
   late double _width;
   late double _height;
+  ui.Image? _currentImage;
+  int _imageRequest = 0;
 
   @override
   void initState() {
@@ -81,7 +83,17 @@ class _PixaSpriteState extends State<PixaSprite> {
     );
   }
 
+  @override
+  void dispose() {
+    _imageRequest += 1;
+    _currentImage?.dispose();
+    _currentImage = null;
+    super.dispose();
+  }
+
   void _loadFrame() {
+    _imageRequest += 1;
+    final request = _imageRequest;
     try {
       final clip = selectPixaClip(widget.asset, widget.clipName);
       if (clip == null) {
@@ -93,14 +105,25 @@ class _PixaSpriteState extends State<PixaSprite> {
       }
 
       final frameIndex = pixaClipFrameIndex(
+        widget.asset,
         clip,
         widget.elapsed.inMilliseconds,
       );
       final rgba = renderPixaFrameRgba(widget.asset, frameIndex);
       _width = widget.width ?? rgba.width.toDouble();
       _height = widget.height ?? rgba.height.toDouble();
-      _image = pixaFrameRgbaToImage(rgba);
+      _image = pixaFrameRgbaToImage(rgba).then((image) {
+        if (!mounted || request != _imageRequest) {
+          image.dispose();
+          return image;
+        }
+        _currentImage?.dispose();
+        _currentImage = image;
+        return image;
+      });
     } catch (error, stackTrace) {
+      _currentImage?.dispose();
+      _currentImage = null;
       _width = widget.width ?? widget.asset.canvas.width.toDouble();
       _height = widget.height ?? widget.asset.canvas.height.toDouble();
       _image = Future<ui.Image>.error(error, stackTrace);

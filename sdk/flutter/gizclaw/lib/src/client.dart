@@ -100,6 +100,23 @@ class GizClawClient {
     );
   }
 
+  Future<PixaDownloadResult<payload.ServerPetPixaDownloadResponse>>
+  downloadPetPixa(String petId) async {
+    final response = await rpc.callBinary(
+      'server.pet.pixa.download',
+      payload.ServerPetPixaDownloadRequest(
+        value: payload.PetPixaDownloadRequest(petId: petId),
+      ),
+    );
+    final metadata = response.response as payload.ServerPetPixaDownloadResponse;
+    final bytes = Uint8List.fromList(response.body);
+    return PixaDownloadResult(
+      metadata: metadata,
+      bytes: bytes,
+      asset: validatePixa(bytes, mode: PixaValidationMode.petdef),
+    );
+  }
+
   Future<PixaDownloadResult<payload.BadgeDefPixaDownloadResponse>>
   downloadBadgeDefPixa(String id) async {
     final response = await rpc.callBinary(
