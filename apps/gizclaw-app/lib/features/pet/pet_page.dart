@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:gizclaw/gizclaw.dart';
 import 'package:go_router/go_router.dart';
 
@@ -433,7 +434,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
               .map((entry) => '${_title(entry.key)} ${entry.value}')
               .join('  |  ');
     final actions = _petMenuActions(_presentation);
-    final actionLayerHeight = _petActionMenuHeight(actions.length) + 10;
+    const actionLayerHeight = _petActionMenuHeight + 10;
     final chat = _chat;
     final messages = chat?.messages ?? const <WorkspaceChatMessage>[];
     return CupertinoPageScaffold(
@@ -1647,12 +1648,9 @@ class _PetMenuAction {
 }
 
 const _petActionAnchor = 160.0;
-
-double _petActionMenuHeight(int actionCount) {
-  final menuHeight =
-      math.max(0, actionCount - 1) * 52.0 + (actionCount == 0 ? 0 : 58.0);
-  return menuHeight + 64;
-}
+const _petActionItemExtent = 52.0;
+const _petActionRailHeight = 270.0;
+const _petActionMenuHeight = _petActionRailHeight + 68;
 
 class _PetActionFab extends StatefulWidget {
   const _PetActionFab({
@@ -1677,6 +1675,7 @@ class _PetActionFab extends StatefulWidget {
 class _PetActionFabState extends State<_PetActionFab>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+  late final FixedExtentScrollController _scrollController;
   bool _expanded = false;
 
   @override
@@ -1687,11 +1686,24 @@ class _PetActionFabState extends State<_PetActionFab>
       duration: const Duration(milliseconds: 320),
       reverseDuration: const Duration(milliseconds: 220),
     );
+    _scrollController = FixedExtentScrollController(
+      initialItem: widget.actions.length > 2 ? 2 : 0,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _PetActionFab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.actions.isEmpty || !_scrollController.hasClients) return;
+    if (_scrollController.selectedItem >= widget.actions.length) {
+      _scrollController.jumpToItem(widget.actions.length - 1);
+    }
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -1723,7 +1735,7 @@ class _PetActionFabState extends State<_PetActionFab>
   Widget build(BuildContext context) {
     return SizedBox(
       width: 400,
-      height: _petActionMenuHeight(widget.actions.length),
+      height: _petActionMenuHeight,
       child: AnimatedBuilder(
         animation: _controller,
         builder: (context, _) {
@@ -1731,8 +1743,27 @@ class _PetActionFabState extends State<_PetActionFab>
             clipBehavior: Clip.none,
             alignment: Alignment.bottomLeft,
             children: [
-              for (var index = 0; index < widget.actions.length; index++)
-                _buildAction(widget.actions[index], index),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 68,
+                height: _petActionRailHeight,
+                child: IgnorePointer(
+                  ignoring:
+                      _controller.value < 0.8 || widget.activeAction != null,
+                  child: Opacity(
+                    opacity: _controller.value,
+                    child: Transform.translate(
+                      offset: Offset(0, 16 * (1 - _controller.value)),
+                      child: Transform.scale(
+                        alignment: Alignment.bottomLeft,
+                        scale: 0.92 + _controller.value * 0.08,
+                        child: _buildActionRail(),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
               Positioned(
                 left: _petActionAnchor,
                 bottom: 0,
@@ -1798,86 +1829,105 @@ class _PetActionFabState extends State<_PetActionFab>
     );
   }
 
-  Widget _buildAction(_PetMenuAction action, int index) {
-    final count = widget.actions.length;
-    final start = count <= 1 ? 0.0 : index * 0.08;
-    final animation = CurvedAnimation(
-      parent: _controller,
-      curve: Interval(start.clamp(0.0, 0.65), 1, curve: Curves.easeOutBack),
-      reverseCurve: Curves.easeIn,
+  Widget _buildActionRail() {
+    return ShaderMask(
+      blendMode: BlendMode.dstIn,
+      shaderCallback: (bounds) => const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Color(0x00FFFFFF),
+          Color(0xFFFFFFFF),
+          Color(0xFFFFFFFF),
+          Color(0x00FFFFFF),
+        ],
+        stops: [0, 0.16, 0.84, 1],
+      ).createShader(bounds),
+      child: ListWheelScrollView.useDelegate(
+        controller: _scrollController,
+        itemExtent: _petActionItemExtent,
+        diameterRatio: 100,
+        perspective: 0.001,
+        physics: const FixedExtentScrollPhysics(),
+        onSelectedItemChanged: (_) => HapticFeedback.selectionClick(),
+        childDelegate: ListWheelChildBuilderDelegate(
+          childCount: widget.actions.length,
+          builder: (context, index) {
+            if (index < 0 || index >= widget.actions.length) return null;
+            return _buildAction(widget.actions[index], index);
+          },
+        ),
+      ),
     );
-    final verticalOffset = 70.0 + index * 52.0;
-    final arcProgress = (index + 1) / math.max(count, 1);
-    final actionDensity = ((count - 3) / 7).clamp(0.0, 1.0);
-    final arcExtent = 42 + actionDensity * 42;
-    const arcStrength = 1.6;
-    final horizontalOffset =
-        ((math.exp(arcStrength * arcProgress) - 1) /
-            (math.exp(arcStrength) - 1)) *
-        arcExtent;
-    return Positioned(
-      left: _petActionAnchor,
-      bottom: verticalOffset * animation.value,
-      child: Transform.translate(
-        offset: Offset(44 + horizontalOffset * animation.value, 0),
-        child: FractionalTranslation(
-          translation: const Offset(-1, 0),
-          child: IgnorePointer(
-            ignoring: animation.value < 0.8 || widget.activeAction != null,
-            child: Opacity(
-              opacity: animation.value.clamp(0.0, 1.0),
-              child: Transform.scale(
-                alignment: Alignment.bottomRight,
-                scale: 0.82 + animation.value * 0.18,
-                child: GestureDetector(
-                  onTap: () => _select(action),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: GizColors.ink,
-                          borderRadius: BorderRadius.circular(7),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 11,
-                            vertical: 8,
-                          ),
-                          child: Text(
-                            _actionName(widget.catalog, action.id),
-                            style: GizText.label.copyWith(
-                              color: GizColors.surface,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 9),
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: const BoxDecoration(
-                          color: GizColors.surface,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Color(0x22000000),
-                              blurRadius: 12,
-                              offset: Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          _actionIcon(action.icon, action.id),
-                          size: 20,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+  }
+
+  Widget _buildAction(_PetMenuAction action, int index) {
+    return AnimatedBuilder(
+      animation: _scrollController,
+      builder: (context, child) {
+        final scrollPosition = _scrollController.hasClients
+            ? _scrollController.offset / _petActionItemExtent
+            : 0.0;
+        final distance = (index - scrollPosition).abs();
+        final edgeProgress = (distance / 2.5).clamp(0.0, 1.0);
+        final horizontalOffset = 52 * (1 - edgeProgress * edgeProgress);
+        final scale = 1 - edgeProgress * 0.14;
+        final opacity = 1 - edgeProgress * 0.62;
+        return Opacity(
+          opacity: opacity,
+          child: Transform.translate(
+            offset: Offset(_petActionAnchor - 28 + horizontalOffset, 0),
+            child: Transform.scale(
+              alignment: Alignment.centerRight,
+              scale: scale,
+              child: FractionalTranslation(
+                translation: const Offset(-1, 0),
+                child: child,
               ),
             ),
           ),
+        );
+      },
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _select(action),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: GizColors.ink,
+                borderRadius: GizCorners.compactCard,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                child: Text(
+                  _actionName(widget.catalog, action.id),
+                  style: GizText.label.copyWith(color: GizColors.surface),
+                ),
+              ),
+            ),
+            const SizedBox(width: 9),
+            Container(
+              width: 44,
+              height: 44,
+              decoration: const BoxDecoration(
+                color: GizColors.surface,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0x22000000),
+                    blurRadius: 12,
+                    offset: Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Icon(_actionIcon(action.icon, action.id), size: 20),
+            ),
+          ],
         ),
       ),
     );
