@@ -174,14 +174,17 @@ class WorkspaceChatController extends ChangeNotifier {
       final streamId =
           'audio-${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}';
       _activeStreamId = streamId;
-      await session.beginAudio(streamId);
       track.enabled = true;
+      await Future<void>.delayed(const Duration(milliseconds: 160));
+      await session.beginAudio(streamId);
       recording = true;
       if (_finishPending) {
         _finishPending = false;
         await finishInput();
       }
     } catch (error) {
+      _inputTrack?.enabled = false;
+      _activeStreamId = null;
       _handleError(error, changeState: false);
     } finally {
       startingInput = false;

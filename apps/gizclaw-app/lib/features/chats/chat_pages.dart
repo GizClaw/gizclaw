@@ -767,15 +767,22 @@ class _WorkspaceMessageList extends StatelessWidget {
       final unavailable =
           state == WorkspaceChatState.error ||
           state == WorkspaceChatState.offline;
+      final errorMessage = error == null ? null : _workspaceError(error!);
       return Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 36),
           child: Text(
-            unavailable
-                ? 'This conversation is unavailable right now.'
-                : 'The channel is clear.\nHold the signal to speak.',
+            errorMessage ??
+                (unavailable
+                    ? 'This conversation is unavailable right now.'
+                    : 'The channel is clear.\nHold the signal to speak.'),
             textAlign: TextAlign.center,
-            style: GizText.body.copyWith(color: signal.muted, height: 1.65),
+            style: GizText.body.copyWith(
+              color: errorMessage == null
+                  ? signal.muted
+                  : CupertinoColors.systemRed.resolveFrom(context),
+              height: 1.65,
+            ),
           ),
         ),
       );
@@ -806,6 +813,14 @@ class _WorkspaceMessageList extends StatelessWidget {
       },
     );
   }
+}
+
+String _workspaceError(Object error) {
+  final text = error.toString();
+  if (text.contains('ASR produced empty transcript')) {
+    return "I couldn't hear that. Hold the mic and speak again.";
+  }
+  return text.startsWith('Bad state: ') ? text.substring(11) : text;
 }
 
 class _WorkspaceSignalMessage extends StatelessWidget {
