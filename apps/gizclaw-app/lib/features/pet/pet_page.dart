@@ -1702,6 +1702,7 @@ class _PetActionFabState extends State<_PetActionFab>
         animation: _controller,
         builder: (context, _) {
           return Stack(
+            clipBehavior: Clip.none,
             alignment: Alignment.bottomLeft,
             children: [
               for (var index = 0; index < widget.actions.length; index++)
@@ -1776,60 +1777,73 @@ class _PetActionFabState extends State<_PetActionFab>
     );
     final verticalOffset = 70.0 + index * 52.0;
     final arcProgress = (index + 1) / math.max(count, 1);
+    final actionDensity = ((count - 3) / 7).clamp(0.0, 1.0);
+    final arcExtent = 42 + actionDensity * 42;
     const arcStrength = 1.6;
     final horizontalOffset =
         ((math.exp(arcStrength * arcProgress) - 1) /
             (math.exp(arcStrength) - 1)) *
-        42;
+        arcExtent;
     return Positioned(
-      left: horizontalOffset * animation.value,
+      left: 0,
       bottom: verticalOffset * animation.value,
-      child: IgnorePointer(
-        ignoring: animation.value < 0.8 || widget.activeAction != null,
-        child: Opacity(
-          opacity: animation.value.clamp(0.0, 1.0),
-          child: Transform.scale(
-            alignment: Alignment.bottomLeft,
-            scale: 0.82 + animation.value * 0.18,
-            child: GestureDetector(
-              onTap: () => _select(action),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: const BoxDecoration(
-                      color: GizColors.surface,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Color(0x22000000),
-                          blurRadius: 12,
-                          offset: Offset(0, 5),
+      child: Transform.translate(
+        offset: Offset(44 + horizontalOffset * animation.value, 0),
+        child: FractionalTranslation(
+          translation: const Offset(-1, 0),
+          child: IgnorePointer(
+            ignoring: animation.value < 0.8 || widget.activeAction != null,
+            child: Opacity(
+              opacity: animation.value.clamp(0.0, 1.0),
+              child: Transform.scale(
+                alignment: Alignment.bottomRight,
+                scale: 0.82 + animation.value * 0.18,
+                child: GestureDetector(
+                  onTap: () => _select(action),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: GizColors.ink,
+                          borderRadius: BorderRadius.circular(7),
                         ),
-                      ],
-                    ),
-                    child: Icon(_actionIcon(action.icon, action.id), size: 20),
-                  ),
-                  const SizedBox(width: 9),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: GizColors.ink,
-                      borderRadius: BorderRadius.circular(7),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 11,
-                        vertical: 8,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 11,
+                            vertical: 8,
+                          ),
+                          child: Text(
+                            _actionName(widget.catalog, action.id),
+                            style: GizText.label.copyWith(
+                              color: GizColors.surface,
+                            ),
+                          ),
+                        ),
                       ),
-                      child: Text(
-                        _actionName(widget.catalog, action.id),
-                        style: GizText.label.copyWith(color: GizColors.surface),
+                      const SizedBox(width: 9),
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: const BoxDecoration(
+                          color: GizColors.surface,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Color(0x22000000),
+                              blurRadius: 12,
+                              offset: Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          _actionIcon(action.icon, action.id),
+                          size: 20,
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
