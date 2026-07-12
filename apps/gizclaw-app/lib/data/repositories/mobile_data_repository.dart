@@ -53,6 +53,7 @@ class MobileDataRepository {
                   ? _compactPeerKey(row.peerPublicKey)
                   : displayName,
               kind: ChatroomWorkspaceKind.direct,
+              resourceId: row.id,
             );
           })
           .toList(growable: false),
@@ -74,6 +75,7 @@ class MobileDataRepository {
               title: row.name.trim().isEmpty ? 'Group chat' : row.name,
               description: row.description,
               kind: ChatroomWorkspaceKind.group,
+              resourceId: row.id,
             ),
           )
           .toList(growable: false),

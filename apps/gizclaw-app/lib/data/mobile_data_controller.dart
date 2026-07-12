@@ -186,6 +186,35 @@ class MobileDataController extends ChangeNotifier {
     }
   }
 
+  GizClawClient _friendClient() {
+    final client = connection.client;
+    if (connectionState != MobileConnectionState.connected || client == null) {
+      throw StateError('Connect to GizClaw to manage friends');
+    }
+    return client;
+  }
+
+  Future<FriendInviteTokenGetResponse> getFriendInviteToken() =>
+      _friendClient().getFriendInviteToken();
+
+  Future<FriendInviteTokenCreateResponse> createFriendInviteToken() =>
+      _friendClient().createFriendInviteToken();
+
+  Future<void> clearFriendInviteToken() async {
+    await _friendClient().clearFriendInviteToken();
+  }
+
+  Future<FriendObject> addFriend(String inviteToken) async {
+    final response = await _friendClient().addFriend(inviteToken.trim());
+    await refresh();
+    return response.value;
+  }
+
+  Future<void> deleteFriend(String id) async {
+    await _friendClient().deleteFriend(id.trim());
+    await refresh();
+  }
+
   WorkflowCard workflow(String name) {
     return workflows.firstWhere(
       (item) => item.name == name,

@@ -165,6 +165,85 @@ void main() {
     );
     await clearFuture;
   });
+
+  test('manages friend invite lifecycle and relations', () async {
+    final factory = FakeDataChannelFactory();
+    final client = GizClawClient(factory);
+
+    final getFuture = client.getFriendInviteToken();
+    final getRequest = await _request(factory, 0);
+    expect(
+      decodeRpcRequestPayload(
+        'server.friend.invite_token.get',
+        getRequest.payload,
+      ),
+      isA<payload.FriendInviteTokenGetRequest>(),
+    );
+    _respond(
+      factory.channels[0],
+      getRequest.id,
+      'server.friend.invite_token.get',
+      payload.FriendInviteTokenGetResponse(inviteToken: 'invite-a'),
+    );
+    expect((await getFuture).inviteToken, 'invite-a');
+
+    final createFuture = client.createFriendInviteToken();
+    final createRequest = await _request(factory, 1);
+    _respond(
+      factory.channels[1],
+      createRequest.id,
+      'server.friend.invite_token.create',
+      payload.FriendInviteTokenCreateResponse(
+        inviteToken: 'invite-b',
+        expiresAt: '2026-07-13T00:00:00Z',
+      ),
+    );
+    expect((await createFuture).inviteToken, 'invite-b');
+
+    final addFuture = client.addFriend('invite-peer');
+    final addRequest = await _request(factory, 2);
+    final addPayload =
+        decodeRpcRequestPayload('server.friend.add', addRequest.payload)
+            as payload.FriendAddRequest;
+    expect(addPayload.inviteToken, 'invite-peer');
+    _respond(
+      factory.channels[2],
+      addRequest.id,
+      'server.friend.add',
+      payload.FriendAddResponse(
+        value: payload.FriendObject(
+          id: 'peer-b',
+          displayName: 'Ada',
+          workspaceName: 'social-direct-a',
+        ),
+      ),
+    );
+    expect((await addFuture).value.displayName, 'Ada');
+
+    final deleteFuture = client.deleteFriend('peer-b');
+    final deleteRequest = await _request(factory, 3);
+    final deletePayload =
+        decodeRpcRequestPayload('server.friend.delete', deleteRequest.payload)
+            as payload.FriendDeleteRequest;
+    expect(deletePayload.id, 'peer-b');
+    _respond(
+      factory.channels[3],
+      deleteRequest.id,
+      'server.friend.delete',
+      payload.FriendDeleteResponse(value: payload.FriendObject(id: 'peer-b')),
+    );
+    expect((await deleteFuture).value.id, 'peer-b');
+
+    final clearFuture = client.clearFriendInviteToken();
+    final clearRequest = await _request(factory, 4);
+    _respond(
+      factory.channels[4],
+      clearRequest.id,
+      'server.friend.invite_token.clear',
+      payload.FriendInviteTokenClearResponse(),
+    );
+    await clearFuture;
+  });
 }
 
 Future<peer.RpcRequest> _request(

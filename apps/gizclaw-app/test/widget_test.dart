@@ -265,6 +265,29 @@ void main() {
     expect(find.text('Connected over WebRTC'), findsOneWidget);
   });
 
+  testWidgets('opens real friend connection controls', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await pumpApp(tester);
+
+    await tester.tap(find.text('Friends'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Add friend'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Connect'), findsOneWidget);
+    expect(find.text('My Invite'), findsOneWidget);
+    expect(find.byType(CupertinoTextField), findsOneWidget);
+
+    await tester.ensureVisible(find.text('My Invite'));
+    await tester.tap(find.text('My Invite'));
+    await tester.pumpAndSettle();
+    expect(find.text('Connect to GizClaw to manage friends'), findsOneWidget);
+  });
+
   testWidgets('opens a friend chatroom workspace', (tester) async {
     await pumpApp(tester);
 

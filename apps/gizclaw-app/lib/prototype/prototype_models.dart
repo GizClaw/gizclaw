@@ -194,10 +194,12 @@ class ChatroomWorkspaceMetadata {
     required this.title,
     required this.kind,
     this.description = '',
+    this.resourceId = '',
   });
 
   final String description;
   final ChatroomWorkspaceKind kind;
+  final String resourceId;
   final String title;
   final String workspaceName;
 }

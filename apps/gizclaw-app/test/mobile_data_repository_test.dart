@@ -91,6 +91,7 @@ void main() {
     final friendChats = await repository.watchFriendChats('server-a').first;
     expect(friendChats.single.workspaceName, 'social-direct-a');
     expect(friendChats.single.title, 'Ada');
+    expect(friendChats.single.resourceId, 'friend-a');
     final groupChats = await repository.watchFriendGroupChats('server-a').first;
     expect(groupChats.single.workspaceName, 'social-group-a');
     expect(groupChats.single.title, 'Builder Crew');
