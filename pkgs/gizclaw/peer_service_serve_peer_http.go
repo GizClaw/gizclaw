@@ -48,6 +48,7 @@ func (s *PeerService) servePublicService(conn giznet.Conn, service uint64) error
 
 type publicHTTPOptions struct {
 	requireClientPeer bool
+	login             publiclogin.PeerHTTP
 }
 
 func (s *PeerService) publicHTTPHandler(sessions *publiclogin.SessionManager) http.Handler {
@@ -61,7 +62,7 @@ func (s *PeerService) edgePublicHTTPHandler(sessions *publiclogin.SessionManager
 func (s *PeerService) edgeHTTPHandler(sessions *publiclogin.SessionManager) http.Handler {
 	mux := http.NewServeMux()
 	publicHandler := s.edgePublicHTTPHandler(sessions)
-	mux.Handle("/login", publicHandler)
+	mux.Handle("/login", s.edgeLoginHTTPHandler(sessions))
 	mux.Handle("/server-info", publicHandler)
 	mux.Handle("/webrtc/v1/offer", publicHandler)
 	mux.Handle("/me", publicHandler)
@@ -69,6 +70,32 @@ func (s *PeerService) edgeHTTPHandler(sessions *publiclogin.SessionManager) http
 	mux.Handle("/me/runtime", publicHandler)
 	mux.Handle("/openai/v1/", s.edgeOpenAIHTTPHandler(sessions))
 	return mux
+}
+
+type loginWithoutAuthorizer interface {
+	LoginWithoutAuthorizer(context.Context, peerhttp.LoginRequestObject) (peerhttp.LoginResponseObject, error)
+}
+
+type edgeLoginPeerHTTP struct {
+	publiclogin.PeerHTTP
+}
+
+func (h edgeLoginPeerHTTP) Login(ctx context.Context, request peerhttp.LoginRequestObject) (peerhttp.LoginResponseObject, error) {
+	if login, ok := h.PeerHTTP.(loginWithoutAuthorizer); ok {
+		return login.LoginWithoutAuthorizer(ctx, request)
+	}
+	return h.PeerHTTP.Login(ctx, request)
+}
+
+func (s *PeerService) edgeLoginHTTPHandler(sessions *publiclogin.SessionManager) http.Handler {
+	var login publiclogin.PeerHTTP
+	if s != nil && s.public != nil && s.public.PeerHTTP != nil {
+		login = edgeLoginPeerHTTP{PeerHTTP: s.public.PeerHTTP}
+	}
+	return s.publicHTTPHandlerWithOptions(sessions, publicHTTPOptions{
+		requireClientPeer: true,
+		login:             login,
+	})
 }
 
 func (s *PeerService) edgeOpenAIHTTPHandler(sessions *publiclogin.SessionManager) http.Handler {
@@ -120,7 +147,13 @@ func (s *PeerService) publicHTTPHandlerWithOptions(sessions *publiclogin.Session
 		ctx.SetUserContext(peerhttp.WithCallerPublicKey(base, publicKey))
 		return ctx.Next()
 	})
-	peerhttp.RegisterHandlers(app, peerhttp.NewStrictHandler(s.public, nil))
+	public := s.public
+	if opts.login != nil && public != nil {
+		copy := *public
+		copy.PeerHTTP = opts.login
+		public = &copy
+	}
+	peerhttp.RegisterHandlers(app, peerhttp.NewStrictHandler(public, nil))
 	return fiberHTTPHandler(app)
 }
 

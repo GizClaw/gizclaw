@@ -91,6 +91,14 @@ func (s *Server) SessionManager() *SessionManager {
 }
 
 func (s *Server) Login(ctx context.Context, request peerhttp.LoginRequestObject) (peerhttp.LoginResponseObject, error) {
+	return s.login(ctx, request, s.SessionAuthorizer)
+}
+
+func (s *Server) LoginWithoutAuthorizer(ctx context.Context, request peerhttp.LoginRequestObject) (peerhttp.LoginResponseObject, error) {
+	return s.login(ctx, request, nil)
+}
+
+func (s *Server) login(ctx context.Context, request peerhttp.LoginRequestObject, authorizer SessionAuthorizer) (peerhttp.LoginResponseObject, error) {
 	if s == nil || s.KeyPair == nil || s.Store == nil {
 		return peerhttp.Login401JSONResponse(apitypes.NewErrorResponse("UNSUPPORTED_LOGIN", "login is not configured")), nil
 	}
@@ -102,7 +110,7 @@ func (s *Server) Login(ctx context.Context, request peerhttp.LoginRequestObject)
 	if assertion == "" {
 		return peerhttp.Login401JSONResponse(apitypes.NewErrorResponse("MISSING_ASSERTION", "missing bearer assertion")), nil
 	}
-	result, err := s.SessionManager().login(ctx, s.KeyPair, publicKey, assertion, s.SessionAuthorizer)
+	result, err := s.SessionManager().login(ctx, s.KeyPair, publicKey, assertion, authorizer)
 	if err != nil {
 		return peerhttp.Login401JSONResponse(apitypes.NewErrorResponse("INVALID_ASSERTION", err.Error())), nil
 	}

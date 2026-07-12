@@ -1555,5 +1555,45 @@ int main(void) {
     return 1;
   }
   gzc_client_destroy(client);
+
+  fake_webrtc_t fake_webrtc_no_ice_hook;
+  memset(&fake_webrtc_no_ice_hook, 0, sizeof(fake_webrtc_no_ice_hook));
+  fake_webrtc_no_ice_hook.platform = platform;
+  gzc_buf_init(&fake_webrtc_no_ice_hook.sent);
+
+  fake_http_t fake_http_no_ice_hook;
+  memset(&fake_http_no_ice_hook, 0, sizeof(fake_http_no_ice_hook));
+  fake_http_no_ice_hook.platform = platform;
+
+  gzc_webrtc_vtable_t webrtc_no_ice_hook = webrtc;
+  webrtc_no_ice_hook.userdata = &fake_webrtc_no_ice_hook;
+  webrtc_no_ice_hook.peer_add_ice_server = NULL;
+
+  gzc_http_vtable_t http_no_ice_hook = http;
+  http_no_ice_hook.userdata = &fake_http_no_ice_hook;
+
+  gzc_client_config_t config_no_ice_hook = config;
+  config_no_ice_hook.http = &http_no_ice_hook;
+  config_no_ice_hook.webrtc = &webrtc_no_ice_hook;
+
+  gzc_client_t *client_no_ice_hook = NULL;
+  rc = gzc_client_create(&config_no_ice_hook, &client_no_ice_hook);
+  if (expect(rc == GZC_OK, "client create without ICE hook") != 0) {
+    gzc_buf_free(&fake_webrtc_no_ice_hook.sent, platform);
+    return 1;
+  }
+  rc = gzc_client_connect(client_no_ice_hook);
+  if (expect(rc == GZC_OK, "client connect without ICE hook ignores optional ICE metadata") != 0) {
+    gzc_client_destroy(client_no_ice_hook);
+    gzc_buf_free(&fake_webrtc_no_ice_hook.sent, platform);
+    return 1;
+  }
+  if (expect(fake_webrtc_no_ice_hook.ice_server_count == 0, "missing ICE hook skips advertised ICE servers") != 0) {
+    gzc_client_destroy(client_no_ice_hook);
+    gzc_buf_free(&fake_webrtc_no_ice_hook.sent, platform);
+    return 1;
+  }
+  gzc_client_destroy(client_no_ice_hook);
+  gzc_buf_free(&fake_webrtc_no_ice_hook.sent, platform);
   return 0;
 }

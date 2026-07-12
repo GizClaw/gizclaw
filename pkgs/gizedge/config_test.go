@@ -3,6 +3,7 @@ package gizedge
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -567,6 +568,63 @@ func TestPrivateIngressHTTPClientAddsEdgeSessionHeaders(t *testing.T) {
 	}
 	if loginCount != 1 {
 		t.Fatalf("loginCount = %d, want cached session", loginCount)
+	}
+}
+
+func TestPrivateIngressHTTPClientRefreshesSessionOnUnauthorized(t *testing.T) {
+	edgeKey := testKeyPair(t, 0x9b)
+	upstreamKey := testKeyPair(t, 0x9c)
+	loginCount := 0
+	signalingCount := 0
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/login":
+			loginCount++
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(fmt.Sprintf(`{"access_token":"edge-session-%d","token_type":"Bearer","expires_at":4102444800000}`, loginCount)))
+		case gizwebrtc.SignalingPath:
+			signalingCount++
+			if signalingCount == 1 {
+				if got := r.Header.Get("Authorization"); got != "Bearer edge-session-1" {
+					t.Fatalf("first signaling Authorization = %q, want stale cached token", got)
+				}
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+			if got := r.Header.Get("Authorization"); got != "Bearer edge-session-2" {
+				t.Fatalf("retry signaling Authorization = %q, want refreshed token", got)
+			}
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer upstream.Close()
+
+	upstreamURL, err := (&Config{Upstream: UpstreamConfig{Endpoint: upstream.URL}}).UpstreamURL()
+	if err != nil {
+		t.Fatalf("UpstreamURL error = %v", err)
+	}
+	client := newPrivateIngressHTTPClient(Config{
+		KeyPair: edgeKey,
+		Upstream: UpstreamConfig{
+			PublicKey: upstreamKey.Public,
+		},
+	}, upstreamURL)
+
+	resp, err := client.Post(upstream.URL+gizwebrtc.SignalingPath, "application/octet-stream", strings.NewReader("offer"))
+	if err != nil {
+		t.Fatalf("Post signaling error = %v", err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("signaling status = %d", resp.StatusCode)
+	}
+	if loginCount != 2 {
+		t.Fatalf("loginCount = %d, want refreshed session", loginCount)
+	}
+	if signalingCount != 2 {
+		t.Fatalf("signalingCount = %d, want retry", signalingCount)
 	}
 }
 

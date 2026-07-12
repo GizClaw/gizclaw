@@ -137,11 +137,60 @@ func (t *privateIngressRoundTripper) RoundTrip(req *http.Request) (*http.Respons
 	if err != nil {
 		return nil, err
 	}
-	next := req.Clone(req.Context())
-	next.Header = req.Header.Clone()
+	resp, err := t.roundTripWithToken(req, token)
+	if err != nil || !isPrivateIngressUnauthorized(resp.StatusCode) {
+		return resp, err
+	}
+	t.clearSessionToken(token)
+	if !canReplayPrivateIngressRequest(req) {
+		return resp, nil
+	}
+	_ = resp.Body.Close()
+	token, err = t.sessionToken(req.Context())
+	if err != nil {
+		return nil, err
+	}
+	return t.roundTripWithToken(req, token)
+}
+
+func (t *privateIngressRoundTripper) roundTripWithToken(req *http.Request, token string) (*http.Response, error) {
+	next, err := clonePrivateIngressRequest(req)
+	if err != nil {
+		return nil, err
+	}
 	next.Header.Set("Authorization", "Bearer "+token)
 	next.Header.Set(publiclogin.PublicKeyHeader, t.cfg.KeyPair.Public.String())
 	return t.transport().RoundTrip(next)
+}
+
+func clonePrivateIngressRequest(req *http.Request) (*http.Request, error) {
+	next := req.Clone(req.Context())
+	next.Header = req.Header.Clone()
+	if req.Body != nil && req.Body != http.NoBody && req.GetBody != nil {
+		body, err := req.GetBody()
+		if err != nil {
+			return nil, err
+		}
+		next.Body = body
+	}
+	return next, nil
+}
+
+func canReplayPrivateIngressRequest(req *http.Request) bool {
+	return req.Body == nil || req.Body == http.NoBody || req.GetBody != nil
+}
+
+func isPrivateIngressUnauthorized(statusCode int) bool {
+	return statusCode == http.StatusUnauthorized || statusCode == http.StatusForbidden
+}
+
+func (t *privateIngressRoundTripper) clearSessionToken(token string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.token == token {
+		t.token = ""
+		t.expiresAt = time.Time{}
+	}
 }
 
 func (t *privateIngressRoundTripper) sessionToken(ctx context.Context) (string, error) {

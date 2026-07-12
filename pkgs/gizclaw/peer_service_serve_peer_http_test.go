@@ -2,6 +2,7 @@ package gizclaw
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -233,6 +234,58 @@ func TestPeerServiceEdgePublicRequiresActiveClientPeer(t *testing.T) {
 				t.Fatalf("status = %d body=%s, want %d", rec.Code, rec.Body.String(), tc.wantStatus)
 			}
 		})
+	}
+}
+
+func TestPeerServiceEdgeLoginBypassesPrivateIngressAuthorizer(t *testing.T) {
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(server) error = %v", err)
+	}
+	clientKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(client) error = %v", err)
+	}
+	peersServer := &peer.Server{
+		Store:           mustBadgerInMemory(t, nil),
+		BuildCommit:     "test-build",
+		ServerPublicKey: serverKey.Public,
+	}
+	if _, err := peersServer.SavePeer(context.Background(), apitypes.Peer{
+		PublicKey:     clientKey.Public.String(),
+		Role:          apitypes.PeerRoleClient,
+		Status:        apitypes.PeerRegistrationStatusActive,
+		Device:        apitypes.DeviceInfo{},
+		Configuration: apitypes.Configuration{},
+	}); err != nil {
+		t.Fatalf("SavePeer error = %v", err)
+	}
+	loginServer := publiclogin.NewServer(serverKey, mustBadgerInMemory(t, nil))
+	loginServer.SessionAuthorizer = func(context.Context, giznet.PublicKey) error {
+		return errors.New("private ingress rejects clients")
+	}
+	service := &PeerService{
+		manager:  NewManager(peersServer),
+		sessions: loginServer.SessionManager(),
+		public: &peerHTTP{
+			PeerHTTPService: peersServer,
+			PeerHTTP:        loginServer,
+		},
+	}
+	handler := service.edgeHTTPHandler(service.sessions)
+
+	assertion, err := publiclogin.NewLoginAssertion(clientKey, serverKey.Public, time.Minute)
+	if err != nil {
+		t.Fatalf("NewLoginAssertion error = %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/login", nil)
+	req.Header.Set(publiclogin.PublicKeyHeader, clientKey.Public.String())
+	req.Header.Set("Authorization", "Bearer "+assertion)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("edge login status = %d body=%s, want %d", rec.Code, rec.Body.String(), http.StatusOK)
 	}
 }
 

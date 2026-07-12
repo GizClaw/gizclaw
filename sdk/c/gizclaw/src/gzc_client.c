@@ -171,12 +171,11 @@ static int apply_ice_servers(gzc_client_t *client, gzc_str_t body) {
       if (rc != GZC_OK || !valid_ice_url(url)) {
         return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
       }
-      if (client->config.webrtc->peer_add_ice_server == NULL) {
-        return GZC_ERR_UNSUPPORTED;
-      }
-      rc = client->config.webrtc->peer_add_ice_server(client->peer, url, username, credential);
-      if (rc != GZC_OK) {
-        return rc;
+      if (client->config.webrtc->peer_add_ice_server != NULL) {
+        rc = client->config.webrtc->peer_add_ice_server(client->peer, url, username, credential);
+        if (rc != GZC_OK) {
+          return rc;
+        }
       }
       applied_url = true;
     }
