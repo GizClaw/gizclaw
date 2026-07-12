@@ -1000,18 +1000,37 @@ class _PetActionFabState extends State<_PetActionFab>
                         ),
                       ],
                     ),
-                    child: Transform.rotate(
-                      angle: _controller.value * math.pi / 4,
-                      child: widget.activeAction == null
-                          ? const Icon(
-                              CupertinoIcons.add,
-                              color: GizColors.surface,
-                              size: 27,
-                            )
-                          : const CupertinoActivityIndicator(
-                              color: GizColors.surface,
-                            ),
-                    ),
+                    child: widget.activeAction == null
+                        ? Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Opacity(
+                                opacity: 1 - _controller.value,
+                                child: Transform.scale(
+                                  scale: 1 - _controller.value * 0.2,
+                                  child: const Icon(
+                                    CupertinoIcons.game_controller_solid,
+                                    color: GizColors.surface,
+                                    size: 27,
+                                  ),
+                                ),
+                              ),
+                              Opacity(
+                                opacity: _controller.value,
+                                child: Transform.rotate(
+                                  angle: (1 - _controller.value) * -math.pi / 4,
+                                  child: const Icon(
+                                    CupertinoIcons.xmark,
+                                    color: GizColors.surface,
+                                    size: 23,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : const CupertinoActivityIndicator(
+                            color: GizColors.surface,
+                          ),
                   ),
                 ),
               ),
