@@ -400,7 +400,7 @@ func webRTCListenConfig(cfg Config, opts gizclaw.PeerListenerOptions, iceTCPList
 }
 
 func publicICEAddr(cfg Config) string {
-	if len(cfg.ICEServers) > 0 {
+	if gizwebrtc.HasTURNServer(cfg.ICEServers) {
 		return ""
 	}
 	host, _, err := net.SplitHostPort(cfg.Endpoint)

@@ -282,6 +282,12 @@ func TestWebRTCListenConfigKeepsDefaultPolicyWithSTUNOnlyICEServers(t *testing.T
 	if cfg.ICETransportPolicy != webrtc.ICETransportPolicyAll {
 		t.Fatalf("ICETransportPolicy = %s, want all", cfg.ICETransportPolicy)
 	}
+	if cfg.PublicICEUDPAddr != "192.168.1.20:19820" {
+		t.Fatalf("PublicICEUDPAddr = %q, want endpoint", cfg.PublicICEUDPAddr)
+	}
+	if cfg.PublicICETCPAddr != "192.168.1.20:19820" {
+		t.Fatalf("PublicICETCPAddr = %q, want endpoint", cfg.PublicICETCPAddr)
+	}
 }
 
 type testSecurityPolicy struct{}
