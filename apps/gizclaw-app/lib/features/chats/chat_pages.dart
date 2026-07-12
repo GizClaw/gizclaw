@@ -275,12 +275,15 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
                   controller: _scrollController,
                   messages: messages,
                   state: chat?.state ?? WorkspaceChatState.loading,
-                  color: accent,
                   signal: signal,
                   error: chat?.lastError,
                 ),
               ),
-              _PushToTalkControl(chat: chat, accent: accent, signal: signal),
+              _PushToTalkControl(
+                chat: chat,
+                accent: signal.actionAccent,
+                signal: signal,
+              ),
             ],
           ),
         ),
@@ -329,6 +332,10 @@ class _SignalPalette {
     required this.muted,
     required this.text,
     required this.onAccent,
+    required this.actionAccent,
+    required this.brandAccent,
+    required this.outgoingFill,
+    required this.outgoingText,
   });
 
   static const light = _SignalPalette(
@@ -341,6 +348,10 @@ class _SignalPalette {
     muted: Color(0xFF627169),
     text: Color(0xFF101713),
     onAccent: Color(0xFF07110C),
+    actionAccent: GizColors.accent,
+    brandAccent: Color(0xFF668700),
+    outgoingFill: GizColors.ink,
+    outgoingText: GizColors.surface,
   );
 
   static const dark = _SignalPalette(
@@ -353,14 +364,22 @@ class _SignalPalette {
     muted: Color(0xFF8E9B95),
     text: Color(0xFFF4F8F5),
     onAccent: Color(0xFF07110C),
+    actionAccent: GizColors.accent,
+    brandAccent: GizColors.accent,
+    outgoingFill: GizColors.accent,
+    outgoingText: GizColors.ink,
   );
 
+  final Color actionAccent;
   final Brightness brightness;
+  final Color brandAccent;
   final Color canvas;
   final Color chrome;
   final Color line;
   final Color muted;
   final Color onAccent;
+  final Color outgoingFill;
+  final Color outgoingText;
   final Color panel;
   final Color panelStrong;
   final Color text;
@@ -654,12 +673,10 @@ class _WorkspaceMessageList extends StatelessWidget {
     required this.controller,
     required this.messages,
     required this.state,
-    required this.color,
     required this.signal,
     required this.error,
   });
 
-  final Color color;
   final ScrollController controller;
   final Object? error;
   final List<WorkspaceChatMessage> messages;
@@ -705,24 +722,15 @@ class _WorkspaceMessageList extends StatelessWidget {
           );
         }
         final message = messages[messages.length - 1 - index];
-        return _WorkspaceSignalMessage(
-          message: message,
-          accent: color,
-          signal: signal,
-        );
+        return _WorkspaceSignalMessage(message: message, signal: signal);
       },
     );
   }
 }
 
 class _WorkspaceSignalMessage extends StatelessWidget {
-  const _WorkspaceSignalMessage({
-    required this.message,
-    required this.accent,
-    required this.signal,
-  });
+  const _WorkspaceSignalMessage({required this.message, required this.signal});
 
-  final Color accent;
   final WorkspaceChatMessage message;
   final _SignalPalette signal;
 
@@ -737,51 +745,52 @@ class _WorkspaceSignalMessage extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.fromLTRB(14, 11, 14, 12),
           decoration: BoxDecoration(
-            color: incoming ? signal.panel : accent.withValues(alpha: 0.92),
+            color: incoming ? signal.panel : signal.outgoingFill,
             borderRadius: BorderRadius.only(
-              topLeft: const Radius.circular(18),
-              topRight: const Radius.circular(18),
-              bottomLeft: Radius.circular(incoming ? 5 : 18),
-              bottomRight: Radius.circular(incoming ? 18 : 5),
+              topLeft: const Radius.circular(14),
+              topRight: const Radius.circular(14),
+              bottomLeft: Radius.circular(incoming ? 4 : 14),
+              bottomRight: Radius.circular(incoming ? 14 : 4),
             ),
             border: Border.all(
-              color: incoming ? signal.line : accent.withValues(alpha: 0.24),
+              color: incoming ? signal.line : signal.outgoingFill,
             ),
-            boxShadow: incoming
-                ? null
-                : [
-                    BoxShadow(
-                      color: accent.withValues(alpha: 0.1),
-                      blurRadius: 18,
-                      offset: const Offset(0, 5),
+            boxShadow: signal.brightness == Brightness.light
+                ? [
+                    const BoxShadow(
+                      color: Color(0x0F111916),
+                      blurRadius: 14,
+                      offset: Offset(0, 5),
                     ),
-                  ],
+                  ]
+                : null,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
                     incoming
                         ? CupertinoIcons.sparkles
                         : CupertinoIcons.waveform,
                     size: 13,
-                    color: incoming ? accent : signal.onAccent,
+                    color: incoming ? signal.brandAccent : signal.outgoingText,
                   ),
                   const SizedBox(width: 7),
                   Text(
                     incoming ? 'AGENT TRANSMISSION' : 'YOUR VOICE',
                     style: GizText.label.copyWith(
                       color: incoming
-                          ? accent
-                          : signal.onAccent.withValues(alpha: 0.68),
+                          ? signal.brandAccent
+                          : signal.outgoingText.withValues(alpha: 0.68),
                       fontSize: 8,
                     ),
                   ),
                   if (!incoming) ...[
-                    const Spacer(),
-                    _MiniWaveform(color: signal.onAccent),
+                    const SizedBox(width: 12),
+                    _MiniWaveform(color: signal.outgoingText),
                   ],
                 ],
               ),
@@ -789,7 +798,7 @@ class _WorkspaceSignalMessage extends StatelessWidget {
               Text(
                 message.text.isEmpty ? '...' : message.text,
                 style: GizText.body.copyWith(
-                  color: incoming ? signal.text : signal.onAccent,
+                  color: incoming ? signal.text : signal.outgoingText,
                   fontSize: incoming ? 15 : 14,
                   height: 1.5,
                   fontWeight: incoming ? FontWeight.w500 : FontWeight.w700,
@@ -807,14 +816,18 @@ class _WorkspaceSignalMessage extends StatelessWidget {
                         height: 10,
                         child: CupertinoActivityIndicator(
                           radius: 5,
-                          color: incoming ? accent : signal.onAccent,
+                          color: incoming
+                              ? signal.brandAccent
+                              : signal.outgoingText,
                         ),
                       )
                     else
                       Icon(
                         CupertinoIcons.exclamationmark_circle_fill,
                         size: 11,
-                        color: incoming ? accent : signal.onAccent,
+                        color: incoming
+                            ? signal.brandAccent
+                            : signal.outgoingText,
                       ),
                     const SizedBox(width: 5),
                     Text(
@@ -824,7 +837,7 @@ class _WorkspaceSignalMessage extends StatelessWidget {
                       style: GizText.label.copyWith(
                         color: incoming
                             ? signal.muted
-                            : signal.onAccent.withValues(alpha: 0.62),
+                            : signal.outgoingText.withValues(alpha: 0.62),
                         fontSize: 8,
                       ),
                     ),

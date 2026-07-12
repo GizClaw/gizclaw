@@ -38,6 +38,7 @@ class AppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
     return CupertinoPageScaffold(
       child: Column(
         children: [
@@ -52,8 +53,10 @@ class AppShell extends StatelessWidget {
                   initialLocation: index == navigationShell.currentIndex,
                 );
               },
-              activeColor: GizColors.accent,
-              inactiveColor: const Color(0xA6FFFFFF),
+              activeColor: dark ? GizColors.accent : GizColors.ink,
+              inactiveColor: dark
+                  ? const Color(0xA6FFFFFF)
+                  : GizColors.secondaryInk,
               backgroundColor: const Color(0x00000000),
               border: null,
               iconSize: 23,

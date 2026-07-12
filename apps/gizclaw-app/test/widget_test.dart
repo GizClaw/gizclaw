@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gizclaw_app/main.dart';
 import 'package:gizclaw_app/data/mobile_data_controller.dart';
+import 'package:gizclaw_app/giz_ui/giz_ui.dart';
 
 void main() {
   Future<void> pumpApp(
@@ -202,6 +203,9 @@ void main() {
       ),
       findsOneWidget,
     );
+    var tabBar = tester.widget<CupertinoTabBar>(find.byType(CupertinoTabBar));
+    expect(tabBar.activeColor, GizColors.accent);
+    expect(tabBar.inactiveColor, const Color(0xA6FFFFFF));
 
     tester.platformDispatcher.platformBrightnessTestValue = Brightness.light;
     await tester.pump();
@@ -214,6 +218,9 @@ void main() {
       ),
       findsOneWidget,
     );
+    tabBar = tester.widget<CupertinoTabBar>(find.byType(CupertinoTabBar));
+    expect(tabBar.activeColor, GizColors.ink);
+    expect(tabBar.inactiveColor, GizColors.secondaryInk);
     expect(tester.takeException(), isNull);
   });
 

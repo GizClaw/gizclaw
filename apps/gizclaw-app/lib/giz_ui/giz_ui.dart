@@ -368,13 +368,18 @@ class GizGlassBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: DecoratedBox(
-          decoration: const BoxDecoration(
-            color: Color(0xF2111916),
-            border: Border(top: BorderSide(color: Color(0x22FFFFFF))),
+          decoration: BoxDecoration(
+            color: dark ? const Color(0xF2111916) : const Color(0xF7F4F5F1),
+            border: Border(
+              top: BorderSide(
+                color: dark ? const Color(0x22FFFFFF) : GizColors.separator,
+              ),
+            ),
           ),
           child: child,
         ),
