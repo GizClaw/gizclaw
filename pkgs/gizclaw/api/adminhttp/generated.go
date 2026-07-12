@@ -323,6 +323,7 @@ type AdminFriendListResponse struct {
 // AdminFriendObject defines model for AdminFriendObject.
 type AdminFriendObject struct {
 	CreatedAt      *time.Time `json:"created_at,omitempty"`
+	DisplayName    *string    `json:"display_name,omitempty"`
 	Id             string     `json:"id"`
 	OwnerPublicKey string     `json:"owner_public_key"`
 	PeerPublicKey  string     `json:"peer_public_key"`

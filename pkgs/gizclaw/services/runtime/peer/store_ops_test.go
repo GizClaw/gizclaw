@@ -55,6 +55,33 @@ func TestStoreOpsEnsureConnectedPeer(t *testing.T) {
 	}
 }
 
+func TestPeerDisplayName(t *testing.T) {
+	server := &Server{Store: mustBadgerInMemory(t, nil)}
+	ctx := context.Background()
+	publicKey := giznet.PublicKey{1}
+	name := "  Ada  "
+	if _, err := server.SavePeer(ctx, apitypes.Peer{
+		PublicKey:     publicKey.String(),
+		Role:          apitypes.PeerRoleClient,
+		Status:        apitypes.PeerRegistrationStatusActive,
+		Device:        apitypes.DeviceInfo{Name: &name},
+		Configuration: apitypes.Configuration{},
+	}); err != nil {
+		t.Fatalf("SavePeer error = %v", err)
+	}
+
+	got, err := server.PeerDisplayName(ctx, publicKey.String())
+	if err != nil {
+		t.Fatalf("PeerDisplayName error = %v", err)
+	}
+	if got != "Ada" {
+		t.Fatalf("PeerDisplayName = %q, want Ada", got)
+	}
+	if _, err := server.PeerDisplayName(ctx, "not-a-public-key"); err == nil {
+		t.Fatal("PeerDisplayName invalid public key error = nil")
+	}
+}
+
 func TestStoreOpsEnsureConnectedPeerPreservesExisting(t *testing.T) {
 	server := &Server{Store: mustBadgerInMemory(t, nil)}
 	ctx := context.Background()

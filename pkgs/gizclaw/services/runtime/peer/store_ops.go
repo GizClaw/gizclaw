@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -160,6 +161,22 @@ func (s *Server) get(ctx context.Context, publicKey giznet.PublicKey) (apitypes.
 		return apitypes.Peer{}, err
 	}
 	return peer, nil
+}
+
+// PeerDisplayName returns the latest device name recorded for a peer.
+func (s *Server) PeerDisplayName(ctx context.Context, publicKeyText string) (string, error) {
+	var publicKey giznet.PublicKey
+	if err := publicKey.UnmarshalText([]byte(strings.TrimSpace(publicKeyText))); err != nil {
+		return "", fmt.Errorf("peer: parse public key: %w", err)
+	}
+	peer, err := s.get(ctx, publicKey)
+	if err != nil {
+		return "", err
+	}
+	if peer.Device.Name == nil {
+		return "", nil
+	}
+	return strings.TrimSpace(*peer.Device.Name), nil
 }
 
 func (s *Server) getByPublicKeyText(ctx context.Context, store kv.Store, publicKeyText string) (apitypes.Peer, error) {

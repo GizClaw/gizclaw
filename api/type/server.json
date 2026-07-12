@@ -936,6 +936,9 @@
           "workspace_name": {
             "type": "string"
           },
+          "display_name": {
+            "type": "string"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time"

@@ -584,6 +584,7 @@ export type FriendObject = {
   "peer_public_key"?: string;
   "updated_at"?: string;
   "workspace_name"?: string;
+  "display_name"?: string;
 };
 export type GameResult = {
   "created_at": string;
@@ -4060,6 +4061,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "workspace_name",
         "number": 5,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "display_name",
+        "number": 6,
         "optional": true,
         "type": "string"
       }

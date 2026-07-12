@@ -42,6 +42,7 @@ void main() {
           id: 'friend-a',
           peerPublicKey: 'peer-public-key-a',
           workspaceName: 'social-direct-a',
+          displayName: 'Ada',
         ),
       ],
       friendGroups: [
@@ -89,7 +90,7 @@ void main() {
     expect(await repository.workspaceDocument('server-a', 'missing'), isNull);
     final friendChats = await repository.watchFriendChats('server-a').first;
     expect(friendChats.single.workspaceName, 'social-direct-a');
-    expect(friendChats.single.title, 'peer-pu...key-a');
+    expect(friendChats.single.title, 'Ada');
     final groupChats = await repository.watchFriendGroupChats('server-a').first;
     expect(groupChats.single.workspaceName, 'social-group-a');
     expect(groupChats.single.title, 'Builder Crew');

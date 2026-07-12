@@ -44,13 +44,17 @@ class MobileDataRepository {
     return query.watch().map(
       (rows) => rows
           .where((row) => row.workspaceName?.isNotEmpty ?? false)
-          .map(
-            (row) => ChatroomWorkspaceMetadata(
+          .map((row) {
+            final friend = FriendObject.fromBuffer(row.rawProtobuf);
+            final displayName = friend.displayName.trim();
+            return ChatroomWorkspaceMetadata(
               workspaceName: row.workspaceName!,
-              title: _compactPeerKey(row.peerPublicKey),
+              title: displayName.isEmpty
+                  ? _compactPeerKey(row.peerPublicKey)
+                  : displayName,
               kind: ChatroomWorkspaceKind.direct,
-            ),
-          )
+            );
+          })
           .toList(growable: false),
     );
   }

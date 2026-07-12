@@ -1887,6 +1887,7 @@ type FriendListResponse struct {
 // FriendObject defines model for FriendObject.
 type FriendObject struct {
 	CreatedAt     *time.Time `json:"created_at,omitempty"`
+	DisplayName   *string    `json:"display_name,omitempty"`
 	Id            *string    `json:"id,omitempty"`
 	PeerPublicKey *string    `json:"peer_public_key,omitempty"`
 	UpdatedAt     *time.Time `json:"updated_at,omitempty"`

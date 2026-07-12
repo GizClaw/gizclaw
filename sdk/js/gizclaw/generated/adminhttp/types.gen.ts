@@ -232,6 +232,7 @@ export type AdminFriendObject = {
     id: string;
     peer_public_key: string;
     workspace_name: string;
+    display_name?: string;
     created_at?: string;
     updated_at?: string;
 };
@@ -1693,6 +1694,7 @@ export type FriendObject = {
     id?: string;
     peer_public_key?: string;
     workspace_name?: string;
+    display_name?: string;
     created_at?: string;
     updated_at?: string;
 };

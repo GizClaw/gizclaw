@@ -3030,6 +3030,7 @@ type FriendObject struct {
 	PeerPublicKey *string                `protobuf:"bytes,3,opt,name=peer_public_key,json=peerPublicKey,proto3,oneof" json:"peer_public_key,omitempty"`
 	UpdatedAt     *string                `protobuf:"bytes,4,opt,name=updated_at,json=updatedAt,proto3,oneof" json:"updated_at,omitempty"`
 	WorkspaceName *string                `protobuf:"bytes,5,opt,name=workspace_name,json=workspaceName,proto3,oneof" json:"workspace_name,omitempty"`
+	DisplayName   *string                `protobuf:"bytes,6,opt,name=display_name,json=displayName,proto3,oneof" json:"display_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3095,6 +3096,13 @@ func (x *FriendObject) GetUpdatedAt() string {
 func (x *FriendObject) GetWorkspaceName() string {
 	if x != nil && x.WorkspaceName != nil {
 		return *x.WorkspaceName
+	}
+	return ""
+}
+
+func (x *FriendObject) GetDisplayName() string {
+	if x != nil && x.DisplayName != nil {
+		return *x.DisplayName
 	}
 	return ""
 }
@@ -3353,7 +3361,7 @@ const file_payload_social_proto_rawDesc = "" +
 	"\x05items\x18\x02 \x03(\v2\x1c.gizclaw.rpc.v1.FriendObjectR\x05items\x12$\n" +
 	"\vnext_cursor\x18\x03 \x01(\tH\x00R\n" +
 	"nextCursor\x88\x01\x01B\x0e\n" +
-	"\f_next_cursor\"\x90\x02\n" +
+	"\f_next_cursor\"\xc9\x02\n" +
 	"\fFriendObject\x12\"\n" +
 	"\n" +
 	"created_at\x18\x01 \x01(\tH\x00R\tcreatedAt\x88\x01\x01\x12\x13\n" +
@@ -3361,12 +3369,14 @@ const file_payload_social_proto_rawDesc = "" +
 	"\x0fpeer_public_key\x18\x03 \x01(\tH\x02R\rpeerPublicKey\x88\x01\x01\x12\"\n" +
 	"\n" +
 	"updated_at\x18\x04 \x01(\tH\x03R\tupdatedAt\x88\x01\x01\x12*\n" +
-	"\x0eworkspace_name\x18\x05 \x01(\tH\x04R\rworkspaceName\x88\x01\x01B\r\n" +
+	"\x0eworkspace_name\x18\x05 \x01(\tH\x04R\rworkspaceName\x88\x01\x01\x12&\n" +
+	"\fdisplay_name\x18\x06 \x01(\tH\x05R\vdisplayName\x88\x01\x01B\r\n" +
 	"\v_created_atB\x05\n" +
 	"\x03_idB\x12\n" +
 	"\x10_peer_public_keyB\r\n" +
 	"\v_updated_atB\x11\n" +
-	"\x0f_workspace_nameB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
+	"\x0f_workspace_nameB\x0f\n" +
+	"\r_display_nameB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 
 var (
 	file_payload_social_proto_rawDescOnce sync.Once

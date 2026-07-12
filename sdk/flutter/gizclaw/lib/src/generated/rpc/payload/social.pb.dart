@@ -3951,6 +3951,7 @@ class FriendObject extends $pb.GeneratedMessage {
     $core.String? peerPublicKey,
     $core.String? updatedAt,
     $core.String? workspaceName,
+    $core.String? displayName,
   }) {
     final result = create();
     if (createdAt != null) result.createdAt = createdAt;
@@ -3958,6 +3959,7 @@ class FriendObject extends $pb.GeneratedMessage {
     if (peerPublicKey != null) result.peerPublicKey = peerPublicKey;
     if (updatedAt != null) result.updatedAt = updatedAt;
     if (workspaceName != null) result.workspaceName = workspaceName;
+    if (displayName != null) result.displayName = displayName;
     return result;
   }
 
@@ -3979,6 +3981,7 @@ class FriendObject extends $pb.GeneratedMessage {
     ..aOS(3, _omitFieldNames ? '' : 'peerPublicKey')
     ..aOS(4, _omitFieldNames ? '' : 'updatedAt')
     ..aOS(5, _omitFieldNames ? '' : 'workspaceName')
+    ..aOS(6, _omitFieldNames ? '' : 'displayName')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4044,6 +4047,15 @@ class FriendObject extends $pb.GeneratedMessage {
   $core.bool hasWorkspaceName() => $_has(4);
   @$pb.TagNumber(5)
   void clearWorkspaceName() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get displayName => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set displayName($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasDisplayName() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearDisplayName() => $_clearField(6);
 }
 
 const $core.bool _omitFieldNames =
