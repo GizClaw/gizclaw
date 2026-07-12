@@ -965,7 +965,7 @@ func TestServerGameplayPixaDownloads(t *testing.T) {
 	if gotPresentation.Attr.Life["hunger"].Initial != 100 || gotPresentation.Attr.Progression["xp"].Initial != 0 {
 		t.Fatalf("pet presentation attr = %#v", gotPresentation.Attr)
 	}
-	if len(gotPresentation.Drive.Actions) != 2 || gotPresentation.Drive.Actions[1].Id != "feed" || gotPresentation.Drive.Actions[1].VisualClipId == nil || *gotPresentation.Drive.Actions[1].VisualClipId != "feed" {
+	if len(gotPresentation.Drive.Actions) != 2 || gotPresentation.Drive.Actions[1].Id != "feed" || gotPresentation.Drive.Actions[1].Icon == nil || *gotPresentation.Drive.Actions[1].Icon != "food" || gotPresentation.Drive.Actions[1].VisualClipId == nil || *gotPresentation.Drive.Actions[1].VisualClipId != "feed" {
 		t.Fatalf("pet presentation actions = %#v", gotPresentation.Drive.Actions)
 	}
 	if gotPresentation.PixaMetadata.Canvas.Width != 16 || gotPresentation.PixaMetadata.Clips[0].PixaClipName != "default" {
@@ -1272,8 +1272,8 @@ func peerresourcePetDefSpec(displayName string) apitypes.PetDefSpec {
 		Character: apitypes.PetDefCharacterSpec{Prompt: "Small friendly pixel pet."},
 		Voice:     apitypes.PetDefVoiceSpec{VoiceId: "gizclaw-soft", Prompt: "Soft and curious."},
 		Drive: apitypes.PetDefDriveSpec{Actions: []apitypes.PetDefActionSpec{
-			{Id: "idle", Cost: 0, VisualClipId: stringPtr("idle")},
-			{Id: "feed", Cost: 0, VisualClipId: stringPtr("feed")},
+			{Id: "idle", Cost: 0, Icon: stringPtr("idle"), VisualClipId: stringPtr("idle")},
+			{Id: "feed", Cost: 0, Icon: stringPtr("food"), VisualClipId: stringPtr("feed")},
 		}},
 		Visual: apitypes.PetDefVisualSpec{
 			Refs: apitypes.PetDefVisualRefsSpec{},

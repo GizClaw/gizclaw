@@ -378,6 +378,7 @@ func petPresentationDrive(in apitypes.PetDefDriveSpec) rpcapi.PetPresentationDri
 			Id:           action.Id,
 			Cost:         action.Cost,
 			VisualClipId: action.VisualClipId,
+			Icon:         action.Icon,
 		}
 		if action.Effect != nil {
 			item.Effect = &rpcapi.PetPresentationActionEffectSpec{PetExpDelta: action.Effect.PetExpDelta}

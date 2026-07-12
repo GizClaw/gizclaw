@@ -938,10 +938,12 @@ const PetPresentationActionSpec$json = {
       '10': 'visualClipId',
       '17': true
     },
+    {'1': 'icon', '3': 5, '4': 1, '5': 9, '9': 2, '10': 'icon', '17': true},
   ],
   '8': [
     {'1': '_effect'},
     {'1': '_visual_clip_id'},
+    {'1': '_icon'},
   ],
 };
 
@@ -950,7 +952,8 @@ final $typed_data.Uint8List petPresentationActionSpecDescriptor = $convert.base6
     'ChlQZXRQcmVzZW50YXRpb25BY3Rpb25TcGVjEg4KAmlkGAEgASgJUgJpZBISCgRjb3N0GAIgAS'
     'gDUgRjb3N0EkwKBmVmZmVjdBgDIAEoCzIvLmdpemNsYXcucnBjLnYxLlBldFByZXNlbnRhdGlv'
     'bkFjdGlvbkVmZmVjdFNwZWNIAFIGZWZmZWN0iAEBEikKDnZpc3VhbF9jbGlwX2lkGAQgASgJSA'
-    'FSDHZpc3VhbENsaXBJZIgBAUIJCgdfZWZmZWN0QhEKD192aXN1YWxfY2xpcF9pZA==');
+    'FSDHZpc3VhbENsaXBJZIgBARIXCgRpY29uGAUgASgJSAJSBGljb26IAQFCCQoHX2VmZmVjdEIR'
+    'Cg9fdmlzdWFsX2NsaXBfaWRCBwoFX2ljb24=');
 
 @$core.Deprecated('Use petPresentationAttrDeltaDescriptor instead')
 const PetPresentationAttrDelta$json = {

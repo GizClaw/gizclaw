@@ -2243,12 +2243,14 @@ class PetPresentationActionSpec extends $pb.GeneratedMessage {
     $fixnum.Int64? cost,
     PetPresentationActionEffectSpec? effect,
     $core.String? visualClipId,
+    $core.String? icon,
   }) {
     final result = create();
     if (id != null) result.id = id;
     if (cost != null) result.cost = cost;
     if (effect != null) result.effect = effect;
     if (visualClipId != null) result.visualClipId = visualClipId;
+    if (icon != null) result.icon = icon;
     return result;
   }
 
@@ -2270,6 +2272,7 @@ class PetPresentationActionSpec extends $pb.GeneratedMessage {
     ..aOM<PetPresentationActionEffectSpec>(3, _omitFieldNames ? '' : 'effect',
         subBuilder: PetPresentationActionEffectSpec.create)
     ..aOS(4, _omitFieldNames ? '' : 'visualClipId')
+    ..aOS(5, _omitFieldNames ? '' : 'icon')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2329,6 +2332,15 @@ class PetPresentationActionSpec extends $pb.GeneratedMessage {
   $core.bool hasVisualClipId() => $_has(3);
   @$pb.TagNumber(4)
   void clearVisualClipId() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get icon => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set icon($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasIcon() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearIcon() => $_clearField(5);
 }
 
 class PetPresentationAttrDelta extends $pb.GeneratedMessage {

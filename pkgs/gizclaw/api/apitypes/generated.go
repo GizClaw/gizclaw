@@ -3034,10 +3034,13 @@ type PetDefActionEffectSpec struct {
 
 // PetDefActionSpec defines model for PetDefActionSpec.
 type PetDefActionSpec struct {
-	Cost         int64                   `json:"cost"`
-	Effect       *PetDefActionEffectSpec `json:"effect,omitempty"`
-	Id           string                  `json:"id"`
-	VisualClipId *string                 `json:"visual_clip_id,omitempty"`
+	Cost   int64                   `json:"cost"`
+	Effect *PetDefActionEffectSpec `json:"effect,omitempty"`
+
+	// Icon Cross-platform semantic icon token for presenting this action.
+	Icon         *string `json:"icon,omitempty"`
+	Id           string  `json:"id"`
+	VisualClipId *string `json:"visual_clip_id,omitempty"`
 }
 
 // PetDefAttrSpec defines model for PetDefAttrSpec.

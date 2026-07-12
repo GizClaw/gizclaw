@@ -35,9 +35,11 @@ spec:
         - id: idle
           cost: 0
           visual_clip_id: idle
+          icon: idle
         - id: feed
           cost: 6
           visual_clip_id: feed
+          icon: food
           effect:
             attr_delta:
               life:
@@ -47,6 +49,7 @@ spec:
         - id: bath
           cost: 5
           visual_clip_id: bath
+          icon: clean
           effect:
             attr_delta:
               life:
@@ -55,6 +58,7 @@ spec:
         - id: heal
           cost: 8
           visual_clip_id: heal
+          icon: heal
           effect:
             attr_delta:
               life:
