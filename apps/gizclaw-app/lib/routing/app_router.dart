@@ -10,7 +10,9 @@ import '../prototype/prototype_data.dart';
 import '../prototype/prototype_models.dart';
 
 GoRouter createAppRouter() {
+  final rootNavigatorKey = GlobalKey<NavigatorState>();
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/browse',
     routes: [
       GoRoute(path: '/', redirect: (_, _) => '/browse'),
@@ -78,6 +80,7 @@ GoRouter createAppRouter() {
                     routes: [
                       GoRoute(
                         path: ':workspaceName',
+                        parentNavigatorKey: rootNavigatorKey,
                         pageBuilder: (context, state) {
                           final workspaceName =
                               state.pathParameters['workspaceName']!;

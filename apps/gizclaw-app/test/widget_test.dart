@@ -2,7 +2,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gizclaw_app/main.dart';
 import 'package:gizclaw_app/data/mobile_data_controller.dart';
-import 'package:gizclaw_app/giz_ui/giz_ui.dart';
 
 void main() {
   Future<void> pumpApp(
@@ -62,7 +61,9 @@ void main() {
     expect(find.byType(CollectionArtworkHero), findsOneWidget);
     expect(find.byType(WorkflowArtworkHero), findsNothing);
 
-    await tester.pageBack();
+    await tester.tap(
+      find.byType(CupertinoNavigationBarBackButton).hitTestable(),
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 700));
     await tester.drag(
@@ -149,7 +150,9 @@ void main() {
     expect(find.text('0 workspaces'), findsNWidgets(2));
   });
 
-  testWidgets('keeps each primary tab navigation stack', (tester) async {
+  testWidgets('hides tabs in chat and restores the Chats stack on return', (
+    tester,
+  ) async {
     await pumpApp(tester);
 
     await tester.tap(find.text('Chats'));
@@ -161,14 +164,21 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(WorkspaceChatPage), findsOneWidget);
+    expect(find.byType(CupertinoTabBar).hitTestable(), findsNothing);
 
+    await tester.tap(
+      find.byType(CupertinoNavigationBarBackButton).hitTestable(),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(DriverWorkspacesPage), findsOneWidget);
+    expect(find.byType(CupertinoTabBar).hitTestable(), findsOneWidget);
     await tester.tap(find.text('Browse'));
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Play your\nworkflows'), findsOneWidget);
 
     await tester.tap(find.text('Chats'));
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.byType(WorkspaceChatPage), findsOneWidget);
+    expect(find.byType(DriverWorkspacesPage), findsOneWidget);
   });
 
   testWidgets('renders the workspace signal room', (tester) async {
@@ -216,9 +226,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    var tabBar = tester.widget<CupertinoTabBar>(find.byType(CupertinoTabBar));
-    expect(tabBar.activeColor, GizColors.accent);
-    expect(tabBar.inactiveColor, const Color(0xA6FFFFFF));
+    expect(find.byType(CupertinoTabBar).hitTestable(), findsNothing);
 
     tester.platformDispatcher.platformBrightnessTestValue = Brightness.light;
     await tester.pump();
@@ -231,9 +239,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    tabBar = tester.widget<CupertinoTabBar>(find.byType(CupertinoTabBar));
-    expect(tabBar.activeColor, GizColors.ink);
-    expect(tabBar.inactiveColor, GizColors.secondaryInk);
+    expect(find.byType(CupertinoTabBar).hitTestable(), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -304,6 +310,7 @@ void main() {
     expect(find.textContaining('Unavailable'), findsNothing);
     expect(find.text('VOICE LINK UNAVAILABLE'), findsOneWidget);
     expect(find.byType(CupertinoTextField), findsNothing);
+    expect(find.byType(CupertinoTabBar).hitTestable(), findsNothing);
   });
 
   testWidgets('fits the compact iPhone viewport', (tester) async {
