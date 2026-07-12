@@ -40,6 +40,7 @@ import {
   deletePeerContact,
   deletePeerFriend,
   deletePeerFriendGroupMember,
+  configureWebRtcPeerConnection,
   createWebRtcOffer,
   getPeerFriendGroup,
   getPeerFriendGroupInviteToken,
@@ -4897,6 +4898,7 @@ async function createWorkspaceVoiceSession({
       }
     };
 
+    await configureWebRtcPeerConnection(pc);
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
     await waitForICEGatheringComplete(pc);

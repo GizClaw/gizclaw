@@ -16,6 +16,7 @@ import {
   RPC_FRAME_TYPE_TEXT,
   WebRTCRPCClient,
   WebRTCRPCError,
+  applyGiznetServerInfoICEServers,
   createAdminAPIFetch,
   batteryTelemetry,
   createWebRTCFetch,
@@ -1161,6 +1162,18 @@ test("fetchGiznetServerInfo rejects invalid ICE server metadata", async () => {
   }
 });
 
+test("applyGiznetServerInfoICEServers updates peer connection configuration", () => {
+  const pc = new FakeConfigurablePeerConnection();
+  const iceServers = [{ credential: "pass", urls: ["turn:edge.example.com:3478?transport=udp"], username: "user" }];
+
+  applyGiznetServerInfoICEServers(pc as unknown as RTCPeerConnection, { ice_servers: iceServers });
+
+  assert.deepEqual(pc.configuration, {
+    bundlePolicy: "balanced",
+    iceServers,
+  });
+});
+
 test("fetchGiznetServerInfo defaults signaling path and reports HTTP failures", async () => {
   const serverPublicKey = base58Encode(x25519.getPublicKey(new Uint8Array(32).fill(2)));
   const info = await fetchGiznetServerInfo({
@@ -1285,6 +1298,18 @@ class FakeICEPeerConnection {
 
   removeEventListener(type: string, listener: () => void): void {
     this.listeners.get(type)?.delete(listener);
+  }
+}
+
+class FakeConfigurablePeerConnection {
+  configuration: RTCConfiguration = { bundlePolicy: "balanced" };
+
+  getConfiguration(): RTCConfiguration {
+    return this.configuration;
+  }
+
+  setConfiguration(configuration: RTCConfiguration): void {
+    this.configuration = configuration;
   }
 }
 

@@ -71,6 +71,18 @@ func webrtcICEServers(servers []ICEServer) []webrtc.ICEServer {
 	return out
 }
 
+func HasTURNServer(servers []ICEServer) bool {
+	for _, server := range servers {
+		for _, rawURL := range server.URLs {
+			url := strings.ToLower(strings.TrimSpace(rawURL))
+			if strings.HasPrefix(url, "turn:") || strings.HasPrefix(url, "turns:") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func peerConnectionConfiguration(servers []ICEServer, policy webrtc.ICETransportPolicy) webrtc.Configuration {
 	return webrtc.Configuration{
 		ICEServers:         webrtcICEServers(servers),

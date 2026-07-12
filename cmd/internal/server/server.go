@@ -393,7 +393,7 @@ func webRTCListenConfig(cfg Config, opts gizclaw.PeerListenerOptions, iceTCPList
 		SecurityPolicy:   opts.SecurityPolicy,
 		PeerEventHandler: opts.PeerEventHandler,
 	}
-	if len(cfg.ICEServers) > 0 {
+	if gizwebrtc.HasTURNServer(cfg.ICEServers) {
 		listenConfig.ICETransportPolicy = webrtc.ICETransportPolicyRelay
 	}
 	return listenConfig

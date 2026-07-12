@@ -27,6 +27,8 @@ services:
       timeout: 1s
       retries: 60
       start_period: 300s
+    ports:
+      - "${GIZCLAW_E2E_DOCKER_ADMIN_BIND:-127.0.0.1}:${GIZCLAW_E2E_DOCKER_ADMIN_PORT:?set by docker-compose-up.sh}:9820/tcp"
 
   edge:
     platform: linux/amd64

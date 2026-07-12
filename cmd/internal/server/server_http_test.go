@@ -270,6 +270,20 @@ func TestWebRTCListenConfigUsesRelayOnlyWithICEServers(t *testing.T) {
 	}
 }
 
+func TestWebRTCListenConfigKeepsDefaultPolicyWithSTUNOnlyICEServers(t *testing.T) {
+	cfg := webRTCListenConfig(Config{
+		Listen:   "0.0.0.0:9820",
+		Endpoint: "192.168.1.20:19820",
+		ICEServers: []gizwebrtc.ICEServer{{
+			URLs: []string{"stun:edge.example.com:3478"},
+		}},
+	}, gizclaw.PeerListenerOptions{}, nil)
+
+	if cfg.ICETransportPolicy != webrtc.ICETransportPolicyAll {
+		t.Fatalf("ICETransportPolicy = %s, want all", cfg.ICETransportPolicy)
+	}
+}
+
 type testSecurityPolicy struct{}
 
 func (testSecurityPolicy) AllowPeer(giznet.PublicKey) bool {

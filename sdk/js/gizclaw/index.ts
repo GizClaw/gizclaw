@@ -502,10 +502,7 @@ export async function connectGiznetWebRTC(options: ConnectGiznetWebRTCOptions): 
 export async function connectGiznetWebRTCFromEndpoint(options: ConnectGiznetWebRTCFromEndpointOptions): Promise<RTCPeerConnection> {
   const serverInfo = await fetchGiznetServerInfo(options);
   const signalingPath = normalizeServerInfoSignalingPath(serverInfo.signaling_path);
-  if (serverInfo.ice_servers != null && serverInfo.ice_servers.length > 0 && typeof options.pc.setConfiguration === "function") {
-    const current = options.pc.getConfiguration?.() ?? {};
-    options.pc.setConfiguration({ ...current, iceServers: serverInfo.ice_servers });
-  }
+  applyGiznetServerInfoICEServers(options.pc, serverInfo);
   return connectGiznetWebRTC({
     ...options,
     prepareOffer: (offerSDP) =>
@@ -525,6 +522,14 @@ export async function connectGiznetWebRTCFromEndpoint(options: ConnectGiznetWebR
         url: signalingPath,
       }),
   });
+}
+
+export function applyGiznetServerInfoICEServers(pc: RTCPeerConnection, serverInfo: Pick<GiznetServerInfo, "ice_servers">): void {
+  if (serverInfo.ice_servers == null || serverInfo.ice_servers.length === 0 || typeof pc.setConfiguration !== "function") {
+    return;
+  }
+  const current = pc.getConfiguration?.() ?? {};
+  pc.setConfiguration({ ...current, iceServers: serverInfo.ice_servers });
 }
 
 export async function fetchGiznetServerInfo(options: ServerInfoBootstrapOptions = {}): Promise<GiznetServerInfo> {

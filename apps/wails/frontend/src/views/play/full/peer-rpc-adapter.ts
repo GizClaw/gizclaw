@@ -1,4 +1,4 @@
-import { fetchGiznetServerInfo, sendGiznetWebRTCOffer } from "@gizclaw/gizclaw";
+import { applyGiznetServerInfoICEServers, fetchGiznetServerInfo, sendGiznetWebRTCOffer } from "@gizclaw/gizclaw";
 import {
   RPC_METHODS,
   type ContactObject as RPCContactObject,
@@ -431,3 +431,15 @@ export const createWebRtcOffer = async (_options: RequestOptions): Promise<ApiRe
     return { error };
   }
 };
+
+export async function configureWebRtcPeerConnection(pc: RTCPeerConnection): Promise<void> {
+  const runtime = currentRuntime;
+  if (runtime?.context == null) {
+    throw new Error("Workspace voice signaling requires a selected context.");
+  }
+  if (!runtime.context.endpoint) {
+    throw new Error("Workspace voice signaling requires a server endpoint.");
+  }
+  const serverInfo = await fetchGiznetServerInfo({ endpoint: runtime.context.endpoint });
+  applyGiznetServerInfoICEServers(pc, serverInfo);
+}
