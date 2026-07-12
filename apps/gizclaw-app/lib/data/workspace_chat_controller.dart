@@ -282,6 +282,7 @@ class WorkspaceChatController extends ChangeNotifier {
       );
       return;
     }
+    if (event.isHistoryReplay) return;
     if (event.type != 'text.delta' && event.type != 'text.done') return;
     final text = event.text ?? '';
     final label = event.label ?? '';
