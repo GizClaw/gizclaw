@@ -17,3 +17,15 @@ spec:
         kind: workflow
         id: pet-care-flowcraft
       role: default-client
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-gameruleset-codex-pet-examples
+    spec:
+      subject:
+        kind: view
+        id: default-client
+      resource:
+        kind: gameruleset
+        id: codex-pet-examples
+      role: default-client

@@ -114,6 +114,9 @@ init_data() {
       find "$resource_subdir" -type f -name '*.yaml' -print |
         sort
     )
+    if [[ "$(basename "$resource_subdir")" == "07-gameplay" ]]; then
+      resource_files+=("$repo_root/examples/petdef_pixa/codex_pets/petdefs.yaml")
+    fi
   done < <(
     find "$resource_dir" -mindepth 1 -maxdepth 1 -type d -name '[0-9][0-9]-*' -print |
       sort
@@ -132,6 +135,27 @@ init_data() {
   for resource_file in "${resource_files[@]}"; do
     apply_resource "$resource_file"
   done
+
+  upload_petdef_pixa_assets() {
+    local assets=(
+      "petdef-tragon|$repo_root/examples/petdef_pixa/tragon.pixa"
+      "petdef-codex|$repo_root/examples/petdef_pixa/codex_pets/codex.pixa"
+      "petdef-hoots|$repo_root/examples/petdef_pixa/codex_pets/hoots.pixa"
+      "petdef-fireball|$repo_root/examples/petdef_pixa/codex_pets/fireball.pixa"
+    )
+    local entry petdef_id asset_path
+    for entry in "${assets[@]}"; do
+      IFS='|' read -r petdef_id asset_path <<<"$entry"
+      if [[ ! -f "$asset_path" ]]; then
+        echo "missing PetDef PIXA fixture asset: $asset_path" >&2
+        exit 2
+      fi
+      XDG_CONFIG_HOME="$config_home" \
+        "$bin_path" admin pet-defs upload-pixa "$petdef_id" -f "$asset_path" --context "$admin_context" >/dev/null
+    done
+  }
+
+  upload_petdef_pixa_assets
 
   if [[ "${GIZCLAW_E2E_SKIP_PROVIDER_SYNC:-0}" != "1" ]]; then
     XDG_CONFIG_HOME="$config_home" \
