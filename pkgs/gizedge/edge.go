@@ -25,6 +25,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 )
 
+const edgeShutdownTimeout = 5 * time.Second
+
 // Serve starts an experimental edge-node HTTP ingress and forwards requests to
 // the configured upstream server through a giznet service stream.
 func Serve(root string) error {
@@ -75,10 +77,22 @@ func ServeContext(ctx context.Context, root string) error {
 	case err := <-errCh:
 		return err
 	case <-ctx.Done():
-		shutdownErr := server.Shutdown(context.Background())
-		serveErr := <-errCh
-		return errors.Join(shutdownErr, serveErr)
+		return shutdownHTTPServer(server, errCh, edgeShutdownTimeout)
 	}
+}
+
+func shutdownHTTPServer(server *http.Server, errCh <-chan error, timeout time.Duration) error {
+	if server == nil {
+		return nil
+	}
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), timeout)
+	shutdownErr := server.Shutdown(shutdownCtx)
+	cancel()
+	if shutdownErr != nil {
+		shutdownErr = errors.Join(shutdownErr, server.Close())
+	}
+	serveErr := <-errCh
+	return errors.Join(shutdownErr, serveErr)
 }
 
 func dialUpstream(ctx context.Context, cfg Config, upstreamURL *url.URL) (giznet.Conn, giznet.Listener, error) {

@@ -270,6 +270,59 @@ upstream:
 	t.Fatalf("edge did not serve request: %v", lastErr)
 }
 
+func TestShutdownHTTPServerBoundsActiveStreams(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("Listen error = %v", err)
+	}
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	var enteredOnce sync.Once
+	server := &http.Server{Handler: http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		enteredOnce.Do(func() {
+			close(entered)
+		})
+		<-release
+	})}
+	errCh := make(chan error, 1)
+	go func() {
+		err := server.Serve(listener)
+		if errors.Is(err, http.ErrServerClosed) || errors.Is(err, net.ErrClosed) {
+			err = nil
+		}
+		errCh <- err
+	}()
+
+	reqErr := make(chan error, 1)
+	go func() {
+		resp, err := http.Get("http://" + listener.Addr().String())
+		if resp != nil {
+			_ = resp.Body.Close()
+		}
+		reqErr <- err
+	}()
+
+	select {
+	case <-entered:
+	case <-time.After(time.Second):
+		t.Fatal("handler did not start")
+	}
+	start := time.Now()
+	err = shutdownHTTPServer(server, errCh, 10*time.Millisecond)
+	close(release)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("shutdownHTTPServer error = %v, want context deadline exceeded", err)
+	}
+	if elapsed := time.Since(start); elapsed > time.Second {
+		t.Fatalf("shutdownHTTPServer took %s, want bounded shutdown", elapsed)
+	}
+	select {
+	case <-reqErr:
+	case <-time.After(time.Second):
+		t.Fatal("request did not unblock")
+	}
+}
+
 func TestUpstreamTransportReconnectsAfterClosedConn(t *testing.T) {
 	edgeKey := testKeyPair(t, 0x79)
 	upstreamKey := testKeyPair(t, 0x7a)

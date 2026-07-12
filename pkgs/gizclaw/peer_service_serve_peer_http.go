@@ -3,12 +3,14 @@ package gizclaw
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/gofiber/fiber/v2"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
+	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
@@ -137,7 +139,7 @@ func (s *PeerService) publicHTTPHandlerWithOptions(sessions *publiclogin.Session
 			if !ok {
 				return nil
 			}
-			if !s.allowEdgeClientPeer(ctx.UserContext(), publicKey) {
+			if !s.allowEdgeSignalingPeer(ctx.UserContext(), publicKey) {
 				ctx.Status(http.StatusForbidden)
 				_ = ctx.JSON(apitypes.NewErrorResponse("EDGE_CLIENT_REQUIRED", "edge public HTTP only proxies active client peers"))
 				return nil
@@ -175,6 +177,20 @@ func (s *PeerService) allowEdgeClientPeer(ctx context.Context, publicKey giznet.
 		return false
 	}
 	peer, err := s.manager.Peers.LoadPeer(ctx, publicKey)
+	if err != nil {
+		return false
+	}
+	return peer.Status == apitypes.PeerRegistrationStatusActive && peer.Role == apitypes.PeerRoleClient
+}
+
+func (s *PeerService) allowEdgeSignalingPeer(ctx context.Context, publicKey giznet.PublicKey) bool {
+	if s == nil || s.manager == nil || s.manager.Peers == nil {
+		return false
+	}
+	peer, err := s.manager.Peers.LoadPeer(ctx, publicKey)
+	if errors.Is(err, runtimepeer.ErrPeerNotFound) {
+		return true
+	}
 	if err != nil {
 		return false
 	}

@@ -297,6 +297,21 @@ func TestPeerServiceEdgeSignalingRequiresActiveClientPeer(t *testing.T) {
 		})
 	}
 
+	t.Run("unknown client reaches signed offer handling", func(t *testing.T) {
+		keyPair, err := giznet.GenerateKeyPair()
+		if err != nil {
+			t.Fatalf("GenerateKeyPair(peer) error = %v", err)
+		}
+		req := httptest.NewRequest(http.MethodPost, "/webrtc/v1/offer", strings.NewReader("offer"))
+		req.Header.Set("X-Giznet-Public-Key", keyPair.Public.String())
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d body=%s, want %d", rec.Code, rec.Body.String(), http.StatusBadRequest)
+		}
+	})
+
 	req := httptest.NewRequest(http.MethodPost, "/webrtc/v1/offer", strings.NewReader("offer"))
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
