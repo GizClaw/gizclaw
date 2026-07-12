@@ -675,17 +675,39 @@ class _PetMosaicPainter extends CustomPainter {
     final columns = (size.width / cellSize).ceil();
     final rows = (size.height / cellSize).ceil();
     final phase = progress * math.pi * 2;
+    final timeX = math.cos(phase);
+    final timeY = math.sin(phase);
 
     for (var row = 0; row < rows; row++) {
       for (var column = 0; column < columns; column++) {
         final x = (column + 0.5) / columns;
         final y = (row + 0.5) / rows;
-        final primary = math.sin((x * 1.12 + y * 0.74) * math.pi * 2 + phase);
-        final crossWave = math.sin(
-          (x * 0.58 - y * 1.24) * math.pi * 2 - phase * 0.63,
+        final warpX =
+            math.sin(
+              (x * 1.37 + y * 0.71) * math.pi * 2 + timeX * 1.15 + timeY * 0.42,
+            ) *
+            0.13;
+        final warpY =
+            math.cos(
+              (x * 0.63 - y * 1.43) * math.pi * 2 + timeX * 0.36 - timeY * 1.08,
+            ) *
+            0.11;
+        final warpedX = x + warpX;
+        final warpedY = y + warpY;
+        final primary = math.sin(
+          (warpedX * 0.91 + warpedY * 0.62) * math.pi * 2 +
+              timeX * 0.82 +
+              timeY * 1.26,
+        );
+        final crossWave = math.cos(
+          (warpedX * 0.47 - warpedY * 1.16) * math.pi * 2 -
+              timeX * 1.31 +
+              timeY * 0.55,
         );
         final detail = math.sin(
-          (x * 2.18 + y * 1.66) * math.pi * 2 + phase * 0.31,
+          (warpedX * 2.21 + warpedY * 1.73) * math.pi * 2 +
+              timeX * 0.27 -
+              timeY * 0.68,
         );
         final hash = ((column * 73856093) ^ (row * 19349663)) & 0xff;
         final jitter = (hash / 255 - 0.5) * 0.045;
