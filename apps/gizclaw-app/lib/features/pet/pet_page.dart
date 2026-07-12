@@ -233,6 +233,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
   PixaAsset? _pixa;
   Object? _error;
   bool _loading = false;
+  bool _statusVisible = true;
   String? _clipName;
   String? _drivingAction;
   int _request = 0;
@@ -363,6 +364,11 @@ class _PetDetailPageState extends State<PetDetailPage> {
 
     final catalog = _catalogFor(context, _presentation);
     final metrics = _petMetrics(pet, catalog).take(4).toList();
+    final progression = pet.progression.value.entries.isEmpty
+        ? pet.rulesetName
+        : pet.progression.value.entries
+              .map((entry) => '${_title(entry.key)} ${entry.value}')
+              .join('  |  ');
     final actions =
         (_presentation?.drive.actions ?? const <PetPresentationActionSpec>[])
             .where((action) => action.id.toLowerCase() != 'idle')
@@ -399,10 +405,8 @@ class _PetDetailPageState extends State<PetDetailPage> {
             bottom: MediaQuery.paddingOf(context).bottom + 86,
             child: SingleChildScrollView(
               child: _PetGameConsole(
-                pet: pet,
                 pixa: _pixa,
                 clipName: _clipName,
-                metrics: metrics,
                 loading: _loading,
               ),
             ),
@@ -422,6 +426,41 @@ class _PetDetailPageState extends State<PetDetailPage> {
               catalog: catalog,
               activeAction: _drivingAction,
               onAction: _drive,
+            ),
+          ),
+          Positioned(
+            right: 18,
+            bottom: MediaQuery.paddingOf(context).bottom + 86,
+            width: 204,
+            child: IgnorePointer(
+              ignoring: !_statusVisible,
+              child: AnimatedSlide(
+                offset: _statusVisible ? Offset.zero : const Offset(0, 0.12),
+                duration: const Duration(milliseconds: 240),
+                curve: Curves.easeOutCubic,
+                child: AnimatedScale(
+                  scale: _statusVisible ? 1 : 0.94,
+                  alignment: Alignment.bottomRight,
+                  duration: const Duration(milliseconds: 240),
+                  curve: Curves.easeOutCubic,
+                  child: AnimatedOpacity(
+                    opacity: _statusVisible ? 1 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    child: _PetStatusNameplate(
+                      metrics: metrics,
+                      progression: progression,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 18,
+            bottom: MediaQuery.paddingOf(context).bottom + 18,
+            child: _PetStatusFab(
+              visible: _statusVisible,
+              onPressed: () => setState(() => _statusVisible = !_statusVisible),
             ),
           ),
         ],
@@ -605,66 +644,72 @@ class _AnimatedPetSpriteState extends State<_AnimatedPetSprite> {
 
 class _PetGameConsole extends StatelessWidget {
   const _PetGameConsole({
-    required this.pet,
     required this.pixa,
     required this.clipName,
-    required this.metrics,
     required this.loading,
   });
 
-  final Pet pet;
   final PixaAsset? pixa;
   final String? clipName;
-  final List<_PetMetric> metrics;
   final bool loading;
 
   @override
   Widget build(BuildContext context) {
-    final progression = pet.progression.value.entries.isEmpty
-        ? pet.rulesetName
-        : pet.progression.value.entries
-              .map((entry) => '${_title(entry.key)} ${entry.value}')
-              .join('  |  ');
-    return Column(
-      children: [
-        Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 390),
-            child: SizedBox(
-              height: 430,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    top: 0,
-                    child: Center(
-                      child: SizedBox.square(
-                        dimension: 350,
-                        child: _PetDevice(
-                          pixa: pixa,
-                          clipName: clipName,
-                          loading: loading,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    right: 0,
-                    bottom: 4,
-                    width: 224,
-                    child: _PetStatusNameplate(
-                      metrics: metrics,
-                      progression: progression,
-                    ),
-                  ),
-                ],
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 350),
+        child: AspectRatio(
+          aspectRatio: 1,
+          child: _PetDevice(pixa: pixa, clipName: clipName, loading: loading),
+        ),
+      ),
+    );
+  }
+}
+
+class _PetStatusFab extends StatelessWidget {
+  const _PetStatusFab({required this.visible, required this.onPressed});
+
+  final bool visible;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: visible ? 'Hide pet status' : 'Show pet status',
+      button: true,
+      child: GestureDetector(
+        onTap: onPressed,
+        child: Container(
+          width: 58,
+          height: 58,
+          decoration: BoxDecoration(
+            color: GizColors.ink,
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0x2EFFFFFF)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x33000000),
+                blurRadius: 20,
+                offset: Offset(0, 8),
               ),
+            ],
+          ),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            transitionBuilder: (child, animation) => RotationTransition(
+              turns: Tween(begin: 0.86, end: 1.0).animate(animation),
+              child: FadeTransition(opacity: animation, child: child),
+            ),
+            child: Icon(
+              visible ? CupertinoIcons.xmark : CupertinoIcons.waveform_path_ecg,
+              key: ValueKey(visible),
+              color: GizColors.surface,
+              size: visible ? 22 : 25,
             ),
           ),
         ),
-      ],
+      ),
     );
   }
 }
@@ -749,7 +794,7 @@ class _PetStatusNameplate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(15, 13, 15, 14),
+      padding: const EdgeInsets.fromLTRB(12, 11, 12, 12),
       decoration: BoxDecoration(
         color: const Color(0xF2111916),
         borderRadius: BorderRadius.circular(8),
@@ -795,13 +840,13 @@ class _PetStatusNameplate extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 11),
+          const SizedBox(height: 9),
           for (var index = 0; index < metrics.length; index++) ...[
             _NameplateMetric(
               metric: metrics[index],
               color: _colors[index % _colors.length],
             ),
-            if (index != metrics.length - 1) const SizedBox(height: 8),
+            if (index != metrics.length - 1) const SizedBox(height: 7),
           ],
         ],
       ),
@@ -821,7 +866,7 @@ class _NameplateMetric extends StatelessWidget {
     return Row(
       children: [
         SizedBox(
-          width: 62,
+          width: 64,
           child: Text(
             metric.label.toUpperCase(),
             maxLines: 1,
