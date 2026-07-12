@@ -11,6 +11,7 @@ import '../../giz_ui/giz_ui.dart';
 import '../../pixa_sprite.dart';
 
 const _petSceneColor = Color(0xFFDCEFE8);
+const _petDetailBackground = Color(0xFFD8E7DF);
 
 class PetPage extends StatefulWidget {
   const PetPage({super.key});
@@ -367,7 +368,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
             .where((action) => action.id.toLowerCase() != 'idle')
             .toList();
     return CupertinoPageScaffold(
-      backgroundColor: GizColors.canvas,
+      backgroundColor: _petDetailBackground,
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -628,26 +629,40 @@ class _PetGameConsole extends StatelessWidget {
       children: [
         Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 360),
-            child: AspectRatio(
-              aspectRatio: 1,
-              child: _PetDevice(
-                pixa: pixa,
-                clipName: clipName,
-                metrics: metrics,
-                loading: loading,
+            constraints: const BoxConstraints(maxWidth: 390),
+            child: SizedBox(
+              height: 430,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    child: Center(
+                      child: SizedBox.square(
+                        dimension: 350,
+                        child: _PetDevice(
+                          pixa: pixa,
+                          clipName: clipName,
+                          loading: loading,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    right: 0,
+                    bottom: 4,
+                    width: 224,
+                    child: _PetStatusNameplate(
+                      metrics: metrics,
+                      progression: progression,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 14),
-        _PetMetricLegend(metrics: metrics),
-        const SizedBox(height: 16),
-        Text(
-          progression,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: GizText.label.copyWith(color: GizColors.secondaryInk),
         ),
       ],
     );
@@ -658,13 +673,11 @@ class _PetDevice extends StatelessWidget {
   const _PetDevice({
     required this.pixa,
     required this.clipName,
-    required this.metrics,
     required this.loading,
   });
 
   final PixaAsset? pixa;
   final String? clipName;
-  final List<_PetMetric> metrics;
   final bool loading;
 
   @override
@@ -673,144 +686,58 @@ class _PetDevice extends StatelessWidget {
       builder: (context, constraints) {
         final extent = constraints.maxWidth;
         final shellExtent = extent - 24;
-        return _PetAttributeOrbit(
-          metrics: metrics,
-          child: Stack(
-            children: [
-              Positioned(
-                left: 12 + shellExtent * 0.307,
-                top: 12 + shellExtent * 0.287,
-                width: shellExtent * 0.386,
-                height: shellExtent * 0.392,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(extent * 0.018),
-                  child: ColoredBox(
-                    color: _petSceneColor,
-                    child: Padding(
-                      padding: EdgeInsets.all(extent * 0.025),
-                      child: pixa == null
-                          ? Center(
-                              child: loading
-                                  ? const CupertinoActivityIndicator(
-                                      color: GizColors.ink,
-                                    )
-                                  : const Icon(
-                                      CupertinoIcons.sparkles,
-                                      color: GizColors.secondaryInk,
-                                      size: 36,
-                                    ),
-                            )
-                          : _AnimatedPetSprite(
-                              asset: pixa!,
-                              clipName: clipName,
-                            ),
-                    ),
+        return Stack(
+          children: [
+            Positioned(
+              left: 12 + shellExtent * 0.307,
+              top: 12 + shellExtent * 0.287,
+              width: shellExtent * 0.386,
+              height: shellExtent * 0.392,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(extent * 0.018),
+                child: ColoredBox(
+                  color: _petSceneColor,
+                  child: Padding(
+                    padding: EdgeInsets.all(extent * 0.025),
+                    child: pixa == null
+                        ? Center(
+                            child: loading
+                                ? const CupertinoActivityIndicator(
+                                    color: GizColors.ink,
+                                  )
+                                : const Icon(
+                                    CupertinoIcons.sparkles,
+                                    color: GizColors.secondaryInk,
+                                    size: 36,
+                                  ),
+                          )
+                        : _AnimatedPetSprite(asset: pixa!, clipName: clipName),
                   ),
                 ),
               ),
-              Positioned.fill(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Image.asset(
-                    'assets/pet/digipet-console.png',
-                    fit: BoxFit.contain,
-                    filterQuality: FilterQuality.high,
-                  ),
+            ),
+            Positioned.fill(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Image.asset(
+                  'assets/pet/digipet-console.png',
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         );
       },
     );
   }
 }
 
-class _PetAttributeOrbit extends StatefulWidget {
-  const _PetAttributeOrbit({required this.metrics, required this.child});
+class _PetStatusNameplate extends StatelessWidget {
+  const _PetStatusNameplate({required this.metrics, required this.progression});
 
   final List<_PetMetric> metrics;
-  final Widget child;
-
-  @override
-  State<_PetAttributeOrbit> createState() => _PetAttributeOrbitState();
-}
-
-class _PetAttributeOrbitState extends State<_PetAttributeOrbit>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late List<double> _from;
-  late List<double> _to;
-
-  @override
-  void initState() {
-    super.initState();
-    _from = List.filled(4, 0);
-    _to = _values(widget.metrics);
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 700),
-    )..forward();
-  }
-
-  @override
-  void didUpdateWidget(covariant _PetAttributeOrbit oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final next = _values(widget.metrics);
-    if (_sameValues(next, _to)) return;
-    final progress = Curves.easeOutCubic.transform(_controller.value);
-    _from = List.generate(
-      4,
-      (index) => _from[index] + (_to[index] - _from[index]) * progress,
-    );
-    _to = next;
-    _controller.forward(from: 0);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      child: widget.child,
-      builder: (context, child) {
-        final progress = Curves.easeOutCubic.transform(_controller.value);
-        final values = List.generate(
-          4,
-          (index) => _from[index] + (_to[index] - _from[index]) * progress,
-        );
-        return CustomPaint(
-          foregroundPainter: _PetAttributePainter(values),
-          child: child,
-        );
-      },
-    );
-  }
-
-  static List<double> _values(List<_PetMetric> metrics) => List.generate(
-    4,
-    (index) => index < metrics.length
-        ? (metrics[index].value / 100).clamp(0.0, 1.0)
-        : 0.0,
-  );
-
-  static bool _sameValues(List<double> a, List<double> b) {
-    for (var index = 0; index < a.length; index++) {
-      if (a[index] != b[index]) return false;
-    }
-    return true;
-  }
-}
-
-class _PetAttributePainter extends CustomPainter {
-  const _PetAttributePainter(this.values);
-
-  final List<double> values;
+  final String progression;
 
   static const _colors = [
     GizColors.accent,
@@ -820,98 +747,120 @@ class _PetAttributePainter extends CustomPainter {
   ];
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Rect.fromCircle(
-      center: size.center(Offset.zero),
-      radius: size.shortestSide / 2 - 4,
-    );
-    const sweep = math.pi * 0.36;
-    const gap = math.pi * 0.14;
-    for (var index = 0; index < 4; index++) {
-      final start = -math.pi / 2 + gap / 2 + index * (sweep + gap);
-      canvas.drawArc(
-        rect,
-        start,
-        sweep,
-        false,
-        Paint()
-          ..color = const Color(0x14111916)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 6
-          ..strokeCap = StrokeCap.round,
-      );
-      canvas.drawArc(
-        rect,
-        start,
-        sweep * values[index],
-        false,
-        Paint()
-          ..color = _colors[index]
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 6
-          ..strokeCap = StrokeCap.round,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _PetAttributePainter oldDelegate) {
-    return !_PetAttributeOrbitState._sameValues(values, oldDelegate.values);
-  }
-}
-
-class _PetMetricLegend extends StatelessWidget {
-  const _PetMetricLegend({required this.metrics});
-
-  final List<_PetMetric> metrics;
-
-  @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      padding: EdgeInsets.zero,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisExtent: 42,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 8,
-      ),
-      itemCount: metrics.length,
-      itemBuilder: (context, index) {
-        final metric = metrics[index];
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: GizColors.surface,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0x12111916)),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(15, 13, 15, 14),
+      decoration: BoxDecoration(
+        color: const Color(0xF2111916),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0x4DFFFFFF)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x33000000),
+            blurRadius: 22,
+            offset: Offset(0, 10),
           ),
-          child: Row(
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
             children: [
               Container(
                 width: 7,
                 height: 7,
-                decoration: BoxDecoration(
-                  color: _PetAttributePainter._colors[index],
+                decoration: const BoxDecoration(
+                  color: GizColors.accent,
                   shape: BoxShape.circle,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 7),
               Expanded(
                 child: Text(
-                  metric.label,
+                  'VITAL STATUS',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GizText.label.copyWith(color: GizColors.secondaryInk),
+                  style: GizText.label.copyWith(color: GizColors.surface),
                 ),
               ),
-              const SizedBox(width: 6),
-              Text('${metric.value}', style: GizText.label),
+              Text(
+                progression.toUpperCase(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GizText.label.copyWith(
+                  color: const Color(0xA8FFFFFF),
+                  fontSize: 9,
+                ),
+              ),
             ],
           ),
-        );
-      },
+          const SizedBox(height: 11),
+          for (var index = 0; index < metrics.length; index++) ...[
+            _NameplateMetric(
+              metric: metrics[index],
+              color: _colors[index % _colors.length],
+            ),
+            if (index != metrics.length - 1) const SizedBox(height: 8),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _NameplateMetric extends StatelessWidget {
+  const _NameplateMetric({required this.metric, required this.color});
+
+  final _PetMetric metric;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = (metric.value / 100).clamp(0.0, 1.0);
+    return Row(
+      children: [
+        SizedBox(
+          width: 62,
+          child: Text(
+            metric.label.toUpperCase(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GizText.label.copyWith(
+              color: const Color(0xBFFFFFFF),
+              fontSize: 9,
+            ),
+          ),
+        ),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(99),
+            child: SizedBox(
+              height: 4,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  const ColoredBox(color: Color(0x24FFFFFF)),
+                  FractionallySizedBox(
+                    alignment: Alignment.centerLeft,
+                    widthFactor: value,
+                    child: ColoredBox(color: color),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 25,
+          child: Text(
+            '${metric.value}',
+            textAlign: TextAlign.right,
+            style: GizText.label.copyWith(color: GizColors.surface),
+          ),
+        ),
+      ],
     );
   }
 }
