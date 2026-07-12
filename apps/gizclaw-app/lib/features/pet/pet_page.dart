@@ -291,7 +291,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
         _pet = pet;
         _presentation = presentation;
         _pixa = pixa;
-        _clipName = _defaultClip(presentation);
+        _clipName = _defaultClip(presentation, pet);
         _loading = false;
         _error = pixaError;
       });
@@ -324,13 +324,13 @@ class _PetDetailPageState extends State<PetDetailPage> {
       if (!mounted) return;
       setState(() {
         _drivingAction = null;
-        _clipName = _defaultClip(_presentation);
+        _clipName = _defaultClip(_presentation, response.value.pet);
       });
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _drivingAction = null;
-        _clipName = _defaultClip(_presentation);
+        _clipName = _defaultClip(_presentation, _pet);
         _error = error;
       });
     }
@@ -432,7 +432,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
           Positioned(
             right: 18,
             bottom: MediaQuery.paddingOf(context).bottom + 86,
-            width: 204,
+            width: 158,
             child: IgnorePointer(
               ignoring: !_statusVisible,
               child: AnimatedSlide(
@@ -450,6 +450,8 @@ class _PetDetailPageState extends State<PetDetailPage> {
                     child: _PetStatusNameplate(
                       metrics: metrics,
                       progression: progression,
+                      title: _petName(pet, catalog),
+                      visible: _statusVisible,
                     ),
                   ),
                 ),
@@ -660,7 +662,7 @@ class _PetCoverCard extends StatelessWidget {
                           duration: const Duration(milliseconds: 280),
                           child: _AnimatedPetSprite(
                             asset: visual!.pixa!,
-                            clipName: _defaultClip(visual!.presentation),
+                            clipName: _defaultClip(visual!.presentation, pet),
                           ),
                         ),
                 ),
@@ -900,11 +902,27 @@ class _PetDevice extends StatelessWidget {
   }
 }
 
-class _PetStatusNameplate extends StatelessWidget {
-  const _PetStatusNameplate({required this.metrics, required this.progression});
+class _PetStatusNameplate extends StatefulWidget {
+  const _PetStatusNameplate({
+    required this.metrics,
+    required this.progression,
+    required this.title,
+    required this.visible,
+  });
 
   final List<_PetMetric> metrics;
   final String progression;
+  final String title;
+  final bool visible;
+
+  @override
+  State<_PetStatusNameplate> createState() => _PetStatusNameplateState();
+}
+
+class _PetStatusNameplateState extends State<_PetStatusNameplate>
+    with TickerProviderStateMixin {
+  late final AnimationController _scanController;
+  late final AnimationController _pulseController;
 
   static const _colors = [
     GizColors.accent,
@@ -914,64 +932,215 @@ class _PetStatusNameplate extends StatelessWidget {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _scanController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 720),
+    );
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat(reverse: true);
+    if (widget.visible) _scanController.forward();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PetStatusNameplate oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.visible && !oldWidget.visible) {
+      _scanController.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _scanController.dispose();
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 11, 12, 12),
+    return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xF2111916),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0x4DFFFFFF)),
-        boxShadow: const [
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
           BoxShadow(
-            color: Color(0x33000000),
-            blurRadius: 22,
-            offset: Offset(0, 10),
+            color: const Color(0xFF17241F).withValues(alpha: 0.28),
+            blurRadius: 26,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 7,
-                height: 7,
-                decoration: const BoxDecoration(
-                  color: GizColors.accent,
-                  shape: BoxShape.circle,
-                ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 19, sigmaY: 19),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0x70FFFFFF)),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xA31A3029),
+                  Color(0x941D4145),
+                  Color(0x9C46354D),
+                ],
+                stops: [0, 0.56, 1],
               ),
-              const SizedBox(width: 7),
-              Expanded(
-                child: Text(
-                  'VITAL STATUS',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GizText.label.copyWith(color: GizColors.surface),
+            ),
+            child: Stack(
+              children: [
+                const Positioned.fill(
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0x32FFFFFF),
+                            Color(0x08FFFFFF),
+                            Color(0x001EDEB1),
+                          ],
+                          stops: [0, 0.38, 0.72],
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-              Text(
-                progression.toUpperCase(),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GizText.label.copyWith(
-                  color: const Color(0xA8FFFFFF),
-                  fontSize: 9,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 13, 13),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          _HudStatusIndicator(animation: _pulseController),
+                          const SizedBox(width: 8),
+                          Text(
+                            'VITALS',
+                            style: GizText.label.copyWith(
+                              color: GizColors.surface,
+                              fontSize: 9,
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            widget.progression.toUpperCase(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GizText.label.copyWith(
+                              color: const Color(0xA8FFFFFF),
+                              fontSize: 8,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        widget.title.toUpperCase(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GizText.label.copyWith(
+                          color: const Color(0xBFFFFFFF),
+                          fontSize: 8,
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                      Container(height: 1, color: const Color(0x24FFFFFF)),
+                      const SizedBox(height: 10),
+                      for (
+                        var index = 0;
+                        index < widget.metrics.length;
+                        index++
+                      ) ...[
+                        _NameplateMetric(
+                          metric: widget.metrics[index],
+                          color: _colors[index % _colors.length],
+                        ),
+                        if (index != widget.metrics.length - 1)
+                          const SizedBox(height: 10),
+                      ],
+                    ],
+                  ),
                 ),
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: AnimatedBuilder(
+                      animation: _scanController,
+                      builder: (context, child) {
+                        final progress = _scanController.value;
+                        return FractionalTranslation(
+                          translation: Offset(0, progress - 0.5),
+                          child: Opacity(
+                            opacity: math.sin(progress * math.pi) * 0.48,
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: Container(
+                          height: 18,
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Color(0x001EDEB1),
+                                Color(0x801EDEB1),
+                                Color(0x001EDEB1),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HudStatusIndicator extends StatelessWidget {
+  const _HudStatusIndicator({required this.animation});
+
+  final Animation<double> animation;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        return Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(
+            color: Color.lerp(
+              const Color(0xFF159878),
+              GizColors.accent,
+              animation.value,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: GizColors.accent.withValues(
+                  alpha: 0.18 + animation.value * 0.42,
+                ),
+                blurRadius: 4 + animation.value * 7,
               ),
             ],
           ),
-          const SizedBox(height: 9),
-          for (var index = 0; index < metrics.length; index++) ...[
-            _NameplateMetric(
-              metric: metrics[index],
-              color: _colors[index % _colors.length],
-            ),
-            if (index != metrics.length - 1) const SizedBox(height: 7),
-          ],
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -984,47 +1153,48 @@ class _NameplateMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final value = (metric.value / 100).clamp(0.0, 1.0);
-    return Row(
+    const segmentCount = 8;
+    final activeSegments = ((metric.value / 100) * segmentCount).ceil().clamp(
+      0,
+      segmentCount,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SizedBox(
-          width: 64,
-          child: Text(
-            metric.label.toUpperCase(),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GizText.label.copyWith(
-              color: const Color(0xBFFFFFFF),
-              fontSize: 9,
-            ),
-          ),
-        ),
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(99),
-            child: SizedBox(
-              height: 4,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  const ColoredBox(color: Color(0x24FFFFFF)),
-                  FractionallySizedBox(
-                    alignment: Alignment.centerLeft,
-                    widthFactor: value,
-                    child: ColoredBox(color: color),
-                  ),
-                ],
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                metric.label.toUpperCase(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GizText.label.copyWith(
+                  color: const Color(0xBFFFFFFF),
+                  fontSize: 9,
+                ),
               ),
             ),
-          ),
+            const SizedBox(width: 6),
+            Text(
+              '${metric.value}',
+              textAlign: TextAlign.right,
+              style: GizText.label.copyWith(color: GizColors.surface),
+            ),
+          ],
         ),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 25,
-          child: Text(
-            '${metric.value}',
-            textAlign: TextAlign.right,
-            style: GizText.label.copyWith(color: GizColors.surface),
+        const SizedBox(height: 5),
+        Row(
+          children: List.generate(
+            segmentCount,
+            (index) => Expanded(
+              child: Container(
+                height: 6,
+                margin: EdgeInsets.only(
+                  right: index == segmentCount - 1 ? 0 : 2,
+                ),
+                color: index < activeSegments ? color : const Color(0x24FFFFFF),
+              ),
+            ),
           ),
         ),
       ],
@@ -1201,7 +1371,13 @@ class _PetActionFabState extends State<_PetActionFab>
                         ),
                       ],
                     ),
-                    child: Icon(_actionIcon(action.id), size: 20),
+                    child: Icon(
+                      _actionIcon(
+                        action.hasIcon() ? action.icon : null,
+                        action.id,
+                      ),
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 9),
                   DecoratedBox(
@@ -1490,14 +1666,34 @@ String _petName(Pet pet, PetPresentationI18nCatalog? catalog) {
 String _actionName(PetPresentationI18nCatalog? catalog, String id) =>
     catalog?.drive.actions[id]?.displayName ?? _title(id);
 
-String? _defaultClip(PetPresentation? presentation) {
+String? _defaultClip(PetPresentation? presentation, [Pet? pet]) {
   if (presentation == null) return null;
+  final stateClip = _petStateClip(presentation, pet);
+  if (stateClip != null) return stateClip;
   for (final clip in presentation.pixaMetadata.clips) {
     if (clip.actionId == 'idle' || clip.id == 'idle') return clip.pixaClipName;
   }
   return presentation.pixaMetadata.clips.isEmpty
       ? null
       : presentation.pixaMetadata.clips.first.pixaClipName;
+}
+
+String? _petStateClip(PetPresentation presentation, Pet? pet) {
+  if (pet == null) return null;
+  final life = pet.life.value;
+  final candidates = <String>[
+    if ((life['hp']?.toInt() ?? 100) <= 0) 'dead',
+    if ((life['hp']?.toInt() ?? 100) <= 20) 'dying',
+    if ((life['cleanliness']?.toInt() ?? 100) <= 30) 'dirty',
+    if ((life['wellness']?.toInt() ?? 100) <= 30) 'sick',
+    if ((life['energy']?.toInt() ?? 100) <= 30) 'hungry',
+  ];
+  for (final candidate in candidates) {
+    for (final clip in presentation.pixaMetadata.clips) {
+      if (clip.id == candidate) return clip.pixaClipName;
+    }
+  }
+  return null;
 }
 
 String? _clipForAction(PetPresentation? presentation, String actionId) {
@@ -1520,13 +1716,29 @@ Duration _clipDuration(PixaAsset? asset, String? clipName) {
   return const Duration(seconds: 2);
 }
 
-IconData _actionIcon(String id) {
+IconData _actionIcon(String? token, String id) {
+  final semantic = token?.toLowerCase();
+  if (semantic == 'bath' || semantic == 'clean') {
+    return CupertinoIcons.drop_fill;
+  }
+  if (semantic == 'food' || semantic == 'feed' || semantic == 'eat') {
+    return CupertinoIcons.cart_fill;
+  }
+  if (semantic == 'heal' || semantic == 'health') {
+    return CupertinoIcons.plus_circle_fill;
+  }
+  if (semantic == 'sleep') return CupertinoIcons.moon_fill;
+  if (semantic == 'play') return CupertinoIcons.game_controller_solid;
+  if (semantic == 'idle' || semantic == 'magic') {
+    return CupertinoIcons.sparkles;
+  }
+
   final value = id.toLowerCase();
   if (value.contains('bath') || value.contains('clean')) {
     return CupertinoIcons.drop_fill;
   }
   if (value.contains('feed') || value.contains('eat')) {
-    return CupertinoIcons.heart_fill;
+    return CupertinoIcons.cart_fill;
   }
   if (value.contains('heal')) return CupertinoIcons.plus_circle_fill;
   if (value.contains('sleep')) return CupertinoIcons.moon_fill;
