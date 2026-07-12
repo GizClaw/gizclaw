@@ -456,57 +456,72 @@ class _PetDetailPageState extends State<PetDetailPage> {
               child: _PetErrorToast(error: _petError(_error!)),
             ),
           Positioned(
-            left: 18,
-            bottom: MediaQuery.paddingOf(context).bottom + 18,
-            child: _PetActionFab(
-              actions: actions,
-              catalog: catalog,
-              activeAction: _drivingAction,
-              onAction: _drive,
-            ),
-          ),
-          Positioned(
-            right: 18,
-            bottom: MediaQuery.paddingOf(context).bottom + 106,
-            width: 158,
-            child: IgnorePointer(
-              ignoring: !_statusVisible,
-              child: AnimatedSlide(
-                offset: _statusVisible ? Offset.zero : const Offset(0, 0.12),
-                duration: const Duration(milliseconds: 240),
-                curve: Curves.easeOutCubic,
-                child: AnimatedScale(
-                  scale: _statusVisible ? 1 : 0.94,
-                  alignment: Alignment.bottomRight,
-                  duration: const Duration(milliseconds: 240),
-                  curve: Curves.easeOutCubic,
-                  child: AnimatedOpacity(
-                    opacity: _statusVisible ? 1 : 0,
-                    duration: const Duration(milliseconds: 180),
-                    child: _PetStatusNameplate(
-                      metrics: metrics,
-                      progression: progression,
-                      title: _petName(pet, catalog),
-                      visible: _statusVisible,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            right: 18,
-            bottom: MediaQuery.paddingOf(context).bottom + 18,
-            child: _PetStatusFab(
-              visible: _statusVisible,
-              onPressed: () => setState(() => _statusVisible = !_statusVisible),
-            ),
-          ),
-          Positioned(
             left: 0,
             right: 0,
             bottom: MediaQuery.paddingOf(context).bottom + 8,
-            child: Center(child: _PetVoiceFab(chat: chat)),
+            child: Center(
+              child: SizedBox(
+                width: 230,
+                height: 78,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.bottomCenter,
+                  children: [
+                    Positioned(
+                      left: 0,
+                      bottom: 10,
+                      child: _PetActionFab(
+                        actions: actions,
+                        catalog: catalog,
+                        activeAction: _drivingAction,
+                        onAction: _drive,
+                      ),
+                    ),
+                    Positioned(
+                      right: 0,
+                      bottom: 88,
+                      width: 158,
+                      child: IgnorePointer(
+                        ignoring: !_statusVisible,
+                        child: AnimatedSlide(
+                          offset: _statusVisible
+                              ? Offset.zero
+                              : const Offset(0, 0.12),
+                          duration: const Duration(milliseconds: 240),
+                          curve: Curves.easeOutCubic,
+                          child: AnimatedScale(
+                            scale: _statusVisible ? 1 : 0.94,
+                            alignment: Alignment.bottomRight,
+                            duration: const Duration(milliseconds: 240),
+                            curve: Curves.easeOutCubic,
+                            child: AnimatedOpacity(
+                              opacity: _statusVisible ? 1 : 0,
+                              duration: const Duration(milliseconds: 180),
+                              child: _PetStatusNameplate(
+                                metrics: metrics,
+                                progression: progression,
+                                title: _petName(pet, catalog),
+                                visible: _statusVisible,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    _PetVoiceFab(chat: chat),
+                    Positioned(
+                      right: 0,
+                      bottom: 10,
+                      child: _PetStatusFab(
+                        visible: _statusVisible,
+                        onPressed: () =>
+                            setState(() => _statusVisible = !_statusVisible),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
       ),
