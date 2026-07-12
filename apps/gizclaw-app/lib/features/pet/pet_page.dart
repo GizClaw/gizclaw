@@ -378,6 +378,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
       child: Stack(
         fit: StackFit.expand,
         children: [
+          const Positioned.fill(child: _PetMosaicBackground()),
           Positioned(
             left: 18,
             top: MediaQuery.paddingOf(context).top + 12,
@@ -466,6 +467,112 @@ class _PetDetailPageState extends State<PetDetailPage> {
         ],
       ),
     );
+  }
+}
+
+class _PetMosaicBackground extends StatefulWidget {
+  const _PetMosaicBackground();
+
+  @override
+  State<_PetMosaicBackground> createState() => _PetMosaicBackgroundState();
+}
+
+class _PetMosaicBackgroundState extends State<_PetMosaicBackground>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 10),
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _controller
+        ..stop()
+        ..value = 0.28;
+    } else if (!_controller.isAnimating) {
+      _controller.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) =>
+            CustomPaint(painter: _PetMosaicPainter(_controller.value)),
+      ),
+    );
+  }
+}
+
+class _PetMosaicPainter extends CustomPainter {
+  const _PetMosaicPainter(this.progress);
+
+  final double progress;
+
+  static const _activeColors = [
+    GizColors.teal,
+    GizColors.accent,
+    GizColors.ink,
+  ];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const pitch = 18.0;
+    const cellSize = 7.0;
+    final columns = (size.width / pitch).ceil();
+    final rows = (size.height / pitch).ceil();
+    final left = (size.width - (columns - 1) * pitch - cellSize) / 2;
+    final top = (size.height - (rows - 1) * pitch - cellSize) / 2;
+    final basePaint = Paint()..color = GizColors.teal.withValues(alpha: 0.035);
+
+    for (var row = 0; row < rows; row++) {
+      for (var column = 0; column < columns; column++) {
+        final rect = RRect.fromRectAndRadius(
+          Rect.fromLTWH(
+            left + column * pitch,
+            top + row * pitch,
+            cellSize,
+            cellSize,
+          ),
+          const Radius.circular(1),
+        );
+        canvas.drawRRect(rect, basePaint);
+
+        final hash = ((column * 73856093) ^ (row * 19349663)) & 0xffff;
+        if (hash % 4 != 0) continue;
+        final phase = (hash % 997) / 997 * math.pi * 2;
+        final speed = 0.62 + (hash % 5) * 0.09;
+        final wave = math.sin(progress * math.pi * 2 * speed + phase);
+        final pulse = ((wave - 0.72) / 0.28).clamp(0.0, 1.0);
+        if (pulse <= 0) continue;
+        final color = _activeColors[hash % _activeColors.length];
+        canvas.drawRRect(
+          rect,
+          Paint()..color = color.withValues(alpha: 0.04 + pulse * 0.13),
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _PetMosaicPainter oldDelegate) {
+    return oldDelegate.progress != progress;
   }
 }
 
