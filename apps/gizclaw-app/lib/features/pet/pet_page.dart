@@ -486,7 +486,7 @@ class _PetMosaicBackgroundState extends State<_PetMosaicBackground>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 10),
+      duration: const Duration(seconds: 14),
     );
   }
 
@@ -525,49 +525,64 @@ class _PetMosaicPainter extends CustomPainter {
 
   final double progress;
 
-  static const _activeColors = [
-    GizColors.teal,
-    GizColors.accent,
-    GizColors.ink,
+  static const _palette = [
+    Color(0xFFD9E8E0),
+    Color(0xFFCFE4E3),
+    Color(0xFFC4DDD3),
+    Color(0xFFDDE8BE),
+    Color(0xFFD8D7E6),
+    Color(0xFFCADFD8),
   ];
 
   @override
   void paint(Canvas canvas, Size size) {
-    const pitch = 18.0;
-    const cellSize = 7.0;
-    final columns = (size.width / pitch).ceil();
-    final rows = (size.height / pitch).ceil();
-    final left = (size.width - (columns - 1) * pitch - cellSize) / 2;
-    final top = (size.height - (rows - 1) * pitch - cellSize) / 2;
-    final basePaint = Paint()..color = GizColors.teal.withValues(alpha: 0.035);
+    const cellSize = 14.0;
+    final columns = (size.width / cellSize).ceil();
+    final rows = (size.height / cellSize).ceil();
+    final phase = progress * math.pi * 2;
 
     for (var row = 0; row < rows; row++) {
       for (var column = 0; column < columns; column++) {
-        final rect = RRect.fromRectAndRadius(
-          Rect.fromLTWH(
-            left + column * pitch,
-            top + row * pitch,
-            cellSize,
-            cellSize,
-          ),
-          const Radius.circular(1),
+        final x = (column + 0.5) / columns;
+        final y = (row + 0.5) / rows;
+        final primary = math.sin((x * 1.12 + y * 0.74) * math.pi * 2 + phase);
+        final crossWave = math.sin(
+          (x * 0.58 - y * 1.24) * math.pi * 2 - phase * 0.63,
         );
-        canvas.drawRRect(rect, basePaint);
-
-        final hash = ((column * 73856093) ^ (row * 19349663)) & 0xffff;
-        if (hash % 4 != 0) continue;
-        final phase = (hash % 997) / 997 * math.pi * 2;
-        final speed = 0.62 + (hash % 5) * 0.09;
-        final wave = math.sin(progress * math.pi * 2 * speed + phase);
-        final pulse = ((wave - 0.72) / 0.28).clamp(0.0, 1.0);
-        if (pulse <= 0) continue;
-        final color = _activeColors[hash % _activeColors.length];
-        canvas.drawRRect(
-          rect,
-          Paint()..color = color.withValues(alpha: 0.04 + pulse * 0.13),
+        final detail = math.sin(
+          (x * 2.18 + y * 1.66) * math.pi * 2 + phase * 0.31,
+        );
+        final hash = ((column * 73856093) ^ (row * 19349663)) & 0xff;
+        final jitter = (hash / 255 - 0.5) * 0.045;
+        final value =
+            (0.5 + primary * 0.23 + crossWave * 0.14 + detail * 0.055 + jitter)
+                .clamp(0.0, 1.0);
+        canvas.drawRect(
+          Rect.fromLTWH(column * cellSize, row * cellSize, cellSize, cellSize),
+          Paint()..color = _colorAt(value),
         );
       }
     }
+
+    final gridPaint = Paint()
+      ..color = const Color(0x18FFFFFF)
+      ..strokeWidth = 0.5;
+    for (var column = 1; column < columns; column++) {
+      final x = column * cellSize;
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
+    }
+    for (var row = 1; row < rows; row++) {
+      final y = row * cellSize;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+  }
+
+  Color _colorAt(double value) {
+    final scaled = value * (_palette.length - 1);
+    final lower = scaled.floor().clamp(0, _palette.length - 1);
+    final upper = math.min(lower + 1, _palette.length - 1);
+    final blend = Curves.easeInOut.transform(scaled - lower);
+    return Color.lerp(_palette[lower], _palette[upper], blend)!;
   }
 
   @override
