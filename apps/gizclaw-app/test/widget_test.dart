@@ -262,8 +262,7 @@ void main() {
     await tester.tap(find.text('Pet'));
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text('Miso'), findsOneWidget);
-    expect(find.text('Level 7  |  620 friendship XP'), findsOneWidget);
+    expect(find.text('Connect to GizClaw to meet your pets.'), findsOneWidget);
 
     await tester.tap(find.text('Me'));
     await tester.pump(const Duration(milliseconds: 500));
@@ -325,7 +324,7 @@ void main() {
     await tester.tap(find.text('Pet'));
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text('Miso'), findsOneWidget);
+    expect(find.text('Connect to GizClaw to meet your pets.'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

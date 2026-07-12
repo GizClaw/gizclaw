@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../app/app_shell.dart';
 import '../features/browse/browse_pages.dart';
 import '../features/chats/chat_pages.dart';
+import '../features/pet/pet_page.dart';
 import '../features/social/social_pages.dart';
 import '../giz_ui/giz_ui.dart';
 import '../prototype/prototype_data.dart';

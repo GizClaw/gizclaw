@@ -558,8 +558,8 @@ Future<void> _showFriendError(BuildContext context, Object error) =>
       ),
     );
 
-class PetPage extends StatelessWidget {
-  const PetPage({super.key});
+class PrototypePetPage extends StatelessWidget {
+  const PrototypePetPage({super.key});
 
   @override
   Widget build(BuildContext context) {
