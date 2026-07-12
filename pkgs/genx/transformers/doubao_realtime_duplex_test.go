@@ -633,19 +633,24 @@ func TestDoubaoRealtimeDuplexMapsDuplexEventsToStreamChunks(t *testing.T) {
 }
 
 func TestDoubaoRealtimeDuplexInputEOSClosesLocalStream(t *testing.T) {
+	inputDrained := make(chan struct{})
 	session := &fakeDoubaoRealtimeDuplexSession{
-		events: []*doubaospeech.RealtimeDuplexEvent{{Type: doubaospeech.RealtimeDuplexEventSessionClosed}},
+		beforeRecv: inputDrained,
+		events:     []*doubaospeech.RealtimeDuplexEvent{{Type: doubaospeech.RealtimeDuplexEventSessionClosed}},
 	}
 	tfr := NewDoubaoRealtimeDuplexRealtime(nil,
 		WithDoubaoRealtimeDuplexInputFormat("pcm"),
 		WithDoubaoRealtimeDuplexInputTranscode(false),
 		withDoubaoRealtimeDuplexOpener(&fakeDoubaoRealtimeDuplexOpener{session: session}),
 	)
-	input := &sliceRealtimeStream{chunks: []*genx.MessageChunk{
-		{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
-		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0, 2, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
-		{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
-	}}
+	input := &gatedRealtimeStream{
+		first: []*genx.MessageChunk{
+			{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+			{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0, 2, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+			{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+		},
+		firstDrained: inputDrained,
+	}
 
 	err := runDoubaoRealtimeDuplexProcessLoop(t, tfr.DoubaoRealtimeDuplex, input, session)
 	if err != nil {
@@ -653,6 +658,135 @@ func TestDoubaoRealtimeDuplexInputEOSClosesLocalStream(t *testing.T) {
 	}
 	if got := session.audioCount(); got != 1 {
 		t.Fatalf("SendAudio calls = %d, want 1 before EOS", got)
+	}
+}
+
+func TestDoubaoRealtimeDuplexSessionClosedWhileWaitingForInputDoesNotDropNextChunk(t *testing.T) {
+	bosRead := make(chan struct{})
+	firstEventsDrained := make(chan struct{})
+	allowAudio := make(chan struct{})
+	secondAudioSent := make(chan struct{})
+	firstSession := &fakeDoubaoRealtimeDuplexSession{
+		beforeRecv:    bosRead,
+		events:        []*doubaospeech.RealtimeDuplexEvent{{Type: doubaospeech.RealtimeDuplexEventSessionClosed}},
+		eventsDrained: firstEventsDrained,
+	}
+	secondSession := &fakeDoubaoRealtimeDuplexSession{
+		beforeRecv: secondAudioSent,
+		events:     []*doubaospeech.RealtimeDuplexEvent{{Type: doubaospeech.RealtimeDuplexEventSessionClosed}},
+		audioSent:  secondAudioSent,
+	}
+	opener := &fakeDoubaoRealtimeDuplexOpener{sessions: []*fakeDoubaoRealtimeDuplexSession{firstSession, secondSession}}
+	tfr := NewDoubaoRealtimeDuplexRealtime(nil,
+		WithDoubaoRealtimeDuplexInputFormat("pcm"),
+		WithDoubaoRealtimeDuplexInputTranscode(false),
+		withDoubaoRealtimeDuplexOpener(opener),
+	)
+	input := &gatedRealtimeStream{
+		first: []*genx.MessageChunk{
+			{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+		},
+		firstDrained: bosRead,
+		gate:         allowAudio,
+		rest: []*genx.MessageChunk{
+			{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0, 2, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+			{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	output := newBufferStream(16)
+	drainDone := make(chan struct{})
+	go func() {
+		defer close(drainDone)
+		for {
+			if _, err := output.Next(); err != nil {
+				return
+			}
+		}
+	}()
+	done := make(chan struct{})
+	go func() {
+		tfr.sessionLoop(ctx, input, output)
+		close(done)
+	}()
+
+	select {
+	case <-firstEventsDrained:
+	case <-ctx.Done():
+		t.Fatalf("first session did not close after BOS: %v", ctx.Err())
+	}
+	close(allowAudio)
+	select {
+	case <-done:
+	case <-ctx.Done():
+		t.Fatalf("sessionLoop() timed out: %v", ctx.Err())
+	}
+	output.Close()
+	<-drainDone
+	if got := opener.openCount(); got < 1 || got > 2 {
+		t.Fatalf("OpenSession calls = %d, want 1 or 2", got)
+	}
+	if got := firstSession.audioCount() + secondSession.audioCount(); got != 1 {
+		t.Fatalf("total SendAudio calls = %d, want 1", got)
+	}
+	if got := firstSession.audioCount(); got != 0 {
+		t.Fatalf("first session SendAudio calls = %d, want 0", got)
+	}
+	if got := secondSession.audioCount(); got != 1 {
+		t.Fatalf("second session SendAudio calls = %d, want 1", got)
+	}
+}
+
+func TestDoubaoRealtimeDuplexInputReaderPrioritizesDoneOverBufferedInput(t *testing.T) {
+	chunk := &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "turn-2", BeginOfStream: true}}
+	reader := newDoubaoRealtimeDuplexInputReader(&sliceRealtimeStream{
+		chunks: []*genx.MessageChunk{chunk},
+	})
+	defer reader.Close()
+
+	deadline := time.After(2 * time.Second)
+	for len(reader.results) == 0 {
+		select {
+		case <-deadline:
+			t.Fatal("input reader did not buffer test chunk")
+		default:
+			time.Sleep(time.Millisecond)
+		}
+	}
+	done := make(chan struct{})
+	close(done)
+
+	got, err, closed := reader.NextOrDone(done)
+	if got != nil || err != nil || !closed {
+		t.Fatalf("NextOrDone() = (%#v, %v, %v), want done without consuming buffered chunk", got, err, closed)
+	}
+	got, err = reader.Next()
+	if err != nil {
+		t.Fatalf("Next() after done = %v", err)
+	}
+	if got != chunk {
+		t.Fatalf("Next() after done = %#v, want buffered chunk %#v", got, chunk)
+	}
+}
+
+func TestDoubaoRealtimeDuplexPendingChunkPrioritizesDone(t *testing.T) {
+	chunk := &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "pending", BeginOfStream: true}}
+	stream := withDoubaoRealtimeDuplexPendingChunk(emptyRealtimeStream{}, chunk).(doubaoRealtimeDuplexDoneAwareStream)
+	done := make(chan struct{})
+	close(done)
+
+	got, err, closed := stream.NextOrDone(done)
+	if got != nil || err != nil || !closed {
+		t.Fatalf("NextOrDone() = (%#v, %v, %v), want done without consuming pending chunk", got, err, closed)
+	}
+	got, err = stream.Next()
+	if err != nil {
+		t.Fatalf("Next() after done = %v", err)
+	}
+	if got != chunk {
+		t.Fatalf("Next() after done = %#v, want pending chunk %#v", got, chunk)
 	}
 }
 
@@ -797,13 +931,33 @@ func testRealtimeOpusHeadPacket(sampleRate, channels int) []byte {
 }
 
 type fakeDoubaoRealtimeDuplexOpener struct {
-	config  *doubaospeech.RealtimeDuplexConfig
-	session *fakeDoubaoRealtimeDuplexSession
+	config   *doubaospeech.RealtimeDuplexConfig
+	session  *fakeDoubaoRealtimeDuplexSession
+	sessions []*fakeDoubaoRealtimeDuplexSession
+	mu       sync.Mutex
+	opens    int
 }
 
 func (o *fakeDoubaoRealtimeDuplexOpener) OpenSession(_ context.Context, cfg *doubaospeech.RealtimeDuplexConfig) (doubaoRealtimeDuplexSession, error) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
 	o.config = cfg
+	if len(o.sessions) > 0 {
+		index := o.opens
+		if index >= len(o.sessions) {
+			index = len(o.sessions) - 1
+		}
+		o.opens++
+		return o.sessions[index], nil
+	}
+	o.opens++
 	return o.session, nil
+}
+
+func (o *fakeDoubaoRealtimeDuplexOpener) openCount() int {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return o.opens
 }
 
 type fakeDoubaoRealtimeDuplexSession struct {
@@ -813,12 +967,14 @@ type fakeDoubaoRealtimeDuplexSession struct {
 	blockAfterEvents <-chan struct{}
 	outputs          []doubaospeech.RealtimeDuplexFunctionCallOutput
 	functionCallErr  error
+	audioSent        chan<- struct{}
 	closed           bool
 
 	mu                sync.Mutex
 	audio             [][]byte
 	cancels           int
 	eventsDrainedOnce sync.Once
+	audioSentOnce     sync.Once
 }
 
 func (s *fakeDoubaoRealtimeDuplexSession) SendAudio(ctx context.Context, audio []byte) error {
@@ -829,6 +985,11 @@ func (s *fakeDoubaoRealtimeDuplexSession) SendAudio(ctx context.Context, audio [
 	s.mu.Lock()
 	s.audio = append(s.audio, frame)
 	s.mu.Unlock()
+	if s.audioSent != nil {
+		s.audioSentOnce.Do(func() {
+			close(s.audioSent)
+		})
+	}
 	return nil
 }
 
@@ -854,6 +1015,11 @@ func (s *fakeDoubaoRealtimeDuplexSession) Recv() iter.Seq2[*doubaospeech.Realtim
 		}
 		for _, event := range s.events {
 			if !yield(event, nil) {
+				if s.eventsDrained != nil {
+					s.eventsDrainedOnce.Do(func() {
+						close(s.eventsDrained)
+					})
+				}
 				return
 			}
 		}
