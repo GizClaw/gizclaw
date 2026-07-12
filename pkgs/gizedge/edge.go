@@ -334,14 +334,18 @@ func newPeerHTTPProxy(transport http.RoundTripper) http.Handler {
 			req.Host = "gizclaw"
 		},
 		Transport: transport,
+		ModifyResponse: func(resp *http.Response) error {
+			setEdgeCORSHeaders(resp.Header)
+			return nil
+		},
 	}
 	return edgeCORSHandler(proxy)
 }
 
 func edgeCORSHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		setEdgeCORSHeaders(w)
 		if req.Method == http.MethodOptions && isEdgePeerHTTPPath(req.URL.Path) {
+			setEdgeCORSHeaders(w.Header())
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
@@ -349,8 +353,7 @@ func edgeCORSHandler(next http.Handler) http.Handler {
 	})
 }
 
-func setEdgeCORSHeaders(w http.ResponseWriter) {
-	header := w.Header()
+func setEdgeCORSHeaders(header http.Header) {
 	header.Set("Access-Control-Allow-Origin", "*")
 	header.Set("Access-Control-Allow-Methods", "GET,POST,PUT,OPTIONS")
 	header.Set("Access-Control-Allow-Headers", "Authorization,Content-Type,X-Public-Key,X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp")

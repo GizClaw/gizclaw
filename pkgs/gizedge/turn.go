@@ -34,6 +34,11 @@ func startTURN(cfg TURNConfig) (*turnRuntime, error) {
 	if err != nil {
 		return nil, fmt.Errorf("edge: listen turn udp: %w", err)
 	}
+	relayBindAddress, err := turnRelayBindAddress(cfg.Listen)
+	if err != nil {
+		_ = packetConn.Close()
+		return nil, err
+	}
 	runtime := &turnRuntime{packetConn: packetConn}
 	server, err := turn.NewServer(turn.ServerConfig{
 		Realm: cfg.Realm,
@@ -48,7 +53,7 @@ func startTURN(cfg TURNConfig) (*turnRuntime, error) {
 				PacketConn: packetConn,
 				RelayAddressGenerator: &turn.RelayAddressGeneratorPortRange{
 					RelayAddress: relayIP,
-					Address:      "0.0.0.0",
+					Address:      relayBindAddress,
 					MinPort:      cfg.RelayMinPort,
 					MaxPort:      cfg.RelayMaxPort,
 				},
@@ -61,6 +66,18 @@ func startTURN(cfg TURNConfig) (*turnRuntime, error) {
 	}
 	runtime.server = server
 	return runtime, nil
+}
+
+func turnRelayBindAddress(listen string) (string, error) {
+	host, _, err := netSplitHostPort("turn.listen", listen)
+	if err != nil {
+		return "", err
+	}
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return "0.0.0.0", nil
+	}
+	return host, nil
 }
 
 func (r *turnRuntime) Close() error {

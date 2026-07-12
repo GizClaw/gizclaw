@@ -93,7 +93,7 @@ static int test_peer_add_ice_server(gzc_rtc_peer_t *peer, gzc_str_t url, gzc_str
   fake_webrtc_t *fake = global_fake_webrtc;
   (void)peer;
   if (fake == NULL || fake->offer_started || !str_eq_cstr(url, "turn:edge.example.com:3478?transport=udp") ||
-      !str_eq_cstr(username, "edge") || !str_eq_cstr(credential, "secret")) {
+      !str_eq_cstr(username, "edge\"node") || !str_eq_cstr(credential, "sec\\ret")) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
   fake->ice_server_count++;
@@ -588,7 +588,7 @@ static int test_http_request(void *userdata, const gzc_http_request_t *request, 
       return GZC_ERR_INVALID_ARGUMENT;
     }
     const char *body = fake->server_info_body == NULL
-                           ? "{\"protocol\":\"gizclaw-webrtc\",\"public_key\":\"8mfzTdZB1JA43QmNAMWfTfkj5GC9TJxJFveThi9tvK6J\",\"signaling_path\":\"/custom/offer\",\"ice_servers\":[{\"urls\":[\"turn:edge.example.com:3478?transport=udp\"],\"username\":\"edge\",\"credential\":\"secret\"}]}"
+                           ? "{\"protocol\":\"gizclaw-webrtc\",\"public_key\":\"8mfzTdZB1JA43QmNAMWfTfkj5GC9TJxJFveThi9tvK6J\",\"signaling_path\":\"/custom/offer\",\"ice_servers\":[{\"urls\":[\"turn:edge.example.com:3478?transport=udp\"],\"username\":\"edge\\\"node\",\"credential\":\"sec\\\\ret\"}]}"
                            : fake->server_info_body;
     return gzc_buf_append_cstr(&out_response->body, fake->platform, body);
   }

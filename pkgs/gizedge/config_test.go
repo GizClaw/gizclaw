@@ -478,8 +478,17 @@ func TestEdgeCORSHandlerHandlesBrowserPreflight(t *testing.T) {
 }
 
 func TestEdgeCORSHandlerAddsHeadersToForwardedRequests(t *testing.T) {
-	handler := edgeCORSHandler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
+	handler := newPeerHTTPProxy(roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		header := http.Header{}
+		header.Add("Access-Control-Allow-Origin", "https://upstream.example")
+		header.Add("Access-Control-Allow-Origin", "https://duplicate.example")
+		header.Set("Access-Control-Allow-Methods", "GET")
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     header,
+			Body:       io.NopCloser(strings.NewReader("ok")),
+			Request:    req,
+		}, nil
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/server-info", nil)
@@ -490,9 +499,18 @@ func TestEdgeCORSHandlerAddsHeadersToForwardedRequests(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET status = %d body=%s", rec.Code, rec.Body.String())
 	}
-	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "*" {
-		t.Fatalf("Access-Control-Allow-Origin = %q, want *", got)
+	if got := rec.Result().Header.Values("Access-Control-Allow-Origin"); len(got) != 1 || got[0] != "*" {
+		t.Fatalf("Access-Control-Allow-Origin values = %q, want single *", got)
 	}
+	if got := rec.Header().Get("Access-Control-Allow-Methods"); !strings.Contains(got, http.MethodPut) {
+		t.Fatalf("Access-Control-Allow-Methods = %q, want edge methods", got)
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }
 
 func TestUpstreamSignalingURLDefaultsWebRTCPath(t *testing.T) {
@@ -625,6 +643,29 @@ func TestPrivateIngressHTTPClientRefreshesSessionOnUnauthorized(t *testing.T) {
 	}
 	if signalingCount != 2 {
 		t.Fatalf("signalingCount = %d, want retry", signalingCount)
+	}
+}
+
+func TestTURNRelayBindAddressFollowsListenHost(t *testing.T) {
+	tests := []struct {
+		name   string
+		listen string
+		want   string
+	}{
+		{name: "wildcard", listen: "0.0.0.0:9823", want: "0.0.0.0"},
+		{name: "ipv4", listen: "127.0.0.1:9823", want: "127.0.0.1"},
+		{name: "ipv6", listen: "[::1]:9823", want: "::1"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := turnRelayBindAddress(tc.listen)
+			if err != nil {
+				t.Fatalf("turnRelayBindAddress error = %v", err)
+			}
+			if got != tc.want {
+				t.Fatalf("turnRelayBindAddress = %q, want %q", got, tc.want)
+			}
+		})
 	}
 }
 
