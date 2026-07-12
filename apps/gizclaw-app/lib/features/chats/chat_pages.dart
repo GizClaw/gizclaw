@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -262,21 +261,33 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
           ),
           child: Column(
             children: [
-              _AgentSignalStage(
-                imagePath: workflow.driver.imagePath,
-                workflowTitle: workflow.title,
-                state: chat?.state ?? WorkspaceChatState.loading,
-                recording: chat?.recording ?? false,
-                accent: accent,
-                signal: signal,
-              ),
               Expanded(
-                child: _WorkspaceMessageList(
-                  controller: _scrollController,
-                  messages: messages,
-                  state: chat?.state ?? WorkspaceChatState.loading,
-                  signal: signal,
-                  error: chat?.lastError,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: _WorkspaceMessageList(
+                        controller: _scrollController,
+                        messages: messages,
+                        state: chat?.state ?? WorkspaceChatState.loading,
+                        signal: signal,
+                        error: chat?.lastError,
+                      ),
+                    ),
+                    Positioned(
+                      top: 4,
+                      left: 0,
+                      right: 0,
+                      child: IgnorePointer(
+                        child: _AgentSignalStage(
+                          imagePath: workflow.driver.imagePath,
+                          state: chat?.state ?? WorkspaceChatState.loading,
+                          recording: chat?.recording ?? false,
+                          accent: accent,
+                          signal: signal,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               _PushToTalkControl(
@@ -393,7 +404,6 @@ class _SignalPalette {
 class _AgentSignalStage extends StatefulWidget {
   const _AgentSignalStage({
     required this.imagePath,
-    required this.workflowTitle,
     required this.state,
     required this.recording,
     required this.accent,
@@ -405,7 +415,6 @@ class _AgentSignalStage extends StatefulWidget {
   final bool recording;
   final _SignalPalette signal;
   final WorkspaceChatState state;
-  final String workflowTitle;
 
   @override
   State<_AgentSignalStage> createState() => _AgentSignalStageState();
@@ -428,7 +437,7 @@ class _AgentSignalStageState extends State<_AgentSignalStage>
   Widget build(BuildContext context) {
     final active = widget.state == WorkspaceChatState.connected;
     return SizedBox(
-      height: 190,
+      height: 104,
       width: double.infinity,
       child: AnimatedBuilder(
         animation: _controller,
@@ -450,19 +459,6 @@ class _AgentSignalStageState extends State<_AgentSignalStage>
                   ),
                 ),
               ),
-              Positioned(
-                top: 13,
-                child: _SignalStatusPill(
-                  label: widget.recording
-                      ? 'RECEIVING YOUR VOICE'
-                      : active
-                      ? 'AGENT SIGNAL ONLINE'
-                      : _connectionLabel(widget.state),
-                  accent: widget.accent,
-                  active: active,
-                  signal: widget.signal,
-                ),
-              ),
               Transform.translate(
                 offset: Offset(
                   0,
@@ -476,73 +472,37 @@ class _AgentSignalStageState extends State<_AgentSignalStage>
                 ),
               ),
               Positioned(
-                bottom: 12,
-                child: Text(
-                  widget.recording ? 'LISTENING' : widget.workflowTitle,
-                  style: GizText.label.copyWith(
-                    color: widget.recording
-                        ? widget.accent
-                        : widget.signal.muted,
-                    fontSize: 10,
+                bottom: 6,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: widget.signal.panel.withValues(alpha: 0.82),
+                    borderRadius: BorderRadius.circular(99),
+                    border: Border.all(color: widget.signal.line),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 4,
+                    ),
+                    child: Text(
+                      widget.recording
+                          ? 'LISTENING'
+                          : active
+                          ? 'LIVE'
+                          : _connectionLabel(widget.state),
+                      style: GizText.label.copyWith(
+                        color: widget.recording
+                            ? widget.accent
+                            : widget.signal.muted,
+                        fontSize: 8,
+                      ),
+                    ),
                   ),
                 ),
               ),
             ],
           );
         },
-      ),
-    );
-  }
-}
-
-class _SignalStatusPill extends StatelessWidget {
-  const _SignalStatusPill({
-    required this.label,
-    required this.accent,
-    required this.active,
-    required this.signal,
-  });
-
-  final Color accent;
-  final bool active;
-  final String label;
-  final _SignalPalette signal;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(99),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-          decoration: BoxDecoration(
-            color: signal.panel.withValues(alpha: 0.72),
-            borderRadius: BorderRadius.circular(99),
-            border: Border.all(color: signal.line),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: active ? accent : signal.muted,
-                  shape: BoxShape.circle,
-                  boxShadow: active
-                      ? [BoxShadow(color: accent, blurRadius: 8)]
-                      : null,
-                ),
-              ),
-              const SizedBox(width: 7),
-              Text(
-                label,
-                style: GizText.label.copyWith(color: signal.text, fontSize: 9),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -564,13 +524,13 @@ class _AgentCore extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox.square(
-      dimension: 112,
+      dimension: 82,
       child: Stack(
         alignment: Alignment.center,
         children: [
           Container(
-            width: 94 + energy * 10,
-            height: 94 + energy * 10,
+            width: 68 + energy * 8,
+            height: 68 + energy * 8,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
@@ -579,29 +539,25 @@ class _AgentCore extends StatelessWidget {
               boxShadow: [
                 BoxShadow(
                   color: accent.withValues(alpha: 0.12 + energy * 0.14),
-                  blurRadius: 32,
-                  spreadRadius: 4,
+                  blurRadius: 24,
+                  spreadRadius: 2,
                 ),
               ],
             ),
           ),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(24),
+          ClipOval(
             child: Container(
-              width: 72,
-              height: 72,
-              padding: const EdgeInsets.all(5),
+              width: 54,
+              height: 54,
+              padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
                 color: signal.panelStrong,
-                borderRadius: BorderRadius.circular(24),
+                shape: BoxShape.circle,
                 border: Border.all(color: accent.withValues(alpha: 0.46)),
               ),
               child: imagePath == null
-                  ? Icon(CupertinoIcons.waveform, color: accent, size: 30)
-                  : ClipRRect(
-                      borderRadius: BorderRadius.circular(19),
-                      child: Image.asset(imagePath!, fit: BoxFit.cover),
-                    ),
+                  ? Icon(CupertinoIcons.waveform, color: accent, size: 24)
+                  : ClipOval(child: Image.asset(imagePath!, fit: BoxFit.cover)),
             ),
           ),
         ],
