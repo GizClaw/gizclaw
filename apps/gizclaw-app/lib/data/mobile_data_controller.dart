@@ -54,6 +54,10 @@ class MobileDataController extends ChangeNotifier {
   Object? lastError;
   bool refreshing = false;
   Future<GizClawClient>? _reconnecting;
+  Future<void> _workspaceSwitch = Future<void>.value();
+  WorkspaceChatController? _activeWorkspaceChat;
+
+  WorkspaceChatController? get activeWorkspaceChat => _activeWorkspaceChat;
 
   Future<void> start() async {
     if (!connection.profile.isConfigured) {
@@ -224,12 +228,17 @@ class MobileDataController extends ChangeNotifier {
   }
 
   Future<GizClawClient> _performReconnect() async {
+    final workspaceName = _activeWorkspaceChat?.workspaceName;
+    _replaceActiveWorkspaceChat(null);
     connectionState = MobileConnectionState.connecting;
     notifyListeners();
     try {
       final client = await connection.reconnect();
-      connectionState = MobileConnectionState.connected;
       lastError = null;
+      if (workspaceName != null) {
+        await _activateWorkspaceChatNow(workspaceName);
+      }
+      connectionState = MobileConnectionState.connected;
       notifyListeners();
       return client;
     } catch (error) {
@@ -294,8 +303,28 @@ class MobileDataController extends ChangeNotifier {
     return null;
   }
 
-  WorkspaceChatController createWorkspaceChat(String workspaceName) {
-    return WorkspaceChatController(
+  Future<WorkspaceChatController> activateWorkspaceChat(String workspaceName) {
+    final completer = Completer<WorkspaceChatController>();
+    _workspaceSwitch = _workspaceSwitch.then((_) async {
+      try {
+        final current = _activeWorkspaceChat;
+        if (current != null && current.workspaceName == workspaceName) {
+          completer.complete(current);
+          return;
+        }
+        completer.complete(await _activateWorkspaceChatNow(workspaceName));
+      } catch (error, stackTrace) {
+        completer.completeError(error, stackTrace);
+      }
+    });
+    return completer.future;
+  }
+
+  Future<WorkspaceChatController> _activateWorkspaceChatNow(
+    String workspaceName,
+  ) async {
+    _replaceActiveWorkspaceChat(null);
+    final chat = WorkspaceChatController(
       workspaceName: workspaceName,
       repository: workspaceChatRepository,
       serverId: activeServerId,
@@ -304,10 +333,26 @@ class MobileDataController extends ChangeNotifier {
       peerConnection: connection.peerConnection,
       onTransportClosed: recoverTransport,
     );
+    _replaceActiveWorkspaceChat(chat);
+    await chat.start();
+    return chat;
+  }
+
+  void releaseWorkspaceChat(WorkspaceChatController? chat) {
+    if (chat != null && identical(chat, _activeWorkspaceChat)) {
+      _replaceActiveWorkspaceChat(null);
+    }
+  }
+
+  void _replaceActiveWorkspaceChat(WorkspaceChatController? chat) {
+    if (identical(chat, _activeWorkspaceChat)) return;
+    _activeWorkspaceChat?.dispose();
+    _activeWorkspaceChat = chat;
   }
 
   @override
   void dispose() {
+    _replaceActiveWorkspaceChat(null);
     unawaited(_workflowSubscription?.cancel());
     unawaited(_workspaceSubscription?.cancel());
     unawaited(_friendChatSubscription?.cancel());

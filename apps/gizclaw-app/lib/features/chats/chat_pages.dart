@@ -265,17 +265,39 @@ class WorkspaceChatPage extends StatefulWidget {
 class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
   final _scrollController = ScrollController();
   WorkspaceChatController? _chat;
+  MobileDataController? _data;
+  bool _activating = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_chat != null) return;
     final data = MobileDataScope.watch(context);
+    _data = data;
     if (data.connectionState == MobileConnectionState.connecting) return;
-    final chat = data.createWorkspaceChat(widget.workspaceName);
+    final active = data.activeWorkspaceChat;
+    if (active?.workspaceName == widget.workspaceName) {
+      _bindChat(active!, notify: false);
+      return;
+    }
+    if (_chat == null && !_activating) unawaited(_activateChat(data));
+  }
+
+  Future<void> _activateChat(MobileDataController data) async {
+    _activating = true;
+    try {
+      final chat = await data.activateWorkspaceChat(widget.workspaceName);
+      if (mounted) _bindChat(chat, notify: true);
+    } finally {
+      _activating = false;
+    }
+  }
+
+  void _bindChat(WorkspaceChatController chat, {required bool notify}) {
+    if (identical(chat, _chat)) return;
+    _chat?.removeListener(_handleChatChanged);
     _chat = chat;
     chat.addListener(_handleChatChanged);
-    unawaited(chat.start());
+    if (notify && mounted) setState(() {});
   }
 
   void _handleChatChanged() {
@@ -295,7 +317,7 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
   @override
   void dispose() {
     _chat?.removeListener(_handleChatChanged);
-    _chat?.dispose();
+    _data?.releaseWorkspaceChat(_chat);
     _scrollController.dispose();
     super.dispose();
   }

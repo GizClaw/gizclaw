@@ -239,6 +239,7 @@ class PetDetailPage extends StatefulWidget {
 class _PetDetailPageState extends State<PetDetailPage> {
   final _actionFabKey = GlobalKey<_PetActionFabState>();
   GizClawClient? _client;
+  MobileDataController? _data;
   WorkspaceChatController? _chat;
   String? _chatWorkspaceName;
   Pet? _pet;
@@ -255,6 +256,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final data = MobileDataScope.watch(context);
+    _data = data;
     final client = data.connectionState == MobileConnectionState.connected
         ? data.connection.client
         : null;
@@ -277,6 +279,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
   @override
   void dispose() {
     _request += 1;
+    _data?.releaseWorkspaceChat(_chat);
     _replaceChat(null);
     super.dispose();
   }
@@ -288,12 +291,10 @@ class _PetDetailPageState extends State<PetDetailPage> {
   void _replaceChat(WorkspaceChatController? chat, [String? workspaceName]) {
     if (identical(chat, _chat)) return;
     _chat?.removeListener(_handleChatChanged);
-    _chat?.dispose();
     _chat = chat;
     _chatWorkspaceName = workspaceName;
     if (chat != null) {
       chat.addListener(_handleChatChanged);
-      unawaited(chat.start());
     }
   }
 
@@ -323,10 +324,9 @@ class _PetDetailPageState extends State<PetDetailPage> {
       }
       if (!mounted || request != _request) return;
       if (_chatWorkspaceName != pet.workspaceName) {
-        _replaceChat(
-          data.createWorkspaceChat(pet.workspaceName),
-          pet.workspaceName,
-        );
+        final chat = await data.activateWorkspaceChat(pet.workspaceName);
+        if (!mounted || request != _request) return;
+        _replaceChat(chat, pet.workspaceName);
       }
       setState(() {
         _pet = pet;
