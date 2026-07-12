@@ -40,6 +40,16 @@ void main() {
     expect(find.byType(WorkflowArtworkHero), findsOneWidget);
   });
 
+  testWidgets('opens a workspace from jump back in', (tester) async {
+    await pumpApp(tester);
+
+    await tester.tap(find.text('Morning check-in'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ChatroomWorkspacePage), findsOneWidget);
+    expect(find.text('No routes for location'), findsNothing);
+  });
+
   testWidgets('opens collections and the full workflow list', (tester) async {
     await pumpApp(tester);
 

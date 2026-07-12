@@ -261,7 +261,8 @@ class _WorkspaceStrip extends StatelessWidget {
             width: 248,
             child: GizPressable(
               onPressed: () => context.push(
-                '/chats/workspaces/${Uri.encodeComponent(workspace.name)}',
+                '/chats/drivers/${workflow.driver.routeKey}/'
+                '${Uri.encodeComponent(workspace.name)}',
               ),
               borderRadius: BorderRadius.circular(8),
               scaleWhenPressed: 0.985,
