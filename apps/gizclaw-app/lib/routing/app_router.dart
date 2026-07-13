@@ -20,7 +20,10 @@ GoRouter createAppRouter() {
       GoRoute(path: '/', redirect: (_, _) => '/browse'),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
-          return AppShell(navigationShell: navigationShell);
+          return AppShell(
+            navigationShell: navigationShell,
+            location: state.uri,
+          );
         },
         branches: [
           StatefulShellBranch(
@@ -92,6 +95,7 @@ GoRouter createAppRouter() {
                           return _page(
                             state,
                             GlobalConversationOverlay(
+                              location: state.uri,
                               child: driver == WorkflowDriverKind.chatroom
                                   ? ChatroomWorkspacePage(
                                       workspaceName: workspaceName,
@@ -130,6 +134,7 @@ GoRouter createAppRouter() {
                     pageBuilder: (context, state) => _page(
                       state,
                       GlobalConversationOverlay(
+                        location: state.uri,
                         child: PetDetailPage(
                           petId: state.pathParameters['petId']!,
                         ),

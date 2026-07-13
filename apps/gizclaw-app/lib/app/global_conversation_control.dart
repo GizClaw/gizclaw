@@ -10,173 +10,424 @@ import 'package:go_router/go_router.dart';
 import '../data/mobile_data_controller.dart';
 import '../data/workspace_chat_controller.dart';
 import '../giz_ui/giz_ui.dart';
+import '../prototype/prototype_data.dart';
+import '../prototype/prototype_models.dart';
 
 class GlobalConversationOverlay extends StatelessWidget {
   const GlobalConversationOverlay({
     super.key,
     required this.child,
-    this.bottom = 86,
+    required this.location,
+    this.navigationShell,
   });
 
-  final double bottom;
   final Widget child;
+  final Uri location;
+  final StatefulNavigationShell? navigationShell;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
+    return Column(
       children: [
-        child,
-        Positioned(
-          right: 20,
-          bottom: bottom,
-          child: const GlobalConversationControl(compact: true),
-        ),
+        Expanded(child: child),
+        _GlobalBottomDock(location: location, navigationShell: navigationShell),
       ],
     );
   }
 }
 
-class WorkspaceConversationDock extends StatefulWidget {
-  const WorkspaceConversationDock({
-    super.key,
-    required this.workspaceName,
-    this.compact = false,
-  });
+class _GlobalBottomDock extends StatelessWidget {
+  const _GlobalBottomDock({required this.location, this.navigationShell});
 
-  final bool compact;
-  final String workspaceName;
+  final Uri location;
+  final StatefulNavigationShell? navigationShell;
+
+  static const _rootPaths = {'/browse', '/chats', '/friends', '/pet', '/me'};
 
   @override
-  State<WorkspaceConversationDock> createState() =>
-      _WorkspaceConversationDockState();
+  Widget build(BuildContext context) {
+    final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    final shell = navigationShell;
+    final showTabs = shell != null && _rootPaths.contains(location.path);
+    return ColoredBox(
+      color: dark ? const Color(0xFF0D1210) : const Color(0xFFF1F5F1),
+      child: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+        child: Container(
+          height: 76,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(38),
+            boxShadow: [
+              const BoxShadow(
+                color: Color(0x2E61D7FF),
+                blurRadius: 22,
+                spreadRadius: -3,
+                offset: Offset(-18, 7),
+              ),
+              const BoxShadow(
+                color: Color(0x266F75FF),
+                blurRadius: 24,
+                spreadRadius: -4,
+                offset: Offset(-5, 9),
+              ),
+              const BoxShadow(
+                color: Color(0x2EEA6BDB),
+                blurRadius: 24,
+                spreadRadius: -4,
+                offset: Offset(13, 8),
+              ),
+              const BoxShadow(
+                color: Color(0x26FF9D66),
+                blurRadius: 20,
+                spreadRadius: -5,
+                offset: Offset(24, 5),
+              ),
+              BoxShadow(
+                color: dark ? const Color(0x80000000) : const Color(0x1F001812),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(38),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: dark
+                      ? const Color(0xD91B211F)
+                      : const Color(0xE8FAFCFB),
+                  borderRadius: BorderRadius.circular(38),
+                  border: Border.all(
+                    color: dark
+                        ? const Color(0x3DFFFFFF)
+                        : const Color(0x26FFFFFF),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 260),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        transitionBuilder: (child, animation) => FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0, 0.08),
+                              end: Offset.zero,
+                            ).animate(animation),
+                            child: child,
+                          ),
+                        ),
+                        child: showTabs
+                            ? _PrimaryDockNavigation(
+                                key: const ValueKey('primary-dock'),
+                                navigationShell: shell,
+                              )
+                            : _ContextDockNavigation(
+                                key: ValueKey(location.path),
+                                location: location,
+                              ),
+                      ),
+                    ),
+                    Container(
+                      width: 1,
+                      height: 34,
+                      color: dark
+                          ? const Color(0x2EFFFFFF)
+                          : const Color(0x14001913),
+                    ),
+                    const GlobalConversationControl(compact: true),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-class _WorkspaceConversationDockState extends State<WorkspaceConversationDock> {
-  bool _activating = false;
-  Object? _error;
+class _PrimaryDockNavigation extends StatelessWidget {
+  const _PrimaryDockNavigation({super.key, required this.navigationShell});
+
+  final StatefulNavigationShell navigationShell;
+
+  static const _items = [
+    (CupertinoIcons.compass, CupertinoIcons.compass_fill, 'Browse'),
+    (CupertinoIcons.chat_bubble_2, CupertinoIcons.chat_bubble_2_fill, 'Chats'),
+    (CupertinoIcons.person_2, CupertinoIcons.person_2_fill, 'Friends'),
+    (CupertinoIcons.sparkles, CupertinoIcons.sparkles, 'Pet'),
+    (
+      CupertinoIcons.person_crop_circle,
+      CupertinoIcons.person_crop_circle_fill,
+      'Me',
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    return SizedBox(
+      height: 62,
+      child: Row(
+        children: List.generate(_items.length, (index) {
+          final item = _items[index];
+          final selected = navigationShell.currentIndex == index;
+          final foreground = selected
+              ? (dark ? CupertinoColors.white : GizColors.ink)
+              : (dark ? const Color(0x8FFFFFFF) : GizColors.secondaryInk);
+          return Expanded(
+            child: CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: () =>
+                  navigationShell.goBranch(index, initialLocation: selected),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    selected ? item.$2 : item.$1,
+                    size: 20,
+                    color: foreground,
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    item.$3,
+                    maxLines: 1,
+                    style: GizText.label.copyWith(
+                      color: foreground,
+                      fontSize: 8,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+class _ContextDockNavigation extends StatelessWidget {
+  const _ContextDockNavigation({super.key, required this.location});
+
+  final Uri location;
 
   @override
   Widget build(BuildContext context) {
     final data = MobileDataScope.watch(context);
     final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
-    if (data.activeWorkspaceName == widget.workspaceName) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-        decoration: BoxDecoration(
-          color: dark ? const Color(0x2E8DFFD0) : const Color(0x17008768),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: dark ? const Color(0x478DFFD0) : const Color(0x30008768),
+    final info = _dockContext(location, data);
+    return SizedBox(
+      height: 62,
+      child: Row(
+        children: [
+          CupertinoButton(
+            padding: EdgeInsets.zero,
+            minimumSize: const Size(48, 48),
+            onPressed: () {
+              if (GoRouter.of(context).canPop()) {
+                context.pop();
+              } else {
+                context.go(info.fallbackRoute);
+              }
+            },
+            child: Icon(
+              CupertinoIcons.chevron_left,
+              size: 20,
+              color: dark ? CupertinoColors.white : GizColors.ink,
+            ),
           ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 7,
-              height: 7,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: dark ? const Color(0xFF8DFFD0) : const Color(0xFF087F68),
-              ),
-            ),
-            const SizedBox(width: 7),
-            Text(
-              'Active',
-              style: GizText.label.copyWith(
-                color: dark ? const Color(0xFFE5FFF4) : GizColors.ink,
-                fontSize: 9,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    final activeName = data.activeWorkspaceName;
-    final activeTitle = activeName == null
-        ? 'No active workspace'
-        : data.workspace(activeName).title;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        CupertinoButton(
-          padding: EdgeInsets.zero,
-          onPressed: _activating ? null : _activate,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: dark ? const Color(0xE8242D29) : const Color(0xEE111916),
-              border: Border.all(
-                color: dark ? const Color(0x42FFFFFF) : const Color(0x1AFFFFFF),
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x29001812),
-                  blurRadius: 18,
-                  offset: Offset(0, 8),
+          Container(
+            width: 1,
+            height: 28,
+            color: dark ? const Color(0x26FFFFFF) : const Color(0x12001913),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  info.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GizText.title.copyWith(
+                    color: dark ? CupertinoColors.white : GizColors.ink,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    if (info.active) ...[
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Color(0xFF20A67A),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    Expanded(
+                      child: Text(
+                        info.subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GizText.label.copyWith(
+                          color: dark
+                              ? const Color(0x99FFFFFF)
+                              : GizColors.secondaryInk,
+                          fontSize: 8,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-            child: _activating
-                ? const CupertinoActivityIndicator(color: CupertinoColors.white)
-                : const Icon(
+          ),
+          if (!info.active && info.workspaceName != null)
+            CupertinoButton(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              minimumSize: const Size(0, 40),
+              onPressed: () =>
+                  unawaited(data.activateWorkspaceChat(info.workspaceName!)),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
                     CupertinoIcons.bolt_fill,
-                    color: CupertinoColors.white,
-                    size: 20,
+                    size: 15,
+                    color: dark
+                        ? const Color(0xFF8DFFD0)
+                        : const Color(0xFF087F68),
                   ),
-          ),
-        ),
-        const SizedBox(height: 7),
-        Text(
-          'Make Active',
-          style: GizText.label.copyWith(
-            color: dark ? const Color(0xD9FFFFFF) : GizColors.secondaryInk,
-            fontSize: 9,
-          ),
-        ),
-        Text(
-          'Current: $activeTitle',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: GizText.label.copyWith(
-            color: dark ? const Color(0x8FFFFFFF) : const Color(0x8A52605B),
-            fontSize: 8,
-          ),
-        ),
-        if (_error != null) ...[
-          const SizedBox(height: 6),
-          Text(
-            _error.toString(),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: GizText.label.copyWith(
-              color: CupertinoColors.systemRed.resolveFrom(context),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Make Active',
+                    style: GizText.label.copyWith(
+                      color: dark
+                          ? const Color(0xFF8DFFD0)
+                          : const Color(0xFF087F68),
+                      fontSize: 7,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
         ],
-      ],
+      ),
     );
   }
+}
 
-  Future<void> _activate() async {
-    setState(() {
-      _activating = true;
-      _error = null;
-    });
-    try {
-      await MobileDataScope.watch(
-        context,
-      ).activateWorkspaceChat(widget.workspaceName);
-    } catch (error) {
-      _error = error;
-    } finally {
-      if (mounted) setState(() => _activating = false);
-    }
+class _DockContext {
+  const _DockContext({
+    required this.title,
+    required this.subtitle,
+    required this.fallbackRoute,
+    this.active = false,
+    this.workspaceName,
+  });
+
+  final bool active;
+  final String fallbackRoute;
+  final String subtitle;
+  final String title;
+  final String? workspaceName;
+}
+
+_DockContext _dockContext(Uri location, MobileDataController data) {
+  final segments = location.pathSegments
+      .map(Uri.decodeComponent)
+      .toList(growable: false);
+  if (segments.length >= 4 && segments[0] == 'chats') {
+    final driver = WorkflowDriverKind.fromRouteKey(segments[2]);
+    final workspaceName = segments[3];
+    final active = data.activeWorkspaceName == workspaceName;
+    final chatroom = data.chatroomWorkspace(workspaceName);
+    final contextLabel = chatroom == null
+        ? driver.label
+        : chatroom.kind == ChatroomWorkspaceKind.direct
+        ? 'Direct chat'
+        : 'Group chat';
+    final mode =
+        data.activeInputMode == WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME
+        ? 'Realtime'
+        : 'Push to Talk';
+    return _DockContext(
+      title: chatroom?.title ?? data.workspace(workspaceName).title,
+      subtitle: active
+          ? '$contextLabel  /  Active  /  $mode'
+          : '$contextLabel  /  Viewing',
+      fallbackRoute: '/chats/drivers/${driver.routeKey}',
+      active: active,
+      workspaceName: workspaceName,
+    );
   }
+  if (segments.length >= 3 && segments[0] == 'chats') {
+    final driver = WorkflowDriverKind.fromRouteKey(segments[2]);
+    return _DockContext(
+      title: driver.label,
+      subtitle: 'Available workspaces',
+      fallbackRoute: '/chats',
+    );
+  }
+  if (segments.length >= 2 && segments[0] == 'pet') {
+    final pet = data.petRouteContext(segments[1]);
+    final workspaceName = pet?.workspaceName;
+    final active =
+        workspaceName != null && data.activeWorkspaceName == workspaceName;
+    return _DockContext(
+      title: pet?.title ?? 'Pet companion',
+      subtitle: active ? 'Pet  /  Active' : 'Pet  /  Viewing',
+      fallbackRoute: '/pet',
+      active: active,
+      workspaceName: workspaceName,
+    );
+  }
+  if (segments.length >= 3 &&
+      segments[0] == 'browse' &&
+      segments[1] == 'workflows') {
+    final workflow = data.workflow(segments[2]);
+    return _DockContext(
+      title: workflow.title,
+      subtitle: '${workflow.category}  /  ${workflow.driverLabel}',
+      fallbackRoute: '/browse/workflows',
+    );
+  }
+  if (segments.length >= 3 &&
+      segments[0] == 'browse' &&
+      segments[1] == 'collections') {
+    final collection = collectionById(segments[2]);
+    return _DockContext(
+      title: collection.title,
+      subtitle: 'Curated collection',
+      fallbackRoute: '/browse',
+    );
+  }
+  if (location.path == '/browse/workflows') {
+    return const _DockContext(
+      title: 'All Workflows',
+      subtitle: 'Browse every available workflow',
+      fallbackRoute: '/browse',
+    );
+  }
+  return const _DockContext(
+    title: 'GizClaw',
+    subtitle: 'Back to the previous page',
+    fallbackRoute: '/browse',
+  );
 }
 
 class GlobalConversationControl extends StatefulWidget {
@@ -403,7 +654,6 @@ class _VoiceEnergySurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
-    final radius = BorderRadius.circular(size * 0.34);
     final icon = speaking
         ? CupertinoIcons.waveform
         : engaged
@@ -411,16 +661,15 @@ class _VoiceEnergySurface extends StatelessWidget {
         : realtime
         ? CupertinoIcons.dot_radiowaves_left_right
         : CupertinoIcons.mic_fill;
-    return ClipRRect(
-      borderRadius: radius,
+    return ClipOval(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Container(
           width: size,
           height: size,
           decoration: BoxDecoration(
-            borderRadius: radius,
-            gradient: enabled
+            shape: BoxShape.circle,
+            gradient: enabled && (engaged || speaking)
                 ? SweepGradient(
                     transform: GradientRotation(phase * math.pi * 2),
                     colors: [
@@ -432,13 +681,17 @@ class _VoiceEnergySurface extends StatelessWidget {
                     ],
                     stops: const [0, 0.24, 0.5, 0.76, 1],
                   )
-                : const LinearGradient(
-                    colors: [Color(0xFF9CA8A3), Color(0xFF6F7A76)],
+                : LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: dark
+                        ? const [Color(0xFF38413E), Color(0xFF151B19)]
+                        : const [Color(0xFFFDFEFE), Color(0xFFDDE5E1)],
                   ),
             border: Border.all(
-              color: enabled
+              color: enabled && (engaged || speaking)
                   ? energy.withValues(alpha: engaged ? 0.8 : 0.44)
-                  : const Color(0x4DFFFFFF),
+                  : (dark ? const Color(0x4DFFFFFF) : const Color(0x26001913)),
               width: engaged ? 1.6 : 1,
             ),
             boxShadow: [
@@ -454,27 +707,12 @@ class _VoiceEnergySurface extends StatelessWidget {
               ),
             ],
           ),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Positioned(
-                top: 5,
-                left: 8,
-                child: Container(
-                  width: size * 0.42,
-                  height: size * 0.16,
-                  decoration: BoxDecoration(
-                    color: const Color(0x38FFFFFF),
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                ),
-              ),
-              Icon(
-                icon,
-                color: CupertinoColors.white,
-                size: size * (engaged ? 0.42 : 0.38),
-              ),
-            ],
+          child: Icon(
+            icon,
+            color: engaged || speaking
+                ? CupertinoColors.white
+                : (dark ? CupertinoColors.white : GizColors.ink),
+            size: size * (engaged ? 0.42 : 0.38),
           ),
         ),
       ),

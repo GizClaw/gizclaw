@@ -56,6 +56,8 @@ class MobileDataController extends ChangeNotifier {
   Future<GizClawClient>? _reconnecting;
   Future<void> _workspaceSwitch = Future<void>.value();
   WorkspaceChatController? _activeWorkspaceChat;
+  final Map<String, ({String title, String workspaceName})> _petRouteContexts =
+      {};
   PeerRunWorkspaceState? runWorkspaceState;
   Workspace? activeWorkspaceDocument;
 
@@ -67,6 +69,20 @@ class MobileDataController extends ChangeNotifier {
 
   WorkspaceInputMode get activeInputMode =>
       _workspaceInputMode(activeWorkspaceDocument);
+
+  ({String title, String workspaceName})? petRouteContext(String petId) =>
+      _petRouteContexts[petId];
+
+  void rememberPetRouteContext({
+    required String petId,
+    required String title,
+    required String workspaceName,
+  }) {
+    final next = (title: title, workspaceName: workspaceName);
+    if (_petRouteContexts[petId] == next) return;
+    _petRouteContexts[petId] = next;
+    notifyListeners();
+  }
 
   Future<void> start() async {
     if (!connection.profile.isConfigured) {

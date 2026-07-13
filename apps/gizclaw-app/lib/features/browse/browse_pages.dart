@@ -413,10 +413,6 @@ class AllWorkflowsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final data = MobileDataScope.watch(context);
     return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('All Workflows'),
-        border: null,
-      ),
       child: SafeArea(
         child: ListView.builder(
           padding: const EdgeInsets.only(top: 8, bottom: 28),
@@ -442,10 +438,6 @@ class CollectionPage extends StatelessWidget {
         .where((workflow) => collection.workflowNames.contains(workflow.name))
         .toList();
     return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('Collection'),
-        border: null,
-      ),
       child: CustomScrollView(
         slivers: [
           SliverSafeArea(
@@ -552,10 +544,6 @@ class WorkflowDetailPage extends StatelessWidget {
         .where((workspace) => workspace.workflowName == workflow.name)
         .toList();
     return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: Text(workflow.title),
-        border: null,
-      ),
       child: CustomScrollView(
         slivers: [
           SliverSafeArea(

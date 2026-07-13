@@ -5,7 +5,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../app/global_conversation_control.dart';
 import '../../data/mobile_data_controller.dart';
 import '../../data/workspace_chat_controller.dart';
 import '../../giz_ui/giz_ui.dart';
@@ -125,11 +124,6 @@ class DriverWorkspacesPage extends StatelessWidget {
         })
         .toList(growable: false);
     return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: Text(driver.label, style: GizText.title),
-        border: null,
-        transitionBetweenRoutes: false,
-      ),
       child: SafeArea(
         child: _DriverWorkspaceList(
           driver: driver,
@@ -341,7 +335,6 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
     final workflow = data.workflow(workspace.workflowName);
     final chatroomMetadata = data.chatroomWorkspace(widget.workspaceName);
     final chat = _chat;
-    final isActive = data.activeWorkspaceName == widget.workspaceName;
     final messages = chat?.messages ?? const <WorkspaceChatMessage>[];
     final signal = _SignalPalette.of(context);
     final isDirectChat = chatroomMetadata?.kind == ChatroomWorkspaceKind.direct;
@@ -350,81 +343,36 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
         : _driverAccent(workflow.driver, signal.brightness);
     return CupertinoPageScaffold(
       backgroundColor: signal.canvas,
-      navigationBar: CupertinoNavigationBar(
-        backgroundColor: signal.chrome,
-        brightness: signal.brightness,
-        middle: Column(
-          mainAxisSize: MainAxisSize.min,
+      child: SafeArea(
+        bottom: false,
+        child: Stack(
           children: [
-            Text(
-              chatroomMetadata?.title ?? workspace.title,
-              style: GizText.title.copyWith(color: signal.text),
+            Positioned.fill(
+              child: _WorkspaceMessageList(
+                controller: _scrollController,
+                messages: messages,
+                state: chat?.state ?? WorkspaceChatState.loading,
+                signal: signal,
+                error: chat?.lastError,
+                replayingHistoryId: chat?.replayingHistoryId,
+                onReplay: chat?.replayHistory,
+              ),
             ),
-            Text(
-              '${isDirectChat ? 'Direct chat' : workflow.driver.label}'
-              '  /  ${isActive ? _connectionLabel(chat?.state) : 'VIEWING'}',
-              style: GizText.label.copyWith(color: signal.muted, fontSize: 9),
+            Positioned(
+              top: 4,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: _AgentSignalStage(
+                  imagePath: isDirectChat ? null : workflow.driver.imagePath,
+                  state: chat?.state ?? WorkspaceChatState.loading,
+                  recording: chat?.recording ?? false,
+                  accent: accent,
+                  signal: signal,
+                ),
+              ),
             ),
           ],
-        ),
-        trailing: const GizSignalPulse(size: 24),
-        border: null,
-        transitionBetweenRoutes: false,
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: EdgeInsets.only(
-            top:
-                MediaQuery.paddingOf(context).top +
-                kMinInteractiveDimensionCupertino,
-          ),
-          child: Column(
-            children: [
-              Expanded(
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: _WorkspaceMessageList(
-                        controller: _scrollController,
-                        messages: messages,
-                        state: chat?.state ?? WorkspaceChatState.loading,
-                        signal: signal,
-                        error: chat?.lastError,
-                        replayingHistoryId: chat?.replayingHistoryId,
-                        onReplay: chat?.replayHistory,
-                      ),
-                    ),
-                    Positioned(
-                      top: 4,
-                      left: 0,
-                      right: 0,
-                      child: IgnorePointer(
-                        child: _AgentSignalStage(
-                          imagePath: isDirectChat
-                              ? null
-                              : workflow.driver.imagePath,
-                          state: chat?.state ?? WorkspaceChatState.loading,
-                          recording: chat?.recording ?? false,
-                          accent: accent,
-                          signal: signal,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(
-                height: 132,
-                width: double.infinity,
-                child: Center(
-                  child: WorkspaceConversationDock(
-                    workspaceName: widget.workspaceName,
-                  ),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

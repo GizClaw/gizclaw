@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 import 'package:gizclaw/gizclaw.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../app/global_conversation_control.dart';
 import '../../data/mobile_data_controller.dart';
 import '../../data/workspace_chat_controller.dart';
 import '../../giz_ui/giz_ui.dart';
@@ -79,6 +78,15 @@ class _PetPageState extends State<PetPage> {
         cursor = response.value.hasNext ? response.value.nextCursor : null;
       } while (cursor != null && cursor.isNotEmpty);
       if (!mounted || request != _request) return;
+      for (final pet in pets) {
+        data.rememberPetRouteContext(
+          petId: pet.id,
+          title: pet.displayName.trim().isEmpty
+              ? 'Pet companion'
+              : pet.displayName,
+          workspaceName: pet.workspaceName,
+        );
+      }
       setState(() {
         _pets = pets;
         _visuals.removeWhere((id, _) => !pets.any((pet) => pet.id == id));
@@ -476,16 +484,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
             child: _PetConversationDrift(messages: messages),
           ),
           Positioned(
-            left: 18,
-            top: MediaQuery.paddingOf(context).top + 12,
-            child: _SceneButton(
-              label: 'Back',
-              icon: CupertinoIcons.back,
-              onPressed: () => context.pop(),
-            ),
-          ),
-          Positioned(
-            left: 76,
+            left: 20,
             right: 20,
             top: MediaQuery.paddingOf(context).top + 14,
             child: Text(
@@ -571,13 +570,6 @@ class _PetDetailPageState extends State<PetDetailPage> {
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                    Positioned(
-                      left: (constraints.maxWidth - 78) / 2,
-                      bottom: 0,
-                      child: WorkspaceConversationDock(
-                        workspaceName: pet.workspaceName,
                       ),
                     ),
                     Positioned(

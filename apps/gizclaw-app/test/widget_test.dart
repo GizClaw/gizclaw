@@ -24,7 +24,7 @@ void main() {
     expect(find.byIcon(CupertinoIcons.compass_fill), findsOneWidget);
     expect(find.byIcon(CupertinoIcons.mic_fill), findsOneWidget);
     expect(find.text('LIVE'), findsNothing);
-    expect(find.byType(CupertinoTabBar), findsOneWidget);
+    expect(find.byType(CupertinoTabBar), findsNothing);
   });
 
   testWidgets('opens workflow detail from browse', (tester) async {
@@ -64,9 +64,7 @@ void main() {
     expect(find.byType(CollectionArtworkHero), findsOneWidget);
     expect(find.byType(WorkflowArtworkHero), findsNothing);
 
-    await tester.tap(
-      find.byType(CupertinoNavigationBarBackButton).hitTestable(),
-    );
+    await tester.tap(find.byIcon(CupertinoIcons.chevron_left).hitTestable());
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 700));
     await tester.drag(
@@ -112,7 +110,7 @@ void main() {
     expect(find.text('Mobile app plan'), findsOneWidget);
     expect(find.text('Morning check-in'), findsNothing);
 
-    await tester.pageBack();
+    await tester.tap(find.byIcon(CupertinoIcons.chevron_left).hitTestable());
     await tester.pumpAndSettle();
     await tester.tap(find.text('Chatroom'));
     await tester.pumpAndSettle();
@@ -128,7 +126,7 @@ void main() {
     expect(find.byType(ChatroomWorkspacePage), findsOneWidget);
     expect(find.byType(WorkspaceChatPage), findsOneWidget);
     expect(find.text('Builder Crew'), findsOneWidget);
-    expect(find.textContaining('Chatroom'), findsOneWidget);
+    expect(find.textContaining('Group chat'), findsOneWidget);
     expect(find.byType(CupertinoTextField), findsNothing);
   });
 
@@ -173,19 +171,20 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.tap(
-      find.byType(CupertinoNavigationBarBackButton).hitTestable(),
-    );
+    await tester.tap(find.byIcon(CupertinoIcons.chevron_left).hitTestable());
     await tester.pumpAndSettle();
     expect(find.byType(DriverWorkspacesPage), findsOneWidget);
-    expect(find.byType(CupertinoTabBar).hitTestable(), findsOneWidget);
+    expect(find.byType(CupertinoTabBar), findsNothing);
+    expect(find.text('Flowcraft').hitTestable(), findsOneWidget);
+    await tester.tap(find.byIcon(CupertinoIcons.chevron_left).hitTestable());
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Browse'));
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Play your\nworkflows'), findsOneWidget);
 
     await tester.tap(find.text('Chats'));
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.byType(DriverWorkspacesPage), findsOneWidget);
+    expect(find.byType(ChatsPage), findsOneWidget);
   });
 
   testWidgets('renders the workspace signal room', (tester) async {
