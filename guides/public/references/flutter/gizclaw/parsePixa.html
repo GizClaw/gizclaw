@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, user-scalable=no">
+  <meta name="description" content="API docs for the parsePixa function from the gizclaw library, for the Dart programming language.">
+  <title>parsePixa function - gizclaw library - Dart API</title>
+
+
+  
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+  
+  <link rel="stylesheet" href="../static-assets/github.css?v1">
+  <link rel="stylesheet" href="../static-assets/styles.css?v1">
+  <link rel="icon" href="../static-assets/favicon.png?v1">
+  
+</head>
+
+<body data-base-href="../" data-using-base-href="false" class="light-theme">
+<div id="overlay-under-drawer"></div>
+<header id="title">
+  <span id="sidenav-left-toggle" class="material-symbols-outlined" role="button" tabindex="0">menu</span>
+  <ol class="breadcrumbs gt-separated dark hidden-xs">
+    <li><a href="../index.html">gizclaw</a></li>
+    <li><a href="../gizclaw/">gizclaw.dart</a></li>
+    <li class="self-crumb">parsePixa function</li>
+  </ol>
+  <div class="self-name">parsePixa</div>
+  <form class="search navbar-right" role="search">
+    <input type="text" id="search-box" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
+  </form>
+  <button class="toggle" id="theme-button" title="Toggle between light and dark mode" aria-label="Light and dark mode toggle">
+    <span id="dark-theme-button" class="material-symbols-outlined" aria-hidden="true">
+      dark_mode
+    </span>
+    <span id="light-theme-button" class="material-symbols-outlined" aria-hidden="true">
+      light_mode
+    </span>
+  </button>
+</header>
+<main>
+  <div
+      id="dartdoc-main-content"
+      class="main-content"
+      data-above-sidebar="gizclaw&#47;gizclaw-library-sidebar.html"
+      data-below-sidebar="">
+      <div>
+<h1><span class="kind-function">parsePixa</span> function 
+ 
+</h1></div>
+
+    <section class="multi-line-signature">
+        
+<span class="returntype"><a href="../gizclaw/PixaAsset-class.html">PixaAsset</a></span>
+<span class="name ">parsePixa</span>(<wbr><ol class="parameter-list single-line"> <li><span class="parameter" id="parsePixa-param-input"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-typed_data/Uint8List-class.html">Uint8List</a></span> <span class="parameter-name">input</span></span></li>
+</ol>)
+
+        
+
+    </section>
+    
+
+
+    
+<section class="summary source-code" id="source">
+  <h2><span>Implementation</span></h2>
+  <pre class="language-dart"><code class="language-dart">PixaAsset parsePixa(Uint8List input) {
+  final bytes = Uint8List.sublistView(input);
+  final data = ByteData.sublistView(bytes);
+  if (bytes.lengthInBytes &lt; pixaHeaderSize) {
+    throw PixaParseException(&#39;PIXA file is shorter than the header&#39;, bytes);
+  }
+
+  final magic = ascii.decode(
+    Uint8List.sublistView(bytes, 0, 4),
+    allowInvalid: true,
+  );
+  if (magic != pixaMagic) {
+    throw PixaParseException(&#39;Invalid PIXA magic&#39;, bytes, 0);
+  }
+
+  final version = data.getUint16(4, Endian.little);
+  if (version != pixaVersion) {
+    throw PixaParseException(&#39;Unsupported PIXA version $version&#39;, bytes, 4);
+  }
+
+  final headerSize = data.getUint16(6, Endian.little);
+  if (headerSize != pixaHeaderSize) {
+    throw PixaParseException(
+      &#39;Unsupported PIXA header size $headerSize&#39;,
+      bytes,
+      6,
+    );
+  }
+
+  final width = data.getUint16(8, Endian.little);
+  final height = data.getUint16(10, Endian.little);
+  final colorCount = data.getUint16(12, Endian.little);
+  final clipCount = data.getUint16(14, Endian.little);
+  final frameCount = data.getUint32(16, Endian.little);
+  final paletteOffset = data.getUint32(20, Endian.little);
+  final clipOffset = data.getUint32(24, Endian.little);
+  final frameOffset = data.getUint32(28, Endian.little);
+  final payloadOffset = data.getUint32(32, Endian.little);
+  final payloadLength = data.getUint32(36, Endian.little);
+
+  if (width == 0 || height == 0) {
+    throw PixaParseException(&#39;Invalid PIXA canvas size&#39;, bytes, 8);
+  }
+
+  _requireRange(
+    bytes,
+    paletteOffset,
+    colorCount * pixaRgb565BytesPerPixel,
+    &#39;palette&#39;,
+  );
+  _requireRange(bytes, clipOffset, clipCount * pixaClipEntrySize, &#39;clip table&#39;);
+  _requireRange(
+    bytes,
+    frameOffset,
+    frameCount * pixaFrameEntrySize,
+    &#39;frame table&#39;,
+  );
+  _requireRange(bytes, payloadOffset, payloadLength, &#39;payload&#39;);
+
+  final clips = &lt;PixaClip&gt;[];
+  for (var i = 0; i &lt; clipCount; i += 1) {
+    final base = clipOffset + i * pixaClipEntrySize;
+    final name = _readNullTerminatedUtf8(bytes, base, pixaClipNameSize);
+    final firstFrame = data.getUint32(base + 36, Endian.little);
+    final clipFrameCount = data.getUint32(base + 40, Endian.little);
+    if (clipFrameCount == 0) {
+      throw PixaParseException(
+        &#39;PIXA clip &quot;$name&quot; contains no frames&#39;,
+        bytes,
+        base,
+      );
+    }
+    if (firstFrame &gt; frameCount || clipFrameCount &gt; frameCount - firstFrame) {
+      throw PixaParseException(
+        &#39;PIXA clip &quot;$name&quot; references frames outside the frame table&#39;,
+        bytes,
+        base,
+      );
+    }
+
+    clips.add(
+      PixaClip(
+        name: name,
+        anchorX: data.getInt16(base + 32, Endian.little),
+        anchorY: data.getInt16(base + 34, Endian.little),
+        firstFrame: firstFrame,
+        frameCount: clipFrameCount,
+        totalDurationMs: data.getUint32(base + 44, Endian.little),
+        loop: (data.getUint16(base + 48, Endian.little) &amp; 1) == 1,
+      ),
+    );
+  }
+
+  final frames = &lt;PixaFrame&gt;[];
+  for (var i = 0; i &lt; frameCount; i += 1) {
+    final base = frameOffset + i * pixaFrameEntrySize;
+    final framePayloadOffset = data.getUint32(base + 4, Endian.little);
+    final framePayloadLength = data.getUint32(base + 8, Endian.little);
+    if (framePayloadOffset &gt; payloadLength ||
+        framePayloadLength &gt; payloadLength - framePayloadOffset) {
+      throw PixaParseException(
+        &#39;PIXA frame $i references bytes outside the payload&#39;,
+        bytes,
+        base,
+      );
+    }
+
+    final typeCode = data.getUint8(base + 2);
+    frames.add(
+      PixaFrame(
+        durationMs: data.getUint16(base, Endian.little),
+        type: pixaFrameType(typeCode),
+        typeCode: typeCode,
+        payloadOffset: framePayloadOffset,
+        payloadLength: framePayloadLength,
+      ),
+    );
+  }
+
+  return PixaAsset(
+    version: version,
+    canvas: PixaCanvas(width: width, height: height),
+    colorCount: colorCount,
+    paletteOffset: paletteOffset,
+    clipOffset: clipOffset,
+    frameOffset: frameOffset,
+    payloadOffset: payloadOffset,
+    payloadLength: payloadLength,
+    clips: List.unmodifiable(clips),
+    frames: List.unmodifiable(frames),
+    bytes: bytes,
+  );
+}</code></pre>
+</section>
+
+
+  </div> <!-- /.main-content -->
+  <div id="dartdoc-sidebar-left" class="sidebar sidebar-offcanvas-left">
+    <!-- The search input and breadcrumbs below are only responsively visible at low resolutions. -->
+<header id="header-search-sidebar" class="hidden-l">
+  <form class="search-sidebar" role="search">
+    <input type="text" id="search-sidebar" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
+  </form>
+</header>
+<ol class="breadcrumbs gt-separated dark hidden-l" id="sidebar-nav">
+    <li><a href="../index.html">gizclaw</a></li>
+    <li><a href="../gizclaw/">gizclaw</a></li>
+    <li class="self-crumb">parsePixa function</li>
+</ol>
+
+    <h5>gizclaw library</h5>
+    <div id="dartdoc-sidebar-left-content"></div>
+  </div><!--/.sidebar-offcanvas-left-->
+  <div id="dartdoc-sidebar-right" class="sidebar sidebar-offcanvas-right">
+  </div><!--/.sidebar-offcanvas-->
+</main>
+<footer>
+  <span class="no-break">
+    gizclaw
+      0.1.0
+  </span>
+  
+</footer>
+
+
+<script src="../static-assets/highlight.pack.js?v1"></script>
+<script src="../static-assets/docs.dart.js"></script>
+
+</body>
+</html>
+

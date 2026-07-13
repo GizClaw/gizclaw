@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, user-scalable=no">
+  <meta name="description" content="API docs for the tryParseHttpResponse function from the gizclaw library, for the Dart programming language.">
+  <title>tryParseHttpResponse function - gizclaw library - Dart API</title>
+
+
+  
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+  
+  <link rel="stylesheet" href="../static-assets/github.css?v1">
+  <link rel="stylesheet" href="../static-assets/styles.css?v1">
+  <link rel="icon" href="../static-assets/favicon.png?v1">
+  
+</head>
+
+<body data-base-href="../" data-using-base-href="false" class="light-theme">
+<div id="overlay-under-drawer"></div>
+<header id="title">
+  <span id="sidenav-left-toggle" class="material-symbols-outlined" role="button" tabindex="0">menu</span>
+  <ol class="breadcrumbs gt-separated dark hidden-xs">
+    <li><a href="../index.html">gizclaw</a></li>
+    <li><a href="../gizclaw/">gizclaw.dart</a></li>
+    <li class="self-crumb">tryParseHttpResponse function</li>
+  </ol>
+  <div class="self-name">tryParseHttpResponse</div>
+  <form class="search navbar-right" role="search">
+    <input type="text" id="search-box" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
+  </form>
+  <button class="toggle" id="theme-button" title="Toggle between light and dark mode" aria-label="Light and dark mode toggle">
+    <span id="dark-theme-button" class="material-symbols-outlined" aria-hidden="true">
+      dark_mode
+    </span>
+    <span id="light-theme-button" class="material-symbols-outlined" aria-hidden="true">
+      light_mode
+    </span>
+  </button>
+</header>
+<main>
+  <div
+      id="dartdoc-main-content"
+      class="main-content"
+      data-above-sidebar="gizclaw&#47;gizclaw-library-sidebar.html"
+      data-below-sidebar="">
+      <div>
+<h1><span class="kind-function">tryParseHttpResponse</span> function 
+ 
+</h1></div>
+
+    <section class="multi-line-signature">
+        
+<span class="returntype"><a href="../gizclaw/ServiceHttpResponse-class.html">ServiceHttpResponse</a>?</span>
+<span class="name ">tryParseHttpResponse</span>(<wbr><ol class="parameter-list"> <li><span class="parameter" id="tryParseHttpResponse-param-buffer"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-typed_data/Uint8List-class.html">Uint8List</a></span> <span class="parameter-name">buffer</span>, {</span></li>
+<li><span class="parameter" id="tryParseHttpResponse-param-closed"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">closed</span> = <span class="default-value">false</span>, </span></li>
+</ol>})
+
+        
+
+    </section>
+    
+
+
+    
+<section class="summary source-code" id="source">
+  <h2><span>Implementation</span></h2>
+  <pre class="language-dart"><code class="language-dart">ServiceHttpResponse? tryParseHttpResponse(
+  Uint8List buffer, {
+  bool closed = false,
+}) {
+  final headerEnd = _indexOf(buffer, _crlfcrlf);
+  if (headerEnd &lt; 0) {
+    return null;
+  }
+  final headerText = ascii.decode(buffer.sublist(0, headerEnd));
+  final lines = headerText.split(&#39;\r\n&#39;);
+  final statusMatch = RegExp(
+    r&#39;^HTTP&#47;\d(?:\.\d)?\s+(\d{3})(?:\s+(.*))?$&#39;,
+  ).firstMatch(lines.first);
+  if (statusMatch == null) {
+    throw const FormatException(&#39;invalid HTTP response status line&#39;);
+  }
+  final headers = &lt;String, String&gt;{};
+  for (final line in lines.skip(1)) {
+    final index = line.indexOf(&#39;:&#39;);
+    if (index &lt;= 0) {
+      throw const FormatException(&#39;invalid HTTP response header&#39;);
+    }
+    headers[line.substring(0, index).toLowerCase()] = line
+        .substring(index + 1)
+        .trimLeft();
+  }
+  final bodyStart = headerEnd + _crlfcrlf.length;
+  final body = Uint8List.sublistView(buffer, bodyStart);
+  final transferEncoding = headers[&#39;transfer-encoding&#39;] ?? &#39;&#39;;
+  if (RegExp(r&#39;\bchunked\b&#39;, caseSensitive: false).hasMatch(transferEncoding)) {
+    final decoded = _tryDecodeChunkedBody(body);
+    if (decoded == null) {
+      return null;
+    }
+    return ServiceHttpResponse(
+      body: decoded,
+      headers: headers,
+      status: int.parse(statusMatch.group(1)!),
+      statusText: statusMatch.group(2) ?? &#39;&#39;,
+    );
+  }
+  final contentLengthText = headers[&#39;content-length&#39;];
+  final contentLength = contentLengthText == null || contentLengthText.isEmpty
+      ? null
+      : int.tryParse(contentLengthText);
+  if (contentLengthText != null &amp;&amp;
+      contentLengthText.isNotEmpty &amp;&amp;
+      (contentLength == null || contentLength &lt; 0)) {
+    throw FormatException(
+      &#39;invalid HTTP response content-length $contentLengthText&#39;,
+    );
+  }
+  if (contentLength != null) {
+    if (body.length &lt; contentLength) {
+      return null;
+    }
+    return ServiceHttpResponse(
+      body: Uint8List.fromList(body.sublist(0, contentLength)),
+      headers: headers,
+      status: int.parse(statusMatch.group(1)!),
+      statusText: statusMatch.group(2) ?? &#39;&#39;,
+    );
+  }
+  if (!closed) {
+    return null;
+  }
+  return ServiceHttpResponse(
+    body: Uint8List.fromList(body),
+    headers: headers,
+    status: int.parse(statusMatch.group(1)!),
+    statusText: statusMatch.group(2) ?? &#39;&#39;,
+  );
+}</code></pre>
+</section>
+
+
+  </div> <!-- /.main-content -->
+  <div id="dartdoc-sidebar-left" class="sidebar sidebar-offcanvas-left">
+    <!-- The search input and breadcrumbs below are only responsively visible at low resolutions. -->
+<header id="header-search-sidebar" class="hidden-l">
+  <form class="search-sidebar" role="search">
+    <input type="text" id="search-sidebar" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
+  </form>
+</header>
+<ol class="breadcrumbs gt-separated dark hidden-l" id="sidebar-nav">
+    <li><a href="../index.html">gizclaw</a></li>
+    <li><a href="../gizclaw/">gizclaw</a></li>
+    <li class="self-crumb">tryParseHttpResponse function</li>
+</ol>
+
+    <h5>gizclaw library</h5>
+    <div id="dartdoc-sidebar-left-content"></div>
+  </div><!--/.sidebar-offcanvas-left-->
+  <div id="dartdoc-sidebar-right" class="sidebar sidebar-offcanvas-right">
+  </div><!--/.sidebar-offcanvas-->
+</main>
+<footer>
+  <span class="no-break">
+    gizclaw
+      0.1.0
+  </span>
+  
+</footer>
+
+
+<script src="../static-assets/highlight.pack.js?v1"></script>
+<script src="../static-assets/docs.dart.js"></script>
+
+</body>
+</html>
+
