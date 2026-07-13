@@ -522,20 +522,22 @@ class _AgentSignalSceneState extends State<_AgentSignalScene>
         return Stack(
           fit: StackFit.expand,
           children: [
+            Positioned.fill(child: child!),
             Positioned(
               top: 4,
               left: 0,
               right: 0,
               height: 104,
-              child: CustomPaint(
-                painter: _SignalFieldPainter(
-                  progress: _controller.value,
-                  accent: widget.accent,
-                  energy: energy,
+              child: IgnorePointer(
+                child: CustomPaint(
+                  painter: _SignalFieldPainter(
+                    progress: _controller.value,
+                    accent: widget.accent,
+                    energy: energy,
+                  ),
                 ),
               ),
             ),
-            Positioned.fill(child: child!),
             Positioned(
               top: 4,
               left: 0,

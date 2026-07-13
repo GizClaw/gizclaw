@@ -475,13 +475,17 @@ class _PetDetailPageState extends State<PetDetailPage> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          const Positioned.fill(child: _PetMosaicBackground()),
           Positioned(
             left: 14,
             right: 14,
             top: safeTop + 86,
             bottom: MediaQuery.paddingOf(context).bottom + 106,
             child: _PetConversationDrift(messages: messages),
+          ),
+          const Positioned.fill(
+            child: IgnorePointer(
+              child: Opacity(opacity: 0.42, child: _PetMosaicBackground()),
+            ),
           ),
           Positioned(
             left: 20,
