@@ -466,10 +466,10 @@ class _PetDetailPageState extends State<PetDetailPage> {
               .map((entry) => '${_title(entry.key)} ${entry.value}')
               .join('  |  ');
     final actions = _petMenuActions(_presentation);
-    const actionLayerHeight = _petActionMenuHeight + 10;
     final chat = _chat;
     final messages = chat?.messages ?? const <WorkspaceChatMessage>[];
     final visibleError = chat?.lastError ?? _error;
+    final safeTop = MediaQuery.paddingOf(context).top;
     return CupertinoPageScaffold(
       backgroundColor: _petDetailBackground,
       child: Stack(
@@ -479,25 +479,14 @@ class _PetDetailPageState extends State<PetDetailPage> {
           Positioned(
             left: 14,
             right: 14,
-            top: MediaQuery.paddingOf(context).top + 86,
+            top: safeTop + 86,
             bottom: MediaQuery.paddingOf(context).bottom + 106,
             child: _PetConversationDrift(messages: messages),
           ),
           Positioned(
             left: 20,
             right: 20,
-            top: MediaQuery.paddingOf(context).top + 14,
-            child: Text(
-              _petName(pet, catalog),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GizText.sectionTitle,
-            ),
-          ),
-          Positioned(
-            left: 20,
-            right: 20,
-            top: MediaQuery.paddingOf(context).top + 76,
+            top: safeTop + 58,
             bottom: MediaQuery.paddingOf(context).bottom + 106,
             child: SingleChildScrollView(
               child: _PetGameConsole(
@@ -515,76 +504,58 @@ class _PetDetailPageState extends State<PetDetailPage> {
               child: _PetErrorToast(error: _petError(visibleError)),
             ),
           Positioned(
-            left: 0,
-            right: 0,
-            bottom: MediaQuery.paddingOf(context).bottom + 8,
-            height: actionLayerHeight,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final dockLeft = (constraints.maxWidth - 206) / 2;
-                return Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Positioned(
-                      left: dockLeft - _petActionAnchor,
-                      bottom: 14,
-                      child: _PetActionFab(
-                        key: _actionFabKey,
-                        actions: actions,
-                        catalog: catalog,
-                        activeAction: _drivingAction,
-                        onAction: _activateMenuAction,
-                        onExpand: () {
-                          if (_statusVisible) {
-                            setState(() => _statusVisible = false);
-                          }
-                        },
-                      ),
+            left: 18 - _petActionAnchor,
+            top: safeTop + 12,
+            child: _PetActionFab(
+              key: _actionFabKey,
+              actions: actions,
+              catalog: catalog,
+              activeAction: _drivingAction,
+              onAction: _activateMenuAction,
+              onExpand: () {
+                if (_statusVisible) {
+                  setState(() => _statusVisible = false);
+                }
+              },
+            ),
+          ),
+          Positioned(
+            right: 18,
+            top: safeTop + 74,
+            width: 158,
+            child: IgnorePointer(
+              ignoring: !_statusVisible,
+              child: AnimatedSlide(
+                offset: _statusVisible ? Offset.zero : const Offset(0, -0.08),
+                duration: const Duration(milliseconds: 240),
+                curve: Curves.easeOutCubic,
+                child: AnimatedScale(
+                  scale: _statusVisible ? 1 : 0.94,
+                  alignment: Alignment.topRight,
+                  duration: const Duration(milliseconds: 240),
+                  curve: Curves.easeOutCubic,
+                  child: AnimatedOpacity(
+                    opacity: _statusVisible ? 1 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    child: _PetStatusNameplate(
+                      metrics: metrics,
+                      progression: progression,
+                      title: _petName(pet, catalog),
+                      visible: _statusVisible,
                     ),
-                    Positioned(
-                      left: dockLeft + 104,
-                      bottom: 88,
-                      width: 158,
-                      child: IgnorePointer(
-                        ignoring: !_statusVisible,
-                        child: AnimatedSlide(
-                          offset: _statusVisible
-                              ? Offset.zero
-                              : const Offset(0, 0.12),
-                          duration: const Duration(milliseconds: 240),
-                          curve: Curves.easeOutCubic,
-                          child: AnimatedScale(
-                            scale: _statusVisible ? 1 : 0.94,
-                            alignment: Alignment.bottomCenter,
-                            duration: const Duration(milliseconds: 240),
-                            curve: Curves.easeOutCubic,
-                            child: AnimatedOpacity(
-                              opacity: _statusVisible ? 1 : 0,
-                              duration: const Duration(milliseconds: 180),
-                              child: _PetStatusNameplate(
-                                metrics: metrics,
-                                progression: progression,
-                                title: _petName(pet, catalog),
-                                visible: _statusVisible,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      left: dockLeft + 156,
-                      bottom: 14,
-                      child: _PetStatusFab(
-                        visible: _statusVisible,
-                        onPressed: () {
-                          _actionFabKey.currentState?.collapse();
-                          setState(() => _statusVisible = !_statusVisible);
-                        },
-                      ),
-                    ),
-                  ],
-                );
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 18,
+            top: safeTop + 12,
+            child: _PetStatusFab(
+              visible: _statusVisible,
+              onPressed: () {
+                _actionFabKey.currentState?.collapse();
+                setState(() => _statusVisible = !_statusVisible);
               },
             ),
           ),
@@ -1694,12 +1665,12 @@ class _PetActionFabState extends State<_PetActionFab>
         builder: (context, _) {
           return Stack(
             clipBehavior: Clip.none,
-            alignment: Alignment.bottomLeft,
+            alignment: Alignment.topLeft,
             children: [
               Positioned(
                 left: 0,
                 right: 0,
-                bottom: 58,
+                top: 58,
                 height: _petActionRailHeight,
                 child: IgnorePointer(
                   ignoring:
@@ -1707,9 +1678,9 @@ class _PetActionFabState extends State<_PetActionFab>
                   child: Opacity(
                     opacity: _controller.value,
                     child: Transform.translate(
-                      offset: Offset(0, 16 * (1 - _controller.value)),
+                      offset: Offset(0, -16 * (1 - _controller.value)),
                       child: Transform.scale(
-                        alignment: Alignment.bottomLeft,
+                        alignment: Alignment.topLeft,
                         scale: 0.92 + _controller.value * 0.08,
                         child: _buildActionRail(),
                       ),
@@ -1719,7 +1690,7 @@ class _PetActionFabState extends State<_PetActionFab>
               ),
               Positioned(
                 left: _petActionAnchor,
-                bottom: 0,
+                top: 0,
                 child: Semantics(
                   label: _expanded ? 'Close pet actions' : 'Open pet actions',
                   button: true,
