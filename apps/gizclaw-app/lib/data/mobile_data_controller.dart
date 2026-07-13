@@ -14,6 +14,40 @@ import 'workspace_chat_controller.dart';
 
 enum MobileConnectionState { unconfigured, connecting, connected, offline }
 
+enum MobileWorkspaceSurface { raid, friend, group, pet }
+
+class MobileWorkspaceDestination {
+  const MobileWorkspaceDestination({
+    required this.surface,
+    required this.workspaceName,
+    this.resourceId,
+    this.driver,
+  }) : assert(
+         surface != MobileWorkspaceSurface.pet || resourceId != null,
+         'Pet destinations require a resource ID',
+       ),
+       assert(
+         surface != MobileWorkspaceSurface.raid || driver != null,
+         'Raid destinations require a driver',
+       );
+
+  final WorkflowDriverKind? driver;
+  final String? resourceId;
+  final MobileWorkspaceSurface surface;
+  final String workspaceName;
+
+  String get route => switch (surface) {
+    MobileWorkspaceSurface.friend =>
+      '/raids/drivers/chatroom/${Uri.encodeComponent(workspaceName)}',
+    MobileWorkspaceSurface.group =>
+      '/groups/${Uri.encodeComponent(workspaceName)}',
+    MobileWorkspaceSurface.pet => '/pets/${Uri.encodeComponent(resourceId!)}',
+    MobileWorkspaceSurface.raid =>
+      '/raids/drivers/${driver!.routeKey}/'
+          '${Uri.encodeComponent(workspaceName)}',
+  };
+}
+
 class MobileDataController extends ChangeNotifier {
   MobileDataController({
     AppDatabase? database,
@@ -339,27 +373,61 @@ class MobileDataController extends ChangeNotifier {
   }
 
   Future<String> routeForWorkspace(String workspaceName) async {
-    final chatroom = chatroomWorkspace(workspaceName);
-    if (chatroom != null) {
-      final root = chatroom.kind == ChatroomWorkspaceKind.group
-          ? '/groups'
-          : '/raids/drivers/chatroom';
-      return '$root/${Uri.encodeComponent(workspaceName)}';
-    }
+    return (await destinationForWorkspace(workspaceName)).route;
+  }
+
+  Future<MobileWorkspaceDestination> destinationForWorkspace(
+    String workspaceName,
+  ) async {
+    final cached = cachedDestinationForWorkspace(workspaceName);
+    if (cached != null) return cached;
     final client = connection.client;
     if (client != null) {
       String? cursor;
       do {
         final response = await client.listPets(cursor: cursor, limit: 100);
         for (final pet in response.value.items) {
-          if (pet.workspaceName == workspaceName) return '/pets/${pet.id}';
+          if (pet.workspaceName == workspaceName) {
+            return MobileWorkspaceDestination(
+              surface: MobileWorkspaceSurface.pet,
+              workspaceName: workspaceName,
+              resourceId: pet.id,
+            );
+          }
         }
         cursor = response.value.hasNext ? response.value.nextCursor : null;
       } while (cursor != null && cursor.isNotEmpty);
     }
     final workspace = this.workspace(workspaceName);
-    final driver = workflow(workspace.workflowName).driver.routeKey;
-    return '/raids/drivers/$driver/${Uri.encodeComponent(workspaceName)}';
+    return MobileWorkspaceDestination(
+      surface: MobileWorkspaceSurface.raid,
+      workspaceName: workspaceName,
+      driver: workflow(workspace.workflowName).driver,
+    );
+  }
+
+  MobileWorkspaceDestination? cachedDestinationForWorkspace(
+    String workspaceName,
+  ) {
+    final chatroom = chatroomWorkspace(workspaceName);
+    if (chatroom != null) {
+      return MobileWorkspaceDestination(
+        surface: chatroom.kind == ChatroomWorkspaceKind.group
+            ? MobileWorkspaceSurface.group
+            : MobileWorkspaceSurface.friend,
+        workspaceName: workspaceName,
+      );
+    }
+    for (final entry in _petRouteContexts.entries) {
+      if (entry.value.workspaceName == workspaceName) {
+        return MobileWorkspaceDestination(
+          surface: MobileWorkspaceSurface.pet,
+          workspaceName: workspaceName,
+          resourceId: entry.key,
+        );
+      }
+    }
+    return null;
   }
 
   Future<WorkspaceChatController> activateWorkspaceChat(String workspaceName) {

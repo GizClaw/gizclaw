@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../app/app_shell.dart';
 import '../app/global_conversation_control.dart';
+import '../features/active/active_workspace_page.dart';
 import '../features/chats/chat_pages.dart';
 import '../features/pet/pet_page.dart';
 import '../features/social/social_pages.dart';
@@ -30,7 +31,7 @@ GoRouter createAppRouter() {
               GoRoute(
                 path: '/active',
                 pageBuilder: (context, state) =>
-                    _page(state, const ActiveChatPage()),
+                    _page(state, const ActiveWorkspacePage()),
               ),
             ],
           ),

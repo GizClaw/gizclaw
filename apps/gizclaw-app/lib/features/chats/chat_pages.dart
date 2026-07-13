@@ -12,63 +12,6 @@ import '../../data/workspace_chat_controller.dart';
 import '../../giz_ui/giz_ui.dart';
 import '../../prototype/prototype_models.dart';
 
-class ActiveChatPage extends StatelessWidget {
-  const ActiveChatPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final data = MobileDataScope.watch(context);
-    final workspaceName = data.activeWorkspaceName;
-    if (workspaceName != null) {
-      return WorkspaceChatPage(
-        key: ValueKey('active-chat-$workspaceName'),
-        workspaceName: workspaceName,
-      );
-    }
-
-    final signal = _SignalPalette.of(context);
-    final loading =
-        data.refreshing ||
-        data.connectionState == MobileConnectionState.connecting;
-    return CupertinoPageScaffold(
-      backgroundColor: signal.canvas,
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: EdgeInsets.only(
-            bottom: GlobalConversationOverlay.bottomContentInset(context),
-          ),
-          child: Center(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 240),
-              child: loading
-                  ? const CupertinoActivityIndicator(
-                      key: ValueKey('active-chat-loading'),
-                    )
-                  : Column(
-                      key: const ValueKey('active-chat-empty'),
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          CupertinoIcons.waveform,
-                          size: 34,
-                          color: signal.muted,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'No active conversation',
-                          style: GizText.title.copyWith(color: signal.text),
-                        ),
-                      ],
-                    ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class ChatsPage extends StatelessWidget {
   const ChatsPage({super.key});
 

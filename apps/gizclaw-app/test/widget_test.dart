@@ -41,7 +41,7 @@ void main() {
   testWidgets('opens on the active conversation destination', (tester) async {
     await pumpApp(tester);
 
-    expect(find.byType(ActiveChatPage), findsOneWidget);
+    expect(find.byType(ActiveWorkspacePage), findsOneWidget);
     expect(find.text('No active conversation'), findsOneWidget);
     expect(primaryNav('Active'), findsOneWidget);
     expect(find.byKey(const ValueKey('voice-mode-thumb')), findsOneWidget);
@@ -58,10 +58,46 @@ void main() {
       );
     await pumpApp(tester, controller: controller);
 
-    expect(find.byType(ActiveChatPage), findsOneWidget);
+    expect(find.byType(ActiveWorkspacePage), findsOneWidget);
     expect(find.byType(WorkspaceChatPage), findsOneWidget);
     expect(find.text('No active conversation'), findsNothing);
     expect(find.text('OFFLINE'), findsOneWidget);
+  });
+
+  testWidgets('shows the pet scene for an active pet workspace', (
+    tester,
+  ) async {
+    final controller = _ActiveDestinationController(
+      const MobileWorkspaceDestination(
+        surface: MobileWorkspaceSurface.pet,
+        workspaceName: 'pet-workspace',
+        resourceId: 'pet-1',
+      ),
+    );
+    await pumpApp(tester, controller: controller);
+
+    expect(find.byType(ActiveWorkspacePage), findsOneWidget);
+    expect(find.byKey(const ValueKey('active-pet-pet-1')), findsOneWidget);
+    expect(find.byType(WorkspaceChatPage), findsNothing);
+  });
+
+  testWidgets('shows the chatroom scene for an active group workspace', (
+    tester,
+  ) async {
+    final controller = _ActiveDestinationController(
+      const MobileWorkspaceDestination(
+        surface: MobileWorkspaceSurface.group,
+        workspaceName: 'group-workspace',
+      ),
+    );
+    await pumpApp(tester, controller: controller);
+
+    expect(find.byType(ActiveWorkspacePage), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('active-chatroom-group-workspace')),
+      findsOneWidget,
+    );
+    expect(find.byType(ChatroomWorkspacePage), findsOneWidget);
   });
 
   testWidgets('opens chat types before their conversations', (tester) async {
@@ -163,7 +199,7 @@ void main() {
     await tester.pumpAndSettle();
     await tapPrimaryNav(tester, 'Active');
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.byType(ActiveChatPage), findsOneWidget);
+    expect(find.byType(ActiveWorkspacePage), findsOneWidget);
 
     await tapPrimaryNav(tester, 'Raids');
     await tester.pump(const Duration(milliseconds: 500));
@@ -400,7 +436,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await pumpApp(tester);
-    expect(find.byType(ActiveChatPage), findsOneWidget);
+    expect(find.byType(ActiveWorkspacePage), findsOneWidget);
 
     await tapPrimaryNav(tester, 'Pets');
     await tester.pump(const Duration(milliseconds: 400));
@@ -452,4 +488,18 @@ class _ModeSwitchController extends MobileDataController {
     this.mode = mode;
     notifyListeners();
   }
+}
+
+class _ActiveDestinationController extends MobileDataController {
+  _ActiveDestinationController(this.destination);
+
+  final MobileWorkspaceDestination destination;
+
+  @override
+  String? get activeWorkspaceName => destination.workspaceName;
+
+  @override
+  Future<MobileWorkspaceDestination> destinationForWorkspace(
+    String workspaceName,
+  ) async => destination;
 }
