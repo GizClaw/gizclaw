@@ -270,29 +270,38 @@ func TestWebRTCListenConfigUsesRelayOnlyWithICEServers(t *testing.T) {
 	}
 }
 
-func TestWebRTCListenConfigMintsTURNRESTCredentials(t *testing.T) {
-	now := time.Unix(1_700_000_000, 0)
-	servers := serverListenICEServersAt([]gizwebrtc.ICEServer{{
-		URLs:           []string{"turn:edge.example.com:3478?transport=udp"},
-		Username:       "edge",
-		Credential:     "long-term-secret",
-		CredentialMode: gizwebrtc.ICECredentialModeTURNREST,
-	}}, now)
-	if len(servers) != 1 {
-		t.Fatalf("servers len = %d, want 1", len(servers))
+func TestWebRTCListenConfigKeepsTURNRESTCredentialsForPerAnswerMinting(t *testing.T) {
+	cfg := webRTCListenConfig(Config{
+		Listen:   "0.0.0.0:9820",
+		Endpoint: "192.168.1.20:19820",
+		ICEServers: []gizwebrtc.ICEServer{{
+			URLs:           []string{"turn:edge.example.com:3478?transport=udp"},
+			Username:       "edge",
+			Credential:     "long-term-secret",
+			CredentialMode: gizwebrtc.ICECredentialModeTURNREST,
+		}},
+	}, gizclaw.PeerListenerOptions{}, nil)
+	if len(cfg.ICEServers) != 1 {
+		t.Fatalf("ICEServers len = %d, want 1", len(cfg.ICEServers))
 	}
-	got := servers[0]
-	if got.Username != "1700000600:edge" {
-		t.Fatalf("username = %q, want short-lived REST username", got.Username)
+	got := cfg.ICEServers[0]
+	if got.Username != "edge" || got.Credential != "long-term-secret" || got.CredentialMode != gizwebrtc.ICECredentialModeTURNREST {
+		t.Fatalf("ICEServers[0] = %+v, want raw TURN REST config", got)
 	}
-	if got.Credential == "" || got.Credential == "long-term-secret" {
-		t.Fatalf("credential = %q, want minted credential", got.Credential)
-	}
-	if want := turnRESTCredential("long-term-secret", got.Username); got.Credential != want {
-		t.Fatalf("credential = %q, want %q", got.Credential, want)
-	}
-	if got.CredentialMode != gizwebrtc.ICECredentialModeStatic {
-		t.Fatalf("CredentialMode = %q, want static", got.CredentialMode)
+}
+
+func TestWebRTCListenConfigRejectsEmptyTURNRESTSecret(t *testing.T) {
+	cfg := webRTCListenConfig(Config{
+		Listen:   "0.0.0.0:9820",
+		Endpoint: "192.168.1.20:19820",
+		ICEServers: []gizwebrtc.ICEServer{{
+			URLs:           []string{"turn:edge.example.com:3478?transport=udp"},
+			Username:       "edge",
+			CredentialMode: gizwebrtc.ICECredentialModeTURNREST,
+		}},
+	}, gizclaw.PeerListenerOptions{}, nil)
+	if _, err := cfg.Listen(testKeyPair(t, 0x44)); err == nil {
+		t.Fatal("Listen error = nil, want empty TURN REST credential rejection")
 	}
 }
 

@@ -1586,7 +1586,7 @@ int main(void) {
     return 1;
   }
   rc = gzc_client_connect(client_no_ice_hook);
-  if (expect(rc == GZC_OK, "client connect without ICE hook ignores optional ICE metadata") != 0) {
+  if (expect(rc == GZC_ERR_UNSUPPORTED, "client connect without ICE hook rejects advertised ICE metadata") != 0) {
     gzc_client_destroy(client_no_ice_hook);
     gzc_buf_free(&fake_webrtc_no_ice_hook.sent, platform);
     return 1;

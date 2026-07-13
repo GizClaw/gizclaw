@@ -290,6 +290,10 @@ static int apply_ice_servers(gzc_client_t *client, gzc_str_t body) {
       result = rc;
       break;
     }
+    if (client->peer_add_ice_server == NULL) {
+      result = GZC_ERR_UNSUPPORTED;
+      break;
+    }
     bool applied_url = false;
     while (true) {
       gzc_str_t url_raw;
@@ -308,12 +312,10 @@ static int apply_ice_servers(gzc_client_t *client, gzc_str_t body) {
         result = rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
         break;
       }
-      if (client->peer_add_ice_server != NULL) {
-        rc = client->peer_add_ice_server(client->peer, url, username, credential);
-        if (rc != GZC_OK) {
-          result = rc;
-          break;
-        }
+      rc = client->peer_add_ice_server(client->peer, url, username, credential);
+      if (rc != GZC_OK) {
+        result = rc;
+        break;
       }
       applied_url = true;
     }

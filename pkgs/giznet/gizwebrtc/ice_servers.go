@@ -1,8 +1,13 @@
 package gizwebrtc
 
 import (
+	"crypto/hmac"
+	"crypto/sha1"
+	"encoding/base64"
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pion/webrtc/v4"
 )
@@ -17,6 +22,8 @@ type ICEServer struct {
 const (
 	ICECredentialModeStatic   = "static"
 	ICECredentialModeTURNREST = "turn-rest"
+
+	turnCredentialTTL = 10 * time.Minute
 )
 
 func validateICEServers(servers []ICEServer) error {
@@ -48,6 +55,10 @@ func validateICEServers(servers []ICEServer) error {
 }
 
 func webrtcICEServers(servers []ICEServer) []webrtc.ICEServer {
+	return webrtcICEServersAt(servers, time.Now())
+}
+
+func webrtcICEServersAt(servers []ICEServer, now time.Time) []webrtc.ICEServer {
 	if len(servers) == 0 {
 		return nil
 	}
@@ -62,13 +73,33 @@ func webrtcICEServers(servers []ICEServer) []webrtc.ICEServer {
 		if len(urls) == 0 {
 			continue
 		}
+		username := server.Username
+		credential := server.Credential
+		if server.CredentialMode == ICECredentialModeTURNREST {
+			username = turnRESTUsername(now.Add(turnCredentialTTL), server.Username)
+			credential = turnRESTCredential(server.Credential, username)
+		}
 		out = append(out, webrtc.ICEServer{
 			URLs:       urls,
-			Username:   server.Username,
-			Credential: server.Credential,
+			Username:   username,
+			Credential: credential,
 		})
 	}
 	return out
+}
+
+func turnRESTUsername(expiresAt time.Time, configuredUsername string) string {
+	expires := strconv.FormatInt(expiresAt.Unix(), 10)
+	if configuredUsername == "" {
+		return expires
+	}
+	return expires + ":" + configuredUsername
+}
+
+func turnRESTCredential(secret, username string) string {
+	mac := hmac.New(sha1.New, []byte(secret))
+	_, _ = mac.Write([]byte(username))
+	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
 }
 
 func HasTURNServer(servers []ICEServer) bool {
