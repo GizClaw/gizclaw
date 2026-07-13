@@ -610,38 +610,52 @@ class _PetConversationDrift extends StatelessWidget {
     return IgnorePointer(
       child: LayoutBuilder(
         builder: (context, constraints) {
-          return Stack(
-            clipBehavior: Clip.none,
-            children: [
-              for (var index = 0; index < visible.length; index++)
-                AnimatedPositioned(
-                  key: ValueKey(visible[index].id),
-                  duration: const Duration(milliseconds: 520),
-                  curve: Curves.easeOutCubic,
-                  left: visible[index].incoming
-                      ? 0
-                      : constraints.maxWidth * 0.25,
-                  right: visible[index].incoming
-                      ? constraints.maxWidth * 0.23
-                      : 0,
-                  bottom: 154 + index * 62,
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 18, end: 0),
-                    duration: const Duration(milliseconds: 460),
+          return ShaderMask(
+            blendMode: BlendMode.dstIn,
+            shaderCallback: (bounds) => const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0x0AFFFFFF),
+                Color(0x52FFFFFF),
+                Color(0xD9FFFFFF),
+                Color(0xFFFFFFFF),
+              ],
+              stops: [0, 0.2, 0.46, 1],
+            ).createShader(bounds),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                for (var index = 0; index < visible.length; index++)
+                  AnimatedPositioned(
+                    key: ValueKey(visible[index].id),
+                    duration: const Duration(milliseconds: 520),
                     curve: Curves.easeOutCubic,
-                    builder: (context, offset, child) => Transform.translate(
-                      offset: Offset(0, offset),
-                      child: child,
-                    ),
-                    child: AnimatedOpacity(
-                      opacity: (0.84 - index * 0.1).clamp(0.12, 0.84),
-                      duration: const Duration(milliseconds: 520),
+                    left: visible[index].incoming
+                        ? 0
+                        : constraints.maxWidth * 0.25,
+                    right: visible[index].incoming
+                        ? constraints.maxWidth * 0.23
+                        : 0,
+                    bottom: 154 + index * 62,
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 18, end: 0),
+                      duration: const Duration(milliseconds: 460),
                       curve: Curves.easeOutCubic,
-                      child: _PetDriftingMessage(message: visible[index]),
+                      builder: (context, offset, child) => Transform.translate(
+                        offset: Offset(0, offset),
+                        child: child,
+                      ),
+                      child: AnimatedOpacity(
+                        opacity: 0.88,
+                        duration: const Duration(milliseconds: 520),
+                        curve: Curves.easeOutCubic,
+                        child: _PetDriftingMessage(message: visible[index]),
+                      ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           );
         },
       ),
