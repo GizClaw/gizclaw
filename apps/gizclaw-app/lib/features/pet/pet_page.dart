@@ -601,8 +601,8 @@ class _PetConversationDrift extends StatelessWidget {
                 for (var index = 0; index < visible.length; index++)
                   AnimatedPositioned(
                     key: ValueKey(visible[index].id),
-                    duration: const Duration(milliseconds: 520),
-                    curve: Curves.easeOutCubic,
+                    duration: const Duration(milliseconds: 1100),
+                    curve: Curves.easeOutQuart,
                     left: visible[index].incoming
                         ? 0
                         : constraints.maxWidth * 0.25,
@@ -611,19 +611,18 @@ class _PetConversationDrift extends StatelessWidget {
                         : 0,
                     bottom: 154 + index * 62,
                     child: TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 18, end: 0),
-                      duration: const Duration(milliseconds: 460),
-                      curve: Curves.easeOutCubic,
-                      builder: (context, offset, child) => Transform.translate(
-                        offset: Offset(0, offset),
-                        child: child,
-                      ),
-                      child: AnimatedOpacity(
-                        opacity: 0.88,
-                        duration: const Duration(milliseconds: 520),
-                        curve: Curves.easeOutCubic,
-                        child: _PetDriftingMessage(message: visible[index]),
-                      ),
+                      tween: Tween(begin: 0, end: 1),
+                      duration: const Duration(milliseconds: 900),
+                      curve: Curves.easeOutQuart,
+                      builder: (context, progress, child) =>
+                          Transform.translate(
+                            offset: Offset(0, 34 * (1 - progress)),
+                            child: Opacity(
+                              opacity: progress * 0.9,
+                              child: child,
+                            ),
+                          ),
+                      child: _PetDriftingMessage(message: visible[index]),
                     ),
                   ),
               ],
