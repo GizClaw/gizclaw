@@ -11,6 +11,32 @@ import '../data/mobile_data_controller.dart';
 import '../data/workspace_chat_controller.dart';
 import '../giz_ui/giz_ui.dart';
 
+class GlobalConversationOverlay extends StatelessWidget {
+  const GlobalConversationOverlay({
+    super.key,
+    required this.child,
+    this.bottom = 86,
+  });
+
+  final double bottom;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        child,
+        Positioned(
+          right: 20,
+          bottom: bottom,
+          child: const GlobalConversationControl(compact: true),
+        ),
+      ],
+    );
+  }
+}
+
 class WorkspaceConversationDock extends StatefulWidget {
   const WorkspaceConversationDock({
     super.key,
@@ -35,7 +61,37 @@ class _WorkspaceConversationDockState extends State<WorkspaceConversationDock> {
     final data = MobileDataScope.watch(context);
     final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
     if (data.activeWorkspaceName == widget.workspaceName) {
-      return GlobalConversationControl(compact: widget.compact);
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+        decoration: BoxDecoration(
+          color: dark ? const Color(0x2E8DFFD0) : const Color(0x17008768),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: dark ? const Color(0x478DFFD0) : const Color(0x30008768),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: dark ? const Color(0xFF8DFFD0) : const Color(0xFF087F68),
+              ),
+            ),
+            const SizedBox(width: 7),
+            Text(
+              'Active',
+              style: GizText.label.copyWith(
+                color: dark ? const Color(0xFFE5FFF4) : GizColors.ink,
+                fontSize: 9,
+              ),
+            ),
+          ],
+        ),
+      );
     }
     final activeName = data.activeWorkspaceName;
     final activeTitle = activeName == null
@@ -135,13 +191,29 @@ class GlobalConversationControl extends StatefulWidget {
 
 class _GlobalConversationControlState extends State<GlobalConversationControl>
     with SingleTickerProviderStateMixin {
+  WorkspaceChatController? _observedChat;
   late final AnimationController _motion = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 2400),
   );
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final chat = MobileDataScope.watch(context).activeWorkspaceChat;
+    if (identical(chat, _observedChat)) return;
+    _observedChat?.removeListener(_handleChatChanged);
+    _observedChat = chat;
+    chat?.addListener(_handleChatChanged);
+  }
+
+  void _handleChatChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
+    _observedChat?.removeListener(_handleChatChanged);
     _motion.dispose();
     super.dispose();
   }

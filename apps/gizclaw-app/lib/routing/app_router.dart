@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
 
 import '../app/app_shell.dart';
+import '../app/global_conversation_control.dart';
 import '../features/browse/browse_pages.dart';
 import '../features/chats/chat_pages.dart';
 import '../features/pet/pet_page.dart';
@@ -90,13 +91,15 @@ GoRouter createAppRouter() {
                           );
                           return _page(
                             state,
-                            driver == WorkflowDriverKind.chatroom
-                                ? ChatroomWorkspacePage(
-                                    workspaceName: workspaceName,
-                                  )
-                                : WorkspaceChatPage(
-                                    workspaceName: workspaceName,
-                                  ),
+                            GlobalConversationOverlay(
+                              child: driver == WorkflowDriverKind.chatroom
+                                  ? ChatroomWorkspacePage(
+                                      workspaceName: workspaceName,
+                                    )
+                                  : WorkspaceChatPage(
+                                      workspaceName: workspaceName,
+                                    ),
+                            ),
                           );
                         },
                       ),
@@ -126,7 +129,11 @@ GoRouter createAppRouter() {
                     parentNavigatorKey: rootNavigatorKey,
                     pageBuilder: (context, state) => _page(
                       state,
-                      PetDetailPage(petId: state.pathParameters['petId']!),
+                      GlobalConversationOverlay(
+                        child: PetDetailPage(
+                          petId: state.pathParameters['petId']!,
+                        ),
+                      ),
                     ),
                   ),
                 ],

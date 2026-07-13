@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gizclaw_app/main.dart';
+import 'package:gizclaw_app/app/global_conversation_control.dart';
 import 'package:gizclaw_app/data/mobile_data_controller.dart';
 
 void main() {
@@ -167,6 +168,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(WorkspaceChatPage), findsOneWidget);
     expect(find.byType(CupertinoTabBar).hitTestable(), findsNothing);
+    expect(
+      find.byType(GlobalConversationControl).hitTestable(),
+      findsOneWidget,
+    );
 
     await tester.tap(
       find.byType(CupertinoNavigationBarBackButton).hitTestable(),
