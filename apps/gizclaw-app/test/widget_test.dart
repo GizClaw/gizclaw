@@ -275,6 +275,12 @@ void main() {
     ]) {
       expect(primaryNav(label), findsOneWidget);
     }
+    expect(find.byIcon(CupertinoIcons.game_controller), findsOneWidget);
+    expect(find.byIcon(CupertinoIcons.wand_stars), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('primary-nav-translate-glyph')),
+      findsOneWidget,
+    );
     expect(find.byKey(const ValueKey('primary-nav-scroll')), findsOneWidget);
     expect(find.byKey(const ValueKey('primary-nav-edge-fade')), findsOneWidget);
   });

@@ -444,20 +444,20 @@ class _PrimaryDockNavigation extends StatefulWidget {
   static const _items = [
     (CupertinoIcons.waveform, CupertinoIcons.waveform, 'Active', '/active'),
     (
-      CupertinoIcons.rectangle_3_offgrid,
-      CupertinoIcons.rectangle_3_offgrid_fill,
+      CupertinoIcons.game_controller,
+      CupertinoIcons.game_controller_solid,
       'Flowcraft',
       '/raids/drivers/flowcraft',
     ),
     (
-      CupertinoIcons.radiowaves_left,
-      CupertinoIcons.radiowaves_left,
+      CupertinoIcons.wand_stars,
+      CupertinoIcons.wand_stars_inverse,
       'Doubao',
       '/raids/drivers/doubao-realtime',
     ),
     (
-      CupertinoIcons.text_bubble,
-      CupertinoIcons.text_bubble_fill,
+      CupertinoIcons.globe,
+      CupertinoIcons.globe,
       'Translate',
       '/raids/drivers/ast-translate',
     ),
@@ -633,16 +633,65 @@ class _PrimaryDockNavigationState extends State<_PrimaryDockNavigation> {
                           ]
                         : null,
                   ),
-                  child: Icon(
-                    selected ? item.$2 : item.$1,
-                    size: 23,
-                    color: foreground,
-                  ),
+                  child: item.$3 == 'Translate'
+                      ? _TranslateDockIcon(
+                          color: foreground,
+                          selected: selected,
+                        )
+                      : Icon(
+                          selected ? item.$2 : item.$1,
+                          size: 23,
+                          color: foreground,
+                        ),
                 ),
               ),
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+class _TranslateDockIcon extends StatelessWidget {
+  const _TranslateDockIcon({required this.color, required this.selected});
+
+  final Color color;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      key: const ValueKey('primary-nav-translate-glyph'),
+      dimension: 26,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Icon(CupertinoIcons.globe, size: 22, color: color),
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: selected
+                    ? const Color(0xFF171817)
+                    : CupertinoDynamicColor.resolve(
+                        CupertinoColors.systemBackground,
+                        context,
+                      ),
+                shape: BoxShape.circle,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(1.5),
+                child: Icon(
+                  CupertinoIcons.arrow_right_arrow_left,
+                  size: 9,
+                  color: color,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
