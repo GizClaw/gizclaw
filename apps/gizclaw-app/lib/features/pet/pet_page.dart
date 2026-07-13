@@ -822,6 +822,7 @@ class _PetMosaicPainter extends CustomPainter {
 
     for (var row = 0; row < rows; row++) {
       for (var column = 0; column < columns; column++) {
+        final verticalOpacity = _verticalOpacity(row / math.max(rows - 1, 1));
         final cellVariation = _cellNoise(column, row, 11);
         final phase = _cellNoise(column, row, 37) * math.pi * 2;
         final speed = 0.65 + _cellNoise(column, row, 71) * 0.3;
@@ -854,13 +855,22 @@ class _PetMosaicPainter extends CustomPainter {
               base,
               _flashColor,
               flash,
-            )!.withValues(alpha: opacity),
+            )!.withValues(alpha: opacity * verticalOpacity),
         );
       }
     }
 
+    final gridAlpha = 0.16 * opacity;
     final gridPaint = Paint()
-      ..color = Color.fromRGBO(255, 255, 255, opacity < 1 ? 0.25 : 0.16)
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Color.fromRGBO(255, 255, 255, gridAlpha),
+          Color.fromRGBO(255, 255, 255, gridAlpha * 0.38),
+        ],
+        stops: const [0.1, 0.72],
+      ).createShader(Offset.zero & size)
       ..strokeWidth = 0.5;
     for (var column = 1; column < columns; column++) {
       final x = column * cellSize;
@@ -870,6 +880,12 @@ class _PetMosaicPainter extends CustomPainter {
       final y = row * cellSize;
       canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
     }
+  }
+
+  double _verticalOpacity(double position) {
+    final progress = ((position - 0.1) / 0.62).clamp(0.0, 1.0);
+    final eased = progress * progress * (3 - 2 * progress);
+    return lerpDouble(1, 0.38, eased)!;
   }
 
   double _cellNoise(int column, int row, int salt) {
