@@ -13,7 +13,7 @@ import '../../giz_ui/giz_ui.dart';
 import '../../pixa_sprite.dart';
 
 const _petSceneColor = Color(0xFFDCEFE8);
-const _petDetailBackground = Color(0xFFD8E7DF);
+const _petDetailBackground = Color(0xFFE4E6E4);
 
 class PetPage extends StatefulWidget {
   const PetPage({super.key});
@@ -525,15 +525,15 @@ class _PetDetailPageState extends State<PetDetailPage> {
       child: Stack(
         fit: StackFit.expand,
         children: [
+          const Positioned.fill(
+            child: IgnorePointer(child: _PetMosaicBackground(opacity: 0.58)),
+          ),
           Positioned(
             left: 14,
             right: 14,
             top: safeTop + 86,
             bottom: MediaQuery.paddingOf(context).bottom + 106,
             child: _PetConversationDrift(messages: messages),
-          ),
-          const Positioned.fill(
-            child: IgnorePointer(child: _PetMosaicBackground(opacity: 0.46)),
           ),
           Positioned(
             left: 20,
@@ -642,12 +642,11 @@ class _PetConversationDrift extends StatelessWidget {
         end: Alignment.bottomCenter,
         colors: [
           Color(0x00FFFFFF),
-          Color(0x16FFFFFF),
-          Color(0x73FFFFFF),
+          Color(0x42FFFFFF),
           Color(0xFFFFFFFF),
           Color(0xFFFFFFFF),
         ],
-        stops: [0, 0.4, 0.62, 0.76, 1],
+        stops: [0, 0.42, 0.68, 1],
       ).createShader(bounds),
       child: ListView.builder(
         key: const PageStorageKey<String>('pet-conversation-history'),
@@ -677,7 +676,7 @@ class _PetConversationDrift extends StatelessWidget {
                   curve: Curves.easeOutQuart,
                   builder: (context, progress, child) => Transform.translate(
                     offset: Offset(0, 24 * (1 - progress)),
-                    child: Opacity(opacity: progress * 0.9, child: child),
+                    child: Opacity(opacity: progress, child: child),
                   ),
                   child: _PetDriftingMessage(message: message),
                 ),
@@ -704,8 +703,15 @@ class _PetDriftingMessage extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: message.incoming
-                ? const Color(0x8CFFFFFF)
-                : const Color(0x8C18342D),
+                ? const Color(0xFFF7F8F7)
+                : const Color(0xFF263C36),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x17000000),
+                blurRadius: 14,
+                offset: Offset(0, 5),
+              ),
+            ],
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
@@ -789,12 +795,12 @@ class _PetMosaicPainter extends CustomPainter {
   final double progress;
 
   static const _palette = [
-    Color(0xFFD9E8E0),
-    Color(0xFFCFE4E3),
-    Color(0xFFC4DDD3),
-    Color(0xFFDDE8BE),
-    Color(0xFFD8D7E6),
-    Color(0xFFCADFD8),
+    Color(0xFFF3F4F3),
+    Color(0xFFE5E7E5),
+    Color(0xFFD5D8D6),
+    Color(0xFFC4C8C5),
+    Color(0xFFB5BAB7),
+    Color(0xFFDDE0DE),
   ];
 
   @override
@@ -850,7 +856,7 @@ class _PetMosaicPainter extends CustomPainter {
     }
 
     final gridPaint = Paint()
-      ..color = Color.fromRGBO(255, 255, 255, opacity < 1 ? 0.16 : 0.095)
+      ..color = Color.fromRGBO(255, 255, 255, opacity < 1 ? 0.24 : 0.14)
       ..strokeWidth = 0.5;
     for (var column = 1; column < columns; column++) {
       final x = column * cellSize;

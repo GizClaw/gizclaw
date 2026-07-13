@@ -552,7 +552,7 @@ class _PrimaryDockNavigationState extends State<_PrimaryDockNavigation> {
             final item = _PrimaryDockNavigation._items[index];
             final selected = widget.navigationShell.currentIndex == index;
             final foreground = selected
-                ? GizColors.accent
+                ? CupertinoColors.black
                 : (dark
                       ? const Color(0xB8D7E1DC)
                       : GizColors.secondaryInk.withValues(alpha: 0.74));
