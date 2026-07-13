@@ -15,6 +15,8 @@
 - [x] [P4 - Edge RPC 文件名没有遵循 rpc 前缀](#p4-edge-rpc-文件名没有遵循-rpc-前缀)
 - [x] [P5 - PeerConn Ping 实现放错文件](#p5-peerconn-ping-实现放错文件)
 - [x] [P6 - RPC Client 与 Server 实现文件拆分过碎](#p6-rpc-client-与-server-实现文件拆分过碎)
+- [x] [P7 - 旧 docs 目录应在 Guide 迁移完成后删除](#p7-旧-docs-目录应在-guide-迁移完成后删除)
+- [x] [P8 - Project Guide 尚未发布到 GitHub Pages](#p8-project-guide-尚未发布到-github-pages)
 
 ## P1 - README 对 Edge Server Mesh 的当前状态描述冲突
 
@@ -136,11 +138,56 @@ rpc_server.go  # RPC Server composition、dispatch 及全部 Server methods
 
 该重组不改变 RPC method、wire contract、公开 Go API 或运行行为。测试与开发指引同步收敛为 `Client` 和 `Server` 两个入口；其他具有独立协议或数据流边界的文件，例如 firmware download、gameplay assets、streaming、speed test 和 Edge RPC，继续独立维护。
 
+## P7 - 旧 docs 目录应在 Guide 迁移完成后删除
+
+### 问题描述
+
+仓库当前同时维护 `docs/` 与 `guides/` 两套文档入口。即使暂时把 `docs/` 定义为 normative source、把 `guides/` 定义为阅读层，开发者仍需判断同一主题应更新哪一份内容；文档迁移完成后继续保留两套树会造成重复、漂移和失效链接。
+
+`README.md` 的 Repository Layout 与 Documentation 仍直接指向 `docs/*.md`，`AGENTS.md` 的 Go、JavaScript、C 和 documentation review rules 也仍指向 `docs/review-guide/*.md`。直接删除 `docs/` 会使这些入口和 README hero asset 立即失效。
+
+### 解决方案
+
+以 `guides/` 作为唯一项目文档根目录。逐项把 `docs/` 中仍有效的 contract、configuration、protocol、review guide、design 和 asset 内容迁移到对应 Guide 页面或 `guides/public/` 静态资源；确认没有代码、workflow 或其他文档继续引用旧路径后，完整删除 `docs/` 目录。
+
+迁移收尾时同步完成：
+
+- 修改 `README.md` 的 Repository Layout 与 Documentation，使其只指向 `guides/` 页面或已发布的 Project Guide URL。
+- 将 README hero 等仍需保留的静态资源移动到 `guides/public/`，修正 README 与页面引用。
+- 修改 `AGENTS.md`，让各语言和文档 review 要求指向 `guides/` 下的新位置。
+- 更新源码注释、测试、workflow、issue template 和其他 Markdown 中的 `docs/` 路径。
+- 删除临时的 `current-worktree-issues` 页面；已解决事项由代码、最终 Guide 和 git history 表达，未解决事项转为正式 GitHub issues。
+- 使用 `rg` 确认仓库不再存在有效的 `docs/` 路径引用，再删除整个目录。
+
+删除必须发生在内容迁移和引用切换之后，不能先删目录再留下缺失的规范与 review contract。
+
+## P8 - Project Guide 尚未发布到 GitHub Pages
+
+### 问题描述
+
+VitePress 当前只能通过本地 dev server 或 production build 查看。仓库没有 GitHub Pages deployment workflow，远程 reviewer 无法直接打开与 PR/main 对应的项目指引。
+
+GizClaw 是 project site，发布地址默认位于 `https://gizclaw.github.io/gizclaw/`。如果构建时仍使用根路径 `/`，生成页面中的资源和导航链接会在该子路径下失效。
+
+### 解决方案
+
+增加独立的 GitHub Pages workflow：
+
+- 在 `main` 的 `guides/**`、workflow 或 guide dependency 变化时触发，并允许 `workflow_dispatch`。
+- 使用 `npm ci --prefix guides` 安装独立 Guide 依赖。
+- 设置 `VITEPRESS_BASE=/gizclaw/` 后运行 `npm --prefix guides run build`。
+- 上传 `guides/.vitepress/dist` Pages artifact，并由单独 deploy job 发布。
+- Actions 必须固定到完整 commit SHA，并为 build/deploy jobs 配置最小权限和 concurrency。
+- 在仓库 Settings → Pages 将 Source 设置为 GitHub Actions。
+
+本地开发不设置 `VITEPRESS_BASE`，继续使用 `/`；若以后绑定 custom domain，再把部署环境的 base 调整为 `/`，不需要修改页面内容。
+
 ## 验证
 
 ```sh
 go test ./pkgs/gizedge ./pkgs/gizclaw/... -count=1
-npm run guides:build
+npm ci --prefix guides
+npm --prefix guides run build
 git diff --check
 ```
 

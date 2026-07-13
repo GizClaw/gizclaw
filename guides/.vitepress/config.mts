@@ -100,6 +100,7 @@ export default withMermaid(
   defineConfig({
     title: "GizClaw Project Guide",
     description: "GizClaw development and usage documentation",
+    base: process.env.VITEPRESS_BASE ?? "/",
     cleanUrls: true,
     lastUpdated: true,
     locales: {
