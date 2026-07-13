@@ -809,8 +809,8 @@ class _PetMosaicPainter extends CustomPainter {
   final double progress;
   final int sequence;
 
-  static const _mosaicLight = Color(0xFFF0F2F0);
-  static const _mosaicShade = Color(0xFFD2D6D3);
+  static const _mosaicLight = Color(0xFFF4F5F4);
+  static const _mosaicShade = Color(0xFFE1E4E2);
   static const _flashColor = Color(0xFF111312);
 
   @override
@@ -834,10 +834,10 @@ class _PetMosaicPainter extends CustomPainter {
                 ((math.sin(time * math.pi * 0.44 + column * 0.17 + row * 0.11) +
                         1) /
                     2);
-        final activity = density < 0.24
+        final activity = density < 0.58
             ? 0.0
-            : ((density - 0.24) / 0.76).clamp(0.0, 1.0);
-        final depth = 0.18 + cellVariation * 0.42;
+            : ((density - 0.58) / 0.42).clamp(0.0, 1.0);
+        final depth = 0.1 + cellVariation * 0.32;
         final flash = (twinkle * slowVariation * activity * depth).clamp(
           0.0,
           1.0,
@@ -845,7 +845,7 @@ class _PetMosaicPainter extends CustomPainter {
         final base = Color.lerp(
           _mosaicLight,
           _mosaicShade,
-          cellVariation * 0.68,
+          cellVariation * 0.55,
         )!;
         canvas.drawRect(
           Rect.fromLTWH(column * cellSize, row * cellSize, cellSize, cellSize),
