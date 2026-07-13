@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
@@ -75,6 +76,7 @@ class WorkspaceChatController extends ChangeNotifier {
   bool playingOutput = false;
   bool _finishPending = false;
   bool _transportRecoveryRequested = false;
+  final Map<String, _AudioEnergySample> _receivedAudioEnergy = {};
   String? replayingHistoryId;
   bool _disposed = false;
   double inputLevel = 0;
@@ -252,18 +254,32 @@ class WorkspaceChatController extends ChangeNotifier {
       var input = 0.0;
       var output = 0.0;
       for (final report in reports) {
-        if (report.values['kind'] != 'audio') continue;
-        final value = report.values['audioLevel'];
-        final level = value is num ? value.toDouble().clamp(0.0, 1.0) : 0.0;
-        if (report.type == 'media-source') input = level;
-        if (report.type == 'inbound-rtp') output = level;
+        final mediaKind = report.values['kind'] ?? report.values['mediaType'];
+        if (mediaKind != 'audio') continue;
+        final level = _statDouble(report.values['audioLevel']).clamp(0.0, 1.0);
+        if (report.type == 'media-source') input = math.max(input, level);
+        if (report.type == 'inbound-rtp') {
+          final energy = _statDouble(report.values['totalAudioEnergy']);
+          final duration = _statDouble(report.values['totalSamplesDuration']);
+          final previous = _receivedAudioEnergy[report.id];
+          _receivedAudioEnergy[report.id] = _AudioEnergySample(
+            energy: energy,
+            duration: duration,
+          );
+          final energyLevel = previous == null
+              ? 0.0
+              : audioLevelFromEnergyDelta(
+                  previousEnergy: previous.energy,
+                  previousDuration: previous.duration,
+                  energy: energy,
+                  duration: duration,
+                );
+          output = math.max(output, math.max(level, energyLevel));
+        }
       }
       final nextInput = recording ? input : 0.0;
       final smoothedInput = _settleLevel(inputLevel, nextInput);
-      final smoothedOutput = _settleLevel(
-        outputLevel,
-        playingOutput ? output : 0.0,
-      );
+      final smoothedOutput = _settleLevel(outputLevel, output);
       if ((smoothedInput - inputLevel).abs() < 0.0001 &&
           (smoothedOutput - outputLevel).abs() < 0.0001) {
         return;
@@ -349,7 +365,6 @@ class WorkspaceChatController extends ChangeNotifier {
       notifyListeners();
     } else if (assistantAudio && event.type == 'eos') {
       playingOutput = false;
-      outputLevel = 0;
       notifyListeners();
     }
     if (event.type == 'workspace.history.updated') {
@@ -476,6 +491,7 @@ class WorkspaceChatController extends ChangeNotifier {
     playingOutput = false;
     inputLevel = 0;
     outputLevel = 0;
+    _receivedAudioEnergy.clear();
     _finishPending = false;
   }
 
@@ -501,6 +517,32 @@ class WorkspaceChatController extends ChangeNotifier {
     unawaited(_session?.close());
     super.dispose();
   }
+}
+
+@visibleForTesting
+double audioLevelFromEnergyDelta({
+  required double previousEnergy,
+  required double previousDuration,
+  required double energy,
+  required double duration,
+}) {
+  final energyDelta = energy - previousEnergy;
+  final durationDelta = duration - previousDuration;
+  if (energyDelta < 0 || durationDelta <= 0) return 0;
+  return math.sqrt(energyDelta / durationDelta).clamp(0.0, 1.0);
+}
+
+double _statDouble(Object? value) {
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value) ?? 0;
+  return 0;
+}
+
+class _AudioEnergySample {
+  const _AudioEnergySample({required this.energy, required this.duration});
+
+  final double energy;
+  final double duration;
 }
 
 double _smoothLevel(double current, double target) {
