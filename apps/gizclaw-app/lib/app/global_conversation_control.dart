@@ -1080,7 +1080,7 @@ class _GlobalConversationControlState extends State<GlobalConversationControl> {
   }
 }
 
-class _VoiceModeToggle extends StatelessWidget {
+class _VoiceModeToggle extends StatefulWidget {
   const _VoiceModeToggle({
     required this.enabled,
     required this.mode,
@@ -1106,30 +1106,112 @@ class _VoiceModeToggle extends StatelessWidget {
   final VoidCallback? onRealtimeTap;
 
   @override
+  State<_VoiceModeToggle> createState() => _VoiceModeToggleState();
+}
+
+class _VoiceModeToggleState extends State<_VoiceModeToggle> {
+  static const _dragThreshold = 14.0;
+  Timer? _holdTimer;
+  int? _pointer;
+  Offset? _pointerOrigin;
+  bool _dragged = false;
+  bool _pttStarted = false;
+  bool _startedInRealtime = false;
+
+  void _handlePointerDown(PointerDownEvent event) {
+    if (_pointer != null || widget.switchingMode) return;
+    _pointer = event.pointer;
+    _pointerOrigin = event.position;
+    _dragged = false;
+    _pttStarted = false;
+    _startedInRealtime =
+        widget.mode == WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME;
+    if (_startedInRealtime || widget.onPttStart == null) return;
+    _holdTimer = Timer(const Duration(milliseconds: 90), () {
+      if (_pointer == event.pointer && !_dragged) {
+        _pttStarted = true;
+        widget.onPttStart?.call();
+      }
+    });
+  }
+
+  void _handlePointerMove(PointerMoveEvent event) {
+    final origin = _pointerOrigin;
+    if (_pointer != event.pointer || origin == null || _dragged) return;
+    final delta = event.position.dx - origin.dx;
+    if (_startedInRealtime && delta < -_dragThreshold) {
+      _switchMode(WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK);
+    } else if (!_startedInRealtime && delta > _dragThreshold) {
+      _holdTimer?.cancel();
+      _finishPtt();
+      _switchMode(WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME);
+    }
+  }
+
+  void _switchMode(WorkspaceInputMode mode) {
+    final selectMode = widget.onSelectMode;
+    if (selectMode == null || widget.switchingMode) return;
+    _dragged = true;
+    selectMode(mode);
+  }
+
+  void _handlePointerUp(PointerUpEvent event) {
+    if (_pointer != event.pointer) return;
+    _holdTimer?.cancel();
+    if (_startedInRealtime) {
+      if (!_dragged) widget.onRealtimeTap?.call();
+    } else {
+      _finishPtt();
+    }
+    _resetPointer();
+  }
+
+  void _handlePointerCancel(PointerCancelEvent event) {
+    if (_pointer != event.pointer) return;
+    _holdTimer?.cancel();
+    _finishPtt();
+    _resetPointer();
+  }
+
+  void _finishPtt() {
+    if (!_pttStarted) return;
+    _pttStarted = false;
+    widget.onPttEnd?.call();
+  }
+
+  void _resetPointer() {
+    _pointer = null;
+    _pointerOrigin = null;
+    _dragged = false;
+  }
+
+  @override
+  void dispose() {
+    _holdTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
-    final realtime = mode == WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME;
-    final engaged = recording || preparing;
+    final realtime =
+        widget.mode == WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME;
+    final engaged = widget.recording || widget.preparing;
     final inactive = dark ? const Color(0x8FFFFFFF) : const Color(0x73001913);
     final thumb = _VoiceModeThumb(
-      enabled: enabled,
+      enabled: widget.enabled,
       realtime: realtime,
       engaged: engaged,
-      playingOutput: playingOutput,
+      playingOutput: widget.playingOutput,
     );
-    final interactiveThumb = realtime
-        ? GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onRealtimeTap,
-            child: thumb,
-          )
-        : Listener(
-            behavior: HitTestBehavior.opaque,
-            onPointerDown: onPttStart == null ? null : (_) => onPttStart!(),
-            onPointerUp: onPttEnd == null ? null : (_) => onPttEnd!(),
-            onPointerCancel: onPttEnd == null ? null : (_) => onPttEnd!(),
-            child: thumb,
-          );
+    final interactiveThumb = Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: _handlePointerDown,
+      onPointerMove: _handlePointerMove,
+      onPointerUp: _handlePointerUp,
+      onPointerCancel: _handlePointerCancel,
+      child: thumb,
+    );
 
     return SizedBox(
       key: const ValueKey('voice-mode-toggle'),
@@ -1145,10 +1227,10 @@ class _VoiceModeToggle extends StatelessWidget {
                   label: 'Push to talk',
                   icon: CupertinoIcons.mic_fill,
                   color: inactive,
-                  loading: switchingMode && realtime,
-                  onPressed: !realtime || switchingMode
+                  loading: widget.switchingMode && realtime,
+                  onPressed: !realtime || widget.switchingMode
                       ? null
-                      : () => onSelectMode?.call(
+                      : () => widget.onSelectMode?.call(
                           WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
                         ),
                 ),
@@ -1159,10 +1241,10 @@ class _VoiceModeToggle extends StatelessWidget {
                   label: 'Realtime',
                   icon: CupertinoIcons.phone_fill,
                   color: inactive,
-                  loading: switchingMode && !realtime,
-                  onPressed: realtime || switchingMode
+                  loading: widget.switchingMode && !realtime,
+                  onPressed: realtime || widget.switchingMode
                       ? null
-                      : () => onSelectMode?.call(
+                      : () => widget.onSelectMode?.call(
                           WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME,
                         ),
                 ),
@@ -1179,7 +1261,7 @@ class _VoiceModeToggle extends StatelessWidget {
             height: 58,
             child: Semantics(
               label: realtime
-                  ? recording
+                  ? widget.recording
                         ? 'End realtime call'
                         : 'Start realtime call'
                   : 'Hold to talk',

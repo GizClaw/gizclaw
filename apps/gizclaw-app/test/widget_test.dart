@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gizclaw/gizclaw.dart';
 import 'package:gizclaw_app/main.dart';
 import 'package:gizclaw_app/app/global_conversation_control.dart';
 import 'package:gizclaw_app/data/mobile_data_controller.dart';
@@ -302,6 +303,28 @@ void main() {
     expect(find.byKey(const ValueKey('global-audio-field')), findsOneWidget);
   });
 
+  testWidgets('slides the voice thumb between PTT and realtime', (
+    tester,
+  ) async {
+    final controller = _ModeSwitchController();
+    await pumpApp(tester, controller: controller);
+
+    final thumb = find.byKey(const ValueKey('voice-mode-thumb'));
+    final pttPosition = tester.getTopLeft(thumb);
+    await tester.drag(thumb, const Offset(64, 0));
+    await tester.pumpAndSettle();
+
+    expect(controller.mode, WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME);
+    expect(tester.getTopLeft(thumb).dx, greaterThan(pttPosition.dx + 50));
+
+    await tester.drag(thumb, const Offset(-64, 0));
+    await tester.pumpAndSettle();
+    expect(
+      controller.mode,
+      WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
+    );
+  });
+
   testWidgets('opens group creation controls', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -437,4 +460,23 @@ void main() {
     expect(find.text('Parser pass'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+}
+
+class _ModeSwitchController extends MobileDataController {
+  _ModeSwitchController();
+
+  WorkspaceInputMode mode =
+      WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK;
+
+  @override
+  String? get activeWorkspaceName => 'Parser pass';
+
+  @override
+  WorkspaceInputMode get activeInputMode => mode;
+
+  @override
+  Future<void> setActiveInputMode(WorkspaceInputMode mode) async {
+    this.mode = mode;
+    notifyListeners();
+  }
 }
