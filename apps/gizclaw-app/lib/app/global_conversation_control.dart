@@ -229,7 +229,9 @@ class _GlobalConversationControlState extends State<GlobalConversationControl>
     final mode = _effectiveMode(data.activeInputMode);
     final enabled = chat?.canRecord ?? false;
     final animate =
-        (chat?.recording ?? false) || (chat?.outputLevel ?? 0) > 0.01;
+        (chat?.startingInput ?? false) ||
+        (chat?.recording ?? false) ||
+        (chat?.outputLevel ?? 0) > 0.01;
     if (animate && !_motion.isAnimating) {
       _motion.repeat();
     } else if (!animate && _motion.isAnimating) {
@@ -245,6 +247,7 @@ class _GlobalConversationControlState extends State<GlobalConversationControl>
       size: widget.compact ? 58 : 60,
       enabled: enabled,
       active: chat?.recording ?? false,
+      preparing: chat?.startingInput ?? false,
       realtime: mode == WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME,
       inputLevel: chat?.inputLevel ?? 0,
       outputLevel: chat?.outputLevel ?? 0,
@@ -308,6 +311,7 @@ class _VoiceOrb extends StatelessWidget {
     required this.size,
     required this.enabled,
     required this.active,
+    required this.preparing,
     required this.realtime,
     required this.inputLevel,
     required this.outputLevel,
@@ -321,6 +325,7 @@ class _VoiceOrb extends StatelessWidget {
   final double size;
   final bool enabled;
   final bool active;
+  final bool preparing;
   final bool realtime;
   final double inputLevel;
   final double outputLevel;
@@ -331,6 +336,9 @@ class _VoiceOrb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final speaking = outputLevel > 0.02;
+    final engaged = active || preparing;
+    final energy = speaking ? const Color(0xFF4F7CFF) : accent;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -340,42 +348,133 @@ class _VoiceOrb extends StatelessWidget {
       onLongPressEnd: onLongPressEnd == null ? null : (_) => onLongPressEnd!(),
       child: AnimatedBuilder(
         animation: animation,
-        builder: (context, child) => CustomPaint(
-          painter: _VoiceRingPainter(
-            phase: animation.value,
-            inputLevel: inputLevel,
-            outputLevel: outputLevel,
-            active: active,
-            accent: accent,
-          ),
-          child: child,
-        ),
-        child: Center(
-          child: AnimatedContainer(
+        builder: (context, child) {
+          final phase = animation.value;
+          return AnimatedScale(
+            scale: engaged ? 0.92 : 1,
             duration: const Duration(milliseconds: 180),
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: enabled ? accent : const Color(0xFFB6BFBB),
-              boxShadow: enabled
-                  ? [
-                      BoxShadow(
-                        color: accent.withValues(alpha: active ? 0.4 : 0.2),
-                        blurRadius: active ? 18 : 10,
-                      ),
-                    ]
-                  : null,
+            curve: Curves.easeOutBack,
+            child: CustomPaint(
+              painter: _VoiceEnergyPainter(
+                phase: phase,
+                inputLevel: inputLevel,
+                outputLevel: outputLevel,
+                engaged: engaged,
+                energy: energy,
+              ),
+              child: Center(
+                child: _VoiceEnergySurface(
+                  phase: phase,
+                  size: size,
+                  enabled: enabled,
+                  engaged: engaged,
+                  realtime: realtime,
+                  speaking: speaking,
+                  energy: energy,
+                ),
+              ),
             ),
-            child: Icon(
-              active
-                  ? (realtime
-                        ? CupertinoIcons.stop_fill
-                        : CupertinoIcons.waveform)
-                  : CupertinoIcons.mic_fill,
-              color: CupertinoColors.white,
-              size: active ? size * 0.42 : size * 0.4,
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _VoiceEnergySurface extends StatelessWidget {
+  const _VoiceEnergySurface({
+    required this.phase,
+    required this.size,
+    required this.enabled,
+    required this.engaged,
+    required this.realtime,
+    required this.speaking,
+    required this.energy,
+  });
+
+  final double phase;
+  final double size;
+  final bool enabled;
+  final bool engaged;
+  final bool realtime;
+  final bool speaking;
+  final Color energy;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    final radius = BorderRadius.circular(size * 0.34);
+    final icon = speaking
+        ? CupertinoIcons.waveform
+        : engaged
+        ? CupertinoIcons.waveform_path
+        : realtime
+        ? CupertinoIcons.dot_radiowaves_left_right
+        : CupertinoIcons.mic_fill;
+    return ClipRRect(
+      borderRadius: radius,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            gradient: enabled
+                ? SweepGradient(
+                    transform: GradientRotation(phase * math.pi * 2),
+                    colors: [
+                      energy.withValues(alpha: dark ? 0.96 : 0.9),
+                      const Color(0xFF0D1C19),
+                      energy.withValues(alpha: 0.72),
+                      const Color(0xFF122823),
+                      energy.withValues(alpha: dark ? 0.96 : 0.9),
+                    ],
+                    stops: const [0, 0.24, 0.5, 0.76, 1],
+                  )
+                : const LinearGradient(
+                    colors: [Color(0xFF9CA8A3), Color(0xFF6F7A76)],
+                  ),
+            border: Border.all(
+              color: enabled
+                  ? energy.withValues(alpha: engaged ? 0.8 : 0.44)
+                  : const Color(0x4DFFFFFF),
+              width: engaged ? 1.6 : 1,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: energy.withValues(alpha: engaged ? 0.4 : 0.2),
+                blurRadius: engaged ? 24 : 14,
+                spreadRadius: engaged ? 2 : 0,
+              ),
+              const BoxShadow(
+                color: Color(0x33000000),
+                blurRadius: 18,
+                offset: Offset(0, 9),
+              ),
+            ],
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Positioned(
+                top: 5,
+                left: 8,
+                child: Container(
+                  width: size * 0.42,
+                  height: size * 0.16,
+                  decoration: BoxDecoration(
+                    color: const Color(0x38FFFFFF),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              Icon(
+                icon,
+                color: CupertinoColors.white,
+                size: size * (engaged ? 0.42 : 0.38),
+              ),
+            ],
           ),
         ),
       ),
@@ -383,76 +482,116 @@ class _VoiceOrb extends StatelessWidget {
   }
 }
 
-class _VoiceRingPainter extends CustomPainter {
-  const _VoiceRingPainter({
+class _VoiceEnergyPainter extends CustomPainter {
+  const _VoiceEnergyPainter({
     required this.phase,
     required this.inputLevel,
     required this.outputLevel,
-    required this.active,
-    required this.accent,
+    required this.engaged,
+    required this.energy,
   });
 
   final double phase;
   final double inputLevel;
   final double outputLevel;
-  final bool active;
-  final Color accent;
+  final bool engaged;
+  final Color energy;
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final base = math.min(size.width, size.height) * 0.38;
-    final breath = active ? (math.sin(phase * math.pi * 2) + 1) * 0.8 : 0.0;
-    _ring(
-      canvas,
-      center,
-      base + 4 + breath + inputLevel * 12,
-      accent.withValues(alpha: 0.22 + inputLevel * 0.38),
-      1.8 + inputLevel * 2.4,
-    );
-    _ring(
-      canvas,
-      center,
-      base + 8 + outputLevel * 15,
-      const Color(0xFF5F8CFF).withValues(alpha: 0.16 + outputLevel * 0.4),
-      1.4 + outputLevel * 2.8,
-    );
-  }
-
-  void _ring(
-    Canvas canvas,
-    Offset center,
-    double radius,
-    Color color,
-    double width,
-  ) {
+    final unit = math.min(size.width, size.height);
+    final pulse = engaged ? math.sin(phase * math.pi * 2) * 1.4 : 0.0;
+    final haloRadius = unit * 0.42 + pulse + inputLevel * 9 + outputLevel * 11;
     canvas.drawCircle(
       center,
-      radius,
+      haloRadius,
       Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = width
-        ..color = color,
+        ..shader = RadialGradient(
+          colors: [
+            energy.withValues(alpha: 0.2 + inputLevel * 0.18),
+            energy.withValues(alpha: 0),
+          ],
+        ).createShader(Rect.fromCircle(center: center, radius: haloRadius)),
     );
+
+    for (var orbit = 0; orbit < 2; orbit++) {
+      final radius = unit * (0.38 + orbit * 0.08) + pulse * (orbit + 1) * 0.5;
+      final rect = Rect.fromCircle(center: center, radius: radius);
+      final start = phase * math.pi * 2 * (orbit.isEven ? 1 : -1);
+      canvas.drawArc(
+        rect,
+        start + orbit * 1.7,
+        math.pi * (0.45 + inputLevel * 0.3 + outputLevel * 0.22),
+        false,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeWidth = orbit == 0 ? 2.2 : 1.3
+          ..color = (orbit == 0 ? energy : const Color(0xFF72A2FF)).withValues(
+            alpha: engaged ? 0.64 : 0.28,
+          ),
+      );
+    }
+
+    final particleEnergy = math.max(inputLevel, outputLevel);
+    for (var index = 0; index < 7; index++) {
+      final angle = phase * math.pi * 2 + index * (math.pi * 2 / 7);
+      final radius = unit * (0.4 + 0.07 * math.sin(angle * 2 + index));
+      final position =
+          center + Offset(math.cos(angle), math.sin(angle)) * radius;
+      canvas.drawCircle(
+        position,
+        1.1 + particleEnergy * 2.4,
+        Paint()
+          ..color = (index.isEven ? energy : const Color(0xFFA9C3FF))
+              .withValues(alpha: engaged ? 0.72 : 0.24),
+      );
+    }
   }
 
   @override
-  bool shouldRepaint(_VoiceRingPainter oldDelegate) =>
+  bool shouldRepaint(_VoiceEnergyPainter oldDelegate) =>
       oldDelegate.phase != phase ||
       oldDelegate.inputLevel != inputLevel ||
       oldDelegate.outputLevel != outputLevel ||
-      oldDelegate.active != active ||
-      oldDelegate.accent != accent;
+      oldDelegate.engaged != engaged ||
+      oldDelegate.energy != energy;
 }
 
 Future<void> _showConversationPopover(
   BuildContext context,
   MobileDataController data,
 ) async {
-  await showCupertinoModalPopup<void>(
+  await showGeneralDialog<void>(
     context: context,
-    barrierColor: const Color(0x24000000),
-    builder: (context) => _ConversationPopover(data: data),
+    barrierDismissible: true,
+    barrierLabel: 'Close conversation controls',
+    barrierColor: const Color(0x33000806),
+    transitionDuration: const Duration(milliseconds: 360),
+    pageBuilder: (context, animation, secondaryAnimation) =>
+        _ConversationPopover(data: data),
+    transitionBuilder: (context, animation, secondaryAnimation, child) {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutBack,
+        reverseCurve: Curves.easeInCubic,
+      );
+      return FadeTransition(
+        opacity: animation,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.72, end: 1).animate(curved),
+          alignment: Alignment.bottomRight,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0.08, 0.08),
+              end: Offset.zero,
+            ).animate(curved),
+            child: child,
+          ),
+        ),
+      );
+    },
   );
 }
 
@@ -480,9 +619,9 @@ class _ConversationPopoverState extends State<_ConversationPopover> {
     final mode = _effectiveMode(data.activeInputMode);
     final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
     return SafeArea(
-      minimum: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+      minimum: const EdgeInsets.fromLTRB(16, 16, 16, 96),
       child: Align(
-        alignment: Alignment.bottomCenter,
+        alignment: Alignment.bottomRight,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(24),
           child: BackdropFilter(
