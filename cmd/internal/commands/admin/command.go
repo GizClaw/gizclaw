@@ -10,6 +10,7 @@ import (
 	modelscmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/models"
 	openaitenantscmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/openaitenants"
 	peerscmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/peers"
+	petdefscmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/petdefs"
 	voicescmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/voices"
 	volctenantscmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/volctenants"
 	workflowscmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/workflows"
@@ -33,6 +34,7 @@ func NewCmd() *cobra.Command {
 		newShowCmd(&ctxName),
 		aclcmd.NewCmd(),
 		peerscmd.NewCmd(),
+		petdefscmd.NewCmd(),
 		credentialscmd.NewCmd(),
 		firmwarescmd.NewCmd(),
 		openaitenantscmd.NewCmd(),

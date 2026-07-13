@@ -81,7 +81,7 @@ func (s *PeerService) peerResources(publicKey giznet.PublicKey) *peerresource.Se
 		FriendGroups: manager.FriendGroups,
 		Gameplay:     manager.Gameplay,
 		Tools:        manager.Tools,
-		ToolACL:      manager.ACL,
+		ResourceACL:  manager.ACL,
 	}
 }
 

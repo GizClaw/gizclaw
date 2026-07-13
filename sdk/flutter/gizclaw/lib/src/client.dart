@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:fixnum/fixnum.dart';
 
+import 'generated/rpc/payload/enums.pbenum.dart' as enums;
 import 'generated/rpc/payload.pb.dart' as payload;
 import 'pixa.dart';
 import 'rpc_client.dart';
@@ -78,10 +79,204 @@ class GizClawClient {
     );
   }
 
+  Future<payload.FriendListResponse> listFriends({String? cursor, int? limit}) {
+    final request = payload.FriendListRequest();
+    if (cursor != null) request.cursor = cursor;
+    if (limit != null) request.limit = Int64(limit);
+    return rpc.call<payload.FriendListResponse>('server.friend.list', request);
+  }
+
+  Future<payload.FriendInviteTokenGetResponse> getFriendInviteToken() {
+    return rpc.call<payload.FriendInviteTokenGetResponse>(
+      'server.friend.invite_token.get',
+      payload.FriendInviteTokenGetRequest(),
+    );
+  }
+
+  Future<payload.FriendInviteTokenCreateResponse> createFriendInviteToken() {
+    return rpc.call<payload.FriendInviteTokenCreateResponse>(
+      'server.friend.invite_token.create',
+      payload.FriendInviteTokenCreateRequest(),
+    );
+  }
+
+  Future<payload.FriendInviteTokenClearResponse> clearFriendInviteToken() {
+    return rpc.call<payload.FriendInviteTokenClearResponse>(
+      'server.friend.invite_token.clear',
+      payload.FriendInviteTokenClearRequest(),
+    );
+  }
+
+  Future<payload.FriendAddResponse> addFriend(String inviteToken) {
+    return rpc.call<payload.FriendAddResponse>(
+      'server.friend.add',
+      payload.FriendAddRequest(inviteToken: inviteToken),
+    );
+  }
+
+  Future<payload.FriendDeleteResponse> deleteFriend(String id) {
+    return rpc.call<payload.FriendDeleteResponse>(
+      'server.friend.delete',
+      payload.FriendDeleteRequest(id: id),
+    );
+  }
+
+  Future<payload.FriendGroupListResponse> listFriendGroups({
+    String? cursor,
+    int? limit,
+  }) {
+    final request = payload.FriendGroupListRequest();
+    if (cursor != null) request.cursor = cursor;
+    if (limit != null) request.limit = Int64(limit);
+    return rpc.call<payload.FriendGroupListResponse>(
+      'server.friend_group.list',
+      request,
+    );
+  }
+
+  Future<payload.FriendGroupCreateResponse> createFriendGroup({
+    required String name,
+    String description = '',
+  }) {
+    return rpc.call<payload.FriendGroupCreateResponse>(
+      'server.friend_group.create',
+      payload.FriendGroupCreateRequest(name: name, description: description),
+    );
+  }
+
   Future<payload.WorkspaceGetResponse> getWorkspace(String name) {
     return rpc.call<payload.WorkspaceGetResponse>(
       'server.workspace.get',
       payload.WorkspaceGetRequest(name: name),
+    );
+  }
+
+  Future<payload.WorkspaceCreateResponse> createWorkspace(
+    payload.Workspace workspace,
+  ) {
+    return rpc.call<payload.WorkspaceCreateResponse>(
+      'server.workspace.create',
+      payload.WorkspaceCreateRequest(value: workspace),
+    );
+  }
+
+  Future<payload.WorkspacePutResponse> putWorkspace(
+    String name,
+    payload.Workspace workspace,
+  ) {
+    return rpc.call<payload.WorkspacePutResponse>(
+      'server.workspace.put',
+      payload.WorkspacePutRequest(name: name, body: workspace),
+    );
+  }
+
+  Future<payload.ServerGetRunWorkspaceResponse> getRunWorkspace() {
+    return rpc.call<payload.ServerGetRunWorkspaceResponse>(
+      'server.run.workspace.get',
+      payload.ServerGetRunWorkspaceRequest(),
+    );
+  }
+
+  Future<payload.ServerSetRunWorkspaceResponse> setRunWorkspace(String name) {
+    return rpc.call<payload.ServerSetRunWorkspaceResponse>(
+      'server.run.workspace.set',
+      payload.ServerSetRunWorkspaceRequest(
+        value: payload.AgentSelection(workspaceName: name),
+      ),
+    );
+  }
+
+  Future<payload.ServerReloadRunWorkspaceResponse> reloadRunWorkspace() {
+    return rpc.call<payload.ServerReloadRunWorkspaceResponse>(
+      'server.run.workspace.reload',
+      payload.ServerReloadRunWorkspaceRequest(),
+    );
+  }
+
+  Future<payload.ServerPlayRunWorkspaceHistoryResponse> playRunWorkspaceHistory(
+    String historyId,
+  ) {
+    return rpc.call<payload.ServerPlayRunWorkspaceHistoryResponse>(
+      'server.run.workspace.history.play',
+      payload.ServerPlayRunWorkspaceHistoryRequest(
+        value: payload.PeerRunHistoryPlayRequest(historyId: historyId),
+      ),
+    );
+  }
+
+  Future<payload.WorkspaceHistoryListResponse> listWorkspaceHistory({
+    required String workspaceName,
+    String? cursor,
+    int? limit,
+  }) {
+    final request = payload.WorkspaceHistoryListRequest(
+      workspaceName: workspaceName,
+      order: enums
+          .WorkspaceHistoryListRequestOrder
+          .WORKSPACE_HISTORY_LIST_REQUEST_ORDER_ASC,
+    );
+    if (cursor != null) request.cursor = cursor;
+    if (limit != null) request.limit = Int64(limit);
+    return rpc.call<payload.WorkspaceHistoryListResponse>(
+      'server.workspace.history.list',
+      request,
+    );
+  }
+
+  Future<payload.ServerPetListResponse> listPets({String? cursor, int? limit}) {
+    final value = payload.GameplayListRequest();
+    if (cursor != null) value.cursor = cursor;
+    if (limit != null) value.limit = Int64(limit);
+    return rpc.call<payload.ServerPetListResponse>(
+      'server.pet.list',
+      payload.ServerPetListRequest(value: value),
+    );
+  }
+
+  Future<payload.ServerPetGetResponse> getPet(String id) {
+    return rpc.call<payload.ServerPetGetResponse>(
+      'server.pet.get',
+      payload.ServerPetGetRequest(value: payload.PetGetRequest(id: id)),
+    );
+  }
+
+  Future<payload.ServerPetAdoptResponse> adoptPet({
+    String? displayName,
+    String? rulesetName,
+  }) {
+    final value = payload.PetAdoptRequest();
+    if (displayName != null && displayName.isNotEmpty) {
+      value.displayName = displayName;
+    }
+    if (rulesetName != null && rulesetName.isNotEmpty) {
+      value.rulesetName = rulesetName;
+    }
+    return rpc.call<payload.ServerPetAdoptResponse>(
+      'server.pet.adopt',
+      payload.ServerPetAdoptRequest(value: value),
+    );
+  }
+
+  Future<payload.ServerPetDriveResponse> drivePet(
+    String petId, {
+    required String action,
+  }) {
+    return rpc.call<payload.ServerPetDriveResponse>(
+      'server.pet.drive',
+      payload.ServerPetDriveRequest(
+        value: payload.PetDriveRequest(petId: petId, action: action),
+      ),
+    );
+  }
+
+  Future<payload.ServerPetPresentationGetResponse> getPetPresentation(
+    String petId,
+  ) {
+    return rpc.call<payload.ServerPetPresentationGetResponse>(
+      'server.pet.presentation.get',
+      payload.ServerPetPresentationGetRequest(
+        value: payload.PetGetRequest(id: petId),
+      ),
     );
   }
 

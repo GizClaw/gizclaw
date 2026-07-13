@@ -256,7 +256,14 @@ RpcCallResult decodeRpcResponse(
     );
   }
   if (!envelope.hasPayload()) {
-    throw const FormatException('RPC response missing payload or error');
+    final emptyResponse = decodeEmptyRpcResponsePayload(methodName);
+    if (emptyResponse == null) {
+      throw const FormatException('RPC response missing payload or error');
+    }
+    return RpcCallResult(
+      body: Uint8List.fromList(body),
+      response: emptyResponse,
+    );
   }
   return RpcCallResult(
     body: Uint8List.fromList(body),

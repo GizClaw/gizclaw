@@ -14,16 +14,16 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 )
 
-const toolOwnerRole = toolkit.ToolOwnerRole
+const resourceOwnerRole = toolkit.ResourceOwnerRole
 
-type ToolACLService interface {
+type ResourceACLService interface {
 	CreateRole(context.Context, string, apitypes.ACLPermissionList) (apitypes.ACLRole, error)
 	GetRole(context.Context, string) (apitypes.ACLRole, error)
 	PutPolicyBinding(context.Context, string, float64, apitypes.ACLPolicy) (apitypes.ACLPolicyBinding, error)
 	DeletePolicyBinding(context.Context, string) (apitypes.ACLPolicyBinding, error)
 }
 
-var toolOwnerPermissions = apitypes.ACLPermissionList{
+var resourceOwnerPermissions = apitypes.ACLPermissionList{
 	apitypes.ACLPermissionRead,
 	apitypes.ACLPermissionUse,
 	apitypes.ACLPermissionAdmin,
@@ -194,12 +194,12 @@ func (s *Server) handleToolDelete(ctx context.Context, req *rpcapi.RPCRequest) *
 	if err := s.Tools.DeleteTool(ctx, params.Id); err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	if s.ToolACL != nil {
+	if s.ResourceACL != nil {
 		for _, bindingID := range []string{
 			legacyToolOwnerBindingID(params.Id, s.Caller.String()),
 			toolOwnerBindingID(params.Id, s.Caller.String()),
 		} {
-			if _, err := s.ToolACL.DeletePolicyBinding(context.WithoutCancel(ctx), bindingID); err != nil && !errors.Is(err, acl.ErrPolicyBindingNotFound) {
+			if _, err := s.ResourceACL.DeletePolicyBinding(context.WithoutCancel(ctx), bindingID); err != nil && !errors.Is(err, acl.ErrPolicyBindingNotFound) {
 				if _, rollbackErr := s.Tools.PutTool(context.WithoutCancel(ctx), stored); rollbackErr != nil {
 					return internalError(req.Id, fmt.Sprintf("%v; Tool rollback failed: %v", err, rollbackErr))
 				}
@@ -245,42 +245,30 @@ func (s *Server) validateOwnedDeviceTool(tool toolkit.Tool) error {
 }
 
 func (s *Server) grantToolOwner(ctx context.Context, toolID string) error {
-	if s.ToolACL == nil {
-		return errors.New("tool ACL service not configured")
-	}
-	if err := s.ensureToolOwnerRole(ctx); err != nil {
-		return err
-	}
-	caller := s.Caller.String()
-	_, err := s.ToolACL.PutPolicyBinding(ctx, toolOwnerBindingID(toolID, caller), 0, apitypes.ACLPolicy{
-		Subject:  acl.PublicKeySubject(caller),
-		Resource: acl.ToolResource(toolID),
-		Role:     toolOwnerRole,
-	})
-	return err
+	return s.grantResourceOwner(ctx, acl.ToolResource(toolID))
 }
 
-func (s *Server) ensureToolOwnerRole(ctx context.Context) error {
-	role, err := s.ToolACL.GetRole(ctx, toolOwnerRole)
+func (s *Server) ensureResourceOwnerRole(ctx context.Context) error {
+	role, err := s.ResourceACL.GetRole(ctx, resourceOwnerRole)
 	if err == nil {
-		if permissionListsEqual(role.Permissions, toolOwnerPermissions) {
+		if permissionListsEqual(role.Permissions, resourceOwnerPermissions) {
 			return nil
 		}
-		return fmt.Errorf("%s ACL role permissions are not current", toolOwnerRole)
+		return fmt.Errorf("%s ACL role permissions are not current", resourceOwnerRole)
 	}
 	if !errors.Is(err, acl.ErrRoleNotFound) {
 		return err
 	}
-	if _, err := s.ToolACL.CreateRole(ctx, toolOwnerRole, toolOwnerPermissions); err != nil {
+	if _, err := s.ResourceACL.CreateRole(ctx, resourceOwnerRole, resourceOwnerPermissions); err != nil {
 		if !errors.Is(err, acl.ErrRoleAlreadyExists) {
 			return err
 		}
-		role, err = s.ToolACL.GetRole(ctx, toolOwnerRole)
+		role, err = s.ResourceACL.GetRole(ctx, resourceOwnerRole)
 		if err != nil {
 			return err
 		}
-		if !permissionListsEqual(role.Permissions, toolOwnerPermissions) {
-			return fmt.Errorf("%s ACL role permissions are not current", toolOwnerRole)
+		if !permissionListsEqual(role.Permissions, resourceOwnerPermissions) {
+			return fmt.Errorf("%s ACL role permissions are not current", resourceOwnerRole)
 		}
 	}
 	return nil
@@ -304,7 +292,7 @@ func permissionListsEqual(left, right apitypes.ACLPermissionList) bool {
 }
 
 func toolOwnerBindingID(toolID, owner string) string {
-	return toolkit.ToolOwnerPolicyBindingID(toolID, owner)
+	return resourceOwnerBindingID(acl.ToolResource(toolID))
 }
 
 func legacyToolOwnerBindingID(toolID, owner string) string {

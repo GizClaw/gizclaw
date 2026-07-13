@@ -646,6 +646,22 @@ func TestASTTranslateUtilityBranches(t *testing.T) {
 	if isAssistantTextChunk(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{Label: "assistant"}, Part: &genx.Blob{}}) {
 		t.Fatalf("blob assistant chunk reported as assistant text")
 	}
+	textChunk := &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: genx.Text("translated"),
+		Ctrl: &genx.StreamCtrl{Label: "assistant"},
+	}
+	if !shouldGraceASTAssistantChunk(textChunk) {
+		t.Fatalf("assistant text chunk did not retain interrupt grace")
+	}
+	audioChunk := &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}},
+		Ctrl: &genx.StreamCtrl{Label: "assistant"},
+	}
+	if shouldGraceASTAssistantChunk(audioChunk) {
+		t.Fatalf("assistant audio chunk retained per-frame interrupt grace")
+	}
 	if !isStreamDone(genx.ErrDone) || !isStreamDone(io.EOF) || isStreamDone(errors.New("boom")) {
 		t.Fatalf("isStreamDone returned unexpected values")
 	}

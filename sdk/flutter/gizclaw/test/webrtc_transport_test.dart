@@ -163,6 +163,31 @@ void main() {
     expect(channel.state, GizClawDataChannelState.open);
   });
 
+  test('recovers when a native open event is missed', () async {
+    final pc = _FakePeerConnection(channelsNativeReady: true);
+    final factory = FlutterWebRtcDataChannelFactory(pc);
+    var completed = false;
+
+    final future = factory.createDataChannel('giznet/v1/service/0').then((
+      channel,
+    ) {
+      completed = true;
+      return channel;
+    });
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(completed, isFalse);
+
+    final channel = await future;
+    expect(channel.state, GizClawDataChannelState.open);
+    final getBufferedAmountCalls =
+        pc.createdDataChannels.single.getBufferedAmountCalls;
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+    expect(
+      pc.createdDataChannels.single.getBufferedAmountCalls,
+      getBufferedAmountCalls,
+    );
+  });
+
   test('closes native data channel when open wait fails', () async {
     final pc = _FakePeerConnection(
       channelInitialState: rtc.RTCDataChannelState.RTCDataChannelClosed,
@@ -530,6 +555,7 @@ class _FakeRtcDataChannel extends rtc.RTCDataChannel {
   final bool nativeReady;
   rtc.RTCDataChannelState? _state;
   int closeCalls = 0;
+  int getBufferedAmountCalls = 0;
   int? bufferedAmountValue;
   final sent = <rtc.RTCDataChannelMessage>[];
 
@@ -551,6 +577,7 @@ class _FakeRtcDataChannel extends rtc.RTCDataChannel {
 
   @override
   Future<int> getBufferedAmount() async {
+    getBufferedAmountCalls++;
     if (!nativeReady) throw StateError('Data channel is not open');
     return 0;
   }
