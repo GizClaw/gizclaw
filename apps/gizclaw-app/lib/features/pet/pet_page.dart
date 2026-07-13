@@ -609,7 +609,7 @@ class _PetConversationDrift extends StatelessWidget {
                     right: visible[index].incoming
                         ? constraints.maxWidth * 0.23
                         : 0,
-                    bottom: 154 + index * 62,
+                    bottom: 24 + index * 62,
                     child: TweenAnimationBuilder<double>(
                       tween: Tween(begin: 0, end: 1),
                       duration: const Duration(milliseconds: 900),
