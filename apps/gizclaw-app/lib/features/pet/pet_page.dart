@@ -257,6 +257,9 @@ class _PetDetailPageState extends State<PetDetailPage> {
   Object? _error;
   bool _loading = false;
   bool _statusVisible = false;
+  Object? _displayedChatError;
+  Object? _dismissedChatError;
+  Timer? _errorDismissTimer;
   String? _clipName;
   String? _drivingAction;
   int _request = 0;
@@ -291,12 +294,51 @@ class _PetDetailPageState extends State<PetDetailPage> {
   @override
   void dispose() {
     _request += 1;
+    _errorDismissTimer?.cancel();
     _replaceChat(null, null, ownsChat: false);
     super.dispose();
   }
 
   void _handleChatChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    final chat = _chat;
+    final error = chat?.lastError;
+    if (error != null &&
+        !identical(error, _displayedChatError) &&
+        !identical(error, _dismissedChatError)) {
+      _showChatError(error);
+      return;
+    }
+    if ((chat?.startingInput ?? false) || (chat?.recording ?? false)) {
+      _errorDismissTimer?.cancel();
+      _displayedChatError = null;
+      _dismissedChatError = null;
+    }
+    setState(() {});
+  }
+
+  void _showChatError(Object error) {
+    _errorDismissTimer?.cancel();
+    setState(() {
+      _displayedChatError = error;
+      _dismissedChatError = null;
+    });
+    _errorDismissTimer = Timer(const Duration(seconds: 8), () {
+      if (!mounted || !identical(_displayedChatError, error)) return;
+      setState(() {
+        _displayedChatError = null;
+        _dismissedChatError = error;
+      });
+    });
+  }
+
+  void _dismissError() {
+    _errorDismissTimer?.cancel();
+    setState(() {
+      _dismissedChatError = _chat?.lastError ?? _displayedChatError;
+      _displayedChatError = null;
+      _error = null;
+    });
   }
 
   void _replaceChat(
@@ -312,6 +354,8 @@ class _PetDetailPageState extends State<PetDetailPage> {
     _ownsChat = ownsChat;
     if (chat != null) {
       chat.addListener(_handleChatChanged);
+      final error = chat.lastError;
+      if (error != null) _showChatError(error);
     }
   }
 
@@ -468,7 +512,13 @@ class _PetDetailPageState extends State<PetDetailPage> {
     final actions = _petMenuActions(_presentation);
     final chat = _chat;
     final messages = chat?.messages ?? const <WorkspaceChatMessage>[];
-    final visibleError = chat?.lastError ?? _error;
+    final currentChatError = chat?.lastError;
+    final visibleError =
+        _displayedChatError ??
+        (identical(currentChatError, _dismissedChatError)
+            ? null
+            : currentChatError) ??
+        _error;
     final safeTop = MediaQuery.paddingOf(context).top;
     return CupertinoPageScaffold(
       backgroundColor: _petDetailBackground,
@@ -505,7 +555,11 @@ class _PetDetailPageState extends State<PetDetailPage> {
               left: 72,
               right: 18,
               bottom: MediaQuery.paddingOf(context).bottom + 108,
-              child: _PetErrorToast(error: _petError(visibleError)),
+              child: _PetErrorToast(
+                error: _petError(visibleError),
+                recoverable: _isEmptyTranscriptError(visibleError),
+                onDismiss: _dismissError,
+              ),
             ),
           Positioned(
             left: 18 - _petActionAnchor,
@@ -1980,25 +2034,60 @@ class _SceneButton extends StatelessWidget {
 }
 
 class _PetErrorToast extends StatelessWidget {
-  const _PetErrorToast({required this.error});
+  const _PetErrorToast({
+    required this.error,
+    required this.recoverable,
+    required this.onDismiss,
+  });
 
   final String error;
+  final VoidCallback onDismiss;
+  final bool recoverable;
 
   @override
   Widget build(BuildContext context) {
+    final accent = recoverable
+        ? const Color(0xFF28705C)
+        : CupertinoColors.systemRed.resolveFrom(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      padding: const EdgeInsets.fromLTRB(12, 9, 7, 9),
       decoration: BoxDecoration(
-        color: const Color(0xE6FFFFFF),
+        color: recoverable ? const Color(0xEDF4FAF7) : const Color(0xF2FFFFFF),
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: accent.withValues(alpha: 0.18)),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withValues(alpha: 0.1),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
-      child: Text(
-        error,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: GizText.label.copyWith(
-          color: CupertinoColors.systemRed.resolveFrom(context),
-        ),
+      child: Row(
+        children: [
+          Icon(
+            recoverable
+                ? CupertinoIcons.waveform
+                : CupertinoIcons.exclamationmark_triangle_fill,
+            color: accent,
+            size: 16,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              error,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: GizText.label.copyWith(color: accent, height: 1.35),
+            ),
+          ),
+          CupertinoButton(
+            minimumSize: const Size(34, 34),
+            padding: EdgeInsets.zero,
+            onPressed: onDismiss,
+            child: Icon(CupertinoIcons.xmark, color: accent, size: 14),
+          ),
+        ],
       ),
     );
   }
@@ -2349,6 +2438,9 @@ String _petError(Object error) {
   }
   return text.startsWith('Bad state: ') ? text.substring(11) : text;
 }
+
+bool _isEmptyTranscriptError(Object error) =>
+    error.toString().contains('ASR produced empty transcript');
 
 Future<String?> _askPetName(BuildContext context) async {
   final controller = TextEditingController();
