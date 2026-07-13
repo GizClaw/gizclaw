@@ -525,29 +525,22 @@ func (s *Server) handleWorkspaceDelete(ctx context.Context, req *rpcapi.RPCReque
 	if resp := s.authorizeResponse(ctx, req.Id, acl.WorkspaceResource(params.Name), apitypes.ACLPermissionAdmin); resp != nil {
 		return resp
 	}
-	adminResp, err := s.Workspaces.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Name: params.Name})
+	deletedBinding, err := s.deleteResourceOwnerBinding(context.WithoutCancel(ctx), acl.WorkspaceResource(params.Name))
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	if deleted, ok := adminResp.(adminhttp.DeleteWorkspace200JSONResponse); ok {
-		if err := s.deleteResourceOwnerBinding(context.WithoutCancel(ctx), acl.WorkspaceResource(params.Name)); err != nil {
-			body := adminhttp.PutWorkspaceJSONRequestBody{
-				Name:         deleted.Name,
-				Parameters:   deleted.Parameters,
-				Toolkit:      deleted.Toolkit,
-				WorkflowName: deleted.WorkflowName,
+	adminResp, err := s.Workspaces.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Name: params.Name})
+	if err != nil {
+		if restoreErr := s.restoreResourceOwnerBinding(context.WithoutCancel(ctx), deletedBinding); restoreErr != nil {
+			return internalError(req.Id, fmt.Sprintf("%v; Workspace owner binding rollback failed: %v", err, restoreErr))
+		}
+		return internalError(req.Id, err.Error())
+	}
+	if _, ok := adminResp.(adminhttp.DeleteWorkspace200JSONResponse); !ok {
+		if _, notFound := adminResp.(adminhttp.DeleteWorkspace404JSONResponse); !notFound {
+			if restoreErr := s.restoreResourceOwnerBinding(context.WithoutCancel(ctx), deletedBinding); restoreErr != nil {
+				return internalError(req.Id, fmt.Sprintf("Workspace delete failed; owner binding rollback failed: %v", restoreErr))
 			}
-			rollbackResp, rollbackErr := s.Workspaces.PutWorkspace(
-				context.WithoutCancel(ctx),
-				adminhttp.PutWorkspaceRequestObject{Name: params.Name, Body: &body},
-			)
-			if rollbackErr != nil {
-				return internalError(req.Id, fmt.Sprintf("%v; Workspace rollback failed: %v", err, rollbackErr))
-			}
-			if _, ok := rollbackResp.(adminhttp.PutWorkspace200JSONResponse); !ok {
-				return internalError(req.Id, fmt.Sprintf("%v; Workspace rollback failed with %T", err, rollbackResp))
-			}
-			return internalError(req.Id, err.Error())
 		}
 	}
 	return workspaceAdminRPCResponse(req.Id, adminResp.VisitDeleteWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspaceDeleteResponse)
@@ -808,33 +801,29 @@ func (s *Server) handleWorkflowDelete(ctx context.Context, req *rpcapi.RPCReques
 	if resp := s.authorizeResponse(ctx, req.Id, workflowResource(params.Name), apitypes.ACLPermissionAdmin); resp != nil {
 		return resp
 	}
-	adminResp, err := s.Workflows.DeleteWorkflow(ctx, adminhttp.DeleteWorkflowRequestObject{Name: params.Name})
+	deletedBinding, err := s.deleteResourceOwnerBinding(context.WithoutCancel(ctx), workflowResource(params.Name))
 	if err != nil {
 		return internalError(req.Id, err.Error())
+	}
+	adminResp, err := s.Workflows.DeleteWorkflow(ctx, adminhttp.DeleteWorkflowRequestObject{Name: params.Name})
+	if err != nil {
+		if restoreErr := s.restoreResourceOwnerBinding(context.WithoutCancel(ctx), deletedBinding); restoreErr != nil {
+			return internalError(req.Id, fmt.Sprintf("%v; Workflow owner binding rollback failed: %v", err, restoreErr))
+		}
+		return internalError(req.Id, err.Error())
+	}
+	if _, notFound := adminResp.(adminhttp.DeleteWorkflow404JSONResponse); notFound {
+		return adminRPCResponse(req.Id, adminResp.VisitDeleteWorkflowResponse, (*rpcapi.RPCPayload).FromWorkflowDeleteResponse)
 	}
 	result, rpcResp, err := adminResult[apitypes.WorkflowDocument](adminResp.VisitDeleteWorkflowResponse)
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
 	if rpcResp != nil {
+		if restoreErr := s.restoreResourceOwnerBinding(context.WithoutCancel(ctx), deletedBinding); restoreErr != nil {
+			return internalError(req.Id, fmt.Sprintf("Workflow delete failed; owner binding rollback failed: %v", restoreErr))
+		}
 		return withRequestID(req.Id, rpcResp)
-	}
-	if err := s.deleteResourceOwnerBinding(context.WithoutCancel(ctx), workflowResource(result.Metadata.Name)); err != nil {
-		body, convertErr := convertType[adminhttp.PutWorkflowJSONRequestBody](result)
-		if convertErr != nil {
-			return internalError(req.Id, fmt.Sprintf("%v; Workflow rollback failed: %v", err, convertErr))
-		}
-		rollbackResp, rollbackErr := s.Workflows.PutWorkflow(
-			context.WithoutCancel(ctx),
-			adminhttp.PutWorkflowRequestObject{Name: result.Metadata.Name, Body: &body},
-		)
-		if rollbackErr != nil {
-			return internalError(req.Id, fmt.Sprintf("%v; Workflow rollback failed: %v", err, rollbackErr))
-		}
-		if _, ok := rollbackResp.(adminhttp.PutWorkflow200JSONResponse); !ok {
-			return internalError(req.Id, fmt.Sprintf("%v; Workflow rollback failed with %T", err, rollbackResp))
-		}
-		return internalError(req.Id, err.Error())
 	}
 	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromWorkflowDeleteResponse)
 }
@@ -944,33 +933,29 @@ func (s *Server) handleModelDelete(ctx context.Context, req *rpcapi.RPCRequest) 
 	if resp := s.authorizeResponse(ctx, req.Id, acl.ModelResource(params.Id), apitypes.ACLPermissionAdmin); resp != nil {
 		return resp
 	}
-	adminResp, err := s.Models.DeleteModel(ctx, adminhttp.DeleteModelRequestObject{Id: params.Id})
+	deletedBinding, err := s.deleteResourceOwnerBinding(context.WithoutCancel(ctx), acl.ModelResource(params.Id))
 	if err != nil {
 		return internalError(req.Id, err.Error())
+	}
+	adminResp, err := s.Models.DeleteModel(ctx, adminhttp.DeleteModelRequestObject{Id: params.Id})
+	if err != nil {
+		if restoreErr := s.restoreResourceOwnerBinding(context.WithoutCancel(ctx), deletedBinding); restoreErr != nil {
+			return internalError(req.Id, fmt.Sprintf("%v; Model owner binding rollback failed: %v", err, restoreErr))
+		}
+		return internalError(req.Id, err.Error())
+	}
+	if _, notFound := adminResp.(adminhttp.DeleteModel404JSONResponse); notFound {
+		return adminRPCResponse(req.Id, adminResp.VisitDeleteModelResponse, (*rpcapi.RPCPayload).FromModelDeleteResponse)
 	}
 	result, rpcResp, err := adminResult[apitypes.Model](adminResp.VisitDeleteModelResponse)
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
 	if rpcResp != nil {
+		if restoreErr := s.restoreResourceOwnerBinding(context.WithoutCancel(ctx), deletedBinding); restoreErr != nil {
+			return internalError(req.Id, fmt.Sprintf("Model delete failed; owner binding rollback failed: %v", restoreErr))
+		}
 		return withRequestID(req.Id, rpcResp)
-	}
-	if err := s.deleteResourceOwnerBinding(context.WithoutCancel(ctx), acl.ModelResource(result.Id)); err != nil {
-		body, convertErr := convertType[adminhttp.PutModelJSONRequestBody](result)
-		if convertErr != nil {
-			return internalError(req.Id, fmt.Sprintf("%v; Model rollback failed: %v", err, convertErr))
-		}
-		rollbackResp, rollbackErr := s.Models.PutModel(
-			context.WithoutCancel(ctx),
-			adminhttp.PutModelRequestObject{Id: result.Id, Body: &body},
-		)
-		if rollbackErr != nil {
-			return internalError(req.Id, fmt.Sprintf("%v; Model rollback failed: %v", err, rollbackErr))
-		}
-		if _, ok := rollbackResp.(adminhttp.PutModel200JSONResponse); !ok {
-			return internalError(req.Id, fmt.Sprintf("%v; Model rollback failed with %T", err, rollbackResp))
-		}
-		return internalError(req.Id, err.Error())
 	}
 	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromModelDeleteResponse)
 }
@@ -1163,33 +1148,29 @@ func (s *Server) handleCredentialDelete(ctx context.Context, req *rpcapi.RPCRequ
 	if resp := s.authorizeResponse(ctx, req.Id, acl.CredentialResource(params.Name), apitypes.ACLPermissionAdmin); resp != nil {
 		return resp
 	}
-	adminResp, err := s.Credentials.DeleteCredential(ctx, adminhttp.DeleteCredentialRequestObject{Name: params.Name})
+	deletedBinding, err := s.deleteResourceOwnerBinding(context.WithoutCancel(ctx), acl.CredentialResource(params.Name))
 	if err != nil {
 		return internalError(req.Id, err.Error())
+	}
+	adminResp, err := s.Credentials.DeleteCredential(ctx, adminhttp.DeleteCredentialRequestObject{Name: params.Name})
+	if err != nil {
+		if restoreErr := s.restoreResourceOwnerBinding(context.WithoutCancel(ctx), deletedBinding); restoreErr != nil {
+			return internalError(req.Id, fmt.Sprintf("%v; Credential owner binding rollback failed: %v", err, restoreErr))
+		}
+		return internalError(req.Id, err.Error())
+	}
+	if _, notFound := adminResp.(adminhttp.DeleteCredential404JSONResponse); notFound {
+		return adminRPCResponse(req.Id, adminResp.VisitDeleteCredentialResponse, (*rpcapi.RPCPayload).FromCredentialDeleteResponse)
 	}
 	result, rpcResp, err := adminResult[apitypes.Credential](adminResp.VisitDeleteCredentialResponse)
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
 	if rpcResp != nil {
+		if restoreErr := s.restoreResourceOwnerBinding(context.WithoutCancel(ctx), deletedBinding); restoreErr != nil {
+			return internalError(req.Id, fmt.Sprintf("Credential delete failed; owner binding rollback failed: %v", restoreErr))
+		}
 		return withRequestID(req.Id, rpcResp)
-	}
-	if err := s.deleteResourceOwnerBinding(context.WithoutCancel(ctx), acl.CredentialResource(result.Name)); err != nil {
-		body, convertErr := convertType[adminhttp.PutCredentialJSONRequestBody](result)
-		if convertErr != nil {
-			return internalError(req.Id, fmt.Sprintf("%v; Credential rollback failed: %v", err, convertErr))
-		}
-		rollbackResp, rollbackErr := s.Credentials.PutCredential(
-			context.WithoutCancel(ctx),
-			adminhttp.PutCredentialRequestObject{Name: result.Name, Body: &body},
-		)
-		if rollbackErr != nil {
-			return internalError(req.Id, fmt.Sprintf("%v; Credential rollback failed: %v", err, rollbackErr))
-		}
-		if _, ok := rollbackResp.(adminhttp.PutCredential200JSONResponse); !ok {
-			return internalError(req.Id, fmt.Sprintf("%v; Credential rollback failed with %T", err, rollbackResp))
-		}
-		return internalError(req.Id, err.Error())
 	}
 	converted, err := apiCredentialToRPC(result)
 	if err != nil {

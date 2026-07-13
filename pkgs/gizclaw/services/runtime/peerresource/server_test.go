@@ -351,6 +351,38 @@ func TestWorkspacePeerDeleteRollsBackWhenOwnerBindingDeleteFails(t *testing.T) {
 	}
 }
 
+func TestWorkspacePeerDeleteRestoresOwnerBindingWhenResourceDeleteFails(t *testing.T) {
+	srv := newTestResourceServer()
+	srv.ACL = allowAllAuthorizer{}
+	bindings := &recordingToolACL{}
+	srv.ResourceACL = bindings
+	runtimeStore := &failingWorkspaceRuntimeStore{}
+	srv.Workspaces.(*workspace.Server).RuntimeStore = runtimeStore
+
+	requireNoRPCError(t, callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, workflowDoc("workflow-delete-fail"))))
+	requireNoRPCError(t, callRPC(t, srv, "workspace-create", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
+		Name:         "workspace-delete-fail",
+		WorkflowName: "workflow-delete-fail",
+	})))
+	bindingID := resourceOwnerBindingID(acl.WorkspaceResource("workspace-delete-fail"))
+	originalPolicy, ok := bindings.policyBinding(bindingID)
+	if !ok {
+		t.Fatalf("workspace owner binding was not created; policies = %#v", bindings.policies)
+	}
+
+	runtimeStore.deleteErr = errors.New("delete runtime failed")
+	deleted := callRPC(t, srv, "workspace-delete", rpcapi.RPCMethodServerWorkspaceDelete, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceDeleteRequest, rpcapi.WorkspaceDeleteRequest{Name: "workspace-delete-fail"}))
+	requireRPCError(t, deleted, rpcapi.RPCErrorCodeInternalError)
+	if restoredPolicy, ok := bindings.policyBinding(bindingID); !ok || restoredPolicy != originalPolicy {
+		t.Fatalf("workspace owner binding after failed delete = %#v, %v; want %#v", restoredPolicy, ok, originalPolicy)
+	}
+	got := callRPC(t, srv, "workspace-get", rpcapi.RPCMethodServerWorkspaceGet, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceGetRequest, rpcapi.WorkspaceGetRequest{Name: "workspace-delete-fail"}))
+	requireNoRPCError(t, got)
+	if workspace := mustResult(t, got.Result.AsWorkspaceGetResponse); workspace.Name != "workspace-delete-fail" {
+		t.Fatalf("workspace after failed delete = %#v", workspace)
+	}
+}
+
 func TestServerRejectsInvalidCustomIDs(t *testing.T) {
 	srv := newTestResourceServer()
 	srv.ACL = allowAllAuthorizer{}
@@ -1187,6 +1219,22 @@ func newTestResourceServer() *Server {
 		Voices:      &voice.Server{Store: kv.NewMemory(nil), Now: func() time.Time { return time.Unix(1, 0).UTC() }},
 		ResourceACL: &recordingToolACL{},
 	}
+}
+
+type failingWorkspaceRuntimeStore struct {
+	deleteErr error
+}
+
+func (s *failingWorkspaceRuntimeStore) PrepareWorkspace(context.Context, string) (workspace.Runtime, error) {
+	return workspace.Runtime{}, nil
+}
+
+func (s *failingWorkspaceRuntimeStore) GetWorkspaceRuntime(context.Context, string) (workspace.Runtime, error) {
+	return workspace.Runtime{}, nil
+}
+
+func (s *failingWorkspaceRuntimeStore) DeleteWorkspaceRuntime(context.Context, string) error {
+	return s.deleteErr
 }
 
 type fixedPeerConfigService struct {

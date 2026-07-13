@@ -29,14 +29,22 @@ func (s *Server) grantResourceOwner(ctx context.Context, resource apitypes.ACLRe
 	return err
 }
 
-func (s *Server) deleteResourceOwnerBinding(ctx context.Context, resource apitypes.ACLResource) error {
+func (s *Server) deleteResourceOwnerBinding(ctx context.Context, resource apitypes.ACLResource) (*apitypes.ACLPolicyBinding, error) {
 	if s.ResourceACL == nil {
-		return nil
+		return nil, nil
 	}
-	_, err := s.ResourceACL.DeletePolicyBinding(ctx, resourceOwnerBindingID(resource))
+	binding, err := s.ResourceACL.DeletePolicyBinding(ctx, resourceOwnerBindingID(resource))
 	if errors.Is(err, acl.ErrPolicyBindingNotFound) {
+		return nil, nil
+	}
+	return &binding, err
+}
+
+func (s *Server) restoreResourceOwnerBinding(ctx context.Context, binding *apitypes.ACLPolicyBinding) error {
+	if s.ResourceACL == nil || binding == nil || binding.Id == "" {
 		return nil
 	}
+	_, err := s.ResourceACL.PutPolicyBinding(ctx, binding.Id, binding.DisplayOrder, binding.Policy)
 	return err
 }
 

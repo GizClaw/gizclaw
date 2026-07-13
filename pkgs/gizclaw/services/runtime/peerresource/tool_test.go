@@ -324,7 +324,15 @@ func (a *recordingToolACL) PutPolicyBinding(_ context.Context, id string, _ floa
 func (a *recordingToolACL) DeletePolicyBinding(_ context.Context, id string) (apitypes.ACLPolicyBinding, error) {
 	a.deleted = id
 	a.deletedIDs = append(a.deletedIDs, id)
-	return apitypes.ACLPolicyBinding{Id: id}, a.deleteErr
+	binding := apitypes.ACLPolicyBinding{Id: id}
+	if policy, ok := a.policies[id]; ok {
+		binding.Policy = policy
+	}
+	if a.deleteErr != nil {
+		return binding, a.deleteErr
+	}
+	delete(a.policies, id)
+	return binding, nil
 }
 
 func (a *recordingToolACL) deletedBinding(id string) bool {
