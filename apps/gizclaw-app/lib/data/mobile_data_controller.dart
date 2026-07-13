@@ -347,6 +347,38 @@ class MobileDataController extends ChangeNotifier {
     return response.value;
   }
 
+  Future<Workspace> createWorkspace({
+    required String workflowName,
+    required String displayName,
+  }) async {
+    final normalizedWorkflow = workflowName.trim();
+    final normalizedDisplayName = displayName.trim();
+    if (normalizedWorkflow.isEmpty) {
+      throw ArgumentError.value(workflowName, 'workflowName', 'is required');
+    }
+    if (normalizedDisplayName.isEmpty) {
+      throw ArgumentError.value(displayName, 'displayName', 'is required');
+    }
+    if (normalizedDisplayName.length > 80) {
+      throw ArgumentError.value(
+        displayName,
+        'displayName',
+        'must be at most 80 characters',
+      );
+    }
+    final response = await runRpc(
+      (client) => client.createWorkspace(
+        Workspace(
+          name: _newWorkspaceName(normalizedWorkflow),
+          workflowName: normalizedWorkflow,
+          displayName: normalizedDisplayName,
+        ),
+      ),
+    );
+    await refresh();
+    return response.value;
+  }
+
   WorkflowCard workflow(String name) {
     return workflows.firstWhere(
       (item) => item.name == name,
@@ -554,6 +586,25 @@ class MobileDataController extends ChangeNotifier {
     unawaited(database.close());
     super.dispose();
   }
+}
+
+String _newWorkspaceName(String workflowName) {
+  final normalized = workflowName
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+      .replaceAll(RegExp(r'^-+|-+$'), '');
+  final validPrefix = normalized.isEmpty
+      ? 'workspace'
+      : RegExp(r'^[a-z]').hasMatch(normalized)
+      ? normalized
+      : 'workspace-$normalized';
+  final prefix = validPrefix.length > 32
+      ? validPrefix.substring(0, 32)
+      : validPrefix;
+  final suffix = DateTime.now().toUtc().microsecondsSinceEpoch.toRadixString(
+    36,
+  );
+  return '$prefix-$suffix';
 }
 
 bool _runWorkspaceNeedsReload(PeerRunWorkspaceState state) {

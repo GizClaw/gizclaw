@@ -118,8 +118,32 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(DriverWorkspacesPage), findsOneWidget);
+    expect(find.text('Raids'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('create-workspace-flowcraft')),
+      findsOneWidget,
+    );
     expect(find.text('Mobile app plan'), findsOneWidget);
     expect(find.text('Morning check-in'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('create-workspace-flowcraft')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('create-workspace-sheet-flowcraft')),
+      findsOneWidget,
+    );
+    expect(find.text('New Raid'), findsNWidgets(2));
+    expect(find.text('Flowcraft Studio'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('workspace-display-name')),
+      findsOneWidget,
+    );
+    Navigator.of(
+      tester.element(
+        find.byKey(const ValueKey('create-workspace-sheet-flowcraft')),
+      ),
+    ).pop();
+    await tester.pumpAndSettle();
 
     await tapPrimaryNav(tester, 'Groups');
     await tester.pumpAndSettle();
@@ -155,10 +179,20 @@ void main() {
 
     await tapPrimaryNav(tester, 'Doubao');
     await tester.pumpAndSettle();
+    expect(find.text('Doubao'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('create-workspace-doubao-realtime')),
+      findsOneWidget,
+    );
     expect(find.text('No Doubao Realtime workspaces yet.'), findsOneWidget);
 
     await tapPrimaryNav(tester, 'Translate');
     await tester.pumpAndSettle();
+    expect(find.text('Translate'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('create-workspace-ast-translate')),
+      findsOneWidget,
+    );
     expect(find.text('No AST Translate workspaces yet.'), findsOneWidget);
   });
 

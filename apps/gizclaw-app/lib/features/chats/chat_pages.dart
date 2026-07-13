@@ -127,16 +127,278 @@ class DriverWorkspacesPage extends StatelessWidget {
           return data.workflow(workspace.workflowName).driver == driver;
         })
         .toList(growable: false);
+    final workflows = data.workflows
+        .where((workflow) => workflow.driver == driver)
+        .toList(growable: false);
     return CupertinoPageScaffold(
       child: SafeArea(
-        child: _DriverWorkspaceList(
-          driver: driver,
-          workspaces: workspaces,
-          chatroomMetadata: data.chatroomWorkspaces,
+        bottom: false,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 12, 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _driverPageTitle(driver),
+                      style: GizText.pageTitle,
+                    ),
+                  ),
+                  CupertinoButton(
+                    key: ValueKey('create-workspace-${driver.routeKey}'),
+                    padding: const EdgeInsets.all(8),
+                    onPressed: workflows.isEmpty
+                        ? null
+                        : () => _showCreateWorkspace(context, data, workflows),
+                    child: Icon(
+                      CupertinoIcons.add_circled_solid,
+                      size: 28,
+                      color: workflows.isEmpty
+                          ? GizColors.secondaryInk.withValues(alpha: 0.42)
+                          : GizColors.ink,
+                      semanticLabel: _newWorkspaceLabel(driver),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: _DriverWorkspaceList(
+                driver: driver,
+                workspaces: workspaces,
+                chatroomMetadata: data.chatroomWorkspaces,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
+
+  Future<void> _showCreateWorkspace(
+    BuildContext context,
+    MobileDataController data,
+    List<WorkflowCard> workflows,
+  ) async {
+    final workspaceName = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (context) => _CreateWorkspaceSheet(
+        data: data,
+        driver: driver,
+        workflows: workflows,
+      ),
+    );
+    if (!context.mounted || workspaceName == null) return;
+    context.push(
+      '/raids/drivers/${driver.routeKey}/'
+      '${Uri.encodeComponent(workspaceName)}',
+    );
+  }
+}
+
+class _CreateWorkspaceSheet extends StatefulWidget {
+  const _CreateWorkspaceSheet({
+    required this.data,
+    required this.driver,
+    required this.workflows,
+  });
+
+  final MobileDataController data;
+  final WorkflowDriverKind driver;
+  final List<WorkflowCard> workflows;
+
+  @override
+  State<_CreateWorkspaceSheet> createState() => _CreateWorkspaceSheetState();
+}
+
+class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
+  final _nameController = TextEditingController();
+  late WorkflowCard _workflow;
+  bool _busy = false;
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _workflow = widget.workflows.first;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _chooseWorkflow() async {
+    if (_busy || widget.workflows.length < 2) return;
+    final workflow = await showCupertinoModalPopup<WorkflowCard>(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        title: const Text('Choose Workflow'),
+        actions: [
+          for (final workflow in widget.workflows)
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.pop(context, workflow),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (workflow.name == _workflow.name) ...[
+                    const Icon(CupertinoIcons.checkmark_alt, size: 17),
+                    const SizedBox(width: 8),
+                  ],
+                  Flexible(child: Text(workflow.title)),
+                ],
+              ),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+      ),
+    );
+    if (workflow != null && mounted) setState(() => _workflow = workflow);
+  }
+
+  Future<void> _create() async {
+    final displayName = _nameController.text.trim();
+    if (_busy || displayName.isEmpty) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final workspace = await widget.data.createWorkspace(
+        workflowName: _workflow.name,
+        displayName: displayName,
+      );
+      if (mounted) Navigator.pop(context, workspace.name);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = error;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final background = CupertinoColors.systemBackground.resolveFrom(context);
+    final secondary = CupertinoColors.secondarySystemBackground.resolveFrom(
+      context,
+    );
+    final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
+    return Container(
+      key: ValueKey('create-workspace-sheet-${widget.driver.routeKey}'),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + safeBottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 36,
+              height: 5,
+              decoration: BoxDecoration(
+                color: CupertinoColors.systemGrey4.resolveFrom(context),
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(_newWorkspaceLabel(widget.driver), style: GizText.sectionTitle),
+          const SizedBox(height: 16),
+          Text(
+            'WORKFLOW',
+            style: GizText.label.copyWith(color: GizColors.secondaryInk),
+          ),
+          const SizedBox(height: 7),
+          CupertinoButton(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            color: secondary,
+            disabledColor: secondary,
+            onPressed: widget.workflows.length > 1 ? _chooseWorkflow : null,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _workflow.title,
+                    overflow: TextOverflow.ellipsis,
+                    style: GizText.body.copyWith(color: GizColors.ink),
+                  ),
+                ),
+                if (widget.workflows.length > 1)
+                  const Icon(
+                    CupertinoIcons.chevron_up_chevron_down,
+                    size: 16,
+                    color: GizColors.secondaryInk,
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          CupertinoTextField(
+            key: const ValueKey('workspace-display-name'),
+            controller: _nameController,
+            placeholder: 'Name',
+            maxLength: 80,
+            autofocus: true,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _create(),
+            padding: const EdgeInsets.all(14),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              _workspaceErrorMessage(_error!),
+              textAlign: TextAlign.center,
+              style: GizText.body.copyWith(
+                color: CupertinoColors.systemRed.resolveFrom(context),
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          CupertinoButton(
+            color: GizColors.ink,
+            disabledColor: GizColors.secondaryInk,
+            onPressed: _busy ? null : _create,
+            child: _busy
+                ? const CupertinoActivityIndicator(color: GizColors.surface)
+                : Text(
+                    _newWorkspaceLabel(widget.driver),
+                    style: GizText.label.copyWith(color: GizColors.surface),
+                  ),
+          ),
+          SizedBox(height: MediaQuery.viewInsetsOf(context).bottom),
+        ],
+      ),
+    );
+  }
+}
+
+String _driverPageTitle(WorkflowDriverKind driver) => switch (driver) {
+  WorkflowDriverKind.flowcraft => 'Raids',
+  WorkflowDriverKind.doubaoRealtime => 'Doubao',
+  WorkflowDriverKind.astTranslate => 'Translate',
+  _ => driver.label,
+};
+
+String _newWorkspaceLabel(WorkflowDriverKind driver) => switch (driver) {
+  WorkflowDriverKind.flowcraft => 'New Raid',
+  WorkflowDriverKind.doubaoRealtime => 'New Doubao Session',
+  WorkflowDriverKind.astTranslate => 'New Translation',
+  _ => 'New Workspace',
+};
+
+String _workspaceErrorMessage(Object error) {
+  final text = error.toString();
+  return text.startsWith('Bad state: ') ? text.substring(11) : text;
 }
 
 class _DriverWorkspaceList extends StatelessWidget {
