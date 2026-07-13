@@ -320,6 +320,15 @@ Future<void> _waitForDataChannelOpen(rtc.RTCDataChannel channel) {
     }
   }
 
+  Future<void> startNativeReadinessPolling() async {
+    await probeNativeReadiness();
+    if (completer.isCompleted) return;
+    pollTimer = Timer.periodic(
+      _dataChannelStatePollDelay,
+      (_) => unawaited(probeNativeReadiness()),
+    );
+  }
+
   handler = (state) {
     previous?.call(state);
     completeIfReady(state);
@@ -328,11 +337,7 @@ Future<void> _waitForDataChannelOpen(rtc.RTCDataChannel channel) {
   completeIfReady(channel.state);
   if (!completer.isCompleted) {
     nativeReadyTimer = Timer(_dataChannelNativeReadyGracePeriod, () {
-      unawaited(probeNativeReadiness());
-      pollTimer = Timer.periodic(
-        _dataChannelStatePollDelay,
-        (_) => unawaited(probeNativeReadiness()),
-      );
+      unawaited(startNativeReadinessPolling());
     });
     timeoutTimer = Timer(const Duration(seconds: 30), () {
       if (completer.isCompleted) return;
