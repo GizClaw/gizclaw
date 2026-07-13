@@ -677,11 +677,11 @@ class _ContextDockNavigation extends StatelessWidget {
           ),
           if (info.workspaceName != null) ...[
             const SizedBox(width: 8),
-            _WorkspaceActivationPill(
+            _WorkspaceActivationButton(
               active: info.active,
               workspaceName: info.workspaceName!,
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 9),
           ],
         ],
       ),
@@ -689,8 +689,8 @@ class _ContextDockNavigation extends StatelessWidget {
   }
 }
 
-class _WorkspaceActivationPill extends StatefulWidget {
-  const _WorkspaceActivationPill({
+class _WorkspaceActivationButton extends StatefulWidget {
+  const _WorkspaceActivationButton({
     required this.active,
     required this.workspaceName,
   });
@@ -699,11 +699,12 @@ class _WorkspaceActivationPill extends StatefulWidget {
   final String workspaceName;
 
   @override
-  State<_WorkspaceActivationPill> createState() =>
-      _WorkspaceActivationPillState();
+  State<_WorkspaceActivationButton> createState() =>
+      _WorkspaceActivationButtonState();
 }
 
-class _WorkspaceActivationPillState extends State<_WorkspaceActivationPill> {
+class _WorkspaceActivationButtonState
+    extends State<_WorkspaceActivationButton> {
   bool _activating = false;
 
   Future<void> _activate() async {
@@ -739,80 +740,77 @@ class _WorkspaceActivationPillState extends State<_WorkspaceActivationPill> {
     final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
     final active = widget.active;
     final foreground = active
-        ? (dark ? const Color(0xFF8DFFD0) : const Color(0xFF087F68))
-        : (dark ? const Color(0xFFE1E8E5) : const Color(0xFF40504A));
-    final fill = active
-        ? (dark ? const Color(0x2426D49B) : const Color(0x1920A67A))
-        : (dark ? const Color(0x14FFFFFF) : const Color(0x0D001913));
-    final border = active
-        ? foreground.withValues(alpha: 0.28)
-        : foreground.withValues(alpha: 0.12);
+        ? (dark ? GizColors.ink : CupertinoColors.white)
+        : (dark ? const Color(0xFFD9E5E0) : const Color(0xFF315248));
+    final colors = active
+        ? (dark
+              ? const [Color(0xFFF4FFF9), Color(0xFFBCEBD9)]
+              : const [Color(0xFF10231D), Color(0xFF24473B)])
+        : (dark
+              ? const [Color(0xFF303936), Color(0xFF252C2A)]
+              : const [Color(0xFFF7FAF8), Color(0xFFE7EFEB)]);
 
-    return CupertinoButton(
-      padding: EdgeInsets.zero,
-      minimumSize: const Size(0, 36),
-      pressedOpacity: active ? 1 : 0.62,
-      onPressed: active ? null : _activate,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 260),
-        curve: Curves.easeOutCubic,
-        height: 34,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: fill,
-          borderRadius: BorderRadius.circular(17),
-          border: Border.all(color: border),
-          boxShadow: active
-              ? [
-                  BoxShadow(
-                    color: foreground.withValues(alpha: 0.13),
-                    blurRadius: 12,
-                    spreadRadius: 1,
+    return Semantics(
+      label: active ? 'Active workspace' : 'Set active workspace',
+      selected: active,
+      button: true,
+      child: CupertinoButton(
+        key: const ValueKey('workspace-activation-button'),
+        padding: EdgeInsets.zero,
+        minimumSize: const Size.square(58),
+        pressedOpacity: active ? 1 : 0.66,
+        onPressed: active ? null : _activate,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+          width: 58,
+          height: 58,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: colors,
+            ),
+            border: Border.all(
+              color: active
+                  ? foreground.withValues(alpha: 0.22)
+                  : foreground.withValues(alpha: dark ? 0.14 : 0.1),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: active
+                    ? const Color(0x2E001913)
+                    : const Color(0x12001913),
+                blurRadius: active ? 12 : 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 190),
+            transitionBuilder: (child, animation) => ScaleTransition(
+              scale: CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutBack,
+              ),
+              child: FadeTransition(opacity: animation, child: child),
+            ),
+            child: _activating
+                ? CupertinoActivityIndicator(
+                    key: const ValueKey('activating'),
+                    radius: 10,
+                    color: foreground,
+                  )
+                : Icon(
+                    active
+                        ? CupertinoIcons.checkmark_alt
+                        : CupertinoIcons.scope,
+                    key: ValueKey(active),
+                    size: active ? 25 : 24,
+                    color: foreground,
                   ),
-                ]
-              : null,
-        ),
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 180),
-          child: _activating
-              ? CupertinoActivityIndicator(
-                  key: const ValueKey('activating'),
-                  radius: 7,
-                  color: foreground,
-                )
-              : Row(
-                  key: ValueKey(active),
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 7,
-                      height: 7,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: active ? foreground : const Color(0x00000000),
-                        border: active
-                            ? null
-                            : Border.all(color: foreground, width: 1.3),
-                        boxShadow: active
-                            ? [
-                                BoxShadow(
-                                  color: foreground.withValues(alpha: 0.48),
-                                  blurRadius: 7,
-                                ),
-                              ]
-                            : null,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      active ? 'ACTIVE' : 'ACTIVATE',
-                      style: GizText.label.copyWith(
-                        color: foreground,
-                        fontSize: 7,
-                      ),
-                    ),
-                  ],
-                ),
+          ),
         ),
       ),
     );

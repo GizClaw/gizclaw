@@ -219,7 +219,15 @@ void main() {
     expect(find.byType(WorkspaceChatPage), findsOneWidget);
     expect(find.text('AGENT SIGNAL ONLINE'), findsNothing);
     expect(find.text('OFFLINE'), findsOneWidget);
-    expect(find.text('ACTIVATE'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('workspace-activation-button')),
+      findsOneWidget,
+    );
+    expect(
+      tester.getSize(find.byKey(const ValueKey('workspace-activation-button'))),
+      const Size.square(58),
+    );
+    expect(find.text('ACTIVATE'), findsNothing);
     expect(
       find.image(const AssetImage('assets/drivers/ast-translate.png')),
       findsOneWidget,
@@ -381,7 +389,10 @@ void main() {
     expect(find.text('Avery'), findsOneWidget);
     expect(find.textContaining('Direct chat'), findsOneWidget);
     expect(find.textContaining('Unavailable'), findsNothing);
-    expect(find.text('ACTIVATE'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('workspace-activation-button')),
+      findsOneWidget,
+    );
     expect(find.byType(CupertinoTextField), findsNothing);
     expect(find.byType(CupertinoTabBar).hitTestable(), findsNothing);
   });
@@ -419,7 +430,10 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 700));
 
-    expect(find.text('ACTIVATE'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('workspace-activation-button')),
+      findsOneWidget,
+    );
     expect(find.text('Parser pass'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
