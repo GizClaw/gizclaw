@@ -441,15 +441,41 @@ class _PrimaryDockNavigation extends StatefulWidget {
   final StatefulNavigationShell navigationShell;
 
   static const _items = [
-    (CupertinoIcons.compass, CupertinoIcons.compass_fill, 'Browse'),
-    (CupertinoIcons.chat_bubble_2, CupertinoIcons.chat_bubble_2_fill, 'Chats'),
-    (CupertinoIcons.person_2, CupertinoIcons.person_2_fill, 'Friends'),
-    (CupertinoIcons.person_3, CupertinoIcons.person_3_fill, 'Groups'),
-    (CupertinoIcons.sparkles, CupertinoIcons.sparkles, 'Pet'),
+    (
+      CupertinoIcons.compass,
+      CupertinoIcons.compass_fill,
+      'Browse',
+      Color(0xFF19A77C),
+    ),
+    (
+      CupertinoIcons.chat_bubble_2,
+      CupertinoIcons.chat_bubble_2_fill,
+      'Chats',
+      Color(0xFFE56F65),
+    ),
+    (
+      CupertinoIcons.person_2,
+      CupertinoIcons.person_2_fill,
+      'Friends',
+      Color(0xFF4E83D8),
+    ),
+    (
+      CupertinoIcons.person_3,
+      CupertinoIcons.person_3_fill,
+      'Groups',
+      Color(0xFF8B6ED9),
+    ),
+    (
+      CupertinoIcons.sparkles,
+      CupertinoIcons.sparkles,
+      'Pet',
+      Color(0xFFD99437),
+    ),
     (
       CupertinoIcons.person_crop_circle,
       CupertinoIcons.person_crop_circle_fill,
       'Me',
+      Color(0xFF2B9DB2),
     ),
   ];
 
@@ -548,9 +574,10 @@ class _PrimaryDockNavigationState extends State<_PrimaryDockNavigation> {
           itemBuilder: (context, index) {
             final item = _PrimaryDockNavigation._items[index];
             final selected = widget.navigationShell.currentIndex == index;
+            final accent = item.$4;
             final foreground = selected
-                ? (dark ? GizColors.ink : CupertinoColors.white)
-                : (dark ? const Color(0xAFFFFFFF) : GizColors.secondaryInk);
+                ? CupertinoColors.white
+                : accent.withValues(alpha: dark ? 0.78 : 0.68);
             return Semantics(
               label: item.$3,
               selected: selected,
@@ -575,19 +602,28 @@ class _PrimaryDockNavigationState extends State<_PrimaryDockNavigation> {
                         ? LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: dark
-                                ? const [Color(0xFFF4FFF9), Color(0xFFBCEBD9)]
-                                : const [Color(0xFF10231D), Color(0xFF24473B)],
+                            colors: [
+                              Color.lerp(
+                                accent,
+                                CupertinoColors.white,
+                                dark ? 0.3 : 0.12,
+                              )!,
+                              Color.lerp(
+                                accent,
+                                CupertinoColors.black,
+                                dark ? 0.04 : 0.13,
+                              )!,
+                            ],
                           )
                         : null,
                     boxShadow: selected
                         ? [
                             BoxShadow(
-                              color: dark
-                                  ? const Color(0x24000000)
-                                  : const Color(0x26001913),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
+                              color: accent.withValues(
+                                alpha: dark ? 0.34 : 0.28,
+                              ),
+                              blurRadius: 14,
+                              offset: const Offset(0, 5),
                             ),
                           ]
                         : null,
@@ -634,7 +670,7 @@ class _ContextDockNavigation extends StatelessWidget {
             child: Icon(
               CupertinoIcons.chevron_left,
               size: 20,
-              color: dark ? CupertinoColors.white : GizColors.ink,
+              color: dark ? const Color(0xFF9CC0F5) : const Color(0xFF4E7DD1),
             ),
           ),
           Container(
@@ -753,15 +789,15 @@ class _WorkspaceActivationButtonState
     final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
     final active = widget.active;
     final foreground = active
-        ? (dark ? GizColors.ink : CupertinoColors.white)
-        : (dark ? const Color(0xFFD9E5E0) : const Color(0xFF315248));
+        ? CupertinoColors.white
+        : (dark ? const Color(0xFF8EBDF5) : const Color(0xFF4E7DD1));
     final colors = active
         ? (dark
-              ? const [Color(0xFFF4FFF9), Color(0xFFBCEBD9)]
-              : const [Color(0xFF10231D), Color(0xFF24473B)])
+              ? const [Color(0xFF56D5AD), Color(0xFF15956F)]
+              : const [Color(0xFF32BE91), Color(0xFF168863)])
         : (dark
-              ? const [Color(0xFF303936), Color(0xFF252C2A)]
-              : const [Color(0xFFF7FAF8), Color(0xFFE7EFEB)]);
+              ? const [Color(0xFF30383D), Color(0xFF252C31)]
+              : const [Color(0xFFF8FAFD), Color(0xFFE8EFF8)]);
 
     return Semantics(
       label: active ? 'Active workspace' : 'Set active workspace',
@@ -1197,7 +1233,10 @@ class _VoiceModeToggleState extends State<_VoiceModeToggle> {
     final realtime =
         widget.mode == WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME;
     final engaged = widget.recording || widget.preparing;
-    final inactive = dark ? const Color(0x8FFFFFFF) : const Color(0x73001913);
+    final pttAccent = dark ? const Color(0xFF7AE1BD) : const Color(0xFF149B72);
+    final realtimeAccent = dark
+        ? const Color(0xFFB2A6FF)
+        : const Color(0xFF7467D9);
     final thumb = _VoiceModeThumb(
       enabled: widget.enabled,
       realtime: realtime,
@@ -1226,7 +1265,7 @@ class _VoiceModeToggleState extends State<_VoiceModeToggle> {
                   key: const ValueKey('voice-mode-ptt'),
                   label: 'Push to talk',
                   icon: CupertinoIcons.mic_fill,
-                  color: inactive,
+                  color: pttAccent.withValues(alpha: realtime ? 0.48 : 0.72),
                   loading: widget.switchingMode && realtime,
                   onPressed: !realtime || widget.switchingMode
                       ? null
@@ -1240,7 +1279,9 @@ class _VoiceModeToggleState extends State<_VoiceModeToggle> {
                   key: const ValueKey('voice-mode-realtime'),
                   label: 'Realtime',
                   icon: CupertinoIcons.phone_fill,
-                  color: inactive,
+                  color: realtimeAccent.withValues(
+                    alpha: realtime ? 0.72 : 0.48,
+                  ),
                   loading: widget.switchingMode && !realtime,
                   onPressed: realtime || widget.switchingMode
                       ? null
@@ -1326,6 +1367,16 @@ class _VoiceModeThumb extends StatelessWidget {
   Widget build(BuildContext context) {
     final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
     final energized = engaged || playingOutput;
+    final accent = realtime ? const Color(0xFF796DE0) : const Color(0xFF18A579);
+    final gradientColors = dark
+        ? [
+            Color.lerp(accent, CupertinoColors.white, 0.34)!,
+            Color.lerp(accent, CupertinoColors.black, 0.02)!,
+          ]
+        : [
+            Color.lerp(accent, CupertinoColors.white, 0.1)!,
+            Color.lerp(accent, CupertinoColors.black, 0.13)!,
+          ];
     return AnimatedScale(
       scale: engaged ? 0.92 : 1,
       duration: const Duration(milliseconds: 150),
@@ -1338,9 +1389,7 @@ class _VoiceModeThumb extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: dark
-                ? const [Color(0xFFF4FFF9), Color(0xFFBCEBD9)]
-                : const [Color(0xFF10231D), Color(0xFF24473B)],
+            colors: gradientColors,
           ),
           border: Border.all(
             color: dark ? const Color(0x5CFFFFFF) : const Color(0x52FFFFFF),
@@ -1348,8 +1397,8 @@ class _VoiceModeThumb extends StatelessWidget {
           boxShadow: [
             BoxShadow(
               color: energized
-                  ? const Color(0x4542DDB4)
-                  : (dark ? const Color(0x38000000) : const Color(0x26001913)),
+                  ? accent.withValues(alpha: 0.42)
+                  : accent.withValues(alpha: dark ? 0.3 : 0.24),
               blurRadius: energized ? 14 : 9,
               offset: const Offset(0, 4),
             ),
@@ -1366,8 +1415,8 @@ class _VoiceModeThumb extends StatelessWidget {
             key: ValueKey(realtime),
             size: realtime ? 22 : 21,
             color: enabled
-                ? (dark ? GizColors.ink : CupertinoColors.white)
-                : (dark ? const Color(0x66001913) : const Color(0x73FFFFFF)),
+                ? CupertinoColors.white
+                : CupertinoColors.white.withValues(alpha: 0.46),
           ),
         ),
       ),
