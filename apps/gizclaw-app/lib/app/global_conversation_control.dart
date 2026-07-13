@@ -42,10 +42,21 @@ class GlobalConversationOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final audioFieldHeight = math.min(
+      300.0,
+      MediaQuery.sizeOf(context).height * 0.36,
+    );
     return Stack(
       fit: StackFit.expand,
       children: [
         child,
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: audioFieldHeight,
+          child: const IgnorePointer(child: _GlobalAudioField()),
+        ),
         Positioned(
           left: 0,
           right: 0,
@@ -130,10 +141,7 @@ class _GlobalBottomDock extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            _DockAudioGlow(
-              height: GlobalConversationOverlay.dockHeight,
-              child: const _DockCapsule(child: _ConversationControlCapsule()),
-            ),
+            const _DockCapsule(child: GlobalConversationControl(compact: true)),
           ],
         ),
       ),
@@ -176,67 +184,25 @@ class _DockCapsule extends StatelessWidget {
   }
 }
 
-class _ConversationControlCapsule extends StatelessWidget {
-  const _ConversationControlCapsule();
+class _GlobalAudioField extends StatefulWidget {
+  const _GlobalAudioField();
 
   @override
-  Widget build(BuildContext context) {
-    final data = MobileDataScope.watch(context);
-    final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
-    final foreground = dark ? CupertinoColors.white : GizColors.ink;
-    return SizedBox(
-      width: 120,
-      child: Row(
-        children: [
-          Semantics(
-            label: 'Conversation settings',
-            button: true,
-            child: CupertinoButton(
-              key: const ValueKey('conversation-settings'),
-              minimumSize: const Size(45, 60),
-              padding: EdgeInsets.zero,
-              onPressed: () => _showConversationSettingsSheet(context, data),
-              child: Icon(
-                CupertinoIcons.slider_horizontal_3,
-                size: 19,
-                color: foreground,
-              ),
-            ),
-          ),
-          Container(
-            width: 1,
-            height: 30,
-            color: dark ? const Color(0x2EFFFFFF) : const Color(0x14001913),
-          ),
-          const GlobalConversationControl(compact: true),
-        ],
-      ),
-    );
-  }
+  State<_GlobalAudioField> createState() => _GlobalAudioFieldState();
 }
 
-class _DockAudioGlow extends StatefulWidget {
-  const _DockAudioGlow({required this.height, required this.child});
-
-  final Widget child;
-  final double height;
-
-  @override
-  State<_DockAudioGlow> createState() => _DockAudioGlowState();
-}
-
-class _DockAudioGlowState extends State<_DockAudioGlow>
+class _GlobalAudioFieldState extends State<_GlobalAudioField>
     with TickerProviderStateMixin {
   WorkspaceChatController? _chat;
   late final AnimationController _phase = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 4600),
+    duration: const Duration(milliseconds: 4200),
   );
   late final AnimationController _presence =
       AnimationController(
         vsync: this,
-        duration: const Duration(milliseconds: 320),
-        reverseDuration: const Duration(milliseconds: 620),
+        duration: const Duration(milliseconds: 260),
+        reverseDuration: const Duration(milliseconds: 760),
       )..addStatusListener((status) {
         if (status == AnimationStatus.dismissed) _phase.stop();
       });
@@ -286,100 +252,137 @@ class _DockAudioGlowState extends State<_DockAudioGlow>
     final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
     return AnimatedBuilder(
       animation: Listenable.merge([_phase, _presence]),
-      child: widget.child,
       builder: (context, child) {
         final chat = _chat;
-        return Container(
-          height: widget.height,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(38),
-            boxShadow: _dockShadows(
+        return RepaintBoundary(
+          key: const ValueKey('global-audio-field'),
+          child: CustomPaint(
+            painter: _AudioFieldPainter(
               dark: dark,
               phase: _phase.value,
               presence: Curves.easeInOutCubic.transform(_presence.value),
               inputLevel: chat?.inputLevel ?? 0,
               outputLevel: chat?.outputLevel ?? 0,
             ),
+            size: Size.infinite,
           ),
-          child: child,
         );
       },
     );
   }
 }
 
-List<BoxShadow> _dockShadows({
-  required bool dark,
-  required double phase,
-  required double presence,
-  required double inputLevel,
-  required double outputLevel,
-}) {
-  final input = math.pow(inputLevel.clamp(0.0, 1.0), 0.42).toDouble();
-  final output = math.pow(outputLevel.clamp(0.0, 1.0), 0.42).toDouble();
-  final audio = (input * 0.72 + output * 0.78).clamp(0.0, 1.0);
-  final angle = phase * math.pi * 2;
-  final breath =
-      0.52 + math.sin(angle) * 0.27 + math.sin(angle * 1.73 + 1.1) * 0.14;
-  final energy = presence * (0.28 + breath * 0.22 + audio * 0.72);
-  final hue = (178 + phase * 148 + math.sin(angle * 0.63) * 24) % 360;
-  final reactive = <BoxShadow>[];
-  if (presence > 0) {
-    for (var index = 0; index < 3; index++) {
-      final orbit = angle * (0.72 + index * 0.17) + index * 2.1;
-      final color = HSVColor.fromAHSV(
-        1,
-        (hue + index * 84) % 360,
-        dark ? 0.62 : 0.54,
-        1,
-      ).toColor();
-      reactive.add(
-        BoxShadow(
-          color: color.withValues(
-            alpha: (dark ? 0.16 : 0.13) + energy * (0.16 + index * 0.025),
-          ),
-          blurRadius: 25 + energy * 25 + index * 3,
-          spreadRadius: -5 + energy * 8,
-          offset: Offset(
-            math.cos(orbit) * (18 + energy * 8),
-            7 + math.sin(orbit) * (5 + energy * 4),
-          ),
-        ),
-      );
-    }
+class _AudioFieldPainter extends CustomPainter {
+  const _AudioFieldPainter({
+    required this.dark,
+    required this.phase,
+    required this.presence,
+    required this.inputLevel,
+    required this.outputLevel,
+  });
+
+  final bool dark;
+  final double phase;
+  final double presence;
+  final double inputLevel;
+  final double outputLevel;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (presence <= 0.001 || size.isEmpty) return;
+    final input = math.pow(inputLevel.clamp(0.0, 1.0), 0.42).toDouble();
+    final output = math.pow(outputLevel.clamp(0.0, 1.0), 0.42).toDouble();
+    final angle = phase * math.pi * 2;
+    const inputColor = Color(0xFF42DDB4);
+    const outputColor = Color(0xFF7588FF);
+    final blend = Color.lerp(
+      inputColor,
+      outputColor,
+      output / (input + output + 0.01),
+    )!;
+
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            const Color(0x00000000),
+            blend.withValues(alpha: presence * (dark ? 0.035 : 0.025)),
+            blend.withValues(alpha: presence * (dark ? 0.18 : 0.13)),
+          ],
+          stops: const [0, 0.48, 1],
+        ).createShader(Offset.zero & size),
+    );
+
+    _paintWave(
+      canvas,
+      size,
+      color: outputColor,
+      level: output,
+      phase: angle + 1.9,
+      verticalOffset: 0.05,
+    );
+    _paintWave(
+      canvas,
+      size,
+      color: inputColor,
+      level: input,
+      phase: -angle * 1.13,
+      verticalOffset: 0,
+    );
   }
-  return [
-    const BoxShadow(
-      color: Color(0x2E61D7FF),
-      blurRadius: 22,
-      spreadRadius: -3,
-      offset: Offset(-18, 7),
-    ),
-    const BoxShadow(
-      color: Color(0x266F75FF),
-      blurRadius: 24,
-      spreadRadius: -4,
-      offset: Offset(-5, 9),
-    ),
-    const BoxShadow(
-      color: Color(0x2EEA6BDB),
-      blurRadius: 24,
-      spreadRadius: -4,
-      offset: Offset(13, 8),
-    ),
-    const BoxShadow(
-      color: Color(0x26FF9D66),
-      blurRadius: 20,
-      spreadRadius: -5,
-      offset: Offset(24, 5),
-    ),
-    ...reactive,
-    BoxShadow(
-      color: dark ? const Color(0x80000000) : const Color(0x1F001812),
-      blurRadius: 24,
-      offset: const Offset(0, 10),
-    ),
-  ];
+
+  void _paintWave(
+    Canvas canvas,
+    Size size, {
+    required Color color,
+    required double level,
+    required double phase,
+    required double verticalOffset,
+  }) {
+    final energy = presence * (0.12 + level * 0.88);
+    final baseY = size.height * (0.79 - verticalOffset - energy * 0.24);
+    final amplitude = 5 + energy * size.height * 0.085;
+    final path = Path()..moveTo(0, baseY);
+    const segments = 36;
+    for (var index = 0; index <= segments; index++) {
+      final progress = index / segments;
+      final primary = math.sin(progress * math.pi * 2.15 + phase);
+      final detail = math.sin(progress * math.pi * 5.2 - phase * 0.62) * 0.34;
+      final edgeFade = math.sin(progress * math.pi).clamp(0.0, 1.0);
+      final y = baseY - (primary + detail) * amplitude * edgeFade;
+      path.lineTo(progress * size.width, y);
+    }
+    path
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    final bounds = path.getBounds();
+    canvas.drawPath(
+      path,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            color.withValues(alpha: presence * (dark ? 0.018 : 0.012)),
+            color.withValues(alpha: presence * (dark ? 0.11 : 0.08)),
+            color.withValues(alpha: presence * (dark ? 0.3 : 0.22)),
+          ],
+          stops: const [0, 0.42, 1],
+        ).createShader(bounds),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_AudioFieldPainter oldDelegate) =>
+      oldDelegate.dark != dark ||
+      oldDelegate.phase != phase ||
+      oldDelegate.presence != presence ||
+      oldDelegate.inputLevel != inputLevel ||
+      oldDelegate.outputLevel != outputLevel;
 }
 
 class _PrimaryDockNavigation extends StatelessWidget {
@@ -794,13 +797,9 @@ class GlobalConversationControl extends StatefulWidget {
       _GlobalConversationControlState();
 }
 
-class _GlobalConversationControlState extends State<GlobalConversationControl>
-    with SingleTickerProviderStateMixin {
+class _GlobalConversationControlState extends State<GlobalConversationControl> {
   WorkspaceChatController? _observedChat;
-  late final AnimationController _motion = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 2400),
-  );
+  bool _switchingMode = false;
 
   @override
   void didChangeDependencies() {
@@ -819,7 +818,6 @@ class _GlobalConversationControlState extends State<GlobalConversationControl>
   @override
   void dispose() {
     _observedChat?.removeListener(_handleChatChanged);
-    _motion.dispose();
     super.dispose();
   }
 
@@ -833,40 +831,28 @@ class _GlobalConversationControlState extends State<GlobalConversationControl>
         : data.workspace(workspaceName);
     final mode = _effectiveMode(data.activeInputMode);
     final enabled = chat?.canRecord ?? false;
-    final animate =
-        (chat?.startingInput ?? false) ||
-        (chat?.recording ?? false) ||
-        (chat?.playingOutput ?? false);
-    if (animate && !_motion.isAnimating) {
-      _motion.repeat();
-    } else if (!animate && _motion.isAnimating) {
-      _motion.stop();
-    }
     final title = workspace?.title ?? 'No active workspace';
     final status = _statusLabel(data, chat, mode);
-    final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
-    final accent = dark ? const Color(0xFF8DFFD0) : const Color(0xFF087F68);
-
-    final button = _VoiceOrb(
-      animation: _motion,
-      size: widget.compact ? 54 : 58,
+    final control = _VoiceModeToggle(
       enabled: enabled,
-      active: chat?.recording ?? false,
+      mode: mode,
+      switchingMode: _switchingMode,
+      recording: chat?.recording ?? false,
       preparing: chat?.startingInput ?? false,
       playingOutput: chat?.playingOutput ?? false,
-      realtime: mode == WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME,
-      inputLevel: chat?.inputLevel ?? 0,
-      outputLevel: chat?.outputLevel ?? 0,
-      accent: accent,
-      onPressStart: enabled ? () => _startInput(chat!) : null,
-      onPressEnd: enabled ? () => unawaited(chat!.finishInput()) : null,
+      onSelectMode: workspaceName == null
+          ? null
+          : (target) => _setMode(data, target),
+      onPttStart: enabled ? () => _startInput(chat!) : null,
+      onPttEnd: enabled ? () => unawaited(chat!.finishInput()) : null,
+      onRealtimeTap: enabled ? () => _toggleRealtime(chat!) : null,
     );
 
     if (widget.compact) {
       return Semantics(
         label: '$title, $status',
-        button: true,
-        child: SizedBox.square(dimension: 74, child: button),
+        container: true,
+        child: control,
       );
     }
 
@@ -875,12 +861,14 @@ class _GlobalConversationControlState extends State<GlobalConversationControl>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          button,
+          control,
           const SizedBox(height: 8),
           Text(
             status,
             style: GizText.label.copyWith(
-              color: dark ? const Color(0xCCFFFFFF) : GizColors.secondaryInk,
+              color: MediaQuery.platformBrightnessOf(context) == Brightness.dark
+                  ? const Color(0xCCFFFFFF)
+                  : GizColors.secondaryInk,
               fontSize: 10,
             ),
           ),
@@ -893,394 +881,257 @@ class _GlobalConversationControlState extends State<GlobalConversationControl>
     unawaited(HapticFeedback.mediumImpact());
     await chat.startInput();
   }
-}
 
-class _VoiceOrb extends StatelessWidget {
-  const _VoiceOrb({
-    required this.animation,
-    required this.size,
-    required this.enabled,
-    required this.active,
-    required this.preparing,
-    required this.playingOutput,
-    required this.realtime,
-    required this.inputLevel,
-    required this.outputLevel,
-    required this.accent,
-    required this.onPressStart,
-    required this.onPressEnd,
-  });
+  Future<void> _toggleRealtime(WorkspaceChatController chat) async {
+    if (chat.startingInput) return;
+    unawaited(HapticFeedback.mediumImpact());
+    if (chat.recording) {
+      await chat.finishInput();
+    } else {
+      await chat.startInput();
+    }
+  }
 
-  final Animation<double> animation;
-  final double size;
-  final bool enabled;
-  final bool active;
-  final bool preparing;
-  final bool playingOutput;
-  final bool realtime;
-  final double inputLevel;
-  final double outputLevel;
-  final Color accent;
-  final VoidCallback? onPressStart;
-  final VoidCallback? onPressEnd;
-
-  @override
-  Widget build(BuildContext context) {
-    final speaking = playingOutput;
-    final engaged = active || preparing;
-    final energy = speaking ? const Color(0xFF4F7CFF) : accent;
-    return Listener(
-      behavior: HitTestBehavior.opaque,
-      onPointerDown: onPressStart == null ? null : (_) => onPressStart!(),
-      onPointerUp: onPressEnd == null ? null : (_) => onPressEnd!(),
-      onPointerCancel: onPressEnd == null ? null : (_) => onPressEnd!(),
-      child: AnimatedBuilder(
-        animation: animation,
-        builder: (context, child) {
-          final phase = animation.value;
-          return AnimatedScale(
-            scale: engaged ? 0.96 : 1,
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOutBack,
-            child: CustomPaint(
-              painter: _VoiceEnergyPainter(
-                phase: phase,
-                inputLevel: inputLevel,
-                outputLevel: outputLevel,
-                engaged: engaged,
-                energy: energy,
-              ),
-              child: Center(
-                child: _VoiceEnergySurface(
-                  size: size,
-                  enabled: enabled,
-                  engaged: engaged,
-                  realtime: realtime,
-                  speaking: speaking,
-                  energy: energy,
-                ),
-              ),
+  Future<void> _setMode(
+    MobileDataController data,
+    WorkspaceInputMode mode,
+  ) async {
+    if (_switchingMode || _effectiveMode(data.activeInputMode) == mode) return;
+    setState(() => _switchingMode = true);
+    unawaited(HapticFeedback.selectionClick());
+    try {
+      await data.setActiveInputMode(mode);
+    } catch (error) {
+      if (!mounted) return;
+      await showCupertinoDialog<void>(
+        context: context,
+        builder: (context) => CupertinoAlertDialog(
+          title: const Text('Unable to switch mode'),
+          content: Text('$error'),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
             ),
-          );
-        },
-      ),
-    );
+          ],
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _switchingMode = false);
+    }
   }
 }
 
-class _VoiceEnergySurface extends StatelessWidget {
-  const _VoiceEnergySurface({
-    required this.size,
+class _VoiceModeToggle extends StatelessWidget {
+  const _VoiceModeToggle({
     required this.enabled,
-    required this.engaged,
-    required this.realtime,
-    required this.speaking,
-    required this.energy,
+    required this.mode,
+    required this.switchingMode,
+    required this.recording,
+    required this.preparing,
+    required this.playingOutput,
+    required this.onSelectMode,
+    required this.onPttStart,
+    required this.onPttEnd,
+    required this.onRealtimeTap,
   });
 
-  final double size;
   final bool enabled;
-  final bool engaged;
-  final bool realtime;
-  final bool speaking;
-  final Color energy;
+  final WorkspaceInputMode mode;
+  final bool switchingMode;
+  final bool recording;
+  final bool preparing;
+  final bool playingOutput;
+  final ValueChanged<WorkspaceInputMode>? onSelectMode;
+  final VoidCallback? onPttStart;
+  final VoidCallback? onPttEnd;
+  final VoidCallback? onRealtimeTap;
 
   @override
   Widget build(BuildContext context) {
     final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
-    final energized = enabled && (engaged || speaking);
-    final icon = speaking
-        ? CupertinoIcons.waveform
-        : engaged
-        ? CupertinoIcons.waveform_path
-        : realtime
-        ? CupertinoIcons.dot_radiowaves_left_right
-        : CupertinoIcons.mic_fill;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: energized
-              ? (dark
-                    ? const [Color(0xFFE8F5F0), Color(0xFFB9E7D6)]
-                    : const [Color(0xFF13231E), Color(0xFF29443A)])
-              : (dark
-                    ? const [Color(0xFF343C39), Color(0xFF1D2321)]
-                    : const [Color(0xFFFFFFFF), Color(0xFFE9EFEC)]),
-        ),
-        border: Border.all(
-          color: dark ? const Color(0x38FFFFFF) : const Color(0xB8FFFFFF),
-        ),
-        boxShadow: [
-          if (energized)
-            BoxShadow(
-              color: energy.withValues(alpha: dark ? 0.2 : 0.16),
-              blurRadius: 16,
+    final realtime = mode == WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME;
+    final engaged = recording || preparing;
+    final inactive = dark ? const Color(0x8FFFFFFF) : const Color(0x73001913);
+    final thumb = _VoiceModeThumb(
+      enabled: enabled,
+      realtime: realtime,
+      engaged: engaged,
+      playingOutput: playingOutput,
+    );
+    final interactiveThumb = realtime
+        ? GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onRealtimeTap,
+            child: thumb,
+          )
+        : Listener(
+            behavior: HitTestBehavior.opaque,
+            onPointerDown: onPttStart == null ? null : (_) => onPttStart!(),
+            onPointerUp: onPttEnd == null ? null : (_) => onPttEnd!(),
+            onPointerCancel: onPttEnd == null ? null : (_) => onPttEnd!(),
+            child: thumb,
+          );
+
+    return SizedBox(
+      key: const ValueKey('voice-mode-toggle'),
+      width: 132,
+      height: GlobalConversationOverlay.dockHeight,
+      child: Stack(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _VoiceModeTarget(
+                  key: const ValueKey('voice-mode-ptt'),
+                  label: 'Push to talk',
+                  icon: CupertinoIcons.mic_fill,
+                  color: inactive,
+                  loading: switchingMode && realtime,
+                  onPressed: !realtime || switchingMode
+                      ? null
+                      : () => onSelectMode?.call(
+                          WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
+                        ),
+                ),
+              ),
+              Expanded(
+                child: _VoiceModeTarget(
+                  key: const ValueKey('voice-mode-realtime'),
+                  label: 'Realtime',
+                  icon: CupertinoIcons.phone_fill,
+                  color: inactive,
+                  loading: switchingMode && !realtime,
+                  onPressed: realtime || switchingMode
+                      ? null
+                      : () => onSelectMode?.call(
+                          WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME,
+                        ),
+                ),
+              ),
+            ],
+          ),
+          AnimatedPositioned(
+            key: const ValueKey('voice-mode-thumb'),
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOutCubic,
+            top: 9,
+            left: realtime ? 68 : 6,
+            width: 58,
+            height: 58,
+            child: Semantics(
+              label: realtime
+                  ? recording
+                        ? 'End realtime call'
+                        : 'Start realtime call'
+                  : 'Hold to talk',
+              button: true,
+              child: interactiveThumb,
             ),
-          BoxShadow(
-            color: dark ? const Color(0x42000000) : const Color(0x1717342C),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Icon(
-        icon,
-        color: enabled
-            ? (energized
-                  ? (dark ? GizColors.ink : CupertinoColors.white)
-                  : (dark ? CupertinoColors.white : GizColors.ink))
-            : (dark ? const Color(0x66FFFFFF) : const Color(0x55001913)),
-        size: size * (engaged ? 0.4 : 0.36),
-      ),
     );
   }
 }
 
-class _VoiceEnergyPainter extends CustomPainter {
-  const _VoiceEnergyPainter({
-    required this.phase,
-    required this.inputLevel,
-    required this.outputLevel,
-    required this.engaged,
-    required this.energy,
+class _VoiceModeTarget extends StatelessWidget {
+  const _VoiceModeTarget({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.loading,
+    required this.onPressed,
   });
 
-  final double phase;
-  final double inputLevel;
-  final double outputLevel;
-  final bool engaged;
-  final Color energy;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (!engaged && inputLevel <= 0.02 && outputLevel <= 0.02) return;
-    final center = Offset(size.width / 2, size.height / 2);
-    final unit = math.min(size.width, size.height);
-    final pulse = math.sin(phase * math.pi * 2);
-    final levels = [inputLevel, outputLevel];
-    final colors = [energy, const Color(0xFF6F86D9)];
-    for (var ring = 0; ring < levels.length; ring++) {
-      final level = levels[ring];
-      final radius =
-          unit * (0.39 + ring * 0.055) +
-          pulse * (0.7 + ring * 0.35) +
-          level * 4;
-      canvas.drawCircle(
-        center,
-        radius,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = ring == 0 ? 1.4 : 1
-          ..color = colors[ring].withValues(alpha: 0.16 + level * 0.38),
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_VoiceEnergyPainter oldDelegate) =>
-      oldDelegate.phase != phase ||
-      oldDelegate.inputLevel != inputLevel ||
-      oldDelegate.outputLevel != outputLevel ||
-      oldDelegate.engaged != engaged ||
-      oldDelegate.energy != energy;
-}
-
-Future<void> _showConversationSettingsSheet(
-  BuildContext context,
-  MobileDataController data,
-) async {
-  await showCupertinoModalPopup<void>(
-    context: context,
-    barrierColor: const Color(0x33000806),
-    semanticsDismissible: true,
-    useRootNavigator: true,
-    builder: (context) => _ConversationSettingsSheet(data: data),
-  );
-}
-
-class _ConversationSettingsSheet extends StatefulWidget {
-  const _ConversationSettingsSheet({required this.data});
-
-  final MobileDataController data;
-
-  @override
-  State<_ConversationSettingsSheet> createState() =>
-      _ConversationSettingsSheetState();
-}
-
-class _ConversationSettingsSheetState
-    extends State<_ConversationSettingsSheet> {
-  bool _switching = false;
-  Object? _error;
+  final String label;
+  final IconData icon;
+  final Color color;
+  final bool loading;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final data = widget.data;
-    final workspaceName = data.activeWorkspaceName;
-    final workspace = workspaceName == null
-        ? null
-        : data.workspace(workspaceName);
-    final chat = data.activeWorkspaceChat;
-    final mode = _effectiveMode(data.activeInputMode);
-    final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
-    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
-          child: Container(
-            key: const ValueKey('conversation-settings-sheet'),
-            width: double.infinity,
-            padding: EdgeInsets.fromLTRB(20, 10, 20, bottomInset + 18),
-            decoration: BoxDecoration(
-              color: dark ? const Color(0xF2252D2A) : const Color(0xF7F9FCFA),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(28),
-              ),
-              border: Border(
-                top: BorderSide(
-                  color: dark
-                      ? const Color(0x30FFFFFF)
-                      : const Color(0x22001913),
-                ),
-              ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 38,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: dark
-                          ? const Color(0x4DFFFFFF)
-                          : const Color(0x26001913),
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            workspace?.title ?? 'No active workspace',
-                            style: GizText.sectionTitle.copyWith(
-                              color: dark
-                                  ? CupertinoColors.white
-                                  : GizColors.ink,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _statusLabel(data, chat, mode),
-                            style: GizText.label.copyWith(
-                              color: dark
-                                  ? const Color(0xAFFFFFFF)
-                                  : GizColors.secondaryInk,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (chat?.recording ?? false)
-                      const GizSignalPulse(size: 28),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                CupertinoSlidingSegmentedControl<WorkspaceInputMode>(
-                  groupValue: mode,
-                  children: const {
-                    WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK:
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Text('Push to Talk'),
-                        ),
-                    WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8),
-                      child: Text('Realtime'),
-                    ),
-                  },
-                  onValueChanged: (value) {
-                    if (!_switching && value != null) {
-                      unawaited(_setMode(value));
-                    }
-                  },
-                ),
-                if (_switching) ...[
-                  const SizedBox(height: 12),
-                  const Center(child: CupertinoActivityIndicator()),
-                ],
-                if (_error != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    _error.toString(),
-                    style: GizText.body.copyWith(
-                      color: CupertinoColors.systemRed.resolveFrom(context),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  child: CupertinoButton(
-                    color: dark ? const Color(0xFF40514B) : GizColors.ink,
-                    borderRadius: BorderRadius.circular(16),
-                    onPressed: workspaceName == null
-                        ? null
-                        : () => _openWorkspace(workspaceName),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text('Open workspace'),
-                        SizedBox(width: 8),
-                        Icon(CupertinoIcons.arrow_up_right, size: 17),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+    return Semantics(
+      label: 'Switch to $label',
+      button: onPressed != null,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onPressed,
+        child: Center(
+          child: loading
+              ? CupertinoActivityIndicator(radius: 8, color: color)
+              : Icon(icon, size: 18, color: color),
         ),
       ),
     );
   }
+}
 
-  Future<void> _setMode(WorkspaceInputMode mode) async {
-    setState(() {
-      _switching = true;
-      _error = null;
-    });
-    try {
-      await widget.data.setActiveInputMode(mode);
-    } catch (error) {
-      _error = error;
-    } finally {
-      if (mounted) setState(() => _switching = false);
-    }
-  }
+class _VoiceModeThumb extends StatelessWidget {
+  const _VoiceModeThumb({
+    required this.enabled,
+    required this.realtime,
+    required this.engaged,
+    required this.playingOutput,
+  });
 
-  Future<void> _openWorkspace(String workspaceName) async {
-    final route = await widget.data.routeForWorkspace(workspaceName);
-    if (!mounted) return;
-    final router = GoRouter.of(context);
-    Navigator.pop(context);
-    router.push(route);
+  final bool enabled;
+  final bool realtime;
+  final bool engaged;
+  final bool playingOutput;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    final energized = engaged || playingOutput;
+    return AnimatedScale(
+      scale: engaged ? 0.92 : 1,
+      duration: const Duration(milliseconds: 150),
+      curve: Curves.easeOutCubic,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: dark
+                ? const [Color(0xFFF4FFF9), Color(0xFFBCEBD9)]
+                : const [Color(0xFF10231D), Color(0xFF24473B)],
+          ),
+          border: Border.all(
+            color: dark ? const Color(0x5CFFFFFF) : const Color(0x52FFFFFF),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: energized
+                  ? const Color(0x4542DDB4)
+                  : (dark ? const Color(0x38000000) : const Color(0x26001913)),
+              blurRadius: energized ? 14 : 9,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 180),
+          transitionBuilder: (child, animation) => ScaleTransition(
+            scale: animation,
+            child: FadeTransition(opacity: animation, child: child),
+          ),
+          child: Icon(
+            realtime ? CupertinoIcons.phone_fill : CupertinoIcons.mic_fill,
+            key: ValueKey(realtime),
+            size: realtime ? 22 : 21,
+            color: enabled
+                ? (dark ? GizColors.ink : CupertinoColors.white)
+                : (dark ? const Color(0x66001913) : const Color(0x73FFFFFF)),
+          ),
+        ),
+      ),
+    );
   }
 }
 

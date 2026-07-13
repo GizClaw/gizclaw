@@ -22,7 +22,7 @@ void main() {
     expect(find.text('Everyday companions'), findsOneWidget);
     expect(find.text('Jump back in'), findsOneWidget);
     expect(find.byIcon(CupertinoIcons.compass_fill), findsOneWidget);
-    expect(find.byIcon(CupertinoIcons.mic_fill), findsOneWidget);
+    expect(find.byKey(const ValueKey('voice-mode-thumb')), findsOneWidget);
     expect(find.text('LIVE'), findsNothing);
     expect(find.byType(CupertinoTabBar), findsNothing);
   });
@@ -254,7 +254,7 @@ void main() {
     }
   });
 
-  testWidgets('opens conversation settings as an attached bottom sheet', (
+  testWidgets('shows the global voice mode toggle and audio field', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -264,14 +264,11 @@ void main() {
 
     await pumpApp(tester);
 
-    await tester.tap(find.byKey(const ValueKey('conversation-settings')));
-    await tester.pumpAndSettle();
-
-    final sheet = find.byKey(const ValueKey('conversation-settings-sheet'));
-    expect(sheet, findsOneWidget);
-    expect(tester.getBottomRight(sheet).dy, 844);
-    expect(find.text('Push to Talk'), findsOneWidget);
-    expect(find.text('Realtime'), findsOneWidget);
+    expect(find.byKey(const ValueKey('voice-mode-toggle')), findsOneWidget);
+    expect(find.byKey(const ValueKey('voice-mode-ptt')), findsOneWidget);
+    expect(find.byKey(const ValueKey('voice-mode-realtime')), findsOneWidget);
+    expect(find.byKey(const ValueKey('voice-mode-thumb')), findsOneWidget);
+    expect(find.byKey(const ValueKey('global-audio-field')), findsOneWidget);
   });
 
   testWidgets('opens group creation controls', (tester) async {
