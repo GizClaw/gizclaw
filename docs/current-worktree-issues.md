@@ -161,12 +161,33 @@ rpc_server.go  # RPC Server composition、dispatch 及全部 Server methods
 
 ### 解决方案
 
-以 `guides/` 作为唯一项目文档根目录。逐项把 `docs/` 中仍有效的 contract、configuration、protocol、review guide、design 和 asset 内容迁移到对应 Guide 页面或 `guides/public/` 静态资源；确认没有代码、workflow 或其他文档继续引用旧路径后，完整删除 `docs/` 目录。
+以 `guides/` 作为唯一项目文档根目录。逐项把 `docs/` 中仍有效的 contract、configuration、protocol、review guide、design 和 asset 内容迁移到对应 Guide 页面或 `guides/references/`；确认没有代码、workflow 或其他文档继续引用旧路径后，完整删除 `docs/` 目录。
+
+当前迁移审计结果如下。`guides/` 尚未覆盖全部 `docs/` 内容，因此暂时不能执行目录删除：
+
+| 旧文档 | 当前 Guide 覆盖情况 | 迁移要求 |
+| --- | --- | --- |
+| `docs/service_layout.md` | 基本覆盖 | 已进入 `gizclaw/overview`、Peer、Server、RPC 与 API Design；删除前做最终术语核对。 |
+| `docs/agent_genx.md` | 部分覆盖 | GenX interface、Stream/EOS、Agent Host 和 Peer connection 已分散进入对应模块；仍需核对完整 wiring、audio mux 和 control RPC。 |
+| `docs/edge-node.md` | 部分覆盖 | `gizedge` 已描述当前目录边界和连接流程；仍需迁移有效的 ingress、route、token、certificate 与端口约束，并排除未实现 proposal。 |
+| `docs/event_stream.md` | 部分覆盖 | 已有 Stream Events 和 telemetry 页面，但 Agent、Telemetry、Opus stream 的完整 contract 尚未统一；Stamped Opus 的旧设计不得迁移为最终状态。 |
+| `docs/review-guide/*.md` | 部分覆盖 | Review、Coding Styles 已建立新入口；仍需逐项确认 remote reviewer、跨语言 contract、验证和 finding 要求没有丢失。 |
+| `docs/acl.md` | 未完整覆盖 | `services/system` 只描述目录职责；需补 ACL subject、resource kind、permission、collection create、runtime check 与 ownership 规则。 |
+| `docs/context_config.md` | 未覆盖 | CLI 页面仍为 WIP；需补 context config 字段及 transport behavior。 |
+| `docs/gameplay.md` | 未完整覆盖 | Gameplay 页面只有领域边界；需拆分资源模型、Pet、Points、Reward、storage 与 API surface。 |
+| `docs/ota.md` | 未完整覆盖 | Device/Firmware 页面只有包边界；需补 Admin flow、Device flow、runtime status、storage 与 ACL。 |
+| `docs/rpc_protocol.md` | 未完整覆盖 | RPC 页面已描述模块，但缺少 frame header、frame type、protobuf envelope 与 streaming response contract。 |
+| `docs/server_config.md` | 未覆盖 | 需新增 Server 配置文档，包含 transport、logging、physical/logical stores 和 CLI context 关系。 |
+| `docs/server_mesh.md` | 未覆盖 | 先区分已实现行为与 design proposal；已实现部分进入架构 Guide，未实现部分转正式 issue/design proposal。 |
+| `docs/terms.md` | 未覆盖 | 需建立统一术语页，并让开发、审核和编码规范引用它。 |
+| `docs/assets/readme-hero.png` | 未迁移 | 移到 Guide 管理的静态资源位置，并更新 README 引用。 |
+
+迁移不是把旧 Markdown 原样复制到新目录。每一项都必须以当前代码、schema 和实际运行行为重新校验；proposal、旧名称和已经决定删除的机制不能作为现状写入 Guide。
 
 迁移收尾时同步完成：
 
 - 修改 `README.md` 的 Repository Layout 与 Documentation，使其只指向 `guides/` 页面或已发布的 Project Guide URL。
-- 将 README hero 等仍需保留的静态资源移动到 `guides/public/`，修正 README 与页面引用。
+- 将 README hero 等仍需保留的静态资源移动到 Guide 管理的静态资源目录，修正 README 与页面引用。
 - 修改 `AGENTS.md`，让各语言和文档 review 要求指向 `guides/` 下的新位置。
 - 更新源码注释、测试、workflow、issue template 和其他 Markdown 中的 `docs/` 路径。
 - 删除临时的 `current-worktree-issues` 页面；已解决事项由代码、最终 Guide 和 git history 表达，未解决事项转为正式 GitHub issues。
