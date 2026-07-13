@@ -5,6 +5,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/global_conversation_control.dart';
 import '../../data/mobile_data_controller.dart';
 import '../../data/workspace_chat_controller.dart';
 import '../../giz_ui/giz_ui.dart';
@@ -773,7 +774,12 @@ class _WorkspaceMessageList extends StatelessWidget {
       child: ListView.separated(
         controller: controller,
         reverse: true,
-        padding: const EdgeInsets.fromLTRB(22, 16, 22, 18),
+        padding: EdgeInsets.fromLTRB(
+          22,
+          16,
+          22,
+          GlobalConversationOverlay.bottomContentInset(context),
+        ),
         itemCount: messages.length + (error == null ? 0 : 1),
         separatorBuilder: (_, _) => const SizedBox(height: 20),
         itemBuilder: (context, index) {

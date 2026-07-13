@@ -25,6 +25,21 @@ class GlobalConversationOverlay extends StatelessWidget {
   final Uri location;
   final StatefulNavigationShell? navigationShell;
 
+  static const double dockHeight = 76;
+  static const double dockTopSpacing = 10;
+  static const double dockBottomSpacing = 8;
+
+  static double bottomContentInset(
+    BuildContext context, {
+    double spacing = 12,
+  }) {
+    final safeBottom = MediaQuery.paddingOf(context).bottom;
+    return dockTopSpacing +
+        dockHeight +
+        math.max(safeBottom, dockBottomSpacing) +
+        spacing;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -67,9 +82,14 @@ class _GlobalBottomDock extends StatelessWidget {
     final showTabs = shell != null && _rootPaths.contains(location.path);
     return SafeArea(
       top: false,
-      minimum: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+      minimum: const EdgeInsets.fromLTRB(
+        12,
+        GlobalConversationOverlay.dockTopSpacing,
+        12,
+        GlobalConversationOverlay.dockBottomSpacing,
+      ),
       child: Container(
-        height: 76,
+        height: GlobalConversationOverlay.dockHeight,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(38),
           boxShadow: [
