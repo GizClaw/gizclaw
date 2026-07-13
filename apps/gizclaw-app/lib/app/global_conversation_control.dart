@@ -724,7 +724,6 @@ class _VoiceOrb extends StatelessWidget {
               ),
               child: Center(
                 child: _VoiceEnergySurface(
-                  phase: phase,
                   size: size,
                   enabled: enabled,
                   engaged: engaged,
@@ -743,7 +742,6 @@ class _VoiceOrb extends StatelessWidget {
 
 class _VoiceEnergySurface extends StatelessWidget {
   const _VoiceEnergySurface({
-    required this.phase,
     required this.size,
     required this.enabled,
     required this.engaged,
@@ -752,7 +750,6 @@ class _VoiceEnergySurface extends StatelessWidget {
     required this.energy,
   });
 
-  final double phase;
   final double size;
   final bool enabled;
   final bool engaged;
@@ -771,85 +768,48 @@ class _VoiceEnergySurface extends StatelessWidget {
         : realtime
         ? CupertinoIcons.dot_radiowaves_left_right
         : CupertinoIcons.mic_fill;
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
       width: size,
       height: size,
-      padding: EdgeInsets.all(energized ? 2.4 : 1.4),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: energized
-            ? SweepGradient(
-                transform: GradientRotation(phase * math.pi * 2),
-                colors: [
-                  const Color(0xFF69DAFF),
-                  const Color(0xFF797CFF),
-                  const Color(0xFFEF83D8),
-                  const Color(0xFFFFB47A),
-                  energy,
-                  const Color(0xFF69DAFF),
-                ],
-              )
-            : LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: dark
-                    ? const [Color(0x66FFFFFF), Color(0x1FFFFFFF)]
-                    : const [Color(0xFFFFFFFF), Color(0xFFD8E4DF)],
-              ),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: energized
+              ? (dark
+                    ? const [Color(0xFFE8F5F0), Color(0xFFB9E7D6)]
+                    : const [Color(0xFF13231E), Color(0xFF29443A)])
+              : (dark
+                    ? const [Color(0xFF343C39), Color(0xFF1D2321)]
+                    : const [Color(0xFFFFFFFF), Color(0xFFE9EFEC)]),
+        ),
+        border: Border.all(
+          color: dark ? const Color(0x38FFFFFF) : const Color(0xB8FFFFFF),
+        ),
         boxShadow: [
           if (energized)
             BoxShadow(
-              color: energy.withValues(alpha: dark ? 0.32 : 0.22),
-              blurRadius: 20,
-              spreadRadius: 1,
+              color: energy.withValues(alpha: dark ? 0.2 : 0.16),
+              blurRadius: 16,
             ),
           BoxShadow(
-            color: dark ? const Color(0x52000000) : const Color(0x1F17342C),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
+            color: dark ? const Color(0x42000000) : const Color(0x1717342C),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: ClipOval(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                center: const Alignment(-0.34, -0.42),
-                radius: 1.18,
-                colors: dark
-                    ? [
-                        energized
-                            ? energy.withValues(alpha: 0.24)
-                            : const Color(0x183F4A46),
-                        const Color(0xE927302D),
-                        const Color(0xF519201E),
-                      ]
-                    : [
-                        energized
-                            ? energy.withValues(alpha: 0.16)
-                            : const Color(0xFFFFFFFF),
-                        const Color(0xF7F9FCFA),
-                        const Color(0xE9E8F0EC),
-                      ],
-              ),
-              border: Border.all(
-                color: dark ? const Color(0x38FFFFFF) : const Color(0xB8FFFFFF),
-              ),
-            ),
-            child: Icon(
-              icon,
-              color: enabled
-                  ? (energized
-                        ? energy
-                        : (dark ? CupertinoColors.white : GizColors.ink))
-                  : (dark ? const Color(0x66FFFFFF) : const Color(0x55001913)),
-              size: size * (engaged ? 0.4 : 0.36),
-            ),
-          ),
-        ),
+      child: Icon(
+        icon,
+        color: enabled
+            ? (energized
+                  ? (dark ? GizColors.ink : CupertinoColors.white)
+                  : (dark ? CupertinoColors.white : GizColors.ink))
+            : (dark ? const Color(0x66FFFFFF) : const Color(0x55001913)),
+        size: size * (engaged ? 0.4 : 0.36),
       ),
     );
   }
@@ -872,43 +832,25 @@ class _VoiceEnergyPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (!engaged && inputLevel <= 0.02 && outputLevel <= 0.02) return;
     final center = Offset(size.width / 2, size.height / 2);
     final unit = math.min(size.width, size.height);
-    final pulse = engaged ? math.sin(phase * math.pi * 2) * 0.9 : 0.0;
-    final haloRadius = unit * 0.46 + pulse + inputLevel * 5 + outputLevel * 6;
-    canvas.drawCircle(
-      center,
-      haloRadius,
-      Paint()
-        ..shader = RadialGradient(
-          colors: [
-            energy.withValues(
-              alpha: 0.08 + inputLevel * 0.12 + outputLevel * 0.1,
-            ),
-            energy.withValues(alpha: 0),
-          ],
-        ).createShader(Rect.fromCircle(center: center, radius: haloRadius)),
-    );
-
-    for (var orbit = 0; orbit < 2; orbit++) {
-      final level = orbit == 0 ? inputLevel : outputLevel;
-      final radius = unit * (0.43 + orbit * 0.055) + pulse * (orbit + 1) * 0.4;
-      final rect = Rect.fromCircle(center: center, radius: radius);
-      final start = phase * math.pi * 2 * (orbit.isEven ? 1 : -1);
-      canvas.drawArc(
-        rect,
-        start + orbit * 1.7,
-        math.pi * (0.34 + level * 0.42),
-        false,
+    final pulse = math.sin(phase * math.pi * 2);
+    final levels = [inputLevel, outputLevel];
+    final colors = [energy, const Color(0xFF6F86D9)];
+    for (var ring = 0; ring < levels.length; ring++) {
+      final level = levels[ring];
+      final radius =
+          unit * (0.39 + ring * 0.055) +
+          pulse * (0.7 + ring * 0.35) +
+          level * 4;
+      canvas.drawCircle(
+        center,
+        radius,
         Paint()
           ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round
-          ..strokeWidth = orbit == 0 ? 1.8 : 1.2
-          ..color =
-              (orbit == 0 ? const Color(0xFF62D8FF) : const Color(0xFFB889FF))
-                  .withValues(
-                    alpha: engaged || level > 0.02 ? 0.56 + level * 0.28 : 0.16,
-                  ),
+          ..strokeWidth = ring == 0 ? 1.4 : 1
+          ..color = colors[ring].withValues(alpha: 0.16 + level * 0.38),
       );
     }
   }
