@@ -4,9 +4,11 @@
   "scripts": {
     "dev": "vitepress dev .",
     "reference:flutter": "cd ../sdk/flutter/gizclaw && flutter pub get && dart doc --output ../../../guides/references/flutter",
+    "reference:flutter:serve": "python3 -m http.server 4174 --directory references/flutter",
     "reference:typescript": "typedoc --options typedoc.json",
+    "reference:typescript:serve": "python3 -m http.server 4175 --directory references/typescript",
     "references": "npm run reference:flutter && npm run reference:typescript",
-    "build": "npm run references && vitepress build .",
+    "build": "vitepress build .",
     "build:site": "vitepress build .",
     "preview": "vitepress preview ."
   },

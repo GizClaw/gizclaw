@@ -1,5 +1,3 @@
-import { cpSync, existsSync } from "node:fs";
-import { resolve } from "node:path";
 import { defineConfig } from "vitepress";
 import { withMermaid } from "vitepress-mermaid-plugin";
 
@@ -263,34 +261,7 @@ export default withMermaid(
     mermaid: {
       theme: "default",
     },
-    buildEnd(siteConfig) {
-      for (const reference of ["flutter", "typescript"]) {
-        const source = resolve(siteConfig.srcDir, "references", reference);
-        if (existsSync(source)) {
-          cpSync(source, resolve(siteConfig.outDir, "references", reference), {
-            recursive: true,
-          });
-        }
-      }
-    },
     vite: {
-      plugins: [
-        {
-          name: "local-reference-index",
-          configureServer(server) {
-            server.middlewares.use((request, _response, next) => {
-              if (
-                request.url?.endsWith("/") &&
-                (request.url.startsWith("/references/flutter/") ||
-                  request.url.startsWith("/references/typescript/"))
-              ) {
-                request.url += "index.html";
-              }
-              next();
-            });
-          },
-        },
-      ],
       server: {
         watch: {
           // Codex applies documentation edits through atomic file replacement,
