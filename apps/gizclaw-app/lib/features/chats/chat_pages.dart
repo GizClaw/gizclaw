@@ -5,6 +5,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/global_conversation_control.dart';
 import '../../data/mobile_data_controller.dart';
 import '../../data/workspace_chat_controller.dart';
 import '../../giz_ui/giz_ui.dart';
@@ -265,37 +266,47 @@ class WorkspaceChatPage extends StatefulWidget {
 class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
   final _scrollController = ScrollController();
   WorkspaceChatController? _chat;
-  MobileDataController? _data;
-  bool _activating = false;
+  bool _ownsChat = false;
+  int _chatRequest = 0;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final data = MobileDataScope.watch(context);
-    _data = data;
-    if (data.connectionState == MobileConnectionState.connecting) return;
     final active = data.activeWorkspaceChat;
     if (active?.workspaceName == widget.workspaceName) {
-      _bindChat(active!, notify: false);
+      _bindChat(active!, ownsChat: false, notify: false);
       return;
     }
-    if (_chat == null && !_activating) unawaited(_activateChat(data));
-  }
-
-  Future<void> _activateChat(MobileDataController data) async {
-    _activating = true;
-    try {
-      final chat = await data.activateWorkspaceChat(widget.workspaceName);
-      if (mounted) _bindChat(chat, notify: true);
-    } finally {
-      _activating = false;
+    if (!_ownsChat || _chat?.workspaceName != widget.workspaceName) {
+      unawaited(_loadHistoryViewer(data));
     }
   }
 
-  void _bindChat(WorkspaceChatController chat, {required bool notify}) {
+  Future<void> _loadHistoryViewer(MobileDataController data) async {
+    final request = ++_chatRequest;
+    final viewer = WorkspaceChatController(
+      workspaceName: widget.workspaceName,
+      repository: data.workspaceChatRepository,
+      serverId: data.activeServerId,
+      client: data.connection.client,
+    );
+    _bindChat(viewer, ownsChat: true, notify: true);
+    await viewer.start(conversation: false);
+    if (!mounted || request != _chatRequest) return;
+    setState(() {});
+  }
+
+  void _bindChat(
+    WorkspaceChatController chat, {
+    required bool ownsChat,
+    required bool notify,
+  }) {
     if (identical(chat, _chat)) return;
     _chat?.removeListener(_handleChatChanged);
+    if (_ownsChat) _chat?.dispose();
     _chat = chat;
+    _ownsChat = ownsChat;
     chat.addListener(_handleChatChanged);
     if (notify && mounted) setState(() {});
   }
@@ -316,8 +327,9 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
 
   @override
   void dispose() {
+    _chatRequest += 1;
     _chat?.removeListener(_handleChatChanged);
-    _data?.releaseWorkspaceChat(_chat);
+    if (_ownsChat) _chat?.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -329,6 +341,7 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
     final workflow = data.workflow(workspace.workflowName);
     final chatroomMetadata = data.chatroomWorkspace(widget.workspaceName);
     final chat = _chat;
+    final isActive = data.activeWorkspaceName == widget.workspaceName;
     final messages = chat?.messages ?? const <WorkspaceChatMessage>[];
     final signal = _SignalPalette.of(context);
     final isDirectChat = chatroomMetadata?.kind == ChatroomWorkspaceKind.direct;
@@ -349,7 +362,7 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
             ),
             Text(
               '${isDirectChat ? 'Direct chat' : workflow.driver.label}'
-              '  /  ${_connectionLabel(chat?.state)}',
+              '  /  ${isActive ? _connectionLabel(chat?.state) : 'VIEWING'}',
               style: GizText.label.copyWith(color: signal.muted, fontSize: 9),
             ),
           ],
@@ -401,10 +414,14 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
                   ],
                 ),
               ),
-              _PushToTalkControl(
-                chat: chat,
-                accent: signal.actionAccent,
-                signal: signal,
+              SizedBox(
+                height: 132,
+                width: double.infinity,
+                child: Center(
+                  child: WorkspaceConversationDock(
+                    workspaceName: widget.workspaceName,
+                  ),
+                ),
               ),
             ],
           ),
@@ -1019,161 +1036,6 @@ class _MiniWaveform extends StatelessWidget {
       ],
     );
   }
-}
-
-class _PushToTalkControl extends StatefulWidget {
-  const _PushToTalkControl({
-    required this.chat,
-    required this.accent,
-    required this.signal,
-  });
-
-  final WorkspaceChatController? chat;
-  final Color accent;
-  final _SignalPalette signal;
-
-  @override
-  State<_PushToTalkControl> createState() => _PushToTalkControlState();
-}
-
-class _PushToTalkControlState extends State<_PushToTalkControl>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _energy = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1500),
-  )..repeat();
-
-  @override
-  void dispose() {
-    _energy.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final controller = widget.chat;
-    final enabled = controller?.canRecord ?? false;
-    final recording = controller?.recording ?? false;
-    final preparing = controller?.startingInput ?? false;
-    final label = recording
-        ? 'RELEASE TO TRANSMIT'
-        : preparing
-        ? 'OPENING MICROPHONE'
-        : enabled
-        ? 'HOLD TO SPEAK'
-        : 'VOICE LINK UNAVAILABLE';
-    return SizedBox(
-      height: 132,
-      width: double.infinity,
-      child: AnimatedBuilder(
-        animation: _energy,
-        builder: (context, child) {
-          return CustomPaint(
-            painter: _VoiceDockPainter(
-              progress: _energy.value,
-              accent: widget.accent,
-              active: recording,
-              enabled: enabled,
-              signal: widget.signal,
-            ),
-            child: child,
-          );
-        },
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            GizVoiceButton(
-              enabled: enabled,
-              recording: recording,
-              preparing: preparing,
-              label: label,
-              accent: widget.accent,
-              disabledColor: widget.signal.panelStrong,
-              foregroundColor: widget.signal.onAccent,
-              disabledForegroundColor: widget.signal.muted,
-              onStart: enabled
-                  ? () => unawaited(controller!.startInput())
-                  : null,
-              onFinish: enabled
-                  ? () => unawaited(controller!.finishInput())
-                  : null,
-              onCancel: enabled
-                  ? () => unawaited(
-                      controller!.finishInput(error: 'recording canceled'),
-                    )
-                  : null,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              label,
-              style: GizText.label.copyWith(
-                color: recording ? widget.accent : widget.signal.muted,
-                fontSize: 9,
-              ),
-            ),
-            const SizedBox(height: 9),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _VoiceDockPainter extends CustomPainter {
-  const _VoiceDockPainter({
-    required this.progress,
-    required this.accent,
-    required this.active,
-    required this.enabled,
-    required this.signal,
-  });
-
-  final Color accent;
-  final bool active;
-  final bool enabled;
-  final double progress;
-  final _SignalPalette signal;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height + 4);
-    final radius = size.width * (active ? 0.62 : 0.5);
-    final field = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          (enabled ? accent : signal.panelStrong).withValues(
-            alpha: active ? 0.28 : 0.13,
-          ),
-          signal.canvas.withValues(alpha: 0),
-        ],
-      ).createShader(Rect.fromCircle(center: center, radius: radius));
-    canvas.drawCircle(center, radius, field);
-
-    for (var ring = 0; ring < 3; ring++) {
-      final pulse = (progress + ring * 0.3) % 1;
-      final ringRadius = 54 + pulse * (active ? 92 : 55);
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: ringRadius),
-        math.pi,
-        math.pi,
-        false,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1
-          ..color = (enabled ? accent : signal.line).withValues(
-            alpha: (1 - pulse) * (active ? 0.34 : 0.12),
-          ),
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_VoiceDockPainter oldDelegate) =>
-      oldDelegate.progress != progress ||
-      oldDelegate.active != active ||
-      oldDelegate.enabled != enabled ||
-      oldDelegate.accent != accent ||
-      oldDelegate.signal != signal;
 }
 
 class ChatroomWorkspacePage extends StatelessWidget {

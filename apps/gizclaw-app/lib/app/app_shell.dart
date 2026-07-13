@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
 
 import '../giz_ui/giz_ui.dart';
+import 'global_conversation_control.dart';
 
 class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.navigationShell});
@@ -40,28 +41,37 @@ class AppShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
     return CupertinoPageScaffold(
-      child: Column(
+      child: Stack(
         children: [
-          Expanded(child: navigationShell),
-          GizGlassBar(
-            child: CupertinoTabBar(
-              currentIndex: navigationShell.currentIndex,
-              items: _items,
-              onTap: (index) {
-                navigationShell.goBranch(
-                  index,
-                  initialLocation: index == navigationShell.currentIndex,
-                );
-              },
-              activeColor: dark ? GizColors.accent : GizColors.ink,
-              inactiveColor: dark
-                  ? const Color(0xA6FFFFFF)
-                  : GizColors.secondaryInk,
-              backgroundColor: const Color(0x00000000),
-              border: null,
-              iconSize: 23,
-              height: 52,
-            ),
+          Column(
+            children: [
+              Expanded(child: navigationShell),
+              GizGlassBar(
+                child: CupertinoTabBar(
+                  currentIndex: navigationShell.currentIndex,
+                  items: _items,
+                  onTap: (index) {
+                    navigationShell.goBranch(
+                      index,
+                      initialLocation: index == navigationShell.currentIndex,
+                    );
+                  },
+                  activeColor: dark ? GizColors.accent : GizColors.ink,
+                  inactiveColor: dark
+                      ? const Color(0xA6FFFFFF)
+                      : GizColors.secondaryInk,
+                  backgroundColor: const Color(0x00000000),
+                  border: null,
+                  iconSize: 23,
+                  height: 52,
+                ),
+              ),
+            ],
+          ),
+          const Positioned(
+            right: 20,
+            bottom: 86,
+            child: GlobalConversationControl(compact: true),
           ),
         ],
       ),

@@ -21,6 +21,8 @@ void main() {
     expect(find.text('Everyday companions'), findsOneWidget);
     expect(find.text('Jump back in'), findsOneWidget);
     expect(find.byIcon(CupertinoIcons.compass_fill), findsOneWidget);
+    expect(find.byIcon(CupertinoIcons.mic_fill), findsOneWidget);
+    expect(find.text('LIVE'), findsNothing);
     expect(find.byType(CupertinoTabBar), findsOneWidget);
   });
 
@@ -195,7 +197,7 @@ void main() {
     expect(find.byType(WorkspaceChatPage), findsOneWidget);
     expect(find.text('AGENT SIGNAL ONLINE'), findsNothing);
     expect(find.text('OFFLINE'), findsOneWidget);
-    expect(find.text('VOICE LINK UNAVAILABLE'), findsOneWidget);
+    expect(find.text('Make Active'), findsOneWidget);
     expect(
       find.image(const AssetImage('assets/drivers/ast-translate.png')),
       findsOneWidget,
@@ -307,7 +309,7 @@ void main() {
     expect(find.text('Avery'), findsOneWidget);
     expect(find.textContaining('Direct chat'), findsOneWidget);
     expect(find.textContaining('Unavailable'), findsNothing);
-    expect(find.text('VOICE LINK UNAVAILABLE'), findsOneWidget);
+    expect(find.text('Make Active'), findsOneWidget);
     expect(find.byType(CupertinoTextField), findsNothing);
     expect(find.byType(CupertinoTabBar).hitTestable(), findsNothing);
   });

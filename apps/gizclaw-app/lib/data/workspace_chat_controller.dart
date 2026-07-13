@@ -65,6 +65,7 @@ class WorkspaceChatController extends ChangeNotifier {
   rtc.MediaStreamTrack? _inputTrack;
   String? _activeStreamId;
   Timer? _historyRefreshTimer;
+  Timer? _levelTimer;
   List<WorkspaceChatMessage> _cached = const [];
   final List<WorkspaceChatMessage> _transient = [];
   WorkspaceChatState state = WorkspaceChatState.loading;
@@ -75,6 +76,8 @@ class WorkspaceChatController extends ChangeNotifier {
   bool _transportRecoveryRequested = false;
   String? replayingHistoryId;
   bool _disposed = false;
+  double inputLevel = 0;
+  double outputLevel = 0;
 
   List<WorkspaceChatMessage> get messages => [..._cached, ..._transient];
 
@@ -83,7 +86,7 @@ class WorkspaceChatController extends ChangeNotifier {
       _session != null &&
       peerConnection != null;
 
-  Future<void> start() async {
+  Future<void> start({bool activate = true, bool conversation = true}) async {
     final stableServerId = serverId;
     if (stableServerId != null) {
       _historySubscription = repository
@@ -115,6 +118,18 @@ class WorkspaceChatController extends ChangeNotifier {
     }
     final activeClient = client;
     final factory = dataChannelFactory;
+    if (!conversation) {
+      if (stableServerId == null || activeClient == null) {
+        state = WorkspaceChatState.offline;
+      } else {
+        state = WorkspaceChatState.loading;
+        notifyListeners();
+        await _refreshHistory();
+        state = WorkspaceChatState.connected;
+      }
+      notifyListeners();
+      return;
+    }
     if (stableServerId == null ||
         activeClient == null ||
         factory == null ||
@@ -126,15 +141,17 @@ class WorkspaceChatController extends ChangeNotifier {
     state = WorkspaceChatState.connecting;
     notifyListeners();
     try {
-      try {
-        await activeClient.setRunWorkspace(workspaceName);
-      } catch (error) {
-        throw StateError('select workspace: $error');
-      }
-      try {
-        await activeClient.reloadRunWorkspace();
-      } catch (error) {
-        throw StateError('start workspace: $error');
+      if (activate) {
+        try {
+          await activeClient.setRunWorkspace(workspaceName);
+        } catch (error) {
+          throw StateError('select workspace: $error');
+        }
+        try {
+          await activeClient.reloadRunWorkspace();
+        } catch (error) {
+          throw StateError('start workspace: $error');
+        }
       }
       final session = await WorkspaceEventSession.open(factory);
       _session = session;
@@ -156,6 +173,7 @@ class WorkspaceChatController extends ChangeNotifier {
         },
       );
       state = WorkspaceChatState.connected;
+      _startLevelMonitor();
       notifyListeners();
       await _refreshHistory();
     } catch (error) {
@@ -174,9 +192,8 @@ class WorkspaceChatController extends ChangeNotifier {
       final streamId =
           'audio-${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}';
       _activeStreamId = streamId;
-      track.enabled = true;
-      await Future<void>.delayed(const Duration(milliseconds: 160));
       await session.beginAudio(streamId);
+      track.enabled = true;
       recording = true;
       if (_finishPending) {
         _finishPending = false;
@@ -214,6 +231,43 @@ class WorkspaceChatController extends ChangeNotifier {
         const Duration(milliseconds: 900),
         _refreshHistory,
       );
+    }
+  }
+
+  void _startLevelMonitor() {
+    _levelTimer?.cancel();
+    _levelTimer = Timer.periodic(
+      const Duration(milliseconds: 90),
+      (_) => unawaited(_sampleAudioLevels()),
+    );
+  }
+
+  Future<void> _sampleAudioLevels() async {
+    final pc = peerConnection;
+    if (_disposed || pc == null) return;
+    try {
+      final reports = await pc.getStats();
+      var input = 0.0;
+      var output = 0.0;
+      for (final report in reports) {
+        if (report.values['kind'] != 'audio') continue;
+        final value = report.values['audioLevel'];
+        final level = value is num ? value.toDouble().clamp(0.0, 1.0) : 0.0;
+        if (report.type == 'media-source') input = level;
+        if (report.type == 'inbound-rtp') output = level;
+      }
+      final nextInput = recording ? input : 0.0;
+      final smoothedInput = _smoothLevel(inputLevel, nextInput);
+      final smoothedOutput = _smoothLevel(outputLevel, output);
+      if ((smoothedInput - inputLevel).abs() < 0.005 &&
+          (smoothedOutput - outputLevel).abs() < 0.005) {
+        return;
+      }
+      inputLevel = smoothedInput;
+      outputLevel = smoothedOutput;
+      notifyListeners();
+    } catch (_) {
+      // Stats are advisory and must not interrupt the conversation.
     }
   }
 
@@ -416,6 +470,7 @@ class WorkspaceChatController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _historyRefreshTimer?.cancel();
+    _levelTimer?.cancel();
     _resetRecording();
     _inputTrack?.stop();
     for (final track
@@ -427,4 +482,9 @@ class WorkspaceChatController extends ChangeNotifier {
     unawaited(_session?.close());
     super.dispose();
   }
+}
+
+double _smoothLevel(double current, double target) {
+  final factor = target > current ? 0.5 : 0.16;
+  return current + (target - current) * factor;
 }

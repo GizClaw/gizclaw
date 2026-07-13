@@ -24,15 +24,7 @@ class BrowsePage extends StatelessWidget {
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
               sliver: SliverToBoxAdapter(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    const Expanded(
-                      child: Text('Play your\nworkflows', style: GizText.hero),
-                    ),
-                    _LiveBadge(state: data.connectionState),
-                  ],
-                ),
+                child: const Text('Play your\nworkflows', style: GizText.hero),
               ),
             ),
             SliverToBoxAdapter(
@@ -85,41 +77,6 @@ class BrowsePage extends StatelessWidget {
             const SliverPadding(padding: EdgeInsets.only(bottom: 112)),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _LiveBadge extends StatelessWidget {
-  const _LiveBadge({required this.state});
-
-  final MobileConnectionState state;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 3),
-      padding: const EdgeInsets.fromLTRB(8, 5, 10, 5),
-      decoration: BoxDecoration(
-        color: GizColors.ink,
-        borderRadius: BorderRadius.circular(99),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          GizSignalPulse(size: 17),
-          SizedBox(width: 4),
-          Text(
-            state == MobileConnectionState.connected ? 'LIVE' : 'LOCAL',
-            style: TextStyle(
-              fontFamily: 'Manrope',
-              color: GizColors.surface,
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0,
-            ),
-          ),
-        ],
       ),
     );
   }

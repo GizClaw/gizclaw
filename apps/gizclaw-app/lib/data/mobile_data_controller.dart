@@ -56,8 +56,17 @@ class MobileDataController extends ChangeNotifier {
   Future<GizClawClient>? _reconnecting;
   Future<void> _workspaceSwitch = Future<void>.value();
   WorkspaceChatController? _activeWorkspaceChat;
+  PeerRunWorkspaceState? runWorkspaceState;
+  Workspace? activeWorkspaceDocument;
 
   WorkspaceChatController? get activeWorkspaceChat => _activeWorkspaceChat;
+  String? get activeWorkspaceName {
+    final name = runWorkspaceState?.activeWorkspaceName.trim() ?? '';
+    return name.isEmpty ? null : name;
+  }
+
+  WorkspaceInputMode get activeInputMode =>
+      _workspaceInputMode(activeWorkspaceDocument);
 
   Future<void> start() async {
     if (!connection.profile.isConfigured) {
@@ -177,6 +186,7 @@ class MobileDataController extends ChangeNotifier {
         endpoint: connection.profile.endpoint,
         serverId: activeServerId,
       );
+      await _syncRunWorkspace(activeClient);
       connectionState = MobileConnectionState.connected;
     } catch (error) {
       lastError = error;
@@ -228,16 +238,13 @@ class MobileDataController extends ChangeNotifier {
   }
 
   Future<GizClawClient> _performReconnect() async {
-    final workspaceName = _activeWorkspaceChat?.workspaceName;
     _replaceActiveWorkspaceChat(null);
     connectionState = MobileConnectionState.connecting;
     notifyListeners();
     try {
       final client = await connection.reconnect();
       lastError = null;
-      if (workspaceName != null) {
-        await _activateWorkspaceChatNow(workspaceName);
-      }
+      await _syncRunWorkspace(client);
       connectionState = MobileConnectionState.connected;
       notifyListeners();
       return client;
@@ -303,6 +310,27 @@ class MobileDataController extends ChangeNotifier {
     return null;
   }
 
+  Future<String> routeForWorkspace(String workspaceName) async {
+    final chatroom = chatroomWorkspace(workspaceName);
+    if (chatroom != null) {
+      return '/chats/drivers/chatroom/${Uri.encodeComponent(workspaceName)}';
+    }
+    final client = connection.client;
+    if (client != null) {
+      String? cursor;
+      do {
+        final response = await client.listPets(cursor: cursor, limit: 100);
+        for (final pet in response.value.items) {
+          if (pet.workspaceName == workspaceName) return '/pet/${pet.id}';
+        }
+        cursor = response.value.hasNext ? response.value.nextCursor : null;
+      } while (cursor != null && cursor.isNotEmpty);
+    }
+    final workspace = this.workspace(workspaceName);
+    final driver = workflow(workspace.workflowName).driver.routeKey;
+    return '/chats/drivers/$driver/${Uri.encodeComponent(workspaceName)}';
+  }
+
   Future<WorkspaceChatController> activateWorkspaceChat(String workspaceName) {
     final completer = Completer<WorkspaceChatController>();
     _workspaceSwitch = _workspaceSwitch.then((_) async {
@@ -323,6 +351,49 @@ class MobileDataController extends ChangeNotifier {
   Future<WorkspaceChatController> _activateWorkspaceChatNow(
     String workspaceName,
   ) async {
+    final client = connection.client;
+    if (client == null) {
+      throw StateError('Connect to GizClaw before switching workspace');
+    }
+    final selected = await client.setRunWorkspace(workspaceName);
+    runWorkspaceState = selected.value;
+    notifyListeners();
+    final reloaded = await client.reloadRunWorkspace();
+    runWorkspaceState = reloaded.value;
+    await _loadActiveWorkspaceDocument(client);
+    return _installActiveWorkspaceChat(workspaceName);
+  }
+
+  Future<void> _syncRunWorkspace(GizClawClient client) async {
+    final response = await client.getRunWorkspace();
+    runWorkspaceState = response.value;
+    await _loadActiveWorkspaceDocument(client);
+    final workspaceName = activeWorkspaceName;
+    if (workspaceName == null) {
+      _replaceActiveWorkspaceChat(null);
+      notifyListeners();
+      return;
+    }
+    await _installActiveWorkspaceChat(workspaceName);
+  }
+
+  Future<void> _loadActiveWorkspaceDocument(GizClawClient client) async {
+    final workspaceName = activeWorkspaceName;
+    if (workspaceName == null) {
+      activeWorkspaceDocument = null;
+      return;
+    }
+    activeWorkspaceDocument = (await client.getWorkspace(workspaceName)).value;
+  }
+
+  Future<WorkspaceChatController> _installActiveWorkspaceChat(
+    String workspaceName,
+  ) async {
+    final current = _activeWorkspaceChat;
+    if (current != null && current.workspaceName == workspaceName) {
+      notifyListeners();
+      return current;
+    }
     _replaceActiveWorkspaceChat(null);
     final chat = WorkspaceChatController(
       workspaceName: workspaceName,
@@ -334,14 +405,34 @@ class MobileDataController extends ChangeNotifier {
       onTransportClosed: recoverTransport,
     );
     _replaceActiveWorkspaceChat(chat);
-    await chat.start();
+    await chat.start(activate: false);
+    notifyListeners();
     return chat;
   }
 
   void releaseWorkspaceChat(WorkspaceChatController? chat) {
-    if (chat != null && identical(chat, _activeWorkspaceChat)) {
-      _replaceActiveWorkspaceChat(null);
+    // The active conversation belongs to the app, not to an individual page.
+  }
+
+  Future<void> setActiveInputMode(WorkspaceInputMode mode) async {
+    final client = connection.client;
+    final workspace = activeWorkspaceDocument;
+    final workspaceName = activeWorkspaceName;
+    if (client == null || workspace == null || workspaceName == null) {
+      throw StateError('No active workspace is available');
     }
+    if (_workspaceInputMode(workspace) == mode) return;
+    final updated = workspace.deepCopy();
+    _setWorkspaceInputMode(updated, mode);
+    activeWorkspaceDocument = (await client.putWorkspace(
+      workspaceName,
+      updated,
+    )).value;
+    final reloaded = await client.reloadRunWorkspace();
+    runWorkspaceState = reloaded.value;
+    _replaceActiveWorkspaceChat(null);
+    await _installActiveWorkspaceChat(workspaceName);
+    notifyListeners();
   }
 
   void _replaceActiveWorkspaceChat(WorkspaceChatController? chat) {
@@ -361,6 +452,47 @@ class MobileDataController extends ChangeNotifier {
     unawaited(database.close());
     super.dispose();
   }
+}
+
+WorkspaceInputMode _workspaceInputMode(Workspace? workspace) {
+  if (workspace == null || !workspace.hasParameters()) {
+    return WorkspaceInputMode.WORKSPACE_INPUT_MODE_UNSPECIFIED;
+  }
+  final parameters = workspace.parameters;
+  if (parameters.hasAsttranslateWorkspaceParameters()) {
+    return parameters.asttranslateWorkspaceParameters.input;
+  }
+  if (parameters.hasChatRoomWorkspaceParameters()) {
+    return parameters.chatRoomWorkspaceParameters.input;
+  }
+  if (parameters.hasDoubaoRealtimeWorkspaceParameters()) {
+    return parameters.doubaoRealtimeWorkspaceParameters.input;
+  }
+  if (parameters.hasFlowcraftWorkspaceParameters()) {
+    return parameters.flowcraftWorkspaceParameters.input;
+  }
+  return WorkspaceInputMode.WORKSPACE_INPUT_MODE_UNSPECIFIED;
+}
+
+void _setWorkspaceInputMode(Workspace workspace, WorkspaceInputMode mode) {
+  final parameters = workspace.parameters;
+  if (parameters.hasAsttranslateWorkspaceParameters()) {
+    parameters.asttranslateWorkspaceParameters.input = mode;
+    return;
+  }
+  if (parameters.hasChatRoomWorkspaceParameters()) {
+    parameters.chatRoomWorkspaceParameters.input = mode;
+    return;
+  }
+  if (parameters.hasDoubaoRealtimeWorkspaceParameters()) {
+    parameters.doubaoRealtimeWorkspaceParameters.input = mode;
+    return;
+  }
+  if (parameters.hasFlowcraftWorkspaceParameters()) {
+    parameters.flowcraftWorkspaceParameters.input = mode;
+    return;
+  }
+  throw StateError('The active workspace does not expose an input mode');
 }
 
 bool _isRecoverableTransportError(Object error) {

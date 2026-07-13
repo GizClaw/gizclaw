@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:gizclaw/gizclaw.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/global_conversation_control.dart';
 import '../../data/mobile_data_controller.dart';
 import '../../data/workspace_chat_controller.dart';
 import '../../giz_ui/giz_ui.dart';
@@ -239,9 +240,9 @@ class PetDetailPage extends StatefulWidget {
 class _PetDetailPageState extends State<PetDetailPage> {
   final _actionFabKey = GlobalKey<_PetActionFabState>();
   GizClawClient? _client;
-  MobileDataController? _data;
   WorkspaceChatController? _chat;
   String? _chatWorkspaceName;
+  bool _ownsChat = false;
   Pet? _pet;
   PetPresentation? _presentation;
   PixaAsset? _pixa;
@@ -256,12 +257,15 @@ class _PetDetailPageState extends State<PetDetailPage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final data = MobileDataScope.watch(context);
-    _data = data;
     final client = data.connectionState == MobileConnectionState.connected
         ? data.connection.client
         : null;
-    if (identical(client, _client)) return;
-    _replaceChat(null);
+    if (identical(client, _client)) {
+      final pet = _pet;
+      if (pet != null) unawaited(_syncPetChat(data, pet));
+      return;
+    }
+    _replaceChat(null, null, ownsChat: false);
     _client = client;
     _request += 1;
     if (client == null) {
@@ -279,8 +283,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
   @override
   void dispose() {
     _request += 1;
-    _data?.releaseWorkspaceChat(_chat);
-    _replaceChat(null);
+    _replaceChat(null, null, ownsChat: false);
     super.dispose();
   }
 
@@ -288,11 +291,17 @@ class _PetDetailPageState extends State<PetDetailPage> {
     if (mounted) setState(() {});
   }
 
-  void _replaceChat(WorkspaceChatController? chat, [String? workspaceName]) {
+  void _replaceChat(
+    WorkspaceChatController? chat,
+    String? workspaceName, {
+    required bool ownsChat,
+  }) {
     if (identical(chat, _chat)) return;
     _chat?.removeListener(_handleChatChanged);
+    if (_ownsChat) _chat?.dispose();
     _chat = chat;
     _chatWorkspaceName = workspaceName;
+    _ownsChat = ownsChat;
     if (chat != null) {
       chat.addListener(_handleChatChanged);
     }
@@ -323,11 +332,6 @@ class _PetDetailPageState extends State<PetDetailPage> {
         pixaError = error;
       }
       if (!mounted || request != _request) return;
-      if (_chatWorkspaceName != pet.workspaceName) {
-        final chat = await data.activateWorkspaceChat(pet.workspaceName);
-        if (!mounted || request != _request) return;
-        _replaceChat(chat, pet.workspaceName);
-      }
       setState(() {
         _pet = pet;
         _presentation = presentation;
@@ -336,6 +340,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
         _loading = false;
         _error = pixaError;
       });
+      await _syncPetChat(data, pet);
     } catch (error) {
       if (!mounted || request != _request) return;
       setState(() {
@@ -343,6 +348,25 @@ class _PetDetailPageState extends State<PetDetailPage> {
         _error = error;
       });
     }
+  }
+
+  Future<void> _syncPetChat(MobileDataController data, Pet pet) async {
+    final active = data.activeWorkspaceChat;
+    if (data.activeWorkspaceName == pet.workspaceName && active != null) {
+      _replaceChat(active, pet.workspaceName, ownsChat: false);
+      if (mounted) setState(() {});
+      return;
+    }
+    if (_ownsChat && _chatWorkspaceName == pet.workspaceName) return;
+    final viewer = WorkspaceChatController(
+      workspaceName: pet.workspaceName,
+      repository: data.workspaceChatRepository,
+      serverId: data.activeServerId,
+      client: data.connection.client,
+    );
+    _replaceChat(viewer, pet.workspaceName, ownsChat: true);
+    await viewer.start(conversation: false);
+    if (mounted) setState(() {});
   }
 
   Future<void> _drive(PetPresentationActionSpec action) async {
@@ -552,7 +576,9 @@ class _PetDetailPageState extends State<PetDetailPage> {
                     Positioned(
                       left: (constraints.maxWidth - 78) / 2,
                       bottom: 0,
-                      child: _PetVoiceFab(chat: chat),
+                      child: WorkspaceConversationDock(
+                        workspaceName: pet.workspaceName,
+                      ),
                     ),
                     Positioned(
                       left: dockLeft + 156,
@@ -1179,43 +1205,6 @@ class _PetStatusFab extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _PetVoiceFab extends StatelessWidget {
-  const _PetVoiceFab({required this.chat});
-
-  final WorkspaceChatController? chat;
-
-  @override
-  Widget build(BuildContext context) {
-    final controller = chat;
-    final enabled = controller?.canRecord ?? false;
-    final recording = controller?.recording ?? false;
-    final preparing = controller?.startingInput ?? false;
-    final label = recording
-        ? 'Release to send voice'
-        : preparing
-        ? 'Opening microphone'
-        : enabled
-        ? 'Hold to speak'
-        : 'Voice unavailable';
-    return GizVoiceButton(
-      enabled: enabled,
-      recording: recording,
-      preparing: preparing,
-      label: label,
-      accent: GizColors.accent,
-      disabledColor: const Color(0xFF91A099),
-      foregroundColor: GizColors.ink,
-      disabledForegroundColor: const Color(0xCCFFFFFF),
-      onStart: enabled ? () => unawaited(controller!.startInput()) : null,
-      onFinish: enabled ? () => unawaited(controller!.finishInput()) : null,
-      onCancel: enabled
-          ? () =>
-                unawaited(controller!.finishInput(error: 'recording canceled'))
-          : null,
     );
   }
 }
