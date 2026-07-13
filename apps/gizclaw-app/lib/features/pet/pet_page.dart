@@ -752,7 +752,7 @@ class _PetMosaicBackgroundState extends State<_PetMosaicBackground>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 6400),
+      duration: const Duration(milliseconds: 12000),
     )..addStatusListener(_handleAnimationStatus);
   }
 
@@ -809,8 +809,8 @@ class _PetMosaicPainter extends CustomPainter {
   final double progress;
   final int sequence;
 
-  static const _mosaicLight = Color(0xFFE7E9E7);
-  static const _mosaicShade = Color(0xFFD8DBD9);
+  static const _mosaicLight = Color(0xFFF0F2F0);
+  static const _mosaicShade = Color(0xFFD2D6D3);
   static const _flashColor = Color(0xFF111312);
 
   @override
@@ -824,7 +824,7 @@ class _PetMosaicPainter extends CustomPainter {
       for (var column = 0; column < columns; column++) {
         final cellVariation = _cellNoise(column, row, 11);
         final phase = _cellNoise(column, row, 37) * math.pi * 2;
-        final speed = 0.82 + _cellNoise(column, row, 71) * 0.62;
+        final speed = 0.55 + _cellNoise(column, row, 71) * 0.5;
         final density = _cellNoise(column, row, 103);
         final wave = (math.sin(time * math.pi * 2 * speed + phase) + 1) / 2;
         final twinkle = math.pow(wave, 3.4).toDouble();
@@ -837,7 +837,7 @@ class _PetMosaicPainter extends CustomPainter {
         final activity = density < 0.24
             ? 0.0
             : ((density - 0.24) / 0.76).clamp(0.0, 1.0);
-        final depth = 0.1 + cellVariation * 0.2;
+        final depth = 0.18 + cellVariation * 0.42;
         final flash = (twinkle * slowVariation * activity * depth).clamp(
           0.0,
           1.0,
@@ -845,7 +845,7 @@ class _PetMosaicPainter extends CustomPainter {
         final base = Color.lerp(
           _mosaicLight,
           _mosaicShade,
-          cellVariation * 0.42,
+          cellVariation * 0.68,
         )!;
         canvas.drawRect(
           Rect.fromLTWH(column * cellSize, row * cellSize, cellSize, cellSize),
