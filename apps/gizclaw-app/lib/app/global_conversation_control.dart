@@ -263,6 +263,9 @@ class _GlobalAudioFieldState extends State<_GlobalAudioField>
               presence: Curves.easeInOutCubic.transform(_presence.value),
               inputLevel: chat?.inputLevel ?? 0,
               outputLevel: chat?.outputLevel ?? 0,
+              inputActive:
+                  (chat?.startingInput ?? false) || (chat?.recording ?? false),
+              outputActive: chat?.playingOutput ?? false,
             ),
             size: Size.infinite,
           ),
@@ -279,6 +282,8 @@ class _AudioFieldPainter extends CustomPainter {
     required this.presence,
     required this.inputLevel,
     required this.outputLevel,
+    required this.inputActive,
+    required this.outputActive,
   });
 
   final bool dark;
@@ -286,15 +291,22 @@ class _AudioFieldPainter extends CustomPainter {
   final double presence;
   final double inputLevel;
   final double outputLevel;
+  final bool inputActive;
+  final bool outputActive;
 
   @override
   void paint(Canvas canvas, Size size) {
     if (presence <= 0.001 || size.isEmpty) return;
-    final input = math.pow(inputLevel.clamp(0.0, 1.0), 0.42).toDouble();
-    final output = math.pow(outputLevel.clamp(0.0, 1.0), 0.42).toDouble();
+    final sampledInput = math.pow(inputLevel.clamp(0.0, 1.0), 0.38).toDouble();
+    final sampledOutput = math
+        .pow(outputLevel.clamp(0.0, 1.0), 0.38)
+        .toDouble();
+    final input = math.max(sampledInput, inputActive ? 0.1 : 0.0);
+    final output = math.max(sampledOutput, outputActive ? 0.14 : 0.0);
+    final overall = math.max(input, output);
     final angle = phase * math.pi * 2;
-    const inputColor = Color(0xFF42DDB4);
-    const outputColor = Color(0xFF7588FF);
+    const inputColor = Color(0xFF35D9A8);
+    const outputColor = Color(0xFF8A6DFF);
     final blend = Color.lerp(
       inputColor,
       outputColor,
@@ -309,50 +321,72 @@ class _AudioFieldPainter extends CustomPainter {
           end: Alignment.bottomCenter,
           colors: [
             const Color(0x00000000),
-            blend.withValues(alpha: presence * (dark ? 0.035 : 0.025)),
-            blend.withValues(alpha: presence * (dark ? 0.18 : 0.13)),
+            blend.withValues(
+              alpha: presence * (dark ? 0.025 : 0.018) * (0.4 + overall),
+            ),
+            blend.withValues(
+              alpha: presence * (dark ? 0.2 : 0.15) * (0.55 + overall * 0.45),
+            ),
           ],
-          stops: const [0, 0.48, 1],
+          stops: const [0, 0.42, 1],
         ).createShader(Offset.zero & size),
     );
 
-    _paintWave(
-      canvas,
-      size,
-      color: outputColor,
-      level: output,
-      phase: angle + 1.9,
-      verticalOffset: 0.05,
-    );
-    _paintWave(
-      canvas,
-      size,
-      color: inputColor,
-      level: input,
-      phase: -angle * 1.13,
-      verticalOffset: 0,
-    );
+    if (output > 0.001) {
+      _paintFlameLayer(
+        canvas,
+        size,
+        color: outputColor,
+        level: output,
+        overall: overall,
+        phase: angle * 0.86 + 1.7,
+        frequency: 4.3,
+      );
+    }
+    if (input > 0.001) {
+      _paintFlameLayer(
+        canvas,
+        size,
+        color: inputColor,
+        level: input,
+        overall: overall,
+        phase: -angle * 1.08,
+        frequency: 5.1,
+      );
+    }
   }
 
-  void _paintWave(
+  void _paintFlameLayer(
     Canvas canvas,
     Size size, {
     required Color color,
     required double level,
+    required double overall,
     required double phase,
-    required double verticalOffset,
+    required double frequency,
   }) {
-    final energy = presence * (0.12 + level * 0.88);
-    final baseY = size.height * (0.79 - verticalOffset - energy * 0.24);
-    final amplitude = 5 + energy * size.height * 0.085;
-    final path = Path()..moveTo(0, baseY);
-    const segments = 36;
+    final flameHeight = size.height * (0.22 + level * 0.36 + overall * 0.12);
+    final path = Path()..moveTo(0, size.height);
+    const segments = 52;
     for (var index = 0; index <= segments; index++) {
       final progress = index / segments;
-      final primary = math.sin(progress * math.pi * 2.15 + phase);
-      final detail = math.sin(progress * math.pi * 5.2 - phase * 0.62) * 0.34;
-      final edgeFade = math.sin(progress * math.pi).clamp(0.0, 1.0);
-      final y = baseY - (primary + detail) * amplitude * edgeFade;
+      final tongue = math.pow(
+        (math.sin(progress * math.pi * frequency + phase) + 1) / 2,
+        2.6,
+      );
+      final detail = math.pow(
+        (math.sin(progress * math.pi * (frequency * 1.83) - phase * 0.71) + 1) /
+            2,
+        3.2,
+      );
+      final drift =
+          (math.sin(progress * math.pi * 2.2 + phase * 0.37) + 1) * 0.08;
+      final edgeFade = math.pow(
+        math.sin(progress * math.pi).clamp(0.0, 1.0),
+        0.38,
+      );
+      final profile = 0.18 + tongue * 0.54 + detail * 0.2 + drift;
+      final y = size.height - flameHeight * profile * edgeFade;
       path.lineTo(progress * size.width, y);
     }
     path
@@ -363,15 +397,16 @@ class _AudioFieldPainter extends CustomPainter {
     canvas.drawPath(
       path,
       Paint()
+        ..blendMode = dark ? BlendMode.screen : BlendMode.srcOver
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            color.withValues(alpha: presence * (dark ? 0.018 : 0.012)),
-            color.withValues(alpha: presence * (dark ? 0.11 : 0.08)),
-            color.withValues(alpha: presence * (dark ? 0.3 : 0.22)),
+            color.withValues(alpha: presence * (dark ? 0.025 : 0.018)),
+            color.withValues(alpha: presence * (dark ? 0.13 : 0.095)),
+            color.withValues(alpha: presence * (dark ? 0.32 : 0.24)),
           ],
-          stops: const [0, 0.42, 1],
+          stops: const [0, 0.5, 1],
         ).createShader(bounds),
     );
   }
@@ -382,10 +417,12 @@ class _AudioFieldPainter extends CustomPainter {
       oldDelegate.phase != phase ||
       oldDelegate.presence != presence ||
       oldDelegate.inputLevel != inputLevel ||
-      oldDelegate.outputLevel != outputLevel;
+      oldDelegate.outputLevel != outputLevel ||
+      oldDelegate.inputActive != inputActive ||
+      oldDelegate.outputActive != outputActive;
 }
 
-class _PrimaryDockNavigation extends StatelessWidget {
+class _PrimaryDockNavigation extends StatefulWidget {
   const _PrimaryDockNavigation({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
@@ -404,44 +441,114 @@ class _PrimaryDockNavigation extends StatelessWidget {
   ];
 
   @override
+  State<_PrimaryDockNavigation> createState() => _PrimaryDockNavigationState();
+}
+
+class _PrimaryDockNavigationState extends State<_PrimaryDockNavigation> {
+  static const _itemSize = 58.0;
+  static const _itemSpacing = 4.0;
+  final ScrollController _scrollController = ScrollController();
+  late int _lastIndex = widget.navigationShell.currentIndex;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scheduleSelectedItem() {
+    final index = widget.navigationShell.currentIndex;
+    if (_lastIndex == index) return;
+    _lastIndex = index;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      final position = _scrollController.position;
+      final itemCenter = 7 + index * (_itemSize + _itemSpacing) + _itemSize / 2;
+      final target = (itemCenter - position.viewportDimension / 2).clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      );
+      _scrollController.animateTo(
+        target,
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    _scheduleSelectedItem();
     final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
     return SizedBox(
-      height: 62,
-      child: Row(
-        children: List.generate(_items.length, (index) {
-          final item = _items[index];
-          final selected = navigationShell.currentIndex == index;
+      height: GlobalConversationOverlay.dockHeight,
+      child: ListView.separated(
+        key: const ValueKey('primary-nav-scroll'),
+        controller: _scrollController,
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 9),
+        itemCount: _PrimaryDockNavigation._items.length,
+        separatorBuilder: (context, index) =>
+            const SizedBox(width: _itemSpacing),
+        itemBuilder: (context, index) {
+          final item = _PrimaryDockNavigation._items[index];
+          final selected = widget.navigationShell.currentIndex == index;
           final foreground = selected
-              ? (dark ? CupertinoColors.white : GizColors.ink)
-              : (dark ? const Color(0x8FFFFFFF) : GizColors.secondaryInk);
-          return Expanded(
+              ? (dark ? GizColors.ink : CupertinoColors.white)
+              : (dark ? const Color(0xAFFFFFFF) : GizColors.secondaryInk);
+          return Semantics(
+            label: item.$3,
+            selected: selected,
+            button: true,
             child: CupertinoButton(
+              key: ValueKey('primary-nav-${item.$3.toLowerCase()}'),
+              minimumSize: const Size.square(_itemSize),
               padding: EdgeInsets.zero,
-              onPressed: () =>
-                  navigationShell.goBranch(index, initialLocation: selected),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    selected ? item.$2 : item.$1,
-                    size: 20,
-                    color: foreground,
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    item.$3,
-                    maxLines: 1,
-                    style: GizText.label.copyWith(
-                      color: foreground,
-                      fontSize: 8,
-                    ),
-                  ),
-                ],
+              pressedOpacity: 0.68,
+              onPressed: () => widget.navigationShell.goBranch(
+                index,
+                initialLocation: selected,
+              ),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 240),
+                curve: Curves.easeOutCubic,
+                width: _itemSize,
+                height: _itemSize,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: selected
+                      ? LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: dark
+                              ? const [Color(0xFFF4FFF9), Color(0xFFBCEBD9)]
+                              : const [Color(0xFF10231D), Color(0xFF24473B)],
+                        )
+                      : null,
+                  boxShadow: selected
+                      ? [
+                          BoxShadow(
+                            color: dark
+                                ? const Color(0x24000000)
+                                : const Color(0x26001913),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Icon(
+                  selected ? item.$2 : item.$1,
+                  size: 23,
+                  color: foreground,
+                ),
               ),
             ),
           );
-        }),
+        },
       ),
     );
   }

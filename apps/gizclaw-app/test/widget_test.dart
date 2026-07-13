@@ -5,6 +5,27 @@ import 'package:gizclaw_app/app/global_conversation_control.dart';
 import 'package:gizclaw_app/data/mobile_data_controller.dart';
 
 void main() {
+  Finder primaryNav(String label) =>
+      find.byKey(ValueKey('primary-nav-${label.toLowerCase()}'));
+
+  Future<void> tapPrimaryNav(WidgetTester tester, String label) async {
+    final destination = primaryNav(label);
+    final dock = find.byKey(const ValueKey('primary-nav-scroll'));
+    await tester.drag(dock, const Offset(1000, 0));
+    await tester.pumpAndSettle();
+    for (
+      var attempt = 0;
+      attempt < 6 && destination.evaluate().isEmpty;
+      attempt++
+    ) {
+      await tester.drag(dock, const Offset(-120, 0));
+      await tester.pumpAndSettle();
+    }
+    await tester.ensureVisible(destination);
+    await tester.pumpAndSettle();
+    await tester.tap(destination);
+  }
+
   Future<void> pumpApp(
     WidgetTester tester, {
     MobileDataController? controller,
@@ -81,7 +102,7 @@ void main() {
   testWidgets('opens chat types before their conversations', (tester) async {
     await pumpApp(tester);
 
-    await tester.tap(find.text('Chats'));
+    await tapPrimaryNav(tester, 'Chats');
     await tester.pumpAndSettle();
 
     for (final driver in ['Flowcraft', 'Doubao Realtime', 'AST Translate']) {
@@ -111,7 +132,7 @@ void main() {
 
     await tester.tap(find.byIcon(CupertinoIcons.chevron_left).hitTestable());
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Groups'));
+    await tapPrimaryNav(tester, 'Groups');
     await tester.pumpAndSettle();
     expect(find.text('Builder Crew'), findsOneWidget);
     expect(find.text('Avery'), findsNothing);
@@ -140,7 +161,7 @@ void main() {
         .toList(growable: false);
     await pumpApp(tester, controller: controller);
 
-    await tester.tap(find.text('Chats'));
+    await tapPrimaryNav(tester, 'Chats');
     await tester.pumpAndSettle();
 
     expect(find.text('Doubao Realtime'), findsOneWidget);
@@ -153,7 +174,7 @@ void main() {
   ) async {
     await pumpApp(tester);
 
-    await tester.tap(find.text('Chats'));
+    await tapPrimaryNav(tester, 'Chats');
     await tester.pumpAndSettle();
     await tester.tap(find.text('Flowcraft'));
     await tester.pumpAndSettle();
@@ -175,11 +196,11 @@ void main() {
     expect(find.text('Flowcraft').hitTestable(), findsOneWidget);
     await tester.tap(find.byIcon(CupertinoIcons.chevron_left).hitTestable());
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Browse'));
+    await tapPrimaryNav(tester, 'Browse');
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Play your\nworkflows'), findsOneWidget);
 
-    await tester.tap(find.text('Chats'));
+    await tapPrimaryNav(tester, 'Chats');
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(ChatsPage), findsOneWidget);
   });
@@ -187,7 +208,7 @@ void main() {
   testWidgets('renders the workspace signal room', (tester) async {
     await pumpApp(tester);
 
-    await tester.tap(find.text('Chats'));
+    await tapPrimaryNav(tester, 'Chats');
     await tester.pumpAndSettle();
     await tester.tap(find.text('AST Translate'));
     await tester.pumpAndSettle();
@@ -213,7 +234,7 @@ void main() {
     addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
     await pumpApp(tester);
 
-    await tester.tap(find.text('Chats'));
+    await tapPrimaryNav(tester, 'Chats');
     await tester.pumpAndSettle();
     await tester.tap(find.text('AST Translate'));
     await tester.pumpAndSettle();
@@ -250,8 +271,9 @@ void main() {
     await pumpApp(tester);
 
     for (final label in ['Browse', 'Chats', 'Friends', 'Groups', 'Pet', 'Me']) {
-      expect(find.text(label), findsOneWidget);
+      expect(primaryNav(label), findsOneWidget);
     }
+    expect(find.byKey(const ValueKey('primary-nav-scroll')), findsOneWidget);
   });
 
   testWidgets('shows the global voice mode toggle and audio field', (
@@ -279,7 +301,7 @@ void main() {
 
     await pumpApp(tester);
 
-    await tester.tap(find.text('Groups'));
+    await tapPrimaryNav(tester, 'Groups');
     await tester.pumpAndSettle();
     expect(find.text('Builder Crew'), findsOneWidget);
     expect(find.text('Avery'), findsNothing);
@@ -299,17 +321,17 @@ void main() {
   testWidgets('shows friends, pet, and profile surfaces', (tester) async {
     await pumpApp(tester);
 
-    await tester.tap(find.text('Friends'));
+    await tapPrimaryNav(tester, 'Friends');
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('YOUR CIRCLE'), findsOneWidget);
     expect(find.text('Avery'), findsOneWidget);
 
-    await tester.tap(find.text('Pet'));
+    await tapPrimaryNav(tester, 'Pet');
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Connect to GizClaw to meet your pets.'), findsOneWidget);
 
-    await tester.tap(find.text('Me'));
+    await tapPrimaryNav(tester, 'Me');
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Local client'), findsOneWidget);
     expect(find.text('Connected over WebRTC'), findsOneWidget);
@@ -323,7 +345,7 @@ void main() {
 
     await pumpApp(tester);
 
-    await tester.tap(find.text('Friends'));
+    await tapPrimaryNav(tester, 'Friends');
     await tester.pumpAndSettle();
     await tester.tap(find.bySemanticsLabel('Add friend'));
     await tester.pumpAndSettle();
@@ -347,7 +369,7 @@ void main() {
   testWidgets('opens a friend chatroom workspace', (tester) async {
     await pumpApp(tester);
 
-    await tester.tap(find.text('Friends'));
+    await tapPrimaryNav(tester, 'Friends');
     await tester.pumpAndSettle();
     await tester.tap(find.text('Avery'));
     await tester.pump();
@@ -372,7 +394,7 @@ void main() {
     await pumpApp(tester);
     expect(find.text('Play your\nworkflows'), findsOneWidget);
 
-    await tester.tap(find.text('Pet'));
+    await tapPrimaryNav(tester, 'Pet');
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Connect to GizClaw to meet your pets.'), findsOneWidget);
@@ -388,7 +410,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await pumpApp(tester);
-    await tester.tap(find.text('Chats'));
+    await tapPrimaryNav(tester, 'Chats');
     await tester.pumpAndSettle();
     await tester.tap(find.text('AST Translate'));
     await tester.pumpAndSettle();
