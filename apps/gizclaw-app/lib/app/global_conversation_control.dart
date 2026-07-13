@@ -595,7 +595,7 @@ class _GlobalConversationControlState extends State<GlobalConversationControl>
     final animate =
         (chat?.startingInput ?? false) ||
         (chat?.recording ?? false) ||
-        (chat?.outputLevel ?? 0) > 0.01;
+        (chat?.playingOutput ?? false);
     if (animate && !_motion.isAnimating) {
       _motion.repeat();
     } else if (!animate && _motion.isAnimating) {
@@ -612,6 +612,7 @@ class _GlobalConversationControlState extends State<GlobalConversationControl>
       enabled: enabled,
       active: chat?.recording ?? false,
       preparing: chat?.startingInput ?? false,
+      playingOutput: chat?.playingOutput ?? false,
       realtime: mode == WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME,
       inputLevel: chat?.inputLevel ?? 0,
       outputLevel: chat?.outputLevel ?? 0,
@@ -676,6 +677,7 @@ class _VoiceOrb extends StatelessWidget {
     required this.enabled,
     required this.active,
     required this.preparing,
+    required this.playingOutput,
     required this.realtime,
     required this.inputLevel,
     required this.outputLevel,
@@ -690,6 +692,7 @@ class _VoiceOrb extends StatelessWidget {
   final bool enabled;
   final bool active;
   final bool preparing;
+  final bool playingOutput;
   final bool realtime;
   final double inputLevel;
   final double outputLevel;
@@ -700,7 +703,7 @@ class _VoiceOrb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final speaking = outputLevel > 0.02;
+    final speaking = playingOutput;
     final engaged = active || preparing;
     final energy = speaking ? const Color(0xFF4F7CFF) : accent;
     return GestureDetector(
@@ -1084,7 +1087,7 @@ String _statusLabel(
         ? 'REALTIME LIVE'
         : 'LISTENING';
   }
-  if (chat.outputLevel > 0.02) return 'SPEAKING';
+  if (chat.playingOutput) return 'SPEAKING';
   return mode == WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME
       ? 'REALTIME READY'
       : 'HOLD TO TALK';

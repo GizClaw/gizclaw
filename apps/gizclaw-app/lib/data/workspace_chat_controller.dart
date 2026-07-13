@@ -72,6 +72,7 @@ class WorkspaceChatController extends ChangeNotifier {
   Object? lastError;
   bool recording = false;
   bool startingInput = false;
+  bool playingOutput = false;
   bool _finishPending = false;
   bool _transportRecoveryRequested = false;
   String? replayingHistoryId;
@@ -258,7 +259,10 @@ class WorkspaceChatController extends ChangeNotifier {
       }
       final nextInput = recording ? input : 0.0;
       final smoothedInput = _settleLevel(inputLevel, nextInput);
-      final smoothedOutput = _settleLevel(outputLevel, output);
+      final smoothedOutput = _settleLevel(
+        outputLevel,
+        playingOutput ? output : 0.0,
+      );
       if ((smoothedInput - inputLevel).abs() < 0.0001 &&
           (smoothedOutput - outputLevel).abs() < 0.0001) {
         return;
@@ -335,6 +339,17 @@ class WorkspaceChatController extends ChangeNotifier {
   void _handleEvent(PeerStreamEvent event) {
     if (event.error?.isNotEmpty == true && event.error != 'interrupted') {
       _handleError(StateError(event.error!), changeState: false);
+    }
+    final assistantAudio =
+        event.label?.toLowerCase() == 'assistant' &&
+        (event.kind?.toLowerCase() == 'audio' || event.type == 'eos');
+    if (assistantAudio && event.type == 'bos') {
+      playingOutput = true;
+      notifyListeners();
+    } else if (assistantAudio && event.type == 'eos') {
+      playingOutput = false;
+      outputLevel = 0;
+      notifyListeners();
     }
     if (event.type == 'workspace.history.updated') {
       _historyRefreshTimer?.cancel();
@@ -457,6 +472,9 @@ class WorkspaceChatController extends ChangeNotifier {
     _activeStreamId = null;
     recording = false;
     startingInput = false;
+    playingOutput = false;
+    inputLevel = 0;
+    outputLevel = 0;
     _finishPending = false;
   }
 
