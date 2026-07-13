@@ -396,11 +396,14 @@ class MobileDataController extends ChangeNotifier {
   }
 
   Future<void> _syncRunWorkspace(GizClawClient client) async {
-    final response = await client.getRunWorkspace();
-    runWorkspaceState = response.value;
+    var state = (await client.getRunWorkspace()).value;
+    final workspaceName = state.activeWorkspaceName.trim();
+    if (workspaceName.isNotEmpty && _runWorkspaceNeedsReload(state)) {
+      state = (await client.reloadRunWorkspace()).value;
+    }
+    runWorkspaceState = state;
     await _loadActiveWorkspaceDocument(client);
-    final workspaceName = activeWorkspaceName;
-    if (workspaceName == null) {
+    if (workspaceName.isEmpty) {
       _replaceActiveWorkspaceChat(null);
       notifyListeners();
       return;
@@ -483,6 +486,14 @@ class MobileDataController extends ChangeNotifier {
     unawaited(database.close());
     super.dispose();
   }
+}
+
+bool _runWorkspaceNeedsReload(PeerRunWorkspaceState state) {
+  return state.runtimeState ==
+          PeerRunStatusState.PEER_RUN_STATUS_STATE_UNSPECIFIED ||
+      state.runtimeState == PeerRunStatusState.PEER_RUN_STATUS_STATE_STOPPED ||
+      state.runtimeState == PeerRunStatusState.PEER_RUN_STATUS_STATE_STOPPING ||
+      state.runtimeState == PeerRunStatusState.PEER_RUN_STATUS_STATE_ERROR;
 }
 
 WorkspaceInputMode _workspaceInputMode(Workspace? workspace) {
