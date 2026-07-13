@@ -141,7 +141,7 @@ class _PetPageState extends State<PetPage> {
         ),
       );
       await _loadPets();
-      if (mounted) context.push('/pet/${response.value.pet.id}');
+      if (mounted) context.push('/pets/${response.value.pet.id}');
     } catch (error) {
       if (mounted) setState(() => _error = error);
     } finally {
@@ -154,7 +154,7 @@ class _PetPageState extends State<PetPage> {
     final data = MobileDataScope.watch(context);
     if (_client == null) {
       return _PetMessagePage(
-        title: 'Pet',
+        title: 'Pets',
         message: data.connectionState == MobileConnectionState.connecting
             ? 'Connecting to your pets...'
             : 'Connect to GizClaw to meet your pets.',
@@ -163,7 +163,7 @@ class _PetPageState extends State<PetPage> {
     }
     if (_loading && _pets.isEmpty) {
       return const _PetMessagePage(
-        title: 'Pet',
+        title: 'Pets',
         message: 'Looking for your pets...',
         loading: true,
       );
@@ -203,7 +203,7 @@ class _PetPageState extends State<PetPage> {
                     _PetCoverCard(
                       pet: _pets.first,
                       visual: _visuals[_pets.first.id],
-                      onPressed: () => context.push('/pet/${_pets.first.id}'),
+                      onPressed: () => context.push('/pets/${_pets.first.id}'),
                     ),
                   if (_pets.length > 1)
                     GridView.builder(
@@ -223,7 +223,7 @@ class _PetPageState extends State<PetPage> {
                         visual: _visuals[_pets[index].id],
                         compact: true,
                         onPressed: () =>
-                            context.push('/pet/${_pets[index].id}'),
+                            context.push('/pets/${_pets[index].id}'),
                       ),
                     ),
                 ],
@@ -886,7 +886,7 @@ class _PetPageHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Expanded(child: Text('Pet', style: GizText.pageTitle)),
+        const Expanded(child: Text('Pets', style: GizText.pageTitle)),
         Semantics(
           label: 'Adopt a pet',
           button: true,

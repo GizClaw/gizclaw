@@ -78,12 +78,12 @@ class _GlobalBottomDock extends StatelessWidget {
   final StatefulNavigationShell? navigationShell;
 
   static const _rootPaths = {
-    '/browse',
-    '/chats',
+    '/active',
+    '/raids',
     '/friends',
     '/groups',
-    '/pet',
-    '/me',
+    '/pets',
+    '/identity',
   };
 
   @override
@@ -441,15 +441,19 @@ class _PrimaryDockNavigation extends StatefulWidget {
   final StatefulNavigationShell navigationShell;
 
   static const _items = [
-    (CupertinoIcons.compass, CupertinoIcons.compass_fill, 'Browse'),
-    (CupertinoIcons.chat_bubble_2, CupertinoIcons.chat_bubble_2_fill, 'Chats'),
+    (CupertinoIcons.waveform, CupertinoIcons.waveform, 'Active'),
+    (
+      CupertinoIcons.rectangle_3_offgrid,
+      CupertinoIcons.rectangle_3_offgrid_fill,
+      'Raids',
+    ),
     (CupertinoIcons.person_2, CupertinoIcons.person_2_fill, 'Friends'),
     (CupertinoIcons.person_3, CupertinoIcons.person_3_fill, 'Groups'),
-    (CupertinoIcons.sparkles, CupertinoIcons.sparkles, 'Pet'),
+    (CupertinoIcons.sparkles, CupertinoIcons.sparkles, 'Pets'),
     (
       CupertinoIcons.person_crop_circle,
       CupertinoIcons.person_crop_circle_fill,
-      'Me',
+      'Identity',
     ),
   ];
 
@@ -861,7 +865,7 @@ _DockContext _dockContext(Uri location, MobileDataController data) {
   final segments = location.pathSegments
       .map(Uri.decodeComponent)
       .toList(growable: false);
-  if (segments.length >= 4 && segments[0] == 'chats') {
+  if (segments.length >= 4 && segments[0] == 'raids') {
     final driver = WorkflowDriverKind.fromRouteKey(segments[2]);
     final workspaceName = segments[3];
     final active = data.activeWorkspaceName == workspaceName;
@@ -880,17 +884,17 @@ _DockContext _dockContext(Uri location, MobileDataController data) {
       subtitle: active
           ? '$contextLabel  /  $mode'
           : '$contextLabel  /  Viewing',
-      fallbackRoute: '/chats/drivers/${driver.routeKey}',
+      fallbackRoute: '/raids/drivers/${driver.routeKey}',
       active: active,
       workspaceName: workspaceName,
     );
   }
-  if (segments.length >= 3 && segments[0] == 'chats') {
+  if (segments.length >= 3 && segments[0] == 'raids') {
     final driver = WorkflowDriverKind.fromRouteKey(segments[2]);
     return _DockContext(
       title: driver.label,
       subtitle: 'Available workspaces',
-      fallbackRoute: '/chats',
+      fallbackRoute: '/raids',
     );
   }
   if (segments.length >= 2 && segments[0] == 'groups') {
@@ -909,7 +913,7 @@ _DockContext _dockContext(Uri location, MobileDataController data) {
       workspaceName: workspaceName,
     );
   }
-  if (segments.length >= 2 && segments[0] == 'pet') {
+  if (segments.length >= 2 && segments[0] == 'pets') {
     final pet = data.petRouteContext(segments[1]);
     final workspaceName = pet?.workspaceName;
     final active =
@@ -917,7 +921,7 @@ _DockContext _dockContext(Uri location, MobileDataController data) {
     return _DockContext(
       title: pet?.title ?? 'Pet companion',
       subtitle: active ? 'Pet  /  Connected' : 'Pet  /  Viewing',
-      fallbackRoute: '/pet',
+      fallbackRoute: '/pets',
       active: active,
       workspaceName: workspaceName,
     );
@@ -952,7 +956,7 @@ _DockContext _dockContext(Uri location, MobileDataController data) {
   return const _DockContext(
     title: 'GizClaw',
     subtitle: 'Back to the previous page',
-    fallbackRoute: '/browse',
+    fallbackRoute: '/active',
   );
 }
 

@@ -15,9 +15,9 @@ GoRouter createAppRouter() {
   final rootNavigatorKey = GlobalKey<NavigatorState>();
   return GoRouter(
     navigatorKey: rootNavigatorKey,
-    initialLocation: '/browse',
+    initialLocation: '/active',
     routes: [
-      GoRoute(path: '/', redirect: (_, _) => '/browse'),
+      GoRoute(path: '/', redirect: (_, _) => '/active'),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
           return AppShell(
@@ -27,7 +27,13 @@ GoRouter createAppRouter() {
         },
         branches: [
           StatefulShellBranch(
+            initialLocation: '/active',
             routes: [
+              GoRoute(
+                path: '/active',
+                pageBuilder: (context, state) =>
+                    _page(state, const ActiveChatPage()),
+              ),
               GoRoute(
                 path: '/browse',
                 pageBuilder: (context, state) =>
@@ -65,10 +71,10 @@ GoRouter createAppRouter() {
             ],
           ),
           StatefulShellBranch(
-            initialLocation: '/chats',
+            initialLocation: '/raids',
             routes: [
               GoRoute(
-                path: '/chats',
+                path: '/raids',
                 pageBuilder: (context, state) =>
                     _page(state, const ChatsPage()),
                 routes: [
@@ -153,7 +159,7 @@ GoRouter createAppRouter() {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/pet',
+                path: '/pets',
                 pageBuilder: (context, state) => _page(state, const PetPage()),
                 routes: [
                   GoRoute(
@@ -176,7 +182,7 @@ GoRouter createAppRouter() {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/me',
+                path: '/identity',
                 pageBuilder: (context, state) => _page(state, const MePage()),
               ),
             ],

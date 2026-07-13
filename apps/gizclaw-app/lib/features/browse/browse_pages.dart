@@ -218,7 +218,7 @@ class _WorkspaceStrip extends StatelessWidget {
             width: 248,
             child: GizPressable(
               onPressed: () => context.push(
-                '/chats/drivers/${workflow.driver.routeKey}/'
+                '/raids/drivers/${workflow.driver.routeKey}/'
                 '${Uri.encodeComponent(workspace.name)}',
               ),
               borderRadius: GizCorners.card,
@@ -658,7 +658,7 @@ class WorkspaceListTile extends StatelessWidget {
       onPressed:
           onPressed ??
           () => context.push(
-            '/chats/drivers/${workflow.driver.routeKey}/'
+            '/raids/drivers/${workflow.driver.routeKey}/'
             '${Uri.encodeComponent(workspace.name)}',
           ),
     );

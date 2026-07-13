@@ -98,7 +98,7 @@ class FriendsPage extends StatelessWidget {
     final workspaceName = friend.workspaceName.trim();
     if (workspaceName.isEmpty) return;
     context.push(
-      '/chats/drivers/chatroom/${Uri.encodeComponent(workspaceName)}',
+      '/raids/drivers/chatroom/${Uri.encodeComponent(workspaceName)}',
     );
   }
 
@@ -290,7 +290,7 @@ class FriendRow extends StatelessWidget {
 
   void _openChat(BuildContext context) {
     context.push(
-      '/chats/drivers/chatroom/'
+      '/raids/drivers/chatroom/'
       '${Uri.encodeComponent(friend.workspaceName)}',
     );
   }
@@ -784,7 +784,7 @@ class PrototypePetPage extends StatelessWidget {
           key: const PageStorageKey('pet-scroll'),
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 112),
           children: [
-            const Text('Pet', style: GizText.pageTitle),
+            const Text('Pets', style: GizText.pageTitle),
             const SizedBox(height: 18),
             AspectRatio(
               aspectRatio: 0.72,
@@ -975,7 +975,7 @@ class MePage extends StatelessWidget {
           children: [
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Text('Me', style: GizText.pageTitle),
+              child: Text('Identity', style: GizText.pageTitle),
             ),
             const SizedBox(height: 18),
             Padding(

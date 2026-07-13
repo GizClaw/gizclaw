@@ -343,7 +343,7 @@ class MobileDataController extends ChangeNotifier {
     if (chatroom != null) {
       final root = chatroom.kind == ChatroomWorkspaceKind.group
           ? '/groups'
-          : '/chats/drivers/chatroom';
+          : '/raids/drivers/chatroom';
       return '$root/${Uri.encodeComponent(workspaceName)}';
     }
     final client = connection.client;
@@ -352,14 +352,14 @@ class MobileDataController extends ChangeNotifier {
       do {
         final response = await client.listPets(cursor: cursor, limit: 100);
         for (final pet in response.value.items) {
-          if (pet.workspaceName == workspaceName) return '/pet/${pet.id}';
+          if (pet.workspaceName == workspaceName) return '/pets/${pet.id}';
         }
         cursor = response.value.hasNext ? response.value.nextCursor : null;
       } while (cursor != null && cursor.isNotEmpty);
     }
     final workspace = this.workspace(workspaceName);
     final driver = workflow(workspace.workflowName).driver.routeKey;
-    return '/chats/drivers/$driver/${Uri.encodeComponent(workspaceName)}';
+    return '/raids/drivers/$driver/${Uri.encodeComponent(workspaceName)}';
   }
 
   Future<WorkspaceChatController> activateWorkspaceChat(String workspaceName) {

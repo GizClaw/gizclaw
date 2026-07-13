@@ -5,6 +5,7 @@ import 'package:gizclaw_app/main.dart';
 import 'package:gizclaw_app/app/global_conversation_control.dart';
 import 'package:gizclaw_app/data/mobile_data_controller.dart';
 import 'package:gizclaw_app/giz_ui/giz_ui.dart';
+import 'package:go_router/go_router.dart';
 
 void main() {
   Finder primaryNav(String label) =>
@@ -38,20 +39,41 @@ void main() {
     await tester.pump(const Duration(milliseconds: 700));
   }
 
-  testWidgets('shows the Cupertino workflow-first shell', (tester) async {
+  Future<void> goToBrowse(WidgetTester tester) async {
+    final context = tester.element(find.byType(ActiveChatPage));
+    GoRouter.of(context).go('/browse');
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('opens on the active conversation destination', (tester) async {
     await pumpApp(tester);
 
-    expect(find.text('Play your\nworkflows'), findsOneWidget);
-    expect(find.text('Everyday companions'), findsOneWidget);
-    expect(find.text('Jump back in'), findsOneWidget);
-    expect(find.byIcon(CupertinoIcons.compass_fill), findsOneWidget);
+    expect(find.byType(ActiveChatPage), findsOneWidget);
+    expect(find.text('No active conversation'), findsOneWidget);
+    expect(primaryNav('Active'), findsOneWidget);
     expect(find.byKey(const ValueKey('voice-mode-thumb')), findsOneWidget);
     expect(find.text('LIVE'), findsNothing);
     expect(find.byType(CupertinoTabBar), findsNothing);
   });
 
+  testWidgets('shows the current active workspace conversation', (
+    tester,
+  ) async {
+    final controller = MobileDataController.demo()
+      ..runWorkspaceState = PeerRunWorkspaceState(
+        activeWorkspaceName: 'Parser pass',
+      );
+    await pumpApp(tester, controller: controller);
+
+    expect(find.byType(ActiveChatPage), findsOneWidget);
+    expect(find.byType(WorkspaceChatPage), findsOneWidget);
+    expect(find.text('No active conversation'), findsNothing);
+    expect(find.text('OFFLINE'), findsOneWidget);
+  });
+
   testWidgets('opens workflow detail from browse', (tester) async {
     await pumpApp(tester);
+    await goToBrowse(tester);
 
     await tester.drag(
       find.byType(CustomScrollView).first,
@@ -68,6 +90,7 @@ void main() {
 
   testWidgets('opens a workspace from jump back in', (tester) async {
     await pumpApp(tester);
+    await goToBrowse(tester);
 
     await tester.tap(find.text('Morning check-in'));
     await tester.pump();
@@ -79,6 +102,7 @@ void main() {
 
   testWidgets('opens collections and the full workflow list', (tester) async {
     await pumpApp(tester);
+    await goToBrowse(tester);
 
     await tester.tap(find.byType(FeaturedCollectionCard).first);
     await tester.pump();
@@ -104,7 +128,7 @@ void main() {
   testWidgets('opens chat types before their conversations', (tester) async {
     await pumpApp(tester);
 
-    await tapPrimaryNav(tester, 'Chats');
+    await tapPrimaryNav(tester, 'Raids');
     await tester.pumpAndSettle();
 
     for (final driver in ['Flowcraft', 'Doubao Realtime', 'AST Translate']) {
@@ -163,7 +187,7 @@ void main() {
         .toList(growable: false);
     await pumpApp(tester, controller: controller);
 
-    await tapPrimaryNav(tester, 'Chats');
+    await tapPrimaryNav(tester, 'Raids');
     await tester.pumpAndSettle();
 
     expect(find.text('Doubao Realtime'), findsOneWidget);
@@ -171,12 +195,12 @@ void main() {
     expect(find.text('0 workspaces'), findsNWidgets(2));
   });
 
-  testWidgets('hides tabs in chat and restores the Chats stack on return', (
+  testWidgets('hides tabs in chat and restores the Raids stack on return', (
     tester,
   ) async {
     await pumpApp(tester);
 
-    await tapPrimaryNav(tester, 'Chats');
+    await tapPrimaryNav(tester, 'Raids');
     await tester.pumpAndSettle();
     await tester.tap(find.text('Flowcraft'));
     await tester.pumpAndSettle();
@@ -198,11 +222,11 @@ void main() {
     expect(find.text('Flowcraft').hitTestable(), findsOneWidget);
     await tester.tap(find.byIcon(CupertinoIcons.chevron_left).hitTestable());
     await tester.pumpAndSettle();
-    await tapPrimaryNav(tester, 'Browse');
+    await tapPrimaryNav(tester, 'Active');
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text('Play your\nworkflows'), findsOneWidget);
+    expect(find.byType(ActiveChatPage), findsOneWidget);
 
-    await tapPrimaryNav(tester, 'Chats');
+    await tapPrimaryNav(tester, 'Raids');
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(ChatsPage), findsOneWidget);
   });
@@ -210,7 +234,7 @@ void main() {
   testWidgets('renders the workspace signal room', (tester) async {
     await pumpApp(tester);
 
-    await tapPrimaryNav(tester, 'Chats');
+    await tapPrimaryNav(tester, 'Raids');
     await tester.pumpAndSettle();
     await tester.tap(find.text('AST Translate'));
     await tester.pumpAndSettle();
@@ -244,7 +268,7 @@ void main() {
     addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
     await pumpApp(tester);
 
-    await tapPrimaryNav(tester, 'Chats');
+    await tapPrimaryNav(tester, 'Raids');
     await tester.pumpAndSettle();
     await tester.tap(find.text('AST Translate'));
     await tester.pumpAndSettle();
@@ -280,7 +304,14 @@ void main() {
   testWidgets('shows six primary destinations', (tester) async {
     await pumpApp(tester);
 
-    for (final label in ['Browse', 'Chats', 'Friends', 'Groups', 'Pet', 'Me']) {
+    for (final label in [
+      'Active',
+      'Raids',
+      'Friends',
+      'Groups',
+      'Pets',
+      'Identity',
+    ]) {
       expect(primaryNav(label), findsOneWidget);
     }
     expect(find.byKey(const ValueKey('primary-nav-scroll')), findsOneWidget);
@@ -313,13 +344,15 @@ void main() {
     final thumb = find.byKey(const ValueKey('voice-mode-thumb'));
     final pttPosition = tester.getTopLeft(thumb);
     await tester.drag(thumb, const Offset(64, 0));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 320));
 
     expect(controller.mode, WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME);
     expect(tester.getTopLeft(thumb).dx, greaterThan(pttPosition.dx + 50));
 
     await tester.drag(thumb, const Offset(-64, 0));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 320));
     expect(
       controller.mode,
       WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
@@ -359,12 +392,12 @@ void main() {
     expect(find.text('YOUR CIRCLE'), findsOneWidget);
     expect(find.text('Avery'), findsOneWidget);
 
-    await tapPrimaryNav(tester, 'Pet');
+    await tapPrimaryNav(tester, 'Pets');
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Connect to GizClaw to meet your pets.'), findsOneWidget);
 
-    await tapPrimaryNav(tester, 'Me');
+    await tapPrimaryNav(tester, 'Identity');
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Local client'), findsOneWidget);
     expect(find.text('Connected over WebRTC'), findsOneWidget);
@@ -428,9 +461,9 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await pumpApp(tester);
-    expect(find.text('Play your\nworkflows'), findsOneWidget);
+    expect(find.byType(ActiveChatPage), findsOneWidget);
 
-    await tapPrimaryNav(tester, 'Pet');
+    await tapPrimaryNav(tester, 'Pets');
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Connect to GizClaw to meet your pets.'), findsOneWidget);
@@ -446,7 +479,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await pumpApp(tester);
-    await tapPrimaryNav(tester, 'Chats');
+    await tapPrimaryNav(tester, 'Raids');
     await tester.pumpAndSettle();
     await tester.tap(find.text('AST Translate'));
     await tester.pumpAndSettle();
