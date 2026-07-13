@@ -9,37 +9,37 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 )
 
-func (s *Server) grantWorkspaceOwner(ctx context.Context, workspaceName string) error {
+func (s *Server) grantResourceOwner(ctx context.Context, resource apitypes.ACLResource) error {
 	if s.ResourceACL == nil {
-		return errors.New("workspace ACL service not configured")
+		return errors.New("resource ACL service not configured")
 	}
 	if err := s.ensureResourceOwnerRole(ctx); err != nil {
 		return err
 	}
 	_, err := s.ResourceACL.PutPolicyBinding(
 		ctx,
-		workspaceOwnerBindingID(workspaceName),
+		resourceOwnerBindingID(resource),
 		0,
 		apitypes.ACLPolicy{
 			Subject:  acl.PublicKeySubject(s.Caller.String()),
-			Resource: acl.WorkspaceResource(workspaceName),
+			Resource: resource,
 			Role:     resourceOwnerRole,
 		},
 	)
 	return err
 }
 
-func (s *Server) deleteWorkspaceOwnerBinding(ctx context.Context, workspaceName string) error {
+func (s *Server) deleteResourceOwnerBinding(ctx context.Context, resource apitypes.ACLResource) error {
 	if s.ResourceACL == nil {
 		return nil
 	}
-	_, err := s.ResourceACL.DeletePolicyBinding(ctx, workspaceOwnerBindingID(workspaceName))
+	_, err := s.ResourceACL.DeletePolicyBinding(ctx, resourceOwnerBindingID(resource))
 	if errors.Is(err, acl.ErrPolicyBindingNotFound) {
 		return nil
 	}
 	return err
 }
 
-func workspaceOwnerBindingID(workspaceName string) string {
-	return toolkit.ResourceOwnerPolicyBindingID(acl.ResourceKindWorkspace, workspaceName)
+func resourceOwnerBindingID(resource apitypes.ACLResource) string {
+	return toolkit.ResourceOwnerPolicyBindingID(resource.Kind, resource.Id)
 }

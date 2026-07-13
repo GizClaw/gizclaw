@@ -478,7 +478,7 @@ func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCReque
 		return internalError(req.Id, err.Error()), true, nil
 	}
 	if _, ok := adminResp.(adminhttp.CreateWorkspace200JSONResponse); ok {
-		if err := s.grantWorkspaceOwner(ctx, params.Name); err != nil {
+		if err := s.grantResourceOwner(ctx, acl.WorkspaceResource(params.Name)); err != nil {
 			_, _ = s.Workspaces.DeleteWorkspace(
 				context.WithoutCancel(ctx),
 				adminhttp.DeleteWorkspaceRequestObject{Name: params.Name},
@@ -530,7 +530,7 @@ func (s *Server) handleWorkspaceDelete(ctx context.Context, req *rpcapi.RPCReque
 		return internalError(req.Id, err.Error())
 	}
 	if deleted, ok := adminResp.(adminhttp.DeleteWorkspace200JSONResponse); ok {
-		if err := s.deleteWorkspaceOwnerBinding(context.WithoutCancel(ctx), params.Name); err != nil {
+		if err := s.deleteResourceOwnerBinding(context.WithoutCancel(ctx), acl.WorkspaceResource(params.Name)); err != nil {
 			body := adminhttp.PutWorkspaceJSONRequestBody{
 				Name:         deleted.Name,
 				Parameters:   deleted.Parameters,
@@ -758,7 +758,21 @@ func (s *Server) handleWorkflowCreate(ctx context.Context, req *rpcapi.RPCReques
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitCreateWorkflowResponse, (*rpcapi.RPCPayload).FromWorkflowCreateResponse), true, nil
+	result, rpcResp, err := adminResult[apitypes.WorkflowDocument](adminResp.VisitCreateWorkflowResponse)
+	if err != nil {
+		return internalError(req.Id, err.Error()), true, nil
+	}
+	if rpcResp != nil {
+		return withRequestID(req.Id, rpcResp), true, nil
+	}
+	if err := s.grantResourceOwner(ctx, workflowResource(result.Metadata.Name)); err != nil {
+		_, _ = s.Workflows.DeleteWorkflow(
+			context.WithoutCancel(ctx),
+			adminhttp.DeleteWorkflowRequestObject{Name: result.Metadata.Name},
+		)
+		return internalError(req.Id, err.Error()), true, nil
+	}
+	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromWorkflowCreateResponse), true, nil
 }
 
 func (s *Server) handleWorkflowPut(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
@@ -798,7 +812,31 @@ func (s *Server) handleWorkflowDelete(ctx context.Context, req *rpcapi.RPCReques
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitDeleteWorkflowResponse, (*rpcapi.RPCPayload).FromWorkflowDeleteResponse)
+	result, rpcResp, err := adminResult[apitypes.WorkflowDocument](adminResp.VisitDeleteWorkflowResponse)
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	if rpcResp != nil {
+		return withRequestID(req.Id, rpcResp)
+	}
+	if err := s.deleteResourceOwnerBinding(context.WithoutCancel(ctx), workflowResource(result.Metadata.Name)); err != nil {
+		body, convertErr := convertType[adminhttp.PutWorkflowJSONRequestBody](result)
+		if convertErr != nil {
+			return internalError(req.Id, fmt.Sprintf("%v; Workflow rollback failed: %v", err, convertErr))
+		}
+		rollbackResp, rollbackErr := s.Workflows.PutWorkflow(
+			context.WithoutCancel(ctx),
+			adminhttp.PutWorkflowRequestObject{Name: result.Metadata.Name, Body: &body},
+		)
+		if rollbackErr != nil {
+			return internalError(req.Id, fmt.Sprintf("%v; Workflow rollback failed: %v", err, rollbackErr))
+		}
+		if _, ok := rollbackResp.(adminhttp.PutWorkflow200JSONResponse); !ok {
+			return internalError(req.Id, fmt.Sprintf("%v; Workflow rollback failed with %T", err, rollbackResp))
+		}
+		return internalError(req.Id, err.Error())
+	}
+	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromWorkflowDeleteResponse)
 }
 
 func (s *Server) handleModelList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -856,7 +894,21 @@ func (s *Server) handleModelCreate(ctx context.Context, req *rpcapi.RPCRequest) 
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitCreateModelResponse, (*rpcapi.RPCPayload).FromModelCreateResponse), true, nil
+	result, rpcResp, err := adminResult[apitypes.Model](adminResp.VisitCreateModelResponse)
+	if err != nil {
+		return internalError(req.Id, err.Error()), true, nil
+	}
+	if rpcResp != nil {
+		return withRequestID(req.Id, rpcResp), true, nil
+	}
+	if err := s.grantResourceOwner(ctx, acl.ModelResource(result.Id)); err != nil {
+		_, _ = s.Models.DeleteModel(
+			context.WithoutCancel(ctx),
+			adminhttp.DeleteModelRequestObject{Id: result.Id},
+		)
+		return internalError(req.Id, err.Error()), true, nil
+	}
+	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromModelCreateResponse), true, nil
 }
 
 func (s *Server) handleModelPut(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
@@ -896,7 +948,31 @@ func (s *Server) handleModelDelete(ctx context.Context, req *rpcapi.RPCRequest) 
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitDeleteModelResponse, (*rpcapi.RPCPayload).FromModelDeleteResponse)
+	result, rpcResp, err := adminResult[apitypes.Model](adminResp.VisitDeleteModelResponse)
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	if rpcResp != nil {
+		return withRequestID(req.Id, rpcResp)
+	}
+	if err := s.deleteResourceOwnerBinding(context.WithoutCancel(ctx), acl.ModelResource(result.Id)); err != nil {
+		body, convertErr := convertType[adminhttp.PutModelJSONRequestBody](result)
+		if convertErr != nil {
+			return internalError(req.Id, fmt.Sprintf("%v; Model rollback failed: %v", err, convertErr))
+		}
+		rollbackResp, rollbackErr := s.Models.PutModel(
+			context.WithoutCancel(ctx),
+			adminhttp.PutModelRequestObject{Id: result.Id, Body: &body},
+		)
+		if rollbackErr != nil {
+			return internalError(req.Id, fmt.Sprintf("%v; Model rollback failed: %v", err, rollbackErr))
+		}
+		if _, ok := rollbackResp.(adminhttp.PutModel200JSONResponse); !ok {
+			return internalError(req.Id, fmt.Sprintf("%v; Model rollback failed with %T", err, rollbackResp))
+		}
+		return internalError(req.Id, err.Error())
+	}
+	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromModelDeleteResponse)
 }
 
 func (s *Server) handleVoiceList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -1029,6 +1105,13 @@ func (s *Server) handleCredentialCreate(ctx context.Context, req *rpcapi.RPCRequ
 	if rpcResp != nil {
 		return withRequestID(req.Id, rpcResp), true, nil
 	}
+	if err := s.grantResourceOwner(ctx, acl.CredentialResource(result.Name)); err != nil {
+		_, _ = s.Credentials.DeleteCredential(
+			context.WithoutCancel(ctx),
+			adminhttp.DeleteCredentialRequestObject{Name: result.Name},
+		)
+		return internalError(req.Id, err.Error()), true, nil
+	}
 	converted, err := apiCredentialToRPC(result)
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
@@ -1090,6 +1173,23 @@ func (s *Server) handleCredentialDelete(ctx context.Context, req *rpcapi.RPCRequ
 	}
 	if rpcResp != nil {
 		return withRequestID(req.Id, rpcResp)
+	}
+	if err := s.deleteResourceOwnerBinding(context.WithoutCancel(ctx), acl.CredentialResource(result.Name)); err != nil {
+		body, convertErr := convertType[adminhttp.PutCredentialJSONRequestBody](result)
+		if convertErr != nil {
+			return internalError(req.Id, fmt.Sprintf("%v; Credential rollback failed: %v", err, convertErr))
+		}
+		rollbackResp, rollbackErr := s.Credentials.PutCredential(
+			context.WithoutCancel(ctx),
+			adminhttp.PutCredentialRequestObject{Name: result.Name, Body: &body},
+		)
+		if rollbackErr != nil {
+			return internalError(req.Id, fmt.Sprintf("%v; Credential rollback failed: %v", err, rollbackErr))
+		}
+		if _, ok := rollbackResp.(adminhttp.PutCredential200JSONResponse); !ok {
+			return internalError(req.Id, fmt.Sprintf("%v; Credential rollback failed with %T", err, rollbackResp))
+		}
+		return internalError(req.Id, err.Error())
 	}
 	converted, err := apiCredentialToRPC(result)
 	if err != nil {

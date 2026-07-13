@@ -273,6 +273,7 @@ type recordingToolACL struct {
 	role         string
 	permissions  apitypes.ACLPermissionList
 	policy       apitypes.ACLPolicy
+	policies     map[string]apitypes.ACLPolicy
 	deleted      string
 	deletedIDs   []string
 	roleErr      error
@@ -313,6 +314,10 @@ func (a *recordingToolACL) PutRole(_ context.Context, name string, permissions a
 
 func (a *recordingToolACL) PutPolicyBinding(_ context.Context, id string, _ float64, policy apitypes.ACLPolicy) (apitypes.ACLPolicyBinding, error) {
 	a.policy = policy
+	if a.policies == nil {
+		a.policies = make(map[string]apitypes.ACLPolicy)
+	}
+	a.policies[id] = policy
 	return apitypes.ACLPolicyBinding{Id: id, Policy: policy}, a.policyErr
 }
 
@@ -329,6 +334,11 @@ func (a *recordingToolACL) deletedBinding(id string) bool {
 		}
 	}
 	return false
+}
+
+func (a *recordingToolACL) policyBinding(id string) (apitypes.ACLPolicy, bool) {
+	policy, ok := a.policies[id]
+	return policy, ok
 }
 
 func stringPointer(value string) *string { return &value }

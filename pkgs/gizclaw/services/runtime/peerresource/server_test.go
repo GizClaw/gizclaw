@@ -159,7 +159,7 @@ func TestServerAllowedCRUD(t *testing.T) {
 	requireNoRPCError(t, callRPC(t, srv, "workflow-delete", rpcapi.RPCMethodServerWorkflowDelete, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowDeleteRequest, rpcapi.WorkflowDeleteRequest{Name: "workflow-a1"})))
 }
 
-func TestWorkspacePeerCreateGrantsResourceOwner(t *testing.T) {
+func TestPeerCreateGrantsResourceOwnerBindings(t *testing.T) {
 	srv := newTestResourceServer()
 	srv.ACL = allowAllAuthorizer{}
 	bindings := &recordingToolACL{}
@@ -170,28 +170,152 @@ func TestWorkspacePeerCreateGrantsResourceOwner(t *testing.T) {
 		Name:         "workspace-owner",
 		WorkflowName: "workflow-owner",
 	})))
+	requireNoRPCError(t, callRPC(t, srv, "model-create", rpcapi.RPCMethodServerModelCreate, rpcParams(t, (*rpcapi.RPCPayload).FromModelCreateRequest, rpcModel("model-owner"))))
+	requireNoRPCError(t, callRPC(t, srv, "credential-create", rpcapi.RPCMethodServerCredentialCreate, rpcParams(t, (*rpcapi.RPCPayload).FromCredentialCreateRequest, rpcCredential("credential-owner", "sk-owner"))))
 
 	if bindings.role != resourceOwnerRole || !permissionListsEqual(bindings.permissions, resourceOwnerPermissions) {
-		t.Fatalf("workspace owner role = %q %#v", bindings.role, bindings.permissions)
+		t.Fatalf("resource owner role = %q %#v", bindings.role, bindings.permissions)
 	}
-	if bindings.policy.Subject != acl.PublicKeySubject(srv.Caller.String()) ||
-		bindings.policy.Resource != acl.WorkspaceResource("workspace-owner") ||
-		bindings.policy.Role != resourceOwnerRole {
-		t.Fatalf("workspace owner policy = %#v", bindings.policy)
+	for _, resource := range []apitypes.ACLResource{
+		workflowResource("workflow-owner"),
+		acl.WorkspaceResource("workspace-owner"),
+		acl.ModelResource("model-owner"),
+		acl.CredentialResource("credential-owner"),
+	} {
+		policy, ok := bindings.policyBinding(resourceOwnerBindingID(resource))
+		if !ok {
+			t.Fatalf("owner binding for %#v was not created; policies = %#v", resource, bindings.policies)
+		}
+		if policy.Subject != acl.PublicKeySubject(srv.Caller.String()) ||
+			policy.Resource != resource ||
+			policy.Role != resourceOwnerRole {
+			t.Fatalf("owner policy for %#v = %#v", resource, policy)
+		}
 	}
 
 	requireNoRPCError(t, callRPC(t, srv, "workspace-delete", rpcapi.RPCMethodServerWorkspaceDelete, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceDeleteRequest, rpcapi.WorkspaceDeleteRequest{Name: "workspace-owner"})))
-	if !bindings.deletedBinding(workspaceOwnerBindingID("workspace-owner")) {
-		t.Fatalf("workspace owner binding was not deleted; deleted = %#v", bindings.deletedIDs)
+	requireNoRPCError(t, callRPC(t, srv, "credential-delete", rpcapi.RPCMethodServerCredentialDelete, rpcParams(t, (*rpcapi.RPCPayload).FromCredentialDeleteRequest, rpcapi.CredentialDeleteRequest{Name: "credential-owner"})))
+	requireNoRPCError(t, callRPC(t, srv, "model-delete", rpcapi.RPCMethodServerModelDelete, rpcParams(t, (*rpcapi.RPCPayload).FromModelDeleteRequest, rpcapi.ModelDeleteRequest{Id: "model-owner"})))
+	requireNoRPCError(t, callRPC(t, srv, "workflow-delete", rpcapi.RPCMethodServerWorkflowDelete, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowDeleteRequest, rpcapi.WorkflowDeleteRequest{Name: "workflow-owner"})))
+	for _, resource := range []apitypes.ACLResource{
+		acl.WorkspaceResource("workspace-owner"),
+		acl.CredentialResource("credential-owner"),
+		acl.ModelResource("model-owner"),
+		workflowResource("workflow-owner"),
+	} {
+		if !bindings.deletedBinding(resourceOwnerBindingID(resource)) {
+			t.Fatalf("owner binding for %#v was not deleted; deleted = %#v", resource, bindings.deletedIDs)
+		}
+	}
+}
+
+func TestModelPeerCreateRollsBackWhenOwnerGrantFails(t *testing.T) {
+	srv := newTestResourceServer()
+	srv.ACL = allowAllAuthorizer{}
+	srv.ResourceACL = &recordingToolACL{policyErr: errors.New("write owner binding")}
+
+	created := callRPC(t, srv, "model-create", rpcapi.RPCMethodServerModelCreate, rpcParams(t, (*rpcapi.RPCPayload).FromModelCreateRequest, rpcModel("model-rollback")))
+	requireRPCError(t, created, rpcapi.RPCErrorCodeInternalError)
+
+	missing := callRPC(t, srv, "model-get", rpcapi.RPCMethodServerModelGet, rpcParams(t, (*rpcapi.RPCPayload).FromModelGetRequest, rpcapi.ModelGetRequest{Id: "model-rollback"}))
+	requireRPCError(t, missing, rpcapi.RPCErrorCodeNotFound)
+}
+
+func TestModelPeerDeleteRollsBackWhenOwnerBindingDeleteFails(t *testing.T) {
+	srv := newTestResourceServer()
+	srv.ACL = allowAllAuthorizer{}
+	bindings := &recordingToolACL{}
+	srv.ResourceACL = bindings
+
+	requireNoRPCError(t, callRPC(t, srv, "model-create", rpcapi.RPCMethodServerModelCreate, rpcParams(t, (*rpcapi.RPCPayload).FromModelCreateRequest, rpcModel("model-delete-rollback"))))
+
+	bindings.deleteErr = errors.New("delete owner binding")
+	deleted := callRPC(t, srv, "model-delete", rpcapi.RPCMethodServerModelDelete, rpcParams(t, (*rpcapi.RPCPayload).FromModelDeleteRequest, rpcapi.ModelDeleteRequest{Id: "model-delete-rollback"}))
+	requireRPCError(t, deleted, rpcapi.RPCErrorCodeInternalError)
+	if !bindings.deletedBinding(resourceOwnerBindingID(acl.ModelResource("model-delete-rollback"))) {
+		t.Fatalf("model owner binding was not deleted; deleted = %#v", bindings.deletedIDs)
+	}
+	got := callRPC(t, srv, "model-get", rpcapi.RPCMethodServerModelGet, rpcParams(t, (*rpcapi.RPCPayload).FromModelGetRequest, rpcapi.ModelGetRequest{Id: "model-delete-rollback"}))
+	requireNoRPCError(t, got)
+	if model := mustResult(t, got.Result.AsModelGetResponse); model.Id != "model-delete-rollback" {
+		t.Fatalf("model after rollback = %#v", model)
+	}
+}
+
+func TestCredentialPeerCreateRollsBackWhenOwnerGrantFails(t *testing.T) {
+	srv := newTestResourceServer()
+	srv.ACL = allowAllAuthorizer{}
+	srv.ResourceACL = &recordingToolACL{policyErr: errors.New("write owner binding")}
+
+	created := callRPC(t, srv, "credential-create", rpcapi.RPCMethodServerCredentialCreate, rpcParams(t, (*rpcapi.RPCPayload).FromCredentialCreateRequest, rpcCredential("credential-rollback", "sk-rollback")))
+	requireRPCError(t, created, rpcapi.RPCErrorCodeInternalError)
+
+	missing := callRPC(t, srv, "credential-get", rpcapi.RPCMethodServerCredentialGet, rpcParams(t, (*rpcapi.RPCPayload).FromCredentialGetRequest, rpcapi.CredentialGetRequest{Name: "credential-rollback"}))
+	requireRPCError(t, missing, rpcapi.RPCErrorCodeNotFound)
+}
+
+func TestCredentialPeerDeleteRollsBackWhenOwnerBindingDeleteFails(t *testing.T) {
+	srv := newTestResourceServer()
+	srv.ACL = allowAllAuthorizer{}
+	bindings := &recordingToolACL{}
+	srv.ResourceACL = bindings
+
+	requireNoRPCError(t, callRPC(t, srv, "credential-create", rpcapi.RPCMethodServerCredentialCreate, rpcParams(t, (*rpcapi.RPCPayload).FromCredentialCreateRequest, rpcCredential("credential-delete-rollback", "sk-rollback"))))
+
+	bindings.deleteErr = errors.New("delete owner binding")
+	deleted := callRPC(t, srv, "credential-delete", rpcapi.RPCMethodServerCredentialDelete, rpcParams(t, (*rpcapi.RPCPayload).FromCredentialDeleteRequest, rpcapi.CredentialDeleteRequest{Name: "credential-delete-rollback"}))
+	requireRPCError(t, deleted, rpcapi.RPCErrorCodeInternalError)
+	if !bindings.deletedBinding(resourceOwnerBindingID(acl.CredentialResource("credential-delete-rollback"))) {
+		t.Fatalf("credential owner binding was not deleted; deleted = %#v", bindings.deletedIDs)
+	}
+	got := callRPC(t, srv, "credential-get", rpcapi.RPCMethodServerCredentialGet, rpcParams(t, (*rpcapi.RPCPayload).FromCredentialGetRequest, rpcapi.CredentialGetRequest{Name: "credential-delete-rollback"}))
+	requireNoRPCError(t, got)
+	if credential := mustResult(t, got.Result.AsCredentialGetResponse); credential.Name != "credential-delete-rollback" {
+		t.Fatalf("credential after rollback = %#v", credential)
+	}
+}
+
+func TestWorkflowPeerCreateRollsBackWhenOwnerGrantFails(t *testing.T) {
+	srv := newTestResourceServer()
+	srv.ACL = allowAllAuthorizer{}
+	srv.ResourceACL = &recordingToolACL{policyErr: errors.New("write owner binding")}
+
+	created := callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, workflowDoc("workflow-rollback")))
+	requireRPCError(t, created, rpcapi.RPCErrorCodeInternalError)
+
+	missing := callRPC(t, srv, "workflow-get", rpcapi.RPCMethodServerWorkflowGet, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowGetRequest, rpcapi.WorkflowGetRequest{Name: "workflow-rollback"}))
+	requireRPCError(t, missing, rpcapi.RPCErrorCodeNotFound)
+}
+
+func TestWorkflowPeerDeleteRollsBackWhenOwnerBindingDeleteFails(t *testing.T) {
+	srv := newTestResourceServer()
+	srv.ACL = allowAllAuthorizer{}
+	bindings := &recordingToolACL{}
+	srv.ResourceACL = bindings
+
+	requireNoRPCError(t, callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, workflowDoc("workflow-delete-rollback"))))
+
+	bindings.deleteErr = errors.New("delete owner binding")
+	deleted := callRPC(t, srv, "workflow-delete", rpcapi.RPCMethodServerWorkflowDelete, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowDeleteRequest, rpcapi.WorkflowDeleteRequest{Name: "workflow-delete-rollback"}))
+	requireRPCError(t, deleted, rpcapi.RPCErrorCodeInternalError)
+	if !bindings.deletedBinding(resourceOwnerBindingID(workflowResource("workflow-delete-rollback"))) {
+		t.Fatalf("workflow owner binding was not deleted; deleted = %#v", bindings.deletedIDs)
+	}
+	got := callRPC(t, srv, "workflow-get", rpcapi.RPCMethodServerWorkflowGet, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowGetRequest, rpcapi.WorkflowGetRequest{Name: "workflow-delete-rollback"}))
+	requireNoRPCError(t, got)
+	if workflow := mustResult(t, got.Result.AsWorkflowGetResponse); workflow.Metadata.Name != "workflow-delete-rollback" {
+		t.Fatalf("workflow after rollback = %#v", workflow)
 	}
 }
 
 func TestWorkspacePeerCreateRollsBackWhenOwnerGrantFails(t *testing.T) {
 	srv := newTestResourceServer()
 	srv.ACL = allowAllAuthorizer{}
-	srv.ResourceACL = &recordingToolACL{policyErr: errors.New("write owner binding")}
+	bindings := &recordingToolACL{}
+	srv.ResourceACL = bindings
 
 	requireNoRPCError(t, callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, workflowDoc("workflow-rollback"))))
+	bindings.policyErr = errors.New("write owner binding")
 	created := callRPC(t, srv, "workspace-create", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
 		Name:         "workspace-rollback",
 		WorkflowName: "workflow-rollback",
@@ -217,7 +341,7 @@ func TestWorkspacePeerDeleteRollsBackWhenOwnerBindingDeleteFails(t *testing.T) {
 	bindings.deleteErr = errors.New("delete owner binding")
 	deleted := callRPC(t, srv, "workspace-delete", rpcapi.RPCMethodServerWorkspaceDelete, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceDeleteRequest, rpcapi.WorkspaceDeleteRequest{Name: "workspace-delete-rollback"}))
 	requireRPCError(t, deleted, rpcapi.RPCErrorCodeInternalError)
-	if !bindings.deletedBinding(workspaceOwnerBindingID("workspace-delete-rollback")) {
+	if !bindings.deletedBinding(resourceOwnerBindingID(acl.WorkspaceResource("workspace-delete-rollback"))) {
 		t.Fatalf("workspace owner binding was not deleted; deleted = %#v", bindings.deletedIDs)
 	}
 	got := callRPC(t, srv, "workspace-get", rpcapi.RPCMethodServerWorkspaceGet, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceGetRequest, rpcapi.WorkspaceGetRequest{Name: "workspace-delete-rollback"}))

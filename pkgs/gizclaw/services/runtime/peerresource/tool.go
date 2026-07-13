@@ -245,19 +245,7 @@ func (s *Server) validateOwnedDeviceTool(tool toolkit.Tool) error {
 }
 
 func (s *Server) grantToolOwner(ctx context.Context, toolID string) error {
-	if s.ResourceACL == nil {
-		return errors.New("tool ACL service not configured")
-	}
-	if err := s.ensureResourceOwnerRole(ctx); err != nil {
-		return err
-	}
-	caller := s.Caller.String()
-	_, err := s.ResourceACL.PutPolicyBinding(ctx, toolOwnerBindingID(toolID, caller), 0, apitypes.ACLPolicy{
-		Subject:  acl.PublicKeySubject(caller),
-		Resource: acl.ToolResource(toolID),
-		Role:     resourceOwnerRole,
-	})
-	return err
+	return s.grantResourceOwner(ctx, acl.ToolResource(toolID))
 }
 
 func (s *Server) ensureResourceOwnerRole(ctx context.Context) error {
@@ -304,7 +292,7 @@ func permissionListsEqual(left, right apitypes.ACLPermissionList) bool {
 }
 
 func toolOwnerBindingID(toolID, owner string) string {
-	return toolkit.ToolOwnerPolicyBindingID(toolID, owner)
+	return resourceOwnerBindingID(acl.ToolResource(toolID))
 }
 
 func legacyToolOwnerBindingID(toolID, owner string) string {
