@@ -483,9 +483,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
             child: _PetConversationDrift(messages: messages),
           ),
           const Positioned.fill(
-            child: IgnorePointer(
-              child: Opacity(opacity: 0.42, child: _PetMosaicBackground()),
-            ),
+            child: IgnorePointer(child: _PetMosaicBackground(opacity: 0.46)),
           ),
           Positioned(
             left: 20,
@@ -675,7 +673,9 @@ class _PetDriftingMessage extends StatelessWidget {
 }
 
 class _PetMosaicBackground extends StatefulWidget {
-  const _PetMosaicBackground();
+  const _PetMosaicBackground({this.opacity = 1});
+
+  final double opacity;
 
   @override
   State<_PetMosaicBackground> createState() => _PetMosaicBackgroundState();
@@ -717,16 +717,21 @@ class _PetMosaicBackgroundState extends State<_PetMosaicBackground>
     return RepaintBoundary(
       child: AnimatedBuilder(
         animation: _controller,
-        builder: (context, _) =>
-            CustomPaint(painter: _PetMosaicPainter(_controller.value)),
+        builder: (context, _) => CustomPaint(
+          painter: _PetMosaicPainter(
+            progress: _controller.value,
+            opacity: widget.opacity,
+          ),
+        ),
       ),
     );
   }
 }
 
 class _PetMosaicPainter extends CustomPainter {
-  const _PetMosaicPainter(this.progress);
+  const _PetMosaicPainter({required this.progress, required this.opacity});
 
+  final double opacity;
   final double progress;
 
   static const _palette = [
@@ -785,13 +790,13 @@ class _PetMosaicPainter extends CustomPainter {
                 .clamp(0.0, 1.0);
         canvas.drawRect(
           Rect.fromLTWH(column * cellSize, row * cellSize, cellSize, cellSize),
-          Paint()..color = _colorAt(value),
+          Paint()..color = _colorAt(value).withValues(alpha: opacity),
         );
       }
     }
 
     final gridPaint = Paint()
-      ..color = const Color(0x18FFFFFF)
+      ..color = Color.fromRGBO(255, 255, 255, opacity < 1 ? 0.16 : 0.095)
       ..strokeWidth = 0.5;
     for (var column = 1; column < columns; column++) {
       final x = column * cellSize;
@@ -813,7 +818,7 @@ class _PetMosaicPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _PetMosaicPainter oldDelegate) {
-    return oldDelegate.progress != progress;
+    return oldDelegate.progress != progress || oldDelegate.opacity != opacity;
   }
 }
 
