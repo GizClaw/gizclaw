@@ -125,6 +125,34 @@ GoRouter createAppRouter() {
           StatefulShellBranch(
             routes: [
               GoRoute(
+                path: '/groups',
+                pageBuilder: (context, state) =>
+                    _page(state, const GroupsPage()),
+                routes: [
+                  GoRoute(
+                    path: ':workspaceName',
+                    parentNavigatorKey: rootNavigatorKey,
+                    pageBuilder: (context, state) {
+                      final workspaceName =
+                          state.pathParameters['workspaceName']!;
+                      return _page(
+                        state,
+                        GlobalConversationOverlay(
+                          location: state.uri,
+                          child: ChatroomWorkspacePage(
+                            workspaceName: workspaceName,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
                 path: '/pet',
                 pageBuilder: (context, state) => _page(state, const PetPage()),
                 routes: [

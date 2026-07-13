@@ -42,7 +42,10 @@ class _ChatTypeMenu extends StatelessWidget {
     final data = MobileDataScope.watch(context);
     final drivers = WorkflowDriverKind.values
         .where((driver) {
-          if (driver == WorkflowDriverKind.unsupported) return false;
+          if (driver == WorkflowDriverKind.unsupported ||
+              driver == WorkflowDriverKind.chatroom) {
+            return false;
+          }
           return data.workflows.any((workflow) => workflow.driver == driver);
         })
         .toList(growable: false);

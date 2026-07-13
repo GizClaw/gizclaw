@@ -51,7 +51,14 @@ class _GlobalBottomDock extends StatelessWidget {
   final Uri location;
   final StatefulNavigationShell? navigationShell;
 
-  static const _rootPaths = {'/browse', '/chats', '/friends', '/pet', '/me'};
+  static const _rootPaths = {
+    '/browse',
+    '/chats',
+    '/friends',
+    '/groups',
+    '/pet',
+    '/me',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -167,6 +174,7 @@ class _PrimaryDockNavigation extends StatelessWidget {
     (CupertinoIcons.compass, CupertinoIcons.compass_fill, 'Browse'),
     (CupertinoIcons.chat_bubble_2, CupertinoIcons.chat_bubble_2_fill, 'Chats'),
     (CupertinoIcons.person_2, CupertinoIcons.person_2_fill, 'Friends'),
+    (CupertinoIcons.person_3, CupertinoIcons.person_3_fill, 'Groups'),
     (CupertinoIcons.sparkles, CupertinoIcons.sparkles, 'Pet'),
     (
       CupertinoIcons.person_crop_circle,
@@ -494,6 +502,22 @@ _DockContext _dockContext(Uri location, MobileDataController data) {
       title: driver.label,
       subtitle: 'Available workspaces',
       fallbackRoute: '/chats',
+    );
+  }
+  if (segments.length >= 2 && segments[0] == 'groups') {
+    final workspaceName = segments[1];
+    final group = data.chatroomWorkspace(workspaceName);
+    final active = data.activeWorkspaceName == workspaceName;
+    final mode =
+        data.activeInputMode == WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME
+        ? 'Realtime'
+        : 'Push to Talk';
+    return _DockContext(
+      title: group?.title ?? data.workspace(workspaceName).title,
+      subtitle: active ? 'Group chat  /  $mode' : 'Group chat  /  Viewing',
+      fallbackRoute: '/groups',
+      active: active,
+      workspaceName: workspaceName,
     );
   }
   if (segments.length >= 2 && segments[0] == 'pet') {

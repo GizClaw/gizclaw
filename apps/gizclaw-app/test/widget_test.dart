@@ -84,22 +84,21 @@ void main() {
     await tester.tap(find.text('Chats'));
     await tester.pumpAndSettle();
 
-    for (final driver in [
-      'Flowcraft',
-      'Doubao Realtime',
-      'AST Translate',
-      'Chatroom',
-    ]) {
+    for (final driver in ['Flowcraft', 'Doubao Realtime', 'AST Translate']) {
       expect(find.text(driver), findsOneWidget);
     }
     for (final asset in [
       'assets/drivers/flowcraft.png',
       'assets/drivers/doubao-realtime.png',
       'assets/drivers/ast-translate.png',
-      'assets/drivers/chatroom.png',
     ]) {
       expect(find.image(AssetImage(asset)), findsOneWidget);
     }
+    expect(find.text('Chatroom'), findsNothing);
+    expect(
+      find.image(const AssetImage('assets/drivers/chatroom.png')),
+      findsNothing,
+    );
     expect(find.byType(CupertinoSlidingSegmentedControl), findsNothing);
     expect(find.text('Morning check-in'), findsNothing);
 
@@ -112,12 +111,10 @@ void main() {
 
     await tester.tap(find.byIcon(CupertinoIcons.chevron_left).hitTestable());
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Chatroom'));
+    await tester.tap(find.text('Groups'));
     await tester.pumpAndSettle();
-    expect(find.text('Avery'), findsOneWidget);
-    expect(find.textContaining('DIRECT CHAT'), findsOneWidget);
     expect(find.text('Builder Crew'), findsOneWidget);
-    expect(find.textContaining('GROUP CHAT'), findsOneWidget);
+    expect(find.text('Avery'), findsNothing);
     expect(find.text('Mobile app plan'), findsNothing);
 
     await tester.tap(find.text('Builder Crew'));
@@ -249,12 +246,37 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('shows five primary destinations', (tester) async {
+  testWidgets('shows six primary destinations', (tester) async {
     await pumpApp(tester);
 
-    for (final label in ['Browse', 'Chats', 'Friends', 'Pet', 'Me']) {
+    for (final label in ['Browse', 'Chats', 'Friends', 'Groups', 'Pet', 'Me']) {
       expect(find.text(label), findsOneWidget);
     }
+  });
+
+  testWidgets('opens group creation controls', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await pumpApp(tester);
+
+    await tester.tap(find.text('Groups'));
+    await tester.pumpAndSettle();
+    expect(find.text('Builder Crew'), findsOneWidget);
+    expect(find.text('Avery'), findsNothing);
+
+    await tester.tap(find.bySemanticsLabel('Create group'));
+    await tester.pumpAndSettle();
+    expect(find.text('Create Group'), findsNWidgets(2));
+    expect(find.byType(CupertinoTextField), findsNWidgets(2));
+    expect(
+      tester
+          .getBottomRight(find.byKey(const ValueKey('create-group-sheet')))
+          .dy,
+      844,
+    );
   });
 
   testWidgets('shows friends, pet, and profile surfaces', (tester) async {

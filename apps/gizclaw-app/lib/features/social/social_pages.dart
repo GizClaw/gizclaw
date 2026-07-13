@@ -134,6 +134,111 @@ class FriendsPage extends StatelessWidget {
   }
 }
 
+class GroupsPage extends StatelessWidget {
+  const GroupsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final data = MobileDataScope.watch(context);
+    final groups = data.chatroomWorkspaces
+        .where((item) => item.kind == ChatroomWorkspaceKind.group)
+        .toList(growable: false);
+    return CupertinoPageScaffold(
+      child: SafeArea(
+        bottom: false,
+        child: CustomScrollView(
+          key: const PageStorageKey('groups-scroll'),
+          slivers: [
+            CupertinoSliverRefreshControl(onRefresh: data.refresh),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 12, 16),
+              sliver: SliverToBoxAdapter(
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text('Groups', style: GizText.pageTitle),
+                    ),
+                    CupertinoButton(
+                      padding: const EdgeInsets.all(8),
+                      onPressed: () => _showCreateGroup(context, data),
+                      child: const Icon(
+                        CupertinoIcons.person_3_fill,
+                        size: 23,
+                        semanticLabel: 'Create group',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              sliver: SliverToBoxAdapter(
+                child: Text(
+                  'VOICE ROOMS',
+                  style: GizText.label.copyWith(color: GizColors.secondaryInk),
+                ),
+              ),
+            ),
+            if (groups.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: Text(
+                    'No groups yet.',
+                    style: GizText.body.copyWith(color: GizColors.secondaryInk),
+                  ),
+                ),
+              )
+            else
+              SliverList.builder(
+                itemCount: groups.length,
+                itemBuilder: (context, index) {
+                  final group = groups[index];
+                  return GizListRow(
+                        leading: const GizIconTile(
+                          icon: CupertinoIcons.person_3_fill,
+                          backgroundColor: Color(0xFFDDE8FF),
+                          foregroundColor: Color(0xFF315E9D),
+                          size: 52,
+                          iconSize: 22,
+                        ),
+                        title: group.title,
+                        subtitle: group.description.trim().isEmpty
+                            ? 'Group voice chat'
+                            : group.description.trim(),
+                        onPressed: () => context.push(
+                          '/groups/'
+                          '${Uri.encodeComponent(group.workspaceName)}',
+                        ),
+                      )
+                      .animate(delay: (index * 45).ms)
+                      .fadeIn(duration: 280.ms)
+                      .slideY(begin: 0.05, end: 0, curve: Curves.easeOutCubic);
+                },
+              ),
+            const SliverPadding(padding: EdgeInsets.only(bottom: 112)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showCreateGroup(
+    BuildContext context,
+    MobileDataController data,
+  ) async {
+    final group = await showCupertinoModalPopup<FriendGroupObject>(
+      context: context,
+      builder: (context) => _CreateGroupSheet(data: data),
+    );
+    if (!context.mounted || group == null) return;
+    final workspaceName = group.workspaceName.trim();
+    if (workspaceName.isEmpty) return;
+    context.push('/groups/${Uri.encodeComponent(workspaceName)}');
+  }
+}
+
 class FriendRow extends StatelessWidget {
   const FriendRow({
     super.key,
@@ -215,6 +320,116 @@ class FriendRow extends StatelessWidget {
     if (!context.mounted) return;
     if (action == 'chat') _openChat(context);
     if (action == 'delete') onDelete();
+  }
+}
+
+class _CreateGroupSheet extends StatefulWidget {
+  const _CreateGroupSheet({required this.data});
+
+  final MobileDataController data;
+
+  @override
+  State<_CreateGroupSheet> createState() => _CreateGroupSheetState();
+}
+
+class _CreateGroupSheetState extends State<_CreateGroupSheet> {
+  final _nameController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  bool _busy = false;
+  Object? _error;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _create() async {
+    final name = _nameController.text.trim();
+    if (_busy || name.isEmpty) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final group = await widget.data.createFriendGroup(
+        name: name,
+        description: _descriptionController.text,
+      );
+      if (mounted) Navigator.pop(context, group);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = error;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final background = CupertinoColors.systemBackground.resolveFrom(context);
+    final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
+    return Container(
+      key: const ValueKey('create-group-sheet'),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + safeBottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 36,
+              height: 5,
+              decoration: BoxDecoration(
+                color: CupertinoColors.systemGrey4.resolveFrom(context),
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text('Create Group', style: GizText.sectionTitle),
+          const SizedBox(height: 16),
+          CupertinoTextField(
+            controller: _nameController,
+            placeholder: 'Group name',
+            textInputAction: TextInputAction.next,
+            padding: const EdgeInsets.all(14),
+          ),
+          const SizedBox(height: 10),
+          CupertinoTextField(
+            controller: _descriptionController,
+            placeholder: 'Description (optional)',
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _create(),
+            padding: const EdgeInsets.all(14),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              _friendErrorMessage(_error!),
+              textAlign: TextAlign.center,
+              style: GizText.body.copyWith(
+                color: CupertinoColors.systemRed.resolveFrom(context),
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          CupertinoButton.filled(
+            onPressed: _busy ? null : _create,
+            child: _busy
+                ? const CupertinoActivityIndicator()
+                : const Text('Create Group'),
+          ),
+          SizedBox(height: MediaQuery.viewInsetsOf(context).bottom),
+        ],
+      ),
+    );
   }
 }
 

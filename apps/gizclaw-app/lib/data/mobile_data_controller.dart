@@ -301,6 +301,18 @@ class MobileDataController extends ChangeNotifier {
     await refresh();
   }
 
+  Future<FriendGroupObject> createFriendGroup({
+    required String name,
+    String description = '',
+  }) async {
+    final response = await _friendClient().createFriendGroup(
+      name: name.trim(),
+      description: description.trim(),
+    );
+    await refresh();
+    return response.value;
+  }
+
   WorkflowCard workflow(String name) {
     return workflows.firstWhere(
       (item) => item.name == name,
@@ -329,7 +341,10 @@ class MobileDataController extends ChangeNotifier {
   Future<String> routeForWorkspace(String workspaceName) async {
     final chatroom = chatroomWorkspace(workspaceName);
     if (chatroom != null) {
-      return '/chats/drivers/chatroom/${Uri.encodeComponent(workspaceName)}';
+      final root = chatroom.kind == ChatroomWorkspaceKind.group
+          ? '/groups'
+          : '/chats/drivers/chatroom';
+      return '$root/${Uri.encodeComponent(workspaceName)}';
     }
     final client = connection.client;
     if (client != null) {
