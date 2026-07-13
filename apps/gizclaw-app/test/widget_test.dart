@@ -292,6 +292,12 @@ void main() {
     expect(find.text('Connect'), findsOneWidget);
     expect(find.text('My Invite'), findsOneWidget);
     expect(find.byType(CupertinoTextField), findsOneWidget);
+    expect(
+      tester
+          .getBottomRight(find.byKey(const ValueKey('friend-connect-sheet')))
+          .dy,
+      844,
+    );
 
     await tester.ensureVisible(find.text('My Invite'));
     await tester.tap(find.text('My Invite'));

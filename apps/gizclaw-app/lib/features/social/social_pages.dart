@@ -359,71 +359,70 @@ class _FriendConnectSheetState extends State<_FriendConnectSheet> {
     final secondary = CupertinoColors.secondarySystemBackground.resolveFrom(
       context,
     );
-    return SafeArea(
-      top: false,
-      child: Container(
-        decoration: BoxDecoration(
-          color: background,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: CupertinoColors.systemGrey4.resolveFrom(context),
-                  borderRadius: BorderRadius.circular(3),
-                ),
+    final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
+    return Container(
+      key: const ValueKey('friend-connect-sheet'),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + safeBottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 36,
+              height: 5,
+              decoration: BoxDecoration(
+                color: CupertinoColors.systemGrey4.resolveFrom(context),
+                borderRadius: BorderRadius.circular(3),
               ),
             ),
-            const SizedBox(height: 18),
-            Text('Connect', style: GizText.sectionTitle),
-            const SizedBox(height: 14),
-            CupertinoSlidingSegmentedControl<_FriendSheetMode>(
-              groupValue: _mode,
-              children: const {
-                _FriendSheetMode.add: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Text('Add Friend'),
-                ),
-                _FriendSheetMode.invite: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Text('My Invite'),
-                ),
-              },
-              onValueChanged: (value) {
-                if (value == null) return;
-                setState(() => _mode = value);
-                if (value == _FriendSheetMode.invite && !_tokenLoaded) {
-                  _loadToken();
-                }
-              },
-            ),
-            const SizedBox(height: 20),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
-              child: _mode == _FriendSheetMode.add
-                  ? _buildAddFriend()
-                  : _buildMyInvite(secondary),
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                _friendErrorMessage(_error!),
-                textAlign: TextAlign.center,
-                style: GizText.body.copyWith(
-                  color: CupertinoColors.systemRed.resolveFrom(context),
-                ),
+          ),
+          const SizedBox(height: 18),
+          Text('Connect', style: GizText.sectionTitle),
+          const SizedBox(height: 14),
+          CupertinoSlidingSegmentedControl<_FriendSheetMode>(
+            groupValue: _mode,
+            children: const {
+              _FriendSheetMode.add: Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text('Add Friend'),
               ),
-            ],
-            SizedBox(height: MediaQuery.viewInsetsOf(context).bottom),
+              _FriendSheetMode.invite: Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text('My Invite'),
+              ),
+            },
+            onValueChanged: (value) {
+              if (value == null) return;
+              setState(() => _mode = value);
+              if (value == _FriendSheetMode.invite && !_tokenLoaded) {
+                _loadToken();
+              }
+            },
+          ),
+          const SizedBox(height: 20),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            child: _mode == _FriendSheetMode.add
+                ? _buildAddFriend()
+                : _buildMyInvite(secondary),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              _friendErrorMessage(_error!),
+              textAlign: TextAlign.center,
+              style: GizText.body.copyWith(
+                color: CupertinoColors.systemRed.resolveFrom(context),
+              ),
+            ),
           ],
-        ),
+          SizedBox(height: MediaQuery.viewInsetsOf(context).bottom),
+        ],
       ),
     );
   }
