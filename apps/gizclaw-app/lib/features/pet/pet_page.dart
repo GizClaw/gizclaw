@@ -1567,7 +1567,8 @@ class _PetMenuAction {
 const _petActionAnchor = 160.0;
 const _petActionItemExtent = 52.0;
 const _petActionRailHeight = 270.0;
-const _petActionMenuHeight = _petActionRailHeight + 58;
+const _petActionRailTop = 48.0;
+const _petActionMenuHeight = _petActionRailHeight + _petActionRailTop;
 
 class _PetActionFab extends StatefulWidget {
   const _PetActionFab({
@@ -1663,7 +1664,7 @@ class _PetActionFabState extends State<_PetActionFab>
               Positioned(
                 left: 0,
                 right: 0,
-                top: 58,
+                top: _petActionRailTop,
                 height: _petActionRailHeight,
                 child: IgnorePointer(
                   ignoring:
