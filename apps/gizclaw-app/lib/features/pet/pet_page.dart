@@ -616,12 +616,13 @@ class _PetConversationDrift extends StatelessWidget {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0x0AFFFFFF),
-                Color(0x52FFFFFF),
-                Color(0xD9FFFFFF),
+                Color(0x00FFFFFF),
+                Color(0x16FFFFFF),
+                Color(0x73FFFFFF),
+                Color(0xFFFFFFFF),
                 Color(0xFFFFFFFF),
               ],
-              stops: [0, 0.2, 0.46, 1],
+              stops: [0, 0.4, 0.62, 0.76, 1],
             ).createShader(bounds),
             child: Stack(
               clipBehavior: Clip.none,
