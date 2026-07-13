@@ -274,6 +274,7 @@ void main() {
       expect(primaryNav(label), findsOneWidget);
     }
     expect(find.byKey(const ValueKey('primary-nav-scroll')), findsOneWidget);
+    expect(find.byKey(const ValueKey('primary-nav-edge-fade')), findsOneWidget);
   });
 
   testWidgets('shows the global voice mode toggle and audio field', (

@@ -449,11 +449,36 @@ class _PrimaryDockNavigationState extends State<_PrimaryDockNavigation> {
   static const _itemSpacing = 4.0;
   final ScrollController _scrollController = ScrollController();
   late int _lastIndex = widget.navigationShell.currentIndex;
+  bool _canScrollBackward = false;
+  bool _canScrollForward = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_updateEdgeFades);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateEdgeFades());
+  }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_updateEdgeFades);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _updateEdgeFades() {
+    if (!mounted || !_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    final canScrollBackward = position.pixels > position.minScrollExtent + 0.5;
+    final canScrollForward = position.pixels < position.maxScrollExtent - 0.5;
+    if (canScrollBackward == _canScrollBackward &&
+        canScrollForward == _canScrollForward) {
+      return;
+    }
+    setState(() {
+      _canScrollBackward = canScrollBackward;
+      _canScrollForward = canScrollForward;
+    });
   }
 
   void _scheduleSelectedItem() {
@@ -482,73 +507,88 @@ class _PrimaryDockNavigationState extends State<_PrimaryDockNavigation> {
     final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
     return SizedBox(
       height: GlobalConversationOverlay.dockHeight,
-      child: ListView.separated(
-        key: const ValueKey('primary-nav-scroll'),
-        controller: _scrollController,
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(
-          parent: AlwaysScrollableScrollPhysics(),
+      child: ShaderMask(
+        key: const ValueKey('primary-nav-edge-fade'),
+        blendMode: BlendMode.dstIn,
+        shaderCallback: (bounds) => LinearGradient(
+          colors: [
+            _canScrollBackward
+                ? const Color(0x59FFFFFF)
+                : CupertinoColors.white,
+            CupertinoColors.white,
+            CupertinoColors.white,
+            _canScrollForward ? const Color(0x59FFFFFF) : CupertinoColors.white,
+          ],
+          stops: const [0, 0.1, 0.9, 1],
+        ).createShader(bounds),
+        child: ListView.separated(
+          key: const ValueKey('primary-nav-scroll'),
+          controller: _scrollController,
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 9),
+          itemCount: _PrimaryDockNavigation._items.length,
+          separatorBuilder: (context, index) =>
+              const SizedBox(width: _itemSpacing),
+          itemBuilder: (context, index) {
+            final item = _PrimaryDockNavigation._items[index];
+            final selected = widget.navigationShell.currentIndex == index;
+            final foreground = selected
+                ? (dark ? GizColors.ink : CupertinoColors.white)
+                : (dark ? const Color(0xAFFFFFFF) : GizColors.secondaryInk);
+            return Semantics(
+              label: item.$3,
+              selected: selected,
+              button: true,
+              child: CupertinoButton(
+                key: ValueKey('primary-nav-${item.$3.toLowerCase()}'),
+                minimumSize: const Size.square(_itemSize),
+                padding: EdgeInsets.zero,
+                pressedOpacity: 0.68,
+                onPressed: () => widget.navigationShell.goBranch(
+                  index,
+                  initialLocation: selected,
+                ),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 240),
+                  curve: Curves.easeOutCubic,
+                  width: _itemSize,
+                  height: _itemSize,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: selected
+                        ? LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: dark
+                                ? const [Color(0xFFF4FFF9), Color(0xFFBCEBD9)]
+                                : const [Color(0xFF10231D), Color(0xFF24473B)],
+                          )
+                        : null,
+                    boxShadow: selected
+                        ? [
+                            BoxShadow(
+                              color: dark
+                                  ? const Color(0x24000000)
+                                  : const Color(0x26001913),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Icon(
+                    selected ? item.$2 : item.$1,
+                    size: 23,
+                    color: foreground,
+                  ),
+                ),
+              ),
+            );
+          },
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 9),
-        itemCount: _PrimaryDockNavigation._items.length,
-        separatorBuilder: (context, index) =>
-            const SizedBox(width: _itemSpacing),
-        itemBuilder: (context, index) {
-          final item = _PrimaryDockNavigation._items[index];
-          final selected = widget.navigationShell.currentIndex == index;
-          final foreground = selected
-              ? (dark ? GizColors.ink : CupertinoColors.white)
-              : (dark ? const Color(0xAFFFFFFF) : GizColors.secondaryInk);
-          return Semantics(
-            label: item.$3,
-            selected: selected,
-            button: true,
-            child: CupertinoButton(
-              key: ValueKey('primary-nav-${item.$3.toLowerCase()}'),
-              minimumSize: const Size.square(_itemSize),
-              padding: EdgeInsets.zero,
-              pressedOpacity: 0.68,
-              onPressed: () => widget.navigationShell.goBranch(
-                index,
-                initialLocation: selected,
-              ),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 240),
-                curve: Curves.easeOutCubic,
-                width: _itemSize,
-                height: _itemSize,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: selected
-                      ? LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: dark
-                              ? const [Color(0xFFF4FFF9), Color(0xFFBCEBD9)]
-                              : const [Color(0xFF10231D), Color(0xFF24473B)],
-                        )
-                      : null,
-                  boxShadow: selected
-                      ? [
-                          BoxShadow(
-                            color: dark
-                                ? const Color(0x24000000)
-                                : const Color(0x26001913),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Icon(
-                  selected ? item.$2 : item.$1,
-                  size: 23,
-                  color: foreground,
-                ),
-              ),
-            ),
-          );
-        },
       ),
     );
   }
