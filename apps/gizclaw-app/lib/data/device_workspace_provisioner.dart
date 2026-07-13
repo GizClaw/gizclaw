@@ -58,9 +58,10 @@ class DeviceWorkspaceProvisioner {
   Future<bool> _converge(Workspace current, String name) async {
     if (_hasMobileAstConfiguration(current)) return false;
 
+    final input = _preservedInputMode(current);
     final updated = current.deepCopy()
       ..displayName = mobileAstDisplayName
-      ..parameters = mobileAstParameters();
+      ..parameters = mobileAstParameters(input: input);
     _validate(await _putWorkspace(name, updated), name);
     return true;
   }
@@ -89,13 +90,16 @@ Workspace mobileAstWorkspace(String name) {
   );
 }
 
-WorkspaceParameters mobileAstParameters() {
+WorkspaceParameters mobileAstParameters({
+  WorkspaceInputMode input =
+      WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
+}) {
   return WorkspaceParameters(
     asttranslateWorkspaceParameters: ASTTranslateWorkspaceParameters(
       agentType: ASTTranslateWorkspaceParametersAgentType
           .ASTTRANSLATE_WORKSPACE_PARAMETERS_AGENT_TYPE_AST_TRANSLATE,
       enableSourceLanguageDetect: true,
-      input: WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
+      input: input,
       langPair: mobileAstLanguagePair,
       mode: ASTTranslateMode.ASTTRANSLATE_MODE_S2S,
       translationModel: mobileAstWorkflowName,
@@ -114,11 +118,24 @@ bool _hasMobileAstConfiguration(Workspace workspace) {
           ASTTranslateWorkspaceParametersAgentType
               .ASTTRANSLATE_WORKSPACE_PARAMETERS_AGENT_TYPE_AST_TRANSLATE &&
       ast.enableSourceLanguageDetect &&
-      ast.input == WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK &&
+      _isSupportedInputMode(ast.input) &&
       ast.langPair == mobileAstLanguagePair &&
       ast.mode == ASTTranslateMode.ASTTRANSLATE_MODE_S2S &&
       ast.translationModel == mobileAstWorkflowName;
 }
+
+WorkspaceInputMode _preservedInputMode(Workspace workspace) {
+  if (workspace.hasParameters() &&
+      workspace.parameters.hasAsttranslateWorkspaceParameters()) {
+    final input = workspace.parameters.asttranslateWorkspaceParameters.input;
+    if (_isSupportedInputMode(input)) return input;
+  }
+  return WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK;
+}
+
+bool _isSupportedInputMode(WorkspaceInputMode input) =>
+    input == WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK ||
+    input == WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME;
 
 void _validate(Workspace workspace, String expectedName) {
   if (workspace.name != expectedName) {

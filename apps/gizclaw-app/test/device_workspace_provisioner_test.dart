@@ -43,6 +43,30 @@ void main() {
     expect(putCalls, 0);
   });
 
+  test('preserves realtime mode on an existing device workspace', () async {
+    var putCalls = 0;
+    final realtime = mobileAstWorkspace(expectedName);
+    realtime.parameters.asttranslateWorkspaceParameters.input =
+        WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME;
+    final provisioner = DeviceWorkspaceProvisioner(
+      getWorkspace: (_) async => throw StateError('unexpected get'),
+      createWorkspace: (_) async => throw StateError('unexpected create'),
+      putWorkspace: (_, workspace) async {
+        putCalls++;
+        return workspace;
+      },
+    );
+
+    expect(
+      await provisioner.ensureMobileAstWorkspace(
+        publicKey,
+        existingWorkspace: realtime,
+      ),
+      isFalse,
+    );
+    expect(putCalls, 0);
+  });
+
   test('creates an embedded push-to-talk AST workspace when absent', () async {
     Workspace? created;
     final provisioner = DeviceWorkspaceProvisioner(
@@ -89,6 +113,7 @@ void main() {
         workflowName: mobileAstWorkflowName,
         parameters: WorkspaceParameters(
           asttranslateWorkspaceParameters: ASTTranslateWorkspaceParameters(
+            input: WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME,
             langPair: 'zh/en',
           ),
         ),
@@ -106,6 +131,7 @@ void main() {
       expect(ast.langPair, mobileAstLanguagePair);
       expect(ast.enableSourceLanguageDetect, isTrue);
       expect(ast.mode, ASTTranslateMode.ASTTRANSLATE_MODE_S2S);
+      expect(ast.input, WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME);
     },
   );
 
