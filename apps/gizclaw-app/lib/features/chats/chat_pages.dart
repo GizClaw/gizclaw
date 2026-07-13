@@ -771,12 +771,14 @@ class _WorkspaceMessageList extends StatelessWidget {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          Color(0x24FFFFFF),
-          Color(0x8FFFFFFF),
+          Color(0x00FFFFFF),
+          Color(0x08FFFFFF),
+          Color(0x45FFFFFF),
+          Color(0xB8FFFFFF),
           Color(0xFFFFFFFF),
           Color(0xFFFFFFFF),
         ],
-        stops: [0, 0.18, 0.38, 1],
+        stops: [0, 0.12, 0.3, 0.48, 0.64, 1],
       ).createShader(bounds),
       child: ListView.separated(
         controller: controller,

@@ -88,42 +88,8 @@ class _GlobalBottomDock extends StatelessWidget {
         12,
         GlobalConversationOverlay.dockBottomSpacing,
       ),
-      child: Container(
+      child: _DockAudioGlow(
         height: GlobalConversationOverlay.dockHeight,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(38),
-          boxShadow: [
-            const BoxShadow(
-              color: Color(0x2E61D7FF),
-              blurRadius: 22,
-              spreadRadius: -3,
-              offset: Offset(-18, 7),
-            ),
-            const BoxShadow(
-              color: Color(0x266F75FF),
-              blurRadius: 24,
-              spreadRadius: -4,
-              offset: Offset(-5, 9),
-            ),
-            const BoxShadow(
-              color: Color(0x2EEA6BDB),
-              blurRadius: 24,
-              spreadRadius: -4,
-              offset: Offset(13, 8),
-            ),
-            const BoxShadow(
-              color: Color(0x26FF9D66),
-              blurRadius: 20,
-              spreadRadius: -5,
-              offset: Offset(24, 5),
-            ),
-            BoxShadow(
-              color: dark ? const Color(0x80000000) : const Color(0x1F001812),
-              blurRadius: 24,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(38),
           child: BackdropFilter(
@@ -183,6 +149,173 @@ class _GlobalBottomDock extends StatelessWidget {
       ),
     );
   }
+}
+
+class _DockAudioGlow extends StatefulWidget {
+  const _DockAudioGlow({required this.height, required this.child});
+
+  final Widget child;
+  final double height;
+
+  @override
+  State<_DockAudioGlow> createState() => _DockAudioGlowState();
+}
+
+class _DockAudioGlowState extends State<_DockAudioGlow>
+    with TickerProviderStateMixin {
+  WorkspaceChatController? _chat;
+  late final AnimationController _phase = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 4600),
+  );
+  late final AnimationController _presence =
+      AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 320),
+        reverseDuration: const Duration(milliseconds: 620),
+      )..addStatusListener((status) {
+        if (status == AnimationStatus.dismissed) _phase.stop();
+      });
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final chat = MobileDataScope.watch(context).activeWorkspaceChat;
+    if (identical(chat, _chat)) return;
+    _chat?.removeListener(_handleChatChanged);
+    _chat = chat;
+    chat?.addListener(_handleChatChanged);
+    _syncAnimation();
+  }
+
+  void _handleChatChanged() {
+    _syncAnimation();
+    if (mounted) setState(() {});
+  }
+
+  void _syncAnimation() {
+    final chat = _chat;
+    final energized =
+        (chat?.startingInput ?? false) ||
+        (chat?.recording ?? false) ||
+        (chat?.playingOutput ?? false) ||
+        (chat?.inputLevel ?? 0) > 0.01 ||
+        (chat?.outputLevel ?? 0) > 0.01;
+    if (energized) {
+      if (!_phase.isAnimating) _phase.repeat();
+      _presence.forward();
+    } else {
+      _presence.reverse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _chat?.removeListener(_handleChatChanged);
+    _phase.dispose();
+    _presence.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    return AnimatedBuilder(
+      animation: Listenable.merge([_phase, _presence]),
+      child: widget.child,
+      builder: (context, child) {
+        final chat = _chat;
+        return Container(
+          height: widget.height,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(38),
+            boxShadow: _dockShadows(
+              dark: dark,
+              phase: _phase.value,
+              presence: Curves.easeInOutCubic.transform(_presence.value),
+              inputLevel: chat?.inputLevel ?? 0,
+              outputLevel: chat?.outputLevel ?? 0,
+            ),
+          ),
+          child: child,
+        );
+      },
+    );
+  }
+}
+
+List<BoxShadow> _dockShadows({
+  required bool dark,
+  required double phase,
+  required double presence,
+  required double inputLevel,
+  required double outputLevel,
+}) {
+  final input = math.pow(inputLevel.clamp(0.0, 1.0), 0.42).toDouble();
+  final output = math.pow(outputLevel.clamp(0.0, 1.0), 0.42).toDouble();
+  final audio = (input * 0.72 + output * 0.78).clamp(0.0, 1.0);
+  final angle = phase * math.pi * 2;
+  final breath =
+      0.52 + math.sin(angle) * 0.27 + math.sin(angle * 1.73 + 1.1) * 0.14;
+  final energy = presence * (0.28 + breath * 0.22 + audio * 0.72);
+  final hue = (178 + phase * 148 + math.sin(angle * 0.63) * 24) % 360;
+  final reactive = <BoxShadow>[];
+  if (presence > 0) {
+    for (var index = 0; index < 3; index++) {
+      final orbit = angle * (0.72 + index * 0.17) + index * 2.1;
+      final color = HSVColor.fromAHSV(
+        1,
+        (hue + index * 84) % 360,
+        dark ? 0.62 : 0.54,
+        1,
+      ).toColor();
+      reactive.add(
+        BoxShadow(
+          color: color.withValues(
+            alpha: (dark ? 0.16 : 0.13) + energy * (0.16 + index * 0.025),
+          ),
+          blurRadius: 25 + energy * 25 + index * 3,
+          spreadRadius: -5 + energy * 8,
+          offset: Offset(
+            math.cos(orbit) * (18 + energy * 8),
+            7 + math.sin(orbit) * (5 + energy * 4),
+          ),
+        ),
+      );
+    }
+  }
+  return [
+    const BoxShadow(
+      color: Color(0x2E61D7FF),
+      blurRadius: 22,
+      spreadRadius: -3,
+      offset: Offset(-18, 7),
+    ),
+    const BoxShadow(
+      color: Color(0x266F75FF),
+      blurRadius: 24,
+      spreadRadius: -4,
+      offset: Offset(-5, 9),
+    ),
+    const BoxShadow(
+      color: Color(0x2EEA6BDB),
+      blurRadius: 24,
+      spreadRadius: -4,
+      offset: Offset(13, 8),
+    ),
+    const BoxShadow(
+      color: Color(0x26FF9D66),
+      blurRadius: 20,
+      spreadRadius: -5,
+      offset: Offset(24, 5),
+    ),
+    ...reactive,
+    BoxShadow(
+      color: dark ? const Color(0x80000000) : const Color(0x1F001812),
+      blurRadius: 24,
+      offset: const Offset(0, 10),
+    ),
+  ];
 }
 
 class _PrimaryDockNavigation extends StatelessWidget {
