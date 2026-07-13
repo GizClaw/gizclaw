@@ -488,11 +488,13 @@ class _PetDetailPageState extends State<PetDetailPage> {
             right: 20,
             top: safeTop + 58,
             bottom: MediaQuery.paddingOf(context).bottom + 106,
-            child: SingleChildScrollView(
-              child: _PetGameConsole(
-                pixa: _pixa,
-                clipName: _clipName,
-                loading: _loading,
+            child: IgnorePointer(
+              child: SingleChildScrollView(
+                child: _PetGameConsole(
+                  pixa: _pixa,
+                  clipName: _clipName,
+                  loading: _loading,
+                ),
               ),
             ),
           ),
@@ -576,56 +578,54 @@ class _PetConversationDrift extends StatelessWidget {
         .where((message) => message.text.trim().isNotEmpty)
         .toList(growable: false)
         .reversed
-        .take(8)
         .toList(growable: false);
-    return IgnorePointer(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return ShaderMask(
-            blendMode: BlendMode.dstIn,
-            shaderCallback: (bounds) => const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0x00FFFFFF),
-                Color(0x16FFFFFF),
-                Color(0x73FFFFFF),
-                Color(0xFFFFFFFF),
-                Color(0xFFFFFFFF),
-              ],
-              stops: [0, 0.4, 0.62, 0.76, 1],
-            ).createShader(bounds),
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                for (var index = 0; index < visible.length; index++)
-                  AnimatedPositioned(
-                    key: ValueKey(visible[index].id),
-                    duration: const Duration(milliseconds: 1100),
-                    curve: Curves.easeOutQuart,
-                    left: visible[index].incoming
-                        ? 0
-                        : constraints.maxWidth * 0.25,
-                    right: visible[index].incoming
-                        ? constraints.maxWidth * 0.23
-                        : 0,
-                    bottom: 24 + index * 62,
-                    child: TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 0, end: 1),
-                      duration: const Duration(milliseconds: 900),
-                      curve: Curves.easeOutQuart,
-                      builder: (context, progress, child) =>
-                          Transform.translate(
-                            offset: Offset(0, 34 * (1 - progress)),
-                            child: Opacity(
-                              opacity: progress * 0.9,
-                              child: child,
-                            ),
-                          ),
-                      child: _PetDriftingMessage(message: visible[index]),
-                    ),
+    return ShaderMask(
+      blendMode: BlendMode.dstIn,
+      shaderCallback: (bounds) => const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Color(0x00FFFFFF),
+          Color(0x16FFFFFF),
+          Color(0x73FFFFFF),
+          Color(0xFFFFFFFF),
+          Color(0xFFFFFFFF),
+        ],
+        stops: [0, 0.4, 0.62, 0.76, 1],
+      ).createShader(bounds),
+      child: ListView.builder(
+        key: const PageStorageKey<String>('pet-conversation-history'),
+        reverse: true,
+        primary: false,
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
+        padding: const EdgeInsets.fromLTRB(0, 140, 0, 24),
+        itemCount: visible.length,
+        itemBuilder: (context, index) {
+          final message = visible[index];
+          final alignment = message.incoming
+              ? Alignment.centerLeft
+              : Alignment.centerRight;
+          return Align(
+            key: ValueKey(message.id),
+            alignment: alignment,
+            child: FractionallySizedBox(
+              widthFactor: 0.77,
+              alignment: alignment,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: 1),
+                  duration: const Duration(milliseconds: 650),
+                  curve: Curves.easeOutQuart,
+                  builder: (context, progress, child) => Transform.translate(
+                    offset: Offset(0, 24 * (1 - progress)),
+                    child: Opacity(opacity: progress * 0.9, child: child),
                   ),
-              ],
+                  child: _PetDriftingMessage(message: message),
+                ),
+              ),
             ),
           );
         },
