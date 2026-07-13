@@ -10,8 +10,6 @@ import (
 )
 
 func TestAdminLogStreamUnconfiguredBackend(t *testing.T) {
-	t.Parallel()
-
 	h := newAdminAPIHarness(t)
 	resp, err := h.api.StreamServerLogsWithResponse(h.ctx, &adminhttp.StreamServerLogsParams{
 		StartTimeMs: ptr(int64(1783400000000)),

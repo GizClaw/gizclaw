@@ -88,6 +88,7 @@ type Server struct {
 	PublicEndpoint               string
 	PublicICETCP                 bool
 	PublicLoginAuthorizer        publiclogin.SessionAuthorizer
+	ICEServers                   []gizwebrtc.ICEServer
 	ACLDB                        *sql.DB
 	WebRTCSignalingHandler       http.Handler
 	EdgeNodes                    []giznet.PublicKey
@@ -378,6 +379,7 @@ func (s *Server) init() error {
 		ServerPublicKey: s.LocalStatic.Public,
 		SignalingPath:   gizwebrtc.SignalingPath,
 		ICETCP:          s.PublicICETCP,
+		ICEServers:      s.ICEServers,
 	}
 	manager := NewManager(peersServer)
 	manager.PeerRoutes = &peerroute.Server{
@@ -503,7 +505,8 @@ func (s *Server) init() error {
 
 	s.manager = manager
 	s.peerService = &PeerService{
-		manager: manager,
+		manager:  manager,
+		sessions: sessions,
 		admin: &adminService{
 			CredentialAdminService:      credentialServer,
 			FirmwareAdminService:        firmwareServer,

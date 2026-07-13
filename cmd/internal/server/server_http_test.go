@@ -15,8 +15,10 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
+	"github.com/pion/webrtc/v4"
 )
 
 func TestCmdServerServeHTTPNilServerReturnsNotFound(t *testing.T) {
@@ -249,6 +251,77 @@ func TestWebRTCListenConfigSkipsHostnamePublicEndpoint(t *testing.T) {
 	}
 	if cfg.PublicICETCPAddr != "" {
 		t.Fatalf("PublicICETCPAddr = %q, want empty", cfg.PublicICETCPAddr)
+	}
+}
+
+func TestWebRTCListenConfigUsesRelayOnlyWithICEServers(t *testing.T) {
+	cfg := webRTCListenConfig(Config{
+		Listen:   "0.0.0.0:9820",
+		Endpoint: "192.168.1.20:19820",
+		ICEServers: []gizwebrtc.ICEServer{{
+			URLs:       []string{"turn:edge.example.com:3478?transport=udp"},
+			Username:   "edge",
+			Credential: "secret",
+		}},
+	}, gizclaw.PeerListenerOptions{}, nil)
+
+	if cfg.ICETransportPolicy != webrtc.ICETransportPolicyRelay {
+		t.Fatalf("ICETransportPolicy = %s, want relay", cfg.ICETransportPolicy)
+	}
+}
+
+func TestWebRTCListenConfigKeepsTURNRESTCredentialsForPerAnswerMinting(t *testing.T) {
+	cfg := webRTCListenConfig(Config{
+		Listen:   "0.0.0.0:9820",
+		Endpoint: "192.168.1.20:19820",
+		ICEServers: []gizwebrtc.ICEServer{{
+			URLs:           []string{"turn:edge.example.com:3478?transport=udp"},
+			Username:       "edge",
+			Credential:     "long-term-secret",
+			CredentialMode: gizwebrtc.ICECredentialModeTURNREST,
+		}},
+	}, gizclaw.PeerListenerOptions{}, nil)
+	if len(cfg.ICEServers) != 1 {
+		t.Fatalf("ICEServers len = %d, want 1", len(cfg.ICEServers))
+	}
+	got := cfg.ICEServers[0]
+	if got.Username != "edge" || got.Credential != "long-term-secret" || got.CredentialMode != gizwebrtc.ICECredentialModeTURNREST {
+		t.Fatalf("ICEServers[0] = %+v, want raw TURN REST config", got)
+	}
+}
+
+func TestWebRTCListenConfigRejectsEmptyTURNRESTSecret(t *testing.T) {
+	cfg := webRTCListenConfig(Config{
+		Listen:   "0.0.0.0:9820",
+		Endpoint: "192.168.1.20:19820",
+		ICEServers: []gizwebrtc.ICEServer{{
+			URLs:           []string{"turn:edge.example.com:3478?transport=udp"},
+			Username:       "edge",
+			CredentialMode: gizwebrtc.ICECredentialModeTURNREST,
+		}},
+	}, gizclaw.PeerListenerOptions{}, nil)
+	if _, err := cfg.Listen(testKeyPair(t, 0x44)); err == nil {
+		t.Fatal("Listen error = nil, want empty TURN REST credential rejection")
+	}
+}
+
+func TestWebRTCListenConfigKeepsDefaultPolicyWithSTUNOnlyICEServers(t *testing.T) {
+	cfg := webRTCListenConfig(Config{
+		Listen:   "0.0.0.0:9820",
+		Endpoint: "192.168.1.20:19820",
+		ICEServers: []gizwebrtc.ICEServer{{
+			URLs: []string{"stun:edge.example.com:3478"},
+		}},
+	}, gizclaw.PeerListenerOptions{}, nil)
+
+	if cfg.ICETransportPolicy != webrtc.ICETransportPolicyAll {
+		t.Fatalf("ICETransportPolicy = %s, want all", cfg.ICETransportPolicy)
+	}
+	if cfg.PublicICEUDPAddr != "192.168.1.20:19820" {
+		t.Fatalf("PublicICEUDPAddr = %q, want endpoint", cfg.PublicICEUDPAddr)
+	}
+	if cfg.PublicICETCPAddr != "192.168.1.20:19820" {
+		t.Fatalf("PublicICETCPAddr = %q, want endpoint", cfg.PublicICETCPAddr)
 	}
 }
 

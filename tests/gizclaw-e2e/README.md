@@ -53,32 +53,31 @@ For manual work, start only the Docker e2e environment:
 bash tests/gizclaw-e2e/setup/docker-compose-up.sh
 ```
 
-By default, the setup picks a random free host port and writes client contexts
-that use `127.0.0.1:<port>`.
+By default, the setup picks random free host ports for the edge endpoint and the
+server admin endpoint. Generated client contexts use the edge endpoint; generated
+admin contexts use the server admin endpoint.
 
 For LAN firmware clients, publish an address that the client can reach:
 
 ```sh
-GIZCLAW_E2E_SERVER_HOST=192.168.1.20 \
+GIZCLAW_E2E_EDGE_HOST=192.168.1.20 \
   bash tests/gizclaw-e2e/setup/docker-compose-up.sh
 ```
 
-To choose the mapped port explicitly:
+To choose the mapped ports explicitly:
 
 ```sh
-GIZCLAW_E2E_DOCKER_SERVER_PORT=19820 \
-GIZCLAW_E2E_SERVER_ENDPOINT=192.168.1.20:19820 \
+GIZCLAW_E2E_DOCKER_EDGE_PORT=19821 \
+GIZCLAW_E2E_DOCKER_ADMIN_PORT=19820 \
+GIZCLAW_E2E_EDGE_ENDPOINT=192.168.1.20:19821 \
   bash tests/gizclaw-e2e/setup/docker-compose-up.sh
 ```
 
-The same host port is mapped to container `9820/tcp` and `9820/udp`. The server
-binds `listen: 0.0.0.0:9820` inside the container. Generated client contexts use
-the public `endpoint`, and the WebRTC answer advertises that endpoint for ICE
-UDP and TCP host candidates when the endpoint host is a concrete IP. ICE TCP
-shares the same public TCP endpoint as HTTP APIs and WebRTC signaling.
-
-This setup expects clients to reach the published TCP and UDP port directly. It
-does not configure STUN, TURN, mDNS, or ICE Lite.
+The edge host port maps to container `9821/tcp`, and TURN uses its own UDP
+listener plus relay range. The server also publishes an admin-only TCP endpoint
+on `GIZCLAW_E2E_DOCKER_ADMIN_PORT`, bound to `127.0.0.1` by default. Devices and
+browser/client tests still use `GIZCLAW_E2E_EDGE_ENDPOINT`; host-side admin
+commands use `GIZCLAW_E2E_SERVER_ENDPOINT`.
 
 ## Runtime Env
 
@@ -105,7 +104,10 @@ source tests/gizclaw-e2e/testdata/docker/current.env
 
 Important values in `current.env`:
 
-- `GIZCLAW_E2E_SERVER_ENDPOINT`: client-facing server endpoint.
+- `GIZCLAW_E2E_EDGE_ENDPOINT`: client-facing edge endpoint used by generated
+  peer/client contexts.
+- `GIZCLAW_E2E_SERVER_ENDPOINT`: host-reachable server admin endpoint used by
+  generated admin contexts.
 - `GIZCLAW_E2E_CONFIG_HOME`: generated CLI config home used by cmd tests.
 - `GIZCLAW_E2E_IDENTITIES_HOME`: generated identity directory used by Go/JS
   harnesses.
@@ -129,7 +131,7 @@ export XDG_CONFIG_HOME="$(mktemp -d)"
 gizclaw_bin="tests/gizclaw-e2e/testdata/bin/gizclaw"
 
 "$gizclaw_bin" context create my-e2e \
-  --server "$GIZCLAW_E2E_SERVER_ENDPOINT" \
+  --server "$GIZCLAW_E2E_EDGE_ENDPOINT" \
   --description "Manual e2e context"
 
 "$gizclaw_bin" context use my-e2e

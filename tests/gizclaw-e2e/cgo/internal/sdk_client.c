@@ -100,6 +100,13 @@ int gzc_cgo_session_open(
     free(session);
     return fail(errbuf, errbuf_len, "client create", rc);
   }
+  rc = gzc_client_set_peer_add_ice_server(session->client, gzc_cgo_backend_peer_add_ice_server);
+  if (rc != GZC_OK) {
+    gzc_client_destroy(session->client);
+    gzc_cgo_backend_deinit(&session->backend);
+    free(session);
+    return fail(errbuf, errbuf_len, "client ICE hook", rc);
+  }
 
   rc = gzc_client_connect(session->client);
   if (rc != GZC_OK) {

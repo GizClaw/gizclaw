@@ -3363,6 +3363,11 @@ type ServerInfo struct {
 		Tcp bool `json:"tcp"`
 		Udp bool `json:"udp"`
 	} `json:"ice"`
+	IceServers *[]struct {
+		Credential *string  `json:"credential,omitempty"`
+		Urls       []string `json:"urls"`
+		Username   *string  `json:"username,omitempty"`
+	} `json:"ice_servers,omitempty"`
 	Protocol      string `json:"protocol"`
 	PublicKey     string `json:"public_key"`
 	ServerTime    int64  `json:"server_time"`

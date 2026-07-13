@@ -63,9 +63,6 @@ func (s *PeerService) serveAdmin(conn giznet.Conn) error {
 	defer func() {
 		_ = server.Shutdown(context.Background())
 	}()
-	defer func() {
-		_ = conn.Close()
-	}()
 	return server.Serve()
 }
 

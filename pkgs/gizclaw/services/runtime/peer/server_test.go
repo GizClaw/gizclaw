@@ -10,6 +10,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 )
 
 type stubPeerManager struct {
@@ -504,6 +505,51 @@ func TestGetServerInfoReportsICETCP(t *testing.T) {
 	}
 	if !serverInfo.Ice.Udp || !serverInfo.Ice.Tcp {
 		t.Fatalf("GetServerInfo ice = %+v, want udp=true tcp=true", serverInfo.Ice)
+	}
+}
+
+func TestServerInfoICEServersPreserveStaticCredentials(t *testing.T) {
+	now := time.Unix(1_700_000_000, 0)
+	servers := serverInfoICEServersAt([]gizwebrtc.ICEServer{{
+		URLs:       []string{"turn:edge.example.com:3478?transport=udp"},
+		Username:   "edge",
+		Credential: "static-password",
+	}}, now)
+	if servers == nil || len(*servers) != 1 {
+		t.Fatalf("serverInfoICEServersAt = %#v, want one server", servers)
+	}
+	got := (*servers)[0]
+	if got.Username == nil || *got.Username != "edge" {
+		t.Fatalf("username = %v, want static username", got.Username)
+	}
+	if got.Credential == nil || *got.Credential != "static-password" {
+		t.Fatalf("credential = %v, want static credential", got.Credential)
+	}
+}
+
+func TestServerInfoICEServersMintShortLivedCredentials(t *testing.T) {
+	now := time.Unix(1_700_000_000, 0)
+	servers := serverInfoICEServersAt([]gizwebrtc.ICEServer{{
+		URLs:           []string{"turn:edge.example.com:3478?transport=udp"},
+		Username:       "edge",
+		Credential:     "long-term-secret",
+		CredentialMode: gizwebrtc.ICECredentialModeTURNREST,
+	}}, now)
+	if servers == nil || len(*servers) != 1 {
+		t.Fatalf("serverInfoICEServersAt = %#v, want one server", servers)
+	}
+	got := (*servers)[0]
+	if got.Username == nil || *got.Username != "1700000600:edge" {
+		t.Fatalf("username = %v, want short-lived REST username", got.Username)
+	}
+	if got.Credential == nil {
+		t.Fatal("credential is nil")
+	}
+	if *got.Credential == "long-term-secret" {
+		t.Fatal("server-info exposed the long-term TURN secret")
+	}
+	if want := turnRESTCredential("long-term-secret", *got.Username); *got.Credential != want {
+		t.Fatalf("credential = %q, want %q", *got.Credential, want)
 	}
 }
 

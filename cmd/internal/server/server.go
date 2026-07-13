@@ -1,11 +1,13 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 
@@ -13,8 +15,12 @@ import (
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/pion/webrtc/v4"
 )
 
 var BuildCommit = "dev"
@@ -129,6 +135,7 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		PublicEndpoint: cfg.Endpoint,
 		PublicICETCP:   newOpts.ICETCPListener != nil,
 		EdgeNodes:      cfg.EdgeNodes,
+		ICEServers:     cfg.ICEServers,
 		PeerListenerFactories: []gizclaw.PeerListenerFactory{
 			func(opts gizclaw.PeerListenerOptions) (giznet.Listener, error) {
 				listenConfig := webRTCListenConfig(cfg, opts, newOpts.ICETCPListener)
@@ -301,22 +308,101 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 			return nil, fmt.Errorf("server: metrics store: %w", err)
 		}
 	}
+	if err := bootstrapEdgeNodes(context.Background(), &runtimepeer.Server{Store: effectivePeerStore(gizServer)}, cfg.EdgeNodes); err != nil {
+		return nil, err
+	}
 	return cmdSrv, nil
+}
+
+func effectivePeerStore(s *gizclaw.Server) kv.Store {
+	if usesLegacySharedStore(s) {
+		return kv.Prefixed(s.PeerStore, kv.Key{"peers"})
+	}
+	return s.PeerStore
+}
+
+func usesLegacySharedStore(s *gizclaw.Server) bool {
+	return s.CredentialStore == nil &&
+		s.FirmwareStore == nil &&
+		s.AgentHostStore == nil &&
+		s.MiniMaxTenantStore == nil &&
+		s.VolcTenantStore == nil &&
+		s.ModelStore == nil &&
+		s.VoiceStore == nil &&
+		s.MiniMaxCredentialStore == nil &&
+		s.WorkspaceStore == nil &&
+		s.WorkflowStore == nil &&
+		s.PeerRunStore == nil &&
+		s.PublicLoginStore == nil &&
+		s.ContactStore == nil &&
+		s.FriendInviteTokenStore == nil &&
+		s.FriendStore == nil &&
+		s.FriendGroupStore == nil &&
+		s.FriendGroupInviteTokenStore == nil &&
+		s.FriendGroupMemberStore == nil &&
+		s.FriendGroupBelongStore == nil &&
+		s.FriendGroupMessageStore == nil &&
+		s.FriendGroupMessageAssets == nil &&
+		s.GameRulesetStore == nil &&
+		s.PetDefStore == nil &&
+		s.BadgeDefStore == nil &&
+		s.GameDefStore == nil &&
+		s.GameplayAssets == nil &&
+		s.GameplayDB == nil &&
+		s.FriendGroupMessageDefaultTTL == 0 &&
+		s.FriendGroupMessageMaxTTL == 0 &&
+		s.FriendGroupMessageCleanup == 0 &&
+		s.FriendGroupMessageMaxBytes == 0
+}
+
+func bootstrapEdgeNodes(ctx context.Context, peers *runtimepeer.Server, publicKeys []giznet.PublicKey) error {
+	if len(publicKeys) == 0 {
+		return nil
+	}
+	approvedAt := time.Now()
+	for _, publicKey := range publicKeys {
+		if publicKey.IsZero() {
+			return fmt.Errorf("server: bootstrap edge-node: zero public key")
+		}
+		peer, err := peers.LoadPeer(ctx, publicKey)
+		if errors.Is(err, runtimepeer.ErrPeerNotFound) {
+			peer = apitypes.Peer{PublicKey: publicKey.String()}
+		} else if err != nil {
+			return fmt.Errorf("server: load bootstrap edge-node %s: %w", publicKey, err)
+		}
+		peer.Role = apitypes.PeerRoleEdgeNode
+		peer.Status = apitypes.PeerRegistrationStatusActive
+		if peer.ApprovedAt == nil {
+			peer.ApprovedAt = &approvedAt
+		}
+		if _, err := peers.SavePeer(ctx, peer); err != nil {
+			return fmt.Errorf("server: bootstrap edge-node %s: %w", publicKey, err)
+		}
+	}
+	return nil
 }
 
 func webRTCListenConfig(cfg Config, opts gizclaw.PeerListenerOptions, iceTCPListener net.Listener) gizwebrtc.ListenConfig {
 	publicAddr := publicICEAddr(cfg)
-	return gizwebrtc.ListenConfig{
+	listenConfig := gizwebrtc.ListenConfig{
 		ICEUDPAddr:       cfg.ICEListenAddr(),
 		ICETCPListener:   iceTCPListener,
 		PublicICEUDPAddr: publicAddr,
 		PublicICETCPAddr: publicAddr,
+		ICEServers:       cfg.ICEServers,
 		SecurityPolicy:   opts.SecurityPolicy,
 		PeerEventHandler: opts.PeerEventHandler,
 	}
+	if gizwebrtc.HasTURNServer(cfg.ICEServers) {
+		listenConfig.ICETransportPolicy = webrtc.ICETransportPolicyRelay
+	}
+	return listenConfig
 }
 
 func publicICEAddr(cfg Config) string {
+	if gizwebrtc.HasTURNServer(cfg.ICEServers) {
+		return ""
+	}
 	host, _, err := net.SplitHostPort(cfg.Endpoint)
 	if err != nil {
 		return ""

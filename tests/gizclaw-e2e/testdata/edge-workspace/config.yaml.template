@@ -1,0 +1,18 @@
+identity:
+  private-key: 65kcbmbz2Eo2SgSA2Q3QqBoLhyLvYyMuZ7gfTSKaTvpR
+listen: 0.0.0.0:9821
+endpoint: ${GIZCLAW_E2E_EDGE_ENDPOINT}
+upstream:
+  endpoint: ${GIZCLAW_E2E_EDGE_UPSTREAM_ENDPOINT}
+  public-key: ${GIZCLAW_E2E_EDGE_UPSTREAM_PUBLIC_KEY}
+tls:
+  cert-source: disabled
+turn:
+  listen: 0.0.0.0:9823
+  public-endpoint: ${GIZCLAW_E2E_TURN_ENDPOINT}
+  relay-address: ${GIZCLAW_E2E_TURN_RELAY_ADDRESS}
+  realm: ${GIZCLAW_E2E_TURN_REALM}
+  username: ${GIZCLAW_E2E_TURN_USERNAME}
+  credential: ${GIZCLAW_E2E_TURN_CREDENTIAL}
+  relay-min-port: ${GIZCLAW_E2E_TURN_RELAY_MIN_PORT}
+  relay-max-port: ${GIZCLAW_E2E_TURN_RELAY_MAX_PORT}

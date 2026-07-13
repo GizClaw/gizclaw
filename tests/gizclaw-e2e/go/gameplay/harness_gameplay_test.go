@@ -25,10 +25,11 @@ type isolatedGameplayHarness struct {
 func newIsolatedGameplayHarness(t *testing.T) *isolatedGameplayHarness {
 	t.Helper()
 
-	h := clitest.NewHarnessForRoot(t, "tests/gizclaw-e2e/go/gameplay", "client-gameplay")
-	h.StartServerFromFixture("server_config.yaml")
+	h := clitest.NewSetupHarness(t, "client-gameplay")
 	h.InstallFixedAdminContext("admin-a").MustSucceed(t)
+	h.RequireAdminContextEndpoint("admin-a")
 	h.CreateContext("peer-a").MustSucceed(t)
+	h.RequireClientContextEndpoint("peer-a")
 	h.RegisterContext("peer-a", "--sn", "client-gameplay-peer-a-sn").MustSucceed(t)
 	applyGameplayCatalog(t, h)
 	applyGameplayACL(t, h, "peer-a")
@@ -119,6 +120,7 @@ func newSetupGameplayHarness(t *testing.T, clientName string) *setupGameplayHarn
 	identitiesHome := getenvDefault("GIZCLAW_E2E_IDENTITIES_HOME", filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "identities"))
 	contextName := getenvDefault("GIZCLAW_E2E_PEER_IDENTITY", "peer")
 	h.SetContextDirAlias("gear1", filepath.Join(identitiesHome, contextName))
+	h.RequireClientContextEndpoint("gear1")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	t.Cleanup(cancel)

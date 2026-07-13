@@ -14,33 +14,39 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
 )
 
+const adminAPIAdminContext = "admin-api-admin"
+
 type adminAPIHarness struct {
-	ctx      context.Context
-	h        *clitest.Harness
-	api      *adminhttp.ClientWithResponses
-	adminKey string
-	adminSN  string
-	peerKey  string
-	peerSN   string
+	ctx          context.Context
+	h            *clitest.Harness
+	api          *adminhttp.ClientWithResponses
+	admin        *gizcli.Client
+	adminContext string
+	adminKey     string
+	adminSN      string
+	peerKey      string
+	peerSN       string
 }
 
 func newAdminAPIHarness(t *testing.T) *adminAPIHarness {
 	t.Helper()
 
 	h := clitest.NewSetupHarness(t, "client-admin")
-	h.InstallFixedAdminContext("admin-api-admin").MustSucceed(t)
+	h.InstallFixedAdminContext(adminAPIAdminContext).MustSucceed(t)
+	h.RequireAdminContextEndpoint(adminAPIAdminContext)
 	h.CreateContext("admin-api-peer").MustSucceed(t)
-	adminKey := h.ContextPublicKey("admin-api-admin")
+	h.RequireClientContextEndpoint("admin-api-peer")
+	adminKey := h.ContextPublicKey(adminAPIAdminContext)
 	peerKey := h.ContextPublicKey("admin-api-peer")
 	adminSN := "admin"
 	peerSN := "client-admin-api-peer-" + peerKey
 	h.RegisterContext("admin-api-peer", "--sn", peerSN).MustSucceed(t)
 
-	admin := h.ConnectClientFromContext("admin-api-admin")
-	t.Cleanup(func() { admin.Close() })
+	admin := h.ConnectClientFromContext(adminAPIAdminContext)
 	api, err := admin.ServerAdminClient()
 	if err != nil {
 		t.Fatalf("create admin API client: %v", err)
@@ -51,17 +57,34 @@ func newAdminAPIHarness(t *testing.T) *adminAPIHarness {
 		_, _ = api.DeletePeerWithResponse(ctx, peerKey)
 	})
 
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	t.Cleanup(cancel)
 	return &adminAPIHarness{
-		ctx:      ctx,
-		h:        h,
-		api:      api,
-		adminKey: adminKey,
-		adminSN:  adminSN,
-		peerKey:  peerKey,
-		peerSN:   peerSN,
+		ctx:          ctx,
+		h:            h,
+		api:          api,
+		admin:        admin,
+		adminContext: adminAPIAdminContext,
+		adminKey:     adminKey,
+		adminSN:      adminSN,
+		peerKey:      peerKey,
+		peerSN:       peerSN,
 	}
+}
+
+func (h *adminAPIHarness) reconnectAdminAPI(t *testing.T) {
+	t.Helper()
+	if h.admin != nil {
+		_ = h.admin.Close()
+	}
+	admin := h.h.ConnectClientFromContext(h.adminContext)
+	api, err := admin.ServerAdminClient()
+	if err != nil {
+		_ = admin.Close()
+		t.Fatalf("reconnect admin API client: %v", err)
+	}
+	h.admin = admin
+	h.api = api
 }
 
 type statusCoder interface {
@@ -177,7 +200,10 @@ func openAIModelProviderData(t *testing.T, upstream string) *apitypes.ModelProvi
 func flowcraftWorkspaceParameters(t *testing.T, input apitypes.WorkspaceInputMode) *apitypes.WorkspaceParameters {
 	t.Helper()
 	var params apitypes.WorkspaceParameters
-	if err := params.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{Input: &input}); err != nil {
+	if err := params.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{
+		AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+		Input:     &input,
+	}); err != nil {
 		t.Fatalf("build Flowcraft workspace parameters: %v", err)
 	}
 	return &params

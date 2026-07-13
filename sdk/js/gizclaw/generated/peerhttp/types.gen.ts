@@ -96,6 +96,11 @@ export type ServerInfo = {
         udp: boolean;
         tcp: boolean;
     };
+    ice_servers?: Array<{
+        urls: Array<string>;
+        username?: string;
+        credential?: string;
+    }>;
 };
 
 export type LoginData = {

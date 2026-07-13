@@ -455,6 +455,65 @@ int gzc_json_validate_object(gzc_str_t object_json) {
   return value_end == end ? GZC_OK : GZC_ERR_JSON;
 }
 
+int gzc_json_array_iter_init(gzc_str_t array_json, gzc_json_array_iter_t *out_iter) {
+  if (array_json.data == NULL || out_iter == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  const char *begin = skip_ws(array_json.data, array_json.data + array_json.len);
+  const char *end = array_json.data + array_json.len;
+  if (begin >= end || *begin != '[') {
+    return GZC_ERR_JSON;
+  }
+  const char *value_end = validate_json_array(begin, end);
+  if (value_end == NULL || skip_ws(value_end, end) != end) {
+    return GZC_ERR_JSON;
+  }
+  out_iter->raw = array_json;
+  out_iter->offset = (size_t)(begin + 1 - array_json.data);
+  out_iter->finished = false;
+  return GZC_OK;
+}
+
+int gzc_json_array_iter_next(gzc_json_array_iter_t *iter, gzc_str_t *out_raw, bool *out_has_value) {
+  if (iter == NULL || out_raw == NULL || out_has_value == NULL || iter->raw.data == NULL ||
+      iter->offset > iter->raw.len) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  if (iter->finished) {
+    *out_has_value = false;
+    return GZC_OK;
+  }
+  const char *end = iter->raw.data + iter->raw.len;
+  const char *value_start = skip_ws(iter->raw.data + iter->offset, end);
+  if (value_start >= end) {
+    return GZC_ERR_JSON;
+  }
+  if (*value_start == ']') {
+    iter->finished = true;
+    *out_has_value = false;
+    return GZC_OK;
+  }
+  const char *value_end = validate_json_value(value_start, end);
+  if (value_end == NULL) {
+    return GZC_ERR_JSON;
+  }
+  const char *next = skip_ws(value_end, end);
+  if (next >= end) {
+    return GZC_ERR_JSON;
+  }
+  if (*next == ',') {
+    iter->offset = (size_t)(next + 1 - iter->raw.data);
+  } else if (*next == ']') {
+    iter->offset = (size_t)(next - iter->raw.data);
+  } else {
+    return GZC_ERR_JSON;
+  }
+  out_raw->data = value_start;
+  out_raw->len = (size_t)(value_end - value_start);
+  *out_has_value = true;
+  return GZC_OK;
+}
+
 int gzc_json_parse_string(gzc_str_t raw_json, gzc_str_t *out) {
   if (raw_json.data == NULL || out == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;

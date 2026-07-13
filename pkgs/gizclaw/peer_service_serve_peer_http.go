@@ -2,17 +2,33 @@ package gizclaw
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/gofiber/fiber/v2"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
+	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 )
 
 func (s *PeerService) servePublic(conn giznet.Conn) error {
+	return s.servePublicService(conn, ServicePeerHTTP)
+}
+
+func (s *PeerService) serveEdgePublic(conn giznet.Conn) error {
+	server := gizhttp.NewServer(conn, ServiceEdgeHTTP, s.edgeHTTPHandler(s.sessions))
+	defer func() {
+		_ = server.Shutdown(context.Background())
+	}()
+	return server.Serve()
+}
+
+func (s *PeerService) servePublicService(conn giznet.Conn, service uint64) error {
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 	app.Use(func(ctx *fiber.Ctx) error {
 		base := ctx.UserContext()
@@ -25,17 +41,98 @@ func (s *PeerService) servePublic(conn giznet.Conn) error {
 	})
 	peerhttp.RegisterHandlers(app, peerhttp.NewStrictHandler(s.public, nil))
 
-	server := gizhttp.NewServer(conn, ServicePeerHTTP, fiberHTTPHandler(app))
+	server := gizhttp.NewServer(conn, service, fiberHTTPHandler(app))
 	defer func() {
 		_ = server.Shutdown(context.Background())
-	}()
-	defer func() {
-		_ = conn.Close()
 	}()
 	return server.Serve()
 }
 
+type publicHTTPOptions struct {
+	requireClientPeer bool
+	login             publiclogin.PeerHTTP
+}
+
 func (s *PeerService) publicHTTPHandler(sessions *publiclogin.SessionManager) http.Handler {
+	return s.publicHTTPHandlerWithOptions(sessions, publicHTTPOptions{})
+}
+
+func (s *PeerService) edgePublicHTTPHandler(sessions *publiclogin.SessionManager) http.Handler {
+	return s.publicHTTPHandlerWithOptions(sessions, publicHTTPOptions{requireClientPeer: true})
+}
+
+func (s *PeerService) edgeHTTPHandler(sessions *publiclogin.SessionManager) http.Handler {
+	mux := http.NewServeMux()
+	publicHandler := s.edgePublicHTTPHandler(sessions)
+	mux.Handle("/login", s.edgeLoginHTTPHandler(sessions))
+	mux.Handle("/server-info", publicHandler)
+	mux.Handle("/webrtc/v1/offer", publicHandler)
+	mux.Handle("/me", publicHandler)
+	mux.Handle("/me/status", publicHandler)
+	mux.Handle("/me/runtime", publicHandler)
+	mux.Handle("/openai/v1/", s.edgeOpenAIHTTPHandler(sessions))
+	return mux
+}
+
+type loginWithoutAuthorizer interface {
+	LoginWithoutAuthorizer(context.Context, peerhttp.LoginRequestObject) (peerhttp.LoginResponseObject, error)
+}
+
+type edgeLoginPeerHTTP struct {
+	publiclogin.PeerHTTP
+	allowClientPeer func(context.Context, giznet.PublicKey) bool
+}
+
+func (h edgeLoginPeerHTTP) Login(ctx context.Context, request peerhttp.LoginRequestObject) (peerhttp.LoginResponseObject, error) {
+	var publicKey giznet.PublicKey
+	if err := publicKey.UnmarshalText([]byte(request.Params.XPublicKey)); err != nil || publicKey.IsZero() {
+		return peerhttp.Login401JSONResponse(apitypes.NewErrorResponse("INVALID_PUBLIC_KEY", "invalid X-Public-Key")), nil
+	}
+	if h.allowClientPeer == nil || !h.allowClientPeer(ctx, publicKey) {
+		return peerhttp.Login401JSONResponse(apitypes.NewErrorResponse("EDGE_CLIENT_REQUIRED", "edge public HTTP only proxies active client peers")), nil
+	}
+	if login, ok := h.PeerHTTP.(loginWithoutAuthorizer); ok {
+		return login.LoginWithoutAuthorizer(ctx, request)
+	}
+	return h.PeerHTTP.Login(ctx, request)
+}
+
+func (s *PeerService) edgeLoginHTTPHandler(sessions *publiclogin.SessionManager) http.Handler {
+	var login publiclogin.PeerHTTP
+	if s != nil && s.public != nil && s.public.PeerHTTP != nil {
+		login = edgeLoginPeerHTTP{
+			PeerHTTP:        s.public.PeerHTTP,
+			allowClientPeer: s.allowEdgeClientPeer,
+		}
+	}
+	return s.publicHTTPHandlerWithOptions(sessions, publicHTTPOptions{
+		requireClientPeer: true,
+		login:             login,
+	})
+}
+
+func (s *PeerService) edgeOpenAIHTTPHandler(sessions *publiclogin.SessionManager) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		setPublicHTTPCORSHeaders(w.Header())
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		publicKey, ok := authenticateHTTPSession(w, r, sessions)
+		if !ok {
+			return
+		}
+		if !s.allowEdgeClientPeer(r.Context(), publicKey) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			_ = json.NewEncoder(w).Encode(apitypes.NewErrorResponse("EDGE_CLIENT_REQUIRED", "edge public HTTP only proxies active client peers"))
+			return
+		}
+		http.StripPrefix("/openai", s.openAIHTTPHandlerForPeer(publicKey, nil)).ServeHTTP(w, r)
+	})
+}
+
+func (s *PeerService) publicHTTPHandlerWithOptions(sessions *publiclogin.SessionManager, opts publicHTTPOptions) http.Handler {
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 	app.Use(func(ctx *fiber.Ctx) error {
 		base := ctx.UserContext()
@@ -48,6 +145,19 @@ func (s *PeerService) publicHTTPHandler(sessions *publiclogin.SessionManager) ht
 		}
 		base = withPeerHTTPContentType(base, ctx.Get(fiber.HeaderContentType))
 		ctx.SetUserContext(base)
+		if opts.requireClientPeer && ctx.Method() == http.MethodPost && ctx.Path() == "/webrtc/v1/offer" {
+			publicKey, ok := s.edgeSignalingPublicKey(ctx)
+			if !ok {
+				return nil
+			}
+			if !s.allowEdgeSignalingPeer(ctx.UserContext(), publicKey) {
+				ctx.Status(http.StatusForbidden)
+				_ = ctx.JSON(apitypes.NewErrorResponse("EDGE_CLIENT_REQUIRED", "edge public HTTP only proxies active client peers"))
+				return nil
+			}
+			ctx.SetUserContext(peerhttp.WithCallerPublicKey(base, publicKey))
+			return ctx.Next()
+		}
 		if isUnauthenticatedPeerHTTPRoute(ctx.Method(), ctx.Path()) {
 			return ctx.Next()
 		}
@@ -55,11 +165,60 @@ func (s *PeerService) publicHTTPHandler(sessions *publiclogin.SessionManager) ht
 		if !ok {
 			return nil
 		}
+		if opts.requireClientPeer && !s.allowEdgeClientPeer(ctx.UserContext(), publicKey) {
+			ctx.Status(http.StatusForbidden)
+			_ = ctx.JSON(apitypes.NewErrorResponse("EDGE_CLIENT_REQUIRED", "edge public HTTP only proxies active client peers"))
+			return nil
+		}
 		ctx.SetUserContext(peerhttp.WithCallerPublicKey(base, publicKey))
 		return ctx.Next()
 	})
-	peerhttp.RegisterHandlers(app, peerhttp.NewStrictHandler(s.public, nil))
+	public := s.public
+	if opts.login != nil && public != nil {
+		copy := *public
+		copy.PeerHTTP = opts.login
+		public = &copy
+	}
+	peerhttp.RegisterHandlers(app, peerhttp.NewStrictHandler(public, nil))
 	return fiberHTTPHandler(app)
+}
+
+func (s *PeerService) allowEdgeClientPeer(ctx context.Context, publicKey giznet.PublicKey) bool {
+	if s == nil || s.manager == nil || s.manager.Peers == nil {
+		return false
+	}
+	peer, err := s.manager.Peers.LoadPeer(ctx, publicKey)
+	if err != nil {
+		return false
+	}
+	return peer.Status == apitypes.PeerRegistrationStatusActive && peer.Role == apitypes.PeerRoleClient
+}
+
+func (s *PeerService) allowEdgeSignalingPeer(ctx context.Context, publicKey giznet.PublicKey) bool {
+	if s == nil || s.manager == nil || s.manager.Peers == nil {
+		return false
+	}
+	peer, err := s.manager.Peers.LoadPeer(ctx, publicKey)
+	if errors.Is(err, runtimepeer.ErrPeerNotFound) {
+		return true
+	}
+	if err != nil {
+		return false
+	}
+	return peer.Status == apitypes.PeerRegistrationStatusActive && peer.Role == apitypes.PeerRoleClient
+}
+
+func (s *PeerService) edgeSignalingPublicKey(ctx *fiber.Ctx) (giznet.PublicKey, bool) {
+	var publicKey giznet.PublicKey
+	if ctx == nil {
+		return publicKey, false
+	}
+	if err := publicKey.UnmarshalText([]byte(ctx.Get("X-Giznet-Public-Key"))); err != nil || publicKey.IsZero() {
+		ctx.Status(http.StatusBadRequest)
+		_ = ctx.JSON(apitypes.NewErrorResponse("INVALID_PUBLIC_KEY", "invalid X-Giznet-Public-Key"))
+		return giznet.PublicKey{}, false
+	}
+	return publicKey, true
 }
 
 func setPeerHTTPCORSHeaders(ctx *fiber.Ctx) {

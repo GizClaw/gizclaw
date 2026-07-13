@@ -47,11 +47,13 @@ type ListenConfig struct {
 	// endpoint.
 	PublicICETCPAddr string
 
-	SecurityPolicy   giznet.SecurityPolicy
-	PeerEventHandler giznet.PeerEventHandler
-	CipherMode       CipherMode
-	NAT1To1IPs       []string
-	ICELite          bool
+	SecurityPolicy     giznet.SecurityPolicy
+	PeerEventHandler   giznet.PeerEventHandler
+	ICEServers         []ICEServer
+	ICETransportPolicy webrtc.ICETransportPolicy
+	CipherMode         CipherMode
+	NAT1To1IPs         []string
+	ICELite            bool
 }
 
 func Listen(key *giznet.KeyPair) (*Listener, error) {
@@ -64,6 +66,9 @@ func (c *ListenConfig) Listen(key *giznet.KeyPair) (*Listener, error) {
 	}
 	if c == nil {
 		c = &ListenConfig{}
+	}
+	if err := validateICEServers(c.ICEServers); err != nil {
+		return nil, err
 	}
 	api := c.API
 	var closers []func() error

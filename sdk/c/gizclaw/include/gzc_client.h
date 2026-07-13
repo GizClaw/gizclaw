@@ -29,6 +29,7 @@ typedef struct {
 } gzc_client_config_t;
 
 int gzc_client_create(const gzc_client_config_t *config, gzc_client_t **out_client);
+int gzc_client_set_peer_add_ice_server(gzc_client_t *client, gzc_peer_add_ice_server_fn fn);
 int gzc_client_connect(gzc_client_t *client);
 /*
  * Drives queued WebRTC callbacks and inbound RPC work on the caller's thread.

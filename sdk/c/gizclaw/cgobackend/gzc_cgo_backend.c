@@ -15,6 +15,7 @@ int gzcGoAEADOpen(int mode, const uint8_t *key, size_t key_len, const uint8_t *n
 int gzcGoRandom(uint8_t *out, size_t len);
 int64_t gzcGoTimeUnixMs(void);
 int gzcGoPeerCreate(uint64_t handle);
+int gzcGoPeerAddICEServer(uint64_t handle, const char *url, size_t url_len, const char *username, size_t username_len, const char *credential, size_t credential_len);
 int gzcGoPeerStartOffer(uint64_t handle, char **out_sdp, size_t *out_len);
 int gzcGoPeerSetRemoteSDP(uint64_t handle, const char *sdp, size_t len);
 int gzcGoPeerCreateDataChannel(uint64_t handle, const char *label, size_t len, int channel_id, bool ordered, bool reliable);
@@ -287,6 +288,21 @@ static int bridge_peer_start_offer(gzc_rtc_peer_t *peer) {
   }
   free(sdp);
   return GZC_OK;
+}
+
+int gzc_cgo_backend_peer_add_ice_server(gzc_rtc_peer_t *peer, gzc_str_t url, gzc_str_t username, gzc_str_t credential) {
+  gzc_cgo_backend_t *backend = peer == NULL ? NULL : peer->backend;
+  if (backend == NULL || url.data == NULL || url.len == 0) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  return gzcGoPeerAddICEServer(
+      backend->handle,
+      url.data,
+      url.len,
+      username.data,
+      username.len,
+      credential.data,
+      credential.len);
 }
 
 static int bridge_peer_set_remote_sdp(gzc_rtc_peer_t *peer, gzc_rtc_sdp_type_t type, gzc_str_t sdp) {

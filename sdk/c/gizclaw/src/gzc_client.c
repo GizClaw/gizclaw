@@ -28,6 +28,7 @@ struct gzc_service_channel {
 
 struct gzc_client {
   gzc_client_config_t config;
+  gzc_peer_add_ice_server_fn peer_add_ice_server;
   gzc_rtc_peer_t *peer;
   gzc_rtc_channel_t *packet_channel;
   gzc_rtc_channel_t *rpc_channel;
@@ -71,6 +72,16 @@ static bool str_eq_cstr(gzc_str_t value, const char *want) {
   return value.data != NULL && value.len == want_len && strncmp(value.data, want, want_len) == 0;
 }
 
+static bool str_has_cstr_prefix(gzc_str_t value, const char *prefix) {
+  size_t prefix_len = strlen(prefix);
+  return value.len > prefix_len && strncmp(value.data, prefix, prefix_len) == 0;
+}
+
+static bool valid_ice_url(gzc_str_t value) {
+  return str_has_cstr_prefix(value, "stun:") || str_has_cstr_prefix(value, "stuns:") ||
+         str_has_cstr_prefix(value, "turn:") || str_has_cstr_prefix(value, "turns:");
+}
+
 static bool valid_packet_protocol(uint8_t protocol) {
   return protocol == gzc_protocol_stamped_opus_packet || protocol >= gzc_protocol_custom_start;
 }
@@ -98,6 +109,228 @@ static void free_http_response(gzc_client_t *client, gzc_http_response_t *respon
   } else {
     gzc_buf_free(&response->body, client->config.platform);
   }
+}
+
+static int hex_value(char ch) {
+  if (ch >= '0' && ch <= '9') {
+    return ch - '0';
+  }
+  if (ch >= 'a' && ch <= 'f') {
+    return ch - 'a' + 10;
+  }
+  if (ch >= 'A' && ch <= 'F') {
+    return ch - 'A' + 10;
+  }
+  return -1;
+}
+
+static int append_utf8(gzc_client_t *client, gzc_buf_t *buf, uint32_t codepoint) {
+  uint8_t bytes[4];
+  size_t len = 0;
+  if (codepoint <= 0x7f) {
+    bytes[0] = (uint8_t)codepoint;
+    len = 1;
+  } else if (codepoint <= 0x7ff) {
+    bytes[0] = 0xc0 | (uint8_t)(codepoint >> 6);
+    bytes[1] = 0x80 | (uint8_t)(codepoint & 0x3f);
+    len = 2;
+  } else {
+    bytes[0] = 0xe0 | (uint8_t)(codepoint >> 12);
+    bytes[1] = 0x80 | (uint8_t)((codepoint >> 6) & 0x3f);
+    bytes[2] = 0x80 | (uint8_t)(codepoint & 0x3f);
+    len = 3;
+  }
+  return gzc_buf_append(buf, client->config.platform, bytes, len);
+}
+
+static int parse_json_string_for_ice(gzc_client_t *client, gzc_str_t raw_json, gzc_buf_t *scratch, gzc_str_t *out) {
+  int rc = gzc_json_parse_string(raw_json, out);
+  if (rc == GZC_OK) {
+    return GZC_OK;
+  }
+  if (rc != GZC_ERR_UNSUPPORTED || raw_json.len < 2 || raw_json.data[0] != '"' ||
+      raw_json.data[raw_json.len - 1] != '"') {
+    return rc;
+  }
+  gzc_buf_reset(scratch);
+  for (size_t i = 1; i + 1 < raw_json.len; i++) {
+    unsigned char ch = (unsigned char)raw_json.data[i];
+    if (ch != '\\') {
+      if (ch < 0x20) {
+        return GZC_ERR_JSON;
+      }
+      rc = gzc_buf_append(scratch, client->config.platform, &ch, 1);
+      if (rc != GZC_OK) {
+        return rc;
+      }
+      continue;
+    }
+    i++;
+    if (i + 1 >= raw_json.len) {
+      return GZC_ERR_JSON;
+    }
+    char escaped = raw_json.data[i];
+    switch (escaped) {
+    case '"':
+    case '\\':
+    case '/':
+      rc = gzc_buf_append(scratch, client->config.platform, &escaped, 1);
+      break;
+    case 'b': {
+      const char value = '\b';
+      rc = gzc_buf_append(scratch, client->config.platform, &value, 1);
+      break;
+    }
+    case 'f': {
+      const char value = '\f';
+      rc = gzc_buf_append(scratch, client->config.platform, &value, 1);
+      break;
+    }
+    case 'n': {
+      const char value = '\n';
+      rc = gzc_buf_append(scratch, client->config.platform, &value, 1);
+      break;
+    }
+    case 'r': {
+      const char value = '\r';
+      rc = gzc_buf_append(scratch, client->config.platform, &value, 1);
+      break;
+    }
+    case 't': {
+      const char value = '\t';
+      rc = gzc_buf_append(scratch, client->config.platform, &value, 1);
+      break;
+    }
+    case 'u': {
+      if (i + 4 >= raw_json.len) {
+        return GZC_ERR_JSON;
+      }
+      uint32_t codepoint = 0;
+      for (size_t j = 0; j < 4; j++) {
+        int value = hex_value(raw_json.data[i + 1 + j]);
+        if (value < 0) {
+          return GZC_ERR_JSON;
+        }
+        codepoint = (codepoint << 4) | (uint32_t)value;
+      }
+      i += 4;
+      if (codepoint >= 0xd800 && codepoint <= 0xdfff) {
+        return GZC_ERR_UNSUPPORTED;
+      }
+      rc = append_utf8(client, scratch, codepoint);
+      break;
+    }
+    default:
+      return GZC_ERR_JSON;
+    }
+    if (rc != GZC_OK) {
+      return rc;
+    }
+  }
+  out->data = (const char *)scratch->data;
+  out->len = scratch->len;
+  return GZC_OK;
+}
+
+static int apply_ice_servers(gzc_client_t *client, gzc_str_t body) {
+  gzc_str_t servers_raw;
+  int rc = gzc_json_find_field(body, "ice_servers", &servers_raw);
+  if (rc != GZC_OK) {
+    return GZC_OK;
+  }
+  gzc_json_array_iter_t servers;
+  rc = gzc_json_array_iter_init(servers_raw, &servers);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  gzc_buf_t username_buf;
+  gzc_buf_t credential_buf;
+  gzc_buf_t url_buf;
+  gzc_buf_init(&username_buf);
+  gzc_buf_init(&credential_buf);
+  gzc_buf_init(&url_buf);
+  int result = GZC_OK;
+  while (true) {
+    gzc_str_t server_raw;
+    bool has_server = false;
+    rc = gzc_json_array_iter_next(&servers, &server_raw, &has_server);
+    if (rc != GZC_OK || !has_server) {
+      result = rc;
+      break;
+    }
+    if (gzc_json_validate_object(server_raw) != GZC_OK) {
+      result = GZC_ERR_JSON;
+      break;
+    }
+    gzc_str_t username = {0};
+    gzc_str_t credential = {0};
+    gzc_str_t field_raw;
+    if (gzc_json_find_field(server_raw, "username", &field_raw) == GZC_OK) {
+      rc = parse_json_string_for_ice(client, field_raw, &username_buf, &username);
+      if (rc != GZC_OK) {
+        result = rc;
+        break;
+      }
+    }
+    if (gzc_json_find_field(server_raw, "credential", &field_raw) == GZC_OK) {
+      rc = parse_json_string_for_ice(client, field_raw, &credential_buf, &credential);
+      if (rc != GZC_OK) {
+        result = rc;
+        break;
+      }
+    }
+    gzc_str_t urls_raw;
+    if (gzc_json_find_field(server_raw, "urls", &urls_raw) != GZC_OK) {
+      result = GZC_ERR_JSON;
+      break;
+    }
+    gzc_json_array_iter_t urls;
+    rc = gzc_json_array_iter_init(urls_raw, &urls);
+    if (rc != GZC_OK) {
+      result = rc;
+      break;
+    }
+    if (client->peer_add_ice_server == NULL) {
+      result = GZC_ERR_UNSUPPORTED;
+      break;
+    }
+    bool applied_url = false;
+    while (true) {
+      gzc_str_t url_raw;
+      bool has_url = false;
+      rc = gzc_json_array_iter_next(&urls, &url_raw, &has_url);
+      if (rc != GZC_OK) {
+        result = rc;
+        break;
+      }
+      if (!has_url) {
+        break;
+      }
+      gzc_str_t url;
+      rc = parse_json_string_for_ice(client, url_raw, &url_buf, &url);
+      if (rc != GZC_OK || !valid_ice_url(url)) {
+        result = rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
+        break;
+      }
+      rc = client->peer_add_ice_server(client->peer, url, username, credential);
+      if (rc != GZC_OK) {
+        result = rc;
+        break;
+      }
+      applied_url = true;
+    }
+    if (result != GZC_OK) {
+      break;
+    }
+    if (!applied_url) {
+      result = GZC_ERR_INVALID_ARGUMENT;
+      break;
+    }
+  }
+  gzc_buf_free(&username_buf, client->config.platform);
+  gzc_buf_free(&credential_buf, client->config.platform);
+  gzc_buf_free(&url_buf, client->config.platform);
+  return result;
 }
 
 static int load_server_info(gzc_client_t *client, int timeout_ms, gzc_signaling_config_t *signaling, gzc_buf_t *signaling_url) {
@@ -167,6 +400,12 @@ static int load_server_info(gzc_client_t *client, int timeout_ms, gzc_signaling_
       free_http_response(client, &response);
       return rc == GZC_OK ? GZC_ERR_UNSUPPORTED : rc;
     }
+  }
+
+  rc = apply_ice_servers(client, body);
+  if (rc != GZC_OK) {
+    free_http_response(client, &response);
+    return rc;
   }
 
   gzc_str_t signaling_path = gzc_str_from_cstr(GZC_SIGNALING_PATH);
@@ -447,6 +686,14 @@ int gzc_client_create(const gzc_client_config_t *config, gzc_client_t **out_clie
   return GZC_OK;
 }
 
+int gzc_client_set_peer_add_ice_server(gzc_client_t *client, gzc_peer_add_ice_server_fn fn) {
+  if (client == NULL || client->peer != NULL || client->packet_channel != NULL || client->rpc_channel != NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  client->peer_add_ice_server = fn;
+  return GZC_OK;
+}
+
 int gzc_client_connect(gzc_client_t *client) {
   if (client == NULL || client->closed) {
     return GZC_ERR_INVALID_ARGUMENT;
@@ -496,16 +743,7 @@ int gzc_client_connect(gzc_client_t *client) {
     goto fail;
   }
 
-  rc = client->config.webrtc->peer_start_offer(client->peer);
-  if (rc != GZC_OK) {
-    goto fail;
-  }
   int timeout = client->config.connect_timeout_ms == 0 ? 5000 : client->config.connect_timeout_ms;
-  rc = wait_until(client, &client->has_local_sdp, timeout);
-  if (rc != GZC_OK) {
-    goto fail;
-  }
-
   gzc_signaling_config_t signaling;
   memset(&signaling, 0, sizeof(signaling));
   signaling.platform = client->config.platform;
@@ -518,6 +756,17 @@ int gzc_client_connect(gzc_client_t *client) {
   gzc_buf_t signaling_url;
   gzc_buf_init(&signaling_url);
   rc = load_server_info(client, timeout, &signaling, &signaling_url);
+  if (rc != GZC_OK) {
+    gzc_buf_free(&signaling_url, client->config.platform);
+    goto fail;
+  }
+
+  rc = client->config.webrtc->peer_start_offer(client->peer);
+  if (rc != GZC_OK) {
+    gzc_buf_free(&signaling_url, client->config.platform);
+    goto fail;
+  }
+  rc = wait_until(client, &client->has_local_sdp, timeout);
   if (rc != GZC_OK) {
     gzc_buf_free(&signaling_url, client->config.platform);
     goto fail;

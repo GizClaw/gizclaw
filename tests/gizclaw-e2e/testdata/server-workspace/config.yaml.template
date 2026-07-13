@@ -3,6 +3,14 @@ identity:
 listen: 0.0.0.0:9820
 endpoint: ${GIZCLAW_E2E_SERVER_ENDPOINT}
 serve-to-clients: true
+ice-servers:
+  - urls:
+      - turn:${GIZCLAW_E2E_TURN_ENDPOINT}?transport=udp
+    username: ${GIZCLAW_E2E_TURN_USERNAME}
+    credential: ${GIZCLAW_E2E_TURN_CREDENTIAL}
+    credential-mode: turn-rest
+edge-nodes:
+  - FNSseo3ePDEyJR27qEbDCSKBX4baMg826xXcanV4Huqs
 admin-public-key: "6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee"
 log:
   level: info

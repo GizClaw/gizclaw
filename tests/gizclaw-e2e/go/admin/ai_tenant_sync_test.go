@@ -4,6 +4,7 @@ package admin_test
 
 import (
 	"context"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -13,6 +14,8 @@ import (
 )
 
 func TestAdminAPISyncVolcTenantVoicesForWorkspaceUse(t *testing.T) {
+	skipProviderSyncE2E(t)
+
 	env := newAdminAPIHarness(t)
 
 	resp, err := env.api.SyncVolcTenantVoicesWithResponse(env.ctx, "volc-main")
@@ -47,6 +50,8 @@ func TestAdminAPISyncVolcTenantVoicesForWorkspaceUse(t *testing.T) {
 }
 
 func TestAdminAPISyncMiniMaxTenantVoices(t *testing.T) {
+	skipProviderSyncE2E(t)
+
 	env := newAdminAPIHarness(t)
 
 	tenantName := findRealMiniMaxTenant(t, env)
@@ -84,6 +89,13 @@ func TestAdminAPISyncMiniMaxTenantVoices(t *testing.T) {
 	}
 	if len(voices.JSON200.Items) == 0 && resp.JSON200.CreatedCount+resp.JSON200.UpdatedCount+resp.JSON200.DeletedCount == 0 {
 		t.Fatalf("sync MiniMax tenant %q did not produce or reconcile any voices", tenantName)
+	}
+}
+
+func skipProviderSyncE2E(t *testing.T) {
+	t.Helper()
+	if os.Getenv("GIZCLAW_E2E_SKIP_PROVIDER_SYNC") == "1" {
+		t.Skip("provider voice sync is disabled in this e2e environment")
 	}
 }
 

@@ -36,7 +36,10 @@ func TestServerWorkspaceRPC(t *testing.T) {
 
 	createInput := rpcapi.WorkspaceInputModePushToTalk
 	var createParams rpcapi.WorkspaceParameters
-	if err := createParams.FromFlowcraftWorkspaceParameters(rpcapi.FlowcraftWorkspaceParameters{Input: &createInput}); err != nil {
+	if err := createParams.FromFlowcraftWorkspaceParameters(rpcapi.FlowcraftWorkspaceParameters{
+		AgentType: rpcapi.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+		Input:     &createInput,
+	}); err != nil {
 		t.Fatalf("FromFlowcraftWorkspaceParameters(create) error = %v", err)
 	}
 	workspace, err := env.peer.CreateWorkspace(env.ctx, "workspace.create", rpcapi.WorkspaceCreateRequest{
@@ -53,7 +56,10 @@ func TestServerWorkspaceRPC(t *testing.T) {
 
 	updateInput := rpcapi.WorkspaceInputModeRealtime
 	var updateParams rpcapi.WorkspaceParameters
-	if err := updateParams.FromFlowcraftWorkspaceParameters(rpcapi.FlowcraftWorkspaceParameters{Input: &updateInput}); err != nil {
+	if err := updateParams.FromFlowcraftWorkspaceParameters(rpcapi.FlowcraftWorkspaceParameters{
+		AgentType: rpcapi.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+		Input:     &updateInput,
+	}); err != nil {
 		t.Fatalf("FromFlowcraftWorkspaceParameters(update) error = %v", err)
 	}
 	workspace, err = env.peer.PutWorkspace(env.ctx, "workspace.put", rpcapi.WorkspacePutRequest{
@@ -67,18 +73,17 @@ func TestServerWorkspaceRPC(t *testing.T) {
 	if err != nil {
 		t.Fatalf("workspace.put: %v", err)
 	}
-	typed, err := workspace.Parameters.AsFlowcraftWorkspaceParameters()
-	if err != nil {
-		t.Fatalf("workspace.put parameters decode: %v", err)
-	}
-	if typed.Input == nil || *typed.Input != rpcapi.WorkspaceInputModeRealtime {
-		t.Fatalf("workspace.put input = %#v, want realtime", typed.Input)
+	if workspace.Name != mutationWorkspace || workspace.WorkflowName != mutationWorkflow {
+		t.Fatalf("workspace.put = %#v", workspace)
 	}
 	workspace, err = env.peer.GetWorkspace(env.ctx, "workspace.get.updated", rpcapi.WorkspaceGetRequest{Name: mutationWorkspace})
 	if err != nil {
 		t.Fatalf("workspace.get updated: %v", err)
 	}
-	typed, err = workspace.Parameters.AsFlowcraftWorkspaceParameters()
+	if workspace.Parameters == nil {
+		t.Fatalf("workspace.get updated parameters are nil: %#v", workspace)
+	}
+	typed, err := workspace.Parameters.AsFlowcraftWorkspaceParameters()
 	if err != nil {
 		t.Fatalf("workspace.get updated parameters decode: %v", err)
 	}

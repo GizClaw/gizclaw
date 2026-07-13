@@ -15,11 +15,13 @@ import (
 )
 
 type DialConfig struct {
-	API            *webrtc.API
-	HTTPClient     *http.Client
-	SignalingURL   string
-	CipherMode     CipherMode
-	SecurityPolicy giznet.SecurityPolicy
+	API                *webrtc.API
+	HTTPClient         *http.Client
+	SignalingURL       string
+	ICEServers         []ICEServer
+	ICETransportPolicy webrtc.ICETransportPolicy
+	CipherMode         CipherMode
+	SecurityPolicy     giznet.SecurityPolicy
 }
 
 func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, cfg DialConfig) (*Listener, *Conn, error) {
@@ -36,8 +38,13 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 		}
 	}
 	l := &Listener{
-		key:        key,
-		cfg:        ListenConfig{CipherMode: cfg.CipherMode, SecurityPolicy: cfg.SecurityPolicy},
+		key: key,
+		cfg: ListenConfig{
+			CipherMode:         cfg.CipherMode,
+			ICEServers:         cfg.ICEServers,
+			ICETransportPolicy: cfg.ICETransportPolicy,
+			SecurityPolicy:     cfg.SecurityPolicy,
+		},
 		api:        api,
 		closers:    closers,
 		acceptCh:   make(chan giznet.Conn, 1),
@@ -47,7 +54,11 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 	if l.cfg.CipherMode == "" {
 		l.cfg.CipherMode = CipherModeChaChaPoly
 	}
-	pc, err := api.NewPeerConnection(webrtc.Configuration{})
+	if err := validateICEServers(cfg.ICEServers); err != nil {
+		_ = l.Close()
+		return nil, nil, err
+	}
+	pc, err := api.NewPeerConnection(peerConnectionConfiguration(cfg.ICEServers, cfg.ICETransportPolicy))
 	if err != nil {
 		_ = l.Close()
 		return nil, nil, err
@@ -93,7 +104,11 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 		_ = l.Close()
 		return nil, nil, err
 	}
-	<-gatherComplete
+	if err := waitForGathering(ctx, gatherComplete); err != nil {
+		_ = conn.Close()
+		_ = l.Close()
+		return nil, nil, err
+	}
 	if pc.LocalDescription() == nil {
 		_ = conn.Close()
 		_ = l.Close()
@@ -122,6 +137,15 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 		_ = conn.Close()
 		_ = l.Close()
 		return nil, nil, fmt.Errorf("gizwebrtc: timeout waiting for packet channel")
+	}
+}
+
+func waitForGathering(ctx context.Context, gatherComplete <-chan struct{}) error {
+	select {
+	case <-gatherComplete:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
 

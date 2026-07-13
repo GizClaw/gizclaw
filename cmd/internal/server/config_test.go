@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,7 +12,11 @@ import (
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func testPublicKey(fill byte) giznet.PublicKey {
@@ -347,20 +352,129 @@ func TestLoadConfigReadsEdgeNodes(t *testing.T) {
 	}
 }
 
-func TestNewWiresEdgeNodes(t *testing.T) {
-	edge := testPublicKey(0x22)
+func TestLoadConfigReadsICEServers(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte(`
+ice-servers:
+  - urls:
+      - turn:edge.example.com:3478?transport=udp
+      - stun:edge.example.com:3478
+    username: user
+    credential: pass
+    credential-mode: turn-rest
+`), 0o600); err != nil {
+		t.Fatalf("WriteFile error = %v", err)
+	}
+
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig error = %v", err)
+	}
+	if len(cfg.ICEServers) != 1 {
+		t.Fatalf("ICEServers len = %d, want 1", len(cfg.ICEServers))
+	}
+	if got := cfg.ICEServers[0].URLs; len(got) != 2 || got[0] != "turn:edge.example.com:3478?transport=udp" || got[1] != "stun:edge.example.com:3478" {
+		t.Fatalf("ICEServers[0].URLs = %#v", got)
+	}
+	if cfg.ICEServers[0].Username != "user" {
+		t.Fatalf("ICEServers[0].Username = %q", cfg.ICEServers[0].Username)
+	}
+	if cfg.ICEServers[0].Credential != "pass" {
+		t.Fatalf("ICEServers[0].Credential = %q", cfg.ICEServers[0].Credential)
+	}
+	if cfg.ICEServers[0].CredentialMode != gizwebrtc.ICECredentialModeTURNREST {
+		t.Fatalf("ICEServers[0].CredentialMode = %q", cfg.ICEServers[0].CredentialMode)
+	}
+}
+
+func TestNewBootstrapsConfiguredEdgeNodes(t *testing.T) {
+	dir := t.TempDir()
+	edgeKey := testKeyPair(t, 0x13)
+	cfg := validLayeredConfig(dir)
+	cfg.EdgeNodes = []giznet.PublicKey{edgeKey.Public}
+	srv, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New error = %v", err)
+	}
+	t.Cleanup(func() { _ = srv.Close() })
+
+	peerStore := &runtimepeer.Server{Store: srv.Server.PeerStore}
+	peer, err := peerStore.LoadPeer(context.Background(), edgeKey.Public)
+	if err != nil {
+		t.Fatalf("LoadPeer error = %v", err)
+	}
+	if peer.Role != apitypes.PeerRoleEdgeNode || peer.Status != apitypes.PeerRegistrationStatusActive {
+		t.Fatalf("bootstrapped edge peer = %+v", peer)
+	}
+}
+
+func TestNewBootstrapsConfiguredEdgeNodesWithLegacySharedStore(t *testing.T) {
+	edgeKey := testKeyPair(t, 0x14)
 	srv, err := New(Config{
-		Listen:    "127.0.0.1:1234",
-		Endpoint:  "127.0.0.1:1234",
-		EdgeNodes: []giznet.PublicKey{edge},
-		Stores:    map[string]stores.Config{"peers": {Kind: stores.KindKeyValue, Backend: "memory"}},
+		EdgeNodes: []giznet.PublicKey{edgeKey.Public},
+		Stores: map[string]stores.Config{
+			"peers": {Kind: stores.KindKeyValue, Backend: "memory"},
+		},
 	})
 	if err != nil {
 		t.Fatalf("New error = %v", err)
 	}
 	t.Cleanup(func() { _ = srv.Close() })
-	if len(srv.EdgeNodes) != 1 || srv.EdgeNodes[0] != edge {
-		t.Fatalf("Server.EdgeNodes = %+v", srv.EdgeNodes)
+
+	peerStore := &runtimepeer.Server{Store: kv.Prefixed(srv.Server.PeerStore, kv.Key{"peers"})}
+	peer, err := peerStore.LoadPeer(context.Background(), edgeKey.Public)
+	if err != nil {
+		t.Fatalf("LoadPeer error = %v", err)
+	}
+	if peer.Role != apitypes.PeerRoleEdgeNode || peer.Status != apitypes.PeerRegistrationStatusActive {
+		t.Fatalf("bootstrapped legacy edge peer = %+v", peer)
+	}
+}
+
+func TestBootstrapEdgeNodesPreservesExistingPeerMetadata(t *testing.T) {
+	edgeKey := testKeyPair(t, 0x15)
+	peerStore := &runtimepeer.Server{Store: kv.NewMemory(nil)}
+	name := "edge-a"
+	view := "dashboard"
+	autoRegistered := true
+	approvedAt := time.Unix(123, 0).UTC()
+	existing, err := peerStore.SavePeer(context.Background(), apitypes.Peer{
+		PublicKey:      edgeKey.Public.String(),
+		Role:           apitypes.PeerRoleClient,
+		Status:         apitypes.PeerRegistrationStatusBlocked,
+		ApprovedAt:     &approvedAt,
+		AutoRegistered: &autoRegistered,
+		Device:         apitypes.DeviceInfo{Name: &name},
+		Configuration:  apitypes.Configuration{View: &view},
+	})
+	if err != nil {
+		t.Fatalf("SavePeer error = %v", err)
+	}
+
+	if err := bootstrapEdgeNodes(context.Background(), peerStore, []giznet.PublicKey{edgeKey.Public}); err != nil {
+		t.Fatalf("bootstrapEdgeNodes error = %v", err)
+	}
+	peer, err := peerStore.LoadPeer(context.Background(), edgeKey.Public)
+	if err != nil {
+		t.Fatalf("LoadPeer error = %v", err)
+	}
+	if peer.Role != apitypes.PeerRoleEdgeNode || peer.Status != apitypes.PeerRegistrationStatusActive {
+		t.Fatalf("bootstrapped edge peer = %+v", peer)
+	}
+	if peer.Device.Name == nil || *peer.Device.Name != name {
+		t.Fatalf("Device.Name = %v, want %q", peer.Device.Name, name)
+	}
+	if peer.Configuration.View == nil || *peer.Configuration.View != view {
+		t.Fatalf("Configuration.View = %v, want %q", peer.Configuration.View, view)
+	}
+	if peer.AutoRegistered == nil || !*peer.AutoRegistered {
+		t.Fatalf("AutoRegistered = %v, want true", peer.AutoRegistered)
+	}
+	if peer.ApprovedAt == nil || !peer.ApprovedAt.Equal(approvedAt) {
+		t.Fatalf("ApprovedAt = %v, want %v", peer.ApprovedAt, approvedAt)
+	}
+	if !peer.CreatedAt.Equal(existing.CreatedAt) {
+		t.Fatalf("CreatedAt = %v, want %v", peer.CreatedAt, existing.CreatedAt)
 	}
 }
 
@@ -623,7 +737,7 @@ func TestValidateReportsSpecificMissingFields(t *testing.T) {
 		{
 			name: "zero edge node",
 			cfg:  Config{Listen: "127.0.0.1:9820", Endpoint: "127.0.0.1:9820", EdgeNodes: []giznet.PublicKey{{}}},
-			want: "server: invalid edge-nodes: zero public key",
+			want: "server: edge-nodes[0] is zero",
 		},
 	}
 

@@ -119,6 +119,7 @@ export type SendGiznetWebRTCTelemetryOptions = {
 
 export type GiznetServerInfo = {
   endpoint?: string;
+  ice_servers?: RTCIceServer[];
   protocol?: string;
   public_key: string;
   signaling_path?: string;
@@ -501,6 +502,7 @@ export async function connectGiznetWebRTC(options: ConnectGiznetWebRTCOptions): 
 export async function connectGiznetWebRTCFromEndpoint(options: ConnectGiznetWebRTCFromEndpointOptions): Promise<RTCPeerConnection> {
   const serverInfo = await fetchGiznetServerInfo(options);
   const signalingPath = normalizeServerInfoSignalingPath(serverInfo.signaling_path);
+  applyGiznetServerInfoICEServers(options.pc, serverInfo);
   return connectGiznetWebRTC({
     ...options,
     prepareOffer: (offerSDP) =>
@@ -520,6 +522,14 @@ export async function connectGiznetWebRTCFromEndpoint(options: ConnectGiznetWebR
         url: signalingPath,
       }),
   });
+}
+
+export function applyGiznetServerInfoICEServers(pc: RTCPeerConnection, serverInfo: Pick<GiznetServerInfo, "ice_servers">): void {
+  if (serverInfo.ice_servers == null || serverInfo.ice_servers.length === 0 || typeof pc.setConfiguration !== "function") {
+    return;
+  }
+  const current = pc.getConfiguration?.() ?? {};
+  pc.setConfiguration({ ...current, iceServers: serverInfo.ice_servers });
 }
 
 export async function fetchGiznetServerInfo(options: ServerInfoBootstrapOptions = {}): Promise<GiznetServerInfo> {
@@ -543,9 +553,50 @@ export async function fetchGiznetServerInfo(options: ServerInfoBootstrapOptions 
   }
   return {
     ...serverInfo,
+    ice_servers: normalizeServerInfoICEServers((serverInfo as { ice_servers?: unknown }).ice_servers),
     public_key: serverInfo.public_key.trim(),
     signaling_path: normalizeServerInfoSignalingPath(serverInfo.signaling_path),
   };
+}
+
+function normalizeServerInfoICEServers(servers: unknown): RTCIceServer[] | undefined {
+  if (servers == null) {
+    return undefined;
+  }
+  if (!Array.isArray(servers)) {
+    throw new Error("server-info invalid ice_servers: expected an array");
+  }
+  return servers.map((server, serverIndex) => {
+    if (typeof server !== "object" || server == null || Array.isArray(server)) {
+      throw new Error(`server-info invalid ice_servers[${serverIndex}]: expected an object`);
+    }
+    const value = server as Record<string, unknown>;
+    const rawURLs = Array.isArray(value.urls) ? value.urls : typeof value.urls === "string" ? [value.urls] : null;
+    if (rawURLs == null || rawURLs.length === 0) {
+      throw new Error(`server-info invalid ice_servers[${serverIndex}].urls`);
+    }
+    const urls = rawURLs.map((rawURL, urlIndex) => {
+      if (typeof rawURL !== "string") {
+        throw new Error(`server-info invalid ice_servers[${serverIndex}].urls[${urlIndex}]`);
+      }
+      const url = rawURL.trim();
+      if (!/^(?:stun|stuns|turn|turns):\S+$/i.test(url)) {
+        throw new Error(`server-info invalid ice_servers[${serverIndex}].urls[${urlIndex}]`);
+      }
+      return url;
+    });
+    if (value.username != null && typeof value.username !== "string") {
+      throw new Error(`server-info invalid ice_servers[${serverIndex}].username`);
+    }
+    if (value.credential != null && typeof value.credential !== "string") {
+      throw new Error(`server-info invalid ice_servers[${serverIndex}].credential`);
+    }
+    return {
+      credential: value.credential as string | undefined,
+      urls,
+      username: value.username as string | undefined,
+    };
+  });
 }
 
 function serverInfoBaseURL(options: Pick<ServerInfoBootstrapOptions, "baseUrl" | "endpoint">): string {

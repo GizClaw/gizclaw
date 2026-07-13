@@ -64,6 +64,11 @@ their own agents through workspace runtimes.
   care actions and game results.
 - [ ] Self-organizing server mesh where devices attach to one node and requests can
   route through other nodes to the node that owns the target device data.
+- [ ] Edge node ingress: add an `edge-node` role and edge command/profile so
+  devices and browsers connect to public edge nodes while authoritative server
+  APIs can run over giznet/WebRTC DataChannel.
+- [ ] Server mesh design proposal: keep the distributed server mesh documented
+  for future work, but do not treat it as currently supported product behavior.
 - [ ] Broader SDK coverage, including Flutter/mobile clients.
 - [ ] Third-party digital content federation with joint authorization and access
   from agent runtimes.
@@ -138,3 +143,5 @@ bash tests/gizclaw-e2e/run_tests.sh
 - [Gameplay](docs/gameplay.md)
 - [Agent and GenX](docs/agent_genx.md)
 - [Service layout](docs/service_layout.md)
+- [Edge node design proposal](docs/edge-node.md)
+- [Server mesh design proposal](docs/server_mesh.md)

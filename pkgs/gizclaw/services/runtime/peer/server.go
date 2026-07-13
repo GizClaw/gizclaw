@@ -2,9 +2,13 @@ package peer
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha1"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/url"
+	"strconv"
 	"sync"
 	"time"
 
@@ -13,6 +17,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -22,8 +27,9 @@ var (
 )
 
 const (
-	defaultListLimit = 50
-	maxListLimit     = 200
+	defaultListLimit  = 50
+	maxListLimit      = 200
+	turnCredentialTTL = 10 * time.Minute
 )
 
 type PeerManager interface {
@@ -38,6 +44,7 @@ type Server struct {
 	ServerPublicKey giznet.PublicKey
 	SignalingPath   string
 	ICETCP          bool
+	ICEServers      []gizwebrtc.ICEServer
 	PeerManager     PeerManager
 
 	mu sync.Mutex
@@ -330,7 +337,69 @@ func (s *Server) GetServerInfo(_ context.Context, _ peerhttp.GetServerInfoReques
 		PublicKey:     s.ServerPublicKey.String(),
 		ServerTime:    time.Now().UnixMilli(),
 		SignalingPath: signalingPath,
+		IceServers:    serverInfoICEServersAt(s.ICEServers, time.Now()),
 	}), nil
+}
+
+func serverInfoICEServers(servers []gizwebrtc.ICEServer) *[]struct {
+	Credential *string  `json:"credential,omitempty"`
+	Urls       []string `json:"urls"`
+	Username   *string  `json:"username,omitempty"`
+} {
+	return serverInfoICEServersAt(servers, time.Now())
+}
+
+func serverInfoICEServersAt(servers []gizwebrtc.ICEServer, now time.Time) *[]struct {
+	Credential *string  `json:"credential,omitempty"`
+	Urls       []string `json:"urls"`
+	Username   *string  `json:"username,omitempty"`
+} {
+	if len(servers) == 0 {
+		return nil
+	}
+	out := make([]struct {
+		Credential *string  `json:"credential,omitempty"`
+		Urls       []string `json:"urls"`
+		Username   *string  `json:"username,omitempty"`
+	}, 0, len(servers))
+	for _, server := range servers {
+		item := struct {
+			Credential *string  `json:"credential,omitempty"`
+			Urls       []string `json:"urls"`
+			Username   *string  `json:"username,omitempty"`
+		}{
+			Urls: server.URLs,
+		}
+		if server.CredentialMode == gizwebrtc.ICECredentialModeTURNREST {
+			username := turnRESTUsername(now.Add(turnCredentialTTL), server.Username)
+			credential := turnRESTCredential(server.Credential, username)
+			item.Username = &username
+			item.Credential = &credential
+		} else {
+			if server.Username != "" {
+				item.Username = &server.Username
+			}
+			if server.Credential != "" {
+				item.Credential = &server.Credential
+			}
+		}
+		out = append(out, item)
+	}
+	return &out
+}
+
+func turnRESTUsername(expiresAt time.Time, configuredUsername string) string {
+	expires := strconv.FormatInt(expiresAt.Unix(), 10)
+	if configuredUsername == "" {
+		return expires
+	}
+	return expires + ":" + configuredUsername
+}
+
+func turnRESTCredential(secret, username string) string {
+	mac := hmac.New(sha1.New, []byte(secret))
+	_, _ = mac.Write([]byte(username))
+	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
 }
 
 func pathUnescape(value string) (string, error) {

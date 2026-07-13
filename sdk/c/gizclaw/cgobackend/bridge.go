@@ -237,6 +237,30 @@ func gzcGoPeerCreate(handle C.uint64_t) C.int {
 	return C.GZC_ERR_INVALID_ARGUMENT
 }
 
+//export gzcGoPeerAddICEServer
+func gzcGoPeerAddICEServer(handle C.uint64_t, urlData *C.char, urlLen C.size_t, usernameData *C.char, usernameLen C.size_t, credentialData *C.char, credentialLen C.size_t) C.int {
+	b := backendFromHandle(handle)
+	if b == nil {
+		return C.GZC_ERR_INVALID_ARGUMENT
+	}
+	url, ok := goString(urlData, urlLen)
+	if !ok || url == "" {
+		return C.GZC_ERR_INVALID_ARGUMENT
+	}
+	username, ok := goString(usernameData, usernameLen)
+	if !ok {
+		return C.GZC_ERR_INVALID_ARGUMENT
+	}
+	credential, ok := goString(credentialData, credentialLen)
+	if !ok {
+		return C.GZC_ERR_INVALID_ARGUMENT
+	}
+	if err := b.AddICEServer(url, username, credential); err != nil {
+		return C.GZC_ERR_WEBRTC
+	}
+	return C.GZC_OK
+}
+
 //export gzcGoPeerStartOffer
 func gzcGoPeerStartOffer(handle C.uint64_t, outSDP **C.char, outLen *C.size_t) C.int {
 	b := backendFromHandle(handle)

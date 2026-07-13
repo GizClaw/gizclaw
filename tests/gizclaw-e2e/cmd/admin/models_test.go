@@ -11,7 +11,7 @@ import (
 
 func TestAdminAIProviderCatalogUserStory(t *testing.T) {
 	h := clitest.NewSetupHarness(t, "510-admin-ai-provider-resources")
-	h.CreateContext("admin-a").MustSucceed(t)
+	h.CreateAdminContext("admin-a").MustSucceed(t)
 	h.RegisterContext("admin-a", "--sn", "admin-sn").MustSucceed(t)
 
 	openAIList := h.RunCLI("admin", "openai-tenants", "list", "--context", "admin-a")

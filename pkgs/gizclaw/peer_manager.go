@@ -135,20 +135,23 @@ func (m *Manager) allowService(ctx context.Context, publicKey giznet.PublicKey, 
 	}
 	switch service {
 	case ServiceAdminHTTP:
-		peer, err := m.Peers.LoadPeer(ctx, publicKey)
-		if err != nil {
-			return false
-		}
-		return peer.Status == apitypes.PeerRegistrationStatusActive && peer.Role == apitypes.PeerRoleAdmin
-	case ServiceEdgeRPC:
-		peer, err := m.Peers.LoadPeer(ctx, publicKey)
-		if err != nil {
-			return false
-		}
-		return peer.Status == apitypes.PeerRegistrationStatusActive && peer.Role == apitypes.PeerRoleEdgeNode
+		return m.allowActivePeerRole(ctx, publicKey, apitypes.PeerRoleAdmin)
+	case ServiceEdgeHTTP, ServiceEdgeRPC:
+		return m.allowActivePeerRole(ctx, publicKey, apitypes.PeerRoleEdgeNode)
 	default:
 		return false
 	}
+}
+
+func (m *Manager) allowActivePeerRole(ctx context.Context, publicKey giznet.PublicKey, role apitypes.PeerRole) bool {
+	if m == nil || m.Peers == nil {
+		return false
+	}
+	peer, err := m.Peers.LoadPeer(ctx, publicKey)
+	if err != nil {
+		return false
+	}
+	return peer.Status == apitypes.PeerRegistrationStatusActive && peer.Role == role
 }
 
 func (m *Manager) SetPeerUp(publicKey giznet.PublicKey, conn giznet.Conn) giznet.Conn {

@@ -379,6 +379,7 @@ export function PeerDetailPage(): JSX.Element {
                           <SelectContent>
                             <SelectItem value="client">client</SelectItem>
                             <SelectItem value="server">server</SelectItem>
+                            <SelectItem value="edge-node">edge-node</SelectItem>
                             <SelectItem value="admin">admin</SelectItem>
                           </SelectContent>
                         </Select>

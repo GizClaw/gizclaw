@@ -47,8 +47,25 @@ func TestRootHelp(t *testing.T) {
 	if !strings.Contains(out, "admin") {
 		t.Fatalf("help missing 'admin': %s", out)
 	}
+	if !strings.Contains(out, "edge") {
+		t.Fatalf("help missing 'edge': %s", out)
+	}
 	if strings.Contains(out, "play") {
 		t.Fatalf("help should not include old Play UI command: %s", out)
+	}
+}
+
+func TestEdgeHelp(t *testing.T) {
+	root := New()
+	var buf bytes.Buffer
+	root.SetOut(&buf)
+	root.SetArgs([]string{"edge", "serve", "--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "serve <dir>") {
+		t.Fatalf("edge serve help missing '<dir>': %s", out)
 	}
 }
 

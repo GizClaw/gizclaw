@@ -11,7 +11,7 @@ import (
 
 func TestAdminCredentialsUserStory(t *testing.T) {
 	h := clitest.NewSetupHarness(t, "504-admin-credentials")
-	h.CreateContext("admin-a").MustSucceed(t)
+	h.CreateAdminContext("admin-a").MustSucceed(t)
 	h.RegisterContext("admin-a", "--sn", "admin-sn").MustSucceed(t)
 
 	list := h.RunCLI("admin", "credentials", "list", "--context", "admin-a")

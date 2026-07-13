@@ -16,6 +16,7 @@ import {
   RPC_FRAME_TYPE_TEXT,
   WebRTCRPCClient,
   WebRTCRPCError,
+  applyGiznetServerInfoICEServers,
   createAdminAPIFetch,
   batteryTelemetry,
   createWebRTCFetch,
@@ -1128,6 +1129,7 @@ test("fetchGiznetServerInfo validates server metadata", async () => {
     fetch: async (input, init) => {
       captured = new Request(input, init);
       return Response.json({
+        ice_servers: [{ credential: "pass", urls: [" turn:edge.example.com:3478?transport=udp "], username: "user" }],
         protocol: "gizclaw-webrtc",
         public_key: serverPublicKey,
         signaling_path: "/custom/offer",
@@ -1138,6 +1140,38 @@ test("fetchGiznetServerInfo validates server metadata", async () => {
   assert.equal(captured?.url, "http://localhost:9820/server-info");
   assert.equal(info.public_key, serverPublicKey);
   assert.equal(info.signaling_path, "/custom/offer");
+  assert.deepEqual(info.ice_servers, [{ credential: "pass", urls: ["turn:edge.example.com:3478?transport=udp"], username: "user" }]);
+});
+
+test("fetchGiznetServerInfo rejects invalid ICE server metadata", async () => {
+  const serverPublicKey = base58Encode(x25519.getPublicKey(new Uint8Array(32).fill(2)));
+  for (const iceServers of [
+    {},
+    [{}],
+    [{ urls: [""] }],
+    [{ urls: ["https://edge.example.com"] }],
+    [{ urls: ["turn:edge.example.com", 42] }],
+  ]) {
+    await assert.rejects(
+      fetchGiznetServerInfo({
+        baseUrl: "http://localhost:9820",
+        fetch: async () => Response.json({ ice_servers: iceServers, public_key: serverPublicKey }),
+      }),
+      /invalid ice_servers/,
+    );
+  }
+});
+
+test("applyGiznetServerInfoICEServers updates peer connection configuration", () => {
+  const pc = new FakeConfigurablePeerConnection();
+  const iceServers = [{ credential: "pass", urls: ["turn:edge.example.com:3478?transport=udp"], username: "user" }];
+
+  applyGiznetServerInfoICEServers(pc as unknown as RTCPeerConnection, { ice_servers: iceServers });
+
+  assert.deepEqual(pc.configuration, {
+    bundlePolicy: "balanced",
+    iceServers,
+  });
 });
 
 test("fetchGiznetServerInfo defaults signaling path and reports HTTP failures", async () => {
@@ -1264,6 +1298,18 @@ class FakeICEPeerConnection {
 
   removeEventListener(type: string, listener: () => void): void {
     this.listeners.get(type)?.delete(listener);
+  }
+}
+
+class FakeConfigurablePeerConnection {
+  configuration: RTCConfiguration = { bundlePolicy: "balanced" };
+
+  getConfiguration(): RTCConfiguration {
+    return this.configuration;
+  }
+
+  setConfiguration(configuration: RTCConfiguration): void {
+    this.configuration = configuration;
   }
 }
 

@@ -81,6 +81,12 @@ typedef void (*gzc_rtc_remote_channel_cb)(
     gzc_rtc_channel_t *channel,
     const gzc_rtc_channel_info_t *info);
 
+typedef int (*gzc_peer_add_ice_server_fn)(
+    gzc_rtc_peer_t *peer,
+    gzc_str_t url,
+    gzc_str_t username,
+    gzc_str_t credential);
+
 typedef struct {
   void *userdata;
   gzc_rtc_peer_state_cb on_peer_state;

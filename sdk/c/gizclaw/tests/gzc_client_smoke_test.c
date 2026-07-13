@@ -34,6 +34,8 @@ typedef struct {
   int create_channel_count;
   int close_count;
   gzc_rtc_channel_t *last_closed;
+  int ice_server_count;
+  bool offer_started;
   fake_response_mode_t response_mode;
 } fake_webrtc_t;
 
@@ -81,8 +83,20 @@ static int test_peer_create(void *userdata, const gzc_webrtc_callbacks_t *callba
 
 static int test_peer_start_offer(gzc_rtc_peer_t *peer) {
   fake_webrtc_t *fake = global_fake_webrtc;
+  fake->offer_started = true;
   gzc_str_t offer = gzc_str_from_cstr("v=0\r\nfake-offer\r\n");
   fake->callbacks.on_local_sdp(fake->callbacks.userdata, peer, GZC_RTC_SDP_OFFER, offer);
+  return GZC_OK;
+}
+
+static int test_peer_add_ice_server(gzc_rtc_peer_t *peer, gzc_str_t url, gzc_str_t username, gzc_str_t credential) {
+  fake_webrtc_t *fake = global_fake_webrtc;
+  (void)peer;
+  if (fake == NULL || fake->offer_started || !str_eq_cstr(url, "turn:edge.example.com:3478?transport=udp") ||
+      !str_eq_cstr(username, "edge\"node") || !str_eq_cstr(credential, "sec\\ret")) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  fake->ice_server_count++;
   return GZC_OK;
 }
 
@@ -574,7 +588,7 @@ static int test_http_request(void *userdata, const gzc_http_request_t *request, 
       return GZC_ERR_INVALID_ARGUMENT;
     }
     const char *body = fake->server_info_body == NULL
-                           ? "{\"protocol\":\"gizclaw-webrtc\",\"public_key\":\"8mfzTdZB1JA43QmNAMWfTfkj5GC9TJxJFveThi9tvK6J\",\"signaling_path\":\"/custom/offer\"}"
+                           ? "{\"protocol\":\"gizclaw-webrtc\",\"public_key\":\"8mfzTdZB1JA43QmNAMWfTfkj5GC9TJxJFveThi9tvK6J\",\"signaling_path\":\"/custom/offer\",\"ice_servers\":[{\"urls\":[\"turn:edge.example.com:3478?transport=udp\"],\"username\":\"edge\\\"node\",\"credential\":\"sec\\\\ret\"}]}"
                            : fake->server_info_body;
     return gzc_buf_append_cstr(&out_response->body, fake->platform, body);
   }
@@ -740,6 +754,11 @@ int main(void) {
   if (expect(rc == GZC_OK, "client create") != 0) {
     return 1;
   }
+  rc = gzc_client_set_peer_add_ice_server(client, test_peer_add_ice_server);
+  if (expect(rc == GZC_OK, "client ICE hook") != 0) {
+    gzc_client_destroy(client);
+    return 1;
+  }
   rc = gzc_client_connect(client);
   if (expect(rc == GZC_OK, "client connect") != 0) {
     return 1;
@@ -751,6 +770,9 @@ int main(void) {
     return 1;
   }
   if (expect(fake_webrtc.create_channel_count == 2, "packet and rpc channels created during connect") != 0) {
+    return 1;
+  }
+  if (expect(fake_webrtc.ice_server_count == 1, "server-info ICE server applied before offer") != 0) {
     return 1;
   }
 
@@ -1537,5 +1559,44 @@ int main(void) {
     return 1;
   }
   gzc_client_destroy(client);
+
+  fake_webrtc_t fake_webrtc_no_ice_hook;
+  memset(&fake_webrtc_no_ice_hook, 0, sizeof(fake_webrtc_no_ice_hook));
+  fake_webrtc_no_ice_hook.platform = platform;
+  gzc_buf_init(&fake_webrtc_no_ice_hook.sent);
+
+  fake_http_t fake_http_no_ice_hook;
+  memset(&fake_http_no_ice_hook, 0, sizeof(fake_http_no_ice_hook));
+  fake_http_no_ice_hook.platform = platform;
+
+  gzc_webrtc_vtable_t webrtc_no_ice_hook = webrtc;
+  webrtc_no_ice_hook.userdata = &fake_webrtc_no_ice_hook;
+
+  gzc_http_vtable_t http_no_ice_hook = http;
+  http_no_ice_hook.userdata = &fake_http_no_ice_hook;
+
+  gzc_client_config_t config_no_ice_hook = config;
+  config_no_ice_hook.http = &http_no_ice_hook;
+  config_no_ice_hook.webrtc = &webrtc_no_ice_hook;
+
+  gzc_client_t *client_no_ice_hook = NULL;
+  rc = gzc_client_create(&config_no_ice_hook, &client_no_ice_hook);
+  if (expect(rc == GZC_OK, "client create without ICE hook") != 0) {
+    gzc_buf_free(&fake_webrtc_no_ice_hook.sent, platform);
+    return 1;
+  }
+  rc = gzc_client_connect(client_no_ice_hook);
+  if (expect(rc == GZC_ERR_UNSUPPORTED, "client connect without ICE hook rejects advertised ICE metadata") != 0) {
+    gzc_client_destroy(client_no_ice_hook);
+    gzc_buf_free(&fake_webrtc_no_ice_hook.sent, platform);
+    return 1;
+  }
+  if (expect(fake_webrtc_no_ice_hook.ice_server_count == 0, "missing ICE hook skips advertised ICE servers") != 0) {
+    gzc_client_destroy(client_no_ice_hook);
+    gzc_buf_free(&fake_webrtc_no_ice_hook.sent, platform);
+    return 1;
+  }
+  gzc_client_destroy(client_no_ice_hook);
+  gzc_buf_free(&fake_webrtc_no_ice_hook.sent, platform);
   return 0;
 }

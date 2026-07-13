@@ -56,12 +56,24 @@ func TestServerAllowedCRUD(t *testing.T) {
 	}))
 	requireNoRPCError(t, flowPut)
 
+	createInput := rpcapi.WorkspaceInputModePushToTalk
+	var createParams rpcapi.WorkspaceParameters
+	if err := createParams.FromFlowcraftWorkspaceParameters(rpcapi.FlowcraftWorkspaceParameters{Input: &createInput}); err != nil {
+		t.Fatalf("create workspace parameters: %v", err)
+	}
 	workspaceCreate := callRPC(t, srv, "workspace-create", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
 		Name:         "workspace-a",
 		WorkflowName: "workflow-a1",
+		Parameters:   &createParams,
 	}))
 	if got := mustResult(t, workspaceCreate.Result.AsWorkspaceCreateResponse); got.Name != "workspace-a" || got.WorkflowName != "workflow-a1" {
 		t.Fatalf("workspace.create = %#v", got)
+	} else if got.Parameters == nil {
+		t.Fatalf("workspace.create parameters are nil: %#v", got)
+	} else if typed, err := got.Parameters.AsFlowcraftWorkspaceParameters(); err != nil {
+		t.Fatalf("workspace.create parameters decode: %v", err)
+	} else if typed.Input == nil || *typed.Input != rpcapi.WorkspaceInputModePushToTalk {
+		t.Fatalf("workspace.create input = %#v, want push-to-talk", typed.Input)
 	}
 
 	workspaceList := callRPC(t, srv, "workspace-list", rpcapi.RPCMethodServerWorkspaceList, nil)
@@ -74,11 +86,22 @@ func TestServerAllowedCRUD(t *testing.T) {
 		t.Fatalf("workspace.get name = %q", got)
 	}
 
+	updateInput := rpcapi.WorkspaceInputModeRealtime
+	var updateParams rpcapi.WorkspaceParameters
+	if err := updateParams.FromFlowcraftWorkspaceParameters(rpcapi.FlowcraftWorkspaceParameters{Input: &updateInput}); err != nil {
+		t.Fatalf("update workspace parameters: %v", err)
+	}
 	workspacePut := callRPC(t, srv, "workspace-put", rpcapi.RPCMethodServerWorkspacePut, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspacePutRequest, rpcapi.WorkspacePutRequest{
 		Name: "workspace-a",
-		Body: rpcapi.Workspace{Name: "workspace-a", WorkflowName: "workflow-a1"},
+		Body: rpcapi.Workspace{Name: "workspace-a", WorkflowName: "workflow-a1", Parameters: &updateParams},
 	}))
-	requireNoRPCError(t, workspacePut)
+	if got := mustResult(t, workspacePut.Result.AsWorkspacePutResponse); got.Parameters == nil {
+		t.Fatalf("workspace.put parameters are nil: %#v", got)
+	} else if typed, err := got.Parameters.AsFlowcraftWorkspaceParameters(); err != nil {
+		t.Fatalf("workspace.put parameters decode: %v", err)
+	} else if typed.Input == nil || *typed.Input != rpcapi.WorkspaceInputModeRealtime {
+		t.Fatalf("workspace.put input = %#v, want realtime", typed.Input)
+	}
 
 	modelCreate := callRPC(t, srv, "model-create", rpcapi.RPCMethodServerModelCreate, rpcParams(t, (*rpcapi.RPCPayload).FromModelCreateRequest, rpcModel("model-a")))
 	if got := mustResult(t, modelCreate.Result.AsModelCreateResponse).Id; got != "model-a" {

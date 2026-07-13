@@ -20,10 +20,12 @@ const (
 	ServicePeerHTTP uint64 = 0x01
 	// ServicePeerOpenAI is the reliable peer OpenAI-compatible HTTP service stream.
 	ServicePeerOpenAI uint64 = 0x02
+	// ServiceEdgeHTTP is the reliable edge-node HTTP forwarding service stream.
+	ServiceEdgeHTTP uint64 = 0x30
+	// ServiceEdgeRPC is the reliable edge-node control RPC service stream.
+	ServiceEdgeRPC uint64 = 0x31
 	// ServiceAdminHTTP is the reliable admin HTTP service stream.
 	ServiceAdminHTTP uint64 = 0x10
-	// ServiceEdgeRPC is the reliable edge route control service stream.
-	ServiceEdgeRPC uint64 = 0x31
 
 	// EventStreamAgent is the reliable agent event stream.
 	EventStreamAgent uint64 = 0x20
@@ -54,9 +56,10 @@ type peerHTTPStatusService interface {
 
 // PeerService serves one peer connection.
 type PeerService struct {
-	admin   *adminService
-	public  *peerHTTP
-	manager *Manager
+	admin    *adminService
+	public   *peerHTTP
+	manager  *Manager
+	sessions *publiclogin.SessionManager
 }
 
 var _ peerhttp.StrictServerInterface = (*peerHTTP)(nil)
@@ -84,12 +87,13 @@ func (s *PeerService) ServeConn(conn giznet.Conn) error {
 		_ = oldConn.Close()
 	}
 
-	errCh := make(chan error, 2)
+	errCh := make(chan error, 3)
 	go func() { errCh <- s.serveAdmin(conn) }()
 	go func() { errCh <- s.servePublic(conn) }()
+	go func() { errCh <- s.serveEdgePublic(conn) }()
 
 	var errs []error
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 3; i++ {
 		err := <-errCh
 		if i == 0 {
 			_ = conn.Close()

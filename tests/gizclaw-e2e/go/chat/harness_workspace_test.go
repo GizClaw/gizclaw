@@ -6,7 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,6 +22,31 @@ import (
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 	"github.com/goccy/go-yaml"
 )
+
+func TestFetchChatServerInfoIncludesICEServers(t *testing.T) {
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair error = %v", err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintf(w, `{"protocol":"gizclaw-webrtc","public_key":%q,"signaling_path":"/webrtc/v1/offer","ice_servers":[{"urls":["turn:edge.example.com:3478"],"username":"edge","credential":"secret"}]}`, serverKey.Public.String())
+	}))
+	defer server.Close()
+
+	info, err := fetchChatServerInfo(strings.TrimPrefix(server.URL, "http://"))
+	if err != nil {
+		t.Fatalf("fetchChatServerInfo error = %v", err)
+	}
+	if !info.PublicKey.Equal(serverKey.Public) || info.SignalingURL != server.URL+"/webrtc/v1/offer" {
+		t.Fatalf("server info = %+v", info)
+	}
+	if len(info.ICEServers) != 1 || len(info.ICEServers[0].URLs) != 1 ||
+		info.ICEServers[0].URLs[0] != "turn:edge.example.com:3478" ||
+		info.ICEServers[0].Username != "edge" || info.ICEServers[0].Credential != "secret" {
+		t.Fatalf("ICE servers = %+v", info.ICEServers)
+	}
+}
 
 func TestWorkspaceCaseAppliesInputMode(t *testing.T) {
 	cfg := config{Workflow: workflowConfig{Name: "demo.workflow", Parameters: workspaceParameterConfig{Input: "push-to-talk"}}}
@@ -351,12 +379,53 @@ func loadSetupWorkflowResources(t *testing.T) map[string]setupWorkflowResource {
 		if err := json.Unmarshal(jsonData, &resource); err != nil {
 			t.Fatalf("decode setup workflow resource %s: %v", path, err)
 		}
+		hydrateSetupWorkflowResourceUnions(t, path, jsonData, &resource)
 		if resource.Kind != "Workflow" {
 			continue
 		}
 		resources[resource.Metadata.Name] = resource
 	}
 	return resources
+}
+
+func hydrateSetupWorkflowResourceUnions(t *testing.T, path string, data []byte, resource *setupWorkflowResource) {
+	t.Helper()
+	ast := resource.Spec.AstTranslate
+	if ast == nil || ast.Voice == nil || ast.Voice.Value != nil {
+		return
+	}
+	var raw struct {
+		Spec struct {
+			AstTranslate struct {
+				Voice map[string]json.RawMessage `json:"voice"`
+			} `json:"ast_translate"`
+		} `json:"spec"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("decode raw setup workflow resource %s: %v", path, err)
+	}
+	voiceData, err := json.Marshal(raw.Spec.AstTranslate.Voice)
+	if err != nil {
+		t.Fatalf("marshal raw ast translate voice %s: %v", path, err)
+	}
+	switch {
+	case raw.Spec.AstTranslate.Voice["tts_voice"] != nil:
+		var voice rpcapi.ASTTranslateExternalVoiceParameters
+		if err := json.Unmarshal(voiceData, &voice); err != nil {
+			t.Fatalf("decode external ast translate voice %s: %v", path, err)
+		}
+		if err := ast.Voice.FromASTTranslateExternalVoiceParameters(voice); err != nil {
+			t.Fatalf("hydrate external ast translate voice %s: %v", path, err)
+		}
+	case raw.Spec.AstTranslate.Voice["speaker_id"] != nil:
+		var voice rpcapi.ASTTranslateInternalSpeakerParameters
+		if err := json.Unmarshal(voiceData, &voice); err != nil {
+			t.Fatalf("decode internal ast translate voice %s: %v", path, err)
+		}
+		if err := ast.Voice.FromASTTranslateInternalSpeakerParameters(voice); err != nil {
+			t.Fatalf("hydrate internal ast translate voice %s: %v", path, err)
+		}
+	}
 }
 
 func TestPrintWorkspaceRuntimeAndInterruptSummaries(t *testing.T) {
