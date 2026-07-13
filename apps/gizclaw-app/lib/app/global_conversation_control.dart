@@ -78,7 +78,9 @@ class _GlobalBottomDock extends StatelessWidget {
 
   static const _rootPaths = {
     '/active',
-    '/raids',
+    '/raids/drivers/flowcraft',
+    '/raids/drivers/doubao-realtime',
+    '/raids/drivers/ast-translate',
     '/friends',
     '/groups',
     '/pets',
@@ -120,7 +122,7 @@ class _GlobalBottomDock extends StatelessWidget {
                   child: showTabs
                       ? _PrimaryDockNavigation(
                           key: const ValueKey('primary-dock'),
-                          navigationShell: shell,
+                          location: location,
                         )
                       : _ContextDockNavigation(
                           key: ValueKey(location.path),
@@ -435,24 +437,48 @@ class _AudioFieldPainter extends CustomPainter {
 }
 
 class _PrimaryDockNavigation extends StatefulWidget {
-  const _PrimaryDockNavigation({super.key, required this.navigationShell});
+  const _PrimaryDockNavigation({super.key, required this.location});
 
-  final StatefulNavigationShell navigationShell;
+  final Uri location;
 
   static const _items = [
-    (CupertinoIcons.waveform, CupertinoIcons.waveform, 'Active'),
+    (CupertinoIcons.waveform, CupertinoIcons.waveform, 'Active', '/active'),
     (
       CupertinoIcons.rectangle_3_offgrid,
       CupertinoIcons.rectangle_3_offgrid_fill,
-      'Raids',
+      'Flowcraft',
+      '/raids/drivers/flowcraft',
     ),
-    (CupertinoIcons.person_2, CupertinoIcons.person_2_fill, 'Friends'),
-    (CupertinoIcons.person_3, CupertinoIcons.person_3_fill, 'Groups'),
-    (CupertinoIcons.sparkles, CupertinoIcons.sparkles, 'Pets'),
+    (
+      CupertinoIcons.radiowaves_left,
+      CupertinoIcons.radiowaves_left,
+      'Doubao',
+      '/raids/drivers/doubao-realtime',
+    ),
+    (
+      CupertinoIcons.text_bubble,
+      CupertinoIcons.text_bubble_fill,
+      'Translate',
+      '/raids/drivers/ast-translate',
+    ),
+    (
+      CupertinoIcons.person_2,
+      CupertinoIcons.person_2_fill,
+      'Friends',
+      '/friends',
+    ),
+    (
+      CupertinoIcons.person_3,
+      CupertinoIcons.person_3_fill,
+      'Groups',
+      '/groups',
+    ),
+    (CupertinoIcons.sparkles, CupertinoIcons.sparkles, 'Pets', '/pets'),
     (
       CupertinoIcons.person_crop_circle,
       CupertinoIcons.person_crop_circle_fill,
       'Identity',
+      '/identity',
     ),
   ];
 
@@ -464,7 +490,7 @@ class _PrimaryDockNavigationState extends State<_PrimaryDockNavigation> {
   static const _itemSize = 58.0;
   static const _itemSpacing = 4.0;
   final ScrollController _scrollController = ScrollController();
-  late int _lastIndex = widget.navigationShell.currentIndex;
+  int _lastIndex = -1;
   bool _canScrollBackward = false;
   bool _canScrollForward = false;
 
@@ -498,7 +524,8 @@ class _PrimaryDockNavigationState extends State<_PrimaryDockNavigation> {
   }
 
   void _scheduleSelectedItem() {
-    final index = widget.navigationShell.currentIndex;
+    final index = _selectedIndex;
+    if (index < 0) return;
     if (_lastIndex == index) return;
     _lastIndex = index;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -515,6 +542,13 @@ class _PrimaryDockNavigationState extends State<_PrimaryDockNavigation> {
         curve: Curves.easeOutCubic,
       );
     });
+  }
+
+  int get _selectedIndex {
+    final path = widget.location.path;
+    return _PrimaryDockNavigation._items.indexWhere(
+      (item) => path == item.$4 || path.startsWith('${item.$4}/'),
+    );
   }
 
   @override
@@ -550,7 +584,7 @@ class _PrimaryDockNavigationState extends State<_PrimaryDockNavigation> {
               const SizedBox(width: _itemSpacing),
           itemBuilder: (context, index) {
             final item = _PrimaryDockNavigation._items[index];
-            final selected = widget.navigationShell.currentIndex == index;
+            final selected = _selectedIndex == index;
             final foreground = selected
                 ? const Color(0xFFF7F8F7)
                 : (dark
@@ -565,10 +599,7 @@ class _PrimaryDockNavigationState extends State<_PrimaryDockNavigation> {
                 minimumSize: const Size.square(_itemSize),
                 padding: EdgeInsets.zero,
                 pressedOpacity: 0.68,
-                onPressed: () => widget.navigationShell.goBranch(
-                  index,
-                  initialLocation: selected,
-                ),
+                onPressed: () => context.go(item.$4),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 240),
                   curve: Curves.easeOutCubic,

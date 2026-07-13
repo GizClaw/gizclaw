@@ -40,6 +40,9 @@ GoRouter createAppRouter() {
             routes: [
               GoRoute(
                 path: '/raids',
+                redirect: (context, state) => state.uri.path == '/raids'
+                    ? '/raids/drivers/flowcraft'
+                    : null,
                 pageBuilder: (context, state) =>
                     _page(state, const ChatsPage()),
                 routes: [

@@ -47,6 +47,17 @@ void main() {
     expect(find.byKey(const ValueKey('voice-mode-thumb')), findsOneWidget);
     expect(find.text('LIVE'), findsNothing);
     expect(find.byType(CupertinoTabBar), findsNothing);
+    for (final destination in [
+      'Flowcraft',
+      'Doubao',
+      'Translate',
+      'Friends',
+      'Groups',
+      'Pets',
+    ]) {
+      expect(primaryNav(destination), findsOneWidget);
+    }
+    expect(primaryNav('Raids'), findsNothing);
   });
 
   testWidgets('shows the current active workspace conversation', (
@@ -100,39 +111,16 @@ void main() {
     expect(find.byType(ChatroomWorkspacePage), findsOneWidget);
   });
 
-  testWidgets('opens chat types before their conversations', (tester) async {
+  testWidgets('opens workflow drivers directly from the dock', (tester) async {
     await pumpApp(tester);
 
-    await tapPrimaryNav(tester, 'Raids');
-    await tester.pumpAndSettle();
-
-    for (final driver in ['Flowcraft', 'Doubao Realtime', 'AST Translate']) {
-      expect(find.text(driver), findsOneWidget);
-    }
-    for (final asset in [
-      'assets/drivers/flowcraft.png',
-      'assets/drivers/doubao-realtime.png',
-      'assets/drivers/ast-translate.png',
-    ]) {
-      expect(find.image(AssetImage(asset)), findsOneWidget);
-    }
-    expect(find.text('Chatroom'), findsNothing);
-    expect(
-      find.image(const AssetImage('assets/drivers/chatroom.png')),
-      findsNothing,
-    );
-    expect(find.byType(CupertinoSlidingSegmentedControl), findsNothing);
-    expect(find.text('Morning check-in'), findsNothing);
-
-    await tester.tap(find.text('Flowcraft'));
+    await tapPrimaryNav(tester, 'Flowcraft');
     await tester.pumpAndSettle();
 
     expect(find.byType(DriverWorkspacesPage), findsOneWidget);
     expect(find.text('Mobile app plan'), findsOneWidget);
     expect(find.text('Morning check-in'), findsNothing);
 
-    await tester.tap(find.byIcon(CupertinoIcons.chevron_left).hitTestable());
-    await tester.pumpAndSettle();
     await tapPrimaryNav(tester, 'Groups');
     await tester.pumpAndSettle();
     expect(find.text('Builder Crew'), findsOneWidget);
@@ -149,7 +137,7 @@ void main() {
     expect(find.byType(CupertinoTextField), findsNothing);
   });
 
-  testWidgets('keeps drivers visible without matching workspaces', (
+  testWidgets('keeps driver destinations visible without workspaces', (
     tester,
   ) async {
     final controller = MobileDataController.demo();
@@ -162,22 +150,24 @@ void main() {
         .toList(growable: false);
     await pumpApp(tester, controller: controller);
 
-    await tapPrimaryNav(tester, 'Raids');
-    await tester.pumpAndSettle();
+    expect(primaryNav('Doubao'), findsOneWidget);
+    expect(primaryNav('Translate'), findsOneWidget);
 
-    expect(find.text('Doubao Realtime'), findsOneWidget);
-    expect(find.text('AST Translate'), findsOneWidget);
-    expect(find.text('0 workspaces'), findsNWidgets(2));
+    await tapPrimaryNav(tester, 'Doubao');
+    await tester.pumpAndSettle();
+    expect(find.text('No Doubao Realtime workspaces yet.'), findsOneWidget);
+
+    await tapPrimaryNav(tester, 'Translate');
+    await tester.pumpAndSettle();
+    expect(find.text('No AST Translate workspaces yet.'), findsOneWidget);
   });
 
-  testWidgets('hides tabs in chat and restores the Raids stack on return', (
+  testWidgets('hides tabs in chat and restores the driver destination', (
     tester,
   ) async {
     await pumpApp(tester);
 
-    await tapPrimaryNav(tester, 'Raids');
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Flowcraft'));
+    await tapPrimaryNav(tester, 'Flowcraft');
     await tester.pumpAndSettle();
     expect(find.byType(DriverWorkspacesPage), findsOneWidget);
     await tester.tap(find.text('Mobile app plan'));
@@ -194,24 +184,20 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(DriverWorkspacesPage), findsOneWidget);
     expect(find.byType(CupertinoTabBar), findsNothing);
-    expect(find.text('Flowcraft').hitTestable(), findsOneWidget);
-    await tester.tap(find.byIcon(CupertinoIcons.chevron_left).hitTestable());
-    await tester.pumpAndSettle();
+    expect(primaryNav('Flowcraft'), findsOneWidget);
     await tapPrimaryNav(tester, 'Active');
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(ActiveWorkspacePage), findsOneWidget);
 
-    await tapPrimaryNav(tester, 'Raids');
+    await tapPrimaryNav(tester, 'Flowcraft');
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.byType(ChatsPage), findsOneWidget);
+    expect(find.byType(DriverWorkspacesPage), findsOneWidget);
   });
 
   testWidgets('renders the workspace signal room', (tester) async {
     await pumpApp(tester);
 
-    await tapPrimaryNav(tester, 'Raids');
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('AST Translate'));
+    await tapPrimaryNav(tester, 'Translate');
     await tester.pumpAndSettle();
     await tester.tap(find.text('Parser pass'));
     await tester.pump();
@@ -243,9 +229,7 @@ void main() {
     addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
     await pumpApp(tester);
 
-    await tapPrimaryNav(tester, 'Raids');
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('AST Translate'));
+    await tapPrimaryNav(tester, 'Translate');
     await tester.pumpAndSettle();
     await tester.tap(find.text('Parser pass'));
     await tester.pump();
@@ -276,12 +260,14 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('shows six primary destinations', (tester) async {
+  testWidgets('shows expanded primary destinations', (tester) async {
     await pumpApp(tester);
 
     for (final label in [
       'Active',
-      'Raids',
+      'Flowcraft',
+      'Doubao',
+      'Translate',
       'Friends',
       'Groups',
       'Pets',
@@ -454,9 +440,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await pumpApp(tester);
-    await tapPrimaryNav(tester, 'Raids');
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('AST Translate'));
+    await tapPrimaryNav(tester, 'Translate');
     await tester.pumpAndSettle();
     await tester.tap(find.text('Parser pass'));
     await tester.pump();
