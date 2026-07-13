@@ -270,6 +270,7 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
     });
     try {
       final workspace = await widget.data.createWorkspace(
+        driver: widget.driver,
         workflowName: _workflow.name,
         displayName: displayName,
       );

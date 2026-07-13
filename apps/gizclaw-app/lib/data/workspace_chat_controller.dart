@@ -75,7 +75,9 @@ class WorkspaceChatController extends ChangeNotifier {
   bool startingInput = false;
   bool playingOutput = false;
   bool _finishPending = false;
+  bool _inputSenderConfigured = false;
   bool _transportRecoveryRequested = false;
+  final Map<String, _AudioEnergySample> _sentAudioEnergy = {};
   final Map<String, _AudioEnergySample> _receivedAudioEnergy = {};
   String? replayingHistoryId;
   bool _disposed = false;
@@ -192,11 +194,12 @@ class WorkspaceChatController extends ChangeNotifier {
     notifyListeners();
     try {
       final track = await _ensureInputTrack();
+      track.enabled = true;
+      await _bindInputTrack(track);
       final streamId =
           'audio-${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}';
       _activeStreamId = streamId;
-      track.enabled = true;
-      await Future<void>.delayed(const Duration(milliseconds: 160));
+      await Future<void>.delayed(const Duration(milliseconds: 260));
       await session.beginAudio(streamId);
       recording = true;
       if (_finishPending) {
@@ -256,24 +259,19 @@ class WorkspaceChatController extends ChangeNotifier {
       for (final report in reports) {
         final mediaKind = report.values['kind'] ?? report.values['mediaType'];
         if (mediaKind != 'audio') continue;
-        final level = _statDouble(report.values['audioLevel']).clamp(0.0, 1.0);
-        if (report.type == 'media-source') input = math.max(input, level);
-        if (report.type == 'inbound-rtp') {
-          final energy = _statDouble(report.values['totalAudioEnergy']);
-          final duration = _statDouble(report.values['totalSamplesDuration']);
-          final previous = _receivedAudioEnergy[report.id];
-          _receivedAudioEnergy[report.id] = _AudioEnergySample(
-            energy: energy,
-            duration: duration,
+        final level = normalizedAudioLevel(report.values['audioLevel']);
+        if (report.type == 'media-source' || report.type == 'outbound-rtp') {
+          final energyLevel = _energyLevelForReport(
+            report,
+            samples: _sentAudioEnergy,
           );
-          final energyLevel = previous == null
-              ? 0.0
-              : audioLevelFromEnergyDelta(
-                  previousEnergy: previous.energy,
-                  previousDuration: previous.duration,
-                  energy: energy,
-                  duration: duration,
-                );
+          input = math.max(input, math.max(level, energyLevel));
+        }
+        if (report.type == 'inbound-rtp') {
+          final energyLevel = _energyLevelForReport(
+            report,
+            samples: _receivedAudioEnergy,
+          );
           output = math.max(output, math.max(level, energyLevel));
         }
       }
@@ -315,8 +313,9 @@ class WorkspaceChatController extends ChangeNotifier {
   Future<rtc.MediaStreamTrack> _ensureInputTrack() async {
     final existing = _inputTrack;
     if (existing != null) return existing;
-    final pc = peerConnection;
-    if (pc == null) throw StateError('WebRTC connection is unavailable');
+    if (peerConnection == null) {
+      throw StateError('WebRTC connection is unavailable');
+    }
     final media = await rtc.navigator.mediaDevices.getUserMedia({
       'audio': {
         'channelCount': 1,
@@ -333,24 +332,35 @@ class WorkspaceChatController extends ChangeNotifier {
       throw StateError('Microphone capture returned no audio track');
     }
     final track = tracks.first;
+    _inputStream = media;
+    _inputTrack = track;
+    return track;
+  }
+
+  Future<void> _bindInputTrack(rtc.MediaStreamTrack track) async {
+    final pc = peerConnection;
+    final stream = _inputStream;
+    if (pc == null || stream == null) {
+      throw StateError('WebRTC microphone stream is unavailable');
+    }
     rtc.RTCRtpTransceiver? audioTransceiver;
     for (final transceiver in await pc.getTransceivers()) {
-      if (transceiver.receiver.track?.kind == 'audio') {
+      if (transceiver.sender.track?.kind == 'audio' ||
+          transceiver.receiver.track?.kind == 'audio') {
         audioTransceiver = transceiver;
         break;
       }
     }
     if (audioTransceiver == null) {
-      for (final item in media.getTracks()) {
-        item.stop();
-      }
       throw StateError('WebRTC audio transceiver is unavailable');
     }
     await audioTransceiver.sender.replaceTrack(track);
+    if (!_inputSenderConfigured) {
+      await audioTransceiver.sender.setStreams([stream]);
+      _inputSenderConfigured = true;
+    }
+    await rtc.Helper.ensureAudioSession();
     await rtc.Helper.setSpeakerphoneOnButPreferBluetooth();
-    _inputStream = media;
-    _inputTrack = track;
-    return track;
   }
 
   void _handleEvent(PeerStreamEvent event) {
@@ -491,6 +501,7 @@ class WorkspaceChatController extends ChangeNotifier {
     playingOutput = false;
     inputLevel = 0;
     outputLevel = 0;
+    _sentAudioEnergy.clear();
     _receivedAudioEnergy.clear();
     _finishPending = false;
   }
@@ -530,6 +541,32 @@ double audioLevelFromEnergyDelta({
   final durationDelta = duration - previousDuration;
   if (energyDelta < 0 || durationDelta <= 0) return 0;
   return math.sqrt(energyDelta / durationDelta).clamp(0.0, 1.0);
+}
+
+@visibleForTesting
+double normalizedAudioLevel(Object? value) {
+  final level = _statDouble(value);
+  if (level <= 0) return 0;
+  if (level <= 1) return level;
+  return (level / 32767).clamp(0.0, 1.0);
+}
+
+double _energyLevelForReport(
+  rtc.StatsReport report, {
+  required Map<String, _AudioEnergySample> samples,
+}) {
+  final energy = _statDouble(report.values['totalAudioEnergy']);
+  final duration = _statDouble(report.values['totalSamplesDuration']);
+  if (energy <= 0 || duration <= 0) return 0;
+  final previous = samples[report.id];
+  samples[report.id] = _AudioEnergySample(energy: energy, duration: duration);
+  if (previous == null) return 0;
+  return audioLevelFromEnergyDelta(
+    previousEnergy: previous.energy,
+    previousDuration: previous.duration,
+    energy: energy,
+    duration: duration,
+  );
 }
 
 double _statDouble(Object? value) {

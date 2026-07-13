@@ -34,4 +34,11 @@ void main() {
       0,
     );
   });
+
+  test('normalizes standard and legacy WebRTC audio levels', () {
+    expect(normalizedAudioLevel(0.25), 0.25);
+    expect(normalizedAudioLevel('0.5'), 0.5);
+    expect(normalizedAudioLevel(16384), closeTo(0.5, 0.001));
+    expect(normalizedAudioLevel(null), 0);
+  });
 }

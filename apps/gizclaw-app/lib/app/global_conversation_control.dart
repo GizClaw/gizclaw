@@ -311,12 +311,10 @@ class _AudioFieldPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (presence <= 0.001 || size.isEmpty) return;
-    final sampledInput = math.pow(inputLevel.clamp(0.0, 1.0), 0.38).toDouble();
-    final sampledOutput = math
-        .pow(outputLevel.clamp(0.0, 1.0), 0.38)
-        .toDouble();
-    final input = math.max(sampledInput, inputActive ? 0.1 : 0.0);
-    final output = math.max(sampledOutput, outputActive ? 0.14 : 0.0);
+    final sampledInput = _responsiveAudioLevel(inputLevel);
+    final sampledOutput = _responsiveAudioLevel(outputLevel);
+    final input = math.max(sampledInput, inputActive ? 0.035 : 0.0);
+    final output = math.max(sampledOutput, outputActive ? 0.045 : 0.0);
     final overall = math.max(input, output);
     final angle = phase * math.pi * 2;
     const inputColor = GizColors.teal;
@@ -379,7 +377,7 @@ class _AudioFieldPainter extends CustomPainter {
     required double phase,
     required double frequency,
   }) {
-    final flameHeight = size.height * (0.22 + level * 0.36 + overall * 0.12);
+    final flameHeight = size.height * (0.12 + level * 0.62 + overall * 0.14);
     final path = Path()..moveTo(0, size.height);
     const segments = 52;
     for (var index = 0; index <= segments; index++) {
@@ -434,6 +432,16 @@ class _AudioFieldPainter extends CustomPainter {
       oldDelegate.outputLevel != outputLevel ||
       oldDelegate.inputActive != inputActive ||
       oldDelegate.outputActive != outputActive;
+}
+
+double _responsiveAudioLevel(double level) {
+  const noiseFloor = 0.008;
+  const fullScale = 0.22;
+  final normalized = ((level - noiseFloor) / (fullScale - noiseFloor)).clamp(
+    0.0,
+    1.0,
+  );
+  return math.pow(normalized, 0.82).toDouble();
 }
 
 class _PrimaryDockNavigation extends StatefulWidget {

@@ -348,6 +348,7 @@ class MobileDataController extends ChangeNotifier {
   }
 
   Future<Workspace> createWorkspace({
+    required WorkflowDriverKind driver,
     required String workflowName,
     required String displayName,
   }) async {
@@ -372,6 +373,7 @@ class MobileDataController extends ChangeNotifier {
           name: _newWorkspaceName(normalizedWorkflow),
           workflowName: normalizedWorkflow,
           displayName: normalizedDisplayName,
+          parameters: newWorkspaceParametersForDriver(driver),
         ),
       ),
     );
@@ -489,6 +491,8 @@ class MobileDataController extends ChangeNotifier {
     final selected = await client.setRunWorkspace(workspaceName);
     runWorkspaceState = selected.value;
     notifyListeners();
+    await _loadActiveWorkspaceDocument(client);
+    await _ensureActiveWorkspaceParameters(client);
     final reloaded = await client.reloadRunWorkspace();
     runWorkspaceState = reloaded.value;
     await _loadActiveWorkspaceDocument(client);
@@ -498,11 +502,15 @@ class MobileDataController extends ChangeNotifier {
   Future<void> _syncRunWorkspace(GizClawClient client) async {
     var state = (await client.getRunWorkspace()).value;
     final workspaceName = state.activeWorkspaceName.trim();
-    if (workspaceName.isNotEmpty && _runWorkspaceNeedsReload(state)) {
-      state = (await client.reloadRunWorkspace()).value;
-    }
     runWorkspaceState = state;
     await _loadActiveWorkspaceDocument(client);
+    final repaired = await _ensureActiveWorkspaceParameters(client);
+    if (workspaceName.isNotEmpty &&
+        (_runWorkspaceNeedsReload(state) || repaired)) {
+      state = (await client.reloadRunWorkspace()).value;
+      runWorkspaceState = state;
+      await _loadActiveWorkspaceDocument(client);
+    }
     if (workspaceName.isEmpty) {
       _replaceActiveWorkspaceChat(null);
       notifyListeners();
@@ -518,6 +526,29 @@ class MobileDataController extends ChangeNotifier {
       return;
     }
     activeWorkspaceDocument = (await client.getWorkspace(workspaceName)).value;
+  }
+
+  Future<bool> _ensureActiveWorkspaceParameters(GizClawClient client) async {
+    final workspace = activeWorkspaceDocument;
+    final workspaceName = activeWorkspaceName;
+    if (workspace == null ||
+        workspaceName == null ||
+        workspace.hasParameters()) {
+      return false;
+    }
+    final driver = workflow(workspace.workflowName).driver;
+    if (driver != WorkflowDriverKind.flowcraft &&
+        driver != WorkflowDriverKind.doubaoRealtime &&
+        driver != WorkflowDriverKind.astTranslate) {
+      return false;
+    }
+    final updated = workspace.deepCopy()
+      ..parameters = newWorkspaceParametersForDriver(driver);
+    activeWorkspaceDocument = (await client.putWorkspace(
+      workspaceName,
+      updated,
+    )).value;
+    return true;
   }
 
   Future<WorkspaceChatController> _installActiveWorkspaceChat(
@@ -606,6 +637,39 @@ String _newWorkspaceName(String workflowName) {
   );
   return '$prefix-$suffix';
 }
+
+@visibleForTesting
+WorkspaceParameters newWorkspaceParametersForDriver(
+  WorkflowDriverKind driver,
+) => switch (driver) {
+  WorkflowDriverKind.flowcraft => WorkspaceParameters(
+    flowcraftWorkspaceParameters: FlowcraftWorkspaceParameters(
+      agentType: FlowcraftWorkspaceParametersAgentType
+          .FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT,
+      input: WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
+    ),
+  ),
+  WorkflowDriverKind.doubaoRealtime => WorkspaceParameters(
+    doubaoRealtimeWorkspaceParameters: DoubaoRealtimeWorkspaceParameters(
+      agentType: DoubaoRealtimeWorkspaceParametersAgentType
+          .DOUBAO_REALTIME_WORKSPACE_PARAMETERS_AGENT_TYPE_DOUBAO_REALTIME,
+      input: WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
+    ),
+  ),
+  WorkflowDriverKind.astTranslate => WorkspaceParameters(
+    asttranslateWorkspaceParameters: ASTTranslateWorkspaceParameters(
+      agentType: ASTTranslateWorkspaceParametersAgentType
+          .ASTTRANSLATE_WORKSPACE_PARAMETERS_AGENT_TYPE_AST_TRANSLATE,
+      enableSourceLanguageDetect: true,
+      input: WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
+      langPair: mobileAstLanguagePair,
+      mode: ASTTranslateMode.ASTTRANSLATE_MODE_S2S,
+    ),
+  ),
+  _ => throw UnsupportedError(
+    'Creating ${driver.label} workspaces is not supported',
+  ),
+};
 
 bool _runWorkspaceNeedsReload(PeerRunWorkspaceState state) {
   return state.runtimeState ==
