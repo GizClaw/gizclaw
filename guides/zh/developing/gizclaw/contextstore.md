@@ -2,6 +2,8 @@
 
 `pkgs/gizclaw/contextstore` 管理 GizClaw 客户端的本地连接 Context。每个 Context 绑定一个本地 Giznet identity 和一个目标 Server endpoint；CLI 或其他客户端先选择 Context，再使用其中的配置建立连接。
 
+[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/contextstore)
+
 ## 磁盘结构
 
 ```text
@@ -103,10 +105,6 @@ flowchart TB
 | `Store.List` / `ListSummaries` | 按名称排序列出 Context，并标记当前项。 |
 | `Store.Delete` | 删除具名 Context，并在必要时移除 `current`。 |
 | `validateName` / `validateEndpoint` | 限制目录名称和 `host:port` endpoint 格式。 |
-
-## Go API References
-
-[查看 `contextstore` package API](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/contextstore)
 
 ## Ownership 边界
 

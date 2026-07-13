@@ -6,11 +6,59 @@ const zhDevelopingSidebar = [
     text: "开发指引",
     items: [
       { text: "总览", link: "/zh/developing/" },
-      { text: "pkgs/giznet", link: "/zh/developing/giznet" },
       {
-        text: "pkgs/gizclaw",
+        text: "API Design",
         collapsed: false,
         items: [
+          {
+            text: "API",
+            collapsed: false,
+            items: [
+              { text: "总览", link: "/zh/developing/api/overview" },
+              {
+                text: "HTTP API",
+                collapsed: false,
+                items: [
+                  { text: "总览", link: "/zh/developing/api/http/overview" },
+                  { text: "Admin API", link: "/zh/developing/api/http/admin" },
+                  { text: "Public API", link: "/zh/developing/api/http/public" },
+                  { text: "OpenAI Compatible", link: "/zh/developing/api/http/openai-compatible" },
+                  { text: "Shared 与 Resources", link: "/zh/developing/api/http/shared-resources" },
+                  { text: "依赖规则", link: "/zh/developing/api/http/type-dependencies" },
+                ],
+              },
+              {
+                text: "Proto API",
+                collapsed: false,
+                items: [
+                  { text: "总览", link: "/zh/developing/api/proto/overview" },
+                  {
+                    text: "Peer RPC",
+                    collapsed: false,
+                    items: [
+                      { text: "总览", link: "/zh/developing/api/proto/rpc/overview" },
+                      { text: "Both Provided", link: "/zh/developing/api/proto/rpc/both-provided" },
+                      { text: "Client Provided to Server", link: "/zh/developing/api/proto/rpc/client-provided-to-server" },
+                      { text: "Server Provided to Client", link: "/zh/developing/api/proto/rpc/server-provided-to-client" },
+                      { text: "Server Provided to Edge-node", link: "/zh/developing/api/proto/rpc/server-provided-to-edge-node" },
+                    ],
+                  },
+                  { text: "Telemetry", link: "/zh/developing/api/proto/telemetry" },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        text: "Packages",
+        collapsed: false,
+        items: [
+          { text: "pkgs/giznet", link: "/zh/developing/giznet" },
+          {
+            text: "pkgs/gizclaw",
+            collapsed: false,
+            items: [
           { text: "总览", link: "/zh/developing/gizclaw/overview" },
           {
             text: "peer",
@@ -81,7 +129,21 @@ const zhDevelopingSidebar = [
               { text: "AI", link: "/zh/developing/gizclaw/services/ai" },
               { text: "Device", link: "/zh/developing/gizclaw/services/device" },
               { text: "Gameplay", link: "/zh/developing/gizclaw/services/gameplay" },
-              { text: "Runtime", link: "/zh/developing/gizclaw/services/runtime" },
+              {
+                text: "Runtime",
+                collapsed: false,
+                items: [
+                  { text: "总览", link: "/zh/developing/gizclaw/services/runtime/overview" },
+                  { text: "Agent", link: "/zh/developing/gizclaw/services/runtime/agent" },
+                  { text: "Agent Host", link: "/zh/developing/gizclaw/services/runtime/agenthost" },
+                  { text: "Peer", link: "/zh/developing/gizclaw/services/runtime/peer" },
+                  { text: "Peer Resources", link: "/zh/developing/gizclaw/services/runtime/peerresource" },
+                  { text: "Peer Route", link: "/zh/developing/gizclaw/services/runtime/peerroute" },
+                  { text: "Peer Run", link: "/zh/developing/gizclaw/services/runtime/peerrun" },
+                  { text: "Peer Telemetry", link: "/zh/developing/gizclaw/services/runtime/peertelemetry" },
+                  { text: "Toolkit", link: "/zh/developing/gizclaw/services/runtime/toolkit" },
+                ],
+              },
               { text: "Social", link: "/zh/developing/gizclaw/services/social" },
               { text: "System", link: "/zh/developing/gizclaw/services/system" },
             ],
@@ -89,9 +151,90 @@ const zhDevelopingSidebar = [
           { text: "generated", link: "/zh/developing/gizclaw/api" },
           { text: "contextstore", link: "/zh/developing/gizclaw/contextstore" },
           { text: "customid", link: "/zh/developing/gizclaw/customid" },
+            ],
+          },
+      {
+        text: "pkgs/store",
+        collapsed: false,
+        items: [
+          { text: "总览", link: "/zh/developing/stores/overview" },
+          { text: "graph", link: "/zh/developing/stores/graph" },
+          { text: "kv", link: "/zh/developing/stores/kv" },
+          { text: "metrics", link: "/zh/developing/stores/metrics" },
+          { text: "objectstore", link: "/zh/developing/stores/objectstore" },
+          { text: "vecid", link: "/zh/developing/stores/vecid" },
+          { text: "vecstore", link: "/zh/developing/stores/vecstore" },
+        ],
+      },
+      {
+        text: "pkgs/audio",
+        collapsed: false,
+        items: [
+          { text: "总览", link: "/zh/developing/audio/overview" },
+          {
+            text: "codec",
+            collapsed: true,
+            items: [
+              { text: "mp3", link: "/zh/developing/audio/codec-mp3" },
+              { text: "ogg", link: "/zh/developing/audio/codec-ogg" },
+              { text: "opus", link: "/zh/developing/audio/codec-opus" },
+            ],
+          },
+          { text: "codecconv", link: "/zh/developing/audio/codecconv" },
+          { text: "pcm", link: "/zh/developing/audio/pcm" },
+          { text: "portaudio", link: "/zh/developing/audio/portaudio" },
+          { text: "resampler", link: "/zh/developing/audio/resampler" },
+          { text: "songs", link: "/zh/developing/audio/songs" },
+          { text: "voiceprint", link: "/zh/developing/audio/voiceprint" },
+        ],
+      },
+      {
+        text: "pkgs/genx",
+        collapsed: false,
+        items: [
+          { text: "总览", link: "/zh/developing/genx/overview" },
+          {
+            text: "Generators",
+            collapsed: false,
+            items: [
+              { text: "总览", link: "/zh/developing/genx/generators/overview" },
+              { text: "OpenAI Adapter", link: "/zh/developing/genx/generators/openai" },
+              { text: "Gemini Adapter", link: "/zh/developing/genx/generators/gemini" },
+            ],
+          },
+          {
+            text: "Transformers",
+            collapsed: false,
+            items: [
+              { text: "总览", link: "/zh/developing/genx/transformers/overview" },
+              { text: "Doubao Speech Adapter", link: "/zh/developing/genx/transformers/doubao" },
+              { text: "DashScope Adapter", link: "/zh/developing/genx/transformers/dashscope" },
+              { text: "MiniMax Adapter", link: "/zh/developing/genx/transformers/minimax" },
+              { text: "Stream Processing", link: "/zh/developing/genx/transformers/stream-processing" },
+            ],
+          },
+          { text: "Segmentors", link: "/zh/developing/genx/segmentors" },
+          { text: "Profilers", link: "/zh/developing/genx/profilers" },
+          { text: "Labelers", link: "/zh/developing/genx/labelers" },
+          { text: "Model Loader", link: "/zh/developing/genx/model-loader" },
+          { text: "Match", link: "/zh/developing/genx/match" },
         ],
       },
       { text: "pkgs/gizedge", link: "/zh/developing/gizedge" },
+        ],
+      },
+      { text: "CLI", link: "/zh/developing/cli/" },
+      { text: "Wails App", link: "/zh/developing/apps/wails" },
+      { text: "Flutter App", link: "/zh/developing/apps/flutter" },
+      {
+        text: "SDK",
+        collapsed: false,
+        items: [
+          { text: "Go", link: "/zh/developing/sdk/go" },
+          { text: "TypeScript", link: "/zh/developing/sdk/typescript" },
+          { text: "Flutter", link: "/zh/developing/sdk/flutter" },
+        ],
+      },
     ],
   },
 ];
@@ -118,6 +261,34 @@ export default withMermaid(
     mermaid: {
       theme: "default",
     },
+    vite: {
+      plugins: [
+        {
+          name: "local-reference-index",
+          configureServer(server) {
+            server.middlewares.use((request, _response, next) => {
+              if (
+                request.url?.endsWith("/") &&
+                (request.url.startsWith("/references/flutter/") ||
+                  request.url.startsWith("/references/typescript/"))
+              ) {
+                request.url += "index.html";
+              }
+              next();
+            });
+          },
+        },
+      ],
+      server: {
+        watch: {
+          // Codex applies documentation edits through atomic file replacement,
+          // which macOS file events may miss. Polling keeps the local guide in sync.
+          usePolling: true,
+          interval: 300,
+          ignored: ["**/.vitepress/dist/**", "**/node_modules/**"],
+        },
+      },
+    },
     themeConfig: {
       // English pages are intentionally not mirrored yet. Until they are,
       // language switching must land on a locale home instead of constructing
@@ -128,29 +299,57 @@ export default withMermaid(
       },
       nav: [
         { text: "开发指引", link: "/zh/developing/" },
-        { text: "E2E 指引", link: "/zh/e2e/" },
-        { text: "代码审核", link: "/zh/reviewing/" },
-        { text: "使用说明", link: "/zh/user-guide/" },
-        { text: "当前问题", link: "/zh/current-worktree-issues" },
+        { text: "审核指引", link: "/zh/reviewing/" },
+        { text: "编码规范", link: "/zh/coding-styles/" },
+        { text: "使用说明", link: "/zh/using/" },
+        { text: "Reference", link: "/references/" },
+        { text: "当前问题", link: "/zh/issues" },
       ],
       sidebar: {
         "/zh/developing/": zhDevelopingSidebar,
-        "/zh/e2e/": [
-          {
-            text: "E2E 指引",
-            items: [{ text: "总览", link: "/zh/e2e/" }],
-          },
-        ],
         "/zh/reviewing/": [
           {
-            text: "代码审核",
-            items: [{ text: "总览", link: "/zh/reviewing/" }],
+            text: "审核指引",
+            items: [
+              { text: "总览", link: "/zh/reviewing/" },
+              { text: "审查项目", link: "/zh/reviewing/review_items" },
+              { text: "开发后自我审查", link: "/zh/reviewing/self_review" },
+              { text: "PR Agent 审查", link: "/zh/reviewing/pr_agent_review" },
+              { text: "Issue 审查", link: "/zh/reviewing/issue_review" },
+            ],
           },
         ],
-        "/zh/user-guide/": [
+        "/zh/coding-styles/": [
+          {
+            text: "编码规范",
+            items: [
+              { text: "总览", link: "/zh/coding-styles/" },
+              { text: "Go", link: "/zh/coding-styles/go" },
+              { text: "JavaScript 与 TypeScript", link: "/zh/coding-styles/js" },
+              { text: "Dart 与 Flutter", link: "/zh/coding-styles/dart-flutter" },
+              { text: "C 与 cgo", link: "/zh/coding-styles/c" },
+              { text: "文档", link: "/zh/coding-styles/docs" },
+            ],
+          },
+        ],
+        "/zh/using/": [
           {
             text: "使用说明",
-            items: [{ text: "总览", link: "/zh/user-guide/" }],
+            items: [
+              { text: "总览", link: "/zh/using/" },
+              { text: "CLI", link: "/zh/using/cli" },
+              { text: "Wails App", link: "/zh/using/wails-app" },
+              { text: "Flutter App", link: "/zh/using/flutter-app" },
+              {
+                text: "SDK",
+                collapsed: false,
+                items: [
+                  { text: "Go", link: "/zh/using/sdk/go" },
+                  { text: "TypeScript", link: "/zh/using/sdk/typescript" },
+                  { text: "Flutter", link: "/zh/using/sdk/flutter" },
+                ],
+              },
+            ],
           },
         ],
       },

@@ -2,6 +2,8 @@
 
 `pkgs/gizclaw/services/gameplay` 拥有 GizClaw Gameplay 的 catalog、玩家状态、奖励行为和数字资产。当前 Gameplay 服务保持为一个 package，因为这些资源共同参与同一套规则和事务边界。
 
+[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/gameplay)
+
 ## 领域内容
 
 ```text

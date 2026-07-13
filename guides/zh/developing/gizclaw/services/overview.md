@@ -61,6 +61,6 @@ flowchart TB
 - [AI](ai.md)
 - [Device](device.md)
 - [Gameplay](gameplay.md)
-- [Runtime](runtime.md)
+- [Runtime](runtime/overview.md)
 - [Social](social.md)
 - [System](system.md)

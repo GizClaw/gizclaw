@@ -2,6 +2,8 @@
 
 `pkgs/gizclaw/customid` 保存多个 GizClaw 领域共同使用的自定义资源 ID 规则，包括稳定 ID 和 compound ID 的构造、格式化与解析边界。
 
+[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/customid)
+
 ## 目录位置
 
 ```text

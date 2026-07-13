@@ -4,6 +4,8 @@
 
 Edge Node 是入口和转发节点，不是业务数据的 owner。身份验证、最终授权、领域服务和资源存储仍由上游 GizClaw Server 负责。
 
+[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizedge)
+
 ## 目录结构
 
 ```text

@@ -3,12 +3,18 @@
   "private": true,
   "scripts": {
     "dev": "vitepress dev .",
-    "build": "vitepress build .",
+    "reference:flutter": "cd ../sdk/flutter/gizclaw && flutter pub get && dart doc --output ../../../guides/public/references/flutter",
+    "reference:typescript": "typedoc --options typedoc.json",
+    "references": "npm run reference:flutter && npm run reference:typescript",
+    "build": "npm run references && vitepress build .",
+    "build:site": "vitepress build .",
     "preview": "vitepress preview ."
   },
   "devDependencies": {
+    "@types/node": "^24.0.0",
     "debug": "^4.4.3",
     "mermaid": "^11.16.0",
+    "typedoc": "^0.28.0",
     "vitepress": "2.0.0-alpha.18",
     "vitepress-mermaid-plugin": "^3.0.0"
   }

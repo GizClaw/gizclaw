@@ -11,6 +11,7 @@ go.work.sum
 # Build artifacts
 guides/.vitepress/cache/
 guides/.vitepress/dist/
+guides/public/references/
 *.dll
 *.dylib
 *.exe

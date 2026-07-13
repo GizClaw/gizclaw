@@ -4,6 +4,8 @@
 
 这个目录拥有可被 CLI Server、desktop 或其他宿主复用的 GizClaw Server 行为；具体进程的配置加载、storage backend 选择和启动流程属于 `cmd/`。
 
+[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw)
+
 ## 文档结构
 
 当前 `peer_*`、`server_*` 和 `rpc_*` 文件仍直接位于 `pkgs/gizclaw/`。文档按照这些稳定前缀直接分组，不再增加重复的 `gizclaw/` 中间层。`generated` 是文档名称，实际代码目录为 `api/`。

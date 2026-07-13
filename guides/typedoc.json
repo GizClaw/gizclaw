@@ -1,0 +1,16 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "tsconfig": "tsconfig.typedoc.json",
+  "entryPoints": ["../sdk/js/gizclaw/**/*.ts"],
+  "entryPointStrategy": "expand",
+  "exclude": ["../sdk/js/gizclaw/**/*.test.ts"],
+  "out": "public/references/typescript",
+  "name": "GizClaw TypeScript SDK",
+  "readme": "../sdk/js/gizclaw/README.md",
+  "externalSymbolLinkMappings": {
+    "typescript": {
+      "Body": "https://developer.mozilla.org/docs/Web/API/Request/body",
+      "JSON.stringify": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify"
+    }
+  }
+}
