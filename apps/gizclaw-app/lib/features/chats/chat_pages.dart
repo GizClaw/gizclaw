@@ -352,34 +352,21 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
       backgroundColor: signal.canvas,
       child: SafeArea(
         bottom: false,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: _WorkspaceMessageList(
-                controller: _scrollController,
-                messages: messages,
-                state: chat?.state ?? WorkspaceChatState.loading,
-                signal: signal,
-                error: chat?.lastError,
-                replayingHistoryId: chat?.replayingHistoryId,
-                onReplay: chat?.replayHistory,
-              ),
-            ),
-            Positioned(
-              top: 4,
-              left: 0,
-              right: 0,
-              child: IgnorePointer(
-                child: _AgentSignalStage(
-                  imagePath: isDirectChat ? null : workflow.driver.imagePath,
-                  state: chat?.state ?? WorkspaceChatState.loading,
-                  recording: chat?.recording ?? false,
-                  accent: accent,
-                  signal: signal,
-                ),
-              ),
-            ),
-          ],
+        child: _AgentSignalScene(
+          imagePath: isDirectChat ? null : workflow.driver.imagePath,
+          state: chat?.state ?? WorkspaceChatState.loading,
+          recording: chat?.recording ?? false,
+          accent: accent,
+          signal: signal,
+          child: _WorkspaceMessageList(
+            controller: _scrollController,
+            messages: messages,
+            state: chat?.state ?? WorkspaceChatState.loading,
+            signal: signal,
+            error: chat?.lastError,
+            replayingHistoryId: chat?.replayingHistoryId,
+            onReplay: chat?.replayHistory,
+          ),
         ),
       ),
     );
@@ -486,26 +473,28 @@ class _SignalPalette {
       : light;
 }
 
-class _AgentSignalStage extends StatefulWidget {
-  const _AgentSignalStage({
+class _AgentSignalScene extends StatefulWidget {
+  const _AgentSignalScene({
     required this.imagePath,
     required this.state,
     required this.recording,
     required this.accent,
     required this.signal,
+    required this.child,
   });
 
   final Color accent;
+  final Widget child;
   final String? imagePath;
   final bool recording;
   final _SignalPalette signal;
   final WorkspaceChatState state;
 
   @override
-  State<_AgentSignalStage> createState() => _AgentSignalStageState();
+  State<_AgentSignalScene> createState() => _AgentSignalSceneState();
 }
 
-class _AgentSignalStageState extends State<_AgentSignalStage>
+class _AgentSignalSceneState extends State<_AgentSignalScene>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
@@ -521,74 +510,89 @@ class _AgentSignalStageState extends State<_AgentSignalStage>
   @override
   Widget build(BuildContext context) {
     final active = widget.state == WorkspaceChatState.connected;
-    return SizedBox(
-      height: 104,
-      width: double.infinity,
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          final energy = widget.recording
-              ? 0.78 + math.sin(_controller.value * math.pi * 10) * 0.18
-              : active
-              ? 0.42 + math.sin(_controller.value * math.pi * 2) * 0.08
-              : 0.18;
-          return Stack(
-            alignment: Alignment.center,
-            children: [
-              Positioned.fill(
-                child: CustomPaint(
-                  painter: _SignalFieldPainter(
-                    progress: _controller.value,
-                    accent: widget.accent,
-                    energy: energy,
-                  ),
-                ),
-              ),
-              Transform.translate(
-                offset: Offset(
-                  0,
-                  math.sin(_controller.value * math.pi * 2) * 3,
-                ),
-                child: _AgentCore(
-                  imagePath: widget.imagePath,
+    return AnimatedBuilder(
+      animation: _controller,
+      child: widget.child,
+      builder: (context, child) {
+        final energy = widget.recording
+            ? 0.78 + math.sin(_controller.value * math.pi * 10) * 0.18
+            : active
+            ? 0.42 + math.sin(_controller.value * math.pi * 2) * 0.08
+            : 0.18;
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Positioned(
+              top: 4,
+              left: 0,
+              right: 0,
+              height: 104,
+              child: CustomPaint(
+                painter: _SignalFieldPainter(
+                  progress: _controller.value,
                   accent: widget.accent,
                   energy: energy,
-                  signal: widget.signal,
                 ),
               ),
-              Positioned(
-                bottom: 6,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: widget.signal.panel.withValues(alpha: 0.82),
-                    borderRadius: BorderRadius.circular(99),
-                    border: Border.all(color: widget.signal.line),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 9,
-                      vertical: 4,
-                    ),
-                    child: Text(
-                      widget.recording
-                          ? 'LISTENING'
-                          : active
-                          ? 'LIVE'
-                          : _connectionLabel(widget.state),
-                      style: GizText.label.copyWith(
-                        color: widget.recording
-                            ? widget.accent
-                            : widget.signal.muted,
-                        fontSize: 8,
+            ),
+            Positioned.fill(child: child!),
+            Positioned(
+              top: 4,
+              left: 0,
+              right: 0,
+              height: 104,
+              child: IgnorePointer(
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Transform.translate(
+                      offset: Offset(
+                        0,
+                        math.sin(_controller.value * math.pi * 2) * 3,
+                      ),
+                      child: _AgentCore(
+                        imagePath: widget.imagePath,
+                        accent: widget.accent,
+                        energy: energy,
+                        signal: widget.signal,
                       ),
                     ),
-                  ),
+                    Positioned(
+                      bottom: 6,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: widget.signal.panel.withValues(alpha: 0.82),
+                          borderRadius: BorderRadius.circular(99),
+                          border: Border.all(color: widget.signal.line),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 4,
+                          ),
+                          child: Text(
+                            widget.recording
+                                ? 'LISTENING'
+                                : active
+                                ? 'LIVE'
+                                : _connectionLabel(widget.state),
+                            style: GizText.label.copyWith(
+                              color: widget.recording
+                                  ? widget.accent
+                                  : widget.signal.muted,
+                              fontSize: 8,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          );
-        },
-      ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
