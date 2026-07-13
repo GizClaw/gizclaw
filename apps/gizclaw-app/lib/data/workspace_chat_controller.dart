@@ -257,10 +257,10 @@ class WorkspaceChatController extends ChangeNotifier {
         if (report.type == 'inbound-rtp') output = level;
       }
       final nextInput = recording ? input : 0.0;
-      final smoothedInput = _smoothLevel(inputLevel, nextInput);
-      final smoothedOutput = _smoothLevel(outputLevel, output);
-      if ((smoothedInput - inputLevel).abs() < 0.005 &&
-          (smoothedOutput - outputLevel).abs() < 0.005) {
+      final smoothedInput = _settleLevel(inputLevel, nextInput);
+      final smoothedOutput = _settleLevel(outputLevel, output);
+      if ((smoothedInput - inputLevel).abs() < 0.0001 &&
+          (smoothedOutput - outputLevel).abs() < 0.0001) {
         return;
       }
       inputLevel = smoothedInput;
@@ -487,4 +487,9 @@ class WorkspaceChatController extends ChangeNotifier {
 double _smoothLevel(double current, double target) {
   final factor = target > current ? 0.5 : 0.16;
   return current + (target - current) * factor;
+}
+
+double _settleLevel(double current, double target) {
+  final smoothed = _smoothLevel(current, target);
+  return (smoothed - target).abs() < 0.005 ? target : smoothed;
 }
