@@ -858,90 +858,81 @@ class _PetCoverCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final catalog = _catalogFor(context, visual?.presentation);
     final cardRadius = compact ? GizCorners.card : GizCorners.hero;
+    final accent = _petCoverAccent(pet.id);
     return GizPressable(
       onPressed: onPressed,
       borderRadius: cardRadius,
       scaleWhenPressed: 0.975,
       child: AspectRatio(
-        aspectRatio: compact ? 0.78 : 0.86,
+        aspectRatio: compact ? 0.8 : 1.08,
         child: GizSquircle(
           borderRadius: cardRadius,
           child: Stack(
             fit: StackFit.expand,
             children: [
               const _PetMosaicBackground(),
-              const DecoratedBox(
+              DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                     colors: [
-                      Color(0x00FFFFFF),
-                      Color(0x0AFFFFFF),
-                      Color(0x40101916),
+                      accent.withValues(alpha: 0.34),
+                      const Color(0x00FFFFFF),
+                      const Color(0x24FFFFFF),
                     ],
-                    stops: [0, 0.58, 1],
+                    stops: const [0, 0.52, 1],
                   ),
                 ),
               ),
               Positioned(
-                left: compact ? 16 : 48,
-                right: compact ? 16 : 48,
-                top: compact ? 38 : 64,
-                bottom: compact ? 82 : 124,
+                left: compact ? 18 : 76,
+                right: compact ? 18 : 76,
+                top: compact ? 42 : 34,
+                bottom: compact ? 76 : 76,
                 child: visual?.pixa == null
                     ? const Center(child: CupertinoActivityIndicator())
-                    : GizSquircle(
-                        borderRadius: compact
-                            ? GizCorners.icon(50)
-                            : GizCorners.card,
-                        child: ColoredBox(
-                          color: const Color(0x8CFFFFFF),
-                          child: Padding(
-                            padding: const EdgeInsets.all(2),
-                            child: GizSquircle(
-                              borderRadius: BorderRadius.circular(
-                                compact ? 11 : 16,
-                              ),
-                              child: ColoredBox(
-                                color: _petSceneColor,
-                                child: Padding(
-                                  padding: EdgeInsets.all(compact ? 6 : 10),
-                                  child: _PetCoverSprite(
-                                    child: _AnimatedPetSprite(
-                                      asset: visual!.pixa!,
-                                      clipName: _defaultClip(
-                                        visual!.presentation,
-                                        pet,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
+                    : _PetCoverSprite(
+                        child: _AnimatedPetSprite(
+                          asset: visual!.pixa!,
+                          clipName: _defaultClip(visual!.presentation, pet),
+                          transparentEdgeBackground: true,
                         ),
                       ),
               ),
               Positioned(
-                top: compact ? 12 : 16,
-                right: compact ? 12 : 16,
+                top: compact ? 11 : 14,
+                left: compact ? 11 : 14,
+                child: _PetCoverLabel(compact: compact),
+              ),
+              Positioned(
+                top: compact ? 11 : 14,
+                right: compact ? 11 : 14,
                 child: GizSquircle(
-                  borderRadius: BorderRadius.circular(9),
+                  borderRadius: GizCorners.compactCard,
                   child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
                     child: Container(
-                      color: const Color(0x8CFFFFFF),
+                      color: const Color(0xA8FFFFFF),
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 9,
-                        vertical: 7,
+                        horizontal: 8,
+                        vertical: 6,
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const SizedBox.square(
-                            dimension: 6,
-                            child: ColoredBox(color: GizColors.accent),
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: accent,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: accent.withValues(alpha: 0.38),
+                                  blurRadius: 6,
+                                ),
+                              ],
+                            ),
+                            child: const SizedBox.square(dimension: 6),
                           ),
                           const SizedBox(width: 6),
                           Text(
@@ -958,58 +949,69 @@ class _PetCoverCard extends StatelessWidget {
                 left: 0,
                 right: 0,
                 bottom: 0,
-                child: ClipRect(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                    child: Container(
-                      color: const Color(0x9E101916),
-                      padding: EdgeInsets.fromLTRB(
-                        compact ? 13 : 18,
-                        compact ? 11 : 15,
-                        compact ? 11 : 14,
-                        compact ? 12 : 16,
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  _petName(pet, catalog),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GizText.sectionTitle.copyWith(
-                                    color: GizColors.surface,
-                                    fontSize: compact ? 15 : null,
-                                  ),
+                child: DecoratedBox(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0x00111B18), Color(0xD6111B18)],
+                    ),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      compact ? 13 : 18,
+                      compact ? 36 : 44,
+                      compact ? 10 : 14,
+                      compact ? 12 : 16,
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _petName(pet, catalog),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GizText.sectionTitle.copyWith(
+                                  color: GizColors.surface,
+                                  fontSize: compact ? 15 : null,
                                 ),
-                                if (!compact) ...[
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '${pet.rulesetName}  |  ${_petProgressionLabel(pet)}',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GizText.label.copyWith(
-                                      color: const Color(0xBFFFFFFF),
-                                      fontSize: 9,
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                compact
+                                    ? _petProgressionLabel(pet)
+                                    : '${pet.rulesetName}  /  ${_petProgressionLabel(pet)}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GizText.label.copyWith(
+                                  color: const Color(0xBFFFFFFF),
+                                  fontSize: compact ? 8 : 9,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                          GizIconTile(
-                            icon: CupertinoIcons.arrow_up_right,
-                            size: compact ? 34 : 38,
-                            iconSize: compact ? 16 : 18,
-                            backgroundColor: const Color(0x2EFFFFFF),
-                            foregroundColor: GizColors.surface,
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          width: compact ? 32 : 36,
+                          height: compact ? 32 : 36,
+                          decoration: BoxDecoration(
+                            color: const Color(0x24FFFFFF),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: const Color(0x38FFFFFF)),
                           ),
-                        ],
-                      ),
+                          child: Icon(
+                            CupertinoIcons.arrow_up_right,
+                            size: compact ? 15 : 17,
+                            color: GizColors.surface,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -1020,6 +1022,46 @@ class _PetCoverCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PetCoverLabel extends StatelessWidget {
+  const _PetCoverLabel({required this.compact});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          CupertinoIcons.sparkles,
+          size: compact ? 13 : 15,
+          color: const Color(0xB8001913),
+        ),
+        if (!compact) ...[
+          const SizedBox(width: 6),
+          Text(
+            'COMPANION',
+            style: GizText.label.copyWith(
+              color: const Color(0xA8001913),
+              fontSize: 9,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+Color _petCoverAccent(String id) {
+  const accents = [
+    Color(0xFF25A97F),
+    Color(0xFFDA765E),
+    Color(0xFF5478D8),
+    Color(0xFF9A73C4),
+  ];
+  return accents[id.hashCode.abs() % accents.length];
 }
 
 class _PetCoverSprite extends StatefulWidget {
@@ -1065,10 +1107,15 @@ class _PetVisual {
 }
 
 class _AnimatedPetSprite extends StatefulWidget {
-  const _AnimatedPetSprite({required this.asset, required this.clipName});
+  const _AnimatedPetSprite({
+    required this.asset,
+    required this.clipName,
+    this.transparentEdgeBackground = false,
+  });
 
   final PixaAsset asset;
   final String? clipName;
+  final bool transparentEdgeBackground;
 
   @override
   State<_AnimatedPetSprite> createState() => _AnimatedPetSpriteState();
@@ -1110,6 +1157,7 @@ class _AnimatedPetSpriteState extends State<_AnimatedPetSprite> {
       clipName: widget.clipName,
       elapsed: _elapsed,
       fit: BoxFit.contain,
+      transparentEdgeBackground: widget.transparentEdgeBackground,
     );
   }
 }
