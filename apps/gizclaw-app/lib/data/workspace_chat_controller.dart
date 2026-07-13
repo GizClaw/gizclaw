@@ -316,7 +316,7 @@ class WorkspaceChatController extends ChangeNotifier {
       }
       throw StateError('Microphone capture returned no audio track');
     }
-    final track = tracks.first..enabled = false;
+    final track = tracks.first;
     rtc.RTCRtpTransceiver? audioTransceiver;
     for (final transceiver in await pc.getTransceivers()) {
       if (transceiver.receiver.track?.kind == 'audio') {
