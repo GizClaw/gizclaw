@@ -256,7 +256,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
   PixaAsset? _pixa;
   Object? _error;
   bool _loading = false;
-  bool _statusVisible = true;
+  bool _statusVisible = false;
   String? _clipName;
   String? _drivingAction;
   int _request = 0;
@@ -1204,21 +1204,7 @@ class _PetStatusFab extends StatelessWidget {
       button: true,
       child: GestureDetector(
         onTap: onPressed,
-        child: Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: GizColors.ink,
-            shape: BoxShape.circle,
-            border: Border.all(color: const Color(0x2EFFFFFF)),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x33000000),
-                blurRadius: 20,
-                offset: Offset(0, 8),
-              ),
-            ],
-          ),
+        child: _PetDetailFabSurface(
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 180),
             transitionBuilder: (child, animation) => RotationTransition(
@@ -1228,7 +1214,7 @@ class _PetStatusFab extends StatelessWidget {
             child: Icon(
               visible ? CupertinoIcons.xmark : CupertinoIcons.waveform_path_ecg,
               key: ValueKey(visible),
-              color: GizColors.surface,
+              color: _petDetailFabForeground,
               size: visible ? 20 : 22,
             ),
           ),
@@ -1742,20 +1728,7 @@ class _PetActionFabState extends State<_PetActionFab>
                   button: true,
                   child: GestureDetector(
                     onTap: _toggle,
-                    child: Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: GizColors.ink,
-                        shape: BoxShape.circle,
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x33000000),
-                            blurRadius: 20,
-                            offset: Offset(0, 8),
-                          ),
-                        ],
-                      ),
+                    child: _PetDetailFabSurface(
                       child: widget.activeAction == null
                           ? Stack(
                               alignment: Alignment.center,
@@ -1766,7 +1739,7 @@ class _PetActionFabState extends State<_PetActionFab>
                                     scale: 1 - _controller.value * 0.2,
                                     child: const Icon(
                                       CupertinoIcons.game_controller_solid,
-                                      color: GizColors.surface,
+                                      color: _petDetailFabForeground,
                                       size: 24,
                                     ),
                                   ),
@@ -1778,7 +1751,7 @@ class _PetActionFabState extends State<_PetActionFab>
                                         (1 - _controller.value) * -math.pi / 4,
                                     child: const Icon(
                                       CupertinoIcons.xmark,
-                                      color: GizColors.surface,
+                                      color: _petDetailFabForeground,
                                       size: 20,
                                     ),
                                   ),
@@ -1786,7 +1759,7 @@ class _PetActionFabState extends State<_PetActionFab>
                               ],
                             )
                           : const CupertinoActivityIndicator(
-                              color: GizColors.surface,
+                              color: _petDetailFabForeground,
                             ),
                     ),
                   ),
@@ -1907,6 +1880,56 @@ class _PetActionFabState extends State<_PetActionFab>
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+const _petDetailFabForeground = Color(0xFF1D5143);
+
+class _PetDetailFabSurface extends StatelessWidget {
+  const _PetDetailFabSurface({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 50,
+      height: 50,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x30649E89),
+            blurRadius: 18,
+            spreadRadius: -2,
+            offset: Offset(0, 7),
+          ),
+          BoxShadow(
+            color: Color(0x29B2E43A),
+            blurRadius: 16,
+            spreadRadius: -4,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipOval(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xF5FFFFFF), Color(0xD8DCECE4)],
+              ),
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xCFFFFFFF), width: 0.8),
+            ),
+            child: Center(child: child),
+          ),
         ),
       ),
     );
