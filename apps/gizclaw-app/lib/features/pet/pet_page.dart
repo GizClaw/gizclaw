@@ -1568,12 +1568,6 @@ const _petActionAnchor = 160.0;
 const _petActionItemExtent = 52.0;
 const _petActionRailHeight = 270.0;
 const _petActionMenuHeight = _petActionRailHeight + 58;
-const _petActionCircleCenterX = 300.0;
-const _petActionCircleCenterY = 110.0;
-final _petActionCircleRadius = math.sqrt(
-  _petActionCircleCenterX * _petActionCircleCenterX +
-      _petActionCircleCenterY * _petActionCircleCenterY,
-);
 
 class _PetActionFab extends StatefulWidget {
   const _PetActionFab({
@@ -1798,8 +1792,6 @@ class _PetActionFabState extends State<_PetActionFab>
             ((itemCenter - _petActionRailHeight / 2).abs() /
                     (_petActionRailHeight / 2))
                 .clamp(0.0, 1.0);
-        final yFromBottom = _petActionRailHeight - itemCenter;
-        final horizontalOffset = _petActionArcOffset(yFromBottom);
         final scale = 1 - distanceFromCenter * 0.12;
         final opacity = 1 - distanceFromCenter * 0.7;
         return Align(
@@ -1807,7 +1799,7 @@ class _PetActionFabState extends State<_PetActionFab>
           child: Opacity(
             opacity: opacity,
             child: Transform.translate(
-              offset: Offset(_petActionAnchor + 3 + horizontalOffset, 0),
+              offset: const Offset(_petActionAnchor + 3, 0),
               child: Transform.scale(
                 alignment: Alignment.centerLeft,
                 scale: scale,
@@ -1866,17 +1858,6 @@ class _PetActionFabState extends State<_PetActionFab>
       ),
     );
   }
-}
-
-double _petActionArcOffset(double yFromBottom) {
-  final dy = (yFromBottom - _petActionCircleCenterY).clamp(
-    -_petActionCircleRadius,
-    _petActionCircleRadius,
-  );
-  final chord = math.sqrt(
-    math.max(0, _petActionCircleRadius * _petActionCircleRadius - dy * dy),
-  );
-  return _petActionCircleCenterX - chord;
 }
 
 class _SceneButton extends StatelessWidget {
