@@ -1678,7 +1678,6 @@ type PetPresentationActionSpec struct {
 	Cost          int64                            `protobuf:"varint,2,opt,name=cost,proto3" json:"cost,omitempty"`
 	Effect        *PetPresentationActionEffectSpec `protobuf:"bytes,3,opt,name=effect,proto3,oneof" json:"effect,omitempty"`
 	VisualClipId  *string                          `protobuf:"bytes,4,opt,name=visual_clip_id,json=visualClipId,proto3,oneof" json:"visual_clip_id,omitempty"`
-	Icon          *string                          `protobuf:"bytes,5,opt,name=icon,proto3,oneof" json:"icon,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1737,13 +1736,6 @@ func (x *PetPresentationActionSpec) GetEffect() *PetPresentationActionEffectSpec
 func (x *PetPresentationActionSpec) GetVisualClipId() string {
 	if x != nil && x.VisualClipId != nil {
 		return *x.VisualClipId
-	}
-	return ""
-}
-
-func (x *PetPresentationActionSpec) GetIcon() string {
-	if x != nil && x.Icon != nil {
-		return *x.Icon
 	}
 	return ""
 }
@@ -5222,16 +5214,14 @@ const file_payload_gameplay_proto_rawDesc = "" +
 	"attr_delta\x18\x01 \x01(\v2(.gizclaw.rpc.v1.PetPresentationAttrDeltaH\x00R\tattrDelta\x88\x01\x01\x12'\n" +
 	"\rpet_exp_delta\x18\x02 \x01(\x03H\x01R\vpetExpDelta\x88\x01\x01B\r\n" +
 	"\v_attr_deltaB\x10\n" +
-	"\x0e_pet_exp_delta\"\xf8\x01\n" +
+	"\x0e_pet_exp_delta\"\xd6\x01\n" +
 	"\x19PetPresentationActionSpec\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04cost\x18\x02 \x01(\x03R\x04cost\x12L\n" +
 	"\x06effect\x18\x03 \x01(\v2/.gizclaw.rpc.v1.PetPresentationActionEffectSpecH\x00R\x06effect\x88\x01\x01\x12)\n" +
-	"\x0evisual_clip_id\x18\x04 \x01(\tH\x01R\fvisualClipId\x88\x01\x01\x12\x17\n" +
-	"\x04icon\x18\x05 \x01(\tH\x02R\x04icon\x88\x01\x01B\t\n" +
+	"\x0evisual_clip_id\x18\x04 \x01(\tH\x01R\fvisualClipId\x88\x01\x01B\t\n" +
 	"\a_effectB\x11\n" +
-	"\x0f_visual_clip_idB\a\n" +
-	"\x05_icon\"U\n" +
+	"\x0f_visual_clip_id\"U\n" +
 	"\x18PetPresentationAttrDelta\x120\n" +
 	"\x04life\x18\x01 \x01(\v2\x17.gizclaw.rpc.v1.PetLifeH\x00R\x04life\x88\x01\x01B\a\n" +
 	"\x05_life\"\xd5\x01\n" +

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gizclaw/gizclaw.dart';
+import 'package:gizclaw_app/giz_ui/giz_ui.dart';
 import 'package:gizclaw_app/pixa_sprite.dart';
 
 import 'pixa_fixture_test_data.dart';
@@ -61,7 +62,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.byIcon(CupertinoIcons.exclamationmark_triangle),
+      find.byIcon(GizIcons.exclamationmark_triangle),
       findsOneWidget,
     );
   });

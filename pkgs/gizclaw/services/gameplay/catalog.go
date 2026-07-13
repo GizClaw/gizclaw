@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"path"
 	"reflect"
-	"regexp"
 	"strings"
 	"time"
 
@@ -30,7 +29,6 @@ var (
 	petDefsRoot      = kv.Key{"by-id"}
 	badgeDefsRoot    = kv.Key{"by-id"}
 	gameDefsRoot     = kv.Key{"by-id"}
-	petActionIconID  = regexp.MustCompile(`^[a-z][a-z0-9_-]*$`)
 )
 
 type Catalog struct {
@@ -834,18 +832,6 @@ func validatePetDefDrive(drive apitypes.PetDefDriveSpec, clips []apitypes.PetDef
 		seen[id] = struct{}{}
 		if action.Cost < 0 {
 			return fmt.Errorf("drive.actions[%d].cost must be non-negative", i)
-		}
-		if action.Icon != nil {
-			icon := strings.TrimSpace(*action.Icon)
-			if icon == "" {
-				return fmt.Errorf("drive.actions[%d].icon must not be empty", i)
-			}
-			if icon != *action.Icon {
-				return fmt.Errorf("drive.actions[%d].icon must not contain leading or trailing whitespace", i)
-			}
-			if !petActionIconID.MatchString(icon) {
-				return fmt.Errorf("drive.actions[%d].icon %q must be a lowercase semantic token", i, icon)
-			}
 		}
 		if action.VisualClipId != nil {
 			clipID := strings.TrimSpace(*action.VisualClipId)

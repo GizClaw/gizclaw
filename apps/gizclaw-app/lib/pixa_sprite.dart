@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'package:flutter/cupertino.dart';
 import 'package:gizclaw/gizclaw.dart';
 
+import 'giz_ui/giz_ui.dart';
+
 class PixaSprite extends StatefulWidget {
   const PixaSprite({
     super.key,
@@ -70,10 +72,7 @@ class _PixaSpriteState extends State<PixaSprite> {
           if (snapshot.hasError) {
             return widget.errorBuilder?.call(context, snapshot.error!) ??
                 const Center(
-                  child: Icon(
-                    CupertinoIcons.exclamationmark_triangle,
-                    size: 18,
-                  ),
+                  child: Icon(GizIcons.exclamationmark_triangle, size: 18),
                 );
           }
           if (!snapshot.hasData) {

@@ -89,28 +89,7 @@ class _ChatTypeIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imagePath = driver.imagePath;
-    return ClipRSuperellipse(
-      borderRadius: GizCorners.icon(50),
-      child: Container(
-        width: 50,
-        height: 50,
-        alignment: Alignment.center,
-        color: const Color(0xFFE9ECE9),
-        child: imagePath == null
-            ? const Icon(
-                CupertinoIcons.question_circle_fill,
-                color: GizColors.secondaryInk,
-              )
-            : Image.asset(
-                imagePath,
-                width: 50,
-                height: 50,
-                fit: BoxFit.cover,
-                filterQuality: FilterQuality.high,
-              ),
-      ),
-    );
+    return GizResourceInitial(id: driver.routeKey);
   }
 }
 
@@ -145,20 +124,13 @@ class DriverWorkspacesPage extends StatelessWidget {
                       style: GizText.pageTitle,
                     ),
                   ),
-                  CupertinoButton(
+                  GizPageActionButton(
                     key: ValueKey('create-workspace-${driver.routeKey}'),
-                    padding: const EdgeInsets.all(8),
+                    icon: GizIcons.add_circled_solid,
+                    semanticLabel: _newWorkspaceLabel(driver),
                     onPressed: workflows.isEmpty
                         ? null
                         : () => _showCreateWorkspace(context, data, workflows),
-                    child: Icon(
-                      CupertinoIcons.add_circled_solid,
-                      size: 28,
-                      color: workflows.isEmpty
-                          ? GizColors.secondaryInk.withValues(alpha: 0.42)
-                          : GizColors.ink,
-                      semanticLabel: _newWorkspaceLabel(driver),
-                    ),
                   ),
                 ],
               ),
@@ -244,7 +216,7 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (workflow.name == _workflow.name) ...[
-                    const Icon(CupertinoIcons.checkmark_alt, size: 17),
+                    const Icon(GizIcons.checkmark_alt, size: 17),
                     const SizedBox(width: 8),
                   ],
                   Flexible(child: Text(workflow.title)),
@@ -262,8 +234,8 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
   }
 
   Future<void> _create() async {
-    final displayName = _nameController.text.trim();
-    if (_busy || displayName.isEmpty) return;
+    final name = _nameController.text.trim();
+    if (_busy || name.isEmpty) return;
     setState(() {
       _busy = true;
       _error = null;
@@ -272,7 +244,7 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
       final workspace = await widget.data.createWorkspace(
         driver: widget.driver,
         workflowName: _workflow.name,
-        displayName: displayName,
+        name: name,
       );
       if (mounted) Navigator.pop(context, workspace.name);
     } catch (error) {
@@ -336,7 +308,7 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
                 ),
                 if (widget.workflows.length > 1)
                   const Icon(
-                    CupertinoIcons.chevron_up_chevron_down,
+                    GizIcons.chevron_up_chevron_down,
                     size: 16,
                     color: GizColors.secondaryInk,
                   ),
@@ -495,14 +467,14 @@ class _ChatroomWorkspaceListTile extends StatelessWidget {
                 alignment: Alignment.center,
                 color: const Color(0xFFD9F2EA),
                 child: const Icon(
-                  CupertinoIcons.person_fill,
-                  color: Color(0xFF17795B),
+                  GizIcons.person_fill,
+                  color: GizColors.ink,
                   size: 22,
                 ),
               ),
             )
           : const GizIconTile(
-              icon: CupertinoIcons.person_2_fill,
+              icon: GizIcons.person_2_fill,
               backgroundColor: Color(0xFFDDE8FF),
               foregroundColor: Color(0xFF315E9D),
               size: 50,
@@ -529,24 +501,7 @@ class _WorkspaceListTile extends StatelessWidget {
       context,
     ).workflow(workspace.workflowName);
     return GizListRow(
-      leading: GizSquircle(
-        borderRadius: GizCorners.icon(50),
-        child: ColoredBox(
-          color: workflow.bannerColor,
-          child: SizedBox.square(
-            dimension: 50,
-            child: workflow.driver.imagePath == null
-                ? Icon(workflow.icon, color: GizColors.surface, size: 22)
-                : Image.asset(
-                    workflow.driver.imagePath!,
-                    width: 50,
-                    height: 50,
-                    fit: BoxFit.cover,
-                    filterQuality: FilterQuality.high,
-                  ),
-          ),
-        ),
-      ),
+      leading: GizResourceInitial(id: workspace.name),
       title: workspace.title,
       subtitle: '${workflow.title}  |  ${workspace.lastActive}',
       onPressed:
@@ -657,7 +612,7 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
       child: SafeArea(
         bottom: false,
         child: _AgentSignalScene(
-          imagePath: isDirectChat ? null : workflow.driver.imagePath,
+          resourceId: widget.workspaceName,
           state: chat?.state ?? WorkspaceChatState.loading,
           recording: chat?.recording ?? false,
           accent: accent,
@@ -702,7 +657,7 @@ Color _driverAccent(WorkflowDriverKind driver, Brightness brightness) =>
     };
 
 Color _workspaceVoiceAccent(Brightness brightness) =>
-    brightness == Brightness.dark ? const Color(0xFF94D3C0) : GizColors.teal;
+    brightness == Brightness.dark ? const Color(0xFF94D3C0) : GizColors.accent;
 
 class _SignalPalette {
   const _SignalPalette({
@@ -732,8 +687,8 @@ class _SignalPalette {
     text: GizColors.ink,
     onAccent: GizColors.ink,
     actionAccent: GizColors.accent,
-    brandAccent: GizColors.teal,
-    outgoingFill: GizColors.teal,
+    brandAccent: GizColors.accent,
+    outgoingFill: GizColors.messageBlue,
     outgoingText: GizColors.surface,
   );
 
@@ -749,8 +704,8 @@ class _SignalPalette {
     onAccent: GizColors.ink,
     actionAccent: GizColors.accent,
     brandAccent: GizColors.accent,
-    outgoingFill: GizColors.accent,
-    outgoingText: GizColors.ink,
+    outgoingFill: GizColors.messageBlue,
+    outgoingText: GizColors.surface,
   );
 
   final Color actionAccent;
@@ -775,7 +730,7 @@ class _SignalPalette {
 
 class _AgentSignalScene extends StatefulWidget {
   const _AgentSignalScene({
-    required this.imagePath,
+    required this.resourceId,
     required this.state,
     required this.recording,
     required this.accent,
@@ -785,7 +740,7 @@ class _AgentSignalScene extends StatefulWidget {
 
   final Color accent;
   final Widget child;
-  final String? imagePath;
+  final String resourceId;
   final bool recording;
   final _SignalPalette signal;
   final WorkspaceChatState state;
@@ -853,7 +808,7 @@ class _AgentSignalSceneState extends State<_AgentSignalScene>
                         math.sin(_controller.value * math.pi * 2) * 3,
                       ),
                       child: _AgentCore(
-                        imagePath: widget.imagePath,
+                        resourceId: widget.resourceId,
                         accent: widget.accent,
                         energy: energy,
                         signal: widget.signal,
@@ -901,7 +856,7 @@ class _AgentSignalSceneState extends State<_AgentSignalScene>
 
 class _AgentCore extends StatelessWidget {
   const _AgentCore({
-    required this.imagePath,
+    required this.resourceId,
     required this.accent,
     required this.energy,
     required this.signal,
@@ -909,7 +864,7 @@ class _AgentCore extends StatelessWidget {
 
   final Color accent;
   final double energy;
-  final String? imagePath;
+  final String resourceId;
   final _SignalPalette signal;
 
   @override
@@ -946,9 +901,13 @@ class _AgentCore extends StatelessWidget {
                 shape: BoxShape.circle,
                 border: Border.all(color: accent.withValues(alpha: 0.46)),
               ),
-              child: imagePath == null
-                  ? Icon(CupertinoIcons.waveform, color: accent, size: 24)
-                  : ClipOval(child: Image.asset(imagePath!, fit: BoxFit.cover)),
+              child: Center(
+                key: ValueKey('resource-initial-$resourceId'),
+                child: Text(
+                  gizResourceInitial(resourceId),
+                  style: GizText.sectionTitle.copyWith(color: accent),
+                ),
+              ),
             ),
           ),
         ],
@@ -1142,7 +1101,7 @@ class _WorkspaceSignalMessage extends StatelessWidget {
     final alignment = incoming
         ? CrossAxisAlignment.start
         : CrossAxisAlignment.end;
-    final accent = incoming ? signal.brandAccent : const Color(0xFF5478D8);
+    final accent = incoming ? signal.brandAccent : GizColors.messageBlue;
     return Align(
       alignment: incoming ? Alignment.centerLeft : Alignment.centerRight,
       child: ConstrainedBox(
@@ -1159,9 +1118,7 @@ class _WorkspaceSignalMessage extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    incoming
-                        ? CupertinoIcons.sparkles
-                        : CupertinoIcons.waveform,
+                    incoming ? GizIcons.sparkles : GizIcons.waveform,
                     size: 12,
                     color: accent,
                   ),
@@ -1192,7 +1149,7 @@ class _WorkspaceSignalMessage extends StatelessWidget {
                     if (replaying)
                       CupertinoActivityIndicator(radius: 5, color: accent)
                     else
-                      Icon(CupertinoIcons.play_fill, size: 10, color: accent),
+                      Icon(GizIcons.play_fill, size: 10, color: accent),
                     const SizedBox(width: 4),
                     Text(
                       replaying ? 'OPENING' : 'REPLAY',
@@ -1249,7 +1206,7 @@ class _WorkspaceSignalMessage extends StatelessWidget {
                       CupertinoActivityIndicator(radius: 5, color: accent)
                     else
                       Icon(
-                        CupertinoIcons.exclamationmark_circle_fill,
+                        GizIcons.exclamationmark_circle_fill,
                         size: 11,
                         color: accent,
                       ),

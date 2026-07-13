@@ -3,25 +3,16 @@ import 'package:flutter/cupertino.dart';
 import '../giz_ui/giz_ui.dart';
 
 enum WorkflowDriverKind {
-  flowcraft('flowcraft', 'Flowcraft', 'assets/drivers/flowcraft.png'),
-  doubaoRealtime(
-    'doubao-realtime',
-    'Doubao Realtime',
-    'assets/drivers/doubao-realtime.png',
-  ),
-  astTranslate(
-    'ast-translate',
-    'AST Translate',
-    'assets/drivers/ast-translate.png',
-  ),
-  chatroom('chatroom', 'Chatroom', 'assets/drivers/chatroom.png'),
-  unsupported('unsupported', 'Unavailable', null);
+  flowcraft('flowcraft', 'Flowcraft'),
+  doubaoRealtime('doubao-realtime', 'Doubao Realtime'),
+  astTranslate('ast-translate', 'AST Translate'),
+  chatroom('chatroom', 'Chatroom'),
+  unsupported('unsupported', 'Unavailable');
 
-  const WorkflowDriverKind(this.routeKey, this.label, this.imagePath);
+  const WorkflowDriverKind(this.routeKey, this.label);
 
   final String routeKey;
   final String label;
-  final String? imagePath;
 
   static WorkflowDriverKind fromRouteKey(String value) {
     return values.firstWhere(
@@ -68,7 +59,7 @@ class WorkflowCard {
         driverLabel: 'Flowcraft',
         category: 'Productivity',
         bannerColor: GizColors.blue,
-        icon: CupertinoIcons.rectangle_3_offgrid,
+        icon: GizIcons.rectangle_3_offgrid,
         driver: WorkflowDriverKind.flowcraft,
       );
     }
@@ -80,7 +71,7 @@ class WorkflowCard {
         driverLabel: 'Doubao Realtime',
         category: 'Audio',
         bannerColor: GizColors.coral,
-        icon: CupertinoIcons.waveform_path,
+        icon: GizIcons.waveform_path,
         driver: WorkflowDriverKind.doubaoRealtime,
       );
     }
@@ -92,7 +83,7 @@ class WorkflowCard {
         driverLabel: 'AST Translate',
         category: 'Code',
         bannerColor: GizColors.lavender,
-        icon: CupertinoIcons.chevron_left_slash_chevron_right,
+        icon: GizIcons.chevron_left_slash_chevron_right,
         driver: WorkflowDriverKind.astTranslate,
       );
     }
@@ -103,8 +94,8 @@ class WorkflowCard {
         subtitle: description,
         driverLabel: 'Chatroom',
         category: 'Conversation',
-        bannerColor: GizColors.teal,
-        icon: CupertinoIcons.waveform,
+        bannerColor: GizColors.accent,
+        icon: GizIcons.waveform,
         driver: WorkflowDriverKind.chatroom,
       );
     }
@@ -115,7 +106,7 @@ class WorkflowCard {
       driverLabel: 'Unavailable',
       category: 'Other',
       bannerColor: GizColors.secondaryInk,
-      icon: CupertinoIcons.question_circle,
+      icon: GizIcons.question_circle,
       driver: WorkflowDriverKind.unsupported,
     );
   }
@@ -140,20 +131,15 @@ class WorkspaceCard {
     required this.name,
     required this.workflowName,
     required this.lastActive,
-    this.displayName,
     this.chatroomKind,
   });
 
   final ChatroomWorkspaceKind? chatroomKind;
-  final String? displayName;
   final String name;
   final String workflowName;
   final String lastActive;
 
-  String get title {
-    final value = displayName?.trim();
-    return value == null || value.isEmpty ? name : value;
-  }
+  String get title => name;
 }
 
 class ChatroomCard {

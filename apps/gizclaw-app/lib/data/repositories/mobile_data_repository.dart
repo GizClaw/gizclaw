@@ -4,6 +4,16 @@ import 'package:gizclaw/gizclaw.dart';
 import '../../prototype/prototype_models.dart';
 import '../database/app_database.dart';
 
+class MobileDataRefreshWarning {
+  const MobileDataRefreshWarning({required this.scope, required this.error});
+
+  final Object error;
+  final String scope;
+
+  @override
+  String toString() => '$scope refresh failed: $error';
+}
+
 class MobileDataRepository {
   MobileDataRepository(this.database);
 
@@ -44,18 +54,14 @@ class MobileDataRepository {
     return query.watch().map(
       (rows) => rows
           .where((row) => row.workspaceName?.isNotEmpty ?? false)
-          .map((row) {
-            final friend = FriendObject.fromBuffer(row.rawProtobuf);
-            final displayName = friend.displayName.trim();
-            return ChatroomWorkspaceMetadata(
+          .map(
+            (row) => ChatroomWorkspaceMetadata(
               workspaceName: row.workspaceName!,
-              title: displayName.isEmpty
-                  ? _compactPeerKey(row.peerPublicKey)
-                  : displayName,
+              title: row.id,
               kind: ChatroomWorkspaceKind.direct,
               resourceId: row.id,
-            );
-          })
+            ),
+          )
           .toList(growable: false),
     );
   }
@@ -89,6 +95,14 @@ class MobileDataRepository {
     return await query.getSingleOrNull() != null;
   }
 
+  Future<WorkflowCard?> workflowCard(String serverId, String name) async {
+    final query = database.select(database.workflowEntries)
+      ..where((row) => row.serverId.equals(serverId) & row.name.equals(name))
+      ..limit(1);
+    final row = await query.getSingleOrNull();
+    return row == null ? null : _workflowCardFromRow(row);
+  }
+
   Future<Workspace?> workspaceDocument(String serverId, String name) async {
     final query = database.select(database.workspaceEntries)
       ..where((row) => row.serverId.equals(serverId) & row.name.equals(name))
@@ -97,15 +111,13 @@ class MobileDataRepository {
     return row == null ? null : Workspace.fromBuffer(row.rawProtobuf);
   }
 
-  Future<void> refresh({
+  Future<List<MobileDataRefreshWarning>> refresh({
     required GizClawClient client,
     required String endpoint,
     required String serverId,
   }) async {
     final workflows = await _allWorkflows(client);
     final workspaces = await _allWorkspaces(client);
-    final friends = await _allFriends(client);
-    final friendGroups = await _allFriendGroups(client);
     final refreshedAt = DateTime.now().toUtc();
 
     await database.transaction(() async {
@@ -148,55 +160,13 @@ class MobileDataRepository {
             );
           }).toList(),
         );
-        batch.insertAllOnConflictUpdate(
-          database.friendEntries,
-          friends.map((friend) {
-            return FriendEntriesCompanion.insert(
-              serverId: serverId,
-              id: _friendKey(friend),
-              peerPublicKey: friend.peerPublicKey,
-              workspaceName: Value(
-                friend.hasWorkspaceName() ? friend.workspaceName : null,
-              ),
-              rawProtobuf: Uint8List.fromList(friend.writeToBuffer()),
-              refreshedAt: refreshedAt,
-            );
-          }).toList(),
-        );
-        batch.insertAllOnConflictUpdate(
-          database.friendGroupEntries,
-          friendGroups.map((group) {
-            return FriendGroupEntriesCompanion.insert(
-              serverId: serverId,
-              id: _friendGroupKey(group),
-              name: group.name,
-              description: group.description,
-              workspaceName: Value(
-                group.hasWorkspaceName() ? group.workspaceName : null,
-              ),
-              rawProtobuf: Uint8List.fromList(group.writeToBuffer()),
-              refreshedAt: refreshedAt,
-            );
-          }).toList(),
-        );
       });
 
       final workflowNames = workflows.map((item) => item.metadata.name).toSet();
       final workspaceNames = workspaces.map((item) => item.name).toSet();
-      final friendIds = friends.map(_friendKey).toSet();
-      final friendGroupIds = friendGroups.map(_friendGroupKey).toSet();
       await (database.delete(database.workflowEntries)..where(
             (row) =>
                 row.serverId.equals(serverId) & row.name.isNotIn(workflowNames),
-          ))
-          .go();
-      await (database.delete(database.friendEntries)..where(
-            (row) => row.serverId.equals(serverId) & row.id.isNotIn(friendIds),
-          ))
-          .go();
-      await (database.delete(database.friendGroupEntries)..where(
-            (row) =>
-                row.serverId.equals(serverId) & row.id.isNotIn(friendGroupIds),
           ))
           .go();
       await (database.delete(database.workspaceEntries)..where(
@@ -214,6 +184,90 @@ class MobileDataRepository {
               lastSuccessfulRefreshAt: Value(refreshedAt),
             ),
           );
+    });
+
+    final warnings = <MobileDataRefreshWarning>[];
+    try {
+      await _replaceFriends(
+        serverId: serverId,
+        friends: await _allFriends(client),
+        refreshedAt: refreshedAt,
+      );
+    } catch (error) {
+      warnings.add(MobileDataRefreshWarning(scope: 'Friends', error: error));
+    }
+    try {
+      await _replaceFriendGroups(
+        serverId: serverId,
+        groups: await _allFriendGroups(client),
+        refreshedAt: refreshedAt,
+      );
+    } catch (error) {
+      warnings.add(MobileDataRefreshWarning(scope: 'Groups', error: error));
+    }
+    return warnings;
+  }
+
+  Future<void> _replaceFriends({
+    required String serverId,
+    required List<FriendObject> friends,
+    required DateTime refreshedAt,
+  }) async {
+    await database.transaction(() async {
+      await database.batch((batch) {
+        batch.insertAllOnConflictUpdate(
+          database.friendEntries,
+          friends.map((friend) {
+            return FriendEntriesCompanion.insert(
+              serverId: serverId,
+              id: _friendKey(friend),
+              peerPublicKey: friend.peerPublicKey,
+              workspaceName: Value(
+                friend.hasWorkspaceName() ? friend.workspaceName : null,
+              ),
+              rawProtobuf: Uint8List.fromList(friend.writeToBuffer()),
+              refreshedAt: refreshedAt,
+            );
+          }).toList(),
+        );
+      });
+      final friendIds = friends.map(_friendKey).toSet();
+      await (database.delete(database.friendEntries)..where(
+            (row) => row.serverId.equals(serverId) & row.id.isNotIn(friendIds),
+          ))
+          .go();
+    });
+  }
+
+  Future<void> _replaceFriendGroups({
+    required String serverId,
+    required List<FriendGroupObject> groups,
+    required DateTime refreshedAt,
+  }) async {
+    await database.transaction(() async {
+      await database.batch((batch) {
+        batch.insertAllOnConflictUpdate(
+          database.friendGroupEntries,
+          groups.map((group) {
+            return FriendGroupEntriesCompanion.insert(
+              serverId: serverId,
+              id: _friendGroupKey(group),
+              name: group.name,
+              description: group.description,
+              workspaceName: Value(
+                group.hasWorkspaceName() ? group.workspaceName : null,
+              ),
+              rawProtobuf: Uint8List.fromList(group.writeToBuffer()),
+              refreshedAt: refreshedAt,
+            );
+          }).toList(),
+        );
+      });
+      final groupIds = groups.map(_friendGroupKey).toSet();
+      await (database.delete(database.friendGroupEntries)..where(
+            (row) => row.serverId.equals(serverId) & row.id.isNotIn(groupIds),
+          ))
+          .go();
     });
   }
 }
@@ -276,12 +330,6 @@ String _friendGroupKey(FriendGroupObject group) {
   return group.name.trim();
 }
 
-String _compactPeerKey(String value) {
-  final trimmed = value.trim();
-  if (trimmed.length <= 14) return trimmed.isEmpty ? 'Friend' : trimmed;
-  return '${trimmed.substring(0, 7)}...${trimmed.substring(trimmed.length - 5)}';
-}
-
 WorkflowCard _workflowCardFromRow(WorkflowEntry row) {
   return WorkflowCard.fromServer(
     name: row.name,
@@ -294,7 +342,6 @@ WorkspaceCard _workspaceCardFromRow(WorkspaceEntry row) {
   final workspace = Workspace.fromBuffer(row.rawProtobuf);
   return WorkspaceCard(
     chatroomKind: _chatroomKind(workspace),
-    displayName: workspace.displayName,
     name: row.name,
     workflowName: row.workflowName,
     lastActive: _relativeTime(

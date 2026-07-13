@@ -3,23 +3,66 @@ import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import 'giz_icons.dart';
+
+export 'giz_icons.dart';
+
 abstract final class GizColors {
   static const canvas = Color(0xFFF5F6F2);
   static const surface = Color(0xFFFFFFFF);
   static const ink = Color(0xFF13211C);
   static const secondaryInk = Color(0xFF64716B);
   static const separator = Color(0xFFDCE3DD);
+
+  // System interactions use a brighter blue than message bubbles.
+  static const primary = Color(0xFF2F8FFF);
+  static const primaryHighlight = Color(0xFF5AABFF);
+  static const primaryShadow = Color(0xFF2478DC);
+  static const onPrimary = surface;
   static const accent = Color(0xFFC7EA62);
-  static const teal = Color(0xFF287A67);
+  static const onAccent = ink;
+  static const messageBlue = Color(0xFF007AFF);
+  static const messageIncoming = Color(0xFFE9E9EB);
   static const blue = Color(0xFF55758A);
   static const coral = Color(0xFFD78165);
   static const lavender = Color(0xFF9786B8);
   static const success = Color(0xFF42A878);
 }
 
+String gizResourceInitial(String id) {
+  final normalized = id.trim();
+  if (normalized.isEmpty) return '?';
+  return String.fromCharCode(normalized.runes.first).toUpperCase();
+}
+
+class GizResourceInitial extends StatelessWidget {
+  const GizResourceInitial({super.key, required this.id, this.size = 50});
+
+  final String id;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return GizSquircle(
+      key: ValueKey('resource-initial-$id'),
+      borderRadius: GizCorners.icon(size),
+      child: Container(
+        width: size,
+        height: size,
+        alignment: Alignment.center,
+        color: const Color(0xFFDCEEFF),
+        child: Text(
+          gizResourceInitial(id),
+          style: GizText.sectionTitle.copyWith(color: GizColors.primaryShadow),
+        ),
+      ),
+    );
+  }
+}
+
 abstract final class GizText {
   static const hero = TextStyle(
-    fontFamily: 'Manrope',
+    fontFamily: 'NotoSansSC',
     color: GizColors.ink,
     fontSize: 38,
     height: 1.04,
@@ -28,7 +71,7 @@ abstract final class GizText {
   );
 
   static const pageTitle = TextStyle(
-    fontFamily: 'Manrope',
+    fontFamily: 'NotoSansSC',
     color: GizColors.ink,
     fontSize: 30,
     height: 1.08,
@@ -37,7 +80,7 @@ abstract final class GizText {
   );
 
   static const sectionTitle = TextStyle(
-    fontFamily: 'Manrope',
+    fontFamily: 'NotoSansSC',
     color: GizColors.ink,
     fontSize: 21,
     height: 1.2,
@@ -46,7 +89,7 @@ abstract final class GizText {
   );
 
   static const title = TextStyle(
-    fontFamily: 'Manrope',
+    fontFamily: 'NotoSansSC',
     color: GizColors.ink,
     fontSize: 16,
     height: 1.3,
@@ -55,7 +98,7 @@ abstract final class GizText {
   );
 
   static const body = TextStyle(
-    fontFamily: 'Manrope',
+    fontFamily: 'NotoSansSC',
     color: GizColors.ink,
     fontSize: 14,
     height: 1.45,
@@ -64,7 +107,7 @@ abstract final class GizText {
   );
 
   static const label = TextStyle(
-    fontFamily: 'Manrope',
+    fontFamily: 'NotoSansSC',
     color: GizColors.ink,
     fontSize: 11,
     height: 1.2,
@@ -75,8 +118,8 @@ abstract final class GizText {
 
 const gizCupertinoTheme = CupertinoThemeData(
   brightness: Brightness.light,
-  primaryColor: GizColors.teal,
-  primaryContrastingColor: GizColors.surface,
+  primaryColor: GizColors.primary,
+  primaryContrastingColor: GizColors.onPrimary,
   scaffoldBackgroundColor: GizColors.canvas,
   barBackgroundColor: Color(0xF7F5F6F2),
   textTheme: CupertinoTextThemeData(
@@ -143,6 +186,58 @@ class GizIconTile extends StatelessWidget {
         child: SizedBox.square(
           dimension: size,
           child: Icon(icon, size: iconSize, color: foregroundColor),
+        ),
+      ),
+    );
+  }
+}
+
+class GizPageActionButton extends StatelessWidget {
+  const GizPageActionButton({
+    super.key,
+    required this.icon,
+    required this.semanticLabel,
+    required this.onPressed,
+    this.loading = false,
+  });
+
+  final IconData icon;
+  final bool loading;
+  final VoidCallback? onPressed;
+  final String semanticLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onPressed != null && !loading;
+    return Semantics(
+      label: semanticLabel,
+      button: true,
+      enabled: enabled,
+      excludeSemantics: true,
+      child: SizedBox.square(
+        dimension: 44,
+        child: CupertinoButton(
+          minimumSize: const Size.square(44),
+          padding: const EdgeInsets.all(8),
+          pressedOpacity: 0.62,
+          onPressed: enabled ? onPressed : null,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            child: loading
+                ? const CupertinoActivityIndicator(
+                    key: ValueKey('page-action-loading'),
+                    radius: 10,
+                    color: GizColors.primary,
+                  )
+                : Icon(
+                    icon,
+                    key: const ValueKey('page-action-icon'),
+                    size: 28,
+                    color: enabled
+                        ? GizColors.primary
+                        : GizColors.secondaryInk.withValues(alpha: 0.42),
+                  ),
+          ),
         ),
       ),
     );
@@ -246,9 +341,7 @@ class _GizVoiceButtonState extends State<GizVoiceButton>
           child: widget.preparing
               ? CupertinoActivityIndicator(color: widget.foregroundColor)
               : Icon(
-                  widget.recording
-                      ? CupertinoIcons.waveform
-                      : CupertinoIcons.mic_fill,
+                  widget.recording ? GizIcons.waveform : GizIcons.mic_fill,
                   size: widget.recording ? 30 : 28,
                   color: widget.enabled
                       ? widget.foregroundColor
@@ -349,7 +442,7 @@ class GizSectionHeader extends StatelessWidget {
                     style: GizText.body.copyWith(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(width: 5),
-                  const Icon(CupertinoIcons.arrow_right, size: 17),
+                  const Icon(GizIcons.arrow_right, size: 17),
                 ],
               ),
             ),
@@ -373,7 +466,7 @@ class GizListRow extends StatelessWidget {
   final Widget leading;
   final String title;
   final String subtitle;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final Widget? trailing;
   final bool showSeparator;
 
@@ -414,11 +507,13 @@ class GizListRow extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             trailing ??
-                const Icon(
-                  CupertinoIcons.chevron_forward,
-                  size: 18,
-                  color: GizColors.secondaryInk,
-                ),
+                (onPressed == null
+                    ? const SizedBox(width: 18)
+                    : const Icon(
+                        GizIcons.chevron_forward,
+                        size: 18,
+                        color: GizColors.secondaryInk,
+                      )),
           ],
         ),
       ),

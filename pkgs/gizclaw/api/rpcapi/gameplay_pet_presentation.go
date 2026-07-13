@@ -35,7 +35,6 @@ type PetPresentationActionSpec struct {
 	Cost         int64                            `json:"cost"`
 	Effect       *PetPresentationActionEffectSpec `json:"effect,omitempty"`
 	VisualClipId *string                          `json:"visual_clip_id,omitempty"`
-	Icon         *string                          `json:"icon,omitempty"`
 }
 
 type PetPresentationAttrDelta struct {

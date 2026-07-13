@@ -22,7 +22,6 @@ void main() {
       ],
       workspaces: [
         Workspace(
-          displayName: 'My Mobile Plan',
           name: 'mobile-plan',
           workflowName: 'build-helper',
           lastActiveAt: '2026-07-12T00:00:00Z',
@@ -42,7 +41,6 @@ void main() {
           id: 'friend-a',
           peerPublicKey: 'peer-public-key-a',
           workspaceName: 'social-direct-a',
-          displayName: 'Ada',
         ),
       ],
       friendGroups: [
@@ -69,7 +67,7 @@ void main() {
     final mobileWorkspace = workspaces.firstWhere(
       (workspace) => workspace.name == 'mobile-plan',
     );
-    expect(mobileWorkspace.title, 'My Mobile Plan');
+    expect(mobileWorkspace.title, 'mobile-plan');
     expect(mobileWorkspace.workflowName, 'build-helper');
     expect(
       workspaces
@@ -90,7 +88,7 @@ void main() {
     expect(await repository.workspaceDocument('server-a', 'missing'), isNull);
     final friendChats = await repository.watchFriendChats('server-a').first;
     expect(friendChats.single.workspaceName, 'social-direct-a');
-    expect(friendChats.single.title, 'Ada');
+    expect(friendChats.single.title, 'friend-a');
     expect(friendChats.single.resourceId, 'friend-a');
     final groupChats = await repository.watchFriendGroupChats('server-a').first;
     expect(groupChats.single.workspaceName, 'social-group-a');
@@ -130,6 +128,76 @@ void main() {
     expect(await repository.watchWorkflows('server-a').first, isEmpty);
     expect(await repository.watchWorkspaces('server-a').first, isEmpty);
   });
+
+  test(
+    'social RPC failure does not leave the workspace catalog stale',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+      final repository = MobileDataRepository(database);
+      final client = _FakeClient(
+        workflows: [
+          WorkflowDocument(
+            metadata: WorkflowMetadata(name: 'old-workflow'),
+            spec: WorkflowSpec(
+              driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT,
+            ),
+          ),
+        ],
+        workspaces: [
+          Workspace(name: 'old-workspace', workflowName: 'old-workflow'),
+        ],
+        friends: [
+          FriendObject(
+            id: 'friend-a',
+            peerPublicKey: 'peer-a',
+            workspaceName: 'friend-workspace-a',
+          ),
+        ],
+      );
+      await repository.refresh(
+        client: client,
+        endpoint: 'local',
+        serverId: 'server-a',
+      );
+
+      client.workflows
+        ..clear()
+        ..add(
+          WorkflowDocument(
+            metadata: WorkflowMetadata(name: 'new-workflow'),
+            spec: WorkflowSpec(
+              driver: WorkflowDriver.WORKFLOW_DRIVER_AST_TRANSLATE,
+            ),
+          ),
+        );
+      client.workspaces
+        ..clear()
+        ..add(Workspace(name: 'new-workspace', workflowName: 'new-workflow'));
+      client.failFriends = true;
+
+      final warnings = await repository.refresh(
+        client: client,
+        endpoint: 'local',
+        serverId: 'server-a',
+      );
+
+      expect(warnings, hasLength(1));
+      expect(warnings.single.scope, 'Friends');
+      expect(
+        (await repository.watchWorkflows('server-a').first).single.name,
+        'new-workflow',
+      );
+      expect(
+        (await repository.watchWorkspaces('server-a').first).single.name,
+        'new-workspace',
+      );
+      expect(
+        (await repository.watchFriendChats('server-a').first).single.resourceId,
+        'friend-a',
+      );
+    },
+  );
 }
 
 class _FakeClient extends GizClawClient {
@@ -144,6 +212,7 @@ class _FakeClient extends GizClawClient {
   final List<FriendObject> friends;
   final List<WorkflowDocument> workflows;
   final List<Workspace> workspaces;
+  bool failFriends = false;
 
   @override
   Future<WorkflowListResponse> listWorkflows({
@@ -164,6 +233,7 @@ class _FakeClient extends GizClawClient {
 
   @override
   Future<FriendListResponse> listFriends({String? cursor, int? limit}) async {
+    if (failFriends) throw const FormatException('friend payload missing');
     return FriendListResponse(items: friends);
   }
 

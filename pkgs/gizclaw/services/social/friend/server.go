@@ -26,16 +26,11 @@ type ACL interface {
 	DeletePolicyBinding(context.Context, string) (apitypes.ACLPolicyBinding, error)
 }
 
-type PeerDirectory interface {
-	PeerDisplayName(context.Context, string) (string, error)
-}
-
 type Server struct {
 	InviteTokens kv.Store
 	Friends      kv.Store
 	Workspaces   WorkspaceService
 	ACL          ACL
-	Peers        PeerDirectory
 
 	Now   func() time.Time
 	NewID func() string
@@ -123,7 +118,7 @@ func (s *Server) AddFriend(ctx context.Context, owner string, req rpcapi.FriendA
 	}
 	relationID := socialutil.RelationID(owner, to)
 	if existing, err := s.GetFriendRelation(ctx, owner, relationID); err == nil {
-		return s.withDisplayName(ctx, existing), nil
+		return existing, nil
 	} else if !errors.Is(err, kv.ErrNotFound) {
 		return rpcapi.FriendAddResponse{}, err
 	}
@@ -138,7 +133,7 @@ func (s *Server) AddFriend(ctx context.Context, owner string, req rpcapi.FriendA
 		}
 		return rpcapi.FriendAddResponse{}, err
 	}
-	return s.withDisplayName(ctx, friend), nil
+	return friend, nil
 }
 
 func (s *Server) AdminCreateFriend(ctx context.Context, owner string, peerPublicKey string) (rpcapi.FriendObject, error) {
@@ -152,7 +147,7 @@ func (s *Server) AdminCreateFriend(ctx context.Context, owner string, peerPublic
 	}
 	relationID := socialutil.RelationID(owner, peerPublicKey)
 	if existing, err := s.GetFriendRelation(ctx, owner, relationID); err == nil {
-		return s.withDisplayName(ctx, existing), nil
+		return existing, nil
 	} else if !errors.Is(err, kv.ErrNotFound) {
 		return rpcapi.FriendObject{}, err
 	}
@@ -167,7 +162,7 @@ func (s *Server) AdminCreateFriend(ctx context.Context, owner string, peerPublic
 		}
 		return rpcapi.FriendObject{}, err
 	}
-	return s.withDisplayName(ctx, friend), nil
+	return friend, nil
 }
 
 func (s *Server) AdminListFriends(ctx context.Context, cursor *string, limit *int) (adminhttp.AdminFriendListResponse, error) {
@@ -194,7 +189,7 @@ func (s *Server) AdminListFriends(ctx context.Context, cursor *string, limit *in
 		if err := json.Unmarshal(entry.Value, &item); err != nil {
 			return adminhttp.AdminFriendListResponse{}, err
 		}
-		item = s.withDisplayName(ctx, friendObjectForOwner(owner, item))
+		item = friendObjectForOwner(owner, item)
 		items = append(items, adminFriendObject(owner, item))
 	}
 	var next *string
@@ -246,7 +241,7 @@ func (s *Server) ListFriends(ctx context.Context, owner string, req rpcapi.Frien
 		if err := json.Unmarshal(entry.Value, &item); err != nil {
 			return rpcapi.FriendListResponse{}, err
 		}
-		item = s.withDisplayName(ctx, friendObjectForOwner(owner, item))
+		item = friendObjectForOwner(owner, item)
 		items = append(items, item)
 	}
 	return rpcapi.FriendListResponse{Items: items, HasNext: entries.HasNext, NextCursor: entries.NextCursor}, nil
@@ -269,7 +264,7 @@ func (s *Server) DeleteFriend(ctx context.Context, owner string, req rpcapi.Frie
 	if err := store.BatchDelete(ctx, []kv.Key{socialutil.FriendKey(owner, relationID), socialutil.FriendKey(other, relationID)}); err != nil {
 		return rpcapi.FriendObject{}, err
 	}
-	return s.withDisplayName(ctx, friendObjectForOwner(owner, item)), nil
+	return friendObjectForOwner(owner, item), nil
 }
 
 func (s *Server) GetFriendRelation(ctx context.Context, owner, id string) (rpcapi.FriendObject, error) {
@@ -281,19 +276,7 @@ func (s *Server) GetFriendRelation(ctx context.Context, owner, id string) (rpcap
 	if err != nil {
 		return rpcapi.FriendObject{}, err
 	}
-	return s.withDisplayName(ctx, friendObjectForOwner(owner, item)), nil
-}
-
-func (s *Server) withDisplayName(ctx context.Context, item rpcapi.FriendObject) rpcapi.FriendObject {
-	if s == nil || s.Peers == nil {
-		return item
-	}
-	name, err := s.Peers.PeerDisplayName(ctx, socialutil.StringValue(item.PeerPublicKey))
-	if err != nil || name == "" {
-		return item
-	}
-	item.DisplayName = &name
-	return item
+	return friendObjectForOwner(owner, item), nil
 }
 
 func friendRelationID(owner, id string) string {
@@ -338,7 +321,6 @@ func adminFriendObject(owner string, item rpcapi.FriendObject) adminhttp.AdminFr
 		Id:             socialutil.StringValue(item.Id),
 		PeerPublicKey:  socialutil.StringValue(item.PeerPublicKey),
 		WorkspaceName:  socialutil.StringValue(item.WorkspaceName),
-		DisplayName:    item.DisplayName,
 		CreatedAt:      item.CreatedAt,
 		UpdatedAt:      item.UpdatedAt,
 	}

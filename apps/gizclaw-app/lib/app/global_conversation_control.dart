@@ -317,7 +317,7 @@ class _AudioFieldPainter extends CustomPainter {
     final output = math.max(sampledOutput, outputActive ? 0.045 : 0.0);
     final overall = math.max(input, output);
     final angle = phase * math.pi * 2;
-    const inputColor = GizColors.teal;
+    const inputColor = GizColors.accent;
     const outputColor = GizColors.lavender;
     final blend = Color.lerp(
       inputColor,
@@ -450,41 +450,31 @@ class _PrimaryDockNavigation extends StatefulWidget {
   final Uri location;
 
   static const _items = [
-    (CupertinoIcons.house, CupertinoIcons.house_fill, 'Home', '/active'),
+    (GizIcons.house, GizIcons.house_fill, 'Home', '/active'),
     (
-      CupertinoIcons.game_controller,
-      CupertinoIcons.game_controller_solid,
+      GizIcons.game_controller,
+      GizIcons.game_controller_solid,
       'Flowcraft',
       '/raids/drivers/flowcraft',
     ),
     (
-      CupertinoIcons.wand_stars,
-      CupertinoIcons.wand_stars_inverse,
+      GizIcons.wand_stars,
+      GizIcons.wand_stars_inverse,
       'Doubao',
       '/raids/drivers/doubao-realtime',
     ),
     (
-      CupertinoIcons.globe,
-      CupertinoIcons.globe,
+      GizIcons.globe,
+      GizIcons.globe,
       'Translate',
       '/raids/drivers/ast-translate',
     ),
+    (GizIcons.person_2, GizIcons.person_2_fill, 'Friends', '/friends'),
+    (GizIcons.person_3, GizIcons.person_3_fill, 'Groups', '/groups'),
+    (GizIcons.paw, GizIcons.paw_solid, 'Pets', '/pets'),
     (
-      CupertinoIcons.person_2,
-      CupertinoIcons.person_2_fill,
-      'Friends',
-      '/friends',
-    ),
-    (
-      CupertinoIcons.person_3,
-      CupertinoIcons.person_3_fill,
-      'Groups',
-      '/groups',
-    ),
-    (CupertinoIcons.paw, CupertinoIcons.paw_solid, 'Pets', '/pets'),
-    (
-      CupertinoIcons.person_crop_circle,
-      CupertinoIcons.person_crop_circle_fill,
+      GizIcons.person_crop_circle,
+      GizIcons.person_crop_circle_fill,
       'Identity',
       '/identity',
     ),
@@ -619,7 +609,10 @@ class _PrimaryDockNavigationState extends State<_PrimaryDockNavigation> {
                         ? const LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [Color(0xFF343735), Color(0xFF080908)],
+                            colors: [
+                              GizColors.primaryHighlight,
+                              GizColors.primaryShadow,
+                            ],
                           )
                         : null,
                     border: selected
@@ -633,7 +626,7 @@ class _PrimaryDockNavigationState extends State<_PrimaryDockNavigation> {
                         ? [
                             BoxShadow(
                               color: CupertinoColors.black.withValues(
-                                alpha: dark ? 0.48 : 0.24,
+                                alpha: dark ? 0.42 : 0.2,
                               ),
                               blurRadius: 14,
                               offset: const Offset(0, 5),
@@ -675,7 +668,7 @@ class _TranslateDockIcon extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          Icon(CupertinoIcons.globe, size: 22, color: color),
+          Icon(GizIcons.globe, size: 22, color: color),
           Positioned(
             right: 0,
             bottom: 0,
@@ -692,7 +685,7 @@ class _TranslateDockIcon extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.all(1.5),
                 child: Icon(
-                  CupertinoIcons.arrow_right_arrow_left,
+                  GizIcons.arrow_right_arrow_left,
                   size: 9,
                   color: color,
                 ),
@@ -730,9 +723,9 @@ class _ContextDockNavigation extends StatelessWidget {
               }
             },
             child: Icon(
-              CupertinoIcons.chevron_left,
+              GizIcons.chevron_left,
               size: 20,
-              color: dark ? const Color(0xFFA4D8C9) : GizColors.teal,
+              color: dark ? const Color(0xFFA4D8C9) : GizColors.primary,
             ),
           ),
           Container(
@@ -851,12 +844,10 @@ class _WorkspaceActivationButtonState
     final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
     final active = widget.active;
     final foreground = active
-        ? GizColors.accent
+        ? GizColors.onAccent
         : (dark ? const Color(0xFFA8C6D6) : GizColors.blue);
     final colors = active
-        ? (dark
-              ? const [Color(0xFF4A9B84), Color(0xFF245F50)]
-              : const [Color(0xFF3C8B76), Color(0xFF1F6554)])
+        ? const [GizColors.accent, GizColors.accent]
         : (dark
               ? const [Color(0xFF303A37), Color(0xFF26302D)]
               : const [Color(0xFFF8FAF8), Color(0xFFE9EFEB)]);
@@ -891,7 +882,7 @@ class _WorkspaceActivationButtonState
             boxShadow: [
               BoxShadow(
                 color: active
-                    ? const Color(0x2E001913)
+                    ? GizColors.accent.withValues(alpha: 0.26)
                     : const Color(0x12001913),
                 blurRadius: active ? 12 : 8,
                 offset: const Offset(0, 4),
@@ -914,9 +905,7 @@ class _WorkspaceActivationButtonState
                     color: foreground,
                   )
                 : Icon(
-                    active
-                        ? CupertinoIcons.checkmark_alt
-                        : CupertinoIcons.scope,
+                    active ? GizIcons.checkmark_alt : GizIcons.scope,
                     key: ValueKey(active),
                     size: active ? 25 : 24,
                     color: foreground,
@@ -1130,6 +1119,12 @@ class _GlobalConversationControlState extends State<GlobalConversationControl> {
     unawaited(HapticFeedback.selectionClick());
     try {
       await data.setActiveInputMode(mode);
+      if (mode == WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME) {
+        final realtimeChat = data.activeWorkspaceChat;
+        if (realtimeChat != null && realtimeChat.canRecord) {
+          await realtimeChat.startInput();
+        }
+      }
     } catch (error) {
       if (!mounted) return;
       await showCupertinoDialog<void>(
@@ -1268,7 +1263,7 @@ class _VoiceModeToggleState extends State<_VoiceModeToggle> {
     final realtime =
         widget.mode == WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME;
     final engaged = widget.recording || widget.preparing;
-    final pttAccent = dark ? const Color(0xFF94D3C0) : GizColors.teal;
+    final pttAccent = dark ? const Color(0xFF94D3C0) : GizColors.accent;
     final realtimeAccent = dark ? const Color(0xFFC1B4DC) : GizColors.lavender;
     final thumb = _VoiceModeThumb(
       enabled: widget.enabled,
@@ -1297,7 +1292,7 @@ class _VoiceModeToggleState extends State<_VoiceModeToggle> {
                 child: _VoiceModeTarget(
                   key: const ValueKey('voice-mode-ptt'),
                   label: 'Push to talk',
-                  icon: CupertinoIcons.mic_fill,
+                  icon: GizIcons.mic_fill,
                   color: pttAccent.withValues(alpha: realtime ? 0.48 : 0.72),
                   loading: widget.switchingMode && realtime,
                   onPressed: !realtime || widget.switchingMode
@@ -1311,7 +1306,7 @@ class _VoiceModeToggleState extends State<_VoiceModeToggle> {
                 child: _VoiceModeTarget(
                   key: const ValueKey('voice-mode-realtime'),
                   label: 'Realtime',
-                  icon: CupertinoIcons.phone_fill,
+                  icon: GizIcons.phone_fill,
                   color: realtimeAccent.withValues(
                     alpha: realtime ? 0.72 : 0.48,
                   ),
@@ -1412,7 +1407,7 @@ class _VoiceModeThumb extends StatelessWidget {
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF343735), Color(0xFF080908)],
+            colors: [GizColors.primaryHighlight, GizColors.primaryShadow],
           ),
           border: Border.all(
             color: dark ? const Color(0x5CFFFFFF) : const Color(0x52FFFFFF),
@@ -1434,7 +1429,7 @@ class _VoiceModeThumb extends StatelessWidget {
             child: FadeTransition(opacity: animation, child: child),
           ),
           child: Icon(
-            realtime ? CupertinoIcons.phone_fill : CupertinoIcons.mic_fill,
+            realtime ? GizIcons.phone_fill : GizIcons.mic_fill,
             key: ValueKey(realtime),
             size: realtime ? 22 : 21,
             color: enabled

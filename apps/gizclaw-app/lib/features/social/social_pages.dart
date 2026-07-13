@@ -32,14 +32,10 @@ class FriendsPage extends StatelessWidget {
                     const Expanded(
                       child: Text('Friends', style: GizText.pageTitle),
                     ),
-                    CupertinoButton(
-                      padding: const EdgeInsets.all(8),
+                    GizPageActionButton(
+                      icon: GizIcons.person_add,
+                      semanticLabel: 'Add friend',
                       onPressed: () => _showFriendConnect(context, data),
-                      child: const Icon(
-                        CupertinoIcons.person_add,
-                        size: 23,
-                        semanticLabel: 'Add friend',
-                      ),
                     ),
                   ],
                 ),
@@ -158,14 +154,10 @@ class GroupsPage extends StatelessWidget {
                     const Expanded(
                       child: Text('Groups', style: GizText.pageTitle),
                     ),
-                    CupertinoButton(
-                      padding: const EdgeInsets.all(8),
+                    GizPageActionButton(
+                      icon: GizIcons.person_3_fill,
+                      semanticLabel: 'Create group',
                       onPressed: () => _showCreateGroup(context, data),
-                      child: const Icon(
-                        CupertinoIcons.person_3_fill,
-                        size: 23,
-                        semanticLabel: 'Create group',
-                      ),
                     ),
                   ],
                 ),
@@ -197,7 +189,7 @@ class GroupsPage extends StatelessWidget {
                   final group = groups[index];
                   return GizListRow(
                         leading: const GizIconTile(
-                          icon: CupertinoIcons.person_3_fill,
+                          icon: GizIcons.person_3_fill,
                           backgroundColor: Color(0xFFDDE8FF),
                           foregroundColor: Color(0xFF315E9D),
                           size: 52,
@@ -280,7 +272,7 @@ class FriendRow extends StatelessWidget {
         padding: EdgeInsets.zero,
         onPressed: () => _showActions(context),
         child: const Icon(
-          CupertinoIcons.ellipsis,
+          GizIcons.ellipsis,
           size: 20,
           color: GizColors.secondaryInk,
         ),
@@ -735,7 +727,7 @@ class _FriendConnectSheetState extends State<_FriendConnectSheet> {
               CupertinoButton(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 onPressed: _busy ? null : _rotateToken,
-                child: const Icon(CupertinoIcons.refresh),
+                child: const Icon(GizIcons.refresh),
               ),
             ],
           ],
@@ -870,7 +862,7 @@ class PrototypePetPage extends StatelessWidget {
                     label: 'Mood',
                     value: 'Bright',
                     color: GizColors.accent,
-                    icon: CupertinoIcons.sun_max_fill,
+                    icon: GizIcons.sun_max_fill,
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -879,7 +871,7 @@ class PrototypePetPage extends StatelessWidget {
                     label: 'Streak',
                     value: '9 days',
                     color: const Color(0xFFFFDDD2),
-                    icon: CupertinoIcons.flame_fill,
+                    icon: GizIcons.flame_fill,
                   ),
                 ),
               ],
@@ -966,6 +958,9 @@ class MePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final data = MobileDataScope.watch(context);
+    final publicKey = data.clientPublicKey;
+    final status = _identityConnectionStatus(data.connectionState);
     return CupertinoPageScaffold(
       child: SafeArea(
         bottom: false,
@@ -984,30 +979,41 @@ class MePage extends StatelessWidget {
                 borderRadius: GizCorners.card,
                 child: Container(
                   padding: const EdgeInsets.all(18),
-                  color: GizColors.ink,
-                  child: const Row(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        GizColors.primaryHighlight,
+                        GizColors.primaryShadow,
+                      ],
+                    ),
+                  ),
+                  child: Row(
                     children: [
-                      _ProfileMark(),
-                      SizedBox(width: 14),
+                      const _ProfileMark(),
+                      const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'Local client',
+                            const Text(
+                              'This device',
                               style: TextStyle(
-                                fontFamily: 'Manrope',
+                                fontFamily: 'NotoSansSC',
                                 color: GizColors.surface,
                                 fontSize: 17,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 0,
                               ),
                             ),
-                            SizedBox(height: 4),
+                            const SizedBox(height: 4),
                             Text(
-                              'Connected over WebRTC',
-                              style: TextStyle(
-                                fontFamily: 'Manrope',
+                              publicKey == null
+                                  ? 'Device identity ready'
+                                  : _compactIdentity(publicKey),
+                              style: const TextStyle(
+                                fontFamily: 'NotoSansSC',
                                 color: Color(0xAFFFFFFF),
                                 fontSize: 13,
                                 letterSpacing: 0,
@@ -1016,7 +1022,10 @@ class MePage extends StatelessWidget {
                           ],
                         ),
                       ),
-                      GizSignalPulse(size: 28),
+                      _IdentityStatusPill(
+                        label: status.label,
+                        color: status.color,
+                      ),
                     ],
                   ),
                 ),
@@ -1031,28 +1040,183 @@ class MePage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            const SettingsRow(
-              icon: CupertinoIcons.person_crop_circle,
-              title: 'Identity',
-              value: 'client-local',
+            SettingsRow(
+              icon: GizIcons.person_crop_circle,
+              title: 'Public identity',
+              value: publicKey == null
+                  ? 'Generated on this device'
+                  : _compactIdentity(publicKey),
+              onPressed: publicKey == null
+                  ? null
+                  : () => Clipboard.setData(ClipboardData(text: publicKey)),
             ),
             const SettingsRow(
-              icon: CupertinoIcons.antenna_radiowaves_left_right,
+              icon: GizIcons.lock_shield,
+              title: 'Private key',
+              value: 'Protected by device secure storage',
+            ),
+            const SizedBox(height: 26),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                'CONNECTION',
+                style: GizText.label.copyWith(color: GizColors.secondaryInk),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SettingsRow(
+              key: const ValueKey('identity-server-row'),
+              icon: GizIcons.antenna_radiowaves_left_right,
               title: 'Server',
-              value: '127.0.0.1:9820',
+              value: data.serverEndpoint.isEmpty
+                  ? 'Not configured'
+                  : data.serverEndpoint,
+              onPressed: () => showCupertinoModalPopup<void>(
+                context: context,
+                builder: (context) => _ServerEndpointSheet(data: data),
+              ),
             ),
-            const SettingsRow(
-              icon: CupertinoIcons.lock_shield,
-              title: 'Connection',
-              value: 'WebRTC',
-            ),
-            const SettingsRow(
-              icon: CupertinoIcons.arrow_2_circlepath,
-              title: 'Local cache',
-              value: 'Prototype data',
+            SettingsRow(
+              icon: GizIcons.arrow_2_circlepath,
+              title: 'Transport',
+              value: 'WebRTC · ${status.label}',
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _IdentityStatusPill extends StatelessWidget {
+  const _IdentityStatusPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Text(label, style: GizText.label.copyWith(color: GizColors.surface)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ServerEndpointSheet extends StatefulWidget {
+  const _ServerEndpointSheet({required this.data});
+
+  final MobileDataController data;
+
+  @override
+  State<_ServerEndpointSheet> createState() => _ServerEndpointSheetState();
+}
+
+class _ServerEndpointSheetState extends State<_ServerEndpointSheet> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.data.serverEndpoint,
+  );
+  bool _busy = false;
+  Object? _error;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await widget.data.updateServerEndpoint(_controller.text);
+      if (mounted) Navigator.pop(context);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = error;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final background = CupertinoColors.systemBackground.resolveFrom(context);
+    final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
+    return Container(
+      key: const ValueKey('server-endpoint-sheet'),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.fromLTRB(20, 12, 20, 18 + safeBottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 36,
+              height: 5,
+              decoration: BoxDecoration(
+                color: CupertinoColors.systemGrey4.resolveFrom(context),
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          const Text('GizClaw Server', style: GizText.sectionTitle),
+          const SizedBox(height: 16),
+          CupertinoTextField(
+            key: const ValueKey('server-endpoint-field'),
+            controller: _controller,
+            placeholder: 'gizclaw.example.com:9820',
+            keyboardType: TextInputType.url,
+            autocorrect: false,
+            enableSuggestions: false,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _save(),
+            padding: const EdgeInsets.all(14),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              _serverEndpointError(_error!),
+              key: const ValueKey('server-endpoint-error'),
+              style: GizText.body.copyWith(
+                color: CupertinoColors.systemRed.resolveFrom(context),
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          CupertinoButton.filled(
+            key: const ValueKey('save-server-endpoint'),
+            onPressed: _busy ? null : _save,
+            child: _busy
+                ? const CupertinoActivityIndicator()
+                : const Text('Save Server'),
+          ),
+          SizedBox(height: MediaQuery.viewInsetsOf(context).bottom),
+        ],
       ),
     );
   }
@@ -1069,8 +1233,11 @@ class _ProfileMark extends StatelessWidget {
         width: 54,
         height: 54,
         alignment: Alignment.center,
-        color: GizColors.accent,
-        child: const Text('GC', style: GizText.title),
+        color: const Color(0xFFDCEEFF),
+        child: Text(
+          'GC',
+          style: GizText.title.copyWith(color: GizColors.primaryShadow),
+        ),
       ),
     );
   }
@@ -1082,11 +1249,13 @@ class SettingsRow extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.value,
+    this.onPressed,
   });
 
   final IconData icon;
   final String title;
   final String value;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -1094,11 +1263,39 @@ class SettingsRow extends StatelessWidget {
       leading: SizedBox(
         width: 36,
         height: 36,
-        child: Icon(icon, size: 22, color: GizColors.ink),
+        child: Icon(icon, size: 22, color: GizColors.primary),
       ),
       title: title,
       subtitle: value,
-      onPressed: () {},
+      onPressed: onPressed,
     );
   }
+}
+
+({String label, Color color}) _identityConnectionStatus(
+  MobileConnectionState state,
+) => switch (state) {
+  MobileConnectionState.connected => (
+    label: 'Connected',
+    color: GizColors.success,
+  ),
+  MobileConnectionState.connecting => (
+    label: 'Connecting',
+    color: GizColors.coral,
+  ),
+  MobileConnectionState.offline => (label: 'Offline', color: GizColors.coral),
+  MobileConnectionState.unconfigured => (
+    label: 'Setup',
+    color: GizColors.lavender,
+  ),
+};
+
+String _compactIdentity(String value) {
+  if (value.length <= 18) return value;
+  return '${value.substring(0, 10)}…${value.substring(value.length - 6)}';
+}
+
+String _serverEndpointError(Object error) {
+  if (error is FormatException) return error.message;
+  return 'Unable to save this server address.';
 }

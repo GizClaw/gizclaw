@@ -2257,7 +2257,6 @@ type Workspace struct {
 	UpdatedAt     string                 `protobuf:"bytes,5,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	WorkflowName  string                 `protobuf:"bytes,6,opt,name=workflow_name,json=workflowName,proto3" json:"workflow_name,omitempty"`
 	Toolkit       *ToolkitPolicy         `protobuf:"bytes,7,opt,name=toolkit,proto3,oneof" json:"toolkit,omitempty"`
-	DisplayName   *string                `protobuf:"bytes,8,opt,name=display_name,json=displayName,proto3,oneof" json:"display_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2339,13 +2338,6 @@ func (x *Workspace) GetToolkit() *ToolkitPolicy {
 		return x.Toolkit
 	}
 	return nil
-}
-
-func (x *Workspace) GetDisplayName() string {
-	if x != nil && x.DisplayName != nil {
-		return *x.DisplayName
-	}
-	return ""
 }
 
 type WorkspaceCreateRequest struct {
@@ -3470,7 +3462,7 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\x05value\x18\x01 \x01(\v2%.gizclaw.rpc.v1.PeerRunWorkspaceStateR\x05value\"\x16\n" +
 	"\x14ServerStopRunRequest\"L\n" +
 	"\x15ServerStopRunResponse\x123\n" +
-	"\x05value\x18\x01 \x01(\v2\x1d.gizclaw.rpc.v1.PeerRunStatusR\x05value\"\x84\x03\n" +
+	"\x05value\x18\x01 \x01(\v2\x1d.gizclaw.rpc.v1.PeerRunStatusR\x05value\"\xcb\x02\n" +
 	"\tWorkspace\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x01 \x01(\tR\tcreatedAt\x12$\n" +
@@ -3482,12 +3474,10 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\x05 \x01(\tR\tupdatedAt\x12#\n" +
 	"\rworkflow_name\x18\x06 \x01(\tR\fworkflowName\x12<\n" +
-	"\atoolkit\x18\a \x01(\v2\x1d.gizclaw.rpc.v1.ToolkitPolicyH\x01R\atoolkit\x88\x01\x01\x12&\n" +
-	"\fdisplay_name\x18\b \x01(\tH\x02R\vdisplayName\x88\x01\x01B\r\n" +
+	"\atoolkit\x18\a \x01(\v2\x1d.gizclaw.rpc.v1.ToolkitPolicyH\x01R\atoolkit\x88\x01\x01B\r\n" +
 	"\v_parametersB\n" +
 	"\n" +
-	"\b_toolkitB\x0f\n" +
-	"\r_display_name\"I\n" +
+	"\b_toolkit\"I\n" +
 	"\x16WorkspaceCreateRequest\x12/\n" +
 	"\x05value\x18\x01 \x01(\v2\x19.gizclaw.rpc.v1.WorkspaceR\x05value\"J\n" +
 	"\x17WorkspaceCreateResponse\x12/\n" +

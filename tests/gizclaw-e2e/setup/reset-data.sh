@@ -3,7 +3,6 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 e2e_dir="$(cd "$script_dir/.." && pwd)"
-repo_root="$(cd "$e2e_dir/../.." && pwd)"
 testdata_dir="$e2e_dir/testdata"
 resource_dir="$testdata_dir/resources"
 env_file="$e2e_dir/.env"
@@ -172,9 +171,6 @@ resource_files() {
   local resource_subdir
   while IFS= read -r resource_subdir; do
     find "$resource_subdir" -type f -name '*.yaml' -print | sort
-    if [[ "$(basename "$resource_subdir")" == "07-gameplay" ]]; then
-      printf '%s\n' "$repo_root/examples/petdef_pixa/codex_pets/petdefs.yaml"
-    fi
   done < <(
     find "$resource_dir" -mindepth 1 -maxdepth 1 -type d -name '[0-9][0-9]-*' -print |
       sort
@@ -248,24 +244,6 @@ apply_resource() {
   run_gizclaw admin apply --context "$admin_context" -f "$resource_file"
 }
 
-upload_petdef_pixa_assets() {
-  local assets=(
-    "petdef-tragon|$repo_root/examples/petdef_pixa/tragon.pixa"
-    "petdef-codex|$repo_root/examples/petdef_pixa/codex_pets/codex.pixa"
-    "petdef-hoots|$repo_root/examples/petdef_pixa/codex_pets/hoots.pixa"
-    "petdef-fireball|$repo_root/examples/petdef_pixa/codex_pets/fireball.pixa"
-  )
-  local entry petdef_id asset_path
-  for entry in "${assets[@]}"; do
-    IFS='|' read -r petdef_id asset_path <<<"$entry"
-    if [[ ! -f "$asset_path" ]]; then
-      echo "missing PetDef PIXA fixture asset: $asset_path" >&2
-      exit 2
-    fi
-    run_gizclaw admin pet-defs upload-pixa "$petdef_id" -f "$asset_path" --context "$admin_context" >/dev/null
-  done
-}
-
 delete_firmware_artifact_if_exists() {
   local firmware_id="$1"
   local channel="$2"
@@ -306,8 +284,6 @@ init_data() {
   for file in "${files[@]}"; do
     apply_resource "$file"
   done
-
-  upload_petdef_pixa_assets
 
   if [[ "${GIZCLAW_E2E_SKIP_PROVIDER_SYNC:-0}" != "1" ]]; then
     run_gizclaw admin volc-tenants sync-voices volc-main --context "$admin_context" >/dev/null

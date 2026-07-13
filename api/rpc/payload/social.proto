@@ -302,5 +302,4 @@ message FriendObject {
   optional string peer_public_key = 3;
   optional string updated_at = 4;
   optional string workspace_name = 5;
-  optional string display_name = 6;
 }

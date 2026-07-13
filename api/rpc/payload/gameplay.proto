@@ -192,7 +192,6 @@ message PetPresentationActionSpec {
   int64 cost = 2;
   optional PetPresentationActionEffectSpec effect = 3;
   optional string visual_clip_id = 4;
-  optional string icon = 5;
 }
 
 message PetPresentationAttrDelta {

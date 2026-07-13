@@ -327,7 +327,6 @@ typedef struct _gizclaw_rpc_v1_FriendObject {
     pb_callback_t peer_public_key;
     pb_callback_t updated_at;
     pb_callback_t workspace_name;
-    pb_callback_t display_name;
 } gizclaw_rpc_v1_FriendObject;
 
 typedef struct _gizclaw_rpc_v1_FriendAddResponse {
@@ -404,7 +403,7 @@ extern "C" {
 #define gizclaw_rpc_v1_FriendInviteTokenGetResponse_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FriendListRequest_init_default {{{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_FriendListResponse_init_default {0, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_FriendObject_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_FriendObject_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ContactCreateRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ContactCreateResponse_init_zero {false, gizclaw_rpc_v1_ContactObject_init_zero}
 #define gizclaw_rpc_v1_ContactDeleteRequest_init_zero {{{NULL}, NULL}}
@@ -463,7 +462,7 @@ extern "C" {
 #define gizclaw_rpc_v1_FriendInviteTokenGetResponse_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FriendListRequest_init_zero {{{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_FriendListResponse_init_zero {0, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_FriendObject_init_zero    {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_FriendObject_init_zero    {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define gizclaw_rpc_v1_ContactCreateRequest_display_name_tag 1
@@ -583,7 +582,6 @@ extern "C" {
 #define gizclaw_rpc_v1_FriendObject_peer_public_key_tag 3
 #define gizclaw_rpc_v1_FriendObject_updated_at_tag 4
 #define gizclaw_rpc_v1_FriendObject_workspace_name_tag 5
-#define gizclaw_rpc_v1_FriendObject_display_name_tag 6
 #define gizclaw_rpc_v1_FriendAddResponse_value_tag 1
 #define gizclaw_rpc_v1_FriendDeleteResponse_value_tag 1
 
@@ -966,8 +964,7 @@ X(a, CALLBACK, OPTIONAL, STRING,   created_at,        1) \
 X(a, CALLBACK, OPTIONAL, STRING,   id,                2) \
 X(a, CALLBACK, OPTIONAL, STRING,   peer_public_key,   3) \
 X(a, CALLBACK, OPTIONAL, STRING,   updated_at,        4) \
-X(a, CALLBACK, OPTIONAL, STRING,   workspace_name,    5) \
-X(a, CALLBACK, OPTIONAL, STRING,   display_name,      6)
+X(a, CALLBACK, OPTIONAL, STRING,   workspace_name,    5)
 #define gizclaw_rpc_v1_FriendObject_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_FriendObject_DEFAULT NULL
 

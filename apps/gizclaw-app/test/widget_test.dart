@@ -4,9 +4,20 @@ import 'package:gizclaw/gizclaw.dart';
 import 'package:gizclaw_app/main.dart';
 import 'package:gizclaw_app/app/global_conversation_control.dart';
 import 'package:gizclaw_app/data/mobile_data_controller.dart';
+import 'package:gizclaw_app/data/repositories/workspace_chat_repository.dart';
+import 'package:gizclaw_app/data/workspace_chat_controller.dart';
 import 'package:gizclaw_app/giz_ui/giz_ui.dart';
 
 void main() {
+  test('keeps system actions separate from the lime accent', () {
+    expect(gizCupertinoTheme.primaryColor, GizColors.primary);
+    expect(gizCupertinoTheme.primaryContrastingColor, GizColors.onPrimary);
+    expect(GizColors.primary, isNot(GizColors.accent));
+    expect(GizColors.primary, const Color(0xFF2F8FFF));
+    expect(GizColors.onAccent, GizColors.ink);
+    expect(GizColors.messageBlue, const Color(0xFF007AFF));
+  });
+
   Finder primaryNav(String label) =>
       find.byKey(ValueKey('primary-nav-${label.toLowerCase()}'));
 
@@ -214,7 +225,7 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.tap(find.byIcon(CupertinoIcons.chevron_left).hitTestable());
+    await tester.tap(find.byIcon(GizIcons.chevron_left).hitTestable());
     await tester.pumpAndSettle();
     expect(find.byType(DriverWorkspacesPage), findsOneWidget);
     expect(find.byType(CupertinoTabBar), findsNothing);
@@ -250,7 +261,7 @@ void main() {
     );
     expect(find.text('ACTIVATE'), findsNothing);
     expect(
-      find.image(const AssetImage('assets/drivers/ast-translate.png')),
+      find.byKey(const ValueKey('resource-initial-Parser pass')),
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);
@@ -309,10 +320,10 @@ void main() {
     ]) {
       expect(primaryNav(label), findsOneWidget);
     }
-    expect(find.byIcon(CupertinoIcons.house_fill), findsOneWidget);
-    expect(find.byIcon(CupertinoIcons.game_controller), findsOneWidget);
-    expect(find.byIcon(CupertinoIcons.wand_stars), findsOneWidget);
-    expect(find.byIcon(CupertinoIcons.paw), findsOneWidget);
+    expect(find.byIcon(GizIcons.house_fill), findsOneWidget);
+    expect(find.byIcon(GizIcons.game_controller), findsOneWidget);
+    expect(find.byIcon(GizIcons.wand_stars), findsOneWidget);
+    expect(find.byIcon(GizIcons.paw), findsOneWidget);
     expect(
       find.byKey(const ValueKey('primary-nav-translate-glyph')),
       findsOneWidget,
@@ -351,6 +362,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 320));
 
     expect(controller.mode, WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME);
+    expect(controller.chat.startInputCalls, 1);
+    expect(controller.chat.recording, isTrue);
     expect(tester.getTopLeft(thumb).dx, greaterThan(pttPosition.dx + 50));
 
     await tester.drag(thumb, const Offset(-64, 0));
@@ -402,8 +415,28 @@ void main() {
 
     await tapPrimaryNav(tester, 'Identity');
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text('Local client'), findsOneWidget);
-    expect(find.text('Connected over WebRTC'), findsOneWidget);
+    expect(find.text('This device'), findsOneWidget);
+    expect(find.text('Device identity ready'), findsOneWidget);
+    expect(find.text('Public identity'), findsOneWidget);
+    expect(find.text('Private key'), findsOneWidget);
+    expect(find.text('Not configured'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('identity-server-row')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('server-endpoint-sheet')), findsOneWidget);
+    expect(
+      tester
+          .getBottomRight(find.byKey(const ValueKey('server-endpoint-sheet')))
+          .dy,
+      tester.view.physicalSize.height / tester.view.devicePixelRatio,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('server-endpoint-field')),
+      'gizclaw.local',
+    );
+    await tester.tap(find.byKey(const ValueKey('save-server-endpoint')));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('server-endpoint-error')), findsOneWidget);
   });
 
   testWidgets('opens real friend connection controls', (tester) async {
@@ -498,7 +531,11 @@ void main() {
 }
 
 class _ModeSwitchController extends MobileDataController {
-  _ModeSwitchController();
+  _ModeSwitchController() {
+    chat = _ModeSwitchChatController(workspaceChatRepository);
+  }
+
+  late final _ModeSwitchChatController chat;
 
   WorkspaceInputMode mode =
       WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK;
@@ -510,8 +547,38 @@ class _ModeSwitchController extends MobileDataController {
   WorkspaceInputMode get activeInputMode => mode;
 
   @override
+  WorkspaceChatController? get activeWorkspaceChat => chat;
+
+  @override
   Future<void> setActiveInputMode(WorkspaceInputMode mode) async {
     this.mode = mode;
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    chat.dispose();
+    super.dispose();
+  }
+}
+
+class _ModeSwitchChatController extends WorkspaceChatController {
+  _ModeSwitchChatController(WorkspaceChatRepository repository)
+    : super(
+        workspaceName: 'Parser pass',
+        repository: repository,
+        serverId: null,
+      );
+
+  int startInputCalls = 0;
+
+  @override
+  bool get canRecord => true;
+
+  @override
+  Future<void> startInput() async {
+    startInputCalls += 1;
+    recording = true;
     notifyListeners();
   }
 }

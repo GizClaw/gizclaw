@@ -18,7 +18,6 @@ func TestApplyWorkspaceCreatesResource(t *testing.T) {
 		"kind": "Workspace",
 		"metadata": {"name": "demo"},
 		"spec": {
-			"display_name": " Demo Workspace ",
 			"workflow_name": "workflow",
 			"parameters": {"topic": "demo"}
 		}
@@ -34,9 +33,6 @@ func TestApplyWorkspaceCreatesResource(t *testing.T) {
 	}
 	if workspaces.items["demo"].WorkflowName != "workflow" {
 		t.Fatalf("workflow = %q, want workflow", workspaces.items["demo"].WorkflowName)
-	}
-	if got := workspaces.items["demo"].DisplayName; got == nil || *got != "Demo Workspace" {
-		t.Fatalf("display_name = %#v, want Demo Workspace", got)
 	}
 }
 
@@ -292,7 +288,6 @@ func (f *fakeWorkspaces) PutWorkspace(_ context.Context, request adminhttp.PutWo
 	now := time.Now().UTC()
 	item := apitypes.Workspace{
 		CreatedAt:    now,
-		DisplayName:  body.DisplayName,
 		Name:         body.Name,
 		Parameters:   body.Parameters,
 		Toolkit:      body.Toolkit,

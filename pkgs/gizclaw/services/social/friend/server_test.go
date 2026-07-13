@@ -95,39 +95,6 @@ func TestInviteTokenLifecycleAndAddFriend(t *testing.T) {
 	}
 }
 
-func TestFriendResponsesUseLatestPeerDisplayName(t *testing.T) {
-	ctx := context.Background()
-	s := newTestServer()
-	peers := &testPeerDirectory{names: map[string]string{"peer-b": "Ada"}}
-	s.Peers = peers
-
-	created, err := s.AdminCreateFriend(ctx, "peer-a", "peer-b")
-	if err != nil {
-		t.Fatalf("AdminCreateFriend: %v", err)
-	}
-	if got := socialutil.StringValue(created.DisplayName); got != "Ada" {
-		t.Fatalf("created display_name = %q, want Ada", got)
-	}
-
-	peers.names["peer-b"] = "Grace"
-	listed, err := s.ListFriends(ctx, "peer-a", rpcapi.FriendListRequest{})
-	if err != nil {
-		t.Fatalf("ListFriends: %v", err)
-	}
-	if got := socialutil.StringValue(listed.Items[0].DisplayName); got != "Grace" {
-		t.Fatalf("listed display_name = %q, want latest name Grace", got)
-	}
-
-	peers.err = errors.New("peer registry unavailable")
-	listed, err = s.ListFriends(ctx, "peer-a", rpcapi.FriendListRequest{})
-	if err != nil {
-		t.Fatalf("ListFriends with unavailable peer registry: %v", err)
-	}
-	if listed.Items[0].DisplayName != nil {
-		t.Fatalf("display_name with unavailable registry = %q, want absent", socialutil.StringValue(listed.Items[0].DisplayName))
-	}
-}
-
 func TestInviteTokenExpiryAndClear(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer()
@@ -455,18 +422,6 @@ func (s failingGetStore) List(context.Context, kv.Key) iter.Seq2[kv.Entry, error
 	return func(yield func(kv.Entry, error) bool) {
 		yield(kv.Entry{}, errors.New("forced list failure"))
 	}
-}
-
-type testPeerDirectory struct {
-	names map[string]string
-	err   error
-}
-
-func (d *testPeerDirectory) PeerDisplayName(_ context.Context, publicKey string) (string, error) {
-	if d.err != nil {
-		return "", d.err
-	}
-	return d.names[publicKey], nil
 }
 
 type recordingWorkspaceService struct {

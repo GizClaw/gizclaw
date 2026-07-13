@@ -3034,13 +3034,10 @@ type PetDefActionEffectSpec struct {
 
 // PetDefActionSpec defines model for PetDefActionSpec.
 type PetDefActionSpec struct {
-	Cost   int64                   `json:"cost"`
-	Effect *PetDefActionEffectSpec `json:"effect,omitempty"`
-
-	// Icon Cross-platform semantic icon token for presenting this action.
-	Icon         *string `json:"icon,omitempty"`
-	Id           string  `json:"id"`
-	VisualClipId *string `json:"visual_clip_id,omitempty"`
+	Cost         int64                   `json:"cost"`
+	Effect       *PetDefActionEffectSpec `json:"effect,omitempty"`
+	Id           string                  `json:"id"`
+	VisualClipId *string                 `json:"visual_clip_id,omitempty"`
 }
 
 // PetDefAttrSpec defines model for PetDefAttrSpec.
@@ -3686,9 +3683,6 @@ type WorkflowSpec struct {
 type Workspace struct {
 	CreatedAt time.Time `json:"created_at"`
 
-	// DisplayName Optional user-facing workspace name. The stable name field remains the resource identifier.
-	DisplayName *string `json:"display_name,omitempty"`
-
 	// LastActiveAt Last user-visible workspace conversation or history activity time. Configuration-only updates must not modify this field.
 	LastActiveAt time.Time `json:"last_active_at"`
 	Name         string    `json:"name"`
@@ -3726,9 +3720,6 @@ type WorkspaceResourceKind string
 
 // WorkspaceSpec defines model for WorkspaceSpec.
 type WorkspaceSpec struct {
-	// DisplayName Optional user-facing workspace name.
-	DisplayName *string `json:"display_name,omitempty"`
-
 	// Parameters Agent-specific workspace parameters. The shape is selected by agent_type.
 	Parameters *WorkspaceParameters `json:"parameters,omitempty"`
 

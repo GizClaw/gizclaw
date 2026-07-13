@@ -417,7 +417,6 @@ func (s *Server) init() error {
 		Friends:      friendStore,
 		Workspaces:   workspaceServer,
 		ACL:          aclServer,
-		Peers:        peersServer,
 	}
 	friendGroupServer := &friendgroup.Server{
 		Groups:               friendGroupStore,

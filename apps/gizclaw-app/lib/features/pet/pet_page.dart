@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
 import 'package:gizclaw/gizclaw.dart';
 import 'package:go_router/go_router.dart';
 
@@ -703,8 +702,8 @@ class _PetDriftingMessage extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: message.incoming
-                ? const Color(0xFFE6F1E9)
-                : const Color(0xFFD2EBDD),
+                ? GizColors.messageIncoming
+                : GizColors.messageBlue,
             boxShadow: const [
               BoxShadow(
                 color: Color(0x17000000),
@@ -720,7 +719,7 @@ class _PetDriftingMessage extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: GizText.body.copyWith(
-                color: GizColors.ink,
+                color: message.incoming ? GizColors.ink : GizColors.surface,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
@@ -914,30 +913,11 @@ class _PetPageHeader extends StatelessWidget {
     return Row(
       children: [
         const Expanded(child: Text('Pets', style: GizText.pageTitle)),
-        Semantics(
-          label: 'Adopt a pet',
-          button: true,
-          child: SizedBox.square(
-            dimension: 44,
-            child: CupertinoButton(
-              padding: EdgeInsets.zero,
-              minimumSize: const Size.square(44),
-              color: _petSceneColor,
-              disabledColor: _petSceneColor,
-              borderRadius: BorderRadius.circular(22),
-              pressedOpacity: 0.72,
-              onPressed: adopting ? null : onAdopt,
-              child: adopting
-                  ? const CupertinoActivityIndicator(
-                      color: _petDetailFabForeground,
-                    )
-                  : const Icon(
-                      CupertinoIcons.add,
-                      color: _petDetailFabForeground,
-                      size: 22,
-                    ),
-            ),
-          ),
+        GizPageActionButton(
+          icon: GizIcons.add_circled_solid,
+          semanticLabel: 'Adopt a pet',
+          loading: adopting,
+          onPressed: adopting ? null : onAdopt,
         ),
       ],
     );
@@ -1109,7 +1089,7 @@ class _PetCoverCard extends StatelessWidget {
                             border: Border.all(color: const Color(0x38FFFFFF)),
                           ),
                           child: Icon(
-                            CupertinoIcons.arrow_up_right,
+                            GizIcons.arrow_up_right,
                             size: compact ? 15 : 17,
                             color: GizColors.surface,
                           ),
@@ -1138,7 +1118,7 @@ class _PetCoverLabel extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(
-          CupertinoIcons.sparkles,
+          GizIcons.sparkles,
           size: compact ? 13 : 15,
           color: const Color(0xB8001913),
         ),
@@ -1311,7 +1291,7 @@ class _PetStatusFab extends StatelessWidget {
               child: FadeTransition(opacity: animation, child: child),
             ),
             child: Icon(
-              visible ? CupertinoIcons.xmark : CupertinoIcons.waveform_path_ecg,
+              visible ? GizIcons.xmark : GizIcons.waveform_path_ecg,
               key: ValueKey(visible),
               color: _petDetailFabForeground,
               size: visible ? 20 : 22,
@@ -1360,7 +1340,7 @@ class _PetDevice extends StatelessWidget {
                                     color: GizColors.ink,
                                   )
                                 : const Icon(
-                                    CupertinoIcons.sparkles,
+                                    GizIcons.sparkles,
                                     color: GizColors.secondaryInk,
                                     size: 36,
                                   ),
@@ -1692,13 +1672,11 @@ class _PetMenuAction {
     required this.id,
     required this.clipName,
     this.driveAction,
-    this.icon,
   });
 
   final String id;
   final String? clipName;
   final PetPresentationActionSpec? driveAction;
-  final String? icon;
 }
 
 const _petActionAnchor = 160.0;
@@ -1730,7 +1708,7 @@ class _PetActionFab extends StatefulWidget {
 class _PetActionFabState extends State<_PetActionFab>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  late final FixedExtentScrollController _scrollController;
+  late final ScrollController _scrollController;
   bool _expanded = false;
 
   @override
@@ -1741,18 +1719,7 @@ class _PetActionFabState extends State<_PetActionFab>
       duration: const Duration(milliseconds: 320),
       reverseDuration: const Duration(milliseconds: 220),
     );
-    _scrollController = FixedExtentScrollController(
-      initialItem: widget.actions.length > 2 ? 2 : 0,
-    );
-  }
-
-  @override
-  void didUpdateWidget(covariant _PetActionFab oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.actions.isEmpty || !_scrollController.hasClients) return;
-    if (_scrollController.selectedItem >= widget.actions.length) {
-      _scrollController.jumpToItem(widget.actions.length - 1);
-    }
+    _scrollController = ScrollController();
   }
 
   @override
@@ -1836,7 +1803,7 @@ class _PetActionFabState extends State<_PetActionFab>
                                   child: Transform.scale(
                                     scale: 1 - _controller.value * 0.2,
                                     child: const Icon(
-                                      CupertinoIcons.game_controller_solid,
+                                      GizIcons.game_controller_solid,
                                       color: _petDetailFabForeground,
                                       size: 24,
                                     ),
@@ -1848,7 +1815,7 @@ class _PetActionFabState extends State<_PetActionFab>
                                     angle:
                                         (1 - _controller.value) * -math.pi / 4,
                                     child: const Icon(
-                                      CupertinoIcons.xmark,
+                                      GizIcons.xmark,
                                       color: _petDetailFabForeground,
                                       size: 20,
                                     ),
@@ -1884,59 +1851,28 @@ class _PetActionFabState extends State<_PetActionFab>
         ],
         stops: [0, 0.16, 0.84, 1],
       ).createShader(bounds),
-      child: ListWheelScrollView.useDelegate(
+      child: ListView.builder(
         controller: _scrollController,
         itemExtent: _petActionItemExtent,
-        diameterRatio: 100,
-        perspective: 0.001,
-        physics: const FixedExtentScrollPhysics(),
-        onSelectedItemChanged: (_) => HapticFeedback.selectionClick(),
-        childDelegate: ListWheelChildBuilderDelegate(
-          childCount: widget.actions.length,
-          builder: (context, index) {
-            if (index < 0 || index >= widget.actions.length) return null;
-            return _buildAction(widget.actions[index], index);
-          },
+        padding: const EdgeInsets.only(left: _petActionAnchor + 3),
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
         ),
+        itemCount: widget.actions.length,
+        itemBuilder: (context, index) => _buildAction(widget.actions[index]),
       ),
     );
   }
 
-  Widget _buildAction(_PetMenuAction action, int index) {
-    return AnimatedBuilder(
-      animation: _scrollController,
-      builder: (context, child) {
-        final scrollPosition = _scrollController.hasClients
-            ? _scrollController.offset / _petActionItemExtent
-            : 0.0;
-        final itemCenter =
-            _petActionRailHeight / 2 +
-            (index - scrollPosition) * _petActionItemExtent;
-        final distanceFromCenter =
-            ((itemCenter - _petActionRailHeight / 2).abs() /
-                    (_petActionRailHeight / 2))
-                .clamp(0.0, 1.0);
-        final scale = 1 - distanceFromCenter * 0.12;
-        final opacity = 1 - distanceFromCenter * 0.7;
-        return Align(
-          alignment: Alignment.centerLeft,
-          child: Opacity(
-            opacity: opacity,
-            child: Transform.translate(
-              offset: const Offset(_petActionAnchor + 3, 0),
-              child: Transform.scale(
-                alignment: Alignment.centerLeft,
-                scale: scale,
-                child: child,
-              ),
-            ),
-          ),
-        );
-      },
-      child: GestureDetector(
+  Widget _buildAction(_PetMenuAction action) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: CupertinoButton(
         key: ValueKey('pet-action-${action.id}'),
-        behavior: HitTestBehavior.opaque,
-        onTap: () => _select(action),
+        minimumSize: Size.zero,
+        padding: EdgeInsets.zero,
+        pressedOpacity: 0.62,
+        onPressed: widget.activeAction == null ? () => _select(action) : null,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1954,7 +1890,7 @@ class _PetActionFabState extends State<_PetActionFab>
                   ),
                 ],
               ),
-              child: Icon(_actionIcon(action.icon, action.id), size: 20),
+              child: Icon(_actionIcon(action.id), size: 20),
             ),
             const SizedBox(width: 9),
             DecoratedBox(
@@ -2107,8 +2043,8 @@ class _PetErrorToast extends StatelessWidget {
         children: [
           Icon(
             recoverable
-                ? CupertinoIcons.waveform
-                : CupertinoIcons.exclamationmark_triangle_fill,
+                ? GizIcons.waveform
+                : GizIcons.exclamationmark_triangle_fill,
             color: accent,
             size: 16,
           ),
@@ -2125,7 +2061,7 @@ class _PetErrorToast extends StatelessWidget {
             minimumSize: const Size(34, 34),
             padding: EdgeInsets.zero,
             onPressed: onDismiss,
-            child: Icon(CupertinoIcons.xmark, color: accent, size: 14),
+            child: Icon(GizIcons.xmark, color: accent, size: 14),
           ),
         ],
       ),
@@ -2158,7 +2094,7 @@ class _PetEmptyPage extends StatelessWidget {
             children: [
               _PetPageHeader(adopting: adopting, onAdopt: onAdopt),
               const Spacer(),
-              const Icon(CupertinoIcons.sparkles, size: 64),
+              const Icon(GizIcons.sparkles, size: 64),
               const SizedBox(height: 22),
               const Text(
                 'Your next companion is waiting.',
@@ -2253,7 +2189,7 @@ class _PetDetailMessage extends StatelessWidget {
               top: 12,
               child: _SceneButton(
                 label: 'Back',
-                icon: CupertinoIcons.back,
+                icon: GizIcons.back,
                 onPressed: () => context.pop(),
               ),
             ),
@@ -2355,12 +2291,7 @@ List<_PetMenuAction> _petMenuActions(PetPresentation? presentation) {
     final clipName = _clipForAction(presentation, action.id);
     if (clipName != null) claimedClips.add(clipName);
     actions.add(
-      _PetMenuAction(
-        id: action.id,
-        clipName: clipName,
-        driveAction: action,
-        icon: action.hasIcon() ? action.icon : null,
-      ),
+      _PetMenuAction(id: action.id, clipName: clipName, driveAction: action),
     );
   }
   for (final clip in presentation.pixaMetadata.clips) {
@@ -2425,41 +2356,25 @@ Duration _clipDuration(PixaAsset? asset, String? clipName) {
   return const Duration(seconds: 2);
 }
 
-IconData _actionIcon(String? token, String id) {
-  final semantic = token?.toLowerCase();
-  if (semantic == 'bath' || semantic == 'clean') {
-    return CupertinoIcons.drop_fill;
-  }
-  if (semantic == 'food' || semantic == 'feed' || semantic == 'eat') {
-    return CupertinoIcons.cart_fill;
-  }
-  if (semantic == 'heal' || semantic == 'health') {
-    return CupertinoIcons.plus_circle_fill;
-  }
-  if (semantic == 'sleep') return CupertinoIcons.moon_fill;
-  if (semantic == 'play') return CupertinoIcons.game_controller_solid;
-  if (semantic == 'idle' || semantic == 'magic') {
-    return CupertinoIcons.sparkles;
-  }
-
+IconData _actionIcon(String id) {
   final value = id.toLowerCase();
   if (value.contains('bath') || value.contains('clean')) {
-    return CupertinoIcons.drop_fill;
+    return GizIcons.drop_fill;
   }
   if (value.contains('feed') || value.contains('eat')) {
-    return CupertinoIcons.cart_fill;
+    return GizIcons.cart_fill;
   }
-  if (value.contains('heal')) return CupertinoIcons.plus_circle_fill;
-  if (value.contains('hungry')) return CupertinoIcons.cart_fill;
-  if (value.contains('sick')) return CupertinoIcons.bandage_fill;
-  if (value.contains('dirty')) return CupertinoIcons.drop_fill;
-  if (value.contains('confuse')) return CupertinoIcons.question_circle_fill;
-  if (value.contains('dying')) return CupertinoIcons.heart_slash_fill;
-  if (value.contains('dead')) return CupertinoIcons.xmark_circle_fill;
-  if (value.contains('reborn')) return CupertinoIcons.sparkles;
-  if (value.contains('sleep')) return CupertinoIcons.moon_fill;
-  if (value.contains('play')) return CupertinoIcons.game_controller_solid;
-  return CupertinoIcons.sparkles;
+  if (value.contains('heal')) return GizIcons.plus_circle_fill;
+  if (value.contains('hungry')) return GizIcons.cart_fill;
+  if (value.contains('sick')) return GizIcons.bandage_fill;
+  if (value.contains('dirty')) return GizIcons.drop_fill;
+  if (value.contains('confuse')) return GizIcons.question_circle_fill;
+  if (value.contains('dying')) return GizIcons.heart_slash_fill;
+  if (value.contains('dead')) return GizIcons.xmark_circle_fill;
+  if (value.contains('reborn')) return GizIcons.sparkles;
+  if (value.contains('sleep')) return GizIcons.moon_fill;
+  if (value.contains('play')) return GizIcons.game_controller_solid;
+  return GizIcons.sparkles;
 }
 
 String _title(String value) {

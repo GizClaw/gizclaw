@@ -4068,8 +4068,6 @@ function historyEntrySource(entry: PeerRunHistoryEntry): string {
 }
 
 function friendDisplayName(friend: FriendObject): string {
-  const displayName = friend.display_name?.trim();
-  if (displayName) return displayName;
   return compactID(friend.peer_public_key ?? friend.id ?? friend.workspace_name ?? "friend");
 }
 

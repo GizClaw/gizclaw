@@ -1887,7 +1887,6 @@ type FriendListResponse struct {
 // FriendObject defines model for FriendObject.
 type FriendObject struct {
 	CreatedAt     *time.Time `json:"created_at,omitempty"`
-	DisplayName   *string    `json:"display_name,omitempty"`
 	Id            *string    `json:"id,omitempty"`
 	PeerPublicKey *string    `json:"peer_public_key,omitempty"`
 	UpdatedAt     *time.Time `json:"updated_at,omitempty"`
@@ -3127,8 +3126,7 @@ type WorkflowSpec struct {
 
 // Workspace defines model for Workspace.
 type Workspace struct {
-	CreatedAt   time.Time `json:"created_at"`
-	DisplayName *string   `json:"display_name,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
 
 	// LastActiveAt Last user-visible workspace conversation or history activity time. Configuration-only updates must not modify this field.
 	LastActiveAt time.Time `json:"last_active_at"`

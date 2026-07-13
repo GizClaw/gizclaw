@@ -294,16 +294,6 @@ func TestCatalogAdminErrorsAndPagination(t *testing.T) {
 		t.Fatalf("CreatePetDef() whitespace action error = %v", err)
 	}
 	requireResponse[adminhttp.CreatePetDef400JSONResponse](t, invalidActionResp)
-	invalidIconSpec := testPetDefSpec("bad icon")
-	invalidIconSpec.Drive.Actions[0].Icon = stringPtr("game controller")
-	invalidIconResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
-		Id:   "pet-invalid-action-icon",
-		Spec: invalidIconSpec,
-	}})
-	if err != nil {
-		t.Fatalf("CreatePetDef() invalid action icon error = %v", err)
-	}
-	requireResponse[adminhttp.CreatePetDef400JSONResponse](t, invalidIconResp)
 	invalidCanvasSpec := testPetDefSpec("bad canvas")
 	invalidCanvasSpec.Visual.Pixa.Metadata.Canvas.Width = pixaMaxCanvasSize + 1
 	invalidCanvasResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
@@ -639,13 +629,11 @@ func testPetDefSpec(displayName string) apitypes.PetDefSpec {
 			{
 				Id:           "idle",
 				Cost:         0,
-				Icon:         stringPtr("idle"),
 				VisualClipId: stringPtr("idle"),
 			},
 			{
 				Id:           "bath",
 				Cost:         10,
-				Icon:         stringPtr("clean"),
 				VisualClipId: stringPtr("bath"),
 				Effect: &apitypes.PetDefActionEffectSpec{
 					AttrDelta:   &apitypes.PetAttrDelta{Life: &apitypes.PetLife{"clean": 10}},

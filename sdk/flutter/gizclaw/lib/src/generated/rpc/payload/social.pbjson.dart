@@ -1517,15 +1517,6 @@ const FriendObject$json = {
       '10': 'workspaceName',
       '17': true
     },
-    {
-      '1': 'display_name',
-      '3': 6,
-      '4': 1,
-      '5': 9,
-      '9': 5,
-      '10': 'displayName',
-      '17': true
-    },
   ],
   '8': [
     {'1': '_created_at'},
@@ -1533,7 +1524,6 @@ const FriendObject$json = {
     {'1': '_peer_public_key'},
     {'1': '_updated_at'},
     {'1': '_workspace_name'},
-    {'1': '_display_name'},
   ],
 };
 
@@ -1542,6 +1532,5 @@ final $typed_data.Uint8List friendObjectDescriptor = $convert.base64Decode(
     'CgxGcmllbmRPYmplY3QSIgoKY3JlYXRlZF9hdBgBIAEoCUgAUgljcmVhdGVkQXSIAQESEwoCaW'
     'QYAiABKAlIAVICaWSIAQESKwoPcGVlcl9wdWJsaWNfa2V5GAMgASgJSAJSDXBlZXJQdWJsaWNL'
     'ZXmIAQESIgoKdXBkYXRlZF9hdBgEIAEoCUgDUgl1cGRhdGVkQXSIAQESKgoOd29ya3NwYWNlX2'
-    '5hbWUYBSABKAlIBFINd29ya3NwYWNlTmFtZYgBARImCgxkaXNwbGF5X25hbWUYBiABKAlIBVIL'
-    'ZGlzcGxheU5hbWWIAQFCDQoLX2NyZWF0ZWRfYXRCBQoDX2lkQhIKEF9wZWVyX3B1YmxpY19rZX'
-    'lCDQoLX3VwZGF0ZWRfYXRCEQoPX3dvcmtzcGFjZV9uYW1lQg8KDV9kaXNwbGF5X25hbWU=');
+    '5hbWUYBSABKAlIBFINd29ya3NwYWNlTmFtZYgBAUINCgtfY3JlYXRlZF9hdEIFCgNfaWRCEgoQ'
+    'X3BlZXJfcHVibGljX2tleUINCgtfdXBkYXRlZF9hdEIRCg9fd29ya3NwYWNlX25hbWU=');

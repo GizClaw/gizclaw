@@ -163,10 +163,6 @@ export type VolcSyncVoicesResult = {
 
 export type WorkspaceUpsert = {
     name: string;
-    /**
-     * Optional user-facing workspace name.
-     */
-    display_name?: string;
     workflow_name: string;
     parameters?: WorkspaceParameters;
     toolkit?: ToolkitPolicy;
@@ -232,7 +228,6 @@ export type AdminFriendObject = {
     id: string;
     peer_public_key: string;
     workspace_name: string;
-    display_name?: string;
     created_at?: string;
     updated_at?: string;
 };
@@ -1694,7 +1689,6 @@ export type FriendObject = {
     id?: string;
     peer_public_key?: string;
     workspace_name?: string;
-    display_name?: string;
     created_at?: string;
     updated_at?: string;
 };
@@ -2161,10 +2155,6 @@ export type FlowcraftWorkflowSpec = {
 
 export type Workspace = {
     name: string;
-    /**
-     * Optional user-facing workspace name. The stable name field remains the resource identifier.
-     */
-    display_name?: string;
     workflow_name: string;
     parameters?: WorkspaceParameters;
     toolkit?: ToolkitPolicy;
@@ -2305,10 +2295,6 @@ export type WorkspaceParameters = ({
 } & ChatRoomWorkspaceParameters);
 
 export type WorkspaceSpec = {
-    /**
-     * Optional user-facing workspace name.
-     */
-    display_name?: string;
     /**
      * Referenced workflow custom ID.
      */

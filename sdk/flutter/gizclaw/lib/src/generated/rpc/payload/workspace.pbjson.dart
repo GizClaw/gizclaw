@@ -1216,20 +1216,10 @@ const Workspace$json = {
       '10': 'toolkit',
       '17': true
     },
-    {
-      '1': 'display_name',
-      '3': 8,
-      '4': 1,
-      '5': 9,
-      '9': 2,
-      '10': 'displayName',
-      '17': true
-    },
   ],
   '8': [
     {'1': '_parameters'},
     {'1': '_toolkit'},
-    {'1': '_display_name'},
   ],
 };
 
@@ -1240,9 +1230,7 @@ final $typed_data.Uint8List workspaceDescriptor = $convert.base64Decode(
     'ZXJzGAQgASgLMiMuZ2l6Y2xhdy5ycGMudjEuV29ya3NwYWNlUGFyYW1ldGVyc0gAUgpwYXJhbW'
     'V0ZXJziAEBEh0KCnVwZGF0ZWRfYXQYBSABKAlSCXVwZGF0ZWRBdBIjCg13b3JrZmxvd19uYW1l'
     'GAYgASgJUgx3b3JrZmxvd05hbWUSPAoHdG9vbGtpdBgHIAEoCzIdLmdpemNsYXcucnBjLnYxLl'
-    'Rvb2xraXRQb2xpY3lIAVIHdG9vbGtpdIgBARImCgxkaXNwbGF5X25hbWUYCCABKAlIAlILZGlz'
-    'cGxheU5hbWWIAQFCDQoLX3BhcmFtZXRlcnNCCgoIX3Rvb2xraXRCDwoNX2Rpc3BsYXlfbmFtZQ'
-    '==');
+    'Rvb2xraXRQb2xpY3lIAVIHdG9vbGtpdIgBAUINCgtfcGFyYW1ldGVyc0IKCghfdG9vbGtpdA==');
 
 @$core.Deprecated('Use workspaceCreateRequestDescriptor instead')
 const WorkspaceCreateRequest$json = {

@@ -177,11 +177,9 @@ spec:
     actions:
     - id: idle
       cost: 0
-      icon: idle
       visual_clip_id: idle
     - id: feed
       cost: 6
-      icon: food
       visual_clip_id: feed
       effect:
         attr_delta:
@@ -191,7 +189,6 @@ spec:
         pet_exp_delta: 8
     - id: bath
       cost: 5
-      icon: clean
       visual_clip_id: bath
       effect:
         attr_delta:
@@ -200,7 +197,6 @@ spec:
         pet_exp_delta: 6
     - id: run_left
       cost: 0
-      icon: play
       visual_clip_id: run_left
       effect:
         attr_delta:

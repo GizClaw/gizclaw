@@ -323,7 +323,6 @@ type AdminFriendListResponse struct {
 // AdminFriendObject defines model for AdminFriendObject.
 type AdminFriendObject struct {
 	CreatedAt      *time.Time `json:"created_at,omitempty"`
-	DisplayName    *string    `json:"display_name,omitempty"`
 	Id             string     `json:"id"`
 	OwnerPublicKey string     `json:"owner_public_key"`
 	PeerPublicKey  string     `json:"peer_public_key"`
@@ -609,9 +608,7 @@ type WorkspaceList struct {
 
 // WorkspaceUpsert defines model for WorkspaceUpsert.
 type WorkspaceUpsert struct {
-	// DisplayName Optional user-facing workspace name.
-	DisplayName *string `json:"display_name,omitempty"`
-	Name        string  `json:"name"`
+	Name string `json:"name"`
 
 	// Parameters Agent-specific workspace parameters. The shape is selected by agent_type.
 	Parameters *externalRef0.WorkspaceParameters `json:"parameters,omitempty"`

@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -88,7 +87,6 @@ func (s *Server) CreateWorkspace(ctx context.Context, request adminhttp.CreateWo
 	now := time.Now().UTC()
 	workspace := apitypes.Workspace{
 		CreatedAt:    now,
-		DisplayName:  normalized.DisplayName,
 		LastActiveAt: now,
 		Name:         normalized.Name,
 		Parameters:   cloneParameters(normalized.Parameters),
@@ -197,7 +195,6 @@ func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspac
 	now := time.Now().UTC()
 	workspace := apitypes.Workspace{
 		CreatedAt:    now,
-		DisplayName:  normalized.DisplayName,
 		LastActiveAt: now,
 		Name:         normalized.Name,
 		Parameters:   cloneParameters(normalized.Parameters),
@@ -291,31 +288,12 @@ func normalizeWorkspaceUpsert(in adminhttp.WorkspaceUpsert, expectedName string)
 	if err != nil {
 		return adminhttp.WorkspaceUpsert{}, err
 	}
-	displayName, err := normalizeDisplayName(in.DisplayName)
-	if err != nil {
-		return adminhttp.WorkspaceUpsert{}, err
-	}
 	return adminhttp.WorkspaceUpsert{
-		DisplayName:  displayName,
 		Name:         string(name),
 		Parameters:   cloneParameters(in.Parameters),
 		Toolkit:      policy,
 		WorkflowName: string(workflowName),
 	}, nil
-}
-
-func normalizeDisplayName(value *string) (*string, error) {
-	if value == nil {
-		return nil, nil
-	}
-	normalized := strings.TrimSpace(*value)
-	if normalized == "" {
-		return nil, fmt.Errorf("display_name must not be empty")
-	}
-	if utf8.RuneCountInString(normalized) > 80 {
-		return nil, fmt.Errorf("display_name must be at most 80 characters")
-	}
-	return &normalized, nil
 }
 
 func validateReferences(ctx context.Context, store kv.Store, workspace adminhttp.WorkspaceUpsert) error {

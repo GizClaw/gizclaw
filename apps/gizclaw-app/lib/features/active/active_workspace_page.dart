@@ -137,8 +137,8 @@ class _ActiveWorkspaceStatus extends StatelessWidget {
                       children: [
                         Icon(
                           error == null
-                              ? CupertinoIcons.waveform
-                              : CupertinoIcons.exclamationmark_circle,
+                              ? GizIcons.waveform
+                              : GizIcons.exclamationmark_circle,
                           size: 34,
                           color: muted,
                         ),

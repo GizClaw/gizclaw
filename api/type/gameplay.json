@@ -131,11 +131,6 @@
           "visual_clip_id": {
             "type": "string"
           },
-          "icon": {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9_-]*$",
-            "description": "Cross-platform semantic icon token for presenting this action."
-          },
           "effect": {
             "$ref": "#/components/schemas/PetDefActionEffectSpec"
           }
