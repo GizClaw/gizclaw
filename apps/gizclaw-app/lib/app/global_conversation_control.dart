@@ -513,13 +513,13 @@ class _PrimaryDockNavigationState extends State<_PrimaryDockNavigation> {
         shaderCallback: (bounds) => LinearGradient(
           colors: [
             _canScrollBackward
-                ? const Color(0x59FFFFFF)
+                ? const Color(0x0DFFFFFF)
                 : CupertinoColors.white,
             CupertinoColors.white,
             CupertinoColors.white,
-            _canScrollForward ? const Color(0x59FFFFFF) : CupertinoColors.white,
+            _canScrollForward ? const Color(0x0DFFFFFF) : CupertinoColors.white,
           ],
-          stops: const [0, 0.1, 0.9, 1],
+          stops: const [0, 0.2, 0.8, 1],
         ).createShader(bounds),
         child: ListView.separated(
           key: const ValueKey('primary-nav-scroll'),
