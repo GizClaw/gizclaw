@@ -43,7 +43,7 @@ void main() {
 
     expect(find.byType(ActiveWorkspacePage), findsOneWidget);
     expect(find.text('No active conversation'), findsOneWidget);
-    expect(primaryNav('Active'), findsOneWidget);
+    expect(primaryNav('Home'), findsOneWidget);
     expect(find.byKey(const ValueKey('voice-mode-thumb')), findsOneWidget);
     expect(find.text('LIVE'), findsNothing);
     expect(find.byType(CupertinoTabBar), findsNothing);
@@ -185,7 +185,7 @@ void main() {
     expect(find.byType(DriverWorkspacesPage), findsOneWidget);
     expect(find.byType(CupertinoTabBar), findsNothing);
     expect(primaryNav('Flowcraft'), findsOneWidget);
-    await tapPrimaryNav(tester, 'Active');
+    await tapPrimaryNav(tester, 'Home');
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(ActiveWorkspacePage), findsOneWidget);
 
@@ -264,7 +264,7 @@ void main() {
     await pumpApp(tester);
 
     for (final label in [
-      'Active',
+      'Home',
       'Flowcraft',
       'Doubao',
       'Translate',
@@ -275,6 +275,7 @@ void main() {
     ]) {
       expect(primaryNav(label), findsOneWidget);
     }
+    expect(find.byIcon(CupertinoIcons.house_fill), findsOneWidget);
     expect(find.byIcon(CupertinoIcons.game_controller), findsOneWidget);
     expect(find.byIcon(CupertinoIcons.wand_stars), findsOneWidget);
     expect(find.byIcon(CupertinoIcons.paw), findsOneWidget);

@@ -442,7 +442,7 @@ class _PrimaryDockNavigation extends StatefulWidget {
   final Uri location;
 
   static const _items = [
-    (CupertinoIcons.waveform, CupertinoIcons.waveform, 'Active', '/active'),
+    (CupertinoIcons.house, CupertinoIcons.house_fill, 'Home', '/active'),
     (
       CupertinoIcons.game_controller,
       CupertinoIcons.game_controller_solid,
