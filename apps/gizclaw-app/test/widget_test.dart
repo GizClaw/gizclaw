@@ -201,7 +201,7 @@ void main() {
     expect(find.byType(WorkspaceChatPage), findsOneWidget);
     expect(find.text('AGENT SIGNAL ONLINE'), findsNothing);
     expect(find.text('OFFLINE'), findsOneWidget);
-    expect(find.text('Make Active'), findsOneWidget);
+    expect(find.text('ACTIVATE'), findsOneWidget);
     expect(
       find.image(const AssetImage('assets/drivers/ast-translate.png')),
       findsOneWidget,
@@ -313,7 +313,7 @@ void main() {
     expect(find.text('Avery'), findsOneWidget);
     expect(find.textContaining('Direct chat'), findsOneWidget);
     expect(find.textContaining('Unavailable'), findsNothing);
-    expect(find.text('Make Active'), findsOneWidget);
+    expect(find.text('ACTIVATE'), findsOneWidget);
     expect(find.byType(CupertinoTextField), findsNothing);
     expect(find.byType(CupertinoTabBar).hitTestable(), findsNothing);
   });
@@ -331,6 +331,28 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Connect to GizClaw to meet your pets.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('fits workspace controls in the compact iPhone viewport', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(375, 667);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await pumpApp(tester);
+    await tester.tap(find.text('Chats'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('AST Translate'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Parser pass'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+
+    expect(find.text('ACTIVATE'), findsOneWidget);
+    expect(find.text('Parser pass'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

@@ -296,36 +296,145 @@ class _ContextDockNavigation extends StatelessWidget {
               ],
             ),
           ),
-          if (!info.active && info.workspaceName != null)
-            CupertinoButton(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              minimumSize: const Size(0, 40),
-              onPressed: () =>
-                  unawaited(data.activateWorkspaceChat(info.workspaceName!)),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    CupertinoIcons.bolt_fill,
-                    size: 15,
-                    color: dark
-                        ? const Color(0xFF8DFFD0)
-                        : const Color(0xFF087F68),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Make Active',
-                    style: GizText.label.copyWith(
-                      color: dark
-                          ? const Color(0xFF8DFFD0)
-                          : const Color(0xFF087F68),
-                      fontSize: 7,
-                    ),
-                  ),
-                ],
-              ),
+          if (info.workspaceName != null) ...[
+            const SizedBox(width: 8),
+            _WorkspaceActivationPill(
+              active: info.active,
+              workspaceName: info.workspaceName!,
             ),
+            const SizedBox(width: 10),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+class _WorkspaceActivationPill extends StatefulWidget {
+  const _WorkspaceActivationPill({
+    required this.active,
+    required this.workspaceName,
+  });
+
+  final bool active;
+  final String workspaceName;
+
+  @override
+  State<_WorkspaceActivationPill> createState() =>
+      _WorkspaceActivationPillState();
+}
+
+class _WorkspaceActivationPillState extends State<_WorkspaceActivationPill> {
+  bool _activating = false;
+
+  Future<void> _activate() async {
+    if (widget.active || _activating) return;
+    setState(() => _activating = true);
+    HapticFeedback.selectionClick();
+    try {
+      await MobileDataScope.watch(
+        context,
+      ).activateWorkspaceChat(widget.workspaceName);
+    } catch (error) {
+      if (!mounted) return;
+      await showCupertinoDialog<void>(
+        context: context,
+        builder: (context) => CupertinoAlertDialog(
+          title: const Text('Unable to activate'),
+          content: Text('$error'),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _activating = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    final active = widget.active;
+    final foreground = active
+        ? (dark ? const Color(0xFF8DFFD0) : const Color(0xFF087F68))
+        : (dark ? const Color(0xFFE1E8E5) : const Color(0xFF40504A));
+    final fill = active
+        ? (dark ? const Color(0x2426D49B) : const Color(0x1920A67A))
+        : (dark ? const Color(0x14FFFFFF) : const Color(0x0D001913));
+    final border = active
+        ? foreground.withValues(alpha: 0.28)
+        : foreground.withValues(alpha: 0.12);
+
+    return CupertinoButton(
+      padding: EdgeInsets.zero,
+      minimumSize: const Size(0, 36),
+      pressedOpacity: active ? 1 : 0.62,
+      onPressed: active ? null : _activate,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+        height: 34,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: fill,
+          borderRadius: BorderRadius.circular(17),
+          border: Border.all(color: border),
+          boxShadow: active
+              ? [
+                  BoxShadow(
+                    color: foreground.withValues(alpha: 0.13),
+                    blurRadius: 12,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : null,
+        ),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 180),
+          child: _activating
+              ? CupertinoActivityIndicator(
+                  key: const ValueKey('activating'),
+                  radius: 7,
+                  color: foreground,
+                )
+              : Row(
+                  key: ValueKey(active),
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: active ? foreground : const Color(0x00000000),
+                        border: active
+                            ? null
+                            : Border.all(color: foreground, width: 1.3),
+                        boxShadow: active
+                            ? [
+                                BoxShadow(
+                                  color: foreground.withValues(alpha: 0.48),
+                                  blurRadius: 7,
+                                ),
+                              ]
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      active ? 'ACTIVE' : 'ACTIVATE',
+                      style: GizText.label.copyWith(
+                        color: foreground,
+                        fontSize: 7,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
       ),
     );
   }
@@ -368,7 +477,7 @@ _DockContext _dockContext(Uri location, MobileDataController data) {
     return _DockContext(
       title: chatroom?.title ?? data.workspace(workspaceName).title,
       subtitle: active
-          ? '$contextLabel  /  Active  /  $mode'
+          ? '$contextLabel  /  $mode'
           : '$contextLabel  /  Viewing',
       fallbackRoute: '/chats/drivers/${driver.routeKey}',
       active: active,
@@ -390,7 +499,7 @@ _DockContext _dockContext(Uri location, MobileDataController data) {
         workspaceName != null && data.activeWorkspaceName == workspaceName;
     return _DockContext(
       title: pet?.title ?? 'Pet companion',
-      subtitle: active ? 'Pet  /  Active' : 'Pet  /  Viewing',
+      subtitle: active ? 'Pet  /  Connected' : 'Pet  /  Viewing',
       fallbackRoute: '/pet',
       active: active,
       workspaceName: workspaceName,
