@@ -31,7 +31,4 @@ features:
   - title: Reference
     details: 查阅项目 API、Schema 与生成文档。
     link: /references/
-  - title: 当前问题
-    details: 汇总当前 review 已发现的问题及其解决方案状态。
-    link: /zh/issues
 ---

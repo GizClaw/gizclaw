@@ -8,7 +8,7 @@
 - 已实现行为、未来工作、开放问题和 non-goal 必须分开；不能把 roadmap 写成当前能力。
 - 开发指引解释项目组成、目录职责、模块边界和请求路径；Go symbol 的签名与注释由 Go doc 或 Reference 负责。
 - 用户说明、内部设计、API Reference 和 issue acceptance criteria 面向不同读者，不应混写。
-- 当前问题只记录在问题清单中，稳定文档不要引用临时 issue 编号或重构状态。
+- 当前问题只记录在 GitHub Issues 中，稳定文档不要引用临时 issue 编号或重构状态。
 
 ## 事实来源
 

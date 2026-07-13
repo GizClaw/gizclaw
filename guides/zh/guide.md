@@ -7,4 +7,3 @@ GizClaw 是面向 GizClaw 设备的开箱即用 Agent Runtime 和 Edge Server。
 - [编码规范](coding-styles/)：查阅项目采用的编码约定。
 - [使用说明](using/)：使用 GizClaw、CLI 和 SDK。
 - [Reference](/references/)：查阅 API、Schema 与生成文档。
-- [当前问题](issues)：查看 review 过程中发现的问题及解决状态。

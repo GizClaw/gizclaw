@@ -315,7 +315,6 @@ export default withMermaid(
         { text: "编码规范", link: "/zh/coding-styles/" },
         { text: "使用说明", link: "/zh/using/" },
         { text: "Reference", link: "/references/" },
-        { text: "当前问题", link: "/zh/issues" },
       ],
       sidebar: {
         "/zh/developing/": zhDevelopingSidebar,

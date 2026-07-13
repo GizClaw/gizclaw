@@ -169,4 +169,3 @@ sequenceDiagram
 - [编码规范](/zh/coding-styles/)
 - [使用说明](/zh/using/)
 - [Reference](/references/)
-- [当前问题](/zh/issues)
