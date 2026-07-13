@@ -54,7 +54,7 @@ type Server struct {
 	FriendGroups *friendgroup.Server
 	Gameplay     *gameplay.Runtime
 	Tools        *toolkit.Server
-	ToolACL      ToolACLService
+	ResourceACL  ResourceACLService
 }
 
 type WorkspaceHistoryService interface {
@@ -477,6 +477,15 @@ func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCReque
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
+	if _, ok := adminResp.(adminhttp.CreateWorkspace200JSONResponse); ok {
+		if err := s.grantWorkspaceOwner(ctx, params.Name); err != nil {
+			_, _ = s.Workspaces.DeleteWorkspace(
+				context.WithoutCancel(ctx),
+				adminhttp.DeleteWorkspaceRequestObject{Name: params.Name},
+			)
+			return internalError(req.Id, err.Error()), true, nil
+		}
+	}
 	return workspaceAdminRPCResponse(req.Id, adminResp.VisitCreateWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspaceCreateResponse), true, nil
 }
 
@@ -519,6 +528,27 @@ func (s *Server) handleWorkspaceDelete(ctx context.Context, req *rpcapi.RPCReque
 	adminResp, err := s.Workspaces.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Name: params.Name})
 	if err != nil {
 		return internalError(req.Id, err.Error())
+	}
+	if deleted, ok := adminResp.(adminhttp.DeleteWorkspace200JSONResponse); ok {
+		if err := s.deleteWorkspaceOwnerBinding(context.WithoutCancel(ctx), params.Name); err != nil {
+			body := adminhttp.PutWorkspaceJSONRequestBody{
+				Name:         deleted.Name,
+				Parameters:   deleted.Parameters,
+				Toolkit:      deleted.Toolkit,
+				WorkflowName: deleted.WorkflowName,
+			}
+			rollbackResp, rollbackErr := s.Workspaces.PutWorkspace(
+				context.WithoutCancel(ctx),
+				adminhttp.PutWorkspaceRequestObject{Name: params.Name, Body: &body},
+			)
+			if rollbackErr != nil {
+				return internalError(req.Id, fmt.Sprintf("%v; Workspace rollback failed: %v", err, rollbackErr))
+			}
+			if _, ok := rollbackResp.(adminhttp.PutWorkspace200JSONResponse); !ok {
+				return internalError(req.Id, fmt.Sprintf("%v; Workspace rollback failed with %T", err, rollbackResp))
+			}
+			return internalError(req.Id, err.Error())
+		}
 	}
 	return workspaceAdminRPCResponse(req.Id, adminResp.VisitDeleteWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspaceDeleteResponse)
 }

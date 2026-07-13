@@ -11,6 +11,8 @@ import 'transport.dart';
 const _dataChannelMessageChunkSize = 1400;
 const _dataChannelBufferHighWaterMark = 1024 * 1024;
 const _dataChannelSendRetryDelay = Duration(milliseconds: 5);
+const _dataChannelNativeReadyGracePeriod = Duration(milliseconds: 250);
+const _dataChannelStatePollDelay = Duration(milliseconds: 10);
 
 final _servedPeerConnections = Expando<void Function(rtc.RTCDataChannel)>();
 
@@ -273,8 +275,15 @@ Future<void> _waitForDataChannelOpen(rtc.RTCDataChannel channel) {
   }
   final completer = Completer<void>();
   final previous = channel.onDataChannelState;
+  Timer? nativeReadyTimer;
+  Timer? pollTimer;
+  Timer? timeoutTimer;
+  var probingNativeReadiness = false;
   late void Function(rtc.RTCDataChannelState) handler;
   void restoreHandler() {
+    nativeReadyTimer?.cancel();
+    pollTimer?.cancel();
+    timeoutTimer?.cancel();
     if (channel.onDataChannelState == handler) {
       channel.onDataChannelState = previous;
     }
@@ -293,19 +302,47 @@ Future<void> _waitForDataChannelOpen(rtc.RTCDataChannel channel) {
     }
   }
 
+  Future<void> probeNativeReadiness() async {
+    if (completer.isCompleted || probingNativeReadiness) return;
+    completeIfReady(channel.state);
+    if (completer.isCompleted || channel.state != null) return;
+    probingNativeReadiness = true;
+    try {
+      await channel.getBufferedAmount();
+      if (!completer.isCompleted && channel.state == null) {
+        restoreHandler();
+        completer.complete();
+      }
+    } catch (_) {
+      // The native channel is not ready yet; the next poll will retry.
+    } finally {
+      probingNativeReadiness = false;
+    }
+  }
+
   handler = (state) {
     previous?.call(state);
     completeIfReady(state);
   };
   channel.onDataChannelState = handler;
   completeIfReady(channel.state);
-  return completer.future.timeout(
-    const Duration(seconds: 30),
-    onTimeout: () {
+  if (!completer.isCompleted) {
+    nativeReadyTimer = Timer(_dataChannelNativeReadyGracePeriod, () {
+      unawaited(probeNativeReadiness());
+      pollTimer = Timer.periodic(
+        _dataChannelStatePollDelay,
+        (_) => unawaited(probeNativeReadiness()),
+      );
+    });
+    timeoutTimer = Timer(const Duration(seconds: 30), () {
+      if (completer.isCompleted) return;
       restoreHandler();
-      throw TimeoutException('WebRTC data channel open timed out');
-    },
-  );
+      completer.completeError(
+        TimeoutException('WebRTC data channel open timed out'),
+      );
+    });
+  }
+  return completer.future;
 }
 
 Future<void> _disposePeerConnection(rtc.RTCPeerConnection pc) async {

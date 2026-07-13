@@ -511,6 +511,12 @@ GeneratedMessage decodeRpcResponsePayload(String methodName, List<int> bytes) {
   return message;
 }
 
+GeneratedMessage? decodeEmptyRpcResponsePayload(String methodName) {
+  final type = rpcMethodByName(methodName).responseType;
+  final message = newPayloadMessage(type);
+  return message.info_.fieldInfo.isEmpty ? message : null;
+}
+
 void _expectPayloadType(String expected, GeneratedMessage message) {
   final expectedType = _messageTypes[expected];
   if (expectedType == null) {

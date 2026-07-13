@@ -81,6 +81,17 @@ void main() {
     );
   });
 
+  test('accepts omitted payload for an empty response message', () async {
+    final result = decodeRpcResponse(
+      'server.friend.invite_token.clear',
+      common.RpcResponse(id: 'rpc-empty').writeToBuffer(),
+      const [],
+      'rpc-empty',
+    );
+
+    expect(result.response, isA<payload.FriendInviteTokenClearResponse>());
+  });
+
   test('rejects mismatched RPC response ids', () async {
     final factory = FakeDataChannelFactory();
     final client = PeerRpcClient(factory, createId: () => 'rpc-want');

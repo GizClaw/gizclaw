@@ -584,10 +584,10 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: ACLPolicyBinding
     metadata:
-      name: view-default-client-workspace-flowcraft-voice-assistant
+      name: view-default-client-workspace-flowcraft-assistant
     spec:
       resource:
-        id: flowcraft-voice-assistant
+        id: workspace-flowcraft-assistant
         kind: workspace
       role: default-client
       subject:
@@ -3348,6 +3348,18 @@ spec:
     spec:
       resource:
         id: default-gameplay
+        kind: gameruleset
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-gameruleset-h106-tragon
+    spec:
+      resource:
+        id: h106-tragon
         kind: gameruleset
       role: default-client
       subject:

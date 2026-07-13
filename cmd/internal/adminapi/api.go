@@ -449,6 +449,21 @@ func UploadFirmwareArtifact(ctx context.Context, c *gizcli.Client, name, channel
 	return apitypes.Firmware{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON404, resp.JSON409, resp.JSON500)
 }
 
+func UploadPetDefPixa(ctx context.Context, c *gizcli.Client, name string, body io.Reader) (apitypes.PetDef, error) {
+	api, err := c.ServerAdminClient()
+	if err != nil {
+		return apitypes.PetDef{}, err
+	}
+	resp, err := api.UploadPetDefPixaWithBodyWithResponse(ctx, name, "application/octet-stream", body)
+	if err != nil {
+		return apitypes.PetDef{}, err
+	}
+	if resp.JSON200 != nil {
+		return *resp.JSON200, nil
+	}
+	return apitypes.PetDef{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
+}
+
 func DownloadFirmwareArtifact(ctx context.Context, c *gizcli.Client, name, channel string) ([]byte, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {

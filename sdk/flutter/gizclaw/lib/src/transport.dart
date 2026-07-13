@@ -9,7 +9,12 @@ const servicePeerRpc = 0x00;
 const servicePeerHttp = 0x01;
 const servicePeerOpenAi = 0x02;
 const serviceAdminHttp = 0x10;
+const serviceAgentEvent = 0x20;
 const serviceEdgeRpc = 0x31;
+
+final giznetWebRtcEventDataChannelLabel = giznetServiceDataChannelLabel(
+  serviceAgentEvent,
+);
 
 String giznetServiceDataChannelLabel(int service) {
   if (service < 0) {

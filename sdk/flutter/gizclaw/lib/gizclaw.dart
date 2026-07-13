@@ -4,6 +4,7 @@ export 'src/generated/rpc/payload.pbenum.dart';
 export 'src/method_registry.dart';
 export 'src/payload_codec.dart';
 export 'src/peer_rpc_server.dart';
+export 'src/peer_stream.dart';
 export 'src/pixa.dart';
 export 'src/pixa_flutter.dart';
 export 'src/rpc_client.dart';

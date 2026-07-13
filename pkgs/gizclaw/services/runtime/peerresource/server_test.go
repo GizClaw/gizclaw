@@ -159,6 +159,74 @@ func TestServerAllowedCRUD(t *testing.T) {
 	requireNoRPCError(t, callRPC(t, srv, "workflow-delete", rpcapi.RPCMethodServerWorkflowDelete, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowDeleteRequest, rpcapi.WorkflowDeleteRequest{Name: "workflow-a1"})))
 }
 
+func TestWorkspacePeerCreateGrantsResourceOwner(t *testing.T) {
+	srv := newTestResourceServer()
+	srv.ACL = allowAllAuthorizer{}
+	bindings := &recordingToolACL{}
+	srv.ResourceACL = bindings
+
+	requireNoRPCError(t, callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, workflowDoc("workflow-owner"))))
+	requireNoRPCError(t, callRPC(t, srv, "workspace-create", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
+		Name:         "workspace-owner",
+		WorkflowName: "workflow-owner",
+	})))
+
+	if bindings.role != resourceOwnerRole || !permissionListsEqual(bindings.permissions, resourceOwnerPermissions) {
+		t.Fatalf("workspace owner role = %q %#v", bindings.role, bindings.permissions)
+	}
+	if bindings.policy.Subject != acl.PublicKeySubject(srv.Caller.String()) ||
+		bindings.policy.Resource != acl.WorkspaceResource("workspace-owner") ||
+		bindings.policy.Role != resourceOwnerRole {
+		t.Fatalf("workspace owner policy = %#v", bindings.policy)
+	}
+
+	requireNoRPCError(t, callRPC(t, srv, "workspace-delete", rpcapi.RPCMethodServerWorkspaceDelete, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceDeleteRequest, rpcapi.WorkspaceDeleteRequest{Name: "workspace-owner"})))
+	if !bindings.deletedBinding(workspaceOwnerBindingID("workspace-owner")) {
+		t.Fatalf("workspace owner binding was not deleted; deleted = %#v", bindings.deletedIDs)
+	}
+}
+
+func TestWorkspacePeerCreateRollsBackWhenOwnerGrantFails(t *testing.T) {
+	srv := newTestResourceServer()
+	srv.ACL = allowAllAuthorizer{}
+	srv.ResourceACL = &recordingToolACL{policyErr: errors.New("write owner binding")}
+
+	requireNoRPCError(t, callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, workflowDoc("workflow-rollback"))))
+	created := callRPC(t, srv, "workspace-create", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
+		Name:         "workspace-rollback",
+		WorkflowName: "workflow-rollback",
+	}))
+	requireRPCError(t, created, rpcapi.RPCErrorCodeInternalError)
+
+	missing := callRPC(t, srv, "workspace-get", rpcapi.RPCMethodServerWorkspaceGet, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceGetRequest, rpcapi.WorkspaceGetRequest{Name: "workspace-rollback"}))
+	requireRPCError(t, missing, rpcapi.RPCErrorCodeNotFound)
+}
+
+func TestWorkspacePeerDeleteRollsBackWhenOwnerBindingDeleteFails(t *testing.T) {
+	srv := newTestResourceServer()
+	srv.ACL = allowAllAuthorizer{}
+	bindings := &recordingToolACL{}
+	srv.ResourceACL = bindings
+
+	requireNoRPCError(t, callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, workflowDoc("workflow-delete-rollback"))))
+	requireNoRPCError(t, callRPC(t, srv, "workspace-create", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
+		Name:         "workspace-delete-rollback",
+		WorkflowName: "workflow-delete-rollback",
+	})))
+
+	bindings.deleteErr = errors.New("delete owner binding")
+	deleted := callRPC(t, srv, "workspace-delete", rpcapi.RPCMethodServerWorkspaceDelete, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceDeleteRequest, rpcapi.WorkspaceDeleteRequest{Name: "workspace-delete-rollback"}))
+	requireRPCError(t, deleted, rpcapi.RPCErrorCodeInternalError)
+	if !bindings.deletedBinding(workspaceOwnerBindingID("workspace-delete-rollback")) {
+		t.Fatalf("workspace owner binding was not deleted; deleted = %#v", bindings.deletedIDs)
+	}
+	got := callRPC(t, srv, "workspace-get", rpcapi.RPCMethodServerWorkspaceGet, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceGetRequest, rpcapi.WorkspaceGetRequest{Name: "workspace-delete-rollback"}))
+	requireNoRPCError(t, got)
+	if workspace := mustResult(t, got.Result.AsWorkspaceGetResponse); workspace.Name != "workspace-delete-rollback" {
+		t.Fatalf("workspace after rollback = %#v", workspace)
+	}
+}
+
 func TestServerRejectsInvalidCustomIDs(t *testing.T) {
 	srv := newTestResourceServer()
 	srv.ACL = allowAllAuthorizer{}
@@ -341,10 +409,11 @@ func TestServerWorkspaceHistoryRPC(t *testing.T) {
 		RuntimeStore:  workspace.NewObjectRuntimeStore(objects),
 	}
 	srv := &Server{
-		Caller:     giznet.PublicKey{1},
-		ACL:        allowAllAuthorizer{},
-		Workflows:  &workflow.Server{Store: workflowStore},
-		Workspaces: workspaceServer,
+		Caller:      giznet.PublicKey{1},
+		ACL:         allowAllAuthorizer{},
+		Workflows:   &workflow.Server{Store: workflowStore},
+		Workspaces:  workspaceServer,
+		ResourceACL: &recordingToolACL{},
 	}
 	requireNoRPCError(t, callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, workflowDoc("flow-history"))))
 	requireNoRPCError(t, callRPC(t, srv, "workspace-create", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
@@ -992,6 +1061,7 @@ func newTestResourceServer() *Server {
 		Models:      &model.Server{Store: kv.NewMemory(nil), Now: func() time.Time { return time.Unix(1, 0).UTC() }},
 		Credentials: &credential.Server{Store: kv.NewMemory(nil)},
 		Voices:      &voice.Server{Store: kv.NewMemory(nil), Now: func() time.Time { return time.Unix(1, 0).UTC() }},
+		ResourceACL: &recordingToolACL{},
 	}
 }
 

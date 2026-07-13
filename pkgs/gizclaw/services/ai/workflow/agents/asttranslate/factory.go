@@ -21,8 +21,9 @@ import (
 
 const Type = "ast-translate"
 
-// Give realtime input BOS a scheduling window to interrupt stale AST downlink
-// before another queued assistant chunk reaches the peer.
+// Give realtime input BOS a scheduling window to interrupt stale AST text
+// before another queued assistant event reaches the peer. Audio is already
+// paced at its frame duration and must not pay this delay per frame.
 const interruptibleAssistantChunkGrace = 160 * time.Millisecond
 
 type Factory struct {
@@ -417,7 +418,11 @@ func isASTAssistantChunk(chunk *genx.MessageChunk) bool {
 }
 
 func shouldGraceASTAssistantChunk(chunk *genx.MessageChunk) bool {
-	return isASTAssistantChunk(chunk) && !chunk.Ctrl.EndOfStream && chunk.Ctrl.Error == ""
+	if !isASTAssistantChunk(chunk) || chunk.Ctrl.EndOfStream || chunk.Ctrl.Error != "" {
+		return false
+	}
+	blob, isBlob := chunk.Part.(*genx.Blob)
+	return !isBlob || blob == nil || !strings.HasPrefix(baseMIME(blob.MIMEType), "audio/")
 }
 
 func astAssistantActiveKey(chunk *genx.MessageChunk) string {

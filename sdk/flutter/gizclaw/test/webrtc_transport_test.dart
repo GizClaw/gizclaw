@@ -163,6 +163,24 @@ void main() {
     expect(channel.state, GizClawDataChannelState.open);
   });
 
+  test('recovers when a native open event is missed', () async {
+    final pc = _FakePeerConnection(channelsNativeReady: true);
+    final factory = FlutterWebRtcDataChannelFactory(pc);
+    var completed = false;
+
+    final future = factory.createDataChannel('giznet/v1/service/0').then((
+      channel,
+    ) {
+      completed = true;
+      return channel;
+    });
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(completed, isFalse);
+
+    final channel = await future;
+    expect(channel.state, GizClawDataChannelState.open);
+  });
+
   test('closes native data channel when open wait fails', () async {
     final pc = _FakePeerConnection(
       channelInitialState: rtc.RTCDataChannelState.RTCDataChannelClosed,

@@ -22,10 +22,10 @@ func TestToolPeerCRUDNamespaceACLAndOwnerBinding(t *testing.T) {
 	auth.allow(acl.ResourceKindTool, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
 	bindings := &recordingToolACL{}
 	srv := &Server{
-		Caller:  caller,
-		ACL:     auth,
-		Tools:   &toolkit.Server{Store: kv.NewMemory(nil)},
-		ToolACL: bindings,
+		Caller:      caller,
+		ACL:         auth,
+		Tools:       &toolkit.Server{Store: kv.NewMemory(nil)},
+		ResourceACL: bindings,
 	}
 
 	createRequest := rpcTool(id, callerID)
@@ -36,7 +36,7 @@ func TestToolPeerCRUDNamespaceACLAndOwnerBinding(t *testing.T) {
 	if created.Id != id || created.Enabled == nil || !*created.Enabled || created.OwnerPeer == nil || *created.OwnerPeer != callerID || created.CreatedAt.IsZero() {
 		t.Fatalf("created Tool = %#v", created)
 	}
-	if bindings.role != toolOwnerRole || bindings.policy.Resource != acl.ToolResource(id) || bindings.policy.Subject != acl.PublicKeySubject(callerID) {
+	if bindings.role != resourceOwnerRole || bindings.policy.Resource != acl.ToolResource(id) || bindings.policy.Subject != acl.PublicKeySubject(callerID) {
 		t.Fatalf("owner binding = role %q policy %#v", bindings.role, bindings.policy)
 	}
 	if len(bindings.permissions) != 3 {
@@ -89,7 +89,7 @@ func TestToolPeerCreateRejectsNonDeviceAndForeignNamespace(t *testing.T) {
 	callerID := caller.String()
 	auth := newRuleAuthorizer()
 	auth.allow(acl.ResourceKindTool, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
-	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}, ToolACL: &recordingToolACL{}}
+	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}, ResourceACL: &recordingToolACL{}}
 
 	foreign := rpcTool("peer.other.music.play", callerID)
 	resp := callRPC(t, srv, "foreign", rpcapi.RPCMethodServerToolCreate, rpcParams(t, (*rpcapi.RPCPayload).FromToolCreateRequest, foreign))
@@ -110,7 +110,7 @@ func TestToolPeerPutRejectsExistingNonOwnedTool(t *testing.T) {
 	id := "peer." + callerID + ".admin-owned"
 	auth := newRuleAuthorizer()
 	auth.allow(acl.ResourceKindTool, id, apitypes.ACLPermissionAdmin)
-	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}, ToolACL: &recordingToolACL{}}
+	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}, ResourceACL: &recordingToolACL{}}
 	existing := toolkit.Tool{ID: id, Source: toolkit.ToolSourceAdmin, Enabled: true, InputSchema: jsonschema.Schema{Type: "object"}, Executor: toolkit.ToolExecutor{Kind: toolkit.ToolExecutorKindBuiltin, Name: stringPointer("admin")}}
 	if _, err := srv.Tools.PutTool(context.Background(), existing); err != nil {
 		t.Fatalf("PutTool(existing) error = %v", err)
@@ -133,11 +133,11 @@ func TestToolPeerCreateCreatesResourceOwnerRoleWhenMissing(t *testing.T) {
 	auth := newRuleAuthorizer()
 	auth.allow(acl.ResourceKindTool, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
 	bindings := &recordingToolACL{}
-	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}, ToolACL: bindings}
+	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}, ResourceACL: bindings}
 
 	resp := callRPC(t, srv, "create", rpcapi.RPCMethodServerToolCreate, rpcParams(t, (*rpcapi.RPCPayload).FromToolCreateRequest, rpcTool(id, callerID)))
 	requireNoRPCError(t, resp)
-	if bindings.rolePuts != 0 || bindings.roleCreates != 1 || bindings.roleGets != 1 || bindings.policy.Role != toolOwnerRole {
+	if bindings.rolePuts != 0 || bindings.roleCreates != 1 || bindings.roleGets != 1 || bindings.policy.Role != resourceOwnerRole {
 		t.Fatalf("owner role handling = puts %d creates %d gets %d policy %#v", bindings.rolePuts, bindings.roleCreates, bindings.roleGets, bindings.policy)
 	}
 }
@@ -149,13 +149,13 @@ func TestToolPeerCreateReusesCurrentResourceOwnerRole(t *testing.T) {
 	auth := newRuleAuthorizer()
 	auth.allow(acl.ResourceKindTool, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
 	bindings := &recordingToolACL{
-		existingRole: apitypes.ACLRole{Name: toolOwnerRole, Permissions: append(apitypes.ACLPermissionList(nil), toolOwnerPermissions...)},
+		existingRole: apitypes.ACLRole{Name: resourceOwnerRole, Permissions: append(apitypes.ACLPermissionList(nil), resourceOwnerPermissions...)},
 	}
-	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}, ToolACL: bindings}
+	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}, ResourceACL: bindings}
 
 	resp := callRPC(t, srv, "create", rpcapi.RPCMethodServerToolCreate, rpcParams(t, (*rpcapi.RPCPayload).FromToolCreateRequest, rpcTool(id, callerID)))
 	requireNoRPCError(t, resp)
-	if bindings.rolePuts != 0 || bindings.roleCreates != 0 || bindings.roleGets != 1 || bindings.policy.Role != toolOwnerRole {
+	if bindings.rolePuts != 0 || bindings.roleCreates != 0 || bindings.roleGets != 1 || bindings.policy.Role != resourceOwnerRole {
 		t.Fatalf("owner role handling = puts %d creates %d gets %d policy %#v", bindings.rolePuts, bindings.roleCreates, bindings.roleGets, bindings.policy)
 	}
 }
@@ -167,9 +167,9 @@ func TestToolPeerCreateRejectsDriftedResourceOwnerRole(t *testing.T) {
 	auth := newRuleAuthorizer()
 	auth.allow(acl.ResourceKindTool, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
 	bindings := &recordingToolACL{
-		existingRole: apitypes.ACLRole{Name: toolOwnerRole, Permissions: apitypes.ACLPermissionList{apitypes.ACLPermissionRead}},
+		existingRole: apitypes.ACLRole{Name: resourceOwnerRole, Permissions: apitypes.ACLPermissionList{apitypes.ACLPermissionRead}},
 	}
-	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}, ToolACL: bindings}
+	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}, ResourceACL: bindings}
 
 	resp := callRPC(t, srv, "create", rpcapi.RPCMethodServerToolCreate, rpcParams(t, (*rpcapi.RPCPayload).FromToolCreateRequest, rpcTool(id, callerID)))
 	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInternalError {
@@ -192,7 +192,7 @@ func TestToolPeerCreateRollsBackWhenOwnerRoleFails(t *testing.T) {
 	bindings := &recordingToolACL{
 		roleErr: errors.New("owner role failed"),
 	}
-	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}, ToolACL: bindings}
+	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}, ResourceACL: bindings}
 
 	resp := callRPC(t, srv, "create", rpcapi.RPCMethodServerToolCreate, rpcParams(t, (*rpcapi.RPCPayload).FromToolCreateRequest, rpcTool(id, callerID)))
 	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInternalError {
@@ -214,7 +214,7 @@ func TestToolPeerDeleteRollsBackWhenOwnerBindingCleanupFails(t *testing.T) {
 	auth.allow(acl.ResourceKindTool, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
 	auth.allow(acl.ResourceKindTool, id, apitypes.ACLPermissionAdmin)
 	bindings := &recordingToolACL{}
-	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}, ToolACL: bindings}
+	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}, ResourceACL: bindings}
 
 	createResp := callRPC(t, srv, "create", rpcapi.RPCMethodServerToolCreate, rpcParams(t, (*rpcapi.RPCPayload).FromToolCreateRequest, rpcTool(id, callerID)))
 	requireNoRPCError(t, createResp)
@@ -283,6 +283,7 @@ type recordingToolACL struct {
 	existingRole apitypes.ACLRole
 	getRoleErr   error
 	deleteErr    error
+	policyErr    error
 }
 
 func (a *recordingToolACL) CreateRole(_ context.Context, name string, permissions apitypes.ACLPermissionList) (apitypes.ACLRole, error) {
@@ -312,7 +313,7 @@ func (a *recordingToolACL) PutRole(_ context.Context, name string, permissions a
 
 func (a *recordingToolACL) PutPolicyBinding(_ context.Context, id string, _ float64, policy apitypes.ACLPolicy) (apitypes.ACLPolicyBinding, error) {
 	a.policy = policy
-	return apitypes.ACLPolicyBinding{Id: id, Policy: policy}, nil
+	return apitypes.ACLPolicyBinding{Id: id, Policy: policy}, a.policyErr
 }
 
 func (a *recordingToolACL) DeletePolicyBinding(_ context.Context, id string) (apitypes.ACLPolicyBinding, error) {
