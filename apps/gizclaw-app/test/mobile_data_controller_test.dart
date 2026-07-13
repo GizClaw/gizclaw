@@ -1,9 +1,58 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gizclaw/gizclaw.dart';
 import 'package:gizclaw_app/data/mobile_data_controller.dart';
 import 'package:gizclaw_app/prototype/prototype_models.dart';
 
 void main() {
+  test('does not retry a mutating RPC after a transport failure', () async {
+    var requests = 0;
+    var reconnects = 0;
+
+    await expectLater(
+      runRpcWithTransportRecovery<void, int>(
+        initialTransport: 1,
+        request: (_) async {
+          requests += 1;
+          throw StateError('WebRTC data channel closed');
+        },
+        reconnect: () async {
+          reconnects += 1;
+          return 2;
+        },
+        retryOnTransportError: false,
+      ),
+      throwsStateError,
+    );
+
+    expect(requests, 1);
+    expect(reconnects, 0);
+  });
+
+  test('retries an idempotent RPC after reconnecting the transport', () async {
+    var requests = 0;
+    var reconnects = 0;
+
+    final result = await runRpcWithTransportRecovery<String, int>(
+      initialTransport: 1,
+      request: (transport) async {
+        requests += 1;
+        if (transport == 1) throw TimeoutException('request timed out');
+        return 'ok';
+      },
+      reconnect: () async {
+        reconnects += 1;
+        return 2;
+      },
+      retryOnTransportError: true,
+    );
+
+    expect(result, 'ok');
+    expect(requests, 2);
+    expect(reconnects, 1);
+  });
+
   test('creates typed defaults for a Doubao workspace', () {
     final parameters = newWorkspaceParametersForDriver(
       WorkflowDriverKind.doubaoRealtime,

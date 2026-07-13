@@ -41,10 +41,12 @@ class GizClawConnectionController {
   GizClawConnectionProfile _profile;
 
   rtc.RTCPeerConnection? _peerConnection;
+  rtc.RTCPeerConnection? _pendingPeerConnection;
   GizClawClient? _client;
   FlutterWebRtcDataChannelFactory? _dataChannelFactory;
   String? _clientPublicKey;
   String? _serverId;
+  int _profileRevision = 0;
 
   GizClawClient? get client => _client;
   FlutterWebRtcDataChannelFactory? get dataChannelFactory =>
@@ -59,7 +61,9 @@ class GizClawConnectionController {
 
   Future<GizClawClient> connect() async {
     if (_client != null && isConnected) return _client!;
-    if (!profile.isConfigured) {
+    final activeProfile = profile;
+    final profileRevision = _profileRevision;
+    if (!activeProfile.isConfigured) {
       throw StateError('No GizClaw development connection is configured');
     }
 
@@ -67,14 +71,14 @@ class GizClawConnectionController {
       await close();
     }
 
-    final baseUri = _baseUri(profile.endpoint);
+    final baseUri = _baseUri(activeProfile.endpoint);
     final info = await _fetchServerInfo(baseUri);
-    _serverId = info.publicKey;
+    _ensureCurrentProfile(profileRevision, activeProfile);
     final identity = GiznetSignalingIdentity(
-      clientPrivateKey: base58Decode(profile.clientPrivateKey),
-      clientPublicKey: profile.clientPublicKey == null
+      clientPrivateKey: base58Decode(activeProfile.clientPrivateKey),
+      clientPublicKey: activeProfile.clientPublicKey == null
           ? null
-          : base58Decode(profile.clientPublicKey!),
+          : base58Decode(activeProfile.clientPublicKey!),
       serverPublicKey: base58Decode(info.publicKey),
     );
     if (Platform.isIOS) {
@@ -83,21 +87,40 @@ class GizClawConnectionController {
         preferSpeakerOutput: true,
       );
     }
+    String? preparedClientPublicKey;
     final peerConnection = await connectFlutterGiznetWebRtc(
       addAudioTransceiver: true,
       prepareOffer: (sdp) async {
         final offer = await prepareEncryptedGiznetWebRtcOffer(identity, sdp);
-        _clientPublicKey = offer.clientPublicKey;
+        preparedClientPublicKey = offer.clientPublicKey;
         return offer;
       },
       sendOffer: (offer) =>
           _sendOffer(baseUri.resolve(info.signalingPath), offer),
     );
-    await _waitForPeerConnection(peerConnection);
-    await _prepareAudioPlayback(peerConnection);
-    _peerConnection = peerConnection;
-    _dataChannelFactory = FlutterWebRtcDataChannelFactory(peerConnection);
-    return _client = GizClawClient(_dataChannelFactory!);
+    var registeredAsPending = false;
+    try {
+      _ensureCurrentProfile(profileRevision, activeProfile);
+      _pendingPeerConnection = peerConnection;
+      registeredAsPending = true;
+      await _waitForPeerConnection(peerConnection);
+      await _prepareAudioPlayback(peerConnection);
+      _ensureCurrentProfile(profileRevision, activeProfile);
+      _pendingPeerConnection = null;
+      _peerConnection = peerConnection;
+      _serverId = info.publicKey;
+      _clientPublicKey = preparedClientPublicKey;
+      _dataChannelFactory = FlutterWebRtcDataChannelFactory(peerConnection);
+      return _client = GizClawClient(_dataChannelFactory!);
+    } catch (_) {
+      if (identical(_pendingPeerConnection, peerConnection)) {
+        _pendingPeerConnection = null;
+        await peerConnection.close();
+      } else if (!registeredAsPending) {
+        await peerConnection.close();
+      }
+      rethrow;
+    }
   }
 
   Future<GizClawClient> reconnect() async {
@@ -110,8 +133,9 @@ class GizClawConnectionController {
         profile.clientPrivateKey == _profile.clientPrivateKey) {
       return;
     }
-    await close();
+    _profileRevision += 1;
     _profile = profile;
+    await close();
   }
 
   Future<void> close() async {
@@ -119,9 +143,21 @@ class GizClawConnectionController {
     _dataChannelFactory = null;
     _clientPublicKey = null;
     _serverId = null;
+    final pendingPeerConnection = _pendingPeerConnection;
+    _pendingPeerConnection = null;
     final peerConnection = _peerConnection;
     _peerConnection = null;
+    await pendingPeerConnection?.close();
     await peerConnection?.close();
+  }
+
+  void _ensureCurrentProfile(
+    int revision,
+    GizClawConnectionProfile activeProfile,
+  ) {
+    if (revision != _profileRevision || !identical(activeProfile, _profile)) {
+      throw StateError('GizClaw connection profile changed during setup');
+    }
   }
 }
 
@@ -209,14 +245,19 @@ int? _explicitEndpointPort(String value, {required bool hasScheme}) {
 
 Future<GiznetServerInfo> _fetchServerInfo(Uri baseUri) async {
   final client = HttpClient();
+  client.connectionTimeout = _httpRequestTimeout;
   try {
-    final request = await client.getUrl(baseUri.resolve('/server-info'));
-    final response = await request.close();
-    final body = await utf8.decoder.bind(response).join();
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw HttpException('server-info failed with ${response.statusCode}');
-    }
-    return GiznetServerInfo.fromJson(jsonDecode(body) as Map<String, Object?>);
+    return await (() async {
+      final request = await client.getUrl(baseUri.resolve('/server-info'));
+      final response = await request.close();
+      final body = await utf8.decoder.bind(response).join();
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw HttpException('server-info failed with ${response.statusCode}');
+      }
+      return GiznetServerInfo.fromJson(
+        jsonDecode(body) as Map<String, Object?>,
+      );
+    })().timeout(_httpRequestTimeout);
   } finally {
     client.close(force: true);
   }
@@ -224,25 +265,30 @@ Future<GiznetServerInfo> _fetchServerInfo(Uri baseUri) async {
 
 Future<List<int>> _sendOffer(Uri uri, PreparedGiznetWebRtcOffer offer) async {
   final client = HttpClient();
+  client.connectionTimeout = _httpRequestTimeout;
   try {
-    final request = await client.postUrl(uri);
-    request.headers.contentType = ContentType.binary;
-    request.headers.set('X-Giznet-Nonce', offer.nonce);
-    request.headers.set('X-Giznet-Public-Key', offer.clientPublicKey);
-    request.headers.set('X-Giznet-Timestamp', offer.timestamp.toString());
-    request.add(offer.body);
-    final response = await request.close();
-    final bytes = await response.fold<List<int>>(<int>[], (all, chunk) {
-      all.addAll(chunk);
-      return all;
-    });
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw HttpException(
-        'WebRTC signaling failed with ${response.statusCode}',
-      );
-    }
-    return bytes;
+    return await (() async {
+      final request = await client.postUrl(uri);
+      request.headers.contentType = ContentType.binary;
+      request.headers.set('X-Giznet-Nonce', offer.nonce);
+      request.headers.set('X-Giznet-Public-Key', offer.clientPublicKey);
+      request.headers.set('X-Giznet-Timestamp', offer.timestamp.toString());
+      request.add(offer.body);
+      final response = await request.close();
+      final bytes = await response.fold<List<int>>(<int>[], (all, chunk) {
+        all.addAll(chunk);
+        return all;
+      });
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw HttpException(
+          'WebRTC signaling failed with ${response.statusCode}',
+        );
+      }
+      return bytes;
+    })().timeout(_httpRequestTimeout);
   } finally {
     client.close(force: true);
   }
 }
+
+const _httpRequestTimeout = Duration(seconds: 15);

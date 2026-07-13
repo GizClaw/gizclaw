@@ -103,6 +103,13 @@ class MobileDataController extends ChangeNotifier {
   Object? lastError;
   bool refreshing = false;
   Future<GizClawClient>? _reconnecting;
+  Future<void>? _refreshInFlight;
+  bool _refreshAgain = false;
+  GizClawClient? _pendingRefreshClient;
+  String? _pendingRefreshEndpoint;
+  String? _pendingRefreshServerId;
+  int _serverWatchGeneration = 0;
+  int _startGeneration = 0;
   Future<void> _workspaceSwitch = Future<void>.value();
   WorkspaceChatController? _activeWorkspaceChat;
   final Map<String, ({String title, String workspaceName})> _petRouteContexts =
@@ -137,6 +144,8 @@ class MobileDataController extends ChangeNotifier {
   }
 
   Future<void> start() async {
+    final generation = ++_startGeneration;
+    final endpoint = connection.profile.endpoint;
     if (!connection.profile.isConfigured) {
       connectionState = MobileConnectionState.unconfigured;
       notifyListeners();
@@ -144,21 +153,25 @@ class MobileDataController extends ChangeNotifier {
     }
     connectionState = MobileConnectionState.connecting;
     notifyListeners();
-    final cachedServerId = await repository.serverIdForEndpoint(
-      connection.profile.endpoint,
-    );
+    final cachedServerId = await repository.serverIdForEndpoint(endpoint);
+    if (!_isCurrentStart(generation, endpoint)) return;
     if (cachedServerId != null) await _watchServer(cachedServerId);
+    if (!_isCurrentStart(generation, endpoint)) return;
     try {
       final client = await connection.connect();
+      if (!_isCurrentStart(generation, endpoint)) return;
       final serverId = connection.serverId!;
       if (serverId != cachedServerId) await _watchServer(serverId);
+      if (!_isCurrentStart(generation, endpoint)) return;
       connectionState = MobileConnectionState.connected;
       notifyListeners();
       await refresh(client: client, serverId: serverId);
-      if (connectionState == MobileConnectionState.connected) {
+      if (_isCurrentStart(generation, endpoint) &&
+          connectionState == MobileConnectionState.connected) {
         await _ensureDeviceWorkspace(client: client, serverId: serverId);
       }
     } catch (error) {
+      if (!_isCurrentStart(generation, endpoint)) return;
       final discoveredServerId = connection.serverId;
       if (cachedServerId == null && discoveredServerId != null) {
         await _watchServer(discoveredServerId);
@@ -178,6 +191,7 @@ class MobileDataController extends ChangeNotifier {
   Future<void> updateServerEndpoint(String endpoint) async {
     final normalized = normalizeGizClawEndpoint(endpoint);
     if (normalized == connection.profile.endpoint) return;
+    _startGeneration += 1;
     await identityStore?.saveEndpoint(normalized);
     _replaceActiveWorkspaceChat(null);
     await connection.updateProfile(
@@ -230,11 +244,13 @@ class MobileDataController extends ChangeNotifier {
   }
 
   Future<void> _watchServer(String serverId) async {
+    final generation = ++_serverWatchGeneration;
     activeServerId = serverId;
     await _workflowSubscription?.cancel();
     await _workspaceSubscription?.cancel();
     await _friendChatSubscription?.cancel();
     await _friendGroupChatSubscription?.cancel();
+    if (generation != _serverWatchGeneration) return;
     _workflowSubscription = repository.watchWorkflows(serverId).listen((value) {
       workflows = value;
       notifyListeners();
@@ -260,6 +276,7 @@ class MobileDataController extends ChangeNotifier {
   }
 
   Future<void> _stopWatchingServer() async {
+    _serverWatchGeneration += 1;
     await _workflowSubscription?.cancel();
     await _workspaceSubscription?.cancel();
     await _friendChatSubscription?.cancel();
@@ -275,31 +292,63 @@ class MobileDataController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> refresh({GizClawClient? client, String? serverId}) async {
+  Future<void> refresh({GizClawClient? client, String? serverId}) {
     final activeClient = client ?? connection.client;
-    final activeServerId = serverId ?? connection.serverId;
-    if (activeClient == null || activeServerId == null || refreshing) return;
+    final resolvedServerId = serverId ?? connection.serverId;
+    if (activeClient == null || resolvedServerId == null) {
+      return Future<void>.value();
+    }
+    _pendingRefreshClient = activeClient;
+    _pendingRefreshEndpoint = connection.profile.endpoint;
+    _pendingRefreshServerId = resolvedServerId;
+    _refreshAgain = true;
+    final inFlight = _refreshInFlight;
+    if (inFlight != null) return inFlight;
+    final refresh = _drainRefreshes();
+    _refreshInFlight = refresh;
+    return refresh;
+  }
+
+  Future<void> _drainRefreshes() async {
     refreshing = true;
     lastError = null;
     notifyListeners();
+    GizClawClient? refreshClient;
+    String? refreshEndpoint;
     try {
-      final warnings = await repository.refresh(
-        client: activeClient,
-        endpoint: connection.profile.endpoint,
-        serverId: activeServerId,
-      );
-      await _syncRunWorkspace(activeClient);
-      connectionState = MobileConnectionState.connected;
-      if (warnings.isNotEmpty) {
-        lastError = warnings.first;
-        assert(() {
-          for (final warning in warnings) {
-            debugPrint('GizClaw partial refresh: $warning');
-          }
-          return true;
-        }());
-      }
+      do {
+        _refreshAgain = false;
+        final client = _pendingRefreshClient!;
+        final endpoint = _pendingRefreshEndpoint!;
+        final serverId = _pendingRefreshServerId!;
+        refreshClient = client;
+        refreshEndpoint = endpoint;
+        final warnings = await repository.refresh(
+          client: client,
+          endpoint: endpoint,
+          serverId: serverId,
+        );
+        if (connection.profile.endpoint != endpoint ||
+            !identical(connection.client, client)) {
+          continue;
+        }
+        await _syncRunWorkspace(client);
+        connectionState = MobileConnectionState.connected;
+        if (warnings.isNotEmpty) {
+          lastError = warnings.first;
+          assert(() {
+            for (final warning in warnings) {
+              debugPrint('GizClaw partial refresh: $warning');
+            }
+            return true;
+          }());
+        }
+      } while (_refreshAgain);
     } catch (error) {
+      if (connection.profile.endpoint != refreshEndpoint ||
+          !identical(connection.client, refreshClient)) {
+        return;
+      }
       lastError = error;
       assert(() {
         debugPrint('GizClaw refresh failed: $error');
@@ -310,22 +359,25 @@ class MobileDataController extends ChangeNotifier {
           : MobileConnectionState.offline;
     } finally {
       refreshing = false;
+      _refreshInFlight = null;
       notifyListeners();
     }
   }
 
-  Future<T> runRpc<T>(Future<T> Function(GizClawClient client) request) async {
+  Future<T> runRpc<T>(
+    Future<T> Function(GizClawClient client) request, {
+    bool retryOnTransportError = false,
+  }) async {
     final client = connection.client;
     if (connectionState != MobileConnectionState.connected || client == null) {
       throw StateError('Connect to GizClaw before sending an RPC request');
     }
-    try {
-      return await request(client);
-    } catch (error) {
-      if (!_isRecoverableTransportError(error)) rethrow;
-      final reconnected = await _reconnect();
-      return request(reconnected);
-    }
+    return runRpcWithTransportRecovery(
+      initialTransport: client,
+      request: request,
+      reconnect: _reconnect,
+      retryOnTransportError: retryOnTransportError,
+    );
   }
 
   Future<void> recoverTransport() async {
@@ -428,10 +480,11 @@ class MobileDataController extends ChangeNotifier {
     if (normalizedName.length > 80) {
       throw ArgumentError.value(name, 'name', 'must be at most 80 characters');
     }
+    final workspaceName = _newWorkspaceName(normalizedName);
     final response = await runRpc(
       (client) => client.createWorkspace(
         Workspace(
-          name: _newWorkspaceName(normalizedName),
+          name: workspaceName,
           workflowName: normalizedWorkflow,
           parameters: newWorkspaceParametersForDriver(driver),
         ),
@@ -439,6 +492,11 @@ class MobileDataController extends ChangeNotifier {
     );
     await refresh();
     return response.value;
+  }
+
+  bool _isCurrentStart(int generation, String endpoint) {
+    return generation == _startGeneration &&
+        endpoint == connection.profile.endpoint;
   }
 
   WorkflowCard workflow(String name) {
@@ -838,6 +896,23 @@ bool _isRecoverableTransportError(Object error) {
   if (error is! StateError) return false;
   final message = error.toString().toLowerCase();
   return message.contains('webrtc') || message.contains('data channel');
+}
+
+@visibleForTesting
+Future<T> runRpcWithTransportRecovery<T, Transport>({
+  required Transport initialTransport,
+  required Future<T> Function(Transport transport) request,
+  required Future<Transport> Function() reconnect,
+  required bool retryOnTransportError,
+}) async {
+  try {
+    return await request(initialTransport);
+  } catch (error) {
+    if (!retryOnTransportError || !_isRecoverableTransportError(error)) {
+      rethrow;
+    }
+    return request(await reconnect());
+  }
 }
 
 class MobileDataScope extends InheritedNotifier<MobileDataController> {

@@ -601,6 +601,7 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
     final workflow = data.workflow(workspace.workflowName);
     final chatroomMetadata = data.chatroomWorkspace(widget.workspaceName);
     final chat = _chat;
+    final isActiveWorkspace = data.activeWorkspaceName == widget.workspaceName;
     final messages = chat?.messages ?? const <WorkspaceChatMessage>[];
     final signal = _SignalPalette.of(context);
     final isDirectChat = chatroomMetadata?.kind == ChatroomWorkspaceKind.direct;
@@ -624,7 +625,7 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
             signal: signal,
             error: chat?.lastError,
             replayingHistoryId: chat?.replayingHistoryId,
-            onReplay: chat?.replayHistory,
+            onReplay: isActiveWorkspace ? chat?.replayHistory : null,
           ),
         ),
       ),

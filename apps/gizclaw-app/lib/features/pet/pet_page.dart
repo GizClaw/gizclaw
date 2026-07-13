@@ -72,6 +72,7 @@ class _PetPageState extends State<PetPage> {
       do {
         final response = await data.runRpc(
           (client) => client.listPets(cursor: cursor, limit: 100),
+          retryOnTransportError: true,
         );
         pets.addAll(response.value.items);
         cursor = response.value.hasNext ? response.value.nextCursor : null;
@@ -106,11 +107,13 @@ class _PetPageState extends State<PetPage> {
       final data = MobileDataScope.watch(context);
       final presentation = (await data.runRpc(
         (client) => client.getPetPresentation(pet.id),
+        retryOnTransportError: true,
       )).value;
       PixaAsset? pixa;
       try {
         pixa = (await data.runRpc(
           (client) => client.downloadPetPixa(pet.id),
+          retryOnTransportError: true,
         )).asset;
       } catch (_) {
         // A PetDef can be visible before its optional PIXA asset is uploaded.
@@ -369,15 +372,18 @@ class _PetDetailPageState extends State<PetDetailPage> {
     try {
       final pet = (await data.runRpc(
         (client) => client.getPet(widget.petId),
+        retryOnTransportError: true,
       )).value;
       final presentation = (await data.runRpc(
         (client) => client.getPetPresentation(widget.petId),
+        retryOnTransportError: true,
       )).value;
       PixaAsset? pixa;
       Object? pixaError;
       try {
         pixa = (await data.runRpc(
           (client) => client.downloadPetPixa(widget.petId),
+          retryOnTransportError: true,
         )).asset;
       } catch (error) {
         pixaError = error;
