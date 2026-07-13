@@ -10,7 +10,6 @@ import 'package:go_router/go_router.dart';
 import '../data/mobile_data_controller.dart';
 import '../data/workspace_chat_controller.dart';
 import '../giz_ui/giz_ui.dart';
-import '../prototype/prototype_data.dart';
 import '../prototype/prototype_models.dart';
 
 class GlobalConversationOverlay extends StatelessWidget {
@@ -924,33 +923,6 @@ _DockContext _dockContext(Uri location, MobileDataController data) {
       fallbackRoute: '/pets',
       active: active,
       workspaceName: workspaceName,
-    );
-  }
-  if (segments.length >= 3 &&
-      segments[0] == 'browse' &&
-      segments[1] == 'workflows') {
-    final workflow = data.workflow(segments[2]);
-    return _DockContext(
-      title: workflow.title,
-      subtitle: '${workflow.category}  /  ${workflow.driverLabel}',
-      fallbackRoute: '/browse/workflows',
-    );
-  }
-  if (segments.length >= 3 &&
-      segments[0] == 'browse' &&
-      segments[1] == 'collections') {
-    final collection = collectionById(segments[2]);
-    return _DockContext(
-      title: collection.title,
-      subtitle: 'Curated collection',
-      fallbackRoute: '/browse',
-    );
-  }
-  if (location.path == '/browse/workflows') {
-    return const _DockContext(
-      title: 'All Workflows',
-      subtitle: 'Browse every available workflow',
-      fallbackRoute: '/browse',
     );
   }
   return const _DockContext(

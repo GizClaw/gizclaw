@@ -5,7 +5,6 @@ import 'package:gizclaw_app/main.dart';
 import 'package:gizclaw_app/app/global_conversation_control.dart';
 import 'package:gizclaw_app/data/mobile_data_controller.dart';
 import 'package:gizclaw_app/giz_ui/giz_ui.dart';
-import 'package:go_router/go_router.dart';
 
 void main() {
   Finder primaryNav(String label) =>
@@ -39,12 +38,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 700));
   }
 
-  Future<void> goToBrowse(WidgetTester tester) async {
-    final context = tester.element(find.byType(ActiveChatPage));
-    GoRouter.of(context).go('/browse');
-    await tester.pumpAndSettle();
-  }
-
   testWidgets('opens on the active conversation destination', (tester) async {
     await pumpApp(tester);
 
@@ -69,60 +62,6 @@ void main() {
     expect(find.byType(WorkspaceChatPage), findsOneWidget);
     expect(find.text('No active conversation'), findsNothing);
     expect(find.text('OFFLINE'), findsOneWidget);
-  });
-
-  testWidgets('opens workflow detail from browse', (tester) async {
-    await pumpApp(tester);
-    await goToBrowse(tester);
-
-    await tester.drag(
-      find.byType(CustomScrollView).first,
-      const Offset(0, -560),
-    );
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.tap(find.byType(WorkflowListTile).first);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 700));
-
-    expect(find.byType(WorkflowDetailPage), findsOneWidget);
-    expect(find.byType(WorkflowArtworkHero), findsOneWidget);
-  });
-
-  testWidgets('opens a workspace from jump back in', (tester) async {
-    await pumpApp(tester);
-    await goToBrowse(tester);
-
-    await tester.tap(find.text('Morning check-in'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 700));
-
-    expect(find.byType(ChatroomWorkspacePage), findsOneWidget);
-    expect(find.text('No routes for location'), findsNothing);
-  });
-
-  testWidgets('opens collections and the full workflow list', (tester) async {
-    await pumpApp(tester);
-    await goToBrowse(tester);
-
-    await tester.tap(find.byType(FeaturedCollectionCard).first);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 700));
-    expect(find.byType(CollectionPage), findsOneWidget);
-    expect(find.byType(CollectionArtworkHero), findsOneWidget);
-    expect(find.byType(WorkflowArtworkHero), findsNothing);
-
-    await tester.tap(find.byIcon(CupertinoIcons.chevron_left).hitTestable());
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 700));
-    await tester.drag(
-      find.byType(CustomScrollView).first,
-      const Offset(0, -440),
-    );
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.tap(find.text('View all'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 700));
-    expect(find.byType(AllWorkflowsPage), findsOneWidget);
   });
 
   testWidgets('opens chat types before their conversations', (tester) async {

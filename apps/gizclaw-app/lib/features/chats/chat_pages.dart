@@ -11,7 +11,6 @@ import '../../data/mobile_data_controller.dart';
 import '../../data/workspace_chat_controller.dart';
 import '../../giz_ui/giz_ui.dart';
 import '../../prototype/prototype_models.dart';
-import '../browse/browse_pages.dart';
 
 class ActiveChatPage extends StatelessWidget {
   const ActiveChatPage({super.key});
@@ -240,7 +239,7 @@ class _DriverWorkspaceList extends StatelessWidget {
                 metadata: metadata,
                 onPressed: onPressed,
               )
-            : WorkspaceListTile(workspace: workspace, onPressed: onPressed);
+            : _WorkspaceListTile(workspace: workspace, onPressed: onPressed);
         if (index >= 8) return row;
         return row
             .animate(delay: (index * 32).ms)
@@ -308,6 +307,48 @@ class _ChatroomWorkspaceListTile extends StatelessWidget {
           '$typeLabel  |  '
           '${description == null || description.isEmpty ? workspace.lastActive : description}',
       onPressed: onPressed,
+    );
+  }
+}
+
+class _WorkspaceListTile extends StatelessWidget {
+  const _WorkspaceListTile({required this.workspace, this.onPressed});
+
+  final WorkspaceCard workspace;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final workflow = MobileDataScope.watch(
+      context,
+    ).workflow(workspace.workflowName);
+    return GizListRow(
+      leading: GizSquircle(
+        borderRadius: GizCorners.icon(50),
+        child: ColoredBox(
+          color: workflow.bannerColor,
+          child: SizedBox.square(
+            dimension: 50,
+            child: workflow.driver.imagePath == null
+                ? Icon(workflow.icon, color: GizColors.surface, size: 22)
+                : Image.asset(
+                    workflow.driver.imagePath!,
+                    width: 50,
+                    height: 50,
+                    fit: BoxFit.cover,
+                    filterQuality: FilterQuality.high,
+                  ),
+          ),
+        ),
+      ),
+      title: workspace.title,
+      subtitle: '${workflow.title}  |  ${workspace.lastActive}',
+      onPressed:
+          onPressed ??
+          () => context.push(
+            '/raids/drivers/${workflow.driver.routeKey}/'
+            '${Uri.encodeComponent(workspace.name)}',
+          ),
     );
   }
 }

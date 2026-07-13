@@ -3,33 +3,6 @@ import 'package:flutter/cupertino.dart';
 import '../giz_ui/giz_ui.dart';
 import 'prototype_models.dart';
 
-const featuredCollections = [
-  WorkflowCollection(
-    id: 'everyday-companions',
-    title: 'Everyday companions',
-    subtitle: 'Agents made for daily rituals, planning, and conversation.',
-    label: 'Curated collection',
-    imagePath: 'assets/workflows/daily-companion.png',
-    workflowNames: ['chatroom-daily', 'realtime-lab'],
-  ),
-  WorkflowCollection(
-    id: 'build-something',
-    title: 'Build something',
-    subtitle: 'Structured workflows for turning ideas into working systems.',
-    label: 'Editor pick',
-    imagePath: 'assets/workflows/flowcraft-studio.png',
-    workflowNames: ['flowcraft-studio', 'ast-translate'],
-  ),
-  WorkflowCollection(
-    id: 'realtime-playground',
-    title: 'Realtime playground',
-    subtitle: 'Low-latency voice experiments and live agent sessions.',
-    label: 'New this week',
-    imagePath: 'assets/workflows/realtime-lab.png',
-    workflowNames: ['realtime-lab', 'chatroom-daily'],
-  ),
-];
-
 const featuredWorkflows = [
   WorkflowCard(
     name: 'chatroom-daily',
@@ -160,13 +133,6 @@ WorkspaceCard workspaceByName(String name) {
   return workflowWorkspaces.firstWhere(
     (workspace) => workspace.name == name,
     orElse: () => workflowWorkspaces.first,
-  );
-}
-
-WorkflowCollection collectionById(String id) {
-  return featuredCollections.firstWhere(
-    (collection) => collection.id == id,
-    orElse: () => featuredCollections.first,
   );
 }
 

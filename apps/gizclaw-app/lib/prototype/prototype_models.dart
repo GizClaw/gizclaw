@@ -2,24 +2,6 @@ import 'package:flutter/cupertino.dart';
 
 import '../giz_ui/giz_ui.dart';
 
-class WorkflowCollection {
-  const WorkflowCollection({
-    required this.id,
-    required this.title,
-    required this.subtitle,
-    required this.label,
-    required this.imagePath,
-    required this.workflowNames,
-  });
-
-  final String id;
-  final String title;
-  final String subtitle;
-  final String label;
-  final String imagePath;
-  final List<String> workflowNames;
-}
-
 enum WorkflowDriverKind {
   flowcraft('flowcraft', 'Flowcraft', 'assets/drivers/flowcraft.png'),
   doubaoRealtime(
