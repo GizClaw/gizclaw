@@ -172,16 +172,18 @@ class _DriverWorkspaceList extends StatelessWidget {
           );
         }
 
-        return (driver == WorkflowDriverKind.chatroom
-                ? _ChatroomWorkspaceListTile(
-                    workspace: workspace,
-                    metadata: metadata,
-                    onPressed: onPressed,
-                  )
-                : WorkspaceListTile(workspace: workspace, onPressed: onPressed))
-            .animate(delay: (index * 45).ms)
-            .fadeIn(duration: 280.ms)
-            .slideY(begin: 0.05, end: 0, curve: Curves.easeOutCubic);
+        final row = driver == WorkflowDriverKind.chatroom
+            ? _ChatroomWorkspaceListTile(
+                workspace: workspace,
+                metadata: metadata,
+                onPressed: onPressed,
+              )
+            : WorkspaceListTile(workspace: workspace, onPressed: onPressed);
+        if (index >= 8) return row;
+        return row
+            .animate(delay: (index * 32).ms)
+            .fadeIn(duration: 220.ms)
+            .slideY(begin: 0.035, end: 0, curve: Curves.easeOutCubic);
       },
     );
   }
