@@ -752,30 +752,44 @@ class _WorkspaceMessageList extends StatelessWidget {
         ),
       );
     }
-    return ListView.separated(
-      controller: controller,
-      reverse: true,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-      itemCount: messages.length + (error == null ? 0 : 1),
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
-      itemBuilder: (context, index) {
-        if (index == messages.length) {
-          return Text(
-            'Live updates paused. Showing saved messages.',
-            textAlign: TextAlign.center,
-            style: GizText.label.copyWith(color: signal.muted),
+    return ShaderMask(
+      blendMode: BlendMode.dstIn,
+      shaderCallback: (bounds) => const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Color(0x24FFFFFF),
+          Color(0x8FFFFFFF),
+          Color(0xFFFFFFFF),
+          Color(0xFFFFFFFF),
+        ],
+        stops: [0, 0.18, 0.38, 1],
+      ).createShader(bounds),
+      child: ListView.separated(
+        controller: controller,
+        reverse: true,
+        padding: const EdgeInsets.fromLTRB(22, 16, 22, 18),
+        itemCount: messages.length + (error == null ? 0 : 1),
+        separatorBuilder: (_, _) => const SizedBox(height: 20),
+        itemBuilder: (context, index) {
+          if (index == messages.length) {
+            return Text(
+              'Live updates paused. Showing saved messages.',
+              textAlign: TextAlign.center,
+              style: GizText.label.copyWith(color: signal.muted),
+            );
+          }
+          final message = messages[messages.length - 1 - index];
+          return _WorkspaceSignalMessage(
+            message: message,
+            signal: signal,
+            replaying: replayingHistoryId == message.id,
+            onReplay: message.replayAvailable && onReplay != null
+                ? () => onReplay!(message.id)
+                : null,
           );
-        }
-        final message = messages[messages.length - 1 - index];
-        return _WorkspaceSignalMessage(
-          message: message,
-          signal: signal,
-          replaying: replayingHistoryId == message.id,
-          onReplay: message.replayAvailable && onReplay != null
-              ? () => onReplay!(message.id)
-              : null,
-        );
-      },
+        },
+      ),
     );
   }
 }
@@ -805,154 +819,111 @@ class _WorkspaceSignalMessage extends StatelessWidget {
   Widget build(BuildContext context) {
     final incoming = message.incoming;
     final width = MediaQuery.sizeOf(context).width;
+    final alignment = incoming
+        ? CrossAxisAlignment.start
+        : CrossAxisAlignment.end;
+    final textAlign = incoming ? TextAlign.left : TextAlign.right;
+    final accent = incoming ? signal.brandAccent : const Color(0xFF5478D8);
     return Align(
       alignment: incoming ? Alignment.centerLeft : Alignment.centerRight,
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: width * 0.82),
+        constraints: BoxConstraints(maxWidth: width * 0.86),
         child: CupertinoButton(
           minimumSize: Size.zero,
-          padding: EdgeInsets.zero,
-          pressedOpacity: onReplay == null ? 1 : 0.72,
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          pressedOpacity: onReplay == null ? 1 : 0.58,
           onPressed: onReplay,
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(14, 11, 14, 12),
-            decoration: BoxDecoration(
-              color: incoming ? signal.panel : signal.outgoingFill,
-              borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(14),
-                topRight: const Radius.circular(14),
-                bottomLeft: Radius.circular(incoming ? 4 : 14),
-                bottomRight: Radius.circular(incoming ? 14 : 4),
-              ),
-              border: Border.all(
-                color: incoming ? signal.line : signal.outgoingFill,
-              ),
-              boxShadow: signal.brightness == Brightness.light
-                  ? [
-                      const BoxShadow(
-                        color: Color(0x0F111916),
-                        blurRadius: 14,
-                        offset: Offset(0, 5),
+          child: Column(
+            crossAxisAlignment: alignment,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    incoming
+                        ? CupertinoIcons.sparkles
+                        : CupertinoIcons.waveform,
+                    size: 12,
+                    color: accent,
+                  ),
+                  const SizedBox(width: 7),
+                  Text(
+                    incoming ? 'AGENT' : 'YOU',
+                    style: GizText.label.copyWith(color: accent, fontSize: 8),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 2,
+                    height: 2,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: signal.muted,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _messageTime(message.createdAt),
+                    style: GizText.label.copyWith(
+                      color: signal.muted,
+                      fontSize: 8,
+                    ),
+                  ),
+                  if (message.replayAvailable) ...[
+                    const SizedBox(width: 9),
+                    if (replaying)
+                      CupertinoActivityIndicator(radius: 5, color: accent)
+                    else
+                      Icon(CupertinoIcons.play_fill, size: 10, color: accent),
+                    const SizedBox(width: 4),
+                    Text(
+                      replaying ? 'OPENING' : 'REPLAY',
+                      style: GizText.label.copyWith(
+                        color: signal.muted,
+                        fontSize: 7,
                       ),
-                    ]
-                  : null,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 7),
+              Text(
+                message.text.isEmpty ? '...' : message.text,
+                textAlign: textAlign,
+                style: GizText.body.copyWith(
+                  color: signal.text,
+                  fontSize: incoming ? 16 : 15,
+                  height: 1.5,
+                  fontWeight: incoming ? FontWeight.w500 : FontWeight.w600,
+                ),
+              ),
+              if (message.state == WorkspaceMessageState.streaming ||
+                  message.state == WorkspaceMessageState.failed) ...[
+                const SizedBox(height: 6),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      incoming
-                          ? CupertinoIcons.sparkles
-                          : CupertinoIcons.waveform,
-                      size: 13,
-                      color: incoming
-                          ? signal.brandAccent
-                          : signal.outgoingText,
-                    ),
-                    const SizedBox(width: 7),
+                    if (message.state == WorkspaceMessageState.streaming)
+                      CupertinoActivityIndicator(radius: 5, color: accent)
+                    else
+                      Icon(
+                        CupertinoIcons.exclamationmark_circle_fill,
+                        size: 11,
+                        color: accent,
+                      ),
+                    const SizedBox(width: 5),
                     Text(
-                      incoming ? 'AGENT TRANSMISSION' : 'YOUR VOICE',
+                      message.state == WorkspaceMessageState.failed
+                          ? 'INTERRUPTED'
+                          : 'STREAMING',
                       style: GizText.label.copyWith(
-                        color: incoming
-                            ? signal.brandAccent
-                            : signal.outgoingText.withValues(alpha: 0.68),
-                        fontSize: 8,
+                        color: signal.muted,
+                        fontSize: 7,
                       ),
                     ),
-                    if (!incoming) ...[
-                      const SizedBox(width: 12),
-                      _MiniWaveform(color: signal.outgoingText),
-                    ],
                   ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  message.text.isEmpty ? '...' : message.text,
-                  style: GizText.body.copyWith(
-                    color: incoming ? signal.text : signal.outgoingText,
-                    fontSize: incoming ? 15 : 14,
-                    height: 1.5,
-                    fontWeight: incoming ? FontWeight.w500 : FontWeight.w700,
-                  ),
-                ),
-                if (message.replayAvailable) ...[
-                  const SizedBox(height: 9),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (replaying)
-                        CupertinoActivityIndicator(
-                          radius: 6,
-                          color: incoming
-                              ? signal.brandAccent
-                              : signal.outgoingText,
-                        )
-                      else
-                        Icon(
-                          CupertinoIcons.play_fill,
-                          size: 11,
-                          color: incoming
-                              ? signal.brandAccent
-                              : signal.outgoingText,
-                        ),
-                      const SizedBox(width: 6),
-                      Text(
-                        replaying ? 'STARTING REPLAY' : 'TAP TO REPLAY',
-                        style: GizText.label.copyWith(
-                          color: incoming
-                              ? signal.muted
-                              : signal.outgoingText.withValues(alpha: 0.68),
-                          fontSize: 8,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-                if (message.state == WorkspaceMessageState.streaming ||
-                    message.state == WorkspaceMessageState.failed) ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (message.state == WorkspaceMessageState.streaming)
-                        SizedBox(
-                          width: 10,
-                          height: 10,
-                          child: CupertinoActivityIndicator(
-                            radius: 5,
-                            color: incoming
-                                ? signal.brandAccent
-                                : signal.outgoingText,
-                          ),
-                        )
-                      else
-                        Icon(
-                          CupertinoIcons.exclamationmark_circle_fill,
-                          size: 11,
-                          color: incoming
-                              ? signal.brandAccent
-                              : signal.outgoingText,
-                        ),
-                      const SizedBox(width: 5),
-                      Text(
-                        message.state == WorkspaceMessageState.failed
-                            ? 'SIGNAL INTERRUPTED'
-                            : 'STREAMING',
-                        style: GizText.label.copyWith(
-                          color: incoming
-                              ? signal.muted
-                              : signal.outgoingText.withValues(alpha: 0.62),
-                          fontSize: 8,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
               ],
-            ),
+            ],
           ),
         ),
       ),
@@ -960,30 +931,12 @@ class _WorkspaceSignalMessage extends StatelessWidget {
   }
 }
 
-class _MiniWaveform extends StatelessWidget {
-  const _MiniWaveform({required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    const heights = [5.0, 10.0, 7.0, 13.0, 8.0, 11.0, 5.0];
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        for (final height in heights)
-          Container(
-            width: 2,
-            height: height,
-            margin: const EdgeInsets.only(left: 2),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.58),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-      ],
-    );
-  }
+String _messageTime(DateTime? value) {
+  if (value == null) return 'NOW';
+  final local = value.toLocal();
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '$hour:$minute';
 }
 
 class ChatroomWorkspacePage extends StatelessWidget {
