@@ -158,7 +158,7 @@ class _DriverWorkspaceList extends StatelessWidget {
     }
     return ListView.builder(
       key: PageStorageKey('driver-workspaces-${driver.routeKey}'),
-      padding: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.only(bottom: 124),
       itemCount: workspaces.length,
       itemBuilder: (context, index) {
         final workspace = workspaces[index];

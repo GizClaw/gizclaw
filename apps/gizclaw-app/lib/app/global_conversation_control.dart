@@ -27,10 +27,19 @@ class GlobalConversationOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Stack(
+      fit: StackFit.expand,
       children: [
-        Expanded(child: child),
-        _GlobalBottomDock(location: location, navigationShell: navigationShell),
+        child,
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: _GlobalBottomDock(
+            location: location,
+            navigationShell: navigationShell,
+          ),
+        ),
       ],
     );
   }
@@ -49,102 +58,97 @@ class _GlobalBottomDock extends StatelessWidget {
     final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
     final shell = navigationShell;
     final showTabs = shell != null && _rootPaths.contains(location.path);
-    return ColoredBox(
-      color: dark ? const Color(0xFF0D1210) : const Color(0xFFF1F5F1),
-      child: SafeArea(
-        top: false,
-        minimum: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-        child: Container(
-          height: 76,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(38),
-            boxShadow: [
-              const BoxShadow(
-                color: Color(0x2E61D7FF),
-                blurRadius: 22,
-                spreadRadius: -3,
-                offset: Offset(-18, 7),
-              ),
-              const BoxShadow(
-                color: Color(0x266F75FF),
-                blurRadius: 24,
-                spreadRadius: -4,
-                offset: Offset(-5, 9),
-              ),
-              const BoxShadow(
-                color: Color(0x2EEA6BDB),
-                blurRadius: 24,
-                spreadRadius: -4,
-                offset: Offset(13, 8),
-              ),
-              const BoxShadow(
-                color: Color(0x26FF9D66),
-                blurRadius: 20,
-                spreadRadius: -5,
-                offset: Offset(24, 5),
-              ),
-              BoxShadow(
-                color: dark ? const Color(0x80000000) : const Color(0x1F001812),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(38),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
-              child: Container(
-                decoration: BoxDecoration(
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+      child: Container(
+        height: 76,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(38),
+          boxShadow: [
+            const BoxShadow(
+              color: Color(0x2E61D7FF),
+              blurRadius: 22,
+              spreadRadius: -3,
+              offset: Offset(-18, 7),
+            ),
+            const BoxShadow(
+              color: Color(0x266F75FF),
+              blurRadius: 24,
+              spreadRadius: -4,
+              offset: Offset(-5, 9),
+            ),
+            const BoxShadow(
+              color: Color(0x2EEA6BDB),
+              blurRadius: 24,
+              spreadRadius: -4,
+              offset: Offset(13, 8),
+            ),
+            const BoxShadow(
+              color: Color(0x26FF9D66),
+              blurRadius: 20,
+              spreadRadius: -5,
+              offset: Offset(24, 5),
+            ),
+            BoxShadow(
+              color: dark ? const Color(0x80000000) : const Color(0x1F001812),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(38),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+            child: Container(
+              decoration: BoxDecoration(
+                color: dark ? const Color(0xD91B211F) : const Color(0xE8FAFCFB),
+                borderRadius: BorderRadius.circular(38),
+                border: Border.all(
                   color: dark
-                      ? const Color(0xD91B211F)
-                      : const Color(0xE8FAFCFB),
-                  borderRadius: BorderRadius.circular(38),
-                  border: Border.all(
-                    color: dark
-                        ? const Color(0x3DFFFFFF)
-                        : const Color(0x26FFFFFF),
-                  ),
+                      ? const Color(0x3DFFFFFF)
+                      : const Color(0x26FFFFFF),
                 ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 260),
-                        switchInCurve: Curves.easeOutCubic,
-                        switchOutCurve: Curves.easeInCubic,
-                        transitionBuilder: (child, animation) => FadeTransition(
-                          opacity: animation,
-                          child: SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0, 0.08),
-                              end: Offset.zero,
-                            ).animate(animation),
-                            child: child,
-                          ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 260),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: animation,
+                        child: SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(0, 0.08),
+                            end: Offset.zero,
+                          ).animate(animation),
+                          child: child,
                         ),
-                        child: showTabs
-                            ? _PrimaryDockNavigation(
-                                key: const ValueKey('primary-dock'),
-                                navigationShell: shell,
-                              )
-                            : _ContextDockNavigation(
-                                key: ValueKey(location.path),
-                                location: location,
-                              ),
                       ),
+                      child: showTabs
+                          ? _PrimaryDockNavigation(
+                              key: const ValueKey('primary-dock'),
+                              navigationShell: shell,
+                            )
+                          : _ContextDockNavigation(
+                              key: ValueKey(location.path),
+                              location: location,
+                            ),
                     ),
-                    Container(
-                      width: 1,
-                      height: 34,
-                      color: dark
-                          ? const Color(0x2EFFFFFF)
-                          : const Color(0x14001913),
-                    ),
-                    const GlobalConversationControl(compact: true),
-                  ],
-                ),
+                  ),
+                  Container(
+                    width: 1,
+                    height: 34,
+                    color: dark
+                        ? const Color(0x2EFFFFFF)
+                        : const Color(0x14001913),
+                  ),
+                  const GlobalConversationControl(compact: true),
+                ],
               ),
             ),
           ),
