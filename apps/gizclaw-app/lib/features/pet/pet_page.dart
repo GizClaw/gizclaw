@@ -703,8 +703,8 @@ class _PetDriftingMessage extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: message.incoming
-                ? const Color(0xFFF7F8F7)
-                : const Color(0xFF263C36),
+                ? const Color(0xFFE6F1E9)
+                : const Color(0xFFD2EBDD),
             boxShadow: const [
               BoxShadow(
                 color: Color(0x17000000),
@@ -720,7 +720,7 @@ class _PetDriftingMessage extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: GizText.body.copyWith(
-                color: message.incoming ? GizColors.ink : GizColors.surface,
+                color: GizColors.ink,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
@@ -744,25 +744,34 @@ class _PetMosaicBackground extends StatefulWidget {
 class _PetMosaicBackgroundState extends State<_PetMosaicBackground>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+  var _sequence = 0;
+  var _animationsDisabled = false;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 14),
-    );
+      duration: const Duration(milliseconds: 1900),
+    )..addStatusListener(_handleAnimationStatus);
+  }
+
+  void _handleAnimationStatus(AnimationStatus status) {
+    if (status != AnimationStatus.completed || _animationsDisabled) return;
+    setState(() => _sequence += 1);
+    _controller.forward(from: 0);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (MediaQuery.disableAnimationsOf(context)) {
+    _animationsDisabled = MediaQuery.disableAnimationsOf(context);
+    if (_animationsDisabled) {
       _controller
         ..stop()
-        ..value = 0.28;
+        ..value = 0.3;
     } else if (!_controller.isAnimating) {
-      _controller.repeat();
+      _controller.forward(from: _controller.value == 1 ? 0 : _controller.value);
     }
   }
 
@@ -781,6 +790,7 @@ class _PetMosaicBackgroundState extends State<_PetMosaicBackground>
           painter: _PetMosaicPainter(
             progress: _controller.value,
             opacity: widget.opacity,
+            sequence: _sequence,
           ),
         ),
       ),
@@ -789,74 +799,89 @@ class _PetMosaicBackgroundState extends State<_PetMosaicBackground>
 }
 
 class _PetMosaicPainter extends CustomPainter {
-  const _PetMosaicPainter({required this.progress, required this.opacity});
+  const _PetMosaicPainter({
+    required this.progress,
+    required this.opacity,
+    required this.sequence,
+  });
 
   final double opacity;
   final double progress;
+  final int sequence;
 
-  static const _palette = [
-    Color(0xFFF3F4F3),
-    Color(0xFFE5E7E5),
-    Color(0xFFD5D8D6),
-    Color(0xFFC4C8C5),
-    Color(0xFFB5BAB7),
-    Color(0xFFDDE0DE),
-  ];
+  static const _mosaicLight = Color(0xFFE7E9E7);
+  static const _mosaicShade = Color(0xFFD8DBD9);
+  static const _flashColor = Color(0xFF111312);
 
   @override
   void paint(Canvas canvas, Size size) {
     const cellSize = 14.0;
     final columns = (size.width / cellSize).ceil();
     final rows = (size.height / cellSize).ceil();
-    final phase = progress * math.pi * 2;
-    final timeX = math.cos(phase);
-    final timeY = math.sin(phase);
+    final centerX = size.width * (0.12 + _randomUnit(sequence * 2 + 17) * 0.76);
+    final centerY = size.height * (0.1 + _randomUnit(sequence * 2 + 41) * 0.72);
+    final waveProgress = (progress / 0.72).clamp(0.0, 1.0);
+    final maxRadius = math.sqrt(
+      size.width * size.width + size.height * size.height,
+    );
+    final easedWave = Curves.easeOutCubic.transform(waveProgress);
+    final leadingRadius = easedWave * maxRadius * 0.58;
+    final envelope = math
+        .pow(math.sin(waveProgress * math.pi), 0.62)
+        .toDouble();
+    const ringSpacing = cellSize * 3.1;
+    const ringWidth = cellSize * 0.68;
+    final event = sequence % 3;
+    final angle = _randomUnit(sequence * 5 + 73) * math.pi * 2;
+    final directionX = math.cos(angle);
+    final directionY = math.sin(angle);
+    final sweepFront = -maxRadius * 0.52 + easedWave * maxRadius * 1.04;
 
     for (var row = 0; row < rows; row++) {
       for (var column = 0; column < columns; column++) {
-        final x = (column + 0.5) / columns;
-        final y = (row + 0.5) / rows;
-        final warpX =
-            math.sin(
-              (x * 1.37 + y * 0.71) * math.pi * 2 + timeX * 1.15 + timeY * 0.42,
-            ) *
-            0.13;
-        final warpY =
-            math.cos(
-              (x * 0.63 - y * 1.43) * math.pi * 2 + timeX * 0.36 - timeY * 1.08,
-            ) *
-            0.11;
-        final warpedX = x + warpX;
-        final warpedY = y + warpY;
-        final primary = math.sin(
-          (warpedX * 0.91 + warpedY * 0.62) * math.pi * 2 +
-              timeX * 0.82 +
-              timeY * 1.26,
-        );
-        final crossWave = math.cos(
-          (warpedX * 0.47 - warpedY * 1.16) * math.pi * 2 -
-              timeX * 1.31 +
-              timeY * 0.55,
-        );
-        final detail = math.sin(
-          (warpedX * 2.21 + warpedY * 1.73) * math.pi * 2 +
-              timeX * 0.27 -
-              timeY * 0.68,
-        );
         final hash = ((column * 73856093) ^ (row * 19349663)) & 0xff;
-        final jitter = (hash / 255 - 0.5) * 0.045;
-        final value =
-            (0.5 + primary * 0.23 + crossWave * 0.14 + detail * 0.055 + jitter)
-                .clamp(0.0, 1.0);
+        final cellVariation = hash / 255;
+        final dx = (column + 0.5) * cellSize - centerX;
+        final dy = (row + 0.5) * cellSize - centerY;
+        final distance = math.sqrt(dx * dx + dy * dy);
+        final effect = switch (event) {
+          0 => _radialRipple(distance, leadingRadius, ringSpacing, ringWidth),
+          1 => _directionalRipple(
+            dx * directionX + dy * directionY,
+            sweepFront,
+            ringSpacing,
+            ringWidth,
+          ),
+          _ => _fireworkRipple(
+            distance: distance,
+            radius: leadingRadius * 0.72,
+            ringSpacing: ringSpacing,
+            ringWidth: ringWidth,
+            progress: waveProgress,
+            variation: cellVariation,
+          ),
+        };
+        final alternating = 0.54 + cellVariation * 0.46;
+        final flash = (effect * envelope * alternating * 0.34).clamp(0.0, 1.0);
+        final base = Color.lerp(
+          _mosaicLight,
+          _mosaicShade,
+          cellVariation * 0.42,
+        )!;
         canvas.drawRect(
           Rect.fromLTWH(column * cellSize, row * cellSize, cellSize, cellSize),
-          Paint()..color = _colorAt(value).withValues(alpha: opacity),
+          Paint()
+            ..color = Color.lerp(
+              base,
+              _flashColor,
+              flash,
+            )!.withValues(alpha: opacity),
         );
       }
     }
 
     final gridPaint = Paint()
-      ..color = Color.fromRGBO(255, 255, 255, opacity < 1 ? 0.24 : 0.14)
+      ..color = Color.fromRGBO(255, 255, 255, opacity < 1 ? 0.25 : 0.16)
       ..strokeWidth = 0.5;
     for (var column = 1; column < columns; column++) {
       final x = column * cellSize;
@@ -868,17 +893,82 @@ class _PetMosaicPainter extends CustomPainter {
     }
   }
 
-  Color _colorAt(double value) {
-    final scaled = value * (_palette.length - 1);
-    final lower = scaled.floor().clamp(0, _palette.length - 1);
-    final upper = math.min(lower + 1, _palette.length - 1);
-    final blend = Curves.easeInOut.transform(scaled - lower);
-    return Color.lerp(_palette[lower], _palette[upper], blend)!;
+  double _randomUnit(int seed) {
+    final value = math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+    return value - value.floor();
+  }
+
+  double _radialRipple(
+    double distance,
+    double leadingRadius,
+    double spacing,
+    double width,
+  ) {
+    var ripple = 0.0;
+    for (var ring = 0; ring < 4; ring++) {
+      final radius = leadingRadius - ring * spacing;
+      if (radius <= 0) continue;
+      ripple = math.max(
+        ripple,
+        _waveBand(distance, radius, width) * (1 - ring * 0.13),
+      );
+    }
+    return ripple;
+  }
+
+  double _directionalRipple(
+    double projection,
+    double front,
+    double spacing,
+    double width,
+  ) {
+    var ripple = 0.0;
+    for (var band = 0; band < 4; band++) {
+      ripple = math.max(
+        ripple,
+        _waveBand(projection, front - band * spacing, width) *
+            (1 - band * 0.14),
+      );
+    }
+    return ripple;
+  }
+
+  double _fireworkRipple({
+    required double distance,
+    required double radius,
+    required double ringSpacing,
+    required double ringWidth,
+    required double progress,
+    required double variation,
+  }) {
+    final rings = _radialRipple(
+      distance,
+      radius,
+      ringSpacing * 0.82,
+      ringWidth * 0.72,
+    );
+    if (radius <= 0 || distance > radius) return rings;
+    final interior = (1 - distance / radius).clamp(0.0, 1.0);
+    final twinkle = math
+        .pow(
+          (math.sin(progress * math.pi * 16 + variation * math.pi * 5) + 1) / 2,
+          5,
+        )
+        .toDouble();
+    final sparks = variation > 0.48 ? twinkle * interior * 0.78 : 0.0;
+    return math.max(rings, sparks);
+  }
+
+  double _waveBand(double value, double center, double width) {
+    final offset = (value - center) / width;
+    return math.exp(-offset * offset * 1.8);
   }
 
   @override
   bool shouldRepaint(covariant _PetMosaicPainter oldDelegate) {
-    return oldDelegate.progress != progress || oldDelegate.opacity != opacity;
+    return oldDelegate.progress != progress ||
+        oldDelegate.opacity != opacity ||
+        oldDelegate.sequence != sequence;
   }
 }
 

@@ -552,7 +552,7 @@ class _PrimaryDockNavigationState extends State<_PrimaryDockNavigation> {
             final item = _PrimaryDockNavigation._items[index];
             final selected = widget.navigationShell.currentIndex == index;
             final foreground = selected
-                ? CupertinoColors.black
+                ? const Color(0xFFF7F8F7)
                 : (dark
                       ? const Color(0xB8D7E1DC)
                       : GizColors.secondaryInk.withValues(alpha: 0.74));
@@ -577,28 +577,24 @@ class _PrimaryDockNavigationState extends State<_PrimaryDockNavigation> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: selected
-                        ? LinearGradient(
+                        ? const LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [
-                              Color.lerp(
-                                GizColors.teal,
-                                CupertinoColors.white,
-                                dark ? 0.2 : 0.08,
-                              )!,
-                              Color.lerp(
-                                GizColors.teal,
-                                GizColors.ink,
-                                dark ? 0.08 : 0.24,
-                              )!,
-                            ],
+                            colors: [Color(0xFF343735), Color(0xFF080908)],
+                          )
+                        : null,
+                    border: selected
+                        ? Border.all(
+                            color: dark
+                                ? const Color(0x38FFFFFF)
+                                : const Color(0x12FFFFFF),
                           )
                         : null,
                     boxShadow: selected
                         ? [
                             BoxShadow(
-                              color: GizColors.teal.withValues(
-                                alpha: dark ? 0.34 : 0.28,
+                              color: CupertinoColors.black.withValues(
+                                alpha: dark ? 0.48 : 0.24,
                               ),
                               blurRadius: 14,
                               offset: const Offset(0, 5),
@@ -1316,16 +1312,6 @@ class _VoiceModeThumb extends StatelessWidget {
   Widget build(BuildContext context) {
     final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
     final energized = engaged || playingOutput;
-    final accent = realtime ? GizColors.lavender : GizColors.teal;
-    final gradientColors = dark
-        ? [
-            Color.lerp(accent, CupertinoColors.white, 0.34)!,
-            Color.lerp(accent, CupertinoColors.black, 0.02)!,
-          ]
-        : [
-            Color.lerp(accent, CupertinoColors.white, 0.1)!,
-            Color.lerp(accent, CupertinoColors.black, 0.13)!,
-          ];
     return AnimatedScale(
       scale: engaged ? 0.92 : 1,
       duration: const Duration(milliseconds: 150),
@@ -1335,19 +1321,19 @@ class _VoiceModeThumb extends StatelessWidget {
         curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: LinearGradient(
+          gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: gradientColors,
+            colors: [Color(0xFF343735), Color(0xFF080908)],
           ),
           border: Border.all(
             color: dark ? const Color(0x5CFFFFFF) : const Color(0x52FFFFFF),
           ),
           boxShadow: [
             BoxShadow(
-              color: energized
-                  ? accent.withValues(alpha: 0.42)
-                  : accent.withValues(alpha: dark ? 0.3 : 0.24),
+              color: CupertinoColors.black.withValues(
+                alpha: energized ? 0.42 : (dark ? 0.48 : 0.24),
+              ),
               blurRadius: energized ? 14 : 9,
               offset: const Offset(0, 4),
             ),
@@ -1364,7 +1350,7 @@ class _VoiceModeThumb extends StatelessWidget {
             key: ValueKey(realtime),
             size: realtime ? 22 : 21,
             color: enabled
-                ? (realtime ? CupertinoColors.white : GizColors.accent)
+                ? const Color(0xFFF7F8F7)
                 : CupertinoColors.white.withValues(alpha: 0.46),
           ),
         ),
