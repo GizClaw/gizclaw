@@ -381,28 +381,24 @@ String _connectionLabel(WorkspaceChatState? state) => switch (state) {
   null => 'LINKING',
 };
 
-Color _driverAccent(
-  WorkflowDriverKind driver,
-  Brightness brightness,
-) => switch ((driver, brightness)) {
-  (WorkflowDriverKind.astTranslate, _) => _workspaceVoiceAccent(brightness),
-  (WorkflowDriverKind.doubaoRealtime, Brightness.light) => const Color(
-    0xFFE66843,
-  ),
-  (WorkflowDriverKind.flowcraft, Brightness.light) => const Color(0xFF1687B5),
-  (WorkflowDriverKind.chatroom, Brightness.light) => const Color(0xFFC68B11),
-  (WorkflowDriverKind.doubaoRealtime, Brightness.dark) => const Color(
-    0xFFFF8B6A,
-  ),
-  (WorkflowDriverKind.flowcraft, Brightness.dark) => const Color(0xFF70D8FF),
-  (WorkflowDriverKind.chatroom, Brightness.dark) => const Color(0xFFFFD166),
-  (WorkflowDriverKind.unsupported, _) => GizColors.accent,
-};
+Color _driverAccent(WorkflowDriverKind driver, Brightness brightness) =>
+    switch ((driver, brightness)) {
+      (WorkflowDriverKind.astTranslate, _) => _workspaceVoiceAccent(brightness),
+      (WorkflowDriverKind.doubaoRealtime, Brightness.light) => GizColors.coral,
+      (WorkflowDriverKind.flowcraft, Brightness.light) => GizColors.blue,
+      (WorkflowDriverKind.chatroom, Brightness.light) => GizColors.lavender,
+      (WorkflowDriverKind.doubaoRealtime, Brightness.dark) => const Color(
+        0xFFE9A08A,
+      ),
+      (WorkflowDriverKind.flowcraft, Brightness.dark) => const Color(
+        0xFF9BB8C9,
+      ),
+      (WorkflowDriverKind.chatroom, Brightness.dark) => const Color(0xFFC4B6DB),
+      (WorkflowDriverKind.unsupported, _) => GizColors.accent,
+    };
 
 Color _workspaceVoiceAccent(Brightness brightness) =>
-    brightness == Brightness.dark
-    ? const Color(0xFF8CFFB5)
-    : const Color(0xFF2AAE72);
+    brightness == Brightness.dark ? const Color(0xFF94D3C0) : GizColors.teal;
 
 class _SignalPalette {
   const _SignalPalette({
@@ -423,30 +419,30 @@ class _SignalPalette {
 
   static const light = _SignalPalette(
     brightness: Brightness.light,
-    canvas: Color(0xFFF1F5F1),
-    chrome: Color(0xF2F1F5F1),
-    panel: Color(0xFFFFFFFF),
-    panelStrong: Color(0xFFE4EBE6),
-    line: Color(0xFFCBD6CF),
-    muted: Color(0xFF627169),
-    text: Color(0xFF101713),
-    onAccent: Color(0xFF07110C),
+    canvas: GizColors.canvas,
+    chrome: Color(0xF2F5F6F2),
+    panel: GizColors.surface,
+    panelStrong: Color(0xFFE7EDE8),
+    line: GizColors.separator,
+    muted: GizColors.secondaryInk,
+    text: GizColors.ink,
+    onAccent: GizColors.ink,
     actionAccent: GizColors.accent,
-    brandAccent: Color(0xFF668700),
-    outgoingFill: GizColors.ink,
+    brandAccent: GizColors.teal,
+    outgoingFill: GizColors.teal,
     outgoingText: GizColors.surface,
   );
 
   static const dark = _SignalPalette(
     brightness: Brightness.dark,
-    canvas: Color(0xFF080B0A),
-    chrome: Color(0xED080B0A),
-    panel: Color(0xFF121715),
-    panelStrong: Color(0xFF19201D),
-    line: Color(0xFF2A332F),
-    muted: Color(0xFF8E9B95),
-    text: Color(0xFFF4F8F5),
-    onAccent: Color(0xFF07110C),
+    canvas: Color(0xFF0A100D),
+    chrome: Color(0xED0A100D),
+    panel: Color(0xFF13201B),
+    panelStrong: Color(0xFF1B2A24),
+    line: Color(0xFF304039),
+    muted: Color(0xFF94A39C),
+    text: Color(0xFFF3F7F4),
+    onAccent: GizColors.ink,
     actionAccent: GizColors.accent,
     brandAccent: GizColors.accent,
     outgoingFill: GizColors.accent,

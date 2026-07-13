@@ -4,17 +4,17 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 abstract final class GizColors {
-  static const canvas = Color(0xFFF4F5F1);
+  static const canvas = Color(0xFFF5F6F2);
   static const surface = Color(0xFFFFFFFF);
-  static const ink = Color(0xFF111916);
-  static const secondaryInk = Color(0xFF626D68);
-  static const separator = Color(0xFFD9DED7);
-  static const accent = Color(0xFFB9F82E);
-  static const teal = Color(0xFF1F7A68);
-  static const blue = Color(0xFF416986);
-  static const coral = Color(0xFFE77D58);
-  static const lavender = Color(0xFFA690D2);
-  static const success = Color(0xFF35B879);
+  static const ink = Color(0xFF13211C);
+  static const secondaryInk = Color(0xFF64716B);
+  static const separator = Color(0xFFDCE3DD);
+  static const accent = Color(0xFFC7EA62);
+  static const teal = Color(0xFF287A67);
+  static const blue = Color(0xFF55758A);
+  static const coral = Color(0xFFD78165);
+  static const lavender = Color(0xFF9786B8);
+  static const success = Color(0xFF42A878);
 }
 
 abstract final class GizText {
@@ -75,9 +75,10 @@ abstract final class GizText {
 
 const gizCupertinoTheme = CupertinoThemeData(
   brightness: Brightness.light,
-  primaryColor: GizColors.ink,
+  primaryColor: GizColors.teal,
+  primaryContrastingColor: GizColors.surface,
   scaffoldBackgroundColor: GizColors.canvas,
-  barBackgroundColor: Color(0xF7F4F5F1),
+  barBackgroundColor: Color(0xF7F5F6F2),
   textTheme: CupertinoTextThemeData(
     textStyle: GizText.body,
     actionTextStyle: GizText.title,
@@ -546,7 +547,7 @@ class GizGlassBar extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: dark ? const Color(0xF2111916) : const Color(0xF7F4F5F1),
+            color: dark ? const Color(0xF213211C) : const Color(0xF7F5F6F2),
             border: Border(
               top: BorderSide(
                 color: dark ? const Color(0x22FFFFFF) : GizColors.separator,

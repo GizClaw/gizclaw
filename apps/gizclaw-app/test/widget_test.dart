@@ -4,6 +4,7 @@ import 'package:gizclaw/gizclaw.dart';
 import 'package:gizclaw_app/main.dart';
 import 'package:gizclaw_app/app/global_conversation_control.dart';
 import 'package:gizclaw_app/data/mobile_data_controller.dart';
+import 'package:gizclaw_app/giz_ui/giz_ui.dart';
 
 void main() {
   Finder primaryNav(String label) =>
@@ -255,7 +256,7 @@ void main() {
       find.byWidgetPredicate(
         (widget) =>
             widget is CupertinoPageScaffold &&
-            widget.backgroundColor == const Color(0xFF080B0A),
+            widget.backgroundColor == const Color(0xFF0A100D),
       ),
       findsOneWidget,
     );
@@ -268,7 +269,7 @@ void main() {
       find.byWidgetPredicate(
         (widget) =>
             widget is CupertinoPageScaffold &&
-            widget.backgroundColor == const Color(0xFFF1F5F1),
+            widget.backgroundColor == GizColors.canvas,
       ),
       findsOneWidget,
     );

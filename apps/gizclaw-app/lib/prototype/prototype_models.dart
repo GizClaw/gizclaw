@@ -1,5 +1,7 @@
 import 'package:flutter/cupertino.dart';
 
+import '../giz_ui/giz_ui.dart';
+
 class WorkflowCollection {
   const WorkflowCollection({
     required this.id,
@@ -83,7 +85,7 @@ class WorkflowCard {
         subtitle: description,
         driverLabel: 'Flowcraft',
         category: 'Productivity',
-        bannerColor: const Color(0xFF416986),
+        bannerColor: GizColors.blue,
         icon: CupertinoIcons.rectangle_3_offgrid,
         driver: WorkflowDriverKind.flowcraft,
       );
@@ -95,7 +97,7 @@ class WorkflowCard {
         subtitle: description,
         driverLabel: 'Doubao Realtime',
         category: 'Audio',
-        bannerColor: const Color(0xFF9A5A36),
+        bannerColor: GizColors.coral,
         icon: CupertinoIcons.waveform_path,
         driver: WorkflowDriverKind.doubaoRealtime,
       );
@@ -107,7 +109,7 @@ class WorkflowCard {
         subtitle: description,
         driverLabel: 'AST Translate',
         category: 'Code',
-        bannerColor: const Color(0xFF75517D),
+        bannerColor: GizColors.lavender,
         icon: CupertinoIcons.chevron_left_slash_chevron_right,
         driver: WorkflowDriverKind.astTranslate,
       );
@@ -119,7 +121,7 @@ class WorkflowCard {
         subtitle: description,
         driverLabel: 'Chatroom',
         category: 'Conversation',
-        bannerColor: const Color(0xFF1F7A68),
+        bannerColor: GizColors.teal,
         icon: CupertinoIcons.waveform,
         driver: WorkflowDriverKind.chatroom,
       );
@@ -130,7 +132,7 @@ class WorkflowCard {
       subtitle: description,
       driverLabel: 'Unavailable',
       category: 'Other',
-      bannerColor: const Color(0xFF69736F),
+      bannerColor: GizColors.secondaryInk,
       icon: CupertinoIcons.question_circle,
       driver: WorkflowDriverKind.unsupported,
     );

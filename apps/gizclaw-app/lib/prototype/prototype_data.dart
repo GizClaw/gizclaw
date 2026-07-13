@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 
+import '../giz_ui/giz_ui.dart';
 import 'prototype_models.dart';
 
 const featuredCollections = [
@@ -36,7 +37,7 @@ const featuredWorkflows = [
     subtitle: 'Voice and text sessions for everyday planning.',
     driverLabel: 'Chatroom',
     category: 'Featured',
-    bannerColor: Color(0xFF1F7A68),
+    bannerColor: GizColors.teal,
     icon: CupertinoIcons.waveform,
     driver: WorkflowDriverKind.chatroom,
     imagePath: 'assets/workflows/daily-companion.png',
@@ -47,7 +48,7 @@ const featuredWorkflows = [
     subtitle: 'Build structured work from reusable workflows.',
     driverLabel: 'Flowcraft',
     category: 'Productivity',
-    bannerColor: Color(0xFF416986),
+    bannerColor: GizColors.blue,
     icon: CupertinoIcons.rectangle_3_offgrid,
     driver: WorkflowDriverKind.flowcraft,
     imagePath: 'assets/workflows/flowcraft-studio.png',
@@ -58,7 +59,7 @@ const featuredWorkflows = [
     subtitle: 'Low-latency audio agent sessions.',
     driverLabel: 'Doubao Realtime',
     category: 'Audio',
-    bannerColor: Color(0xFF9A5A36),
+    bannerColor: GizColors.coral,
     icon: CupertinoIcons.waveform_path,
     driver: WorkflowDriverKind.doubaoRealtime,
     imagePath: 'assets/workflows/realtime-lab.png',
@@ -73,7 +74,7 @@ const allWorkflows = [
     subtitle: 'Translate code with workspace history and context.',
     driverLabel: 'AST',
     category: 'Code',
-    bannerColor: Color(0xFF75517D),
+    bannerColor: GizColors.lavender,
     icon: CupertinoIcons.chevron_left_slash_chevron_right,
     driver: WorkflowDriverKind.astTranslate,
   ),

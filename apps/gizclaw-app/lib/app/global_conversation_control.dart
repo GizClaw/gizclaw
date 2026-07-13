@@ -183,7 +183,7 @@ class _DockCapsule extends StatelessWidget {
           filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: dark ? const Color(0xD91B211F) : const Color(0xE8FAFCFB),
+              color: dark ? const Color(0xE013211C) : const Color(0xEDF5F6F2),
               borderRadius: BorderRadius.circular(38),
               border: Border.all(
                 color: dark ? const Color(0x3DFFFFFF) : const Color(0x26FFFFFF),
@@ -318,8 +318,8 @@ class _AudioFieldPainter extends CustomPainter {
     final output = math.max(sampledOutput, outputActive ? 0.14 : 0.0);
     final overall = math.max(input, output);
     final angle = phase * math.pi * 2;
-    const inputColor = Color(0xFF35D9A8);
-    const outputColor = Color(0xFF8A6DFF);
+    const inputColor = GizColors.teal;
+    const outputColor = GizColors.lavender;
     final blend = Color.lerp(
       inputColor,
       outputColor,
@@ -441,41 +441,15 @@ class _PrimaryDockNavigation extends StatefulWidget {
   final StatefulNavigationShell navigationShell;
 
   static const _items = [
-    (
-      CupertinoIcons.compass,
-      CupertinoIcons.compass_fill,
-      'Browse',
-      Color(0xFF19A77C),
-    ),
-    (
-      CupertinoIcons.chat_bubble_2,
-      CupertinoIcons.chat_bubble_2_fill,
-      'Chats',
-      Color(0xFFE56F65),
-    ),
-    (
-      CupertinoIcons.person_2,
-      CupertinoIcons.person_2_fill,
-      'Friends',
-      Color(0xFF4E83D8),
-    ),
-    (
-      CupertinoIcons.person_3,
-      CupertinoIcons.person_3_fill,
-      'Groups',
-      Color(0xFF8B6ED9),
-    ),
-    (
-      CupertinoIcons.sparkles,
-      CupertinoIcons.sparkles,
-      'Pet',
-      Color(0xFFD99437),
-    ),
+    (CupertinoIcons.compass, CupertinoIcons.compass_fill, 'Browse'),
+    (CupertinoIcons.chat_bubble_2, CupertinoIcons.chat_bubble_2_fill, 'Chats'),
+    (CupertinoIcons.person_2, CupertinoIcons.person_2_fill, 'Friends'),
+    (CupertinoIcons.person_3, CupertinoIcons.person_3_fill, 'Groups'),
+    (CupertinoIcons.sparkles, CupertinoIcons.sparkles, 'Pet'),
     (
       CupertinoIcons.person_crop_circle,
       CupertinoIcons.person_crop_circle_fill,
       'Me',
-      Color(0xFF2B9DB2),
     ),
   ];
 
@@ -574,10 +548,11 @@ class _PrimaryDockNavigationState extends State<_PrimaryDockNavigation> {
           itemBuilder: (context, index) {
             final item = _PrimaryDockNavigation._items[index];
             final selected = widget.navigationShell.currentIndex == index;
-            final accent = item.$4;
             final foreground = selected
-                ? CupertinoColors.white
-                : accent.withValues(alpha: dark ? 0.78 : 0.68);
+                ? GizColors.accent
+                : (dark
+                      ? const Color(0xB8D7E1DC)
+                      : GizColors.secondaryInk.withValues(alpha: 0.74));
             return Semantics(
               label: item.$3,
               selected: selected,
@@ -604,14 +579,14 @@ class _PrimaryDockNavigationState extends State<_PrimaryDockNavigation> {
                             end: Alignment.bottomRight,
                             colors: [
                               Color.lerp(
-                                accent,
+                                GizColors.teal,
                                 CupertinoColors.white,
-                                dark ? 0.3 : 0.12,
+                                dark ? 0.2 : 0.08,
                               )!,
                               Color.lerp(
-                                accent,
-                                CupertinoColors.black,
-                                dark ? 0.04 : 0.13,
+                                GizColors.teal,
+                                GizColors.ink,
+                                dark ? 0.08 : 0.24,
                               )!,
                             ],
                           )
@@ -619,7 +594,7 @@ class _PrimaryDockNavigationState extends State<_PrimaryDockNavigation> {
                     boxShadow: selected
                         ? [
                             BoxShadow(
-                              color: accent.withValues(
+                              color: GizColors.teal.withValues(
                                 alpha: dark ? 0.34 : 0.28,
                               ),
                               blurRadius: 14,
@@ -670,7 +645,7 @@ class _ContextDockNavigation extends StatelessWidget {
             child: Icon(
               CupertinoIcons.chevron_left,
               size: 20,
-              color: dark ? const Color(0xFF9CC0F5) : const Color(0xFF4E7DD1),
+              color: dark ? const Color(0xFFA4D8C9) : GizColors.teal,
             ),
           ),
           Container(
@@ -701,7 +676,7 @@ class _ContextDockNavigation extends StatelessWidget {
                         height: 6,
                         decoration: const BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Color(0xFF20A67A),
+                          color: GizColors.success,
                         ),
                       ),
                       const SizedBox(width: 6),
@@ -789,15 +764,15 @@ class _WorkspaceActivationButtonState
     final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
     final active = widget.active;
     final foreground = active
-        ? CupertinoColors.white
-        : (dark ? const Color(0xFF8EBDF5) : const Color(0xFF4E7DD1));
+        ? GizColors.accent
+        : (dark ? const Color(0xFFA8C6D6) : GizColors.blue);
     final colors = active
         ? (dark
-              ? const [Color(0xFF56D5AD), Color(0xFF15956F)]
-              : const [Color(0xFF32BE91), Color(0xFF168863)])
+              ? const [Color(0xFF4A9B84), Color(0xFF245F50)]
+              : const [Color(0xFF3C8B76), Color(0xFF1F6554)])
         : (dark
-              ? const [Color(0xFF30383D), Color(0xFF252C31)]
-              : const [Color(0xFFF8FAFD), Color(0xFFE8EFF8)]);
+              ? const [Color(0xFF303A37), Color(0xFF26302D)]
+              : const [Color(0xFFF8FAF8), Color(0xFFE9EFEB)]);
 
     return Semantics(
       label: active ? 'Active workspace' : 'Set active workspace',
@@ -1233,10 +1208,8 @@ class _VoiceModeToggleState extends State<_VoiceModeToggle> {
     final realtime =
         widget.mode == WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME;
     final engaged = widget.recording || widget.preparing;
-    final pttAccent = dark ? const Color(0xFF7AE1BD) : const Color(0xFF149B72);
-    final realtimeAccent = dark
-        ? const Color(0xFFB2A6FF)
-        : const Color(0xFF7467D9);
+    final pttAccent = dark ? const Color(0xFF94D3C0) : GizColors.teal;
+    final realtimeAccent = dark ? const Color(0xFFC1B4DC) : GizColors.lavender;
     final thumb = _VoiceModeThumb(
       enabled: widget.enabled,
       realtime: realtime,
@@ -1367,7 +1340,7 @@ class _VoiceModeThumb extends StatelessWidget {
   Widget build(BuildContext context) {
     final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
     final energized = engaged || playingOutput;
-    final accent = realtime ? const Color(0xFF796DE0) : const Color(0xFF18A579);
+    final accent = realtime ? GizColors.lavender : GizColors.teal;
     final gradientColors = dark
         ? [
             Color.lerp(accent, CupertinoColors.white, 0.34)!,
@@ -1415,7 +1388,7 @@ class _VoiceModeThumb extends StatelessWidget {
             key: ValueKey(realtime),
             size: realtime ? 22 : 21,
             color: enabled
-                ? CupertinoColors.white
+                ? (realtime ? CupertinoColors.white : GizColors.accent)
                 : CupertinoColors.white.withValues(alpha: 0.46),
           ),
         ),
