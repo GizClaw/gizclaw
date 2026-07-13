@@ -752,7 +752,7 @@ class _PetMosaicBackgroundState extends State<_PetMosaicBackground>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 12000),
+      duration: const Duration(milliseconds: 30000),
     )..addStatusListener(_handleAnimationStatus);
   }
 
@@ -824,10 +824,10 @@ class _PetMosaicPainter extends CustomPainter {
       for (var column = 0; column < columns; column++) {
         final cellVariation = _cellNoise(column, row, 11);
         final phase = _cellNoise(column, row, 37) * math.pi * 2;
-        final speed = 0.55 + _cellNoise(column, row, 71) * 0.5;
+        final speed = 0.65 + _cellNoise(column, row, 71) * 0.3;
         final density = _cellNoise(column, row, 103);
         final wave = (math.sin(time * math.pi * 2 * speed + phase) + 1) / 2;
-        final twinkle = math.pow(wave, 3.4).toDouble();
+        final twinkle = math.pow(wave, 1.8).toDouble();
         final slowVariation =
             0.7 +
             0.3 *
