@@ -88,7 +88,6 @@ class _GlobalBottomDock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
     final shell = navigationShell;
     final showTabs = shell != null && _rootPaths.contains(location.path);
     return SafeArea(
@@ -105,15 +104,6 @@ class _GlobalBottomDock extends StatelessWidget {
           children: [
             Expanded(
               child: _DockCapsule(
-                shadows: [
-                  BoxShadow(
-                    color: dark
-                        ? const Color(0x66000000)
-                        : const Color(0x1A001812),
-                    blurRadius: 22,
-                    offset: const Offset(0, 9),
-                  ),
-                ],
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 260),
                   switchInCurve: Curves.easeOutCubic,
@@ -150,10 +140,9 @@ class _GlobalBottomDock extends StatelessWidget {
 }
 
 class _DockCapsule extends StatelessWidget {
-  const _DockCapsule({required this.child, this.shadows = const []});
+  const _DockCapsule({required this.child});
 
   final Widget child;
-  final List<BoxShadow> shadows;
 
   @override
   Widget build(BuildContext context) {
@@ -162,7 +151,31 @@ class _DockCapsule extends StatelessWidget {
       height: GlobalConversationOverlay.dockHeight,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(38),
-        boxShadow: shadows,
+        boxShadow: dark
+            ? const [
+                BoxShadow(
+                  color: Color(0x52000000),
+                  blurRadius: 24,
+                  offset: Offset(0, 10),
+                ),
+                BoxShadow(
+                  color: Color(0x30000000),
+                  blurRadius: 6,
+                  offset: Offset(0, 2),
+                ),
+              ]
+            : const [
+                BoxShadow(
+                  color: Color(0x17000000),
+                  blurRadius: 24,
+                  offset: Offset(0, 10),
+                ),
+                BoxShadow(
+                  color: Color(0x0D000000),
+                  blurRadius: 6,
+                  offset: Offset(0, 2),
+                ),
+              ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(38),
