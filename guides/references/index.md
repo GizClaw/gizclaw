@@ -1,6 +1,6 @@
 # Reference
 
-这里汇总 GizClaw 的 API、Schema 与 SDK Reference。VitePress 不承载 Flutter Dartdoc 和 TypeScript TypeDoc；这两套独立文档从 SDK source 按需生成，并使用各自的本地静态服务器查看。
+这里汇总 GizClaw 的 API、Schema 与 SDK Reference。VitePress 不生成或承载 Flutter Dartdoc 和 TypeScript TypeDoc；开发者需要时直接使用对应工具在本地查看。
 
 ## SDK Reference
 
@@ -10,53 +10,37 @@
 
 - [GizClaw API Reference](./api/)
 
-## 本地生成
+## Flutter SDK 本地查看
 
-先安装 Guide 的 Node dependencies：
+在 Flutter SDK 目录生成临时 Dartdoc：
+
+```sh
+cd sdk/flutter/gizclaw
+flutter pub get
+dart doc
+```
+
+从同一目录启动静态服务器：
+
+```sh
+python3 -m http.server 4174 --directory doc/api
+```
+
+访问 `http://127.0.0.1:4174/`。`doc/api/` 是本地临时输出，不提交到 Git。
+
+## TypeScript SDK 本地查看
+
+先安装 Guide 的 Node dependencies，再从仓库根目录运行 TypeDoc：
 
 ```sh
 npm ci --prefix guides
+npm --prefix guides exec -- typedoc --options typedoc.json
 ```
 
-生成 Flutter Dartdoc 与 TypeScript TypeDoc：
+启动独立静态服务器：
 
 ```sh
-npm --prefix guides run references
+python3 -m http.server 4175 --directory guides/references/typescript
 ```
 
-也可以只生成其中一套：
-
-```sh
-npm --prefix guides run reference:flutter
-npm --prefix guides run reference:typescript
-```
-
-生成结果分别位于 `guides/references/flutter/` 和 `guides/references/typescript/`，这两个目录是本地生成产物，不提交到 Git。
-
-## 本地查看
-
-生成后，分别启动 Flutter 和 TypeScript Reference 的静态服务器：
-
-```sh
-npm --prefix guides run reference:flutter:serve
-npm --prefix guides run reference:typescript:serve
-```
-
-两个命令需要在不同终端运行，然后访问：
-
-- Flutter：`http://127.0.0.1:4174/`
-- TypeScript：`http://127.0.0.1:4175/`
-
-VitePress Project Guide 独立启动：
-
-```sh
-npm --prefix guides run dev
-```
-
-构建 VitePress Project Guide：
-
-```sh
-npm --prefix guides run build
-```
-
-正式发布后，Flutter 与 TypeScript Reference 应使用各自文档服务器的稳定地址；VitePress 只保留生成与查看说明，不复制或代理它们的静态文件。
+访问 `http://127.0.0.1:4175/`。生成目录是本地临时输出，不提交到 Git，也不进入 VitePress build。
