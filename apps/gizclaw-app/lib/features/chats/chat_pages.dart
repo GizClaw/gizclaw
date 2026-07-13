@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -781,7 +782,7 @@ class _WorkspaceMessageList extends StatelessWidget {
           GlobalConversationOverlay.bottomContentInset(context),
         ),
         itemCount: messages.length + (error == null ? 0 : 1),
-        separatorBuilder: (_, _) => const SizedBox(height: 20),
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
           if (index == messages.length) {
             return Text(
@@ -833,15 +834,14 @@ class _WorkspaceSignalMessage extends StatelessWidget {
     final alignment = incoming
         ? CrossAxisAlignment.start
         : CrossAxisAlignment.end;
-    final textAlign = incoming ? TextAlign.left : TextAlign.right;
     final accent = incoming ? signal.brandAccent : const Color(0xFF5478D8);
     return Align(
       alignment: incoming ? Alignment.centerLeft : Alignment.centerRight,
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: width * 0.86),
+        constraints: BoxConstraints(maxWidth: width * 0.78),
         child: CupertinoButton(
           minimumSize: Size.zero,
-          padding: const EdgeInsets.symmetric(vertical: 2),
+          padding: EdgeInsets.zero,
           pressedOpacity: onReplay == null ? 1 : 0.58,
           onPressed: onReplay,
           child: Column(
@@ -896,15 +896,39 @@ class _WorkspaceSignalMessage extends StatelessWidget {
                   ],
                 ],
               ),
-              const SizedBox(height: 7),
-              Text(
-                message.text.isEmpty ? '...' : message.text,
-                textAlign: textAlign,
-                style: GizText.body.copyWith(
-                  color: signal.text,
-                  fontSize: incoming ? 16 : 15,
-                  height: 1.5,
-                  fontWeight: incoming ? FontWeight.w500 : FontWeight.w600,
+              const SizedBox(height: 6),
+              GizSquircle(
+                borderRadius: GizCorners.compactCard,
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 9, sigmaY: 9),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: incoming
+                          ? signal.panel.withValues(alpha: 0.78)
+                          : signal.outgoingFill.withValues(alpha: 0.9),
+                      border: Border.all(
+                        color: incoming
+                            ? signal.line.withValues(alpha: 0.55)
+                            : accent.withValues(alpha: 0.2),
+                        width: 0.5,
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 9,
+                      ),
+                      child: Text(
+                        message.text.isEmpty ? '...' : message.text,
+                        style: GizText.body.copyWith(
+                          color: incoming ? signal.text : signal.outgoingText,
+                          fontSize: 13,
+                          height: 1.4,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
               if (message.state == WorkspaceMessageState.streaming ||
