@@ -254,6 +254,26 @@ void main() {
     }
   });
 
+  testWidgets('opens conversation settings as an attached bottom sheet', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await pumpApp(tester);
+
+    await tester.tap(find.byKey(const ValueKey('conversation-settings')));
+    await tester.pumpAndSettle();
+
+    final sheet = find.byKey(const ValueKey('conversation-settings-sheet'));
+    expect(sheet, findsOneWidget);
+    expect(tester.getBottomRight(sheet).dy, 844);
+    expect(find.text('Push to Talk'), findsOneWidget);
+    expect(find.text('Realtime'), findsOneWidget);
+  });
+
   testWidgets('opens group creation controls', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;

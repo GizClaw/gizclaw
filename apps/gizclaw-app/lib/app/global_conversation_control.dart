@@ -88,64 +88,128 @@ class _GlobalBottomDock extends StatelessWidget {
         12,
         GlobalConversationOverlay.dockBottomSpacing,
       ),
-      child: _DockAudioGlow(
+      child: SizedBox(
         height: GlobalConversationOverlay.dockHeight,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(38),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
-            child: Container(
-              decoration: BoxDecoration(
-                color: dark ? const Color(0xD91B211F) : const Color(0xE8FAFCFB),
-                borderRadius: BorderRadius.circular(38),
-                border: Border.all(
-                  color: dark
-                      ? const Color(0x3DFFFFFF)
-                      : const Color(0x26FFFFFF),
-                ),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 260),
-                      switchInCurve: Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeInCubic,
-                      transitionBuilder: (child, animation) => FadeTransition(
-                        opacity: animation,
-                        child: SlideTransition(
-                          position: Tween<Offset>(
-                            begin: const Offset(0, 0.08),
-                            end: Offset.zero,
-                          ).animate(animation),
-                          child: child,
-                        ),
-                      ),
-                      child: showTabs
-                          ? _PrimaryDockNavigation(
-                              key: const ValueKey('primary-dock'),
-                              navigationShell: shell,
-                            )
-                          : _ContextDockNavigation(
-                              key: ValueKey(location.path),
-                              location: location,
-                            ),
+        child: Row(
+          children: [
+            Expanded(
+              child: _DockCapsule(
+                shadows: [
+                  BoxShadow(
+                    color: dark
+                        ? const Color(0x66000000)
+                        : const Color(0x1A001812),
+                    blurRadius: 22,
+                    offset: const Offset(0, 9),
+                  ),
+                ],
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 260),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, 0.08),
+                        end: Offset.zero,
+                      ).animate(animation),
+                      child: child,
                     ),
                   ),
-                  Container(
-                    width: 1,
-                    height: 34,
-                    color: dark
-                        ? const Color(0x2EFFFFFF)
-                        : const Color(0x14001913),
-                  ),
-                  const GlobalConversationControl(compact: true),
-                ],
+                  child: showTabs
+                      ? _PrimaryDockNavigation(
+                          key: const ValueKey('primary-dock'),
+                          navigationShell: shell,
+                        )
+                      : _ContextDockNavigation(
+                          key: ValueKey(location.path),
+                          location: location,
+                        ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            _DockAudioGlow(
+              height: GlobalConversationOverlay.dockHeight,
+              child: const _DockCapsule(child: _ConversationControlCapsule()),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DockCapsule extends StatelessWidget {
+  const _DockCapsule({required this.child, this.shadows = const []});
+
+  final Widget child;
+  final List<BoxShadow> shadows;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    return Container(
+      height: GlobalConversationOverlay.dockHeight,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(38),
+        boxShadow: shadows,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(38),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: dark ? const Color(0xD91B211F) : const Color(0xE8FAFCFB),
+              borderRadius: BorderRadius.circular(38),
+              border: Border.all(
+                color: dark ? const Color(0x3DFFFFFF) : const Color(0x26FFFFFF),
+              ),
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ConversationControlCapsule extends StatelessWidget {
+  const _ConversationControlCapsule();
+
+  @override
+  Widget build(BuildContext context) {
+    final data = MobileDataScope.watch(context);
+    final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    final foreground = dark ? CupertinoColors.white : GizColors.ink;
+    return SizedBox(
+      width: 120,
+      child: Row(
+        children: [
+          Semantics(
+            label: 'Conversation settings',
+            button: true,
+            child: CupertinoButton(
+              key: const ValueKey('conversation-settings'),
+              minimumSize: const Size(45, 60),
+              padding: EdgeInsets.zero,
+              onPressed: () => _showConversationSettingsSheet(context, data),
+              child: Icon(
+                CupertinoIcons.slider_horizontal_3,
+                size: 19,
+                color: foreground,
               ),
             ),
           ),
-        ),
+          Container(
+            width: 1,
+            height: 30,
+            color: dark ? const Color(0x2EFFFFFF) : const Color(0x14001913),
+          ),
+          const GlobalConversationControl(compact: true),
+        ],
       ),
     );
   }
@@ -794,16 +858,8 @@ class _GlobalConversationControlState extends State<GlobalConversationControl>
       inputLevel: chat?.inputLevel ?? 0,
       outputLevel: chat?.outputLevel ?? 0,
       accent: accent,
-      onTap: workspaceName == null
-          ? null
-          : () => _showConversationPopover(context, data),
-      onLongPressStart: enabled
-          ? () => _handleLongPressStart(chat!, mode)
-          : null,
-      onLongPressEnd:
-          enabled && mode != WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME
-          ? () => unawaited(chat!.finishInput())
-          : null,
+      onPressStart: enabled ? () => _startInput(chat!) : null,
+      onPressEnd: enabled ? () => unawaited(chat!.finishInput()) : null,
     );
 
     if (widget.compact) {
@@ -833,16 +889,8 @@ class _GlobalConversationControlState extends State<GlobalConversationControl>
     );
   }
 
-  Future<void> _handleLongPressStart(
-    WorkspaceChatController chat,
-    WorkspaceInputMode mode,
-  ) async {
-    await HapticFeedback.mediumImpact();
-    if (mode == WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME &&
-        chat.recording) {
-      await chat.finishInput();
-      return;
-    }
+  Future<void> _startInput(WorkspaceChatController chat) async {
+    unawaited(HapticFeedback.mediumImpact());
     await chat.startInput();
   }
 }
@@ -859,9 +907,8 @@ class _VoiceOrb extends StatelessWidget {
     required this.inputLevel,
     required this.outputLevel,
     required this.accent,
-    required this.onTap,
-    required this.onLongPressStart,
-    required this.onLongPressEnd,
+    required this.onPressStart,
+    required this.onPressEnd,
   });
 
   final Animation<double> animation;
@@ -874,22 +921,19 @@ class _VoiceOrb extends StatelessWidget {
   final double inputLevel;
   final double outputLevel;
   final Color accent;
-  final VoidCallback? onTap;
-  final VoidCallback? onLongPressStart;
-  final VoidCallback? onLongPressEnd;
+  final VoidCallback? onPressStart;
+  final VoidCallback? onPressEnd;
 
   @override
   Widget build(BuildContext context) {
     final speaking = playingOutput;
     final engaged = active || preparing;
     final energy = speaking ? const Color(0xFF4F7CFF) : accent;
-    return GestureDetector(
+    return Listener(
       behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      onLongPressStart: onLongPressStart == null
-          ? null
-          : (_) => onLongPressStart!(),
-      onLongPressEnd: onLongPressEnd == null ? null : (_) => onLongPressEnd!(),
+      onPointerDown: onPressStart == null ? null : (_) => onPressStart!(),
+      onPointerUp: onPressEnd == null ? null : (_) => onPressEnd!(),
+      onPointerCancel: onPressEnd == null ? null : (_) => onPressEnd!(),
       child: AnimatedBuilder(
         animation: animation,
         builder: (context, child) {
@@ -1048,52 +1092,31 @@ class _VoiceEnergyPainter extends CustomPainter {
       oldDelegate.energy != energy;
 }
 
-Future<void> _showConversationPopover(
+Future<void> _showConversationSettingsSheet(
   BuildContext context,
   MobileDataController data,
 ) async {
-  await showGeneralDialog<void>(
+  await showCupertinoModalPopup<void>(
     context: context,
-    barrierDismissible: true,
-    barrierLabel: 'Close conversation controls',
     barrierColor: const Color(0x33000806),
-    transitionDuration: const Duration(milliseconds: 360),
-    pageBuilder: (context, animation, secondaryAnimation) =>
-        _ConversationPopover(data: data),
-    transitionBuilder: (context, animation, secondaryAnimation, child) {
-      final curved = CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOutBack,
-        reverseCurve: Curves.easeInCubic,
-      );
-      return FadeTransition(
-        opacity: animation,
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.72, end: 1).animate(curved),
-          alignment: Alignment.bottomRight,
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0.08, 0.08),
-              end: Offset.zero,
-            ).animate(curved),
-            child: child,
-          ),
-        ),
-      );
-    },
+    semanticsDismissible: true,
+    useRootNavigator: true,
+    builder: (context) => _ConversationSettingsSheet(data: data),
   );
 }
 
-class _ConversationPopover extends StatefulWidget {
-  const _ConversationPopover({required this.data});
+class _ConversationSettingsSheet extends StatefulWidget {
+  const _ConversationSettingsSheet({required this.data});
 
   final MobileDataController data;
 
   @override
-  State<_ConversationPopover> createState() => _ConversationPopoverState();
+  State<_ConversationSettingsSheet> createState() =>
+      _ConversationSettingsSheetState();
 }
 
-class _ConversationPopoverState extends State<_ConversationPopover> {
+class _ConversationSettingsSheetState
+    extends State<_ConversationSettingsSheet> {
   bool _switching = false;
   Object? _error;
 
@@ -1107,114 +1130,130 @@ class _ConversationPopoverState extends State<_ConversationPopover> {
     final chat = data.activeWorkspaceChat;
     final mode = _effectiveMode(data.activeInputMode);
     final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
-    return SafeArea(
-      minimum: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-      child: Align(
-        alignment: Alignment.bottomRight,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 26, sigmaY: 26),
-            child: Container(
-              width: math.min(MediaQuery.sizeOf(context).width - 32, 390),
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: dark ? const Color(0xE8232B28) : const Color(0xEFF9FCFA),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
+    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+          child: Container(
+            key: const ValueKey('conversation-settings-sheet'),
+            width: double.infinity,
+            padding: EdgeInsets.fromLTRB(20, 10, 20, bottomInset + 18),
+            decoration: BoxDecoration(
+              color: dark ? const Color(0xF2252D2A) : const Color(0xF7F9FCFA),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(28),
+              ),
+              border: Border(
+                top: BorderSide(
                   color: dark
                       ? const Color(0x30FFFFFF)
                       : const Color(0x22001913),
                 ),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              workspace?.title ?? 'No active workspace',
-                              style: GizText.sectionTitle.copyWith(
-                                color: dark
-                                    ? CupertinoColors.white
-                                    : GizColors.ink,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _statusLabel(data, chat, mode),
-                              style: GizText.label.copyWith(
-                                color: dark
-                                    ? const Color(0xAFFFFFFF)
-                                    : GizColors.secondaryInk,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (chat?.recording ?? false)
-                        const GizSignalPulse(size: 28),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  CupertinoSlidingSegmentedControl<WorkspaceInputMode>(
-                    groupValue: mode,
-                    children: const {
-                      WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK:
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 8),
-                            child: Text('Push to Talk'),
-                          ),
-                      WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: Text('Realtime'),
-                      ),
-                    },
-                    onValueChanged: (value) {
-                      if (!_switching && value != null) {
-                        unawaited(_setMode(value));
-                      }
-                    },
-                  ),
-                  if (_switching) ...[
-                    const SizedBox(height: 12),
-                    const Center(child: CupertinoActivityIndicator()),
-                  ],
-                  if (_error != null) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      _error.toString(),
-                      style: GizText.body.copyWith(
-                        color: CupertinoColors.systemRed.resolveFrom(context),
-                      ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 38,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: dark
+                          ? const Color(0x4DFFFFFF)
+                          : const Color(0x26001913),
+                      borderRadius: BorderRadius.circular(3),
                     ),
-                  ],
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    child: CupertinoButton(
-                      color: dark ? const Color(0xFF40514B) : GizColors.ink,
-                      borderRadius: BorderRadius.circular(16),
-                      onPressed: workspaceName == null
-                          ? null
-                          : () => _openWorkspace(workspaceName),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Open workspace'),
-                          SizedBox(width: 8),
-                          Icon(CupertinoIcons.arrow_up_right, size: 17),
+                          Text(
+                            workspace?.title ?? 'No active workspace',
+                            style: GizText.sectionTitle.copyWith(
+                              color: dark
+                                  ? CupertinoColors.white
+                                  : GizColors.ink,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _statusLabel(data, chat, mode),
+                            style: GizText.label.copyWith(
+                              color: dark
+                                  ? const Color(0xAFFFFFFF)
+                                  : GizColors.secondaryInk,
+                            ),
+                          ),
                         ],
                       ),
                     ),
+                    if (chat?.recording ?? false)
+                      const GizSignalPulse(size: 28),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                CupertinoSlidingSegmentedControl<WorkspaceInputMode>(
+                  groupValue: mode,
+                  children: const {
+                    WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK:
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8),
+                          child: Text('Push to Talk'),
+                        ),
+                    WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Text('Realtime'),
+                    ),
+                  },
+                  onValueChanged: (value) {
+                    if (!_switching && value != null) {
+                      unawaited(_setMode(value));
+                    }
+                  },
+                ),
+                if (_switching) ...[
+                  const SizedBox(height: 12),
+                  const Center(child: CupertinoActivityIndicator()),
+                ],
+                if (_error != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    _error.toString(),
+                    style: GizText.body.copyWith(
+                      color: CupertinoColors.systemRed.resolveFrom(context),
+                    ),
                   ),
                 ],
-              ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: CupertinoButton(
+                    color: dark ? const Color(0xFF40514B) : GizColors.ink,
+                    borderRadius: BorderRadius.circular(16),
+                    onPressed: workspaceName == null
+                        ? null
+                        : () => _openWorkspace(workspaceName),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('Open workspace'),
+                        SizedBox(width: 8),
+                        Icon(CupertinoIcons.arrow_up_right, size: 17),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
