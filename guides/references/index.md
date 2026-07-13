@@ -10,7 +10,7 @@
 
 ## API Reference
 
-- [GizClaw API Reference](/api/)
+- [GizClaw API Reference](./api/)
 
 本地重新生成并构建全部文档：
 
