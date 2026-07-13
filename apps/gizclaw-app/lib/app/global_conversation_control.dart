@@ -473,7 +473,7 @@ class _PrimaryDockNavigation extends StatefulWidget {
       'Groups',
       '/groups',
     ),
-    (CupertinoIcons.sparkles, CupertinoIcons.sparkles, 'Pets', '/pets'),
+    (CupertinoIcons.paw, CupertinoIcons.paw_solid, 'Pets', '/pets'),
     (
       CupertinoIcons.person_crop_circle,
       CupertinoIcons.person_crop_circle_fill,

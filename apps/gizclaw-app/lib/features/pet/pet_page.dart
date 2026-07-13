@@ -917,13 +917,26 @@ class _PetPageHeader extends StatelessWidget {
         Semantics(
           label: 'Adopt a pet',
           button: true,
-          child: CupertinoButton(
-            padding: EdgeInsets.zero,
-            minimumSize: const Size(44, 44),
-            onPressed: adopting ? null : onAdopt,
-            child: adopting
-                ? const CupertinoActivityIndicator()
-                : const Icon(CupertinoIcons.add_circled_solid, size: 30),
+          child: SizedBox.square(
+            dimension: 44,
+            child: CupertinoButton(
+              padding: EdgeInsets.zero,
+              minimumSize: const Size.square(44),
+              color: _petSceneColor,
+              disabledColor: _petSceneColor,
+              borderRadius: BorderRadius.circular(22),
+              pressedOpacity: 0.72,
+              onPressed: adopting ? null : onAdopt,
+              child: adopting
+                  ? const CupertinoActivityIndicator(
+                      color: _petDetailFabForeground,
+                    )
+                  : const Icon(
+                      CupertinoIcons.add,
+                      color: _petDetailFabForeground,
+                      size: 22,
+                    ),
+            ),
           ),
         ),
       ],

@@ -277,6 +277,7 @@ void main() {
     }
     expect(find.byIcon(CupertinoIcons.game_controller), findsOneWidget);
     expect(find.byIcon(CupertinoIcons.wand_stars), findsOneWidget);
+    expect(find.byIcon(CupertinoIcons.paw), findsOneWidget);
     expect(
       find.byKey(const ValueKey('primary-nav-translate-glyph')),
       findsOneWidget,
