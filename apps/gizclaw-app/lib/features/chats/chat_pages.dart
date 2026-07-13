@@ -642,7 +642,10 @@ String _connectionLabel(WorkspaceChatState? state) => switch (state) {
 
 Color _driverAccent(WorkflowDriverKind driver, Brightness brightness) =>
     switch ((driver, brightness)) {
-      (WorkflowDriverKind.astTranslate, _) => _workspaceVoiceAccent(brightness),
+      (WorkflowDriverKind.astTranslate, Brightness.light) =>
+        GizColors.primaryShadow,
+      (WorkflowDriverKind.astTranslate, Brightness.dark) =>
+        GizColors.primaryHighlight,
       (WorkflowDriverKind.doubaoRealtime, Brightness.light) => GizColors.coral,
       (WorkflowDriverKind.flowcraft, Brightness.light) => GizColors.blue,
       (WorkflowDriverKind.chatroom, Brightness.light) => GizColors.lavender,
@@ -880,7 +883,7 @@ class _AgentCore extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
-                color: accent.withValues(alpha: 0.16 + energy * 0.18),
+                color: accent.withValues(alpha: 0.24 + energy * 0.2),
               ),
               boxShadow: [
                 BoxShadow(
@@ -934,7 +937,7 @@ class _SignalFieldPainter extends CustomPainter {
       ..shader =
           RadialGradient(
             colors: [
-              accent.withValues(alpha: 0.13 * energy),
+              accent.withValues(alpha: 0.18 * energy),
               accent.withValues(alpha: 0),
             ],
           ).createShader(
@@ -961,8 +964,8 @@ class _SignalFieldPainter extends CustomPainter {
         path,
         Paint()
           ..style = PaintingStyle.stroke
-          ..strokeWidth = line == 2 ? 1.2 : 0.7
-          ..color = accent.withValues(alpha: 0.08 + energy * 0.08),
+          ..strokeWidth = line == 2 ? 1.35 : 0.8
+          ..color = accent.withValues(alpha: 0.14 + energy * 0.1),
       );
     }
   }
