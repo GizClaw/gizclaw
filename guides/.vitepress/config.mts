@@ -1,3 +1,5 @@
+import { cpSync } from "node:fs";
+import { resolve } from "node:path";
 import { defineConfig } from "vitepress";
 import { withMermaid } from "vitepress-mermaid-plugin";
 
@@ -260,6 +262,15 @@ export default withMermaid(
     },
     mermaid: {
       theme: "default",
+    },
+    buildEnd(siteConfig) {
+      for (const reference of ["flutter", "typescript"]) {
+        cpSync(
+          resolve(siteConfig.srcDir, "references", reference),
+          resolve(siteConfig.outDir, "references", reference),
+          { recursive: true },
+        );
+      }
     },
     vite: {
       plugins: [

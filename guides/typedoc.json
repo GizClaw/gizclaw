@@ -4,7 +4,7 @@
   "entryPoints": ["../sdk/js/gizclaw/**/*.ts"],
   "entryPointStrategy": "expand",
   "exclude": ["../sdk/js/gizclaw/**/*.test.ts"],
-  "out": "public/references/typescript",
+  "out": "references/typescript",
   "name": "GizClaw TypeScript SDK",
   "readme": "../sdk/js/gizclaw/README.md",
   "externalSymbolLinkMappings": {

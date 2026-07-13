@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "vitepress dev .",
-    "reference:flutter": "cd ../sdk/flutter/gizclaw && flutter pub get && dart doc --output ../../../guides/public/references/flutter",
+    "reference:flutter": "cd ../sdk/flutter/gizclaw && flutter pub get && dart doc --output ../../../guides/references/flutter",
     "reference:typescript": "typedoc --options typedoc.json",
     "references": "npm run reference:flutter && npm run reference:typescript",
     "build": "npm run references && vitepress build .",

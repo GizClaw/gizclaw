@@ -5,8 +5,8 @@
 ## SDK Reference
 
 - [Go SDK Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/sdk/go/gizcli)
-- [Flutter SDK Reference](./flutter/)
-- [TypeScript SDK Reference](./typescript/)
+- <a href="/references/flutter/index.html">Flutter SDK Reference</a>
+- <a href="/references/typescript/index.html">TypeScript SDK Reference</a>
 
 ## API Reference
 
