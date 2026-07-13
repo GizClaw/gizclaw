@@ -562,22 +562,6 @@ class _PetDetailPageState extends State<PetDetailPage> {
               ),
             ),
           Positioned(
-            left: 18 - _petActionAnchor,
-            top: safeTop + 12,
-            child: _PetActionFab(
-              key: _actionFabKey,
-              actions: actions,
-              catalog: catalog,
-              activeAction: _drivingAction,
-              onAction: _activateMenuAction,
-              onExpand: () {
-                if (_statusVisible) {
-                  setState(() => _statusVisible = false);
-                }
-              },
-            ),
-          ),
-          Positioned(
             right: 18,
             top: safeTop + 74,
             width: 158,
@@ -614,6 +598,22 @@ class _PetDetailPageState extends State<PetDetailPage> {
               onPressed: () {
                 _actionFabKey.currentState?.collapse();
                 setState(() => _statusVisible = !_statusVisible);
+              },
+            ),
+          ),
+          Positioned(
+            left: 18 - _petActionAnchor,
+            top: safeTop + 12,
+            child: _PetActionFab(
+              key: _actionFabKey,
+              actions: actions,
+              catalog: catalog,
+              activeAction: _drivingAction,
+              onAction: _activateMenuAction,
+              onExpand: () {
+                if (_statusVisible) {
+                  setState(() => _statusVisible = false);
+                }
               },
             ),
           ),
@@ -867,9 +867,10 @@ class _PetMosaicPainter extends CustomPainter {
         end: Alignment.bottomCenter,
         colors: [
           Color.fromRGBO(255, 255, 255, gridAlpha),
-          Color.fromRGBO(255, 255, 255, gridAlpha * 0.38),
+          const Color(0x00FFFFFF),
+          const Color(0x00FFFFFF),
         ],
-        stops: const [0.1, 0.72],
+        stops: const [0, 0.5, 1],
       ).createShader(Offset.zero & size)
       ..strokeWidth = 0.5;
     for (var column = 1; column < columns; column++) {
@@ -883,9 +884,9 @@ class _PetMosaicPainter extends CustomPainter {
   }
 
   double _verticalOpacity(double position) {
-    final progress = ((position - 0.1) / 0.62).clamp(0.0, 1.0);
+    final progress = (position / 0.5).clamp(0.0, 1.0);
     final eased = progress * progress * (3 - 2 * progress);
-    return lerpDouble(1, 0.38, eased)!;
+    return lerpDouble(1, 0, eased)!;
   }
 
   double _cellNoise(int column, int row, int salt) {
@@ -1790,8 +1791,7 @@ class _PetActionFabState extends State<_PetActionFab>
                 top: _petActionRailTop,
                 height: _petActionRailHeight,
                 child: IgnorePointer(
-                  ignoring:
-                      _controller.value < 0.8 || widget.activeAction != null,
+                  ignoring: !_expanded || widget.activeAction != null,
                   child: Opacity(
                     opacity: _controller.value,
                     child: Transform.translate(
@@ -1921,6 +1921,7 @@ class _PetActionFabState extends State<_PetActionFab>
         );
       },
       child: GestureDetector(
+        key: ValueKey('pet-action-${action.id}'),
         behavior: HitTestBehavior.opaque,
         onTap: () => _select(action),
         child: Row(
