@@ -752,7 +752,7 @@ class _PetMosaicBackgroundState extends State<_PetMosaicBackground>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1900),
+      duration: const Duration(milliseconds: 6400),
     )..addStatusListener(_handleAnimationStatus);
   }
 
@@ -818,51 +818,30 @@ class _PetMosaicPainter extends CustomPainter {
     const cellSize = 14.0;
     final columns = (size.width / cellSize).ceil();
     final rows = (size.height / cellSize).ceil();
-    final centerX = size.width * (0.12 + _randomUnit(sequence * 2 + 17) * 0.76);
-    final centerY = size.height * (0.1 + _randomUnit(sequence * 2 + 41) * 0.72);
-    final waveProgress = (progress / 0.72).clamp(0.0, 1.0);
-    final maxRadius = math.sqrt(
-      size.width * size.width + size.height * size.height,
-    );
-    final easedWave = Curves.easeOutCubic.transform(waveProgress);
-    final leadingRadius = easedWave * maxRadius * 0.58;
-    final envelope = math
-        .pow(math.sin(waveProgress * math.pi), 0.62)
-        .toDouble();
-    const ringSpacing = cellSize * 3.1;
-    const ringWidth = cellSize * 0.68;
-    final event = sequence % 3;
-    final angle = _randomUnit(sequence * 5 + 73) * math.pi * 2;
-    final directionX = math.cos(angle);
-    final directionY = math.sin(angle);
-    final sweepFront = -maxRadius * 0.52 + easedWave * maxRadius * 1.04;
+    final time = sequence + progress;
 
     for (var row = 0; row < rows; row++) {
       for (var column = 0; column < columns; column++) {
-        final hash = ((column * 73856093) ^ (row * 19349663)) & 0xff;
-        final cellVariation = hash / 255;
-        final dx = (column + 0.5) * cellSize - centerX;
-        final dy = (row + 0.5) * cellSize - centerY;
-        final distance = math.sqrt(dx * dx + dy * dy);
-        final effect = switch (event) {
-          0 => _radialRipple(distance, leadingRadius, ringSpacing, ringWidth),
-          1 => _directionalRipple(
-            dx * directionX + dy * directionY,
-            sweepFront,
-            ringSpacing,
-            ringWidth,
-          ),
-          _ => _fireworkRipple(
-            distance: distance,
-            radius: leadingRadius * 0.72,
-            ringSpacing: ringSpacing,
-            ringWidth: ringWidth,
-            progress: waveProgress,
-            variation: cellVariation,
-          ),
-        };
-        final alternating = 0.54 + cellVariation * 0.46;
-        final flash = (effect * envelope * alternating * 0.34).clamp(0.0, 1.0);
+        final cellVariation = _cellNoise(column, row, 11);
+        final phase = _cellNoise(column, row, 37) * math.pi * 2;
+        final speed = 0.82 + _cellNoise(column, row, 71) * 0.62;
+        final density = _cellNoise(column, row, 103);
+        final wave = (math.sin(time * math.pi * 2 * speed + phase) + 1) / 2;
+        final twinkle = math.pow(wave, 3.4).toDouble();
+        final slowVariation =
+            0.7 +
+            0.3 *
+                ((math.sin(time * math.pi * 0.44 + column * 0.17 + row * 0.11) +
+                        1) /
+                    2);
+        final activity = density < 0.24
+            ? 0.0
+            : ((density - 0.24) / 0.76).clamp(0.0, 1.0);
+        final depth = 0.1 + cellVariation * 0.2;
+        final flash = (twinkle * slowVariation * activity * depth).clamp(
+          0.0,
+          1.0,
+        );
         final base = Color.lerp(
           _mosaicLight,
           _mosaicShade,
@@ -893,75 +872,10 @@ class _PetMosaicPainter extends CustomPainter {
     }
   }
 
-  double _randomUnit(int seed) {
-    final value = math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+  double _cellNoise(int column, int row, int salt) {
+    final value =
+        math.sin(column * 127.1 + row * 311.7 + salt * 74.7) * 43758.5453;
     return value - value.floor();
-  }
-
-  double _radialRipple(
-    double distance,
-    double leadingRadius,
-    double spacing,
-    double width,
-  ) {
-    var ripple = 0.0;
-    for (var ring = 0; ring < 4; ring++) {
-      final radius = leadingRadius - ring * spacing;
-      if (radius <= 0) continue;
-      ripple = math.max(
-        ripple,
-        _waveBand(distance, radius, width) * (1 - ring * 0.13),
-      );
-    }
-    return ripple;
-  }
-
-  double _directionalRipple(
-    double projection,
-    double front,
-    double spacing,
-    double width,
-  ) {
-    var ripple = 0.0;
-    for (var band = 0; band < 4; band++) {
-      ripple = math.max(
-        ripple,
-        _waveBand(projection, front - band * spacing, width) *
-            (1 - band * 0.14),
-      );
-    }
-    return ripple;
-  }
-
-  double _fireworkRipple({
-    required double distance,
-    required double radius,
-    required double ringSpacing,
-    required double ringWidth,
-    required double progress,
-    required double variation,
-  }) {
-    final rings = _radialRipple(
-      distance,
-      radius,
-      ringSpacing * 0.82,
-      ringWidth * 0.72,
-    );
-    if (radius <= 0 || distance > radius) return rings;
-    final interior = (1 - distance / radius).clamp(0.0, 1.0);
-    final twinkle = math
-        .pow(
-          (math.sin(progress * math.pi * 16 + variation * math.pi * 5) + 1) / 2,
-          5,
-        )
-        .toDouble();
-    final sparks = variation > 0.48 ? twinkle * interior * 0.78 : 0.0;
-    return math.max(rings, sparks);
-  }
-
-  double _waveBand(double value, double center, double width) {
-    final offset = (value - center) / width;
-    return math.exp(-offset * offset * 1.8);
   }
 
   @override
