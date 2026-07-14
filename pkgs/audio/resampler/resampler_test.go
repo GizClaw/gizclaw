@@ -140,6 +140,56 @@ func TestResamplerDrainsLeftoverBeforeEOF(t *testing.T) {
 	}
 }
 
+func TestSoxrFlushesOnceAndDefersEOFUntilOutputIsDrained(t *testing.T) {
+	engine := &recordingResampler{
+		processOutput: []float64{0.25},
+		flushOutput:   []float64{0.5, 0.75},
+	}
+	r := &Soxr{
+		srcFmt:        Format{SampleRate: 2},
+		src:           &dataEOFReader{data: []byte{1, 0, 2, 0}},
+		dstFmt:        Format{SampleRate: 1},
+		resampler:     engine,
+		needsResample: true,
+	}
+
+	var got []byte
+	buf := make([]byte, 2)
+	for {
+		n, err := r.Read(buf)
+		got = append(got, buf[:n]...)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			t.Fatalf("Read() error = %v", err)
+		}
+	}
+	if engine.flushCalls != 1 {
+		t.Fatalf("Flush calls = %d, want 1", engine.flushCalls)
+	}
+	if len(got) != 6 {
+		t.Fatalf("output bytes = %d, want 6", len(got))
+	}
+}
+
+func TestSoxrPassthroughDefersEOFReturnedWithData(t *testing.T) {
+	r := &Soxr{
+		srcFmt: Format{SampleRate: 16000},
+		src:    &dataEOFReader{data: []byte{1, 0, 2, 0}},
+		dstFmt: Format{SampleRate: 16000},
+	}
+	buf := make([]byte, 4)
+	n, err := r.Read(buf)
+	if err != nil || n != 4 {
+		t.Fatalf("first Read() = (%d, %v), want (4, nil)", n, err)
+	}
+	n, err = r.Read(buf)
+	if n != 0 || !errors.Is(err, io.EOF) {
+		t.Fatalf("second Read() = (%d, %v), want (0, EOF)", n, err)
+	}
+}
+
 func TestResamplerShortBuffer(t *testing.T) {
 	src := Format{SampleRate: 16000, Stereo: false}
 	dst := Format{SampleRate: 16000, Stereo: false}
@@ -270,3 +320,36 @@ func readAll(r io.Reader, bufSize int) ([]byte, error) {
 		return out, err
 	}
 }
+
+type dataEOFReader struct {
+	data []byte
+}
+
+func (r *dataEOFReader) Read(p []byte) (int, error) {
+	if len(r.data) == 0 {
+		return 0, io.EOF
+	}
+	n := copy(p, r.data)
+	r.data = r.data[n:]
+	return n, io.EOF
+}
+
+type recordingResampler struct {
+	processOutput []float64
+	flushOutput   []float64
+	flushCalls    int
+}
+
+func (r *recordingResampler) Process([]float64) ([]float64, error) {
+	return append([]float64(nil), r.processOutput...), nil
+}
+
+func (*recordingResampler) ProcessFloat32([]float32) ([]float32, error)   { return nil, nil }
+func (*recordingResampler) ProcessMulti([][]float64) ([][]float64, error) { return nil, nil }
+func (r *recordingResampler) Flush() ([]float64, error) {
+	r.flushCalls++
+	return append([]float64(nil), r.flushOutput...), nil
+}
+func (*recordingResampler) GetLatency() int   { return 0 }
+func (*recordingResampler) Reset()            {}
+func (*recordingResampler) GetRatio() float64 { return 0.5 }

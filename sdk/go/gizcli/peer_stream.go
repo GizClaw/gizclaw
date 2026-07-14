@@ -7,7 +7,6 @@ import (
 	"io"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -19,7 +18,6 @@ type PeerStream struct {
 	packets     <-chan []byte
 	unsubscribe func()
 	conn        peerPacketWriter
-	now         func() time.Time
 
 	out  chan *genx.MessageChunk
 	done chan struct{}
@@ -259,13 +257,6 @@ func (s *PeerStream) closeErr() error {
 		return s.err
 	}
 	return io.EOF
-}
-
-func (s *PeerStream) nowTime() time.Time {
-	if s.now != nil {
-		return s.now().UTC()
-	}
-	return time.Now().UTC()
 }
 
 func peerStreamEventToChunk(event apitypes.PeerStreamEvent) (*genx.MessageChunk, error) {

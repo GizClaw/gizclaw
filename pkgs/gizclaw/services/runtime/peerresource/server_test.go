@@ -878,7 +878,8 @@ func TestServerGameplayPixaDownloads(t *testing.T) {
 	}
 	petPixa := peerresourceTestPixa(t, []string{"default", "feed"})
 	badgePixa := peerresourceTestPixa(t, []string{"icon"})
-	if resp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{Id: "petdef-a", Spec: peerresourcePetDefSpec("Pet A"), I18n: peerresourcePetDefI18n("Pet A")}}); err != nil {
+	petDefI18n := peerresourcePetDefI18n("Pet A")
+	if resp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{Id: "petdef-a", Spec: peerresourcePetDefSpec("Pet A"), I18n: &petDefI18n}}); err != nil {
 		t.Fatalf("CreatePetDef error = %v", err)
 	} else if _, ok := resp.(adminhttp.CreatePetDef200JSONResponse); !ok {
 		t.Fatalf("CreatePetDef response = %T", resp)

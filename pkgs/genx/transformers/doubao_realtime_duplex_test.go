@@ -967,6 +967,7 @@ type fakeDoubaoRealtimeDuplexSession struct {
 	blockAfterEvents <-chan struct{}
 	outputs          []doubaospeech.RealtimeDuplexFunctionCallOutput
 	functionCallErr  error
+	cancelErr        error
 	audioSent        chan<- struct{}
 	closed           bool
 
@@ -997,7 +998,7 @@ func (s *fakeDoubaoRealtimeDuplexSession) CancelResponse(context.Context) error 
 	s.mu.Lock()
 	s.cancels++
 	s.mu.Unlock()
-	return nil
+	return s.cancelErr
 }
 
 func (s *fakeDoubaoRealtimeDuplexSession) SendFunctionCallOutputs(_ context.Context, outputs ...doubaospeech.RealtimeDuplexFunctionCallOutput) error {

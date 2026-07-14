@@ -191,7 +191,7 @@ func (c *Catalog) CreatePetDef(ctx context.Context, request adminhttp.CreatePetD
 		return adminhttp.CreatePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	id := strings.TrimSpace(request.Body.Id)
-	item, err := c.buildPetDef(id, request.Body.Spec, request.Body.I18n, nil, time.Time{})
+	item, err := c.buildPetDef(id, request.Body.Spec, valueOrZero(request.Body.I18n), nil, time.Time{})
 	if err != nil {
 		return adminhttp.CreatePetDef400JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF", err.Error())), nil
 	}
@@ -267,7 +267,7 @@ func (c *Catalog) PutPetDef(ctx context.Context, request adminhttp.PutPetDefRequ
 			pixaPath = nil
 		}
 	}
-	item, err := c.buildPetDefForUpdate(id, request.Body.Spec, request.Body.I18n, previous, err == nil, pixaPath, createdAt)
+	item, err := c.buildPetDefForUpdate(id, request.Body.Spec, valueOrZero(request.Body.I18n), previous, err == nil, pixaPath, createdAt)
 	if err != nil {
 		return adminhttp.PutPetDef400JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF", err.Error())), nil
 	}
@@ -872,6 +872,9 @@ func validatePetDefDrive(drive apitypes.PetDefDriveSpec, clips []apitypes.PetDef
 }
 
 func validatePetDefI18n(spec apitypes.PetDefSpec, i18n apitypes.PetDefI18nSpec) error {
+	if strings.TrimSpace(i18n.DefaultLocale) == "" && len(i18n.AdditionalProperties) == 0 {
+		return nil
+	}
 	if strings.TrimSpace(i18n.DefaultLocale) == "" {
 		return errors.New("i18n.default_locale is required")
 	}

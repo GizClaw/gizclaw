@@ -3121,7 +3121,7 @@ type PetDefPixaSpec struct {
 type PetDefResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
 	ApiVersion ResourceAPIVersion `json:"apiVersion"`
-	I18n       PetDefI18nSpec     `json:"i18n"`
+	I18n       *PetDefI18nSpec    `json:"i18n,omitempty"`
 	Kind       PetDefResourceKind `json:"kind"`
 	Metadata   ResourceMetadata   `json:"metadata"`
 	Spec       PetDefSpec         `json:"spec"`

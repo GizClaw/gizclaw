@@ -386,12 +386,13 @@ func resourceFromGameRuleset(item apitypes.GameRuleset) (apitypes.Resource, erro
 }
 
 func resourceFromPetDef(item apitypes.PetDef) (apitypes.Resource, error) {
+	i18n := item.I18n
 	return marshalResource(apitypes.PetDefResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.PetDefResourceKind(apitypes.ResourceKindPetDef),
 		Metadata:   apitypes.ResourceMetadata{Name: item.Id},
 		Spec:       item.Spec,
-		I18n:       item.I18n,
+		I18n:       &i18n,
 	})
 }
 

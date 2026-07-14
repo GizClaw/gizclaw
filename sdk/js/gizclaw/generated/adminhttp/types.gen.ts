@@ -330,7 +330,7 @@ export type GameRulesetUpsert = {
 export type PetDefUpsert = {
     id: string;
     spec: PetDefSpec;
-    i18n: PetDefI18nSpec;
+    i18n?: PetDefI18nSpec;
 };
 
 export type BadgeDefUpsert = {
@@ -545,7 +545,7 @@ export type PetDefResource = {
     kind: 'PetDef';
     metadata: ResourceMetadata;
     spec: PetDefSpec;
-    i18n: PetDefI18nSpec;
+    i18n?: PetDefI18nSpec;
 };
 
 /**

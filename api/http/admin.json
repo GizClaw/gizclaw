@@ -11438,8 +11438,7 @@
         "type": "object",
         "required": [
           "id",
-          "spec",
-          "i18n"
+          "spec"
         ],
         "additionalProperties": false,
         "properties": {

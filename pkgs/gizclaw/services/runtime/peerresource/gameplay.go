@@ -130,17 +130,6 @@ func (s *Server) PrepareBadgeDefPixaDownload(ctx context.Context, params rpcapi.
 	return rpcapi.BadgeDefPixaDownloadResponse{Id: item.Id, PixaPath: item.PixaPath, SizeBytes: size}, reader, nil, nil
 }
 
-func (s *Server) authorizeGameRulesetForPetDef(ctx context.Context, catalog *gameplay.Catalog, id string) (bool, error) {
-	return s.authorizeMatchingGameRuleset(ctx, catalog, func(ruleset apitypes.GameRuleset) bool {
-		for _, entry := range ruleset.Spec.PetPool {
-			if strings.TrimSpace(entry.PetdefId) == id {
-				return true
-			}
-		}
-		return false
-	})
-}
-
 func (s *Server) authorizeGameRulesetForBadgeDef(ctx context.Context, catalog *gameplay.Catalog, id string) (bool, error) {
 	return s.authorizeMatchingGameRuleset(ctx, catalog, func(ruleset apitypes.GameRuleset) bool {
 		for _, badgeID := range valueOrZero(ruleset.Spec.BadgeDefIds) {

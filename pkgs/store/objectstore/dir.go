@@ -3,6 +3,7 @@ package objectstore
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -20,7 +21,10 @@ type Dir string
 
 var _ ObjectStore = Dir("")
 
-const metadataRoot = ".objectstore-meta"
+const (
+	metadataRoot  = ".objectstore-meta"
+	putTempPrefix = ".objectstore-put-"
+)
 
 type objectMetadata struct {
 	Name     string    `json:"name"`
@@ -67,7 +71,7 @@ func (d Dir) put(name string, r io.Reader, deadline time.Time) error {
 	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(full), ".put-*")
+	tmp, err := os.CreateTemp(filepath.Dir(full), putTempPrefix+"*")
 	if err != nil {
 		return err
 	}
@@ -79,13 +83,39 @@ func (d Dir) put(name string, r io.Reader, deadline time.Time) error {
 		_ = tmp.Close()
 		return err
 	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
 	if err := tmp.Close(); err != nil {
 		return err
 	}
-	if err := d.writeMetadata(name, deadline); err != nil {
+	backupName := tmpName + ".backup"
+	hadOld := false
+	if err := os.Link(full, backupName); err == nil {
+		hadOld = true
+	} else if !os.IsNotExist(err) {
 		return err
 	}
-	return os.Rename(tmpName, full)
+	defer func() {
+		_ = os.Remove(backupName)
+	}()
+	if err := os.Rename(tmpName, full); err != nil {
+		return err
+	}
+	if err := d.writeMetadata(name, deadline); err != nil {
+		rollbackErr := os.Remove(full)
+		if os.IsNotExist(rollbackErr) {
+			rollbackErr = nil
+		}
+		if hadOld {
+			if restoreErr := os.Rename(backupName, full); restoreErr != nil {
+				rollbackErr = errors.Join(rollbackErr, restoreErr)
+			}
+		}
+		return errors.Join(err, rollbackErr)
+	}
+	return nil
 }
 
 func (d Dir) Delete(name string) error {
@@ -141,6 +171,9 @@ func (d Dir) List(prefix string) ([]ObjectInfo, error) {
 			if path == d.metadataRoot() {
 				return filepath.SkipDir
 			}
+			return nil
+		}
+		if strings.HasPrefix(entry.Name(), putTempPrefix) {
 			return nil
 		}
 		info, err := entry.Info()
@@ -234,6 +267,10 @@ func (d Dir) writeMetadata(name string, deadline time.Time) error {
 		_ = os.Remove(tmpName)
 	}()
 	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
 		_ = tmp.Close()
 		return err
 	}
@@ -334,6 +371,9 @@ func cleanName(name string, allowEmpty bool) (string, error) {
 		case "..":
 			return "", fmt.Errorf("objectstore: invalid object name %q", name)
 		default:
+			if strings.HasPrefix(part, putTempPrefix) {
+				return "", fmt.Errorf("objectstore: reserved object name %q", name)
+			}
 			out = append(out, part)
 		}
 	}

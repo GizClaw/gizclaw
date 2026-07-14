@@ -68,23 +68,6 @@ func (m *Mux) get(pattern string) (genx.Transformer, error) {
 	return t, nil
 }
 
-// errorStream is a Stream that always returns an error.
-type errorStream struct {
-	err error
-}
-
-func (s *errorStream) Next() (*genx.MessageChunk, error) {
-	return nil, s.err
-}
-
-func (s *errorStream) Close() error {
-	return nil
-}
-
-func (s *errorStream) CloseWithError(err error) error {
-	return nil
-}
-
 // bufferStream wraps a buffer.Buffer as a genx.Stream.
 type bufferStream struct {
 	buf      *buffer.Buffer[*genx.MessageChunk]

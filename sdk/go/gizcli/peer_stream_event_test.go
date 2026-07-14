@@ -66,7 +66,6 @@ func TestPeerStreamPushWritesEventsAndOpus(t *testing.T) {
 		conn:   writer,
 		out:    make(chan *genx.MessageChunk, 1),
 		done:   make(chan struct{}),
-		now:    func() time.Time { return time.UnixMilli(123).UTC() },
 	}
 	defer stream.Close()
 

@@ -736,7 +736,7 @@ func seedGameplayCatalog(t *testing.T, ctx context.Context, catalog *Catalog) {
 		Body: &adminhttp.PetDefUpsert{
 			Id:   "petdef-basic",
 			Spec: testPetDefSpec("Spark"),
-			I18n: testPetDefI18n("Spark"),
+			I18n: petDefI18nPtr("Spark"),
 		},
 	})
 	if err != nil {

@@ -14,8 +14,7 @@
           "apiVersion",
           "kind",
           "metadata",
-          "spec",
-          "i18n"
+          "spec"
         ],
         "properties": {
           "apiVersion": {

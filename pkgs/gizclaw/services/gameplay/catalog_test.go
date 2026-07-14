@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"io"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -32,7 +33,7 @@ func TestCatalogAdminCRUDAndAssets(t *testing.T) {
 	petResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
 		Id:   "petdef-a",
 		Spec: testPetDefSpec("Pet A"),
-		I18n: testPetDefI18n("Pet A"),
+		I18n: petDefI18nPtr("Pet A"),
 	}})
 	if err != nil {
 		t.Fatalf("CreatePetDef() error = %v", err)
@@ -42,7 +43,7 @@ func TestCatalogAdminCRUDAndAssets(t *testing.T) {
 	}
 	putPetResp, err := catalog.PutPetDef(ctx, adminhttp.PutPetDefRequestObject{
 		Id:   "petdef-a",
-		Body: &adminhttp.PetDefUpsert{Id: "ignored", Spec: testPetDefSpec("Pet A2"), I18n: testPetDefI18n("Pet A2")},
+		Body: &adminhttp.PetDefUpsert{Id: "ignored", Spec: testPetDefSpec("Pet A2"), I18n: petDefI18nPtr("Pet A2")},
 	})
 	if err != nil {
 		t.Fatalf("PutPetDef() error = %v", err)
@@ -82,7 +83,7 @@ func TestCatalogAdminCRUDAndAssets(t *testing.T) {
 	updatedPetSpec.Visual.Pixa.Metadata.Canvas.Width = 32
 	putChangedMetadataResp, err := catalog.PutPetDef(ctx, adminhttp.PutPetDefRequestObject{
 		Id:   "petdef-a",
-		Body: &adminhttp.PetDefUpsert{Spec: updatedPetSpec, I18n: testPetDefI18n("Pet A3")},
+		Body: &adminhttp.PetDefUpsert{Spec: updatedPetSpec, I18n: petDefI18nPtr("Pet A3")},
 	})
 	if err != nil {
 		t.Fatalf("PutPetDef() changed metadata error = %v", err)
@@ -269,7 +270,7 @@ func TestCatalogAdminErrorsAndPagination(t *testing.T) {
 		resp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
 			Id:   id,
 			Spec: testPetDefSpec(id),
-			I18n: testPetDefI18n(id),
+			I18n: petDefI18nPtr(id),
 		}})
 		if err != nil {
 			t.Fatalf("CreatePetDef(%q) error = %v", id, err)
@@ -281,7 +282,7 @@ func TestCatalogAdminErrorsAndPagination(t *testing.T) {
 	duplicatePetResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
 		Id:   "pet-a",
 		Spec: testPetDefSpec("again"),
-		I18n: testPetDefI18n("again"),
+		I18n: petDefI18nPtr("again"),
 	}})
 	if err != nil {
 		t.Fatalf("CreatePetDef() error = %v", err)
@@ -292,7 +293,7 @@ func TestCatalogAdminErrorsAndPagination(t *testing.T) {
 	invalidActionResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
 		Id:   "pet-whitespace-action",
 		Spec: invalidActionSpec,
-		I18n: testPetDefI18n("bad action"),
+		I18n: petDefI18nPtr("bad action"),
 	}})
 	if err != nil {
 		t.Fatalf("CreatePetDef() whitespace action error = %v", err)
@@ -303,7 +304,7 @@ func TestCatalogAdminErrorsAndPagination(t *testing.T) {
 	invalidCanvasResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
 		Id:   "pet-invalid-canvas",
 		Spec: invalidCanvasSpec,
-		I18n: testPetDefI18n("bad canvas"),
+		I18n: petDefI18nPtr("bad canvas"),
 	}})
 	if err != nil {
 		t.Fatalf("CreatePetDef() invalid canvas error = %v", err)
@@ -314,7 +315,7 @@ func TestCatalogAdminErrorsAndPagination(t *testing.T) {
 	invalidClipNameResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
 		Id:   "pet-invalid-clip-name",
 		Spec: invalidClipNameSpec,
-		I18n: testPetDefI18n("bad clip name"),
+		I18n: petDefI18nPtr("bad clip name"),
 	}})
 	if err != nil {
 		t.Fatalf("CreatePetDef() invalid clip name error = %v", err)
@@ -520,7 +521,7 @@ func TestCatalogMigratesLegacyPetDefOnRead(t *testing.T) {
 		Id: "legacy-pet",
 		Body: &adminhttp.PetDefUpsert{
 			Spec: petDef.Spec,
-			I18n: petDef.I18n,
+			I18n: &petDef.I18n,
 		},
 	})
 	if err != nil {
@@ -573,7 +574,7 @@ func TestCatalogAcceptsOptionalDefaultLocaleI18nText(t *testing.T) {
 	resp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
 		Id:   "schema-valid-pet",
 		Spec: spec,
-		I18n: i18n,
+		I18n: &i18n,
 	}})
 	if err != nil {
 		t.Fatalf("CreatePetDef() optional i18n error = %v", err)
@@ -586,11 +587,32 @@ func TestCatalogAcceptsOptionalDefaultLocaleI18nText(t *testing.T) {
 	missingDefaultLocaleResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
 		Id:   "bad-locale-pet",
 		Spec: missingDefaultLocaleSpec,
+		I18n: &missingDefaultLocaleI18n,
 	}})
 	if err != nil {
 		t.Fatalf("CreatePetDef() missing default locale error = %v", err)
 	}
 	requireResponse[adminhttp.CreatePetDef400JSONResponse](t, missingDefaultLocaleResp)
+}
+
+func TestCatalogAcceptsPetDefWithoutI18n(t *testing.T) {
+	catalog := &Catalog{PetDefs: kv.NewMemory(nil)}
+	ctx := context.Background()
+	spec := testPetDefSpec("No I18n")
+	resp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
+		Id:   "petdef-no-i18n",
+		Spec: spec,
+	}})
+	if err != nil {
+		t.Fatalf("CreatePetDef() error = %v", err)
+	}
+	created := requireResponse[adminhttp.CreatePetDef200JSONResponse](t, resp)
+	if created.I18n.DefaultLocale != "" || len(created.I18n.AdditionalProperties) != 0 {
+		t.Fatalf("CreatePetDef() i18n = %#v, want empty", created.I18n)
+	}
+	if !reflect.DeepEqual(created.Spec, spec) {
+		t.Fatalf("CreatePetDef() changed core spec\n got: %#v\nwant: %#v", created.Spec, spec)
+	}
 }
 
 func requireResponse[T any](t *testing.T, value any) T {
@@ -685,6 +707,11 @@ func testPetDefI18n(displayName string) apitypes.PetDefI18nSpec {
 			},
 		},
 	}
+}
+
+func petDefI18nPtr(displayName string) *apitypes.PetDefI18nSpec {
+	value := testPetDefI18n(displayName)
+	return &value
 }
 
 func makeTestPixa(t *testing.T, clips []string, width uint16, height uint16) []byte {

@@ -28,10 +28,11 @@ func TestAdminAPIGameplayCatalogUserStory(t *testing.T) {
 		_, _ = env.api.DeletePetDefWithResponse(env.ctx, petID)
 	})
 
+	petDefI18n := adminGameplayPetDefI18n("Admin E2E PetDef")
 	petResp, err := env.api.CreatePetDefWithResponse(env.ctx, adminhttp.PetDefUpsert{
 		Id:   petID,
 		Spec: adminGameplayPetDefSpec("Admin E2E PetDef"),
-		I18n: adminGameplayPetDefI18n("Admin E2E PetDef"),
+		I18n: &petDefI18n,
 	})
 	if err != nil {
 		t.Fatalf("create pet def: %v", err)
