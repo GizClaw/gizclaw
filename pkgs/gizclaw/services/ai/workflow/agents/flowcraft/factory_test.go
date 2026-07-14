@@ -416,12 +416,17 @@ func TestAgentTransformRunsMultipleTurns(t *testing.T) {
 	seenTranscript := map[string]bool{}
 	seenAssistant := map[string]bool{}
 	seenAudio := map[string]bool{}
+	seenHistoryAudio := map[string]bool{}
 	for _, chunk := range chunks {
 		if chunk.Ctrl == nil {
 			continue
 		}
 		streamID := chunk.Ctrl.StreamID
 		switch {
+		case chunk.Ctrl.Label == genx.HistoryUserAudioLabel:
+			if blob, ok := chunk.Part.(*genx.Blob); ok && len(blob.Data) > 0 {
+				seenHistoryAudio[streamID] = true
+			}
 		case chunk.Ctrl.Label == transcriptLabel:
 			seenTranscript[streamID] = true
 		case chunk.Ctrl.Label == assistantLabel:
@@ -434,8 +439,8 @@ func TestAgentTransformRunsMultipleTurns(t *testing.T) {
 		}
 	}
 	for _, streamID := range []string{"audio-1", "audio-2"} {
-		if !seenTranscript[streamID] || !seenAssistant[streamID] || !seenAudio[streamID] {
-			t.Fatalf("stream %s seen transcript=%t assistant=%t audio=%t chunks=%#v", streamID, seenTranscript[streamID], seenAssistant[streamID], seenAudio[streamID], chunks)
+		if !seenHistoryAudio[streamID] || !seenTranscript[streamID] || !seenAssistant[streamID] || !seenAudio[streamID] {
+			t.Fatalf("stream %s seen history_audio=%t transcript=%t assistant=%t audio=%t chunks=%#v", streamID, seenHistoryAudio[streamID], seenTranscript[streamID], seenAssistant[streamID], seenAudio[streamID], chunks)
 		}
 	}
 }
@@ -1620,7 +1625,8 @@ func TestTTSSessionMethods(t *testing.T) {
 	}
 }
 
-func TestTranscribeInputTurnHandlesFinalTextDone(t *testing.T) {
+func TestTranscribeInputTurnUsesPrefetchedStreamID(t *testing.T) {
+	const streamID = "client-turn"
 	a := &agent{
 		transformers: fakeTransformerProvider{transformer: patternTransformer{
 			pattern: "model/asr",
@@ -1631,15 +1637,15 @@ func TestTranscribeInputTurnHandlesFinalTextDone(t *testing.T) {
 		asrModel: "asr",
 	}
 	output := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
-	transcript, streamID, err := a.transcribeInputTurn(context.Background(), &sliceStream{chunks: []*genx.MessageChunk{
-		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 2}}, Ctrl: &genx.StreamCtrl{StreamID: "audio"}},
-		{Ctrl: &genx.StreamCtrl{StreamID: "audio", EndOfStream: true}},
-	}}, output, a.currentOutputEpoch(), "audio")
+	transcript, gotStreamID, err := a.transcribeInputTurn(context.Background(), &sliceStream{chunks: []*genx.MessageChunk{
+		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 2}}, Ctrl: &genx.StreamCtrl{StreamID: streamID}},
+		{Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true}},
+	}}, output, a.currentOutputEpoch(), "fallback")
 	if err != nil {
 		t.Fatalf("transcribeInputTurn() error = %v", err)
 	}
-	if transcript != "你好" || streamID != "audio" {
-		t.Fatalf("transcript=%q streamID=%q", transcript, streamID)
+	if transcript != "你好" || gotStreamID != streamID {
+		t.Fatalf("transcript=%q streamID=%q", transcript, gotStreamID)
 	}
 	if err := output.Done(genx.Usage{}); err != nil {
 		t.Fatalf("Done() error = %v", err)
@@ -1649,6 +1655,11 @@ func TestTranscribeInputTurnHandlesFinalTextDone(t *testing.T) {
 	for _, chunk := range chunks {
 		if chunk == nil || chunk.Ctrl == nil {
 			continue
+		}
+		if chunk.Ctrl.Label == genx.HistoryUserAudioLabel || chunk.Ctrl.Label == transcriptLabel {
+			if chunk.Ctrl.StreamID != streamID {
+				t.Errorf("history chunk stream ID = %q, want %q: %#v", chunk.Ctrl.StreamID, streamID, chunk)
+			}
 		}
 		if chunk.Ctrl.Label == genx.HistoryUserAudioLabel {
 			if blob, ok := chunk.Part.(*genx.Blob); ok && blob.MIMEType == "audio/pcm" && len(blob.Data) > 0 {
@@ -1673,15 +1684,22 @@ func TestTranscribeInputTurnHandlesFinalTextDone(t *testing.T) {
 }
 
 func TestTranscribeInputTurnStartASRError(t *testing.T) {
+	const streamID = "client-turn"
 	want := errors.New("start failed")
 	a := &agent{
 		transformers: fakeTransformerProvider{transformer: errorTransformer{err: want}},
 		asrModel:     "asr",
 	}
 	output := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 4)
-	_, _, err := a.transcribeInputTurn(context.Background(), &sliceStream{}, output, a.currentOutputEpoch(), "audio")
+	_, gotStreamID, err := a.transcribeInputTurn(context.Background(), &sliceStream{chunks: []*genx.MessageChunk{
+		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: streamID}},
+		{Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true}},
+	}}, output, a.currentOutputEpoch(), "fallback")
 	if err == nil || !strings.Contains(err.Error(), "start ASR") || !errors.Is(err, want) {
 		t.Fatalf("transcribeInputTurn() error = %v", err)
+	}
+	if gotStreamID != streamID {
+		t.Fatalf("transcribeInputTurn() stream ID = %q, want %q", gotStreamID, streamID)
 	}
 }
 
@@ -1689,7 +1707,7 @@ func TestFeedASRInputReturnsInputError(t *testing.T) {
 	want := errors.New("input failed")
 	input := &sliceStream{err: want}
 	asrInput := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 4)
-	result := feedASRInput(context.Background(), input, asrInput, &lockedString{value: defaultInputStreamID}, defaultInputStreamID, nil)
+	result := feedASRInput(context.Background(), input, asrInput, defaultInputStreamID, nil)
 	if !errors.Is(result.err, want) {
 		t.Fatalf("feedASRInput() error = %v, want %v", result.err, want)
 	}
@@ -1701,11 +1719,10 @@ func TestFeedASRInputReturnsInputError(t *testing.T) {
 func TestFeedASRInputStreamsRawOpusUnchanged(t *testing.T) {
 	packet := []byte{0x11, 0x22, 0x33}
 	asrInput := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 4)
-	state := &lockedString{value: defaultInputStreamID}
 	result := feedASRInput(context.Background(), &sliceStream{chunks: []*genx.MessageChunk{
 		{Part: &genx.Blob{MIMEType: "audio/opus", Data: packet}, Ctrl: &genx.StreamCtrl{StreamID: "audio"}},
 		{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "audio", EndOfStream: true}},
-	}}, asrInput, state, defaultInputStreamID, nil)
+	}}, asrInput, defaultInputStreamID, nil)
 	if result.err != nil {
 		t.Fatalf("feedASRInput() error = %v", result.err)
 	}
