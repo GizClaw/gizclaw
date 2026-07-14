@@ -454,6 +454,10 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('identity-server-row')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('server-endpoint-sheet')), findsOneWidget);
+    expect(find.text('Development'), findsOneWidget);
+    expect(find.text('Production'), findsOneWidget);
+    expect(find.text('ap.dev.gizclaw.com:9820'), findsOneWidget);
+    expect(find.text('ap.gizclaw.com:9820'), findsOneWidget);
     expect(
       tester
           .getBottomRight(find.byKey(const ValueKey('server-endpoint-sheet')))
@@ -467,6 +471,22 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('save-server-endpoint')));
     await tester.pump();
     expect(find.byKey(const ValueKey('server-endpoint-error')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('server-preset-development')));
+    await tester.pump();
+    expect(
+      tester
+          .widget<CupertinoTextField>(
+            find.byKey(const ValueKey('server-endpoint-field')),
+          )
+          .controller!
+          .text,
+      'ap.dev.gizclaw.com:9820',
+    );
+    expect(
+      find.byKey(const ValueKey('selected-server-preset')),
+      findsOneWidget,
+    );
   });
 
   appTestWidgets('opens real friend connection controls', (tester) async {

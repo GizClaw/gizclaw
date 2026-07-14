@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:gizclaw/gizclaw.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../connection/gizclaw_connection_controller.dart';
 import '../../data/mobile_data_controller.dart';
 import '../../giz_ui/giz_ui.dart';
 import '../../prototype/prototype_models.dart';
@@ -1140,6 +1141,11 @@ class _ServerEndpointSheetState extends State<_ServerEndpointSheet> {
   bool _busy = false;
   Object? _error;
 
+  static const _presets = [
+    (label: 'Development', endpoint: gizClawDevelopmentServerEndpoint),
+    (label: 'Production', endpoint: gizClawProductionServerEndpoint),
+  ];
+
   @override
   void dispose() {
     _controller.dispose();
@@ -1164,6 +1170,13 @@ class _ServerEndpointSheetState extends State<_ServerEndpointSheet> {
     }
   }
 
+  void _selectPreset(String endpoint) {
+    _controller
+      ..text = endpoint
+      ..selection = TextSelection.collapsed(offset: endpoint.length);
+    setState(() => _error = null);
+  }
+
   @override
   Widget build(BuildContext context) {
     final background = CupertinoColors.systemBackground.resolveFrom(context);
@@ -1175,54 +1188,139 @@ class _ServerEndpointSheetState extends State<_ServerEndpointSheet> {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       padding: EdgeInsets.fromLTRB(20, 12, 20, 18 + safeBottom),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(
-            child: Container(
-              width: 36,
-              height: 5,
-              decoration: BoxDecoration(
-                color: CupertinoColors.systemGrey4.resolveFrom(context),
-                borderRadius: BorderRadius.circular(3),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: CupertinoColors.systemGrey4.resolveFrom(context),
+                  borderRadius: BorderRadius.circular(3),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 18),
-          const Text('GizClaw Server', style: GizText.sectionTitle),
-          const SizedBox(height: 16),
-          CupertinoTextField(
-            key: const ValueKey('server-endpoint-field'),
-            controller: _controller,
-            placeholder: 'gizclaw.example.com:9820',
-            keyboardType: TextInputType.url,
-            autocorrect: false,
-            enableSuggestions: false,
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) => _save(),
-            padding: const EdgeInsets.all(14),
-          ),
-          if (_error != null) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 18),
+            const Text('GizClaw Server', style: GizText.sectionTitle),
+            const SizedBox(height: 16),
             Text(
-              _serverEndpointError(_error!),
-              key: const ValueKey('server-endpoint-error'),
-              style: GizText.body.copyWith(
-                color: CupertinoColors.systemRed.resolveFrom(context),
+              'QUICK SELECT',
+              style: GizText.label.copyWith(color: GizColors.secondaryInk),
+            ),
+            const SizedBox(height: 8),
+            for (final preset in _presets) ...[
+              _ServerPresetButton(
+                key: ValueKey('server-preset-${preset.label.toLowerCase()}'),
+                label: preset.label,
+                endpoint: preset.endpoint,
+                selected: _controller.text.trim() == preset.endpoint,
+                onPressed: _busy ? null : () => _selectPreset(preset.endpoint),
+              ),
+              const SizedBox(height: 8),
+            ],
+            const SizedBox(height: 4),
+            Text(
+              'CUSTOM ADDRESS',
+              style: GizText.label.copyWith(color: GizColors.secondaryInk),
+            ),
+            const SizedBox(height: 8),
+            CupertinoTextField(
+              key: const ValueKey('server-endpoint-field'),
+              controller: _controller,
+              placeholder: 'gizclaw.example.com:9820',
+              keyboardType: TextInputType.url,
+              autocorrect: false,
+              enableSuggestions: false,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _save(),
+              onChanged: (_) => setState(() => _error = null),
+              padding: const EdgeInsets.all(14),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _serverEndpointError(_error!),
+                key: const ValueKey('server-endpoint-error'),
+                style: GizText.body.copyWith(
+                  color: CupertinoColors.systemRed.resolveFrom(context),
+                ),
+              ),
+            ],
+            const SizedBox(height: 14),
+            CupertinoButton.filled(
+              key: const ValueKey('save-server-endpoint'),
+              onPressed: _busy ? null : _save,
+              child: _busy
+                  ? const CupertinoActivityIndicator()
+                  : const Text('Save Server'),
+            ),
+            SizedBox(height: MediaQuery.viewInsetsOf(context).bottom),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ServerPresetButton extends StatelessWidget {
+  const _ServerPresetButton({
+    super.key,
+    required this.label,
+    required this.endpoint,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final String label;
+  final String endpoint;
+  final bool selected;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoButton(
+      padding: EdgeInsets.zero,
+      onPressed: onPressed,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected
+              ? GizColors.primary.withValues(alpha: 0.09)
+              : GizColors.surface,
+          border: Border.all(
+            color: selected ? GizColors.primary : GizColors.separator,
+            width: selected ? 1.5 : 1,
+          ),
+          borderRadius: GizCorners.compactCard,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: GizText.title),
+                  const SizedBox(height: 2),
+                  Text(
+                    endpoint,
+                    style: GizText.body.copyWith(color: GizColors.secondaryInk),
+                  ),
+                ],
               ),
             ),
+            if (selected)
+              const Icon(
+                GizIcons.checkmark_alt,
+                key: ValueKey('selected-server-preset'),
+                size: 20,
+                color: GizColors.primary,
+              ),
           ],
-          const SizedBox(height: 14),
-          CupertinoButton.filled(
-            key: const ValueKey('save-server-endpoint'),
-            onPressed: _busy ? null : _save,
-            child: _busy
-                ? const CupertinoActivityIndicator()
-                : const Text('Save Server'),
-          ),
-          SizedBox(height: MediaQuery.viewInsetsOf(context).bottom),
-        ],
+        ),
       ),
     );
   }

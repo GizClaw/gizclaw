@@ -76,16 +76,20 @@ void main() {
     );
     expect(normalizeGizClawEndpoint('192.168.1.12:9820'), '192.168.1.12:9820');
     expect(
+      normalizeGizClawEndpoint('115.190.149.150:9820'),
+      '115.190.149.150:9820',
+    );
+    expect(
       normalizeGizClawEndpoint('gizclaw.example.com:9820'),
-      'https://gizclaw.example.com:9820',
+      'gizclaw.example.com:9820',
+    );
+    expect(
+      normalizeGizClawEndpoint('http://gizclaw.example.com:9820'),
+      'http://gizclaw.example.com:9820',
     );
     expect(
       normalizeGizClawEndpoint('https://gizclaw.example:443/'),
       'https://gizclaw.example:443',
-    );
-    expect(
-      () => normalizeGizClawEndpoint('http://gizclaw.example.com:9820'),
-      throwsFormatException,
     );
     expect(
       () => normalizeGizClawEndpoint('gizclaw.local'),
@@ -95,6 +99,11 @@ void main() {
       () => normalizeGizClawEndpoint('gizclaw.local:9820/admin'),
       throwsFormatException,
     );
+  });
+
+  test('defines the selectable GizClaw server endpoints', () {
+    expect(gizClawDevelopmentServerEndpoint, 'ap.dev.gizclaw.com:9820');
+    expect(gizClawProductionServerEndpoint, 'ap.gizclaw.com:9820');
   });
 }
 
