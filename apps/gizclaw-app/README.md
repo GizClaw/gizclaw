@@ -57,6 +57,12 @@ quick-select endpoints:
 GizClaw servers currently use plain HTTP. An endpoint without an explicit
 scheme is therefore interpreted as `http://<host>:<port>`.
 
+After each WebRTC connection is established, the app publishes its current
+device information with `server.info.put` and serves `client.info.get` and
+`client.identifiers.get` from the same snapshot. The Flutter SDK also dispatches
+`client.tool.invoke`; the app returns method-not-found until it registers a
+local tool handler.
+
 Do not commit a private key or persist it in Drift. At runtime the app generates
 or imports the device key through `flutter_secure_storage`; the endpoint is
 stored separately in platform preferences.

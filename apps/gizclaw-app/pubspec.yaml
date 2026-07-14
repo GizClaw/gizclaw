@@ -36,6 +36,8 @@ dependencies:
 
   drift: ^2.34.1
   drift_flutter: ^0.3.0
+  # 12.x requires Android Gradle Plugin 8.12.1; this app uses 8.11.1.
+  device_info_plus: 11.5.0
   flutter_animate: ^4.5.2
   flutter_secure_storage: ^10.3.1
   flutter_webrtc: ^1.5.2

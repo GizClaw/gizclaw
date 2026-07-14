@@ -67,12 +67,14 @@ class MobileDataController extends ChangeNotifier {
     GizClawConnectionProfile? profile,
     GizClawConnectionController? connectionController,
     MobileDataRepository? dataRepository,
+    DeviceInfo? deviceInfo,
     this.identityStore,
   }) : database = database ?? AppDatabase(),
        connection =
            connectionController ??
            GizClawConnectionController(
              profile ?? GizClawConnectionProfile.fromEnvironment(),
+             deviceInfo: deviceInfo,
            ) {
     repository = dataRepository ?? MobileDataRepository(this.database);
   }
