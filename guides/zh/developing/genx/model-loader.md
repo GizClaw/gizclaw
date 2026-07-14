@@ -11,9 +11,12 @@ flowchart TB
     Config["Model config directory"] --> Load["LoadFromDir"]
     Load --> Entry["ConfigFile / Entry"]
     Entry --> Generator["generators.Mux"]
-    Entry --> ASR["transformers.ASRMux"]
-    Entry --> TTS["transformers.TTSMux"]
-    Entry --> Realtime["transformers.DefaultMux"]
+    Entry --> ASR["transformers.Handle<br/>ASR adapter"]
+    Entry --> TTS["transformers.Handle<br/>TTS adapter"]
+    Entry --> Realtime["transformers.Handle<br/>Realtime adapter"]
+    ASR --> TransformerMux["transformers.DefaultMux"]
+    TTS --> TransformerMux
+    Realtime --> TransformerMux
     Entry --> Segmentor["segmentors.Mux"]
     Entry --> Profiler["profilers.Mux"]
     Entry --> Labeler["labelers.Mux"]

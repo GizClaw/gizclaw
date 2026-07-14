@@ -1,6 +1,6 @@
 # Edge Routing
 
-`实现文件：edge_service_rpc.go`
+`实现文件：rpc_edge.go`
 
 定义 `edgeRPCServer`，在 Edge Giznet service 上处理 Peer lookup、assignment 和 route resolve；统一编码 RPC result，并将 `peerroute`、Peer 与 KV 错误映射为 RPC error code。
 

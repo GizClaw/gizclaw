@@ -16,7 +16,7 @@ RPC 模块负责 GizClaw RPC 的 client/server、dispatch、stream framing 和�
 | [Streaming](./stream) | Frame、protobuf envelope 与 EOS。 | `rpc_stream.go` |
 | [Tool Invocation](./tool) | Server 调用在线 Peer tool。 | `rpc_tool.go` |
 | [Utilities](./utils) | Request loop、typed payload 与 error helpers。 | `rpc_utils.go` |
-| [Edge Routing](./edge) | Peer lookup、assignment 与 route resolve。 | `edge_service_rpc.go` |
+| [Edge Routing](./edge) | Peer lookup、assignment 与 route resolve。 | `rpc_edge.go` |
 
 ## 调用关系
 

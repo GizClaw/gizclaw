@@ -22,10 +22,10 @@ Admin OpenAPI 只拥有 HTTP path、request/response 和 wire error。Resource v
 
 ## Resource 依赖
 
-Admin 同时引用 `shared.json` 和 `resources.json`：
+Admin 引用 `shared.json`；该生成入口继续引用 `resources/*.json`：
 
 ```text
-shared ← resources ← admin
+shared/ ← resources/ ← shared.json ← admin.json
 ```
 
 Resource 专属 Spec 与 Resource 放在同一文件；Admin API 不应通过 `shared.json` 间接加载整个 Resource graph。

@@ -36,7 +36,7 @@ pkgs/gizclaw/api/
 
 ### apitypes
 
-保存 `api/http/shared.json` 与 `api/http/resources.json` 生成的 Go models。Source 层仍保持 Shared 与 Resources 的单向依赖和所有权边界；Go 生成输出可以集中在一个 package，不要求镜像 source 目录。
+保存从 `api/http/shared.json` 及其引用的 `api/http/resources/*.json` 生成的 Go models。Source 层仍保持 Shared 与 Resources 的单向依赖和所有权边界；Go 生成输出可以集中在一个 package，不要求镜像 source 目录。
 
 ### openaihttp
 

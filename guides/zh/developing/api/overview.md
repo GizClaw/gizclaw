@@ -10,12 +10,11 @@
 api/
 ├── http/
 │   ├── admin.json              # Admin HTTP surface
-│   ├── public.json             # Public/Peer HTTP 与 WebRTC signaling surface
+│   ├── peer.json               # Public/Peer HTTP 与 WebRTC signaling surface
 │   ├── openai-compat/v1/       # OpenAI-compatible HTTP subset
 │   ├── shared.json             # 真正共享的 OpenAPI schema 聚合入口
 │   ├── shared/                 # 跨 surface 或跨领域 DTO
-│   ├── resources.json          # Admin Resource 聚合入口
-│   └── resources/              # Resource 与其专属 Spec
+│   └── resources/              # Resource、专属 Spec 与 Resource 聚合定义
 └── proto/
     ├── rpc/
     │   ├── rpc.proto           # request、response、error、stream 与 method registry

@@ -26,7 +26,7 @@
 | `shared/device.json` | `DeviceInfo`、`HardwareInfo`、`PeerIMEI`、`PeerLabel` | Admin Peer view、Peer self/registration |
 | `shared/runtime.json` | `Runtime` 及其共同 runtime value | Admin Peer runtime、Peer self runtime |
 
-这是确定的跨 surface shared 集合。`PeerRegistrationStatus`、`PeerStatus` 和 `ServerInfo` 目前只属于 Public API，应直接定义在 `public.json`，不能因为它们包含 “Peer” 就放入 shared。
+这是确定的跨 surface shared 集合。`PeerRegistrationStatus`、`PeerStatus` 和 `ServerInfo` 目前只属于 Public API，应直接定义在 `peer.json`，不能因为它们包含 “Peer” 就放入 shared。
 
 ### Admin API 与多个 Resources 共用
 
@@ -50,14 +50,14 @@
 
 | 类型 | 所属位置 |
 | --- | --- |
-| `PeerRegistrationStatus`、`PeerStatus`、`ServerInfo` | `public.json` |
-| `ResourceAPIVersion`、`ResourceKind`、`ResourceMetadata` | `resources/base.json` |
-| `ApplyAction`、`ApplyResult`、Resource union | `resources/base.json` 或 `resources.json` |
+| `PeerRegistrationStatus`、`PeerStatus`、`ServerInfo` | `peer.json` |
+| `ResourceAPIVersion`、`ResourceKind`、`ResourceMetadata` | `resources/resource.json` |
+| `ApplyAction`、`ApplyResult`、Resource union | `resources/resource.json` |
 | `ModelSpec`、`VoiceSpec`、`FirmwareSpec` 等单一 Resource Spec | 对应 `resources/<resource>.json` |
 | OpenAI-compatible request/response models | `openai-compat/v1/service.json` |
 | Desktop-only context、view 与 session models | `apps/wails` Desktop contract |
 
-`shared.json` 只导出上面 Shared 列表中的 schema。它不得为了让 `apitypes` 一次生成所有 symbol，而重新导出整个 Resource graph。
+`shared.json` 是当前 `apitypes` 的生成入口：它导出 Shared schema，并引用 `resources/*.json` 以生成 Resource graph。这个聚合关系只服务 codegen，不改变 `shared/` 与 `resources/` 的所有权边界。
 
 ## resources
 
@@ -105,13 +105,12 @@ Display 的共同命名是一项结构约定，不代表公共领域模型。不
 flowchart LR
     Shared["shared/*.json"] --> SharedIndex["shared.json"]
     Shared --> Resource["resources/*.json"]
-    Resource --> ResourceIndex["resources.json"]
+    Resource --> SharedIndex
     SharedIndex --> Admin["admin.json"]
-    ResourceIndex --> Admin
-    SharedIndex --> Public["public.json"]
+    SharedIndex --> Public["peer.json"]
 ```
 
-依赖必须是 `shared ← resources ← admin`，以及 `shared ← public/openai-compatible`。`shared.json` 不能反向聚合 `resources/`。
+Schema 所有权依赖是 `shared/ ← resources/`；当前 codegen 再由 `shared.json` 聚合两层，供 `admin.json` 使用。`peer.json` 与 OpenAI-compatible surface 只引用它们实际需要的 Shared contract，不直接依赖 Admin Resource 文件。
 
 新增字段时应优先修改其真正拥有者：真正共享的 value 修改 `shared/`，声明式资源和专属 Spec 修改 `resources/`，只属于某个 endpoint 的输入则留在该 surface。不要复制一份名字相近但逐渐漂移的 schema。
 

@@ -2,7 +2,7 @@
 
 Public API 是 Server 在 WebRTC connection 建立前后向 Public/Peer caller 暴露的 HTTP contract。它是入口边界，不代表 Peer 领域 service 的全部能力。
 
-Source：`api/http/public.json`
+Source：`api/http/peer.json`
 Go 生成输出：`pkgs/gizclaw/api/peerhttp`
 
 ## Endpoints
