@@ -21,7 +21,7 @@
 | `server.game_ruleset.*` | Gameplay ruleset lookup |
 | `server.pet.*` | Pet resource CRUD 与 drive |
 | `server.pet.actions.get` | 按 Pet 获取可用 actions，不返回完整 PetDef |
-| `server.pet.pixa.get` | 按 Pet 获取 PIXA metadata 与素材，不暴露 PetDef API |
+| `server.pet.pixa.download` | 按 Pet 下载 PIXA metadata 与素材，不暴露 PetDef API |
 | `server.badge.*` | Badge resource query |
 | `server.badge_def.pixa.download` | 下载 Badge Definition 关联的 PIXA 素材；不提供 Badge Definition CRUD |
 | `server.points.*` | Points account 与 transactions |

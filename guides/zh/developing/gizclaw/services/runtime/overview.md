@@ -44,7 +44,7 @@ services/runtime/
 
 ### [peertelemetry](./peertelemetry)
 
-接收并解释 peer telemetry，将设备上报映射为 Server status 和 metrics。Telemetry schema 属于 `api/telemetry`，metrics backend 属于 `pkgs/store/metrics`。
+接收并解释 peer telemetry，将设备上报映射为 Server status 和 metrics。Telemetry schema 属于 `api/proto/telemetry`，metrics backend 属于 `pkgs/store/metrics`。
 
 ### [toolkit](./toolkit)
 

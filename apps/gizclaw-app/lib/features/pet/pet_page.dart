@@ -399,7 +399,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
         _pet = pet;
         _presentation = presentation;
         _pixa = pixa;
-        _clipName = _defaultClip(presentation, pet);
+        _clipName = _defaultClip(presentation, pet, pixa);
         _loading = false;
       });
       await _syncPetChat(data, pet);
@@ -453,13 +453,13 @@ class _PetDetailPageState extends State<PetDetailPage> {
       if (!mounted) return;
       setState(() {
         _drivingAction = null;
-        _clipName = _defaultClip(_presentation, response.value.pet);
+        _clipName = _defaultClip(_presentation, response.value.pet, _pixa);
       });
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _drivingAction = null;
-        _clipName = _defaultClip(_presentation, _pet);
+        _clipName = _defaultClip(_presentation, _pet, _pixa);
         _error = error;
       });
     }
@@ -482,7 +482,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
     if (!mounted || _drivingAction != action.id) return;
     setState(() {
       _drivingAction = null;
-      _clipName = _defaultClip(_presentation, _pet);
+      _clipName = _defaultClip(_presentation, _pet, _pixa);
     });
   }
 
@@ -997,7 +997,11 @@ class _PetCoverCard extends StatelessWidget {
                     : _PetCoverSprite(
                         child: _AnimatedPetSprite(
                           asset: visual!.pixa!,
-                          clipName: _defaultClip(visual!.presentation, pet),
+                          clipName: _defaultClip(
+                            visual!.presentation,
+                            pet,
+                            visual!.pixa,
+                          ),
                           transparentEdgeBackground: true,
                         ),
                       ),
@@ -1038,7 +1042,11 @@ class _PetCoverCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            _petStateLabel(visual?.presentation, pet),
+                            _petStateLabel(
+                              visual?.presentation,
+                              pet,
+                              visual?.pixa,
+                            ),
                             style: GizText.label.copyWith(fontSize: 9),
                           ),
                         ],
@@ -2272,8 +2280,8 @@ String _petName(Pet pet, PetActionsI18nCatalog? catalog) {
   return 'Unnamed pet';
 }
 
-String _petStateLabel(PetActions? presentation, Pet pet) {
-  final activeClip = _defaultClip(presentation, pet);
+String _petStateLabel(PetActions? presentation, Pet pet, PixaAsset? pixa) {
+  final activeClip = _defaultClip(presentation, pet, pixa);
   if (activeClip != null && activeClip.trim().isNotEmpty) {
     return _title(activeClip).toUpperCase();
   }
@@ -2302,8 +2310,10 @@ List<_PetMenuAction> _petMenuActions(PetActions? presentation) {
   return actions;
 }
 
-String? _defaultClip(PetActions? presentation, [Pet? pet]) {
-  if (presentation == null) return 'idle';
+String? _defaultClip(PetActions? presentation, [Pet? pet, PixaAsset? pixa]) {
+  final stateClip = _petStateClip(pixa, pet);
+  if (stateClip != null) return stateClip;
+  if (presentation == null) return _idlePixaClip(pixa) ?? 'idle';
   for (final action in presentation.actions) {
     if (action.id.toLowerCase() == 'idle') {
       return action.pixaClipName.isNotEmpty
@@ -2314,8 +2324,34 @@ String? _defaultClip(PetActions? presentation, [Pet? pet]) {
     }
   }
   return presentation.actions.isEmpty
-      ? 'idle'
+      ? _idlePixaClip(pixa) ?? 'idle'
       : _clipForAction(presentation, presentation.actions.first.id);
+}
+
+String? _petStateClip(PixaAsset? pixa, Pet? pet) {
+  if (pixa == null || pet == null) return null;
+  final life = pet.life.value;
+  final candidates = <String>[
+    if ((life['hp']?.toInt() ?? 100) <= 0) 'dead',
+    if ((life['hp']?.toInt() ?? 100) <= 20) 'dying',
+    if ((life['cleanliness']?.toInt() ?? 100) <= 30) 'dirty',
+    if ((life['wellness']?.toInt() ?? 100) <= 30) 'sick',
+    if ((life['energy']?.toInt() ?? 100) <= 30) 'hungry',
+  ];
+  for (final candidate in candidates) {
+    for (final clip in pixa.clips) {
+      if (clip.name == candidate) return clip.name;
+    }
+  }
+  return null;
+}
+
+String? _idlePixaClip(PixaAsset? pixa) {
+  if (pixa == null) return null;
+  for (final clip in pixa.clips) {
+    if (clip.name == 'idle') return clip.name;
+  }
+  return pixa.clips.isEmpty ? null : pixa.clips.first.name;
 }
 
 String? _clipForAction(PetActions? presentation, String actionId) {

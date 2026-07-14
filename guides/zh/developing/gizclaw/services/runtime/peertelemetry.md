@@ -26,4 +26,4 @@ flowchart LR
 | `AdminService` | 提供 telemetry metrics 的 Admin 查询。 |
 | `PeerStatusStore` / `StatusService` | 隔离持久化 status 与更新接口。 |
 
-Telemetry schema 属于 `api/telemetry`，metrics persistence 属于 `pkgs/store/metrics`。本 package 只拥有解码、映射和同步策略。
+Telemetry schema 属于 `api/proto/telemetry`，metrics persistence 属于 `pkgs/store/metrics`。本 package 只拥有解码、映射和同步策略。

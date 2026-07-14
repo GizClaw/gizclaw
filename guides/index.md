@@ -15,10 +15,11 @@ onMounted(() => {
     ? "zh"
     : "en";
 
-  window.location.replace(`/${locale}/`);
+  const base = import.meta.env.BASE_URL || "/";
+  window.location.replace(`${base}${locale}/`);
 });
 </script>
 
 <noscript>
-  <a href="/zh/">进入 GizClaw 项目指引</a>
+  <a href="./zh/">进入 GizClaw 项目指引</a>
 </noscript>
