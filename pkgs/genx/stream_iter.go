@@ -152,8 +152,6 @@ func (itr *StreamIter) pull(str Stream) (re error) {
 		itr.streams = nil
 		itr.err = re
 		close(itr.ch)
-		for range itr.ch {
-		}
 	}()
 	for {
 		chunk, err := str.Next()
