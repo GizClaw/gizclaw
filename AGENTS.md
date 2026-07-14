@@ -20,6 +20,19 @@
 - Mainline work is issue-driven local development. PR metadata checks are not
   required unless the task explicitly asks for PR review or PR cleanup.
 
+## Documentation Map
+
+- Start with `guides/zh/developing/index.md` for architecture, API design,
+  package ownership, CLI, applications, and SDK development.
+- Use `guides/zh/reviewing/index.md` and
+  `guides/zh/reviewing/review_items.md` for review workflow and the mapping from
+  changed paths to applicable documentation.
+- Use `guides/zh/coding-styles/index.md` for language and documentation
+  conventions.
+- Use `guides/zh/using/index.md` for CLI, application, and SDK usage.
+- Use `guides/references/index.md` for Go references and local Flutter/TypeScript
+  reference generation.
+
 ## Validation
 
 - For Go behavior changes, run `go test ./...` unless a scoped equivalent is
@@ -60,11 +73,16 @@
   confirm every changed folder, generated surface, validation claim, and
   language boundary has been checked, merge duplicates, and ensure each issue
   has severity, file/line evidence, and an actionable fix direction.
-- For Go changes, follow `docs/review-guide/go.md`.
-- For JavaScript and TypeScript changes, follow `docs/review-guide/js.md`.
-- For C SDK and C-facing binding changes, follow `docs/review-guide/c.md`.
+- For Go changes, follow `guides/zh/coding-styles/go.md` and the Go section of
+  `guides/zh/reviewing/review_items.md`.
+- For JavaScript and TypeScript changes, follow
+  `guides/zh/coding-styles/js.md` and the matching review items.
+- For Dart and Flutter changes, follow
+  `guides/zh/coding-styles/dart-flutter.md` and the matching review items.
+- For C SDK and C-facing binding changes, follow
+  `guides/zh/coding-styles/c.md` and the matching review items.
 - For documentation, README, issue text, and workflow-only changes, follow
-  `docs/review-guide/doc.md`.
+  `guides/zh/coding-styles/docs.md` and the documentation review items.
 - If a change crosses Go, JavaScript, C, schema, or generated-code boundaries,
   verify the source schema, generated outputs, language-specific call sites, and
   tests together rather than reviewing each surface in isolation.

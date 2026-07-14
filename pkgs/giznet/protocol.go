@@ -7,8 +7,8 @@ const (
 	// Dial and ListenService. This protocol is not returned by Conn.Read.
 	ProtocolServiceStream byte = 0x00
 
-	// ProtocolStampedOpusPacket identifies stamped Opus direct packets.
-	ProtocolStampedOpusPacket byte = 0x10
+	// ProtocolOpusPacket identifies raw Opus direct packets.
+	ProtocolOpusPacket byte = 0x10
 )
 
 // Direct packet protocol byte registry:

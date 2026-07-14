@@ -88,6 +88,30 @@ func TestCmdServerPrivateIngressRequiresAuthorizedSession(t *testing.T) {
 	srv.ServeHTTP(rec, req)
 	assertHTTPError(t, rec, http.StatusUnauthorized, "INVALID_SESSION")
 
+	srv.Server.WebRTCSignalingHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "" {
+			t.Errorf("WebRTC offer Authorization = %q, want signed offer without bearer session", r.Header.Get("Authorization"))
+			http.Error(w, "unexpected bearer session", http.StatusUnauthorized)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+	req = httptest.NewRequest(http.MethodPost, gizwebrtc.SignalingPath, nil)
+	req.Header.Set("X-Giznet-Public-Key", clientKey.Public.String())
+	req.Header.Set("X-Giznet-Timestamp", "1")
+	req.Header.Set("X-Giznet-Nonce", "nonce")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST %s status = %d body=%s, want %d", gizwebrtc.SignalingPath, rec.Code, rec.Body.String(), http.StatusOK)
+	}
+	req = httptest.NewRequest(http.MethodOptions, gizwebrtc.SignalingPath, nil)
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code == http.StatusUnauthorized || rec.Code == http.StatusForbidden {
+		t.Fatalf("OPTIONS %s status = %d body=%s, want signaling handler without private-ingress auth", gizwebrtc.SignalingPath, rec.Code, rec.Body.String())
+	}
+
 	clientLogin := cmdServerTestLogin(t, srv, serverKey.Public, clientKey)
 	assertHTTPError(t, clientLogin, http.StatusUnauthorized, "INVALID_ASSERTION")
 

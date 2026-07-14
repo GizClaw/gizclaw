@@ -528,13 +528,12 @@ const (
 	RPCMethodServerModelList                    RPCMethod = "server.model.list"
 	RPCMethodServerModelPut                     RPCMethod = "server.model.put"
 	RPCMethodServerPetAdopt                     RPCMethod = "server.pet.adopt"
-	RPCMethodServerPetDefPixaDownload           RPCMethod = "server.pet_def.pixa.download"
 	RPCMethodServerPetDelete                    RPCMethod = "server.pet.delete"
 	RPCMethodServerPetDrive                     RPCMethod = "server.pet.drive"
 	RPCMethodServerPetGet                       RPCMethod = "server.pet.get"
 	RPCMethodServerPetList                      RPCMethod = "server.pet.list"
 	RPCMethodServerPetPixaDownload              RPCMethod = "server.pet.pixa.download"
-	RPCMethodServerPetPresentationGet           RPCMethod = "server.pet.presentation.get"
+	RPCMethodServerPetActionsGet                RPCMethod = "server.pet.actions.get"
 	RPCMethodServerPetPut                       RPCMethod = "server.pet.put"
 	RPCMethodServerPointsGet                    RPCMethod = "server.points.get"
 	RPCMethodServerPointsTransactionsGet        RPCMethod = "server.points.transactions.get"
@@ -687,8 +686,6 @@ func (e RPCMethod) Valid() bool {
 		return true
 	case RPCMethodServerPetAdopt:
 		return true
-	case RPCMethodServerPetDefPixaDownload:
-		return true
 	case RPCMethodServerPetDelete:
 		return true
 	case RPCMethodServerPetDrive:
@@ -699,7 +696,7 @@ func (e RPCMethod) Valid() bool {
 		return true
 	case RPCMethodServerPetPixaDownload:
 		return true
-	case RPCMethodServerPetPresentationGet:
+	case RPCMethodServerPetActionsGet:
 		return true
 	case RPCMethodServerPetPut:
 		return true
@@ -2375,18 +2372,6 @@ type PetDef struct {
 	PixaPath  *string    `json:"pixa_path,omitempty"`
 	Spec      PetDefSpec `json:"spec"`
 	UpdatedAt time.Time  `json:"updated_at"`
-}
-
-// PetDefPixaDownloadRequest defines model for PetDefPixaDownloadRequest.
-type PetDefPixaDownloadRequest struct {
-	Id string `json:"id"`
-}
-
-// PetDefPixaDownloadResponse defines model for PetDefPixaDownloadResponse.
-type PetDefPixaDownloadResponse struct {
-	Id        string  `json:"id"`
-	PixaPath  *string `json:"pixa_path,omitempty"`
-	SizeBytes int64   `json:"size_bytes"`
 }
 
 // PetAttrDelta defines model for PetAttrDelta.
@@ -4736,23 +4721,6 @@ func (t *RPCPayload) MergeServerGameRulesetGetRequest(v ServerGameRulesetGetRequ
 	return t.merge("ServerGameRulesetGetRequest", v)
 }
 
-// AsPetDefPixaDownloadRequest decodes the RPCPayload as a PetDefPixaDownloadRequest
-func (t RPCPayload) AsPetDefPixaDownloadRequest() (PetDefPixaDownloadRequest, error) {
-	var body PetDefPixaDownloadRequest
-	err := t.decode("PetDefPixaDownloadRequest", &body)
-	return body, err
-}
-
-// FromPetDefPixaDownloadRequest overwrites any protobuf payload as the provided PetDefPixaDownloadRequest
-func (t *RPCPayload) FromPetDefPixaDownloadRequest(v PetDefPixaDownloadRequest) error {
-	return t.encode("PetDefPixaDownloadRequest", v)
-}
-
-// MergePetDefPixaDownloadRequest performs a merge with any protobuf payload, using the provided PetDefPixaDownloadRequest
-func (t *RPCPayload) MergePetDefPixaDownloadRequest(v PetDefPixaDownloadRequest) error {
-	return t.merge("PetDefPixaDownloadRequest", v)
-}
-
 // AsBadgeDefPixaDownloadRequest decodes the RPCPayload as a BadgeDefPixaDownloadRequest
 func (t RPCPayload) AsBadgeDefPixaDownloadRequest() (BadgeDefPixaDownloadRequest, error) {
 	var body BadgeDefPixaDownloadRequest
@@ -6332,23 +6300,6 @@ func (t *RPCPayload) FromServerGameRulesetGetResponse(v ServerGameRulesetGetResp
 // MergeServerGameRulesetGetResponse performs a merge with any protobuf payload, using the provided ServerGameRulesetGetResponse
 func (t *RPCPayload) MergeServerGameRulesetGetResponse(v ServerGameRulesetGetResponse) error {
 	return t.merge("ServerGameRulesetGetResponse", v)
-}
-
-// AsPetDefPixaDownloadResponse decodes the RPCPayload as a PetDefPixaDownloadResponse
-func (t RPCPayload) AsPetDefPixaDownloadResponse() (PetDefPixaDownloadResponse, error) {
-	var body PetDefPixaDownloadResponse
-	err := t.decode("PetDefPixaDownloadResponse", &body)
-	return body, err
-}
-
-// FromPetDefPixaDownloadResponse overwrites any protobuf payload as the provided PetDefPixaDownloadResponse
-func (t *RPCPayload) FromPetDefPixaDownloadResponse(v PetDefPixaDownloadResponse) error {
-	return t.encode("PetDefPixaDownloadResponse", v)
-}
-
-// MergePetDefPixaDownloadResponse performs a merge with any protobuf payload, using the provided PetDefPixaDownloadResponse
-func (t *RPCPayload) MergePetDefPixaDownloadResponse(v PetDefPixaDownloadResponse) error {
-	return t.merge("PetDefPixaDownloadResponse", v)
 }
 
 // AsBadgeDefPixaDownloadResponse decodes the RPCPayload as a BadgeDefPixaDownloadResponse

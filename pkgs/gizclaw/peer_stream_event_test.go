@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
-	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
@@ -141,12 +140,11 @@ func TestPeerStreamEventChunkMapping(t *testing.T) {
 	}
 }
 
-func TestPeerAgentOutputWritesStampedOpus(t *testing.T) {
+func TestPeerAgentOutputWritesRawOpus(t *testing.T) {
 	writer := &recordingDirectPackets{ch: make(chan []byte, 1)}
 	output := &peerStreamSliceStream{chunks: []*genx.MessageChunk{
 		{
 			Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{0x01, 0x02, 0x03}},
-			Ctrl: &genx.StreamCtrl{Timestamp: 123},
 		},
 	}, doneErr: genx.ErrDone}
 	err := (peerAgentOutput{Events: newPeerStreamEventBroker(), Conn: writer}).ConsumeAgentOutput(context.Background(), output)
@@ -155,12 +153,8 @@ func TestPeerAgentOutputWritesStampedOpus(t *testing.T) {
 	}
 	select {
 	case payload := <-writer.ch:
-		timestamp, frame, ok := stampedopus.Unpack(payload)
-		if !ok {
-			t.Fatalf("output payload is not stamped opus: %x", payload)
-		}
-		if timestamp != 123 || !bytes.Equal(frame, []byte{0x01, 0x02, 0x03}) {
-			t.Fatalf("output opus timestamp=%d frame=%x", timestamp, frame)
+		if !bytes.Equal(payload, []byte{0x01, 0x02, 0x03}) {
+			t.Fatalf("output opus frame=%x", payload)
 		}
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for opus output")
@@ -180,7 +174,7 @@ func TestPeerAgentOutputSkipsOggDirectPacket(t *testing.T) {
 	}
 	select {
 	case payload := <-writer.ch:
-		t.Fatalf("audio/ogg was written as direct stamped opus: %x", payload)
+		t.Fatalf("audio/ogg was written as direct opus: %x", payload)
 	default:
 	}
 }
@@ -253,7 +247,7 @@ type recordingDirectPackets struct {
 }
 
 func (w *recordingDirectPackets) Write(protocol byte, payload []byte) (int, error) {
-	if protocol != giznet.ProtocolStampedOpusPacket {
+	if protocol != giznet.ProtocolOpusPacket {
 		return 0, errors.New("unexpected protocol")
 	}
 	w.ch <- append([]byte(nil), payload...)

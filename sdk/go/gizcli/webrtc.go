@@ -16,7 +16,6 @@ import (
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -96,14 +95,14 @@ func (c *Client) RegisterTo(pc *webrtc.PeerConnection) (*ClientWebRTCRegistratio
 		r.registerRemoteTrack(track)
 	})
 
-	go r.forwardPeerStampedOpusToWebRTCAudio()
+	go r.forwardPeerOpusToWebRTCAudio()
 	go drainWebRTCRTCP(audioSender)
 
 	return r, nil
 }
 
 // AudioTrack returns the local WebRTC audio track that receives server-side
-// stamped opus packets.
+// Opus packets.
 func (r *ClientWebRTCRegistration) AudioTrack() *webrtc.TrackLocalStaticRTP {
 	if r == nil {
 		return nil
@@ -391,7 +390,7 @@ func (r *ClientWebRTCRegistration) registerRemoteTrack(track *webrtc.TrackRemote
 	switch {
 	case track.Kind() == webrtc.RTPCodecTypeAudio && strings.EqualFold(codec.MimeType, MediaStreamOpus):
 		go func() {
-			if err := r.forwardWebRTCAudioTrackToPeerStampedOpus(track); err != nil && !errors.Is(err, context.Canceled) {
+			if err := r.forwardWebRTCAudioTrackToPeerOpus(track); err != nil && !errors.Is(err, context.Canceled) {
 				slog.Debug("gizclaw: forward webrtc opus track failed", "error", err)
 			}
 		}()
@@ -402,7 +401,7 @@ func (r *ClientWebRTCRegistration) registerRemoteTrack(track *webrtc.TrackRemote
 	}
 }
 
-func (r *ClientWebRTCRegistration) forwardWebRTCAudioTrackToPeerStampedOpus(track *webrtc.TrackRemote) error {
+func (r *ClientWebRTCRegistration) forwardWebRTCAudioTrackToPeerOpus(track *webrtc.TrackRemote) error {
 	if track == nil {
 		return nil
 	}
@@ -410,11 +409,6 @@ func (r *ClientWebRTCRegistration) forwardWebRTCAudioTrackToPeerStampedOpus(trac
 	if conn == nil {
 		return fmt.Errorf("gizclaw: client is not connected")
 	}
-	var (
-		baseRTPTimestamp uint32
-		baseWallMillis   uint64
-		haveBase         bool
-	)
 	for {
 		if err := r.ctx.Err(); err != nil {
 			return err
@@ -430,39 +424,26 @@ func (r *ClientWebRTCRegistration) forwardWebRTCAudioTrackToPeerStampedOpus(trac
 		if len(packet.Payload) == 0 {
 			continue
 		}
-		if !haveBase {
-			baseRTPTimestamp = packet.Timestamp
-			baseWallMillis = uint64(time.Now().UnixMilli())
-			haveBase = true
-		}
 
-		timestamp := baseWallMillis + webRTCRTPMillisDelta(webRTCOpusClockRate, baseRTPTimestamp, packet.Timestamp)
-		payload := stampedopus.Pack(timestamp, packet.Payload)
-		if _, err := conn.Write(giznet.ProtocolStampedOpusPacket, payload); err != nil {
+		if _, err := conn.Write(giznet.ProtocolOpusPacket, packet.Payload); err != nil {
 			return err
 		}
 	}
 }
 
-func (r *ClientWebRTCRegistration) forwardPeerStampedOpusToWebRTCAudio() {
-	packets, unsubscribe := r.client.subscribePeerPackets(giznet.ProtocolStampedOpusPacket, 32)
+func (r *ClientWebRTCRegistration) forwardPeerOpusToWebRTCAudio() {
+	packets, unsubscribe := r.client.subscribePeerPackets(giznet.ProtocolOpusPacket, 32)
 	defer unsubscribe()
 
 	var sequenceNumber uint16
 	var rtpTimestamp uint32
-	var haveRTPTimestamp bool
 	for {
 		select {
 		case <-r.ctx.Done():
 			return
-		case payload := <-packets:
-			timestamp, frame, ok := stampedopus.Unpack(payload)
-			if !ok {
+		case frame := <-packets:
+			if len(frame) == 0 {
 				continue
-			}
-			if !haveRTPTimestamp {
-				rtpTimestamp = webRTCOpusRTPTimestamp(timestamp)
-				haveRTPTimestamp = true
 			}
 			packet := &rtp.Packet{
 				Header: rtp.Header{
@@ -471,7 +452,7 @@ func (r *ClientWebRTCRegistration) forwardPeerStampedOpusToWebRTCAudio() {
 					SequenceNumber: sequenceNumber,
 					Timestamp:      rtpTimestamp,
 				},
-				Payload: frame,
+				Payload: append([]byte(nil), frame...),
 			}
 			if err := r.audioTrack.WriteRTP(packet); err != nil {
 				slog.Debug("gizclaw: write webrtc opus rtp failed", "error", err)
@@ -496,17 +477,6 @@ func (c *Client) callRPCRequest(ctx context.Context, req *rpcapi.RPCRequest) (*r
 	}
 	defer func() { _ = stream.Close() }()
 	return callRPC(ctx, stream, req)
-}
-
-func webRTCRTPMillisDelta(clockRate uint32, baseTimestamp, timestamp uint32) uint64 {
-	if clockRate == 0 {
-		return 0
-	}
-	return uint64(timestamp-baseTimestamp) * uint64(time.Second/time.Millisecond) / uint64(clockRate)
-}
-
-func webRTCOpusRTPTimestamp(stampedMillis uint64) uint32 {
-	return uint32(stampedMillis * uint64(webRTCOpusClockRate) / uint64(time.Second/time.Millisecond))
 }
 
 func webRTCOpusPacketRTPTicks(packet []byte) uint32 {

@@ -1,0 +1,39 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "BadgeDef Resource Schema",
+    "description": "BadgeDef resource envelope schema.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "BadgeDefResource": {
+        "type": "object",
+        "required": [
+          "apiVersion",
+          "kind",
+          "metadata",
+          "spec"
+        ],
+        "properties": {
+          "apiVersion": {
+            "$ref": "./resource.json#/components/schemas/ResourceAPIVersion"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "BadgeDef"
+            ]
+          },
+          "metadata": {
+            "$ref": "./resource.json#/components/schemas/ResourceMetadata"
+          },
+          "spec": {
+            "$ref": "../shared/gameplay.json#/components/schemas/BadgeDefSpec"
+          }
+        }
+      }
+    }
+  }
+}

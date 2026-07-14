@@ -2,8 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:fixnum/fixnum.dart' as fixnum;
-import 'package:gizclaw/src/generated/rpc/common.pb.dart' as common;
-import 'package:gizclaw/src/generated/rpc/peer.pb.dart' as peer;
+import 'package:gizclaw/src/generated/rpc/rpc.pb.dart' as rpc;
 import 'package:gizclaw/src/generated/rpc/payload.pb.dart' as payload;
 import 'package:gizclaw/src/payload_codec.dart';
 import 'package:gizclaw/src/peer_rpc_server.dart';
@@ -20,7 +19,7 @@ void main() {
     channel.addMessage(
       _rpcRequestBytes(
         id: 'srv-ping',
-        method: peer.RpcMethod.RPC_METHOD_ALL_PING,
+        method: rpc.RpcMethod.RPC_METHOD_ALL_PING,
         payloadBytes: encodeRpcRequestPayload(
           'all.ping',
           payload.PingRequest(clientSendTime: fixnum.Int64(1)),
@@ -46,7 +45,7 @@ void main() {
       concatBytes([
         _rpcRequestEnvelopeBytes(
           id: 'srv-speed',
-          method: peer.RpcMethod.RPC_METHOD_ALL_SPEED_TEST_RUN,
+          method: rpc.RpcMethod.RPC_METHOD_ALL_SPEED_TEST_RUN,
           payloadBytes: encodeRpcRequestPayload(
             'all.speed_test.run',
             payload.SpeedTestRequest(
@@ -62,7 +61,7 @@ void main() {
     await Future<void>.delayed(Duration.zero);
 
     final frames = decodeFrames(concatBytes(channel.sent));
-    final response = common.RpcResponse.fromBuffer(frames.first.payload);
+    final response = rpc.RpcResponse.fromBuffer(frames.first.payload);
     expect(response.id, 'srv-speed');
     final decoded =
         decodeRpcResponsePayload('all.speed_test.run', response.payload)
@@ -81,17 +80,14 @@ void main() {
     channel.addMessage(
       _rpcRequestBytes(
         id: 'srv-missing-ping',
-        method: peer.RpcMethod.RPC_METHOD_ALL_PING,
+        method: rpc.RpcMethod.RPC_METHOD_ALL_PING,
       ),
     );
     await Future<void>.delayed(Duration.zero);
 
     final response = _singleEnvelopeResponse(channel);
     expect(response.id, 'srv-missing-ping');
-    expect(
-      response.error.code,
-      common.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS,
-    );
+    expect(response.error.code, rpc.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS);
   });
 
   test('rejects server-initiated all.speed_test.run without payload', () async {
@@ -101,23 +97,20 @@ void main() {
     channel.addMessage(
       _rpcRequestEnvelopeBytes(
         id: 'srv-missing-speed',
-        method: peer.RpcMethod.RPC_METHOD_ALL_SPEED_TEST_RUN,
+        method: rpc.RpcMethod.RPC_METHOD_ALL_SPEED_TEST_RUN,
       ),
     );
     await Future<void>.delayed(Duration.zero);
 
     final response = _singleEnvelopeResponse(channel);
     expect(response.id, 'srv-missing-speed');
-    expect(
-      response.error.code,
-      common.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS,
-    );
+    expect(response.error.code, rpc.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS);
   });
 }
 
 Uint8List _rpcRequestBytes({
   required String id,
-  required peer.RpcMethod method,
+  required rpc.RpcMethod method,
   List<int>? payloadBytes,
 }) {
   return concatBytes([
@@ -132,12 +125,12 @@ Uint8List _rpcRequestBytes({
 
 Uint8List _rpcRequestEnvelopeBytes({
   required String id,
-  required peer.RpcMethod method,
+  required rpc.RpcMethod method,
   List<int>? payloadBytes,
 }) {
   return concatBytes(
     encodeEnvelopeFrames(
-      peer.RpcRequest(
+      rpc.RpcRequest(
         id: id,
         method: method,
         payload: payloadBytes,
@@ -146,10 +139,10 @@ Uint8List _rpcRequestEnvelopeBytes({
   );
 }
 
-common.RpcResponse _singleEnvelopeResponse(FakeDataChannel channel) {
+rpc.RpcResponse _singleEnvelopeResponse(FakeDataChannel channel) {
   final frames = decodeFrames(concatBytes(channel.sent));
   expect(frames, hasLength(2));
   expect(frames.first.type, rpcFrameTypeBinary);
   expect(frames.last.type, rpcFrameTypeEos);
-  return common.RpcResponse.fromBuffer(frames.first.payload);
+  return rpc.RpcResponse.fromBuffer(frames.first.payload);
 }

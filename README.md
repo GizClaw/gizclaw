@@ -11,7 +11,7 @@
 ![SDK](https://img.shields.io/badge/SDK-C%20%7C%20JS%20%7C%20Go-22c55e)
 ![Status](https://img.shields.io/badge/status-active%20development-f59e0b)
 
-![GizClaw agent runtime and server mesh](docs/assets/readme-hero.png)
+![GizClaw agent runtime and server mesh](guides/references/assets/readme-hero.png)
 
 GizClaw is an out-of-the-box agent runtime and edge server mesh for GizClaw
 devices.
@@ -90,7 +90,7 @@ their own agents through workspace runtimes.
   identity store primitives.
 - `pkgs/agent/`: agent memory, recall, embedding, and local runtime support.
 - `pkgs/genx/`: model and generation abstractions used by workflows and agents.
-- `pkgs/audio/`: audio codecs, resampling, stamped Opus, playback, and
+- `pkgs/audio/`: audio codecs, resampling, raw Opus packet helpers, playback, and
   voiceprint helpers.
 - `api/`: source OpenAPI and RPC schemas. Generated Go and TypeScript code is
   derived from these files.
@@ -98,7 +98,7 @@ their own agents through workspace runtimes.
 - `c/`: C-facing SDK surface and bindings.
 - `apps/wails/`: desktop shell and frontend.
 - `apps/gizclaw-app/`: Flutter mobile client for iOS and Android.
-- `docs/`: design and operator documentation.
+- `guides/`: localized development, review, coding, usage, and Reference documentation.
 - `examples/`: runnable examples for GenX, WebRTC SFU, audio, songs, and
   voiceprint workflows.
 - `tests/`: unit, integration, and Docker-backed e2e test projects.
@@ -135,14 +135,24 @@ bash tests/gizclaw-e2e/run_tests.sh
 
 ## Documentation
 
-- [API definitions](api/README.md)
-- [Server configuration](docs/server_config.md)
-- [Context configuration](docs/context_config.md)
-- [RPC protocol](docs/rpc_protocol.md)
-- [ACL](docs/acl.md)
-- [OTA](docs/ota.md)
-- [Gameplay](docs/gameplay.md)
-- [Agent and GenX](docs/agent_genx.md)
-- [Service layout](docs/service_layout.md)
-- [Edge node design proposal](docs/edge-node.md)
-- [Server mesh design proposal](docs/server_mesh.md)
+The Project Guide is the documentation entrypoint:
+
+- [Development Guide](guides/zh/developing/index.md): architecture, API design,
+  package boundaries, CLI, applications, and SDK development.
+- [Review Guide](guides/zh/reviewing/index.md): review workflow, review items,
+  self-review, PR Agent review, and issue review.
+- [Coding Styles](guides/zh/coding-styles/index.md): Go, JavaScript/TypeScript,
+  Dart/Flutter, C/cgo, and documentation conventions.
+- [Usage Guide](guides/zh/using/index.md): CLI, Wails, Flutter, and SDK usage.
+- [References](guides/references/index.md): Go references plus local Flutter
+  Dartdoc and TypeScript TypeDoc generation.
+- [API Design](guides/zh/developing/api/overview.md): HTTP, Protobuf/RPC,
+  schema ownership, and generated-surface boundaries.
+
+The source API contracts remain under [`api/`](api/README.md). Start the Guide
+locally with:
+
+```sh
+npm ci --prefix guides
+npm --prefix guides run dev
+```

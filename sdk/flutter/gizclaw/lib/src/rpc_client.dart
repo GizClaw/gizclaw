@@ -3,8 +3,7 @@ import 'dart:typed_data';
 
 import 'package:protobuf/protobuf.dart';
 
-import 'generated/rpc/common.pb.dart' as common;
-import 'generated/rpc/peer.pb.dart' as peer;
+import 'generated/rpc/rpc.pb.dart' as rpc;
 import 'method_registry.dart';
 import 'payload_codec.dart';
 import 'rpc_frame.dart';
@@ -220,7 +219,7 @@ Uint8List encodeRpcRequest(
   required String id,
 }) {
   final descriptor = rpcMethodByName(methodName);
-  final method = peer.RpcMethod.valueOf(descriptor.id);
+  final method = rpc.RpcMethod.valueOf(descriptor.id);
   if (method == null) {
     throw ArgumentError.value(
       descriptor.id,
@@ -229,7 +228,7 @@ Uint8List encodeRpcRequest(
     );
   }
   final payload = encodeRpcRequestPayload(methodName, request);
-  final envelope = peer.RpcRequest(id: id, method: method, payload: payload);
+  final envelope = rpc.RpcRequest(id: id, method: method, payload: payload);
   return concatBytes([
     ...encodeEnvelopeFrames(envelope.writeToBuffer()),
     encodeFrame(rpcFrameTypeEos),
@@ -242,7 +241,7 @@ RpcCallResult decodeRpcResponse(
   List<int> body,
   String requestId,
 ) {
-  final envelope = common.RpcResponse.fromBuffer(envelopeBytes);
+  final envelope = rpc.RpcResponse.fromBuffer(envelopeBytes);
   if (envelope.id != requestId) {
     throw FormatException(
       'RPC response id mismatch: got ${envelope.id}, want $requestId',
@@ -368,7 +367,7 @@ class _ResponseReader {
 }
 
 bool _responseEnvelopeHasError(List<int> envelopeBytes) {
-  return common.RpcResponse.fromBuffer(envelopeBytes).hasError();
+  return rpc.RpcResponse.fromBuffer(envelopeBytes).hasError();
 }
 
 void _unawaited(Future<void> future) {}

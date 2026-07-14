@@ -546,7 +546,7 @@ func (s *Server) init() error {
 	mux.Handle("/me/status", publicHandler)
 	mux.Handle("/me/runtime", publicHandler)
 	mux.Handle("/openai/v1/", s.peerOpenAIHTTPHandler(sessions))
-	s.httpHandler = httpLabelSetHandler(mux)
+	s.httpHandler = mux
 	return nil
 }
 

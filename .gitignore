@@ -9,6 +9,10 @@ go.work
 go.work.sum
 
 # Build artifacts
+guides/.vitepress/cache/
+guides/.vitepress/dist/
+guides/references/flutter/
+guides/references/typescript/
 *.dll
 *.dylib
 *.exe

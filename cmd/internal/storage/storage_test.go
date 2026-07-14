@@ -164,11 +164,6 @@ func TestNewRejectsWrongDriverBlockForKind(t *testing.T) {
 		t.Fatal("expected error for multiple driver blocks")
 	}
 	if _, err := New(map[string]Config{
-		"bad": {Kind: KindFilesystem, Badger: &BadgerConfig{Dir: t.TempDir()}},
-	}); err == nil {
-		t.Fatal("expected error for filesystem with badger driver")
-	}
-	if _, err := New(map[string]Config{
 		"bad": {Kind: KindObjectStore, Badger: &BadgerConfig{Dir: t.TempDir()}},
 	}); err == nil {
 		t.Fatal("expected error for objectstore with badger driver")
@@ -187,7 +182,6 @@ func TestNewRejectsMissingDriverBlock(t *testing.T) {
 	}{
 		{name: "keyvalue", cfg: Config{Kind: KindKeyValue}},
 		{name: "vecstore", cfg: Config{Kind: KindVecStore}},
-		{name: "filesystem", cfg: Config{Kind: KindFilesystem}},
 		{name: "objectstore", cfg: Config{Kind: KindObjectStore}},
 		{name: "sql", cfg: Config{Kind: KindSQL}},
 	}
@@ -202,7 +196,7 @@ func TestNewRejectsMissingDriverBlock(t *testing.T) {
 
 func TestKVNotFound(t *testing.T) {
 	reg, err := New(map[string]Config{
-		"fs": {Kind: KindFilesystem, FS: &FSConfig{Dir: t.TempDir()}},
+		"vec": {Kind: KindVecStore, Backend: "memory"},
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -212,7 +206,7 @@ func TestKVNotFound(t *testing.T) {
 	if _, err := reg.KV("missing"); err == nil {
 		t.Fatal("expected error for missing backend")
 	}
-	if _, err := reg.KV("fs"); err == nil {
+	if _, err := reg.KV("vec"); err == nil {
 		t.Fatal("expected error for wrong kind lookup")
 	}
 }
@@ -276,61 +270,6 @@ func TestNewVecStoreUnknownBackend(t *testing.T) {
 		"x": {Kind: KindVecStore, Backend: "qdrant"},
 	}); err == nil {
 		t.Fatal("expected error for unknown vecstore backend")
-	}
-}
-
-func TestFS(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "files")
-	reg, err := New(map[string]Config{
-		"files": {Kind: KindFilesystem, FS: &FSConfig{Dir: dir}},
-	})
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	defer reg.Close()
-
-	s, err := reg.FS("files")
-	if err != nil {
-		t.Fatalf("FS(files): %v", err)
-	}
-	if string(s) != dir {
-		t.Fatalf("Root = %q, want %q", string(s), dir)
-	}
-}
-
-func TestFilesystemDriverBlock(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "files")
-	reg, err := New(map[string]Config{
-		"files": {Kind: KindFilesystem, FS: &FSConfig{Dir: dir}},
-	})
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	defer reg.Close()
-
-	s, err := reg.Filesystem("files")
-	if err != nil {
-		t.Fatalf("Filesystem(files): %v", err)
-	}
-	if string(s) != dir {
-		t.Fatalf("Root = %q, want %q", string(s), dir)
-	}
-}
-
-func TestFSNotFound(t *testing.T) {
-	reg, err := New(map[string]Config{
-		"kv": {Kind: KindKeyValue, Backend: "memory"},
-	})
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	defer reg.Close()
-
-	if _, err := reg.FS("missing"); err == nil {
-		t.Fatal("expected error for missing backend")
-	}
-	if _, err := reg.FS("kv"); err == nil {
-		t.Fatal("expected error for wrong kind lookup")
 	}
 }
 

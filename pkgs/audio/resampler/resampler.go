@@ -4,6 +4,7 @@
 package resampler
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -33,6 +34,9 @@ type Soxr struct {
 	resampler     resampling.Resampler
 	leftover      []byte
 	needsResample bool
+	sourceDone    bool
+	flushed       bool
+	terminalErr   error
 }
 
 // New creates a new Resampler that resamples audio from srcFmt to dstFmt. It
@@ -97,6 +101,9 @@ func (r *Soxr) Read(p []byte) (int, error) {
 	if r.closeErr != nil {
 		return 0, r.closeErr
 	}
+	if r.terminalErr != nil {
+		return 0, r.terminalErr
+	}
 
 	// Read and process.
 	return r.readAndProcess(p)
@@ -112,6 +119,12 @@ func (r *Soxr) readAndProcess(p []byte) (int, error) {
 	if r.resampler == nil {
 		return 0, fmt.Errorf("resampler: %w", io.ErrClosedPipe)
 	}
+	if r.sourceDone {
+		if r.terminalErr != nil {
+			return 0, r.terminalErr
+		}
+		return 0, io.EOF
+	}
 
 	// Read source data
 	// Estimate how much source data we need based on ratio.
@@ -124,10 +137,17 @@ func (r *Soxr) readAndProcess(p []byte) (int, error) {
 
 	bytesRead, readErr := r.readSourceWithChannelConv(srcBytesNeeded)
 	if bytesRead == 0 {
-		if readErr != nil {
-			return 0, readErr
+		if errors.Is(readErr, io.EOF) {
+			r.sourceDone = true
+			r.terminalErr = io.EOF
+			return r.flushAndRead(p, nil)
 		}
-		return 0, io.EOF
+		if readErr != nil {
+			r.sourceDone = true
+			r.terminalErr = readErr
+			return 0, r.terminalErr
+		}
+		return 0, nil
 	}
 
 	// Convert bytes to float64 samples (normalized to -1.0 to 1.0).
@@ -146,9 +166,33 @@ func (r *Soxr) readAndProcess(p []byte) (int, error) {
 		return 0, fmt.Errorf("resample error: %w", err)
 	}
 
+	if readErr != nil {
+		r.sourceDone = true
+		r.terminalErr = readErr
+		if errors.Is(readErr, io.EOF) {
+			return r.flushAndRead(p, output)
+		}
+	}
+	return r.copyOutput(p, output)
+}
+
+func (r *Soxr) flushAndRead(p []byte, output []float64) (int, error) {
+	if !r.flushed {
+		r.flushed = true
+		flushed, err := r.resampler.Flush()
+		if err != nil {
+			r.terminalErr = fmt.Errorf("flush resampler: %w", err)
+		} else {
+			output = append(output, flushed...)
+		}
+	}
+	return r.copyOutput(p, output)
+}
+
+func (r *Soxr) copyOutput(p []byte, output []float64) (int, error) {
 	if len(output) == 0 {
-		if readErr != nil {
-			return 0, readErr
+		if r.terminalErr != nil {
+			return 0, r.terminalErr
 		}
 		return 0, nil
 	}
@@ -174,9 +218,10 @@ func (r *Soxr) readAndProcess(p []byte) (int, error) {
 	n := copy(p, outputBytes)
 	if len(outputBytes) > n {
 		r.leftover = append(r.leftover, outputBytes[n:]...)
+		return n, nil
 	}
 
-	return n, readErr
+	return n, nil
 }
 
 // readPassthrough reads without sample rate conversion.
@@ -186,7 +231,11 @@ func (r *Soxr) readPassthrough(p []byte) (int, error) {
 		return 0, err
 	}
 	copy(p, r.readBuf[:n])
-	return n, err
+	if err != nil {
+		r.sourceDone = true
+		r.terminalErr = err
+	}
+	return n, nil
 }
 
 // readSourceWithChannelConv reads from source and handles channel conversion.

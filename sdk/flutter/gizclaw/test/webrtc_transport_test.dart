@@ -4,8 +4,7 @@ import 'dart:typed_data';
 
 import 'package:fixnum/fixnum.dart' as fixnum;
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
-import 'package:gizclaw/src/generated/rpc/common.pb.dart' as common;
-import 'package:gizclaw/src/generated/rpc/peer.pb.dart' as peer;
+import 'package:gizclaw/src/generated/rpc/rpc.pb.dart' as rpc;
 import 'package:gizclaw/gizclaw.dart';
 import 'package:test/test.dart';
 
@@ -230,7 +229,7 @@ void main() {
       channel.emitBinaryMessage(
         _rpcRequestBytes(
           id: 'srv-ping',
-          method: peer.RpcMethod.RPC_METHOD_ALL_PING,
+          method: rpc.RpcMethod.RPC_METHOD_ALL_PING,
           payloadBytes: encodeRpcRequestPayload(
             'all.ping',
             PingRequest(clientSendTime: fixnum.Int64(1)),
@@ -245,7 +244,7 @@ void main() {
         ),
       );
       expect(frames, hasLength(2));
-      final response = common.RpcResponse.fromBuffer(frames.first.payload);
+      final response = rpc.RpcResponse.fromBuffer(frames.first.payload);
       expect(response.id, 'srv-ping');
       expect(response.hasError(), isFalse);
     },
@@ -605,12 +604,12 @@ class _FakeRtcDataChannel extends rtc.RTCDataChannel {
 
 Uint8List _rpcRequestBytes({
   required String id,
-  required peer.RpcMethod method,
+  required rpc.RpcMethod method,
   List<int>? payloadBytes,
 }) {
   return concatBytes([
     ...encodeEnvelopeFrames(
-      peer.RpcRequest(
+      rpc.RpcRequest(
         id: id,
         method: method,
         payload: payloadBytes,

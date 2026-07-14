@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/pion/webrtc/v4"
 )
@@ -70,19 +69,15 @@ func TestDialSignalingPacketAndServiceStream(t *testing.T) {
 	}
 
 	opusFrame := []byte{0x00, 0xaa, 0xbb}
-	if _, err := clientConn.Write(giznet.ProtocolStampedOpusPacket, stampedopus.Pack(uint64(time.Now().UnixMilli()), opusFrame)); err != nil {
+	if _, err := clientConn.Write(giznet.ProtocolOpusPacket, opusFrame); err != nil {
 		t.Fatalf("client opus Write error = %v", err)
 	}
 	proto, payload := readDirectPacketWithTimeout(t, serverConn)
-	if proto != giznet.ProtocolStampedOpusPacket {
-		t.Fatalf("server opus proto=%d, want %d", proto, giznet.ProtocolStampedOpusPacket)
+	if proto != giznet.ProtocolOpusPacket {
+		t.Fatalf("server opus proto=%d, want %d", proto, giznet.ProtocolOpusPacket)
 	}
-	_, gotFrame, ok := stampedopus.Unpack(payload)
-	if !ok {
-		t.Fatalf("server opus payload failed to unpack: %v", payload)
-	}
-	if string(gotFrame) != string(opusFrame) {
-		t.Fatalf("server opus frame = %v, want %v", gotFrame, opusFrame)
+	if string(payload) != string(opusFrame) {
+		t.Fatalf("server opus frame = %v, want %v", payload, opusFrame)
 	}
 
 	service := serverConn.ListenService(100)

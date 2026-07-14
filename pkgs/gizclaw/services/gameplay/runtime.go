@@ -848,10 +848,10 @@ func selectedWorkflow(ruleset apitypes.GameRuleset, petDef apitypes.PetDef, pool
 }
 
 func petDefDisplayName(petDef apitypes.PetDef) string {
-	if catalog, ok := petDef.Spec.I18n[petDef.Spec.DefaultLocale]; ok && catalog.DisplayName != nil && strings.TrimSpace(*catalog.DisplayName) != "" {
+	if catalog, ok := petDef.I18n.AdditionalProperties[petDef.I18n.DefaultLocale]; ok && catalog.DisplayName != nil && strings.TrimSpace(*catalog.DisplayName) != "" {
 		return strings.TrimSpace(*catalog.DisplayName)
 	}
-	for _, catalog := range petDef.Spec.I18n {
+	for _, catalog := range petDef.I18n.AdditionalProperties {
 		if catalog.DisplayName != nil && strings.TrimSpace(*catalog.DisplayName) != "" {
 			return strings.TrimSpace(*catalog.DisplayName)
 		}

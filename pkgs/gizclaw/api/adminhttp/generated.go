@@ -522,8 +522,9 @@ type PetDefList struct {
 
 // PetDefUpsert defines model for PetDefUpsert.
 type PetDefUpsert struct {
-	Id   string                  `json:"id"`
-	Spec externalRef0.PetDefSpec `json:"spec"`
+	I18n *externalRef0.PetDefI18nSpec `json:"i18n,omitempty"`
+	Id   string                       `json:"id"`
+	Spec externalRef0.PetDefSpec      `json:"spec"`
 }
 
 // PublicKeyResponse defines model for PublicKeyResponse.

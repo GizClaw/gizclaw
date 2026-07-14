@@ -24,7 +24,6 @@ import (
 	"unsafe"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
-	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	_ "github.com/GizClaw/gizclaw-go/sdk/c/gizclaw/cgobackend"
 	"google.golang.org/protobuf/proto"
@@ -536,15 +535,13 @@ func CSDKChatRoundtrip(t *testing.T, identityDir, workspaceName, oggPath string)
 	if err := eventChannel.SendJSON(`{"v":1,"type":"bos","stream_id":"cgo-chat","label":"cgo-chat","kind":"audio","mime_type":"audio/opus"}`); err != nil {
 		t.Fatalf("send chat BOS: %v", err)
 	}
-	timestamp := uint64(1)
 	for _, packet := range opusPacketsFromOgg(t, oggPath) {
-		if err := client.SendPacket(0x10, stampedopus.Pack(timestamp, packet)); err != nil {
+		if err := client.SendPacket(0x10, packet); err != nil {
 			t.Fatalf("send chat opus packet: %v", err)
 		}
 		if err := client.Poll(20 * time.Millisecond); err != nil {
 			t.Fatalf("pace chat opus packet: %v", err)
 		}
-		timestamp += 20
 	}
 	if err := eventChannel.SendJSON(`{"v":1,"type":"eos","stream_id":"cgo-chat","label":"cgo-chat","kind":"audio","mime_type":"audio/opus"}`); err != nil {
 		t.Fatalf("send chat EOS: %v", err)
@@ -571,7 +568,7 @@ func CSDKChatRoundtrip(t *testing.T, identityDir, workspaceName, oggPath string)
 		}
 		protocol, payload, err := client.ReadPacket(50 * time.Millisecond)
 		if err == nil {
-			if protocol == 0x10 && len(payload) > stampedopus.HeaderSize && payload[0] == stampedopus.Version {
+			if protocol == 0x10 && len(payload) > 0 {
 				downlinkPackets++
 			}
 		} else if !errors.Is(err, errCSDKTimeout) {

@@ -187,7 +187,6 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 	})
 
 	t.Run("gameplay pixa", func(t *testing.T) {
-		runPetDefPixaDownloadWrapperTest(t, client)
 		runBadgeDefPixaDownloadWrapperTest(t, client)
 	})
 }
@@ -297,50 +296,6 @@ func runFirmwareDownloadWrapperTest(t *testing.T, client *rpcClient) {
 	}
 	if err := <-serverErrCh; err != nil {
 		t.Fatalf("firmware download server error = %v", err)
-	}
-}
-
-func runPetDefPixaDownloadWrapperTest(t *testing.T, client *rpcClient) {
-	t.Helper()
-	serverSide, clientSide := net.Pipe()
-	defer serverSide.Close()
-	defer clientSide.Close()
-
-	payload := []byte("petdef-pixa")
-	pixaPath := "pet-defs/petdef-a/pixa"
-	serverErrCh := make(chan error, 1)
-	go func() {
-		req, err := readRPCRequestWithEOS(serverSide)
-		if err != nil {
-			serverErrCh <- err
-			return
-		}
-		if req.Method != rpcapi.RPCMethodServerPetDefPixaDownload {
-			serverErrCh <- &unexpectedRPCMethodError{got: req.Method, want: rpcapi.RPCMethodServerPetDefPixaDownload}
-			return
-		}
-		resp := resourceResponse(req.Id, rpcapi.PetDefPixaDownloadResponse{Id: "petdef-a", PixaPath: &pixaPath, SizeBytes: int64(len(payload))}, (*rpcapi.RPCPayload).FromPetDefPixaDownloadResponse)
-		if err := rpcapi.WriteResponseForMethod(serverSide, req.Method, resp); err != nil {
-			serverErrCh <- err
-			return
-		}
-		if err := rpcapi.WriteFrame(serverSide, rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: payload}); err != nil {
-			serverErrCh <- err
-			return
-		}
-		serverErrCh <- rpcapi.WriteEOS(serverSide)
-	}()
-
-	var out bytes.Buffer
-	result, err := client.DownloadPetDefPixa(context.Background(), clientSide, "petdef-pixa-download", rpcapi.PetDefPixaDownloadRequest{Id: "petdef-a"}, &out)
-	if err != nil {
-		t.Fatalf("petdef pixa download call error = %v", err)
-	}
-	if result.Metadata.Id != "petdef-a" || result.Bytes != int64(len(payload)) || out.String() != string(payload) {
-		t.Fatalf("petdef pixa download result = %#v payload %q", result, out.String())
-	}
-	if err := <-serverErrCh; err != nil {
-		t.Fatalf("petdef pixa download server error = %v", err)
 	}
 }
 

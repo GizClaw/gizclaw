@@ -1,6 +1,5 @@
 import 'package:gizclaw/gizclaw.dart';
-import 'package:gizclaw/src/generated/rpc/common.pb.dart' as common;
-import 'package:gizclaw/src/generated/rpc/peer.pb.dart' as peer;
+import 'package:gizclaw/src/generated/rpc/rpc.pb.dart' as rpc;
 import 'package:protobuf/protobuf.dart';
 import 'package:test/test.dart';
 
@@ -28,22 +27,22 @@ void main() {
     );
     expect((await listFuture).value.items.single.id, 'pet-a');
 
-    final presentationFuture = client.getPetPresentation('pet-a');
-    final presentationRequest = await _request(factory, 1);
-    final presentationPayload =
+    final actionsFuture = client.getPetActions('pet-a');
+    final actionsRequest = await _request(factory, 1);
+    final actionsPayload =
         decodeRpcRequestPayload(
-              'server.pet.presentation.get',
-              presentationRequest.payload,
+              'server.pet.actions.get',
+              actionsRequest.payload,
             )
-            as ServerPetPresentationGetRequest;
-    expect(presentationPayload.value.id, 'pet-a');
+            as ServerPetActionsGetRequest;
+    expect(actionsPayload.value.id, 'pet-a');
     _respond(
       factory.channels[1],
-      presentationRequest.id,
-      'server.pet.presentation.get',
-      ServerPetPresentationGetResponse(value: PetPresentation(petId: 'pet-a')),
+      actionsRequest.id,
+      'server.pet.actions.get',
+      ServerPetActionsGetResponse(value: PetActions(petId: 'pet-a')),
     );
-    expect((await presentationFuture).value.petId, 'pet-a');
+    expect((await actionsFuture).value.petId, 'pet-a');
 
     final adoptFuture = client.adoptPet(displayName: 'Miso');
     final adoptRequest = await _request(factory, 2);
@@ -80,7 +79,7 @@ void main() {
   });
 }
 
-Future<peer.RpcRequest> _request(
+Future<rpc.RpcRequest> _request(
   FakeDataChannelFactory factory,
   int index,
 ) async {
@@ -89,7 +88,7 @@ Future<peer.RpcRequest> _request(
     await Future<void>.delayed(Duration.zero);
   }
   final frame = decodeFrames(factory.channels[index].sent.single).first;
-  return peer.RpcRequest.fromBuffer(frame.payload);
+  return rpc.RpcRequest.fromBuffer(frame.payload);
 }
 
 void _respond(
@@ -101,7 +100,7 @@ void _respond(
   channel.addMessage(
     concatBytes([
       ...encodeEnvelopeFrames(
-        common.RpcResponse(
+        rpc.RpcResponse(
           id: id,
           payload: encodeRpcResponsePayload(method, response),
         ).writeToBuffer(),

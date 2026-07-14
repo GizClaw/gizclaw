@@ -10,7 +10,6 @@ spec:
     metadata:
       name: petdef-starter
     spec:
-      default_locale: en
       workflow_name: pet-care-flowcraft
       attr:
         life:
@@ -57,25 +56,26 @@ spec:
             - id: bath
               action_id: bath
               pixa_clip_name: bath
-      i18n:
-        en:
-          display_name: Starter Pet
-          description: Starter pet for gameplay e2e coverage.
-          attr:
-            life:
-              hunger:
-                display_name: Hunger
-              clean:
-                display_name: Clean
-            progression:
-              xp:
-                display_name: XP
-          drive:
-            actions:
-              idle:
-                display_name: Idle
-              bath:
-                display_name: Bath
+    i18n:
+      default_locale: en
+      en:
+        display_name: Starter Pet
+        description: Starter pet for gameplay e2e coverage.
+        attr:
+          life:
+            hunger:
+              display_name: Hunger
+            clean:
+              display_name: Clean
+          progression:
+            xp:
+              display_name: XP
+        drive:
+          actions:
+            idle:
+              display_name: Idle
+            bath:
+              display_name: Bath
   - apiVersion: gizclaw.admin/v1alpha1
     kind: BadgeDef
     metadata:

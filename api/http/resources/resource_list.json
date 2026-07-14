@@ -1,0 +1,53 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Resource List Resource Schema",
+    "description": "ResourceListResource envelope schema.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "ResourceListSpec": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "./resource.json#/components/schemas/Resource"
+            }
+          }
+        }
+      },
+      "ResourceListResource": {
+        "type": "object",
+        "required": [
+          "apiVersion",
+          "kind",
+          "metadata",
+          "spec"
+        ],
+        "properties": {
+          "apiVersion": {
+            "$ref": "./resource.json#/components/schemas/ResourceAPIVersion"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "ResourceList"
+            ]
+          },
+          "metadata": {
+            "$ref": "./resource.json#/components/schemas/ResourceMetadata"
+          },
+          "spec": {
+            "$ref": "#/components/schemas/ResourceListSpec"
+          }
+        }
+      }
+    }
+  }
+}

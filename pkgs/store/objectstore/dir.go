@@ -3,6 +3,7 @@ package objectstore
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -20,7 +21,10 @@ type Dir string
 
 var _ ObjectStore = Dir("")
 
-const metadataRoot = ".objectstore-meta"
+const (
+	metadataRoot  = ".objectstore-meta"
+	putTempPrefix = ".objectstore-put-"
+)
 
 type objectMetadata struct {
 	Name     string    `json:"name"`
@@ -67,26 +71,63 @@ func (d Dir) put(name string, r io.Reader, deadline time.Time) error {
 	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
 		return err
 	}
-	f, err := os.Create(full)
+	stagingDir := filepath.Join(d.metadataRoot(), "put")
+	if err := os.MkdirAll(stagingDir, 0o755); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(stagingDir, putTempPrefix+"*")
 	if err != nil {
 		return err
 	}
-	ok := false
+	tmpName := tmp.Name()
 	defer func() {
-		if !ok {
-			_ = f.Close()
-		}
+		_ = os.Remove(tmpName)
 	}()
-	if _, err := io.Copy(f, r); err != nil {
+	if _, err := io.Copy(tmp, r); err != nil {
+		_ = tmp.Close()
 		return err
 	}
-	if err := f.Close(); err != nil {
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
 		return err
 	}
-	ok = true
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	backupName := tmpName + ".backup"
+	hadOld := false
+	if info, err := os.Lstat(full); err == nil {
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("objectstore: object path %q is not a regular file", name)
+		}
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	if err := os.Rename(full, backupName); err == nil {
+		hadOld = true
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	defer func() {
+		_ = os.Remove(backupName)
+	}()
+	if err := os.Rename(tmpName, full); err != nil {
+		if hadOld {
+			return errors.Join(err, os.Rename(backupName, full))
+		}
+		return err
+	}
 	if err := d.writeMetadata(name, deadline); err != nil {
-		_ = os.Remove(full)
-		return err
+		rollbackErr := os.Remove(full)
+		if os.IsNotExist(rollbackErr) {
+			rollbackErr = nil
+		}
+		if hadOld {
+			if restoreErr := os.Rename(backupName, full); restoreErr != nil {
+				rollbackErr = errors.Join(rollbackErr, restoreErr)
+			}
+		}
+		return errors.Join(err, rollbackErr)
 	}
 	return nil
 }
@@ -228,7 +269,26 @@ func (d Dir) writeMetadata(name string, deadline time.Time) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o644)
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".metadata-*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	defer func() {
+		_ = os.Remove(tmpName)
+	}()
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmpName, path)
 }
 
 func (d Dir) deleteMetadata(name string) error {

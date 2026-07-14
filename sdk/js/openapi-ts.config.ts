@@ -1,14 +1,14 @@
 export default [
   {
-    input: "../../api/admin_http.json",
+    input: "../../api/http/admin.json",
     output: "gizclaw/generated/adminhttp",
   },
   {
-    input: "../../api/peer_http.json",
+    input: "../../api/http/peer.json",
     output: "gizclaw/generated/peerhttp",
   },
   {
-    input: "../../api/desktop_service.json",
+    input: "../../api/http/desktop.json",
     output: "../../apps/wails/frontend/src/generated/desktopservice",
   },
 ];

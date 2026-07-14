@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
-	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -359,7 +358,7 @@ func TestPeerConnServeDirectPacketsDoesNotBlockOnTelemetry(t *testing.T) {
 	for i := 0; i < peerConnTelemetryQueueSize+5; i++ {
 		packets = append(packets, peerConnTestPacket{protocol: EventStreamTelemetry, payload: payload})
 	}
-	packets = append(packets, peerConnTestPacket{protocol: giznet.ProtocolStampedOpusPacket, payload: stampedopus.Pack(123, []byte{1, 2, 3})})
+	packets = append(packets, peerConnTestPacket{protocol: giznet.ProtocolOpusPacket, payload: []byte{1, 2, 3}})
 	conn := &peerConnPacketConn{
 		testGiznetConn: testGiznetConn{publicKey: keyPair.Public},
 		packets:        packets,

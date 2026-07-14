@@ -49,7 +49,7 @@ func newGameplayRulesetCmd() *cobra.Command {
 
 func newPetCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "pet", Short: "Use peer pets"}
-	cmd.AddCommand(newPetListCmd(), newPetGetCmd(), newPetPresentationCmd(), newPetPixaCmd(), newPetAdoptCmd(), newPetRenameCmd(), newPetDeleteCmd(), newPetDriveCmd())
+	cmd.AddCommand(newPetListCmd(), newPetGetCmd(), newPetActionsCmd(), newPetPixaCmd(), newPetAdoptCmd(), newPetRenameCmd(), newPetDeleteCmd(), newPetDriveCmd())
 	return cmd
 }
 
@@ -88,15 +88,15 @@ func newPetGetCmd() *cobra.Command {
 	return cmd
 }
 
-func newPetPresentationCmd() *cobra.Command {
+func newPetActionsCmd() *cobra.Command {
 	var opts connectRPCOptions
 	cmd := &cobra.Command{
-		Use:   "presentation <pet-id>",
-		Short: "Get pet presentation metadata",
+		Use:   "actions <pet-id>",
+		Short: "Get pet actions",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.GetPetPresentation(ctx, "server.pet.presentation.get", rpcapi.ServerPetPresentationGetRequest{Id: args[0]})
+				return c.GetPetActions(ctx, "server.pet.actions.get", rpcapi.ServerPetActionsGetRequest{Id: args[0]})
 			})
 		},
 	}

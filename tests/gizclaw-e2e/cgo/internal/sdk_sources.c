@@ -11,7 +11,6 @@
 #include "../../../../third_party/nanopb/upstream/pb_common.c"
 #include "../../../../third_party/nanopb/upstream/pb_decode.c"
 #include "../../../../third_party/nanopb/upstream/pb_encode.c"
-#include "../../../../sdk/c/gizclaw/generated/common.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/google/protobuf/struct.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/payload/ai.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/payload/edge.pb.c"
@@ -21,4 +20,4 @@
 #include "../../../../sdk/c/gizclaw/generated/payload/social.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/payload/system.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/payload/workspace.pb.c"
-#include "../../../../sdk/c/gizclaw/generated/peer.pb.c"
+#include "../../../../sdk/c/gizclaw/generated/rpc.pb.c"

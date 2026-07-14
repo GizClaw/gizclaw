@@ -121,11 +121,10 @@ func IsMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerFriendGroupMessagesGet,
 		rpcapi.RPCMethodServerFriendGroupMessagesSend,
 		rpcapi.RPCMethodServerGameRulesetGet,
-		rpcapi.RPCMethodServerPetDefPixaDownload,
 		rpcapi.RPCMethodServerBadgeDefPixaDownload,
 		rpcapi.RPCMethodServerPetList,
 		rpcapi.RPCMethodServerPetGet,
-		rpcapi.RPCMethodServerPetPresentationGet,
+		rpcapi.RPCMethodServerPetActionsGet,
 		rpcapi.RPCMethodServerPetPixaDownload,
 		rpcapi.RPCMethodServerPetAdopt,
 		rpcapi.RPCMethodServerPetPut,
@@ -268,16 +267,14 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 		return s.handleFriendGroupMessagesSend(ctx, req), true, nil
 	case rpcapi.RPCMethodServerGameRulesetGet:
 		return s.handleGameRulesetGet(ctx, req), true, nil
-	case rpcapi.RPCMethodServerPetDefPixaDownload:
-		return s.handlePetDefPixaDownload(ctx, req), true, nil
 	case rpcapi.RPCMethodServerBadgeDefPixaDownload:
 		return s.handleBadgeDefPixaDownload(ctx, req), true, nil
 	case rpcapi.RPCMethodServerPetList:
 		return s.handlePetList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerPetGet:
 		return s.handlePetGet(ctx, req), true, nil
-	case rpcapi.RPCMethodServerPetPresentationGet:
-		return s.handlePetPresentationGet(ctx, req), true, nil
+	case rpcapi.RPCMethodServerPetActionsGet:
+		return s.handlePetActionsGet(ctx, req), true, nil
 	case rpcapi.RPCMethodServerPetPixaDownload:
 		return s.handlePetPixaDownload(ctx, req), true, nil
 	case rpcapi.RPCMethodServerPetAdopt:

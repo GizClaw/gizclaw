@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
@@ -103,7 +102,6 @@ func dialUpstream(ctx context.Context, cfg Config, upstreamURL *url.URL) (giznet
 	defer cancel()
 	listener, conn, err := gizwebrtc.Dial(dialCtx, cfg.KeyPair, cfg.Upstream.PublicKey, gizwebrtc.DialConfig{
 		SignalingURL:   upstreamSignalingURL(upstreamURL),
-		HTTPClient:     newPrivateIngressHTTPClient(cfg, upstreamURL),
 		SecurityPolicy: edgeSecurityPolicy{},
 	})
 	if err != nil {
@@ -118,138 +116,6 @@ func upstreamSignalingURL(upstreamURL *url.URL) string {
 		next.Path = gizwebrtc.SignalingPath
 	}
 	return next.String()
-}
-
-func upstreamLoginURL(upstreamURL *url.URL) string {
-	next := *upstreamURL
-	next.Path = "/login"
-	next.RawQuery = ""
-	next.Fragment = ""
-	return next.String()
-}
-
-func newPrivateIngressHTTPClient(cfg Config, upstreamURL *url.URL) *http.Client {
-	return &http.Client{
-		Transport: &privateIngressRoundTripper{
-			base:     http.DefaultTransport,
-			cfg:      cfg,
-			loginURL: upstreamLoginURL(upstreamURL),
-		},
-	}
-}
-
-type privateIngressRoundTripper struct {
-	base     http.RoundTripper
-	cfg      Config
-	loginURL string
-
-	mu        sync.Mutex
-	token     string
-	expiresAt time.Time
-}
-
-func (t *privateIngressRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	token, err := t.sessionToken(req.Context())
-	if err != nil {
-		return nil, err
-	}
-	resp, err := t.roundTripWithToken(req, token)
-	if err != nil || !isPrivateIngressUnauthorized(resp.StatusCode) {
-		return resp, err
-	}
-	t.clearSessionToken(token)
-	if !canReplayPrivateIngressRequest(req) {
-		return resp, nil
-	}
-	_ = resp.Body.Close()
-	token, err = t.sessionToken(req.Context())
-	if err != nil {
-		return nil, err
-	}
-	return t.roundTripWithToken(req, token)
-}
-
-func (t *privateIngressRoundTripper) roundTripWithToken(req *http.Request, token string) (*http.Response, error) {
-	next, err := clonePrivateIngressRequest(req)
-	if err != nil {
-		return nil, err
-	}
-	next.Header.Set("Authorization", "Bearer "+token)
-	next.Header.Set(publiclogin.PublicKeyHeader, t.cfg.KeyPair.Public.String())
-	return t.transport().RoundTrip(next)
-}
-
-func clonePrivateIngressRequest(req *http.Request) (*http.Request, error) {
-	next := req.Clone(req.Context())
-	next.Header = req.Header.Clone()
-	if req.Body != nil && req.Body != http.NoBody && req.GetBody != nil {
-		body, err := req.GetBody()
-		if err != nil {
-			return nil, err
-		}
-		next.Body = body
-	}
-	return next, nil
-}
-
-func canReplayPrivateIngressRequest(req *http.Request) bool {
-	return req.Body == nil || req.Body == http.NoBody || req.GetBody != nil
-}
-
-func isPrivateIngressUnauthorized(statusCode int) bool {
-	return statusCode == http.StatusUnauthorized || statusCode == http.StatusForbidden
-}
-
-func (t *privateIngressRoundTripper) clearSessionToken(token string) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	if t.token == token {
-		t.token = ""
-		t.expiresAt = time.Time{}
-	}
-}
-
-func (t *privateIngressRoundTripper) sessionToken(ctx context.Context) (string, error) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	if t.token != "" && time.Until(t.expiresAt) > time.Minute {
-		return t.token, nil
-	}
-	assertion, err := publiclogin.NewLoginAssertion(t.cfg.KeyPair, t.cfg.Upstream.PublicKey, time.Minute)
-	if err != nil {
-		return "", fmt.Errorf("edge: create upstream login assertion: %w", err)
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, t.loginURL, nil)
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Authorization", "Bearer "+assertion)
-	req.Header.Set(publiclogin.PublicKeyHeader, t.cfg.KeyPair.Public.String())
-	resp, err := t.transport().RoundTrip(req)
-	if err != nil {
-		return "", fmt.Errorf("edge: login upstream private ingress: %w", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("edge: login upstream private ingress: %s", resp.Status)
-	}
-	var result publiclogin.LoginResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", fmt.Errorf("edge: decode upstream login response: %w", err)
-	}
-	if result.AccessToken == "" {
-		return "", fmt.Errorf("edge: upstream login response missing access token")
-	}
-	t.token = result.AccessToken
-	t.expiresAt = time.UnixMilli(result.ExpiresAt)
-	return t.token, nil
-}
-
-func (t *privateIngressRoundTripper) transport() http.RoundTripper {
-	if t.base != nil {
-		return t.base
-	}
-	return http.DefaultTransport
 }
 
 type upstreamTransport struct {

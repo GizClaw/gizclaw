@@ -5,6 +5,6 @@ generate:
   client: true
   models: true
 import-mapping:
-  ./types.json: github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes
+  ./shared.json: github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes
 output-options:
   skip-prune: true

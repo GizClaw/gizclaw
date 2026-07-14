@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
-	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/pion/datachannel"
 	"github.com/pion/webrtc/v4"
@@ -168,7 +167,7 @@ func (c *Conn) Write(protocol byte, payload []byte) (int, error) {
 	if err := c.validate(); err != nil {
 		return 0, err
 	}
-	if protocol == giznet.ProtocolStampedOpusPacket {
+	if protocol == giznet.ProtocolOpusPacket {
 		return c.writeOpus(payload)
 	}
 	c.packetMu.RLock()
@@ -331,13 +330,12 @@ func (c *Conn) trackStream(service uint64, s *dataChannelConn) {
 }
 
 func (c *Conn) writeOpus(payload []byte) (int, error) {
-	_, frame, ok := stampedopus.Unpack(payload)
-	if !ok {
-		return 0, fmt.Errorf("gizwebrtc: invalid stamped opus")
+	if len(payload) == 0 {
+		return 0, fmt.Errorf("gizwebrtc: empty opus packet")
 	}
-	ticks := codecconv.OpusPacketRTPTicks(frame)
+	ticks := codecconv.OpusPacketRTPTicks(payload)
 	duration := time.Duration(ticks) * time.Second / 48000
-	if err := c.audioTrack.WriteSample(media.Sample{Data: frame, Duration: duration}); err != nil {
+	if err := c.audioTrack.WriteSample(media.Sample{Data: payload, Duration: duration}); err != nil {
 		return 0, err
 	}
 	return len(payload), nil
@@ -354,8 +352,7 @@ func (c *Conn) readRemoteOpus(track *webrtc.TrackRemote) {
 }
 
 func (c *Conn) enqueueRemoteOpusFrame(frame []byte) {
-	payload := stampedopus.Pack(uint64(time.Now().UnixMilli()), frame)
-	c.enqueuePacket(directPacket{protocol: giznet.ProtocolStampedOpusPacket, payload: payload})
+	c.enqueuePacket(directPacket{protocol: giznet.ProtocolOpusPacket, payload: append([]byte(nil), frame...)})
 }
 
 func serviceLabel(service uint64) string {
