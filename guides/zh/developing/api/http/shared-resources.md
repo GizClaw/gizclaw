@@ -77,7 +77,9 @@ Resource 的数据首先按语义分为两类：
 - 核心数据描述 Resource 是什么以及它与什么关联，包括稳定 identity、kind、分类、引用、ownership、运行配置和持久化语义。这些字段参与业务判断、查询、关联和执行，不能放进 `display`。
 - `display` 只描述如何把该 Resource 展示给用户，例如本地化名称、subtitle、description、icon 和 cover。删除或替换 `display` 不得改变 Resource 的关联关系或运行行为。
 
-每个 Resource 自己拥有可选的 `display` 字段，并在对应 `resources/<kind>.json` 中定义自己的强类型 Display schema。例如 Workflow 定义 `WorkflowDisplay`，Workspace 定义 `WorkspaceDisplay`。即使两个 Resource 当前需要相同的 `default_locale`、`i18n`、icon 或 cover 字段，也不能因此建立公共 `ResourceDisplay`、`ResourceDisplayData` 或通用 catalog schema。
+需要通用展示 metadata 的 Resource 自己拥有可选的 `display` 字段，并在对应 `resources/<kind>.json` 中定义自己的强类型 Display schema。例如 Workflow 定义 `WorkflowDisplay`，Workspace 定义 `WorkspaceDisplay`。即使两个 Resource 当前需要相同的字段，也不能因此建立公共 `ResourceDisplay`、`ResourceDisplayData` 或通用 catalog schema。
+
+如果某个 Resource 只需要本地化 catalog，不需要额外的展示 metadata，可以直接拥有语义更准确的 `i18n` 字段。例如 PetDef 使用自己的 `PetDefI18n`，包含 `default_locale` 与 catalogs；没有必要再包装成 `display.i18n`。`display` 与 `i18n` 都是 Resource-owned contract，不进入 Shared。
 
 Display 的共同命名是一项结构约定，不代表公共领域模型。不同 Resource 可以独立增加符合自身产品语义的展示字段；修改一个 Resource 的 Display 不应迫使无关 Resource 同步修改或重新生成 API。
 
