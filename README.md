@@ -97,6 +97,7 @@ their own agents through workspace runtimes.
 - `js/`: generated TypeScript SDK packages and browser/runtime tooling.
 - `c/`: C-facing SDK surface and bindings.
 - `apps/wails/`: desktop shell and frontend.
+- `apps/gizclaw-app/`: Flutter mobile client for iOS and Android.
 - `docs/`: design and operator documentation.
 - `examples/`: runnable examples for GenX, WebRTC SFU, audio, songs, and
   voiceprint workflows.

@@ -5,6 +5,11 @@ node_modules
 cmd/ui/node_modules
 cmd/ui/admin/dist
 cmd/ui/play/dist
+apps/**/.dart_tool
+apps/**/build
+apps/**/ios/Pods
+sdk/flutter/**/.dart_tool
+sdk/flutter/**/build
 
 .tmp
 openteam

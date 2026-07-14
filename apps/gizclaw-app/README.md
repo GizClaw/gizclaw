@@ -1,16 +1,75 @@
-# gizclaw_app
+# GizClaw App
 
-A new Flutter project.
+`apps/gizclaw-app` is the Flutter mobile client for GizClaw. The generated
+project targets iOS and Android.
 
-## Getting Started
+## Current Scope
 
-This project is a starting point for a Flutter application.
+- Configure a GizClaw server and keep the generated device identity in the
+  platform secure store.
+- Browse Flowcraft, Doubao, and translation workflows and their workspaces.
+- Create and activate workspaces, switch between push-to-talk and realtime
+  input, and view or replay workspace history.
+- Manage friend invitations and friends, create groups, and open their chatroom
+  workspaces.
+- List and adopt pets, load their presentation and optional PIXA animation, and
+  invoke pet actions.
 
-A few resources to get you started if this is your first Flutter project:
+Workflow, workspace, friend, group, and pet surfaces use the live GizClaw RPCs.
+Drift caches the catalog and history data needed for responsive listing and
+offline presentation. Prototype fixtures are limited to the demo controller and
+widget tests.
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## Development
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```sh
+flutter run
+flutter analyze
+flutter test
+```
+
+For a development server, inject the ignored e2e identity at build time. The
+iOS simulator can reach a server on the host through `127.0.0.1`:
+
+```sh
+flutter run \
+  --dart-define=GIZCLAW_ENDPOINT=127.0.0.1:19820 \
+  --dart-define=GIZCLAW_PRIVATE_KEY=<development-private-key>
+```
+
+For an Android emulator, use its host alias instead:
+
+```sh
+flutter run \
+  --dart-define=GIZCLAW_ENDPOINT=10.0.2.2:19820 \
+  --dart-define=GIZCLAW_PRIVATE_KEY=<development-private-key>
+```
+
+On a physical iOS or Android device, use the development machine's LAN address
+and make sure the server listens on that interface.
+
+Do not commit a private key or persist it in Drift. At runtime the app generates
+or imports the device key through `flutter_secure_storage`; the endpoint is
+stored separately in platform preferences.
+
+Run commands from this directory:
+
+```sh
+cd apps/gizclaw-app
+```
+
+## Integration Notes
+
+Mobile presentation will likely need workflow display fields beyond the current
+execution contract. Keep those fields in metadata/display-oriented schemas, not
+inside workflow driver execution parameters.
+
+Expected future contract work:
+
+- Add display metadata for workflow cards, such as icon, banner image, category,
+  featured rank, and short subtitle.
+- Add a workflow filter to workspace listing so a workflow detail screen can
+  load only its workspaces without client-side filtering.
+- Decide whether mobile chat uses Peer OpenAI-compatible chat completions,
+  workspace run status/history, or a dedicated chatroom workflow stream for each
+  driver.
