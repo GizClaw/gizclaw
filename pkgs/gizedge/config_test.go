@@ -360,7 +360,7 @@ func TestUpstreamTransportReconnectsAfterClosedConn(t *testing.T) {
 		}
 		handler.ServeHTTP(w, r)
 	}))
-	defer signaling.Close()
+	t.Cleanup(signaling.Close)
 
 	cfg := Config{
 		KeyPair: edgeKey,
@@ -374,11 +374,16 @@ func TestUpstreamTransportReconnectsAfterClosedConn(t *testing.T) {
 		t.Fatalf("UpstreamURL error = %v", err)
 	}
 	type testUpstream struct {
+		name     string
 		listener giznet.Listener
 		connCh   chan giznet.Conn
-		errCh    chan error
+		doneCh   chan struct{}
+
+		mu       sync.Mutex
+		conn     giznet.Conn
+		serveErr error
 	}
-	startUpstream := func(body string) testUpstream {
+	startUpstream := func(name, body string) *testUpstream {
 		t.Helper()
 		upstreamListener, err := (&gizwebrtc.ListenConfig{
 			SecurityPolicy: edgeTestSecurityPolicy{
@@ -394,25 +399,72 @@ func TestUpstreamTransportReconnectsAfterClosedConn(t *testing.T) {
 		signalingHandler = upstreamListener.SignalingHandler()
 		mu.Unlock()
 
-		connCh := make(chan giznet.Conn, 1)
-		errCh := make(chan error, 1)
+		upstream := &testUpstream{
+			name:     name,
+			listener: upstreamListener,
+			connCh:   make(chan giznet.Conn, 1),
+			doneCh:   make(chan struct{}),
+		}
 		go func() {
+			defer close(upstream.doneCh)
 			conn, err := upstreamListener.Accept()
 			if err != nil {
-				errCh <- err
+				upstream.mu.Lock()
+				upstream.serveErr = err
+				upstream.mu.Unlock()
 				return
 			}
-			connCh <- conn
+			upstream.mu.Lock()
+			upstream.conn = conn
+			upstream.mu.Unlock()
+			upstream.connCh <- conn
 			server := gizhttp.NewServer(conn, gizclaw.ServiceEdgeHTTP, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				_, _ = w.Write([]byte(body))
 			}))
-			errCh <- server.Serve()
+			err = server.Serve()
+			upstream.mu.Lock()
+			upstream.serveErr = err
+			upstream.mu.Unlock()
 		}()
-		return testUpstream{listener: upstreamListener, connCh: connCh, errCh: errCh}
+		t.Cleanup(func() {
+			upstream.mu.Lock()
+			conn := upstream.conn
+			upstream.mu.Unlock()
+			if conn != nil {
+				_ = conn.Close()
+			}
+			_ = upstream.listener.Close()
+			select {
+			case <-upstream.doneCh:
+				upstream.mu.Lock()
+				err := upstream.serveErr
+				upstream.mu.Unlock()
+				if err != nil && !errors.Is(err, giznet.ErrClosed) {
+					t.Errorf("%s upstream shutdown error = %v", upstream.name, err)
+				}
+			case <-time.After(5 * time.Second):
+				t.Errorf("%s upstream shutdown timed out", upstream.name)
+			}
+		})
+		return upstream
+	}
+	waitUpstreamConn := func(upstream *testUpstream) giznet.Conn {
+		t.Helper()
+		select {
+		case conn := <-upstream.connCh:
+			return conn
+		case <-upstream.doneCh:
+			upstream.mu.Lock()
+			err := upstream.serveErr
+			upstream.mu.Unlock()
+			t.Fatalf("%s upstream accept error = %v", upstream.name, err)
+		case <-time.After(5 * time.Second):
+			t.Fatalf("%s upstream accept timed out", upstream.name)
+		}
+		return nil
 	}
 
-	first := startUpstream("first")
-	defer first.listener.Close()
+	first := startUpstream("first", "first")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	transport, err := newUpstreamTransport(ctx, cfg, upstreamURL)
@@ -421,33 +473,28 @@ func TestUpstreamTransportReconnectsAfterClosedConn(t *testing.T) {
 	}
 	defer transport.Close()
 
-	var firstConn giznet.Conn
-	select {
-	case firstConn = <-first.connCh:
-	case err := <-first.errCh:
-		t.Fatalf("first upstream accept error = %v", err)
-	case <-time.After(5 * time.Second):
-		t.Fatal("first upstream accept timed out")
-	}
+	firstConn := waitUpstreamConn(first)
 	client := &http.Client{Transport: transport, Timeout: 5 * time.Second}
 	if got := edgeHTTPGetBody(t, client); got != "first" {
 		t.Fatalf("first body = %q", got)
 	}
-	_ = firstConn.Close()
-	_ = first.listener.Close()
 
-	second := startUpstream("second")
-	defer second.listener.Close()
+	second := startUpstream("second", "second")
+	transport.mu.Lock()
+	staleConn := transport.conn
+	transport.mu.Unlock()
+	if staleConn == nil {
+		t.Fatal("transport client connection = nil")
+	}
+	if err := staleConn.Close(); err != nil {
+		t.Fatalf("close stale transport connection: %v", err)
+	}
 	if got := edgeHTTPGetBody(t, client); got != "second" {
 		t.Fatalf("second body = %q", got)
 	}
-	select {
-	case secondConn := <-second.connCh:
-		_ = secondConn.Close()
-	case err := <-second.errCh:
-		t.Fatalf("second upstream accept error = %v", err)
-	case <-time.After(5 * time.Second):
-		t.Fatal("second upstream accept timed out")
+	secondConn := waitUpstreamConn(second)
+	if firstConn == secondConn {
+		t.Fatal("replacement upstream reused the first connection")
 	}
 	mu.Lock()
 	gotLogins := loginRequests
@@ -456,8 +503,8 @@ func TestUpstreamTransportReconnectsAfterClosedConn(t *testing.T) {
 	if gotLogins != 0 {
 		t.Fatalf("login requests = %d, want 0", gotLogins)
 	}
-	if gotSignaling < 2 {
-		t.Fatalf("signaling requests = %d, want at least 2", gotSignaling)
+	if gotSignaling != 2 {
+		t.Fatalf("signaling requests = %d, want 2", gotSignaling)
 	}
 }
 
