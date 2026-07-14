@@ -1610,38 +1610,37 @@ func (a *agent) waitOpusFrame(ctx context.Context, epoch uint64) error {
 
 func (a *agent) transcribeInputTurn(ctx context.Context, input genx.Stream, output *genx.StreamBuilder, epoch uint64, defaultStreamID string) (string, string, error) {
 	prefetched, err := readInputTurn(ctx, input, defaultStreamID)
+	turnStreamID := strings.TrimSpace(prefetched.streamID)
+	if turnStreamID == "" {
+		turnStreamID = defaultInputStreamID
+	}
 	if err != nil {
-		return "", prefetched.streamID, err
+		return "", turnStreamID, err
 	}
 	if prefetched.hasText && !prefetched.hasAudio {
 		if err := a.addOutput(output, epoch,
-			textChunk(genx.RoleUser, transcriptLabel, prefetched.streamID, transcriptLabel, prefetched.transcript, false),
-			textChunk(genx.RoleUser, transcriptLabel, prefetched.streamID, transcriptLabel, "", true),
+			textChunk(genx.RoleUser, transcriptLabel, turnStreamID, transcriptLabel, prefetched.transcript, false),
+			textChunk(genx.RoleUser, transcriptLabel, turnStreamID, transcriptLabel, "", true),
 		); err != nil {
-			return "", prefetched.streamID, err
+			return "", turnStreamID, err
 		}
-		return prefetched.transcript, prefetched.streamID, nil
+		return prefetched.transcript, turnStreamID, nil
 	}
 	input = &sliceStream{chunks: prefetched.chunks}
 	transformer := a.transformers.Transformer()
 	asrInput := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 64)
 	asr, err := transformer.Transform(ctx, "model/"+a.asrModel, asrInput.Stream())
 	if err != nil {
-		return "", "", fmt.Errorf("flowcraft: start ASR: %w", err)
+		return "", turnStreamID, fmt.Errorf("flowcraft: start ASR: %w", err)
 	}
 	defer func() { _ = asr.Close() }()
 
-	defaultStreamID = strings.TrimSpace(defaultStreamID)
-	if defaultStreamID == "" {
-		defaultStreamID = defaultInputStreamID
-	}
-	streamIDState := &lockedString{value: defaultStreamID}
 	feedDone := make(chan feedASRResult, 1)
 	go func() {
 		emitHistoryAudio := func(chunk *genx.MessageChunk) error {
-			return a.addOutput(output, epoch, userAudioHistoryChunk(chunk, streamIDState.Get()))
+			return a.addOutput(output, epoch, userAudioHistoryChunk(chunk, turnStreamID))
 		}
-		result := feedASRInput(ctx, input, asrInput, streamIDState, defaultStreamID, emitHistoryAudio)
+		result := feedASRInput(ctx, input, asrInput, turnStreamID, emitHistoryAudio)
 		feedDone <- result
 	}()
 
@@ -1655,9 +1654,9 @@ func (a *agent) transcribeInputTurn(ctx context.Context, input genx.Stream, outp
 			}
 			result := <-feedDone
 			if result.err != nil {
-				return "", result.streamID, result.err
+				return "", turnStreamID, result.err
 			}
-			return "", result.streamID, fmt.Errorf("flowcraft: read ASR: %w", err)
+			return "", turnStreamID, fmt.Errorf("flowcraft: read ASR: %w", err)
 		}
 		text, ok := chunk.Part.(genx.Text)
 		if chunk.IsEndOfStream() {
@@ -1665,12 +1664,12 @@ func (a *agent) transcribeInputTurn(ctx context.Context, input genx.Stream, outp
 			if text != "" {
 				part := string(text)
 				transcript = mergeTranscript(transcript, part)
-				if err := a.addOutput(output, epoch, textChunk(genx.RoleUser, transcriptLabel, streamIDState.Get(), transcriptLabel, part, false)); err != nil {
-					return "", streamIDState.Get(), err
+				if err := a.addOutput(output, epoch, textChunk(genx.RoleUser, transcriptLabel, turnStreamID, transcriptLabel, part, false)); err != nil {
+					return "", turnStreamID, err
 				}
 			}
-			if err := a.addOutput(output, epoch, textChunk(genx.RoleUser, transcriptLabel, streamIDState.Get(), transcriptLabel, "", true)); err != nil {
-				return "", streamIDState.Get(), err
+			if err := a.addOutput(output, epoch, textChunk(genx.RoleUser, transcriptLabel, turnStreamID, transcriptLabel, "", true)); err != nil {
+				return "", turnStreamID, err
 			}
 			continue
 		}
@@ -1679,23 +1678,20 @@ func (a *agent) transcribeInputTurn(ctx context.Context, input genx.Stream, outp
 		}
 		part := string(text)
 		transcript = mergeTranscript(transcript, part)
-		if err := a.addOutput(output, epoch, textChunk(genx.RoleUser, transcriptLabel, streamIDState.Get(), transcriptLabel, part, false)); err != nil {
-			return "", streamIDState.Get(), err
+		if err := a.addOutput(output, epoch, textChunk(genx.RoleUser, transcriptLabel, turnStreamID, transcriptLabel, part, false)); err != nil {
+			return "", turnStreamID, err
 		}
 	}
 	result := <-feedDone
 	if result.err != nil {
-		return "", result.streamID, result.err
-	}
-	if result.streamID == "" {
-		result.streamID = defaultInputStreamID
+		return "", turnStreamID, result.err
 	}
 	if !transcriptEOS {
-		if err := a.addOutput(output, epoch, textChunk(genx.RoleUser, transcriptLabel, result.streamID, transcriptLabel, "", true)); err != nil {
-			return "", result.streamID, err
+		if err := a.addOutput(output, epoch, textChunk(genx.RoleUser, transcriptLabel, turnStreamID, transcriptLabel, "", true)); err != nil {
+			return "", turnStreamID, err
 		}
 	}
-	return transcript, result.streamID, nil
+	return transcript, turnStreamID, nil
 }
 
 type prefetchedInputTurn struct {
@@ -1897,8 +1893,8 @@ type feedASRResult struct {
 
 type historyAudioEmitter func(*genx.MessageChunk) error
 
-func feedASRInput(ctx context.Context, input genx.Stream, asrInput *genx.StreamBuilder, streamIDState *lockedString, defaultStreamID string, emitHistoryAudio historyAudioEmitter) feedASRResult {
-	streamID := strings.TrimSpace(defaultStreamID)
+func feedASRInput(ctx context.Context, input genx.Stream, asrInput *genx.StreamBuilder, streamID string, emitHistoryAudio historyAudioEmitter) feedASRResult {
+	streamID = strings.TrimSpace(streamID)
 	if streamID == "" {
 		streamID = defaultInputStreamID
 	}
@@ -1937,10 +1933,6 @@ func feedASRInput(ctx context.Context, input genx.Stream, asrInput *genx.StreamB
 		if chunk == nil {
 			continue
 		}
-		if chunk.Ctrl != nil && chunk.Ctrl.StreamID != "" {
-			streamID = chunk.Ctrl.StreamID
-			streamIDState.Set(streamID)
-		}
 		if blob, ok := chunk.Part.(*genx.Blob); ok && isAudioMIME(blob.MIMEType) && len(blob.Data) > 0 {
 			audioSeen = true
 			lastAudioMIME = blob.MIMEType
@@ -1961,9 +1953,7 @@ func feedASRInput(ctx context.Context, input genx.Stream, asrInput *genx.StreamB
 			if eos.Ctrl == nil {
 				eos.Ctrl = &genx.StreamCtrl{}
 			}
-			if eos.Ctrl.StreamID == "" {
-				eos.Ctrl.StreamID = streamID
-			}
+			eos.Ctrl.StreamID = streamID
 			eos.Ctrl.EndOfStream = true
 			if err := asrInput.Add(eos); err != nil {
 				return feedASRResult{streamID: streamID, err: err}
