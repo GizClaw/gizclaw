@@ -28,13 +28,25 @@ flutter analyze
 flutter test
 ```
 
-For a development server, inject the ignored e2e identity at build time:
+For a development server, inject the ignored e2e identity at build time. The
+iOS simulator can reach a server on the host through `127.0.0.1`:
 
 ```sh
 flutter run \
   --dart-define=GIZCLAW_ENDPOINT=127.0.0.1:19820 \
   --dart-define=GIZCLAW_PRIVATE_KEY=<development-private-key>
 ```
+
+For an Android emulator, use its host alias instead:
+
+```sh
+flutter run \
+  --dart-define=GIZCLAW_ENDPOINT=10.0.2.2:19820 \
+  --dart-define=GIZCLAW_PRIVATE_KEY=<development-private-key>
+```
+
+On a physical iOS or Android device, use the development machine's LAN address
+and make sure the server listens on that interface.
 
 Do not commit a private key or persist it in Drift. At runtime the app generates
 or imports the device key through `flutter_secure_storage`; the endpoint is

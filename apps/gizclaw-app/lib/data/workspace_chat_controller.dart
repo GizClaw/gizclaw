@@ -69,6 +69,7 @@ class WorkspaceChatController extends ChangeNotifier {
   Timer? _levelTimer;
   List<WorkspaceChatMessage> _cached = const [];
   final List<WorkspaceChatMessage> _transient = [];
+  final Map<String, Set<String>> _historyIdsAtStreamStart = {};
   WorkspaceChatState state = WorkspaceChatState.loading;
   Object? lastError;
   bool recording = false;
@@ -97,27 +98,7 @@ class WorkspaceChatController extends ChangeNotifier {
       _historySubscription = repository
           .watchHistory(stableServerId, workspaceName)
           .listen((history) {
-            _cached = history
-                .map(
-                  (entry) => WorkspaceChatMessage(
-                    id: entry.id,
-                    incoming: entry.incoming,
-                    text: entry.text,
-                    state: WorkspaceMessageState.complete,
-                    replayAvailable: entry.replayAvailable,
-                    createdAt: entry.createdAt,
-                  ),
-                )
-                .toList(growable: false);
-            _transient.removeWhere(
-              (message) =>
-                  message.state == WorkspaceMessageState.complete &&
-                  _cached.any(
-                    (cached) =>
-                        cached.incoming == message.incoming &&
-                        cached.text == message.text,
-                  ),
-            );
+            _replaceCachedHistory(history);
             notifyListeners();
           });
     }
@@ -211,6 +192,7 @@ class WorkspaceChatController extends ChangeNotifier {
     } catch (error) {
       _inputTrack?.enabled = false;
       _activeStreamId = null;
+      _finishPending = false;
       _handleError(error, changeState: false);
     } finally {
       startingInput = false;
@@ -399,18 +381,10 @@ class WorkspaceChatController extends ChangeNotifier {
     final completedText = done && text.startsWith(accumulatedText)
         ? text
         : accumulatedText + text;
-    if (done) {
-      final alreadyCached = _cached.any(
-        (cached) =>
-            cached.incoming == !transcript && cached.text == completedText,
-      );
-      if (alreadyCached) {
-        if (index >= 0) _transient.removeAt(index);
-        notifyListeners();
-        return;
-      }
-    }
     if (index < 0) {
+      _historyIdsAtStreamStart[id] = _cached
+          .map((message) => message.id)
+          .toSet();
       _transient.add(
         WorkspaceChatMessage(
           id: id,
@@ -437,6 +411,7 @@ class WorkspaceChatController extends ChangeNotifier {
         state: WorkspaceMessageState.failed,
       );
     }
+    if (done) _removeTransientsNowInHistory();
     notifyListeners();
   }
 
@@ -453,23 +428,48 @@ class WorkspaceChatController extends ChangeNotifier {
         serverId: stableServerId,
         workspaceName: workspaceName,
       );
-      _cached = history
-          .map(
-            (entry) => WorkspaceChatMessage(
-              id: entry.id,
-              incoming: entry.incoming,
-              text: entry.text,
-              state: WorkspaceMessageState.complete,
-              replayAvailable: entry.replayAvailable,
-              createdAt: entry.createdAt,
-            ),
-          )
-          .toList(growable: false);
+      _replaceCachedHistory(history);
       lastError = null;
-      _transient.clear();
       notifyListeners();
     } catch (error) {
       _handleError(error, changeState: _session == null && _cached.isEmpty);
+    }
+  }
+
+  void _replaceCachedHistory(List<CachedWorkspaceMessage> history) {
+    _cached = history
+        .map(
+          (entry) => WorkspaceChatMessage(
+            id: entry.id,
+            incoming: entry.incoming,
+            text: entry.text,
+            state: WorkspaceMessageState.complete,
+            replayAvailable: entry.replayAvailable,
+            createdAt: entry.createdAt,
+          ),
+        )
+        .toList(growable: false);
+    _removeTransientsNowInHistory();
+  }
+
+  void _removeTransientsNowInHistory() {
+    final resolved = <String>{};
+    for (final message in _transient) {
+      if (message.state != WorkspaceMessageState.complete) continue;
+      final historyAtStart = _historyIdsAtStreamStart[message.id] ?? const {};
+      if (_cached.any(
+        (cached) =>
+            !historyAtStart.contains(cached.id) &&
+            cached.incoming == message.incoming &&
+            cached.text == message.text,
+      )) {
+        resolved.add(message.id);
+      }
+    }
+    if (resolved.isEmpty) return;
+    _transient.removeWhere((message) => resolved.contains(message.id));
+    for (final id in resolved) {
+      _historyIdsAtStreamStart.remove(id);
     }
   }
 

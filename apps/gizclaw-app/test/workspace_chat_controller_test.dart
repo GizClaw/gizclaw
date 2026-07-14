@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gizclaw/gizclaw.dart';
@@ -131,6 +133,58 @@ void main() {
     expect(controller.state, WorkspaceChatState.error);
     expect(controller.lastError, isA<StateError>());
   });
+
+  test('keeps repeated live text until a new history row arrives', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = _ControlledHistoryRepository(database)
+      ..history = const [
+        CachedWorkspaceMessage(
+          id: 'history-old',
+          incoming: true,
+          text: 'OK',
+          createdAt: null,
+          replayAvailable: false,
+        ),
+      ];
+    final controller = WorkspaceChatController(
+      workspaceName: 'translator',
+      repository: repository,
+      serverId: 'server-a',
+      client: GizClawClient(_NeverDataChannelFactory()),
+    );
+    addTearDown(controller.dispose);
+    addTearDown(repository.close);
+    await controller.start(conversation: false);
+
+    controller.handleEventForTesting(
+      const PeerStreamEvent(
+        type: 'text.done',
+        streamId: 'answer-new',
+        label: 'assistant',
+        text: 'OK',
+      ),
+    );
+
+    expect(controller.messages, hasLength(2));
+    repository.emit([
+      ...repository.history,
+      const CachedWorkspaceMessage(
+        id: 'history-new',
+        incoming: true,
+        text: 'OK',
+        createdAt: null,
+        replayAvailable: false,
+      ),
+    ]);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(controller.messages, hasLength(2));
+    expect(controller.messages.map((message) => message.id), [
+      'history-old',
+      'history-new',
+    ]);
+  });
 }
 
 class _FailingHistoryRepository extends WorkspaceChatRepository {
@@ -144,6 +198,33 @@ class _FailingHistoryRepository extends WorkspaceChatRepository {
   }) async {
     throw StateError('history unavailable');
   }
+}
+
+class _ControlledHistoryRepository extends WorkspaceChatRepository {
+  _ControlledHistoryRepository(super.database);
+
+  final _controller = StreamController<List<CachedWorkspaceMessage>>();
+  List<CachedWorkspaceMessage> history = const [];
+
+  @override
+  Stream<List<CachedWorkspaceMessage>> watchHistory(
+    String serverId,
+    String workspaceName,
+  ) => _controller.stream;
+
+  @override
+  Future<List<CachedWorkspaceMessage>> refresh({
+    required GizClawClient client,
+    required String serverId,
+    required String workspaceName,
+  }) async => history;
+
+  void emit(List<CachedWorkspaceMessage> value) {
+    history = value;
+    _controller.add(value);
+  }
+
+  Future<void> close() => _controller.close();
 }
 
 class _NeverDataChannelFactory implements GizClawDataChannelFactory {

@@ -95,6 +95,36 @@ void main() {
     expect(controller.lastError, isNull);
   });
 
+  test('switches cached server partitions after reconnect', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final oldClient = _RunWorkspaceClient();
+    final newClient = _RunWorkspaceClient();
+    final connection = _ReconnectTestConnection(
+      profile: _profile('gizclaw.local:9820'),
+      client: oldClient,
+      serverId: 'old-server',
+      reconnectClient: newClient,
+      reconnectServerId: 'new-server',
+    );
+    final repository = _ReconnectRepository(database);
+    final controller =
+        MobileDataController(
+            database: database,
+            connectionController: connection,
+            dataRepository: repository,
+          )
+          ..activeServerId = 'old-server'
+          ..connectionState = MobileConnectionState.connected;
+    addTearDown(controller.dispose);
+
+    await controller.recoverTransport();
+
+    expect(controller.activeServerId, 'new-server');
+    expect(repository.workflowWatchServerIds, ['new-server']);
+    expect(repository.refreshServerIds, ['new-server']);
+  });
+
   test('creates typed defaults for a Doubao workspace', () {
     final parameters = newWorkspaceParametersForDriver(
       WorkflowDriverKind.doubaoRealtime,
@@ -267,6 +297,29 @@ class _QueuedRefreshRepository extends MobileDataRepository {
   }
 }
 
+class _ReconnectRepository extends MobileDataRepository {
+  _ReconnectRepository(super.database);
+
+  final workflowWatchServerIds = <String>[];
+  final refreshServerIds = <String>[];
+
+  @override
+  Stream<List<WorkflowCard>> watchWorkflows(String serverId) {
+    workflowWatchServerIds.add(serverId);
+    return const Stream.empty();
+  }
+
+  @override
+  Future<List<MobileDataRefreshWarning>> refresh({
+    required GizClawClient client,
+    required String endpoint,
+    required String serverId,
+  }) async {
+    refreshServerIds.add(serverId);
+    return const [];
+  }
+}
+
 class _RefreshTestConnection extends GizClawConnectionController {
   _RefreshTestConnection({
     required GizClawConnectionProfile profile,
@@ -292,6 +345,26 @@ class _RefreshTestConnection extends GizClawConnectionController {
 
   @override
   String get serverId => currentServerId;
+}
+
+class _ReconnectTestConnection extends _RefreshTestConnection {
+  _ReconnectTestConnection({
+    required super.profile,
+    required super.client,
+    required super.serverId,
+    required this.reconnectClient,
+    required this.reconnectServerId,
+  });
+
+  final GizClawClient reconnectClient;
+  final String reconnectServerId;
+
+  @override
+  Future<GizClawClient> reconnect() async {
+    currentClient = reconnectClient;
+    currentServerId = reconnectServerId;
+    return reconnectClient;
+  }
 }
 
 class _RunWorkspaceClient extends GizClawClient {

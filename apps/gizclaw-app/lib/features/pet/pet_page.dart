@@ -984,8 +984,16 @@ class _PetCoverCard extends StatelessWidget {
                 right: compact ? 18 : 76,
                 top: compact ? 42 : 34,
                 bottom: compact ? 76 : 76,
-                child: visual?.pixa == null
+                child: visual == null
                     ? const Center(child: CupertinoActivityIndicator())
+                    : visual!.pixa == null
+                    ? const Center(
+                        child: Icon(
+                          GizIcons.sparkles,
+                          color: GizColors.secondaryInk,
+                          size: 36,
+                        ),
+                      )
                     : _PetCoverSprite(
                         child: _AnimatedPetSprite(
                           asset: visual!.pixa!,

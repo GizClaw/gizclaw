@@ -411,8 +411,17 @@ class MobileDataController extends ChangeNotifier {
     notifyListeners();
     try {
       final client = await connection.reconnect();
+      final serverId = connection.serverId;
+      if (serverId == null) {
+        throw StateError('GizClaw reconnect did not return a server identity');
+      }
       lastError = null;
-      await _syncRunWorkspace(client);
+      if (serverId != activeServerId) {
+        await _watchServer(serverId);
+        await refresh(client: client, serverId: serverId);
+      } else {
+        await _syncRunWorkspace(client);
+      }
       connectionState = MobileConnectionState.connected;
       notifyListeners();
       return client;
