@@ -1,8 +1,12 @@
 import 'dart:async';
 
+import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gizclaw/gizclaw.dart';
+import 'package:gizclaw_app/connection/gizclaw_connection_controller.dart';
+import 'package:gizclaw_app/data/database/app_database.dart';
 import 'package:gizclaw_app/data/mobile_data_controller.dart';
+import 'package:gizclaw_app/data/repositories/mobile_data_repository.dart';
 import 'package:gizclaw_app/prototype/prototype_models.dart';
 
 void main() {
@@ -51,6 +55,44 @@ void main() {
     expect(result, 'ok');
     expect(requests, 2);
     expect(reconnects, 1);
+  });
+
+  test('drains a queued refresh after a stale refresh fails', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final oldClient = _RunWorkspaceClient();
+    final newClient = _RunWorkspaceClient();
+    final connection = _RefreshTestConnection(
+      profile: _profile('old.local:9820'),
+      client: oldClient,
+      serverId: 'old-server',
+    );
+    final repository = _QueuedRefreshRepository(database);
+    final controller = MobileDataController(
+      database: database,
+      connectionController: connection,
+      dataRepository: repository,
+    )..connectionState = MobileConnectionState.connected;
+
+    final oldRefresh = controller.refresh(
+      client: oldClient,
+      serverId: 'old-server',
+    );
+    connection
+      ..currentProfile = _profile('new.local:9820')
+      ..currentClient = newClient
+      ..currentServerId = 'new-server';
+    final newRefresh = controller.refresh(
+      client: newClient,
+      serverId: 'new-server',
+    );
+    repository.firstRefresh.completeError(StateError('old refresh failed'));
+
+    await Future.wait([oldRefresh, newRefresh]);
+
+    expect(repository.endpoints, ['old.local:9820', 'new.local:9820']);
+    expect(controller.connectionState, MobileConnectionState.connected);
+    expect(controller.lastError, isNull);
   });
 
   test('creates typed defaults for a Doubao workspace', () {
@@ -126,4 +168,71 @@ void main() {
       'zh/en',
     );
   });
+}
+
+GizClawConnectionProfile _profile(String endpoint) =>
+    GizClawConnectionProfile(endpoint: endpoint, clientPrivateKey: 'test-key');
+
+class _QueuedRefreshRepository extends MobileDataRepository {
+  _QueuedRefreshRepository(super.database);
+
+  final firstRefresh = Completer<List<MobileDataRefreshWarning>>();
+  final endpoints = <String>[];
+
+  @override
+  Future<List<MobileDataRefreshWarning>> refresh({
+    required GizClawClient client,
+    required String endpoint,
+    required String serverId,
+  }) {
+    endpoints.add(endpoint);
+    if (endpoints.length == 1) return firstRefresh.future;
+    return Future.value(const []);
+  }
+}
+
+class _RefreshTestConnection extends GizClawConnectionController {
+  _RefreshTestConnection({
+    required GizClawConnectionProfile profile,
+    required GizClawClient client,
+    required String serverId,
+  }) : currentProfile = profile,
+       currentClient = client,
+       currentServerId = serverId,
+       super(profile);
+
+  GizClawConnectionProfile currentProfile;
+  GizClawClient currentClient;
+  String currentServerId;
+
+  @override
+  GizClawClient get client => currentClient;
+
+  @override
+  bool get isConnected => true;
+
+  @override
+  GizClawConnectionProfile get profile => currentProfile;
+
+  @override
+  String get serverId => currentServerId;
+}
+
+class _RunWorkspaceClient extends GizClawClient {
+  _RunWorkspaceClient() : super(_NeverDataChannelFactory());
+
+  @override
+  Future<ServerGetRunWorkspaceResponse> getRunWorkspace() async {
+    return ServerGetRunWorkspaceResponse(value: PeerRunWorkspaceState());
+  }
+}
+
+class _NeverDataChannelFactory implements GizClawDataChannelFactory {
+  @override
+  Future<GizClawDataChannel> createDataChannel(
+    String label, {
+    GizClawDataChannelOptions options = const GizClawDataChannelOptions(),
+  }) {
+    throw UnsupportedError('No data channel is used by this test');
+  }
 }

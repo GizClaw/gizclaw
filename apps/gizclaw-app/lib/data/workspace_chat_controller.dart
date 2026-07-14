@@ -393,12 +393,11 @@ class WorkspaceChatController extends ChangeNotifier {
     final id = 'stream-${event.streamId ?? 'assistant'}-$label';
     var index = _transient.indexWhere((message) => message.id == id);
     final done = event.type == 'text.done';
+    final accumulatedText = index < 0 ? '' : _transient[index].text;
+    final completedText = done && text.startsWith(accumulatedText)
+        ? text
+        : accumulatedText + text;
     if (done) {
-      final completedText = text.isNotEmpty
-          ? text
-          : index < 0
-          ? ''
-          : _transient[index].text;
       final alreadyCached = _cached.any(
         (cached) =>
             cached.incoming == !transcript && cached.text == completedText,
@@ -425,7 +424,7 @@ class WorkspaceChatController extends ChangeNotifier {
     } else {
       final current = _transient[index];
       _transient[index] = current.copyWith(
-        text: done && text.isNotEmpty ? text : current.text + text,
+        text: done ? completedText : current.text + text,
         state: done
             ? WorkspaceMessageState.complete
             : WorkspaceMessageState.streaming,
@@ -438,6 +437,9 @@ class WorkspaceChatController extends ChangeNotifier {
     }
     notifyListeners();
   }
+
+  @visibleForTesting
+  void handleEventForTesting(PeerStreamEvent event) => _handleEvent(event);
 
   Future<void> _refreshHistory() async {
     final activeClient = client;

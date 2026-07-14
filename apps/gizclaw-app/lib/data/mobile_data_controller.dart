@@ -65,12 +65,16 @@ class MobileDataController extends ChangeNotifier {
   MobileDataController({
     AppDatabase? database,
     GizClawConnectionProfile? profile,
+    GizClawConnectionController? connectionController,
+    MobileDataRepository? dataRepository,
     this.identityStore,
   }) : database = database ?? AppDatabase(),
-       connection = GizClawConnectionController(
-         profile ?? GizClawConnectionProfile.fromEnvironment(),
-       ) {
-    repository = MobileDataRepository(this.database);
+       connection =
+           connectionController ??
+           GizClawConnectionController(
+             profile ?? GizClawConnectionProfile.fromEnvironment(),
+           ) {
+    repository = dataRepository ?? MobileDataRepository(this.database);
   }
 
   factory MobileDataController.demo() {
@@ -313,50 +317,49 @@ class MobileDataController extends ChangeNotifier {
     refreshing = true;
     lastError = null;
     notifyListeners();
-    GizClawClient? refreshClient;
-    String? refreshEndpoint;
     try {
       do {
         _refreshAgain = false;
         final client = _pendingRefreshClient!;
         final endpoint = _pendingRefreshEndpoint!;
         final serverId = _pendingRefreshServerId!;
-        refreshClient = client;
-        refreshEndpoint = endpoint;
-        final warnings = await repository.refresh(
-          client: client,
-          endpoint: endpoint,
-          serverId: serverId,
-        );
-        if (connection.profile.endpoint != endpoint ||
-            !identical(connection.client, client)) {
-          continue;
-        }
-        await _syncRunWorkspace(client);
-        connectionState = MobileConnectionState.connected;
-        if (warnings.isNotEmpty) {
-          lastError = warnings.first;
+        lastError = null;
+        try {
+          final warnings = await repository.refresh(
+            client: client,
+            endpoint: endpoint,
+            serverId: serverId,
+          );
+          if (connection.profile.endpoint != endpoint ||
+              !identical(connection.client, client)) {
+            continue;
+          }
+          await _syncRunWorkspace(client);
+          connectionState = MobileConnectionState.connected;
+          if (warnings.isNotEmpty) {
+            lastError = warnings.first;
+            assert(() {
+              for (final warning in warnings) {
+                debugPrint('GizClaw partial refresh: $warning');
+              }
+              return true;
+            }());
+          }
+        } catch (error) {
+          if (connection.profile.endpoint != endpoint ||
+              !identical(connection.client, client)) {
+            continue;
+          }
+          lastError = error;
           assert(() {
-            for (final warning in warnings) {
-              debugPrint('GizClaw partial refresh: $warning');
-            }
+            debugPrint('GizClaw refresh failed: $error');
             return true;
           }());
+          connectionState = connection.isConnected
+              ? MobileConnectionState.connected
+              : MobileConnectionState.offline;
         }
       } while (_refreshAgain);
-    } catch (error) {
-      if (connection.profile.endpoint != refreshEndpoint ||
-          !identical(connection.client, refreshClient)) {
-        return;
-      }
-      lastError = error;
-      assert(() {
-        debugPrint('GizClaw refresh failed: $error');
-        return true;
-      }());
-      connectionState = connection.isConnected
-          ? MobileConnectionState.connected
-          : MobileConnectionState.offline;
     } finally {
       refreshing = false;
       _refreshInFlight = null;

@@ -1,4 +1,8 @@
+import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gizclaw/gizclaw.dart';
+import 'package:gizclaw_app/data/database/app_database.dart';
+import 'package:gizclaw_app/data/repositories/workspace_chat_repository.dart';
 import 'package:gizclaw_app/data/workspace_chat_controller.dart';
 
 void main() {
@@ -40,5 +44,74 @@ void main() {
     expect(normalizedAudioLevel('0.5'), 0.5);
     expect(normalizedAudioLevel(16384), closeTo(0.5, 0.001));
     expect(normalizedAudioLevel(null), 0);
+  });
+
+  test('appends a final text.done chunk to streamed deltas', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final controller = WorkspaceChatController(
+      workspaceName: 'translator',
+      repository: WorkspaceChatRepository(database),
+      serverId: null,
+    );
+    addTearDown(controller.dispose);
+
+    controller.handleEventForTesting(
+      const PeerStreamEvent(
+        type: 'text.delta',
+        streamId: 'answer-1',
+        label: 'assistant',
+        text: 'Hello ',
+      ),
+    );
+    controller.handleEventForTesting(
+      const PeerStreamEvent(
+        type: 'text.delta',
+        streamId: 'answer-1',
+        label: 'assistant',
+        text: 'world',
+      ),
+    );
+    controller.handleEventForTesting(
+      const PeerStreamEvent(
+        type: 'text.done',
+        streamId: 'answer-1',
+        label: 'assistant',
+        text: '!',
+      ),
+    );
+
+    expect(controller.messages.single.text, 'Hello world!');
+    expect(controller.messages.single.state, WorkspaceMessageState.complete);
+  });
+
+  test('accepts text.done containing the complete streamed text', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final controller = WorkspaceChatController(
+      workspaceName: 'translator',
+      repository: WorkspaceChatRepository(database),
+      serverId: null,
+    );
+    addTearDown(controller.dispose);
+
+    controller.handleEventForTesting(
+      const PeerStreamEvent(
+        type: 'text.delta',
+        streamId: 'answer-2',
+        label: 'assistant',
+        text: 'Complete ',
+      ),
+    );
+    controller.handleEventForTesting(
+      const PeerStreamEvent(
+        type: 'text.done',
+        streamId: 'answer-2',
+        label: 'assistant',
+        text: 'Complete response',
+      ),
+    );
+
+    expect(controller.messages.single.text, 'Complete response');
   });
 }

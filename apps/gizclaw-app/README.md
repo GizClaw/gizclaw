@@ -5,14 +5,20 @@ project targets iOS and Android.
 
 ## Current Scope
 
-- Browse workflow cards in a Game Center-style home screen.
-- Open a workflow detail screen and choose a workspace.
-- Enter a workspace chat screen.
-- Show starter Chatroom, Pet, and Me tabs.
+- Configure a GizClaw server and keep the generated device identity in the
+  platform secure store.
+- Browse Flowcraft, Doubao, and translation workflows and their workspaces.
+- Create and activate workspaces, switch between push-to-talk and realtime
+  input, and view or replay workspace history.
+- Manage friend invitations and friends, create groups, and open their chatroom
+  workspaces.
+- List and adopt pets, load their presentation and optional PIXA animation, and
+  invoke pet actions.
 
-Workflow and workspace surfaces read from a Drift cache populated through the
-GizClaw WebRTC client. Collection, group chat, friends, and pet content remain
-prototype fixtures until their server contracts are designed.
+Workflow, workspace, friend, group, and pet surfaces use the live GizClaw RPCs.
+Drift caches the catalog and history data needed for responsive listing and
+offline presentation. Prototype fixtures are limited to the demo controller and
+widget tests.
 
 ## Development
 
@@ -30,8 +36,9 @@ flutter run \
   --dart-define=GIZCLAW_PRIVATE_KEY=<development-private-key>
 ```
 
-Do not commit a private key or persist it in Drift. Production enrollment and
-secure identity storage are outside the prototype connection flow.
+Do not commit a private key or persist it in Drift. At runtime the app generates
+or imports the device key through `flutter_secure_storage`; the endpoint is
+stored separately in platform preferences.
 
 Run commands from this directory:
 

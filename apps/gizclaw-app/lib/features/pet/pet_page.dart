@@ -379,14 +379,13 @@ class _PetDetailPageState extends State<PetDetailPage> {
         retryOnTransportError: true,
       )).value;
       PixaAsset? pixa;
-      Object? pixaError;
       try {
         pixa = (await data.runRpc(
           (client) => client.downloadPetPixa(widget.petId),
           retryOnTransportError: true,
         )).asset;
-      } catch (error) {
-        pixaError = error;
+      } catch (_) {
+        // The pet detail remains usable while its optional PIXA is unavailable.
       }
       if (!mounted || request != _request) return;
       setState(() {
@@ -395,7 +394,6 @@ class _PetDetailPageState extends State<PetDetailPage> {
         _pixa = pixa;
         _clipName = _defaultClip(presentation, pet);
         _loading = false;
-        _error = pixaError;
       });
       await _syncPetChat(data, pet);
     } catch (error) {
