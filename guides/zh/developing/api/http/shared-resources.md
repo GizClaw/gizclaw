@@ -91,6 +91,8 @@ Display 的共同命名是一项结构约定，不代表公共领域模型。不
 
 `category`、关联 ID、workflow reference、provider kind 等机器可读字段属于核心数据。`display_name`、本地化说明、icon 和 cover 属于 Display。客户端在 `display` 缺失时可以回退到稳定 ID，但 Server 不应把 fallback 文本持久化为核心数据。
 
+“视觉内容”不自动等于 `display`。如果 asset、clip、animation graph 或 action-to-clip mapping 被设备、runtime 或领域逻辑直接消费，它就是 Resource 的核心内容或关联数据。例如 PetDef 的 PIXA、canvas、clips、visual refs 和 `visual_clip_id` 属于 PetDef spec；`display` 只保存管理界面或用户阅读所需的展示 metadata 与本地化文本。
+
 只被一个 Resource 使用的 Spec 应与 Resource 定义在同一文件。例如只有 Model Resource 使用的 `ModelSpec` 应位于 `resources/model.json`，不再单独建立 `shared/model_spec.json`。
 
 运行时连接、stream、临时状态和 provider client 不能塞进 resource spec。Resource 表达期望状态，领域 service 负责校验并实现该状态。
