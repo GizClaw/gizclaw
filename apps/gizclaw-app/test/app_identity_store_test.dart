@@ -76,8 +76,16 @@ void main() {
     );
     expect(normalizeGizClawEndpoint('192.168.1.12:9820'), '192.168.1.12:9820');
     expect(
+      normalizeGizClawEndpoint('gizclaw.example.com:9820'),
+      'https://gizclaw.example.com:9820',
+    );
+    expect(
       normalizeGizClawEndpoint('https://gizclaw.example:443/'),
       'https://gizclaw.example:443',
+    );
+    expect(
+      () => normalizeGizClawEndpoint('http://gizclaw.example.com:9820'),
+      throwsFormatException,
     );
     expect(
       () => normalizeGizClawEndpoint('gizclaw.local'),

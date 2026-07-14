@@ -388,6 +388,13 @@ class _PetDetailPageState extends State<PetDetailPage> {
         // The pet detail remains usable while its optional PIXA is unavailable.
       }
       if (!mounted || request != _request) return;
+      data.rememberPetRouteContext(
+        petId: pet.id,
+        title: pet.displayName.trim().isEmpty
+            ? 'Pet companion'
+            : pet.displayName,
+        workspaceName: pet.workspaceName,
+      );
       setState(() {
         _pet = pet;
         _presentation = presentation;

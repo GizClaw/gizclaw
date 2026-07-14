@@ -531,6 +531,12 @@ class _FriendConnectSheetState extends State<_FriendConnectSheet> {
     _setBusy();
     try {
       await widget.data.clearFriendInviteToken();
+      if (!mounted) return;
+      setState(() {
+        _token = '';
+        _expiresAt = '';
+        _tokenController.text = 'No active invite';
+      });
       final response = await widget.data.createFriendInviteToken();
       if (!mounted) return;
       setState(() {

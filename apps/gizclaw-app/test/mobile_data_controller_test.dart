@@ -168,6 +168,82 @@ void main() {
       'zh/en',
     );
   });
+
+  test(
+    'falls back to the workspace catalog when pet discovery fails',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+      final client = _FailingPetListClient();
+      final controller =
+          MobileDataController(
+              database: database,
+              connectionController: _RefreshTestConnection(
+                profile: _profile('gizclaw.local:9820'),
+                client: client,
+                serverId: 'server-a',
+              ),
+            )
+            ..workflows = [
+              WorkflowCard.fromServer(
+                name: 'flow-a',
+                description: '',
+                driver: 'flowcraft',
+              ),
+            ]
+            ..workspaces = const [
+              WorkspaceCard(
+                name: 'workspace-a',
+                workflowName: 'flow-a',
+                lastActive: '',
+              ),
+            ];
+
+      final destination = await controller.destinationForWorkspace(
+        'workspace-a',
+      );
+
+      expect(destination.surface, MobileWorkspaceSurface.raid);
+      expect(destination.driver, WorkflowDriverKind.flowcraft);
+    },
+  );
+
+  test('repairs the selected workspace before runtime reload', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final client = _WorkspaceActivationClient();
+    final controller =
+        MobileDataController(
+            database: database,
+            connectionController: _RefreshTestConnection(
+              profile: _profile('gizclaw.local:9820'),
+              client: client,
+              serverId: 'server-a',
+            ),
+          )
+          ..connectionState = MobileConnectionState.connected
+          ..workflows = [
+            WorkflowCard.fromServer(
+              name: 'flow-a',
+              description: '',
+              driver: 'flowcraft',
+            ),
+          ];
+    addTearDown(controller.dispose);
+
+    await controller.activateWorkspaceChat('workspace-new');
+
+    expect(client.putWorkspaceNames, ['workspace-new']);
+    expect(
+      client
+          .workspaces['workspace-new']!
+          .parameters
+          .flowcraftWorkspaceParameters
+          .input,
+      WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
+    );
+    expect(controller.activeWorkspaceName, 'workspace-new');
+  });
 }
 
 GizClawConnectionProfile _profile(String endpoint) =>
@@ -224,6 +300,62 @@ class _RunWorkspaceClient extends GizClawClient {
   @override
   Future<ServerGetRunWorkspaceResponse> getRunWorkspace() async {
     return ServerGetRunWorkspaceResponse(value: PeerRunWorkspaceState());
+  }
+}
+
+class _FailingPetListClient extends _RunWorkspaceClient {
+  @override
+  Future<ServerPetListResponse> listPets({String? cursor, int? limit}) async {
+    throw StateError('gameplay RPC unavailable');
+  }
+}
+
+class _WorkspaceActivationClient extends _RunWorkspaceClient {
+  final workspaces = <String, Workspace>{
+    'workspace-old': Workspace(
+      name: 'workspace-old',
+      workflowName: 'flow-a',
+      parameters: newWorkspaceParametersForDriver(WorkflowDriverKind.flowcraft),
+    ),
+    'workspace-new': Workspace(
+      name: 'workspace-new',
+      workflowName: 'flow-a',
+      parameters: WorkspaceParameters(),
+    ),
+  };
+  final putWorkspaceNames = <String>[];
+
+  @override
+  Future<ServerSetRunWorkspaceResponse> setRunWorkspace(String name) async {
+    return ServerSetRunWorkspaceResponse(
+      value: PeerRunWorkspaceState(
+        activeWorkspaceName: 'workspace-old',
+        selectedWorkspaceName: name,
+        pendingWorkspaceName: name,
+      ),
+    );
+  }
+
+  @override
+  Future<WorkspaceGetResponse> getWorkspace(String name) async {
+    return WorkspaceGetResponse(value: workspaces[name]!.deepCopy());
+  }
+
+  @override
+  Future<WorkspacePutResponse> putWorkspace(
+    String name,
+    Workspace workspace,
+  ) async {
+    putWorkspaceNames.add(name);
+    workspaces[name] = workspace.deepCopy();
+    return WorkspacePutResponse(value: workspace);
+  }
+
+  @override
+  Future<ServerReloadRunWorkspaceResponse> reloadRunWorkspace() async {
+    return ServerReloadRunWorkspaceResponse(
+      value: PeerRunWorkspaceState(activeWorkspaceName: 'workspace-new'),
+    );
   }
 }
 

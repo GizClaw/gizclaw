@@ -130,7 +130,9 @@ class WorkspaceChatController extends ChangeNotifier {
         state = WorkspaceChatState.loading;
         notifyListeners();
         await _refreshHistory();
-        state = WorkspaceChatState.connected;
+        if (state != WorkspaceChatState.error) {
+          state = WorkspaceChatState.connected;
+        }
       }
       notifyListeners();
       return;

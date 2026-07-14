@@ -538,20 +538,24 @@ class MobileDataController extends ChangeNotifier {
     if (cached != null) return cached;
     final client = connection.client;
     if (client != null) {
-      String? cursor;
-      do {
-        final response = await client.listPets(cursor: cursor, limit: 100);
-        for (final pet in response.value.items) {
-          if (pet.workspaceName == workspaceName) {
-            return MobileWorkspaceDestination(
-              surface: MobileWorkspaceSurface.pet,
-              workspaceName: workspaceName,
-              resourceId: pet.id,
-            );
+      try {
+        String? cursor;
+        do {
+          final response = await client.listPets(cursor: cursor, limit: 100);
+          for (final pet in response.value.items) {
+            if (pet.workspaceName == workspaceName) {
+              return MobileWorkspaceDestination(
+                surface: MobileWorkspaceSurface.pet,
+                workspaceName: workspaceName,
+                resourceId: pet.id,
+              );
+            }
           }
-        }
-        cursor = response.value.hasNext ? response.value.nextCursor : null;
-      } while (cursor != null && cursor.isNotEmpty);
+          cursor = response.value.hasNext ? response.value.nextCursor : null;
+        } while (cursor != null && cursor.isNotEmpty);
+      } catch (_) {
+        // Pet discovery is optional when routing an ordinary workspace.
+      }
     }
     final workspace = this.workspace(workspaceName);
     return MobileWorkspaceDestination(
@@ -617,11 +621,14 @@ class MobileDataController extends ChangeNotifier {
     notifyListeners();
     await _workspaceActivationStep(
       'load workspace',
-      () => _loadActiveWorkspaceDocument(client),
+      () => _loadActiveWorkspaceDocument(client, workspaceName: workspaceName),
     );
     await _workspaceActivationStep(
       'update workspace parameters',
-      () => _ensureActiveWorkspaceParameters(client),
+      () => _ensureActiveWorkspaceParameters(
+        client,
+        workspaceName: workspaceName,
+      ),
     );
     final reloaded = await _workspaceActivationStep(
       'reload workspace runtime',
@@ -655,26 +662,37 @@ class MobileDataController extends ChangeNotifier {
     await _installActiveWorkspaceChat(workspaceName);
   }
 
-  Future<void> _loadActiveWorkspaceDocument(GizClawClient client) async {
-    final workspaceName = activeWorkspaceName;
-    if (workspaceName == null) {
+  Future<void> _loadActiveWorkspaceDocument(
+    GizClawClient client, {
+    String? workspaceName,
+  }) async {
+    final resolvedWorkspaceName = workspaceName ?? activeWorkspaceName;
+    if (resolvedWorkspaceName == null) {
       activeWorkspaceDocument = null;
       return;
     }
-    activeWorkspaceDocument = (await client.getWorkspace(workspaceName)).value;
+    activeWorkspaceDocument = (await client.getWorkspace(
+      resolvedWorkspaceName,
+    )).value;
   }
 
-  Future<bool> _ensureActiveWorkspaceParameters(GizClawClient client) async {
+  Future<bool> _ensureActiveWorkspaceParameters(
+    GizClawClient client, {
+    String? workspaceName,
+  }) async {
     final workspace = activeWorkspaceDocument;
-    final workspaceName = activeWorkspaceName;
-    if (workspace == null || workspaceName == null) {
+    final resolvedWorkspaceName = workspaceName ?? activeWorkspaceName;
+    if (workspace == null || resolvedWorkspaceName == null) {
       return false;
     }
     final driver = await _driverForWorkspace(workspace);
     final updated = workspaceWithDefaultInputParameters(workspace, driver);
     if (updated == null) return false;
-    await client.putWorkspace(workspaceName, updated);
-    await _loadActiveWorkspaceDocument(client);
+    await client.putWorkspace(resolvedWorkspaceName, updated);
+    await _loadActiveWorkspaceDocument(
+      client,
+      workspaceName: resolvedWorkspaceName,
+    );
     return true;
   }
 

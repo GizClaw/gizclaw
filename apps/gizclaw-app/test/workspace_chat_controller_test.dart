@@ -114,4 +114,44 @@ void main() {
 
     expect(controller.messages.single.text, 'Complete response');
   });
+
+  test('keeps a history-only viewer in error when refresh fails', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final controller = WorkspaceChatController(
+      workspaceName: 'translator',
+      repository: _FailingHistoryRepository(database),
+      serverId: 'server-a',
+      client: GizClawClient(_NeverDataChannelFactory()),
+    );
+    addTearDown(controller.dispose);
+
+    await controller.start(conversation: false);
+
+    expect(controller.state, WorkspaceChatState.error);
+    expect(controller.lastError, isA<StateError>());
+  });
+}
+
+class _FailingHistoryRepository extends WorkspaceChatRepository {
+  _FailingHistoryRepository(super.database);
+
+  @override
+  Future<List<CachedWorkspaceMessage>> refresh({
+    required GizClawClient client,
+    required String serverId,
+    required String workspaceName,
+  }) async {
+    throw StateError('history unavailable');
+  }
+}
+
+class _NeverDataChannelFactory implements GizClawDataChannelFactory {
+  @override
+  Future<GizClawDataChannel> createDataChannel(
+    String label, {
+    GizClawDataChannelOptions options = const GizClawDataChannelOptions(),
+  }) {
+    throw UnsupportedError('No data channel is used by this test');
+  }
 }

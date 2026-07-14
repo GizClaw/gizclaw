@@ -226,8 +226,40 @@ String normalizeGizClawEndpoint(String endpoint) {
     );
   }
   final host = uri.host.contains(':') ? '[${uri.host}]' : uri.host;
-  if (!hasScheme) return '$host:$explicitPort';
+  final localNetworkHost = _isLocalNetworkHost(uri.host);
+  if (!hasScheme) {
+    return localNetworkHost
+        ? '$host:$explicitPort'
+        : 'https://$host:$explicitPort';
+  }
+  if (uri.scheme == 'http' && !localNetworkHost) {
+    throw const FormatException(
+      'Use HTTPS for servers outside the local network',
+    );
+  }
   return '${uri.scheme}://$host:$explicitPort';
+}
+
+bool _isLocalNetworkHost(String host) {
+  final normalized = host.toLowerCase();
+  if (normalized == 'localhost' ||
+      normalized.endsWith('.local') ||
+      !normalized.contains('.')) {
+    return true;
+  }
+  final address = InternetAddress.tryParse(normalized);
+  if (address == null) return false;
+  final bytes = address.rawAddress;
+  if (address.type == InternetAddressType.IPv4) {
+    return bytes[0] == 10 ||
+        bytes[0] == 127 ||
+        (bytes[0] == 169 && bytes[1] == 254) ||
+        (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31) ||
+        (bytes[0] == 192 && bytes[1] == 168);
+  }
+  return address.isLoopback ||
+      (bytes[0] & 0xfe) == 0xfc ||
+      (bytes[0] == 0xfe && (bytes[1] & 0xc0) == 0x80);
 }
 
 int? _explicitEndpointPort(String value, {required bool hasScheme}) {
