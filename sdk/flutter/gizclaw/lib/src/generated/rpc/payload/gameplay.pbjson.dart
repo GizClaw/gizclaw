@@ -970,7 +970,26 @@ const PetActions$json = {
       '10': 'i18n'
     },
     {'1': 'petdef_updated_at', '3': 6, '4': 1, '5': 9, '10': 'petdefUpdatedAt'},
+    {
+      '1': 'clip_names',
+      '3': 7,
+      '4': 3,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.PetActions.ClipNamesEntry',
+      '10': 'clipNames'
+    },
   ],
+  '3': [PetActions_ClipNamesEntry$json],
+};
+
+@$core.Deprecated('Use petActionsDescriptor instead')
+const PetActions_ClipNamesEntry$json = {
+  '1': 'ClipNamesEntry',
+  '2': [
+    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
+    {'1': 'value', '3': 2, '4': 1, '5': 9, '10': 'value'},
+  ],
+  '7': {'7': true},
 };
 
 /// Descriptor for `PetActions`. Decode as a `google.protobuf.DescriptorProto`.
@@ -979,7 +998,10 @@ final $typed_data.Uint8List petActionsDescriptor = $convert.base64Decode(
     'hwZXRkZWZJZBIlCg5kZWZhdWx0X2xvY2FsZRgDIAEoCVINZGVmYXVsdExvY2FsZRIzCgdhY3Rp'
     'b25zGAQgAygLMhkuZ2l6Y2xhdy5ycGMudjEuUGV0QWN0aW9uUgdhY3Rpb25zEjIKBGkxOG4YBS'
     'ABKAsyHi5naXpjbGF3LnJwYy52MS5QZXRBY3Rpb25zSTE4blIEaTE4bhIqChFwZXRkZWZfdXBk'
-    'YXRlZF9hdBgGIAEoCVIPcGV0ZGVmVXBkYXRlZEF0');
+    'YXRlZF9hdBgGIAEoCVIPcGV0ZGVmVXBkYXRlZEF0EkgKCmNsaXBfbmFtZXMYByADKAsyKS5naX'
+    'pjbGF3LnJwYy52MS5QZXRBY3Rpb25zLkNsaXBOYW1lc0VudHJ5UgljbGlwTmFtZXMaPAoOQ2xp'
+    'cE5hbWVzRW50cnkSEAoDa2V5GAEgASgJUgNrZXkSFAoFdmFsdWUYAiABKAlSBXZhbHVlOgI4AQ'
+    '==');
 
 @$core.Deprecated('Use petDeleteRequestDescriptor instead')
 const PetDeleteRequest$json = {

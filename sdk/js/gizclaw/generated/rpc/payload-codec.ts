@@ -920,6 +920,7 @@ export type PetActions = {
   "actions": PetAction[];
   "i18n": PetActionsI18n;
   "petdef_updated_at": string;
+  "clip_names": Record<string, string>;
 };
 export type PetActionsI18n = Record<string, PetActionsI18nCatalog>;
 export type PetActionsI18nCatalog = {
@@ -5570,6 +5571,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "petdef_updated_at",
         "number": 6,
         "type": "string"
+      },
+      {
+        "mapValue": "string",
+        "name": "clip_names",
+        "number": 7,
+        "type": "map"
       }
     ]
   },

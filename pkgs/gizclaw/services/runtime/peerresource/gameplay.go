@@ -263,6 +263,7 @@ func petActions(pet apitypes.Pet, petDef apitypes.PetDef) rpcapi.PetActions {
 		PetdefId:        petDef.Id,
 		DefaultLocale:   petDef.I18n.DefaultLocale,
 		Actions:         petActionsList(spec.Drive, spec.Visual.Pixa.Metadata),
+		ClipNames:       petClipNames(spec.Visual.Pixa.Metadata),
 		I18n:            petActionsI18n(petDef.I18n),
 		PetdefUpdatedAt: petDef.UpdatedAt.Format(time.RFC3339Nano),
 	}
@@ -293,6 +294,11 @@ func petActionsList(drive apitypes.PetDefDriveSpec, pixa apitypes.PetDefPixaMeta
 			}
 		}
 		if item.PixaClipName == nil {
+			if clipName, ok := clipsByID[action.Id]; ok {
+				item.PixaClipName = &clipName
+			}
+		}
+		if item.PixaClipName == nil {
 			if clipName, ok := clipsByAction[action.Id]; ok {
 				item.PixaClipName = &clipName
 			}
@@ -306,6 +312,16 @@ func petActionsList(drive apitypes.PetDefDriveSpec, pixa apitypes.PetDefPixaMeta
 		actions = append(actions, item)
 	}
 	return actions
+}
+
+func petClipNames(pixa apitypes.PetDefPixaMetadata) map[string]string {
+	out := make(map[string]string, len(pixa.Clips))
+	for _, clip := range pixa.Clips {
+		if id := strings.TrimSpace(clip.Id); id != "" {
+			out[id] = clip.PixaClipName
+		}
+	}
+	return out
 }
 
 func petLifePtr(in *apitypes.PetLife) *rpcapi.PetLife {

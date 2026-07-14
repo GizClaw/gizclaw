@@ -391,6 +391,28 @@ func TestDirAllowsObjectNamesStartingWithPutTempPrefix(t *testing.T) {
 	}
 }
 
+func TestDirPutDoesNotReplacePrefixDirectory(t *testing.T) {
+	store := Dir(t.TempDir())
+	if err := store.Put("a/b", strings.NewReader("nested")); err != nil {
+		t.Fatalf("Put nested object: %v", err)
+	}
+	if err := store.Put("a", strings.NewReader("parent")); err == nil {
+		t.Fatal("Put prefix object error = nil")
+	}
+	r, err := store.Get("a/b")
+	if err != nil {
+		t.Fatalf("Get nested object: %v", err)
+	}
+	data, readErr := io.ReadAll(r)
+	closeErr := r.Close()
+	if readErr != nil || closeErr != nil {
+		t.Fatalf("read nested object: read=%v close=%v", readErr, closeErr)
+	}
+	if string(data) != "nested" {
+		t.Fatalf("nested data = %q, want nested", data)
+	}
+}
+
 func reader(s string) io.Reader {
 	return &stringReader{s: s}
 }

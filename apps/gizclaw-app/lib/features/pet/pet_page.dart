@@ -2311,7 +2311,7 @@ List<_PetMenuAction> _petMenuActions(PetActions? presentation) {
 }
 
 String? _defaultClip(PetActions? presentation, [Pet? pet, PixaAsset? pixa]) {
-  final stateClip = _petStateClip(pixa, pet);
+  final stateClip = _petStateClip(presentation, pixa, pet);
   if (stateClip != null) return stateClip;
   if (presentation == null) return _idlePixaClip(pixa) ?? 'idle';
   for (final action in presentation.actions) {
@@ -2328,8 +2328,8 @@ String? _defaultClip(PetActions? presentation, [Pet? pet, PixaAsset? pixa]) {
       : _clipForAction(presentation, presentation.actions.first.id);
 }
 
-String? _petStateClip(PixaAsset? pixa, Pet? pet) {
-  if (pixa == null || pet == null) return null;
+String? _petStateClip(PetActions? presentation, PixaAsset? pixa, Pet? pet) {
+  if (presentation == null || pixa == null || pet == null) return null;
   final life = pet.life.value;
   final candidates = <String>[
     if ((life['hp']?.toInt() ?? 100) <= 0) 'dead',
@@ -2339,8 +2339,10 @@ String? _petStateClip(PixaAsset? pixa, Pet? pet) {
     if ((life['energy']?.toInt() ?? 100) <= 30) 'hungry',
   ];
   for (final candidate in candidates) {
+    final clipName = presentation.clipNames[candidate];
+    if (clipName == null || clipName.isEmpty) continue;
     for (final clip in pixa.clips) {
-      if (clip.name == candidate) return clip.name;
+      if (clip.name == clipName) return clip.name;
     }
   }
   return null;

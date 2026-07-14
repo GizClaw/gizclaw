@@ -192,6 +192,7 @@ message PetActions {
   repeated PetAction actions = 4;
   PetActionsI18n i18n = 5;
   string petdef_updated_at = 6;
+  map<string, string> clip_names = 7;
 }
 
 message PetDeleteRequest {

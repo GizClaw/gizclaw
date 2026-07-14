@@ -2211,6 +2211,7 @@ class PetActions extends $pb.GeneratedMessage {
     $core.Iterable<PetAction>? actions,
     PetActionsI18n? i18n,
     $core.String? petdefUpdatedAt,
+    $core.Iterable<$core.MapEntry<$core.String, $core.String>>? clipNames,
   }) {
     final result = create();
     if (petId != null) result.petId = petId;
@@ -2219,6 +2220,7 @@ class PetActions extends $pb.GeneratedMessage {
     if (actions != null) result.actions.addAll(actions);
     if (i18n != null) result.i18n = i18n;
     if (petdefUpdatedAt != null) result.petdefUpdatedAt = petdefUpdatedAt;
+    if (clipNames != null) result.clipNames.addEntries(clipNames);
     return result;
   }
 
@@ -2243,6 +2245,11 @@ class PetActions extends $pb.GeneratedMessage {
     ..aOM<PetActionsI18n>(5, _omitFieldNames ? '' : 'i18n',
         subBuilder: PetActionsI18n.create)
     ..aOS(6, _omitFieldNames ? '' : 'petdefUpdatedAt')
+    ..m<$core.String, $core.String>(7, _omitFieldNames ? '' : 'clipNames',
+        entryClassName: 'PetActions.ClipNamesEntry',
+        keyFieldType: $pb.PbFieldType.OS,
+        valueFieldType: $pb.PbFieldType.OS,
+        packageName: const $pb.PackageName('gizclaw.rpc.v1'))
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2312,6 +2319,9 @@ class PetActions extends $pb.GeneratedMessage {
   $core.bool hasPetdefUpdatedAt() => $_has(5);
   @$pb.TagNumber(6)
   void clearPetdefUpdatedAt() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $pb.PbMap<$core.String, $core.String> get clipNames => $_getMap(6);
 }
 
 class PetDeleteRequest extends $pb.GeneratedMessage {

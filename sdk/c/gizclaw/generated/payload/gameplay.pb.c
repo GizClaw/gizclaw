@@ -96,6 +96,9 @@ PB_BIND(gizclaw_rpc_v1_PetActionsI18n_ValueEntry, gizclaw_rpc_v1_PetActionsI18n_
 PB_BIND(gizclaw_rpc_v1_PetActions, gizclaw_rpc_v1_PetActions, AUTO)
 
 
+PB_BIND(gizclaw_rpc_v1_PetActions_ClipNamesEntry, gizclaw_rpc_v1_PetActions_ClipNamesEntry, AUTO)
+
+
 PB_BIND(gizclaw_rpc_v1_PetDeleteRequest, gizclaw_rpc_v1_PetDeleteRequest, AUTO)
 
 

@@ -191,7 +191,13 @@ typedef struct _gizclaw_rpc_v1_PetActions {
     bool has_i18n;
     gizclaw_rpc_v1_PetActionsI18n i18n;
     pb_callback_t petdef_updated_at;
+    pb_callback_t clip_names;
 } gizclaw_rpc_v1_PetActions;
+
+typedef struct _gizclaw_rpc_v1_PetActions_ClipNamesEntry {
+    pb_callback_t key;
+    pb_callback_t value;
+} gizclaw_rpc_v1_PetActions_ClipNamesEntry;
 
 typedef struct _gizclaw_rpc_v1_PetDeleteRequest {
     pb_callback_t id;
@@ -575,7 +581,8 @@ extern "C" {
 #define gizclaw_rpc_v1_PetActionsI18nCatalog_ActionsEntry_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_PetActionI18nText_init_default}
 #define gizclaw_rpc_v1_PetActionsI18n_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetActionsI18n_ValueEntry_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_PetActionsI18nCatalog_init_default}
-#define gizclaw_rpc_v1_PetActions_init_default   {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_PetActionsI18n_init_default, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_PetActions_init_default   {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_PetActionsI18n_init_default, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_PetActions_ClipNamesEntry_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetDeleteRequest_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetDriveGameResultInput_init_default {{{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_GameplayMetadata_init_default, false, 0}
 #define gizclaw_rpc_v1_PetDriveRequest_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_PetDriveGameResultInput_init_default, {{NULL}, NULL}}
@@ -658,7 +665,8 @@ extern "C" {
 #define gizclaw_rpc_v1_PetActionsI18nCatalog_ActionsEntry_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_PetActionI18nText_init_zero}
 #define gizclaw_rpc_v1_PetActionsI18n_init_zero  {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetActionsI18n_ValueEntry_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_PetActionsI18nCatalog_init_zero}
-#define gizclaw_rpc_v1_PetActions_init_zero      {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_PetActionsI18n_init_zero, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_PetActions_init_zero      {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_PetActionsI18n_init_zero, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_PetActions_ClipNamesEntry_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetDeleteRequest_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetDriveGameResultInput_init_zero {{{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_GameplayMetadata_init_zero, false, 0}
 #define gizclaw_rpc_v1_PetDriveRequest_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_PetDriveGameResultInput_init_zero, {{NULL}, NULL}}
@@ -799,6 +807,9 @@ extern "C" {
 #define gizclaw_rpc_v1_PetActions_actions_tag    4
 #define gizclaw_rpc_v1_PetActions_i18n_tag       5
 #define gizclaw_rpc_v1_PetActions_petdef_updated_at_tag 6
+#define gizclaw_rpc_v1_PetActions_clip_names_tag 7
+#define gizclaw_rpc_v1_PetActions_ClipNamesEntry_key_tag 1
+#define gizclaw_rpc_v1_PetActions_ClipNamesEntry_value_tag 2
 #define gizclaw_rpc_v1_PetDeleteRequest_id_tag   1
 #define gizclaw_rpc_v1_PetDriveGameResultInput_difficulty_tag 1
 #define gizclaw_rpc_v1_PetDriveGameResultInput_duration_ms_tag 2
@@ -1174,11 +1185,19 @@ X(a, CALLBACK, SINGULAR, STRING,   petdef_id,         2) \
 X(a, CALLBACK, SINGULAR, STRING,   default_locale,    3) \
 X(a, CALLBACK, REPEATED, MESSAGE,  actions,           4) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  i18n,              5) \
-X(a, CALLBACK, SINGULAR, STRING,   petdef_updated_at,   6)
+X(a, CALLBACK, SINGULAR, STRING,   petdef_updated_at,   6) \
+X(a, CALLBACK, REPEATED, MESSAGE,  clip_names,        7)
 #define gizclaw_rpc_v1_PetActions_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_PetActions_DEFAULT NULL
 #define gizclaw_rpc_v1_PetActions_actions_MSGTYPE gizclaw_rpc_v1_PetAction
 #define gizclaw_rpc_v1_PetActions_i18n_MSGTYPE gizclaw_rpc_v1_PetActionsI18n
+#define gizclaw_rpc_v1_PetActions_clip_names_MSGTYPE gizclaw_rpc_v1_PetActions_ClipNamesEntry
+
+#define gizclaw_rpc_v1_PetActions_ClipNamesEntry_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   key,               1) \
+X(a, CALLBACK, SINGULAR, STRING,   value,             2)
+#define gizclaw_rpc_v1_PetActions_ClipNamesEntry_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_PetActions_ClipNamesEntry_DEFAULT NULL
 
 #define gizclaw_rpc_v1_PetDeleteRequest_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   id,                1)
@@ -1574,6 +1593,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_PetActionsI18nCatalog_ActionsEntry_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PetActionsI18n_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PetActionsI18n_ValueEntry_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PetActions_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_PetActions_ClipNamesEntry_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PetDeleteRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PetDriveGameResultInput_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PetDriveRequest_msg;
@@ -1659,6 +1679,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_PetProgression_ValueEntry_msg;
 #define gizclaw_rpc_v1_PetActionsI18n_fields &gizclaw_rpc_v1_PetActionsI18n_msg
 #define gizclaw_rpc_v1_PetActionsI18n_ValueEntry_fields &gizclaw_rpc_v1_PetActionsI18n_ValueEntry_msg
 #define gizclaw_rpc_v1_PetActions_fields &gizclaw_rpc_v1_PetActions_msg
+#define gizclaw_rpc_v1_PetActions_ClipNamesEntry_fields &gizclaw_rpc_v1_PetActions_ClipNamesEntry_msg
 #define gizclaw_rpc_v1_PetDeleteRequest_fields &gizclaw_rpc_v1_PetDeleteRequest_msg
 #define gizclaw_rpc_v1_PetDriveGameResultInput_fields &gizclaw_rpc_v1_PetDriveGameResultInput_msg
 #define gizclaw_rpc_v1_PetDriveRequest_fields &gizclaw_rpc_v1_PetDriveRequest_msg
@@ -1742,6 +1763,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_PetProgression_ValueEntry_msg;
 /* gizclaw_rpc_v1_PetActionsI18n_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PetActionsI18n_ValueEntry_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PetActions_size depends on runtime parameters */
+/* gizclaw_rpc_v1_PetActions_ClipNamesEntry_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PetDeleteRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PetDriveGameResultInput_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PetDriveRequest_size depends on runtime parameters */

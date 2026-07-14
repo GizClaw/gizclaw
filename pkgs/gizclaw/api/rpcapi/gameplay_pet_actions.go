@@ -37,12 +37,13 @@ type PetActionsI18nCatalog struct {
 type PetActionsI18n map[string]PetActionsI18nCatalog
 
 type PetActions struct {
-	PetId           string         `json:"pet_id"`
-	PetdefId        string         `json:"petdef_id"`
-	DefaultLocale   string         `json:"default_locale"`
-	Actions         []PetAction    `json:"actions"`
-	I18n            PetActionsI18n `json:"i18n"`
-	PetdefUpdatedAt string         `json:"petdef_updated_at"`
+	PetId           string            `json:"pet_id"`
+	PetdefId        string            `json:"petdef_id"`
+	DefaultLocale   string            `json:"default_locale"`
+	Actions         []PetAction       `json:"actions"`
+	ClipNames       map[string]string `json:"clip_names"`
+	I18n            PetActionsI18n    `json:"i18n"`
+	PetdefUpdatedAt string            `json:"petdef_updated_at"`
 }
 
 type ServerPetPixaDownloadRequest = PetPixaDownloadRequest

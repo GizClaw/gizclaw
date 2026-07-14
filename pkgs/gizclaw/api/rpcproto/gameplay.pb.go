@@ -1676,6 +1676,7 @@ type PetActions struct {
 	Actions         []*PetAction           `protobuf:"bytes,4,rep,name=actions,proto3" json:"actions,omitempty"`
 	I18N            *PetActionsI18N        `protobuf:"bytes,5,opt,name=i18n,proto3" json:"i18n,omitempty"`
 	PetdefUpdatedAt string                 `protobuf:"bytes,6,opt,name=petdef_updated_at,json=petdefUpdatedAt,proto3" json:"petdef_updated_at,omitempty"`
+	ClipNames       map[string]string      `protobuf:"bytes,7,rep,name=clip_names,json=clipNames,proto3" json:"clip_names,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -1750,6 +1751,13 @@ func (x *PetActions) GetPetdefUpdatedAt() string {
 		return x.PetdefUpdatedAt
 	}
 	return ""
+}
+
+func (x *PetActions) GetClipNames() map[string]string {
+	if x != nil {
+		return x.ClipNames
+	}
+	return nil
 }
 
 type PetDeleteRequest struct {
@@ -4530,7 +4538,7 @@ const file_payload_gameplay_proto_rawDesc = "" +
 	"\n" +
 	"ValueEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12;\n" +
-	"\x05value\x18\x02 \x01(\v2%.gizclaw.rpc.v1.PetActionsI18nCatalogR\x05value:\x028\x01\"\xfc\x01\n" +
+	"\x05value\x18\x02 \x01(\v2%.gizclaw.rpc.v1.PetActionsI18nCatalogR\x05value:\x028\x01\"\x84\x03\n" +
 	"\n" +
 	"PetActions\x12\x15\n" +
 	"\x06pet_id\x18\x01 \x01(\tR\x05petId\x12\x1b\n" +
@@ -4538,7 +4546,12 @@ const file_payload_gameplay_proto_rawDesc = "" +
 	"\x0edefault_locale\x18\x03 \x01(\tR\rdefaultLocale\x123\n" +
 	"\aactions\x18\x04 \x03(\v2\x19.gizclaw.rpc.v1.PetActionR\aactions\x122\n" +
 	"\x04i18n\x18\x05 \x01(\v2\x1e.gizclaw.rpc.v1.PetActionsI18nR\x04i18n\x12*\n" +
-	"\x11petdef_updated_at\x18\x06 \x01(\tR\x0fpetdefUpdatedAt\"\"\n" +
+	"\x11petdef_updated_at\x18\x06 \x01(\tR\x0fpetdefUpdatedAt\x12H\n" +
+	"\n" +
+	"clip_names\x18\a \x03(\v2).gizclaw.rpc.v1.PetActions.ClipNamesEntryR\tclipNames\x1a<\n" +
+	"\x0eClipNamesEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\"\n" +
 	"\x10PetDeleteRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\xe8\x03\n" +
 	"\x17PetDriveGameResultInput\x12#\n" +
@@ -4754,7 +4767,7 @@ func file_payload_gameplay_proto_rawDescGZIP() []byte {
 	return file_payload_gameplay_proto_rawDescData
 }
 
-var file_payload_gameplay_proto_msgTypes = make([]protoimpl.MessageInfo, 83)
+var file_payload_gameplay_proto_msgTypes = make([]protoimpl.MessageInfo, 84)
 var file_payload_gameplay_proto_goTypes = []any{
 	(*Badge)(nil),                               // 0: gizclaw.rpc.v1.Badge
 	(*BadgeDefPixaDownloadRequest)(nil),         // 1: gizclaw.rpc.v1.BadgeDefPixaDownloadRequest
@@ -4836,10 +4849,11 @@ var file_payload_gameplay_proto_goTypes = []any{
 	nil,                                         // 77: gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntry
 	nil,                                         // 78: gizclaw.rpc.v1.PetActionsI18nCatalog.ActionsEntry
 	nil,                                         // 79: gizclaw.rpc.v1.PetActionsI18n.ValueEntry
-	nil,                                         // 80: gizclaw.rpc.v1.RewardGrant.BadgeExpDeltaEntry
-	nil,                                         // 81: gizclaw.rpc.v1.PetLife.ValueEntry
-	nil,                                         // 82: gizclaw.rpc.v1.PetProgression.ValueEntry
-	(*structpb.Struct)(nil),                     // 83: google.protobuf.Struct
+	nil,                                         // 80: gizclaw.rpc.v1.PetActions.ClipNamesEntry
+	nil,                                         // 81: gizclaw.rpc.v1.RewardGrant.BadgeExpDeltaEntry
+	nil,                                         // 82: gizclaw.rpc.v1.PetLife.ValueEntry
+	nil,                                         // 83: gizclaw.rpc.v1.PetProgression.ValueEntry
+	(*structpb.Struct)(nil),                     // 84: google.protobuf.Struct
 }
 var file_payload_gameplay_proto_depIdxs = []int32{
 	0,  // 0: gizclaw.rpc.v1.BadgeListResponse.items:type_name -> gizclaw.rpc.v1.Badge
@@ -4853,7 +4867,7 @@ var file_payload_gameplay_proto_depIdxs = []int32{
 	14, // 8: gizclaw.rpc.v1.GameRulesetSpec.metadata:type_name -> gizclaw.rpc.v1.GameplayMetadata
 	9,  // 9: gizclaw.rpc.v1.GameRulesetSpec.pet_pool:type_name -> gizclaw.rpc.v1.GameRulesetPetPoolEntry
 	10, // 10: gizclaw.rpc.v1.GameRulesetSpec.points:type_name -> gizclaw.rpc.v1.GameRulesetPointsSpec
-	83, // 11: gizclaw.rpc.v1.GameplayMetadata.fields:type_name -> google.protobuf.Struct
+	84, // 11: gizclaw.rpc.v1.GameplayMetadata.fields:type_name -> google.protobuf.Struct
 	74, // 12: gizclaw.rpc.v1.Pet.life:type_name -> gizclaw.rpc.v1.PetLife
 	75, // 13: gizclaw.rpc.v1.Pet.progression:type_name -> gizclaw.rpc.v1.PetProgression
 	15, // 14: gizclaw.rpc.v1.PetAdoptResponse.pet:type_name -> gizclaw.rpc.v1.Pet
@@ -4865,62 +4879,63 @@ var file_payload_gameplay_proto_depIdxs = []int32{
 	79, // 20: gizclaw.rpc.v1.PetActionsI18n.value:type_name -> gizclaw.rpc.v1.PetActionsI18n.ValueEntry
 	21, // 21: gizclaw.rpc.v1.PetActions.actions:type_name -> gizclaw.rpc.v1.PetAction
 	24, // 22: gizclaw.rpc.v1.PetActions.i18n:type_name -> gizclaw.rpc.v1.PetActionsI18n
-	14, // 23: gizclaw.rpc.v1.PetDriveGameResultInput.payload:type_name -> gizclaw.rpc.v1.GameplayMetadata
-	27, // 24: gizclaw.rpc.v1.PetDriveRequest.game_result:type_name -> gizclaw.rpc.v1.PetDriveGameResultInput
-	0,  // 25: gizclaw.rpc.v1.PetDriveResponse.badges:type_name -> gizclaw.rpc.v1.Badge
-	4,  // 26: gizclaw.rpc.v1.PetDriveResponse.game_result:type_name -> gizclaw.rpc.v1.GameResult
-	15, // 27: gizclaw.rpc.v1.PetDriveResponse.pet:type_name -> gizclaw.rpc.v1.Pet
-	33, // 28: gizclaw.rpc.v1.PetDriveResponse.points:type_name -> gizclaw.rpc.v1.PointsAccount
-	36, // 29: gizclaw.rpc.v1.PetDriveResponse.reward_grants:type_name -> gizclaw.rpc.v1.RewardGrant
-	34, // 30: gizclaw.rpc.v1.PetDriveResponse.transactions:type_name -> gizclaw.rpc.v1.PointsTransaction
-	15, // 31: gizclaw.rpc.v1.PetListResponse.items:type_name -> gizclaw.rpc.v1.Pet
-	34, // 32: gizclaw.rpc.v1.PointsTransactionListResponse.items:type_name -> gizclaw.rpc.v1.PointsTransaction
-	80, // 33: gizclaw.rpc.v1.RewardGrant.badge_exp_delta:type_name -> gizclaw.rpc.v1.RewardGrant.BadgeExpDeltaEntry
-	36, // 34: gizclaw.rpc.v1.RewardGrantListResponse.items:type_name -> gizclaw.rpc.v1.RewardGrant
-	12, // 35: gizclaw.rpc.v1.ServerBadgeGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
-	0,  // 36: gizclaw.rpc.v1.ServerBadgeGetResponse.value:type_name -> gizclaw.rpc.v1.Badge
-	13, // 37: gizclaw.rpc.v1.ServerBadgeListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
-	3,  // 38: gizclaw.rpc.v1.ServerBadgeListResponse.value:type_name -> gizclaw.rpc.v1.BadgeListResponse
-	12, // 39: gizclaw.rpc.v1.ServerGameResultGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
-	4,  // 40: gizclaw.rpc.v1.ServerGameResultGetResponse.value:type_name -> gizclaw.rpc.v1.GameResult
-	13, // 41: gizclaw.rpc.v1.ServerGameResultListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
-	5,  // 42: gizclaw.rpc.v1.ServerGameResultListResponse.value:type_name -> gizclaw.rpc.v1.GameResultListResponse
-	7,  // 43: gizclaw.rpc.v1.ServerGameRulesetGetResponse.value:type_name -> gizclaw.rpc.v1.GameRuleset
-	16, // 44: gizclaw.rpc.v1.ServerPetAdoptRequest.value:type_name -> gizclaw.rpc.v1.PetAdoptRequest
-	17, // 45: gizclaw.rpc.v1.ServerPetAdoptResponse.value:type_name -> gizclaw.rpc.v1.PetAdoptResponse
-	26, // 46: gizclaw.rpc.v1.ServerPetDeleteRequest.value:type_name -> gizclaw.rpc.v1.PetDeleteRequest
-	15, // 47: gizclaw.rpc.v1.ServerPetDeleteResponse.value:type_name -> gizclaw.rpc.v1.Pet
-	28, // 48: gizclaw.rpc.v1.ServerPetDriveRequest.value:type_name -> gizclaw.rpc.v1.PetDriveRequest
-	29, // 49: gizclaw.rpc.v1.ServerPetDriveResponse.value:type_name -> gizclaw.rpc.v1.PetDriveResponse
-	30, // 50: gizclaw.rpc.v1.ServerPetGetRequest.value:type_name -> gizclaw.rpc.v1.PetGetRequest
-	15, // 51: gizclaw.rpc.v1.ServerPetGetResponse.value:type_name -> gizclaw.rpc.v1.Pet
-	18, // 52: gizclaw.rpc.v1.ServerPetPixaDownloadRequest.value:type_name -> gizclaw.rpc.v1.PetPixaDownloadRequest
-	19, // 53: gizclaw.rpc.v1.ServerPetPixaDownloadResponse.value:type_name -> gizclaw.rpc.v1.PetPixaDownloadResponse
-	30, // 54: gizclaw.rpc.v1.ServerPetActionsGetRequest.value:type_name -> gizclaw.rpc.v1.PetGetRequest
-	25, // 55: gizclaw.rpc.v1.ServerPetActionsGetResponse.value:type_name -> gizclaw.rpc.v1.PetActions
-	13, // 56: gizclaw.rpc.v1.ServerPetListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
-	31, // 57: gizclaw.rpc.v1.ServerPetListResponse.value:type_name -> gizclaw.rpc.v1.PetListResponse
-	32, // 58: gizclaw.rpc.v1.ServerPetPutRequest.value:type_name -> gizclaw.rpc.v1.PetPutRequest
-	15, // 59: gizclaw.rpc.v1.ServerPetPutResponse.value:type_name -> gizclaw.rpc.v1.Pet
-	33, // 60: gizclaw.rpc.v1.ServerPointsGetResponse.value:type_name -> gizclaw.rpc.v1.PointsAccount
-	12, // 61: gizclaw.rpc.v1.ServerPointsTransactionGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
-	34, // 62: gizclaw.rpc.v1.ServerPointsTransactionGetResponse.value:type_name -> gizclaw.rpc.v1.PointsTransaction
-	13, // 63: gizclaw.rpc.v1.ServerPointsTransactionListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
-	35, // 64: gizclaw.rpc.v1.ServerPointsTransactionListResponse.value:type_name -> gizclaw.rpc.v1.PointsTransactionListResponse
-	12, // 65: gizclaw.rpc.v1.ServerRewardGrantGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
-	36, // 66: gizclaw.rpc.v1.ServerRewardGrantGetResponse.value:type_name -> gizclaw.rpc.v1.RewardGrant
-	13, // 67: gizclaw.rpc.v1.ServerRewardGrantListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
-	37, // 68: gizclaw.rpc.v1.ServerRewardGrantListResponse.value:type_name -> gizclaw.rpc.v1.RewardGrantListResponse
-	81, // 69: gizclaw.rpc.v1.PetLife.value:type_name -> gizclaw.rpc.v1.PetLife.ValueEntry
-	82, // 70: gizclaw.rpc.v1.PetProgression.value:type_name -> gizclaw.rpc.v1.PetProgression.ValueEntry
-	6,  // 71: gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntry.value:type_name -> gizclaw.rpc.v1.GameRewardSpec
-	22, // 72: gizclaw.rpc.v1.PetActionsI18nCatalog.ActionsEntry.value:type_name -> gizclaw.rpc.v1.PetActionI18nText
-	23, // 73: gizclaw.rpc.v1.PetActionsI18n.ValueEntry.value:type_name -> gizclaw.rpc.v1.PetActionsI18nCatalog
-	74, // [74:74] is the sub-list for method output_type
-	74, // [74:74] is the sub-list for method input_type
-	74, // [74:74] is the sub-list for extension type_name
-	74, // [74:74] is the sub-list for extension extendee
-	0,  // [0:74] is the sub-list for field type_name
+	80, // 23: gizclaw.rpc.v1.PetActions.clip_names:type_name -> gizclaw.rpc.v1.PetActions.ClipNamesEntry
+	14, // 24: gizclaw.rpc.v1.PetDriveGameResultInput.payload:type_name -> gizclaw.rpc.v1.GameplayMetadata
+	27, // 25: gizclaw.rpc.v1.PetDriveRequest.game_result:type_name -> gizclaw.rpc.v1.PetDriveGameResultInput
+	0,  // 26: gizclaw.rpc.v1.PetDriveResponse.badges:type_name -> gizclaw.rpc.v1.Badge
+	4,  // 27: gizclaw.rpc.v1.PetDriveResponse.game_result:type_name -> gizclaw.rpc.v1.GameResult
+	15, // 28: gizclaw.rpc.v1.PetDriveResponse.pet:type_name -> gizclaw.rpc.v1.Pet
+	33, // 29: gizclaw.rpc.v1.PetDriveResponse.points:type_name -> gizclaw.rpc.v1.PointsAccount
+	36, // 30: gizclaw.rpc.v1.PetDriveResponse.reward_grants:type_name -> gizclaw.rpc.v1.RewardGrant
+	34, // 31: gizclaw.rpc.v1.PetDriveResponse.transactions:type_name -> gizclaw.rpc.v1.PointsTransaction
+	15, // 32: gizclaw.rpc.v1.PetListResponse.items:type_name -> gizclaw.rpc.v1.Pet
+	34, // 33: gizclaw.rpc.v1.PointsTransactionListResponse.items:type_name -> gizclaw.rpc.v1.PointsTransaction
+	81, // 34: gizclaw.rpc.v1.RewardGrant.badge_exp_delta:type_name -> gizclaw.rpc.v1.RewardGrant.BadgeExpDeltaEntry
+	36, // 35: gizclaw.rpc.v1.RewardGrantListResponse.items:type_name -> gizclaw.rpc.v1.RewardGrant
+	12, // 36: gizclaw.rpc.v1.ServerBadgeGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
+	0,  // 37: gizclaw.rpc.v1.ServerBadgeGetResponse.value:type_name -> gizclaw.rpc.v1.Badge
+	13, // 38: gizclaw.rpc.v1.ServerBadgeListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
+	3,  // 39: gizclaw.rpc.v1.ServerBadgeListResponse.value:type_name -> gizclaw.rpc.v1.BadgeListResponse
+	12, // 40: gizclaw.rpc.v1.ServerGameResultGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
+	4,  // 41: gizclaw.rpc.v1.ServerGameResultGetResponse.value:type_name -> gizclaw.rpc.v1.GameResult
+	13, // 42: gizclaw.rpc.v1.ServerGameResultListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
+	5,  // 43: gizclaw.rpc.v1.ServerGameResultListResponse.value:type_name -> gizclaw.rpc.v1.GameResultListResponse
+	7,  // 44: gizclaw.rpc.v1.ServerGameRulesetGetResponse.value:type_name -> gizclaw.rpc.v1.GameRuleset
+	16, // 45: gizclaw.rpc.v1.ServerPetAdoptRequest.value:type_name -> gizclaw.rpc.v1.PetAdoptRequest
+	17, // 46: gizclaw.rpc.v1.ServerPetAdoptResponse.value:type_name -> gizclaw.rpc.v1.PetAdoptResponse
+	26, // 47: gizclaw.rpc.v1.ServerPetDeleteRequest.value:type_name -> gizclaw.rpc.v1.PetDeleteRequest
+	15, // 48: gizclaw.rpc.v1.ServerPetDeleteResponse.value:type_name -> gizclaw.rpc.v1.Pet
+	28, // 49: gizclaw.rpc.v1.ServerPetDriveRequest.value:type_name -> gizclaw.rpc.v1.PetDriveRequest
+	29, // 50: gizclaw.rpc.v1.ServerPetDriveResponse.value:type_name -> gizclaw.rpc.v1.PetDriveResponse
+	30, // 51: gizclaw.rpc.v1.ServerPetGetRequest.value:type_name -> gizclaw.rpc.v1.PetGetRequest
+	15, // 52: gizclaw.rpc.v1.ServerPetGetResponse.value:type_name -> gizclaw.rpc.v1.Pet
+	18, // 53: gizclaw.rpc.v1.ServerPetPixaDownloadRequest.value:type_name -> gizclaw.rpc.v1.PetPixaDownloadRequest
+	19, // 54: gizclaw.rpc.v1.ServerPetPixaDownloadResponse.value:type_name -> gizclaw.rpc.v1.PetPixaDownloadResponse
+	30, // 55: gizclaw.rpc.v1.ServerPetActionsGetRequest.value:type_name -> gizclaw.rpc.v1.PetGetRequest
+	25, // 56: gizclaw.rpc.v1.ServerPetActionsGetResponse.value:type_name -> gizclaw.rpc.v1.PetActions
+	13, // 57: gizclaw.rpc.v1.ServerPetListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
+	31, // 58: gizclaw.rpc.v1.ServerPetListResponse.value:type_name -> gizclaw.rpc.v1.PetListResponse
+	32, // 59: gizclaw.rpc.v1.ServerPetPutRequest.value:type_name -> gizclaw.rpc.v1.PetPutRequest
+	15, // 60: gizclaw.rpc.v1.ServerPetPutResponse.value:type_name -> gizclaw.rpc.v1.Pet
+	33, // 61: gizclaw.rpc.v1.ServerPointsGetResponse.value:type_name -> gizclaw.rpc.v1.PointsAccount
+	12, // 62: gizclaw.rpc.v1.ServerPointsTransactionGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
+	34, // 63: gizclaw.rpc.v1.ServerPointsTransactionGetResponse.value:type_name -> gizclaw.rpc.v1.PointsTransaction
+	13, // 64: gizclaw.rpc.v1.ServerPointsTransactionListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
+	35, // 65: gizclaw.rpc.v1.ServerPointsTransactionListResponse.value:type_name -> gizclaw.rpc.v1.PointsTransactionListResponse
+	12, // 66: gizclaw.rpc.v1.ServerRewardGrantGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
+	36, // 67: gizclaw.rpc.v1.ServerRewardGrantGetResponse.value:type_name -> gizclaw.rpc.v1.RewardGrant
+	13, // 68: gizclaw.rpc.v1.ServerRewardGrantListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
+	37, // 69: gizclaw.rpc.v1.ServerRewardGrantListResponse.value:type_name -> gizclaw.rpc.v1.RewardGrantListResponse
+	82, // 70: gizclaw.rpc.v1.PetLife.value:type_name -> gizclaw.rpc.v1.PetLife.ValueEntry
+	83, // 71: gizclaw.rpc.v1.PetProgression.value:type_name -> gizclaw.rpc.v1.PetProgression.ValueEntry
+	6,  // 72: gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntry.value:type_name -> gizclaw.rpc.v1.GameRewardSpec
+	22, // 73: gizclaw.rpc.v1.PetActionsI18nCatalog.ActionsEntry.value:type_name -> gizclaw.rpc.v1.PetActionI18nText
+	23, // 74: gizclaw.rpc.v1.PetActionsI18n.ValueEntry.value:type_name -> gizclaw.rpc.v1.PetActionsI18nCatalog
+	75, // [75:75] is the sub-list for method output_type
+	75, // [75:75] is the sub-list for method input_type
+	75, // [75:75] is the sub-list for extension type_name
+	75, // [75:75] is the sub-list for extension extendee
+	0,  // [0:75] is the sub-list for field type_name
 }
 
 func init() { file_payload_gameplay_proto_init() }
@@ -4959,7 +4974,7 @@ func file_payload_gameplay_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payload_gameplay_proto_rawDesc), len(file_payload_gameplay_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   83,
+			NumMessages:   84,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

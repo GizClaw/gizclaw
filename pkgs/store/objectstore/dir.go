@@ -96,6 +96,13 @@ func (d Dir) put(name string, r io.Reader, deadline time.Time) error {
 	}
 	backupName := tmpName + ".backup"
 	hadOld := false
+	if info, err := os.Lstat(full); err == nil {
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("objectstore: object path %q is not a regular file", name)
+		}
+	} else if !os.IsNotExist(err) {
+		return err
+	}
 	if err := os.Rename(full, backupName); err == nil {
 		hadOld = true
 	} else if !os.IsNotExist(err) {

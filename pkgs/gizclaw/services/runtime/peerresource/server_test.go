@@ -1294,6 +1294,25 @@ func peerresourcePetDefSpec(displayName string) apitypes.PetDefSpec {
 	}
 }
 
+func TestPetActionsListFallsBackToClipID(t *testing.T) {
+	actions := petActionsList(
+		apitypes.PetDefDriveSpec{Actions: []apitypes.PetDefActionSpec{{Id: "feed"}}},
+		apitypes.PetDefPixaMetadata{Clips: []apitypes.PetDefPixaClipMetadata{{Id: "feed", PixaClipName: "eat-animation"}}},
+	)
+	if len(actions) != 1 || actions[0].PixaClipName == nil || *actions[0].PixaClipName != "eat-animation" {
+		t.Fatalf("actions = %#v, want clip-id fallback", actions)
+	}
+}
+
+func TestPetClipNamesPreservesMetadataMapping(t *testing.T) {
+	got := petClipNames(apitypes.PetDefPixaMetadata{Clips: []apitypes.PetDefPixaClipMetadata{
+		{Id: "hungry", PixaClipName: "low-energy"},
+	}})
+	if got["hungry"] != "low-energy" {
+		t.Fatalf("clip names = %#v, want hungry -> low-energy", got)
+	}
+}
+
 func callRPC(t *testing.T, srv *Server, id string, method rpcapi.RPCMethod, params *rpcapi.RPCPayload) *rpcapi.RPCResponse {
 	t.Helper()
 
