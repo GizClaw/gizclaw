@@ -71,7 +71,11 @@ func (d Dir) put(name string, r io.Reader, deadline time.Time) error {
 	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(full), putTempPrefix+"*")
+	stagingDir := filepath.Join(d.metadataRoot(), "put")
+	if err := os.MkdirAll(stagingDir, 0o755); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(stagingDir, putTempPrefix+"*")
 	if err != nil {
 		return err
 	}
@@ -92,7 +96,7 @@ func (d Dir) put(name string, r io.Reader, deadline time.Time) error {
 	}
 	backupName := tmpName + ".backup"
 	hadOld := false
-	if err := os.Link(full, backupName); err == nil {
+	if err := os.Rename(full, backupName); err == nil {
 		hadOld = true
 	} else if !os.IsNotExist(err) {
 		return err
@@ -101,6 +105,9 @@ func (d Dir) put(name string, r io.Reader, deadline time.Time) error {
 		_ = os.Remove(backupName)
 	}()
 	if err := os.Rename(tmpName, full); err != nil {
+		if hadOld {
+			return errors.Join(err, os.Rename(backupName, full))
+		}
 		return err
 	}
 	if err := d.writeMetadata(name, deadline); err != nil {
@@ -171,9 +178,6 @@ func (d Dir) List(prefix string) ([]ObjectInfo, error) {
 			if path == d.metadataRoot() {
 				return filepath.SkipDir
 			}
-			return nil
-		}
-		if strings.HasPrefix(entry.Name(), putTempPrefix) {
 			return nil
 		}
 		info, err := entry.Info()
@@ -371,9 +375,6 @@ func cleanName(name string, allowEmpty bool) (string, error) {
 		case "..":
 			return "", fmt.Errorf("objectstore: invalid object name %q", name)
 		default:
-			if strings.HasPrefix(part, putTempPrefix) {
-				return "", fmt.Errorf("objectstore: reserved object name %q", name)
-			}
 			out = append(out, part)
 		}
 	}

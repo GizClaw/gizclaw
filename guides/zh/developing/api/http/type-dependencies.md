@@ -1,6 +1,6 @@
 # HTTP Schema 依赖规则
 
-HTTP schema 按所有权分为 Shared、Resources 和三个 API surfaces。目录与聚合文件使用明确的 layer 名称。
+HTTP schema 按所有权分为 Shared、Resources 和三个 API surfaces。当前生成入口使用一个 `shared.json` 聚合 Shared values 与 Resource graph；`shared/` 和 `resources/` 仍按所有权保持独立。
 
 ## 目录
 
@@ -14,7 +14,6 @@ api/http/
 ├── shared.json
 ├── shared/
 │   └── ...
-├── resources.json
 └── resources/
     └── ...
 ```
@@ -25,9 +24,8 @@ api/http/
 flowchart LR
     Shared["shared/*.json"] --> SharedIndex["shared.json"]
     Shared --> Resources["resources/*.json"]
-    Resources --> ResourceIndex["resources.json"]
+    Resources --> SharedIndex
     SharedIndex --> Admin["admin.json"]
-    ResourceIndex --> Admin
     SharedIndex --> Public["public.json"]
     SharedIndex --> OpenAI["openai-compat/v1/service.json"]
 ```
@@ -35,12 +33,12 @@ flowchart LR
 依赖必须保持单向：
 
 ```text
-shared ← resources ← admin
-shared ← public
-shared ← openai-compatible
+shared/ ← resources/ ← shared.json ← admin
+shared.json ← public
+shared.json ← openai-compatible
 ```
 
-`shared.json` 只聚合 `shared/`，不得引用或导出 `resources/`。`resources.json` 聚合 Resource graph，并允许引用 `shared/`。
+`shared/` 不得引用 `resources/`。`resources/` 可以引用 `shared/`。`shared.json` 是生成入口，同时导出两层的稳定 schema；它的文件名不表示 Resource 属于 Shared ownership。
 
 ## Shared 规则
 
@@ -96,7 +94,7 @@ Schema 只有满足以下至少一个条件才能进入 `shared/`：
 
 ## Surface 规则
 
-- `admin.json` 可以引用 `shared.json` 与 `resources.json`。
+- `admin.json` 通过 `shared.json` 引用 Shared values 与 Resource graph。
 - `public.json` 只引用 `shared.json`，不引用 Admin Resources。Public-only DTO 直接定义在 `public.json`。
 - OpenAI-compatible models 留在自己的 `service.json`；只有确实与其他 GizClaw HTTP surfaces 共用的 contract 才引用 `shared.json`。
 - Desktop application contract 属于 `apps/wails`，不进入 Server HTTP API schema graph。

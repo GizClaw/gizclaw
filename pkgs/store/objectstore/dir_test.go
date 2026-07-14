@@ -167,7 +167,7 @@ func TestDirListDoesNotExposeInProgressPut(t *testing.T) {
 	}
 	deadline := time.Now().Add(time.Second)
 	for {
-		matches, err := filepath.Glob(filepath.Join(root, putTempPrefix+"*"))
+		matches, err := filepath.Glob(filepath.Join(store.metadataRoot(), "put", putTempPrefix+"*"))
 		if err != nil {
 			t.Fatalf("Glob temp files: %v", err)
 		}
@@ -364,6 +364,33 @@ func TestDirNormalizesObjectNames(t *testing.T) {
 	}
 }
 
+func TestDirAllowsObjectNamesStartingWithPutTempPrefix(t *testing.T) {
+	store := Dir(t.TempDir())
+	name := putTempPrefix + "public/asset.txt"
+	if err := store.Put(name, strings.NewReader("data")); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+	items, err := store.List("")
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(items) != 1 || items[0].Name != name {
+		t.Fatalf("List = %#v, want %q", items, name)
+	}
+	r, err := store.Get(name)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	data, readErr := io.ReadAll(r)
+	closeErr := r.Close()
+	if readErr != nil || closeErr != nil {
+		t.Fatalf("read object: read=%v close=%v", readErr, closeErr)
+	}
+	if string(data) != "data" {
+		t.Fatalf("data = %q, want data", data)
+	}
+}
+
 func reader(s string) io.Reader {
 	return &stringReader{s: s}
 }
@@ -388,7 +415,7 @@ func (r *failingReader) Read(p []byte) (int, error) {
 
 func assertNoPutTemps(t *testing.T, root string) {
 	t.Helper()
-	matches, err := filepath.Glob(filepath.Join(root, putTempPrefix+"*"))
+	matches, err := filepath.Glob(filepath.Join(root, metadataRoot, "put", putTempPrefix+"*"))
 	if err != nil {
 		t.Fatalf("Glob temp files: %v", err)
 	}
