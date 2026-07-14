@@ -94,7 +94,7 @@ func isPublicHTTPRoute(path string) bool {
 
 func isPublicHTTPLoginRoute(method, path string) bool {
 	return (method == http.MethodPost && path == "/login") ||
-		(method == http.MethodPost && path == gizwebrtc.SignalingPath)
+		((method == http.MethodPost || method == http.MethodOptions) && path == gizwebrtc.SignalingPath)
 }
 
 // New wires an already prepared in-memory config into a command server.

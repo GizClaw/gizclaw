@@ -114,6 +114,19 @@ static bool decode_pb_view(pb_istream_t *stream, const pb_field_t *field, void *
   return true;
 }
 
+static bool decode_pb_string_view(pb_istream_t *stream, pb_wire_type_t wire_type, gzc_str_t *out) {
+  if (wire_type != PB_WT_STRING) {
+    return false;
+  }
+  pb_istream_t substream;
+  if (!pb_make_string_substream(stream, &substream)) {
+    return false;
+  }
+  *out = gzc_str_from_parts((const char *)substream.state, substream.bytes_left);
+  return pb_read(&substream, NULL, substream.bytes_left) &&
+         pb_close_string_substream(stream, &substream);
+}
+
 static int decode_frame_bytes(gzc_buf_t *frame_bytes, gzc_rpc_frame_t *out_frame) {
   if (frame_bytes == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
@@ -259,24 +272,43 @@ int gzc_rpc_decode_response_envelope(gzc_str_t response_payload, gzc_rpc_respons
   if (response_payload.data == NULL && response_payload.len != 0) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_pb_view_arg_t id_arg = {&out_response->id};
-  gzc_pb_view_arg_t payload_arg = {&out_response->result_payload};
-  gzc_pb_view_arg_t error_message_arg = {&out_response->error.message};
-  gizclaw_rpc_v1_RpcResponse response = gizclaw_rpc_v1_RpcResponse_init_zero;
-  response.id.funcs.decode = decode_pb_view;
-  response.id.arg = &id_arg;
-  response.body.payload.funcs.decode = decode_pb_view;
-  response.body.payload.arg = &payload_arg;
-  response.body.error.message.funcs.decode = decode_pb_view;
-  response.body.error.message.arg = &error_message_arg;
-
   pb_istream_t stream = pb_istream_from_buffer((const pb_byte_t *)response_payload.data, response_payload.len);
-  if (!pb_decode(&stream, gizclaw_rpc_v1_RpcResponse_fields, &response)) {
-    return GZC_ERR_RPC;
-  }
-  if (response.which_body == gizclaw_rpc_v1_RpcResponse_error_tag) {
-    out_response->has_error = true;
-    out_response->error.code = (int)response.body.error.code;
+  while (stream.bytes_left > 0) {
+    pb_wire_type_t wire_type;
+    uint32_t tag;
+    bool eof = false;
+    if (!pb_decode_tag(&stream, &wire_type, &tag, &eof) || eof) {
+      return GZC_ERR_RPC;
+    }
+    if (tag == gizclaw_rpc_v1_RpcResponse_id_tag) {
+      if (!decode_pb_string_view(&stream, wire_type, &out_response->id)) {
+        return GZC_ERR_RPC;
+      }
+    } else if (tag == gizclaw_rpc_v1_RpcResponse_payload_tag) {
+      if (!decode_pb_string_view(&stream, wire_type, &out_response->result_payload)) {
+        return GZC_ERR_RPC;
+      }
+    } else if (tag == gizclaw_rpc_v1_RpcResponse_error_tag) {
+      if (wire_type != PB_WT_STRING) {
+        return GZC_ERR_RPC;
+      }
+      pb_istream_t error_stream;
+      if (!pb_make_string_substream(&stream, &error_stream)) {
+        return GZC_ERR_RPC;
+      }
+      gzc_pb_view_arg_t message_arg = {&out_response->error.message};
+      gizclaw_rpc_v1_RpcError error = gizclaw_rpc_v1_RpcError_init_zero;
+      error.message.funcs.decode = decode_pb_view;
+      error.message.arg = &message_arg;
+      if (!pb_decode(&error_stream, gizclaw_rpc_v1_RpcError_fields, &error) ||
+          !pb_close_string_substream(&stream, &error_stream)) {
+        return GZC_ERR_RPC;
+      }
+      out_response->has_error = true;
+      out_response->error.code = (int)error.code;
+    } else if (!pb_skip_field(&stream, wire_type)) {
+      return GZC_ERR_RPC;
+    }
   }
   return GZC_OK;
 }

@@ -105,6 +105,12 @@ func TestCmdServerPrivateIngressRequiresAuthorizedSession(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("POST %s status = %d body=%s, want %d", gizwebrtc.SignalingPath, rec.Code, rec.Body.String(), http.StatusOK)
 	}
+	req = httptest.NewRequest(http.MethodOptions, gizwebrtc.SignalingPath, nil)
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code == http.StatusUnauthorized || rec.Code == http.StatusForbidden {
+		t.Fatalf("OPTIONS %s status = %d body=%s, want signaling handler without private-ingress auth", gizwebrtc.SignalingPath, rec.Code, rec.Body.String())
+	}
 
 	clientLogin := cmdServerTestLogin(t, srv, serverKey.Public, clientKey)
 	assertHTTPError(t, clientLogin, http.StatusUnauthorized, "INVALID_ASSERTION")

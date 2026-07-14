@@ -8,6 +8,20 @@
   "paths": {},
   "components": {
     "schemas": {
+      "ResourceListSpec": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "./resource.json#/components/schemas/Resource"
+            }
+          }
+        }
+      },
       "ResourceListResource": {
         "type": "object",
         "required": [
@@ -30,7 +44,7 @@
             "$ref": "./resource.json#/components/schemas/ResourceMetadata"
           },
           "spec": {
-            "$ref": "../shared/resource_list_spec.json#/components/schemas/ResourceListSpec"
+            "$ref": "#/components/schemas/ResourceListSpec"
           }
         }
       }

@@ -369,7 +369,7 @@
         "$ref": "./shared/workspace_spec.json#/components/schemas/WorkspaceSpec"
       },
       "ResourceListSpec": {
-        "$ref": "./shared/resource_list_spec.json#/components/schemas/ResourceListSpec"
+        "$ref": "./resources/resource_list.json#/components/schemas/ResourceListSpec"
       },
       "ApplyResource": {
         "$ref": "./resources/resource.json#/components/schemas/Resource"
