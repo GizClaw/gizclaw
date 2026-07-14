@@ -13,7 +13,7 @@ import {
   type GameResult as RPCGameResult,
   type GameRuleset as RPCGameRuleset,
   type Pet as RPCPet,
-  type PetPresentation as RPCPetPresentation,
+  type PetActions as RPCPetActions,
   type PeerRPCMethodName,
   type PointsAccount as RPCPointsAccount,
   type PointsTransaction as RPCPointsTransaction,
@@ -49,13 +49,12 @@ type PlayDataClientLike = {
   deletePet?(params: Record<string, unknown>): Promise<unknown>;
   drivePet?(params: Record<string, unknown>): Promise<unknown>;
   downloadBadgeDefPixa?(params: Record<string, unknown>): Promise<unknown>;
-  downloadPetDefPixa?(params: Record<string, unknown>): Promise<unknown>;
   downloadPetPixa?(params: Record<string, unknown>): Promise<unknown>;
   getBadge?(params: Record<string, unknown>): Promise<unknown>;
   getGameResult?(params: Record<string, unknown>): Promise<unknown>;
   getGameRuleset?(params: Record<string, unknown>): Promise<unknown>;
   getPet?(params: Record<string, unknown>): Promise<unknown>;
-  getPetPresentation?(params: Record<string, unknown>): Promise<unknown>;
+  getPetActions?(params: Record<string, unknown>): Promise<unknown>;
   getPoints?(params: Record<string, unknown>): Promise<unknown>;
   getPointsTransaction?(params: Record<string, unknown>): Promise<unknown>;
   getRewardGrant?(params: Record<string, unknown>): Promise<unknown>;
@@ -180,7 +179,7 @@ export type Firmware = RPCFirmware;
 export type GameResultObject = RPCGameResult;
 export type GameRulesetObject = RPCGameRuleset;
 export type PetObject = RPCPet;
-export type PetPresentationObject = RPCPetPresentation;
+export type PetActionsObject = RPCPetActions;
 export type PointsAccountObject = RPCPointsAccount;
 export type PointsTransactionObject = RPCPointsTransaction;
 export type RewardGrantObject = RPCRewardGrant;
@@ -317,19 +316,11 @@ export const listClientVoices = listPeerVoices;
 export const getPeerGameRuleset = (options?: RequestOptions) => currentDataClient ? injectedResult("getGameRuleset", options) : callRPC(RPC_METHODS["server.game_ruleset.get"], options);
 export const listPeerPets = (options?: RequestOptions) => currentDataClient ? injectedResult("listPets", options) : callRPC(RPC_METHODS["server.pet.list"], options);
 export const getPeerPet = (options: RequestOptions) => currentDataClient ? injectedResult("getPet", options) : callRPC(RPC_METHODS["server.pet.get"], options);
-export const getPeerPetPresentation = (options: RequestOptions) => currentDataClient?.getPetPresentation ? injectedResult("getPetPresentation", options) : callRPC(RPC_METHODS["server.pet.presentation.get"], options);
+export const getPeerPetActions = (options: RequestOptions) => currentDataClient?.getPetActions ? injectedResult("getPetActions", options) : callRPC(RPC_METHODS["server.pet.actions.get"], options);
 export const adoptPeerPet = (options: RequestOptions) => currentDataClient ? injectedResult("adoptPet", options) : callRPC(RPC_METHODS["server.pet.adopt"], options);
 export const putPeerPet = (options: RequestOptions) => currentDataClient ? injectedResult("putPet", options) : callRPC(RPC_METHODS["server.pet.put"], options);
 export const deletePeerPet = (options: RequestOptions) => currentDataClient ? injectedResult("deletePet", options) : callRPC(RPC_METHODS["server.pet.delete"], options);
 export const drivePeerPet = (options: RequestOptions) => currentDataClient ? injectedResult("drivePet", options) : callRPC(RPC_METHODS["server.pet.drive"], options);
-export const getPeerPetDefPixa = async (options: RequestOptions): Promise<ApiResult<Blob>> => {
-  if (currentDataClient != null) {
-    const result = await injectedResult<Blob | ArrayBuffer | Uint8Array>("downloadPetDefPixa", options);
-    return normalizeInjectedBinary(result);
-  }
-  const result = await callRPCBinary(RPC_METHODS["server.pet_def.pixa.download"], options);
-  return binaryBlobResult(result);
-};
 export const getPeerPetPixa = async (options: RequestOptions): Promise<ApiResult<Blob>> => {
   if (currentDataClient != null) {
     const result = await injectedResult<Blob | ArrayBuffer | Uint8Array>("downloadPetPixa", options);

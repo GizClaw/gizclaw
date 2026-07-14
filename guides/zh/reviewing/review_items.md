@@ -19,14 +19,14 @@
 | 修改路径或 ownership | 必须查阅的开发文档 | 重点确认 |
 | --- | --- | --- |
 | `api/http/**` | [HTTP API 总览](/zh/developing/api/http/overview)、对应的 [Admin API](/zh/developing/api/http/admin)、[Public API](/zh/developing/api/http/public) 或 [OpenAI Compatible](/zh/developing/api/http/openai-compatible) | Surface ownership、shared/resource 依赖、生成结果与 server 实现 |
-| `api/rpc/**` | [Proto API 总览](/zh/developing/api/proto/overview)、[Peer RPC](/zh/developing/api/proto/rpc/overview) 及对应 provider-direction 页面 | Method provider/consumer、message source of truth、生成 surface |
-| `api/telemetry/**` | [Telemetry](/zh/developing/api/proto/telemetry) | Telemetry contract、编码、生成代码与消费端 |
+| `api/proto/rpc/**` | [Proto API 总览](/zh/developing/api/proto/overview)、[Peer RPC](/zh/developing/api/proto/rpc/overview) 及对应 provider-direction 页面 | Method provider/consumer、message source of truth、生成 surface |
+| `api/proto/telemetry/**` | [Telemetry](/zh/developing/api/proto/telemetry) | Telemetry contract、编码、生成代码与消费端 |
 | `pkgs/giznet/**` | [pkgs/giznet](/zh/developing/giznet) | WebRTC、PeerConn、transport 与 connection lifecycle |
 | `pkgs/gizedge/**` | [pkgs/gizedge](/zh/developing/gizedge) | Device/Edge/Server signaling、反向代理与 RPC routing |
 | `pkgs/gizclaw/**` | [pkgs/gizclaw 总览](/zh/developing/gizclaw/overview) | Service layout、角色可见性、根 package 组装边界 |
 | `pkgs/gizclaw/peer_*.go` | [Peer 总览](/zh/developing/gizclaw/peer/overview) 及对应的 Management、Authorization、Connection 或 Services 页面 | Peer identity、在线连接、授权和 service surface |
 | `pkgs/gizclaw/server*.go` | [Server 总览](/zh/developing/gizclaw/server/overview) 及对应模块页面 | Server 组装、HTTP surface、security policy 与 lifecycle |
-| `pkgs/gizclaw/rpc*.go` | [RPC 总览](/zh/developing/gizclaw/rpc/overview) 及对应 Client、Server 或能力页面 | Go RPC implementation 与 `api/rpc` contract 一致性 |
+| `pkgs/gizclaw/rpc*.go` | [RPC 总览](/zh/developing/gizclaw/rpc/overview) 及对应 Client、Server 或能力页面 | Go RPC implementation 与 `api/proto/rpc` contract 一致性 |
 | `pkgs/gizclaw/services/**` | [Services 总览](/zh/developing/gizclaw/services/overview) 及对应领域页面 | 领域 ownership、持久化边界和跨 service 依赖 |
 | `pkgs/gizclaw/api/**` | [Generated Go API](/zh/developing/gizclaw/api) 和对应 `api/**` source contract | 生成文件新鲜度；不得手工维护生成 surface |
 | `pkgs/gizclaw/contextstore/**` | [Context Store](/zh/developing/gizclaw/contextstore) | Config context、类型安全和调用边界 |
@@ -39,7 +39,7 @@
 | `sdk/c/**` | 对应 [Peer RPC](/zh/developing/api/proto/rpc/overview)，以及 [C 与 cgo](/zh/coding-styles/c) | C API/ABI、nanopb 生成代码、ownership 与 cgo bridge |
 | `apps/gizclaw-app/**` | [Dart 与 Flutter](/zh/coding-styles/dart-flutter) 和 App 使用的 SDK/API 文档 | App 与 SDK 边界、Widget lifecycle、平台行为 |
 | `apps/wails/**` | [JavaScript 与 TypeScript](/zh/coding-styles/js)、[Go](/zh/coding-styles/go) 和 App 使用的 API 文档 | Go bridge、frontend runtime、生成 client 与 desktop lifecycle |
-| `guides/**`、`README.md`、`AGENTS.md`、`docs/**` | [文档编码规范](/zh/coding-styles/docs) | 最终形态、事实来源、链接、导航、命令和重复 source of truth |
+| `guides/**`、`README.md`、`AGENTS.md` | [文档编码规范](/zh/coding-styles/docs) | 最终形态、事实来源、链接、导航、命令和重复 source of truth |
 | `.github/**` | [文档编码规范](/zh/coding-styles/docs) 和仓库根 `AGENTS.md` | Workflow 权限、SHA pin、secret boundary 与实际执行命令 |
 | `tests/**`、`examples/**` | 被测试或演示模块的全部开发文档及对应编码规范 | 测试是否证明 production contract，而非建立第二套行为 |
 

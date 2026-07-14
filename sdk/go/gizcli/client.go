@@ -338,15 +338,6 @@ func (c *Client) DownloadFirmware(ctx context.Context, id string, request rpcapi
 	return c.rpcClient().DownloadFirmware(ctx, stream, id, request, out)
 }
 
-func (c *Client) DownloadPetDefPixa(ctx context.Context, id string, request rpcapi.PetDefPixaDownloadRequest, out io.Writer) (PetDefPixaDownloadResult, error) {
-	stream, err := c.rpcConn()
-	if err != nil {
-		return PetDefPixaDownloadResult{}, err
-	}
-	defer func() { _ = stream.Close() }()
-	return c.rpcClient().DownloadPetDefPixa(ctx, stream, id, request, out)
-}
-
 func (c *Client) DownloadPetPixa(ctx context.Context, id string, request rpcapi.PetPixaDownloadRequest, out io.Writer) (PetPixaDownloadResult, error) {
 	stream, err := c.rpcConn()
 	if err != nil {

@@ -240,15 +240,9 @@ func TestRegisterOpenAIAndGeminiValidation(t *testing.T) {
 
 func TestRegisterSpeechSchemaDispatch(t *testing.T) {
 	oldDefaultMux := transformers.DefaultMux
-	oldASRMux := transformers.ASRMux
-	oldTTSMux := transformers.TTSMux
 	transformers.DefaultMux = transformers.NewMux()
-	transformers.ASRMux = transformers.NewASRMux()
-	transformers.TTSMux = transformers.NewTTSMux()
 	t.Cleanup(func() {
 		transformers.DefaultMux = oldDefaultMux
-		transformers.ASRMux = oldASRMux
-		transformers.TTSMux = oldTTSMux
 	})
 
 	tests := []struct {
@@ -377,12 +371,9 @@ func TestRegisterSpeechSchemaValidation(t *testing.T) {
 
 func TestRegisterDoubaoASRUsesFixedTransportAudioDefaults(t *testing.T) {
 	oldDefaultMux := transformers.DefaultMux
-	oldASRMux := transformers.ASRMux
 	transformers.DefaultMux = transformers.NewMux()
-	transformers.ASRMux = transformers.NewASRMux()
 	t.Cleanup(func() {
 		transformers.DefaultMux = oldDefaultMux
-		transformers.ASRMux = oldASRMux
 	})
 
 	names, err := registerDoubaoASR(ConfigFile{

@@ -93,14 +93,14 @@ Play transport mapping:
 - Generated peer RPC method/request/response typing lives in
   `sdk/js/gizclaw/generated/rpc`.
 - The generated RPC method map and numeric method IDs are produced from
-  `api/rpc/common.proto` and `api/rpc/peer.proto`.
+  `api/proto/rpc/rpc.proto` and `api/proto/rpc/rpc.proto`.
 
 ## Final Acceptance Evidence
 
 The #120 desktop UI redo is considered complete when the following evidence is
 current:
 
-- `api/desktop_service.json` defines the local desktop API for contexts, views,
+- `api/http/desktop.json` defines the local desktop API for contexts, views,
   and view sessions. The generated frontend types live under
   `apps/wails/frontend/src/generated/desktopservice`.
 - The desktop launcher uses `apps/wails/frontend/src/lib/runtime/desktop.ts`

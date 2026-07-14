@@ -67,28 +67,25 @@ func (d Dir) put(name string, r io.Reader, deadline time.Time) error {
 	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
 		return err
 	}
-	f, err := os.Create(full)
+	tmp, err := os.CreateTemp(filepath.Dir(full), ".put-*")
 	if err != nil {
 		return err
 	}
-	ok := false
+	tmpName := tmp.Name()
 	defer func() {
-		if !ok {
-			_ = f.Close()
-		}
+		_ = os.Remove(tmpName)
 	}()
-	if _, err := io.Copy(f, r); err != nil {
+	if _, err := io.Copy(tmp, r); err != nil {
+		_ = tmp.Close()
 		return err
 	}
-	if err := f.Close(); err != nil {
+	if err := tmp.Close(); err != nil {
 		return err
 	}
-	ok = true
 	if err := d.writeMetadata(name, deadline); err != nil {
-		_ = os.Remove(full)
 		return err
 	}
-	return nil
+	return os.Rename(tmpName, full)
 }
 
 func (d Dir) Delete(name string) error {
@@ -228,7 +225,22 @@ func (d Dir) writeMetadata(name string, deadline time.Time) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o644)
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".metadata-*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	defer func() {
+		_ = os.Remove(tmpName)
+	}()
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmpName, path)
 }
 
 func (d Dir) deleteMetadata(name string) error {

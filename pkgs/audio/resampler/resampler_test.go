@@ -117,6 +117,29 @@ func TestResamplerDifferentSampleRate(t *testing.T) {
 	}
 }
 
+func TestResamplerDrainsLeftoverBeforeEOF(t *testing.T) {
+	src := Format{SampleRate: 16000, Stereo: false}
+	dst := Format{SampleRate: 8000, Stereo: false}
+
+	input := generateSinePCM(16000, 440, 0.1)
+	r, err := New(bytes.NewReader(input), src, dst)
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+	defer r.Close()
+
+	out, err := readAll(r, 2)
+	if err != nil {
+		t.Fatalf("readAll() error: %v", err)
+	}
+	if len(out) == 0 {
+		t.Fatal("resampled output is empty")
+	}
+	if len(out)%2 != 0 {
+		t.Fatalf("output length should align to int16, got %d", len(out))
+	}
+}
+
 func TestResamplerShortBuffer(t *testing.T) {
 	src := Format{SampleRate: 16000, Stereo: false}
 	dst := Format{SampleRate: 16000, Stereo: false}

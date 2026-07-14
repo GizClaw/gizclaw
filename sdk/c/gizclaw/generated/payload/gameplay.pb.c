@@ -66,79 +66,34 @@ PB_BIND(gizclaw_rpc_v1_PetAdoptRequest, gizclaw_rpc_v1_PetAdoptRequest, AUTO)
 PB_BIND(gizclaw_rpc_v1_PetAdoptResponse, gizclaw_rpc_v1_PetAdoptResponse, 2)
 
 
-PB_BIND(gizclaw_rpc_v1_PetDefPixaDownloadRequest, gizclaw_rpc_v1_PetDefPixaDownloadRequest, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_PetDefPixaDownloadResponse, gizclaw_rpc_v1_PetDefPixaDownloadResponse, AUTO)
-
-
 PB_BIND(gizclaw_rpc_v1_PetPixaDownloadRequest, gizclaw_rpc_v1_PetPixaDownloadRequest, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_PetPixaDownloadResponse, gizclaw_rpc_v1_PetPixaDownloadResponse, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_PetPresentation, gizclaw_rpc_v1_PetPresentation, 2)
+PB_BIND(gizclaw_rpc_v1_PetActionEffectSpec, gizclaw_rpc_v1_PetActionEffectSpec, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_PetPresentationActionEffectSpec, gizclaw_rpc_v1_PetPresentationActionEffectSpec, AUTO)
+PB_BIND(gizclaw_rpc_v1_PetAction, gizclaw_rpc_v1_PetAction, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_PetPresentationActionSpec, gizclaw_rpc_v1_PetPresentationActionSpec, AUTO)
+PB_BIND(gizclaw_rpc_v1_PetActionI18nText, gizclaw_rpc_v1_PetActionI18nText, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_PetPresentationAttrDelta, gizclaw_rpc_v1_PetPresentationAttrDelta, AUTO)
+PB_BIND(gizclaw_rpc_v1_PetActionsI18nCatalog, gizclaw_rpc_v1_PetActionsI18nCatalog, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_PetPresentationAttrGroupSpec, gizclaw_rpc_v1_PetPresentationAttrGroupSpec, AUTO)
+PB_BIND(gizclaw_rpc_v1_PetActionsI18nCatalog_ActionsEntry, gizclaw_rpc_v1_PetActionsI18nCatalog_ActionsEntry, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_PetPresentationAttrGroupSpec_ValueEntry, gizclaw_rpc_v1_PetPresentationAttrGroupSpec_ValueEntry, AUTO)
+PB_BIND(gizclaw_rpc_v1_PetActionsI18n, gizclaw_rpc_v1_PetActionsI18n, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_PetPresentationAttrSpec, gizclaw_rpc_v1_PetPresentationAttrSpec, AUTO)
+PB_BIND(gizclaw_rpc_v1_PetActionsI18n_ValueEntry, gizclaw_rpc_v1_PetActionsI18n_ValueEntry, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_PetPresentationAttrValueSpec, gizclaw_rpc_v1_PetPresentationAttrValueSpec, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_PetPresentationDriveSpec, gizclaw_rpc_v1_PetPresentationDriveSpec, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_PetPresentationI18nAttrGroup, gizclaw_rpc_v1_PetPresentationI18nAttrGroup, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_PetPresentationI18nAttrGroup_ValueEntry, gizclaw_rpc_v1_PetPresentationI18nAttrGroup_ValueEntry, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_PetPresentationI18nAttrSpec, gizclaw_rpc_v1_PetPresentationI18nAttrSpec, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_PetPresentationI18nCatalog, gizclaw_rpc_v1_PetPresentationI18nCatalog, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_PetPresentationI18nDisplayText, gizclaw_rpc_v1_PetPresentationI18nDisplayText, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_PetPresentationI18nDriveSpec, gizclaw_rpc_v1_PetPresentationI18nDriveSpec, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_PetPresentationI18nDriveSpec_ActionsEntry, gizclaw_rpc_v1_PetPresentationI18nDriveSpec_ActionsEntry, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_PetPresentationI18nSpec, gizclaw_rpc_v1_PetPresentationI18nSpec, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_PetPresentationI18nSpec_ValueEntry, gizclaw_rpc_v1_PetPresentationI18nSpec_ValueEntry, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_PetPresentationPixaCanvasMetadata, gizclaw_rpc_v1_PetPresentationPixaCanvasMetadata, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_PetPresentationPixaClipMetadata, gizclaw_rpc_v1_PetPresentationPixaClipMetadata, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_PetPresentationPixaMetadata, gizclaw_rpc_v1_PetPresentationPixaMetadata, AUTO)
+PB_BIND(gizclaw_rpc_v1_PetActions, gizclaw_rpc_v1_PetActions, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_PetDeleteRequest, gizclaw_rpc_v1_PetDeleteRequest, AUTO)
@@ -240,10 +195,10 @@ PB_BIND(gizclaw_rpc_v1_ServerPetPixaDownloadRequest, gizclaw_rpc_v1_ServerPetPix
 PB_BIND(gizclaw_rpc_v1_ServerPetPixaDownloadResponse, gizclaw_rpc_v1_ServerPetPixaDownloadResponse, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ServerPetPresentationGetRequest, gizclaw_rpc_v1_ServerPetPresentationGetRequest, AUTO)
+PB_BIND(gizclaw_rpc_v1_ServerPetActionsGetRequest, gizclaw_rpc_v1_ServerPetActionsGetRequest, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ServerPetPresentationGetResponse, gizclaw_rpc_v1_ServerPetPresentationGetResponse, 2)
+PB_BIND(gizclaw_rpc_v1_ServerPetActionsGetResponse, gizclaw_rpc_v1_ServerPetActionsGetResponse, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_ServerPetListRequest, gizclaw_rpc_v1_ServerPetListRequest, AUTO)

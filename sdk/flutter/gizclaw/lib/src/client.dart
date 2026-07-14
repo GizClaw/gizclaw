@@ -269,29 +269,12 @@ class GizClawClient {
     );
   }
 
-  Future<payload.ServerPetPresentationGetResponse> getPetPresentation(
-    String petId,
-  ) {
-    return rpc.call<payload.ServerPetPresentationGetResponse>(
-      'server.pet.presentation.get',
-      payload.ServerPetPresentationGetRequest(
+  Future<payload.ServerPetActionsGetResponse> getPetActions(String petId) {
+    return rpc.call<payload.ServerPetActionsGetResponse>(
+      'server.pet.actions.get',
+      payload.ServerPetActionsGetRequest(
         value: payload.PetGetRequest(id: petId),
       ),
-    );
-  }
-
-  Future<PixaDownloadResult<payload.PetDefPixaDownloadResponse>>
-  downloadPetDefPixa(String id) async {
-    final response = await rpc.callBinary(
-      'server.pet_def.pixa.download',
-      payload.PetDefPixaDownloadRequest(id: id),
-    );
-    final metadata = response.response as payload.PetDefPixaDownloadResponse;
-    final bytes = Uint8List.fromList(response.body);
-    return PixaDownloadResult(
-      metadata: metadata,
-      bytes: bytes,
-      asset: validatePixa(bytes, mode: PixaValidationMode.petdef),
     );
   }
 

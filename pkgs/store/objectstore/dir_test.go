@@ -3,6 +3,8 @@ package objectstore
 import (
 	"io"
 	"io/fs"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -103,6 +105,40 @@ func TestDirReplaceMissingAndEmptyPrefix(t *testing.T) {
 	}
 	if _, err := store.Get("asset.txt"); err != nil {
 		t.Fatalf("Get after DeletePrefix empty: %v", err)
+	}
+}
+
+func TestDirPutFailureKeepsExistingObjectAndRemovesTemp(t *testing.T) {
+	root := t.TempDir()
+	store := Dir(root)
+	if err := store.Put("asset.txt", strings.NewReader("old")); err != nil {
+		t.Fatalf("initial Put: %v", err)
+	}
+
+	if err := store.Put("asset.txt", failingReader{}); err == nil {
+		t.Fatal("replacement Put error = nil")
+	}
+
+	r, err := store.Get("asset.txt")
+	if err != nil {
+		t.Fatalf("Get existing after failed Put: %v", err)
+	}
+	data, err := io.ReadAll(r)
+	if closeErr := r.Close(); closeErr != nil && err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		t.Fatalf("ReadAll: %v", err)
+	}
+	if string(data) != "old" {
+		t.Fatalf("data after failed Put = %q, want old", data)
+	}
+	matches, err := filepath.Glob(filepath.Join(root, ".put-*"))
+	if err != nil {
+		t.Fatalf("Glob temp files: %v", err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("temp files remain: %v", matches)
 	}
 }
 
@@ -241,6 +277,12 @@ func reader(s string) io.Reader {
 type stringReader struct {
 	s string
 	i int
+}
+
+type failingReader struct{}
+
+func (failingReader) Read([]byte) (int, error) {
+	return 0, os.ErrInvalid
 }
 
 func (r *stringReader) Read(p []byte) (int, error) {

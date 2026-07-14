@@ -61,10 +61,6 @@ func registerDoubaoASR(cfg ConfigFile) ([]string, error) {
 		)
 		modelOpts := append(slices.Clone(opts), transformers.WithDoubaoASRSAUCResourceID(resourceID))
 		asr := transformers.NewDoubaoASRSAUC(client, modelOpts...)
-		// Register to both ASRMux and DefaultMux for compatibility
-		if err := transformers.HandleASR(m.Name, asr); err != nil {
-			return nil, fmt.Errorf("register ASR transformer %q: %w", m.Name, err)
-		}
 		if err := transformers.Handle(m.Name, asr); err != nil {
 			return nil, fmt.Errorf("register transformer %q: %w", m.Name, err)
 		}

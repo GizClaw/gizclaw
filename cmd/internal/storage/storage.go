@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/depotstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/vecstore"
@@ -25,7 +24,6 @@ import (
 const (
 	KindKeyValue    = "keyvalue"
 	KindVecStore    = "vecstore"
-	KindFilesystem  = "filesystem"
 	KindObjectStore = "objectstore"
 	KindSQL         = "sql"
 )
@@ -71,7 +69,6 @@ type Storage struct {
 	vecs    map[string]vecstore.Index
 	objects map[string]objectstore.ObjectStore
 	sqls    map[string]*sql.DB
-	fss     map[string]depotstore.Dir
 	closers []io.Closer
 }
 
@@ -83,7 +80,6 @@ func New(configs map[string]Config) (*Storage, error) {
 		vecs:    make(map[string]vecstore.Index),
 		objects: make(map[string]objectstore.ObjectStore),
 		sqls:    make(map[string]*sql.DB),
-		fss:     make(map[string]depotstore.Dir),
 	}
 	ok := false
 	defer func() {
@@ -139,20 +135,6 @@ func (s *Storage) ObjectStore(name string) (objectstore.ObjectStore, error) {
 	return st, nil
 }
 
-// FS returns the named physical file store backend.
-func (s *Storage) FS(name string) (depotstore.Dir, error) {
-	return s.Filesystem(name)
-}
-
-// Filesystem returns the named physical filesystem backend.
-func (s *Storage) Filesystem(name string) (depotstore.Dir, error) {
-	st, ok := s.fss[name]
-	if !ok {
-		return "", fmt.Errorf("storage: filesystem %q not found", name)
-	}
-	return st, nil
-}
-
 // Close releases all opened physical backends in reverse creation order.
 func (s *Storage) Close() error {
 	var errs []error
@@ -199,12 +181,6 @@ func (s *Storage) build(name string, configs map[string]Config, states map[strin
 		if err == nil {
 			s.vecs[name] = st
 			s.closers = append(s.closers, st)
-		}
-	case KindFilesystem:
-		var st depotstore.Dir
-		st, err = newFilesystem(name, cfg)
-		if err == nil {
-			s.fss[name] = st
 		}
 	case KindObjectStore:
 		var st objectstore.ObjectStore
@@ -280,18 +256,6 @@ func newVecStore(name string, cfg Config) (vecstore.Index, error) {
 	}
 }
 
-func newFilesystem(name string, cfg Config) (depotstore.Dir, error) {
-	if blocks := driverBlocks(cfg); len(blocks) > 0 {
-		if err := validateDriverBlocks(name, KindFilesystem, blocks, "fs"); err != nil {
-			return "", err
-		}
-	}
-	if cfg.FS == nil {
-		return "", fmt.Errorf("storage: filesystem %q requires fs driver", name)
-	}
-	return newFilesystemDir(name, cfg.FS.Dir)
-}
-
 func newObjectStore(name string, cfg Config) (objectstore.ObjectStore, error) {
 	if blocks := driverBlocks(cfg); len(blocks) > 0 {
 		if err := validateDriverBlocks(name, KindObjectStore, blocks, "fs"); err != nil {
@@ -308,16 +272,6 @@ func newObjectStore(name string, cfg Config) (objectstore.ObjectStore, error) {
 		return nil, fmt.Errorf("storage: objectstore %q mkdir: %w", name, err)
 	}
 	return objectstore.Dir(cfg.FS.Dir), nil
-}
-
-func newFilesystemDir(name, dir string) (depotstore.Dir, error) {
-	if dir == "" {
-		return "", fmt.Errorf("storage: filesystem %q (fs) requires dir", name)
-	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", fmt.Errorf("storage: filesystem %q mkdir: %w", name, err)
-	}
-	return depotstore.Dir(dir), nil
 }
 
 func newSQL(name string, cfg Config) (*sql.DB, error) {

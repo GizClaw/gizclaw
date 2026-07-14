@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -18,7 +17,6 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
@@ -328,11 +326,30 @@ func TestUpstreamTransportReconnectsAfterClosedConn(t *testing.T) {
 	upstreamKey := testKeyPair(t, 0x7a)
 	var mu sync.Mutex
 	var signalingHandler http.Handler
+	var loginRequests int
+	var signalingRequests int
 	signaling := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/login" {
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"access_token":"edge-session","token_type":"Bearer","expires_at":4102444800000}`))
+			mu.Lock()
+			loginRequests++
+			mu.Unlock()
+			http.Error(w, "edge should not login before signaling", http.StatusInternalServerError)
 			return
+		}
+		if r.URL.Path == gizwebrtc.SignalingPath {
+			mu.Lock()
+			signalingRequests++
+			mu.Unlock()
+			if got := r.Header.Get("Authorization"); got != "" {
+				t.Errorf("signaling Authorization = %q, want signed offer without bearer session", got)
+				http.Error(w, "unexpected bearer session", http.StatusUnauthorized)
+				return
+			}
+			if got := r.Header.Get("X-Giznet-Public-Key"); got != edgeKey.Public.String() {
+				t.Errorf("signaling X-Giznet-Public-Key = %q, want edge public key", got)
+				http.Error(w, "missing signed offer public key", http.StatusUnauthorized)
+				return
+			}
 		}
 		mu.Lock()
 		handler := signalingHandler
@@ -431,6 +448,16 @@ func TestUpstreamTransportReconnectsAfterClosedConn(t *testing.T) {
 		t.Fatalf("second upstream accept error = %v", err)
 	case <-time.After(5 * time.Second):
 		t.Fatal("second upstream accept timed out")
+	}
+	mu.Lock()
+	gotLogins := loginRequests
+	gotSignaling := signalingRequests
+	mu.Unlock()
+	if gotLogins != 0 {
+		t.Fatalf("login requests = %d, want 0", gotLogins)
+	}
+	if gotSignaling < 2 {
+		t.Fatalf("signaling requests = %d, want at least 2", gotSignaling)
 	}
 }
 
@@ -624,119 +651,6 @@ func TestUpstreamSignalingURLPreservesConfiguredPath(t *testing.T) {
 	}
 	if got := upstreamSignalingURL(upstreamURL); got != "http://server:9822/custom-offer" {
 		t.Fatalf("upstreamSignalingURL = %q", got)
-	}
-}
-
-func TestPrivateIngressHTTPClientAddsEdgeSessionHeaders(t *testing.T) {
-	edgeKey := testKeyPair(t, 0x99)
-	upstreamKey := testKeyPair(t, 0x9a)
-	loginCount := 0
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/login":
-			loginCount++
-			if got := r.Header.Get(publiclogin.PublicKeyHeader); got != edgeKey.Public.String() {
-				t.Fatalf("login %s = %q, want edge public key", publiclogin.PublicKeyHeader, got)
-			}
-			if got := r.Header.Get("Authorization"); !strings.HasPrefix(got, "Bearer ") || strings.Contains(got, "edge-session") {
-				t.Fatalf("login Authorization = %q, want bearer assertion", got)
-			}
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"access_token":"edge-session","token_type":"Bearer","expires_at":4102444800000}`))
-		case gizwebrtc.SignalingPath:
-			if got := r.Header.Get(publiclogin.PublicKeyHeader); got != edgeKey.Public.String() {
-				t.Fatalf("signaling %s = %q, want edge public key", publiclogin.PublicKeyHeader, got)
-			}
-			if got := r.Header.Get("Authorization"); got != "Bearer edge-session" {
-				t.Fatalf("signaling Authorization = %q, want bearer session", got)
-			}
-			w.WriteHeader(http.StatusNoContent)
-		default:
-			http.NotFound(w, r)
-		}
-	}))
-	defer upstream.Close()
-
-	upstreamURL, err := (&Config{Upstream: UpstreamConfig{Endpoint: upstream.URL}}).UpstreamURL()
-	if err != nil {
-		t.Fatalf("UpstreamURL error = %v", err)
-	}
-	client := newPrivateIngressHTTPClient(Config{
-		KeyPair: edgeKey,
-		Upstream: UpstreamConfig{
-			PublicKey: upstreamKey.Public,
-		},
-	}, upstreamURL)
-
-	for i := 0; i < 2; i++ {
-		resp, err := client.Post(upstream.URL+gizwebrtc.SignalingPath, "application/octet-stream", nil)
-		if err != nil {
-			t.Fatalf("Post signaling error = %v", err)
-		}
-		_ = resp.Body.Close()
-		if resp.StatusCode != http.StatusNoContent {
-			t.Fatalf("signaling status = %d", resp.StatusCode)
-		}
-	}
-	if loginCount != 1 {
-		t.Fatalf("loginCount = %d, want cached session", loginCount)
-	}
-}
-
-func TestPrivateIngressHTTPClientRefreshesSessionOnUnauthorized(t *testing.T) {
-	edgeKey := testKeyPair(t, 0x9b)
-	upstreamKey := testKeyPair(t, 0x9c)
-	loginCount := 0
-	signalingCount := 0
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/login":
-			loginCount++
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(fmt.Sprintf(`{"access_token":"edge-session-%d","token_type":"Bearer","expires_at":4102444800000}`, loginCount)))
-		case gizwebrtc.SignalingPath:
-			signalingCount++
-			if signalingCount == 1 {
-				if got := r.Header.Get("Authorization"); got != "Bearer edge-session-1" {
-					t.Fatalf("first signaling Authorization = %q, want stale cached token", got)
-				}
-				w.WriteHeader(http.StatusUnauthorized)
-				return
-			}
-			if got := r.Header.Get("Authorization"); got != "Bearer edge-session-2" {
-				t.Fatalf("retry signaling Authorization = %q, want refreshed token", got)
-			}
-			w.WriteHeader(http.StatusNoContent)
-		default:
-			http.NotFound(w, r)
-		}
-	}))
-	defer upstream.Close()
-
-	upstreamURL, err := (&Config{Upstream: UpstreamConfig{Endpoint: upstream.URL}}).UpstreamURL()
-	if err != nil {
-		t.Fatalf("UpstreamURL error = %v", err)
-	}
-	client := newPrivateIngressHTTPClient(Config{
-		KeyPair: edgeKey,
-		Upstream: UpstreamConfig{
-			PublicKey: upstreamKey.Public,
-		},
-	}, upstreamURL)
-
-	resp, err := client.Post(upstream.URL+gizwebrtc.SignalingPath, "application/octet-stream", strings.NewReader("offer"))
-	if err != nil {
-		t.Fatalf("Post signaling error = %v", err)
-	}
-	_ = resp.Body.Close()
-	if resp.StatusCode != http.StatusNoContent {
-		t.Fatalf("signaling status = %d", resp.StatusCode)
-	}
-	if loginCount != 2 {
-		t.Fatalf("loginCount = %d, want refreshed session", loginCount)
-	}
-	if signalingCount != 2 {
-		t.Fatalf("signalingCount = %d, want retry", signalingCount)
 	}
 }
 

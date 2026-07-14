@@ -6,6 +6,7 @@ package apitypes
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	jsonschema "github.com/google/jsonschema-go/jsonschema"
@@ -3019,11 +3020,12 @@ type PetAttrValueSpec struct {
 
 // PetDef defines model for PetDef.
 type PetDef struct {
-	CreatedAt time.Time  `json:"created_at"`
-	Id        string     `json:"id"`
-	PixaPath  *string    `json:"pixa_path,omitempty"`
-	Spec      PetDefSpec `json:"spec"`
-	UpdatedAt time.Time  `json:"updated_at"`
+	CreatedAt time.Time      `json:"created_at"`
+	I18n      PetDefI18nSpec `json:"i18n"`
+	Id        string         `json:"id"`
+	PixaPath  *string        `json:"pixa_path,omitempty"`
+	Spec      PetDefSpec     `json:"spec"`
+	UpdatedAt time.Time      `json:"updated_at"`
 }
 
 // PetDefActionEffectSpec defines model for PetDefActionEffectSpec.
@@ -3084,7 +3086,10 @@ type PetDefI18nDriveSpec struct {
 }
 
 // PetDefI18nSpec defines model for PetDefI18nSpec.
-type PetDefI18nSpec map[string]PetDefI18nCatalog
+type PetDefI18nSpec struct {
+	DefaultLocale        string                       `json:"default_locale"`
+	AdditionalProperties map[string]PetDefI18nCatalog `json:"-"`
+}
 
 // PetDefPixaCanvasMetadata defines model for PetDefPixaCanvasMetadata.
 type PetDefPixaCanvasMetadata struct {
@@ -3116,6 +3121,7 @@ type PetDefPixaSpec struct {
 type PetDefResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
 	ApiVersion ResourceAPIVersion `json:"apiVersion"`
+	I18n       PetDefI18nSpec     `json:"i18n"`
 	Kind       PetDefResourceKind `json:"kind"`
 	Metadata   ResourceMetadata   `json:"metadata"`
 	Spec       PetDefSpec         `json:"spec"`
@@ -3126,14 +3132,12 @@ type PetDefResourceKind string
 
 // PetDefSpec defines model for PetDefSpec.
 type PetDefSpec struct {
-	Attr          PetDefAttrSpec      `json:"attr"`
-	Character     PetDefCharacterSpec `json:"character"`
-	DefaultLocale string              `json:"default_locale"`
-	Drive         PetDefDriveSpec     `json:"drive"`
-	I18n          PetDefI18nSpec      `json:"i18n"`
-	Visual        PetDefVisualSpec    `json:"visual"`
-	Voice         PetDefVoiceSpec     `json:"voice"`
-	WorkflowName  *string             `json:"workflow_name,omitempty"`
+	Attr         PetDefAttrSpec      `json:"attr"`
+	Character    PetDefCharacterSpec `json:"character"`
+	Drive        PetDefDriveSpec     `json:"drive"`
+	Visual       PetDefVisualSpec    `json:"visual"`
+	Voice        PetDefVoiceSpec     `json:"voice"`
+	WorkflowName *string             `json:"workflow_name,omitempty"`
 }
 
 // PetDefVisualRefSpec defines model for PetDefVisualRefSpec.
@@ -3728,6 +3732,72 @@ type WorkspaceSpec struct {
 
 	// WorkflowName Referenced workflow custom ID.
 	WorkflowName string `json:"workflow_name"`
+}
+
+// Getter for additional properties for PetDefI18nSpec. Returns the specified
+// element and whether it was found
+func (a PetDefI18nSpec) Get(fieldName string) (value PetDefI18nCatalog, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for PetDefI18nSpec
+func (a *PetDefI18nSpec) Set(fieldName string, value PetDefI18nCatalog) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]PetDefI18nCatalog)
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for PetDefI18nSpec to handle AdditionalProperties
+func (a *PetDefI18nSpec) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["default_locale"]; found {
+		err = json.Unmarshal(raw, &a.DefaultLocale)
+		if err != nil {
+			return fmt.Errorf("error reading 'default_locale': %w", err)
+		}
+		delete(object, "default_locale")
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]PetDefI18nCatalog)
+		for fieldName, fieldBuf := range object {
+			var fieldVal PetDefI18nCatalog
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for PetDefI18nSpec to handle AdditionalProperties
+func (a PetDefI18nSpec) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	object["default_locale"], err = json.Marshal(a.DefaultLocale)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'default_locale': %w", err)
+	}
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
 }
 
 // AsASTTranslateInternalSpeakerParameters returns the union data inside the ASTTranslateVoiceParameters as a ASTTranslateInternalSpeakerParameters

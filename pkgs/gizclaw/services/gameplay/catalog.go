@@ -191,7 +191,7 @@ func (c *Catalog) CreatePetDef(ctx context.Context, request adminhttp.CreatePetD
 		return adminhttp.CreatePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	id := strings.TrimSpace(request.Body.Id)
-	item, err := c.buildPetDef(id, request.Body.Spec, nil, time.Time{})
+	item, err := c.buildPetDef(id, request.Body.Spec, request.Body.I18n, nil, time.Time{})
 	if err != nil {
 		return adminhttp.CreatePetDef400JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF", err.Error())), nil
 	}
@@ -267,7 +267,7 @@ func (c *Catalog) PutPetDef(ctx context.Context, request adminhttp.PutPetDefRequ
 			pixaPath = nil
 		}
 	}
-	item, err := c.buildPetDefForUpdate(id, request.Body.Spec, previous, err == nil, pixaPath, createdAt)
+	item, err := c.buildPetDefForUpdate(id, request.Body.Spec, request.Body.I18n, previous, err == nil, pixaPath, createdAt)
 	if err != nil {
 		return adminhttp.PutPetDef400JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF", err.Error())), nil
 	}
@@ -667,45 +667,42 @@ func (c *Catalog) buildGameRuleset(name string, spec apitypes.GameRulesetSpec, c
 	return apitypes.GameRuleset{Name: name, Spec: spec, CreatedAt: createdAt, UpdatedAt: now}, nil
 }
 
-func (c *Catalog) buildPetDef(id string, spec apitypes.PetDefSpec, pixaPath *string, createdAt time.Time) (apitypes.PetDef, error) {
-	return c.buildPetDefWithValidator(id, spec, pixaPath, createdAt, validatePetDefSpec)
+func (c *Catalog) buildPetDef(id string, spec apitypes.PetDefSpec, i18n apitypes.PetDefI18nSpec, pixaPath *string, createdAt time.Time) (apitypes.PetDef, error) {
+	return c.buildPetDefWithValidator(id, spec, i18n, pixaPath, createdAt, validatePetDef)
 }
 
-func (c *Catalog) buildPetDefForUpdate(id string, spec apitypes.PetDefSpec, previous apitypes.PetDef, hasPrevious bool, pixaPath *string, createdAt time.Time) (apitypes.PetDef, error) {
-	validate := func(spec apitypes.PetDefSpec) error {
-		err := validatePetDefSpec(spec)
+func (c *Catalog) buildPetDefForUpdate(id string, spec apitypes.PetDefSpec, i18n apitypes.PetDefI18nSpec, previous apitypes.PetDef, hasPrevious bool, pixaPath *string, createdAt time.Time) (apitypes.PetDef, error) {
+	validate := func(spec apitypes.PetDefSpec, i18n apitypes.PetDefI18nSpec) error {
+		err := validatePetDef(spec, i18n)
 		if err == nil {
 			return nil
 		}
 		if hasPrevious && isLegacyMigratedPetDef(previous) && isLegacyMigratedPetDefSpec(id, spec) {
-			if legacyErr := validateMigratedLegacyPetDefSpec(spec); legacyErr == nil {
+			if legacyErr := validateMigratedLegacyPetDef(spec, i18n); legacyErr == nil {
 				return nil
 			}
 		}
 		return err
 	}
-	return c.buildPetDefWithValidator(id, spec, pixaPath, createdAt, validate)
+	return c.buildPetDefWithValidator(id, spec, i18n, pixaPath, createdAt, validate)
 }
 
-func (c *Catalog) buildPetDefWithValidator(id string, spec apitypes.PetDefSpec, pixaPath *string, createdAt time.Time, validate func(apitypes.PetDefSpec) error) (apitypes.PetDef, error) {
+func (c *Catalog) buildPetDefWithValidator(id string, spec apitypes.PetDefSpec, i18n apitypes.PetDefI18nSpec, pixaPath *string, createdAt time.Time, validate func(apitypes.PetDefSpec, apitypes.PetDefI18nSpec) error) (apitypes.PetDef, error) {
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return apitypes.PetDef{}, errors.New("id is required")
 	}
-	if err := validate(spec); err != nil {
+	if err := validate(spec, i18n); err != nil {
 		return apitypes.PetDef{}, err
 	}
 	now := c.now()
 	if createdAt.IsZero() {
 		createdAt = now
 	}
-	return apitypes.PetDef{Id: id, Spec: spec, PixaPath: pixaPath, CreatedAt: createdAt, UpdatedAt: now}, nil
+	return apitypes.PetDef{Id: id, Spec: spec, I18n: i18n, PixaPath: pixaPath, CreatedAt: createdAt, UpdatedAt: now}, nil
 }
 
-func validatePetDefSpec(spec apitypes.PetDefSpec) error {
-	if strings.TrimSpace(spec.DefaultLocale) == "" {
-		return errors.New("default_locale is required")
-	}
+func validatePetDef(spec apitypes.PetDefSpec, i18n apitypes.PetDefI18nSpec) error {
 	if err := validatePetAttrGroup("attr.life", spec.Attr.Life); err != nil {
 		return err
 	}
@@ -730,10 +727,7 @@ func validatePetDefSpec(spec apitypes.PetDefSpec) error {
 	if err := validatePetDefDrive(spec.Drive, spec.Visual.Pixa.Metadata.Clips, spec.Attr); err != nil {
 		return err
 	}
-	if _, ok := spec.I18n[spec.DefaultLocale]; !ok {
-		return fmt.Errorf("i18n.%s is required", spec.DefaultLocale)
-	}
-	if err := validatePetDefI18n(spec); err != nil {
+	if err := validatePetDefI18n(spec, i18n); err != nil {
 		return err
 	}
 	return nil
@@ -877,10 +871,26 @@ func validatePetDefDrive(drive apitypes.PetDefDriveSpec, clips []apitypes.PetDef
 	return nil
 }
 
-func validatePetDefI18n(spec apitypes.PetDefSpec) error {
-	for localeName, locale := range spec.I18n {
+func validatePetDefI18n(spec apitypes.PetDefSpec, i18n apitypes.PetDefI18nSpec) error {
+	if strings.TrimSpace(i18n.DefaultLocale) == "" {
+		return errors.New("i18n.default_locale is required")
+	}
+	if strings.TrimSpace(i18n.DefaultLocale) != i18n.DefaultLocale {
+		return errors.New("i18n.default_locale must not contain leading or trailing whitespace")
+	}
+	locales := i18n.AdditionalProperties
+	if _, ok := locales[i18n.DefaultLocale]; !ok {
+		return fmt.Errorf("i18n.%s is required", i18n.DefaultLocale)
+	}
+	for localeName, locale := range locales {
 		if strings.TrimSpace(localeName) == "" {
 			return errors.New("i18n contains an empty locale")
+		}
+		if localeName == "default_locale" {
+			return errors.New("i18n.default_locale is reserved")
+		}
+		if strings.TrimSpace(localeName) != localeName {
+			return fmt.Errorf("i18n.%s must not contain leading or trailing whitespace", localeName)
 		}
 		if locale.Attr != nil {
 			if err := validateI18nAttrGroup("i18n."+localeName+".attr.life", locale.Attr.Life, spec.Attr.Life); err != nil {
@@ -1043,6 +1053,18 @@ type legacyPetDefJSON struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type preP22PetDefJSON struct {
+	Id   string `json:"id"`
+	Spec struct {
+		apitypes.PetDefSpec
+		DefaultLocale string                  `json:"default_locale"`
+		I18n          apitypes.PetDefI18nSpec `json:"i18n"`
+	} `json:"spec"`
+	PixaPath  *string   `json:"pixa_path,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 type legacyGameRulesetAction struct {
 	Cost   int64
 	Reward apitypes.GameRewardSpec
@@ -1074,11 +1096,11 @@ func (c *Catalog) readPetDefJSON(ctx context.Context, store kv.Store, key kv.Key
 	if err := json.Unmarshal(data, &item); err != nil {
 		return apitypes.PetDef{}, err
 	}
-	if err := validatePetDefSpec(item.Spec); err == nil {
+	if err := validatePetDef(item.Spec, item.I18n); err == nil {
 		return item, nil
 	}
 	if isLegacyMigratedPetDef(item) {
-		if err := validateMigratedLegacyPetDefSpec(item.Spec); err == nil {
+		if err := validateMigratedLegacyPetDef(item.Spec, item.I18n); err == nil {
 			return item, nil
 		}
 	}
@@ -1107,11 +1129,11 @@ func (c *Catalog) migratePetDefData(data []byte) (apitypes.PetDef, error) {
 	if err := json.Unmarshal(data, &item); err != nil {
 		return apitypes.PetDef{}, err
 	}
-	if err := validatePetDefSpec(item.Spec); err == nil {
+	if err := validatePetDef(item.Spec, item.I18n); err == nil {
 		return item, nil
 	}
 	if isLegacyMigratedPetDef(item) {
-		if err := validateMigratedLegacyPetDefSpec(item.Spec); err == nil {
+		if err := validateMigratedLegacyPetDef(item.Spec, item.I18n); err == nil {
 			return item, nil
 		}
 	}
@@ -1119,6 +1141,9 @@ func (c *Catalog) migratePetDefData(data []byte) (apitypes.PetDef, error) {
 }
 
 func (c *Catalog) migrateLegacyPetDefJSON(data []byte) (apitypes.PetDef, error) {
+	if item, ok := migratePreP22PetDefJSON(data); ok {
+		return item, nil
+	}
 	var legacy legacyPetDefJSON
 	if err := json.Unmarshal(data, &legacy); err != nil {
 		return apitypes.PetDef{}, err
@@ -1128,7 +1153,7 @@ func (c *Catalog) migrateLegacyPetDefJSON(data []byte) (apitypes.PetDef, error) 
 		if err := json.Unmarshal(data, &item); err != nil {
 			return apitypes.PetDef{}, err
 		}
-		return apitypes.PetDef{}, validatePetDefSpec(item.Spec)
+		return apitypes.PetDef{}, validatePetDef(item.Spec, item.I18n)
 	}
 	if len(legacy.Spec.InitialLife) == 0 {
 		legacy.Spec.InitialLife = map[string]int64{"hunger": 100}
@@ -1139,8 +1164,7 @@ func (c *Catalog) migrateLegacyPetDefJSON(data []byte) (apitypes.PetDef, error) 
 	}
 	pixaMetadata := c.legacyPetDefPixaMetadata(legacy.PixaPath)
 	spec := apitypes.PetDefSpec{
-		DefaultLocale: "en",
-		WorkflowName:  legacy.Spec.WorkflowName,
+		WorkflowName: legacy.Spec.WorkflowName,
 		Attr: apitypes.PetDefAttrSpec{
 			Life:        apitypes.PetAttrGroupSpec{},
 			Progression: apitypes.PetAttrGroupSpec{"xp": {Initial: 0}},
@@ -1158,7 +1182,10 @@ func (c *Catalog) migrateLegacyPetDefJSON(data []byte) (apitypes.PetDef, error) 
 				Metadata: pixaMetadata,
 			},
 		},
-		I18n: apitypes.PetDefI18nSpec{
+	}
+	i18n := apitypes.PetDefI18nSpec{
+		DefaultLocale: "en",
+		AdditionalProperties: map[string]apitypes.PetDefI18nCatalog{
 			"en": {
 				DisplayName: &legacy.Spec.DisplayName,
 				Description: &description,
@@ -1182,16 +1209,46 @@ func (c *Catalog) migrateLegacyPetDefJSON(data []byte) (apitypes.PetDef, error) 
 	if strings.TrimSpace(spec.Voice.Prompt) == "" {
 		spec.Voice.Prompt = legacy.Spec.DisplayName
 	}
-	if err := validateMigratedLegacyPetDefSpec(spec); err != nil {
+	if err := validateMigratedLegacyPetDef(spec, i18n); err != nil {
 		return apitypes.PetDef{}, err
 	}
 	return apitypes.PetDef{
 		Id:        legacy.Id,
 		Spec:      spec,
+		I18n:      i18n,
 		PixaPath:  legacy.PixaPath,
 		CreatedAt: legacy.CreatedAt,
 		UpdatedAt: legacy.UpdatedAt,
 	}, nil
+}
+
+func migratePreP22PetDefJSON(data []byte) (apitypes.PetDef, bool) {
+	var legacy preP22PetDefJSON
+	if err := json.Unmarshal(data, &legacy); err != nil {
+		return apitypes.PetDef{}, false
+	}
+	if strings.TrimSpace(legacy.Id) == "" || strings.TrimSpace(legacy.Spec.DefaultLocale) == "" {
+		return apitypes.PetDef{}, false
+	}
+	i18n := legacy.Spec.I18n
+	i18n.DefaultLocale = legacy.Spec.DefaultLocale
+	item := apitypes.PetDef{
+		Id:        legacy.Id,
+		Spec:      legacy.Spec.PetDefSpec,
+		I18n:      i18n,
+		PixaPath:  legacy.PixaPath,
+		CreatedAt: legacy.CreatedAt,
+		UpdatedAt: legacy.UpdatedAt,
+	}
+	if err := validatePetDef(item.Spec, item.I18n); err == nil {
+		return item, true
+	}
+	if isLegacyMigratedPetDef(item) {
+		if err := validateMigratedLegacyPetDef(item.Spec, item.I18n); err == nil {
+			return item, true
+		}
+	}
+	return apitypes.PetDef{}, false
 }
 
 func (c *Catalog) legacyPetDefPixaMetadata(pixaPath *string) apitypes.PetDefPixaMetadata {
@@ -1225,10 +1282,7 @@ func (c *Catalog) legacyPetDefPixaMetadata(pixaPath *string) apitypes.PetDefPixa
 	return metadata
 }
 
-func validateMigratedLegacyPetDefSpec(spec apitypes.PetDefSpec) error {
-	if strings.TrimSpace(spec.DefaultLocale) == "" {
-		return errors.New("default_locale is required")
-	}
+func validateMigratedLegacyPetDef(spec apitypes.PetDefSpec, i18n apitypes.PetDefI18nSpec) error {
 	if err := validatePetAttrGroup("attr.life", spec.Attr.Life); err != nil {
 		return err
 	}
@@ -1250,10 +1304,7 @@ func validateMigratedLegacyPetDefSpec(spec apitypes.PetDefSpec) error {
 	if err := validatePetDefVisual(spec.Visual); err != nil {
 		return err
 	}
-	if _, ok := spec.I18n[spec.DefaultLocale]; !ok {
-		return fmt.Errorf("i18n.%s is required", spec.DefaultLocale)
-	}
-	return validatePetDefI18n(spec)
+	return validatePetDefI18n(spec, i18n)
 }
 
 func (c *Catalog) legacyGameRulesetAction(ctx context.Context, rulesetName, actionID string) (legacyGameRulesetAction, bool, error) {

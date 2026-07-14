@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
@@ -92,9 +91,8 @@ func TestPeerStreamPushWritesEventsAndOpus(t *testing.T) {
 	}
 	select {
 	case payload := <-writer.ch:
-		timestamp, frame, ok := stampedopus.Unpack(payload)
-		if !ok || timestamp != 123 || !bytes.Equal(frame, []byte{0x01, 0x02, 0x03}) {
-			t.Fatalf("packet timestamp=%d frame=%x ok=%v", timestamp, frame, ok)
+		if !bytes.Equal(payload, []byte{0x01, 0x02, 0x03}) {
+			t.Fatalf("packet frame=%x", payload)
 		}
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for opus packet")
@@ -179,7 +177,7 @@ func TestPeerStreamPushSkipsNilAndOggDirectPacket(t *testing.T) {
 	}
 	select {
 	case payload := <-writer.ch:
-		t.Fatalf("audio/ogg was written as direct stamped opus: %x", payload)
+		t.Fatalf("audio/ogg was written as direct opus: %x", payload)
 	default:
 	}
 }
@@ -243,13 +241,13 @@ func TestPeerStreamNextReadsEventsAndOpus(t *testing.T) {
 		t.Fatalf("audio BOS chunk = %#v", chunk)
 	}
 
-	packets <- stampedopus.Pack(456, []byte{0x04, 0x05})
+	packets <- []byte{0x04, 0x05}
 	chunk, err = stream.Next()
 	if err != nil {
 		t.Fatalf("Next(packet) error = %v", err)
 	}
 	blob := chunk.Part.(*genx.Blob)
-	if blob.MIMEType != "audio/opus" || !bytes.Equal(blob.Data, []byte{0x04, 0x05}) || chunk.Ctrl.Timestamp != 456 || chunk.Ctrl.StreamID != streamID || chunk.Ctrl.Label != label {
+	if blob.MIMEType != "audio/opus" || !bytes.Equal(blob.Data, []byte{0x04, 0x05}) || chunk.Ctrl.Timestamp != 0 || chunk.Ctrl.StreamID != streamID || chunk.Ctrl.Label != label {
 		t.Fatalf("packet chunk = %#v", chunk)
 	}
 
@@ -326,7 +324,7 @@ type recordingPeerPacketWriter struct {
 }
 
 func (w *recordingPeerPacketWriter) Write(protocol byte, payload []byte) (int, error) {
-	if protocol != giznet.ProtocolStampedOpusPacket {
+	if protocol != giznet.ProtocolOpusPacket {
 		return 0, nil
 	}
 	w.ch <- append([]byte(nil), payload...)

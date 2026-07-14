@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/pion/webrtc/v4"
 )
@@ -128,7 +127,7 @@ func TestConnListenServiceReuseAndWriteRoutes(t *testing.T) {
 	if n, err := conn.Write(0x42, []byte("packet")); err != nil || n != len("packet") {
 		t.Fatalf("packet Write n=%d err=%v", n, err)
 	}
-	if n, err := conn.Write(giznet.ProtocolStampedOpusPacket, stampedOpusForTest()); err != nil || n != len(stampedOpusForTest()) {
+	if n, err := conn.Write(giznet.ProtocolOpusPacket, opusPacketForTest()); err != nil || n != len(opusPacketForTest()) {
 		t.Fatalf("opus Write n=%d err=%v", n, err)
 	}
 	if len(writer.samples) != 1 {
@@ -507,8 +506,8 @@ func TestSignalingHandlerClosedListenerAndAcceptOfferInvalidSDP(t *testing.T) {
 	}
 }
 
-func stampedOpusForTest() []byte {
-	return stampedopus.Pack(1234, []byte{0x00, 0xaa})
+func opusPacketForTest() []byte {
+	return []byte{0x00, 0xaa}
 }
 
 type recordPeerEventHandler struct {

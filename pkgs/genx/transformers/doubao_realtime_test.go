@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"iter"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -215,6 +216,72 @@ func TestDoubaoRealtimePushToTalkEndsASR(t *testing.T) {
 	}
 	if sent := session.audioFrames(); len(sent) != 1 {
 		t.Fatalf("SendAudio calls = %d, want 1", len(sent))
+	}
+}
+
+func TestDoubaoRealtimePushToTalkRejectsInvalidInputTransitions(t *testing.T) {
+	tests := []struct {
+		name       string
+		chunks     []*genx.MessageChunk
+		wantErr    string
+		wantEndASR int
+	}{
+		{
+			name: "audio before BOS",
+			chunks: []*genx.MessageChunk{
+				{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+			},
+			wantErr: "received audio outside an active BOS/EOS turn",
+		},
+		{
+			name: "EOS before BOS",
+			chunks: []*genx.MessageChunk{
+				{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+			},
+			wantErr: "received EOS before active BOS",
+		},
+		{
+			name: "duplicate EOS",
+			chunks: []*genx.MessageChunk{
+				{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+				{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+				{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+				{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+			},
+			wantErr:    "received EOS before active BOS",
+			wantEndASR: 1,
+		},
+		{
+			name: "nested BOS",
+			chunks: []*genx.MessageChunk{
+				{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+				{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+			},
+			wantErr: "received BOS while already capturing",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			endASR := make(chan struct{})
+			session := &fakeDoubaoRealtimeSession{
+				beforeRecv: endASR,
+				endASR:     endASR,
+				events:     []*doubaospeech.RealtimeEvent{{Type: doubaospeech.EventSessionFinished}},
+			}
+			tfr := NewDoubaoRealtime(nil,
+				WithDoubaoRealtimeInputFormat("pcm"),
+				WithDoubaoRealtimeInputTranscode(false),
+			)
+			output := newBufferStream(16)
+			err := runDoubaoRealtimeProcessLoop(t, tfr, &sliceRealtimeStream{chunks: tt.chunks}, output, session)
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("processLoop() error = %v, want containing %q", err, tt.wantErr)
+			}
+			if got := session.endASRCount(); got != tt.wantEndASR {
+				t.Fatalf("EndASR calls = %d, want %d", got, tt.wantEndASR)
+			}
+		})
 	}
 }
 

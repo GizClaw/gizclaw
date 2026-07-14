@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -47,7 +46,7 @@ func (c *Client) OpenPeerStream(buffer int) (*PeerStream, error) {
 	if err != nil {
 		return nil, err
 	}
-	packets, unsubscribe := c.subscribePeerPackets(giznet.ProtocolStampedOpusPacket, buffer)
+	packets, unsubscribe := c.subscribePeerPackets(giznet.ProtocolOpusPacket, buffer)
 	stream := &PeerStream{
 		events:      eventStream,
 		packets:     packets,
@@ -110,11 +109,7 @@ func (s *PeerStream) Push(ctx context.Context, chunk *genx.MessageChunk) error {
 	if s.conn == nil {
 		return fmt.Errorf("gizclaw: peer stream is not connected")
 	}
-	timestamp := uint64(s.nowTime().UnixMilli())
-	if chunk.Ctrl != nil && chunk.Ctrl.Timestamp > 0 {
-		timestamp = uint64(chunk.Ctrl.Timestamp)
-	}
-	_, err := s.conn.Write(giznet.ProtocolStampedOpusPacket, stampedopus.Pack(timestamp, blob.Data))
+	_, err := s.conn.Write(giznet.ProtocolOpusPacket, blob.Data)
 	return err
 }
 
@@ -178,11 +173,11 @@ func (s *PeerStream) readPackets() {
 			if !ok {
 				return
 			}
-			chunk, ok := stampedOpusChunk(payload)
+			chunk, ok := opusPacketChunk(payload)
 			if !ok {
 				continue
 			}
-			chunk = s.bindStampedOpusRoute(chunk)
+			chunk = s.bindOpusPacketRoute(chunk)
 			if err := s.pushOutput(chunk); err != nil {
 				_ = s.CloseWithError(err)
 				return
@@ -226,7 +221,7 @@ func (s *PeerStream) observeAudioRouteAfterOutput(chunk *genx.MessageChunk) {
 	s.audioRouteMu.Unlock()
 }
 
-func (s *PeerStream) bindStampedOpusRoute(chunk *genx.MessageChunk) *genx.MessageChunk {
+func (s *PeerStream) bindOpusPacketRoute(chunk *genx.MessageChunk) *genx.MessageChunk {
 	if s == nil || chunk == nil {
 		return chunk
 	}
@@ -432,13 +427,12 @@ func peerStreamBaseMIME(mimeType string) string {
 	return mimeType
 }
 
-func stampedOpusChunk(payload []byte) (*genx.MessageChunk, bool) {
-	timestamp, frame, ok := stampedopus.Unpack(payload)
-	if !ok || len(frame) == 0 {
+func opusPacketChunk(payload []byte) (*genx.MessageChunk, bool) {
+	if len(payload) == 0 {
 		return nil, false
 	}
 	return &genx.MessageChunk{
-		Part: &genx.Blob{MIMEType: "audio/opus", Data: frame},
-		Ctrl: &genx.StreamCtrl{StreamID: "audio", Timestamp: int64(timestamp)},
+		Part: &genx.Blob{MIMEType: "audio/opus", Data: append([]byte(nil), payload...)},
+		Ctrl: &genx.StreamCtrl{StreamID: "audio"},
 	}, true
 }

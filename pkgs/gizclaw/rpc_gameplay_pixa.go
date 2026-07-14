@@ -10,7 +10,6 @@ import (
 
 type rpcGameplayPixaDownloadService interface {
 	PreparePetPixaDownload(context.Context, rpcapi.PetPixaDownloadRequest) (rpcapi.PetPixaDownloadResponse, io.ReadCloser, *rpcapi.RPCError, error)
-	PreparePetDefPixaDownload(context.Context, rpcapi.PetDefPixaDownloadRequest) (rpcapi.PetDefPixaDownloadResponse, io.ReadCloser, *rpcapi.RPCError, error)
 	PrepareBadgeDefPixaDownload(context.Context, rpcapi.BadgeDefPixaDownloadRequest) (rpcapi.BadgeDefPixaDownloadResponse, io.ReadCloser, *rpcapi.RPCError, error)
 }
 
@@ -39,33 +38,6 @@ func (s *rpcServer) handlePetPixaDownload(ctx context.Context, stream *rpcStream
 	defer reader.Close()
 
 	return writeRPCDownload(ctx, stream, req, metadata, (*rpcapi.RPCPayload).FromServerPetPixaDownloadResponse, reader)
-}
-
-func (s *rpcServer) handlePetDefPixaDownload(ctx context.Context, stream *rpcStream, req *rpcapi.RPCRequest) error {
-	if err := stream.ReadEOS(); err != nil {
-		return err
-	}
-	if req.Params == nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, "missing params")
-	}
-	params, err := req.Params.AsPetDefPixaDownloadRequest()
-	if err != nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, "invalid params")
-	}
-	service, ok := s.serverResources.(rpcGameplayPixaDownloadService)
-	if !ok || service == nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInternalError, "gameplay service not configured")
-	}
-	metadata, reader, rpcErr, err := service.PreparePetDefPixaDownload(ctx, params)
-	if err != nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInternalError, err.Error())
-	}
-	if rpcErr != nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcErr.Code, rpcErr.Message)
-	}
-	defer reader.Close()
-
-	return writeRPCDownload(ctx, stream, req, metadata, (*rpcapi.RPCPayload).FromPetDefPixaDownloadResponse, reader)
 }
 
 func (s *rpcServer) handleBadgeDefPixaDownload(ctx context.Context, stream *rpcStream, req *rpcapi.RPCRequest) error {

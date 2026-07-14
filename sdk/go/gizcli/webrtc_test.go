@@ -15,67 +15,6 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
-func TestWebRTCRTPMillisDelta(t *testing.T) {
-	tests := []struct {
-		name      string
-		clockRate uint32
-		base      uint32
-		timestamp uint32
-		want      uint64
-	}{
-		{
-			name:      "twenty milliseconds at opus clock rate",
-			clockRate: webRTCOpusClockRate,
-			base:      1000,
-			timestamp: 1960,
-			want:      20,
-		},
-		{
-			name:      "timestamp wrap",
-			clockRate: webRTCOpusClockRate,
-			base:      ^uint32(479),
-			timestamp: 480,
-			want:      20,
-		},
-		{
-			name:      "zero clock rate",
-			clockRate: 0,
-			base:      1000,
-			timestamp: 1960,
-			want:      0,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := webRTCRTPMillisDelta(tt.clockRate, tt.base, tt.timestamp)
-			if got != tt.want {
-				t.Fatalf("webRTCRTPMillisDelta() = %d, want %d", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestWebRTCOpusRTPTimestamp(t *testing.T) {
-	tests := []struct {
-		name          string
-		stampedMillis uint64
-		want          uint32
-	}{
-		{name: "twenty milliseconds", stampedMillis: 20, want: 960},
-		{name: "wraps to uint32", stampedMillis: ((uint64(1) << 32) / 48) + 20, want: 944},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := webRTCOpusRTPTimestamp(tt.stampedMillis)
-			if got != tt.want {
-				t.Fatalf("webRTCOpusRTPTimestamp() = %d, want %d", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestWebRTCOpusPacketRTPTicks(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -277,10 +216,10 @@ func TestClientRegisterToWebRTCValidationAndClose(t *testing.T) {
 
 func TestClientPeerPacketSubscriptionCopiesAndUnsubscribes(t *testing.T) {
 	client := &Client{}
-	packets, unsubscribe := client.subscribePeerPackets(giznet.ProtocolStampedOpusPacket, 1)
+	packets, unsubscribe := client.subscribePeerPackets(giznet.ProtocolOpusPacket, 1)
 
 	payload := []byte("frame")
-	client.dispatchPeerPacket(giznet.ProtocolStampedOpusPacket, payload)
+	client.dispatchPeerPacket(giznet.ProtocolOpusPacket, payload)
 	payload[0] = 'x'
 
 	select {
@@ -293,7 +232,7 @@ func TestClientPeerPacketSubscriptionCopiesAndUnsubscribes(t *testing.T) {
 	}
 
 	unsubscribe()
-	client.dispatchPeerPacket(giznet.ProtocolStampedOpusPacket, []byte("dropped"))
+	client.dispatchPeerPacket(giznet.ProtocolOpusPacket, []byte("dropped"))
 
 	select {
 	case got := <-packets:

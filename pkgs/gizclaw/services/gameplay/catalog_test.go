@@ -32,6 +32,7 @@ func TestCatalogAdminCRUDAndAssets(t *testing.T) {
 	petResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
 		Id:   "petdef-a",
 		Spec: testPetDefSpec("Pet A"),
+		I18n: testPetDefI18n("Pet A"),
 	}})
 	if err != nil {
 		t.Fatalf("CreatePetDef() error = %v", err)
@@ -41,12 +42,12 @@ func TestCatalogAdminCRUDAndAssets(t *testing.T) {
 	}
 	putPetResp, err := catalog.PutPetDef(ctx, adminhttp.PutPetDefRequestObject{
 		Id:   "petdef-a",
-		Body: &adminhttp.PetDefUpsert{Id: "ignored", Spec: testPetDefSpec("Pet A2")},
+		Body: &adminhttp.PetDefUpsert{Id: "ignored", Spec: testPetDefSpec("Pet A2"), I18n: testPetDefI18n("Pet A2")},
 	})
 	if err != nil {
 		t.Fatalf("PutPetDef() error = %v", err)
 	}
-	if pet := requireResponse[adminhttp.PutPetDef200JSONResponse](t, putPetResp); valueOrZero(pet.Spec.I18n[pet.Spec.DefaultLocale].DisplayName) != "Pet A2" {
+	if pet := requireResponse[adminhttp.PutPetDef200JSONResponse](t, putPetResp); valueOrZero(pet.I18n.AdditionalProperties[pet.I18n.DefaultLocale].DisplayName) != "Pet A2" {
 		t.Fatalf("PutPetDef() = %#v", pet)
 	}
 	getPetResp, err := catalog.GetPetDef(ctx, adminhttp.GetPetDefRequestObject{Id: "petdef-a"})
@@ -81,7 +82,7 @@ func TestCatalogAdminCRUDAndAssets(t *testing.T) {
 	updatedPetSpec.Visual.Pixa.Metadata.Canvas.Width = 32
 	putChangedMetadataResp, err := catalog.PutPetDef(ctx, adminhttp.PutPetDefRequestObject{
 		Id:   "petdef-a",
-		Body: &adminhttp.PetDefUpsert{Spec: updatedPetSpec},
+		Body: &adminhttp.PetDefUpsert{Spec: updatedPetSpec, I18n: testPetDefI18n("Pet A3")},
 	})
 	if err != nil {
 		t.Fatalf("PutPetDef() changed metadata error = %v", err)
@@ -268,6 +269,7 @@ func TestCatalogAdminErrorsAndPagination(t *testing.T) {
 		resp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
 			Id:   id,
 			Spec: testPetDefSpec(id),
+			I18n: testPetDefI18n(id),
 		}})
 		if err != nil {
 			t.Fatalf("CreatePetDef(%q) error = %v", id, err)
@@ -279,6 +281,7 @@ func TestCatalogAdminErrorsAndPagination(t *testing.T) {
 	duplicatePetResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
 		Id:   "pet-a",
 		Spec: testPetDefSpec("again"),
+		I18n: testPetDefI18n("again"),
 	}})
 	if err != nil {
 		t.Fatalf("CreatePetDef() error = %v", err)
@@ -289,6 +292,7 @@ func TestCatalogAdminErrorsAndPagination(t *testing.T) {
 	invalidActionResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
 		Id:   "pet-whitespace-action",
 		Spec: invalidActionSpec,
+		I18n: testPetDefI18n("bad action"),
 	}})
 	if err != nil {
 		t.Fatalf("CreatePetDef() whitespace action error = %v", err)
@@ -299,6 +303,7 @@ func TestCatalogAdminErrorsAndPagination(t *testing.T) {
 	invalidCanvasResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
 		Id:   "pet-invalid-canvas",
 		Spec: invalidCanvasSpec,
+		I18n: testPetDefI18n("bad canvas"),
 	}})
 	if err != nil {
 		t.Fatalf("CreatePetDef() invalid canvas error = %v", err)
@@ -309,6 +314,7 @@ func TestCatalogAdminErrorsAndPagination(t *testing.T) {
 	invalidClipNameResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
 		Id:   "pet-invalid-clip-name",
 		Spec: invalidClipNameSpec,
+		I18n: testPetDefI18n("bad clip name"),
 	}})
 	if err != nil {
 		t.Fatalf("CreatePetDef() invalid clip name error = %v", err)
@@ -495,7 +501,7 @@ func TestCatalogMigratesLegacyPetDefOnRead(t *testing.T) {
 	if got := petDef.Spec.Attr.Progression["xp"].Initial; got != 0 {
 		t.Fatalf("legacy progression xp = %d, want 0", got)
 	}
-	if got := valueOrZero(petDef.Spec.I18n["en"].DisplayName); got != "Legacy Pet" {
+	if got := valueOrZero(petDef.I18n.AdditionalProperties["en"].DisplayName); got != "Legacy Pet" {
 		t.Fatalf("legacy display name = %q", got)
 	}
 	if petDef.Spec.Character.Prompt == "" || petDef.Spec.Voice.Prompt == "" {
@@ -514,6 +520,7 @@ func TestCatalogMigratesLegacyPetDefOnRead(t *testing.T) {
 		Id: "legacy-pet",
 		Body: &adminhttp.PetDefUpsert{
 			Spec: petDef.Spec,
+			I18n: petDef.I18n,
 		},
 	})
 	if err != nil {
@@ -553,7 +560,7 @@ func TestCatalogMigratesDisplayNameOnlyLegacyPetDef(t *testing.T) {
 	if got := petDef.Spec.Attr.Life["hunger"].Initial; got != 100 {
 		t.Fatalf("default legacy hunger = %d, want 100", got)
 	}
-	if got := valueOrZero(petDef.Spec.I18n["en"].DisplayName); got != "Name Only Pet" {
+	if got := valueOrZero(petDef.I18n.AdditionalProperties["en"].DisplayName); got != "Name Only Pet" {
 		t.Fatalf("legacy display name = %q", got)
 	}
 }
@@ -562,12 +569,11 @@ func TestCatalogAcceptsOptionalDefaultLocaleI18nText(t *testing.T) {
 	ctx := context.Background()
 	catalog := testCatalog(t, time.Date(2026, 7, 5, 11, 0, 0, 0, time.UTC))
 	spec := testPetDefSpec("Schema Valid Pet")
-	spec.I18n = apitypes.PetDefI18nSpec{
-		"en": {},
-	}
+	i18n := apitypes.PetDefI18nSpec{DefaultLocale: "en", AdditionalProperties: map[string]apitypes.PetDefI18nCatalog{"en": {}}}
 	resp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
 		Id:   "schema-valid-pet",
 		Spec: spec,
+		I18n: i18n,
 	}})
 	if err != nil {
 		t.Fatalf("CreatePetDef() optional i18n error = %v", err)
@@ -575,7 +581,8 @@ func TestCatalogAcceptsOptionalDefaultLocaleI18nText(t *testing.T) {
 	requireResponse[adminhttp.CreatePetDef200JSONResponse](t, resp)
 
 	missingDefaultLocaleSpec := testPetDefSpec("Bad Locale Pet")
-	missingDefaultLocaleSpec.DefaultLocale = "zh"
+	missingDefaultLocaleI18n := testPetDefI18n("Bad Locale Pet")
+	missingDefaultLocaleI18n.DefaultLocale = "zh"
 	missingDefaultLocaleResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
 		Id:   "bad-locale-pet",
 		Spec: missingDefaultLocaleSpec,
@@ -605,10 +612,8 @@ func readAllBytes(t *testing.T, reader io.Reader) []byte {
 }
 
 func testPetDefSpec(displayName string) apitypes.PetDefSpec {
-	description := "Test pet."
 	return apitypes.PetDefSpec{
-		DefaultLocale: "en",
-		WorkflowName:  stringPtr("pet-chat"),
+		WorkflowName: stringPtr("pet-chat"),
 		Attr: apitypes.PetDefAttrSpec{
 			Life: apitypes.PetAttrGroupSpec{
 				"hunger": {Initial: 100},
@@ -655,7 +660,14 @@ func testPetDefSpec(displayName string) apitypes.PetDefSpec {
 				},
 			},
 		},
-		I18n: apitypes.PetDefI18nSpec{
+	}
+}
+
+func testPetDefI18n(displayName string) apitypes.PetDefI18nSpec {
+	description := "Test pet."
+	return apitypes.PetDefI18nSpec{
+		DefaultLocale: "en",
+		AdditionalProperties: map[string]apitypes.PetDefI18nCatalog{
 			"en": {
 				DisplayName: &displayName,
 				Description: &description,

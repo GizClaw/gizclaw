@@ -1,7 +1,7 @@
 # Peer Telemetry Protobuf
 
 This package contains the generated Go protobuf types for
-`api/telemetry/peer_telemetry.proto`.
+`api/proto/telemetry/peer_telemetry.proto`.
 
 Regenerate after changing the schema:
 

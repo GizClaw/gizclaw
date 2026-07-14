@@ -330,6 +330,7 @@ export type GameRulesetUpsert = {
 export type PetDefUpsert = {
     id: string;
     spec: PetDefSpec;
+    i18n: PetDefI18nSpec;
 };
 
 export type BadgeDefUpsert = {
@@ -544,6 +545,7 @@ export type PetDefResource = {
     kind: 'PetDef';
     metadata: ResourceMetadata;
     spec: PetDefSpec;
+    i18n: PetDefI18nSpec;
 };
 
 /**
@@ -1149,6 +1151,7 @@ export type PetDef = {
     pixa_path?: string;
     created_at: string;
     updated_at: string;
+    i18n: PetDefI18nSpec;
 };
 
 export type PetDefActionEffectSpec = {
@@ -1203,7 +1206,8 @@ export type PetDefI18nDriveSpec = {
 };
 
 export type PetDefI18nSpec = {
-    [key: string]: PetDefI18nCatalog;
+    default_locale: string;
+    [key: string]: PetDefI18nCatalog | string;
 };
 
 export type PetDefPixaCanvasMetadata = {
@@ -1229,14 +1233,12 @@ export type PetDefPixaSpec = {
 };
 
 export type PetDefSpec = {
-    default_locale: string;
     workflow_name?: string;
     attr: PetDefAttrSpec;
     character: PetDefCharacterSpec;
     voice: PetDefVoiceSpec;
     drive: PetDefDriveSpec;
     visual: PetDefVisualSpec;
-    i18n: PetDefI18nSpec;
 };
 
 export type PetDefVisualRefSpec = {

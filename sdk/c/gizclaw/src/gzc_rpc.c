@@ -265,18 +265,18 @@ int gzc_rpc_decode_response_envelope(gzc_str_t response_payload, gzc_rpc_respons
   gizclaw_rpc_v1_RpcResponse response = gizclaw_rpc_v1_RpcResponse_init_zero;
   response.id.funcs.decode = decode_pb_view;
   response.id.arg = &id_arg;
-  response.payload.funcs.decode = decode_pb_view;
-  response.payload.arg = &payload_arg;
-  response.error.message.funcs.decode = decode_pb_view;
-  response.error.message.arg = &error_message_arg;
+  response.body.payload.funcs.decode = decode_pb_view;
+  response.body.payload.arg = &payload_arg;
+  response.body.error.message.funcs.decode = decode_pb_view;
+  response.body.error.message.arg = &error_message_arg;
 
   pb_istream_t stream = pb_istream_from_buffer((const pb_byte_t *)response_payload.data, response_payload.len);
   if (!pb_decode(&stream, gizclaw_rpc_v1_RpcResponse_fields, &response)) {
     return GZC_ERR_RPC;
   }
-  if (response.has_error) {
+  if (response.which_body == gizclaw_rpc_v1_RpcResponse_error_tag) {
     out_response->has_error = true;
-    out_response->error.code = (int)response.error.code;
+    out_response->error.code = (int)response.body.error.code;
   }
   return GZC_OK;
 }
@@ -688,14 +688,15 @@ static int inbound_encode_response(
   gizclaw_rpc_v1_RpcResponse response = gizclaw_rpc_v1_RpcResponse_init_zero;
   response.id.funcs.encode = encode_pb_bytes;
   response.id.arg = &id_arg;
-  response.has_error = has_error;
   if (has_error) {
-    response.error.code = error_code;
-    response.error.message.funcs.encode = encode_pb_bytes;
-    response.error.message.arg = &message_arg;
+    response.which_body = gizclaw_rpc_v1_RpcResponse_error_tag;
+    response.body.error.code = error_code;
+    response.body.error.message.funcs.encode = encode_pb_bytes;
+    response.body.error.message.arg = &message_arg;
   } else {
-    response.payload.funcs.encode = encode_pb_bytes;
-    response.payload.arg = &payload_arg;
+    response.which_body = gizclaw_rpc_v1_RpcResponse_payload_tag;
+    response.body.payload.funcs.encode = encode_pb_bytes;
+    response.body.payload.arg = &payload_arg;
   }
   gzc_buf_reset(out);
   return encode_pb_message(inbound->platform, gizclaw_rpc_v1_RpcResponse_fields, &response, out);

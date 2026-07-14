@@ -477,12 +477,6 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'ServerGameRulesetGetRequest',
     responseType: 'ServerGameRulesetGetResponse',
   ),
-  'server.pet_def.pixa.download': RpcMethodDescriptor(
-    id: 78,
-    name: 'server.pet_def.pixa.download',
-    requestType: 'PetDefPixaDownloadRequest',
-    responseType: 'PetDefPixaDownloadResponse',
-  ),
   'server.badge_def.pixa.download': RpcMethodDescriptor(
     id: 79,
     name: 'server.badge_def.pixa.download',
@@ -633,11 +627,11 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'ServerRouteResolveRequest',
     responseType: 'ServerRouteResolveResponse',
   ),
-  'server.pet.presentation.get': RpcMethodDescriptor(
+  'server.pet.actions.get': RpcMethodDescriptor(
     id: 104,
-    name: 'server.pet.presentation.get',
-    requestType: 'ServerPetPresentationGetRequest',
-    responseType: 'ServerPetPresentationGetResponse',
+    name: 'server.pet.actions.get',
+    requestType: 'ServerPetActionsGetRequest',
+    responseType: 'ServerPetActionsGetResponse',
   ),
   'server.pet.pixa.download': RpcMethodDescriptor(
     id: 105,
@@ -725,7 +719,6 @@ const rpcMethodNamesById = <int, String>{
   75: 'server.friend_group.messages.get',
   76: 'server.friend_group.messages.send',
   77: 'server.game_ruleset.get',
-  78: 'server.pet_def.pixa.download',
   79: 'server.badge_def.pixa.download',
   80: 'server.pet.list',
   81: 'server.pet.get',
@@ -751,7 +744,7 @@ const rpcMethodNamesById = <int, String>{
   101: 'server.peer.lookup',
   102: 'server.peer.assign',
   103: 'server.route.resolve',
-  104: 'server.pet.presentation.get',
+  104: 'server.pet.actions.get',
   105: 'server.pet.pixa.download',
 };
 

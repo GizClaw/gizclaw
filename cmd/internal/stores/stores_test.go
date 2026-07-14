@@ -292,7 +292,7 @@ stores:
 
 func TestKVWithStorageWrongKindReference(t *testing.T) {
 	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
-		"files": {Kind: physicalstorage.KindFilesystem, FS: &physicalstorage.FSConfig{Dir: t.TempDir()}},
+		"objects": {Kind: physicalstorage.KindObjectStore, FS: &physicalstorage.FSConfig{Dir: t.TempDir()}},
 	})
 	if err != nil {
 		t.Fatalf("storage.New: %v", err)
@@ -300,9 +300,9 @@ func TestKVWithStorageWrongKindReference(t *testing.T) {
 	defer physical.Close()
 
 	if _, err := NewWithStorage(physical, map[string]Config{
-		"kv": {Kind: KindKeyValue, Storage: "files"},
+		"kv": {Kind: KindKeyValue, Storage: "objects"},
 	}); err == nil {
-		t.Fatal("expected error for keyvalue store referencing filesystem storage")
+		t.Fatal("expected error for keyvalue store referencing object storage")
 	}
 }
 

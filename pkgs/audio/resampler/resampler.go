@@ -174,6 +174,7 @@ func (r *Soxr) readAndProcess(p []byte) (int, error) {
 	n := copy(p, outputBytes)
 	if len(outputBytes) > n {
 		r.leftover = append(r.leftover, outputBytes[n:]...)
+		return n, nil
 	}
 
 	return n, readErr

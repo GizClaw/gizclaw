@@ -3,8 +3,7 @@ import 'dart:typed_data';
 
 import 'package:fixnum/fixnum.dart' as fixnum;
 
-import 'generated/rpc/common.pb.dart' as common;
-import 'generated/rpc/peer.pb.dart' as peer;
+import 'generated/rpc/rpc.pb.dart' as rpc;
 import 'generated/rpc/payload.pb.dart' as payload;
 import 'method_registry.dart';
 import 'payload_codec.dart';
@@ -30,7 +29,7 @@ class _InboundPeerRpcChannel {
   var _envelopeLength = 0;
   var _ignoreBody = false;
   var _uploaded = 0;
-  peer.RpcRequest? _request;
+  rpc.RpcRequest? _request;
   late StreamSubscription<Uint8List> _messages;
   late StreamSubscription<GizClawDataChannelState> _states;
 
@@ -81,11 +80,11 @@ class _InboundPeerRpcChannel {
         if (_envelopeChunks.isNotEmpty) {
           throw const FormatException('RPC request has duplicate envelope');
         }
-        _startRequest(peer.RpcRequest.fromBuffer(frame.payload));
+        _startRequest(rpc.RpcRequest.fromBuffer(frame.payload));
         return;
       }
       if (frame.type == rpcFrameTypeEos && _envelopeChunks.isNotEmpty) {
-        final continuedRequest = peer.RpcRequest.fromBuffer(
+        final continuedRequest = rpc.RpcRequest.fromBuffer(
           concatBytes(_envelopeChunks),
         );
         _startRequest(continuedRequest);
@@ -133,7 +132,7 @@ class _InboundPeerRpcChannel {
     _ignoreBody = true;
   }
 
-  void _startRequest(peer.RpcRequest request) {
+  void _startRequest(rpc.RpcRequest request) {
     if (request.id.isEmpty || !request.hasMethod()) {
       throw const FormatException('invalid RPC request envelope');
     }
@@ -150,7 +149,7 @@ class _InboundPeerRpcChannel {
             _sendEnvelopeOnly(
               _rpcErrorResponse(
                 request.id,
-                common.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS,
+                rpc.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS,
                 'invalid params',
               ),
             ).catchError((_) => _close()),
@@ -170,7 +169,7 @@ class _InboundPeerRpcChannel {
           _sendEnvelopeOnly(
             _rpcErrorResponse(
               request.id,
-              common.RpcErrorCode.RPC_ERROR_CODE_METHOD_NOT_FOUND,
+              rpc.RpcErrorCode.RPC_ERROR_CODE_METHOD_NOT_FOUND,
               'unsupported method: $methodName',
             ),
           ).catchError((_) => _close()),
@@ -178,14 +177,14 @@ class _InboundPeerRpcChannel {
     }
   }
 
-  void _finishPing(peer.RpcRequest request) {
+  void _finishPing(rpc.RpcRequest request) {
     if (!request.hasPayload()) {
       _ignoreBody = true;
       _unawaited(
         _sendEnvelopeOnly(
           _rpcErrorResponse(
             request.id,
-            common.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS,
+            rpc.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS,
             'missing params',
           ),
         ).catchError((_) => _close()),
@@ -196,7 +195,7 @@ class _InboundPeerRpcChannel {
     _ignoreBody = true;
     _unawaited(
       _sendEnvelopeOnly(
-        common.RpcResponse(
+        rpc.RpcResponse(
           id: request.id,
           payload: encodeRpcResponsePayload(
             'all.ping',
@@ -209,7 +208,7 @@ class _InboundPeerRpcChannel {
     );
   }
 
-  payload.SpeedTestRequest? _validSpeedTestParams(peer.RpcRequest request) {
+  payload.SpeedTestRequest? _validSpeedTestParams(rpc.RpcRequest request) {
     if (!request.hasPayload()) {
       return null;
     }
@@ -231,7 +230,7 @@ class _InboundPeerRpcChannel {
     String id,
     payload.SpeedTestRequest params,
   ) async {
-    final responseEnvelope = common.RpcResponse(
+    final responseEnvelope = rpc.RpcResponse(
       id: id,
       payload: encodeRpcResponsePayload(
         'all.speed_test.run',
@@ -256,7 +255,7 @@ class _InboundPeerRpcChannel {
     await _sendFrame(encodeFrame(rpcFrameTypeEos));
   }
 
-  Future<void> _sendEnvelopeOnly(common.RpcResponse response) async {
+  Future<void> _sendEnvelopeOnly(rpc.RpcResponse response) async {
     await _sendFrames(encodeEnvelopeFrames(response.writeToBuffer()));
     await _sendFrame(encodeFrame(rpcFrameTypeEos));
   }
@@ -281,18 +280,18 @@ class _InboundPeerRpcChannel {
     await channel.send(frame);
   }
 
-  common.RpcResponse _rpcErrorResponse(
+  rpc.RpcResponse _rpcErrorResponse(
     String id,
-    common.RpcErrorCode code,
+    rpc.RpcErrorCode code,
     String message,
   ) {
-    return common.RpcResponse(
+    return rpc.RpcResponse(
       id: id,
-      error: common.RpcError(code: code, message: message),
+      error: rpc.RpcError(code: code, message: message),
     );
   }
 
-  String _methodName(peer.RpcRequest request) {
+  String _methodName(rpc.RpcRequest request) {
     return rpcMethodNamesById[request.method.value] ??
         'unknown:${request.method.value}';
   }

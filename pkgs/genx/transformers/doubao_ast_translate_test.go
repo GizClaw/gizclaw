@@ -499,6 +499,7 @@ type fakeASTTranslateSession struct {
 	finished            bool
 	closed              bool
 	sentAudioNotifyOnce sync.Once
+	closeOnce           sync.Once
 }
 
 func (s *fakeASTTranslateSession) SendAudio(_ context.Context, audio []byte) error {
@@ -523,17 +524,20 @@ func (s *fakeASTTranslateSession) Finish(context.Context) error {
 
 func (s *fakeASTTranslateSession) Recv() iter.Seq2[*doubaospeech.ASTTranslateEvent, error] {
 	return func(yield func(*doubaospeech.ASTTranslateEvent, error) bool) {
-		if s.doneCh != nil {
+		s.mu.Lock()
+		doneCh := s.doneCh
+		closeCh := s.closeCh
+		s.mu.Unlock()
+		if doneCh != nil {
 			defer func() {
-				close(s.doneCh)
-				s.doneCh = nil
+				close(doneCh)
 			}()
 		}
 		if s.beforeRecv != nil {
 			<-s.beforeRecv
 		}
-		if s.closeCh != nil {
-			<-s.closeCh
+		if closeCh != nil {
+			<-closeCh
 			for _, event := range s.events {
 				if !yield(event, nil) {
 					return
@@ -553,10 +557,12 @@ func (s *fakeASTTranslateSession) Recv() iter.Seq2[*doubaospeech.ASTTranslateEve
 func (s *fakeASTTranslateSession) Close() error {
 	s.mu.Lock()
 	s.closed = true
+	closeCh := s.closeCh
 	s.mu.Unlock()
-	if s.closeCh != nil {
-		close(s.closeCh)
-		s.closeCh = nil
+	if closeCh != nil {
+		s.closeOnce.Do(func() {
+			close(closeCh)
+		})
 	}
 	return nil
 }

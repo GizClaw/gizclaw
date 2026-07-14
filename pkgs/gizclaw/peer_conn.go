@@ -3,7 +3,6 @@ package gizclaw
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"log/slog"
 	"net"
@@ -13,10 +12,8 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
-	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
@@ -45,17 +42,16 @@ type PeerConn struct {
 	Conn    giznet.Conn
 	Service *PeerService
 
-	closeOnce              sync.Once
-	agentHost              *agenthost.Service
-	agentInput             *peerRealtimeSource
-	agentInputMu           sync.Mutex
-	events                 *peerStreamEventBroker
-	telemetryStatusMu      *sync.Mutex
-	serverGenX             *peergenx.Service
-	mixer                  *pcm.Mixer
-	rpc                    *rpcServer
-	lastOpusFrameTimestamp atomic.Uint64
-	closed                 atomic.Bool
+	closeOnce         sync.Once
+	agentHost         *agenthost.Service
+	agentInput        *peerRealtimeSource
+	agentInputMu      sync.Mutex
+	events            *peerStreamEventBroker
+	telemetryStatusMu *sync.Mutex
+	serverGenX        *peergenx.Service
+	mixer             *pcm.Mixer
+	rpc               *rpcServer
+	closed            atomic.Bool
 }
 
 // CreateAudioTrack creates a writable audio track on the peer mixer.
@@ -163,27 +159,6 @@ func (h *PeerConn) serveEdgeRPC() error {
 			}
 		}(stream)
 	}
-}
-
-// Ping opens a fresh RPC stream, sends one ping, and closes it.
-// RPC servers also accept multiple sequential requests on a single stream for
-// firmware clients that keep their service data channel open.
-func (h *PeerConn) Ping(ctx context.Context, id string) (*rpcapi.PingResponse, error) {
-	stream, err := h.rpcConn()
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = stream.Close() }()
-	return h.rpcServer().Ping(ctx, stream, id)
-}
-
-func (h *PeerConn) rpcConn() (net.Conn, error) {
-	conn := h.Conn
-	stream, err := conn.Dial(ServicePeerRPC)
-	if err != nil {
-		return nil, fmt.Errorf("gizclaw: dial rpc stream: %w", err)
-	}
-	return stream, nil
 }
 
 func (h *PeerConn) init() {
@@ -457,8 +432,8 @@ func (h *PeerConn) serveDirectPackets() error {
 			return err
 		}
 		switch protocol {
-		case giznet.ProtocolStampedOpusPacket:
-			chunk, ok := stampedOpusChunk(buf[:n])
+		case giznet.ProtocolOpusPacket:
+			chunk, ok := opusPacketChunk(buf[:n])
 			if !ok {
 				continue
 			}
@@ -593,15 +568,12 @@ func (h *PeerConn) streamMixedAudio(hasWrittenBefore bool) (wrote bool, err erro
 			return wrote, err
 		}
 		if !hasWrittenBefore {
-			h.lastOpusFrameTimestamp.Store(uint64(time.Now().UnixMilli()))
 			hasWrittenBefore = true
 			wrote = true
 		}
-		payload := stampedopus.Pack(h.lastOpusFrameTimestamp.Load(), packet)
-		if _, err := h.Conn.Write(giznet.ProtocolStampedOpusPacket, payload); err != nil {
+		if _, err := h.Conn.Write(giznet.ProtocolOpusPacket, packet); err != nil {
 			return wrote, err
 		}
-		h.lastOpusFrameTimestamp.Add(uint64(peerConnOpusFrameDuration / time.Millisecond))
 	}
 }
 

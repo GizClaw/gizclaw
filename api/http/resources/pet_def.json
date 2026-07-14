@@ -1,0 +1,43 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PetDef Resource Schema",
+    "description": "PetDef resource envelope schema.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "PetDefResource": {
+        "type": "object",
+        "required": [
+          "apiVersion",
+          "kind",
+          "metadata",
+          "spec",
+          "i18n"
+        ],
+        "properties": {
+          "apiVersion": {
+            "$ref": "./resource.json#/components/schemas/ResourceAPIVersion"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "PetDef"
+            ]
+          },
+          "metadata": {
+            "$ref": "./resource.json#/components/schemas/ResourceMetadata"
+          },
+          "spec": {
+            "$ref": "../shared/gameplay.json#/components/schemas/PetDefSpec"
+          },
+          "i18n": {
+            "$ref": "../shared/gameplay.json#/components/schemas/PetDefI18nSpec"
+          }
+        }
+      }
+    }
+  }
+}

@@ -7,7 +7,7 @@
 - 未明确要求 breaking change 时，保持 public header 的 ABI 兼容。
 - struct layout、enum value、typedef、callback signature 和 exported function name 都属于 contract。
 - header 与 source 必须同步，包括 declaration、include、ownership、错误返回和 nullability。
-- 生成的 RPC method、message 与 codec 必须来自 `api/rpc/**/*.proto` 及生成配置，不能手工修补生成结果。
+- 生成的 RPC method、message 与 codec 必须来自 `api/proto/rpc/**/*.proto` 及生成配置，不能手工修补生成结果。
 - platform vtable 应明确 required callback、userdata 传递和 fallback 行为。
 
 ## Memory ownership

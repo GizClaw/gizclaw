@@ -90,7 +90,7 @@ their own agents through workspace runtimes.
   identity store primitives.
 - `pkgs/agent/`: agent memory, recall, embedding, and local runtime support.
 - `pkgs/genx/`: model and generation abstractions used by workflows and agents.
-- `pkgs/audio/`: audio codecs, resampling, stamped Opus, playback, and
+- `pkgs/audio/`: audio codecs, resampling, raw Opus packet helpers, playback, and
   voiceprint helpers.
 - `api/`: source OpenAPI and RPC schemas. Generated Go and TypeScript code is
   derived from these files.

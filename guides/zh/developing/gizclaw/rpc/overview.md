@@ -45,4 +45,4 @@ flowchart TB
     Edge --> Routes["Peer Route service"]
 ```
 
-RPC source contract 属于 `api/rpc/`，生成类型属于 `pkgs/gizclaw/api/rpcapi` 和 `rpcproto`。RPC 模块只拥有运行时接线、framing 与领域 service 适配。
+RPC source contract 属于 `api/proto/rpc/`，生成类型属于 `pkgs/gizclaw/api/rpcapi` 和 `rpcproto`。RPC 模块只拥有运行时接线、framing 与领域 service 适配。
