@@ -70,6 +70,27 @@
 - apply/show 需要保留的 metadata；
 - 与其他 resource 的显式引用。
 
+### 核心数据与 Display
+
+Resource 的数据首先按语义分为两类：
+
+- 核心数据描述 Resource 是什么以及它与什么关联，包括稳定 identity、kind、分类、引用、ownership、运行配置和持久化语义。这些字段参与业务判断、查询、关联和执行，不能放进 `display`。
+- `display` 只描述如何把该 Resource 展示给用户，例如本地化名称、subtitle、description、icon 和 cover。删除或替换 `display` 不得改变 Resource 的关联关系或运行行为。
+
+每个 Resource 自己拥有可选的 `display` 字段，并在对应 `resources/<kind>.json` 中定义自己的强类型 Display schema。例如 Workflow 定义 `WorkflowDisplay`，Workspace 定义 `WorkspaceDisplay`。即使两个 Resource 当前需要相同的 `default_locale`、`i18n`、icon 或 cover 字段，也不能因此建立公共 `ResourceDisplay`、`ResourceDisplayData` 或通用 catalog schema。
+
+Display 的共同命名是一项结构约定，不代表公共领域模型。不同 Resource 可以独立增加符合自身产品语义的展示字段；修改一个 Resource 的 Display 不应迫使无关 Resource 同步修改或重新生成 API。
+
+判断字段归属时使用下面的规则：
+
+| 问题 | 是 | 否 |
+| --- | --- | --- |
+| 字段是否影响 identity、关联、过滤、授权、执行或持久化语义？ | 放入 Resource 的核心字段或 `spec` | 继续判断 |
+| 字段是否只用于面向人的名称、说明或视觉呈现？ | 放入该 Resource 自己的 `display` | 不应为它创建 Display 字段 |
+| 相同字段是否由多个 Resource 使用？ | 各 Resource 仍拥有自己的 Display 定义 | 不以“看起来相同”为理由放入 Shared |
+
+`category`、关联 ID、workflow reference、provider kind 等机器可读字段属于核心数据。`display_name`、本地化说明、icon 和 cover 属于 Display。客户端在 `display` 缺失时可以回退到稳定 ID，但 Server 不应把 fallback 文本持久化为核心数据。
+
 只被一个 Resource 使用的 Spec 应与 Resource 定义在同一文件。例如只有 Model Resource 使用的 `ModelSpec` 应位于 `resources/model.json`，不再单独建立 `shared/model_spec.json`。
 
 运行时连接、stream、临时状态和 provider client 不能塞进 resource spec。Resource 表达期望状态，领域 service 负责校验并实现该状态。
