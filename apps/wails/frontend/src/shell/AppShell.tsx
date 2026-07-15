@@ -1,4 +1,5 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties, FormEvent } from "react";
 import QRCode from "qrcode";
 import {
   Activity,
@@ -8,7 +9,6 @@ import {
   Cloud,
   Copy,
   Cpu,
-  FlipHorizontal2,
   Globe2,
   Laptop,
   FolderOpen,
@@ -19,7 +19,6 @@ import {
   Play,
   Plus,
   RefreshCw,
-  RotateCw,
   Search,
   Server,
   Sparkles,
@@ -280,6 +279,7 @@ function PodCard({
     pod.remote?.servers.filter((server) => server.admin_configured).length ?? 0;
   const running = pod.local?.process.state === "running";
   const online = running || pod.remote?.access_point.state === "reachable";
+  const hue = stableHue(pod.id);
   const mode = !pod.valid
     ? t("invalid")
     : pod.mode === "local"
@@ -289,7 +289,13 @@ function PodCard({
     <button
       className={`pod-card pod-card-${pod.valid ? pod.mode : "invalid"}`}
       onClick={onOpen}
-      style={{ animationDelay: `${Math.min(index, 8) * 55}ms` }}
+      style={
+        {
+          animationDelay: `${Math.min(index, 8) * 55}ms`,
+          "--card-hue": hue,
+          "--card-hue-alt": (hue + 42) % 360,
+        } as CSSProperties
+      }
       type="button"
     >
       <span className="pod-card-top">
@@ -358,7 +364,7 @@ function PodDetail({
 }) {
   const t = useMessages();
   const [closing, setClosing] = useState(false);
-  const [flipped, setFlipped] = useState(false);
+  const [managing, setManaging] = useState(false);
   const [query, setQuery] = useState("");
   const [healthFilter, setHealthFilter] = useState("all");
   const [serverEditor, setServerEditor] = useState<PodServer | "new" | null>(
@@ -489,21 +495,21 @@ function PodDetail({
               </button>
             </div>
           ) : pod.local ? (
-            <PodFlipCard
+            <PodDetailPages
               back={
                 <LocalManageFace
                   api={api}
                   onError={onError}
-                  onFlip={() => setFlipped(false)}
+                  onShare={() => setManaging(false)}
                   pod={pod}
                   run={run}
                 />
               }
-              flipped={flipped}
+              managing={managing}
               front={
                 <PodShareFace
                   endpoint={preferredLANAddress(pod.local.lan_addresses)}
-                  onFlip={() => setFlipped(true)}
+                  onManage={() => setManaging(true)}
                   onPlay={() => api.OpenPlay(pod.id).catch(onError)}
                   pod={pod}
                   publicKey={pod.local.server_public_key ?? ""}
@@ -512,7 +518,7 @@ function PodDetail({
               }
             />
           ) : (
-            <PodFlipCard
+            <PodDetailPages
               back={
                 <RemoteManageFace
                   api={api}
@@ -520,7 +526,7 @@ function PodDetail({
                   onAddServer={() => setServerEditor("new")}
                   onEditServer={setServerEditor}
                   onError={onError}
-                  onFlip={() => setFlipped(false)}
+                  onShare={() => setManaging(false)}
                   onHealthFilter={setHealthFilter}
                   onQuery={setQuery}
                   pod={pod}
@@ -529,11 +535,11 @@ function PodDetail({
                   servers={servers}
                 />
               }
-              flipped={flipped}
+              managing={managing}
               front={
                 <PodShareFace
                   endpoint={pod.remote!.access_point.endpoint}
-                  onFlip={() => setFlipped(true)}
+                  onManage={() => setManaging(true)}
                   onPlay={() => api.OpenPlay(pod.id).catch(onError)}
                   pod={pod}
                   publicKey={pod.remote!.access_point.public_key ?? ""}
@@ -605,47 +611,45 @@ function preferredLANAddress(addresses: string[]) {
   );
 }
 
-function PodFlipCard({
+function PodDetailPages({
   back,
-  flipped,
+  managing,
   front,
 }: {
   back: React.ReactNode;
-  flipped: boolean;
+  managing: boolean;
   front: React.ReactNode;
 }) {
   return (
-    <div className={`pod-flip-stage ${flipped ? "is-flipped" : ""}`}>
-      <div className="pod-flip-card">
-        <section
-          aria-hidden={flipped}
-          className="pod-face pod-face-front"
-          inert={flipped}
-        >
-          {front}
-        </section>
-        <section
-          aria-hidden={!flipped}
-          className="pod-face pod-face-back"
-          inert={!flipped}
-        >
-          {back}
-        </section>
-      </div>
+    <div className={`pod-detail-stage ${managing ? "is-managing" : ""}`}>
+      <section
+        aria-hidden={managing}
+        className="pod-detail-page pod-share-page"
+        inert={managing}
+      >
+        {front}
+      </section>
+      <section
+        aria-hidden={!managing}
+        className="pod-detail-page pod-manage-page"
+        inert={!managing}
+      >
+        {back}
+      </section>
     </div>
   );
 }
 
 function PodShareFace({
   endpoint,
-  onFlip,
+  onManage,
   onPlay,
   pod,
   publicKey,
   state,
 }: {
   endpoint: string;
-  onFlip(): void;
+  onManage(): void;
   onPlay(): void;
   pod: PodSummary;
   publicKey: string;
@@ -687,18 +691,6 @@ function PodShareFace({
           <small>{pod.local ? t("lanAddress") : t("accessPoint")}</small>
           <code>{endpoint || t("noLANAddress")}</code>
         </div>
-        {publicKey ? (
-          <div className="public-key-row">
-            <div>
-              <small>{t("serverPublicKey")}</small>
-              <code>{publicKey}</code>
-            </div>
-            <CopyValueButton
-              label={t("copyServerPublicKey")}
-              value={publicKey}
-            />
-          </div>
-        ) : null}
         <div className="share-actions">
           <button
             className="primary-action share-play"
@@ -708,8 +700,8 @@ function PodShareFace({
             <Sparkles size={17} />
             {t("openPlay")}
           </button>
-          <button className="secondary-action" onClick={onFlip} type="button">
-            <FlipHorizontal2 size={16} />
+          <button className="secondary-action" onClick={onManage} type="button">
+            <Server size={16} />
             {pod.local ? t("serverControls") : t("manageServers")}
           </button>
         </div>
@@ -748,13 +740,13 @@ function QRCodeImage({ label, payload }: { label: string; payload: string }) {
 function LocalManageFace({
   api,
   onError,
-  onFlip,
+  onShare,
   pod,
   run,
 }: {
   api: ReturnType<typeof getDesktopAPI>;
   onError(reason: unknown): void;
-  onFlip(): void;
+  onShare(): void;
   pod: PodSummary;
   run(action: () => Promise<PodSummary>): Promise<void>;
 }) {
@@ -767,8 +759,8 @@ function LocalManageFace({
           <span className="mode-chip">{t("localServer")}</span>
           <h3>{t("serverControls")}</h3>
         </div>
-        <button className="secondary-action" onClick={onFlip} type="button">
-          <FlipHorizontal2 size={16} />
+        <button className="secondary-action" onClick={onShare} type="button">
+          <ChevronLeft size={16} />
           {t("shareServer")}
         </button>
       </div>
@@ -797,25 +789,9 @@ function LocalManageFace({
           >
             <CircleStop size={15} /> {t("stop")}
           </button>
-          <button
-            className="secondary-action"
-            onClick={() => void run(() => api.RestartLocalServer(pod.id))}
-            type="button"
-          >
-            <RotateCw size={15} /> {t("restart")}
-          </button>
-          <button
-            aria-label={t("refresh")}
-            className="secondary-action compact-action"
-            onClick={() => void run(() => api.RefreshPodHealth(pod.id))}
-            title={t("refresh")}
-            type="button"
-          >
-            <RefreshCw size={15} />
-          </button>
         </div>
       </section>
-      <div className="compact-launchers">
+      <div className="compact-launchers local-admin-launcher">
         <button
           onClick={() => api.OpenAdmin(pod.id, "local").catch(onError)}
           type="button"
@@ -827,25 +803,7 @@ function LocalManageFace({
           </span>
           <ArrowUpRight size={14} />
         </button>
-        <button
-          onClick={() => api.OpenPlay(pod.id).catch(onError)}
-          type="button"
-        >
-          <Sparkles size={17} />
-          <span>
-            <strong>Play</strong>
-            <small>{t("openInBrowser")}</small>
-          </span>
-          <ArrowUpRight size={14} />
-        </button>
       </div>
-      {local.process.logs?.length ? (
-        <pre className="log-view manage-log-view">
-          {local.process.logs.slice(-8).join("\n")}
-        </pre>
-      ) : (
-        <div className="quiet-log">{t("noServerLogs")}</div>
-      )}
     </div>
   );
 }
@@ -856,7 +814,7 @@ function RemoteManageFace({
   onAddServer,
   onEditServer,
   onError,
-  onFlip,
+  onShare,
   onHealthFilter,
   onQuery,
   pod,
@@ -869,7 +827,7 @@ function RemoteManageFace({
   onAddServer(): void;
   onEditServer(server: PodServer): void;
   onError(reason: unknown): void;
-  onFlip(): void;
+  onShare(): void;
   onHealthFilter(value: string): void;
   onQuery(value: string): void;
   pod: PodSummary;
@@ -885,8 +843,8 @@ function RemoteManageFace({
           <span className="mode-chip">{t("remote")}</span>
           <h3>{t("manageServers")}</h3>
         </div>
-        <button className="secondary-action" onClick={onFlip} type="button">
-          <FlipHorizontal2 size={16} />
+        <button className="secondary-action" onClick={onShare} type="button">
+          <ChevronLeft size={16} />
           {t("shareServer")}
         </button>
       </div>
@@ -1467,9 +1425,27 @@ function AmbientBackground() {
     <div className="ambient-background" aria-hidden="true">
       <span className="ambient-glow ambient-glow-one" />
       <span className="ambient-glow ambient-glow-two" />
+      <svg
+        className="ambient-flow-lines"
+        preserveAspectRatio="none"
+        viewBox="0 0 1440 900"
+      >
+        <path d="M-120 720 C 180 510, 320 870, 640 610 S 1080 280, 1560 450" />
+        <path d="M-180 540 C 210 270, 400 690, 710 430 S 1140 80, 1580 260" />
+        <path d="M40 980 C 230 650, 520 760, 760 520 S 1010 250, 1510 110" />
+        <path d="M-100 270 C 260 130, 440 410, 730 260 S 1120 -20, 1510 160" />
+        <path d="M280 950 C 500 720, 750 810, 940 600 S 1220 350, 1510 520" />
+      </svg>
       <span className="ambient-noise" />
     </div>
   );
+}
+
+function stableHue(value: string) {
+  let hash = 0;
+  for (const character of value)
+    hash = (hash * 31 + character.charCodeAt(0)) | 0;
+  return 190 + (Math.abs(hash) % 105);
 }
 
 function errorMessage(reason: unknown) {

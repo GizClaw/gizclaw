@@ -272,7 +272,7 @@ test("Add Pod creates a local environment without exposing keys", async ({
   await expect(page.locator("body")).not.toContainText("private_key");
 });
 
-test("local share uses one preferred address and flips to controls", async ({
+test("local share stays simple and switches to focused controls", async ({
   page,
 }) => {
   await page.goto("/");
@@ -290,10 +290,14 @@ test("local share uses one preferred address and flips to controls", async ({
   });
   await expect(dialog).not.toContainText("100.100.100.100:9820");
   await expect(dialog).not.toContainText("fd1f:411f");
+  await expect(dialog).not.toContainText("local-server-public-key");
+  await expect(dialog.getByRole("button", { name: /Play/ })).toBeVisible();
   await dialog.getByRole("button", { name: "Server controls" }).click();
   await expect(dialog.getByRole("button", { name: /Start/ })).toBeVisible();
   await expect(dialog.getByRole("button", { name: /Admin/ })).toBeVisible();
-  await expect(dialog.getByRole("button", { name: /Play/ })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: /Play/ })).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: /Restart/ })).toHaveCount(0);
+  await expect(dialog.getByText("server ready")).toHaveCount(0);
   await expect
     .poll(() =>
       dialog.evaluate((element) => element.scrollWidth <= element.clientWidth),
@@ -364,6 +368,44 @@ test("launcher follows system appearance and reduced motion", async ({
       Number.parseFloat(getComputedStyle(element).animationDuration),
     );
   expect(duration).toBeLessThan(0.001);
+});
+
+test("launcher uses rounded transparent framing and ambient card depth", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const shell = page.locator(".desktop-shell");
+  const shellStyle = await shell.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      radius: Number.parseFloat(style.borderTopLeftRadius),
+      width: element.getBoundingClientRect().width,
+      viewport: window.innerWidth,
+    };
+  });
+  expect(shellStyle.radius).toBeGreaterThanOrEqual(18);
+  expect(shellStyle.width).toBeLessThan(shellStyle.viewport);
+  await expect(page.locator(".ambient-flow-lines path")).toHaveCount(5);
+
+  const cards = page.locator(".pod-card");
+  const firstCard = await cards.first().evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      background: style.backgroundImage,
+      hue: style.getPropertyValue("--card-hue"),
+    };
+  });
+  const lastCardHue = await cards
+    .last()
+    .evaluate((element) =>
+      getComputedStyle(element).getPropertyValue("--card-hue"),
+    );
+  expect(firstCard.background).toContain("linear-gradient");
+  expect(firstCard.hue).not.toBe(lastCardHue);
+  await expect(page.locator(".add-pod-card")).toHaveCSS(
+    "background-image",
+    /linear-gradient/,
+  );
 });
 
 test("launcher selects zh-CN from the operating-system locale", async ({

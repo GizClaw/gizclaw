@@ -11,7 +11,7 @@
     "Segoe UI",
     sans-serif;
   color: #f2f4f7;
-  background: #101114;
+  background: transparent;
   font-synthesis: none;
 }
 
@@ -24,6 +24,7 @@ body,
   min-width: 0;
   min-height: 100%;
   margin: 0;
+  background: transparent;
 }
 button,
 input,
@@ -36,15 +37,20 @@ button {
 
 .desktop-shell {
   position: relative;
-  width: 100vw;
-  height: 100vh;
+  width: calc(100vw - 12px);
+  height: calc(100vh - 12px);
+  margin: 6px;
   overflow: hidden;
+  border-radius: 19px;
   background: #101114;
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.34),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.045);
 }
 
 .ambient-background,
 .ambient-noise {
-  position: fixed;
+  position: absolute;
   inset: 0;
   pointer-events: none;
 }
@@ -75,10 +81,37 @@ button {
   opacity: 0.025;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
+.ambient-flow-lines {
+  position: absolute;
+  inset: -8%;
+  width: 116%;
+  height: 116%;
+  overflow: visible;
+  opacity: 0.3;
+  animation: flow-drift 24s ease-in-out infinite alternate;
+}
+.ambient-flow-lines path {
+  fill: none;
+  stroke: rgba(129, 143, 255, 0.16);
+  stroke-width: 1.15;
+  stroke-linecap: round;
+  stroke-dasharray: 4 13;
+  vector-effect: non-scaling-stroke;
+  animation: flow-trace 34s linear infinite;
+}
+.ambient-flow-lines path:nth-child(2n) {
+  stroke: rgba(74, 205, 181, 0.12);
+  stroke-dasharray: 2 18;
+  animation-direction: reverse;
+}
+.ambient-flow-lines path:nth-child(3n) {
+  opacity: 0.58;
+  animation-duration: 46s;
+}
 
 .window-drag-surface {
   --wails-draggable: drag;
-  position: fixed;
+  position: absolute;
   z-index: 10;
   top: 0;
   right: 0;
@@ -86,7 +119,7 @@ button {
   height: 52px;
 }
 .window-controls {
-  position: fixed;
+  position: absolute;
   z-index: 20;
   top: 18px;
   left: 18px;
@@ -167,7 +200,6 @@ button {
   position: relative;
   border: 0;
   cursor: pointer;
-  background: rgba(35, 36, 42, 0.92);
   box-shadow:
     0 16px 38px rgba(0, 0, 0, 0.18),
     inset 0 1px rgba(255, 255, 255, 0.035);
@@ -183,14 +215,31 @@ button {
   text-align: left;
   opacity: 0;
   animation: tile-in 0.46s cubic-bezier(0.2, 0.82, 0.2, 1) forwards;
+  background:
+    linear-gradient(
+      to top right,
+      hsl(var(--card-hue) 72% 54% / 0.2),
+      hsl(var(--card-hue-alt) 70% 60% / 0.07) 42%,
+      transparent 72%
+    ),
+    rgba(35, 36, 42, 0.94);
 }
 .pod-card:hover,
 .add-pod-card:hover {
   transform: translateY(-4px) scale(1.015);
-  background: rgba(43, 44, 51, 0.98);
   box-shadow:
     0 22px 52px rgba(0, 0, 0, 0.28),
     inset 0 1px rgba(255, 255, 255, 0.05);
+}
+.pod-card:hover {
+  background:
+    linear-gradient(
+      to top right,
+      hsl(var(--card-hue) 76% 58% / 0.27),
+      hsl(var(--card-hue-alt) 74% 62% / 0.1) 45%,
+      transparent 74%
+    ),
+    rgba(43, 44, 51, 0.98);
 }
 .pod-card:active,
 .add-pod-card:active {
@@ -290,9 +339,25 @@ select:focus-visible {
   display: grid;
   place-items: center;
   color: #777b85;
+  background:
+    linear-gradient(
+      to top right,
+      rgba(55, 181, 157, 0.12),
+      rgba(116, 126, 255, 0.12) 50%,
+      rgba(35, 36, 42, 0.94) 78%
+    ),
+    rgba(35, 36, 42, 0.94);
 }
 .add-pod-card:hover {
   color: #d7dae2;
+  background:
+    linear-gradient(
+      to top right,
+      rgba(55, 181, 157, 0.21),
+      rgba(116, 126, 255, 0.2) 54%,
+      rgba(43, 44, 51, 0.98) 82%
+    ),
+    rgba(43, 44, 51, 0.98);
 }
 .pod-skeleton {
   background: linear-gradient(
@@ -306,7 +371,7 @@ select:focus-visible {
 }
 
 .error-toast {
-  position: fixed;
+  position: absolute;
   z-index: 60;
   top: 20px;
   left: 50%;
@@ -337,7 +402,7 @@ select:focus-visible {
 }
 
 .dialog-backdrop {
-  position: fixed;
+  position: absolute;
   z-index: 40;
   inset: 0;
   display: grid;
@@ -490,43 +555,37 @@ select:focus-visible {
   overflow: hidden;
   padding: 4px 24px 26px;
 }
-.pod-flip-stage {
+.pod-detail-stage {
   position: relative;
   height: 440px;
   overflow: hidden;
   border-radius: 20px;
   contain: paint;
   isolation: isolate;
-  perspective: 1800px;
 }
-.pod-flip-card {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  transform-style: preserve-3d;
-  will-change: transform;
-  transition: transform 0.68s cubic-bezier(0.2, 0.78, 0.2, 1);
-}
-.pod-flip-stage.is-flipped .pod-flip-card {
-  transform: rotateY(180deg);
-}
-.pod-face {
+.pod-detail-page {
   position: absolute;
   inset: 0;
   overflow: hidden;
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.026);
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
+  transition:
+    opacity 0.22s ease,
+    transform 0.3s cubic-bezier(0.2, 0.78, 0.2, 1);
 }
-.pod-face-back {
-  transform: rotateY(180deg);
+.pod-manage-page {
+  opacity: 0;
+  transform: translateX(18px);
   pointer-events: none;
 }
-.pod-flip-stage.is-flipped .pod-face-front {
+.pod-detail-stage.is-managing .pod-share-page {
+  opacity: 0;
+  transform: translateX(-12px);
   pointer-events: none;
 }
-.pod-flip-stage.is-flipped .pod-face-back {
+.pod-detail-stage.is-managing .pod-manage-page {
+  opacity: 1;
+  transform: none;
   pointer-events: auto;
 }
 .share-face-layout {
@@ -709,6 +768,9 @@ select:focus-visible {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 9px;
+}
+.local-admin-launcher {
+  grid-template-columns: minmax(220px, 0.42fr);
 }
 .compact-launchers > button {
   min-height: 58px;
@@ -1491,6 +1553,16 @@ button:disabled {
     transform: translate(8vw, 5vw) scale(1.1);
   }
 }
+@keyframes flow-drift {
+  to {
+    transform: translate3d(-2.5%, 1.5%, 0) scale(1.025);
+  }
+}
+@keyframes flow-trace {
+  to {
+    stroke-dashoffset: -260;
+  }
+}
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -1501,7 +1573,7 @@ button:disabled {
   :root {
     color-scheme: light;
     color: #1c1d21;
-    background: #ececef;
+    background: transparent;
   }
   .desktop-shell {
     background: #ececef;
@@ -1511,15 +1583,43 @@ button:disabled {
   }
   .pod-card,
   .add-pod-card {
-    background: rgba(255, 255, 255, 0.78);
     box-shadow:
       0 14px 34px rgba(44, 45, 52, 0.09),
       inset 0 1px rgba(255, 255, 255, 0.8);
   }
+  .pod-card {
+    background:
+      linear-gradient(
+        to top right,
+        hsl(var(--card-hue) 72% 55% / 0.14),
+        hsl(var(--card-hue-alt) 70% 60% / 0.05) 45%,
+        transparent 75%
+      ),
+      rgba(255, 255, 255, 0.8);
+  }
+  .add-pod-card:hover {
+    background:
+      linear-gradient(
+        to top right,
+        rgba(55, 181, 157, 0.16),
+        rgba(116, 126, 255, 0.18) 58%,
+        #fff 84%
+      ),
+      #fff;
+  }
   .pod-card:hover,
   .add-pod-card:hover {
-    background: #fff;
     box-shadow: 0 20px 46px rgba(44, 45, 52, 0.13);
+  }
+  .pod-card:hover {
+    background:
+      linear-gradient(
+        to top right,
+        hsl(var(--card-hue) 74% 55% / 0.2),
+        hsl(var(--card-hue-alt) 72% 60% / 0.07) 45%,
+        transparent 75%
+      ),
+      #fff;
   }
   .pod-card-copy strong {
     color: #222329;
@@ -1530,6 +1630,14 @@ button:disabled {
   }
   .add-pod-card {
     color: #777983;
+    background:
+      linear-gradient(
+        to top right,
+        rgba(55, 181, 157, 0.11),
+        rgba(116, 126, 255, 0.12) 58%,
+        rgba(255, 255, 255, 0.8) 84%
+      ),
+      rgba(255, 255, 255, 0.8);
   }
   .pod-dialog,
   .create-dialog {
@@ -1541,7 +1649,7 @@ button:disabled {
     color: #24252a;
     background: #f8f8fa;
   }
-  .pod-face {
+  .pod-detail-page {
     background: rgba(30, 31, 36, 0.025);
   }
   .qr-card {
@@ -1650,10 +1758,10 @@ button:disabled {
   .pod-dialog-body {
     overflow: auto;
   }
-  .pod-flip-stage {
+  .pod-detail-stage {
     height: 610px;
   }
-  .pod-face {
+  .pod-detail-page {
     overflow: auto;
   }
   .share-face-layout {
@@ -1699,21 +1807,17 @@ button:disabled {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pod-flip-card,
-  .pod-flip-stage.is-flipped .pod-flip-card {
-    transform: none;
-  }
-  .pod-face {
+  .pod-detail-page {
     transform: none;
     transition: opacity 0.01ms linear;
   }
-  .pod-face-back {
+  .pod-manage-page {
     opacity: 0;
   }
-  .pod-flip-stage.is-flipped .pod-face-front {
+  .pod-detail-stage.is-managing .pod-share-page {
     opacity: 0;
   }
-  .pod-flip-stage.is-flipped .pod-face-back {
+  .pod-detail-stage.is-managing .pod-manage-page {
     opacity: 1;
   }
   *,
