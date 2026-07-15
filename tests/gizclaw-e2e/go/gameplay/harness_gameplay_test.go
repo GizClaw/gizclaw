@@ -45,7 +45,7 @@ func applyGameplayCatalog(t *testing.T, h *clitest.Harness) {
 	t.Helper()
 
 	for _, fixture := range []string{
-		filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "resources", "04-workflows", "23-flowcraft-pet-care.yaml"),
+		filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "resources", "04-workflows", "23-pet-care.yaml"),
 		filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "resources", "07-gameplay", "00-starter-gameplay.yaml"),
 	} {
 		result := h.RunCLI("admin", "apply", "--context", "admin-a", "-f", fixture)

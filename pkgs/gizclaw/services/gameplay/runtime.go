@@ -28,12 +28,17 @@ var (
 type Runtime struct {
 	DB          *sql.DB
 	Catalog     *Catalog
+	Workflows   WorkflowService
 	Workspaces  workspace.WorkspaceAdminService
 	ACL         ACL
 	Now         func() time.Time
 	NewID       func() string
 	PickWeight  func(total int64) int64
 	DecayPeriod time.Duration
+}
+
+type WorkflowService interface {
+	GetWorkflow(context.Context, adminhttp.GetWorkflowRequestObject) (adminhttp.GetWorkflowResponseObject, error)
 }
 
 type ACL interface {
@@ -695,6 +700,9 @@ func (r *Runtime) createPetWorkspace(ctx context.Context, name, workflowName str
 	if r == nil || r.Workspaces == nil {
 		return errors.New("gameplay: workspace service is not configured")
 	}
+	if err := r.validatePetWorkflow(ctx, workflowName); err != nil {
+		return err
+	}
 	input := apitypes.WorkspaceInputModePushToTalk
 	var parameters apitypes.WorkspaceParameters
 	if err := parameters.FromPetWorkspaceParameters(apitypes.PetWorkspaceParameters{
@@ -722,6 +730,30 @@ func (r *Runtime) createPetWorkspace(ctx context.Context, name, workflowName str
 		return fmt.Errorf("create pet workspace: %s", v.Error.Message)
 	default:
 		return fmt.Errorf("create pet workspace: unexpected response %T", resp)
+	}
+}
+
+func (r *Runtime) validatePetWorkflow(ctx context.Context, name string) error {
+	if r == nil || r.Workflows == nil {
+		return errors.New("gameplay: workflow service is not configured")
+	}
+	resp, err := r.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: name})
+	if err != nil {
+		return fmt.Errorf("get pet workflow %q: %w", name, err)
+	}
+	switch v := resp.(type) {
+	case adminhttp.GetWorkflow200JSONResponse:
+		doc := apitypes.WorkflowDocument(v)
+		if doc.Spec.Driver != apitypes.WorkflowDriverPet {
+			return fmt.Errorf("workflow %q uses driver %q, want %q", name, doc.Spec.Driver, apitypes.WorkflowDriverPet)
+		}
+		return nil
+	case adminhttp.GetWorkflow404JSONResponse:
+		return fmt.Errorf("get pet workflow %q: %s", name, v.Error.Message)
+	case adminhttp.GetWorkflow500JSONResponse:
+		return fmt.Errorf("get pet workflow %q: %s", name, v.Error.Message)
+	default:
+		return fmt.Errorf("get pet workflow %q: unexpected response %T", name, resp)
 	}
 }
 

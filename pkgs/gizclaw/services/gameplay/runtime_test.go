@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -25,6 +26,7 @@ func TestRuntimeAdoptAndDrive(t *testing.T) {
 	runtime := &Runtime{
 		DB:         db,
 		Catalog:    catalog,
+		Workflows:  petWorkflowService{},
 		Workspaces: workspaces,
 		ACL:        &recordingACLService{},
 		Now: func() time.Time {
@@ -241,6 +243,7 @@ func TestRuntimeAdoptGrantsAndDeleteRevokesPetWorkspace(t *testing.T) {
 	runtime := &Runtime{
 		DB:         testDB(t),
 		Catalog:    catalog,
+		Workflows:  petWorkflowService{},
 		Workspaces: workspaces,
 		ACL:        acl,
 		Now:        func() time.Time { return now },
@@ -281,6 +284,7 @@ func TestRuntimeAdoptCompensatesWorkspaceOnSQLError(t *testing.T) {
 	runtime := &Runtime{
 		DB:         db,
 		Catalog:    catalog,
+		Workflows:  petWorkflowService{},
 		Workspaces: workspaces,
 		Now: func() time.Time {
 			return now
@@ -310,6 +314,7 @@ func TestRuntimeErrorsPaginationAndTimeDrive(t *testing.T) {
 	runtime := &Runtime{
 		DB:         db,
 		Catalog:    catalog,
+		Workflows:  petWorkflowService{},
 		Workspaces: &recordingWorkspaceService{},
 		Now: func() time.Time {
 			return now
@@ -402,6 +407,7 @@ func TestRuntimeErrorsPaginationAndTimeDrive(t *testing.T) {
 	poorRuntime := &Runtime{
 		DB:          testDB(t),
 		Catalog:     poorCatalog,
+		Workflows:   petWorkflowService{},
 		Workspaces:  &recordingWorkspaceService{},
 		Now:         func() time.Time { return now },
 		NewID:       sequentialIDs("poor-pet", "poor-txn"),
@@ -572,6 +578,7 @@ func TestRuntimeDrivesLegacyRulesetActionFallback(t *testing.T) {
 	runtime := &Runtime{
 		DB:         testDB(t),
 		Catalog:    catalog,
+		Workflows:  petWorkflowService{},
 		Workspaces: &recordingWorkspaceService{},
 		Now:        func() time.Time { return now },
 		NewID:      sequentialIDs("pet-1", "adopt-txn", "idle-cost-txn", "grant-1", "reward-txn"),
@@ -627,6 +634,7 @@ func TestRuntimeDoesNotApplyLegacyRulesetActionWhenPetDefDefinesNoop(t *testing.
 	runtime := &Runtime{
 		DB:         testDB(t),
 		Catalog:    catalog,
+		Workflows:  petWorkflowService{},
 		Workspaces: &recordingWorkspaceService{},
 		Now:        func() time.Time { return now },
 		NewID:      sequentialIDs("pet-1", "adopt-txn"),
@@ -679,6 +687,7 @@ func TestRuntimeDoesNotFallbackToLegacyRulesetActionForCurrentPetDefMissingActio
 	runtime := &Runtime{
 		DB:         testDB(t),
 		Catalog:    catalog,
+		Workflows:  petWorkflowService{},
 		Workspaces: &recordingWorkspaceService{},
 		Now:        func() time.Time { return now },
 		NewID:      sequentialIDs("pet-1", "adopt-txn"),
@@ -767,10 +776,22 @@ func TestRuntimeHelperBranches(t *testing.T) {
 		adminhttp.CreateWorkspace500JSONResponse{Error: apitypes.NewErrorResponse("ERROR", "server error").Error},
 		nil,
 	} {
-		runtime := &Runtime{Workspaces: workspaceResponseService{resp: resp}}
+		runtime := &Runtime{Workflows: petWorkflowService{}, Workspaces: workspaceResponseService{resp: resp}}
 		if err := runtime.createPetWorkspace(context.Background(), "pet-a", "chatroom", apitypes.PetDef{}); err == nil {
 			t.Fatalf("createPetWorkspace(%T) should fail", resp)
 		}
+	}
+
+	workspaces := &recordingWorkspaceService{}
+	runtime := &Runtime{
+		Workflows:  petWorkflowService{driver: apitypes.WorkflowDriverFlowcraft},
+		Workspaces: workspaces,
+	}
+	if err := runtime.createPetWorkspace(context.Background(), "pet-a", "chatroom", apitypes.PetDef{}); err == nil || !strings.Contains(err.Error(), `want "pet"`) {
+		t.Fatalf("createPetWorkspace() driver error = %v", err)
+	}
+	if len(workspaces.created) != 0 {
+		t.Fatalf("non-pet workflow created workspaces = %#v", workspaces.created)
 	}
 }
 
@@ -879,6 +900,20 @@ func sequentialIDs(ids ...string) func() string {
 type recordingWorkspaceService struct {
 	created []adminhttp.WorkspaceUpsert
 	deleted []string
+}
+
+type petWorkflowService struct {
+	driver apitypes.WorkflowDriver
+}
+
+func (s petWorkflowService) GetWorkflow(context.Context, adminhttp.GetWorkflowRequestObject) (adminhttp.GetWorkflowResponseObject, error) {
+	driver := s.driver
+	if driver == "" {
+		driver = apitypes.WorkflowDriverPet
+	}
+	return adminhttp.GetWorkflow200JSONResponse(apitypes.WorkflowDocument{
+		Spec: apitypes.WorkflowSpec{Driver: driver},
+	}), nil
 }
 
 func (s *recordingWorkspaceService) ListWorkspaces(context.Context, adminhttp.ListWorkspacesRequestObject) (adminhttp.ListWorkspacesResponseObject, error) {

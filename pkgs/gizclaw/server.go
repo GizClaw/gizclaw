@@ -453,6 +453,7 @@ func (s *Server) init() error {
 	gameplayRuntime := &gameplay.Runtime{
 		DB:         s.GameplayDB,
 		Catalog:    gameplayCatalog,
+		Workflows:  workflowServer,
 		Workspaces: workspaceServer,
 		ACL:        aclServer,
 	}

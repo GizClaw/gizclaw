@@ -4229,6 +4229,338 @@ class FlowcraftWorkspaceParameters extends $pb.GeneratedMessage {
   void clearInput() => $_clearField(7);
 }
 
+class PetConversationParameters extends $pb.GeneratedMessage {
+  factory PetConversationParameters({
+    $1.PetConversationParametersInitiative? initiative,
+  }) {
+    final result = create();
+    if (initiative != null) result.initiative = initiative;
+    return result;
+  }
+
+  PetConversationParameters._();
+
+  factory PetConversationParameters.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PetConversationParameters.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PetConversationParameters',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aE<$1.PetConversationParametersInitiative>(
+        1, _omitFieldNames ? '' : 'initiative',
+        enumValues: $1.PetConversationParametersInitiative.values)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetConversationParameters clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetConversationParameters copyWith(
+          void Function(PetConversationParameters) updates) =>
+      super.copyWith((message) => updates(message as PetConversationParameters))
+          as PetConversationParameters;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PetConversationParameters create() => PetConversationParameters._();
+  @$core.override
+  PetConversationParameters createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PetConversationParameters getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PetConversationParameters>(create);
+  static PetConversationParameters? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $1.PetConversationParametersInitiative get initiative => $_getN(0);
+  @$pb.TagNumber(1)
+  set initiative($1.PetConversationParametersInitiative value) =>
+      $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasInitiative() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearInitiative() => $_clearField(1);
+}
+
+class PetPersonaParameters extends $pb.GeneratedMessage {
+  factory PetPersonaParameters({
+    $core.String? prompt,
+  }) {
+    final result = create();
+    if (prompt != null) result.prompt = prompt;
+    return result;
+  }
+
+  PetPersonaParameters._();
+
+  factory PetPersonaParameters.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PetPersonaParameters.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PetPersonaParameters',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'prompt')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPersonaParameters clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetPersonaParameters copyWith(void Function(PetPersonaParameters) updates) =>
+      super.copyWith((message) => updates(message as PetPersonaParameters))
+          as PetPersonaParameters;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PetPersonaParameters create() => PetPersonaParameters._();
+  @$core.override
+  PetPersonaParameters createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PetPersonaParameters getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PetPersonaParameters>(create);
+  static PetPersonaParameters? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get prompt => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set prompt($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasPrompt() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearPrompt() => $_clearField(1);
+}
+
+class PetVoiceParameters extends $pb.GeneratedMessage {
+  factory PetVoiceParameters({
+    $core.String? prompt,
+    $core.String? voiceId,
+  }) {
+    final result = create();
+    if (prompt != null) result.prompt = prompt;
+    if (voiceId != null) result.voiceId = voiceId;
+    return result;
+  }
+
+  PetVoiceParameters._();
+
+  factory PetVoiceParameters.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PetVoiceParameters.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PetVoiceParameters',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'prompt')
+    ..aOS(2, _omitFieldNames ? '' : 'voiceId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetVoiceParameters clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetVoiceParameters copyWith(void Function(PetVoiceParameters) updates) =>
+      super.copyWith((message) => updates(message as PetVoiceParameters))
+          as PetVoiceParameters;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PetVoiceParameters create() => PetVoiceParameters._();
+  @$core.override
+  PetVoiceParameters createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PetVoiceParameters getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PetVoiceParameters>(create);
+  static PetVoiceParameters? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get prompt => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set prompt($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasPrompt() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearPrompt() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get voiceId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set voiceId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasVoiceId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearVoiceId() => $_clearField(2);
+}
+
+class PetWorkflowSpec extends $pb.GeneratedMessage {
+  factory PetWorkflowSpec() => create();
+
+  PetWorkflowSpec._();
+
+  factory PetWorkflowSpec.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PetWorkflowSpec.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PetWorkflowSpec',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetWorkflowSpec clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetWorkflowSpec copyWith(void Function(PetWorkflowSpec) updates) =>
+      super.copyWith((message) => updates(message as PetWorkflowSpec))
+          as PetWorkflowSpec;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PetWorkflowSpec create() => PetWorkflowSpec._();
+  @$core.override
+  PetWorkflowSpec createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PetWorkflowSpec getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PetWorkflowSpec>(create);
+  static PetWorkflowSpec? _defaultInstance;
+}
+
+class PetWorkspaceParameters extends $pb.GeneratedMessage {
+  factory PetWorkspaceParameters({
+    $1.PetWorkspaceParametersAgentType? agentType,
+    PetConversationParameters? conversation,
+    $1.WorkspaceInputMode? input,
+    PetPersonaParameters? persona,
+    PetVoiceParameters? voice,
+  }) {
+    final result = create();
+    if (agentType != null) result.agentType = agentType;
+    if (conversation != null) result.conversation = conversation;
+    if (input != null) result.input = input;
+    if (persona != null) result.persona = persona;
+    if (voice != null) result.voice = voice;
+    return result;
+  }
+
+  PetWorkspaceParameters._();
+
+  factory PetWorkspaceParameters.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PetWorkspaceParameters.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PetWorkspaceParameters',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aE<$1.PetWorkspaceParametersAgentType>(
+        1, _omitFieldNames ? '' : 'agentType',
+        enumValues: $1.PetWorkspaceParametersAgentType.values)
+    ..aOM<PetConversationParameters>(2, _omitFieldNames ? '' : 'conversation',
+        subBuilder: PetConversationParameters.create)
+    ..aE<$1.WorkspaceInputMode>(3, _omitFieldNames ? '' : 'input',
+        enumValues: $1.WorkspaceInputMode.values)
+    ..aOM<PetPersonaParameters>(4, _omitFieldNames ? '' : 'persona',
+        subBuilder: PetPersonaParameters.create)
+    ..aOM<PetVoiceParameters>(5, _omitFieldNames ? '' : 'voice',
+        subBuilder: PetVoiceParameters.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetWorkspaceParameters clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetWorkspaceParameters copyWith(
+          void Function(PetWorkspaceParameters) updates) =>
+      super.copyWith((message) => updates(message as PetWorkspaceParameters))
+          as PetWorkspaceParameters;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PetWorkspaceParameters create() => PetWorkspaceParameters._();
+  @$core.override
+  PetWorkspaceParameters createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PetWorkspaceParameters getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PetWorkspaceParameters>(create);
+  static PetWorkspaceParameters? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $1.PetWorkspaceParametersAgentType get agentType => $_getN(0);
+  @$pb.TagNumber(1)
+  set agentType($1.PetWorkspaceParametersAgentType value) =>
+      $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasAgentType() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAgentType() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  PetConversationParameters get conversation => $_getN(1);
+  @$pb.TagNumber(2)
+  set conversation(PetConversationParameters value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasConversation() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearConversation() => $_clearField(2);
+  @$pb.TagNumber(2)
+  PetConversationParameters ensureConversation() => $_ensure(1);
+
+  @$pb.TagNumber(3)
+  $1.WorkspaceInputMode get input => $_getN(2);
+  @$pb.TagNumber(3)
+  set input($1.WorkspaceInputMode value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasInput() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearInput() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  PetPersonaParameters get persona => $_getN(3);
+  @$pb.TagNumber(4)
+  set persona(PetPersonaParameters value) => $_setField(4, value);
+  @$pb.TagNumber(4)
+  $core.bool hasPersona() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearPersona() => $_clearField(4);
+  @$pb.TagNumber(4)
+  PetPersonaParameters ensurePersona() => $_ensure(3);
+
+  @$pb.TagNumber(5)
+  PetVoiceParameters get voice => $_getN(4);
+  @$pb.TagNumber(5)
+  set voice(PetVoiceParameters value) => $_setField(5, value);
+  @$pb.TagNumber(5)
+  $core.bool hasVoice() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearVoice() => $_clearField(5);
+  @$pb.TagNumber(5)
+  PetVoiceParameters ensureVoice() => $_ensure(4);
+}
+
 class GeminiCredentialBody extends $pb.GeneratedMessage {
   factory GeminiCredentialBody({
     $core.String? apiKey,
@@ -8104,6 +8436,7 @@ class WorkflowSpec extends $pb.GeneratedMessage {
     $1.WorkflowDriver? driver,
     FlowcraftWorkflowSpec? flowcraft,
     ToolkitPolicy? toolkit,
+    PetWorkflowSpec? pet,
   }) {
     final result = create();
     if (astTranslate != null) result.astTranslate = astTranslate;
@@ -8112,6 +8445,7 @@ class WorkflowSpec extends $pb.GeneratedMessage {
     if (driver != null) result.driver = driver;
     if (flowcraft != null) result.flowcraft = flowcraft;
     if (toolkit != null) result.toolkit = toolkit;
+    if (pet != null) result.pet = pet;
     return result;
   }
 
@@ -8141,6 +8475,8 @@ class WorkflowSpec extends $pb.GeneratedMessage {
         subBuilder: FlowcraftWorkflowSpec.create)
     ..aOM<ToolkitPolicy>(6, _omitFieldNames ? '' : 'toolkit',
         subBuilder: ToolkitPolicy.create)
+    ..aOM<PetWorkflowSpec>(7, _omitFieldNames ? '' : 'pet',
+        subBuilder: PetWorkflowSpec.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -8225,6 +8561,17 @@ class WorkflowSpec extends $pb.GeneratedMessage {
   void clearToolkit() => $_clearField(6);
   @$pb.TagNumber(6)
   ToolkitPolicy ensureToolkit() => $_ensure(5);
+
+  @$pb.TagNumber(7)
+  PetWorkflowSpec get pet => $_getN(6);
+  @$pb.TagNumber(7)
+  set pet(PetWorkflowSpec value) => $_setField(7, value);
+  @$pb.TagNumber(7)
+  $core.bool hasPet() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearPet() => $_clearField(7);
+  @$pb.TagNumber(7)
+  PetWorkflowSpec ensurePet() => $_ensure(6);
 }
 
 class ToolExecutor extends $pb.GeneratedMessage {

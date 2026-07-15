@@ -937,6 +937,7 @@ func TestServerGameplayPixaDownloads(t *testing.T) {
 	runtime := &gameplay.Runtime{
 		DB:         db,
 		Catalog:    catalog,
+		Workflows:  workflowServer,
 		Workspaces: &workspace.Server{Store: kv.NewMemory(nil), WorkflowStore: workflowStore},
 		Now:        func() time.Time { return now },
 		PickWeight: func(int64) int64 { return 0 },
