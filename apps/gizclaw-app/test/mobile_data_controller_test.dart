@@ -70,6 +70,64 @@ void main() {
     expect(database.closeCalled, isTrue);
   });
 
+  test('waits for an in-flight initial connect before closing', () async {
+    final database = _TrackingDatabase();
+    final client = _RunWorkspaceClient();
+    final connection = _BlockingConnectConnection(
+      profile: _profile('gizclaw.local:9820'),
+      client: client,
+      serverId: 'server-a',
+    );
+    final controller = MobileDataController(
+      database: database,
+      connectionController: connection,
+    );
+
+    final start = controller.start();
+    await connection.connectStarted.future;
+    final close = controller.close();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(connection.closeCalled, isFalse);
+    expect(database.closeCalled, isFalse);
+
+    connection.connectResult.complete(client);
+    await start;
+    await close;
+
+    expect(connection.closeCalled, isTrue);
+    expect(database.closeCalled, isTrue);
+  });
+
+  test('waits for an in-flight reconnect before closing', () async {
+    final database = _TrackingDatabase();
+    final client = _RunWorkspaceClient();
+    final connection = _BlockingReconnectConnection(
+      profile: _profile('gizclaw.local:9820'),
+      client: client,
+      serverId: 'server-a',
+    );
+    final controller = MobileDataController(
+      database: database,
+      connectionController: connection,
+    );
+
+    final reconnect = controller.recoverTransport();
+    await connection.reconnectStarted.future;
+    final close = controller.close();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(connection.closeCalled, isFalse);
+    expect(database.closeCalled, isFalse);
+
+    connection.reconnectResult.complete(client);
+    await reconnect;
+    await close;
+
+    expect(connection.closeCalled, isTrue);
+    expect(database.closeCalled, isTrue);
+  });
+
   test('does not retry a mutating RPC after a transport failure', () async {
     var requests = 0;
     var reconnects = 0;
@@ -471,6 +529,40 @@ class _CloseTrackingConnection extends _RefreshTestConnection {
     closeCalled = true;
     final error = closeError;
     if (error != null) throw error;
+  }
+}
+
+class _BlockingConnectConnection extends _CloseTrackingConnection {
+  _BlockingConnectConnection({
+    required super.profile,
+    required super.client,
+    required super.serverId,
+  });
+
+  final connectStarted = Completer<void>();
+  final connectResult = Completer<GizClawClient>();
+
+  @override
+  Future<GizClawClient> connect() {
+    connectStarted.complete();
+    return connectResult.future;
+  }
+}
+
+class _BlockingReconnectConnection extends _CloseTrackingConnection {
+  _BlockingReconnectConnection({
+    required super.profile,
+    required super.client,
+    required super.serverId,
+  });
+
+  final reconnectStarted = Completer<void>();
+  final reconnectResult = Completer<GizClawClient>();
+
+  @override
+  Future<GizClawClient> reconnect() {
+    reconnectStarted.complete();
+    return reconnectResult.future;
   }
 }
 

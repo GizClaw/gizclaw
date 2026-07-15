@@ -106,6 +106,7 @@ class MobileDataController extends ChangeNotifier {
   MobileConnectionState connectionState = MobileConnectionState.unconfigured;
   Object? lastError;
   bool refreshing = false;
+  final Set<Future<void>> _startsInFlight = {};
   Future<GizClawClient>? _reconnecting;
   Future<void>? _refreshInFlight;
   bool _refreshAgain = false;
@@ -150,8 +151,17 @@ class MobileDataController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> start() async {
-    if (_closing) return;
+  Future<void> start() {
+    if (_closing) return Future<void>.value();
+    late final Future<void> trackedStart;
+    trackedStart = _start().whenComplete(() {
+      _startsInFlight.remove(trackedStart);
+    });
+    _startsInFlight.add(trackedStart);
+    return trackedStart;
+  }
+
+  Future<void> _start() async {
     final generation = ++_startGeneration;
     final endpoint = connection.profile.endpoint;
     if (!connection.profile.isConfigured) {
@@ -393,6 +403,11 @@ class MobileDataController extends ChangeNotifier {
   }
 
   Future<GizClawClient> _reconnect() {
+    if (_closing) {
+      return Future<GizClawClient>.error(
+        StateError('Mobile data controller is closed'),
+      );
+    }
     final active = _reconnecting;
     if (active != null) return active;
     final reconnecting = _performReconnect();
@@ -818,9 +833,13 @@ class MobileDataController extends ChangeNotifier {
       }
     }
 
+    final starts = _startsInFlight.toList();
+    final reconnect = _reconnecting;
     final refresh = _refreshInFlight;
     final workspaceSwitch = _workspaceSwitch;
     await Future.wait([
+      for (final start in starts) attempt(() => start),
+      if (reconnect != null) attempt(() async => await reconnect),
       if (refresh != null) attempt(() => refresh),
       if (workspaceSwitch != null) attempt(() => workspaceSwitch),
     ]);
