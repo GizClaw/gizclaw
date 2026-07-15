@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:gizclaw/gizclaw.dart';
@@ -11,6 +13,24 @@ abstract interface class IdentityValueStore {
   Future<void> write(String key, String value);
 }
 
+class GizClawServer {
+  const GizClawServer({required this.name, required this.accessPoint});
+
+  final String name;
+  final String accessPoint;
+}
+
+const gizClawPresetServers = [
+  GizClawServer(
+    name: 'Development',
+    accessPoint: gizClawDevelopmentServerEndpoint,
+  ),
+  GizClawServer(
+    name: 'Production',
+    accessPoint: gizClawProductionServerEndpoint,
+  ),
+];
+
 class AppIdentityStore {
   AppIdentityStore({
     IdentityValueStore? secureValues,
@@ -23,6 +43,7 @@ class AppIdentityStore {
 
   static const privateKeyStorageKey = 'gizclaw.client.private-key.v1';
   static const endpointStorageKey = 'gizclaw.server.endpoint.v1';
+  static const customServersStorageKey = 'gizclaw.servers.custom.v1';
 
   final IdentityValueStore _secureValues;
   final IdentityValueStore _preferences;
@@ -59,6 +80,72 @@ class AppIdentityStore {
       endpointStorageKey,
       normalizeGizClawEndpoint(endpoint),
     );
+  }
+
+  Future<List<GizClawServer>> loadServers() async {
+    final customServers = <GizClawServer>[];
+    final encoded = await _preferences.read(customServersStorageKey);
+    if (encoded != null && encoded.trim().isNotEmpty) {
+      try {
+        final values = jsonDecode(encoded);
+        if (values is List<Object?>) {
+          for (final value in values) {
+            final server = _decodeServer(value);
+            if (server != null) customServers.add(server);
+          }
+        }
+      } on FormatException {
+        // Ignore malformed preferences and keep the built-in servers usable.
+      }
+    }
+
+    final savedEndpoint = (await _preferences.read(endpointStorageKey))?.trim();
+    final fallbackEndpoint = _fallbackProfile.endpoint.trim();
+    final legacyEndpoint = savedEndpoint == null || savedEndpoint.isEmpty
+        ? fallbackEndpoint
+        : savedEndpoint;
+    if (legacyEndpoint.isNotEmpty) {
+      final normalized = normalizeGizClawEndpoint(legacyEndpoint);
+      final known = [
+        ...gizClawPresetServers,
+        ...customServers,
+      ].any((server) => server.accessPoint == normalized);
+      if (!known) {
+        customServers.add(
+          GizClawServer(name: normalized, accessPoint: normalized),
+        );
+      }
+    }
+
+    return List.unmodifiable([...gizClawPresetServers, ...customServers]);
+  }
+
+  Future<void> saveCustomServers(List<GizClawServer> servers) {
+    final encoded = jsonEncode([
+      for (final server in servers)
+        {
+          'name': server.name.trim(),
+          'access_point': normalizeGizClawEndpoint(server.accessPoint),
+        },
+    ]);
+    return _preferences.write(customServersStorageKey, encoded);
+  }
+}
+
+GizClawServer? _decodeServer(Object? value) {
+  if (value is! Map<String, Object?>) return null;
+  final name = value['name'];
+  final accessPoint = value['access_point'];
+  if (name is! String || accessPoint is! String || name.trim().isEmpty) {
+    return null;
+  }
+  try {
+    return GizClawServer(
+      name: name.trim(),
+      accessPoint: normalizeGizClawEndpoint(accessPoint),
+    );
+  } on FormatException {
+    return null;
   }
 }
 

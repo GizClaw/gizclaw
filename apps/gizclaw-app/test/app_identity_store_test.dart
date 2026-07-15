@@ -69,6 +69,50 @@ void main() {
     );
   });
 
+  test('loads presets and persists custom servers', () async {
+    final preferences = _MemoryValueStore();
+    final store = AppIdentityStore(
+      secureValues: _MemoryValueStore(),
+      preferences: preferences,
+      fallbackProfile: const GizClawConnectionProfile(
+        endpoint: '',
+        clientPrivateKey: '',
+      ),
+    );
+
+    expect((await store.loadServers()).map((server) => server.name), [
+      'Development',
+      'Production',
+    ]);
+
+    await store.saveCustomServers(const [
+      GizClawServer(name: 'Office', accessPoint: 'office.local:9820'),
+    ]);
+
+    final servers = await store.loadServers();
+    expect(servers, hasLength(3));
+    expect(servers.last.name, 'Office');
+    expect(servers.last.accessPoint, 'office.local:9820');
+  });
+
+  test('includes a legacy selected endpoint in the server list', () async {
+    final preferences = _MemoryValueStore()
+      ..values[AppIdentityStore.endpointStorageKey] = 'legacy.local:9820';
+    final store = AppIdentityStore(
+      secureValues: _MemoryValueStore(),
+      preferences: preferences,
+      fallbackProfile: const GizClawConnectionProfile(
+        endpoint: '',
+        clientPrivateKey: '',
+      ),
+    );
+
+    final servers = await store.loadServers();
+
+    expect(servers.last.name, 'legacy.local:9820');
+    expect(servers.last.accessPoint, 'legacy.local:9820');
+  });
+
   test('validates domain and IP endpoints with explicit ports', () {
     expect(
       normalizeGizClawEndpoint('gizclaw.local:9820'),

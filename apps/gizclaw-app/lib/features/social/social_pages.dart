@@ -4,9 +4,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:gizclaw/gizclaw.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../connection/gizclaw_connection_controller.dart';
 import '../../data/mobile_data_controller.dart';
 import '../../giz_ui/giz_ui.dart';
+import '../../identity/app_identity_store.dart';
 import '../../prototype/prototype_models.dart';
 
 class FriendsPage extends StatelessWidget {
@@ -1064,25 +1064,53 @@ class MePage extends StatelessWidget {
             ),
             const SizedBox(height: 26),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                'CONNECTION',
-                style: GizText.label.copyWith(color: GizColors.secondaryInk),
+              padding: const EdgeInsets.fromLTRB(20, 0, 12, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'SERVERS',
+                      style: GizText.label.copyWith(
+                        color: GizColors.secondaryInk,
+                      ),
+                    ),
+                  ),
+                  CupertinoButton(
+                    key: const ValueKey('add-server-page-button'),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 6,
+                    ),
+                    onPressed: () => context.push('/identity/servers/new'),
+                    child: const Row(
+                      children: [
+                        Icon(GizIcons.add, size: 18),
+                        SizedBox(width: 3),
+                        Text('Add'),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 8),
-            SettingsRow(
-              key: const ValueKey('identity-server-row'),
-              icon: GizIcons.antenna_radiowaves_left_right,
-              title: 'Server',
-              value: data.serverEndpoint.isEmpty
-                  ? 'Not configured'
-                  : data.serverEndpoint,
-              onPressed: () => showCupertinoModalPopup<void>(
-                context: context,
-                builder: (context) => _ServerEndpointSheet(data: data),
+            if (!data.hasActiveServer)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                child: Text(
+                  'Choose a server to finish setup and continue.',
+                  key: const ValueKey('server-setup-required'),
+                  style: GizText.body.copyWith(color: GizColors.secondaryInk),
+                ),
               ),
-            ),
+            for (final server in data.servers)
+              _ServerListRow(
+                key: ValueKey('server-${server.accessPoint}'),
+                server: server,
+                selected: data.activeServer?.accessPoint == server.accessPoint,
+                onPressed: () async => data.selectServer(server),
+              ),
+            const SizedBox(height: 18),
             SettingsRow(
               icon: GizIcons.arrow_2_circlepath,
               title: 'Transport',
@@ -1091,6 +1119,49 @@ class MePage extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ServerListRow extends StatelessWidget {
+  const _ServerListRow({
+    super.key,
+    required this.server,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final GizClawServer server;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return GizListRow(
+      leading: SizedBox(
+        width: 36,
+        height: 36,
+        child: Icon(
+          GizIcons.antenna_radiowaves_left_right,
+          size: 22,
+          color: selected ? GizColors.primary : GizColors.secondaryInk,
+        ),
+      ),
+      title: server.name,
+      subtitle: server.accessPoint,
+      onPressed: selected ? null : onPressed,
+      trailing: selected
+          ? const Icon(
+              GizIcons.checkmark_alt,
+              key: ValueKey('selected-server'),
+              size: 20,
+              color: GizColors.primary,
+            )
+          : const Icon(
+              GizIcons.chevron_forward,
+              size: 18,
+              color: GizColors.secondaryInk,
+            ),
     );
   }
 }
@@ -1120,207 +1191,6 @@ class _IdentityStatusPill extends StatelessWidget {
           const SizedBox(width: 6),
           Text(label, style: GizText.label.copyWith(color: GizColors.surface)),
         ],
-      ),
-    );
-  }
-}
-
-class _ServerEndpointSheet extends StatefulWidget {
-  const _ServerEndpointSheet({required this.data});
-
-  final MobileDataController data;
-
-  @override
-  State<_ServerEndpointSheet> createState() => _ServerEndpointSheetState();
-}
-
-class _ServerEndpointSheetState extends State<_ServerEndpointSheet> {
-  late final TextEditingController _controller = TextEditingController(
-    text: widget.data.serverEndpoint,
-  );
-  bool _busy = false;
-  Object? _error;
-
-  static const _presets = [
-    (label: 'Development', endpoint: gizClawDevelopmentServerEndpoint),
-    (label: 'Production', endpoint: gizClawProductionServerEndpoint),
-  ];
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    if (_busy) return;
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      await widget.data.updateServerEndpoint(_controller.text);
-      if (mounted) Navigator.pop(context);
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _error = error;
-      });
-    }
-  }
-
-  void _selectPreset(String endpoint) {
-    _controller
-      ..text = endpoint
-      ..selection = TextSelection.collapsed(offset: endpoint.length);
-    setState(() => _error = null);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final background = CupertinoColors.systemBackground.resolveFrom(context);
-    final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
-    return Container(
-      key: const ValueKey('server-endpoint-sheet'),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      padding: EdgeInsets.fromLTRB(20, 12, 20, 18 + safeBottom),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: CupertinoColors.systemGrey4.resolveFrom(context),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
-            const Text('GizClaw Server', style: GizText.sectionTitle),
-            const SizedBox(height: 16),
-            Text(
-              'QUICK SELECT',
-              style: GizText.label.copyWith(color: GizColors.secondaryInk),
-            ),
-            const SizedBox(height: 8),
-            for (final preset in _presets) ...[
-              _ServerPresetButton(
-                key: ValueKey('server-preset-${preset.label.toLowerCase()}'),
-                label: preset.label,
-                endpoint: preset.endpoint,
-                selected: _controller.text.trim() == preset.endpoint,
-                onPressed: _busy ? null : () => _selectPreset(preset.endpoint),
-              ),
-              const SizedBox(height: 8),
-            ],
-            const SizedBox(height: 4),
-            Text(
-              'CUSTOM ADDRESS',
-              style: GizText.label.copyWith(color: GizColors.secondaryInk),
-            ),
-            const SizedBox(height: 8),
-            CupertinoTextField(
-              key: const ValueKey('server-endpoint-field'),
-              controller: _controller,
-              placeholder: 'gizclaw.example.com:9820',
-              keyboardType: TextInputType.url,
-              autocorrect: false,
-              enableSuggestions: false,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) => _save(),
-              onChanged: (_) => setState(() => _error = null),
-              padding: const EdgeInsets.all(14),
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 10),
-              Text(
-                _serverEndpointError(_error!),
-                key: const ValueKey('server-endpoint-error'),
-                style: GizText.body.copyWith(
-                  color: CupertinoColors.systemRed.resolveFrom(context),
-                ),
-              ),
-            ],
-            const SizedBox(height: 14),
-            CupertinoButton.filled(
-              key: const ValueKey('save-server-endpoint'),
-              onPressed: _busy ? null : _save,
-              child: _busy
-                  ? const CupertinoActivityIndicator()
-                  : const Text('Save Server'),
-            ),
-            SizedBox(height: MediaQuery.viewInsetsOf(context).bottom),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ServerPresetButton extends StatelessWidget {
-  const _ServerPresetButton({
-    super.key,
-    required this.label,
-    required this.endpoint,
-    required this.selected,
-    required this.onPressed,
-  });
-
-  final String label;
-  final String endpoint;
-  final bool selected;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return CupertinoButton(
-      padding: EdgeInsets.zero,
-      onPressed: onPressed,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: selected
-              ? GizColors.primary.withValues(alpha: 0.09)
-              : GizColors.surface,
-          border: Border.all(
-            color: selected ? GizColors.primary : GizColors.separator,
-            width: selected ? 1.5 : 1,
-          ),
-          borderRadius: GizCorners.compactCard,
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label, style: GizText.title),
-                  const SizedBox(height: 2),
-                  Text(
-                    endpoint,
-                    style: GizText.body.copyWith(color: GizColors.secondaryInk),
-                  ),
-                ],
-              ),
-            ),
-            if (selected)
-              const Icon(
-                GizIcons.checkmark_alt,
-                key: ValueKey('selected-server-preset'),
-                size: 20,
-                color: GizColors.primary,
-              ),
-          ],
-        ),
       ),
     );
   }
@@ -1397,9 +1267,4 @@ class SettingsRow extends StatelessWidget {
 String _compactIdentity(String value) {
   if (value.length <= 18) return value;
   return '${value.substring(0, 10)}…${value.substring(value.length - 6)}';
-}
-
-String _serverEndpointError(Object error) {
-  if (error is FormatException) return error.message;
-  return 'Unable to save this server address.';
 }

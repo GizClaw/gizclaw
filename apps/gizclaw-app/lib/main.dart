@@ -14,11 +14,13 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final identityStore = AppIdentityStore();
   final profile = await identityStore.loadProfile();
+  final servers = await identityStore.loadServers();
   final deviceInfo = await loadMobileDeviceInfo();
   runApp(
     GizClawApp(
       dataController: MobileDataController(
         profile: profile,
+        servers: servers,
         deviceInfo: deviceInfo,
         identityStore: identityStore,
       ),

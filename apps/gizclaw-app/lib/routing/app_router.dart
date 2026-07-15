@@ -3,18 +3,28 @@ import 'package:go_router/go_router.dart';
 
 import '../app/app_shell.dart';
 import '../app/global_conversation_control.dart';
+import '../data/mobile_data_controller.dart';
 import '../features/active/active_workspace_page.dart';
 import '../features/chats/chat_pages.dart';
+import '../features/identity/server_pages.dart';
 import '../features/pet/pet_page.dart';
 import '../features/social/social_pages.dart';
 import '../giz_ui/giz_ui.dart';
 import '../prototype/prototype_models.dart';
 
-GoRouter createAppRouter() {
+GoRouter createAppRouter({required MobileDataController dataController}) {
   final rootNavigatorKey = GlobalKey<NavigatorState>();
   return GoRouter(
     navigatorKey: rootNavigatorKey,
-    initialLocation: '/active',
+    initialLocation: dataController.hasActiveServer ? '/active' : '/identity',
+    refreshListenable: dataController,
+    redirect: (context, state) {
+      if (!dataController.hasActiveServer &&
+          !state.uri.path.startsWith('/identity')) {
+        return '/identity';
+      }
+      return null;
+    },
     routes: [
       GoRoute(path: '/', redirect: (_, _) => '/active'),
       StatefulShellRoute.indexedStack(
@@ -152,6 +162,20 @@ GoRouter createAppRouter() {
               GoRoute(
                 path: '/identity',
                 pageBuilder: (context, state) => _page(state, const MePage()),
+                routes: [
+                  GoRoute(
+                    path: 'servers/new',
+                    parentNavigatorKey: rootNavigatorKey,
+                    pageBuilder: (context, state) =>
+                        _page(state, const AddServerPage()),
+                  ),
+                  GoRoute(
+                    path: 'servers/scan',
+                    parentNavigatorKey: rootNavigatorKey,
+                    pageBuilder: (context, state) =>
+                        _page(state, const ScanServerQrPage()),
+                  ),
+                ],
               ),
             ],
           ),

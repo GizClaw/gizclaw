@@ -58,6 +58,7 @@ abstract final class GizIcons {
   static const IconData plus_circle_fill = PhosphorIconsFill.plusCircle;
   static const IconData question_circle = PhosphorIconsBold.question;
   static const IconData question_circle_fill = PhosphorIconsFill.question;
+  static const IconData qr_code = PhosphorIconsBold.qrCode;
   static const IconData rectangle_3_offgrid = PhosphorIconsBold.squaresFour;
   static const IconData refresh = PhosphorIconsBold.arrowsClockwise;
   static const IconData scope = PhosphorIconsBold.crosshair;
