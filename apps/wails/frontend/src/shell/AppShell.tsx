@@ -202,6 +202,18 @@ export function AppShell() {
           pod={selected}
           onChange={replacePod}
           onClose={() => setSelected(null)}
+          onDelete={async () => {
+            setError("");
+            try {
+              await api.DeletePod(selected.id);
+              setPods((current) =>
+                current.filter((pod) => pod.id !== selected.id),
+              );
+              setSelected(null);
+            } catch (reason) {
+              setError(errorMessage(reason));
+            }
+          }}
           onEdit={() => setEditing(selected)}
           onError={(reason) => setError(errorMessage(reason))}
           onReveal={() =>
@@ -455,6 +467,7 @@ function PodDetail({
   pod,
   onChange,
   onClose,
+  onDelete,
   onEdit,
   onError,
   onReveal,
@@ -464,6 +477,7 @@ function PodDetail({
   pod: PodSummary;
   onChange(pod: PodSummary): void;
   onClose(): void;
+  onDelete(): Promise<void>;
   onEdit(): void;
   onError(reason: unknown): void;
   onReveal(): void;
@@ -575,6 +589,9 @@ function PodDetail({
               back={
                 <LocalManageFace
                   api={api}
+                  onDelete={() => {
+                    if (window.confirm(t("confirmDelete"))) void onDelete();
+                  }}
                   onError={onError}
                   pod={pod}
                   run={run}
@@ -599,6 +616,9 @@ function PodDetail({
                 <RemoteManageFace
                   api={api}
                   onAddServer={() => setServerEditor("new")}
+                  onDelete={() => {
+                    if (window.confirm(t("confirmDelete"))) void onDelete();
+                  }}
                   onEditServer={setServerEditor}
                   onError={onError}
                   onQuery={setQuery}
@@ -788,11 +808,13 @@ function QRCodeImage({ label, payload }: { label: string; payload: string }) {
 
 function LocalManageFace({
   api,
+  onDelete,
   onError,
   pod,
   run,
 }: {
   api: ReturnType<typeof getDesktopAPI>;
+  onDelete(): void;
   onError(reason: unknown): void;
   pod: PodSummary;
   run(action: () => Promise<PodSummary>): Promise<void>;
@@ -813,28 +835,29 @@ function LocalManageFace({
             {local.process.state === "running" ? t("running") : t("stopped")}
           </strong>
         </div>
-        <Status state={local.process.state} />
+        <button
+          className={`local-status-action ${
+            local.process.state === "running" ? "stop-action" : "start-action"
+          }`}
+          onClick={() =>
+            void run(() =>
+              local.process.state === "running"
+                ? api.StopLocalServer(pod.id)
+                : api.StartLocalServer(pod.id),
+            )
+          }
+          type="button"
+        >
+          {local.process.state === "running" ? (
+            <CircleStop size={14} />
+          ) : (
+            <Play size={14} />
+          )}
+          <span>
+            {local.process.state === "running" ? t("stop") : t("start")}
+          </span>
+        </button>
       </section>
-      <div className="local-power-actions">
-        <button
-          className="local-control-action start-action"
-          disabled={local.process.state === "running"}
-          onClick={() => void run(() => api.StartLocalServer(pod.id))}
-          type="button"
-        >
-          <Play size={17} />
-          <span>{t("start")}</span>
-        </button>
-        <button
-          className="local-control-action stop-action"
-          disabled={local.process.state !== "running"}
-          onClick={() => void run(() => api.StopLocalServer(pod.id))}
-          type="button"
-        >
-          <CircleStop size={17} />
-          <span>{t("stop")}</span>
-        </button>
-      </div>
       <button
         className="local-admin-action"
         onClick={() =>
@@ -851,6 +874,10 @@ function LocalManageFace({
         </span>
         <ArrowUpRight size={15} />
       </button>
+      <button className="pod-delete-action" onClick={onDelete} type="button">
+        <Trash2 size={14} />
+        {t("deletePod")}
+      </button>
     </div>
   );
 }
@@ -858,6 +885,7 @@ function LocalManageFace({
 function RemoteManageFace({
   api,
   onAddServer,
+  onDelete,
   onEditServer,
   onError,
   onQuery,
@@ -867,6 +895,7 @@ function RemoteManageFace({
 }: {
   api: ReturnType<typeof getDesktopAPI>;
   onAddServer(): void;
+  onDelete(): void;
   onEditServer(server: PodServer): void;
   onError(reason: unknown): void;
   onQuery(value: string): void;
@@ -909,6 +938,10 @@ function RemoteManageFace({
       ) : (
         <div className="no-servers">{t("noServers")}</div>
       )}
+      <button className="pod-delete-action" onClick={onDelete} type="button">
+        <Trash2 size={14} />
+        {t("deletePod")}
+      </button>
     </div>
   );
 }

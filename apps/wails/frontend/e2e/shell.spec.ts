@@ -147,7 +147,10 @@ test.beforeEach(async ({ page }) => {
         pods.push(pod);
         return pod;
       },
-      async DeletePod() {},
+      async DeletePod(id) {
+        const index = pods.findIndex((pod) => pod.id === id);
+        if (index >= 0) pods.splice(index, 1);
+      },
       async GetPod(id) {
         return pods.find((pod) => pod.id === id);
       },
@@ -168,10 +171,14 @@ test.beforeEach(async ({ page }) => {
         return pods.find((pod) => pod.id === id);
       },
       async StartLocalServer(id) {
-        return pods.find((pod) => pod.id === id);
+        const pod = pods.find((candidate) => candidate.id === id);
+        (pod as any).local.process.state = "running";
+        return structuredClone(pod);
       },
       async StopLocalServer(id) {
-        return pods.find((pod) => pod.id === id);
+        const pod = pods.find((candidate) => candidate.id === id);
+        (pod as any).local.process.state = "stopped";
+        return structuredClone(pod);
       },
       async UpdatePod(input) {
         const index = pods.findIndex((pod) => pod.id === input.id);
@@ -370,8 +377,27 @@ test("local share stays simple and switches to focused controls", async ({
     )
     .toBeLessThanOrEqual(340);
   await dialog.getByRole("button", { name: "Server controls" }).click();
-  await expect(dialog.getByRole("button", { name: /Start/ })).toBeVisible();
+  const statusCard = dialog.locator(".local-status-card");
+  await expect(
+    statusCard.getByRole("button", { name: "Stop" }),
+  ).toBeVisible();
+  await expect(dialog.locator(".local-power-actions")).toHaveCount(0);
+  await statusCard.getByRole("button", { name: "Stop" }).click();
+  await expect(
+    dialog.locator(".local-status-card").getByRole("button", { name: "Start" }),
+  ).toBeVisible();
   await expect(dialog.getByRole("button", { name: /Admin/ })).toBeVisible();
+  const deleteButton = dialog.getByRole("button", { name: "Delete Pod" });
+  await expect(deleteButton).toBeVisible();
+  await expect
+    .poll(async () => {
+      const admin = await dialog
+        .getByRole("button", { name: /Admin/ })
+        .boundingBox();
+      const remove = await deleteButton.boundingBox();
+      return Boolean(admin && remove && remove.y > admin.y + admin.height);
+    })
+    .toBe(true);
   await dialog.getByRole("button", { name: /Admin/ }).click();
   await expect
     .poll(() => page.evaluate(() => (window as any).__GIZCLAW_WINDOW_ACTIONS__))
@@ -392,6 +418,20 @@ test("local share stays simple and switches to focused controls", async ({
       dialog.evaluate((element) => element.scrollWidth <= element.clientWidth),
     )
     .toBe(true);
+});
+
+test("server controls delete a Pod after confirmation", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: /Local Lab/ }).click();
+  const detail = page.getByRole("dialog");
+  await detail.getByRole("button", { name: "Server controls" }).click();
+  page.once("dialog", async (confirmation) => {
+    expect(confirmation.message()).toBe("Delete this Pod and its local data?");
+    await confirmation.accept();
+  });
+  await detail.getByRole("button", { name: "Delete Pod" }).click();
+  await expect(detail).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Local Lab/ })).toHaveCount(0);
 });
 
 test("clicking the Pod name opens a name-only editor", async ({ page }) => {
@@ -427,6 +467,9 @@ test("Remote creation asks only for an access point and adds Servers later", asy
     detail.getByRole("heading", { level: 2, name: "Remote Server" }),
   ).toBeVisible();
   await detail.getByRole("button", { name: "Manage Servers" }).click();
+  await expect(
+    detail.getByRole("button", { name: "Delete Pod" }),
+  ).toBeVisible();
   await detail.getByRole("button", { name: "Add Server" }).click();
   const adminPrivateKey = page.getByLabel("Admin private key");
   await expect(adminPrivateKey).toHaveAttribute("type", "password");

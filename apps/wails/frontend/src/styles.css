@@ -948,37 +948,32 @@ select:focus-visible {
   color: #e4e6ea;
   font-size: 18px;
 }
-.local-power-actions {
-  min-height: 58px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-.local-control-action,
+.local-status-action,
 .local-admin-action {
   border: 0;
-  border-radius: 15px;
   cursor: pointer;
 }
-.local-control-action {
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: 6px;
-  color: #cdd0d7;
-  background: rgba(255, 255, 255, 0.05);
+.local-status-action {
+  min-width: 72px;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 11px;
+  border-radius: 11px;
   font-size: 10px;
   font-weight: 700;
 }
-.local-control-action.start-action:not(:disabled) {
+.local-status-action.start-action {
   color: #f7f8fa;
   background: #25262c;
 }
-.local-control-action.stop-action:not(:disabled) {
+.local-status-action.stop-action {
   color: #ff9baa;
   background: rgba(255, 91, 113, 0.1);
 }
-.local-control-action:hover:not(:disabled),
+.local-status-action:hover,
 .local-admin-action:hover {
   transform: translateY(-1px);
   filter: brightness(1.08);
@@ -1006,6 +1001,30 @@ select:focus-visible {
   border-radius: 11px;
   color: #9ea8f8;
   background: rgba(116, 126, 255, 0.1);
+}
+.pod-delete-action {
+  width: 100%;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: auto;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  color: #ff8999;
+  background: rgba(255, 91, 113, 0.075);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    background 160ms ease;
+}
+.pod-delete-action:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 91, 113, 0.13);
 }
 .compact-launchers {
   display: grid;
@@ -1455,7 +1474,9 @@ button:disabled {
 }
 .virtual-server-list {
   display: block;
-  height: 300px;
+  height: auto;
+  min-height: 0;
+  flex: 1 1 auto;
 }
 .virtual-server-row {
   position: absolute;
@@ -1555,6 +1576,10 @@ button:disabled {
   justify-items: center;
   color: #777a83;
   text-align: center;
+}
+.remote-manage-face .no-servers {
+  min-height: 0;
+  flex: 1 1 auto;
 }
 .invalid-detail h3 {
   margin: 12px 0 4px;
@@ -1972,17 +1997,21 @@ button:disabled {
   .local-status-card strong {
     color: #292a30;
   }
-  .local-control-action {
-    color: #5e6068;
-    background: rgba(30, 31, 36, 0.06);
-  }
-  .local-control-action.start-action:not(:disabled) {
+  .local-status-action.start-action {
     color: #fff;
     background: #24252a;
+  }
+  .local-status-action.stop-action {
+    color: #c84a5d;
+    background: rgba(210, 70, 91, 0.09);
   }
   .local-admin-action {
     color: #3f4148;
     background: rgba(30, 31, 36, 0.055);
+  }
+  .pod-delete-action {
+    color: #c84a5d;
+    background: rgba(210, 70, 91, 0.07);
   }
   .face-toolbar h3,
   .runtime-heading strong {
