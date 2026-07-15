@@ -25,7 +25,10 @@ const (
 	DefaultPort     = 9820
 )
 
-var podIDPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+var (
+	podIDPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+	hostPattern  = regexp.MustCompile(`(?i)^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$`)
+)
 
 type Pod struct {
 	Version           int            `json:"version"`
@@ -148,6 +151,11 @@ func (s Store) Save(pod Pod) error {
 		return err
 	}
 	manifest := filepath.Join(s.Paths.PodsDir, pod.ID, PodManifestFile)
+	previousManifest, previousErr := os.ReadFile(manifest)
+	hadManifest := previousErr == nil
+	if previousErr != nil && !os.IsNotExist(previousErr) {
+		return fmt.Errorf("appconfig: read previous pod manifest: %w", previousErr)
+	}
 	if _, err := os.Lstat(manifest); err == nil {
 		existing, loadErr := s.Load(pod.ID)
 		if loadErr != nil {
@@ -171,7 +179,22 @@ func (s Store) Save(pod Pod) error {
 	if err := atomicWrite(filepath.Join(dir, PodManifestFile), data, 0o600); err != nil {
 		return err
 	}
-	return s.materialize(pod)
+	if err := s.materialize(pod); err != nil {
+		var rollbackErr error
+		if hadManifest {
+			rollbackErr = atomicWrite(manifest, previousManifest, 0o600)
+		} else {
+			rollbackErr = os.Remove(manifest)
+			if os.IsNotExist(rollbackErr) {
+				rollbackErr = nil
+			}
+		}
+		if rollbackErr != nil {
+			return fmt.Errorf("%w; restore pod manifest: %v", err, rollbackErr)
+		}
+		return err
+	}
+	return nil
 }
 
 func (s Store) verifyProjections(pod Pod) error {
@@ -366,8 +389,8 @@ func (s Store) materializeWorkspace(pod Pod, dir string) error {
 	}{}
 	config.Identity.PrivateKey = serverKey
 	config.Listen = fmt.Sprintf("0.0.0.0:%d", pod.LocalServer.Port)
-	config.Endpoint = fmt.Sprintf("127.0.0.1:%d", pod.LocalServer.Port)
-	config.ServeToClients = pod.ClientPrivateKey != ""
+	config.Endpoint = preferredLANEndpoint(pod.LocalServer.Port)
+	config.ServeToClients = pod.ClientPrivateKey != "" || pod.LocalServer.AdminPrivateKey != ""
 	config.AdminPublicKey = adminPublic
 	data, err := yaml.Marshal(config)
 	if err != nil {
@@ -443,11 +466,34 @@ func validateEndpoint(field, endpoint string) error {
 	if err != nil || strings.TrimSpace(host) == "" || host != strings.TrimSpace(host) {
 		return fmt.Errorf("%s must be host:port", field)
 	}
+	if net.ParseIP(host) == nil && !hostPattern.MatchString(host) {
+		return fmt.Errorf("%s host must be an IP address or DNS name", field)
+	}
 	port, err := strconv.Atoi(portText)
 	if err != nil || port < 1 || port > 65535 {
 		return fmt.Errorf("%s port must be between 1 and 65535", field)
 	}
 	return nil
+}
+
+func preferredLANEndpoint(port int) string {
+	addresses, err := net.InterfaceAddrs()
+	if err != nil {
+		return net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
+	}
+	var candidates []string
+	for _, address := range addresses {
+		ip, _, parseErr := net.ParseCIDR(address.String())
+		if parseErr != nil || ip.IsLoopback() || ip.IsUnspecified() || ip.IsLinkLocalUnicast() {
+			continue
+		}
+		candidates = append(candidates, ip.String())
+	}
+	if len(candidates) == 0 {
+		return net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
+	}
+	sort.Strings(candidates)
+	return net.JoinHostPort(candidates[0], strconv.Itoa(port))
 }
 
 func validatePrivateKey(field, value string) error {

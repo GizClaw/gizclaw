@@ -2,6 +2,7 @@ package appconfig
 
 import (
 	"encoding/json"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -58,16 +59,18 @@ func TestStoreLocalPodMaterializesPrivateProjection(t *testing.T) {
 	var workspace struct {
 		Listen         string `yaml:"listen"`
 		Endpoint       string `yaml:"endpoint"`
+		ServeToClients bool   `yaml:"serve-to-clients"`
 		AdminPublicKey string `yaml:"admin-public-key"`
 		EdgeNodes      []any  `yaml:"edge-nodes"`
 	}
 	if err := yaml.Unmarshal(workspaceData, &workspace); err != nil {
 		t.Fatal(err)
 	}
-	if workspace.Listen != "0.0.0.0:9820" || workspace.Endpoint != "127.0.0.1:9820" {
+	endpointHost, endpointPort, splitErr := net.SplitHostPort(workspace.Endpoint)
+	if workspace.Listen != "0.0.0.0:9820" || splitErr != nil || endpointPort != "9820" || endpointHost == "" || endpointHost == "0.0.0.0" {
 		t.Fatalf("workspace listen/endpoint = %q/%q", workspace.Listen, workspace.Endpoint)
 	}
-	if workspace.AdminPublicKey == "" || len(workspace.EdgeNodes) != 0 {
+	if !workspace.ServeToClients || workspace.AdminPublicKey == "" || len(workspace.EdgeNodes) != 0 {
 		t.Fatalf("workspace admin key/edge nodes = %q/%v", workspace.AdminPublicKey, workspace.EdgeNodes)
 	}
 }
@@ -127,6 +130,38 @@ func TestStoreRemotePodAllowsServerInventoryToBeAddedLater(t *testing.T) {
 	}
 	if loaded.RemoteAccessPoint != pod.RemoteAccessPoint || len(loaded.RemoteServers) != 0 {
 		t.Fatalf("loaded = %+v", loaded)
+	}
+}
+
+func TestStoreLocalAdminOnlyKeepsServerInfoPublic(t *testing.T) {
+	paths := NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	pod := Pod{
+		Version: PodVersion,
+		ID:      "admin-only",
+		Name:    "Admin Only",
+		LocalServer: &LocalServer{
+			Port:            19825,
+			AdminPrivateKey: testKey(t, 0x34),
+		},
+	}
+	if err := (Store{Paths: paths}).Save(pod); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(paths.PodsDir, pod.ID, "workspace", "config.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config struct {
+		ServeToClients bool `yaml:"serve-to-clients"`
+	}
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		t.Fatal(err)
+	}
+	if !config.ServeToClients {
+		t.Fatal("serve-to-clients = false, Admin browser cannot fetch server-info")
 	}
 }
 
@@ -193,10 +228,39 @@ func TestPodValidationRejectsAmbiguousIDsAndNonNumericPorts(t *testing.T) {
 	for _, pod := range []Pod{
 		{Version: 1, ID: "double--hyphen", Name: "Bad ID", LocalServer: &LocalServer{Port: 9820}},
 		{Version: 1, ID: "remote", Name: "Bad Endpoint", RemoteServers: []RemoteServer{{ID: "server", Name: "Server", Endpoint: "example.com:http"}}, RemoteAccessPoint: "example.com:9820"},
+		{Version: 1, ID: "remote-path", Name: "Bad Host", RemoteAccessPoint: "foo/bar:9820"},
 	} {
 		if err := pod.Validate(); err == nil {
 			t.Fatalf("Validate(%q) error = nil", pod.ID)
 		}
+	}
+}
+
+func TestStoreRollsBackManifestWhenProjectionFails(t *testing.T) {
+	paths := NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	store := Store{Paths: paths}
+	pod := Pod{Version: 1, ID: "rollback", Name: "Before", LocalServer: &LocalServer{Port: 19824}}
+	if err := store.Save(pod); err != nil {
+		t.Fatal(err)
+	}
+	clientDir := filepath.Join(paths.PodsDir, pod.ID, "client_context")
+	if err := os.Symlink(t.TempDir(), clientDir); err != nil {
+		t.Fatal(err)
+	}
+	pod.Name = "After"
+	pod.ClientPrivateKey = testKey(t, 0x63)
+	if err := store.Save(pod); err == nil {
+		t.Fatal("Save error = nil, want projection failure")
+	}
+	loaded, err := store.Load(pod.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Name != "Before" || loaded.ClientPrivateKey != "" {
+		t.Fatalf("manifest was not rolled back: %+v", loaded)
 	}
 }
 

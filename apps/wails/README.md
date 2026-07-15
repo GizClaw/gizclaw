@@ -25,7 +25,9 @@ and Context config files are atomically written with mode `0600`.
 
 A local Pod has one `local_server` with a stable port. The Server listens on
 `0.0.0.0:<port>` for LAN access while its local Admin and Client Contexts use
-`127.0.0.1:<port>`. A remote Pod has one `remote_access_point` and zero or more
+`127.0.0.1:<port>`. The generated Server workspace publishes a current LAN
+candidate when one is available; that address is not persisted in `pod.json`.
+A remote Pod has one `remote_access_point` and zero or more
 `remote_servers`; Servers may be added after the Pod is created. Admin identity
 is per Server; Client identity is per Pod. Pod and Server IDs are generated as
 internal identifiers and are not creation-form fields.

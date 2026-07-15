@@ -28,7 +28,8 @@ Desktop App 不复制 `pkgs/gizclaw` 的服务端业务。`api/http/desktop.json
 `pod.json` 是唯一可编辑的配置来源。每次保存后，`appconfig.Store` 原子更新：
 
 - local Pod 的 `workspace/config.yaml`，其中监听地址是 `0.0.0.0:<port>`，
-  对本机 Context 公布的是 `127.0.0.1:<port>`；
+  Server endpoint 使用当前可用的 LAN 地址，对本机 Context 公布的仍是
+  `127.0.0.1:<port>`；LAN 地址不写入 `pod.json`；
 - 每个配置了 Admin identity 的 Server 对应一个
   `admin_context/<server-id>/config.yaml`；
 - 配置了 Client identity 时生成 Pod 级 `client_context/config.yaml`；

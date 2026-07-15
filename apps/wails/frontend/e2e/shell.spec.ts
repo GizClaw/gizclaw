@@ -187,6 +187,11 @@ test("Pod home opens cards and a scalable remote detail", async ({ page }) => {
   ).toBeVisible();
   await expect(page.getByText("Beijing A")).toBeVisible();
   await expect(page.getByText("120 servers")).toBeVisible();
+  await page.locator(".virtual-server-list").evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+    element.dispatchEvent(new Event("scroll"));
+  });
+  await expect(page.getByText("Server 117")).toBeVisible();
   await page
     .getByRole("textbox", { name: "Search servers" })
     .fill("server-117");

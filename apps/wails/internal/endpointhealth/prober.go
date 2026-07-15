@@ -69,7 +69,7 @@ func (p *Prober) ProbeAll(ctx context.Context, endpoints []string) []Result {
 			case sem <- struct{}{}:
 				defer func() { <-sem }()
 			case <-ctx.Done():
-				results[i] = Result{Endpoint: endpoint, State: Unreachable, Message: ctx.Err().Error()}
+				results[i] = p.remember(Result{Endpoint: endpoint, State: Unreachable, CheckedAt: time.Now().UTC().Format(time.RFC3339), Message: ctx.Err().Error()})
 				return
 			}
 			results[i] = p.Probe(ctx, endpoint)
@@ -92,7 +92,7 @@ func (p *Prober) Probe(ctx context.Context, endpoint string) Result {
 	if err != nil {
 		result.Message = err.Error()
 		if ctx.Err() != nil {
-			return result
+			return p.remember(result)
 		}
 		return p.remember(result)
 	}

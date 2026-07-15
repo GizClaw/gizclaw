@@ -74,8 +74,13 @@ func TestProbeAllHonorsCancellation(t *testing.T) {
 	defer server.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
-	results := New().ProbeAll(ctx, []string{strings.TrimPrefix(server.URL, "http://")})
+	prober := New()
+	endpoint := strings.TrimPrefix(server.URL, "http://")
+	results := prober.ProbeAll(ctx, []string{endpoint})
 	if len(results) != 1 || results[0].State != Unreachable {
 		t.Fatalf("results = %+v", results)
+	}
+	if cached := prober.Get(endpoint); cached.State != Unreachable || cached.CheckedAt == "" {
+		t.Fatalf("cached result = %+v", cached)
 	}
 }

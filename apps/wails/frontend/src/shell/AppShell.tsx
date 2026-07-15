@@ -640,6 +640,7 @@ function PodDetail({
                       : setSecretTarget({ kind: "admin", serverID: server.id })
                   }
                   onEdit={(server) => setServerEditor(server)}
+                  resetKey={`${pod.id}\u0000${query}\u0000${adminFilter}\u0000${healthFilter}`}
                   servers={servers}
                 />
               ) : (
@@ -723,10 +724,12 @@ type PodServer = NonNullable<PodSummary["remote"]>["servers"][number];
 function VirtualServerList({
   onAdmin,
   onEdit,
+  resetKey,
   servers,
 }: {
   onAdmin(server: PodServer): void;
   onEdit(server: PodServer): void;
+  resetKey: string;
   servers: PodServer[];
 }) {
   const t = useMessages();
@@ -743,7 +746,7 @@ function VirtualServerList({
   useEffect(() => {
     if (viewport.current) viewport.current.scrollTop = 0;
     setScrollTop(0);
-  }, [servers]);
+  }, [resetKey]);
   return (
     <div
       className="server-list virtual-server-list"
