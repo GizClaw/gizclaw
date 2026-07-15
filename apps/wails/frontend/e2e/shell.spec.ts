@@ -292,12 +292,30 @@ test("local share stays simple and switches to focused controls", async ({
   await expect(dialog).not.toContainText("fd1f:411f");
   await expect(dialog).not.toContainText("local-server-public-key");
   await expect(dialog.getByRole("button", { name: /Play/ })).toBeVisible();
+  await expect
+    .poll(() => dialog.evaluate((element) => element.clientWidth))
+    .toBeLessThanOrEqual(760);
+  await expect
+    .poll(() =>
+      dialog
+        .locator(".pod-detail-stage")
+        .evaluate((element) => element.clientHeight),
+    )
+    .toBeLessThanOrEqual(310);
   await dialog.getByRole("button", { name: "Server controls" }).click();
   await expect(dialog.getByRole("button", { name: /Start/ })).toBeVisible();
   await expect(dialog.getByRole("button", { name: /Admin/ })).toBeVisible();
   await expect(dialog.getByRole("button", { name: /Play/ })).toHaveCount(0);
   await expect(dialog.getByRole("button", { name: /Restart/ })).toHaveCount(0);
   await expect(dialog.getByText("server ready")).toHaveCount(0);
+  await expect(dialog.locator(".local-control-grid")).toBeVisible();
+  await expect
+    .poll(() =>
+      dialog
+        .locator(".pod-detail-stage")
+        .evaluate((element) => element.clientHeight),
+    )
+    .toBeLessThanOrEqual(250);
   await expect
     .poll(() =>
       dialog.evaluate((element) => element.scrollWidth <= element.clientWidth),
@@ -381,10 +399,14 @@ test("launcher uses rounded transparent framing and ambient card depth", async (
       radius: Number.parseFloat(style.borderTopLeftRadius),
       width: element.getBoundingClientRect().width,
       viewport: window.innerWidth,
+      margin: style.margin,
+      shadow: style.boxShadow,
     };
   });
   expect(shellStyle.radius).toBeGreaterThanOrEqual(18);
-  expect(shellStyle.width).toBeLessThan(shellStyle.viewport);
+  expect(shellStyle.width).toBe(shellStyle.viewport);
+  expect(shellStyle.margin).toBe("0px");
+  expect(shellStyle.shadow).toBe("none");
   await expect(page.locator(".ambient-flow-lines path")).toHaveCount(5);
 
   const cards = page.locator(".pod-card");

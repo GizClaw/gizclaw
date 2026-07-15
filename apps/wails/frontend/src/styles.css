@@ -24,6 +24,7 @@ body,
   min-width: 0;
   min-height: 100%;
   margin: 0;
+  overflow: hidden;
   background: transparent;
 }
 button,
@@ -37,15 +38,12 @@ button {
 
 .desktop-shell {
   position: relative;
-  width: calc(100vw - 12px);
-  height: calc(100vh - 12px);
-  margin: 6px;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
   overflow: hidden;
   border-radius: 19px;
   background: #101114;
-  box-shadow:
-    0 24px 70px rgba(0, 0, 0, 0.34),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.045);
 }
 
 .ambient-background,
@@ -426,8 +424,12 @@ select:focus-visible {
   animation: dialog-in 0.36s cubic-bezier(0.18, 0.86, 0.22, 1) both;
 }
 .pod-dialog {
-  width: min(980px, 100%);
+  width: min(760px, 100%);
   max-height: min(780px, calc(100vh - 60px));
+  transition: width 0.32s cubic-bezier(0.2, 0.78, 0.2, 1);
+}
+.pod-dialog-remote.is-managing {
+  width: min(980px, 100%);
 }
 .create-dialog {
   width: min(560px, 100%);
@@ -447,13 +449,13 @@ select:focus-visible {
 .pod-dialog-header {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 22px 24px 18px;
+  gap: 12px;
+  padding: 18px 20px 14px;
 }
 .pod-dialog-header h2,
 .create-dialog h2 {
   margin: 4px 0 2px;
-  font-size: 24px;
+  font-size: 21px;
   line-height: 1.1;
   letter-spacing: -0.035em;
 }
@@ -553,15 +555,22 @@ select:focus-visible {
 .pod-dialog-body {
   max-height: calc(100vh - 160px);
   overflow: hidden;
-  padding: 4px 24px 26px;
+  padding: 2px 20px 20px;
 }
 .pod-detail-stage {
   position: relative;
-  height: 440px;
+  height: 310px;
   overflow: hidden;
   border-radius: 20px;
   contain: paint;
   isolation: isolate;
+  transition: height 0.3s cubic-bezier(0.2, 0.78, 0.2, 1);
+}
+.pod-dialog-local.is-managing .pod-detail-stage {
+  height: 250px;
+}
+.pod-dialog-remote.is-managing .pod-detail-stage {
+  height: 440px;
 }
 .pod-detail-page {
   position: absolute;
@@ -591,17 +600,17 @@ select:focus-visible {
 .share-face-layout {
   height: 100%;
   display: grid;
-  grid-template-columns: minmax(280px, 0.92fr) minmax(0, 1.38fr);
-  gap: 18px;
-  padding: 18px;
+  grid-template-columns: 238px minmax(0, 1fr);
+  gap: 14px;
+  padding: 14px;
 }
 .qr-card {
   min-width: 0;
   display: grid;
   place-content: center;
   justify-items: center;
-  gap: 10px;
-  border-radius: 17px;
+  gap: 8px;
+  border-radius: 16px;
   background:
     radial-gradient(
       circle at 50% 40%,
@@ -616,13 +625,13 @@ select:focus-visible {
   letter-spacing: 0.02em;
 }
 .qr-code {
-  width: 272px;
-  height: 272px;
+  width: 208px;
+  height: 208px;
   display: grid;
   place-items: center;
   overflow: hidden;
   padding: 9px;
-  border-radius: 22px;
+  border-radius: 18px;
   background: #fff;
   box-shadow:
     0 22px 50px rgba(0, 0, 0, 0.22),
@@ -653,14 +662,22 @@ select:focus-visible {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 24px 22px 20px;
+  gap: 14px;
+  justify-content: center;
+  padding: 20px 18px;
 }
-.share-summary-top {
+.share-status-line {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+.share-status-line > small {
+  color: #72757e;
+  font-size: 9px;
+  font-weight: 680;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 .share-summary > div > small,
 .share-endpoint small,
@@ -672,17 +689,14 @@ select:focus-visible {
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-.share-summary h3 {
-  margin: 0;
-  color: #e7e9ed;
-  font-size: 28px;
-  line-height: 1.1;
-  letter-spacing: -0.04em;
-}
 .share-endpoint {
-  padding: 15px 16px;
+  padding: 14px 15px;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.04);
+}
+.share-endpoint-primary {
+  display: grid;
+  gap: 3px;
 }
 .share-endpoint code {
   color: #d4d7dd;
@@ -730,7 +744,7 @@ select:focus-visible {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: auto;
+  margin-top: 4px;
 }
 .share-play {
   min-width: 130px;
@@ -741,6 +755,13 @@ select:focus-visible {
   flex-direction: column;
   gap: 12px;
   padding: 18px;
+}
+.local-manage-face {
+  gap: 10px;
+  padding: 14px;
+}
+.local-face-toolbar {
+  min-height: 32px;
 }
 .face-toolbar {
   display: flex;
@@ -753,24 +774,135 @@ select:focus-visible {
   color: #e0e2e7;
   font-size: 18px;
 }
-.manage-runtime-card {
+.local-control-grid {
+  min-height: 172px;
   display: grid;
-  gap: 20px;
-  padding: 17px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.04);
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 10px;
 }
-.compact-runtime-actions .primary-action,
-.compact-runtime-actions .secondary-action {
-  min-height: 33px;
+.local-status-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: center;
+  align-items: center;
+  gap: 10px 12px;
+  padding: 18px;
+  border-radius: 16px;
+  background:
+    radial-gradient(
+      circle at 0 100%,
+      rgba(116, 126, 255, 0.12),
+      transparent 62%
+    ),
+    rgba(255, 255, 255, 0.04);
+}
+.local-status-icon {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 15px;
+  color: #8c96eb;
+  background: rgba(116, 126, 255, 0.11);
+}
+.local-status-icon.running {
+  color: #68cdb8;
+  background: rgba(55, 181, 157, 0.12);
+  box-shadow: 0 0 28px rgba(55, 181, 157, 0.12);
+}
+.local-status-card > div:not(.local-listen-address) {
+  display: grid;
+  gap: 3px;
+}
+.local-status-card small,
+.local-admin-action small {
+  color: #70737c;
+  font-size: 9px;
+  letter-spacing: 0.05em;
+}
+.local-status-card strong {
+  color: #e4e6ea;
+  font-size: 18px;
+}
+.local-listen-address {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 5px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.055);
+}
+.local-listen-address code {
+  color: #b9bdc6;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 13px;
+  font-weight: 650;
+}
+.local-action-stack {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 10px;
+}
+.local-power-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.local-control-action,
+.local-admin-action {
+  border: 0;
+  border-radius: 15px;
+  cursor: pointer;
+}
+.local-control-action {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 6px;
+  color: #cdd0d7;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 10px;
+  font-weight: 700;
+}
+.local-control-action.start-action:not(:disabled) {
+  color: #f7f8fa;
+  background: #25262c;
+}
+.local-control-action.stop-action:not(:disabled) {
+  color: #ff9baa;
+  background: rgba(255, 91, 113, 0.1);
+}
+.local-control-action:hover:not(:disabled),
+.local-admin-action:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+}
+.local-admin-action {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 11px;
+  padding: 0 14px;
+  color: #d6d9df;
+  background: rgba(255, 255, 255, 0.045);
+  text-align: left;
+}
+.local-admin-action > span:nth-child(2) {
+  display: grid;
+  gap: 3px;
+}
+.local-admin-icon {
+  width: 35px;
+  height: 35px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  color: #9ea8f8;
+  background: rgba(116, 126, 255, 0.1);
 }
 .compact-launchers {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 9px;
-}
-.local-admin-launcher {
-  grid-template-columns: minmax(220px, 0.42fr);
 }
 .compact-launchers > button {
   min-height: 58px;
@@ -1652,6 +1784,36 @@ button:disabled {
   .pod-detail-page {
     background: rgba(30, 31, 36, 0.025);
   }
+  .local-status-card {
+    background:
+      radial-gradient(
+        circle at 0 100%,
+        rgba(116, 126, 255, 0.1),
+        transparent 62%
+      ),
+      rgba(30, 31, 36, 0.045);
+  }
+  .local-status-card strong {
+    color: #292a30;
+  }
+  .local-listen-address {
+    border-top-color: rgba(30, 31, 36, 0.07);
+  }
+  .local-listen-address code {
+    color: #565861;
+  }
+  .local-control-action {
+    color: #5e6068;
+    background: rgba(30, 31, 36, 0.06);
+  }
+  .local-control-action.start-action:not(:disabled) {
+    color: #fff;
+    background: #24252a;
+  }
+  .local-admin-action {
+    color: #3f4148;
+    background: rgba(30, 31, 36, 0.055);
+  }
   .qr-card {
     background:
       radial-gradient(
@@ -1765,6 +1927,9 @@ button:disabled {
     overflow: auto;
   }
   .share-face-layout {
+    grid-template-columns: 1fr;
+  }
+  .local-control-grid {
     grid-template-columns: 1fr;
   }
   .qr-code {

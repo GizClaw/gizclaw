@@ -401,7 +401,11 @@ function PodDetail({
         if (closing && event.currentTarget === event.target) onClose();
       }}
     >
-      <section className="pod-dialog" aria-modal="true" role="dialog">
+      <section
+        className={`pod-dialog pod-dialog-${pod.mode} ${managing ? "is-managing" : ""}`}
+        aria-modal="true"
+        role="dialog"
+      >
         <div className="dialog-aurora" />
         <header className="pod-dialog-header">
           <span className="mode-icon large">
@@ -679,15 +683,11 @@ function PodShareFace({
         <span>{t("scanToAddServer")}</span>
       </div>
       <div className="share-summary">
-        <div className="share-summary-top">
-          <span className="mode-chip">{t("readyToShare")}</span>
+        <div className="share-status-line">
+          <small>{pod.local ? t("localServer") : t("accessPoint")}</small>
           <Status state={state} />
         </div>
-        <div>
-          <small>{t("serverName")}</small>
-          <h3>{pod.name}</h3>
-        </div>
-        <div className="share-endpoint">
+        <div className="share-endpoint share-endpoint-primary">
           <small>{pod.local ? t("lanAddress") : t("accessPoint")}</small>
           <code>{endpoint || t("noLANAddress")}</code>
         </div>
@@ -754,55 +754,67 @@ function LocalManageFace({
   const local = pod.local!;
   return (
     <div className="manage-face local-manage-face">
-      <div className="face-toolbar">
-        <div>
-          <span className="mode-chip">{t("localServer")}</span>
-          <h3>{t("serverControls")}</h3>
-        </div>
+      <div className="face-toolbar local-face-toolbar">
+        <span className="mode-chip">{t("serverControls")}</span>
         <button className="secondary-action" onClick={onShare} type="button">
           <ChevronLeft size={16} />
           {t("shareServer")}
         </button>
       </div>
-      <section className="manage-runtime-card">
-        <div className="runtime-heading">
-          <div>
-            <small>{t("listenAddress")}</small>
-            <strong>0.0.0.0:{local.port}</strong>
-          </div>
-          <Status state={local.process.state} />
-        </div>
-        <div className="runtime-actions compact-runtime-actions">
-          <button
-            className="primary-action"
-            disabled={local.process.state === "running"}
-            onClick={() => void run(() => api.StartLocalServer(pod.id))}
-            type="button"
+      <div className="local-control-grid">
+        <section className="local-status-card">
+          <span
+            className={`local-status-icon ${local.process.state === "running" ? "running" : ""}`}
           >
-            <Play size={15} /> {t("start")}
-          </button>
-          <button
-            className="secondary-action"
-            disabled={local.process.state !== "running"}
-            onClick={() => void run(() => api.StopLocalServer(pod.id))}
-            type="button"
-          >
-            <CircleStop size={15} /> {t("stop")}
-          </button>
-        </div>
-      </section>
-      <div className="compact-launchers local-admin-launcher">
-        <button
-          onClick={() => api.OpenAdmin(pod.id, "local").catch(onError)}
-          type="button"
-        >
-          <Server size={17} />
-          <span>
-            <strong>Admin</strong>
-            <small>{t("openInBrowser")}</small>
+            <Server size={25} />
           </span>
-          <ArrowUpRight size={14} />
-        </button>
+          <div>
+            <small>{t("localServer")}</small>
+            <strong>
+              {local.process.state === "running" ? t("running") : t("stopped")}
+            </strong>
+          </div>
+          <div className="local-listen-address">
+            <small>{t("listenAddress")}</small>
+            <code>0.0.0.0:{local.port}</code>
+          </div>
+        </section>
+        <div className="local-action-stack">
+          <div className="local-power-actions">
+            <button
+              className="local-control-action start-action"
+              disabled={local.process.state === "running"}
+              onClick={() => void run(() => api.StartLocalServer(pod.id))}
+              type="button"
+            >
+              <Play size={17} />
+              <span>{t("start")}</span>
+            </button>
+            <button
+              className="local-control-action stop-action"
+              disabled={local.process.state !== "running"}
+              onClick={() => void run(() => api.StopLocalServer(pod.id))}
+              type="button"
+            >
+              <CircleStop size={17} />
+              <span>{t("stop")}</span>
+            </button>
+          </div>
+          <button
+            className="local-admin-action"
+            onClick={() => api.OpenAdmin(pod.id, "local").catch(onError)}
+            type="button"
+          >
+            <span className="local-admin-icon">
+              <Server size={18} />
+            </span>
+            <span>
+              <strong>Admin</strong>
+              <small>{t("openInBrowser")}</small>
+            </span>
+            <ArrowUpRight size={15} />
+          </button>
+        </div>
       </div>
     </div>
   );
