@@ -14,7 +14,8 @@
           "flowcraft",
           "doubao-realtime",
           "ast-translate",
-          "chatroom"
+          "chatroom",
+          "pet"
         ]
       },
       "WorkflowSpec": {
@@ -40,6 +41,9 @@
           },
           "chatroom": {
             "$ref": "./workflows/chatroom.json#/components/schemas/ChatRoomWorkflowSpec"
+          },
+          "pet": {
+            "$ref": "./workflows/pet.json#/components/schemas/PetWorkflowSpec"
           }
         },
         "additionalProperties": false

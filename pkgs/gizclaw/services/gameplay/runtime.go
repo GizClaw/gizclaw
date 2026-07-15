@@ -18,7 +18,12 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
-const defaultPetWorkflowName = "chatroom"
+const defaultPetWorkflowName = "pet-care"
+
+var (
+	errPetWorkspaceNotFound  = errors.New("gameplay: pet workspace binding not found")
+	errPetWorkspaceAmbiguous = errors.New("gameplay: pet workspace binding is ambiguous")
+)
 
 type Runtime struct {
 	DB          *sql.DB
@@ -187,7 +192,7 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 	if displayName == "" {
 		displayName = petDefDisplayName(petDef)
 	}
-	if err := r.createPetWorkspace(ctx, workspaceName, workflowName); err != nil {
+	if err := r.createPetWorkspace(ctx, workspaceName, workflowName, petDef); err != nil {
 		return apitypes.PetAdoptResponse{}, err
 	}
 	created := false
@@ -254,6 +259,50 @@ func (r *Runtime) GetPet(ctx context.Context, owner, id string) (apitypes.Pet, e
 		return apitypes.Pet{}, err
 	}
 	return scanPet(db.QueryRowContext(ctx, petSelectSQL()+` WHERE owner_public_key = ? AND id = ?`, owner, strings.TrimSpace(id)))
+}
+
+// ResolvePetContext resolves the one adopted pet bound to a Workspace and its
+// PetDef. Missing and ambiguous bindings are rejected because the Workspace
+// name is the Pet runtime identity.
+func (r *Runtime) ResolvePetContext(ctx context.Context, workspaceName string) (apitypes.Pet, apitypes.PetDef, error) {
+	db, err := r.db()
+	if err != nil {
+		return apitypes.Pet{}, apitypes.PetDef{}, err
+	}
+	workspaceName = strings.TrimSpace(workspaceName)
+	if workspaceName == "" {
+		return apitypes.Pet{}, apitypes.PetDef{}, errors.New("gameplay: workspace name is required")
+	}
+	rows, err := db.QueryContext(ctx, petSelectSQL()+` WHERE workspace_name = ? LIMIT 2`, workspaceName)
+	if err != nil {
+		return apitypes.Pet{}, apitypes.PetDef{}, err
+	}
+	defer rows.Close()
+	pets := make([]apitypes.Pet, 0, 2)
+	for rows.Next() {
+		pet, err := scanPet(rows)
+		if err != nil {
+			return apitypes.Pet{}, apitypes.PetDef{}, err
+		}
+		pets = append(pets, pet)
+	}
+	if err := rows.Err(); err != nil {
+		return apitypes.Pet{}, apitypes.PetDef{}, err
+	}
+	if len(pets) == 0 {
+		return apitypes.Pet{}, apitypes.PetDef{}, fmt.Errorf("%w for workspace %q: %w", errPetWorkspaceNotFound, workspaceName, sql.ErrNoRows)
+	}
+	if len(pets) > 1 {
+		return apitypes.Pet{}, apitypes.PetDef{}, fmt.Errorf("%w for workspace %q", errPetWorkspaceAmbiguous, workspaceName)
+	}
+	if r.Catalog == nil {
+		return apitypes.Pet{}, apitypes.PetDef{}, errors.New("gameplay: catalog is not configured")
+	}
+	petDef, err := r.Catalog.GetPetDefByID(ctx, pets[0].PetdefId)
+	if err != nil {
+		return apitypes.Pet{}, apitypes.PetDef{}, err
+	}
+	return pets[0], petDef, nil
 }
 
 func (r *Runtime) OwnerHasPetDef(ctx context.Context, owner, petDefID string) (bool, error) {
@@ -642,15 +691,18 @@ func (r *Runtime) pickWeight(total int64) int64 {
 	return n.Int64()
 }
 
-func (r *Runtime) createPetWorkspace(ctx context.Context, name, workflowName string) error {
+func (r *Runtime) createPetWorkspace(ctx context.Context, name, workflowName string, petDef apitypes.PetDef) error {
 	if r == nil || r.Workspaces == nil {
 		return errors.New("gameplay: workspace service is not configured")
 	}
 	input := apitypes.WorkspaceInputModePushToTalk
 	var parameters apitypes.WorkspaceParameters
-	if err := parameters.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{
-		AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+	if err := parameters.FromPetWorkspaceParameters(apitypes.PetWorkspaceParameters{
+		AgentType: apitypes.PetWorkspaceParametersAgentTypePet,
 		Input:     &input,
+		Voice: apitypes.PetVoiceParameters{
+			VoiceId: petDef.Spec.Voice.VoiceId,
+		},
 	}); err != nil {
 		return err
 	}

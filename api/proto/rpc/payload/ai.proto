@@ -314,6 +314,34 @@ message FlowcraftWorkspaceParameters {
   optional WorkspaceInputMode input = 7;
 }
 
+message PetConversationParameters {
+  optional PetConversationParametersInitiative initiative = 1;
+}
+
+message PetPersonaParameters {
+  optional string prompt = 1;
+}
+
+message PetVoiceParameters {
+  optional string prompt = 1;
+  string voice_id = 2;
+}
+
+message PetWorkflowSpec {
+}
+
+message PetWorkspaceParameters {
+  PetWorkspaceParametersAgentType agent_type = 1;
+  optional string asr_model = 2;
+  optional PetConversationParameters conversation = 3;
+  optional string embedding_model = 4;
+  optional string extract_model = 5;
+  optional string generate_model = 6;
+  optional WorkspaceInputMode input = 7;
+  optional PetPersonaParameters persona = 8;
+  PetVoiceParameters voice = 9;
+}
+
 message GeminiCredentialBody {
   optional string api_key = 1;
   optional string base_url = 2;
@@ -607,6 +635,7 @@ message WorkflowSpec {
   WorkflowDriver driver = 4;
   optional FlowcraftWorkflowSpec flowcraft = 5;
   optional ToolkitPolicy toolkit = 6;
+  optional PetWorkflowSpec pet = 7;
 }
 
 message ToolExecutor {

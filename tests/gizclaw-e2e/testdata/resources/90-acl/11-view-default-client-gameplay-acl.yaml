@@ -15,5 +15,5 @@ spec:
         id: default-client
       resource:
         kind: workflow
-        id: pet-care-flowcraft
+        id: pet-care
       role: default-client

@@ -29,6 +29,13 @@ func resolveAgentType(workspace apitypes.Workspace, workflow apitypes.WorkflowDo
 		if agentType == "" {
 			return "", fmt.Errorf("agenthost: workspace parameter %q is empty", workspaceAgentTypeParameter)
 		}
+		workflowType, err := agentTypeFromWorkflow(workflow)
+		if err != nil {
+			return "", err
+		}
+		if agentType != workflowType {
+			return "", fmt.Errorf("agenthost: workspace agent_type %q does not match workflow driver %q", agentType, workflowType)
+		}
 		return agentType, nil
 	}
 	return agentTypeFromWorkflow(workflow)

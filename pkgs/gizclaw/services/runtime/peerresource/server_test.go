@@ -923,11 +923,12 @@ func TestServerGameplayPixaDownloads(t *testing.T) {
 	t.Cleanup(func() { _ = db.Close() })
 	workflowStore := kv.NewMemory(nil)
 	workflowServer := &workflow.Server{Store: workflowStore}
-	chatroomWorkflow, err := convertType[apitypes.WorkflowDocument](workflowDoc("chatroom"))
-	if err != nil {
-		t.Fatalf("convert workflow: %v", err)
+	petSpec := apitypes.PetWorkflowSpec{}
+	petWorkflow := apitypes.WorkflowDocument{
+		Metadata: apitypes.WorkflowMetadata{Name: "pet-care"},
+		Spec:     apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverPet, Pet: &petSpec},
 	}
-	if resp, err := workflowServer.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &chatroomWorkflow}); err != nil {
+	if resp, err := workflowServer.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &petWorkflow}); err != nil {
 		t.Fatalf("CreateWorkflow error = %v", err)
 	} else if _, ok := resp.(adminhttp.CreateWorkflow200JSONResponse); !ok {
 		t.Fatalf("CreateWorkflow response = %T", resp)

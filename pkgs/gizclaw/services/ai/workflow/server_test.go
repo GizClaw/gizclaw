@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
@@ -139,6 +140,20 @@ func TestServerRejectsUnknownWorkflowDriver(t *testing.T) {
 	}
 	if _, ok := resp.(adminhttp.CreateWorkflow400JSONResponse); !ok {
 		t.Fatalf("CreateWorkflow() response = %#v", resp)
+	}
+}
+
+func TestValidateDriverSpecRequiresPetConfig(t *testing.T) {
+	if err := validateDriverSpec(apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverPet}); err == nil || !strings.Contains(err.Error(), "spec.pet") {
+		t.Fatalf("validateDriverSpec() error = %v", err)
+	}
+	petSpec := apitypes.PetWorkflowSpec{}
+	if err := validateDriverSpec(apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverPet, Pet: &petSpec}); err != nil {
+		t.Fatalf("validateDriverSpec(valid pet) error = %v", err)
+	}
+	petSpec["memory"] = map[string]any{"enabled": false}
+	if err := validateDriverSpec(apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverPet, Pet: &petSpec}); err == nil || !strings.Contains(err.Error(), "does not accept") {
+		t.Fatalf("validateDriverSpec(raw config) error = %v", err)
 	}
 }
 

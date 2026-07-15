@@ -653,6 +653,10 @@ export type ResourceListResource = {
     spec: ResourceListSpec;
 };
 
+export type ResourceListSpec = {
+    items: Array<Resource>;
+};
+
 export type ToolResource = {
     apiVersion: ResourceApiVersion;
     kind: 'Tool';
@@ -1626,10 +1630,6 @@ export type Registration = {
     approved_at?: string;
 };
 
-export type ResourceListSpec = {
-    items: Array<Resource>;
-};
-
 export type Runtime = {
     online: boolean;
     last_seen_at: string;
@@ -1952,7 +1952,7 @@ export type WorkflowMetadata = {
     description?: string;
 };
 
-export type WorkflowDriver = 'flowcraft' | 'doubao-realtime' | 'ast-translate' | 'chatroom';
+export type WorkflowDriver = 'flowcraft' | 'doubao-realtime' | 'ast-translate' | 'chatroom' | 'pet';
 
 export type WorkflowSpec = {
     driver: WorkflowDriver;
@@ -1961,6 +1961,7 @@ export type WorkflowSpec = {
     doubao_realtime?: DoubaoRealtimeWorkflowSpec;
     ast_translate?: AstTranslateWorkflowSpec;
     chatroom?: ChatRoomWorkflowSpec;
+    pet?: PetWorkflowSpec;
 };
 
 export type AstTranslateExternalVoiceParameters = {
@@ -2155,6 +2156,10 @@ export type FlowcraftWorkflowSpec = {
     [key: string]: unknown;
 };
 
+export type PetWorkflowSpec = {
+    [key: string]: never;
+};
+
 export type Workspace = {
     name: string;
     workflow_name: string;
@@ -2281,6 +2286,55 @@ export type FlowcraftWorkspaceParameters = {
     e2e?: boolean;
 };
 
+export type PetConversationParameters = {
+    /**
+     * Who starts the conversation when the workspace runtime opens.
+     */
+    initiative?: 'peer' | 'agent';
+};
+
+export type PetPersonaParameters = {
+    /**
+     * Workspace-specific personality prompt appended to the PetDef character prompt.
+     */
+    prompt?: string;
+};
+
+export type PetVoiceParameters = {
+    /**
+     * GizClaw Voice resource name used for this pet.
+     */
+    voice_id: string;
+    /**
+     * Workspace-specific speaking style prompt appended to the PetDef voice prompt.
+     */
+    prompt?: string;
+};
+
+export type PetWorkspaceParameters = {
+    agent_type: 'pet';
+    input?: WorkspaceInputMode;
+    /**
+     * GizClaw Model resource name used to generate replies.
+     */
+    generate_model?: string;
+    /**
+     * GizClaw Model resource name used for asynchronous memory extraction.
+     */
+    extract_model?: string;
+    /**
+     * Optional GizClaw embedding Model resource name used for memory retrieval.
+     */
+    embedding_model?: string;
+    /**
+     * GizClaw ASR Model resource name used to transcribe pet audio input.
+     */
+    asr_model?: string;
+    conversation?: PetConversationParameters;
+    persona?: PetPersonaParameters;
+    voice: PetVoiceParameters;
+};
+
 export type WorkspaceInputMode = 'push-to-talk' | 'realtime';
 
 /**
@@ -2294,7 +2348,9 @@ export type WorkspaceParameters = ({
     agent_type: 'ast-translate';
 } & AstTranslateWorkspaceParameters) | ({
     agent_type: 'chatroom';
-} & ChatRoomWorkspaceParameters);
+} & ChatRoomWorkspaceParameters) | ({
+    agent_type: 'pet';
+} & PetWorkspaceParameters);
 
 export type WorkspaceSpec = {
     /**

@@ -310,6 +310,7 @@ message WorkspaceParameters {
     DoubaoRealtimeWorkspaceParameters doubao_realtime_workspace_parameters = 2;
     ASTTranslateWorkspaceParameters asttranslate_workspace_parameters = 3;
     ChatRoomWorkspaceParameters chat_room_workspace_parameters = 4;
+    PetWorkspaceParameters pet_workspace_parameters = 5;
   }
 }
 

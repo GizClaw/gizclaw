@@ -3,6 +3,7 @@ package gameplay
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -54,12 +55,15 @@ func TestRuntimeAdoptAndDrive(t *testing.T) {
 	if workspaces.created[0].Parameters == nil {
 		t.Fatalf("created workspace parameters = nil")
 	}
-	workspaceParams, err := workspaces.created[0].Parameters.AsFlowcraftWorkspaceParameters()
+	workspaceParams, err := workspaces.created[0].Parameters.AsPetWorkspaceParameters()
 	if err != nil {
 		t.Fatalf("created workspace parameters: %v", err)
 	}
 	if workspaceParams.Input == nil || *workspaceParams.Input != apitypes.WorkspaceInputModePushToTalk {
 		t.Fatalf("created workspace input = %#v, want push-to-talk", workspaceParams.Input)
+	}
+	if workspaceParams.AgentType != apitypes.PetWorkspaceParametersAgentTypePet || workspaceParams.Voice.VoiceId != "gizclaw-soft" {
+		t.Fatalf("created workspace pet parameters = %#v", workspaceParams)
 	}
 	if adopted.Points.Balance != 35 {
 		t.Fatalf("adopted points balance = %d, want 35", adopted.Points.Balance)
@@ -470,6 +474,59 @@ func TestScanPetIgnoresLegacyAbilityStats(t *testing.T) {
 	}
 }
 
+func TestResolvePetContextRequiresExactlyOneWorkspaceBinding(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 15, 9, 0, 0, 0, time.UTC)
+	db := testDB(t)
+	catalog := testCatalog(t, now)
+	seedGameplayCatalog(t, ctx, catalog)
+	runtime := &Runtime{DB: db, Catalog: catalog}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatalf("Migration() error = %v", err)
+	}
+	if _, _, err := runtime.ResolvePetContext(ctx, "missing"); !errors.Is(err, sql.ErrNoRows) || !errors.Is(err, errPetWorkspaceNotFound) {
+		t.Fatalf("ResolvePetContext(missing) error = %v, want sql.ErrNoRows and errPetWorkspaceNotFound", err)
+	}
+	insert := func(owner, id string) {
+		t.Helper()
+		tx, err := db.BeginTx(ctx, nil)
+		if err != nil {
+			t.Fatalf("BeginTx() error = %v", err)
+		}
+		defer tx.Rollback()
+		if err := insertPet(ctx, tx, apitypes.Pet{
+			OwnerPublicKey: owner,
+			Id:             id,
+			RulesetName:    "default",
+			PetdefId:       "petdef-basic",
+			DisplayName:    id,
+			WorkspaceName:  "pet-shared",
+			Life:           apitypes.PetLife{"hunger": 100},
+			Progression:    apitypes.PetProgression{"xp": 0},
+			LastActiveAt:   now,
+			CreatedAt:      now,
+			UpdatedAt:      now,
+		}); err != nil {
+			t.Fatalf("insertPet() error = %v", err)
+		}
+		if err := tx.Commit(); err != nil {
+			t.Fatalf("Commit() error = %v", err)
+		}
+	}
+	insert("peer-a", "pet-a")
+	pet, petDef, err := runtime.ResolvePetContext(ctx, "pet-shared")
+	if err != nil {
+		t.Fatalf("ResolvePetContext() error = %v", err)
+	}
+	if pet.Id != "pet-a" || petDef.Id != "petdef-basic" {
+		t.Fatalf("ResolvePetContext() = %#v, %#v", pet, petDef)
+	}
+	insert("peer-b", "pet-b")
+	if _, _, err := runtime.ResolvePetContext(ctx, "pet-shared"); !errors.Is(err, errPetWorkspaceAmbiguous) {
+		t.Fatalf("ResolvePetContext(ambiguous) error = %v, want errPetWorkspaceAmbiguous", err)
+	}
+}
+
 func TestRuntimeDrivesLegacyRulesetActionFallback(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 7, 5, 12, 0, 0, 0, time.UTC)
@@ -646,8 +703,8 @@ func TestRuntimeHelperBranches(t *testing.T) {
 	if got := (&Runtime{}).pickWeight(1); got != 0 {
 		t.Fatalf("default pickWeight = %d", got)
 	}
-	if got := selectedWorkflow(apitypes.GameRuleset{}, apitypes.PetDef{}, apitypes.GameRulesetPetPoolEntry{}); got != defaultPetWorkflowName {
-		t.Fatalf("selectedWorkflow default = %q", got)
+	if got := selectedWorkflow(apitypes.GameRuleset{}, apitypes.PetDef{}, apitypes.GameRulesetPetPoolEntry{}); got != "pet-care" {
+		t.Fatalf("selectedWorkflow default = %q, want pet-care", got)
 	}
 	if got := selectedWorkflow(apitypes.GameRuleset{}, apitypes.PetDef{}, apitypes.GameRulesetPetPoolEntry{WorkflowName: stringPtr(" pool ")}); got != "pool" {
 		t.Fatalf("selectedWorkflow pool = %q", got)
@@ -711,7 +768,7 @@ func TestRuntimeHelperBranches(t *testing.T) {
 		nil,
 	} {
 		runtime := &Runtime{Workspaces: workspaceResponseService{resp: resp}}
-		if err := runtime.createPetWorkspace(context.Background(), "pet-a", "chatroom"); err == nil {
+		if err := runtime.createPetWorkspace(context.Background(), "pet-a", "chatroom", apitypes.PetDef{}); err == nil {
 			t.Fatalf("createPetWorkspace(%T) should fail", resp)
 		}
 	}

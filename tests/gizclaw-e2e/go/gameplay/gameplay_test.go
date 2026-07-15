@@ -20,7 +20,7 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("game_ruleset.get default-gameplay: %v", err)
 	}
-	if ruleset.Name != "default-gameplay" || !ruleset.Spec.Enabled || ruleset.Spec.DefaultWorkflowName == nil || *ruleset.Spec.DefaultWorkflowName != "pet-care-flowcraft" {
+	if ruleset.Name != "default-gameplay" || !ruleset.Spec.Enabled || ruleset.Spec.DefaultWorkflowName == nil || *ruleset.Spec.DefaultWorkflowName != "pet-care" {
 		t.Fatalf("game_ruleset.get = %#v", ruleset)
 	}
 
@@ -42,8 +42,18 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("workspace.get pet workspace: %v", err)
 	}
-	if workspace.Name != adopted.Pet.WorkspaceName || workspace.WorkflowName != "pet-care-flowcraft" {
+	if workspace.Name != adopted.Pet.WorkspaceName || workspace.WorkflowName != "pet-care" {
 		t.Fatalf("pet workspace = %#v", workspace)
+	}
+	if workspace.Parameters == nil {
+		t.Fatalf("pet workspace parameters = nil")
+	}
+	petParameters, err := workspace.Parameters.AsPetWorkspaceParameters()
+	if err != nil {
+		t.Fatalf("pet workspace parameters: %v", err)
+	}
+	if petParameters.AgentType != rpcapi.PetWorkspaceParametersAgentTypePet || petParameters.Voice.VoiceId != "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts" {
+		t.Fatalf("pet workspace parameters = %#v", petParameters)
 	}
 
 	score := int64(42)
@@ -161,7 +171,7 @@ func assertAdoptedStarterPet(t *testing.T, pet rpcapi.Pet) {
 	if pet.PetdefId != "petdef-starter" || pet.DisplayName == "" || pet.WorkspaceName == "" {
 		t.Fatalf("adopted pet = %#v", pet)
 	}
-	if pet.WorkflowName == nil || *pet.WorkflowName != "pet-care-flowcraft" {
+	if pet.WorkflowName == nil || *pet.WorkflowName != "pet-care" {
 		t.Fatalf("adopted pet workflow = %#v", pet.WorkflowName)
 	}
 }
