@@ -1,6 +1,6 @@
 package pet
 
-func fixedFlowcraftConfig(workspaceName string, embeddingEnabled bool) map[string]any {
+func fixedFlowcraftConfig(workspaceName, generateModel, extractModel string, embeddingEnabled bool) map[string]any {
 	return map[string]any{
 		"workspace": map[string]any{
 			"memory_root":  "memory",
@@ -17,8 +17,8 @@ func fixedFlowcraftConfig(workspaceName string, embeddingEnabled bool) map[strin
 			"max_messages": 20,
 		},
 		"settings": map[string]any{
-			"generate_model": defaultGenerateModel,
-			"extract_model":  defaultExtractModel,
+			"generate_model": generateModel,
+			"extract_model":  extractModel,
 		},
 		"memory": petMemoryConfig(workspaceName, embeddingEnabled),
 		"agent":  petAgentConfig(),

@@ -17,6 +17,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/providertenants"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
+	petagent "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/pet"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
@@ -64,6 +65,7 @@ type Manager struct {
 	Friends       *friend.Server
 	FriendGroups  *friendgroup.Server
 	Gameplay      *gameplay.Runtime
+	PetWorkflow   petagent.Config
 	Tools         *toolkit.Server
 	ToolBuilder   *toolkit.Builder
 	ToolExecutors *toolkit.ExecutorRegistry

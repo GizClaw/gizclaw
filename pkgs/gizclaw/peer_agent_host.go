@@ -11,7 +11,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 )
 
-func newPeerAgentHost(base *agenthost.Host, peerGenX *peergenx.Service, pets petagent.ContextProvider) *agenthost.Host {
+func newPeerAgentHost(base *agenthost.Host, peerGenX *peergenx.Service, pets petagent.ContextProvider, petConfig petagent.Config) *agenthost.Host {
 	if base == nil {
 		return nil
 	}
@@ -27,6 +27,6 @@ func newPeerAgentHost(base *agenthost.Host, peerGenX *peergenx.Service, pets pet
 	_ = host.Register(chatroom.Type, chatroom.Factory{Transformer: transformer})
 	_ = host.Register(doubaorealtime.Type, doubaorealtime.Factory{Transformer: transformer})
 	_ = host.Register(flowcraft.Type, flowcraft.Factory{GenX: peerGenX})
-	_ = host.Register(petagent.Type, petagent.Factory{GenX: peerGenX, Pets: pets})
+	_ = host.Register(petagent.Type, petagent.Factory{GenX: peerGenX, Pets: pets, Config: petConfig})
 	return host
 }

@@ -120,6 +120,29 @@ func TestParseConfigDefaultPeerView(t *testing.T) {
 	}
 }
 
+func TestParseConfigPetFlowcraftWorkflowModels(t *testing.T) {
+	cfg, err := parseConfigData([]byte(`
+system_tasks:
+  pet_flowcraft_workflow:
+    generate_model: pet-chat
+    extract_model: pet-extract
+    embedding_model: pet-embedding
+    asr_model: pet-asr
+`))
+	if err != nil {
+		t.Fatalf("parseConfigData error = %v", err)
+	}
+	want := PetFlowcraftWorkflowTaskConfig{
+		GenerateModel:  "pet-chat",
+		ExtractModel:   "pet-extract",
+		EmbeddingModel: "pet-embedding",
+		ASRModel:       "pet-asr",
+	}
+	if cfg.SystemTasks.PetFlowcraftWorkflow != want {
+		t.Fatalf("PetFlowcraftWorkflow = %#v, want %#v", cfg.SystemTasks.PetFlowcraftWorkflow, want)
+	}
+}
+
 func TestAdminPublicKeySecurityPolicy(t *testing.T) {
 	allowed := testPublicKey(1)
 	other := testPublicKey(2)
@@ -200,6 +223,9 @@ func TestNewWithLayeredStorageConfig(t *testing.T) {
 	}
 	if srv.FriendGroupMessageDefaultTTL != 24*time.Hour || srv.FriendGroupMessageMaxTTL != 7*24*time.Hour || srv.FriendGroupMessageCleanup != 5*time.Minute || srv.FriendGroupMessageMaxBytes != 2097152 {
 		t.Fatalf("social timing config not wired: default=%v max=%v cleanup=%v bytes=%d", srv.FriendGroupMessageDefaultTTL, srv.FriendGroupMessageMaxTTL, srv.FriendGroupMessageCleanup, srv.FriendGroupMessageMaxBytes)
+	}
+	if srv.PetWorkflow.GenerateModel != "pet-chat" || srv.PetWorkflow.ExtractModel != "pet-extract" || srv.PetWorkflow.EmbeddingModel != "pet-embedding" || srv.PetWorkflow.ASRModel != "pet-asr" {
+		t.Fatalf("PetWorkflow config not wired: %#v", srv.PetWorkflow)
 	}
 	if srv.ACLDB == nil {
 		t.Fatalf("acl store not wired: %v", srv.ACLDB)
@@ -709,6 +735,10 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 			MessageCleanupInterval: "30s",
 			MessageMaxAudioBytes:   1024,
 		},
+		SystemTasks: SystemTasksConfig{PetFlowcraftWorkflow: PetFlowcraftWorkflowTaskConfig{
+			GenerateModel: "runtime-chat",
+			ASRModel:      "runtime-asr",
+		}},
 		Log: logging.Config{Level: "error"},
 	}
 	fileCfg := ConfigFile{
@@ -728,6 +758,12 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 			MessageCleanupInterval: "5m",
 			MessageMaxAudioBytes:   2048,
 		},
+		SystemTasks: SystemTasksConfig{PetFlowcraftWorkflow: PetFlowcraftWorkflowTaskConfig{
+			GenerateModel:  "file-chat",
+			ExtractModel:   "file-extract",
+			EmbeddingModel: "file-embedding",
+			ASRModel:       "file-asr",
+		}},
 		Log: logging.Config{Level: "warn"},
 	}
 
@@ -756,6 +792,9 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 	if merged.FriendGroups.MessageDefaultTTL != "2h" || merged.FriendGroups.MessageMaxTTL != "3d" || merged.FriendGroups.MessageCleanupInterval != "30s" || merged.FriendGroups.MessageMaxAudioBytes != 1024 {
 		t.Fatalf("FriendGroups = %+v", merged.FriendGroups)
 	}
+	if got := merged.SystemTasks.PetFlowcraftWorkflow; got.GenerateModel != "runtime-chat" || got.ExtractModel != "file-extract" || got.EmbeddingModel != "file-embedding" || got.ASRModel != "runtime-asr" {
+		t.Fatalf("PetFlowcraftWorkflow = %#v", got)
+	}
 	if merged.Log.Level != "error" {
 		t.Fatalf("runtime Log should win, got %+v", merged.Log)
 	}
@@ -768,6 +807,9 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 	}
 	if merged.DefaultPeerView != "file-client" {
 		t.Fatalf("file DefaultPeerView should be used when runtime is empty, got %q", merged.DefaultPeerView)
+	}
+	if merged.SystemTasks.PetFlowcraftWorkflow != fileCfg.SystemTasks.PetFlowcraftWorkflow {
+		t.Fatalf("file PetFlowcraftWorkflow was not used: %#v", merged.SystemTasks.PetFlowcraftWorkflow)
 	}
 }
 
@@ -947,5 +989,11 @@ func validLayeredConfig(dir string) Config {
 			MessageCleanupInterval: "5m",
 			MessageMaxAudioBytes:   2097152,
 		},
+		SystemTasks: SystemTasksConfig{PetFlowcraftWorkflow: PetFlowcraftWorkflowTaskConfig{
+			GenerateModel:  "pet-chat",
+			ExtractModel:   "pet-extract",
+			EmbeddingModel: "pet-embedding",
+			ASRModel:       "pet-asr",
+		}},
 	}
 }

@@ -57,10 +57,10 @@ func TestTurnInputsComposeWorkspacePromptsAndDefinedAttributes(t *testing.T) {
 }
 
 func TestFixedFlowcraftConfigOwnsPetGraphAndAsyncMemoryLayout(t *testing.T) {
-	cfg := fixedFlowcraftConfig("pet-123", false)
+	cfg := fixedFlowcraftConfig("pet-123", "chat-model", "extract-model", false)
 	settings := cfg["settings"].(map[string]any)
-	if settings["generate_model"] != "pet-flowcraft-workflow-chat" || settings["extract_model"] != "pet-flowcraft-workflow-extract" {
-		t.Fatalf("default model resource names = %#v", settings)
+	if settings["generate_model"] != "chat-model" || settings["extract_model"] != "extract-model" {
+		t.Fatalf("configured model resource names = %#v", settings)
 	}
 	memory := cfg["memory"].(map[string]any)
 	if got := memory["scope"]; !reflect.DeepEqual(got, map[string]any{
@@ -159,13 +159,13 @@ func TestPetAsyncMemoryQueueSurvivesWorkspaceReopen(t *testing.T) {
 }
 
 func TestFixedFlowcraftConfigLoadsInClaw(t *testing.T) {
-	cfg := fixedFlowcraftConfig("pet-123", false)
+	cfg := fixedFlowcraftConfig("pet-123", "chat-model", "extract-model", false)
 	cfg["models"] = map[string]any{
 		"chat":      "generate_model",
 		"extractor": "extract_model",
 		"llm": map[string]any{
-			defaultGenerateModel: map[string]any{"provider": "mock", "model": "mock-generate"},
-			defaultExtractModel:  map[string]any{"provider": "mock", "model": "mock-extract"},
+			"chat-model":    map[string]any{"provider": "mock", "model": "mock-generate"},
+			"extract-model": map[string]any{"provider": "mock", "model": "mock-extract"},
 		},
 	}
 	raw, err := yaml.Marshal(cfg)
@@ -206,7 +206,7 @@ func TestFactoryRejectsMissingOrAmbiguousPetBinding(t *testing.T) {
 	}
 }
 
-func TestFactoryRequiresOperationalDefaultModelResources(t *testing.T) {
+func TestFactoryRequiresConfiguredModelResourcesToBeOperational(t *testing.T) {
 	petSpec := apitypes.PetWorkflowSpec{}
 	parameters := petParameters(t)
 	spec := agenthost.Spec{
@@ -223,9 +223,60 @@ func TestFactoryRequiresOperationalDefaultModelResources(t *testing.T) {
 			pet:    apitypes.Pet{DisplayName: "Spark"},
 			petDef: apitypes.PetDef{},
 		},
+		Config: Config{GenerateModel: "server-chat", ExtractModel: "server-extract", ASRModel: "server-asr"},
 	}).NewAgent(context.Background(), spec)
-	if err == nil || !strings.Contains(err.Error(), defaultGenerateModel) || !strings.Contains(err.Error(), "not accessible as a generator") {
-		t.Fatalf("NewAgent() error = %v, want missing operational model %q", err, defaultGenerateModel)
+	if err == nil || !strings.Contains(err.Error(), "server-chat") || !strings.Contains(err.Error(), "not accessible as a generator") {
+		t.Fatalf("NewAgent() error = %v, want missing configured model %q", err, "server-chat")
+	}
+}
+
+func TestFactoryRejectsMissingServerAndWorkspaceModelConfig(t *testing.T) {
+	petSpec := apitypes.PetWorkflowSpec{}
+	parameters := petParameters(t)
+	spec := agenthost.Spec{
+		Workspace: apitypes.Workspace{Name: "pet-123", Parameters: &parameters},
+		Workflow: apitypes.WorkflowDocument{Spec: apitypes.WorkflowSpec{
+			Driver: apitypes.WorkflowDriverPet,
+			Pet:    &petSpec,
+		}},
+	}
+	spec.Runtime.LocalDir = t.TempDir()
+	_, err := (Factory{Pets: staticPetProvider{}}).NewAgent(context.Background(), spec)
+	if err == nil || !strings.Contains(err.Error(), "generate_model") || !strings.Contains(err.Error(), "system_tasks.pet_flowcraft_workflow") {
+		t.Fatalf("NewAgent() error = %v", err)
+	}
+}
+
+func TestResolveModelsUsesServerConfigAndWorkspaceOverrides(t *testing.T) {
+	workspaceChat := "workspace-chat"
+	workspaceASR := "  workspace-asr  "
+	models, err := resolveModels(apitypes.PetWorkspaceParameters{
+		GenerateModel: &workspaceChat,
+		AsrModel:      &workspaceASR,
+	}, Config{
+		GenerateModel:  "server-chat",
+		ExtractModel:   "server-extract",
+		EmbeddingModel: "server-embedding",
+		ASRModel:       "server-asr",
+	})
+	if err != nil {
+		t.Fatalf("resolveModels() error = %v", err)
+	}
+	want := Config{
+		GenerateModel:  "workspace-chat",
+		ExtractModel:   "server-extract",
+		EmbeddingModel: "server-embedding",
+		ASRModel:       "workspace-asr",
+	}
+	if !reflect.DeepEqual(models, want) {
+		t.Fatalf("resolveModels() = %#v, want %#v", models, want)
+	}
+}
+
+func TestResolveModelsRejectsMissingServerAndWorkspaceConfig(t *testing.T) {
+	_, err := resolveModels(apitypes.PetWorkspaceParameters{}, Config{})
+	if err == nil || !strings.Contains(err.Error(), "generate_model") || !strings.Contains(err.Error(), "system_tasks.pet_flowcraft_workflow") {
+		t.Fatalf("resolveModels() error = %v", err)
 	}
 }
 

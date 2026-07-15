@@ -14,12 +14,6 @@ import (
 
 const Type = "pet"
 
-const (
-	defaultGenerateModel = "pet-flowcraft-workflow-chat"
-	defaultExtractModel  = "pet-flowcraft-workflow-extract"
-	defaultASRModel      = "pet-flowcraft-workflow-asr"
-)
-
 // ContextProvider resolves the adopted pet attached to a Workspace. The
 // provider is invoked for every turn so Gameplay attribute changes are visible
 // without recreating the agent.
@@ -27,9 +21,19 @@ type ContextProvider interface {
 	ResolvePetContext(context.Context, string) (apitypes.Pet, apitypes.PetDef, error)
 }
 
+// Config supplies the server-level model resources used by Pet workflows.
+// Workspace parameters may override individual values.
+type Config struct {
+	GenerateModel  string
+	ExtractModel   string
+	EmbeddingModel string
+	ASRModel       string
+}
+
 type Factory struct {
-	GenX *peergenx.Service
-	Pets ContextProvider
+	GenX   *peergenx.Service
+	Pets   ContextProvider
+	Config Config
 }
 
 func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.Agent, error) {
@@ -70,9 +74,10 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if voiceID == "" {
 		return nil, fmt.Errorf("pet: workspace voice.voice_id is required")
 	}
-	generateModel := parameterOrDefault(parameters.GenerateModel, defaultGenerateModel)
-	extractModel := parameterOrDefault(parameters.ExtractModel, defaultExtractModel)
-	asrModel := parameterOrDefault(parameters.AsrModel, defaultASRModel)
+	models, err := resolveModels(parameters, f.Config)
+	if err != nil {
+		return nil, err
+	}
 	starts := "peer"
 	initiativePolicy := "once_when_empty"
 	if parameters.Conversation != nil && parameters.Conversation.Initiative != nil && *parameters.Conversation.Initiative == apitypes.PetConversationParametersInitiativeAgent {
@@ -83,13 +88,12 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if parameters.Input != nil {
 		inputMode = string(*parameters.Input)
 	}
-	embeddingModel := parameterOrDefault(parameters.EmbeddingModel, "")
 	configured := flowcraft.ConfiguredAgentOptions{
-		Flowcraft:             fixedFlowcraftConfig(workspaceName, embeddingModel != ""),
-		GenerateModel:         generateModel,
-		ExtractModel:          extractModel,
-		EmbeddingModel:        embeddingModel,
-		ASRModel:              asrModel,
+		Flowcraft:             fixedFlowcraftConfig(workspaceName, models.GenerateModel, models.ExtractModel, models.EmbeddingModel != ""),
+		GenerateModel:         models.GenerateModel,
+		ExtractModel:          models.ExtractModel,
+		EmbeddingModel:        models.EmbeddingModel,
+		ASRModel:              models.ASRModel,
 		DefaultVoice:          voiceID,
 		NodeVoices:            map[string]string{"answer": voiceID},
 		Conversation:          starts,
@@ -108,11 +112,33 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	return (flowcraft.Factory{GenX: f.GenX}).NewConfiguredAgent(ctx, configured)
 }
 
-func parameterOrDefault(value *string, fallback string) string {
+func resolveModels(parameters apitypes.PetWorkspaceParameters, server Config) (Config, error) {
+	models := Config{
+		GenerateModel:  parameterOrServer(parameters.GenerateModel, server.GenerateModel),
+		ExtractModel:   parameterOrServer(parameters.ExtractModel, server.ExtractModel),
+		EmbeddingModel: parameterOrServer(parameters.EmbeddingModel, server.EmbeddingModel),
+		ASRModel:       parameterOrServer(parameters.AsrModel, server.ASRModel),
+	}
+	for _, required := range []struct {
+		field string
+		value string
+	}{
+		{field: "generate_model", value: models.GenerateModel},
+		{field: "extract_model", value: models.ExtractModel},
+		{field: "asr_model", value: models.ASRModel},
+	} {
+		if required.value == "" {
+			return Config{}, fmt.Errorf("pet: %s is not configured in workspace parameters or server system_tasks.pet_flowcraft_workflow", required.field)
+		}
+	}
+	return models, nil
+}
+
+func parameterOrServer(value *string, server string) string {
 	if value != nil {
 		if text := strings.TrimSpace(*value); text != "" {
 			return text
 		}
 	}
-	return fallback
+	return strings.TrimSpace(server)
 }

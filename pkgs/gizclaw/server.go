@@ -13,6 +13,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/providertenants"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
+	petagent "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/pet"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
@@ -93,6 +94,7 @@ type Server struct {
 	ACLDB                        *sql.DB
 	WebRTCSignalingHandler       http.Handler
 	EdgeNodes                    []giznet.PublicKey
+	PetWorkflow                  petagent.Config
 
 	manager     *Manager
 	peerService *PeerService
@@ -384,6 +386,7 @@ func (s *Server) init() error {
 		DefaultPeerView: s.DefaultPeerView,
 	}
 	manager := NewManager(peersServer)
+	manager.PetWorkflow = s.PetWorkflow
 	manager.PeerRoutes = &peerroute.Server{
 		Store:           peerRouteStore,
 		Peers:           peersServer,

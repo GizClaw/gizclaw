@@ -20,7 +20,8 @@ func (peerAgentHostTestResolver) Resolve(context.Context, string) (agenthost.Spe
 
 func TestNewPeerAgentHostRegistersBuiltInAgents(t *testing.T) {
 	base := agenthost.New(peerAgentHostTestResolver{})
-	got := newPeerAgentHost(base, nil, nil)
+	petConfig := petagent.Config{GenerateModel: "chat", ExtractModel: "extract", ASRModel: "asr"}
+	got := newPeerAgentHost(base, nil, nil, petConfig)
 	if got == nil {
 		t.Fatal("newPeerAgentHost() = nil")
 	}
@@ -40,10 +41,21 @@ func TestNewPeerAgentHostRegistersBuiltInAgents(t *testing.T) {
 			}
 		})
 	}
+	registered, ok := got.Registry.Get(petagent.Type)
+	if !ok {
+		t.Fatal("pet agent was not registered")
+	}
+	petFactory, ok := registered.(petagent.Factory)
+	if !ok {
+		t.Fatalf("pet factory = %T, want pet.Factory", registered)
+	}
+	if petFactory.Config != petConfig {
+		t.Fatalf("pet factory config = %#v, want %#v", petFactory.Config, petConfig)
+	}
 }
 
 func TestNewPeerAgentHostNilBase(t *testing.T) {
-	if got := newPeerAgentHost(nil, nil, nil); got != nil {
+	if got := newPeerAgentHost(nil, nil, nil, petagent.Config{}); got != nil {
 		t.Fatalf("newPeerAgentHost(nil) = %#v, want nil", got)
 	}
 }
