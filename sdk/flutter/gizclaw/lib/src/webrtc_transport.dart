@@ -14,7 +14,14 @@ const _dataChannelSendRetryDelay = Duration(milliseconds: 5);
 const _dataChannelNativeReadyGracePeriod = Duration(milliseconds: 250);
 const _dataChannelStatePollDelay = Duration(milliseconds: 10);
 
-final _servedPeerConnections = Expando<void Function(rtc.RTCDataChannel)>();
+final _servedPeerConnections = Expando<_ServedPeerConnection>();
+
+class _ServedPeerConnection {
+  _ServedPeerConnection(this.handler, this.handlers);
+
+  final void Function(rtc.RTCDataChannel) handler;
+  GizClawPeerRpcHandlers? handlers;
+}
 
 class FlutterWebRtcDataChannelFactory implements GizClawDataChannelFactory {
   FlutterWebRtcDataChannelFactory(this.peerConnection);
@@ -48,12 +55,17 @@ class FlutterWebRtcDataChannelFactory implements GizClawDataChannelFactory {
   }
 }
 
-void serveFlutterGiznetWebRtcRpc(rtc.RTCPeerConnection peerConnection) {
+void serveFlutterGiznetWebRtcRpc(
+  rtc.RTCPeerConnection peerConnection, {
+  GizClawPeerRpcHandlers? handlers,
+}) {
   final installed = _servedPeerConnections[peerConnection];
-  if (installed != null && peerConnection.onDataChannel == installed) {
+  if (installed != null && peerConnection.onDataChannel == installed.handler) {
+    installed.handlers = handlers;
     return;
   }
   final previous = peerConnection.onDataChannel;
+  late final _ServedPeerConnection state;
   void handler(rtc.RTCDataChannel channel) {
     previous?.call(channel);
     if (channel.label == giznetServiceDataChannelLabel(servicePeerRpc)) {
@@ -62,11 +74,13 @@ void serveFlutterGiznetWebRtcRpc(rtc.RTCPeerConnection peerConnection) {
           channel,
           initialState: GizClawDataChannelState.open,
         ),
+        handlers: state.handlers,
       );
     }
   }
 
-  _servedPeerConnections[peerConnection] = handler;
+  state = _ServedPeerConnection(handler, handlers);
+  _servedPeerConnections[peerConnection] = state;
   peerConnection.onDataChannel = handler;
 }
 
@@ -82,6 +96,7 @@ Future<rtc.RTCPeerConnection> connectFlutterGiznetWebRtc({
   Map<String, dynamic> configuration = const {},
   required Future<PreparedGiznetWebRtcOffer> Function(String offerSdp)
   prepareOffer,
+  GizClawPeerRpcHandlers? peerRpcHandlers,
   rtc.RTCPeerConnection? peerConnection,
   required SendGiznetWebRtcOffer sendOffer,
 }) async {
@@ -89,7 +104,7 @@ Future<rtc.RTCPeerConnection> connectFlutterGiznetWebRtc({
   final pc = peerConnection ?? await createPeerConnection(configuration);
   rtc.RTCDataChannel? packetDataChannel;
   try {
-    serveFlutterGiznetWebRtcRpc(pc);
+    serveFlutterGiznetWebRtcRpc(pc, handlers: peerRpcHandlers);
     if (createPacketDataChannel) {
       final init = rtc.RTCDataChannelInit()
         ..id = -1

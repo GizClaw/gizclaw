@@ -41,6 +41,15 @@ class GizClawClient {
   final ServiceHttpClient peerOpenAi;
   final PeerRpcClient rpc;
 
+  Future<payload.ServerPutInfoResponse> putServerInfo(
+    payload.DeviceInfo value,
+  ) {
+    return rpc.call<payload.ServerPutInfoResponse>(
+      'server.info.put',
+      payload.ServerPutInfoRequest(value: value),
+    );
+  }
+
   Future<payload.WorkflowListResponse> listWorkflows({
     String? cursor,
     int? limit,

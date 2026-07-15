@@ -21,6 +21,33 @@ void main() {
     await firstClose;
   });
 
+  test('rejects blank server endpoints before selecting or saving', () async {
+    final controller = MobileDataController(
+      database: AppDatabase.forTesting(NativeDatabase.memory()),
+      profile: _profile(''),
+    );
+    addTearDown(controller.close);
+
+    await expectLater(
+      controller.addServer(name: 'Office', accessPoint: '   '),
+      throwsA(
+        isA<FormatException>().having(
+          (error) => error.message,
+          'message',
+          'Enter a server access point',
+        ),
+      ),
+    );
+    await expectLater(
+      controller.updateServerEndpoint(''),
+      throwsA(isA<FormatException>()),
+    );
+
+    expect(controller.serverEndpoint, isEmpty);
+    expect(controller.hasActiveServer, isFalse);
+    expect(controller.servers, hasLength(2));
+  });
+
   test('waits for an in-flight refresh before closing resources', () async {
     final database = _TrackingDatabase();
     final client = _RunWorkspaceClient();

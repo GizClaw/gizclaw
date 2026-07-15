@@ -69,6 +69,68 @@ void main() {
     );
   });
 
+  test('loads presets and persists custom servers', () async {
+    final preferences = _MemoryValueStore();
+    final store = AppIdentityStore(
+      secureValues: _MemoryValueStore(),
+      preferences: preferences,
+      fallbackProfile: const GizClawConnectionProfile(
+        endpoint: '',
+        clientPrivateKey: '',
+      ),
+    );
+
+    expect((await store.loadServers()).map((server) => server.name), [
+      'Development',
+      'Production',
+    ]);
+
+    await store.saveCustomServers(const [
+      GizClawServer(name: 'Office', accessPoint: 'office.local:9820'),
+    ]);
+
+    final servers = await store.loadServers();
+    expect(servers, hasLength(3));
+    expect(servers.last.name, 'Office');
+    expect(servers.last.accessPoint, 'office.local:9820');
+  });
+
+  test('includes a legacy selected endpoint in the server list', () async {
+    final preferences = _MemoryValueStore()
+      ..values[AppIdentityStore.endpointStorageKey] = 'legacy.local:9820';
+    final store = AppIdentityStore(
+      secureValues: _MemoryValueStore(),
+      preferences: preferences,
+      fallbackProfile: const GizClawConnectionProfile(
+        endpoint: '',
+        clientPrivateKey: '',
+      ),
+    );
+
+    final servers = await store.loadServers();
+
+    expect(servers.last.name, 'legacy.local:9820');
+    expect(servers.last.accessPoint, 'legacy.local:9820');
+  });
+
+  test('ignores a persisted server with a blank access point', () async {
+    final preferences = _MemoryValueStore()
+      ..values[AppIdentityStore.customServersStorageKey] =
+          '[{"name":"Broken","access_point":"   "}]';
+    final store = AppIdentityStore(
+      secureValues: _MemoryValueStore(),
+      preferences: preferences,
+      fallbackProfile: const GizClawConnectionProfile(
+        endpoint: '',
+        clientPrivateKey: '',
+      ),
+    );
+
+    final servers = await store.loadServers();
+
+    expect(servers.map((server) => server.name), ['Development', 'Production']);
+  });
+
   test('validates domain and IP endpoints with explicit ports', () {
     expect(
       normalizeGizClawEndpoint('gizclaw.local:9820'),
@@ -76,16 +138,20 @@ void main() {
     );
     expect(normalizeGizClawEndpoint('192.168.1.12:9820'), '192.168.1.12:9820');
     expect(
+      normalizeGizClawEndpoint('115.190.149.150:9820'),
+      '115.190.149.150:9820',
+    );
+    expect(
       normalizeGizClawEndpoint('gizclaw.example.com:9820'),
-      'https://gizclaw.example.com:9820',
+      'gizclaw.example.com:9820',
+    );
+    expect(
+      normalizeGizClawEndpoint('http://gizclaw.example.com:9820'),
+      'http://gizclaw.example.com:9820',
     );
     expect(
       normalizeGizClawEndpoint('https://gizclaw.example:443/'),
       'https://gizclaw.example:443',
-    );
-    expect(
-      () => normalizeGizClawEndpoint('http://gizclaw.example.com:9820'),
-      throwsFormatException,
     );
     expect(
       () => normalizeGizClawEndpoint('gizclaw.local'),
@@ -95,6 +161,11 @@ void main() {
       () => normalizeGizClawEndpoint('gizclaw.local:9820/admin'),
       throwsFormatException,
     );
+  });
+
+  test('defines the selectable GizClaw server endpoints', () {
+    expect(gizClawDevelopmentServerEndpoint, 'ap.dev.gizclaw.com:9820');
+    expect(gizClawProductionServerEndpoint, 'ap.gizclaw.com:9820');
   });
 }
 

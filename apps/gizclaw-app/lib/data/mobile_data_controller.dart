@@ -67,18 +67,27 @@ class MobileDataController extends ChangeNotifier {
     GizClawConnectionProfile? profile,
     GizClawConnectionController? connectionController,
     MobileDataRepository? dataRepository,
+    DeviceInfo? deviceInfo,
+    List<GizClawServer>? servers,
     this.identityStore,
   }) : database = database ?? AppDatabase(),
        connection =
            connectionController ??
            GizClawConnectionController(
              profile ?? GizClawConnectionProfile.fromEnvironment(),
-           ) {
+             deviceInfo: deviceInfo,
+           ),
+       _servers = List.unmodifiable(
+         _mergeServers(
+           servers ?? gizClawPresetServers,
+           profile?.endpoint ?? connectionController?.profile.endpoint ?? '',
+         ),
+       ) {
     repository = dataRepository ?? MobileDataRepository(this.database);
   }
 
   factory MobileDataController.demo({AppDatabase? database}) {
-    final controller = MobileDataController(database: database);
+    final controller = _DemoMobileDataController(database: database);
     controller.workflows = allWorkflows;
     controller.workspaces = workflowWorkspaces;
     controller.chatroomWorkspaces = chatroomWorkspaceMetadata;
@@ -88,6 +97,7 @@ class MobileDataController extends ChangeNotifier {
   final AppDatabase database;
   final AppIdentityStore? identityStore;
   final GizClawConnectionController connection;
+  List<GizClawServer> _servers;
   late final MobileDataRepository repository;
   late final WorkspaceChatRepository workspaceChatRepository =
       WorkspaceChatRepository(database);
@@ -132,6 +142,16 @@ class MobileDataController extends ChangeNotifier {
   }
 
   String get serverEndpoint => connection.profile.endpoint;
+  List<GizClawServer> get servers => _servers;
+  GizClawServer? get activeServer {
+    final endpoint = serverEndpoint;
+    for (final server in _servers) {
+      if (server.accessPoint == endpoint) return server;
+    }
+    return null;
+  }
+
+  bool get hasActiveServer => activeServer != null;
   String? get clientPublicKey => connection.clientPublicKey;
 
   WorkspaceInputMode get activeInputMode =>
@@ -207,7 +227,67 @@ class MobileDataController extends ChangeNotifier {
   }
 
   Future<void> updateServerEndpoint(String endpoint) async {
-    final normalized = normalizeGizClawEndpoint(endpoint);
+    final normalized = _normalizeRequiredServerEndpoint(endpoint);
+    if (!_servers.any((server) => server.accessPoint == normalized)) {
+      final nextServers = List<GizClawServer>.unmodifiable([
+        ..._servers,
+        GizClawServer(name: normalized, accessPoint: normalized),
+      ]);
+      await identityStore?.saveCustomServers(_customServers(nextServers));
+      _servers = nextServers;
+      notifyListeners();
+    }
+    await _activateServerEndpoint(normalized);
+  }
+
+  Future<void> addServer({
+    required String name,
+    required String accessPoint,
+  }) async {
+    final normalizedName = name.trim();
+    if (normalizedName.isEmpty) {
+      throw const FormatException('Enter a server name');
+    }
+    final normalizedEndpoint = _normalizeRequiredServerEndpoint(accessPoint);
+    if (_servers.any((server) => server.accessPoint == normalizedEndpoint)) {
+      throw const FormatException('This access point is already in the list');
+    }
+    final server = GizClawServer(
+      name: normalizedName,
+      accessPoint: normalizedEndpoint,
+    );
+    final nextServers = List<GizClawServer>.unmodifiable([..._servers, server]);
+    await identityStore?.saveCustomServers(_customServers(nextServers));
+    _servers = nextServers;
+    notifyListeners();
+    await _activateServerEndpoint(normalizedEndpoint);
+  }
+
+  Future<void> addOrSelectServer({
+    required String name,
+    required String accessPoint,
+  }) async {
+    final normalizedEndpoint = _normalizeRequiredServerEndpoint(accessPoint);
+    for (final server in _servers) {
+      if (server.accessPoint == normalizedEndpoint) {
+        await selectServer(server);
+        return;
+      }
+    }
+    await addServer(name: name, accessPoint: normalizedEndpoint);
+  }
+
+  Future<void> selectServer(GizClawServer server) async {
+    if (!_servers.any(
+      (candidate) => candidate.accessPoint == server.accessPoint,
+    )) {
+      throw ArgumentError.value(server.accessPoint, 'server', 'Unknown server');
+    }
+    await _activateServerEndpoint(server.accessPoint);
+  }
+
+  Future<void> _activateServerEndpoint(String endpoint) async {
+    final normalized = _normalizeRequiredServerEndpoint(endpoint);
     if (normalized == connection.profile.endpoint) return;
     _startGeneration += 1;
     await identityStore?.saveEndpoint(normalized);
@@ -225,7 +305,7 @@ class MobileDataController extends ChangeNotifier {
     runWorkspaceState = null;
     activeWorkspaceDocument = null;
     lastError = null;
-    await start();
+    unawaited(start());
   }
 
   Future<void> _ensureDeviceWorkspace({
@@ -1037,6 +1117,62 @@ Future<T> runRpcWithTransportRecovery<T, Transport>({
       rethrow;
     }
     return request(await reconnect());
+  }
+}
+
+List<GizClawServer> _mergeServers(
+  List<GizClawServer> servers,
+  String activeEndpoint,
+) {
+  final merged = <GizClawServer>[];
+  final endpoints = <String>{};
+  for (final server in [...gizClawPresetServers, ...servers]) {
+    final endpoint = normalizeGizClawEndpoint(server.accessPoint);
+    if (endpoint.isEmpty || !endpoints.add(endpoint)) continue;
+    merged.add(GizClawServer(name: server.name.trim(), accessPoint: endpoint));
+  }
+  final trimmedActiveEndpoint = activeEndpoint.trim();
+  if (trimmedActiveEndpoint.isNotEmpty) {
+    final endpoint = normalizeGizClawEndpoint(trimmedActiveEndpoint);
+    if (endpoints.add(endpoint)) {
+      merged.add(GizClawServer(name: endpoint, accessPoint: endpoint));
+    }
+  }
+  return merged;
+}
+
+String _normalizeRequiredServerEndpoint(String endpoint) {
+  final normalized = normalizeGizClawEndpoint(endpoint);
+  if (normalized.isEmpty) {
+    throw const FormatException('Enter a server access point');
+  }
+  return normalized;
+}
+
+List<GizClawServer> _customServers(List<GizClawServer> servers) {
+  final presetEndpoints = {
+    for (final server in gizClawPresetServers) server.accessPoint,
+  };
+  return [
+    for (final server in servers)
+      if (!presetEndpoints.contains(server.accessPoint)) server,
+  ];
+}
+
+class _DemoMobileDataController extends MobileDataController {
+  _DemoMobileDataController({super.database})
+    : super(
+        profile: const GizClawConnectionProfile(
+          endpoint: gizClawDevelopmentServerEndpoint,
+          clientPrivateKey: 'demo-private-key',
+        ),
+        servers: gizClawPresetServers,
+      );
+
+  @override
+  Future<void> start() async {
+    connectionState = MobileConnectionState.offline;
+    notifyListeners();
   }
 }
 
