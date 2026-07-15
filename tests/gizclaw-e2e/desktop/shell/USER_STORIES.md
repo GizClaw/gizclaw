@@ -1,11 +1,9 @@
 # Desktop Shell User Stories
 
-- As a desktop user, I can start the app with an isolated local context store.
-- As a desktop user, I can create or select a WebRTC context.
-- As a desktop user, my selected context persists in desktop config files, not
-  browser storage.
-- As a desktop user, the UI receives the selected signaling URL and private key
-  material at runtime so WebRTC can connect.
-- As a desktop maintainer, shell behavior is covered with Playwright using a
-  mock Wails bridge while the full Admin and Play views run inside the desktop
-  shell.
+- As a desktop user, I can create local and remote Pods from a card-based home.
+- As a desktop user, I can inspect a remote Pod with many searchable Servers.
+- As a local developer, I can start, stop, and restart the Pod Server.
+- As an Admin or Play user, the desktop opens the browser UI through a fresh
+  single-use handoff without persisting private key material in the browser.
+- As a desktop user, the system tray navigates to the window or one Pod without
+  duplicating server and credential actions.

@@ -55,7 +55,7 @@
 | `ApplyAction`、`ApplyResult`、Resource union | `resources/resource.json` |
 | `ModelSpec`、`VoiceSpec`、`FirmwareSpec` 等单一 Resource Spec | 对应 `resources/<resource>.json` |
 | OpenAI-compatible request/response models | `openai-compat/v1/service.json` |
-| Desktop-only context、view 与 session models | `apps/wails` Desktop contract |
+| Desktop-only Pod、endpoint health 与 local lifecycle models | `apps/wails` Desktop contract |
 
 `shared.json` 是当前 `apitypes` 的生成入口：它导出 Shared schema，并引用 `resources/*.json` 以生成 Resource graph。这个聚合关系只服务 codegen，不改变 `shared/` 与 `resources/` 的所有权边界。
 

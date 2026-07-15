@@ -9,12 +9,8 @@ test.beforeEach(async ({ page }) => {
       local_public_key: "local-public-key",
       name: "local",
     };
+    window.__GIZCLAW_DESKTOP_TEST_RUNTIME__ = { context, private_key_base64: "cHJpdmF0ZS1rZXktbWF0ZXJpYWw=" };
     const actions: string[] = [];
-    let session = { active: false };
-    const views = [
-      { description: "Manage GizClaw server resources.", id: "admin", title: "Admin" },
-      { description: "Use workspaces, chat history, social, and firmware flows.", id: "play", title: "Play" },
-    ];
     const snapshot = {
       badges: [{ active: true, badge_def_id: "badge-basic", exp: 125, id: "badge-basic", level: 1, ruleset_name: "default-gameplay" }],
       contacts: [{ id: "contact-main", name: "Main Contact", title: "Main Contact" }],
@@ -64,37 +60,6 @@ test.beforeEach(async ({ page }) => {
     };
     const pageResponse = (items) => ({ has_next: false, items, next_cursor: null });
     const findByID = (items, id) => items.find((item) => item.id === id) ?? null;
-    window.__GIZCLAW_DESKTOP_TEST_API__ = {
-      async Bootstrap() {
-        return { contexts: [context], state: { last_context: "local", last_view: "play" }, view_session: session, views };
-      },
-      async CreateContext() {
-        return context;
-      },
-      async EndViewSession() {
-        session = { active: false };
-        return session;
-      },
-      async GetViewSession() {
-        return session;
-      },
-      async InjectedRuntime() {
-        return { context, private_key_base64: "cHJpdmF0ZS1rZXktbWF0ZXJpYWw=" };
-      },
-      async ListContexts() {
-        return [context];
-      },
-      async ListViews() {
-        return views;
-      },
-      async SelectContext() {
-        return context;
-      },
-      async StartViewSession(req) {
-        session = { active: true, context_name: req.context_name, view: req.view };
-        return session;
-      },
-    };
     window.__GIZCLAW_DESKTOP_TEST_PLAY_CLIENT__ = {
       async adoptPet(req) {
         const displayName = String(req.display_name ?? "Adopted Pet");
@@ -271,8 +236,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("play view renders the full desktop play surface", async ({ page }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: "Get Started" }).click();
+  await page.goto("/play.html");
 
   await expect(page.getByText("OpenAI Gateway")).toBeVisible();
   await expect(page.getByRole("button", { name: /Workspaces/ })).toBeVisible();
@@ -293,8 +257,7 @@ test("play view renders the full desktop play surface", async ({ page }) => {
 });
 
 test("play workspace drawer sends direct RPC-backed actions", async ({ page }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: "Get Started" }).click();
+  await page.goto("/play.html");
 
   await page.getByRole("button", { name: /^Workspace$/ }).click();
   await expect(page.getByRole("heading", { name: "Workspace" })).toBeVisible();
@@ -309,8 +272,7 @@ test("play workspace drawer sends direct RPC-backed actions", async ({ page }) =
 });
 
 test("play workspace history replay uses direct peer RPC", async ({ page }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: "Get Started" }).click();
+  await page.goto("/play.html");
 
   await page.getByRole("button", { name: /^Workspace$/ }).click();
   await page.getByRole("tab", { name: "History" }).click();
@@ -323,8 +285,7 @@ test("play workspace history replay uses direct peer RPC", async ({ page }) => {
 });
 
 test("play gameplay panel adopts and drives pets through peer RPC", async ({ page }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: "Get Started" }).click();
+  await page.goto("/play.html");
 
   await page.getByRole("button", { name: /Gameplay/ }).click();
   await expect(page.getByText("default-gameplay").first()).toBeVisible();

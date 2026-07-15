@@ -1,13 +1,12 @@
 # Desktop E2E User Story Sets
 
-Desktop e2e covers the Wails shell that replaces the old CLI-served UI
-surfaces. It uses the same setup server, resources, and committed identities as
-the Go, JS, and cmd suites.
+Desktop e2e covers the Pod-oriented Wails control plane and its separate
+browser-served Admin and Play surfaces.
 
 ## Sets
 
-- `shell/`: app startup, context picker, selected context persistence, and
-  runtime injection.
+- `shell/`: Pod storage, card/detail UI, endpoint health, process lifecycle, and
+  single-use browser Runtime handoff.
 - `admin/`: Admin resource navigation and generated-client WebRTC Admin API
   transport boundary.
 - `play/`: Play workspace runtime, history replay, social/firmware resource

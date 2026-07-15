@@ -9,11 +9,7 @@ test.beforeEach(async ({ page }) => {
       local_public_key: "local-public-key",
       name: "local",
     };
-    let session = { active: false };
-    const views = [
-      { description: "Manage GizClaw server resources.", id: "admin", title: "Admin" },
-      { description: "Use workspaces, chat history, social, and firmware flows.", id: "play", title: "Play" },
-    ];
+    window.__GIZCLAW_DESKTOP_TEST_RUNTIME__ = { context, private_key_base64: "cHJpdmF0ZS1rZXktbWF0ZXJpYWw=" };
     const pageResponse = (items) => ({ has_next: false, items, next_cursor: null });
     const adminFetchPaths: string[] = [];
     const json = (data) =>
@@ -65,37 +61,6 @@ test.beforeEach(async ({ page }) => {
       "/workspaces": pageResponse([{ name: "main-workspace", workflow_name: "openai-chat", updated_at: "2026-07-01T00:00:00Z" }]),
     };
     window.__GIZCLAW_DESKTOP_TEST_ADMIN_FETCH_PATHS__ = adminFetchPaths;
-    window.__GIZCLAW_DESKTOP_TEST_API__ = {
-      async Bootstrap() {
-        return { contexts: [context], state: { last_context: "local", last_view: "admin" }, view_session: session, views };
-      },
-      async CreateContext() {
-        return context;
-      },
-      async EndViewSession() {
-        session = { active: false };
-        return session;
-      },
-      async GetViewSession() {
-        return session;
-      },
-      async InjectedRuntime() {
-        return { context, private_key_base64: "cHJpdmF0ZS1rZXktbWF0ZXJpYWw=" };
-      },
-      async ListContexts() {
-        return [context];
-      },
-      async ListViews() {
-        return views;
-      },
-      async SelectContext() {
-        return context;
-      },
-      async StartViewSession(req) {
-        session = { active: true, context_name: req.context_name, view: req.view };
-        return session;
-      },
-    };
     window.__GIZCLAW_DESKTOP_TEST_ADMIN_FETCH__ = async (input) => {
       const url = new URL(typeof input === "string" ? input : input.url);
       const path = decodeURIComponent(url.pathname);
@@ -109,8 +74,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("admin view renders full resource manager pages", async ({ page }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: "Get Started" }).click();
+  await page.goto("/admin.html");
 
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
   await expect(page.getByText("test-build")).toBeVisible();
@@ -134,8 +98,7 @@ test("admin view renders full resource manager pages", async ({ page }) => {
 });
 
 test("admin view covers provider, AI, social, and settings sections", async ({ page }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: "Get Started" }).click();
+  await page.goto("/admin.html");
 
   await page.getByRole("button", { name: "Credentials" }).click();
   await expect(page.getByRole("heading", { name: "Credentials" })).toBeVisible();
@@ -199,8 +162,7 @@ test("admin view covers provider, AI, social, and settings sections", async ({ p
 });
 
 test("admin social friend detail loads workspace history and downloads audio", async ({ page }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: "Get Started" }).click();
+  await page.goto("/admin.html");
 
   await page.getByRole("button", { name: "Friends" }).click();
   await page.getByRole("link", { name: /peer-a <-> peer-b/ }).click();

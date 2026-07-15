@@ -16,6 +16,13 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: false,
+    rollupOptions: {
+      input: {
+        admin: path.resolve(dirname, "admin.html"),
+        index: path.resolve(dirname, "index.html"),
+        play: path.resolve(dirname, "play.html"),
+      },
+    },
   },
   server: {
     host: "127.0.0.1",

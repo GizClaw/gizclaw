@@ -8,8 +8,8 @@ import (
 	desktop "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/desktop"
 )
 
-func TestDesktopRuntimeInjectionIncludesInMemoryCredential(t *testing.T) {
+func TestDesktopBrowserRuntimeUsesOneTimeHandoff(t *testing.T) {
 	h := desktop.NewHarnessForShell(t)
-	h.RunForShell(t, h.WailsDir(), "go", "test", "-run", "TestAppExposesContextRuntimeWithoutServerAccess", ".")
+	h.RunForShell(t, h.WailsDir(), "go", "test", "-run", "TestLaunchURLReusesPortAndConsumesHandoffOnce", "./internal/webui")
 	h.RunForShell(t, h.FrontendDir(), "npm", "test")
 }

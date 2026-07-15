@@ -13,8 +13,7 @@ const (
 
 type Paths struct {
 	ConfigRoot string `json:"config_root"`
-	ContextDir string `json:"context_dir"`
-	StateFile  string `json:"state_file"`
+	PodsDir    string `json:"pods_dir"`
 }
 
 func DefaultPaths() (Paths, error) {
@@ -29,19 +28,15 @@ func DefaultPaths() (Paths, error) {
 }
 
 func NewPaths(root string) Paths {
-	return Paths{
-		ConfigRoot: root,
-		ContextDir: filepath.Join(root, "contexts"),
-		StateFile:  filepath.Join(root, "state.json"),
-	}
+	return Paths{ConfigRoot: root, PodsDir: filepath.Join(root, "pods")}
 }
 
 func (p Paths) Ensure() error {
-	if p.ConfigRoot == "" || p.ContextDir == "" || p.StateFile == "" {
+	if p.ConfigRoot == "" || p.PodsDir == "" {
 		return fmt.Errorf("appconfig: incomplete paths")
 	}
-	if err := os.MkdirAll(p.ContextDir, 0o700); err != nil {
-		return fmt.Errorf("appconfig: mkdir contexts: %w", err)
+	if err := secureDir(p.PodsDir); err != nil {
+		return fmt.Errorf("appconfig: mkdir pods: %w", err)
 	}
 	return nil
 }

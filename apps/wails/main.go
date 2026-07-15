@@ -7,6 +7,7 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/mac"
 )
 
 //go:embed frontend/dist
@@ -18,13 +19,19 @@ func main() {
 		log.Fatal(err)
 	}
 	err = wails.Run(&options.App{
-		Title:  "GizClaw",
-		Width:  1200,
-		Height: 800,
-		AssetServer: &assetserver.Options{
-			Assets: assets,
-		},
-		Bind: []interface{}{desktopApp},
+		Title:            "GizClaw",
+		Width:            1240,
+		Height:           820,
+		MinWidth:         840,
+		MinHeight:        620,
+		Frameless:        true,
+		BackgroundColour: &options.RGBA{R: 5, G: 9, B: 20, A: 1},
+		AssetServer:      &assetserver.Options{Assets: assets},
+		OnStartup:        desktopApp.startup,
+		OnBeforeClose:    desktopApp.beforeClose,
+		OnShutdown:       desktopApp.shutdown,
+		Mac:              &mac.Options{TitleBar: mac.TitleBarHiddenInset()},
+		Bind:             []interface{}{desktopApp},
 	})
 	if err != nil {
 		log.Fatal(err)

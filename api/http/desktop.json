@@ -1,507 +1,196 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Desktop Local API",
-    "description": "Local desktop API exposed by the Wails backend for context store, view registry, and runtime injection. This API is local to the desktop app and must not proxy GizClaw server Admin API or peer RPC calls.",
+    "title": "GizClaw Desktop Pod API",
+    "description": "Local Wails API for Pod manifests, local server lifecycle, endpoint health, and browser UI launches. Persisted private keys are accepted only as write-only input and are never returned.",
     "version": "1.0.0"
   },
-  "servers": [
-    {
-      "url": "/"
-    }
-  ],
+  "servers": [{ "url": "/" }],
   "tags": [
-    {
-      "name": "Desktop",
-      "description": "Local desktop shell operations"
-    },
-    {
-      "name": "Contexts",
-      "description": "Local context store operations"
-    },
-    {
-      "name": "Views",
-      "description": "Local desktop view registry and view session operations"
-    }
+    { "name": "Pods", "description": "Local Pod environment operations" },
+    { "name": "Local server", "description": "Local Pod server lifecycle" },
+    { "name": "Browser UI", "description": "Admin and Play system-browser launches" }
   ],
   "paths": {
     "/desktop/bootstrap": {
       "get": {
         "operationId": "getDesktopBootstrap",
-        "summary": "Get desktop bootstrap state",
-        "description": "Returns available contexts, available views, persisted launcher defaults, and the active view session if one exists. This operation only reads local desktop state and does not expose local filesystem paths.",
-        "tags": [
-          "Desktop"
-        ],
-        "responses": {
-          "200": {
-            "description": "Desktop bootstrap state",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DesktopBootstrap"
-                }
-              }
-            }
-          },
-          "500": {
-            "$ref": "#/components/responses/Error"
-          }
-        }
+        "tags": ["Pods"],
+        "summary": "Load the desktop Pod home",
+        "responses": { "200": { "description": "Desktop state", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DesktopBootstrap" } } } }, "500": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/desktop/contexts": {
+    "/desktop/pods": {
       "get": {
-        "operationId": "listDesktopContexts",
-        "summary": "List local desktop contexts",
-        "description": "Lists contexts from the local desktop context store. This does not contact any GizClaw server.",
-        "tags": [
-          "Contexts"
-        ],
-        "responses": {
-          "200": {
-            "description": "Local desktop contexts",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DesktopContextList"
-                }
-              }
-            }
-          },
-          "500": {
-            "$ref": "#/components/responses/Error"
-          }
-        }
+        "operationId": "listDesktopPods",
+        "tags": ["Pods"],
+        "summary": "List Pods without secret material",
+        "responses": { "200": { "description": "Pods", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/DesktopPod" } } } } }, "500": { "$ref": "#/components/responses/Error" } }
       },
       "post": {
-        "operationId": "createDesktopContext",
-        "summary": "Create a local desktop context",
-        "description": "Creates a local desktop context and identity. This does not register the peer, select a dashboard session, or contact a GizClaw server.",
-        "tags": [
-          "Contexts"
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateDesktopContextRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Created local desktop context",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DesktopContext"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "500": {
-            "$ref": "#/components/responses/Error"
-          }
-        }
+        "operationId": "createDesktopPod",
+        "tags": ["Pods"],
+        "summary": "Create and materialize a Pod",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PodInput" } } } },
+        "responses": { "201": { "description": "Created Pod", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DesktopPod" } } } }, "400": { "$ref": "#/components/responses/Error" }, "409": { "$ref": "#/components/responses/Error" }, "500": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/desktop/contexts/current": {
+    "/desktop/pods/{pod_id}": {
+      "parameters": [{ "$ref": "#/components/parameters/PodId" }],
+      "get": {
+        "operationId": "getDesktopPod",
+        "tags": ["Pods"],
+        "summary": "Get one Pod without secret material",
+        "responses": { "200": { "description": "Pod", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DesktopPod" } } } }, "404": { "$ref": "#/components/responses/Error" }, "500": { "$ref": "#/components/responses/Error" } }
+      },
       "put": {
-        "operationId": "selectDesktopContext",
-        "summary": "Select current local desktop context",
-        "description": "Selects a context from the local context store as the launcher default. This does not start a dashboard session or return private key material.",
-        "tags": [
-          "Contexts"
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SelectDesktopContextRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Selected local desktop context",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DesktopContext"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "500": {
-            "$ref": "#/components/responses/Error"
-          }
-        }
-      }
-    },
-    "/desktop/views": {
-      "get": {
-        "operationId": "listDesktopViews",
-        "summary": "List desktop views",
-        "description": "Lists views registered by the local desktop app, such as Admin and Play. This list is local to Wails and does not come from a GizClaw server.",
-        "tags": [
-          "Views"
-        ],
-        "responses": {
-          "200": {
-            "description": "Available desktop views",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DesktopViewList"
-                }
-              }
-            }
-          },
-          "500": {
-            "$ref": "#/components/responses/Error"
-          }
-        }
-      }
-    },
-    "/desktop/view-session": {
-      "get": {
-        "operationId": "getDesktopViewSession",
-        "summary": "Get active desktop view session",
-        "description": "Returns active dashboard session metadata. If there is no active session, active is false.",
-        "tags": [
-          "Views"
-        ],
-        "responses": {
-          "200": {
-            "description": "Active desktop view session state",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DesktopViewSession"
-                }
-              }
-            }
-          },
-          "500": {
-            "$ref": "#/components/responses/Error"
-          }
-        }
-      },
-      "post": {
-        "operationId": "startDesktopViewSession",
-        "summary": "Start a desktop view session",
-        "description": "Starts a dashboard session for the selected local context and view. This operation records session state only; private runtime material is injected when the selected view page is served, not returned by this API. This operation does not contact a GizClaw server.",
-        "tags": [
-          "Views"
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/StartDesktopViewSessionRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Started desktop view session",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DesktopViewSession"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "500": {
-            "$ref": "#/components/responses/Error"
-          }
-        }
+        "operationId": "updateDesktopPod",
+        "tags": ["Pods"],
+        "summary": "Update and rematerialize a Pod",
+        "description": "Omitted secret properties preserve stored values; an explicitly empty secret removes it.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PodInput" } } } },
+        "responses": { "200": { "description": "Updated Pod", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DesktopPod" } } } }, "400": { "$ref": "#/components/responses/Error" }, "404": { "$ref": "#/components/responses/Error" }, "500": { "$ref": "#/components/responses/Error" } }
       },
       "delete": {
-        "operationId": "endDesktopViewSession",
-        "summary": "End the active desktop view session",
-        "description": "Signs out of the current dashboard session and returns the app to the Welcome page. This clears only the active session; it must not delete or reset stored contexts or identities.",
-        "tags": [
-          "Views"
-        ],
-        "responses": {
-          "200": {
-            "description": "Cleared desktop view session",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DesktopViewSession"
-                }
+        "operationId": "deleteDesktopPod",
+        "tags": ["Pods"],
+        "summary": "Stop, clean up, and delete a Pod",
+        "responses": { "204": { "description": "Deleted" }, "404": { "$ref": "#/components/responses/Error" }, "500": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/desktop/pods/{pod_id}/health": {
+      "parameters": [{ "$ref": "#/components/parameters/PodId" }],
+      "post": {
+        "operationId": "refreshDesktopPodHealth",
+        "tags": ["Pods"],
+        "summary": "Probe all applicable server-info endpoints",
+        "responses": { "200": { "description": "Pod with refreshed health", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DesktopPod" } } } }, "404": { "$ref": "#/components/responses/Error" }, "500": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/desktop/pods/{pod_id}/reveal": {
+      "parameters": [{ "$ref": "#/components/parameters/PodId" }],
+      "post": {
+        "operationId": "revealDesktopPod",
+        "tags": ["Pods"],
+        "summary": "Reveal a Pod directory in the system file manager",
+        "responses": { "204": { "description": "Reveal requested" }, "404": { "$ref": "#/components/responses/Error" }, "500": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/desktop/pods/{pod_id}/local-server/start": {
+      "parameters": [{ "$ref": "#/components/parameters/PodId" }],
+      "post": {
+        "operationId": "startDesktopLocalServer",
+        "tags": ["Local server"],
+        "summary": "Start a local Pod server",
+        "responses": { "200": { "description": "Updated local Pod", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DesktopPod" } } } }, "400": { "$ref": "#/components/responses/Error" }, "404": { "$ref": "#/components/responses/Error" }, "500": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/desktop/pods/{pod_id}/local-server/stop": {
+      "parameters": [{ "$ref": "#/components/parameters/PodId" }],
+      "post": {
+        "operationId": "stopDesktopLocalServer",
+        "tags": ["Local server"],
+        "summary": "Stop a local Pod server",
+        "responses": { "200": { "description": "Updated local Pod", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DesktopPod" } } } }, "400": { "$ref": "#/components/responses/Error" }, "404": { "$ref": "#/components/responses/Error" }, "500": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/desktop/pods/{pod_id}/local-server/restart": {
+      "parameters": [{ "$ref": "#/components/parameters/PodId" }],
+      "post": {
+        "operationId": "restartDesktopLocalServer",
+        "tags": ["Local server"],
+        "summary": "Restart a local Pod server",
+        "responses": { "200": { "description": "Updated local Pod", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DesktopPod" } } } }, "400": { "$ref": "#/components/responses/Error" }, "404": { "$ref": "#/components/responses/Error" }, "500": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/desktop/pods/{pod_id}/admin": {
+      "parameters": [{ "$ref": "#/components/parameters/PodId" }],
+      "post": {
+        "operationId": "openDesktopAdmin",
+        "tags": ["Browser UI"],
+        "summary": "Open Admin in the system browser",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "server_id": { "type": "string" } }
               }
             }
-          },
-          "500": {
-            "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "responses": { "204": { "description": "Browser launch requested" }, "400": { "$ref": "#/components/responses/Error" }, "404": { "$ref": "#/components/responses/Error" }, "500": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/desktop/pods/{pod_id}/play": {
+      "parameters": [{ "$ref": "#/components/parameters/PodId" }],
+      "post": {
+        "operationId": "openDesktopPlay",
+        "tags": ["Browser UI"],
+        "summary": "Open Play in the system browser",
+        "responses": { "204": { "description": "Browser launch requested" }, "400": { "$ref": "#/components/responses/Error" }, "404": { "$ref": "#/components/responses/Error" }, "500": { "$ref": "#/components/responses/Error" } }
       }
     }
   },
   "components": {
+    "parameters": {
+      "PodId": { "name": "pod_id", "in": "path", "required": true, "schema": { "type": "string", "maxLength": 64, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" } }
+    },
     "responses": {
-      "Error": {
-        "description": "Desktop local API error",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "./shared.json#/components/schemas/ErrorResponse"
-            }
-          }
-        }
-      }
+      "Error": { "description": "Operation failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
     },
     "schemas": {
-      "DesktopViewID": {
-        "type": "string",
-        "enum": [
-          "admin",
-          "play"
+      "Error": { "type": "object", "required": ["message"], "properties": { "message": { "type": "string" } } },
+      "DesktopBootstrap": { "type": "object", "required": ["pods"], "properties": { "pods": { "type": "array", "items": { "$ref": "#/components/schemas/DesktopPod" } } } },
+      "DesktopPod": {
+        "type": "object",
+        "required": ["id", "name", "mode", "valid", "play_configured"],
+        "properties": {
+          "id": { "type": "string" }, "name": { "type": "string" }, "description": { "type": "string" },
+          "mode": { "type": "string", "enum": ["local", "remote", "invalid"] }, "valid": { "type": "boolean" }, "error": { "type": "string" }, "play_configured": { "type": "boolean" },
+          "local": { "$ref": "#/components/schemas/DesktopLocalPod" }, "remote": { "$ref": "#/components/schemas/DesktopRemotePod" }
+        }
+      },
+      "DesktopLocalPod": {
+        "type": "object", "required": ["port", "lan_addresses", "admin_configured", "process", "health"],
+        "properties": { "port": { "type": "integer", "minimum": 1, "maximum": 65535 }, "lan_addresses": { "type": "array", "items": { "type": "string" } }, "admin_configured": { "type": "boolean" }, "process": { "$ref": "#/components/schemas/LocalServerProcess" }, "health": { "$ref": "#/components/schemas/EndpointHealth" } }
+      },
+      "DesktopRemotePod": {
+        "type": "object", "required": ["access_point", "servers"],
+        "properties": { "access_point": { "$ref": "#/components/schemas/EndpointHealth" }, "servers": { "type": "array", "items": { "$ref": "#/components/schemas/DesktopServer" } } }
+      },
+      "DesktopServer": {
+        "type": "object", "required": ["id", "name", "endpoint", "admin_configured", "health"],
+        "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "endpoint": { "type": "string" }, "admin_configured": { "type": "boolean" }, "health": { "$ref": "#/components/schemas/EndpointHealth" } }
+      },
+      "EndpointHealth": {
+        "type": "object", "required": ["endpoint", "state"],
+        "properties": { "endpoint": { "type": "string" }, "state": { "type": "string", "enum": ["checking", "reachable", "unreachable", "invalid-response"] }, "checked_at": { "type": "string", "format": "date-time" }, "message": { "type": "string" } }
+      },
+      "LocalServerProcess": {
+        "type": "object", "required": ["state"],
+        "properties": { "state": { "type": "string", "enum": ["stopped", "running", "stopping", "failed"] }, "pid": { "type": "integer" }, "logs": { "type": "array", "items": { "type": "string" } }, "error": { "type": "string" } }
+      },
+      "PodInput": {
+        "type": "object", "required": ["version", "id", "name"],
+        "properties": {
+          "version": { "type": "integer", "enum": [1] }, "id": { "type": "string", "maxLength": 64, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" }, "name": { "type": "string" }, "description": { "type": "string" },
+          "local_server": { "$ref": "#/components/schemas/LocalServerInput" }, "remote_servers": { "type": "array", "items": { "$ref": "#/components/schemas/RemoteServerInput" } },
+          "remote_access_point": { "type": "string" }, "client_private_key": { "type": "string", "writeOnly": true }
+        },
+        "oneOf": [
+          { "required": ["local_server"], "not": { "anyOf": [{ "required": ["remote_servers"] }, { "required": ["remote_access_point"] }] } },
+          { "required": ["remote_servers", "remote_access_point"], "not": { "required": ["local_server"] } }
         ]
       },
-      "DesktopView": {
-        "type": "object",
-        "required": [
-          "id",
-          "title"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "$ref": "#/components/schemas/DesktopViewID"
-          },
-          "title": {
-            "type": "string",
-            "minLength": 1
-          },
-          "description": {
-            "type": "string"
-          }
-        }
+      "LocalServerInput": {
+        "type": "object", "required": ["port"],
+        "properties": { "port": { "type": "integer", "minimum": 0, "maximum": 65535, "description": "Zero selects an available port when creating a Pod." }, "admin_private_key": { "type": "string", "writeOnly": true } }
       },
-      "DesktopViewList": {
-        "type": "object",
-        "required": [
-          "items"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DesktopView"
-            }
-          }
-        }
-      },
-      "DesktopContext": {
-        "type": "object",
-        "description": "Local desktop context metadata. This is the REST resource returned by context list/create/select operations and does not contain private key material.",
-        "required": [
-          "current",
-          "endpoint",
-          "name"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "current": {
-            "type": "boolean"
-          },
-          "description": {
-            "type": "string"
-          },
-          "endpoint": {
-            "type": "string",
-            "description": "GizClaw server endpoint in host:port form, without scheme.",
-            "example": "127.0.0.1:9820"
-          },
-          "local_public_key": {
-            "type": "string",
-            "description": "Public key derived from the local context identity."
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1
-          }
-        }
-      },
-      "DesktopContextList": {
-        "type": "object",
-        "required": [
-          "items"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DesktopContext"
-            }
-          }
-        }
-      },
-      "CreateDesktopContextRequest": {
-        "type": "object",
-        "required": [
-          "endpoint",
-          "name"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "description": {
-            "type": "string"
-          },
-          "endpoint": {
-            "type": "string",
-            "description": "GizClaw server endpoint in host:port form, without scheme.",
-            "example": "127.0.0.1:9820"
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1
-          }
-        }
-      },
-      "SelectDesktopContextRequest": {
-        "type": "object",
-        "required": [
-          "context_name"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "context_name": {
-            "type": "string",
-            "minLength": 1
-          }
-        }
-      },
-      "DesktopInjectedRuntime": {
-        "type": "object",
-        "description": "Runtime connection material injected when serving the selected dashboard view page. This schema is for generated frontend types only and is not returned by a REST endpoint. The private key is for in-memory WebRTC use and must not be persisted in browser storage.",
-        "required": [
-          "context",
-          "private_key_base64"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "context": {
-            "$ref": "#/components/schemas/DesktopContext"
-          },
-          "private_key_base64": {
-            "type": "string",
-            "description": "Base64-encoded local private key for in-memory frontend use. This value must not be persisted in browser storage.",
-            "format": "byte"
-          }
-        }
-      },
-      "DesktopAppState": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "last_context": {
-            "type": "string",
-            "description": "Optional launcher default. This is not an active session."
-          },
-          "last_view": {
-            "$ref": "#/components/schemas/DesktopViewID"
-          }
-        }
-      },
-      "StartDesktopViewSessionRequest": {
-        "type": "object",
-        "required": [
-          "context_name",
-          "view"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "context_name": {
-            "type": "string",
-            "minLength": 1
-          },
-          "view": {
-            "$ref": "#/components/schemas/DesktopViewID"
-          }
-        }
-      },
-      "DesktopViewSession": {
-        "type": "object",
-        "description": "Current dashboard session metadata. A session is created by selecting a context and view, and is cleared by sign out without deleting the underlying DesktopContext. Private runtime material is injected when serving the selected dashboard view page and is not part of this REST resource.",
-        "required": [
-          "active"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "active": {
-            "type": "boolean"
-          },
-          "context_name": {
-            "type": "string"
-          },
-          "view": {
-            "$ref": "#/components/schemas/DesktopViewID"
-          }
-        }
-      },
-      "DesktopBootstrap": {
-        "type": "object",
-        "required": [
-          "contexts",
-          "state",
-          "views",
-          "view_session"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "contexts": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DesktopContext"
-            }
-          },
-          "state": {
-            "$ref": "#/components/schemas/DesktopAppState"
-          },
-          "views": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DesktopView"
-            }
-          },
-          "view_session": {
-            "$ref": "#/components/schemas/DesktopViewSession"
-          }
-        }
+      "RemoteServerInput": {
+        "type": "object", "required": ["id", "name", "endpoint"],
+        "properties": { "id": { "type": "string", "maxLength": 64, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" }, "name": { "type": "string" }, "endpoint": { "type": "string" }, "admin_private_key": { "type": "string", "writeOnly": true } }
       }
     }
   }

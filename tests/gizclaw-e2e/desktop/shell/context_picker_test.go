@@ -8,7 +8,7 @@ import (
 	desktop "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/desktop"
 )
 
-func TestDesktopContextPickerCreatesAndSelectsContext(t *testing.T) {
+func TestDesktopPodStoreMaterializesContexts(t *testing.T) {
 	h := desktop.NewHarnessForShell(t)
-	h.RunForShell(t, h.WailsDir(), "go", "test", "-run", "TestContextBridgeCreateContext", "./internal/bridge")
+	h.RunForShell(t, h.WailsDir(), "go", "test", "-run", "TestStore(Local|Remote)Pod", "./internal/appconfig")
 }

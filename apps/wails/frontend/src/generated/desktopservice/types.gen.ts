@@ -4,103 +4,111 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
-export type DesktopViewId = 'admin' | 'play';
-
-export type DesktopView = {
-    id: DesktopViewId;
-    title: string;
-    description?: string;
-};
-
-export type DesktopViewList = {
-    items: Array<DesktopView>;
-};
-
-/**
- * Local desktop context metadata. This is the REST resource returned by context list/create/select operations and does not contain private key material.
- */
-export type DesktopContext = {
-    current: boolean;
-    description?: string;
-    /**
-     * GizClaw server endpoint in host:port form, without scheme.
-     */
-    endpoint: string;
-    /**
-     * Public key derived from the local context identity.
-     */
-    local_public_key?: string;
-    name: string;
-};
-
-export type DesktopContextList = {
-    items: Array<DesktopContext>;
-};
-
-export type CreateDesktopContextRequest = {
-    description?: string;
-    /**
-     * GizClaw server endpoint in host:port form, without scheme.
-     */
-    endpoint: string;
-    name: string;
-};
-
-export type SelectDesktopContextRequest = {
-    context_name: string;
-};
-
-/**
- * Runtime connection material injected when serving the selected dashboard view page. This schema is for generated frontend types only and is not returned by a REST endpoint. The private key is for in-memory WebRTC use and must not be persisted in browser storage.
- */
-export type DesktopInjectedRuntime = {
-    context: DesktopContext;
-    /**
-     * Base64-encoded local private key for in-memory frontend use. This value must not be persisted in browser storage.
-     */
-    private_key_base64: string;
-};
-
-export type DesktopAppState = {
-    /**
-     * Optional launcher default. This is not an active session.
-     */
-    last_context?: string;
-    last_view?: DesktopViewId;
-};
-
-export type StartDesktopViewSessionRequest = {
-    context_name: string;
-    view: DesktopViewId;
-};
-
-/**
- * Current dashboard session metadata. A session is created by selecting a context and view, and is cleared by sign out without deleting the underlying DesktopContext. Private runtime material is injected when serving the selected dashboard view page and is not part of this REST resource.
- */
-export type DesktopViewSession = {
-    active: boolean;
-    context_name?: string;
-    view?: DesktopViewId;
+export type Error = {
+    message: string;
 };
 
 export type DesktopBootstrap = {
-    contexts: Array<DesktopContext>;
-    state: DesktopAppState;
-    views: Array<DesktopView>;
-    view_session: DesktopViewSession;
+    pods: Array<DesktopPod>;
 };
 
-export type ErrorPayload = {
-    code: string;
-    message: string;
-    details?: {
-        [key: string]: unknown;
-    };
+export type DesktopPod = {
+    id: string;
+    name: string;
+    description?: string;
+    mode: 'local' | 'remote' | 'invalid';
+    valid: boolean;
+    error?: string;
+    play_configured: boolean;
+    local?: DesktopLocalPod;
+    remote?: DesktopRemotePod;
 };
 
-export type ErrorResponse = {
-    error: ErrorPayload;
+export type DesktopLocalPod = {
+    port: number;
+    lan_addresses: Array<string>;
+    admin_configured: boolean;
+    process: LocalServerProcess;
+    health: EndpointHealth;
 };
+
+export type DesktopRemotePod = {
+    access_point: EndpointHealth;
+    servers: Array<DesktopServer>;
+};
+
+export type DesktopServer = {
+    id: string;
+    name: string;
+    endpoint: string;
+    admin_configured: boolean;
+    health: EndpointHealth;
+};
+
+export type EndpointHealth = {
+    endpoint: string;
+    state: 'checking' | 'reachable' | 'unreachable' | 'invalid-response';
+    checked_at?: string;
+    message?: string;
+};
+
+export type LocalServerProcess = {
+    state: 'stopped' | 'running' | 'stopping' | 'failed';
+    pid?: number;
+    logs?: Array<string>;
+    error?: string;
+};
+
+export type PodInput = unknown & {
+    version: 1;
+    id: string;
+    name: string;
+    description?: string;
+    local_server?: LocalServerInput;
+    remote_servers?: Array<RemoteServerInput>;
+    remote_access_point?: string;
+};
+
+export type LocalServerInput = {
+    /**
+     * Zero selects an available port when creating a Pod.
+     */
+    port: number;
+};
+
+export type RemoteServerInput = {
+    id: string;
+    name: string;
+    endpoint: string;
+};
+
+export type PodInputWritable = unknown & {
+    version: 1;
+    id: string;
+    name: string;
+    description?: string;
+    local_server?: LocalServerInputWritable;
+    remote_servers?: Array<RemoteServerInputWritable>;
+    remote_access_point?: string;
+    client_private_key?: string;
+};
+
+export type LocalServerInputWritable = {
+    /**
+     * Zero selects an available port when creating a Pod.
+     */
+    port: number;
+    admin_private_key?: string;
+};
+
+export type RemoteServerInputWritable = {
+    id: string;
+    name: string;
+    endpoint: string;
+    admin_private_key?: string;
+};
+
+export type PodId = string;
 
 export type GetDesktopBootstrapData = {
     body?: never;
@@ -111,217 +119,412 @@ export type GetDesktopBootstrapData = {
 
 export type GetDesktopBootstrapErrors = {
     /**
-     * Desktop local API error
+     * Operation failed
      */
-    500: ErrorResponse;
+    500: Error;
 };
 
 export type GetDesktopBootstrapError = GetDesktopBootstrapErrors[keyof GetDesktopBootstrapErrors];
 
 export type GetDesktopBootstrapResponses = {
     /**
-     * Desktop bootstrap state
+     * Desktop state
      */
     200: DesktopBootstrap;
 };
 
 export type GetDesktopBootstrapResponse = GetDesktopBootstrapResponses[keyof GetDesktopBootstrapResponses];
 
-export type ListDesktopContextsData = {
+export type ListDesktopPodsData = {
     body?: never;
     path?: never;
     query?: never;
-    url: '/desktop/contexts';
+    url: '/desktop/pods';
 };
 
-export type ListDesktopContextsErrors = {
+export type ListDesktopPodsErrors = {
     /**
-     * Desktop local API error
+     * Operation failed
      */
-    500: ErrorResponse;
+    500: Error;
 };
 
-export type ListDesktopContextsError = ListDesktopContextsErrors[keyof ListDesktopContextsErrors];
+export type ListDesktopPodsError = ListDesktopPodsErrors[keyof ListDesktopPodsErrors];
 
-export type ListDesktopContextsResponses = {
+export type ListDesktopPodsResponses = {
     /**
-     * Local desktop contexts
+     * Pods
      */
-    200: DesktopContextList;
+    200: Array<DesktopPod>;
 };
 
-export type ListDesktopContextsResponse = ListDesktopContextsResponses[keyof ListDesktopContextsResponses];
+export type ListDesktopPodsResponse = ListDesktopPodsResponses[keyof ListDesktopPodsResponses];
 
-export type CreateDesktopContextData = {
-    body: CreateDesktopContextRequest;
+export type CreateDesktopPodData = {
+    body: PodInputWritable;
     path?: never;
     query?: never;
-    url: '/desktop/contexts';
+    url: '/desktop/pods';
 };
 
-export type CreateDesktopContextErrors = {
+export type CreateDesktopPodErrors = {
     /**
-     * Desktop local API error
+     * Operation failed
      */
-    400: ErrorResponse;
+    400: Error;
     /**
-     * Desktop local API error
+     * Operation failed
      */
-    409: ErrorResponse;
+    409: Error;
     /**
-     * Desktop local API error
+     * Operation failed
      */
-    500: ErrorResponse;
+    500: Error;
 };
 
-export type CreateDesktopContextError = CreateDesktopContextErrors[keyof CreateDesktopContextErrors];
+export type CreateDesktopPodError = CreateDesktopPodErrors[keyof CreateDesktopPodErrors];
 
-export type CreateDesktopContextResponses = {
+export type CreateDesktopPodResponses = {
     /**
-     * Created local desktop context
+     * Created Pod
      */
-    201: DesktopContext;
+    201: DesktopPod;
 };
 
-export type CreateDesktopContextResponse = CreateDesktopContextResponses[keyof CreateDesktopContextResponses];
+export type CreateDesktopPodResponse = CreateDesktopPodResponses[keyof CreateDesktopPodResponses];
 
-export type SelectDesktopContextData = {
-    body: SelectDesktopContextRequest;
-    path?: never;
-    query?: never;
-    url: '/desktop/contexts/current';
-};
-
-export type SelectDesktopContextErrors = {
-    /**
-     * Desktop local API error
-     */
-    400: ErrorResponse;
-    /**
-     * Desktop local API error
-     */
-    404: ErrorResponse;
-    /**
-     * Desktop local API error
-     */
-    500: ErrorResponse;
-};
-
-export type SelectDesktopContextError = SelectDesktopContextErrors[keyof SelectDesktopContextErrors];
-
-export type SelectDesktopContextResponses = {
-    /**
-     * Selected local desktop context
-     */
-    200: DesktopContext;
-};
-
-export type SelectDesktopContextResponse = SelectDesktopContextResponses[keyof SelectDesktopContextResponses];
-
-export type ListDesktopViewsData = {
+export type DeleteDesktopPodData = {
     body?: never;
-    path?: never;
+    path: {
+        pod_id: string;
+    };
     query?: never;
-    url: '/desktop/views';
+    url: '/desktop/pods/{pod_id}';
 };
 
-export type ListDesktopViewsErrors = {
+export type DeleteDesktopPodErrors = {
     /**
-     * Desktop local API error
+     * Operation failed
      */
-    500: ErrorResponse;
-};
-
-export type ListDesktopViewsError = ListDesktopViewsErrors[keyof ListDesktopViewsErrors];
-
-export type ListDesktopViewsResponses = {
+    404: Error;
     /**
-     * Available desktop views
+     * Operation failed
      */
-    200: DesktopViewList;
+    500: Error;
 };
 
-export type ListDesktopViewsResponse = ListDesktopViewsResponses[keyof ListDesktopViewsResponses];
+export type DeleteDesktopPodError = DeleteDesktopPodErrors[keyof DeleteDesktopPodErrors];
 
-export type EndDesktopViewSessionData = {
+export type DeleteDesktopPodResponses = {
+    /**
+     * Deleted
+     */
+    204: void;
+};
+
+export type DeleteDesktopPodResponse = DeleteDesktopPodResponses[keyof DeleteDesktopPodResponses];
+
+export type GetDesktopPodData = {
     body?: never;
-    path?: never;
+    path: {
+        pod_id: string;
+    };
     query?: never;
-    url: '/desktop/view-session';
+    url: '/desktop/pods/{pod_id}';
 };
 
-export type EndDesktopViewSessionErrors = {
+export type GetDesktopPodErrors = {
     /**
-     * Desktop local API error
+     * Operation failed
      */
-    500: ErrorResponse;
-};
-
-export type EndDesktopViewSessionError = EndDesktopViewSessionErrors[keyof EndDesktopViewSessionErrors];
-
-export type EndDesktopViewSessionResponses = {
+    404: Error;
     /**
-     * Cleared desktop view session
+     * Operation failed
      */
-    200: DesktopViewSession;
+    500: Error;
 };
 
-export type EndDesktopViewSessionResponse = EndDesktopViewSessionResponses[keyof EndDesktopViewSessionResponses];
+export type GetDesktopPodError = GetDesktopPodErrors[keyof GetDesktopPodErrors];
 
-export type GetDesktopViewSessionData = {
+export type GetDesktopPodResponses = {
+    /**
+     * Pod
+     */
+    200: DesktopPod;
+};
+
+export type GetDesktopPodResponse = GetDesktopPodResponses[keyof GetDesktopPodResponses];
+
+export type UpdateDesktopPodData = {
+    body: PodInputWritable;
+    path: {
+        pod_id: string;
+    };
+    query?: never;
+    url: '/desktop/pods/{pod_id}';
+};
+
+export type UpdateDesktopPodErrors = {
+    /**
+     * Operation failed
+     */
+    400: Error;
+    /**
+     * Operation failed
+     */
+    404: Error;
+    /**
+     * Operation failed
+     */
+    500: Error;
+};
+
+export type UpdateDesktopPodError = UpdateDesktopPodErrors[keyof UpdateDesktopPodErrors];
+
+export type UpdateDesktopPodResponses = {
+    /**
+     * Updated Pod
+     */
+    200: DesktopPod;
+};
+
+export type UpdateDesktopPodResponse = UpdateDesktopPodResponses[keyof UpdateDesktopPodResponses];
+
+export type RefreshDesktopPodHealthData = {
     body?: never;
-    path?: never;
+    path: {
+        pod_id: string;
+    };
     query?: never;
-    url: '/desktop/view-session';
+    url: '/desktop/pods/{pod_id}/health';
 };
 
-export type GetDesktopViewSessionErrors = {
+export type RefreshDesktopPodHealthErrors = {
     /**
-     * Desktop local API error
+     * Operation failed
      */
-    500: ErrorResponse;
-};
-
-export type GetDesktopViewSessionError = GetDesktopViewSessionErrors[keyof GetDesktopViewSessionErrors];
-
-export type GetDesktopViewSessionResponses = {
+    404: Error;
     /**
-     * Active desktop view session state
+     * Operation failed
      */
-    200: DesktopViewSession;
+    500: Error;
 };
 
-export type GetDesktopViewSessionResponse = GetDesktopViewSessionResponses[keyof GetDesktopViewSessionResponses];
+export type RefreshDesktopPodHealthError = RefreshDesktopPodHealthErrors[keyof RefreshDesktopPodHealthErrors];
 
-export type StartDesktopViewSessionData = {
-    body: StartDesktopViewSessionRequest;
-    path?: never;
+export type RefreshDesktopPodHealthResponses = {
+    /**
+     * Pod with refreshed health
+     */
+    200: DesktopPod;
+};
+
+export type RefreshDesktopPodHealthResponse = RefreshDesktopPodHealthResponses[keyof RefreshDesktopPodHealthResponses];
+
+export type RevealDesktopPodData = {
+    body?: never;
+    path: {
+        pod_id: string;
+    };
     query?: never;
-    url: '/desktop/view-session';
+    url: '/desktop/pods/{pod_id}/reveal';
 };
 
-export type StartDesktopViewSessionErrors = {
+export type RevealDesktopPodErrors = {
     /**
-     * Desktop local API error
+     * Operation failed
      */
-    400: ErrorResponse;
+    404: Error;
     /**
-     * Desktop local API error
+     * Operation failed
      */
-    404: ErrorResponse;
-    /**
-     * Desktop local API error
-     */
-    500: ErrorResponse;
+    500: Error;
 };
 
-export type StartDesktopViewSessionError = StartDesktopViewSessionErrors[keyof StartDesktopViewSessionErrors];
+export type RevealDesktopPodError = RevealDesktopPodErrors[keyof RevealDesktopPodErrors];
 
-export type StartDesktopViewSessionResponses = {
+export type RevealDesktopPodResponses = {
     /**
-     * Started desktop view session
+     * Reveal requested
      */
-    200: DesktopViewSession;
+    204: void;
 };
 
-export type StartDesktopViewSessionResponse = StartDesktopViewSessionResponses[keyof StartDesktopViewSessionResponses];
+export type RevealDesktopPodResponse = RevealDesktopPodResponses[keyof RevealDesktopPodResponses];
+
+export type StartDesktopLocalServerData = {
+    body?: never;
+    path: {
+        pod_id: string;
+    };
+    query?: never;
+    url: '/desktop/pods/{pod_id}/local-server/start';
+};
+
+export type StartDesktopLocalServerErrors = {
+    /**
+     * Operation failed
+     */
+    400: Error;
+    /**
+     * Operation failed
+     */
+    404: Error;
+    /**
+     * Operation failed
+     */
+    500: Error;
+};
+
+export type StartDesktopLocalServerError = StartDesktopLocalServerErrors[keyof StartDesktopLocalServerErrors];
+
+export type StartDesktopLocalServerResponses = {
+    /**
+     * Updated local Pod
+     */
+    200: DesktopPod;
+};
+
+export type StartDesktopLocalServerResponse = StartDesktopLocalServerResponses[keyof StartDesktopLocalServerResponses];
+
+export type StopDesktopLocalServerData = {
+    body?: never;
+    path: {
+        pod_id: string;
+    };
+    query?: never;
+    url: '/desktop/pods/{pod_id}/local-server/stop';
+};
+
+export type StopDesktopLocalServerErrors = {
+    /**
+     * Operation failed
+     */
+    400: Error;
+    /**
+     * Operation failed
+     */
+    404: Error;
+    /**
+     * Operation failed
+     */
+    500: Error;
+};
+
+export type StopDesktopLocalServerError = StopDesktopLocalServerErrors[keyof StopDesktopLocalServerErrors];
+
+export type StopDesktopLocalServerResponses = {
+    /**
+     * Updated local Pod
+     */
+    200: DesktopPod;
+};
+
+export type StopDesktopLocalServerResponse = StopDesktopLocalServerResponses[keyof StopDesktopLocalServerResponses];
+
+export type RestartDesktopLocalServerData = {
+    body?: never;
+    path: {
+        pod_id: string;
+    };
+    query?: never;
+    url: '/desktop/pods/{pod_id}/local-server/restart';
+};
+
+export type RestartDesktopLocalServerErrors = {
+    /**
+     * Operation failed
+     */
+    400: Error;
+    /**
+     * Operation failed
+     */
+    404: Error;
+    /**
+     * Operation failed
+     */
+    500: Error;
+};
+
+export type RestartDesktopLocalServerError = RestartDesktopLocalServerErrors[keyof RestartDesktopLocalServerErrors];
+
+export type RestartDesktopLocalServerResponses = {
+    /**
+     * Updated local Pod
+     */
+    200: DesktopPod;
+};
+
+export type RestartDesktopLocalServerResponse = RestartDesktopLocalServerResponses[keyof RestartDesktopLocalServerResponses];
+
+export type OpenDesktopAdminData = {
+    body?: {
+        server_id?: string;
+    };
+    path: {
+        pod_id: string;
+    };
+    query?: never;
+    url: '/desktop/pods/{pod_id}/admin';
+};
+
+export type OpenDesktopAdminErrors = {
+    /**
+     * Operation failed
+     */
+    400: Error;
+    /**
+     * Operation failed
+     */
+    404: Error;
+    /**
+     * Operation failed
+     */
+    500: Error;
+};
+
+export type OpenDesktopAdminError = OpenDesktopAdminErrors[keyof OpenDesktopAdminErrors];
+
+export type OpenDesktopAdminResponses = {
+    /**
+     * Browser launch requested
+     */
+    204: void;
+};
+
+export type OpenDesktopAdminResponse = OpenDesktopAdminResponses[keyof OpenDesktopAdminResponses];
+
+export type OpenDesktopPlayData = {
+    body?: never;
+    path: {
+        pod_id: string;
+    };
+    query?: never;
+    url: '/desktop/pods/{pod_id}/play';
+};
+
+export type OpenDesktopPlayErrors = {
+    /**
+     * Operation failed
+     */
+    400: Error;
+    /**
+     * Operation failed
+     */
+    404: Error;
+    /**
+     * Operation failed
+     */
+    500: Error;
+};
+
+export type OpenDesktopPlayError = OpenDesktopPlayErrors[keyof OpenDesktopPlayErrors];
+
+export type OpenDesktopPlayResponses = {
+    /**
+     * Browser launch requested
+     */
+    204: void;
+};
+
+export type OpenDesktopPlayResponse = OpenDesktopPlayResponses[keyof OpenDesktopPlayResponses];
