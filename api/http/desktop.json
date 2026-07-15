@@ -372,7 +372,7 @@
           "admin_configured": { "type": "boolean" },
           "admin_public_key": {
             "type": "string",
-            "description": "Public half of the desktop-local Admin identity to install on the target Server."
+            "description": "Public half derived from the Server-configured Admin private key."
           },
           "health": { "$ref": "#/components/schemas/EndpointHealth" }
         }
@@ -467,7 +467,11 @@
           },
           "name": { "type": "string" },
           "endpoint": { "type": "string" },
-          "admin_private_key": { "type": "string", "writeOnly": true }
+          "admin_private_key": {
+            "type": "string",
+            "writeOnly": true,
+            "description": "Admin private key configured for this Server. Omit it during update to preserve the stored key."
+          }
         }
       }
     }

@@ -50,7 +50,7 @@ export type DesktopServer = {
     endpoint: string;
     admin_configured: boolean;
     /**
-     * Public half of the desktop-local Admin identity to install on the target Server.
+     * Public half derived from the Server-configured Admin private key.
      */
     admin_public_key?: string;
     health: EndpointHealth;
@@ -120,6 +120,9 @@ export type RemoteServerInputWritable = {
     id?: string;
     name?: string;
     endpoint: string;
+    /**
+     * Admin private key configured for this Server. Omit it during update to preserve the stored key.
+     */
     admin_private_key?: string;
 };
 

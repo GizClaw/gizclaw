@@ -177,14 +177,24 @@ test.beforeEach(async ({ page }) => {
               remote: {
                 access_point: health(input.remote_access_point),
                 servers: (input.remote_servers || []).map(
-                  (server, serverIndex) => ({
-                    id: server.id || `server-generated-${serverIndex}`,
-                    name: server.name || server.endpoint,
-                    endpoint: server.endpoint,
-                    admin_configured: true,
-                    admin_public_key: `generated-admin-public-key-${serverIndex}`,
-                    health: health(server.endpoint),
-                  }),
+                  (server, serverIndex) => {
+                    const existing = current.remote?.servers.find(
+                      (candidate) => candidate.id === server.id,
+                    );
+                    const adminConfigured = Boolean(
+                      server.admin_private_key || existing?.admin_configured,
+                    );
+                    return {
+                      id: server.id || `server-generated-${serverIndex}`,
+                      name: server.name || server.endpoint,
+                      endpoint: server.endpoint,
+                      admin_configured: adminConfigured,
+                      admin_public_key: adminConfigured
+                        ? `configured-admin-public-key-${serverIndex}`
+                        : undefined,
+                      health: health(server.endpoint),
+                    };
+                  },
                 ),
               },
             }
@@ -403,12 +413,17 @@ test("Remote creation asks only for an access point and adds Servers later", asy
   ).toBeVisible();
   await detail.getByRole("button", { name: "Manage Servers" }).click();
   await detail.getByRole("button", { name: "Add Server" }).click();
+  const adminPrivateKey = page.getByLabel("Admin private key");
+  await expect(adminPrivateKey).toHaveAttribute("type", "password");
+  await expect(page.getByText("Admin public key")).toHaveCount(0);
   await page.getByLabel("Server Endpoint").fill("server.example.com:9820");
+  await adminPrivateKey.fill("server-configured-admin-private-key");
   await page.getByRole("button", { name: "Save configuration" }).click();
   await expect(
     detail.getByText("server.example.com:9820").first(),
   ).toBeVisible();
   await expect(detail.getByRole("button", { name: "Admin" })).toBeVisible();
+  await expect(detail.locator(".server-admin-action.configured")).toBeVisible();
 });
 
 test("malformed Pods remain visible and recoverable", async ({ page }) => {

@@ -487,11 +487,6 @@ func ensurePodIdentities(pod *appconfig.Pod) (bool, error) {
 			return false, err
 		}
 	}
-	for i := range pod.RemoteServers {
-		if err := ensure(&pod.RemoteServers[i].AdminPrivateKey); err != nil {
-			return false, err
-		}
-	}
 	return changed, nil
 }
 

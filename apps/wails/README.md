@@ -13,7 +13,7 @@ Pods live under `os.UserConfigDir()/GizClaw/pods/<id>/` by default:
 ├── pod.json
 ├── workspace/                 # local Pods only
 │   └── config.yaml
-├── admin_context/<server-id>/ # generated Admin identity per Server
+├── admin_context/<context-id>/ # projected Admin contexts
 │   └── config.yaml
 └── client_context/            # generated desktop-local Play identity
     └── config.yaml
@@ -32,11 +32,11 @@ desktop-local Play identity. Existing Pods missing these identities are filled
 on desktop bootstrap. The share QR contains only the display name, selected LAN
 endpoint, and Server public key; a scanning client generates its own identity.
 A remote Pod has one `remote_access_point` and zero or more
-`remote_servers`; Servers may be added after the Pod is created. Admin identity
-is generated per Server; the UI exposes its public key for installation in that
-Server's `admin-public-key` configuration while retaining the private half
-locally. The desktop Play identity is generated per Pod. Pod and Server IDs are
-generated as internal identifiers and are not creation-form fields.
+`remote_servers`; Servers may be added after the Pod is created. Each Server's
+Admin private key is supplied by the user and stored write-only; omitting it
+during an edit preserves the existing value. The desktop Play identity is
+generated per Pod. Pod and Server IDs are generated as internal identifiers and
+are not creation-form fields.
 
 Set `GIZCLAW_DESKTOP_CONFIG_HOME` to isolate storage in development or tests.
 Development runs may set `GIZCLAW_DESKTOP_SERVER_EXECUTABLE` or use `gizclaw`

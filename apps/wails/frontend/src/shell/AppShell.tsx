@@ -862,7 +862,9 @@ function VirtualServerList({
             </button>
             <button
               className={`row-action server-admin-action ${server.admin_configured ? "configured" : ""}`}
-              onClick={() => onAdmin(server)}
+              onClick={() =>
+                server.admin_configured ? onAdmin(server) : onEdit(server)
+              }
               title={
                 server.admin_configured ? t("openAdmin") : t("configureAdmin")
               }
@@ -878,7 +880,9 @@ function VirtualServerList({
   );
 }
 
-type EditableServer = Pick<PodServer, "id" | "name" | "endpoint">;
+type EditableServer = Pick<PodServer, "id" | "name" | "endpoint"> & {
+  admin_private_key?: string;
+};
 
 function ServerEditorDialog({
   onClose,
@@ -894,6 +898,7 @@ function ServerEditorDialog({
   const t = useMessages();
   const [name, setName] = useState(server?.name ?? "");
   const [endpoint, setEndpoint] = useState(server?.endpoint ?? "");
+  const [adminPrivateKey, setAdminPrivateKey] = useState("");
   const [saving, setSaving] = useState(false);
   return (
     <div className="nested-dialog-backdrop">
@@ -906,6 +911,7 @@ function ServerEditorDialog({
             id: server?.id ?? "",
             name: name.trim(),
             endpoint: endpoint.trim(),
+            admin_private_key: adminPrivateKey.trim() || undefined,
           }).finally(() => setSaving(false));
         }}
       >
@@ -936,22 +942,18 @@ function ServerEditorDialog({
             value={endpoint}
             wide
           />
-        </div>
-        <div className="generated-admin-key">
-          <div>
-            <small>{t("adminPublicKey")}</small>
-            {server?.admin_public_key ? (
-              <code>{server.admin_public_key}</code>
-            ) : (
-              <span>{t("adminKeyGeneratedAfterSave")}</span>
-            )}
-          </div>
-          {server?.admin_public_key ? (
-            <CopyValueButton
-              label={t("copyAdminPublicKey")}
-              value={server.admin_public_key}
-            />
-          ) : null}
+          <Field
+            label={t("adminPrivateKey")}
+            onChange={setAdminPrivateKey}
+            placeholder={
+              server?.admin_configured
+                ? t("keepAdminPrivateKey")
+                : t("pasteAdminPrivateKey")
+            }
+            secret
+            value={adminPrivateKey}
+            wide
+          />
         </div>
         <footer>
           {onDelete ? (
@@ -991,6 +993,7 @@ function podInputWithServers(
       id: server.id,
       name: server.name,
       endpoint: server.endpoint,
+      admin_private_key: server.admin_private_key,
     })),
   };
 }

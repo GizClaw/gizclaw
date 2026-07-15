@@ -911,35 +911,6 @@ select:focus-visible {
   color: #e0e2e7;
   background: rgba(255, 255, 255, 0.055);
 }
-.generated-admin-key {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  margin-top: 14px;
-  padding: 12px;
-  border-radius: 12px;
-  background: rgba(55, 181, 157, 0.08);
-}
-.generated-admin-key > div {
-  min-width: 0;
-  display: grid;
-  gap: 4px;
-}
-.generated-admin-key small {
-  color: #6ecbb9;
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-.generated-admin-key code,
-.generated-admin-key span {
-  overflow: hidden;
-  color: #9da1aa;
-  font-size: 9px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .access-point {
   display: flex;
   align-items: center;

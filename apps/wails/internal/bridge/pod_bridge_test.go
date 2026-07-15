@@ -157,8 +157,15 @@ func TestPodCreationGeneratesInternalIDsAndAllowsEmptyRemoteInventory(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(updated.Remote.Servers) != 1 || !strings.HasPrefix(updated.Remote.Servers[0].ID, "server-") || updated.Remote.Servers[0].Name != "127.0.0.1:19821" || !updated.Remote.Servers[0].AdminConfigured || updated.Remote.Servers[0].AdminPublicKey == "" {
-		t.Fatalf("generated server = %+v", updated.Remote.Servers)
+	if len(updated.Remote.Servers) != 1 || !strings.HasPrefix(updated.Remote.Servers[0].ID, "server-") || updated.Remote.Servers[0].Name != "127.0.0.1:19821" || updated.Remote.Servers[0].AdminConfigured || updated.Remote.Servers[0].AdminPublicKey != "" {
+		t.Fatalf("Server without configured Admin key = %+v", updated.Remote.Servers)
+	}
+	remotePersisted, err := bridge.Store.Load(remote.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if remotePersisted.RemoteServers[0].AdminPrivateKey != "" {
+		t.Fatal("Remote Server Admin private key was generated instead of remaining unconfigured")
 	}
 	persisted, err := bridge.Store.Load(local.ID)
 	if err != nil {
