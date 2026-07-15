@@ -8,7 +8,12 @@ import '../../identity/app_identity_store.dart';
 import '../../identity/server_qr_payload.dart';
 
 class ServerListPage extends StatefulWidget {
-  const ServerListPage({super.key});
+  const ServerListPage({
+    super.key,
+    this.addServerRoute = '/identity/servers/new',
+  });
+
+  final String addServerRoute;
 
   @override
   State<ServerListPage> createState() => _ServerListPageState();
@@ -45,7 +50,7 @@ class _ServerListPageState extends State<ServerListPage> {
           key: const ValueKey('add-server-page-button'),
           icon: GizIcons.add,
           semanticLabel: 'Add server',
-          onPressed: () => context.push('/identity/servers/new'),
+          onPressed: () => context.push(widget.addServerRoute),
         ),
       ),
       child: SafeArea(
@@ -130,7 +135,12 @@ class _ServerListRow extends StatelessWidget {
 }
 
 class AddServerPage extends StatefulWidget {
-  const AddServerPage({super.key});
+  const AddServerPage({
+    super.key,
+    this.scanServerRoute = '/identity/servers/scan',
+  });
+
+  final String scanServerRoute;
 
   @override
   State<AddServerPage> createState() => _AddServerPageState();
@@ -150,7 +160,7 @@ class _AddServerPageState extends State<AddServerPage> {
   }
 
   Future<void> _scan() async {
-    final server = await context.push<GizClawServer>('/identity/servers/scan');
+    final server = await context.push<GizClawServer>(widget.scanServerRoute);
     if (!mounted || server == null) return;
     setState(() {
       _busy = true;

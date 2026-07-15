@@ -7,6 +7,7 @@ import '../data/mobile_data_controller.dart';
 import '../features/active/active_workspace_page.dart';
 import '../features/chats/chat_pages.dart';
 import '../features/identity/server_pages.dart';
+import '../features/onboarding/server_onboarding_page.dart';
 import '../features/pet/pet_page.dart';
 import '../features/social/social_pages.dart';
 import '../giz_ui/giz_ui.dart';
@@ -16,17 +17,52 @@ GoRouter createAppRouter({required MobileDataController dataController}) {
   final rootNavigatorKey = GlobalKey<NavigatorState>();
   return GoRouter(
     navigatorKey: rootNavigatorKey,
-    initialLocation: dataController.hasActiveServer ? '/active' : '/identity',
+    initialLocation: dataController.hasActiveServer ? '/active' : '/setup',
     refreshListenable: dataController,
     redirect: (context, state) {
-      if (!dataController.hasActiveServer &&
-          !state.uri.path.startsWith('/identity')) {
+      final path = state.uri.path;
+      final inSetup = path == '/setup' || path.startsWith('/setup/');
+      if (!dataController.hasActiveServer && !inSetup) {
+        return '/setup';
+      }
+      if (dataController.hasActiveServer && inSetup) {
         return '/identity';
       }
       return null;
     },
     routes: [
       GoRoute(path: '/', redirect: (_, _) => '/active'),
+      GoRoute(
+        path: '/setup',
+        pageBuilder: (context, state) =>
+            _page(state, const ServerOnboardingPage()),
+        routes: [
+          GoRoute(
+            path: 'servers',
+            parentNavigatorKey: rootNavigatorKey,
+            pageBuilder: (context, state) => _page(
+              state,
+              const ServerListPage(addServerRoute: '/setup/servers/new'),
+            ),
+            routes: [
+              GoRoute(
+                path: 'new',
+                parentNavigatorKey: rootNavigatorKey,
+                pageBuilder: (context, state) => _page(
+                  state,
+                  const AddServerPage(scanServerRoute: '/setup/servers/scan'),
+                ),
+              ),
+              GoRoute(
+                path: 'scan',
+                parentNavigatorKey: rootNavigatorKey,
+                pageBuilder: (context, state) =>
+                    _page(state, const ScanServerQrPage()),
+              ),
+            ],
+          ),
+        ],
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
           return AppShell(

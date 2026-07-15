@@ -10,7 +10,9 @@ import 'package:gizclaw_app/data/mobile_data_controller.dart';
 import 'package:gizclaw_app/data/repositories/workspace_chat_repository.dart';
 import 'package:gizclaw_app/data/workspace_chat_controller.dart';
 import 'package:gizclaw_app/features/identity/server_pages.dart';
+import 'package:gizclaw_app/features/onboarding/server_onboarding_page.dart';
 import 'package:gizclaw_app/giz_ui/giz_ui.dart';
+import 'package:gizclaw_app/identity/app_identity_store.dart';
 import 'package:gizclaw_app/prototype/prototype_data.dart';
 
 AppDatabase _testDatabase() => AppDatabase.forTesting(NativeDatabase.memory());
@@ -102,28 +104,51 @@ void main() {
     expect(primaryNav('Raids'), findsNothing);
   });
 
-  appTestWidgets('locks an unconfigured app on Identity', (tester) async {
+  appTestWidgets('opens an unconfigured app on server onboarding', (
+    tester,
+  ) async {
     await pumpApp(tester, controller: MobileDataController());
 
-    expect(find.byType(MePage), findsOneWidget);
-    expect(
-      tester
-          .widget<GizPageActionButton>(
-            find.byKey(const ValueKey('identity-scan-server-qr')),
-          )
-          .semanticLabel,
-      'Scan server QR code',
-    );
-    expect(find.byKey(const ValueKey('server-setup-required')), findsOneWidget);
-    expect(find.byKey(const ValueKey('server-settings-row')), findsOneWidget);
+    expect(find.byType(ServerOnboardingPage), findsOneWidget);
+    expect(find.text('Your agents, everywhere.'), findsOneWidget);
+    expect(find.text('Agents that feel close'), findsOneWidget);
+    expect(find.byKey(const ValueKey('server-onboarding-cta')), findsOneWidget);
     expect(find.byKey(const ValueKey('primary-nav-scroll')), findsNothing);
     expect(find.byKey(const ValueKey('global-audio-field')), findsNothing);
+  });
+
+  appTestWidgets('opens server choices from onboarding', (tester) async {
+    await pumpApp(tester, controller: MobileDataController());
+
+    await tester.tap(find.byKey(const ValueKey('server-onboarding-cta')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ServerListPage), findsOneWidget);
+    expect(find.text('Development'), findsOneWidget);
+    expect(find.text('Production'), findsOneWidget);
+    expect(find.bySemanticsLabel('Add server'), findsOneWidget);
+  });
+
+  appTestWidgets('leaves onboarding after selecting a server', (tester) async {
+    final controller = _OnboardingServerController();
+    await pumpApp(tester, controller: controller);
+
+    await tester.tap(find.byKey(const ValueKey('server-onboarding-cta')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Development'));
+    await tester.pumpAndSettle();
+
+    expect(controller.activeServer?.name, 'Development');
+    expect(find.byType(MePage), findsOneWidget);
+    expect(find.byType(ServerOnboardingPage), findsNothing);
   });
 
   appTestWidgets('opens the server scanner from the Identity action', (
     tester,
   ) async {
-    await pumpApp(tester, controller: MobileDataController());
+    await pumpApp(tester);
+    await tapPrimaryNav(tester, 'Identity');
+    await tester.pumpAndSettle();
 
     tester
         .widget<GizPageActionButton>(
@@ -712,6 +737,25 @@ class _ServerListTestController extends MobileDataController {
   @override
   Future<void> start() async {
     connectionState = MobileConnectionState.offline;
+    notifyListeners();
+  }
+}
+
+class _OnboardingServerController extends MobileDataController {
+  GizClawServer? _selectedServer;
+
+  @override
+  GizClawServer? get activeServer => _selectedServer;
+
+  @override
+  Future<void> start() async {
+    connectionState = MobileConnectionState.unconfigured;
+    notifyListeners();
+  }
+
+  @override
+  Future<void> selectServer(GizClawServer server) async {
+    _selectedServer = server;
     notifyListeners();
   }
 }
