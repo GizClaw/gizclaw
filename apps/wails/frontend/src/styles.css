@@ -1,3 +1,4 @@
+@import "@fontsource-variable/space-grotesk";
 @import "tailwindcss";
 
 :root {
@@ -101,17 +102,20 @@ button {
   display: flex;
   gap: 8px;
 }
-.home-brand {
-  position: absolute;
-  z-index: 12;
-  top: 14px;
-  left: 76px;
+.home-heading {
+  position: relative;
+  z-index: 2;
+  margin: 0 0 24px;
+  padding-left: 4px;
+}
+.home-title {
+  margin: 0;
   color: rgba(242, 244, 248, 0.9);
-  font-size: 17px;
-  font-weight: 720;
-  letter-spacing: -0.035em;
-  line-height: 24px;
-  pointer-events: none;
+  font-family: "Space Grotesk Variable", "Space Grotesk", sans-serif;
+  font-size: clamp(40px, 4.2vw, 54px);
+  font-variation-settings: "wght" 620;
+  letter-spacing: -0.055em;
+  line-height: 0.96;
 }
 .window-control {
   width: 12px;
@@ -157,11 +161,7 @@ button {
   width: 100%;
   height: 100%;
   overflow: auto;
-  padding: 70px 28px 32px;
-}
-.pod-canvas-empty {
-  display: grid;
-  place-items: center;
+  padding: 76px 28px 32px;
 }
 .pod-grid {
   display: grid;
@@ -1828,7 +1828,7 @@ button:disabled {
       radial-gradient(circle at 18% 88%, #2154ff, transparent 52%),
       linear-gradient(145deg, #0ccbc4, #9b27f2);
   }
-  .home-brand {
+  .home-title {
     color: rgba(31, 32, 38, 0.88);
   }
   .pod-card,
@@ -2021,6 +2021,12 @@ button:disabled {
   .pod-canvas {
     padding-right: 20px;
     padding-left: 20px;
+  }
+  .home-heading {
+    margin-bottom: 20px;
+  }
+  .home-title {
+    font-size: 40px;
   }
   .pod-grid {
     grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));

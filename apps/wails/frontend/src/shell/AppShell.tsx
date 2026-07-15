@@ -142,9 +142,6 @@ export function AppShell() {
       <AmbientBackground />
       <div className="window-drag-surface" data-wails-drag />
       <WindowControls />
-      <div className="home-brand" aria-label="GizClaw">
-        GizClaw
-      </div>
 
       {error ? (
         <div className="error-toast">
@@ -163,6 +160,9 @@ export function AppShell() {
       <section
         className={`pod-canvas ${!loading && pods.length === 0 ? "pod-canvas-empty" : ""}`}
       >
+        <header className="home-heading">
+          <h1 className="home-title">GizClaw</h1>
+        </header>
         <div className="pod-grid" aria-label={t("pods")}>
           <MobileAppCard onOpen={() => setMobileOpen(true)} />
           {loading ? (

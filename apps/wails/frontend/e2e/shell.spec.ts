@@ -515,7 +515,22 @@ test("launcher uses rounded transparent framing and ambient card depth", async (
   expect(shellStyle.width).toBe(shellStyle.viewport);
   expect(shellStyle.margin).toBe("0px");
   expect(shellStyle.shadow).toBe("none");
-  await expect(page.getByText("GizClaw", { exact: true })).toBeVisible();
+  const homeTitle = page.getByRole("heading", { name: "GizClaw" });
+  await expect(homeTitle).toBeVisible();
+  const titleLayout = await homeTitle.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const bounds = element.getBoundingClientRect();
+    const card = document.querySelector(".pod-card, .mobile-app-card");
+    return {
+      bottom: bounds.bottom,
+      cardTop: card?.getBoundingClientRect().top ?? 0,
+      fontFamily: style.fontFamily,
+      fontSize: Number.parseFloat(style.fontSize),
+    };
+  });
+  expect(titleLayout.fontFamily).toContain("Space Grotesk");
+  expect(titleLayout.fontSize).toBeGreaterThanOrEqual(40);
+  expect(titleLayout.bottom).toBeLessThan(titleLayout.cardTop);
   await expect(page.locator(".neat-waves-canvas")).toHaveAttribute(
     "data-target-fps",
     "24",
