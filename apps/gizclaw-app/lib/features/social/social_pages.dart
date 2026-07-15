@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../data/mobile_data_controller.dart';
 import '../../giz_ui/giz_ui.dart';
+import '../../identity/app_identity_store.dart';
 import '../../prototype/prototype_models.dart';
 
 class FriendsPage extends StatelessWidget {
@@ -974,9 +975,21 @@ class MePage extends StatelessWidget {
           key: const PageStorageKey('me-scroll'),
           padding: const EdgeInsets.only(top: 12, bottom: 112),
           children: [
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Text('Identity', style: GizText.pageTitle),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 12, 0),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Text('Identity', style: GizText.pageTitle),
+                  ),
+                  GizPageActionButton(
+                    key: const ValueKey('identity-scan-server-qr'),
+                    icon: GizIcons.qr_code,
+                    semanticLabel: 'Scan server QR code',
+                    onPressed: () => _scanServer(context, data),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 18),
             Padding(
@@ -1098,6 +1111,35 @@ class MePage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _scanServer(
+    BuildContext context,
+    MobileDataController data,
+  ) async {
+    final server = await context.push<GizClawServer>('/identity/scan');
+    if (!context.mounted || server == null) return;
+    try {
+      await data.addOrSelectServer(
+        name: server.name,
+        accessPoint: server.accessPoint,
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      await showCupertinoDialog<void>(
+        context: context,
+        builder: (dialogContext) => CupertinoAlertDialog(
+          title: const Text('Could not add server'),
+          content: const Text('Could not add the server. Please try again.'),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 }
 

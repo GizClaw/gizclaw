@@ -106,10 +106,33 @@ void main() {
     await pumpApp(tester, controller: MobileDataController());
 
     expect(find.byType(MePage), findsOneWidget);
+    expect(
+      tester
+          .widget<GizPageActionButton>(
+            find.byKey(const ValueKey('identity-scan-server-qr')),
+          )
+          .semanticLabel,
+      'Scan server QR code',
+    );
     expect(find.byKey(const ValueKey('server-setup-required')), findsOneWidget);
     expect(find.byKey(const ValueKey('server-settings-row')), findsOneWidget);
     expect(find.byKey(const ValueKey('primary-nav-scroll')), findsNothing);
     expect(find.byKey(const ValueKey('global-audio-field')), findsNothing);
+  });
+
+  appTestWidgets('opens the server scanner from the Identity action', (
+    tester,
+  ) async {
+    await pumpApp(tester, controller: MobileDataController());
+
+    tester
+        .widget<GizPageActionButton>(
+          find.byKey(const ValueKey('identity-scan-server-qr')),
+        )
+        .onPressed!();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ScanServerQrPage), findsOneWidget);
   });
 
   appTestWidgets('shows the current active workspace conversation', (
