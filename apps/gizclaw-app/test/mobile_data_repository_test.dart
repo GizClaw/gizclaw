@@ -9,10 +9,7 @@ void main() {
   test('refreshes workflow and workspace snapshots into Drift', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(database.close);
-    final repository = MobileDataRepository(
-      database,
-      deviceLocaleTag: () => 'zh-Hans-CN',
-    );
+    final repository = MobileDataRepository(database);
     final client = _FakeClient(
       workflows: [
         Workflow(
@@ -57,10 +54,15 @@ void main() {
     await repository.refresh(
       client: client,
       endpoint: '127.0.0.1:23820',
+      isCurrent: () => true,
+      locale: 'zh-CN',
       serverId: 'server-a',
+      workflowLocale: WorkflowLocale.WORKFLOW_LOCALE_ZH_CN,
     );
 
-    final workflows = await repository.watchWorkflows('server-a').first;
+    final workflows = await repository
+        .watchWorkflows('server-a', locale: 'zh-CN')
+        .first;
     final workspaces = await repository.watchWorkspaces('server-a').first;
     expect(workflows.single.name, 'build-helper');
     expect(workflows.single.title, '构建助手');
@@ -99,18 +101,14 @@ void main() {
     expect(groupChats.single.description, 'Shipping together');
   });
 
-  test('uses the default catalog for an unsupported device locale', () async {
+  test('uses English for an unsupported effective locale', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(database.close);
-    final repository = MobileDataRepository(
-      database,
-      deviceLocaleTag: () => 'zh-TW',
-    );
+    final repository = MobileDataRepository(database);
     final client = _FakeClient(
       workflows: [
         Workflow(
           name: 'stable-name',
-          i18n: WorkflowI18nCatalog(name: '简体中文', description: '简体中文说明'),
           spec: WorkflowSpec(driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT),
         ),
       ],
@@ -120,15 +118,76 @@ void main() {
     await repository.refresh(
       client: client,
       endpoint: 'local',
+      isCurrent: () => true,
+      locale: 'en',
       serverId: 'server-a',
+      workflowLocale: WorkflowLocale.WORKFLOW_LOCALE_EN,
     );
 
-    final card = (await repository.watchWorkflows('server-a').first).single;
-    expect(card.title, '简体中文');
-    expect(card.subtitle, '简体中文说明');
+    final card =
+        (await repository.watchWorkflows('server-a', locale: 'en').first)
+            .single;
+    expect(card.title, 'stable-name');
+    expect(card.subtitle, isEmpty);
+    expect(client.lastWorkflowLang, WorkflowLocale.WORKFLOW_LOCALE_EN);
+  });
+
+  test('ignores a cached catalog from another locale', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = MobileDataRepository(database);
+    final client = _FakeClient(
+      workflows: [
+        Workflow(
+          name: 'stable-name',
+          i18n: WorkflowI18nCatalog(name: '本地化名称', description: '说明'),
+          spec: WorkflowSpec(driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT),
+        ),
+      ],
+      workspaces: const [],
+    );
+    await repository.refresh(
+      client: client,
+      endpoint: 'local',
+      isCurrent: () => true,
+      locale: 'zh-CN',
+      serverId: 'server-a',
+      workflowLocale: WorkflowLocale.WORKFLOW_LOCALE_ZH_CN,
+    );
+
+    final card =
+        (await repository.watchWorkflows('server-a', locale: 'en').first)
+            .single;
+    expect(card.title, 'stable-name');
+    expect(card.subtitle, isEmpty);
+  });
+
+  test('does not write a refresh from a stale locale generation', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = MobileDataRepository(database);
+    final client = _FakeClient(
+      workflows: [
+        Workflow(
+          name: 'stale',
+          spec: WorkflowSpec(driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT),
+        ),
+      ],
+      workspaces: const [],
+    );
+
+    await repository.refresh(
+      client: client,
+      endpoint: 'local',
+      isCurrent: () => false,
+      locale: 'en',
+      serverId: 'server-a',
+      workflowLocale: WorkflowLocale.WORKFLOW_LOCALE_EN,
+    );
+
     expect(
-      client.lastWorkflowLang,
-      WorkflowLocale.WORKFLOW_LOCALE_UNSPECIFIED,
+      await repository.watchWorkflows('server-a', locale: 'en').first,
+      isEmpty,
     );
   });
 
@@ -150,7 +209,10 @@ void main() {
     await repository.refresh(
       client: client,
       endpoint: 'local',
+      isCurrent: () => true,
+      locale: 'en',
       serverId: 'server-a',
+      workflowLocale: WorkflowLocale.WORKFLOW_LOCALE_EN,
     );
 
     client.workflows.clear();
@@ -158,10 +220,16 @@ void main() {
     await repository.refresh(
       client: client,
       endpoint: 'local',
+      isCurrent: () => true,
+      locale: 'en',
       serverId: 'server-a',
+      workflowLocale: WorkflowLocale.WORKFLOW_LOCALE_EN,
     );
 
-    expect(await repository.watchWorkflows('server-a').first, isEmpty);
+    expect(
+      await repository.watchWorkflows('server-a', locale: 'en').first,
+      isEmpty,
+    );
     expect(await repository.watchWorkspaces('server-a').first, isEmpty);
   });
 
@@ -194,7 +262,10 @@ void main() {
       await repository.refresh(
         client: client,
         endpoint: 'local',
+        isCurrent: () => true,
+        locale: 'en',
         serverId: 'server-a',
+        workflowLocale: WorkflowLocale.WORKFLOW_LOCALE_EN,
       );
 
       client.workflows
@@ -215,13 +286,18 @@ void main() {
       final warnings = await repository.refresh(
         client: client,
         endpoint: 'local',
+        isCurrent: () => true,
+        locale: 'en',
         serverId: 'server-a',
+        workflowLocale: WorkflowLocale.WORKFLOW_LOCALE_EN,
       );
 
       expect(warnings, hasLength(1));
       expect(warnings.single.scope, 'Friends');
       expect(
-        (await repository.watchWorkflows('server-a').first).single.name,
+        (await repository.watchWorkflows('server-a', locale: 'en').first)
+            .single
+            .name,
         'new-workflow',
       );
       expect(

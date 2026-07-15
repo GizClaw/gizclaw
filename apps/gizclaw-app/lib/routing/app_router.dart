@@ -11,6 +11,7 @@ import '../features/onboarding/server_onboarding_page.dart';
 import '../features/pet/pet_page.dart';
 import '../features/social/social_pages.dart';
 import '../giz_ui/giz_ui.dart';
+import '../l10n/l10n.dart';
 import '../prototype/prototype_models.dart';
 
 GoRouter createAppRouter({required MobileDataController dataController}) {
@@ -235,13 +236,13 @@ GoRouter createAppRouter({required MobileDataController dataController}) {
     errorPageBuilder: (context, state) => _page(
       state,
       CupertinoPageScaffold(
-        navigationBar: const CupertinoNavigationBar(
-          middle: Text('Not found'),
+        navigationBar: CupertinoNavigationBar(
+          middle: Text(context.l10n.uiText(key: 'notFound')),
           border: null,
         ),
         child: Center(
           child: Text(
-            state.error?.toString() ?? 'This page is unavailable.',
+            context.l10n.uiText(key: 'pageUnavailable'),
             style: GizText.body,
           ),
         ),

@@ -28,6 +28,24 @@ flutter analyze
 flutter test
 ```
 
+### Localization
+
+The app ships English and Simplified Chinese UI resources. The language picker
+is available before server setup and under Identity > App Settings. Its default
+is System; unsupported system locales, including Traditional Chinese, resolve
+to English.
+
+Edit the ARB sources in `lib/l10n/`, then regenerate localizations before
+building or testing:
+
+```sh
+flutter gen-l10n
+```
+
+The resolved app locale is also sent explicitly by workflow list and get RPCs
+as `WORKFLOW_LOCALE_EN` or `WORKFLOW_LOCALE_ZH_CN`. Keep app strings out of RPC
+payloads and do not cache localized workflow catalogs without their locale.
+
 For a development server, inject the ignored e2e identity at build time. The
 iOS simulator can reach a server on the host through `127.0.0.1`:
 

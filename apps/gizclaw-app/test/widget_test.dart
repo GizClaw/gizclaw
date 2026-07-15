@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gizclaw/gizclaw.dart';
 import 'package:gizclaw_app/main.dart';
+import 'package:gizclaw_app/app/app_locale_controller.dart';
 import 'package:gizclaw_app/app/global_conversation_control.dart';
 import 'package:gizclaw_app/connection/gizclaw_connection_controller.dart';
 import 'package:gizclaw_app/data/database/app_database.dart';
@@ -74,11 +75,17 @@ void main() {
   Future<void> pumpApp(
     WidgetTester tester, {
     MobileDataController? controller,
+    AppLocaleController? localeController,
   }) async {
     final dataController =
         controller ?? MobileDataController.demo(database: _testDatabase());
     dataControllers.add(dataController);
-    await tester.pumpWidget(GizClawApp(dataController: dataController));
+    await tester.pumpWidget(
+      GizClawApp(
+        dataController: dataController,
+        localeController: localeController,
+      ),
+    );
     await tester.pump(const Duration(milliseconds: 700));
   }
 
@@ -117,6 +124,28 @@ void main() {
     expect(find.byKey(const ValueKey('server-onboarding-cta')), findsOneWidget);
     expect(find.byKey(const ValueKey('primary-nav-scroll')), findsNothing);
     expect(find.byKey(const ValueKey('global-audio-field')), findsNothing);
+  });
+
+  appTestWidgets('switches language before server setup', (tester) async {
+    final localeController = AppLocaleController(
+      platformLocales: const [Locale('en')],
+    );
+    await pumpApp(
+      tester,
+      controller: _OnboardingServerController(),
+      localeController: localeController,
+    );
+
+    await tester.tap(find.text('System (Default)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('简体中文'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('你的智能体，随处相伴。'), findsOneWidget);
+    expect(
+      localeController.preference,
+      AppLanguagePreference.simplifiedChinese,
+    );
   });
 
   appTestWidgets('opens server choices from onboarding', (tester) async {
@@ -594,6 +623,23 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('add-server')));
     await tester.pump();
     expect(find.byKey(const ValueKey('add-server-error')), findsOneWidget);
+    expect(
+      find.text(
+        'Use a domain or IP address with a port, for example gizclaw.local:9820.',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey('server-access-point-field')),
+      _testServerEndpoint,
+    );
+    await tester.tap(find.byKey(const ValueKey('add-server')));
+    await tester.pump();
+    expect(
+      find.text('This access point is already in the list.'),
+      findsOneWidget,
+    );
 
     Navigator.of(
       tester.element(find.byKey(const ValueKey('server-name-field'))),

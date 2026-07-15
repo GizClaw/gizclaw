@@ -7,6 +7,7 @@ import 'package:gizclaw_app/connection/gizclaw_connection_controller.dart';
 import 'package:gizclaw_app/data/database/app_database.dart';
 import 'package:gizclaw_app/data/mobile_data_controller.dart';
 import 'package:gizclaw_app/data/repositories/mobile_data_repository.dart';
+import 'package:gizclaw_app/l10n/locale_resolution.dart';
 import 'package:gizclaw_app/prototype/prototype_models.dart';
 
 void main() {
@@ -269,6 +270,38 @@ void main() {
     expect(repository.refreshServerIds, ['new-server']);
   });
 
+  test('refreshes the selected locale after a same-server reconnect', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    final oldClient = _RunWorkspaceClient();
+    final newClient = _RunWorkspaceClient();
+    final connection = _ReconnectTestConnection(
+      profile: _profile('gizclaw.local:9820'),
+      client: oldClient,
+      serverId: 'server-a',
+      reconnectClient: newClient,
+      reconnectServerId: 'server-a',
+      initiallyConnected: false,
+    );
+    final repository = _ReconnectRepository(database);
+    final controller =
+        MobileDataController(
+            database: database,
+            connectionController: connection,
+            dataRepository: repository,
+          )
+          ..activeServerId = 'server-a'
+          ..connectionState = MobileConnectionState.offline;
+    addTearDown(controller.close);
+
+    controller.setEffectiveLocale(appSimplifiedChineseLocale);
+    expect(repository.refreshServerIds, isEmpty);
+
+    await controller.recoverTransport();
+
+    expect(repository.refreshServerIds, ['server-a']);
+    expect(repository.workflowLocales, [WorkflowLocale.WORKFLOW_LOCALE_ZH_CN]);
+  });
+
   test('creates typed defaults for a Doubao workspace', () {
     final parameters = newWorkspaceParametersForDriver(
       WorkflowDriverKind.doubaoRealtime,
@@ -462,7 +495,10 @@ class _QueuedRefreshRepository extends MobileDataRepository {
   Future<List<MobileDataRefreshWarning>> refresh({
     required GizClawClient client,
     required String endpoint,
+    required bool Function() isCurrent,
+    required String locale,
     required String serverId,
+    required WorkflowLocale workflowLocale,
   }) {
     endpoints.add(endpoint);
     if (endpoints.length == 1) return firstRefresh.future;
@@ -475,9 +511,13 @@ class _ReconnectRepository extends MobileDataRepository {
 
   final workflowWatchServerIds = <String>[];
   final refreshServerIds = <String>[];
+  final workflowLocales = <WorkflowLocale>[];
 
   @override
-  Stream<List<WorkflowCard>> watchWorkflows(String serverId) {
+  Stream<List<WorkflowCard>> watchWorkflows(
+    String serverId, {
+    required String locale,
+  }) {
     workflowWatchServerIds.add(serverId);
     return const Stream.empty();
   }
@@ -486,9 +526,13 @@ class _ReconnectRepository extends MobileDataRepository {
   Future<List<MobileDataRefreshWarning>> refresh({
     required GizClawClient client,
     required String endpoint,
+    required bool Function() isCurrent,
+    required String locale,
     required String serverId,
+    required WorkflowLocale workflowLocale,
   }) async {
     refreshServerIds.add(serverId);
+    workflowLocales.add(workflowLocale);
     return const [];
   }
 }
@@ -527,15 +571,21 @@ class _ReconnectTestConnection extends _RefreshTestConnection {
     required super.serverId,
     required this.reconnectClient,
     required this.reconnectServerId,
+    this.initiallyConnected = true,
   });
 
   final GizClawClient reconnectClient;
   final String reconnectServerId;
+  bool initiallyConnected;
+
+  @override
+  bool get isConnected => initiallyConnected;
 
   @override
   Future<GizClawClient> reconnect() async {
     currentClient = reconnectClient;
     currentServerId = reconnectServerId;
+    initiallyConnected = true;
     return reconnectClient;
   }
 }

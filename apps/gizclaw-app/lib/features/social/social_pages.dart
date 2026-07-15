@@ -4,10 +4,13 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:gizclaw/gizclaw.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/app_locale_controller.dart';
 import '../../data/mobile_data_controller.dart';
 import '../../giz_ui/giz_ui.dart';
 import '../../identity/app_identity_store.dart';
+import '../../l10n/l10n.dart';
 import '../../prototype/prototype_models.dart';
+import '../settings/language_selector.dart';
 
 class FriendsPage extends StatelessWidget {
   const FriendsPage({super.key});
@@ -30,12 +33,15 @@ class FriendsPage extends StatelessWidget {
               sliver: SliverToBoxAdapter(
                 child: Row(
                   children: [
-                    const Expanded(
-                      child: Text('Friends', style: GizText.pageTitle),
+                    Expanded(
+                      child: Text(
+                        context.l10n.uiText(key: 'friends'),
+                        style: GizText.pageTitle,
+                      ),
                     ),
                     GizPageActionButton(
                       icon: GizIcons.person_add,
-                      semanticLabel: 'Add friend',
+                      semanticLabel: context.l10n.addFriendA11y,
                       onPressed: () => _showFriendConnect(context, data),
                     ),
                   ],
@@ -107,17 +113,17 @@ class FriendsPage extends StatelessWidget {
     final confirmed = await showCupertinoDialog<bool>(
       context: context,
       builder: (context) => CupertinoAlertDialog(
-        title: Text('Remove ${friend.title}?'),
-        content: const Text('The direct chat workspace will also be removed.'),
+        title: Text(context.l10n.removeFriendTitle(name: friend.title)),
+        content: Text(context.l10n.actionText(key: 'directChatRemoved')),
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.commonCancel),
           ),
           CupertinoDialogAction(
             isDestructiveAction: true,
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Remove'),
+            child: Text(context.l10n.actionText(key: 'remove')),
           ),
         ],
       ),
@@ -152,12 +158,17 @@ class GroupsPage extends StatelessWidget {
               sliver: SliverToBoxAdapter(
                 child: Row(
                   children: [
-                    const Expanded(
-                      child: Text('Groups', style: GizText.pageTitle),
+                    Expanded(
+                      child: Text(
+                        context.l10n.uiText(key: 'groups'),
+                        style: GizText.pageTitle,
+                      ),
                     ),
                     GizPageActionButton(
                       icon: GizIcons.person_3_fill,
-                      semanticLabel: 'Create group',
+                      semanticLabel: context.l10n.actionText(
+                        key: 'createGroupA11y',
+                      ),
                       onPressed: () => _showCreateGroup(context, data),
                     ),
                   ],
@@ -296,17 +307,17 @@ class FriendRow extends StatelessWidget {
         actions: [
           CupertinoActionSheetAction(
             onPressed: () => Navigator.pop(context, 'chat'),
-            child: const Text('Open Chat'),
+            child: Text(context.l10n.actionText(key: 'openChat')),
           ),
           CupertinoActionSheetAction(
             isDestructiveAction: true,
             onPressed: () => Navigator.pop(context, 'delete'),
-            child: const Text('Remove Friend'),
+            child: Text(context.l10n.actionText(key: 'removeFriend')),
           ),
         ],
         cancelButton: CupertinoActionSheetAction(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(context.l10n.commonCancel),
         ),
       ),
     );
@@ -386,18 +397,21 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
             ),
           ),
           const SizedBox(height: 18),
-          Text('Create Group', style: GizText.sectionTitle),
+          Text(
+            context.l10n.actionText(key: 'createGroup'),
+            style: GizText.sectionTitle,
+          ),
           const SizedBox(height: 16),
           CupertinoTextField(
             controller: _nameController,
-            placeholder: 'Group name',
+            placeholder: context.l10n.actionText(key: 'groupName'),
             textInputAction: TextInputAction.next,
             padding: const EdgeInsets.all(14),
           ),
           const SizedBox(height: 10),
           CupertinoTextField(
             controller: _descriptionController,
-            placeholder: 'Description (optional)',
+            placeholder: context.l10n.actionText(key: 'optionalDescription'),
             textInputAction: TextInputAction.done,
             onSubmitted: (_) => _create(),
             padding: const EdgeInsets.all(14),
@@ -417,7 +431,7 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
             onPressed: _busy ? null : _create,
             child: _busy
                 ? const CupertinoActivityIndicator()
-                : const Text('Create Group'),
+                : Text(context.l10n.actionText(key: 'createGroup')),
           ),
           SizedBox(height: MediaQuery.viewInsetsOf(context).bottom),
         ],
@@ -596,18 +610,21 @@ class _FriendConnectSheetState extends State<_FriendConnectSheet> {
             ),
           ),
           const SizedBox(height: 18),
-          Text('Connect', style: GizText.sectionTitle),
+          Text(
+            context.l10n.actionText(key: 'connect'),
+            style: GizText.sectionTitle,
+          ),
           const SizedBox(height: 14),
           CupertinoSlidingSegmentedControl<_FriendSheetMode>(
             groupValue: _mode,
-            children: const {
+            children: {
               _FriendSheetMode.add: Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text('Add Friend'),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(context.l10n.actionText(key: 'addFriend')),
               ),
               _FriendSheetMode.invite: Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text('My Invite'),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(context.l10n.actionText(key: 'myInvite')),
               ),
             },
             onValueChanged: (value) {
@@ -648,7 +665,7 @@ class _FriendConnectSheetState extends State<_FriendConnectSheet> {
       children: [
         CupertinoTextField(
           controller: _inviteController,
-          placeholder: 'Invite token',
+          placeholder: context.l10n.actionText(key: 'inviteToken'),
           autocorrect: false,
           enableSuggestions: false,
           textInputAction: TextInputAction.done,
@@ -660,7 +677,7 @@ class _FriendConnectSheetState extends State<_FriendConnectSheet> {
           onPressed: _busy ? null : _addFriend,
           child: _busy
               ? const CupertinoActivityIndicator()
-              : const Text('Add Friend'),
+              : Text(context.l10n.actionText(key: 'addFriend')),
         ),
       ],
     );
@@ -709,7 +726,7 @@ class _FriendConnectSheetState extends State<_FriendConnectSheet> {
               CupertinoButton(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 onPressed: _busy ? null : _clearToken,
-                child: const Text('Revoke'),
+                child: Text(context.l10n.actionText(key: 'revoke')),
               ),
               const SizedBox(width: 8),
             ],
@@ -760,12 +777,12 @@ Future<void> _showFriendError(BuildContext context, Object error) =>
     showCupertinoDialog<void>(
       context: context,
       builder: (context) => CupertinoAlertDialog(
-        title: const Text('Friend unavailable'),
+        title: Text(context.l10n.actionText(key: 'friendUnavailable')),
         content: Text(_friendErrorMessage(error)),
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+            child: Text(context.l10n.commonOk),
           ),
         ],
       ),
@@ -783,7 +800,7 @@ class PrototypePetPage extends StatelessWidget {
           key: const PageStorageKey('pet-scroll'),
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 112),
           children: [
-            const Text('Pets', style: GizText.pageTitle),
+            Text(context.l10n.uiText(key: 'pets'), style: GizText.pageTitle),
             const SizedBox(height: 18),
             AspectRatio(
               aspectRatio: 0.72,
@@ -823,12 +840,12 @@ class PrototypePetPage extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const Positioned(
+                    Positioned(
                       left: 18,
                       top: 18,
                       child: GizTag(
-                        label: 'Curious today',
-                        backgroundColor: Color(0xEFFFFFFF),
+                        label: context.l10n.actionText(key: 'curiousToday'),
+                        backgroundColor: const Color(0xEFFFFFFF),
                         foregroundColor: GizColors.ink,
                       ),
                     ),
@@ -866,7 +883,7 @@ class PrototypePetPage extends StatelessWidget {
               children: [
                 Expanded(
                   child: _PetStat(
-                    label: 'Mood',
+                    label: context.l10n.actionText(key: 'mood'),
                     value: 'Bright',
                     color: GizColors.accent,
                     icon: GizIcons.sun_max_fill,
@@ -875,7 +892,7 @@ class PrototypePetPage extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: _PetStat(
-                    label: 'Streak',
+                    label: context.l10n.actionText(key: 'streak'),
                     value: '9 days',
                     color: const Color(0xFFFFDDD2),
                     icon: GizIcons.flame_fill,
@@ -967,7 +984,7 @@ class MePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final data = MobileDataScope.watch(context);
     final publicKey = data.clientPublicKey;
-    final status = _identityConnectionStatus(data.connectionState);
+    final status = _identityConnectionStatus(context, data.connectionState);
     return CupertinoPageScaffold(
       child: SafeArea(
         bottom: false,
@@ -979,13 +996,16 @@ class MePage extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 0, 12, 0),
               child: Row(
                 children: [
-                  const Expanded(
-                    child: Text('Identity', style: GizText.pageTitle),
+                  Expanded(
+                    child: Text(
+                      context.l10n.uiText(key: 'identity'),
+                      style: GizText.pageTitle,
+                    ),
                   ),
                   GizPageActionButton(
                     key: const ValueKey('identity-scan-server-qr'),
                     icon: GizIcons.qr_code,
-                    semanticLabel: 'Scan server QR code',
+                    semanticLabel: context.l10n.uiText(key: 'scanServerQr'),
                     onPressed: () => _scanServer(context, data),
                   ),
                 ],
@@ -1016,9 +1036,9 @@ class MePage extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'This device',
-                              style: TextStyle(
+                            Text(
+                              context.l10n.uiText(key: 'thisDevice'),
+                              style: const TextStyle(
                                 fontFamily: 'NotoSansSC',
                                 color: GizColors.surface,
                                 fontSize: 17,
@@ -1029,7 +1049,9 @@ class MePage extends StatelessWidget {
                             const SizedBox(height: 4),
                             Text(
                               publicKey == null
-                                  ? 'Device identity ready'
+                                  ? context.l10n.uiText(
+                                      key: 'deviceIdentityReady',
+                                    )
                                   : _compactIdentity(publicKey),
                               style: const TextStyle(
                                 fontFamily: 'NotoSansSC',
@@ -1054,31 +1076,31 @@ class MePage extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Text(
-                'CLIENT',
+                context.l10n.uiText(key: 'client'),
                 style: GizText.label.copyWith(color: GizColors.secondaryInk),
               ),
             ),
             const SizedBox(height: 8),
             SettingsRow(
               icon: GizIcons.person_crop_circle,
-              title: 'Public identity',
+              title: context.l10n.uiText(key: 'publicIdentity'),
               value: publicKey == null
-                  ? 'Generated on this device'
+                  ? context.l10n.uiText(key: 'generatedOnDevice')
                   : _compactIdentity(publicKey),
               onPressed: publicKey == null
                   ? null
                   : () => Clipboard.setData(ClipboardData(text: publicKey)),
             ),
-            const SettingsRow(
+            SettingsRow(
               icon: GizIcons.lock_shield,
-              title: 'Private key',
-              value: 'Protected by device secure storage',
+              title: context.l10n.uiText(key: 'privateKey'),
+              value: context.l10n.uiText(key: 'protectedSecureStorage'),
             ),
             const SizedBox(height: 26),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Text(
-                'CONNECTION',
+                context.l10n.uiText(key: 'connection'),
                 style: GizText.label.copyWith(color: GizColors.secondaryInk),
               ),
             ),
@@ -1087,7 +1109,7 @@ class MePage extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
                 child: Text(
-                  'Choose a server to finish setup and continue.',
+                  context.l10n.uiText(key: 'chooseServerSetup'),
                   key: const ValueKey('server-setup-required'),
                   style: GizText.body.copyWith(color: GizColors.secondaryInk),
                 ),
@@ -1095,17 +1117,32 @@ class MePage extends StatelessWidget {
             SettingsRow(
               key: const ValueKey('server-settings-row'),
               icon: GizIcons.antenna_radiowaves_left_right,
-              title: 'Server',
+              title: context.l10n.uiText(key: 'server'),
               value: data.activeServer == null
-                  ? 'Choose a server'
+                  ? context.l10n.uiText(key: 'chooseServer')
                   : '${data.activeServer!.name} · ${data.activeServer!.accessPoint}',
               onPressed: () => context.push('/identity/servers'),
             ),
             const SizedBox(height: 18),
             SettingsRow(
               icon: GizIcons.arrow_2_circlepath,
-              title: 'Transport',
+              title: context.l10n.uiText(key: 'transport'),
               value: 'WebRTC · ${status.label}',
+            ),
+            const SizedBox(height: 26),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                context.l10n.appSettings.toUpperCase(),
+                style: GizText.label.copyWith(color: GizColors.secondaryInk),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SettingsRow(
+              icon: CupertinoIcons.globe,
+              title: context.l10n.language,
+              value: _languagePreferenceLabel(context),
+              onPressed: () => showLanguageSelector(context),
             ),
           ],
         ),
@@ -1129,18 +1166,28 @@ class MePage extends StatelessWidget {
       await showCupertinoDialog<void>(
         context: context,
         builder: (dialogContext) => CupertinoAlertDialog(
-          title: const Text('Could not add server'),
-          content: const Text('Could not add the server. Please try again.'),
+          title: Text(dialogContext.l10n.uiText(key: 'serverAddFailed')),
+          content: Text(dialogContext.l10n.uiText(key: 'serverAddFailed')),
           actions: [
             CupertinoDialogAction(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('OK'),
+              child: Text(dialogContext.l10n.commonOk),
             ),
           ],
         ),
       );
     }
   }
+}
+
+String _languagePreferenceLabel(BuildContext context) {
+  final preference = AppLocaleScope.watch(context).preference;
+  return switch (preference) {
+    AppLanguagePreference.system => context.l10n.languageSystemDefault,
+    AppLanguagePreference.english => context.l10n.languageEnglish,
+    AppLanguagePreference.simplifiedChinese =>
+      context.l10n.languageSimplifiedChinese,
+  };
 }
 
 class _IdentityStatusPill extends StatelessWidget {
@@ -1224,19 +1271,23 @@ class SettingsRow extends StatelessWidget {
 }
 
 ({String label, Color color}) _identityConnectionStatus(
+  BuildContext context,
   MobileConnectionState state,
 ) => switch (state) {
   MobileConnectionState.connected => (
-    label: 'Connected',
+    label: context.l10n.uiText(key: 'connected'),
     color: GizColors.success,
   ),
   MobileConnectionState.connecting => (
-    label: 'Connecting',
+    label: context.l10n.uiText(key: 'connecting'),
     color: GizColors.coral,
   ),
-  MobileConnectionState.offline => (label: 'Offline', color: GizColors.coral),
+  MobileConnectionState.offline => (
+    label: context.l10n.uiText(key: 'offline'),
+    color: GizColors.coral,
+  ),
   MobileConnectionState.unconfigured => (
-    label: 'Setup',
+    label: context.l10n.uiText(key: 'setup'),
     color: GizColors.lavender,
   ),
 };
