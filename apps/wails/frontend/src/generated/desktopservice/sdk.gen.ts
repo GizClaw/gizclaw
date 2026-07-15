@@ -90,7 +90,7 @@ export const stopDesktopLocalServer = <ThrowOnError extends boolean = false>(opt
 export const restartDesktopLocalServer = <ThrowOnError extends boolean = false>(options: Options<RestartDesktopLocalServerData, ThrowOnError>): RequestResult<RestartDesktopLocalServerResponses, RestartDesktopLocalServerErrors, ThrowOnError> => (options.client ?? client).post<RestartDesktopLocalServerResponses, RestartDesktopLocalServerErrors, ThrowOnError>({ url: '/desktop/pods/{pod_id}/local-server/restart', ...options });
 
 /**
- * Open Admin in the system browser
+ * Prepare Admin for the system browser
  */
 export const openDesktopAdmin = <ThrowOnError extends boolean = false>(options: Options<OpenDesktopAdminData, ThrowOnError>): RequestResult<OpenDesktopAdminResponses, OpenDesktopAdminErrors, ThrowOnError> => (options.client ?? client).post<OpenDesktopAdminResponses, OpenDesktopAdminErrors, ThrowOnError>({
     url: '/desktop/pods/{pod_id}/admin',
@@ -102,6 +102,6 @@ export const openDesktopAdmin = <ThrowOnError extends boolean = false>(options: 
 });
 
 /**
- * Open Play in the system browser
+ * Prepare Play for the system browser
  */
 export const openDesktopPlay = <ThrowOnError extends boolean = false>(options: Options<OpenDesktopPlayData, ThrowOnError>): RequestResult<OpenDesktopPlayResponses, OpenDesktopPlayErrors, ThrowOnError> => (options.client ?? client).post<OpenDesktopPlayResponses, OpenDesktopPlayErrors, ThrowOnError>({ url: '/desktop/pods/{pod_id}/play', ...options });

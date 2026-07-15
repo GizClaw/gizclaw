@@ -86,7 +86,7 @@ func TestAppFacadeRequiresConfiguredBridge(t *testing.T) {
 	if _, err := app.CreatePod(bridge.PodInput{}); err == nil {
 		t.Fatal("CreatePod error = nil")
 	}
-	if err := app.OpenPlay("missing"); err == nil {
+	if _, err := app.OpenPlay("missing"); err == nil {
 		t.Fatal("OpenPlay error = nil")
 	}
 	if err := app.RevealPod("missing"); err == nil {

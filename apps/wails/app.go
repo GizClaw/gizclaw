@@ -256,30 +256,16 @@ func (a *App) RestartLocalServer(id string) (bridge.PodSummary, error) {
 	return a.bridge.RestartLocal(context.Background(), id)
 }
 
-func (a *App) OpenAdmin(podID, serverID string) error {
+func (a *App) OpenAdmin(podID, serverID string) (string, error) {
 	if a == nil || a.bridge == nil {
-		return fmt.Errorf("desktop app: bridge is not configured")
+		return "", fmt.Errorf("desktop app: bridge is not configured")
 	}
-	url, err := a.bridge.AdminURL(context.Background(), podID, serverID)
-	if err != nil {
-		return err
-	}
-	if ctx := a.runtimeContext(); ctx != nil {
-		runtime.BrowserOpenURL(ctx, url)
-	}
-	return nil
+	return a.bridge.AdminURL(context.Background(), podID, serverID)
 }
 
-func (a *App) OpenPlay(podID string) error {
+func (a *App) OpenPlay(podID string) (string, error) {
 	if a == nil || a.bridge == nil {
-		return fmt.Errorf("desktop app: bridge is not configured")
+		return "", fmt.Errorf("desktop app: bridge is not configured")
 	}
-	url, err := a.bridge.PlayURL(context.Background(), podID)
-	if err != nil {
-		return err
-	}
-	if ctx := a.runtimeContext(); ctx != nil {
-		runtime.BrowserOpenURL(ctx, url)
-	}
-	return nil
+	return a.bridge.PlayURL(context.Background(), podID)
 }

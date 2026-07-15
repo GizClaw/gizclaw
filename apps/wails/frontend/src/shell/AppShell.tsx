@@ -460,7 +460,9 @@ function PodDetail({
                 <PodShareFace
                   endpoint={preferredLANAddress(pod.local.lan_addresses)}
                   onManage={() => setManaging(true)}
-                  onPlay={() => api.OpenPlay(pod.id).catch(onError)}
+                  onPlay={() =>
+                    openBrowserLaunch(api.OpenPlay(pod.id), onError)
+                  }
                   pod={pod}
                   publicKey={pod.local.server_public_key ?? ""}
                 />
@@ -485,7 +487,9 @@ function PodDetail({
                 <PodShareFace
                   endpoint={pod.remote!.access_point.endpoint}
                   onManage={() => setManaging(true)}
-                  onPlay={() => api.OpenPlay(pod.id).catch(onError)}
+                  onPlay={() =>
+                    openBrowserLaunch(api.OpenPlay(pod.id), onError)
+                  }
                   pod={pod}
                   publicKey={pod.remote!.access_point.public_key ?? ""}
                 />
@@ -708,7 +712,9 @@ function LocalManageFace({
       </div>
       <button
         className="local-admin-action"
-        onClick={() => api.OpenAdmin(pod.id, "local").catch(onError)}
+        onClick={() =>
+          openBrowserLaunch(api.OpenAdmin(pod.id, "local"), onError)
+        }
         type="button"
       >
         <span className="local-admin-icon">
@@ -768,7 +774,9 @@ function RemoteManageFace({
       </button>
       {servers.length ? (
         <VirtualServerList
-          onAdmin={(server) => api.OpenAdmin(pod.id, server.id).catch(onError)}
+          onAdmin={(server) =>
+            openBrowserLaunch(api.OpenAdmin(pod.id, server.id), onError)
+          }
           onEdit={onEditServer}
           resetKey={`${pod.id}\u0000${query}`}
           servers={servers}
@@ -1323,4 +1331,18 @@ function serverDeepLink(
 
 function errorMessage(reason: unknown) {
   return reason instanceof Error ? reason.message : String(reason);
+}
+
+function openBrowserLaunch(
+  launch: Promise<string>,
+  onError: (reason: unknown) => void,
+) {
+  void launch
+    .then((url) => {
+      if (!url) throw new Error("Desktop browser launch URL is empty");
+      if (!window.runtime?.BrowserOpenURL)
+        throw new Error("System browser integration is unavailable");
+      window.runtime.BrowserOpenURL(url);
+    })
+    .catch(onError);
 }

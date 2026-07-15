@@ -505,9 +505,9 @@ export type OpenDesktopAdminError = OpenDesktopAdminErrors[keyof OpenDesktopAdmi
 
 export type OpenDesktopAdminResponses = {
     /**
-     * Browser launch requested
+     * One-time browser launch URL
      */
-    204: void;
+    200: string;
 };
 
 export type OpenDesktopAdminResponse = OpenDesktopAdminResponses[keyof OpenDesktopAdminResponses];
@@ -540,9 +540,9 @@ export type OpenDesktopPlayError = OpenDesktopPlayErrors[keyof OpenDesktopPlayEr
 
 export type OpenDesktopPlayResponses = {
     /**
-     * Browser launch requested
+     * One-time browser launch URL
      */
-    204: void;
+    200: string;
 };
 
 export type OpenDesktopPlayResponse = OpenDesktopPlayResponses[keyof OpenDesktopPlayResponses];

@@ -13,6 +13,9 @@ test.beforeEach(async ({ page }) => {
       WindowToggleMaximise() {
         (window as any).__GIZCLAW_WINDOW_ACTIONS__.push("maximise");
       },
+      BrowserOpenURL(url) {
+        (window as any).__GIZCLAW_WINDOW_ACTIONS__.push(`open:${url}`);
+      },
     };
     const health = (endpoint: string, state = "reachable") => ({
       endpoint,
@@ -151,8 +154,12 @@ test.beforeEach(async ({ page }) => {
       async ListPods() {
         return pods;
       },
-      async OpenAdmin() {},
-      async OpenPlay() {},
+      async OpenAdmin() {
+        return "http://127.0.0.1:4101/#launch=admin-token";
+      },
+      async OpenPlay() {
+        return "http://127.0.0.1:4102/#launch=play-token";
+      },
       async RevealPod() {},
       async RefreshPodHealth(id) {
         return pods.find((pod) => pod.id === id);
@@ -348,6 +355,10 @@ test("local share stays simple and switches to focused controls", async ({
   await expect(dialog.locator(".qr-card")).toHaveCount(0);
   await expect(qr).toHaveCSS("box-shadow", "none");
   await expect(dialog.getByRole("button", { name: /Play/ })).toBeVisible();
+  await dialog.getByRole("button", { name: /Play/ }).click();
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__GIZCLAW_WINDOW_ACTIONS__))
+    .toContain("open:http://127.0.0.1:4102/#launch=play-token");
   await expect
     .poll(() => dialog.evaluate((element) => element.clientWidth))
     .toBeLessThanOrEqual(420);
@@ -361,6 +372,10 @@ test("local share stays simple and switches to focused controls", async ({
   await dialog.getByRole("button", { name: "Server controls" }).click();
   await expect(dialog.getByRole("button", { name: /Start/ })).toBeVisible();
   await expect(dialog.getByRole("button", { name: /Admin/ })).toBeVisible();
+  await dialog.getByRole("button", { name: /Admin/ }).click();
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__GIZCLAW_WINDOW_ACTIONS__))
+    .toContain("open:http://127.0.0.1:4101/#launch=admin-token");
   await expect(dialog.getByRole("button", { name: /Play/ })).toHaveCount(0);
   await expect(dialog.getByRole("button", { name: /Restart/ })).toHaveCount(0);
   await expect(dialog.getByText("server ready")).toHaveCount(0);

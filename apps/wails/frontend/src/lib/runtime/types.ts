@@ -31,8 +31,8 @@ export interface DesktopAPI {
   DeletePod(id: string): Promise<void>;
   GetPod(id: string): Promise<DesktopPod>;
   ListPods(): Promise<DesktopPod[]>;
-  OpenAdmin(podID: string, serverID: string): Promise<void>;
-  OpenPlay(podID: string): Promise<void>;
+  OpenAdmin(podID: string, serverID: string): Promise<string>;
+  OpenPlay(podID: string): Promise<string>;
   RefreshPodHealth(id: string): Promise<DesktopPod>;
   RevealPod(id: string): Promise<void>;
   RestartLocalServer(id: string): Promise<DesktopPod>;
