@@ -20,16 +20,14 @@ func TestIntegrationPeerRPCRefresh(t *testing.T) {
 	admin := newTestClient(t, ts)
 	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: strPtr("admin")})
 
-	device := newTestClient(t, ts)
-	devicePublicKey := ensurePeerInfo(t, device, apitypes.DeviceInfo{Name: strPtr("peer")})
-
-	device.Device = apitypes.DeviceInfo{
+	device := newTestClientWithDevice(t, ts, apitypes.DeviceInfo{
 		Hardware: &apitypes.HardwareInfo{
 			Manufacturer: strPtr("Acme"),
 			Model:        strPtr("M1"),
 		},
 		Sn: strPtr("sn-r1"),
-	}
+	})
+	devicePublicKey := ensurePeerInfo(t, device, apitypes.DeviceInfo{Name: strPtr("peer")})
 
 	result, err := waitForRefreshPeerSuccess(admin, devicePublicKey)
 	if err != nil {

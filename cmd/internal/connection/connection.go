@@ -161,8 +161,9 @@ func ConnectFromContext(name string) (*gizcli.Client, error) {
 		return nil, err
 	}
 	errCh := make(chan error, 1)
+	serve := serveClient
 	go func() {
-		errCh <- serveClient(c)
+		errCh <- serve(c)
 	}()
 	deadline := time.Now().Add(connectReadyTimeout)
 	for time.Now().Before(deadline) {

@@ -115,7 +115,7 @@ jobs:
           )
 
   race:
-    name: Focused Go Race Tests
+    name: Go Race Tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -137,8 +137,8 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Run maintained runtime race tests
-        run: go test -race -count=1 ./pkgs/gizclaw/... ./pkgs/giznet/... ./pkgs/gizedge/... ./sdk/go/...
+      - name: Run root module race tests
+        run: go test -race -count=1 ./...
 
   javascript:
     name: JavaScript And Guides
