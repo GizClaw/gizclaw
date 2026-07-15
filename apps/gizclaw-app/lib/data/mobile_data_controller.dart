@@ -551,10 +551,8 @@ class MobileDataController extends ChangeNotifier {
       lastError = null;
       if (serverId != activeServerId) {
         await _watchServer(serverId);
-        await refresh(client: client, serverId: serverId);
-      } else {
-        await _syncRunWorkspace(client);
       }
+      await refresh(client: client, serverId: serverId);
       connectionState = MobileConnectionState.connected;
       notifyListeners();
       return client;

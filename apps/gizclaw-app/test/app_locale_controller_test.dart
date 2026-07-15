@@ -17,6 +17,10 @@ void main() {
 
   test('system mode maps unsupported and traditional Chinese to English', () {
     expect(resolveSystemLocale(const [Locale('fr')]), appEnglishLocale);
+    expect(
+      resolveSystemLocale(const [Locale('zh')]),
+      appSimplifiedChineseLocale,
+    );
     expect(resolveSystemLocale(const [Locale('zh', 'TW')]), appEnglishLocale);
     expect(
       resolveSystemLocale(const [

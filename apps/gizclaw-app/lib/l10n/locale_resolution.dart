@@ -15,7 +15,16 @@ Locale resolveSystemLocale(List<Locale> platformLocales) {
 
   final script = locale.scriptCode?.toLowerCase();
   final country = locale.countryCode?.toLowerCase();
-  if (script == 'hans' || country == 'cn' || country == 'sg') {
+  if (script == 'hant' ||
+      country == 'tw' ||
+      country == 'hk' ||
+      country == 'mo') {
+    return appEnglishLocale;
+  }
+  if (script == 'hans' ||
+      country == 'cn' ||
+      country == 'sg' ||
+      (script == null && country == null)) {
     return appSimplifiedChineseLocale;
   }
   return appEnglishLocale;
