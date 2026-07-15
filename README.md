@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/GizClaw/gizclaw/actions/workflows/ci.yml/badge.svg)](https://github.com/GizClaw/gizclaw/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/GizClaw/gizclaw/actions/workflows/codeql.yml/badge.svg)](https://github.com/GizClaw/gizclaw/actions/workflows/codeql.yml)
+[![GitHub Pages](https://github.com/GizClaw/gizclaw/actions/workflows/guides-pages.yml/badge.svg)](https://gizclaw.github.io/gizclaw/)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/GizClaw/gizclaw/badge)](https://scorecard.dev/viewer/?uri=github.com/GizClaw/gizclaw)
 [![Go Reference](https://pkg.go.dev/badge/github.com/GizClaw/gizclaw-go.svg)](https://pkg.go.dev/github.com/GizClaw/gizclaw-go)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/GizClaw/gizclaw?filename=go.mod)](go.mod)
