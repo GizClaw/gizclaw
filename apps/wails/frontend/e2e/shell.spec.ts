@@ -486,6 +486,20 @@ test("launcher uses rounded transparent framing and ambient card depth", async (
   await expect(gridCards.first()).toHaveClass(/mobile-app-card/);
   await expect(gridCards.first()).toContainText("TestFlight");
   await expect(gridCards.first()).toContainText("Google Play");
+  await gridCards.first().click();
+  const mobileDialog = page.getByRole("dialog", { name: "GizClaw Mobile" });
+  await expect(mobileDialog).toBeVisible();
+  await expect(mobileDialog.locator(".qr-code")).toHaveAttribute(
+    "data-qr-payload",
+    /iOS \/ TestFlight/,
+  );
+  await mobileDialog.getByRole("button", { name: /Android/ }).click();
+  await expect(mobileDialog.locator(".qr-code")).toHaveAttribute(
+    "data-qr-payload",
+    /Android \/ Google Play Beta/,
+  );
+  await mobileDialog.getByRole("button", { name: "Close" }).click();
+  await expect(mobileDialog).toHaveCount(0);
   const shell = page.locator(".desktop-shell");
   const shellStyle = await shell.evaluate((element) => {
     const style = getComputedStyle(element);

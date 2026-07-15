@@ -217,7 +217,7 @@ button {
   color: #f5f7ff;
   opacity: 0;
   isolation: isolate;
-  cursor: default;
+  cursor: pointer;
   animation: tile-in 0.46s cubic-bezier(0.2, 0.82, 0.2, 1) forwards;
   background:
     radial-gradient(
@@ -309,6 +309,7 @@ button {
     rgba(35, 36, 42, 0.94);
 }
 .pod-card:hover,
+.mobile-app-card:hover,
 .add-pod-card:hover {
   transform: translateY(-4px) scale(1.015);
   box-shadow:
@@ -326,10 +327,12 @@ button {
     rgba(43, 44, 51, 0.98);
 }
 .pod-card:active,
+.mobile-app-card:active,
 .add-pod-card:active {
   transform: scale(0.985);
 }
 .pod-card:focus-visible,
+.mobile-app-card:focus-visible,
 .add-pod-card:focus-visible,
 button:focus-visible,
 input:focus-visible,
@@ -497,6 +500,7 @@ select:focus-visible {
   animation: backdrop-in 0.24s ease both;
 }
 .pod-dialog,
+.mobile-download-dialog,
 .create-dialog {
   position: relative;
   overflow: hidden;
@@ -522,12 +526,94 @@ select:focus-visible {
   padding: 24px;
   overflow: auto;
 }
+.mobile-download-dialog {
+  width: min(380px, 100%);
+  max-height: calc(100vh - 60px);
+  padding: 22px;
+  overflow: auto;
+}
 .dialog-closing {
   animation: backdrop-out 0.22s ease both;
 }
 .dialog-closing .pod-dialog,
+.dialog-closing .mobile-download-dialog,
 .dialog-closing .create-dialog {
   animation: dialog-out 0.22s ease both;
+}
+.mobile-download-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+.mobile-download-header h2 {
+  margin: 3px 0 5px;
+  font-size: 23px;
+  letter-spacing: -0.04em;
+}
+.mobile-download-header p {
+  margin: 0;
+  color: #777a83;
+  font-size: 10px;
+}
+.mobile-platform-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  margin-top: 20px;
+  padding: 4px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.mobile-platform-switch button {
+  min-height: 48px;
+  display: grid;
+  place-content: center;
+  gap: 3px;
+  padding: 0;
+  border: 0;
+  border-radius: 11px;
+  color: #747781;
+  background: transparent;
+  cursor: pointer;
+  transition:
+    color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
+}
+.mobile-platform-switch button.selected {
+  color: #eef0f5;
+  background: rgba(255, 255, 255, 0.085);
+  box-shadow: 0 7px 20px rgba(0, 0, 0, 0.14);
+}
+.mobile-platform-switch b {
+  font-size: 11px;
+}
+.mobile-platform-switch span {
+  font-size: 8px;
+}
+.mobile-download-qr {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  margin-top: 18px;
+}
+.mobile-download-qr strong {
+  margin-top: 6px;
+  color: #e8eaf0;
+  font-size: 13px;
+}
+.mobile-download-qr > span {
+  color: #8f92a0;
+  font-size: 9px;
+}
+.mobile-download-note {
+  max-width: 270px;
+  margin: 14px auto 0;
+  color: #696c75;
+  font-size: 9px;
+  line-height: 1.45;
+  text-align: center;
 }
 .dialog-aurora {
   display: none;
@@ -1820,10 +1906,22 @@ button:disabled {
       rgba(255, 255, 255, 0.8);
   }
   .pod-dialog,
+  .mobile-download-dialog,
   .create-dialog {
     color: #24252a;
     background: rgba(249, 249, 251, 0.98);
     box-shadow: 0 40px 100px rgba(44, 45, 52, 0.26);
+  }
+  .mobile-platform-switch {
+    background: rgba(30, 31, 36, 0.045);
+  }
+  .mobile-platform-switch button.selected {
+    color: #292a30;
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 7px 18px rgba(44, 45, 52, 0.09);
+  }
+  .mobile-download-qr strong {
+    color: #292a30;
   }
   .secret-dialog {
     color: #24252a;

@@ -33,6 +33,7 @@ export function AppShell() {
   const [pods, setPods] = useState<PodSummary[]>([]);
   const [selected, setSelected] = useState<PodSummary | null>(null);
   const [creating, setCreating] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [editing, setEditing] = useState<PodSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -159,7 +160,7 @@ export function AppShell() {
         className={`pod-canvas ${!loading && pods.length === 0 ? "pod-canvas-empty" : ""}`}
       >
         <div className="pod-grid" aria-label={t("pods")}>
-          <MobileAppCard />
+          <MobileAppCard onOpen={() => setMobileOpen(true)} />
           {loading ? (
             <>
               <span className="pod-skeleton" />
@@ -187,6 +188,9 @@ export function AppShell() {
         </div>
       </section>
 
+      {mobileOpen ? (
+        <MobileAppDialog onClose={() => setMobileOpen(false)} />
+      ) : null}
       {selected ? (
         <PodDetail
           api={api}
@@ -217,10 +221,15 @@ export function AppShell() {
   );
 }
 
-function MobileAppCard() {
+function MobileAppCard({ onOpen }: { onOpen(): void }) {
   const t = useMessages();
   return (
-    <article className="mobile-app-card" aria-label={t("mobileAppPromo")}>
+    <button
+      className="mobile-app-card"
+      aria-label={t("mobileAppPromo")}
+      onClick={onOpen}
+      type="button"
+    >
       <span className="mobile-app-card-top">
         <span className="mobile-app-icon">
           <Smartphone size={18} />
@@ -240,7 +249,89 @@ function MobileAppCard() {
           <b>Android</b> Google Play
         </span>
       </span>
-    </article>
+    </button>
+  );
+}
+
+function MobileAppDialog({ onClose }: { onClose(): void }) {
+  const t = useMessages();
+  const [closing, setClosing] = useState(false);
+  const [platform, setPlatform] = useState<"ios" | "android">("ios");
+  const channel = platform === "ios" ? "TestFlight" : "Google Play Beta";
+  const platformName = platform === "ios" ? "iOS" : "Android";
+  const payload = `GizClaw Mobile\n${platformName} / ${channel}\nComing soon`;
+  useEffect(() => {
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setClosing(true);
+    };
+    window.addEventListener("keydown", keydown);
+    return () => window.removeEventListener("keydown", keydown);
+  }, []);
+  useEffect(() => {
+    if (!closing) return;
+    const timer = window.setTimeout(onClose, 240);
+    return () => window.clearTimeout(timer);
+  }, [closing, onClose]);
+  return (
+    <div
+      className={`dialog-backdrop ${closing ? "dialog-closing" : ""}`}
+      onAnimationEnd={(event) => {
+        if (closing && event.currentTarget === event.target) onClose();
+      }}
+      onMouseDown={(event) => {
+        if (event.currentTarget === event.target) setClosing(true);
+      }}
+      role="presentation"
+    >
+      <section
+        aria-labelledby="mobile-download-title"
+        aria-modal="true"
+        className="mobile-download-dialog"
+        role="dialog"
+      >
+        <header className="mobile-download-header">
+          <div>
+            <h2 id="mobile-download-title">GizClaw Mobile</h2>
+            <p>{t("mobileDownloadHint")}</p>
+          </div>
+          <button
+            aria-label={t("close")}
+            className="icon-button close-button"
+            onClick={() => setClosing(true)}
+            title={t("close")}
+            type="button"
+          >
+            <X size={20} />
+          </button>
+        </header>
+        <div className="mobile-platform-switch" role="group">
+          <button
+            aria-pressed={platform === "ios"}
+            className={platform === "ios" ? "selected" : ""}
+            onClick={() => setPlatform("ios")}
+            type="button"
+          >
+            <b>iOS</b>
+            <span>TestFlight</span>
+          </button>
+          <button
+            aria-pressed={platform === "android"}
+            className={platform === "android" ? "selected" : ""}
+            onClick={() => setPlatform("android")}
+            type="button"
+          >
+            <b>Android</b>
+            <span>Google Play</span>
+          </button>
+        </div>
+        <div className="mobile-download-qr">
+          <QRCodeImage label={t("mobileDownloadQRCode")} payload={payload} />
+          <strong>{channel}</strong>
+          <span>{t("comingSoon")}</span>
+        </div>
+        <p className="mobile-download-note">{t("mobileDownloadPreview")}</p>
+      </section>
+    </div>
   );
 }
 
