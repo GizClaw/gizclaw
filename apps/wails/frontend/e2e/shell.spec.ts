@@ -237,6 +237,18 @@ test("Pod home opens a share face and scalable remote management", async ({
     "server-public-key-ap.dev.gizclaw.com:9820",
   );
   await page.getByRole("button", { name: "Manage Servers" }).click();
+  const remoteDialog = page.getByRole("dialog");
+  await expect(
+    remoteDialog
+      .locator(".pod-dialog-header")
+      .getByRole("button", { name: "Add Server" }),
+  ).toHaveCount(0);
+  await expect(remoteDialog.locator(".server-add-card")).toHaveText(
+    "Add Server",
+  );
+  await expect(
+    remoteDialog.locator(".server-add-card + .virtual-server-list"),
+  ).toBeVisible();
   await expect(page.getByText("Beijing A")).toBeVisible();
   await expect(page.getByText("120 servers")).toBeVisible();
   await expect(page.getByText("cn-dev")).toBeVisible();

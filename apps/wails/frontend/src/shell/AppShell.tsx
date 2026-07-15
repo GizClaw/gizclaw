@@ -420,15 +420,6 @@ function PodDetail({
           <span className="pod-header-meta">
             {detailSubtitle || pod.description || pod.id}
           </span>
-          {pod.remote && managing ? (
-            <button
-              className="secondary-action header-add-server"
-              onClick={() => setServerEditor("new")}
-              type="button"
-            >
-              <Plus size={14} /> {t("addServer")}
-            </button>
-          ) : null}
           <button
             aria-label={t("close")}
             className="icon-button close-button"
@@ -480,6 +471,7 @@ function PodDetail({
               back={
                 <RemoteManageFace
                   api={api}
+                  onAddServer={() => setServerEditor("new")}
                   onEditServer={setServerEditor}
                   onError={onError}
                   onQuery={setQuery}
@@ -734,6 +726,7 @@ function LocalManageFace({
 
 function RemoteManageFace({
   api,
+  onAddServer,
   onEditServer,
   onError,
   onQuery,
@@ -742,6 +735,7 @@ function RemoteManageFace({
   servers,
 }: {
   api: ReturnType<typeof getDesktopAPI>;
+  onAddServer(): void;
   onEditServer(server: PodServer): void;
   onError(reason: unknown): void;
   onQuery(value: string): void;
@@ -766,6 +760,12 @@ function RemoteManageFace({
           />
         </label>
       </div>
+      <button className="server-add-card" onClick={onAddServer} type="button">
+        <span>
+          <Plus size={17} />
+        </span>
+        {t("addServer")}
+      </button>
       {servers.length ? (
         <VirtualServerList
           onAdmin={(server) => api.OpenAdmin(pod.id, server.id).catch(onError)}
@@ -816,7 +816,7 @@ function VirtualServerList({
   const viewport = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const rowHeight = 68;
-  const viewportHeight = 368;
+  const viewportHeight = 300;
   const overscan = 5;
   const start = Math.max(0, Math.floor(scrollTop / rowHeight) - overscan);
   const end = Math.min(

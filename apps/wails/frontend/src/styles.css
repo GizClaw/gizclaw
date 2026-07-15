@@ -499,11 +499,6 @@ select:focus-visible {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.header-add-server {
-  min-height: 32px;
-  padding: 0 10px;
-  white-space: nowrap;
-}
 .dialog-title-line {
   display: flex;
   align-items: center;
@@ -883,6 +878,39 @@ select:focus-visible {
   background: transparent;
   font-size: 10px;
 }
+.server-add-card {
+  width: 100%;
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 13px;
+  color: #9da1aa;
+  background: rgba(255, 255, 255, 0.035);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+  text-align: left;
+  transition:
+    color 0.18s ease,
+    background 0.18s ease;
+}
+.server-add-card > span {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 10px;
+  color: #aeb7ff;
+  background: rgba(116, 126, 255, 0.1);
+}
+.server-add-card:hover {
+  color: #e0e2e7;
+  background: rgba(255, 255, 255, 0.055);
+}
 .generated-admin-key {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -1252,7 +1280,7 @@ button:disabled {
 }
 .virtual-server-list {
   display: block;
-  height: 368px;
+  height: 300px;
 }
 .virtual-server-row {
   position: absolute;
@@ -1837,6 +1865,14 @@ button:disabled {
   }
   .server-row {
     background: rgba(30, 31, 36, 0.045);
+  }
+  .server-add-card {
+    color: #4c4e55;
+    background: rgba(30, 31, 36, 0.045);
+  }
+  .server-add-card:hover {
+    color: #292a30;
+    background: rgba(30, 31, 36, 0.07);
   }
 }
 
