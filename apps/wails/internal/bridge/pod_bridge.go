@@ -338,6 +338,9 @@ func (b *PodBridge) StartLocal(_ context.Context, id string) (PodSummary, error)
 	if pod.LocalServer == nil {
 		return PodSummary{}, fmt.Errorf("desktop bridge: pod %q is remote", id)
 	}
+	if err := b.Store.Save(pod); err != nil {
+		return PodSummary{}, fmt.Errorf("desktop bridge: refresh local workspace: %w", err)
+	}
 	if b.Local.Status(id).State != "running" {
 		if listenErr := appconfig.CheckPortAvailable(pod.LocalServer.Port); listenErr != nil {
 			return PodSummary{}, fmt.Errorf("desktop bridge: local server port %d is already in use", pod.LocalServer.Port)
@@ -369,6 +372,9 @@ func (b *PodBridge) RestartLocal(ctx context.Context, id string) (PodSummary, er
 	}
 	if pod.LocalServer == nil {
 		return PodSummary{}, fmt.Errorf("desktop bridge: pod %q is remote", id)
+	}
+	if err := b.Store.Save(pod); err != nil {
+		return PodSummary{}, fmt.Errorf("desktop bridge: refresh local workspace: %w", err)
 	}
 	restartCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()

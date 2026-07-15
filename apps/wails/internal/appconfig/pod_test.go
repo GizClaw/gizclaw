@@ -57,11 +57,13 @@ func TestStoreLocalPodMaterializesPrivateProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	var workspace struct {
-		Listen         string `yaml:"listen"`
-		Endpoint       string `yaml:"endpoint"`
-		ServeToClients bool   `yaml:"serve-to-clients"`
-		AdminPublicKey string `yaml:"admin-public-key"`
-		EdgeNodes      []any  `yaml:"edge-nodes"`
+		Listen         string                            `yaml:"listen"`
+		Endpoint       string                            `yaml:"endpoint"`
+		ServeToClients bool                              `yaml:"serve-to-clients"`
+		AdminPublicKey string                            `yaml:"admin-public-key"`
+		EdgeNodes      []any                             `yaml:"edge-nodes"`
+		Storage        map[string]workspaceStorageConfig `yaml:"storage"`
+		Stores         map[string]workspaceStoreConfig   `yaml:"stores"`
 	}
 	if err := yaml.Unmarshal(workspaceData, &workspace); err != nil {
 		t.Fatal(err)
@@ -72,6 +74,17 @@ func TestStoreLocalPodMaterializesPrivateProjection(t *testing.T) {
 	}
 	if !workspace.ServeToClients || workspace.AdminPublicKey == "" || len(workspace.EdgeNodes) != 0 {
 		t.Fatalf("workspace admin key/edge nodes = %q/%v", workspace.AdminPublicKey, workspace.EdgeNodes)
+	}
+	if storage := workspace.Storage["local-kv"]; storage.Kind != "keyvalue" || storage.Badger == nil || storage.Badger.Dir != "data/kv" {
+		t.Fatalf("workspace local-kv storage = %+v", storage)
+	}
+	if peers := workspace.Stores["peers"]; peers.Kind != "keyvalue" || peers.Storage != "local-kv" || peers.Prefix != "peers" {
+		t.Fatalf("workspace peers store = %+v", peers)
+	}
+	for _, required := range []string{"credentials", "firmwares", "minimax-tenants", "voices", "workspaces", "workflows", "acl"} {
+		if _, ok := workspace.Stores[required]; !ok {
+			t.Fatalf("workspace required store %q is missing", required)
+		}
 	}
 }
 
