@@ -5702,7 +5702,7 @@ func (x *Workflow) GetI18N() *WorkflowI18NCatalog {
 type WorkflowGetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Lang          WorkflowLocale         `protobuf:"varint,2,opt,name=lang,proto3,enum=gizclaw.rpc.v1.WorkflowLocale" json:"lang,omitempty"`
+	Lang          *WorkflowLocale        `protobuf:"varint,2,opt,name=lang,proto3,enum=gizclaw.rpc.v1.WorkflowLocale,oneof" json:"lang,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5745,8 +5745,8 @@ func (x *WorkflowGetRequest) GetName() string {
 }
 
 func (x *WorkflowGetRequest) GetLang() WorkflowLocale {
-	if x != nil {
-		return x.Lang
+	if x != nil && x.Lang != nil {
+		return *x.Lang
 	}
 	return WorkflowLocale_WORKFLOW_LOCALE_UNSPECIFIED
 }
@@ -5799,7 +5799,7 @@ type WorkflowListRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Cursor        *string                `protobuf:"bytes,1,opt,name=cursor,proto3,oneof" json:"cursor,omitempty"`
 	Limit         *int64                 `protobuf:"varint,2,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
-	Lang          WorkflowLocale         `protobuf:"varint,3,opt,name=lang,proto3,enum=gizclaw.rpc.v1.WorkflowLocale" json:"lang,omitempty"`
+	Lang          *WorkflowLocale        `protobuf:"varint,3,opt,name=lang,proto3,enum=gizclaw.rpc.v1.WorkflowLocale,oneof" json:"lang,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5849,8 +5849,8 @@ func (x *WorkflowListRequest) GetLimit() int64 {
 }
 
 func (x *WorkflowListRequest) GetLang() WorkflowLocale {
-	if x != nil {
-		return x.Lang
+	if x != nil && x.Lang != nil {
+		return *x.Lang
 	}
 	return WorkflowLocale_WORKFLOW_LOCALE_UNSPECIFIED
 }
@@ -7753,18 +7753,20 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x120\n" +
 	"\x04spec\x18\x02 \x01(\v2\x1c.gizclaw.rpc.v1.WorkflowSpecR\x04spec\x12<\n" +
 	"\x04i18n\x18\x03 \x01(\v2#.gizclaw.rpc.v1.WorkflowI18nCatalogH\x00R\x04i18n\x88\x01\x01B\a\n" +
-	"\x05_i18n\"\\\n" +
+	"\x05_i18n\"j\n" +
 	"\x12WorkflowGetRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x122\n" +
-	"\x04lang\x18\x02 \x01(\x0e2\x1e.gizclaw.rpc.v1.WorkflowLocaleR\x04lang\"E\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x127\n" +
+	"\x04lang\x18\x02 \x01(\x0e2\x1e.gizclaw.rpc.v1.WorkflowLocaleH\x00R\x04lang\x88\x01\x01B\a\n" +
+	"\x05_lang\"E\n" +
 	"\x13WorkflowGetResponse\x12.\n" +
-	"\x05value\x18\x01 \x01(\v2\x18.gizclaw.rpc.v1.WorkflowR\x05value\"\x96\x01\n" +
+	"\x05value\x18\x01 \x01(\v2\x18.gizclaw.rpc.v1.WorkflowR\x05value\"\xa4\x01\n" +
 	"\x13WorkflowListRequest\x12\x1b\n" +
 	"\x06cursor\x18\x01 \x01(\tH\x00R\x06cursor\x88\x01\x01\x12\x19\n" +
-	"\x05limit\x18\x02 \x01(\x03H\x01R\x05limit\x88\x01\x01\x122\n" +
-	"\x04lang\x18\x03 \x01(\x0e2\x1e.gizclaw.rpc.v1.WorkflowLocaleR\x04langB\t\n" +
+	"\x05limit\x18\x02 \x01(\x03H\x01R\x05limit\x88\x01\x01\x127\n" +
+	"\x04lang\x18\x03 \x01(\x0e2\x1e.gizclaw.rpc.v1.WorkflowLocaleH\x02R\x04lang\x88\x01\x01B\t\n" +
 	"\a_cursorB\b\n" +
-	"\x06_limit\"\x97\x01\n" +
+	"\x06_limitB\a\n" +
+	"\x05_lang\"\x97\x01\n" +
 	"\x14WorkflowListResponse\x12\x19\n" +
 	"\bhas_next\x18\x01 \x01(\bR\ahasNext\x12.\n" +
 	"\x05items\x18\x02 \x03(\v2\x18.gizclaw.rpc.v1.WorkflowR\x05items\x12$\n" +
@@ -8275,6 +8277,7 @@ func file_payload_ai_proto_init() {
 	file_payload_ai_proto_msgTypes[83].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[84].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[85].OneofWrappers = []any{}
+	file_payload_ai_proto_msgTypes[86].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[88].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[89].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[90].OneofWrappers = []any{}

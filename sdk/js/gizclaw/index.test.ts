@@ -350,6 +350,16 @@ test("RPC payload codec preserves the workflow locale enum", () => {
   });
 });
 
+test("RPC payload codec allows the workflow locale to be omitted", () => {
+  const payload = encodeRPCRequestPayload("server.workflow.get", {
+    name: "assistant",
+  });
+
+  assert.deepEqual(decodeRPCRequestPayload("server.workflow.get", payload), {
+    name: "assistant",
+  });
+});
+
 test("RPC payload codec rejects string values for bool fields", () => {
   assert.throws(
     () => encodeRPCRequestPayload("server.workspace.create", {

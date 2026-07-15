@@ -576,7 +576,7 @@ message Workflow {
 
 message WorkflowGetRequest {
   string name = 1;
-  WorkflowLocale lang = 2;
+  optional WorkflowLocale lang = 2;
 }
 
 message WorkflowGetResponse {
@@ -586,7 +586,7 @@ message WorkflowGetResponse {
 message WorkflowListRequest {
   optional string cursor = 1;
   optional int64 limit = 2;
-  WorkflowLocale lang = 3;
+  optional WorkflowLocale lang = 3;
 }
 
 message WorkflowListResponse {

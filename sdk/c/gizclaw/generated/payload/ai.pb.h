@@ -705,6 +705,7 @@ typedef struct _gizclaw_rpc_v1_VoiceGetResponse {
 
 typedef struct _gizclaw_rpc_v1_WorkflowGetRequest {
     pb_callback_t name;
+    bool has_lang;
     gizclaw_rpc_v1_WorkflowLocale lang;
 } gizclaw_rpc_v1_WorkflowGetRequest;
 
@@ -712,6 +713,7 @@ typedef struct _gizclaw_rpc_v1_WorkflowListRequest {
     pb_callback_t cursor;
     bool has_limit;
     int64_t limit;
+    bool has_lang;
     gizclaw_rpc_v1_WorkflowLocale lang;
 } gizclaw_rpc_v1_WorkflowListRequest;
 
@@ -1117,9 +1119,9 @@ extern "C" {
 #define gizclaw_rpc_v1_VolcTenantModelProviderData_init_default {false, _gizclaw_rpc_v1_VolcTenantModelProviderDataApiMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_VolcTenantVoiceProviderData_init_default {false, google_protobuf_Struct_init_default, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_Workflow_init_default     {{{NULL}, NULL}, false, gizclaw_rpc_v1_WorkflowSpec_init_default, false, gizclaw_rpc_v1_WorkflowI18nCatalog_init_default}
-#define gizclaw_rpc_v1_WorkflowGetRequest_init_default {{{NULL}, NULL}, _gizclaw_rpc_v1_WorkflowLocale_MIN}
+#define gizclaw_rpc_v1_WorkflowGetRequest_init_default {{{NULL}, NULL}, false, _gizclaw_rpc_v1_WorkflowLocale_MIN}
 #define gizclaw_rpc_v1_WorkflowGetResponse_init_default {false, gizclaw_rpc_v1_Workflow_init_default}
-#define gizclaw_rpc_v1_WorkflowListRequest_init_default {{{NULL}, NULL}, false, 0, _gizclaw_rpc_v1_WorkflowLocale_MIN}
+#define gizclaw_rpc_v1_WorkflowListRequest_init_default {{{NULL}, NULL}, false, 0, false, _gizclaw_rpc_v1_WorkflowLocale_MIN}
 #define gizclaw_rpc_v1_WorkflowListResponse_init_default {0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkflowI18nCatalog_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolkitPolicyToolIds_init_default {{{NULL}, NULL}}
@@ -1229,9 +1231,9 @@ extern "C" {
 #define gizclaw_rpc_v1_VolcTenantModelProviderData_init_zero {false, _gizclaw_rpc_v1_VolcTenantModelProviderDataApiMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_VolcTenantVoiceProviderData_init_zero {false, google_protobuf_Struct_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_Workflow_init_zero        {{{NULL}, NULL}, false, gizclaw_rpc_v1_WorkflowSpec_init_zero, false, gizclaw_rpc_v1_WorkflowI18nCatalog_init_zero}
-#define gizclaw_rpc_v1_WorkflowGetRequest_init_zero {{{NULL}, NULL}, _gizclaw_rpc_v1_WorkflowLocale_MIN}
+#define gizclaw_rpc_v1_WorkflowGetRequest_init_zero {{{NULL}, NULL}, false, _gizclaw_rpc_v1_WorkflowLocale_MIN}
 #define gizclaw_rpc_v1_WorkflowGetResponse_init_zero {false, gizclaw_rpc_v1_Workflow_init_zero}
-#define gizclaw_rpc_v1_WorkflowListRequest_init_zero {{{NULL}, NULL}, false, 0, _gizclaw_rpc_v1_WorkflowLocale_MIN}
+#define gizclaw_rpc_v1_WorkflowListRequest_init_zero {{{NULL}, NULL}, false, 0, false, _gizclaw_rpc_v1_WorkflowLocale_MIN}
 #define gizclaw_rpc_v1_WorkflowListResponse_init_zero {0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkflowI18nCatalog_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolkitPolicyToolIds_init_zero {{{NULL}, NULL}}
@@ -2354,7 +2356,7 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  i18n,              3)
 
 #define gizclaw_rpc_v1_WorkflowGetRequest_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   name,              1) \
-X(a, STATIC,   SINGULAR, UENUM,    lang,              2)
+X(a, STATIC,   OPTIONAL, UENUM,    lang,              2)
 #define gizclaw_rpc_v1_WorkflowGetRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_WorkflowGetRequest_DEFAULT NULL
 
@@ -2367,7 +2369,7 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
 #define gizclaw_rpc_v1_WorkflowListRequest_FIELDLIST(X, a) \
 X(a, CALLBACK, OPTIONAL, STRING,   cursor,            1) \
 X(a, STATIC,   OPTIONAL, INT64,    limit,             2) \
-X(a, STATIC,   SINGULAR, UENUM,    lang,              3)
+X(a, STATIC,   OPTIONAL, UENUM,    lang,              3)
 #define gizclaw_rpc_v1_WorkflowListRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_WorkflowListRequest_DEFAULT NULL
 

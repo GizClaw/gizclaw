@@ -2,6 +2,7 @@ import { connectGiznetWebRTCFromEndpoint } from "@gizclaw/gizclaw";
 import { RPC_METHODS, createPeerRPCClient, type PeerRPCClient } from "@gizclaw/gizclaw/rpc";
 import { base64Decode } from "@gizclaw/gizclaw/signaling";
 import type { RuntimeContext } from "../runtime/types";
+import { selectedWorkflowText, workflowLocale } from "./workflow_i18n";
 
 export interface PlayDataClient {
   loadSnapshot(): Promise<PlaySnapshot>;
@@ -131,7 +132,7 @@ export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
         captureCall(RPC_METHODS["server.workspace.list"], () => rpc.call(RPC_METHODS["server.workspace.list"], {})),
         captureCall(RPC_METHODS["server.workflow.list"], () =>
           rpc.call(RPC_METHODS["server.workflow.list"], {
-            lang: navigator.language.toLowerCase().startsWith("zh") ? "zh-CN" : "en",
+            lang: workflowLocale(navigator.language),
           }),
         ),
         captureCall(RPC_METHODS["server.model.list"], () => rpc.call(RPC_METHODS["server.model.list"], {})),
@@ -260,6 +261,7 @@ function itemToHistoryRow(item: unknown): PlayHistoryRow {
 function itemToResourceRow(item: unknown, prefix: string): PlayResourceRow {
   const record = isRecord(item) ? item : {};
   const metadata = isRecord(record.metadata) ? record.metadata : {};
+  const workflowText = prefix === "workflow" ? selectedWorkflowText(record) : {};
   const id =
     stringValue(record.id) ??
     stringValue(record.name) ??
@@ -269,12 +271,19 @@ function itemToResourceRow(item: unknown, prefix: string): PlayResourceRow {
     stringValue(record.group_id) ??
     stringValue(metadata.name) ??
     `${prefix}-${hashJSON(item)}`;
-  const title = stringValue(record.title) ?? stringValue(record.display_name) ?? stringValue(record.name) ?? stringValue(metadata.name) ?? id;
+  const title =
+    stringValue(record.title) ??
+    stringValue(record.display_name) ??
+    workflowText.name ??
+    stringValue(record.name) ??
+    stringValue(metadata.name) ??
+    id;
   return {
     id,
     raw: item,
     subtitle:
       relationSubtitle(record) ??
+      workflowText.description ??
       stringValue(record.description) ??
       stringValue(record.role) ??
       stringValue(record.my_role) ??

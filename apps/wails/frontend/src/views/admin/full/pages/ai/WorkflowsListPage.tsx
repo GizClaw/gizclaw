@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { expectData } from "@/dashboard";
+import { workflowLocale } from "@/lib/gizclaw/workflow_i18n";
 import { listWorkflows, type Workflow, type WorkflowI18nCatalog } from "@gizclaw/gizclaw/admin";
 
 import { ErrorBanner } from "@/dashboard";
@@ -191,7 +192,8 @@ function workflowCatalog(workflow: Workflow, localeTags: readonly string[]): Wor
     return undefined;
   }
 
-  const candidates = localeTags.map((localeTag) => (localeTag.toLowerCase().startsWith("zh") ? "zh-CN" : "en"));
+  const uiLocale = workflowLocale(localeTags[0] ?? "");
+  const candidates: Array<"en" | "zh-CN"> = uiLocale === "" ? [] : [uiLocale];
   candidates.push(i18n.default_locale);
   for (const locale of candidates) {
     const catalog = locale === "zh-CN" ? i18n["zh-CN"] : i18n.en;

@@ -3754,15 +3754,20 @@ const WorkflowGetRequest$json = {
       '4': 1,
       '5': 14,
       '6': '.gizclaw.rpc.v1.WorkflowLocale',
-      '10': 'lang'
+      '9': 0,
+      '10': 'lang',
+      '17': true
     },
+  ],
+  '8': [
+    {'1': '_lang'},
   ],
 };
 
 /// Descriptor for `WorkflowGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List workflowGetRequestDescriptor = $convert.base64Decode(
-    'ChJXb3JrZmxvd0dldFJlcXVlc3QSEgoEbmFtZRgBIAEoCVIEbmFtZRIyCgRsYW5nGAIgASgOMh'
-    '4uZ2l6Y2xhdy5ycGMudjEuV29ya2Zsb3dMb2NhbGVSBGxhbmc=');
+    'ChJXb3JrZmxvd0dldFJlcXVlc3QSEgoEbmFtZRgBIAEoCVIEbmFtZRI3CgRsYW5nGAIgASgOMh'
+    '4uZ2l6Y2xhdy5ycGMudjEuV29ya2Zsb3dMb2NhbGVIAFIEbGFuZ4gBAUIHCgVfbGFuZw==');
 
 @$core.Deprecated('Use workflowGetResponseDescriptor instead')
 const WorkflowGetResponse$json = {
@@ -3796,20 +3801,23 @@ const WorkflowListRequest$json = {
       '4': 1,
       '5': 14,
       '6': '.gizclaw.rpc.v1.WorkflowLocale',
-      '10': 'lang'
+      '9': 2,
+      '10': 'lang',
+      '17': true
     },
   ],
   '8': [
     {'1': '_cursor'},
     {'1': '_limit'},
+    {'1': '_lang'},
   ],
 };
 
 /// Descriptor for `WorkflowListRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List workflowListRequestDescriptor = $convert.base64Decode(
     'ChNXb3JrZmxvd0xpc3RSZXF1ZXN0EhsKBmN1cnNvchgBIAEoCUgAUgZjdXJzb3KIAQESGQoFbG'
-    'ltaXQYAiABKANIAVIFbGltaXSIAQESMgoEbGFuZxgDIAEoDjIeLmdpemNsYXcucnBjLnYxLldv'
-    'cmtmbG93TG9jYWxlUgRsYW5nQgkKB19jdXJzb3JCCAoGX2xpbWl0');
+    'ltaXQYAiABKANIAVIFbGltaXSIAQESNwoEbGFuZxgDIAEoDjIeLmdpemNsYXcucnBjLnYxLldv'
+    'cmtmbG93TG9jYWxlSAJSBGxhbmeIAQFCCQoHX2N1cnNvckIICgZfbGltaXRCBwoFX2xhbmc=');
 
 @$core.Deprecated('Use workflowListResponseDescriptor instead')
 const WorkflowListResponse$json = {

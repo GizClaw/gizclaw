@@ -1319,7 +1319,7 @@ export type Workflow = {
 };
 export type WorkflowGetRequest = {
   "name": string;
-  "lang": WorkflowLocale;
+  "lang"?: WorkflowLocale;
 };
 export type WorkflowGetResponse = Workflow;
 export type WorkflowI18nCatalog = {
@@ -1329,7 +1329,7 @@ export type WorkflowI18nCatalog = {
 export type WorkflowListRequest = {
   "cursor"?: string;
   "limit"?: number;
-  "lang": WorkflowLocale;
+  "lang"?: WorkflowLocale;
 };
 export type WorkflowListResponse = {
   "has_next": boolean;
@@ -7593,6 +7593,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "lang",
         "number": 2,
+        "optional": true,
         "type": "WorkflowLocale"
       }
     ]
@@ -7639,6 +7640,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "lang",
         "number": 3,
+        "optional": true,
         "type": "WorkflowLocale"
       }
     ]
