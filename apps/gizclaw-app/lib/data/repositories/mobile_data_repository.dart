@@ -363,10 +363,12 @@ WorkflowI18nCatalog? _workflowCatalog(Workflow workflow) =>
     workflow.hasI18n() ? workflow.i18n : null;
 
 WorkflowLocale _workflowLocale(String localeTag) {
-  final languageCode = localeTag.trim().replaceAll('_', '-').split('-').first;
+  final normalizedTag = localeTag.trim().replaceAll('_', '-').toLowerCase();
+  final languageCode = normalizedTag.split('-').first;
   return switch (languageCode) {
     'en' => WorkflowLocale.WORKFLOW_LOCALE_EN,
-    'zh' => WorkflowLocale.WORKFLOW_LOCALE_ZH_CN,
+    _ when normalizedTag == 'zh-cn' =>
+      WorkflowLocale.WORKFLOW_LOCALE_ZH_CN,
     _ => WorkflowLocale.WORKFLOW_LOCALE_UNSPECIFIED,
   };
 }

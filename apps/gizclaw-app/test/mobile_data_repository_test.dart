@@ -66,6 +66,7 @@ void main() {
     expect(workflows.single.title, '构建助手');
     expect(workflows.single.subtitle, '构建有用的东西。');
     expect(workflows.single.driverLabel, 'Flowcraft');
+    expect(client.lastWorkflowLang, WorkflowLocale.WORKFLOW_LOCALE_ZH_CN);
     final mobileWorkspace = workspaces.firstWhere(
       (workspace) => workspace.name == 'mobile-plan',
     );
@@ -98,7 +99,7 @@ void main() {
     expect(groupChats.single.description, 'Shipping together');
   });
 
-  test('stores the selected RPC catalog and sends the locale enum', () async {
+  test('uses the default catalog for an unsupported device locale', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(database.close);
     final repository = MobileDataRepository(
@@ -125,7 +126,10 @@ void main() {
     final card = (await repository.watchWorkflows('server-a').first).single;
     expect(card.title, '简体中文');
     expect(card.subtitle, '简体中文说明');
-    expect(client.lastWorkflowLang, WorkflowLocale.WORKFLOW_LOCALE_ZH_CN);
+    expect(
+      client.lastWorkflowLang,
+      WorkflowLocale.WORKFLOW_LOCALE_UNSPECIFIED,
+    );
   });
 
   test('complete refresh removes rows absent from the snapshot', () async {
