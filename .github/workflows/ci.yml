@@ -85,6 +85,13 @@ jobs:
       - name: Ensure Git LFS assets are available
         run: git lfs pull
 
+      - name: Install Wails Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev
+
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
         with:
