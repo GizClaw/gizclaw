@@ -131,6 +131,9 @@ jobs:
       - name: Ensure Git LFS assets are available
         run: git lfs pull
 
+      - name: Initialize nanopb submodule
+        run: git submodule update --init --depth=1 third_party/nanopb/upstream
+
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
         with:
