@@ -61,6 +61,36 @@ type Entry struct {
 	Err error
 }
 
+func (s Store) LocalServerPublicKey(id string) (string, error) {
+	pod, err := s.Load(id)
+	if err != nil {
+		return "", err
+	}
+	if pod.LocalServer == nil {
+		return "", fmt.Errorf("appconfig: pod %q is not local", id)
+	}
+	data, err := os.ReadFile(filepath.Join(s.Paths.PodsDir, id, "workspace", "config.yaml"))
+	if err != nil {
+		return "", fmt.Errorf("appconfig: read local server identity: %w", err)
+	}
+	var config struct {
+		Identity struct {
+			PrivateKey giznet.Key `yaml:"private-key"`
+		} `yaml:"identity"`
+	}
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return "", fmt.Errorf("appconfig: parse local server identity: %w", err)
+	}
+	if config.Identity.PrivateKey.IsZero() {
+		return "", fmt.Errorf("appconfig: local server identity is missing")
+	}
+	kp, err := giznet.NewKeyPair(config.Identity.PrivateKey)
+	if err != nil {
+		return "", fmt.Errorf("appconfig: derive local server public key: %w", err)
+	}
+	return kp.Public.String(), nil
+}
+
 func (s Store) List() ([]Pod, error) {
 	entries, err := s.Entries()
 	if err != nil {

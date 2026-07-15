@@ -21,6 +21,10 @@ export type DesktopPod = {
     valid: boolean;
     error?: string;
     play_configured: boolean;
+    /**
+     * Public half of the desktop-local Play identity.
+     */
+    play_public_key?: string;
     local?: DesktopLocalPod;
     remote?: DesktopRemotePod;
 };
@@ -29,6 +33,8 @@ export type DesktopLocalPod = {
     port: number;
     lan_addresses: Array<string>;
     admin_configured: boolean;
+    admin_public_key?: string;
+    server_public_key?: string;
     process: LocalServerProcess;
     health: EndpointHealth;
 };
@@ -43,12 +49,20 @@ export type DesktopServer = {
     name: string;
     endpoint: string;
     admin_configured: boolean;
+    /**
+     * Public half of the desktop-local Admin identity to install on the target Server.
+     */
+    admin_public_key?: string;
     health: EndpointHealth;
 };
 
 export type EndpointHealth = {
     endpoint: string;
     state: 'checking' | 'reachable' | 'unreachable' | 'invalid-response';
+    /**
+     * Server public key returned by a validated server-info response.
+     */
+    public_key?: string;
     checked_at?: string;
     message?: string;
 };

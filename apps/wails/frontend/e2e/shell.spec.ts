@@ -17,6 +17,7 @@ test.beforeEach(async ({ page }) => {
     const health = (endpoint: string, state = "reachable") => ({
       endpoint,
       state,
+      public_key: `server-public-key-${endpoint}`,
     });
     const pods = [
       {
@@ -26,6 +27,7 @@ test.beforeEach(async ({ page }) => {
         mode: "local",
         valid: true,
         play_configured: true,
+        play_public_key: "local-play-public-key",
         local: {
           port: 9820,
           lan_addresses: [
@@ -44,6 +46,8 @@ test.beforeEach(async ({ page }) => {
             "[fd1f:411f:eafd:458f:1898:35f7:287f:c259]:9820",
           ],
           admin_configured: true,
+          admin_public_key: "local-admin-public-key",
+          server_public_key: "local-server-public-key",
           process: { state: "running", logs: ["server ready"] },
           health: health("127.0.0.1:9820"),
         },
@@ -63,6 +67,7 @@ test.beforeEach(async ({ page }) => {
         mode: "remote",
         valid: true,
         play_configured: true,
+        play_public_key: "remote-play-public-key",
         remote: {
           access_point: health("ap.dev.gizclaw.com:9820"),
           servers: [
@@ -71,20 +76,23 @@ test.beforeEach(async ({ page }) => {
               name: "Beijing A",
               endpoint: "115.191.6.117:9820",
               admin_configured: true,
+              admin_public_key: "beijing-a-admin-public-key",
               health: health("115.191.6.117:9820"),
             },
             {
               id: "beijing-b",
               name: "Beijing B",
               endpoint: "115.191.6.118:9820",
-              admin_configured: false,
+              admin_configured: true,
+              admin_public_key: "beijing-b-admin-public-key",
               health: health("115.191.6.118:9820", "unreachable"),
             },
             ...Array.from({ length: 118 }, (_, index) => ({
               id: `server-${index}`,
               name: `Server ${index}`,
               endpoint: `10.0.0.${index + 1}:9820`,
-              admin_configured: index % 2 === 0,
+              admin_configured: true,
+              admin_public_key: `server-${index}-admin-public-key`,
               health: health(`10.0.0.${index + 1}:9820`),
             })),
           ],
@@ -108,11 +116,14 @@ test.beforeEach(async ({ page }) => {
               description: input.description,
               mode: "local",
               valid: true,
-              play_configured: false,
+              play_configured: true,
+              play_public_key: "generated-local-play-public-key",
               local: {
                 port: input.local_server.port || 9820,
-                lan_addresses: [],
-                admin_configured: false,
+                lan_addresses: ["192.168.1.6:9820"],
+                admin_configured: true,
+                admin_public_key: "generated-local-admin-public-key",
+                server_public_key: "generated-local-server-public-key",
                 process: { state: "stopped" },
                 health: health("127.0.0.1:9820", "checking"),
               },
@@ -123,7 +134,8 @@ test.beforeEach(async ({ page }) => {
               description: input.description,
               mode: "remote",
               valid: true,
-              play_configured: false,
+              play_configured: true,
+              play_public_key: "generated-remote-play-public-key",
               remote: {
                 access_point: health(input.remote_access_point, "checking"),
                 servers: [],
@@ -169,13 +181,18 @@ test.beforeEach(async ({ page }) => {
                     id: server.id || `server-generated-${serverIndex}`,
                     name: server.name || server.endpoint,
                     endpoint: server.endpoint,
-                    admin_configured: false,
+                    admin_configured: true,
+                    admin_public_key: `generated-admin-public-key-${serverIndex}`,
                     health: health(server.endpoint),
                   }),
                 ),
               },
             }
-          : current;
+          : {
+              ...current,
+              name: input.name,
+              description: input.description,
+            };
         pods[index] = next;
         return next;
       },
@@ -183,7 +200,9 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test("Pod home opens cards and a scalable remote detail", async ({ page }) => {
+test("Pod home opens a share face and scalable remote management", async ({
+  page,
+}) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Pods" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Hide window" })).toBeVisible();
@@ -197,8 +216,21 @@ test("Pod home opens cards and a scalable remote detail", async ({ page }) => {
   await expect(
     page
       .getByRole("dialog")
-      .getByRole("heading", { name: "China Development" }),
+      .getByRole("heading", { level: 2, name: "China Development" }),
   ).toBeVisible();
+  const remoteQR = page.getByRole("dialog").locator(".qr-code");
+  await expect(
+    remoteQR.getByRole("img", { name: "Server QR code" }),
+  ).toBeVisible();
+  const remotePayload = JSON.parse(
+    (await remoteQR.getAttribute("data-qr-payload")) ?? "{}",
+  );
+  expect(remotePayload).toMatchObject({
+    mode: "remote",
+    name: "China Development",
+    endpoint: "ap.dev.gizclaw.com:9820",
+  });
+  await page.getByRole("button", { name: "Manage Servers" }).click();
   await expect(page.getByText("Beijing A")).toBeVisible();
   await expect(page.getByText("120 servers")).toBeVisible();
   await page.locator(".virtual-server-list").evaluate((element) => {
@@ -214,8 +246,8 @@ test("Pod home opens cards and a scalable remote detail", async ({ page }) => {
   await expect(page.getByText("Beijing A")).not.toBeVisible();
   await expect(page.getByText("Beijing B")).toBeVisible();
   await page
-    .getByRole("combobox", { name: "Filter by Admin configuration" })
-    .selectOption("configured");
+    .getByRole("combobox", { name: "Filter by connection state" })
+    .selectOption("reachable");
   await expect(page.getByText("No Servers match")).toBeVisible();
 });
 
@@ -230,26 +262,38 @@ test("Add Pod creates a local environment without exposing keys", async ({
     .getByRole("button", { name: /^Local/ })
     .click();
   await expect(
-    page.getByRole("dialog").getByRole("heading", { name: "Local Server" }),
+    page
+      .getByRole("dialog")
+      .getByRole("heading", { level: 2, name: "Local Server" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("dialog").getByRole("img", { name: "Server QR code" }),
   ).toBeVisible();
   await expect(page.locator("body")).not.toContainText("private_key");
 });
 
-test("local network addresses stay compact until requested", async ({
+test("local share uses one preferred address and flips to controls", async ({
   page,
 }) => {
   await page.goto("/");
   await page.getByRole("button", { name: /Local Lab/ }).click();
   const dialog = page.getByRole("dialog");
-  const network = dialog.locator(".network-access-card");
-  await expect(network.getByText("13 addresses")).toBeVisible();
-  await expect(network.locator("summary code")).toHaveText("192.168.1.6:9820");
-  await expect(network.locator(".network-address-list")).not.toBeVisible();
-  await network.locator("summary").click();
-  await expect(network.locator(".network-address-list")).toBeVisible();
-  await expect(
-    network.getByText("[fd1f:411f:eafd:458f:1898:35f7:287f:c259]:9820"),
-  ).toBeVisible();
+  const qr = dialog.locator(".qr-code");
+  const payload = JSON.parse(
+    (await qr.getAttribute("data-qr-payload")) ?? "{}",
+  );
+  expect(payload).toMatchObject({
+    mode: "local",
+    name: "Local Lab",
+    endpoint: "192.168.1.6:9820",
+    server_public_key: "local-server-public-key",
+  });
+  await expect(dialog).not.toContainText("100.100.100.100:9820");
+  await expect(dialog).not.toContainText("fd1f:411f");
+  await dialog.getByRole("button", { name: "Server controls" }).click();
+  await expect(dialog.getByRole("button", { name: /Start/ })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: /Admin/ })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: /Play/ })).toBeVisible();
   await expect
     .poll(() =>
       dialog.evaluate((element) => element.scrollWidth <= element.clientWidth),
@@ -271,13 +315,17 @@ test("Remote creation asks only for an access point and adds Servers later", asy
   await page.getByRole("button", { name: "Create Pod" }).click();
   const detail = page.getByRole("dialog");
   await expect(
-    detail.getByRole("heading", { name: "Remote Server" }),
+    detail.getByRole("heading", { level: 2, name: "Remote Server" }),
   ).toBeVisible();
+  await detail.getByRole("button", { name: "Manage Servers" }).click();
   await detail.getByRole("button", { name: "Add Server" }).click();
   await page.getByLabel("Server Endpoint").fill("server.example.com:9820");
   await page.getByRole("button", { name: "Save configuration" }).click();
   await expect(
     detail.getByText("server.example.com:9820").first(),
+  ).toBeVisible();
+  await expect(
+    detail.getByRole("button", { name: "Copy Admin public key" }),
   ).toBeVisible();
 });
 

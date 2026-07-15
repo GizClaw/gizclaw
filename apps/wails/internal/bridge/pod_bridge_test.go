@@ -135,6 +135,12 @@ func TestPodCreationGeneratesInternalIDsAndAllowsEmptyRemoteInventory(t *testing
 	if !strings.HasPrefix(local.ID, "pod-") || !strings.HasPrefix(remote.ID, "pod-") || local.ID == remote.ID {
 		t.Fatalf("generated IDs = %q / %q", local.ID, remote.ID)
 	}
+	if !local.PlayConfigured || local.PlayPublicKey == "" || local.Local == nil || !local.Local.AdminConfigured || local.Local.AdminPublicKey == "" || local.Local.ServerPublicKey == "" {
+		t.Fatalf("generated local identities = %+v", local)
+	}
+	if !remote.PlayConfigured || remote.PlayPublicKey == "" {
+		t.Fatalf("generated remote Play identity = %+v", remote)
+	}
 	if remote.Remote == nil || len(remote.Remote.Servers) != 0 {
 		t.Fatalf("remote summary = %+v", remote.Remote)
 	}
@@ -151,8 +157,43 @@ func TestPodCreationGeneratesInternalIDsAndAllowsEmptyRemoteInventory(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(updated.Remote.Servers) != 1 || !strings.HasPrefix(updated.Remote.Servers[0].ID, "server-") || updated.Remote.Servers[0].Name != "127.0.0.1:19821" {
+	if len(updated.Remote.Servers) != 1 || !strings.HasPrefix(updated.Remote.Servers[0].ID, "server-") || updated.Remote.Servers[0].Name != "127.0.0.1:19821" || !updated.Remote.Servers[0].AdminConfigured || updated.Remote.Servers[0].AdminPublicKey == "" {
 		t.Fatalf("generated server = %+v", updated.Remote.Servers)
+	}
+	persisted, err := bridge.Store.Load(local.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if persisted.ClientPrivateKey == "" || persisted.LocalServer.AdminPrivateKey == "" {
+		t.Fatalf("local private identities were not persisted: %+v", persisted)
+	}
+}
+
+func TestListPodsMigratesMissingDesktopIdentities(t *testing.T) {
+	paths := appconfig.NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	store := appconfig.Store{Paths: paths}
+	pod := appconfig.Pod{Version: 1, ID: "legacy-local", Name: "Legacy Local", LocalServer: &appconfig.LocalServer{Port: 19824}}
+	if err := store.Save(pod); err != nil {
+		t.Fatal(err)
+	}
+	b := &PodBridge{Paths: paths, Store: store, Health: endpointhealth.New(), Local: localserver.New(), WebUI: webui.New(fstest.MapFS{})}
+	defer b.WebUI.Shutdown()
+	pods, err := b.ListPods(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pods) != 1 || !pods[0].PlayConfigured || pods[0].PlayPublicKey == "" || pods[0].Local == nil || !pods[0].Local.AdminConfigured || pods[0].Local.AdminPublicKey == "" {
+		t.Fatalf("migrated summary = %+v", pods)
+	}
+	loaded, err := store.Load("legacy-local")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.ClientPrivateKey == "" || loaded.LocalServer.AdminPrivateKey == "" {
+		t.Fatalf("migrated pod = %+v", loaded)
 	}
 }
 

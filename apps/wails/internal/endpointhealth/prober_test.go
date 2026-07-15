@@ -27,7 +27,7 @@ func TestProbeValidatesGizClawServerInfo(t *testing.T) {
 	defer server.Close()
 	prober := New()
 	result := prober.Probe(context.Background(), strings.TrimPrefix(server.URL, "http://"))
-	if result.State != Reachable || result.CheckedAt == "" {
+	if result.State != Reachable || result.CheckedAt == "" || result.PublicKey != kp.Public.String() {
 		t.Fatalf("result = %+v", result)
 	}
 }

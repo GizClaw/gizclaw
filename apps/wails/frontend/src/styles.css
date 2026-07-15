@@ -397,6 +397,27 @@ select:focus-visible {
   color: #777a83;
   font-size: 11px;
 }
+.dialog-title-line {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.rename-button {
+  width: 25px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  color: #747780;
+  background: transparent;
+  cursor: pointer;
+}
+.rename-button:hover {
+  color: #dfe1e6;
+  background: rgba(255, 255, 255, 0.055);
+}
 .icon-button {
   width: 34px;
   height: 34px;
@@ -466,8 +487,299 @@ select:focus-visible {
 }
 .pod-dialog-body {
   max-height: calc(100vh - 160px);
-  overflow: auto;
+  overflow: hidden;
   padding: 4px 24px 26px;
+}
+.pod-flip-stage {
+  position: relative;
+  height: 440px;
+  overflow: hidden;
+  border-radius: 20px;
+  contain: paint;
+  isolation: isolate;
+  perspective: 1800px;
+}
+.pod-flip-card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  will-change: transform;
+  transition: transform 0.68s cubic-bezier(0.2, 0.78, 0.2, 1);
+}
+.pod-flip-stage.is-flipped .pod-flip-card {
+  transform: rotateY(180deg);
+}
+.pod-face {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.026);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.pod-face-back {
+  transform: rotateY(180deg);
+  pointer-events: none;
+}
+.pod-flip-stage.is-flipped .pod-face-front {
+  pointer-events: none;
+}
+.pod-flip-stage.is-flipped .pod-face-back {
+  pointer-events: auto;
+}
+.share-face-layout {
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(280px, 0.92fr) minmax(0, 1.38fr);
+  gap: 18px;
+  padding: 18px;
+}
+.qr-card {
+  min-width: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  border-radius: 17px;
+  background:
+    radial-gradient(
+      circle at 50% 40%,
+      rgba(118, 130, 255, 0.13),
+      transparent 68%
+    ),
+    rgba(255, 255, 255, 0.025);
+}
+.qr-card > span {
+  color: #767983;
+  font-size: 10px;
+  letter-spacing: 0.02em;
+}
+.qr-code {
+  width: 272px;
+  height: 272px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 9px;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow:
+    0 22px 50px rgba(0, 0, 0, 0.22),
+    0 0 0 1px rgba(255, 255, 255, 0.7);
+}
+.qr-code img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+}
+.qr-unavailable {
+  padding: 34px;
+  color: #8a8d95;
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: center;
+}
+.qr-placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 14px;
+  background: linear-gradient(110deg, #eee 30%, #fff 45%, #eee 60%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s linear infinite;
+}
+.share-summary {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px 22px 20px;
+}
+.share-summary-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.share-summary > div > small,
+.share-endpoint small,
+.public-key-row small {
+  display: block;
+  margin-bottom: 5px;
+  color: #6f727b;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.share-summary h3 {
+  margin: 0;
+  color: #e7e9ed;
+  font-size: 28px;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+}
+.share-endpoint {
+  padding: 15px 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.share-endpoint code {
+  color: #d4d7dd;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 14px;
+  font-weight: 600;
+}
+.public-key-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+.public-key-row > div {
+  min-width: 0;
+}
+.public-key-row code {
+  display: block;
+  overflow: hidden;
+  color: #858892;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.copy-value-button {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  color: #888b94;
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+}
+.copy-value-button:hover,
+.copy-value-button.copied {
+  color: #74d3c1;
+  background: rgba(55, 181, 157, 0.11);
+}
+.share-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+}
+.share-play {
+  min-width: 130px;
+}
+.manage-face {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+}
+.face-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.face-toolbar h3 {
+  margin: 3px 0 0;
+  color: #e0e2e7;
+  font-size: 18px;
+}
+.manage-runtime-card {
+  display: grid;
+  gap: 20px;
+  padding: 17px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.compact-runtime-actions .primary-action,
+.compact-runtime-actions .secondary-action {
+  min-height: 33px;
+}
+.compact-launchers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+.compact-launchers > button {
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 14px;
+  color: #cfd2d8;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  text-align: left;
+}
+.compact-launchers > button > svg:first-child {
+  color: #aeb7ff;
+}
+.compact-launchers span {
+  display: grid;
+  gap: 2px;
+}
+.compact-launchers small {
+  color: #70737c;
+  font-size: 9px;
+}
+.manage-log-view,
+.quiet-log {
+  min-height: 76px;
+  max-height: 98px;
+  margin: 0;
+}
+.quiet-log {
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  color: #666973;
+  background: #111216;
+  font-size: 10px;
+}
+.manage-remote-toolbar {
+  margin: 0;
+}
+.generated-admin-key {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(55, 181, 157, 0.08);
+}
+.generated-admin-key > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+.generated-admin-key small {
+  color: #6ecbb9;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.generated-admin-key code,
+.generated-admin-key span {
+  overflow: hidden;
+  color: #9da1aa;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .access-point {
   display: flex;
@@ -809,12 +1121,12 @@ button:disabled {
 }
 .virtual-server-list {
   display: block;
-  height: 430px;
+  height: 284px;
 }
 .virtual-server-row {
   position: absolute;
   inset: 0 0 auto;
-  height: 61px;
+  height: 82px;
 }
 .server-row {
   display: grid;
@@ -835,6 +1147,25 @@ button:disabled {
   color: #6e717a;
   font-family: "SFMono-Regular", Consolas, monospace;
   text-overflow: ellipsis;
+}
+.server-admin-key {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #777a83;
+}
+.server-admin-key code {
+  overflow: hidden;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.server-admin-key .copy-value-button {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  background: transparent;
 }
 .server-orb {
   width: 34px;
@@ -1210,6 +1541,40 @@ button:disabled {
     color: #24252a;
     background: #f8f8fa;
   }
+  .pod-face {
+    background: rgba(30, 31, 36, 0.025);
+  }
+  .qr-card {
+    background:
+      radial-gradient(
+        circle at 50% 40%,
+        rgba(118, 130, 255, 0.11),
+        transparent 68%
+      ),
+      rgba(255, 255, 255, 0.55);
+  }
+  .share-summary h3,
+  .face-toolbar h3,
+  .runtime-heading strong {
+    color: #25262b;
+  }
+  .share-endpoint,
+  .manage-runtime-card,
+  .compact-launchers > button {
+    color: #2a2b30;
+    background: rgba(30, 31, 36, 0.055);
+  }
+  .share-endpoint code {
+    color: #34353b;
+  }
+  .copy-value-button {
+    color: #60636b;
+    background: rgba(30, 31, 36, 0.065);
+  }
+  .rename-button:hover {
+    color: #2c2d32;
+    background: rgba(30, 31, 36, 0.055);
+  }
   .local-runtime-card,
   .network-access-card,
   .access-point,
@@ -1242,6 +1607,17 @@ button:disabled {
     color: #4c4e55;
     background: rgba(30, 31, 36, 0.07);
   }
+  .remote-toolbar label,
+  .remote-toolbar select {
+    color: #555861;
+    background: rgba(30, 31, 36, 0.065);
+  }
+  .remote-toolbar input {
+    color: #292a30;
+  }
+  .remote-toolbar input::placeholder {
+    color: #858891;
+  }
   .runtime-heading strong,
   .network-copy strong {
     color: #2a2b30;
@@ -1270,6 +1646,29 @@ button:disabled {
   }
   .dialog-backdrop {
     padding: 14px;
+  }
+  .pod-dialog-body {
+    overflow: auto;
+  }
+  .pod-flip-stage {
+    height: 610px;
+  }
+  .pod-face {
+    overflow: auto;
+  }
+  .share-face-layout {
+    grid-template-columns: 1fr;
+  }
+  .qr-code {
+    width: 210px;
+    height: 210px;
+  }
+  .share-summary {
+    gap: 13px;
+    padding: 8px 14px 16px;
+  }
+  .compact-launchers {
+    grid-template-columns: 1fr;
   }
   .surface-grid,
   .form-grid,
@@ -1300,6 +1699,23 @@ button:disabled {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .pod-flip-card,
+  .pod-flip-stage.is-flipped .pod-flip-card {
+    transform: none;
+  }
+  .pod-face {
+    transform: none;
+    transition: opacity 0.01ms linear;
+  }
+  .pod-face-back {
+    opacity: 0;
+  }
+  .pod-flip-stage.is-flipped .pod-face-front {
+    opacity: 0;
+  }
+  .pod-flip-stage.is-flipped .pod-face-back {
+    opacity: 1;
+  }
   *,
   *::before,
   *::after {

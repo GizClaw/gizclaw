@@ -5,7 +5,9 @@
 | Flow | Implementation | Coverage |
 | --- | --- | --- |
 | Headerless compact Pod grid, Add card, and animated detail presence | `apps/wails/frontend/src/shell/AppShell.tsx` | `apps/wails/frontend/e2e/shell.spec.ts` |
+| QR share face and reduced-motion-aware management flip | `apps/wails/frontend/src/shell/AppShell.tsx` | `apps/wails/frontend/e2e/shell.spec.ts` |
 | Automatic Pod IDs and minimal local/remote creation | `internal/bridge`, `frontend/src/shell/AppShell.tsx` | bridge tests and `frontend/e2e/shell.spec.ts` |
+| Automatic private identities with public-only summaries | `apps/wails/internal/bridge`, `api/http/desktop.json` | bridge tests and generated TypeScript build |
 | Frameless hide/minimise/maximise controls | `frontend/src/shell/AppShell.tsx` | frontend build and shell E2E |
 | Local/remote manifest validation and private projection | `apps/wails/internal/appconfig` | `apps/wails/internal/appconfig/pod_test.go` |
 | Local Server lifecycle and bounded logs | `apps/wails/internal/localserver` | Wails Go suite |

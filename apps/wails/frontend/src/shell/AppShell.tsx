@@ -1,20 +1,20 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import QRCode from "qrcode";
 import {
   Activity,
   ArrowUpRight,
-  ChevronDown,
   ChevronLeft,
   CircleStop,
   Cloud,
+  Copy,
   Cpu,
+  FlipHorizontal2,
   Globe2,
-  KeyRound,
   Laptop,
   FolderOpen,
   Maximize2,
   MoreHorizontal,
   Minus,
-  Network,
   Pencil,
   Play,
   Plus,
@@ -358,15 +358,9 @@ function PodDetail({
 }) {
   const t = useMessages();
   const [closing, setClosing] = useState(false);
+  const [flipped, setFlipped] = useState(false);
   const [query, setQuery] = useState("");
-  const [adminFilter, setAdminFilter] = useState<
-    "all" | "configured" | "missing"
-  >("all");
   const [healthFilter, setHealthFilter] = useState("all");
-  const [secretTarget, setSecretTarget] = useState<{
-    kind: "admin" | "client";
-    serverID?: string;
-  } | null>(null);
   const [serverEditor, setServerEditor] = useState<PodServer | "new" | null>(
     null,
   );
@@ -374,23 +368,17 @@ function PodDetail({
     const matchesQuery = `${server.id} ${server.name} ${server.endpoint}`
       .toLowerCase()
       .includes(query.toLowerCase());
-    const matchesAdmin =
-      adminFilter === "all" ||
-      (adminFilter === "configured"
-        ? server.admin_configured
-        : !server.admin_configured);
     const matchesHealth =
       healthFilter === "all" || server.health.state === healthFilter;
-    return matchesQuery && matchesAdmin && matchesHealth;
+    return matchesQuery && matchesHealth;
   });
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !secretTarget && !serverEditor)
-        setClosing(true);
+      if (event.key === "Escape" && !serverEditor) setClosing(true);
     };
     window.addEventListener("keydown", keydown);
     return () => window.removeEventListener("keydown", keydown);
-  }, [secretTarget, serverEditor]);
+  }, [serverEditor]);
   useEffect(() => {
     if (!closing) return;
     const timer = window.setTimeout(onClose, 240);
@@ -427,7 +415,20 @@ function PodDetail({
                   ? t("remote")
                   : t("invalid")}
             </span>
-            <h2>{pod.name}</h2>
+            <div className="dialog-title-line">
+              <h2>{pod.name}</h2>
+              {pod.valid ? (
+                <button
+                  aria-label={t("renameServer")}
+                  className="rename-button"
+                  onClick={onEdit}
+                  title={t("renameServer")}
+                  type="button"
+                >
+                  <Pencil size={13} />
+                </button>
+              ) : null}
+            </div>
             <p>{pod.description || pod.id}</p>
           </div>
           <details className="pod-menu">
@@ -488,225 +489,60 @@ function PodDetail({
               </button>
             </div>
           ) : pod.local ? (
-            <div className="local-detail">
-              <div className="local-console-grid">
-                <div className="local-runtime-stack">
-                  <section className="local-runtime-card">
-                    <div className="runtime-heading">
-                      <div>
-                        <small>{t("localServer")}</small>
-                        <strong>0.0.0.0:{pod.local.port}</strong>
-                      </div>
-                      <Status state={pod.local.process.state} />
-                    </div>
-                    <div className="runtime-actions">
-                      <button
-                        className="primary-action"
-                        disabled={pod.local.process.state === "running"}
-                        onClick={() =>
-                          void run(() => api.StartLocalServer(pod.id))
-                        }
-                        type="button"
-                      >
-                        <Play size={16} />
-                        {t("start")}
-                      </button>
-                      <button
-                        className="secondary-action"
-                        disabled={pod.local.process.state !== "running"}
-                        onClick={() =>
-                          void run(() => api.StopLocalServer(pod.id))
-                        }
-                        type="button"
-                      >
-                        <CircleStop size={16} />
-                        {t("stop")}
-                      </button>
-                      <button
-                        className="secondary-action"
-                        onClick={() =>
-                          void run(() => api.RestartLocalServer(pod.id))
-                        }
-                        type="button"
-                      >
-                        <RotateCw size={16} />
-                        {t("restart")}
-                      </button>
-                      <button
-                        aria-label={t("refresh")}
-                        className="secondary-action compact-action"
-                        onClick={() =>
-                          void run(() => api.RefreshPodHealth(pod.id))
-                        }
-                        title={t("refresh")}
-                        type="button"
-                      >
-                        <RefreshCw size={16} />
-                      </button>
-                    </div>
-                  </section>
-                  {pod.local.lan_addresses.length ? (
-                    <details className="network-access-card">
-                      <summary aria-label={t("toggleNetworkAddresses")}>
-                        <span className="network-icon">
-                          <Network size={18} />
-                        </span>
-                        <span className="network-copy">
-                          <small>{t("lanAccess")}</small>
-                          <strong>
-                            {pod.local.lan_addresses.length} {t("addresses")}
-                          </strong>
-                        </span>
-                        <code>
-                          {preferredLANAddress(pod.local.lan_addresses)}
-                        </code>
-                        <span className="network-disclosure">
-                          {t("viewAll")}
-                          <ChevronDown size={15} />
-                        </span>
-                      </summary>
-                      <div className="network-address-list">
-                        {pod.local.lan_addresses.map((address) => (
-                          <code key={address}>{address}</code>
-                        ))}
-                      </div>
-                    </details>
-                  ) : null}
-                </div>
-                <div className="surface-grid local-surface-grid">
-                  <SurfaceCard
-                    enabled={pod.local.admin_configured}
-                    icon={<Server size={19} />}
-                    label="Admin"
-                    onConfigure={() => setSecretTarget({ kind: "admin" })}
-                    onOpen={() => api.OpenAdmin(pod.id, "local").catch(onError)}
-                  />
-                  <SurfaceCard
-                    enabled={pod.play_configured}
-                    icon={<Sparkles size={19} />}
-                    label="Play"
-                    onConfigure={() => setSecretTarget({ kind: "client" })}
-                    onOpen={() => api.OpenPlay(pod.id).catch(onError)}
-                  />
-                </div>
-              </div>
-              {pod.local.process.logs?.length ? (
-                <pre className="log-view">
-                  {pod.local.process.logs.slice(-20).join("\n")}
-                </pre>
-              ) : null}
-            </div>
+            <PodFlipCard
+              back={
+                <LocalManageFace
+                  api={api}
+                  onError={onError}
+                  onFlip={() => setFlipped(false)}
+                  pod={pod}
+                  run={run}
+                />
+              }
+              flipped={flipped}
+              front={
+                <PodShareFace
+                  endpoint={preferredLANAddress(pod.local.lan_addresses)}
+                  onFlip={() => setFlipped(true)}
+                  onPlay={() => api.OpenPlay(pod.id).catch(onError)}
+                  pod={pod}
+                  publicKey={pod.local.server_public_key ?? ""}
+                  state={pod.local.process.state}
+                />
+              }
+            />
           ) : (
-            <div className="remote-detail">
-              <div className="access-point">
-                <div>
-                  <small>{t("remoteAccessPoint")}</small>
-                  <strong>{pod.remote?.access_point.endpoint}</strong>
-                </div>
-                <Status state={pod.remote?.access_point.state ?? "checking"} />
-              </div>
-              <div className="remote-toolbar">
-                <label>
-                  <Search size={16} />
-                  <input
-                    aria-label={t("searchServers")}
-                    onChange={(event) => setQuery(event.target.value)}
-                    placeholder={t("searchServers")}
-                    value={query}
-                  />
-                </label>
-                <select
-                  aria-label={t("adminFilter")}
-                  onChange={(event) =>
-                    setAdminFilter(event.target.value as typeof adminFilter)
-                  }
-                  value={adminFilter}
-                >
-                  <option value="all">{t("allAdmin")}</option>
-                  <option value="configured">{t("adminConfigured")}</option>
-                  <option value="missing">{t("adminMissing")}</option>
-                </select>
-                <select
-                  aria-label={t("healthFilter")}
-                  onChange={(event) => setHealthFilter(event.target.value)}
-                  value={healthFilter}
-                >
-                  <option value="all">{t("allStates")}</option>
-                  <option value="reachable">{t("reachable")}</option>
-                  <option value="unreachable">{t("unreachable")}</option>
-                  <option value="invalid-response">
-                    {t("invalid-response")}
-                  </option>
-                </select>
-                <button
-                  className="secondary-action"
-                  onClick={() => void run(() => api.RefreshPodHealth(pod.id))}
-                  type="button"
-                >
-                  <RefreshCw size={16} />
-                  {t("refresh")}
-                </button>
-                <button
-                  className="secondary-action"
-                  onClick={() => setServerEditor("new")}
-                  type="button"
-                >
-                  <Plus size={16} />
-                  {t("addServer")}
-                </button>
-                <button
-                  className={
-                    pod.play_configured ? "primary-action" : "secondary-action"
-                  }
-                  onClick={() =>
-                    pod.play_configured
-                      ? api.OpenPlay(pod.id).catch(onError)
-                      : setSecretTarget({ kind: "client" })
-                  }
-                  type="button"
-                >
-                  <Sparkles size={16} />
-                  {pod.play_configured ? t("openPlay") : t("configurePlay")}
-                </button>
-              </div>
-              {servers.length ? (
-                <VirtualServerList
-                  onAdmin={(server) =>
-                    server.admin_configured
-                      ? api.OpenAdmin(pod.id, server.id).catch(onError)
-                      : setSecretTarget({ kind: "admin", serverID: server.id })
-                  }
-                  onEdit={(server) => setServerEditor(server)}
-                  resetKey={`${pod.id}\u0000${query}\u0000${adminFilter}\u0000${healthFilter}`}
+            <PodFlipCard
+              back={
+                <RemoteManageFace
+                  api={api}
+                  healthFilter={healthFilter}
+                  onAddServer={() => setServerEditor("new")}
+                  onEditServer={setServerEditor}
+                  onError={onError}
+                  onFlip={() => setFlipped(false)}
+                  onHealthFilter={setHealthFilter}
+                  onQuery={setQuery}
+                  pod={pod}
+                  query={query}
+                  run={run}
                   servers={servers}
                 />
-              ) : (
-                <div className="no-servers">{t("noServers")}</div>
-              )}
-            </div>
+              }
+              flipped={flipped}
+              front={
+                <PodShareFace
+                  endpoint={pod.remote!.access_point.endpoint}
+                  onFlip={() => setFlipped(true)}
+                  onPlay={() => api.OpenPlay(pod.id).catch(onError)}
+                  pod={pod}
+                  publicKey={pod.remote!.access_point.public_key ?? ""}
+                  state={pod.remote!.access_point.state}
+                />
+              }
+            />
           )}
         </div>
-        {secretTarget ? (
-          <SecretDialog
-            label={
-              secretTarget.kind === "client"
-                ? t("clientPrivateKey")
-                : t("adminPrivateKey")
-            }
-            onClose={() => setSecretTarget(null)}
-            onSave={async (value) => {
-              try {
-                const next = await api.UpdatePod(
-                  podInputWithSecret(pod, secretTarget, value),
-                );
-                onChange(next);
-                setSecretTarget(null);
-              } catch (reason) {
-                onError(reason);
-              }
-            }}
-          />
-        ) : null}
         {serverEditor ? (
           <ServerEditorDialog
             server={serverEditor === "new" ? undefined : serverEditor}
@@ -764,7 +600,361 @@ function preferredLANAddress(addresses: string[]) {
       /^192\.168\.\d+\.(?!0:)\d+:\d+$/.test(address),
     ) ??
     addresses.find((address) => !address.startsWith("[")) ??
-    addresses[0]
+    addresses[0] ??
+    ""
+  );
+}
+
+function PodFlipCard({
+  back,
+  flipped,
+  front,
+}: {
+  back: React.ReactNode;
+  flipped: boolean;
+  front: React.ReactNode;
+}) {
+  return (
+    <div className={`pod-flip-stage ${flipped ? "is-flipped" : ""}`}>
+      <div className="pod-flip-card">
+        <section
+          aria-hidden={flipped}
+          className="pod-face pod-face-front"
+          inert={flipped}
+        >
+          {front}
+        </section>
+        <section
+          aria-hidden={!flipped}
+          className="pod-face pod-face-back"
+          inert={!flipped}
+        >
+          {back}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function PodShareFace({
+  endpoint,
+  onFlip,
+  onPlay,
+  pod,
+  publicKey,
+  state,
+}: {
+  endpoint: string;
+  onFlip(): void;
+  onPlay(): void;
+  pod: PodSummary;
+  publicKey: string;
+  state: string;
+}) {
+  const t = useMessages();
+  const payload = useMemo(
+    () =>
+      JSON.stringify({
+        version: 1,
+        type: "gizclaw-server",
+        mode: pod.mode,
+        name: pod.name,
+        endpoint,
+        ...(publicKey ? { server_public_key: publicKey } : {}),
+      }),
+    [endpoint, pod.mode, pod.name, publicKey],
+  );
+  return (
+    <div className="share-face-layout">
+      <div className="qr-card">
+        {endpoint ? (
+          <QRCodeImage label={t("serverQRCode")} payload={payload} />
+        ) : (
+          <div className="qr-code qr-unavailable">{t("noLANAddress")}</div>
+        )}
+        <span>{t("scanToAddServer")}</span>
+      </div>
+      <div className="share-summary">
+        <div className="share-summary-top">
+          <span className="mode-chip">{t("readyToShare")}</span>
+          <Status state={state} />
+        </div>
+        <div>
+          <small>{t("serverName")}</small>
+          <h3>{pod.name}</h3>
+        </div>
+        <div className="share-endpoint">
+          <small>{pod.local ? t("lanAddress") : t("accessPoint")}</small>
+          <code>{endpoint || t("noLANAddress")}</code>
+        </div>
+        {publicKey ? (
+          <div className="public-key-row">
+            <div>
+              <small>{t("serverPublicKey")}</small>
+              <code>{publicKey}</code>
+            </div>
+            <CopyValueButton
+              label={t("copyServerPublicKey")}
+              value={publicKey}
+            />
+          </div>
+        ) : null}
+        <div className="share-actions">
+          <button
+            className="primary-action share-play"
+            onClick={onPlay}
+            type="button"
+          >
+            <Sparkles size={17} />
+            {t("openPlay")}
+          </button>
+          <button className="secondary-action" onClick={onFlip} type="button">
+            <FlipHorizontal2 size={16} />
+            {pod.local ? t("serverControls") : t("manageServers")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function QRCodeImage({ label, payload }: { label: string; payload: string }) {
+  const [source, setSource] = useState("");
+  useEffect(() => {
+    let active = true;
+    void QRCode.toDataURL(payload, {
+      errorCorrectionLevel: "M",
+      margin: 2,
+      width: 360,
+      color: { dark: "#111218", light: "#ffffff" },
+    }).then((value) => {
+      if (active) setSource(value);
+    });
+    return () => {
+      active = false;
+    };
+  }, [payload]);
+  return (
+    <div className="qr-code" data-qr-payload={payload}>
+      {source ? (
+        <img alt={label} src={source} />
+      ) : (
+        <span className="qr-placeholder" />
+      )}
+    </div>
+  );
+}
+
+function LocalManageFace({
+  api,
+  onError,
+  onFlip,
+  pod,
+  run,
+}: {
+  api: ReturnType<typeof getDesktopAPI>;
+  onError(reason: unknown): void;
+  onFlip(): void;
+  pod: PodSummary;
+  run(action: () => Promise<PodSummary>): Promise<void>;
+}) {
+  const t = useMessages();
+  const local = pod.local!;
+  return (
+    <div className="manage-face local-manage-face">
+      <div className="face-toolbar">
+        <div>
+          <span className="mode-chip">{t("localServer")}</span>
+          <h3>{t("serverControls")}</h3>
+        </div>
+        <button className="secondary-action" onClick={onFlip} type="button">
+          <FlipHorizontal2 size={16} />
+          {t("shareServer")}
+        </button>
+      </div>
+      <section className="manage-runtime-card">
+        <div className="runtime-heading">
+          <div>
+            <small>{t("listenAddress")}</small>
+            <strong>0.0.0.0:{local.port}</strong>
+          </div>
+          <Status state={local.process.state} />
+        </div>
+        <div className="runtime-actions compact-runtime-actions">
+          <button
+            className="primary-action"
+            disabled={local.process.state === "running"}
+            onClick={() => void run(() => api.StartLocalServer(pod.id))}
+            type="button"
+          >
+            <Play size={15} /> {t("start")}
+          </button>
+          <button
+            className="secondary-action"
+            disabled={local.process.state !== "running"}
+            onClick={() => void run(() => api.StopLocalServer(pod.id))}
+            type="button"
+          >
+            <CircleStop size={15} /> {t("stop")}
+          </button>
+          <button
+            className="secondary-action"
+            onClick={() => void run(() => api.RestartLocalServer(pod.id))}
+            type="button"
+          >
+            <RotateCw size={15} /> {t("restart")}
+          </button>
+          <button
+            aria-label={t("refresh")}
+            className="secondary-action compact-action"
+            onClick={() => void run(() => api.RefreshPodHealth(pod.id))}
+            title={t("refresh")}
+            type="button"
+          >
+            <RefreshCw size={15} />
+          </button>
+        </div>
+      </section>
+      <div className="compact-launchers">
+        <button
+          onClick={() => api.OpenAdmin(pod.id, "local").catch(onError)}
+          type="button"
+        >
+          <Server size={17} />
+          <span>
+            <strong>Admin</strong>
+            <small>{t("openInBrowser")}</small>
+          </span>
+          <ArrowUpRight size={14} />
+        </button>
+        <button
+          onClick={() => api.OpenPlay(pod.id).catch(onError)}
+          type="button"
+        >
+          <Sparkles size={17} />
+          <span>
+            <strong>Play</strong>
+            <small>{t("openInBrowser")}</small>
+          </span>
+          <ArrowUpRight size={14} />
+        </button>
+      </div>
+      {local.process.logs?.length ? (
+        <pre className="log-view manage-log-view">
+          {local.process.logs.slice(-8).join("\n")}
+        </pre>
+      ) : (
+        <div className="quiet-log">{t("noServerLogs")}</div>
+      )}
+    </div>
+  );
+}
+
+function RemoteManageFace({
+  api,
+  healthFilter,
+  onAddServer,
+  onEditServer,
+  onError,
+  onFlip,
+  onHealthFilter,
+  onQuery,
+  pod,
+  query,
+  run,
+  servers,
+}: {
+  api: ReturnType<typeof getDesktopAPI>;
+  healthFilter: string;
+  onAddServer(): void;
+  onEditServer(server: PodServer): void;
+  onError(reason: unknown): void;
+  onFlip(): void;
+  onHealthFilter(value: string): void;
+  onQuery(value: string): void;
+  pod: PodSummary;
+  query: string;
+  run(action: () => Promise<PodSummary>): Promise<void>;
+  servers: PodServer[];
+}) {
+  const t = useMessages();
+  return (
+    <div className="manage-face remote-manage-face">
+      <div className="face-toolbar">
+        <div>
+          <span className="mode-chip">{t("remote")}</span>
+          <h3>{t("manageServers")}</h3>
+        </div>
+        <button className="secondary-action" onClick={onFlip} type="button">
+          <FlipHorizontal2 size={16} />
+          {t("shareServer")}
+        </button>
+      </div>
+      <div className="remote-toolbar manage-remote-toolbar">
+        <label>
+          <Search size={16} />
+          <input
+            aria-label={t("searchServers")}
+            onChange={(event) => onQuery(event.target.value)}
+            placeholder={t("searchServers")}
+            value={query}
+          />
+        </label>
+        <select
+          aria-label={t("healthFilter")}
+          onChange={(event) => onHealthFilter(event.target.value)}
+          value={healthFilter}
+        >
+          <option value="all">{t("allStates")}</option>
+          <option value="reachable">{t("reachable")}</option>
+          <option value="unreachable">{t("unreachable")}</option>
+          <option value="invalid-response">{t("invalid-response")}</option>
+        </select>
+        <button
+          aria-label={t("refresh")}
+          className="secondary-action compact-action"
+          onClick={() => void run(() => api.RefreshPodHealth(pod.id))}
+          title={t("refresh")}
+          type="button"
+        >
+          <RefreshCw size={15} />
+        </button>
+        <button className="primary-action" onClick={onAddServer} type="button">
+          <Plus size={15} /> {t("addServer")}
+        </button>
+      </div>
+      {servers.length ? (
+        <VirtualServerList
+          onAdmin={(server) => api.OpenAdmin(pod.id, server.id).catch(onError)}
+          onEdit={onEditServer}
+          resetKey={`${pod.id}\u0000${query}\u0000${healthFilter}`}
+          servers={servers}
+        />
+      ) : (
+        <div className="no-servers">{t("noServers")}</div>
+      )}
+    </div>
+  );
+}
+
+function CopyValueButton({ label, value }: { label: string; value: string }) {
+  const t = useMessages();
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      aria-label={label}
+      className={`copy-value-button ${copied ? "copied" : ""}`}
+      onClick={() => {
+        void navigator.clipboard.writeText(value).then(() => {
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 1200);
+        });
+      }}
+      title={copied ? t("copied") : label}
+      type="button"
+    >
+      <Copy size={14} />
+    </button>
   );
 }
 
@@ -782,8 +972,8 @@ function VirtualServerList({
   const t = useMessages();
   const viewport = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
-  const rowHeight = 69;
-  const viewportHeight = 430;
+  const rowHeight = 88;
+  const viewportHeight = 284;
   const overscan = 5;
   const start = Math.max(0, Math.floor(scrollTop / rowHeight) - overscan);
   const end = Math.min(
@@ -815,6 +1005,15 @@ function VirtualServerList({
             <div>
               <strong>{server.name}</strong>
               <small>{server.endpoint}</small>
+              {server.admin_public_key ? (
+                <span className="server-admin-key">
+                  <code>{shortPublicKey(server.admin_public_key)}</code>
+                  <CopyValueButton
+                    label={t("copyAdminPublicKey")}
+                    value={server.admin_public_key}
+                  />
+                </span>
+              ) : null}
             </div>
             <Status state={server.health.state} />
             <button
@@ -841,97 +1040,8 @@ function VirtualServerList({
   );
 }
 
-function SurfaceCard({
-  enabled,
-  icon,
-  label,
-  onConfigure,
-  onOpen,
-}: {
-  enabled: boolean;
-  icon: React.ReactNode;
-  label: string;
-  onConfigure(): void;
-  onOpen(): void;
-}) {
-  const t = useMessages();
-  return (
-    <button
-      className="surface-card"
-      onClick={enabled ? onOpen : onConfigure}
-      type="button"
-    >
-      <span>{icon}</span>
-      <div>
-        <strong>{label}</strong>
-        <small>
-          {enabled
-            ? t("openInBrowser")
-            : `${t("notConfigured")} · ${t("configure")}`}
-        </small>
-      </div>
-      <ArrowUpRight size={17} />
-    </button>
-  );
-}
-
-function SecretDialog({
-  label,
-  onClose,
-  onSave,
-}: {
-  label: string;
-  onClose(): void;
-  onSave(value: string): Promise<void>;
-}) {
-  const t = useMessages();
-  const [value, setValue] = useState("");
-  return (
-    <div className="nested-dialog-backdrop">
-      <form
-        className="secret-dialog"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void onSave(value.trim());
-        }}
-      >
-        <header>
-          <div>
-            <span className="eyebrow">
-              <KeyRound size={14} /> {t("writeOnly")}
-            </span>
-            <h3>{label}</h3>
-          </div>
-          <button
-            aria-label={t("close")}
-            className="icon-button"
-            onClick={onClose}
-            title={t("close")}
-            type="button"
-          >
-            <X size={18} />
-          </button>
-        </header>
-        <p>{t("secretBody")}</p>
-        <input
-          autoFocus
-          onChange={(event) => setValue(event.target.value)}
-          placeholder={t("giznetPrivateKey")}
-          required
-          type="password"
-          value={value}
-        />
-        <footer>
-          <button className="secondary-action" onClick={onClose} type="button">
-            {t("cancel")}
-          </button>
-          <button className="primary-action" type="submit">
-            {t("saveConfiguration")}
-          </button>
-        </footer>
-      </form>
-    </div>
-  );
+function shortPublicKey(value: string) {
+  return value.length > 18 ? `${value.slice(0, 10)}…${value.slice(-7)}` : value;
 }
 
 type EditableServer = Pick<PodServer, "id" | "name" | "endpoint">;
@@ -993,6 +1103,22 @@ function ServerEditorDialog({
             wide
           />
         </div>
+        <div className="generated-admin-key">
+          <div>
+            <small>{t("adminPublicKey")}</small>
+            {server?.admin_public_key ? (
+              <code>{server.admin_public_key}</code>
+            ) : (
+              <span>{t("adminKeyGeneratedAfterSave")}</span>
+            )}
+          </div>
+          {server?.admin_public_key ? (
+            <CopyValueButton
+              label={t("copyAdminPublicKey")}
+              value={server.admin_public_key}
+            />
+          ) : null}
+        </div>
         <footer>
           {onDelete ? (
             <button
@@ -1015,40 +1141,6 @@ function ServerEditorDialog({
       </form>
     </div>
   );
-}
-
-function podInputWithSecret(
-  pod: PodSummary,
-  target: { kind: "admin" | "client"; serverID?: string },
-  value: string,
-): PodInput {
-  const base = {
-    version: 1 as const,
-    id: pod.id,
-    name: pod.name,
-    description: pod.description,
-    ...(target.kind === "client" ? { client_private_key: value } : {}),
-  };
-  if (pod.local)
-    return {
-      ...base,
-      local_server: {
-        port: pod.local.port,
-        ...(target.kind === "admin" ? { admin_private_key: value } : {}),
-      },
-    };
-  return {
-    ...base,
-    remote_access_point: pod.remote!.access_point.endpoint,
-    remote_servers: pod.remote!.servers.map((server) => ({
-      id: server.id,
-      name: server.name,
-      endpoint: server.endpoint,
-      ...(target.kind === "admin" && target.serverID === server.id
-        ? { admin_private_key: value }
-        : {}),
-    })),
-  };
 }
 
 function podInputWithServers(
@@ -1234,34 +1326,12 @@ function PodSettingsDialog({
   const [accessPoint, setAccessPoint] = useState(
     initial.remote?.access_point.endpoint ?? "",
   );
-  const [removeKeys, setRemoveKeys] = useState<string[]>([]);
   const [closing, setClosing] = useState(false);
   useEffect(() => {
     if (!closing) return;
     const timer = window.setTimeout(onClose, 240);
     return () => window.clearTimeout(timer);
   }, [closing, onClose]);
-
-  const removableCredentials = [
-    ...(initial.play_configured ? [{ id: "client", label: "Play" }] : []),
-    ...(initial.local?.admin_configured
-      ? [{ id: "admin:local", label: "Admin" }]
-      : []),
-    ...(initial.remote?.servers
-      .filter((server) => server.admin_configured)
-      .map((server) => ({
-        id: `admin:${server.id}`,
-        label: `Admin · ${server.name}`,
-      })) ?? []),
-  ];
-
-  function toggleRemoval(id: string) {
-    if (removeKeys.includes(id)) {
-      setRemoveKeys((current) => current.filter((value) => value !== id));
-    } else if (window.confirm(t("confirmRemoveCredential"))) {
-      setRemoveKeys((current) => [...current, id]);
-    }
-  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -1270,17 +1340,11 @@ function PodSettingsDialog({
       id: initial.id,
       name: name.trim(),
       description: description.trim(),
-      ...(removeKeys.includes("client") ? { client_private_key: "" } : {}),
     };
     if (initial.local) {
       await onSave({
         ...base,
-        local_server: {
-          port: initial.local.port,
-          ...(removeKeys.includes("admin:local")
-            ? { admin_private_key: "" }
-            : {}),
-        },
+        local_server: { port: initial.local.port },
       });
       return;
     }
@@ -1291,9 +1355,6 @@ function PodSettingsDialog({
         id: server.id,
         name: server.name,
         endpoint: server.endpoint,
-        ...(removeKeys.includes(`admin:${server.id}`)
-          ? { admin_private_key: "" }
-          : {}),
       })),
     });
   }
@@ -1349,28 +1410,6 @@ function PodSettingsDialog({
             />
           ) : null}
         </div>
-        {removableCredentials.length ? (
-          <section className="credential-removal">
-            <small>{t("removeCredentialHint")}</small>
-            <div>
-              {removableCredentials.map((credential) => (
-                <button
-                  className={
-                    removeKeys.includes(credential.id) ? "selected" : ""
-                  }
-                  key={credential.id}
-                  onClick={() => toggleRemoval(credential.id)}
-                  type="button"
-                >
-                  <KeyRound size={13} />
-                  {removeKeys.includes(credential.id)
-                    ? `${t("keepCredential")} · ${credential.label}`
-                    : `${t("removeCredential")} · ${credential.label}`}
-                </button>
-              ))}
-            </div>
-          </section>
-        ) : null}
         <footer>
           <button
             className="secondary-action"

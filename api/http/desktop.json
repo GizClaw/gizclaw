@@ -9,7 +9,10 @@
   "tags": [
     { "name": "Pods", "description": "Local Pod environment operations" },
     { "name": "Local server", "description": "Local Pod server lifecycle" },
-    { "name": "Browser UI", "description": "Admin and Play system-browser launches" }
+    {
+      "name": "Browser UI",
+      "description": "Admin and Play system-browser launches"
+    }
   ],
   "paths": {
     "/desktop/bootstrap": {
@@ -17,7 +20,17 @@
         "operationId": "getDesktopBootstrap",
         "tags": ["Pods"],
         "summary": "Load the desktop Pod home",
-        "responses": { "200": { "description": "Desktop state", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DesktopBootstrap" } } } }, "500": { "$ref": "#/components/responses/Error" } }
+        "responses": {
+          "200": {
+            "description": "Desktop state",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DesktopBootstrap" }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
       }
     },
     "/desktop/pods": {
@@ -25,14 +38,46 @@
         "operationId": "listDesktopPods",
         "tags": ["Pods"],
         "summary": "List Pods without secret material",
-        "responses": { "200": { "description": "Pods", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/DesktopPod" } } } } }, "500": { "$ref": "#/components/responses/Error" } }
+        "responses": {
+          "200": {
+            "description": "Pods",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/DesktopPod" }
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
       },
       "post": {
         "operationId": "createDesktopPod",
         "tags": ["Pods"],
         "summary": "Create and materialize a Pod",
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PodInput" } } } },
-        "responses": { "201": { "description": "Created Pod", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DesktopPod" } } } }, "400": { "$ref": "#/components/responses/Error" }, "409": { "$ref": "#/components/responses/Error" }, "500": { "$ref": "#/components/responses/Error" } }
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PodInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created Pod",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DesktopPod" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/Error" },
+          "409": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
       }
     },
     "/desktop/pods/{pod_id}": {
@@ -41,21 +86,55 @@
         "operationId": "getDesktopPod",
         "tags": ["Pods"],
         "summary": "Get one Pod without secret material",
-        "responses": { "200": { "description": "Pod", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DesktopPod" } } } }, "404": { "$ref": "#/components/responses/Error" }, "500": { "$ref": "#/components/responses/Error" } }
+        "responses": {
+          "200": {
+            "description": "Pod",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DesktopPod" }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
       },
       "put": {
         "operationId": "updateDesktopPod",
         "tags": ["Pods"],
         "summary": "Update and rematerialize a Pod",
         "description": "Omitted secret properties preserve stored values; an explicitly empty secret removes it.",
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PodInput" } } } },
-        "responses": { "200": { "description": "Updated Pod", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DesktopPod" } } } }, "400": { "$ref": "#/components/responses/Error" }, "404": { "$ref": "#/components/responses/Error" }, "500": { "$ref": "#/components/responses/Error" } }
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PodInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated Pod",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DesktopPod" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/Error" },
+          "404": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
       },
       "delete": {
         "operationId": "deleteDesktopPod",
         "tags": ["Pods"],
         "summary": "Stop, clean up, and delete a Pod",
-        "responses": { "204": { "description": "Deleted" }, "404": { "$ref": "#/components/responses/Error" }, "500": { "$ref": "#/components/responses/Error" } }
+        "responses": {
+          "204": { "description": "Deleted" },
+          "404": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
       }
     },
     "/desktop/pods/{pod_id}/health": {
@@ -64,7 +143,18 @@
         "operationId": "refreshDesktopPodHealth",
         "tags": ["Pods"],
         "summary": "Probe all applicable server-info endpoints",
-        "responses": { "200": { "description": "Pod with refreshed health", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DesktopPod" } } } }, "404": { "$ref": "#/components/responses/Error" }, "500": { "$ref": "#/components/responses/Error" } }
+        "responses": {
+          "200": {
+            "description": "Pod with refreshed health",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DesktopPod" }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
       }
     },
     "/desktop/pods/{pod_id}/reveal": {
@@ -73,7 +163,11 @@
         "operationId": "revealDesktopPod",
         "tags": ["Pods"],
         "summary": "Reveal a Pod directory in the system file manager",
-        "responses": { "204": { "description": "Reveal requested" }, "404": { "$ref": "#/components/responses/Error" }, "500": { "$ref": "#/components/responses/Error" } }
+        "responses": {
+          "204": { "description": "Reveal requested" },
+          "404": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
       }
     },
     "/desktop/pods/{pod_id}/local-server/start": {
@@ -82,7 +176,19 @@
         "operationId": "startDesktopLocalServer",
         "tags": ["Local server"],
         "summary": "Start a local Pod server",
-        "responses": { "200": { "description": "Updated local Pod", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DesktopPod" } } } }, "400": { "$ref": "#/components/responses/Error" }, "404": { "$ref": "#/components/responses/Error" }, "500": { "$ref": "#/components/responses/Error" } }
+        "responses": {
+          "200": {
+            "description": "Updated local Pod",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DesktopPod" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/Error" },
+          "404": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
       }
     },
     "/desktop/pods/{pod_id}/local-server/stop": {
@@ -91,7 +197,19 @@
         "operationId": "stopDesktopLocalServer",
         "tags": ["Local server"],
         "summary": "Stop a local Pod server",
-        "responses": { "200": { "description": "Updated local Pod", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DesktopPod" } } } }, "400": { "$ref": "#/components/responses/Error" }, "404": { "$ref": "#/components/responses/Error" }, "500": { "$ref": "#/components/responses/Error" } }
+        "responses": {
+          "200": {
+            "description": "Updated local Pod",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DesktopPod" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/Error" },
+          "404": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
       }
     },
     "/desktop/pods/{pod_id}/local-server/restart": {
@@ -100,7 +218,19 @@
         "operationId": "restartDesktopLocalServer",
         "tags": ["Local server"],
         "summary": "Restart a local Pod server",
-        "responses": { "200": { "description": "Updated local Pod", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DesktopPod" } } } }, "400": { "$ref": "#/components/responses/Error" }, "404": { "$ref": "#/components/responses/Error" }, "500": { "$ref": "#/components/responses/Error" } }
+        "responses": {
+          "200": {
+            "description": "Updated local Pod",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DesktopPod" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/Error" },
+          "404": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
       }
     },
     "/desktop/pods/{pod_id}/admin": {
@@ -120,7 +250,12 @@
             }
           }
         },
-        "responses": { "204": { "description": "Browser launch requested" }, "400": { "$ref": "#/components/responses/Error" }, "404": { "$ref": "#/components/responses/Error" }, "500": { "$ref": "#/components/responses/Error" } }
+        "responses": {
+          "204": { "description": "Browser launch requested" },
+          "400": { "$ref": "#/components/responses/Error" },
+          "404": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
       }
     },
     "/desktop/pods/{pod_id}/play": {
@@ -129,68 +264,211 @@
         "operationId": "openDesktopPlay",
         "tags": ["Browser UI"],
         "summary": "Open Play in the system browser",
-        "responses": { "204": { "description": "Browser launch requested" }, "400": { "$ref": "#/components/responses/Error" }, "404": { "$ref": "#/components/responses/Error" }, "500": { "$ref": "#/components/responses/Error" } }
+        "responses": {
+          "204": { "description": "Browser launch requested" },
+          "400": { "$ref": "#/components/responses/Error" },
+          "404": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
       }
     }
   },
   "components": {
     "parameters": {
-      "PodId": { "name": "pod_id", "in": "path", "required": true, "schema": { "type": "string", "maxLength": 64, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" } }
+      "PodId": {
+        "name": "pod_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        }
+      }
     },
     "responses": {
-      "Error": { "description": "Operation failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+      "Error": {
+        "description": "Operation failed",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      }
     },
     "schemas": {
-      "Error": { "type": "object", "required": ["message"], "properties": { "message": { "type": "string" } } },
-      "DesktopBootstrap": { "type": "object", "required": ["locale", "pods"], "properties": { "locale": { "type": "string", "enum": ["en", "zh-CN"] }, "pods": { "type": "array", "items": { "$ref": "#/components/schemas/DesktopPod" } } } },
+      "Error": {
+        "type": "object",
+        "required": ["message"],
+        "properties": { "message": { "type": "string" } }
+      },
+      "DesktopBootstrap": {
+        "type": "object",
+        "required": ["locale", "pods"],
+        "properties": {
+          "locale": { "type": "string", "enum": ["en", "zh-CN"] },
+          "pods": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/DesktopPod" }
+          }
+        }
+      },
       "DesktopPod": {
         "type": "object",
         "required": ["id", "name", "mode", "valid", "play_configured"],
         "properties": {
-          "id": { "type": "string" }, "name": { "type": "string" }, "description": { "type": "string" },
-          "mode": { "type": "string", "enum": ["local", "remote", "invalid"] }, "valid": { "type": "boolean" }, "error": { "type": "string" }, "play_configured": { "type": "boolean" },
-          "local": { "$ref": "#/components/schemas/DesktopLocalPod" }, "remote": { "$ref": "#/components/schemas/DesktopRemotePod" }
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "mode": { "type": "string", "enum": ["local", "remote", "invalid"] },
+          "valid": { "type": "boolean" },
+          "error": { "type": "string" },
+          "play_configured": { "type": "boolean" },
+          "play_public_key": {
+            "type": "string",
+            "description": "Public half of the desktop-local Play identity."
+          },
+          "local": { "$ref": "#/components/schemas/DesktopLocalPod" },
+          "remote": { "$ref": "#/components/schemas/DesktopRemotePod" }
         }
       },
       "DesktopLocalPod": {
-        "type": "object", "required": ["port", "lan_addresses", "admin_configured", "process", "health"],
-        "properties": { "port": { "type": "integer", "minimum": 1, "maximum": 65535 }, "lan_addresses": { "type": "array", "items": { "type": "string" } }, "admin_configured": { "type": "boolean" }, "process": { "$ref": "#/components/schemas/LocalServerProcess" }, "health": { "$ref": "#/components/schemas/EndpointHealth" } }
+        "type": "object",
+        "required": [
+          "port",
+          "lan_addresses",
+          "admin_configured",
+          "process",
+          "health"
+        ],
+        "properties": {
+          "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+          "lan_addresses": { "type": "array", "items": { "type": "string" } },
+          "admin_configured": { "type": "boolean" },
+          "admin_public_key": { "type": "string" },
+          "server_public_key": { "type": "string" },
+          "process": { "$ref": "#/components/schemas/LocalServerProcess" },
+          "health": { "$ref": "#/components/schemas/EndpointHealth" }
+        }
       },
       "DesktopRemotePod": {
-        "type": "object", "required": ["access_point", "servers"],
-        "properties": { "access_point": { "$ref": "#/components/schemas/EndpointHealth" }, "servers": { "type": "array", "items": { "$ref": "#/components/schemas/DesktopServer" } } }
+        "type": "object",
+        "required": ["access_point", "servers"],
+        "properties": {
+          "access_point": { "$ref": "#/components/schemas/EndpointHealth" },
+          "servers": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/DesktopServer" }
+          }
+        }
       },
       "DesktopServer": {
-        "type": "object", "required": ["id", "name", "endpoint", "admin_configured", "health"],
-        "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "endpoint": { "type": "string" }, "admin_configured": { "type": "boolean" }, "health": { "$ref": "#/components/schemas/EndpointHealth" } }
+        "type": "object",
+        "required": ["id", "name", "endpoint", "admin_configured", "health"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "endpoint": { "type": "string" },
+          "admin_configured": { "type": "boolean" },
+          "admin_public_key": {
+            "type": "string",
+            "description": "Public half of the desktop-local Admin identity to install on the target Server."
+          },
+          "health": { "$ref": "#/components/schemas/EndpointHealth" }
+        }
       },
       "EndpointHealth": {
-        "type": "object", "required": ["endpoint", "state"],
-        "properties": { "endpoint": { "type": "string" }, "state": { "type": "string", "enum": ["checking", "reachable", "unreachable", "invalid-response"] }, "checked_at": { "type": "string", "format": "date-time" }, "message": { "type": "string" } }
+        "type": "object",
+        "required": ["endpoint", "state"],
+        "properties": {
+          "endpoint": { "type": "string" },
+          "state": {
+            "type": "string",
+            "enum": ["checking", "reachable", "unreachable", "invalid-response"]
+          },
+          "public_key": {
+            "type": "string",
+            "description": "Server public key returned by a validated server-info response."
+          },
+          "checked_at": { "type": "string", "format": "date-time" },
+          "message": { "type": "string" }
+        }
       },
       "LocalServerProcess": {
-        "type": "object", "required": ["state"],
-        "properties": { "state": { "type": "string", "enum": ["stopped", "running", "stopping", "failed"] }, "pid": { "type": "integer" }, "logs": { "type": "array", "items": { "type": "string" } }, "error": { "type": "string" } }
+        "type": "object",
+        "required": ["state"],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": ["stopped", "running", "stopping", "failed"]
+          },
+          "pid": { "type": "integer" },
+          "logs": { "type": "array", "items": { "type": "string" } },
+          "error": { "type": "string" }
+        }
       },
       "PodInput": {
-        "type": "object", "required": ["version", "name"],
+        "type": "object",
+        "required": ["version", "name"],
         "properties": {
-          "version": { "type": "integer", "enum": [1] }, "id": { "type": "string", "maxLength": 64, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" }, "name": { "type": "string" }, "description": { "type": "string" },
-          "local_server": { "$ref": "#/components/schemas/LocalServerInput" }, "remote_servers": { "type": "array", "items": { "$ref": "#/components/schemas/RemoteServerInput" } },
-          "remote_access_point": { "type": "string" }, "client_private_key": { "type": "string", "writeOnly": true }
+          "version": { "type": "integer", "enum": [1] },
+          "id": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "local_server": { "$ref": "#/components/schemas/LocalServerInput" },
+          "remote_servers": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/RemoteServerInput" }
+          },
+          "remote_access_point": { "type": "string" },
+          "client_private_key": { "type": "string", "writeOnly": true }
         },
         "oneOf": [
-          { "required": ["local_server"], "not": { "anyOf": [{ "required": ["remote_servers"] }, { "required": ["remote_access_point"] }] } },
-          { "required": ["remote_access_point"], "not": { "required": ["local_server"] } }
+          {
+            "required": ["local_server"],
+            "not": {
+              "anyOf": [
+                { "required": ["remote_servers"] },
+                { "required": ["remote_access_point"] }
+              ]
+            }
+          },
+          {
+            "required": ["remote_access_point"],
+            "not": { "required": ["local_server"] }
+          }
         ]
       },
       "LocalServerInput": {
-        "type": "object", "required": ["port"],
-        "properties": { "port": { "type": "integer", "minimum": 0, "maximum": 65535, "description": "Zero selects an available port when creating a Pod." }, "admin_private_key": { "type": "string", "writeOnly": true } }
+        "type": "object",
+        "required": ["port"],
+        "properties": {
+          "port": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535,
+            "description": "Zero selects an available port when creating a Pod."
+          },
+          "admin_private_key": { "type": "string", "writeOnly": true }
+        }
       },
       "RemoteServerInput": {
-        "type": "object", "required": ["endpoint"],
-        "properties": { "id": { "type": "string", "maxLength": 64, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" }, "name": { "type": "string" }, "endpoint": { "type": "string" }, "admin_private_key": { "type": "string", "writeOnly": true } }
+        "type": "object",
+        "required": ["endpoint"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "name": { "type": "string" },
+          "endpoint": { "type": "string" },
+          "admin_private_key": { "type": "string", "writeOnly": true }
+        }
       }
     }
   }

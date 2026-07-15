@@ -5,6 +5,11 @@
 - As a desktop user, I can create a local Pod in one click or a remote Pod with
   only its Access Point; internal IDs, ports, Servers, and credentials are not
   required up front.
+- As a desktop user, I see a share-first QR face for local and remote Pods, then
+  flip the card to reach lifecycle controls or the remote Server inventory.
+- As a desktop user, Local Admin, Pod Play, and per-Server remote Admin
+  identities are generated automatically; only public keys are exposed for
+  QR pinning and remote Server setup.
 - As a desktop user, I can inspect a remote Pod with many searchable Servers.
 - As a local developer, I can start, stop, and restart the Pod Server.
 - As an Admin or Play user, the desktop opens the browser UI through a fresh

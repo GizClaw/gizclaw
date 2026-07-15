@@ -27,6 +27,7 @@ const (
 type Result struct {
 	Endpoint  string `json:"endpoint"`
 	State     State  `json:"state"`
+	PublicKey string `json:"public_key,omitempty"`
 	CheckedAt string `json:"checked_at,omitempty"`
 	Message   string `json:"message,omitempty"`
 }
@@ -127,6 +128,7 @@ func (p *Prober) Probe(ctx context.Context, endpoint string) Result {
 		return p.remember(result)
 	}
 	result.State = Reachable
+	result.PublicKey = publicKey.String()
 	return p.remember(result)
 }
 

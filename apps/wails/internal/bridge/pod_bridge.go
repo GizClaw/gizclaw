@@ -17,6 +17,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/endpointhealth"
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/localserver"
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/webui"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
 type PodBridge struct {
@@ -45,6 +46,7 @@ type PodSummary struct {
 	Valid          bool           `json:"valid"`
 	Error          string         `json:"error,omitempty"`
 	PlayConfigured bool           `json:"play_configured"`
+	PlayPublicKey  string         `json:"play_public_key,omitempty"`
 	Local          *LocalSummary  `json:"local,omitempty"`
 	Remote         *RemoteSummary `json:"remote,omitempty"`
 }
@@ -53,6 +55,8 @@ type LocalSummary struct {
 	Port            int                   `json:"port"`
 	LANAddresses    []string              `json:"lan_addresses"`
 	AdminConfigured bool                  `json:"admin_configured"`
+	AdminPublicKey  string                `json:"admin_public_key,omitempty"`
+	ServerPublicKey string                `json:"server_public_key,omitempty"`
 	Process         localserver.Status    `json:"process"`
 	Health          endpointhealth.Result `json:"health"`
 }
@@ -67,6 +71,7 @@ type ServerSummary struct {
 	Name            string                `json:"name"`
 	Endpoint        string                `json:"endpoint"`
 	AdminConfigured bool                  `json:"admin_configured"`
+	AdminPublicKey  string                `json:"admin_public_key,omitempty"`
 	Health          endpointhealth.Result `json:"health"`
 }
 
@@ -112,7 +117,17 @@ func (b *PodBridge) ListPods(context.Context) ([]PodSummary, error) {
 			out = append(out, PodSummary{ID: entry.ID, Name: entry.ID, Mode: "invalid", Error: entry.Err.Error()})
 			continue
 		}
-		out = append(out, b.summary(entry.Pod))
+		pod := entry.Pod
+		changed, identityErr := ensurePodIdentities(&pod)
+		if identityErr != nil {
+			return nil, identityErr
+		}
+		if changed {
+			if saveErr := b.Store.Save(pod); saveErr != nil {
+				return nil, saveErr
+			}
+		}
+		out = append(out, b.summary(pod))
 	}
 	return out, nil
 }
@@ -121,6 +136,15 @@ func (b *PodBridge) GetPod(_ context.Context, id string) (PodSummary, error) {
 	pod, err := b.Store.Load(id)
 	if err != nil {
 		return PodSummary{}, err
+	}
+	changed, err := ensurePodIdentities(&pod)
+	if err != nil {
+		return PodSummary{}, err
+	}
+	if changed {
+		if err := b.Store.Save(pod); err != nil {
+			return PodSummary{}, err
+		}
 	}
 	return b.summary(pod), nil
 }
@@ -133,6 +157,9 @@ func (b *PodBridge) CreatePod(_ context.Context, input PodInput) (PodSummary, er
 	}
 	pod, err := b.inputToPod(input, nil)
 	if err != nil {
+		return PodSummary{}, err
+	}
+	if _, err := ensurePodIdentities(&pod); err != nil {
 		return PodSummary{}, err
 	}
 	if pod.LocalServer != nil {
@@ -208,6 +235,9 @@ func (b *PodBridge) UpdatePod(ctx context.Context, input PodInput) (PodSummary, 
 	}
 	pod, err := b.inputToPod(input, &existing)
 	if err != nil {
+		return PodSummary{}, err
+	}
+	if _, err := ensurePodIdentities(&pod); err != nil {
 		return PodSummary{}, err
 	}
 	processRunning := b.Local.Status(pod.ID).State == "running"
@@ -418,20 +448,66 @@ func (b *PodBridge) PlayURL(_ context.Context, podID string) (string, error) {
 }
 
 func (b *PodBridge) summary(pod appconfig.Pod) PodSummary {
-	summary := PodSummary{ID: pod.ID, Name: pod.Name, Description: pod.Description, PlayConfigured: pod.ClientPrivateKey != "", Valid: true}
+	summary := PodSummary{ID: pod.ID, Name: pod.Name, Description: pod.Description, PlayConfigured: pod.ClientPrivateKey != "", PlayPublicKey: publicKeyForPrivate(pod.ClientPrivateKey), Valid: true}
 	if pod.LocalServer != nil {
 		endpoint := fmt.Sprintf("127.0.0.1:%d", pod.LocalServer.Port)
 		summary.Mode = "local"
-		summary.Local = &LocalSummary{Port: pod.LocalServer.Port, LANAddresses: lanAddresses(pod.LocalServer.Port), AdminConfigured: pod.LocalServer.AdminPrivateKey != "", Process: b.Local.Status(pod.ID), Health: b.Health.Get(endpoint)}
+		serverPublicKey, _ := b.Store.LocalServerPublicKey(pod.ID)
+		summary.Local = &LocalSummary{Port: pod.LocalServer.Port, LANAddresses: lanAddresses(pod.LocalServer.Port), AdminConfigured: pod.LocalServer.AdminPrivateKey != "", AdminPublicKey: publicKeyForPrivate(pod.LocalServer.AdminPrivateKey), ServerPublicKey: serverPublicKey, Process: b.Local.Status(pod.ID), Health: b.Health.Get(endpoint)}
 		return summary
 	}
 	summary.Mode = "remote"
 	remote := &RemoteSummary{AccessPoint: b.Health.Get(pod.RemoteAccessPoint), Servers: make([]ServerSummary, 0, len(pod.RemoteServers))}
 	for _, server := range pod.RemoteServers {
-		remote.Servers = append(remote.Servers, ServerSummary{ID: server.ID, Name: server.Name, Endpoint: server.Endpoint, AdminConfigured: server.AdminPrivateKey != "", Health: b.Health.Get(server.Endpoint)})
+		remote.Servers = append(remote.Servers, ServerSummary{ID: server.ID, Name: server.Name, Endpoint: server.Endpoint, AdminConfigured: server.AdminPrivateKey != "", AdminPublicKey: publicKeyForPrivate(server.AdminPrivateKey), Health: b.Health.Get(server.Endpoint)})
 	}
 	summary.Remote = remote
 	return summary
+}
+
+func ensurePodIdentities(pod *appconfig.Pod) (bool, error) {
+	changed := false
+	ensure := func(value *string) error {
+		if strings.TrimSpace(*value) != "" {
+			return nil
+		}
+		kp, err := giznet.GenerateKeyPair()
+		if err != nil {
+			return fmt.Errorf("desktop bridge: generate identity: %w", err)
+		}
+		*value = kp.Private.String()
+		changed = true
+		return nil
+	}
+	if err := ensure(&pod.ClientPrivateKey); err != nil {
+		return false, err
+	}
+	if pod.LocalServer != nil {
+		if err := ensure(&pod.LocalServer.AdminPrivateKey); err != nil {
+			return false, err
+		}
+	}
+	for i := range pod.RemoteServers {
+		if err := ensure(&pod.RemoteServers[i].AdminPrivateKey); err != nil {
+			return false, err
+		}
+	}
+	return changed, nil
+}
+
+func publicKeyForPrivate(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return ""
+	}
+	var private giznet.Key
+	if err := private.UnmarshalText([]byte(value)); err != nil {
+		return ""
+	}
+	kp, err := giznet.NewKeyPair(private)
+	if err != nil {
+		return ""
+	}
+	return kp.Public.String()
 }
 
 func lanAddresses(port int) []string {

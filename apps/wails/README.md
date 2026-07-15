@@ -13,9 +13,9 @@ Pods live under `os.UserConfigDir()/GizClaw/pods/<id>/` by default:
 ├── pod.json
 ├── workspace/                 # local Pods only
 │   └── config.yaml
-├── admin_context/<server-id>/ # only where Admin is configured
+├── admin_context/<server-id>/ # generated Admin identity per Server
 │   └── config.yaml
-└── client_context/            # only where Play is configured
+└── client_context/            # generated desktop-local Play identity
     └── config.yaml
 ```
 
@@ -27,10 +27,16 @@ A local Pod has one `local_server` with a stable port. The Server listens on
 `0.0.0.0:<port>` for LAN access while its local Admin and Client Contexts use
 `127.0.0.1:<port>`. The generated Server workspace publishes a current LAN
 candidate when one is available; that address is not persisted in `pod.json`.
+A local Pod automatically generates its Server identity, Admin identity, and
+desktop-local Play identity. Existing Pods missing these identities are filled
+on desktop bootstrap. The share QR contains only the display name, selected LAN
+endpoint, and Server public key; a scanning client generates its own identity.
 A remote Pod has one `remote_access_point` and zero or more
 `remote_servers`; Servers may be added after the Pod is created. Admin identity
-is per Server; Client identity is per Pod. Pod and Server IDs are generated as
-internal identifiers and are not creation-form fields.
+is generated per Server; the UI exposes its public key for installation in that
+Server's `admin-public-key` configuration while retaining the private half
+locally. The desktop Play identity is generated per Pod. Pod and Server IDs are
+generated as internal identifiers and are not creation-form fields.
 
 Set `GIZCLAW_DESKTOP_CONFIG_HOME` to isolate storage in development or tests.
 Development runs may set `GIZCLAW_DESKTOP_SERVER_EXECUTABLE` or use `gizclaw`
@@ -46,7 +52,8 @@ for local Server support.
 ## Runtime boundaries
 
 - The Wails bridge returns only configured/missing state; persisted private keys
-  never appear in Pod responses.
+  never appear in Pod responses. Public halves may be returned for QR identity
+  pinning and remote Admin setup.
 - Endpoint health uses bounded native `GET /server-info` probes without
   credentials.
 - Each Pod reuses at most one Admin listener and one Play listener, both bound
