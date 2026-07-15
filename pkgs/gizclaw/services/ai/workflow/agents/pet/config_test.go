@@ -230,7 +230,7 @@ func TestFactoryRequiresConfiguredModelResourcesToBeOperational(t *testing.T) {
 	}
 }
 
-func TestFactoryRejectsMissingServerAndWorkspaceModelConfig(t *testing.T) {
+func TestFactoryRejectsMissingServerModelConfig(t *testing.T) {
 	petSpec := apitypes.PetWorkflowSpec{}
 	parameters := petParameters(t)
 	spec := agenthost.Spec{
@@ -247,34 +247,29 @@ func TestFactoryRejectsMissingServerAndWorkspaceModelConfig(t *testing.T) {
 	}
 }
 
-func TestResolveModelsUsesServerConfigAndWorkspaceOverrides(t *testing.T) {
-	workspaceChat := "workspace-chat"
-	workspaceASR := "  workspace-asr  "
-	models, err := resolveModels(apitypes.PetWorkspaceParameters{
-		GenerateModel: &workspaceChat,
-		AsrModel:      &workspaceASR,
-	}, Config{
-		GenerateModel:  "server-chat",
-		ExtractModel:   "server-extract",
-		EmbeddingModel: "server-embedding",
-		ASRModel:       "server-asr",
+func TestResolveModelsUsesOnlyServerConfig(t *testing.T) {
+	models, err := resolveModels(Config{
+		GenerateModel:  "  server-chat  ",
+		ExtractModel:   " server-extract ",
+		EmbeddingModel: " server-embedding ",
+		ASRModel:       " server-asr ",
 	})
 	if err != nil {
 		t.Fatalf("resolveModels() error = %v", err)
 	}
 	want := Config{
-		GenerateModel:  "workspace-chat",
+		GenerateModel:  "server-chat",
 		ExtractModel:   "server-extract",
 		EmbeddingModel: "server-embedding",
-		ASRModel:       "workspace-asr",
+		ASRModel:       "server-asr",
 	}
 	if !reflect.DeepEqual(models, want) {
 		t.Fatalf("resolveModels() = %#v, want %#v", models, want)
 	}
 }
 
-func TestResolveModelsRejectsMissingServerAndWorkspaceConfig(t *testing.T) {
-	_, err := resolveModels(apitypes.PetWorkspaceParameters{}, Config{})
+func TestResolveModelsRejectsMissingServerConfig(t *testing.T) {
+	_, err := resolveModels(Config{})
 	if err == nil || !strings.Contains(err.Error(), "generate_model") || !strings.Contains(err.Error(), "system_tasks.pet_flowcraft_workflow") {
 		t.Fatalf("resolveModels() error = %v", err)
 	}

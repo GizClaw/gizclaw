@@ -2314,22 +2314,6 @@ export type PetVoiceParameters = {
 export type PetWorkspaceParameters = {
     agent_type: 'pet';
     input?: WorkspaceInputMode;
-    /**
-     * GizClaw Model resource name used to generate replies.
-     */
-    generate_model?: string;
-    /**
-     * GizClaw Model resource name used for asynchronous memory extraction.
-     */
-    extract_model?: string;
-    /**
-     * Optional GizClaw embedding Model resource name used for memory retrieval.
-     */
-    embedding_model?: string;
-    /**
-     * GizClaw ASR Model resource name used to transcribe pet audio input.
-     */
-    asr_model?: string;
     conversation?: PetConversationParameters;
     persona?: PetPersonaParameters;
     voice: PetVoiceParameters;

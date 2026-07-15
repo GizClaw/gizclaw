@@ -3290,23 +3290,11 @@ type PetWorkflowSpec = map[string]interface{}
 
 // PetWorkspaceParameters defines model for PetWorkspaceParameters.
 type PetWorkspaceParameters struct {
-	AgentType PetWorkspaceParametersAgentType `json:"agent_type"`
-
-	// AsrModel GizClaw ASR Model resource name used to transcribe pet audio input.
-	AsrModel     *string                    `json:"asr_model,omitempty"`
-	Conversation *PetConversationParameters `json:"conversation,omitempty"`
-
-	// EmbeddingModel Optional GizClaw embedding Model resource name used for memory retrieval.
-	EmbeddingModel *string `json:"embedding_model,omitempty"`
-
-	// ExtractModel GizClaw Model resource name used for asynchronous memory extraction.
-	ExtractModel *string `json:"extract_model,omitempty"`
-
-	// GenerateModel GizClaw Model resource name used to generate replies.
-	GenerateModel *string               `json:"generate_model,omitempty"`
-	Input         *WorkspaceInputMode   `json:"input,omitempty"`
-	Persona       *PetPersonaParameters `json:"persona,omitempty"`
-	Voice         PetVoiceParameters    `json:"voice"`
+	AgentType    PetWorkspaceParametersAgentType `json:"agent_type"`
+	Conversation *PetConversationParameters      `json:"conversation,omitempty"`
+	Input        *WorkspaceInputMode             `json:"input,omitempty"`
+	Persona      *PetPersonaParameters           `json:"persona,omitempty"`
+	Voice        PetVoiceParameters              `json:"voice"`
 }
 
 // PetWorkspaceParametersAgentType defines model for PetWorkspaceParameters.AgentType.

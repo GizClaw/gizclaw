@@ -1000,11 +1000,7 @@ export type PetVoiceParameters = {
 export type PetWorkflowSpec = Record<string, never>;
 export type PetWorkspaceParameters = {
   "agent_type": string;
-  "asr_model"?: string;
   "conversation"?: PetConversationParameters;
-  "embedding_model"?: string;
-  "extract_model"?: string;
-  "generate_model"?: string;
   "input"?: WorkspaceInputMode;
   "persona"?: PetPersonaParameters;
   "voice": PetVoiceParameters;
@@ -5929,50 +5925,26 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "PetWorkspaceParametersAgentType"
       },
       {
-        "name": "asr_model",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      },
-      {
         "name": "conversation",
-        "number": 3,
+        "number": 2,
         "optional": true,
         "type": "PetConversationParameters"
       },
       {
-        "name": "embedding_model",
-        "number": 4,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "extract_model",
-        "number": 5,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "generate_model",
-        "number": 6,
-        "optional": true,
-        "type": "string"
-      },
-      {
         "name": "input",
-        "number": 7,
+        "number": 3,
         "optional": true,
         "type": "WorkspaceInputMode"
       },
       {
         "name": "persona",
-        "number": 8,
+        "number": 4,
         "optional": true,
         "type": "PetPersonaParameters"
       },
       {
         "name": "voice",
-        "number": 9,
+        "number": 5,
         "type": "PetVoiceParameters"
       }
     ]

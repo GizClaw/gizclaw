@@ -169,22 +169,6 @@
           "input": {
             "$ref": "#/components/schemas/WorkspaceInputMode"
           },
-          "generate_model": {
-            "type": "string",
-            "description": "GizClaw Model resource name used to generate replies."
-          },
-          "extract_model": {
-            "type": "string",
-            "description": "GizClaw Model resource name used for asynchronous memory extraction."
-          },
-          "embedding_model": {
-            "type": "string",
-            "description": "Optional GizClaw embedding Model resource name used for memory retrieval."
-          },
-          "asr_model": {
-            "type": "string",
-            "description": "GizClaw ASR Model resource name used to transcribe pet audio input."
-          },
           "conversation": {
             "$ref": "#/components/schemas/PetConversationParameters"
           },

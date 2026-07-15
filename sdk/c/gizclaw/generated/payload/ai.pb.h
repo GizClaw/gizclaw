@@ -372,12 +372,8 @@ typedef struct _gizclaw_rpc_v1_PetWorkflowSpec {
 
 typedef struct _gizclaw_rpc_v1_PetWorkspaceParameters {
     gizclaw_rpc_v1_PetWorkspaceParametersAgentType agent_type;
-    pb_callback_t asr_model;
     bool has_conversation;
     gizclaw_rpc_v1_PetConversationParameters conversation;
-    pb_callback_t embedding_model;
-    pb_callback_t extract_model;
-    pb_callback_t generate_model;
     bool has_input;
     gizclaw_rpc_v1_WorkspaceInputMode input;
     bool has_persona;
@@ -957,7 +953,7 @@ extern "C" {
 #define gizclaw_rpc_v1_PetPersonaParameters_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetVoiceParameters_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetWorkflowSpec_init_default {0}
-#define gizclaw_rpc_v1_PetWorkspaceParameters_init_default {_gizclaw_rpc_v1_PetWorkspaceParametersAgentType_MIN, {{NULL}, NULL}, false, gizclaw_rpc_v1_PetConversationParameters_init_default, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, gizclaw_rpc_v1_PetPersonaParameters_init_default, false, gizclaw_rpc_v1_PetVoiceParameters_init_default}
+#define gizclaw_rpc_v1_PetWorkspaceParameters_init_default {_gizclaw_rpc_v1_PetWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_PetConversationParameters_init_default, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, gizclaw_rpc_v1_PetPersonaParameters_init_default, false, gizclaw_rpc_v1_PetVoiceParameters_init_default}
 #define gizclaw_rpc_v1_GeminiCredentialBody_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_GeminiTenantModelProviderData_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_GeminiTenantVoiceProviderData_init_default {false, google_protobuf_Struct_init_default, {{NULL}, NULL}}
@@ -1075,7 +1071,7 @@ extern "C" {
 #define gizclaw_rpc_v1_PetPersonaParameters_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetVoiceParameters_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetWorkflowSpec_init_zero {0}
-#define gizclaw_rpc_v1_PetWorkspaceParameters_init_zero {_gizclaw_rpc_v1_PetWorkspaceParametersAgentType_MIN, {{NULL}, NULL}, false, gizclaw_rpc_v1_PetConversationParameters_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, gizclaw_rpc_v1_PetPersonaParameters_init_zero, false, gizclaw_rpc_v1_PetVoiceParameters_init_zero}
+#define gizclaw_rpc_v1_PetWorkspaceParameters_init_zero {_gizclaw_rpc_v1_PetWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_PetConversationParameters_init_zero, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, gizclaw_rpc_v1_PetPersonaParameters_init_zero, false, gizclaw_rpc_v1_PetVoiceParameters_init_zero}
 #define gizclaw_rpc_v1_GeminiCredentialBody_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_GeminiTenantModelProviderData_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_GeminiTenantVoiceProviderData_init_zero {false, google_protobuf_Struct_init_zero, {{NULL}, NULL}}
@@ -1293,14 +1289,10 @@ extern "C" {
 #define gizclaw_rpc_v1_PetVoiceParameters_prompt_tag 1
 #define gizclaw_rpc_v1_PetVoiceParameters_voice_id_tag 2
 #define gizclaw_rpc_v1_PetWorkspaceParameters_agent_type_tag 1
-#define gizclaw_rpc_v1_PetWorkspaceParameters_asr_model_tag 2
-#define gizclaw_rpc_v1_PetWorkspaceParameters_conversation_tag 3
-#define gizclaw_rpc_v1_PetWorkspaceParameters_embedding_model_tag 4
-#define gizclaw_rpc_v1_PetWorkspaceParameters_extract_model_tag 5
-#define gizclaw_rpc_v1_PetWorkspaceParameters_generate_model_tag 6
-#define gizclaw_rpc_v1_PetWorkspaceParameters_input_tag 7
-#define gizclaw_rpc_v1_PetWorkspaceParameters_persona_tag 8
-#define gizclaw_rpc_v1_PetWorkspaceParameters_voice_tag 9
+#define gizclaw_rpc_v1_PetWorkspaceParameters_conversation_tag 2
+#define gizclaw_rpc_v1_PetWorkspaceParameters_input_tag 3
+#define gizclaw_rpc_v1_PetWorkspaceParameters_persona_tag 4
+#define gizclaw_rpc_v1_PetWorkspaceParameters_voice_tag 5
 #define gizclaw_rpc_v1_GeminiCredentialBody_api_key_tag 1
 #define gizclaw_rpc_v1_GeminiCredentialBody_base_url_tag 2
 #define gizclaw_rpc_v1_GeminiCredentialBody_token_tag 3
@@ -1947,15 +1939,11 @@ X(a, CALLBACK, SINGULAR, STRING,   voice_id,          2)
 
 #define gizclaw_rpc_v1_PetWorkspaceParameters_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, UENUM,    agent_type,        1) \
-X(a, CALLBACK, OPTIONAL, STRING,   asr_model,         2) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  conversation,      3) \
-X(a, CALLBACK, OPTIONAL, STRING,   embedding_model,   4) \
-X(a, CALLBACK, OPTIONAL, STRING,   extract_model,     5) \
-X(a, CALLBACK, OPTIONAL, STRING,   generate_model,    6) \
-X(a, STATIC,   OPTIONAL, UENUM,    input,             7) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  persona,           8) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  voice,             9)
-#define gizclaw_rpc_v1_PetWorkspaceParameters_CALLBACK pb_default_field_callback
+X(a, STATIC,   OPTIONAL, MESSAGE,  conversation,      2) \
+X(a, STATIC,   OPTIONAL, UENUM,    input,             3) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  persona,           4) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  voice,             5)
+#define gizclaw_rpc_v1_PetWorkspaceParameters_CALLBACK NULL
 #define gizclaw_rpc_v1_PetWorkspaceParameters_DEFAULT NULL
 #define gizclaw_rpc_v1_PetWorkspaceParameters_conversation_MSGTYPE gizclaw_rpc_v1_PetConversationParameters
 #define gizclaw_rpc_v1_PetWorkspaceParameters_persona_MSGTYPE gizclaw_rpc_v1_PetPersonaParameters

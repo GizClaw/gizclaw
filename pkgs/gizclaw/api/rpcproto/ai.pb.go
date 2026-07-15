@@ -3259,18 +3259,14 @@ func (*PetWorkflowSpec) Descriptor() ([]byte, []int) {
 }
 
 type PetWorkspaceParameters struct {
-	state          protoimpl.MessageState          `protogen:"open.v1"`
-	AgentType      PetWorkspaceParametersAgentType `protobuf:"varint,1,opt,name=agent_type,json=agentType,proto3,enum=gizclaw.rpc.v1.PetWorkspaceParametersAgentType" json:"agent_type,omitempty"`
-	AsrModel       *string                         `protobuf:"bytes,2,opt,name=asr_model,json=asrModel,proto3,oneof" json:"asr_model,omitempty"`
-	Conversation   *PetConversationParameters      `protobuf:"bytes,3,opt,name=conversation,proto3,oneof" json:"conversation,omitempty"`
-	EmbeddingModel *string                         `protobuf:"bytes,4,opt,name=embedding_model,json=embeddingModel,proto3,oneof" json:"embedding_model,omitempty"`
-	ExtractModel   *string                         `protobuf:"bytes,5,opt,name=extract_model,json=extractModel,proto3,oneof" json:"extract_model,omitempty"`
-	GenerateModel  *string                         `protobuf:"bytes,6,opt,name=generate_model,json=generateModel,proto3,oneof" json:"generate_model,omitempty"`
-	Input          *WorkspaceInputMode             `protobuf:"varint,7,opt,name=input,proto3,enum=gizclaw.rpc.v1.WorkspaceInputMode,oneof" json:"input,omitempty"`
-	Persona        *PetPersonaParameters           `protobuf:"bytes,8,opt,name=persona,proto3,oneof" json:"persona,omitempty"`
-	Voice          *PetVoiceParameters             `protobuf:"bytes,9,opt,name=voice,proto3" json:"voice,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state         protoimpl.MessageState          `protogen:"open.v1"`
+	AgentType     PetWorkspaceParametersAgentType `protobuf:"varint,1,opt,name=agent_type,json=agentType,proto3,enum=gizclaw.rpc.v1.PetWorkspaceParametersAgentType" json:"agent_type,omitempty"`
+	Conversation  *PetConversationParameters      `protobuf:"bytes,2,opt,name=conversation,proto3,oneof" json:"conversation,omitempty"`
+	Input         *WorkspaceInputMode             `protobuf:"varint,3,opt,name=input,proto3,enum=gizclaw.rpc.v1.WorkspaceInputMode,oneof" json:"input,omitempty"`
+	Persona       *PetPersonaParameters           `protobuf:"bytes,4,opt,name=persona,proto3,oneof" json:"persona,omitempty"`
+	Voice         *PetVoiceParameters             `protobuf:"bytes,5,opt,name=voice,proto3" json:"voice,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PetWorkspaceParameters) Reset() {
@@ -3310,39 +3306,11 @@ func (x *PetWorkspaceParameters) GetAgentType() PetWorkspaceParametersAgentType 
 	return PetWorkspaceParametersAgentType_PET_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED
 }
 
-func (x *PetWorkspaceParameters) GetAsrModel() string {
-	if x != nil && x.AsrModel != nil {
-		return *x.AsrModel
-	}
-	return ""
-}
-
 func (x *PetWorkspaceParameters) GetConversation() *PetConversationParameters {
 	if x != nil {
 		return x.Conversation
 	}
 	return nil
-}
-
-func (x *PetWorkspaceParameters) GetEmbeddingModel() string {
-	if x != nil && x.EmbeddingModel != nil {
-		return *x.EmbeddingModel
-	}
-	return ""
-}
-
-func (x *PetWorkspaceParameters) GetExtractModel() string {
-	if x != nil && x.ExtractModel != nil {
-		return *x.ExtractModel
-	}
-	return ""
-}
-
-func (x *PetWorkspaceParameters) GetGenerateModel() string {
-	if x != nil && x.GenerateModel != nil {
-		return *x.GenerateModel
-	}
-	return ""
 }
 
 func (x *PetWorkspaceParameters) GetInput() WorkspaceInputMode {
@@ -7712,24 +7680,15 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\x06prompt\x18\x01 \x01(\tH\x00R\x06prompt\x88\x01\x01\x12\x19\n" +
 	"\bvoice_id\x18\x02 \x01(\tR\avoiceIdB\t\n" +
 	"\a_prompt\"\x11\n" +
-	"\x0fPetWorkflowSpec\"\x8e\x05\n" +
+	"\x0fPetWorkflowSpec\"\xa1\x03\n" +
 	"\x16PetWorkspaceParameters\x12N\n" +
 	"\n" +
-	"agent_type\x18\x01 \x01(\x0e2/.gizclaw.rpc.v1.PetWorkspaceParametersAgentTypeR\tagentType\x12 \n" +
-	"\tasr_model\x18\x02 \x01(\tH\x00R\basrModel\x88\x01\x01\x12R\n" +
-	"\fconversation\x18\x03 \x01(\v2).gizclaw.rpc.v1.PetConversationParametersH\x01R\fconversation\x88\x01\x01\x12,\n" +
-	"\x0fembedding_model\x18\x04 \x01(\tH\x02R\x0eembeddingModel\x88\x01\x01\x12(\n" +
-	"\rextract_model\x18\x05 \x01(\tH\x03R\fextractModel\x88\x01\x01\x12*\n" +
-	"\x0egenerate_model\x18\x06 \x01(\tH\x04R\rgenerateModel\x88\x01\x01\x12=\n" +
-	"\x05input\x18\a \x01(\x0e2\".gizclaw.rpc.v1.WorkspaceInputModeH\x05R\x05input\x88\x01\x01\x12C\n" +
-	"\apersona\x18\b \x01(\v2$.gizclaw.rpc.v1.PetPersonaParametersH\x06R\apersona\x88\x01\x01\x128\n" +
-	"\x05voice\x18\t \x01(\v2\".gizclaw.rpc.v1.PetVoiceParametersR\x05voiceB\f\n" +
-	"\n" +
-	"_asr_modelB\x0f\n" +
-	"\r_conversationB\x12\n" +
-	"\x10_embedding_modelB\x10\n" +
-	"\x0e_extract_modelB\x11\n" +
-	"\x0f_generate_modelB\b\n" +
+	"agent_type\x18\x01 \x01(\x0e2/.gizclaw.rpc.v1.PetWorkspaceParametersAgentTypeR\tagentType\x12R\n" +
+	"\fconversation\x18\x02 \x01(\v2).gizclaw.rpc.v1.PetConversationParametersH\x00R\fconversation\x88\x01\x01\x12=\n" +
+	"\x05input\x18\x03 \x01(\x0e2\".gizclaw.rpc.v1.WorkspaceInputModeH\x01R\x05input\x88\x01\x01\x12C\n" +
+	"\apersona\x18\x04 \x01(\v2$.gizclaw.rpc.v1.PetPersonaParametersH\x02R\apersona\x88\x01\x01\x128\n" +
+	"\x05voice\x18\x05 \x01(\v2\".gizclaw.rpc.v1.PetVoiceParametersR\x05voiceB\x0f\n" +
+	"\r_conversationB\b\n" +
 	"\x06_inputB\n" +
 	"\n" +
 	"\b_persona\"\x92\x01\n" +

@@ -22,7 +22,6 @@ type ContextProvider interface {
 }
 
 // Config supplies the server-level model resources used by Pet workflows.
-// Workspace parameters may override individual values.
 type Config struct {
 	GenerateModel  string
 	ExtractModel   string
@@ -74,7 +73,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if voiceID == "" {
 		return nil, fmt.Errorf("pet: workspace voice.voice_id is required")
 	}
-	models, err := resolveModels(parameters, f.Config)
+	models, err := resolveModels(f.Config)
 	if err != nil {
 		return nil, err
 	}
@@ -112,12 +111,12 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	return (flowcraft.Factory{GenX: f.GenX}).NewConfiguredAgent(ctx, configured)
 }
 
-func resolveModels(parameters apitypes.PetWorkspaceParameters, server Config) (Config, error) {
+func resolveModels(server Config) (Config, error) {
 	models := Config{
-		GenerateModel:  parameterOrServer(parameters.GenerateModel, server.GenerateModel),
-		ExtractModel:   parameterOrServer(parameters.ExtractModel, server.ExtractModel),
-		EmbeddingModel: parameterOrServer(parameters.EmbeddingModel, server.EmbeddingModel),
-		ASRModel:       parameterOrServer(parameters.AsrModel, server.ASRModel),
+		GenerateModel:  strings.TrimSpace(server.GenerateModel),
+		ExtractModel:   strings.TrimSpace(server.ExtractModel),
+		EmbeddingModel: strings.TrimSpace(server.EmbeddingModel),
+		ASRModel:       strings.TrimSpace(server.ASRModel),
 	}
 	for _, required := range []struct {
 		field string
@@ -128,17 +127,8 @@ func resolveModels(parameters apitypes.PetWorkspaceParameters, server Config) (C
 		{field: "asr_model", value: models.ASRModel},
 	} {
 		if required.value == "" {
-			return Config{}, fmt.Errorf("pet: %s is not configured in workspace parameters or server system_tasks.pet_flowcraft_workflow", required.field)
+			return Config{}, fmt.Errorf("pet: %s is not configured in server system_tasks.pet_flowcraft_workflow", required.field)
 		}
 	}
 	return models, nil
-}
-
-func parameterOrServer(value *string, server string) string {
-	if value != nil {
-		if text := strings.TrimSpace(*value); text != "" {
-			return text
-		}
-	}
-	return strings.TrimSpace(server)
 }

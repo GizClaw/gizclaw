@@ -332,14 +332,10 @@ message PetWorkflowSpec {
 
 message PetWorkspaceParameters {
   PetWorkspaceParametersAgentType agent_type = 1;
-  optional string asr_model = 2;
-  optional PetConversationParameters conversation = 3;
-  optional string embedding_model = 4;
-  optional string extract_model = 5;
-  optional string generate_model = 6;
-  optional WorkspaceInputMode input = 7;
-  optional PetPersonaParameters persona = 8;
-  PetVoiceParameters voice = 9;
+  optional PetConversationParameters conversation = 2;
+  optional WorkspaceInputMode input = 3;
+  optional PetPersonaParameters persona = 4;
+  PetVoiceParameters voice = 5;
 }
 
 message GeminiCredentialBody {
