@@ -140,10 +140,9 @@ GizClawServer? _decodeServer(Object? value) {
     return null;
   }
   try {
-    return GizClawServer(
-      name: name.trim(),
-      accessPoint: normalizeGizClawEndpoint(accessPoint),
-    );
+    final normalizedEndpoint = normalizeGizClawEndpoint(accessPoint);
+    if (normalizedEndpoint.isEmpty) return null;
+    return GizClawServer(name: name.trim(), accessPoint: normalizedEndpoint);
   } on FormatException {
     return null;
   }

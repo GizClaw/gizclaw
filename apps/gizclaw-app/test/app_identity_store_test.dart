@@ -113,6 +113,24 @@ void main() {
     expect(servers.last.accessPoint, 'legacy.local:9820');
   });
 
+  test('ignores a persisted server with a blank access point', () async {
+    final preferences = _MemoryValueStore()
+      ..values[AppIdentityStore.customServersStorageKey] =
+          '[{"name":"Broken","access_point":"   "}]';
+    final store = AppIdentityStore(
+      secureValues: _MemoryValueStore(),
+      preferences: preferences,
+      fallbackProfile: const GizClawConnectionProfile(
+        endpoint: '',
+        clientPrivateKey: '',
+      ),
+    );
+
+    final servers = await store.loadServers();
+
+    expect(servers.map((server) => server.name), ['Development', 'Production']);
+  });
+
   test('validates domain and IP endpoints with explicit ports', () {
     expect(
       normalizeGizClawEndpoint('gizclaw.local:9820'),

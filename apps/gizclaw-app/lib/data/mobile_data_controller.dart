@@ -227,7 +227,7 @@ class MobileDataController extends ChangeNotifier {
   }
 
   Future<void> updateServerEndpoint(String endpoint) async {
-    final normalized = normalizeGizClawEndpoint(endpoint);
+    final normalized = _normalizeRequiredServerEndpoint(endpoint);
     if (!_servers.any((server) => server.accessPoint == normalized)) {
       final nextServers = List<GizClawServer>.unmodifiable([
         ..._servers,
@@ -248,7 +248,7 @@ class MobileDataController extends ChangeNotifier {
     if (normalizedName.isEmpty) {
       throw const FormatException('Enter a server name');
     }
-    final normalizedEndpoint = normalizeGizClawEndpoint(accessPoint);
+    final normalizedEndpoint = _normalizeRequiredServerEndpoint(accessPoint);
     if (_servers.any((server) => server.accessPoint == normalizedEndpoint)) {
       throw const FormatException('This access point is already in the list');
     }
@@ -267,7 +267,7 @@ class MobileDataController extends ChangeNotifier {
     required String name,
     required String accessPoint,
   }) async {
-    final normalizedEndpoint = normalizeGizClawEndpoint(accessPoint);
+    final normalizedEndpoint = _normalizeRequiredServerEndpoint(accessPoint);
     for (final server in _servers) {
       if (server.accessPoint == normalizedEndpoint) {
         await selectServer(server);
@@ -287,7 +287,7 @@ class MobileDataController extends ChangeNotifier {
   }
 
   Future<void> _activateServerEndpoint(String endpoint) async {
-    final normalized = normalizeGizClawEndpoint(endpoint);
+    final normalized = _normalizeRequiredServerEndpoint(endpoint);
     if (normalized == connection.profile.endpoint) return;
     _startGeneration += 1;
     await identityStore?.saveEndpoint(normalized);
@@ -1128,7 +1128,7 @@ List<GizClawServer> _mergeServers(
   final endpoints = <String>{};
   for (final server in [...gizClawPresetServers, ...servers]) {
     final endpoint = normalizeGizClawEndpoint(server.accessPoint);
-    if (!endpoints.add(endpoint)) continue;
+    if (endpoint.isEmpty || !endpoints.add(endpoint)) continue;
     merged.add(GizClawServer(name: server.name.trim(), accessPoint: endpoint));
   }
   final trimmedActiveEndpoint = activeEndpoint.trim();
@@ -1139,6 +1139,14 @@ List<GizClawServer> _mergeServers(
     }
   }
   return merged;
+}
+
+String _normalizeRequiredServerEndpoint(String endpoint) {
+  final normalized = normalizeGizClawEndpoint(endpoint);
+  if (normalized.isEmpty) {
+    throw const FormatException('Enter a server access point');
+  }
+  return normalized;
 }
 
 List<GizClawServer> _customServers(List<GizClawServer> servers) {
