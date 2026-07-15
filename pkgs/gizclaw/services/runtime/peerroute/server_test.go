@@ -122,17 +122,25 @@ func TestAssignConflictAndValidation(t *testing.T) {
 	if _, err := service.Assign(ctx, giznet.PublicKey{}, nil); !errors.Is(err, ErrInvalidPublicKey) {
 		t.Fatalf("Assign zero public key error = %v, want %v", err, ErrInvalidPublicKey)
 	}
-	missingRoute := *service
+	newService := func() *Server {
+		return &Server{
+			Store:           service.Store,
+			ServerPublicKey: service.ServerPublicKey,
+			ServerEndpoint:  service.ServerEndpoint,
+			Peers:           service.Peers,
+		}
+	}
+	missingRoute := newService()
 	missingRoute.ServerEndpoint = ""
 	if _, err := missingRoute.Assign(ctx, peerKey, nil); !errors.Is(err, ErrMissingRoute) {
 		t.Fatalf("Assign missing route error = %v, want %v", err, ErrMissingRoute)
 	}
-	missingPeer := *service
+	missingPeer := newService()
 	missingPeer.Peers = testPeers{}
 	if _, err := missingPeer.Assign(ctx, giznet.PublicKey{9}, nil); err == nil {
 		t.Fatal("Assign unknown peer succeeded")
 	}
-	blockedPeer := *service
+	blockedPeer := newService()
 	blockedPeer.Peers = testPeers{items: map[giznet.PublicKey]apitypes.Peer{
 		peerKey: {
 			PublicKey:     peerKey.String(),

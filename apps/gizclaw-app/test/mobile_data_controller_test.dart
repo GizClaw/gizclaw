@@ -10,6 +10,17 @@ import 'package:gizclaw_app/data/repositories/mobile_data_repository.dart';
 import 'package:gizclaw_app/prototype/prototype_models.dart';
 
 void main() {
+  test('closes demo controller resources idempotently', () async {
+    final controller = MobileDataController.demo(
+      database: AppDatabase.forTesting(NativeDatabase.memory()),
+    );
+
+    await controller.start();
+    final firstClose = controller.close();
+    expect(controller.close(), same(firstClose));
+    await firstClose;
+  });
+
   test('does not retry a mutating RPC after a transport failure', () async {
     var requests = 0;
     var reconnects = 0;
@@ -59,7 +70,6 @@ void main() {
 
   test('drains a queued refresh after a stale refresh fails', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(database.close);
     final oldClient = _RunWorkspaceClient();
     final newClient = _RunWorkspaceClient();
     final connection = _RefreshTestConnection(
@@ -73,6 +83,7 @@ void main() {
       connectionController: connection,
       dataRepository: repository,
     )..connectionState = MobileConnectionState.connected;
+    addTearDown(controller.close);
 
     final oldRefresh = controller.refresh(
       client: oldClient,
@@ -97,7 +108,6 @@ void main() {
 
   test('switches cached server partitions after reconnect', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(database.close);
     final oldClient = _RunWorkspaceClient();
     final newClient = _RunWorkspaceClient();
     final connection = _ReconnectTestConnection(
@@ -116,7 +126,7 @@ void main() {
           )
           ..activeServerId = 'old-server'
           ..connectionState = MobileConnectionState.connected;
-    addTearDown(controller.dispose);
+    addTearDown(controller.close);
 
     await controller.recoverTransport();
 
@@ -233,7 +243,6 @@ void main() {
     'falls back to the workspace catalog when pet discovery fails',
     () async {
       final database = AppDatabase.forTesting(NativeDatabase.memory());
-      addTearDown(database.close);
       final client = _FailingPetListClient();
       final controller =
           MobileDataController(
@@ -258,6 +267,7 @@ void main() {
                 lastActive: '',
               ),
             ];
+      addTearDown(controller.close);
 
       final destination = await controller.destinationForWorkspace(
         'workspace-a',
@@ -270,7 +280,6 @@ void main() {
 
   test('repairs the selected workspace before runtime reload', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(database.close);
     final client = _WorkspaceActivationClient();
     final controller =
         MobileDataController(
@@ -289,7 +298,7 @@ void main() {
               driver: 'flowcraft',
             ),
           ];
-    addTearDown(controller.dispose);
+    addTearDown(controller.close);
 
     await controller.activateWorkspaceChat('workspace-new');
 

@@ -1,14 +1,39 @@
+import 'package:drift/native.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gizclaw/gizclaw.dart';
 import 'package:gizclaw_app/main.dart';
 import 'package:gizclaw_app/app/global_conversation_control.dart';
 import 'package:gizclaw_app/data/mobile_data_controller.dart';
+import 'package:gizclaw_app/data/database/app_database.dart';
 import 'package:gizclaw_app/data/repositories/workspace_chat_repository.dart';
 import 'package:gizclaw_app/data/workspace_chat_controller.dart';
 import 'package:gizclaw_app/giz_ui/giz_ui.dart';
 
+AppDatabase _testDatabase() => AppDatabase.forTesting(NativeDatabase.memory());
+
 void main() {
+  final dataControllers = <MobileDataController>[];
+
+  void appTestWidgets(
+    String description,
+    Future<void> Function(WidgetTester tester) body,
+  ) {
+    testWidgets(description, (tester) async {
+      try {
+        await body(tester);
+      } finally {
+        final controllers = dataControllers.reversed.toList();
+        dataControllers.clear();
+        await tester.runAsync(() async {
+          for (final controller in controllers) {
+            await controller.close();
+          }
+        });
+      }
+    });
+  }
+
   test('keeps system actions separate from the lime accent', () {
     expect(gizCupertinoTheme.primaryColor, GizColors.primary);
     expect(gizCupertinoTheme.primaryContrastingColor, GizColors.onPrimary);
@@ -43,13 +68,16 @@ void main() {
     WidgetTester tester, {
     MobileDataController? controller,
   }) async {
-    await tester.pumpWidget(
-      GizClawApp(dataController: controller ?? MobileDataController.demo()),
-    );
+    final dataController =
+        controller ?? MobileDataController.demo(database: _testDatabase());
+    dataControllers.add(dataController);
+    await tester.pumpWidget(GizClawApp(dataController: dataController));
     await tester.pump(const Duration(milliseconds: 700));
   }
 
-  testWidgets('opens on the active conversation destination', (tester) async {
+  appTestWidgets('opens on the active conversation destination', (
+    tester,
+  ) async {
     await pumpApp(tester);
 
     expect(find.byType(ActiveWorkspacePage), findsOneWidget);
@@ -71,10 +99,10 @@ void main() {
     expect(primaryNav('Raids'), findsNothing);
   });
 
-  testWidgets('shows the current active workspace conversation', (
+  appTestWidgets('shows the current active workspace conversation', (
     tester,
   ) async {
-    final controller = MobileDataController.demo()
+    final controller = MobileDataController.demo(database: _testDatabase())
       ..runWorkspaceState = PeerRunWorkspaceState(
         activeWorkspaceName: 'Parser pass',
       );
@@ -86,7 +114,7 @@ void main() {
     expect(find.text('OFFLINE'), findsOneWidget);
   });
 
-  testWidgets('shows the pet scene for an active pet workspace', (
+  appTestWidgets('shows the pet scene for an active pet workspace', (
     tester,
   ) async {
     final controller = _ActiveDestinationController(
@@ -103,7 +131,7 @@ void main() {
     expect(find.byType(WorkspaceChatPage), findsNothing);
   });
 
-  testWidgets('shows the chatroom scene for an active group workspace', (
+  appTestWidgets('shows the chatroom scene for an active group workspace', (
     tester,
   ) async {
     final controller = _ActiveDestinationController(
@@ -122,7 +150,9 @@ void main() {
     expect(find.byType(ChatroomWorkspacePage), findsOneWidget);
   });
 
-  testWidgets('opens workflow drivers directly from the dock', (tester) async {
+  appTestWidgets('opens workflow drivers directly from the dock', (
+    tester,
+  ) async {
     await pumpApp(tester);
 
     await tapPrimaryNav(tester, 'Flowcraft');
@@ -172,10 +202,10 @@ void main() {
     expect(find.byType(CupertinoTextField), findsNothing);
   });
 
-  testWidgets('keeps driver destinations visible without workspaces', (
+  appTestWidgets('keeps driver destinations visible without workspaces', (
     tester,
   ) async {
-    final controller = MobileDataController.demo();
+    final controller = MobileDataController.demo(database: _testDatabase());
     controller.workspaces = controller.workspaces
         .where(
           (workspace) =>
@@ -207,7 +237,7 @@ void main() {
     expect(find.text('No AST Translate workspaces yet.'), findsOneWidget);
   });
 
-  testWidgets('hides tabs in chat and restores the driver destination', (
+  appTestWidgets('hides tabs in chat and restores the driver destination', (
     tester,
   ) async {
     await pumpApp(tester);
@@ -239,7 +269,7 @@ void main() {
     expect(find.byType(DriverWorkspacesPage), findsOneWidget);
   });
 
-  testWidgets('renders the workspace signal room', (tester) async {
+  appTestWidgets('renders the workspace signal room', (tester) async {
     await pumpApp(tester);
 
     await tapPrimaryNav(tester, 'Translate');
@@ -267,7 +297,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('follows system brightness in the workspace signal room', (
+  appTestWidgets('follows system brightness in the workspace signal room', (
     tester,
   ) async {
     tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
@@ -305,7 +335,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('shows expanded primary destinations', (tester) async {
+  appTestWidgets('shows expanded primary destinations', (tester) async {
     await pumpApp(tester);
 
     for (final label in [
@@ -332,7 +362,7 @@ void main() {
     expect(find.byKey(const ValueKey('primary-nav-edge-fade')), findsOneWidget);
   });
 
-  testWidgets('shows the global voice mode toggle and audio field', (
+  appTestWidgets('shows the global voice mode toggle and audio field', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -349,7 +379,7 @@ void main() {
     expect(find.byKey(const ValueKey('global-audio-field')), findsOneWidget);
   });
 
-  testWidgets('slides the voice thumb between PTT and realtime', (
+  appTestWidgets('slides the voice thumb between PTT and realtime', (
     tester,
   ) async {
     final controller = _ModeSwitchController();
@@ -375,7 +405,7 @@ void main() {
     );
   });
 
-  testWidgets('opens group creation controls', (tester) async {
+  appTestWidgets('opens group creation controls', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -400,7 +430,7 @@ void main() {
     );
   });
 
-  testWidgets('shows friends, pet, and profile surfaces', (tester) async {
+  appTestWidgets('shows friends, pet, and profile surfaces', (tester) async {
     await pumpApp(tester);
 
     await tapPrimaryNav(tester, 'Friends');
@@ -439,7 +469,7 @@ void main() {
     expect(find.byKey(const ValueKey('server-endpoint-error')), findsOneWidget);
   });
 
-  testWidgets('opens real friend connection controls', (tester) async {
+  appTestWidgets('opens real friend connection controls', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -468,7 +498,7 @@ void main() {
     expect(find.text('Connect to GizClaw to manage friends'), findsOneWidget);
   });
 
-  testWidgets('opens a friend chatroom workspace', (tester) async {
+  appTestWidgets('opens a friend chatroom workspace', (tester) async {
     await pumpApp(tester);
 
     await tapPrimaryNav(tester, 'Friends');
@@ -490,7 +520,7 @@ void main() {
     expect(find.byType(CupertinoTabBar).hitTestable(), findsNothing);
   });
 
-  testWidgets('fits the compact iPhone viewport', (tester) async {
+  appTestWidgets('fits the compact iPhone viewport', (tester) async {
     tester.view.physicalSize = const Size(375, 667);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -506,7 +536,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('fits workspace controls in the compact iPhone viewport', (
+  appTestWidgets('fits workspace controls in the compact iPhone viewport', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(375, 667);
@@ -531,7 +561,7 @@ void main() {
 }
 
 class _ModeSwitchController extends MobileDataController {
-  _ModeSwitchController() {
+  _ModeSwitchController() : super(database: _testDatabase()) {
     chat = _ModeSwitchChatController(workspaceChatRepository);
   }
 
@@ -556,9 +586,9 @@ class _ModeSwitchController extends MobileDataController {
   }
 
   @override
-  void dispose() {
-    chat.dispose();
-    super.dispose();
+  Future<void> close() async {
+    await chat.close();
+    await super.close();
   }
 }
 
@@ -584,7 +614,8 @@ class _ModeSwitchChatController extends WorkspaceChatController {
 }
 
 class _ActiveDestinationController extends MobileDataController {
-  _ActiveDestinationController(this.destination);
+  _ActiveDestinationController(this.destination)
+    : super(database: _testDatabase());
 
   final MobileWorkspaceDestination destination;
 

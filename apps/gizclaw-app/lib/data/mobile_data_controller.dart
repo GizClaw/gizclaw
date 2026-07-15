@@ -77,8 +77,8 @@ class MobileDataController extends ChangeNotifier {
     repository = dataRepository ?? MobileDataRepository(this.database);
   }
 
-  factory MobileDataController.demo() {
-    final controller = MobileDataController();
+  factory MobileDataController.demo({AppDatabase? database}) {
+    final controller = MobileDataController(database: database);
     controller.workflows = allWorkflows;
     controller.workspaces = workflowWorkspaces;
     controller.chatroomWorkspaces = chatroomWorkspaceMetadata;
@@ -116,6 +116,8 @@ class MobileDataController extends ChangeNotifier {
   int _startGeneration = 0;
   Future<void> _workspaceSwitch = Future<void>.value();
   WorkspaceChatController? _activeWorkspaceChat;
+  Future<void>? _closeFuture;
+  bool _disposed = false;
   final Map<String, ({String title, String workspaceName})> _petRouteContexts =
       {};
   PeerRunWorkspaceState? runWorkspaceState;
@@ -783,15 +785,45 @@ class MobileDataController extends ChangeNotifier {
     _activeWorkspaceChat = chat;
   }
 
+  Future<void> close() => _closeFuture ??= _close();
+
+  Future<void> _close() async {
+    _startGeneration += 1;
+    _serverWatchGeneration += 1;
+    _refreshAgain = false;
+
+    final chat = _activeWorkspaceChat;
+    _activeWorkspaceChat = null;
+    final subscriptions = <StreamSubscription<dynamic>?>[
+      _workflowSubscription,
+      _workspaceSubscription,
+      _friendChatSubscription,
+      _friendGroupChatSubscription,
+    ];
+    _workflowSubscription = null;
+    _workspaceSubscription = null;
+    _friendChatSubscription = null;
+    _friendGroupChatSubscription = null;
+
+    await chat?.close();
+    await Future.wait([
+      for (final subscription in subscriptions)
+        if (subscription != null) subscription.cancel(),
+    ]);
+    await connection.close();
+    await database.close();
+  }
+
+  @override
+  void notifyListeners() {
+    if (_disposed) return;
+    super.notifyListeners();
+  }
+
   @override
   void dispose() {
-    _replaceActiveWorkspaceChat(null);
-    unawaited(_workflowSubscription?.cancel());
-    unawaited(_workspaceSubscription?.cancel());
-    unawaited(_friendChatSubscription?.cancel());
-    unawaited(_friendGroupChatSubscription?.cancel());
-    unawaited(connection.close());
-    unawaited(database.close());
+    _disposed = true;
+    unawaited(close());
     super.dispose();
   }
 }

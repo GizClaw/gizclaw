@@ -104,7 +104,7 @@ func (response streamServerLogsResponse) VisitStreamServerLogsResponse(ctx *fibe
 	done := make(chan error, 1)
 	go func() {
 		defer close(events)
-		end, err := response.service.StreamServerLogs(streamCtx, response.request, func(entry ServerLogEntry) error {
+		end, err := response.service.StreamServerLogs(streamCtx, response.request, func(entry apitypes.ServerLogEntry) error {
 			select {
 			case <-streamCtx.Done():
 				return streamCtx.Err()

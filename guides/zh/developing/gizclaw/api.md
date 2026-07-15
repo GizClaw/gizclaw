@@ -23,7 +23,7 @@ pkgs/gizclaw/api/
 ├── apitypes/      # HTTP Shared 与 Resource Go models
 ├── openaihttp/    # OpenAI-compatible HTTP surface
 ├── peerhttp/      # Peer HTTP Go surface
-├── rpcapi/        # RPC method registry、wrapper 和 codec
+├── rpcapi/        # RPC method registry、typed codec 和 helpers
 ├── rpcproto/      # Protobuf 生成的 RPC message
 └── telemetry/     # Telemetry protobuf contract
 ```
@@ -48,7 +48,7 @@ pkgs/gizclaw/api/
 
 ### rpcapi
 
-在 RPC protobuf messages 之上提供 method registry、typed payload codec、wrapper types 和错误 contract。RPC dispatch 与具体 method handler 属于根 `pkgs/gizclaw` 的 RPC 模块。
+在 RPC protobuf messages 之上提供 method registry、typed payload codec、stream helpers 和错误 contract。手写 API 直接使用 `rpcpb` 中定义的消息类型，不在 `rpcapi` 中维护跨 package alias。RPC dispatch 与具体 method handler 属于根 `pkgs/gizclaw` 的 RPC 模块。
 
 ### rpcproto
 

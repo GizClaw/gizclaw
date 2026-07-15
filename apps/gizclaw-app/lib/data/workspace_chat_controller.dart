@@ -82,6 +82,7 @@ class WorkspaceChatController extends ChangeNotifier {
   final Map<String, _AudioEnergySample> _receivedAudioEnergy = {};
   String? replayingHistoryId;
   bool _disposed = false;
+  Future<void>? _closeFuture;
   double inputLevel = 0;
   double outputLevel = 0;
 
@@ -516,20 +517,39 @@ class WorkspaceChatController extends ChangeNotifier {
     super.notifyListeners();
   }
 
-  @override
-  void dispose() {
+  Future<void> close() => _closeFuture ??= _close();
+
+  Future<void> _close() async {
     _disposed = true;
     _historyRefreshTimer?.cancel();
+    _historyRefreshTimer = null;
     _levelTimer?.cancel();
+    _levelTimer = null;
     _resetRecording();
     _inputTrack?.stop();
+    _inputTrack = null;
     for (final track
         in _inputStream?.getTracks() ?? const <rtc.MediaStreamTrack>[]) {
       track.stop();
     }
-    unawaited(_historySubscription?.cancel());
-    unawaited(_eventSubscription?.cancel());
-    unawaited(_session?.close());
+    _inputStream = null;
+
+    final historySubscription = _historySubscription;
+    _historySubscription = null;
+    final eventSubscription = _eventSubscription;
+    _eventSubscription = null;
+    final session = _session;
+    _session = null;
+    await Future.wait([
+      if (historySubscription != null) historySubscription.cancel(),
+      if (eventSubscription != null) eventSubscription.cancel(),
+      if (session != null) session.close(),
+    ]);
+  }
+
+  @override
+  void dispose() {
+    unawaited(close());
     super.dispose();
   }
 }

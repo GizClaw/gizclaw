@@ -213,7 +213,7 @@ func TestMethodPayloadsUseProtobufBytes(t *testing.T) {
 
 func TestServerPeerRoutePayloadsUseRPCProtoMessages(t *testing.T) {
 	var params RPCPayload
-	if err := params.FromServerPeerAssignRequest(ServerPeerAssignRequest{
+	if err := params.FromServerPeerAssignRequest(rpcpb.ServerPeerAssignRequest{
 		PeerPublicKey:   "peer-a",
 		ExpectedVersion: int64Ptr(7),
 	}); err != nil {
@@ -237,8 +237,8 @@ func TestServerPeerRoutePayloadsUseRPCProtoMessages(t *testing.T) {
 	}
 
 	var result RPCPayload
-	if err := result.FromServerPeerAssignResponse(ServerPeerAssignResponse{
-		Assignment: &PeerAssignment{
+	if err := result.FromServerPeerAssignResponse(rpcpb.ServerPeerAssignResponse{
+		Assignment: &rpcpb.PeerAssignment{
 			PeerPublicKey:   "peer-a",
 			ServerPublicKey: "server-a",
 			ServerEndpoint:  "server:9820",
