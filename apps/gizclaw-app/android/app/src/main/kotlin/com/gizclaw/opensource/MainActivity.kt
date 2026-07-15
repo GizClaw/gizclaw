@@ -1,4 +1,4 @@
-package com.gizclaw.gizclaw_app
+package com.gizclaw.opensource
 
 import io.flutter.embedding.android.FlutterActivity
 

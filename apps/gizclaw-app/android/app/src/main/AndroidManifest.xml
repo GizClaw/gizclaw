@@ -5,7 +5,7 @@
     <application
         android:allowBackup="false"
         android:usesCleartextTraffic="true"
-        android:label="GizClaw"
+        android:label="GizClaw OpenSource"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

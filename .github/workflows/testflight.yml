@@ -1,4 +1,4 @@
-name: TestFlight
+name: TestFlight Internal
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ on:
         type: string
 
 concurrency:
-  group: testflight
+  group: testflight-internal
   cancel-in-progress: false
 
 jobs:
@@ -128,6 +128,7 @@ jobs:
           /usr/libexec/PlistBuddy -c 'Add :signingStyle string manual' "$export_options"
           /usr/libexec/PlistBuddy -c 'Add :signingCertificate string Apple Distribution' "$export_options"
           /usr/libexec/PlistBuddy -c 'Add :manageAppVersionAndBuildNumber bool false' "$export_options"
+          /usr/libexec/PlistBuddy -c 'Add :testFlightInternalTestingOnly bool true' "$export_options"
           /usr/libexec/PlistBuddy -c 'Add :stripSwiftSymbols bool true' "$export_options"
           /usr/libexec/PlistBuddy -c 'Add :provisioningProfiles dict' "$export_options"
           /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:$IOS_BUNDLE_ID string $IOS_PROFILE_NAME" "$export_options"
@@ -185,11 +186,12 @@ jobs:
       - name: Summarize upload
         run: |
           {
-            echo '### TestFlight upload submitted'
+            echo '### TestFlight internal upload submitted'
             echo
             echo "- Bundle ID: \`$IOS_BUNDLE_ID\`"
             echo "- Build number: \`$BUILD_NUMBER\`"
-            echo '- App Store Connect will process the uploaded build before it appears in TestFlight.'
+            echo '- This build is marked for TestFlight internal testing only.'
+            echo '- App Store Connect will process the upload before it appears in TestFlight.'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Remove signing material

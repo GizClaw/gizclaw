@@ -1,0 +1,111 @@
+name: Google Play Internal
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: Optional versionCode; defaults to the workflow run number
+        required: false
+        type: string
+
+concurrency:
+  group: google-play-internal
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Build and upload Android app
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: google-play-internal
+    permissions:
+      contents: read
+    env:
+      ANDROID_APP_DIR: apps/gizclaw-app
+      ANDROID_PACKAGE_NAME: com.gizclaw.opensource
+      BUILD_NUMBER: ${{ inputs.build_number || github.run_number }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          lfs: true
+
+      - name: Ensure Git LFS assets are available
+        run: git lfs pull
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: "3.38.1"
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        working-directory: ${{ env.ANDROID_APP_DIR }}
+        run: flutter pub get
+
+      - name: Analyze app
+        working-directory: ${{ env.ANDROID_APP_DIR }}
+        run: flutter analyze
+
+      - name: Test app
+        working-directory: ${{ env.ANDROID_APP_DIR }}
+        run: flutter test
+
+      - name: Build signed app bundle
+        working-directory: ${{ env.ANDROID_APP_DIR }}
+        env:
+          ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          ANDROID_UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+          ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          : "${ANDROID_UPLOAD_KEYSTORE_BASE64:?missing ANDROID_UPLOAD_KEYSTORE_BASE64}"
+          : "${ANDROID_UPLOAD_KEYSTORE_PASSWORD:?missing ANDROID_UPLOAD_KEYSTORE_PASSWORD}"
+          : "${ANDROID_UPLOAD_KEY_ALIAS:?missing ANDROID_UPLOAD_KEY_ALIAS}"
+          : "${ANDROID_UPLOAD_KEY_PASSWORD:?missing ANDROID_UPLOAD_KEY_PASSWORD}"
+
+          keystore_path="$RUNNER_TEMP/gizclaw-upload.jks"
+          printf '%s' "$ANDROID_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
+          echo "ANDROID_UPLOAD_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
+
+          GIZCLAW_ANDROID_RELEASE_SIGNING=1 \
+          ANDROID_KEYSTORE_PATH="$keystore_path" \
+          ANDROID_KEYSTORE_PASSWORD="$ANDROID_UPLOAD_KEYSTORE_PASSWORD" \
+          ANDROID_KEY_ALIAS="$ANDROID_UPLOAD_KEY_ALIAS" \
+          ANDROID_KEY_PASSWORD="$ANDROID_UPLOAD_KEY_PASSWORD" \
+            flutter build appbundle --release --build-number="$BUILD_NUMBER"
+
+          bundle_path="build/app/outputs/bundle/release/app-release.aab"
+          if [[ ! -f "$bundle_path" ]]; then
+            echo 'Flutter did not produce an Android App Bundle' >&2
+            exit 1
+          fi
+          jarsigner -verify "$bundle_path"
+
+      - name: Upload to Google Play internal track
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: ${{ env.ANDROID_PACKAGE_NAME }}
+          releaseFiles: apps/gizclaw-app/build/app/outputs/bundle/release/app-release.aab
+          track: internal
+          status: completed
+          releaseName: GizClaw OpenSource ${{ env.BUILD_NUMBER }}
+
+      - name: Summarize upload
+        run: |
+          {
+            echo '### Google Play internal upload submitted'
+            echo
+            echo "- Package: \`$ANDROID_PACKAGE_NAME\`"
+            echo "- Version code: \`$BUILD_NUMBER\`"
+            echo '- Track: `internal`'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove signing material
+        if: always()
+        run: rm -f "${ANDROID_UPLOAD_KEYSTORE_PATH:-$RUNNER_TEMP/gizclaw-upload.jks}"

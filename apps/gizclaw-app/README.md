@@ -73,12 +73,16 @@ Run commands from this directory:
 cd apps/gizclaw-app
 ```
 
-## TestFlight
+## Internal Testing
 
-TestFlight publishing runs from `.github/workflows/testflight.yml`. The workflow
-is manually dispatched, uses the version from `pubspec.yaml`, and defaults the
-iOS build number to the GitHub Actions run number. Configure a protected GitHub
-Environment named `testflight` before running it.
+Both mobile publishing workflows are manually dispatched. They use the version
+from `pubspec.yaml` and default their platform build number to the GitHub Actions
+run number.
+
+### TestFlight Internal Testing
+
+TestFlight publishing runs from `.github/workflows/testflight.yml`. Configure a
+protected GitHub Environment named `testflight` before running it.
 
 Create these Apple resources once:
 
@@ -110,10 +114,43 @@ base64 < path/to/file | tr -d '\n' | pbcopy
 
 The workflow validates the provisioning profile's team and application
 identifier before importing signing material into a temporary keychain. It
-deletes the keychain, installed profile, and API private key after the job. An
-internal TestFlight group can be configured for automatic distribution in App
-Store Connect; external testing still requires TestFlight test information and
-Beta App Review.
+marks the export as internal-testing-only, then deletes the keychain, installed
+profile, and API private key after the job. Configure an internal TestFlight
+group in App Store Connect to distribute processed builds to team members. An
+internal-only build cannot later be promoted to external testing or the App
+Store.
+
+### Google Play Internal Testing
+
+Google Play publishing runs from
+`.github/workflows/google-play-internal.yml`. Configure a protected GitHub
+Environment named `google-play-internal` before running it.
+
+Create these Google Play resources once:
+
+- A Google Play Console app named `GizClaw OpenSource` with package name
+  `com.gizclaw.opensource`.
+- Play App Signing enrollment and a dedicated upload key exported as a Java
+  keystore.
+- A Google Cloud project with the Google Play Developer API enabled.
+- A service account invited in Play Console with permission to publish releases
+  to testing tracks.
+- An internal tester email list or Google Group in Play Console.
+
+Add the following GitHub Environment secrets:
+
+| Secret | Value |
+| --- | --- |
+| `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | Complete service-account JSON document. |
+| `ANDROID_UPLOAD_KEYSTORE_BASE64` | Base64-encoded upload-key keystore. |
+| `ANDROID_UPLOAD_KEYSTORE_PASSWORD` | Upload keystore password. |
+| `ANDROID_UPLOAD_KEY_ALIAS` | Upload key alias. |
+| `ANDROID_UPLOAD_KEY_PASSWORD` | Upload key password. |
+
+The workflow builds a release Android App Bundle signed with the upload key,
+verifies its signature, and publishes it with completed status to the Google
+Play `internal` track. The keystore is decoded only into the runner's temporary
+directory and removed after the job.
 
 ## Integration Notes
 
