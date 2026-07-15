@@ -107,7 +107,7 @@ void main() {
   appTestWidgets('opens an unconfigured app on server onboarding', (
     tester,
   ) async {
-    await pumpApp(tester, controller: MobileDataController());
+    await pumpApp(tester, controller: _OnboardingServerController());
 
     expect(find.byType(ServerOnboardingPage), findsOneWidget);
     expect(find.text('Your agents, everywhere.'), findsOneWidget);
@@ -118,7 +118,7 @@ void main() {
   });
 
   appTestWidgets('opens server choices from onboarding', (tester) async {
-    await pumpApp(tester, controller: MobileDataController());
+    await pumpApp(tester, controller: _OnboardingServerController());
 
     await tester.tap(find.byKey(const ValueKey('server-onboarding-cta')));
     await tester.pumpAndSettle();
@@ -130,7 +130,7 @@ void main() {
   });
 
   appTestWidgets('opens a capability story from onboarding', (tester) async {
-    await pumpApp(tester, controller: MobileDataController());
+    await pumpApp(tester, controller: _OnboardingServerController());
 
     expect(find.text('READ STORY'), findsWidgets);
     expect(
@@ -600,7 +600,7 @@ void main() {
     expect(find.byKey(const ValueKey('selected-server')), findsOneWidget);
   });
 
-  testWidgets('adds a server from the pushed page', (tester) async {
+  appTestWidgets('adds a server from the pushed page', (tester) async {
     final controller = _ImmediateAddServerController();
     await pumpApp(tester, controller: controller);
     await tapPrimaryNav(tester, 'Identity');
@@ -783,6 +783,15 @@ class _ServerListTestController extends MobileDataController {
 }
 
 class _OnboardingServerController extends MobileDataController {
+  _OnboardingServerController()
+    : super(
+        database: _testDatabase(),
+        profile: const GizClawConnectionProfile(
+          endpoint: '',
+          clientPrivateKey: 'test-key',
+        ),
+      );
+
   GizClawServer? _selectedServer;
 
   @override

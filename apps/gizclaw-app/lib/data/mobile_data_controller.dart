@@ -1152,9 +1152,8 @@ List<GizClawServer> _customServers(List<GizClawServer> servers) {
 }
 
 class _DemoMobileDataController extends MobileDataController {
-  _DemoMobileDataController({AppDatabase? database})
+  _DemoMobileDataController({super.database})
     : super(
-        database: database,
         profile: const GizClawConnectionProfile(
           endpoint: gizClawDevelopmentServerEndpoint,
           clientPrivateKey: 'demo-private-key',
