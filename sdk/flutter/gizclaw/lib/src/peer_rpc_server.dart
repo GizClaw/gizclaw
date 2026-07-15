@@ -106,8 +106,11 @@ class _InboundPeerRpcChannel {
           concatBytes(_envelopeChunks),
         );
         _startRequest(continuedRequest);
-        if (_methodName(continuedRequest) == 'all.ping') {
+        final methodName = _methodName(continuedRequest);
+        if (methodName == 'all.ping') {
           _finishPing(continuedRequest);
+        } else if (_isClientMethod(methodName)) {
+          _finishClientRequest(continuedRequest);
         }
         return;
       }
@@ -147,6 +150,15 @@ class _InboundPeerRpcChannel {
       _ignoreBody = true;
       return;
     }
+    if (_isClientMethod(methodName)) {
+      if (frame.type != rpcFrameTypeEos) {
+        throw FormatException(
+          'expected client RPC EOS frame, got ${frame.type}',
+        );
+      }
+      _finishClientRequest(request);
+      return;
+    }
     _ignoreBody = true;
   }
 
@@ -184,8 +196,6 @@ class _InboundPeerRpcChannel {
       case 'client.info.get':
       case 'client.identifiers.get':
       case 'client.tool.invoke':
-        _ignoreBody = true;
-        _unawaited(_serveClientRequest(request).catchError((_) => _close()));
         return;
       default:
         _ignoreBody = true;
@@ -203,23 +213,27 @@ class _InboundPeerRpcChannel {
 
   Future<void> _serveClientRequest(rpc.RpcRequest request) async {
     final methodName = _methodName(request);
+    late rpc.RpcResponse response;
     try {
-      final response = switch (methodName) {
+      response = switch (methodName) {
         'client.info.get' => await _getClientInfo(request),
         'client.identifiers.get' => await _getClientIdentifiers(request),
         'client.tool.invoke' => await _invokeClientTool(request),
         _ => throw StateError('unsupported client method: $methodName'),
       };
-      await _sendEnvelopeOnly(response);
     } catch (error) {
-      await _sendEnvelopeOnly(
-        _rpcErrorResponse(
-          request.id,
-          rpc.RpcErrorCode.RPC_ERROR_CODE_INTERNAL_ERROR,
-          error.toString(),
-        ),
+      response = _rpcErrorResponse(
+        request.id,
+        rpc.RpcErrorCode.RPC_ERROR_CODE_INTERNAL_ERROR,
+        error.toString(),
       );
     }
+    await _sendEnvelopeOnly(response);
+  }
+
+  void _finishClientRequest(rpc.RpcRequest request) {
+    _ignoreBody = true;
+    _unawaited(_serveClientRequest(request).catchError((_) => _close()));
   }
 
   Future<rpc.RpcResponse> _getClientInfo(rpc.RpcRequest request) async {
@@ -457,6 +471,12 @@ class _InboundPeerRpcChannel {
   String _methodName(rpc.RpcRequest request) {
     return rpcMethodNamesById[request.method.value] ??
         'unknown:${request.method.value}';
+  }
+
+  bool _isClientMethod(String methodName) {
+    return methodName == 'client.info.get' ||
+        methodName == 'client.identifiers.get' ||
+        methodName == 'client.tool.invoke';
   }
 
   void _close() {

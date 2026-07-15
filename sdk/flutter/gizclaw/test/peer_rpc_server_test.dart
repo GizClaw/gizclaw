@@ -195,6 +195,80 @@ void main() {
     expect(result.dataJson, '{"ok":true}');
   });
 
+  test('waits for client request EOS before invoking a handler', () async {
+    final channel = FakeDataChannel('giznet/v1/service/0');
+    addTearDown(channel.close);
+    var invocationCount = 0;
+    serveGizClawPeerRpcChannel(
+      channel,
+      handlers: GizClawPeerRpcHandlers(
+        deviceInfo: () => device,
+        invokeTool: (request) {
+          invocationCount++;
+          return ToolInvokeResponse(dataJson: '{"ok":true}');
+        },
+      ),
+    );
+
+    channel.addMessage(
+      _rpcRequestEnvelopeBytes(
+        id: 'tool-wait-eos',
+        method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_INVOKE,
+        payloadBytes: encodeRpcRequestPayload(
+          'client.tool.invoke',
+          ToolInvokeRequest(callId: 'call-wait-eos'),
+        ),
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(invocationCount, 0);
+    expect(channel.sent, isEmpty);
+
+    channel.addMessage(encodeFrame(rpcFrameTypeEos));
+    for (var attempt = 0; channel.sent.length < 2; attempt++) {
+      if (attempt == 20) fail('inbound RPC response was not sent');
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    expect(invocationCount, 1);
+    expect(_singleEnvelopeResponse(channel).id, 'tool-wait-eos');
+  });
+
+  test('rejects an unexpected client request body', () async {
+    final channel = FakeDataChannel('giznet/v1/service/0');
+    var invocationCount = 0;
+    serveGizClawPeerRpcChannel(
+      channel,
+      handlers: GizClawPeerRpcHandlers(
+        deviceInfo: () => device,
+        invokeTool: (request) {
+          invocationCount++;
+          return ToolInvokeResponse();
+        },
+      ),
+    );
+
+    channel.addMessage(
+      concatBytes([
+        _rpcRequestEnvelopeBytes(
+          id: 'tool-body',
+          method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_INVOKE,
+          payloadBytes: encodeRpcRequestPayload(
+            'client.tool.invoke',
+            ToolInvokeRequest(callId: 'call-body'),
+          ),
+        ),
+        encodeFrame(rpcFrameTypeBinary, [1]),
+      ]),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(invocationCount, 0);
+    expect(channel.sent, isEmpty);
+    expect(channel.state, GizClawDataChannelState.closed);
+  });
+
   test('reports an unconfigured client tool handler', () async {
     final channel = FakeDataChannel('giznet/v1/service/0');
     addTearDown(channel.close);
