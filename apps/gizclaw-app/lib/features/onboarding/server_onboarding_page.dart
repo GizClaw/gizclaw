@@ -127,7 +127,7 @@ class _ServerOnboardingPageState extends State<ServerOnboardingPage> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Choose a preset, enter an access point, or scan a QR code.',
+                      'Enter a server access point or scan a QR code.',
                       textAlign: TextAlign.center,
                       style: GizText.label.copyWith(
                         color: GizColors.secondaryInk,

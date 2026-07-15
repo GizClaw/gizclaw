@@ -57,7 +57,15 @@ class _ServerListPageState extends State<ServerListPage> {
         child: ListView(
           padding: const EdgeInsets.only(top: 18, bottom: 32),
           children: [
-            if (!data.hasActiveServer)
+            if (data.servers.isEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+                child: Text(
+                  'No servers added yet. Use Add server to continue.',
+                  style: GizText.body.copyWith(color: GizColors.secondaryInk),
+                ),
+              ),
+            if (data.servers.isNotEmpty && !data.hasActiveServer)
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
                 child: Text(

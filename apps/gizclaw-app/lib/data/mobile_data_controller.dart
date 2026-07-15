@@ -17,6 +17,8 @@ enum MobileConnectionState { unconfigured, connecting, connected, offline }
 
 enum MobileWorkspaceSurface { raid, friend, group, pet }
 
+const _demoServerEndpoint = 'demo.gizclaw.local:9820';
+
 Future<T> _workspaceActivationStep<T>(
   String step,
   Future<T> Function() action,
@@ -79,7 +81,7 @@ class MobileDataController extends ChangeNotifier {
            ),
        _servers = List.unmodifiable(
          _mergeServers(
-           servers ?? gizClawPresetServers,
+           servers ?? const [],
            profile?.endpoint ?? connectionController?.profile.endpoint ?? '',
          ),
        ) {
@@ -233,7 +235,7 @@ class MobileDataController extends ChangeNotifier {
         ..._servers,
         GizClawServer(name: normalized, accessPoint: normalized),
       ]);
-      await identityStore?.saveCustomServers(_customServers(nextServers));
+      await identityStore?.saveCustomServers(nextServers);
       _servers = nextServers;
       notifyListeners();
     }
@@ -257,7 +259,7 @@ class MobileDataController extends ChangeNotifier {
       accessPoint: normalizedEndpoint,
     );
     final nextServers = List<GizClawServer>.unmodifiable([..._servers, server]);
-    await identityStore?.saveCustomServers(_customServers(nextServers));
+    await identityStore?.saveCustomServers(nextServers);
     _servers = nextServers;
     notifyListeners();
     await _activateServerEndpoint(normalizedEndpoint);
@@ -1126,7 +1128,7 @@ List<GizClawServer> _mergeServers(
 ) {
   final merged = <GizClawServer>[];
   final endpoints = <String>{};
-  for (final server in [...gizClawPresetServers, ...servers]) {
+  for (final server in servers) {
     final endpoint = normalizeGizClawEndpoint(server.accessPoint);
     if (endpoint.isEmpty || !endpoints.add(endpoint)) continue;
     merged.add(GizClawServer(name: server.name.trim(), accessPoint: endpoint));
@@ -1149,24 +1151,16 @@ String _normalizeRequiredServerEndpoint(String endpoint) {
   return normalized;
 }
 
-List<GizClawServer> _customServers(List<GizClawServer> servers) {
-  final presetEndpoints = {
-    for (final server in gizClawPresetServers) server.accessPoint,
-  };
-  return [
-    for (final server in servers)
-      if (!presetEndpoints.contains(server.accessPoint)) server,
-  ];
-}
-
 class _DemoMobileDataController extends MobileDataController {
   _DemoMobileDataController({super.database})
     : super(
         profile: const GizClawConnectionProfile(
-          endpoint: gizClawDevelopmentServerEndpoint,
+          endpoint: _demoServerEndpoint,
           clientPrivateKey: 'demo-private-key',
         ),
-        servers: gizClawPresetServers,
+        servers: const [
+          GizClawServer(name: 'Demo', accessPoint: _demoServerEndpoint),
+        ],
       );
 
   @override

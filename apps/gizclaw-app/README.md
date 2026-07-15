@@ -48,11 +48,8 @@ flutter run \
 On a physical iOS or Android device, use the development machine's LAN address
 and make sure the server listens on that interface.
 
-The Identity screen offers the shared development and production servers as
-quick-select endpoints:
-
-- `ap.dev.gizclaw.com:9820`
-- `ap.gizclaw.com:9820`
+The app does not ship with preset server endpoints. Add a server manually or
+scan a GizClaw server QR code during setup or from the Identity screen.
 
 GizClaw servers currently use plain HTTP. An endpoint without an explicit
 scheme is therefore interpreted as `http://<host>:<port>`.

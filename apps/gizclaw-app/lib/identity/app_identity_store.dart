@@ -20,17 +20,6 @@ class GizClawServer {
   final String accessPoint;
 }
 
-const gizClawPresetServers = [
-  GizClawServer(
-    name: 'Development',
-    accessPoint: gizClawDevelopmentServerEndpoint,
-  ),
-  GizClawServer(
-    name: 'Production',
-    accessPoint: gizClawProductionServerEndpoint,
-  ),
-];
-
 class AppIdentityStore {
   AppIdentityStore({
     IdentityValueStore? secureValues,
@@ -95,7 +84,7 @@ class AppIdentityStore {
           }
         }
       } on FormatException {
-        // Ignore malformed preferences and keep the built-in servers usable.
+        // Ignore malformed preferences and let the user add a valid server.
       }
     }
 
@@ -106,10 +95,9 @@ class AppIdentityStore {
         : savedEndpoint;
     if (legacyEndpoint.isNotEmpty) {
       final normalized = normalizeGizClawEndpoint(legacyEndpoint);
-      final known = [
-        ...gizClawPresetServers,
-        ...customServers,
-      ].any((server) => server.accessPoint == normalized);
+      final known = customServers.any(
+        (server) => server.accessPoint == normalized,
+      );
       if (!known) {
         customServers.add(
           GizClawServer(name: normalized, accessPoint: normalized),
@@ -117,7 +105,7 @@ class AppIdentityStore {
       }
     }
 
-    return List.unmodifiable([...gizClawPresetServers, ...customServers]);
+    return List.unmodifiable(customServers);
   }
 
   Future<void> saveCustomServers(List<GizClawServer> servers) {
