@@ -6,6 +6,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerroute"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -31,7 +32,7 @@ func TestEdgeRPCAssignLookupResolve(t *testing.T) {
 		ServerEndpoint:  "server:9820",
 	}}
 
-	assignResp := edgeDispatch(t, server, "assign", rpcapi.RPCMethodServerPeerAssign, edgeParams(t, (*rpcapi.RPCPayload).FromServerPeerAssignRequest, rpcapi.ServerPeerAssignRequest{PeerPublicKey: peerKey.String()}))
+	assignResp := edgeDispatch(t, server, "assign", rpcapi.RPCMethodServerPeerAssign, edgeParams(t, (*rpcapi.RPCPayload).FromServerPeerAssignRequest, rpcpb.ServerPeerAssignRequest{PeerPublicKey: peerKey.String()}))
 	if assignResp.Error != nil || assignResp.Result == nil {
 		t.Fatalf("assign response = %+v", assignResp)
 	}
@@ -43,7 +44,7 @@ func TestEdgeRPCAssignLookupResolve(t *testing.T) {
 		t.Fatalf("assigned = %+v", assigned.Assignment)
 	}
 
-	lookupResp := edgeDispatch(t, server, "lookup", rpcapi.RPCMethodServerPeerLookup, edgeParams(t, (*rpcapi.RPCPayload).FromServerPeerLookupRequest, rpcapi.ServerPeerLookupRequest{PeerPublicKey: peerKey.String()}))
+	lookupResp := edgeDispatch(t, server, "lookup", rpcapi.RPCMethodServerPeerLookup, edgeParams(t, (*rpcapi.RPCPayload).FromServerPeerLookupRequest, rpcpb.ServerPeerLookupRequest{PeerPublicKey: peerKey.String()}))
 	lookedUp, err := lookupResp.Result.AsServerPeerLookupResponse()
 	if err != nil {
 		t.Fatalf("AsServerPeerLookupResponse error = %v", err)
@@ -52,7 +53,7 @@ func TestEdgeRPCAssignLookupResolve(t *testing.T) {
 		t.Fatalf("lookup assignment = %+v, want %+v", lookedUp.Assignment, assigned.Assignment)
 	}
 
-	resolveResp := edgeDispatch(t, server, "resolve", rpcapi.RPCMethodServerRouteResolve, edgeParams(t, (*rpcapi.RPCPayload).FromServerRouteResolveRequest, rpcapi.ServerRouteResolveRequest{TargetPeerPublicKey: peerKey.String()}))
+	resolveResp := edgeDispatch(t, server, "resolve", rpcapi.RPCMethodServerRouteResolve, edgeParams(t, (*rpcapi.RPCPayload).FromServerRouteResolveRequest, rpcpb.ServerRouteResolveRequest{TargetPeerPublicKey: peerKey.String()}))
 	resolved, err := resolveResp.Result.AsServerRouteResolveResponse()
 	if err != nil {
 		t.Fatalf("AsServerRouteResolveResponse error = %v", err)
@@ -65,7 +66,7 @@ func TestEdgeRPCAssignLookupResolve(t *testing.T) {
 func TestEdgeRPCRejectsMismatchedPayload(t *testing.T) {
 	peerKey := giznet.PublicKey{1}
 	server := &edgeRPCServer{routes: &peerroute.Server{Store: kv.NewMemory(nil)}}
-	resp := edgeDispatch(t, server, "lookup", rpcapi.RPCMethodServerPeerLookup, edgeParams(t, (*rpcapi.RPCPayload).FromServerPeerAssignRequest, rpcapi.ServerPeerAssignRequest{PeerPublicKey: peerKey.String()}))
+	resp := edgeDispatch(t, server, "lookup", rpcapi.RPCMethodServerPeerLookup, edgeParams(t, (*rpcapi.RPCPayload).FromServerPeerAssignRequest, rpcpb.ServerPeerAssignRequest{PeerPublicKey: peerKey.String()}))
 	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
 		t.Fatalf("mismatched payload response = %+v", resp)
 	}
@@ -74,7 +75,7 @@ func TestEdgeRPCRejectsMismatchedPayload(t *testing.T) {
 func TestEdgeRPCMapsMissingAssignmentToNotFound(t *testing.T) {
 	peerKey := giznet.PublicKey{1}
 	server := &edgeRPCServer{routes: &peerroute.Server{Store: kv.NewMemory(nil)}}
-	resp := edgeDispatch(t, server, "lookup", rpcapi.RPCMethodServerPeerLookup, edgeParams(t, (*rpcapi.RPCPayload).FromServerPeerLookupRequest, rpcapi.ServerPeerLookupRequest{PeerPublicKey: peerKey.String()}))
+	resp := edgeDispatch(t, server, "lookup", rpcapi.RPCMethodServerPeerLookup, edgeParams(t, (*rpcapi.RPCPayload).FromServerPeerLookupRequest, rpcpb.ServerPeerLookupRequest{PeerPublicKey: peerKey.String()}))
 	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeNotFound {
 		t.Fatalf("missing assignment response = %+v", resp)
 	}
@@ -88,7 +89,7 @@ func TestEdgeRPCMapsMissingPeerToNotFound(t *testing.T) {
 		ServerPublicKey: giznet.PublicKey{2},
 		ServerEndpoint:  "server:9820",
 	}}
-	resp := edgeDispatch(t, server, "assign", rpcapi.RPCMethodServerPeerAssign, edgeParams(t, (*rpcapi.RPCPayload).FromServerPeerAssignRequest, rpcapi.ServerPeerAssignRequest{PeerPublicKey: peerKey.String()}))
+	resp := edgeDispatch(t, server, "assign", rpcapi.RPCMethodServerPeerAssign, edgeParams(t, (*rpcapi.RPCPayload).FromServerPeerAssignRequest, rpcpb.ServerPeerAssignRequest{PeerPublicKey: peerKey.String()}))
 	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeNotFound {
 		t.Fatalf("missing peer response = %+v", resp)
 	}
@@ -110,7 +111,7 @@ func TestEdgeRPCRejectsNonClientAssignment(t *testing.T) {
 		ServerPublicKey: giznet.PublicKey{2},
 		ServerEndpoint:  "server:9820",
 	}}
-	resp := edgeDispatch(t, server, "assign", rpcapi.RPCMethodServerPeerAssign, edgeParams(t, (*rpcapi.RPCPayload).FromServerPeerAssignRequest, rpcapi.ServerPeerAssignRequest{PeerPublicKey: peerKey.String()}))
+	resp := edgeDispatch(t, server, "assign", rpcapi.RPCMethodServerPeerAssign, edgeParams(t, (*rpcapi.RPCPayload).FromServerPeerAssignRequest, rpcpb.ServerPeerAssignRequest{PeerPublicKey: peerKey.String()}))
 	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
 		t.Fatalf("server peer assign response = %+v", resp)
 	}

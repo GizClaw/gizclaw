@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/clicontext"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/contextstore"
 	"github.com/spf13/cobra"
 )
 
@@ -34,7 +35,7 @@ type contextInfo struct {
 	IdentityPublic string `json:"identity_public"`
 }
 
-func buildContextInfo(ctx *clicontext.CLIContext, current string) contextInfo {
+func buildContextInfo(ctx *contextstore.Context, current string) contextInfo {
 	return contextInfo{
 		Name:           ctx.Name,
 		Description:    ctx.Config.Description,
@@ -57,7 +58,7 @@ func newCreateCmd() *cobra.Command {
 				return err
 			}
 			name := args[0]
-			if err := store.CreateWithOptions(name, serverAddr, clicontext.CreateOptions{
+			if err := store.CreateWithOptions(name, serverAddr, contextstore.CreateOptions{
 				Description: description,
 			}); err != nil {
 				return err

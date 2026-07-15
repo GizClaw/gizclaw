@@ -41,6 +41,7 @@ class GlobalConversationOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!MobileDataScope.watch(context).hasActiveServer) return child;
     final audioFieldHeight = math.min(
       300.0,
       MediaQuery.sizeOf(context).height * 0.36,

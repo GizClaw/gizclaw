@@ -29,6 +29,7 @@ type Config struct {
 	Log             logging.Config
 	Friends         FriendsConfig
 	FriendGroups    FriendGroupsConfig
+	SystemTasks     SystemTasksConfig
 }
 
 type FriendsConfig struct{}
@@ -38,6 +39,17 @@ type FriendGroupsConfig struct {
 	MessageMaxTTL          string `yaml:"message_max_ttl"`
 	MessageCleanupInterval string `yaml:"message_cleanup_interval"`
 	MessageMaxAudioBytes   int64  `yaml:"message_max_audio_bytes"`
+}
+
+type SystemTasksConfig struct {
+	PetFlowcraftWorkflow PetFlowcraftWorkflowTaskConfig `yaml:"pet_flowcraft_workflow"`
+}
+
+type PetFlowcraftWorkflowTaskConfig struct {
+	GenerateModel  string `yaml:"generate_model"`
+	ExtractModel   string `yaml:"extract_model"`
+	EmbeddingModel string `yaml:"embedding_model"`
+	ASRModel       string `yaml:"asr_model"`
 }
 
 type IdentityConfig struct {
@@ -58,6 +70,7 @@ type ConfigFile struct {
 	Log             logging.Config            `yaml:"log"`
 	Friends         FriendsConfig             `yaml:"friends"`
 	FriendGroups    FriendGroupsConfig        `yaml:"friend_groups"`
+	SystemTasks     SystemTasksConfig         `yaml:"system_tasks"`
 }
 
 const (
@@ -113,6 +126,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		Log             logging.Config            `yaml:"log"`
 		Friends         FriendsConfig             `yaml:"friends"`
 		FriendGroups    FriendGroupsConfig        `yaml:"friend_groups"`
+		SystemTasks     SystemTasksConfig         `yaml:"system_tasks"`
 	}
 	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return ConfigFile{}, err
@@ -158,6 +172,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		Log:             logCfg,
 		Friends:         raw.Friends,
 		FriendGroups:    raw.FriendGroups,
+		SystemTasks:     raw.SystemTasks,
 	}
 	return cfg, nil
 }
@@ -216,6 +231,7 @@ func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	}
 	cfg.Friends = mergeFriendsConfig(cfg.Friends, fileCfg.Friends)
 	cfg.FriendGroups = mergeFriendGroupsConfig(cfg.FriendGroups, fileCfg.FriendGroups)
+	cfg.SystemTasks = mergeSystemTasksConfig(cfg.SystemTasks, fileCfg.SystemTasks)
 	return cfg, nil
 }
 
@@ -236,6 +252,27 @@ func mergeFriendGroupsConfig(runtime FriendGroupsConfig, file FriendGroupsConfig
 	}
 	if runtime.MessageMaxAudioBytes == 0 {
 		runtime.MessageMaxAudioBytes = file.MessageMaxAudioBytes
+	}
+	return runtime
+}
+
+func mergeSystemTasksConfig(runtime SystemTasksConfig, file SystemTasksConfig) SystemTasksConfig {
+	runtime.PetFlowcraftWorkflow = mergePetFlowcraftWorkflowTaskConfig(runtime.PetFlowcraftWorkflow, file.PetFlowcraftWorkflow)
+	return runtime
+}
+
+func mergePetFlowcraftWorkflowTaskConfig(runtime PetFlowcraftWorkflowTaskConfig, file PetFlowcraftWorkflowTaskConfig) PetFlowcraftWorkflowTaskConfig {
+	if runtime.GenerateModel == "" {
+		runtime.GenerateModel = file.GenerateModel
+	}
+	if runtime.ExtractModel == "" {
+		runtime.ExtractModel = file.ExtractModel
+	}
+	if runtime.EmbeddingModel == "" {
+		runtime.EmbeddingModel = file.EmbeddingModel
+	}
+	if runtime.ASRModel == "" {
+		runtime.ASRModel = file.ASRModel
 	}
 	return runtime
 }

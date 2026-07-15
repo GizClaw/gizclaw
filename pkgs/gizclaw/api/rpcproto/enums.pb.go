@@ -709,6 +709,101 @@ func (FlowcraftWorkspaceParametersAgentType) EnumDescriptor() ([]byte, []int) {
 	return file_payload_enums_proto_rawDescGZIP(), []int{13}
 }
 
+type PetConversationParametersInitiative int32
+
+const (
+	PetConversationParametersInitiative_PET_CONVERSATION_PARAMETERS_INITIATIVE_UNSPECIFIED PetConversationParametersInitiative = 0
+	PetConversationParametersInitiative_PET_CONVERSATION_PARAMETERS_INITIATIVE_PEER        PetConversationParametersInitiative = 1
+	PetConversationParametersInitiative_PET_CONVERSATION_PARAMETERS_INITIATIVE_AGENT       PetConversationParametersInitiative = 2
+)
+
+// Enum value maps for PetConversationParametersInitiative.
+var (
+	PetConversationParametersInitiative_name = map[int32]string{
+		0: "PET_CONVERSATION_PARAMETERS_INITIATIVE_UNSPECIFIED",
+		1: "PET_CONVERSATION_PARAMETERS_INITIATIVE_PEER",
+		2: "PET_CONVERSATION_PARAMETERS_INITIATIVE_AGENT",
+	}
+	PetConversationParametersInitiative_value = map[string]int32{
+		"PET_CONVERSATION_PARAMETERS_INITIATIVE_UNSPECIFIED": 0,
+		"PET_CONVERSATION_PARAMETERS_INITIATIVE_PEER":        1,
+		"PET_CONVERSATION_PARAMETERS_INITIATIVE_AGENT":       2,
+	}
+)
+
+func (x PetConversationParametersInitiative) Enum() *PetConversationParametersInitiative {
+	p := new(PetConversationParametersInitiative)
+	*p = x
+	return p
+}
+
+func (x PetConversationParametersInitiative) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (PetConversationParametersInitiative) Descriptor() protoreflect.EnumDescriptor {
+	return file_payload_enums_proto_enumTypes[14].Descriptor()
+}
+
+func (PetConversationParametersInitiative) Type() protoreflect.EnumType {
+	return &file_payload_enums_proto_enumTypes[14]
+}
+
+func (x PetConversationParametersInitiative) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use PetConversationParametersInitiative.Descriptor instead.
+func (PetConversationParametersInitiative) EnumDescriptor() ([]byte, []int) {
+	return file_payload_enums_proto_rawDescGZIP(), []int{14}
+}
+
+type PetWorkspaceParametersAgentType int32
+
+const (
+	PetWorkspaceParametersAgentType_PET_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED PetWorkspaceParametersAgentType = 0
+	PetWorkspaceParametersAgentType_PET_WORKSPACE_PARAMETERS_AGENT_TYPE_PET         PetWorkspaceParametersAgentType = 1
+)
+
+// Enum value maps for PetWorkspaceParametersAgentType.
+var (
+	PetWorkspaceParametersAgentType_name = map[int32]string{
+		0: "PET_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED",
+		1: "PET_WORKSPACE_PARAMETERS_AGENT_TYPE_PET",
+	}
+	PetWorkspaceParametersAgentType_value = map[string]int32{
+		"PET_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED": 0,
+		"PET_WORKSPACE_PARAMETERS_AGENT_TYPE_PET":         1,
+	}
+)
+
+func (x PetWorkspaceParametersAgentType) Enum() *PetWorkspaceParametersAgentType {
+	p := new(PetWorkspaceParametersAgentType)
+	*p = x
+	return p
+}
+
+func (x PetWorkspaceParametersAgentType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (PetWorkspaceParametersAgentType) Descriptor() protoreflect.EnumDescriptor {
+	return file_payload_enums_proto_enumTypes[15].Descriptor()
+}
+
+func (PetWorkspaceParametersAgentType) Type() protoreflect.EnumType {
+	return &file_payload_enums_proto_enumTypes[15]
+}
+
+func (x PetWorkspaceParametersAgentType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use PetWorkspaceParametersAgentType.Descriptor instead.
+func (PetWorkspaceParametersAgentType) EnumDescriptor() ([]byte, []int) {
+	return file_payload_enums_proto_rawDescGZIP(), []int{15}
+}
+
 type FriendGroupMemberMutableRole int32
 
 const (
@@ -742,11 +837,11 @@ func (x FriendGroupMemberMutableRole) String() string {
 }
 
 func (FriendGroupMemberMutableRole) Descriptor() protoreflect.EnumDescriptor {
-	return file_payload_enums_proto_enumTypes[14].Descriptor()
+	return file_payload_enums_proto_enumTypes[16].Descriptor()
 }
 
 func (FriendGroupMemberMutableRole) Type() protoreflect.EnumType {
-	return &file_payload_enums_proto_enumTypes[14]
+	return &file_payload_enums_proto_enumTypes[16]
 }
 
 func (x FriendGroupMemberMutableRole) Number() protoreflect.EnumNumber {
@@ -755,7 +850,7 @@ func (x FriendGroupMemberMutableRole) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use FriendGroupMemberMutableRole.Descriptor instead.
 func (FriendGroupMemberMutableRole) EnumDescriptor() ([]byte, []int) {
-	return file_payload_enums_proto_rawDescGZIP(), []int{14}
+	return file_payload_enums_proto_rawDescGZIP(), []int{16}
 }
 
 type FriendGroupMemberRole int32
@@ -794,11 +889,11 @@ func (x FriendGroupMemberRole) String() string {
 }
 
 func (FriendGroupMemberRole) Descriptor() protoreflect.EnumDescriptor {
-	return file_payload_enums_proto_enumTypes[15].Descriptor()
+	return file_payload_enums_proto_enumTypes[17].Descriptor()
 }
 
 func (FriendGroupMemberRole) Type() protoreflect.EnumType {
-	return &file_payload_enums_proto_enumTypes[15]
+	return &file_payload_enums_proto_enumTypes[17]
 }
 
 func (x FriendGroupMemberRole) Number() protoreflect.EnumNumber {
@@ -807,7 +902,7 @@ func (x FriendGroupMemberRole) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use FriendGroupMemberRole.Descriptor instead.
 func (FriendGroupMemberRole) EnumDescriptor() ([]byte, []int) {
-	return file_payload_enums_proto_rawDescGZIP(), []int{15}
+	return file_payload_enums_proto_rawDescGZIP(), []int{17}
 }
 
 type PeerRole int32
@@ -849,11 +944,11 @@ func (x PeerRole) String() string {
 }
 
 func (PeerRole) Descriptor() protoreflect.EnumDescriptor {
-	return file_payload_enums_proto_enumTypes[16].Descriptor()
+	return file_payload_enums_proto_enumTypes[18].Descriptor()
 }
 
 func (PeerRole) Type() protoreflect.EnumType {
-	return &file_payload_enums_proto_enumTypes[16]
+	return &file_payload_enums_proto_enumTypes[18]
 }
 
 func (x PeerRole) Number() protoreflect.EnumNumber {
@@ -862,7 +957,7 @@ func (x PeerRole) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use PeerRole.Descriptor instead.
 func (PeerRole) EnumDescriptor() ([]byte, []int) {
-	return file_payload_enums_proto_rawDescGZIP(), []int{16}
+	return file_payload_enums_proto_rawDescGZIP(), []int{18}
 }
 
 type ModelKind int32
@@ -910,11 +1005,11 @@ func (x ModelKind) String() string {
 }
 
 func (ModelKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_payload_enums_proto_enumTypes[17].Descriptor()
+	return file_payload_enums_proto_enumTypes[19].Descriptor()
 }
 
 func (ModelKind) Type() protoreflect.EnumType {
-	return &file_payload_enums_proto_enumTypes[17]
+	return &file_payload_enums_proto_enumTypes[19]
 }
 
 func (x ModelKind) Number() protoreflect.EnumNumber {
@@ -923,7 +1018,7 @@ func (x ModelKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ModelKind.Descriptor instead.
 func (ModelKind) EnumDescriptor() ([]byte, []int) {
-	return file_payload_enums_proto_rawDescGZIP(), []int{17}
+	return file_payload_enums_proto_rawDescGZIP(), []int{19}
 }
 
 type ModelProviderKind int32
@@ -965,11 +1060,11 @@ func (x ModelProviderKind) String() string {
 }
 
 func (ModelProviderKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_payload_enums_proto_enumTypes[18].Descriptor()
+	return file_payload_enums_proto_enumTypes[20].Descriptor()
 }
 
 func (ModelProviderKind) Type() protoreflect.EnumType {
-	return &file_payload_enums_proto_enumTypes[18]
+	return &file_payload_enums_proto_enumTypes[20]
 }
 
 func (x ModelProviderKind) Number() protoreflect.EnumNumber {
@@ -978,7 +1073,7 @@ func (x ModelProviderKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ModelProviderKind.Descriptor instead.
 func (ModelProviderKind) EnumDescriptor() ([]byte, []int) {
-	return file_payload_enums_proto_rawDescGZIP(), []int{18}
+	return file_payload_enums_proto_rawDescGZIP(), []int{20}
 }
 
 type ModelSource int32
@@ -1014,11 +1109,11 @@ func (x ModelSource) String() string {
 }
 
 func (ModelSource) Descriptor() protoreflect.EnumDescriptor {
-	return file_payload_enums_proto_enumTypes[19].Descriptor()
+	return file_payload_enums_proto_enumTypes[21].Descriptor()
 }
 
 func (ModelSource) Type() protoreflect.EnumType {
-	return &file_payload_enums_proto_enumTypes[19]
+	return &file_payload_enums_proto_enumTypes[21]
 }
 
 func (x ModelSource) Number() protoreflect.EnumNumber {
@@ -1027,7 +1122,7 @@ func (x ModelSource) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ModelSource.Descriptor instead.
 func (ModelSource) EnumDescriptor() ([]byte, []int) {
-	return file_payload_enums_proto_rawDescGZIP(), []int{19}
+	return file_payload_enums_proto_rawDescGZIP(), []int{21}
 }
 
 type PeerRunHistoryEntryType int32
@@ -1063,11 +1158,11 @@ func (x PeerRunHistoryEntryType) String() string {
 }
 
 func (PeerRunHistoryEntryType) Descriptor() protoreflect.EnumDescriptor {
-	return file_payload_enums_proto_enumTypes[20].Descriptor()
+	return file_payload_enums_proto_enumTypes[22].Descriptor()
 }
 
 func (PeerRunHistoryEntryType) Type() protoreflect.EnumType {
-	return &file_payload_enums_proto_enumTypes[20]
+	return &file_payload_enums_proto_enumTypes[22]
 }
 
 func (x PeerRunHistoryEntryType) Number() protoreflect.EnumNumber {
@@ -1076,7 +1171,7 @@ func (x PeerRunHistoryEntryType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use PeerRunHistoryEntryType.Descriptor instead.
 func (PeerRunHistoryEntryType) EnumDescriptor() ([]byte, []int) {
-	return file_payload_enums_proto_rawDescGZIP(), []int{20}
+	return file_payload_enums_proto_rawDescGZIP(), []int{22}
 }
 
 type PeerRunHistoryListRequestOrder int32
@@ -1112,11 +1207,11 @@ func (x PeerRunHistoryListRequestOrder) String() string {
 }
 
 func (PeerRunHistoryListRequestOrder) Descriptor() protoreflect.EnumDescriptor {
-	return file_payload_enums_proto_enumTypes[21].Descriptor()
+	return file_payload_enums_proto_enumTypes[23].Descriptor()
 }
 
 func (PeerRunHistoryListRequestOrder) Type() protoreflect.EnumType {
-	return &file_payload_enums_proto_enumTypes[21]
+	return &file_payload_enums_proto_enumTypes[23]
 }
 
 func (x PeerRunHistoryListRequestOrder) Number() protoreflect.EnumNumber {
@@ -1125,7 +1220,7 @@ func (x PeerRunHistoryListRequestOrder) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use PeerRunHistoryListRequestOrder.Descriptor instead.
 func (PeerRunHistoryListRequestOrder) EnumDescriptor() ([]byte, []int) {
-	return file_payload_enums_proto_rawDescGZIP(), []int{21}
+	return file_payload_enums_proto_rawDescGZIP(), []int{23}
 }
 
 type PeerRunStatusState int32
@@ -1170,11 +1265,11 @@ func (x PeerRunStatusState) String() string {
 }
 
 func (PeerRunStatusState) Descriptor() protoreflect.EnumDescriptor {
-	return file_payload_enums_proto_enumTypes[22].Descriptor()
+	return file_payload_enums_proto_enumTypes[24].Descriptor()
 }
 
 func (PeerRunStatusState) Type() protoreflect.EnumType {
-	return &file_payload_enums_proto_enumTypes[22]
+	return &file_payload_enums_proto_enumTypes[24]
 }
 
 func (x PeerRunStatusState) Number() protoreflect.EnumNumber {
@@ -1183,7 +1278,7 @@ func (x PeerRunStatusState) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use PeerRunStatusState.Descriptor instead.
 func (PeerRunStatusState) EnumDescriptor() ([]byte, []int) {
-	return file_payload_enums_proto_rawDescGZIP(), []int{22}
+	return file_payload_enums_proto_rawDescGZIP(), []int{24}
 }
 
 type VoiceProviderKind int32
@@ -1228,11 +1323,11 @@ func (x VoiceProviderKind) String() string {
 }
 
 func (VoiceProviderKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_payload_enums_proto_enumTypes[23].Descriptor()
+	return file_payload_enums_proto_enumTypes[25].Descriptor()
 }
 
 func (VoiceProviderKind) Type() protoreflect.EnumType {
-	return &file_payload_enums_proto_enumTypes[23]
+	return &file_payload_enums_proto_enumTypes[25]
 }
 
 func (x VoiceProviderKind) Number() protoreflect.EnumNumber {
@@ -1241,7 +1336,7 @@ func (x VoiceProviderKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use VoiceProviderKind.Descriptor instead.
 func (VoiceProviderKind) EnumDescriptor() ([]byte, []int) {
-	return file_payload_enums_proto_rawDescGZIP(), []int{23}
+	return file_payload_enums_proto_rawDescGZIP(), []int{25}
 }
 
 type VoiceSource int32
@@ -1277,11 +1372,11 @@ func (x VoiceSource) String() string {
 }
 
 func (VoiceSource) Descriptor() protoreflect.EnumDescriptor {
-	return file_payload_enums_proto_enumTypes[24].Descriptor()
+	return file_payload_enums_proto_enumTypes[26].Descriptor()
 }
 
 func (VoiceSource) Type() protoreflect.EnumType {
-	return &file_payload_enums_proto_enumTypes[24]
+	return &file_payload_enums_proto_enumTypes[26]
 }
 
 func (x VoiceSource) Number() protoreflect.EnumNumber {
@@ -1290,7 +1385,7 @@ func (x VoiceSource) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use VoiceSource.Descriptor instead.
 func (VoiceSource) EnumDescriptor() ([]byte, []int) {
-	return file_payload_enums_proto_rawDescGZIP(), []int{24}
+	return file_payload_enums_proto_rawDescGZIP(), []int{26}
 }
 
 type VolcTenantModelProviderDataApiMode int32
@@ -1329,11 +1424,11 @@ func (x VolcTenantModelProviderDataApiMode) String() string {
 }
 
 func (VolcTenantModelProviderDataApiMode) Descriptor() protoreflect.EnumDescriptor {
-	return file_payload_enums_proto_enumTypes[25].Descriptor()
+	return file_payload_enums_proto_enumTypes[27].Descriptor()
 }
 
 func (VolcTenantModelProviderDataApiMode) Type() protoreflect.EnumType {
-	return &file_payload_enums_proto_enumTypes[25]
+	return &file_payload_enums_proto_enumTypes[27]
 }
 
 func (x VolcTenantModelProviderDataApiMode) Number() protoreflect.EnumNumber {
@@ -1342,7 +1437,7 @@ func (x VolcTenantModelProviderDataApiMode) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use VolcTenantModelProviderDataApiMode.Descriptor instead.
 func (VolcTenantModelProviderDataApiMode) EnumDescriptor() ([]byte, []int) {
-	return file_payload_enums_proto_rawDescGZIP(), []int{25}
+	return file_payload_enums_proto_rawDescGZIP(), []int{27}
 }
 
 type WorkflowDriver int32
@@ -1353,6 +1448,7 @@ const (
 	WorkflowDriver_WORKFLOW_DRIVER_DOUBAO_REALTIME WorkflowDriver = 2
 	WorkflowDriver_WORKFLOW_DRIVER_AST_TRANSLATE   WorkflowDriver = 3
 	WorkflowDriver_WORKFLOW_DRIVER_CHATROOM        WorkflowDriver = 4
+	WorkflowDriver_WORKFLOW_DRIVER_PET             WorkflowDriver = 5
 )
 
 // Enum value maps for WorkflowDriver.
@@ -1363,6 +1459,7 @@ var (
 		2: "WORKFLOW_DRIVER_DOUBAO_REALTIME",
 		3: "WORKFLOW_DRIVER_AST_TRANSLATE",
 		4: "WORKFLOW_DRIVER_CHATROOM",
+		5: "WORKFLOW_DRIVER_PET",
 	}
 	WorkflowDriver_value = map[string]int32{
 		"WORKFLOW_DRIVER_UNSPECIFIED":     0,
@@ -1370,6 +1467,7 @@ var (
 		"WORKFLOW_DRIVER_DOUBAO_REALTIME": 2,
 		"WORKFLOW_DRIVER_AST_TRANSLATE":   3,
 		"WORKFLOW_DRIVER_CHATROOM":        4,
+		"WORKFLOW_DRIVER_PET":             5,
 	}
 )
 
@@ -1384,11 +1482,11 @@ func (x WorkflowDriver) String() string {
 }
 
 func (WorkflowDriver) Descriptor() protoreflect.EnumDescriptor {
-	return file_payload_enums_proto_enumTypes[26].Descriptor()
+	return file_payload_enums_proto_enumTypes[28].Descriptor()
 }
 
 func (WorkflowDriver) Type() protoreflect.EnumType {
-	return &file_payload_enums_proto_enumTypes[26]
+	return &file_payload_enums_proto_enumTypes[28]
 }
 
 func (x WorkflowDriver) Number() protoreflect.EnumNumber {
@@ -1397,7 +1495,7 @@ func (x WorkflowDriver) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use WorkflowDriver.Descriptor instead.
 func (WorkflowDriver) EnumDescriptor() ([]byte, []int) {
-	return file_payload_enums_proto_rawDescGZIP(), []int{26}
+	return file_payload_enums_proto_rawDescGZIP(), []int{28}
 }
 
 type WorkspaceHistoryListRequestOrder int32
@@ -1433,11 +1531,11 @@ func (x WorkspaceHistoryListRequestOrder) String() string {
 }
 
 func (WorkspaceHistoryListRequestOrder) Descriptor() protoreflect.EnumDescriptor {
-	return file_payload_enums_proto_enumTypes[27].Descriptor()
+	return file_payload_enums_proto_enumTypes[29].Descriptor()
 }
 
 func (WorkspaceHistoryListRequestOrder) Type() protoreflect.EnumType {
-	return &file_payload_enums_proto_enumTypes[27]
+	return &file_payload_enums_proto_enumTypes[29]
 }
 
 func (x WorkspaceHistoryListRequestOrder) Number() protoreflect.EnumNumber {
@@ -1446,7 +1544,7 @@ func (x WorkspaceHistoryListRequestOrder) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use WorkspaceHistoryListRequestOrder.Descriptor instead.
 func (WorkspaceHistoryListRequestOrder) EnumDescriptor() ([]byte, []int) {
-	return file_payload_enums_proto_rawDescGZIP(), []int{27}
+	return file_payload_enums_proto_rawDescGZIP(), []int{29}
 }
 
 type WorkspaceInputMode int32
@@ -1482,11 +1580,11 @@ func (x WorkspaceInputMode) String() string {
 }
 
 func (WorkspaceInputMode) Descriptor() protoreflect.EnumDescriptor {
-	return file_payload_enums_proto_enumTypes[28].Descriptor()
+	return file_payload_enums_proto_enumTypes[30].Descriptor()
 }
 
 func (WorkspaceInputMode) Type() protoreflect.EnumType {
-	return &file_payload_enums_proto_enumTypes[28]
+	return &file_payload_enums_proto_enumTypes[30]
 }
 
 func (x WorkspaceInputMode) Number() protoreflect.EnumNumber {
@@ -1495,7 +1593,7 @@ func (x WorkspaceInputMode) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use WorkspaceInputMode.Descriptor instead.
 func (WorkspaceInputMode) EnumDescriptor() ([]byte, []int) {
-	return file_payload_enums_proto_rawDescGZIP(), []int{28}
+	return file_payload_enums_proto_rawDescGZIP(), []int{30}
 }
 
 type ToolSource int32
@@ -1534,11 +1632,11 @@ func (x ToolSource) String() string {
 }
 
 func (ToolSource) Descriptor() protoreflect.EnumDescriptor {
-	return file_payload_enums_proto_enumTypes[29].Descriptor()
+	return file_payload_enums_proto_enumTypes[31].Descriptor()
 }
 
 func (ToolSource) Type() protoreflect.EnumType {
-	return &file_payload_enums_proto_enumTypes[29]
+	return &file_payload_enums_proto_enumTypes[31]
 }
 
 func (x ToolSource) Number() protoreflect.EnumNumber {
@@ -1547,7 +1645,7 @@ func (x ToolSource) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ToolSource.Descriptor instead.
 func (ToolSource) EnumDescriptor() ([]byte, []int) {
-	return file_payload_enums_proto_rawDescGZIP(), []int{29}
+	return file_payload_enums_proto_rawDescGZIP(), []int{31}
 }
 
 type ToolExecutorKind int32
@@ -1583,11 +1681,11 @@ func (x ToolExecutorKind) String() string {
 }
 
 func (ToolExecutorKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_payload_enums_proto_enumTypes[30].Descriptor()
+	return file_payload_enums_proto_enumTypes[32].Descriptor()
 }
 
 func (ToolExecutorKind) Type() protoreflect.EnumType {
-	return &file_payload_enums_proto_enumTypes[30]
+	return &file_payload_enums_proto_enumTypes[32]
 }
 
 func (x ToolExecutorKind) Number() protoreflect.EnumNumber {
@@ -1596,7 +1694,7 @@ func (x ToolExecutorKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ToolExecutorKind.Descriptor instead.
 func (ToolExecutorKind) EnumDescriptor() ([]byte, []int) {
-	return file_payload_enums_proto_rawDescGZIP(), []int{30}
+	return file_payload_enums_proto_rawDescGZIP(), []int{32}
 }
 
 var File_payload_enums_proto protoreflect.FileDescriptor
@@ -1659,7 +1757,14 @@ const file_payload_enums_proto_rawDesc = "" +
 	"2FLOWCRAFT_CONVERSATION_PARAMETERS_INITIATIVE_AGENT\x10\x02*\x9b\x01\n" +
 	"%FlowcraftWorkspaceParametersAgentType\x129\n" +
 	"5FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED\x10\x00\x127\n" +
-	"3FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT\x10\x01*\xa9\x01\n" +
+	"3FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT\x10\x01*\xc0\x01\n" +
+	"#PetConversationParametersInitiative\x126\n" +
+	"2PET_CONVERSATION_PARAMETERS_INITIATIVE_UNSPECIFIED\x10\x00\x12/\n" +
+	"+PET_CONVERSATION_PARAMETERS_INITIATIVE_PEER\x10\x01\x120\n" +
+	",PET_CONVERSATION_PARAMETERS_INITIATIVE_AGENT\x10\x02*\x83\x01\n" +
+	"\x1fPetWorkspaceParametersAgentType\x123\n" +
+	"/PET_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED\x10\x00\x12+\n" +
+	"'PET_WORKSPACE_PARAMETERS_AGENT_TYPE_PET\x10\x01*\xa9\x01\n" +
 	"\x1cFriendGroupMemberMutableRole\x120\n" +
 	",FRIEND_GROUP_MEMBER_MUTABLE_ROLE_UNSPECIFIED\x10\x00\x12*\n" +
 	"&FRIEND_GROUP_MEMBER_MUTABLE_ROLE_ADMIN\x10\x01\x12+\n" +
@@ -1723,13 +1828,14 @@ const file_payload_enums_proto_rawDesc = "" +
 	"4VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_UNSPECIFIED\x10\x00\x120\n" +
 	",VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_ASR\x10\x01\x120\n" +
 	",VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_TTS\x10\x02\x125\n" +
-	"1VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_REALTIME\x10\x03*\xb6\x01\n" +
+	"1VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_REALTIME\x10\x03*\xcf\x01\n" +
 	"\x0eWorkflowDriver\x12\x1f\n" +
 	"\x1bWORKFLOW_DRIVER_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19WORKFLOW_DRIVER_FLOWCRAFT\x10\x01\x12#\n" +
 	"\x1fWORKFLOW_DRIVER_DOUBAO_REALTIME\x10\x02\x12!\n" +
 	"\x1dWORKFLOW_DRIVER_AST_TRANSLATE\x10\x03\x12\x1c\n" +
-	"\x18WORKFLOW_DRIVER_CHATROOM\x10\x04*\xb5\x01\n" +
+	"\x18WORKFLOW_DRIVER_CHATROOM\x10\x04\x12\x17\n" +
+	"\x13WORKFLOW_DRIVER_PET\x10\x05*\xb5\x01\n" +
 	" WorkspaceHistoryListRequestOrder\x124\n" +
 	"0WORKSPACE_HISTORY_LIST_REQUEST_ORDER_UNSPECIFIED\x10\x00\x12,\n" +
 	"(WORKSPACE_HISTORY_LIST_REQUEST_ORDER_ASC\x10\x01\x12-\n" +
@@ -1761,7 +1867,7 @@ func file_payload_enums_proto_rawDescGZIP() []byte {
 	return file_payload_enums_proto_rawDescData
 }
 
-var file_payload_enums_proto_enumTypes = make([]protoimpl.EnumInfo, 31)
+var file_payload_enums_proto_enumTypes = make([]protoimpl.EnumInfo, 33)
 var file_payload_enums_proto_goTypes = []any{
 	(ASTTranslateMode)(0),                                     // 0: gizclaw.rpc.v1.ASTTranslateMode
 	(ASTTranslateWorkspaceParametersAgentType)(0),             // 1: gizclaw.rpc.v1.ASTTranslateWorkspaceParametersAgentType
@@ -1777,23 +1883,25 @@ var file_payload_enums_proto_goTypes = []any{
 	(FlowcraftConversationParametersAgentInitiativePolicy)(0), // 11: gizclaw.rpc.v1.FlowcraftConversationParametersAgentInitiativePolicy
 	(FlowcraftConversationParametersInitiative)(0),            // 12: gizclaw.rpc.v1.FlowcraftConversationParametersInitiative
 	(FlowcraftWorkspaceParametersAgentType)(0),                // 13: gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentType
-	(FriendGroupMemberMutableRole)(0),                         // 14: gizclaw.rpc.v1.FriendGroupMemberMutableRole
-	(FriendGroupMemberRole)(0),                                // 15: gizclaw.rpc.v1.FriendGroupMemberRole
-	(PeerRole)(0),                                             // 16: gizclaw.rpc.v1.PeerRole
-	(ModelKind)(0),                                            // 17: gizclaw.rpc.v1.ModelKind
-	(ModelProviderKind)(0),                                    // 18: gizclaw.rpc.v1.ModelProviderKind
-	(ModelSource)(0),                                          // 19: gizclaw.rpc.v1.ModelSource
-	(PeerRunHistoryEntryType)(0),                              // 20: gizclaw.rpc.v1.PeerRunHistoryEntryType
-	(PeerRunHistoryListRequestOrder)(0),                       // 21: gizclaw.rpc.v1.PeerRunHistoryListRequestOrder
-	(PeerRunStatusState)(0),                                   // 22: gizclaw.rpc.v1.PeerRunStatusState
-	(VoiceProviderKind)(0),                                    // 23: gizclaw.rpc.v1.VoiceProviderKind
-	(VoiceSource)(0),                                          // 24: gizclaw.rpc.v1.VoiceSource
-	(VolcTenantModelProviderDataApiMode)(0),                   // 25: gizclaw.rpc.v1.VolcTenantModelProviderDataApiMode
-	(WorkflowDriver)(0),                                       // 26: gizclaw.rpc.v1.WorkflowDriver
-	(WorkspaceHistoryListRequestOrder)(0),                     // 27: gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder
-	(WorkspaceInputMode)(0),                                   // 28: gizclaw.rpc.v1.WorkspaceInputMode
-	(ToolSource)(0),                                           // 29: gizclaw.rpc.v1.ToolSource
-	(ToolExecutorKind)(0),                                     // 30: gizclaw.rpc.v1.ToolExecutorKind
+	(PetConversationParametersInitiative)(0),                  // 14: gizclaw.rpc.v1.PetConversationParametersInitiative
+	(PetWorkspaceParametersAgentType)(0),                      // 15: gizclaw.rpc.v1.PetWorkspaceParametersAgentType
+	(FriendGroupMemberMutableRole)(0),                         // 16: gizclaw.rpc.v1.FriendGroupMemberMutableRole
+	(FriendGroupMemberRole)(0),                                // 17: gizclaw.rpc.v1.FriendGroupMemberRole
+	(PeerRole)(0),                                             // 18: gizclaw.rpc.v1.PeerRole
+	(ModelKind)(0),                                            // 19: gizclaw.rpc.v1.ModelKind
+	(ModelProviderKind)(0),                                    // 20: gizclaw.rpc.v1.ModelProviderKind
+	(ModelSource)(0),                                          // 21: gizclaw.rpc.v1.ModelSource
+	(PeerRunHistoryEntryType)(0),                              // 22: gizclaw.rpc.v1.PeerRunHistoryEntryType
+	(PeerRunHistoryListRequestOrder)(0),                       // 23: gizclaw.rpc.v1.PeerRunHistoryListRequestOrder
+	(PeerRunStatusState)(0),                                   // 24: gizclaw.rpc.v1.PeerRunStatusState
+	(VoiceProviderKind)(0),                                    // 25: gizclaw.rpc.v1.VoiceProviderKind
+	(VoiceSource)(0),                                          // 26: gizclaw.rpc.v1.VoiceSource
+	(VolcTenantModelProviderDataApiMode)(0),                   // 27: gizclaw.rpc.v1.VolcTenantModelProviderDataApiMode
+	(WorkflowDriver)(0),                                       // 28: gizclaw.rpc.v1.WorkflowDriver
+	(WorkspaceHistoryListRequestOrder)(0),                     // 29: gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder
+	(WorkspaceInputMode)(0),                                   // 30: gizclaw.rpc.v1.WorkspaceInputMode
+	(ToolSource)(0),                                           // 31: gizclaw.rpc.v1.ToolSource
+	(ToolExecutorKind)(0),                                     // 32: gizclaw.rpc.v1.ToolExecutorKind
 }
 var file_payload_enums_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
@@ -1813,7 +1921,7 @@ func file_payload_enums_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payload_enums_proto_rawDesc), len(file_payload_enums_proto_rawDesc)),
-			NumEnums:      31,
+			NumEnums:      33,
 			NumMessages:   0,
 			NumExtensions: 0,
 			NumServices:   0,

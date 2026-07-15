@@ -486,6 +486,7 @@ function oneofDiscriminatorFieldName(type: string, discriminator: string): strin
         "doubao-realtime": "doubao_realtime_workspace_parameters",
         "ast-translate": "asttranslate_workspace_parameters",
         "chatroom": "chat_room_workspace_parameters",
+        "pet": "pet_workspace_parameters",
       } as Record<string, string>)[discriminator];
     default:
       return undefined;
@@ -1069,7 +1070,8 @@ function isOneofDiscriminatorField(field) {
       field.type === "FlowcraftWorkspaceParametersAgentType" ||
       field.type === "DoubaoRealtimeWorkspaceParametersAgentType" ||
       field.type === "ASTTranslateWorkspaceParametersAgentType" ||
-      field.type === "ChatRoomWorkspaceParametersAgentType"
+      field.type === "ChatRoomWorkspaceParametersAgentType" ||
+      field.type === "PetWorkspaceParametersAgentType"
     )
   );
 }

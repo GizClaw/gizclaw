@@ -7,6 +7,7 @@ import (
 	"net"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerroute"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -52,7 +53,7 @@ func (s *edgeRPCServer) handleLookup(ctx context.Context, req *rpcapi.RPCRequest
 	if err != nil {
 		return edgeRPCError(req.Id, err)
 	}
-	return edgeRPCResult(req.Id, rpcapi.ServerPeerLookupResponse{Assignment: peerroute.ToRPC(assignment)}, (*rpcapi.RPCPayload).FromServerPeerLookupResponse)
+	return edgeRPCResult(req.Id, rpcpb.ServerPeerLookupResponse{Assignment: peerroute.ToRPC(assignment)}, (*rpcapi.RPCPayload).FromServerPeerLookupResponse)
 }
 
 func (s *edgeRPCServer) handleAssign(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -71,7 +72,7 @@ func (s *edgeRPCServer) handleAssign(ctx context.Context, req *rpcapi.RPCRequest
 	if err != nil {
 		return edgeRPCError(req.Id, err)
 	}
-	return edgeRPCResult(req.Id, rpcapi.ServerPeerAssignResponse{Assignment: peerroute.ToRPC(assignment)}, (*rpcapi.RPCPayload).FromServerPeerAssignResponse)
+	return edgeRPCResult(req.Id, rpcpb.ServerPeerAssignResponse{Assignment: peerroute.ToRPC(assignment)}, (*rpcapi.RPCPayload).FromServerPeerAssignResponse)
 }
 
 func (s *edgeRPCServer) handleResolve(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -90,7 +91,7 @@ func (s *edgeRPCServer) handleResolve(ctx context.Context, req *rpcapi.RPCReques
 	if err != nil {
 		return edgeRPCError(req.Id, err)
 	}
-	return edgeRPCResult(req.Id, rpcapi.ServerRouteResolveResponse{Assignment: peerroute.ToRPC(assignment)}, (*rpcapi.RPCPayload).FromServerRouteResolveResponse)
+	return edgeRPCResult(req.Id, rpcpb.ServerRouteResolveResponse{Assignment: peerroute.ToRPC(assignment)}, (*rpcapi.RPCPayload).FromServerRouteResolveResponse)
 }
 
 func edgeRequiredParams[T any](req *rpcapi.RPCRequest, decode func(rpcapi.RPCPayload) (T, error)) (T, error) {

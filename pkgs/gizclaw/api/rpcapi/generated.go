@@ -260,6 +260,39 @@ func (e FlowcraftWorkspaceParametersAgentType) Valid() bool {
 	}
 }
 
+// Defines values for PetConversationParametersInitiative.
+const (
+	PetConversationParametersInitiativeAgent PetConversationParametersInitiative = "agent"
+	PetConversationParametersInitiativePeer  PetConversationParametersInitiative = "peer"
+)
+
+// Valid indicates whether the value is a known member of the PetConversationParametersInitiative enum.
+func (e PetConversationParametersInitiative) Valid() bool {
+	switch e {
+	case PetConversationParametersInitiativeAgent:
+		return true
+	case PetConversationParametersInitiativePeer:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PetWorkspaceParametersAgentType.
+const (
+	PetWorkspaceParametersAgentTypePet PetWorkspaceParametersAgentType = "pet"
+)
+
+// Valid indicates whether the value is a known member of the PetWorkspaceParametersAgentType enum.
+func (e PetWorkspaceParametersAgentType) Valid() bool {
+	switch e {
+	case PetWorkspaceParametersAgentTypePet:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for FriendGroupMemberMutableRole.
 const (
 	FriendGroupMemberMutableRoleAdmin  FriendGroupMemberMutableRole = "admin"
@@ -905,6 +938,7 @@ const (
 	WorkflowDriverChatroom       WorkflowDriver = "chatroom"
 	WorkflowDriverDoubaoRealtime WorkflowDriver = "doubao-realtime"
 	WorkflowDriverFlowcraft      WorkflowDriver = "flowcraft"
+	WorkflowDriverPet            WorkflowDriver = "pet"
 )
 
 // Valid indicates whether the value is a known member of the WorkflowDriver enum.
@@ -917,6 +951,8 @@ func (e WorkflowDriver) Valid() bool {
 	case WorkflowDriverDoubaoRealtime:
 		return true
 	case WorkflowDriverFlowcraft:
+		return true
+	case WorkflowDriverPet:
 		return true
 	default:
 		return false
@@ -2387,6 +2423,14 @@ type PetAttrValueSpec struct {
 	Initial int64 `json:"initial"`
 }
 
+// PetConversationParameters defines model for PetConversationParameters.
+type PetConversationParameters struct {
+	Initiative *PetConversationParametersInitiative `json:"initiative,omitempty"`
+}
+
+// PetConversationParametersInitiative defines who starts the conversation.
+type PetConversationParametersInitiative string
+
 // PetDefActionEffectSpec defines model for PetDefActionEffectSpec.
 type PetDefActionEffectSpec struct {
 	AttrDelta   *PetAttrDelta `json:"attr_delta,omitempty"`
@@ -2876,27 +2920,6 @@ type ServerRunSayResponse struct {
 	Accepted bool `json:"accepted"`
 }
 
-// PeerAssignment is the protoc-generated payload for server peer assignment RPCs.
-type PeerAssignment = rpcpb.PeerAssignment
-
-// ServerPeerLookupRequest is the protoc-generated payload for server.peer.lookup.
-type ServerPeerLookupRequest = rpcpb.ServerPeerLookupRequest
-
-// ServerPeerLookupResponse is the protoc-generated payload for server.peer.lookup.
-type ServerPeerLookupResponse = rpcpb.ServerPeerLookupResponse
-
-// ServerPeerAssignRequest is the protoc-generated payload for server.peer.assign.
-type ServerPeerAssignRequest = rpcpb.ServerPeerAssignRequest
-
-// ServerPeerAssignResponse is the protoc-generated payload for server.peer.assign.
-type ServerPeerAssignResponse = rpcpb.ServerPeerAssignResponse
-
-// ServerRouteResolveRequest is the protoc-generated payload for server.route.resolve.
-type ServerRouteResolveRequest = rpcpb.ServerRouteResolveRequest
-
-// ServerRouteResolveResponse is the protoc-generated payload for server.route.resolve.
-type ServerRouteResolveResponse = rpcpb.ServerRouteResolveResponse
-
 // ServerRunWorkspaceRecallRequest defines model for ServerRunWorkspaceRecallRequest.
 type ServerRunWorkspaceRecallRequest = PeerRunRecallRequest
 
@@ -2938,6 +2961,32 @@ type PetLife map[string]int64
 
 // PetProgression defines model for PetProgression.
 type PetProgression map[string]int64
+
+// PetPersonaParameters defines model for PetPersonaParameters.
+type PetPersonaParameters struct {
+	Prompt *string `json:"prompt,omitempty"`
+}
+
+// PetVoiceParameters defines model for PetVoiceParameters.
+type PetVoiceParameters struct {
+	Prompt  *string `json:"prompt,omitempty"`
+	VoiceId string  `json:"voice_id"`
+}
+
+// PetWorkflowSpec defines model for PetWorkflowSpec.
+type PetWorkflowSpec = map[string]interface{}
+
+// PetWorkspaceParameters defines model for PetWorkspaceParameters.
+type PetWorkspaceParameters struct {
+	AgentType    PetWorkspaceParametersAgentType `json:"agent_type"`
+	Conversation *PetConversationParameters      `json:"conversation,omitempty"`
+	Input        *WorkspaceInputMode             `json:"input,omitempty"`
+	Persona      *PetPersonaParameters           `json:"persona,omitempty"`
+	Voice        PetVoiceParameters              `json:"voice"`
+}
+
+// PetWorkspaceParametersAgentType defines model for PetWorkspaceParameters.AgentType.
+type PetWorkspaceParametersAgentType string
 
 // Voice defines model for Voice.
 type Voice struct {
@@ -3106,6 +3155,7 @@ type WorkflowSpec struct {
 	DoubaoRealtime *DoubaoRealtimeWorkflowSpec `json:"doubao_realtime,omitempty"`
 	Driver         WorkflowDriver              `json:"driver"`
 	Flowcraft      *FlowcraftWorkflowSpec      `json:"flowcraft,omitempty"`
+	Pet            *PetWorkflowSpec            `json:"pet,omitempty"`
 	Toolkit        *ToolkitPolicy              `json:"toolkit,omitempty"`
 }
 
@@ -6575,104 +6625,104 @@ func (t *RPCPayload) MergeServerRewardGrantGetResponse(v ServerRewardGrantGetRes
 }
 
 // AsServerPeerLookupRequest decodes the RPCPayload as a ServerPeerLookupRequest
-func (t RPCPayload) AsServerPeerLookupRequest() (ServerPeerLookupRequest, error) {
-	var body ServerPeerLookupRequest
+func (t RPCPayload) AsServerPeerLookupRequest() (rpcpb.ServerPeerLookupRequest, error) {
+	var body rpcpb.ServerPeerLookupRequest
 	err := t.decode("ServerPeerLookupRequest", &body)
 	return body, err
 }
 
 // FromServerPeerLookupRequest overwrites any protobuf payload as the provided ServerPeerLookupRequest
-func (t *RPCPayload) FromServerPeerLookupRequest(v ServerPeerLookupRequest) error {
+func (t *RPCPayload) FromServerPeerLookupRequest(v rpcpb.ServerPeerLookupRequest) error {
 	return t.encode("ServerPeerLookupRequest", &v)
 }
 
 // MergeServerPeerLookupRequest performs a merge with any protobuf payload, using the provided ServerPeerLookupRequest
-func (t *RPCPayload) MergeServerPeerLookupRequest(v ServerPeerLookupRequest) error {
+func (t *RPCPayload) MergeServerPeerLookupRequest(v rpcpb.ServerPeerLookupRequest) error {
 	return t.merge("ServerPeerLookupRequest", &v)
 }
 
 // AsServerPeerAssignRequest decodes the RPCPayload as a ServerPeerAssignRequest
-func (t RPCPayload) AsServerPeerAssignRequest() (ServerPeerAssignRequest, error) {
-	var body ServerPeerAssignRequest
+func (t RPCPayload) AsServerPeerAssignRequest() (rpcpb.ServerPeerAssignRequest, error) {
+	var body rpcpb.ServerPeerAssignRequest
 	err := t.decode("ServerPeerAssignRequest", &body)
 	return body, err
 }
 
 // FromServerPeerAssignRequest overwrites any protobuf payload as the provided ServerPeerAssignRequest
-func (t *RPCPayload) FromServerPeerAssignRequest(v ServerPeerAssignRequest) error {
+func (t *RPCPayload) FromServerPeerAssignRequest(v rpcpb.ServerPeerAssignRequest) error {
 	return t.encode("ServerPeerAssignRequest", &v)
 }
 
 // MergeServerPeerAssignRequest performs a merge with any protobuf payload, using the provided ServerPeerAssignRequest
-func (t *RPCPayload) MergeServerPeerAssignRequest(v ServerPeerAssignRequest) error {
+func (t *RPCPayload) MergeServerPeerAssignRequest(v rpcpb.ServerPeerAssignRequest) error {
 	return t.merge("ServerPeerAssignRequest", &v)
 }
 
 // AsServerRouteResolveRequest decodes the RPCPayload as a ServerRouteResolveRequest
-func (t RPCPayload) AsServerRouteResolveRequest() (ServerRouteResolveRequest, error) {
-	var body ServerRouteResolveRequest
+func (t RPCPayload) AsServerRouteResolveRequest() (rpcpb.ServerRouteResolveRequest, error) {
+	var body rpcpb.ServerRouteResolveRequest
 	err := t.decode("ServerRouteResolveRequest", &body)
 	return body, err
 }
 
 // FromServerRouteResolveRequest overwrites any protobuf payload as the provided ServerRouteResolveRequest
-func (t *RPCPayload) FromServerRouteResolveRequest(v ServerRouteResolveRequest) error {
+func (t *RPCPayload) FromServerRouteResolveRequest(v rpcpb.ServerRouteResolveRequest) error {
 	return t.encode("ServerRouteResolveRequest", &v)
 }
 
 // MergeServerRouteResolveRequest performs a merge with any protobuf payload, using the provided ServerRouteResolveRequest
-func (t *RPCPayload) MergeServerRouteResolveRequest(v ServerRouteResolveRequest) error {
+func (t *RPCPayload) MergeServerRouteResolveRequest(v rpcpb.ServerRouteResolveRequest) error {
 	return t.merge("ServerRouteResolveRequest", &v)
 }
 
 // AsServerPeerLookupResponse decodes the RPCPayload as a ServerPeerLookupResponse
-func (t RPCPayload) AsServerPeerLookupResponse() (ServerPeerLookupResponse, error) {
-	var body ServerPeerLookupResponse
+func (t RPCPayload) AsServerPeerLookupResponse() (rpcpb.ServerPeerLookupResponse, error) {
+	var body rpcpb.ServerPeerLookupResponse
 	err := t.decode("ServerPeerLookupResponse", &body)
 	return body, err
 }
 
 // FromServerPeerLookupResponse overwrites any protobuf payload as the provided ServerPeerLookupResponse
-func (t *RPCPayload) FromServerPeerLookupResponse(v ServerPeerLookupResponse) error {
+func (t *RPCPayload) FromServerPeerLookupResponse(v rpcpb.ServerPeerLookupResponse) error {
 	return t.encode("ServerPeerLookupResponse", &v)
 }
 
 // MergeServerPeerLookupResponse performs a merge with any protobuf payload, using the provided ServerPeerLookupResponse
-func (t *RPCPayload) MergeServerPeerLookupResponse(v ServerPeerLookupResponse) error {
+func (t *RPCPayload) MergeServerPeerLookupResponse(v rpcpb.ServerPeerLookupResponse) error {
 	return t.merge("ServerPeerLookupResponse", &v)
 }
 
 // AsServerPeerAssignResponse decodes the RPCPayload as a ServerPeerAssignResponse
-func (t RPCPayload) AsServerPeerAssignResponse() (ServerPeerAssignResponse, error) {
-	var body ServerPeerAssignResponse
+func (t RPCPayload) AsServerPeerAssignResponse() (rpcpb.ServerPeerAssignResponse, error) {
+	var body rpcpb.ServerPeerAssignResponse
 	err := t.decode("ServerPeerAssignResponse", &body)
 	return body, err
 }
 
 // FromServerPeerAssignResponse overwrites any protobuf payload as the provided ServerPeerAssignResponse
-func (t *RPCPayload) FromServerPeerAssignResponse(v ServerPeerAssignResponse) error {
+func (t *RPCPayload) FromServerPeerAssignResponse(v rpcpb.ServerPeerAssignResponse) error {
 	return t.encode("ServerPeerAssignResponse", &v)
 }
 
 // MergeServerPeerAssignResponse performs a merge with any protobuf payload, using the provided ServerPeerAssignResponse
-func (t *RPCPayload) MergeServerPeerAssignResponse(v ServerPeerAssignResponse) error {
+func (t *RPCPayload) MergeServerPeerAssignResponse(v rpcpb.ServerPeerAssignResponse) error {
 	return t.merge("ServerPeerAssignResponse", &v)
 }
 
 // AsServerRouteResolveResponse decodes the RPCPayload as a ServerRouteResolveResponse
-func (t RPCPayload) AsServerRouteResolveResponse() (ServerRouteResolveResponse, error) {
-	var body ServerRouteResolveResponse
+func (t RPCPayload) AsServerRouteResolveResponse() (rpcpb.ServerRouteResolveResponse, error) {
+	var body rpcpb.ServerRouteResolveResponse
 	err := t.decode("ServerRouteResolveResponse", &body)
 	return body, err
 }
 
 // FromServerRouteResolveResponse overwrites any protobuf payload as the provided ServerRouteResolveResponse
-func (t *RPCPayload) FromServerRouteResolveResponse(v ServerRouteResolveResponse) error {
+func (t *RPCPayload) FromServerRouteResolveResponse(v rpcpb.ServerRouteResolveResponse) error {
 	return t.encode("ServerRouteResolveResponse", &v)
 }
 
 // MergeServerRouteResolveResponse performs a merge with any protobuf payload, using the provided ServerRouteResolveResponse
-func (t *RPCPayload) MergeServerRouteResolveResponse(v ServerRouteResolveResponse) error {
+func (t *RPCPayload) MergeServerRouteResolveResponse(v rpcpb.ServerRouteResolveResponse) error {
 	return t.merge("ServerRouteResolveResponse", &v)
 }
 
@@ -6837,6 +6887,25 @@ func (t *WorkspaceParameters) MergeChatRoomWorkspaceParameters(v ChatRoomWorkspa
 	return nil
 }
 
+// AsPetWorkspaceParameters returns the union data inside the WorkspaceParameters as PetWorkspaceParameters.
+func (t WorkspaceParameters) AsPetWorkspaceParameters() (PetWorkspaceParameters, error) {
+	return rpcUnionAs[PetWorkspaceParameters](t.Value, "WorkspaceParameters", "PetWorkspaceParameters")
+}
+
+// FromPetWorkspaceParameters overwrites any union data inside the WorkspaceParameters as the provided PetWorkspaceParameters.
+func (t *WorkspaceParameters) FromPetWorkspaceParameters(v PetWorkspaceParameters) error {
+	v.AgentType = "pet"
+	t.Value = v
+	return nil
+}
+
+// MergePetWorkspaceParameters performs a merge with any union data inside the WorkspaceParameters.
+func (t *WorkspaceParameters) MergePetWorkspaceParameters(v PetWorkspaceParameters) error {
+	v.AgentType = "pet"
+	t.Value = v
+	return nil
+}
+
 func (t WorkspaceParameters) Discriminator() (string, error) {
 	switch v := t.Value.(type) {
 	case FlowcraftWorkspaceParameters:
@@ -6846,6 +6915,8 @@ func (t WorkspaceParameters) Discriminator() (string, error) {
 	case ASTTranslateWorkspaceParameters:
 		return string(v.AgentType), nil
 	case ChatRoomWorkspaceParameters:
+		return string(v.AgentType), nil
+	case PetWorkspaceParameters:
 		return string(v.AgentType), nil
 	case nil:
 		return "", errors.New("rpc: WorkspaceParameters is empty")
@@ -6868,6 +6939,8 @@ func (t WorkspaceParameters) ValueByDiscriminator() (interface{}, error) {
 		return t.AsDoubaoRealtimeWorkspaceParameters()
 	case "flowcraft":
 		return t.AsFlowcraftWorkspaceParameters()
+	case "pet":
+		return t.AsPetWorkspaceParameters()
 	default:
 		return nil, errors.New("unknown discriminator value: " + discriminator)
 	}

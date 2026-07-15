@@ -1,14 +1,44 @@
+import 'package:drift/native.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gizclaw/gizclaw.dart';
 import 'package:gizclaw_app/main.dart';
 import 'package:gizclaw_app/app/global_conversation_control.dart';
+import 'package:gizclaw_app/connection/gizclaw_connection_controller.dart';
+import 'package:gizclaw_app/data/database/app_database.dart';
 import 'package:gizclaw_app/data/mobile_data_controller.dart';
 import 'package:gizclaw_app/data/repositories/workspace_chat_repository.dart';
 import 'package:gizclaw_app/data/workspace_chat_controller.dart';
+import 'package:gizclaw_app/features/identity/server_pages.dart';
+import 'package:gizclaw_app/features/onboarding/server_onboarding_page.dart';
 import 'package:gizclaw_app/giz_ui/giz_ui.dart';
+import 'package:gizclaw_app/identity/app_identity_store.dart';
+import 'package:gizclaw_app/prototype/prototype_data.dart';
+
+AppDatabase _testDatabase() => AppDatabase.forTesting(NativeDatabase.memory());
 
 void main() {
+  final dataControllers = <MobileDataController>[];
+
+  void appTestWidgets(
+    String description,
+    Future<void> Function(WidgetTester tester) body,
+  ) {
+    testWidgets(description, (tester) async {
+      try {
+        await body(tester);
+      } finally {
+        final controllers = dataControllers.reversed.toList();
+        dataControllers.clear();
+        await tester.runAsync(() async {
+          for (final controller in controllers) {
+            await controller.close();
+          }
+        });
+      }
+    });
+  }
+
   test('keeps system actions separate from the lime accent', () {
     expect(gizCupertinoTheme.primaryColor, GizColors.primary);
     expect(gizCupertinoTheme.primaryContrastingColor, GizColors.onPrimary);
@@ -43,13 +73,16 @@ void main() {
     WidgetTester tester, {
     MobileDataController? controller,
   }) async {
-    await tester.pumpWidget(
-      GizClawApp(dataController: controller ?? MobileDataController.demo()),
-    );
+    final dataController =
+        controller ?? MobileDataController.demo(database: _testDatabase());
+    dataControllers.add(dataController);
+    await tester.pumpWidget(GizClawApp(dataController: dataController));
     await tester.pump(const Duration(milliseconds: 700));
   }
 
-  testWidgets('opens on the active conversation destination', (tester) async {
+  appTestWidgets('opens on the active conversation destination', (
+    tester,
+  ) async {
     await pumpApp(tester);
 
     expect(find.byType(ActiveWorkspacePage), findsOneWidget);
@@ -71,10 +104,107 @@ void main() {
     expect(primaryNav('Raids'), findsNothing);
   });
 
-  testWidgets('shows the current active workspace conversation', (
+  appTestWidgets('opens an unconfigured app on server onboarding', (
     tester,
   ) async {
-    final controller = MobileDataController.demo()
+    await pumpApp(tester, controller: _OnboardingServerController());
+
+    expect(find.byType(ServerOnboardingPage), findsOneWidget);
+    expect(find.text('Your agents, everywhere.'), findsOneWidget);
+    expect(find.text('Agents that feel close'), findsOneWidget);
+    expect(find.byKey(const ValueKey('server-onboarding-cta')), findsOneWidget);
+    expect(find.byKey(const ValueKey('primary-nav-scroll')), findsNothing);
+    expect(find.byKey(const ValueKey('global-audio-field')), findsNothing);
+  });
+
+  appTestWidgets('opens server choices from onboarding', (tester) async {
+    await pumpApp(tester, controller: _OnboardingServerController());
+
+    await tester.tap(find.byKey(const ValueKey('server-onboarding-cta')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ServerListPage), findsOneWidget);
+    expect(find.text('Development'), findsOneWidget);
+    expect(find.text('Production'), findsOneWidget);
+    expect(find.bySemanticsLabel('Add server'), findsOneWidget);
+  });
+
+  appTestWidgets('opens a capability story from onboarding', (tester) async {
+    await pumpApp(tester, controller: _OnboardingServerController());
+
+    expect(find.text('READ STORY'), findsWidgets);
+    expect(
+      find.bySemanticsLabel('Read Agents that feel close'),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('onboarding-story-daily-companion')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('onboarding-article-daily-companion')),
+      findsOneWidget,
+    );
+    await tester.drag(
+      find.byKey(const ValueKey('onboarding-article-daily-companion')),
+      const Offset(0, -420),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Built around your day'), findsOneWidget);
+    expect(
+      find.text(
+        'Your conversations stay connected through the GizClaw server you choose.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Hero &&
+            widget.tag == 'onboarding-feature-daily-companion',
+      ),
+      findsWidgets,
+    );
+  });
+
+  appTestWidgets('leaves onboarding after selecting a server', (tester) async {
+    final controller = _OnboardingServerController();
+    await pumpApp(tester, controller: controller);
+
+    await tester.tap(find.byKey(const ValueKey('server-onboarding-cta')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Development'));
+    await tester.pumpAndSettle();
+
+    expect(controller.activeServer?.name, 'Development');
+    expect(find.byType(MePage), findsOneWidget);
+    expect(find.byType(ServerOnboardingPage), findsNothing);
+  });
+
+  appTestWidgets('opens the server scanner from the Identity action', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await tapPrimaryNav(tester, 'Identity');
+    await tester.pumpAndSettle();
+
+    tester
+        .widget<GizPageActionButton>(
+          find.byKey(const ValueKey('identity-scan-server-qr')),
+        )
+        .onPressed!();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ScanServerQrPage), findsOneWidget);
+  });
+
+  appTestWidgets('shows the current active workspace conversation', (
+    tester,
+  ) async {
+    final controller = MobileDataController.demo(database: _testDatabase())
       ..runWorkspaceState = PeerRunWorkspaceState(
         activeWorkspaceName: 'Parser pass',
       );
@@ -86,7 +216,7 @@ void main() {
     expect(find.text('OFFLINE'), findsOneWidget);
   });
 
-  testWidgets('shows the pet scene for an active pet workspace', (
+  appTestWidgets('shows the pet scene for an active pet workspace', (
     tester,
   ) async {
     final controller = _ActiveDestinationController(
@@ -103,7 +233,7 @@ void main() {
     expect(find.byType(WorkspaceChatPage), findsNothing);
   });
 
-  testWidgets('shows the chatroom scene for an active group workspace', (
+  appTestWidgets('shows the chatroom scene for an active group workspace', (
     tester,
   ) async {
     final controller = _ActiveDestinationController(
@@ -122,7 +252,9 @@ void main() {
     expect(find.byType(ChatroomWorkspacePage), findsOneWidget);
   });
 
-  testWidgets('opens workflow drivers directly from the dock', (tester) async {
+  appTestWidgets('opens workflow drivers directly from the dock', (
+    tester,
+  ) async {
     await pumpApp(tester);
 
     await tapPrimaryNav(tester, 'Flowcraft');
@@ -172,10 +304,10 @@ void main() {
     expect(find.byType(CupertinoTextField), findsNothing);
   });
 
-  testWidgets('keeps driver destinations visible without workspaces', (
+  appTestWidgets('keeps driver destinations visible without workspaces', (
     tester,
   ) async {
-    final controller = MobileDataController.demo();
+    final controller = MobileDataController.demo(database: _testDatabase());
     controller.workspaces = controller.workspaces
         .where(
           (workspace) =>
@@ -207,7 +339,7 @@ void main() {
     expect(find.text('No AST Translate workspaces yet.'), findsOneWidget);
   });
 
-  testWidgets('hides tabs in chat and restores the driver destination', (
+  appTestWidgets('hides tabs in chat and restores the driver destination', (
     tester,
   ) async {
     await pumpApp(tester);
@@ -239,7 +371,7 @@ void main() {
     expect(find.byType(DriverWorkspacesPage), findsOneWidget);
   });
 
-  testWidgets('renders the workspace signal room', (tester) async {
+  appTestWidgets('renders the workspace signal room', (tester) async {
     await pumpApp(tester);
 
     await tapPrimaryNav(tester, 'Translate');
@@ -267,7 +399,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('follows system brightness in the workspace signal room', (
+  appTestWidgets('follows system brightness in the workspace signal room', (
     tester,
   ) async {
     tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
@@ -305,7 +437,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('shows expanded primary destinations', (tester) async {
+  appTestWidgets('shows expanded primary destinations', (tester) async {
     await pumpApp(tester);
 
     for (final label in [
@@ -332,7 +464,7 @@ void main() {
     expect(find.byKey(const ValueKey('primary-nav-edge-fade')), findsOneWidget);
   });
 
-  testWidgets('shows the global voice mode toggle and audio field', (
+  appTestWidgets('shows the global voice mode toggle and audio field', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -349,7 +481,7 @@ void main() {
     expect(find.byKey(const ValueKey('global-audio-field')), findsOneWidget);
   });
 
-  testWidgets('slides the voice thumb between PTT and realtime', (
+  appTestWidgets('slides the voice thumb between PTT and realtime', (
     tester,
   ) async {
     final controller = _ModeSwitchController();
@@ -375,7 +507,7 @@ void main() {
     );
   });
 
-  testWidgets('opens group creation controls', (tester) async {
+  appTestWidgets('opens group creation controls', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -400,8 +532,9 @@ void main() {
     );
   });
 
-  testWidgets('shows friends, pet, and profile surfaces', (tester) async {
-    await pumpApp(tester);
+  appTestWidgets('shows friends, pet, and profile surfaces', (tester) async {
+    final controller = _ServerListTestController();
+    await pumpApp(tester, controller: controller);
 
     await tapPrimaryNav(tester, 'Friends');
     await tester.pump(const Duration(milliseconds: 500));
@@ -419,27 +552,83 @@ void main() {
     expect(find.text('Device identity ready'), findsOneWidget);
     expect(find.text('Public identity'), findsOneWidget);
     expect(find.text('Private key'), findsOneWidget);
-    expect(find.text('Not configured'), findsOneWidget);
+    expect(find.text('Server'), findsOneWidget);
+    expect(find.text('Development · ap.dev.gizclaw.com:9820'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('identity-server-row')));
+    await tester.tap(find.byKey(const ValueKey('server-settings-row')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('server-endpoint-sheet')), findsOneWidget);
-    expect(
-      tester
-          .getBottomRight(find.byKey(const ValueKey('server-endpoint-sheet')))
-          .dy,
-      tester.view.physicalSize.height / tester.view.devicePixelRatio,
+    expect(find.text('Servers'), findsOneWidget);
+    expect(find.text('Development'), findsOneWidget);
+    expect(find.text('Production'), findsOneWidget);
+    expect(find.text('ap.dev.gizclaw.com:9820'), findsOneWidget);
+    expect(find.text('ap.gizclaw.com:9820'), findsOneWidget);
+    expect(find.byKey(const ValueKey('selected-server')), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('Add server'));
+    await tester.pumpAndSettle();
+    expect(find.text('Add Server'), findsNWidgets(2));
+    expect(find.byKey(const ValueKey('scan-server-qr')), findsOneWidget);
+    expect(find.byKey(const ValueKey('server-name-field')), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('server-name-field')),
+      'Office',
     );
     await tester.enterText(
-      find.byKey(const ValueKey('server-endpoint-field')),
+      find.byKey(const ValueKey('server-access-point-field')),
       'gizclaw.local',
     );
-    await tester.tap(find.byKey(const ValueKey('save-server-endpoint')));
+    await tester.tap(find.byKey(const ValueKey('add-server')));
     await tester.pump();
-    expect(find.byKey(const ValueKey('server-endpoint-error')), findsOneWidget);
+    expect(find.byKey(const ValueKey('add-server-error')), findsOneWidget);
+
+    Navigator.of(
+      tester.element(find.byKey(const ValueKey('server-name-field'))),
+    ).pop();
+    await tester.pumpAndSettle();
+    await tester.runAsync(
+      () => controller.addServer(
+        name: 'Office',
+        accessPoint: 'office.local:9820',
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(controller.servers.last.name, 'Office');
+    expect(controller.serverEndpoint, 'office.local:9820');
+    expect(find.byType(ServerListPage), findsOneWidget);
+    expect(find.text('Office'), findsOneWidget);
+    expect(find.text('office.local:9820'), findsOneWidget);
+    expect(find.byKey(const ValueKey('selected-server')), findsOneWidget);
   });
 
-  testWidgets('opens real friend connection controls', (tester) async {
+  appTestWidgets('adds a server from the pushed page', (tester) async {
+    final controller = _ImmediateAddServerController();
+    await pumpApp(tester, controller: controller);
+    await tapPrimaryNav(tester, 'Identity');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('server-settings-row')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Add server'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('server-name-field')),
+      'Office',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('server-access-point-field')),
+      'office.local:9820',
+    );
+    tester
+        .widget<CupertinoButton>(find.byKey(const ValueKey('add-server')))
+        .onPressed!();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ServerListPage), findsOneWidget);
+    expect(controller.addedName, 'Office');
+    expect(controller.addedAccessPoint, 'office.local:9820');
+  });
+
+  appTestWidgets('opens real friend connection controls', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -468,7 +657,7 @@ void main() {
     expect(find.text('Connect to GizClaw to manage friends'), findsOneWidget);
   });
 
-  testWidgets('opens a friend chatroom workspace', (tester) async {
+  appTestWidgets('opens a friend chatroom workspace', (tester) async {
     await pumpApp(tester);
 
     await tapPrimaryNav(tester, 'Friends');
@@ -490,7 +679,7 @@ void main() {
     expect(find.byType(CupertinoTabBar).hitTestable(), findsNothing);
   });
 
-  testWidgets('fits the compact iPhone viewport', (tester) async {
+  appTestWidgets('fits the compact iPhone viewport', (tester) async {
     tester.view.physicalSize = const Size(375, 667);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -506,7 +695,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('fits workspace controls in the compact iPhone viewport', (
+  appTestWidgets('fits workspace controls in the compact iPhone viewport', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(375, 667);
@@ -531,7 +720,14 @@ void main() {
 }
 
 class _ModeSwitchController extends MobileDataController {
-  _ModeSwitchController() {
+  _ModeSwitchController()
+    : super(
+        database: _testDatabase(),
+        profile: const GizClawConnectionProfile(
+          endpoint: gizClawDevelopmentServerEndpoint,
+          clientPrivateKey: 'test-key',
+        ),
+      ) {
     chat = _ModeSwitchChatController(workspaceChatRepository);
   }
 
@@ -550,15 +746,81 @@ class _ModeSwitchController extends MobileDataController {
   WorkspaceChatController? get activeWorkspaceChat => chat;
 
   @override
+  Future<void> start() async {}
+
+  @override
   Future<void> setActiveInputMode(WorkspaceInputMode mode) async {
     this.mode = mode;
     notifyListeners();
   }
 
   @override
-  void dispose() {
-    chat.dispose();
-    super.dispose();
+  Future<void> close() async {
+    await chat.close();
+    await super.close();
+  }
+}
+
+class _ServerListTestController extends MobileDataController {
+  _ServerListTestController()
+    : super(
+        database: AppDatabase.forTesting(NativeDatabase.memory()),
+        profile: const GizClawConnectionProfile(
+          endpoint: gizClawDevelopmentServerEndpoint,
+          clientPrivateKey: 'test-key',
+        ),
+      ) {
+    workflows = allWorkflows;
+    workspaces = workflowWorkspaces;
+    chatroomWorkspaces = chatroomWorkspaceMetadata;
+  }
+
+  @override
+  Future<void> start() async {
+    connectionState = MobileConnectionState.offline;
+    notifyListeners();
+  }
+}
+
+class _OnboardingServerController extends MobileDataController {
+  _OnboardingServerController()
+    : super(
+        database: _testDatabase(),
+        profile: const GizClawConnectionProfile(
+          endpoint: '',
+          clientPrivateKey: 'test-key',
+        ),
+      );
+
+  GizClawServer? _selectedServer;
+
+  @override
+  GizClawServer? get activeServer => _selectedServer;
+
+  @override
+  Future<void> start() async {
+    connectionState = MobileConnectionState.unconfigured;
+    notifyListeners();
+  }
+
+  @override
+  Future<void> selectServer(GizClawServer server) async {
+    _selectedServer = server;
+    notifyListeners();
+  }
+}
+
+class _ImmediateAddServerController extends _ServerListTestController {
+  String? addedName;
+  String? addedAccessPoint;
+
+  @override
+  Future<void> addServer({
+    required String name,
+    required String accessPoint,
+  }) async {
+    addedName = name;
+    addedAccessPoint = accessPoint;
   }
 }
 
@@ -584,12 +846,22 @@ class _ModeSwitchChatController extends WorkspaceChatController {
 }
 
 class _ActiveDestinationController extends MobileDataController {
-  _ActiveDestinationController(this.destination);
+  _ActiveDestinationController(this.destination)
+    : super(
+        database: _testDatabase(),
+        profile: const GizClawConnectionProfile(
+          endpoint: gizClawDevelopmentServerEndpoint,
+          clientPrivateKey: 'test-key',
+        ),
+      );
 
   final MobileWorkspaceDestination destination;
 
   @override
   String? get activeWorkspaceName => destination.workspaceName;
+
+  @override
+  Future<void> start() async {}
 
   @override
   Future<MobileWorkspaceDestination> destinationForWorkspace(

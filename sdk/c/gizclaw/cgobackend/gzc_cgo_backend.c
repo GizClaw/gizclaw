@@ -29,6 +29,56 @@ enum {
   gzc_cgo_channel_event = 2
 };
 
+static gzc_str_t bridge_str_from_parts(const char *data, size_t len) {
+  gzc_str_t out = {data, len};
+  return out;
+}
+
+static gzc_str_t bridge_str_from_cstr(const char *text) {
+  return bridge_str_from_parts(text, text == NULL ? 0 : strlen(text));
+}
+
+static int bridge_buf_replace(
+    gzc_buf_t *out,
+    const gzc_platform_t *platform,
+    const uint8_t *data,
+    size_t len) {
+  if (out == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  out->len = 0;
+  if (platform == NULL || platform->realloc == NULL ||
+      (data == NULL && len != 0)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  if (len == SIZE_MAX) {
+    return GZC_ERR_NO_MEMORY;
+  }
+  size_t required = len + 1;
+  if (required > out->cap) {
+    size_t next = out->cap == 0 ? 64 : out->cap;
+    while (next < required) {
+      if (next > SIZE_MAX / 2) {
+        next = required;
+        break;
+      }
+      next *= 2;
+    }
+    void *resized = platform->realloc(platform->userdata, out->data, next);
+    if (resized == NULL) {
+      return GZC_ERR_NO_MEMORY;
+    }
+    out->data = (uint8_t *)resized;
+    out->cap = next;
+  }
+  if (len != 0) {
+    memcpy(out->data, data, len);
+  }
+  out->data[len] = 0;
+  out->len = len;
+  return GZC_OK;
+}
+
 static void *bridge_malloc(void *userdata, size_t size) {
   (void)userdata;
   return malloc(size);
@@ -207,8 +257,7 @@ static int bridge_aead(
       ? gzcGoAEADSeal((int)mode, key, key_len, nonce, nonce_len, input, input_len, aad, aad_len, &raw, &raw_len)
       : gzcGoAEADOpen((int)mode, key, key_len, nonce, nonce_len, input, input_len, aad, aad_len, &raw, &raw_len);
   if (rc == GZC_OK) {
-    gzc_buf_reset(out);
-    rc = gzc_buf_append(out, backend->platform, raw, raw_len);
+    rc = bridge_buf_replace(out, backend->platform, raw, raw_len);
   }
   free(raw);
   return rc;
@@ -284,7 +333,7 @@ static int bridge_peer_start_offer(gzc_rtc_peer_t *peer) {
         backend->callbacks.userdata,
         &backend->peer,
         GZC_RTC_SDP_OFFER,
-        gzc_str_from_parts(sdp, sdp_len));
+        bridge_str_from_parts(sdp, sdp_len));
   }
   free(sdp);
   return GZC_OK;
@@ -411,22 +460,22 @@ static gzc_rtc_channel_t *remote_channel_by_id(gzc_cgo_backend_t *backend, int c
 static void fill_channel_info(const gzc_rtc_channel_t *channel, gzc_rtc_channel_info_t *info) {
   memset(info, 0, sizeof(*info));
   if (channel->remote) {
-    info->label = gzc_str_from_cstr(channel->label);
+    info->label = bridge_str_from_cstr(channel->label);
     info->stream_id = (uint16_t)channel->id;
     info->ordered = channel->ordered;
     info->reliable = channel->reliable;
   } else if (channel->id == gzc_cgo_channel_packet) {
-    info->label = gzc_str_from_cstr("giznet/v1/packet");
+    info->label = bridge_str_from_cstr("giznet/v1/packet");
     info->stream_id = 0;
     info->ordered = false;
     info->reliable = false;
   } else if (channel->id == gzc_cgo_channel_rpc) {
-    info->label = gzc_str_from_cstr("giznet/v1/service/0");
+    info->label = bridge_str_from_cstr("giznet/v1/service/0");
     info->stream_id = 1;
     info->ordered = true;
     info->reliable = true;
   } else {
-    info->label = gzc_str_from_cstr("giznet/v1/service/32");
+    info->label = bridge_str_from_cstr("giznet/v1/service/32");
     info->stream_id = 2;
     info->ordered = true;
     info->reliable = true;

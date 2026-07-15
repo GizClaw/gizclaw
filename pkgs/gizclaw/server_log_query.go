@@ -21,9 +21,6 @@ const (
 	ServerLogOrderDesc ServerLogOrder = "desc"
 )
 
-type ServerLogEntry = apitypes.ServerLogEntry
-type ServerLogStreamEnd = apitypes.ServerLogStreamEnd
-
 type ServerLogStreamRequest struct {
 	Filter       string
 	FilterSet    bool
@@ -38,7 +35,7 @@ type ServerLogStreamRequest struct {
 }
 
 type ServerLogQueryService interface {
-	StreamServerLogs(ctx context.Context, req ServerLogStreamRequest, emit func(ServerLogEntry) error) (ServerLogStreamEnd, error)
+	StreamServerLogs(ctx context.Context, req ServerLogStreamRequest, emit func(apitypes.ServerLogEntry) error) (apitypes.ServerLogStreamEnd, error)
 }
 
 type ServerLogQueryError struct {

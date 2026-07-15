@@ -250,6 +250,41 @@ void main() {
     },
   );
 
+  test('passes client RPC handlers to inbound channels', () async {
+    final pc = _FakePeerConnection();
+    serveFlutterGiznetWebRtcRpc(
+      pc,
+      handlers: GizClawPeerRpcHandlers(
+        deviceInfo: () => DeviceInfo(name: 'Test Phone'),
+      ),
+    );
+
+    final channel = _FakeRtcDataChannel(label: 'giznet/v1/service/0');
+    pc.onDataChannel?.call(channel);
+    channel.emitBinaryMessage(
+      _rpcRequestBytes(
+        id: 'srv-info',
+        method: rpc.RpcMethod.RPC_METHOD_CLIENT_INFO_GET,
+        payloadBytes: encodeRpcRequestPayload(
+          'client.info.get',
+          ClientGetInfoRequest(),
+        ),
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    final frames = decodeFrames(
+      Uint8List.fromList(
+        channel.sent.expand((message) => message.binary).toList(),
+      ),
+    );
+    final response = rpc.RpcResponse.fromBuffer(frames.first.payload);
+    final info =
+        decodeRpcResponsePayload('client.info.get', response.payload)
+            as ClientGetInfoResponse;
+    expect(info.value.name, 'Test Phone');
+  });
+
   test('treats a newly created native data channel as connecting', () async {
     final native = _FakeRtcDataChannel();
     final channel = FlutterWebRtcDataChannel(native);

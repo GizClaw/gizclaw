@@ -10,6 +10,7 @@ import (
 	"github.com/volcengine/volc-sdk-golang/service/tls"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
 func TestQueryServiceStreamsLogsAndCursor(t *testing.T) {
@@ -18,7 +19,7 @@ func TestQueryServiceStreamsLogsAndCursor(t *testing.T) {
 			{
 				ListOver: false,
 				Context:  "provider-next",
-				Logs: []map[string]interface{}{
+				Logs: []map[string]any{
 					{
 						"__time__":    json.Number("1783403541016"),
 						"__time_ns__": "789000",
@@ -34,14 +35,14 @@ func TestQueryServiceStreamsLogsAndCursor(t *testing.T) {
 		},
 	}
 	service := NewQueryServiceWithClient("topic-a", client)
-	var entries []gizclaw.ServerLogEntry
+	var entries []apitypes.ServerLogEntry
 	end, err := service.StreamServerLogs(context.Background(), gizclaw.ServerLogStreamRequest{
 		Filter:      "level:ERROR",
 		StartTimeMs: 1783400000000,
 		EndTimeMs:   1783403600000,
 		Limit:       1,
 		Order:       gizclaw.ServerLogOrderDesc,
-	}, func(entry gizclaw.ServerLogEntry) error {
+	}, func(entry apitypes.ServerLogEntry) error {
 		entries = append(entries, entry)
 		return nil
 	})
@@ -126,8 +127,8 @@ func TestQueryServiceContinuesFromCursorAndValidatesMismatch(t *testing.T) {
 func TestQueryServicePaginationAndLimit(t *testing.T) {
 	client := &fakeSearchClient{
 		responses: []*tls.SearchLogsResponse{
-			{ListOver: false, Context: "ctx-2", Logs: []map[string]interface{}{{"msg": "a"}}},
-			{ListOver: true, Logs: []map[string]interface{}{{"msg": "b"}}},
+			{ListOver: false, Context: "ctx-2", Logs: []map[string]any{{"msg": "a"}}},
+			{ListOver: true, Logs: []map[string]any{{"msg": "b"}}},
 		},
 	}
 	service := NewQueryServiceWithClient("topic-a", client)
@@ -138,7 +139,7 @@ func TestQueryServicePaginationAndLimit(t *testing.T) {
 		EndTimeMs:   2000,
 		Limit:       2,
 		Order:       gizclaw.ServerLogOrderAsc,
-	}, func(entry gizclaw.ServerLogEntry) error {
+	}, func(entry apitypes.ServerLogEntry) error {
 		messages = append(messages, entry.Message)
 		return nil
 	})

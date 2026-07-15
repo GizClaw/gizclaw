@@ -116,10 +116,11 @@
 ### Go
 
 - package/API、error、slice/map、receiver、embedding 和 `defer` 是否符合 [Go 编码规范](../coding-styles/go)。
-- 跨 package API 是否直接使用定义方的限定类型，是否存在通过 alias、同形 wrapper 或仅改名 DTO 隐藏外部/生成类型真实 ownership 的情况。
-- Protobuf message 是否只以原始生成 package 的指针类型传递和存储，是否存在 value parameter、value return、赋值、interface 转换或格式化导致的 `copylocks`。
+- 手写的跨 package API 是否直接使用定义方的限定类型，是否存在通过 alias、同形 wrapper 或仅改名 DTO 隐藏类型真实 ownership 的情况。
+- 仓库自有 generator 是否产生跨 package alias；若有，是否从 generator 修复。第三方 generator 直接产生的 alias 或 helper signature 不按手写代码问题报告，也不得仅为满足规范而手工改写、维护 fork 或增加 output normalizer。文件名和生成注释不能替代生成链证据。
 - goroutine、context、channel、timer 和连接生命周期是否闭合。
 - 并发风险是否需要 `go test -race`、leak test 或 soak test。
+- 是否运行 `modernize ./...` 并审查本次改动涉及的手写代码诊断；范围外既有诊断是否如实记录，仓库自有 generator 输出是否回到 generator 修复，第三方生成文件是否保持未手工修改。
 
 ### JavaScript 与 TypeScript
 

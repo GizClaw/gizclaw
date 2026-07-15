@@ -56,7 +56,7 @@ void main() {
       repository: WorkspaceChatRepository(database),
       serverId: null,
     );
-    addTearDown(controller.dispose);
+    addTearDown(controller.close);
 
     controller.handleEventForTesting(
       const PeerStreamEvent(
@@ -95,7 +95,7 @@ void main() {
       repository: WorkspaceChatRepository(database),
       serverId: null,
     );
-    addTearDown(controller.dispose);
+    addTearDown(controller.close);
 
     controller.handleEventForTesting(
       const PeerStreamEvent(
@@ -126,7 +126,7 @@ void main() {
       serverId: 'server-a',
       client: GizClawClient(_NeverDataChannelFactory()),
     );
-    addTearDown(controller.dispose);
+    addTearDown(controller.close);
 
     await controller.start(conversation: false);
 
@@ -153,7 +153,7 @@ void main() {
       serverId: 'server-a',
       client: GizClawClient(_NeverDataChannelFactory()),
     );
-    addTearDown(controller.dispose);
+    addTearDown(controller.close);
     addTearDown(repository.close);
     await controller.start(conversation: false);
 

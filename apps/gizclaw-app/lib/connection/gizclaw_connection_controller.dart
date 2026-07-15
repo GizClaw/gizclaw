@@ -5,6 +5,9 @@ import 'dart:io';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:gizclaw/gizclaw.dart';
 
+const gizClawDevelopmentServerEndpoint = 'ap.dev.gizclaw.com:9820';
+const gizClawProductionServerEndpoint = 'ap.gizclaw.com:9820';
+
 class GizClawConnectionProfile {
   const GizClawConnectionProfile({
     required this.endpoint,
@@ -35,10 +38,14 @@ class GizClawConnectionProfile {
 }
 
 class GizClawConnectionController {
-  GizClawConnectionController(GizClawConnectionProfile profile)
-    : _profile = profile;
+  GizClawConnectionController(
+    GizClawConnectionProfile profile, {
+    DeviceInfo? deviceInfo,
+  }) : _profile = profile,
+       _deviceInfo = deviceInfo ?? DeviceInfo(name: 'GizClaw App');
 
   GizClawConnectionProfile _profile;
+  final DeviceInfo _deviceInfo;
 
   rtc.RTCPeerConnection? _peerConnection;
   rtc.RTCPeerConnection? _pendingPeerConnection;
@@ -90,6 +97,7 @@ class GizClawConnectionController {
     String? preparedClientPublicKey;
     final peerConnection = await connectFlutterGiznetWebRtc(
       addAudioTransceiver: true,
+      peerRpcHandlers: GizClawPeerRpcHandlers(deviceInfo: () => _deviceInfo),
       prepareOffer: (sdp) async {
         final offer = await prepareEncryptedGiznetWebRtcOffer(identity, sdp);
         preparedClientPublicKey = offer.clientPublicKey;
@@ -106,12 +114,18 @@ class GizClawConnectionController {
       await _waitForPeerConnection(peerConnection);
       await _prepareAudioPlayback(peerConnection);
       _ensureCurrentProfile(profileRevision, activeProfile);
+      final dataChannelFactory = FlutterWebRtcDataChannelFactory(
+        peerConnection,
+      );
+      final client = GizClawClient(dataChannelFactory);
+      await client.putServerInfo(_deviceInfo);
+      _ensureCurrentProfile(profileRevision, activeProfile);
       _pendingPeerConnection = null;
       _peerConnection = peerConnection;
       _serverId = info.publicKey;
       _clientPublicKey = preparedClientPublicKey;
-      _dataChannelFactory = FlutterWebRtcDataChannelFactory(peerConnection);
-      return _client = GizClawClient(_dataChannelFactory!);
+      _dataChannelFactory = dataChannelFactory;
+      return _client = client;
     } catch (_) {
       if (identical(_pendingPeerConnection, peerConnection)) {
         _pendingPeerConnection = null;
@@ -226,40 +240,10 @@ String normalizeGizClawEndpoint(String endpoint) {
     );
   }
   final host = uri.host.contains(':') ? '[${uri.host}]' : uri.host;
-  final localNetworkHost = _isLocalNetworkHost(uri.host);
   if (!hasScheme) {
-    return localNetworkHost
-        ? '$host:$explicitPort'
-        : 'https://$host:$explicitPort';
-  }
-  if (uri.scheme == 'http' && !localNetworkHost) {
-    throw const FormatException(
-      'Use HTTPS for servers outside the local network',
-    );
+    return '$host:$explicitPort';
   }
   return '${uri.scheme}://$host:$explicitPort';
-}
-
-bool _isLocalNetworkHost(String host) {
-  final normalized = host.toLowerCase();
-  if (normalized == 'localhost' ||
-      normalized.endsWith('.local') ||
-      !normalized.contains('.')) {
-    return true;
-  }
-  final address = InternetAddress.tryParse(normalized);
-  if (address == null) return false;
-  final bytes = address.rawAddress;
-  if (address.type == InternetAddressType.IPv4) {
-    return bytes[0] == 10 ||
-        bytes[0] == 127 ||
-        (bytes[0] == 169 && bytes[1] == 254) ||
-        (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31) ||
-        (bytes[0] == 192 && bytes[1] == 168);
-  }
-  return address.isLoopback ||
-      (bytes[0] & 0xfe) == 0xfc ||
-      (bytes[0] == 0xfe && (bytes[1] & 0xc0) == 0x80);
 }
 
 int? _explicitEndpointPort(String value, {required bool hasScheme}) {

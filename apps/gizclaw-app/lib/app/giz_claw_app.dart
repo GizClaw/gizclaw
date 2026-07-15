@@ -15,13 +15,14 @@ class GizClawApp extends StatefulWidget {
 }
 
 class _GizClawAppState extends State<GizClawApp> {
-  late final GoRouter _router = createAppRouter();
   late final MobileDataController _data;
+  late final GoRouter _router;
 
   @override
   void initState() {
     super.initState();
     _data = widget.dataController ?? MobileDataController();
+    _router = createAppRouter(dataController: _data);
     _data.start();
   }
 
