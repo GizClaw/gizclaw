@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"io/fs"
 	"net/url"
+	"path/filepath"
+	goruntime "runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -238,9 +241,24 @@ func (a *App) RevealPod(id string) error {
 		return err
 	}
 	if ctx := a.runtimeContext(); ctx != nil {
-		runtime.BrowserOpenURL(ctx, (&url.URL{Scheme: "file", Path: path}).String())
+		runtime.BrowserOpenURL(ctx, fileURL(path))
 	}
 	return nil
+}
+
+func fileURL(path string) string {
+	return fileURLForOS(path, goruntime.GOOS)
+}
+
+func fileURLForOS(path, goos string) string {
+	normalized := filepath.ToSlash(path)
+	if goos == "windows" {
+		normalized = strings.ReplaceAll(path, `\`, "/")
+		if !strings.HasPrefix(normalized, "/") {
+			normalized = "/" + normalized
+		}
+	}
+	return (&url.URL{Scheme: "file", Path: normalized}).String()
 }
 
 func (a *App) StartLocalServer(id string) (bridge.PodSummary, error) {

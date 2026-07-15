@@ -32,7 +32,10 @@ type PodBridge struct {
 	refreshes  map[string]*podRefresh
 }
 
-type podRefresh struct{ cancel context.CancelFunc }
+type podRefresh struct {
+	cancel context.CancelFunc
+	done   chan struct{}
+}
 
 type BootstrapState struct {
 	Locale string       `json:"locale"`
@@ -238,11 +241,11 @@ func (b *PodBridge) UpdatePod(ctx context.Context, input PodInput) (PodSummary, 
 	if err != nil {
 		return PodSummary{}, err
 	}
-	pod, err := b.inputToPod(input, &existing)
-	if err != nil {
+	if _, err := ensurePodIdentities(&existing); err != nil {
 		return PodSummary{}, err
 	}
-	if _, err := ensurePodIdentities(&pod); err != nil {
+	pod, err := b.inputToPod(input, &existing)
+	if err != nil {
 		return PodSummary{}, err
 	}
 	if err := pod.Validate(); err != nil {
@@ -313,18 +316,21 @@ func (b *PodBridge) RefreshHealth(ctx context.Context, id string) (PodSummary, e
 		endpoints = append(endpoints, pod.RemoteAccessPoint)
 	}
 	probeCtx, cancel := context.WithCancel(ctx)
-	refresh := &podRefresh{cancel: cancel}
+	refresh := &podRefresh{cancel: cancel, done: make(chan struct{})}
 	b.refreshMu.Lock()
 	if b.refreshes == nil {
 		b.refreshes = map[string]*podRefresh{}
 	}
-	if previous := b.refreshes[id]; previous != nil {
-		previous.cancel()
-	}
+	previous := b.refreshes[id]
 	b.refreshes[id] = refresh
 	b.refreshMu.Unlock()
+	if previous != nil {
+		previous.cancel()
+		<-previous.done
+	}
 	defer func() {
 		cancel()
+		close(refresh.done)
 		b.refreshMu.Lock()
 		if b.refreshes[id] == refresh {
 			delete(b.refreshes, id)
@@ -361,6 +367,9 @@ func (b *PodBridge) StopLocal(ctx context.Context, id string) (PodSummary, error
 	pod, err := b.Store.Load(id)
 	if err != nil {
 		return PodSummary{}, err
+	}
+	if pod.LocalServer == nil {
+		return PodSummary{}, fmt.Errorf("desktop bridge: pod %q is remote", id)
 	}
 	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -478,6 +487,9 @@ func (b *PodBridge) summary(pod appconfig.Pod) PodSummary {
 }
 
 func ensurePodIdentities(pod *appconfig.Pod) (bool, error) {
+	if pod.IdentitiesInitialized {
+		return false, nil
+	}
 	changed := false
 	ensure := func(value *string) error {
 		if strings.TrimSpace(*value) != "" {
@@ -499,6 +511,8 @@ func ensurePodIdentities(pod *appconfig.Pod) (bool, error) {
 			return false, err
 		}
 	}
+	pod.IdentitiesInitialized = true
+	changed = true
 	return changed, nil
 }
 
@@ -536,11 +550,22 @@ func lanAddresses(port int) []string {
 		}
 	}
 	sort.Strings(result)
+	preferred := appconfig.PreferredLANEndpoint(port)
+	for i, value := range result {
+		if value == preferred {
+			copy(result[1:i+1], result[:i])
+			result[0] = value
+			break
+		}
+	}
 	return result
 }
 
 func (b *PodBridge) inputToPod(input PodInput, existing *appconfig.Pod) (appconfig.Pod, error) {
 	pod := appconfig.Pod{Version: input.Version, ID: strings.TrimSpace(input.ID), Name: strings.TrimSpace(input.Name), Description: strings.TrimSpace(input.Description), RemoteAccessPoint: strings.TrimSpace(input.RemoteAccessPoint)}
+	if existing != nil {
+		pod.IdentitiesInitialized = existing.IdentitiesInitialized
+	}
 	if pod.Version == 0 {
 		pod.Version = appconfig.PodVersion
 	}

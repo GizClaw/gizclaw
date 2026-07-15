@@ -31,14 +31,15 @@ var (
 )
 
 type Pod struct {
-	Version           int            `json:"version"`
-	ID                string         `json:"id"`
-	Name              string         `json:"name"`
-	Description       string         `json:"description,omitempty"`
-	LocalServer       *LocalServer   `json:"local_server,omitempty"`
-	RemoteServers     []RemoteServer `json:"remote_servers,omitempty"`
-	RemoteAccessPoint string         `json:"remote_access_point,omitempty"`
-	ClientPrivateKey  string         `json:"client_private_key,omitempty"`
+	Version               int            `json:"version"`
+	ID                    string         `json:"id"`
+	Name                  string         `json:"name"`
+	Description           string         `json:"description,omitempty"`
+	IdentitiesInitialized bool           `json:"identities_initialized,omitempty"`
+	LocalServer           *LocalServer   `json:"local_server,omitempty"`
+	RemoteServers         []RemoteServer `json:"remote_servers,omitempty"`
+	RemoteAccessPoint     string         `json:"remote_access_point,omitempty"`
+	ClientPrivateKey      string         `json:"client_private_key,omitempty"`
 }
 
 type LocalServer struct {
@@ -583,7 +584,7 @@ func (s Store) materializeWorkspace(pod Pod, dir string) error {
 	}{}
 	config.Identity.PrivateKey = serverKey
 	config.Listen = fmt.Sprintf("0.0.0.0:%d", pod.LocalServer.Port)
-	config.Endpoint = preferredLANEndpoint(pod.LocalServer.Port)
+	config.Endpoint = PreferredLANEndpoint(pod.LocalServer.Port)
 	config.ServeToClients = pod.ClientPrivateKey != "" || pod.LocalServer.AdminPrivateKey != ""
 	config.AdminPublicKey = adminPublic
 	config.Storage = localWorkspaceStorage()
@@ -719,7 +720,7 @@ func validateEndpoint(field, endpoint string) error {
 	return nil
 }
 
-func preferredLANEndpoint(port int) string {
+func PreferredLANEndpoint(port int) string {
 	addresses, err := net.InterfaceAddrs()
 	if err != nil {
 		return net.JoinHostPort("127.0.0.1", strconv.Itoa(port))

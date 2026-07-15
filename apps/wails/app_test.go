@@ -94,6 +94,12 @@ func TestAppFacadeRequiresConfiguredBridge(t *testing.T) {
 	}
 }
 
+func TestFileURLForWindowsPath(t *testing.T) {
+	if got := fileURLForOS(`C:\Users\gizclaw\pod`, "windows"); got != "file:///C:/Users/gizclaw/pod" {
+		t.Fatalf("fileURLForOS() = %q", got)
+	}
+}
+
 func appconfigTestKey(t *testing.T, fill byte) string {
 	t.Helper()
 	var key [32]byte

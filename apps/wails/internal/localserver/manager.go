@@ -96,7 +96,9 @@ func (m *Manager) Stop(ctx context.Context, podID string) (Status, error) {
 		return Status{State: "stopped"}, nil
 	}
 	p.state = "stopping"
-	_ = p.cmd.Process.Signal(os.Interrupt)
+	if err := p.cmd.Process.Signal(os.Interrupt); err != nil {
+		_ = p.cmd.Process.Kill()
+	}
 	done := p.done
 	m.mu.Unlock()
 	select {

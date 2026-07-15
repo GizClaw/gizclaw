@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -117,9 +119,102 @@ func TestLocalPodCreationAssignsDistinctStablePorts(t *testing.T) {
 	if first.Local == nil || second.Local == nil || first.Local.Port == second.Local.Port || first.Local.Port == 0 || second.Local.Port == 0 {
 		t.Fatalf("assigned ports = %+v / %+v", first.Local, second.Local)
 	}
+	if len(first.Local.LANAddresses) != 0 && first.Local.LANAddresses[0] != appconfig.PreferredLANEndpoint(first.Local.Port) {
+		t.Fatalf("shared LAN address = %q, workspace endpoint = %q", first.Local.LANAddresses[0], appconfig.PreferredLANEndpoint(first.Local.Port))
+	}
 	reloaded, err := bridge.GetPod(context.Background(), "local-a")
 	if err != nil || reloaded.Local.Port != first.Local.Port {
 		t.Fatalf("reloaded port = %+v, %v", reloaded.Local, err)
+	}
+}
+
+func TestUpdatePodHonorsExplicitIdentityClearing(t *testing.T) {
+	paths := appconfig.NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	web := webui.New(fstest.MapFS{})
+	defer web.Shutdown()
+	b := &PodBridge{Paths: paths, Store: appconfig.Store{Paths: paths}, Health: endpointhealth.New(), Local: localserver.New(), WebUI: web}
+	created, err := b.CreatePod(context.Background(), PodInput{Version: 1, ID: "clear-identities", Name: "Clear Identities", LocalServer: &LocalServerInput{Port: 0}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	empty := ""
+	updated, err := b.UpdatePod(context.Background(), PodInput{Version: 1, ID: created.ID, Name: created.Name, LocalServer: &LocalServerInput{Port: created.Local.Port, AdminPrivateKey: &empty}, ClientPrivateKey: &empty})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.PlayConfigured || updated.Local.AdminConfigured {
+		t.Fatalf("explicitly cleared identities were regenerated: %+v", updated)
+	}
+	listed, err := b.ListPods(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listed) != 1 || listed[0].PlayConfigured || listed[0].Local.AdminConfigured {
+		t.Fatalf("cleared identities did not persist: %+v", listed)
+	}
+}
+
+func TestStopLocalRejectsRemotePod(t *testing.T) {
+	paths := appconfig.NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	web := webui.New(fstest.MapFS{})
+	defer web.Shutdown()
+	b := &PodBridge{Paths: paths, Store: appconfig.Store{Paths: paths}, Health: endpointhealth.New(), Local: localserver.New(), WebUI: web}
+	created, err := b.CreatePod(context.Background(), PodInput{Version: 1, ID: "remote-stop", Name: "Remote", RemoteAccessPoint: "127.0.0.1:19820"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := b.StopLocal(context.Background(), created.ID); err == nil || !strings.Contains(err.Error(), "is remote") {
+		t.Fatalf("StopLocal error = %v", err)
+	}
+}
+
+func TestSupersededHealthRefreshCannotOverwriteNewerResult(t *testing.T) {
+	kp, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstStarted := make(chan struct{})
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if requests.Add(1) == 1 {
+			close(firstStarted)
+			<-r.Context().Done()
+			return
+		}
+		_, _ = fmt.Fprintf(w, `{"endpoint":"127.0.0.1:9820","protocol":"gizclaw-webrtc","public_key":%q,"server_time":1,"signaling_path":"/webrtc/v1/offer"}`, kp.Public.String())
+	}))
+	defer server.Close()
+	paths := appconfig.NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	web := webui.New(fstest.MapFS{})
+	defer web.Shutdown()
+	b := &PodBridge{Paths: paths, Store: appconfig.Store{Paths: paths}, Health: endpointhealth.New(), Local: localserver.New(), WebUI: web}
+	endpoint := strings.TrimPrefix(server.URL, "http://")
+	created, err := b.CreatePod(context.Background(), PodInput{Version: 1, ID: "refresh-generation", Name: "Refresh", RemoteAccessPoint: endpoint})
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstDone := make(chan struct{})
+	go func() {
+		_, _ = b.RefreshHealth(context.Background(), created.ID)
+		close(firstDone)
+	}()
+	<-firstStarted
+	newer, err := b.RefreshHealth(context.Background(), created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-firstDone
+	if newer.Remote.AccessPoint.State != endpointhealth.Reachable || b.Health.Get(endpoint).State != endpointhealth.Reachable {
+		t.Fatalf("newer health was overwritten: summary=%+v cache=%+v", newer.Remote.AccessPoint, b.Health.Get(endpoint))
 	}
 }
 
