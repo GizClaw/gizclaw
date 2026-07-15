@@ -99,6 +99,33 @@ func TestServerInitKeepsLegacyPeerPrefixWithMetricsStore(t *testing.T) {
 	}
 }
 
+func TestServerInitWiresDefaultPeerView(t *testing.T) {
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair() error = %v", err)
+	}
+	server := &Server{
+		LocalStatic:     *keyPair,
+		PeerStore:       mustBadgerInMemory(t, nil),
+		DefaultPeerView: "default-client",
+	}
+	if err := server.init(); err != nil {
+		t.Fatalf("init() error = %v", err)
+	}
+
+	peerKeyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(peer) error = %v", err)
+	}
+	created, err := server.manager.Peers.EnsureConnectedPeer(context.Background(), peerKeyPair.Public)
+	if err != nil {
+		t.Fatalf("EnsureConnectedPeer() error = %v", err)
+	}
+	if created.Configuration.View == nil || *created.Configuration.View != "default-client" {
+		t.Fatalf("created view = %v, want default-client", created.Configuration.View)
+	}
+}
+
 func TestServerServeReturnsNilAfterClose(t *testing.T) {
 	keyPair, err := giznet.GenerateKeyPair()
 	if err != nil {

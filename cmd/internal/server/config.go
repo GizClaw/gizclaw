@@ -16,18 +16,19 @@ import (
 )
 
 type Config struct {
-	KeyPair        *giznet.KeyPair
-	Listen         string
-	Endpoint       string
-	ServeToClients bool
-	EdgeNodes      []giznet.PublicKey
-	ICEServers     []gizwebrtc.ICEServer
-	AdminPublicKey giznet.PublicKey
-	Storage        map[string]storage.Config
-	Stores         map[string]stores.Config
-	Log            logging.Config
-	Friends        FriendsConfig
-	FriendGroups   FriendGroupsConfig
+	KeyPair         *giznet.KeyPair
+	Listen          string
+	Endpoint        string
+	ServeToClients  bool
+	EdgeNodes       []giznet.PublicKey
+	ICEServers      []gizwebrtc.ICEServer
+	AdminPublicKey  giznet.PublicKey
+	DefaultPeerView string
+	Storage         map[string]storage.Config
+	Stores          map[string]stores.Config
+	Log             logging.Config
+	Friends         FriendsConfig
+	FriendGroups    FriendGroupsConfig
 }
 
 type FriendsConfig struct{}
@@ -44,18 +45,19 @@ type IdentityConfig struct {
 }
 
 type ConfigFile struct {
-	Identity       IdentityConfig            `yaml:"identity"`
-	Listen         string                    `yaml:"listen"`
-	Endpoint       string                    `yaml:"endpoint"`
-	ServeToClients bool                      `yaml:"serve-to-clients"`
-	EdgeNodes      []giznet.PublicKey        `yaml:"edge-nodes"`
-	ICEServers     []gizwebrtc.ICEServer     `yaml:"ice-servers"`
-	AdminPublicKey giznet.PublicKey          `yaml:"admin-public-key"`
-	Storage        map[string]storage.Config `yaml:"storage"`
-	Stores         map[string]stores.Config  `yaml:"stores"`
-	Log            logging.Config            `yaml:"log"`
-	Friends        FriendsConfig             `yaml:"friends"`
-	FriendGroups   FriendGroupsConfig        `yaml:"friend_groups"`
+	Identity        IdentityConfig            `yaml:"identity"`
+	Listen          string                    `yaml:"listen"`
+	Endpoint        string                    `yaml:"endpoint"`
+	ServeToClients  bool                      `yaml:"serve-to-clients"`
+	EdgeNodes       []giznet.PublicKey        `yaml:"edge-nodes"`
+	ICEServers      []gizwebrtc.ICEServer     `yaml:"ice-servers"`
+	AdminPublicKey  giznet.PublicKey          `yaml:"admin-public-key"`
+	DefaultPeerView string                    `yaml:"default-peer-view"`
+	Storage         map[string]storage.Config `yaml:"storage"`
+	Stores          map[string]stores.Config  `yaml:"stores"`
+	Log             logging.Config            `yaml:"log"`
+	Friends         FriendsConfig             `yaml:"friends"`
+	FriendGroups    FriendGroupsConfig        `yaml:"friend_groups"`
 }
 
 const (
@@ -97,19 +99,20 @@ func LoadConfig(path string) (ConfigFile, error) {
 
 func parseConfigData(data []byte) (ConfigFile, error) {
 	var raw struct {
-		Identity       *IdentityConfig           `yaml:"identity"`
-		Listen         string                    `yaml:"listen"`
-		Endpoint       string                    `yaml:"endpoint"`
-		ServeToClients *bool                     `yaml:"serve-to-clients"`
-		ServingPublic  *bool                     `yaml:"serving-public"`
-		EdgeNodes      []giznet.PublicKey        `yaml:"edge-nodes"`
-		ICEServers     []gizwebrtc.ICEServer     `yaml:"ice-servers"`
-		AdminPublicKey *giznet.PublicKey         `yaml:"admin-public-key"`
-		Storage        map[string]storage.Config `yaml:"storage"`
-		Stores         map[string]stores.Config  `yaml:"stores"`
-		Log            logging.Config            `yaml:"log"`
-		Friends        FriendsConfig             `yaml:"friends"`
-		FriendGroups   FriendGroupsConfig        `yaml:"friend_groups"`
+		Identity        *IdentityConfig           `yaml:"identity"`
+		Listen          string                    `yaml:"listen"`
+		Endpoint        string                    `yaml:"endpoint"`
+		ServeToClients  *bool                     `yaml:"serve-to-clients"`
+		ServingPublic   *bool                     `yaml:"serving-public"`
+		EdgeNodes       []giznet.PublicKey        `yaml:"edge-nodes"`
+		ICEServers      []gizwebrtc.ICEServer     `yaml:"ice-servers"`
+		AdminPublicKey  *giznet.PublicKey         `yaml:"admin-public-key"`
+		DefaultPeerView string                    `yaml:"default-peer-view"`
+		Storage         map[string]storage.Config `yaml:"storage"`
+		Stores          map[string]stores.Config  `yaml:"stores"`
+		Log             logging.Config            `yaml:"log"`
+		Friends         FriendsConfig             `yaml:"friends"`
+		FriendGroups    FriendGroupsConfig        `yaml:"friend_groups"`
 	}
 	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return ConfigFile{}, err
@@ -142,18 +145,19 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		serveToClients = *raw.ServingPublic
 	}
 	cfg := ConfigFile{
-		Identity:       identity,
-		Listen:         raw.Listen,
-		Endpoint:       raw.Endpoint,
-		ServeToClients: serveToClients,
-		EdgeNodes:      raw.EdgeNodes,
-		ICEServers:     raw.ICEServers,
-		AdminPublicKey: adminPublicKey,
-		Storage:        raw.Storage,
-		Stores:         raw.Stores,
-		Log:            logCfg,
-		Friends:        raw.Friends,
-		FriendGroups:   raw.FriendGroups,
+		Identity:        identity,
+		Listen:          raw.Listen,
+		Endpoint:        raw.Endpoint,
+		ServeToClients:  serveToClients,
+		EdgeNodes:       raw.EdgeNodes,
+		ICEServers:      raw.ICEServers,
+		AdminPublicKey:  adminPublicKey,
+		DefaultPeerView: raw.DefaultPeerView,
+		Storage:         raw.Storage,
+		Stores:          raw.Stores,
+		Log:             logCfg,
+		Friends:         raw.Friends,
+		FriendGroups:    raw.FriendGroups,
 	}
 	return cfg, nil
 }
@@ -191,6 +195,9 @@ func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	}
 	if cfg.AdminPublicKey.IsZero() {
 		cfg.AdminPublicKey = fileCfg.AdminPublicKey
+	}
+	if cfg.DefaultPeerView == "" {
+		cfg.DefaultPeerView = fileCfg.DefaultPeerView
 	}
 	if len(cfg.ICEServers) == 0 {
 		cfg.ICEServers = fileCfg.ICEServers
@@ -235,6 +242,7 @@ func mergeFriendGroupsConfig(runtime FriendGroupsConfig, file FriendGroupsConfig
 
 func prepareConfig(cfg Config) (Config, error) {
 	defaults := DefaultConfig()
+	cfg.DefaultPeerView = strings.TrimSpace(cfg.DefaultPeerView)
 	if cfg.Listen == "" {
 		cfg.Listen = defaults.Listen
 	}

@@ -87,6 +87,7 @@ type Server struct {
 	BuildCommit                  string
 	PublicEndpoint               string
 	PublicICETCP                 bool
+	DefaultPeerView              string
 	PublicLoginAuthorizer        publiclogin.SessionAuthorizer
 	ICEServers                   []gizwebrtc.ICEServer
 	ACLDB                        *sql.DB
@@ -380,6 +381,7 @@ func (s *Server) init() error {
 		SignalingPath:   gizwebrtc.SignalingPath,
 		ICETCP:          s.PublicICETCP,
 		ICEServers:      s.ICEServers,
+		DefaultPeerView: s.DefaultPeerView,
 	}
 	manager := NewManager(peersServer)
 	manager.PeerRoutes = &peerroute.Server{

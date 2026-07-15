@@ -48,6 +48,11 @@ func testKeyPair(t *testing.T, fill byte) *giznet.KeyPair {
 	return kp
 }
 
+type closedPeerListener struct{}
+
+func (closedPeerListener) Accept() (giznet.Conn, error) { return nil, giznet.ErrClosed }
+func (closedPeerListener) Close() error                 { return nil }
+
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
 	if cfg.Listen != "0.0.0.0:9820" {
@@ -105,6 +110,16 @@ endpoint: 127.0.0.1:9820
 	}
 }
 
+func TestParseConfigDefaultPeerView(t *testing.T) {
+	cfg, err := parseConfigData([]byte("default-peer-view: default-client\n"))
+	if err != nil {
+		t.Fatalf("parseConfigData error = %v", err)
+	}
+	if cfg.DefaultPeerView != "default-client" {
+		t.Fatalf("DefaultPeerView = %q, want default-client", cfg.DefaultPeerView)
+	}
+}
+
 func TestAdminPublicKeySecurityPolicy(t *testing.T) {
 	allowed := testPublicKey(1)
 	other := testPublicKey(2)
@@ -121,6 +136,42 @@ func TestAdminPublicKeySecurityPolicy(t *testing.T) {
 	}
 	if policy.AllowService(allowed, gizclaw.ServicePeerHTTP) {
 		t.Fatal("AllowService allowed a non-admin service")
+	}
+}
+
+func TestAdminPublicKeyAutoRegistersAsClientWithDefaultView(t *testing.T) {
+	adminPublicKey := testPublicKey(1)
+	srv, err := New(Config{
+		Listen:          "127.0.0.1:9820",
+		Endpoint:        "127.0.0.1:9820",
+		AdminPublicKey:  adminPublicKey,
+		DefaultPeerView: "default-client",
+		Stores: map[string]stores.Config{
+			defaultPeersStore: {Kind: stores.KindKeyValue, Backend: "memory"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("New error = %v", err)
+	}
+	t.Cleanup(func() { _ = srv.Close() })
+	srv.Server.PeerListenerFactories = nil
+	srv.Server.PeerListeners = []giznet.Listener{closedPeerListener{}}
+	if err := srv.Listen(); err != nil {
+		t.Fatalf("Listen error = %v", err)
+	}
+
+	created, err := srv.Manager().EnsurePeer(context.Background(), adminPublicKey)
+	if err != nil {
+		t.Fatalf("EnsurePeer error = %v", err)
+	}
+	if created.Role != apitypes.PeerRoleClient || created.Status != apitypes.PeerRegistrationStatusActive {
+		t.Fatalf("created peer = %+v, want active client", created)
+	}
+	if created.Configuration.View == nil || *created.Configuration.View != "default-client" {
+		t.Fatalf("created view = %v, want default-client", created.Configuration.View)
+	}
+	if !srv.SecurityPolicy.AllowService(adminPublicKey, gizclaw.ServiceAdminHTTP) {
+		t.Fatal("admin-public-key should retain independent Admin API access")
 	}
 }
 
@@ -232,9 +283,10 @@ func TestNewWithPreparedConfig(t *testing.T) {
 		t.Fatalf("KeyFromHex error = %v", err)
 	}
 	srv, err := New(Config{
-		Listen:         "127.0.0.1:1234",
-		Endpoint:       "127.0.0.1:1234",
-		AdminPublicKey: adminKey,
+		Listen:          "127.0.0.1:1234",
+		Endpoint:        "127.0.0.1:1234",
+		AdminPublicKey:  adminKey,
+		DefaultPeerView: " default-client ",
 		Stores: map[string]stores.Config{
 			"peers": {Kind: stores.KindKeyValue, Backend: "memory"},
 		},
@@ -252,6 +304,9 @@ func TestNewWithPreparedConfig(t *testing.T) {
 	}
 	if srv.AdminPublicKey != adminKey {
 		t.Fatalf("AdminPublicKey = %v, want %v", srv.AdminPublicKey, adminKey)
+	}
+	if srv.DefaultPeerView != "default-client" {
+		t.Fatalf("DefaultPeerView = %q, want default-client", srv.DefaultPeerView)
 	}
 }
 
@@ -638,9 +693,10 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 		t.Fatalf("KeyFromHex file error = %v", err)
 	}
 	runtimeCfg := Config{
-		Listen:         "0.0.0.0:9999",
-		Endpoint:       "127.0.0.1:9999",
-		AdminPublicKey: adminKey,
+		Listen:          "0.0.0.0:9999",
+		Endpoint:        "127.0.0.1:9999",
+		AdminPublicKey:  adminKey,
+		DefaultPeerView: "runtime-client",
 		Storage: map[string]storage.Config{
 			"runtime-storage": {Kind: "keyvalue", Backend: "memory"},
 		},
@@ -656,9 +712,10 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 		Log: logging.Config{Level: "error"},
 	}
 	fileCfg := ConfigFile{
-		Listen:         "0.0.0.0:1234",
-		Endpoint:       "127.0.0.1:1234",
-		AdminPublicKey: fileAdminKey,
+		Listen:          "0.0.0.0:1234",
+		Endpoint:        "127.0.0.1:1234",
+		AdminPublicKey:  fileAdminKey,
+		DefaultPeerView: "file-client",
 		Storage: map[string]storage.Config{
 			"file-storage": {Kind: "keyvalue", Backend: "memory"},
 		},
@@ -687,6 +744,9 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 	if merged.AdminPublicKey != runtimeCfg.AdminPublicKey {
 		t.Fatalf("AdminPublicKey = %v, want %v", merged.AdminPublicKey, runtimeCfg.AdminPublicKey)
 	}
+	if merged.DefaultPeerView != "runtime-client" {
+		t.Fatalf("DefaultPeerView = %q, want runtime-client", merged.DefaultPeerView)
+	}
 	if len(merged.Stores) != 1 || merged.Stores["runtime"].Backend != "memory" {
 		t.Fatalf("Stores = %+v", merged.Stores)
 	}
@@ -705,6 +765,9 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 	}
 	if merged.Log.Level != "warn" {
 		t.Fatalf("file Log should be used when runtime is empty, got %+v", merged.Log)
+	}
+	if merged.DefaultPeerView != "file-client" {
+		t.Fatalf("file DefaultPeerView should be used when runtime is empty, got %q", merged.DefaultPeerView)
 	}
 }
 
@@ -793,6 +856,29 @@ func TestPrepareConfigGeneratesKeyPairAndDefaultPorts(t *testing.T) {
 	}
 	if cfg.Endpoint != defaults.Endpoint {
 		t.Fatalf("Endpoint = %q, want %q", cfg.Endpoint, defaults.Endpoint)
+	}
+}
+
+func TestPrepareConfigNormalizesDefaultPeerView(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		want  string
+	}{
+		{name: "surrounding whitespace", value: "  default-client\t", want: "default-client"},
+		{name: "whitespace only", value: " \t\n", want: ""},
+		{name: "empty", value: "", want: ""},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, err := prepareConfig(Config{DefaultPeerView: tc.value})
+			if err != nil {
+				t.Fatalf("prepareConfig error = %v", err)
+			}
+			if cfg.DefaultPeerView != tc.want {
+				t.Fatalf("DefaultPeerView = %q, want %q", cfg.DefaultPeerView, tc.want)
+			}
+		})
 	}
 }
 
