@@ -1946,7 +1946,13 @@ export type WorkflowDocument = {
     i18n?: WorkflowI18n;
 };
 
+/**
+ * Workflow-owned locale catalogs. default_locale must name one of the locale catalog properties.
+ */
 export type WorkflowI18n = {
+    /**
+     * Locale key used when the requested locale is unavailable. A catalog with this key is required.
+     */
     default_locale: string;
     [key: string]: WorkflowI18nCatalog | string;
 };

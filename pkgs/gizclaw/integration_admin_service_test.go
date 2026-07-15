@@ -3,6 +3,8 @@ package gizclaw_test
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -84,6 +86,31 @@ func TestIntegrationAdminServiceWorkflowLifecycle(t *testing.T) {
 	}
 	if _, err := getWorkflow(context.Background(), admin, "demo-assistant"); err == nil {
 		t.Fatal("GetWorkflow after delete expected error")
+	}
+}
+
+func TestIntegrationAdminServiceRejectsLegacyWorkflowDescription(t *testing.T) {
+	ts := startTestServer(t)
+
+	admin := newTestClient(t, ts)
+	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: strPtr("admin")})
+	api, err := admin.ServerAdminClient()
+	if err != nil {
+		t.Fatalf("ServerAdminClient() error = %v", err)
+	}
+	resp, err := api.CreateWorkflowWithBodyWithResponse(
+		context.Background(),
+		"application/json",
+		strings.NewReader(`{
+			"metadata":{"name":"legacy","description":"old"},
+			"spec":{"driver":"flowcraft","flowcraft":{}}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("CreateWorkflowWithBodyWithResponse() error = %v", err)
+	}
+	if resp.StatusCode() != http.StatusBadRequest {
+		t.Fatalf("CreateWorkflow status = %d, body = %s", resp.StatusCode(), resp.Body)
 	}
 }
 

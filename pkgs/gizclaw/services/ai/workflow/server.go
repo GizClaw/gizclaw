@@ -231,22 +231,43 @@ func validateDriverSpec(spec apitypes.WorkflowSpec) error {
 }
 
 func decodeDocument(data []byte) (apitypes.WorkflowDocument, error) {
-	var doc apitypes.WorkflowDocument
-	if err := json.Unmarshal(data, &doc); err != nil {
+	var legacy legacyWorkflowDocument
+	if err := json.Unmarshal(data, &legacy); err != nil {
 		return apitypes.WorkflowDocument{}, err
 	}
-	if doc.I18n == nil {
-		var legacy legacyWorkflowDocument
-		if err := json.Unmarshal(data, &legacy); err != nil {
+
+	decodeData := data
+	if legacy.Metadata.Description != nil {
+		var object map[string]json.RawMessage
+		if err := json.Unmarshal(data, &object); err != nil {
 			return apitypes.WorkflowDocument{}, err
 		}
-		if legacy.Metadata.Description != nil {
-			doc.I18n = &apitypes.WorkflowI18n{
-				DefaultLocale: "en",
-				AdditionalProperties: map[string]apitypes.WorkflowI18nCatalog{
-					"en": {Description: legacy.Metadata.Description},
-				},
-			}
+		var metadata map[string]json.RawMessage
+		if err := json.Unmarshal(object["metadata"], &metadata); err != nil {
+			return apitypes.WorkflowDocument{}, err
+		}
+		delete(metadata, "description")
+		rawMetadata, err := json.Marshal(metadata)
+		if err != nil {
+			return apitypes.WorkflowDocument{}, err
+		}
+		object["metadata"] = rawMetadata
+		decodeData, err = json.Marshal(object)
+		if err != nil {
+			return apitypes.WorkflowDocument{}, err
+		}
+	}
+
+	var doc apitypes.WorkflowDocument
+	if err := json.Unmarshal(decodeData, &doc); err != nil {
+		return apitypes.WorkflowDocument{}, err
+	}
+	if doc.I18n == nil && legacy.Metadata.Description != nil {
+		doc.I18n = &apitypes.WorkflowI18n{
+			DefaultLocale: "en",
+			AdditionalProperties: map[string]apitypes.WorkflowI18nCatalog{
+				"en": {Description: legacy.Metadata.Description},
+			},
 		}
 	}
 	if err := validateWorkflowI18n(doc.I18n); err != nil {

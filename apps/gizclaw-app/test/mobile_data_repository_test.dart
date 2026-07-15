@@ -158,7 +158,16 @@ void main() {
         }.entries,
       );
 
-      expect((await refreshFor('zh-CN', catalogs)).title, '简体中文');
+      final exactLocale = await refreshFor('zh-CN', catalogs);
+      expect(exactLocale.title, '简体中文');
+      expect(exactLocale.subtitle, '简体中文说明');
+
+      currentLocaleTag = 'en';
+      final cachedInNewLocale =
+          (await repository.watchWorkflows('server-a').first).single;
+      expect(cachedInNewLocale.title, 'English');
+      expect(cachedInNewLocale.subtitle, 'English description');
+
       expect((await refreshFor('zh-TW', catalogs)).title, '中文');
       expect((await refreshFor('fr-FR', catalogs)).title, 'English');
 

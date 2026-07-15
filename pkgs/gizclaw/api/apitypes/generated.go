@@ -3642,6 +3642,7 @@ type VolcTenantVoiceProviderData struct {
 
 // WorkflowDocument defines model for WorkflowDocument.
 type WorkflowDocument struct {
+	// I18n Workflow-owned locale catalogs. default_locale must name one of the locale catalog properties.
 	I18n     *WorkflowI18n    `json:"i18n,omitempty"`
 	Metadata WorkflowMetadata `json:"metadata"`
 	Spec     WorkflowSpec     `json:"spec"`
@@ -3650,8 +3651,9 @@ type WorkflowDocument struct {
 // WorkflowDriver defines model for WorkflowDriver.
 type WorkflowDriver string
 
-// WorkflowI18n defines model for WorkflowI18n.
+// WorkflowI18n Workflow-owned locale catalogs. default_locale must name one of the locale catalog properties.
 type WorkflowI18n struct {
+	// DefaultLocale Locale key used when the requested locale is unavailable. A catalog with this key is required.
 	DefaultLocale        string                         `json:"default_locale"`
 	AdditionalProperties map[string]WorkflowI18nCatalog `json:"-"`
 }
@@ -3671,9 +3673,11 @@ type WorkflowMetadata struct {
 // WorkflowResource defines model for WorkflowResource.
 type WorkflowResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
-	ApiVersion ResourceAPIVersion   `json:"apiVersion"`
-	I18n       *WorkflowI18n        `json:"i18n,omitempty"`
-	Kind       WorkflowResourceKind `json:"kind"`
+	ApiVersion ResourceAPIVersion `json:"apiVersion"`
+
+	// I18n Workflow-owned locale catalogs. default_locale must name one of the locale catalog properties.
+	I18n *WorkflowI18n        `json:"i18n,omitempty"`
+	Kind WorkflowResourceKind `json:"kind"`
 
 	// Metadata metadata.name is the workflow custom ID.
 	Metadata ResourceMetadata `json:"metadata"`

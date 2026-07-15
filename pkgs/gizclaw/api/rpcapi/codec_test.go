@@ -6,10 +6,12 @@ import (
 	"errors"
 	"io"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
+	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -551,6 +553,29 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 	}
 	if statProto.GetValue()["hunger"] != 1 || statProto.GetValue()["clean"] != 2 {
 		t.Fatalf("stat map = %+v", statProto.GetValue())
+	}
+}
+
+func TestPayloadCodecRejectsLegacyWorkflowDescription(t *testing.T) {
+	legacy := &rpcpb.WorkflowCreateRequest{
+		Value: &rpcpb.WorkflowDocument{
+			Metadata: &rpcpb.WorkflowMetadata{Name: "legacy"},
+			Spec: &rpcpb.WorkflowSpec{
+				Driver: rpcpb.WorkflowDriver_WORKFLOW_DRIVER_FLOWCRAFT,
+			},
+		},
+	}
+	unknown := protowire.AppendTag(nil, 1, protowire.BytesType)
+	legacy.Value.Metadata.ProtoReflect().SetUnknown(protowire.AppendString(unknown, "old description"))
+	payload, err := proto.Marshal(legacy)
+	if err != nil {
+		t.Fatalf("proto.Marshal() error = %v", err)
+	}
+
+	rpcPayload := newRPCPayload("WorkflowCreateRequest", payload, false)
+	_, err = rpcPayload.AsWorkflowCreateRequest()
+	if err == nil || !strings.Contains(err.Error(), "workflow metadata field 1 is no longer supported") {
+		t.Fatalf("AsWorkflowCreateRequest() error = %v", err)
 	}
 }
 

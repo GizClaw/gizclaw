@@ -22,12 +22,15 @@
       },
       "WorkflowI18n": {
         "type": "object",
+        "description": "Workflow-owned locale catalogs. default_locale must name one of the locale catalog properties.",
+        "minProperties": 2,
         "required": [
           "default_locale"
         ],
         "properties": {
           "default_locale": {
-            "type": "string"
+            "type": "string",
+            "description": "Locale key used when the requested locale is unavailable. A catalog with this key is required."
           }
         },
         "additionalProperties": {
