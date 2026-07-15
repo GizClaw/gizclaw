@@ -1,18 +1,18 @@
 [submodule "third_party/audio/libopus"]
 	path = third_party/audio/libopus
-	url = https://github.com/xiph/opus.git
+	url = https://github.com/GizClaw/opus.git
 [submodule "third_party/audio/lame"]
 	path = third_party/audio/lame
-	url = https://github.com/lameproject/lame.git
+	url = https://github.com/GizClaw/lame.git
 [submodule "third_party/audio/libogg"]
 	path = third_party/audio/libogg
-	url = https://github.com/xiph/ogg.git
+	url = https://github.com/GizClaw/ogg.git
 [submodule "third_party/audio/portaudio"]
 	path = third_party/audio/portaudio
-	url = https://github.com/PortAudio/portaudio.git
+	url = https://github.com/GizClaw/portaudio.git
 [submodule "third_party/ncnn/upstream"]
 	path = third_party/ncnn/upstream
-	url = https://github.com/Tencent/ncnn.git
+	url = https://github.com/GizClaw/ncnn.git
 [submodule "third_party/nanopb/upstream"]
 	path = third_party/nanopb/upstream
-	url = https://github.com/nanopb/nanopb.git
+	url = https://github.com/GizClaw/nanopb.git
