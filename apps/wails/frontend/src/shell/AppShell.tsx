@@ -17,6 +17,7 @@ import {
   Plus,
   Search,
   Server,
+  Smartphone,
   Sparkles,
   Trash2,
   X,
@@ -158,6 +159,7 @@ export function AppShell() {
         className={`pod-canvas ${!loading && pods.length === 0 ? "pod-canvas-empty" : ""}`}
       >
         <div className="pod-grid" aria-label={t("pods")}>
+          <MobileAppCard />
           {loading ? (
             <>
               <span className="pod-skeleton" />
@@ -169,7 +171,7 @@ export function AppShell() {
             <PodCard
               key={pod.id}
               pod={pod}
-              index={index}
+              index={index + 1}
               onOpen={() => openPod(pod)}
             />
           ))}
@@ -212,6 +214,33 @@ export function AppShell() {
         />
       ) : null}
     </main>
+  );
+}
+
+function MobileAppCard() {
+  const t = useMessages();
+  return (
+    <article className="mobile-app-card" aria-label={t("mobileAppPromo")}>
+      <span className="mobile-app-card-top">
+        <span className="mobile-app-icon">
+          <Smartphone size={18} />
+        </span>
+        <span className="mode-chip">Mobile</span>
+        <span className="mobile-app-status">{t("comingSoon")}</span>
+      </span>
+      <span className="pod-card-copy mobile-app-copy">
+        <strong>GizClaw Mobile</strong>
+        <small>{t("mobileAppHint")}</small>
+      </span>
+      <span className="mobile-app-platforms" aria-hidden="true">
+        <span>
+          <b>iOS</b> TestFlight
+        </span>
+        <span>
+          <b>Android</b> Google Play
+        </span>
+      </span>
+    </article>
   );
 }
 

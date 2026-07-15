@@ -482,6 +482,10 @@ test("launcher uses rounded transparent framing and ambient card depth", async (
   page,
 }) => {
   await page.goto("/");
+  const gridCards = page.locator(".pod-grid > *");
+  await expect(gridCards.first()).toHaveClass(/mobile-app-card/);
+  await expect(gridCards.first()).toContainText("TestFlight");
+  await expect(gridCards.first()).toContainText("Google Play");
   const shell = page.locator(".desktop-shell");
   const shellStyle = await shell.evaluate((element) => {
     const style = getComputedStyle(element);
