@@ -1,0 +1,4 @@
+"CFBundleDisplayName" = "GizClaw OpenSource";
+"NSCameraUsageDescription" = "GizClaw 使用相机扫描服务器二维码。";
+"NSLocalNetworkUsageDescription" = "GizClaw 使用本地网络连接 GizClaw 设备和服务器。";
+"NSMicrophoneUsageDescription" = "GizClaw 使用麦克风进行语音对话。";

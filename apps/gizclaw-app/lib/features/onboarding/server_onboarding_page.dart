@@ -2,6 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../giz_ui/giz_ui.dart';
+import '../../l10n/l10n.dart';
+import '../settings/language_selector.dart';
 
 class ServerOnboardingPage extends StatefulWidget {
   const ServerOnboardingPage({super.key});
@@ -11,45 +13,36 @@ class ServerOnboardingPage extends StatefulWidget {
 }
 
 class _ServerOnboardingPageState extends State<ServerOnboardingPage> {
-  static const _features = [
+  List<_OnboardingFeature> _features(BuildContext context) => [
     _OnboardingFeature(
       id: 'daily-companion',
       imagePath: 'assets/workflows/daily-companion.png',
-      title: 'Agents that feel close',
-      description:
-          'Talk naturally with always-ready companions for planning, ideas, and everyday help.',
-      eyebrow: 'ALWAYS READY',
-      articleTitle: 'Built around your day',
-      articleBody:
-          'Keep a personal agent close for quick questions, planning, and the small decisions that keep your day moving.',
-      articleHighlight:
-          'Your conversations stay connected through the GizClaw server you choose.',
+      title: context.l10n.onboardingAgentsTitle,
+      description: context.l10n.onboardingAgentsDescription,
+      eyebrow: context.l10n.onboardingAgentsEyebrow,
+      articleTitle: context.l10n.onboardingAgentsArticleTitle,
+      articleBody: context.l10n.onboardingAgentsArticleBody,
+      articleHighlight: context.l10n.onboardingAgentsArticleHighlight,
     ),
     _OnboardingFeature(
       id: 'flowcraft-studio',
       imagePath: 'assets/workflows/flowcraft-studio.png',
-      title: 'Workflows that move with you',
-      description:
-          'Turn reusable workflows into structured work you can run from any connected device.',
-      eyebrow: 'REUSABLE WORK',
-      articleTitle: 'Make great work repeatable',
-      articleBody:
-          'Build a workflow once, then launch the same structured process whenever you need it—from your phone or another connected device.',
-      articleHighlight:
-          'Carry the process between devices without rebuilding it every time.',
+      title: context.l10n.onboardingWorkflowsTitle,
+      description: context.l10n.onboardingWorkflowsDescription,
+      eyebrow: context.l10n.onboardingWorkflowsEyebrow,
+      articleTitle: context.l10n.onboardingWorkflowsArticleTitle,
+      articleBody: context.l10n.onboardingWorkflowsArticleBody,
+      articleHighlight: context.l10n.onboardingWorkflowsArticleHighlight,
     ),
     _OnboardingFeature(
       id: 'realtime-lab',
       imagePath: 'assets/workflows/realtime-lab.png',
-      title: 'Realtime by design',
-      description:
-          'Run low-latency voice sessions while your server keeps every device in the loop.',
-      eyebrow: 'LOW LATENCY',
-      articleTitle: 'Voice that keeps up',
-      articleBody:
-          'Start a natural voice session and let GizClaw coordinate the realtime experience across your connected devices.',
-      articleHighlight:
-          'Fast responses, one server, and every connected device in the loop.',
+      title: context.l10n.onboardingRealtimeTitle,
+      description: context.l10n.onboardingRealtimeDescription,
+      eyebrow: context.l10n.onboardingRealtimeEyebrow,
+      articleTitle: context.l10n.onboardingRealtimeArticleTitle,
+      articleBody: context.l10n.onboardingRealtimeArticleBody,
+      articleHighlight: context.l10n.onboardingRealtimeArticleHighlight,
     ),
   ];
 
@@ -78,6 +71,7 @@ class _ServerOnboardingPageState extends State<ServerOnboardingPage> {
 
   @override
   Widget build(BuildContext context) {
+    final features = _features(context);
     return CupertinoPageScaffold(
       child: DecoratedBox(
         decoration: const BoxDecoration(
@@ -97,19 +91,19 @@ class _ServerOnboardingPageState extends State<ServerOnboardingPage> {
                 child: PageView.builder(
                   key: const ValueKey('server-onboarding-features'),
                   controller: _pageController,
-                  itemCount: _features.length,
+                  itemCount: features.length,
                   onPageChanged: (index) => setState(() => _pageIndex = index),
                   itemBuilder: (context, index) => Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 6),
                     child: _FeatureCard(
-                      feature: _features[index],
-                      onImagePressed: () => _openFeature(_features[index]),
+                      feature: features[index],
+                      onImagePressed: () => _openFeature(features[index]),
                     ),
                   ),
                 ),
               ),
               const SizedBox(height: 14),
-              _PageIndicator(count: _features.length, selected: _pageIndex),
+              _PageIndicator(count: features.length, selected: _pageIndex),
               const SizedBox(height: 18),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
@@ -122,12 +116,12 @@ class _ServerOnboardingPageState extends State<ServerOnboardingPage> {
                         borderRadius: BorderRadius.circular(18),
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         onPressed: () => context.push('/setup/servers'),
-                        child: const Text('Get Started by Connecting a Server'),
+                        child: Text(context.l10n.onboardingConnectServer),
                       ),
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Enter a server access point or scan a QR code.',
+                      context.l10n.onboardingConnectHint,
                       textAlign: TextAlign.center,
                       style: GizText.label.copyWith(
                         color: GizColors.secondaryInk,
@@ -150,31 +144,30 @@ class _OnboardingHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.fromLTRB(24, 18, 24, 0),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 10, 24, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              GizIconTile(
+              const GizIconTile(
                 icon: GizIcons.sparkles,
                 backgroundColor: GizColors.primary,
                 foregroundColor: GizColors.surface,
                 size: 42,
                 iconSize: 21,
               ),
-              SizedBox(width: 10),
-              Text('GIZCLAW', style: GizText.label),
+              const SizedBox(width: 10),
+              const Text('GIZCLAW', style: GizText.label),
+              const Spacer(),
+              const LanguageSelectorButton(compact: true),
             ],
           ),
-          SizedBox(height: 18),
-          Text('Your agents, everywhere.', style: GizText.hero),
-          SizedBox(height: 10),
-          Text(
-            'Connect to a GizClaw server to unlock voice, workflows, and companions across your devices.',
-            style: GizText.body,
-          ),
+          const SizedBox(height: 10),
+          Text(context.l10n.onboardingHeroTitle, style: GizText.hero),
+          const SizedBox(height: 10),
+          Text(context.l10n.onboardingHeroDescription, style: GizText.body),
         ],
       ),
     );
@@ -215,7 +208,9 @@ class _FeatureCard extends StatelessWidget {
                   pressedOpacity: 0.86,
                   onPressed: onImagePressed,
                   child: Semantics(
-                    label: 'Read ${feature.title}',
+                    label: context.l10n.onboardingReadStory(
+                      title: feature.title,
+                    ),
                     button: true,
                     excludeSemantics: true,
                     child: Stack(
@@ -242,12 +237,12 @@ class _FeatureCard extends StatelessWidget {
                                 color: const Color(0xD913211C),
                                 borderRadius: BorderRadius.circular(99),
                               ),
-                              child: const Row(
+                              child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
-                                    'READ STORY',
-                                    style: TextStyle(
+                                    context.l10n.onboardingReadStoryAction,
+                                    style: const TextStyle(
                                       fontFamily: 'NotoSansSC',
                                       color: GizColors.surface,
                                       fontSize: 10,
@@ -255,8 +250,8 @@ class _FeatureCard extends StatelessWidget {
                                       letterSpacing: 0.7,
                                     ),
                                   ),
-                                  SizedBox(width: 5),
-                                  Icon(
+                                  const SizedBox(width: 5),
+                                  const Icon(
                                     GizIcons.arrow_up_right,
                                     size: 13,
                                     color: GizColors.surface,

@@ -1,0 +1,4 @@
+"CFBundleDisplayName" = "GizClaw OpenSource";
+"NSCameraUsageDescription" = "GizClaw uses the camera to scan server QR codes.";
+"NSLocalNetworkUsageDescription" = "GizClaw connects to GizClaw devices and servers on your local network.";
+"NSMicrophoneUsageDescription" = "GizClaw uses the microphone for voice conversations.";

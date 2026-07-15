@@ -15,6 +15,7 @@ class Servers extends Table {
 class WorkflowEntries extends Table {
   TextColumn get serverId => text()();
   TextColumn get name => text()();
+  TextColumn get locale => text().nullable()();
   TextColumn get description => text()();
   TextColumn get driver => text()();
   BlobColumn get rawProtobuf => blob()();
@@ -104,7 +105,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -116,6 +117,9 @@ class AppDatabase extends _$AppDatabase {
       if (from < 3) {
         await migrator.createTable(friendEntries);
         await migrator.createTable(friendGroupEntries);
+      }
+      if (from < 4) {
+        await migrator.addColumn(workflowEntries, workflowEntries.locale);
       }
     },
   );

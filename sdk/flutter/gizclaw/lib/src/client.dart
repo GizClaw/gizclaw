@@ -71,6 +71,16 @@ class GizClawClient {
     );
   }
 
+  Future<payload.WorkflowGetResponse> getWorkflow(
+    String name, {
+    required payload.WorkflowLocale lang,
+  }) {
+    return rpc.call<payload.WorkflowGetResponse>(
+      'server.workflow.get',
+      payload.WorkflowGetRequest(name: name, lang: lang),
+    );
+  }
+
   Future<payload.WorkspaceListResponse> listWorkspaces({
     String? cursor,
     int? limit,

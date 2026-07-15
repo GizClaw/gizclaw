@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import '../data/mobile_data_controller.dart';
 import '../data/workspace_chat_controller.dart';
 import '../giz_ui/giz_ui.dart';
+import '../l10n/l10n.dart';
 import '../prototype/prototype_models.dart';
 
 class GlobalConversationOverlay extends StatelessWidget {
@@ -820,17 +821,17 @@ class _WorkspaceActivationButtonState
       await MobileDataScope.watch(
         context,
       ).activateWorkspaceChat(widget.workspaceName);
-    } catch (error) {
+    } catch (_) {
       if (!mounted) return;
       await showCupertinoDialog<void>(
         context: context,
         builder: (context) => CupertinoAlertDialog(
-          title: const Text('Unable to activate'),
-          content: Text('$error'),
+          title: Text(context.l10n.actionText(key: 'unableActivate')),
+          content: Text(context.l10n.actionText(key: 'actionFailed')),
           actions: [
             CupertinoDialogAction(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
+              child: Text(context.l10n.commonOk),
             ),
           ],
         ),
@@ -1126,17 +1127,17 @@ class _GlobalConversationControlState extends State<GlobalConversationControl> {
           await realtimeChat.startInput();
         }
       }
-    } catch (error) {
+    } catch (_) {
       if (!mounted) return;
       await showCupertinoDialog<void>(
         context: context,
         builder: (context) => CupertinoAlertDialog(
-          title: const Text('Unable to switch mode'),
-          content: Text('$error'),
+          title: Text(context.l10n.actionText(key: 'unableSwitchMode')),
+          content: Text(context.l10n.actionText(key: 'actionFailed')),
           actions: [
             CupertinoDialogAction(
               onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
+              child: Text(context.l10n.commonOk),
             ),
           ],
         ),
@@ -1292,7 +1293,7 @@ class _VoiceModeToggleState extends State<_VoiceModeToggle> {
               Expanded(
                 child: _VoiceModeTarget(
                   key: const ValueKey('voice-mode-ptt'),
-                  label: 'Push to talk',
+                  label: context.l10n.actionText(key: 'pushToTalk'),
                   icon: GizIcons.mic_fill,
                   color: pttAccent.withValues(alpha: realtime ? 0.48 : 0.72),
                   loading: widget.switchingMode && realtime,
@@ -1306,7 +1307,7 @@ class _VoiceModeToggleState extends State<_VoiceModeToggle> {
               Expanded(
                 child: _VoiceModeTarget(
                   key: const ValueKey('voice-mode-realtime'),
-                  label: 'Realtime',
+                  label: context.l10n.actionText(key: 'realtime'),
                   icon: GizIcons.phone_fill,
                   color: realtimeAccent.withValues(
                     alpha: realtime ? 0.72 : 0.48,
@@ -1364,7 +1365,7 @@ class _VoiceModeTarget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'Switch to $label',
+      label: context.l10n.switchToMode(mode: label),
       button: onPressed != null,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,

@@ -6,6 +6,11 @@
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
 	<string>GizClaw OpenSource</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>zh-Hans</string>
+	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -33,12 +38,12 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>GizClaw connects to GizClaw devices and servers on your local network.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>GizClaw uses the camera to scan server QR codes.</string>
+	<string>Camera access is required to scan server QR codes.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Local network access is required to connect to GizClaw devices and servers.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>GizClaw uses the microphone while you hold the talk button.</string>
+	<string>Microphone access is required for voice conversations.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

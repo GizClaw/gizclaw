@@ -10,6 +10,7 @@ import '../../app/global_conversation_control.dart';
 import '../../data/mobile_data_controller.dart';
 import '../../data/workspace_chat_controller.dart';
 import '../../giz_ui/giz_ui.dart';
+import '../../l10n/l10n.dart';
 import '../../prototype/prototype_models.dart';
 
 class ChatsPage extends StatelessWidget {
@@ -23,9 +24,12 @@ class ChatsPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 12, 20, 16),
-              child: Text('Raids', style: GizText.pageTitle),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              child: Text(
+                context.l10n.uiText(key: 'raids'),
+                style: GizText.pageTitle,
+              ),
             ),
             const Expanded(child: _ChatTypeMenu()),
           ],
@@ -207,7 +211,7 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
     final workflow = await showCupertinoModalPopup<WorkflowCard>(
       context: context,
       builder: (context) => CupertinoActionSheet(
-        title: const Text('Choose Workflow'),
+        title: Text(context.l10n.actionText(key: 'chooseWorkflow')),
         actions: [
           for (final workflow in widget.workflows)
             CupertinoActionSheetAction(
@@ -226,7 +230,7 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
         ],
         cancelButton: CupertinoActionSheetAction(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(context.l10n.commonCancel),
         ),
       ),
     );
@@ -319,7 +323,7 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
           CupertinoTextField(
             key: const ValueKey('workspace-display-name'),
             controller: _nameController,
-            placeholder: 'Name',
+            placeholder: context.l10n.uiText(key: 'name'),
             maxLength: 80,
             autofocus: true,
             textInputAction: TextInputAction.done,

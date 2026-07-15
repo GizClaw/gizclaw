@@ -6,6 +6,7 @@ import '../../data/mobile_data_controller.dart';
 import '../../giz_ui/giz_ui.dart';
 import '../../identity/app_identity_store.dart';
 import '../../identity/server_qr_payload.dart';
+import '../../l10n/l10n.dart';
 
 class ServerListPage extends StatefulWidget {
   const ServerListPage({
@@ -43,13 +44,13 @@ class _ServerListPageState extends State<ServerListPage> {
     final data = MobileDataScope.watch(context);
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
-        middle: const Text('Servers'),
+        middle: Text(context.l10n.uiText(key: 'servers')),
         border: null,
         transitionBetweenRoutes: false,
         trailing: GizPageActionButton(
           key: const ValueKey('add-server-page-button'),
           icon: GizIcons.add,
-          semanticLabel: 'Add server',
+          semanticLabel: context.l10n.addServerA11y,
           onPressed: () => context.push(widget.addServerRoute),
         ),
       ),
@@ -69,7 +70,7 @@ class _ServerListPageState extends State<ServerListPage> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
                 child: Text(
-                  'Choose a server to finish setup and continue.',
+                  context.l10n.uiText(key: 'chooseServerSetup'),
                   style: GizText.body.copyWith(color: GizColors.secondaryInk),
                 ),
               ),
@@ -77,7 +78,7 @@ class _ServerListPageState extends State<ServerListPage> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
                 child: Text(
-                  'Could not switch servers. Please try again.',
+                  context.l10n.uiText(key: 'switchServerFailed'),
                   key: const ValueKey('switch-server-error'),
                   style: GizText.body.copyWith(
                     color: CupertinoColors.systemRed.resolveFrom(context),
@@ -212,8 +213,8 @@ class _AddServerPageState extends State<AddServerPage> {
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('Add Server'),
+      navigationBar: CupertinoNavigationBar(
+        middle: Text(context.l10n.uiText(key: 'addServer')),
         border: null,
         transitionBetweenRoutes: false,
       ),
@@ -222,7 +223,7 @@ class _AddServerPageState extends State<AddServerPage> {
           padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
           children: [
             Text(
-              'Add a server by entering its details or scanning a GizClaw QR code.',
+              context.l10n.uiText(key: 'addServerDescription'),
               style: GizText.body.copyWith(color: GizColors.secondaryInk),
             ),
             const SizedBox(height: 20),
@@ -231,25 +232,25 @@ class _AddServerPageState extends State<AddServerPage> {
               color: GizColors.surface,
               padding: const EdgeInsets.symmetric(vertical: 15),
               onPressed: _busy ? null : _scan,
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(GizIcons.qr_code, size: 22),
-                  SizedBox(width: 8),
-                  Text('Scan QR Code'),
+                  const Icon(GizIcons.qr_code, size: 22),
+                  const SizedBox(width: 8),
+                  Text(context.l10n.uiText(key: 'scanQr')),
                 ],
               ),
             ),
             const SizedBox(height: 28),
             Text(
-              'SERVER DETAILS',
+              context.l10n.uiText(key: 'serverDetails'),
               style: GizText.label.copyWith(color: GizColors.secondaryInk),
             ),
             const SizedBox(height: 8),
             CupertinoTextField(
               key: const ValueKey('server-name-field'),
               controller: _nameController,
-              placeholder: 'Name',
+              placeholder: context.l10n.uiText(key: 'name'),
               textInputAction: TextInputAction.next,
               padding: const EdgeInsets.all(14),
               onChanged: (_) => setState(() => _error = null),
@@ -270,7 +271,7 @@ class _AddServerPageState extends State<AddServerPage> {
             if (_error != null) ...[
               const SizedBox(height: 10),
               Text(
-                _serverErrorMessage(_error!),
+                _serverErrorMessage(context, _error!),
                 key: const ValueKey('add-server-error'),
                 style: GizText.body.copyWith(
                   color: CupertinoColors.systemRed.resolveFrom(context),
@@ -283,7 +284,7 @@ class _AddServerPageState extends State<AddServerPage> {
               onPressed: _busy ? null : _add,
               child: _busy
                   ? const CupertinoActivityIndicator()
-                  : const Text('Add Server'),
+                  : Text(context.l10n.uiText(key: 'addServer')),
             ),
           ],
         ),
@@ -323,8 +324,8 @@ class _ScanServerQrPageState extends State<ScanServerQrPage> {
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       backgroundColor: CupertinoColors.black,
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('Scan Server'),
+      navigationBar: CupertinoNavigationBar(
+        middle: Text(context.l10n.uiText(key: 'scanServer')),
         backgroundColor: Color(0xCC000000),
         border: null,
         transitionBetweenRoutes: false,
@@ -354,7 +355,9 @@ class _ScanServerQrPageState extends State<ScanServerQrPage> {
             right: 24,
             bottom: 44 + MediaQuery.paddingOf(context).bottom,
             child: Text(
-              _error ?? 'Point the camera at a GizClaw server QR code.',
+              _error == null
+                  ? context.l10n.uiText(key: 'pointCamera')
+                  : context.l10n.uiText(key: 'serverAddFailed'),
               textAlign: TextAlign.center,
               style: GizText.body.copyWith(
                 color: _error == null
@@ -385,8 +388,8 @@ class _ScannerError extends StatelessWidget {
           padding: const EdgeInsets.all(28),
           child: Text(
             permissionDenied
-                ? 'Camera access is required to scan a server QR code. Enable it in Settings and try again.'
-                : 'The camera could not start. Go back and try again.',
+                ? context.l10n.uiText(key: 'cameraRequired')
+                : context.l10n.uiText(key: 'cameraFailed'),
             textAlign: TextAlign.center,
             style: GizText.body.copyWith(color: CupertinoColors.white),
           ),
@@ -396,7 +399,6 @@ class _ScannerError extends StatelessWidget {
   }
 }
 
-String _serverErrorMessage(Object error) {
-  if (error is FormatException) return error.message;
-  return 'Could not add the server. Please try again.';
+String _serverErrorMessage(BuildContext context, Object error) {
+  return context.l10n.uiText(key: 'serverAddFailed');
 }

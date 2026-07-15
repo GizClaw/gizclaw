@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import '../../data/mobile_data_controller.dart';
 import '../../data/workspace_chat_controller.dart';
 import '../../giz_ui/giz_ui.dart';
+import '../../l10n/l10n.dart';
 import '../../pixa_sprite.dart';
 
 const _petSceneColor = Color(0xFFDCEFE8);
@@ -923,10 +924,15 @@ class _PetPageHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Expanded(child: Text('Pets', style: GizText.pageTitle)),
+        Expanded(
+          child: Text(
+            context.l10n.uiText(key: 'pets'),
+            style: GizText.pageTitle,
+          ),
+        ),
         GizPageActionButton(
           icon: GizIcons.add_circled_solid,
-          semanticLabel: 'Adopt a pet',
+          semanticLabel: context.l10n.actionText(key: 'adoptPet'),
           loading: adopting,
           onPressed: adopting ? null : onAdopt,
         ),
@@ -2143,7 +2149,10 @@ class _PetEmptyPage extends StatelessWidget {
                     color: CupertinoColors.systemRed.resolveFrom(context),
                   ),
                 ),
-                CupertinoButton(onPressed: onRetry, child: const Text('Retry')),
+                CupertinoButton(
+                  onPressed: onRetry,
+                  child: Text(context.l10n.commonRetry),
+                ),
               ],
               const Spacer(),
             ],
@@ -2215,7 +2224,7 @@ class _PetDetailMessage extends StatelessWidget {
               left: 18,
               top: 12,
               child: _SceneButton(
-                label: 'Back',
+                label: context.l10n.commonBack,
                 icon: GizIcons.back,
                 onPressed: () => context.pop(),
               ),
@@ -2234,7 +2243,7 @@ class _PetDetailMessage extends StatelessWidget {
                   if (onRetry != null)
                     CupertinoButton(
                       onPressed: onRetry,
-                      child: const Text('Retry'),
+                      child: Text(context.l10n.commonRetry),
                     ),
                 ],
               ),
@@ -2427,13 +2436,13 @@ Future<String?> _askPetName(BuildContext context) async {
     return await showCupertinoDialog<String>(
       context: context,
       builder: (context) => CupertinoAlertDialog(
-        title: const Text('Name your pet'),
+        title: Text(context.l10n.actionText(key: 'namePet')),
         content: Padding(
           padding: const EdgeInsets.only(top: 12),
           child: CupertinoTextField(
             controller: controller,
             autofocus: true,
-            placeholder: 'Optional name',
+            placeholder: context.l10n.actionText(key: 'optionalName'),
             textInputAction: TextInputAction.done,
             onSubmitted: (value) => Navigator.pop(context, value),
           ),
@@ -2441,12 +2450,12 @@ Future<String?> _askPetName(BuildContext context) async {
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.commonCancel),
           ),
           CupertinoDialogAction(
             isDefaultAction: true,
             onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('Adopt'),
+            child: Text(context.l10n.actionText(key: 'adopt')),
           ),
         ],
       ),

@@ -301,6 +301,15 @@ class $WorkflowEntriesTable extends WorkflowEntries
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _localeMeta = const VerificationMeta('locale');
+  @override
+  late final GeneratedColumn<String> locale = GeneratedColumn<String>(
+    'locale',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _descriptionMeta = const VerificationMeta(
     'description',
   );
@@ -348,6 +357,7 @@ class $WorkflowEntriesTable extends WorkflowEntries
   List<GeneratedColumn> get $columns => [
     serverId,
     name,
+    locale,
     description,
     driver,
     rawProtobuf,
@@ -380,6 +390,12 @@ class $WorkflowEntriesTable extends WorkflowEntries
       );
     } else if (isInserting) {
       context.missing(_nameMeta);
+    }
+    if (data.containsKey('locale')) {
+      context.handle(
+        _localeMeta,
+        locale.isAcceptableOrUnknown(data['locale']!, _localeMeta),
+      );
     }
     if (data.containsKey('description')) {
       context.handle(
@@ -439,6 +455,10 @@ class $WorkflowEntriesTable extends WorkflowEntries
         DriftSqlType.string,
         data['${effectivePrefix}name'],
       )!,
+      locale: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}locale'],
+      ),
       description: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}description'],
@@ -467,6 +487,7 @@ class $WorkflowEntriesTable extends WorkflowEntries
 class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
   final String serverId;
   final String name;
+  final String? locale;
   final String description;
   final String driver;
   final Uint8List rawProtobuf;
@@ -474,6 +495,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
   const WorkflowEntry({
     required this.serverId,
     required this.name,
+    this.locale,
     required this.description,
     required this.driver,
     required this.rawProtobuf,
@@ -484,6 +506,9 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
     final map = <String, Expression>{};
     map['server_id'] = Variable<String>(serverId);
     map['name'] = Variable<String>(name);
+    if (!nullToAbsent || locale != null) {
+      map['locale'] = Variable<String>(locale);
+    }
     map['description'] = Variable<String>(description);
     map['driver'] = Variable<String>(driver);
     map['raw_protobuf'] = Variable<Uint8List>(rawProtobuf);
@@ -495,6 +520,9 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
     return WorkflowEntriesCompanion(
       serverId: Value(serverId),
       name: Value(name),
+      locale: locale == null && nullToAbsent
+          ? const Value.absent()
+          : Value(locale),
       description: Value(description),
       driver: Value(driver),
       rawProtobuf: Value(rawProtobuf),
@@ -510,6 +538,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
     return WorkflowEntry(
       serverId: serializer.fromJson<String>(json['serverId']),
       name: serializer.fromJson<String>(json['name']),
+      locale: serializer.fromJson<String?>(json['locale']),
       description: serializer.fromJson<String>(json['description']),
       driver: serializer.fromJson<String>(json['driver']),
       rawProtobuf: serializer.fromJson<Uint8List>(json['rawProtobuf']),
@@ -522,6 +551,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
     return <String, dynamic>{
       'serverId': serializer.toJson<String>(serverId),
       'name': serializer.toJson<String>(name),
+      'locale': serializer.toJson<String?>(locale),
       'description': serializer.toJson<String>(description),
       'driver': serializer.toJson<String>(driver),
       'rawProtobuf': serializer.toJson<Uint8List>(rawProtobuf),
@@ -532,6 +562,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
   WorkflowEntry copyWith({
     String? serverId,
     String? name,
+    Value<String?> locale = const Value.absent(),
     String? description,
     String? driver,
     Uint8List? rawProtobuf,
@@ -539,6 +570,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
   }) => WorkflowEntry(
     serverId: serverId ?? this.serverId,
     name: name ?? this.name,
+    locale: locale.present ? locale.value : this.locale,
     description: description ?? this.description,
     driver: driver ?? this.driver,
     rawProtobuf: rawProtobuf ?? this.rawProtobuf,
@@ -548,6 +580,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
     return WorkflowEntry(
       serverId: data.serverId.present ? data.serverId.value : this.serverId,
       name: data.name.present ? data.name.value : this.name,
+      locale: data.locale.present ? data.locale.value : this.locale,
       description: data.description.present
           ? data.description.value
           : this.description,
@@ -566,6 +599,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
     return (StringBuffer('WorkflowEntry(')
           ..write('serverId: $serverId, ')
           ..write('name: $name, ')
+          ..write('locale: $locale, ')
           ..write('description: $description, ')
           ..write('driver: $driver, ')
           ..write('rawProtobuf: $rawProtobuf, ')
@@ -578,6 +612,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
   int get hashCode => Object.hash(
     serverId,
     name,
+    locale,
     description,
     driver,
     $driftBlobEquality.hash(rawProtobuf),
@@ -589,6 +624,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
       (other is WorkflowEntry &&
           other.serverId == this.serverId &&
           other.name == this.name &&
+          other.locale == this.locale &&
           other.description == this.description &&
           other.driver == this.driver &&
           $driftBlobEquality.equals(other.rawProtobuf, this.rawProtobuf) &&
@@ -598,6 +634,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
 class WorkflowEntriesCompanion extends UpdateCompanion<WorkflowEntry> {
   final Value<String> serverId;
   final Value<String> name;
+  final Value<String?> locale;
   final Value<String> description;
   final Value<String> driver;
   final Value<Uint8List> rawProtobuf;
@@ -606,6 +643,7 @@ class WorkflowEntriesCompanion extends UpdateCompanion<WorkflowEntry> {
   const WorkflowEntriesCompanion({
     this.serverId = const Value.absent(),
     this.name = const Value.absent(),
+    this.locale = const Value.absent(),
     this.description = const Value.absent(),
     this.driver = const Value.absent(),
     this.rawProtobuf = const Value.absent(),
@@ -615,6 +653,7 @@ class WorkflowEntriesCompanion extends UpdateCompanion<WorkflowEntry> {
   WorkflowEntriesCompanion.insert({
     required String serverId,
     required String name,
+    this.locale = const Value.absent(),
     required String description,
     required String driver,
     required Uint8List rawProtobuf,
@@ -629,6 +668,7 @@ class WorkflowEntriesCompanion extends UpdateCompanion<WorkflowEntry> {
   static Insertable<WorkflowEntry> custom({
     Expression<String>? serverId,
     Expression<String>? name,
+    Expression<String>? locale,
     Expression<String>? description,
     Expression<String>? driver,
     Expression<Uint8List>? rawProtobuf,
@@ -638,6 +678,7 @@ class WorkflowEntriesCompanion extends UpdateCompanion<WorkflowEntry> {
     return RawValuesInsertable({
       if (serverId != null) 'server_id': serverId,
       if (name != null) 'name': name,
+      if (locale != null) 'locale': locale,
       if (description != null) 'description': description,
       if (driver != null) 'driver': driver,
       if (rawProtobuf != null) 'raw_protobuf': rawProtobuf,
@@ -649,6 +690,7 @@ class WorkflowEntriesCompanion extends UpdateCompanion<WorkflowEntry> {
   WorkflowEntriesCompanion copyWith({
     Value<String>? serverId,
     Value<String>? name,
+    Value<String?>? locale,
     Value<String>? description,
     Value<String>? driver,
     Value<Uint8List>? rawProtobuf,
@@ -658,6 +700,7 @@ class WorkflowEntriesCompanion extends UpdateCompanion<WorkflowEntry> {
     return WorkflowEntriesCompanion(
       serverId: serverId ?? this.serverId,
       name: name ?? this.name,
+      locale: locale ?? this.locale,
       description: description ?? this.description,
       driver: driver ?? this.driver,
       rawProtobuf: rawProtobuf ?? this.rawProtobuf,
@@ -674,6 +717,9 @@ class WorkflowEntriesCompanion extends UpdateCompanion<WorkflowEntry> {
     }
     if (name.present) {
       map['name'] = Variable<String>(name.value);
+    }
+    if (locale.present) {
+      map['locale'] = Variable<String>(locale.value);
     }
     if (description.present) {
       map['description'] = Variable<String>(description.value);
@@ -698,6 +744,7 @@ class WorkflowEntriesCompanion extends UpdateCompanion<WorkflowEntry> {
     return (StringBuffer('WorkflowEntriesCompanion(')
           ..write('serverId: $serverId, ')
           ..write('name: $name, ')
+          ..write('locale: $locale, ')
           ..write('description: $description, ')
           ..write('driver: $driver, ')
           ..write('rawProtobuf: $rawProtobuf, ')
@@ -3229,6 +3276,7 @@ typedef $$WorkflowEntriesTableCreateCompanionBuilder =
     WorkflowEntriesCompanion Function({
       required String serverId,
       required String name,
+      Value<String?> locale,
       required String description,
       required String driver,
       required Uint8List rawProtobuf,
@@ -3239,6 +3287,7 @@ typedef $$WorkflowEntriesTableUpdateCompanionBuilder =
     WorkflowEntriesCompanion Function({
       Value<String> serverId,
       Value<String> name,
+      Value<String?> locale,
       Value<String> description,
       Value<String> driver,
       Value<Uint8List> rawProtobuf,
@@ -3262,6 +3311,11 @@ class $$WorkflowEntriesTableFilterComposer
 
   ColumnFilters<String> get name => $composableBuilder(
     column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get locale => $composableBuilder(
+    column: $table.locale,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3305,6 +3359,11 @@ class $$WorkflowEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get locale => $composableBuilder(
+    column: $table.locale,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get description => $composableBuilder(
     column: $table.description,
     builder: (column) => ColumnOrderings(column),
@@ -3340,6 +3399,9 @@ class $$WorkflowEntriesTableAnnotationComposer
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get locale =>
+      $composableBuilder(column: $table.locale, builder: (column) => column);
 
   GeneratedColumn<String> get description => $composableBuilder(
     column: $table.description,
@@ -3395,6 +3457,7 @@ class $$WorkflowEntriesTableTableManager
               ({
                 Value<String> serverId = const Value.absent(),
                 Value<String> name = const Value.absent(),
+                Value<String?> locale = const Value.absent(),
                 Value<String> description = const Value.absent(),
                 Value<String> driver = const Value.absent(),
                 Value<Uint8List> rawProtobuf = const Value.absent(),
@@ -3403,6 +3466,7 @@ class $$WorkflowEntriesTableTableManager
               }) => WorkflowEntriesCompanion(
                 serverId: serverId,
                 name: name,
+                locale: locale,
                 description: description,
                 driver: driver,
                 rawProtobuf: rawProtobuf,
@@ -3413,6 +3477,7 @@ class $$WorkflowEntriesTableTableManager
               ({
                 required String serverId,
                 required String name,
+                Value<String?> locale = const Value.absent(),
                 required String description,
                 required String driver,
                 required Uint8List rawProtobuf,
@@ -3421,6 +3486,7 @@ class $$WorkflowEntriesTableTableManager
               }) => WorkflowEntriesCompanion.insert(
                 serverId: serverId,
                 name: name,
+                locale: locale,
                 description: description,
                 driver: driver,
                 rawProtobuf: rawProtobuf,

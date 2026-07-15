@@ -462,7 +462,10 @@ class _QueuedRefreshRepository extends MobileDataRepository {
   Future<List<MobileDataRefreshWarning>> refresh({
     required GizClawClient client,
     required String endpoint,
+    required bool Function() isCurrent,
+    required String locale,
     required String serverId,
+    required WorkflowLocale workflowLocale,
   }) {
     endpoints.add(endpoint);
     if (endpoints.length == 1) return firstRefresh.future;
@@ -477,7 +480,10 @@ class _ReconnectRepository extends MobileDataRepository {
   final refreshServerIds = <String>[];
 
   @override
-  Stream<List<WorkflowCard>> watchWorkflows(String serverId) {
+  Stream<List<WorkflowCard>> watchWorkflows(
+    String serverId, {
+    required String locale,
+  }) {
     workflowWatchServerIds.add(serverId);
     return const Stream.empty();
   }
@@ -486,7 +492,10 @@ class _ReconnectRepository extends MobileDataRepository {
   Future<List<MobileDataRefreshWarning>> refresh({
     required GizClawClient client,
     required String endpoint,
+    required bool Function() isCurrent,
+    required String locale,
     required String serverId,
+    required WorkflowLocale workflowLocale,
   }) async {
     refreshServerIds.add(serverId);
     return const [];

@@ -1,5 +1,3 @@
-import 'dart:ui' show PlatformDispatcher;
-
 import 'package:drift/drift.dart';
 import 'package:gizclaw/gizclaw.dart';
 
@@ -17,11 +15,9 @@ class MobileDataRefreshWarning {
 }
 
 class MobileDataRepository {
-  MobileDataRepository(this.database, {String Function()? deviceLocaleTag})
-    : _deviceLocaleTag = deviceLocaleTag ?? _platformLocaleTag;
+  MobileDataRepository(this.database);
 
   final AppDatabase database;
-  final String Function() _deviceLocaleTag;
 
   Future<String?> serverIdForEndpoint(String endpoint) async {
     final query = database.select(database.servers)
@@ -30,12 +26,17 @@ class MobileDataRepository {
     return (await query.getSingleOrNull())?.id;
   }
 
-  Stream<List<WorkflowCard>> watchWorkflows(String serverId) {
+  Stream<List<WorkflowCard>> watchWorkflows(
+    String serverId, {
+    required String locale,
+  }) {
     final query = database.select(database.workflowEntries)
       ..where((row) => row.serverId.equals(serverId))
       ..orderBy([(row) => OrderingTerm.asc(row.name)]);
     return query.watch().map(
-      (rows) => rows.map(_workflowCardFromRow).toList(growable: false),
+      (rows) => rows
+          .map((row) => _workflowCardFromRow(row, locale))
+          .toList(growable: false),
     );
   }
 
@@ -99,12 +100,16 @@ class MobileDataRepository {
     return await query.getSingleOrNull() != null;
   }
 
-  Future<WorkflowCard?> workflowCard(String serverId, String name) async {
+  Future<WorkflowCard?> workflowCard(
+    String serverId,
+    String name, {
+    required String locale,
+  }) async {
     final query = database.select(database.workflowEntries)
       ..where((row) => row.serverId.equals(serverId) & row.name.equals(name))
       ..limit(1);
     final row = await query.getSingleOrNull();
-    return row == null ? null : _workflowCardFromRow(row);
+    return row == null ? null : _workflowCardFromRow(row, locale);
   }
 
   Future<Workspace?> workspaceDocument(String serverId, String name) async {
@@ -118,81 +123,92 @@ class MobileDataRepository {
   Future<List<MobileDataRefreshWarning>> refresh({
     required GizClawClient client,
     required String endpoint,
+    required bool Function() isCurrent,
+    required String locale,
     required String serverId,
+    required WorkflowLocale workflowLocale,
   }) async {
-    final workflows = await _allWorkflows(
-      client,
-      _workflowLocale(_deviceLocaleTag()),
-    );
+    final workflows = await _allWorkflows(client, workflowLocale);
     final workspaces = await _allWorkspaces(client);
+    if (!isCurrent()) return const [];
     final refreshedAt = DateTime.now().toUtc();
 
-    await database.transaction(() async {
-      await database
-          .into(database.servers)
-          .insertOnConflictUpdate(
-            ServersCompanion.insert(
-              id: serverId,
-              endpoint: endpoint,
-              lastConnectedAt: Value(refreshedAt),
-            ),
-          );
+    try {
+      await database.transaction(() async {
+        _requireCurrent(isCurrent);
+        await database
+            .into(database.servers)
+            .insertOnConflictUpdate(
+              ServersCompanion.insert(
+                id: serverId,
+                endpoint: endpoint,
+                lastConnectedAt: Value(refreshedAt),
+              ),
+            );
 
-      await database.batch((batch) {
-        batch.insertAllOnConflictUpdate(
-          database.workflowEntries,
-          workflows.map((workflow) {
-            final catalog = _workflowCatalog(workflow);
-            return WorkflowEntriesCompanion.insert(
-              serverId: serverId,
-              name: workflow.name,
-              description: catalog?.description.trim() ?? '',
-              driver: workflow.spec.driver.name,
-              rawProtobuf: Uint8List.fromList(workflow.writeToBuffer()),
-              refreshedAt: refreshedAt,
+        _requireCurrent(isCurrent);
+        await database.batch((batch) {
+          batch.insertAllOnConflictUpdate(
+            database.workflowEntries,
+            workflows.map((workflow) {
+              final catalog = _workflowCatalog(workflow);
+              return WorkflowEntriesCompanion.insert(
+                serverId: serverId,
+                name: workflow.name,
+                locale: Value(locale),
+                description: catalog?.description.trim() ?? '',
+                driver: workflow.spec.driver.name,
+                rawProtobuf: Uint8List.fromList(workflow.writeToBuffer()),
+                refreshedAt: refreshedAt,
+              );
+            }).toList(),
+          );
+          batch.insertAllOnConflictUpdate(
+            database.workspaceEntries,
+            workspaces.map((workspace) {
+              return WorkspaceEntriesCompanion.insert(
+                serverId: serverId,
+                name: workspace.name,
+                workflowName: workspace.workflowName,
+                createdAt: Value(_dateTimeOrNull(workspace.createdAt)),
+                lastActiveAt: Value(_dateTimeOrNull(workspace.lastActiveAt)),
+                updatedAt: Value(_dateTimeOrNull(workspace.updatedAt)),
+                rawProtobuf: Uint8List.fromList(workspace.writeToBuffer()),
+                refreshedAt: refreshedAt,
+              );
+            }).toList(),
+          );
+        });
+
+        _requireCurrent(isCurrent);
+        final workflowNames = workflows.map((item) => item.name).toSet();
+        final workspaceNames = workspaces.map((item) => item.name).toSet();
+        await (database.delete(database.workflowEntries)..where(
+              (row) =>
+                  row.serverId.equals(serverId) &
+                  row.name.isNotIn(workflowNames),
+            ))
+            .go();
+        await (database.delete(database.workspaceEntries)..where(
+              (row) =>
+                  row.serverId.equals(serverId) &
+                  row.name.isNotIn(workspaceNames),
+            ))
+            .go();
+        _requireCurrent(isCurrent);
+        await database
+            .into(database.syncStates)
+            .insertOnConflictUpdate(
+              SyncStatesCompanion.insert(
+                serverId: serverId,
+                scope: 'workflow-workspace-snapshot',
+                lastSuccessfulRefreshAt: Value(refreshedAt),
+              ),
             );
-          }).toList(),
-        );
-        batch.insertAllOnConflictUpdate(
-          database.workspaceEntries,
-          workspaces.map((workspace) {
-            return WorkspaceEntriesCompanion.insert(
-              serverId: serverId,
-              name: workspace.name,
-              workflowName: workspace.workflowName,
-              createdAt: Value(_dateTimeOrNull(workspace.createdAt)),
-              lastActiveAt: Value(_dateTimeOrNull(workspace.lastActiveAt)),
-              updatedAt: Value(_dateTimeOrNull(workspace.updatedAt)),
-              rawProtobuf: Uint8List.fromList(workspace.writeToBuffer()),
-              refreshedAt: refreshedAt,
-            );
-          }).toList(),
-        );
       });
-
-      final workflowNames = workflows.map((item) => item.name).toSet();
-      final workspaceNames = workspaces.map((item) => item.name).toSet();
-      await (database.delete(database.workflowEntries)..where(
-            (row) =>
-                row.serverId.equals(serverId) & row.name.isNotIn(workflowNames),
-          ))
-          .go();
-      await (database.delete(database.workspaceEntries)..where(
-            (row) =>
-                row.serverId.equals(serverId) &
-                row.name.isNotIn(workspaceNames),
-          ))
-          .go();
-      await database
-          .into(database.syncStates)
-          .insertOnConflictUpdate(
-            SyncStatesCompanion.insert(
-              serverId: serverId,
-              scope: 'workflow-workspace-snapshot',
-              lastSuccessfulRefreshAt: Value(refreshedAt),
-            ),
-          );
-    });
+    } on _StaleRefresh {
+      return const [];
+    }
 
     final warnings = <MobileDataRefreshWarning>[];
     try {
@@ -280,6 +296,14 @@ class MobileDataRepository {
   }
 }
 
+class _StaleRefresh implements Exception {
+  const _StaleRefresh();
+}
+
+void _requireCurrent(bool Function() isCurrent) {
+  if (!isCurrent()) throw const _StaleRefresh();
+}
+
 Future<List<Workflow>> _allWorkflows(
   GizClawClient client,
   WorkflowLocale lang,
@@ -345,39 +369,22 @@ String _friendGroupKey(FriendGroupObject group) {
   return group.name.trim();
 }
 
-WorkflowCard _workflowCardFromRow(WorkflowEntry row) {
+WorkflowCard _workflowCardFromRow(WorkflowEntry row, String locale) {
   final workflow = Workflow.fromBuffer(row.rawProtobuf);
-  final catalog = _workflowCatalog(workflow);
+  final catalog = row.locale == locale ? _workflowCatalog(workflow) : null;
   final localizedName = catalog?.name.trim();
   return WorkflowCard.fromServer(
     name: row.name,
     displayName: localizedName == null || localizedName.isEmpty
         ? row.name
         : localizedName,
-    description: catalog == null ? row.description : catalog.description.trim(),
+    description: catalog?.description.trim() ?? '',
     driver: row.driver,
   );
 }
 
 WorkflowI18nCatalog? _workflowCatalog(Workflow workflow) =>
     workflow.hasI18n() ? workflow.i18n : null;
-
-WorkflowLocale _workflowLocale(String localeTag) {
-  final normalizedTag = localeTag.trim().replaceAll('_', '-').toLowerCase();
-  final subtags = normalizedTag.split('-');
-  final languageCode = subtags.first;
-  return switch (languageCode) {
-    'en' => WorkflowLocale.WORKFLOW_LOCALE_EN,
-    'zh'
-        when !subtags.contains('hant') &&
-            (subtags.contains('hans') || subtags.contains('cn')) =>
-      WorkflowLocale.WORKFLOW_LOCALE_ZH_CN,
-    _ => WorkflowLocale.WORKFLOW_LOCALE_UNSPECIFIED,
-  };
-}
-
-String _platformLocaleTag() =>
-    PlatformDispatcher.instance.locale.toLanguageTag();
 
 WorkspaceCard _workspaceCardFromRow(WorkspaceEntry row) {
   final workspace = Workspace.fromBuffer(row.rawProtobuf);

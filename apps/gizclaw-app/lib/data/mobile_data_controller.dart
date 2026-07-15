@@ -5,6 +5,7 @@ import 'package:gizclaw/gizclaw.dart';
 
 import '../connection/gizclaw_connection_controller.dart';
 import '../identity/app_identity_store.dart';
+import '../l10n/locale_resolution.dart';
 import '../prototype/prototype_data.dart';
 import '../prototype/prototype_models.dart';
 import 'database/app_database.dart';
@@ -125,6 +126,9 @@ class MobileDataController extends ChangeNotifier {
   GizClawClient? _pendingRefreshClient;
   String? _pendingRefreshEndpoint;
   String? _pendingRefreshServerId;
+  int _pendingRefreshLocaleGeneration = 0;
+  int _localeGeneration = 0;
+  Locale _effectiveLocale = appEnglishLocale;
   int _serverWatchGeneration = 0;
   int _startGeneration = 0;
   Future<void>? _workspaceSwitch;
@@ -155,6 +159,20 @@ class MobileDataController extends ChangeNotifier {
 
   bool get hasActiveServer => activeServer != null;
   String? get clientPublicKey => connection.clientPublicKey;
+  Locale get effectiveLocale => _effectiveLocale;
+
+  void setEffectiveLocale(Locale locale) {
+    final normalized = locale.languageCode == 'zh'
+        ? appSimplifiedChineseLocale
+        : appEnglishLocale;
+    if (_effectiveLocale == normalized) return;
+    _effectiveLocale = normalized;
+    _localeGeneration += 1;
+    final serverId = activeServerId;
+    if (serverId != null) unawaited(_watchServer(serverId));
+    if (connection.isConnected) unawaited(refresh());
+    notifyListeners();
+  }
 
   WorkspaceInputMode get activeInputMode =>
       _workspaceInputMode(activeWorkspaceDocument);
@@ -351,10 +369,12 @@ class MobileDataController extends ChangeNotifier {
     await _friendChatSubscription?.cancel();
     await _friendGroupChatSubscription?.cancel();
     if (generation != _serverWatchGeneration) return;
-    _workflowSubscription = repository.watchWorkflows(serverId).listen((value) {
-      workflows = value;
-      notifyListeners();
-    });
+    _workflowSubscription = repository
+        .watchWorkflows(serverId, locale: appLocaleTag(_effectiveLocale))
+        .listen((value) {
+          workflows = value;
+          notifyListeners();
+        });
     _workspaceSubscription = repository.watchWorkspaces(serverId).listen((
       value,
     ) {
@@ -402,6 +422,7 @@ class MobileDataController extends ChangeNotifier {
     _pendingRefreshClient = activeClient;
     _pendingRefreshEndpoint = connection.profile.endpoint;
     _pendingRefreshServerId = resolvedServerId;
+    _pendingRefreshLocaleGeneration = _localeGeneration;
     _refreshAgain = true;
     final inFlight = _refreshInFlight;
     if (inFlight != null) return inFlight;
@@ -420,14 +441,23 @@ class MobileDataController extends ChangeNotifier {
         final client = _pendingRefreshClient!;
         final endpoint = _pendingRefreshEndpoint!;
         final serverId = _pendingRefreshServerId!;
+        final localeGeneration = _pendingRefreshLocaleGeneration;
+        final effectiveLocale = _effectiveLocale;
         lastError = null;
         try {
           final warnings = await repository.refresh(
             client: client,
             endpoint: endpoint,
+            isCurrent: () =>
+                localeGeneration == _localeGeneration &&
+                connection.profile.endpoint == endpoint &&
+                identical(connection.client, client),
+            locale: appLocaleTag(effectiveLocale),
             serverId: serverId,
+            workflowLocale: workflowLocaleForAppLocale(effectiveLocale),
           );
-          if (connection.profile.endpoint != endpoint ||
+          if (localeGeneration != _localeGeneration ||
+              connection.profile.endpoint != endpoint ||
               !identical(connection.client, client)) {
             continue;
           }
@@ -443,7 +473,8 @@ class MobileDataController extends ChangeNotifier {
             }());
           }
         } catch (error) {
-          if (connection.profile.endpoint != endpoint ||
+          if (localeGeneration != _localeGeneration ||
+              connection.profile.endpoint != endpoint ||
               !identical(connection.client, client)) {
             continue;
           }
@@ -822,6 +853,7 @@ class MobileDataController extends ChangeNotifier {
     return (await repository.workflowCard(
           serverId,
           workspace.workflowName,
+          locale: appLocaleTag(_effectiveLocale),
         ))?.driver ??
         cached;
   }
