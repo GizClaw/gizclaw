@@ -129,6 +129,47 @@ void main() {
     expect(find.bySemanticsLabel('Add server'), findsOneWidget);
   });
 
+  appTestWidgets('opens a capability story from onboarding', (tester) async {
+    await pumpApp(tester, controller: MobileDataController());
+
+    expect(find.text('READ STORY'), findsWidgets);
+    expect(
+      find.bySemanticsLabel('Read Agents that feel close'),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('onboarding-story-daily-companion')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('onboarding-article-daily-companion')),
+      findsOneWidget,
+    );
+    await tester.drag(
+      find.byKey(const ValueKey('onboarding-article-daily-companion')),
+      const Offset(0, -420),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Built around your day'), findsOneWidget);
+    expect(
+      find.text(
+        'Your conversations stay connected through the GizClaw server you choose.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Hero &&
+            widget.tag == 'onboarding-feature-daily-companion',
+      ),
+      findsWidgets,
+    );
+  });
+
   appTestWidgets('leaves onboarding after selecting a server', (tester) async {
     final controller = _OnboardingServerController();
     await pumpApp(tester, controller: controller);
