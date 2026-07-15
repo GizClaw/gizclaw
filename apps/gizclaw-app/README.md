@@ -73,6 +73,48 @@ Run commands from this directory:
 cd apps/gizclaw-app
 ```
 
+## TestFlight
+
+TestFlight publishing runs from `.github/workflows/testflight.yml`. The workflow
+is manually dispatched, uses the version from `pubspec.yaml`, and defaults the
+iOS build number to the GitHub Actions run number. Configure a protected GitHub
+Environment named `testflight` before running it.
+
+Create these Apple resources once:
+
+- An explicit App ID for `com.gizclaw.opensource` under team `D782F5CP4S`.
+- An App Store Connect app record named `GizClaw OpenSource` using that bundle
+  ID.
+- An Apple Distribution certificate exported as a password-protected `.p12`.
+- An App Store provisioning profile for the bundle ID and distribution
+  certificate.
+- An App Store Connect team API key with permission to validate and upload
+  builds.
+
+Add the following GitHub Environment secrets:
+
+| Secret | Value |
+| --- | --- |
+| `APP_STORE_CONNECT_KEY_ID` | App Store Connect API key ID. |
+| `APP_STORE_CONNECT_ISSUER_ID` | App Store Connect API issuer ID. |
+| `APP_STORE_CONNECT_PRIVATE_KEY_BASE64` | Base64-encoded `AuthKey_*.p8`. |
+| `IOS_DISTRIBUTION_CERTIFICATE_BASE64` | Base64-encoded distribution `.p12`. |
+| `IOS_DISTRIBUTION_CERTIFICATE_PASSWORD` | Password used when exporting the `.p12`. |
+| `IOS_PROVISIONING_PROFILE_BASE64` | Base64-encoded App Store `.mobileprovision`. |
+
+On macOS, copy a file as a single-line base64 value with:
+
+```sh
+base64 < path/to/file | tr -d '\n' | pbcopy
+```
+
+The workflow validates the provisioning profile's team and application
+identifier before importing signing material into a temporary keychain. It
+deletes the keychain, installed profile, and API private key after the job. An
+internal TestFlight group can be configured for automatic distribution in App
+Store Connect; external testing still requires TestFlight test information and
+Beta App Review.
+
 ## Integration Notes
 
 Mobile presentation will likely need workflow display fields beyond the current
