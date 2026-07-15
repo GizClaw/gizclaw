@@ -3,7 +3,10 @@ apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
   name: flowcraft-route-matcher
-  description: 'Flowcraft raid: Match Route'
+i18n:
+  default_locale: en
+  en:
+    description: 'Flowcraft raid: Match Route'
 spec:
   driver: flowcraft
   flowcraft:

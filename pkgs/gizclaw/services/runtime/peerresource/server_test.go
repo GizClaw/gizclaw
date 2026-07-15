@@ -46,8 +46,10 @@ func TestServerAllowedCRUD(t *testing.T) {
 	}
 
 	flowGet := callRPC(t, srv, "workflow-get", rpcapi.RPCMethodServerWorkflowGet, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowGetRequest, rpcapi.WorkflowGetRequest{Name: "workflow-a1"}))
-	if got := mustResult(t, flowGet.Result.AsWorkflowGetResponse).Metadata.Name; got != "workflow-a1" {
-		t.Fatalf("workflow.get name = %q", got)
+	if got := mustResult(t, flowGet.Result.AsWorkflowGetResponse); got.Metadata.Name != "workflow-a1" {
+		t.Fatalf("workflow.get name = %q", got.Metadata.Name)
+	} else if got.I18n == nil || len(got.I18n.Value) != 2 || got.I18n.Value["zh-CN"].Description == nil {
+		t.Fatalf("workflow.get i18n = %#v", got.I18n)
 	}
 
 	flowPut := callRPC(t, srv, "workflow-put", rpcapi.RPCMethodServerWorkflowPut, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowPutRequest, rpcapi.WorkflowPutRequest{
@@ -1370,7 +1372,16 @@ func requireRPCError(t *testing.T, resp *rpcapi.RPCResponse, code rpcapi.RPCErro
 
 func workflowDoc(name string) rpcapi.WorkflowDocument {
 	spec := rpcapi.FlowcraftWorkflowSpec{"entry_agent": ""}
+	englishDescription := "English workflow"
+	chineseDescription := "中文工作流"
 	return rpcapi.WorkflowDocument{
+		I18n: &rpcapi.WorkflowI18n{
+			DefaultLocale: "en",
+			Value: map[string]rpcapi.WorkflowI18nCatalog{
+				"en":    {Description: &englishDescription},
+				"zh-CN": {Description: &chineseDescription},
+			},
+		},
 		Metadata: rpcapi.WorkflowMetadata{Name: name},
 		Spec: rpcapi.WorkflowSpec{
 			Driver:    rpcapi.WorkflowDriverFlowcraft,

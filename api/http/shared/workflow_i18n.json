@@ -1,0 +1,39 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Workflow I18n Type",
+    "description": "Workflow-owned localized display text.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "WorkflowI18nCatalog": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "WorkflowI18n": {
+        "type": "object",
+        "required": [
+          "default_locale"
+        ],
+        "properties": {
+          "default_locale": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": {
+          "$ref": "#/components/schemas/WorkflowI18nCatalog"
+        }
+      }
+    }
+  }
+}

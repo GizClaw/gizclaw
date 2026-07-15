@@ -502,7 +502,16 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 
 	var workflowCreate RPCPayload
 	workflowToolIDs := []string{"system.toolkit.echo"}
+	workflowName := "Flowcraft Toolkit"
+	workflowDescription := "Toolkit workflow"
 	if err := workflowCreate.FromWorkflowCreateRequest(WorkflowCreateRequest{
+		I18n: &WorkflowI18n{
+			DefaultLocale: "en",
+			Value: map[string]WorkflowI18nCatalog{
+				"en":    {Name: &workflowName, Description: &workflowDescription},
+				"zh-CN": {},
+			},
+		},
 		Metadata: WorkflowMetadata{Name: "flowcraft-toolkit"},
 		Spec: WorkflowSpec{
 			Driver:  WorkflowDriverFlowcraft,
@@ -517,6 +526,19 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 	}
 	if got := workflowCreateProto.GetValue().GetSpec().GetToolkit().GetToolIds().GetValue(); len(got) != 1 || got[0] != "system.toolkit.echo" {
 		t.Fatalf("workflow toolkit = %#v", got)
+	}
+	if got := workflowCreateProto.GetValue().GetI18N(); got.GetDefaultLocale() != "en" || len(got.GetValue()) != 2 {
+		t.Fatalf("workflow protobuf i18n = %#v", got)
+	}
+	workflowDecoded, err := workflowCreate.AsWorkflowCreateRequest()
+	if err != nil {
+		t.Fatalf("AsWorkflowCreateRequest() error = %v", err)
+	}
+	if workflowDecoded.I18n == nil || workflowDecoded.I18n.DefaultLocale != "en" || len(workflowDecoded.I18n.Value) != 2 {
+		t.Fatalf("workflow decoded i18n = %#v", workflowDecoded.I18n)
+	}
+	if got := workflowDecoded.I18n.Value["zh-CN"]; got.Name != nil || got.Description != nil {
+		t.Fatalf("workflow empty catalog = %#v", got)
 	}
 
 	var statPayload RPCPayload

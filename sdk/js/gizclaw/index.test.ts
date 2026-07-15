@@ -304,6 +304,24 @@ test("RPC payload codec preserves optional JSON schema field absence", () => {
   assert.equal(Object.prototype.hasOwnProperty.call(parameters ?? {}, "anyOf"), false);
 });
 
+test("RPC payload codec preserves workflow i18n catalogs", () => {
+  const workflow = {
+    i18n: {
+      default_locale: "en",
+      value: {
+        en: { name: "Assistant", description: "Helpful workflow" },
+        "zh-CN": {},
+      },
+    },
+    metadata: { name: "assistant" },
+    spec: { driver: "flowcraft" },
+  };
+  const payload = encodeRPCRequestPayload("server.workflow.create", workflow);
+  const decoded = decodeRPCRequestPayload("server.workflow.create", payload) as typeof workflow;
+
+  assert.deepEqual(decoded.i18n, workflow.i18n);
+});
+
 test("RPC payload codec rejects string values for bool fields", () => {
   assert.throws(
     () => encodeRPCRequestPayload("server.workspace.create", {

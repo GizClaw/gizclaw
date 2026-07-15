@@ -1360,6 +1360,14 @@ func convertValue(dst reflect.Value, src reflect.Value) error {
 		dst.Set(reflect.ValueOf(body))
 		return nil
 	}
+	if dst.Type() == reflect.TypeOf(apitypes.WorkflowI18n{}) && src.Type() == reflect.TypeOf(rpcapi.WorkflowI18n{}) {
+		dst.Set(reflect.ValueOf(rpcWorkflowI18nToAPI(src.Interface().(rpcapi.WorkflowI18n))))
+		return nil
+	}
+	if dst.Type() == reflect.TypeOf(rpcapi.WorkflowI18n{}) && src.Type() == reflect.TypeOf(apitypes.WorkflowI18n{}) {
+		dst.Set(reflect.ValueOf(apiWorkflowI18nToRPC(src.Interface().(apitypes.WorkflowI18n))))
+		return nil
+	}
 	if dst.Type() == reflect.TypeOf(rpcapi.Pet{}) && src.Type() == reflect.TypeOf(apitypes.Pet{}) {
 		dst.Set(reflect.ValueOf(apiPetToRPC(src.Interface().(apitypes.Pet))))
 		return nil
@@ -1454,6 +1462,34 @@ func convertValue(dst reflect.Value, src reflect.Value) error {
 		return nil
 	default:
 		return fmt.Errorf("cannot convert %s to %s", src.Type(), dst.Type())
+	}
+}
+
+func rpcWorkflowI18nToAPI(in rpcapi.WorkflowI18n) apitypes.WorkflowI18n {
+	catalogs := make(map[string]apitypes.WorkflowI18nCatalog, len(in.Value))
+	for locale, catalog := range in.Value {
+		catalogs[locale] = apitypes.WorkflowI18nCatalog{
+			Description: catalog.Description,
+			Name:        catalog.Name,
+		}
+	}
+	return apitypes.WorkflowI18n{
+		DefaultLocale:        in.DefaultLocale,
+		AdditionalProperties: catalogs,
+	}
+}
+
+func apiWorkflowI18nToRPC(in apitypes.WorkflowI18n) rpcapi.WorkflowI18n {
+	catalogs := make(map[string]rpcapi.WorkflowI18nCatalog, len(in.AdditionalProperties))
+	for locale, catalog := range in.AdditionalProperties {
+		catalogs[locale] = rpcapi.WorkflowI18nCatalog{
+			Description: catalog.Description,
+			Name:        catalog.Name,
+		}
+	}
+	return rpcapi.WorkflowI18n{
+		DefaultLocale: in.DefaultLocale,
+		Value:         catalogs,
 	}
 }
 

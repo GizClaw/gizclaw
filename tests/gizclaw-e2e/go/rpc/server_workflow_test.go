@@ -39,8 +39,9 @@ func TestServerWorkflowRPC(t *testing.T) {
 	if err != nil {
 		t.Fatalf("workflow.put: %v", err)
 	}
-	if updatedFlow.Metadata.Description == nil || *updatedFlow.Metadata.Description != "updated by peer rpc" {
-		t.Fatalf("workflow.put description = %#v", updatedFlow.Metadata.Description)
+	catalog := updatedFlow.I18n.Value["en"]
+	if catalog.Description == nil || *catalog.Description != "updated by peer rpc" {
+		t.Fatalf("workflow.put i18n = %#v", updatedFlow.I18n)
 	}
 	assertWorkflowPagination(t, env.ctx, env.peer, sharedWorkflow, mutationWorkflow)
 	if _, err := env.peer.DeleteWorkflow(env.ctx, "workflow.delete", rpcapi.WorkflowDeleteRequest{Name: mutationWorkflow}); err != nil {

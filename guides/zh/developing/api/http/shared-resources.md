@@ -40,7 +40,7 @@
 | `shared/model.json` | Model kind、capabilities、provider、source 与 provider data | Model Admin endpoint 与 Model Resource |
 | `shared/voice.json` | Voice provider、source 与 provider data | Voice Admin endpoint 与 Voice Resource |
 | `shared/tool.json` | Tool executor、trigger、source 与 JSON schema value | Tool APIs、Workflow/Toolkit 与 Tool Resource |
-| `shared/workflow.json` | Workflow document、metadata、driver 与各 workflow variant | Workflow Admin API、Workspace parameters 与 Workflow Resource |
+| `shared/workflow*.json` | Workflow document、metadata、i18n、driver 与各 workflow variant | Workflow Admin API、Workspace parameters 与 Workflow Resource |
 | `shared/workspace.json` | Workspace parameters、input mode 与共同 workspace value | Workspace Admin API、Workflow runtime 与 Workspace Resource |
 | `shared/provider-tenants.json` | Provider tenant 共同 enum/value | Model、Voice 与各 Provider Tenant Resources |
 
@@ -77,9 +77,11 @@ Resource 的数据首先按语义分为两类：
 - 核心数据描述 Resource 是什么以及它与什么关联，包括稳定 identity、kind、分类、引用、ownership、运行配置和持久化语义。这些字段参与业务判断、查询、关联和执行，不能放进 `display`。
 - `display` 只描述如何把该 Resource 展示给用户，例如本地化名称、subtitle、description、icon 和 cover。删除或替换 `display` 不得改变 Resource 的关联关系或运行行为。
 
-需要通用展示 metadata 的 Resource 自己拥有可选的 `display` 字段，并在对应 `resources/<kind>.json` 中定义自己的强类型 Display schema。例如 Workflow 定义 `WorkflowDisplay`，Workspace 定义 `WorkspaceDisplay`。即使两个 Resource 当前需要相同的字段，也不能因此建立公共 `ResourceDisplay`、`ResourceDisplayData` 或通用 catalog schema。
+需要通用展示 metadata 的 Resource 自己拥有可选的 `display` 字段，并在对应 `resources/<kind>.json` 中定义自己的强类型 Display schema。即使两个 Resource 当前需要相同的字段，也不能因此建立公共 `ResourceDisplay`、`ResourceDisplayData` 或通用 catalog schema。
 
-如果某个 Resource 只需要本地化 catalog，不需要额外的展示 metadata，可以直接拥有语义更准确的 `i18n` 字段。例如 PetDef 使用自己的 `PetDefI18n`：`i18n.default_locale` 指定默认语言，`i18n.en`、`i18n.zh-CN` 等 locale key 直接保存对应 catalog，不增加 `catalogs` 或 `display` 中间层。`display` 与 `i18n` 都是 Resource-owned contract，不进入 Shared。
+如果某个 Resource 只需要本地化 catalog，不需要额外的展示 metadata，可以直接拥有语义更准确的 `i18n` 字段。Workflow 和 PetDef 分别使用自己的 `WorkflowI18n` 与 `PetDefI18n`：`i18n.default_locale` 指定默认语言，`i18n.en`、`i18n.zh-CN` 等 locale key 直接保存对应 catalog，不增加 `catalogs` 或 `display` 中间层。Workspace 是用户创建的运行实例，不拥有 catalog 型 i18n。
+
+`WorkflowI18n` 虽位于 `shared/`，仍是 Workflow-owned contract。它被 Workflow Admin document 与声明式 Workflow Resource 共同引用，因此需要从 shared schema graph 生成；这不表示 Workspace 或其他 Resource 可以复用它，也不应抽取公共 `ResourceI18n`。
 
 Display 的共同命名是一项结构约定，不代表公共领域模型。不同 Resource 可以独立增加符合自身产品语义的展示字段；修改一个 Resource 的 Display 不应迫使无关 Resource 同步修改或重新生成 API。
 
@@ -88,10 +90,10 @@ Display 的共同命名是一项结构约定，不代表公共领域模型。不
 | 问题 | 是 | 否 |
 | --- | --- | --- |
 | 字段是否影响 identity、关联、过滤、授权、执行或持久化语义？ | 放入 Resource 的核心字段或 `spec` | 继续判断 |
-| 字段是否只用于面向人的名称、说明或视觉呈现？ | 放入该 Resource 自己的 `display` | 不应为它创建 Display 字段 |
+| 字段是否只用于面向人的名称、说明或视觉呈现？ | 放入该 Resource 自己的 `display` 或 `i18n` | 不应为它创建展示字段 |
 | 相同字段是否由多个 Resource 使用？ | 各 Resource 仍拥有自己的 Display 定义 | 不以“看起来相同”为理由放入 Shared |
 
-`category`、关联 ID、workflow reference、provider kind 等机器可读字段属于核心数据。`display_name`、本地化说明、icon 和 cover 属于 Display。客户端在 `display` 缺失时可以回退到稳定 ID，但 Server 不应把 fallback 文本持久化为核心数据。
+`category`、关联 ID、workflow reference、provider kind 等机器可读字段属于核心数据。本地化名称和说明属于 owner 的 `display` 或 `i18n`；icon 和 cover 属于 Display。客户端在展示数据缺失时可以回退到稳定 ID，但 Server 不应把 fallback 文本持久化为核心数据。
 
 “视觉内容”不自动等于 `display`。如果 asset、clip、animation graph 或 action-to-clip mapping 被设备、runtime 或领域逻辑直接消费，它就是 Resource 的核心内容或关联数据。例如 PetDef 的 PIXA、canvas、clips、visual refs 和 `visual_clip_id` 属于 PetDef spec；`display` 只保存管理界面或用户阅读所需的展示 metadata 与本地化文本。
 

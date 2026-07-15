@@ -1300,11 +1300,20 @@ export type WorkflowDeleteResponse = WorkflowDocument;
 export type WorkflowDocument = {
   "metadata": WorkflowMetadata;
   "spec": WorkflowSpec;
+  "i18n"?: WorkflowI18n;
 };
 export type WorkflowGetRequest = {
   "name": string;
 };
 export type WorkflowGetResponse = WorkflowDocument;
+export type WorkflowI18n = {
+  "default_locale": string;
+  "value": Record<string, WorkflowI18nCatalog>;
+};
+export type WorkflowI18nCatalog = {
+  "name"?: string;
+  "description"?: string;
+};
 export type WorkflowListRequest = {
   "cursor"?: string;
   "limit"?: number;
@@ -1315,7 +1324,6 @@ export type WorkflowListResponse = {
   "next_cursor"?: string;
 };
 export type WorkflowMetadata = {
-  "description"?: string;
   "name": string;
 };
 export type WorkflowPutRequest = {
@@ -7532,6 +7540,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "spec",
         "number": 2,
         "type": "WorkflowSpec"
+      },
+      {
+        "name": "i18n",
+        "number": 3,
+        "optional": true,
+        "type": "WorkflowI18n"
       }
     ]
   },
@@ -7550,6 +7564,37 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "WorkflowDocument"
+      }
+    ]
+  },
+  "WorkflowI18n": {
+    "fields": [
+      {
+        "name": "default_locale",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "mapValue": "WorkflowI18nCatalog",
+        "name": "value",
+        "number": 2,
+        "type": "map"
+      }
+    ]
+  },
+  "WorkflowI18nCatalog": {
+    "fields": [
+      {
+        "name": "name",
+        "number": 1,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "description",
+        "number": 2,
+        "optional": true,
+        "type": "string"
       }
     ]
   },
@@ -7592,12 +7637,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   },
   "WorkflowMetadata": {
     "fields": [
-      {
-        "name": "description",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      },
       {
         "name": "name",
         "number": 2,

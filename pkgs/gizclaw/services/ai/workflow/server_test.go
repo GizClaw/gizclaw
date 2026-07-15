@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -21,8 +22,16 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 
 	createDoc := mustDocument(t, `{
 		"metadata": {
-			"name": "demo-assistant",
-			"description": "flowcraft workflow"
+			"name": "demo-assistant"
+		},
+		"i18n": {
+			"default_locale": "en",
+			"en": {
+				"description": "flowcraft workflow"
+			},
+			"zh-CN": {
+				"name": "演示助手"
+			}
 		},
 		"spec": {
 			"driver": "flowcraft",
@@ -58,6 +67,9 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 	if len(listed.Items) != 1 || listed.HasNext {
 		t.Fatalf("ListWorkflows() = %#v", listed)
 	}
+	if listed.Items[0].I18n == nil || len(listed.Items[0].I18n.AdditionalProperties) != 2 {
+		t.Fatalf("ListWorkflows() i18n = %#v", listed.Items[0].I18n)
+	}
 
 	getResp, err := srv.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: "demo-assistant"})
 	if err != nil {
@@ -71,11 +83,19 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 	if gotSingle.Metadata.Name != "demo-assistant" {
 		t.Fatalf("GetWorkflow() name = %q", gotSingle.Metadata.Name)
 	}
+	if gotSingle.I18n == nil || gotSingle.I18n.AdditionalProperties["zh-CN"].Name == nil {
+		t.Fatalf("GetWorkflow() i18n = %#v", gotSingle.I18n)
+	}
 
 	updateDoc := mustDocument(t, `{
 		"metadata": {
-			"name": "demo-assistant",
-			"description": "updated description"
+			"name": "demo-assistant"
+		},
+		"i18n": {
+			"default_locale": "en",
+			"en": {
+				"description": "updated description"
+			}
 		},
 		"spec": {
 			"driver": "flowcraft",
@@ -98,8 +118,9 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 		t.Fatalf("PutWorkflow() response = %#v", putResp)
 	}
 	putSingle := mustSingle(t, apitypes.WorkflowDocument(putDoc))
-	if putSingle.Metadata.Description == nil || *putSingle.Metadata.Description != "updated description" {
-		t.Fatalf("PutWorkflow() description = %#v", putSingle.Metadata.Description)
+	catalog := putSingle.I18n.AdditionalProperties["en"]
+	if catalog.Description == nil || *catalog.Description != "updated description" {
+		t.Fatalf("PutWorkflow() i18n = %#v", putSingle.I18n)
 	}
 
 	deleteResp, err := srv.DeleteWorkflow(ctx, adminhttp.DeleteWorkflowRequestObject{Name: "demo-assistant"})
@@ -116,6 +137,106 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 	}
 	if _, ok := getAfterDelete.(adminhttp.GetWorkflow404JSONResponse); !ok {
 		t.Fatalf("GetWorkflow() after delete response = %#v", getAfterDelete)
+	}
+}
+
+func TestServerReadsLegacyWorkflowDescriptionAsEnglishI18n(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(t)
+	ctx := context.Background()
+	legacy := []byte(`{
+		"metadata": {
+			"name": "legacy-workflow",
+			"description": "legacy description"
+		},
+		"spec": {
+			"driver": "flowcraft",
+			"flowcraft": {}
+		}
+	}`)
+	if err := srv.Store.Set(ctx, workflowKey("legacy-workflow"), legacy); err != nil {
+		t.Fatalf("seed legacy workflow: %v", err)
+	}
+
+	resp, err := srv.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: "legacy-workflow"})
+	if err != nil {
+		t.Fatalf("GetWorkflow() error = %v", err)
+	}
+	got, ok := resp.(adminhttp.GetWorkflow200JSONResponse)
+	if !ok {
+		t.Fatalf("GetWorkflow() response = %#v", resp)
+	}
+	doc := apitypes.WorkflowDocument(got)
+	if doc.I18n == nil || doc.I18n.DefaultLocale != "en" {
+		t.Fatalf("GetWorkflow() i18n = %#v", doc.I18n)
+	}
+	catalog := doc.I18n.AdditionalProperties["en"]
+	if catalog.Description == nil || *catalog.Description != "legacy description" {
+		t.Fatalf("GetWorkflow() catalog = %#v", catalog)
+	}
+	stored, err := srv.Store.Get(ctx, workflowKey("legacy-workflow"))
+	if err != nil {
+		t.Fatalf("read legacy workflow after GetWorkflow(): %v", err)
+	}
+	if !bytes.Equal(stored, legacy) {
+		t.Fatalf("GetWorkflow() rewrote legacy storage:\n%s", stored)
+	}
+}
+
+func TestServerRejectsInvalidWorkflowI18n(t *testing.T) {
+	t.Parallel()
+
+	stringPtr := func(value string) *string { return &value }
+	validCatalog := apitypes.WorkflowI18nCatalog{Description: stringPtr("description")}
+	cases := map[string]*apitypes.WorkflowI18n{
+		"missing default locale": {
+			AdditionalProperties: map[string]apitypes.WorkflowI18nCatalog{"en": validCatalog},
+		},
+		"missing default catalog": {
+			DefaultLocale:        "en",
+			AdditionalProperties: map[string]apitypes.WorkflowI18nCatalog{"zh": validCatalog},
+		},
+		"blank locale": {
+			DefaultLocale: "en",
+			AdditionalProperties: map[string]apitypes.WorkflowI18nCatalog{
+				"en": validCatalog,
+				"":   validCatalog,
+			},
+		},
+		"reserved locale": {
+			DefaultLocale: "en",
+			AdditionalProperties: map[string]apitypes.WorkflowI18nCatalog{
+				"en":             validCatalog,
+				"default_locale": validCatalog,
+			},
+		},
+		"surrounding whitespace": {
+			DefaultLocale:        " en ",
+			AdditionalProperties: map[string]apitypes.WorkflowI18nCatalog{" en ": validCatalog},
+		},
+	}
+
+	for name, i18n := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			doc := apitypes.WorkflowDocument{
+				I18n:     i18n,
+				Metadata: apitypes.WorkflowMetadata{Name: "invalid-i18n"},
+				Spec: apitypes.WorkflowSpec{
+					Driver:    apitypes.WorkflowDriverFlowcraft,
+					Flowcraft: &apitypes.FlowcraftWorkflowSpec{},
+				},
+			}
+			srv := newTestServer(t)
+			resp, err := srv.CreateWorkflow(context.Background(), adminhttp.CreateWorkflowRequestObject{Body: &doc})
+			if err != nil {
+				t.Fatalf("CreateWorkflow() error = %v", err)
+			}
+			if _, ok := resp.(adminhttp.CreateWorkflow400JSONResponse); !ok {
+				t.Fatalf("CreateWorkflow() response = %#v", resp)
+			}
+		})
 	}
 }
 

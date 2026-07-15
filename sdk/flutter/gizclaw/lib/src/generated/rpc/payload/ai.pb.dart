@@ -7481,10 +7481,12 @@ class WorkflowDocument extends $pb.GeneratedMessage {
   factory WorkflowDocument({
     WorkflowMetadata? metadata,
     WorkflowSpec? spec,
+    WorkflowI18n? i18n,
   }) {
     final result = create();
     if (metadata != null) result.metadata = metadata;
     if (spec != null) result.spec = spec;
+    if (i18n != null) result.i18n = i18n;
     return result;
   }
 
@@ -7505,6 +7507,8 @@ class WorkflowDocument extends $pb.GeneratedMessage {
         subBuilder: WorkflowMetadata.create)
     ..aOM<WorkflowSpec>(2, _omitFieldNames ? '' : 'spec',
         subBuilder: WorkflowSpec.create)
+    ..aOM<WorkflowI18n>(3, _omitFieldNames ? '' : 'i18n',
+        subBuilder: WorkflowI18n.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -7547,6 +7551,17 @@ class WorkflowDocument extends $pb.GeneratedMessage {
   void clearSpec() => $_clearField(2);
   @$pb.TagNumber(2)
   WorkflowSpec ensureSpec() => $_ensure(1);
+
+  @$pb.TagNumber(3)
+  WorkflowI18n get i18n => $_getN(2);
+  @$pb.TagNumber(3)
+  set i18n(WorkflowI18n value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasI18n() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearI18n() => $_clearField(3);
+  @$pb.TagNumber(3)
+  WorkflowI18n ensureI18n() => $_ensure(2);
 }
 
 class WorkflowGetRequest extends $pb.GeneratedMessage {
@@ -7801,11 +7816,9 @@ class WorkflowListResponse extends $pb.GeneratedMessage {
 
 class WorkflowMetadata extends $pb.GeneratedMessage {
   factory WorkflowMetadata({
-    $core.String? description,
     $core.String? name,
   }) {
     final result = create();
-    if (description != null) result.description = description;
     if (name != null) result.name = name;
     return result;
   }
@@ -7823,7 +7836,6 @@ class WorkflowMetadata extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'WorkflowMetadata',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'description')
     ..aOS(2, _omitFieldNames ? '' : 'name')
     ..hasRequiredFields = false;
 
@@ -7846,23 +7858,146 @@ class WorkflowMetadata extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<WorkflowMetadata>(create);
   static WorkflowMetadata? _defaultInstance;
 
-  @$pb.TagNumber(1)
-  $core.String get description => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set description($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasDescription() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearDescription() => $_clearField(1);
-
   @$pb.TagNumber(2)
-  $core.String get name => $_getSZ(1);
+  $core.String get name => $_getSZ(0);
   @$pb.TagNumber(2)
-  set name($core.String value) => $_setString(1, value);
+  set name($core.String value) => $_setString(0, value);
   @$pb.TagNumber(2)
-  $core.bool hasName() => $_has(1);
+  $core.bool hasName() => $_has(0);
   @$pb.TagNumber(2)
   void clearName() => $_clearField(2);
+}
+
+class WorkflowI18nCatalog extends $pb.GeneratedMessage {
+  factory WorkflowI18nCatalog({
+    $core.String? name,
+    $core.String? description,
+  }) {
+    final result = create();
+    if (name != null) result.name = name;
+    if (description != null) result.description = description;
+    return result;
+  }
+
+  WorkflowI18nCatalog._();
+
+  factory WorkflowI18nCatalog.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory WorkflowI18nCatalog.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'WorkflowI18nCatalog',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aOS(2, _omitFieldNames ? '' : 'description')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WorkflowI18nCatalog clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WorkflowI18nCatalog copyWith(void Function(WorkflowI18nCatalog) updates) =>
+      super.copyWith((message) => updates(message as WorkflowI18nCatalog))
+          as WorkflowI18nCatalog;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static WorkflowI18nCatalog create() => WorkflowI18nCatalog._();
+  @$core.override
+  WorkflowI18nCatalog createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static WorkflowI18nCatalog getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<WorkflowI18nCatalog>(create);
+  static WorkflowI18nCatalog? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get description => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set description($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDescription() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDescription() => $_clearField(2);
+}
+
+class WorkflowI18n extends $pb.GeneratedMessage {
+  factory WorkflowI18n({
+    $core.String? defaultLocale,
+    $core.Iterable<$core.MapEntry<$core.String, WorkflowI18nCatalog>>? value,
+  }) {
+    final result = create();
+    if (defaultLocale != null) result.defaultLocale = defaultLocale;
+    if (value != null) result.value.addEntries(value);
+    return result;
+  }
+
+  WorkflowI18n._();
+
+  factory WorkflowI18n.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory WorkflowI18n.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'WorkflowI18n',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'defaultLocale')
+    ..m<$core.String, WorkflowI18nCatalog>(2, _omitFieldNames ? '' : 'value',
+        entryClassName: 'WorkflowI18n.ValueEntry',
+        keyFieldType: $pb.PbFieldType.OS,
+        valueFieldType: $pb.PbFieldType.OM,
+        valueCreator: WorkflowI18nCatalog.create,
+        valueDefaultOrMaker: WorkflowI18nCatalog.getDefault,
+        packageName: const $pb.PackageName('gizclaw.rpc.v1'))
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WorkflowI18n clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WorkflowI18n copyWith(void Function(WorkflowI18n) updates) =>
+      super.copyWith((message) => updates(message as WorkflowI18n))
+          as WorkflowI18n;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static WorkflowI18n create() => WorkflowI18n._();
+  @$core.override
+  WorkflowI18n createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static WorkflowI18n getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<WorkflowI18n>(create);
+  static WorkflowI18n? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get defaultLocale => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set defaultLocale($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasDefaultLocale() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearDefaultLocale() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $pb.PbMap<$core.String, WorkflowI18nCatalog> get value => $_getMap(1);
 }
 
 class ToolkitPolicyToolIds extends $pb.GeneratedMessage {

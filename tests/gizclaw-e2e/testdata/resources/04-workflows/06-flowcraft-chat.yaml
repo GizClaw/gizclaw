@@ -3,7 +3,10 @@ apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
   name: flowcraft-chat-assistant
-  description: 'Flowcraft raid: Chat'
+i18n:
+  default_locale: en
+  en:
+    description: 'Flowcraft raid: Chat'
 spec:
   driver: flowcraft
   flowcraft:

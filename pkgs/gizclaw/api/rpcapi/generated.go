@@ -3048,6 +3048,7 @@ type WorkflowDeleteResponse = WorkflowDocument
 
 // WorkflowDocument defines model for WorkflowDocument.
 type WorkflowDocument struct {
+	I18n     *WorkflowI18n    `json:"i18n,omitempty"`
 	Metadata WorkflowMetadata `json:"metadata"`
 	Spec     WorkflowSpec     `json:"spec"`
 }
@@ -3078,10 +3079,20 @@ type WorkflowListResponse struct {
 
 // WorkflowMetadata defines model for WorkflowMetadata.
 type WorkflowMetadata struct {
-	Description *string `json:"description,omitempty"`
-
 	// Name Stable workflow ID. The creator must provide this value.
 	Name string `json:"name"`
+}
+
+// WorkflowI18n defines model for WorkflowI18n.
+type WorkflowI18n struct {
+	DefaultLocale string                         `json:"default_locale"`
+	Value         map[string]WorkflowI18nCatalog `json:"value"`
+}
+
+// WorkflowI18nCatalog defines model for WorkflowI18nCatalog.
+type WorkflowI18nCatalog struct {
+	Description *string `json:"description,omitempty"`
+	Name        *string `json:"name,omitempty"`
 }
 
 // ToolkitPolicy defines model for ToolkitPolicy.

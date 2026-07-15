@@ -412,9 +412,14 @@ func workflowDocument(cfg config) rpcapi.WorkflowCreateRequest {
 	}
 	spec := workflowSpec(cfg)
 	return rpcapi.WorkflowCreateRequest{
+		I18n: &rpcapi.WorkflowI18n{
+			DefaultLocale: "en",
+			Value: map[string]rpcapi.WorkflowI18nCatalog{
+				"en": {Description: &description},
+			},
+		},
 		Metadata: rpcapi.WorkflowMetadata{
-			Name:        cfg.Workflow.Name,
-			Description: &description,
+			Name: cfg.Workflow.Name,
 		},
 		Spec: spec,
 	}

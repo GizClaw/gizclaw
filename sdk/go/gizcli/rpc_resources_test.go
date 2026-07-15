@@ -39,6 +39,7 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 	})
 
 	t.Run("workflow", func(t *testing.T) {
+		runWorkflowI18nWrapperTest(t, client)
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkflowList, rpcapi.WorkflowListResponse{}, (*rpcapi.RPCPayload).FromWorkflowListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkflowListResponse, error) {
 			return client.ListWorkflows(ctx, conn, "workflow-list", rpcapi.WorkflowListRequest{})
 		})
@@ -189,6 +190,38 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 	t.Run("gameplay pixa", func(t *testing.T) {
 		runBadgeDefPixaDownloadWrapperTest(t, client)
 	})
+}
+
+func runWorkflowI18nWrapperTest(t *testing.T, client *rpcClient) {
+	t.Helper()
+	serverSide, clientSide := net.Pipe()
+	defer serverSide.Close()
+	defer clientSide.Close()
+
+	serverErrCh := make(chan error, 1)
+	go func() {
+		req, err := readRPCRequestWithEOS(serverSide)
+		if err != nil {
+			serverErrCh <- err
+			return
+		}
+		serverErrCh <- writeRPCResponseWithEOS(serverSide, req.Method, resourceResponse(
+			req.Id,
+			resourceWorkflowDoc("localized-flow"),
+			(*rpcapi.RPCPayload).FromWorkflowGetResponse,
+		))
+	}()
+
+	got, err := client.GetWorkflow(context.Background(), clientSide, "workflow-i18n", rpcapi.WorkflowGetRequest{Name: "localized-flow"})
+	if err != nil {
+		t.Fatalf("workflow i18n call error = %v", err)
+	}
+	if got.I18n == nil || got.I18n.DefaultLocale != "en" || len(got.I18n.Value) != 2 {
+		t.Fatalf("workflow i18n = %#v", got.I18n)
+	}
+	if err := <-serverErrCh; err != nil {
+		t.Fatalf("workflow i18n server error = %v", err)
+	}
 }
 
 func runRPCResultWrapperTest[Resp any](
@@ -416,7 +449,15 @@ func resourceWorkspace(name string) rpcapi.Workspace {
 
 func resourceWorkflowDoc(name string) rpcapi.WorkflowDocument {
 	spec := rpcapi.FlowcraftWorkflowSpec{"entry_agent": ""}
+	description := "Localized workflow"
 	return rpcapi.WorkflowDocument{
+		I18n: &rpcapi.WorkflowI18n{
+			DefaultLocale: "en",
+			Value: map[string]rpcapi.WorkflowI18nCatalog{
+				"en":    {Description: &description},
+				"zh-CN": {},
+			},
+		},
 		Metadata: rpcapi.WorkflowMetadata{Name: name},
 		Spec: rpcapi.WorkflowSpec{
 			Driver:    rpcapi.WorkflowDriverFlowcraft,

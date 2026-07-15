@@ -20,6 +20,9 @@
           },
           "spec": {
             "$ref": "./workflow_spec.json#/components/schemas/WorkflowSpec"
+          },
+          "i18n": {
+            "$ref": "./workflow_i18n.json#/components/schemas/WorkflowI18n"
           }
         }
       }

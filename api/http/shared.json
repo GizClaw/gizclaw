@@ -392,6 +392,12 @@
       "WorkflowDocument": {
         "$ref": "./shared/workflow_document.json#/components/schemas/WorkflowDocument"
       },
+      "WorkflowI18n": {
+        "$ref": "./shared/workflow_i18n.json#/components/schemas/WorkflowI18n"
+      },
+      "WorkflowI18nCatalog": {
+        "$ref": "./shared/workflow_i18n.json#/components/schemas/WorkflowI18nCatalog"
+      },
       "WorkflowSpec": {
         "$ref": "./shared/workflow_spec.json#/components/schemas/WorkflowSpec"
       },

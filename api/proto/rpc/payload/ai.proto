@@ -557,6 +557,7 @@ message WorkflowDeleteResponse {
 message WorkflowDocument {
   WorkflowMetadata metadata = 1;
   WorkflowSpec spec = 2;
+  optional WorkflowI18n i18n = 3;
 }
 
 message WorkflowGetRequest {
@@ -579,8 +580,18 @@ message WorkflowListResponse {
 }
 
 message WorkflowMetadata {
-  optional string description = 1;
+  reserved 1;
   string name = 2;
+}
+
+message WorkflowI18nCatalog {
+  optional string name = 1;
+  optional string description = 2;
+}
+
+message WorkflowI18n {
+  string default_locale = 1;
+  map<string, WorkflowI18nCatalog> value = 2;
 }
 
 message ToolkitPolicyToolIds {

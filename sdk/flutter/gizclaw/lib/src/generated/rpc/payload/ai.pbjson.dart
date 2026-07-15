@@ -3651,6 +3651,19 @@ const WorkflowDocument$json = {
       '6': '.gizclaw.rpc.v1.WorkflowSpec',
       '10': 'spec'
     },
+    {
+      '1': 'i18n',
+      '3': 3,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.WorkflowI18n',
+      '9': 0,
+      '10': 'i18n',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_i18n'},
   ],
 };
 
@@ -3658,7 +3671,8 @@ const WorkflowDocument$json = {
 final $typed_data.Uint8List workflowDocumentDescriptor = $convert.base64Decode(
     'ChBXb3JrZmxvd0RvY3VtZW50EjwKCG1ldGFkYXRhGAEgASgLMiAuZ2l6Y2xhdy5ycGMudjEuV2'
     '9ya2Zsb3dNZXRhZGF0YVIIbWV0YWRhdGESMAoEc3BlYxgCIAEoCzIcLmdpemNsYXcucnBjLnYx'
-    'LldvcmtmbG93U3BlY1IEc3BlYw==');
+    'LldvcmtmbG93U3BlY1IEc3BlYxI1CgRpMThuGAMgASgLMhwuZ2l6Y2xhdy5ycGMudjEuV29ya2'
+    'Zsb3dJMThuSABSBGkxOG6IAQFCBwoFX2kxOG4=');
 
 @$core.Deprecated('Use workflowGetRequestDescriptor instead')
 const WorkflowGetRequest$json = {
@@ -3748,26 +3762,83 @@ final $typed_data.Uint8List workflowListResponseDescriptor = $convert.base64Deco
 const WorkflowMetadata$json = {
   '1': 'WorkflowMetadata',
   '2': [
-    {
-      '1': 'description',
-      '3': 1,
-      '4': 1,
-      '5': 9,
-      '9': 0,
-      '10': 'description',
-      '17': true
-    },
     {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
   ],
-  '8': [
-    {'1': '_description'},
+  '9': [
+    {'1': 1, '2': 2},
   ],
 };
 
 /// Descriptor for `WorkflowMetadata`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List workflowMetadataDescriptor = $convert.base64Decode(
-    'ChBXb3JrZmxvd01ldGFkYXRhEiUKC2Rlc2NyaXB0aW9uGAEgASgJSABSC2Rlc2NyaXB0aW9uiA'
-    'EBEhIKBG5hbWUYAiABKAlSBG5hbWVCDgoMX2Rlc2NyaXB0aW9u');
+    'ChBXb3JrZmxvd01ldGFkYXRhEhIKBG5hbWUYAiABKAlSBG5hbWVKBAgBEAI=');
+
+@$core.Deprecated('Use workflowI18nCatalogDescriptor instead')
+const WorkflowI18nCatalog$json = {
+  '1': 'WorkflowI18nCatalog',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'name', '17': true},
+    {
+      '1': 'description',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '9': 1,
+      '10': 'description',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_name'},
+    {'1': '_description'},
+  ],
+};
+
+/// Descriptor for `WorkflowI18nCatalog`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List workflowI18nCatalogDescriptor = $convert.base64Decode(
+    'ChNXb3JrZmxvd0kxOG5DYXRhbG9nEhcKBG5hbWUYASABKAlIAFIEbmFtZYgBARIlCgtkZXNjcm'
+    'lwdGlvbhgCIAEoCUgBUgtkZXNjcmlwdGlvbogBAUIHCgVfbmFtZUIOCgxfZGVzY3JpcHRpb24=');
+
+@$core.Deprecated('Use workflowI18nDescriptor instead')
+const WorkflowI18n$json = {
+  '1': 'WorkflowI18n',
+  '2': [
+    {'1': 'default_locale', '3': 1, '4': 1, '5': 9, '10': 'defaultLocale'},
+    {
+      '1': 'value',
+      '3': 2,
+      '4': 3,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.WorkflowI18n.ValueEntry',
+      '10': 'value'
+    },
+  ],
+  '3': [WorkflowI18n_ValueEntry$json],
+};
+
+@$core.Deprecated('Use workflowI18nDescriptor instead')
+const WorkflowI18n_ValueEntry$json = {
+  '1': 'ValueEntry',
+  '2': [
+    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
+    {
+      '1': 'value',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.WorkflowI18nCatalog',
+      '10': 'value'
+    },
+  ],
+  '7': {'7': true},
+};
+
+/// Descriptor for `WorkflowI18n`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List workflowI18nDescriptor = $convert.base64Decode(
+    'CgxXb3JrZmxvd0kxOG4SJQoOZGVmYXVsdF9sb2NhbGUYASABKAlSDWRlZmF1bHRMb2NhbGUSPQ'
+    'oFdmFsdWUYAiADKAsyJy5naXpjbGF3LnJwYy52MS5Xb3JrZmxvd0kxOG4uVmFsdWVFbnRyeVIF'
+    'dmFsdWUaXQoKVmFsdWVFbnRyeRIQCgNrZXkYASABKAlSA2tleRI5CgV2YWx1ZRgCIAEoCzIjLm'
+    'dpemNsYXcucnBjLnYxLldvcmtmbG93STE4bkNhdGFsb2dSBXZhbHVlOgI4AQ==');
 
 @$core.Deprecated('Use toolkitPolicyToolIdsDescriptor instead')
 const ToolkitPolicyToolIds$json = {

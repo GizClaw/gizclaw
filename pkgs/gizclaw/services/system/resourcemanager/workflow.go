@@ -33,7 +33,16 @@ func (m *Manager) applyWorkflow(ctx context.Context, resource apitypes.Resource)
 		return apitypes.ApplyResult{}, err
 	}
 	if exists {
-		same, err := semanticEqual(existing.Spec, item.Spec)
+		same, err := semanticEqual(
+			struct {
+				Spec apitypes.WorkflowSpec  `json:"spec"`
+				I18n *apitypes.WorkflowI18n `json:"i18n,omitempty"`
+			}{Spec: existing.Spec, I18n: existing.I18n},
+			struct {
+				Spec apitypes.WorkflowSpec  `json:"spec"`
+				I18n *apitypes.WorkflowI18n `json:"i18n,omitempty"`
+			}{Spec: item.Spec, I18n: item.I18n},
+		)
 		if err != nil {
 			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
 		}
@@ -126,12 +135,14 @@ func resourceFromWorkflow(name string, item apitypes.WorkflowDocument) (apitypes
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.WorkflowResourceKind(apitypes.ResourceKindWorkflow),
 		Metadata:   apitypes.ResourceMetadata{Name: name},
+		I18n:       item.I18n,
 		Spec:       item.Spec,
 	})
 }
 
 func workflowDocumentFromResource(item apitypes.WorkflowResource) apitypes.WorkflowDocument {
 	return apitypes.WorkflowDocument{
+		I18n:     item.I18n,
 		Metadata: apitypes.WorkflowMetadata{Name: item.Metadata.Name},
 		Spec:     item.Spec,
 	}

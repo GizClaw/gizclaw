@@ -1,3 +1,5 @@
+import 'dart:ui' show PlatformDispatcher;
+
 import 'package:drift/drift.dart';
 import 'package:gizclaw/gizclaw.dart';
 
@@ -15,9 +17,11 @@ class MobileDataRefreshWarning {
 }
 
 class MobileDataRepository {
-  MobileDataRepository(this.database);
+  MobileDataRepository(this.database, {String Function()? deviceLocaleTag})
+    : _deviceLocaleTag = deviceLocaleTag ?? _platformLocaleTag;
 
   final AppDatabase database;
+  final String Function() _deviceLocaleTag;
 
   Future<String?> serverIdForEndpoint(String endpoint) async {
     final query = database.select(database.servers)
@@ -31,7 +35,9 @@ class MobileDataRepository {
       ..where((row) => row.serverId.equals(serverId))
       ..orderBy([(row) => OrderingTerm.asc(row.name)]);
     return query.watch().map(
-      (rows) => rows.map(_workflowCardFromRow).toList(growable: false),
+      (rows) => rows
+          .map((row) => _workflowCardFromRow(row, _deviceLocaleTag()))
+          .toList(growable: false),
     );
   }
 
@@ -100,7 +106,7 @@ class MobileDataRepository {
       ..where((row) => row.serverId.equals(serverId) & row.name.equals(name))
       ..limit(1);
     final row = await query.getSingleOrNull();
-    return row == null ? null : _workflowCardFromRow(row);
+    return row == null ? null : _workflowCardFromRow(row, _deviceLocaleTag());
   }
 
   Future<Workspace?> workspaceDocument(String serverId, String name) async {
@@ -135,10 +141,11 @@ class MobileDataRepository {
         batch.insertAllOnConflictUpdate(
           database.workflowEntries,
           workflows.map((workflow) {
+            final catalog = _workflowCatalog(workflow, _deviceLocaleTag());
             return WorkflowEntriesCompanion.insert(
               serverId: serverId,
               name: workflow.metadata.name,
-              description: workflow.metadata.description,
+              description: catalog?.description.trim() ?? '',
               driver: workflow.spec.driver.name,
               rawProtobuf: Uint8List.fromList(workflow.writeToBuffer()),
               refreshedAt: refreshedAt,
@@ -330,13 +337,37 @@ String _friendGroupKey(FriendGroupObject group) {
   return group.name.trim();
 }
 
-WorkflowCard _workflowCardFromRow(WorkflowEntry row) {
+WorkflowCard _workflowCardFromRow(WorkflowEntry row, String localeTag) {
+  final workflow = WorkflowDocument.fromBuffer(row.rawProtobuf);
+  final catalog = _workflowCatalog(workflow, localeTag);
+  final localizedName = catalog?.name.trim();
   return WorkflowCard.fromServer(
     name: row.name,
+    displayName: localizedName == null || localizedName.isEmpty
+        ? row.name
+        : localizedName,
     description: row.description,
     driver: row.driver,
   );
 }
+
+WorkflowI18nCatalog? _workflowCatalog(
+  WorkflowDocument workflow,
+  String localeTag,
+) {
+  if (!workflow.hasI18n() || workflow.i18n.value.isEmpty) return null;
+
+  final catalogs = workflow.i18n.value;
+  final normalizedTag = localeTag.trim().replaceAll('_', '-');
+  final languageCode = normalizedTag.split('-').first;
+  return catalogs[normalizedTag] ??
+      catalogs[languageCode] ??
+      catalogs[workflow.i18n.defaultLocale] ??
+      catalogs.values.first;
+}
+
+String _platformLocaleTag() =>
+    PlatformDispatcher.instance.locale.toLanguageTag();
 
 WorkspaceCard _workspaceCardFromRow(WorkspaceEntry row) {
   final workspace = Workspace.fromBuffer(row.rawProtobuf);

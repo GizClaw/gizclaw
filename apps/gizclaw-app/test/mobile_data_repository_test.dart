@@ -9,13 +9,26 @@ void main() {
   test('refreshes workflow and workspace snapshots into Drift', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(database.close);
-    final repository = MobileDataRepository(database);
+    final repository = MobileDataRepository(
+      database,
+      deviceLocaleTag: () => 'zh-CN',
+    );
     final client = _FakeClient(
       workflows: [
         WorkflowDocument(
-          metadata: WorkflowMetadata(
-            name: 'build-helper',
-            description: 'Build something useful.',
+          metadata: WorkflowMetadata(name: 'build-helper'),
+          i18n: WorkflowI18n(
+            defaultLocale: 'en',
+            value: {
+              'en': WorkflowI18nCatalog(
+                name: 'Build Helper',
+                description: 'Build something useful.',
+              ),
+              'zh-CN': WorkflowI18nCatalog(
+                name: '构建助手',
+                description: '构建有用的东西。',
+              ),
+            }.entries,
           ),
           spec: WorkflowSpec(driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT),
         ),
@@ -62,7 +75,8 @@ void main() {
     final workflows = await repository.watchWorkflows('server-a').first;
     final workspaces = await repository.watchWorkspaces('server-a').first;
     expect(workflows.single.name, 'build-helper');
-    expect(workflows.single.title, 'Build Helper');
+    expect(workflows.single.title, '构建助手');
+    expect(workflows.single.subtitle, '构建有用的东西。');
     expect(workflows.single.driverLabel, 'Flowcraft');
     final mobileWorkspace = workspaces.firstWhere(
       (workspace) => workspace.name == 'mobile-plan',
@@ -95,6 +109,76 @@ void main() {
     expect(groupChats.single.title, 'Builder Crew');
     expect(groupChats.single.description, 'Shipping together');
   });
+
+  test(
+    'selects workflow catalogs with the documented fallback order',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+      var currentLocaleTag = '';
+      final repository = MobileDataRepository(
+        database,
+        deviceLocaleTag: () => currentLocaleTag,
+      );
+      final client = _FakeClient(workflows: [], workspaces: const []);
+
+      Future<WorkflowCard> refreshFor(
+        String localeTag,
+        WorkflowI18n? i18n,
+      ) async {
+        currentLocaleTag = localeTag;
+        client.workflows
+          ..clear()
+          ..add(
+            WorkflowDocument(
+              metadata: WorkflowMetadata(name: 'stable-name'),
+              i18n: i18n,
+              spec: WorkflowSpec(
+                driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT,
+              ),
+            ),
+          );
+        await repository.refresh(
+          client: client,
+          endpoint: localeTag,
+          serverId: 'server-a',
+        );
+        return (await repository.watchWorkflows('server-a').first).single;
+      }
+
+      final catalogs = WorkflowI18n(
+        defaultLocale: 'en',
+        value: {
+          'en': WorkflowI18nCatalog(
+            name: 'English',
+            description: 'English description',
+          ),
+          'zh': WorkflowI18nCatalog(name: '中文', description: '中文说明'),
+          'zh-CN': WorkflowI18nCatalog(name: '简体中文', description: '简体中文说明'),
+        }.entries,
+      );
+
+      expect((await refreshFor('zh-CN', catalogs)).title, '简体中文');
+      expect((await refreshFor('zh-TW', catalogs)).title, '中文');
+      expect((await refreshFor('fr-FR', catalogs)).title, 'English');
+
+      final firstCatalog = await refreshFor(
+        'fr-FR',
+        WorkflowI18n(
+          defaultLocale: 'missing',
+          value: {
+            'de': WorkflowI18nCatalog(description: 'Beschreibung'),
+          }.entries,
+        ),
+      );
+      expect(firstCatalog.title, 'stable-name');
+      expect(firstCatalog.subtitle, 'Beschreibung');
+
+      final noI18n = await refreshFor('fr-FR', null);
+      expect(noI18n.title, 'stable-name');
+      expect(noI18n.subtitle, isEmpty);
+    },
+  );
 
   test('complete refresh removes rows absent from the snapshot', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());

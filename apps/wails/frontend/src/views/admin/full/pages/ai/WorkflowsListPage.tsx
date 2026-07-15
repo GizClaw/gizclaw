@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { expectData } from "@/dashboard";
-import { listWorkflows, type WorkflowDocument } from "@gizclaw/gizclaw/admin";
+import { listWorkflows, type WorkflowDocument, type WorkflowI18nCatalog } from "@gizclaw/gizclaw/admin";
 
 import { ErrorBanner } from "@/dashboard";
 import { EmptyState } from "@/dashboard";
@@ -161,8 +161,8 @@ export function WorkflowsListPage(): JSX.Element {
                         <Badge variant="outline">{workflow.spec.driver}</Badge>
                       </TableCell>
                       <TableCell>{workflowSpecLabel(workflow)}</TableCell>
-                      <TableCell className="truncate text-sm text-muted-foreground" title={workflow.metadata.description?.trim() || "—"}>
-                        {workflow.metadata.description?.trim() || "—"}
+                      <TableCell className="truncate text-sm text-muted-foreground" title={workflowDescription(workflow) || "—"}>
+                        {workflowDescription(workflow) || "—"}
                       </TableCell>
                       <TableCell className="text-right text-sm text-muted-foreground">—</TableCell>
                     </TableRow>
@@ -178,6 +178,33 @@ export function WorkflowsListPage(): JSX.Element {
 
 function isInteractiveTarget(target: EventTarget): boolean {
   return target instanceof Element && target.closest("a,button,input,select,textarea") !== null;
+}
+
+function workflowDescription(workflow: WorkflowDocument): string {
+  const catalog = workflowCatalog(workflow, navigator.languages);
+  return catalog?.description?.trim() ?? "";
+}
+
+function workflowCatalog(workflow: WorkflowDocument, localeTags: readonly string[]): WorkflowI18nCatalog | undefined {
+  const i18n = workflow.i18n;
+  if (!i18n) {
+    return undefined;
+  }
+
+  const candidates = localeTags.flatMap((localeTag) => {
+    const normalized = localeTag.trim().replaceAll("_", "-");
+    return [normalized, normalized.split("-")[0]];
+  });
+  candidates.push(i18n.default_locale);
+  for (const locale of candidates) {
+    const catalog = i18n[locale];
+    if (typeof catalog === "object") {
+      return catalog;
+    }
+  }
+  return Object.entries(i18n).find(([key, value]) => key !== "default_locale" && typeof value === "object")?.[1] as
+    | WorkflowI18nCatalog
+    | undefined;
 }
 
 function workflowSpecLabel(workflow: WorkflowDocument): string {

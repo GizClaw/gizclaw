@@ -38,7 +38,13 @@ func TestAdminAPIWorkflowsListGetPaginationAndMutation(t *testing.T) {
 	name := mutationName("workflow")
 	_, _ = env.api.DeleteWorkflowWithResponse(env.ctx, name)
 	created, err := env.api.CreateWorkflowWithResponse(env.ctx, apitypes.WorkflowDocument{
-		Metadata: apitypes.WorkflowMetadata{Name: name, Description: ptr("admin API mutation workflow")},
+		I18n: &apitypes.WorkflowI18n{
+			DefaultLocale: "en",
+			AdditionalProperties: map[string]apitypes.WorkflowI18nCatalog{
+				"en": {Description: ptr("admin API mutation workflow")},
+			},
+		},
+		Metadata: apitypes.WorkflowMetadata{Name: name},
 		Spec:     apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverFlowcraft, Flowcraft: &apitypes.FlowcraftWorkflowSpec{}},
 	})
 	if err != nil {

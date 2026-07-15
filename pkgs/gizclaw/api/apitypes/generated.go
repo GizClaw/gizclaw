@@ -3642,6 +3642,7 @@ type VolcTenantVoiceProviderData struct {
 
 // WorkflowDocument defines model for WorkflowDocument.
 type WorkflowDocument struct {
+	I18n     *WorkflowI18n    `json:"i18n,omitempty"`
 	Metadata WorkflowMetadata `json:"metadata"`
 	Spec     WorkflowSpec     `json:"spec"`
 }
@@ -3649,10 +3650,20 @@ type WorkflowDocument struct {
 // WorkflowDriver defines model for WorkflowDriver.
 type WorkflowDriver string
 
+// WorkflowI18n defines model for WorkflowI18n.
+type WorkflowI18n struct {
+	DefaultLocale        string                         `json:"default_locale"`
+	AdditionalProperties map[string]WorkflowI18nCatalog `json:"-"`
+}
+
+// WorkflowI18nCatalog defines model for WorkflowI18nCatalog.
+type WorkflowI18nCatalog struct {
+	Description *string `json:"description,omitempty"`
+	Name        *string `json:"name,omitempty"`
+}
+
 // WorkflowMetadata defines model for WorkflowMetadata.
 type WorkflowMetadata struct {
-	Description *string `json:"description,omitempty"`
-
 	// Name Stable workflow ID. The creator must provide this value.
 	Name string `json:"name"`
 }
@@ -3661,6 +3672,7 @@ type WorkflowMetadata struct {
 type WorkflowResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
 	ApiVersion ResourceAPIVersion   `json:"apiVersion"`
+	I18n       *WorkflowI18n        `json:"i18n,omitempty"`
 	Kind       WorkflowResourceKind `json:"kind"`
 
 	// Metadata metadata.name is the workflow custom ID.
@@ -3783,6 +3795,72 @@ func (a *PetDefI18nSpec) UnmarshalJSON(b []byte) error {
 
 // Override default JSON handling for PetDefI18nSpec to handle AdditionalProperties
 func (a PetDefI18nSpec) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	object["default_locale"], err = json.Marshal(a.DefaultLocale)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'default_locale': %w", err)
+	}
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
+}
+
+// Getter for additional properties for WorkflowI18n. Returns the specified
+// element and whether it was found
+func (a WorkflowI18n) Get(fieldName string) (value WorkflowI18nCatalog, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for WorkflowI18n
+func (a *WorkflowI18n) Set(fieldName string, value WorkflowI18nCatalog) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]WorkflowI18nCatalog)
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for WorkflowI18n to handle AdditionalProperties
+func (a *WorkflowI18n) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["default_locale"]; found {
+		err = json.Unmarshal(raw, &a.DefaultLocale)
+		if err != nil {
+			return fmt.Errorf("error reading 'default_locale': %w", err)
+		}
+		delete(object, "default_locale")
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]WorkflowI18nCatalog)
+		for fieldName, fieldBuf := range object {
+			var fieldVal WorkflowI18nCatalog
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for WorkflowI18n to handle AdditionalProperties
+func (a WorkflowI18n) MarshalJSON() ([]byte, error) {
 	var err error
 	object := make(map[string]json.RawMessage)
 

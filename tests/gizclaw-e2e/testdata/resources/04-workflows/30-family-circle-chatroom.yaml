@@ -2,8 +2,11 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
-  description: Family circle chatroom workflow
   name: family-circle-chatroom
+i18n:
+  default_locale: en
+  en:
+    description: Family circle chatroom workflow
 spec:
   chatroom:
     history:

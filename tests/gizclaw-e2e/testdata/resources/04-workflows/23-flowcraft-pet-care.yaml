@@ -3,7 +3,10 @@ apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
   name: pet-care-flowcraft
-  description: Flowcraft pet-care workflow used by gameplay e2e pets
+i18n:
+  default_locale: en
+  en:
+    description: Flowcraft pet-care workflow used by gameplay e2e pets
 spec:
   driver: flowcraft
   flowcraft:

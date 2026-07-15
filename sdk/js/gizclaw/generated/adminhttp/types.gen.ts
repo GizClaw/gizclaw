@@ -653,6 +653,10 @@ export type ResourceListResource = {
     spec: ResourceListSpec;
 };
 
+export type ResourceListSpec = {
+    items: Array<Resource>;
+};
+
 export type ToolResource = {
     apiVersion: ResourceApiVersion;
     kind: 'Tool';
@@ -685,6 +689,7 @@ export type WorkflowResource = {
      */
     metadata: ResourceMetadata;
     spec: WorkflowSpec;
+    i18n?: WorkflowI18n;
 };
 
 export type WorkspaceResource = {
@@ -1626,10 +1631,6 @@ export type Registration = {
     approved_at?: string;
 };
 
-export type ResourceListSpec = {
-    items: Array<Resource>;
-};
-
 export type Runtime = {
     online: boolean;
     last_seen_at: string;
@@ -1942,6 +1943,17 @@ export type VolcTenantSpec = {
 export type WorkflowDocument = {
     metadata: WorkflowMetadata;
     spec: WorkflowSpec;
+    i18n?: WorkflowI18n;
+};
+
+export type WorkflowI18n = {
+    default_locale: string;
+    [key: string]: WorkflowI18nCatalog | string;
+};
+
+export type WorkflowI18nCatalog = {
+    name?: string;
+    description?: string;
 };
 
 export type WorkflowMetadata = {
@@ -1949,7 +1961,6 @@ export type WorkflowMetadata = {
      * Stable workflow ID. The creator must provide this value.
      */
     name: string;
-    description?: string;
 };
 
 export type WorkflowDriver = 'flowcraft' | 'doubao-realtime' | 'ast-translate' | 'chatroom';

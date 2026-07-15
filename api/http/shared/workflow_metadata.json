@@ -10,6 +10,7 @@
     "schemas": {
       "WorkflowMetadata": {
         "type": "object",
+        "additionalProperties": false,
         "required": [
           "name"
         ],
@@ -19,10 +20,6 @@
             "description": "Stable workflow ID. The creator must provide this value.",
             "x-go-type-skip-optional-pointer": true,
             "example": "demo-assistant"
-          },
-          "description": {
-            "type": "string",
-            "example": "flowcraft workflow"
           }
         }
       }

@@ -3,7 +3,10 @@ apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
   name: flowcraft-multi-role-storyteller
-  description: 'Flowcraft raid: Multi Role Storyteller'
+i18n:
+  default_locale: en
+  en:
+    description: 'Flowcraft raid: Multi Role Storyteller'
 spec:
   driver: flowcraft
   flowcraft:

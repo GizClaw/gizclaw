@@ -46,6 +46,12 @@ type workflowMetadata struct {
 	Name string `json:"name"`
 }
 
+type legacyWorkflowDocument struct {
+	Metadata struct {
+		Description *string `json:"description,omitempty"`
+	} `json:"metadata"`
+}
+
 func (s *Server) ListWorkflows(ctx context.Context, request adminhttp.ListWorkflowsRequestObject) (adminhttp.ListWorkflowsResponseObject, error) {
 	if s == nil || s.Store == nil {
 		return adminhttp.ListWorkflows500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "workflow store not configured")), nil
@@ -195,6 +201,9 @@ func validateDocument(doc apitypes.WorkflowDocument, expectedName string) (apity
 	if err := validateDriverSpec(doc.Spec); err != nil {
 		return apitypes.WorkflowDocument{}, env, nil, err
 	}
+	if err := validateWorkflowI18n(doc.I18n); err != nil {
+		return apitypes.WorkflowDocument{}, env, nil, err
+	}
 	policy, err := toolkit.NormalizePolicy(doc.Spec.Toolkit)
 	if err != nil {
 		return apitypes.WorkflowDocument{}, env, nil, fmt.Errorf("spec.toolkit: %w", err)
@@ -226,7 +235,51 @@ func decodeDocument(data []byte) (apitypes.WorkflowDocument, error) {
 	if err := json.Unmarshal(data, &doc); err != nil {
 		return apitypes.WorkflowDocument{}, err
 	}
+	if doc.I18n == nil {
+		var legacy legacyWorkflowDocument
+		if err := json.Unmarshal(data, &legacy); err != nil {
+			return apitypes.WorkflowDocument{}, err
+		}
+		if legacy.Metadata.Description != nil {
+			doc.I18n = &apitypes.WorkflowI18n{
+				DefaultLocale: "en",
+				AdditionalProperties: map[string]apitypes.WorkflowI18nCatalog{
+					"en": {Description: legacy.Metadata.Description},
+				},
+			}
+		}
+	}
+	if err := validateWorkflowI18n(doc.I18n); err != nil {
+		return apitypes.WorkflowDocument{}, err
+	}
 	return doc, nil
+}
+
+func validateWorkflowI18n(i18n *apitypes.WorkflowI18n) error {
+	if i18n == nil {
+		return nil
+	}
+	if strings.TrimSpace(i18n.DefaultLocale) == "" {
+		return errors.New("i18n.default_locale is required")
+	}
+	if strings.TrimSpace(i18n.DefaultLocale) != i18n.DefaultLocale {
+		return errors.New("i18n.default_locale must not contain leading or trailing whitespace")
+	}
+	if _, ok := i18n.AdditionalProperties[i18n.DefaultLocale]; !ok {
+		return fmt.Errorf("i18n.%s is required", i18n.DefaultLocale)
+	}
+	for locale := range i18n.AdditionalProperties {
+		if strings.TrimSpace(locale) == "" {
+			return errors.New("i18n contains an empty locale")
+		}
+		if locale == "default_locale" {
+			return errors.New("i18n.default_locale is reserved")
+		}
+		if strings.TrimSpace(locale) != locale {
+			return fmt.Errorf("i18n.%s must not contain leading or trailing whitespace", locale)
+		}
+	}
+	return nil
 }
 
 func workflowKey(name string) kv.Key {

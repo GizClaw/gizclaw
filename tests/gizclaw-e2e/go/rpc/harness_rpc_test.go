@@ -289,9 +289,14 @@ func rpcWorkflow(name, description string) rpcapi.WorkflowDocument {
 		"entry_agent": "",
 	}
 	return rpcapi.WorkflowDocument{
+		I18n: &rpcapi.WorkflowI18n{
+			DefaultLocale: "en",
+			Value: map[string]rpcapi.WorkflowI18nCatalog{
+				"en": {Description: &description},
+			},
+		},
 		Metadata: rpcapi.WorkflowMetadata{
-			Name:        name,
-			Description: &description,
+			Name: name,
 		},
 		Spec: rpcapi.WorkflowSpec{
 			Driver:    rpcapi.WorkflowDriverFlowcraft,

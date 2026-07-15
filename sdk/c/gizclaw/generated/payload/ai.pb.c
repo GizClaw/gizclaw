@@ -282,6 +282,15 @@ PB_BIND(gizclaw_rpc_v1_WorkflowListResponse, gizclaw_rpc_v1_WorkflowListResponse
 PB_BIND(gizclaw_rpc_v1_WorkflowMetadata, gizclaw_rpc_v1_WorkflowMetadata, AUTO)
 
 
+PB_BIND(gizclaw_rpc_v1_WorkflowI18nCatalog, gizclaw_rpc_v1_WorkflowI18nCatalog, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_WorkflowI18n, gizclaw_rpc_v1_WorkflowI18n, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_WorkflowI18n_ValueEntry, gizclaw_rpc_v1_WorkflowI18n_ValueEntry, AUTO)
+
+
 PB_BIND(gizclaw_rpc_v1_ToolkitPolicyToolIds, gizclaw_rpc_v1_ToolkitPolicyToolIds, AUTO)
 
 
