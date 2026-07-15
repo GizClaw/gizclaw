@@ -26,7 +26,7 @@ import {
 import { setLocale, useMessages } from "../i18n";
 import { getDesktopAPI } from "../lib/runtime/desktop";
 import type { PodInput, PodSummary } from "../lib/runtime/types";
-import { DigitalOcean } from "./DigitalOcean";
+import { NeatWaves } from "./NeatWaves";
 
 export function AppShell() {
   const api = useMemo(() => getDesktopAPI(), []);
@@ -1413,7 +1413,7 @@ function Field({
 function AmbientBackground() {
   return (
     <div className="ambient-background" aria-hidden="true">
-      <DigitalOcean />
+      <NeatWaves />
       <span className="ambient-noise" />
     </div>
   );

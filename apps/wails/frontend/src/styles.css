@@ -60,20 +60,9 @@ button {
   z-index: 1;
   inset: 0;
   content: "";
-  background:
-    linear-gradient(to bottom, rgba(2, 20, 27, 0.04), transparent 34%),
-    radial-gradient(
-      ellipse at 24% 18%,
-      rgba(23, 147, 157, 0.08),
-      transparent 44%
-    ),
-    radial-gradient(
-      ellipse at 84% 76%,
-      rgba(9, 210, 177, 0.08),
-      transparent 46%
-    );
+  background: linear-gradient(to bottom, rgba(8, 10, 22, 0.08), transparent 42%);
 }
-.ocean-canvas {
+.neat-waves-canvas {
   position: absolute;
   z-index: 0;
   inset: 0;
@@ -81,11 +70,13 @@ button {
   height: 100%;
   display: block;
 }
-.ocean-canvas[data-webgl="unavailable"],
-.ocean-canvas[data-webgl="failed"] {
+.neat-waves-canvas[data-webgl="unavailable"],
+.neat-waves-canvas[data-webgl="failed"] {
   background:
-    radial-gradient(circle at 72% 68%, rgba(12, 193, 172, 0.14), transparent 38%),
-    linear-gradient(168deg, #071a22 0%, #0a3038 56%, #071319 100%);
+    radial-gradient(circle at 12% 8%, #9f5c12, transparent 46%),
+    radial-gradient(circle at 86% 16%, #8f185d, transparent 48%),
+    radial-gradient(circle at 18% 88%, #0b3988, transparent 52%),
+    linear-gradient(145deg, #074d61, #32135f);
 }
 .ambient-noise {
   z-index: 2;
@@ -1827,24 +1818,15 @@ button:disabled {
     background: #ececef;
   }
   .ambient-background::after {
-    background:
-      linear-gradient(to bottom, rgba(255, 255, 255, 0.08), transparent 36%),
-      radial-gradient(
-        ellipse at 24% 18%,
-        rgba(24, 144, 155, 0.06),
-        transparent 44%
-      ),
-      radial-gradient(
-        ellipse at 84% 76%,
-        rgba(16, 179, 157, 0.06),
-        transparent 46%
-      );
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.05), transparent 42%);
   }
-  .ocean-canvas[data-webgl="unavailable"],
-  .ocean-canvas[data-webgl="failed"] {
+  .neat-waves-canvas[data-webgl="unavailable"],
+  .neat-waves-canvas[data-webgl="failed"] {
     background:
-      radial-gradient(circle at 72% 68%, rgba(15, 164, 153, 0.10), transparent 38%),
-      linear-gradient(168deg, #e5eeee 0%, #cfe5e4 56%, #e4e9eb 100%);
+      radial-gradient(circle at 12% 8%, #ffad14, transparent 46%),
+      radial-gradient(circle at 86% 16%, #ff2c7c, transparent 48%),
+      radial-gradient(circle at 18% 88%, #2154ff, transparent 52%),
+      linear-gradient(145deg, #0ccbc4, #9b27f2);
   }
   .home-brand {
     color: rgba(31, 32, 38, 0.88);

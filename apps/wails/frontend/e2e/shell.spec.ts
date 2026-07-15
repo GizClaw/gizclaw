@@ -516,7 +516,7 @@ test("launcher uses rounded transparent framing and ambient card depth", async (
   expect(shellStyle.margin).toBe("0px");
   expect(shellStyle.shadow).toBe("none");
   await expect(page.getByText("GizClaw", { exact: true })).toBeVisible();
-  await expect(page.locator(".ocean-canvas")).toHaveAttribute(
+  await expect(page.locator(".neat-waves-canvas")).toHaveAttribute(
     "data-target-fps",
     "24",
   );
