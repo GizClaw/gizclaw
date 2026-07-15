@@ -20,6 +20,17 @@ export function workflowLocale(localeTag: string): "en" | "unspecified" | "zh-CN
   return "unspecified";
 }
 
+export function supportedWorkflowLocales(localeTags: readonly string[]): Array<"en" | "zh-CN"> {
+  const locales: Array<"en" | "zh-CN"> = [];
+  for (const localeTag of localeTags) {
+    const locale = workflowLocale(localeTag);
+    if (locale !== "unspecified" && !locales.includes(locale)) {
+      locales.push(locale);
+    }
+  }
+  return locales;
+}
+
 export function selectedWorkflowText(workflow: unknown): SelectedWorkflowText {
   if (!isRecord(workflow) || !isRecord(workflow.i18n)) {
     return {};
