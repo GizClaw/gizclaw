@@ -122,7 +122,7 @@ class _ServerOnboardingPageState extends State<ServerOnboardingPage> {
                         borderRadius: BorderRadius.circular(18),
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         onPressed: () => context.push('/setup/servers'),
-                        child: const Text('Get Started by Adding a Server'),
+                        child: const Text('Get Started by Connecting a Server'),
                       ),
                     ),
                     const SizedBox(height: 10),
