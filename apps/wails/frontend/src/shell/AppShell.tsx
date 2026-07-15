@@ -26,6 +26,7 @@ import {
 import { setLocale, useMessages } from "../i18n";
 import { getDesktopAPI } from "../lib/runtime/desktop";
 import type { PodInput, PodSummary } from "../lib/runtime/types";
+import { LowPolyCloth } from "./LowPolyCloth";
 
 export function AppShell() {
   const api = useMemo(() => getDesktopAPI(), []);
@@ -141,6 +142,9 @@ export function AppShell() {
       <AmbientBackground />
       <div className="window-drag-surface" data-wails-drag />
       <WindowControls />
+      <div className="home-brand" aria-label="GizClaw">
+        GizClaw
+      </div>
 
       {error ? (
         <div className="error-toast">
@@ -1409,19 +1413,7 @@ function Field({
 function AmbientBackground() {
   return (
     <div className="ambient-background" aria-hidden="true">
-      <span className="ambient-glow ambient-glow-one" />
-      <span className="ambient-glow ambient-glow-two" />
-      <svg
-        className="ambient-flow-lines"
-        preserveAspectRatio="none"
-        viewBox="0 0 1440 900"
-      >
-        <path d="M-120 720 C 180 510, 320 870, 640 610 S 1080 280, 1560 450" />
-        <path d="M-180 540 C 210 270, 400 690, 710 430 S 1140 80, 1580 260" />
-        <path d="M40 980 C 230 650, 520 760, 760 520 S 1010 250, 1510 110" />
-        <path d="M-100 270 C 260 130, 440 410, 730 260 S 1120 -20, 1510 160" />
-        <path d="M280 950 C 500 720, 750 810, 940 600 S 1220 350, 1510 520" />
-      </svg>
+      <LowPolyCloth />
       <span className="ambient-noise" />
     </div>
   );

@@ -515,7 +515,11 @@ test("launcher uses rounded transparent framing and ambient card depth", async (
   expect(shellStyle.width).toBe(shellStyle.viewport);
   expect(shellStyle.margin).toBe("0px");
   expect(shellStyle.shadow).toBe("none");
-  await expect(page.locator(".ambient-flow-lines path")).toHaveCount(5);
+  await expect(page.getByText("GizClaw", { exact: true })).toBeVisible();
+  await expect(page.locator(".cloth-canvas")).toHaveAttribute(
+    "data-target-fps",
+    "24",
+  );
 
   const cards = page.locator(".pod-card");
   const firstCard = await cards.first().evaluate((element) => {

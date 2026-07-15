@@ -55,56 +55,41 @@ button {
 .ambient-background {
   overflow: hidden;
 }
-.ambient-glow {
+.ambient-background::after {
   position: absolute;
-  width: 52vw;
-  height: 52vw;
-  border-radius: 50%;
-  filter: blur(130px);
-  opacity: 0.09;
-  animation: ambient-shift 18s ease-in-out infinite alternate;
+  z-index: 1;
+  inset: 0;
+  content: "";
+  background:
+    linear-gradient(to bottom, rgba(8, 9, 13, 0.05), transparent 35%),
+    radial-gradient(
+      circle at 18% 5%,
+      rgba(103, 117, 255, 0.08),
+      transparent 40%
+    ),
+    radial-gradient(
+      circle at 88% 92%,
+      rgba(38, 185, 165, 0.07),
+      transparent 42%
+    );
 }
-.ambient-glow-one {
-  top: -30vw;
-  left: -10vw;
-  background: #6c7cff;
+.cloth-canvas {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
 }
-.ambient-glow-two {
-  right: -28vw;
-  bottom: -32vw;
-  background: #25b8a5;
-  animation-delay: -9s;
+.cloth-canvas[data-webgl="unavailable"],
+.cloth-canvas[data-webgl="failed"] {
+  background:
+    linear-gradient(145deg, rgba(80, 94, 180, 0.12), transparent 42%), #101114;
 }
 .ambient-noise {
+  z-index: 2;
   opacity: 0.025;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-.ambient-flow-lines {
-  position: absolute;
-  inset: -8%;
-  width: 116%;
-  height: 116%;
-  overflow: visible;
-  opacity: 0.3;
-  animation: flow-drift 24s ease-in-out infinite alternate;
-}
-.ambient-flow-lines path {
-  fill: none;
-  stroke: rgba(129, 143, 255, 0.16);
-  stroke-width: 1.15;
-  stroke-linecap: round;
-  stroke-dasharray: 4 13;
-  vector-effect: non-scaling-stroke;
-  animation: flow-trace 34s linear infinite;
-}
-.ambient-flow-lines path:nth-child(2n) {
-  stroke: rgba(74, 205, 181, 0.12);
-  stroke-dasharray: 2 18;
-  animation-direction: reverse;
-}
-.ambient-flow-lines path:nth-child(3n) {
-  opacity: 0.58;
-  animation-duration: 46s;
 }
 
 .window-drag-surface {
@@ -123,6 +108,18 @@ button {
   left: 18px;
   display: flex;
   gap: 8px;
+}
+.home-brand {
+  position: absolute;
+  z-index: 12;
+  top: 14px;
+  left: 76px;
+  color: rgba(242, 244, 248, 0.9);
+  font-size: 17px;
+  font-weight: 720;
+  letter-spacing: -0.035em;
+  line-height: 24px;
+  pointer-events: none;
 }
 .window-control {
   width: 12px;
@@ -1813,21 +1810,6 @@ button:disabled {
     background-position: -200% 0;
   }
 }
-@keyframes ambient-shift {
-  to {
-    transform: translate(8vw, 5vw) scale(1.1);
-  }
-}
-@keyframes flow-drift {
-  to {
-    transform: translate3d(-2.5%, 1.5%, 0) scale(1.025);
-  }
-}
-@keyframes flow-trace {
-  to {
-    stroke-dashoffset: -260;
-  }
-}
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -1843,8 +1825,28 @@ button:disabled {
   .desktop-shell {
     background: #ececef;
   }
-  .ambient-glow {
-    opacity: 0.1;
+  .ambient-background::after {
+    background:
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.08), transparent 36%),
+      radial-gradient(
+        circle at 18% 5%,
+        rgba(103, 117, 255, 0.06),
+        transparent 40%
+      ),
+      radial-gradient(
+        circle at 88% 92%,
+        rgba(38, 185, 165, 0.05),
+        transparent 42%
+      );
+  }
+  .cloth-canvas[data-webgl="unavailable"],
+  .cloth-canvas[data-webgl="failed"] {
+    background:
+      linear-gradient(145deg, rgba(103, 117, 255, 0.08), transparent 42%),
+      #ececef;
+  }
+  .home-brand {
+    color: rgba(31, 32, 38, 0.88);
   }
   .pod-card,
   .mobile-app-card,
