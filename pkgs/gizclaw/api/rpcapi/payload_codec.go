@@ -137,13 +137,19 @@ func (t RPCPayload) decode(messageName string, out any) error {
 			return fmt.Errorf("rpc: unmarshal %s payload: %w", messageName, err)
 		}
 	}
-	if err := rejectLegacyWorkflowDescription(msg); err != nil {
-		return fmt.Errorf("rpc: decode %s payload: %w", messageName, err)
+	if rejectsLegacyWorkflowDescription(messageName) {
+		if err := rejectLegacyWorkflowDescription(msg); err != nil {
+			return fmt.Errorf("rpc: decode %s payload: %w", messageName, err)
+		}
 	}
 	if err := fillGoValueFromProto(reflect.ValueOf(out), msg, decodeRPCPayloadOptions{emitDefaults: t.emitDefaults}); err != nil {
 		return fmt.Errorf("rpc: decode %s payload: %w", messageName, err)
 	}
 	return nil
+}
+
+func rejectsLegacyWorkflowDescription(messageName string) bool {
+	return messageName == "WorkflowCreateRequest" || messageName == "WorkflowPutRequest"
 }
 
 func rejectLegacyWorkflowDescription(msg protoreflect.Message) error {

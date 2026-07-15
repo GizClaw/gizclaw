@@ -621,6 +621,58 @@ func TestPayloadCodecRejectsLegacyWorkflowDescription(t *testing.T) {
 	}
 }
 
+func TestPayloadCodecAllowsLegacyWorkflowDescriptionInResponses(t *testing.T) {
+	legacyDocument := func() *rpcpb.WorkflowDocument {
+		doc := &rpcpb.WorkflowDocument{
+			Metadata: &rpcpb.WorkflowMetadata{Name: "legacy"},
+			Spec: &rpcpb.WorkflowSpec{
+				Driver: rpcpb.WorkflowDriver_WORKFLOW_DRIVER_FLOWCRAFT,
+			},
+		}
+		unknown := protowire.AppendTag(nil, 1, protowire.BytesType)
+		doc.Metadata.ProtoReflect().SetUnknown(protowire.AppendString(unknown, "old description"))
+		return doc
+	}
+
+	cases := []struct {
+		name        string
+		messageName string
+		message     proto.Message
+		decode      func(*RPCPayload) error
+	}{
+		{
+			name:        "get",
+			messageName: "WorkflowGetResponse",
+			message:     &rpcpb.WorkflowGetResponse{Value: legacyDocument()},
+			decode: func(payload *RPCPayload) error {
+				_, err := payload.AsWorkflowGetResponse()
+				return err
+			},
+		},
+		{
+			name:        "list",
+			messageName: "WorkflowListResponse",
+			message:     &rpcpb.WorkflowListResponse{Items: []*rpcpb.WorkflowDocument{legacyDocument()}},
+			decode: func(payload *RPCPayload) error {
+				_, err := payload.AsWorkflowListResponse()
+				return err
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			payload, err := proto.Marshal(tc.message)
+			if err != nil {
+				t.Fatalf("proto.Marshal() error = %v", err)
+			}
+			if err := tc.decode(newRPCPayload(tc.messageName, payload, true)); err != nil {
+				t.Fatalf("decode legacy response error = %v", err)
+			}
+		})
+	}
+}
+
 func TestPayloadCodecMapsProtobufDirectlyToGoDTOs(t *testing.T) {
 	firmwareData, err := proto.Marshal(&rpcpb.FirmwareListResponse{})
 	if err != nil {
