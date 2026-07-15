@@ -58,9 +58,9 @@ type Server struct {
 }
 
 type WorkspaceHistoryService interface {
-	ListWorkspaceHistory(context.Context, apitypes.ACLSubject, string, apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error)
-	GetWorkspaceHistory(context.Context, apitypes.ACLSubject, string, string) (workspace.HistoryEntry, error)
-	ReadWorkspaceHistoryAsset(context.Context, apitypes.ACLSubject, string, string) (io.ReadCloser, error)
+	ListWorkspaceHistoryWithAuthorizer(context.Context, workspace.Authorizer, apitypes.ACLSubject, string, apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error)
+	GetWorkspaceHistoryWithAuthorizer(context.Context, workspace.Authorizer, apitypes.ACLSubject, string, string) (workspace.HistoryEntry, error)
+	ReadWorkspaceHistoryAssetWithAuthorizer(context.Context, workspace.Authorizer, apitypes.ACLSubject, string, string) (io.ReadCloser, error)
 }
 
 func IsMethod(method rpcapi.RPCMethod) bool {
@@ -560,7 +560,7 @@ func (s *Server) handleWorkspaceHistoryList(ctx context.Context, req *rpcapi.RPC
 		converted := apitypes.PeerRunHistoryListRequestOrder(*params.Order)
 		order = &converted
 	}
-	list, err := history.ListWorkspaceHistory(ctx, acl.PublicKeySubject(s.Caller.String()), params.WorkspaceName, apitypes.PeerRunHistoryListRequest{
+	list, err := history.ListWorkspaceHistoryWithAuthorizer(ctx, s.ACL, acl.PublicKeySubject(s.Caller.String()), params.WorkspaceName, apitypes.PeerRunHistoryListRequest{
 		Cursor: params.Cursor,
 		Limit:  params.Limit,
 		Order:  order,
@@ -580,7 +580,7 @@ func (s *Server) handleWorkspaceHistoryGet(ctx context.Context, req *rpcapi.RPCR
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	entry, err := history.GetWorkspaceHistory(ctx, acl.PublicKeySubject(s.Caller.String()), params.WorkspaceName, params.HistoryId)
+	entry, err := history.GetWorkspaceHistoryWithAuthorizer(ctx, s.ACL, acl.PublicKeySubject(s.Caller.String()), params.WorkspaceName, params.HistoryId)
 	if err != nil {
 		return authOrBadRequest(req.Id, err)
 	}
@@ -610,7 +610,7 @@ func (s *Server) PrepareWorkspaceHistoryAudioGet(ctx context.Context, params rpc
 	if resp != nil {
 		return rpcapi.WorkspaceHistoryAudioGetResponse{}, nil, &rpcapi.RPCError{Code: resp.Error.Code, Message: resp.Error.Message}, nil
 	}
-	entry, err := history.GetWorkspaceHistory(ctx, acl.PublicKeySubject(s.Caller.String()), params.WorkspaceName, params.HistoryId)
+	entry, err := history.GetWorkspaceHistoryWithAuthorizer(ctx, s.ACL, acl.PublicKeySubject(s.Caller.String()), params.WorkspaceName, params.HistoryId)
 	if err != nil {
 		return rpcapi.WorkspaceHistoryAudioGetResponse{}, nil, historyRPCError(err), nil
 	}
@@ -627,7 +627,7 @@ func (s *Server) PrepareWorkspaceHistoryAudioGet(ctx context.Context, params rpc
 	if mimeType == "" {
 		return rpcapi.WorkspaceHistoryAudioGetResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "workspace history entry has no audio"}, nil
 	}
-	r, err := history.ReadWorkspaceHistoryAsset(ctx, acl.PublicKeySubject(s.Caller.String()), params.WorkspaceName, asset.Name)
+	r, err := history.ReadWorkspaceHistoryAssetWithAuthorizer(ctx, s.ACL, acl.PublicKeySubject(s.Caller.String()), params.WorkspaceName, asset.Name)
 	if err != nil {
 		return rpcapi.WorkspaceHistoryAudioGetResponse{}, nil, historyRPCError(err), nil
 	}

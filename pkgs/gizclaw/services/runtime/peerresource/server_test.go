@@ -564,9 +564,10 @@ func TestServerWorkspaceHistoryRPC(t *testing.T) {
 		WorkflowStore: workflowStore,
 		RuntimeStore:  workspace.NewObjectRuntimeStore(objects),
 	}
+	auth := &recordingAllowAllAuthorizer{}
 	srv := &Server{
 		Caller:      giznet.PublicKey{1},
-		ACL:         allowAllAuthorizer{},
+		ACL:         auth,
 		Workflows:   &workflow.Server{Store: workflowStore},
 		Workspaces:  workspaceServer,
 		ResourceACL: &recordingToolACL{},
@@ -605,6 +606,13 @@ func TestServerWorkspaceHistoryRPC(t *testing.T) {
 	listResult := mustResult(t, list.Result.AsWorkspaceHistoryListResponse)
 	if len(listResult.Items) != 1 || listResult.Items[0].Id != entry.ID || listResult.Items[0].Text != "历史回复" {
 		t.Fatalf("workspace.history.list = %+v", listResult)
+	}
+	if !auth.contains(acl.AuthorizeRequest{
+		Subject:    acl.PublicKeySubject(srv.Caller.String()),
+		Resource:   acl.WorkspaceResource("workspace-history"),
+		Permission: apitypes.ACLPermissionRead,
+	}) {
+		t.Fatal("workspace.history.list did not use the peer connection authorizer")
 	}
 	desc := rpcapi.WorkspaceHistoryListRequestOrderDesc
 	list = callRPC(t, srv, "workspace-history-list-desc", rpcapi.RPCMethodServerWorkspaceHistoryList, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceHistoryListRequest, rpcapi.WorkspaceHistoryListRequest{
@@ -1407,6 +1415,24 @@ type allowAllAuthorizer struct{}
 
 func (allowAllAuthorizer) Authorize(context.Context, acl.AuthorizeRequest) error {
 	return nil
+}
+
+type recordingAllowAllAuthorizer struct {
+	requests []acl.AuthorizeRequest
+}
+
+func (a *recordingAllowAllAuthorizer) Authorize(_ context.Context, request acl.AuthorizeRequest) error {
+	a.requests = append(a.requests, request)
+	return nil
+}
+
+func (a *recordingAllowAllAuthorizer) contains(want acl.AuthorizeRequest) bool {
+	for _, request := range a.requests {
+		if request == want {
+			return true
+		}
+	}
+	return false
 }
 
 type errorAuthorizer struct {

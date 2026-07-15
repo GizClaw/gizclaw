@@ -51,7 +51,7 @@ func TestRPCServerPeerMethods(t *testing.T) {
 	}
 	serverGenX := &fakeRPCServerGenXService{}
 	peerRun := &peerrun.Server{Store: kv.NewMemory(nil)}
-	server := &rpcServer{peer: fake, peerRun: peerRun, peerRunRuntime: runRuntime, serverGenX: serverGenX, callerPublicKey: publicKey}
+	server := &rpcServer{peer: fake, peerRun: peerRun, peerRunRuntime: runRuntime, serverResources: workspaceValidationResourceService{}, serverGenX: serverGenX, callerPublicKey: publicKey}
 	client := &rpcClient{}
 
 	info := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.ServerGetInfoResponse, error) {
@@ -183,7 +183,7 @@ func TestRPCServerPeerMethods(t *testing.T) {
 func TestRPCServerSetRunWorkspaceDoesNotRequireRuntime(t *testing.T) {
 	publicKey := giznet.PublicKey{1, 2, 3}
 	store := &peerrun.Server{Store: kv.NewMemory(nil)}
-	server := &rpcServer{peerRun: store, callerPublicKey: publicKey}
+	server := &rpcServer{peerRun: store, serverResources: workspaceValidationResourceService{}, callerPublicKey: publicKey}
 	client := &rpcClient{}
 
 	setWorkspace := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.ServerSetRunWorkspaceResponse, error) {
@@ -198,6 +198,37 @@ func TestRPCServerSetRunWorkspaceDoesNotRequireRuntime(t *testing.T) {
 	}
 	if agent.Pending == nil || agent.Pending.WorkspaceName != "demo" || agent.Active != nil {
 		t.Fatalf("run agent after set = %+v", agent)
+	}
+}
+
+func TestRPCServerSetRunWorkspaceRejectsMissingWorkspaceBeforeMutation(t *testing.T) {
+	publicKey := giznet.PublicKey{1, 2, 3}
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	server := &rpcServer{
+		peerRun:         store,
+		serverResources: workspaceValidationResourceService{missing: true},
+		callerPublicKey: publicKey,
+	}
+	resp, err := server.dispatch(context.Background(), newRPCRequest(
+		"set-missing-workspace",
+		rpcapi.RPCMethodServerRunWorkspaceSet,
+		mustRPCParams(
+			rpcapi.ServerSetRunWorkspaceRequest{WorkspaceName: "missing"},
+			(*rpcapi.RPCPayload).FromServerSetRunWorkspaceRequest,
+		),
+	))
+	if err != nil {
+		t.Fatalf("dispatch() error = %v", err)
+	}
+	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeNotFound {
+		t.Fatalf("dispatch() response = %+v, want not found", resp)
+	}
+	agent, err := store.GetRunAgent(context.Background(), publicKey)
+	if err != nil {
+		t.Fatalf("GetRunAgent() error = %v", err)
+	}
+	if agent.Pending != nil || agent.Active != nil {
+		t.Fatalf("run agent mutated after rejected workspace = %+v", agent)
 	}
 }
 
@@ -217,6 +248,29 @@ func TestRPCServerPeerErrorResponse(t *testing.T) {
 	if rpcErr.Code != 404 || rpcErr.RequestID != "info-error" {
 		t.Fatalf("GetInfo(error) rpc error = %+v", rpcErr)
 	}
+}
+
+type workspaceValidationResourceService struct {
+	missing bool
+}
+
+func (s workspaceValidationResourceService) Dispatch(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
+	if req.Method != rpcapi.RPCMethodServerWorkspaceGet {
+		return nil, false, nil
+	}
+	params, err := req.Params.AsWorkspaceGetRequest()
+	if err != nil {
+		return nil, true, err
+	}
+	if s.missing {
+		return rpcapi.Error{
+			RequestID: req.Id,
+			Code:      rpcapi.RPCErrorCodeNotFound,
+			Message:   "workspace not found",
+		}.RPCResponse(), true, nil
+	}
+	resp, err := newRPCResultResponse(req.Id, rpcapi.Workspace{Name: params.Name}, (*rpcapi.RPCPayload).FromWorkspaceGetResponse)
+	return resp, true, err
 }
 
 func TestRPCServerHandleClosedConn(t *testing.T) {

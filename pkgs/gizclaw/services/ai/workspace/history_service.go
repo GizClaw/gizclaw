@@ -34,7 +34,11 @@ func (s *Server) AppendWorkspaceHistory(ctx context.Context, workspaceName strin
 }
 
 func (s *Server) ListWorkspaceHistory(ctx context.Context, subject apitypes.ACLSubject, workspaceName string, req apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error) {
-	store, err := s.authorizedHistoryStore(ctx, subject, workspaceName)
+	return s.ListWorkspaceHistoryWithAuthorizer(ctx, s.authorizer(), subject, workspaceName, req)
+}
+
+func (s *Server) ListWorkspaceHistoryWithAuthorizer(ctx context.Context, authorizer Authorizer, subject apitypes.ACLSubject, workspaceName string, req apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error) {
+	store, err := s.authorizedHistoryStore(ctx, authorizer, subject, workspaceName)
 	if err != nil {
 		return apitypes.PeerRunHistoryListResponse{}, err
 	}
@@ -50,7 +54,11 @@ func (s *Server) AdminListWorkspaceHistory(ctx context.Context, workspaceName st
 }
 
 func (s *Server) GetWorkspaceHistory(ctx context.Context, subject apitypes.ACLSubject, workspaceName, historyID string) (HistoryEntry, error) {
-	store, err := s.authorizedHistoryStore(ctx, subject, workspaceName)
+	return s.GetWorkspaceHistoryWithAuthorizer(ctx, s.authorizer(), subject, workspaceName, historyID)
+}
+
+func (s *Server) GetWorkspaceHistoryWithAuthorizer(ctx context.Context, authorizer Authorizer, subject apitypes.ACLSubject, workspaceName, historyID string) (HistoryEntry, error) {
+	store, err := s.authorizedHistoryStore(ctx, authorizer, subject, workspaceName)
 	if err != nil {
 		return HistoryEntry{}, err
 	}
@@ -66,7 +74,11 @@ func (s *Server) AdminGetWorkspaceHistory(ctx context.Context, workspaceName, hi
 }
 
 func (s *Server) ReadWorkspaceHistoryAsset(ctx context.Context, subject apitypes.ACLSubject, workspaceName, assetName string) (io.ReadCloser, error) {
-	store, err := s.authorizedHistoryStore(ctx, subject, workspaceName)
+	return s.ReadWorkspaceHistoryAssetWithAuthorizer(ctx, s.authorizer(), subject, workspaceName, assetName)
+}
+
+func (s *Server) ReadWorkspaceHistoryAssetWithAuthorizer(ctx context.Context, authorizer Authorizer, subject apitypes.ACLSubject, workspaceName, assetName string) (io.ReadCloser, error) {
+	store, err := s.authorizedHistoryStore(ctx, authorizer, subject, workspaceName)
 	if err != nil {
 		return nil, err
 	}
@@ -94,26 +106,33 @@ func (s *Server) AdminReadWorkspaceHistoryAudio(ctx context.Context, workspaceNa
 	return nil, 0, fs.ErrNotExist
 }
 
-func (s *Server) authorizedHistoryStore(ctx context.Context, subject apitypes.ACLSubject, workspaceName string) (*HistoryStore, error) {
+func (s *Server) authorizedHistoryStore(ctx context.Context, authorizer Authorizer, subject apitypes.ACLSubject, workspaceName string) (*HistoryStore, error) {
 	workspaceName = strings.TrimSpace(workspaceName)
-	if err := s.authorizeHistoryRead(ctx, subject, workspaceName); err != nil {
+	if err := s.authorizeHistoryRead(ctx, authorizer, subject, workspaceName); err != nil {
 		return nil, err
 	}
 	return s.historyStore(ctx, workspaceName)
 }
 
-func (s *Server) authorizeHistoryRead(ctx context.Context, subject apitypes.ACLSubject, workspaceName string) error {
+func (s *Server) authorizeHistoryRead(ctx context.Context, authorizer Authorizer, subject apitypes.ACLSubject, workspaceName string) error {
 	if s == nil {
 		return fmt.Errorf("workspace: nil server")
 	}
-	if s.Authorizer == nil {
+	if authorizer == nil {
 		return nil
 	}
-	return s.Authorizer.Authorize(ctx, acl.AuthorizeRequest{
+	return authorizer.Authorize(ctx, acl.AuthorizeRequest{
 		Subject:    subject,
 		Resource:   acl.WorkspaceResource(workspaceName),
 		Permission: apitypes.ACLPermissionRead,
 	})
+}
+
+func (s *Server) authorizer() Authorizer {
+	if s == nil {
+		return nil
+	}
+	return s.Authorizer
 }
 
 func (s *Server) historyStore(ctx context.Context, workspaceName string) (*HistoryStore, error) {

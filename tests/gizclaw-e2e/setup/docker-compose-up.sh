@@ -350,7 +350,7 @@ export GIZCLAW_E2E_DOCKER_SERVER_BIND="${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0
 base_image="${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-amd64-cn-base}"
 if ! docker image inspect "$base_image" >/dev/null 2>&1; then
   echo "==> build e2e Docker base $base_image"
-  docker build -f "$repo_root/build/Dockerfile.cn.base" -t "$base_image" "$repo_root/build"
+  docker build --platform=linux/amd64 -f "$repo_root/build/Dockerfile.cn.base" -t "$base_image" "$repo_root/build"
 fi
 export GIZCLAW_E2E_DOCKER_BASE_IMAGE="$base_image"
 

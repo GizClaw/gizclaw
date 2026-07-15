@@ -169,6 +169,9 @@ func (s *rpcServer) handleSetRunWorkspace(ctx context.Context, req *rpcapi.RPCRe
 	if s.peerRun == nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer run service not configured"}.RPCResponse(), nil
 	}
+	if resp, err := s.validateWorkspaceSelection(ctx, req.Id, params.WorkspaceName); resp != nil || err != nil {
+		return resp, err
+	}
 	agent, err := s.peerRun.SetRunAgent(ctx, s.callerPublicKey, selection)
 	if err != nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeBadRequest, Message: err.Error()}.RPCResponse(), nil
@@ -182,6 +185,45 @@ func (s *rpcServer) handleSetRunWorkspace(ctx context.Context, req *rpcapi.RPCRe
 		return nil, err
 	}
 	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromServerSetRunWorkspaceResponse)
+}
+
+func (s *rpcServer) validateWorkspaceSelection(ctx context.Context, requestID, workspaceName string) (*rpcapi.RPCResponse, error) {
+	if s.serverResources == nil {
+		return rpcapi.Error{
+			RequestID: requestID,
+			Code:      rpcapi.RPCErrorCodeInternalError,
+			Message:   "workspace validation service not configured",
+		}.RPCResponse(), nil
+	}
+	params, err := newRPCRequestParams(
+		rpcapi.WorkspaceGetRequest{Name: workspaceName},
+		(*rpcapi.RPCPayload).FromWorkspaceGetRequest,
+	)
+	if err != nil {
+		return nil, err
+	}
+	resp, handled, err := s.serverResources.Dispatch(ctx, newRPCRequest(requestID, rpcapi.RPCMethodServerWorkspaceGet, params))
+	if err != nil {
+		return nil, err
+	}
+	if !handled {
+		return rpcapi.Error{
+			RequestID: requestID,
+			Code:      rpcapi.RPCErrorCodeInternalError,
+			Message:   "workspace validation service not configured",
+		}.RPCResponse(), nil
+	}
+	if resp == nil {
+		return rpcapi.Error{
+			RequestID: requestID,
+			Code:      rpcapi.RPCErrorCodeInternalError,
+			Message:   "workspace validation returned no response",
+		}.RPCResponse(), nil
+	}
+	if resp.Error != nil {
+		return resp, nil
+	}
+	return nil, nil
 }
 
 func (s *rpcServer) handleReloadRunWorkspace(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
