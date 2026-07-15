@@ -540,8 +540,10 @@ test("launcher uses rounded transparent framing and ambient card depth", async (
   const firstCard = await cards.first().evaluate((element) => {
     const style = getComputedStyle(element);
     return {
+      backdropFilter: style.backdropFilter,
       background: style.backgroundImage,
       hue: style.getPropertyValue("--card-hue"),
+      shadow: style.boxShadow,
     };
   });
   const lastCardHue = await cards
@@ -550,6 +552,8 @@ test("launcher uses rounded transparent framing and ambient card depth", async (
       getComputedStyle(element).getPropertyValue("--card-hue"),
     );
   expect(firstCard.background).toContain("linear-gradient");
+  expect(firstCard.backdropFilter).toContain("blur(20px)");
+  expect(firstCard.shadow).not.toBe("none");
   expect(firstCard.hue).not.toBe(lastCardHue);
   await expect(page.locator(".add-pod-card")).toHaveCSS(
     "background-image",
