@@ -158,6 +158,11 @@ class AppLocalizationsEn extends AppLocalizations {
       'cameraRequired':
           'Camera access is required to scan a server QR code. Enable it in Settings and try again.',
       'cameraFailed': 'The camera could not start. Go back and try again.',
+      'serverNameRequired': 'Enter a server name.',
+      'serverAccessPointRequired': 'Enter a server access point.',
+      'serverAccessPointInvalid':
+          'Use a domain or IP address with a port, for example gizclaw.local:9820.',
+      'serverAccessPointDuplicate': 'This access point is already in the list.',
       'serverAddFailed': 'Could not add the server. Please try again.',
       'identity': 'Identity',
       'scanServerQr': 'Scan server QR code',

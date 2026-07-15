@@ -623,6 +623,23 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('add-server')));
     await tester.pump();
     expect(find.byKey(const ValueKey('add-server-error')), findsOneWidget);
+    expect(
+      find.text(
+        'Use a domain or IP address with a port, for example gizclaw.local:9820.',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey('server-access-point-field')),
+      _testServerEndpoint,
+    );
+    await tester.tap(find.byKey(const ValueKey('add-server')));
+    await tester.pump();
+    expect(
+      find.text('This access point is already in the list.'),
+      findsOneWidget,
+    );
 
     Navigator.of(
       tester.element(find.byKey(const ValueKey('server-name-field'))),

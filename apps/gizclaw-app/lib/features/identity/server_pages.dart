@@ -400,5 +400,17 @@ class _ScannerError extends StatelessWidget {
 }
 
 String _serverErrorMessage(BuildContext context, Object error) {
+  if (error is FormatException) {
+    final key = switch (error.message) {
+      'Enter a server name' => 'serverNameRequired',
+      'Enter a server access point' => 'serverAccessPointRequired',
+      'Use a domain or IP address with a port, for example gizclaw.local:9820' =>
+        'serverAccessPointInvalid',
+      'This access point is already in the list' =>
+        'serverAccessPointDuplicate',
+      _ => 'serverAddFailed',
+    };
+    return context.l10n.uiText(key: key);
+  }
   return context.l10n.uiText(key: 'serverAddFailed');
 }
