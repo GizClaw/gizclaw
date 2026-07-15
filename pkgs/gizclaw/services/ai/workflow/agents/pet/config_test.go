@@ -13,7 +13,9 @@ import (
 	recallworkspace "github.com/GizClaw/flowcraft/memory/recall/store/workspace"
 	sdkworkspace "github.com/GizClaw/flowcraft/sdk/workspace"
 	flowclaw "github.com/GizClaw/flowcraft/sdkx/claw"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"gopkg.in/yaml.v3"
 )
@@ -56,6 +58,10 @@ func TestTurnInputsComposeWorkspacePromptsAndDefinedAttributes(t *testing.T) {
 
 func TestFixedFlowcraftConfigOwnsPetGraphAndAsyncMemoryLayout(t *testing.T) {
 	cfg := fixedFlowcraftConfig("pet-123", false)
+	settings := cfg["settings"].(map[string]any)
+	if settings["generate_model"] != "pet-flowcraft-workflow-chat" || settings["extract_model"] != "pet-flowcraft-workflow-extract" {
+		t.Fatalf("default model resource names = %#v", settings)
+	}
 	memory := cfg["memory"].(map[string]any)
 	if got := memory["scope"]; !reflect.DeepEqual(got, map[string]any{
 		"runtime_id": "gizclaw-pet",
@@ -159,6 +165,7 @@ func TestFixedFlowcraftConfigLoadsInClaw(t *testing.T) {
 		"extractor": "extract_model",
 		"llm": map[string]any{
 			defaultGenerateModel: map[string]any{"provider": "mock", "model": "mock-generate"},
+			defaultExtractModel:  map[string]any{"provider": "mock", "model": "mock-extract"},
 		},
 	}
 	raw, err := yaml.Marshal(cfg)
@@ -199,6 +206,29 @@ func TestFactoryRejectsMissingOrAmbiguousPetBinding(t *testing.T) {
 	}
 }
 
+func TestFactoryRequiresOperationalDefaultModelResources(t *testing.T) {
+	petSpec := apitypes.PetWorkflowSpec{}
+	parameters := petParameters(t)
+	spec := agenthost.Spec{
+		Workspace: apitypes.Workspace{Name: "pet-123", Parameters: &parameters},
+		Workflow: apitypes.WorkflowDocument{Spec: apitypes.WorkflowSpec{
+			Driver: apitypes.WorkflowDriverPet,
+			Pet:    &petSpec,
+		}},
+	}
+	spec.Runtime.LocalDir = t.TempDir()
+	_, err := (Factory{
+		GenX: peergenx.New(peergenx.Service{Models: emptyPetModels{}}),
+		Pets: staticPetProvider{
+			pet:    apitypes.Pet{DisplayName: "Spark"},
+			petDef: apitypes.PetDef{},
+		},
+	}).NewAgent(context.Background(), spec)
+	if err == nil || !strings.Contains(err.Error(), defaultGenerateModel) || !strings.Contains(err.Error(), "not accessible as a generator") {
+		t.Fatalf("NewAgent() error = %v, want missing operational model %q", err, defaultGenerateModel)
+	}
+}
+
 func petParameters(t *testing.T) apitypes.WorkspaceParameters {
 	t.Helper()
 	var parameters apitypes.WorkspaceParameters
@@ -215,4 +245,23 @@ type failingPetProvider struct{ err error }
 
 func (p failingPetProvider) ResolvePetContext(context.Context, string) (apitypes.Pet, apitypes.PetDef, error) {
 	return apitypes.Pet{}, apitypes.PetDef{}, p.err
+}
+
+type staticPetProvider struct {
+	pet    apitypes.Pet
+	petDef apitypes.PetDef
+}
+
+func (p staticPetProvider) ResolvePetContext(context.Context, string) (apitypes.Pet, apitypes.PetDef, error) {
+	return p.pet, p.petDef, nil
+}
+
+type emptyPetModels struct{}
+
+func (emptyPetModels) GetModel(context.Context, adminhttp.GetModelRequestObject) (adminhttp.GetModelResponseObject, error) {
+	return adminhttp.GetModel404JSONResponse{}, nil
+}
+
+func (emptyPetModels) ListModels(context.Context, adminhttp.ListModelsRequestObject) (adminhttp.ListModelsResponseObject, error) {
+	return adminhttp.ListModels200JSONResponse{Items: []apitypes.Model{}}, nil
 }

@@ -17,3 +17,39 @@ spec:
         kind: workflow
         id: pet-care
       role: default-client
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-pet-flowcraft-workflow-chat
+    spec:
+      subject:
+        kind: view
+        id: default-client
+      resource:
+        kind: model
+        id: pet-flowcraft-workflow-chat
+      role: default-client
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-pet-flowcraft-workflow-extract
+    spec:
+      subject:
+        kind: view
+        id: default-client
+      resource:
+        kind: model
+        id: pet-flowcraft-workflow-extract
+      role: default-client
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-pet-flowcraft-workflow-asr
+    spec:
+      subject:
+        kind: view
+        id: default-client
+      resource:
+        kind: model
+        id: pet-flowcraft-workflow-asr
+      role: default-client

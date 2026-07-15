@@ -15,9 +15,9 @@ import (
 const Type = "pet"
 
 const (
-	defaultGenerateModel = "doubao-lite-chat"
-	defaultExtractModel  = "doubao-lite-chat"
-	defaultASRModel      = "volc-bigasr-sauc"
+	defaultGenerateModel = "pet-flowcraft-workflow-chat"
+	defaultExtractModel  = "pet-flowcraft-workflow-extract"
+	defaultASRModel      = "pet-flowcraft-workflow-asr"
 )
 
 // ContextProvider resolves the adopted pet attached to a Workspace. The
