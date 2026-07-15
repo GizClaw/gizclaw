@@ -183,6 +183,31 @@ test("RPC payload codec selects workspace oneofs from discriminators", () => {
   assert.equal(decoded.parameters?.agent_type, "doubao-realtime");
 });
 
+test("RPC payload codec round-trips pet workspace parameters", () => {
+  const payload = encodeRPCRequestPayload("server.workspace.create", {
+    created_at: "now",
+    last_active_at: "now",
+    name: "pet-a",
+    parameters: {
+      agent_type: "pet",
+      input: "push-to-talk",
+      voice: { voice_id: "voice-a", prompt: "warm" },
+    },
+    updated_at: "now",
+    workflow_name: "pet-care",
+  });
+
+  const decoded = decodeRPCRequestPayload("server.workspace.create", payload) as {
+    parameters?: { agent_type?: string; voice?: { voice_id?: string; prompt?: string } };
+  };
+
+  assert.deepEqual(decoded.parameters, {
+    agent_type: "pet",
+    input: "push-to-talk",
+    voice: { voice_id: "voice-a", prompt: "warm" },
+  });
+});
+
 test("RPC payload codec rejects ambiguous numeric workspace discriminators", () => {
   assert.throws(
     () => encodeRPCRequestPayload("server.workspace.create", {
@@ -268,10 +293,8 @@ test("RPC payload codec preserves Tool invocation JSON strings", () => {
 });
 
 test("RPC payload codec preserves optional JSON schema field absence", () => {
-  const payload = encodeRPCRequestPayload("server.workflow.create", {
-    metadata: {
-      name: "doubao",
-    },
+  const payload = encodeRPCResponsePayload("server.workflow.get", {
+    name: "doubao",
     spec: {
       driver: "doubao-realtime",
       doubao_realtime: {
@@ -291,7 +314,7 @@ test("RPC payload codec preserves optional JSON schema field absence", () => {
     },
   });
 
-  const decoded = decodeRPCRequestPayload("server.workflow.create", payload) as {
+  const decoded = decodeRPCResponsePayload("server.workflow.get", payload) as {
     spec?: { doubao_realtime?: { tools?: Array<{ parameters?: Record<string, unknown> }> } };
   };
   const parameters = decoded.spec?.doubao_realtime?.tools?.[0]?.parameters;
@@ -302,6 +325,39 @@ test("RPC payload codec preserves optional JSON schema field absence", () => {
   assert.equal(Object.prototype.hasOwnProperty.call(parameters ?? {}, "enum"), false);
   assert.equal(Object.prototype.hasOwnProperty.call(parameters ?? {}, "required"), false);
   assert.equal(Object.prototype.hasOwnProperty.call(parameters ?? {}, "anyOf"), false);
+});
+
+test("RPC payload codec preserves the selected workflow i18n catalog", () => {
+  const workflow = {
+    i18n: { name: "Assistant", description: "Helpful workflow" },
+    name: "assistant",
+    spec: { driver: "flowcraft" },
+  };
+  const payload = encodeRPCResponsePayload("server.workflow.get", workflow);
+  const decoded = decodeRPCResponsePayload("server.workflow.get", payload) as typeof workflow;
+
+  assert.deepEqual(decoded.i18n, workflow.i18n);
+});
+
+test("RPC payload codec preserves the workflow locale enum", () => {
+  const payload = encodeRPCRequestPayload("server.workflow.get", {
+    name: "assistant",
+    lang: "zh-CN",
+  });
+  assert.deepEqual(decodeRPCRequestPayload("server.workflow.get", payload), {
+    name: "assistant",
+    lang: "zh-CN",
+  });
+});
+
+test("RPC payload codec allows the workflow locale to be omitted", () => {
+  const payload = encodeRPCRequestPayload("server.workflow.get", {
+    name: "assistant",
+  });
+
+  assert.deepEqual(decodeRPCRequestPayload("server.workflow.get", payload), {
+    name: "assistant",
+  });
 });
 
 test("RPC payload codec rejects string values for bool fields", () => {

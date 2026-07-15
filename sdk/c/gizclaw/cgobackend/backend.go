@@ -14,7 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/pion/webrtc/v4"
 	"golang.org/x/crypto/chacha20poly1305"
@@ -535,10 +534,9 @@ func (b *Backend) forwardRemoteOpus(track *webrtc.TrackRemote) {
 		if len(packet.Payload) == 0 {
 			continue
 		}
-		payload := stampedopus.Pack(uint64(time.Now().UnixMilli()), packet.Payload)
-		message := make([]byte, 1+len(payload))
-		message[0] = giznet.ProtocolStampedOpusPacket
-		copy(message[1:], payload)
+		message := make([]byte, 1+len(packet.Payload))
+		message[0] = giznet.ProtocolOpusPacket
+		copy(message[1:], packet.Payload)
 		b.emitChannelMessage(0, message, false)
 	}
 }

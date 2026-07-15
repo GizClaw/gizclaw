@@ -1,0 +1,688 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Shared API Types",
+    "description": "Shared schemas used across GizClaw OpenAPI services.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "ACLPermission": {
+        "$ref": "./shared/acl_permission.json#/components/schemas/ACLPermission"
+      },
+      "ACLPermissionList": {
+        "$ref": "./shared/acl_permission.json#/components/schemas/ACLPermissionList"
+      },
+      "ACLPolicy": {
+        "$ref": "./shared/acl_policy.json#/components/schemas/ACLPolicy"
+      },
+      "ACLPolicyBinding": {
+        "$ref": "./shared/acl_policy_binding.json#/components/schemas/ACLPolicyBinding"
+      },
+      "ACLPolicyBindingResource": {
+        "$ref": "./resources/acl_policy_binding.json#/components/schemas/ACLPolicyBindingResource"
+      },
+      "ACLResource": {
+        "$ref": "./shared/acl_resource.json#/components/schemas/ACLResource"
+      },
+      "ACLResourceKind": {
+        "$ref": "./shared/acl_resource.json#/components/schemas/ACLResourceKind"
+      },
+      "ACLRole": {
+        "$ref": "./shared/acl_role.json#/components/schemas/ACLRole"
+      },
+      "ACLRoleResource": {
+        "$ref": "./resources/acl_role.json#/components/schemas/ACLRoleResource"
+      },
+      "ACLRoleSpec": {
+        "$ref": "./shared/acl_role_spec.json#/components/schemas/ACLRoleSpec"
+      },
+      "ACLView": {
+        "$ref": "./shared/acl_view.json#/components/schemas/ACLView"
+      },
+      "ACLViewSpec": {
+        "$ref": "./shared/acl_view.json#/components/schemas/ACLViewSpec"
+      },
+      "ACLViewResource": {
+        "$ref": "./resources/acl_view.json#/components/schemas/ACLViewResource"
+      },
+      "ACLSubject": {
+        "$ref": "./shared/acl_subject.json#/components/schemas/ACLSubject"
+      },
+      "ACLSubjectKind": {
+        "$ref": "./shared/acl_subject.json#/components/schemas/ACLSubjectKind"
+      },
+      "Configuration": {
+        "$ref": "./shared/configuration.json#/components/schemas/Configuration"
+      },
+      "DeviceInfo": {
+        "$ref": "./shared/device_info.json#/components/schemas/DeviceInfo"
+      },
+      "ErrorPayload": {
+        "$ref": "./shared/error_payload.json#/components/schemas/ErrorPayload"
+      },
+      "ErrorResponse": {
+        "$ref": "./shared/error_response.json#/components/schemas/ErrorResponse"
+      },
+      "Event": {
+        "type": "object",
+        "required": [
+          "v",
+          "name"
+        ],
+        "properties": {
+          "v": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "data": {
+            "x-go-type": "json.RawMessage"
+          }
+        }
+      },
+      "Peer": {
+        "$ref": "./shared/peer.json#/components/schemas/Peer"
+      },
+      "PeerAssignment": {
+        "$ref": "./shared/peer_assignment.json#/components/schemas/PeerAssignment"
+      },
+      "PeerIMEI": {
+        "$ref": "./shared/peer_imei.json#/components/schemas/PeerIMEI"
+      },
+      "PeerLabel": {
+        "$ref": "./shared/peer_label.json#/components/schemas/PeerLabel"
+      },
+      "PeerRole": {
+        "$ref": "./shared/peer_role.json#/components/schemas/PeerRole"
+      },
+      "PeerTelemetryAggregate": {
+        "$ref": "./shared/peer_telemetry.json#/components/schemas/PeerTelemetryAggregate"
+      },
+      "PeerTelemetryAggregatePoint": {
+        "$ref": "./shared/peer_telemetry.json#/components/schemas/PeerTelemetryAggregatePoint"
+      },
+      "PeerTelemetryAggregateResponse": {
+        "$ref": "./shared/peer_telemetry.json#/components/schemas/PeerTelemetryAggregateResponse"
+      },
+      "PeerTelemetryField": {
+        "$ref": "./shared/peer_telemetry.json#/components/schemas/PeerTelemetryField"
+      },
+      "PeerTelemetryLatestResponse": {
+        "$ref": "./shared/peer_telemetry.json#/components/schemas/PeerTelemetryLatestResponse"
+      },
+      "PeerTelemetryOrder": {
+        "$ref": "./shared/peer_telemetry.json#/components/schemas/PeerTelemetryOrder"
+      },
+      "PeerTelemetryPoint": {
+        "$ref": "./shared/peer_telemetry.json#/components/schemas/PeerTelemetryPoint"
+      },
+      "PeerTelemetryRangeResponse": {
+        "$ref": "./shared/peer_telemetry.json#/components/schemas/PeerTelemetryRangeResponse"
+      },
+      "PeerRegistrationStatus": {
+        "$ref": "./shared/peer_registration_status.json#/components/schemas/PeerRegistrationStatus"
+      },
+      "HardwareInfo": {
+        "$ref": "./shared/hardware_info.json#/components/schemas/HardwareInfo"
+      },
+      "Registration": {
+        "$ref": "./shared/registration.json#/components/schemas/Registration"
+      },
+      "Runtime": {
+        "$ref": "./shared/runtime.json#/components/schemas/Runtime"
+      },
+      "ServerInfo": {
+        "$ref": "./shared/server_info.json#/components/schemas/ServerInfo"
+      },
+      "ServerLogEntry": {
+        "$ref": "./shared/server_log.json#/components/schemas/ServerLogEntry"
+      },
+      "ServerLogStreamEnd": {
+        "$ref": "./shared/server_log.json#/components/schemas/ServerLogStreamEnd"
+      },
+      "RefreshInfo": {
+        "$ref": "./shared/refresh_info.json#/components/schemas/RefreshInfo"
+      },
+      "RefreshIdentifiers": {
+        "$ref": "./shared/refresh_identifiers.json#/components/schemas/RefreshIdentifiers"
+      },
+      "Credential": {
+        "$ref": "./shared/credential.json#/components/schemas/Credential"
+      },
+      "CredentialBody": {
+        "$ref": "./shared/credential_body.json#/components/schemas/CredentialBody"
+      },
+      "Firmware": {
+        "$ref": "./shared/firmware.json#/components/schemas/Firmware"
+      },
+      "FirmwareArtifact": {
+        "$ref": "./shared/firmware_artifact.json#/components/schemas/FirmwareArtifact"
+      },
+      "FirmwareSlot": {
+        "$ref": "./shared/firmware_slot.json#/components/schemas/FirmwareSlot"
+      },
+      "FirmwareSlots": {
+        "$ref": "./shared/firmware_slots.json#/components/schemas/FirmwareSlots"
+      },
+      "Model": {
+        "$ref": "./shared/model.json#/components/schemas/Model"
+      },
+      "ToolkitPolicy": {
+        "$ref": "./shared/toolkit_policy.json#/components/schemas/ToolkitPolicy"
+      },
+      "Tool": {
+        "$ref": "./shared/tool.json#/components/schemas/Tool"
+      },
+      "ToolSource": {
+        "$ref": "./shared/tool_source.json#/components/schemas/ToolSource"
+      },
+      "ToolExecutorKind": {
+        "$ref": "./shared/tool_executor.json#/components/schemas/ToolExecutorKind"
+      },
+      "ToolExecutor": {
+        "$ref": "./shared/tool_executor.json#/components/schemas/ToolExecutor"
+      },
+      "ToolTrigger": {
+        "$ref": "./shared/tool_trigger.json#/components/schemas/ToolTrigger"
+      },
+      "ToolTriggerExample": {
+        "$ref": "./shared/tool_trigger.json#/components/schemas/ToolTriggerExample"
+      },
+      "ToolJSONSchema": {
+        "$ref": "./shared/tool_json_schema.json#/components/schemas/ToolJSONSchema"
+      },
+      "ModelSource": {
+        "$ref": "./shared/model_source.json#/components/schemas/ModelSource"
+      },
+      "ModelKind": {
+        "$ref": "./shared/model_kind.json#/components/schemas/ModelKind"
+      },
+      "ModelProviderKind": {
+        "$ref": "./shared/model_provider_kind.json#/components/schemas/ModelProviderKind"
+      },
+      "ModelProvider": {
+        "$ref": "./shared/model_provider.json#/components/schemas/ModelProvider"
+      },
+      "VoiceProviderKind": {
+        "$ref": "./shared/voice_provider_kind.json#/components/schemas/VoiceProviderKind"
+      },
+      "VoiceProvider": {
+        "$ref": "./shared/voice_provider.json#/components/schemas/VoiceProvider"
+      },
+      "ModelProviderData": {
+        "$ref": "./shared/model_provider_data.json#/components/schemas/ModelProviderData"
+      },
+      "DashScopeTenantModelProviderData": {
+        "$ref": "./shared/model_provider_data.json#/components/schemas/DashScopeTenantModelProviderData"
+      },
+      "GeminiTenantModelProviderData": {
+        "$ref": "./shared/model_provider_data.json#/components/schemas/GeminiTenantModelProviderData"
+      },
+      "OpenAITenantModelProviderData": {
+        "$ref": "./shared/model_provider_data.json#/components/schemas/OpenAITenantModelProviderData"
+      },
+      "ModelCapabilities": {
+        "$ref": "./shared/model_capabilities.json#/components/schemas/ModelCapabilities"
+      },
+      "ModelThinkingCapability": {
+        "$ref": "./shared/model_capabilities.json#/components/schemas/ModelThinkingCapability"
+      },
+      "DashScopeTenant": {
+        "$ref": "./shared/dashscope_tenant.json#/components/schemas/DashScopeTenant"
+      },
+      "GeminiTenant": {
+        "$ref": "./shared/gemini_tenant.json#/components/schemas/GeminiTenant"
+      },
+      "OpenAITenantKind": {
+        "$ref": "./shared/openai_tenant.json#/components/schemas/OpenAITenantKind"
+      },
+      "OpenAITenantAPIMode": {
+        "$ref": "./shared/openai_tenant.json#/components/schemas/OpenAITenantAPIMode"
+      },
+      "OpenAITenant": {
+        "$ref": "./shared/openai_tenant.json#/components/schemas/OpenAITenant"
+      },
+      "VoiceSource": {
+        "$ref": "./shared/voice_source.json#/components/schemas/VoiceSource"
+      },
+      "MiniMaxTenant": {
+        "$ref": "./shared/minimax_tenant.json#/components/schemas/MiniMaxTenant"
+      },
+      "VolcTenant": {
+        "$ref": "./shared/volc_tenant.json#/components/schemas/VolcTenant"
+      },
+      "Voice": {
+        "$ref": "./shared/voice.json#/components/schemas/Voice"
+      },
+      "VoiceProviderData": {
+        "$ref": "./shared/voice_provider_data.json#/components/schemas/VoiceProviderData"
+      },
+      "DashScopeTenantVoiceProviderData": {
+        "$ref": "./shared/voice_provider_data.json#/components/schemas/DashScopeTenantVoiceProviderData"
+      },
+      "GeminiTenantVoiceProviderData": {
+        "$ref": "./shared/voice_provider_data.json#/components/schemas/GeminiTenantVoiceProviderData"
+      },
+      "OpenAITenantVoiceProviderData": {
+        "$ref": "./shared/voice_provider_data.json#/components/schemas/OpenAITenantVoiceProviderData"
+      },
+      "MiniMaxTenantVoiceProviderData": {
+        "$ref": "./shared/voice_provider_data.json#/components/schemas/MiniMaxTenantVoiceProviderData"
+      },
+      "VolcTenantVoiceProviderData": {
+        "$ref": "./shared/voice_provider_data.json#/components/schemas/VolcTenantVoiceProviderData"
+      },
+      "ResourceAPIVersion": {
+        "$ref": "./resources/resource.json#/components/schemas/ResourceAPIVersion"
+      },
+      "ResourceKind": {
+        "$ref": "./resources/resource.json#/components/schemas/ResourceKind"
+      },
+      "ResourceMetadata": {
+        "$ref": "./resources/resource.json#/components/schemas/ResourceMetadata"
+      },
+      "Resource": {
+        "$ref": "./resources/resource.json#/components/schemas/Resource"
+      },
+      "ResourceList": {
+        "$ref": "./resources/resource_list.json#/components/schemas/ResourceListResource"
+      },
+      "CredentialResource": {
+        "$ref": "./resources/credential.json#/components/schemas/CredentialResource"
+      },
+      "ContactResource": {
+        "$ref": "./resources/contact.json#/components/schemas/ContactResource"
+      },
+      "ContactSpec": {
+        "$ref": "./resources/contact.json#/components/schemas/ContactSpec"
+      },
+      "FirmwareResource": {
+        "$ref": "./resources/firmware.json#/components/schemas/FirmwareResource"
+      },
+      "ModelResource": {
+        "$ref": "./resources/model.json#/components/schemas/ModelResource"
+      },
+      "ToolResource": {
+        "$ref": "./resources/tool.json#/components/schemas/ToolResource"
+      },
+      "MiniMaxTenantResource": {
+        "$ref": "./resources/minimax_tenant.json#/components/schemas/MiniMaxTenantResource"
+      },
+      "DashScopeTenantResource": {
+        "$ref": "./resources/dashscope_tenant.json#/components/schemas/DashScopeTenantResource"
+      },
+      "GeminiTenantResource": {
+        "$ref": "./resources/gemini_tenant.json#/components/schemas/GeminiTenantResource"
+      },
+      "OpenAITenantResource": {
+        "$ref": "./resources/openai_tenant.json#/components/schemas/OpenAITenantResource"
+      },
+      "VolcTenantResource": {
+        "$ref": "./resources/volc_tenant.json#/components/schemas/VolcTenantResource"
+      },
+      "VoiceResource": {
+        "$ref": "./resources/voice.json#/components/schemas/VoiceResource"
+      },
+      "WorkflowResource": {
+        "$ref": "./resources/workflow.json#/components/schemas/WorkflowResource"
+      },
+      "WorkspaceResource": {
+        "$ref": "./resources/workspace.json#/components/schemas/WorkspaceResource"
+      },
+      "PeerConfigResource": {
+        "$ref": "./resources/peer_config.json#/components/schemas/PeerConfigResource"
+      },
+      "CredentialSpec": {
+        "$ref": "./shared/credential_spec.json#/components/schemas/CredentialSpec"
+      },
+      "FirmwareSpec": {
+        "$ref": "./shared/firmware_spec.json#/components/schemas/FirmwareSpec"
+      },
+      "ModelSpec": {
+        "$ref": "./shared/model_spec.json#/components/schemas/ModelSpec"
+      },
+      "ToolSpec": {
+        "$ref": "./shared/tool_spec.json#/components/schemas/ToolSpec"
+      },
+      "MiniMaxTenantSpec": {
+        "$ref": "./shared/minimax_tenant_spec.json#/components/schemas/MiniMaxTenantSpec"
+      },
+      "DashScopeTenantSpec": {
+        "$ref": "./shared/dashscope_tenant_spec.json#/components/schemas/DashScopeTenantSpec"
+      },
+      "GeminiTenantSpec": {
+        "$ref": "./shared/gemini_tenant_spec.json#/components/schemas/GeminiTenantSpec"
+      },
+      "OpenAITenantSpec": {
+        "$ref": "./shared/openai_tenant_spec.json#/components/schemas/OpenAITenantSpec"
+      },
+      "VolcTenantSpec": {
+        "$ref": "./shared/volc_tenant_spec.json#/components/schemas/VolcTenantSpec"
+      },
+      "VoiceSpec": {
+        "$ref": "./shared/voice_spec.json#/components/schemas/VoiceSpec"
+      },
+      "WorkspaceSpec": {
+        "$ref": "./shared/workspace_spec.json#/components/schemas/WorkspaceSpec"
+      },
+      "ResourceListSpec": {
+        "$ref": "./resources/resource_list.json#/components/schemas/ResourceListSpec"
+      },
+      "ApplyResource": {
+        "$ref": "./resources/resource.json#/components/schemas/Resource"
+      },
+      "ApplyAction": {
+        "$ref": "./resources/resource.json#/components/schemas/ApplyAction"
+      },
+      "ApplyResult": {
+        "$ref": "./resources/resource.json#/components/schemas/ApplyResult"
+      },
+      "Workspace": {
+        "$ref": "./shared/workspace.json#/components/schemas/Workspace"
+      },
+      "WorkspaceParameters": {
+        "$ref": "./shared/workspace_parameters.json#/components/schemas/WorkspaceParameters"
+      },
+      "WorkspaceInputMode": {
+        "$ref": "./shared/workspace_parameters.json#/components/schemas/WorkspaceInputMode"
+      },
+      "Workflow": {
+        "$ref": "./shared/workflow.json#/components/schemas/Workflow"
+      },
+      "WorkflowI18n": {
+        "$ref": "./shared/workflow_i18n.json#/components/schemas/WorkflowI18n"
+      },
+      "WorkflowI18nCatalog": {
+        "$ref": "./shared/workflow_i18n.json#/components/schemas/WorkflowI18nCatalog"
+      },
+      "WorkflowLocale": {
+        "$ref": "./shared/workflow_locale.json#/components/schemas/WorkflowLocale"
+      },
+      "WorkflowSpec": {
+        "$ref": "./shared/workflow_spec.json#/components/schemas/WorkflowSpec"
+      },
+      "WorkflowDriver": {
+        "$ref": "./shared/workflow_spec.json#/components/schemas/WorkflowDriver"
+      },
+      "FlowcraftWorkflowSpec": {
+        "$ref": "./shared/workflows/flowcraft.json#/components/schemas/FlowcraftWorkflowSpec"
+      },
+      "DoubaoRealtimeWorkflowSpec": {
+        "$ref": "./shared/workflows/doubao_realtime.json#/components/schemas/DoubaoRealtimeWorkflowSpec"
+      },
+      "ASTTranslateWorkflowSpec": {
+        "$ref": "./shared/workflows/ast_translate.json#/components/schemas/ASTTranslateWorkflowSpec"
+      },
+      "ChatRoomWorkflowSpec": {
+        "$ref": "./shared/workflows/chatroom.json#/components/schemas/ChatRoomWorkflowSpec"
+      },
+      "AgentSelection": {
+        "$ref": "./shared/agent_selection.json#/components/schemas/AgentSelection"
+      },
+      "PeerRunAgent": {
+        "$ref": "./shared/peer_run_agent.json#/components/schemas/PeerRunAgent"
+      },
+      "PeerRunStatus": {
+        "$ref": "./shared/peer_run_status.json#/components/schemas/PeerRunStatus"
+      },
+      "PeerRunStatusState": {
+        "$ref": "./shared/peer_run_status.json#/components/schemas/PeerRunStatusState"
+      },
+      "PeerRunWorkspaceState": {
+        "$ref": "./shared/peer_run_workspace.json#/components/schemas/PeerRunWorkspaceState"
+      },
+      "PeerRunHistoryEntry": {
+        "$ref": "./shared/peer_run_workspace.json#/components/schemas/PeerRunHistoryEntry"
+      },
+      "PeerRunHistoryListRequest": {
+        "$ref": "./shared/peer_run_workspace.json#/components/schemas/PeerRunHistoryListRequest"
+      },
+      "PeerRunHistoryListResponse": {
+        "$ref": "./shared/peer_run_workspace.json#/components/schemas/PeerRunHistoryListResponse"
+      },
+      "PeerRunHistoryPlayRequest": {
+        "$ref": "./shared/peer_run_workspace.json#/components/schemas/PeerRunHistoryPlayRequest"
+      },
+      "PeerRunHistoryPlayResponse": {
+        "$ref": "./shared/peer_run_workspace.json#/components/schemas/PeerRunHistoryPlayResponse"
+      },
+      "PeerRunMemoryStatsRequest": {
+        "$ref": "./shared/peer_run_workspace.json#/components/schemas/PeerRunMemoryStatsRequest"
+      },
+      "PeerRunMemoryStatsResponse": {
+        "$ref": "./shared/peer_run_workspace.json#/components/schemas/PeerRunMemoryStatsResponse"
+      },
+      "PeerRunRecallRequest": {
+        "$ref": "./shared/peer_run_workspace.json#/components/schemas/PeerRunRecallRequest"
+      },
+      "PeerRunRecallHit": {
+        "$ref": "./shared/peer_run_workspace.json#/components/schemas/PeerRunRecallHit"
+      },
+      "PeerRunRecallResponse": {
+        "$ref": "./shared/peer_run_workspace.json#/components/schemas/PeerRunRecallResponse"
+      },
+      "PeerStatus": {
+        "$ref": "./shared/peer_status.json#/components/schemas/PeerStatus"
+      },
+      "PeerStreamEvent": {
+        "$ref": "./shared/peer_stream_event.json#/components/schemas/PeerStreamEvent"
+      },
+      "PeerStreamEventType": {
+        "$ref": "./shared/peer_stream_event.json#/components/schemas/PeerStreamEventType"
+      },
+      "PeerStreamKind": {
+        "$ref": "./shared/peer_stream_event.json#/components/schemas/PeerStreamKind"
+      },
+      "FirmwareArtifactEntry": {
+        "$ref": "./shared/firmware_artifact_entry.json#/components/schemas/FirmwareArtifactEntry"
+      },
+      "FirmwareArtifactEntryType": {
+        "$ref": "./shared/firmware_artifact_entry.json#/components/schemas/FirmwareArtifactEntryType"
+      },
+      "FirmwareArtifactList": {
+        "$ref": "./shared/firmware_artifact_entry.json#/components/schemas/FirmwareArtifactList"
+      },
+      "FirmwareArtifactStats": {
+        "$ref": "./shared/firmware_artifact_entry.json#/components/schemas/FirmwareArtifactStats"
+      },
+      "FirmwareArtifactTree": {
+        "$ref": "./shared/firmware_artifact_entry.json#/components/schemas/FirmwareArtifactTree"
+      },
+      "FirmwareSpecSlot": {
+        "$ref": "./shared/firmware_spec.json#/components/schemas/FirmwareSpecSlot"
+      },
+      "FirmwareSpecSlots": {
+        "$ref": "./shared/firmware_spec.json#/components/schemas/FirmwareSpecSlots"
+      },
+      "GameplayMetadata": {
+        "$ref": "./shared/gameplay.json#/components/schemas/GameplayMetadata"
+      },
+      "GameRulesetPointsSpec": {
+        "$ref": "./shared/gameplay.json#/components/schemas/GameRulesetPointsSpec"
+      },
+      "GameRulesetPetPoolEntry": {
+        "$ref": "./shared/gameplay.json#/components/schemas/GameRulesetPetPoolEntry"
+      },
+      "GameRewardSpec": {
+        "$ref": "./shared/gameplay.json#/components/schemas/GameRewardSpec"
+      },
+      "GameRulesetDriveSpec": {
+        "$ref": "./shared/gameplay.json#/components/schemas/GameRulesetDriveSpec"
+      },
+      "GameRulesetSpec": {
+        "$ref": "./shared/gameplay.json#/components/schemas/GameRulesetSpec"
+      },
+      "GameRuleset": {
+        "$ref": "./shared/gameplay.json#/components/schemas/GameRuleset"
+      },
+      "PetDefSpec": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetDefSpec"
+      },
+      "PetDef": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetDef"
+      },
+      "BadgeDefSpec": {
+        "$ref": "./shared/gameplay.json#/components/schemas/BadgeDefSpec"
+      },
+      "BadgeDef": {
+        "$ref": "./shared/gameplay.json#/components/schemas/BadgeDef"
+      },
+      "GameDefSpec": {
+        "$ref": "./shared/gameplay.json#/components/schemas/GameDefSpec"
+      },
+      "GameDef": {
+        "$ref": "./shared/gameplay.json#/components/schemas/GameDef"
+      },
+      "Pet": {
+        "$ref": "./shared/gameplay.json#/components/schemas/Pet"
+      },
+      "Badge": {
+        "$ref": "./shared/gameplay.json#/components/schemas/Badge"
+      },
+      "PointsAccount": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PointsAccount"
+      },
+      "PointsTransaction": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PointsTransaction"
+      },
+      "GameResult": {
+        "$ref": "./shared/gameplay.json#/components/schemas/GameResult"
+      },
+      "RewardGrant": {
+        "$ref": "./shared/gameplay.json#/components/schemas/RewardGrant"
+      },
+      "GameplayListRequest": {
+        "$ref": "./shared/gameplay.json#/components/schemas/GameplayListRequest"
+      },
+      "PetListResponse": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetListResponse"
+      },
+      "BadgeListResponse": {
+        "$ref": "./shared/gameplay.json#/components/schemas/BadgeListResponse"
+      },
+      "PointsTransactionListResponse": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PointsTransactionListResponse"
+      },
+      "GameResultListResponse": {
+        "$ref": "./shared/gameplay.json#/components/schemas/GameResultListResponse"
+      },
+      "RewardGrantListResponse": {
+        "$ref": "./shared/gameplay.json#/components/schemas/RewardGrantListResponse"
+      },
+      "PetAdoptRequest": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetAdoptRequest"
+      },
+      "PetAdoptResponse": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetAdoptResponse"
+      },
+      "PetGetRequest": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetGetRequest"
+      },
+      "PetPutRequest": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetPutRequest"
+      },
+      "PetDeleteRequest": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetDeleteRequest"
+      },
+      "PetDriveGameResultInput": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetDriveGameResultInput"
+      },
+      "PetDriveRequest": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetDriveRequest"
+      },
+      "PetDriveResponse": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetDriveResponse"
+      },
+      "GameplayGetRequest": {
+        "$ref": "./shared/gameplay.json#/components/schemas/GameplayGetRequest"
+      },
+      "GameRulesetResource": {
+        "$ref": "./resources/game_ruleset.json#/components/schemas/GameRulesetResource"
+      },
+      "PetDefResource": {
+        "$ref": "./resources/pet_def.json#/components/schemas/PetDefResource"
+      },
+      "BadgeDefResource": {
+        "$ref": "./resources/badge_def.json#/components/schemas/BadgeDefResource"
+      },
+      "GameDefResource": {
+        "$ref": "./resources/game_def.json#/components/schemas/GameDefResource"
+      },
+      "PetAttrValueSpec": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetAttrValueSpec"
+      },
+      "PetAttrGroupSpec": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetAttrGroupSpec"
+      },
+      "PetDefAttrSpec": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetDefAttrSpec"
+      },
+      "PetLife": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetLife"
+      },
+      "PetProgression": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetProgression"
+      },
+      "PetAttrDelta": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetAttrDelta"
+      },
+      "PetDefCharacterSpec": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetDefCharacterSpec"
+      },
+      "PetDefVoiceSpec": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetDefVoiceSpec"
+      },
+      "PetDefActionEffectSpec": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetDefActionEffectSpec"
+      },
+      "PetDefActionSpec": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetDefActionSpec"
+      },
+      "PetDefDriveSpec": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetDefDriveSpec"
+      },
+      "PetDefVisualRefSpec": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetDefVisualRefSpec"
+      },
+      "PetDefVisualRefsSpec": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetDefVisualRefsSpec"
+      },
+      "PetDefPixaClipMetadata": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetDefPixaClipMetadata"
+      },
+      "PetDefPixaCanvasMetadata": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetDefPixaCanvasMetadata"
+      },
+      "PetDefPixaMetadata": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetDefPixaMetadata"
+      },
+      "PetDefPixaSpec": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetDefPixaSpec"
+      },
+      "PetDefVisualSpec": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetDefVisualSpec"
+      },
+      "PetDefI18nDisplayText": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetDefI18nDisplayText"
+      },
+      "PetDefI18nAttrGroup": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetDefI18nAttrGroup"
+      },
+      "PetDefI18nAttrSpec": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetDefI18nAttrSpec"
+      },
+      "PetDefI18nDriveSpec": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetDefI18nDriveSpec"
+      },
+      "PetDefI18nCatalog": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetDefI18nCatalog"
+      },
+      "PetDefI18nSpec": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetDefI18nSpec"
+      }
+    }
+  }
+}

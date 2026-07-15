@@ -35,8 +35,8 @@ func TestFactoryMergesWorkflowAndWorkspaceParams(t *testing.T) {
 	}
 	agent, err := (Factory{Transformer: recordingTransformer{}}).NewAgent(context.Background(), agenthost.Spec{
 		Workspace: apitypes.Workspace{Name: "demo", Parameters: &workspaceParams},
-		Workflow: apitypes.WorkflowDocument{
-			Metadata: apitypes.WorkflowMetadata{Name: "ast"},
+		Workflow: apitypes.Workflow{
+			Name: "ast",
 			Spec: apitypes.WorkflowSpec{
 				Driver: apitypes.WorkflowDriverAstTranslate,
 				AstTranslate: &apitypes.ASTTranslateWorkflowSpec{
@@ -86,8 +86,8 @@ func TestResolveConfigExternalVoiceForcesS2TAndSourceLanguage(t *testing.T) {
 	}
 	resolved, err := resolveConfig(agenthost.Spec{
 		Workspace: apitypes.Workspace{Name: "demo", Parameters: &workspaceParams},
-		Workflow: apitypes.WorkflowDocument{
-			Metadata: apitypes.WorkflowMetadata{Name: "ast"},
+		Workflow: apitypes.Workflow{
+			Name: "ast",
 			Spec: apitypes.WorkflowSpec{
 				Driver: apitypes.WorkflowDriverAstTranslate,
 				AstTranslate: &apitypes.ASTTranslateWorkflowSpec{
@@ -778,9 +778,9 @@ func marshalOggPackets(t *testing.T, packets ...[]byte) []byte {
 	return raw
 }
 
-func astWorkflow(model string, voice *apitypes.ASTTranslateVoiceParameters) apitypes.WorkflowDocument {
-	return apitypes.WorkflowDocument{
-		Metadata: apitypes.WorkflowMetadata{Name: "ast"},
+func astWorkflow(model string, voice *apitypes.ASTTranslateVoiceParameters) apitypes.Workflow {
+	return apitypes.Workflow{
+		Name: "ast",
 		Spec: apitypes.WorkflowSpec{
 			Driver: apitypes.WorkflowDriverAstTranslate,
 			AstTranslate: &apitypes.ASTTranslateWorkflowSpec{

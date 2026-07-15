@@ -148,16 +148,6 @@ typedef struct _gizclaw_rpc_v1_PetAdoptRequest {
     pb_callback_t ruleset_name;
 } gizclaw_rpc_v1_PetAdoptRequest;
 
-typedef struct _gizclaw_rpc_v1_PetDefPixaDownloadRequest {
-    pb_callback_t id;
-} gizclaw_rpc_v1_PetDefPixaDownloadRequest;
-
-typedef struct _gizclaw_rpc_v1_PetDefPixaDownloadResponse {
-    pb_callback_t id;
-    pb_callback_t pixa_path;
-    int64_t size_bytes;
-} gizclaw_rpc_v1_PetDefPixaDownloadResponse;
-
 typedef struct _gizclaw_rpc_v1_PetPixaDownloadRequest {
     pb_callback_t pet_id;
 } gizclaw_rpc_v1_PetPixaDownloadRequest;
@@ -169,114 +159,45 @@ typedef struct _gizclaw_rpc_v1_PetPixaDownloadResponse {
     int64_t size_bytes;
 } gizclaw_rpc_v1_PetPixaDownloadResponse;
 
-typedef struct _gizclaw_rpc_v1_PetPresentationAttrGroupSpec {
-    pb_callback_t value;
-} gizclaw_rpc_v1_PetPresentationAttrGroupSpec;
+typedef struct _gizclaw_rpc_v1_PetActionI18nText {
+    pb_callback_t name;
+} gizclaw_rpc_v1_PetActionI18nText;
 
-typedef struct _gizclaw_rpc_v1_PetPresentationAttrSpec {
-    bool has_life;
-    gizclaw_rpc_v1_PetPresentationAttrGroupSpec life;
-    bool has_progression;
-    gizclaw_rpc_v1_PetPresentationAttrGroupSpec progression;
-} gizclaw_rpc_v1_PetPresentationAttrSpec;
-
-typedef struct _gizclaw_rpc_v1_PetPresentationAttrValueSpec {
-    int64_t initial;
-} gizclaw_rpc_v1_PetPresentationAttrValueSpec;
-
-typedef struct _gizclaw_rpc_v1_PetPresentationAttrGroupSpec_ValueEntry {
-    pb_callback_t key;
-    bool has_value;
-    gizclaw_rpc_v1_PetPresentationAttrValueSpec value;
-} gizclaw_rpc_v1_PetPresentationAttrGroupSpec_ValueEntry;
-
-typedef struct _gizclaw_rpc_v1_PetPresentationDriveSpec {
+typedef struct _gizclaw_rpc_v1_PetActionsI18nCatalog {
     pb_callback_t actions;
-} gizclaw_rpc_v1_PetPresentationDriveSpec;
+} gizclaw_rpc_v1_PetActionsI18nCatalog;
 
-typedef struct _gizclaw_rpc_v1_PetPresentationI18nAttrGroup {
+typedef struct _gizclaw_rpc_v1_PetActionsI18nCatalog_ActionsEntry {
+    pb_callback_t key;
+    bool has_value;
+    gizclaw_rpc_v1_PetActionI18nText value;
+} gizclaw_rpc_v1_PetActionsI18nCatalog_ActionsEntry;
+
+typedef struct _gizclaw_rpc_v1_PetActionsI18n {
     pb_callback_t value;
-} gizclaw_rpc_v1_PetPresentationI18nAttrGroup;
+} gizclaw_rpc_v1_PetActionsI18n;
 
-typedef struct _gizclaw_rpc_v1_PetPresentationI18nAttrSpec {
-    bool has_life;
-    gizclaw_rpc_v1_PetPresentationI18nAttrGroup life;
-    bool has_progression;
-    gizclaw_rpc_v1_PetPresentationI18nAttrGroup progression;
-} gizclaw_rpc_v1_PetPresentationI18nAttrSpec;
-
-typedef struct _gizclaw_rpc_v1_PetPresentationI18nDisplayText {
-    pb_callback_t display_name;
-} gizclaw_rpc_v1_PetPresentationI18nDisplayText;
-
-typedef struct _gizclaw_rpc_v1_PetPresentationI18nAttrGroup_ValueEntry {
+typedef struct _gizclaw_rpc_v1_PetActionsI18n_ValueEntry {
     pb_callback_t key;
     bool has_value;
-    gizclaw_rpc_v1_PetPresentationI18nDisplayText value;
-} gizclaw_rpc_v1_PetPresentationI18nAttrGroup_ValueEntry;
+    gizclaw_rpc_v1_PetActionsI18nCatalog value;
+} gizclaw_rpc_v1_PetActionsI18n_ValueEntry;
 
-typedef struct _gizclaw_rpc_v1_PetPresentationI18nDriveSpec {
-    pb_callback_t actions;
-} gizclaw_rpc_v1_PetPresentationI18nDriveSpec;
-
-typedef struct _gizclaw_rpc_v1_PetPresentationI18nCatalog {
-    pb_callback_t display_name;
-    pb_callback_t description;
-    bool has_attr;
-    gizclaw_rpc_v1_PetPresentationI18nAttrSpec attr;
-    bool has_drive;
-    gizclaw_rpc_v1_PetPresentationI18nDriveSpec drive;
-} gizclaw_rpc_v1_PetPresentationI18nCatalog;
-
-typedef struct _gizclaw_rpc_v1_PetPresentationI18nDriveSpec_ActionsEntry {
-    pb_callback_t key;
-    bool has_value;
-    gizclaw_rpc_v1_PetPresentationI18nDisplayText value;
-} gizclaw_rpc_v1_PetPresentationI18nDriveSpec_ActionsEntry;
-
-typedef struct _gizclaw_rpc_v1_PetPresentationI18nSpec {
-    pb_callback_t value;
-} gizclaw_rpc_v1_PetPresentationI18nSpec;
-
-typedef struct _gizclaw_rpc_v1_PetPresentationI18nSpec_ValueEntry {
-    pb_callback_t key;
-    bool has_value;
-    gizclaw_rpc_v1_PetPresentationI18nCatalog value;
-} gizclaw_rpc_v1_PetPresentationI18nSpec_ValueEntry;
-
-typedef struct _gizclaw_rpc_v1_PetPresentationPixaCanvasMetadata {
-    int64_t width;
-    int64_t height;
-} gizclaw_rpc_v1_PetPresentationPixaCanvasMetadata;
-
-typedef struct _gizclaw_rpc_v1_PetPresentationPixaClipMetadata {
-    pb_callback_t id;
-    pb_callback_t action_id;
-    pb_callback_t pixa_clip_name;
-} gizclaw_rpc_v1_PetPresentationPixaClipMetadata;
-
-typedef struct _gizclaw_rpc_v1_PetPresentationPixaMetadata {
-    pb_callback_t version;
-    bool has_canvas;
-    gizclaw_rpc_v1_PetPresentationPixaCanvasMetadata canvas;
-    pb_callback_t clips;
-} gizclaw_rpc_v1_PetPresentationPixaMetadata;
-
-typedef struct _gizclaw_rpc_v1_PetPresentation {
+typedef struct _gizclaw_rpc_v1_PetActions {
     pb_callback_t pet_id;
     pb_callback_t petdef_id;
     pb_callback_t default_locale;
-    bool has_attr;
-    gizclaw_rpc_v1_PetPresentationAttrSpec attr;
-    bool has_drive;
-    gizclaw_rpc_v1_PetPresentationDriveSpec drive;
-    bool has_pixa_metadata;
-    gizclaw_rpc_v1_PetPresentationPixaMetadata pixa_metadata;
+    pb_callback_t actions;
     bool has_i18n;
-    gizclaw_rpc_v1_PetPresentationI18nSpec i18n;
-    pb_callback_t pixa_path;
+    gizclaw_rpc_v1_PetActionsI18n i18n;
     pb_callback_t petdef_updated_at;
-} gizclaw_rpc_v1_PetPresentation;
+    pb_callback_t clip_names;
+} gizclaw_rpc_v1_PetActions;
+
+typedef struct _gizclaw_rpc_v1_PetActions_ClipNamesEntry {
+    pb_callback_t key;
+    pb_callback_t value;
+} gizclaw_rpc_v1_PetActions_ClipNamesEntry;
 
 typedef struct _gizclaw_rpc_v1_PetDeleteRequest {
     pb_callback_t id;
@@ -454,15 +375,15 @@ typedef struct _gizclaw_rpc_v1_ServerPetPixaDownloadResponse {
     gizclaw_rpc_v1_PetPixaDownloadResponse value;
 } gizclaw_rpc_v1_ServerPetPixaDownloadResponse;
 
-typedef struct _gizclaw_rpc_v1_ServerPetPresentationGetRequest {
+typedef struct _gizclaw_rpc_v1_ServerPetActionsGetRequest {
     bool has_value;
     gizclaw_rpc_v1_PetGetRequest value;
-} gizclaw_rpc_v1_ServerPetPresentationGetRequest;
+} gizclaw_rpc_v1_ServerPetActionsGetRequest;
 
-typedef struct _gizclaw_rpc_v1_ServerPetPresentationGetResponse {
+typedef struct _gizclaw_rpc_v1_ServerPetActionsGetResponse {
     bool has_value;
-    gizclaw_rpc_v1_PetPresentation value;
-} gizclaw_rpc_v1_ServerPetPresentationGetResponse;
+    gizclaw_rpc_v1_PetActions value;
+} gizclaw_rpc_v1_ServerPetActionsGetResponse;
 
 typedef struct _gizclaw_rpc_v1_ServerPetListRequest {
     bool has_value;
@@ -532,25 +453,21 @@ typedef struct _gizclaw_rpc_v1_PetLife {
     pb_callback_t value;
 } gizclaw_rpc_v1_PetLife;
 
-typedef struct _gizclaw_rpc_v1_PetPresentationAttrDelta {
-    bool has_life;
-    gizclaw_rpc_v1_PetLife life;
-} gizclaw_rpc_v1_PetPresentationAttrDelta;
-
-typedef struct _gizclaw_rpc_v1_PetPresentationActionEffectSpec {
-    bool has_attr_delta;
-    gizclaw_rpc_v1_PetPresentationAttrDelta attr_delta;
+typedef struct _gizclaw_rpc_v1_PetActionEffectSpec {
+    bool has_attr_delta_life;
+    gizclaw_rpc_v1_PetLife attr_delta_life;
     bool has_pet_exp_delta;
     int64_t pet_exp_delta;
-} gizclaw_rpc_v1_PetPresentationActionEffectSpec;
+} gizclaw_rpc_v1_PetActionEffectSpec;
 
-typedef struct _gizclaw_rpc_v1_PetPresentationActionSpec {
+typedef struct _gizclaw_rpc_v1_PetAction {
     pb_callback_t id;
     int64_t cost;
     bool has_effect;
-    gizclaw_rpc_v1_PetPresentationActionEffectSpec effect;
+    gizclaw_rpc_v1_PetActionEffectSpec effect;
     pb_callback_t visual_clip_id;
-} gizclaw_rpc_v1_PetPresentationActionSpec;
+    pb_callback_t pixa_clip_name;
+} gizclaw_rpc_v1_PetAction;
 
 typedef struct _gizclaw_rpc_v1_PetLife_ValueEntry {
     pb_callback_t key;
@@ -655,31 +572,17 @@ extern "C" {
 #define gizclaw_rpc_v1_Pet_init_default          {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_PetLife_init_default, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_PetProgression_init_default}
 #define gizclaw_rpc_v1_PetAdoptRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetAdoptResponse_init_default {false, gizclaw_rpc_v1_Pet_init_default, false, gizclaw_rpc_v1_PointsAccount_init_default, false, gizclaw_rpc_v1_PointsTransaction_init_default}
-#define gizclaw_rpc_v1_PetDefPixaDownloadRequest_init_default {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_PetDefPixaDownloadResponse_init_default {{{NULL}, NULL}, {{NULL}, NULL}, 0}
 #define gizclaw_rpc_v1_PetPixaDownloadRequest_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetPixaDownloadResponse_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, 0}
-#define gizclaw_rpc_v1_PetPresentation_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_PetPresentationAttrSpec_init_default, false, gizclaw_rpc_v1_PetPresentationDriveSpec_init_default, false, gizclaw_rpc_v1_PetPresentationPixaMetadata_init_default, false, gizclaw_rpc_v1_PetPresentationI18nSpec_init_default, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_PetPresentationActionEffectSpec_init_default {false, gizclaw_rpc_v1_PetPresentationAttrDelta_init_default, false, 0}
-#define gizclaw_rpc_v1_PetPresentationActionSpec_init_default {{{NULL}, NULL}, 0, false, gizclaw_rpc_v1_PetPresentationActionEffectSpec_init_default, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_PetPresentationAttrDelta_init_default {false, gizclaw_rpc_v1_PetLife_init_default}
-#define gizclaw_rpc_v1_PetPresentationAttrGroupSpec_init_default {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_PetPresentationAttrGroupSpec_ValueEntry_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_PetPresentationAttrValueSpec_init_default}
-#define gizclaw_rpc_v1_PetPresentationAttrSpec_init_default {false, gizclaw_rpc_v1_PetPresentationAttrGroupSpec_init_default, false, gizclaw_rpc_v1_PetPresentationAttrGroupSpec_init_default}
-#define gizclaw_rpc_v1_PetPresentationAttrValueSpec_init_default {0}
-#define gizclaw_rpc_v1_PetPresentationDriveSpec_init_default {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_PetPresentationI18nAttrGroup_init_default {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_PetPresentationI18nAttrGroup_ValueEntry_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_PetPresentationI18nDisplayText_init_default}
-#define gizclaw_rpc_v1_PetPresentationI18nAttrSpec_init_default {false, gizclaw_rpc_v1_PetPresentationI18nAttrGroup_init_default, false, gizclaw_rpc_v1_PetPresentationI18nAttrGroup_init_default}
-#define gizclaw_rpc_v1_PetPresentationI18nCatalog_init_default {{{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_PetPresentationI18nAttrSpec_init_default, false, gizclaw_rpc_v1_PetPresentationI18nDriveSpec_init_default}
-#define gizclaw_rpc_v1_PetPresentationI18nDisplayText_init_default {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_PetPresentationI18nDriveSpec_init_default {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_PetPresentationI18nDriveSpec_ActionsEntry_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_PetPresentationI18nDisplayText_init_default}
-#define gizclaw_rpc_v1_PetPresentationI18nSpec_init_default {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_PetPresentationI18nSpec_ValueEntry_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_PetPresentationI18nCatalog_init_default}
-#define gizclaw_rpc_v1_PetPresentationPixaCanvasMetadata_init_default {0, 0}
-#define gizclaw_rpc_v1_PetPresentationPixaClipMetadata_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_PetPresentationPixaMetadata_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_PetPresentationPixaCanvasMetadata_init_default, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_PetActionEffectSpec_init_default {false, gizclaw_rpc_v1_PetLife_init_default, false, 0}
+#define gizclaw_rpc_v1_PetAction_init_default    {{{NULL}, NULL}, 0, false, gizclaw_rpc_v1_PetActionEffectSpec_init_default, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_PetActionI18nText_init_default {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_PetActionsI18nCatalog_init_default {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_PetActionsI18nCatalog_ActionsEntry_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_PetActionI18nText_init_default}
+#define gizclaw_rpc_v1_PetActionsI18n_init_default {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_PetActionsI18n_ValueEntry_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_PetActionsI18nCatalog_init_default}
+#define gizclaw_rpc_v1_PetActions_init_default   {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_PetActionsI18n_init_default, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_PetActions_ClipNamesEntry_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetDeleteRequest_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetDriveGameResultInput_init_default {{{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_GameplayMetadata_init_default, false, 0}
 #define gizclaw_rpc_v1_PetDriveRequest_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_PetDriveGameResultInput_init_default, {{NULL}, NULL}}
@@ -713,8 +616,8 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerPetGetResponse_init_default {false, gizclaw_rpc_v1_Pet_init_default}
 #define gizclaw_rpc_v1_ServerPetPixaDownloadRequest_init_default {false, gizclaw_rpc_v1_PetPixaDownloadRequest_init_default}
 #define gizclaw_rpc_v1_ServerPetPixaDownloadResponse_init_default {false, gizclaw_rpc_v1_PetPixaDownloadResponse_init_default}
-#define gizclaw_rpc_v1_ServerPetPresentationGetRequest_init_default {false, gizclaw_rpc_v1_PetGetRequest_init_default}
-#define gizclaw_rpc_v1_ServerPetPresentationGetResponse_init_default {false, gizclaw_rpc_v1_PetPresentation_init_default}
+#define gizclaw_rpc_v1_ServerPetActionsGetRequest_init_default {false, gizclaw_rpc_v1_PetGetRequest_init_default}
+#define gizclaw_rpc_v1_ServerPetActionsGetResponse_init_default {false, gizclaw_rpc_v1_PetActions_init_default}
 #define gizclaw_rpc_v1_ServerPetListRequest_init_default {false, gizclaw_rpc_v1_GameplayListRequest_init_default}
 #define gizclaw_rpc_v1_ServerPetListResponse_init_default {false, gizclaw_rpc_v1_PetListResponse_init_default}
 #define gizclaw_rpc_v1_ServerPetPutRequest_init_default {false, gizclaw_rpc_v1_PetPutRequest_init_default}
@@ -753,31 +656,17 @@ extern "C" {
 #define gizclaw_rpc_v1_Pet_init_zero             {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_PetLife_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_PetProgression_init_zero}
 #define gizclaw_rpc_v1_PetAdoptRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetAdoptResponse_init_zero {false, gizclaw_rpc_v1_Pet_init_zero, false, gizclaw_rpc_v1_PointsAccount_init_zero, false, gizclaw_rpc_v1_PointsTransaction_init_zero}
-#define gizclaw_rpc_v1_PetDefPixaDownloadRequest_init_zero {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_PetDefPixaDownloadResponse_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, 0}
 #define gizclaw_rpc_v1_PetPixaDownloadRequest_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetPixaDownloadResponse_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, 0}
-#define gizclaw_rpc_v1_PetPresentation_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_PetPresentationAttrSpec_init_zero, false, gizclaw_rpc_v1_PetPresentationDriveSpec_init_zero, false, gizclaw_rpc_v1_PetPresentationPixaMetadata_init_zero, false, gizclaw_rpc_v1_PetPresentationI18nSpec_init_zero, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_PetPresentationActionEffectSpec_init_zero {false, gizclaw_rpc_v1_PetPresentationAttrDelta_init_zero, false, 0}
-#define gizclaw_rpc_v1_PetPresentationActionSpec_init_zero {{{NULL}, NULL}, 0, false, gizclaw_rpc_v1_PetPresentationActionEffectSpec_init_zero, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_PetPresentationAttrDelta_init_zero {false, gizclaw_rpc_v1_PetLife_init_zero}
-#define gizclaw_rpc_v1_PetPresentationAttrGroupSpec_init_zero {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_PetPresentationAttrGroupSpec_ValueEntry_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_PetPresentationAttrValueSpec_init_zero}
-#define gizclaw_rpc_v1_PetPresentationAttrSpec_init_zero {false, gizclaw_rpc_v1_PetPresentationAttrGroupSpec_init_zero, false, gizclaw_rpc_v1_PetPresentationAttrGroupSpec_init_zero}
-#define gizclaw_rpc_v1_PetPresentationAttrValueSpec_init_zero {0}
-#define gizclaw_rpc_v1_PetPresentationDriveSpec_init_zero {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_PetPresentationI18nAttrGroup_init_zero {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_PetPresentationI18nAttrGroup_ValueEntry_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_PetPresentationI18nDisplayText_init_zero}
-#define gizclaw_rpc_v1_PetPresentationI18nAttrSpec_init_zero {false, gizclaw_rpc_v1_PetPresentationI18nAttrGroup_init_zero, false, gizclaw_rpc_v1_PetPresentationI18nAttrGroup_init_zero}
-#define gizclaw_rpc_v1_PetPresentationI18nCatalog_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_PetPresentationI18nAttrSpec_init_zero, false, gizclaw_rpc_v1_PetPresentationI18nDriveSpec_init_zero}
-#define gizclaw_rpc_v1_PetPresentationI18nDisplayText_init_zero {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_PetPresentationI18nDriveSpec_init_zero {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_PetPresentationI18nDriveSpec_ActionsEntry_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_PetPresentationI18nDisplayText_init_zero}
-#define gizclaw_rpc_v1_PetPresentationI18nSpec_init_zero {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_PetPresentationI18nSpec_ValueEntry_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_PetPresentationI18nCatalog_init_zero}
-#define gizclaw_rpc_v1_PetPresentationPixaCanvasMetadata_init_zero {0, 0}
-#define gizclaw_rpc_v1_PetPresentationPixaClipMetadata_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_PetPresentationPixaMetadata_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_PetPresentationPixaCanvasMetadata_init_zero, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_PetActionEffectSpec_init_zero {false, gizclaw_rpc_v1_PetLife_init_zero, false, 0}
+#define gizclaw_rpc_v1_PetAction_init_zero       {{{NULL}, NULL}, 0, false, gizclaw_rpc_v1_PetActionEffectSpec_init_zero, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_PetActionI18nText_init_zero {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_PetActionsI18nCatalog_init_zero {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_PetActionsI18nCatalog_ActionsEntry_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_PetActionI18nText_init_zero}
+#define gizclaw_rpc_v1_PetActionsI18n_init_zero  {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_PetActionsI18n_ValueEntry_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_PetActionsI18nCatalog_init_zero}
+#define gizclaw_rpc_v1_PetActions_init_zero      {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_PetActionsI18n_init_zero, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_PetActions_ClipNamesEntry_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetDeleteRequest_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetDriveGameResultInput_init_zero {{{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_GameplayMetadata_init_zero, false, 0}
 #define gizclaw_rpc_v1_PetDriveRequest_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_PetDriveGameResultInput_init_zero, {{NULL}, NULL}}
@@ -811,8 +700,8 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerPetGetResponse_init_zero {false, gizclaw_rpc_v1_Pet_init_zero}
 #define gizclaw_rpc_v1_ServerPetPixaDownloadRequest_init_zero {false, gizclaw_rpc_v1_PetPixaDownloadRequest_init_zero}
 #define gizclaw_rpc_v1_ServerPetPixaDownloadResponse_init_zero {false, gizclaw_rpc_v1_PetPixaDownloadResponse_init_zero}
-#define gizclaw_rpc_v1_ServerPetPresentationGetRequest_init_zero {false, gizclaw_rpc_v1_PetGetRequest_init_zero}
-#define gizclaw_rpc_v1_ServerPetPresentationGetResponse_init_zero {false, gizclaw_rpc_v1_PetPresentation_init_zero}
+#define gizclaw_rpc_v1_ServerPetActionsGetRequest_init_zero {false, gizclaw_rpc_v1_PetGetRequest_init_zero}
+#define gizclaw_rpc_v1_ServerPetActionsGetResponse_init_zero {false, gizclaw_rpc_v1_PetActions_init_zero}
 #define gizclaw_rpc_v1_ServerPetListRequest_init_zero {false, gizclaw_rpc_v1_GameplayListRequest_init_zero}
 #define gizclaw_rpc_v1_ServerPetListResponse_init_zero {false, gizclaw_rpc_v1_PetListResponse_init_zero}
 #define gizclaw_rpc_v1_ServerPetPutRequest_init_zero {false, gizclaw_rpc_v1_PetPutRequest_init_zero}
@@ -900,55 +789,27 @@ extern "C" {
 #define gizclaw_rpc_v1_GameRuleset_updated_at_tag 4
 #define gizclaw_rpc_v1_PetAdoptRequest_display_name_tag 1
 #define gizclaw_rpc_v1_PetAdoptRequest_ruleset_name_tag 2
-#define gizclaw_rpc_v1_PetDefPixaDownloadRequest_id_tag 1
-#define gizclaw_rpc_v1_PetDefPixaDownloadResponse_id_tag 1
-#define gizclaw_rpc_v1_PetDefPixaDownloadResponse_pixa_path_tag 2
-#define gizclaw_rpc_v1_PetDefPixaDownloadResponse_size_bytes_tag 3
 #define gizclaw_rpc_v1_PetPixaDownloadRequest_pet_id_tag 1
 #define gizclaw_rpc_v1_PetPixaDownloadResponse_pet_id_tag 1
 #define gizclaw_rpc_v1_PetPixaDownloadResponse_petdef_id_tag 2
 #define gizclaw_rpc_v1_PetPixaDownloadResponse_pixa_path_tag 3
 #define gizclaw_rpc_v1_PetPixaDownloadResponse_size_bytes_tag 4
-#define gizclaw_rpc_v1_PetPresentationAttrGroupSpec_value_tag 1
-#define gizclaw_rpc_v1_PetPresentationAttrSpec_life_tag 1
-#define gizclaw_rpc_v1_PetPresentationAttrSpec_progression_tag 2
-#define gizclaw_rpc_v1_PetPresentationAttrValueSpec_initial_tag 1
-#define gizclaw_rpc_v1_PetPresentationAttrGroupSpec_ValueEntry_key_tag 1
-#define gizclaw_rpc_v1_PetPresentationAttrGroupSpec_ValueEntry_value_tag 2
-#define gizclaw_rpc_v1_PetPresentationDriveSpec_actions_tag 1
-#define gizclaw_rpc_v1_PetPresentationI18nAttrGroup_value_tag 1
-#define gizclaw_rpc_v1_PetPresentationI18nAttrSpec_life_tag 1
-#define gizclaw_rpc_v1_PetPresentationI18nAttrSpec_progression_tag 2
-#define gizclaw_rpc_v1_PetPresentationI18nDisplayText_display_name_tag 1
-#define gizclaw_rpc_v1_PetPresentationI18nAttrGroup_ValueEntry_key_tag 1
-#define gizclaw_rpc_v1_PetPresentationI18nAttrGroup_ValueEntry_value_tag 2
-#define gizclaw_rpc_v1_PetPresentationI18nDriveSpec_actions_tag 1
-#define gizclaw_rpc_v1_PetPresentationI18nCatalog_display_name_tag 1
-#define gizclaw_rpc_v1_PetPresentationI18nCatalog_description_tag 2
-#define gizclaw_rpc_v1_PetPresentationI18nCatalog_attr_tag 3
-#define gizclaw_rpc_v1_PetPresentationI18nCatalog_drive_tag 4
-#define gizclaw_rpc_v1_PetPresentationI18nDriveSpec_ActionsEntry_key_tag 1
-#define gizclaw_rpc_v1_PetPresentationI18nDriveSpec_ActionsEntry_value_tag 2
-#define gizclaw_rpc_v1_PetPresentationI18nSpec_value_tag 1
-#define gizclaw_rpc_v1_PetPresentationI18nSpec_ValueEntry_key_tag 1
-#define gizclaw_rpc_v1_PetPresentationI18nSpec_ValueEntry_value_tag 2
-#define gizclaw_rpc_v1_PetPresentationPixaCanvasMetadata_width_tag 1
-#define gizclaw_rpc_v1_PetPresentationPixaCanvasMetadata_height_tag 2
-#define gizclaw_rpc_v1_PetPresentationPixaClipMetadata_id_tag 1
-#define gizclaw_rpc_v1_PetPresentationPixaClipMetadata_action_id_tag 2
-#define gizclaw_rpc_v1_PetPresentationPixaClipMetadata_pixa_clip_name_tag 3
-#define gizclaw_rpc_v1_PetPresentationPixaMetadata_version_tag 1
-#define gizclaw_rpc_v1_PetPresentationPixaMetadata_canvas_tag 2
-#define gizclaw_rpc_v1_PetPresentationPixaMetadata_clips_tag 3
-#define gizclaw_rpc_v1_PetPresentation_pet_id_tag 1
-#define gizclaw_rpc_v1_PetPresentation_petdef_id_tag 2
-#define gizclaw_rpc_v1_PetPresentation_default_locale_tag 3
-#define gizclaw_rpc_v1_PetPresentation_attr_tag  4
-#define gizclaw_rpc_v1_PetPresentation_drive_tag 5
-#define gizclaw_rpc_v1_PetPresentation_pixa_metadata_tag 6
-#define gizclaw_rpc_v1_PetPresentation_i18n_tag  7
-#define gizclaw_rpc_v1_PetPresentation_pixa_path_tag 8
-#define gizclaw_rpc_v1_PetPresentation_petdef_updated_at_tag 9
+#define gizclaw_rpc_v1_PetActionI18nText_name_tag 1
+#define gizclaw_rpc_v1_PetActionsI18nCatalog_actions_tag 1
+#define gizclaw_rpc_v1_PetActionsI18nCatalog_ActionsEntry_key_tag 1
+#define gizclaw_rpc_v1_PetActionsI18nCatalog_ActionsEntry_value_tag 2
+#define gizclaw_rpc_v1_PetActionsI18n_value_tag  1
+#define gizclaw_rpc_v1_PetActionsI18n_ValueEntry_key_tag 1
+#define gizclaw_rpc_v1_PetActionsI18n_ValueEntry_value_tag 2
+#define gizclaw_rpc_v1_PetActions_pet_id_tag     1
+#define gizclaw_rpc_v1_PetActions_petdef_id_tag  2
+#define gizclaw_rpc_v1_PetActions_default_locale_tag 3
+#define gizclaw_rpc_v1_PetActions_actions_tag    4
+#define gizclaw_rpc_v1_PetActions_i18n_tag       5
+#define gizclaw_rpc_v1_PetActions_petdef_updated_at_tag 6
+#define gizclaw_rpc_v1_PetActions_clip_names_tag 7
+#define gizclaw_rpc_v1_PetActions_ClipNamesEntry_key_tag 1
+#define gizclaw_rpc_v1_PetActions_ClipNamesEntry_value_tag 2
 #define gizclaw_rpc_v1_PetDeleteRequest_id_tag   1
 #define gizclaw_rpc_v1_PetDriveGameResultInput_difficulty_tag 1
 #define gizclaw_rpc_v1_PetDriveGameResultInput_duration_ms_tag 2
@@ -1021,8 +882,8 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerPetGetRequest_value_tag 1
 #define gizclaw_rpc_v1_ServerPetPixaDownloadRequest_value_tag 1
 #define gizclaw_rpc_v1_ServerPetPixaDownloadResponse_value_tag 1
-#define gizclaw_rpc_v1_ServerPetPresentationGetRequest_value_tag 1
-#define gizclaw_rpc_v1_ServerPetPresentationGetResponse_value_tag 1
+#define gizclaw_rpc_v1_ServerPetActionsGetRequest_value_tag 1
+#define gizclaw_rpc_v1_ServerPetActionsGetResponse_value_tag 1
 #define gizclaw_rpc_v1_ServerPetListRequest_value_tag 1
 #define gizclaw_rpc_v1_ServerPetListResponse_value_tag 1
 #define gizclaw_rpc_v1_ServerPetPutRequest_value_tag 1
@@ -1037,13 +898,13 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerRewardGrantListRequest_value_tag 1
 #define gizclaw_rpc_v1_ServerRewardGrantListResponse_value_tag 1
 #define gizclaw_rpc_v1_PetLife_value_tag         1
-#define gizclaw_rpc_v1_PetPresentationAttrDelta_life_tag 1
-#define gizclaw_rpc_v1_PetPresentationActionEffectSpec_attr_delta_tag 1
-#define gizclaw_rpc_v1_PetPresentationActionEffectSpec_pet_exp_delta_tag 2
-#define gizclaw_rpc_v1_PetPresentationActionSpec_id_tag 1
-#define gizclaw_rpc_v1_PetPresentationActionSpec_cost_tag 2
-#define gizclaw_rpc_v1_PetPresentationActionSpec_effect_tag 3
-#define gizclaw_rpc_v1_PetPresentationActionSpec_visual_clip_id_tag 4
+#define gizclaw_rpc_v1_PetActionEffectSpec_attr_delta_life_tag 1
+#define gizclaw_rpc_v1_PetActionEffectSpec_pet_exp_delta_tag 2
+#define gizclaw_rpc_v1_PetAction_id_tag          1
+#define gizclaw_rpc_v1_PetAction_cost_tag        2
+#define gizclaw_rpc_v1_PetAction_effect_tag      3
+#define gizclaw_rpc_v1_PetAction_visual_clip_id_tag 4
+#define gizclaw_rpc_v1_PetAction_pixa_clip_name_tag 5
 #define gizclaw_rpc_v1_PetLife_ValueEntry_key_tag 1
 #define gizclaw_rpc_v1_PetLife_ValueEntry_value_tag 2
 #define gizclaw_rpc_v1_PetProgression_value_tag  1
@@ -1257,18 +1118,6 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  transaction,       3)
 #define gizclaw_rpc_v1_PetAdoptResponse_points_MSGTYPE gizclaw_rpc_v1_PointsAccount
 #define gizclaw_rpc_v1_PetAdoptResponse_transaction_MSGTYPE gizclaw_rpc_v1_PointsTransaction
 
-#define gizclaw_rpc_v1_PetDefPixaDownloadRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                1)
-#define gizclaw_rpc_v1_PetDefPixaDownloadRequest_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_PetDefPixaDownloadRequest_DEFAULT NULL
-
-#define gizclaw_rpc_v1_PetDefPixaDownloadResponse_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                1) \
-X(a, CALLBACK, OPTIONAL, STRING,   pixa_path,         2) \
-X(a, STATIC,   SINGULAR, INT64,    size_bytes,        3)
-#define gizclaw_rpc_v1_PetDefPixaDownloadResponse_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_PetDefPixaDownloadResponse_DEFAULT NULL
-
 #define gizclaw_rpc_v1_PetPixaDownloadRequest_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   pet_id,            1)
 #define gizclaw_rpc_v1_PetPixaDownloadRequest_CALLBACK pb_default_field_callback
@@ -1282,160 +1131,73 @@ X(a, STATIC,   SINGULAR, INT64,    size_bytes,        4)
 #define gizclaw_rpc_v1_PetPixaDownloadResponse_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_PetPixaDownloadResponse_DEFAULT NULL
 
-#define gizclaw_rpc_v1_PetPresentation_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   pet_id,            1) \
-X(a, CALLBACK, SINGULAR, STRING,   petdef_id,         2) \
-X(a, CALLBACK, SINGULAR, STRING,   default_locale,    3) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  attr,              4) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  drive,             5) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  pixa_metadata,     6) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  i18n,              7) \
-X(a, CALLBACK, OPTIONAL, STRING,   pixa_path,         8) \
-X(a, CALLBACK, SINGULAR, STRING,   petdef_updated_at,   9)
-#define gizclaw_rpc_v1_PetPresentation_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_PetPresentation_DEFAULT NULL
-#define gizclaw_rpc_v1_PetPresentation_attr_MSGTYPE gizclaw_rpc_v1_PetPresentationAttrSpec
-#define gizclaw_rpc_v1_PetPresentation_drive_MSGTYPE gizclaw_rpc_v1_PetPresentationDriveSpec
-#define gizclaw_rpc_v1_PetPresentation_pixa_metadata_MSGTYPE gizclaw_rpc_v1_PetPresentationPixaMetadata
-#define gizclaw_rpc_v1_PetPresentation_i18n_MSGTYPE gizclaw_rpc_v1_PetPresentationI18nSpec
-
-#define gizclaw_rpc_v1_PetPresentationActionEffectSpec_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  attr_delta,        1) \
+#define gizclaw_rpc_v1_PetActionEffectSpec_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  attr_delta_life,   1) \
 X(a, STATIC,   OPTIONAL, INT64,    pet_exp_delta,     2)
-#define gizclaw_rpc_v1_PetPresentationActionEffectSpec_CALLBACK NULL
-#define gizclaw_rpc_v1_PetPresentationActionEffectSpec_DEFAULT NULL
-#define gizclaw_rpc_v1_PetPresentationActionEffectSpec_attr_delta_MSGTYPE gizclaw_rpc_v1_PetPresentationAttrDelta
+#define gizclaw_rpc_v1_PetActionEffectSpec_CALLBACK NULL
+#define gizclaw_rpc_v1_PetActionEffectSpec_DEFAULT NULL
+#define gizclaw_rpc_v1_PetActionEffectSpec_attr_delta_life_MSGTYPE gizclaw_rpc_v1_PetLife
 
-#define gizclaw_rpc_v1_PetPresentationActionSpec_FIELDLIST(X, a) \
+#define gizclaw_rpc_v1_PetAction_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   id,                1) \
 X(a, STATIC,   SINGULAR, INT64,    cost,              2) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  effect,            3) \
-X(a, CALLBACK, OPTIONAL, STRING,   visual_clip_id,    4)
-#define gizclaw_rpc_v1_PetPresentationActionSpec_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_PetPresentationActionSpec_DEFAULT NULL
-#define gizclaw_rpc_v1_PetPresentationActionSpec_effect_MSGTYPE gizclaw_rpc_v1_PetPresentationActionEffectSpec
+X(a, CALLBACK, OPTIONAL, STRING,   visual_clip_id,    4) \
+X(a, CALLBACK, OPTIONAL, STRING,   pixa_clip_name,    5)
+#define gizclaw_rpc_v1_PetAction_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_PetAction_DEFAULT NULL
+#define gizclaw_rpc_v1_PetAction_effect_MSGTYPE gizclaw_rpc_v1_PetActionEffectSpec
 
-#define gizclaw_rpc_v1_PetPresentationAttrDelta_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  life,              1)
-#define gizclaw_rpc_v1_PetPresentationAttrDelta_CALLBACK NULL
-#define gizclaw_rpc_v1_PetPresentationAttrDelta_DEFAULT NULL
-#define gizclaw_rpc_v1_PetPresentationAttrDelta_life_MSGTYPE gizclaw_rpc_v1_PetLife
+#define gizclaw_rpc_v1_PetActionI18nText_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   name,              1)
+#define gizclaw_rpc_v1_PetActionI18nText_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_PetActionI18nText_DEFAULT NULL
 
-#define gizclaw_rpc_v1_PetPresentationAttrGroupSpec_FIELDLIST(X, a) \
-X(a, CALLBACK, REPEATED, MESSAGE,  value,             1)
-#define gizclaw_rpc_v1_PetPresentationAttrGroupSpec_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_PetPresentationAttrGroupSpec_DEFAULT NULL
-#define gizclaw_rpc_v1_PetPresentationAttrGroupSpec_value_MSGTYPE gizclaw_rpc_v1_PetPresentationAttrGroupSpec_ValueEntry
-
-#define gizclaw_rpc_v1_PetPresentationAttrGroupSpec_ValueEntry_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   key,               1) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  value,             2)
-#define gizclaw_rpc_v1_PetPresentationAttrGroupSpec_ValueEntry_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_PetPresentationAttrGroupSpec_ValueEntry_DEFAULT NULL
-#define gizclaw_rpc_v1_PetPresentationAttrGroupSpec_ValueEntry_value_MSGTYPE gizclaw_rpc_v1_PetPresentationAttrValueSpec
-
-#define gizclaw_rpc_v1_PetPresentationAttrSpec_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  life,              1) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  progression,       2)
-#define gizclaw_rpc_v1_PetPresentationAttrSpec_CALLBACK NULL
-#define gizclaw_rpc_v1_PetPresentationAttrSpec_DEFAULT NULL
-#define gizclaw_rpc_v1_PetPresentationAttrSpec_life_MSGTYPE gizclaw_rpc_v1_PetPresentationAttrGroupSpec
-#define gizclaw_rpc_v1_PetPresentationAttrSpec_progression_MSGTYPE gizclaw_rpc_v1_PetPresentationAttrGroupSpec
-
-#define gizclaw_rpc_v1_PetPresentationAttrValueSpec_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, INT64,    initial,           1)
-#define gizclaw_rpc_v1_PetPresentationAttrValueSpec_CALLBACK NULL
-#define gizclaw_rpc_v1_PetPresentationAttrValueSpec_DEFAULT NULL
-
-#define gizclaw_rpc_v1_PetPresentationDriveSpec_FIELDLIST(X, a) \
+#define gizclaw_rpc_v1_PetActionsI18nCatalog_FIELDLIST(X, a) \
 X(a, CALLBACK, REPEATED, MESSAGE,  actions,           1)
-#define gizclaw_rpc_v1_PetPresentationDriveSpec_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_PetPresentationDriveSpec_DEFAULT NULL
-#define gizclaw_rpc_v1_PetPresentationDriveSpec_actions_MSGTYPE gizclaw_rpc_v1_PetPresentationActionSpec
+#define gizclaw_rpc_v1_PetActionsI18nCatalog_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_PetActionsI18nCatalog_DEFAULT NULL
+#define gizclaw_rpc_v1_PetActionsI18nCatalog_actions_MSGTYPE gizclaw_rpc_v1_PetActionsI18nCatalog_ActionsEntry
 
-#define gizclaw_rpc_v1_PetPresentationI18nAttrGroup_FIELDLIST(X, a) \
+#define gizclaw_rpc_v1_PetActionsI18nCatalog_ActionsEntry_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   key,               1) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  value,             2)
+#define gizclaw_rpc_v1_PetActionsI18nCatalog_ActionsEntry_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_PetActionsI18nCatalog_ActionsEntry_DEFAULT NULL
+#define gizclaw_rpc_v1_PetActionsI18nCatalog_ActionsEntry_value_MSGTYPE gizclaw_rpc_v1_PetActionI18nText
+
+#define gizclaw_rpc_v1_PetActionsI18n_FIELDLIST(X, a) \
 X(a, CALLBACK, REPEATED, MESSAGE,  value,             1)
-#define gizclaw_rpc_v1_PetPresentationI18nAttrGroup_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_PetPresentationI18nAttrGroup_DEFAULT NULL
-#define gizclaw_rpc_v1_PetPresentationI18nAttrGroup_value_MSGTYPE gizclaw_rpc_v1_PetPresentationI18nAttrGroup_ValueEntry
+#define gizclaw_rpc_v1_PetActionsI18n_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_PetActionsI18n_DEFAULT NULL
+#define gizclaw_rpc_v1_PetActionsI18n_value_MSGTYPE gizclaw_rpc_v1_PetActionsI18n_ValueEntry
 
-#define gizclaw_rpc_v1_PetPresentationI18nAttrGroup_ValueEntry_FIELDLIST(X, a) \
+#define gizclaw_rpc_v1_PetActionsI18n_ValueEntry_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   key,               1) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  value,             2)
-#define gizclaw_rpc_v1_PetPresentationI18nAttrGroup_ValueEntry_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_PetPresentationI18nAttrGroup_ValueEntry_DEFAULT NULL
-#define gizclaw_rpc_v1_PetPresentationI18nAttrGroup_ValueEntry_value_MSGTYPE gizclaw_rpc_v1_PetPresentationI18nDisplayText
+#define gizclaw_rpc_v1_PetActionsI18n_ValueEntry_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_PetActionsI18n_ValueEntry_DEFAULT NULL
+#define gizclaw_rpc_v1_PetActionsI18n_ValueEntry_value_MSGTYPE gizclaw_rpc_v1_PetActionsI18nCatalog
 
-#define gizclaw_rpc_v1_PetPresentationI18nAttrSpec_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  life,              1) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  progression,       2)
-#define gizclaw_rpc_v1_PetPresentationI18nAttrSpec_CALLBACK NULL
-#define gizclaw_rpc_v1_PetPresentationI18nAttrSpec_DEFAULT NULL
-#define gizclaw_rpc_v1_PetPresentationI18nAttrSpec_life_MSGTYPE gizclaw_rpc_v1_PetPresentationI18nAttrGroup
-#define gizclaw_rpc_v1_PetPresentationI18nAttrSpec_progression_MSGTYPE gizclaw_rpc_v1_PetPresentationI18nAttrGroup
+#define gizclaw_rpc_v1_PetActions_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   pet_id,            1) \
+X(a, CALLBACK, SINGULAR, STRING,   petdef_id,         2) \
+X(a, CALLBACK, SINGULAR, STRING,   default_locale,    3) \
+X(a, CALLBACK, REPEATED, MESSAGE,  actions,           4) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  i18n,              5) \
+X(a, CALLBACK, SINGULAR, STRING,   petdef_updated_at,   6) \
+X(a, CALLBACK, REPEATED, MESSAGE,  clip_names,        7)
+#define gizclaw_rpc_v1_PetActions_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_PetActions_DEFAULT NULL
+#define gizclaw_rpc_v1_PetActions_actions_MSGTYPE gizclaw_rpc_v1_PetAction
+#define gizclaw_rpc_v1_PetActions_i18n_MSGTYPE gizclaw_rpc_v1_PetActionsI18n
+#define gizclaw_rpc_v1_PetActions_clip_names_MSGTYPE gizclaw_rpc_v1_PetActions_ClipNamesEntry
 
-#define gizclaw_rpc_v1_PetPresentationI18nCatalog_FIELDLIST(X, a) \
-X(a, CALLBACK, OPTIONAL, STRING,   display_name,      1) \
-X(a, CALLBACK, OPTIONAL, STRING,   description,       2) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  attr,              3) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  drive,             4)
-#define gizclaw_rpc_v1_PetPresentationI18nCatalog_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_PetPresentationI18nCatalog_DEFAULT NULL
-#define gizclaw_rpc_v1_PetPresentationI18nCatalog_attr_MSGTYPE gizclaw_rpc_v1_PetPresentationI18nAttrSpec
-#define gizclaw_rpc_v1_PetPresentationI18nCatalog_drive_MSGTYPE gizclaw_rpc_v1_PetPresentationI18nDriveSpec
-
-#define gizclaw_rpc_v1_PetPresentationI18nDisplayText_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   display_name,      1)
-#define gizclaw_rpc_v1_PetPresentationI18nDisplayText_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_PetPresentationI18nDisplayText_DEFAULT NULL
-
-#define gizclaw_rpc_v1_PetPresentationI18nDriveSpec_FIELDLIST(X, a) \
-X(a, CALLBACK, REPEATED, MESSAGE,  actions,           1)
-#define gizclaw_rpc_v1_PetPresentationI18nDriveSpec_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_PetPresentationI18nDriveSpec_DEFAULT NULL
-#define gizclaw_rpc_v1_PetPresentationI18nDriveSpec_actions_MSGTYPE gizclaw_rpc_v1_PetPresentationI18nDriveSpec_ActionsEntry
-
-#define gizclaw_rpc_v1_PetPresentationI18nDriveSpec_ActionsEntry_FIELDLIST(X, a) \
+#define gizclaw_rpc_v1_PetActions_ClipNamesEntry_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   key,               1) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  value,             2)
-#define gizclaw_rpc_v1_PetPresentationI18nDriveSpec_ActionsEntry_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_PetPresentationI18nDriveSpec_ActionsEntry_DEFAULT NULL
-#define gizclaw_rpc_v1_PetPresentationI18nDriveSpec_ActionsEntry_value_MSGTYPE gizclaw_rpc_v1_PetPresentationI18nDisplayText
-
-#define gizclaw_rpc_v1_PetPresentationI18nSpec_FIELDLIST(X, a) \
-X(a, CALLBACK, REPEATED, MESSAGE,  value,             1)
-#define gizclaw_rpc_v1_PetPresentationI18nSpec_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_PetPresentationI18nSpec_DEFAULT NULL
-#define gizclaw_rpc_v1_PetPresentationI18nSpec_value_MSGTYPE gizclaw_rpc_v1_PetPresentationI18nSpec_ValueEntry
-
-#define gizclaw_rpc_v1_PetPresentationI18nSpec_ValueEntry_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   key,               1) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  value,             2)
-#define gizclaw_rpc_v1_PetPresentationI18nSpec_ValueEntry_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_PetPresentationI18nSpec_ValueEntry_DEFAULT NULL
-#define gizclaw_rpc_v1_PetPresentationI18nSpec_ValueEntry_value_MSGTYPE gizclaw_rpc_v1_PetPresentationI18nCatalog
-
-#define gizclaw_rpc_v1_PetPresentationPixaCanvasMetadata_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, INT64,    width,             1) \
-X(a, STATIC,   SINGULAR, INT64,    height,            2)
-#define gizclaw_rpc_v1_PetPresentationPixaCanvasMetadata_CALLBACK NULL
-#define gizclaw_rpc_v1_PetPresentationPixaCanvasMetadata_DEFAULT NULL
-
-#define gizclaw_rpc_v1_PetPresentationPixaClipMetadata_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                1) \
-X(a, CALLBACK, OPTIONAL, STRING,   action_id,         2) \
-X(a, CALLBACK, SINGULAR, STRING,   pixa_clip_name,    3)
-#define gizclaw_rpc_v1_PetPresentationPixaClipMetadata_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_PetPresentationPixaClipMetadata_DEFAULT NULL
-
-#define gizclaw_rpc_v1_PetPresentationPixaMetadata_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   version,           1) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  canvas,            2) \
-X(a, CALLBACK, REPEATED, MESSAGE,  clips,             3)
-#define gizclaw_rpc_v1_PetPresentationPixaMetadata_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_PetPresentationPixaMetadata_DEFAULT NULL
-#define gizclaw_rpc_v1_PetPresentationPixaMetadata_canvas_MSGTYPE gizclaw_rpc_v1_PetPresentationPixaCanvasMetadata
-#define gizclaw_rpc_v1_PetPresentationPixaMetadata_clips_MSGTYPE gizclaw_rpc_v1_PetPresentationPixaClipMetadata
+X(a, CALLBACK, SINGULAR, STRING,   value,             2)
+#define gizclaw_rpc_v1_PetActions_ClipNamesEntry_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_PetActions_ClipNamesEntry_DEFAULT NULL
 
 #define gizclaw_rpc_v1_PetDeleteRequest_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   id,                1)
@@ -1682,17 +1444,17 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
 #define gizclaw_rpc_v1_ServerPetPixaDownloadResponse_DEFAULT NULL
 #define gizclaw_rpc_v1_ServerPetPixaDownloadResponse_value_MSGTYPE gizclaw_rpc_v1_PetPixaDownloadResponse
 
-#define gizclaw_rpc_v1_ServerPetPresentationGetRequest_FIELDLIST(X, a) \
+#define gizclaw_rpc_v1_ServerPetActionsGetRequest_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
-#define gizclaw_rpc_v1_ServerPetPresentationGetRequest_CALLBACK NULL
-#define gizclaw_rpc_v1_ServerPetPresentationGetRequest_DEFAULT NULL
-#define gizclaw_rpc_v1_ServerPetPresentationGetRequest_value_MSGTYPE gizclaw_rpc_v1_PetGetRequest
+#define gizclaw_rpc_v1_ServerPetActionsGetRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_ServerPetActionsGetRequest_DEFAULT NULL
+#define gizclaw_rpc_v1_ServerPetActionsGetRequest_value_MSGTYPE gizclaw_rpc_v1_PetGetRequest
 
-#define gizclaw_rpc_v1_ServerPetPresentationGetResponse_FIELDLIST(X, a) \
+#define gizclaw_rpc_v1_ServerPetActionsGetResponse_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
-#define gizclaw_rpc_v1_ServerPetPresentationGetResponse_CALLBACK NULL
-#define gizclaw_rpc_v1_ServerPetPresentationGetResponse_DEFAULT NULL
-#define gizclaw_rpc_v1_ServerPetPresentationGetResponse_value_MSGTYPE gizclaw_rpc_v1_PetPresentation
+#define gizclaw_rpc_v1_ServerPetActionsGetResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_ServerPetActionsGetResponse_DEFAULT NULL
+#define gizclaw_rpc_v1_ServerPetActionsGetResponse_value_MSGTYPE gizclaw_rpc_v1_PetActions
 
 #define gizclaw_rpc_v1_ServerPetListRequest_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
@@ -1821,31 +1583,17 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_GameplayMetadata_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_Pet_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PetAdoptRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PetAdoptResponse_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_PetDefPixaDownloadRequest_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_PetDefPixaDownloadResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PetPixaDownloadRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PetPixaDownloadResponse_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_PetPresentation_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_PetPresentationActionEffectSpec_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_PetPresentationActionSpec_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_PetPresentationAttrDelta_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_PetPresentationAttrGroupSpec_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_PetPresentationAttrGroupSpec_ValueEntry_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_PetPresentationAttrSpec_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_PetPresentationAttrValueSpec_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_PetPresentationDriveSpec_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_PetPresentationI18nAttrGroup_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_PetPresentationI18nAttrGroup_ValueEntry_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_PetPresentationI18nAttrSpec_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_PetPresentationI18nCatalog_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_PetPresentationI18nDisplayText_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_PetPresentationI18nDriveSpec_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_PetPresentationI18nDriveSpec_ActionsEntry_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_PetPresentationI18nSpec_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_PetPresentationI18nSpec_ValueEntry_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_PetPresentationPixaCanvasMetadata_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_PetPresentationPixaClipMetadata_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_PetPresentationPixaMetadata_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_PetActionEffectSpec_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_PetAction_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_PetActionI18nText_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_PetActionsI18nCatalog_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_PetActionsI18nCatalog_ActionsEntry_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_PetActionsI18n_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_PetActionsI18n_ValueEntry_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_PetActions_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_PetActions_ClipNamesEntry_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PetDeleteRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PetDriveGameResultInput_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PetDriveRequest_msg;
@@ -1879,8 +1627,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPetGetRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPetGetResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPetPixaDownloadRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPetPixaDownloadResponse_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPetPresentationGetRequest_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPetPresentationGetResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPetActionsGetRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPetActionsGetResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPetListRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPetListResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPetPutRequest_msg;
@@ -1921,31 +1669,17 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_PetProgression_ValueEntry_msg;
 #define gizclaw_rpc_v1_Pet_fields &gizclaw_rpc_v1_Pet_msg
 #define gizclaw_rpc_v1_PetAdoptRequest_fields &gizclaw_rpc_v1_PetAdoptRequest_msg
 #define gizclaw_rpc_v1_PetAdoptResponse_fields &gizclaw_rpc_v1_PetAdoptResponse_msg
-#define gizclaw_rpc_v1_PetDefPixaDownloadRequest_fields &gizclaw_rpc_v1_PetDefPixaDownloadRequest_msg
-#define gizclaw_rpc_v1_PetDefPixaDownloadResponse_fields &gizclaw_rpc_v1_PetDefPixaDownloadResponse_msg
 #define gizclaw_rpc_v1_PetPixaDownloadRequest_fields &gizclaw_rpc_v1_PetPixaDownloadRequest_msg
 #define gizclaw_rpc_v1_PetPixaDownloadResponse_fields &gizclaw_rpc_v1_PetPixaDownloadResponse_msg
-#define gizclaw_rpc_v1_PetPresentation_fields &gizclaw_rpc_v1_PetPresentation_msg
-#define gizclaw_rpc_v1_PetPresentationActionEffectSpec_fields &gizclaw_rpc_v1_PetPresentationActionEffectSpec_msg
-#define gizclaw_rpc_v1_PetPresentationActionSpec_fields &gizclaw_rpc_v1_PetPresentationActionSpec_msg
-#define gizclaw_rpc_v1_PetPresentationAttrDelta_fields &gizclaw_rpc_v1_PetPresentationAttrDelta_msg
-#define gizclaw_rpc_v1_PetPresentationAttrGroupSpec_fields &gizclaw_rpc_v1_PetPresentationAttrGroupSpec_msg
-#define gizclaw_rpc_v1_PetPresentationAttrGroupSpec_ValueEntry_fields &gizclaw_rpc_v1_PetPresentationAttrGroupSpec_ValueEntry_msg
-#define gizclaw_rpc_v1_PetPresentationAttrSpec_fields &gizclaw_rpc_v1_PetPresentationAttrSpec_msg
-#define gizclaw_rpc_v1_PetPresentationAttrValueSpec_fields &gizclaw_rpc_v1_PetPresentationAttrValueSpec_msg
-#define gizclaw_rpc_v1_PetPresentationDriveSpec_fields &gizclaw_rpc_v1_PetPresentationDriveSpec_msg
-#define gizclaw_rpc_v1_PetPresentationI18nAttrGroup_fields &gizclaw_rpc_v1_PetPresentationI18nAttrGroup_msg
-#define gizclaw_rpc_v1_PetPresentationI18nAttrGroup_ValueEntry_fields &gizclaw_rpc_v1_PetPresentationI18nAttrGroup_ValueEntry_msg
-#define gizclaw_rpc_v1_PetPresentationI18nAttrSpec_fields &gizclaw_rpc_v1_PetPresentationI18nAttrSpec_msg
-#define gizclaw_rpc_v1_PetPresentationI18nCatalog_fields &gizclaw_rpc_v1_PetPresentationI18nCatalog_msg
-#define gizclaw_rpc_v1_PetPresentationI18nDisplayText_fields &gizclaw_rpc_v1_PetPresentationI18nDisplayText_msg
-#define gizclaw_rpc_v1_PetPresentationI18nDriveSpec_fields &gizclaw_rpc_v1_PetPresentationI18nDriveSpec_msg
-#define gizclaw_rpc_v1_PetPresentationI18nDriveSpec_ActionsEntry_fields &gizclaw_rpc_v1_PetPresentationI18nDriveSpec_ActionsEntry_msg
-#define gizclaw_rpc_v1_PetPresentationI18nSpec_fields &gizclaw_rpc_v1_PetPresentationI18nSpec_msg
-#define gizclaw_rpc_v1_PetPresentationI18nSpec_ValueEntry_fields &gizclaw_rpc_v1_PetPresentationI18nSpec_ValueEntry_msg
-#define gizclaw_rpc_v1_PetPresentationPixaCanvasMetadata_fields &gizclaw_rpc_v1_PetPresentationPixaCanvasMetadata_msg
-#define gizclaw_rpc_v1_PetPresentationPixaClipMetadata_fields &gizclaw_rpc_v1_PetPresentationPixaClipMetadata_msg
-#define gizclaw_rpc_v1_PetPresentationPixaMetadata_fields &gizclaw_rpc_v1_PetPresentationPixaMetadata_msg
+#define gizclaw_rpc_v1_PetActionEffectSpec_fields &gizclaw_rpc_v1_PetActionEffectSpec_msg
+#define gizclaw_rpc_v1_PetAction_fields &gizclaw_rpc_v1_PetAction_msg
+#define gizclaw_rpc_v1_PetActionI18nText_fields &gizclaw_rpc_v1_PetActionI18nText_msg
+#define gizclaw_rpc_v1_PetActionsI18nCatalog_fields &gizclaw_rpc_v1_PetActionsI18nCatalog_msg
+#define gizclaw_rpc_v1_PetActionsI18nCatalog_ActionsEntry_fields &gizclaw_rpc_v1_PetActionsI18nCatalog_ActionsEntry_msg
+#define gizclaw_rpc_v1_PetActionsI18n_fields &gizclaw_rpc_v1_PetActionsI18n_msg
+#define gizclaw_rpc_v1_PetActionsI18n_ValueEntry_fields &gizclaw_rpc_v1_PetActionsI18n_ValueEntry_msg
+#define gizclaw_rpc_v1_PetActions_fields &gizclaw_rpc_v1_PetActions_msg
+#define gizclaw_rpc_v1_PetActions_ClipNamesEntry_fields &gizclaw_rpc_v1_PetActions_ClipNamesEntry_msg
 #define gizclaw_rpc_v1_PetDeleteRequest_fields &gizclaw_rpc_v1_PetDeleteRequest_msg
 #define gizclaw_rpc_v1_PetDriveGameResultInput_fields &gizclaw_rpc_v1_PetDriveGameResultInput_msg
 #define gizclaw_rpc_v1_PetDriveRequest_fields &gizclaw_rpc_v1_PetDriveRequest_msg
@@ -1979,8 +1713,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_PetProgression_ValueEntry_msg;
 #define gizclaw_rpc_v1_ServerPetGetResponse_fields &gizclaw_rpc_v1_ServerPetGetResponse_msg
 #define gizclaw_rpc_v1_ServerPetPixaDownloadRequest_fields &gizclaw_rpc_v1_ServerPetPixaDownloadRequest_msg
 #define gizclaw_rpc_v1_ServerPetPixaDownloadResponse_fields &gizclaw_rpc_v1_ServerPetPixaDownloadResponse_msg
-#define gizclaw_rpc_v1_ServerPetPresentationGetRequest_fields &gizclaw_rpc_v1_ServerPetPresentationGetRequest_msg
-#define gizclaw_rpc_v1_ServerPetPresentationGetResponse_fields &gizclaw_rpc_v1_ServerPetPresentationGetResponse_msg
+#define gizclaw_rpc_v1_ServerPetActionsGetRequest_fields &gizclaw_rpc_v1_ServerPetActionsGetRequest_msg
+#define gizclaw_rpc_v1_ServerPetActionsGetResponse_fields &gizclaw_rpc_v1_ServerPetActionsGetResponse_msg
 #define gizclaw_rpc_v1_ServerPetListRequest_fields &gizclaw_rpc_v1_ServerPetListRequest_msg
 #define gizclaw_rpc_v1_ServerPetListResponse_fields &gizclaw_rpc_v1_ServerPetListResponse_msg
 #define gizclaw_rpc_v1_ServerPetPutRequest_fields &gizclaw_rpc_v1_ServerPetPutRequest_msg
@@ -2019,29 +1753,17 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_PetProgression_ValueEntry_msg;
 /* gizclaw_rpc_v1_Pet_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PetAdoptRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PetAdoptResponse_size depends on runtime parameters */
-/* gizclaw_rpc_v1_PetDefPixaDownloadRequest_size depends on runtime parameters */
-/* gizclaw_rpc_v1_PetDefPixaDownloadResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PetPixaDownloadRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PetPixaDownloadResponse_size depends on runtime parameters */
-/* gizclaw_rpc_v1_PetPresentation_size depends on runtime parameters */
-/* gizclaw_rpc_v1_PetPresentationActionEffectSpec_size depends on runtime parameters */
-/* gizclaw_rpc_v1_PetPresentationActionSpec_size depends on runtime parameters */
-/* gizclaw_rpc_v1_PetPresentationAttrDelta_size depends on runtime parameters */
-/* gizclaw_rpc_v1_PetPresentationAttrGroupSpec_size depends on runtime parameters */
-/* gizclaw_rpc_v1_PetPresentationAttrGroupSpec_ValueEntry_size depends on runtime parameters */
-/* gizclaw_rpc_v1_PetPresentationAttrSpec_size depends on runtime parameters */
-/* gizclaw_rpc_v1_PetPresentationDriveSpec_size depends on runtime parameters */
-/* gizclaw_rpc_v1_PetPresentationI18nAttrGroup_size depends on runtime parameters */
-/* gizclaw_rpc_v1_PetPresentationI18nAttrGroup_ValueEntry_size depends on runtime parameters */
-/* gizclaw_rpc_v1_PetPresentationI18nAttrSpec_size depends on runtime parameters */
-/* gizclaw_rpc_v1_PetPresentationI18nCatalog_size depends on runtime parameters */
-/* gizclaw_rpc_v1_PetPresentationI18nDisplayText_size depends on runtime parameters */
-/* gizclaw_rpc_v1_PetPresentationI18nDriveSpec_size depends on runtime parameters */
-/* gizclaw_rpc_v1_PetPresentationI18nDriveSpec_ActionsEntry_size depends on runtime parameters */
-/* gizclaw_rpc_v1_PetPresentationI18nSpec_size depends on runtime parameters */
-/* gizclaw_rpc_v1_PetPresentationI18nSpec_ValueEntry_size depends on runtime parameters */
-/* gizclaw_rpc_v1_PetPresentationPixaClipMetadata_size depends on runtime parameters */
-/* gizclaw_rpc_v1_PetPresentationPixaMetadata_size depends on runtime parameters */
+/* gizclaw_rpc_v1_PetActionEffectSpec_size depends on runtime parameters */
+/* gizclaw_rpc_v1_PetAction_size depends on runtime parameters */
+/* gizclaw_rpc_v1_PetActionI18nText_size depends on runtime parameters */
+/* gizclaw_rpc_v1_PetActionsI18nCatalog_size depends on runtime parameters */
+/* gizclaw_rpc_v1_PetActionsI18nCatalog_ActionsEntry_size depends on runtime parameters */
+/* gizclaw_rpc_v1_PetActionsI18n_size depends on runtime parameters */
+/* gizclaw_rpc_v1_PetActionsI18n_ValueEntry_size depends on runtime parameters */
+/* gizclaw_rpc_v1_PetActions_size depends on runtime parameters */
+/* gizclaw_rpc_v1_PetActions_ClipNamesEntry_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PetDeleteRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PetDriveGameResultInput_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PetDriveRequest_size depends on runtime parameters */
@@ -2075,8 +1797,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_PetProgression_ValueEntry_msg;
 /* gizclaw_rpc_v1_ServerPetGetResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerPetPixaDownloadRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerPetPixaDownloadResponse_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ServerPetPresentationGetRequest_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ServerPetPresentationGetResponse_size depends on runtime parameters */
+/* gizclaw_rpc_v1_ServerPetActionsGetRequest_size depends on runtime parameters */
+/* gizclaw_rpc_v1_ServerPetActionsGetResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerPetListRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerPetListResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerPetPutRequest_size depends on runtime parameters */
@@ -2095,10 +1817,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_PetProgression_ValueEntry_msg;
 /* gizclaw_rpc_v1_PetLife_ValueEntry_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PetProgression_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PetProgression_ValueEntry_size depends on runtime parameters */
-#define GIZCLAW_RPC_V1_PAYLOAD_GAMEPLAY_PB_H_MAX_SIZE gizclaw_rpc_v1_PetPresentationPixaCanvasMetadata_size
+#define GIZCLAW_RPC_V1_PAYLOAD_GAMEPLAY_PB_H_MAX_SIZE gizclaw_rpc_v1_GameRulesetPointsSpec_size
 #define gizclaw_rpc_v1_GameRulesetPointsSpec_size 11
-#define gizclaw_rpc_v1_PetPresentationAttrValueSpec_size 11
-#define gizclaw_rpc_v1_PetPresentationPixaCanvasMetadata_size 22
 #if defined(google_protobuf_Struct_size)
 #define gizclaw_rpc_v1_GameplayMetadata_size     (6 + google_protobuf_Struct_size)
 #endif

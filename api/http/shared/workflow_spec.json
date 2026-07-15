@@ -1,0 +1,53 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Workflow Spec Type",
+    "description": "WorkflowSpec schema.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "WorkflowDriver": {
+        "type": "string",
+        "enum": [
+          "flowcraft",
+          "doubao-realtime",
+          "ast-translate",
+          "chatroom",
+          "pet"
+        ]
+      },
+      "WorkflowSpec": {
+        "type": "object",
+        "required": [
+          "driver"
+        ],
+        "properties": {
+          "driver": {
+            "$ref": "#/components/schemas/WorkflowDriver"
+          },
+          "toolkit": {
+            "$ref": "./toolkit_policy.json#/components/schemas/ToolkitPolicy"
+          },
+          "flowcraft": {
+            "$ref": "./workflows/flowcraft.json#/components/schemas/FlowcraftWorkflowSpec"
+          },
+          "doubao_realtime": {
+            "$ref": "./workflows/doubao_realtime.json#/components/schemas/DoubaoRealtimeWorkflowSpec"
+          },
+          "ast_translate": {
+            "$ref": "./workflows/ast_translate.json#/components/schemas/ASTTranslateWorkflowSpec"
+          },
+          "chatroom": {
+            "$ref": "./workflows/chatroom.json#/components/schemas/ChatRoomWorkflowSpec"
+          },
+          "pet": {
+            "$ref": "./workflows/pet.json#/components/schemas/PetWorkflowSpec"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}

@@ -12,7 +12,7 @@ void main() {
   Directory(outDir).createSync(recursive: true);
 
   final payloadFiles =
-      Directory('$repo/api/rpc/payload')
+      Directory('$repo/api/proto/rpc/payload')
           .listSync()
           .whereType<File>()
           .where((file) => file.path.endsWith('.proto'))
@@ -20,15 +20,14 @@ void main() {
           .toList()
         ..sort();
   if (payloadFiles.isEmpty) {
-    throw StateError('api/rpc/payload did not contain any proto files');
+    throw StateError('api/proto/rpc/payload did not contain any proto files');
   }
 
   final protocArgs = [
-    '--proto_path=$repo/api/rpc',
+    '--proto_path=$repo/api/proto/rpc',
     '--plugin=protoc-gen-dart=${_protocGenDart(package)}',
     '--dart_out=$outDir',
-    '$repo/api/rpc/common.proto',
-    '$repo/api/rpc/peer.proto',
+    '$repo/api/proto/rpc/rpc.proto',
     ...payloadFiles,
   ];
   final result = Process.runSync('protoc', protocArgs);
@@ -40,10 +39,12 @@ void main() {
   _writePayloadBarrels(outDir, payloadFiles);
 
   final methods = _parseRpcMethods(
-    File('$repo/api/rpc/peer.proto').readAsStringSync(),
+    File('$repo/api/proto/rpc/rpc.proto').readAsStringSync(),
   );
   if (methods.isEmpty) {
-    throw StateError('api/rpc/peer.proto did not define any rpc_method values');
+    throw StateError(
+      'api/proto/rpc/rpc.proto did not define any rpc_method values',
+    );
   }
   _writeMethodRegistry(package, methods);
   _writePayloadCodec(package, methods);

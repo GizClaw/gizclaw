@@ -9,11 +9,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
 
-type PetDefPixaDownloadResult struct {
-	Metadata rpcapi.PetDefPixaDownloadResponse
-	Bytes    int64
-}
-
 type PetPixaDownloadResult struct {
 	Metadata rpcapi.PetPixaDownloadResponse
 	Bytes    int64
@@ -65,49 +60,6 @@ func (c *rpcClient) DownloadPetPixa(ctx context.Context, conn net.Conn, id strin
 		return PetPixaDownloadResult{}, err
 	}
 	return PetPixaDownloadResult{Metadata: metadata, Bytes: n}, nil
-}
-
-func (c *rpcClient) DownloadPetDefPixa(ctx context.Context, conn net.Conn, id string, request rpcapi.PetDefPixaDownloadRequest, out io.Writer) (PetDefPixaDownloadResult, error) {
-	if out == nil {
-		return PetDefPixaDownloadResult{}, fmt.Errorf("petdef pixa download output is required")
-	}
-	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromPetDefPixaDownloadRequest)
-	if err != nil {
-		return PetDefPixaDownloadResult{}, err
-	}
-	stream, err := newRPCStream(ctx, conn)
-	if err != nil {
-		return PetDefPixaDownloadResult{}, err
-	}
-	defer stream.Close()
-	if err := stream.WriteRequest(newRPCRequest(id, rpcapi.RPCMethodServerPetDefPixaDownload, params)); err != nil {
-		return PetDefPixaDownloadResult{}, err
-	}
-	if err := stream.WriteEOS(); err != nil {
-		return PetDefPixaDownloadResult{}, err
-	}
-	resp, responseEOS, err := stream.ReadResponseEnvelopeForMethod(rpcapi.RPCMethodServerPetDefPixaDownload)
-	if err != nil {
-		return PetDefPixaDownloadResult{}, err
-	}
-	if resp.Error != nil {
-		if !responseEOS {
-			_ = stream.ReadEOS()
-		}
-		return PetDefPixaDownloadResult{}, fmt.Errorf("rpc: %w", rpcapi.Error{RequestID: resp.Id, Code: resp.Error.Code, Message: resp.Error.Message})
-	}
-	if resp.Result == nil {
-		return PetDefPixaDownloadResult{}, errRPCMissingResult
-	}
-	metadata, err := resp.Result.AsPetDefPixaDownloadResponse()
-	if err != nil {
-		return PetDefPixaDownloadResult{}, wrapRPCResultError("petdef pixa download", err)
-	}
-	n, err := copyBinaryFrames(out, stream)
-	if err != nil {
-		return PetDefPixaDownloadResult{}, err
-	}
-	return PetDefPixaDownloadResult{Metadata: metadata, Bytes: n}, nil
 }
 
 func (c *rpcClient) DownloadBadgeDefPixa(ctx context.Context, conn net.Conn, id string, request rpcapi.BadgeDefPixaDownloadRequest, out io.Writer) (BadgeDefPixaDownloadResult, error) {

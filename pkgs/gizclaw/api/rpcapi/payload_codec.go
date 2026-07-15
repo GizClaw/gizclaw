@@ -243,6 +243,7 @@ var rpcPayloadUnionValueTypes = map[protoreflect.Name]reflect.Type{
 	"DoubaoRealtimeWorkspaceParameters":     reflect.TypeOf(DoubaoRealtimeWorkspaceParameters{}),
 	"ASTTranslateWorkspaceParameters":       reflect.TypeOf(ASTTranslateWorkspaceParameters{}),
 	"ChatRoomWorkspaceParameters":           reflect.TypeOf(ChatRoomWorkspaceParameters{}),
+	"PetWorkspaceParameters":                reflect.TypeOf(PetWorkspaceParameters{}),
 }
 
 func fillProtoMessageFromGo(msg protoreflect.Message, value reflect.Value, parent reflect.Value) error {
@@ -1406,6 +1407,7 @@ var enumJSONValueOverrides = map[string]string{
 	"OPENAI_TENANT":     "openai-tenant",
 	"PUSH_TO_TALK":      "push-to-talk",
 	"VOLC_TENANT":       "volc-tenant",
+	"ZH_CN":             "zh-CN",
 }
 
 func protoValueIsZero(fd protoreflect.FieldDescriptor, value protoreflect.Value) bool {

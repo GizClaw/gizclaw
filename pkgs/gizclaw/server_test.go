@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
@@ -96,6 +97,33 @@ func TestServerInitKeepsLegacyPeerPrefixWithMetricsStore(t *testing.T) {
 	}
 	if _, err := baseStore.Get(context.Background(), kv.Key{"by-pubkey", peerKeyPair.Public.String()}); !errors.Is(err, kv.ErrNotFound) {
 		t.Fatalf("root peer key error = %v, want ErrNotFound", err)
+	}
+}
+
+func TestServerInitWiresDefaultPeerView(t *testing.T) {
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair() error = %v", err)
+	}
+	server := &Server{
+		LocalStatic:     *keyPair,
+		PeerStore:       mustBadgerInMemory(t, nil),
+		DefaultPeerView: "default-client",
+	}
+	if err := server.init(); err != nil {
+		t.Fatalf("init() error = %v", err)
+	}
+
+	peerKeyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(peer) error = %v", err)
+	}
+	created, err := server.manager.Peers.EnsureConnectedPeer(context.Background(), peerKeyPair.Public)
+	if err != nil {
+		t.Fatalf("EnsureConnectedPeer() error = %v", err)
+	}
+	if created.Configuration.View == nil || *created.Configuration.View != "default-client" {
+		t.Fatalf("created view = %v, want default-client", created.Configuration.View)
 	}
 }
 
@@ -605,7 +633,7 @@ func TestServerServeHTTPLoginRegisterAndPeerAPI(t *testing.T) {
 	}
 }
 
-func publicHTTPTestLogin(t *testing.T, baseURL string, serverPublicKey giznet.PublicKey, deviceKey *giznet.KeyPair) publiclogin.LoginResponse {
+func publicHTTPTestLogin(t *testing.T, baseURL string, serverPublicKey giznet.PublicKey, deviceKey *giznet.KeyPair) peerhttp.LoginResult {
 	t.Helper()
 	assertion, err := publiclogin.NewLoginAssertion(deviceKey, serverPublicKey, time.Minute)
 	if err != nil {
@@ -625,7 +653,7 @@ func publicHTTPTestLogin(t *testing.T, baseURL string, serverPublicKey giznet.Pu
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("POST login status = %d", resp.StatusCode)
 	}
-	var result publiclogin.LoginResponse
+	var result peerhttp.LoginResult
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		t.Fatalf("decode login response: %v", err)
 	}

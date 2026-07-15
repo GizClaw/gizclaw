@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -29,12 +30,16 @@ func (s *Server) EnsureConnectedPeer(ctx context.Context, publicKey giznet.Publi
 	}
 
 	autoRegistered := true
+	configuration := apitypes.Configuration{}
+	if view := strings.TrimSpace(s.DefaultPeerView); view != "" {
+		configuration.View = &view
+	}
 	created, err := s.create(ctx, apitypes.Peer{
 		PublicKey:      publicKey.String(),
 		Role:           apitypes.PeerRoleClient,
 		Status:         apitypes.PeerRegistrationStatusActive,
 		Device:         apitypes.DeviceInfo{},
-		Configuration:  apitypes.Configuration{},
+		Configuration:  configuration,
 		AutoRegistered: &autoRegistered,
 	})
 	if errors.Is(err, ErrPeerAlreadyExists) {

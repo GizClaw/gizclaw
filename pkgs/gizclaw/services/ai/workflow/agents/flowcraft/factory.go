@@ -64,6 +64,29 @@ type Factory struct {
 	GenX *peergenx.Service
 }
 
+// InputProvider returns transient Flowcraft Board inputs immediately before a
+// turn starts. Keys prefixed with tmp_ are intentionally not persisted by Claw.
+type InputProvider func(context.Context) (map[string]any, error)
+
+// ConfiguredAgentOptions supplies a Go-owned Flowcraft configuration to the
+// shared adapter. It is used by specialized drivers that run on Claw without
+// exposing arbitrary Flowcraft graph configuration in their public schemas.
+type ConfiguredAgentOptions struct {
+	Flowcraft             map[string]any
+	GenerateModel         string
+	ExtractModel          string
+	EmbeddingModel        string
+	ASRModel              string
+	DefaultVoice          string
+	NodeVoices            map[string]string
+	Conversation          string
+	AgentInitiativePolicy string
+	InputMode             string
+	LocalDir              string
+	InputProvider         InputProvider
+	Toolkit               *agenthost.ToolkitContext
+}
+
 func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.Agent, error) {
 	if f.GenX == nil {
 		return nil, fmt.Errorf("flowcraft: peergenx service is required")
@@ -82,17 +105,60 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if err != nil {
 		return nil, err
 	}
-	clawConfig, err := buildClawConfig(ctx, f.GenX, spec, cfg)
+	starts, initiativePolicy := flowcraftConversationSettings(workspaceParams, cfg.Spec.Flowcraft)
+	mode := string(inputModePushToTalk)
+	if workspaceParams != nil && workspaceParams.Input != nil {
+		if normalized := normalizeInputMode(string(*workspaceParams.Input)); normalized != "" {
+			mode = string(normalized)
+		}
+	}
+	options := ConfiguredAgentOptions{
+		Flowcraft:             cfg.Spec.Flowcraft,
+		ASRModel:              cfg.Spec.VoiceAdapter.ASRModel,
+		DefaultVoice:          cfg.Spec.VoiceAdapter.DefaultVoice,
+		NodeVoices:            cfg.Spec.VoiceAdapter.NodeVoices,
+		Conversation:          starts,
+		AgentInitiativePolicy: initiativePolicy,
+		InputMode:             mode,
+		LocalDir:              spec.Runtime.LocalDir,
+		Toolkit:               spec.Toolkit,
+	}
+	if workspaceParams != nil {
+		options.GenerateModel = stringValue(workspaceParams.GenerateModel)
+		options.ExtractModel = stringValue(workspaceParams.ExtractModel)
+		options.EmbeddingModel = stringValue(workspaceParams.EmbeddingModel)
+	}
+	return f.NewConfiguredAgent(ctx, options)
+}
+
+// NewConfiguredAgent creates a Claw-backed agent from a Go-owned configuration.
+func (f Factory) NewConfiguredAgent(ctx context.Context, options ConfiguredAgentOptions) (agenthost.Agent, error) {
+	if f.GenX == nil {
+		return nil, fmt.Errorf("flowcraft: peergenx service is required")
+	}
+	options.LocalDir = strings.TrimSpace(options.LocalDir)
+	if options.LocalDir == "" {
+		return nil, fmt.Errorf("flowcraft: local workspace directory is required")
+	}
+	voice := normalizeVoiceAdapter(voiceAdapterConfig{
+		ASRModel:     strings.TrimSpace(options.ASRModel),
+		DefaultVoice: strings.TrimSpace(options.DefaultVoice),
+		NodeVoices:   options.NodeVoices,
+	})
+	if err := voice.validate(); err != nil {
+		return nil, err
+	}
+	clawConfig, err := buildConfiguredClawConfig(ctx, f.GenX, options)
 	if err != nil {
 		return nil, err
 	}
-	if err := validateVoiceAdapterResources(ctx, f.GenX, cfg); err != nil {
+	if err := validateVoiceAdapterResources(ctx, f.GenX, voice); err != nil {
 		return nil, err
 	}
-	if err := writeClawConfig(spec.Runtime.LocalDir, clawConfig); err != nil {
+	if err := writeClawConfig(options.LocalDir, clawConfig); err != nil {
 		return nil, err
 	}
-	ws, err := sdkworkspace.NewLocalWorkspace(spec.Runtime.LocalDir)
+	ws, err := sdkworkspace.NewLocalWorkspace(options.LocalDir)
 	if err != nil {
 		return nil, err
 	}
@@ -106,28 +172,41 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 			_ = claw.CloseContext(context.Background())
 		}
 	}()
-	if err := registerToolkitHandlers(ctx, claw, spec.Toolkit); err != nil {
+	if err := registerToolkitHandlers(ctx, claw, options.Toolkit); err != nil {
 		return nil, err
 	}
 	agentReady = true
-	starts, initiativePolicy := flowcraftConversationSettings(workspaceParams, cfg.Spec.Flowcraft)
-	inputMode := inputModePushToTalk
-	if workspaceParams != nil && workspaceParams.Input != nil {
-		if mode := normalizeInputMode(string(*workspaceParams.Input)); mode != "" {
-			inputMode = mode
-		}
+	starts := strings.TrimSpace(options.Conversation)
+	if starts == "" {
+		starts = "peer"
+	}
+	initiativePolicy := strings.TrimSpace(options.AgentInitiativePolicy)
+	if initiativePolicy == "" {
+		initiativePolicy = flowcraftDefaultAgentInitiativePolicy(starts)
+	}
+	mode := normalizeInputMode(options.InputMode)
+	if mode == "" {
+		mode = inputModePushToTalk
 	}
 	return &agent{
-		transformers: f.GenX,
-		claw:         realClaw{Claw: claw},
-		asrModel:     cfg.Spec.VoiceAdapter.ASRModel,
-		defaultVoice: cfg.Spec.VoiceAdapter.DefaultVoice,
-		nodeVoices:   cfg.Spec.VoiceAdapter.NodeVoices,
-		starts:       starts,
-		startPolicy:  initiativePolicy,
-		inputMode:    inputMode,
-		localDir:     spec.Runtime.LocalDir,
+		transformers:  f.GenX,
+		claw:          realClaw{Claw: claw},
+		asrModel:      voice.ASRModel,
+		defaultVoice:  voice.DefaultVoice,
+		nodeVoices:    voice.NodeVoices,
+		starts:        starts,
+		startPolicy:   initiativePolicy,
+		inputMode:     mode,
+		localDir:      options.LocalDir,
+		inputProvider: options.InputProvider,
 	}, nil
+}
+
+func stringValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return strings.TrimSpace(*value)
 }
 
 type workflowConfig struct {
@@ -180,13 +259,32 @@ func parseWorkflowConfig(spec agenthost.Spec) (workflowConfig, error) {
 }
 
 func (c workflowConfig) validate() error {
-	if strings.TrimSpace(c.Spec.VoiceAdapter.ASRModel) == "" {
+	return c.Spec.VoiceAdapter.validate()
+}
+
+func (c voiceAdapterConfig) validate() error {
+	if strings.TrimSpace(c.ASRModel) == "" {
 		return fmt.Errorf("flowcraft: voice_adapter.asr_model is required")
 	}
-	if strings.TrimSpace(c.Spec.VoiceAdapter.DefaultVoice) == "" {
+	if strings.TrimSpace(c.DefaultVoice) == "" {
 		return fmt.Errorf("flowcraft: voice_adapter.default_voice is required")
 	}
 	return nil
+}
+
+func normalizeVoiceAdapter(cfg voiceAdapterConfig) voiceAdapterConfig {
+	cfg.ASRModel = strings.TrimSpace(cfg.ASRModel)
+	cfg.DefaultVoice = strings.TrimSpace(cfg.DefaultVoice)
+	nodeVoices := make(map[string]string, len(cfg.NodeVoices))
+	for nodeID, voice := range cfg.NodeVoices {
+		nodeID = strings.TrimSpace(nodeID)
+		voice = strings.TrimSpace(voice)
+		if nodeID != "" && voice != "" {
+			nodeVoices[nodeID] = voice
+		}
+	}
+	cfg.NodeVoices = nodeVoices
+	return cfg
 }
 
 func flowcraftConversationStarts(cfg map[string]any) string {
@@ -249,15 +347,16 @@ func flowcraftDefaultAgentInitiativePolicy(starts string) string {
 }
 
 type agent struct {
-	transformers transformerProvider
-	claw         clawClient
-	asrModel     string
-	defaultVoice string
-	nodeVoices   map[string]string
-	starts       string
-	startPolicy  string
-	inputMode    inputMode
-	localDir     string
+	transformers  transformerProvider
+	claw          clawClient
+	asrModel      string
+	defaultVoice  string
+	nodeVoices    map[string]string
+	starts        string
+	startPolicy   string
+	inputMode     inputMode
+	localDir      string
+	inputProvider InputProvider
 
 	outputMu       sync.Mutex
 	activeOutput   *genx.StreamBuilder
@@ -1379,7 +1478,15 @@ func (a *agent) runClawTextTurn(ctx context.Context, text, streamID string, outp
 	text = strings.TrimSpace(text)
 	a.setActiveStreamID(streamID)
 
-	resp, err := a.claw.RoundTrip(flowclaw.Request{Context: ctx, Text: text})
+	var inputs map[string]any
+	if a.inputProvider != nil {
+		var err error
+		inputs, err = a.inputProvider(ctx)
+		if err != nil {
+			return fmt.Errorf("flowcraft: provide turn inputs: %w", err)
+		}
+	}
+	resp, err := a.claw.RoundTrip(flowclaw.Request{Context: ctx, Text: text, Inputs: inputs})
 	if err != nil {
 		return fmt.Errorf("flowcraft: claw round trip: %w", err)
 	}
@@ -1610,38 +1717,37 @@ func (a *agent) waitOpusFrame(ctx context.Context, epoch uint64) error {
 
 func (a *agent) transcribeInputTurn(ctx context.Context, input genx.Stream, output *genx.StreamBuilder, epoch uint64, defaultStreamID string) (string, string, error) {
 	prefetched, err := readInputTurn(ctx, input, defaultStreamID)
+	turnStreamID := strings.TrimSpace(prefetched.streamID)
+	if turnStreamID == "" {
+		turnStreamID = defaultInputStreamID
+	}
 	if err != nil {
-		return "", prefetched.streamID, err
+		return "", turnStreamID, err
 	}
 	if prefetched.hasText && !prefetched.hasAudio {
 		if err := a.addOutput(output, epoch,
-			textChunk(genx.RoleUser, transcriptLabel, prefetched.streamID, transcriptLabel, prefetched.transcript, false),
-			textChunk(genx.RoleUser, transcriptLabel, prefetched.streamID, transcriptLabel, "", true),
+			textChunk(genx.RoleUser, transcriptLabel, turnStreamID, transcriptLabel, prefetched.transcript, false),
+			textChunk(genx.RoleUser, transcriptLabel, turnStreamID, transcriptLabel, "", true),
 		); err != nil {
-			return "", prefetched.streamID, err
+			return "", turnStreamID, err
 		}
-		return prefetched.transcript, prefetched.streamID, nil
+		return prefetched.transcript, turnStreamID, nil
 	}
 	input = &sliceStream{chunks: prefetched.chunks}
 	transformer := a.transformers.Transformer()
 	asrInput := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 64)
 	asr, err := transformer.Transform(ctx, "model/"+a.asrModel, asrInput.Stream())
 	if err != nil {
-		return "", "", fmt.Errorf("flowcraft: start ASR: %w", err)
+		return "", turnStreamID, fmt.Errorf("flowcraft: start ASR: %w", err)
 	}
 	defer func() { _ = asr.Close() }()
 
-	defaultStreamID = strings.TrimSpace(defaultStreamID)
-	if defaultStreamID == "" {
-		defaultStreamID = defaultInputStreamID
-	}
-	streamIDState := &lockedString{value: defaultStreamID}
 	feedDone := make(chan feedASRResult, 1)
 	go func() {
 		emitHistoryAudio := func(chunk *genx.MessageChunk) error {
-			return a.addOutput(output, epoch, userAudioHistoryChunk(chunk, streamIDState.Get()))
+			return a.addOutput(output, epoch, userAudioHistoryChunk(chunk, turnStreamID))
 		}
-		result := feedASRInput(ctx, input, asrInput, streamIDState, defaultStreamID, emitHistoryAudio)
+		result := feedASRInput(ctx, input, asrInput, turnStreamID, emitHistoryAudio)
 		feedDone <- result
 	}()
 
@@ -1655,9 +1761,9 @@ func (a *agent) transcribeInputTurn(ctx context.Context, input genx.Stream, outp
 			}
 			result := <-feedDone
 			if result.err != nil {
-				return "", result.streamID, result.err
+				return "", turnStreamID, result.err
 			}
-			return "", result.streamID, fmt.Errorf("flowcraft: read ASR: %w", err)
+			return "", turnStreamID, fmt.Errorf("flowcraft: read ASR: %w", err)
 		}
 		text, ok := chunk.Part.(genx.Text)
 		if chunk.IsEndOfStream() {
@@ -1665,12 +1771,12 @@ func (a *agent) transcribeInputTurn(ctx context.Context, input genx.Stream, outp
 			if text != "" {
 				part := string(text)
 				transcript = mergeTranscript(transcript, part)
-				if err := a.addOutput(output, epoch, textChunk(genx.RoleUser, transcriptLabel, streamIDState.Get(), transcriptLabel, part, false)); err != nil {
-					return "", streamIDState.Get(), err
+				if err := a.addOutput(output, epoch, textChunk(genx.RoleUser, transcriptLabel, turnStreamID, transcriptLabel, part, false)); err != nil {
+					return "", turnStreamID, err
 				}
 			}
-			if err := a.addOutput(output, epoch, textChunk(genx.RoleUser, transcriptLabel, streamIDState.Get(), transcriptLabel, "", true)); err != nil {
-				return "", streamIDState.Get(), err
+			if err := a.addOutput(output, epoch, textChunk(genx.RoleUser, transcriptLabel, turnStreamID, transcriptLabel, "", true)); err != nil {
+				return "", turnStreamID, err
 			}
 			continue
 		}
@@ -1679,23 +1785,20 @@ func (a *agent) transcribeInputTurn(ctx context.Context, input genx.Stream, outp
 		}
 		part := string(text)
 		transcript = mergeTranscript(transcript, part)
-		if err := a.addOutput(output, epoch, textChunk(genx.RoleUser, transcriptLabel, streamIDState.Get(), transcriptLabel, part, false)); err != nil {
-			return "", streamIDState.Get(), err
+		if err := a.addOutput(output, epoch, textChunk(genx.RoleUser, transcriptLabel, turnStreamID, transcriptLabel, part, false)); err != nil {
+			return "", turnStreamID, err
 		}
 	}
 	result := <-feedDone
 	if result.err != nil {
-		return "", result.streamID, result.err
-	}
-	if result.streamID == "" {
-		result.streamID = defaultInputStreamID
+		return "", turnStreamID, result.err
 	}
 	if !transcriptEOS {
-		if err := a.addOutput(output, epoch, textChunk(genx.RoleUser, transcriptLabel, result.streamID, transcriptLabel, "", true)); err != nil {
-			return "", result.streamID, err
+		if err := a.addOutput(output, epoch, textChunk(genx.RoleUser, transcriptLabel, turnStreamID, transcriptLabel, "", true)); err != nil {
+			return "", turnStreamID, err
 		}
 	}
-	return transcript, result.streamID, nil
+	return transcript, turnStreamID, nil
 }
 
 type prefetchedInputTurn struct {
@@ -1897,8 +2000,8 @@ type feedASRResult struct {
 
 type historyAudioEmitter func(*genx.MessageChunk) error
 
-func feedASRInput(ctx context.Context, input genx.Stream, asrInput *genx.StreamBuilder, streamIDState *lockedString, defaultStreamID string, emitHistoryAudio historyAudioEmitter) feedASRResult {
-	streamID := strings.TrimSpace(defaultStreamID)
+func feedASRInput(ctx context.Context, input genx.Stream, asrInput *genx.StreamBuilder, streamID string, emitHistoryAudio historyAudioEmitter) feedASRResult {
+	streamID = strings.TrimSpace(streamID)
 	if streamID == "" {
 		streamID = defaultInputStreamID
 	}
@@ -1937,10 +2040,6 @@ func feedASRInput(ctx context.Context, input genx.Stream, asrInput *genx.StreamB
 		if chunk == nil {
 			continue
 		}
-		if chunk.Ctrl != nil && chunk.Ctrl.StreamID != "" {
-			streamID = chunk.Ctrl.StreamID
-			streamIDState.Set(streamID)
-		}
 		if blob, ok := chunk.Part.(*genx.Blob); ok && isAudioMIME(blob.MIMEType) && len(blob.Data) > 0 {
 			audioSeen = true
 			lastAudioMIME = blob.MIMEType
@@ -1961,9 +2060,7 @@ func feedASRInput(ctx context.Context, input genx.Stream, asrInput *genx.StreamB
 			if eos.Ctrl == nil {
 				eos.Ctrl = &genx.StreamCtrl{}
 			}
-			if eos.Ctrl.StreamID == "" {
-				eos.Ctrl.StreamID = streamID
-			}
+			eos.Ctrl.StreamID = streamID
 			eos.Ctrl.EndOfStream = true
 			if err := asrInput.Add(eos); err != nil {
 				return feedASRResult{streamID: streamID, err: err}
@@ -2444,21 +2541,17 @@ func writeClawConfig(root string, cfg map[string]any) error {
 	return nil
 }
 
-func buildClawConfig(ctx context.Context, genxService *peergenx.Service, spec agenthost.Spec, cfg workflowConfig) (map[string]any, error) {
-	out := deepCopyMap(cfg.Spec.Flowcraft)
+func buildConfiguredClawConfig(ctx context.Context, genxService *peergenx.Service, options ConfiguredAgentOptions) (map[string]any, error) {
+	out := deepCopyMap(options.Flowcraft)
 	if out == nil {
 		out = map[string]any{}
-	}
-	workspaceParams, err := flowcraftWorkspaceParameters(spec.Workspace.Parameters)
-	if err != nil {
-		return nil, err
 	}
 	settings := ensureMap(out, "settings")
 	models := ensureMap(out, "models")
 	llm := ensureMap(models, "llm")
 	var accessibleModels map[string]peergenx.GeneratorConfig
 	for _, role := range clawModelRoles {
-		modelID, ok, err := modelIDForRole(workspaceParams, out, role.settingKey, role.required)
+		modelID, ok, err := configuredModelIDForRole(options, out, role.settingKey, role.required)
 		if err != nil {
 			return nil, err
 		}
@@ -2484,10 +2577,24 @@ func buildClawConfig(ctx context.Context, genxService *peergenx.Service, spec ag
 		llm[modelID] = modelCfg
 	}
 	ensureDefaultAgent(out)
-	if err := addToolkitToolsToClawConfig(ctx, out, spec.Toolkit); err != nil {
+	if err := addToolkitToolsToClawConfig(ctx, out, options.Toolkit); err != nil {
 		return nil, err
 	}
 	return out, nil
+}
+
+func buildClawConfig(ctx context.Context, genxService *peergenx.Service, spec agenthost.Spec, cfg workflowConfig) (map[string]any, error) {
+	parameters, err := flowcraftWorkspaceParameters(spec.Workspace.Parameters)
+	if err != nil {
+		return nil, err
+	}
+	options := ConfiguredAgentOptions{Flowcraft: cfg.Spec.Flowcraft, Toolkit: spec.Toolkit}
+	if parameters != nil {
+		options.GenerateModel = stringValue(parameters.GenerateModel)
+		options.ExtractModel = stringValue(parameters.ExtractModel)
+		options.EmbeddingModel = stringValue(parameters.EmbeddingModel)
+	}
+	return buildConfiguredClawConfig(ctx, genxService, options)
 }
 
 func addToolkitToolsToClawConfig(ctx context.Context, cfg map[string]any, tools *agenthost.ToolkitContext) error {
@@ -2651,12 +2758,12 @@ func accessibleGeneratorModels(ctx context.Context, genxService *peergenx.Servic
 	return out, nil
 }
 
-func validateVoiceAdapterResources(ctx context.Context, genxService *peergenx.Service, cfg workflowConfig) error {
+func validateVoiceAdapterResources(ctx context.Context, genxService *peergenx.Service, cfg voiceAdapterConfig) error {
 	if genxService == nil {
 		return fmt.Errorf("flowcraft: peergenx service is required")
 	}
-	if _, err := genxService.ResolveTransformer(ctx, "model/"+cfg.Spec.VoiceAdapter.ASRModel); err != nil {
-		return fmt.Errorf("flowcraft: resolve ASR model %q: %w", cfg.Spec.VoiceAdapter.ASRModel, err)
+	if _, err := genxService.ResolveTransformer(ctx, "model/"+cfg.ASRModel); err != nil {
+		return fmt.Errorf("flowcraft: resolve ASR model %q: %w", cfg.ASRModel, err)
 	}
 	voices := make([]string, 0)
 	seen := map[string]bool{}
@@ -2668,8 +2775,8 @@ func validateVoiceAdapterResources(ctx context.Context, genxService *peergenx.Se
 		seen[voice] = true
 		voices = append(voices, voice)
 	}
-	addVoice(cfg.Spec.VoiceAdapter.DefaultVoice)
-	for _, voice := range cfg.Spec.VoiceAdapter.NodeVoices {
+	addVoice(cfg.DefaultVoice)
+	for _, voice := range cfg.NodeVoices {
 		addVoice(voice)
 	}
 	for _, voice := range voices {
@@ -2680,22 +2787,18 @@ func validateVoiceAdapterResources(ctx context.Context, genxService *peergenx.Se
 	return nil
 }
 
-func modelIDForRole(parameters *apitypes.FlowcraftWorkspaceParameters, cfg map[string]any, key string, required bool) (string, bool, error) {
-	if parameters != nil {
-		var value *string
-		switch key {
-		case "generate_model":
-			value = parameters.GenerateModel
-		case "extract_model":
-			value = parameters.ExtractModel
-		case "embedding_model":
-			value = parameters.EmbeddingModel
-		}
-		if value != nil {
-			if text := strings.TrimSpace(*value); text != "" {
-				return text, true, nil
-			}
-		}
+func configuredModelIDForRole(options ConfiguredAgentOptions, cfg map[string]any, key string, required bool) (string, bool, error) {
+	var value string
+	switch key {
+	case "generate_model":
+		value = options.GenerateModel
+	case "extract_model":
+		value = options.ExtractModel
+	case "embedding_model":
+		value = options.EmbeddingModel
+	}
+	if value = strings.TrimSpace(value); value != "" {
+		return value, true, nil
 	}
 	if settings, ok := cfg["settings"].(map[string]any); ok {
 		if text, ok := settings[key].(string); ok && strings.TrimSpace(text) != "" {

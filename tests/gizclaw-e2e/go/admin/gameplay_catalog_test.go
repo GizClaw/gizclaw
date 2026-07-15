@@ -28,9 +28,11 @@ func TestAdminAPIGameplayCatalogUserStory(t *testing.T) {
 		_, _ = env.api.DeletePetDefWithResponse(env.ctx, petID)
 	})
 
+	petDefI18n := adminGameplayPetDefI18n("Admin E2E PetDef")
 	petResp, err := env.api.CreatePetDefWithResponse(env.ctx, adminhttp.PetDefUpsert{
 		Id:   petID,
 		Spec: adminGameplayPetDefSpec("Admin E2E PetDef"),
+		I18n: &petDefI18n,
 	})
 	if err != nil {
 		t.Fatalf("create pet def: %v", err)
@@ -176,9 +178,7 @@ func newIsolatedGameplayAdminAPIHarness(t *testing.T) *adminAPIHarness {
 }
 
 func adminGameplayPetDefSpec(displayName string) apitypes.PetDefSpec {
-	description := "Admin E2E pet."
 	return apitypes.PetDefSpec{
-		DefaultLocale: "en",
 		Attr: apitypes.PetDefAttrSpec{
 			Life: apitypes.PetAttrGroupSpec{
 				"hunger": {Initial: 100},
@@ -208,7 +208,14 @@ func adminGameplayPetDefSpec(displayName string) apitypes.PetDefSpec {
 				},
 			},
 		},
-		I18n: apitypes.PetDefI18nSpec{
+	}
+}
+
+func adminGameplayPetDefI18n(displayName string) apitypes.PetDefI18nSpec {
+	description := "Admin E2E pet."
+	return apitypes.PetDefI18nSpec{
+		DefaultLocale: "en",
+		AdditionalProperties: map[string]apitypes.PetDefI18nCatalog{
 			"en": {
 				DisplayName: &displayName,
 				Description: &description,

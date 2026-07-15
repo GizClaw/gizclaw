@@ -4,12 +4,11 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 )
 
-func ToRPC(assignment apitypes.PeerAssignment) *rpcapi.PeerAssignment {
-	return &rpcapi.PeerAssignment{
+func ToRPC(assignment apitypes.PeerAssignment) *rpcpb.PeerAssignment {
+	return &rpcpb.PeerAssignment{
 		PeerPublicKey:   assignment.PeerPublicKey,
 		ServerPublicKey: assignment.ServerPublicKey,
 		ServerEndpoint:  assignment.ServerEndpoint,

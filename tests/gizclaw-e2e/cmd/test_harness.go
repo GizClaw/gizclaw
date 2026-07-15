@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -590,7 +591,7 @@ func (h *Harness) PublicHTTPURL() string {
 	return "http://" + h.clientEndpoint()
 }
 
-func (h *Harness) PublicHTTPLogin(name string) publiclogin.LoginResponse {
+func (h *Harness) PublicHTTPLogin(name string) peerhttp.LoginResult {
 	h.t.Helper()
 
 	var serverPublicKey giznet.PublicKey
@@ -616,7 +617,7 @@ func (h *Harness) PublicHTTPLogin(name string) publiclogin.LoginResponse {
 		body, _ := io.ReadAll(resp.Body)
 		h.t.Fatalf("public http login status = %d body=%s", resp.StatusCode, string(body))
 	}
-	var result publiclogin.LoginResponse
+	var result peerhttp.LoginResult
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		h.t.Fatalf("decode public http login response: %v", err)
 	}

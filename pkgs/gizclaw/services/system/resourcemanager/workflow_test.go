@@ -16,6 +16,11 @@ func TestApplyWorkflowCreatesResource(t *testing.T) {
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Workflow",
 		"metadata": {"name": "workflow"},
+		"i18n": {
+			"default_locale": "en",
+			"en": {"name": "Workflow", "description": "A workflow"},
+			"zh-CN": {}
+		},
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {"prompt": "hello"}
@@ -30,15 +35,24 @@ func TestApplyWorkflowCreatesResource(t *testing.T) {
 	if workflows.putCount != 1 {
 		t.Fatalf("putCount = %d, want 1", workflows.putCount)
 	}
-	if _, ok := workflows.items["workflow"]; !ok {
+	stored, ok := workflows.items["workflow"]
+	if !ok {
 		t.Fatal("stored workflow missing")
+	}
+	if stored.I18n == nil || stored.I18n.En == nil || stored.I18n.ZhCN == nil {
+		t.Fatalf("stored i18n = %#v", stored.I18n)
 	}
 }
 
 func TestGetWorkflowReturnsResource(t *testing.T) {
 	workflows := newFakeWorkflows()
-	workflows.items["workflow"] = mustWorkflowDocument(t, `{
-		"metadata": {"name": "workflow"},
+	workflows.items["workflow"] = mustWorkflow(t, `{
+		"name": "workflow",
+		"i18n": {
+			"default_locale": "en",
+			"en": {"name": "Workflow"},
+			"zh-CN": {"description": "工作流"}
+		},
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {"prompt": "hello"}
@@ -56,6 +70,9 @@ func TestGetWorkflowReturnsResource(t *testing.T) {
 	}
 	if workflow.Metadata.Name != "workflow" {
 		t.Fatalf("metadata.name = %q, want workflow", workflow.Metadata.Name)
+	}
+	if workflow.I18n == nil || workflow.I18n.En == nil || workflow.I18n.ZhCN == nil {
+		t.Fatalf("i18n = %#v", workflow.I18n)
 	}
 }
 
@@ -82,8 +99,8 @@ func TestPutWorkflowWritesResource(t *testing.T) {
 
 func TestApplyWorkflowUnchangedSkipsPut(t *testing.T) {
 	workflows := newFakeWorkflows()
-	workflows.items["workflow"] = mustWorkflowDocument(t, `{
-		"metadata": {"name": "workflow"},
+	workflows.items["workflow"] = mustWorkflow(t, `{
+		"name": "workflow",
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {"prompt": "hello"}
@@ -113,8 +130,8 @@ func TestApplyWorkflowUnchangedSkipsPut(t *testing.T) {
 
 func TestApplyWorkflowNormalizesToolkitPolicyBeforeCompare(t *testing.T) {
 	workflows := newFakeWorkflows()
-	workflows.items["workflow"] = mustWorkflowDocument(t, `{
-		"metadata": {"name": "workflow"},
+	workflows.items["workflow"] = mustWorkflow(t, `{
+		"name": "workflow",
 		"spec": {
 			"driver": "flowcraft",
 			"toolkit": {"tool_ids": ["system.mode.switch", "system.music.play"]},
@@ -146,8 +163,8 @@ func TestApplyWorkflowNormalizesToolkitPolicyBeforeCompare(t *testing.T) {
 
 func TestApplyWorkflowUpdatesResource(t *testing.T) {
 	workflows := newFakeWorkflows()
-	workflows.items["workflow"] = mustWorkflowDocument(t, `{
-		"metadata": {"name": "workflow"},
+	workflows.items["workflow"] = mustWorkflow(t, `{
+		"name": "workflow",
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {"prompt": "old"}
@@ -175,6 +192,34 @@ func TestApplyWorkflowUpdatesResource(t *testing.T) {
 	}
 }
 
+func TestApplyWorkflowUpdatesI18nOnly(t *testing.T) {
+	workflows := newFakeWorkflows()
+	workflows.items["workflow"] = mustWorkflow(t, `{
+		"name": "workflow",
+		"i18n": {"default_locale": "en", "en": {"description": "old"}},
+		"spec": {"driver": "flowcraft", "flowcraft": {"prompt": "same"}}
+	}`)
+	manager := New(Services{Workflows: workflows})
+
+	result, err := manager.Apply(context.Background(), mustResource(t, `{
+		"apiVersion": "gizclaw.admin/v1alpha1",
+		"kind": "Workflow",
+		"metadata": {"name": "workflow"},
+		"i18n": {"default_locale": "en", "en": {"description": "new"}},
+		"spec": {"driver": "flowcraft", "flowcraft": {"prompt": "same"}}
+	}`))
+	if err != nil {
+		t.Fatalf("Apply returned error: %v", err)
+	}
+	if result.Action != apitypes.ApplyActionUpdated || workflows.putCount != 1 {
+		t.Fatalf("Apply result = %#v, putCount = %d", result, workflows.putCount)
+	}
+	catalog := workflows.items["workflow"].I18n.En
+	if catalog.Description == nil || *catalog.Description != "new" {
+		t.Fatalf("stored catalog = %#v", catalog)
+	}
+}
+
 func TestWorkflowServiceErrorResponses(t *testing.T) {
 	workflows := newFakeWorkflows()
 	manager := New(Services{Workflows: workflows})
@@ -185,23 +230,23 @@ func TestWorkflowServiceErrorResponses(t *testing.T) {
 
 	workflows.getStatus = 0
 	workflows.putStatus = 400
-	err = manager.putWorkflow(context.Background(), "workflow", apitypes.WorkflowDocument{})
+	err = manager.putWorkflow(context.Background(), "workflow", apitypes.Workflow{})
 	assertResourceError(t, err, 400, "INVALID_WORKFLOW")
 
 	workflows.putStatus = 500
-	err = manager.putWorkflow(context.Background(), "workflow", apitypes.WorkflowDocument{})
+	err = manager.putWorkflow(context.Background(), "workflow", apitypes.Workflow{})
 	assertResourceError(t, err, 500, "INTERNAL_ERROR")
 }
 
 type fakeWorkflows struct {
-	items     map[string]apitypes.WorkflowDocument
+	items     map[string]apitypes.Workflow
 	putCount  int
 	getStatus int
 	putStatus int
 }
 
 func newFakeWorkflows() *fakeWorkflows {
-	return &fakeWorkflows{items: map[string]apitypes.WorkflowDocument{}}
+	return &fakeWorkflows{items: map[string]apitypes.Workflow{}}
 }
 
 func (f *fakeWorkflows) ListWorkflows(context.Context, adminhttp.ListWorkflowsRequestObject) (adminhttp.ListWorkflowsResponseObject, error) {

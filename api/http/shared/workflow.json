@@ -1,0 +1,36 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Workflow Type",
+    "description": "Canonical persisted Workflow schema.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "Workflow": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "spec"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Stable workflow ID used by storage, paths, ACLs, and workspace references.",
+            "x-go-type-skip-optional-pointer": true,
+            "example": "demo-assistant"
+          },
+          "spec": {
+            "$ref": "./workflow_spec.json#/components/schemas/WorkflowSpec"
+          },
+          "i18n": {
+            "$ref": "./workflow_i18n.json#/components/schemas/WorkflowI18n"
+          }
+        }
+      }
+    }
+  }
+}

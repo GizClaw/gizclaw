@@ -3,6 +3,8 @@ package gizclaw_test
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -16,10 +18,11 @@ func TestIntegrationAdminServiceWorkflowLifecycle(t *testing.T) {
 	admin := newTestClient(t, ts)
 	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: strPtr("admin")})
 
-	createDoc := mustWorkflowDocument(t, `{
-		"metadata": {
-			"name": "demo-assistant",
-			"description": "flowcraft workflow"
+	createDoc := mustWorkflow(t, `{
+		"name": "demo-assistant",
+		"i18n": {
+			"default_locale": "en",
+			"en": {"description": "flowcraft workflow"}
 		},
 		"spec": {
 			"driver": "flowcraft",
@@ -46,14 +49,15 @@ func TestIntegrationAdminServiceWorkflowLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetWorkflow error: %v", err)
 	}
-	if got.Metadata.Name != "demo-assistant" {
-		t.Fatalf("GetWorkflow name = %q", got.Metadata.Name)
+	if got.Name != "demo-assistant" {
+		t.Fatalf("GetWorkflow name = %q", got.Name)
 	}
 
-	updateDoc := mustWorkflowDocument(t, `{
-		"metadata": {
-			"name": "demo-assistant",
-			"description": "updated description"
+	updateDoc := mustWorkflow(t, `{
+		"name": "demo-assistant",
+		"i18n": {
+			"default_locale": "en",
+			"en": {"description": "updated description"}
 		},
 		"spec": {
 			"driver": "flowcraft",
@@ -68,8 +72,9 @@ func TestIntegrationAdminServiceWorkflowLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PutWorkflow error: %v", err)
 	}
-	if updated.Metadata.Description == nil || *updated.Metadata.Description != "updated description" {
-		t.Fatalf("PutWorkflow description = %#v", updated.Metadata.Description)
+	catalog := updated.I18n.En
+	if catalog.Description == nil || *catalog.Description != "updated description" {
+		t.Fatalf("PutWorkflow i18n = %#v", updated.I18n)
 	}
 
 	if _, err := deleteWorkflow(context.Background(), admin, "demo-assistant"); err != nil {
@@ -80,16 +85,39 @@ func TestIntegrationAdminServiceWorkflowLifecycle(t *testing.T) {
 	}
 }
 
+func TestIntegrationAdminServiceRejectsLegacyWorkflowDescription(t *testing.T) {
+	ts := startTestServer(t)
+
+	admin := newTestClient(t, ts)
+	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: strPtr("admin")})
+	api, err := admin.ServerAdminClient()
+	if err != nil {
+		t.Fatalf("ServerAdminClient() error = %v", err)
+	}
+	resp, err := api.CreateWorkflowWithBodyWithResponse(
+		context.Background(),
+		"application/json",
+		strings.NewReader(`{
+			"metadata":{"name":"legacy","description":"old"},
+			"spec":{"driver":"flowcraft","flowcraft":{}}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("CreateWorkflowWithBodyWithResponse() error = %v", err)
+	}
+	if resp.StatusCode() != http.StatusBadRequest {
+		t.Fatalf("CreateWorkflow status = %d, body = %s", resp.StatusCode(), resp.Body)
+	}
+}
+
 func TestIntegrationAdminServiceWorkspaceLifecycle(t *testing.T) {
 	ts := startTestServer(t)
 
 	admin := newTestClient(t, ts)
 	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: strPtr("admin")})
 
-	workflowDoc := mustWorkflowDocument(t, `{
-		"metadata": {
-			"name": "demo-workflow"
-		},
+	workflowDoc := mustWorkflow(t, `{
+		"name": "demo-workflow",
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {}
@@ -227,10 +255,10 @@ func TestIntegrationAdminServiceCredentialLifecycle(t *testing.T) {
 	}
 }
 
-func mustWorkflowDocument(t *testing.T, raw string) apitypes.WorkflowDocument {
+func mustWorkflow(t *testing.T, raw string) apitypes.Workflow {
 	t.Helper()
 
-	var doc apitypes.WorkflowDocument
+	var doc apitypes.Workflow
 	if err := json.Unmarshal([]byte(raw), &doc); err != nil {
 		t.Fatalf("json.Unmarshal() error = %v", err)
 	}

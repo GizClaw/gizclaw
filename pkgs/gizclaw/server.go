@@ -13,6 +13,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/providertenants"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
+	petagent "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/pet"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
@@ -87,11 +88,13 @@ type Server struct {
 	BuildCommit                  string
 	PublicEndpoint               string
 	PublicICETCP                 bool
+	DefaultPeerView              string
 	PublicLoginAuthorizer        publiclogin.SessionAuthorizer
 	ICEServers                   []gizwebrtc.ICEServer
 	ACLDB                        *sql.DB
 	WebRTCSignalingHandler       http.Handler
 	EdgeNodes                    []giznet.PublicKey
+	PetWorkflow                  petagent.Config
 
 	manager     *Manager
 	peerService *PeerService
@@ -380,8 +383,10 @@ func (s *Server) init() error {
 		SignalingPath:   gizwebrtc.SignalingPath,
 		ICETCP:          s.PublicICETCP,
 		ICEServers:      s.ICEServers,
+		DefaultPeerView: s.DefaultPeerView,
 	}
 	manager := NewManager(peersServer)
+	manager.PetWorkflow = s.PetWorkflow
 	manager.PeerRoutes = &peerroute.Server{
 		Store:           peerRouteStore,
 		Peers:           peersServer,
@@ -448,6 +453,7 @@ func (s *Server) init() error {
 	gameplayRuntime := &gameplay.Runtime{
 		DB:         s.GameplayDB,
 		Catalog:    gameplayCatalog,
+		Workflows:  workflowServer,
 		Workspaces: workspaceServer,
 		ACL:        aclServer,
 	}
@@ -546,7 +552,7 @@ func (s *Server) init() error {
 	mux.Handle("/me/status", publicHandler)
 	mux.Handle("/me/runtime", publicHandler)
 	mux.Handle("/openai/v1/", s.peerOpenAIHTTPHandler(sessions))
-	s.httpHandler = httpLabelSetHandler(mux)
+	s.httpHandler = mux
 	return nil
 }
 

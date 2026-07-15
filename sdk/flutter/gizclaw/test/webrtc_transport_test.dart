@@ -4,8 +4,7 @@ import 'dart:typed_data';
 
 import 'package:fixnum/fixnum.dart' as fixnum;
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
-import 'package:gizclaw/src/generated/rpc/common.pb.dart' as common;
-import 'package:gizclaw/src/generated/rpc/peer.pb.dart' as peer;
+import 'package:gizclaw/src/generated/rpc/rpc.pb.dart' as rpc;
 import 'package:gizclaw/gizclaw.dart';
 import 'package:test/test.dart';
 
@@ -230,7 +229,7 @@ void main() {
       channel.emitBinaryMessage(
         _rpcRequestBytes(
           id: 'srv-ping',
-          method: peer.RpcMethod.RPC_METHOD_ALL_PING,
+          method: rpc.RpcMethod.RPC_METHOD_ALL_PING,
           payloadBytes: encodeRpcRequestPayload(
             'all.ping',
             PingRequest(clientSendTime: fixnum.Int64(1)),
@@ -245,11 +244,46 @@ void main() {
         ),
       );
       expect(frames, hasLength(2));
-      final response = common.RpcResponse.fromBuffer(frames.first.payload);
+      final response = rpc.RpcResponse.fromBuffer(frames.first.payload);
       expect(response.id, 'srv-ping');
       expect(response.hasError(), isFalse);
     },
   );
+
+  test('passes client RPC handlers to inbound channels', () async {
+    final pc = _FakePeerConnection();
+    serveFlutterGiznetWebRtcRpc(
+      pc,
+      handlers: GizClawPeerRpcHandlers(
+        deviceInfo: () => DeviceInfo(name: 'Test Phone'),
+      ),
+    );
+
+    final channel = _FakeRtcDataChannel(label: 'giznet/v1/service/0');
+    pc.onDataChannel?.call(channel);
+    channel.emitBinaryMessage(
+      _rpcRequestBytes(
+        id: 'srv-info',
+        method: rpc.RpcMethod.RPC_METHOD_CLIENT_INFO_GET,
+        payloadBytes: encodeRpcRequestPayload(
+          'client.info.get',
+          ClientGetInfoRequest(),
+        ),
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    final frames = decodeFrames(
+      Uint8List.fromList(
+        channel.sent.expand((message) => message.binary).toList(),
+      ),
+    );
+    final response = rpc.RpcResponse.fromBuffer(frames.first.payload);
+    final info =
+        decodeRpcResponsePayload('client.info.get', response.payload)
+            as ClientGetInfoResponse;
+    expect(info.value.name, 'Test Phone');
+  });
 
   test('treats a newly created native data channel as connecting', () async {
     final native = _FakeRtcDataChannel();
@@ -605,12 +639,12 @@ class _FakeRtcDataChannel extends rtc.RTCDataChannel {
 
 Uint8List _rpcRequestBytes({
   required String id,
-  required peer.RpcMethod method,
+  required rpc.RpcMethod method,
   List<int>? payloadBytes,
 }) {
   return concatBytes([
     ...encodeEnvelopeFrames(
-      peer.RpcRequest(
+      rpc.RpcRequest(
         id: id,
         method: method,
         payload: payloadBytes,

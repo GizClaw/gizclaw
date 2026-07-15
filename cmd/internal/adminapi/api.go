@@ -1035,23 +1035,23 @@ func DeleteVoice(ctx context.Context, c *gizcli.Client, id string) (apitypes.Voi
 	return apitypes.Voice{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
 }
 
-func ListWorkflows(ctx context.Context, c *gizcli.Client) ([]apitypes.WorkflowDocument, error) {
+func ListWorkflows(ctx context.Context, c *gizcli.Client) ([]apitypes.Workflow, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return nil, err
 	}
-	return collectAllPages(func(cursor *string, limit *int32) (pagedItems[apitypes.WorkflowDocument], error) {
+	return collectAllPages(func(cursor *string, limit *int32) (pagedItems[apitypes.Workflow], error) {
 		resp, err := api.ListWorkflowsWithResponse(ctx, &adminhttp.ListWorkflowsParams{
 			Cursor: cursor,
 			Limit:  limit,
 		})
 		if err != nil {
-			return pagedItems[apitypes.WorkflowDocument]{}, err
+			return pagedItems[apitypes.Workflow]{}, err
 		}
 		if resp.JSON200 == nil {
-			return pagedItems[apitypes.WorkflowDocument]{}, responseError(resp.StatusCode(), resp.Body, resp.JSON500)
+			return pagedItems[apitypes.Workflow]{}, responseError(resp.StatusCode(), resp.Body, resp.JSON500)
 		}
-		return pagedItems[apitypes.WorkflowDocument]{
+		return pagedItems[apitypes.Workflow]{
 			HasNext:    resp.JSON200.HasNext,
 			Items:      resp.JSON200.Items,
 			NextCursor: resp.JSON200.NextCursor,
@@ -1059,64 +1059,64 @@ func ListWorkflows(ctx context.Context, c *gizcli.Client) ([]apitypes.WorkflowDo
 	})
 }
 
-func CreateWorkflow(ctx context.Context, c *gizcli.Client, req apitypes.WorkflowDocument) (apitypes.WorkflowDocument, error) {
+func CreateWorkflow(ctx context.Context, c *gizcli.Client, req apitypes.Workflow) (apitypes.Workflow, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
-		return apitypes.WorkflowDocument{}, err
+		return apitypes.Workflow{}, err
 	}
 	resp, err := api.CreateWorkflowWithResponse(ctx, req)
 	if err != nil {
-		return apitypes.WorkflowDocument{}, err
+		return apitypes.Workflow{}, err
 	}
 	if resp.JSON200 != nil {
 		return *resp.JSON200, nil
 	}
-	return apitypes.WorkflowDocument{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON409, resp.JSON500)
+	return apitypes.Workflow{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON409, resp.JSON500)
 }
 
-func GetWorkflow(ctx context.Context, c *gizcli.Client, name string) (apitypes.WorkflowDocument, error) {
+func GetWorkflow(ctx context.Context, c *gizcli.Client, name string) (apitypes.Workflow, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
-		return apitypes.WorkflowDocument{}, err
+		return apitypes.Workflow{}, err
 	}
 	resp, err := api.GetWorkflowWithResponse(ctx, string(name))
 	if err != nil {
-		return apitypes.WorkflowDocument{}, err
+		return apitypes.Workflow{}, err
 	}
 	if resp.JSON200 != nil {
 		return *resp.JSON200, nil
 	}
-	return apitypes.WorkflowDocument{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
+	return apitypes.Workflow{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
 }
 
-func PutWorkflow(ctx context.Context, c *gizcli.Client, name string, req apitypes.WorkflowDocument) (apitypes.WorkflowDocument, error) {
+func PutWorkflow(ctx context.Context, c *gizcli.Client, name string, req apitypes.Workflow) (apitypes.Workflow, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
-		return apitypes.WorkflowDocument{}, err
+		return apitypes.Workflow{}, err
 	}
 	resp, err := api.PutWorkflowWithResponse(ctx, string(name), req)
 	if err != nil {
-		return apitypes.WorkflowDocument{}, err
+		return apitypes.Workflow{}, err
 	}
 	if resp.JSON200 != nil {
 		return *resp.JSON200, nil
 	}
-	return apitypes.WorkflowDocument{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON500)
+	return apitypes.Workflow{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON500)
 }
 
-func DeleteWorkflow(ctx context.Context, c *gizcli.Client, name string) (apitypes.WorkflowDocument, error) {
+func DeleteWorkflow(ctx context.Context, c *gizcli.Client, name string) (apitypes.Workflow, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
-		return apitypes.WorkflowDocument{}, err
+		return apitypes.Workflow{}, err
 	}
 	resp, err := api.DeleteWorkflowWithResponse(ctx, string(name))
 	if err != nil {
-		return apitypes.WorkflowDocument{}, err
+		return apitypes.Workflow{}, err
 	}
 	if resp.JSON200 != nil {
 		return *resp.JSON200, nil
 	}
-	return apitypes.WorkflowDocument{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
+	return apitypes.Workflow{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
 }
 
 func ListWorkspaces(ctx context.Context, c *gizcli.Client) ([]apitypes.Workspace, error) {

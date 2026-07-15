@@ -1,0 +1,713 @@
+// Peer RPC ai payload protobuf schema.
+
+syntax = "proto3";
+
+package gizclaw.rpc.v1;
+
+import "google/protobuf/struct.proto";
+import "payload/enums.proto";
+
+option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpb";
+
+message ASTTranslateExternalVoiceParameters {
+  string tts_voice = 1;
+}
+
+message ASTTranslateInternalSpeakerParameters {
+  optional bool is_custom_speaker = 1;
+  string speaker_id = 2;
+  optional int64 speech_rate = 3;
+  optional string tts_resource_id = 4;
+}
+
+message ASTTranslateVoiceParameters {
+  oneof value {
+    ASTTranslateInternalSpeakerParameters asttranslate_internal_speaker_parameters = 1;
+    ASTTranslateExternalVoiceParameters asttranslate_external_voice_parameters = 2;
+  }
+}
+
+message ASTTranslateWorkflowSpec {
+  optional bool denoise = 1;
+  optional bool enable_source_language_detect = 2;
+  optional bool is_custom_speaker = 3;
+  optional ASTTranslateMode mode = 4;
+  optional string resource_id = 5;
+  optional string speaker_id = 6;
+  optional int64 speech_rate = 7;
+  string translation_model = 8;
+  optional string tts_resource_id = 9;
+  optional ASTTranslateVoiceParameters voice = 10;
+}
+
+message ASTTranslateWorkspaceParameters {
+  ASTTranslateWorkspaceParametersAgentType agent_type = 1;
+  optional bool denoise = 2;
+  optional bool e2e = 3;
+  optional bool enable_source_language_detect = 4;
+  optional WorkspaceInputMode input = 5;
+  optional bool is_custom_speaker = 6;
+  optional string lang_pair = 7;
+  optional ASTTranslateMode mode = 8;
+  optional string speaker_id = 9;
+  optional int64 speech_rate = 10;
+  optional string translation_model = 11;
+  optional string tts_resource_id = 12;
+  optional ASTTranslateVoiceParameters voice = 13;
+}
+
+message ChatRoomWorkflowHistorySpec {
+  optional string ttl = 1;
+}
+
+message ChatRoomWorkflowSpec {
+  ChatRoomWorkflowHistorySpec history = 1;
+  optional ChatRoomWorkflowTranscriptSpec transcript = 2;
+}
+
+message ChatRoomWorkflowTranscriptSpec {
+  optional string asr_model = 1;
+  optional bool enabled = 2;
+}
+
+message ChatRoomWorkspaceHistoryParameters {
+  optional string ttl = 1;
+}
+
+message ChatRoomWorkspaceParameters {
+  ChatRoomWorkspaceParametersAgentType agent_type = 1;
+  optional ChatRoomWorkspaceHistoryParameters history = 2;
+  optional WorkspaceInputMode input = 3;
+  optional ChatRoomMode mode = 4;
+  optional ChatRoomWorkspaceTranscriptParameters transcript = 5;
+}
+
+message ChatRoomWorkspaceTranscriptParameters {
+  optional string asr_model = 1;
+  optional bool enabled = 2;
+}
+
+message Credential {
+  CredentialBody body = 1;
+  string created_at = 2;
+  optional string description = 3;
+  string name = 4;
+  string provider = 5;
+  string updated_at = 6;
+}
+
+message CredentialBody {
+  oneof value {
+    OpenAICredentialBody open_aicredential_body = 1;
+    GeminiCredentialBody gemini_credential_body = 2;
+    DashScopeCredentialBody dash_scope_credential_body = 3;
+    MiniMaxCredentialBody mini_max_credential_body = 4;
+    VolcCredentialBody volc_credential_body = 5;
+  }
+}
+
+message CredentialCreateRequest {
+  Credential value = 1;
+}
+
+message CredentialCreateResponse {
+  Credential value = 1;
+}
+
+message CredentialDeleteRequest {
+  string name = 1;
+}
+
+message CredentialDeleteResponse {
+  Credential value = 1;
+}
+
+message CredentialGetRequest {
+  string name = 1;
+}
+
+message CredentialGetResponse {
+  Credential value = 1;
+}
+
+message CredentialListRequest {
+  optional string cursor = 1;
+  optional int64 limit = 2;
+}
+
+message CredentialListResponse {
+  bool has_next = 1;
+  repeated Credential items = 2;
+  optional string next_cursor = 3;
+}
+
+message CredentialPutRequest {
+  Credential body = 1;
+  string name = 2;
+}
+
+message CredentialPutResponse {
+  Credential value = 1;
+}
+
+message DashScopeCredentialBody {
+  optional string api_key = 1;
+  optional string base_url = 2;
+  optional string token = 3;
+}
+
+message DashScopeTenantModelProviderData {
+  optional DashScopeTenantModelProviderDataApiMode api_mode = 1;
+  optional string upstream_model = 2;
+}
+
+message DashScopeTenantVoiceProviderData {
+  google.protobuf.Struct raw = 1;
+  optional string voice_id = 2;
+}
+
+message DoubaoRealtimeAIGCMetadata {
+  optional string content_producer = 1;
+  optional string content_propagator = 2;
+  optional bool enable = 3;
+  optional string produce_id = 4;
+  optional string propagate_id = 5;
+}
+
+message DoubaoRealtimeASRContext {
+  map<string, string> correct_words = 1;
+  repeated DoubaoRealtimeASRHotword hotwords = 2;
+}
+
+message DoubaoRealtimeASRExtension {
+  optional DoubaoRealtimeASRExtra extra = 1;
+}
+
+message DoubaoRealtimeASRExtra {
+  optional string boosting_table_id = 1;
+  optional string boosting_table_name = 2;
+  optional DoubaoRealtimeASRContext context = 3;
+  optional bool enable_asr_twopass = 4;
+  optional bool enable_custom_vad = 5;
+  optional int64 end_smooth_window_ms = 6;
+  optional string regex_correct_table_id = 7;
+  optional string regex_correct_table_name = 8;
+}
+
+message DoubaoRealtimeASRHotword {
+  string word = 1;
+}
+
+message DoubaoRealtimeAudio {
+  DoubaoRealtimeAudioInput input = 1;
+  DoubaoRealtimeAudioOutput output = 2;
+}
+
+message DoubaoRealtimeAudioFormat {
+  int64 rate = 1;
+  DoubaoRealtimeAudioFormatType type = 2;
+}
+
+message DoubaoRealtimeAudioInput {
+  DoubaoRealtimeAudioFormat format = 1;
+}
+
+message DoubaoRealtimeAudioOutput {
+  DoubaoRealtimeAudioFormat format = 1;
+  optional int64 loudness = 2;
+  optional int64 speed = 3;
+  optional string voice = 4;
+}
+
+message DoubaoRealtimeDialogExtension {
+  optional DoubaoRealtimeDialogExtra extra = 1;
+}
+
+message DoubaoRealtimeDialogExtra {
+  optional string audit_response = 1;
+  optional bool enable_conversation_truncate = 2;
+  optional bool enable_loudness_norm = 3;
+  optional bool enable_music = 4;
+  optional bool enable_user_query_exit = 5;
+  optional bool enable_volc_websearch = 6;
+  optional bool strict_audit = 7;
+  optional string volc_websearch_bot_id = 8;
+  optional string volc_websearch_no_result_message = 9;
+  optional int64 volc_websearch_result_count = 10;
+  optional DoubaoRealtimeDialogExtraVolcWebsearchType volc_websearch_type = 11;
+}
+
+message DoubaoRealtimeExtension {
+  optional DoubaoRealtimeASRExtension asr = 1;
+  optional DoubaoRealtimeDialogExtension dialog = 2;
+  optional DoubaoRealtimeTTSExtension tts = 3;
+}
+
+message DoubaoRealtimeFunctionTool {
+  optional string description = 1;
+  string name = 2;
+  optional DoubaoRealtimeJSONSchema parameters = 3;
+  optional bool strict = 4;
+  DoubaoRealtimeFunctionToolType type = 5;
+}
+
+message DoubaoRealtimeJSONSchema {
+  optional bool additional_properties = 1 [json_name = "additionalProperties"];
+  repeated DoubaoRealtimeJSONSchema any_of = 2 [json_name = "anyOf"];
+  optional string description = 3;
+  repeated string enum_values = 4 [json_name = "enum"];
+  optional DoubaoRealtimeJSONSchema items = 5;
+  optional int64 max_length = 6 [json_name = "maxLength"];
+  optional double maximum = 7;
+  optional int64 min_length = 8 [json_name = "minLength"];
+  optional double minimum = 9;
+  map<string, DoubaoRealtimeJSONSchema> properties = 10;
+  repeated string required = 11;
+  optional string type = 12;
+}
+
+message DoubaoRealtimeTTSExtension {
+  optional DoubaoRealtimeTTSExtra extra = 1;
+}
+
+message DoubaoRealtimeTTSExtra {
+  optional DoubaoRealtimeAIGCMetadata aigc_metadata = 1;
+  optional string explicit_dialect = 2;
+  optional string tts_2_0_model = 3;
+}
+
+message DoubaoRealtimeWorkflowSpec {
+  optional DoubaoRealtimeAudio audio = 1;
+  optional DoubaoRealtimeExtension extension = 2;
+  optional string instructions = 3;
+  string model = 4;
+  repeated DoubaoRealtimeFunctionTool tools = 5;
+}
+
+message DoubaoRealtimeWorkspaceParameters {
+  DoubaoRealtimeWorkspaceParametersAgentType agent_type = 1;
+  optional DoubaoRealtimeAudio audio = 2;
+  optional bool e2e = 3;
+  optional DoubaoRealtimeExtension extension = 4;
+  optional WorkspaceInputMode input = 5;
+  optional string instructions = 6;
+  optional string model = 7;
+  repeated DoubaoRealtimeFunctionTool tools = 8;
+}
+
+message FlowcraftConversationParameters {
+  optional FlowcraftConversationParametersAgentInitiativePolicy agent_initiative_policy = 1;
+  optional FlowcraftConversationParametersInitiative initiative = 2;
+}
+
+message FlowcraftWorkflowSpec {
+  google.protobuf.Struct fields = 1;
+}
+
+message FlowcraftWorkspaceParameters {
+  FlowcraftWorkspaceParametersAgentType agent_type = 1;
+  optional FlowcraftConversationParameters conversation = 2;
+  optional bool e2e = 3;
+  optional string embedding_model = 4;
+  optional string extract_model = 5;
+  optional string generate_model = 6;
+  optional WorkspaceInputMode input = 7;
+}
+
+message PetConversationParameters {
+  optional PetConversationParametersInitiative initiative = 1;
+}
+
+message PetPersonaParameters {
+  optional string prompt = 1;
+}
+
+message PetVoiceParameters {
+  optional string prompt = 1;
+  string voice_id = 2;
+}
+
+message PetWorkflowSpec {
+}
+
+message PetWorkspaceParameters {
+  PetWorkspaceParametersAgentType agent_type = 1;
+  optional PetConversationParameters conversation = 2;
+  optional WorkspaceInputMode input = 3;
+  optional PetPersonaParameters persona = 4;
+  PetVoiceParameters voice = 5;
+}
+
+message GeminiCredentialBody {
+  optional string api_key = 1;
+  optional string base_url = 2;
+  optional string token = 3;
+}
+
+message GeminiTenantModelProviderData {
+  optional string upstream_model = 1;
+}
+
+message GeminiTenantVoiceProviderData {
+  google.protobuf.Struct raw = 1;
+  optional string voice_id = 2;
+}
+
+message MiniMaxCredentialBody {
+  optional string api_key = 1;
+  optional string base_url = 2;
+  optional string minimax_voice_base_url = 3;
+  optional string token = 4;
+  optional string voice_base_url = 5;
+}
+
+message MiniMaxTenantVoiceProviderData {
+  optional string format = 1;
+  optional string model = 2;
+  google.protobuf.Struct raw = 3;
+  optional int64 sample_rate = 4;
+  optional string voice_id = 5;
+  optional string voice_type = 6;
+}
+
+message Model {
+  optional ModelCapabilities capabilities = 1;
+  string created_at = 2;
+  optional string description = 3;
+  string id = 4;
+  ModelKind kind = 5;
+  optional string name = 6;
+  ModelProvider provider = 7;
+  optional ModelProviderData provider_data = 8;
+  ModelSource source = 9;
+  optional string synced_at = 10;
+  string updated_at = 11;
+}
+
+message ModelCapabilities {
+  optional bool json_output = 1;
+  optional bool system_role = 2;
+  optional bool temperature = 3;
+  optional bool text_only = 4;
+  optional ModelThinkingCapability thinking = 5;
+  optional bool tool_calls = 6;
+}
+
+message ModelCreateRequest {
+  Model value = 1;
+}
+
+message ModelCreateResponse {
+  Model value = 1;
+}
+
+message ModelDeleteRequest {
+  string id = 1;
+}
+
+message ModelDeleteResponse {
+  Model value = 1;
+}
+
+message ModelGetRequest {
+  string id = 1;
+}
+
+message ModelGetResponse {
+  Model value = 1;
+}
+
+message ModelListRequest {
+  optional string cursor = 1;
+  optional int64 limit = 2;
+}
+
+message ModelListResponse {
+  bool has_next = 1;
+  repeated Model items = 2;
+  optional string next_cursor = 3;
+}
+
+message ModelProvider {
+  ModelProviderKind kind = 1;
+  string name = 2;
+}
+
+message ModelProviderData {
+  oneof value {
+    GeminiTenantModelProviderData gemini_tenant_model_provider_data = 1;
+    DashScopeTenantModelProviderData dash_scope_tenant_model_provider_data = 2;
+    OpenAITenantModelProviderData open_aitenant_model_provider_data = 3;
+    VolcTenantModelProviderData volc_tenant_model_provider_data = 4;
+  }
+}
+
+message ModelPutRequest {
+  Model body = 1;
+  string id = 2;
+}
+
+message ModelPutResponse {
+  Model value = 1;
+}
+
+message ModelThinkingCapability {
+  optional string default_level = 1;
+  optional string level_param = 2;
+  repeated string levels = 3;
+  optional string param = 4;
+  bool supported = 5;
+}
+
+message OpenAICredentialBody {
+  optional string api_key = 1;
+  optional string base_url = 2;
+  optional string organization = 3;
+  optional string project = 4;
+  optional string token = 5;
+}
+
+message OpenAITenantModelProviderData {
+  optional string default_thinking_level = 1;
+  optional bool support_json_output = 2;
+  optional bool support_text_only = 3;
+  optional bool support_thinking = 4;
+  optional bool support_tool_calls = 5;
+  optional string thinking_level_param = 6;
+  repeated string thinking_levels = 7;
+  optional string thinking_param = 8;
+  optional string upstream_model = 9;
+  optional bool use_system_role = 10;
+}
+
+message OpenAITenantVoiceProviderData {
+  google.protobuf.Struct raw = 1;
+  optional string voice_id = 2;
+}
+
+message Voice {
+  string created_at = 1;
+  optional string description = 2;
+  string id = 3;
+  optional string name = 4;
+  VoiceProvider provider = 5;
+  optional VoiceProviderData provider_data = 6;
+  VoiceSource source = 7;
+  optional string synced_at = 8;
+  string updated_at = 9;
+}
+
+message VoiceGetRequest {
+  string id = 1;
+}
+
+message VoiceGetResponse {
+  Voice value = 1;
+}
+
+message VoiceListRequest {
+  optional string cursor = 1;
+  optional int64 limit = 2;
+}
+
+message VoiceListResponse {
+  bool has_next = 1;
+  repeated Voice items = 2;
+  optional string next_cursor = 3;
+}
+
+message VoiceProvider {
+  VoiceProviderKind kind = 1;
+  string name = 2;
+}
+
+message VoiceProviderData {
+  oneof value {
+    GeminiTenantVoiceProviderData gemini_tenant_voice_provider_data = 1;
+    DashScopeTenantVoiceProviderData dash_scope_tenant_voice_provider_data = 2;
+    OpenAITenantVoiceProviderData open_aitenant_voice_provider_data = 3;
+    MiniMaxTenantVoiceProviderData mini_max_tenant_voice_provider_data = 4;
+    VolcTenantVoiceProviderData volc_tenant_voice_provider_data = 5;
+  }
+}
+
+message VolcCredentialBody {
+  optional string api_key = 1;
+  optional string app_id = 2;
+  optional string openapi_access_key = 3;
+  optional string openapi_access_key_id = 4;
+  optional string search_api_key = 5;
+}
+
+message VolcTenantModelProviderData {
+  optional VolcTenantModelProviderDataApiMode api_mode = 1;
+  optional string default_thinking_level = 2;
+  optional string resource_id = 3;
+  optional bool support_json_output = 4;
+  optional bool support_text_only = 5;
+  optional bool support_thinking = 6;
+  optional bool support_tool_calls = 7;
+  optional string thinking_level_param = 8;
+  repeated string thinking_levels = 9;
+  optional string thinking_param = 10;
+  optional string upstream_model = 11;
+  optional bool use_system_role = 12;
+}
+
+message VolcTenantVoiceProviderData {
+  google.protobuf.Struct raw = 1;
+  optional string resource_id = 2;
+  optional string state = 3;
+  optional string status = 4;
+  optional string voice_id = 5;
+}
+
+enum WorkflowLocale {
+  WORKFLOW_LOCALE_UNSPECIFIED = 0;
+  WORKFLOW_LOCALE_EN = 1;
+  WORKFLOW_LOCALE_ZH_CN = 2;
+}
+
+message Workflow {
+  string name = 1;
+  WorkflowSpec spec = 2;
+  optional WorkflowI18nCatalog i18n = 3;
+}
+
+message WorkflowGetRequest {
+  string name = 1;
+  optional WorkflowLocale lang = 2;
+}
+
+message WorkflowGetResponse {
+  Workflow value = 1;
+}
+
+message WorkflowListRequest {
+  optional string cursor = 1;
+  optional int64 limit = 2;
+  optional WorkflowLocale lang = 3;
+}
+
+message WorkflowListResponse {
+  bool has_next = 1;
+  repeated Workflow items = 2;
+  optional string next_cursor = 3;
+}
+
+message WorkflowI18nCatalog {
+  optional string name = 1;
+  optional string description = 2;
+}
+
+message ToolkitPolicyToolIds {
+  repeated string value = 1;
+}
+
+message ToolkitPolicy {
+  optional ToolkitPolicyToolIds tool_ids = 1;
+}
+
+message WorkflowSpec {
+  optional ASTTranslateWorkflowSpec ast_translate = 1;
+  optional ChatRoomWorkflowSpec chatroom = 2;
+  optional DoubaoRealtimeWorkflowSpec doubao_realtime = 3;
+  WorkflowDriver driver = 4;
+  optional FlowcraftWorkflowSpec flowcraft = 5;
+  optional ToolkitPolicy toolkit = 6;
+  optional PetWorkflowSpec pet = 7;
+}
+
+message ToolExecutor {
+  ToolExecutorKind kind = 1;
+  optional string name = 2;
+  optional string method = 3;
+  optional string peer_id = 4;
+  optional google.protobuf.Struct config = 5;
+}
+
+message ToolTriggerExample {
+  string input = 1;
+  optional google.protobuf.Struct args = 2;
+  optional string output = 3;
+}
+
+message ToolTrigger {
+  string name = 1;
+  optional string description = 2;
+  repeated string patterns = 3;
+  repeated ToolTriggerExample examples = 4;
+  optional google.protobuf.Struct metadata = 5;
+}
+
+message Tool {
+  string id = 1;
+  optional string name = 2;
+  optional string description = 3;
+  ToolSource source = 4;
+  optional bool enabled = 5;
+  optional string owner_peer = 6;
+  optional string version = 7;
+  google.protobuf.Struct input_schema = 8;
+  optional google.protobuf.Struct output_schema = 9;
+  repeated ToolTrigger triggers = 10;
+  ToolExecutor executor = 11;
+  optional google.protobuf.Struct metadata = 12;
+  string created_at = 13;
+  string updated_at = 14;
+}
+
+message ToolListRequest {
+  optional string cursor = 1;
+  optional int64 limit = 2;
+}
+
+message ToolListResponse {
+  repeated Tool items = 1;
+  bool has_next = 2;
+  optional string next_cursor = 3;
+}
+
+message ToolGetRequest {
+  string id = 1;
+}
+
+message ToolGetResponse {
+  Tool value = 1;
+}
+
+message ToolCreateRequest {
+  Tool value = 1;
+}
+
+message ToolCreateResponse {
+  Tool value = 1;
+}
+
+message ToolPutRequest {
+  string id = 1;
+  Tool body = 2;
+}
+
+message ToolPutResponse {
+  Tool value = 1;
+}
+
+message ToolDeleteRequest {
+  string id = 1;
+}
+
+message ToolDeleteResponse {
+  Tool value = 1;
+}
+
+message ToolInvokeRequest {
+  string call_id = 1;
+  string tool_id = 2;
+  string method = 3;
+  google.protobuf.Struct args = 4;
+}
+
+message ToolInvokeResponse {
+  string data_json = 1;
+}

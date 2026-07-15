@@ -1,3 +1,5 @@
+import 'dart:ui' show PlatformDispatcher;
+
 import 'package:drift/drift.dart';
 import 'package:gizclaw/gizclaw.dart';
 
@@ -15,9 +17,11 @@ class MobileDataRefreshWarning {
 }
 
 class MobileDataRepository {
-  MobileDataRepository(this.database);
+  MobileDataRepository(this.database, {String Function()? deviceLocaleTag})
+    : _deviceLocaleTag = deviceLocaleTag ?? _platformLocaleTag;
 
   final AppDatabase database;
+  final String Function() _deviceLocaleTag;
 
   Future<String?> serverIdForEndpoint(String endpoint) async {
     final query = database.select(database.servers)
@@ -116,7 +120,10 @@ class MobileDataRepository {
     required String endpoint,
     required String serverId,
   }) async {
-    final workflows = await _allWorkflows(client);
+    final workflows = await _allWorkflows(
+      client,
+      _workflowLocale(_deviceLocaleTag()),
+    );
     final workspaces = await _allWorkspaces(client);
     final refreshedAt = DateTime.now().toUtc();
 
@@ -135,10 +142,11 @@ class MobileDataRepository {
         batch.insertAllOnConflictUpdate(
           database.workflowEntries,
           workflows.map((workflow) {
+            final catalog = _workflowCatalog(workflow);
             return WorkflowEntriesCompanion.insert(
               serverId: serverId,
-              name: workflow.metadata.name,
-              description: workflow.metadata.description,
+              name: workflow.name,
+              description: catalog?.description.trim() ?? '',
               driver: workflow.spec.driver.name,
               rawProtobuf: Uint8List.fromList(workflow.writeToBuffer()),
               refreshedAt: refreshedAt,
@@ -162,7 +170,7 @@ class MobileDataRepository {
         );
       });
 
-      final workflowNames = workflows.map((item) => item.metadata.name).toSet();
+      final workflowNames = workflows.map((item) => item.name).toSet();
       final workspaceNames = workspaces.map((item) => item.name).toSet();
       await (database.delete(database.workflowEntries)..where(
             (row) =>
@@ -272,11 +280,18 @@ class MobileDataRepository {
   }
 }
 
-Future<List<WorkflowDocument>> _allWorkflows(GizClawClient client) async {
-  final items = <WorkflowDocument>[];
+Future<List<Workflow>> _allWorkflows(
+  GizClawClient client,
+  WorkflowLocale lang,
+) async {
+  final items = <Workflow>[];
   String? cursor;
   do {
-    final response = await client.listWorkflows(cursor: cursor, limit: 100);
+    final response = await client.listWorkflows(
+      cursor: cursor,
+      limit: 100,
+      lang: lang,
+    );
     items.addAll(response.items);
     cursor = response.hasNext ? response.nextCursor : null;
   } while (cursor != null && cursor.isNotEmpty);
@@ -331,12 +346,38 @@ String _friendGroupKey(FriendGroupObject group) {
 }
 
 WorkflowCard _workflowCardFromRow(WorkflowEntry row) {
+  final workflow = Workflow.fromBuffer(row.rawProtobuf);
+  final catalog = _workflowCatalog(workflow);
+  final localizedName = catalog?.name.trim();
   return WorkflowCard.fromServer(
     name: row.name,
-    description: row.description,
+    displayName: localizedName == null || localizedName.isEmpty
+        ? row.name
+        : localizedName,
+    description: catalog == null ? row.description : catalog.description.trim(),
     driver: row.driver,
   );
 }
+
+WorkflowI18nCatalog? _workflowCatalog(Workflow workflow) =>
+    workflow.hasI18n() ? workflow.i18n : null;
+
+WorkflowLocale _workflowLocale(String localeTag) {
+  final normalizedTag = localeTag.trim().replaceAll('_', '-').toLowerCase();
+  final subtags = normalizedTag.split('-');
+  final languageCode = subtags.first;
+  return switch (languageCode) {
+    'en' => WorkflowLocale.WORKFLOW_LOCALE_EN,
+    'zh'
+        when !subtags.contains('hant') &&
+            (subtags.contains('hans') || subtags.contains('cn')) =>
+      WorkflowLocale.WORKFLOW_LOCALE_ZH_CN,
+    _ => WorkflowLocale.WORKFLOW_LOCALE_UNSPECIFIED,
+  };
+}
+
+String _platformLocaleTag() =>
+    PlatformDispatcher.instance.locale.toLanguageTag();
 
 WorkspaceCard _workspaceCardFromRow(WorkspaceEntry row) {
   final workspace = Workspace.fromBuffer(row.rawProtobuf);

@@ -3,14 +3,31 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/fs"
+	"net/url"
+	"path/filepath"
+	goruntime "runtime"
+	"strings"
+	"sync"
+	"time"
 
+	appmessages "github.com/GizClaw/gizclaw-go/apps/wails/i18n"
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/appconfig"
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/bridge"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/contextstore"
+	"github.com/GizClaw/gizclaw-go/apps/wails/internal/endpointhealth"
+	"github.com/GizClaw/gizclaw-go/apps/wails/internal/localserver"
+	"github.com/GizClaw/gizclaw-go/apps/wails/internal/tray"
+	"github.com/GizClaw/gizclaw-go/apps/wails/internal/webui"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 type App struct {
-	bridge *bridge.AppBridge
+	bridge   *bridge.PodBridge
+	ctx      context.Context
+	tray     *tray.Manager
+	mu       sync.RWMutex
+	quitting bool
+	messages appmessages.Catalog
 }
 
 func NewApp() (*App, error) {
@@ -18,84 +35,263 @@ func NewApp() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewAppWithPaths(paths)
+	dist, err := fs.Sub(assets, "frontend/dist")
+	if err != nil {
+		return nil, fmt.Errorf("desktop app: frontend assets: %w", err)
+	}
+	return NewAppWithPathsAndAssets(paths, dist)
 }
 
 func NewAppWithPaths(paths appconfig.Paths) (*App, error) {
+	dist, err := fs.Sub(assets, "frontend/dist")
+	if err != nil {
+		return nil, err
+	}
+	return NewAppWithPathsAndAssets(paths, dist)
+}
+
+func NewAppWithPathsAndAssets(paths appconfig.Paths, assets fs.FS) (*App, error) {
 	if err := paths.Ensure(); err != nil {
 		return nil, err
 	}
-	state := appconfig.StateStore{File: paths.StateFile}
-	store := &contextstore.Store{Root: paths.ContextDir}
-	contextBridge := bridge.NewContextBridge(store, state)
-	return &App{
-		bridge: &bridge.AppBridge{
-			Paths:   paths,
-			State:   state,
-			Context: contextBridge,
-		},
-	}, nil
+	messages := appmessages.System()
+	app := &App{messages: messages, bridge: &bridge.PodBridge{
+		Paths:  paths,
+		Store:  appconfig.Store{Paths: paths},
+		Health: endpointhealth.New(),
+		Local:  localserver.New(),
+		WebUI:  webui.New(assets),
+	}}
+	app.tray = tray.New(
+		tray.Callbacks{OpenWindow: app.openWindow, OpenPod: app.openPod, Quit: app.quit},
+		tray.Labels{OpenWindow: messages.Text("openWindow"), Quit: messages.Text("quit")},
+	)
+	return app, nil
+}
+
+func (a *App) startup(ctx context.Context) {
+	a.mu.Lock()
+	a.ctx = ctx
+	a.mu.Unlock()
+	a.syncTray(true)
+}
+
+func (a *App) shutdown(context.Context) {
+	if a == nil || a.bridge == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	a.bridge.Local.Shutdown(ctx)
+	a.bridge.WebUI.Shutdown()
+	if a.tray != nil {
+		a.tray.Stop()
+	}
+}
+
+func (a *App) beforeClose(ctx context.Context) bool {
+	a.mu.RLock()
+	quitting := a.quitting
+	a.mu.RUnlock()
+	if quitting {
+		return false
+	}
+	runtime.WindowHide(ctx)
+	return true
+}
+
+func (a *App) openWindow() {
+	ctx := a.runtimeContext()
+	if ctx == nil {
+		return
+	}
+	runtime.WindowShow(ctx)
+	runtime.WindowUnminimise(ctx)
+}
+
+func (a *App) openPod(id string) {
+	a.openWindow()
+	if ctx := a.runtimeContext(); ctx != nil {
+		runtime.EventsEmit(ctx, "desktop:open-pod", id)
+	}
+}
+
+func (a *App) quit() {
+	a.mu.Lock()
+	a.quitting = true
+	a.mu.Unlock()
+	if ctx := a.runtimeContext(); ctx != nil {
+		runtime.Quit(ctx)
+	}
+}
+
+func (a *App) runtimeContext() context.Context {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.ctx
+}
+
+func (a *App) syncTray(start bool) {
+	if a.tray == nil || a.bridge == nil {
+		return
+	}
+	pods, err := a.bridge.ListPods(context.Background())
+	if err != nil {
+		return
+	}
+	localItems := make([]tray.Pod, 0, len(pods))
+	remoteItems := make([]tray.Pod, 0, len(pods))
+	invalidItems := make([]tray.Pod, 0, len(pods))
+	for _, pod := range pods {
+		if !pod.Valid {
+			invalidItems = append(invalidItems, tray.Pod{ID: pod.ID, Label: pod.Name, Section: a.messages.Text("invalid")})
+		} else if pod.Remote != nil {
+			remoteItems = append(remoteItems, tray.Pod{
+				ID:      pod.ID,
+				Label:   fmt.Sprintf("%s · %d %s", pod.Name, len(pod.Remote.Servers), a.messages.Text("servers")),
+				Section: a.messages.Text("remote"),
+			})
+		} else {
+			localItems = append(localItems, tray.Pod{ID: pod.ID, Label: pod.Name, Section: a.messages.Text("local")})
+		}
+	}
+	items := append(localItems, remoteItems...)
+	items = append(items, invalidItems...)
+	if start {
+		a.tray.Start(items)
+	} else {
+		a.tray.Update(items)
+	}
 }
 
 func (a *App) Bootstrap() (bridge.BootstrapState, error) {
 	if a == nil || a.bridge == nil {
 		return bridge.BootstrapState{}, fmt.Errorf("desktop app: bridge is not configured")
 	}
-	return a.bridge.Bootstrap(context.Background())
-}
-
-func (a *App) ListContexts() ([]bridge.ContextSummary, error) {
-	if a == nil || a.bridge == nil || a.bridge.Context == nil {
-		return nil, fmt.Errorf("desktop app: context bridge is not configured")
+	state, err := a.bridge.Bootstrap(context.Background())
+	if err != nil {
+		return bridge.BootstrapState{}, err
 	}
-	return a.bridge.Context.ListContexts(context.Background())
+	state.Locale = a.messages.Locale()
+	return state, nil
 }
 
-func (a *App) SelectContext(name string) (bridge.ContextSummary, error) {
-	if a == nil || a.bridge == nil || a.bridge.Context == nil {
-		return bridge.ContextSummary{}, fmt.Errorf("desktop app: context bridge is not configured")
-	}
-	return a.bridge.Context.SelectContext(context.Background(), name)
-}
-
-func (a *App) CreateContext(req bridge.CreateContextRequest) (bridge.ContextSummary, error) {
-	if a == nil || a.bridge == nil || a.bridge.Context == nil {
-		return bridge.ContextSummary{}, fmt.Errorf("desktop app: context bridge is not configured")
-	}
-	return a.bridge.Context.CreateContext(context.Background(), req)
-}
-
-func (a *App) InjectedRuntime() (bridge.RuntimeContext, error) {
-	if a == nil || a.bridge == nil {
-		return bridge.RuntimeContext{}, fmt.Errorf("desktop app: bridge is not configured")
-	}
-	return a.bridge.InjectedRuntime(context.Background())
-}
-
-func (a *App) ListViews() ([]bridge.DesktopView, error) {
+func (a *App) ListPods() ([]bridge.PodSummary, error) {
 	if a == nil || a.bridge == nil {
 		return nil, fmt.Errorf("desktop app: bridge is not configured")
 	}
-	return a.bridge.ListViews(context.Background())
+	return a.bridge.ListPods(context.Background())
 }
 
-func (a *App) GetViewSession() (bridge.ViewSession, error) {
+func (a *App) GetPod(id string) (bridge.PodSummary, error) {
 	if a == nil || a.bridge == nil {
-		return bridge.ViewSession{}, fmt.Errorf("desktop app: bridge is not configured")
+		return bridge.PodSummary{}, fmt.Errorf("desktop app: bridge is not configured")
 	}
-	return a.bridge.GetViewSession(context.Background())
+	return a.bridge.GetPod(context.Background(), id)
 }
 
-func (a *App) StartViewSession(req bridge.StartViewSessionRequest) (bridge.ViewSession, error) {
+func (a *App) CreatePod(input bridge.PodInput) (bridge.PodSummary, error) {
 	if a == nil || a.bridge == nil {
-		return bridge.ViewSession{}, fmt.Errorf("desktop app: bridge is not configured")
+		return bridge.PodSummary{}, fmt.Errorf("desktop app: bridge is not configured")
 	}
-	return a.bridge.StartViewSession(context.Background(), req)
+	pod, err := a.bridge.CreatePod(context.Background(), input)
+	if err == nil {
+		a.syncTray(false)
+	}
+	return pod, err
 }
 
-func (a *App) EndViewSession() (bridge.ViewSession, error) {
+func (a *App) UpdatePod(input bridge.PodInput) (bridge.PodSummary, error) {
 	if a == nil || a.bridge == nil {
-		return bridge.ViewSession{}, fmt.Errorf("desktop app: bridge is not configured")
+		return bridge.PodSummary{}, fmt.Errorf("desktop app: bridge is not configured")
 	}
-	return a.bridge.EndViewSession(context.Background())
+	pod, err := a.bridge.UpdatePod(context.Background(), input)
+	if err == nil {
+		a.syncTray(false)
+	}
+	return pod, err
+}
+
+func (a *App) DeletePod(id string) error {
+	if a == nil || a.bridge == nil {
+		return fmt.Errorf("desktop app: bridge is not configured")
+	}
+	err := a.bridge.DeletePod(context.Background(), id)
+	if err == nil {
+		a.syncTray(false)
+	}
+	return err
+}
+
+func (a *App) RefreshPodHealth(id string) (bridge.PodSummary, error) {
+	if a == nil || a.bridge == nil {
+		return bridge.PodSummary{}, fmt.Errorf("desktop app: bridge is not configured")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	return a.bridge.RefreshHealth(ctx, id)
+}
+
+func (a *App) RevealPod(id string) error {
+	if a == nil || a.bridge == nil {
+		return fmt.Errorf("desktop app: bridge is not configured")
+	}
+	path, err := a.bridge.RevealPath(id)
+	if err != nil {
+		return err
+	}
+	if ctx := a.runtimeContext(); ctx != nil {
+		runtime.BrowserOpenURL(ctx, fileURL(path))
+	}
+	return nil
+}
+
+func fileURL(path string) string {
+	return fileURLForOS(path, goruntime.GOOS)
+}
+
+func fileURLForOS(path, goos string) string {
+	normalized := filepath.ToSlash(path)
+	if goos == "windows" {
+		normalized = strings.ReplaceAll(path, `\`, "/")
+		if !strings.HasPrefix(normalized, "/") {
+			normalized = "/" + normalized
+		}
+	}
+	return (&url.URL{Scheme: "file", Path: normalized}).String()
+}
+
+func (a *App) StartLocalServer(id string) (bridge.PodSummary, error) {
+	if a == nil || a.bridge == nil {
+		return bridge.PodSummary{}, fmt.Errorf("desktop app: bridge is not configured")
+	}
+	return a.bridge.StartLocal(context.Background(), id)
+}
+
+func (a *App) StopLocalServer(id string) (bridge.PodSummary, error) {
+	if a == nil || a.bridge == nil {
+		return bridge.PodSummary{}, fmt.Errorf("desktop app: bridge is not configured")
+	}
+	return a.bridge.StopLocal(context.Background(), id)
+}
+
+func (a *App) RestartLocalServer(id string) (bridge.PodSummary, error) {
+	if a == nil || a.bridge == nil {
+		return bridge.PodSummary{}, fmt.Errorf("desktop app: bridge is not configured")
+	}
+	return a.bridge.RestartLocal(context.Background(), id)
+}
+
+func (a *App) OpenAdmin(podID, serverID string) (string, error) {
+	if a == nil || a.bridge == nil {
+		return "", fmt.Errorf("desktop app: bridge is not configured")
+	}
+	return a.bridge.AdminURL(context.Background(), podID, serverID)
+}
+
+func (a *App) OpenPlay(podID string) (string, error) {
+	if a == nil || a.bridge == nil {
+		return "", fmt.Errorf("desktop app: bridge is not configured")
+	}
+	return a.bridge.PlayURL(context.Background(), podID)
 }

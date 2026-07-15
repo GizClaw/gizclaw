@@ -16,6 +16,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	petagent "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/pet"
 	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
@@ -93,7 +94,8 @@ func isPublicHTTPRoute(path string) bool {
 }
 
 func isPublicHTTPLoginRoute(method, path string) bool {
-	return method == http.MethodPost && path == "/login"
+	return (method == http.MethodPost && path == "/login") ||
+		((method == http.MethodPost || method == http.MethodOptions) && path == gizwebrtc.SignalingPath)
 }
 
 // New wires an already prepared in-memory config into a command server.
@@ -129,13 +131,20 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 	cmdSrv := &CmdServer{stores: ss, AdminPublicKey: cfg.AdminPublicKey, ServeToClients: cfg.ServeToClients}
 	var gizServer *gizclaw.Server
 	gizServer = &gizclaw.Server{
-		LocalStatic:    *cfg.KeyPair,
-		PeerStore:      peersKV,
-		BuildCommit:    BuildCommit,
-		PublicEndpoint: cfg.Endpoint,
-		PublicICETCP:   newOpts.ICETCPListener != nil,
-		EdgeNodes:      cfg.EdgeNodes,
-		ICEServers:     cfg.ICEServers,
+		LocalStatic:     *cfg.KeyPair,
+		PeerStore:       peersKV,
+		BuildCommit:     BuildCommit,
+		PublicEndpoint:  cfg.Endpoint,
+		PublicICETCP:    newOpts.ICETCPListener != nil,
+		DefaultPeerView: cfg.DefaultPeerView,
+		EdgeNodes:       cfg.EdgeNodes,
+		ICEServers:      cfg.ICEServers,
+		PetWorkflow: petagent.Config{
+			GenerateModel:  cfg.SystemTasks.PetFlowcraftWorkflow.GenerateModel,
+			ExtractModel:   cfg.SystemTasks.PetFlowcraftWorkflow.ExtractModel,
+			EmbeddingModel: cfg.SystemTasks.PetFlowcraftWorkflow.EmbeddingModel,
+			ASRModel:       cfg.SystemTasks.PetFlowcraftWorkflow.ASRModel,
+		},
 		PeerListenerFactories: []gizclaw.PeerListenerFactory{
 			func(opts gizclaw.PeerListenerOptions) (giznet.Listener, error) {
 				listenConfig := webRTCListenConfig(cfg, opts, newOpts.ICETCPListener)

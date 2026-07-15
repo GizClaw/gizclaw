@@ -16,7 +16,7 @@ Browser-side WebRTC helpers for GizClaw peer sessions.
 
 Use `connectGiznetWebRTC` for browser or desktop frontend sessions that connect
 to a GizClaw server endpoint. It targets the peer HTTP endpoint described
-by `api/peer_http.json`:
+by `api/http/peer.json`:
 
 ```text
 POST /webrtc/v1/offer

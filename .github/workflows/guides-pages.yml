@@ -1,0 +1,58 @@
+name: Guides Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - guides/**
+      - .github/workflows/guides-pages.yml
+  workflow_dispatch:
+
+concurrency:
+  group: pages-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    name: Build Guides
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: guides/package-lock.json
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d
+
+      - name: Install Guide dependencies
+        run: npm ci --prefix guides
+
+      - name: Build Guide site
+        run: npm --prefix guides run build:site
+        env:
+          VITEPRESS_BASE: /gizclaw/
+
+      - name: Upload Guide artifact
+        uses: actions/upload-pages-artifact@98ef48e41587a300b82de4cf298aa98b57b2faae
+        with:
+          path: guides/.vitepress/dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128

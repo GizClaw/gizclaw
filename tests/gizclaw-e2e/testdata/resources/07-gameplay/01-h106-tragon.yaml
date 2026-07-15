@@ -10,8 +10,7 @@ spec:
     metadata:
       name: petdef-tragon
     spec:
-      default_locale: en
-      workflow_name: pet-care-flowcraft
+      workflow_name: pet-care
       attr:
         life:
           hp:
@@ -28,7 +27,7 @@ spec:
       character:
         prompt: Compact blue pixel dragon with a rounded head, small horns, tiny wings, short legs, and playful brave behavior.
       voice:
-        voice_id: gizclaw-cute-dragon
+        voice_id: volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts
         prompt: Bright, curious, short spoken replies with childlike confidence.
       drive:
         actions:
@@ -99,59 +98,60 @@ spec:
               pixa_clip_name: dead
             - id: reborn
               pixa_clip_name: reborn
-      i18n:
-        en:
-          display_name: Tragon
-          description: A brave little dragon from H106 who perks up when you feed, bathe, or heal it.
-          attr:
-            life:
-              hp:
-                display_name: HP
-              wellness:
-                display_name: Wellness
-              energy:
-                display_name: Energy
-              cleanliness:
-                display_name: Cleanliness
-            progression:
-              xp:
-                display_name: EXP
-          drive:
-            actions:
-              idle:
-                display_name: Idle
-              feed:
-                display_name: Feed
-              bath:
-                display_name: Bath
-              heal:
-                display_name: Heal
-        zh-CN:
-          display_name: 小蓝龙
-          description: 来自 H106 的勇敢小龙，喜欢吃饭、洗澡和被照顾。
-          attr:
-            life:
-              hp:
-                display_name: 生命
-              wellness:
-                display_name: 状态
-              energy:
-                display_name: 精力
-              cleanliness:
-                display_name: 清洁
-            progression:
-              xp:
-                display_name: 经验
-          drive:
-            actions:
-              idle:
-                display_name: 陪伴
-              feed:
-                display_name: 喂食
-              bath:
-                display_name: 洗澡
-              heal:
-                display_name: 治疗
+    i18n:
+      default_locale: en
+      en:
+        display_name: Tragon
+        description: A brave little dragon from H106 who perks up when you feed, bathe, or heal it.
+        attr:
+          life:
+            hp:
+              display_name: HP
+            wellness:
+              display_name: Wellness
+            energy:
+              display_name: Energy
+            cleanliness:
+              display_name: Cleanliness
+          progression:
+            xp:
+              display_name: EXP
+        drive:
+          actions:
+            idle:
+              display_name: Idle
+            feed:
+              display_name: Feed
+            bath:
+              display_name: Bath
+            heal:
+              display_name: Heal
+      zh-CN:
+        display_name: 小蓝龙
+        description: 来自 H106 的勇敢小龙，喜欢吃饭、洗澡和被照顾。
+        attr:
+          life:
+            hp:
+              display_name: 生命
+            wellness:
+              display_name: 状态
+            energy:
+              display_name: 精力
+            cleanliness:
+              display_name: 清洁
+          progression:
+            xp:
+              display_name: 经验
+        drive:
+          actions:
+            idle:
+              display_name: 陪伴
+            feed:
+              display_name: 喂食
+            bath:
+              display_name: 洗澡
+            heal:
+              display_name: 治疗
   - apiVersion: gizclaw.admin/v1alpha1
     kind: GameRuleset
     metadata:
@@ -159,7 +159,7 @@ spec:
     spec:
       enabled: true
       description: H106 Tragon mobile app preview ruleset.
-      default_workflow_name: pet-care-flowcraft
+      default_workflow_name: pet-care
       points:
         initial_balance: 100
       pet_pool:
@@ -167,4 +167,4 @@ spec:
         weight: 100
         rarity: rare
         adoption_cost: 10
-        workflow_name: pet-care-flowcraft
+        workflow_name: pet-care

@@ -3,6 +3,8 @@ package objectstore
 import (
 	"io"
 	"io/fs"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -104,6 +106,134 @@ func TestDirReplaceMissingAndEmptyPrefix(t *testing.T) {
 	if _, err := store.Get("asset.txt"); err != nil {
 		t.Fatalf("Get after DeletePrefix empty: %v", err)
 	}
+}
+
+func TestDirPutFailureKeepsExistingObjectAndRemovesTemp(t *testing.T) {
+	root := t.TempDir()
+	store := Dir(root)
+	if err := store.Put("asset.txt", strings.NewReader("old")); err != nil {
+		t.Fatalf("initial Put: %v", err)
+	}
+
+	if err := store.Put("asset.txt", &failingReader{data: []byte("partial")}); err == nil {
+		t.Fatal("replacement Put error = nil")
+	}
+
+	r, err := store.Get("asset.txt")
+	if err != nil {
+		t.Fatalf("Get existing after failed Put: %v", err)
+	}
+	data, err := io.ReadAll(r)
+	if closeErr := r.Close(); closeErr != nil && err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		t.Fatalf("ReadAll: %v", err)
+	}
+	if string(data) != "old" {
+		t.Fatalf("data after failed Put = %q, want old", data)
+	}
+	matches, err := filepath.Glob(filepath.Join(root, putTempPrefix+"*"))
+	if err != nil {
+		t.Fatalf("Glob temp files: %v", err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("temp files remain: %v", matches)
+	}
+}
+
+func TestDirPutFailureDoesNotCreateNewObject(t *testing.T) {
+	root := t.TempDir()
+	store := Dir(root)
+	if err := store.Put("new.txt", &failingReader{data: []byte("partial")}); err == nil {
+		t.Fatal("Put error = nil")
+	}
+	if _, err := store.Get("new.txt"); !os.IsNotExist(err) {
+		t.Fatalf("Get error = %v, want not exist", err)
+	}
+	assertNoPutTemps(t, root)
+}
+
+func TestDirListDoesNotExposeInProgressPut(t *testing.T) {
+	root := t.TempDir()
+	store := Dir(root)
+	reader, writer := io.Pipe()
+	putErr := make(chan error, 1)
+	go func() {
+		putErr <- store.Put("asset.txt", reader)
+	}()
+	if _, err := writer.Write([]byte("partial")); err != nil {
+		t.Fatalf("write partial object: %v", err)
+	}
+	deadline := time.Now().Add(time.Second)
+	for {
+		matches, err := filepath.Glob(filepath.Join(store.metadataRoot(), "put", putTempPrefix+"*"))
+		if err != nil {
+			t.Fatalf("Glob temp files: %v", err)
+		}
+		if len(matches) > 0 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("Put did not create staging file")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	items, err := store.List("")
+	if err != nil {
+		t.Fatalf("List during Put: %v", err)
+	}
+	if len(items) != 0 {
+		t.Fatalf("List during Put = %#v, want no staging objects", items)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close writer: %v", err)
+	}
+	if err := <-putErr; err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+}
+
+func TestDirMetadataFailureRestoresExistingObjectAndDeadline(t *testing.T) {
+	root := t.TempDir()
+	store := Dir(root)
+	oldDeadline := time.Now().Add(time.Hour).UTC()
+	if err := store.PutWithDeadline("asset.txt", strings.NewReader("old"), oldDeadline); err != nil {
+		t.Fatalf("initial PutWithDeadline: %v", err)
+	}
+	metadataDir := filepath.Dir(store.metadataPath("asset.txt"))
+	if err := os.Chmod(metadataDir, 0o500); err != nil {
+		t.Fatalf("Chmod metadata dir: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(metadataDir, 0o700) })
+
+	if err := store.PutWithDeadline("asset.txt", strings.NewReader("new"), time.Now().Add(2*time.Hour)); err == nil {
+		t.Fatal("replacement PutWithDeadline error = nil")
+	}
+	if err := os.Chmod(metadataDir, 0o700); err != nil {
+		t.Fatalf("restore metadata dir mode: %v", err)
+	}
+
+	r, err := store.Get("asset.txt")
+	if err != nil {
+		t.Fatalf("Get restored object: %v", err)
+	}
+	data, readErr := io.ReadAll(r)
+	closeErr := r.Close()
+	if readErr != nil || closeErr != nil {
+		t.Fatalf("read restored object: read=%v close=%v", readErr, closeErr)
+	}
+	if string(data) != "old" {
+		t.Fatalf("restored data = %q, want old", data)
+	}
+	items, err := store.List("")
+	if err != nil {
+		t.Fatalf("List restored object: %v", err)
+	}
+	if len(items) != 1 || !items[0].Deadline.Equal(oldDeadline) {
+		t.Fatalf("restored items = %#v, want old deadline %v", items, oldDeadline)
+	}
+	assertNoPutTemps(t, root)
 }
 
 func TestDirPutWithTTLExpiresObjects(t *testing.T) {
@@ -234,6 +364,55 @@ func TestDirNormalizesObjectNames(t *testing.T) {
 	}
 }
 
+func TestDirAllowsObjectNamesStartingWithPutTempPrefix(t *testing.T) {
+	store := Dir(t.TempDir())
+	name := putTempPrefix + "public/asset.txt"
+	if err := store.Put(name, strings.NewReader("data")); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+	items, err := store.List("")
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(items) != 1 || items[0].Name != name {
+		t.Fatalf("List = %#v, want %q", items, name)
+	}
+	r, err := store.Get(name)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	data, readErr := io.ReadAll(r)
+	closeErr := r.Close()
+	if readErr != nil || closeErr != nil {
+		t.Fatalf("read object: read=%v close=%v", readErr, closeErr)
+	}
+	if string(data) != "data" {
+		t.Fatalf("data = %q, want data", data)
+	}
+}
+
+func TestDirPutDoesNotReplacePrefixDirectory(t *testing.T) {
+	store := Dir(t.TempDir())
+	if err := store.Put("a/b", strings.NewReader("nested")); err != nil {
+		t.Fatalf("Put nested object: %v", err)
+	}
+	if err := store.Put("a", strings.NewReader("parent")); err == nil {
+		t.Fatal("Put prefix object error = nil")
+	}
+	r, err := store.Get("a/b")
+	if err != nil {
+		t.Fatalf("Get nested object: %v", err)
+	}
+	data, readErr := io.ReadAll(r)
+	closeErr := r.Close()
+	if readErr != nil || closeErr != nil {
+		t.Fatalf("read nested object: read=%v close=%v", readErr, closeErr)
+	}
+	if string(data) != "nested" {
+		t.Fatalf("nested data = %q, want nested", data)
+	}
+}
+
 func reader(s string) io.Reader {
 	return &stringReader{s: s}
 }
@@ -241,6 +420,30 @@ func reader(s string) io.Reader {
 type stringReader struct {
 	s string
 	i int
+}
+
+type failingReader struct {
+	data []byte
+}
+
+func (r *failingReader) Read(p []byte) (int, error) {
+	if len(r.data) == 0 {
+		return 0, os.ErrInvalid
+	}
+	n := copy(p, r.data)
+	r.data = r.data[n:]
+	return n, os.ErrInvalid
+}
+
+func assertNoPutTemps(t *testing.T, root string) {
+	t.Helper()
+	matches, err := filepath.Glob(filepath.Join(root, metadataRoot, "put", putTempPrefix+"*"))
+	if err != nil {
+		t.Fatalf("Glob temp files: %v", err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("temp files remain: %v", matches)
+	}
 }
 
 func (r *stringReader) Read(p []byte) (int, error) {

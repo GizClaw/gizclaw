@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:fixnum/fixnum.dart' as fixnum;
+import 'package:protobuf/protobuf.dart' show GeneratedMessage;
 
-import 'generated/rpc/common.pb.dart' as common;
-import 'generated/rpc/peer.pb.dart' as peer;
+import 'generated/rpc/rpc.pb.dart' as rpc;
 import 'generated/rpc/payload.pb.dart' as payload;
 import 'method_registry.dart';
 import 'payload_codec.dart';
@@ -16,21 +16,38 @@ const _rpcSpeedTestMaxContentLength = 1 << 30;
 const _rpcDataChannelBufferHighWaterMark = 1024 * 1024;
 const _dataChannelSendRetryDelay = Duration(milliseconds: 5);
 
-void serveGizClawPeerRpcChannel(GizClawDataChannel channel) {
-  _InboundPeerRpcChannel(channel).start();
+typedef GizClawDeviceInfoProvider = FutureOr<payload.DeviceInfo> Function();
+typedef GizClawToolInvoker =
+    FutureOr<payload.ToolInvokeResponse> Function(
+      payload.ToolInvokeRequest request,
+    );
+
+class GizClawPeerRpcHandlers {
+  const GizClawPeerRpcHandlers({required this.deviceInfo, this.invokeTool});
+
+  final GizClawDeviceInfoProvider deviceInfo;
+  final GizClawToolInvoker? invokeTool;
+}
+
+void serveGizClawPeerRpcChannel(
+  GizClawDataChannel channel, {
+  GizClawPeerRpcHandlers? handlers,
+}) {
+  _InboundPeerRpcChannel(channel, handlers).start();
 }
 
 class _InboundPeerRpcChannel {
-  _InboundPeerRpcChannel(this.channel);
+  _InboundPeerRpcChannel(this.channel, this.handlers);
 
   final GizClawDataChannel channel;
+  final GizClawPeerRpcHandlers? handlers;
   final _envelopeChunks = <Uint8List>[];
   var _buffer = Uint8List(0);
   var _closed = false;
   var _envelopeLength = 0;
   var _ignoreBody = false;
   var _uploaded = 0;
-  peer.RpcRequest? _request;
+  rpc.RpcRequest? _request;
   late StreamSubscription<Uint8List> _messages;
   late StreamSubscription<GizClawDataChannelState> _states;
 
@@ -81,16 +98,19 @@ class _InboundPeerRpcChannel {
         if (_envelopeChunks.isNotEmpty) {
           throw const FormatException('RPC request has duplicate envelope');
         }
-        _startRequest(peer.RpcRequest.fromBuffer(frame.payload));
+        _startRequest(rpc.RpcRequest.fromBuffer(frame.payload));
         return;
       }
       if (frame.type == rpcFrameTypeEos && _envelopeChunks.isNotEmpty) {
-        final continuedRequest = peer.RpcRequest.fromBuffer(
+        final continuedRequest = rpc.RpcRequest.fromBuffer(
           concatBytes(_envelopeChunks),
         );
         _startRequest(continuedRequest);
-        if (_methodName(continuedRequest) == 'all.ping') {
+        final methodName = _methodName(continuedRequest);
+        if (methodName == 'all.ping') {
           _finishPing(continuedRequest);
+        } else if (_isClientMethod(methodName)) {
+          _finishClientRequest(continuedRequest);
         }
         return;
       }
@@ -130,10 +150,19 @@ class _InboundPeerRpcChannel {
       _ignoreBody = true;
       return;
     }
+    if (_isClientMethod(methodName)) {
+      if (frame.type != rpcFrameTypeEos) {
+        throw FormatException(
+          'expected client RPC EOS frame, got ${frame.type}',
+        );
+      }
+      _finishClientRequest(request);
+      return;
+    }
     _ignoreBody = true;
   }
 
-  void _startRequest(peer.RpcRequest request) {
+  void _startRequest(rpc.RpcRequest request) {
     if (request.id.isEmpty || !request.hasMethod()) {
       throw const FormatException('invalid RPC request envelope');
     }
@@ -150,7 +179,7 @@ class _InboundPeerRpcChannel {
             _sendEnvelopeOnly(
               _rpcErrorResponse(
                 request.id,
-                common.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS,
+                rpc.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS,
                 'invalid params',
               ),
             ).catchError((_) => _close()),
@@ -164,13 +193,17 @@ class _InboundPeerRpcChannel {
           ).catchError((_) => _close()),
         );
         return;
+      case 'client.info.get':
+      case 'client.identifiers.get':
+      case 'client.tool.invoke':
+        return;
       default:
         _ignoreBody = true;
         _unawaited(
           _sendEnvelopeOnly(
             _rpcErrorResponse(
               request.id,
-              common.RpcErrorCode.RPC_ERROR_CODE_METHOD_NOT_FOUND,
+              rpc.RpcErrorCode.RPC_ERROR_CODE_METHOD_NOT_FOUND,
               'unsupported method: $methodName',
             ),
           ).catchError((_) => _close()),
@@ -178,14 +211,157 @@ class _InboundPeerRpcChannel {
     }
   }
 
-  void _finishPing(peer.RpcRequest request) {
+  Future<void> _serveClientRequest(rpc.RpcRequest request) async {
+    final methodName = _methodName(request);
+    late rpc.RpcResponse response;
+    try {
+      response = switch (methodName) {
+        'client.info.get' => await _getClientInfo(request),
+        'client.identifiers.get' => await _getClientIdentifiers(request),
+        'client.tool.invoke' => await _invokeClientTool(request),
+        _ => throw StateError('unsupported client method: $methodName'),
+      };
+    } catch (error) {
+      response = _rpcErrorResponse(
+        request.id,
+        rpc.RpcErrorCode.RPC_ERROR_CODE_INTERNAL_ERROR,
+        error.toString(),
+      );
+    }
+    await _sendEnvelopeOnly(response);
+  }
+
+  void _finishClientRequest(rpc.RpcRequest request) {
+    _ignoreBody = true;
+    _unawaited(_serveClientRequest(request).catchError((_) => _close()));
+  }
+
+  Future<rpc.RpcResponse> _getClientInfo(rpc.RpcRequest request) async {
+    final invalid = _validateClientRequest(request, 'client.info.get');
+    if (invalid != null) return invalid;
+    final provider = handlers?.deviceInfo;
+    if (provider == null) {
+      return _rpcErrorResponse(
+        request.id,
+        rpc.RpcErrorCode.RPC_ERROR_CODE_INTERNAL_ERROR,
+        'peer client not configured',
+      );
+    }
+    final device = await provider();
+    final info = payload.RefreshInfo();
+    if (device.hasName()) info.name = device.name;
+    if (device.hasHardware()) {
+      final hardware = device.hardware;
+      if (hardware.hasHardwareRevision()) {
+        info.hardwareRevision = hardware.hardwareRevision;
+      }
+      if (hardware.hasManufacturer()) {
+        info.manufacturer = hardware.manufacturer;
+      }
+      if (hardware.hasModel()) info.model = hardware.model;
+    }
+    return _rpcPayloadResponse(
+      request.id,
+      'client.info.get',
+      payload.ClientGetInfoResponse(value: info),
+    );
+  }
+
+  Future<rpc.RpcResponse> _getClientIdentifiers(rpc.RpcRequest request) async {
+    final invalid = _validateClientRequest(request, 'client.identifiers.get');
+    if (invalid != null) return invalid;
+    final provider = handlers?.deviceInfo;
+    if (provider == null) {
+      return _rpcErrorResponse(
+        request.id,
+        rpc.RpcErrorCode.RPC_ERROR_CODE_INTERNAL_ERROR,
+        'peer client not configured',
+      );
+    }
+    final device = await provider();
+    final identifiers = payload.RefreshIdentifiers();
+    if (device.hasSn()) identifiers.sn = device.sn;
+    if (device.hasHardware()) {
+      identifiers.imeis.addAll(device.hardware.imeis);
+      identifiers.labels.addAll(device.hardware.labels);
+    }
+    return _rpcPayloadResponse(
+      request.id,
+      'client.identifiers.get',
+      payload.ClientGetIdentifiersResponse(value: identifiers),
+    );
+  }
+
+  Future<rpc.RpcResponse> _invokeClientTool(rpc.RpcRequest request) async {
+    if (!request.hasPayload()) {
+      return _rpcErrorResponse(
+        request.id,
+        rpc.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS,
+        'invalid params',
+      );
+    }
+    late payload.ToolInvokeRequest params;
+    try {
+      params =
+          decodeRpcRequestPayload('client.tool.invoke', request.payload)
+              as payload.ToolInvokeRequest;
+    } catch (_) {
+      return _rpcErrorResponse(
+        request.id,
+        rpc.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS,
+        'invalid params',
+      );
+    }
+    final invokeTool = handlers?.invokeTool;
+    if (invokeTool == null) {
+      return _rpcErrorResponse(
+        request.id,
+        rpc.RpcErrorCode.RPC_ERROR_CODE_METHOD_NOT_FOUND,
+        'client.tool.invoke handler not configured',
+      );
+    }
+    final result = await invokeTool(params);
+    return _rpcPayloadResponse(request.id, 'client.tool.invoke', result);
+  }
+
+  rpc.RpcResponse? _validateClientRequest(
+    rpc.RpcRequest request,
+    String methodName,
+  ) {
+    try {
+      decodeRpcRequestPayload(
+        methodName,
+        request.hasPayload() ? request.payload : const [],
+      );
+      return null;
+    } catch (_) {
+      return _rpcErrorResponse(
+        request.id,
+        rpc.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS,
+        'invalid params',
+      );
+    }
+  }
+
+  rpc.RpcResponse _rpcPayloadResponse(
+    String id,
+    String methodName,
+    GeneratedMessage response,
+  ) {
+    return rpc.RpcResponse(
+      id: id,
+      payload: encodeRpcResponsePayload(methodName, response),
+    );
+  }
+
+  void _finishPing(rpc.RpcRequest request) {
     if (!request.hasPayload()) {
       _ignoreBody = true;
       _unawaited(
         _sendEnvelopeOnly(
           _rpcErrorResponse(
             request.id,
-            common.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS,
+            rpc.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS,
             'missing params',
           ),
         ).catchError((_) => _close()),
@@ -196,7 +372,7 @@ class _InboundPeerRpcChannel {
     _ignoreBody = true;
     _unawaited(
       _sendEnvelopeOnly(
-        common.RpcResponse(
+        rpc.RpcResponse(
           id: request.id,
           payload: encodeRpcResponsePayload(
             'all.ping',
@@ -209,7 +385,7 @@ class _InboundPeerRpcChannel {
     );
   }
 
-  payload.SpeedTestRequest? _validSpeedTestParams(peer.RpcRequest request) {
+  payload.SpeedTestRequest? _validSpeedTestParams(rpc.RpcRequest request) {
     if (!request.hasPayload()) {
       return null;
     }
@@ -231,7 +407,7 @@ class _InboundPeerRpcChannel {
     String id,
     payload.SpeedTestRequest params,
   ) async {
-    final responseEnvelope = common.RpcResponse(
+    final responseEnvelope = rpc.RpcResponse(
       id: id,
       payload: encodeRpcResponsePayload(
         'all.speed_test.run',
@@ -256,7 +432,7 @@ class _InboundPeerRpcChannel {
     await _sendFrame(encodeFrame(rpcFrameTypeEos));
   }
 
-  Future<void> _sendEnvelopeOnly(common.RpcResponse response) async {
+  Future<void> _sendEnvelopeOnly(rpc.RpcResponse response) async {
     await _sendFrames(encodeEnvelopeFrames(response.writeToBuffer()));
     await _sendFrame(encodeFrame(rpcFrameTypeEos));
   }
@@ -281,20 +457,26 @@ class _InboundPeerRpcChannel {
     await channel.send(frame);
   }
 
-  common.RpcResponse _rpcErrorResponse(
+  rpc.RpcResponse _rpcErrorResponse(
     String id,
-    common.RpcErrorCode code,
+    rpc.RpcErrorCode code,
     String message,
   ) {
-    return common.RpcResponse(
+    return rpc.RpcResponse(
       id: id,
-      error: common.RpcError(code: code, message: message),
+      error: rpc.RpcError(code: code, message: message),
     );
   }
 
-  String _methodName(peer.RpcRequest request) {
+  String _methodName(rpc.RpcRequest request) {
     return rpcMethodNamesById[request.method.value] ??
         'unknown:${request.method.value}';
+  }
+
+  bool _isClientMethod(String methodName) {
+    return methodName == 'client.info.get' ||
+        methodName == 'client.identifiers.get' ||
+        methodName == 'client.tool.invoke';
   }
 
   void _close() {

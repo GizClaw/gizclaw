@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const protoURL = new URL("../../../api/telemetry/peer_telemetry.proto", import.meta.url);
+const protoURL = new URL("../../../api/proto/telemetry/peer_telemetry.proto", import.meta.url);
 const outputURL = new URL("../gizclaw/generated/telemetry/peer_telemetry.ts", import.meta.url);
 const proto = readFileSync(protoURL, "utf8");
 const messages = parseProtoMessages(proto);
@@ -16,7 +16,7 @@ for (const expected of [
   "SystemObservation",
 ]) {
   if (!messages.has(expected)) {
-    throw new Error(`api/telemetry/peer_telemetry.proto missing message ${expected}`);
+    throw new Error(`api/proto/telemetry/peer_telemetry.proto missing message ${expected}`);
   }
 }
 

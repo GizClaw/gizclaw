@@ -1,13 +1,13 @@
 import { readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 
-const rpcProtoURL = new URL("../../../api/rpc/peer.proto", import.meta.url);
+const rpcProtoURL = new URL("../../../api/proto/rpc/rpc.proto", import.meta.url);
 const outputURL = new URL("../gizclaw/generated/rpc/method-map.ts", import.meta.url);
 
 const methods = parseRPCMethods(readFileSync(rpcProtoURL, "utf8"));
 
 if (!Array.isArray(methods) || methods.length === 0) {
-  throw new Error("api/rpc/peer.proto must define RpcMethod entries before generating RPC TypeScript.");
+  throw new Error("api/proto/rpc/rpc.proto must define RpcMethod entries before generating RPC TypeScript.");
 }
 
 for (const item of methods) {

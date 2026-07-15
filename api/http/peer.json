@@ -1,0 +1,553 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Peer HTTP API",
+    "description": "Peer HTTP endpoints.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "tags": [
+    {
+      "name": "PeerHTTP",
+      "description": "Peer HTTP operations"
+    },
+    {
+      "name": "Auth",
+      "description": "Peer HTTP authentication"
+    }
+  ],
+  "paths": {
+    "/login": {
+      "post": {
+        "operationId": "login",
+        "summary": "Exchange a device assertion for a bearer session",
+        "tags": [
+          "Auth"
+        ],
+        "parameters": [
+          {
+            "name": "X-Public-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Login result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid assertion",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/server-info": {
+      "get": {
+        "operationId": "getServerInfo",
+        "summary": "Get server information",
+        "tags": [
+          "Public"
+        ],
+        "responses": {
+          "200": {
+            "description": "Server info",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ServerInfo"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid params",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/webrtc/v1/offer": {
+      "post": {
+        "operationId": "createGiznetWebRTCOffer",
+        "summary": "Create a WebRTC answer for an encrypted browser offer",
+        "description": "Public WebRTC signaling endpoint for browser clients. The request body is an encrypted SDP offer and the 200 response body is the encrypted SDP answer.",
+        "tags": [
+          "Public"
+        ],
+        "parameters": [
+          {
+            "name": "X-Giznet-Public-Key",
+            "in": "header",
+            "required": true,
+            "description": "Client public key.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Giznet-Timestamp",
+            "in": "header",
+            "required": true,
+            "description": "Unix timestamp used by signaling AEAD derivation.",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "X-Giznet-Nonce",
+            "in": "header",
+            "required": true,
+            "description": "Base64url nonce used by signaling AEAD derivation and replay checks.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Encrypted SDP answer.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid signaling request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GiznetWebRTCSignalingError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized signaling request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GiznetWebRTCSignalingError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Peer is not allowed to connect.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GiznetWebRTCSignalingError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Signaling nonce was replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GiznetWebRTCSignalingError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Signaling body is too large.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GiznetWebRTCSignalingError"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported signaling media type.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GiznetWebRTCSignalingError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to create signaling answer.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GiznetWebRTCSignalingError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "WebRTC signaling listener is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GiznetWebRTCSignalingError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me": {
+      "get": {
+        "operationId": "getMe",
+        "summary": "Get caller peer summary",
+        "tags": [
+          "PeerHTTP"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Caller peer summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeerSelf"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or missing bearer session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Peer not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/status": {
+      "get": {
+        "operationId": "getMeStatus",
+        "summary": "Get caller peer status",
+        "tags": [
+          "PeerHTTP"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Caller peer status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/PeerStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or missing bearer session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Peer not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putMeStatus",
+        "summary": "Update caller peer status",
+        "tags": [
+          "PeerHTTP"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./shared.json#/components/schemas/PeerStatus"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated caller peer status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/PeerStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or missing bearer session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Peer not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid status payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/runtime": {
+      "get": {
+        "operationId": "getMeRuntime",
+        "summary": "Get caller peer runtime",
+        "tags": [
+          "PeerHTTP"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Caller peer runtime",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/Runtime"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or missing bearer session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Peer not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "PeerSelf": {
+        "type": "object",
+        "required": [
+          "public_key",
+          "registration_status"
+        ],
+        "properties": {
+          "public_key": {
+            "type": "string"
+          },
+          "registration_status": {
+            "$ref": "./shared.json#/components/schemas/PeerRegistrationStatus"
+          },
+          "device": {
+            "$ref": "./shared.json#/components/schemas/DeviceInfo"
+          }
+        }
+      },
+      "LoginResult": {
+        "type": "object",
+        "required": [
+          "access_token",
+          "token_type",
+          "expires_at"
+        ],
+        "properties": {
+          "access_token": {
+            "type": "string"
+          },
+          "token_type": {
+            "type": "string",
+            "enum": [
+              "Bearer"
+            ]
+          },
+          "expires_at": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "GiznetWebRTCSignalingError": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

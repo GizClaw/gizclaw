@@ -1,6 +1,6 @@
 # Desktop Play User Stories
 
-- As a play user, I can open the Wails-hosted Play view from the desktop shell.
+- As a play user, I can open the browser-served Play UI from a Pod.
 - As a play user, workspace runtime state loads through direct WebRTC RPC,
   without the old client-service HTTP API.
 - As a play user, I can refresh and reload the active workspace and request a

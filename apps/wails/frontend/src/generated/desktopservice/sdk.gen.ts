@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.ts';
 import { client } from './client.gen.ts';
-import type { CreateDesktopContextData, CreateDesktopContextErrors, CreateDesktopContextResponses, EndDesktopViewSessionData, EndDesktopViewSessionErrors, EndDesktopViewSessionResponses, GetDesktopBootstrapData, GetDesktopBootstrapErrors, GetDesktopBootstrapResponses, GetDesktopViewSessionData, GetDesktopViewSessionErrors, GetDesktopViewSessionResponses, ListDesktopContextsData, ListDesktopContextsErrors, ListDesktopContextsResponses, ListDesktopViewsData, ListDesktopViewsErrors, ListDesktopViewsResponses, SelectDesktopContextData, SelectDesktopContextErrors, SelectDesktopContextResponses, StartDesktopViewSessionData, StartDesktopViewSessionErrors, StartDesktopViewSessionResponses } from './types.gen.ts';
+import type { CreateDesktopPodData, CreateDesktopPodErrors, CreateDesktopPodResponses, DeleteDesktopPodData, DeleteDesktopPodErrors, DeleteDesktopPodResponses, GetDesktopBootstrapData, GetDesktopBootstrapErrors, GetDesktopBootstrapResponses, GetDesktopPodData, GetDesktopPodErrors, GetDesktopPodResponses, ListDesktopPodsData, ListDesktopPodsErrors, ListDesktopPodsResponses, OpenDesktopAdminData, OpenDesktopAdminErrors, OpenDesktopAdminResponses, OpenDesktopPlayData, OpenDesktopPlayErrors, OpenDesktopPlayResponses, RefreshDesktopPodHealthData, RefreshDesktopPodHealthErrors, RefreshDesktopPodHealthResponses, RestartDesktopLocalServerData, RestartDesktopLocalServerErrors, RestartDesktopLocalServerResponses, RevealDesktopPodData, RevealDesktopPodErrors, RevealDesktopPodResponses, StartDesktopLocalServerData, StartDesktopLocalServerErrors, StartDesktopLocalServerResponses, StopDesktopLocalServerData, StopDesktopLocalServerErrors, StopDesktopLocalServerResponses, UpdateDesktopPodData, UpdateDesktopPodErrors, UpdateDesktopPodResponses } from './types.gen.ts';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -19,26 +19,20 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 };
 
 /**
- * Get desktop bootstrap state
- *
- * Returns available contexts, available views, persisted launcher defaults, and the active view session if one exists. This operation only reads local desktop state and does not expose local filesystem paths.
+ * Load the desktop Pod home
  */
 export const getDesktopBootstrap = <ThrowOnError extends boolean = false>(options?: Options<GetDesktopBootstrapData, ThrowOnError>): RequestResult<GetDesktopBootstrapResponses, GetDesktopBootstrapErrors, ThrowOnError> => (options?.client ?? client).get<GetDesktopBootstrapResponses, GetDesktopBootstrapErrors, ThrowOnError>({ url: '/desktop/bootstrap', ...options });
 
 /**
- * List local desktop contexts
- *
- * Lists contexts from the local desktop context store. This does not contact any GizClaw server.
+ * List Pods without secret material
  */
-export const listDesktopContexts = <ThrowOnError extends boolean = false>(options?: Options<ListDesktopContextsData, ThrowOnError>): RequestResult<ListDesktopContextsResponses, ListDesktopContextsErrors, ThrowOnError> => (options?.client ?? client).get<ListDesktopContextsResponses, ListDesktopContextsErrors, ThrowOnError>({ url: '/desktop/contexts', ...options });
+export const listDesktopPods = <ThrowOnError extends boolean = false>(options?: Options<ListDesktopPodsData, ThrowOnError>): RequestResult<ListDesktopPodsResponses, ListDesktopPodsErrors, ThrowOnError> => (options?.client ?? client).get<ListDesktopPodsResponses, ListDesktopPodsErrors, ThrowOnError>({ url: '/desktop/pods', ...options });
 
 /**
- * Create a local desktop context
- *
- * Creates a local desktop context and identity. This does not register the peer, select a dashboard session, or contact a GizClaw server.
+ * Create and materialize a Pod
  */
-export const createDesktopContext = <ThrowOnError extends boolean = false>(options: Options<CreateDesktopContextData, ThrowOnError>): RequestResult<CreateDesktopContextResponses, CreateDesktopContextErrors, ThrowOnError> => (options.client ?? client).post<CreateDesktopContextResponses, CreateDesktopContextErrors, ThrowOnError>({
-    url: '/desktop/contexts',
+export const createDesktopPod = <ThrowOnError extends boolean = false>(options: Options<CreateDesktopPodData, ThrowOnError>): RequestResult<CreateDesktopPodResponses, CreateDesktopPodErrors, ThrowOnError> => (options.client ?? client).post<CreateDesktopPodResponses, CreateDesktopPodErrors, ThrowOnError>({
+    url: '/desktop/pods',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -47,12 +41,22 @@ export const createDesktopContext = <ThrowOnError extends boolean = false>(optio
 });
 
 /**
- * Select current local desktop context
- *
- * Selects a context from the local context store as the launcher default. This does not start a dashboard session or return private key material.
+ * Stop, clean up, and delete a Pod
  */
-export const selectDesktopContext = <ThrowOnError extends boolean = false>(options: Options<SelectDesktopContextData, ThrowOnError>): RequestResult<SelectDesktopContextResponses, SelectDesktopContextErrors, ThrowOnError> => (options.client ?? client).put<SelectDesktopContextResponses, SelectDesktopContextErrors, ThrowOnError>({
-    url: '/desktop/contexts/current',
+export const deleteDesktopPod = <ThrowOnError extends boolean = false>(options: Options<DeleteDesktopPodData, ThrowOnError>): RequestResult<DeleteDesktopPodResponses, DeleteDesktopPodErrors, ThrowOnError> => (options.client ?? client).delete<DeleteDesktopPodResponses, DeleteDesktopPodErrors, ThrowOnError>({ url: '/desktop/pods/{pod_id}', ...options });
+
+/**
+ * Get one Pod without secret material
+ */
+export const getDesktopPod = <ThrowOnError extends boolean = false>(options: Options<GetDesktopPodData, ThrowOnError>): RequestResult<GetDesktopPodResponses, GetDesktopPodErrors, ThrowOnError> => (options.client ?? client).get<GetDesktopPodResponses, GetDesktopPodErrors, ThrowOnError>({ url: '/desktop/pods/{pod_id}', ...options });
+
+/**
+ * Update and rematerialize a Pod
+ *
+ * Omitted secret properties preserve stored values; an explicitly empty secret removes it.
+ */
+export const updateDesktopPod = <ThrowOnError extends boolean = false>(options: Options<UpdateDesktopPodData, ThrowOnError>): RequestResult<UpdateDesktopPodResponses, UpdateDesktopPodErrors, ThrowOnError> => (options.client ?? client).put<UpdateDesktopPodResponses, UpdateDesktopPodErrors, ThrowOnError>({
+    url: '/desktop/pods/{pod_id}',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -61,36 +65,43 @@ export const selectDesktopContext = <ThrowOnError extends boolean = false>(optio
 });
 
 /**
- * List desktop views
- *
- * Lists views registered by the local desktop app, such as Admin and Play. This list is local to Wails and does not come from a GizClaw server.
+ * Probe all applicable server-info endpoints
  */
-export const listDesktopViews = <ThrowOnError extends boolean = false>(options?: Options<ListDesktopViewsData, ThrowOnError>): RequestResult<ListDesktopViewsResponses, ListDesktopViewsErrors, ThrowOnError> => (options?.client ?? client).get<ListDesktopViewsResponses, ListDesktopViewsErrors, ThrowOnError>({ url: '/desktop/views', ...options });
+export const refreshDesktopPodHealth = <ThrowOnError extends boolean = false>(options: Options<RefreshDesktopPodHealthData, ThrowOnError>): RequestResult<RefreshDesktopPodHealthResponses, RefreshDesktopPodHealthErrors, ThrowOnError> => (options.client ?? client).post<RefreshDesktopPodHealthResponses, RefreshDesktopPodHealthErrors, ThrowOnError>({ url: '/desktop/pods/{pod_id}/health', ...options });
 
 /**
- * End the active desktop view session
- *
- * Signs out of the current dashboard session and returns the app to the Welcome page. This clears only the active session; it must not delete or reset stored contexts or identities.
+ * Reveal a Pod directory in the system file manager
  */
-export const endDesktopViewSession = <ThrowOnError extends boolean = false>(options?: Options<EndDesktopViewSessionData, ThrowOnError>): RequestResult<EndDesktopViewSessionResponses, EndDesktopViewSessionErrors, ThrowOnError> => (options?.client ?? client).delete<EndDesktopViewSessionResponses, EndDesktopViewSessionErrors, ThrowOnError>({ url: '/desktop/view-session', ...options });
+export const revealDesktopPod = <ThrowOnError extends boolean = false>(options: Options<RevealDesktopPodData, ThrowOnError>): RequestResult<RevealDesktopPodResponses, RevealDesktopPodErrors, ThrowOnError> => (options.client ?? client).post<RevealDesktopPodResponses, RevealDesktopPodErrors, ThrowOnError>({ url: '/desktop/pods/{pod_id}/reveal', ...options });
 
 /**
- * Get active desktop view session
- *
- * Returns active dashboard session metadata. If there is no active session, active is false.
+ * Start a local Pod server
  */
-export const getDesktopViewSession = <ThrowOnError extends boolean = false>(options?: Options<GetDesktopViewSessionData, ThrowOnError>): RequestResult<GetDesktopViewSessionResponses, GetDesktopViewSessionErrors, ThrowOnError> => (options?.client ?? client).get<GetDesktopViewSessionResponses, GetDesktopViewSessionErrors, ThrowOnError>({ url: '/desktop/view-session', ...options });
+export const startDesktopLocalServer = <ThrowOnError extends boolean = false>(options: Options<StartDesktopLocalServerData, ThrowOnError>): RequestResult<StartDesktopLocalServerResponses, StartDesktopLocalServerErrors, ThrowOnError> => (options.client ?? client).post<StartDesktopLocalServerResponses, StartDesktopLocalServerErrors, ThrowOnError>({ url: '/desktop/pods/{pod_id}/local-server/start', ...options });
 
 /**
- * Start a desktop view session
- *
- * Starts a dashboard session for the selected local context and view. This operation records session state only; private runtime material is injected when the selected view page is served, not returned by this API. This operation does not contact a GizClaw server.
+ * Stop a local Pod server
  */
-export const startDesktopViewSession = <ThrowOnError extends boolean = false>(options: Options<StartDesktopViewSessionData, ThrowOnError>): RequestResult<StartDesktopViewSessionResponses, StartDesktopViewSessionErrors, ThrowOnError> => (options.client ?? client).post<StartDesktopViewSessionResponses, StartDesktopViewSessionErrors, ThrowOnError>({
-    url: '/desktop/view-session',
+export const stopDesktopLocalServer = <ThrowOnError extends boolean = false>(options: Options<StopDesktopLocalServerData, ThrowOnError>): RequestResult<StopDesktopLocalServerResponses, StopDesktopLocalServerErrors, ThrowOnError> => (options.client ?? client).post<StopDesktopLocalServerResponses, StopDesktopLocalServerErrors, ThrowOnError>({ url: '/desktop/pods/{pod_id}/local-server/stop', ...options });
+
+/**
+ * Restart a local Pod server
+ */
+export const restartDesktopLocalServer = <ThrowOnError extends boolean = false>(options: Options<RestartDesktopLocalServerData, ThrowOnError>): RequestResult<RestartDesktopLocalServerResponses, RestartDesktopLocalServerErrors, ThrowOnError> => (options.client ?? client).post<RestartDesktopLocalServerResponses, RestartDesktopLocalServerErrors, ThrowOnError>({ url: '/desktop/pods/{pod_id}/local-server/restart', ...options });
+
+/**
+ * Prepare Admin for the system browser
+ */
+export const openDesktopAdmin = <ThrowOnError extends boolean = false>(options: Options<OpenDesktopAdminData, ThrowOnError>): RequestResult<OpenDesktopAdminResponses, OpenDesktopAdminErrors, ThrowOnError> => (options.client ?? client).post<OpenDesktopAdminResponses, OpenDesktopAdminErrors, ThrowOnError>({
+    url: '/desktop/pods/{pod_id}/admin',
     ...options,
     headers: {
         'Content-Type': 'application/json',
         ...options.headers
     }
 });
+
+/**
+ * Prepare Play for the system browser
+ */
+export const openDesktopPlay = <ThrowOnError extends boolean = false>(options: Options<OpenDesktopPlayData, ThrowOnError>): RequestResult<OpenDesktopPlayResponses, OpenDesktopPlayErrors, ThrowOnError> => (options.client ?? client).post<OpenDesktopPlayResponses, OpenDesktopPlayErrors, ThrowOnError>({ url: '/desktop/pods/{pod_id}/play', ...options });

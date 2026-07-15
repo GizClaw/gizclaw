@@ -1,7 +1,6 @@
 import 'package:gizclaw/src/client.dart';
-import 'package:gizclaw/src/generated/rpc/common.pb.dart' as common;
+import 'package:gizclaw/src/generated/rpc/rpc.pb.dart' as rpc;
 import 'package:gizclaw/src/generated/rpc/payload.pb.dart' as payload;
-import 'package:gizclaw/src/generated/rpc/peer.pb.dart' as peer;
 import 'package:gizclaw/src/payload_codec.dart';
 import 'package:gizclaw/src/rpc_frame.dart';
 import 'package:protobuf/protobuf.dart';
@@ -167,7 +166,7 @@ void main() {
   });
 }
 
-Future<peer.RpcRequest> _request(
+Future<rpc.RpcRequest> _request(
   FakeDataChannelFactory factory,
   int index,
 ) async {
@@ -176,7 +175,7 @@ Future<peer.RpcRequest> _request(
     await Future<void>.delayed(Duration.zero);
   }
   final frames = decodeFrames(factory.channels[index].sent.single);
-  return peer.RpcRequest.fromBuffer(frames.first.payload);
+  return rpc.RpcRequest.fromBuffer(frames.first.payload);
 }
 
 void _respond(
@@ -188,7 +187,7 @@ void _respond(
   channel.addMessage(
     concatBytes([
       ...encodeEnvelopeFrames(
-        common.RpcResponse(
+        rpc.RpcResponse(
           id: id,
           payload: encodeRpcResponsePayload(method, response),
         ).writeToBuffer(),

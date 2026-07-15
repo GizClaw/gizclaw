@@ -177,7 +177,7 @@ export type WorkspaceList = {
 export type WorkflowList = {
     has_next: boolean;
     next_cursor?: string | null;
-    items: Array<WorkflowDocument>;
+    items: Array<Workflow>;
 };
 
 export type GeminiTenantUpsert = {
@@ -330,6 +330,7 @@ export type GameRulesetUpsert = {
 export type PetDefUpsert = {
     id: string;
     spec: PetDefSpec;
+    i18n?: PetDefI18nSpec;
 };
 
 export type BadgeDefUpsert = {
@@ -544,6 +545,7 @@ export type PetDefResource = {
     kind: 'PetDef';
     metadata: ResourceMetadata;
     spec: PetDefSpec;
+    i18n?: PetDefI18nSpec;
 };
 
 /**
@@ -651,6 +653,10 @@ export type ResourceListResource = {
     spec: ResourceListSpec;
 };
 
+export type ResourceListSpec = {
+    items: Array<Resource>;
+};
+
 export type ToolResource = {
     apiVersion: ResourceApiVersion;
     kind: 'Tool';
@@ -683,6 +689,7 @@ export type WorkflowResource = {
      */
     metadata: ResourceMetadata;
     spec: WorkflowSpec;
+    i18n?: WorkflowI18n;
 };
 
 export type WorkspaceResource = {
@@ -1149,6 +1156,7 @@ export type PetDef = {
     pixa_path?: string;
     created_at: string;
     updated_at: string;
+    i18n: PetDefI18nSpec;
 };
 
 export type PetDefActionEffectSpec = {
@@ -1203,7 +1211,8 @@ export type PetDefI18nDriveSpec = {
 };
 
 export type PetDefI18nSpec = {
-    [key: string]: PetDefI18nCatalog;
+    default_locale: string;
+    [key: string]: PetDefI18nCatalog | string;
 };
 
 export type PetDefPixaCanvasMetadata = {
@@ -1229,14 +1238,12 @@ export type PetDefPixaSpec = {
 };
 
 export type PetDefSpec = {
-    default_locale: string;
     workflow_name?: string;
     attr: PetDefAttrSpec;
     character: PetDefCharacterSpec;
     voice: PetDefVoiceSpec;
     drive: PetDefDriveSpec;
     visual: PetDefVisualSpec;
-    i18n: PetDefI18nSpec;
 };
 
 export type PetDefVisualRefSpec = {
@@ -1624,10 +1631,6 @@ export type Registration = {
     approved_at?: string;
 };
 
-export type ResourceListSpec = {
-    items: Array<Resource>;
-};
-
 export type Runtime = {
     online: boolean;
     last_seen_at: string;
@@ -1937,20 +1940,32 @@ export type VolcTenantSpec = {
     description?: string;
 };
 
-export type WorkflowDocument = {
-    metadata: WorkflowMetadata;
-    spec: WorkflowSpec;
-};
-
-export type WorkflowMetadata = {
+export type Workflow = {
     /**
-     * Stable workflow ID. The creator must provide this value.
+     * Stable workflow ID used by storage, paths, ACLs, and workspace references.
      */
     name: string;
+    spec: WorkflowSpec;
+    i18n?: WorkflowI18n;
+};
+
+/**
+ * Workflow-owned closed locale catalogs. default_locale must name a present catalog property.
+ */
+export type WorkflowI18n = {
+    default_locale: WorkflowLocale;
+    en?: WorkflowI18nCatalog;
+    'zh-CN'?: WorkflowI18nCatalog;
+};
+
+export type WorkflowI18nCatalog = {
+    name?: string;
     description?: string;
 };
 
-export type WorkflowDriver = 'flowcraft' | 'doubao-realtime' | 'ast-translate' | 'chatroom';
+export type WorkflowLocale = 'en' | 'zh-CN';
+
+export type WorkflowDriver = 'flowcraft' | 'doubao-realtime' | 'ast-translate' | 'chatroom' | 'pet';
 
 export type WorkflowSpec = {
     driver: WorkflowDriver;
@@ -1959,6 +1974,7 @@ export type WorkflowSpec = {
     doubao_realtime?: DoubaoRealtimeWorkflowSpec;
     ast_translate?: AstTranslateWorkflowSpec;
     chatroom?: ChatRoomWorkflowSpec;
+    pet?: PetWorkflowSpec;
 };
 
 export type AstTranslateExternalVoiceParameters = {
@@ -2153,6 +2169,10 @@ export type FlowcraftWorkflowSpec = {
     [key: string]: unknown;
 };
 
+export type PetWorkflowSpec = {
+    [key: string]: never;
+};
+
 export type Workspace = {
     name: string;
     workflow_name: string;
@@ -2279,6 +2299,39 @@ export type FlowcraftWorkspaceParameters = {
     e2e?: boolean;
 };
 
+export type PetConversationParameters = {
+    /**
+     * Who starts the conversation when the workspace runtime opens.
+     */
+    initiative?: 'peer' | 'agent';
+};
+
+export type PetPersonaParameters = {
+    /**
+     * Workspace-specific personality prompt appended to the PetDef character prompt.
+     */
+    prompt?: string;
+};
+
+export type PetVoiceParameters = {
+    /**
+     * GizClaw Voice resource name used for this pet.
+     */
+    voice_id: string;
+    /**
+     * Workspace-specific speaking style prompt appended to the PetDef voice prompt.
+     */
+    prompt?: string;
+};
+
+export type PetWorkspaceParameters = {
+    agent_type: 'pet';
+    input?: WorkspaceInputMode;
+    conversation?: PetConversationParameters;
+    persona?: PetPersonaParameters;
+    voice: PetVoiceParameters;
+};
+
 export type WorkspaceInputMode = 'push-to-talk' | 'realtime';
 
 /**
@@ -2292,7 +2345,9 @@ export type WorkspaceParameters = ({
     agent_type: 'ast-translate';
 } & AstTranslateWorkspaceParameters) | ({
     agent_type: 'chatroom';
-} & ChatRoomWorkspaceParameters);
+} & ChatRoomWorkspaceParameters) | ({
+    agent_type: 'pet';
+} & PetWorkspaceParameters);
 
 export type WorkspaceSpec = {
     /**
@@ -3967,7 +4022,7 @@ export type ListWorkflowsResponses = {
 export type ListWorkflowsResponse = ListWorkflowsResponses[keyof ListWorkflowsResponses];
 
 export type CreateWorkflowData = {
-    body: WorkflowDocument;
+    body: Workflow;
     path?: never;
     query?: never;
     url: '/workflows';
@@ -3994,7 +4049,7 @@ export type CreateWorkflowResponses = {
     /**
      * Created workflow
      */
-    200: WorkflowDocument;
+    200: Workflow;
 };
 
 export type CreateWorkflowResponse = CreateWorkflowResponses[keyof CreateWorkflowResponses];
@@ -5745,7 +5800,7 @@ export type DeleteWorkflowResponses = {
     /**
      * Deleted workflow
      */
-    200: WorkflowDocument;
+    200: Workflow;
 };
 
 export type DeleteWorkflowResponse = DeleteWorkflowResponses[keyof DeleteWorkflowResponses];
@@ -5777,15 +5832,15 @@ export type GetWorkflowError = GetWorkflowErrors[keyof GetWorkflowErrors];
 
 export type GetWorkflowResponses = {
     /**
-     * Workflow document
+     * Workflow
      */
-    200: WorkflowDocument;
+    200: Workflow;
 };
 
 export type GetWorkflowResponse = GetWorkflowResponses[keyof GetWorkflowResponses];
 
 export type PutWorkflowData = {
-    body: WorkflowDocument;
+    body: Workflow;
     path: {
         /**
          * Workflow name
@@ -5813,7 +5868,7 @@ export type PutWorkflowResponses = {
     /**
      * Stored workflow
      */
-    200: WorkflowDocument;
+    200: Workflow;
 };
 
 export type PutWorkflowResponse = PutWorkflowResponses[keyof PutWorkflowResponses];

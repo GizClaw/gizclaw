@@ -3,9 +3,11 @@ package transformers
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"iter"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -218,6 +220,107 @@ func TestDoubaoRealtimePushToTalkEndsASR(t *testing.T) {
 	}
 }
 
+func TestDoubaoRealtimePushToTalkRejectsInvalidInputTransitions(t *testing.T) {
+	tests := []struct {
+		name       string
+		chunks     []*genx.MessageChunk
+		wantErr    string
+		wantEndASR int
+	}{
+		{
+			name: "audio before BOS",
+			chunks: []*genx.MessageChunk{
+				{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+			},
+			wantErr: "received audio outside an active BOS/EOS turn",
+		},
+		{
+			name: "EOS before BOS",
+			chunks: []*genx.MessageChunk{
+				{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+			},
+			wantErr: "received EOS before active BOS",
+		},
+		{
+			name: "duplicate EOS",
+			chunks: []*genx.MessageChunk{
+				{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+				{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+				{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+				{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+			},
+			wantErr:    "received EOS before active BOS",
+			wantEndASR: 1,
+		},
+		{
+			name: "nested BOS",
+			chunks: []*genx.MessageChunk{
+				{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+				{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+			},
+			wantErr: "received BOS while already capturing",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			endASR := make(chan struct{})
+			session := &fakeDoubaoRealtimeSession{
+				beforeRecv: endASR,
+				endASR:     endASR,
+				events:     []*doubaospeech.RealtimeEvent{{Type: doubaospeech.EventSessionFinished}},
+			}
+			tfr := NewDoubaoRealtime(nil,
+				WithDoubaoRealtimeInputFormat("pcm"),
+				WithDoubaoRealtimeInputTranscode(false),
+			)
+			output := newBufferStream(16)
+			err := runDoubaoRealtimeProcessLoop(t, tfr, &sliceRealtimeStream{chunks: tt.chunks}, output, session)
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("processLoop() error = %v, want containing %q", err, tt.wantErr)
+			}
+			if got := session.endASRCount(); got != tt.wantEndASR {
+				t.Fatalf("EndASR calls = %d, want %d", got, tt.wantEndASR)
+			}
+		})
+	}
+}
+
+func TestDoubaoPushToTalkStateLifecycleAndBargeIn(t *testing.T) {
+	state := &doubaoPushToTalkState{}
+	if got := state.current(); got != doubaoPushToTalkIdle {
+		t.Fatalf("initial phase = %v, want idle", got)
+	}
+	bargeIn, interrupted, err := state.begin("turn-1")
+	if err != nil || bargeIn {
+		t.Fatalf("begin() = (%v, %q, %v), want (false, empty, nil)", bargeIn, interrupted, err)
+	}
+	if err := state.requireCapturing("audio"); err != nil {
+		t.Fatalf("requireCapturing() error = %v", err)
+	}
+	if err := state.end(); err != nil {
+		t.Fatalf("end() error = %v", err)
+	}
+	if got := state.current(); got != doubaoPushToTalkWaitingResponse {
+		t.Fatalf("phase after end = %v, want waiting response", got)
+	}
+	bargeIn, interrupted, err = state.begin("turn-2")
+	if err != nil || !bargeIn || interrupted != "turn-1" {
+		t.Fatalf("begin() while waiting = (%v, %q, %v), want (true, turn-1, nil)", bargeIn, interrupted, err)
+	}
+	if err := state.end(); err != nil {
+		t.Fatalf("second end() error = %v", err)
+	}
+	state.responseStarted(true)
+	if got := state.current(); got != doubaoPushToTalkResponding {
+		t.Fatalf("phase after response = %v, want responding", got)
+	}
+	bargeIn, interrupted, err = state.begin("turn-3")
+	if err != nil || !bargeIn || interrupted != "turn-2" {
+		t.Fatalf("begin() while responding = (%v, %q, %v), want (true, turn-2, nil)", bargeIn, interrupted, err)
+	}
+}
+
 func TestDoubaoRealtimeMapsRealtimeEventsToStreamChunks(t *testing.T) {
 	session := &fakeDoubaoRealtimeSession{
 		events: []*doubaospeech.RealtimeEvent{
@@ -326,6 +429,116 @@ func TestDoubaoRealtimeInterruptsPendingResponseBeforeTTS(t *testing.T) {
 	}
 }
 
+func TestDoubaoRealtimePushToTalkBargeInWhileWaitingResponse(t *testing.T) {
+	eventsDrained := make(chan struct{})
+	releaseEvents := make(chan struct{})
+	allowNextInput := make(chan struct{})
+	endASR := make(chan struct{})
+	session := &fakeDoubaoRealtimeSession{
+		events:           []*doubaospeech.RealtimeEvent{{Type: doubaospeech.EventASRResponse, Text: "第一段"}, {Type: doubaospeech.EventASREnded}},
+		beforeRecv:       endASR,
+		endASR:           endASR,
+		eventsDrained:    eventsDrained,
+		blockAfterEvents: releaseEvents,
+	}
+	tfr := NewDoubaoRealtime(nil,
+		WithDoubaoRealtimeMode(DoubaoRealtimeModePushToTalk),
+		WithDoubaoRealtimeInputFormat("pcm"),
+		WithDoubaoRealtimeInputTranscode(false),
+		WithDoubaoRealtimeFormat("pcm"),
+	)
+	input := &gatedRealtimeStream{
+		first: []*genx.MessageChunk{
+			{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+			{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+			{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+		},
+		gate: allowNextInput,
+		rest: []*genx.MessageChunk{{Ctrl: &genx.StreamCtrl{StreamID: "turn-2", BeginOfStream: true}}},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	output := newBufferStream(16)
+	errCh := make(chan error, 1)
+	go func() {
+		next, err := tfr.processLoop(ctx, input, output, session)
+		if err == nil && (next == nil || next.Ctrl == nil || next.Ctrl.StreamID != "turn-2" || !next.Ctrl.BeginOfStream) {
+			err = fmt.Errorf("processLoop() next chunk = %#v, want turn-2 BOS", next)
+		}
+		output.Close()
+		errCh <- err
+	}()
+
+	select {
+	case <-eventsDrained:
+	case <-ctx.Done():
+		t.Fatalf("events did not reach waiting-response state: %v", ctx.Err())
+	}
+	close(allowNextInput)
+	select {
+	case err := <-errCh:
+		close(releaseEvents)
+		if err != nil {
+			t.Fatalf("processLoop() error = %v", err)
+		}
+	case <-ctx.Done():
+		close(releaseEvents)
+		t.Fatalf("processLoop() timed out: %v", ctx.Err())
+	}
+	if got := session.endASRCount(); got != 1 {
+		t.Fatalf("EndASR calls = %d, want 1", got)
+	}
+	if got := session.interruptCount(); got != 1 {
+		t.Fatalf("Interrupt calls = %d, want 1", got)
+	}
+	chunks := drainRealtimeTestOutput(t, output)
+	if !hasRealtimeInterruptedEOS(chunks, "turn-1", genx.RoleModel, false) ||
+		!hasRealtimeInterruptedEOS(chunks, "turn-1", genx.RoleModel, true) {
+		t.Fatalf("missing interrupted response EOS: %#v", chunks)
+	}
+}
+
+func TestDoubaoRealtimeBargeInPropagatesInterruptFailure(t *testing.T) {
+	eventsDrained := make(chan struct{})
+	releaseEvents := make(chan struct{})
+	allowInput := make(chan struct{})
+	session := &fakeDoubaoRealtimeSession{
+		events:           []*doubaospeech.RealtimeEvent{{Type: doubaospeech.EventASREnded}},
+		eventsDrained:    eventsDrained,
+		blockAfterEvents: releaseEvents,
+		interruptErr:     errors.New("interrupt failed"),
+	}
+	input := &gatedRealtimeStream{
+		gate: allowInput,
+		rest: []*genx.MessageChunk{{Ctrl: &genx.StreamCtrl{StreamID: "turn-2", BeginOfStream: true}}},
+	}
+	tfr := NewDoubaoRealtime(nil, WithDoubaoRealtimeMode(DoubaoRealtimeModePushToTalk))
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	errCh := make(chan error, 1)
+	go func() {
+		_, err := tfr.processLoop(ctx, input, newBufferStream(8), session)
+		errCh <- err
+	}()
+	select {
+	case <-eventsDrained:
+	case <-ctx.Done():
+		t.Fatalf("events did not make response interruptible: %v", ctx.Err())
+	}
+	close(allowInput)
+	select {
+	case err := <-errCh:
+		close(releaseEvents)
+		if err == nil || !strings.Contains(err.Error(), "interrupt failed") {
+			t.Fatalf("processLoop() error = %v, want interrupt failure", err)
+		}
+	case <-ctx.Done():
+		close(releaseEvents)
+		t.Fatalf("processLoop() timed out: %v", ctx.Err())
+	}
+}
+
 func runDoubaoRealtimeProcessLoop(t *testing.T, tfr *DoubaoRealtime, input genx.Stream, output *bufferStream, session *fakeDoubaoRealtimeSession) error {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -401,6 +614,7 @@ type fakeDoubaoRealtimeSession struct {
 	endASR           chan struct{}
 	eventsDrained    chan<- struct{}
 	blockAfterEvents <-chan struct{}
+	interruptErr     error
 
 	mu                sync.Mutex
 	audio             [][]byte
@@ -449,7 +663,7 @@ func (s *fakeDoubaoRealtimeSession) Interrupt(context.Context) error {
 	s.mu.Lock()
 	s.interrupts++
 	s.mu.Unlock()
-	return nil
+	return s.interruptErr
 }
 
 func (s *fakeDoubaoRealtimeSession) Recv() iter.Seq2[*doubaospeech.RealtimeEvent, error] {

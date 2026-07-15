@@ -61,33 +61,6 @@ func setPublicHTTPCORSHeaders(header http.Header) {
 	header.Set("Access-Control-Expose-Headers", "Content-Length,Content-Type")
 }
 
-func httpLabelSetHandler(inner http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx, err := Tag(r.Context(), &HTTPLabelSet{
-			Method: r.Method,
-			Path:   r.URL.Path,
-			Host:   r.Host,
-		})
-		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-			return
-		}
-		recorder := &statusResponseWriter{ResponseWriter: w, statusCode: http.StatusOK}
-		inner.ServeHTTP(recorder, r.WithContext(ctx))
-		_, _ = Tag(ctx, &HTTPLabelSet{StatusCode: strconv.Itoa(recorder.statusCode)})
-	})
-}
-
-type statusResponseWriter struct {
-	http.ResponseWriter
-	statusCode int
-}
-
-func (w *statusResponseWriter) WriteHeader(statusCode int) {
-	w.statusCode = statusCode
-	w.ResponseWriter.WriteHeader(statusCode)
-}
-
 // fiberHTTPHandler adapts a Fiber app to net/http for gizhttp.NewServer.
 func fiberHTTPHandler(app *fiber.App) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -311,7 +311,7 @@ func TestAdminServerLogsStreamsLogAndEndEvents(t *testing.T) {
 
 	timeNs := "1783403541016789000"
 	logs := &fakeServerLogQuery{
-		entries: []ServerLogEntry{{
+		entries: []apitypes.ServerLogEntry{{
 			TimeMs:  1783403541016,
 			TimeNs:  &timeNs,
 			Level:   "ERROR",
@@ -320,7 +320,7 @@ func TestAdminServerLogsStreamsLogAndEndEvents(t *testing.T) {
 			Path:    "slog",
 			Fields:  map[string]string{"error": "boom"},
 		}},
-		end: ServerLogStreamEnd{Count: 1, HasNext: true, NextCursor: adminTestStringPtr("cursor-1")},
+		end: apitypes.ServerLogStreamEnd{Count: 1, HasNext: true, NextCursor: adminTestStringPtr("cursor-1")},
 	}
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 	adminhttp.RegisterHandlers(app, adminhttp.NewStrictHandler(&adminService{ServerLogs: logs}, nil))
@@ -378,7 +378,7 @@ func TestAdminServerLogsPostStartErrorUsesSSE(t *testing.T) {
 	t.Parallel()
 
 	logs := &fakeServerLogQuery{
-		entries: []ServerLogEntry{{
+		entries: []apitypes.ServerLogEntry{{
 			TimeMs:  1000,
 			Level:   "INFO",
 			Message: "first",
@@ -406,7 +406,7 @@ func TestWaitFirstServerLogEventPrefersBufferedEventOverDone(t *testing.T) {
 
 	events := make(chan serverLogEvent, 1)
 	done := make(chan error, 1)
-	events <- serverLogEvent{name: "log", data: ServerLogEntry{Message: "first"}}
+	events <- serverLogEvent{name: "log", data: apitypes.ServerLogEntry{Message: "first"}}
 	done <- ServerLogBackendError(errors.New("search failed"))
 
 	event, err, hasFirst, donePending := waitFirstServerLogEvent(context.Background(), events, done)
@@ -418,7 +418,7 @@ func TestWaitFirstServerLogEventPrefersBufferedEventOverDone(t *testing.T) {
 func TestAdminServerLogsAllowsCursorOnlyContinuation(t *testing.T) {
 	t.Parallel()
 
-	logs := &fakeServerLogQuery{end: ServerLogStreamEnd{}}
+	logs := &fakeServerLogQuery{end: apitypes.ServerLogStreamEnd{}}
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 	adminhttp.RegisterHandlers(app, adminhttp.NewStrictHandler(&adminService{ServerLogs: logs}, nil))
 
@@ -578,20 +578,20 @@ type fakeAdminWorkspaceHistory struct {
 
 type fakeServerLogQuery struct {
 	req     ServerLogStreamRequest
-	entries []ServerLogEntry
-	end     ServerLogStreamEnd
+	entries []apitypes.ServerLogEntry
+	end     apitypes.ServerLogStreamEnd
 	err     error
 }
 
-func (f *fakeServerLogQuery) StreamServerLogs(_ context.Context, req ServerLogStreamRequest, emit func(ServerLogEntry) error) (ServerLogStreamEnd, error) {
+func (f *fakeServerLogQuery) StreamServerLogs(_ context.Context, req ServerLogStreamRequest, emit func(apitypes.ServerLogEntry) error) (apitypes.ServerLogStreamEnd, error) {
 	f.req = req
 	for _, entry := range f.entries {
 		if err := emit(entry); err != nil {
-			return ServerLogStreamEnd{}, err
+			return apitypes.ServerLogStreamEnd{}, err
 		}
 	}
 	if f.err != nil {
-		return ServerLogStreamEnd{}, f.err
+		return apitypes.ServerLogStreamEnd{}, f.err
 	}
 	return f.end, nil
 }

@@ -80,7 +80,7 @@ func TestServiceResolverResolvesWorkspaceAndWorkflow(t *testing.T) {
 				WorkflowName: "workflow-1",
 			},
 		}, runtime: workspace.Runtime{ObjectPrefix: "workspaces/demo", LocalDir: "/tmp/demo"}},
-		Workflows: fakeWorkflowService{items: map[string]apitypes.WorkflowDocument{
+		Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{
 			"workflow-1": workflow,
 		}},
 	}
@@ -105,7 +105,7 @@ func TestServiceResolverUsesWorkflowDriverAsAgentType(t *testing.T) {
 		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
 			"demo": {Name: "demo", WorkflowName: "workflow-1"},
 		}},
-		Workflows: fakeWorkflowService{items: map[string]apitypes.WorkflowDocument{
+		Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{
 			"workflow-1": mustWorkflow(t, "workflow-1"),
 		}},
 	}
@@ -116,6 +116,27 @@ func TestServiceResolverUsesWorkflowDriverAsAgentType(t *testing.T) {
 	}
 	if spec.AgentType != "flowcraft" {
 		t.Fatalf("AgentType = %q, want flowcraft", spec.AgentType)
+	}
+}
+
+func TestServiceResolverRejectsWorkspaceAgentTypeWorkflowDriverMismatch(t *testing.T) {
+	var params apitypes.WorkspaceParameters
+	if err := params.FromPetWorkspaceParameters(apitypes.PetWorkspaceParameters{
+		AgentType: apitypes.PetWorkspaceParametersAgentTypePet,
+		Voice:     apitypes.PetVoiceParameters{VoiceId: "voice"},
+	}); err != nil {
+		t.Fatalf("FromPetWorkspaceParameters() error = %v", err)
+	}
+	resolver := ServiceResolver{
+		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
+			"demo": {Name: "demo", WorkflowName: "workflow-1", Parameters: &params},
+		}},
+		Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{
+			"workflow-1": mustWorkflow(t, "workflow-1"),
+		}},
+	}
+	if _, err := resolver.Resolve(context.Background(), "demo"); err == nil || !strings.Contains(err.Error(), "does not match workflow driver") {
+		t.Fatalf("Resolve() mismatch error = %v", err)
 	}
 }
 
@@ -130,9 +151,9 @@ func TestServiceResolverResolvesToolkitPolicy(t *testing.T) {
 				Toolkit:      &apitypes.ToolkitPolicy{ToolIds: &workspaceToolIDs},
 			},
 		}},
-		Workflows: fakeWorkflowService{items: map[string]apitypes.WorkflowDocument{
+		Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{
 			"workflow-1": {
-				Metadata: apitypes.WorkflowMetadata{Name: "workflow-1"},
+				Name: "workflow-1",
 				Spec: apitypes.WorkflowSpec{
 					Driver:  apitypes.WorkflowDriverFlowcraft,
 					Toolkit: &apitypes.ToolkitPolicy{ToolIds: &workflowToolIDs},
@@ -169,7 +190,7 @@ func TestServiceResolverWorkspaceToolkitCanExposeNoTools(t *testing.T) {
 				Toolkit:      &apitypes.ToolkitPolicy{ToolIds: &emptyToolIDs},
 			},
 		}},
-		Workflows: fakeWorkflowService{items: map[string]apitypes.WorkflowDocument{
+		Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{
 			"workflow-1": mustWorkflow(t, "workflow-1"),
 		}},
 		ToolBuilder:   &toolkit.Builder{},
@@ -196,9 +217,9 @@ func TestServiceResolverUsesToolkitAuthorizerFromContext(t *testing.T) {
 				WorkflowName: "workflow-1",
 			},
 		}},
-		Workflows: fakeWorkflowService{items: map[string]apitypes.WorkflowDocument{
+		Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{
 			"workflow-1": {
-				Metadata: apitypes.WorkflowMetadata{Name: "workflow-1"},
+				Name: "workflow-1",
 				Spec: apitypes.WorkflowSpec{
 					Driver:  apitypes.WorkflowDriverFlowcraft,
 					Toolkit: &apitypes.ToolkitPolicy{ToolIds: &workflowToolIDs},
@@ -284,7 +305,7 @@ func TestServiceResolverRequiresSubjectForToolkit(t *testing.T) {
 				Toolkit:      &apitypes.ToolkitPolicy{},
 			},
 		}},
-		Workflows: fakeWorkflowService{items: map[string]apitypes.WorkflowDocument{
+		Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{
 			"workflow-1": mustWorkflow(t, "workflow-1"),
 		}},
 		ToolBuilder:   &toolkit.Builder{},
@@ -338,7 +359,7 @@ func TestServiceResolverErrors(t *testing.T) {
 	if err := params.UnmarshalJSON([]byte(`{"agent_type":1}`)); err != nil {
 		t.Fatalf("UnmarshalJSON() error = %v", err)
 	}
-	resolver.Workflows = fakeWorkflowService{items: map[string]apitypes.WorkflowDocument{
+	resolver.Workflows = fakeWorkflowService{items: map[string]apitypes.Workflow{
 		"bad-agent-type": mustWorkflow(t, "bad-agent-type"),
 	}}
 	resolver.Workspaces = fakeWorkspaceService{items: map[string]apitypes.Workspace{
@@ -605,7 +626,7 @@ func (s fakeWorkspaceService) GetWorkspaceRuntime(context.Context, string) (work
 
 type fakeWorkflowService struct {
 	workflow.WorkflowAdminService
-	items map[string]apitypes.WorkflowDocument
+	items map[string]apitypes.Workflow
 }
 
 type subjectToolkitResolver struct{}
@@ -647,21 +668,21 @@ func (s fakeWorkflowService) GetWorkflow(_ context.Context, request adminhttp.Ge
 	return adminhttp.GetWorkflow200JSONResponse(item), nil
 }
 
-func mustWorkflow(t *testing.T, name string) apitypes.WorkflowDocument {
+func mustWorkflow(t *testing.T, name string) apitypes.Workflow {
 	t.Helper()
 
-	return apitypes.WorkflowDocument{
-		Metadata: apitypes.WorkflowMetadata{Name: name},
+	return apitypes.Workflow{
+		Name: name,
 		Spec: apitypes.WorkflowSpec{
 			Driver: apitypes.WorkflowDriverFlowcraft,
 		},
 	}
 }
 
-func rawWorkflow(t *testing.T, driver string) apitypes.WorkflowDocument {
+func rawWorkflow(t *testing.T, driver string) apitypes.Workflow {
 	t.Helper()
-	return apitypes.WorkflowDocument{
-		Metadata: apitypes.WorkflowMetadata{Name: "workflow"},
+	return apitypes.Workflow{
+		Name: "workflow",
 		Spec: apitypes.WorkflowSpec{
 			Driver: apitypes.WorkflowDriver(driver),
 		},

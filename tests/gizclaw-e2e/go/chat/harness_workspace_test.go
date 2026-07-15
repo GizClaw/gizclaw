@@ -323,37 +323,38 @@ func TestSetupWorkflowResourcesCoverWorkspaceConfigs(t *testing.T) {
 			if err := json.Unmarshal(data, &cfg); err != nil {
 				t.Fatalf("decode config: %v", err)
 			}
-			want := workflowDocument(cfg)
-			resource, ok := resources[want.Metadata.Name]
+			wantName := cfg.Workflow.Name
+			wantSpec := workflowSpec(cfg)
+			resource, ok := resources[wantName]
 			if !ok {
-				t.Fatalf("setup workflow resource for %q is missing", want.Metadata.Name)
+				t.Fatalf("setup workflow resource for %q is missing", wantName)
 			}
 			if resource.APIVersion != "gizclaw.admin/v1alpha1" || resource.Kind != "Workflow" {
 				t.Fatalf("resource header = %s/%s", resource.APIVersion, resource.Kind)
 			}
-			if resource.Metadata.Name != want.Metadata.Name {
-				t.Fatalf("resource workflow name = %q, want %q", resource.Metadata.Name, want.Metadata.Name)
+			if resource.Metadata.Name != wantName {
+				t.Fatalf("resource workflow name = %q, want %q", resource.Metadata.Name, wantName)
 			}
 			gotSpec, err := json.Marshal(resource.Spec)
 			if err != nil {
 				t.Fatalf("marshal resource spec: %v", err)
 			}
-			wantSpec, err := json.Marshal(want.Spec)
+			wantSpecJSON, err := json.Marshal(wantSpec)
 			if err != nil {
 				t.Fatalf("marshal expected spec: %v", err)
 			}
-			if string(gotSpec) != string(wantSpec) {
-				t.Fatalf("setup workflow spec drifted\nresource=%s\nwant=%s", gotSpec, wantSpec)
+			if string(gotSpec) != string(wantSpecJSON) {
+				t.Fatalf("setup workflow spec drifted\nresource=%s\nwant=%s", gotSpec, wantSpecJSON)
 			}
 		})
 	}
 }
 
 type setupWorkflowResource struct {
-	APIVersion string                  `json:"apiVersion"`
-	Kind       string                  `json:"kind"`
-	Metadata   rpcapi.WorkflowMetadata `json:"metadata"`
-	Spec       rpcapi.WorkflowSpec     `json:"spec"`
+	APIVersion string                    `json:"apiVersion"`
+	Kind       string                    `json:"kind"`
+	Metadata   apitypes.ResourceMetadata `json:"metadata"`
+	Spec       rpcapi.WorkflowSpec       `json:"spec"`
 }
 
 func loadSetupWorkflowResources(t *testing.T) map[string]setupWorkflowResource {
@@ -1096,7 +1097,7 @@ func (f *fakeRunControl) GetWorkflow(_ context.Context, _ string, request rpcapi
 		return f.workflow, nil
 	}
 	return &rpcapi.WorkflowGetResponse{
-		Metadata: rpcapi.WorkflowMetadata{Name: request.Name},
+		Name: request.Name,
 	}, nil
 }
 

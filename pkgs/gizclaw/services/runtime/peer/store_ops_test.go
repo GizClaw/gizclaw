@@ -3,6 +3,7 @@ package peer
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -53,32 +54,76 @@ func TestStoreOpsEnsureConnectedPeer(t *testing.T) {
 	if connected.AutoRegistered == nil || !*connected.AutoRegistered {
 		t.Fatalf("connected auto_registered = %+v", connected.AutoRegistered)
 	}
+	if connected.Configuration.View != nil {
+		t.Fatalf("connected view = %v, want nil", connected.Configuration.View)
+	}
 }
 
-func TestStoreOpsEnsureConnectedPeerPreservesExisting(t *testing.T) {
-	server := &Server{Store: mustBadgerInMemory(t, nil)}
-	ctx := context.Background()
-	publicKey := giznet.PublicKey{1}
-	if _, err := server.SavePeer(ctx, apitypes.Peer{
-		PublicKey:     publicKey.String(),
-		Role:          apitypes.PeerRoleAdmin,
-		Status:        apitypes.PeerRegistrationStatusBlocked,
-		Configuration: apitypes.Configuration{},
-	}); err != nil {
-		t.Fatalf("SavePeer error = %v", err)
+func TestStoreOpsEnsureConnectedPeerUsesDefaultView(t *testing.T) {
+	server := &Server{
+		Store:           mustBadgerInMemory(t, nil),
+		DefaultPeerView: " default-client ",
 	}
 
-	got, err := server.EnsureConnectedPeer(ctx, publicKey)
+	connected, err := server.EnsureConnectedPeer(context.Background(), giznet.PublicKey{1})
 	if err != nil {
 		t.Fatalf("EnsureConnectedPeer error = %v", err)
 	}
-	if got.Role != apitypes.PeerRoleAdmin || got.Status != apitypes.PeerRegistrationStatusBlocked {
-		t.Fatalf("EnsureConnectedPeer overwrote existing peer: %+v", got)
+	if connected.Configuration.View == nil || *connected.Configuration.View != "default-client" {
+		t.Fatalf("connected view = %v, want default-client", connected.Configuration.View)
+	}
+	stored, err := server.LoadPeer(context.Background(), giznet.PublicKey{1})
+	if err != nil {
+		t.Fatalf("LoadPeer error = %v", err)
+	}
+	if stored.Configuration.View == nil || *stored.Configuration.View != "default-client" {
+		t.Fatalf("stored view = %v, want default-client", stored.Configuration.View)
+	}
+}
+
+func TestStoreOpsEnsureConnectedPeerPreservesExisting(t *testing.T) {
+	view := "existing-view"
+	tests := []struct {
+		name          string
+		configuration apitypes.Configuration
+	}{
+		{name: "nil view", configuration: apitypes.Configuration{}},
+		{name: "different view", configuration: apitypes.Configuration{View: &view}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			server := &Server{
+				Store:           mustBadgerInMemory(t, nil),
+				DefaultPeerView: "default-client",
+			}
+			ctx := context.Background()
+			publicKey := giznet.PublicKey{1}
+			saved, err := server.SavePeer(ctx, apitypes.Peer{
+				PublicKey:     publicKey.String(),
+				Role:          apitypes.PeerRoleAdmin,
+				Status:        apitypes.PeerRegistrationStatusBlocked,
+				Configuration: tc.configuration,
+			})
+			if err != nil {
+				t.Fatalf("SavePeer error = %v", err)
+			}
+
+			got, err := server.EnsureConnectedPeer(ctx, publicKey)
+			if err != nil {
+				t.Fatalf("EnsureConnectedPeer error = %v", err)
+			}
+			if !reflect.DeepEqual(got, saved) {
+				t.Fatalf("EnsureConnectedPeer changed existing peer: got %+v, want %+v", got, saved)
+			}
+		})
 	}
 }
 
 func TestStoreOpsBootstrapEdgeNodesCreatesAndUpdatesPeers(t *testing.T) {
-	server := &Server{Store: mustBadgerInMemory(t, nil)}
+	server := &Server{
+		Store:           mustBadgerInMemory(t, nil),
+		DefaultPeerView: "default-client",
+	}
 	ctx := context.Background()
 	existingKey := giznet.PublicKey{1}
 	newKey := giznet.PublicKey{2}
@@ -112,6 +157,9 @@ func TestStoreOpsBootstrapEdgeNodesCreatesAndUpdatesPeers(t *testing.T) {
 	if existing.CreatedAt != createdAt || existing.Device.Name == nil || *existing.Device.Name != deviceName {
 		t.Fatalf("existing peer metadata not preserved: %+v", existing)
 	}
+	if existing.Configuration.View != nil {
+		t.Fatalf("existing edge view = %v, want nil", existing.Configuration.View)
+	}
 
 	created, err := server.LoadPeer(ctx, newKey)
 	if err != nil {
@@ -119,6 +167,9 @@ func TestStoreOpsBootstrapEdgeNodesCreatesAndUpdatesPeers(t *testing.T) {
 	}
 	if created.Role != apitypes.PeerRoleEdgeNode || created.Status != apitypes.PeerRegistrationStatusActive || created.PublicKey != newKey.String() {
 		t.Fatalf("new edge peer = %+v", created)
+	}
+	if created.Configuration.View != nil {
+		t.Fatalf("new edge view = %v, want nil", created.Configuration.View)
 	}
 }
 

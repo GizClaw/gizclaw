@@ -47,9 +47,8 @@ import {
   getPeerFriendInviteToken,
   getPeerGameRuleset,
   getPeerBadgeDefPixa,
-  getPeerPetPresentation,
+  getPeerPetActions,
   getPeerPoints,
-  getPeerPetDefPixa,
   getPeerPetPixa,
   getPeerWorkspaceHistoryAudio,
   getPeerRunWorkspace,
@@ -101,7 +100,7 @@ import {
   type PeerRunRecallHit,
   type PeerRunRecallResponse,
   type PetObject,
-  type PetPresentationObject,
+  type PetActionsObject,
   type PlayWorkspaceMode,
   type PlayWorkspaceState,
   type PlayVoiceStreamEvent,
@@ -522,8 +521,8 @@ function GameplayPanel(): JSX.Element {
       await expectData(drivePeerPet({ body }));
       const petID = selectedPetID.trim();
       const actionID = driveAction.trim();
-      const presentation = await getPeerPetPresentation({ body: { id: petID } });
-      const clipName = presentation.data == null ? actionID || "idle" : petActionPixaClipName(presentation.data as PetPresentationObject, actionID);
+      const presentation = await getPeerPetActions({ body: { id: petID } });
+      const clipName = presentation.data == null ? actionID || "idle" : petActionPixaClipName(presentation.data as PetActionsObject, actionID);
       setPetClipByID((current) => ({ ...current, [petID]: clipName }));
       await refreshAll();
     } catch (err) {
@@ -717,20 +716,12 @@ function GameplayPetTable({ busy, onDelete, onRename, pager, petClipByID }: { bu
   );
 }
 
-function petActionPixaClipName(presentation: PetPresentationObject, actionID: string): string {
+function petActionPixaClipName(actions: PetActionsObject, actionID: string): string {
   if (actionID === "") {
-    return pixaClipNameByID(presentation, "idle") ?? presentation.pixa_metadata.clips[0]?.pixa_clip_name ?? "idle";
+    return actions.actions.find((candidate) => candidate.id === "idle")?.pixa_clip_name ?? "idle";
   }
-  const action = presentation.drive.actions.find((candidate) => candidate.id === actionID);
-  const visualClipID = action?.visual_clip_id ?? actionID;
-  return pixaClipNameByID(presentation, visualClipID)
-    ?? presentation.pixa_metadata.clips.find((clip) => clip.action_id === actionID)?.pixa_clip_name
-    ?? presentation.pixa_metadata.clips.find((clip) => clip.pixa_clip_name === actionID)?.pixa_clip_name
-    ?? "idle";
-}
-
-function pixaClipNameByID(presentation: PetPresentationObject, clipID: string): string | null {
-  return presentation.pixa_metadata.clips.find((clip) => clip.id === clipID)?.pixa_clip_name ?? null;
+  const action = actions.actions.find((candidate) => candidate.id === actionID);
+  return action?.pixa_clip_name ?? action?.visual_clip_id ?? (actionID || "idle");
 }
 
 function GameplayBadgeTable({ pager }: { pager: ReturnType<typeof usePagedList<BadgeObject>> }): JSX.Element {
@@ -782,7 +773,7 @@ function GameplayBadgeTable({ pager }: { pager: ReturnType<typeof usePagedList<B
   );
 }
 
-function GameplayPixaSprite({ clipName, id, type }: { clipName: string; id: string; type: "pet" | "petdef" | "badgedef" }): JSX.Element {
+function GameplayPixaSprite({ clipName, id, type }: { clipName: string; id: string; type: "pet" | "badgedef" }): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [asset, setAsset] = useState<PixaAsset | null>(null);
   const [error, setError] = useState("");
@@ -797,9 +788,7 @@ function GameplayPixaSprite({ clipName, id, type }: { clipName: string; id: stri
     void (async () => {
       const result = type === "pet"
         ? await getPeerPetPixa({ body: { pet_id: id } })
-        : type === "petdef"
-          ? await getPeerPetDefPixa({ body: { id } })
-          : await getPeerBadgeDefPixa({ body: { id } });
+        : await getPeerBadgeDefPixa({ body: { id } });
       if (cancelled) {
         return;
       }

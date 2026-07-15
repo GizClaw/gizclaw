@@ -4,7 +4,6 @@
 #include "gzc_client.h"
 #include "gzc_json.h"
 #include "gzc_rpc_frame.h"
-#include "common.pb.h"
 #include "payload/ai.pb.h"
 #include "payload/edge.pb.h"
 #include "payload/enums.pb.h"
@@ -13,7 +12,7 @@
 #include "payload/social.pb.h"
 #include "payload/system.pb.h"
 #include "payload/workspace.pb.h"
-#include "peer.pb.h"
+#include "rpc.pb.h"
 
 #ifdef __cplusplus
 extern "C" {

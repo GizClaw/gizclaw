@@ -1,6 +1,6 @@
 # Desktop Admin User Stories
 
-- As an admin user, I can open the Wails-hosted Admin view from the desktop shell.
+- As an admin user, I can open the browser-served Admin UI from a Pod Server.
 - As an admin user, Admin resources load through the generated Admin API client
   over the WebRTC Admin API transport boundary.
 - As an admin user, I can scan resource sections such as peers, workflows,

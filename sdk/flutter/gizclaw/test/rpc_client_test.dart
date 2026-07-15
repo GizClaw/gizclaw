@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:gizclaw/src/generated/rpc/common.pb.dart' as common;
+import 'package:gizclaw/src/generated/rpc/rpc.pb.dart' as rpc;
 import 'package:gizclaw/src/generated/rpc/payload.pb.dart' as payload;
 import 'package:gizclaw/src/payload_codec.dart';
 import 'package:gizclaw/src/rpc_client.dart';
@@ -26,7 +26,7 @@ void main() {
     expect(channel.sent, hasLength(1));
     expect(decodeFrames(channel.sent.single).last.type, rpcFrameTypeEos);
 
-    final response = common.RpcResponse(
+    final response = rpc.RpcResponse(
       id: 'rpc-1',
       payload: encodeRpcResponsePayload(
         'server.workspace.get',
@@ -59,10 +59,10 @@ void main() {
     factory.channels.single.addMessage(
       concatBytes([
         ...encodeEnvelopeFrames(
-          common.RpcResponse(
+          rpc.RpcResponse(
             id: 'rpc-err',
-            error: common.RpcError(
-              code: common.RpcErrorCode.RPC_ERROR_CODE_NOT_FOUND,
+            error: rpc.RpcError(
+              code: rpc.RpcErrorCode.RPC_ERROR_CODE_NOT_FOUND,
               message: 'not found',
             ),
           ).writeToBuffer(),
@@ -84,7 +84,7 @@ void main() {
   test('accepts omitted payload for an empty response message', () async {
     final result = decodeRpcResponse(
       'server.friend.invite_token.clear',
-      common.RpcResponse(id: 'rpc-empty').writeToBuffer(),
+      rpc.RpcResponse(id: 'rpc-empty').writeToBuffer(),
       const [],
       'rpc-empty',
     );
@@ -105,7 +105,7 @@ void main() {
     factory.channels.single.addMessage(
       concatBytes([
         ...encodeEnvelopeFrames(
-          common.RpcResponse(
+          rpc.RpcResponse(
             id: 'rpc-got',
             payload: encodeRpcResponsePayload(
               'server.workspace.get',
@@ -144,7 +144,7 @@ void main() {
     factory.channels.single.addMessage(
       concatBytes([
         ...encodeEnvelopeFrames(
-          common.RpcResponse(
+          rpc.RpcResponse(
             payload: encodeRpcResponsePayload(
               'server.workspace.get',
               payload.WorkspaceGetResponse(
@@ -202,7 +202,7 @@ void main() {
     await Future<void>.delayed(Duration.zero);
 
     final largeName = 'w' * 70000;
-    final response = common.RpcResponse(
+    final response = rpc.RpcResponse(
       id: 'rpc-continuation',
       payload: encodeRpcResponsePayload(
         'server.workspace.get',
@@ -237,10 +237,10 @@ void main() {
     );
     await Future<void>.delayed(Duration.zero);
 
-    final response = common.RpcResponse(
+    final response = rpc.RpcResponse(
       id: 'rpc-binary-continuation-error',
-      error: common.RpcError(
-        code: common.RpcErrorCode.RPC_ERROR_CODE_INTERNAL_ERROR,
+      error: rpc.RpcError(
+        code: rpc.RpcErrorCode.RPC_ERROR_CODE_INTERNAL_ERROR,
         message: 'x' * 70000,
       ),
     );
@@ -279,7 +279,7 @@ void main() {
     channel.addMessage(
       concatBytes([
         ...encodeEnvelopeFrames(
-          common.RpcResponse(
+          rpc.RpcResponse(
             id: 'rpc-send-once',
             payload: encodeRpcResponsePayload(
               'server.workspace.get',

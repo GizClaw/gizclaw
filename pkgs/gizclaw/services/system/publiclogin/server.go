@@ -50,8 +50,6 @@ type LoginAssertionClaims struct {
 	Nonce string `json:"nonce"`
 }
 
-type LoginResponse = peerhttp.LoginResult
-
 type PeerHTTP interface {
 	Login(context.Context, peerhttp.LoginRequestObject) (peerhttp.LoginResponseObject, error)
 }
@@ -166,21 +164,21 @@ func newLoginAssertionAt(keyPair *giznet.KeyPair, serverPublicKey giznet.PublicK
 	return encodeLoginAssertion(header, claims, shared[:])
 }
 
-func (m *SessionManager) login(ctx context.Context, serverKeyPair *giznet.KeyPair, publicKey giznet.PublicKey, assertion string, authorizer SessionAuthorizer) (LoginResponse, error) {
+func (m *SessionManager) login(ctx context.Context, serverKeyPair *giznet.KeyPair, publicKey giznet.PublicKey, assertion string, authorizer SessionAuthorizer) (peerhttp.LoginResult, error) {
 	if m == nil || m.Store == nil {
-		return LoginResponse{}, errInvalidSession
+		return peerhttp.LoginResult{}, errInvalidSession
 	}
 	if serverKeyPair == nil {
-		return LoginResponse{}, errors.New("publiclogin: nil server key pair")
+		return peerhttp.LoginResult{}, errors.New("publiclogin: nil server key pair")
 	}
 	now := m.nowOrDefault()
 	claims, err := verifyLoginAssertion(serverKeyPair, publicKey, assertion, now)
 	if err != nil {
-		return LoginResponse{}, err
+		return peerhttp.LoginResult{}, err
 	}
 	if authorizer != nil {
 		if err := authorizer(ctx, publicKey); err != nil {
-			return LoginResponse{}, err
+			return peerhttp.LoginResult{}, err
 		}
 	}
 	assertionDeadline := time.Unix(claims.Exp, 0)
@@ -188,14 +186,14 @@ func (m *SessionManager) login(ctx context.Context, serverKeyPair *giznet.KeyPai
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if _, err := m.Store.Get(ctx, assertionKey(claims)); err == nil {
-		return LoginResponse{}, fmt.Errorf("%w: replayed assertion", errInvalidLoginAssertion)
+		return peerhttp.LoginResult{}, fmt.Errorf("%w: replayed assertion", errInvalidLoginAssertion)
 	} else if !errors.Is(err, kv.ErrNotFound) {
-		return LoginResponse{}, err
+		return peerhttp.LoginResult{}, err
 	}
 
 	token, err := randomToken(rand.Reader, 32)
 	if err != nil {
-		return LoginResponse{}, err
+		return peerhttp.LoginResult{}, err
 	}
 	expiresAt := now.Add(defaultSessionTTL)
 	body, err := json.Marshal(session{
@@ -203,7 +201,7 @@ func (m *SessionManager) login(ctx context.Context, serverKeyPair *giznet.KeyPai
 		ExpiresAt: expiresAt.UnixMilli(),
 	})
 	if err != nil {
-		return LoginResponse{}, err
+		return peerhttp.LoginResult{}, err
 	}
 	if err := m.Store.BatchSet(ctx, []kv.Entry{
 		{
@@ -217,9 +215,9 @@ func (m *SessionManager) login(ctx context.Context, serverKeyPair *giznet.KeyPai
 			Deadline: expiresAt,
 		},
 	}); err != nil {
-		return LoginResponse{}, err
+		return peerhttp.LoginResult{}, err
 	}
-	return LoginResponse{
+	return peerhttp.LoginResult{
 		AccessToken: token,
 		TokenType:   peerhttp.Bearer,
 		ExpiresAt:   expiresAt.UnixMilli(),

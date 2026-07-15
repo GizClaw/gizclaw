@@ -78,9 +78,6 @@ func IsMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerWorkspaceHistoryAudioGet,
 		rpcapi.RPCMethodServerWorkflowList,
 		rpcapi.RPCMethodServerWorkflowGet,
-		rpcapi.RPCMethodServerWorkflowCreate,
-		rpcapi.RPCMethodServerWorkflowPut,
-		rpcapi.RPCMethodServerWorkflowDelete,
 		rpcapi.RPCMethodServerModelList,
 		rpcapi.RPCMethodServerModelGet,
 		rpcapi.RPCMethodServerModelCreate,
@@ -121,11 +118,10 @@ func IsMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerFriendGroupMessagesGet,
 		rpcapi.RPCMethodServerFriendGroupMessagesSend,
 		rpcapi.RPCMethodServerGameRulesetGet,
-		rpcapi.RPCMethodServerPetDefPixaDownload,
 		rpcapi.RPCMethodServerBadgeDefPixaDownload,
 		rpcapi.RPCMethodServerPetList,
 		rpcapi.RPCMethodServerPetGet,
-		rpcapi.RPCMethodServerPetPresentationGet,
+		rpcapi.RPCMethodServerPetActionsGet,
 		rpcapi.RPCMethodServerPetPixaDownload,
 		rpcapi.RPCMethodServerPetAdopt,
 		rpcapi.RPCMethodServerPetPut,
@@ -182,12 +178,6 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 		return s.handleWorkflowList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerWorkflowGet:
 		return s.handleWorkflowGet(ctx, req), true, nil
-	case rpcapi.RPCMethodServerWorkflowCreate:
-		return s.handleWorkflowCreate(ctx, req)
-	case rpcapi.RPCMethodServerWorkflowPut:
-		return s.handleWorkflowPut(ctx, req)
-	case rpcapi.RPCMethodServerWorkflowDelete:
-		return s.handleWorkflowDelete(ctx, req), true, nil
 	case rpcapi.RPCMethodServerModelList:
 		return s.handleModelList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerModelGet:
@@ -268,16 +258,14 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 		return s.handleFriendGroupMessagesSend(ctx, req), true, nil
 	case rpcapi.RPCMethodServerGameRulesetGet:
 		return s.handleGameRulesetGet(ctx, req), true, nil
-	case rpcapi.RPCMethodServerPetDefPixaDownload:
-		return s.handlePetDefPixaDownload(ctx, req), true, nil
 	case rpcapi.RPCMethodServerBadgeDefPixaDownload:
 		return s.handleBadgeDefPixaDownload(ctx, req), true, nil
 	case rpcapi.RPCMethodServerPetList:
 		return s.handlePetList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerPetGet:
 		return s.handlePetGet(ctx, req), true, nil
-	case rpcapi.RPCMethodServerPetPresentationGet:
-		return s.handlePetPresentationGet(ctx, req), true, nil
+	case rpcapi.RPCMethodServerPetActionsGet:
+		return s.handlePetActionsGet(ctx, req), true, nil
 	case rpcapi.RPCMethodServerPetPixaDownload:
 		return s.handlePetPixaDownload(ctx, req), true, nil
 	case rpcapi.RPCMethodServerPetAdopt:
@@ -700,18 +688,22 @@ func (s *Server) handleWorkflowList(ctx context.Context, req *rpcapi.RPCRequest)
 	if rpcResp != nil {
 		return withRequestID(req.Id, rpcResp)
 	}
-	items := make([]apitypes.WorkflowDocument, 0, len(list.Items))
+	items := make([]rpcapi.Workflow, 0, len(list.Items))
 	for _, item := range list.Items {
-		err := s.authorizeErr(ctx, workflowResource(item.Metadata.Name), apitypes.ACLPermissionRead)
+		err := s.authorizeErr(ctx, workflowResource(item.Name), apitypes.ACLPermissionRead)
 		if errors.Is(err, acl.ErrDenied) {
 			continue
 		}
 		if err != nil {
 			return authError(req.Id, err)
 		}
-		items = append(items, item)
+		projected, err := workflowRPCProjection(item, params.Lang)
+		if err != nil {
+			return internalError(req.Id, err.Error())
+		}
+		items = append(items, projected)
 	}
-	return resultResponse(req.Id, adminhttp.WorkflowList{Items: items, HasNext: list.HasNext, NextCursor: list.NextCursor}, (*rpcapi.RPCPayload).FromWorkflowListResponse)
+	return resultResponse(req.Id, rpcapi.WorkflowListResponse{Items: items, HasNext: list.HasNext, NextCursor: list.NextCursor}, (*rpcapi.RPCPayload).FromWorkflowListResponse)
 }
 
 func (s *Server) handleWorkflowGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -729,103 +721,58 @@ func (s *Server) handleWorkflowGet(ctx context.Context, req *rpcapi.RPCRequest) 
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitGetWorkflowResponse, (*rpcapi.RPCPayload).FromWorkflowGetResponse)
-}
-
-func (s *Server) handleWorkflowCreate(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
-	if s.Workflows == nil {
-		return internalError(req.Id, "workflow service not configured"), true, nil
-	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsWorkflowCreateRequest)
-	if !ok {
-		return invalidParams(req.Id), true, nil
-	}
-	if resp := s.authorizeResponse(ctx, req.Id, acl.CollectionResource(acl.ResourceKindWorkflow), apitypes.ACLPermissionCreate); resp != nil {
-		return resp, true, nil
-	}
-	body, err := convertType[adminhttp.CreateWorkflowJSONRequestBody](params)
-	if err != nil {
-		return nil, true, err
-	}
-	adminResp, err := s.Workflows.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &body})
-	if err != nil {
-		return internalError(req.Id, err.Error()), true, nil
-	}
-	result, rpcResp, err := adminResult[apitypes.WorkflowDocument](adminResp.VisitCreateWorkflowResponse)
-	if err != nil {
-		return internalError(req.Id, err.Error()), true, nil
-	}
-	if rpcResp != nil {
-		return withRequestID(req.Id, rpcResp), true, nil
-	}
-	if err := s.grantResourceOwner(ctx, workflowResource(result.Metadata.Name)); err != nil {
-		_, _ = s.Workflows.DeleteWorkflow(
-			context.WithoutCancel(ctx),
-			adminhttp.DeleteWorkflowRequestObject{Name: result.Metadata.Name},
-		)
-		return internalError(req.Id, err.Error()), true, nil
-	}
-	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromWorkflowCreateResponse), true, nil
-}
-
-func (s *Server) handleWorkflowPut(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
-	if s.Workflows == nil {
-		return internalError(req.Id, "workflow service not configured"), true, nil
-	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsWorkflowPutRequest)
-	if !ok {
-		return invalidParams(req.Id), true, nil
-	}
-	if resp := s.authorizeResponse(ctx, req.Id, workflowResource(params.Name), apitypes.ACLPermissionAdmin); resp != nil {
-		return resp, true, nil
-	}
-	body, err := convertType[adminhttp.PutWorkflowJSONRequestBody](params.Body)
-	if err != nil {
-		return nil, true, err
-	}
-	adminResp, err := s.Workflows.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{Name: params.Name, Body: &body})
-	if err != nil {
-		return internalError(req.Id, err.Error()), true, nil
-	}
-	return adminRPCResponse(req.Id, adminResp.VisitPutWorkflowResponse, (*rpcapi.RPCPayload).FromWorkflowPutResponse), true, nil
-}
-
-func (s *Server) handleWorkflowDelete(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Workflows == nil {
-		return internalError(req.Id, "workflow service not configured")
-	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsWorkflowDeleteRequest)
-	if !ok {
-		return invalidParams(req.Id)
-	}
-	if resp := s.authorizeResponse(ctx, req.Id, workflowResource(params.Name), apitypes.ACLPermissionAdmin); resp != nil {
-		return resp
-	}
-	deletedBinding, err := s.deleteResourceOwnerBinding(context.WithoutCancel(ctx), workflowResource(params.Name))
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	adminResp, err := s.Workflows.DeleteWorkflow(ctx, adminhttp.DeleteWorkflowRequestObject{Name: params.Name})
-	if err != nil {
-		if restoreErr := s.restoreResourceOwnerBinding(context.WithoutCancel(ctx), deletedBinding); restoreErr != nil {
-			return internalError(req.Id, fmt.Sprintf("%v; Workflow owner binding rollback failed: %v", err, restoreErr))
-		}
-		return internalError(req.Id, err.Error())
-	}
-	if _, notFound := adminResp.(adminhttp.DeleteWorkflow404JSONResponse); notFound {
-		return adminRPCResponse(req.Id, adminResp.VisitDeleteWorkflowResponse, (*rpcapi.RPCPayload).FromWorkflowDeleteResponse)
-	}
-	result, rpcResp, err := adminResult[apitypes.WorkflowDocument](adminResp.VisitDeleteWorkflowResponse)
+	result, rpcResp, err := adminResult[apitypes.Workflow](adminResp.VisitGetWorkflowResponse)
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
 	if rpcResp != nil {
-		if restoreErr := s.restoreResourceOwnerBinding(context.WithoutCancel(ctx), deletedBinding); restoreErr != nil {
-			return internalError(req.Id, fmt.Sprintf("Workflow delete failed; owner binding rollback failed: %v", restoreErr))
-		}
 		return withRequestID(req.Id, rpcResp)
 	}
-	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromWorkflowDeleteResponse)
+	projected, err := workflowRPCProjection(result, params.Lang)
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	return resultResponse(req.Id, projected, (*rpcapi.RPCPayload).FromWorkflowGetResponse)
+}
+
+func workflowRPCProjection(item apitypes.Workflow, lang rpcapi.WorkflowLocale) (rpcapi.Workflow, error) {
+	spec, err := convertType[rpcapi.WorkflowSpec](item.Spec)
+	if err != nil {
+		return rpcapi.Workflow{}, err
+	}
+	return rpcapi.Workflow{
+		Name: item.Name,
+		Spec: spec,
+		I18n: selectedWorkflowCatalog(item.I18n, lang),
+	}, nil
+}
+
+func selectedWorkflowCatalog(i18n *apitypes.WorkflowI18n, lang rpcapi.WorkflowLocale) *rpcapi.WorkflowI18nCatalog {
+	if i18n == nil {
+		return nil
+	}
+	var catalog *apitypes.WorkflowI18nCatalog
+	switch lang {
+	case rpcapi.WorkflowLocaleEn:
+		catalog = i18n.En
+	case rpcapi.WorkflowLocaleZhCN:
+		catalog = i18n.ZhCN
+	}
+	if catalog == nil {
+		switch i18n.DefaultLocale {
+		case apitypes.WorkflowLocaleEn:
+			catalog = i18n.En
+		case apitypes.WorkflowLocaleZhCN:
+			catalog = i18n.ZhCN
+		}
+	}
+	if catalog == nil {
+		return nil
+	}
+	return &rpcapi.WorkflowI18nCatalog{
+		Name:        catalog.Name,
+		Description: catalog.Description,
+	}
 }
 
 func (s *Server) handleModelList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {

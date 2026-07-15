@@ -106,7 +106,7 @@ class _PetPageState extends State<PetPage> {
     try {
       final data = MobileDataScope.watch(context);
       final presentation = (await data.runRpc(
-        (client) => client.getPetPresentation(pet.id),
+        (client) => client.getPetActions(pet.id),
         retryOnTransportError: true,
       )).value;
       PixaAsset? pixa;
@@ -254,7 +254,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
   String? _chatWorkspaceName;
   bool _ownsChat = false;
   Pet? _pet;
-  PetPresentation? _presentation;
+  PetActions? _presentation;
   PixaAsset? _pixa;
   Object? _error;
   bool _loading = false;
@@ -375,7 +375,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
         retryOnTransportError: true,
       )).value;
       final presentation = (await data.runRpc(
-        (client) => client.getPetPresentation(widget.petId),
+        (client) => client.getPetActions(widget.petId),
         retryOnTransportError: true,
       )).value;
       PixaAsset? pixa;
@@ -399,7 +399,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
         _pet = pet;
         _presentation = presentation;
         _pixa = pixa;
-        _clipName = _defaultClip(presentation, pet);
+        _clipName = _defaultClip(presentation, pet, pixa);
         _loading = false;
       });
       await _syncPetChat(data, pet);
@@ -431,7 +431,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _drive(PetPresentationActionSpec action) async {
+  Future<void> _drive(PetAction action) async {
     final client = _client;
     final pet = _pet;
     if (client == null || pet == null || _drivingAction != null) return;
@@ -453,13 +453,13 @@ class _PetDetailPageState extends State<PetDetailPage> {
       if (!mounted) return;
       setState(() {
         _drivingAction = null;
-        _clipName = _defaultClip(_presentation, response.value.pet);
+        _clipName = _defaultClip(_presentation, response.value.pet, _pixa);
       });
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _drivingAction = null;
-        _clipName = _defaultClip(_presentation, _pet);
+        _clipName = _defaultClip(_presentation, _pet, _pixa);
         _error = error;
       });
     }
@@ -482,7 +482,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
     if (!mounted || _drivingAction != action.id) return;
     setState(() {
       _drivingAction = null;
-      _clipName = _defaultClip(_presentation, _pet);
+      _clipName = _defaultClip(_presentation, _pet, _pixa);
     });
   }
 
@@ -997,7 +997,11 @@ class _PetCoverCard extends StatelessWidget {
                     : _PetCoverSprite(
                         child: _AnimatedPetSprite(
                           asset: visual!.pixa!,
-                          clipName: _defaultClip(visual!.presentation, pet),
+                          clipName: _defaultClip(
+                            visual!.presentation,
+                            pet,
+                            visual!.pixa,
+                          ),
                           transparentEdgeBackground: true,
                         ),
                       ),
@@ -1038,7 +1042,11 @@ class _PetCoverCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            _petStateLabel(visual?.presentation, pet),
+                            _petStateLabel(
+                              visual?.presentation,
+                              pet,
+                              visual?.pixa,
+                            ),
                             style: GizText.label.copyWith(fontSize: 9),
                           ),
                         ],
@@ -1204,7 +1212,7 @@ class _PetCoverSpriteState extends State<_PetCoverSprite>
 class _PetVisual {
   const _PetVisual({required this.presentation, required this.pixa});
 
-  final PetPresentation presentation;
+  final PetActions presentation;
   final PixaAsset? pixa;
 }
 
@@ -1695,7 +1703,7 @@ class _PetMenuAction {
 
   final String id;
   final String? clipName;
-  final PetPresentationActionSpec? driveAction;
+  final PetAction? driveAction;
 }
 
 const _petActionAnchor = 160.0;
@@ -1715,7 +1723,7 @@ class _PetActionFab extends StatefulWidget {
   });
 
   final List<_PetMenuAction> actions;
-  final PetPresentationI18nCatalog? catalog;
+  final PetActionsI18nCatalog? catalog;
   final String? activeAction;
   final ValueChanged<_PetMenuAction> onAction;
   final VoidCallback onExpand;
@@ -2245,25 +2253,18 @@ class _PetMetric {
   final int value;
 }
 
-List<_PetMetric> _petMetrics(Pet pet, PetPresentationI18nCatalog? catalog) {
+List<_PetMetric> _petMetrics(Pet pet, PetActionsI18nCatalog? catalog) {
   return [
     for (final entry in pet.life.value.entries)
-      _PetMetric(
-        catalog?.attr.life.value[entry.key]?.displayName ?? _title(entry.key),
-        entry.value.toInt(),
-      ),
+      _PetMetric(_title(entry.key), entry.value.toInt()),
     for (final entry in pet.progression.value.entries)
-      _PetMetric(
-        catalog?.attr.progression.value[entry.key]?.displayName ??
-            _title(entry.key),
-        entry.value.toInt(),
-      ),
+      _PetMetric(_title(entry.key), entry.value.toInt()),
   ];
 }
 
-PetPresentationI18nCatalog? _catalogFor(
+PetActionsI18nCatalog? _catalogFor(
   BuildContext context,
-  PetPresentation? presentation,
+  PetActions? presentation,
 ) {
   if (presentation == null || presentation.i18n.value.isEmpty) return null;
   final catalogs = presentation.i18n.value;
@@ -2274,20 +2275,15 @@ PetPresentationI18nCatalog? _catalogFor(
       catalogs.values.first;
 }
 
-String _petName(Pet pet, PetPresentationI18nCatalog? catalog) {
+String _petName(Pet pet, PetActionsI18nCatalog? catalog) {
   if (pet.displayName.trim().isNotEmpty) return pet.displayName;
-  if (catalog?.displayName.trim().isNotEmpty == true) {
-    return catalog!.displayName;
-  }
   return 'Unnamed pet';
 }
 
-String _petStateLabel(PetPresentation? presentation, Pet pet) {
-  final activeClip = _defaultClip(presentation, pet);
-  if (presentation != null && activeClip != null) {
-    for (final clip in presentation.pixaMetadata.clips) {
-      if (clip.pixaClipName == activeClip) return _title(clip.id).toUpperCase();
-    }
+String _petStateLabel(PetActions? presentation, Pet pet, PixaAsset? pixa) {
+  final activeClip = _defaultClip(presentation, pet, pixa);
+  if (activeClip != null && activeClip.trim().isNotEmpty) {
+    return _title(activeClip).toUpperCase();
   }
   return 'IDLE';
 }
@@ -2298,47 +2294,42 @@ String _petProgressionLabel(Pet pet) {
   return '${entry.key.toUpperCase()} ${entry.value}';
 }
 
-String _actionName(PetPresentationI18nCatalog? catalog, String id) =>
-    catalog?.drive.actions[id]?.displayName ?? _title(id);
+String _actionName(PetActionsI18nCatalog? catalog, String id) =>
+    catalog?.actions[id]?.name ?? _title(id);
 
-List<_PetMenuAction> _petMenuActions(PetPresentation? presentation) {
+List<_PetMenuAction> _petMenuActions(PetActions? presentation) {
   if (presentation == null) return const [];
   final actions = <_PetMenuAction>[];
-  final claimedClips = <String>{};
-  for (final action in presentation.drive.actions) {
+  for (final action in presentation.actions) {
     if (action.id.toLowerCase() == 'idle') continue;
     final clipName = _clipForAction(presentation, action.id);
-    if (clipName != null) claimedClips.add(clipName);
     actions.add(
       _PetMenuAction(id: action.id, clipName: clipName, driveAction: action),
     );
   }
-  for (final clip in presentation.pixaMetadata.clips) {
-    final id = clip.id.isEmpty ? clip.pixaClipName : clip.id;
-    if (id.toLowerCase() == 'idle' ||
-        clip.pixaClipName.toLowerCase() == 'idle' ||
-        claimedClips.contains(clip.pixaClipName)) {
-      continue;
-    }
-    actions.add(_PetMenuAction(id: id, clipName: clip.pixaClipName));
-  }
   return actions;
 }
 
-String? _defaultClip(PetPresentation? presentation, [Pet? pet]) {
-  if (presentation == null) return null;
-  final stateClip = _petStateClip(presentation, pet);
+String? _defaultClip(PetActions? presentation, [Pet? pet, PixaAsset? pixa]) {
+  final stateClip = _petStateClip(presentation, pixa, pet);
   if (stateClip != null) return stateClip;
-  for (final clip in presentation.pixaMetadata.clips) {
-    if (clip.actionId == 'idle' || clip.id == 'idle') return clip.pixaClipName;
+  if (presentation == null) return _idlePixaClip(pixa) ?? 'idle';
+  for (final action in presentation.actions) {
+    if (action.id.toLowerCase() == 'idle') {
+      return action.pixaClipName.isNotEmpty
+          ? action.pixaClipName
+          : action.visualClipId.isNotEmpty
+          ? action.visualClipId
+          : action.id;
+    }
   }
-  return presentation.pixaMetadata.clips.isEmpty
-      ? null
-      : presentation.pixaMetadata.clips.first.pixaClipName;
+  return presentation.actions.isEmpty
+      ? _idlePixaClip(pixa) ?? 'idle'
+      : _clipForAction(presentation, presentation.actions.first.id);
 }
 
-String? _petStateClip(PetPresentation presentation, Pet? pet) {
-  if (pet == null) return null;
+String? _petStateClip(PetActions? presentation, PixaAsset? pixa, Pet? pet) {
+  if (presentation == null || pixa == null || pet == null) return null;
   final life = pet.life.value;
   final candidates = <String>[
     if ((life['hp']?.toInt() ?? 100) <= 0) 'dead',
@@ -2348,18 +2339,32 @@ String? _petStateClip(PetPresentation presentation, Pet? pet) {
     if ((life['energy']?.toInt() ?? 100) <= 30) 'hungry',
   ];
   for (final candidate in candidates) {
-    for (final clip in presentation.pixaMetadata.clips) {
-      if (clip.id == candidate) return clip.pixaClipName;
+    final clipName = presentation.clipNames[candidate];
+    if (clipName == null || clipName.isEmpty) continue;
+    for (final clip in pixa.clips) {
+      if (clip.name == clipName) return clip.name;
     }
   }
   return null;
 }
 
-String? _clipForAction(PetPresentation? presentation, String actionId) {
+String? _idlePixaClip(PixaAsset? pixa) {
+  if (pixa == null) return null;
+  for (final clip in pixa.clips) {
+    if (clip.name == 'idle') return clip.name;
+  }
+  return pixa.clips.isEmpty ? null : pixa.clips.first.name;
+}
+
+String? _clipForAction(PetActions? presentation, String actionId) {
   if (presentation == null) return null;
-  for (final clip in presentation.pixaMetadata.clips) {
-    if (clip.actionId == actionId || clip.id == actionId) {
-      return clip.pixaClipName;
+  for (final action in presentation.actions) {
+    if (action.id == actionId) {
+      return action.pixaClipName.isNotEmpty
+          ? action.pixaClipName
+          : action.visualClipId.isNotEmpty
+          ? action.visualClipId
+          : action.id;
     }
   }
   return null;

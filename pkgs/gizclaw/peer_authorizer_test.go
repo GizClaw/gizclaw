@@ -52,6 +52,27 @@ func TestPeerAuthorizerKeepsPKDenialWithoutView(t *testing.T) {
 	}
 }
 
+func TestPeerAuthorizerKeepsDenialWithoutMatchingViewBinding(t *testing.T) {
+	key, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair() error = %v", err)
+	}
+	view := "default-client"
+	auth := peerAuthorizer{
+		ACL:       fakePeerACL{allowedSubject: acl.ViewSubject("other-view")},
+		Peers:     fakePeerConfigGetter{view: &view},
+		PublicKey: key.Public,
+	}
+	err = auth.Authorize(context.Background(), acl.AuthorizeRequest{
+		Subject:    acl.PublicKeySubject(key.Public.String()),
+		Resource:   acl.VoiceResource("openai-alloy"),
+		Permission: apitypes.ACLPermissionRead,
+	})
+	if !errors.Is(err, acl.ErrDenied) {
+		t.Fatalf("Authorize() error = %v, want %v", err, acl.ErrDenied)
+	}
+}
+
 func TestPeerAuthorizerDoesNotFallbackToViewCollectionResource(t *testing.T) {
 	key, err := giznet.GenerateKeyPair()
 	if err != nil {

@@ -15,6 +15,21 @@ import 'dart:convert' as $convert;
 import 'dart:core' as $core;
 import 'dart:typed_data' as $typed_data;
 
+@$core.Deprecated('Use workflowLocaleDescriptor instead')
+const WorkflowLocale$json = {
+  '1': 'WorkflowLocale',
+  '2': [
+    {'1': 'WORKFLOW_LOCALE_UNSPECIFIED', '2': 0},
+    {'1': 'WORKFLOW_LOCALE_EN', '2': 1},
+    {'1': 'WORKFLOW_LOCALE_ZH_CN', '2': 2},
+  ],
+};
+
+/// Descriptor for `WorkflowLocale`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List workflowLocaleDescriptor = $convert.base64Decode(
+    'Cg5Xb3JrZmxvd0xvY2FsZRIfChtXT1JLRkxPV19MT0NBTEVfVU5TUEVDSUZJRUQQABIWChJXT1'
+    'JLRkxPV19MT0NBTEVfRU4QARIZChVXT1JLRkxPV19MT0NBTEVfWkhfQ04QAg==');
+
 @$core.Deprecated('Use aSTTranslateExternalVoiceParametersDescriptor instead')
 const ASTTranslateExternalVoiceParameters$json = {
   '1': 'ASTTranslateExternalVoiceParameters',
@@ -2143,6 +2158,143 @@ final $typed_data.Uint8List flowcraftWorkspaceParametersDescriptor = $convert.ba
     'BF9lMmVCEgoQX2VtYmVkZGluZ19tb2RlbEIQCg5fZXh0cmFjdF9tb2RlbEIRCg9fZ2VuZXJhdG'
     'VfbW9kZWxCCAoGX2lucHV0');
 
+@$core.Deprecated('Use petConversationParametersDescriptor instead')
+const PetConversationParameters$json = {
+  '1': 'PetConversationParameters',
+  '2': [
+    {
+      '1': 'initiative',
+      '3': 1,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.PetConversationParametersInitiative',
+      '9': 0,
+      '10': 'initiative',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_initiative'},
+  ],
+};
+
+/// Descriptor for `PetConversationParameters`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List petConversationParametersDescriptor = $convert.base64Decode(
+    'ChlQZXRDb252ZXJzYXRpb25QYXJhbWV0ZXJzElgKCmluaXRpYXRpdmUYASABKA4yMy5naXpjbG'
+    'F3LnJwYy52MS5QZXRDb252ZXJzYXRpb25QYXJhbWV0ZXJzSW5pdGlhdGl2ZUgAUgppbml0aWF0'
+    'aXZliAEBQg0KC19pbml0aWF0aXZl');
+
+@$core.Deprecated('Use petPersonaParametersDescriptor instead')
+const PetPersonaParameters$json = {
+  '1': 'PetPersonaParameters',
+  '2': [
+    {'1': 'prompt', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'prompt', '17': true},
+  ],
+  '8': [
+    {'1': '_prompt'},
+  ],
+};
+
+/// Descriptor for `PetPersonaParameters`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List petPersonaParametersDescriptor = $convert.base64Decode(
+    'ChRQZXRQZXJzb25hUGFyYW1ldGVycxIbCgZwcm9tcHQYASABKAlIAFIGcHJvbXB0iAEBQgkKB1'
+    '9wcm9tcHQ=');
+
+@$core.Deprecated('Use petVoiceParametersDescriptor instead')
+const PetVoiceParameters$json = {
+  '1': 'PetVoiceParameters',
+  '2': [
+    {'1': 'prompt', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'prompt', '17': true},
+    {'1': 'voice_id', '3': 2, '4': 1, '5': 9, '10': 'voiceId'},
+  ],
+  '8': [
+    {'1': '_prompt'},
+  ],
+};
+
+/// Descriptor for `PetVoiceParameters`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List petVoiceParametersDescriptor = $convert.base64Decode(
+    'ChJQZXRWb2ljZVBhcmFtZXRlcnMSGwoGcHJvbXB0GAEgASgJSABSBnByb21wdIgBARIZCgh2b2'
+    'ljZV9pZBgCIAEoCVIHdm9pY2VJZEIJCgdfcHJvbXB0');
+
+@$core.Deprecated('Use petWorkflowSpecDescriptor instead')
+const PetWorkflowSpec$json = {
+  '1': 'PetWorkflowSpec',
+};
+
+/// Descriptor for `PetWorkflowSpec`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List petWorkflowSpecDescriptor =
+    $convert.base64Decode('Cg9QZXRXb3JrZmxvd1NwZWM=');
+
+@$core.Deprecated('Use petWorkspaceParametersDescriptor instead')
+const PetWorkspaceParameters$json = {
+  '1': 'PetWorkspaceParameters',
+  '2': [
+    {
+      '1': 'agent_type',
+      '3': 1,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.PetWorkspaceParametersAgentType',
+      '10': 'agentType'
+    },
+    {
+      '1': 'conversation',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.PetConversationParameters',
+      '9': 0,
+      '10': 'conversation',
+      '17': true
+    },
+    {
+      '1': 'input',
+      '3': 3,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.WorkspaceInputMode',
+      '9': 1,
+      '10': 'input',
+      '17': true
+    },
+    {
+      '1': 'persona',
+      '3': 4,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.PetPersonaParameters',
+      '9': 2,
+      '10': 'persona',
+      '17': true
+    },
+    {
+      '1': 'voice',
+      '3': 5,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.PetVoiceParameters',
+      '10': 'voice'
+    },
+  ],
+  '8': [
+    {'1': '_conversation'},
+    {'1': '_input'},
+    {'1': '_persona'},
+  ],
+};
+
+/// Descriptor for `PetWorkspaceParameters`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List petWorkspaceParametersDescriptor = $convert.base64Decode(
+    'ChZQZXRXb3Jrc3BhY2VQYXJhbWV0ZXJzEk4KCmFnZW50X3R5cGUYASABKA4yLy5naXpjbGF3Ln'
+    'JwYy52MS5QZXRXb3Jrc3BhY2VQYXJhbWV0ZXJzQWdlbnRUeXBlUglhZ2VudFR5cGUSUgoMY29u'
+    'dmVyc2F0aW9uGAIgASgLMikuZ2l6Y2xhdy5ycGMudjEuUGV0Q29udmVyc2F0aW9uUGFyYW1ldG'
+    'Vyc0gAUgxjb252ZXJzYXRpb26IAQESPQoFaW5wdXQYAyABKA4yIi5naXpjbGF3LnJwYy52MS5X'
+    'b3Jrc3BhY2VJbnB1dE1vZGVIAVIFaW5wdXSIAQESQwoHcGVyc29uYRgEIAEoCzIkLmdpemNsYX'
+    'cucnBjLnYxLlBldFBlcnNvbmFQYXJhbWV0ZXJzSAJSB3BlcnNvbmGIAQESOAoFdm9pY2UYBSAB'
+    'KAsyIi5naXpjbGF3LnJwYy52MS5QZXRWb2ljZVBhcmFtZXRlcnNSBXZvaWNlQg8KDV9jb252ZX'
+    'JzYXRpb25CCAoGX2lucHV0QgoKCF9wZXJzb25h');
+
 @$core.Deprecated('Use geminiCredentialBodyDescriptor instead')
 const GeminiCredentialBody$json = {
   '1': 'GeminiCredentialBody',
@@ -3556,93 +3708,11 @@ final $typed_data.Uint8List volcTenantVoiceProviderDataDescriptor = $convert.bas
     'IeCgh2b2ljZV9pZBgFIAEoCUgDUgd2b2ljZUlkiAEBQg4KDF9yZXNvdXJjZV9pZEIICgZfc3Rh'
     'dGVCCQoHX3N0YXR1c0ILCglfdm9pY2VfaWQ=');
 
-@$core.Deprecated('Use workflowCreateRequestDescriptor instead')
-const WorkflowCreateRequest$json = {
-  '1': 'WorkflowCreateRequest',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.WorkflowDocument',
-      '10': 'value'
-    },
-  ],
-};
-
-/// Descriptor for `WorkflowCreateRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List workflowCreateRequestDescriptor = $convert.base64Decode(
-    'ChVXb3JrZmxvd0NyZWF0ZVJlcXVlc3QSNgoFdmFsdWUYASABKAsyIC5naXpjbGF3LnJwYy52MS'
-    '5Xb3JrZmxvd0RvY3VtZW50UgV2YWx1ZQ==');
-
-@$core.Deprecated('Use workflowCreateResponseDescriptor instead')
-const WorkflowCreateResponse$json = {
-  '1': 'WorkflowCreateResponse',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.WorkflowDocument',
-      '10': 'value'
-    },
-  ],
-};
-
-/// Descriptor for `WorkflowCreateResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List workflowCreateResponseDescriptor =
-    $convert.base64Decode(
-        'ChZXb3JrZmxvd0NyZWF0ZVJlc3BvbnNlEjYKBXZhbHVlGAEgASgLMiAuZ2l6Y2xhdy5ycGMudj'
-        'EuV29ya2Zsb3dEb2N1bWVudFIFdmFsdWU=');
-
-@$core.Deprecated('Use workflowDeleteRequestDescriptor instead')
-const WorkflowDeleteRequest$json = {
-  '1': 'WorkflowDeleteRequest',
+@$core.Deprecated('Use workflowDescriptor instead')
+const Workflow$json = {
+  '1': 'Workflow',
   '2': [
     {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
-  ],
-};
-
-/// Descriptor for `WorkflowDeleteRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List workflowDeleteRequestDescriptor =
-    $convert.base64Decode(
-        'ChVXb3JrZmxvd0RlbGV0ZVJlcXVlc3QSEgoEbmFtZRgBIAEoCVIEbmFtZQ==');
-
-@$core.Deprecated('Use workflowDeleteResponseDescriptor instead')
-const WorkflowDeleteResponse$json = {
-  '1': 'WorkflowDeleteResponse',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.WorkflowDocument',
-      '10': 'value'
-    },
-  ],
-};
-
-/// Descriptor for `WorkflowDeleteResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List workflowDeleteResponseDescriptor =
-    $convert.base64Decode(
-        'ChZXb3JrZmxvd0RlbGV0ZVJlc3BvbnNlEjYKBXZhbHVlGAEgASgLMiAuZ2l6Y2xhdy5ycGMudj'
-        'EuV29ya2Zsb3dEb2N1bWVudFIFdmFsdWU=');
-
-@$core.Deprecated('Use workflowDocumentDescriptor instead')
-const WorkflowDocument$json = {
-  '1': 'WorkflowDocument',
-  '2': [
-    {
-      '1': 'metadata',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.WorkflowMetadata',
-      '10': 'metadata'
-    },
     {
       '1': 'spec',
       '3': 2,
@@ -3651,26 +3721,53 @@ const WorkflowDocument$json = {
       '6': '.gizclaw.rpc.v1.WorkflowSpec',
       '10': 'spec'
     },
+    {
+      '1': 'i18n',
+      '3': 3,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.WorkflowI18nCatalog',
+      '9': 0,
+      '10': 'i18n',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_i18n'},
   ],
 };
 
-/// Descriptor for `WorkflowDocument`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List workflowDocumentDescriptor = $convert.base64Decode(
-    'ChBXb3JrZmxvd0RvY3VtZW50EjwKCG1ldGFkYXRhGAEgASgLMiAuZ2l6Y2xhdy5ycGMudjEuV2'
-    '9ya2Zsb3dNZXRhZGF0YVIIbWV0YWRhdGESMAoEc3BlYxgCIAEoCzIcLmdpemNsYXcucnBjLnYx'
-    'LldvcmtmbG93U3BlY1IEc3BlYw==');
+/// Descriptor for `Workflow`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List workflowDescriptor = $convert.base64Decode(
+    'CghXb3JrZmxvdxISCgRuYW1lGAEgASgJUgRuYW1lEjAKBHNwZWMYAiABKAsyHC5naXpjbGF3Ln'
+    'JwYy52MS5Xb3JrZmxvd1NwZWNSBHNwZWMSPAoEaTE4bhgDIAEoCzIjLmdpemNsYXcucnBjLnYx'
+    'LldvcmtmbG93STE4bkNhdGFsb2dIAFIEaTE4bogBAUIHCgVfaTE4bg==');
 
 @$core.Deprecated('Use workflowGetRequestDescriptor instead')
 const WorkflowGetRequest$json = {
   '1': 'WorkflowGetRequest',
   '2': [
     {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+    {
+      '1': 'lang',
+      '3': 2,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.WorkflowLocale',
+      '9': 0,
+      '10': 'lang',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_lang'},
   ],
 };
 
 /// Descriptor for `WorkflowGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List workflowGetRequestDescriptor = $convert
-    .base64Decode('ChJXb3JrZmxvd0dldFJlcXVlc3QSEgoEbmFtZRgBIAEoCVIEbmFtZQ==');
+final $typed_data.Uint8List workflowGetRequestDescriptor = $convert.base64Decode(
+    'ChJXb3JrZmxvd0dldFJlcXVlc3QSEgoEbmFtZRgBIAEoCVIEbmFtZRI3CgRsYW5nGAIgASgOMh'
+    '4uZ2l6Y2xhdy5ycGMudjEuV29ya2Zsb3dMb2NhbGVIAFIEbGFuZ4gBAUIHCgVfbGFuZw==');
 
 @$core.Deprecated('Use workflowGetResponseDescriptor instead')
 const WorkflowGetResponse$json = {
@@ -3681,7 +3778,7 @@ const WorkflowGetResponse$json = {
       '3': 1,
       '4': 1,
       '5': 11,
-      '6': '.gizclaw.rpc.v1.WorkflowDocument',
+      '6': '.gizclaw.rpc.v1.Workflow',
       '10': 'value'
     },
   ],
@@ -3689,8 +3786,8 @@ const WorkflowGetResponse$json = {
 
 /// Descriptor for `WorkflowGetResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List workflowGetResponseDescriptor = $convert.base64Decode(
-    'ChNXb3JrZmxvd0dldFJlc3BvbnNlEjYKBXZhbHVlGAEgASgLMiAuZ2l6Y2xhdy5ycGMudjEuV2'
-    '9ya2Zsb3dEb2N1bWVudFIFdmFsdWU=');
+    'ChNXb3JrZmxvd0dldFJlc3BvbnNlEi4KBXZhbHVlGAEgASgLMhguZ2l6Y2xhdy5ycGMudjEuV2'
+    '9ya2Zsb3dSBXZhbHVl');
 
 @$core.Deprecated('Use workflowListRequestDescriptor instead')
 const WorkflowListRequest$json = {
@@ -3698,17 +3795,29 @@ const WorkflowListRequest$json = {
   '2': [
     {'1': 'cursor', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'cursor', '17': true},
     {'1': 'limit', '3': 2, '4': 1, '5': 3, '9': 1, '10': 'limit', '17': true},
+    {
+      '1': 'lang',
+      '3': 3,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.WorkflowLocale',
+      '9': 2,
+      '10': 'lang',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_cursor'},
     {'1': '_limit'},
+    {'1': '_lang'},
   ],
 };
 
 /// Descriptor for `WorkflowListRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List workflowListRequestDescriptor = $convert.base64Decode(
     'ChNXb3JrZmxvd0xpc3RSZXF1ZXN0EhsKBmN1cnNvchgBIAEoCUgAUgZjdXJzb3KIAQESGQoFbG'
-    'ltaXQYAiABKANIAVIFbGltaXSIAQFCCQoHX2N1cnNvckIICgZfbGltaXQ=');
+    'ltaXQYAiABKANIAVIFbGltaXSIAQESNwoEbGFuZxgDIAEoDjIeLmdpemNsYXcucnBjLnYxLldv'
+    'cmtmbG93TG9jYWxlSAJSBGxhbmeIAQFCCQoHX2N1cnNvckIICgZfbGltaXRCBwoFX2xhbmc=');
 
 @$core.Deprecated('Use workflowListResponseDescriptor instead')
 const WorkflowListResponse$json = {
@@ -3720,7 +3829,7 @@ const WorkflowListResponse$json = {
       '3': 2,
       '4': 3,
       '5': 11,
-      '6': '.gizclaw.rpc.v1.WorkflowDocument',
+      '6': '.gizclaw.rpc.v1.Workflow',
       '10': 'items'
     },
     {
@@ -3740,34 +3849,35 @@ const WorkflowListResponse$json = {
 
 /// Descriptor for `WorkflowListResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List workflowListResponseDescriptor = $convert.base64Decode(
-    'ChRXb3JrZmxvd0xpc3RSZXNwb25zZRIZCghoYXNfbmV4dBgBIAEoCFIHaGFzTmV4dBI2CgVpdG'
-    'VtcxgCIAMoCzIgLmdpemNsYXcucnBjLnYxLldvcmtmbG93RG9jdW1lbnRSBWl0ZW1zEiQKC25l'
-    'eHRfY3Vyc29yGAMgASgJSABSCm5leHRDdXJzb3KIAQFCDgoMX25leHRfY3Vyc29y');
+    'ChRXb3JrZmxvd0xpc3RSZXNwb25zZRIZCghoYXNfbmV4dBgBIAEoCFIHaGFzTmV4dBIuCgVpdG'
+    'VtcxgCIAMoCzIYLmdpemNsYXcucnBjLnYxLldvcmtmbG93UgVpdGVtcxIkCgtuZXh0X2N1cnNv'
+    'chgDIAEoCUgAUgpuZXh0Q3Vyc29yiAEBQg4KDF9uZXh0X2N1cnNvcg==');
 
-@$core.Deprecated('Use workflowMetadataDescriptor instead')
-const WorkflowMetadata$json = {
-  '1': 'WorkflowMetadata',
+@$core.Deprecated('Use workflowI18nCatalogDescriptor instead')
+const WorkflowI18nCatalog$json = {
+  '1': 'WorkflowI18nCatalog',
   '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'name', '17': true},
     {
       '1': 'description',
-      '3': 1,
+      '3': 2,
       '4': 1,
       '5': 9,
-      '9': 0,
+      '9': 1,
       '10': 'description',
       '17': true
     },
-    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
   ],
   '8': [
+    {'1': '_name'},
     {'1': '_description'},
   ],
 };
 
-/// Descriptor for `WorkflowMetadata`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List workflowMetadataDescriptor = $convert.base64Decode(
-    'ChBXb3JrZmxvd01ldGFkYXRhEiUKC2Rlc2NyaXB0aW9uGAEgASgJSABSC2Rlc2NyaXB0aW9uiA'
-    'EBEhIKBG5hbWUYAiABKAlSBG5hbWVCDgoMX2Rlc2NyaXB0aW9u');
+/// Descriptor for `WorkflowI18nCatalog`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List workflowI18nCatalogDescriptor = $convert.base64Decode(
+    'ChNXb3JrZmxvd0kxOG5DYXRhbG9nEhcKBG5hbWUYASABKAlIAFIEbmFtZYgBARIlCgtkZXNjcm'
+    'lwdGlvbhgCIAEoCUgBUgtkZXNjcmlwdGlvbogBAUIHCgVfbmFtZUIOCgxfZGVzY3JpcHRpb24=');
 
 @$core.Deprecated('Use toolkitPolicyToolIdsDescriptor instead')
 const ToolkitPolicyToolIds$json = {
@@ -3806,47 +3916,6 @@ const ToolkitPolicy$json = {
 final $typed_data.Uint8List toolkitPolicyDescriptor = $convert.base64Decode(
     'Cg1Ub29sa2l0UG9saWN5EkQKCHRvb2xfaWRzGAEgASgLMiQuZ2l6Y2xhdy5ycGMudjEuVG9vbG'
     'tpdFBvbGljeVRvb2xJZHNIAFIHdG9vbElkc4gBAUILCglfdG9vbF9pZHM=');
-
-@$core.Deprecated('Use workflowPutRequestDescriptor instead')
-const WorkflowPutRequest$json = {
-  '1': 'WorkflowPutRequest',
-  '2': [
-    {
-      '1': 'body',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.WorkflowDocument',
-      '10': 'body'
-    },
-    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
-  ],
-};
-
-/// Descriptor for `WorkflowPutRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List workflowPutRequestDescriptor = $convert.base64Decode(
-    'ChJXb3JrZmxvd1B1dFJlcXVlc3QSNAoEYm9keRgBIAEoCzIgLmdpemNsYXcucnBjLnYxLldvcm'
-    'tmbG93RG9jdW1lbnRSBGJvZHkSEgoEbmFtZRgCIAEoCVIEbmFtZQ==');
-
-@$core.Deprecated('Use workflowPutResponseDescriptor instead')
-const WorkflowPutResponse$json = {
-  '1': 'WorkflowPutResponse',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.WorkflowDocument',
-      '10': 'value'
-    },
-  ],
-};
-
-/// Descriptor for `WorkflowPutResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List workflowPutResponseDescriptor = $convert.base64Decode(
-    'ChNXb3JrZmxvd1B1dFJlc3BvbnNlEjYKBXZhbHVlGAEgASgLMiAuZ2l6Y2xhdy5ycGMudjEuV2'
-    '9ya2Zsb3dEb2N1bWVudFIFdmFsdWU=');
 
 @$core.Deprecated('Use workflowSpecDescriptor instead')
 const WorkflowSpec$json = {
@@ -3910,6 +3979,16 @@ const WorkflowSpec$json = {
       '10': 'toolkit',
       '17': true
     },
+    {
+      '1': 'pet',
+      '3': 7,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.PetWorkflowSpec',
+      '9': 5,
+      '10': 'pet',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_ast_translate'},
@@ -3917,6 +3996,7 @@ const WorkflowSpec$json = {
     {'1': '_doubao_realtime'},
     {'1': '_flowcraft'},
     {'1': '_toolkit'},
+    {'1': '_pet'},
   ],
 };
 
@@ -3930,8 +4010,9 @@ final $typed_data.Uint8List workflowSpecDescriptor = $convert.base64Decode(
     '5naXpjbGF3LnJwYy52MS5Xb3JrZmxvd0RyaXZlclIGZHJpdmVyEkgKCWZsb3djcmFmdBgFIAEo'
     'CzIlLmdpemNsYXcucnBjLnYxLkZsb3djcmFmdFdvcmtmbG93U3BlY0gDUglmbG93Y3JhZnSIAQ'
     'ESPAoHdG9vbGtpdBgGIAEoCzIdLmdpemNsYXcucnBjLnYxLlRvb2xraXRQb2xpY3lIBFIHdG9v'
-    'bGtpdIgBAUIQCg5fYXN0X3RyYW5zbGF0ZUILCglfY2hhdHJvb21CEgoQX2RvdWJhb19yZWFsdG'
-    'ltZUIMCgpfZmxvd2NyYWZ0QgoKCF90b29sa2l0');
+    'bGtpdIgBARI2CgNwZXQYByABKAsyHy5naXpjbGF3LnJwYy52MS5QZXRXb3JrZmxvd1NwZWNIBV'
+    'IDcGV0iAEBQhAKDl9hc3RfdHJhbnNsYXRlQgsKCV9jaGF0cm9vbUISChBfZG91YmFvX3JlYWx0'
+    'aW1lQgwKCl9mbG93Y3JhZnRCCgoIX3Rvb2xraXRCBgoEX3BldA==');
 
 @$core.Deprecated('Use toolExecutorDescriptor instead')
 const ToolExecutor$json = {

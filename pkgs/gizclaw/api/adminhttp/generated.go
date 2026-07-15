@@ -522,8 +522,9 @@ type PetDefList struct {
 
 // PetDefUpsert defines model for PetDefUpsert.
 type PetDefUpsert struct {
-	Id   string                  `json:"id"`
-	Spec externalRef0.PetDefSpec `json:"spec"`
+	I18n *externalRef0.PetDefI18nSpec `json:"i18n,omitempty"`
+	Id   string                       `json:"id"`
+	Spec externalRef0.PetDefSpec      `json:"spec"`
 }
 
 // PublicKeyResponse defines model for PublicKeyResponse.
@@ -594,9 +595,9 @@ type VolcTenantUpsert struct {
 
 // WorkflowList defines model for WorkflowList.
 type WorkflowList struct {
-	HasNext    bool                            `json:"has_next"`
-	Items      []externalRef0.WorkflowDocument `json:"items"`
-	NextCursor *string                         `json:"next_cursor,omitempty"`
+	HasNext    bool                    `json:"has_next"`
+	Items      []externalRef0.Workflow `json:"items"`
+	NextCursor *string                 `json:"next_cursor,omitempty"`
 }
 
 // WorkspaceList defines model for WorkspaceList.
@@ -1207,10 +1208,10 @@ type CreateVolcTenantJSONRequestBody = VolcTenantUpsert
 type PutVolcTenantJSONRequestBody = VolcTenantUpsert
 
 // CreateWorkflowJSONRequestBody defines body for CreateWorkflow for application/json ContentType.
-type CreateWorkflowJSONRequestBody = externalRef0.WorkflowDocument
+type CreateWorkflowJSONRequestBody = externalRef0.Workflow
 
 // PutWorkflowJSONRequestBody defines body for PutWorkflow for application/json ContentType.
-type PutWorkflowJSONRequestBody = externalRef0.WorkflowDocument
+type PutWorkflowJSONRequestBody = externalRef0.Workflow
 
 // CreateWorkspaceJSONRequestBody defines body for CreateWorkspace for application/json ContentType.
 type CreateWorkspaceJSONRequestBody = WorkspaceUpsert
@@ -16732,7 +16733,7 @@ func (r ListWorkflowsResponse) StatusCode() int {
 type CreateWorkflowResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef0.WorkflowDocument
+	JSON200      *externalRef0.Workflow
 	JSON400      *externalRef0.ErrorResponse
 	JSON409      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
@@ -16757,7 +16758,7 @@ func (r CreateWorkflowResponse) StatusCode() int {
 type DeleteWorkflowResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef0.WorkflowDocument
+	JSON200      *externalRef0.Workflow
 	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
@@ -16781,7 +16782,7 @@ func (r DeleteWorkflowResponse) StatusCode() int {
 type GetWorkflowResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef0.WorkflowDocument
+	JSON200      *externalRef0.Workflow
 	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
@@ -16805,7 +16806,7 @@ func (r GetWorkflowResponse) StatusCode() int {
 type PutWorkflowResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef0.WorkflowDocument
+	JSON200      *externalRef0.Workflow
 	JSON400      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
@@ -25285,7 +25286,7 @@ func ParseCreateWorkflowResponse(rsp *http.Response) (*CreateWorkflowResponse, e
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.WorkflowDocument
+		var dest externalRef0.Workflow
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -25332,7 +25333,7 @@ func ParseDeleteWorkflowResponse(rsp *http.Response) (*DeleteWorkflowResponse, e
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.WorkflowDocument
+		var dest externalRef0.Workflow
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -25372,7 +25373,7 @@ func ParseGetWorkflowResponse(rsp *http.Response) (*GetWorkflowResponse, error) 
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.WorkflowDocument
+		var dest externalRef0.Workflow
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -25412,7 +25413,7 @@ func ParsePutWorkflowResponse(rsp *http.Response) (*PutWorkflowResponse, error) 
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.WorkflowDocument
+		var dest externalRef0.Workflow
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -36032,7 +36033,7 @@ type CreateWorkflowResponseObject interface {
 	VisitCreateWorkflowResponse(ctx *fiber.Ctx) error
 }
 
-type CreateWorkflow200JSONResponse externalRef0.WorkflowDocument
+type CreateWorkflow200JSONResponse externalRef0.Workflow
 
 func (response CreateWorkflow200JSONResponse) VisitCreateWorkflowResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
@@ -36076,7 +36077,7 @@ type DeleteWorkflowResponseObject interface {
 	VisitDeleteWorkflowResponse(ctx *fiber.Ctx) error
 }
 
-type DeleteWorkflow200JSONResponse externalRef0.WorkflowDocument
+type DeleteWorkflow200JSONResponse externalRef0.Workflow
 
 func (response DeleteWorkflow200JSONResponse) VisitDeleteWorkflowResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
@@ -36111,7 +36112,7 @@ type GetWorkflowResponseObject interface {
 	VisitGetWorkflowResponse(ctx *fiber.Ctx) error
 }
 
-type GetWorkflow200JSONResponse externalRef0.WorkflowDocument
+type GetWorkflow200JSONResponse externalRef0.Workflow
 
 func (response GetWorkflow200JSONResponse) VisitGetWorkflowResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
@@ -36147,7 +36148,7 @@ type PutWorkflowResponseObject interface {
 	VisitPutWorkflowResponse(ctx *fiber.Ctx) error
 }
 
-type PutWorkflow200JSONResponse externalRef0.WorkflowDocument
+type PutWorkflow200JSONResponse externalRef0.Workflow
 
 func (response PutWorkflow200JSONResponse) VisitPutWorkflowResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")

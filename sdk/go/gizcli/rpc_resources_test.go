@@ -39,20 +39,12 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 	})
 
 	t.Run("workflow", func(t *testing.T) {
+		runWorkflowI18nWrapperTest(t, client)
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkflowList, rpcapi.WorkflowListResponse{}, (*rpcapi.RPCPayload).FromWorkflowListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkflowListResponse, error) {
 			return client.ListWorkflows(ctx, conn, "workflow-list", rpcapi.WorkflowListRequest{})
 		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkflowGet, rpcapi.WorkflowGetResponse{}, (*rpcapi.RPCPayload).FromWorkflowGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkflowGetResponse, error) {
 			return client.GetWorkflow(ctx, conn, "workflow-get", rpcapi.WorkflowGetRequest{Name: "flow"})
-		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkflowCreate, rpcapi.WorkflowCreateResponse{}, (*rpcapi.RPCPayload).FromWorkflowCreateResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkflowCreateResponse, error) {
-			return client.CreateWorkflow(ctx, conn, "workflow-create", rpcapi.WorkflowCreateRequest{})
-		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkflowPut, rpcapi.WorkflowPutResponse{}, (*rpcapi.RPCPayload).FromWorkflowPutResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkflowPutResponse, error) {
-			return client.PutWorkflow(ctx, conn, "workflow-put", rpcapi.WorkflowPutRequest{Name: "flow"})
-		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkflowDelete, rpcapi.WorkflowDeleteResponse{}, (*rpcapi.RPCPayload).FromWorkflowDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkflowDeleteResponse, error) {
-			return client.DeleteWorkflow(ctx, conn, "workflow-delete", rpcapi.WorkflowDeleteRequest{Name: "flow"})
 		})
 	})
 
@@ -187,9 +179,40 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 	})
 
 	t.Run("gameplay pixa", func(t *testing.T) {
-		runPetDefPixaDownloadWrapperTest(t, client)
 		runBadgeDefPixaDownloadWrapperTest(t, client)
 	})
+}
+
+func runWorkflowI18nWrapperTest(t *testing.T, client *rpcClient) {
+	t.Helper()
+	serverSide, clientSide := net.Pipe()
+	defer serverSide.Close()
+	defer clientSide.Close()
+
+	serverErrCh := make(chan error, 1)
+	go func() {
+		req, err := readRPCRequestWithEOS(serverSide)
+		if err != nil {
+			serverErrCh <- err
+			return
+		}
+		serverErrCh <- writeRPCResponseWithEOS(serverSide, req.Method, resourceResponse(
+			req.Id,
+			resourceWorkflowDoc("localized-flow"),
+			(*rpcapi.RPCPayload).FromWorkflowGetResponse,
+		))
+	}()
+
+	got, err := client.GetWorkflow(context.Background(), clientSide, "workflow-i18n", rpcapi.WorkflowGetRequest{Name: "localized-flow"})
+	if err != nil {
+		t.Fatalf("workflow i18n call error = %v", err)
+	}
+	if got.I18n == nil || got.I18n.Description == nil || *got.I18n.Description != "Localized workflow" {
+		t.Fatalf("workflow i18n = %#v", got.I18n)
+	}
+	if err := <-serverErrCh; err != nil {
+		t.Fatalf("workflow i18n server error = %v", err)
+	}
 }
 
 func runRPCResultWrapperTest[Resp any](
@@ -297,50 +320,6 @@ func runFirmwareDownloadWrapperTest(t *testing.T, client *rpcClient) {
 	}
 	if err := <-serverErrCh; err != nil {
 		t.Fatalf("firmware download server error = %v", err)
-	}
-}
-
-func runPetDefPixaDownloadWrapperTest(t *testing.T, client *rpcClient) {
-	t.Helper()
-	serverSide, clientSide := net.Pipe()
-	defer serverSide.Close()
-	defer clientSide.Close()
-
-	payload := []byte("petdef-pixa")
-	pixaPath := "pet-defs/petdef-a/pixa"
-	serverErrCh := make(chan error, 1)
-	go func() {
-		req, err := readRPCRequestWithEOS(serverSide)
-		if err != nil {
-			serverErrCh <- err
-			return
-		}
-		if req.Method != rpcapi.RPCMethodServerPetDefPixaDownload {
-			serverErrCh <- &unexpectedRPCMethodError{got: req.Method, want: rpcapi.RPCMethodServerPetDefPixaDownload}
-			return
-		}
-		resp := resourceResponse(req.Id, rpcapi.PetDefPixaDownloadResponse{Id: "petdef-a", PixaPath: &pixaPath, SizeBytes: int64(len(payload))}, (*rpcapi.RPCPayload).FromPetDefPixaDownloadResponse)
-		if err := rpcapi.WriteResponseForMethod(serverSide, req.Method, resp); err != nil {
-			serverErrCh <- err
-			return
-		}
-		if err := rpcapi.WriteFrame(serverSide, rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: payload}); err != nil {
-			serverErrCh <- err
-			return
-		}
-		serverErrCh <- rpcapi.WriteEOS(serverSide)
-	}()
-
-	var out bytes.Buffer
-	result, err := client.DownloadPetDefPixa(context.Background(), clientSide, "petdef-pixa-download", rpcapi.PetDefPixaDownloadRequest{Id: "petdef-a"}, &out)
-	if err != nil {
-		t.Fatalf("petdef pixa download call error = %v", err)
-	}
-	if result.Metadata.Id != "petdef-a" || result.Bytes != int64(len(payload)) || out.String() != string(payload) {
-		t.Fatalf("petdef pixa download result = %#v payload %q", result, out.String())
-	}
-	if err := <-serverErrCh; err != nil {
-		t.Fatalf("petdef pixa download server error = %v", err)
 	}
 }
 
@@ -459,10 +438,12 @@ func resourceWorkspace(name string) rpcapi.Workspace {
 	return rpcapi.Workspace{Name: name, WorkflowName: "flow-a"}
 }
 
-func resourceWorkflowDoc(name string) rpcapi.WorkflowDocument {
+func resourceWorkflowDoc(name string) rpcapi.Workflow {
 	spec := rpcapi.FlowcraftWorkflowSpec{"entry_agent": ""}
-	return rpcapi.WorkflowDocument{
-		Metadata: rpcapi.WorkflowMetadata{Name: name},
+	description := "Localized workflow"
+	return rpcapi.Workflow{
+		I18n: &rpcapi.WorkflowI18nCatalog{Description: &description},
+		Name: name,
 		Spec: rpcapi.WorkflowSpec{
 			Driver:    rpcapi.WorkflowDriverFlowcraft,
 			Flowcraft: &spec,

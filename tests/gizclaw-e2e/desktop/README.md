@@ -1,16 +1,12 @@
 # GizClaw Desktop E2E
 
-This directory contains Wails desktop e2e suites.
+Desktop e2e is split by ownership:
 
-Expected suites:
+- `shell/`: Pod cards, manifest/context projection, browser handoff, build and
+  startup smoke checks;
+- `admin/`: the browser-served Admin application and WebRTC Admin transport;
+- `play/`: the browser-served Play application and direct peer RPC transport.
 
-- `shell/`: context picker, runtime injection, startup smoke tests
-- `admin/`: Wails-hosted Admin view tests
-- `play/`: Wails-hosted Play view tests
-
-The shell suite is active. It runs Wails backend Go tests, frontend runtime
-tests, frontend build checks, and Playwright shell behavior through the shared
-desktop harness.
-
-The Admin suite is active for the Wails-hosted Admin resource view. The Play
-suite is added when the Play view is rewritten into `apps/wails`.
+The shell uses a mock Wails Pod bridge for Playwright UI behavior. Go tests cover
+private filesystem projection, health probes, local process management, and the
+loopback HTTP handoff boundary.

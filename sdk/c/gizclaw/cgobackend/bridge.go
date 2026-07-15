@@ -428,18 +428,17 @@ func cIntLen(n C.size_t) (int, bool) {
 }
 
 func cHeaders(headers *C.gzc_http_header_t, count C.size_t) ([]HTTPHeader, bool) {
-	if headers == nil || count == 0 {
-		return nil, true
-	}
-	countInt, ok := cIntLen(count)
+	countInt, ok := cArrayLen(unsafe.Pointer(headers), uint64(count))
 	if !ok {
 		return nil, false
 	}
+	if countInt == 0 {
+		return nil, true
+	}
 	out := make([]HTTPHeader, 0, countInt)
-	size := unsafe.Sizeof(*headers)
-	base := uintptr(unsafe.Pointer(headers))
-	for i := 0; i < countInt; i++ {
-		header := (*C.gzc_http_header_t)(unsafe.Pointer(base + uintptr(i)*size))
+	rawHeaders := unsafe.Slice(headers, countInt)
+	for i := range rawHeaders {
+		header := &rawHeaders[i]
 		name, ok := goString(header.name.data, C.size_t(header.name.len))
 		if !ok {
 			return nil, false
@@ -451,4 +450,14 @@ func cHeaders(headers *C.gzc_http_header_t, count C.size_t) ([]HTTPHeader, bool)
 		out = append(out, HTTPHeader{Name: name, Value: value})
 	}
 	return out, true
+}
+
+func cArrayLen(ptr unsafe.Pointer, count uint64) (int, bool) {
+	if count == 0 {
+		return 0, true
+	}
+	if ptr == nil || count > uint64(1<<31-1) {
+		return 0, false
+	}
+	return int(count), true
 }

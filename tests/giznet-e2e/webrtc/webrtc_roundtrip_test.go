@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
@@ -53,7 +52,7 @@ func TestWebRTCSignalingPacketAndServiceStream(t *testing.T) {
 			defer serverConn.Close()
 
 			roundTripPacket(t, clientConn, serverConn, 0x42, []byte("packet"))
-			roundTripStampedOpus(t, clientConn, serverConn)
+			roundTripOpus(t, clientConn, serverConn)
 
 			done := serveEchoService(t, serverConn)
 			payload := bytes.Repeat([]byte("webrtc-stream-"), 8192)
@@ -273,19 +272,18 @@ func roundTripPacket(t *testing.T, client, server giznet.Conn, protocol byte, pa
 	}
 }
 
-func roundTripStampedOpus(t *testing.T, client, server giznet.Conn) {
+func roundTripOpus(t *testing.T, client, server giznet.Conn) {
 	t.Helper()
 	frame := []byte{0x00, 0xaa, 0xbb}
-	payload := stampedopus.Pack(uint64(time.Now().UnixMilli()), frame)
-	if _, err := client.Write(giznet.ProtocolStampedOpusPacket, payload); err != nil {
-		t.Fatalf("client stamped opus Write error = %v", err)
+	if _, err := client.Write(giznet.ProtocolOpusPacket, frame); err != nil {
+		t.Fatalf("client opus Write error = %v", err)
 	}
 	gotProtocol, gotPayload := readPacket(t, server)
-	if gotProtocol != giznet.ProtocolStampedOpusPacket {
-		t.Fatalf("stamped opus proto=%d, want %d", gotProtocol, giznet.ProtocolStampedOpusPacket)
+	if gotProtocol != giznet.ProtocolOpusPacket {
+		t.Fatalf("opus proto=%d, want %d", gotProtocol, giznet.ProtocolOpusPacket)
 	}
-	if _, gotFrame, ok := stampedopus.Unpack(gotPayload); !ok || !bytes.Equal(gotFrame, frame) {
-		t.Fatalf("stamped opus payload=%v frame=%v ok=%t, want frame=%v", gotPayload, gotFrame, ok, frame)
+	if !bytes.Equal(gotPayload, frame) {
+		t.Fatalf("opus payload=%v, want frame=%v", gotPayload, frame)
 	}
 }
 

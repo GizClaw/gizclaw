@@ -11,7 +11,7 @@ import (
 func TestServerWorkflowRPC(t *testing.T) {
 	env := newServerResourceHarness(t)
 
-	workflowList, err := env.peer.ListWorkflows(env.ctx, "workflow.list.shared", rpcapi.WorkflowListRequest{})
+	workflowList, err := env.peer.ListWorkflows(env.ctx, "workflow.list.shared", rpcapi.WorkflowListRequest{Lang: rpcapi.WorkflowLocaleZhCN})
 	if err != nil {
 		t.Fatalf("workflow.list shared: %v", err)
 	}
@@ -22,28 +22,8 @@ func TestServerWorkflowRPC(t *testing.T) {
 	if err != nil {
 		t.Fatalf("workflow.get shared: %v", err)
 	}
-	if sharedFlow.Metadata.Name != sharedWorkflow {
-		t.Fatalf("workflow.get shared name = %q", sharedFlow.Metadata.Name)
+	if sharedFlow.Name != sharedWorkflow {
+		t.Fatalf("workflow.get shared name = %q", sharedFlow.Name)
 	}
-
-	_, _ = env.peer.DeleteWorkflow(env.ctx, "workflow.delete.preclean", rpcapi.WorkflowDeleteRequest{Name: mutationWorkflow})
-	createdFlow, err := env.peer.CreateWorkflow(env.ctx, "workflow.create", rpcWorkflow(mutationWorkflow, "created by peer rpc"))
-	if err != nil {
-		t.Fatalf("workflow.create: %v", err)
-	}
-	if createdFlow.Metadata.Name != mutationWorkflow {
-		t.Fatalf("workflow.create name = %q", createdFlow.Metadata.Name)
-	}
-	updatedFlowDoc := rpcWorkflow(mutationWorkflow, "updated by peer rpc")
-	updatedFlow, err := env.peer.PutWorkflow(env.ctx, "workflow.put", rpcapi.WorkflowPutRequest{Name: mutationWorkflow, Body: updatedFlowDoc})
-	if err != nil {
-		t.Fatalf("workflow.put: %v", err)
-	}
-	if updatedFlow.Metadata.Description == nil || *updatedFlow.Metadata.Description != "updated by peer rpc" {
-		t.Fatalf("workflow.put description = %#v", updatedFlow.Metadata.Description)
-	}
-	assertWorkflowPagination(t, env.ctx, env.peer, sharedWorkflow, mutationWorkflow)
-	if _, err := env.peer.DeleteWorkflow(env.ctx, "workflow.delete", rpcapi.WorkflowDeleteRequest{Name: mutationWorkflow}); err != nil {
-		t.Fatalf("workflow.delete: %v", err)
-	}
+	assertWorkflowPagination(t, env.ctx, env.peer, sharedWorkflow)
 }

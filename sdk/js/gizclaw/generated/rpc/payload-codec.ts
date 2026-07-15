@@ -45,12 +45,15 @@ export type PeerRole = "" | "admin" | "client" | "edge-node" | "server" | "unspe
 export type PeerRunHistoryEntryType = "" | "agent" | "gear" | "unspecified" | number;
 export type PeerRunHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
 export type PeerRunStatusState = "" | "error" | "running" | "starting" | "stopped" | "stopping" | "unspecified" | number;
+export type PetConversationParametersInitiative = "" | "agent" | "peer" | "unspecified" | number;
+export type PetWorkspaceParametersAgentType = "" | "pet" | "unspecified" | number;
 export type ToolExecutorKind = "" | "builtin" | "device_rpc" | "unspecified" | number;
 export type ToolSource = "" | "admin" | "builtin" | "device" | "unspecified" | number;
 export type VoiceProviderKind = "" | "dashscope-tenant" | "gemini-tenant" | "minimax-tenant" | "openai-tenant" | "unspecified" | "volc-tenant" | number;
 export type VoiceSource = "" | "manual" | "sync" | "unspecified" | number;
 export type VolcTenantModelProviderDataApiMode = "" | "asr" | "realtime" | "tts" | "unspecified" | number;
-export type WorkflowDriver = "" | "ast-translate" | "chatroom" | "doubao-realtime" | "flowcraft" | "unspecified" | number;
+export type WorkflowDriver = "" | "ast-translate" | "chatroom" | "doubao-realtime" | "flowcraft" | "pet" | "unspecified" | number;
+export type WorkflowLocale = "" | "en" | "unspecified" | "zh-CN" | number;
 export type WorkspaceHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
 export type WorkspaceInputMode = "" | "push-to-talk" | "realtime" | "unspecified" | number;
 export type ASTTranslateExternalVoiceParameters = {
@@ -899,6 +902,33 @@ export type Pet = {
   "workspace_name": string;
   "progression": PetProgression;
 };
+export type PetAction = {
+  "id": string;
+  "cost": number;
+  "effect"?: PetActionEffectSpec;
+  "visual_clip_id"?: string;
+  "pixa_clip_name"?: string;
+};
+export type PetActionEffectSpec = {
+  "attr_delta_life"?: PetLife;
+  "pet_exp_delta"?: number;
+};
+export type PetActionI18nText = {
+  "name": string;
+};
+export type PetActions = {
+  "pet_id": string;
+  "petdef_id": string;
+  "default_locale": string;
+  "actions": PetAction[];
+  "i18n": PetActionsI18n;
+  "petdef_updated_at": string;
+  "clip_names": Record<string, string>;
+};
+export type PetActionsI18n = Record<string, PetActionsI18nCatalog>;
+export type PetActionsI18nCatalog = {
+  "actions": Record<string, PetActionI18nText>;
+};
 export type PetAdoptRequest = {
   "display_name"?: string;
   "ruleset_name"?: string;
@@ -908,13 +938,8 @@ export type PetAdoptResponse = {
   "points": PointsAccount;
   "transaction": PointsTransaction;
 };
-export type PetDefPixaDownloadRequest = {
-  "id": string;
-};
-export type PetDefPixaDownloadResponse = {
-  "id": string;
-  "pixa_path"?: string;
-  "size_bytes": number;
+export type PetConversationParameters = {
+  "initiative"?: PetConversationParametersInitiative;
 };
 export type PetDeleteRequest = {
   "id": string;
@@ -952,6 +977,9 @@ export type PetListResponse = {
   "items": Pet[];
   "next_cursor"?: string;
 };
+export type PetPersonaParameters = {
+  "prompt"?: string;
+};
 export type PetPixaDownloadRequest = {
   "pet_id": string;
 };
@@ -961,77 +989,22 @@ export type PetPixaDownloadResponse = {
   "pixa_path"?: string;
   "size_bytes": number;
 };
-export type PetPresentation = {
-  "pet_id": string;
-  "petdef_id": string;
-  "default_locale": string;
-  "attr": PetPresentationAttrSpec;
-  "drive": PetPresentationDriveSpec;
-  "pixa_metadata": PetPresentationPixaMetadata;
-  "i18n": PetPresentationI18nSpec;
-  "pixa_path"?: string;
-  "petdef_updated_at": string;
-};
-export type PetPresentationActionEffectSpec = {
-  "attr_delta"?: PetPresentationAttrDelta;
-  "pet_exp_delta"?: number;
-};
-export type PetPresentationActionSpec = {
-  "id": string;
-  "cost": number;
-  "effect"?: PetPresentationActionEffectSpec;
-  "visual_clip_id"?: string;
-};
-export type PetPresentationAttrDelta = {
-  "life"?: PetLife;
-};
-export type PetPresentationAttrGroupSpec = Record<string, PetPresentationAttrValueSpec>;
-export type PetPresentationAttrSpec = {
-  "life": PetPresentationAttrGroupSpec;
-  "progression": PetPresentationAttrGroupSpec;
-};
-export type PetPresentationAttrValueSpec = {
-  "initial": number;
-};
-export type PetPresentationDriveSpec = {
-  "actions": PetPresentationActionSpec[];
-};
-export type PetPresentationI18nAttrGroup = Record<string, PetPresentationI18nDisplayText>;
-export type PetPresentationI18nAttrSpec = {
-  "life"?: PetPresentationI18nAttrGroup;
-  "progression"?: PetPresentationI18nAttrGroup;
-};
-export type PetPresentationI18nCatalog = {
-  "display_name"?: string;
-  "description"?: string;
-  "attr"?: PetPresentationI18nAttrSpec;
-  "drive"?: PetPresentationI18nDriveSpec;
-};
-export type PetPresentationI18nDisplayText = {
-  "display_name": string;
-};
-export type PetPresentationI18nDriveSpec = {
-  "actions": Record<string, PetPresentationI18nDisplayText>;
-};
-export type PetPresentationI18nSpec = Record<string, PetPresentationI18nCatalog>;
-export type PetPresentationPixaCanvasMetadata = {
-  "width": number;
-  "height": number;
-};
-export type PetPresentationPixaClipMetadata = {
-  "id": string;
-  "action_id"?: string;
-  "pixa_clip_name": string;
-};
-export type PetPresentationPixaMetadata = {
-  "version": string;
-  "canvas": PetPresentationPixaCanvasMetadata;
-  "clips": PetPresentationPixaClipMetadata[];
-};
 export type PetProgression = Record<string, number>;
 export type PetPutRequest = {
   "display_name": string;
   "id": string;
+};
+export type PetVoiceParameters = {
+  "prompt"?: string;
+  "voice_id": string;
+};
+export type PetWorkflowSpec = Record<string, never>;
+export type PetWorkspaceParameters = {
+  "agent_type": string;
+  "conversation"?: PetConversationParameters;
+  "input"?: WorkspaceInputMode;
+  "persona"?: PetPersonaParameters;
+  "voice": PetVoiceParameters;
 };
 export type PingRequest = {
   "client_send_time": number;
@@ -1143,6 +1116,8 @@ export type ServerPeerLookupRequest = {
 export type ServerPeerLookupResponse = {
   "assignment": PeerAssignment;
 };
+export type ServerPetActionsGetRequest = PetGetRequest;
+export type ServerPetActionsGetResponse = PetActions;
 export type ServerPetAdoptRequest = PetAdoptRequest;
 export type ServerPetAdoptResponse = PetAdoptResponse;
 export type ServerPetDeleteRequest = PetDeleteRequest;
@@ -1155,8 +1130,6 @@ export type ServerPetListRequest = GameplayListRequest;
 export type ServerPetListResponse = PetListResponse;
 export type ServerPetPixaDownloadRequest = PetPixaDownloadRequest;
 export type ServerPetPixaDownloadResponse = PetPixaDownloadResponse;
-export type ServerPetPresentationGetRequest = PetGetRequest;
-export type ServerPetPresentationGetResponse = PetPresentation;
 export type ServerPetPutRequest = PetPutRequest;
 export type ServerPetPutResponse = Pet;
 export type ServerPlayRunWorkspaceHistoryRequest = PeerRunHistoryPlayRequest;
@@ -1339,38 +1312,30 @@ export type VolcTenantVoiceProviderData = {
   "status"?: string;
   "voice_id"?: string;
 };
-export type WorkflowCreateRequest = WorkflowDocument;
-export type WorkflowCreateResponse = WorkflowDocument;
-export type WorkflowDeleteRequest = {
+export type Workflow = {
   "name": string;
-};
-export type WorkflowDeleteResponse = WorkflowDocument;
-export type WorkflowDocument = {
-  "metadata": WorkflowMetadata;
   "spec": WorkflowSpec;
+  "i18n"?: WorkflowI18nCatalog;
 };
 export type WorkflowGetRequest = {
   "name": string;
+  "lang"?: WorkflowLocale;
 };
-export type WorkflowGetResponse = WorkflowDocument;
+export type WorkflowGetResponse = Workflow;
+export type WorkflowI18nCatalog = {
+  "name"?: string;
+  "description"?: string;
+};
 export type WorkflowListRequest = {
   "cursor"?: string;
   "limit"?: number;
+  "lang"?: WorkflowLocale;
 };
 export type WorkflowListResponse = {
   "has_next": boolean;
-  "items": WorkflowDocument[];
+  "items": Workflow[];
   "next_cursor"?: string;
 };
-export type WorkflowMetadata = {
-  "description"?: string;
-  "name": string;
-};
-export type WorkflowPutRequest = {
-  "body": WorkflowDocument;
-  "name": string;
-};
-export type WorkflowPutResponse = WorkflowDocument;
 export type WorkflowSpec = {
   "ast_translate"?: ASTTranslateWorkflowSpec;
   "chatroom"?: ChatRoomWorkflowSpec;
@@ -1378,6 +1343,7 @@ export type WorkflowSpec = {
   "driver": WorkflowDriver;
   "flowcraft"?: FlowcraftWorkflowSpec;
   "toolkit"?: ToolkitPolicy;
+  "pet"?: PetWorkflowSpec;
 };
 export type Workspace = {
   "created_at": string;
@@ -1430,7 +1396,7 @@ export type WorkspaceListResponse = {
   "items": Workspace[];
   "next_cursor"?: string;
 };
-export type WorkspaceParameters = FlowcraftWorkspaceParameters | DoubaoRealtimeWorkspaceParameters | ASTTranslateWorkspaceParameters | ChatRoomWorkspaceParameters;
+export type WorkspaceParameters = FlowcraftWorkspaceParameters | DoubaoRealtimeWorkspaceParameters | ASTTranslateWorkspaceParameters | ChatRoomWorkspaceParameters | PetWorkspaceParameters;
 export type WorkspacePutRequest = {
   "body": Workspace;
   "name": string;
@@ -1493,14 +1459,13 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.model.put": "ModelPutRequest",
   "server.peer.assign": "ServerPeerAssignRequest",
   "server.peer.lookup": "ServerPeerLookupRequest",
-  "server.pet_def.pixa.download": "PetDefPixaDownloadRequest",
+  "server.pet.actions.get": "ServerPetActionsGetRequest",
   "server.pet.adopt": "ServerPetAdoptRequest",
   "server.pet.delete": "ServerPetDeleteRequest",
   "server.pet.drive": "ServerPetDriveRequest",
   "server.pet.get": "ServerPetGetRequest",
   "server.pet.list": "ServerPetListRequest",
   "server.pet.pixa.download": "ServerPetPixaDownloadRequest",
-  "server.pet.presentation.get": "ServerPetPresentationGetRequest",
   "server.pet.put": "ServerPetPutRequest",
   "server.points.get": "ServerPointsGetRequest",
   "server.points.transactions.get": "ServerPointsTransactionGetRequest",
@@ -1530,11 +1495,8 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.tool.put": "ToolPutRequest",
   "server.voice.get": "VoiceGetRequest",
   "server.voice.list": "VoiceListRequest",
-  "server.workflow.create": "WorkflowCreateRequest",
-  "server.workflow.delete": "WorkflowDeleteRequest",
   "server.workflow.get": "WorkflowGetRequest",
   "server.workflow.list": "WorkflowListRequest",
-  "server.workflow.put": "WorkflowPutRequest",
   "server.workspace.create": "WorkspaceCreateRequest",
   "server.workspace.delete": "WorkspaceDeleteRequest",
   "server.workspace.get": "WorkspaceGetRequest",
@@ -1600,14 +1562,13 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.model.put": "ModelPutResponse",
   "server.peer.assign": "ServerPeerAssignResponse",
   "server.peer.lookup": "ServerPeerLookupResponse",
-  "server.pet_def.pixa.download": "PetDefPixaDownloadResponse",
+  "server.pet.actions.get": "ServerPetActionsGetResponse",
   "server.pet.adopt": "ServerPetAdoptResponse",
   "server.pet.delete": "ServerPetDeleteResponse",
   "server.pet.drive": "ServerPetDriveResponse",
   "server.pet.get": "ServerPetGetResponse",
   "server.pet.list": "ServerPetListResponse",
   "server.pet.pixa.download": "ServerPetPixaDownloadResponse",
-  "server.pet.presentation.get": "ServerPetPresentationGetResponse",
   "server.pet.put": "ServerPetPutResponse",
   "server.points.get": "ServerPointsGetResponse",
   "server.points.transactions.get": "ServerPointsTransactionGetResponse",
@@ -1637,11 +1598,8 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.tool.put": "ToolPutResponse",
   "server.voice.get": "VoiceGetResponse",
   "server.voice.list": "VoiceListResponse",
-  "server.workflow.create": "WorkflowCreateResponse",
-  "server.workflow.delete": "WorkflowDeleteResponse",
   "server.workflow.get": "WorkflowGetResponse",
   "server.workflow.list": "WorkflowListResponse",
-  "server.workflow.put": "WorkflowPutResponse",
   "server.workspace.create": "WorkspaceCreateResponse",
   "server.workspace.delete": "WorkspaceDeleteResponse",
   "server.workspace.get": "WorkspaceGetResponse",
@@ -5532,6 +5490,124 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "PetAction": {
+    "fields": [
+      {
+        "name": "id",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "cost",
+        "number": 2,
+        "type": "int64"
+      },
+      {
+        "name": "effect",
+        "number": 3,
+        "optional": true,
+        "type": "PetActionEffectSpec"
+      },
+      {
+        "name": "visual_clip_id",
+        "number": 4,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "pixa_clip_name",
+        "number": 5,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
+  "PetActionEffectSpec": {
+    "fields": [
+      {
+        "name": "attr_delta_life",
+        "number": 1,
+        "optional": true,
+        "type": "PetLife"
+      },
+      {
+        "name": "pet_exp_delta",
+        "number": 2,
+        "optional": true,
+        "type": "int64"
+      }
+    ]
+  },
+  "PetActionI18nText": {
+    "fields": [
+      {
+        "name": "name",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "PetActions": {
+    "fields": [
+      {
+        "name": "pet_id",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "petdef_id",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "default_locale",
+        "number": 3,
+        "type": "string"
+      },
+      {
+        "name": "actions",
+        "number": 4,
+        "repeated": true,
+        "type": "PetAction"
+      },
+      {
+        "name": "i18n",
+        "number": 5,
+        "type": "PetActionsI18n"
+      },
+      {
+        "name": "petdef_updated_at",
+        "number": 6,
+        "type": "string"
+      },
+      {
+        "mapValue": "string",
+        "name": "clip_names",
+        "number": 7,
+        "type": "map"
+      }
+    ]
+  },
+  "PetActionsI18n": {
+    "fields": [
+      {
+        "mapValue": "PetActionsI18nCatalog",
+        "name": "value",
+        "number": 1,
+        "type": "map"
+      }
+    ]
+  },
+  "PetActionsI18nCatalog": {
+    "fields": [
+      {
+        "mapValue": "PetActionI18nText",
+        "name": "actions",
+        "number": 1,
+        "type": "map"
+      }
+    ]
+  },
   "PetAdoptRequest": {
     "fields": [
       {
@@ -5567,32 +5643,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
-  "PetDefPixaDownloadRequest": {
+  "PetConversationParameters": {
     "fields": [
       {
-        "name": "id",
+        "name": "initiative",
         "number": 1,
-        "type": "string"
-      }
-    ]
-  },
-  "PetDefPixaDownloadResponse": {
-    "fields": [
-      {
-        "name": "id",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "pixa_path",
-        "number": 2,
         "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "size_bytes",
-        "number": 3,
-        "type": "int64"
+        "type": "PetConversationParametersInitiative"
       }
     ]
   },
@@ -5761,6 +5818,16 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "PetPersonaParameters": {
+    "fields": [
+      {
+        "name": "prompt",
+        "number": 1,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
   "PetPixaDownloadRequest": {
     "fields": [
       {
@@ -5795,288 +5862,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
-  "PetPresentation": {
-    "fields": [
-      {
-        "name": "pet_id",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "petdef_id",
-        "number": 2,
-        "type": "string"
-      },
-      {
-        "name": "default_locale",
-        "number": 3,
-        "type": "string"
-      },
-      {
-        "name": "attr",
-        "number": 4,
-        "type": "PetPresentationAttrSpec"
-      },
-      {
-        "name": "drive",
-        "number": 5,
-        "type": "PetPresentationDriveSpec"
-      },
-      {
-        "name": "pixa_metadata",
-        "number": 6,
-        "type": "PetPresentationPixaMetadata"
-      },
-      {
-        "name": "i18n",
-        "number": 7,
-        "type": "PetPresentationI18nSpec"
-      },
-      {
-        "name": "pixa_path",
-        "number": 8,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "petdef_updated_at",
-        "number": 9,
-        "type": "string"
-      }
-    ]
-  },
-  "PetPresentationActionEffectSpec": {
-    "fields": [
-      {
-        "name": "attr_delta",
-        "number": 1,
-        "optional": true,
-        "type": "PetPresentationAttrDelta"
-      },
-      {
-        "name": "pet_exp_delta",
-        "number": 2,
-        "optional": true,
-        "type": "int64"
-      }
-    ]
-  },
-  "PetPresentationActionSpec": {
-    "fields": [
-      {
-        "name": "id",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "cost",
-        "number": 2,
-        "type": "int64"
-      },
-      {
-        "name": "effect",
-        "number": 3,
-        "optional": true,
-        "type": "PetPresentationActionEffectSpec"
-      },
-      {
-        "name": "visual_clip_id",
-        "number": 4,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "PetPresentationAttrDelta": {
-    "fields": [
-      {
-        "name": "life",
-        "number": 1,
-        "optional": true,
-        "type": "PetLife"
-      }
-    ]
-  },
-  "PetPresentationAttrGroupSpec": {
-    "fields": [
-      {
-        "mapValue": "PetPresentationAttrValueSpec",
-        "name": "value",
-        "number": 1,
-        "type": "map"
-      }
-    ]
-  },
-  "PetPresentationAttrSpec": {
-    "fields": [
-      {
-        "name": "life",
-        "number": 1,
-        "type": "PetPresentationAttrGroupSpec"
-      },
-      {
-        "name": "progression",
-        "number": 2,
-        "type": "PetPresentationAttrGroupSpec"
-      }
-    ]
-  },
-  "PetPresentationAttrValueSpec": {
-    "fields": [
-      {
-        "name": "initial",
-        "number": 1,
-        "type": "int64"
-      }
-    ]
-  },
-  "PetPresentationDriveSpec": {
-    "fields": [
-      {
-        "name": "actions",
-        "number": 1,
-        "repeated": true,
-        "type": "PetPresentationActionSpec"
-      }
-    ]
-  },
-  "PetPresentationI18nAttrGroup": {
-    "fields": [
-      {
-        "mapValue": "PetPresentationI18nDisplayText",
-        "name": "value",
-        "number": 1,
-        "type": "map"
-      }
-    ]
-  },
-  "PetPresentationI18nAttrSpec": {
-    "fields": [
-      {
-        "name": "life",
-        "number": 1,
-        "optional": true,
-        "type": "PetPresentationI18nAttrGroup"
-      },
-      {
-        "name": "progression",
-        "number": 2,
-        "optional": true,
-        "type": "PetPresentationI18nAttrGroup"
-      }
-    ]
-  },
-  "PetPresentationI18nCatalog": {
-    "fields": [
-      {
-        "name": "display_name",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "description",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "attr",
-        "number": 3,
-        "optional": true,
-        "type": "PetPresentationI18nAttrSpec"
-      },
-      {
-        "name": "drive",
-        "number": 4,
-        "optional": true,
-        "type": "PetPresentationI18nDriveSpec"
-      }
-    ]
-  },
-  "PetPresentationI18nDisplayText": {
-    "fields": [
-      {
-        "name": "display_name",
-        "number": 1,
-        "type": "string"
-      }
-    ]
-  },
-  "PetPresentationI18nDriveSpec": {
-    "fields": [
-      {
-        "mapValue": "PetPresentationI18nDisplayText",
-        "name": "actions",
-        "number": 1,
-        "type": "map"
-      }
-    ]
-  },
-  "PetPresentationI18nSpec": {
-    "fields": [
-      {
-        "mapValue": "PetPresentationI18nCatalog",
-        "name": "value",
-        "number": 1,
-        "type": "map"
-      }
-    ]
-  },
-  "PetPresentationPixaCanvasMetadata": {
-    "fields": [
-      {
-        "name": "width",
-        "number": 1,
-        "type": "int64"
-      },
-      {
-        "name": "height",
-        "number": 2,
-        "type": "int64"
-      }
-    ]
-  },
-  "PetPresentationPixaClipMetadata": {
-    "fields": [
-      {
-        "name": "id",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "action_id",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "pixa_clip_name",
-        "number": 3,
-        "type": "string"
-      }
-    ]
-  },
-  "PetPresentationPixaMetadata": {
-    "fields": [
-      {
-        "name": "version",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "canvas",
-        "number": 2,
-        "type": "PetPresentationPixaCanvasMetadata"
-      },
-      {
-        "name": "clips",
-        "number": 3,
-        "repeated": true,
-        "type": "PetPresentationPixaClipMetadata"
-      }
-    ]
-  },
   "PetProgression": {
     "fields": [
       {
@@ -6098,6 +5883,56 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "id",
         "number": 2,
         "type": "string"
+      }
+    ]
+  },
+  "PetVoiceParameters": {
+    "fields": [
+      {
+        "name": "prompt",
+        "number": 1,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "voice_id",
+        "number": 2,
+        "type": "string"
+      }
+    ]
+  },
+  "PetWorkflowSpec": {
+    "fields": []
+  },
+  "PetWorkspaceParameters": {
+    "fields": [
+      {
+        "name": "agent_type",
+        "number": 1,
+        "type": "PetWorkspaceParametersAgentType"
+      },
+      {
+        "name": "conversation",
+        "number": 2,
+        "optional": true,
+        "type": "PetConversationParameters"
+      },
+      {
+        "name": "input",
+        "number": 3,
+        "optional": true,
+        "type": "WorkspaceInputMode"
+      },
+      {
+        "name": "persona",
+        "number": 4,
+        "optional": true,
+        "type": "PetPersonaParameters"
+      },
+      {
+        "name": "voice",
+        "number": 5,
+        "type": "PetVoiceParameters"
       }
     ]
   },
@@ -6650,6 +6485,24 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "ServerPetActionsGetRequest": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "PetGetRequest"
+      }
+    ]
+  },
+  "ServerPetActionsGetResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "PetActions"
+      }
+    ]
+  },
   "ServerPetAdoptRequest": {
     "fields": [
       {
@@ -6755,24 +6608,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "PetPixaDownloadResponse"
-      }
-    ]
-  },
-  "ServerPetPresentationGetRequest": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "PetGetRequest"
-      }
-    ]
-  },
-  "ServerPetPresentationGetResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "PetPresentation"
       }
     ]
   },
@@ -7728,53 +7563,23 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
-  "WorkflowCreateRequest": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "WorkflowDocument"
-      }
-    ]
-  },
-  "WorkflowCreateResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "WorkflowDocument"
-      }
-    ]
-  },
-  "WorkflowDeleteRequest": {
+  "Workflow": {
     "fields": [
       {
         "name": "name",
         "number": 1,
         "type": "string"
-      }
-    ]
-  },
-  "WorkflowDeleteResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "WorkflowDocument"
-      }
-    ]
-  },
-  "WorkflowDocument": {
-    "fields": [
-      {
-        "name": "metadata",
-        "number": 1,
-        "type": "WorkflowMetadata"
       },
       {
         "name": "spec",
         "number": 2,
         "type": "WorkflowSpec"
+      },
+      {
+        "name": "i18n",
+        "number": 3,
+        "optional": true,
+        "type": "WorkflowI18nCatalog"
       }
     ]
   },
@@ -7784,6 +7589,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "name",
         "number": 1,
         "type": "string"
+      },
+      {
+        "name": "lang",
+        "number": 2,
+        "optional": true,
+        "type": "WorkflowLocale"
       }
     ]
   },
@@ -7792,7 +7603,23 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "value",
         "number": 1,
-        "type": "WorkflowDocument"
+        "type": "Workflow"
+      }
+    ]
+  },
+  "WorkflowI18nCatalog": {
+    "fields": [
+      {
+        "name": "name",
+        "number": 1,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "description",
+        "number": 2,
+        "optional": true,
+        "type": "string"
       }
     ]
   },
@@ -7809,6 +7636,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 2,
         "optional": true,
         "type": "int64"
+      },
+      {
+        "name": "lang",
+        "number": 3,
+        "optional": true,
+        "type": "WorkflowLocale"
       }
     ]
   },
@@ -7823,51 +7656,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "items",
         "number": 2,
         "repeated": true,
-        "type": "WorkflowDocument"
+        "type": "Workflow"
       },
       {
         "name": "next_cursor",
         "number": 3,
         "optional": true,
         "type": "string"
-      }
-    ]
-  },
-  "WorkflowMetadata": {
-    "fields": [
-      {
-        "name": "description",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "name",
-        "number": 2,
-        "type": "string"
-      }
-    ]
-  },
-  "WorkflowPutRequest": {
-    "fields": [
-      {
-        "name": "body",
-        "number": 1,
-        "type": "WorkflowDocument"
-      },
-      {
-        "name": "name",
-        "number": 2,
-        "type": "string"
-      }
-    ]
-  },
-  "WorkflowPutResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "WorkflowDocument"
       }
     ]
   },
@@ -7907,6 +7702,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 6,
         "optional": true,
         "type": "ToolkitPolicy"
+      },
+      {
+        "name": "pet",
+        "number": 7,
+        "optional": true,
+        "type": "PetWorkflowSpec"
       }
     ]
   },
@@ -8170,6 +7971,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 4,
         "oneof": true,
         "type": "ChatRoomWorkspaceParameters"
+      },
+      {
+        "name": "pet_workspace_parameters",
+        "number": 5,
+        "oneof": true,
+        "type": "PetWorkspaceParameters"
       }
     ]
   },
@@ -8498,6 +8305,28 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "5": "error"
     }
   },
+  "PetConversationParametersInitiative": {
+    "byName": {
+      "agent": 2,
+      "peer": 1,
+      "unspecified": 0
+    },
+    "byNumber": {
+      "0": "",
+      "1": "peer",
+      "2": "agent"
+    }
+  },
+  "PetWorkspaceParametersAgentType": {
+    "byName": {
+      "pet": 1,
+      "unspecified": 0
+    },
+    "byNumber": {
+      "0": "",
+      "1": "pet"
+    }
+  },
   "ToolExecutorKind": {
     "byName": {
       "builtin": 1,
@@ -8574,6 +8403,7 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "chatroom": 4,
       "doubao-realtime": 2,
       "flowcraft": 1,
+      "pet": 5,
       "unspecified": 0
     },
     "byNumber": {
@@ -8581,7 +8411,20 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "1": "flowcraft",
       "2": "doubao-realtime",
       "3": "ast-translate",
-      "4": "chatroom"
+      "4": "chatroom",
+      "5": "pet"
+    }
+  },
+  "WorkflowLocale": {
+    "byName": {
+      "en": 1,
+      "unspecified": 0,
+      "zh-CN": 2
+    },
+    "byNumber": {
+      "0": "",
+      "1": "en",
+      "2": "zh-CN"
     }
   },
   "WorkspaceHistoryListRequestOrder": {
@@ -8660,7 +8503,7 @@ function encodeMessage(type: string, value: unknown, parent: Record<string, unkn
     }
     return writer.finish();
   }
-  const object = asRecord(value, type);
+  const object = messageObjectForEncode(type, value);
   for (const field of fields) {
     if (field.oneof) {
       continue;
@@ -8693,6 +8536,10 @@ function decodeMessage(type: string, payload: Uint8Array): unknown {
     return {};
   }
   return withMessageDefaults(desc, values);
+}
+
+function messageObjectForEncode(type: string, value: unknown): Record<string, unknown> {
+  return asRecord(value, type);
 }
 
 function decodeMessageFields(desc: MessageDesc, payload: Uint8Array): Record<string, unknown> {
@@ -9032,6 +8879,7 @@ function oneofDiscriminatorFieldName(type: string, discriminator: string): strin
         "doubao-realtime": "doubao_realtime_workspace_parameters",
         "ast-translate": "asttranslate_workspace_parameters",
         "chatroom": "chat_room_workspace_parameters",
+        "pet": "pet_workspace_parameters",
       } as Record<string, string>)[discriminator];
     default:
       return undefined;
@@ -9048,7 +8896,7 @@ function enumNumber(type: string, value: unknown): number {
   }
   const text = String(value ?? "");
   const key = text.toLowerCase();
-  const number = desc.byName[key] ?? desc.byName[key.replaceAll("-", "_")];
+  const number = desc.byName[text] ?? desc.byName[key] ?? desc.byName[key.replaceAll("-", "_")];
   if (number == null) {
     throw new Error(`unknown protobuf enum value for ${type}: ${text}`);
   }

@@ -6,7 +6,7 @@ import (
 )
 
 type createWorkflow200Response struct {
-	doc apitypes.WorkflowDocument
+	doc apitypes.Workflow
 }
 
 func (response createWorkflow200Response) VisitCreateWorkflowResponse(ctx *fiber.Ctx) error {
@@ -16,7 +16,7 @@ func (response createWorkflow200Response) VisitCreateWorkflowResponse(ctx *fiber
 }
 
 type getWorkflow200Response struct {
-	doc apitypes.WorkflowDocument
+	doc apitypes.Workflow
 }
 
 func (response getWorkflow200Response) VisitGetWorkflowResponse(ctx *fiber.Ctx) error {
@@ -26,7 +26,7 @@ func (response getWorkflow200Response) VisitGetWorkflowResponse(ctx *fiber.Ctx) 
 }
 
 type putWorkflow200Response struct {
-	doc apitypes.WorkflowDocument
+	doc apitypes.Workflow
 }
 
 func (response putWorkflow200Response) VisitPutWorkflowResponse(ctx *fiber.Ctx) error {
@@ -36,7 +36,7 @@ func (response putWorkflow200Response) VisitPutWorkflowResponse(ctx *fiber.Ctx) 
 }
 
 type deleteWorkflow200Response struct {
-	doc apitypes.WorkflowDocument
+	doc apitypes.Workflow
 }
 
 func (response deleteWorkflow200Response) VisitDeleteWorkflowResponse(ctx *fiber.Ctx) error {

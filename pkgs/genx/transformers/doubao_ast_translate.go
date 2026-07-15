@@ -22,11 +22,14 @@ import (
 const (
 	doubaoASTTranslateTranscriptLabel = "transcript"
 	doubaoASTTranslateAssistantLabel  = "assistant"
+	doubaoASTTranslatePTTOutputLimit  = 2 * time.Minute
 
 	doubaoASTTranslateSourceSampleRate = 16000
 	doubaoASTTranslateSourceChannels   = 1
 	doubaoASTTranslateSourceBits       = 16
 )
+
+var errDoubaoASTTranslatePTTOutputLimit = errors.New("doubao ast translate: push-to-talk output audio limit exceeded")
 
 type DoubaoASTTranslate struct {
 	client                     *doubaospeech.Client
@@ -174,9 +177,11 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 	defer cancel()
 
 	var session doubaoASTTranslateSession
+	var sessionGate *astTranslatePTTOutputGate
 	var recvDone chan error
 	var recvStart chan struct{}
 	var streamID string
+	var limitedStreamID string
 	var sessionFinishing bool
 	var rawOpusDecoder *opus.Decoder
 	var sessionStartedAt time.Time
@@ -212,27 +217,44 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 		sessionStartedAt = time.Time{}
 		sentAudioDuration = 0
 		sessionFinishing = false
+		limitedStreamID = ""
 		sessionSeq++
 		activeSessionSeq.Store(sessionSeq)
 		seq := sessionSeq
+		active := func() bool {
+			return activeSessionSeq.Load() == seq
+		}
+		eventOutput := astTranslateOutput(astTranslateGatedOutput{
+			output: output,
+			active: active,
+		})
+		if t.inputMode == DoubaoASTTranslateInputModePushToTalk {
+			sessionGate = newASTTranslatePTTOutputGate(output, active, streamID)
+			eventOutput = sessionGate
+		} else {
+			sessionGate = nil
+		}
 		done := make(chan error, 1)
 		start := make(chan struct{})
+		pttGate := sessionGate
 		recvDone = done
 		recvStart = start
-		go func(activeStreamID string, start <-chan struct{}) {
+		go func(activeStreamID string, start <-chan struct{}, eventOutput astTranslateOutput, pttGate *astTranslatePTTOutputGate) {
 			select {
 			case <-ctx.Done():
+				pttGate.Discard()
 				done <- ctx.Err()
 				return
 			case <-start:
 			}
-			done <- t.forwardEvents(astTranslateGatedOutput{
-				output: output,
-				active: func() bool {
-					return activeSessionSeq.Load() == seq
-				},
-			}, next, activeStreamID, historyAudio)
-		}(streamID, start)
+			err := t.forwardEvents(eventOutput, next, activeStreamID, historyAudio)
+			if errors.Is(err, errDoubaoASTTranslatePTTOutputLimit) {
+				_ = next.Close()
+			} else if err != nil {
+				pttGate.Discard()
+			}
+			done <- err
+		}(streamID, start, eventOutput, pttGate)
 		return nil
 	}
 
@@ -281,6 +303,7 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 			sessionFinishing = true
 			if err := active.Finish(ctx); err != nil {
 				session = nil
+				sessionGate = nil
 				recvDone = nil
 				sessionFinishing = false
 				activeSessionSeq.Store(0)
@@ -292,6 +315,7 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 			return nil
 		}
 		session = nil
+		sessionGate = nil
 		recvDone = nil
 		sessionFinishing = false
 		if done == nil {
@@ -314,7 +338,11 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 		select {
 		case err := <-recvDone:
 			active := session
+			if sessionGate != nil && err != nil {
+				sessionGate.Discard()
+			}
 			session = nil
+			sessionGate = nil
 			recvDone = nil
 			sessionFinishing = false
 			activeSessionSeq.Store(0)
@@ -326,6 +354,40 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 		}
 	}
 
+	handlePTTOutputLimit := func() error {
+		if session == nil || sessionGate == nil || !sessionGate.LimitExceeded() {
+			return nil
+		}
+		active := session
+		done := recvDone
+		failedID := streamID
+		session = nil
+		sessionGate = nil
+		recvDone = nil
+		sessionFinishing = false
+		activeSessionSeq.Store(0)
+		if recvStart != nil {
+			close(recvStart)
+			recvStart = nil
+		}
+		_ = active.Close()
+		if done != nil {
+			select {
+			case err := <-done:
+				if err != nil && !errors.Is(err, errDoubaoASTTranslatePTTOutputLimit) {
+					return err
+				}
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+		limitedStreamID = failedID
+		historyAudio.reset()
+		sessionStartedAt = time.Time{}
+		sentAudioDuration = 0
+		return nil
+	}
+
 	interruptSession := func(id string) error {
 		if session == nil {
 			streamID = strings.TrimSpace(id)
@@ -333,6 +395,11 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 		}
 		active := session
 		done := recvDone
+		limitExceeded := false
+		if sessionGate != nil {
+			sessionGate.Discard()
+			limitExceeded = sessionGate.LimitExceeded()
+		}
 		interruptedStreamID := strings.TrimSpace(streamID)
 		if interruptedStreamID == "" {
 			interruptedStreamID = strings.TrimSpace(id)
@@ -341,6 +408,7 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 			interruptedStreamID = "audio"
 		}
 		session = nil
+		sessionGate = nil
 		recvDone = nil
 		sessionFinishing = false
 		activeSessionSeq.Store(0)
@@ -348,10 +416,12 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 			close(recvStart)
 			recvStart = nil
 		}
-		for _, chunk := range astTranslateInterruptedChunks(interruptedStreamID) {
-			if err := output.Push(chunk); err != nil {
-				_ = active.Close()
-				return err
+		if !limitExceeded {
+			for _, chunk := range astTranslateInterruptedChunks(interruptedStreamID) {
+				if err := output.Push(chunk); err != nil {
+					_ = active.Close()
+					return err
+				}
 			}
 		}
 		_ = active.Close()
@@ -363,6 +433,7 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 			}
 		}
 		streamID = strings.TrimSpace(id)
+		limitedStreamID = ""
 		historyAudio.reset()
 		sessionStartedAt = time.Time{}
 		sentAudioDuration = 0
@@ -371,17 +442,30 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 
 	for {
 		if err := ctx.Err(); err != nil {
+			if sessionGate != nil {
+				sessionGate.Discard()
+			}
 			output.CloseWithError(err)
 			return
 		}
 		chunk, err := input.Next()
+		if limitErr := handlePTTOutputLimit(); limitErr != nil {
+			output.CloseWithError(limitErr)
+			return
+		}
 		if err != nil {
 			if !errors.Is(err, genx.ErrDone) && !errors.Is(err, io.EOF) {
 				if session != nil {
+					if sessionGate != nil {
+						sessionGate.Discard()
+					}
 					_ = session.Close()
 				}
 				output.CloseWithError(err)
 				return
+			}
+			if sessionGate != nil {
+				sessionGate.Discard()
 			}
 			if err := finishSession(true); err != nil {
 				output.CloseWithError(err)
@@ -397,6 +481,11 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 		}
 		id := chunkInputStreamID(chunk, streamID)
 		if chunk.IsBeginOfStream() {
+			if limitedStreamID != "" {
+				limitedStreamID = ""
+				streamID = id
+				continue
+			}
 			if strings.TrimSpace(streamID) != "" && strings.TrimSpace(id) != "" && id != streamID {
 				if err := interruptSession(id); err != nil {
 					output.CloseWithError(err)
@@ -406,11 +495,31 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 			streamID = id
 			continue
 		}
+		if limitedStreamID != "" {
+			if chunk.IsEndOfStream() && id == limitedStreamID {
+				limitedStreamID = ""
+				streamID = ""
+			}
+			continue
+		}
 		if strings.TrimSpace(streamID) != "" && strings.TrimSpace(id) != "" && id != streamID {
 			continue
 		}
 		if chunk.IsEndOfStream() {
 			if blob, ok := chunk.Part.(*genx.Blob); ok && isAudioMIME(blob.MIMEType) {
+				if sessionGate != nil {
+					if err := sessionGate.Commit(); err != nil {
+						if errors.Is(err, errDoubaoASTTranslatePTTOutputLimit) {
+							if limitErr := handlePTTOutputLimit(); limitErr != nil {
+								output.CloseWithError(limitErr)
+								return
+							}
+							continue
+						}
+						output.CloseWithError(err)
+						return
+					}
+				}
 				wait := t.inputMode != DoubaoASTTranslateInputModeRealtime
 				if err := finishSession(wait); err != nil {
 					output.CloseWithError(err)
@@ -432,6 +541,9 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 		}
 		audio, err := t.prepareAudioBlob(blob, &rawOpusDecoder)
 		if err != nil {
+			if sessionGate != nil {
+				sessionGate.Discard()
+			}
 			if session != nil {
 				_ = session.Close()
 			}
@@ -454,12 +566,27 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 			close(recvStart)
 			recvStart = nil
 		}
+		limitedDuringSend := false
 		for audioChunk := range splitDoubaoASRAudio(audio, t.audioChunkSize()) {
 			if err := sendAudio(audioChunk); err != nil {
+				if sessionGate != nil && sessionGate.LimitExceeded() {
+					if limitErr := handlePTTOutputLimit(); limitErr != nil {
+						output.CloseWithError(limitErr)
+						return
+					}
+					limitedDuringSend = true
+					break
+				}
+				if sessionGate != nil {
+					sessionGate.Discard()
+				}
 				_ = session.Close()
 				output.CloseWithError(err)
 				return
 			}
+		}
+		if limitedDuringSend {
+			continue
 		}
 	}
 }
@@ -537,6 +664,150 @@ type astTranslateOutput interface {
 	Push(*genx.MessageChunk) error
 }
 
+type astTranslatePTTOutputGate struct {
+	mu       sync.Mutex
+	output   astTranslateOutput
+	active   func() bool
+	streamID string
+
+	committed        bool
+	terminal         bool
+	retained         []*genx.MessageChunk
+	retainedDuration time.Duration
+	limitErr         error
+}
+
+func newASTTranslatePTTOutputGate(output astTranslateOutput, active func() bool, streamID string) *astTranslatePTTOutputGate {
+	streamID = strings.TrimSpace(streamID)
+	if streamID == "" {
+		streamID = "audio"
+	}
+	return &astTranslatePTTOutputGate{
+		output:   output,
+		active:   active,
+		streamID: streamID,
+	}
+}
+
+func (g *astTranslatePTTOutputGate) Push(chunk *genx.MessageChunk) error {
+	if g == nil || chunk == nil {
+		return nil
+	}
+	if g.active != nil && !g.active() {
+		return nil
+	}
+
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.active != nil && !g.active() {
+		return nil
+	}
+	if g.terminal {
+		return nil
+	}
+	if g.committed {
+		return g.output.Push(chunk)
+	}
+
+	duration := astTranslateAssistantOpusDuration(chunk)
+	if duration > 0 && duration > doubaoASTTranslatePTTOutputLimit-g.retainedDuration {
+		g.retained = nil
+		g.retainedDuration = 0
+		g.terminal = true
+		g.limitErr = fmt.Errorf(
+			"%w for StreamID %q (limit %s)",
+			errDoubaoASTTranslatePTTOutputLimit,
+			g.streamID,
+			doubaoASTTranslatePTTOutputLimit,
+		)
+		if err := g.output.Push(astTranslatePTTOutputLimitChunk(g.streamID, g.limitErr)); err != nil {
+			return err
+		}
+		return g.limitErr
+	}
+
+	g.retainedDuration += duration
+	g.retained = append(g.retained, chunk.Clone())
+	return nil
+}
+
+func (g *astTranslatePTTOutputGate) Commit() error {
+	if g == nil {
+		return nil
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.limitErr != nil {
+		return g.limitErr
+	}
+	if g.terminal || g.committed {
+		return nil
+	}
+	for _, chunk := range g.retained {
+		if err := g.output.Push(chunk); err != nil {
+			g.terminal = true
+			g.retained = nil
+			g.retainedDuration = 0
+			return err
+		}
+	}
+	g.retained = nil
+	g.retainedDuration = 0
+	g.committed = true
+	return nil
+}
+
+func (g *astTranslatePTTOutputGate) Discard() {
+	if g == nil {
+		return
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.committed {
+		return
+	}
+	g.terminal = true
+	g.retained = nil
+	g.retainedDuration = 0
+}
+
+func (g *astTranslatePTTOutputGate) LimitExceeded() bool {
+	if g == nil {
+		return false
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.limitErr != nil
+}
+
+func astTranslateAssistantOpusDuration(chunk *genx.MessageChunk) time.Duration {
+	if chunk == nil || chunk.Role != genx.RoleModel || chunk.Ctrl == nil || chunk.Ctrl.Label != doubaoASTTranslateAssistantLabel {
+		return 0
+	}
+	blob, ok := chunk.Part.(*genx.Blob)
+	if !ok || blob == nil || len(blob.Data) == 0 || baseAudioMIME(blob.MIMEType) != "audio/opus" {
+		return 0
+	}
+	return time.Duration(historyOpusPacketDurationMS(blob.Data)) * time.Millisecond
+}
+
+func astTranslatePTTOutputLimitChunk(streamID string, err error) *genx.MessageChunk {
+	errText := ""
+	if err != nil {
+		errText = err.Error()
+	}
+	return &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Name: doubaoASTTranslateAssistantLabel,
+		Ctrl: &genx.StreamCtrl{
+			StreamID:    streamID,
+			Label:       doubaoASTTranslateAssistantLabel,
+			EndOfStream: true,
+			Error:       errText,
+		},
+	}
+}
+
 type astTranslateGatedOutput struct {
 	output astTranslateOutput
 	active func() bool
@@ -549,7 +820,7 @@ func (o astTranslateGatedOutput) Push(chunk *genx.MessageChunk) error {
 	return o.output.Push(chunk)
 }
 
-func (t *DoubaoASTTranslate) forwardEvents(output astTranslateOutput, session doubaoASTTranslateSession, streamID string, historyAudio *astTranslateHistoryAudioBuffer) error {
+func (t *DoubaoASTTranslate) forwardEvents(output astTranslateOutput, session doubaoASTTranslateSession, streamID string, historyAudio *astTranslateHistoryAudioBuffer) (retErr error) {
 	source := astTranslateTextState{role: genx.RoleUser, label: doubaoASTTranslateTranscriptLabel, streamID: streamID}
 	translation := astTranslateTextState{role: genx.RoleModel, label: doubaoASTTranslateAssistantLabel, streamID: streamID}
 	audio := astTranslateAudioState{streamID: streamID, mimeType: "audio/opus", decoder: newASTOggOpusFrameDecoder()}
@@ -573,6 +844,11 @@ func (t *DoubaoASTTranslate) forwardEvents(output astTranslateOutput, session do
 		return ensureSegment()
 	}
 	defer func() {
+		if retErr != nil {
+			if gate, ok := output.(*astTranslatePTTOutputGate); ok {
+				gate.Discard()
+			}
+		}
 		_ = source.close(output, "")
 		_ = translation.close(output, "")
 		_ = audio.close(output, "")

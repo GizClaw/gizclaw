@@ -58,9 +58,9 @@ func registerDoubaoTTS(cfg ConfigFile) ([]string, error) {
 		// Use DoubaoTTSSeedV2 for all voices
 		// The transformer will auto-detect resource ID based on voice suffix
 		tts := transformers.NewDoubaoTTSSeedV2(client, v.VoiceID, opts...)
-		// Register to both TTSMux and DefaultMux for compatibility
-		transformers.HandleTTS(v.Name, tts)
-		transformers.Handle(v.Name, tts)
+		if err := transformers.Handle(v.Name, tts); err != nil {
+			return nil, fmt.Errorf("register transformer %q: %w", v.Name, err)
+		}
 		names = append(names, v.Name)
 	}
 	return names, nil
@@ -93,9 +93,9 @@ func registerMinimaxTTS(cfg ConfigFile) ([]string, error) {
 		}
 
 		tts := transformers.NewMinimaxTTS(client, v.VoiceID, ttsOpts...)
-		// Register to both TTSMux and DefaultMux for compatibility
-		transformers.HandleTTS(v.Name, tts)
-		transformers.Handle(v.Name, tts)
+		if err := transformers.Handle(v.Name, tts); err != nil {
+			return nil, fmt.Errorf("register transformer %q: %w", v.Name, err)
+		}
 		names = append(names, v.Name)
 	}
 	return names, nil

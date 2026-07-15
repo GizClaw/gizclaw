@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v7.34.1
-// source: api/telemetry/peer_telemetry.proto
+// source: api/proto/telemetry/peer_telemetry.proto
 
 package telemetrypb
 
@@ -32,7 +32,7 @@ type TelemetryFrame struct {
 
 func (x *TelemetryFrame) Reset() {
 	*x = TelemetryFrame{}
-	mi := &file_api_telemetry_peer_telemetry_proto_msgTypes[0]
+	mi := &file_api_proto_telemetry_peer_telemetry_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -44,7 +44,7 @@ func (x *TelemetryFrame) String() string {
 func (*TelemetryFrame) ProtoMessage() {}
 
 func (x *TelemetryFrame) ProtoReflect() protoreflect.Message {
-	mi := &file_api_telemetry_peer_telemetry_proto_msgTypes[0]
+	mi := &file_api_proto_telemetry_peer_telemetry_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -57,7 +57,7 @@ func (x *TelemetryFrame) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TelemetryFrame.ProtoReflect.Descriptor instead.
 func (*TelemetryFrame) Descriptor() ([]byte, []int) {
-	return file_api_telemetry_peer_telemetry_proto_rawDescGZIP(), []int{0}
+	return file_api_proto_telemetry_peer_telemetry_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *TelemetryFrame) GetSequence() uint32 {
@@ -97,7 +97,7 @@ type Observation struct {
 
 func (x *Observation) Reset() {
 	*x = Observation{}
-	mi := &file_api_telemetry_peer_telemetry_proto_msgTypes[1]
+	mi := &file_api_proto_telemetry_peer_telemetry_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -109,7 +109,7 @@ func (x *Observation) String() string {
 func (*Observation) ProtoMessage() {}
 
 func (x *Observation) ProtoReflect() protoreflect.Message {
-	mi := &file_api_telemetry_peer_telemetry_proto_msgTypes[1]
+	mi := &file_api_proto_telemetry_peer_telemetry_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -122,7 +122,7 @@ func (x *Observation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Observation.ProtoReflect.Descriptor instead.
 func (*Observation) Descriptor() ([]byte, []int) {
-	return file_api_telemetry_peer_telemetry_proto_rawDescGZIP(), []int{1}
+	return file_api_proto_telemetry_peer_telemetry_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *Observation) GetObservedAtDeltaMs() int32 {
@@ -214,7 +214,7 @@ type BatteryObservation struct {
 
 func (x *BatteryObservation) Reset() {
 	*x = BatteryObservation{}
-	mi := &file_api_telemetry_peer_telemetry_proto_msgTypes[2]
+	mi := &file_api_proto_telemetry_peer_telemetry_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -226,7 +226,7 @@ func (x *BatteryObservation) String() string {
 func (*BatteryObservation) ProtoMessage() {}
 
 func (x *BatteryObservation) ProtoReflect() protoreflect.Message {
-	mi := &file_api_telemetry_peer_telemetry_proto_msgTypes[2]
+	mi := &file_api_proto_telemetry_peer_telemetry_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -239,7 +239,7 @@ func (x *BatteryObservation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatteryObservation.ProtoReflect.Descriptor instead.
 func (*BatteryObservation) Descriptor() ([]byte, []int) {
-	return file_api_telemetry_peer_telemetry_proto_rawDescGZIP(), []int{2}
+	return file_api_proto_telemetry_peer_telemetry_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *BatteryObservation) GetPercent() float64 {
@@ -275,7 +275,7 @@ type GnssObservation struct {
 
 func (x *GnssObservation) Reset() {
 	*x = GnssObservation{}
-	mi := &file_api_telemetry_peer_telemetry_proto_msgTypes[3]
+	mi := &file_api_proto_telemetry_peer_telemetry_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -287,7 +287,7 @@ func (x *GnssObservation) String() string {
 func (*GnssObservation) ProtoMessage() {}
 
 func (x *GnssObservation) ProtoReflect() protoreflect.Message {
-	mi := &file_api_telemetry_peer_telemetry_proto_msgTypes[3]
+	mi := &file_api_proto_telemetry_peer_telemetry_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -300,7 +300,7 @@ func (x *GnssObservation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GnssObservation.ProtoReflect.Descriptor instead.
 func (*GnssObservation) Descriptor() ([]byte, []int) {
-	return file_api_telemetry_peer_telemetry_proto_rawDescGZIP(), []int{3}
+	return file_api_proto_telemetry_peer_telemetry_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *GnssObservation) GetLatitude() float64 {
@@ -344,7 +344,7 @@ type NetworkObservation struct {
 
 func (x *NetworkObservation) Reset() {
 	*x = NetworkObservation{}
-	mi := &file_api_telemetry_peer_telemetry_proto_msgTypes[4]
+	mi := &file_api_proto_telemetry_peer_telemetry_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -356,7 +356,7 @@ func (x *NetworkObservation) String() string {
 func (*NetworkObservation) ProtoMessage() {}
 
 func (x *NetworkObservation) ProtoReflect() protoreflect.Message {
-	mi := &file_api_telemetry_peer_telemetry_proto_msgTypes[4]
+	mi := &file_api_proto_telemetry_peer_telemetry_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -369,7 +369,7 @@ func (x *NetworkObservation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NetworkObservation.ProtoReflect.Descriptor instead.
 func (*NetworkObservation) Descriptor() ([]byte, []int) {
-	return file_api_telemetry_peer_telemetry_proto_rawDescGZIP(), []int{4}
+	return file_api_proto_telemetry_peer_telemetry_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *NetworkObservation) GetRssiDbm() float64 {
@@ -421,7 +421,7 @@ type SystemObservation struct {
 
 func (x *SystemObservation) Reset() {
 	*x = SystemObservation{}
-	mi := &file_api_telemetry_peer_telemetry_proto_msgTypes[5]
+	mi := &file_api_proto_telemetry_peer_telemetry_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -433,7 +433,7 @@ func (x *SystemObservation) String() string {
 func (*SystemObservation) ProtoMessage() {}
 
 func (x *SystemObservation) ProtoReflect() protoreflect.Message {
-	mi := &file_api_telemetry_peer_telemetry_proto_msgTypes[5]
+	mi := &file_api_proto_telemetry_peer_telemetry_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -446,7 +446,7 @@ func (x *SystemObservation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SystemObservation.ProtoReflect.Descriptor instead.
 func (*SystemObservation) Descriptor() ([]byte, []int) {
-	return file_api_telemetry_peer_telemetry_proto_rawDescGZIP(), []int{5}
+	return file_api_proto_telemetry_peer_telemetry_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *SystemObservation) GetUptimeSeconds() float64 {
@@ -491,11 +491,11 @@ func (x *SystemObservation) GetHardwareVersion() string {
 	return ""
 }
 
-var File_api_telemetry_peer_telemetry_proto protoreflect.FileDescriptor
+var File_api_proto_telemetry_peer_telemetry_proto protoreflect.FileDescriptor
 
-const file_api_telemetry_peer_telemetry_proto_rawDesc = "" +
+const file_api_proto_telemetry_peer_telemetry_proto_rawDesc = "" +
 	"\n" +
-	"\"api/telemetry/peer_telemetry.proto\x12\x14gizclaw.telemetry.v1\"\xa2\x01\n" +
+	"(api/proto/telemetry/peer_telemetry.proto\x12\x14gizclaw.telemetry.v1\"\xa2\x01\n" +
 	"\x0eTelemetryFrame\x12\x1a\n" +
 	"\bsequence\x18\x01 \x01(\rR\bsequence\x12-\n" +
 	"\x13observed_at_unix_ms\x18\x02 \x01(\x03R\x10observedAtUnixMs\x12E\n" +
@@ -553,19 +553,19 @@ const file_api_telemetry_peer_telemetry_proto_rawDesc = "" +
 	"\x11_hardware_versionBFZDgithub.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/telemetry;telemetrypbb\x06proto3"
 
 var (
-	file_api_telemetry_peer_telemetry_proto_rawDescOnce sync.Once
-	file_api_telemetry_peer_telemetry_proto_rawDescData []byte
+	file_api_proto_telemetry_peer_telemetry_proto_rawDescOnce sync.Once
+	file_api_proto_telemetry_peer_telemetry_proto_rawDescData []byte
 )
 
-func file_api_telemetry_peer_telemetry_proto_rawDescGZIP() []byte {
-	file_api_telemetry_peer_telemetry_proto_rawDescOnce.Do(func() {
-		file_api_telemetry_peer_telemetry_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_api_telemetry_peer_telemetry_proto_rawDesc), len(file_api_telemetry_peer_telemetry_proto_rawDesc)))
+func file_api_proto_telemetry_peer_telemetry_proto_rawDescGZIP() []byte {
+	file_api_proto_telemetry_peer_telemetry_proto_rawDescOnce.Do(func() {
+		file_api_proto_telemetry_peer_telemetry_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_api_proto_telemetry_peer_telemetry_proto_rawDesc), len(file_api_proto_telemetry_peer_telemetry_proto_rawDesc)))
 	})
-	return file_api_telemetry_peer_telemetry_proto_rawDescData
+	return file_api_proto_telemetry_peer_telemetry_proto_rawDescData
 }
 
-var file_api_telemetry_peer_telemetry_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
-var file_api_telemetry_peer_telemetry_proto_goTypes = []any{
+var file_api_proto_telemetry_peer_telemetry_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_api_proto_telemetry_peer_telemetry_proto_goTypes = []any{
 	(*TelemetryFrame)(nil),     // 0: gizclaw.telemetry.v1.TelemetryFrame
 	(*Observation)(nil),        // 1: gizclaw.telemetry.v1.Observation
 	(*BatteryObservation)(nil), // 2: gizclaw.telemetry.v1.BatteryObservation
@@ -573,7 +573,7 @@ var file_api_telemetry_peer_telemetry_proto_goTypes = []any{
 	(*NetworkObservation)(nil), // 4: gizclaw.telemetry.v1.NetworkObservation
 	(*SystemObservation)(nil),  // 5: gizclaw.telemetry.v1.SystemObservation
 }
-var file_api_telemetry_peer_telemetry_proto_depIdxs = []int32{
+var file_api_proto_telemetry_peer_telemetry_proto_depIdxs = []int32{
 	1, // 0: gizclaw.telemetry.v1.TelemetryFrame.observations:type_name -> gizclaw.telemetry.v1.Observation
 	2, // 1: gizclaw.telemetry.v1.Observation.battery:type_name -> gizclaw.telemetry.v1.BatteryObservation
 	3, // 2: gizclaw.telemetry.v1.Observation.gnss:type_name -> gizclaw.telemetry.v1.GnssObservation
@@ -586,36 +586,36 @@ var file_api_telemetry_peer_telemetry_proto_depIdxs = []int32{
 	0, // [0:5] is the sub-list for field type_name
 }
 
-func init() { file_api_telemetry_peer_telemetry_proto_init() }
-func file_api_telemetry_peer_telemetry_proto_init() {
-	if File_api_telemetry_peer_telemetry_proto != nil {
+func init() { file_api_proto_telemetry_peer_telemetry_proto_init() }
+func file_api_proto_telemetry_peer_telemetry_proto_init() {
+	if File_api_proto_telemetry_peer_telemetry_proto != nil {
 		return
 	}
-	file_api_telemetry_peer_telemetry_proto_msgTypes[1].OneofWrappers = []any{
+	file_api_proto_telemetry_peer_telemetry_proto_msgTypes[1].OneofWrappers = []any{
 		(*Observation_Battery)(nil),
 		(*Observation_Gnss)(nil),
 		(*Observation_Network)(nil),
 		(*Observation_System)(nil),
 	}
-	file_api_telemetry_peer_telemetry_proto_msgTypes[2].OneofWrappers = []any{}
-	file_api_telemetry_peer_telemetry_proto_msgTypes[3].OneofWrappers = []any{}
-	file_api_telemetry_peer_telemetry_proto_msgTypes[4].OneofWrappers = []any{}
-	file_api_telemetry_peer_telemetry_proto_msgTypes[5].OneofWrappers = []any{}
+	file_api_proto_telemetry_peer_telemetry_proto_msgTypes[2].OneofWrappers = []any{}
+	file_api_proto_telemetry_peer_telemetry_proto_msgTypes[3].OneofWrappers = []any{}
+	file_api_proto_telemetry_peer_telemetry_proto_msgTypes[4].OneofWrappers = []any{}
+	file_api_proto_telemetry_peer_telemetry_proto_msgTypes[5].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_telemetry_peer_telemetry_proto_rawDesc), len(file_api_telemetry_peer_telemetry_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_telemetry_peer_telemetry_proto_rawDesc), len(file_api_proto_telemetry_peer_telemetry_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_api_telemetry_peer_telemetry_proto_goTypes,
-		DependencyIndexes: file_api_telemetry_peer_telemetry_proto_depIdxs,
-		MessageInfos:      file_api_telemetry_peer_telemetry_proto_msgTypes,
+		GoTypes:           file_api_proto_telemetry_peer_telemetry_proto_goTypes,
+		DependencyIndexes: file_api_proto_telemetry_peer_telemetry_proto_depIdxs,
+		MessageInfos:      file_api_proto_telemetry_peer_telemetry_proto_msgTypes,
 	}.Build()
-	File_api_telemetry_peer_telemetry_proto = out.File
-	file_api_telemetry_peer_telemetry_proto_goTypes = nil
-	file_api_telemetry_peer_telemetry_proto_depIdxs = nil
+	File_api_proto_telemetry_peer_telemetry_proto = out.File
+	file_api_proto_telemetry_peer_telemetry_proto_goTypes = nil
+	file_api_proto_telemetry_peer_telemetry_proto_depIdxs = nil
 }

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/clicontext"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/contextstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
@@ -28,7 +29,7 @@ func DialFromContext(name string) (*gizcli.Client, giznet.PublicKey, string, err
 	if err != nil {
 		return nil, giznet.PublicKey{}, "", err
 	}
-	var cliCtx *clicontext.CLIContext
+	var cliCtx *contextstore.Context
 	if name != "" {
 		cliCtx, err = store.LoadByName(name)
 	} else {
@@ -160,8 +161,9 @@ func ConnectFromContext(name string) (*gizcli.Client, error) {
 		return nil, err
 	}
 	errCh := make(chan error, 1)
+	serve := serveClient
 	go func() {
-		errCh <- serveClient(c)
+		errCh <- serve(c)
 	}()
 	deadline := time.Now().Add(connectReadyTimeout)
 	for time.Now().Before(deadline) {

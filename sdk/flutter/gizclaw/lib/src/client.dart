@@ -41,9 +41,19 @@ class GizClawClient {
   final ServiceHttpClient peerOpenAi;
   final PeerRpcClient rpc;
 
+  Future<payload.ServerPutInfoResponse> putServerInfo(
+    payload.DeviceInfo value,
+  ) {
+    return rpc.call<payload.ServerPutInfoResponse>(
+      'server.info.put',
+      payload.ServerPutInfoRequest(value: value),
+    );
+  }
+
   Future<payload.WorkflowListResponse> listWorkflows({
     String? cursor,
     int? limit,
+    payload.WorkflowLocale? lang,
   }) {
     final request = payload.WorkflowListRequest();
     if (cursor != null) {
@@ -51,6 +61,9 @@ class GizClawClient {
     }
     if (limit != null) {
       request.limit = Int64(limit);
+    }
+    if (lang != null) {
+      request.lang = lang;
     }
     return rpc.call<payload.WorkflowListResponse>(
       'server.workflow.list',
@@ -269,29 +282,12 @@ class GizClawClient {
     );
   }
 
-  Future<payload.ServerPetPresentationGetResponse> getPetPresentation(
-    String petId,
-  ) {
-    return rpc.call<payload.ServerPetPresentationGetResponse>(
-      'server.pet.presentation.get',
-      payload.ServerPetPresentationGetRequest(
+  Future<payload.ServerPetActionsGetResponse> getPetActions(String petId) {
+    return rpc.call<payload.ServerPetActionsGetResponse>(
+      'server.pet.actions.get',
+      payload.ServerPetActionsGetRequest(
         value: payload.PetGetRequest(id: petId),
       ),
-    );
-  }
-
-  Future<PixaDownloadResult<payload.PetDefPixaDownloadResponse>>
-  downloadPetDefPixa(String id) async {
-    final response = await rpc.callBinary(
-      'server.pet_def.pixa.download',
-      payload.PetDefPixaDownloadRequest(id: id),
-    );
-    final metadata = response.response as payload.PetDefPixaDownloadResponse;
-    final bytes = Uint8List.fromList(response.body);
-    return PixaDownloadResult(
-      metadata: metadata,
-      bytes: bytes,
-      asset: validatePixa(bytes, mode: PixaValidationMode.petdef),
     );
   }
 

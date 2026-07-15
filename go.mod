@@ -5,6 +5,7 @@ go 1.26
 require (
 	github.com/GizClaw/dashscope-realtime-go v0.0.0-20260512045013-1d5b538966ad
 	github.com/GizClaw/doubao-speech-go v0.0.0-20260627203027-6f08ce8eb502
+	github.com/GizClaw/flowcraft/memory v0.1.6
 	github.com/GizClaw/flowcraft/sdk v0.4.7
 	github.com/GizClaw/flowcraft/sdkx v0.4.8
 	github.com/GizClaw/minimax-go v0.0.0-20260512045057-389426641c63
@@ -38,6 +39,7 @@ require (
 	golang.org/x/sync v0.21.0
 	gonum.org/v1/gonum v0.17.0
 	google.golang.org/genai v1.42.0
+	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.50.1
 )
@@ -48,7 +50,6 @@ require (
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.22.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.12.0 // indirect
-	github.com/GizClaw/flowcraft/memory v0.1.6 // indirect
 	github.com/RoaringBitmap/roaring/v2 v2.14.5 // indirect
 	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/anthropics/anthropic-sdk-go v1.26.0 // indirect
@@ -183,7 +184,6 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20260615183401-62b3387ff324 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260610212136-7ab31c22f7ad // indirect
 	google.golang.org/grpc v1.81.1 // indirect
-	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	modernc.org/libc v1.72.3 // indirect

@@ -16,18 +16,20 @@ import (
 )
 
 type Config struct {
-	KeyPair        *giznet.KeyPair
-	Listen         string
-	Endpoint       string
-	ServeToClients bool
-	EdgeNodes      []giznet.PublicKey
-	ICEServers     []gizwebrtc.ICEServer
-	AdminPublicKey giznet.PublicKey
-	Storage        map[string]storage.Config
-	Stores         map[string]stores.Config
-	Log            logging.Config
-	Friends        FriendsConfig
-	FriendGroups   FriendGroupsConfig
+	KeyPair         *giznet.KeyPair
+	Listen          string
+	Endpoint        string
+	ServeToClients  bool
+	EdgeNodes       []giznet.PublicKey
+	ICEServers      []gizwebrtc.ICEServer
+	AdminPublicKey  giznet.PublicKey
+	DefaultPeerView string
+	Storage         map[string]storage.Config
+	Stores          map[string]stores.Config
+	Log             logging.Config
+	Friends         FriendsConfig
+	FriendGroups    FriendGroupsConfig
+	SystemTasks     SystemTasksConfig
 }
 
 type FriendsConfig struct{}
@@ -39,23 +41,36 @@ type FriendGroupsConfig struct {
 	MessageMaxAudioBytes   int64  `yaml:"message_max_audio_bytes"`
 }
 
+type SystemTasksConfig struct {
+	PetFlowcraftWorkflow PetFlowcraftWorkflowTaskConfig `yaml:"pet_flowcraft_workflow"`
+}
+
+type PetFlowcraftWorkflowTaskConfig struct {
+	GenerateModel  string `yaml:"generate_model"`
+	ExtractModel   string `yaml:"extract_model"`
+	EmbeddingModel string `yaml:"embedding_model"`
+	ASRModel       string `yaml:"asr_model"`
+}
+
 type IdentityConfig struct {
 	PrivateKey giznet.Key `yaml:"private-key"`
 }
 
 type ConfigFile struct {
-	Identity       IdentityConfig            `yaml:"identity"`
-	Listen         string                    `yaml:"listen"`
-	Endpoint       string                    `yaml:"endpoint"`
-	ServeToClients bool                      `yaml:"serve-to-clients"`
-	EdgeNodes      []giznet.PublicKey        `yaml:"edge-nodes"`
-	ICEServers     []gizwebrtc.ICEServer     `yaml:"ice-servers"`
-	AdminPublicKey giznet.PublicKey          `yaml:"admin-public-key"`
-	Storage        map[string]storage.Config `yaml:"storage"`
-	Stores         map[string]stores.Config  `yaml:"stores"`
-	Log            logging.Config            `yaml:"log"`
-	Friends        FriendsConfig             `yaml:"friends"`
-	FriendGroups   FriendGroupsConfig        `yaml:"friend_groups"`
+	Identity        IdentityConfig            `yaml:"identity"`
+	Listen          string                    `yaml:"listen"`
+	Endpoint        string                    `yaml:"endpoint"`
+	ServeToClients  bool                      `yaml:"serve-to-clients"`
+	EdgeNodes       []giznet.PublicKey        `yaml:"edge-nodes"`
+	ICEServers      []gizwebrtc.ICEServer     `yaml:"ice-servers"`
+	AdminPublicKey  giznet.PublicKey          `yaml:"admin-public-key"`
+	DefaultPeerView string                    `yaml:"default-peer-view"`
+	Storage         map[string]storage.Config `yaml:"storage"`
+	Stores          map[string]stores.Config  `yaml:"stores"`
+	Log             logging.Config            `yaml:"log"`
+	Friends         FriendsConfig             `yaml:"friends"`
+	FriendGroups    FriendGroupsConfig        `yaml:"friend_groups"`
+	SystemTasks     SystemTasksConfig         `yaml:"system_tasks"`
 }
 
 const (
@@ -97,19 +112,21 @@ func LoadConfig(path string) (ConfigFile, error) {
 
 func parseConfigData(data []byte) (ConfigFile, error) {
 	var raw struct {
-		Identity       *IdentityConfig           `yaml:"identity"`
-		Listen         string                    `yaml:"listen"`
-		Endpoint       string                    `yaml:"endpoint"`
-		ServeToClients *bool                     `yaml:"serve-to-clients"`
-		ServingPublic  *bool                     `yaml:"serving-public"`
-		EdgeNodes      []giznet.PublicKey        `yaml:"edge-nodes"`
-		ICEServers     []gizwebrtc.ICEServer     `yaml:"ice-servers"`
-		AdminPublicKey *giznet.PublicKey         `yaml:"admin-public-key"`
-		Storage        map[string]storage.Config `yaml:"storage"`
-		Stores         map[string]stores.Config  `yaml:"stores"`
-		Log            logging.Config            `yaml:"log"`
-		Friends        FriendsConfig             `yaml:"friends"`
-		FriendGroups   FriendGroupsConfig        `yaml:"friend_groups"`
+		Identity        *IdentityConfig           `yaml:"identity"`
+		Listen          string                    `yaml:"listen"`
+		Endpoint        string                    `yaml:"endpoint"`
+		ServeToClients  *bool                     `yaml:"serve-to-clients"`
+		ServingPublic   *bool                     `yaml:"serving-public"`
+		EdgeNodes       []giznet.PublicKey        `yaml:"edge-nodes"`
+		ICEServers      []gizwebrtc.ICEServer     `yaml:"ice-servers"`
+		AdminPublicKey  *giznet.PublicKey         `yaml:"admin-public-key"`
+		DefaultPeerView string                    `yaml:"default-peer-view"`
+		Storage         map[string]storage.Config `yaml:"storage"`
+		Stores          map[string]stores.Config  `yaml:"stores"`
+		Log             logging.Config            `yaml:"log"`
+		Friends         FriendsConfig             `yaml:"friends"`
+		FriendGroups    FriendGroupsConfig        `yaml:"friend_groups"`
+		SystemTasks     SystemTasksConfig         `yaml:"system_tasks"`
 	}
 	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return ConfigFile{}, err
@@ -142,18 +159,20 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		serveToClients = *raw.ServingPublic
 	}
 	cfg := ConfigFile{
-		Identity:       identity,
-		Listen:         raw.Listen,
-		Endpoint:       raw.Endpoint,
-		ServeToClients: serveToClients,
-		EdgeNodes:      raw.EdgeNodes,
-		ICEServers:     raw.ICEServers,
-		AdminPublicKey: adminPublicKey,
-		Storage:        raw.Storage,
-		Stores:         raw.Stores,
-		Log:            logCfg,
-		Friends:        raw.Friends,
-		FriendGroups:   raw.FriendGroups,
+		Identity:        identity,
+		Listen:          raw.Listen,
+		Endpoint:        raw.Endpoint,
+		ServeToClients:  serveToClients,
+		EdgeNodes:       raw.EdgeNodes,
+		ICEServers:      raw.ICEServers,
+		AdminPublicKey:  adminPublicKey,
+		DefaultPeerView: raw.DefaultPeerView,
+		Storage:         raw.Storage,
+		Stores:          raw.Stores,
+		Log:             logCfg,
+		Friends:         raw.Friends,
+		FriendGroups:    raw.FriendGroups,
+		SystemTasks:     raw.SystemTasks,
 	}
 	return cfg, nil
 }
@@ -192,6 +211,9 @@ func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	if cfg.AdminPublicKey.IsZero() {
 		cfg.AdminPublicKey = fileCfg.AdminPublicKey
 	}
+	if cfg.DefaultPeerView == "" {
+		cfg.DefaultPeerView = fileCfg.DefaultPeerView
+	}
 	if len(cfg.ICEServers) == 0 {
 		cfg.ICEServers = fileCfg.ICEServers
 	}
@@ -209,6 +231,7 @@ func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	}
 	cfg.Friends = mergeFriendsConfig(cfg.Friends, fileCfg.Friends)
 	cfg.FriendGroups = mergeFriendGroupsConfig(cfg.FriendGroups, fileCfg.FriendGroups)
+	cfg.SystemTasks = mergeSystemTasksConfig(cfg.SystemTasks, fileCfg.SystemTasks)
 	return cfg, nil
 }
 
@@ -233,8 +256,30 @@ func mergeFriendGroupsConfig(runtime FriendGroupsConfig, file FriendGroupsConfig
 	return runtime
 }
 
+func mergeSystemTasksConfig(runtime SystemTasksConfig, file SystemTasksConfig) SystemTasksConfig {
+	runtime.PetFlowcraftWorkflow = mergePetFlowcraftWorkflowTaskConfig(runtime.PetFlowcraftWorkflow, file.PetFlowcraftWorkflow)
+	return runtime
+}
+
+func mergePetFlowcraftWorkflowTaskConfig(runtime PetFlowcraftWorkflowTaskConfig, file PetFlowcraftWorkflowTaskConfig) PetFlowcraftWorkflowTaskConfig {
+	if runtime.GenerateModel == "" {
+		runtime.GenerateModel = file.GenerateModel
+	}
+	if runtime.ExtractModel == "" {
+		runtime.ExtractModel = file.ExtractModel
+	}
+	if runtime.EmbeddingModel == "" {
+		runtime.EmbeddingModel = file.EmbeddingModel
+	}
+	if runtime.ASRModel == "" {
+		runtime.ASRModel = file.ASRModel
+	}
+	return runtime
+}
+
 func prepareConfig(cfg Config) (Config, error) {
 	defaults := DefaultConfig()
+	cfg.DefaultPeerView = strings.TrimSpace(cfg.DefaultPeerView)
 	if cfg.Listen == "" {
 		cfg.Listen = defaults.Listen
 	}

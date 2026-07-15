@@ -6,6 +6,7 @@ package apitypes
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	jsonschema "github.com/google/jsonschema-go/jsonschema"
@@ -1047,6 +1048,24 @@ func (e PeerTelemetryOrder) Valid() bool {
 	}
 }
 
+// Defines values for PetConversationParametersInitiative.
+const (
+	PetConversationParametersInitiativeAgent PetConversationParametersInitiative = "agent"
+	PetConversationParametersInitiativePeer  PetConversationParametersInitiative = "peer"
+)
+
+// Valid indicates whether the value is a known member of the PetConversationParametersInitiative enum.
+func (e PetConversationParametersInitiative) Valid() bool {
+	switch e {
+	case PetConversationParametersInitiativeAgent:
+		return true
+	case PetConversationParametersInitiativePeer:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PetDefResourceKind.
 const (
 	PetDefResourceKindPetDef PetDefResourceKind = "PetDef"
@@ -1056,6 +1075,21 @@ const (
 func (e PetDefResourceKind) Valid() bool {
 	switch e {
 	case PetDefResourceKindPetDef:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PetWorkspaceParametersAgentType.
+const (
+	PetWorkspaceParametersAgentTypePet PetWorkspaceParametersAgentType = "pet"
+)
+
+// Valid indicates whether the value is a known member of the PetWorkspaceParametersAgentType enum.
+func (e PetWorkspaceParametersAgentType) Valid() bool {
+	switch e {
+	case PetWorkspaceParametersAgentTypePet:
 		return true
 	default:
 		return false
@@ -1338,6 +1372,7 @@ const (
 	WorkflowDriverChatroom       WorkflowDriver = "chatroom"
 	WorkflowDriverDoubaoRealtime WorkflowDriver = "doubao-realtime"
 	WorkflowDriverFlowcraft      WorkflowDriver = "flowcraft"
+	WorkflowDriverPet            WorkflowDriver = "pet"
 )
 
 // Valid indicates whether the value is a known member of the WorkflowDriver enum.
@@ -1350,6 +1385,26 @@ func (e WorkflowDriver) Valid() bool {
 	case WorkflowDriverDoubaoRealtime:
 		return true
 	case WorkflowDriverFlowcraft:
+		return true
+	case WorkflowDriverPet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkflowLocale.
+const (
+	WorkflowLocaleEn   WorkflowLocale = "en"
+	WorkflowLocaleZhCN WorkflowLocale = "zh-CN"
+)
+
+// Valid indicates whether the value is a known member of the WorkflowLocale enum.
+func (e WorkflowLocale) Valid() bool {
+	switch e {
+	case WorkflowLocaleEn:
+		return true
+	case WorkflowLocaleZhCN:
 		return true
 	default:
 		return false
@@ -3017,13 +3072,23 @@ type PetAttrValueSpec struct {
 	Initial int64 `json:"initial"`
 }
 
+// PetConversationParameters defines model for PetConversationParameters.
+type PetConversationParameters struct {
+	// Initiative Who starts the conversation when the workspace runtime opens.
+	Initiative *PetConversationParametersInitiative `json:"initiative,omitempty"`
+}
+
+// PetConversationParametersInitiative Who starts the conversation when the workspace runtime opens.
+type PetConversationParametersInitiative string
+
 // PetDef defines model for PetDef.
 type PetDef struct {
-	CreatedAt time.Time  `json:"created_at"`
-	Id        string     `json:"id"`
-	PixaPath  *string    `json:"pixa_path,omitempty"`
-	Spec      PetDefSpec `json:"spec"`
-	UpdatedAt time.Time  `json:"updated_at"`
+	CreatedAt time.Time      `json:"created_at"`
+	I18n      PetDefI18nSpec `json:"i18n"`
+	Id        string         `json:"id"`
+	PixaPath  *string        `json:"pixa_path,omitempty"`
+	Spec      PetDefSpec     `json:"spec"`
+	UpdatedAt time.Time      `json:"updated_at"`
 }
 
 // PetDefActionEffectSpec defines model for PetDefActionEffectSpec.
@@ -3084,7 +3149,10 @@ type PetDefI18nDriveSpec struct {
 }
 
 // PetDefI18nSpec defines model for PetDefI18nSpec.
-type PetDefI18nSpec map[string]PetDefI18nCatalog
+type PetDefI18nSpec struct {
+	DefaultLocale        string                       `json:"default_locale"`
+	AdditionalProperties map[string]PetDefI18nCatalog `json:"-"`
+}
 
 // PetDefPixaCanvasMetadata defines model for PetDefPixaCanvasMetadata.
 type PetDefPixaCanvasMetadata struct {
@@ -3116,6 +3184,7 @@ type PetDefPixaSpec struct {
 type PetDefResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
 	ApiVersion ResourceAPIVersion `json:"apiVersion"`
+	I18n       *PetDefI18nSpec    `json:"i18n,omitempty"`
 	Kind       PetDefResourceKind `json:"kind"`
 	Metadata   ResourceMetadata   `json:"metadata"`
 	Spec       PetDefSpec         `json:"spec"`
@@ -3126,14 +3195,12 @@ type PetDefResourceKind string
 
 // PetDefSpec defines model for PetDefSpec.
 type PetDefSpec struct {
-	Attr          PetDefAttrSpec      `json:"attr"`
-	Character     PetDefCharacterSpec `json:"character"`
-	DefaultLocale string              `json:"default_locale"`
-	Drive         PetDefDriveSpec     `json:"drive"`
-	I18n          PetDefI18nSpec      `json:"i18n"`
-	Visual        PetDefVisualSpec    `json:"visual"`
-	Voice         PetDefVoiceSpec     `json:"voice"`
-	WorkflowName  *string             `json:"workflow_name,omitempty"`
+	Attr         PetDefAttrSpec      `json:"attr"`
+	Character    PetDefCharacterSpec `json:"character"`
+	Drive        PetDefDriveSpec     `json:"drive"`
+	Visual       PetDefVisualSpec    `json:"visual"`
+	Voice        PetDefVoiceSpec     `json:"voice"`
+	WorkflowName *string             `json:"workflow_name,omitempty"`
 }
 
 // PetDefVisualRefSpec defines model for PetDefVisualRefSpec.
@@ -3212,6 +3279,12 @@ type PetListResponse struct {
 	NextCursor *string `json:"next_cursor,omitempty"`
 }
 
+// PetPersonaParameters defines model for PetPersonaParameters.
+type PetPersonaParameters struct {
+	// Prompt Workspace-specific personality prompt appended to the PetDef character prompt.
+	Prompt *string `json:"prompt,omitempty"`
+}
+
 // PetProgression defines model for PetProgression.
 type PetProgression map[string]int64
 
@@ -3220,6 +3293,30 @@ type PetPutRequest struct {
 	DisplayName string `json:"display_name"`
 	Id          string `json:"id"`
 }
+
+// PetVoiceParameters defines model for PetVoiceParameters.
+type PetVoiceParameters struct {
+	// Prompt Workspace-specific speaking style prompt appended to the PetDef voice prompt.
+	Prompt *string `json:"prompt,omitempty"`
+
+	// VoiceId GizClaw Voice resource name used for this pet.
+	VoiceId string `json:"voice_id"`
+}
+
+// PetWorkflowSpec defines model for PetWorkflowSpec.
+type PetWorkflowSpec = map[string]interface{}
+
+// PetWorkspaceParameters defines model for PetWorkspaceParameters.
+type PetWorkspaceParameters struct {
+	AgentType    PetWorkspaceParametersAgentType `json:"agent_type"`
+	Conversation *PetConversationParameters      `json:"conversation,omitempty"`
+	Input        *WorkspaceInputMode             `json:"input,omitempty"`
+	Persona      *PetPersonaParameters           `json:"persona,omitempty"`
+	Voice        PetVoiceParameters              `json:"voice"`
+}
+
+// PetWorkspaceParametersAgentType defines model for PetWorkspaceParameters.AgentType.
+type PetWorkspaceParametersAgentType string
 
 // PointsAccount defines model for PointsAccount.
 type PointsAccount struct {
@@ -3636,28 +3733,43 @@ type VolcTenantVoiceProviderData struct {
 	VoiceId    *string                 `json:"voice_id,omitempty"`
 }
 
-// WorkflowDocument defines model for WorkflowDocument.
-type WorkflowDocument struct {
-	Metadata WorkflowMetadata `json:"metadata"`
-	Spec     WorkflowSpec     `json:"spec"`
+// Workflow defines model for Workflow.
+type Workflow struct {
+	// I18n Workflow-owned closed locale catalogs. default_locale must name a present catalog property.
+	I18n *WorkflowI18n `json:"i18n,omitempty"`
+
+	// Name Stable workflow ID used by storage, paths, ACLs, and workspace references.
+	Name string       `json:"name"`
+	Spec WorkflowSpec `json:"spec"`
 }
 
 // WorkflowDriver defines model for WorkflowDriver.
 type WorkflowDriver string
 
-// WorkflowMetadata defines model for WorkflowMetadata.
-type WorkflowMetadata struct {
-	Description *string `json:"description,omitempty"`
-
-	// Name Stable workflow ID. The creator must provide this value.
-	Name string `json:"name"`
+// WorkflowI18n Workflow-owned closed locale catalogs. default_locale must name a present catalog property.
+type WorkflowI18n struct {
+	DefaultLocale WorkflowLocale       `json:"default_locale"`
+	En            *WorkflowI18nCatalog `json:"en,omitempty"`
+	ZhCN          *WorkflowI18nCatalog `json:"zh-CN,omitempty"`
 }
+
+// WorkflowI18nCatalog defines model for WorkflowI18nCatalog.
+type WorkflowI18nCatalog struct {
+	Description *string `json:"description,omitempty"`
+	Name        *string `json:"name,omitempty"`
+}
+
+// WorkflowLocale defines model for WorkflowLocale.
+type WorkflowLocale string
 
 // WorkflowResource defines model for WorkflowResource.
 type WorkflowResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
-	ApiVersion ResourceAPIVersion   `json:"apiVersion"`
-	Kind       WorkflowResourceKind `json:"kind"`
+	ApiVersion ResourceAPIVersion `json:"apiVersion"`
+
+	// I18n Workflow-owned closed locale catalogs. default_locale must name a present catalog property.
+	I18n *WorkflowI18n        `json:"i18n,omitempty"`
+	Kind WorkflowResourceKind `json:"kind"`
 
 	// Metadata metadata.name is the workflow custom ID.
 	Metadata ResourceMetadata `json:"metadata"`
@@ -3674,6 +3786,7 @@ type WorkflowSpec struct {
 	DoubaoRealtime *DoubaoRealtimeWorkflowSpec `json:"doubao_realtime,omitempty"`
 	Driver         WorkflowDriver              `json:"driver"`
 	Flowcraft      *FlowcraftWorkflowSpec      `json:"flowcraft,omitempty"`
+	Pet            *PetWorkflowSpec            `json:"pet,omitempty"`
 
 	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
@@ -3728,6 +3841,72 @@ type WorkspaceSpec struct {
 
 	// WorkflowName Referenced workflow custom ID.
 	WorkflowName string `json:"workflow_name"`
+}
+
+// Getter for additional properties for PetDefI18nSpec. Returns the specified
+// element and whether it was found
+func (a PetDefI18nSpec) Get(fieldName string) (value PetDefI18nCatalog, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for PetDefI18nSpec
+func (a *PetDefI18nSpec) Set(fieldName string, value PetDefI18nCatalog) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]PetDefI18nCatalog)
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for PetDefI18nSpec to handle AdditionalProperties
+func (a *PetDefI18nSpec) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["default_locale"]; found {
+		err = json.Unmarshal(raw, &a.DefaultLocale)
+		if err != nil {
+			return fmt.Errorf("error reading 'default_locale': %w", err)
+		}
+		delete(object, "default_locale")
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]PetDefI18nCatalog)
+		for fieldName, fieldBuf := range object {
+			var fieldVal PetDefI18nCatalog
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for PetDefI18nSpec to handle AdditionalProperties
+func (a PetDefI18nSpec) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	object["default_locale"], err = json.Marshal(a.DefaultLocale)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'default_locale': %w", err)
+	}
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
 }
 
 // AsASTTranslateInternalSpeakerParameters returns the union data inside the ASTTranslateVoiceParameters as a ASTTranslateInternalSpeakerParameters
@@ -5107,6 +5286,34 @@ func (t *WorkspaceParameters) MergeChatRoomWorkspaceParameters(v ChatRoomWorkspa
 	return err
 }
 
+// AsPetWorkspaceParameters returns the union data inside the WorkspaceParameters as a PetWorkspaceParameters
+func (t WorkspaceParameters) AsPetWorkspaceParameters() (PetWorkspaceParameters, error) {
+	var body PetWorkspaceParameters
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPetWorkspaceParameters overwrites any union data inside the WorkspaceParameters as the provided PetWorkspaceParameters
+func (t *WorkspaceParameters) FromPetWorkspaceParameters(v PetWorkspaceParameters) error {
+	v.AgentType = "pet"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePetWorkspaceParameters performs a merge with any union data inside the WorkspaceParameters, using the provided PetWorkspaceParameters
+func (t *WorkspaceParameters) MergePetWorkspaceParameters(v PetWorkspaceParameters) error {
+	v.AgentType = "pet"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t WorkspaceParameters) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"agent_type"`
@@ -5129,6 +5336,8 @@ func (t WorkspaceParameters) ValueByDiscriminator() (interface{}, error) {
 		return t.AsDoubaoRealtimeWorkspaceParameters()
 	case "flowcraft":
 		return t.AsFlowcraftWorkspaceParameters()
+	case "pet":
+		return t.AsPetWorkspaceParameters()
 	default:
 		return nil, errors.New("unknown discriminator value: " + discriminator)
 	}

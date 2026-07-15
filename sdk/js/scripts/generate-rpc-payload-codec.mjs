@@ -1,8 +1,8 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 
-const peerProtoURL = new URL("../../../api/rpc/peer.proto", import.meta.url);
-const payloadProtoDirURL = new URL("../../../api/rpc/payload/", import.meta.url);
+const peerProtoURL = new URL("../../../api/proto/rpc/rpc.proto", import.meta.url);
+const payloadProtoDirURL = new URL("../../../api/proto/rpc/payload/", import.meta.url);
 const outputURL = new URL("../gizclaw/generated/rpc/payload-codec.ts", import.meta.url);
 
 const OPTIONAL_REPEATED_FIELDS = new Set([
@@ -27,7 +27,7 @@ const payloadProtoText = readdirSync(payloadProtoDirURL)
 const parsed = parsePayloadProto(payloadProtoText);
 
 if (methods.length === 0) {
-  throw new Error("api/rpc/peer.proto must define RpcMethod entries before generating RPC payload codec.");
+  throw new Error("api/proto/rpc/rpc.proto must define RpcMethod entries before generating RPC payload codec.");
 }
 
 const requestPayloadMessages = Object.fromEntries(methods.map((item) => [item.method, item.request]));
@@ -114,7 +114,7 @@ function encodeMessage(type: string, value: unknown, parent: Record<string, unkn
     }
     return writer.finish();
   }
-  const object = asRecord(value, type);
+  const object = messageObjectForEncode(type, value);
   for (const field of fields) {
     if (field.oneof) {
       continue;
@@ -147,6 +147,10 @@ function decodeMessage(type: string, payload: Uint8Array): unknown {
     return {};
   }
   return withMessageDefaults(desc, values);
+}
+
+function messageObjectForEncode(type: string, value: unknown): Record<string, unknown> {
+  return asRecord(value, type);
 }
 
 function decodeMessageFields(desc: MessageDesc, payload: Uint8Array): Record<string, unknown> {
@@ -486,6 +490,7 @@ function oneofDiscriminatorFieldName(type: string, discriminator: string): strin
         "doubao-realtime": "doubao_realtime_workspace_parameters",
         "ast-translate": "asttranslate_workspace_parameters",
         "chatroom": "chat_room_workspace_parameters",
+        "pet": "pet_workspace_parameters",
       } as Record<string, string>)[discriminator];
     default:
       return undefined;
@@ -502,7 +507,7 @@ function enumNumber(type: string, value: unknown): number {
   }
   const text = String(value ?? "");
   const key = text.toLowerCase();
-  const number = desc.byName[key] ?? desc.byName[key.replaceAll("-", "_")];
+  const number = desc.byName[text] ?? desc.byName[key] ?? desc.byName[key.replaceAll("-", "_")];
   if (number == null) {
     throw new Error(\`unknown protobuf enum value for \${type}: \${text}\`);
   }
@@ -1015,6 +1020,9 @@ function messageTypeExpression(name, parsed) {
   if (desc == null) {
     return "Record<string, unknown>";
   }
+  if (name === "WorkflowI18n") {
+    return `{\n  "default_locale": string;\n  [locale: string]: string | WorkflowI18nCatalog;\n}`;
+  }
   const single = singleValueTypeField(desc);
   if (single != null) {
     return tsFieldType(single, parsed);
@@ -1069,7 +1077,8 @@ function isOneofDiscriminatorField(field) {
       field.type === "FlowcraftWorkspaceParametersAgentType" ||
       field.type === "DoubaoRealtimeWorkspaceParametersAgentType" ||
       field.type === "ASTTranslateWorkspaceParametersAgentType" ||
-      field.type === "ChatRoomWorkspaceParametersAgentType"
+      field.type === "ChatRoomWorkspaceParametersAgentType" ||
+      field.type === "PetWorkspaceParametersAgentType"
     )
   );
 }
@@ -1128,6 +1137,7 @@ function enumJSONValue(name) {
     "OPENAI_TENANT": "openai-tenant",
     "PUSH_TO_TALK": "push-to-talk",
     "VOLC_TENANT": "volc-tenant",
+    "ZH_CN": "zh-CN",
   })[name] ?? name.toLowerCase();
 }
 

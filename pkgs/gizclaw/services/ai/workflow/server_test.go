@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
@@ -20,9 +21,15 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 	ctx := context.Background()
 
 	createDoc := mustDocument(t, `{
-		"metadata": {
-			"name": "demo-assistant",
-			"description": "flowcraft workflow"
+		"name": "demo-assistant",
+		"i18n": {
+			"default_locale": "en",
+			"en": {
+				"description": "flowcraft workflow"
+			},
+			"zh-CN": {
+				"name": "演示助手"
+			}
 		},
 		"spec": {
 			"driver": "flowcraft",
@@ -43,7 +50,7 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 	if !ok {
 		t.Fatalf("CreateWorkflow() response = %#v", createResp)
 	}
-	if got := workflowDriver(t, apitypes.WorkflowDocument(created)); got != "flowcraft" {
+	if got := workflowDriver(t, apitypes.Workflow(created)); got != "flowcraft" {
 		t.Fatalf("CreateWorkflow() driver = %q", got)
 	}
 
@@ -58,6 +65,9 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 	if len(listed.Items) != 1 || listed.HasNext {
 		t.Fatalf("ListWorkflows() = %#v", listed)
 	}
+	if listed.Items[0].I18n == nil || listed.Items[0].I18n.En == nil || listed.Items[0].I18n.ZhCN == nil {
+		t.Fatalf("ListWorkflows() i18n = %#v", listed.Items[0].I18n)
+	}
 
 	getResp, err := srv.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: "demo-assistant"})
 	if err != nil {
@@ -67,15 +77,21 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 	if !ok {
 		t.Fatalf("GetWorkflow() response = %#v", getResp)
 	}
-	gotSingle := mustSingle(t, apitypes.WorkflowDocument(gotDoc))
-	if gotSingle.Metadata.Name != "demo-assistant" {
-		t.Fatalf("GetWorkflow() name = %q", gotSingle.Metadata.Name)
+	gotSingle := mustSingle(t, apitypes.Workflow(gotDoc))
+	if gotSingle.Name != "demo-assistant" {
+		t.Fatalf("GetWorkflow() name = %q", gotSingle.Name)
+	}
+	if gotSingle.I18n == nil || gotSingle.I18n.ZhCN == nil || gotSingle.I18n.ZhCN.Name == nil {
+		t.Fatalf("GetWorkflow() i18n = %#v", gotSingle.I18n)
 	}
 
 	updateDoc := mustDocument(t, `{
-		"metadata": {
-			"name": "demo-assistant",
-			"description": "updated description"
+		"name": "demo-assistant",
+		"i18n": {
+			"default_locale": "en",
+			"en": {
+				"description": "updated description"
+			}
 		},
 		"spec": {
 			"driver": "flowcraft",
@@ -97,9 +113,10 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 	if !ok {
 		t.Fatalf("PutWorkflow() response = %#v", putResp)
 	}
-	putSingle := mustSingle(t, apitypes.WorkflowDocument(putDoc))
-	if putSingle.Metadata.Description == nil || *putSingle.Metadata.Description != "updated description" {
-		t.Fatalf("PutWorkflow() description = %#v", putSingle.Metadata.Description)
+	putSingle := mustSingle(t, apitypes.Workflow(putDoc))
+	catalog := putSingle.I18n.En
+	if catalog == nil || catalog.Description == nil || *catalog.Description != "updated description" {
+		t.Fatalf("PutWorkflow() i18n = %#v", putSingle.I18n)
 	}
 
 	deleteResp, err := srv.DeleteWorkflow(ctx, adminhttp.DeleteWorkflowRequestObject{Name: "demo-assistant"})
@@ -119,15 +136,55 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 	}
 }
 
+func TestServerRejectsInvalidWorkflowI18n(t *testing.T) {
+	t.Parallel()
+
+	stringPtr := func(value string) *string { return &value }
+	validCatalog := apitypes.WorkflowI18nCatalog{Description: stringPtr("description")}
+	cases := map[string]*apitypes.WorkflowI18n{
+		"missing default locale": {
+			En: &validCatalog,
+		},
+		"missing default catalog": {
+			DefaultLocale: apitypes.WorkflowLocaleEn,
+			ZhCN:          &validCatalog,
+		},
+		"unsupported default locale": {
+			DefaultLocale: apitypes.WorkflowLocale("fr"),
+			En:            &validCatalog,
+		},
+	}
+
+	for name, i18n := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			doc := apitypes.Workflow{
+				I18n: i18n,
+				Name: "invalid-i18n",
+				Spec: apitypes.WorkflowSpec{
+					Driver:    apitypes.WorkflowDriverFlowcraft,
+					Flowcraft: &apitypes.FlowcraftWorkflowSpec{},
+				},
+			}
+			srv := newTestServer(t)
+			resp, err := srv.CreateWorkflow(context.Background(), adminhttp.CreateWorkflowRequestObject{Body: &doc})
+			if err != nil {
+				t.Fatalf("CreateWorkflow() error = %v", err)
+			}
+			if _, ok := resp.(adminhttp.CreateWorkflow400JSONResponse); !ok {
+				t.Fatalf("CreateWorkflow() response = %#v", resp)
+			}
+		})
+	}
+}
+
 func TestServerRejectsUnknownWorkflowDriver(t *testing.T) {
 	t.Parallel()
 
 	srv := newTestServer(t)
 	ctx := context.Background()
 	doc := mustDocument(t, `{
-		"metadata": {
-			"name": "bad-workflow"
-		},
+		"name": "bad-workflow",
 		"spec": {
 			"driver": "bad-driver"
 		}
@@ -142,15 +199,27 @@ func TestServerRejectsUnknownWorkflowDriver(t *testing.T) {
 	}
 }
 
+func TestValidateDriverSpecRequiresPetConfig(t *testing.T) {
+	if err := validateDriverSpec(apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverPet}); err == nil || !strings.Contains(err.Error(), "spec.pet") {
+		t.Fatalf("validateDriverSpec() error = %v", err)
+	}
+	petSpec := apitypes.PetWorkflowSpec{}
+	if err := validateDriverSpec(apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverPet, Pet: &petSpec}); err != nil {
+		t.Fatalf("validateDriverSpec(valid pet) error = %v", err)
+	}
+	petSpec["memory"] = map[string]any{"enabled": false}
+	if err := validateDriverSpec(apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverPet, Pet: &petSpec}); err == nil || !strings.Contains(err.Error(), "does not accept") {
+		t.Fatalf("validateDriverSpec(raw config) error = %v", err)
+	}
+}
+
 func TestServerAcceptsEmptyFlowcraftSpec(t *testing.T) {
 	t.Parallel()
 
 	srv := newTestServer(t)
 	ctx := context.Background()
 	doc := mustDocument(t, `{
-		"metadata": {
-			"name": "empty-flowcraft"
-		},
+		"name": "empty-flowcraft",
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {}
@@ -165,9 +234,9 @@ func TestServerAcceptsEmptyFlowcraftSpec(t *testing.T) {
 	if !ok {
 		t.Fatalf("CreateWorkflow() response = %#v", resp)
 	}
-	flowcraft := apitypes.WorkflowDocument(created)
-	if flowcraft.Metadata.Name != "empty-flowcraft" {
-		t.Fatalf("CreateWorkflow() name = %q", flowcraft.Metadata.Name)
+	flowcraft := apitypes.Workflow(created)
+	if flowcraft.Name != "empty-flowcraft" {
+		t.Fatalf("CreateWorkflow() name = %q", flowcraft.Name)
 	}
 }
 
@@ -177,9 +246,7 @@ func TestServerAcceptsChatRoomWorkflowSpec(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	doc := mustDocument(t, `{
-		"metadata": {
-			"name": "chatroom"
-		},
+		"name": "chatroom",
 		"spec": {
 			"driver": "chatroom",
 			"chatroom": {
@@ -202,7 +269,7 @@ func TestServerAcceptsChatRoomWorkflowSpec(t *testing.T) {
 	if !ok {
 		t.Fatalf("CreateWorkflow(chatroom) response = %#v", resp)
 	}
-	got := apitypes.WorkflowDocument(created)
+	got := apitypes.Workflow(created)
 	if got.Spec.Driver != apitypes.WorkflowDriverChatroom || got.Spec.Chatroom == nil {
 		t.Fatalf("CreateWorkflow(chatroom) spec = %#v", got.Spec)
 	}
@@ -216,9 +283,9 @@ func TestServerRejectsInvalidChatRoomWorkflowSpec(t *testing.T) {
 
 	srv := newTestServer(t)
 	ctx := context.Background()
-	cases := map[string]apitypes.WorkflowDocument{
+	cases := map[string]apitypes.Workflow{
 		"missing chatroom": mustDocument(t, `{
-			"metadata": {"name": "missing-chatroom"},
+			"name": "missing-chatroom",
 			"spec": {
 				"driver": "chatroom"
 			}
@@ -241,8 +308,8 @@ func TestServerRejectsInvalidToolkitPolicy(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	toolIDs := []string{""}
-	doc := apitypes.WorkflowDocument{
-		Metadata: apitypes.WorkflowMetadata{Name: "bad-toolkit"},
+	doc := apitypes.Workflow{
+		Name: "bad-toolkit",
 		Spec: apitypes.WorkflowSpec{
 			Driver:  apitypes.WorkflowDriverFlowcraft,
 			Toolkit: &apitypes.ToolkitPolicy{ToolIds: &toolIDs},
@@ -294,9 +361,7 @@ func TestServerPutRejectsPathNameMismatch(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	doc := mustDocument(t, `{
-		"metadata": {
-			"name": "other-name"
-		},
+		"name": "other-name",
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {}
@@ -337,9 +402,7 @@ func TestServerRejectsNonCanonicalWorkflowName(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	doc := mustDocument(t, `{
-		"metadata": {
-			"name": " padded-workflow "
-		},
+		"name": " padded-workflow ",
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {}
@@ -363,9 +426,7 @@ func TestServerListWorkflowsPagination(t *testing.T) {
 
 	for _, name := range []string{"alpha001", "beta0001", "gamma001"} {
 		doc := mustDocument(t, fmt.Sprintf(`{
-			"metadata": {
-				"name": %q
-			},
+			"name": %q,
 			"spec": {
 				"driver": "flowcraft",
 				"flowcraft": {}
@@ -416,7 +477,7 @@ func TestServerWorkflowConflictAndMissingDelete(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	doc := mustDocument(t, `{
-		"metadata": {"name": "duplicate"},
+		"name": "duplicate",
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {}
@@ -448,7 +509,7 @@ func TestServerWorkflowStoreNotConfigured(t *testing.T) {
 	srv := &Server{}
 	ctx := context.Background()
 	doc := mustDocument(t, `{
-		"metadata": {"name": "missing-store"},
+		"name": "missing-store",
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {}
@@ -485,8 +546,8 @@ func TestServerRejectsMissingWorkflowRequiredFields(t *testing.T) {
 	ctx := context.Background()
 	for name, raw := range map[string]string{
 		"name":   `{"metadata":{},"spec":{"driver":"flowcraft","flowcraft":{}}}`,
-		"driver": `{"metadata":{"name":"bad"},"spec":{"flowcraft":{}}}`,
-		"spec":   `{"metadata":{"name":"bad"}}`,
+		"driver": `{"name": "bad","spec":{"flowcraft":{}}}`,
+		"spec":   `{"name": "bad"}`,
 	} {
 		doc := mustDocument(t, raw)
 		resp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc})
@@ -505,7 +566,7 @@ func TestServerRejectsUnsupportedWorkflowDriver(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	doc := mustDocument(t, `{
-		"metadata": {"name": "bad-version"},
+		"name": "bad-version",
 		"spec": {"driver": "example-invalid"}
 	}`)
 	resp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc})
@@ -521,7 +582,7 @@ func TestWorkflowResponseVisitors(t *testing.T) {
 	t.Parallel()
 
 	doc := mustDocument(t, `{
-		"metadata": {"name": "visitor"},
+		"name": "visitor",
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {}
@@ -564,23 +625,23 @@ func newTestServer(t *testing.T) *Server {
 	return &Server{Store: store}
 }
 
-func mustDocument(t *testing.T, raw string) apitypes.WorkflowDocument {
+func mustDocument(t *testing.T, raw string) apitypes.Workflow {
 	t.Helper()
 
-	var doc apitypes.WorkflowDocument
+	var doc apitypes.Workflow
 	if err := json.Unmarshal([]byte(raw), &doc); err != nil {
 		t.Fatalf("json.Unmarshal() error = %v", err)
 	}
 	return doc
 }
 
-func workflowDriver(t *testing.T, doc apitypes.WorkflowDocument) string {
+func workflowDriver(t *testing.T, doc apitypes.Workflow) string {
 	t.Helper()
 
 	return string(doc.Spec.Driver)
 }
 
-func mustSingle(t *testing.T, doc apitypes.WorkflowDocument) apitypes.WorkflowDocument {
+func mustSingle(t *testing.T, doc apitypes.Workflow) apitypes.Workflow {
 	t.Helper()
 
 	return doc

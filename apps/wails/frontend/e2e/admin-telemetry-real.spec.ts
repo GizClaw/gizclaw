@@ -29,42 +29,7 @@ test.beforeEach(async ({ page }) => {
         local_public_key: localPublicKey,
         name: contextName,
       };
-      let session = { active: false };
-      const views = [
-        { description: "Manage GizClaw server resources.", id: "admin", title: "Admin" },
-        { description: "Use workspaces, chat history, social, and firmware flows.", id: "play", title: "Play" },
-      ];
-      window.__GIZCLAW_DESKTOP_TEST_API__ = {
-        async Bootstrap() {
-          return { contexts: [context], state: { last_context: contextName, last_view: "admin" }, view_session: session, views };
-        },
-        async CreateContext() {
-          return context;
-        },
-        async EndViewSession() {
-          session = { active: false };
-          return session;
-        },
-        async GetViewSession() {
-          return session;
-        },
-        async InjectedRuntime() {
-          return { context, private_key_base64: privateKeyBase64 };
-        },
-        async ListContexts() {
-          return [context];
-        },
-        async ListViews() {
-          return views;
-        },
-        async SelectContext() {
-          return context;
-        },
-        async StartViewSession(req) {
-          session = { active: true, context_name: req.context_name, view: req.view };
-          return session;
-        },
-      };
+      window.__GIZCLAW_DESKTOP_TEST_RUNTIME__ = { context, private_key_base64: privateKeyBase64 };
     },
     { contextName, endpoint, localPublicKey, privateKeyBase64 },
   );
@@ -72,8 +37,7 @@ test.beforeEach(async ({ page }) => {
 
 test("admin telemetry tab renders seeded peer telemetry and writes screenshot artifact", async ({ page }) => {
   await page.setViewportSize({ height: 1400, width: 1800 });
-  await page.goto("/");
-  await page.getByRole("button", { name: "Get Started" }).click();
+  await page.goto("/admin.html");
 
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({ timeout: 20_000 });
   await page.getByRole("button", { name: "Peers" }).first().click();

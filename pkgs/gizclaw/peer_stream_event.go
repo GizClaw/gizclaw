@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
-	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
@@ -131,7 +130,7 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 			if err := opusPacer.Wait(ctx); err != nil {
 				return err
 			}
-			if err := o.writeStampedOpus(chunk, blob.Data); err != nil {
+			if err := o.writeOpusPacket(blob.Data); err != nil {
 				return err
 			}
 			opusPacer.Advance()
@@ -153,24 +152,12 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 	}
 }
 
-func (o peerAgentOutput) writeStampedOpus(chunk *genx.MessageChunk, frame []byte) error {
+func (o peerAgentOutput) writeOpusPacket(frame []byte) error {
 	if o.Conn == nil {
 		return fmt.Errorf("gizclaw: peer conn is required for opus output")
 	}
-	timestamp := uint64(o.now().UnixMilli())
-	if chunk != nil && chunk.Ctrl != nil && chunk.Ctrl.Timestamp > 0 {
-		timestamp = uint64(chunk.Ctrl.Timestamp)
-	}
-	payload := stampedopus.Pack(timestamp, frame)
-	_, err := o.Conn.Write(giznet.ProtocolStampedOpusPacket, payload)
+	_, err := o.Conn.Write(giznet.ProtocolOpusPacket, frame)
 	return err
-}
-
-func (o peerAgentOutput) now() time.Time {
-	if o.Now != nil {
-		return o.Now().UTC()
-	}
-	return time.Now().UTC()
 }
 
 type peerOpusPacer struct {
@@ -423,14 +410,13 @@ func peerStreamBaseMIME(mimeType string) string {
 	return mimeType
 }
 
-func stampedOpusChunk(payload []byte) (*genx.MessageChunk, bool) {
-	timestamp, frame, ok := stampedopus.Unpack(payload)
-	if !ok || len(frame) == 0 {
+func opusPacketChunk(payload []byte) (*genx.MessageChunk, bool) {
+	if len(payload) == 0 {
 		return nil, false
 	}
 	return &genx.MessageChunk{
-		Part: &genx.Blob{MIMEType: "audio/opus", Data: frame},
-		Ctrl: &genx.StreamCtrl{StreamID: "audio", Timestamp: int64(timestamp)},
+		Part: &genx.Blob{MIMEType: "audio/opus", Data: append([]byte(nil), payload...)},
+		Ctrl: &genx.StreamCtrl{StreamID: "audio"},
 	}, true
 }
 

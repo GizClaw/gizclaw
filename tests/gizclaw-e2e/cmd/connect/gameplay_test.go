@@ -79,21 +79,15 @@ func TestConnectGameplayUserStory(t *testing.T) {
 	if petGet.Id != adopted.Pet.Id {
 		t.Fatalf("pet get = %#v", petGet)
 	}
-	presentation := mustRunCLIJSON[rpcapi.PetPresentation](t, h, "connect", "gameplay", "pet", "presentation", adopted.Pet.Id, "--context", "peer-a")
-	if presentation.PetId != adopted.Pet.Id || presentation.PetdefId != adopted.Pet.PetdefId || presentation.DefaultLocale != "en" {
-		t.Fatalf("pet presentation identity = %#v", presentation)
+	actions := mustRunCLIJSON[rpcapi.PetActions](t, h, "connect", "gameplay", "pet", "actions", adopted.Pet.Id, "--context", "peer-a")
+	if actions.PetId != adopted.Pet.Id || actions.PetdefId != adopted.Pet.PetdefId || actions.DefaultLocale != "en" {
+		t.Fatalf("pet actions identity = %#v", actions)
 	}
-	if presentation.Attr.Life["hunger"].Initial != 100 || presentation.Attr.Progression["xp"].Initial != 0 {
-		t.Fatalf("pet presentation attr = %#v", presentation.Attr)
+	if !hasCLIPetAction(actions.Actions, "bath", 5, "bath", "bath") {
+		t.Fatalf("pet actions = %#v", actions.Actions)
 	}
-	if !hasCLIPresentationAction(presentation.Drive.Actions, "bath", 5, "bath") {
-		t.Fatalf("pet presentation actions = %#v", presentation.Drive.Actions)
-	}
-	if presentation.PixaMetadata.Canvas.Width != 60 || presentation.PixaMetadata.Canvas.Height != 60 || !hasCLIPresentationClip(presentation.PixaMetadata.Clips, "idle", "idle") {
-		t.Fatalf("pet presentation pixa metadata = %#v", presentation.PixaMetadata)
-	}
-	if presentation.I18n["en"].DisplayName == nil || *presentation.I18n["en"].DisplayName != "Starter Pet" {
-		t.Fatalf("pet presentation i18n = %#v", presentation.I18n)
+	if actions.I18n["en"].Actions["bath"].Name != "Bath" {
+		t.Fatalf("pet actions i18n = %#v", actions.I18n)
 	}
 	petPixaPath := filepath.Join(t.TempDir(), "pet.pixa")
 	pixaDownload := mustRunCLIJSON[struct {
@@ -140,7 +134,7 @@ func TestConnectGameplayUserStory(t *testing.T) {
 func applyGameplayCLIResources(t *testing.T, h *clitest.Harness) {
 	t.Helper()
 	for _, fixture := range []string{
-		filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "resources", "04-workflows", "23-flowcraft-pet-care.yaml"),
+		filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "resources", "04-workflows", "23-pet-care.yaml"),
 		filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "resources", "07-gameplay", "00-starter-gameplay.yaml"),
 	} {
 		h.RunCLI("admin", "apply", "--context", "admin-a", "-f", fixture).MustSucceed(t)
@@ -275,18 +269,9 @@ func requireCLIPetID(t *testing.T, items []rpcapi.Pet, id string) {
 	t.Fatalf("pet %q not found in %#v", id, items)
 }
 
-func hasCLIPresentationAction(items []rpcapi.PetPresentationActionSpec, id string, cost int64, visualClipID string) bool {
+func hasCLIPetAction(items []rpcapi.PetAction, id string, cost int64, visualClipID string, pixaClipName string) bool {
 	for _, item := range items {
-		if item.Id == id && item.Cost == cost && item.VisualClipId != nil && *item.VisualClipId == visualClipID {
-			return true
-		}
-	}
-	return false
-}
-
-func hasCLIPresentationClip(items []rpcapi.PetPresentationPixaClipMetadata, id string, pixaClipName string) bool {
-	for _, item := range items {
-		if item.Id == id && item.PixaClipName == pixaClipName {
+		if item.Id == id && item.Cost == cost && item.VisualClipId != nil && *item.VisualClipId == visualClipID && item.PixaClipName != nil && *item.PixaClipName == pixaClipName {
 			return true
 		}
 	}
