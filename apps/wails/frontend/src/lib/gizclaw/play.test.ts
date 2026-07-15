@@ -7,8 +7,11 @@ test("workflowLocale leaves unsupported UI languages unspecified", () => {
   assert.equal(workflowLocale("fr-FR"), "unspecified");
   assert.equal(workflowLocale("en-US"), "en");
   assert.equal(workflowLocale("zh_CN"), "zh-CN");
+  assert.equal(workflowLocale("zh-Hans"), "zh-CN");
+  assert.equal(workflowLocale("zh-Hans-CN"), "zh-CN");
   assert.equal(workflowLocale("zh-TW"), "unspecified");
   assert.equal(workflowLocale("zh-HK"), "unspecified");
+  assert.equal(workflowLocale("zh-Hant-CN"), "unspecified");
 });
 
 test("selectedWorkflowText reads the selected workflow catalog", () => {

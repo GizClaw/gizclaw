@@ -11,7 +11,7 @@ void main() {
     addTearDown(database.close);
     final repository = MobileDataRepository(
       database,
-      deviceLocaleTag: () => 'zh-CN',
+      deviceLocaleTag: () => 'zh-Hans-CN',
     );
     final client = _FakeClient(
       workflows: [

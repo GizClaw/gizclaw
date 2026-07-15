@@ -5,11 +5,16 @@ export interface SelectedWorkflowText {
 
 export function workflowLocale(localeTag: string): "en" | "unspecified" | "zh-CN" {
   const normalizedTag = localeTag.trim().replaceAll("_", "-").toLowerCase();
-  const language = normalizedTag.split("-")[0];
+  const subtags = normalizedTag.split("-");
+  const language = subtags[0];
   if (language === "en") {
     return "en";
   }
-  if (normalizedTag === "zh-cn") {
+  if (
+    language === "zh" &&
+    !subtags.includes("hant") &&
+    (subtags.includes("hans") || subtags.includes("cn"))
+  ) {
     return "zh-CN";
   }
   return "unspecified";

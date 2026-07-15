@@ -364,10 +364,13 @@ WorkflowI18nCatalog? _workflowCatalog(Workflow workflow) =>
 
 WorkflowLocale _workflowLocale(String localeTag) {
   final normalizedTag = localeTag.trim().replaceAll('_', '-').toLowerCase();
-  final languageCode = normalizedTag.split('-').first;
+  final subtags = normalizedTag.split('-');
+  final languageCode = subtags.first;
   return switch (languageCode) {
     'en' => WorkflowLocale.WORKFLOW_LOCALE_EN,
-    _ when normalizedTag == 'zh-cn' =>
+    'zh'
+        when !subtags.contains('hant') &&
+            (subtags.contains('hans') || subtags.contains('cn')) =>
       WorkflowLocale.WORKFLOW_LOCALE_ZH_CN,
     _ => WorkflowLocale.WORKFLOW_LOCALE_UNSPECIFIED,
   };
