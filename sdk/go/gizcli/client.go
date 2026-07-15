@@ -16,6 +16,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 	"golang.org/x/sync/errgroup"
@@ -365,20 +366,20 @@ func (c *Client) GetWorkspaceHistoryAudio(ctx context.Context, id string, reques
 	return c.rpcClient().GetWorkspaceHistoryAudio(ctx, stream, id, request, out)
 }
 
-func (c *Client) ServerPeerLookup(ctx context.Context, id string, request rpcapi.ServerPeerLookupRequest) (*rpcapi.ServerPeerLookupResponse, error) {
-	return callClientServiceRPC(c, ServiceEdgeRPC, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerPeerLookupResponse, error) {
+func (c *Client) ServerPeerLookup(ctx context.Context, id string, request rpcpb.ServerPeerLookupRequest) (*rpcpb.ServerPeerLookupResponse, error) {
+	return callClientServiceRPC(c, ServiceEdgeRPC, func(client *rpcClient, conn net.Conn) (*rpcpb.ServerPeerLookupResponse, error) {
 		return client.ServerPeerLookup(ctx, conn, id, request)
 	})
 }
 
-func (c *Client) ServerPeerAssign(ctx context.Context, id string, request rpcapi.ServerPeerAssignRequest) (*rpcapi.ServerPeerAssignResponse, error) {
-	return callClientServiceRPC(c, ServiceEdgeRPC, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerPeerAssignResponse, error) {
+func (c *Client) ServerPeerAssign(ctx context.Context, id string, request rpcpb.ServerPeerAssignRequest) (*rpcpb.ServerPeerAssignResponse, error) {
+	return callClientServiceRPC(c, ServiceEdgeRPC, func(client *rpcClient, conn net.Conn) (*rpcpb.ServerPeerAssignResponse, error) {
 		return client.ServerPeerAssign(ctx, conn, id, request)
 	})
 }
 
-func (c *Client) ServerRouteResolve(ctx context.Context, id string, request rpcapi.ServerRouteResolveRequest) (*rpcapi.ServerRouteResolveResponse, error) {
-	return callClientServiceRPC(c, ServiceEdgeRPC, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerRouteResolveResponse, error) {
+func (c *Client) ServerRouteResolve(ctx context.Context, id string, request rpcpb.ServerRouteResolveRequest) (*rpcpb.ServerRouteResolveResponse, error) {
+	return callClientServiceRPC(c, ServiceEdgeRPC, func(client *rpcClient, conn net.Conn) (*rpcpb.ServerRouteResolveResponse, error) {
 		return client.ServerRouteResolve(ctx, conn, id, request)
 	})
 }

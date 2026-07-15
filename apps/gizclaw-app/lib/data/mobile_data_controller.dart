@@ -77,8 +77,8 @@ class MobileDataController extends ChangeNotifier {
     repository = dataRepository ?? MobileDataRepository(this.database);
   }
 
-  factory MobileDataController.demo() {
-    final controller = MobileDataController();
+  factory MobileDataController.demo({AppDatabase? database}) {
+    final controller = MobileDataController(database: database);
     controller.workflows = allWorkflows;
     controller.workspaces = workflowWorkspaces;
     controller.chatroomWorkspaces = chatroomWorkspaceMetadata;
@@ -106,6 +106,7 @@ class MobileDataController extends ChangeNotifier {
   MobileConnectionState connectionState = MobileConnectionState.unconfigured;
   Object? lastError;
   bool refreshing = false;
+  final Set<Future<void>> _startsInFlight = {};
   Future<GizClawClient>? _reconnecting;
   Future<void>? _refreshInFlight;
   bool _refreshAgain = false;
@@ -114,8 +115,11 @@ class MobileDataController extends ChangeNotifier {
   String? _pendingRefreshServerId;
   int _serverWatchGeneration = 0;
   int _startGeneration = 0;
-  Future<void> _workspaceSwitch = Future<void>.value();
+  Future<void>? _workspaceSwitch;
   WorkspaceChatController? _activeWorkspaceChat;
+  Future<void>? _closeFuture;
+  bool _closing = false;
+  bool _disposed = false;
   final Map<String, ({String title, String workspaceName})> _petRouteContexts =
       {};
   PeerRunWorkspaceState? runWorkspaceState;
@@ -147,7 +151,17 @@ class MobileDataController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> start() async {
+  Future<void> start() {
+    if (_closing) return Future<void>.value();
+    late final Future<void> trackedStart;
+    trackedStart = _start().whenComplete(() {
+      _startsInFlight.remove(trackedStart);
+    });
+    _startsInFlight.add(trackedStart);
+    return trackedStart;
+  }
+
+  Future<void> _start() async {
     final generation = ++_startGeneration;
     final endpoint = connection.profile.endpoint;
     if (!connection.profile.isConfigured) {
@@ -297,6 +311,7 @@ class MobileDataController extends ChangeNotifier {
   }
 
   Future<void> refresh({GizClawClient? client, String? serverId}) {
+    if (_closing) return Future<void>.value();
     final activeClient = client ?? connection.client;
     final resolvedServerId = serverId ?? connection.serverId;
     if (activeClient == null || resolvedServerId == null) {
@@ -388,6 +403,11 @@ class MobileDataController extends ChangeNotifier {
   }
 
   Future<GizClawClient> _reconnect() {
+    if (_closing) {
+      return Future<GizClawClient>.error(
+        StateError('Mobile data controller is closed'),
+      );
+    }
     final active = _reconnecting;
     if (active != null) return active;
     final reconnecting = _performReconnect();
@@ -507,7 +527,8 @@ class MobileDataController extends ChangeNotifier {
   }
 
   bool _isCurrentStart(int generation, String endpoint) {
-    return generation == _startGeneration &&
+    return !_closing &&
+        generation == _startGeneration &&
         endpoint == connection.profile.endpoint;
   }
 
@@ -599,8 +620,14 @@ class MobileDataController extends ChangeNotifier {
   }
 
   Future<WorkspaceChatController> activateWorkspaceChat(String workspaceName) {
+    if (_closing) {
+      return Future<WorkspaceChatController>.error(
+        StateError('Mobile data controller is closed'),
+      );
+    }
     final completer = Completer<WorkspaceChatController>();
-    _workspaceSwitch = _workspaceSwitch.then((_) async {
+    final previousSwitch = _workspaceSwitch;
+    _workspaceSwitch = (previousSwitch ?? Future<void>.value()).then((_) async {
       try {
         final current = _activeWorkspaceChat;
         if (current != null && current.workspaceName == workspaceName) {
@@ -783,15 +810,75 @@ class MobileDataController extends ChangeNotifier {
     _activeWorkspaceChat = chat;
   }
 
+  Future<void> close() {
+    final close = _closeFuture;
+    if (close != null) return close;
+    _closing = true;
+    return _closeFuture = _close();
+  }
+
+  Future<void> _close() async {
+    _startGeneration += 1;
+    _serverWatchGeneration += 1;
+    _refreshAgain = false;
+
+    Object? firstError;
+    StackTrace? firstStackTrace;
+    Future<void> attempt(Future<void> Function() action) async {
+      try {
+        await action();
+      } catch (error, stackTrace) {
+        firstError ??= error;
+        firstStackTrace ??= stackTrace;
+      }
+    }
+
+    final starts = _startsInFlight.toList();
+    final reconnect = _reconnecting;
+    final refresh = _refreshInFlight;
+    final workspaceSwitch = _workspaceSwitch;
+    await Future.wait([
+      for (final start in starts) attempt(() => start),
+      if (reconnect != null) attempt(() async => await reconnect),
+      if (refresh != null) attempt(() => refresh),
+      if (workspaceSwitch != null) attempt(() => workspaceSwitch),
+    ]);
+
+    final chat = _activeWorkspaceChat;
+    _activeWorkspaceChat = null;
+    final subscriptions = <StreamSubscription<dynamic>?>[
+      _workflowSubscription,
+      _workspaceSubscription,
+      _friendChatSubscription,
+      _friendGroupChatSubscription,
+    ];
+    _workflowSubscription = null;
+    _workspaceSubscription = null;
+    _friendChatSubscription = null;
+    _friendGroupChatSubscription = null;
+
+    await Future.wait([
+      if (chat != null) attempt(chat.close),
+      for (final subscription in subscriptions)
+        if (subscription != null) attempt(subscription.cancel),
+    ]);
+    await attempt(connection.close);
+    await attempt(database.close);
+    if (firstError case final error?) {
+      Error.throwWithStackTrace(error, firstStackTrace!);
+    }
+  }
+
+  @override
+  void notifyListeners() {
+    if (_disposed) return;
+    super.notifyListeners();
+  }
+
   @override
   void dispose() {
-    _replaceActiveWorkspaceChat(null);
-    unawaited(_workflowSubscription?.cancel());
-    unawaited(_workspaceSubscription?.cancel());
-    unawaited(_friendChatSubscription?.cancel());
-    unawaited(_friendGroupChatSubscription?.cancel());
-    unawaited(connection.close());
-    unawaited(database.close());
+    _disposed = true;
+    unawaited(close());
     super.dispose();
   }
 }

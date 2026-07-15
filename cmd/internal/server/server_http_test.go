@@ -12,6 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -119,7 +120,7 @@ func TestCmdServerPrivateIngressRequiresAuthorizedSession(t *testing.T) {
 	if adminLogin.Code != http.StatusOK {
 		t.Fatalf("admin POST /login status = %d body=%s", adminLogin.Code, adminLogin.Body.String())
 	}
-	var session publiclogin.LoginResponse
+	var session peerhttp.LoginResult
 	if err := json.Unmarshal(adminLogin.Body.Bytes(), &session); err != nil {
 		t.Fatalf("decode admin login response: %v", err)
 	}

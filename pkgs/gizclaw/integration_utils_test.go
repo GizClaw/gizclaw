@@ -125,6 +125,10 @@ func startTestServerWithCipherMode(t *testing.T, cipherMode gizwebrtc.CipherMode
 }
 
 func newTestClient(t *testing.T, ts *testServer) *gizcli.Client {
+	return newTestClientWithDevice(t, ts, apitypes.DeviceInfo{})
+}
+
+func newTestClientWithDevice(t *testing.T, ts *testServer, device apitypes.DeviceInfo) *gizcli.Client {
 	t.Helper()
 
 	keyPair, err := giznet.GenerateKeyPair()
@@ -132,7 +136,11 @@ func newTestClient(t *testing.T, ts *testServer) *gizcli.Client {
 		t.Fatalf("GenerateKeyPair(client) error: %v", err)
 	}
 
-	client := &gizcli.Client{KeyPair: keyPair, DialTransport: testWebRTCDialTransport(ts.cipherMode)}
+	client := &gizcli.Client{
+		KeyPair:       keyPair,
+		DialTransport: testWebRTCDialTransport(ts.cipherMode),
+		Device:        device,
+	}
 	startTestClient(t, client, ts.server.PublicKey(), ts.addr)
 	t.Cleanup(func() { _ = client.Close() })
 	return client

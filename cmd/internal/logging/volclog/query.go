@@ -14,6 +14,7 @@ import (
 	"github.com/volcengine/volc-sdk-golang/service/tls"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
 const (
@@ -85,16 +86,16 @@ func NewQueryServiceWithClient(topicID string, client searchLogsClient) *QuerySe
 	}
 }
 
-func (s *QueryService) StreamServerLogs(ctx context.Context, req gizclaw.ServerLogStreamRequest, emit func(gizclaw.ServerLogEntry) error) (gizclaw.ServerLogStreamEnd, error) {
+func (s *QueryService) StreamServerLogs(ctx context.Context, req gizclaw.ServerLogStreamRequest, emit func(apitypes.ServerLogEntry) error) (apitypes.ServerLogStreamEnd, error) {
 	if s == nil || s.client == nil || s.topicID == "" {
-		return gizclaw.ServerLogStreamEnd{}, gizclaw.LogQueryNotConfigured()
+		return apitypes.ServerLogStreamEnd{}, gizclaw.LogQueryNotConfigured()
 	}
 	if emit == nil {
-		emit = func(gizclaw.ServerLogEntry) error { return nil }
+		emit = func(apitypes.ServerLogEntry) error { return nil }
 	}
 	query, providerContext, err := prepareQuery(req)
 	if err != nil {
-		return gizclaw.ServerLogStreamEnd{}, err
+		return apitypes.ServerLogStreamEnd{}, err
 	}
 	remaining := req.Limit
 	if remaining <= 0 {
@@ -109,12 +110,9 @@ func (s *QueryService) StreamServerLogs(ctx context.Context, req gizclaw.ServerL
 	var nextContext string
 	for remaining > 0 {
 		if err := ctx.Err(); err != nil {
-			return gizclaw.ServerLogStreamEnd{}, err
+			return apitypes.ServerLogStreamEnd{}, err
 		}
-		callLimit := remaining
-		if callLimit > math.MaxInt32 {
-			callLimit = math.MaxInt32
-		}
+		callLimit := min(remaining, math.MaxInt32)
 		resp, err := s.client.SearchLogsV2(ctx, &tls.SearchLogsRequest{
 			TopicID:   s.topicID,
 			Query:     query.Filter,
@@ -125,20 +123,20 @@ func (s *QueryService) StreamServerLogs(ctx context.Context, req gizclaw.ServerL
 			Sort:      query.Order,
 		})
 		if err != nil {
-			return gizclaw.ServerLogStreamEnd{}, gizclaw.ServerLogBackendError(err)
+			return apitypes.ServerLogStreamEnd{}, gizclaw.ServerLogBackendError(err)
 		}
 		if resp == nil {
-			return gizclaw.ServerLogStreamEnd{}, gizclaw.ServerLogBackendError(errors.New("empty Volc TLS response"))
+			return apitypes.ServerLogStreamEnd{}, gizclaw.ServerLogBackendError(errors.New("empty Volc TLS response"))
 		}
 		for _, raw := range resp.Logs {
 			if remaining <= 0 {
 				break
 			}
 			if err := ctx.Err(); err != nil {
-				return gizclaw.ServerLogStreamEnd{}, err
+				return apitypes.ServerLogStreamEnd{}, err
 			}
 			if err := emit(volcLogEntry(raw)); err != nil {
-				return gizclaw.ServerLogStreamEnd{}, err
+				return apitypes.ServerLogStreamEnd{}, err
 			}
 			emitted++
 			remaining--
@@ -149,12 +147,12 @@ func (s *QueryService) StreamServerLogs(ctx context.Context, req gizclaw.ServerL
 			break
 		}
 		if nextContext == providerContext {
-			return gizclaw.ServerLogStreamEnd{}, gizclaw.ServerLogBackendError(errors.New("Volc TLS pagination context did not advance"))
+			return apitypes.ServerLogStreamEnd{}, gizclaw.ServerLogBackendError(errors.New("Volc TLS pagination context did not advance"))
 		}
 		providerContext = nextContext
 	}
 
-	end := gizclaw.ServerLogStreamEnd{Count: emitted, HasNext: hasNext}
+	end := apitypes.ServerLogStreamEnd{Count: emitted, HasNext: hasNext}
 	if hasNext {
 		cursor, err := encodeQueryCursor(queryCursor{
 			V:           1,
@@ -165,7 +163,7 @@ func (s *QueryService) StreamServerLogs(ctx context.Context, req gizclaw.ServerL
 			Context:     nextContext,
 		})
 		if err != nil {
-			return gizclaw.ServerLogStreamEnd{}, gizclaw.ServerLogBackendError(err)
+			return apitypes.ServerLogStreamEnd{}, gizclaw.ServerLogBackendError(err)
 		}
 		end.NextCursor = &cursor
 	}
@@ -241,7 +239,7 @@ func decodeQueryCursor(value string) (queryCursor, error) {
 	return cursor, nil
 }
 
-func volcLogEntry(raw map[string]interface{}) gizclaw.ServerLogEntry {
+func volcLogEntry(raw map[string]any) apitypes.ServerLogEntry {
 	fields := make(map[string]string, len(raw))
 	for key, value := range raw {
 		if reservedLogField(key) {
@@ -261,7 +259,7 @@ func volcLogEntry(raw map[string]interface{}) gizclaw.ServerLogEntry {
 		level = "INFO"
 	}
 	message := firstString(raw, "msg", "message")
-	return gizclaw.ServerLogEntry{
+	return apitypes.ServerLogEntry{
 		TimeMs:  timeMs,
 		TimeNs:  timeNs,
 		Level:   level,
@@ -288,7 +286,7 @@ func reservedLogField(key string) bool {
 	}
 }
 
-func firstString(raw map[string]interface{}, keys ...string) string {
+func firstString(raw map[string]any, keys ...string) string {
 	for _, key := range keys {
 		if value, ok := raw[key]; ok {
 			if s := strings.TrimSpace(logFieldString(value)); s != "" {
@@ -299,19 +297,19 @@ func firstString(raw map[string]interface{}, keys ...string) string {
 	return ""
 }
 
-func firstStringDefault(raw map[string]interface{}, fallback string, keys ...string) string {
+func firstStringDefault(raw map[string]any, fallback string, keys ...string) string {
 	if value := firstString(raw, keys...); value != "" {
 		return value
 	}
 	return fallback
 }
 
-func firstInt64(raw map[string]interface{}, keys ...string) int64 {
+func firstInt64(raw map[string]any, keys ...string) int64 {
 	value, _ := firstInt64OK(raw, keys...)
 	return value
 }
 
-func firstInt64OK(raw map[string]interface{}, keys ...string) (int64, bool) {
+func firstInt64OK(raw map[string]any, keys ...string) (int64, bool) {
 	for _, key := range keys {
 		if value, ok := raw[key]; ok {
 			if n, ok := int64Value(value); ok {
@@ -322,7 +320,7 @@ func firstInt64OK(raw map[string]interface{}, keys ...string) (int64, bool) {
 	return 0, false
 }
 
-func int64Value(value interface{}) (int64, bool) {
+func int64Value(value any) (int64, bool) {
 	switch v := value.(type) {
 	case int64:
 		return v, true
@@ -343,7 +341,7 @@ func int64Value(value interface{}) (int64, bool) {
 	}
 }
 
-func logFieldString(value interface{}) string {
+func logFieldString(value any) string {
 	switch v := value.(type) {
 	case nil:
 		return ""

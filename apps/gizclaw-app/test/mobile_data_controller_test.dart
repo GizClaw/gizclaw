@@ -10,6 +10,124 @@ import 'package:gizclaw_app/data/repositories/mobile_data_repository.dart';
 import 'package:gizclaw_app/prototype/prototype_models.dart';
 
 void main() {
+  test('closes demo controller resources idempotently', () async {
+    final controller = MobileDataController.demo(
+      database: AppDatabase.forTesting(NativeDatabase.memory()),
+    );
+
+    await controller.start();
+    final firstClose = controller.close();
+    expect(controller.close(), same(firstClose));
+    await firstClose;
+  });
+
+  test('waits for an in-flight refresh before closing resources', () async {
+    final database = _TrackingDatabase();
+    final client = _RunWorkspaceClient();
+    final connection = _CloseTrackingConnection(
+      profile: _profile('gizclaw.local:9820'),
+      client: client,
+      serverId: 'server-a',
+    );
+    final repository = _QueuedRefreshRepository(database);
+    final controller = MobileDataController(
+      database: database,
+      connectionController: connection,
+      dataRepository: repository,
+    );
+
+    final refresh = controller.refresh(client: client, serverId: 'server-a');
+    final close = controller.close();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(connection.closeCalled, isFalse);
+    expect(database.closeCalled, isFalse);
+
+    repository.firstRefresh.complete(const []);
+    await refresh;
+    await close;
+
+    expect(connection.closeCalled, isTrue);
+    expect(database.closeCalled, isTrue);
+  });
+
+  test('continues closing resources after an earlier close fails', () async {
+    final database = _TrackingDatabase();
+    final connection = _CloseTrackingConnection(
+      profile: _profile('gizclaw.local:9820'),
+      client: _RunWorkspaceClient(),
+      serverId: 'server-a',
+      closeError: StateError('connection close failed'),
+    );
+    final controller = MobileDataController(
+      database: database,
+      connectionController: connection,
+    );
+
+    await expectLater(controller.close(), throwsStateError);
+
+    expect(connection.closeCalled, isTrue);
+    expect(database.closeCalled, isTrue);
+  });
+
+  test('waits for an in-flight initial connect before closing', () async {
+    final database = _TrackingDatabase();
+    final client = _RunWorkspaceClient();
+    final connection = _BlockingConnectConnection(
+      profile: _profile('gizclaw.local:9820'),
+      client: client,
+      serverId: 'server-a',
+    );
+    final controller = MobileDataController(
+      database: database,
+      connectionController: connection,
+    );
+
+    final start = controller.start();
+    await connection.connectStarted.future;
+    final close = controller.close();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(connection.closeCalled, isFalse);
+    expect(database.closeCalled, isFalse);
+
+    connection.connectResult.complete(client);
+    await start;
+    await close;
+
+    expect(connection.closeCalled, isTrue);
+    expect(database.closeCalled, isTrue);
+  });
+
+  test('waits for an in-flight reconnect before closing', () async {
+    final database = _TrackingDatabase();
+    final client = _RunWorkspaceClient();
+    final connection = _BlockingReconnectConnection(
+      profile: _profile('gizclaw.local:9820'),
+      client: client,
+      serverId: 'server-a',
+    );
+    final controller = MobileDataController(
+      database: database,
+      connectionController: connection,
+    );
+
+    final reconnect = controller.recoverTransport();
+    await connection.reconnectStarted.future;
+    final close = controller.close();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(connection.closeCalled, isFalse);
+    expect(database.closeCalled, isFalse);
+
+    connection.reconnectResult.complete(client);
+    await reconnect;
+    await close;
+
+    expect(connection.closeCalled, isTrue);
+    expect(database.closeCalled, isTrue);
+  });
+
   test('does not retry a mutating RPC after a transport failure', () async {
     var requests = 0;
     var reconnects = 0;
@@ -59,7 +177,6 @@ void main() {
 
   test('drains a queued refresh after a stale refresh fails', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(database.close);
     final oldClient = _RunWorkspaceClient();
     final newClient = _RunWorkspaceClient();
     final connection = _RefreshTestConnection(
@@ -73,6 +190,7 @@ void main() {
       connectionController: connection,
       dataRepository: repository,
     )..connectionState = MobileConnectionState.connected;
+    addTearDown(controller.close);
 
     final oldRefresh = controller.refresh(
       client: oldClient,
@@ -97,7 +215,6 @@ void main() {
 
   test('switches cached server partitions after reconnect', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(database.close);
     final oldClient = _RunWorkspaceClient();
     final newClient = _RunWorkspaceClient();
     final connection = _ReconnectTestConnection(
@@ -116,7 +233,7 @@ void main() {
           )
           ..activeServerId = 'old-server'
           ..connectionState = MobileConnectionState.connected;
-    addTearDown(controller.dispose);
+    addTearDown(controller.close);
 
     await controller.recoverTransport();
 
@@ -233,7 +350,6 @@ void main() {
     'falls back to the workspace catalog when pet discovery fails',
     () async {
       final database = AppDatabase.forTesting(NativeDatabase.memory());
-      addTearDown(database.close);
       final client = _FailingPetListClient();
       final controller =
           MobileDataController(
@@ -258,6 +374,7 @@ void main() {
                 lastActive: '',
               ),
             ];
+      addTearDown(controller.close);
 
       final destination = await controller.destinationForWorkspace(
         'workspace-a',
@@ -270,7 +387,6 @@ void main() {
 
   test('repairs the selected workspace before runtime reload', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(database.close);
     final client = _WorkspaceActivationClient();
     final controller =
         MobileDataController(
@@ -289,7 +405,7 @@ void main() {
               driver: 'flowcraft',
             ),
           ];
-    addTearDown(controller.dispose);
+    addTearDown(controller.close);
 
     await controller.activateWorkspaceChat('workspace-new');
 
@@ -394,6 +510,71 @@ class _ReconnectTestConnection extends _RefreshTestConnection {
     currentClient = reconnectClient;
     currentServerId = reconnectServerId;
     return reconnectClient;
+  }
+}
+
+class _CloseTrackingConnection extends _RefreshTestConnection {
+  _CloseTrackingConnection({
+    required super.profile,
+    required super.client,
+    required super.serverId,
+    this.closeError,
+  });
+
+  final Object? closeError;
+  bool closeCalled = false;
+
+  @override
+  Future<void> close() async {
+    closeCalled = true;
+    final error = closeError;
+    if (error != null) throw error;
+  }
+}
+
+class _BlockingConnectConnection extends _CloseTrackingConnection {
+  _BlockingConnectConnection({
+    required super.profile,
+    required super.client,
+    required super.serverId,
+  });
+
+  final connectStarted = Completer<void>();
+  final connectResult = Completer<GizClawClient>();
+
+  @override
+  Future<GizClawClient> connect() {
+    connectStarted.complete();
+    return connectResult.future;
+  }
+}
+
+class _BlockingReconnectConnection extends _CloseTrackingConnection {
+  _BlockingReconnectConnection({
+    required super.profile,
+    required super.client,
+    required super.serverId,
+  });
+
+  final reconnectStarted = Completer<void>();
+  final reconnectResult = Completer<GizClawClient>();
+
+  @override
+  Future<GizClawClient> reconnect() {
+    reconnectStarted.complete();
+    return reconnectResult.future;
+  }
+}
+
+class _TrackingDatabase extends AppDatabase {
+  _TrackingDatabase() : super.forTesting(NativeDatabase.memory());
+
+  bool closeCalled = false;
+
+  @override
+  Future<void> close() async {
+    closeCalled = true;
+    await super.close();
   }
 }
 

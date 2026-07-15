@@ -28,7 +28,7 @@ api/proto/rpc/
 ```mermaid
 flowchart LR
     Proto["api/proto/rpc/*.proto"] --> RPCProto["rpcproto: protoc Go messages"]
-    Proto --> RPCAPI["rpcapi: method registry + typed wrapper + codec"]
+    Proto --> RPCAPI["rpcapi: method registry + typed codec/helpers"]
     Proto --> JS["JavaScript RPC map/codec"]
     Proto --> C["C nanopb messages"]
     RPCProto --> RPCAPI
@@ -36,7 +36,7 @@ flowchart LR
     RPCAPI --> GoSDK["Go SDK"]
 ```
 
-`rpcproto` 只拥有 Protobuf wire messages。`rpcapi` 在其上提供 method registry、typed aliases/wrappers、payload codec 与 stream frame helpers。RPC handler 和领域 service 不属于这两个生成 package。
+`rpcproto` 只拥有 Protobuf wire messages，Go package 名为 `rpcpb`。`rpcapi` 在其上提供 method registry、typed payload codec 与 stream frame helpers；手写接口和调用点直接使用定义消息的 `rpcpb` 类型，不通过 `rpcapi` alias 重命名。RPC handler 和领域 service 不属于这两个 package。
 
 ## Method 设计
 

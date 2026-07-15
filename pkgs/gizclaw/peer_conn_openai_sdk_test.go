@@ -40,10 +40,10 @@ func TestPeerConnOpenAIServiceWithOpenAISDK(t *testing.T) {
 	defer clientConn.Close()
 	defer serverConn.Close()
 
-	var sawChat bool
-	var sawSpeech bool
-	var sawTranscription bool
-	var sawTranscriptionStream bool
+	chatReached := make(chan struct{}, 1)
+	speechReached := make(chan struct{}, 1)
+	transcriptionReached := make(chan struct{}, 1)
+	transcriptionStreamReached := make(chan struct{}, 1)
 	handler := newOpenAIHTTPHandler(&openaiapi.Server{
 		Caller: clientKey.Public,
 		Models: peerConnModelListerFunc(func(context.Context, adminhttp.ListModelsRequestObject) (adminhttp.ListModelsResponseObject, error) {
@@ -75,7 +75,7 @@ func TestPeerConnOpenAIServiceWithOpenAISDK(t *testing.T) {
 			if pattern != "model/chat" {
 				t.Fatalf("generator pattern = %q, want model/chat", pattern)
 			}
-			sawChat = true
+			signalOpenAISDK(chatReached)
 			return openAISDKStream(mctx, &genx.MessageChunk{
 				Role: genx.RoleModel,
 				Part: genx.Text("sdk chat ok"),
@@ -91,7 +91,7 @@ func TestPeerConnOpenAIServiceWithOpenAISDK(t *testing.T) {
 				if text != "hello speech" {
 					t.Fatalf("speech input = %q, want hello speech", text)
 				}
-				sawSpeech = true
+				signalOpenAISDK(speechReached)
 				return openAISDKStream((&genx.ModelContextBuilder{}).Build(), &genx.MessageChunk{
 					Part: &genx.Blob{MIMEType: "audio/mpeg", Data: []byte("sdk speech bytes")},
 				}), nil
@@ -102,10 +102,10 @@ func TestPeerConnOpenAIServiceWithOpenAISDK(t *testing.T) {
 				}
 				switch string(audio) {
 				case "sdk audio bytes":
-					sawTranscription = true
+					signalOpenAISDK(transcriptionReached)
 					return openAISDKStream((&genx.ModelContextBuilder{}).Build(), &genx.MessageChunk{Part: genx.Text("sdk transcription ok")}), nil
 				case "sdk streaming audio bytes":
-					sawTranscriptionStream = true
+					signalOpenAISDK(transcriptionStreamReached)
 					return openAISDKStream((&genx.ModelContextBuilder{}).Build(),
 						&genx.MessageChunk{Part: genx.Text("sdk ")},
 						&genx.MessageChunk{Part: genx.Text("streaming transcription ok")},
@@ -146,9 +146,7 @@ func TestPeerConnOpenAIServiceWithOpenAISDK(t *testing.T) {
 		Messages: []openai.ChatCompletionMessageParamUnion{openai.UserMessage("hello chat")},
 	})
 	requireNoOpenAISDKError(t, err)
-	if !sawChat {
-		t.Fatal("chat completion did not reach GenX generator")
-	}
+	requireOpenAISDKSignal(t, chatReached, "chat completion did not reach GenX generator")
 	if len(completion.Choices) != 1 || completion.Choices[0].Message.Content != "sdk chat ok" {
 		t.Fatalf("chat completion = %#v", completion)
 	}
@@ -165,9 +163,7 @@ func TestPeerConnOpenAIServiceWithOpenAISDK(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read speech body: %v", err)
 	}
-	if !sawSpeech {
-		t.Fatal("speech request did not reach GenX transformer")
-	}
+	requireOpenAISDKSignal(t, speechReached, "speech request did not reach GenX transformer")
 	if string(body) != "sdk speech bytes" {
 		t.Fatalf("speech body = %q, want sdk speech bytes", body)
 	}
@@ -177,9 +173,7 @@ func TestPeerConnOpenAIServiceWithOpenAISDK(t *testing.T) {
 		Model: openai.AudioModel("asr"),
 	})
 	requireNoOpenAISDKError(t, err)
-	if !sawTranscription {
-		t.Fatal("transcription request did not reach GenX transformer")
-	}
+	requireOpenAISDKSignal(t, transcriptionReached, "transcription request did not reach GenX transformer")
 	if transcription.Text != "sdk transcription ok" {
 		t.Fatalf("transcription text = %q, want sdk transcription ok", transcription.Text)
 	}
@@ -202,9 +196,7 @@ func TestPeerConnOpenAIServiceWithOpenAISDK(t *testing.T) {
 		}
 	}
 	requireNoOpenAISDKError(t, transcriptionStream.Err())
-	if !sawTranscriptionStream {
-		t.Fatal("streaming transcription request did not reach GenX transformer")
-	}
+	requireOpenAISDKSignal(t, transcriptionStreamReached, "streaming transcription request did not reach GenX transformer")
 	if transcriptionText != "sdk streaming transcription ok" {
 		t.Fatalf("streaming transcription text = %q, want sdk streaming transcription ok", transcriptionText)
 	}
@@ -392,6 +384,22 @@ func openAISDKReadBlob(stream genx.Stream) ([]byte, error) {
 		if blob, ok := chunk.Part.(*genx.Blob); ok {
 			out = append(out, blob.Data...)
 		}
+	}
+}
+
+func requireOpenAISDKSignal(t *testing.T, signal <-chan struct{}, message string) {
+	t.Helper()
+	select {
+	case <-signal:
+	default:
+		t.Fatal(message)
+	}
+}
+
+func signalOpenAISDK(signal chan<- struct{}) {
+	select {
+	case signal <- struct{}{}:
+	default:
 	}
 }
 

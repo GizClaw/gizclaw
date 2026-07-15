@@ -8,8 +8,8 @@ require (
 	github.com/hajimehoshi/go-mp3 v0.3.4 // indirect
 	github.com/tphakala/go-audio-resampling v0.0.0-20251123212058-a9dde25e8eea // indirect
 	github.com/tphakala/simd v1.0.12 // indirect
-	golang.org/x/sys v0.42.0 // indirect
-	gonum.org/v1/gonum v0.16.0 // indirect
+	golang.org/x/sys v0.46.0 // indirect
+	gonum.org/v1/gonum v0.17.0 // indirect
 )
 
 replace github.com/GizClaw/gizclaw-go => ../..
