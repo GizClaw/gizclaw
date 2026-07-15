@@ -114,9 +114,10 @@ class MobileDataController extends ChangeNotifier {
   String? _pendingRefreshServerId;
   int _serverWatchGeneration = 0;
   int _startGeneration = 0;
-  Future<void> _workspaceSwitch = Future<void>.value();
+  Future<void>? _workspaceSwitch;
   WorkspaceChatController? _activeWorkspaceChat;
   Future<void>? _closeFuture;
+  bool _closing = false;
   bool _disposed = false;
   final Map<String, ({String title, String workspaceName})> _petRouteContexts =
       {};
@@ -150,6 +151,7 @@ class MobileDataController extends ChangeNotifier {
   }
 
   Future<void> start() async {
+    if (_closing) return;
     final generation = ++_startGeneration;
     final endpoint = connection.profile.endpoint;
     if (!connection.profile.isConfigured) {
@@ -299,6 +301,7 @@ class MobileDataController extends ChangeNotifier {
   }
 
   Future<void> refresh({GizClawClient? client, String? serverId}) {
+    if (_closing) return Future<void>.value();
     final activeClient = client ?? connection.client;
     final resolvedServerId = serverId ?? connection.serverId;
     if (activeClient == null || resolvedServerId == null) {
@@ -509,7 +512,8 @@ class MobileDataController extends ChangeNotifier {
   }
 
   bool _isCurrentStart(int generation, String endpoint) {
-    return generation == _startGeneration &&
+    return !_closing &&
+        generation == _startGeneration &&
         endpoint == connection.profile.endpoint;
   }
 
@@ -601,8 +605,14 @@ class MobileDataController extends ChangeNotifier {
   }
 
   Future<WorkspaceChatController> activateWorkspaceChat(String workspaceName) {
+    if (_closing) {
+      return Future<WorkspaceChatController>.error(
+        StateError('Mobile data controller is closed'),
+      );
+    }
     final completer = Completer<WorkspaceChatController>();
-    _workspaceSwitch = _workspaceSwitch.then((_) async {
+    final previousSwitch = _workspaceSwitch;
+    _workspaceSwitch = (previousSwitch ?? Future<void>.value()).then((_) async {
       try {
         final current = _activeWorkspaceChat;
         if (current != null && current.workspaceName == workspaceName) {
@@ -785,12 +795,35 @@ class MobileDataController extends ChangeNotifier {
     _activeWorkspaceChat = chat;
   }
 
-  Future<void> close() => _closeFuture ??= _close();
+  Future<void> close() {
+    final close = _closeFuture;
+    if (close != null) return close;
+    _closing = true;
+    return _closeFuture = _close();
+  }
 
   Future<void> _close() async {
     _startGeneration += 1;
     _serverWatchGeneration += 1;
     _refreshAgain = false;
+
+    Object? firstError;
+    StackTrace? firstStackTrace;
+    Future<void> attempt(Future<void> Function() action) async {
+      try {
+        await action();
+      } catch (error, stackTrace) {
+        firstError ??= error;
+        firstStackTrace ??= stackTrace;
+      }
+    }
+
+    final refresh = _refreshInFlight;
+    final workspaceSwitch = _workspaceSwitch;
+    await Future.wait([
+      if (refresh != null) attempt(() => refresh),
+      if (workspaceSwitch != null) attempt(() => workspaceSwitch),
+    ]);
 
     final chat = _activeWorkspaceChat;
     _activeWorkspaceChat = null;
@@ -805,13 +838,16 @@ class MobileDataController extends ChangeNotifier {
     _friendChatSubscription = null;
     _friendGroupChatSubscription = null;
 
-    await chat?.close();
     await Future.wait([
+      if (chat != null) attempt(chat.close),
       for (final subscription in subscriptions)
-        if (subscription != null) subscription.cancel(),
+        if (subscription != null) attempt(subscription.cancel),
     ]);
-    await connection.close();
-    await database.close();
+    await attempt(connection.close);
+    await attempt(database.close);
+    if (firstError case final error?) {
+      Error.throwWithStackTrace(error, firstStackTrace!);
+    }
   }
 
   @override

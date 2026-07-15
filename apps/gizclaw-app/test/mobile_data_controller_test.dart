@@ -21,6 +21,55 @@ void main() {
     await firstClose;
   });
 
+  test('waits for an in-flight refresh before closing resources', () async {
+    final database = _TrackingDatabase();
+    final client = _RunWorkspaceClient();
+    final connection = _CloseTrackingConnection(
+      profile: _profile('gizclaw.local:9820'),
+      client: client,
+      serverId: 'server-a',
+    );
+    final repository = _QueuedRefreshRepository(database);
+    final controller = MobileDataController(
+      database: database,
+      connectionController: connection,
+      dataRepository: repository,
+    );
+
+    final refresh = controller.refresh(client: client, serverId: 'server-a');
+    final close = controller.close();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(connection.closeCalled, isFalse);
+    expect(database.closeCalled, isFalse);
+
+    repository.firstRefresh.complete(const []);
+    await refresh;
+    await close;
+
+    expect(connection.closeCalled, isTrue);
+    expect(database.closeCalled, isTrue);
+  });
+
+  test('continues closing resources after an earlier close fails', () async {
+    final database = _TrackingDatabase();
+    final connection = _CloseTrackingConnection(
+      profile: _profile('gizclaw.local:9820'),
+      client: _RunWorkspaceClient(),
+      serverId: 'server-a',
+      closeError: StateError('connection close failed'),
+    );
+    final controller = MobileDataController(
+      database: database,
+      connectionController: connection,
+    );
+
+    await expectLater(controller.close(), throwsStateError);
+
+    expect(connection.closeCalled, isTrue);
+    expect(database.closeCalled, isTrue);
+  });
+
   test('does not retry a mutating RPC after a transport failure', () async {
     var requests = 0;
     var reconnects = 0;
@@ -403,6 +452,37 @@ class _ReconnectTestConnection extends _RefreshTestConnection {
     currentClient = reconnectClient;
     currentServerId = reconnectServerId;
     return reconnectClient;
+  }
+}
+
+class _CloseTrackingConnection extends _RefreshTestConnection {
+  _CloseTrackingConnection({
+    required super.profile,
+    required super.client,
+    required super.serverId,
+    this.closeError,
+  });
+
+  final Object? closeError;
+  bool closeCalled = false;
+
+  @override
+  Future<void> close() async {
+    closeCalled = true;
+    final error = closeError;
+    if (error != null) throw error;
+  }
+}
+
+class _TrackingDatabase extends AppDatabase {
+  _TrackingDatabase() : super.forTesting(NativeDatabase.memory());
+
+  bool closeCalled = false;
+
+  @override
+  Future<void> close() async {
+    closeCalled = true;
+    await super.close();
   }
 }
 
