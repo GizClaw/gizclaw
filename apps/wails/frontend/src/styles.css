@@ -429,7 +429,7 @@ select:focus-visible {
   transition: width 0.32s cubic-bezier(0.2, 0.78, 0.2, 1);
 }
 .pod-dialog-remote.is-managing {
-  width: min(640px, 100%);
+  width: min(420px, 100%);
 }
 .create-dialog {
   width: min(560px, 100%);
@@ -881,6 +881,34 @@ select:focus-visible {
 .remote-manage-label {
   padding: 2px 2px 0;
 }
+.remote-manage-face {
+  gap: 8px;
+  padding: 4px 0 0;
+}
+.remote-list-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+.remote-list-tools label {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border-radius: 10px;
+  color: #6e717a;
+  background: rgba(255, 255, 255, 0.04);
+}
+.remote-list-tools input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  color: #e9ebef;
+  background: transparent;
+  font-size: 10px;
+}
 .generated-admin-key {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -1250,21 +1278,22 @@ button:disabled {
 }
 .virtual-server-list {
   display: block;
-  height: 284px;
+  height: 368px;
 }
 .virtual-server-row {
   position: absolute;
   inset: 0 0 auto;
-  height: 82px;
+  height: 62px;
 }
 .server-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 10px;
-  padding: 11px 12px;
-  border-radius: 13px;
-  background: rgba(255, 255, 255, 0.03);
+  gap: 8px;
+  padding: 8px 2px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 0;
+  background: transparent;
 }
 .server-row > div {
   display: grid;
@@ -1276,6 +1305,21 @@ button:disabled {
   color: #6e717a;
   font-family: "SFMono-Regular", Consolas, monospace;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.server-health-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #666973;
+}
+.server-health-reachable {
+  background: #55d6a7;
+  box-shadow: 0 0 8px rgba(85, 214, 167, 0.45);
+}
+.server-health-unreachable,
+.server-health-invalid-response {
+  background: #ff657c;
 }
 .server-admin-key {
   min-width: 0;
@@ -1316,6 +1360,15 @@ button:disabled {
   color: #777a83;
   background: rgba(255, 255, 255, 0.04);
   cursor: pointer;
+}
+.server-admin-action {
+  min-width: 70px;
+  min-height: 30px;
+  padding: 0 9px;
+  border-radius: 9px;
+}
+.server-admin-action.configured {
+  color: #bfc3cc;
 }
 .no-servers,
 .invalid-detail {
@@ -1787,11 +1840,15 @@ button:disabled {
     background: rgba(30, 31, 36, 0.07);
   }
   .remote-toolbar label,
-  .remote-toolbar select {
+  .remote-toolbar select,
+  .remote-list-tools label {
     color: #555861;
     background: rgba(30, 31, 36, 0.065);
   }
   .remote-toolbar input {
+    color: #292a30;
+  }
+  .remote-list-tools input {
     color: #292a30;
   }
   .remote-toolbar input::placeholder {
@@ -1807,6 +1864,10 @@ button:disabled {
   .network-address-list code {
     color: #64666e;
     background: rgba(30, 31, 36, 0.05);
+  }
+  .server-row {
+    border-bottom-color: rgba(30, 31, 36, 0.07);
+    background: transparent;
   }
 }
 

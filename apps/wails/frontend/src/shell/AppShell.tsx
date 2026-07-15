@@ -16,7 +16,6 @@ import {
   Pencil,
   Play,
   Plus,
-  RefreshCw,
   Search,
   Server,
   Sparkles,
@@ -364,7 +363,6 @@ function PodDetail({
   const [closing, setClosing] = useState(false);
   const [managing, setManaging] = useState(false);
   const [query, setQuery] = useState("");
-  const [healthFilter, setHealthFilter] = useState("all");
   const [serverEditor, setServerEditor] = useState<PodServer | "new" | null>(
     null,
   );
@@ -372,13 +370,11 @@ function PodDetail({
     const matchesQuery = `${server.id} ${server.name} ${server.endpoint}`
       .toLowerCase()
       .includes(query.toLowerCase());
-    const matchesHealth =
-      healthFilter === "all" || server.health.state === healthFilter;
-    return matchesQuery && matchesHealth;
+    return matchesQuery;
   });
-  const detailEndpoint = pod.local
+  const detailSubtitle = pod.local
     ? preferredLANAddress(pod.local.lan_addresses)
-    : (pod.remote?.access_point.endpoint ?? "");
+    : pod.id;
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !serverEditor) setClosing(true);
@@ -435,7 +431,7 @@ function PodDetail({
                 </button>
               ) : null}
             </div>
-            <p>{detailEndpoint || pod.description || pod.id}</p>
+            <p>{detailSubtitle || pod.description || pod.id}</p>
           </div>
           <details className="pod-menu">
             <summary
@@ -520,15 +516,12 @@ function PodDetail({
               back={
                 <RemoteManageFace
                   api={api}
-                  healthFilter={healthFilter}
                   onAddServer={() => setServerEditor("new")}
                   onEditServer={setServerEditor}
                   onError={onError}
-                  onHealthFilter={setHealthFilter}
                   onQuery={setQuery}
                   pod={pod}
                   query={query}
-                  run={run}
                   servers={servers}
                 />
               }
@@ -778,27 +771,21 @@ function LocalManageFace({
 
 function RemoteManageFace({
   api,
-  healthFilter,
   onAddServer,
   onEditServer,
   onError,
-  onHealthFilter,
   onQuery,
   pod,
   query,
-  run,
   servers,
 }: {
   api: ReturnType<typeof getDesktopAPI>;
-  healthFilter: string;
   onAddServer(): void;
   onEditServer(server: PodServer): void;
   onError(reason: unknown): void;
-  onHealthFilter(value: string): void;
   onQuery(value: string): void;
   pod: PodSummary;
   query: string;
-  run(action: () => Promise<PodSummary>): Promise<void>;
   servers: PodServer[];
 }) {
   const t = useMessages();
@@ -807,9 +794,9 @@ function RemoteManageFace({
       <span className="mode-chip remote-manage-label">
         {t("manageServers")}
       </span>
-      <div className="remote-toolbar manage-remote-toolbar">
+      <div className="remote-list-tools">
         <label>
-          <Search size={16} />
+          <Search size={15} />
           <input
             aria-label={t("searchServers")}
             onChange={(event) => onQuery(event.target.value)}
@@ -817,34 +804,21 @@ function RemoteManageFace({
             value={query}
           />
         </label>
-        <select
-          aria-label={t("healthFilter")}
-          onChange={(event) => onHealthFilter(event.target.value)}
-          value={healthFilter}
-        >
-          <option value="all">{t("allStates")}</option>
-          <option value="reachable">{t("reachable")}</option>
-          <option value="unreachable">{t("unreachable")}</option>
-          <option value="invalid-response">{t("invalid-response")}</option>
-        </select>
         <button
-          aria-label={t("refresh")}
-          className="secondary-action compact-action"
-          onClick={() => void run(() => api.RefreshPodHealth(pod.id))}
-          title={t("refresh")}
+          aria-label={t("addServer")}
+          className="icon-button"
+          onClick={onAddServer}
+          title={t("addServer")}
           type="button"
         >
-          <RefreshCw size={15} />
-        </button>
-        <button className="primary-action" onClick={onAddServer} type="button">
-          <Plus size={15} /> {t("addServer")}
+          <Plus size={16} />
         </button>
       </div>
       {servers.length ? (
         <VirtualServerList
           onAdmin={(server) => api.OpenAdmin(pod.id, server.id).catch(onError)}
           onEdit={onEditServer}
-          resetKey={`${pod.id}\u0000${query}\u0000${healthFilter}`}
+          resetKey={`${pod.id}\u0000${query}`}
           servers={servers}
         />
       ) : (
@@ -889,8 +863,8 @@ function VirtualServerList({
   const t = useMessages();
   const viewport = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
-  const rowHeight = 88;
-  const viewportHeight = 284;
+  const rowHeight = 68;
+  const viewportHeight = 368;
   const overscan = 5;
   const start = Math.max(0, Math.floor(scrollTop / rowHeight) - overscan);
   const end = Math.min(
@@ -916,23 +890,15 @@ function VirtualServerList({
               transform: `translateY(${(start + offset) * rowHeight}px)`,
             }}
           >
-            <span className="server-orb">
-              <Server size={17} />
-            </span>
+            <span
+              className={`server-health-dot server-health-${server.health.state}`}
+            />
             <div>
               <strong>{server.name}</strong>
-              <small>{server.endpoint}</small>
-              {server.admin_public_key ? (
-                <span className="server-admin-key">
-                  <code>{shortPublicKey(server.admin_public_key)}</code>
-                  <CopyValueButton
-                    label={t("copyAdminPublicKey")}
-                    value={server.admin_public_key}
-                  />
-                </span>
-              ) : null}
+              <small>
+                {server.id} · {server.endpoint}
+              </small>
             </div>
-            <Status state={server.health.state} />
             <button
               aria-label={t("edit")}
               className="row-icon-action"
@@ -943,11 +909,14 @@ function VirtualServerList({
               <Pencil size={14} />
             </button>
             <button
-              className="row-action"
+              className={`row-action server-admin-action ${server.admin_configured ? "configured" : ""}`}
               onClick={() => onAdmin(server)}
+              title={
+                server.admin_configured ? t("openAdmin") : t("configureAdmin")
+              }
               type="button"
             >
-              {server.admin_configured ? t("openAdmin") : t("configureAdmin")}
+              Admin
               <ArrowUpRight size={14} />
             </button>
           </div>
@@ -955,10 +924,6 @@ function VirtualServerList({
       </div>
     </div>
   );
-}
-
-function shortPublicKey(value: string) {
-  return value.length > 18 ? `${value.slice(0, 10)}…${value.slice(-7)}` : value;
 }
 
 type EditableServer = Pick<PodServer, "id" | "name" | "endpoint">;

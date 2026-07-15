@@ -236,6 +236,20 @@ test("Pod home opens a share face and scalable remote management", async ({
   await page.getByRole("button", { name: "Manage Servers" }).click();
   await expect(page.getByText("Beijing A")).toBeVisible();
   await expect(page.getByText("120 servers")).toBeVisible();
+  await expect(page.getByText("cn-dev")).toBeVisible();
+  await expect
+    .poll(() =>
+      page.getByRole("dialog").evaluate((element) => element.clientWidth),
+    )
+    .toBeLessThanOrEqual(420);
+  await expect
+    .poll(() =>
+      page
+        .locator(".server-admin-action")
+        .first()
+        .evaluate((element) => element.clientWidth),
+    )
+    .toBeLessThanOrEqual(90);
   await page.locator(".virtual-server-list").evaluate((element) => {
     element.scrollTop = element.scrollHeight;
     element.dispatchEvent(new Event("scroll"));
@@ -248,10 +262,9 @@ test("Pod home opens a share face and scalable remote management", async ({
   await page.getByRole("textbox", { name: "Search servers" }).fill("Beijing B");
   await expect(page.getByText("Beijing A")).not.toBeVisible();
   await expect(page.getByText("Beijing B")).toBeVisible();
-  await page
-    .getByRole("combobox", { name: "Filter by connection state" })
-    .selectOption("reachable");
-  await expect(page.getByText("No Servers match")).toBeVisible();
+  await expect(
+    page.getByRole("dialog").getByRole("button", { name: "Admin" }),
+  ).toBeVisible();
 });
 
 test("Add Pod creates a local environment without exposing keys", async ({
@@ -352,9 +365,7 @@ test("Remote creation asks only for an access point and adds Servers later", asy
   await expect(
     detail.getByText("server.example.com:9820").first(),
   ).toBeVisible();
-  await expect(
-    detail.getByRole("button", { name: "Copy Admin public key" }),
-  ).toBeVisible();
+  await expect(detail.getByRole("button", { name: "Admin" })).toBeVisible();
 });
 
 test("malformed Pods remain visible and recoverable", async ({ page }) => {
