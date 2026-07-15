@@ -346,7 +346,7 @@ WorkflowCard _workflowCardFromRow(WorkflowEntry row, String localeTag) {
     displayName: localizedName == null || localizedName.isEmpty
         ? row.name
         : localizedName,
-    description: catalog?.description.trim() ?? '',
+    description: catalog == null ? row.description : catalog.description.trim(),
     driver: row.driver,
   );
 }

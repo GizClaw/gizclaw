@@ -225,6 +225,14 @@ func validateDriverSpec(spec apitypes.WorkflowSpec) error {
 			return errors.New("spec.chatroom is required")
 		}
 		return nil
+	case apitypes.WorkflowDriverPet:
+		if spec.Pet == nil {
+			return errors.New("spec.pet is required")
+		}
+		if len(*spec.Pet) != 0 {
+			return errors.New("spec.pet does not accept Flowcraft graph or memory configuration")
+		}
+		return nil
 	default:
 		return nil
 	}

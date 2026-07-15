@@ -1,0 +1,81 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: ResourceList
+metadata:
+  name: pet-flowcraft-workflow-models
+spec:
+  items:
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: pet-flowcraft-workflow-chat
+    spec:
+      kind: llm
+      source: manual
+      provider:
+        kind: volc-tenant
+        name: volc-ark
+      name: Pet Flowcraft Workflow Chat
+      description: Operational chat model used by the built-in Pet Flowcraft workflow
+      capabilities:
+        json_output: true
+        system_role: true
+        temperature: true
+        text_only: true
+        tool_calls: true
+        thinking:
+          supported: true
+          param: thinking.type
+          default_level: disabled
+      provider_data:
+        upstream_model: doubao-seed-2-0-lite-260215
+        support_json_output: true
+        support_text_only: true
+        support_tool_calls: true
+        support_thinking: true
+        thinking_param: thinking.type
+        default_thinking_level: disabled
+        use_system_role: true
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: pet-flowcraft-workflow-extract
+    spec:
+      kind: llm
+      source: manual
+      provider:
+        kind: volc-tenant
+        name: volc-ark
+      name: Pet Flowcraft Workflow Extract
+      description: Operational extraction model used by the built-in Pet Flowcraft workflow
+      capabilities:
+        json_output: true
+        system_role: true
+        temperature: true
+        text_only: true
+        thinking:
+          supported: true
+          param: thinking.type
+          default_level: disabled
+      provider_data:
+        upstream_model: doubao-seed-2-0-lite-260215
+        support_json_output: true
+        support_text_only: true
+        support_thinking: true
+        thinking_param: thinking.type
+        default_thinking_level: disabled
+        use_system_role: true
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: pet-flowcraft-workflow-asr
+    spec:
+      kind: asr
+      source: manual
+      provider:
+        kind: volc-tenant
+        name: volc-main
+      name: Pet Flowcraft Workflow ASR
+      description: Operational speech recognition model used by the built-in Pet Flowcraft workflow
+      provider_data:
+        resource_id: volc.bigasr.sauc.duration

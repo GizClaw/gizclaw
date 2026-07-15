@@ -10,7 +10,7 @@ spec:
     metadata:
       name: petdef-starter
     spec:
-      workflow_name: pet-care-flowcraft
+      workflow_name: pet-care
       attr:
         life:
           hunger:
@@ -23,7 +23,7 @@ spec:
       character:
         prompt: Starter gameplay test pet with a clear friendly pixel-sprite silhouette.
       voice:
-        voice_id: gizclaw-test-soft
+        voice_id: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
         prompt: Short warm replies with curious, friendly energy.
       drive:
         actions:
@@ -100,7 +100,7 @@ spec:
     spec:
       enabled: true
       description: Default gameplay e2e ruleset.
-      default_workflow_name: pet-care-flowcraft
+      default_workflow_name: pet-care
       points:
         initial_balance: 100
       pet_pool:
@@ -108,7 +108,7 @@ spec:
         weight: 100
         rarity: common
         adoption_cost: 10
-        workflow_name: pet-care-flowcraft
+        workflow_name: pet-care
       badge_def_ids:
       - badge-starter
       game_def_ids:

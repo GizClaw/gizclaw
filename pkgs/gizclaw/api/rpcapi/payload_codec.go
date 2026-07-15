@@ -298,6 +298,7 @@ var rpcPayloadUnionValueTypes = map[protoreflect.Name]reflect.Type{
 	"DoubaoRealtimeWorkspaceParameters":     reflect.TypeOf(DoubaoRealtimeWorkspaceParameters{}),
 	"ASTTranslateWorkspaceParameters":       reflect.TypeOf(ASTTranslateWorkspaceParameters{}),
 	"ChatRoomWorkspaceParameters":           reflect.TypeOf(ChatRoomWorkspaceParameters{}),
+	"PetWorkspaceParameters":                reflect.TypeOf(PetWorkspaceParameters{}),
 }
 
 func fillProtoMessageFromGo(msg protoreflect.Message, value reflect.Value, parent reflect.Value) error {

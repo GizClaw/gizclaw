@@ -10,7 +10,7 @@ spec:
     metadata:
       name: petdef-tragon
     spec:
-      workflow_name: pet-care-flowcraft
+      workflow_name: pet-care
       attr:
         life:
           hp:
@@ -27,7 +27,7 @@ spec:
       character:
         prompt: Compact blue pixel dragon with a rounded head, small horns, tiny wings, short legs, and playful brave behavior.
       voice:
-        voice_id: gizclaw-cute-dragon
+        voice_id: volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts
         prompt: Bright, curious, short spoken replies with childlike confidence.
       drive:
         actions:
@@ -159,7 +159,7 @@ spec:
     spec:
       enabled: true
       description: H106 Tragon mobile app preview ruleset.
-      default_workflow_name: pet-care-flowcraft
+      default_workflow_name: pet-care
       points:
         initial_balance: 100
       pet_pool:
@@ -167,4 +167,4 @@ spec:
         weight: 100
         rarity: rare
         adoption_cost: 10
-        workflow_name: pet-care-flowcraft
+        workflow_name: pet-care

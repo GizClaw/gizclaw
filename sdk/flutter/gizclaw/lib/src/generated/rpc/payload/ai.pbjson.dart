@@ -2143,6 +2143,143 @@ final $typed_data.Uint8List flowcraftWorkspaceParametersDescriptor = $convert.ba
     'BF9lMmVCEgoQX2VtYmVkZGluZ19tb2RlbEIQCg5fZXh0cmFjdF9tb2RlbEIRCg9fZ2VuZXJhdG'
     'VfbW9kZWxCCAoGX2lucHV0');
 
+@$core.Deprecated('Use petConversationParametersDescriptor instead')
+const PetConversationParameters$json = {
+  '1': 'PetConversationParameters',
+  '2': [
+    {
+      '1': 'initiative',
+      '3': 1,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.PetConversationParametersInitiative',
+      '9': 0,
+      '10': 'initiative',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_initiative'},
+  ],
+};
+
+/// Descriptor for `PetConversationParameters`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List petConversationParametersDescriptor = $convert.base64Decode(
+    'ChlQZXRDb252ZXJzYXRpb25QYXJhbWV0ZXJzElgKCmluaXRpYXRpdmUYASABKA4yMy5naXpjbG'
+    'F3LnJwYy52MS5QZXRDb252ZXJzYXRpb25QYXJhbWV0ZXJzSW5pdGlhdGl2ZUgAUgppbml0aWF0'
+    'aXZliAEBQg0KC19pbml0aWF0aXZl');
+
+@$core.Deprecated('Use petPersonaParametersDescriptor instead')
+const PetPersonaParameters$json = {
+  '1': 'PetPersonaParameters',
+  '2': [
+    {'1': 'prompt', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'prompt', '17': true},
+  ],
+  '8': [
+    {'1': '_prompt'},
+  ],
+};
+
+/// Descriptor for `PetPersonaParameters`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List petPersonaParametersDescriptor = $convert.base64Decode(
+    'ChRQZXRQZXJzb25hUGFyYW1ldGVycxIbCgZwcm9tcHQYASABKAlIAFIGcHJvbXB0iAEBQgkKB1'
+    '9wcm9tcHQ=');
+
+@$core.Deprecated('Use petVoiceParametersDescriptor instead')
+const PetVoiceParameters$json = {
+  '1': 'PetVoiceParameters',
+  '2': [
+    {'1': 'prompt', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'prompt', '17': true},
+    {'1': 'voice_id', '3': 2, '4': 1, '5': 9, '10': 'voiceId'},
+  ],
+  '8': [
+    {'1': '_prompt'},
+  ],
+};
+
+/// Descriptor for `PetVoiceParameters`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List petVoiceParametersDescriptor = $convert.base64Decode(
+    'ChJQZXRWb2ljZVBhcmFtZXRlcnMSGwoGcHJvbXB0GAEgASgJSABSBnByb21wdIgBARIZCgh2b2'
+    'ljZV9pZBgCIAEoCVIHdm9pY2VJZEIJCgdfcHJvbXB0');
+
+@$core.Deprecated('Use petWorkflowSpecDescriptor instead')
+const PetWorkflowSpec$json = {
+  '1': 'PetWorkflowSpec',
+};
+
+/// Descriptor for `PetWorkflowSpec`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List petWorkflowSpecDescriptor =
+    $convert.base64Decode('Cg9QZXRXb3JrZmxvd1NwZWM=');
+
+@$core.Deprecated('Use petWorkspaceParametersDescriptor instead')
+const PetWorkspaceParameters$json = {
+  '1': 'PetWorkspaceParameters',
+  '2': [
+    {
+      '1': 'agent_type',
+      '3': 1,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.PetWorkspaceParametersAgentType',
+      '10': 'agentType'
+    },
+    {
+      '1': 'conversation',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.PetConversationParameters',
+      '9': 0,
+      '10': 'conversation',
+      '17': true
+    },
+    {
+      '1': 'input',
+      '3': 3,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.WorkspaceInputMode',
+      '9': 1,
+      '10': 'input',
+      '17': true
+    },
+    {
+      '1': 'persona',
+      '3': 4,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.PetPersonaParameters',
+      '9': 2,
+      '10': 'persona',
+      '17': true
+    },
+    {
+      '1': 'voice',
+      '3': 5,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.PetVoiceParameters',
+      '10': 'voice'
+    },
+  ],
+  '8': [
+    {'1': '_conversation'},
+    {'1': '_input'},
+    {'1': '_persona'},
+  ],
+};
+
+/// Descriptor for `PetWorkspaceParameters`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List petWorkspaceParametersDescriptor = $convert.base64Decode(
+    'ChZQZXRXb3Jrc3BhY2VQYXJhbWV0ZXJzEk4KCmFnZW50X3R5cGUYASABKA4yLy5naXpjbGF3Ln'
+    'JwYy52MS5QZXRXb3Jrc3BhY2VQYXJhbWV0ZXJzQWdlbnRUeXBlUglhZ2VudFR5cGUSUgoMY29u'
+    'dmVyc2F0aW9uGAIgASgLMikuZ2l6Y2xhdy5ycGMudjEuUGV0Q29udmVyc2F0aW9uUGFyYW1ldG'
+    'Vyc0gAUgxjb252ZXJzYXRpb26IAQESPQoFaW5wdXQYAyABKA4yIi5naXpjbGF3LnJwYy52MS5X'
+    'b3Jrc3BhY2VJbnB1dE1vZGVIAVIFaW5wdXSIAQESQwoHcGVyc29uYRgEIAEoCzIkLmdpemNsYX'
+    'cucnBjLnYxLlBldFBlcnNvbmFQYXJhbWV0ZXJzSAJSB3BlcnNvbmGIAQESOAoFdm9pY2UYBSAB'
+    'KAsyIi5naXpjbGF3LnJwYy52MS5QZXRWb2ljZVBhcmFtZXRlcnNSBXZvaWNlQg8KDV9jb252ZX'
+    'JzYXRpb25CCAoGX2lucHV0QgoKCF9wZXJzb25h');
+
 @$core.Deprecated('Use geminiCredentialBodyDescriptor instead')
 const GeminiCredentialBody$json = {
   '1': 'GeminiCredentialBody',
@@ -3981,6 +4118,16 @@ const WorkflowSpec$json = {
       '10': 'toolkit',
       '17': true
     },
+    {
+      '1': 'pet',
+      '3': 7,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.PetWorkflowSpec',
+      '9': 5,
+      '10': 'pet',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_ast_translate'},
@@ -3988,6 +4135,7 @@ const WorkflowSpec$json = {
     {'1': '_doubao_realtime'},
     {'1': '_flowcraft'},
     {'1': '_toolkit'},
+    {'1': '_pet'},
   ],
 };
 
@@ -4001,8 +4149,9 @@ final $typed_data.Uint8List workflowSpecDescriptor = $convert.base64Decode(
     '5naXpjbGF3LnJwYy52MS5Xb3JrZmxvd0RyaXZlclIGZHJpdmVyEkgKCWZsb3djcmFmdBgFIAEo'
     'CzIlLmdpemNsYXcucnBjLnYxLkZsb3djcmFmdFdvcmtmbG93U3BlY0gDUglmbG93Y3JhZnSIAQ'
     'ESPAoHdG9vbGtpdBgGIAEoCzIdLmdpemNsYXcucnBjLnYxLlRvb2xraXRQb2xpY3lIBFIHdG9v'
-    'bGtpdIgBAUIQCg5fYXN0X3RyYW5zbGF0ZUILCglfY2hhdHJvb21CEgoQX2RvdWJhb19yZWFsdG'
-    'ltZUIMCgpfZmxvd2NyYWZ0QgoKCF90b29sa2l0');
+    'bGtpdIgBARI2CgNwZXQYByABKAsyHy5naXpjbGF3LnJwYy52MS5QZXRXb3JrZmxvd1NwZWNIBV'
+    'IDcGV0iAEBQhAKDl9hc3RfdHJhbnNsYXRlQgsKCV9jaGF0cm9vbUISChBfZG91YmFvX3JlYWx0'
+    'aW1lQgwKCl9mbG93Y3JhZnRCCgoIX3Rvb2xraXRCBgoEX3BldA==');
 
 @$core.Deprecated('Use toolExecutorDescriptor instead')
 const ToolExecutor$json = {

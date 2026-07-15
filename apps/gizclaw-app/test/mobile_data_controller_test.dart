@@ -199,6 +199,36 @@ void main() {
     );
   });
 
+  test('reads and preserves a pet workspace input mode', () {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final workspace = Workspace(
+      parameters: WorkspaceParameters(
+        petWorkspaceParameters: PetWorkspaceParameters(
+          agentType: PetWorkspaceParametersAgentType
+              .PET_WORKSPACE_PARAMETERS_AGENT_TYPE_PET,
+          input: WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME,
+          voice: PetVoiceParameters(voiceId: 'pet-voice'),
+        ),
+      ),
+    );
+    final controller = MobileDataController(database: database)
+      ..activeWorkspaceDocument = workspace;
+    addTearDown(controller.dispose);
+
+    expect(
+      controller.activeInputMode,
+      WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME,
+    );
+    expect(
+      workspaceWithDefaultInputParameters(
+        workspace,
+        WorkflowDriverKind.unsupported,
+      ),
+      isNull,
+    );
+  });
+
   test(
     'falls back to the workspace catalog when pet discovery fails',
     () async {

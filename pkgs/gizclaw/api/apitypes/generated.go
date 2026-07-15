@@ -1048,6 +1048,24 @@ func (e PeerTelemetryOrder) Valid() bool {
 	}
 }
 
+// Defines values for PetConversationParametersInitiative.
+const (
+	PetConversationParametersInitiativeAgent PetConversationParametersInitiative = "agent"
+	PetConversationParametersInitiativePeer  PetConversationParametersInitiative = "peer"
+)
+
+// Valid indicates whether the value is a known member of the PetConversationParametersInitiative enum.
+func (e PetConversationParametersInitiative) Valid() bool {
+	switch e {
+	case PetConversationParametersInitiativeAgent:
+		return true
+	case PetConversationParametersInitiativePeer:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PetDefResourceKind.
 const (
 	PetDefResourceKindPetDef PetDefResourceKind = "PetDef"
@@ -1057,6 +1075,21 @@ const (
 func (e PetDefResourceKind) Valid() bool {
 	switch e {
 	case PetDefResourceKindPetDef:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PetWorkspaceParametersAgentType.
+const (
+	PetWorkspaceParametersAgentTypePet PetWorkspaceParametersAgentType = "pet"
+)
+
+// Valid indicates whether the value is a known member of the PetWorkspaceParametersAgentType enum.
+func (e PetWorkspaceParametersAgentType) Valid() bool {
+	switch e {
+	case PetWorkspaceParametersAgentTypePet:
 		return true
 	default:
 		return false
@@ -1339,6 +1372,7 @@ const (
 	WorkflowDriverChatroom       WorkflowDriver = "chatroom"
 	WorkflowDriverDoubaoRealtime WorkflowDriver = "doubao-realtime"
 	WorkflowDriverFlowcraft      WorkflowDriver = "flowcraft"
+	WorkflowDriverPet            WorkflowDriver = "pet"
 )
 
 // Valid indicates whether the value is a known member of the WorkflowDriver enum.
@@ -1351,6 +1385,8 @@ func (e WorkflowDriver) Valid() bool {
 	case WorkflowDriverDoubaoRealtime:
 		return true
 	case WorkflowDriverFlowcraft:
+		return true
+	case WorkflowDriverPet:
 		return true
 	default:
 		return false
@@ -3018,6 +3054,15 @@ type PetAttrValueSpec struct {
 	Initial int64 `json:"initial"`
 }
 
+// PetConversationParameters defines model for PetConversationParameters.
+type PetConversationParameters struct {
+	// Initiative Who starts the conversation when the workspace runtime opens.
+	Initiative *PetConversationParametersInitiative `json:"initiative,omitempty"`
+}
+
+// PetConversationParametersInitiative Who starts the conversation when the workspace runtime opens.
+type PetConversationParametersInitiative string
+
 // PetDef defines model for PetDef.
 type PetDef struct {
 	CreatedAt time.Time      `json:"created_at"`
@@ -3216,6 +3261,12 @@ type PetListResponse struct {
 	NextCursor *string `json:"next_cursor,omitempty"`
 }
 
+// PetPersonaParameters defines model for PetPersonaParameters.
+type PetPersonaParameters struct {
+	// Prompt Workspace-specific personality prompt appended to the PetDef character prompt.
+	Prompt *string `json:"prompt,omitempty"`
+}
+
 // PetProgression defines model for PetProgression.
 type PetProgression map[string]int64
 
@@ -3224,6 +3275,30 @@ type PetPutRequest struct {
 	DisplayName string `json:"display_name"`
 	Id          string `json:"id"`
 }
+
+// PetVoiceParameters defines model for PetVoiceParameters.
+type PetVoiceParameters struct {
+	// Prompt Workspace-specific speaking style prompt appended to the PetDef voice prompt.
+	Prompt *string `json:"prompt,omitempty"`
+
+	// VoiceId GizClaw Voice resource name used for this pet.
+	VoiceId string `json:"voice_id"`
+}
+
+// PetWorkflowSpec defines model for PetWorkflowSpec.
+type PetWorkflowSpec = map[string]interface{}
+
+// PetWorkspaceParameters defines model for PetWorkspaceParameters.
+type PetWorkspaceParameters struct {
+	AgentType    PetWorkspaceParametersAgentType `json:"agent_type"`
+	Conversation *PetConversationParameters      `json:"conversation,omitempty"`
+	Input        *WorkspaceInputMode             `json:"input,omitempty"`
+	Persona      *PetPersonaParameters           `json:"persona,omitempty"`
+	Voice        PetVoiceParameters              `json:"voice"`
+}
+
+// PetWorkspaceParametersAgentType defines model for PetWorkspaceParameters.AgentType.
+type PetWorkspaceParametersAgentType string
 
 // PointsAccount defines model for PointsAccount.
 type PointsAccount struct {
@@ -3694,6 +3769,7 @@ type WorkflowSpec struct {
 	DoubaoRealtime *DoubaoRealtimeWorkflowSpec `json:"doubao_realtime,omitempty"`
 	Driver         WorkflowDriver              `json:"driver"`
 	Flowcraft      *FlowcraftWorkflowSpec      `json:"flowcraft,omitempty"`
+	Pet            *PetWorkflowSpec            `json:"pet,omitempty"`
 
 	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
@@ -5259,6 +5335,34 @@ func (t *WorkspaceParameters) MergeChatRoomWorkspaceParameters(v ChatRoomWorkspa
 	return err
 }
 
+// AsPetWorkspaceParameters returns the union data inside the WorkspaceParameters as a PetWorkspaceParameters
+func (t WorkspaceParameters) AsPetWorkspaceParameters() (PetWorkspaceParameters, error) {
+	var body PetWorkspaceParameters
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPetWorkspaceParameters overwrites any union data inside the WorkspaceParameters as the provided PetWorkspaceParameters
+func (t *WorkspaceParameters) FromPetWorkspaceParameters(v PetWorkspaceParameters) error {
+	v.AgentType = "pet"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePetWorkspaceParameters performs a merge with any union data inside the WorkspaceParameters, using the provided PetWorkspaceParameters
+func (t *WorkspaceParameters) MergePetWorkspaceParameters(v PetWorkspaceParameters) error {
+	v.AgentType = "pet"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t WorkspaceParameters) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"agent_type"`
@@ -5281,6 +5385,8 @@ func (t WorkspaceParameters) ValueByDiscriminator() (interface{}, error) {
 		return t.AsDoubaoRealtimeWorkspaceParameters()
 	case "flowcraft":
 		return t.AsFlowcraftWorkspaceParameters()
+	case "pet":
+		return t.AsPetWorkspaceParameters()
 	default:
 		return nil, errors.New("unknown discriminator value: " + discriminator)
 	}

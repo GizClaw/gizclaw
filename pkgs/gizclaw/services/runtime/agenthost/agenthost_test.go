@@ -119,6 +119,27 @@ func TestServiceResolverUsesWorkflowDriverAsAgentType(t *testing.T) {
 	}
 }
 
+func TestServiceResolverRejectsWorkspaceAgentTypeWorkflowDriverMismatch(t *testing.T) {
+	var params apitypes.WorkspaceParameters
+	if err := params.FromPetWorkspaceParameters(apitypes.PetWorkspaceParameters{
+		AgentType: apitypes.PetWorkspaceParametersAgentTypePet,
+		Voice:     apitypes.PetVoiceParameters{VoiceId: "voice"},
+	}); err != nil {
+		t.Fatalf("FromPetWorkspaceParameters() error = %v", err)
+	}
+	resolver := ServiceResolver{
+		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
+			"demo": {Name: "demo", WorkflowName: "workflow-1", Parameters: &params},
+		}},
+		Workflows: fakeWorkflowService{items: map[string]apitypes.WorkflowDocument{
+			"workflow-1": mustWorkflow(t, "workflow-1"),
+		}},
+	}
+	if _, err := resolver.Resolve(context.Background(), "demo"); err == nil || !strings.Contains(err.Error(), "does not match workflow driver") {
+		t.Fatalf("Resolve() mismatch error = %v", err)
+	}
+}
+
 func TestServiceResolverResolvesToolkitPolicy(t *testing.T) {
 	workflowToolIDs := []string{"system.mode.switch", "system.music.play"}
 	workspaceToolIDs := []string{"system.music.play"}

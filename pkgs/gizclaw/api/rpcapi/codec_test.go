@@ -436,6 +436,32 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 		t.Fatalf("workspace input = %#v, want realtime", gotFlowcraft.Input)
 	}
 
+	voicePrompt := "warm"
+	var petWorkspaceParams WorkspaceParameters
+	if err := petWorkspaceParams.FromPetWorkspaceParameters(PetWorkspaceParameters{
+		Voice: PetVoiceParameters{VoiceId: "voice-a", Prompt: &voicePrompt},
+	}); err != nil {
+		t.Fatalf("FromPetWorkspaceParameters error = %v", err)
+	}
+	var petWorkspacePayload RPCPayload
+	if err := petWorkspacePayload.FromWorkspacePutRequest(WorkspacePutRequest{
+		Name: "pet-a",
+		Body: Workspace{Name: "pet-a", WorkflowName: "pet-care", Parameters: &petWorkspaceParams},
+	}); err != nil {
+		t.Fatalf("FromWorkspacePutRequest(pet) error = %v", err)
+	}
+	gotPetWorkspace, err := petWorkspacePayload.AsWorkspacePutRequest()
+	if err != nil {
+		t.Fatalf("AsWorkspacePutRequest(pet) error = %v", err)
+	}
+	gotPetParameters, err := gotPetWorkspace.Body.Parameters.AsPetWorkspaceParameters()
+	if err != nil {
+		t.Fatalf("AsPetWorkspaceParameters error = %v", err)
+	}
+	if gotPetParameters.AgentType != PetWorkspaceParametersAgentTypePet || gotPetParameters.Voice.VoiceId != "voice-a" || gotPetParameters.Voice.Prompt == nil || *gotPetParameters.Voice.Prompt != voicePrompt {
+		t.Fatalf("pet workspace parameters = %#v", gotPetParameters)
+	}
+
 	var modelPayload RPCPayload
 	if err := modelPayload.FromModelCreateRequest(ModelCreateRequest{
 		Id:     "m1",
@@ -541,6 +567,22 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 	}
 	if got := workflowDecoded.I18n.Value["zh-CN"]; got.Name != nil || got.Description != nil {
 		t.Fatalf("workflow empty catalog = %#v", got)
+	}
+
+	petSpec := PetWorkflowSpec{}
+	var petWorkflowPayload RPCPayload
+	if err := petWorkflowPayload.FromWorkflowCreateRequest(WorkflowCreateRequest{
+		Metadata: WorkflowMetadata{Name: "pet-care"},
+		Spec:     WorkflowSpec{Driver: WorkflowDriverPet, Pet: &petSpec},
+	}); err != nil {
+		t.Fatalf("FromWorkflowCreateRequest(pet) error = %v", err)
+	}
+	gotPetWorkflow, err := petWorkflowPayload.AsWorkflowCreateRequest()
+	if err != nil {
+		t.Fatalf("AsWorkflowCreateRequest(pet) error = %v", err)
+	}
+	if gotPetWorkflow.Spec.Driver != WorkflowDriverPet || gotPetWorkflow.Spec.Pet == nil {
+		t.Fatalf("pet workflow = %#v", gotPetWorkflow)
 	}
 
 	var statPayload RPCPayload

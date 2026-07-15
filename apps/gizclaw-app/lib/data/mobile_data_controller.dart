@@ -888,6 +888,9 @@ WorkspaceInputMode _workspaceInputMode(Workspace? workspace) {
   if (parameters.hasFlowcraftWorkspaceParameters()) {
     return parameters.flowcraftWorkspaceParameters.input;
   }
+  if (parameters.hasPetWorkspaceParameters()) {
+    return parameters.petWorkspaceParameters.input;
+  }
   return WorkspaceInputMode.WORKSPACE_INPUT_MODE_UNSPECIFIED;
 }
 
@@ -897,7 +900,8 @@ bool _workspaceExposesInputMode(Workspace workspace) {
   return parameters.hasAsttranslateWorkspaceParameters() ||
       parameters.hasChatRoomWorkspaceParameters() ||
       parameters.hasDoubaoRealtimeWorkspaceParameters() ||
-      parameters.hasFlowcraftWorkspaceParameters();
+      parameters.hasFlowcraftWorkspaceParameters() ||
+      parameters.hasPetWorkspaceParameters();
 }
 
 void _setWorkspaceInputMode(Workspace workspace, WorkspaceInputMode mode) {
@@ -916,6 +920,10 @@ void _setWorkspaceInputMode(Workspace workspace, WorkspaceInputMode mode) {
   }
   if (parameters.hasFlowcraftWorkspaceParameters()) {
     parameters.flowcraftWorkspaceParameters.input = mode;
+    return;
+  }
+  if (parameters.hasPetWorkspaceParameters()) {
+    parameters.petWorkspaceParameters.input = mode;
     return;
   }
   throw StateError('The active workspace does not expose an input mode');

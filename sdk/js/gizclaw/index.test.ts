@@ -183,6 +183,31 @@ test("RPC payload codec selects workspace oneofs from discriminators", () => {
   assert.equal(decoded.parameters?.agent_type, "doubao-realtime");
 });
 
+test("RPC payload codec round-trips pet workspace parameters", () => {
+  const payload = encodeRPCRequestPayload("server.workspace.create", {
+    created_at: "now",
+    last_active_at: "now",
+    name: "pet-a",
+    parameters: {
+      agent_type: "pet",
+      input: "push-to-talk",
+      voice: { voice_id: "voice-a", prompt: "warm" },
+    },
+    updated_at: "now",
+    workflow_name: "pet-care",
+  });
+
+  const decoded = decodeRPCRequestPayload("server.workspace.create", payload) as {
+    parameters?: { agent_type?: string; voice?: { voice_id?: string; prompt?: string } };
+  };
+
+  assert.deepEqual(decoded.parameters, {
+    agent_type: "pet",
+    input: "push-to-talk",
+    voice: { voice_id: "voice-a", prompt: "warm" },
+  });
+});
+
 test("RPC payload codec rejects ambiguous numeric workspace discriminators", () => {
   assert.throws(
     () => encodeRPCRequestPayload("server.workspace.create", {
@@ -308,10 +333,8 @@ test("RPC payload codec preserves workflow i18n catalogs", () => {
   const workflow = {
     i18n: {
       default_locale: "en",
-      value: {
-        en: { name: "Assistant", description: "Helpful workflow" },
-        "zh-CN": {},
-      },
+      en: { name: "Assistant", description: "Helpful workflow" },
+      "zh-CN": {},
     },
     metadata: { name: "assistant" },
     spec: { driver: "flowcraft" },
@@ -320,6 +343,16 @@ test("RPC payload codec preserves workflow i18n catalogs", () => {
   const decoded = decodeRPCRequestPayload("server.workflow.create", payload) as typeof workflow;
 
   assert.deepEqual(decoded.i18n, workflow.i18n);
+});
+
+test("RPC payload codec rejects legacy workflow descriptions", () => {
+  assert.throws(
+    () => encodeRPCRequestPayload("server.workflow.create", {
+      metadata: { name: "assistant", description: "Legacy description" },
+      spec: { driver: "flowcraft" },
+    }),
+    /workflow metadata description is no longer supported/,
+  );
 });
 
 test("RPC payload codec rejects string values for bool fields", () => {

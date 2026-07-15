@@ -43,6 +43,49 @@ func TestAgentStatusReportsRunning(t *testing.T) {
 	}
 }
 
+func TestAgentProvidesTransientInputsForEveryClawTurn(t *testing.T) {
+	claw := &inputRecordingClaw{}
+	call := 0
+	a := &agent{
+		claw: claw,
+		inputProvider: func(context.Context) (map[string]any, error) {
+			call++
+			return map[string]any{"tmp_pet_attribute_prompt": fmt.Sprintf("turn-%d", call)}, nil
+		},
+	}
+	output := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
+	for _, text := range []string{"one", "two"} {
+		if err := a.runClawTextTurn(context.Background(), text, "audio", output, a.currentOutputEpoch()); err != nil {
+			t.Fatalf("runClawTextTurn(%q) error = %v", text, err)
+		}
+	}
+	requests := claw.Requests()
+	if len(requests) != 2 {
+		t.Fatalf("RoundTrip requests = %d, want 2", len(requests))
+	}
+	if requests[0].Inputs["tmp_pet_attribute_prompt"] != "turn-1" || requests[1].Inputs["tmp_pet_attribute_prompt"] != "turn-2" {
+		t.Fatalf("RoundTrip inputs = %#v", requests)
+	}
+}
+
+func TestAgentInputProviderFailureStopsBeforeClawRoundTrip(t *testing.T) {
+	claw := &inputRecordingClaw{}
+	a := &agent{
+		claw: claw,
+		inputProvider: func(context.Context) (map[string]any, error) {
+			return nil, errors.New("pet lookup failed")
+		},
+	}
+	output := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
+	err := a.runClawTextTurn(context.Background(), "hello", "audio", output, a.currentOutputEpoch())
+	if err == nil || !strings.Contains(err.Error(), "pet lookup failed") {
+		t.Fatalf("runClawTextTurn() error = %v", err)
+	}
+	if requests := claw.Requests(); len(requests) != 0 {
+		t.Fatalf("RoundTrip requests = %#v, want none", requests)
+	}
+}
+
 func TestAgentRunTurnBridgesASRClawAndTTS(t *testing.T) {
 	transformer := &recordingVoiceTransformer{}
 	a := &agent{
@@ -2421,6 +2464,26 @@ func (t errorTransformer) Transform(context.Context, string, genx.Stream) (genx.
 type fakeClaw struct {
 	events []flowclaw.Event
 	text   string
+}
+
+type inputRecordingClaw struct {
+	mu       sync.Mutex
+	requests []flowclaw.Request
+}
+
+func (c *inputRecordingClaw) RoundTrip(req flowclaw.Request) (clawResponse, error) {
+	c.mu.Lock()
+	c.requests = append(c.requests, req)
+	c.mu.Unlock()
+	return &fakeClawResponse{}, nil
+}
+
+func (*inputRecordingClaw) CloseContext(context.Context) error { return nil }
+
+func (c *inputRecordingClaw) Requests() []flowclaw.Request {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([]flowclaw.Request(nil), c.requests...)
 }
 
 func (c fakeClaw) RoundTrip(req flowclaw.Request) (clawResponse, error) {

@@ -114,7 +114,7 @@ function encodeMessage(type: string, value: unknown, parent: Record<string, unkn
     }
     return writer.finish();
   }
-  const object = asRecord(value, type);
+  const object = messageObjectForEncode(type, value);
   for (const field of fields) {
     if (field.oneof) {
       continue;
@@ -146,7 +146,24 @@ function decodeMessage(type: string, payload: Uint8Array): unknown {
     }
     return {};
   }
-  return withMessageDefaults(desc, values);
+  const decoded = withMessageDefaults(desc, values);
+  if (type === "WorkflowI18n") {
+    const catalogs = asRecord(decoded.value, "WorkflowI18n.value");
+    return { ...catalogs, default_locale: decoded.default_locale };
+  }
+  return decoded;
+}
+
+function messageObjectForEncode(type: string, value: unknown): Record<string, unknown> {
+  const object = asRecord(value, type);
+  if (type === "WorkflowMetadata" && Object.prototype.hasOwnProperty.call(object, "description")) {
+    throw new Error("workflow metadata description is no longer supported; use workflow i18n");
+  }
+  if (type === "WorkflowI18n") {
+    const { default_locale, ...catalogs } = object;
+    return { default_locale, value: catalogs };
+  }
+  return object;
 }
 
 function decodeMessageFields(desc: MessageDesc, payload: Uint8Array): Record<string, unknown> {
@@ -486,6 +503,7 @@ function oneofDiscriminatorFieldName(type: string, discriminator: string): strin
         "doubao-realtime": "doubao_realtime_workspace_parameters",
         "ast-translate": "asttranslate_workspace_parameters",
         "chatroom": "chat_room_workspace_parameters",
+        "pet": "pet_workspace_parameters",
       } as Record<string, string>)[discriminator];
     default:
       return undefined;
@@ -1015,6 +1033,9 @@ function messageTypeExpression(name, parsed) {
   if (desc == null) {
     return "Record<string, unknown>";
   }
+  if (name === "WorkflowI18n") {
+    return `{\n  "default_locale": string;\n  [locale: string]: string | WorkflowI18nCatalog;\n}`;
+  }
   const single = singleValueTypeField(desc);
   if (single != null) {
     return tsFieldType(single, parsed);
@@ -1069,7 +1090,8 @@ function isOneofDiscriminatorField(field) {
       field.type === "FlowcraftWorkspaceParametersAgentType" ||
       field.type === "DoubaoRealtimeWorkspaceParametersAgentType" ||
       field.type === "ASTTranslateWorkspaceParametersAgentType" ||
-      field.type === "ChatRoomWorkspaceParametersAgentType"
+      field.type === "ChatRoomWorkspaceParametersAgentType" ||
+      field.type === "PetWorkspaceParametersAgentType"
     )
   );
 }

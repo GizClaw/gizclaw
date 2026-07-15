@@ -74,4 +74,35 @@ func TestConvertTypePreservesNonCredentialUnions(t *testing.T) {
 	if apiWorkspaceValue.AgentType != apitypes.ChatRoomWorkspaceParametersAgentTypeChatroom {
 		t.Fatalf("api workspace parameters = %+v", apiWorkspaceValue)
 	}
+
+	voicePrompt := "warm"
+	var apiPetWorkspace apitypes.WorkspaceParameters
+	if err := apiPetWorkspace.FromPetWorkspaceParameters(apitypes.PetWorkspaceParameters{
+		AgentType: apitypes.PetWorkspaceParametersAgentTypePet,
+		Voice:     apitypes.PetVoiceParameters{VoiceId: "voice-pet", Prompt: &voicePrompt},
+	}); err != nil {
+		t.Fatalf("FromPetWorkspaceParameters() error = %v", err)
+	}
+	rpcPetWorkspace, err := convertType[rpcapi.WorkspaceParameters](apiPetWorkspace)
+	if err != nil {
+		t.Fatalf("convert pet workspace parameters to RPC error = %v", err)
+	}
+	rpcPetValue, err := rpcPetWorkspace.AsPetWorkspaceParameters()
+	if err != nil {
+		t.Fatalf("AsPetWorkspaceParameters(RPC) error = %v", err)
+	}
+	if rpcPetValue.AgentType != rpcapi.PetWorkspaceParametersAgentTypePet || rpcPetValue.Voice.VoiceId != "voice-pet" {
+		t.Fatalf("rpc pet workspace parameters = %+v", rpcPetValue)
+	}
+	roundTrippedPetWorkspace, err := convertType[apitypes.WorkspaceParameters](rpcPetWorkspace)
+	if err != nil {
+		t.Fatalf("convert pet workspace parameters to API error = %v", err)
+	}
+	apiPetValue, err := roundTrippedPetWorkspace.AsPetWorkspaceParameters()
+	if err != nil {
+		t.Fatalf("AsPetWorkspaceParameters(API) error = %v", err)
+	}
+	if apiPetValue.Voice.VoiceId != "voice-pet" || apiPetValue.Voice.Prompt == nil || *apiPetValue.Voice.Prompt != voicePrompt {
+		t.Fatalf("round-tripped pet workspace parameters = %+v", apiPetValue)
+	}
 }

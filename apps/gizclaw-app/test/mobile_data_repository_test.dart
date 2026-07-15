@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gizclaw/gizclaw.dart';
@@ -186,6 +187,20 @@ void main() {
       final noI18n = await refreshFor('fr-FR', null);
       expect(noI18n.title, 'stable-name');
       expect(noI18n.subtitle, isEmpty);
+
+      await (database.update(database.workflowEntries)..where(
+            (row) =>
+                row.serverId.equals('server-a') &
+                row.name.equals('stable-name'),
+          ))
+          .write(
+            const WorkflowEntriesCompanion(
+              description: Value('Legacy cached description'),
+            ),
+          );
+      final legacyCached =
+          (await repository.watchWorkflows('server-a').first).single;
+      expect(legacyCached.subtitle, 'Legacy cached description');
     },
   );
 

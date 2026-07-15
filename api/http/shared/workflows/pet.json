@@ -1,0 +1,17 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Pet Workflow Type",
+    "description": "PetWorkflowSpec schema.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "PetWorkflowSpec": {
+        "type": "object",
+        "additionalProperties": false
+      }
+    }
+  }
+}
