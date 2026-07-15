@@ -222,14 +222,17 @@ test("Pod home opens a share face and scalable remote management", async ({
   await expect(
     remoteQR.getByRole("img", { name: "Server QR code" }),
   ).toBeVisible();
-  const remotePayload = JSON.parse(
-    (await remoteQR.getAttribute("data-qr-payload")) ?? "{}",
+  const remotePayload = new URL(
+    (await remoteQR.getAttribute("data-qr-payload")) ?? "",
   );
-  expect(remotePayload).toMatchObject({
-    mode: "remote",
-    name: "China Development",
-    endpoint: "ap.dev.gizclaw.com:9820",
-  });
+  expect(remotePayload.protocol).toBe("gizclaw:");
+  expect(remotePayload.host).toBe("ap");
+  expect(remotePayload.pathname).toBe("/ap.dev.gizclaw.com:9820");
+  expect(remotePayload.searchParams.get("name")).toBe("China Development");
+  expect(remotePayload.searchParams.get("mode")).toBe("remote");
+  expect(remotePayload.searchParams.get("public_key")).toBe(
+    "server-public-key-ap.dev.gizclaw.com:9820",
+  );
   await page.getByRole("button", { name: "Manage Servers" }).click();
   await expect(page.getByText("Beijing A")).toBeVisible();
   await expect(page.getByText("120 servers")).toBeVisible();
@@ -279,15 +282,15 @@ test("local share stays simple and switches to focused controls", async ({
   await page.getByRole("button", { name: /Local Lab/ }).click();
   const dialog = page.getByRole("dialog");
   const qr = dialog.locator(".qr-code");
-  const payload = JSON.parse(
-    (await qr.getAttribute("data-qr-payload")) ?? "{}",
+  const payload = new URL((await qr.getAttribute("data-qr-payload")) ?? "");
+  expect(payload.protocol).toBe("gizclaw:");
+  expect(payload.host).toBe("ap");
+  expect(payload.pathname).toBe("/192.168.1.6:9820");
+  expect(payload.searchParams.get("name")).toBe("Local Lab");
+  expect(payload.searchParams.get("mode")).toBe("local");
+  expect(payload.searchParams.get("public_key")).toBe(
+    "local-server-public-key",
   );
-  expect(payload).toMatchObject({
-    mode: "local",
-    name: "Local Lab",
-    endpoint: "192.168.1.6:9820",
-    server_public_key: "local-server-public-key",
-  });
   await expect(dialog).not.toContainText("100.100.100.100:9820");
   await expect(dialog).not.toContainText("fd1f:411f");
   await expect(dialog).not.toContainText("local-server-public-key");

@@ -661,15 +661,7 @@ function PodShareFace({
 }) {
   const t = useMessages();
   const payload = useMemo(
-    () =>
-      JSON.stringify({
-        version: 1,
-        type: "gizclaw-server",
-        mode: pod.mode,
-        name: pod.name,
-        endpoint,
-        ...(publicKey ? { server_public_key: publicKey } : {}),
-      }),
+    () => serverDeepLink(endpoint, pod.name, pod.mode, publicKey),
     [endpoint, pod.mode, pod.name, publicKey],
   );
   return (
@@ -1458,6 +1450,21 @@ function stableHue(value: string) {
   for (const character of value)
     hash = (hash * 31 + character.charCodeAt(0)) | 0;
   return 190 + (Math.abs(hash) % 105);
+}
+
+function serverDeepLink(
+  endpoint: string,
+  name: string,
+  mode: PodSummary["mode"],
+  publicKey: string,
+) {
+  const path = encodeURIComponent(endpoint)
+    .replaceAll("%3A", ":")
+    .replaceAll("%5B", "[")
+    .replaceAll("%5D", "]");
+  const query = new URLSearchParams({ name, mode });
+  if (publicKey) query.set("public_key", publicKey);
+  return `gizclaw://ap/${path}?${query}`;
 }
 
 function errorMessage(reason: unknown) {
