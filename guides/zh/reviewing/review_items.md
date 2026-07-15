@@ -116,6 +116,8 @@
 ### Go
 
 - package/API、error、slice/map、receiver、embedding 和 `defer` 是否符合 [Go 编码规范](../coding-styles/go)。
+- 跨 package API 是否直接使用定义方的限定类型，是否存在通过 alias、同形 wrapper 或仅改名 DTO 隐藏外部/生成类型真实 ownership 的情况。
+- Protobuf message 是否只以原始生成 package 的指针类型传递和存储，是否存在 value parameter、value return、赋值、interface 转换或格式化导致的 `copylocks`。
 - goroutine、context、channel、timer 和连接生命周期是否闭合。
 - 并发风险是否需要 `go test -race`、leak test 或 soak test。
 
