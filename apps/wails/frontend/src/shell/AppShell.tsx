@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   ArrowUpRight,
+  ChevronDown,
   ChevronLeft,
   CircleStop,
   Cloud,
@@ -13,6 +14,7 @@ import {
   Maximize2,
   MoreHorizontal,
   Minus,
+  Network,
   Pencil,
   Play,
   Plus,
@@ -487,71 +489,106 @@ function PodDetail({
             </div>
           ) : pod.local ? (
             <div className="local-detail">
-              <div className="detail-hero">
-                <div>
-                  <small>{t("localServer")}</small>
-                  <strong>0.0.0.0:{pod.local.port}</strong>
+              <div className="local-console-grid">
+                <div className="local-runtime-stack">
+                  <section className="local-runtime-card">
+                    <div className="runtime-heading">
+                      <div>
+                        <small>{t("localServer")}</small>
+                        <strong>0.0.0.0:{pod.local.port}</strong>
+                      </div>
+                      <Status state={pod.local.process.state} />
+                    </div>
+                    <div className="runtime-actions">
+                      <button
+                        className="primary-action"
+                        disabled={pod.local.process.state === "running"}
+                        onClick={() =>
+                          void run(() => api.StartLocalServer(pod.id))
+                        }
+                        type="button"
+                      >
+                        <Play size={16} />
+                        {t("start")}
+                      </button>
+                      <button
+                        className="secondary-action"
+                        disabled={pod.local.process.state !== "running"}
+                        onClick={() =>
+                          void run(() => api.StopLocalServer(pod.id))
+                        }
+                        type="button"
+                      >
+                        <CircleStop size={16} />
+                        {t("stop")}
+                      </button>
+                      <button
+                        className="secondary-action"
+                        onClick={() =>
+                          void run(() => api.RestartLocalServer(pod.id))
+                        }
+                        type="button"
+                      >
+                        <RotateCw size={16} />
+                        {t("restart")}
+                      </button>
+                      <button
+                        aria-label={t("refresh")}
+                        className="secondary-action compact-action"
+                        onClick={() =>
+                          void run(() => api.RefreshPodHealth(pod.id))
+                        }
+                        title={t("refresh")}
+                        type="button"
+                      >
+                        <RefreshCw size={16} />
+                      </button>
+                    </div>
+                  </section>
+                  {pod.local.lan_addresses.length ? (
+                    <details className="network-access-card">
+                      <summary aria-label={t("toggleNetworkAddresses")}>
+                        <span className="network-icon">
+                          <Network size={18} />
+                        </span>
+                        <span className="network-copy">
+                          <small>{t("lanAccess")}</small>
+                          <strong>
+                            {pod.local.lan_addresses.length} {t("addresses")}
+                          </strong>
+                        </span>
+                        <code>
+                          {preferredLANAddress(pod.local.lan_addresses)}
+                        </code>
+                        <span className="network-disclosure">
+                          {t("viewAll")}
+                          <ChevronDown size={15} />
+                        </span>
+                      </summary>
+                      <div className="network-address-list">
+                        {pod.local.lan_addresses.map((address) => (
+                          <code key={address}>{address}</code>
+                        ))}
+                      </div>
+                    </details>
+                  ) : null}
                 </div>
-                <Status state={pod.local.process.state} />
-              </div>
-              <div className="action-row">
-                <button
-                  className="primary-action"
-                  disabled={pod.local.process.state === "running"}
-                  onClick={() => void run(() => api.StartLocalServer(pod.id))}
-                  type="button"
-                >
-                  <Play size={16} />
-                  {t("start")}
-                </button>
-                <button
-                  className="secondary-action"
-                  disabled={pod.local.process.state !== "running"}
-                  onClick={() => void run(() => api.StopLocalServer(pod.id))}
-                  type="button"
-                >
-                  <CircleStop size={16} />
-                  {t("stop")}
-                </button>
-                <button
-                  className="secondary-action"
-                  onClick={() => void run(() => api.RestartLocalServer(pod.id))}
-                  type="button"
-                >
-                  <RotateCw size={16} />
-                  {t("restart")}
-                </button>
-                <button
-                  className="secondary-action"
-                  onClick={() => void run(() => api.RefreshPodHealth(pod.id))}
-                  type="button"
-                >
-                  <RefreshCw size={16} />
-                  {t("refresh")}
-                </button>
-              </div>
-              {pod.local.lan_addresses.length ? (
-                <div className="lan-hints">
-                  {pod.local.lan_addresses.map((address) => (
-                    <code key={address}>{address}</code>
-                  ))}
+                <div className="surface-grid local-surface-grid">
+                  <SurfaceCard
+                    enabled={pod.local.admin_configured}
+                    icon={<Server size={19} />}
+                    label="Admin"
+                    onConfigure={() => setSecretTarget({ kind: "admin" })}
+                    onOpen={() => api.OpenAdmin(pod.id, "local").catch(onError)}
+                  />
+                  <SurfaceCard
+                    enabled={pod.play_configured}
+                    icon={<Sparkles size={19} />}
+                    label="Play"
+                    onConfigure={() => setSecretTarget({ kind: "client" })}
+                    onOpen={() => api.OpenPlay(pod.id).catch(onError)}
+                  />
                 </div>
-              ) : null}
-              <div className="surface-grid">
-                <SurfaceCard
-                  enabled={pod.local.admin_configured}
-                  icon={<Server size={19} />}
-                  label="Admin"
-                  onConfigure={() => setSecretTarget({ kind: "admin" })}
-                  onOpen={() => api.OpenAdmin(pod.id, "local").catch(onError)}
-                />
-                <SurfaceCard
-                  enabled={pod.play_configured}
-                  icon={<Sparkles size={19} />}
-                  label="Play"
-                  onConfigure={() => setSecretTarget({ kind: "client" })}
-                  onOpen={() => api.OpenPlay(pod.id).catch(onError)}
-                />
               </div>
               {pod.local.process.logs?.length ? (
                 <pre className="log-view">
@@ -720,6 +757,16 @@ function PodDetail({
 }
 
 type PodServer = NonNullable<PodSummary["remote"]>["servers"][number];
+
+function preferredLANAddress(addresses: string[]) {
+  return (
+    addresses.find((address) =>
+      /^192\.168\.\d+\.(?!0:)\d+:\d+$/.test(address),
+    ) ??
+    addresses.find((address) => !address.startsWith("[")) ??
+    addresses[0]
+  );
+}
 
 function VirtualServerList({
   onAdmin,

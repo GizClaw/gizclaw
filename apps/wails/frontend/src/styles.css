@@ -469,7 +469,6 @@ select:focus-visible {
   overflow: auto;
   padding: 4px 24px 26px;
 }
-.detail-hero,
 .access-point {
   display: flex;
   align-items: center;
@@ -478,19 +477,16 @@ select:focus-visible {
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.035);
 }
-.detail-hero > div,
 .access-point > div {
   display: grid;
   gap: 5px;
 }
-.detail-hero small,
 .access-point small {
   color: #70737c;
   font-size: 9px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-.detail-hero strong,
 .access-point strong {
   color: #d9dce2;
   font-family: "SFMono-Regular", Consolas, monospace;
@@ -585,18 +581,149 @@ button:disabled {
   cursor: not-allowed;
   transform: none !important;
 }
-.lan-hints {
+.local-console-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.85fr) minmax(220px, 1fr);
+  gap: 12px;
+}
+.local-runtime-stack {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+}
+.local-runtime-card,
+.network-access-card {
+  border-radius: 17px;
+  background: rgba(255, 255, 255, 0.035);
+}
+.local-runtime-card {
+  min-height: 142px;
+  display: grid;
+  align-content: space-between;
+  gap: 24px;
+  padding: 17px;
+}
+.runtime-heading {
   display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.runtime-heading > div {
+  display: grid;
+  gap: 6px;
+}
+.runtime-heading small,
+.network-copy small {
+  color: #70737c;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.runtime-heading strong {
+  color: #e2e4e9;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+.runtime-actions {
+  display: flex;
+  align-items: center;
   gap: 7px;
   flex-wrap: wrap;
-  margin: -3px 0 14px;
 }
-.lan-hints code {
-  padding: 6px 9px;
-  border-radius: 9px;
-  color: #a8abb4;
-  background: rgba(255, 255, 255, 0.04);
+.compact-action {
+  width: 36px;
+  padding: 0;
+}
+.network-access-card {
+  overflow: hidden;
+}
+.network-access-card summary {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  min-height: 70px;
+  padding: 11px 13px;
+  cursor: pointer;
+  list-style: none;
+}
+.network-access-card summary::-webkit-details-marker {
+  display: none;
+}
+.network-icon {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  color: #74d3c1;
+  background: rgba(55, 181, 157, 0.1);
+}
+.network-copy {
+  display: grid;
+  gap: 3px;
+  white-space: nowrap;
+}
+.network-copy strong {
+  color: #d5d7dd;
+  font-size: 11px;
+}
+.network-access-card summary > code {
+  min-width: 0;
+  overflow: hidden;
+  color: #92959f;
+  font-family: "SFMono-Regular", Consolas, monospace;
   font-size: 10px;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.network-disclosure {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #777a83;
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.network-disclosure svg {
+  transition: transform 0.2s ease;
+}
+.network-access-card[open] .network-disclosure svg {
+  transform: rotate(180deg);
+}
+.network-address-list {
+  max-height: 154px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+  overflow: auto;
+  padding: 11px 13px 13px;
+  border-top: 1px solid rgba(255, 255, 255, 0.045);
+}
+.network-address-list code {
+  min-width: 0;
+  overflow: hidden;
+  padding: 7px 8px;
+  border-radius: 8px;
+  color: #9a9da6;
+  background: rgba(255, 255, 255, 0.035);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.surface-grid.local-surface-grid {
+  grid-template-columns: 1fr;
+  grid-auto-rows: 1fr;
+}
+.local-surface-grid .surface-card {
+  min-height: 0;
 }
 .surface-grid {
   display: grid;
@@ -1083,7 +1210,8 @@ button:disabled {
     color: #24252a;
     background: #f8f8fa;
   }
-  .detail-hero,
+  .local-runtime-card,
+  .network-access-card,
   .access-point,
   .surface-card,
   .server-row,
@@ -1114,6 +1242,17 @@ button:disabled {
     color: #4c4e55;
     background: rgba(30, 31, 36, 0.07);
   }
+  .runtime-heading strong,
+  .network-copy strong {
+    color: #2a2b30;
+  }
+  .network-address-list {
+    border-top-color: rgba(30, 31, 36, 0.07);
+  }
+  .network-address-list code {
+    color: #64666e;
+    background: rgba(30, 31, 36, 0.05);
+  }
 }
 
 @media (max-width: 760px) {
@@ -1136,6 +1275,18 @@ button:disabled {
   .form-grid,
   .create-mode-grid {
     grid-template-columns: 1fr;
+  }
+  .local-console-grid {
+    grid-template-columns: 1fr;
+  }
+  .local-surface-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .network-access-card summary {
+    grid-template-columns: auto auto minmax(0, 1fr);
+  }
+  .network-disclosure {
+    font-size: 0;
   }
   .form-grid .field-wide {
     grid-column: auto;

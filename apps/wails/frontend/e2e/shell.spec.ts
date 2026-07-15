@@ -28,7 +28,21 @@ test.beforeEach(async ({ page }) => {
         play_configured: true,
         local: {
           port: 9820,
-          lan_addresses: ["192.168.1.20:9820"],
+          lan_addresses: [
+            "100.100.100.100:9820",
+            "192.168.1.6:9820",
+            "192.168.139.3:9820",
+            "192.168.147.0:9820",
+            "192.168.148.0:9820",
+            "192.168.155.0:9820",
+            "192.168.156.0:9820",
+            "192.168.158.0:9820",
+            "192.168.163.0:9820",
+            "192.168.194.0:9820",
+            "[fd07:b51a:cc66:0:a617:db5e:ab7:e9f1]:9820",
+            "[fd07:b51a:cc66:a:ffff:ffff:ffff:fffe]:9820",
+            "[fd1f:411f:eafd:458f:1898:35f7:287f:c259]:9820",
+          ],
           admin_configured: true,
           process: { state: "running", logs: ["server ready"] },
           health: health("127.0.0.1:9820"),
@@ -219,6 +233,28 @@ test("Add Pod creates a local environment without exposing keys", async ({
     page.getByRole("dialog").getByRole("heading", { name: "Local Server" }),
   ).toBeVisible();
   await expect(page.locator("body")).not.toContainText("private_key");
+});
+
+test("local network addresses stay compact until requested", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: /Local Lab/ }).click();
+  const dialog = page.getByRole("dialog");
+  const network = dialog.locator(".network-access-card");
+  await expect(network.getByText("13 addresses")).toBeVisible();
+  await expect(network.locator("summary code")).toHaveText("192.168.1.6:9820");
+  await expect(network.locator(".network-address-list")).not.toBeVisible();
+  await network.locator("summary").click();
+  await expect(network.locator(".network-address-list")).toBeVisible();
+  await expect(
+    network.getByText("[fd1f:411f:eafd:458f:1898:35f7:287f:c259]:9820"),
+  ).toBeVisible();
+  await expect
+    .poll(() =>
+      dialog.evaluate((element) => element.scrollWidth <= element.clientWidth),
+    )
+    .toBe(true);
 });
 
 test("Remote creation asks only for an access point and adds Servers later", async ({
