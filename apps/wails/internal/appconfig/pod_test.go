@@ -2,6 +2,7 @@ package appconfig
 
 import (
 	"encoding/json"
+	"errors"
 	"net"
 	"os"
 	"path/filepath"
@@ -237,6 +238,13 @@ func TestPodValidationEnforcesExclusiveModes(t *testing.T) {
 	}
 }
 
+func TestPodValidationRejectsRemoteServersInLocalMode(t *testing.T) {
+	pod := Pod{Version: 1, ID: "mixed", Name: "Mixed", LocalServer: &LocalServer{Port: 9820}, RemoteServers: []RemoteServer{{ID: "remote", Name: "Remote", Endpoint: "127.0.0.1:9820"}}}
+	if err := pod.Validate(); err == nil {
+		t.Fatal("Validate error = nil, want remote_servers rejection")
+	}
+}
+
 func TestPodValidationRejectsAmbiguousIDsAndNonNumericPorts(t *testing.T) {
 	for _, pod := range []Pod{
 		{Version: 1, ID: "double--hyphen", Name: "Bad ID", LocalServer: &LocalServer{Port: 9820}},
@@ -274,6 +282,86 @@ func TestStoreRollsBackManifestWhenProjectionFails(t *testing.T) {
 	}
 	if loaded.Name != "Before" || loaded.ClientPrivateKey != "" {
 		t.Fatalf("manifest was not rolled back: %+v", loaded)
+	}
+}
+
+func TestStoreRollsBackAllProjectionsWhenMaterializationFails(t *testing.T) {
+	paths := NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	store := Store{Paths: paths}
+	pod := Pod{Version: 1, ID: "projection-rollback", Name: "Before", LocalServer: &LocalServer{Port: 19825, AdminPrivateKey: testKey(t, 0x31)}, ClientPrivateKey: testKey(t, 0x32)}
+	if err := store.Save(pod); err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(paths.PodsDir, pod.ID)
+	pathsToCheck := []string{
+		filepath.Join(dir, PodManifestFile),
+		filepath.Join(dir, "workspace", "config.yaml"),
+		filepath.Join(dir, "admin_context", "local", contextstore.ConfigFile),
+		filepath.Join(dir, "client_context", contextstore.ConfigFile),
+	}
+	want := map[string][]byte{}
+	for _, path := range pathsToCheck {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want[path] = data
+	}
+	store.materializeHook = func(updated Pod) error {
+		if err := store.materialize(updated); err != nil {
+			return err
+		}
+		return errors.New("injected materialization failure")
+	}
+	pod.Name = "After"
+	pod.LocalServer.AdminPrivateKey = testKey(t, 0x41)
+	pod.ClientPrivateKey = testKey(t, 0x42)
+	if err := store.Save(pod); err == nil {
+		t.Fatal("Save error = nil, want injected failure")
+	}
+	for path, expected := range want {
+		got, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(got) != string(expected) {
+			t.Fatalf("projection %s was not restored", path)
+		}
+	}
+}
+
+func TestStoreRefusesToReplaceCorruptWorkspaceIdentity(t *testing.T) {
+	paths := NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	store := Store{Paths: paths}
+	pod := Pod{Version: 1, ID: "corrupt-workspace", Name: "Before", LocalServer: &LocalServer{Port: 19826}}
+	if err := store.Save(pod); err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(paths.PodsDir, pod.ID, "workspace", "config.yaml")
+	corrupt := []byte("identity: [")
+	if err := os.WriteFile(configPath, corrupt, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	pod.Name = "After"
+	if err := store.Save(pod); err == nil {
+		t.Fatal("Save error = nil, want corrupt workspace rejection")
+	}
+	loaded, err := store.Load(pod.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Name != "Before" || string(got) != string(corrupt) {
+		t.Fatalf("manifest/workspace changed: name=%q config=%q", loaded.Name, got)
 	}
 }
 

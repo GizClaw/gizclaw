@@ -53,6 +53,15 @@ func (p *Prober) Get(endpoint string) Result {
 	return Result{Endpoint: endpoint, State: Checking}
 }
 
+func (p *Prober) MarkUnreachable(endpoint, message string) Result {
+	return p.remember(Result{
+		Endpoint:  endpoint,
+		State:     Unreachable,
+		CheckedAt: time.Now().UTC().Format(time.RFC3339),
+		Message:   message,
+	})
+}
+
 func (p *Prober) ProbeAll(ctx context.Context, endpoints []string) []Result {
 	concurrency := p.Concurrency
 	if concurrency < 1 {
@@ -117,7 +126,7 @@ func (p *Prober) Probe(ctx context.Context, endpoint string) Result {
 		return p.remember(result)
 	}
 	var publicKey giznet.PublicKey
-	if info.Protocol != "gizclaw-webrtc" || publicKey.UnmarshalText([]byte(info.PublicKey)) != nil || !strings.HasPrefix(info.SignalingPath, "/") || info.ServerTime == 0 {
+	if info.Protocol != "gizclaw-webrtc" || publicKey.UnmarshalText([]byte(info.PublicKey)) != nil || publicKey.IsZero() || !strings.HasPrefix(info.SignalingPath, "/") || info.ServerTime == 0 {
 		result.State = InvalidResponse
 		result.Message = "server-info is not a GizClaw server response"
 		return p.remember(result)

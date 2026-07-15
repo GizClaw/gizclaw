@@ -71,7 +71,10 @@ type workspaceStoreConfig struct {
 	Memory  *struct{} `yaml:"memory,omitempty"`
 }
 
-type Store struct{ Paths Paths }
+type Store struct {
+	Paths           Paths
+	materializeHook func(Pod) error
+}
 
 type Entry struct {
 	ID  string
@@ -219,15 +222,27 @@ func (s Store) Save(pod Pod) error {
 	if err := secureDir(dir); err != nil {
 		return fmt.Errorf("appconfig: secure pod directory: %w", err)
 	}
+	backup, err := beginProjectionBackup(dir, pod.LocalServer == nil)
+	if err != nil {
+		return err
+	}
+	defer backup.discard()
 	data, err := json.MarshalIndent(pod, "", "  ")
 	if err != nil {
+		_ = backup.rollback()
 		return fmt.Errorf("appconfig: encode pod: %w", err)
 	}
 	data = append(data, '\n')
 	if err := atomicWrite(filepath.Join(dir, PodManifestFile), data, 0o600); err != nil {
+		_ = backup.rollback()
 		return err
 	}
-	if err := s.materialize(pod); err != nil {
+	materialize := s.materialize
+	if s.materializeHook != nil {
+		materialize = s.materializeHook
+	}
+	if err := materialize(pod); err != nil {
+		projectionErr := backup.rollback()
 		var rollbackErr error
 		if hadManifest {
 			rollbackErr = atomicWrite(manifest, previousManifest, 0o600)
@@ -237,8 +252,8 @@ func (s Store) Save(pod Pod) error {
 				rollbackErr = nil
 			}
 		}
-		if rollbackErr != nil {
-			return fmt.Errorf("%w; restore pod manifest: %v", err, rollbackErr)
+		if rollbackErr != nil || projectionErr != nil {
+			return fmt.Errorf("%w; restore projections: %v; restore pod manifest: %v", err, projectionErr, rollbackErr)
 		}
 		return err
 	}
@@ -285,6 +300,126 @@ func (s Store) verifyProjections(pod Pod) error {
 	return check(filepath.Join(dir, "client_context"), pod.ClientPrivateKey, pod.RemoteAccessPoint)
 }
 
+type projectionBackup struct {
+	dir                 string
+	root                string
+	workspaceMoved      bool
+	workspaceExisted    bool
+	workspaceConfig     []byte
+	workspaceConfigMode os.FileMode
+	workspaceConfigSet  bool
+	moved               []string
+}
+
+func beginProjectionBackup(dir string, moveWorkspace bool) (*projectionBackup, error) {
+	for _, name := range []string{"workspace", "admin_context", "client_context"} {
+		if err := rejectSymlinkDir(filepath.Join(dir, name)); err != nil && !os.IsNotExist(err) {
+			return nil, err
+		}
+	}
+	root, err := os.MkdirTemp(dir, ".projection-backup-")
+	if err != nil {
+		return nil, fmt.Errorf("appconfig: create projection backup: %w", err)
+	}
+	b := &projectionBackup{dir: dir, root: root}
+	workspace := filepath.Join(dir, "workspace")
+	if _, statErr := os.Stat(workspace); statErr == nil {
+		b.workspaceExisted = true
+		if moveWorkspace {
+			if err := os.Rename(workspace, filepath.Join(root, "workspace")); err != nil {
+				b.discard()
+				return nil, fmt.Errorf("appconfig: back up workspace: %w", err)
+			}
+			b.workspaceMoved = true
+		} else {
+			configPath := filepath.Join(workspace, "config.yaml")
+			if data, readErr := os.ReadFile(configPath); readErr == nil {
+				b.workspaceConfig = data
+				b.workspaceConfigSet = true
+				if configInfo, infoErr := os.Stat(configPath); infoErr == nil {
+					b.workspaceConfigMode = configInfo.Mode().Perm()
+				}
+			} else if !os.IsNotExist(readErr) {
+				b.discard()
+				return nil, fmt.Errorf("appconfig: back up workspace config: %w", readErr)
+			}
+		}
+	} else if !os.IsNotExist(statErr) {
+		b.discard()
+		return nil, fmt.Errorf("appconfig: inspect workspace: %w", statErr)
+	}
+	for _, name := range []string{"admin_context", "client_context"} {
+		path := filepath.Join(dir, name)
+		if _, statErr := os.Stat(path); statErr == nil {
+			if err := os.Rename(path, filepath.Join(root, name)); err != nil {
+				_ = b.abort()
+				return nil, fmt.Errorf("appconfig: back up %s: %w", name, err)
+			}
+			b.moved = append(b.moved, name)
+		} else if !os.IsNotExist(statErr) {
+			_ = b.abort()
+			return nil, fmt.Errorf("appconfig: inspect %s: %w", name, statErr)
+		}
+	}
+	return b, nil
+}
+
+func (b *projectionBackup) abort() error {
+	var errs []error
+	for i := len(b.moved) - 1; i >= 0; i-- {
+		name := b.moved[i]
+		if err := os.Rename(filepath.Join(b.root, name), filepath.Join(b.dir, name)); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if b.workspaceMoved {
+		if err := os.Rename(filepath.Join(b.root, "workspace"), filepath.Join(b.dir, "workspace")); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	b.discard()
+	return errors.Join(errs...)
+}
+
+func (b *projectionBackup) rollback() error {
+	var errs []error
+	for _, name := range []string{"admin_context", "client_context"} {
+		if err := os.RemoveAll(filepath.Join(b.dir, name)); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for _, name := range b.moved {
+		if err := os.Rename(filepath.Join(b.root, name), filepath.Join(b.dir, name)); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	workspace := filepath.Join(b.dir, "workspace")
+	if b.workspaceMoved {
+		if err := os.RemoveAll(workspace); err != nil {
+			errs = append(errs, err)
+		} else if err := os.Rename(filepath.Join(b.root, "workspace"), workspace); err != nil {
+			errs = append(errs, err)
+		}
+	} else if b.workspaceConfigSet {
+		mode := b.workspaceConfigMode
+		if mode == 0 {
+			mode = 0o600
+		}
+		if err := atomicWrite(filepath.Join(workspace, "config.yaml"), b.workspaceConfig, mode); err != nil {
+			errs = append(errs, err)
+		}
+	} else if !b.workspaceExisted {
+		if err := os.RemoveAll(workspace); err != nil {
+			errs = append(errs, err)
+		}
+	} else if err := os.Remove(filepath.Join(workspace, "config.yaml")); err != nil && !os.IsNotExist(err) {
+		errs = append(errs, err)
+	}
+	return errors.Join(errs...)
+}
+
+func (b *projectionBackup) discard() { _ = os.RemoveAll(b.root) }
+
 func (s Store) Delete(id string) error {
 	if err := validateID("pod id", id); err != nil {
 		return err
@@ -323,6 +458,9 @@ func (p Pod) Validate() error {
 		return errors.New("configure exactly one of local_server or remote_servers with remote_access_point")
 	}
 	if local {
+		if len(p.RemoteServers) != 0 {
+			return errors.New("local Pods cannot configure remote_servers")
+		}
 		if p.LocalServer.Port < 1 || p.LocalServer.Port > 65535 {
 			return errors.New("local_server.port must be between 1 and 65535")
 		}
@@ -407,9 +545,15 @@ func (s Store) materializeWorkspace(pod Pod, dir string) error {
 				PrivateKey giznet.Key `yaml:"private-key"`
 			} `yaml:"identity"`
 		}
-		if yaml.Unmarshal(data, &existing) == nil && !existing.Identity.PrivateKey.IsZero() {
-			serverKey = existing.Identity.PrivateKey.String()
+		if err := yaml.Unmarshal(data, &existing); err != nil {
+			return fmt.Errorf("appconfig: parse existing workspace config: %w", err)
 		}
+		if existing.Identity.PrivateKey.IsZero() {
+			return errors.New("appconfig: existing workspace config is missing its server identity")
+		}
+		serverKey = existing.Identity.PrivateKey.String()
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("appconfig: read existing workspace config: %w", err)
 	}
 	if serverKey == "" {
 		kp, err := giznet.GenerateKeyPair()

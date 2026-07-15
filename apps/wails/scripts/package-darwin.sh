@@ -12,6 +12,6 @@ wails build -clean "$@"
 mkdir -p "$bundle/Contents/Resources"
 cd "$repo_root"
 go build -o "$bundle/Contents/Resources/gizclaw" ./cmd/gizclaw
-chmod 700 "$bundle/Contents/Resources/gizclaw"
+chmod 755 "$bundle/Contents/Resources/gizclaw"
 
 echo "Packaged $bundle with the GizClaw server companion."

@@ -4,11 +4,18 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/appconfig"
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/endpointhealth"
@@ -113,6 +120,124 @@ func TestLocalPodCreationAssignsDistinctStablePorts(t *testing.T) {
 	reloaded, err := bridge.GetPod(context.Background(), "local-a")
 	if err != nil || reloaded.Local.Port != first.Local.Port {
 		t.Fatalf("reloaded port = %+v, %v", reloaded.Local, err)
+	}
+}
+
+func TestConcurrentLocalPodCreationAssignsDistinctPorts(t *testing.T) {
+	paths := appconfig.NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	web := webui.New(fstest.MapFS{})
+	defer web.Shutdown()
+	b := &PodBridge{Paths: paths, Store: appconfig.Store{Paths: paths}, Health: endpointhealth.New(), Local: localserver.New(), WebUI: web}
+	results := make(chan PodSummary, 2)
+	errs := make(chan error, 2)
+	var wg sync.WaitGroup
+	for _, id := range []string{"concurrent-a", "concurrent-b"} {
+		id := id
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			result, err := b.CreatePod(context.Background(), PodInput{Version: 1, ID: id, Name: id, LocalServer: &LocalServerInput{Port: 0}})
+			results <- result
+			errs <- err
+		}()
+	}
+	wg.Wait()
+	close(results)
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	ports := map[int]bool{}
+	for result := range results {
+		if result.Local == nil || result.Local.Port == 0 || ports[result.Local.Port] {
+			t.Fatalf("duplicate or invalid local port: %+v", result.Local)
+		}
+		ports[result.Local.Port] = true
+	}
+}
+
+func TestRefreshHealthMarksStoppedLocalServerUnreachable(t *testing.T) {
+	paths := appconfig.NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	web := webui.New(fstest.MapFS{})
+	defer web.Shutdown()
+	b := &PodBridge{Paths: paths, Store: appconfig.Store{Paths: paths}, Health: endpointhealth.New(), Local: localserver.New(), WebUI: web}
+	created, err := b.CreatePod(context.Background(), PodInput{Version: 1, ID: "health-local", Name: "Health Local", LocalServer: &LocalServerInput{Port: 0}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", created.Local.Port))
+	if err != nil {
+		t.Fatal(err)
+	}
+	kp, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintf(w, `{"endpoint":"127.0.0.1:%d","protocol":"gizclaw-webrtc","public_key":%q,"server_time":1,"signaling_path":"/webrtc/v1/offer"}`, created.Local.Port, kp.Public.String())
+	})}
+	go func() { _ = server.Serve(listener) }()
+	defer server.Close()
+	endpoint := fmt.Sprintf("127.0.0.1:%d", created.Local.Port)
+	if result := b.Health.Probe(context.Background(), endpoint); result.State != endpointhealth.Reachable {
+		t.Fatalf("initial probe = %+v", result)
+	}
+	refreshed, err := b.RefreshHealth(context.Background(), created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if refreshed.Local.Health.State != endpointhealth.Unreachable || refreshed.Local.Health.Message != "local server is stopped" {
+		t.Fatalf("stopped local health = %+v", refreshed.Local.Health)
+	}
+}
+
+func TestUpdatePodDoesNotStopRunningLocalServerBeforeModeChange(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test helper uses a POSIX shell script")
+	}
+	paths := appconfig.NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	executable := filepath.Join(t.TempDir(), "fake-gizclaw")
+	if err := os.WriteFile(executable, []byte("#!/bin/sh\ntrap 'exit 0' INT TERM\nwhile :; do sleep 1; done\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	local := localserver.New()
+	local.Executable = executable
+	web := webui.New(fstest.MapFS{})
+	defer web.Shutdown()
+	b := &PodBridge{Paths: paths, Store: appconfig.Store{Paths: paths}, Health: endpointhealth.New(), Local: local, WebUI: web}
+	created, err := b.CreatePod(context.Background(), PodInput{Version: 1, ID: "running-local", Name: "Running Local", LocalServer: &LocalServerInput{Port: 0}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := local.Start(created.ID, filepath.Join(paths.PodsDir, created.ID, "workspace")); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_, _ = local.Stop(ctx, created.ID)
+	}()
+	_, err = b.UpdatePod(context.Background(), PodInput{Version: 1, ID: created.ID, Name: created.Name, RemoteAccessPoint: "127.0.0.1:19820"})
+	if err == nil || !strings.Contains(err.Error(), "stop the local server") {
+		t.Fatalf("UpdatePod error = %v", err)
+	}
+	if status := local.Status(created.ID); status.State != "running" {
+		t.Fatalf("local process state = %q, want running", status.State)
+	}
+	loaded, err := b.Store.Load(created.ID)
+	if err != nil || loaded.LocalServer == nil {
+		t.Fatalf("persisted Pod changed mode: %+v, %v", loaded, err)
 	}
 }
 

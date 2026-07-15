@@ -27,8 +27,9 @@ type PodBridge struct {
 	Local  *localserver.Manager
 	WebUI  *webui.Manager
 
-	refreshMu sync.Mutex
-	refreshes map[string]*podRefresh
+	mutationMu sync.Mutex
+	refreshMu  sync.Mutex
+	refreshes  map[string]*podRefresh
 }
 
 type podRefresh struct{ cancel context.CancelFunc }
@@ -152,6 +153,8 @@ func (b *PodBridge) GetPod(_ context.Context, id string) (PodSummary, error) {
 func (b *PodBridge) RevealPath(id string) (string, error) { return b.Store.PodDir(id) }
 
 func (b *PodBridge) CreatePod(_ context.Context, input PodInput) (PodSummary, error) {
+	b.mutationMu.Lock()
+	defer b.mutationMu.Unlock()
 	if strings.TrimSpace(input.ID) == "" {
 		input.ID = newInternalID("pod")
 	}
@@ -229,6 +232,8 @@ func (b *PodBridge) localPodPorts() (map[int]bool, error) {
 }
 
 func (b *PodBridge) UpdatePod(ctx context.Context, input PodInput) (PodSummary, error) {
+	b.mutationMu.Lock()
+	defer b.mutationMu.Unlock()
 	existing, err := b.Store.Load(input.ID)
 	if err != nil {
 		return PodSummary{}, err
@@ -240,14 +245,12 @@ func (b *PodBridge) UpdatePod(ctx context.Context, input PodInput) (PodSummary, 
 	if _, err := ensurePodIdentities(&pod); err != nil {
 		return PodSummary{}, err
 	}
+	if err := pod.Validate(); err != nil {
+		return PodSummary{}, err
+	}
 	processRunning := b.Local.Status(pod.ID).State == "running"
 	if existing.LocalServer != nil && pod.LocalServer == nil && processRunning {
-		stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		defer cancel()
-		if _, err := b.Local.Stop(stopCtx, pod.ID); err != nil {
-			return PodSummary{}, err
-		}
-		processRunning = false
+		return PodSummary{}, fmt.Errorf("desktop bridge: stop the local server before changing its mode")
 	}
 	portChanged := pod.LocalServer != nil && (existing.LocalServer == nil || existing.LocalServer.Port != pod.LocalServer.Port)
 	if portChanged {
@@ -300,6 +303,8 @@ func (b *PodBridge) RefreshHealth(ctx context.Context, id string) (PodSummary, e
 	if pod.LocalServer != nil {
 		if b.Local.Status(id).State == "running" {
 			endpoints = append(endpoints, fmt.Sprintf("127.0.0.1:%d", pod.LocalServer.Port))
+		} else {
+			b.Health.MarkUnreachable(fmt.Sprintf("127.0.0.1:%d", pod.LocalServer.Port), "local server is stopped")
 		}
 	} else {
 		for _, server := range pod.RemoteServers {
@@ -362,6 +367,7 @@ func (b *PodBridge) StopLocal(ctx context.Context, id string) (PodSummary, error
 	if _, err := b.Local.Stop(stopCtx, id); err != nil {
 		return PodSummary{}, err
 	}
+	b.Health.MarkUnreachable(fmt.Sprintf("127.0.0.1:%d", pod.LocalServer.Port), "local server is stopped")
 	return b.summary(pod), nil
 }
 

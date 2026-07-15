@@ -7,7 +7,6 @@ import {
   ChevronLeft,
   CircleStop,
   Cloud,
-  Copy,
   Laptop,
   FolderOpen,
   Maximize2,
@@ -946,27 +945,6 @@ function RemoteManageFace({
   );
 }
 
-function CopyValueButton({ label, value }: { label: string; value: string }) {
-  const t = useMessages();
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      aria-label={label}
-      className={`copy-value-button ${copied ? "copied" : ""}`}
-      onClick={() => {
-        void navigator.clipboard.writeText(value).then(() => {
-          setCopied(true);
-          window.setTimeout(() => setCopied(false), 1200);
-        });
-      }}
-      title={copied ? t("copied") : label}
-      type="button"
-    >
-      <Copy size={14} />
-    </button>
-  );
-}
-
 function VirtualServerList({
   onAdmin,
   onEdit,
@@ -1162,22 +1140,6 @@ function podInputWithServers(
       admin_private_key: server.admin_private_key,
     })),
   };
-}
-
-function Status({ state }: { state: string }) {
-  const t = useMessages();
-  const key = (
-    ["reachable", "unreachable", "checking", "invalid-response"] as const
-  ).find((value) => value === state);
-  const processKey = (
-    ["running", "stopped", "stopping", "failed"] as const
-  ).find((value) => value === state);
-  return (
-    <span className={`status status-${state}`}>
-      <i />
-      {processKey ? t(processKey) : key ? t(key) : state}
-    </span>
-  );
 }
 
 function CreatePodDialog({

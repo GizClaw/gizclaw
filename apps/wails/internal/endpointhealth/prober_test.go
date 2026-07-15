@@ -69,6 +69,17 @@ func TestProbeRejectsNonGizClawResponse(t *testing.T) {
 	}
 }
 
+func TestProbeRejectsZeroPublicKey(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprint(w, `{"endpoint":"127.0.0.1:9820","protocol":"gizclaw-webrtc","public_key":"11111111111111111111111111111111","server_time":1,"signaling_path":"/webrtc/v1/offer"}`)
+	}))
+	defer server.Close()
+	result := New().Probe(context.Background(), strings.TrimPrefix(server.URL, "http://"))
+	if result.State != InvalidResponse {
+		t.Fatalf("result = %+v", result)
+	}
+}
+
 func TestProbeAllHonorsCancellation(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { <-r.Context().Done() }))
 	defer server.Close()
