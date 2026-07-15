@@ -5,9 +5,6 @@ import 'dart:io';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:gizclaw/gizclaw.dart';
 
-const gizClawDevelopmentServerEndpoint = 'ap.dev.gizclaw.com:9820';
-const gizClawProductionServerEndpoint = 'ap.gizclaw.com:9820';
-
 class GizClawConnectionProfile {
   const GizClawConnectionProfile({
     required this.endpoint,
@@ -71,7 +68,7 @@ class GizClawConnectionController {
     final activeProfile = profile;
     final profileRevision = _profileRevision;
     if (!activeProfile.isConfigured) {
-      throw StateError('No GizClaw development connection is configured');
+      throw StateError('No GizClaw server connection is configured');
     }
 
     if (_client != null || _peerConnection != null) {

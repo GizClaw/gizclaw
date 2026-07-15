@@ -17,6 +17,8 @@ import 'package:gizclaw_app/prototype/prototype_data.dart';
 
 AppDatabase _testDatabase() => AppDatabase.forTesting(NativeDatabase.memory());
 
+const _testServerEndpoint = 'test.gizclaw.local:9820';
+
 void main() {
   final dataControllers = <MobileDataController>[];
 
@@ -124,8 +126,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(ServerListPage), findsOneWidget);
-    expect(find.text('Development'), findsOneWidget);
-    expect(find.text('Production'), findsOneWidget);
+    expect(find.text('Development'), findsNothing);
+    expect(find.text('Production'), findsNothing);
+    expect(
+      find.text('No servers added yet. Use Add server to continue.'),
+      findsOneWidget,
+    );
     expect(find.bySemanticsLabel('Add server'), findsOneWidget);
   });
 
@@ -170,16 +176,26 @@ void main() {
     );
   });
 
-  appTestWidgets('leaves onboarding after selecting a server', (tester) async {
+  appTestWidgets('leaves onboarding after adding a server', (tester) async {
     final controller = _OnboardingServerController();
     await pumpApp(tester, controller: controller);
 
     await tester.tap(find.byKey(const ValueKey('server-onboarding-cta')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Development'));
+    await tester.tap(find.bySemanticsLabel('Add server'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('server-name-field')),
+      'Office',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('server-access-point-field')),
+      'office.local:9820',
+    );
+    await tester.tap(find.byKey(const ValueKey('add-server')));
     await tester.pumpAndSettle();
 
-    expect(controller.activeServer?.name, 'Development');
+    expect(controller.activeServer?.name, 'Office');
     expect(find.byType(MePage), findsOneWidget);
     expect(find.byType(ServerOnboardingPage), findsNothing);
   });
@@ -553,15 +569,13 @@ void main() {
     expect(find.text('Public identity'), findsOneWidget);
     expect(find.text('Private key'), findsOneWidget);
     expect(find.text('Server'), findsOneWidget);
-    expect(find.text('Development · ap.dev.gizclaw.com:9820'), findsOneWidget);
+    expect(find.text('Office · $_testServerEndpoint'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('server-settings-row')));
     await tester.pumpAndSettle();
     expect(find.text('Servers'), findsOneWidget);
-    expect(find.text('Development'), findsOneWidget);
-    expect(find.text('Production'), findsOneWidget);
-    expect(find.text('ap.dev.gizclaw.com:9820'), findsOneWidget);
-    expect(find.text('ap.gizclaw.com:9820'), findsOneWidget);
+    expect(find.text('Office'), findsOneWidget);
+    expect(find.text(_testServerEndpoint), findsOneWidget);
     expect(find.byKey(const ValueKey('selected-server')), findsOneWidget);
 
     await tester.tap(find.bySemanticsLabel('Add server'));
@@ -587,15 +601,15 @@ void main() {
     await tester.pumpAndSettle();
     await tester.runAsync(
       () => controller.addServer(
-        name: 'Office',
+        name: 'Branch',
         accessPoint: 'office.local:9820',
       ),
     );
     await tester.pumpAndSettle();
-    expect(controller.servers.last.name, 'Office');
+    expect(controller.servers.last.name, 'Branch');
     expect(controller.serverEndpoint, 'office.local:9820');
     expect(find.byType(ServerListPage), findsOneWidget);
-    expect(find.text('Office'), findsOneWidget);
+    expect(find.text('Branch'), findsOneWidget);
     expect(find.text('office.local:9820'), findsOneWidget);
     expect(find.byKey(const ValueKey('selected-server')), findsOneWidget);
   });
@@ -724,7 +738,7 @@ class _ModeSwitchController extends MobileDataController {
     : super(
         database: _testDatabase(),
         profile: const GizClawConnectionProfile(
-          endpoint: gizClawDevelopmentServerEndpoint,
+          endpoint: _testServerEndpoint,
           clientPrivateKey: 'test-key',
         ),
       ) {
@@ -766,9 +780,12 @@ class _ServerListTestController extends MobileDataController {
     : super(
         database: AppDatabase.forTesting(NativeDatabase.memory()),
         profile: const GizClawConnectionProfile(
-          endpoint: gizClawDevelopmentServerEndpoint,
+          endpoint: _testServerEndpoint,
           clientPrivateKey: 'test-key',
         ),
+        servers: const [
+          GizClawServer(name: 'Office', accessPoint: _testServerEndpoint),
+        ],
       ) {
     workflows = allWorkflows;
     workspaces = workflowWorkspaces;
@@ -804,8 +821,11 @@ class _OnboardingServerController extends MobileDataController {
   }
 
   @override
-  Future<void> selectServer(GizClawServer server) async {
-    _selectedServer = server;
+  Future<void> addServer({
+    required String name,
+    required String accessPoint,
+  }) async {
+    _selectedServer = GizClawServer(name: name, accessPoint: accessPoint);
     notifyListeners();
   }
 }
@@ -850,7 +870,7 @@ class _ActiveDestinationController extends MobileDataController {
     : super(
         database: _testDatabase(),
         profile: const GizClawConnectionProfile(
-          endpoint: gizClawDevelopmentServerEndpoint,
+          endpoint: _testServerEndpoint,
           clientPrivateKey: 'test-key',
         ),
       );

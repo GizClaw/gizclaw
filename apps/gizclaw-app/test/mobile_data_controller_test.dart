@@ -45,7 +45,7 @@ void main() {
 
     expect(controller.serverEndpoint, isEmpty);
     expect(controller.hasActiveServer, isFalse);
-    expect(controller.servers, hasLength(2));
+    expect(controller.servers, isEmpty);
   });
 
   test('waits for an in-flight refresh before closing resources', () async {

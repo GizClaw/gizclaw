@@ -13,7 +13,7 @@ void main() {
 
   test('requires a server name', () {
     expect(
-      () => parseGizClawServerQr('gizclaw://ap/ap.gizclaw.com:9820'),
+      () => parseGizClawServerQr('gizclaw://ap/gizclaw.example.com:9820'),
       throwsFormatException,
     );
   });
@@ -29,7 +29,8 @@ void main() {
 
   test('rejects an access point without a port', () {
     expect(
-      () => parseGizClawServerQr('gizclaw://ap/ap.gizclaw.com?name=Production'),
+      () =>
+          parseGizClawServerQr('gizclaw://ap/gizclaw.example.com?name=Example'),
       throwsFormatException,
     );
   });
