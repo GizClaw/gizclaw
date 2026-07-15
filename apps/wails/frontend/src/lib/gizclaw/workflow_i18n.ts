@@ -3,7 +3,7 @@ export interface SelectedWorkflowText {
   name?: string;
 }
 
-export function workflowLocale(localeTag: string): "" | "en" | "zh-CN" {
+export function workflowLocale(localeTag: string): "en" | "unspecified" | "zh-CN" {
   const normalizedTag = localeTag.trim().replaceAll("_", "-").toLowerCase();
   const language = normalizedTag.split("-")[0];
   if (language === "en") {
@@ -12,7 +12,7 @@ export function workflowLocale(localeTag: string): "" | "en" | "zh-CN" {
   if (normalizedTag === "zh-cn") {
     return "zh-CN";
   }
-  return "";
+  return "unspecified";
 }
 
 export function selectedWorkflowText(workflow: unknown): SelectedWorkflowText {

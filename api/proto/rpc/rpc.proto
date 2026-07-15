@@ -61,6 +61,9 @@ message RpcRequest {
 }
 
 enum RpcMethod {
+  reserved 35 to 37;
+  reserved "RPC_METHOD_SERVER_WORKFLOW_CREATE", "RPC_METHOD_SERVER_WORKFLOW_PUT", "RPC_METHOD_SERVER_WORKFLOW_DELETE";
+
   RPC_METHOD_UNSPECIFIED = 0;
   RPC_METHOD_ALL_PING = 1 [(rpc_method) = { name: "all.ping" request: "PingRequest" response: "PingResponse" }];
   RPC_METHOD_ALL_SPEED_TEST_RUN = 2 [(rpc_method) = { name: "all.speed_test.run" request: "SpeedTestRequest" response: "SpeedTestResponse" }];

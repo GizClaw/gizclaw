@@ -158,6 +158,14 @@ const RpcMethod$json = {
     {'1': 'RPC_METHOD_SERVER_PET_ACTIONS_GET', '2': 104, '3': {}},
     {'1': 'RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD', '2': 105, '3': {}},
   ],
+  '4': [
+    {'1': 35, '2': 37},
+  ],
+  '5': [
+    'RPC_METHOD_SERVER_WORKFLOW_CREATE',
+    'RPC_METHOD_SERVER_WORKFLOW_PUT',
+    'RPC_METHOD_SERVER_WORKFLOW_DELETE'
+  ],
 };
 
 /// Descriptor for `RpcMethod`. Decode as a `google.protobuf.EnumDescriptorProto`.
@@ -382,7 +390,9 @@ final $typed_data.Uint8List rpcMethodDescriptor = $convert.base64Decode(
     'VyLnBldC5hY3Rpb25zLmdldBIaU2VydmVyUGV0QWN0aW9uc0dldFJlcXVlc3QaG1NlcnZlclBl'
     'dEFjdGlvbnNHZXRSZXNwb25zZRKEAQojUlBDX01FVEhPRF9TRVJWRVJfUEVUX1BJWEFfRE9XTk'
     'xPQUQQaRpbwvMYVwoYc2VydmVyLnBldC5waXhhLmRvd25sb2FkEhxTZXJ2ZXJQZXRQaXhhRG93'
-    'bmxvYWRSZXF1ZXN0Gh1TZXJ2ZXJQZXRQaXhhRG93bmxvYWRSZXNwb25zZQ==');
+    'bmxvYWRSZXF1ZXN0Gh1TZXJ2ZXJQZXRQaXhhRG93bmxvYWRSZXNwb25zZSIECCMQJSohUlBDX0'
+    '1FVEhPRF9TRVJWRVJfV09SS0ZMT1dfQ1JFQVRFKh5SUENfTUVUSE9EX1NFUlZFUl9XT1JLRkxP'
+    'V19QVVQqIVJQQ19NRVRIT0RfU0VSVkVSX1dPUktGTE9XX0RFTEVURQ==');
 
 @$core.Deprecated('Use rpcResponseDescriptor instead')
 const RpcResponse$json = {

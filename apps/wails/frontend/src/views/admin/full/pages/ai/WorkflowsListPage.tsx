@@ -193,7 +193,8 @@ function workflowCatalog(workflow: Workflow, localeTags: readonly string[]): Wor
   }
 
   const uiLocale = workflowLocale(localeTags[0] ?? "");
-  const candidates: Array<"en" | "zh-CN"> = uiLocale === "" ? [] : [uiLocale];
+  const candidates: Array<"en" | "zh-CN"> =
+    uiLocale === "unspecified" ? [] : [uiLocale];
   candidates.push(i18n.default_locale);
   for (const locale of candidates) {
     const catalog = locale === "zh-CN" ? i18n["zh-CN"] : i18n.en;
