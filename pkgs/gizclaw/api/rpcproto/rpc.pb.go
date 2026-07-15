@@ -130,9 +130,6 @@ const (
 	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_GET      RpcMethod = 32
 	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_LIST                    RpcMethod = 33
 	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_GET                     RpcMethod = 34
-	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_CREATE                  RpcMethod = 35
-	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_PUT                     RpcMethod = 36
-	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_DELETE                  RpcMethod = 37
 	RpcMethod_RPC_METHOD_SERVER_MODEL_LIST                       RpcMethod = 38
 	RpcMethod_RPC_METHOD_SERVER_MODEL_GET                        RpcMethod = 39
 	RpcMethod_RPC_METHOD_SERVER_MODEL_CREATE                     RpcMethod = 40
@@ -240,9 +237,6 @@ var (
 		32:  "RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_GET",
 		33:  "RPC_METHOD_SERVER_WORKFLOW_LIST",
 		34:  "RPC_METHOD_SERVER_WORKFLOW_GET",
-		35:  "RPC_METHOD_SERVER_WORKFLOW_CREATE",
-		36:  "RPC_METHOD_SERVER_WORKFLOW_PUT",
-		37:  "RPC_METHOD_SERVER_WORKFLOW_DELETE",
 		38:  "RPC_METHOD_SERVER_MODEL_LIST",
 		39:  "RPC_METHOD_SERVER_MODEL_GET",
 		40:  "RPC_METHOD_SERVER_MODEL_CREATE",
@@ -347,9 +341,6 @@ var (
 		"RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_GET":      32,
 		"RPC_METHOD_SERVER_WORKFLOW_LIST":                    33,
 		"RPC_METHOD_SERVER_WORKFLOW_GET":                     34,
-		"RPC_METHOD_SERVER_WORKFLOW_CREATE":                  35,
-		"RPC_METHOD_SERVER_WORKFLOW_PUT":                     36,
-		"RPC_METHOD_SERVER_WORKFLOW_DELETE":                  37,
 		"RPC_METHOD_SERVER_MODEL_LIST":                       38,
 		"RPC_METHOD_SERVER_MODEL_GET":                        39,
 		"RPC_METHOD_SERVER_MODEL_CREATE":                     40,
@@ -909,7 +900,7 @@ const file_rpc_proto_rawDesc = "" +
 	"\x1aRPC_ERROR_CODE_BAD_REQUEST\x10\x90\x03\x12\x1d\n" +
 	"\x18RPC_ERROR_CODE_FORBIDDEN\x10\x93\x03\x12\x1d\n" +
 	"\x18RPC_ERROR_CODE_NOT_FOUND\x10\x94\x03\x12\x1c\n" +
-	"\x17RPC_ERROR_CODE_CONFLICT\x10\x99\x03*\xadb\n" +
+	"\x17RPC_ERROR_CODE_CONFLICT\x10\x99\x03*\xc9`\n" +
 	"\tRpcMethod\x12\x1a\n" +
 	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12B\n" +
 	"\x13RPC_METHOD_ALL_PING\x10\x01\x1a)\xc2\xf3\x18%\n" +
@@ -980,13 +971,7 @@ const file_rpc_proto_rawDesc = "" +
 	"\x1fRPC_METHOD_SERVER_WORKFLOW_LIST\x10!\x1aE\xc2\xf3\x18A\n" +
 	"\x14server.workflow.list\x12\x13WorkflowListRequest\x1a\x14WorkflowListResponse\x12f\n" +
 	"\x1eRPC_METHOD_SERVER_WORKFLOW_GET\x10\"\x1aB\xc2\xf3\x18>\n" +
-	"\x13server.workflow.get\x12\x12WorkflowGetRequest\x1a\x13WorkflowGetResponse\x12r\n" +
-	"!RPC_METHOD_SERVER_WORKFLOW_CREATE\x10#\x1aK\xc2\xf3\x18G\n" +
-	"\x16server.workflow.create\x12\x15WorkflowCreateRequest\x1a\x16WorkflowCreateResponse\x12f\n" +
-	"\x1eRPC_METHOD_SERVER_WORKFLOW_PUT\x10$\x1aB\xc2\xf3\x18>\n" +
-	"\x13server.workflow.put\x12\x12WorkflowPutRequest\x1a\x13WorkflowPutResponse\x12r\n" +
-	"!RPC_METHOD_SERVER_WORKFLOW_DELETE\x10%\x1aK\xc2\xf3\x18G\n" +
-	"\x16server.workflow.delete\x12\x15WorkflowDeleteRequest\x1a\x16WorkflowDeleteResponse\x12^\n" +
+	"\x13server.workflow.get\x12\x12WorkflowGetRequest\x1a\x13WorkflowGetResponse\x12^\n" +
 	"\x1cRPC_METHOD_SERVER_MODEL_LIST\x10&\x1a<\xc2\xf3\x188\n" +
 	"\x11server.model.list\x12\x10ModelListRequest\x1a\x11ModelListResponse\x12Z\n" +
 	"\x1bRPC_METHOD_SERVER_MODEL_GET\x10'\x1a9\xc2\xf3\x185\n" +
@@ -1120,7 +1105,7 @@ const file_rpc_proto_rawDesc = "" +
 	"!RPC_METHOD_SERVER_PET_ACTIONS_GET\x10h\x1aU\xc2\xf3\x18Q\n" +
 	"\x16server.pet.actions.get\x12\x1aServerPetActionsGetRequest\x1a\x1bServerPetActionsGetResponse\x12\x84\x01\n" +
 	"#RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD\x10i\x1a[\xc2\xf3\x18W\n" +
-	"\x18server.pet.pixa.download\x12\x1cServerPetPixaDownloadRequest\x1a\x1dServerPetPixaDownloadResponse:d\n" +
+	"\x18server.pet.pixa.download\x12\x1cServerPetPixaDownloadRequest\x1a\x1dServerPetPixaDownloadResponse\"\x04\b#\x10%*!RPC_METHOD_SERVER_WORKFLOW_CREATE*\x1eRPC_METHOD_SERVER_WORKFLOW_PUT*!RPC_METHOD_SERVER_WORKFLOW_DELETE:d\n" +
 	"\n" +
 	"rpc_method\x12!.google.protobuf.EnumValueOptions\x18\xb8\x8e\x03 \x01(\v2 .gizclaw.rpc.v1.RpcMethodOptionsR\trpcMethodB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 

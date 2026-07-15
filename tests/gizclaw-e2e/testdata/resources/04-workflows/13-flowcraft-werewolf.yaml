@@ -3,7 +3,10 @@ apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
   name: flowcraft-werewolf-game
-  description: 'Flowcraft raid: Werewolf'
+i18n:
+  default_locale: en
+  en:
+    description: 'Flowcraft raid: Werewolf'
 spec:
   driver: flowcraft
   flowcraft:

@@ -53,6 +53,7 @@ export type VoiceProviderKind = "" | "dashscope-tenant" | "gemini-tenant" | "min
 export type VoiceSource = "" | "manual" | "sync" | "unspecified" | number;
 export type VolcTenantModelProviderDataApiMode = "" | "asr" | "realtime" | "tts" | "unspecified" | number;
 export type WorkflowDriver = "" | "ast-translate" | "chatroom" | "doubao-realtime" | "flowcraft" | "pet" | "unspecified" | number;
+export type WorkflowLocale = "" | "en" | "unspecified" | "zh-CN" | number;
 export type WorkspaceHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
 export type WorkspaceInputMode = "" | "push-to-talk" | "realtime" | "unspecified" | number;
 export type ASTTranslateExternalVoiceParameters = {
@@ -1311,38 +1312,30 @@ export type VolcTenantVoiceProviderData = {
   "status"?: string;
   "voice_id"?: string;
 };
-export type WorkflowCreateRequest = WorkflowDocument;
-export type WorkflowCreateResponse = WorkflowDocument;
-export type WorkflowDeleteRequest = {
+export type Workflow = {
   "name": string;
-};
-export type WorkflowDeleteResponse = WorkflowDocument;
-export type WorkflowDocument = {
-  "metadata": WorkflowMetadata;
   "spec": WorkflowSpec;
+  "i18n"?: WorkflowI18nCatalog;
 };
 export type WorkflowGetRequest = {
   "name": string;
+  "lang"?: WorkflowLocale;
 };
-export type WorkflowGetResponse = WorkflowDocument;
+export type WorkflowGetResponse = Workflow;
+export type WorkflowI18nCatalog = {
+  "name"?: string;
+  "description"?: string;
+};
 export type WorkflowListRequest = {
   "cursor"?: string;
   "limit"?: number;
+  "lang"?: WorkflowLocale;
 };
 export type WorkflowListResponse = {
   "has_next": boolean;
-  "items": WorkflowDocument[];
+  "items": Workflow[];
   "next_cursor"?: string;
 };
-export type WorkflowMetadata = {
-  "description"?: string;
-  "name": string;
-};
-export type WorkflowPutRequest = {
-  "body": WorkflowDocument;
-  "name": string;
-};
-export type WorkflowPutResponse = WorkflowDocument;
 export type WorkflowSpec = {
   "ast_translate"?: ASTTranslateWorkflowSpec;
   "chatroom"?: ChatRoomWorkflowSpec;
@@ -1502,11 +1495,8 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.tool.put": "ToolPutRequest",
   "server.voice.get": "VoiceGetRequest",
   "server.voice.list": "VoiceListRequest",
-  "server.workflow.create": "WorkflowCreateRequest",
-  "server.workflow.delete": "WorkflowDeleteRequest",
   "server.workflow.get": "WorkflowGetRequest",
   "server.workflow.list": "WorkflowListRequest",
-  "server.workflow.put": "WorkflowPutRequest",
   "server.workspace.create": "WorkspaceCreateRequest",
   "server.workspace.delete": "WorkspaceDeleteRequest",
   "server.workspace.get": "WorkspaceGetRequest",
@@ -1608,11 +1598,8 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.tool.put": "ToolPutResponse",
   "server.voice.get": "VoiceGetResponse",
   "server.voice.list": "VoiceListResponse",
-  "server.workflow.create": "WorkflowCreateResponse",
-  "server.workflow.delete": "WorkflowDeleteResponse",
   "server.workflow.get": "WorkflowGetResponse",
   "server.workflow.list": "WorkflowListResponse",
-  "server.workflow.put": "WorkflowPutResponse",
   "server.workspace.create": "WorkspaceCreateResponse",
   "server.workspace.delete": "WorkspaceDeleteResponse",
   "server.workspace.get": "WorkspaceGetResponse",
@@ -7576,53 +7563,23 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
-  "WorkflowCreateRequest": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "WorkflowDocument"
-      }
-    ]
-  },
-  "WorkflowCreateResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "WorkflowDocument"
-      }
-    ]
-  },
-  "WorkflowDeleteRequest": {
+  "Workflow": {
     "fields": [
       {
         "name": "name",
         "number": 1,
         "type": "string"
-      }
-    ]
-  },
-  "WorkflowDeleteResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "WorkflowDocument"
-      }
-    ]
-  },
-  "WorkflowDocument": {
-    "fields": [
-      {
-        "name": "metadata",
-        "number": 1,
-        "type": "WorkflowMetadata"
       },
       {
         "name": "spec",
         "number": 2,
         "type": "WorkflowSpec"
+      },
+      {
+        "name": "i18n",
+        "number": 3,
+        "optional": true,
+        "type": "WorkflowI18nCatalog"
       }
     ]
   },
@@ -7632,6 +7589,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "name",
         "number": 1,
         "type": "string"
+      },
+      {
+        "name": "lang",
+        "number": 2,
+        "optional": true,
+        "type": "WorkflowLocale"
       }
     ]
   },
@@ -7640,7 +7603,23 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "value",
         "number": 1,
-        "type": "WorkflowDocument"
+        "type": "Workflow"
+      }
+    ]
+  },
+  "WorkflowI18nCatalog": {
+    "fields": [
+      {
+        "name": "name",
+        "number": 1,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "description",
+        "number": 2,
+        "optional": true,
+        "type": "string"
       }
     ]
   },
@@ -7657,6 +7636,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 2,
         "optional": true,
         "type": "int64"
+      },
+      {
+        "name": "lang",
+        "number": 3,
+        "optional": true,
+        "type": "WorkflowLocale"
       }
     ]
   },
@@ -7671,51 +7656,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "items",
         "number": 2,
         "repeated": true,
-        "type": "WorkflowDocument"
+        "type": "Workflow"
       },
       {
         "name": "next_cursor",
         "number": 3,
         "optional": true,
         "type": "string"
-      }
-    ]
-  },
-  "WorkflowMetadata": {
-    "fields": [
-      {
-        "name": "description",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "name",
-        "number": 2,
-        "type": "string"
-      }
-    ]
-  },
-  "WorkflowPutRequest": {
-    "fields": [
-      {
-        "name": "body",
-        "number": 1,
-        "type": "WorkflowDocument"
-      },
-      {
-        "name": "name",
-        "number": 2,
-        "type": "string"
-      }
-    ]
-  },
-  "WorkflowPutResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "WorkflowDocument"
       }
     ]
   },
@@ -8468,6 +8415,18 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "5": "pet"
     }
   },
+  "WorkflowLocale": {
+    "byName": {
+      "en": 1,
+      "unspecified": 0,
+      "zh-CN": 2
+    },
+    "byNumber": {
+      "0": "",
+      "1": "en",
+      "2": "zh-CN"
+    }
+  },
   "WorkspaceHistoryListRequestOrder": {
     "byName": {
       "asc": 1,
@@ -8544,7 +8503,7 @@ function encodeMessage(type: string, value: unknown, parent: Record<string, unkn
     }
     return writer.finish();
   }
-  const object = asRecord(value, type);
+  const object = messageObjectForEncode(type, value);
   for (const field of fields) {
     if (field.oneof) {
       continue;
@@ -8577,6 +8536,10 @@ function decodeMessage(type: string, payload: Uint8Array): unknown {
     return {};
   }
   return withMessageDefaults(desc, values);
+}
+
+function messageObjectForEncode(type: string, value: unknown): Record<string, unknown> {
+  return asRecord(value, type);
 }
 
 function decodeMessageFields(desc: MessageDesc, payload: Uint8Array): Record<string, unknown> {
@@ -8933,7 +8896,7 @@ function enumNumber(type: string, value: unknown): number {
   }
   const text = String(value ?? "");
   const key = text.toLowerCase();
-  const number = desc.byName[key] ?? desc.byName[key.replaceAll("-", "_")];
+  const number = desc.byName[text] ?? desc.byName[key] ?? desc.byName[key.replaceAll("-", "_")];
   if (number == null) {
     throw new Error(`unknown protobuf enum value for ${type}: ${text}`);
   }

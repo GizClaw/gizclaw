@@ -2,8 +2,11 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
-  description: Flowcraft support workflow
   name: flowcraft-support
+i18n:
+  default_locale: en
+  en:
+    description: Flowcraft support workflow
 spec:
   driver: flowcraft
   flowcraft:

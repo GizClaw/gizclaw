@@ -2,8 +2,11 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
-  description: Direct chatroom message board workflow
   name: chatroom-direct
+i18n:
+  default_locale: en
+  en:
+    description: Direct chatroom message board workflow
 spec:
   chatroom:
     history:

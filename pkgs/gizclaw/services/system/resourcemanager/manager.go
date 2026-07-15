@@ -784,7 +784,7 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
-		if err := m.putWorkflow(ctx, string(pathParam(item.Metadata.Name)), workflowDocumentFromResource(item)); err != nil {
+		if err := m.putWorkflow(ctx, string(pathParam(item.Metadata.Name)), workflowFromResource(item)); err != nil {
 			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
 		}
 		return m.Get(ctx, apitypes.ResourceKindWorkflow, item.Metadata.Name)

@@ -53,6 +53,7 @@ class GizClawClient {
   Future<payload.WorkflowListResponse> listWorkflows({
     String? cursor,
     int? limit,
+    payload.WorkflowLocale? lang,
   }) {
     final request = payload.WorkflowListRequest();
     if (cursor != null) {
@@ -60,6 +61,9 @@ class GizClawClient {
     }
     if (limit != null) {
       request.limit = Int64(limit);
+    }
+    if (lang != null) {
+      request.lang = lang;
     }
     return rpc.call<payload.WorkflowListResponse>(
       'server.workflow.list',

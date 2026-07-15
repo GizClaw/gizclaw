@@ -415,6 +415,9 @@
           "limit": {
             "type": "integer",
             "minimum": 1
+          },
+          "lang": {
+            "$ref": "#/components/schemas/WorkflowLocale"
           }
         }
       },
@@ -425,7 +428,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "../shared/workflow_document.json#/components/schemas/WorkflowDocument"
+              "$ref": "#/components/schemas/Workflow"
             }
           },
           "has_next": {
@@ -447,6 +450,9 @@
           "name": {
             "type": "string",
             "minLength": 1
+          },
+          "lang": {
+            "$ref": "#/components/schemas/WorkflowLocale"
           }
         },
         "required": [
@@ -454,49 +460,34 @@
         ]
       },
       "WorkflowGetResponse": {
-        "$ref": "../shared/workflow_document.json#/components/schemas/WorkflowDocument"
+        "$ref": "#/components/schemas/Workflow"
       },
-      "WorkflowCreateRequest": {
-        "$ref": "../shared/workflow_document.json#/components/schemas/WorkflowDocument"
-      },
-      "WorkflowCreateResponse": {
-        "$ref": "../shared/workflow_document.json#/components/schemas/WorkflowDocument"
-      },
-      "WorkflowPutRequest": {
+      "Workflow": {
         "type": "object",
         "additionalProperties": false,
+        "required": [
+          "name",
+          "spec"
+        ],
         "properties": {
           "name": {
             "type": "string",
             "minLength": 1
           },
-          "body": {
-            "$ref": "../shared/workflow_document.json#/components/schemas/WorkflowDocument"
+          "spec": {
+            "$ref": "../shared/workflow_spec.json#/components/schemas/WorkflowSpec"
+          },
+          "i18n": {
+            "$ref": "../shared/workflow_i18n.json#/components/schemas/WorkflowI18nCatalog"
           }
-        },
-        "required": [
-          "name",
-          "body"
+        }
+      },
+      "WorkflowLocale": {
+        "type": "string",
+        "enum": [
+          "en",
+          "zh-CN"
         ]
-      },
-      "WorkflowPutResponse": {
-        "$ref": "../shared/workflow_document.json#/components/schemas/WorkflowDocument"
-      },
-      "WorkflowDeleteRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "required": [
-          "name"
-        ]
-      },
-      "WorkflowDeleteResponse": {
-        "$ref": "../shared/workflow_document.json#/components/schemas/WorkflowDocument"
       },
       "ModelListRequest": {
         "type": "object",

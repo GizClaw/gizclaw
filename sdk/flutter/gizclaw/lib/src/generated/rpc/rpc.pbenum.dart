@@ -133,12 +133,6 @@ class RpcMethod extends $pb.ProtobufEnum {
       RpcMethod._(33, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKFLOW_LIST');
   static const RpcMethod RPC_METHOD_SERVER_WORKFLOW_GET =
       RpcMethod._(34, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKFLOW_GET');
-  static const RpcMethod RPC_METHOD_SERVER_WORKFLOW_CREATE = RpcMethod._(
-      35, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKFLOW_CREATE');
-  static const RpcMethod RPC_METHOD_SERVER_WORKFLOW_PUT =
-      RpcMethod._(36, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKFLOW_PUT');
-  static const RpcMethod RPC_METHOD_SERVER_WORKFLOW_DELETE = RpcMethod._(
-      37, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKFLOW_DELETE');
   static const RpcMethod RPC_METHOD_SERVER_MODEL_LIST =
       RpcMethod._(38, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_MODEL_LIST');
   static const RpcMethod RPC_METHOD_SERVER_MODEL_GET =
@@ -335,9 +329,6 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_GET,
     RPC_METHOD_SERVER_WORKFLOW_LIST,
     RPC_METHOD_SERVER_WORKFLOW_GET,
-    RPC_METHOD_SERVER_WORKFLOW_CREATE,
-    RPC_METHOD_SERVER_WORKFLOW_PUT,
-    RPC_METHOD_SERVER_WORKFLOW_DELETE,
     RPC_METHOD_SERVER_MODEL_LIST,
     RPC_METHOD_SERVER_MODEL_GET,
     RPC_METHOD_SERVER_MODEL_CREATE,

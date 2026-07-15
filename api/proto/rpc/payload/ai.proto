@@ -562,49 +562,42 @@ message VolcTenantVoiceProviderData {
   optional string voice_id = 5;
 }
 
-message WorkflowCreateRequest {
-  WorkflowDocument value = 1;
+enum WorkflowLocale {
+  WORKFLOW_LOCALE_UNSPECIFIED = 0;
+  WORKFLOW_LOCALE_EN = 1;
+  WORKFLOW_LOCALE_ZH_CN = 2;
 }
 
-message WorkflowCreateResponse {
-  WorkflowDocument value = 1;
-}
-
-message WorkflowDeleteRequest {
+message Workflow {
   string name = 1;
-}
-
-message WorkflowDeleteResponse {
-  WorkflowDocument value = 1;
-}
-
-message WorkflowDocument {
-  WorkflowMetadata metadata = 1;
   WorkflowSpec spec = 2;
+  optional WorkflowI18nCatalog i18n = 3;
 }
 
 message WorkflowGetRequest {
   string name = 1;
+  optional WorkflowLocale lang = 2;
 }
 
 message WorkflowGetResponse {
-  WorkflowDocument value = 1;
+  Workflow value = 1;
 }
 
 message WorkflowListRequest {
   optional string cursor = 1;
   optional int64 limit = 2;
+  optional WorkflowLocale lang = 3;
 }
 
 message WorkflowListResponse {
   bool has_next = 1;
-  repeated WorkflowDocument items = 2;
+  repeated Workflow items = 2;
   optional string next_cursor = 3;
 }
 
-message WorkflowMetadata {
-  optional string description = 1;
-  string name = 2;
+message WorkflowI18nCatalog {
+  optional string name = 1;
+  optional string description = 2;
 }
 
 message ToolkitPolicyToolIds {
@@ -613,15 +606,6 @@ message ToolkitPolicyToolIds {
 
 message ToolkitPolicy {
   optional ToolkitPolicyToolIds tool_ids = 1;
-}
-
-message WorkflowPutRequest {
-  WorkflowDocument body = 1;
-  string name = 2;
-}
-
-message WorkflowPutResponse {
-  WorkflowDocument value = 1;
 }
 
 message WorkflowSpec {

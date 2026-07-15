@@ -94,19 +94,19 @@ func (r ServiceResolver) getWorkspace(ctx context.Context, name string) (apitype
 	}
 }
 
-func (r ServiceResolver) getWorkflow(ctx context.Context, name string) (apitypes.WorkflowDocument, error) {
+func (r ServiceResolver) getWorkflow(ctx context.Context, name string) (apitypes.Workflow, error) {
 	response, err := r.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: string(name)})
 	if err != nil {
-		return apitypes.WorkflowDocument{}, err
+		return apitypes.Workflow{}, err
 	}
 	switch response := response.(type) {
 	case adminhttp.GetWorkflow200JSONResponse:
-		return apitypes.WorkflowDocument(response), nil
+		return apitypes.Workflow(response), nil
 	case adminhttp.GetWorkflow404JSONResponse:
-		return apitypes.WorkflowDocument{}, fmt.Errorf("agent: workflow %q not found", name)
+		return apitypes.Workflow{}, fmt.Errorf("agent: workflow %q not found", name)
 	case adminhttp.GetWorkflow500JSONResponse:
-		return apitypes.WorkflowDocument{}, fmt.Errorf("agent: get workflow %q failed: %s", name, response.Error.Message)
+		return apitypes.Workflow{}, fmt.Errorf("agent: get workflow %q failed: %s", name, response.Error.Message)
 	default:
-		return apitypes.WorkflowDocument{}, fmt.Errorf("agent: unexpected GetWorkflow response %T", response)
+		return apitypes.Workflow{}, fmt.Errorf("agent: unexpected GetWorkflow response %T", response)
 	}
 }

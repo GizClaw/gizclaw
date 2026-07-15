@@ -361,11 +361,11 @@ func ensureWorkspace(ctx context.Context, client runControlClient, cfg config) (
 		}
 		return config{}, fmt.Errorf("get workflow %q (%s): %w", cfg.Workflow.Name, workflowDisplayName, err)
 	}
-	if workflow == nil || strings.TrimSpace(workflow.Metadata.Name) == "" {
+	if workflow == nil || strings.TrimSpace(workflow.Name) == "" {
 		return config{}, fmt.Errorf("get workflow %q (%s): empty workflow id", cfg.Workflow.Name, workflowDisplayName)
 	}
-	if workflow.Metadata.Name != cfg.Workflow.Name {
-		return config{}, fmt.Errorf("get workflow %q (%s): returned workflow id %q", cfg.Workflow.Name, workflowDisplayName, workflow.Metadata.Name)
+	if workflow.Name != cfg.Workflow.Name {
+		return config{}, fmt.Errorf("get workflow %q (%s): returned workflow id %q", cfg.Workflow.Name, workflowDisplayName, workflow.Name)
 	}
 
 	workspace, err := workspaceDocument(cfg)
@@ -403,21 +403,6 @@ func ensureWorkspace(ctx context.Context, client runControlClient, cfg config) (
 func isRPCNotFound(err error) bool {
 	var rpcErr rpcapi.Error
 	return errors.As(err, &rpcErr) && rpcErr.Code == rpcapi.RPCErrorCodeNotFound
-}
-
-func workflowDocument(cfg config) rpcapi.WorkflowCreateRequest {
-	description := cfg.Workflow.Description
-	if description == "" {
-		description = "workflow"
-	}
-	spec := workflowSpec(cfg)
-	return rpcapi.WorkflowCreateRequest{
-		Metadata: rpcapi.WorkflowMetadata{
-			Name:        cfg.Workflow.Name,
-			Description: &description,
-		},
-		Spec: spec,
-	}
 }
 
 func workflowSpec(cfg config) rpcapi.WorkflowSpec {

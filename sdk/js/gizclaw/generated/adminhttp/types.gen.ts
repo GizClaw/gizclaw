@@ -177,7 +177,7 @@ export type WorkspaceList = {
 export type WorkflowList = {
     has_next: boolean;
     next_cursor?: string | null;
-    items: Array<WorkflowDocument>;
+    items: Array<Workflow>;
 };
 
 export type GeminiTenantUpsert = {
@@ -689,6 +689,7 @@ export type WorkflowResource = {
      */
     metadata: ResourceMetadata;
     spec: WorkflowSpec;
+    i18n?: WorkflowI18n;
 };
 
 export type WorkspaceResource = {
@@ -1939,18 +1940,30 @@ export type VolcTenantSpec = {
     description?: string;
 };
 
-export type WorkflowDocument = {
-    metadata: WorkflowMetadata;
-    spec: WorkflowSpec;
-};
-
-export type WorkflowMetadata = {
+export type Workflow = {
     /**
-     * Stable workflow ID. The creator must provide this value.
+     * Stable workflow ID used by storage, paths, ACLs, and workspace references.
      */
     name: string;
+    spec: WorkflowSpec;
+    i18n?: WorkflowI18n;
+};
+
+/**
+ * Workflow-owned closed locale catalogs. default_locale must name a present catalog property.
+ */
+export type WorkflowI18n = {
+    default_locale: WorkflowLocale;
+    en?: WorkflowI18nCatalog;
+    'zh-CN'?: WorkflowI18nCatalog;
+};
+
+export type WorkflowI18nCatalog = {
+    name?: string;
     description?: string;
 };
+
+export type WorkflowLocale = 'en' | 'zh-CN';
 
 export type WorkflowDriver = 'flowcraft' | 'doubao-realtime' | 'ast-translate' | 'chatroom' | 'pet';
 
@@ -4009,7 +4022,7 @@ export type ListWorkflowsResponses = {
 export type ListWorkflowsResponse = ListWorkflowsResponses[keyof ListWorkflowsResponses];
 
 export type CreateWorkflowData = {
-    body: WorkflowDocument;
+    body: Workflow;
     path?: never;
     query?: never;
     url: '/workflows';
@@ -4036,7 +4049,7 @@ export type CreateWorkflowResponses = {
     /**
      * Created workflow
      */
-    200: WorkflowDocument;
+    200: Workflow;
 };
 
 export type CreateWorkflowResponse = CreateWorkflowResponses[keyof CreateWorkflowResponses];
@@ -5787,7 +5800,7 @@ export type DeleteWorkflowResponses = {
     /**
      * Deleted workflow
      */
-    200: WorkflowDocument;
+    200: Workflow;
 };
 
 export type DeleteWorkflowResponse = DeleteWorkflowResponses[keyof DeleteWorkflowResponses];
@@ -5819,15 +5832,15 @@ export type GetWorkflowError = GetWorkflowErrors[keyof GetWorkflowErrors];
 
 export type GetWorkflowResponses = {
     /**
-     * Workflow document
+     * Workflow
      */
-    200: WorkflowDocument;
+    200: Workflow;
 };
 
 export type GetWorkflowResponse = GetWorkflowResponses[keyof GetWorkflowResponses];
 
 export type PutWorkflowData = {
-    body: WorkflowDocument;
+    body: Workflow;
     path: {
         /**
          * Workflow name
@@ -5855,7 +5868,7 @@ export type PutWorkflowResponses = {
     /**
      * Stored workflow
      */
-    200: WorkflowDocument;
+    200: Workflow;
 };
 
 export type PutWorkflowResponse = PutWorkflowResponses[keyof PutWorkflowResponses];

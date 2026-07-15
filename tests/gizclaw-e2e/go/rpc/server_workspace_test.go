@@ -12,12 +12,14 @@ import (
 
 func TestServerWorkspaceRPC(t *testing.T) {
 	env := newServerResourceHarness(t)
+	admin := serverResourceAdminClient(t, env)
 
 	_, _ = env.peer.DeleteWorkspace(env.ctx, "workspace.delete.preclean", rpcapi.WorkspaceDeleteRequest{Name: mutationWorkspace})
-	_, _ = env.peer.DeleteWorkflow(env.ctx, "workspace.workflow.delete.preclean", rpcapi.WorkflowDeleteRequest{Name: mutationWorkflow})
-	if _, err := env.peer.CreateWorkflow(env.ctx, "workspace.workflow.create", rpcWorkflow(mutationWorkflow, "workspace test flow")); err != nil {
+	_, _ = admin.DeleteWorkflowWithResponse(env.ctx, mutationWorkflow)
+	if response, err := admin.CreateWorkflowWithResponse(env.ctx, adminWorkflow(mutationWorkflow, "workspace test flow")); err != nil || response.JSON200 == nil {
 		t.Fatalf("create workflow for workspace test: %v", err)
 	}
+	t.Cleanup(func() { _, _ = admin.DeleteWorkflowWithResponse(env.ctx, mutationWorkflow) })
 	workspaceList, err := env.peer.ListWorkspaces(env.ctx, "workspace.list.shared", rpcapi.WorkspaceListRequest{})
 	if err != nil {
 		t.Fatalf("workspace.list shared: %v", err)
@@ -94,9 +96,6 @@ func TestServerWorkspaceRPC(t *testing.T) {
 	if _, err := env.peer.DeleteWorkspace(env.ctx, "workspace.delete", rpcapi.WorkspaceDeleteRequest{Name: mutationWorkspace}); err != nil {
 		t.Fatalf("workspace.delete: %v", err)
 	}
-	if _, err := env.peer.DeleteWorkflow(env.ctx, "workspace.workflow.delete", rpcapi.WorkflowDeleteRequest{Name: mutationWorkflow}); err != nil {
-		t.Fatalf("delete workflow for workspace test: %v", err)
-	}
 }
 
 func TestServerResourceACLRPC(t *testing.T) {
@@ -123,30 +122,18 @@ func TestServerResourceCreateDoesNotGrantConcreteAdmin(t *testing.T) {
 	env := newServerResourceHarness(t)
 	admin := serverResourceAdminClient(t, env)
 
-	workflowName := "acl-create-only-workflow"
 	workspaceName := "acl-create-only-workspace"
 	modelID := "acl-create-only-model"
 	credentialName := "acl-create-only-credential"
 	t.Cleanup(func() {
 		_, _ = admin.DeleteWorkspaceWithResponse(env.ctx, workspaceName)
-		_, _ = admin.DeleteWorkflowWithResponse(env.ctx, workflowName)
 		_, _ = admin.DeleteModelWithResponse(env.ctx, modelID)
 		_, _ = admin.DeleteCredentialWithResponse(env.ctx, credentialName)
 	})
 	_, _ = admin.DeleteWorkspaceWithResponse(env.ctx, workspaceName)
-	_, _ = admin.DeleteWorkflowWithResponse(env.ctx, workflowName)
 	_, _ = admin.DeleteModelWithResponse(env.ctx, modelID)
 	_, _ = admin.DeleteCredentialWithResponse(env.ctx, credentialName)
 
-	if _, err := env.peer.CreateWorkflow(env.ctx, "acl.create_only.workflow.create", rpcWorkflow(workflowName, "create only workflow")); err != nil {
-		t.Fatalf("workflow.create create-only: %v", err)
-	}
-	if _, err := env.peer.PutWorkflow(env.ctx, "acl.create_only.workflow.put", rpcapi.WorkflowPutRequest{
-		Name: workflowName,
-		Body: rpcWorkflow(workflowName, "should be denied"),
-	}); err == nil || !strings.Contains(err.Error(), "acl: denied") {
-		t.Fatalf("workflow.put create-only error = %v", err)
-	}
 	if _, err := env.peer.CreateWorkspace(env.ctx, "acl.create_only.workspace.create", rpcapi.WorkspaceCreateRequest{
 		Name:         workspaceName,
 		WorkflowName: sharedWorkflow,

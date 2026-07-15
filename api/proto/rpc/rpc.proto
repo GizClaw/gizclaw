@@ -61,6 +61,9 @@ message RpcRequest {
 }
 
 enum RpcMethod {
+  reserved 35 to 37;
+  reserved "RPC_METHOD_SERVER_WORKFLOW_CREATE", "RPC_METHOD_SERVER_WORKFLOW_PUT", "RPC_METHOD_SERVER_WORKFLOW_DELETE";
+
   RPC_METHOD_UNSPECIFIED = 0;
   RPC_METHOD_ALL_PING = 1 [(rpc_method) = { name: "all.ping" request: "PingRequest" response: "PingResponse" }];
   RPC_METHOD_ALL_SPEED_TEST_RUN = 2 [(rpc_method) = { name: "all.speed_test.run" request: "SpeedTestRequest" response: "SpeedTestResponse" }];
@@ -96,9 +99,6 @@ enum RpcMethod {
   RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_GET = 32 [(rpc_method) = { name: "server.workspace.history.audio.get" request: "WorkspaceHistoryAudioGetRequest" response: "WorkspaceHistoryAudioGetResponse" }];
   RPC_METHOD_SERVER_WORKFLOW_LIST = 33 [(rpc_method) = { name: "server.workflow.list" request: "WorkflowListRequest" response: "WorkflowListResponse" }];
   RPC_METHOD_SERVER_WORKFLOW_GET = 34 [(rpc_method) = { name: "server.workflow.get" request: "WorkflowGetRequest" response: "WorkflowGetResponse" }];
-  RPC_METHOD_SERVER_WORKFLOW_CREATE = 35 [(rpc_method) = { name: "server.workflow.create" request: "WorkflowCreateRequest" response: "WorkflowCreateResponse" }];
-  RPC_METHOD_SERVER_WORKFLOW_PUT = 36 [(rpc_method) = { name: "server.workflow.put" request: "WorkflowPutRequest" response: "WorkflowPutResponse" }];
-  RPC_METHOD_SERVER_WORKFLOW_DELETE = 37 [(rpc_method) = { name: "server.workflow.delete" request: "WorkflowDeleteRequest" response: "WorkflowDeleteResponse" }];
   RPC_METHOD_SERVER_MODEL_LIST = 38 [(rpc_method) = { name: "server.model.list" request: "ModelListRequest" response: "ModelListResponse" }];
   RPC_METHOD_SERVER_MODEL_GET = 39 [(rpc_method) = { name: "server.model.get" request: "ModelGetRequest" response: "ModelGetResponse" }];
   RPC_METHOD_SERVER_MODEL_CREATE = 40 [(rpc_method) = { name: "server.model.create" request: "ModelCreateRequest" response: "ModelCreateResponse" }];

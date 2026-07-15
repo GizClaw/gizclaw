@@ -3,7 +3,10 @@ apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
   name: volc-ast-translate-zh-en
-  description: AST Chinese to English speech translation workflow
+i18n:
+  default_locale: en
+  en:
+    description: AST Chinese to English speech translation workflow
 spec:
   driver: ast-translate
   ast_translate:

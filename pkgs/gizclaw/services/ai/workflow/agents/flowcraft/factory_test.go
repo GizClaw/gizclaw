@@ -2813,9 +2813,9 @@ type fakeModels struct {
 	providerKind apitypes.ModelProviderKind
 }
 
-func testFlowcraftWorkflow(spec apitypes.FlowcraftWorkflowSpec) apitypes.WorkflowDocument {
-	return apitypes.WorkflowDocument{
-		Metadata: apitypes.WorkflowMetadata{Name: "test-workflow"},
+func testFlowcraftWorkflow(spec apitypes.FlowcraftWorkflowSpec) apitypes.Workflow {
+	return apitypes.Workflow{
+		Name: "test-workflow",
 		Spec: apitypes.WorkflowSpec{
 			Driver:    apitypes.WorkflowDriverFlowcraft,
 			Flowcraft: &spec,

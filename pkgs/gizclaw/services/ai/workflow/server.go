@@ -37,13 +37,9 @@ type WorkflowAdminService interface {
 
 var _ WorkflowAdminService = (*Server)(nil)
 
-type documentEnvelope struct {
-	Metadata workflowMetadata `json:"metadata"`
-	Spec     *json.RawMessage `json:"spec"`
-}
-
-type workflowMetadata struct {
-	Name string `json:"name"`
+type workflowEnvelope struct {
+	Name string           `json:"name"`
+	Spec *json.RawMessage `json:"spec"`
 }
 
 func (s *Server) ListWorkflows(ctx context.Context, request adminhttp.ListWorkflowsRequestObject) (adminhttp.ListWorkflowsResponseObject, error) {
@@ -56,9 +52,9 @@ func (s *Server) ListWorkflows(ctx context.Context, request adminhttp.ListWorkfl
 		return adminhttp.ListWorkflows500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	pageEntries, hasNext, nextCursor := paginateEntries(entries, limit)
-	items := make([]apitypes.WorkflowDocument, 0)
+	items := make([]apitypes.Workflow, 0)
 	for _, entry := range pageEntries {
-		doc, err := decodeDocument(entry.Value)
+		doc, err := decodeWorkflow(entry.Value)
 		if err != nil {
 			return adminhttp.ListWorkflows500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 		}
@@ -78,13 +74,13 @@ func (s *Server) CreateWorkflow(ctx context.Context, request adminhttp.CreateWor
 	if request.Body == nil {
 		return adminhttp.CreateWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", "request body required")), nil
 	}
-	doc, env, raw, err := validateDocument(*request.Body, "")
+	doc, raw, err := validateWorkflow(*request.Body, "")
 	if err != nil {
 		return adminhttp.CreateWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", err.Error())), nil
 	}
-	key := workflowKey(env.Metadata.Name)
+	key := workflowKey(doc.Name)
 	if _, err := s.Store.Get(ctx, key); err == nil {
-		return adminhttp.CreateWorkflow409JSONResponse(apitypes.NewErrorResponse("WORKFLOW_ALREADY_EXISTS", fmt.Sprintf("workflow %q already exists", env.Metadata.Name))), nil
+		return adminhttp.CreateWorkflow409JSONResponse(apitypes.NewErrorResponse("WORKFLOW_ALREADY_EXISTS", fmt.Sprintf("workflow %q already exists", doc.Name))), nil
 	} else if !errors.Is(err, kv.ErrNotFound) {
 		return adminhttp.CreateWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -110,7 +106,7 @@ func (s *Server) DeleteWorkflow(ctx context.Context, request adminhttp.DeleteWor
 		}
 		return adminhttp.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	doc, err := decodeDocument(data)
+	doc, err := decodeWorkflow(data)
 	if err != nil {
 		return adminhttp.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -135,7 +131,7 @@ func (s *Server) GetWorkflow(ctx context.Context, request adminhttp.GetWorkflowR
 		}
 		return adminhttp.GetWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	doc, err := decodeDocument(data)
+	doc, err := decodeWorkflow(data)
 	if err != nil {
 		return adminhttp.GetWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -153,60 +149,63 @@ func (s *Server) PutWorkflow(ctx context.Context, request adminhttp.PutWorkflowR
 	if err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
-	doc, env, raw, err := validateDocument(*request.Body, name)
+	doc, raw, err := validateWorkflow(*request.Body, name)
 	if err != nil {
 		return adminhttp.PutWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", err.Error())), nil
 	}
-	if err := s.Store.Set(ctx, workflowKey(env.Metadata.Name), raw); err != nil {
+	if err := s.Store.Set(ctx, workflowKey(doc.Name), raw); err != nil {
 		return adminhttp.PutWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.PutWorkflow200JSONResponse(doc), nil
 }
 
-func validateDocument(doc apitypes.WorkflowDocument, expectedName string) (apitypes.WorkflowDocument, documentEnvelope, []byte, error) {
-	var env documentEnvelope
-	raw, err := json.Marshal(doc)
+func validateWorkflow(item apitypes.Workflow, expectedName string) (apitypes.Workflow, []byte, error) {
+	var env workflowEnvelope
+	raw, err := json.Marshal(item)
 	if err != nil {
-		return apitypes.WorkflowDocument{}, env, nil, err
+		return apitypes.Workflow{}, nil, err
 	}
 	if err := json.Unmarshal(raw, &env); err != nil {
-		return apitypes.WorkflowDocument{}, env, nil, err
+		return apitypes.Workflow{}, nil, err
 	}
-	if err := customid.ValidateField("metadata.name", env.Metadata.Name); err != nil {
-		return apitypes.WorkflowDocument{}, env, nil, err
+	if err := customid.ValidateField("name", env.Name); err != nil {
+		return apitypes.Workflow{}, nil, err
 	}
 	if env.Spec == nil || bytes.Equal(bytes.TrimSpace(*env.Spec), []byte("null")) {
-		return apitypes.WorkflowDocument{}, env, nil, errors.New("spec is required")
+		return apitypes.Workflow{}, nil, errors.New("spec is required")
 	}
 	if expectedName != "" {
 		if err := customid.ValidateField("path name", expectedName); err != nil {
-			return apitypes.WorkflowDocument{}, env, nil, err
+			return apitypes.Workflow{}, nil, err
 		}
-		if env.Metadata.Name != expectedName {
-			return apitypes.WorkflowDocument{}, env, nil, fmt.Errorf("metadata.name %q must match path name %q", env.Metadata.Name, expectedName)
+		if env.Name != expectedName {
+			return apitypes.Workflow{}, nil, fmt.Errorf("name %q must match path name %q", env.Name, expectedName)
 		}
 	}
-	if strings.TrimSpace(string(doc.Spec.Driver)) == "" {
-		return apitypes.WorkflowDocument{}, env, nil, errors.New("spec.driver is required")
+	if strings.TrimSpace(string(item.Spec.Driver)) == "" {
+		return apitypes.Workflow{}, nil, errors.New("spec.driver is required")
 	}
-	if !doc.Spec.Driver.Valid() {
-		return apitypes.WorkflowDocument{}, env, nil, fmt.Errorf("unsupported spec.driver %q", doc.Spec.Driver)
+	if !item.Spec.Driver.Valid() {
+		return apitypes.Workflow{}, nil, fmt.Errorf("unsupported spec.driver %q", item.Spec.Driver)
 	}
-	if err := validateDriverSpec(doc.Spec); err != nil {
-		return apitypes.WorkflowDocument{}, env, nil, err
+	if err := validateDriverSpec(item.Spec); err != nil {
+		return apitypes.Workflow{}, nil, err
 	}
-	policy, err := toolkit.NormalizePolicy(doc.Spec.Toolkit)
+	if err := validateWorkflowI18n(item.I18n); err != nil {
+		return apitypes.Workflow{}, nil, err
+	}
+	policy, err := toolkit.NormalizePolicy(item.Spec.Toolkit)
 	if err != nil {
-		return apitypes.WorkflowDocument{}, env, nil, fmt.Errorf("spec.toolkit: %w", err)
+		return apitypes.Workflow{}, nil, fmt.Errorf("spec.toolkit: %w", err)
 	}
 
-	doc.Metadata.Name = env.Metadata.Name
-	doc.Spec.Toolkit = policy
-	raw, err = json.Marshal(doc)
+	item.Name = env.Name
+	item.Spec.Toolkit = policy
+	raw, err = json.Marshal(item)
 	if err != nil {
-		return apitypes.WorkflowDocument{}, env, nil, err
+		return apitypes.Workflow{}, nil, err
 	}
-	return doc, env, raw, nil
+	return item, raw, nil
 }
 
 func validateDriverSpec(spec apitypes.WorkflowSpec) error {
@@ -229,12 +228,36 @@ func validateDriverSpec(spec apitypes.WorkflowSpec) error {
 	}
 }
 
-func decodeDocument(data []byte) (apitypes.WorkflowDocument, error) {
-	var doc apitypes.WorkflowDocument
-	if err := json.Unmarshal(data, &doc); err != nil {
-		return apitypes.WorkflowDocument{}, err
+func decodeWorkflow(data []byte) (apitypes.Workflow, error) {
+	var item apitypes.Workflow
+	if err := json.Unmarshal(data, &item); err != nil {
+		return apitypes.Workflow{}, err
 	}
-	return doc, nil
+	validated, _, err := validateWorkflow(item, "")
+	if err != nil {
+		return apitypes.Workflow{}, err
+	}
+	return validated, nil
+}
+
+func validateWorkflowI18n(i18n *apitypes.WorkflowI18n) error {
+	if i18n == nil {
+		return nil
+	}
+	if !i18n.DefaultLocale.Valid() {
+		return fmt.Errorf("unsupported i18n.default_locale %q", i18n.DefaultLocale)
+	}
+	switch i18n.DefaultLocale {
+	case apitypes.WorkflowLocaleEn:
+		if i18n.En == nil {
+			return errors.New("i18n.en is required")
+		}
+	case apitypes.WorkflowLocaleZhCN:
+		if i18n.ZhCN == nil {
+			return errors.New("i18n.zh-CN is required")
+		}
+	}
+	return nil
 }
 
 func workflowKey(name string) kv.Key {

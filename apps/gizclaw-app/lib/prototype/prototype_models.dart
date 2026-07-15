@@ -47,14 +47,18 @@ class WorkflowCard {
 
   factory WorkflowCard.fromServer({
     required String name,
+    String? displayName,
     required String description,
     required String driver,
   }) {
+    final title = displayName?.trim().isNotEmpty == true
+        ? displayName!.trim()
+        : name;
     final normalized = driver.toLowerCase();
     if (normalized.contains('flowcraft')) {
       return WorkflowCard(
         name: name,
-        title: _displayName(name),
+        title: title,
         subtitle: description,
         driverLabel: 'Flowcraft',
         category: 'Productivity',
@@ -66,7 +70,7 @@ class WorkflowCard {
     if (normalized.contains('doubao')) {
       return WorkflowCard(
         name: name,
-        title: _displayName(name),
+        title: title,
         subtitle: description,
         driverLabel: 'Doubao Realtime',
         category: 'Audio',
@@ -78,7 +82,7 @@ class WorkflowCard {
     if (normalized.contains('ast')) {
       return WorkflowCard(
         name: name,
-        title: _displayName(name),
+        title: title,
         subtitle: description,
         driverLabel: 'AST Translate',
         category: 'Code',
@@ -90,7 +94,7 @@ class WorkflowCard {
     if (normalized.contains('chatroom')) {
       return WorkflowCard(
         name: name,
-        title: _displayName(name),
+        title: title,
         subtitle: description,
         driverLabel: 'Chatroom',
         category: 'Conversation',
@@ -101,7 +105,7 @@ class WorkflowCard {
     }
     return WorkflowCard(
       name: name,
-      title: _displayName(name),
+      title: title,
       subtitle: description,
       driverLabel: 'Unavailable',
       category: 'Other',
@@ -116,14 +120,6 @@ class WorkflowCard {
     description: 'Workflow data is not available yet.',
     driver: '',
   );
-}
-
-String _displayName(String value) {
-  return value
-      .split(RegExp('[-_]'))
-      .where((part) => part.isNotEmpty)
-      .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
-      .join(' ');
 }
 
 class WorkspaceCard {

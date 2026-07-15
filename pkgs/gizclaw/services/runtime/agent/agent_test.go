@@ -71,7 +71,7 @@ func TestServiceResolverResolvesWorkspaceAndWorkflow(t *testing.T) {
 				WorkflowName: "workflow-1",
 			},
 		}},
-		Workflows: fakeWorkflowService{items: map[string]apitypes.WorkflowDocument{
+		Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{
 			"workflow-1": mustWorkflow("workflow-1"),
 		}},
 	}
@@ -428,7 +428,7 @@ func (s fakeWorkspaceService) GetWorkspace(_ context.Context, request adminhttp.
 
 type fakeWorkflowService struct {
 	workflow.WorkflowAdminService
-	items map[string]apitypes.WorkflowDocument
+	items map[string]apitypes.Workflow
 }
 
 func (s fakeWorkflowService) GetWorkflow(_ context.Context, request adminhttp.GetWorkflowRequestObject) (adminhttp.GetWorkflowResponseObject, error) {
@@ -457,20 +457,20 @@ func (s responseWorkflowService) GetWorkflow(context.Context, adminhttp.GetWorkf
 	return s.response, nil
 }
 
-func mustWorkflow(name string) apitypes.WorkflowDocument {
-	return apitypes.WorkflowDocument{
-		Metadata: apitypes.WorkflowMetadata{Name: name},
+func mustWorkflow(name string) apitypes.Workflow {
+	return apitypes.Workflow{
+		Name: name,
 		Spec: apitypes.WorkflowSpec{
 			Driver: apitypes.WorkflowDriverFlowcraft,
 		},
 	}
 }
 
-func rawWorkflow(t *testing.T, driver apitypes.WorkflowDriver) apitypes.WorkflowDocument {
+func rawWorkflow(t *testing.T, driver apitypes.WorkflowDriver) apitypes.Workflow {
 	t.Helper()
 	spec := apitypes.FlowcraftWorkflowSpec{}
-	doc := apitypes.WorkflowDocument{
-		Metadata: apitypes.WorkflowMetadata{Name: "workflow"},
+	doc := apitypes.Workflow{
+		Name: "workflow",
 		Spec: apitypes.WorkflowSpec{
 			Driver: driver,
 		},

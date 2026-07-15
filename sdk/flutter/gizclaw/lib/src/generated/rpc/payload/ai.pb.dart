@@ -16,9 +16,12 @@ import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:protobuf/protobuf.dart' as $pb;
 import 'package:protobuf/well_known_types/google/protobuf/struct.pb.dart' as $0;
 
+import 'ai.pbenum.dart';
 import 'enums.pbenum.dart' as $1;
 
 export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
+
+export 'ai.pbenum.dart';
 
 class ASTTranslateExternalVoiceParameters extends $pb.GeneratedMessage {
   factory ASTTranslateExternalVoiceParameters({
@@ -7580,166 +7583,56 @@ class VolcTenantVoiceProviderData extends $pb.GeneratedMessage {
   void clearVoiceId() => $_clearField(5);
 }
 
-class WorkflowCreateRequest extends $pb.GeneratedMessage {
-  factory WorkflowCreateRequest({
-    WorkflowDocument? value,
-  }) {
-    final result = create();
-    if (value != null) result.value = value;
-    return result;
-  }
-
-  WorkflowCreateRequest._();
-
-  factory WorkflowCreateRequest.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory WorkflowCreateRequest.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'WorkflowCreateRequest',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOM<WorkflowDocument>(1, _omitFieldNames ? '' : 'value',
-        subBuilder: WorkflowDocument.create)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  WorkflowCreateRequest clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  WorkflowCreateRequest copyWith(
-          void Function(WorkflowCreateRequest) updates) =>
-      super.copyWith((message) => updates(message as WorkflowCreateRequest))
-          as WorkflowCreateRequest;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static WorkflowCreateRequest create() => WorkflowCreateRequest._();
-  @$core.override
-  WorkflowCreateRequest createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static WorkflowCreateRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<WorkflowCreateRequest>(create);
-  static WorkflowCreateRequest? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  WorkflowDocument get value => $_getN(0);
-  @$pb.TagNumber(1)
-  set value(WorkflowDocument value) => $_setField(1, value);
-  @$pb.TagNumber(1)
-  $core.bool hasValue() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearValue() => $_clearField(1);
-  @$pb.TagNumber(1)
-  WorkflowDocument ensureValue() => $_ensure(0);
-}
-
-class WorkflowCreateResponse extends $pb.GeneratedMessage {
-  factory WorkflowCreateResponse({
-    WorkflowDocument? value,
-  }) {
-    final result = create();
-    if (value != null) result.value = value;
-    return result;
-  }
-
-  WorkflowCreateResponse._();
-
-  factory WorkflowCreateResponse.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory WorkflowCreateResponse.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'WorkflowCreateResponse',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOM<WorkflowDocument>(1, _omitFieldNames ? '' : 'value',
-        subBuilder: WorkflowDocument.create)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  WorkflowCreateResponse clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  WorkflowCreateResponse copyWith(
-          void Function(WorkflowCreateResponse) updates) =>
-      super.copyWith((message) => updates(message as WorkflowCreateResponse))
-          as WorkflowCreateResponse;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static WorkflowCreateResponse create() => WorkflowCreateResponse._();
-  @$core.override
-  WorkflowCreateResponse createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static WorkflowCreateResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<WorkflowCreateResponse>(create);
-  static WorkflowCreateResponse? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  WorkflowDocument get value => $_getN(0);
-  @$pb.TagNumber(1)
-  set value(WorkflowDocument value) => $_setField(1, value);
-  @$pb.TagNumber(1)
-  $core.bool hasValue() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearValue() => $_clearField(1);
-  @$pb.TagNumber(1)
-  WorkflowDocument ensureValue() => $_ensure(0);
-}
-
-class WorkflowDeleteRequest extends $pb.GeneratedMessage {
-  factory WorkflowDeleteRequest({
+class Workflow extends $pb.GeneratedMessage {
+  factory Workflow({
     $core.String? name,
+    WorkflowSpec? spec,
+    WorkflowI18nCatalog? i18n,
   }) {
     final result = create();
     if (name != null) result.name = name;
+    if (spec != null) result.spec = spec;
+    if (i18n != null) result.i18n = i18n;
     return result;
   }
 
-  WorkflowDeleteRequest._();
+  Workflow._();
 
-  factory WorkflowDeleteRequest.fromBuffer($core.List<$core.int> data,
+  factory Workflow.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory WorkflowDeleteRequest.fromJson($core.String json,
+  factory Workflow.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'WorkflowDeleteRequest',
+      _omitMessageNames ? '' : 'Workflow',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aOM<WorkflowSpec>(2, _omitFieldNames ? '' : 'spec',
+        subBuilder: WorkflowSpec.create)
+    ..aOM<WorkflowI18nCatalog>(3, _omitFieldNames ? '' : 'i18n',
+        subBuilder: WorkflowI18nCatalog.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  WorkflowDeleteRequest clone() => deepCopy();
+  Workflow clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  WorkflowDeleteRequest copyWith(
-          void Function(WorkflowDeleteRequest) updates) =>
-      super.copyWith((message) => updates(message as WorkflowDeleteRequest))
-          as WorkflowDeleteRequest;
+  Workflow copyWith(void Function(Workflow) updates) =>
+      super.copyWith((message) => updates(message as Workflow)) as Workflow;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static WorkflowDeleteRequest create() => WorkflowDeleteRequest._();
+  static Workflow create() => Workflow._();
   @$core.override
-  WorkflowDeleteRequest createEmptyInstance() => create();
+  Workflow createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static WorkflowDeleteRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<WorkflowDeleteRequest>(create);
-  static WorkflowDeleteRequest? _defaultInstance;
+  static Workflow getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Workflow>(create);
+  static Workflow? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get name => $_getSZ(0);
@@ -7749,125 +7642,6 @@ class WorkflowDeleteRequest extends $pb.GeneratedMessage {
   $core.bool hasName() => $_has(0);
   @$pb.TagNumber(1)
   void clearName() => $_clearField(1);
-}
-
-class WorkflowDeleteResponse extends $pb.GeneratedMessage {
-  factory WorkflowDeleteResponse({
-    WorkflowDocument? value,
-  }) {
-    final result = create();
-    if (value != null) result.value = value;
-    return result;
-  }
-
-  WorkflowDeleteResponse._();
-
-  factory WorkflowDeleteResponse.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory WorkflowDeleteResponse.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'WorkflowDeleteResponse',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOM<WorkflowDocument>(1, _omitFieldNames ? '' : 'value',
-        subBuilder: WorkflowDocument.create)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  WorkflowDeleteResponse clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  WorkflowDeleteResponse copyWith(
-          void Function(WorkflowDeleteResponse) updates) =>
-      super.copyWith((message) => updates(message as WorkflowDeleteResponse))
-          as WorkflowDeleteResponse;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static WorkflowDeleteResponse create() => WorkflowDeleteResponse._();
-  @$core.override
-  WorkflowDeleteResponse createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static WorkflowDeleteResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<WorkflowDeleteResponse>(create);
-  static WorkflowDeleteResponse? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  WorkflowDocument get value => $_getN(0);
-  @$pb.TagNumber(1)
-  set value(WorkflowDocument value) => $_setField(1, value);
-  @$pb.TagNumber(1)
-  $core.bool hasValue() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearValue() => $_clearField(1);
-  @$pb.TagNumber(1)
-  WorkflowDocument ensureValue() => $_ensure(0);
-}
-
-class WorkflowDocument extends $pb.GeneratedMessage {
-  factory WorkflowDocument({
-    WorkflowMetadata? metadata,
-    WorkflowSpec? spec,
-  }) {
-    final result = create();
-    if (metadata != null) result.metadata = metadata;
-    if (spec != null) result.spec = spec;
-    return result;
-  }
-
-  WorkflowDocument._();
-
-  factory WorkflowDocument.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory WorkflowDocument.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'WorkflowDocument',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOM<WorkflowMetadata>(1, _omitFieldNames ? '' : 'metadata',
-        subBuilder: WorkflowMetadata.create)
-    ..aOM<WorkflowSpec>(2, _omitFieldNames ? '' : 'spec',
-        subBuilder: WorkflowSpec.create)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  WorkflowDocument clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  WorkflowDocument copyWith(void Function(WorkflowDocument) updates) =>
-      super.copyWith((message) => updates(message as WorkflowDocument))
-          as WorkflowDocument;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static WorkflowDocument create() => WorkflowDocument._();
-  @$core.override
-  WorkflowDocument createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static WorkflowDocument getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<WorkflowDocument>(create);
-  static WorkflowDocument? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  WorkflowMetadata get metadata => $_getN(0);
-  @$pb.TagNumber(1)
-  set metadata(WorkflowMetadata value) => $_setField(1, value);
-  @$pb.TagNumber(1)
-  $core.bool hasMetadata() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearMetadata() => $_clearField(1);
-  @$pb.TagNumber(1)
-  WorkflowMetadata ensureMetadata() => $_ensure(0);
 
   @$pb.TagNumber(2)
   WorkflowSpec get spec => $_getN(1);
@@ -7879,14 +7653,27 @@ class WorkflowDocument extends $pb.GeneratedMessage {
   void clearSpec() => $_clearField(2);
   @$pb.TagNumber(2)
   WorkflowSpec ensureSpec() => $_ensure(1);
+
+  @$pb.TagNumber(3)
+  WorkflowI18nCatalog get i18n => $_getN(2);
+  @$pb.TagNumber(3)
+  set i18n(WorkflowI18nCatalog value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasI18n() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearI18n() => $_clearField(3);
+  @$pb.TagNumber(3)
+  WorkflowI18nCatalog ensureI18n() => $_ensure(2);
 }
 
 class WorkflowGetRequest extends $pb.GeneratedMessage {
   factory WorkflowGetRequest({
     $core.String? name,
+    WorkflowLocale? lang,
   }) {
     final result = create();
     if (name != null) result.name = name;
+    if (lang != null) result.lang = lang;
     return result;
   }
 
@@ -7904,6 +7691,8 @@ class WorkflowGetRequest extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aE<WorkflowLocale>(2, _omitFieldNames ? '' : 'lang',
+        enumValues: WorkflowLocale.values)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -7933,11 +7722,20 @@ class WorkflowGetRequest extends $pb.GeneratedMessage {
   $core.bool hasName() => $_has(0);
   @$pb.TagNumber(1)
   void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  WorkflowLocale get lang => $_getN(1);
+  @$pb.TagNumber(2)
+  set lang(WorkflowLocale value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasLang() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearLang() => $_clearField(2);
 }
 
 class WorkflowGetResponse extends $pb.GeneratedMessage {
   factory WorkflowGetResponse({
-    WorkflowDocument? value,
+    Workflow? value,
   }) {
     final result = create();
     if (value != null) result.value = value;
@@ -7957,8 +7755,8 @@ class WorkflowGetResponse extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'WorkflowGetResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOM<WorkflowDocument>(1, _omitFieldNames ? '' : 'value',
-        subBuilder: WorkflowDocument.create)
+    ..aOM<Workflow>(1, _omitFieldNames ? '' : 'value',
+        subBuilder: Workflow.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -7981,25 +7779,27 @@ class WorkflowGetResponse extends $pb.GeneratedMessage {
   static WorkflowGetResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
-  WorkflowDocument get value => $_getN(0);
+  Workflow get value => $_getN(0);
   @$pb.TagNumber(1)
-  set value(WorkflowDocument value) => $_setField(1, value);
+  set value(Workflow value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasValue() => $_has(0);
   @$pb.TagNumber(1)
   void clearValue() => $_clearField(1);
   @$pb.TagNumber(1)
-  WorkflowDocument ensureValue() => $_ensure(0);
+  Workflow ensureValue() => $_ensure(0);
 }
 
 class WorkflowListRequest extends $pb.GeneratedMessage {
   factory WorkflowListRequest({
     $core.String? cursor,
     $fixnum.Int64? limit,
+    WorkflowLocale? lang,
   }) {
     final result = create();
     if (cursor != null) result.cursor = cursor;
     if (limit != null) result.limit = limit;
+    if (lang != null) result.lang = lang;
     return result;
   }
 
@@ -8018,6 +7818,8 @@ class WorkflowListRequest extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'cursor')
     ..aInt64(2, _omitFieldNames ? '' : 'limit')
+    ..aE<WorkflowLocale>(3, _omitFieldNames ? '' : 'lang',
+        enumValues: WorkflowLocale.values)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -8056,12 +7858,21 @@ class WorkflowListRequest extends $pb.GeneratedMessage {
   $core.bool hasLimit() => $_has(1);
   @$pb.TagNumber(2)
   void clearLimit() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  WorkflowLocale get lang => $_getN(2);
+  @$pb.TagNumber(3)
+  set lang(WorkflowLocale value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasLang() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearLang() => $_clearField(3);
 }
 
 class WorkflowListResponse extends $pb.GeneratedMessage {
   factory WorkflowListResponse({
     $core.bool? hasNext,
-    $core.Iterable<WorkflowDocument>? items,
+    $core.Iterable<Workflow>? items,
     $core.String? nextCursor,
   }) {
     final result = create();
@@ -8085,8 +7896,8 @@ class WorkflowListResponse extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOB(1, _omitFieldNames ? '' : 'hasNext')
-    ..pPM<WorkflowDocument>(2, _omitFieldNames ? '' : 'items',
-        subBuilder: WorkflowDocument.create)
+    ..pPM<Workflow>(2, _omitFieldNames ? '' : 'items',
+        subBuilder: Workflow.create)
     ..aOS(3, _omitFieldNames ? '' : 'nextCursor')
     ..hasRequiredFields = false;
 
@@ -8119,7 +7930,7 @@ class WorkflowListResponse extends $pb.GeneratedMessage {
   void clearHasNext() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $pb.PbList<WorkflowDocument> get items => $_getList(1);
+  $pb.PbList<Workflow> get items => $_getList(1);
 
   @$pb.TagNumber(3)
   $core.String get nextCursor => $_getSZ(2);
@@ -8131,70 +7942,70 @@ class WorkflowListResponse extends $pb.GeneratedMessage {
   void clearNextCursor() => $_clearField(3);
 }
 
-class WorkflowMetadata extends $pb.GeneratedMessage {
-  factory WorkflowMetadata({
-    $core.String? description,
+class WorkflowI18nCatalog extends $pb.GeneratedMessage {
+  factory WorkflowI18nCatalog({
     $core.String? name,
+    $core.String? description,
   }) {
     final result = create();
-    if (description != null) result.description = description;
     if (name != null) result.name = name;
+    if (description != null) result.description = description;
     return result;
   }
 
-  WorkflowMetadata._();
+  WorkflowI18nCatalog._();
 
-  factory WorkflowMetadata.fromBuffer($core.List<$core.int> data,
+  factory WorkflowI18nCatalog.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory WorkflowMetadata.fromJson($core.String json,
+  factory WorkflowI18nCatalog.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'WorkflowMetadata',
+      _omitMessageNames ? '' : 'WorkflowI18nCatalog',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'description')
-    ..aOS(2, _omitFieldNames ? '' : 'name')
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aOS(2, _omitFieldNames ? '' : 'description')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  WorkflowMetadata clone() => deepCopy();
+  WorkflowI18nCatalog clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  WorkflowMetadata copyWith(void Function(WorkflowMetadata) updates) =>
-      super.copyWith((message) => updates(message as WorkflowMetadata))
-          as WorkflowMetadata;
+  WorkflowI18nCatalog copyWith(void Function(WorkflowI18nCatalog) updates) =>
+      super.copyWith((message) => updates(message as WorkflowI18nCatalog))
+          as WorkflowI18nCatalog;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static WorkflowMetadata create() => WorkflowMetadata._();
+  static WorkflowI18nCatalog create() => WorkflowI18nCatalog._();
   @$core.override
-  WorkflowMetadata createEmptyInstance() => create();
+  WorkflowI18nCatalog createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static WorkflowMetadata getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<WorkflowMetadata>(create);
-  static WorkflowMetadata? _defaultInstance;
+  static WorkflowI18nCatalog getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<WorkflowI18nCatalog>(create);
+  static WorkflowI18nCatalog? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get description => $_getSZ(0);
+  $core.String get name => $_getSZ(0);
   @$pb.TagNumber(1)
-  set description($core.String value) => $_setString(0, value);
+  set name($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasDescription() => $_has(0);
+  $core.bool hasName() => $_has(0);
   @$pb.TagNumber(1)
-  void clearDescription() => $_clearField(1);
+  void clearName() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $core.String get name => $_getSZ(1);
+  $core.String get description => $_getSZ(1);
   @$pb.TagNumber(2)
-  set name($core.String value) => $_setString(1, value);
+  set description($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
-  $core.bool hasName() => $_has(1);
+  $core.bool hasDescription() => $_has(1);
   @$pb.TagNumber(2)
-  void clearName() => $_clearField(2);
+  void clearDescription() => $_clearField(2);
 }
 
 class ToolkitPolicyToolIds extends $pb.GeneratedMessage {
@@ -8300,132 +8111,6 @@ class ToolkitPolicy extends $pb.GeneratedMessage {
   void clearToolIds() => $_clearField(1);
   @$pb.TagNumber(1)
   ToolkitPolicyToolIds ensureToolIds() => $_ensure(0);
-}
-
-class WorkflowPutRequest extends $pb.GeneratedMessage {
-  factory WorkflowPutRequest({
-    WorkflowDocument? body,
-    $core.String? name,
-  }) {
-    final result = create();
-    if (body != null) result.body = body;
-    if (name != null) result.name = name;
-    return result;
-  }
-
-  WorkflowPutRequest._();
-
-  factory WorkflowPutRequest.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory WorkflowPutRequest.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'WorkflowPutRequest',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOM<WorkflowDocument>(1, _omitFieldNames ? '' : 'body',
-        subBuilder: WorkflowDocument.create)
-    ..aOS(2, _omitFieldNames ? '' : 'name')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  WorkflowPutRequest clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  WorkflowPutRequest copyWith(void Function(WorkflowPutRequest) updates) =>
-      super.copyWith((message) => updates(message as WorkflowPutRequest))
-          as WorkflowPutRequest;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static WorkflowPutRequest create() => WorkflowPutRequest._();
-  @$core.override
-  WorkflowPutRequest createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static WorkflowPutRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<WorkflowPutRequest>(create);
-  static WorkflowPutRequest? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  WorkflowDocument get body => $_getN(0);
-  @$pb.TagNumber(1)
-  set body(WorkflowDocument value) => $_setField(1, value);
-  @$pb.TagNumber(1)
-  $core.bool hasBody() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearBody() => $_clearField(1);
-  @$pb.TagNumber(1)
-  WorkflowDocument ensureBody() => $_ensure(0);
-
-  @$pb.TagNumber(2)
-  $core.String get name => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set name($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasName() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearName() => $_clearField(2);
-}
-
-class WorkflowPutResponse extends $pb.GeneratedMessage {
-  factory WorkflowPutResponse({
-    WorkflowDocument? value,
-  }) {
-    final result = create();
-    if (value != null) result.value = value;
-    return result;
-  }
-
-  WorkflowPutResponse._();
-
-  factory WorkflowPutResponse.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory WorkflowPutResponse.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'WorkflowPutResponse',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOM<WorkflowDocument>(1, _omitFieldNames ? '' : 'value',
-        subBuilder: WorkflowDocument.create)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  WorkflowPutResponse clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  WorkflowPutResponse copyWith(void Function(WorkflowPutResponse) updates) =>
-      super.copyWith((message) => updates(message as WorkflowPutResponse))
-          as WorkflowPutResponse;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static WorkflowPutResponse create() => WorkflowPutResponse._();
-  @$core.override
-  WorkflowPutResponse createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static WorkflowPutResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<WorkflowPutResponse>(create);
-  static WorkflowPutResponse? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  WorkflowDocument get value => $_getN(0);
-  @$pb.TagNumber(1)
-  set value(WorkflowDocument value) => $_setField(1, value);
-  @$pb.TagNumber(1)
-  $core.bool hasValue() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearValue() => $_clearField(1);
-  @$pb.TagNumber(1)
-  WorkflowDocument ensureValue() => $_ensure(0);
 }
 
 class WorkflowSpec extends $pb.GeneratedMessage {

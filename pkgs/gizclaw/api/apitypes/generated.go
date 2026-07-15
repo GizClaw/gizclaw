@@ -1393,6 +1393,24 @@ func (e WorkflowDriver) Valid() bool {
 	}
 }
 
+// Defines values for WorkflowLocale.
+const (
+	WorkflowLocaleEn   WorkflowLocale = "en"
+	WorkflowLocaleZhCN WorkflowLocale = "zh-CN"
+)
+
+// Valid indicates whether the value is a known member of the WorkflowLocale enum.
+func (e WorkflowLocale) Valid() bool {
+	switch e {
+	case WorkflowLocaleEn:
+		return true
+	case WorkflowLocaleZhCN:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for WorkflowResourceKind.
 const (
 	WorkflowResourceKindWorkflow WorkflowResourceKind = "Workflow"
@@ -3715,28 +3733,43 @@ type VolcTenantVoiceProviderData struct {
 	VoiceId    *string                 `json:"voice_id,omitempty"`
 }
 
-// WorkflowDocument defines model for WorkflowDocument.
-type WorkflowDocument struct {
-	Metadata WorkflowMetadata `json:"metadata"`
-	Spec     WorkflowSpec     `json:"spec"`
+// Workflow defines model for Workflow.
+type Workflow struct {
+	// I18n Workflow-owned closed locale catalogs. default_locale must name a present catalog property.
+	I18n *WorkflowI18n `json:"i18n,omitempty"`
+
+	// Name Stable workflow ID used by storage, paths, ACLs, and workspace references.
+	Name string       `json:"name"`
+	Spec WorkflowSpec `json:"spec"`
 }
 
 // WorkflowDriver defines model for WorkflowDriver.
 type WorkflowDriver string
 
-// WorkflowMetadata defines model for WorkflowMetadata.
-type WorkflowMetadata struct {
-	Description *string `json:"description,omitempty"`
-
-	// Name Stable workflow ID. The creator must provide this value.
-	Name string `json:"name"`
+// WorkflowI18n Workflow-owned closed locale catalogs. default_locale must name a present catalog property.
+type WorkflowI18n struct {
+	DefaultLocale WorkflowLocale       `json:"default_locale"`
+	En            *WorkflowI18nCatalog `json:"en,omitempty"`
+	ZhCN          *WorkflowI18nCatalog `json:"zh-CN,omitempty"`
 }
+
+// WorkflowI18nCatalog defines model for WorkflowI18nCatalog.
+type WorkflowI18nCatalog struct {
+	Description *string `json:"description,omitempty"`
+	Name        *string `json:"name,omitempty"`
+}
+
+// WorkflowLocale defines model for WorkflowLocale.
+type WorkflowLocale string
 
 // WorkflowResource defines model for WorkflowResource.
 type WorkflowResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
-	ApiVersion ResourceAPIVersion   `json:"apiVersion"`
-	Kind       WorkflowResourceKind `json:"kind"`
+	ApiVersion ResourceAPIVersion `json:"apiVersion"`
+
+	// I18n Workflow-owned closed locale catalogs. default_locale must name a present catalog property.
+	I18n *WorkflowI18n        `json:"i18n,omitempty"`
+	Kind WorkflowResourceKind `json:"kind"`
 
 	// Metadata metadata.name is the workflow custom ID.
 	Metadata ResourceMetadata `json:"metadata"`

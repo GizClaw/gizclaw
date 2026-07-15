@@ -284,17 +284,18 @@ func testRPCCredentialBodyString(body rpcapi.CredentialBody, key string) string 
 	return *openAI.ApiKey
 }
 
-func rpcWorkflow(name, description string) rpcapi.WorkflowDocument {
-	spec := rpcapi.FlowcraftWorkflowSpec{
+func adminWorkflow(name, description string) apitypes.Workflow {
+	spec := apitypes.FlowcraftWorkflowSpec{
 		"entry_agent": "",
 	}
-	return rpcapi.WorkflowDocument{
-		Metadata: rpcapi.WorkflowMetadata{
-			Name:        name,
-			Description: &description,
+	return apitypes.Workflow{
+		I18n: &apitypes.WorkflowI18n{
+			DefaultLocale: apitypes.WorkflowLocaleEn,
+			En:            &apitypes.WorkflowI18nCatalog{Description: &description},
 		},
-		Spec: rpcapi.WorkflowSpec{
-			Driver:    rpcapi.WorkflowDriverFlowcraft,
+		Name: name,
+		Spec: apitypes.WorkflowSpec{
+			Driver:    apitypes.WorkflowDriverFlowcraft,
 			Flowcraft: &spec,
 		},
 	}
@@ -320,7 +321,7 @@ func rpcCredential(name, apiKey string) rpcapi.Credential {
 	}
 }
 
-func assertWorkflowPagination(t *testing.T, ctx context.Context, peer *gizcli.Client, wantA, wantB string) {
+func assertWorkflowPagination(t *testing.T, ctx context.Context, peer *gizcli.Client, wants ...string) {
 	t.Helper()
 
 	limit := 1
@@ -335,9 +336,13 @@ func assertWorkflowPagination(t *testing.T, ctx context.Context, peer *gizcli.Cl
 			t.Fatalf("workflow.list page %d len = %d, want <= %d", page, len(list.Items), limit)
 		}
 		for _, item := range list.Items {
-			got[item.Metadata.Name] = true
+			got[item.Name] = true
 		}
-		if got[wantA] && got[wantB] {
+		complete := true
+		for _, want := range wants {
+			complete = complete && got[want]
+		}
+		if complete {
 			return
 		}
 		if !list.HasNext {
@@ -348,7 +353,7 @@ func assertWorkflowPagination(t *testing.T, ctx context.Context, peer *gizcli.Cl
 		}
 		cursor = list.NextCursor
 	}
-	t.Fatalf("workflow list pagination got names %#v, want %q and %q", got, wantA, wantB)
+	t.Fatalf("workflow list pagination got names %#v, want %#v", got, wants)
 }
 
 func assertWorkspacePagination(t *testing.T, ctx context.Context, peer *gizcli.Client, wantA, wantB string) {
@@ -491,9 +496,9 @@ func assertDeniedListsAreEmpty(t *testing.T, ctx context.Context, denied *gizcli
 	}
 }
 
-func hasWorkflow(items []rpcapi.WorkflowDocument, name string) bool {
+func hasWorkflow(items []rpcapi.Workflow, name string) bool {
 	for _, item := range items {
-		if item.Metadata.Name == name {
+		if item.Name == name {
 			return true
 		}
 	}

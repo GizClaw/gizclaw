@@ -15,9 +15,9 @@ import (
 
 func stringPtr(value string) *string { return &value }
 
-func testDoubaoRealtimeWorkflow(spec apitypes.DoubaoRealtimeWorkflowSpec) apitypes.WorkflowDocument {
-	return apitypes.WorkflowDocument{
-		Metadata: apitypes.WorkflowMetadata{Name: "demo-workflow"},
+func testDoubaoRealtimeWorkflow(spec apitypes.DoubaoRealtimeWorkflowSpec) apitypes.Workflow {
+	return apitypes.Workflow{
+		Name: "demo-workflow",
 		Spec: apitypes.WorkflowSpec{
 			Driver:         apitypes.WorkflowDriverDoubaoRealtime,
 			DoubaoRealtime: &spec,

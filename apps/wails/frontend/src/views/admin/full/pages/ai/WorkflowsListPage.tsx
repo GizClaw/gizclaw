@@ -12,7 +12,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { expectData } from "@/dashboard";
-import { listWorkflows, type WorkflowDocument } from "@gizclaw/gizclaw/admin";
+import { supportedWorkflowLocales } from "@/lib/gizclaw/workflow_i18n";
+import { listWorkflows, type Workflow, type WorkflowI18nCatalog } from "@gizclaw/gizclaw/admin";
 
 import { ErrorBanner } from "@/dashboard";
 import { EmptyState } from "@/dashboard";
@@ -22,7 +23,7 @@ import { useDashboardCursorPage as useCursorListPage } from "@/dashboard";
 export function WorkflowsListPage(): JSX.Element {
   const navigate = useNavigate();
   const [copiedName, setCopiedName] = useState("");
-  const { error, hasNext, items, loading, nextPage, pageNumber, prevPage, refresh } = useCursorListPage<WorkflowDocument>(
+  const { error, hasNext, items, loading, nextPage, pageNumber, prevPage, refresh } = useCursorListPage<Workflow>(
     async (query) => {
       const result = await expectData(listWorkflows({ query }));
       return {
@@ -78,7 +79,7 @@ export function WorkflowsListPage(): JSX.Element {
       />
 
       <PageSummaryCard
-        description="Declarative workflow documents that workspaces load when running agents."
+        description="Workflows that workspaces load when running agents."
         eyebrow="AI"
         meta={
           <>
@@ -96,7 +97,7 @@ export function WorkflowsListPage(): JSX.Element {
         <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
           <div className="space-y-1">
             <CardTitle>Workflow catalog</CardTitle>
-            <CardDescription>Workflow documents grouped by driver and metadata.</CardDescription>
+            <CardDescription>Workflows grouped by driver and localized catalog.</CardDescription>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -111,7 +112,7 @@ export function WorkflowsListPage(): JSX.Element {
               ))}
             </div>
           ) : items.length === 0 ? (
-            <EmptyState description="Workflow documents will appear here after they are created." title="No workflows" />
+            <EmptyState description="Workflows will appear here after they are created." title="No workflows" />
           ) : (
             <DashboardTable className="table-fixed">
                 <TableHeader>
@@ -127,9 +128,9 @@ export function WorkflowsListPage(): JSX.Element {
                   {items.map((workflow) => (
                     <TableRow
                       className="cursor-pointer hover:bg-muted/40"
-                      key={workflow.metadata.name}
-                      onClick={() => openWorkflow(workflow.metadata.name)}
-                      onKeyDown={(event) => handleRowKeyDown(event, workflow.metadata.name)}
+                      key={workflow.name}
+                      onClick={() => openWorkflow(workflow.name)}
+                      onKeyDown={(event) => handleRowKeyDown(event, workflow.name)}
                       role="link"
                       tabIndex={0}
                     >
@@ -139,21 +140,21 @@ export function WorkflowsListPage(): JSX.Element {
                             className="min-w-0 truncate rounded-sm text-left font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             onClick={(event) => {
                               event.stopPropagation();
-                              openWorkflow(workflow.metadata.name);
+                              openWorkflow(workflow.name);
                             }}
-                            title={workflow.metadata.name}
+                            title={workflow.name}
                             type="button"
                           >
-                            {workflow.metadata.name}
+                            {workflow.name}
                           </button>
                           <button
-                            aria-label={`Copy workflow name ${workflow.metadata.name}`}
+                            aria-label={`Copy workflow name ${workflow.name}`}
                             className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                            onClick={(event) => void copyWorkflowName(event, workflow.metadata.name)}
+                            onClick={(event) => void copyWorkflowName(event, workflow.name)}
                             title="Copy workflow name"
                             type="button"
                           >
-                            {copiedName === workflow.metadata.name ? <Check className="size-3 shrink-0 text-emerald-600" /> : <Copy className="size-3 shrink-0" />}
+                            {copiedName === workflow.name ? <Check className="size-3 shrink-0 text-emerald-600" /> : <Copy className="size-3 shrink-0" />}
                           </button>
                         </div>
                       </TableCell>
@@ -161,8 +162,8 @@ export function WorkflowsListPage(): JSX.Element {
                         <Badge variant="outline">{workflow.spec.driver}</Badge>
                       </TableCell>
                       <TableCell>{workflowSpecLabel(workflow)}</TableCell>
-                      <TableCell className="truncate text-sm text-muted-foreground" title={workflow.metadata.description?.trim() || "—"}>
-                        {workflow.metadata.description?.trim() || "—"}
+                      <TableCell className="truncate text-sm text-muted-foreground" title={workflowDescription(workflow) || "—"}>
+                        {workflowDescription(workflow) || "—"}
                       </TableCell>
                       <TableCell className="text-right text-sm text-muted-foreground">—</TableCell>
                     </TableRow>
@@ -180,7 +181,29 @@ function isInteractiveTarget(target: EventTarget): boolean {
   return target instanceof Element && target.closest("a,button,input,select,textarea") !== null;
 }
 
-function workflowSpecLabel(workflow: WorkflowDocument): string {
+function workflowDescription(workflow: Workflow): string {
+  const catalog = workflowCatalog(workflow, navigator.languages);
+  return catalog?.description?.trim() ?? "";
+}
+
+function workflowCatalog(workflow: Workflow, localeTags: readonly string[]): WorkflowI18nCatalog | undefined {
+  const i18n = workflow.i18n;
+  if (!i18n) {
+    return undefined;
+  }
+
+  const candidates = supportedWorkflowLocales(localeTags);
+  candidates.push(i18n.default_locale);
+  for (const locale of candidates) {
+    const catalog = locale === "zh-CN" ? i18n["zh-CN"] : i18n.en;
+    if (typeof catalog === "object") {
+      return catalog;
+    }
+  }
+  return undefined;
+}
+
+function workflowSpecLabel(workflow: Workflow): string {
   if (workflow.spec.ast_translate !== undefined) {
     return "ast_translate";
   }

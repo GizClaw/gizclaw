@@ -47,32 +47,14 @@ func TestRPCClientResourceMethods(t *testing.T) {
 	workflowList := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.WorkflowListResponse, error) {
 		return client.ListWorkflows(context.Background(), conn, "workflow-list", rpcapi.WorkflowListRequest{})
 	})
-	if len(workflowList.Items) != 1 || workflowList.Items[0].Metadata.Name != "flow-a" {
+	if len(workflowList.Items) != 1 || workflowList.Items[0].Name != "flow-a" {
 		t.Fatalf("ListWorkflows() = %+v", workflowList)
 	}
 	workflow := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.WorkflowGetResponse, error) {
 		return client.GetWorkflow(context.Background(), conn, "workflow-get", rpcapi.WorkflowGetRequest{Name: "flow-a"})
 	})
-	if workflow.Metadata.Name != "flow-a" {
+	if workflow.Name != "flow-a" {
 		t.Fatalf("GetWorkflow() = %+v", workflow)
-	}
-	workflow = callRPCPair(t, server, func(conn net.Conn) (*rpcapi.WorkflowCreateResponse, error) {
-		return client.CreateWorkflow(context.Background(), conn, "workflow-create", resourceWorkflowDoc("flow-a"))
-	})
-	if workflow.Metadata.Name != "flow-a" {
-		t.Fatalf("CreateWorkflow() = %+v", workflow)
-	}
-	workflow = callRPCPair(t, server, func(conn net.Conn) (*rpcapi.WorkflowPutResponse, error) {
-		return client.PutWorkflow(context.Background(), conn, "workflow-put", rpcapi.WorkflowPutRequest{Name: "flow-a", Body: resourceWorkflowDoc("flow-a")})
-	})
-	if workflow.Metadata.Name != "flow-a" {
-		t.Fatalf("PutWorkflow() = %+v", workflow)
-	}
-	workflow = callRPCPair(t, server, func(conn net.Conn) (*rpcapi.WorkflowDeleteResponse, error) {
-		return client.DeleteWorkflow(context.Background(), conn, "workflow-delete", rpcapi.WorkflowDeleteRequest{Name: "flow-a"})
-	})
-	if workflow.Metadata.Name != "flow-a" {
-		t.Fatalf("DeleteWorkflow() = %+v", workflow)
 	}
 
 	modelList := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.ModelListResponse, error) {
@@ -189,31 +171,13 @@ func (f *fakeRPCServerResourceService) Dispatch(_ context.Context, req *rpcapi.R
 		if _, err := req.Params.AsWorkflowListRequest(); err != nil {
 			f.t.Fatalf("workflow.list params: %v", err)
 		}
-		return resourceResponse(req.Id, rpcapi.WorkflowListResponse{Items: []rpcapi.WorkflowDocument{resourceWorkflowDoc("flow-a")}}, (*rpcapi.RPCPayload).FromWorkflowListResponse), true, nil
+		return resourceResponse(req.Id, rpcapi.WorkflowListResponse{Items: []rpcapi.Workflow{resourceWorkflowDoc("flow-a")}}, (*rpcapi.RPCPayload).FromWorkflowListResponse), true, nil
 	case rpcapi.RPCMethodServerWorkflowGet:
 		params, err := req.Params.AsWorkflowGetRequest()
 		if err != nil || params.Name != "flow-a" {
 			f.t.Fatalf("workflow.get params = %+v, %v", params, err)
 		}
 		return resourceResponse(req.Id, resourceWorkflowDoc("flow-a"), (*rpcapi.RPCPayload).FromWorkflowGetResponse), true, nil
-	case rpcapi.RPCMethodServerWorkflowCreate:
-		params, err := req.Params.AsWorkflowCreateRequest()
-		if err != nil || params.Metadata.Name != "flow-a" {
-			f.t.Fatalf("workflow.create params = %+v, %v", params, err)
-		}
-		return resourceResponse(req.Id, resourceWorkflowDoc("flow-a"), (*rpcapi.RPCPayload).FromWorkflowCreateResponse), true, nil
-	case rpcapi.RPCMethodServerWorkflowPut:
-		params, err := req.Params.AsWorkflowPutRequest()
-		if err != nil || params.Name != "flow-a" || params.Body.Metadata.Name != "flow-a" {
-			f.t.Fatalf("workflow.put params = %+v, %v", params, err)
-		}
-		return resourceResponse(req.Id, resourceWorkflowDoc("flow-a"), (*rpcapi.RPCPayload).FromWorkflowPutResponse), true, nil
-	case rpcapi.RPCMethodServerWorkflowDelete:
-		params, err := req.Params.AsWorkflowDeleteRequest()
-		if err != nil || params.Name != "flow-a" {
-			f.t.Fatalf("workflow.delete params = %+v, %v", params, err)
-		}
-		return resourceResponse(req.Id, resourceWorkflowDoc("flow-a"), (*rpcapi.RPCPayload).FromWorkflowDeleteResponse), true, nil
 	case rpcapi.RPCMethodServerModelList:
 		if _, err := req.Params.AsModelListRequest(); err != nil {
 			f.t.Fatalf("model.list params: %v", err)
@@ -290,10 +254,10 @@ func resourceWorkspace(name string) rpcapi.Workspace {
 	return rpcapi.Workspace{Name: name, WorkflowName: "flow-a"}
 }
 
-func resourceWorkflowDoc(name string) rpcapi.WorkflowDocument {
+func resourceWorkflowDoc(name string) rpcapi.Workflow {
 	spec := rpcapi.FlowcraftWorkflowSpec{"entry_agent": ""}
-	return rpcapi.WorkflowDocument{
-		Metadata: rpcapi.WorkflowMetadata{Name: name},
+	return rpcapi.Workflow{
+		Name: name,
 		Spec: rpcapi.WorkflowSpec{
 			Driver:    rpcapi.WorkflowDriverFlowcraft,
 			Flowcraft: &spec,

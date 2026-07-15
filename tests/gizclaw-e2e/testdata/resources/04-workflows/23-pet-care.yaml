@@ -3,7 +3,10 @@ apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
   name: pet-care
-  description: Built-in Flowcraft-backed conversation and memory runtime for adopted pets
+i18n:
+  default_locale: en
+  en:
+    description: Built-in Flowcraft-backed conversation and memory runtime for adopted pets
 spec:
   driver: pet
   pet: {}

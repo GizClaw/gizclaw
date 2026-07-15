@@ -9,14 +9,15 @@ void main() {
   test('refreshes workflow and workspace snapshots into Drift', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(database.close);
-    final repository = MobileDataRepository(database);
+    final repository = MobileDataRepository(
+      database,
+      deviceLocaleTag: () => 'zh-Hans-CN',
+    );
     final client = _FakeClient(
       workflows: [
-        WorkflowDocument(
-          metadata: WorkflowMetadata(
-            name: 'build-helper',
-            description: 'Build something useful.',
-          ),
+        Workflow(
+          name: 'build-helper',
+          i18n: WorkflowI18nCatalog(name: '构建助手', description: '构建有用的东西。'),
           spec: WorkflowSpec(driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT),
         ),
       ],
@@ -62,8 +63,10 @@ void main() {
     final workflows = await repository.watchWorkflows('server-a').first;
     final workspaces = await repository.watchWorkspaces('server-a').first;
     expect(workflows.single.name, 'build-helper');
-    expect(workflows.single.title, 'Build Helper');
+    expect(workflows.single.title, '构建助手');
+    expect(workflows.single.subtitle, '构建有用的东西。');
     expect(workflows.single.driverLabel, 'Flowcraft');
+    expect(client.lastWorkflowLang, WorkflowLocale.WORKFLOW_LOCALE_ZH_CN);
     final mobileWorkspace = workspaces.firstWhere(
       (workspace) => workspace.name == 'mobile-plan',
     );
@@ -96,14 +99,47 @@ void main() {
     expect(groupChats.single.description, 'Shipping together');
   });
 
+  test('uses the default catalog for an unsupported device locale', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = MobileDataRepository(
+      database,
+      deviceLocaleTag: () => 'zh-TW',
+    );
+    final client = _FakeClient(
+      workflows: [
+        Workflow(
+          name: 'stable-name',
+          i18n: WorkflowI18nCatalog(name: '简体中文', description: '简体中文说明'),
+          spec: WorkflowSpec(driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT),
+        ),
+      ],
+      workspaces: const [],
+    );
+
+    await repository.refresh(
+      client: client,
+      endpoint: 'local',
+      serverId: 'server-a',
+    );
+
+    final card = (await repository.watchWorkflows('server-a').first).single;
+    expect(card.title, '简体中文');
+    expect(card.subtitle, '简体中文说明');
+    expect(
+      client.lastWorkflowLang,
+      WorkflowLocale.WORKFLOW_LOCALE_UNSPECIFIED,
+    );
+  });
+
   test('complete refresh removes rows absent from the snapshot', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(database.close);
     final repository = MobileDataRepository(database);
     final client = _FakeClient(
       workflows: [
-        WorkflowDocument(
-          metadata: WorkflowMetadata(name: 'temporary'),
+        Workflow(
+          name: 'temporary',
           spec: WorkflowSpec(driver: WorkflowDriver.WORKFLOW_DRIVER_CHATROOM),
         ),
       ],
@@ -137,8 +173,8 @@ void main() {
       final repository = MobileDataRepository(database);
       final client = _FakeClient(
         workflows: [
-          WorkflowDocument(
-            metadata: WorkflowMetadata(name: 'old-workflow'),
+          Workflow(
+            name: 'old-workflow',
             spec: WorkflowSpec(
               driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT,
             ),
@@ -164,8 +200,8 @@ void main() {
       client.workflows
         ..clear()
         ..add(
-          WorkflowDocument(
-            metadata: WorkflowMetadata(name: 'new-workflow'),
+          Workflow(
+            name: 'new-workflow',
             spec: WorkflowSpec(
               driver: WorkflowDriver.WORKFLOW_DRIVER_AST_TRANSLATE,
             ),
@@ -210,15 +246,18 @@ class _FakeClient extends GizClawClient {
 
   final List<FriendGroupObject> friendGroups;
   final List<FriendObject> friends;
-  final List<WorkflowDocument> workflows;
+  final List<Workflow> workflows;
   final List<Workspace> workspaces;
   bool failFriends = false;
+  WorkflowLocale? lastWorkflowLang;
 
   @override
   Future<WorkflowListResponse> listWorkflows({
     String? cursor,
     int? limit,
+    WorkflowLocale? lang,
   }) async {
+    lastWorkflowLang = lang;
     return WorkflowListResponse(items: workflows);
   }
 
