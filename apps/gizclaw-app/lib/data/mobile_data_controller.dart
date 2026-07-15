@@ -622,16 +622,35 @@ class MobileDataController extends ChangeNotifier {
     if (client == null) {
       throw StateError('Connect to GizClaw before switching workspace');
     }
-    final selected = await _workspaceActivationStep(
-      'select workspace',
-      () => client.setRunWorkspace(workspaceName),
+    final selectedWorkspaceDocument = await _cachedWorkspaceDocument(
+      workspaceName,
     );
+    if (selectedWorkspaceDocument == null) {
+      await _evictWorkspace(workspaceName);
+      throw StateError('load workspace: workspace "$workspaceName" not found');
+    }
+    late ServerSetRunWorkspaceResponse selected;
+    try {
+      selected = await client.setRunWorkspace(workspaceName);
+    } on RpcError catch (error) {
+      if (error.code == 404) {
+        await _evictWorkspace(workspaceName);
+      } else if (_isAccessDenied(error)) {
+        await refresh(client: client, serverId: activeServerId);
+        if (await _cachedWorkspaceDocument(workspaceName) == null) {
+          await _evictWorkspace(workspaceName);
+          throw StateError(
+            'This workspace was deleted or you no longer have access to it.',
+          );
+        }
+      }
+      throw StateError('select workspace: $error');
+    } catch (error) {
+      throw StateError('select workspace: $error');
+    }
     runWorkspaceState = selected.value;
+    activeWorkspaceDocument = selectedWorkspaceDocument;
     notifyListeners();
-    await _workspaceActivationStep(
-      'load workspace',
-      () => _loadActiveWorkspaceDocument(client, workspaceName: workspaceName),
-    );
     await _workspaceActivationStep(
       'update workspace parameters',
       () => _ensureActiveWorkspaceParameters(
@@ -644,10 +663,6 @@ class MobileDataController extends ChangeNotifier {
       client.reloadRunWorkspace,
     );
     runWorkspaceState = reloaded.value;
-    await _workspaceActivationStep(
-      'load active workspace',
-      () => _loadActiveWorkspaceDocument(client),
-    );
     return _installActiveWorkspaceChat(workspaceName);
   }
 
@@ -655,21 +670,54 @@ class MobileDataController extends ChangeNotifier {
     var state = (await client.getRunWorkspace()).value;
     final workspaceName = state.activeWorkspaceName.trim();
     runWorkspaceState = state;
-    await _loadActiveWorkspaceDocument(client);
+    if (workspaceName.isEmpty) {
+      activeWorkspaceDocument = null;
+      _replaceActiveWorkspaceChat(null);
+      notifyListeners();
+      return;
+    }
+    activeWorkspaceDocument = await _cachedWorkspaceDocument(workspaceName);
+    if (activeWorkspaceDocument == null) {
+      runWorkspaceState = null;
+      _replaceActiveWorkspaceChat(null);
+      notifyListeners();
+      return;
+    }
     final repaired = await _ensureActiveWorkspaceParameters(client);
     if (workspaceName.isNotEmpty &&
         (_runWorkspaceNeedsReload(state) || repaired)) {
       state = (await client.reloadRunWorkspace()).value;
       runWorkspaceState = state;
-      await _loadActiveWorkspaceDocument(client);
-    }
-    if (workspaceName.isEmpty) {
-      _replaceActiveWorkspaceChat(null);
-      notifyListeners();
-      return;
     }
     await _installActiveWorkspaceChat(workspaceName);
   }
+
+  Future<Workspace?> _cachedWorkspaceDocument(String workspaceName) {
+    final serverId = activeServerId;
+    if (serverId == null) return Future<Workspace?>.value();
+    return repository.workspaceDocument(serverId, workspaceName);
+  }
+
+  Future<void> _evictWorkspace(String workspaceName) async {
+    final serverId = activeServerId;
+    if (serverId != null) {
+      await repository.deleteWorkspace(serverId, workspaceName);
+    }
+    if (activeWorkspaceName == workspaceName) {
+      runWorkspaceState = null;
+      activeWorkspaceDocument = null;
+      _replaceActiveWorkspaceChat(null);
+    }
+    notifyListeners();
+  }
+
+  Future<bool> reconcileWorkspaceAccessDenied(String workspaceName) async {
+    await refresh();
+    return await _cachedWorkspaceDocument(workspaceName) == null;
+  }
+
+  bool _isAccessDenied(RpcError error) =>
+      error.code == 400 && error.message.trim() == 'acl: denied';
 
   Future<void> _loadActiveWorkspaceDocument(
     GizClawClient client, {
@@ -680,9 +728,15 @@ class MobileDataController extends ChangeNotifier {
       activeWorkspaceDocument = null;
       return;
     }
-    activeWorkspaceDocument = (await client.getWorkspace(
-      resolvedWorkspaceName,
-    )).value;
+    try {
+      activeWorkspaceDocument = (await client.getWorkspace(
+        resolvedWorkspaceName,
+      )).value;
+    } on RpcError catch (error) {
+      if (error.code != 404) rethrow;
+      await _evictWorkspace(resolvedWorkspaceName);
+      rethrow;
+    }
   }
 
   Future<bool> _ensureActiveWorkspaceParameters(

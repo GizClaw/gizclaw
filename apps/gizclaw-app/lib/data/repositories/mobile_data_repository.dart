@@ -111,82 +111,47 @@ class MobileDataRepository {
     return row == null ? null : Workspace.fromBuffer(row.rawProtobuf);
   }
 
+  Future<void> deleteWorkspace(String serverId, String name) async {
+    await (database.delete(database.workspaceEntries)..where(
+          (row) => row.serverId.equals(serverId) & row.name.equals(name),
+        ))
+        .go();
+  }
+
   Future<List<MobileDataRefreshWarning>> refresh({
     required GizClawClient client,
     required String endpoint,
     required String serverId,
   }) async {
-    final workflows = await _allWorkflows(client);
-    final workspaces = await _allWorkspaces(client);
     final refreshedAt = DateTime.now().toUtc();
-
-    await database.transaction(() async {
-      await database
-          .into(database.servers)
-          .insertOnConflictUpdate(
-            ServersCompanion.insert(
-              id: serverId,
-              endpoint: endpoint,
-              lastConnectedAt: Value(refreshedAt),
-            ),
-          );
-
-      await database.batch((batch) {
-        batch.insertAllOnConflictUpdate(
-          database.workflowEntries,
-          workflows.map((workflow) {
-            return WorkflowEntriesCompanion.insert(
-              serverId: serverId,
-              name: workflow.metadata.name,
-              description: workflow.metadata.description,
-              driver: workflow.spec.driver.name,
-              rawProtobuf: Uint8List.fromList(workflow.writeToBuffer()),
-              refreshedAt: refreshedAt,
-            );
-          }).toList(),
-        );
-        batch.insertAllOnConflictUpdate(
-          database.workspaceEntries,
-          workspaces.map((workspace) {
-            return WorkspaceEntriesCompanion.insert(
-              serverId: serverId,
-              name: workspace.name,
-              workflowName: workspace.workflowName,
-              createdAt: Value(_dateTimeOrNull(workspace.createdAt)),
-              lastActiveAt: Value(_dateTimeOrNull(workspace.lastActiveAt)),
-              updatedAt: Value(_dateTimeOrNull(workspace.updatedAt)),
-              rawProtobuf: Uint8List.fromList(workspace.writeToBuffer()),
-              refreshedAt: refreshedAt,
-            );
-          }).toList(),
-        );
-      });
-
-      final workflowNames = workflows.map((item) => item.metadata.name).toSet();
-      final workspaceNames = workspaces.map((item) => item.name).toSet();
-      await (database.delete(database.workflowEntries)..where(
-            (row) =>
-                row.serverId.equals(serverId) & row.name.isNotIn(workflowNames),
-          ))
-          .go();
-      await (database.delete(database.workspaceEntries)..where(
-            (row) =>
-                row.serverId.equals(serverId) &
-                row.name.isNotIn(workspaceNames),
-          ))
-          .go();
-      await database
-          .into(database.syncStates)
-          .insertOnConflictUpdate(
-            SyncStatesCompanion.insert(
-              serverId: serverId,
-              scope: 'workflow-workspace-snapshot',
-              lastSuccessfulRefreshAt: Value(refreshedAt),
-            ),
-          );
-    });
-
     final warnings = <MobileDataRefreshWarning>[];
+    await database
+        .into(database.servers)
+        .insertOnConflictUpdate(
+          ServersCompanion.insert(
+            id: serverId,
+            endpoint: endpoint,
+            lastConnectedAt: Value(refreshedAt),
+          ),
+        );
+    try {
+      await _replaceWorkflows(
+        serverId: serverId,
+        workflows: await _allWorkflows(client),
+        refreshedAt: refreshedAt,
+      );
+    } catch (error) {
+      warnings.add(MobileDataRefreshWarning(scope: 'Workflows', error: error));
+    }
+    try {
+      await _replaceWorkspaces(
+        serverId: serverId,
+        workspaces: await _allWorkspaces(client),
+        refreshedAt: refreshedAt,
+      );
+    } catch (error) {
+      warnings.add(MobileDataRefreshWarning(scope: 'Workspaces', error: error));
+    }
     try {
       await _replaceFriends(
         serverId: serverId,
@@ -206,6 +171,75 @@ class MobileDataRepository {
       warnings.add(MobileDataRefreshWarning(scope: 'Groups', error: error));
     }
     return warnings;
+  }
+
+  Future<void> _replaceWorkflows({
+    required String serverId,
+    required List<WorkflowDocument> workflows,
+    required DateTime refreshedAt,
+  }) async {
+    await database.transaction(() async {
+      await database.batch((batch) {
+        batch.insertAllOnConflictUpdate(
+          database.workflowEntries,
+          workflows.map((workflow) {
+            return WorkflowEntriesCompanion.insert(
+              serverId: serverId,
+              name: workflow.metadata.name,
+              description: workflow.metadata.description,
+              driver: workflow.spec.driver.name,
+              rawProtobuf: Uint8List.fromList(workflow.writeToBuffer()),
+              refreshedAt: refreshedAt,
+            );
+          }).toList(),
+        );
+      });
+      final names = workflows.map((item) => item.metadata.name).toSet();
+      await (database.delete(database.workflowEntries)..where(
+            (row) => row.serverId.equals(serverId) & row.name.isNotIn(names),
+          ))
+          .go();
+    });
+  }
+
+  Future<void> _replaceWorkspaces({
+    required String serverId,
+    required List<Workspace> workspaces,
+    required DateTime refreshedAt,
+  }) async {
+    await database.transaction(() async {
+      await database.batch((batch) {
+        batch.insertAllOnConflictUpdate(
+          database.workspaceEntries,
+          workspaces.map((workspace) {
+            return WorkspaceEntriesCompanion.insert(
+              serverId: serverId,
+              name: workspace.name,
+              workflowName: workspace.workflowName,
+              createdAt: Value(_dateTimeOrNull(workspace.createdAt)),
+              lastActiveAt: Value(_dateTimeOrNull(workspace.lastActiveAt)),
+              updatedAt: Value(_dateTimeOrNull(workspace.updatedAt)),
+              rawProtobuf: Uint8List.fromList(workspace.writeToBuffer()),
+              refreshedAt: refreshedAt,
+            );
+          }).toList(),
+        );
+      });
+      final names = workspaces.map((item) => item.name).toSet();
+      await (database.delete(database.workspaceEntries)..where(
+            (row) => row.serverId.equals(serverId) & row.name.isNotIn(names),
+          ))
+          .go();
+      await database
+          .into(database.syncStates)
+          .insertOnConflictUpdate(
+            SyncStatesCompanion.insert(
+              serverId: serverId,
+              scope: 'workspace-snapshot',
+              lastSuccessfulRefreshAt: Value(refreshedAt),
+            ),
+          );
+    });
   }
 
   Future<void> _replaceFriends({

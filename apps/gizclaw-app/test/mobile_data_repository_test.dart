@@ -198,6 +198,49 @@ void main() {
       );
     },
   );
+
+  test(
+    'workflow RPC failure does not leave the workspace catalog stale',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+      final repository = MobileDataRepository(database);
+      final client = _FakeClient(
+        workflows: [
+          WorkflowDocument(
+            metadata: WorkflowMetadata(name: 'old-workflow'),
+            spec: WorkflowSpec(
+              driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT,
+            ),
+          ),
+        ],
+        workspaces: [
+          Workspace(name: 'old-workspace', workflowName: 'old-workflow'),
+        ],
+      );
+      await repository.refresh(
+        client: client,
+        endpoint: 'local',
+        serverId: 'server-a',
+      );
+
+      client.workspaces.clear();
+      client.failWorkflows = true;
+      final warnings = await repository.refresh(
+        client: client,
+        endpoint: 'local',
+        serverId: 'server-a',
+      );
+
+      expect(warnings, hasLength(1));
+      expect(warnings.single.scope, 'Workflows');
+      expect(await repository.watchWorkspaces('server-a').first, isEmpty);
+      expect(
+        (await repository.watchWorkflows('server-a').first).single.name,
+        'old-workflow',
+      );
+    },
+  );
 }
 
 class _FakeClient extends GizClawClient {
@@ -213,12 +256,14 @@ class _FakeClient extends GizClawClient {
   final List<WorkflowDocument> workflows;
   final List<Workspace> workspaces;
   bool failFriends = false;
+  bool failWorkflows = false;
 
   @override
   Future<WorkflowListResponse> listWorkflows({
     String? cursor,
     int? limit,
   }) async {
+    if (failWorkflows) throw const FormatException('workflow payload missing');
     return WorkflowListResponse(items: workflows);
   }
 

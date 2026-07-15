@@ -134,6 +134,39 @@ void main() {
     expect(controller.lastError, isA<StateError>());
   });
 
+  test(
+    'explains an inaccessible history viewer removed by reconciliation',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+      var reconciliations = 0;
+      final controller = WorkspaceChatController(
+        workspaceName: 'deleted-workspace',
+        repository: _DeniedHistoryRepository(database),
+        serverId: 'server-a',
+        client: GizClawClient(_NeverDataChannelFactory()),
+        onAccessDenied: () async {
+          reconciliations++;
+          return true;
+        },
+      );
+      addTearDown(controller.dispose);
+
+      await controller.start(conversation: false);
+
+      expect(reconciliations, 1);
+      expect(controller.state, WorkspaceChatState.error);
+      expect(
+        controller.lastError,
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          'This workspace was deleted or you no longer have access to it.',
+        ),
+      );
+    },
+  );
+
   test('keeps repeated live text until a new history row arrives', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(database.close);
@@ -197,6 +230,19 @@ class _FailingHistoryRepository extends WorkspaceChatRepository {
     required String workspaceName,
   }) async {
     throw StateError('history unavailable');
+  }
+}
+
+class _DeniedHistoryRepository extends WorkspaceChatRepository {
+  _DeniedHistoryRepository(super.database);
+
+  @override
+  Future<List<CachedWorkspaceMessage>> refresh({
+    required GizClawClient client,
+    required String serverId,
+    required String workspaceName,
+  }) async {
+    throw RpcError(400, 'acl: denied');
   }
 }
 

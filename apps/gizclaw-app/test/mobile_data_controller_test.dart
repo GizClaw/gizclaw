@@ -242,15 +242,19 @@ void main() {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(database.close);
     final client = _WorkspaceActivationClient();
+    final repository = _RecordingWorkspaceRepository(database)
+      ..workspace = client.workspaces['workspace-new'];
     final controller =
         MobileDataController(
             database: database,
+            dataRepository: repository,
             connectionController: _RefreshTestConnection(
               profile: _profile('gizclaw.local:9820'),
               client: client,
               serverId: 'server-a',
             ),
           )
+          ..activeServerId = 'server-a'
           ..connectionState = MobileConnectionState.connected
           ..workflows = [
             WorkflowCard.fromServer(
@@ -274,6 +278,88 @@ void main() {
     );
     expect(controller.activeWorkspaceName, 'workspace-new');
   });
+
+  test(
+    'evicts a cached workspace when server rejects activation as missing',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+      final repository = _RecordingWorkspaceRepository(database)
+        ..workspace = Workspace(
+          name: 'missing-workspace',
+          workflowName: 'flow-a',
+        );
+      final client = _MissingWorkspaceActivationClient();
+      final controller =
+          MobileDataController(
+              database: database,
+              dataRepository: repository,
+              connectionController: _RefreshTestConnection(
+                profile: _profile('gizclaw.local:9820'),
+                client: client,
+                serverId: 'server-a',
+              ),
+            )
+            ..activeServerId = 'server-a'
+            ..connectionState = MobileConnectionState.connected;
+      addTearDown(controller.dispose);
+
+      await expectLater(
+        controller.activateWorkspaceChat('missing-workspace'),
+        throwsStateError,
+      );
+
+      expect(client.setWorkspaceNames, ['missing-workspace']);
+      expect(repository.deletedWorkspaces, [
+        (serverId: 'server-a', name: 'missing-workspace'),
+      ]);
+    },
+  );
+
+  test(
+    'refreshes and evicts a cached workspace denied after server deletion',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+      final repository = _RecordingWorkspaceRepository(database)
+        ..workspace = Workspace(
+          name: 'deleted-workspace',
+          workflowName: 'flow-a',
+        )
+        ..clearWorkspaceOnRefresh = true;
+      final client = _DeniedWorkspaceActivationClient();
+      final controller =
+          MobileDataController(
+              database: database,
+              dataRepository: repository,
+              connectionController: _RefreshTestConnection(
+                profile: _profile('gizclaw.local:9820'),
+                client: client,
+                serverId: 'server-a',
+              ),
+            )
+            ..activeServerId = 'server-a'
+            ..connectionState = MobileConnectionState.connected;
+      addTearDown(controller.dispose);
+
+      await expectLater(
+        controller.activateWorkspaceChat('deleted-workspace'),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            'This workspace was deleted or you no longer have access to it.',
+          ),
+        ),
+      );
+
+      expect(client.setWorkspaceNames, ['deleted-workspace']);
+      expect(repository.refreshCount, 1);
+      expect(repository.deletedWorkspaces, [
+        (serverId: 'server-a', name: 'deleted-workspace'),
+      ]);
+    },
+  );
 }
 
 GizClawConnectionProfile _profile(String endpoint) =>
@@ -317,6 +403,36 @@ class _ReconnectRepository extends MobileDataRepository {
   }) async {
     refreshServerIds.add(serverId);
     return const [];
+  }
+}
+
+class _RecordingWorkspaceRepository extends MobileDataRepository {
+  _RecordingWorkspaceRepository(super.database);
+
+  bool clearWorkspaceOnRefresh = false;
+  final deletedWorkspaces = <({String serverId, String name})>[];
+  int refreshCount = 0;
+  Workspace? workspace;
+
+  @override
+  Future<List<MobileDataRefreshWarning>> refresh({
+    required GizClawClient client,
+    required String endpoint,
+    required String serverId,
+  }) async {
+    refreshCount++;
+    if (clearWorkspaceOnRefresh) workspace = null;
+    return const [];
+  }
+
+  @override
+  Future<Workspace?> workspaceDocument(String serverId, String name) async {
+    return workspace?.deepCopy();
+  }
+
+  @override
+  Future<void> deleteWorkspace(String serverId, String name) async {
+    deletedWorkspaces.add((serverId: serverId, name: name));
   }
 }
 
@@ -429,6 +545,26 @@ class _WorkspaceActivationClient extends _RunWorkspaceClient {
     return ServerReloadRunWorkspaceResponse(
       value: PeerRunWorkspaceState(activeWorkspaceName: 'workspace-new'),
     );
+  }
+}
+
+class _MissingWorkspaceActivationClient extends _RunWorkspaceClient {
+  final setWorkspaceNames = <String>[];
+
+  @override
+  Future<ServerSetRunWorkspaceResponse> setRunWorkspace(String name) async {
+    setWorkspaceNames.add(name);
+    throw RpcError(404, 'workspace "$name" not found');
+  }
+}
+
+class _DeniedWorkspaceActivationClient extends _RunWorkspaceClient {
+  final setWorkspaceNames = <String>[];
+
+  @override
+  Future<ServerSetRunWorkspaceResponse> setRunWorkspace(String name) async {
+    setWorkspaceNames.add(name);
+    throw RpcError(400, 'acl: denied');
   }
 }
 

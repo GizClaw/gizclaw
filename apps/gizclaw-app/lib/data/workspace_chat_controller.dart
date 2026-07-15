@@ -48,11 +48,13 @@ class WorkspaceChatController extends ChangeNotifier {
     this.client,
     this.dataChannelFactory,
     this.peerConnection,
+    this.onAccessDenied,
     this.onTransportClosed,
   });
 
   final GizClawClient? client;
   final GizClawDataChannelFactory? dataChannelFactory;
+  final Future<bool> Function()? onAccessDenied;
   final rtc.RTCPeerConnection? peerConnection;
   final Future<void> Function()? onTransportClosed;
   final WorkspaceChatRepository repository;
@@ -432,9 +434,29 @@ class WorkspaceChatController extends ChangeNotifier {
       lastError = null;
       notifyListeners();
     } catch (error) {
+      if (error is RpcError &&
+          _isAccessDenied(error) &&
+          onAccessDenied != null) {
+        try {
+          if (await onAccessDenied!()) {
+            _handleError(
+              StateError(
+                'This workspace was deleted or you no longer have access to it.',
+              ),
+              changeState: _session == null && _cached.isEmpty,
+            );
+            return;
+          }
+        } catch (_) {
+          // Preserve the original history error when reconciliation fails.
+        }
+      }
       _handleError(error, changeState: _session == null && _cached.isEmpty);
     }
   }
+
+  bool _isAccessDenied(RpcError error) =>
+      error.code == 400 && error.message.trim() == 'acl: denied';
 
   void _replaceCachedHistory(List<CachedWorkspaceMessage> history) {
     _cached = history
