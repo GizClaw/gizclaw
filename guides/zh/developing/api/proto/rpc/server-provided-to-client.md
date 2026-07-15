@@ -11,7 +11,7 @@
 | `server.run.*` | Agent、Workspace、history、memory、recall、say、reload 与 stop |
 | `server.firmware.*` | Firmware list/get 与 files download |
 | `server.workspace.*` | Workspace CRUD、history 与 history audio |
-| `server.workflow.*` | Workflow CRUD |
+| `server.workflow.*` | Workflow list/get 只读查询 |
 | `server.model.*` | Model CRUD |
 | `server.voice.*` | Voice list/get |
 | `server.credential.*` | Credential CRUD |
@@ -29,6 +29,12 @@
 | `server.tool.*` | Tool CRUD |
 
 `server.peer.lookup`、`server.peer.assign` 和 `server.route.resolve` 不属于本页；它们只提供给 Edge-node。
+
+## Workflow localization
+
+`server.workflow.list` 与 `server.workflow.get` 接受 `WorkflowLocale lang`。初始 enum 只包含 `en` 与 `zh-CN`；未指定、请求语言不存在或无法识别时，Server 使用 Workflow 的 `i18n.default_locale`。RPC response 中的 `Workflow.i18n` 只包含最终选中的一个 `WorkflowI18nCatalog`，不返回完整语言表，也不返回实际命中的 locale。
+
+catalog 按语言整体选择，不跨语言逐字段拼接。选中 catalog 缺少 `name` 时，客户端使用稳定的 `Workflow.name`；缺少 `description` 时使用空字符串。Admin API 仍返回完整 `WorkflowI18n`，并由 Server 与 Workflow 一起持久化。
 
 ## 调用关系
 

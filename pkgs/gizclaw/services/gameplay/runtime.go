@@ -743,7 +743,7 @@ func (r *Runtime) validatePetWorkflow(ctx context.Context, name string) error {
 	}
 	switch v := resp.(type) {
 	case adminhttp.GetWorkflow200JSONResponse:
-		doc := apitypes.WorkflowDocument(v)
+		doc := apitypes.Workflow(v)
 		if doc.Spec.Driver != apitypes.WorkflowDriverPet {
 			return fmt.Errorf("workflow %q uses driver %q, want %q", name, doc.Spec.Driver, apitypes.WorkflowDriverPet)
 		}

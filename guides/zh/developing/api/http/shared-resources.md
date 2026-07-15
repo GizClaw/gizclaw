@@ -40,7 +40,7 @@
 | `shared/model.json` | Model kind、capabilities、provider、source 与 provider data | Model Admin endpoint 与 Model Resource |
 | `shared/voice.json` | Voice provider、source 与 provider data | Voice Admin endpoint 与 Voice Resource |
 | `shared/tool.json` | Tool executor、trigger、source 与 JSON schema value | Tool APIs、Workflow/Toolkit 与 Tool Resource |
-| `shared/workflow*.json` | Workflow document、metadata、i18n、driver 与各 workflow variant | Workflow Admin API、Workspace parameters 与 Workflow Resource |
+| `shared/workflow*.json` | Workflow、locale enum、i18n catalog、driver 与各 workflow variant | Workflow Admin API、Workspace parameters 与 Workflow Resource |
 | `shared/workspace.json` | Workspace parameters、input mode 与共同 workspace value | Workspace Admin API、Workflow runtime 与 Workspace Resource |
 | `shared/provider-tenants.json` | Provider tenant 共同 enum/value | Model、Voice 与各 Provider Tenant Resources |
 
@@ -81,7 +81,7 @@ Resource 的数据首先按语义分为两类：
 
 如果某个 Resource 只需要本地化 catalog，不需要额外的展示 metadata，可以直接拥有语义更准确的 `i18n` 字段。Workflow 和 PetDef 分别使用自己的 `WorkflowI18n` 与 `PetDefI18n`：`i18n.default_locale` 指定默认语言，`i18n.en`、`i18n.zh-CN` 等 locale key 直接保存对应 catalog，不增加 `catalogs` 或 `display` 中间层。Workspace 是用户创建的运行实例，不拥有 catalog 型 i18n。
 
-`WorkflowI18n` 虽位于 `shared/`，仍是 Workflow-owned contract。它被 Workflow Admin document 与声明式 Workflow Resource 共同引用，因此需要从 shared schema graph 生成；这不表示 Workspace 或其他 Resource 可以复用它，也不应抽取公共 `ResourceI18n`。
+`WorkflowI18n` 虽位于 `shared/`，仍是 Workflow-owned contract。Admin API 与持久化层使用完整的 `Workflow{name,spec,i18n}`；声明式 `WorkflowResource` 保留通用 `ResourceMetadata`，resource manager 在 `metadata.name` 与 `Workflow.name` 之间映射，并原样传递 `spec` 与 `i18n`。这不表示 Workspace 或其他 Resource 可以复用它，也不应抽取公共 `ResourceI18n`。
 
 Display 的共同命名是一项结构约定，不代表公共领域模型。不同 Resource 可以独立增加符合自身产品语义的展示字段；修改一个 Resource 的 Display 不应迫使无关 Resource 同步修改或重新生成 API。
 

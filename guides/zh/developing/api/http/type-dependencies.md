@@ -67,7 +67,7 @@ Schema 只有满足以下至少一个条件才能进入 `shared/`：
 | `model.json` | Model kind、capabilities、provider、source 与 provider data |
 | `voice.json` | Voice provider、source 与 provider data |
 | `tool.json` | Tool executor、trigger、source 与 JSON schema values |
-| `workflow.json` | Workflow document、metadata、driver 与 workflow variants |
+| `workflow.json` | Workflow identity、i18n、driver 与 workflow variants |
 | `workspace.json` | Workspace parameters、input mode 与共同 workspace values |
 | `provider-tenants.json` | Model/Voice 共用的 provider tenant enums 与 values |
 

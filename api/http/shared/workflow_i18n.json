@@ -22,19 +22,22 @@
       },
       "WorkflowI18n": {
         "type": "object",
-        "description": "Workflow-owned locale catalogs. default_locale must name one of the locale catalog properties.",
+        "additionalProperties": false,
+        "description": "Workflow-owned closed locale catalogs. default_locale must name a present catalog property.",
         "minProperties": 2,
         "required": [
           "default_locale"
         ],
         "properties": {
           "default_locale": {
-            "type": "string",
-            "description": "Locale key used when the requested locale is unavailable. A catalog with this key is required."
+            "$ref": "./workflow_locale.json#/components/schemas/WorkflowLocale"
+          },
+          "en": {
+            "$ref": "#/components/schemas/WorkflowI18nCatalog"
+          },
+          "zh-CN": {
+            "$ref": "#/components/schemas/WorkflowI18nCatalog"
           }
-        },
-        "additionalProperties": {
-          "$ref": "#/components/schemas/WorkflowI18nCatalog"
         }
       }
     }

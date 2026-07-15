@@ -33,30 +33,26 @@ import (
 func TestServerAllowedCRUD(t *testing.T) {
 	srv := newTestResourceServer()
 	srv.ACL = allowAllAuthorizer{}
-
-	flowCreate := callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, workflowDoc("workflow-a1")))
-	requireNoRPCError(t, flowCreate)
-	if got := mustResult(t, flowCreate.Result.AsWorkflowCreateResponse).Metadata.Name; got != "workflow-a1" {
-		t.Fatalf("workflow.create name = %q", got)
-	}
+	seedWorkflow(t, srv, "workflow-a1")
 
 	flowList := callRPC(t, srv, "workflow-list", rpcapi.RPCMethodServerWorkflowList, nil)
-	if got := mustResult(t, flowList.Result.AsWorkflowListResponse); len(got.Items) != 1 || got.Items[0].Metadata.Name != "workflow-a1" {
+	if got := mustResult(t, flowList.Result.AsWorkflowListResponse); len(got.Items) != 1 || got.Items[0].Name != "workflow-a1" {
 		t.Fatalf("workflow.list = %#v", got)
 	}
 
 	flowGet := callRPC(t, srv, "workflow-get", rpcapi.RPCMethodServerWorkflowGet, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowGetRequest, rpcapi.WorkflowGetRequest{Name: "workflow-a1"}))
-	if got := mustResult(t, flowGet.Result.AsWorkflowGetResponse); got.Metadata.Name != "workflow-a1" {
-		t.Fatalf("workflow.get name = %q", got.Metadata.Name)
-	} else if got.I18n == nil || len(got.I18n.Value) != 2 || got.I18n.Value["zh-CN"].Description == nil {
+	if got := mustResult(t, flowGet.Result.AsWorkflowGetResponse); got.Name != "workflow-a1" {
+		t.Fatalf("workflow.get name = %q", got.Name)
+	} else if got.I18n == nil || got.I18n.Description == nil || *got.I18n.Description != "English workflow" {
 		t.Fatalf("workflow.get i18n = %#v", got.I18n)
 	}
-
-	flowPut := callRPC(t, srv, "workflow-put", rpcapi.RPCMethodServerWorkflowPut, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowPutRequest, rpcapi.WorkflowPutRequest{
+	flowGetZhCN := callRPC(t, srv, "workflow-get-zh-cn", rpcapi.RPCMethodServerWorkflowGet, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowGetRequest, rpcapi.WorkflowGetRequest{
 		Name: "workflow-a1",
-		Body: workflowDoc("workflow-a1"),
+		Lang: rpcapi.WorkflowLocaleZhCN,
 	}))
-	requireNoRPCError(t, flowPut)
+	if got := mustResult(t, flowGetZhCN.Result.AsWorkflowGetResponse); got.I18n == nil || got.I18n.Description == nil || *got.I18n.Description != "中文工作流" {
+		t.Fatalf("workflow.get zh-CN i18n = %#v", got.I18n)
+	}
 
 	createInput := rpcapi.WorkspaceInputModePushToTalk
 	var createParams rpcapi.WorkspaceParameters
@@ -158,7 +154,6 @@ func TestServerAllowedCRUD(t *testing.T) {
 	requireNoRPCError(t, callRPC(t, srv, "credential-delete", rpcapi.RPCMethodServerCredentialDelete, rpcParams(t, (*rpcapi.RPCPayload).FromCredentialDeleteRequest, rpcapi.CredentialDeleteRequest{Name: "credential-a"})))
 	requireNoRPCError(t, callRPC(t, srv, "model-delete", rpcapi.RPCMethodServerModelDelete, rpcParams(t, (*rpcapi.RPCPayload).FromModelDeleteRequest, rpcapi.ModelDeleteRequest{Id: "model-a"})))
 	requireNoRPCError(t, callRPC(t, srv, "workspace-delete", rpcapi.RPCMethodServerWorkspaceDelete, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceDeleteRequest, rpcapi.WorkspaceDeleteRequest{Name: "workspace-a"})))
-	requireNoRPCError(t, callRPC(t, srv, "workflow-delete", rpcapi.RPCMethodServerWorkflowDelete, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowDeleteRequest, rpcapi.WorkflowDeleteRequest{Name: "workflow-a1"})))
 }
 
 func TestPeerCreateGrantsResourceOwnerBindings(t *testing.T) {
@@ -166,8 +161,8 @@ func TestPeerCreateGrantsResourceOwnerBindings(t *testing.T) {
 	srv.ACL = allowAllAuthorizer{}
 	bindings := &recordingToolACL{}
 	srv.ResourceACL = bindings
+	seedWorkflow(t, srv, "workflow-owner")
 
-	requireNoRPCError(t, callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, workflowDoc("workflow-owner"))))
 	requireNoRPCError(t, callRPC(t, srv, "workspace-create", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
 		Name:         "workspace-owner",
 		WorkflowName: "workflow-owner",
@@ -179,7 +174,6 @@ func TestPeerCreateGrantsResourceOwnerBindings(t *testing.T) {
 		t.Fatalf("resource owner role = %q %#v", bindings.role, bindings.permissions)
 	}
 	for _, resource := range []apitypes.ACLResource{
-		workflowResource("workflow-owner"),
 		acl.WorkspaceResource("workspace-owner"),
 		acl.ModelResource("model-owner"),
 		acl.CredentialResource("credential-owner"),
@@ -198,12 +192,10 @@ func TestPeerCreateGrantsResourceOwnerBindings(t *testing.T) {
 	requireNoRPCError(t, callRPC(t, srv, "workspace-delete", rpcapi.RPCMethodServerWorkspaceDelete, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceDeleteRequest, rpcapi.WorkspaceDeleteRequest{Name: "workspace-owner"})))
 	requireNoRPCError(t, callRPC(t, srv, "credential-delete", rpcapi.RPCMethodServerCredentialDelete, rpcParams(t, (*rpcapi.RPCPayload).FromCredentialDeleteRequest, rpcapi.CredentialDeleteRequest{Name: "credential-owner"})))
 	requireNoRPCError(t, callRPC(t, srv, "model-delete", rpcapi.RPCMethodServerModelDelete, rpcParams(t, (*rpcapi.RPCPayload).FromModelDeleteRequest, rpcapi.ModelDeleteRequest{Id: "model-owner"})))
-	requireNoRPCError(t, callRPC(t, srv, "workflow-delete", rpcapi.RPCMethodServerWorkflowDelete, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowDeleteRequest, rpcapi.WorkflowDeleteRequest{Name: "workflow-owner"})))
 	for _, resource := range []apitypes.ACLResource{
 		acl.WorkspaceResource("workspace-owner"),
 		acl.CredentialResource("credential-owner"),
 		acl.ModelResource("model-owner"),
-		workflowResource("workflow-owner"),
 	} {
 		if !bindings.deletedBinding(resourceOwnerBindingID(resource)) {
 			t.Fatalf("owner binding for %#v was not deleted; deleted = %#v", resource, bindings.deletedIDs)
@@ -277,46 +269,13 @@ func TestCredentialPeerDeleteRollsBackWhenOwnerBindingDeleteFails(t *testing.T) 
 	}
 }
 
-func TestWorkflowPeerCreateRollsBackWhenOwnerGrantFails(t *testing.T) {
-	srv := newTestResourceServer()
-	srv.ACL = allowAllAuthorizer{}
-	srv.ResourceACL = &recordingToolACL{policyErr: errors.New("write owner binding")}
-
-	created := callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, workflowDoc("workflow-rollback")))
-	requireRPCError(t, created, rpcapi.RPCErrorCodeInternalError)
-
-	missing := callRPC(t, srv, "workflow-get", rpcapi.RPCMethodServerWorkflowGet, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowGetRequest, rpcapi.WorkflowGetRequest{Name: "workflow-rollback"}))
-	requireRPCError(t, missing, rpcapi.RPCErrorCodeNotFound)
-}
-
-func TestWorkflowPeerDeleteRollsBackWhenOwnerBindingDeleteFails(t *testing.T) {
-	srv := newTestResourceServer()
-	srv.ACL = allowAllAuthorizer{}
-	bindings := &recordingToolACL{}
-	srv.ResourceACL = bindings
-
-	requireNoRPCError(t, callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, workflowDoc("workflow-delete-rollback"))))
-
-	bindings.deleteErr = errors.New("delete owner binding")
-	deleted := callRPC(t, srv, "workflow-delete", rpcapi.RPCMethodServerWorkflowDelete, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowDeleteRequest, rpcapi.WorkflowDeleteRequest{Name: "workflow-delete-rollback"}))
-	requireRPCError(t, deleted, rpcapi.RPCErrorCodeInternalError)
-	if !bindings.deletedBinding(resourceOwnerBindingID(workflowResource("workflow-delete-rollback"))) {
-		t.Fatalf("workflow owner binding was not deleted; deleted = %#v", bindings.deletedIDs)
-	}
-	got := callRPC(t, srv, "workflow-get", rpcapi.RPCMethodServerWorkflowGet, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowGetRequest, rpcapi.WorkflowGetRequest{Name: "workflow-delete-rollback"}))
-	requireNoRPCError(t, got)
-	if workflow := mustResult(t, got.Result.AsWorkflowGetResponse); workflow.Metadata.Name != "workflow-delete-rollback" {
-		t.Fatalf("workflow after rollback = %#v", workflow)
-	}
-}
-
 func TestWorkspacePeerCreateRollsBackWhenOwnerGrantFails(t *testing.T) {
 	srv := newTestResourceServer()
 	srv.ACL = allowAllAuthorizer{}
 	bindings := &recordingToolACL{}
 	srv.ResourceACL = bindings
 
-	requireNoRPCError(t, callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, workflowDoc("workflow-rollback"))))
+	seedWorkflow(t, srv, "workflow-rollback")
 	bindings.policyErr = errors.New("write owner binding")
 	created := callRPC(t, srv, "workspace-create", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
 		Name:         "workspace-rollback",
@@ -334,7 +293,7 @@ func TestWorkspacePeerDeleteRollsBackWhenOwnerBindingDeleteFails(t *testing.T) {
 	bindings := &recordingToolACL{}
 	srv.ResourceACL = bindings
 
-	requireNoRPCError(t, callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, workflowDoc("workflow-delete-rollback"))))
+	seedWorkflow(t, srv, "workflow-delete-rollback")
 	requireNoRPCError(t, callRPC(t, srv, "workspace-create", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
 		Name:         "workspace-delete-rollback",
 		WorkflowName: "workflow-delete-rollback",
@@ -361,7 +320,7 @@ func TestWorkspacePeerDeleteRestoresOwnerBindingWhenResourceDeleteFails(t *testi
 	runtimeStore := &failingWorkspaceRuntimeStore{}
 	srv.Workspaces.(*workspace.Server).RuntimeStore = runtimeStore
 
-	requireNoRPCError(t, callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, workflowDoc("workflow-delete-fail"))))
+	seedWorkflow(t, srv, "workflow-delete-fail")
 	requireNoRPCError(t, callRPC(t, srv, "workspace-create", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
 		Name:         "workspace-delete-fail",
 		WorkflowName: "workflow-delete-fail",
@@ -389,9 +348,6 @@ func TestServerRejectsInvalidCustomIDs(t *testing.T) {
 	srv := newTestResourceServer()
 	srv.ACL = allowAllAuthorizer{}
 
-	workflowCreate := callRPC(t, srv, "workflow-create-invalid", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, workflowDoc("flow-a")))
-	requireRPCError(t, workflowCreate, rpcapi.RPCErrorCodeBadRequest)
-
 	workspaceCreate := callRPC(t, srv, "workspace-create-invalid", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
 		Name:         "bad",
 		WorkflowName: "workflow-a1",
@@ -405,9 +361,8 @@ func TestServerACLBoundaries(t *testing.T) {
 	srv := newTestResourceServer()
 	srv.ACL = auth
 
-	auth.allow(acl.ResourceKindWorkflow, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
-	requireNoRPCError(t, callRPC(t, srv, "workflow-create-a", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, workflowDoc("workflow-a1"))))
-	requireNoRPCError(t, callRPC(t, srv, "workflow-create-b", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, workflowDoc("workflow-b1"))))
+	seedWorkflow(t, srv, "workflow-a1")
+	seedWorkflow(t, srv, "workflow-b1")
 
 	auth.allow(acl.ResourceKindWorkspace, "workspace-a", apitypes.ACLPermissionAdmin)
 	denied := callRPC(t, srv, "workspace-create-denied", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
@@ -440,7 +395,7 @@ func TestServerACLBoundaries(t *testing.T) {
 		t.Fatalf("filtered workspace.list = %#v", got)
 	}
 	workflowList := callRPC(t, srv, "workflow-list-filtered", rpcapi.RPCMethodServerWorkflowList, nil)
-	if got := mustResult(t, workflowList.Result.AsWorkflowListResponse); len(got.Items) != 1 || got.Items[0].Metadata.Name != "workflow-a1" {
+	if got := mustResult(t, workflowList.Result.AsWorkflowListResponse); len(got.Items) != 1 || got.Items[0].Name != "workflow-a1" {
 		t.Fatalf("filtered workflow.list = %#v", got)
 	}
 
@@ -458,10 +413,9 @@ func TestServerWorkspaceListPrefixUsesACLDiscovery(t *testing.T) {
 	srv := newTestResourceServer()
 	srv.ACL = auth
 
-	auth.allow(acl.ResourceKindWorkflow, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
 	auth.allow(acl.ResourceKindWorkflow, "workflow-a1", apitypes.ACLPermissionUse)
 	auth.allow(acl.ResourceKindWorkspace, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
-	requireNoRPCError(t, callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, workflowDoc("workflow-a1"))))
+	seedWorkflow(t, srv, "workflow-a1")
 	for _, name := range []string{"social-direct-visible", "social-direct-hidden", "social-group-visible"} {
 		requireNoRPCError(t, callRPC(t, srv, "workspace-create-"+name, rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
 			Name:         name,
@@ -509,19 +463,18 @@ func TestServerWorkspaceListPrefixUsesACLDiscovery(t *testing.T) {
 	}
 }
 
-func TestServerWorkspaceWorkflowCreateUsesCollectionACL(t *testing.T) {
+func TestServerWorkspaceCreateUsesCollectionACL(t *testing.T) {
 	ctx := context.Background()
 	auth := newRuleAuthorizer()
 	srv := newTestResourceServer()
 	srv.ACL = auth
 
-	auth.allow(acl.ResourceKindWorkflow, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
 	auth.allow(acl.ResourceKindWorkflow, "flow-dynamic", apitypes.ACLPermissionUse)
 	auth.allow(acl.ResourceKindWorkspace, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
 	auth.allow(acl.ResourceKindModel, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
 	auth.allow(acl.ResourceKindCredential, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
 
-	requireNoRPCError(t, callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, workflowDoc("flow-dynamic"))))
+	seedWorkflow(t, srv, "flow-dynamic")
 	requireNoRPCError(t, callRPC(t, srv, "workspace-create", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
 		Name:         "workspace-dynamic",
 		WorkflowName: "flow-dynamic",
@@ -529,12 +482,6 @@ func TestServerWorkspaceWorkflowCreateUsesCollectionACL(t *testing.T) {
 	requireNoRPCError(t, callRPC(t, srv, "model-create", rpcapi.RPCMethodServerModelCreate, rpcParams(t, (*rpcapi.RPCPayload).FromModelCreateRequest, rpcModel("model-dynamic"))))
 	requireNoRPCError(t, callRPC(t, srv, "credential-create", rpcapi.RPCMethodServerCredentialCreate, rpcParams(t, (*rpcapi.RPCPayload).FromCredentialCreateRequest, rpcCredential("credential-dynamic", "sk-dynamic"))))
 
-	if got := auth.count(ctx, acl.ResourceKindWorkflow, "flow-dynamic", apitypes.ACLPermissionAdmin); got != 0 {
-		t.Fatal("workflow.create checked concrete workflow admin")
-	}
-	if got := auth.count(ctx, acl.ResourceKindWorkflow, acl.CollectionResourceID, apitypes.ACLPermissionCreate); got == 0 {
-		t.Fatal("workflow.create did not check workflow collection create")
-	}
 	if got := auth.count(ctx, acl.ResourceKindWorkspace, acl.CollectionResourceID, apitypes.ACLPermissionCreate); got == 0 {
 		t.Fatal("workspace.create did not check workspace collection create")
 	}
@@ -573,7 +520,7 @@ func TestServerWorkspaceHistoryRPC(t *testing.T) {
 		Workspaces:  workspaceServer,
 		ResourceACL: &recordingToolACL{},
 	}
-	requireNoRPCError(t, callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, workflowDoc("flow-history"))))
+	seedWorkflow(t, srv, "flow-history")
 	requireNoRPCError(t, callRPC(t, srv, "workspace-create", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
 		Name:         "workspace-history",
 		WorkflowName: "flow-history",
@@ -926,9 +873,9 @@ func TestServerGameplayPixaDownloads(t *testing.T) {
 	workflowStore := kv.NewMemory(nil)
 	workflowServer := &workflow.Server{Store: workflowStore}
 	petSpec := apitypes.PetWorkflowSpec{}
-	petWorkflow := apitypes.WorkflowDocument{
-		Metadata: apitypes.WorkflowMetadata{Name: "pet-care"},
-		Spec:     apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverPet, Pet: &petSpec},
+	petWorkflow := apitypes.Workflow{
+		Name: "pet-care",
+		Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverPet, Pet: &petSpec},
 	}
 	if resp, err := workflowServer.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &petWorkflow}); err != nil {
 		t.Fatalf("CreateWorkflow error = %v", err)
@@ -1009,9 +956,6 @@ func TestServerErrorPaths(t *testing.T) {
 		rpcapi.RPCMethodServerWorkspacePut,
 		rpcapi.RPCMethodServerWorkspaceDelete,
 		rpcapi.RPCMethodServerWorkflowGet,
-		rpcapi.RPCMethodServerWorkflowCreate,
-		rpcapi.RPCMethodServerWorkflowPut,
-		rpcapi.RPCMethodServerWorkflowDelete,
 		rpcapi.RPCMethodServerModelGet,
 		rpcapi.RPCMethodServerModelCreate,
 		rpcapi.RPCMethodServerModelPut,
@@ -1030,9 +974,6 @@ func TestServerErrorPaths(t *testing.T) {
 		rpcapi.RPCMethodServerWorkspaceDelete,
 		rpcapi.RPCMethodServerWorkflowList,
 		rpcapi.RPCMethodServerWorkflowGet,
-		rpcapi.RPCMethodServerWorkflowCreate,
-		rpcapi.RPCMethodServerWorkflowPut,
-		rpcapi.RPCMethodServerWorkflowDelete,
 		rpcapi.RPCMethodServerModelList,
 		rpcapi.RPCMethodServerModelGet,
 		rpcapi.RPCMethodServerModelCreate,
@@ -1192,6 +1133,22 @@ func TestHelpers(t *testing.T) {
 	}
 	if _, err := convertType[struct{}](func() {}); err == nil {
 		t.Fatal("convertType(function) error = nil")
+	}
+}
+
+func TestSelectedWorkflowCatalogFallsBackToDefaultCatalog(t *testing.T) {
+	description := "default description"
+	i18n := &apitypes.WorkflowI18n{
+		DefaultLocale: apitypes.WorkflowLocaleEn,
+		En:            &apitypes.WorkflowI18nCatalog{Description: &description},
+	}
+
+	got := selectedWorkflowCatalog(i18n, rpcapi.WorkflowLocaleZhCN)
+	if got == nil || got.Description == nil || *got.Description != description || got.Name != nil {
+		t.Fatalf("selectedWorkflowCatalog() = %#v", got)
+	}
+	if got := selectedWorkflowCatalog(nil, rpcapi.WorkflowLocaleEn); got != nil {
+		t.Fatalf("selectedWorkflowCatalog(nil) = %#v", got)
 	}
 }
 
@@ -1372,23 +1329,33 @@ func requireRPCError(t *testing.T, resp *rpcapi.RPCResponse, code rpcapi.RPCErro
 	}
 }
 
-func workflowDoc(name string) rpcapi.WorkflowDocument {
-	spec := rpcapi.FlowcraftWorkflowSpec{"entry_agent": ""}
+func workflowDoc(name string) apitypes.Workflow {
+	spec := apitypes.FlowcraftWorkflowSpec{"entry_agent": ""}
 	englishDescription := "English workflow"
 	chineseDescription := "中文工作流"
-	return rpcapi.WorkflowDocument{
-		I18n: &rpcapi.WorkflowI18n{
-			DefaultLocale: "en",
-			Value: map[string]rpcapi.WorkflowI18nCatalog{
-				"en":    {Description: &englishDescription},
-				"zh-CN": {Description: &chineseDescription},
-			},
+	return apitypes.Workflow{
+		I18n: &apitypes.WorkflowI18n{
+			DefaultLocale: apitypes.WorkflowLocaleEn,
+			En:            &apitypes.WorkflowI18nCatalog{Description: &englishDescription},
+			ZhCN:          &apitypes.WorkflowI18nCatalog{Description: &chineseDescription},
 		},
-		Metadata: rpcapi.WorkflowMetadata{Name: name},
-		Spec: rpcapi.WorkflowSpec{
-			Driver:    rpcapi.WorkflowDriverFlowcraft,
+		Name: name,
+		Spec: apitypes.WorkflowSpec{
+			Driver:    apitypes.WorkflowDriverFlowcraft,
 			Flowcraft: &spec,
 		},
+	}
+}
+
+func seedWorkflow(t *testing.T, srv *Server, name string) {
+	t.Helper()
+	body := workflowDoc(name)
+	response, err := srv.Workflows.CreateWorkflow(context.Background(), adminhttp.CreateWorkflowRequestObject{Body: &body})
+	if err != nil {
+		t.Fatalf("CreateWorkflow(%q) error = %v", name, err)
+	}
+	if _, ok := response.(adminhttp.CreateWorkflow200JSONResponse); !ok {
+		t.Fatalf("CreateWorkflow(%q) response = %#v", name, response)
 	}
 }
 

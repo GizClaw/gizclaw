@@ -293,10 +293,8 @@ test("RPC payload codec preserves Tool invocation JSON strings", () => {
 });
 
 test("RPC payload codec preserves optional JSON schema field absence", () => {
-  const payload = encodeRPCRequestPayload("server.workflow.create", {
-    metadata: {
-      name: "doubao",
-    },
+  const payload = encodeRPCResponsePayload("server.workflow.get", {
+    name: "doubao",
     spec: {
       driver: "doubao-realtime",
       doubao_realtime: {
@@ -316,7 +314,7 @@ test("RPC payload codec preserves optional JSON schema field absence", () => {
     },
   });
 
-  const decoded = decodeRPCRequestPayload("server.workflow.create", payload) as {
+  const decoded = decodeRPCResponsePayload("server.workflow.get", payload) as {
     spec?: { doubao_realtime?: { tools?: Array<{ parameters?: Record<string, unknown> }> } };
   };
   const parameters = decoded.spec?.doubao_realtime?.tools?.[0]?.parameters;
@@ -329,30 +327,27 @@ test("RPC payload codec preserves optional JSON schema field absence", () => {
   assert.equal(Object.prototype.hasOwnProperty.call(parameters ?? {}, "anyOf"), false);
 });
 
-test("RPC payload codec preserves workflow i18n catalogs", () => {
+test("RPC payload codec preserves the selected workflow i18n catalog", () => {
   const workflow = {
-    i18n: {
-      default_locale: "en",
-      en: { name: "Assistant", description: "Helpful workflow" },
-      "zh-CN": {},
-    },
-    metadata: { name: "assistant" },
+    i18n: { name: "Assistant", description: "Helpful workflow" },
+    name: "assistant",
     spec: { driver: "flowcraft" },
   };
-  const payload = encodeRPCRequestPayload("server.workflow.create", workflow);
-  const decoded = decodeRPCRequestPayload("server.workflow.create", payload) as typeof workflow;
+  const payload = encodeRPCResponsePayload("server.workflow.get", workflow);
+  const decoded = decodeRPCResponsePayload("server.workflow.get", payload) as typeof workflow;
 
   assert.deepEqual(decoded.i18n, workflow.i18n);
 });
 
-test("RPC payload codec rejects legacy workflow descriptions", () => {
-  assert.throws(
-    () => encodeRPCRequestPayload("server.workflow.create", {
-      metadata: { name: "assistant", description: "Legacy description" },
-      spec: { driver: "flowcraft" },
-    }),
-    /workflow metadata description is no longer supported/,
-  );
+test("RPC payload codec preserves the workflow locale enum", () => {
+  const payload = encodeRPCRequestPayload("server.workflow.get", {
+    name: "assistant",
+    lang: "zh-CN",
+  });
+  assert.deepEqual(decodeRPCRequestPayload("server.workflow.get", payload), {
+    name: "assistant",
+    lang: "zh-CN",
+  });
 });
 
 test("RPC payload codec rejects string values for bool fields", () => {

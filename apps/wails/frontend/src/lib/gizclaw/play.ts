@@ -129,7 +129,11 @@ export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
         captureCall(RPC_METHODS["server.friend_group.list"], () => rpc.call(RPC_METHODS["server.friend_group.list"], {})),
         captureCall(RPC_METHODS["server.firmware.list"], () => rpc.call(RPC_METHODS["server.firmware.list"], {})),
         captureCall(RPC_METHODS["server.workspace.list"], () => rpc.call(RPC_METHODS["server.workspace.list"], {})),
-        captureCall(RPC_METHODS["server.workflow.list"], () => rpc.call(RPC_METHODS["server.workflow.list"], {})),
+        captureCall(RPC_METHODS["server.workflow.list"], () =>
+          rpc.call(RPC_METHODS["server.workflow.list"], {
+            lang: navigator.language.toLowerCase().startsWith("zh") ? "zh-CN" : "en",
+          }),
+        ),
         captureCall(RPC_METHODS["server.model.list"], () => rpc.call(RPC_METHODS["server.model.list"], {})),
         captureCall(RPC_METHODS["server.voice.list"], () => rpc.call(RPC_METHODS["server.voice.list"], {})),
         captureCall(RPC_METHODS["server.credential.list"], () => rpc.call(RPC_METHODS["server.credential.list"], {})),

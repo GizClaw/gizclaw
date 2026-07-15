@@ -146,24 +146,11 @@ function decodeMessage(type: string, payload: Uint8Array): unknown {
     }
     return {};
   }
-  const decoded = withMessageDefaults(desc, values);
-  if (type === "WorkflowI18n") {
-    const catalogs = asRecord(decoded.value, "WorkflowI18n.value");
-    return { ...catalogs, default_locale: decoded.default_locale };
-  }
-  return decoded;
+  return withMessageDefaults(desc, values);
 }
 
 function messageObjectForEncode(type: string, value: unknown): Record<string, unknown> {
-  const object = asRecord(value, type);
-  if (type === "WorkflowMetadata" && Object.prototype.hasOwnProperty.call(object, "description")) {
-    throw new Error("workflow metadata description is no longer supported; use workflow i18n");
-  }
-  if (type === "WorkflowI18n") {
-    const { default_locale, ...catalogs } = object;
-    return { default_locale, value: catalogs };
-  }
-  return object;
+  return asRecord(value, type);
 }
 
 function decodeMessageFields(desc: MessageDesc, payload: Uint8Array): Record<string, unknown> {
@@ -520,7 +507,7 @@ function enumNumber(type: string, value: unknown): number {
   }
   const text = String(value ?? "");
   const key = text.toLowerCase();
-  const number = desc.byName[key] ?? desc.byName[key.replaceAll("-", "_")];
+  const number = desc.byName[text] ?? desc.byName[key] ?? desc.byName[key.replaceAll("-", "_")];
   if (number == null) {
     throw new Error(\`unknown protobuf enum value for \${type}: \${text}\`);
   }
@@ -1150,6 +1137,7 @@ function enumJSONValue(name) {
     "OPENAI_TENANT": "openai-tenant",
     "PUSH_TO_TALK": "push-to-talk",
     "VOLC_TENANT": "volc-tenant",
+    "ZH_CN": "zh-CN",
   })[name] ?? name.toLowerCase();
 }
 

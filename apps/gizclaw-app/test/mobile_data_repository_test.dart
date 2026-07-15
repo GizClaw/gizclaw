@@ -1,4 +1,3 @@
-import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gizclaw/gizclaw.dart';
@@ -16,21 +15,9 @@ void main() {
     );
     final client = _FakeClient(
       workflows: [
-        WorkflowDocument(
-          metadata: WorkflowMetadata(name: 'build-helper'),
-          i18n: WorkflowI18n(
-            defaultLocale: 'en',
-            value: {
-              'en': WorkflowI18nCatalog(
-                name: 'Build Helper',
-                description: 'Build something useful.',
-              ),
-              'zh-CN': WorkflowI18nCatalog(
-                name: '构建助手',
-                description: '构建有用的东西。',
-              ),
-            }.entries,
-          ),
+        Workflow(
+          name: 'build-helper',
+          i18n: WorkflowI18nCatalog(name: '构建助手', description: '构建有用的东西。'),
           spec: WorkflowSpec(driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT),
         ),
       ],
@@ -111,98 +98,35 @@ void main() {
     expect(groupChats.single.description, 'Shipping together');
   });
 
-  test(
-    'selects workflow catalogs with the documented fallback order',
-    () async {
-      final database = AppDatabase.forTesting(NativeDatabase.memory());
-      addTearDown(database.close);
-      var currentLocaleTag = '';
-      final repository = MobileDataRepository(
-        database,
-        deviceLocaleTag: () => currentLocaleTag,
-      );
-      final client = _FakeClient(workflows: [], workspaces: const []);
-
-      Future<WorkflowCard> refreshFor(
-        String localeTag,
-        WorkflowI18n? i18n,
-      ) async {
-        currentLocaleTag = localeTag;
-        client.workflows
-          ..clear()
-          ..add(
-            WorkflowDocument(
-              metadata: WorkflowMetadata(name: 'stable-name'),
-              i18n: i18n,
-              spec: WorkflowSpec(
-                driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT,
-              ),
-            ),
-          );
-        await repository.refresh(
-          client: client,
-          endpoint: localeTag,
-          serverId: 'server-a',
-        );
-        return (await repository.watchWorkflows('server-a').first).single;
-      }
-
-      final catalogs = WorkflowI18n(
-        defaultLocale: 'en',
-        value: {
-          'en': WorkflowI18nCatalog(
-            name: 'English',
-            description: 'English description',
-          ),
-          'zh': WorkflowI18nCatalog(name: '中文', description: '中文说明'),
-          'zh-CN': WorkflowI18nCatalog(name: '简体中文', description: '简体中文说明'),
-        }.entries,
-      );
-
-      final exactLocale = await refreshFor('zh-CN', catalogs);
-      expect(exactLocale.title, '简体中文');
-      expect(exactLocale.subtitle, '简体中文说明');
-
-      currentLocaleTag = 'en';
-      final cachedInNewLocale =
-          (await repository.watchWorkflows('server-a').first).single;
-      expect(cachedInNewLocale.title, 'English');
-      expect(cachedInNewLocale.subtitle, 'English description');
-
-      expect((await refreshFor('zh-TW', catalogs)).title, '中文');
-      expect((await refreshFor('fr-FR', catalogs)).title, 'English');
-
-      final firstCatalog = await refreshFor(
-        'fr-FR',
-        WorkflowI18n(
-          defaultLocale: 'missing',
-          value: {
-            'de': WorkflowI18nCatalog(description: 'Beschreibung'),
-          }.entries,
+  test('stores the selected RPC catalog and sends the locale enum', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = MobileDataRepository(
+      database,
+      deviceLocaleTag: () => 'zh-TW',
+    );
+    final client = _FakeClient(
+      workflows: [
+        Workflow(
+          name: 'stable-name',
+          i18n: WorkflowI18nCatalog(name: '简体中文', description: '简体中文说明'),
+          spec: WorkflowSpec(driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT),
         ),
-      );
-      expect(firstCatalog.title, 'stable-name');
-      expect(firstCatalog.subtitle, 'Beschreibung');
+      ],
+      workspaces: const [],
+    );
 
-      final noI18n = await refreshFor('fr-FR', null);
-      expect(noI18n.title, 'stable-name');
-      expect(noI18n.subtitle, isEmpty);
+    await repository.refresh(
+      client: client,
+      endpoint: 'local',
+      serverId: 'server-a',
+    );
 
-      await (database.update(database.workflowEntries)..where(
-            (row) =>
-                row.serverId.equals('server-a') &
-                row.name.equals('stable-name'),
-          ))
-          .write(
-            const WorkflowEntriesCompanion(
-              description: Value('Legacy cached description'),
-            ),
-          );
-      final legacyCached =
-          (await repository.watchWorkflows('server-a').first).single;
-      expect(legacyCached.subtitle, 'Legacy cached description');
-    },
-  );
+    final card = (await repository.watchWorkflows('server-a').first).single;
+    expect(card.title, '简体中文');
+    expect(card.subtitle, '简体中文说明');
+    expect(client.lastWorkflowLang, WorkflowLocale.WORKFLOW_LOCALE_ZH_CN);
+  });
 
   test('complete refresh removes rows absent from the snapshot', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
@@ -210,8 +134,8 @@ void main() {
     final repository = MobileDataRepository(database);
     final client = _FakeClient(
       workflows: [
-        WorkflowDocument(
-          metadata: WorkflowMetadata(name: 'temporary'),
+        Workflow(
+          name: 'temporary',
           spec: WorkflowSpec(driver: WorkflowDriver.WORKFLOW_DRIVER_CHATROOM),
         ),
       ],
@@ -245,8 +169,8 @@ void main() {
       final repository = MobileDataRepository(database);
       final client = _FakeClient(
         workflows: [
-          WorkflowDocument(
-            metadata: WorkflowMetadata(name: 'old-workflow'),
+          Workflow(
+            name: 'old-workflow',
             spec: WorkflowSpec(
               driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT,
             ),
@@ -272,8 +196,8 @@ void main() {
       client.workflows
         ..clear()
         ..add(
-          WorkflowDocument(
-            metadata: WorkflowMetadata(name: 'new-workflow'),
+          Workflow(
+            name: 'new-workflow',
             spec: WorkflowSpec(
               driver: WorkflowDriver.WORKFLOW_DRIVER_AST_TRANSLATE,
             ),
@@ -318,15 +242,18 @@ class _FakeClient extends GizClawClient {
 
   final List<FriendGroupObject> friendGroups;
   final List<FriendObject> friends;
-  final List<WorkflowDocument> workflows;
+  final List<Workflow> workflows;
   final List<Workspace> workspaces;
   bool failFriends = false;
+  WorkflowLocale? lastWorkflowLang;
 
   @override
   Future<WorkflowListResponse> listWorkflows({
     String? cursor,
     int? limit,
+    WorkflowLocale? lang,
   }) async {
+    lastWorkflowLang = lang;
     return WorkflowListResponse(items: workflows);
   }
 

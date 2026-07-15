@@ -135,18 +135,6 @@ func TestSharedSetupRPCSocialFixtures(t *testing.T) {
 func TestSharedSetupRPCMutationFixtures(t *testing.T) {
 	env := newSharedSetupRPCHarness(t)
 
-	_, _ = env.peer.DeleteWorkflow(env.ctx, "shared.workflow.delete.preclean", rpcapi.WorkflowDeleteRequest{Name: "mutation-flowcraft-workflow"})
-	createdWorkflow, err := env.peer.CreateWorkflow(env.ctx, "shared.workflow.create", rpcWorkflow("mutation-flowcraft-workflow", "shared setup mutation workflow"))
-	if err != nil {
-		t.Fatalf("workflow.create mutation-flowcraft-workflow: %v", err)
-	}
-	if createdWorkflow.Metadata.Name != "mutation-flowcraft-workflow" {
-		t.Fatalf("workflow.create = %#v", createdWorkflow)
-	}
-	if _, err := env.peer.DeleteWorkflow(env.ctx, "shared.workflow.delete", rpcapi.WorkflowDeleteRequest{Name: "mutation-flowcraft-workflow"}); err != nil {
-		t.Fatalf("workflow.delete mutation-flowcraft-workflow: %v", err)
-	}
-
 	_, _ = env.peer.DeleteModel(env.ctx, "shared.model.delete.preclean", rpcapi.ModelDeleteRequest{Id: "mutation-openai-model"})
 	createdModel, err := env.peer.CreateModel(env.ctx, "shared.model.create", rpcModel("mutation-openai-model", "openai-main"))
 	if err != nil {
@@ -183,7 +171,7 @@ func collectWorkflowNames(t *testing.T, ctx context.Context, peer *gizcli.Client
 			t.Fatalf("workflow.list page %d: %v", page, err)
 		}
 		for _, item := range list.Items {
-			names[item.Metadata.Name] = true
+			names[item.Name] = true
 		}
 		if !list.HasNext {
 			return names

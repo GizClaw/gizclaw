@@ -18,10 +18,8 @@ func TestIntegrationAdminServiceWorkflowLifecycle(t *testing.T) {
 	admin := newTestClient(t, ts)
 	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: strPtr("admin")})
 
-	createDoc := mustWorkflowDocument(t, `{
-		"metadata": {
-			"name": "demo-assistant"
-		},
+	createDoc := mustWorkflow(t, `{
+		"name": "demo-assistant",
 		"i18n": {
 			"default_locale": "en",
 			"en": {"description": "flowcraft workflow"}
@@ -51,14 +49,12 @@ func TestIntegrationAdminServiceWorkflowLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetWorkflow error: %v", err)
 	}
-	if got.Metadata.Name != "demo-assistant" {
-		t.Fatalf("GetWorkflow name = %q", got.Metadata.Name)
+	if got.Name != "demo-assistant" {
+		t.Fatalf("GetWorkflow name = %q", got.Name)
 	}
 
-	updateDoc := mustWorkflowDocument(t, `{
-		"metadata": {
-			"name": "demo-assistant"
-		},
+	updateDoc := mustWorkflow(t, `{
+		"name": "demo-assistant",
 		"i18n": {
 			"default_locale": "en",
 			"en": {"description": "updated description"}
@@ -76,7 +72,7 @@ func TestIntegrationAdminServiceWorkflowLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PutWorkflow error: %v", err)
 	}
-	catalog := updated.I18n.AdditionalProperties["en"]
+	catalog := updated.I18n.En
 	if catalog.Description == nil || *catalog.Description != "updated description" {
 		t.Fatalf("PutWorkflow i18n = %#v", updated.I18n)
 	}
@@ -120,10 +116,8 @@ func TestIntegrationAdminServiceWorkspaceLifecycle(t *testing.T) {
 	admin := newTestClient(t, ts)
 	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: strPtr("admin")})
 
-	workflowDoc := mustWorkflowDocument(t, `{
-		"metadata": {
-			"name": "demo-workflow"
-		},
+	workflowDoc := mustWorkflow(t, `{
+		"name": "demo-workflow",
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {}
@@ -261,10 +255,10 @@ func TestIntegrationAdminServiceCredentialLifecycle(t *testing.T) {
 	}
 }
 
-func mustWorkflowDocument(t *testing.T, raw string) apitypes.WorkflowDocument {
+func mustWorkflow(t *testing.T, raw string) apitypes.Workflow {
 	t.Helper()
 
-	var doc apitypes.WorkflowDocument
+	var doc apitypes.Workflow
 	if err := json.Unmarshal([]byte(raw), &doc); err != nil {
 		t.Fatalf("json.Unmarshal() error = %v", err)
 	}

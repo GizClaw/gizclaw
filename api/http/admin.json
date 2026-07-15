@@ -53,7 +53,7 @@
     },
     {
       "name": "Workflows",
-      "description": "Workflow document operations"
+      "description": "Workflow operations"
     },
     {
       "name": "Workspaces",
@@ -2939,7 +2939,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./shared.json#/components/schemas/WorkflowDocument"
+                "$ref": "./shared.json#/components/schemas/Workflow"
               }
             }
           }
@@ -2950,7 +2950,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./shared.json#/components/schemas/WorkflowDocument"
+                  "$ref": "./shared.json#/components/schemas/Workflow"
                 }
               }
             }
@@ -5803,11 +5803,11 @@
         ],
         "responses": {
           "200": {
-            "description": "Workflow document",
+            "description": "Workflow",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./shared.json#/components/schemas/WorkflowDocument"
+                  "$ref": "./shared.json#/components/schemas/Workflow"
                 }
               }
             }
@@ -5856,7 +5856,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./shared.json#/components/schemas/WorkflowDocument"
+                "$ref": "./shared.json#/components/schemas/Workflow"
               }
             }
           }
@@ -5867,7 +5867,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./shared.json#/components/schemas/WorkflowDocument"
+                  "$ref": "./shared.json#/components/schemas/Workflow"
                 }
               }
             }
@@ -5917,7 +5917,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./shared.json#/components/schemas/WorkflowDocument"
+                  "$ref": "./shared.json#/components/schemas/Workflow"
                 }
               }
             }
@@ -10917,7 +10917,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "./shared.json#/components/schemas/WorkflowDocument"
+              "$ref": "./shared.json#/components/schemas/Workflow"
             }
           }
         }

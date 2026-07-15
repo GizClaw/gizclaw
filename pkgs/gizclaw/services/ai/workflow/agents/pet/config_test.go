@@ -193,7 +193,7 @@ func TestFactoryRejectsMissingOrAmbiguousPetBinding(t *testing.T) {
 	parameters := petParameters(t)
 	spec := agenthost.Spec{
 		Workspace: apitypes.Workspace{Name: "pet-123", Parameters: &parameters},
-		Workflow: apitypes.WorkflowDocument{Spec: apitypes.WorkflowSpec{
+		Workflow: apitypes.Workflow{Spec: apitypes.WorkflowSpec{
 			Driver: apitypes.WorkflowDriverPet,
 			Pet:    &petSpec,
 		}},
@@ -211,7 +211,7 @@ func TestFactoryRequiresConfiguredModelResourcesToBeOperational(t *testing.T) {
 	parameters := petParameters(t)
 	spec := agenthost.Spec{
 		Workspace: apitypes.Workspace{Name: "pet-123", Parameters: &parameters},
-		Workflow: apitypes.WorkflowDocument{Spec: apitypes.WorkflowSpec{
+		Workflow: apitypes.Workflow{Spec: apitypes.WorkflowSpec{
 			Driver: apitypes.WorkflowDriverPet,
 			Pet:    &petSpec,
 		}},
@@ -235,7 +235,7 @@ func TestFactoryRejectsMissingServerModelConfig(t *testing.T) {
 	parameters := petParameters(t)
 	spec := agenthost.Spec{
 		Workspace: apitypes.Workspace{Name: "pet-123", Parameters: &parameters},
-		Workflow: apitypes.WorkflowDocument{Spec: apitypes.WorkflowSpec{
+		Workflow: apitypes.Workflow{Spec: apitypes.WorkflowSpec{
 			Driver: apitypes.WorkflowDriverPet,
 			Pet:    &petSpec,
 		}},

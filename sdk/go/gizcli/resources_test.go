@@ -45,15 +45,6 @@ func TestClientResourceMethodsRequireConnection(t *testing.T) {
 		{"workflow get", func() (any, error) {
 			return client.GetWorkflow(ctx, "workflow-get", rpcapi.WorkflowGetRequest{Name: "flow-a"})
 		}},
-		{"workflow create", func() (any, error) {
-			return client.CreateWorkflow(ctx, "workflow-create", resourceWorkflowDoc("flow-a"))
-		}},
-		{"workflow put", func() (any, error) {
-			return client.PutWorkflow(ctx, "workflow-put", rpcapi.WorkflowPutRequest{Name: "flow-a", Body: resourceWorkflowDoc("flow-a")})
-		}},
-		{"workflow delete", func() (any, error) {
-			return client.DeleteWorkflow(ctx, "workflow-delete", rpcapi.WorkflowDeleteRequest{Name: "flow-a"})
-		}},
 		{"model list", func() (any, error) { return client.ListModels(ctx, "model-list", rpcapi.ModelListRequest{}) }},
 		{"model get", func() (any, error) { return client.GetModel(ctx, "model-get", rpcapi.ModelGetRequest{Id: "model-a"}) }},
 		{"model create", func() (any, error) { return client.CreateModel(ctx, "model-create", resourceModel("model-a")) }},

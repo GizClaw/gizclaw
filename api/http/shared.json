@@ -389,8 +389,8 @@
       "WorkspaceInputMode": {
         "$ref": "./shared/workspace_parameters.json#/components/schemas/WorkspaceInputMode"
       },
-      "WorkflowDocument": {
-        "$ref": "./shared/workflow_document.json#/components/schemas/WorkflowDocument"
+      "Workflow": {
+        "$ref": "./shared/workflow.json#/components/schemas/Workflow"
       },
       "WorkflowI18n": {
         "$ref": "./shared/workflow_i18n.json#/components/schemas/WorkflowI18n"
@@ -398,14 +398,14 @@
       "WorkflowI18nCatalog": {
         "$ref": "./shared/workflow_i18n.json#/components/schemas/WorkflowI18nCatalog"
       },
+      "WorkflowLocale": {
+        "$ref": "./shared/workflow_locale.json#/components/schemas/WorkflowLocale"
+      },
       "WorkflowSpec": {
         "$ref": "./shared/workflow_spec.json#/components/schemas/WorkflowSpec"
       },
       "WorkflowDriver": {
         "$ref": "./shared/workflow_spec.json#/components/schemas/WorkflowDriver"
-      },
-      "WorkflowMetadata": {
-        "$ref": "./shared/workflow_metadata.json#/components/schemas/WorkflowMetadata"
       },
       "FlowcraftWorkflowSpec": {
         "$ref": "./shared/workflows/flowcraft.json#/components/schemas/FlowcraftWorkflowSpec"

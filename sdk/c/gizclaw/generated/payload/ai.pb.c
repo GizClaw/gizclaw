@@ -267,19 +267,7 @@ PB_BIND(gizclaw_rpc_v1_VolcTenantModelProviderData, gizclaw_rpc_v1_VolcTenantMod
 PB_BIND(gizclaw_rpc_v1_VolcTenantVoiceProviderData, gizclaw_rpc_v1_VolcTenantVoiceProviderData, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_WorkflowCreateRequest, gizclaw_rpc_v1_WorkflowCreateRequest, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_WorkflowCreateResponse, gizclaw_rpc_v1_WorkflowCreateResponse, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_WorkflowDeleteRequest, gizclaw_rpc_v1_WorkflowDeleteRequest, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_WorkflowDeleteResponse, gizclaw_rpc_v1_WorkflowDeleteResponse, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_WorkflowDocument, gizclaw_rpc_v1_WorkflowDocument, 2)
+PB_BIND(gizclaw_rpc_v1_Workflow, gizclaw_rpc_v1_Workflow, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_WorkflowGetRequest, gizclaw_rpc_v1_WorkflowGetRequest, AUTO)
@@ -294,28 +282,13 @@ PB_BIND(gizclaw_rpc_v1_WorkflowListRequest, gizclaw_rpc_v1_WorkflowListRequest, 
 PB_BIND(gizclaw_rpc_v1_WorkflowListResponse, gizclaw_rpc_v1_WorkflowListResponse, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_WorkflowMetadata, gizclaw_rpc_v1_WorkflowMetadata, AUTO)
-
-
 PB_BIND(gizclaw_rpc_v1_WorkflowI18nCatalog, gizclaw_rpc_v1_WorkflowI18nCatalog, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_WorkflowI18n, gizclaw_rpc_v1_WorkflowI18n, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_WorkflowI18n_ValueEntry, gizclaw_rpc_v1_WorkflowI18n_ValueEntry, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_ToolkitPolicyToolIds, gizclaw_rpc_v1_ToolkitPolicyToolIds, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_ToolkitPolicy, gizclaw_rpc_v1_ToolkitPolicy, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_WorkflowPutRequest, gizclaw_rpc_v1_WorkflowPutRequest, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_WorkflowPutResponse, gizclaw_rpc_v1_WorkflowPutResponse, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_WorkflowSpec, gizclaw_rpc_v1_WorkflowSpec, 2)
@@ -367,6 +340,8 @@ PB_BIND(gizclaw_rpc_v1_ToolInvokeRequest, gizclaw_rpc_v1_ToolInvokeRequest, AUTO
 
 
 PB_BIND(gizclaw_rpc_v1_ToolInvokeResponse, gizclaw_rpc_v1_ToolInvokeResponse, AUTO)
+
+
 
 
 

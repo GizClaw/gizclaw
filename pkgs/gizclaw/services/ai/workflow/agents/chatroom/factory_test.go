@@ -36,7 +36,7 @@ func TestFactoryRejectsInvalidSpec(t *testing.T) {
 	}{
 		"missing chatroom spec": {
 			spec: agenthost.Spec{
-				Workflow: apitypes.WorkflowDocument{
+				Workflow: apitypes.Workflow{
 					Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverChatroom},
 				},
 			},
@@ -641,9 +641,9 @@ func TestReadTranscriptHonorsContextCancellation(t *testing.T) {
 	}
 }
 
-func validWorkflow() apitypes.WorkflowDocument {
-	return apitypes.WorkflowDocument{
-		Metadata: apitypes.WorkflowMetadata{Name: "chatroom"},
+func validWorkflow() apitypes.Workflow {
+	return apitypes.Workflow{
+		Name: "chatroom",
 		Spec: apitypes.WorkflowSpec{
 			Driver: apitypes.WorkflowDriverChatroom,
 			Chatroom: &apitypes.ChatRoomWorkflowSpec{
@@ -653,7 +653,7 @@ func validWorkflow() apitypes.WorkflowDocument {
 	}
 }
 
-func validWorkflowWithTranscript(asrModel string, enabled bool) apitypes.WorkflowDocument {
+func validWorkflowWithTranscript(asrModel string, enabled bool) apitypes.Workflow {
 	workflow := validWorkflow()
 	if asrModel == "" {
 		workflow.Spec.Chatroom.Transcript = &apitypes.ChatRoomWorkflowTranscriptSpec{Enabled: &enabled}

@@ -6,12 +6,10 @@ import (
 	"errors"
 	"io"
 	"net"
-	"strings"
 	"testing"
 	"time"
 
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
-	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -528,58 +526,68 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 		t.Fatalf("decoded empty toolkit = %#v, want explicit empty list", emptyWorkspaceDecoded.Toolkit)
 	}
 
-	var workflowCreate RPCPayload
+	var workflowGet RPCPayload
 	workflowToolIDs := []string{"system.toolkit.echo"}
 	workflowName := "Flowcraft Toolkit"
 	workflowDescription := "Toolkit workflow"
-	if err := workflowCreate.FromWorkflowCreateRequest(WorkflowCreateRequest{
-		I18n: &WorkflowI18n{
-			DefaultLocale: "en",
-			Value: map[string]WorkflowI18nCatalog{
-				"en":    {Name: &workflowName, Description: &workflowDescription},
-				"zh-CN": {},
-			},
-		},
-		Metadata: WorkflowMetadata{Name: "flowcraft-toolkit"},
+	if err := workflowGet.FromWorkflowGetRequest(WorkflowGetRequest{Name: "flowcraft-toolkit", Lang: WorkflowLocaleZhCN}); err != nil {
+		t.Fatalf("FromWorkflowGetRequest() error = %v", err)
+	}
+	var workflowGetProto rpcpb.WorkflowGetRequest
+	if err := proto.Unmarshal(workflowGet.payload, &workflowGetProto); err != nil {
+		t.Fatalf("unmarshal workflow get payload error = %v", err)
+	}
+	if workflowGetProto.GetName() != "flowcraft-toolkit" || workflowGetProto.GetLang() != rpcpb.WorkflowLocale_WORKFLOW_LOCALE_ZH_CN {
+		t.Fatalf("workflow get protobuf = %#v", &workflowGetProto)
+	}
+	workflowGetDecoded, err := workflowGet.AsWorkflowGetRequest()
+	if err != nil {
+		t.Fatalf("AsWorkflowGetRequest() error = %v", err)
+	}
+	if workflowGetDecoded.Lang != WorkflowLocaleZhCN {
+		t.Fatalf("workflow get locale = %q", workflowGetDecoded.Lang)
+	}
+
+	var workflowResponse RPCPayload
+	if err := workflowResponse.FromWorkflowGetResponse(Workflow{
+		Name: "flowcraft-toolkit",
+		I18n: &WorkflowI18nCatalog{Name: &workflowName, Description: &workflowDescription},
 		Spec: WorkflowSpec{
 			Driver:  WorkflowDriverFlowcraft,
 			Toolkit: &ToolkitPolicy{ToolIds: &workflowToolIDs},
 		},
 	}); err != nil {
-		t.Fatalf("FromWorkflowCreateRequest() error = %v", err)
+		t.Fatalf("FromWorkflowGetResponse() error = %v", err)
 	}
-	var workflowCreateProto rpcpb.WorkflowCreateRequest
-	if err := proto.Unmarshal(workflowCreate.payload, &workflowCreateProto); err != nil {
-		t.Fatalf("unmarshal workflow create payload error = %v", err)
+	var workflowResponseProto rpcpb.WorkflowGetResponse
+	if err := proto.Unmarshal(workflowResponse.payload, &workflowResponseProto); err != nil {
+		t.Fatalf("unmarshal workflow response payload error = %v", err)
 	}
-	if got := workflowCreateProto.GetValue().GetSpec().GetToolkit().GetToolIds().GetValue(); len(got) != 1 || got[0] != "system.toolkit.echo" {
+	if got := workflowResponseProto.GetValue().GetSpec().GetToolkit().GetToolIds().GetValue(); len(got) != 1 || got[0] != "system.toolkit.echo" {
 		t.Fatalf("workflow toolkit = %#v", got)
 	}
-	if got := workflowCreateProto.GetValue().GetI18N(); got.GetDefaultLocale() != "en" || len(got.GetValue()) != 2 {
+	if got := workflowResponseProto.GetValue().GetI18N(); got.GetName() != workflowName || got.GetDescription() != workflowDescription {
 		t.Fatalf("workflow protobuf i18n = %#v", got)
 	}
-	workflowDecoded, err := workflowCreate.AsWorkflowCreateRequest()
+	workflowDecoded, err := workflowResponse.AsWorkflowGetResponse()
 	if err != nil {
-		t.Fatalf("AsWorkflowCreateRequest() error = %v", err)
+		t.Fatalf("AsWorkflowGetResponse() error = %v", err)
 	}
-	if workflowDecoded.I18n == nil || workflowDecoded.I18n.DefaultLocale != "en" || len(workflowDecoded.I18n.Value) != 2 {
+	if workflowDecoded.I18n == nil || workflowDecoded.I18n.Name == nil || *workflowDecoded.I18n.Name != workflowName {
 		t.Fatalf("workflow decoded i18n = %#v", workflowDecoded.I18n)
-	}
-	if got := workflowDecoded.I18n.Value["zh-CN"]; got.Name != nil || got.Description != nil {
-		t.Fatalf("workflow empty catalog = %#v", got)
 	}
 
 	petSpec := PetWorkflowSpec{}
 	var petWorkflowPayload RPCPayload
-	if err := petWorkflowPayload.FromWorkflowCreateRequest(WorkflowCreateRequest{
-		Metadata: WorkflowMetadata{Name: "pet-care"},
-		Spec:     WorkflowSpec{Driver: WorkflowDriverPet, Pet: &petSpec},
+	if err := petWorkflowPayload.FromWorkflowGetResponse(Workflow{
+		Name: "pet-care",
+		Spec: WorkflowSpec{Driver: WorkflowDriverPet, Pet: &petSpec},
 	}); err != nil {
-		t.Fatalf("FromWorkflowCreateRequest(pet) error = %v", err)
+		t.Fatalf("FromWorkflowGetResponse(pet) error = %v", err)
 	}
-	gotPetWorkflow, err := petWorkflowPayload.AsWorkflowCreateRequest()
+	gotPetWorkflow, err := petWorkflowPayload.AsWorkflowGetResponse()
 	if err != nil {
-		t.Fatalf("AsWorkflowCreateRequest(pet) error = %v", err)
+		t.Fatalf("AsWorkflowGetResponse(pet) error = %v", err)
 	}
 	if gotPetWorkflow.Spec.Driver != WorkflowDriverPet || gotPetWorkflow.Spec.Pet == nil {
 		t.Fatalf("pet workflow = %#v", gotPetWorkflow)
@@ -595,81 +603,6 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 	}
 	if statProto.GetValue()["hunger"] != 1 || statProto.GetValue()["clean"] != 2 {
 		t.Fatalf("stat map = %+v", statProto.GetValue())
-	}
-}
-
-func TestPayloadCodecRejectsLegacyWorkflowDescription(t *testing.T) {
-	legacy := &rpcpb.WorkflowCreateRequest{
-		Value: &rpcpb.WorkflowDocument{
-			Metadata: &rpcpb.WorkflowMetadata{Name: "legacy"},
-			Spec: &rpcpb.WorkflowSpec{
-				Driver: rpcpb.WorkflowDriver_WORKFLOW_DRIVER_FLOWCRAFT,
-			},
-		},
-	}
-	unknown := protowire.AppendTag(nil, 1, protowire.BytesType)
-	legacy.Value.Metadata.ProtoReflect().SetUnknown(protowire.AppendString(unknown, "old description"))
-	payload, err := proto.Marshal(legacy)
-	if err != nil {
-		t.Fatalf("proto.Marshal() error = %v", err)
-	}
-
-	rpcPayload := newRPCPayload("WorkflowCreateRequest", payload, false)
-	_, err = rpcPayload.AsWorkflowCreateRequest()
-	if err == nil || !strings.Contains(err.Error(), "workflow metadata field 1 is no longer supported") {
-		t.Fatalf("AsWorkflowCreateRequest() error = %v", err)
-	}
-}
-
-func TestPayloadCodecAllowsLegacyWorkflowDescriptionInResponses(t *testing.T) {
-	legacyDocument := func() *rpcpb.WorkflowDocument {
-		doc := &rpcpb.WorkflowDocument{
-			Metadata: &rpcpb.WorkflowMetadata{Name: "legacy"},
-			Spec: &rpcpb.WorkflowSpec{
-				Driver: rpcpb.WorkflowDriver_WORKFLOW_DRIVER_FLOWCRAFT,
-			},
-		}
-		unknown := protowire.AppendTag(nil, 1, protowire.BytesType)
-		doc.Metadata.ProtoReflect().SetUnknown(protowire.AppendString(unknown, "old description"))
-		return doc
-	}
-
-	cases := []struct {
-		name        string
-		messageName string
-		message     proto.Message
-		decode      func(*RPCPayload) error
-	}{
-		{
-			name:        "get",
-			messageName: "WorkflowGetResponse",
-			message:     &rpcpb.WorkflowGetResponse{Value: legacyDocument()},
-			decode: func(payload *RPCPayload) error {
-				_, err := payload.AsWorkflowGetResponse()
-				return err
-			},
-		},
-		{
-			name:        "list",
-			messageName: "WorkflowListResponse",
-			message:     &rpcpb.WorkflowListResponse{Items: []*rpcpb.WorkflowDocument{legacyDocument()}},
-			decode: func(payload *RPCPayload) error {
-				_, err := payload.AsWorkflowListResponse()
-				return err
-			},
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			payload, err := proto.Marshal(tc.message)
-			if err != nil {
-				t.Fatalf("proto.Marshal() error = %v", err)
-			}
-			if err := tc.decode(newRPCPayload(tc.messageName, payload, true)); err != nil {
-				t.Fatalf("decode legacy response error = %v", err)
-			}
-		})
 	}
 }
 

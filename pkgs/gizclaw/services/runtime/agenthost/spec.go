@@ -13,13 +13,13 @@ const workspaceAgentTypeParameter = "agent_type"
 // Spec is the fully resolved configuration used to construct one agent.
 type Spec struct {
 	Workspace apitypes.Workspace
-	Workflow  apitypes.WorkflowDocument
+	Workflow  apitypes.Workflow
 	AgentType string
 	Runtime   workspace.Runtime
 	Toolkit   *ToolkitContext
 }
 
-func resolveAgentType(workspace apitypes.Workspace, workflow apitypes.WorkflowDocument) (string, error) {
+func resolveAgentType(workspace apitypes.Workspace, workflow apitypes.Workflow) (string, error) {
 	if workspace.Parameters != nil {
 		agentType, err := workspace.Parameters.Discriminator()
 		if err != nil {
@@ -41,7 +41,7 @@ func resolveAgentType(workspace apitypes.Workspace, workflow apitypes.WorkflowDo
 	return agentTypeFromWorkflow(workflow)
 }
 
-func agentTypeFromWorkflow(workflow apitypes.WorkflowDocument) (string, error) {
+func agentTypeFromWorkflow(workflow apitypes.Workflow) (string, error) {
 	driver := strings.TrimSpace(string(workflow.Spec.Driver))
 	if driver == "" {
 		return "", fmt.Errorf("agenthost: workflow spec.driver is required")

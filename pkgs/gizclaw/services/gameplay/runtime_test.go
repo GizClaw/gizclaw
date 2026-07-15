@@ -911,7 +911,7 @@ func (s petWorkflowService) GetWorkflow(context.Context, adminhttp.GetWorkflowRe
 	if driver == "" {
 		driver = apitypes.WorkflowDriverPet
 	}
-	return adminhttp.GetWorkflow200JSONResponse(apitypes.WorkflowDocument{
+	return adminhttp.GetWorkflow200JSONResponse(apitypes.Workflow{
 		Spec: apitypes.WorkflowSpec{Driver: driver},
 	}), nil
 }

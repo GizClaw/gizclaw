@@ -46,15 +46,6 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkflowGet, rpcapi.WorkflowGetResponse{}, (*rpcapi.RPCPayload).FromWorkflowGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkflowGetResponse, error) {
 			return client.GetWorkflow(ctx, conn, "workflow-get", rpcapi.WorkflowGetRequest{Name: "flow"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkflowCreate, rpcapi.WorkflowCreateResponse{}, (*rpcapi.RPCPayload).FromWorkflowCreateResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkflowCreateResponse, error) {
-			return client.CreateWorkflow(ctx, conn, "workflow-create", rpcapi.WorkflowCreateRequest{})
-		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkflowPut, rpcapi.WorkflowPutResponse{}, (*rpcapi.RPCPayload).FromWorkflowPutResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkflowPutResponse, error) {
-			return client.PutWorkflow(ctx, conn, "workflow-put", rpcapi.WorkflowPutRequest{Name: "flow"})
-		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkflowDelete, rpcapi.WorkflowDeleteResponse{}, (*rpcapi.RPCPayload).FromWorkflowDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkflowDeleteResponse, error) {
-			return client.DeleteWorkflow(ctx, conn, "workflow-delete", rpcapi.WorkflowDeleteRequest{Name: "flow"})
-		})
 	})
 
 	t.Run("model", func(t *testing.T) {
@@ -216,7 +207,7 @@ func runWorkflowI18nWrapperTest(t *testing.T, client *rpcClient) {
 	if err != nil {
 		t.Fatalf("workflow i18n call error = %v", err)
 	}
-	if got.I18n == nil || got.I18n.DefaultLocale != "en" || len(got.I18n.Value) != 2 {
+	if got.I18n == nil || got.I18n.Description == nil || *got.I18n.Description != "Localized workflow" {
 		t.Fatalf("workflow i18n = %#v", got.I18n)
 	}
 	if err := <-serverErrCh; err != nil {
@@ -447,18 +438,12 @@ func resourceWorkspace(name string) rpcapi.Workspace {
 	return rpcapi.Workspace{Name: name, WorkflowName: "flow-a"}
 }
 
-func resourceWorkflowDoc(name string) rpcapi.WorkflowDocument {
+func resourceWorkflowDoc(name string) rpcapi.Workflow {
 	spec := rpcapi.FlowcraftWorkflowSpec{"entry_agent": ""}
 	description := "Localized workflow"
-	return rpcapi.WorkflowDocument{
-		I18n: &rpcapi.WorkflowI18n{
-			DefaultLocale: "en",
-			Value: map[string]rpcapi.WorkflowI18nCatalog{
-				"en":    {Description: &description},
-				"zh-CN": {},
-			},
-		},
-		Metadata: rpcapi.WorkflowMetadata{Name: name},
+	return rpcapi.Workflow{
+		I18n: &rpcapi.WorkflowI18nCatalog{Description: &description},
+		Name: name,
 		Spec: rpcapi.WorkflowSpec{
 			Driver:    rpcapi.WorkflowDriverFlowcraft,
 			Flowcraft: &spec,

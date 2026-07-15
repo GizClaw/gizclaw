@@ -61,7 +61,7 @@ func (m *Manager) applyWorkflow(ctx context.Context, resource apitypes.Resource)
 	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	if err := m.putWorkflow(ctx, name, workflowDocumentFromResource(item)); err != nil {
+	if err := m.putWorkflow(ctx, name, workflowFromResource(item)); err != nil {
 		return apitypes.ApplyResult{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
 	}
 	if exists {
@@ -79,24 +79,24 @@ func normalizeWorkflowResourceSpec(spec apitypes.WorkflowSpec) (apitypes.Workflo
 	return spec, nil
 }
 
-func (m *Manager) getWorkflow(ctx context.Context, name string) (apitypes.WorkflowDocument, bool, error) {
+func (m *Manager) getWorkflow(ctx context.Context, name string) (apitypes.Workflow, bool, error) {
 	response, err := m.services.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: name})
 	if err != nil {
-		return apitypes.WorkflowDocument{}, false, err
+		return apitypes.Workflow{}, false, err
 	}
 	switch response := response.(type) {
 	case adminhttp.GetWorkflow200JSONResponse:
-		return apitypes.WorkflowDocument(response), true, nil
+		return apitypes.Workflow(response), true, nil
 	case adminhttp.GetWorkflow404JSONResponse:
-		return apitypes.WorkflowDocument{}, false, nil
+		return apitypes.Workflow{}, false, nil
 	case adminhttp.GetWorkflow500JSONResponse:
-		return apitypes.WorkflowDocument{}, false, responseError(500, "GET_WORKFLOW_FAILED", "failed to get workflow", response)
+		return apitypes.Workflow{}, false, responseError(500, "GET_WORKFLOW_FAILED", "failed to get workflow", response)
 	default:
-		return apitypes.WorkflowDocument{}, false, unexpectedResponse("GetWorkflow", response)
+		return apitypes.Workflow{}, false, unexpectedResponse("GetWorkflow", response)
 	}
 }
 
-func (m *Manager) putWorkflow(ctx context.Context, name string, body apitypes.WorkflowDocument) error {
+func (m *Manager) putWorkflow(ctx context.Context, name string, body apitypes.Workflow) error {
 	response, err := m.services.Workflows.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{Name: name, Body: &body})
 	if err != nil {
 		return err
@@ -113,37 +113,37 @@ func (m *Manager) putWorkflow(ctx context.Context, name string, body apitypes.Wo
 	}
 }
 
-func (m *Manager) deleteWorkflow(ctx context.Context, name string) (apitypes.WorkflowDocument, bool, error) {
+func (m *Manager) deleteWorkflow(ctx context.Context, name string) (apitypes.Workflow, bool, error) {
 	response, err := m.services.Workflows.DeleteWorkflow(ctx, adminhttp.DeleteWorkflowRequestObject{Name: name})
 	if err != nil {
-		return apitypes.WorkflowDocument{}, false, err
+		return apitypes.Workflow{}, false, err
 	}
 	switch response := response.(type) {
 	case adminhttp.DeleteWorkflow200JSONResponse:
-		return apitypes.WorkflowDocument(response), true, nil
+		return apitypes.Workflow(response), true, nil
 	case adminhttp.DeleteWorkflow404JSONResponse:
-		return apitypes.WorkflowDocument{}, false, nil
+		return apitypes.Workflow{}, false, nil
 	case adminhttp.DeleteWorkflow500JSONResponse:
-		return apitypes.WorkflowDocument{}, false, responseError(500, "DELETE_WORKFLOW_FAILED", "failed to delete workflow", response)
+		return apitypes.Workflow{}, false, responseError(500, "DELETE_WORKFLOW_FAILED", "failed to delete workflow", response)
 	default:
-		return apitypes.WorkflowDocument{}, false, unexpectedResponse("DeleteWorkflow", response)
+		return apitypes.Workflow{}, false, unexpectedResponse("DeleteWorkflow", response)
 	}
 }
 
-func resourceFromWorkflow(name string, item apitypes.WorkflowDocument) (apitypes.Resource, error) {
+func resourceFromWorkflow(_ string, item apitypes.Workflow) (apitypes.Resource, error) {
 	return marshalResource(apitypes.WorkflowResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.WorkflowResourceKind(apitypes.ResourceKindWorkflow),
-		Metadata:   apitypes.ResourceMetadata{Name: name},
+		Metadata:   apitypes.ResourceMetadata{Name: item.Name},
 		I18n:       item.I18n,
 		Spec:       item.Spec,
 	})
 }
 
-func workflowDocumentFromResource(item apitypes.WorkflowResource) apitypes.WorkflowDocument {
-	return apitypes.WorkflowDocument{
-		I18n:     item.I18n,
-		Metadata: apitypes.WorkflowMetadata{Name: item.Metadata.Name},
-		Spec:     item.Spec,
+func workflowFromResource(item apitypes.WorkflowResource) apitypes.Workflow {
+	return apitypes.Workflow{
+		I18n: item.I18n,
+		Name: item.Metadata.Name,
+		Spec: item.Spec,
 	}
 }

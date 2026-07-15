@@ -61,24 +61,6 @@ func (c *Client) GetWorkflow(ctx context.Context, id string, request rpcapi.Work
 	})
 }
 
-func (c *Client) CreateWorkflow(ctx context.Context, id string, request rpcapi.WorkflowCreateRequest) (*rpcapi.WorkflowCreateResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.WorkflowCreateResponse, error) {
-		return client.CreateWorkflow(ctx, conn, id, request)
-	})
-}
-
-func (c *Client) PutWorkflow(ctx context.Context, id string, request rpcapi.WorkflowPutRequest) (*rpcapi.WorkflowPutResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.WorkflowPutResponse, error) {
-		return client.PutWorkflow(ctx, conn, id, request)
-	})
-}
-
-func (c *Client) DeleteWorkflow(ctx context.Context, id string, request rpcapi.WorkflowDeleteRequest) (*rpcapi.WorkflowDeleteResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.WorkflowDeleteResponse, error) {
-		return client.DeleteWorkflow(ctx, conn, id, request)
-	})
-}
-
 func (c *Client) ListModels(ctx context.Context, id string, request rpcapi.ModelListRequest) (*rpcapi.ModelListResponse, error) {
 	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ModelListResponse, error) {
 		return client.ListModels(ctx, conn, id, request)

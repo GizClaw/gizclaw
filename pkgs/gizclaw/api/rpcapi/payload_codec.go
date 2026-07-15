@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
@@ -137,70 +136,10 @@ func (t RPCPayload) decode(messageName string, out any) error {
 			return fmt.Errorf("rpc: unmarshal %s payload: %w", messageName, err)
 		}
 	}
-	if rejectsLegacyWorkflowDescription(messageName) {
-		if err := rejectLegacyWorkflowDescription(msg); err != nil {
-			return fmt.Errorf("rpc: decode %s payload: %w", messageName, err)
-		}
-	}
 	if err := fillGoValueFromProto(reflect.ValueOf(out), msg, decodeRPCPayloadOptions{emitDefaults: t.emitDefaults}); err != nil {
 		return fmt.Errorf("rpc: decode %s payload: %w", messageName, err)
 	}
 	return nil
-}
-
-func rejectsLegacyWorkflowDescription(messageName string) bool {
-	return messageName == "WorkflowCreateRequest" || messageName == "WorkflowPutRequest"
-}
-
-func rejectLegacyWorkflowDescription(msg protoreflect.Message) error {
-	if msg.Descriptor().FullName() == "gizclaw.rpc.v1.WorkflowMetadata" {
-		unknown := msg.GetUnknown()
-		for len(unknown) != 0 {
-			number, wireType, tagLength := protowire.ConsumeTag(unknown)
-			if tagLength < 0 {
-				return protowire.ParseError(tagLength)
-			}
-			valueLength := protowire.ConsumeFieldValue(number, wireType, unknown[tagLength:])
-			if valueLength < 0 {
-				return protowire.ParseError(valueLength)
-			}
-			if number == 1 {
-				return fmt.Errorf("workflow metadata field 1 is no longer supported; use workflow i18n")
-			}
-			unknown = unknown[tagLength+valueLength:]
-		}
-	}
-
-	var walkErr error
-	msg.Range(func(field protoreflect.FieldDescriptor, value protoreflect.Value) bool {
-		if field.IsMap() {
-			if field.MapValue().Message() == nil {
-				return true
-			}
-			value.Map().Range(func(_ protoreflect.MapKey, item protoreflect.Value) bool {
-				walkErr = rejectLegacyWorkflowDescription(item.Message())
-				return walkErr == nil
-			})
-			return walkErr == nil
-		}
-		if field.IsList() {
-			if field.Message() == nil {
-				return true
-			}
-			list := value.List()
-			for i := 0; i < list.Len(); i++ {
-				if walkErr = rejectLegacyWorkflowDescription(list.Get(i).Message()); walkErr != nil {
-					return false
-				}
-			}
-			return true
-		}
-		if field.Message() != nil {
-			walkErr = rejectLegacyWorkflowDescription(value.Message())
-		}
-		return walkErr == nil
-	})
-	return walkErr
 }
 
 func (t *RPCPayload) merge(messageName string, value any) error {
@@ -1468,6 +1407,7 @@ var enumJSONValueOverrides = map[string]string{
 	"OPENAI_TENANT":     "openai-tenant",
 	"PUSH_TO_TALK":      "push-to-talk",
 	"VOLC_TENANT":       "volc-tenant",
+	"ZH_CN":             "zh-CN",
 }
 
 func protoValueIsZero(fd protoreflect.FieldDescriptor, value protoreflect.Value) bool {

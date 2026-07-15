@@ -11,11 +11,11 @@ import (
 // construct one per-connection agent runtime.
 type Spec struct {
 	Workspace    apitypes.Workspace
-	Workflow     apitypes.WorkflowDocument
+	Workflow     apitypes.Workflow
 	WorkflowType string
 }
 
-func resolveWorkflowType(workflow apitypes.WorkflowDocument) (string, error) {
+func resolveWorkflowType(workflow apitypes.Workflow) (string, error) {
 	driver := strings.TrimSpace(string(workflow.Spec.Driver))
 	if driver == "" {
 		return "", fmt.Errorf("agent: workflow spec.driver is required")

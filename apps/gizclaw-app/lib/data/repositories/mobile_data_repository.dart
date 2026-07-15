@@ -35,9 +35,7 @@ class MobileDataRepository {
       ..where((row) => row.serverId.equals(serverId))
       ..orderBy([(row) => OrderingTerm.asc(row.name)]);
     return query.watch().map(
-      (rows) => rows
-          .map((row) => _workflowCardFromRow(row, _deviceLocaleTag()))
-          .toList(growable: false),
+      (rows) => rows.map(_workflowCardFromRow).toList(growable: false),
     );
   }
 
@@ -106,7 +104,7 @@ class MobileDataRepository {
       ..where((row) => row.serverId.equals(serverId) & row.name.equals(name))
       ..limit(1);
     final row = await query.getSingleOrNull();
-    return row == null ? null : _workflowCardFromRow(row, _deviceLocaleTag());
+    return row == null ? null : _workflowCardFromRow(row);
   }
 
   Future<Workspace?> workspaceDocument(String serverId, String name) async {
@@ -122,7 +120,10 @@ class MobileDataRepository {
     required String endpoint,
     required String serverId,
   }) async {
-    final workflows = await _allWorkflows(client);
+    final workflows = await _allWorkflows(
+      client,
+      _workflowLocale(_deviceLocaleTag()),
+    );
     final workspaces = await _allWorkspaces(client);
     final refreshedAt = DateTime.now().toUtc();
 
@@ -141,10 +142,10 @@ class MobileDataRepository {
         batch.insertAllOnConflictUpdate(
           database.workflowEntries,
           workflows.map((workflow) {
-            final catalog = _workflowCatalog(workflow, _deviceLocaleTag());
+            final catalog = _workflowCatalog(workflow);
             return WorkflowEntriesCompanion.insert(
               serverId: serverId,
-              name: workflow.metadata.name,
+              name: workflow.name,
               description: catalog?.description.trim() ?? '',
               driver: workflow.spec.driver.name,
               rawProtobuf: Uint8List.fromList(workflow.writeToBuffer()),
@@ -169,7 +170,7 @@ class MobileDataRepository {
         );
       });
 
-      final workflowNames = workflows.map((item) => item.metadata.name).toSet();
+      final workflowNames = workflows.map((item) => item.name).toSet();
       final workspaceNames = workspaces.map((item) => item.name).toSet();
       await (database.delete(database.workflowEntries)..where(
             (row) =>
@@ -279,11 +280,18 @@ class MobileDataRepository {
   }
 }
 
-Future<List<WorkflowDocument>> _allWorkflows(GizClawClient client) async {
-  final items = <WorkflowDocument>[];
+Future<List<Workflow>> _allWorkflows(
+  GizClawClient client,
+  WorkflowLocale lang,
+) async {
+  final items = <Workflow>[];
   String? cursor;
   do {
-    final response = await client.listWorkflows(cursor: cursor, limit: 100);
+    final response = await client.listWorkflows(
+      cursor: cursor,
+      limit: 100,
+      lang: lang,
+    );
     items.addAll(response.items);
     cursor = response.hasNext ? response.nextCursor : null;
   } while (cursor != null && cursor.isNotEmpty);
@@ -337,9 +345,9 @@ String _friendGroupKey(FriendGroupObject group) {
   return group.name.trim();
 }
 
-WorkflowCard _workflowCardFromRow(WorkflowEntry row, String localeTag) {
-  final workflow = WorkflowDocument.fromBuffer(row.rawProtobuf);
-  final catalog = _workflowCatalog(workflow, localeTag);
+WorkflowCard _workflowCardFromRow(WorkflowEntry row) {
+  final workflow = Workflow.fromBuffer(row.rawProtobuf);
+  final catalog = _workflowCatalog(workflow);
   final localizedName = catalog?.name.trim();
   return WorkflowCard.fromServer(
     name: row.name,
@@ -351,19 +359,16 @@ WorkflowCard _workflowCardFromRow(WorkflowEntry row, String localeTag) {
   );
 }
 
-WorkflowI18nCatalog? _workflowCatalog(
-  WorkflowDocument workflow,
-  String localeTag,
-) {
-  if (!workflow.hasI18n() || workflow.i18n.value.isEmpty) return null;
+WorkflowI18nCatalog? _workflowCatalog(Workflow workflow) =>
+    workflow.hasI18n() ? workflow.i18n : null;
 
-  final catalogs = workflow.i18n.value;
-  final normalizedTag = localeTag.trim().replaceAll('_', '-');
-  final languageCode = normalizedTag.split('-').first;
-  return catalogs[normalizedTag] ??
-      catalogs[languageCode] ??
-      catalogs[workflow.i18n.defaultLocale] ??
-      catalogs.values.first;
+WorkflowLocale _workflowLocale(String localeTag) {
+  final languageCode = localeTag.trim().replaceAll('_', '-').split('-').first;
+  return switch (languageCode) {
+    'en' => WorkflowLocale.WORKFLOW_LOCALE_EN,
+    'zh' => WorkflowLocale.WORKFLOW_LOCALE_ZH_CN,
+    _ => WorkflowLocale.WORKFLOW_LOCALE_UNSPECIFIED,
+  };
 }
 
 String _platformLocaleTag() =>

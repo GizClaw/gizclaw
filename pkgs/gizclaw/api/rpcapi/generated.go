@@ -593,11 +593,8 @@ const (
 	RPCMethodServerStatusGet                    RPCMethod = "server.status.get"
 	RPCMethodServerVoiceGet                     RPCMethod = "server.voice.get"
 	RPCMethodServerVoiceList                    RPCMethod = "server.voice.list"
-	RPCMethodServerWorkflowCreate               RPCMethod = "server.workflow.create"
-	RPCMethodServerWorkflowDelete               RPCMethod = "server.workflow.delete"
 	RPCMethodServerWorkflowGet                  RPCMethod = "server.workflow.get"
 	RPCMethodServerWorkflowList                 RPCMethod = "server.workflow.list"
-	RPCMethodServerWorkflowPut                  RPCMethod = "server.workflow.put"
 	RPCMethodServerWorkspaceCreate              RPCMethod = "server.workspace.create"
 	RPCMethodServerWorkspaceDelete              RPCMethod = "server.workspace.delete"
 	RPCMethodServerWorkspaceGet                 RPCMethod = "server.workspace.get"
@@ -793,15 +790,9 @@ func (e RPCMethod) Valid() bool {
 		return true
 	case RPCMethodServerVoiceList:
 		return true
-	case RPCMethodServerWorkflowCreate:
-		return true
-	case RPCMethodServerWorkflowDelete:
-		return true
 	case RPCMethodServerWorkflowGet:
 		return true
 	case RPCMethodServerWorkflowList:
-		return true
-	case RPCMethodServerWorkflowPut:
 		return true
 	case RPCMethodServerWorkspaceCreate:
 		return true
@@ -3102,25 +3093,11 @@ type VolcTenantVoiceProviderData struct {
 	VoiceId    *string                 `json:"voice_id,omitempty"`
 }
 
-// WorkflowCreateRequest defines model for WorkflowCreateRequest.
-type WorkflowCreateRequest = WorkflowDocument
-
-// WorkflowCreateResponse defines model for WorkflowCreateResponse.
-type WorkflowCreateResponse = WorkflowDocument
-
-// WorkflowDeleteRequest defines model for WorkflowDeleteRequest.
-type WorkflowDeleteRequest struct {
-	Name string `json:"name"`
-}
-
-// WorkflowDeleteResponse defines model for WorkflowDeleteResponse.
-type WorkflowDeleteResponse = WorkflowDocument
-
-// WorkflowDocument defines model for WorkflowDocument.
-type WorkflowDocument struct {
-	I18n     *WorkflowI18n    `json:"i18n,omitempty"`
-	Metadata WorkflowMetadata `json:"metadata"`
-	Spec     WorkflowSpec     `json:"spec"`
+// Workflow defines model for Workflow.
+type Workflow struct {
+	I18n *WorkflowI18nCatalog `json:"i18n,omitempty"`
+	Name string               `json:"name"`
+	Spec WorkflowSpec         `json:"spec"`
 }
 
 // WorkflowDriver defines model for WorkflowDriver.
@@ -3128,35 +3105,25 @@ type WorkflowDriver string
 
 // WorkflowGetRequest defines model for WorkflowGetRequest.
 type WorkflowGetRequest struct {
-	Name string `json:"name"`
+	Lang WorkflowLocale `json:"lang,omitempty"`
+	Name string         `json:"name"`
 }
 
 // WorkflowGetResponse defines model for WorkflowGetResponse.
-type WorkflowGetResponse = WorkflowDocument
+type WorkflowGetResponse = Workflow
 
 // WorkflowListRequest defines model for WorkflowListRequest.
 type WorkflowListRequest struct {
-	Cursor *string `json:"cursor,omitempty"`
-	Limit  *int    `json:"limit,omitempty"`
+	Cursor *string        `json:"cursor,omitempty"`
+	Lang   WorkflowLocale `json:"lang,omitempty"`
+	Limit  *int           `json:"limit,omitempty"`
 }
 
 // WorkflowListResponse defines model for WorkflowListResponse.
 type WorkflowListResponse struct {
-	HasNext    bool               `json:"has_next"`
-	Items      []WorkflowDocument `json:"items"`
-	NextCursor *string            `json:"next_cursor,omitempty"`
-}
-
-// WorkflowMetadata defines model for WorkflowMetadata.
-type WorkflowMetadata struct {
-	// Name Stable workflow ID. The creator must provide this value.
-	Name string `json:"name"`
-}
-
-// WorkflowI18n defines model for WorkflowI18n.
-type WorkflowI18n struct {
-	DefaultLocale string                         `json:"default_locale"`
-	Value         map[string]WorkflowI18nCatalog `json:"value"`
+	HasNext    bool       `json:"has_next"`
+	Items      []Workflow `json:"items"`
+	NextCursor *string    `json:"next_cursor,omitempty"`
 }
 
 // WorkflowI18nCatalog defines model for WorkflowI18nCatalog.
@@ -3165,20 +3132,29 @@ type WorkflowI18nCatalog struct {
 	Name        *string `json:"name,omitempty"`
 }
 
+// WorkflowLocale defines the locale requested from the read-only Workflow RPC projection.
+type WorkflowLocale string
+
+const (
+	WorkflowLocaleUnspecified WorkflowLocale = ""
+	WorkflowLocaleEn          WorkflowLocale = "en"
+	WorkflowLocaleZhCN        WorkflowLocale = "zh-CN"
+)
+
+func (e WorkflowLocale) Valid() bool {
+	switch e {
+	case WorkflowLocaleUnspecified, WorkflowLocaleEn, WorkflowLocaleZhCN:
+		return true
+	default:
+		return false
+	}
+}
+
 // ToolkitPolicy defines model for ToolkitPolicy.
 type ToolkitPolicy struct {
 	// ToolIds Explicit list of Tool resource IDs an agent runtime may see. Omit to inherit a broader policy; set an empty list to expose no tools.
 	ToolIds *[]string `json:"tool_ids,omitempty"`
 }
-
-// WorkflowPutRequest defines model for WorkflowPutRequest.
-type WorkflowPutRequest struct {
-	Body WorkflowDocument `json:"body"`
-	Name string           `json:"name"`
-}
-
-// WorkflowPutResponse defines model for WorkflowPutResponse.
-type WorkflowPutResponse = WorkflowDocument
 
 // WorkflowSpec defines model for WorkflowSpec.
 type WorkflowSpec struct {
@@ -4070,57 +4046,6 @@ func (t *RPCPayload) FromWorkflowGetRequest(v WorkflowGetRequest) error {
 // MergeWorkflowGetRequest performs a merge with any protobuf payload, using the provided WorkflowGetRequest
 func (t *RPCPayload) MergeWorkflowGetRequest(v WorkflowGetRequest) error {
 	return t.merge("WorkflowGetRequest", v)
-}
-
-// AsWorkflowCreateRequest decodes the RPCPayload as a WorkflowCreateRequest
-func (t RPCPayload) AsWorkflowCreateRequest() (WorkflowCreateRequest, error) {
-	var body WorkflowCreateRequest
-	err := t.decode("WorkflowCreateRequest", &body)
-	return body, err
-}
-
-// FromWorkflowCreateRequest overwrites any protobuf payload as the provided WorkflowCreateRequest
-func (t *RPCPayload) FromWorkflowCreateRequest(v WorkflowCreateRequest) error {
-	return t.encode("WorkflowCreateRequest", v)
-}
-
-// MergeWorkflowCreateRequest performs a merge with any protobuf payload, using the provided WorkflowCreateRequest
-func (t *RPCPayload) MergeWorkflowCreateRequest(v WorkflowCreateRequest) error {
-	return t.merge("WorkflowCreateRequest", v)
-}
-
-// AsWorkflowPutRequest decodes the RPCPayload as a WorkflowPutRequest
-func (t RPCPayload) AsWorkflowPutRequest() (WorkflowPutRequest, error) {
-	var body WorkflowPutRequest
-	err := t.decode("WorkflowPutRequest", &body)
-	return body, err
-}
-
-// FromWorkflowPutRequest overwrites any protobuf payload as the provided WorkflowPutRequest
-func (t *RPCPayload) FromWorkflowPutRequest(v WorkflowPutRequest) error {
-	return t.encode("WorkflowPutRequest", v)
-}
-
-// MergeWorkflowPutRequest performs a merge with any protobuf payload, using the provided WorkflowPutRequest
-func (t *RPCPayload) MergeWorkflowPutRequest(v WorkflowPutRequest) error {
-	return t.merge("WorkflowPutRequest", v)
-}
-
-// AsWorkflowDeleteRequest decodes the RPCPayload as a WorkflowDeleteRequest
-func (t RPCPayload) AsWorkflowDeleteRequest() (WorkflowDeleteRequest, error) {
-	var body WorkflowDeleteRequest
-	err := t.decode("WorkflowDeleteRequest", &body)
-	return body, err
-}
-
-// FromWorkflowDeleteRequest overwrites any protobuf payload as the provided WorkflowDeleteRequest
-func (t *RPCPayload) FromWorkflowDeleteRequest(v WorkflowDeleteRequest) error {
-	return t.encode("WorkflowDeleteRequest", v)
-}
-
-// MergeWorkflowDeleteRequest performs a merge with any protobuf payload, using the provided WorkflowDeleteRequest
-func (t *RPCPayload) MergeWorkflowDeleteRequest(v WorkflowDeleteRequest) error {
-	return t.merge("WorkflowDeleteRequest", v)
 }
 
 // AsModelListRequest decodes the RPCPayload as a ModelListRequest
@@ -5651,57 +5576,6 @@ func (t *RPCPayload) FromWorkflowGetResponse(v WorkflowGetResponse) error {
 // MergeWorkflowGetResponse performs a merge with any protobuf payload, using the provided WorkflowGetResponse
 func (t *RPCPayload) MergeWorkflowGetResponse(v WorkflowGetResponse) error {
 	return t.merge("WorkflowGetResponse", v)
-}
-
-// AsWorkflowCreateResponse decodes the RPCPayload as a WorkflowCreateResponse
-func (t RPCPayload) AsWorkflowCreateResponse() (WorkflowCreateResponse, error) {
-	var body WorkflowCreateResponse
-	err := t.decode("WorkflowCreateResponse", &body)
-	return body, err
-}
-
-// FromWorkflowCreateResponse overwrites any protobuf payload as the provided WorkflowCreateResponse
-func (t *RPCPayload) FromWorkflowCreateResponse(v WorkflowCreateResponse) error {
-	return t.encode("WorkflowCreateResponse", v)
-}
-
-// MergeWorkflowCreateResponse performs a merge with any protobuf payload, using the provided WorkflowCreateResponse
-func (t *RPCPayload) MergeWorkflowCreateResponse(v WorkflowCreateResponse) error {
-	return t.merge("WorkflowCreateResponse", v)
-}
-
-// AsWorkflowPutResponse decodes the RPCPayload as a WorkflowPutResponse
-func (t RPCPayload) AsWorkflowPutResponse() (WorkflowPutResponse, error) {
-	var body WorkflowPutResponse
-	err := t.decode("WorkflowPutResponse", &body)
-	return body, err
-}
-
-// FromWorkflowPutResponse overwrites any protobuf payload as the provided WorkflowPutResponse
-func (t *RPCPayload) FromWorkflowPutResponse(v WorkflowPutResponse) error {
-	return t.encode("WorkflowPutResponse", v)
-}
-
-// MergeWorkflowPutResponse performs a merge with any protobuf payload, using the provided WorkflowPutResponse
-func (t *RPCPayload) MergeWorkflowPutResponse(v WorkflowPutResponse) error {
-	return t.merge("WorkflowPutResponse", v)
-}
-
-// AsWorkflowDeleteResponse decodes the RPCPayload as a WorkflowDeleteResponse
-func (t RPCPayload) AsWorkflowDeleteResponse() (WorkflowDeleteResponse, error) {
-	var body WorkflowDeleteResponse
-	err := t.decode("WorkflowDeleteResponse", &body)
-	return body, err
-}
-
-// FromWorkflowDeleteResponse overwrites any protobuf payload as the provided WorkflowDeleteResponse
-func (t *RPCPayload) FromWorkflowDeleteResponse(v WorkflowDeleteResponse) error {
-	return t.encode("WorkflowDeleteResponse", v)
-}
-
-// MergeWorkflowDeleteResponse performs a merge with any protobuf payload, using the provided WorkflowDeleteResponse
-func (t *RPCPayload) MergeWorkflowDeleteResponse(v WorkflowDeleteResponse) error {
-	return t.merge("WorkflowDeleteResponse", v)
 }
 
 // AsModelListResponse decodes the RPCPayload as a ModelListResponse
