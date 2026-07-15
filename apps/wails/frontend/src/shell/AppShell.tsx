@@ -11,7 +11,6 @@ import {
   Laptop,
   FolderOpen,
   Maximize2,
-  MoreHorizontal,
   Minus,
   Pencil,
   Play,
@@ -127,17 +126,6 @@ export function AppShell() {
     }
   }
 
-  async function deletePod(id: string) {
-    setError("");
-    try {
-      await api.DeletePod(id);
-      setPods((current) => current.filter((pod) => pod.id !== id));
-      setSelected(null);
-    } catch (reason) {
-      setError(errorMessage(reason));
-    }
-  }
-
   function openPod(pod: PodSummary) {
     setSelected(pod);
     void api
@@ -203,7 +191,6 @@ export function AppShell() {
           pod={selected}
           onChange={replacePod}
           onClose={() => setSelected(null)}
-          onDelete={() => void deletePod(selected.id)}
           onEdit={() => setEditing(selected)}
           onError={(reason) => setError(errorMessage(reason))}
           onReveal={() =>
@@ -343,7 +330,6 @@ function PodDetail({
   pod,
   onChange,
   onClose,
-  onDelete,
   onEdit,
   onError,
   onReveal,
@@ -353,7 +339,6 @@ function PodDetail({
   pod: PodSummary;
   onChange(pod: PodSummary): void;
   onClose(): void;
-  onDelete(): void;
   onEdit(): void;
   onError(reason: unknown): void;
   onReveal(): void;
@@ -417,54 +402,33 @@ function PodDetail({
             </button>
           ) : null}
           <div className="pod-dialog-heading">
-            <div className="dialog-title-line">
-              <h2>{pod.name}</h2>
-              {pod.valid ? (
+            {pod.valid ? (
+              <h2>
                 <button
-                  aria-label={t("renameServer")}
-                  className="rename-button"
+                  className="pod-name-button"
                   onClick={onEdit}
                   title={t("renameServer")}
                   type="button"
                 >
-                  <Pencil size={13} />
+                  {pod.name}
                 </button>
-              ) : null}
-            </div>
-            <p>{detailSubtitle || pod.description || pod.id}</p>
+              </h2>
+            ) : (
+              <h2>{pod.name}</h2>
+            )}
           </div>
-          <details className="pod-menu">
-            <summary
-              aria-label={t("podActions")}
-              className="icon-button"
-              title={t("podActions")}
+          <span className="pod-header-meta">
+            {detailSubtitle || pod.description || pod.id}
+          </span>
+          {pod.remote && managing ? (
+            <button
+              className="secondary-action header-add-server"
+              onClick={() => setServerEditor("new")}
+              type="button"
             >
-              <MoreHorizontal size={18} />
-            </summary>
-            <div>
-              {pod.valid ? (
-                <button onClick={onEdit} type="button">
-                  <Pencil size={14} />
-                  {t("edit")}
-                </button>
-              ) : null}
-              <button onClick={onReveal} type="button">
-                <FolderOpen size={14} />
-                {t("reveal")}
-              </button>
-              <button
-                className="danger"
-                onClick={() => {
-                  if (window.confirm(`${t("confirmDelete")}\n${pod.name}`))
-                    onDelete();
-                }}
-                type="button"
-              >
-                <Trash2 size={14} />
-                {t("deletePod")}
-              </button>
-            </div>
-          </details>
+              <Plus size={14} /> {t("addServer")}
+            </button>
+          ) : null}
           <button
             aria-label={t("close")}
             className="icon-button close-button"
@@ -516,7 +480,6 @@ function PodDetail({
               back={
                 <RemoteManageFace
                   api={api}
-                  onAddServer={() => setServerEditor("new")}
                   onEditServer={setServerEditor}
                   onError={onError}
                   onQuery={setQuery}
@@ -771,7 +734,6 @@ function LocalManageFace({
 
 function RemoteManageFace({
   api,
-  onAddServer,
   onEditServer,
   onError,
   onQuery,
@@ -780,7 +742,6 @@ function RemoteManageFace({
   servers,
 }: {
   api: ReturnType<typeof getDesktopAPI>;
-  onAddServer(): void;
   onEditServer(server: PodServer): void;
   onError(reason: unknown): void;
   onQuery(value: string): void;
@@ -804,15 +765,6 @@ function RemoteManageFace({
             value={query}
           />
         </label>
-        <button
-          aria-label={t("addServer")}
-          className="icon-button"
-          onClick={onAddServer}
-          title={t("addServer")}
-          type="button"
-        >
-          <Plus size={16} />
-        </button>
       </div>
       {servers.length ? (
         <VirtualServerList
@@ -1204,10 +1156,6 @@ function PodSettingsDialog({
 }) {
   const t = useMessages();
   const [name, setName] = useState(initial.name);
-  const [description, setDescription] = useState(initial.description ?? "");
-  const [accessPoint, setAccessPoint] = useState(
-    initial.remote?.access_point.endpoint ?? "",
-  );
   const [closing, setClosing] = useState(false);
   useEffect(() => {
     if (!closing) return;
@@ -1221,7 +1169,7 @@ function PodSettingsDialog({
       version: 1 as const,
       id: initial.id,
       name: name.trim(),
-      description: description.trim(),
+      description: initial.description ?? "",
     };
     if (initial.local) {
       await onSave({
@@ -1232,7 +1180,7 @@ function PodSettingsDialog({
     }
     await onSave({
       ...base,
-      remote_access_point: accessPoint.trim(),
+      remote_access_point: initial.remote!.access_point.endpoint,
       remote_servers: initial.remote!.servers.map((server) => ({
         id: server.id,
         name: server.name,
@@ -1274,23 +1222,6 @@ function PodSettingsDialog({
             value={name}
             wide
           />
-          <Field
-            label={t("description")}
-            onChange={setDescription}
-            placeholder={t("descriptionPlaceholder")}
-            value={description}
-            wide
-          />
-          {initial.remote ? (
-            <Field
-              label={t("accessPoint")}
-              onChange={setAccessPoint}
-              placeholder="ap.dev.gizclaw.com:9820"
-              required
-              value={accessPoint}
-              wide
-            />
-          ) : null}
         </div>
         <footer>
           <button

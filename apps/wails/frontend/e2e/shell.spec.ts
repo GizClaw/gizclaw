@@ -218,6 +218,9 @@ test("Pod home opens a share face and scalable remote management", async ({
       .getByRole("dialog")
       .getByRole("heading", { level: 2, name: "China Development" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("dialog").getByRole("button", { name: "Pod actions" }),
+  ).toHaveCount(0);
   const remoteQR = page.getByRole("dialog").locator(".qr-code");
   await expect(
     remoteQR.getByRole("img", { name: "Server QR code" }),
@@ -250,6 +253,18 @@ test("Pod home opens a share face and scalable remote management", async ({
         .evaluate((element) => element.clientWidth),
     )
     .toBeLessThanOrEqual(90);
+  const remoteCardStyle = await page
+    .locator(".server-row")
+    .first()
+    .evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        radius: Number.parseFloat(style.borderTopLeftRadius),
+        background: style.backgroundColor,
+      };
+    });
+  expect(remoteCardStyle.radius).toBeGreaterThanOrEqual(12);
+  expect(remoteCardStyle.background).not.toBe("rgba(0, 0, 0, 0)");
   await page.locator(".virtual-server-list").evaluate((element) => {
     element.scrollTop = element.scrollHeight;
     element.dispatchEvent(new Event("scroll"));
@@ -340,6 +355,22 @@ test("local share stays simple and switches to focused controls", async ({
       dialog.evaluate((element) => element.scrollWidth <= element.clientWidth),
     )
     .toBe(true);
+});
+
+test("clicking the Pod name opens a name-only editor", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: /Local Lab/ }).click();
+  const detail = page.getByRole("dialog");
+  await detail.getByRole("button", { name: "Local Lab", exact: true }).click();
+  const editor = page.locator(".settings-dialog");
+  await expect(editor.getByLabel("Name")).toBeVisible();
+  await expect(editor.getByLabel("Description")).toHaveCount(0);
+  await expect(editor.getByLabel("Access Point")).toHaveCount(0);
+  await editor.getByLabel("Name").fill("Renamed Lab");
+  await editor.getByRole("button", { name: "Save configuration" }).click();
+  await expect(
+    detail.getByRole("heading", { level: 2, name: "Renamed Lab" }),
+  ).toBeVisible();
 });
 
 test("Remote creation asks only for an access point and adds Servers later", async ({

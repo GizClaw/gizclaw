@@ -472,26 +472,42 @@ select:focus-visible {
   min-width: 0;
   flex: 1;
 }
+.pod-name-button {
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pod-name-button:hover {
+  color: #aeb7ff;
+}
+.pod-header-meta {
+  max-width: 120px;
+  overflow: hidden;
+  margin-left: auto;
+  color: #777a83;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.header-add-server {
+  min-height: 32px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
 .dialog-title-line {
   display: flex;
   align-items: center;
   gap: 7px;
-}
-.rename-button {
-  width: 25px;
-  height: 25px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: 8px;
-  color: #747780;
-  background: transparent;
-  cursor: pointer;
-}
-.rename-button:hover {
-  color: #dfe1e6;
-  background: rgba(255, 255, 255, 0.055);
 }
 .icon-button {
   width: 34px;
@@ -516,50 +532,11 @@ select:focus-visible {
 }
 .close-button {
   margin-left: 0;
-  align-self: flex-start;
+  align-self: center;
 }
 .detail-back-button {
   flex: 0 0 auto;
 }
-.pod-menu {
-  position: relative;
-  margin-left: auto;
-}
-.pod-menu summary {
-  list-style: none;
-}
-.pod-menu summary::-webkit-details-marker {
-  display: none;
-}
-.pod-menu > div {
-  position: absolute;
-  z-index: 5;
-  top: 40px;
-  right: 0;
-  width: 190px;
-  padding: 6px;
-  border-radius: 13px;
-  background: #202126;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
-}
-.pod-menu button {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 10px;
-  border: 0;
-  border-radius: 9px;
-  color: #c0c3ca;
-  background: transparent;
-  cursor: pointer;
-  text-align: left;
-  font-size: 11px;
-}
-.pod-menu button:hover {
-  background: rgba(255, 255, 255, 0.055);
-}
-.pod-menu button.danger,
 .danger-action {
   color: #ff8999;
 }
@@ -886,10 +863,7 @@ select:focus-visible {
   padding: 4px 0 0;
 }
 .remote-list-tools {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
+  display: block;
 }
 .remote-list-tools label {
   height: 34px;
@@ -1290,10 +1264,10 @@ button:disabled {
   grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 8px;
-  padding: 8px 2px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
-  border-radius: 0;
-  background: transparent;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.035);
 }
 .server-row > div {
   display: grid;
@@ -1803,10 +1777,6 @@ button:disabled {
     color: #60636b;
     background: rgba(30, 31, 36, 0.065);
   }
-  .rename-button:hover {
-    color: #2c2d32;
-    background: rgba(30, 31, 36, 0.055);
-  }
   .local-runtime-card,
   .network-access-card,
   .access-point,
@@ -1866,8 +1836,7 @@ button:disabled {
     background: rgba(30, 31, 36, 0.05);
   }
   .server-row {
-    border-bottom-color: rgba(30, 31, 36, 0.07);
-    background: transparent;
+    background: rgba(30, 31, 36, 0.045);
   }
 }
 
