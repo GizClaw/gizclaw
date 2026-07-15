@@ -130,13 +130,14 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 	cmdSrv := &CmdServer{stores: ss, AdminPublicKey: cfg.AdminPublicKey, ServeToClients: cfg.ServeToClients}
 	var gizServer *gizclaw.Server
 	gizServer = &gizclaw.Server{
-		LocalStatic:    *cfg.KeyPair,
-		PeerStore:      peersKV,
-		BuildCommit:    BuildCommit,
-		PublicEndpoint: cfg.Endpoint,
-		PublicICETCP:   newOpts.ICETCPListener != nil,
-		EdgeNodes:      cfg.EdgeNodes,
-		ICEServers:     cfg.ICEServers,
+		LocalStatic:     *cfg.KeyPair,
+		PeerStore:       peersKV,
+		BuildCommit:     BuildCommit,
+		PublicEndpoint:  cfg.Endpoint,
+		PublicICETCP:    newOpts.ICETCPListener != nil,
+		DefaultPeerView: cfg.DefaultPeerView,
+		EdgeNodes:       cfg.EdgeNodes,
+		ICEServers:      cfg.ICEServers,
 		PeerListenerFactories: []gizclaw.PeerListenerFactory{
 			func(opts gizclaw.PeerListenerOptions) (giznet.Listener, error) {
 				listenConfig := webRTCListenConfig(cfg, opts, newOpts.ICETCPListener)

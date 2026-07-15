@@ -45,6 +45,7 @@ type Server struct {
 	SignalingPath   string
 	ICETCP          bool
 	ICEServers      []gizwebrtc.ICEServer
+	DefaultPeerView string
 	PeerManager     PeerManager
 
 	mu sync.Mutex
