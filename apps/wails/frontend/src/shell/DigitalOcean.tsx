@@ -7,8 +7,6 @@ const vertexShaderSource = `#version 300 es
 precision highp float;
 
 in vec2 a_position;
-in float a_facet;
-in vec2 a_barycentric;
 
 uniform float u_aspect;
 uniform float u_motion;
@@ -17,38 +15,36 @@ uniform vec2 u_pointer;
 
 out vec3 v_world;
 out vec2 v_uv;
-out vec3 v_barycentric;
-flat out float v_facet;
+out float v_height;
 
-float clothHeight(vec2 point) {
-  float waveA = sin(point.x * 2.35 + u_time * 0.58) * 0.145;
-  float waveB = cos(point.y * 3.10 - u_time * 0.43) * 0.112;
-  float waveC = sin(point.x * 1.25 + point.y * 1.85 - u_time * 0.29) * 0.082;
+float oceanHeight(vec2 point) {
+  float waveA = sin(dot(point, normalize(vec2(0.86, 0.50))) * 0.72 + u_time * 0.34) * 0.46;
+  float waveB = sin(dot(point, normalize(vec2(-0.38, 0.92))) * 1.08 - u_time * 0.25) * 0.24;
+  float waveC = cos(dot(point, normalize(vec2(0.68, -0.74))) * 1.55 + u_time * 0.18) * 0.11;
   vec2 pointerDelta = point - u_pointer;
-  float pointerDistance = length(pointerDelta);
-  float pointerWave = exp(-dot(pointerDelta, pointerDelta) * 2.4)
-    * sin(pointerDistance * 8.0 - u_time * 1.15)
-    * 0.055;
-  return (waveA + waveB + waveC + pointerWave) * u_motion;
+  float pointerRipple = exp(-dot(pointerDelta, pointerDelta) * 0.12)
+    * sin(length(pointerDelta) * 2.8 - u_time * 0.7)
+    * 0.08;
+  return (waveA + waveB + waveC + pointerRipple) * u_motion;
 }
 
 void main() {
+  float depth = a_position.y;
+  float nearFactor = pow(depth, 1.45);
   vec2 worldPoint = vec2(
-    a_position.x * u_aspect * 1.18,
-    a_position.y * 1.16
+    (a_position.x - 0.5) * 17.0 * u_aspect,
+    mix(18.0, 0.8, depth)
   );
-  float height = clothHeight(worldPoint);
-  float perspective = 1.0 + a_position.y * 0.105;
-  vec2 projected = vec2(
-    a_position.x / perspective,
-    (a_position.y * 0.92 + height * 0.72) / perspective
-  );
+  float height = oceanHeight(worldPoint);
+  float width = mix(1.04, 1.24, nearFactor);
+  float projectedX = (a_position.x * 2.0 - 1.0) * width;
+  float projectedY = mix(0.18, -1.18, nearFactor)
+    + height * mix(0.025, 0.20, nearFactor);
 
-  v_world = vec3(worldPoint, height);
-  v_uv = a_position * 0.5 + 0.5;
-  v_barycentric = vec3(a_barycentric, 1.0 - a_barycentric.x - a_barycentric.y);
-  v_facet = a_facet;
-  gl_Position = vec4(projected, 0.32 - height * 0.12, 1.0);
+  v_world = vec3(worldPoint.x, height, worldPoint.y);
+  v_uv = a_position;
+  v_height = height;
+  gl_Position = vec4(projectedX, projectedY, 0.0, 1.0);
 }
 `;
 
@@ -57,47 +53,55 @@ precision highp float;
 
 in vec3 v_world;
 in vec2 v_uv;
-in vec3 v_barycentric;
-flat in float v_facet;
+in float v_height;
 
 uniform float u_light_mode;
 
 out vec4 outColor;
 
+float gridLine(float coordinate) {
+  float distanceToLine = min(fract(coordinate), 1.0 - fract(coordinate));
+  float width = max(fwidth(coordinate) * 1.1, 0.004);
+  return 1.0 - smoothstep(0.0, width, distanceToLine);
+}
+
 void main() {
-  vec3 normal = normalize(cross(dFdx(v_world), dFdy(v_world)));
-  if (normal.z < 0.0) normal = -normal;
+  vec3 dx = dFdx(v_world);
+  vec3 dy = dFdy(v_world);
+  vec3 normal = normalize(cross(dx, dy));
+  if (normal.y < 0.0) normal = -normal;
 
-  vec3 lightDirection = normalize(vec3(-0.42, 0.58, 0.78));
+  vec3 lightDirection = normalize(vec3(-0.32, 0.88, 0.36));
   float diffuse = max(dot(normal, lightDirection), 0.0);
-  float edgeLight = pow(1.0 - clamp(normal.z, 0.0, 1.0), 2.0);
-  vec3 darkBase = vec3(0.035, 0.043, 0.064);
-  vec3 darkLift = vec3(0.105, 0.130, 0.220);
-  vec3 lightBase = vec3(0.835, 0.855, 0.890);
-  vec3 lightLift = vec3(0.965, 0.975, 1.000);
-  vec3 base = mix(darkBase, lightBase, u_light_mode);
-  vec3 lift = mix(darkLift, lightLift, u_light_mode);
-  vec3 accent = mix(vec3(0.105, 0.365, 0.420), vec3(0.290, 0.520, 0.590), u_light_mode);
+  float fresnel = pow(1.0 - clamp(normal.y, 0.0, 1.0), 2.15);
+  float crest = smoothstep(0.18, 0.68, v_height);
 
-  float shade = clamp(0.14 + diffuse * 0.78 + (v_facet - 0.5) * 0.12, 0.0, 1.0);
-  vec3 color = mix(base, lift, shade);
-  color += accent * edgeLight * mix(0.22, 0.11, u_light_mode);
-  color *= mix(0.88 + v_facet * 0.20, 0.95 + v_facet * 0.08, u_light_mode);
+  vec3 darkDeep = vec3(0.012, 0.040, 0.052);
+  vec3 darkSurface = vec3(0.020, 0.105, 0.128);
+  vec3 lightDeep = vec3(0.795, 0.865, 0.870);
+  vec3 lightSurface = vec3(0.720, 0.895, 0.895);
+  vec3 base = mix(darkDeep, lightDeep, u_light_mode);
+  vec3 surface = mix(darkSurface, lightSurface, u_light_mode);
+  vec3 cyan = mix(vec3(0.020, 0.760, 0.680), vec3(0.010, 0.540, 0.520), u_light_mode);
 
-  vec3 edgeWidth = fwidth(v_barycentric) * 1.15;
-  vec3 edgeDistance = smoothstep(vec3(0.0), edgeWidth, v_barycentric);
-  float triangleInterior = min(edgeDistance.x, min(edgeDistance.y, edgeDistance.z));
-  color *= mix(mix(0.86, 0.93, u_light_mode), 1.0, triangleInterior);
+  float depthLift = mix(0.18, 0.82, smoothstep(0.0, 0.92, v_uv.y));
+  vec3 color = mix(base, surface, depthLift * (0.58 + diffuse * 0.28));
+  color += cyan * (crest * 0.17 + fresnel * 0.10) * mix(1.0, 0.62, u_light_mode);
 
-  float vignette = smoothstep(0.86, 0.20, distance(v_uv, vec2(0.50)));
+  float grid = max(gridLine(v_world.x * 0.28), gridLine(v_world.z * 0.34));
+  float gridFade = smoothstep(0.04, 0.28, v_uv.y) * (1.0 - smoothstep(0.84, 1.0, v_uv.y));
+  color += cyan * grid * gridFade * mix(0.065, 0.040, u_light_mode);
+
+  float horizonGlow = (1.0 - smoothstep(0.0, 0.24, v_uv.y));
+  color += cyan * horizonGlow * 0.035;
+  float vignette = 1.0 - smoothstep(0.18, 0.90, distance(v_uv, vec2(0.52, 0.46)));
   color *= mix(0.78, 1.0, vignette);
-  color += accent * smoothstep(0.15, 0.78, v_uv.x) * 0.018;
 
   outColor = vec4(color, 1.0);
 }
 `;
 
-export function LowPolyCloth() {
+export function DigitalOcean() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -120,25 +124,22 @@ export function LowPolyCloth() {
       program = createProgram(gl, vertexShaderSource, fragmentShaderSource);
     } catch (reason) {
       canvas.dataset.webgl = "failed";
-      console.warn("GizClaw cloth background is unavailable", reason);
+      console.warn("GizClaw digital ocean background is unavailable", reason);
       return;
     }
 
-    const mesh = createMesh(39, 25);
+    const mesh = createMesh(64, 42);
     const vertexBuffer = gl.createBuffer();
     if (!vertexBuffer) {
       canvas.dataset.webgl = "failed";
       gl.deleteProgram(program);
       return;
     }
-
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, mesh.vertices, gl.STATIC_DRAW);
 
     const positionLocation = gl.getAttribLocation(program, "a_position");
-    const facetLocation = gl.getAttribLocation(program, "a_facet");
-    const barycentricLocation = gl.getAttribLocation(program, "a_barycentric");
-    if (positionLocation < 0 || facetLocation < 0 || barycentricLocation < 0) {
+    if (positionLocation < 0) {
       canvas.dataset.webgl = "failed";
       gl.deleteBuffer(vertexBuffer);
       gl.deleteProgram(program);
@@ -153,8 +154,8 @@ export function LowPolyCloth() {
     };
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     const lightMode = window.matchMedia("(prefers-color-scheme: light)");
-    const targetPointer = { x: -10, y: -10 };
-    const pointer = { x: -10, y: -10 };
+    const targetPointer = { x: -100, y: -100 };
+    const pointer = { x: -100, y: -100 };
     let aspect = 1;
     let animationFrame = 0;
     let lastFrame = 0;
@@ -162,11 +163,7 @@ export function LowPolyCloth() {
 
     gl.useProgram(program);
     gl.enableVertexAttribArray(positionLocation);
-    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 20, 0);
-    gl.enableVertexAttribArray(facetLocation);
-    gl.vertexAttribPointer(facetLocation, 1, gl.FLOAT, false, 20, 8);
-    gl.enableVertexAttribArray(barycentricLocation);
-    gl.vertexAttribPointer(barycentricLocation, 2, gl.FLOAT, false, 20, 12);
+    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 8, 0);
     gl.disable(gl.DEPTH_TEST);
     canvas.dataset.webgl = "active";
 
@@ -186,20 +183,20 @@ export function LowPolyCloth() {
     };
 
     const render = (now: number, staticFrame = false) => {
-      pointer.x += (targetPointer.x - pointer.x) * 0.075;
-      pointer.y += (targetPointer.y - pointer.y) * 0.075;
+      pointer.x += (targetPointer.x - pointer.x) * 0.045;
+      pointer.y += (targetPointer.y - pointer.y) * 0.045;
       gl.clearColor(
-        lightMode.matches ? 0.88 : 0.035,
-        lightMode.matches ? 0.89 : 0.04,
-        lightMode.matches ? 0.92 : 0.055,
+        lightMode.matches ? 0.875 : 0.008,
+        lightMode.matches ? 0.900 : 0.030,
+        lightMode.matches ? 0.915 : 0.044,
         1,
       );
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.uniform1f(uniforms.aspect, aspect);
       gl.uniform1f(uniforms.lightMode, lightMode.matches ? 1 : 0);
-      gl.uniform1f(uniforms.motion, staticFrame ? 0.58 : 1);
+      gl.uniform1f(uniforms.motion, staticFrame ? 0.74 : 1);
       gl.uniform2f(uniforms.pointer, pointer.x, pointer.y);
-      gl.uniform1f(uniforms.time, staticFrame ? 1.8 : now / 1000);
+      gl.uniform1f(uniforms.time, staticFrame ? 2.1 : now / 1000);
       gl.drawArrays(gl.TRIANGLES, 0, mesh.vertexCount);
     };
 
@@ -223,13 +220,14 @@ export function LowPolyCloth() {
     const movePointer = (event: PointerEvent) => {
       const rect = canvas.getBoundingClientRect();
       if (!rect.width || !rect.height) return;
-      targetPointer.x =
-        ((event.clientX - rect.left) / rect.width - 0.5) * aspect * 2.36;
-      targetPointer.y = (0.5 - (event.clientY - rect.top) / rect.height) * 2.32;
+      const x = (event.clientX - rect.left) / rect.width;
+      const y = (event.clientY - rect.top) / rect.height;
+      targetPointer.x = (x - 0.5) * 17 * aspect;
+      targetPointer.y = 18 - y * 17.2;
     };
     const clearPointer = () => {
-      targetPointer.x = -10;
-      targetPointer.y = -10;
+      targetPointer.x = -100;
+      targetPointer.y = -100;
     };
     const refreshStaticFrame = () => {
       staticFrameRendered = false;
@@ -259,7 +257,7 @@ export function LowPolyCloth() {
   return (
     <canvas
       ref={canvasRef}
-      className="cloth-canvas"
+      className="ocean-canvas"
       data-target-fps={TARGET_FPS}
       aria-hidden="true"
     />
@@ -268,29 +266,18 @@ export function LowPolyCloth() {
 
 function createMesh(columns: number, rows: number) {
   const vertexCount = (columns - 1) * (rows - 1) * 6;
-  const vertices = new Float32Array(vertexCount * 5);
+  const vertices = new Float32Array(vertexCount * 2);
   let offset = 0;
-  let triangle = 0;
   const point = (column: number, row: number) => [
-    (column / (columns - 1) - 0.5) * 2.74,
-    (row / (rows - 1) - 0.5) * 3.6,
+    column / (columns - 1),
+    row / (rows - 1),
   ];
   const writeTriangle = (points: number[][]) => {
-    const facet = pseudoRandom(triangle);
-    const barycentric = [
-      [1, 0],
-      [0, 1],
-      [0, 0],
-    ];
-    triangle += 1;
-    points.forEach(([x, y], index) => {
+    for (const [x, y] of points) {
       vertices[offset] = x;
       vertices[offset + 1] = y;
-      vertices[offset + 2] = facet;
-      vertices[offset + 3] = barycentric[index][0];
-      vertices[offset + 4] = barycentric[index][1];
-      offset += 5;
-    });
+      offset += 2;
+    }
   };
   for (let row = 0; row < rows - 1; row += 1) {
     for (let column = 0; column < columns - 1; column += 1) {
@@ -298,22 +285,11 @@ function createMesh(columns: number, rows: number) {
       const topRight = point(column + 1, row);
       const bottomLeft = point(column, row + 1);
       const bottomRight = point(column + 1, row + 1);
-      const forwardDiagonal = (row + column) % 2 === 0;
-      if (forwardDiagonal) {
-        writeTriangle([topLeft, bottomLeft, bottomRight]);
-        writeTriangle([topLeft, bottomRight, topRight]);
-      } else {
-        writeTriangle([topLeft, bottomLeft, topRight]);
-        writeTriangle([topRight, bottomLeft, bottomRight]);
-      }
+      writeTriangle([topLeft, bottomLeft, bottomRight]);
+      writeTriangle([topLeft, bottomRight, topRight]);
     }
   }
   return { vertexCount, vertices };
-}
-
-function pseudoRandom(value: number) {
-  const random = Math.sin((value + 1) * 12.9898) * 43758.5453;
-  return random - Math.floor(random);
 }
 
 function createProgram(
