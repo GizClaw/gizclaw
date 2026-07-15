@@ -2,6 +2,8 @@ package bridge
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"net"
 	"os"
@@ -31,7 +33,8 @@ type PodBridge struct {
 type podRefresh struct{ cancel context.CancelFunc }
 
 type BootstrapState struct {
-	Pods []PodSummary `json:"pods"`
+	Locale string       `json:"locale"`
+	Pods   []PodSummary `json:"pods"`
 }
 
 type PodSummary struct {
@@ -125,6 +128,9 @@ func (b *PodBridge) GetPod(_ context.Context, id string) (PodSummary, error) {
 func (b *PodBridge) RevealPath(id string) (string, error) { return b.Store.PodDir(id) }
 
 func (b *PodBridge) CreatePod(_ context.Context, input PodInput) (PodSummary, error) {
+	if strings.TrimSpace(input.ID) == "" {
+		input.ID = newInternalID("pod")
+	}
 	pod, err := b.inputToPod(input, nil)
 	if err != nil {
 		return PodSummary{}, err
@@ -463,15 +469,23 @@ func (b *PodBridge) inputToPod(input PodInput, existing *appconfig.Pod) (appconf
 		pod.LocalServer = &appconfig.LocalServer{Port: input.LocalServer.Port, AdminPrivateKey: key}
 	}
 	for _, server := range input.RemoteServers {
+		serverID := strings.TrimSpace(server.ID)
+		if serverID == "" {
+			serverID = newInternalID("server")
+		}
 		oldKey := ""
 		if existing != nil {
 			for _, current := range existing.RemoteServers {
-				if current.ID == server.ID {
+				if current.ID == serverID {
 					oldKey = current.AdminPrivateKey
 				}
 			}
 		}
-		pod.RemoteServers = append(pod.RemoteServers, appconfig.RemoteServer{ID: strings.TrimSpace(server.ID), Name: strings.TrimSpace(server.Name), Endpoint: strings.TrimSpace(server.Endpoint), AdminPrivateKey: secretValue(server.AdminPrivateKey, oldKey)})
+		name := strings.TrimSpace(server.Name)
+		if name == "" {
+			name = strings.TrimSpace(server.Endpoint)
+		}
+		pod.RemoteServers = append(pod.RemoteServers, appconfig.RemoteServer{ID: serverID, Name: name, Endpoint: strings.TrimSpace(server.Endpoint), AdminPrivateKey: secretValue(server.AdminPrivateKey, oldKey)})
 	}
 	oldClient := ""
 	if existing != nil {
@@ -479,6 +493,14 @@ func (b *PodBridge) inputToPod(input PodInput, existing *appconfig.Pod) (appconf
 	}
 	pod.ClientPrivateKey = secretValue(input.ClientPrivateKey, oldClient)
 	return pod, nil
+}
+
+func newInternalID(prefix string) string {
+	var value [6]byte
+	if _, err := rand.Read(value[:]); err == nil {
+		return prefix + "-" + hex.EncodeToString(value[:])
+	}
+	return fmt.Sprintf("%s-%x", prefix, time.Now().UnixNano())
 }
 
 func secretValue(input *string, existing string) string {

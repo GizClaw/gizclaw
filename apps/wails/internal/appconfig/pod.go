@@ -247,7 +247,7 @@ func (p Pod) Validate() error {
 		return errors.New("pod name is required")
 	}
 	local := p.LocalServer != nil
-	remote := len(p.RemoteServers) > 0 || p.RemoteAccessPoint != ""
+	remote := p.RemoteAccessPoint != ""
 	if local == remote {
 		return errors.New("configure exactly one of local_server or remote_servers with remote_access_point")
 	}
@@ -259,9 +259,6 @@ func (p Pod) Validate() error {
 			return err
 		}
 	} else {
-		if len(p.RemoteServers) == 0 {
-			return errors.New("remote_servers must contain at least one server")
-		}
 		if err := validateEndpoint("remote_access_point", p.RemoteAccessPoint); err != nil {
 			return err
 		}

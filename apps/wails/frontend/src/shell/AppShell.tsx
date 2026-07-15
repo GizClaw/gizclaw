@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   ArrowUpRight,
+  ChevronLeft,
   CircleStop,
   Cloud,
   Cpu,
@@ -9,7 +10,9 @@ import {
   KeyRound,
   Laptop,
   FolderOpen,
+  Maximize2,
   MoreHorizontal,
+  Minus,
   Pencil,
   Play,
   Plus,
@@ -20,10 +23,9 @@ import {
   Sparkles,
   Trash2,
   X,
-  Zap,
 } from "lucide-react";
 
-import { useMessages } from "../i18n";
+import { setLocale, useMessages } from "../i18n";
 import { getDesktopAPI } from "../lib/runtime/desktop";
 import type { PodInput, PodSummary } from "../lib/runtime/types";
 
@@ -42,6 +44,7 @@ export function AppShell() {
       api
         .Bootstrap()
         .then(async (state) => {
+          setLocale(state.locale);
           setPods(state.pods);
           const checked = await Promise.all(
             state.pods.map((pod) =>
@@ -66,6 +69,7 @@ export function AppShell() {
             api
               .Bootstrap()
               .then((state) => {
+                setLocale(state.locale);
                 const pod = state.pods.find((candidate) => candidate.id === id);
                 if (pod) {
                   setPods(state.pods);
@@ -146,73 +150,35 @@ export function AppShell() {
 
   return (
     <main className="desktop-shell">
-      <TechBackground />
-      <header className="titlebar" data-wails-drag>
-        <div className="wordmark">
-          <span className="wordmark-orbit">
-            <Zap size={15} />
-          </span>
-          <span>{t("appName")}</span>
-        </div>
-        <div className="titlebar-status">
-          <span className="live-dot" /> {t("tagline")}
-        </div>
-      </header>
+      <AmbientBackground />
+      <div className="window-drag-surface" data-wails-drag />
+      <WindowControls />
 
-      <section className="pod-home">
-        <div className="home-heading">
-          <div>
-            <p className="eyebrow">
-              <Sparkles size={14} /> {t("controlPlane")}
-            </p>
-            <h1>{t("pods")}</h1>
-          </div>
+      {error ? (
+        <div className="error-toast">
+          <Activity size={15} />
+          <span>{error}</span>
           <button
-            className="icon-button"
-            onClick={() =>
-              void Promise.all(
-                pods.map((pod) =>
-                  api.RefreshPodHealth(pod.id).catch(() => pod),
-                ),
-              )
-                .then((next) => setPods(next))
-                .catch((reason) => setError(errorMessage(reason)))
-            }
-            title={t("refresh")}
+            aria-label={t("close")}
+            onClick={() => setError("")}
             type="button"
           >
-            <RefreshCw size={18} />
+            <X size={14} />
           </button>
         </div>
+      ) : null}
 
-        {error ? (
-          <div className="error-banner">
-            <Activity size={16} />
-            {error}
-            <button onClick={() => setError("")} type="button">
-              <X size={14} />
-            </button>
-          </div>
-        ) : null}
-        {loading ? (
-          <div className="loading-grid">
-            <span />
-            <span />
-            <span />
-          </div>
-        ) : null}
-
-        {!loading && pods.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-orbit">
-              <Globe2 size={34} />
-            </div>
-            <h2>{t("emptyTitle")}</h2>
-            <p>{t("emptyBody")}</p>
-          </div>
-        ) : null}
-
+      <section
+        className={`pod-canvas ${!loading && pods.length === 0 ? "pod-canvas-empty" : ""}`}
+      >
         <div className="pod-grid" aria-label={t("pods")}>
+          {loading ? (
+            <>
+              <span className="pod-skeleton" />
+              <span className="pod-skeleton" />
+              <span className="pod-skeleton" />
+            </>
+          ) : null}
           {pods.map((pod, index) => (
             <PodCard
               key={pod.id}
@@ -223,14 +189,12 @@ export function AppShell() {
           ))}
           <button
             className="add-pod-card"
+            aria-label={t("addPod")}
             onClick={() => setCreating(true)}
+            title={t("addPod")}
             type="button"
           >
-            <span className="add-icon">
-              <Plus size={25} />
-            </span>
-            <strong>{t("addPod")}</strong>
-            <small>{t("addPodHint")}</small>
+            <Plus size={30} strokeWidth={1.7} />
           </button>
         </div>
       </section>
@@ -253,16 +217,49 @@ export function AppShell() {
         />
       ) : null}
       {creating ? (
-        <PodFormDialog onClose={() => setCreating(false)} onSave={create} />
+        <CreatePodDialog onClose={() => setCreating(false)} onSave={create} />
       ) : null}
       {editing ? (
-        <PodFormDialog
+        <PodSettingsDialog
           initial={editing}
           onClose={() => setEditing(null)}
           onSave={update}
         />
       ) : null}
     </main>
+  );
+}
+
+function WindowControls() {
+  const t = useMessages();
+  return (
+    <div className="window-controls" aria-label={t("windowControls")}>
+      <button
+        aria-label={t("closeWindow")}
+        className="window-control window-close"
+        onClick={() => window.runtime?.WindowHide?.()}
+        title={t("closeWindow")}
+        type="button"
+      />
+      <button
+        aria-label={t("minimizeWindow")}
+        className="window-control window-minimize"
+        onClick={() => window.runtime?.WindowMinimise?.()}
+        title={t("minimizeWindow")}
+        type="button"
+      >
+        <Minus size={9} strokeWidth={2.4} />
+      </button>
+      <button
+        aria-label={t("maximizeWindow")}
+        className="window-control window-maximize"
+        onClick={() => window.runtime?.WindowToggleMaximise?.()}
+        title={t("maximizeWindow")}
+        type="button"
+      >
+        <Maximize2 size={7} strokeWidth={2.2} />
+      </button>
+    </div>
   );
 }
 
@@ -280,111 +277,59 @@ function PodCard({
   const adminCount =
     pod.remote?.servers.filter((server) => server.admin_configured).length ?? 0;
   const running = pod.local?.process.state === "running";
-  if (!pod.valid)
-    return (
-      <button
-        className="pod-card pod-card-invalid"
-        onClick={onOpen}
-        style={{ animationDelay: `${index * 70}ms` }}
-        type="button"
-      >
-        <span className="card-glow" />
-        <span className="pod-card-top">
-          <span className="mode-icon">
-            <Activity size={20} />
-          </span>
-          <span className="mode-chip">{t("invalid")}</span>
-          <ArrowUpRight className="open-arrow" size={18} />
-        </span>
-        <span className="pod-card-copy">
-          <strong>{pod.name}</strong>
-          <small>{pod.error}</small>
-        </span>
-        <span className="pod-card-footer">
-          <span>
-            <Activity size={13} /> {t("invalid")}
-          </span>
-          <span className="health-pulse" />
-        </span>
-      </button>
-    );
+  const online = running || pod.remote?.access_point.state === "reachable";
+  const mode = !pod.valid
+    ? t("invalid")
+    : pod.mode === "local"
+      ? t("local")
+      : t("remote");
   return (
     <button
-      className={`pod-card pod-card-${pod.mode}`}
+      className={`pod-card pod-card-${pod.valid ? pod.mode : "invalid"}`}
       onClick={onOpen}
-      style={{ animationDelay: `${index * 70}ms` }}
+      style={{ animationDelay: `${Math.min(index, 8) * 55}ms` }}
       type="button"
     >
-      <span className="card-glow" />
       <span className="pod-card-top">
         <span className="mode-icon">
-          {pod.mode === "local" ? <Laptop size={20} /> : <Cloud size={20} />}
+          {!pod.valid ? (
+            <Activity size={18} />
+          ) : pod.mode === "local" ? (
+            <Laptop size={18} />
+          ) : (
+            <Cloud size={18} />
+          )}
         </span>
-        <span className="mode-chip">
-          {pod.mode === "local" ? t("local") : t("remote")}
-        </span>
-        <ArrowUpRight className="open-arrow" size={18} />
+        <span className="mode-chip">{mode}</span>
+        <span className={`health-pulse ${online ? "online" : ""}`} />
       </span>
       <span className="pod-card-copy">
         <strong>{pod.name}</strong>
-        <small>{pod.description || pod.id}</small>
+        <small>
+          {!pod.valid
+            ? pod.error
+            : pod.local
+              ? running
+                ? t("running")
+                : t("stopped")
+              : `${remoteCount} ${remoteCount === 1 ? t("server") : t("servers")}`}
+        </small>
       </span>
-      <span className="pod-card-metrics">
-        {pod.local ? (
-          <>
-            <Metric
-              label={`:${pod.local.port}`}
-              live={running}
-              value={running ? t("running") : t("stopped")}
-            />
-            <Metric
-              label="Admin"
-              live={pod.local.admin_configured}
-              value={pod.local.admin_configured ? t("ready") : "—"}
-            />
-          </>
-        ) : (
-          <>
-            <Metric
-              label={`${remoteCount} ${remoteCount === 1 ? t("server") : t("servers")}`}
-              live={pod.remote?.access_point.state === "reachable"}
-              value={`${adminCount} ADMIN`}
-            />
-            <Metric
-              label={t("accessPoint")}
-              live={pod.remote?.access_point.state === "reachable"}
-              value={t(pod.remote?.access_point.state ?? "checking")}
-            />
-          </>
-        )}
-      </span>
-      <span className="pod-card-footer">
-        <span>
-          <KeyRound size={13} />{" "}
-          {pod.play_configured ? t("playReady") : t("notConfigured")}
+      {pod.valid ? (
+        <span className="pod-card-capabilities">
+          <span
+            className={
+              pod.local?.admin_configured || adminCount > 0 ? "enabled" : ""
+            }
+          >
+            <Server size={12} /> Admin
+          </span>
+          <span className={pod.play_configured ? "enabled" : ""}>
+            <Sparkles size={12} /> Play
+          </span>
         </span>
-        <span
-          className={`health-pulse ${running || pod.remote?.access_point.state === "reachable" ? "online" : ""}`}
-        />
-      </span>
+      ) : null}
     </button>
-  );
-}
-
-function Metric({
-  label,
-  live,
-  value,
-}: {
-  label: string;
-  live: boolean;
-  value: string;
-}) {
-  return (
-    <span className="metric">
-      <small>{label}</small>
-      <strong className={live ? "metric-live" : ""}>{value}</strong>
-    </span>
   );
 }
 
@@ -410,6 +355,7 @@ function PodDetail({
   run(action: () => Promise<PodSummary>): Promise<void>;
 }) {
   const t = useMessages();
+  const [closing, setClosing] = useState(false);
   const [query, setQuery] = useState("");
   const [adminFilter, setAdminFilter] = useState<
     "all" | "configured" | "missing"
@@ -419,6 +365,9 @@ function PodDetail({
     kind: "admin" | "client";
     serverID?: string;
   } | null>(null);
+  const [serverEditor, setServerEditor] = useState<PodServer | "new" | null>(
+    null,
+  );
   const servers = (pod.remote?.servers ?? []).filter((server) => {
     const matchesQuery = `${server.id} ${server.name} ${server.endpoint}`
       .toLowerCase()
@@ -432,12 +381,28 @@ function PodDetail({
       healthFilter === "all" || server.health.state === healthFilter;
     return matchesQuery && matchesAdmin && matchesHealth;
   });
+  useEffect(() => {
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !secretTarget && !serverEditor)
+        setClosing(true);
+    };
+    window.addEventListener("keydown", keydown);
+    return () => window.removeEventListener("keydown", keydown);
+  }, [secretTarget, serverEditor]);
+  useEffect(() => {
+    if (!closing) return;
+    const timer = window.setTimeout(onClose, 240);
+    return () => window.clearTimeout(timer);
+  }, [closing, onClose]);
   return (
     <div
-      className="dialog-backdrop"
+      className={`dialog-backdrop ${closing ? "dialog-closing" : ""}`}
       role="presentation"
       onMouseDown={(event) => {
-        if (event.currentTarget === event.target) onClose();
+        if (event.currentTarget === event.target) setClosing(true);
+      }}
+      onAnimationEnd={(event) => {
+        if (closing && event.currentTarget === event.target) onClose();
       }}
     >
       <section className="pod-dialog" aria-modal="true" role="dialog">
@@ -498,7 +463,7 @@ function PodDetail({
           <button
             aria-label={t("close")}
             className="icon-button close-button"
-            onClick={onClose}
+            onClick={() => setClosing(true)}
             title={t("close")}
             type="button"
           >
@@ -645,6 +610,14 @@ function PodDetail({
                   {t("refresh")}
                 </button>
                 <button
+                  className="secondary-action"
+                  onClick={() => setServerEditor("new")}
+                  type="button"
+                >
+                  <Plus size={16} />
+                  {t("addServer")}
+                </button>
+                <button
                   className={
                     pod.play_configured ? "primary-action" : "secondary-action"
                   }
@@ -666,6 +639,7 @@ function PodDetail({
                       ? api.OpenAdmin(pod.id, server.id).catch(onError)
                       : setSecretTarget({ kind: "admin", serverID: server.id })
                   }
+                  onEdit={(server) => setServerEditor(server)}
                   servers={servers}
                 />
               ) : (
@@ -695,6 +669,50 @@ function PodDetail({
             }}
           />
         ) : null}
+        {serverEditor ? (
+          <ServerEditorDialog
+            server={serverEditor === "new" ? undefined : serverEditor}
+            onClose={() => setServerEditor(null)}
+            onDelete={
+              serverEditor === "new"
+                ? undefined
+                : async () => {
+                    if (!window.confirm(t("confirmDeleteServer"))) return;
+                    try {
+                      const next = await api.UpdatePod(
+                        podInputWithServers(
+                          pod,
+                          pod.remote!.servers.filter(
+                            (server) => server.id !== serverEditor.id,
+                          ),
+                        ),
+                      );
+                      onChange(next);
+                      setServerEditor(null);
+                    } catch (reason) {
+                      onError(reason);
+                    }
+                  }
+            }
+            onSave={async (draft) => {
+              const nextServers =
+                serverEditor === "new"
+                  ? [...pod.remote!.servers, draft]
+                  : pod.remote!.servers.map((server) =>
+                      server.id === serverEditor.id ? draft : server,
+                    );
+              try {
+                const next = await api.UpdatePod(
+                  podInputWithServers(pod, nextServers),
+                );
+                onChange(next);
+                setServerEditor(null);
+              } catch (reason) {
+                onError(reason);
+              }
+            }}
+          />
+        ) : null}
       </section>
     </div>
   );
@@ -704,9 +722,11 @@ type PodServer = NonNullable<PodSummary["remote"]>["servers"][number];
 
 function VirtualServerList({
   onAdmin,
+  onEdit,
   servers,
 }: {
   onAdmin(server: PodServer): void;
+  onEdit(server: PodServer): void;
   servers: PodServer[];
 }) {
   const t = useMessages();
@@ -747,6 +767,15 @@ function VirtualServerList({
               <small>{server.endpoint}</small>
             </div>
             <Status state={server.health.state} />
+            <button
+              aria-label={t("edit")}
+              className="row-icon-action"
+              onClick={() => onEdit(server)}
+              title={t("edit")}
+              type="button"
+            >
+              <Pencil size={14} />
+            </button>
             <button
               className="row-action"
               onClick={() => onAdmin(server)}
@@ -855,6 +884,89 @@ function SecretDialog({
   );
 }
 
+type EditableServer = Pick<PodServer, "id" | "name" | "endpoint">;
+
+function ServerEditorDialog({
+  onClose,
+  onDelete,
+  onSave,
+  server,
+}: {
+  onClose(): void;
+  onDelete?: () => Promise<void>;
+  onSave(server: EditableServer): Promise<void>;
+  server?: PodServer;
+}) {
+  const t = useMessages();
+  const [name, setName] = useState(server?.name ?? "");
+  const [endpoint, setEndpoint] = useState(server?.endpoint ?? "");
+  const [saving, setSaving] = useState(false);
+  return (
+    <div className="nested-dialog-backdrop">
+      <form
+        className="secret-dialog server-editor-dialog"
+        onSubmit={(event) => {
+          event.preventDefault();
+          setSaving(true);
+          void onSave({
+            id: server?.id ?? "",
+            name: name.trim(),
+            endpoint: endpoint.trim(),
+          }).finally(() => setSaving(false));
+        }}
+      >
+        <header>
+          <div>
+            <span className="mode-chip">
+              {server ? t("editServer") : t("addServer")}
+            </span>
+            <h3>{server?.name || t("server")}</h3>
+          </div>
+          <button className="icon-button" onClick={onClose} type="button">
+            <X size={18} />
+          </button>
+        </header>
+        <div className="form-grid">
+          <Field
+            label={t("serverName")}
+            onChange={setName}
+            placeholder={t("optionalName")}
+            value={name}
+            wide
+          />
+          <Field
+            label={t("serverEndpoint")}
+            onChange={setEndpoint}
+            placeholder="115.191.6.117:9820"
+            required
+            value={endpoint}
+            wide
+          />
+        </div>
+        <footer>
+          {onDelete ? (
+            <button
+              className="danger-action"
+              disabled={saving}
+              onClick={() => void onDelete()}
+              type="button"
+            >
+              <Trash2 size={14} /> {t("removeServer")}
+            </button>
+          ) : null}
+          <span />
+          <button className="secondary-action" onClick={onClose} type="button">
+            {t("cancel")}
+          </button>
+          <button className="primary-action" disabled={saving} type="submit">
+            {t("saveConfiguration")}
+          </button>
+        </footer>
+      </form>
+    </div>
+  );
+}
+
 function podInputWithSecret(
   pod: PodSummary,
   target: { kind: "admin" | "client"; serverID?: string },
@@ -889,6 +1001,24 @@ function podInputWithSecret(
   };
 }
 
+function podInputWithServers(
+  pod: PodSummary,
+  servers: EditableServer[],
+): PodInput {
+  return {
+    version: 1,
+    id: pod.id,
+    name: pod.name,
+    description: pod.description,
+    remote_access_point: pod.remote!.access_point.endpoint,
+    remote_servers: servers.map((server) => ({
+      id: server.id,
+      name: server.name,
+      endpoint: server.endpoint,
+    })),
+  };
+}
+
 function Status({ state }: { state: string }) {
   const t = useMessages();
   const key = (
@@ -905,295 +1035,269 @@ function Status({ state }: { state: string }) {
   );
 }
 
-function PodFormDialog({
-  initial,
+function CreatePodDialog({
   onClose,
   onSave,
 }: {
-  initial?: PodSummary;
   onClose(): void;
   onSave(input: PodInput): Promise<void>;
 }) {
   const t = useMessages();
-  const [mode, setMode] = useState<"local" | "remote">(
-    initial?.mode === "remote" ? "remote" : "local",
+  const [mode, setMode] = useState<"choose" | "remote">("choose");
+  const [accessPoint, setAccessPoint] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [closing, setClosing] = useState(false);
+  useEffect(() => {
+    if (!closing) return;
+    const timer = window.setTimeout(onClose, 240);
+    return () => window.clearTimeout(timer);
+  }, [closing, onClose]);
+
+  async function createLocal() {
+    setSaving(true);
+    try {
+      await onSave({
+        version: 1,
+        name: t("localPodDefaultName"),
+        local_server: { port: 0 },
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function createRemote(event: FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    try {
+      await onSave({
+        version: 1,
+        name: t("remotePodDefaultName"),
+        remote_access_point: accessPoint.trim(),
+        remote_servers: [],
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      className={`dialog-backdrop ${closing ? "dialog-closing" : ""}`}
+      onMouseDown={(event) => {
+        if (event.currentTarget === event.target) setClosing(true);
+      }}
+      onAnimationEnd={(event) => {
+        if (closing && event.currentTarget === event.target) onClose();
+      }}
+    >
+      <form
+        className="create-dialog compact-dialog"
+        onSubmit={(event) => void createRemote(event)}
+      >
+        <header>
+          {mode === "remote" ? (
+            <button
+              className="icon-button"
+              onClick={() => setMode("choose")}
+              type="button"
+            >
+              <ChevronLeft size={18} />
+            </button>
+          ) : (
+            <div>
+              <span className="mode-chip">{t("newEnvironment")}</span>
+              <h2>{t("addPod")}</h2>
+            </div>
+          )}
+          <button
+            aria-label={t("close")}
+            className="icon-button"
+            onClick={() => setClosing(true)}
+            title={t("close")}
+            type="button"
+          >
+            <X size={18} />
+          </button>
+        </header>
+        {mode === "choose" ? (
+          <div className="create-mode-grid">
+            <button
+              disabled={saving}
+              onClick={() => void createLocal()}
+              type="button"
+            >
+              <span>
+                <Laptop size={24} />
+              </span>
+              <strong>{t("local")}</strong>
+              <small>{t("localCreateHint")}</small>
+            </button>
+            <button
+              disabled={saving}
+              onClick={() => setMode("remote")}
+              type="button"
+            >
+              <span>
+                <Cloud size={24} />
+              </span>
+              <strong>{t("remote")}</strong>
+              <small>{t("remoteCreateHint")}</small>
+            </button>
+          </div>
+        ) : (
+          <div className="remote-create-step">
+            <div>
+              <span className="mode-chip">{t("remote")}</span>
+              <h2>{t("connectRemote")}</h2>
+            </div>
+            <Field
+              label={t("accessPoint")}
+              onChange={setAccessPoint}
+              placeholder="ap.dev.gizclaw.com:9820"
+              required
+              value={accessPoint}
+              wide
+            />
+            <button className="primary-action" disabled={saving} type="submit">
+              {t("create")}
+            </button>
+          </div>
+        )}
+      </form>
+    </div>
   );
-  const [form, setForm] = useState({
-    id: initial?.id ?? "",
-    name: initial?.name ?? "",
-    description: initial?.description ?? "",
-    port: String(initial?.local?.port ?? 9820),
-    accessPoint: initial?.remote?.access_point.endpoint ?? "",
-    clientKey: "",
-    adminKey: "",
-  });
-  const [remoteServers, setRemoteServers] = useState(
-    initial?.remote?.servers.map((server) => ({
-      id: server.id,
-      name: server.name,
-      endpoint: server.endpoint,
-      adminKey: "",
-    })) ?? [{ id: "", name: "", endpoint: "", adminKey: "" }],
+}
+
+function PodSettingsDialog({
+  initial,
+  onClose,
+  onSave,
+}: {
+  initial: PodSummary;
+  onClose(): void;
+  onSave(input: PodInput): Promise<void>;
+}) {
+  const t = useMessages();
+  const [name, setName] = useState(initial.name);
+  const [description, setDescription] = useState(initial.description ?? "");
+  const [accessPoint, setAccessPoint] = useState(
+    initial.remote?.access_point.endpoint ?? "",
   );
   const [removeKeys, setRemoveKeys] = useState<string[]>([]);
-  const update = (key: keyof typeof form, value: string) =>
-    setForm((current) => ({ ...current, [key]: value }));
+  const [closing, setClosing] = useState(false);
+  useEffect(() => {
+    if (!closing) return;
+    const timer = window.setTimeout(onClose, 240);
+    return () => window.clearTimeout(timer);
+  }, [closing, onClose]);
+
+  const removableCredentials = [
+    ...(initial.play_configured ? [{ id: "client", label: "Play" }] : []),
+    ...(initial.local?.admin_configured
+      ? [{ id: "admin:local", label: "Admin" }]
+      : []),
+    ...(initial.remote?.servers
+      .filter((server) => server.admin_configured)
+      .map((server) => ({
+        id: `admin:${server.id}`,
+        label: `Admin · ${server.name}`,
+      })) ?? []),
+  ];
+
+  function toggleRemoval(id: string) {
+    if (removeKeys.includes(id)) {
+      setRemoveKeys((current) => current.filter((value) => value !== id));
+    } else if (window.confirm(t("confirmRemoveCredential"))) {
+      setRemoveKeys((current) => [...current, id]);
+    }
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     const base = {
       version: 1 as const,
-      id: form.id.trim(),
-      name: form.name.trim(),
-      description: form.description.trim(),
-      ...(form.clientKey.trim()
-        ? { client_private_key: form.clientKey.trim() }
-        : removeKeys.includes("client")
-          ? { client_private_key: "" }
-          : {}),
+      id: initial.id,
+      name: name.trim(),
+      description: description.trim(),
+      ...(removeKeys.includes("client") ? { client_private_key: "" } : {}),
     };
-    if (
-      initial &&
-      (initial.mode !== mode ||
-        (initial.remote?.servers.length ?? 0) > remoteServers.length) &&
-      !window.confirm(t("confirmTopologyChange"))
-    )
-      return;
-    if (mode === "local")
+    if (initial.local) {
       await onSave({
         ...base,
         local_server: {
-          port: Number(form.port) || 0,
-          ...(form.adminKey.trim()
-            ? { admin_private_key: form.adminKey.trim() }
-            : removeKeys.includes("admin:local")
-              ? { admin_private_key: "" }
-              : {}),
+          port: initial.local.port,
+          ...(removeKeys.includes("admin:local")
+            ? { admin_private_key: "" }
+            : {}),
         },
       });
-    else
-      await onSave({
-        ...base,
-        remote_access_point: form.accessPoint.trim(),
-        remote_servers: remoteServers.map((server) => ({
-          id: server.id.trim(),
-          name: server.name.trim(),
-          endpoint: server.endpoint.trim(),
-          ...(server.adminKey.trim()
-            ? { admin_private_key: server.adminKey.trim() }
-            : removeKeys.includes(`admin:${server.id}`)
-              ? { admin_private_key: "" }
-              : {}),
-        })),
-      });
-  }
-  const removableCredentials = initial
-    ? [
-        ...(initial.play_configured ? [{ id: "client", label: "Play" }] : []),
-        ...(initial.local?.admin_configured
-          ? [{ id: "admin:local", label: "Admin" }]
-          : []),
-        ...(initial.remote?.servers
-          .filter((server) => server.admin_configured)
-          .map((server) => ({
-            id: `admin:${server.id}`,
-            label: `Admin · ${server.name}`,
-          })) ?? []),
-      ]
-    : [];
-  function toggleRemoval(id: string) {
-    if (removeKeys.includes(id)) {
-      setRemoveKeys((current) => current.filter((value) => value !== id));
       return;
     }
-    if (window.confirm(t("confirmRemoveCredential")))
-      setRemoveKeys((current) => [...current, id]);
+    await onSave({
+      ...base,
+      remote_access_point: accessPoint.trim(),
+      remote_servers: initial.remote!.servers.map((server) => ({
+        id: server.id,
+        name: server.name,
+        endpoint: server.endpoint,
+        ...(removeKeys.includes(`admin:${server.id}`)
+          ? { admin_private_key: "" }
+          : {}),
+      })),
+    });
   }
+
   return (
-    <div className="dialog-backdrop">
-      <form className="create-dialog" onSubmit={(event) => void submit(event)}>
+    <div
+      className={`dialog-backdrop ${closing ? "dialog-closing" : ""}`}
+      onAnimationEnd={(event) => {
+        if (closing && event.currentTarget === event.target) onClose();
+      }}
+    >
+      <form
+        className="create-dialog settings-dialog"
+        onSubmit={(event) => void submit(event)}
+      >
         <header>
           <div>
-            <span className="eyebrow">
-              <Plus size={14} /> {initial ? t("editPod") : t("newEnvironment")}
-            </span>
-            <h2>{initial ? initial.name : t("addPod")}</h2>
+            <span className="mode-chip">{t("editPod")}</span>
+            <h2>{initial.name}</h2>
           </div>
           <button
-            aria-label={t("close")}
             className="icon-button"
-            onClick={onClose}
-            title={t("close")}
+            onClick={() => setClosing(true)}
             type="button"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </header>
-        <div className="mode-switch">
-          <button
-            className={mode === "local" ? "active" : ""}
-            onClick={() => setMode("local")}
-            type="button"
-          >
-            <Laptop size={17} />
-            {t("local")}
-          </button>
-          <button
-            className={mode === "remote" ? "active" : ""}
-            onClick={() => setMode("remote")}
-            type="button"
-          >
-            <Cloud size={17} />
-            {t("remote")}
-          </button>
-        </div>
         <div className="form-grid">
           <Field
-            disabled={Boolean(initial)}
-            label={t("podID")}
-            onChange={(value) => update("id", value)}
-            placeholder="local-lab"
-            required
-            value={form.id}
-          />
-          <Field
             label={t("name")}
-            onChange={(value) => update("name", value)}
-            placeholder="Local Lab"
+            onChange={setName}
+            placeholder={t("name")}
             required
-            value={form.name}
+            value={name}
+            wide
           />
           <Field
             label={t("description")}
-            onChange={(value) => update("description", value)}
+            onChange={setDescription}
             placeholder={t("descriptionPlaceholder")}
-            value={form.description}
+            value={description}
             wide
           />
-          {mode === "local" ? (
-            <>
-              <Field
-                label={t("serverPort")}
-                onChange={(value) => update("port", value)}
-                placeholder="9820"
-                required
-                value={form.port}
-              />
-              <Field
-                label={t("adminPrivateKey")}
-                onChange={(value) => update("adminKey", value)}
-                placeholder={t("optionalWriteOnly")}
-                value={form.adminKey}
-                secret
-              />
-            </>
-          ) : (
-            <>
-              <Field
-                label={t("accessPoint")}
-                onChange={(value) => update("accessPoint", value)}
-                placeholder="ap.dev.gizclaw.com:9820"
-                required
-                value={form.accessPoint}
-                wide
-              />
-              {remoteServers.map((server, index) => (
-                <div className="remote-server-form" key={index}>
-                  <Field
-                    label={`${t("serverID")} ${index + 1}`}
-                    onChange={(value) =>
-                      setRemoteServers((current) =>
-                        current.map((item, itemIndex) =>
-                          itemIndex === index ? { ...item, id: value } : item,
-                        ),
-                      )
-                    }
-                    placeholder="beijing-a"
-                    required
-                    value={server.id}
-                  />
-                  <Field
-                    label={`${t("serverName")} ${index + 1}`}
-                    onChange={(value) =>
-                      setRemoteServers((current) =>
-                        current.map((item, itemIndex) =>
-                          itemIndex === index ? { ...item, name: value } : item,
-                        ),
-                      )
-                    }
-                    placeholder="Beijing A"
-                    required
-                    value={server.name}
-                  />
-                  <Field
-                    label={`${t("serverEndpoint")} ${index + 1}`}
-                    onChange={(value) =>
-                      setRemoteServers((current) =>
-                        current.map((item, itemIndex) =>
-                          itemIndex === index
-                            ? { ...item, endpoint: value }
-                            : item,
-                        ),
-                      )
-                    }
-                    placeholder="115.191.6.117:9820"
-                    required
-                    value={server.endpoint}
-                    wide
-                  />
-                  <Field
-                    label={`${t("adminPrivateKey")} ${index + 1}`}
-                    onChange={(value) =>
-                      setRemoteServers((current) =>
-                        current.map((item, itemIndex) =>
-                          itemIndex === index
-                            ? { ...item, adminKey: value }
-                            : item,
-                        ),
-                      )
-                    }
-                    placeholder={t("optionalWriteOnly")}
-                    secret
-                    value={server.adminKey}
-                    wide
-                  />
-                  {remoteServers.length > 1 ? (
-                    <button
-                      className="remove-server"
-                      onClick={() =>
-                        setRemoteServers((current) =>
-                          current.filter((_, itemIndex) => itemIndex !== index),
-                        )
-                      }
-                      type="button"
-                    >
-                      {t("removeServer")}
-                    </button>
-                  ) : null}
-                </div>
-              ))}
-              <button
-                className="secondary-action add-server"
-                onClick={() =>
-                  setRemoteServers((current) => [
-                    ...current,
-                    { id: "", name: "", endpoint: "", adminKey: "" },
-                  ])
-                }
-                type="button"
-              >
-                <Plus size={15} />
-                {t("addAnotherServer")}
-              </button>
-            </>
-          )}
-          <Field
-            label={t("clientPrivateKey")}
-            onChange={(value) => update("clientKey", value)}
-            placeholder={t("optionalWriteOnly")}
-            value={form.clientKey}
-            wide
-            secret
-          />
+          {initial.remote ? (
+            <Field
+              label={t("accessPoint")}
+              onChange={setAccessPoint}
+              placeholder="ap.dev.gizclaw.com:9820"
+              required
+              value={accessPoint}
+              wide
+            />
+          ) : null}
         </div>
         {removableCredentials.length ? (
           <section className="credential-removal">
@@ -1218,12 +1322,15 @@ function PodFormDialog({
           </section>
         ) : null}
         <footer>
-          <button className="secondary-action" onClick={onClose} type="button">
+          <button
+            className="secondary-action"
+            onClick={() => setClosing(true)}
+            type="button"
+          >
             {t("cancel")}
           </button>
           <button className="primary-action" type="submit">
-            <Plus size={16} />
-            {initial ? t("saveConfiguration") : t("create")}
+            {t("saveConfiguration")}
           </button>
         </footer>
       </form>
@@ -1266,25 +1373,12 @@ function Field({
   );
 }
 
-function TechBackground() {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const move = (event: PointerEvent) => {
-      const x = (event.clientX / window.innerWidth - 0.5) * 18;
-      const y = (event.clientY / window.innerHeight - 0.5) * 18;
-      ref.current?.style.setProperty("--parallax-x", `${x}px`);
-      ref.current?.style.setProperty("--parallax-y", `${y}px`);
-    };
-    window.addEventListener("pointermove", move, { passive: true });
-    return () => window.removeEventListener("pointermove", move);
-  }, []);
+function AmbientBackground() {
   return (
-    <div className="tech-bg" aria-hidden="true" ref={ref}>
-      <div className="grid-plane" />
-      <div className="aurora aurora-one" />
-      <div className="aurora aurora-two" />
-      <div className="noise" />
+    <div className="ambient-background" aria-hidden="true">
+      <span className="ambient-glow ambient-glow-one" />
+      <span className="ambient-glow ambient-glow-two" />
+      <span className="ambient-noise" />
     </div>
   );
 }

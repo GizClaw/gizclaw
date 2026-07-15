@@ -34,6 +34,10 @@ Desktop App 不复制 `pkgs/gizclaw` 的服务端业务。`api/http/desktop.json
 - 配置了 Client identity 时生成 Pod 级 `client_context/config.yaml`；
 - remote Pod 不创建 `workspace/`，也不提供进程控制。
 
+Pod ID 与新增 remote Server ID 由 bridge 生成，只用于目录和稳定引用，不作为
+桌面创建表单字段。remote Pod 可以先只保存 Access Point，随后从详情添加
+Server；投影逻辑必须支持空的 `remote_servers`。
+
 目录和密钥文件必须保持私有权限。写入采用同目录临时文件、同步、rename 的
 原子替换流程。前端响应只能包含 `admin_configured`、`play_configured` 等状态，
 不能返回持久化密钥。

@@ -116,6 +116,46 @@ func TestLocalPodCreationAssignsDistinctStablePorts(t *testing.T) {
 	}
 }
 
+func TestPodCreationGeneratesInternalIDsAndAllowsEmptyRemoteInventory(t *testing.T) {
+	paths := appconfig.NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	web := webui.New(fstest.MapFS{"admin.html": {Data: []byte("admin")}})
+	defer web.Shutdown()
+	bridge := &PodBridge{Paths: paths, Store: appconfig.Store{Paths: paths}, Health: endpointhealth.New(), Local: localserver.New(), WebUI: web}
+	local, err := bridge.CreatePod(context.Background(), PodInput{Version: 1, Name: "Local Server", LocalServer: &LocalServerInput{Port: 0}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	remote, err := bridge.CreatePod(context.Background(), PodInput{Version: 1, Name: "Remote Server", RemoteAccessPoint: "127.0.0.1:19820"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(local.ID, "pod-") || !strings.HasPrefix(remote.ID, "pod-") || local.ID == remote.ID {
+		t.Fatalf("generated IDs = %q / %q", local.ID, remote.ID)
+	}
+	if remote.Remote == nil || len(remote.Remote.Servers) != 0 {
+		t.Fatalf("remote summary = %+v", remote.Remote)
+	}
+
+	updated, err := bridge.UpdatePod(context.Background(), PodInput{
+		Version: 1,
+		ID:      remote.ID,
+		Name:    remote.Name,
+		RemoteServers: []RemoteServerInput{
+			{Endpoint: "127.0.0.1:19821"},
+		},
+		RemoteAccessPoint: "127.0.0.1:19820",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updated.Remote.Servers) != 1 || !strings.HasPrefix(updated.Remote.Servers[0].ID, "server-") || updated.Remote.Servers[0].Name != "127.0.0.1:19821" {
+		t.Fatalf("generated server = %+v", updated.Remote.Servers)
+	}
+}
+
 func bridgeTestKey(t *testing.T, fill byte) string {
 	t.Helper()
 	var key giznet.Key

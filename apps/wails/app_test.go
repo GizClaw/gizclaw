@@ -41,7 +41,7 @@ func TestBootstrapKeepsMalformedPodVisible(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(state.Pods) != 2 || state.Pods[0].Valid == state.Pods[1].Valid {
+	if state.Locale == "" || len(state.Pods) != 2 || state.Pods[0].Valid == state.Pods[1].Valid {
 		t.Fatalf("Bootstrap() = %+v", state)
 	}
 }

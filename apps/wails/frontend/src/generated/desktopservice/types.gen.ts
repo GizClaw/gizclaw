@@ -9,6 +9,7 @@ export type Error = {
 };
 
 export type DesktopBootstrap = {
+    locale: 'en' | 'zh-CN';
     pods: Array<DesktopPod>;
 };
 
@@ -61,7 +62,7 @@ export type LocalServerProcess = {
 
 export type PodInput = unknown & {
     version: 1;
-    id: string;
+    id?: string;
     name: string;
     description?: string;
     local_server?: LocalServerInput;
@@ -77,14 +78,14 @@ export type LocalServerInput = {
 };
 
 export type RemoteServerInput = {
-    id: string;
-    name: string;
+    id?: string;
+    name?: string;
     endpoint: string;
 };
 
 export type PodInputWritable = unknown & {
     version: 1;
-    id: string;
+    id?: string;
     name: string;
     description?: string;
     local_server?: LocalServerInputWritable;
@@ -102,8 +103,8 @@ export type LocalServerInputWritable = {
 };
 
 export type RemoteServerInputWritable = {
-    id: string;
-    name: string;
+    id?: string;
+    name?: string;
     endpoint: string;
     admin_private_key?: string;
 };

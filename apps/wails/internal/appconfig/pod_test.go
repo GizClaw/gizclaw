@@ -111,6 +111,25 @@ func TestStoreRemotePodHasNoWorkspaceAndPerServerAdminContexts(t *testing.T) {
 	}
 }
 
+func TestStoreRemotePodAllowsServerInventoryToBeAddedLater(t *testing.T) {
+	paths := NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	pod := Pod{Version: PodVersion, ID: "remote-empty", Name: "Remote", RemoteAccessPoint: "127.0.0.1:19820"}
+	store := Store{Paths: paths}
+	if err := store.Save(pod); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := store.Load(pod.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.RemoteAccessPoint != pod.RemoteAccessPoint || len(loaded.RemoteServers) != 0 {
+		t.Fatalf("loaded = %+v", loaded)
+	}
+}
+
 func TestLoadRejectsUnknownManifestField(t *testing.T) {
 	paths := NewPaths(t.TempDir())
 	if err := paths.Ensure(); err != nil {

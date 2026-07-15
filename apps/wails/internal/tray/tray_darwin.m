@@ -25,6 +25,36 @@ static NSMenu *gizclawMenu;
 static GizClawTrayTarget *gizclawRootTarget;
 static NSMutableArray<GizClawTrayTarget *> *gizclawTargets;
 
+static NSImage *gizclawTrayImage(void) {
+  NSImage *image = nil;
+  if (@available(macOS 11.0, *)) {
+    image = [NSImage imageWithSystemSymbolName:@"bolt.horizontal.circle.fill"
+                     accessibilityDescription:@"GizClaw"];
+  }
+  if (image == nil) {
+    image = [[NSImage alloc] initWithSize:NSMakeSize(18, 18)];
+    [image lockFocus];
+    [[NSColor blackColor] setStroke];
+    NSBezierPath *ring = [NSBezierPath bezierPathWithOvalInRect:NSMakeRect(2.5, 2.5, 13, 13)];
+    ring.lineWidth = 1.7;
+    [ring stroke];
+    NSBezierPath *bolt = [NSBezierPath bezierPath];
+    [bolt moveToPoint:NSMakePoint(10.2, 4.7)];
+    [bolt lineToPoint:NSMakePoint(6.3, 9.4)];
+    [bolt lineToPoint:NSMakePoint(9.0, 9.4)];
+    [bolt lineToPoint:NSMakePoint(7.8, 13.3)];
+    [bolt lineToPoint:NSMakePoint(11.8, 8.2)];
+    [bolt lineToPoint:NSMakePoint(9.2, 8.2)];
+    [bolt closePath];
+    [[NSColor blackColor] setFill];
+    [bolt fill];
+    [image unlockFocus];
+  }
+  image.template = YES;
+  image.size = NSMakeSize(18, 18);
+  return image;
+}
+
 static void onMain(dispatch_block_t block) {
   if ([NSThread isMainThread]) block();
   else dispatch_async(dispatch_get_main_queue(), block);
@@ -33,8 +63,10 @@ static void onMain(dispatch_block_t block) {
 void gizclawTrayStart(void) {
   onMain(^{
     if (gizclawStatusItem != nil) return;
-    gizclawStatusItem = [[NSStatusBar systemStatusBar] statusItemWithLength:NSSquareStatusItemLength];
-    gizclawStatusItem.button.title = @"◈";
+    gizclawStatusItem = [[NSStatusBar systemStatusBar] statusItemWithLength:24];
+    gizclawStatusItem.button.title = @"";
+    gizclawStatusItem.button.image = gizclawTrayImage();
+    gizclawStatusItem.button.imagePosition = NSImageOnly;
     gizclawStatusItem.button.toolTip = @"GizClaw";
     gizclawMenu = [[NSMenu alloc] initWithTitle:@"GizClaw"];
     gizclawRootTarget = [[GizClawTrayTarget alloc] init];

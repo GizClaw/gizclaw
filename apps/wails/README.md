@@ -25,8 +25,10 @@ and Context config files are atomically written with mode `0600`.
 
 A local Pod has one `local_server` with a stable port. The Server listens on
 `0.0.0.0:<port>` for LAN access while its local Admin and Client Contexts use
-`127.0.0.1:<port>`. A remote Pod has `remote_servers` plus one
-`remote_access_point`. Admin identity is per Server; Client identity is per Pod.
+`127.0.0.1:<port>`. A remote Pod has one `remote_access_point` and zero or more
+`remote_servers`; Servers may be added after the Pod is created. Admin identity
+is per Server; Client identity is per Pod. Pod and Server IDs are generated as
+internal identifiers and are not creation-form fields.
 
 Set `GIZCLAW_DESKTOP_CONFIG_HOME` to isolate storage in development or tests.
 Development runs may set `GIZCLAW_DESKTOP_SERVER_EXECUTABLE` or use `gizclaw`
@@ -49,8 +51,11 @@ for local Server support.
   to `127.0.0.1:0`.
 - Every browser launch uses a fresh, single-use runtime handoff. Private keys are
   not placed in URLs, browser storage, static assets, or logs.
-- Closing the window hides it. The system tray contains only Open Window,
-  per-Pod Open Pod…, and Quit navigation.
+- The frameless shell provides native-runtime hide, minimise, and maximise
+  controls. Closing the window hides it while Server and browser listeners keep
+  running.
+- The system tray uses a visible platform icon and contains only Open Window,
+  per-Pod Open Pod…, and Quit navigation. Quit is the explicit process exit.
 
 ## Development
 

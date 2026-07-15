@@ -2,6 +2,18 @@ import { expect, test } from "@playwright/test";
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
+    (window as any).__GIZCLAW_WINDOW_ACTIONS__ = [];
+    window.runtime = {
+      WindowHide() {
+        (window as any).__GIZCLAW_WINDOW_ACTIONS__.push("hide");
+      },
+      WindowMinimise() {
+        (window as any).__GIZCLAW_WINDOW_ACTIONS__.push("minimise");
+      },
+      WindowToggleMaximise() {
+        (window as any).__GIZCLAW_WINDOW_ACTIONS__.push("maximise");
+      },
+    };
     const health = (endpoint: string, state = "reachable") => ({
       endpoint,
       state,
@@ -67,24 +79,42 @@ test.beforeEach(async ({ page }) => {
     ];
     window.__GIZCLAW_DESKTOP_TEST_API__ = {
       async Bootstrap() {
-        return { pods };
+        return {
+          locale: navigator.language.toLowerCase().startsWith("zh")
+            ? "zh-CN"
+            : "en",
+          pods,
+        };
       },
       async CreatePod(input) {
-        const pod = {
-          id: input.id,
-          name: input.name,
-          description: input.description,
-          mode: "local",
-          valid: true,
-          play_configured: false,
-          local: {
-            port: input.local_server?.port || 9820,
-            lan_addresses: [],
-            admin_configured: false,
-            process: { state: "stopped" },
-            health: health("127.0.0.1:9820", "checking"),
-          },
-        };
+        const pod = input.local_server
+          ? {
+              id: input.id || "pod-generated",
+              name: input.name,
+              description: input.description,
+              mode: "local",
+              valid: true,
+              play_configured: false,
+              local: {
+                port: input.local_server.port || 9820,
+                lan_addresses: [],
+                admin_configured: false,
+                process: { state: "stopped" },
+                health: health("127.0.0.1:9820", "checking"),
+              },
+            }
+          : {
+              id: input.id || "pod-generated-remote",
+              name: input.name,
+              description: input.description,
+              mode: "remote",
+              valid: true,
+              play_configured: false,
+              remote: {
+                access_point: health(input.remote_access_point, "checking"),
+                servers: [],
+              },
+            };
         pods.push(pod);
         return pod;
       },
@@ -111,7 +141,29 @@ test.beforeEach(async ({ page }) => {
         return pods.find((pod) => pod.id === id);
       },
       async UpdatePod(input) {
-        return pods.find((pod) => pod.id === input.id);
+        const index = pods.findIndex((pod) => pod.id === input.id);
+        const current = pods[index];
+        const next = input.remote_access_point
+          ? {
+              ...current,
+              name: input.name,
+              description: input.description,
+              remote: {
+                access_point: health(input.remote_access_point),
+                servers: (input.remote_servers || []).map(
+                  (server, serverIndex) => ({
+                    id: server.id || `server-generated-${serverIndex}`,
+                    name: server.name || server.endpoint,
+                    endpoint: server.endpoint,
+                    admin_configured: false,
+                    health: health(server.endpoint),
+                  }),
+                ),
+              },
+            }
+          : current;
+        pods[index] = next;
+        return next;
       },
     };
   });
@@ -119,7 +171,13 @@ test.beforeEach(async ({ page }) => {
 
 test("Pod home opens cards and a scalable remote detail", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Pods" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pods" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Hide window" })).toBeVisible();
+  await page.getByRole("button", { name: "Hide window" }).click();
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__GIZCLAW_WINDOW_ACTIONS__))
+    .toEqual(["hide"]);
+  await expect(page.getByRole("button", { name: "Refresh" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Local Lab/ })).toBeVisible();
   await page.getByRole("button", { name: /China Development/ }).click();
   await expect(
@@ -147,13 +205,39 @@ test("Add Pod creates a local environment without exposing keys", async ({
 }) => {
   await page.goto("/");
   await page.getByRole("button", { name: /Add Pod/ }).click();
-  await page.getByLabel("Pod ID").fill("new-lab");
-  await page.getByLabel("Name").fill("New Lab");
-  await page.getByRole("button", { name: "Create Pod" }).click();
+  await expect(page.getByLabel("Pod ID")).toHaveCount(0);
+  await page
+    .locator(".create-dialog")
+    .getByRole("button", { name: /^Local/ })
+    .click();
   await expect(
-    page.getByRole("dialog").getByRole("heading", { name: "New Lab" }),
+    page.getByRole("dialog").getByRole("heading", { name: "Local Server" }),
   ).toBeVisible();
   await expect(page.locator("body")).not.toContainText("private_key");
+});
+
+test("Remote creation asks only for an access point and adds Servers later", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Add Pod" }).click();
+  await page
+    .locator(".create-dialog")
+    .getByRole("button", { name: /^Remote/ })
+    .click();
+  await expect(page.getByLabel("Server ID")).toHaveCount(0);
+  await page.getByLabel("Access Point").fill("ap.example.com:9820");
+  await page.getByRole("button", { name: "Create Pod" }).click();
+  const detail = page.getByRole("dialog");
+  await expect(
+    detail.getByRole("heading", { name: "Remote Server" }),
+  ).toBeVisible();
+  await detail.getByRole("button", { name: "Add Server" }).click();
+  await page.getByLabel("Server Endpoint").fill("server.example.com:9820");
+  await page.getByRole("button", { name: "Save configuration" }).click();
+  await expect(
+    detail.getByText("server.example.com:9820").first(),
+  ).toBeVisible();
 });
 
 test("malformed Pods remain visible and recoverable", async ({ page }) => {
@@ -177,11 +261,11 @@ test("launcher follows system appearance and reduced motion", async ({
   await page.goto("/");
   const dark = await page
     .locator(".desktop-shell")
-    .evaluate((element) => getComputedStyle(element).backgroundImage);
+    .evaluate((element) => getComputedStyle(element).backgroundColor);
   await page.emulateMedia({ colorScheme: "light" });
   const light = await page
     .locator(".desktop-shell")
-    .evaluate((element) => getComputedStyle(element).backgroundImage);
+    .evaluate((element) => getComputedStyle(element).backgroundColor);
   expect(light).not.toBe(dark);
   await page.emulateMedia({ reducedMotion: "reduce" });
   const duration = await page
@@ -203,6 +287,19 @@ test("launcher selects zh-CN from the operating-system locale", async ({
     }),
   );
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Pod 环境" })).toBeVisible();
   await expect(page.getByRole("button", { name: /添加 Pod/ })).toBeVisible();
+  await page.getByRole("button", { name: /添加 Pod/ }).click();
+  await expect(page.getByRole("heading", { name: "添加 Pod" })).toBeVisible();
+});
+
+test("Pod details animate closed instead of navigating away", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: /Local Lab/ }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Close" }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(page.getByRole("button", { name: /Local Lab/ })).toBeVisible();
 });

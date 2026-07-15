@@ -142,7 +142,7 @@
     },
     "schemas": {
       "Error": { "type": "object", "required": ["message"], "properties": { "message": { "type": "string" } } },
-      "DesktopBootstrap": { "type": "object", "required": ["pods"], "properties": { "pods": { "type": "array", "items": { "$ref": "#/components/schemas/DesktopPod" } } } },
+      "DesktopBootstrap": { "type": "object", "required": ["locale", "pods"], "properties": { "locale": { "type": "string", "enum": ["en", "zh-CN"] }, "pods": { "type": "array", "items": { "$ref": "#/components/schemas/DesktopPod" } } } },
       "DesktopPod": {
         "type": "object",
         "required": ["id", "name", "mode", "valid", "play_configured"],
@@ -173,7 +173,7 @@
         "properties": { "state": { "type": "string", "enum": ["stopped", "running", "stopping", "failed"] }, "pid": { "type": "integer" }, "logs": { "type": "array", "items": { "type": "string" } }, "error": { "type": "string" } }
       },
       "PodInput": {
-        "type": "object", "required": ["version", "id", "name"],
+        "type": "object", "required": ["version", "name"],
         "properties": {
           "version": { "type": "integer", "enum": [1] }, "id": { "type": "string", "maxLength": 64, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" }, "name": { "type": "string" }, "description": { "type": "string" },
           "local_server": { "$ref": "#/components/schemas/LocalServerInput" }, "remote_servers": { "type": "array", "items": { "$ref": "#/components/schemas/RemoteServerInput" } },
@@ -181,7 +181,7 @@
         },
         "oneOf": [
           { "required": ["local_server"], "not": { "anyOf": [{ "required": ["remote_servers"] }, { "required": ["remote_access_point"] }] } },
-          { "required": ["remote_servers", "remote_access_point"], "not": { "required": ["local_server"] } }
+          { "required": ["remote_access_point"], "not": { "required": ["local_server"] } }
         ]
       },
       "LocalServerInput": {
@@ -189,7 +189,7 @@
         "properties": { "port": { "type": "integer", "minimum": 0, "maximum": 65535, "description": "Zero selects an available port when creating a Pod." }, "admin_private_key": { "type": "string", "writeOnly": true } }
       },
       "RemoteServerInput": {
-        "type": "object", "required": ["id", "name", "endpoint"],
+        "type": "object", "required": ["endpoint"],
         "properties": { "id": { "type": "string", "maxLength": 64, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" }, "name": { "type": "string" }, "endpoint": { "type": "string" }, "admin_private_key": { "type": "string", "writeOnly": true } }
       }
     }

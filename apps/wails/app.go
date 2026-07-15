@@ -157,7 +157,12 @@ func (a *App) Bootstrap() (bridge.BootstrapState, error) {
 	if a == nil || a.bridge == nil {
 		return bridge.BootstrapState{}, fmt.Errorf("desktop app: bridge is not configured")
 	}
-	return a.bridge.Bootstrap(context.Background())
+	state, err := a.bridge.Bootstrap(context.Background())
+	if err != nil {
+		return bridge.BootstrapState{}, err
+	}
+	state.Locale = a.messages.Locale()
+	return state, nil
 }
 
 func (a *App) ListPods() ([]bridge.PodSummary, error) {

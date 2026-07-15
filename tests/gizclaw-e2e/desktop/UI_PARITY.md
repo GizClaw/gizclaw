@@ -4,11 +4,13 @@
 
 | Flow | Implementation | Coverage |
 | --- | --- | --- |
-| Pod card grid and Add Pod card | `apps/wails/frontend/src/shell/AppShell.tsx` | `apps/wails/frontend/e2e/shell.spec.ts` |
+| Headerless compact Pod grid, Add card, and animated detail presence | `apps/wails/frontend/src/shell/AppShell.tsx` | `apps/wails/frontend/e2e/shell.spec.ts` |
+| Automatic Pod IDs and minimal local/remote creation | `internal/bridge`, `frontend/src/shell/AppShell.tsx` | bridge tests and `frontend/e2e/shell.spec.ts` |
+| Frameless hide/minimise/maximise controls | `frontend/src/shell/AppShell.tsx` | frontend build and shell E2E |
 | Local/remote manifest validation and private projection | `apps/wails/internal/appconfig` | `apps/wails/internal/appconfig/pod_test.go` |
 | Local Server lifecycle and bounded logs | `apps/wails/internal/localserver` | Wails Go suite |
 | Native `/server-info` reachability | `apps/wails/internal/endpointhealth` | `apps/wails/internal/endpointhealth/prober_test.go` |
-| System tray navigation | `apps/wails/internal/tray` | macOS build/manual smoke |
+| Visible system tray icon and navigation | `apps/wails/internal/tray` | macOS build/manual smoke |
 | Secret-free Pod bridge | `apps/wails/internal/bridge`, `api/http/desktop.json` | `apps/wails/app_test.go`, generated TypeScript build |
 | Invalid/recoverable Pod card and Server search/filter | `apps/wails/frontend/src/shell/AppShell.tsx` | `apps/wails/frontend/e2e/shell.spec.ts` |
 | Shared `en`/`zh-CN` launcher and tray catalogs | `apps/wails/i18n`, `frontend/src/i18n.ts` | Go and frontend catalog tests |
