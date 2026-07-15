@@ -162,6 +162,7 @@ export function AppShell() {
       >
         <header className="home-heading">
           <h1 className="home-title">GizClaw</h1>
+          <p className="home-subtitle">{t("tagline")}</p>
         </header>
         <div className="pod-grid" aria-label={t("pods")}>
           <MobileAppCard onOpen={() => setMobileOpen(true)} />

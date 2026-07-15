@@ -531,6 +531,21 @@ test("launcher uses rounded transparent framing and ambient card depth", async (
   expect(titleLayout.fontFamily).toContain("Space Grotesk");
   expect(titleLayout.fontSize).toBeGreaterThanOrEqual(40);
   expect(titleLayout.bottom).toBeLessThan(titleLayout.cardTop);
+  const subtitle = page.getByText("Your edge constellation", { exact: true });
+  await expect(subtitle).toBeVisible();
+  const subtitleLayout = await subtitle.evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    const card = document
+      .querySelector(".pod-card, .mobile-app-card")
+      ?.getBoundingClientRect();
+    return {
+      bottom: bounds.bottom,
+      cardTop: card?.top ?? 0,
+      top: bounds.top,
+    };
+  });
+  expect(subtitleLayout.top).toBeGreaterThan(titleLayout.bottom);
+  expect(subtitleLayout.bottom).toBeLessThan(subtitleLayout.cardTop);
   await expect(page.locator(".neat-waves-canvas")).toHaveAttribute(
     "data-target-fps",
     "24",

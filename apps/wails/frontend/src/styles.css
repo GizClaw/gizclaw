@@ -117,6 +117,16 @@ button {
   letter-spacing: -0.055em;
   line-height: 0.96;
 }
+.home-subtitle {
+  margin: 9px 0 0 2px;
+  color: rgba(242, 244, 248, 0.66);
+  font-family: "Space Grotesk Variable", "Space Grotesk", sans-serif;
+  font-size: 12px;
+  font-variation-settings: "wght" 520;
+  letter-spacing: 0.085em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
 .window-control {
   width: 12px;
   height: 12px;
@@ -1863,6 +1873,9 @@ button:disabled {
   }
   .home-title {
     color: rgba(31, 32, 38, 0.88);
+  }
+  .home-subtitle {
+    color: rgba(31, 32, 38, 0.6);
   }
   .pod-card,
   .mobile-app-card,
