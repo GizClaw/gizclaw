@@ -63,7 +63,8 @@ static void onMain(dispatch_block_t block) {
 void gizclawTrayStart(void) {
   onMain(^{
     if (gizclawStatusItem != nil) return;
-    gizclawStatusItem = [[NSStatusBar systemStatusBar] statusItemWithLength:24];
+    gizclawStatusItem = [[[NSStatusBar systemStatusBar]
+        statusItemWithLength:NSVariableStatusItemLength] retain];
     gizclawStatusItem.button.title = @"";
     gizclawStatusItem.button.image = gizclawTrayImage();
     gizclawStatusItem.button.imagePosition = NSImageOnly;
@@ -118,7 +119,10 @@ void gizclawTrayFinish(const char *quitLabel) {
 
 void gizclawTrayStop(void) {
   onMain(^{
-    if (gizclawStatusItem != nil) [[NSStatusBar systemStatusBar] removeStatusItem:gizclawStatusItem];
+    if (gizclawStatusItem != nil) {
+      [[NSStatusBar systemStatusBar] removeStatusItem:gizclawStatusItem];
+      [gizclawStatusItem release];
+    }
     gizclawStatusItem = nil;
     gizclawMenu = nil;
     gizclawTargets = nil;
