@@ -43,6 +43,10 @@ type rpcServerResourceService interface {
 	Dispatch(context.Context, *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error)
 }
 
+type rpcWorkspaceSelectionValidator interface {
+	ValidateWorkspaceSelection(context.Context, string, string) *rpcapi.RPCResponse
+}
+
 type rpcServerGenXService interface {
 	Say(context.Context, peergenx.SayRequest) (peergenx.SayResponse, error)
 }
@@ -381,35 +385,15 @@ func (s *rpcServer) validateWorkspaceSelection(ctx context.Context, requestID, w
 			Message:   "workspace validation service not configured",
 		}.RPCResponse(), nil
 	}
-	params, err := newRPCRequestParams(
-		rpcapi.WorkspaceGetRequest{Name: workspaceName},
-		(*rpcapi.RPCPayload).FromWorkspaceGetRequest,
-	)
-	if err != nil {
-		return nil, err
-	}
-	resp, handled, err := s.serverResources.Dispatch(ctx, newRPCRequest(requestID, rpcapi.RPCMethodServerWorkspaceGet, params))
-	if err != nil {
-		return nil, err
-	}
-	if !handled {
+	validator, ok := s.serverResources.(rpcWorkspaceSelectionValidator)
+	if !ok {
 		return rpcapi.Error{
 			RequestID: requestID,
 			Code:      rpcapi.RPCErrorCodeInternalError,
 			Message:   "workspace validation service not configured",
 		}.RPCResponse(), nil
 	}
-	if resp == nil {
-		return rpcapi.Error{
-			RequestID: requestID,
-			Code:      rpcapi.RPCErrorCodeInternalError,
-			Message:   "workspace validation returned no response",
-		}.RPCResponse(), nil
-	}
-	if resp.Error != nil {
-		return resp, nil
-	}
-	return nil, nil
+	return validator.ValidateWorkspaceSelection(ctx, requestID, workspaceName), nil
 }
 
 func (s *rpcServer) handleReloadRunWorkspace(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {

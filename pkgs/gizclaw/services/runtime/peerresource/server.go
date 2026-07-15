@@ -425,6 +425,19 @@ func (s *Server) getWorkspaceForList(ctx context.Context, requestID, name string
 	return workspace, rpcResp, err
 }
 
+// ValidateWorkspaceSelection confirms the workspace exists and the caller may use it.
+func (s *Server) ValidateWorkspaceSelection(ctx context.Context, requestID, name string) *rpcapi.RPCResponse {
+	if s == nil || s.Workspaces == nil {
+		return internalError(requestID, "workspace service not configured")
+	}
+	if _, resp, err := s.getWorkspaceForList(ctx, requestID, name); err != nil {
+		return internalError(requestID, err.Error())
+	} else if resp != nil {
+		return resp
+	}
+	return s.authorizeResponse(ctx, requestID, acl.WorkspaceResource(name), apitypes.ACLPermissionUse)
+}
+
 func (s *Server) handleWorkspaceGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
 	if s.Workspaces == nil {
 		return internalError(req.Id, "workspace service not configured")

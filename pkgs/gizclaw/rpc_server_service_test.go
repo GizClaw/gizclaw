@@ -232,6 +232,37 @@ func TestRPCServerSetRunWorkspaceRejectsMissingWorkspaceBeforeMutation(t *testin
 	}
 }
 
+func TestRPCServerSetRunWorkspaceRejectsUseDeniedBeforeMutation(t *testing.T) {
+	publicKey := giznet.PublicKey{1, 2, 3}
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	server := &rpcServer{
+		peerRun:         store,
+		serverResources: workspaceValidationResourceService{useDenied: true},
+		callerPublicKey: publicKey,
+	}
+	resp, err := server.dispatch(context.Background(), newRPCRequest(
+		"set-use-denied-workspace",
+		rpcapi.RPCMethodServerRunWorkspaceSet,
+		mustRPCParams(
+			rpcapi.ServerSetRunWorkspaceRequest{WorkspaceName: "read-only"},
+			(*rpcapi.RPCPayload).FromServerSetRunWorkspaceRequest,
+		),
+	))
+	if err != nil {
+		t.Fatalf("dispatch() error = %v", err)
+	}
+	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeBadRequest {
+		t.Fatalf("dispatch() response = %+v, want use denied", resp)
+	}
+	agent, err := store.GetRunAgent(context.Background(), publicKey)
+	if err != nil {
+		t.Fatalf("GetRunAgent() error = %v", err)
+	}
+	if agent.Pending != nil || agent.Active != nil {
+		t.Fatalf("run agent mutated after use denied workspace = %+v", agent)
+	}
+}
+
 func TestRPCServerPeerErrorResponse(t *testing.T) {
 	server := &rpcServer{peer: &fakeRPCPeerService{getInfoError: peer.ErrPeerNotFound}}
 	client := &rpcClient{}
@@ -251,7 +282,8 @@ func TestRPCServerPeerErrorResponse(t *testing.T) {
 }
 
 type workspaceValidationResourceService struct {
-	missing bool
+	missing   bool
+	useDenied bool
 }
 
 func (s workspaceValidationResourceService) Dispatch(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
@@ -271,6 +303,24 @@ func (s workspaceValidationResourceService) Dispatch(_ context.Context, req *rpc
 	}
 	resp, err := newRPCResultResponse(req.Id, rpcapi.Workspace{Name: params.Name}, (*rpcapi.RPCPayload).FromWorkspaceGetResponse)
 	return resp, true, err
+}
+
+func (s workspaceValidationResourceService) ValidateWorkspaceSelection(_ context.Context, requestID, _ string) *rpcapi.RPCResponse {
+	if s.missing {
+		return rpcapi.Error{
+			RequestID: requestID,
+			Code:      rpcapi.RPCErrorCodeNotFound,
+			Message:   "workspace not found",
+		}.RPCResponse()
+	}
+	if s.useDenied {
+		return rpcapi.Error{
+			RequestID: requestID,
+			Code:      rpcapi.RPCErrorCodeBadRequest,
+			Message:   "acl: denied",
+		}.RPCResponse()
+	}
+	return nil
 }
 
 func TestRPCServerHandleClosedConn(t *testing.T) {

@@ -407,6 +407,43 @@ func TestServerACLBoundaries(t *testing.T) {
 	}
 }
 
+func TestValidateWorkspaceSelectionUsesWorkspaceUsePermission(t *testing.T) {
+	ctx := context.Background()
+	srv := newTestResourceServer()
+	srv.ACL = allowAllAuthorizer{}
+	seedWorkflow(t, srv, "workspace-selection-workflow")
+	requireNoRPCError(t, callRPC(t, srv, "workspace-selection-create", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
+		Name:         "workspace-selection",
+		WorkflowName: "workspace-selection-workflow",
+	})))
+
+	useOnly := newRuleAuthorizer()
+	useOnly.allow(acl.ResourceKindWorkspace, "workspace-selection", apitypes.ACLPermissionUse)
+	srv.ACL = useOnly
+	if resp := srv.ValidateWorkspaceSelection(ctx, "workspace-selection-use", "workspace-selection"); resp != nil {
+		t.Fatalf("ValidateWorkspaceSelection(use only) = %+v", resp)
+	}
+	if got := useOnly.count(ctx, acl.ResourceKindWorkspace, "workspace-selection", apitypes.ACLPermissionUse); got != 1 {
+		t.Fatalf("workspace use checks = %d, want 1", got)
+	}
+	if got := useOnly.count(ctx, acl.ResourceKindWorkspace, "workspace-selection", apitypes.ACLPermissionRead); got != 0 {
+		t.Fatalf("workspace read checks = %d, want 0", got)
+	}
+
+	readOnly := newRuleAuthorizer()
+	readOnly.allow(acl.ResourceKindWorkspace, "workspace-selection", apitypes.ACLPermissionRead)
+	srv.ACL = readOnly
+	if resp := srv.ValidateWorkspaceSelection(ctx, "workspace-selection-read", "workspace-selection"); resp == nil || resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeBadRequest {
+		t.Fatalf("ValidateWorkspaceSelection(read only) = %+v, want use denied", resp)
+	}
+	if got := readOnly.count(ctx, acl.ResourceKindWorkspace, "workspace-selection", apitypes.ACLPermissionUse); got != 1 {
+		t.Fatalf("workspace use checks = %d, want 1", got)
+	}
+	if got := readOnly.count(ctx, acl.ResourceKindWorkspace, "workspace-selection", apitypes.ACLPermissionRead); got != 0 {
+		t.Fatalf("workspace read checks = %d, want 0", got)
+	}
+}
+
 func TestServerWorkspaceListPrefixUsesACLDiscovery(t *testing.T) {
 	ctx := context.Background()
 	auth := newListingAuthorizer()
