@@ -72,82 +72,15 @@ cd apps/gizclaw-app
 
 ## Internal Testing
 
-Both mobile publishing workflows are manually dispatched. They use the version
-from `pubspec.yaml` and default their platform build number to the GitHub Actions
-run number.
+TestFlight and Google Play Internal publishing are owned by the private
+[`GizClaw/deploy`](https://github.com/GizClaw/deploy) repository. This
+repository owns the application identity and release-signing integration, but
+does not store publishing credentials or run store-upload workflows.
 
-### TestFlight Internal Testing
-
-TestFlight publishing runs from `.github/workflows/testflight.yml`. Configure a
-protected GitHub Environment named `testflight` before running it.
-
-Create these Apple resources once:
-
-- An explicit App ID for `com.gizclaw.opensource` under team `D782F5CP4S`.
-- An App Store Connect app record named `GizClaw OpenSource` using that bundle
-  ID.
-- An Apple Distribution certificate exported as a password-protected `.p12`.
-- An App Store provisioning profile for the bundle ID and distribution
-  certificate.
-- An App Store Connect team API key with permission to validate and upload
-  builds.
-
-Add the following GitHub Environment secrets:
-
-| Secret | Value |
-| --- | --- |
-| `APP_STORE_CONNECT_KEY_ID` | App Store Connect API key ID. |
-| `APP_STORE_CONNECT_ISSUER_ID` | App Store Connect API issuer ID. |
-| `APP_STORE_CONNECT_PRIVATE_KEY_BASE64` | Base64-encoded `AuthKey_*.p8`. |
-| `IOS_DISTRIBUTION_CERTIFICATE_BASE64` | Base64-encoded distribution `.p12`. |
-| `IOS_DISTRIBUTION_CERTIFICATE_PASSWORD` | Password used when exporting the `.p12`. |
-| `IOS_PROVISIONING_PROFILE_BASE64` | Base64-encoded App Store `.mobileprovision`. |
-
-On macOS, copy a file as a single-line base64 value with:
-
-```sh
-base64 < path/to/file | tr -d '\n' | pbcopy
-```
-
-The workflow validates the provisioning profile's team and application
-identifier before importing signing material into a temporary keychain. It
-marks the export as internal-testing-only, then deletes the keychain, installed
-profile, and API private key after the job. Configure an internal TestFlight
-group in App Store Connect to distribute processed builds to team members. An
-internal-only build cannot later be promoted to external testing or the App
-Store.
-
-### Google Play Internal Testing
-
-Google Play publishing runs from
-`.github/workflows/google-play-internal.yml`. Configure a protected GitHub
-Environment named `google-play-internal` before running it.
-
-Create these Google Play resources once:
-
-- A Google Play Console app named `GizClaw OpenSource` with package name
-  `com.gizclaw.opensource`.
-- Play App Signing enrollment and a dedicated upload key exported as a Java
-  keystore.
-- A Google Cloud project with the Google Play Developer API enabled.
-- A service account invited in Play Console with permission to publish releases
-  to testing tracks.
-- An internal tester email list or Google Group in Play Console.
-
-Add the following GitHub Environment secrets:
-
-| Secret | Value |
-| --- | --- |
-| `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | Complete service-account JSON document. |
-| `ANDROID_UPLOAD_KEYSTORE_BASE64` | Base64-encoded upload-key keystore. |
-| `ANDROID_UPLOAD_KEYSTORE_PASSWORD` | Upload keystore password. |
-| `ANDROID_UPLOAD_KEY_ALIAS` | Upload key alias. |
-| `ANDROID_UPLOAD_KEY_PASSWORD` | Upload key password. |
-
-The workflow builds a release Android App Bundle signed with the upload key,
-verifies its signature, and publishes it with completed status to the Google
-Play `internal` track. The keystore is decoded only into the runner's temporary
-directory and removed after the job.
+The deployment repository checks out a requested GizClaw ref, validates the
+fixed bundle/package identity, and builds the app with its committed release
+credentials. See `credentials/mobile/README.md` in that repository for the
+operator procedure.
 
 ## Integration Notes
 
