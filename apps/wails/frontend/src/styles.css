@@ -424,12 +424,12 @@ select:focus-visible {
   animation: dialog-in 0.36s cubic-bezier(0.18, 0.86, 0.22, 1) both;
 }
 .pod-dialog {
-  width: min(760px, 100%);
+  width: min(420px, 100%);
   max-height: min(780px, calc(100vh - 60px));
   transition: width 0.32s cubic-bezier(0.2, 0.78, 0.2, 1);
 }
 .pod-dialog-remote.is-managing {
-  width: min(980px, 100%);
+  width: min(640px, 100%);
 }
 .create-dialog {
   width: min(560px, 100%);
@@ -449,8 +449,8 @@ select:focus-visible {
 .pod-dialog-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 18px 20px 14px;
+  gap: 10px;
+  padding: 20px 22px 12px;
 }
 .pod-dialog-header h2,
 .create-dialog h2 {
@@ -460,9 +460,17 @@ select:focus-visible {
   letter-spacing: -0.035em;
 }
 .pod-dialog-header p {
-  margin: 0;
+  margin: 4px 0 0;
+  overflow: hidden;
   color: #777a83;
+  font-family: "SFMono-Regular", Consolas, monospace;
   font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pod-dialog-heading {
+  min-width: 0;
+  flex: 1;
 }
 .dialog-title-line {
   display: flex;
@@ -510,6 +518,9 @@ select:focus-visible {
   margin-left: 0;
   align-self: flex-start;
 }
+.detail-back-button {
+  flex: 0 0 auto;
+}
 .pod-menu {
   position: relative;
   margin-left: auto;
@@ -555,11 +566,11 @@ select:focus-visible {
 .pod-dialog-body {
   max-height: calc(100vh - 160px);
   overflow: hidden;
-  padding: 2px 20px 20px;
+  padding: 4px 22px 22px;
 }
 .pod-detail-stage {
   position: relative;
-  height: 310px;
+  height: 340px;
   overflow: hidden;
   border-radius: 20px;
   contain: paint;
@@ -567,17 +578,17 @@ select:focus-visible {
   transition: height 0.3s cubic-bezier(0.2, 0.78, 0.2, 1);
 }
 .pod-dialog-local.is-managing .pod-detail-stage {
-  height: 250px;
+  height: 226px;
 }
 .pod-dialog-remote.is-managing .pod-detail-stage {
-  height: 440px;
+  height: 500px;
 }
 .pod-detail-page {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.026);
+  border-radius: 0;
+  background: transparent;
   transition:
     opacity 0.22s ease,
     transform 0.3s cubic-bezier(0.2, 0.78, 0.2, 1);
@@ -599,43 +610,32 @@ select:focus-visible {
 }
 .share-face-layout {
   height: 100%;
-  display: grid;
-  grid-template-columns: 238px minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 14px;
-  padding: 14px;
+  padding: 4px 0 0;
 }
-.qr-card {
-  min-width: 0;
+.share-qr {
   display: grid;
-  place-content: center;
   justify-items: center;
   gap: 8px;
-  border-radius: 16px;
-  background:
-    radial-gradient(
-      circle at 50% 40%,
-      rgba(118, 130, 255, 0.13),
-      transparent 68%
-    ),
-    rgba(255, 255, 255, 0.025);
 }
-.qr-card > span {
+.share-qr > span {
   color: #767983;
   font-size: 10px;
   letter-spacing: 0.02em;
 }
 .qr-code {
-  width: 208px;
-  height: 208px;
+  width: 238px;
+  height: 238px;
   display: grid;
   place-items: center;
   overflow: hidden;
-  padding: 9px;
-  border-radius: 18px;
+  padding: 0;
+  border-radius: 8px;
   background: #fff;
-  box-shadow:
-    0 22px 50px rgba(0, 0, 0, 0.22),
-    0 0 0 1px rgba(255, 255, 255, 0.7);
+  box-shadow: none;
 }
 .qr-code img {
   width: 100%;
@@ -658,29 +658,6 @@ select:focus-visible {
   background-size: 200% 100%;
   animation: shimmer 1.5s linear infinite;
 }
-.share-summary {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  justify-content: center;
-  padding: 20px 18px;
-}
-.share-status-line {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.share-status-line > small {
-  color: #72757e;
-  font-size: 9px;
-  font-weight: 680;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.share-summary > div > small,
-.share-endpoint small,
 .public-key-row small {
   display: block;
   margin-bottom: 5px;
@@ -688,21 +665,6 @@ select:focus-visible {
   font-size: 9px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-}
-.share-endpoint {
-  padding: 14px 15px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
-}
-.share-endpoint-primary {
-  display: grid;
-  gap: 3px;
-}
-.share-endpoint code {
-  color: #d4d7dd;
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 14px;
-  font-weight: 600;
 }
 .public-key-row {
   min-width: 0;
@@ -741,13 +703,14 @@ select:focus-visible {
   background: rgba(55, 181, 157, 0.11);
 }
 .share-actions {
-  display: flex;
-  align-items: center;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
-  margin-top: 4px;
+  margin-top: auto;
 }
 .share-play {
-  min-width: 130px;
+  min-width: 0;
 }
 .manage-face {
   height: 100%;
@@ -757,11 +720,8 @@ select:focus-visible {
   padding: 18px;
 }
 .local-manage-face {
-  gap: 10px;
-  padding: 14px;
-}
-.local-face-toolbar {
-  min-height: 32px;
+  gap: 9px;
+  padding: 4px 0 0;
 }
 .face-toolbar {
   display: flex;
@@ -774,27 +734,15 @@ select:focus-visible {
   color: #e0e2e7;
   font-size: 18px;
 }
-.local-control-grid {
-  min-height: 172px;
-  display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  gap: 10px;
-}
 .local-status-card {
+  min-height: 72px;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-content: center;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px 12px;
-  padding: 18px;
-  border-radius: 16px;
-  background:
-    radial-gradient(
-      circle at 0 100%,
-      rgba(116, 126, 255, 0.12),
-      transparent 62%
-    ),
-    rgba(255, 255, 255, 0.04);
+  gap: 12px;
+  padding: 13px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
 }
 .local-status-icon {
   width: 46px;
@@ -810,7 +758,7 @@ select:focus-visible {
   background: rgba(55, 181, 157, 0.12);
   box-shadow: 0 0 28px rgba(55, 181, 157, 0.12);
 }
-.local-status-card > div:not(.local-listen-address) {
+.local-status-card > div {
   display: grid;
   gap: 3px;
 }
@@ -824,25 +772,8 @@ select:focus-visible {
   color: #e4e6ea;
   font-size: 18px;
 }
-.local-listen-address {
-  grid-column: 1 / -1;
-  display: grid;
-  gap: 5px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.055);
-}
-.local-listen-address code {
-  color: #b9bdc6;
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 13px;
-  font-weight: 650;
-}
-.local-action-stack {
-  display: grid;
-  grid-template-rows: 1fr 1fr;
-  gap: 10px;
-}
 .local-power-actions {
+  min-height: 58px;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
@@ -885,6 +816,7 @@ select:focus-visible {
   color: #d6d9df;
   background: rgba(255, 255, 255, 0.045);
   text-align: left;
+  min-height: 58px;
 }
 .local-admin-action > span:nth-child(2) {
   display: grid;
@@ -945,6 +877,9 @@ select:focus-visible {
 }
 .manage-remote-toolbar {
   margin: 0;
+}
+.remote-manage-label {
+  padding: 2px 2px 0;
 }
 .generated-admin-key {
   display: grid;
@@ -1782,25 +1717,13 @@ button:disabled {
     background: #f8f8fa;
   }
   .pod-detail-page {
-    background: rgba(30, 31, 36, 0.025);
+    background: transparent;
   }
   .local-status-card {
-    background:
-      radial-gradient(
-        circle at 0 100%,
-        rgba(116, 126, 255, 0.1),
-        transparent 62%
-      ),
-      rgba(30, 31, 36, 0.045);
+    background: rgba(30, 31, 36, 0.045);
   }
   .local-status-card strong {
     color: #292a30;
-  }
-  .local-listen-address {
-    border-top-color: rgba(30, 31, 36, 0.07);
-  }
-  .local-listen-address code {
-    color: #565861;
   }
   .local-control-action {
     color: #5e6068;
@@ -1814,28 +1737,14 @@ button:disabled {
     color: #3f4148;
     background: rgba(30, 31, 36, 0.055);
   }
-  .qr-card {
-    background:
-      radial-gradient(
-        circle at 50% 40%,
-        rgba(118, 130, 255, 0.11),
-        transparent 68%
-      ),
-      rgba(255, 255, 255, 0.55);
-  }
-  .share-summary h3,
   .face-toolbar h3,
   .runtime-heading strong {
     color: #25262b;
   }
-  .share-endpoint,
   .manage-runtime-card,
   .compact-launchers > button {
     color: #2a2b30;
     background: rgba(30, 31, 36, 0.055);
-  }
-  .share-endpoint code {
-    color: #34353b;
   }
   .copy-value-button {
     color: #60636b;
@@ -1921,24 +1830,20 @@ button:disabled {
     overflow: auto;
   }
   .pod-detail-stage {
-    height: 610px;
+    height: 340px;
+  }
+  .pod-dialog-local.is-managing .pod-detail-stage {
+    height: 226px;
+  }
+  .pod-dialog-remote.is-managing .pod-detail-stage {
+    height: 500px;
   }
   .pod-detail-page {
     overflow: auto;
   }
-  .share-face-layout {
-    grid-template-columns: 1fr;
-  }
-  .local-control-grid {
-    grid-template-columns: 1fr;
-  }
   .qr-code {
     width: 210px;
     height: 210px;
-  }
-  .share-summary {
-    gap: 13px;
-    padding: 8px 14px 16px;
   }
   .compact-launchers {
     grid-template-columns: 1fr;

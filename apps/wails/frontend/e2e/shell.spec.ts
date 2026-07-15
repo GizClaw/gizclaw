@@ -294,31 +294,34 @@ test("local share stays simple and switches to focused controls", async ({
   await expect(dialog).not.toContainText("100.100.100.100:9820");
   await expect(dialog).not.toContainText("fd1f:411f");
   await expect(dialog).not.toContainText("local-server-public-key");
+  await expect(dialog.getByText("192.168.1.6:9820")).toBeVisible();
+  await expect(dialog.locator(".qr-card")).toHaveCount(0);
+  await expect(qr).toHaveCSS("box-shadow", "none");
   await expect(dialog.getByRole("button", { name: /Play/ })).toBeVisible();
   await expect
     .poll(() => dialog.evaluate((element) => element.clientWidth))
-    .toBeLessThanOrEqual(760);
+    .toBeLessThanOrEqual(420);
   await expect
     .poll(() =>
       dialog
         .locator(".pod-detail-stage")
         .evaluate((element) => element.clientHeight),
     )
-    .toBeLessThanOrEqual(310);
+    .toBeLessThanOrEqual(340);
   await dialog.getByRole("button", { name: "Server controls" }).click();
   await expect(dialog.getByRole("button", { name: /Start/ })).toBeVisible();
   await expect(dialog.getByRole("button", { name: /Admin/ })).toBeVisible();
   await expect(dialog.getByRole("button", { name: /Play/ })).toHaveCount(0);
   await expect(dialog.getByRole("button", { name: /Restart/ })).toHaveCount(0);
   await expect(dialog.getByText("server ready")).toHaveCount(0);
-  await expect(dialog.locator(".local-control-grid")).toBeVisible();
+  await expect(dialog.locator(".local-status-card")).toBeVisible();
   await expect
     .poll(() =>
       dialog
         .locator(".pod-detail-stage")
         .evaluate((element) => element.clientHeight),
     )
-    .toBeLessThanOrEqual(250);
+    .toBeLessThanOrEqual(226);
   await expect
     .poll(() =>
       dialog.evaluate((element) => element.scrollWidth <= element.clientWidth),

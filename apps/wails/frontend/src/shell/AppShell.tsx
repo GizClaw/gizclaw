@@ -8,8 +8,6 @@ import {
   CircleStop,
   Cloud,
   Copy,
-  Cpu,
-  Globe2,
   Laptop,
   FolderOpen,
   Maximize2,
@@ -378,6 +376,9 @@ function PodDetail({
       healthFilter === "all" || server.health.state === healthFilter;
     return matchesQuery && matchesHealth;
   });
+  const detailEndpoint = pod.local
+    ? preferredLANAddress(pod.local.lan_addresses)
+    : (pod.remote?.access_point.endpoint ?? "");
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !serverEditor) setClosing(true);
@@ -408,23 +409,18 @@ function PodDetail({
       >
         <div className="dialog-aurora" />
         <header className="pod-dialog-header">
-          <span className="mode-icon large">
-            {pod.mode === "local" ? (
-              <Cpu size={24} />
-            ) : pod.mode === "remote" ? (
-              <Globe2 size={24} />
-            ) : (
-              <Activity size={24} />
-            )}
-          </span>
-          <div>
-            <span className="mode-chip">
-              {pod.mode === "local"
-                ? t("local")
-                : pod.mode === "remote"
-                  ? t("remote")
-                  : t("invalid")}
-            </span>
+          {managing && pod.valid ? (
+            <button
+              aria-label={t("shareServer")}
+              className="icon-button detail-back-button"
+              onClick={() => setManaging(false)}
+              title={t("shareServer")}
+              type="button"
+            >
+              <ChevronLeft size={18} />
+            </button>
+          ) : null}
+          <div className="pod-dialog-heading">
             <div className="dialog-title-line">
               <h2>{pod.name}</h2>
               {pod.valid ? (
@@ -439,7 +435,7 @@ function PodDetail({
                 </button>
               ) : null}
             </div>
-            <p>{pod.description || pod.id}</p>
+            <p>{detailEndpoint || pod.description || pod.id}</p>
           </div>
           <details className="pod-menu">
             <summary
@@ -504,7 +500,6 @@ function PodDetail({
                 <LocalManageFace
                   api={api}
                   onError={onError}
-                  onShare={() => setManaging(false)}
                   pod={pod}
                   run={run}
                 />
@@ -517,7 +512,6 @@ function PodDetail({
                   onPlay={() => api.OpenPlay(pod.id).catch(onError)}
                   pod={pod}
                   publicKey={pod.local.server_public_key ?? ""}
-                  state={pod.local.process.state}
                 />
               }
             />
@@ -530,7 +524,6 @@ function PodDetail({
                   onAddServer={() => setServerEditor("new")}
                   onEditServer={setServerEditor}
                   onError={onError}
-                  onShare={() => setManaging(false)}
                   onHealthFilter={setHealthFilter}
                   onQuery={setQuery}
                   pod={pod}
@@ -547,7 +540,6 @@ function PodDetail({
                   onPlay={() => api.OpenPlay(pod.id).catch(onError)}
                   pod={pod}
                   publicKey={pod.remote!.access_point.public_key ?? ""}
-                  state={pod.remote!.access_point.state}
                 />
               }
             />
@@ -650,14 +642,12 @@ function PodShareFace({
   onPlay,
   pod,
   publicKey,
-  state,
 }: {
   endpoint: string;
   onManage(): void;
   onPlay(): void;
   pod: PodSummary;
   publicKey: string;
-  state: string;
 }) {
   const t = useMessages();
   const payload = useMemo(
@@ -666,7 +656,7 @@ function PodShareFace({
   );
   return (
     <div className="share-face-layout">
-      <div className="qr-card">
+      <div className="share-qr">
         {endpoint ? (
           <QRCodeImage label={t("serverQRCode")} payload={payload} />
         ) : (
@@ -674,29 +664,19 @@ function PodShareFace({
         )}
         <span>{t("scanToAddServer")}</span>
       </div>
-      <div className="share-summary">
-        <div className="share-status-line">
-          <small>{pod.local ? t("localServer") : t("accessPoint")}</small>
-          <Status state={state} />
-        </div>
-        <div className="share-endpoint share-endpoint-primary">
-          <small>{pod.local ? t("lanAddress") : t("accessPoint")}</small>
-          <code>{endpoint || t("noLANAddress")}</code>
-        </div>
-        <div className="share-actions">
-          <button
-            className="primary-action share-play"
-            onClick={onPlay}
-            type="button"
-          >
-            <Sparkles size={17} />
-            {t("openPlay")}
-          </button>
-          <button className="secondary-action" onClick={onManage} type="button">
-            <Server size={16} />
-            {pod.local ? t("serverControls") : t("manageServers")}
-          </button>
-        </div>
+      <div className="share-actions">
+        <button
+          className="primary-action share-play"
+          onClick={onPlay}
+          type="button"
+        >
+          <Sparkles size={17} />
+          {t("openPlay")}
+        </button>
+        <button className="secondary-action" onClick={onManage} type="button">
+          <Server size={16} />
+          {pod.local ? t("serverControls") : t("manageServers")}
+        </button>
       </div>
     </div>
   );
@@ -732,13 +712,11 @@ function QRCodeImage({ label, payload }: { label: string; payload: string }) {
 function LocalManageFace({
   api,
   onError,
-  onShare,
   pod,
   run,
 }: {
   api: ReturnType<typeof getDesktopAPI>;
   onError(reason: unknown): void;
-  onShare(): void;
   pod: PodSummary;
   run(action: () => Promise<PodSummary>): Promise<void>;
 }) {
@@ -746,68 +724,54 @@ function LocalManageFace({
   const local = pod.local!;
   return (
     <div className="manage-face local-manage-face">
-      <div className="face-toolbar local-face-toolbar">
-        <span className="mode-chip">{t("serverControls")}</span>
-        <button className="secondary-action" onClick={onShare} type="button">
-          <ChevronLeft size={16} />
-          {t("shareServer")}
+      <section className="local-status-card">
+        <span
+          className={`local-status-icon ${local.process.state === "running" ? "running" : ""}`}
+        >
+          <Server size={22} />
+        </span>
+        <div>
+          <small>{t("localServer")}</small>
+          <strong>
+            {local.process.state === "running" ? t("running") : t("stopped")}
+          </strong>
+        </div>
+        <Status state={local.process.state} />
+      </section>
+      <div className="local-power-actions">
+        <button
+          className="local-control-action start-action"
+          disabled={local.process.state === "running"}
+          onClick={() => void run(() => api.StartLocalServer(pod.id))}
+          type="button"
+        >
+          <Play size={17} />
+          <span>{t("start")}</span>
+        </button>
+        <button
+          className="local-control-action stop-action"
+          disabled={local.process.state !== "running"}
+          onClick={() => void run(() => api.StopLocalServer(pod.id))}
+          type="button"
+        >
+          <CircleStop size={17} />
+          <span>{t("stop")}</span>
         </button>
       </div>
-      <div className="local-control-grid">
-        <section className="local-status-card">
-          <span
-            className={`local-status-icon ${local.process.state === "running" ? "running" : ""}`}
-          >
-            <Server size={25} />
-          </span>
-          <div>
-            <small>{t("localServer")}</small>
-            <strong>
-              {local.process.state === "running" ? t("running") : t("stopped")}
-            </strong>
-          </div>
-          <div className="local-listen-address">
-            <small>{t("listenAddress")}</small>
-            <code>0.0.0.0:{local.port}</code>
-          </div>
-        </section>
-        <div className="local-action-stack">
-          <div className="local-power-actions">
-            <button
-              className="local-control-action start-action"
-              disabled={local.process.state === "running"}
-              onClick={() => void run(() => api.StartLocalServer(pod.id))}
-              type="button"
-            >
-              <Play size={17} />
-              <span>{t("start")}</span>
-            </button>
-            <button
-              className="local-control-action stop-action"
-              disabled={local.process.state !== "running"}
-              onClick={() => void run(() => api.StopLocalServer(pod.id))}
-              type="button"
-            >
-              <CircleStop size={17} />
-              <span>{t("stop")}</span>
-            </button>
-          </div>
-          <button
-            className="local-admin-action"
-            onClick={() => api.OpenAdmin(pod.id, "local").catch(onError)}
-            type="button"
-          >
-            <span className="local-admin-icon">
-              <Server size={18} />
-            </span>
-            <span>
-              <strong>Admin</strong>
-              <small>{t("openInBrowser")}</small>
-            </span>
-            <ArrowUpRight size={15} />
-          </button>
-        </div>
-      </div>
+      <button
+        className="local-admin-action"
+        onClick={() => api.OpenAdmin(pod.id, "local").catch(onError)}
+        type="button"
+      >
+        <span className="local-admin-icon">
+          <Server size={18} />
+        </span>
+        <span>
+          <strong>Admin</strong>
+          <small>{t("openInBrowser")}</small>
+        </span>
+        <ArrowUpRight size={15} />
+      </button>
     </div>
   );
 }
@@ -818,7 +782,6 @@ function RemoteManageFace({
   onAddServer,
   onEditServer,
   onError,
-  onShare,
   onHealthFilter,
   onQuery,
   pod,
@@ -831,7 +794,6 @@ function RemoteManageFace({
   onAddServer(): void;
   onEditServer(server: PodServer): void;
   onError(reason: unknown): void;
-  onShare(): void;
   onHealthFilter(value: string): void;
   onQuery(value: string): void;
   pod: PodSummary;
@@ -842,16 +804,9 @@ function RemoteManageFace({
   const t = useMessages();
   return (
     <div className="manage-face remote-manage-face">
-      <div className="face-toolbar">
-        <div>
-          <span className="mode-chip">{t("remote")}</span>
-          <h3>{t("manageServers")}</h3>
-        </div>
-        <button className="secondary-action" onClick={onShare} type="button">
-          <ChevronLeft size={16} />
-          {t("shareServer")}
-        </button>
-      </div>
+      <span className="mode-chip remote-manage-label">
+        {t("manageServers")}
+      </span>
       <div className="remote-toolbar manage-remote-toolbar">
         <label>
           <Search size={16} />
