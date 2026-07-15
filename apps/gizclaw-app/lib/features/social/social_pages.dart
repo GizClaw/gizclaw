@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../data/mobile_data_controller.dart';
 import '../../giz_ui/giz_ui.dart';
-import '../../identity/app_identity_store.dart';
 import '../../prototype/prototype_models.dart';
 
 class FriendsPage extends StatelessWidget {
@@ -1064,33 +1063,10 @@ class MePage extends StatelessWidget {
             ),
             const SizedBox(height: 26),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 12, 0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'SERVERS',
-                      style: GizText.label.copyWith(
-                        color: GizColors.secondaryInk,
-                      ),
-                    ),
-                  ),
-                  CupertinoButton(
-                    key: const ValueKey('add-server-page-button'),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 6,
-                    ),
-                    onPressed: () => context.push('/identity/servers/new'),
-                    child: const Row(
-                      children: [
-                        Icon(GizIcons.add, size: 18),
-                        SizedBox(width: 3),
-                        Text('Add'),
-                      ],
-                    ),
-                  ),
-                ],
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                'CONNECTION',
+                style: GizText.label.copyWith(color: GizColors.secondaryInk),
               ),
             ),
             const SizedBox(height: 8),
@@ -1103,13 +1079,15 @@ class MePage extends StatelessWidget {
                   style: GizText.body.copyWith(color: GizColors.secondaryInk),
                 ),
               ),
-            for (final server in data.servers)
-              _ServerListRow(
-                key: ValueKey('server-${server.accessPoint}'),
-                server: server,
-                selected: data.activeServer?.accessPoint == server.accessPoint,
-                onPressed: () async => data.selectServer(server),
-              ),
+            SettingsRow(
+              key: const ValueKey('server-settings-row'),
+              icon: GizIcons.antenna_radiowaves_left_right,
+              title: 'Server',
+              value: data.activeServer == null
+                  ? 'Choose a server'
+                  : '${data.activeServer!.name} · ${data.activeServer!.accessPoint}',
+              onPressed: () => context.push('/identity/servers'),
+            ),
             const SizedBox(height: 18),
             SettingsRow(
               icon: GizIcons.arrow_2_circlepath,
@@ -1119,49 +1097,6 @@ class MePage extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _ServerListRow extends StatelessWidget {
-  const _ServerListRow({
-    super.key,
-    required this.server,
-    required this.selected,
-    required this.onPressed,
-  });
-
-  final GizClawServer server;
-  final bool selected;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return GizListRow(
-      leading: SizedBox(
-        width: 36,
-        height: 36,
-        child: Icon(
-          GizIcons.antenna_radiowaves_left_right,
-          size: 22,
-          color: selected ? GizColors.primary : GizColors.secondaryInk,
-        ),
-      ),
-      title: server.name,
-      subtitle: server.accessPoint,
-      onPressed: selected ? null : onPressed,
-      trailing: selected
-          ? const Icon(
-              GizIcons.checkmark_alt,
-              key: ValueKey('selected-server'),
-              size: 20,
-              color: GizColors.primary,
-            )
-          : const Icon(
-              GizIcons.chevron_forward,
-              size: 18,
-              color: GizColors.secondaryInk,
-            ),
     );
   }
 }

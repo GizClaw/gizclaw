@@ -263,6 +263,20 @@ class MobileDataController extends ChangeNotifier {
     await _activateServerEndpoint(normalizedEndpoint);
   }
 
+  Future<void> addOrSelectServer({
+    required String name,
+    required String accessPoint,
+  }) async {
+    final normalizedEndpoint = normalizeGizClawEndpoint(accessPoint);
+    for (final server in _servers) {
+      if (server.accessPoint == normalizedEndpoint) {
+        await selectServer(server);
+        return;
+      }
+    }
+    await addServer(name: name, accessPoint: normalizedEndpoint);
+  }
+
   Future<void> selectServer(GizClawServer server) async {
     if (!_servers.any(
       (candidate) => candidate.accessPoint == server.accessPoint,

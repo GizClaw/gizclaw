@@ -7,6 +7,128 @@ import '../../giz_ui/giz_ui.dart';
 import '../../identity/app_identity_store.dart';
 import '../../identity/server_qr_payload.dart';
 
+class ServerListPage extends StatefulWidget {
+  const ServerListPage({super.key});
+
+  @override
+  State<ServerListPage> createState() => _ServerListPageState();
+}
+
+class _ServerListPageState extends State<ServerListPage> {
+  String? _switchingEndpoint;
+  Object? _error;
+
+  Future<void> _select(GizClawServer server) async {
+    if (_switchingEndpoint != null) return;
+    setState(() {
+      _switchingEndpoint = server.accessPoint;
+      _error = null;
+    });
+    try {
+      await MobileDataScope.watch(context).selectServer(server);
+    } catch (error) {
+      _error = error;
+    } finally {
+      if (mounted) setState(() => _switchingEndpoint = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final data = MobileDataScope.watch(context);
+    return CupertinoPageScaffold(
+      navigationBar: CupertinoNavigationBar(
+        middle: const Text('Servers'),
+        border: null,
+        transitionBetweenRoutes: false,
+        trailing: GizPageActionButton(
+          key: const ValueKey('add-server-page-button'),
+          icon: GizIcons.add,
+          semanticLabel: 'Add server',
+          onPressed: () => context.push('/identity/servers/new'),
+        ),
+      ),
+      child: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.only(top: 18, bottom: 32),
+          children: [
+            if (!data.hasActiveServer)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+                child: Text(
+                  'Choose a server to finish setup and continue.',
+                  style: GizText.body.copyWith(color: GizColors.secondaryInk),
+                ),
+              ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+                child: Text(
+                  'Could not switch servers. Please try again.',
+                  key: const ValueKey('switch-server-error'),
+                  style: GizText.body.copyWith(
+                    color: CupertinoColors.systemRed.resolveFrom(context),
+                  ),
+                ),
+              ),
+            for (final server in data.servers)
+              _ServerListRow(
+                key: ValueKey('server-${server.accessPoint}'),
+                server: server,
+                selected: data.activeServer?.accessPoint == server.accessPoint,
+                switching: _switchingEndpoint == server.accessPoint,
+                onPressed: () => _select(server),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ServerListRow extends StatelessWidget {
+  const _ServerListRow({
+    super.key,
+    required this.server,
+    required this.selected,
+    required this.switching,
+    required this.onPressed,
+  });
+
+  final GizClawServer server;
+  final bool selected;
+  final bool switching;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return GizListRow(
+      leading: SizedBox(
+        width: 36,
+        height: 36,
+        child: Icon(
+          GizIcons.antenna_radiowaves_left_right,
+          size: 22,
+          color: selected ? GizColors.primary : GizColors.secondaryInk,
+        ),
+      ),
+      title: server.name,
+      subtitle: server.accessPoint,
+      onPressed: selected || switching ? null : onPressed,
+      trailing: switching
+          ? const CupertinoActivityIndicator(radius: 10)
+          : selected
+          ? const Icon(
+              GizIcons.checkmark_alt,
+              key: ValueKey('selected-server'),
+              size: 20,
+              color: GizColors.primary,
+            )
+          : null,
+    );
+  }
+}
+
 class AddServerPage extends StatefulWidget {
   const AddServerPage({super.key});
 
@@ -30,9 +152,22 @@ class _AddServerPageState extends State<AddServerPage> {
   Future<void> _scan() async {
     final server = await context.push<GizClawServer>('/identity/servers/scan');
     if (!mounted || server == null) return;
-    _nameController.text = server.name;
-    _accessPointController.text = server.accessPoint;
-    setState(() => _error = null);
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await MobileDataScope.watch(
+        context,
+      ).addOrSelectServer(name: server.name, accessPoint: server.accessPoint);
+      if (mounted) Navigator.of(context).pop();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = error;
+      });
+    }
   }
 
   Future<void> _add() async {
@@ -62,6 +197,7 @@ class _AddServerPageState extends State<AddServerPage> {
       navigationBar: const CupertinoNavigationBar(
         middle: Text('Add Server'),
         border: null,
+        transitionBetweenRoutes: false,
       ),
       child: SafeArea(
         child: ListView(
@@ -173,6 +309,7 @@ class _ScanServerQrPageState extends State<ScanServerQrPage> {
         middle: Text('Scan Server'),
         backgroundColor: Color(0xCC000000),
         border: null,
+        transitionBetweenRoutes: false,
       ),
       child: Stack(
         fit: StackFit.expand,

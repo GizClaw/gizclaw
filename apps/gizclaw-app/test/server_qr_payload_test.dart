@@ -4,32 +4,32 @@ import 'package:gizclaw_app/identity/server_qr_payload.dart';
 void main() {
   test('parses a GizClaw server URI', () {
     final server = parseGizClawServerQr(
-      'gizclaw://server?name=Office&access_point=office.local%3A9820',
+      'gizclaw://ap/office.local:9820?name=Office%20Server',
     );
 
-    expect(server.name, 'Office');
+    expect(server.name, 'Office Server');
     expect(server.accessPoint, 'office.local:9820');
   });
 
-  test('parses a server JSON payload', () {
-    final server = parseGizClawServerQr(
-      '{"name":"Lab","access_point":"http://lab.local:9820"}',
-    );
-
-    expect(server.name, 'Lab');
-    expect(server.accessPoint, 'http://lab.local:9820');
-  });
-
-  test('parses a plain access point and uses it as the name', () {
-    final server = parseGizClawServerQr('ap.gizclaw.com:9820');
-
-    expect(server.name, 'ap.gizclaw.com:9820');
-    expect(server.accessPoint, 'ap.gizclaw.com:9820');
-  });
-
-  test('rejects a non-server GizClaw QR code', () {
+  test('requires a server name', () {
     expect(
-      () => parseGizClawServerQr('gizclaw://friend?token=secret'),
+      () => parseGizClawServerQr('gizclaw://ap/ap.gizclaw.com:9820'),
+      throwsFormatException,
+    );
+  });
+
+  test('rejects the old server URI format', () {
+    expect(
+      () => parseGizClawServerQr(
+        'gizclaw://server?name=Office&access_point=office.local%3A9820',
+      ),
+      throwsFormatException,
+    );
+  });
+
+  test('rejects an access point without a port', () {
+    expect(
+      () => parseGizClawServerQr('gizclaw://ap/ap.gizclaw.com?name=Production'),
       throwsFormatException,
     );
   });

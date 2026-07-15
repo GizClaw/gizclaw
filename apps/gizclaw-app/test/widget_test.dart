@@ -9,6 +9,7 @@ import 'package:gizclaw_app/data/database/app_database.dart';
 import 'package:gizclaw_app/data/mobile_data_controller.dart';
 import 'package:gizclaw_app/data/repositories/workspace_chat_repository.dart';
 import 'package:gizclaw_app/data/workspace_chat_controller.dart';
+import 'package:gizclaw_app/features/identity/server_pages.dart';
 import 'package:gizclaw_app/giz_ui/giz_ui.dart';
 import 'package:gizclaw_app/prototype/prototype_data.dart';
 
@@ -106,6 +107,7 @@ void main() {
 
     expect(find.byType(MePage), findsOneWidget);
     expect(find.byKey(const ValueKey('server-setup-required')), findsOneWidget);
+    expect(find.byKey(const ValueKey('server-settings-row')), findsOneWidget);
     expect(find.byKey(const ValueKey('primary-nav-scroll')), findsNothing);
     expect(find.byKey(const ValueKey('global-audio-field')), findsNothing);
   });
@@ -461,14 +463,19 @@ void main() {
     expect(find.text('Device identity ready'), findsOneWidget);
     expect(find.text('Public identity'), findsOneWidget);
     expect(find.text('Private key'), findsOneWidget);
-    expect(find.text('ap.dev.gizclaw.com:9820'), findsOneWidget);
+    expect(find.text('Server'), findsOneWidget);
+    expect(find.text('Development · ap.dev.gizclaw.com:9820'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('server-settings-row')));
+    await tester.pumpAndSettle();
+    expect(find.text('Servers'), findsOneWidget);
     expect(find.text('Development'), findsOneWidget);
     expect(find.text('Production'), findsOneWidget);
     expect(find.text('ap.dev.gizclaw.com:9820'), findsOneWidget);
     expect(find.text('ap.gizclaw.com:9820'), findsOneWidget);
     expect(find.byKey(const ValueKey('selected-server')), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('add-server-page-button')));
+    await tester.tap(find.bySemanticsLabel('Add server'));
     await tester.pumpAndSettle();
     expect(find.text('Add Server'), findsNWidgets(2));
     expect(find.byKey(const ValueKey('scan-server-qr')), findsOneWidget);
@@ -498,12 +505,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.servers.last.name, 'Office');
     expect(controller.serverEndpoint, 'office.local:9820');
-    expect(find.byType(MePage), findsOneWidget);
-    await tester.drag(
-      find.byKey(const PageStorageKey<String>('me-scroll')),
-      const Offset(0, -320),
-    );
-    await tester.pumpAndSettle();
+    expect(find.byType(ServerListPage), findsOneWidget);
     expect(find.text('Office'), findsOneWidget);
     expect(find.text('office.local:9820'), findsOneWidget);
     expect(find.byKey(const ValueKey('selected-server')), findsOneWidget);
@@ -514,7 +516,9 @@ void main() {
     await pumpApp(tester, controller: controller);
     await tapPrimaryNav(tester, 'Identity');
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('add-server-page-button')));
+    await tester.tap(find.byKey(const ValueKey('server-settings-row')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Add server'));
     await tester.pumpAndSettle();
 
     await tester.enterText(
@@ -530,7 +534,7 @@ void main() {
         .onPressed!();
     await tester.pumpAndSettle();
 
-    expect(find.byType(MePage), findsOneWidget);
+    expect(find.byType(ServerListPage), findsOneWidget);
     expect(controller.addedName, 'Office');
     expect(controller.addedAccessPoint, 'office.local:9820');
   });

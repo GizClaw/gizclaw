@@ -164,16 +164,24 @@ GoRouter createAppRouter({required MobileDataController dataController}) {
                 pageBuilder: (context, state) => _page(state, const MePage()),
                 routes: [
                   GoRoute(
-                    path: 'servers/new',
+                    path: 'servers',
                     parentNavigatorKey: rootNavigatorKey,
                     pageBuilder: (context, state) =>
-                        _page(state, const AddServerPage()),
-                  ),
-                  GoRoute(
-                    path: 'servers/scan',
-                    parentNavigatorKey: rootNavigatorKey,
-                    pageBuilder: (context, state) =>
-                        _page(state, const ScanServerQrPage()),
+                        _page(state, const ServerListPage()),
+                    routes: [
+                      GoRoute(
+                        path: 'new',
+                        parentNavigatorKey: rootNavigatorKey,
+                        pageBuilder: (context, state) =>
+                            _page(state, const AddServerPage()),
+                      ),
+                      GoRoute(
+                        path: 'scan',
+                        parentNavigatorKey: rootNavigatorKey,
+                        pageBuilder: (context, state) =>
+                            _page(state, const ScanServerQrPage()),
+                      ),
+                    ],
                   ),
                 ],
               ),
