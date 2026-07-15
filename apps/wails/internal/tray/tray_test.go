@@ -15,10 +15,10 @@ func (f *fakeBackend) Stop()             { f.stopped = true }
 func TestManagerProjectsPodNavigationWithoutSharingMutableState(t *testing.T) {
 	backend := &fakeBackend{}
 	manager := &Manager{backend: backend}
-	pods := []Pod{{ID: "local", Label: "Local Lab · Local"}, {ID: "remote", Label: "Remote Lab · Remote · 24 Servers"}}
+	pods := []Pod{{ID: "local", Label: "Local Lab", Section: "Local"}, {ID: "remote", Label: "Remote Lab · 24 Servers", Section: "Remote"}}
 	manager.Start(pods)
 	pods[0].Label = "mutated"
-	if len(backend.started) != 2 || backend.started[0].Label != "Local Lab · Local" {
+	if len(backend.started) != 2 || backend.started[0].Label != "Local Lab" || backend.started[0].Section != "Local" {
 		t.Fatalf("Start projection = %+v", backend.started)
 	}
 	manager.Update(pods[1:])

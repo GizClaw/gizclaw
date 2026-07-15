@@ -86,12 +86,8 @@ func (b *genericBackend) syncItems(pods []Pod) {
 			continue
 		}
 		pod := pod
-		if len(b.items) > 0 {
-			systray.AddSeparator()
-		}
-		parent := systray.AddMenuItem(pod.Label, pod.Label)
-		item := parent.AddSubMenuItem(b.labels.OpenPod, b.labels.OpenPod)
-		b.items[pod.ID] = parent
+		item := systray.AddMenuItem(pod.Label, pod.Section)
+		b.items[pod.ID] = item
 		b.itemLabels[pod.ID] = pod.Label
 		go func() {
 			for range item.ClickedCh {

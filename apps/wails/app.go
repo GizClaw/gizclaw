@@ -61,7 +61,7 @@ func NewAppWithPathsAndAssets(paths appconfig.Paths, assets fs.FS) (*App, error)
 	}}
 	app.tray = tray.New(
 		tray.Callbacks{OpenWindow: app.openWindow, OpenPod: app.openPod, Quit: app.quit},
-		tray.Labels{OpenWindow: messages.Text("openWindow"), OpenPod: messages.Text("openPod"), Quit: messages.Text("quit")},
+		tray.Labels{OpenWindow: messages.Text("openWindow"), Quit: messages.Text("quit")},
 	)
 	return app, nil
 }
@@ -136,16 +136,24 @@ func (a *App) syncTray(start bool) {
 	if err != nil {
 		return
 	}
-	items := make([]tray.Pod, 0, len(pods))
+	localItems := make([]tray.Pod, 0, len(pods))
+	remoteItems := make([]tray.Pod, 0, len(pods))
+	invalidItems := make([]tray.Pod, 0, len(pods))
 	for _, pod := range pods {
-		label := fmt.Sprintf("%s · %s", pod.Name, a.messages.Text("local"))
 		if !pod.Valid {
-			label = fmt.Sprintf("%s · %s", pod.Name, a.messages.Text("invalid"))
+			invalidItems = append(invalidItems, tray.Pod{ID: pod.ID, Label: pod.Name, Section: a.messages.Text("invalid")})
 		} else if pod.Remote != nil {
-			label = fmt.Sprintf("%s · %s · %d %s", pod.Name, a.messages.Text("remote"), len(pod.Remote.Servers), a.messages.Text("servers"))
+			remoteItems = append(remoteItems, tray.Pod{
+				ID:      pod.ID,
+				Label:   fmt.Sprintf("%s · %d %s", pod.Name, len(pod.Remote.Servers), a.messages.Text("servers")),
+				Section: a.messages.Text("remote"),
+			})
+		} else {
+			localItems = append(localItems, tray.Pod{ID: pod.ID, Label: pod.Name, Section: a.messages.Text("local")})
 		}
-		items = append(items, tray.Pod{ID: pod.ID, Label: label})
 	}
+	items := append(localItems, remoteItems...)
+	items = append(items, invalidItems...)
 	if start {
 		a.tray.Start(items)
 	} else {

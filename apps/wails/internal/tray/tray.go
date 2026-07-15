@@ -3,8 +3,9 @@ package tray
 import "sync"
 
 type Pod struct {
-	ID    string
-	Label string
+	ID      string
+	Label   string
+	Section string
 }
 
 type Callbacks struct {
@@ -15,7 +16,6 @@ type Callbacks struct {
 
 type Labels struct {
 	OpenWindow string
-	OpenPod    string
 	Quit       string
 }
 

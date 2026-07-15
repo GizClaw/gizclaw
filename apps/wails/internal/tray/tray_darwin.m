@@ -76,53 +76,71 @@ void gizclawTrayStart(void) {
   });
 }
 
-void gizclawTrayClear(const char *openWindowLabel) {
-  NSString *openWindowTitle = [NSString stringWithUTF8String:openWindowLabel];
+void gizclawTrayClear(void) {
   onMain(^{
     [gizclawMenu removeAllItems];
     [gizclawTargets removeAllObjects];
-    NSMenuItem *open = [[NSMenuItem alloc] initWithTitle:openWindowTitle action:@selector(openWindow:) keyEquivalent:@""];
-    open.target = gizclawRootTarget;
-    [gizclawMenu addItem:open];
-    [gizclawMenu addItem:[NSMenuItem separatorItem]];
   });
 }
 
-void gizclawTrayAddPod(const char *podID, const char *label, const char *openPodLabel) {
+void gizclawTrayAddSection(const char *label) {
+  NSString *title = [NSString stringWithUTF8String:label];
+  onMain(^{
+    if (gizclawMenu.numberOfItems > 0) {
+      [gizclawMenu addItem:[NSMenuItem separatorItem]];
+    }
+    NSMenuItem *section = [[NSMenuItem alloc] initWithTitle:title action:nil keyEquivalent:@""];
+    section.enabled = NO;
+    [gizclawMenu addItem:section];
+    [section release];
+  });
+}
+
+void gizclawTrayAddPod(const char *podID, const char *label) {
   NSString *pod = [NSString stringWithUTF8String:podID];
   NSString *title = [NSString stringWithUTF8String:label];
-  NSString *openPodTitle = [NSString stringWithUTF8String:openPodLabel];
   onMain(^{
-	if (gizclawTargets.count > 0) [gizclawMenu addItem:[NSMenuItem separatorItem]];
     GizClawTrayTarget *target = [[GizClawTrayTarget alloc] init];
     target.podID = pod;
     [gizclawTargets addObject:target];
-    NSMenuItem *parent = [[NSMenuItem alloc] initWithTitle:title action:nil keyEquivalent:@""];
-    NSMenu *submenu = [[NSMenu alloc] initWithTitle:title];
-    NSMenuItem *open = [[NSMenuItem alloc] initWithTitle:openPodTitle action:@selector(openPod:) keyEquivalent:@""];
-    open.target = target;
-    [submenu addItem:open];
-    parent.submenu = submenu;
-    [gizclawMenu addItem:parent];
+    [target release];
+    NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:title action:@selector(openPod:) keyEquivalent:@""];
+    item.target = target;
+    item.indentationLevel = 1;
+    [gizclawMenu addItem:item];
+    [item release];
   });
 }
 
-void gizclawTrayFinish(const char *quitLabel) {
+void gizclawTrayFinish(const char *openWindowLabel, const char *quitLabel) {
+  NSString *openWindowTitle = [NSString stringWithUTF8String:openWindowLabel];
   NSString *quitTitle = [NSString stringWithUTF8String:quitLabel];
   onMain(^{
+    if (gizclawMenu.numberOfItems > 0) {
+      [gizclawMenu addItem:[NSMenuItem separatorItem]];
+    }
+    NSMenuItem *open = [[NSMenuItem alloc] initWithTitle:openWindowTitle action:@selector(openWindow:) keyEquivalent:@""];
+    open.target = gizclawRootTarget;
+    [gizclawMenu addItem:open];
+    [open release];
     [gizclawMenu addItem:[NSMenuItem separatorItem]];
     NSMenuItem *quit = [[NSMenuItem alloc] initWithTitle:quitTitle action:@selector(quit:) keyEquivalent:@"q"];
     quit.target = gizclawRootTarget;
     [gizclawMenu addItem:quit];
+    [quit release];
   });
 }
 
 void gizclawTrayStop(void) {
   onMain(^{
     if (gizclawStatusItem != nil) {
+      gizclawStatusItem.menu = nil;
       [[NSStatusBar systemStatusBar] removeStatusItem:gizclawStatusItem];
       [gizclawStatusItem release];
     }
+    [gizclawMenu release];
+    [gizclawTargets release];
+    [gizclawRootTarget release];
     gizclawStatusItem = nil;
     gizclawMenu = nil;
     gizclawTargets = nil;

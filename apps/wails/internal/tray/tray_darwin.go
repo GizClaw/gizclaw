@@ -6,9 +6,10 @@ package tray
 #cgo LDFLAGS: -framework Cocoa
 #include <stdlib.h>
 void gizclawTrayStart(void);
-void gizclawTrayClear(const char *openWindowLabel);
-void gizclawTrayAddPod(const char *podID, const char *label, const char *openPodLabel);
-void gizclawTrayFinish(const char *quitLabel);
+void gizclawTrayClear(void);
+void gizclawTrayAddSection(const char *label);
+void gizclawTrayAddPod(const char *podID, const char *label);
+void gizclawTrayFinish(const char *openWindowLabel, const char *quitLabel);
 void gizclawTrayStop(void);
 */
 import "C"
@@ -48,20 +49,25 @@ func (b *darwinBackend) Update(pods []Pod) {
 	if !b.started {
 		return
 	}
-	openWindow := C.CString(b.labels.OpenWindow)
-	C.gizclawTrayClear(openWindow)
-	C.free(unsafe.Pointer(openWindow))
+	C.gizclawTrayClear()
+	sectionName := ""
 	for _, pod := range pods {
+		if pod.Section != sectionName {
+			sectionName = pod.Section
+			section := C.CString(sectionName)
+			C.gizclawTrayAddSection(section)
+			C.free(unsafe.Pointer(section))
+		}
 		id := C.CString(pod.ID)
 		label := C.CString(pod.Label)
-		openPod := C.CString(b.labels.OpenPod)
-		C.gizclawTrayAddPod(id, label, openPod)
+		C.gizclawTrayAddPod(id, label)
 		C.free(unsafe.Pointer(id))
 		C.free(unsafe.Pointer(label))
-		C.free(unsafe.Pointer(openPod))
 	}
+	openWindow := C.CString(b.labels.OpenWindow)
 	quit := C.CString(b.labels.Quit)
-	C.gizclawTrayFinish(quit)
+	C.gizclawTrayFinish(openWindow, quit)
+	C.free(unsafe.Pointer(openWindow))
 	C.free(unsafe.Pointer(quit))
 }
 
@@ -83,17 +89,18 @@ func gizclawGoTrayOpenWindow() {
 	b := darwinCurrent
 	darwinMu.RUnlock()
 	if b != nil && b.callbacks.OpenWindow != nil {
-		b.callbacks.OpenWindow()
+		go b.callbacks.OpenWindow()
 	}
 }
 
 //export gizclawGoTrayOpenPod
 func gizclawGoTrayOpenPod(podID *C.char) {
+	id := C.GoString(podID)
 	darwinMu.RLock()
 	b := darwinCurrent
 	darwinMu.RUnlock()
 	if b != nil && b.callbacks.OpenPod != nil {
-		b.callbacks.OpenPod(C.GoString(podID))
+		go b.callbacks.OpenPod(id)
 	}
 }
 
@@ -103,6 +110,6 @@ func gizclawGoTrayQuit() {
 	b := darwinCurrent
 	darwinMu.RUnlock()
 	if b != nil && b.callbacks.Quit != nil {
-		b.callbacks.Quit()
+		go b.callbacks.Quit()
 	}
 }
