@@ -69,7 +69,7 @@ func (s *Server) putInfo(ctx context.Context, publicKey giznet.PublicKey, info a
 	}
 	info.Icon = peer.Device.Icon
 	peer.Device = info
-	return s.put(ctx, peer)
+	return s.putRecord(ctx, peer)
 }
 
 // LoadPeer returns the stored peer record for a public key.
@@ -84,20 +84,27 @@ func (s *Server) BootstrapEdgeNodes(ctx context.Context, publicKeys []giznet.Pub
 		if publicKey.IsZero() {
 			return fmt.Errorf("peer: empty edge-node public key")
 		}
-		peer, err := s.get(ctx, publicKey)
-		if err != nil {
-			if !errors.Is(err, ErrPeerNotFound) {
+		if err := func() error {
+			unlock := s.IconLocks.LockRecord(publicKey.String())
+			defer unlock()
+			peer, err := s.get(ctx, publicKey)
+			if err != nil {
+				if !errors.Is(err, ErrPeerNotFound) {
+					return err
+				}
+				peer = apitypes.Peer{
+					PublicKey:     publicKey.String(),
+					Device:        apitypes.DeviceInfo{},
+					Configuration: apitypes.Configuration{},
+				}
+			}
+			peer.Role = apitypes.PeerRoleEdgeNode
+			peer.Status = apitypes.PeerRegistrationStatusActive
+			if _, err := s.putRecord(ctx, peer); err != nil {
 				return err
 			}
-			peer = apitypes.Peer{
-				PublicKey:     publicKey.String(),
-				Device:        apitypes.DeviceInfo{},
-				Configuration: apitypes.Configuration{},
-			}
-		}
-		peer.Role = apitypes.PeerRoleEdgeNode
-		peer.Status = apitypes.PeerRegistrationStatusActive
-		if _, err := s.put(ctx, peer); err != nil {
+			return nil
+		}(); err != nil {
 			return err
 		}
 	}
@@ -113,18 +120,22 @@ func (s *Server) putConfig(ctx context.Context, publicKey giznet.PublicKey, cfg 
 	if err := validateConfiguration(cfg); err != nil {
 		return apitypes.Peer{}, err
 	}
+	unlock := s.IconLocks.LockRecord(publicKey.String())
+	defer unlock()
 	peer, err := s.get(ctx, publicKey)
 	if err != nil {
 		return apitypes.Peer{}, err
 	}
 	peer.Configuration = cfg
-	return s.put(ctx, peer)
+	return s.putRecord(ctx, peer)
 }
 
 func (s *Server) approve(ctx context.Context, publicKey giznet.PublicKey, role apitypes.PeerRole) (apitypes.Peer, error) {
 	if role == apitypes.PeerRoleUnspecified || !role.Valid() {
 		return apitypes.Peer{}, fmt.Errorf("peer: invalid role %q", role)
 	}
+	unlock := s.IconLocks.LockRecord(publicKey.String())
+	defer unlock()
 	peer, err := s.get(ctx, publicKey)
 	if err != nil {
 		return apitypes.Peer{}, err
@@ -133,16 +144,18 @@ func (s *Server) approve(ctx context.Context, publicKey giznet.PublicKey, role a
 	peer.Role = role
 	peer.Status = apitypes.PeerRegistrationStatusActive
 	peer.ApprovedAt = &approvedAt
-	return s.put(ctx, peer)
+	return s.putRecord(ctx, peer)
 }
 
 func (s *Server) block(ctx context.Context, publicKey giznet.PublicKey) (apitypes.Peer, error) {
+	unlock := s.IconLocks.LockRecord(publicKey.String())
+	defer unlock()
 	peer, err := s.get(ctx, publicKey)
 	if err != nil {
 		return apitypes.Peer{}, err
 	}
 	peer.Status = apitypes.PeerRegistrationStatusBlocked
-	return s.put(ctx, peer)
+	return s.putRecord(ctx, peer)
 }
 
 func (s *Server) delete(ctx context.Context, publicKey giznet.PublicKey) (apitypes.Peer, error) {
@@ -228,6 +241,8 @@ func (s *Server) create(ctx context.Context, peer apitypes.Peer) (apitypes.Peer,
 	if err != nil {
 		return apitypes.Peer{}, err
 	}
+	recordUnlock := s.IconLocks.LockRecord(publicKey.String())
+	defer recordUnlock()
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -248,6 +263,27 @@ func (s *Server) create(ctx context.Context, peer apitypes.Peer) (apitypes.Peer,
 }
 
 func (s *Server) put(ctx context.Context, peer apitypes.Peer) (apitypes.Peer, error) {
+	publicKey, err := publicKeyFromText(peer.PublicKey)
+	if err != nil {
+		return apitypes.Peer{}, err
+	}
+	recordUnlock := s.IconLocks.LockRecord(publicKey.String())
+	defer recordUnlock()
+
+	old, err := s.get(ctx, publicKey)
+	if err != nil && !errors.Is(err, ErrPeerNotFound) {
+		return apitypes.Peer{}, err
+	}
+	if err == nil {
+		if err := iconasset.ValidateProjection(old.Device.Icon, peer.Device.Icon); err != nil {
+			return apitypes.Peer{}, err
+		}
+		peer.Device.Icon = old.Device.Icon
+	}
+	return s.putRecord(ctx, peer)
+}
+
+func (s *Server) putRecord(ctx context.Context, peer apitypes.Peer) (apitypes.Peer, error) {
 	if err := validatePeer(peer); err != nil {
 		return apitypes.Peer{}, err
 	}

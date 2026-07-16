@@ -216,6 +216,87 @@ func TestStoreOpsLoadAndSavePeer(t *testing.T) {
 	}
 }
 
+func TestStoreOpsRecordMutationsUseIconRecordLock(t *testing.T) {
+	tests := []struct {
+		name string
+		call func(context.Context, *Server, giznet.PublicKey) error
+	}{
+		{
+			name: "device info",
+			call: func(ctx context.Context, server *Server, publicKey giznet.PublicKey) error {
+				_, err := server.putInfo(ctx, publicKey, apitypes.DeviceInfo{})
+				return err
+			},
+		},
+		{
+			name: "configuration",
+			call: func(ctx context.Context, server *Server, publicKey giznet.PublicKey) error {
+				_, err := server.putConfig(ctx, publicKey, apitypes.Configuration{})
+				return err
+			},
+		},
+		{
+			name: "approve",
+			call: func(ctx context.Context, server *Server, publicKey giznet.PublicKey) error {
+				_, err := server.approve(ctx, publicKey, apitypes.PeerRoleClient)
+				return err
+			},
+		},
+		{
+			name: "block",
+			call: func(ctx context.Context, server *Server, publicKey giznet.PublicKey) error {
+				_, err := server.block(ctx, publicKey)
+				return err
+			},
+		},
+		{
+			name: "save full peer",
+			call: func(ctx context.Context, server *Server, publicKey giznet.PublicKey) error {
+				peer, err := server.LoadPeer(ctx, publicKey)
+				if err != nil {
+					return err
+				}
+				_, err = server.SavePeer(ctx, peer)
+				return err
+			},
+		},
+		{
+			name: "edge bootstrap",
+			call: func(ctx context.Context, server *Server, publicKey giznet.PublicKey) error {
+				return server.BootstrapEdgeNodes(ctx, []giznet.PublicKey{publicKey})
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := &Server{Store: mustBadgerInMemory(t, nil)}
+			publicKey := giznet.PublicKey{1}
+			saveTestPeer(t, server, publicKey, apitypes.DeviceInfo{})
+			unlock := server.IconLocks.LockRecord(publicKey.String())
+			done := make(chan error, 1)
+			go func() {
+				done <- tt.call(context.Background(), server, publicKey)
+			}()
+
+			select {
+			case err := <-done:
+				unlock()
+				t.Fatalf("mutation completed without record lock: %v", err)
+			case <-time.After(50 * time.Millisecond):
+			}
+			unlock()
+			select {
+			case err := <-done:
+				if err != nil {
+					t.Fatalf("mutation error = %v", err)
+				}
+			case <-time.After(time.Second):
+				t.Fatal("mutation did not complete after record lock release")
+			}
+		})
+	}
+}
+
 func TestStoreOpsLoadPeerMissing(t *testing.T) {
 	server := &Server{Store: mustBadgerInMemory(t, nil)}
 

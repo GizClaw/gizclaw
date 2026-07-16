@@ -115,7 +115,7 @@ func (s *Server) UploadSelfIcon(ctx context.Context, publicKey giznet.PublicKey,
 		return apitypes.DeviceInfo{}, errors.New("peer: failed to reload icon metadata")
 	}
 	peer.Device.Icon = iconasset.SetSlot(peer.Device.Icon, format, &objectName)
-	saved, err := s.put(ctx, peer)
+	saved, err := s.putRecord(ctx, peer)
 	if err != nil {
 		return apitypes.DeviceInfo{}, errors.New("peer: failed to update icon")
 	}
@@ -142,7 +142,7 @@ func (s *Server) DeleteSelfIcon(ctx context.Context, publicKey giznet.PublicKey,
 		return apitypes.DeviceInfo{}, errors.New("peer: failed to reload icon metadata")
 	}
 	peer.Device.Icon = iconasset.SetSlot(peer.Device.Icon, format, nil)
-	saved, err := s.put(ctx, peer)
+	saved, err := s.putRecord(ctx, peer)
 	if err != nil {
 		return apitypes.DeviceInfo{}, errors.New("peer: failed to update icon")
 	}
