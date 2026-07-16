@@ -52,6 +52,77 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonRetry => 'Retry';
 
   @override
+  String get microphonePermissionDeniedTitle =>
+      'Microphone permission required';
+
+  @override
+  String get microphonePermissionDeniedMessage =>
+      'Allow microphone access in Settings, then tap the red microphone to retry.';
+
+  @override
+  String get microphoneUnavailableTitle => 'Microphone unavailable';
+
+  @override
+  String get microphoneUnavailableMessage =>
+      'GizClaw could not start the microphone. Check the audio input and tap the red microphone to retry.';
+
+  @override
+  String get microphoneUnavailableStatus => 'MICROPHONE UNAVAILABLE';
+
+  @override
+  String get microphonePermissionRequiredStatus =>
+      'MICROPHONE PERMISSION REQUIRED';
+
+  @override
+  String get microphoneReadinessUnavailableStatus =>
+      'MICROPHONE READINESS UNAVAILABLE';
+
+  @override
+  String get microphoneNoOutboundAudioStatus =>
+      'MICROPHONE PRODUCED NO OUTBOUND AUDIO';
+
+  @override
+  String get microphoneRecovering => 'RECOVERING MICROPHONE';
+
+  @override
+  String get microphonePermissionRetrySemantics =>
+      'Microphone unavailable: permission required. Double tap to retry';
+
+  @override
+  String get microphoneCaptureRetrySemantics =>
+      'Microphone unavailable: capture failed. Double tap to retry';
+
+  @override
+  String get voiceHoldToTalkSemantics => 'Hold to talk';
+
+  @override
+  String get voiceStartRealtimeSemantics => 'Start realtime call';
+
+  @override
+  String get voiceEndRealtimeSemantics => 'End realtime call';
+
+  @override
+  String get conversationStatusConnecting => 'CONNECTING';
+
+  @override
+  String get conversationStatusNoActive => 'NO ACTIVE CONVERSATION';
+
+  @override
+  String get conversationStatusRealtimeLive => 'REALTIME LIVE';
+
+  @override
+  String get conversationStatusListening => 'LISTENING';
+
+  @override
+  String get conversationStatusSpeaking => 'SPEAKING';
+
+  @override
+  String get conversationStatusRealtimeReady => 'REALTIME READY';
+
+  @override
+  String get conversationStatusHoldToTalk => 'HOLD TO TALK';
+
+  @override
   String get onboardingHeroTitle => 'Your agents, everywhere.';
 
   @override

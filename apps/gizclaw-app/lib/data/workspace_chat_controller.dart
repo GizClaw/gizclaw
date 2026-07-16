@@ -11,6 +11,19 @@ enum WorkspaceChatState { loading, connecting, connected, offline, error }
 
 enum WorkspaceMessageState { complete, streaming, failed }
 
+enum MicrophoneInputFailureKind { statsUnavailable, stalled }
+
+class MicrophoneInputException implements Exception {
+  const MicrophoneInputException(this.kind);
+
+  final MicrophoneInputFailureKind kind;
+
+  @override
+  String toString() => 'MicrophoneInputException: ${kind.name}';
+}
+
+typedef WebRtcStatsProvider = Future<List<rtc.StatsReport>> Function();
+
 class WorkspaceChatMessage {
   const WorkspaceChatMessage({
     required this.id,
@@ -48,13 +61,23 @@ class WorkspaceChatController extends ChangeNotifier {
     this.client,
     this.dataChannelFactory,
     this.peerConnection,
+    this.inputTrack,
+    this.onMicrophoneStalled,
     this.onTransportClosed,
-  });
+    WebRtcStatsProvider? statsProvider,
+    this.readinessPollInterval = const Duration(milliseconds: 60),
+    this.readinessTimeout = const Duration(milliseconds: 600),
+  }) : _statsProvider = statsProvider;
 
   final GizClawClient? client;
   final GizClawDataChannelFactory? dataChannelFactory;
   final rtc.RTCPeerConnection? peerConnection;
+  final rtc.MediaStreamTrack? inputTrack;
+  final Future<void> Function()? onMicrophoneStalled;
   final Future<void> Function()? onTransportClosed;
+  final Duration readinessPollInterval;
+  final Duration readinessTimeout;
+  final WebRtcStatsProvider? _statsProvider;
   final WorkspaceChatRepository repository;
   final String? serverId;
   final String workspaceName;
@@ -62,9 +85,8 @@ class WorkspaceChatController extends ChangeNotifier {
   StreamSubscription<List<CachedWorkspaceMessage>>? _historySubscription;
   StreamSubscription<PeerStreamEvent>? _eventSubscription;
   WorkspaceEventSession? _session;
-  rtc.MediaStream? _inputStream;
-  rtc.MediaStreamTrack? _inputTrack;
   String? _activeStreamId;
+  _OutgoingAudioCounter? _activeAudioBaseline;
   Timer? _historyRefreshTimer;
   Timer? _levelTimer;
   List<WorkspaceChatMessage> _cached = const [];
@@ -76,13 +98,14 @@ class WorkspaceChatController extends ChangeNotifier {
   bool startingInput = false;
   bool playingOutput = false;
   bool _finishPending = false;
-  bool _inputSenderConfigured = false;
   bool _transportRecoveryRequested = false;
+  bool _microphoneRecoveryRequested = false;
   final Map<String, _AudioEnergySample> _sentAudioEnergy = {};
   final Map<String, _AudioEnergySample> _receivedAudioEnergy = {};
   String? replayingHistoryId;
   bool _disposed = false;
   Future<void>? _closeFuture;
+  Future<void>? _startInputInFlight;
   double inputLevel = 0;
   double outputLevel = 0;
 
@@ -91,7 +114,8 @@ class WorkspaceChatController extends ChangeNotifier {
   bool get canRecord =>
       state == WorkspaceChatState.connected &&
       _session != null &&
-      peerConnection != null;
+      peerConnection != null &&
+      inputTrack != null;
 
   Future<void> start({bool activate = true, bool conversation = true}) async {
     final stableServerId = serverId;
@@ -170,20 +194,37 @@ class WorkspaceChatController extends ChangeNotifier {
     }
   }
 
-  Future<void> startInput() async {
+  Future<void> startInput() {
     final session = _session;
-    if (session == null || !canRecord || recording || startingInput) return;
+    if (_disposed || session == null || !canRecord || recording) {
+      return Future.value();
+    }
+    final active = _startInputInFlight;
+    if (active != null) return active;
+    late final Future<void> start;
+    start = _startInput(session).whenComplete(() {
+      if (identical(_startInputInFlight, start)) _startInputInFlight = null;
+    });
+    return _startInputInFlight = start;
+  }
+
+  Future<void> _startInput(WorkspaceEventSession session) async {
     startingInput = true;
     lastError = null;
     notifyListeners();
     try {
-      final track = await _ensureInputTrack();
+      final track = inputTrack;
+      if (track == null) {
+        throw const MicrophoneInputException(
+          MicrophoneInputFailureKind.statsUnavailable,
+        );
+      }
+      final baseline = await _readOutgoingAudioCounter(track);
       track.enabled = true;
-      await _bindInputTrack(track);
+      _activeAudioBaseline = await _waitForOutgoingAudio(track, baseline);
       final streamId =
           'audio-${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}';
       _activeStreamId = streamId;
-      await Future<void>.delayed(const Duration(milliseconds: 260));
       await session.beginAudio(streamId);
       recording = true;
       if (_finishPending) {
@@ -191,10 +232,15 @@ class WorkspaceChatController extends ChangeNotifier {
         await finishInput();
       }
     } catch (error) {
-      _inputTrack?.enabled = false;
+      inputTrack?.enabled = false;
       _activeStreamId = null;
+      _activeAudioBaseline = null;
       _finishPending = false;
       _handleError(error, changeState: false);
+      if (error is MicrophoneInputException &&
+          error.kind == MicrophoneInputFailureKind.stalled) {
+        _requestMicrophoneRecovery();
+      }
     } finally {
       startingInput = false;
       notifyListeners();
@@ -209,14 +255,34 @@ class WorkspaceChatController extends ChangeNotifier {
     final session = _session;
     final streamId = _activeStreamId;
     if (session == null || streamId == null || !recording) return;
+    _activeStreamId = null;
+    recording = false;
+    var eosError = error;
     try {
-      await session.endAudio(streamId, error: error);
+      final track = inputTrack;
+      if (track != null) {
+        try {
+          final finalCounter = await _readOutgoingAudioCounter(track);
+          final baseline = _activeAudioBaseline;
+          if (baseline != null && !finalCounter.advancedFrom(baseline)) {
+            const stalled = MicrophoneInputException(
+              MicrophoneInputFailureKind.stalled,
+            );
+            lastError = stalled;
+            eosError ??= 'microphone_no_outbound_audio';
+            _requestMicrophoneRecovery();
+          }
+        } catch (statsError) {
+          lastError = statsError;
+          eosError ??= 'microphone_stats_unavailable';
+        }
+      }
+      await session.endAudio(streamId, error: eosError);
     } catch (sendError) {
       _handleError(sendError, changeState: false);
     } finally {
-      _inputTrack?.enabled = false;
-      _activeStreamId = null;
-      recording = false;
+      inputTrack?.enabled = false;
+      _activeAudioBaseline = null;
       notifyListeners();
       _historyRefreshTimer?.cancel();
       _historyRefreshTimer = Timer(
@@ -295,57 +361,78 @@ class WorkspaceChatController extends ChangeNotifier {
     }
   }
 
-  Future<rtc.MediaStreamTrack> _ensureInputTrack() async {
-    final existing = _inputTrack;
-    if (existing != null) return existing;
-    if (peerConnection == null) {
-      throw StateError('WebRTC connection is unavailable');
-    }
-    final media = await rtc.navigator.mediaDevices.getUserMedia({
-      'audio': {
-        'channelCount': 1,
-        'echoCancellation': true,
-        'noiseSuppression': true,
-      },
-      'video': false,
-    });
-    final tracks = media.getAudioTracks();
-    if (tracks.isEmpty) {
-      for (final track in media.getTracks()) {
-        track.stop();
-      }
-      throw StateError('Microphone capture returned no audio track');
-    }
-    final track = tracks.first;
-    _inputStream = media;
-    _inputTrack = track;
-    return track;
-  }
-
-  Future<void> _bindInputTrack(rtc.MediaStreamTrack track) async {
+  Future<_OutgoingAudioCounter> _readOutgoingAudioCounter(
+    rtc.MediaStreamTrack track,
+  ) async {
+    final provider = _statsProvider;
     final pc = peerConnection;
-    final stream = _inputStream;
-    if (pc == null || stream == null) {
-      throw StateError('WebRTC microphone stream is unavailable');
+    if (provider == null && pc == null) {
+      throw const MicrophoneInputException(
+        MicrophoneInputFailureKind.statsUnavailable,
+      );
     }
-    rtc.RTCRtpTransceiver? audioTransceiver;
-    for (final transceiver in await pc.getTransceivers()) {
-      if (transceiver.sender.track?.kind == 'audio' ||
-          transceiver.receiver.track?.kind == 'audio') {
-        audioTransceiver = transceiver;
+    late final List<rtc.StatsReport> reports;
+    try {
+      reports = await (provider?.call() ?? pc!.getStats());
+    } catch (_) {
+      throw const MicrophoneInputException(
+        MicrophoneInputFailureKind.statsUnavailable,
+      );
+    }
+    rtc.StatsReport? source;
+    for (final report in reports) {
+      if (report.type == 'media-source' &&
+          (report.values['kind'] ?? report.values['mediaType']) == 'audio' &&
+          report.values['trackIdentifier'] == track.id) {
+        source = report;
         break;
       }
     }
-    if (audioTransceiver == null) {
-      throw StateError('WebRTC audio transceiver is unavailable');
+    if (source == null) {
+      throw const MicrophoneInputException(
+        MicrophoneInputFailureKind.statsUnavailable,
+      );
     }
-    await audioTransceiver.sender.replaceTrack(track);
-    if (!_inputSenderConfigured) {
-      await audioTransceiver.sender.setStreams([stream]);
-      _inputSenderConfigured = true;
+    rtc.StatsReport? outbound;
+    for (final report in reports) {
+      if (report.type == 'outbound-rtp' &&
+          (report.values['kind'] ?? report.values['mediaType']) == 'audio' &&
+          report.values['mediaSourceId'] == source.id) {
+        outbound = report;
+        break;
+      }
     }
-    await rtc.Helper.ensureAudioSession();
-    await rtc.Helper.setSpeakerphoneOnButPreferBluetooth();
+    if (outbound == null) {
+      throw const MicrophoneInputException(
+        MicrophoneInputFailureKind.statsUnavailable,
+      );
+    }
+    final counter = _OutgoingAudioCounter(
+      samplesDuration: _optionalStatDouble(
+        source.values['totalSamplesDuration'],
+      ),
+      packetsSent: _optionalStatDouble(outbound.values['packetsSent']),
+      bytesSent: _optionalStatDouble(outbound.values['bytesSent']),
+    );
+    if (!counter.hasCounter) {
+      throw const MicrophoneInputException(
+        MicrophoneInputFailureKind.statsUnavailable,
+      );
+    }
+    return counter;
+  }
+
+  Future<_OutgoingAudioCounter> _waitForOutgoingAudio(
+    rtc.MediaStreamTrack track,
+    _OutgoingAudioCounter baseline,
+  ) async {
+    final deadline = DateTime.now().add(readinessTimeout);
+    while (DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(readinessPollInterval);
+      final current = await _readOutgoingAudioCounter(track);
+      if (current.advancedFrom(baseline)) return current;
+    }
+    throw const MicrophoneInputException(MicrophoneInputFailureKind.stalled);
   }
 
   void _handleEvent(PeerStreamEvent event) {
@@ -498,9 +585,19 @@ class WorkspaceChatController extends ChangeNotifier {
     );
   }
 
+  void _requestMicrophoneRecovery() {
+    final recover = onMicrophoneStalled;
+    if (_disposed || recover == null || _microphoneRecoveryRequested) return;
+    _microphoneRecoveryRequested = true;
+    unawaited(
+      recover().whenComplete(() => _microphoneRecoveryRequested = false),
+    );
+  }
+
   void _resetRecording() {
-    _inputTrack?.enabled = false;
+    inputTrack?.enabled = false;
     _activeStreamId = null;
+    _activeAudioBaseline = null;
     recording = false;
     startingInput = false;
     playingOutput = false;
@@ -521,18 +618,17 @@ class WorkspaceChatController extends ChangeNotifier {
 
   Future<void> _close() async {
     _disposed = true;
+    final startInput = _startInputInFlight;
+    if (startInput != null) {
+      _finishPending = true;
+      await startInput;
+    }
+    if (recording) await finishInput(error: 'interrupted');
     _historyRefreshTimer?.cancel();
     _historyRefreshTimer = null;
     _levelTimer?.cancel();
     _levelTimer = null;
     _resetRecording();
-    _inputTrack?.stop();
-    _inputTrack = null;
-    for (final track
-        in _inputStream?.getTracks() ?? const <rtc.MediaStreamTrack>[]) {
-      track.stop();
-    }
-    _inputStream = null;
 
     final historySubscription = _historySubscription;
     _historySubscription = null;
@@ -598,6 +694,35 @@ double _statDouble(Object? value) {
   if (value is String) return double.tryParse(value) ?? 0;
   return 0;
 }
+
+double? _optionalStatDouble(Object? value) {
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value);
+  return null;
+}
+
+class _OutgoingAudioCounter {
+  const _OutgoingAudioCounter({
+    required this.samplesDuration,
+    required this.packetsSent,
+    required this.bytesSent,
+  });
+
+  final double? samplesDuration;
+  final double? packetsSent;
+  final double? bytesSent;
+
+  bool get hasCounter =>
+      samplesDuration != null || packetsSent != null || bytesSent != null;
+
+  bool advancedFrom(_OutgoingAudioCounter previous) =>
+      _advanced(samplesDuration, previous.samplesDuration) ||
+      _advanced(packetsSent, previous.packetsSent) ||
+      _advanced(bytesSent, previous.bytesSent);
+}
+
+bool _advanced(double? current, double? previous) =>
+    current != null && previous != null && current > previous;
 
 class _AudioEnergySample {
   const _AudioEnergySample({required this.energy, required this.duration});

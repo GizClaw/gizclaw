@@ -156,6 +156,31 @@ void main() {
     expect(database.closeCalled, isTrue);
   });
 
+  test('coalesces foreground and user microphone recovery', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    final client = _RunWorkspaceClient();
+    final connection = _BlockingReconnectConnection(
+      profile: _profile('gizclaw.local:9820'),
+      client: client,
+      serverId: 'server-a',
+    );
+    final controller = MobileDataController(
+      database: database,
+      connectionController: connection,
+    )..connectionState = MobileConnectionState.connected;
+
+    final userRecovery = controller.recoverMicrophone();
+    final foregroundRecovery = controller.recoverMicrophone();
+    expect(foregroundRecovery, same(userRecovery));
+    controller.handleAppResumed();
+    await connection.reconnectStarted.future;
+    await Future<void>.delayed(Duration.zero);
+
+    connection.reconnectResult.complete(client);
+    await userRecovery;
+    await controller.close();
+  });
+
   test('does not retry a mutating RPC after a transport failure', () async {
     var requests = 0;
     var reconnects = 0;

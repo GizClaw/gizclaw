@@ -552,6 +552,53 @@ void main() {
     );
   });
 
+  appTestWidgets('shows a red unavailable microphone and retries on tap', (
+    tester,
+  ) async {
+    final controller = _UnavailableMicrophoneController();
+    await pumpApp(tester, controller: controller);
+
+    final thumb = find.byKey(const ValueKey('voice-mode-thumb'));
+    final container = tester.widget<AnimatedContainer>(
+      find.descendant(of: thumb, matching: find.byType(AnimatedContainer)),
+    );
+    final decoration = container.decoration! as BoxDecoration;
+    expect((decoration.gradient! as LinearGradient).colors, const [
+      CupertinoColors.systemRed,
+      CupertinoColors.systemRed,
+    ]);
+    expect(
+      tester
+          .widgetList<Semantics>(
+            find.descendant(of: thumb, matching: find.byType(Semantics)),
+          )
+          .any(
+            (widget) =>
+                widget.properties.label ==
+                'Microphone unavailable: permission required. '
+                    'Double tap to retry',
+          ),
+      isTrue,
+    );
+    await tester.tap(thumb);
+    await tester.pump();
+
+    expect(controller.recoveryCalls, 1);
+    final recovered = tester.widget<AnimatedContainer>(
+      find.descendant(of: thumb, matching: find.byType(AnimatedContainer)),
+    );
+    expect(
+      (recovered.decoration! as BoxDecoration).gradient,
+      isNot(
+        isA<LinearGradient>().having(
+          (gradient) => gradient.colors,
+          'colors',
+          const [CupertinoColors.systemRed, CupertinoColors.systemRed],
+        ),
+      ),
+    );
+  });
+
   appTestWidgets('opens group creation controls', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -818,6 +865,28 @@ class _ModeSwitchController extends MobileDataController {
   Future<void> close() async {
     await chat.close();
     await super.close();
+  }
+}
+
+class _UnavailableMicrophoneController extends _ModeSwitchController {
+  _UnavailableMicrophoneController() {
+    connectionState = MobileConnectionState.connected;
+  }
+
+  MicrophoneStatus status = const MicrophoneStatus.unavailable(
+    failureKind: MicrophoneFailureKind.permissionDenied,
+  );
+  int recoveryCalls = 0;
+
+  @override
+  MicrophoneStatus get microphoneStatus => status;
+
+  @override
+  Future<MicrophoneStatus> recoverMicrophone() async {
+    recoveryCalls += 1;
+    status = const MicrophoneStatus.ready();
+    notifyListeners();
+    return status;
   }
 }
 

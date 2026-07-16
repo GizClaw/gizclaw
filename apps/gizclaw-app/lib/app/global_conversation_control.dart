@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:gizclaw/gizclaw.dart';
 import 'package:go_router/go_router.dart';
 
+import '../connection/gizclaw_connection_controller.dart';
 import '../data/mobile_data_controller.dart';
 import '../data/workspace_chat_controller.dart';
 import '../giz_ui/giz_ui.dart';
@@ -1050,22 +1051,40 @@ class _GlobalConversationControlState extends State<GlobalConversationControl> {
         ? null
         : data.workspace(workspaceName);
     final mode = _effectiveMode(data.activeInputMode);
-    final enabled = chat?.canRecord ?? false;
+    final microphoneUnavailable =
+        data.connectionState == MobileConnectionState.connected &&
+        data.microphoneStatus.availability ==
+            MicrophoneAvailability.unavailable;
+    final microphoneRecovering =
+        data.connectionState == MobileConnectionState.connected &&
+        data.microphoneStatus.availability == MicrophoneAvailability.recovering;
+    final microphoneBlocked = microphoneUnavailable || microphoneRecovering;
+    final enabled = (chat?.canRecord ?? false) && !microphoneBlocked;
     final title = workspace?.title ?? 'No active workspace';
-    final status = _statusLabel(data, chat, mode);
+    final status = _statusLabel(context, data, chat, mode);
     final control = _VoiceModeToggle(
       enabled: enabled,
+      microphoneUnavailable: microphoneUnavailable,
+      microphoneRecovering: microphoneRecovering,
+      microphoneUnavailableSemantics:
+          data.microphoneStatus.failureKind ==
+              MicrophoneFailureKind.permissionDenied
+          ? context.l10n.microphonePermissionRetrySemantics
+          : context.l10n.microphoneCaptureRetrySemantics,
       mode: mode,
       switchingMode: _switchingMode,
       recording: chat?.recording ?? false,
       preparing: chat?.startingInput ?? false,
       playingOutput: chat?.playingOutput ?? false,
-      onSelectMode: workspaceName == null
+      onSelectMode: workspaceName == null || microphoneBlocked
           ? null
           : (target) => _setMode(data, target),
       onPttStart: enabled ? () => _startInput(chat!) : null,
       onPttEnd: enabled ? () => unawaited(chat!.finishInput()) : null,
       onRealtimeTap: enabled ? () => _toggleRealtime(chat!) : null,
+      onUnavailableTap: microphoneUnavailable
+          ? () => _recoverMicrophone(data)
+          : null,
     );
 
     if (widget.compact) {
@@ -1112,6 +1131,66 @@ class _GlobalConversationControlState extends State<GlobalConversationControl> {
     }
   }
 
+  Future<void> _recoverMicrophone(MobileDataController data) async {
+    unawaited(HapticFeedback.mediumImpact());
+    try {
+      await data.recoverMicrophone();
+    } catch (_) {
+      if (!mounted) return;
+      await _showMicrophoneError(data, data.microphoneStatus.failureKind);
+      return;
+    }
+    if (mounted &&
+        data.microphoneStatus.availability ==
+            MicrophoneAvailability.unavailable) {
+      await _showMicrophoneError(data, data.microphoneStatus.failureKind);
+    }
+  }
+
+  Future<void> _showMicrophoneError(
+    MobileDataController data,
+    MicrophoneFailureKind? failureKind,
+  ) {
+    final permissionDenied =
+        failureKind == MicrophoneFailureKind.permissionDenied;
+    return showCupertinoDialog<void>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: Text(
+          permissionDenied
+              ? context.l10n.microphonePermissionDeniedTitle
+              : context.l10n.microphoneUnavailableTitle,
+        ),
+        content: Text(
+          permissionDenied
+              ? context.l10n.microphonePermissionDeniedMessage
+              : context.l10n.microphoneUnavailableMessage,
+        ),
+        actions: permissionDenied
+            ? [
+                CupertinoDialogAction(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(context.l10n.commonOk),
+                ),
+              ]
+            : [
+                CupertinoDialogAction(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(context.l10n.commonCancel),
+                ),
+                CupertinoDialogAction(
+                  isDefaultAction: true,
+                  onPressed: () {
+                    Navigator.pop(context);
+                    unawaited(_recoverMicrophone(data));
+                  },
+                  child: Text(context.l10n.commonRetry),
+                ),
+              ],
+      ),
+    );
+  }
+
   Future<void> _setMode(
     MobileDataController data,
     WorkspaceInputMode mode,
@@ -1151,6 +1230,9 @@ class _GlobalConversationControlState extends State<GlobalConversationControl> {
 class _VoiceModeToggle extends StatefulWidget {
   const _VoiceModeToggle({
     required this.enabled,
+    required this.microphoneUnavailable,
+    required this.microphoneRecovering,
+    required this.microphoneUnavailableSemantics,
     required this.mode,
     required this.switchingMode,
     required this.recording,
@@ -1160,9 +1242,13 @@ class _VoiceModeToggle extends StatefulWidget {
     required this.onPttStart,
     required this.onPttEnd,
     required this.onRealtimeTap,
+    required this.onUnavailableTap,
   });
 
   final bool enabled;
+  final bool microphoneUnavailable;
+  final bool microphoneRecovering;
+  final String microphoneUnavailableSemantics;
   final WorkspaceInputMode mode;
   final bool switchingMode;
   final bool recording;
@@ -1172,6 +1258,7 @@ class _VoiceModeToggle extends StatefulWidget {
   final VoidCallback? onPttStart;
   final VoidCallback? onPttEnd;
   final VoidCallback? onRealtimeTap;
+  final VoidCallback? onUnavailableTap;
 
   @override
   State<_VoiceModeToggle> createState() => _VoiceModeToggleState();
@@ -1187,7 +1274,12 @@ class _VoiceModeToggleState extends State<_VoiceModeToggle> {
   bool _startedInRealtime = false;
 
   void _handlePointerDown(PointerDownEvent event) {
-    if (_pointer != null || widget.switchingMode) return;
+    if (_pointer != null ||
+        widget.switchingMode ||
+        widget.microphoneUnavailable ||
+        widget.microphoneRecovering) {
+      return;
+    }
     _pointer = event.pointer;
     _pointerOrigin = event.position;
     _dragged = false;
@@ -1269,17 +1361,23 @@ class _VoiceModeToggleState extends State<_VoiceModeToggle> {
     final realtimeAccent = dark ? const Color(0xFFC1B4DC) : GizColors.lavender;
     final thumb = _VoiceModeThumb(
       enabled: widget.enabled,
+      microphoneUnavailable: widget.microphoneUnavailable,
+      microphoneRecovering: widget.microphoneRecovering,
       realtime: realtime,
       engaged: engaged,
       playingOutput: widget.playingOutput,
     );
-    final interactiveThumb = Listener(
+    final interactiveThumb = GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onPointerDown: _handlePointerDown,
-      onPointerMove: _handlePointerMove,
-      onPointerUp: _handlePointerUp,
-      onPointerCancel: _handlePointerCancel,
-      child: thumb,
+      onTap: widget.onUnavailableTap,
+      child: Listener(
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: _handlePointerDown,
+        onPointerMove: _handlePointerMove,
+        onPointerUp: _handlePointerUp,
+        onPointerCancel: _handlePointerCancel,
+        child: thumb,
+      ),
     );
 
     return SizedBox(
@@ -1297,7 +1395,11 @@ class _VoiceModeToggleState extends State<_VoiceModeToggle> {
                   icon: GizIcons.mic_fill,
                   color: pttAccent.withValues(alpha: realtime ? 0.48 : 0.72),
                   loading: widget.switchingMode && realtime,
-                  onPressed: !realtime || widget.switchingMode
+                  onPressed:
+                      !realtime ||
+                          widget.switchingMode ||
+                          widget.microphoneUnavailable ||
+                          widget.microphoneRecovering
                       ? null
                       : () => widget.onSelectMode?.call(
                           WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
@@ -1313,7 +1415,11 @@ class _VoiceModeToggleState extends State<_VoiceModeToggle> {
                     alpha: realtime ? 0.72 : 0.48,
                   ),
                   loading: widget.switchingMode && !realtime,
-                  onPressed: realtime || widget.switchingMode
+                  onPressed:
+                      realtime ||
+                          widget.switchingMode ||
+                          widget.microphoneUnavailable ||
+                          widget.microphoneRecovering
                       ? null
                       : () => widget.onSelectMode?.call(
                           WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME,
@@ -1331,12 +1437,16 @@ class _VoiceModeToggleState extends State<_VoiceModeToggle> {
             width: 58,
             height: 58,
             child: Semantics(
-              label: realtime
+              label: widget.microphoneUnavailable
+                  ? widget.microphoneUnavailableSemantics
+                  : widget.microphoneRecovering
+                  ? context.l10n.microphoneRecovering
+                  : realtime
                   ? widget.recording
-                        ? 'End realtime call'
-                        : 'Start realtime call'
-                  : 'Hold to talk',
-              button: true,
+                        ? context.l10n.voiceEndRealtimeSemantics
+                        : context.l10n.voiceStartRealtimeSemantics
+                  : context.l10n.voiceHoldToTalkSemantics,
+              button: !widget.microphoneRecovering,
               child: interactiveThumb,
             ),
           ),
@@ -1383,12 +1493,16 @@ class _VoiceModeTarget extends StatelessWidget {
 class _VoiceModeThumb extends StatelessWidget {
   const _VoiceModeThumb({
     required this.enabled,
+    required this.microphoneUnavailable,
+    required this.microphoneRecovering,
     required this.realtime,
     required this.engaged,
     required this.playingOutput,
   });
 
   final bool enabled;
+  final bool microphoneUnavailable;
+  final bool microphoneRecovering;
   final bool realtime;
   final bool engaged;
   final bool playingOutput;
@@ -1406,10 +1520,10 @@ class _VoiceModeThumb extends StatelessWidget {
         curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [GizColors.primaryHighlight, GizColors.primaryShadow],
+            colors: widgetColors,
           ),
           border: Border.all(
             color: dark ? const Color(0x5CFFFFFF) : const Color(0x52FFFFFF),
@@ -1430,18 +1544,27 @@ class _VoiceModeThumb extends StatelessWidget {
             scale: animation,
             child: FadeTransition(opacity: animation, child: child),
           ),
-          child: Icon(
-            realtime ? GizIcons.phone_fill : GizIcons.mic_fill,
-            key: ValueKey(realtime),
-            size: realtime ? 22 : 21,
-            color: enabled
-                ? const Color(0xFFF7F8F7)
-                : CupertinoColors.white.withValues(alpha: 0.46),
-          ),
+          child: microphoneRecovering
+              ? const CupertinoActivityIndicator(
+                  key: ValueKey('microphone-recovering'),
+                  color: CupertinoColors.white,
+                )
+              : Icon(
+                  realtime ? GizIcons.phone_fill : GizIcons.mic_fill,
+                  key: ValueKey(realtime),
+                  size: realtime ? 22 : 21,
+                  color: enabled || microphoneUnavailable
+                      ? const Color(0xFFF7F8F7)
+                      : CupertinoColors.white.withValues(alpha: 0.46),
+                ),
         ),
       ),
     );
   }
+
+  List<Color> get widgetColors => microphoneUnavailable
+      ? const [CupertinoColors.systemRed, CupertinoColors.systemRed]
+      : const [GizColors.primaryHighlight, GizColors.primaryShadow];
 }
 
 WorkspaceInputMode _effectiveMode(WorkspaceInputMode mode) =>
@@ -1450,21 +1573,40 @@ WorkspaceInputMode _effectiveMode(WorkspaceInputMode mode) =>
     : WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK;
 
 String _statusLabel(
+  BuildContext context,
   MobileDataController data,
   WorkspaceChatController? chat,
   WorkspaceInputMode mode,
 ) {
   if (data.connectionState == MobileConnectionState.connecting) {
-    return 'CONNECTING';
+    return context.l10n.conversationStatusConnecting;
   }
-  if (chat == null) return 'NO ACTIVE CONVERSATION';
+  if (data.connectionState == MobileConnectionState.connected &&
+      data.microphoneStatus.availability == MicrophoneAvailability.recovering) {
+    return context.l10n.microphoneRecovering;
+  }
+  if (data.connectionState == MobileConnectionState.connected &&
+      data.microphoneStatus.availability ==
+          MicrophoneAvailability.unavailable) {
+    return data.microphoneStatus.failureKind ==
+            MicrophoneFailureKind.permissionDenied
+        ? context.l10n.microphonePermissionRequiredStatus
+        : context.l10n.microphoneUnavailableStatus;
+  }
+  if (chat == null) return context.l10n.conversationStatusNoActive;
+  final microphoneError = chat.lastError;
+  if (microphoneError is MicrophoneInputException) {
+    return microphoneError.kind == MicrophoneInputFailureKind.stalled
+        ? context.l10n.microphoneNoOutboundAudioStatus
+        : context.l10n.microphoneReadinessUnavailableStatus;
+  }
   if (chat.recording) {
     return mode == WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME
-        ? 'REALTIME LIVE'
-        : 'LISTENING';
+        ? context.l10n.conversationStatusRealtimeLive
+        : context.l10n.conversationStatusListening;
   }
-  if (chat.playingOutput) return 'SPEAKING';
+  if (chat.playingOutput) return context.l10n.conversationStatusSpeaking;
   return mode == WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME
-      ? 'REALTIME READY'
-      : 'HOLD TO TALK';
+      ? context.l10n.conversationStatusRealtimeReady
+      : context.l10n.conversationStatusHoldToTalk;
 }

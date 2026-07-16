@@ -51,6 +51,70 @@ class AppLocalizationsZh extends AppLocalizations {
   String get commonRetry => '重试';
 
   @override
+  String get microphonePermissionDeniedTitle => '需要麦克风权限';
+
+  @override
+  String get microphonePermissionDeniedMessage => '请在系统设置中允许麦克风访问，然后轻点红色麦克风重试。';
+
+  @override
+  String get microphoneUnavailableTitle => '麦克风不可用';
+
+  @override
+  String get microphoneUnavailableMessage =>
+      'GizClaw 无法启动麦克风。请检查音频输入，然后轻点红色麦克风重试。';
+
+  @override
+  String get microphoneUnavailableStatus => '麦克风不可用';
+
+  @override
+  String get microphonePermissionRequiredStatus => '需要麦克风权限';
+
+  @override
+  String get microphoneReadinessUnavailableStatus => '无法检查麦克风发送状态';
+
+  @override
+  String get microphoneNoOutboundAudioStatus => '麦克风没有发出音频';
+
+  @override
+  String get microphoneRecovering => '正在恢复麦克风';
+
+  @override
+  String get microphonePermissionRetrySemantics => '麦克风不可用，需要权限，双击重试';
+
+  @override
+  String get microphoneCaptureRetrySemantics => '麦克风不可用，采集失败，双击重试';
+
+  @override
+  String get voiceHoldToTalkSemantics => '按住说话';
+
+  @override
+  String get voiceStartRealtimeSemantics => '开始实时通话';
+
+  @override
+  String get voiceEndRealtimeSemantics => '结束实时通话';
+
+  @override
+  String get conversationStatusConnecting => '正在连接';
+
+  @override
+  String get conversationStatusNoActive => '没有活动会话';
+
+  @override
+  String get conversationStatusRealtimeLive => '实时通话中';
+
+  @override
+  String get conversationStatusListening => '正在聆听';
+
+  @override
+  String get conversationStatusSpeaking => '正在播放';
+
+  @override
+  String get conversationStatusRealtimeReady => '实时通话已就绪';
+
+  @override
+  String get conversationStatusHoldToTalk => '按住说话';
+
+  @override
   String get onboardingHeroTitle => '你的智能体，随处相伴。';
 
   @override
@@ -274,6 +338,70 @@ class AppLocalizationsZhCn extends AppLocalizationsZh {
 
   @override
   String get commonRetry => '重试';
+
+  @override
+  String get microphonePermissionDeniedTitle => '需要麦克风权限';
+
+  @override
+  String get microphonePermissionDeniedMessage => '请在系统设置中允许麦克风访问，然后轻点红色麦克风重试。';
+
+  @override
+  String get microphoneUnavailableTitle => '麦克风不可用';
+
+  @override
+  String get microphoneUnavailableMessage =>
+      'GizClaw 无法启动麦克风。请检查音频输入，然后轻点红色麦克风重试。';
+
+  @override
+  String get microphoneUnavailableStatus => '麦克风不可用';
+
+  @override
+  String get microphonePermissionRequiredStatus => '需要麦克风权限';
+
+  @override
+  String get microphoneReadinessUnavailableStatus => '无法检查麦克风发送状态';
+
+  @override
+  String get microphoneNoOutboundAudioStatus => '麦克风没有发出音频';
+
+  @override
+  String get microphoneRecovering => '正在恢复麦克风';
+
+  @override
+  String get microphonePermissionRetrySemantics => '麦克风不可用，需要权限，双击重试';
+
+  @override
+  String get microphoneCaptureRetrySemantics => '麦克风不可用，采集失败，双击重试';
+
+  @override
+  String get voiceHoldToTalkSemantics => '按住说话';
+
+  @override
+  String get voiceStartRealtimeSemantics => '开始实时通话';
+
+  @override
+  String get voiceEndRealtimeSemantics => '结束实时通话';
+
+  @override
+  String get conversationStatusConnecting => '正在连接';
+
+  @override
+  String get conversationStatusNoActive => '没有活动会话';
+
+  @override
+  String get conversationStatusRealtimeLive => '实时通话中';
+
+  @override
+  String get conversationStatusListening => '正在聆听';
+
+  @override
+  String get conversationStatusSpeaking => '正在播放';
+
+  @override
+  String get conversationStatusRealtimeReady => '实时通话已就绪';
+
+  @override
+  String get conversationStatusHoldToTalk => '按住说话';
 
   @override
   String get onboardingHeroTitle => '你的智能体，随处相伴。';

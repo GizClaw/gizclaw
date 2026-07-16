@@ -94,12 +94,32 @@ Future<rtc.RTCPeerConnection> connectFlutterGiznetWebRtc({
       rtc.createPeerConnection,
   bool createPacketDataChannel = true,
   Map<String, dynamic> configuration = const {},
+  rtc.MediaStream? localAudioStream,
   required Future<PreparedGiznetWebRtcOffer> Function(String offerSdp)
   prepareOffer,
   GizClawPeerRpcHandlers? peerRpcHandlers,
   rtc.RTCPeerConnection? peerConnection,
   required SendGiznetWebRtcOffer sendOffer,
 }) async {
+  rtc.MediaStreamTrack? localAudioTrack;
+  if (localAudioStream != null) {
+    if (!addAudioTransceiver) {
+      throw ArgumentError.value(
+        addAudioTransceiver,
+        'addAudioTransceiver',
+        'must be true when localAudioStream is supplied',
+      );
+    }
+    final audioTracks = localAudioStream.getAudioTracks();
+    if (audioTracks.length != 1) {
+      throw ArgumentError.value(
+        localAudioStream,
+        'localAudioStream',
+        'must contain exactly one audio track',
+      );
+    }
+    localAudioTrack = audioTracks.single;
+  }
   final ownsPeerConnection = peerConnection == null;
   final pc = peerConnection ?? await createPeerConnection(configuration);
   rtc.RTCDataChannel? packetDataChannel;
@@ -117,12 +137,18 @@ Future<rtc.RTCPeerConnection> connectFlutterGiznetWebRtc({
       );
     }
     if (addAudioTransceiver) {
-      await pc.addTransceiver(
-        kind: rtc.RTCRtpMediaType.RTCRtpMediaTypeAudio,
-        init: rtc.RTCRtpTransceiverInit(
-          direction: rtc.TransceiverDirection.SendRecv,
-        ),
+      final init = rtc.RTCRtpTransceiverInit(
+        direction: rtc.TransceiverDirection.SendRecv,
+        streams: localAudioStream == null ? null : [localAudioStream],
       );
+      if (localAudioTrack == null) {
+        await pc.addTransceiver(
+          kind: rtc.RTCRtpMediaType.RTCRtpMediaTypeAudio,
+          init: init,
+        );
+      } else {
+        await pc.addTransceiver(track: localAudioTrack, init: init);
+      }
     }
     final offer = await pc.createOffer();
     await pc.setLocalDescription(offer);

@@ -183,6 +183,132 @@ abstract class AppLocalizations {
   /// **'Retry'**
   String get commonRetry;
 
+  /// Title shown when microphone permission is denied.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone permission required'**
+  String get microphonePermissionDeniedTitle;
+
+  /// Recovery guidance for denied microphone permission.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow microphone access in Settings, then tap the red microphone to retry.'**
+  String get microphonePermissionDeniedMessage;
+
+  /// Title shown when microphone capture is unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone unavailable'**
+  String get microphoneUnavailableTitle;
+
+  /// Recovery guidance for unavailable microphone capture.
+  ///
+  /// In en, this message translates to:
+  /// **'GizClaw could not start the microphone. Check the audio input and tap the red microphone to retry.'**
+  String get microphoneUnavailableMessage;
+
+  /// Conversation control status when microphone capture is unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'MICROPHONE UNAVAILABLE'**
+  String get microphoneUnavailableStatus;
+
+  /// Conversation control status when microphone permission is denied.
+  ///
+  /// In en, this message translates to:
+  /// **'MICROPHONE PERMISSION REQUIRED'**
+  String get microphonePermissionRequiredStatus;
+
+  /// Conversation status when microphone RTP readiness cannot be checked.
+  ///
+  /// In en, this message translates to:
+  /// **'MICROPHONE READINESS UNAVAILABLE'**
+  String get microphoneReadinessUnavailableStatus;
+
+  /// Conversation status when microphone RTP counters remain stalled.
+  ///
+  /// In en, this message translates to:
+  /// **'MICROPHONE PRODUCED NO OUTBOUND AUDIO'**
+  String get microphoneNoOutboundAudioStatus;
+
+  /// Conversation control status while microphone capture is being recovered.
+  ///
+  /// In en, this message translates to:
+  /// **'RECOVERING MICROPHONE'**
+  String get microphoneRecovering;
+
+  /// Accessibility label for retrying denied microphone permission.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone unavailable: permission required. Double tap to retry'**
+  String get microphonePermissionRetrySemantics;
+
+  /// Accessibility label for retrying unavailable microphone capture.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone unavailable: capture failed. Double tap to retry'**
+  String get microphoneCaptureRetrySemantics;
+
+  /// Accessibility label for push-to-talk.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold to talk'**
+  String get voiceHoldToTalkSemantics;
+
+  /// Accessibility label for starting realtime voice input.
+  ///
+  /// In en, this message translates to:
+  /// **'Start realtime call'**
+  String get voiceStartRealtimeSemantics;
+
+  /// Accessibility label for ending realtime voice input.
+  ///
+  /// In en, this message translates to:
+  /// **'End realtime call'**
+  String get voiceEndRealtimeSemantics;
+
+  /// Conversation connection status.
+  ///
+  /// In en, this message translates to:
+  /// **'CONNECTING'**
+  String get conversationStatusConnecting;
+
+  /// Conversation status when no workspace is active.
+  ///
+  /// In en, this message translates to:
+  /// **'NO ACTIVE CONVERSATION'**
+  String get conversationStatusNoActive;
+
+  /// Conversation status for active realtime voice input.
+  ///
+  /// In en, this message translates to:
+  /// **'REALTIME LIVE'**
+  String get conversationStatusRealtimeLive;
+
+  /// Conversation status for active push-to-talk input.
+  ///
+  /// In en, this message translates to:
+  /// **'LISTENING'**
+  String get conversationStatusListening;
+
+  /// Conversation status while assistant audio is playing.
+  ///
+  /// In en, this message translates to:
+  /// **'SPEAKING'**
+  String get conversationStatusSpeaking;
+
+  /// Conversation status when realtime voice input is ready.
+  ///
+  /// In en, this message translates to:
+  /// **'REALTIME READY'**
+  String get conversationStatusRealtimeReady;
+
+  /// Conversation status when push-to-talk is ready.
+  ///
+  /// In en, this message translates to:
+  /// **'HOLD TO TALK'**
+  String get conversationStatusHoldToTalk;
+
   /// Onboarding hero heading.
   ///
   /// In en, this message translates to:

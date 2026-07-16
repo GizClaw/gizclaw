@@ -87,6 +87,7 @@ class MobileDataController extends ChangeNotifier {
          ),
        ) {
     repository = dataRepository ?? MobileDataRepository(this.database);
+    connection.addListener(_handleConnectionChanged);
   }
 
   factory MobileDataController.demo({AppDatabase? database}) {
@@ -121,6 +122,7 @@ class MobileDataController extends ChangeNotifier {
   bool refreshing = false;
   final Set<Future<void>> _startsInFlight = {};
   Future<GizClawClient>? _reconnecting;
+  Future<MicrophoneStatus>? _microphoneRecovery;
   Future<void>? _refreshInFlight;
   bool _refreshAgain = false;
   GizClawClient? _pendingRefreshClient;
@@ -160,6 +162,41 @@ class MobileDataController extends ChangeNotifier {
   bool get hasActiveServer => activeServer != null;
   String? get clientPublicKey => connection.clientPublicKey;
   Locale get effectiveLocale => _effectiveLocale;
+  MicrophoneStatus get microphoneStatus => connection.microphoneStatus;
+
+  void _handleConnectionChanged() => notifyListeners();
+
+  Future<MicrophoneStatus> recoverMicrophone() {
+    final active = _microphoneRecovery;
+    if (active != null) return active;
+    if (connectionState != MobileConnectionState.connected ||
+        microphoneStatus.availability == MicrophoneAvailability.ready) {
+      return Future.value(microphoneStatus);
+    }
+    late final Future<MicrophoneStatus> recovery;
+    recovery = _recoverMicrophone().whenComplete(() {
+      if (identical(_microphoneRecovery, recovery)) {
+        _microphoneRecovery = null;
+      }
+    });
+    return _microphoneRecovery = recovery;
+  }
+
+  Future<MicrophoneStatus> _recoverMicrophone() async {
+    await _reconnect();
+    return microphoneStatus;
+  }
+
+  void handleAppResumed() {
+    if (connectionState == MobileConnectionState.connected &&
+        microphoneStatus.availability == MicrophoneAvailability.unavailable) {
+      unawaited(() async {
+        try {
+          await recoverMicrophone();
+        } catch (_) {}
+      }());
+    }
+  }
 
   void setEffectiveLocale(Locale locale) {
     final normalized = locale.languageCode == 'zh'
@@ -872,6 +909,10 @@ class MobileDataController extends ChangeNotifier {
       client: connection.client,
       dataChannelFactory: connection.dataChannelFactory,
       peerConnection: connection.peerConnection,
+      inputTrack: connection.microphoneTrack,
+      onMicrophoneStalled: () async {
+        await recoverMicrophone();
+      },
       onTransportClosed: recoverTransport,
     );
     _replaceActiveWorkspaceChat(chat);
@@ -930,6 +971,7 @@ class MobileDataController extends ChangeNotifier {
   }
 
   Future<void> _close() async {
+    connection.removeListener(_handleConnectionChanged);
     _startGeneration += 1;
     _serverWatchGeneration += 1;
     _refreshAgain = false;

@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:gizclaw/gizclaw.dart';
 import 'package:gizclaw_app/data/database/app_database.dart';
 import 'package:gizclaw_app/data/repositories/workspace_chat_repository.dart';
@@ -47,6 +50,132 @@ void main() {
     expect(normalizedAudioLevel(16384), closeTo(0.5, 0.001));
     expect(normalizedAudioLevel(null), 0);
   });
+
+  test('fails closed without linked RTP stats and sends no BOS', () async {
+    final harness = await _VoiceHarness.create(statsProvider: () async => []);
+    addTearDown(harness.close);
+
+    await harness.controller.startInput();
+
+    expect(harness.channel.sent, isEmpty);
+    expect(harness.track.enabled, isFalse);
+    expect(
+      (harness.controller.lastError as MicrophoneInputException).kind,
+      MicrophoneInputFailureKind.statsUnavailable,
+    );
+  });
+
+  test('stalled RTP counters send no boundary and request recovery', () async {
+    var recoveries = 0;
+    final harness = await _VoiceHarness.create(
+      statsProvider: () async => _audioStats(duration: 1, packets: 1),
+      onMicrophoneStalled: () async => recoveries += 1,
+    );
+    addTearDown(harness.close);
+
+    await harness.controller.startInput();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(harness.channel.sent, isEmpty);
+    expect(harness.track.enabled, isFalse);
+    expect(recoveries, 1);
+    expect(
+      (harness.controller.lastError as MicrophoneInputException).kind,
+      MicrophoneInputFailureKind.stalled,
+    );
+  });
+
+  test('counter advance sends BOS and release sends exactly one EOS', () async {
+    var statsCalls = 0;
+    final harness = await _VoiceHarness.create(
+      statsProvider: () async {
+        statsCalls += 1;
+        if (statsCalls == 1) return _audioStats(duration: 1, packets: 1);
+        if (statsCalls == 2) return _audioStats(duration: 2, packets: 2);
+        throw StateError('final stats unavailable');
+      },
+    );
+    addTearDown(harness.close);
+
+    await harness.controller.startInput();
+    await Future.wait([
+      harness.controller.finishInput(),
+      harness.controller.finishInput(),
+    ]);
+
+    expect(_sentEventTypes(harness.channel), ['bos', 'eos']);
+    expect(harness.track.enabled, isFalse);
+    await harness.controller.close();
+    expect(harness.track.stopCalls, 0);
+  });
+
+  test(
+    'early release waits for readiness then sends one BOS and EOS',
+    () async {
+      var statsCalls = 0;
+      final readinessStarted = Completer<void>();
+      final readiness = Completer<List<rtc.StatsReport>>();
+      final harness = await _VoiceHarness.create(
+        statsProvider: () {
+          statsCalls += 1;
+          if (statsCalls == 1) {
+            return Future.value(_audioStats(duration: 1, packets: 1));
+          }
+          if (statsCalls == 2) {
+            readinessStarted.complete();
+            return readiness.future;
+          }
+          return Future.value(_audioStats(duration: 3, packets: 3));
+        },
+      );
+      addTearDown(harness.close);
+
+      final start = harness.controller.startInput();
+      await readinessStarted.future;
+      await harness.controller.finishInput();
+      readiness.complete(_audioStats(duration: 2, packets: 2));
+      await start;
+
+      expect(_sentEventTypes(harness.channel), ['bos', 'eos']);
+      expect(harness.track.enabled, isFalse);
+    },
+  );
+
+  test('reuses the negotiated track across repeated PTT intervals', () async {
+    var counter = 0;
+    final harness = await _VoiceHarness.create(
+      statsProvider: () async =>
+          _audioStats(duration: (++counter).toDouble(), packets: counter),
+    );
+    addTearDown(harness.close);
+
+    await harness.controller.startInput();
+    await harness.controller.finishInput();
+    await harness.controller.startInput();
+    await harness.controller.finishInput();
+
+    expect(_sentEventTypes(harness.channel), ['bos', 'eos', 'bos', 'eos']);
+    expect(harness.track.stopCalls, 0);
+  });
+
+  test(
+    'closing after BOS sends one EOS without stopping borrowed track',
+    () async {
+      var counter = 0;
+      final harness = await _VoiceHarness.create(
+        statsProvider: () async =>
+            _audioStats(duration: (++counter).toDouble(), packets: counter),
+      );
+      addTearDown(harness.database.close);
+
+      await harness.controller.startInput();
+      await harness.controller.close();
+
+      expect(_sentEventTypes(harness.channel), ['bos', 'eos']);
+      expect(harness.track.enabled, isFalse);
+      expect(harness.track.stopCalls, 0);
+    },
+  );
 
   test('appends a final text.done chunk to streamed deltas', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
@@ -235,4 +364,130 @@ class _NeverDataChannelFactory implements GizClawDataChannelFactory {
   }) {
     throw UnsupportedError('No data channel is used by this test');
   }
+}
+
+List<rtc.StatsReport> _audioStats({
+  required double duration,
+  required int packets,
+}) => [
+  rtc.StatsReport('source-1', 'media-source', 1, {
+    'kind': 'audio',
+    'trackIdentifier': 'mic-1',
+    'totalSamplesDuration': duration,
+  }),
+  rtc.StatsReport('outbound-1', 'outbound-rtp', 1, {
+    'kind': 'audio',
+    'mediaSourceId': 'source-1',
+    'packetsSent': packets,
+  }),
+];
+
+List<String> _sentEventTypes(_MemoryDataChannel channel) => channel.sent
+    .map((bytes) => decodeFrames(bytes).single.payload)
+    .map(utf8.decode)
+    .map(jsonDecode)
+    .map((value) => (value as Map<String, dynamic>)['type'] as String)
+    .toList();
+
+class _VoiceHarness {
+  _VoiceHarness(this.controller, this.channel, this.database, this.track);
+
+  static Future<_VoiceHarness> create({
+    required WebRtcStatsProvider statsProvider,
+    Future<void> Function()? onMicrophoneStalled,
+  }) async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    final factory = _MemoryDataChannelFactory();
+    final track = _BorrowedTrack();
+    final controller = WorkspaceChatController(
+      workspaceName: 'translator',
+      repository: _EmptyHistoryRepository(database),
+      serverId: 'server-a',
+      client: GizClawClient(factory),
+      dataChannelFactory: factory,
+      peerConnection: _StatsPeerConnection(),
+      inputTrack: track,
+      statsProvider: statsProvider,
+      readinessPollInterval: const Duration(milliseconds: 1),
+      readinessTimeout: const Duration(milliseconds: 5),
+      onMicrophoneStalled: onMicrophoneStalled,
+    );
+    await controller.start(activate: false);
+    return _VoiceHarness(controller, factory.channel, database, track);
+  }
+
+  final WorkspaceChatController controller;
+  final _MemoryDataChannel channel;
+  final AppDatabase database;
+  final _BorrowedTrack track;
+
+  Future<void> close() async {
+    await controller.close();
+    await database.close();
+  }
+}
+
+class _EmptyHistoryRepository extends WorkspaceChatRepository {
+  _EmptyHistoryRepository(super.database);
+
+  @override
+  Future<List<CachedWorkspaceMessage>> refresh({
+    required GizClawClient client,
+    required String serverId,
+    required String workspaceName,
+  }) async => const [];
+}
+
+class _StatsPeerConnection extends Fake implements rtc.RTCPeerConnection {}
+
+class _BorrowedTrack extends Fake implements rtc.MediaStreamTrack {
+  @override
+  String get id => 'mic-1';
+
+  @override
+  String get kind => 'audio';
+
+  @override
+  bool enabled = false;
+
+  int stopCalls = 0;
+
+  @override
+  Future<void> stop() async => stopCalls += 1;
+}
+
+class _MemoryDataChannelFactory implements GizClawDataChannelFactory {
+  final channel = _MemoryDataChannel();
+
+  @override
+  Future<GizClawDataChannel> createDataChannel(
+    String label, {
+    GizClawDataChannelOptions options = const GizClawDataChannelOptions(),
+  }) async => channel;
+}
+
+class _MemoryDataChannel implements GizClawDataChannel {
+  final sent = <Uint8List>[];
+  final _messages = StreamController<Uint8List>.broadcast();
+
+  @override
+  int? get bufferedAmount => 0;
+
+  @override
+  String get label => giznetWebRtcEventDataChannelLabel;
+
+  @override
+  Stream<Uint8List> get messages => _messages.stream;
+
+  @override
+  GizClawDataChannelState get state => GizClawDataChannelState.open;
+
+  @override
+  Stream<GizClawDataChannelState> get states => const Stream.empty();
+
+  @override
+  Future<void> close() => _messages.close();
+
+  @override
+  Future<void> send(Uint8List bytes) async => sent.add(bytes);
 }
