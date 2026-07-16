@@ -70,12 +70,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get microphonePermissionRequiredStatus => '需要麦克风权限';
 
   @override
-  String get microphoneReadinessUnavailableStatus => '无法检查麦克风发送状态';
-
-  @override
-  String get microphoneNoOutboundAudioStatus => '麦克风没有发出音频';
-
-  @override
   String get microphoneRecovering => '正在恢复麦克风';
 
   @override
@@ -357,12 +351,6 @@ class AppLocalizationsZhCn extends AppLocalizationsZh {
 
   @override
   String get microphonePermissionRequiredStatus => '需要麦克风权限';
-
-  @override
-  String get microphoneReadinessUnavailableStatus => '无法检查麦克风发送状态';
-
-  @override
-  String get microphoneNoOutboundAudioStatus => '麦克风没有发出音频';
 
   @override
   String get microphoneRecovering => '正在恢复麦克风';

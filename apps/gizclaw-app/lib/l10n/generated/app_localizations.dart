@@ -219,18 +219,6 @@ abstract class AppLocalizations {
   /// **'MICROPHONE PERMISSION REQUIRED'**
   String get microphonePermissionRequiredStatus;
 
-  /// Conversation status when microphone RTP readiness cannot be checked.
-  ///
-  /// In en, this message translates to:
-  /// **'MICROPHONE READINESS UNAVAILABLE'**
-  String get microphoneReadinessUnavailableStatus;
-
-  /// Conversation status when microphone RTP counters remain stalled.
-  ///
-  /// In en, this message translates to:
-  /// **'MICROPHONE PRODUCED NO OUTBOUND AUDIO'**
-  String get microphoneNoOutboundAudioStatus;
-
   /// Conversation control status while microphone capture is being recovered.
   ///
   /// In en, this message translates to:

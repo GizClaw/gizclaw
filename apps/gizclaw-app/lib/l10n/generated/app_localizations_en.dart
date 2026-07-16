@@ -74,14 +74,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'MICROPHONE PERMISSION REQUIRED';
 
   @override
-  String get microphoneReadinessUnavailableStatus =>
-      'MICROPHONE READINESS UNAVAILABLE';
-
-  @override
-  String get microphoneNoOutboundAudioStatus =>
-      'MICROPHONE PRODUCED NO OUTBOUND AUDIO';
-
-  @override
   String get microphoneRecovering => 'RECOVERING MICROPHONE';
 
   @override

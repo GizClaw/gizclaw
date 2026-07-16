@@ -51,115 +51,39 @@ void main() {
     expect(normalizedAudioLevel(null), 0);
   });
 
-  test('fails closed without linked RTP stats and sends no BOS', () async {
-    final harness = await _VoiceHarness.create(statsProvider: () async => []);
+  test('sends BOS before enabling RTP and disables RTP before EOS', () async {
+    final harness = await _VoiceHarness.create();
     addTearDown(harness.close);
-
-    await harness.controller.startInput();
-
-    expect(harness.channel.sent, isEmpty);
-    expect(harness.track.enabled, isFalse);
-    expect(
-      (harness.controller.lastError as MicrophoneInputException).kind,
-      MicrophoneInputFailureKind.statsUnavailable,
-    );
-  });
-
-  test('stalled RTP counters send no boundary and request recovery', () async {
-    var recoveries = 0;
-    final harness = await _VoiceHarness.create(
-      statsProvider: () async => _audioStats(duration: 1, packets: 1),
-      onMicrophoneStalled: () async => recoveries += 1,
-    );
-    addTearDown(harness.close);
-
-    await harness.controller.startInput();
-    await Future<void>.delayed(Duration.zero);
-
-    expect(harness.channel.sent, isEmpty);
-    expect(harness.track.enabled, isFalse);
-    expect(recoveries, 1);
-    expect(
-      (harness.controller.lastError as MicrophoneInputException).kind,
-      MicrophoneInputFailureKind.stalled,
-    );
-  });
-
-  test('source samples alone do not satisfy outbound RTP readiness', () async {
-    var duration = 0.0;
-    var recoveries = 0;
-    final harness = await _VoiceHarness.create(
-      statsProvider: () async =>
-          _audioStats(duration: duration += 1, packets: 1),
-      onMicrophoneStalled: () async => recoveries += 1,
-    );
-    addTearDown(harness.close);
-
-    await harness.controller.startInput();
-    await Future<void>.delayed(Duration.zero);
-
-    expect(harness.channel.sent, isEmpty);
-    expect(recoveries, 1);
-    expect(
-      (harness.controller.lastError as MicrophoneInputException).kind,
-      MicrophoneInputFailureKind.stalled,
-    );
-  });
-
-  test('counter advance sends BOS and release sends exactly one EOS', () async {
-    var statsCalls = 0;
-    final harness = await _VoiceHarness.create(
-      statsProvider: () async {
-        statsCalls += 1;
-        if (statsCalls == 1) return _audioStats(duration: 1, packets: 1);
-        if (statsCalls == 2) return _audioStats(duration: 2, packets: 2);
-        throw StateError('final stats unavailable');
-      },
-    );
-    addTearDown(harness.close);
-    bool? trackEnabledAtBos;
-    bool? trackEnabledAtEos;
+    bool? sendingAtBos;
+    bool? sendingAtEos;
     harness.channel.onSend = (bytes) {
-      final payload = decodeFrames(bytes).single.payload;
-      final event = jsonDecode(utf8.decode(payload)) as Map<String, dynamic>;
-      switch (event['type']) {
-        case 'bos':
-          trackEnabledAtBos = harness.track.enabled;
-        case 'eos':
-          trackEnabledAtEos = harness.track.enabled;
-      }
+      final type = _eventType(bytes);
+      if (type == 'bos') sendingAtBos = harness.sending;
+      if (type == 'eos') sendingAtEos = harness.sending;
     };
 
     await harness.controller.startInput();
-    expect(trackEnabledAtBos, isFalse);
-    expect(harness.track.enabled, isTrue);
-    final eosGate = Completer<void>();
-    harness.channel.sendGate = eosGate.future;
-    final finish = harness.controller.finishInput();
-    await Future<void>.delayed(Duration.zero);
-
-    expect(harness.track.enabled, isFalse);
-    expect(trackEnabledAtEos, isFalse);
-
-    eosGate.complete();
-    await finish;
-    harness.channel.sendGate = null;
-    await Future.wait([
-      harness.controller.finishInput(),
-      harness.controller.finishInput(),
-    ]);
+    await harness.controller.finishInput();
 
     expect(_sentEventTypes(harness.channel), ['bos', 'eos']);
-    await harness.controller.close();
-    expect(harness.track.stopCalls, 0);
+    expect(sendingAtBos, isFalse);
+    expect(sendingAtEos, isFalse);
+    expect(harness.sendingStates, [true, false]);
+    expect(harness.track.enabled, isTrue);
+  });
+
+  test('does not require WebRTC stats before sending BOS', () async {
+    final harness = await _VoiceHarness.create();
+    addTearDown(harness.close);
+
+    await harness.controller.startInput();
+
+    expect(_sentEventTypes(harness.channel), ['bos']);
+    expect(harness.controller.recording, isTrue);
   });
 
   test('does not send a new BOS while EOS is still in flight', () async {
-    var counter = 0;
-    final harness = await _VoiceHarness.create(
-      statsProvider: () async =>
-          _audioStats(duration: (++counter).toDouble(), packets: counter),
-    );
+    final harness = await _VoiceHarness.create();
     addTearDown(harness.close);
 
     await harness.controller.startInput();
@@ -178,91 +102,46 @@ void main() {
     expect(_sentEventTypes(harness.channel), ['bos', 'eos', 'bos']);
   });
 
-  test('sends EOS before requesting stalled microphone recovery', () async {
-    var statsCalls = 0;
-    List<String>? eventsAtRecovery;
-    late final _VoiceHarness harness;
-    harness = await _VoiceHarness.create(
-      statsProvider: () async {
-        statsCalls += 1;
-        return _audioStats(
-          duration: statsCalls.toDouble(),
-          packets: statsCalls < 3 ? statsCalls : 2,
-        );
-      },
-      onMicrophoneStalled: () async {
-        eventsAtRecovery = _sentEventTypes(harness.channel);
+  test('sender enable failure closes the BOS interval with EOS', () async {
+    final harness = await _VoiceHarness.create(
+      setInputSending: (active) async {
+        if (active) throw StateError('sender failed');
       },
     );
     addTearDown(harness.close);
 
     await harness.controller.startInput();
-    await harness.controller.finishInput();
-    await Future<void>.delayed(Duration.zero);
 
-    expect(eventsAtRecovery, ['bos', 'eos']);
+    expect(_sentEventTypes(harness.channel), ['bos', 'eos']);
+    expect(harness.controller.recording, isFalse);
+    expect(harness.controller.lastError, isA<StateError>());
+    expect(harness.controller.lastError.toString(), contains('sender failed'));
   });
 
-  test(
-    'captures microphone recovery failures without an unhandled error',
-    () async {
-      final harness = await _VoiceHarness.create(
-        statsProvider: () async => _audioStats(duration: 1, packets: 1),
-        onMicrophoneStalled: () async {
-          throw StateError('recovery failed');
-        },
-      );
-      addTearDown(harness.close);
+  test('early release waits for sender enable then sends one EOS', () async {
+    final enableStarted = Completer<void>();
+    final enableGate = Completer<void>();
+    final harness = await _VoiceHarness.create(
+      setInputSending: (active) async {
+        if (active) {
+          enableStarted.complete();
+          await enableGate.future;
+        }
+      },
+    );
+    addTearDown(harness.close);
 
-      await harness.controller.startInput();
-      await Future<void>.delayed(Duration.zero);
+    final start = harness.controller.startInput();
+    await enableStarted.future;
+    await harness.controller.finishInput();
+    enableGate.complete();
+    await start;
 
-      expect(harness.controller.lastError, isA<StateError>());
-      expect(
-        harness.controller.lastError.toString(),
-        contains('recovery failed'),
-      );
-    },
-  );
-
-  test(
-    'early release waits for readiness then sends one BOS and EOS',
-    () async {
-      var statsCalls = 0;
-      final readinessStarted = Completer<void>();
-      final readiness = Completer<List<rtc.StatsReport>>();
-      final harness = await _VoiceHarness.create(
-        statsProvider: () {
-          statsCalls += 1;
-          if (statsCalls == 1) {
-            return Future.value(_audioStats(duration: 1, packets: 1));
-          }
-          if (statsCalls == 2) {
-            readinessStarted.complete();
-            return readiness.future;
-          }
-          return Future.value(_audioStats(duration: 3, packets: 3));
-        },
-      );
-      addTearDown(harness.close);
-
-      final start = harness.controller.startInput();
-      await readinessStarted.future;
-      await harness.controller.finishInput();
-      readiness.complete(_audioStats(duration: 2, packets: 2));
-      await start;
-
-      expect(_sentEventTypes(harness.channel), ['bos', 'eos']);
-      expect(harness.track.enabled, isFalse);
-    },
-  );
+    expect(_sentEventTypes(harness.channel), ['bos', 'eos']);
+  });
 
   test('reuses the negotiated track across repeated PTT intervals', () async {
-    var counter = 0;
-    final harness = await _VoiceHarness.create(
-      statsProvider: () async =>
-          _audioStats(duration: (++counter).toDouble(), packets: counter),
-    );
+    final harness = await _VoiceHarness.create();
     addTearDown(harness.close);
 
     await harness.controller.startInput();
@@ -271,24 +150,23 @@ void main() {
     await harness.controller.finishInput();
 
     expect(_sentEventTypes(harness.channel), ['bos', 'eos', 'bos', 'eos']);
+    expect(harness.sendingStates, [true, false, true, false]);
     expect(harness.track.stopCalls, 0);
+    expect(harness.track.enabled, isTrue);
   });
 
   test(
     'closing after BOS sends one EOS without stopping borrowed track',
     () async {
-      var counter = 0;
-      final harness = await _VoiceHarness.create(
-        statsProvider: () async =>
-            _audioStats(duration: (++counter).toDouble(), packets: counter),
-      );
+      final harness = await _VoiceHarness.create();
       addTearDown(harness.database.close);
 
       await harness.controller.startInput();
       await harness.controller.close();
 
       expect(_sentEventTypes(harness.channel), ['bos', 'eos']);
-      expect(harness.track.enabled, isFalse);
+      expect(harness.sending, isFalse);
+      expect(harness.track.enabled, isTrue);
       expect(harness.track.stopCalls, 0);
     },
   );
@@ -296,21 +174,17 @@ void main() {
   test(
     'releases a borrowed track before a successor takes ownership',
     () async {
-      var counter = 0;
       var ownsInputTrack = true;
       final harness = await _VoiceHarness.create(
-        statsProvider: () async =>
-            _audioStats(duration: (++counter).toDouble(), packets: counter),
         ownsInputTrack: () => ownsInputTrack,
       );
       addTearDown(harness.database.close);
 
       await harness.controller.startInput();
-      harness.controller.releaseInputTrack();
-      expect(harness.track.enabled, isFalse);
+      await harness.controller.releaseInputTrack();
+      expect(harness.sending, isFalse);
 
       ownsInputTrack = false;
-      harness.track.enabled = true;
       await harness.controller.close();
 
       expect(_sentEventTypes(harness.channel), ['bos', 'eos']);
@@ -508,22 +382,6 @@ class _NeverDataChannelFactory implements GizClawDataChannelFactory {
   }
 }
 
-List<rtc.StatsReport> _audioStats({
-  required double duration,
-  required int packets,
-}) => [
-  rtc.StatsReport('source-1', 'media-source', 1, {
-    'kind': 'audio',
-    'trackIdentifier': 'mic-1',
-    'totalSamplesDuration': duration,
-  }),
-  rtc.StatsReport('outbound-1', 'outbound-rtp', 1, {
-    'kind': 'audio',
-    'mediaSourceId': 'source-1',
-    'packetsSent': packets,
-  }),
-];
-
 List<String> _sentEventTypes(_MemoryDataChannel channel) => channel.sent
     .map((bytes) => decodeFrames(bytes).single.payload)
     .map(utf8.decode)
@@ -531,17 +389,28 @@ List<String> _sentEventTypes(_MemoryDataChannel channel) => channel.sent
     .map((value) => (value as Map<String, dynamic>)['type'] as String)
     .toList();
 
+String _eventType(Uint8List bytes) =>
+    (jsonDecode(utf8.decode(decodeFrames(bytes).single.payload))
+            as Map<String, dynamic>)['type']
+        as String;
+
 class _VoiceHarness {
-  _VoiceHarness(this.controller, this.channel, this.database, this.track);
+  _VoiceHarness(
+    this.controller,
+    this.channel,
+    this.database,
+    this.track,
+    this._senderState,
+  );
 
   static Future<_VoiceHarness> create({
-    required WebRtcStatsProvider statsProvider,
-    Future<void> Function()? onMicrophoneStalled,
+    SetInputSending? setInputSending,
     bool Function()? ownsInputTrack,
   }) async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     final factory = _MemoryDataChannelFactory();
     final track = _BorrowedTrack();
+    final senderState = _SenderState();
     final controller = WorkspaceChatController(
       workspaceName: 'translator',
       repository: _EmptyHistoryRepository(database),
@@ -550,24 +419,45 @@ class _VoiceHarness {
       dataChannelFactory: factory,
       peerConnection: _StatsPeerConnection(),
       inputTrack: track,
+      setInputSending: (active) async {
+        await setInputSending?.call(active);
+        senderState.set(active);
+      },
       ownsInputTrack: ownsInputTrack,
-      statsProvider: statsProvider,
-      readinessPollInterval: const Duration(milliseconds: 1),
-      readinessTimeout: const Duration(milliseconds: 5),
-      onMicrophoneStalled: onMicrophoneStalled,
     );
     await controller.start(activate: false);
-    return _VoiceHarness(controller, factory.channel, database, track);
+    return _VoiceHarness(
+      controller,
+      factory.channel,
+      database,
+      track,
+      senderState,
+    );
   }
 
   final WorkspaceChatController controller;
   final _MemoryDataChannel channel;
   final AppDatabase database;
   final _BorrowedTrack track;
+  final _SenderState _senderState;
+
+  bool get sending => _senderState.active;
+  List<bool> get sendingStates => _senderState.changes;
 
   Future<void> close() async {
     await controller.close();
     await database.close();
+  }
+}
+
+class _SenderState {
+  bool active = false;
+  final changes = <bool>[];
+
+  void set(bool value) {
+    if (active == value) return;
+    active = value;
+    changes.add(value);
   }
 }
 
@@ -592,7 +482,7 @@ class _BorrowedTrack extends Fake implements rtc.MediaStreamTrack {
   String get kind => 'audio';
 
   @override
-  bool enabled = false;
+  bool enabled = true;
 
   int stopCalls = 0;
 

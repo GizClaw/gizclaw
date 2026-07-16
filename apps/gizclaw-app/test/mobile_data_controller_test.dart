@@ -184,6 +184,139 @@ void main() {
   });
 
   test(
+    'forces one microphone recovery after returning from background',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      final client = _RunWorkspaceClient();
+      final connection = _BlockingReconnectConnection(
+        profile: _profile('gizclaw.local:9820'),
+        client: client,
+        serverId: 'server-a',
+        microphoneStatus: const MicrophoneStatus.ready(),
+      );
+      final controller = MobileDataController(
+        database: database,
+        connectionController: connection,
+      )..connectionState = MobileConnectionState.connected;
+
+      controller.handleAppResumed();
+      await Future<void>.delayed(Duration.zero);
+      expect(connection.reconnectCalls, 0);
+
+      controller.handleAppPaused();
+      controller.handleAppResumed();
+      await connection.reconnectStarted.future;
+      expect(connection.reconnectCalls, 1);
+
+      controller.handleAppPaused();
+      controller.handleAppResumed();
+      await Future<void>.delayed(Duration.zero);
+      expect(connection.reconnectCalls, 1);
+
+      connection.reconnectResult.complete(client);
+      await Future<void>.delayed(Duration.zero);
+      await controller.close();
+    },
+  );
+
+  test(
+    'retries a failed reconnect while the app remains backgrounded',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      final client = _RunWorkspaceClient();
+      final connection = _BackgroundRetryConnection(
+        profile: _profile('gizclaw.local:9820'),
+        client: client,
+        serverId: 'server-a',
+      );
+      final controller = MobileDataController(
+        database: database,
+        connectionController: connection,
+        backgroundReconnectInitialDelay: Duration.zero,
+        backgroundReconnectMaxDelay: Duration.zero,
+      )..connectionState = MobileConnectionState.connected;
+
+      controller.handleAppPaused();
+      await expectLater(controller.recoverTransport(), throwsStateError);
+      await connection.reconnected.future;
+      for (
+        var attempts = 0;
+        attempts < 20 &&
+            controller.connectionState != MobileConnectionState.connected;
+        attempts += 1
+      ) {
+        await Future<void>.delayed(Duration.zero);
+      }
+
+      expect(connection.reconnectCalls, 2);
+      expect(controller.connectionState, MobileConnectionState.connected);
+      await controller.close();
+    },
+  );
+
+  test('keeps retrying a failed connection in the foreground', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    final client = _RunWorkspaceClient();
+    final connection = _BackgroundRetryConnection(
+      profile: _profile('gizclaw.local:9820'),
+      client: client,
+      serverId: 'server-a',
+    );
+    final controller = MobileDataController(
+      database: database,
+      connectionController: connection,
+      backgroundReconnectInitialDelay: Duration.zero,
+      backgroundReconnectMaxDelay: Duration.zero,
+    )..connectionState = MobileConnectionState.connected;
+
+    await expectLater(controller.recoverTransport(), throwsStateError);
+    await connection.reconnected.future;
+    for (
+      var attempts = 0;
+      attempts < 20 &&
+          controller.connectionState != MobileConnectionState.connected;
+      attempts += 1
+    ) {
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    expect(connection.reconnectCalls, 2);
+    expect(controller.connectionState, MobileConnectionState.connected);
+    await controller.close();
+  });
+
+  test('reconnects immediately when the app resumes offline', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    final client = _RunWorkspaceClient();
+    final connection = _BackgroundRetryConnection(
+      profile: _profile('gizclaw.local:9820'),
+      client: client,
+      serverId: 'server-a',
+      failuresRemaining: 0,
+    )..connected = false;
+    final controller = MobileDataController(
+      database: database,
+      connectionController: connection,
+    )..connectionState = MobileConnectionState.offline;
+
+    controller.handleAppPaused();
+    controller.handleAppResumed();
+    await connection.reconnected.future;
+    for (
+      var attempts = 0;
+      attempts < 20 &&
+          controller.connectionState != MobileConnectionState.connected;
+      attempts += 1
+    ) {
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    expect(connection.reconnectCalls, 1);
+    expect(controller.connectionState, MobileConnectionState.connected);
+    await controller.close();
+  });
+
+  test(
     'ends active input before recovering an ended microphone track',
     () async {
       final connection = _EndedMicrophoneConnection(
@@ -711,15 +844,50 @@ class _BlockingReconnectConnection extends _CloseTrackingConnection {
     required super.profile,
     required super.client,
     required super.serverId,
+    this.microphoneStatus = const MicrophoneStatus.unavailable(),
   });
 
   final reconnectStarted = Completer<void>();
   final reconnectResult = Completer<GizClawClient>();
+  @override
+  final MicrophoneStatus microphoneStatus;
+  int reconnectCalls = 0;
 
   @override
   Future<GizClawClient> reconnect() {
-    reconnectStarted.complete();
+    reconnectCalls += 1;
+    if (!reconnectStarted.isCompleted) reconnectStarted.complete();
     return reconnectResult.future;
+  }
+}
+
+class _BackgroundRetryConnection extends _RefreshTestConnection {
+  _BackgroundRetryConnection({
+    required super.profile,
+    required super.client,
+    required super.serverId,
+    this.failuresRemaining = 1,
+  });
+
+  final reconnected = Completer<void>();
+  int failuresRemaining;
+  int reconnectCalls = 0;
+  bool connected = true;
+
+  @override
+  bool get isConnected => connected;
+
+  @override
+  Future<GizClawClient> reconnect() async {
+    reconnectCalls += 1;
+    if (failuresRemaining > 0) {
+      failuresRemaining -= 1;
+      connected = false;
+      throw StateError('background reconnect failed');
+    }
+    connected = true;
+    if (!reconnected.isCompleted) reconnected.complete();
+    return currentClient;
   }
 }
 

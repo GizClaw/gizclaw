@@ -5,24 +5,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:gizclaw/gizclaw.dart';
 
+import '../audio/pcm_audio_level_source.dart';
 import 'repositories/workspace_chat_repository.dart';
 
 enum WorkspaceChatState { loading, connecting, connected, offline, error }
 
 enum WorkspaceMessageState { complete, streaming, failed }
 
-enum MicrophoneInputFailureKind { statsUnavailable, stalled }
-
-class MicrophoneInputException implements Exception {
-  const MicrophoneInputException(this.kind);
-
-  final MicrophoneInputFailureKind kind;
-
-  @override
-  String toString() => 'MicrophoneInputException: ${kind.name}';
-}
-
-typedef WebRtcStatsProvider = Future<List<rtc.StatsReport>> Function();
+typedef SetInputSending = Future<void> Function(bool active);
 
 class WorkspaceChatMessage {
   const WorkspaceChatMessage({
@@ -62,33 +52,29 @@ class WorkspaceChatController extends ChangeNotifier {
     this.dataChannelFactory,
     this.peerConnection,
     this.inputTrack,
+    this.setInputSending,
     this.ownsInputTrack,
-    this.onMicrophoneStalled,
     this.onTransportClosed,
-    WebRtcStatsProvider? statsProvider,
-    this.readinessPollInterval = const Duration(milliseconds: 60),
-    this.readinessTimeout = const Duration(milliseconds: 600),
-  }) : _statsProvider = statsProvider;
+    this.pcmAudioLevels,
+  });
 
   final GizClawClient? client;
   final GizClawDataChannelFactory? dataChannelFactory;
   final rtc.RTCPeerConnection? peerConnection;
   final rtc.MediaStreamTrack? inputTrack;
+  final SetInputSending? setInputSending;
   final bool Function()? ownsInputTrack;
-  final Future<void> Function()? onMicrophoneStalled;
   final Future<void> Function()? onTransportClosed;
-  final Duration readinessPollInterval;
-  final Duration readinessTimeout;
-  final WebRtcStatsProvider? _statsProvider;
+  final Stream<PcmAudioLevels>? pcmAudioLevels;
   final WorkspaceChatRepository repository;
   final String? serverId;
   final String workspaceName;
 
   StreamSubscription<List<CachedWorkspaceMessage>>? _historySubscription;
   StreamSubscription<PeerStreamEvent>? _eventSubscription;
+  StreamSubscription<PcmAudioLevels>? _pcmLevelSubscription;
   WorkspaceEventSession? _session;
   String? _activeStreamId;
-  _OutgoingAudioCounter? _activeAudioBaseline;
   Timer? _historyRefreshTimer;
   Timer? _levelTimer;
   List<WorkspaceChatMessage> _cached = const [];
@@ -101,7 +87,8 @@ class WorkspaceChatController extends ChangeNotifier {
   bool playingOutput = false;
   bool _finishPending = false;
   bool _transportRecoveryRequested = false;
-  bool _microphoneRecoveryRequested = false;
+  bool _samplingAudioLevels = false;
+  bool _hasPcmAudioLevels = false;
   final Map<String, _AudioEnergySample> _sentAudioEnergy = {};
   final Map<String, _AudioEnergySample> _receivedAudioEnergy = {};
   String? replayingHistoryId;
@@ -120,15 +107,27 @@ class WorkspaceChatController extends ChangeNotifier {
       _session != null &&
       peerConnection != null &&
       inputTrack != null &&
+      setInputSending != null &&
       _ownsInputTrack;
 
   bool get _ownsInputTrack =>
       !_inputTrackReleased && (ownsInputTrack?.call() ?? true);
 
-  void releaseInputTrack() {
+  Future<void> releaseInputTrack() async {
     if (_inputTrackReleased) return;
-    _disableInputTrack();
-    _inputTrackReleased = true;
+    final startInput = _startInputInFlight;
+    if (startInput != null) {
+      _finishPending = true;
+      await startInput;
+    }
+    if (recording) await finishInput(error: 'interrupted');
+    try {
+      await _deactivateInputSending();
+    } catch (error) {
+      lastError = error;
+    } finally {
+      _inputTrackReleased = true;
+    }
   }
 
   Future<void> start({bool activate = true, bool conversation = true}) async {
@@ -231,42 +230,51 @@ class WorkspaceChatController extends ChangeNotifier {
     lastError = null;
     notifyListeners();
     try {
-      final track = inputTrack;
-      if (track == null) {
-        throw const MicrophoneInputException(
-          MicrophoneInputFailureKind.statsUnavailable,
-        );
+      final setSending = setInputSending;
+      if (inputTrack == null || setSending == null) {
+        throw StateError('Microphone sender is unavailable');
       }
-      final baseline = await _readOutgoingAudioCounter(track);
-      if (!_ownsInputTrack) throw StateError('Microphone track owner changed');
-      track.enabled = true;
-      _activeAudioBaseline = await _waitForOutgoingAudio(track, baseline);
-      if (!_ownsInputTrack) throw StateError('Microphone track owner changed');
-      track.enabled = false;
       final streamId =
           'audio-${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}';
       _activeStreamId = streamId;
       await session.beginAudio(streamId);
+      if (!_ownsInputTrack) {
+        await session.endAudio(streamId, error: 'interrupted');
+        _activeStreamId = null;
+        return;
+      }
+      try {
+        await setSending(true);
+      } catch (error) {
+        try {
+          await session.endAudio(
+            streamId,
+            error: 'microphone_sender_enable_failed',
+          );
+        } catch (_) {
+          // Preserve the sender failure as the actionable error.
+        }
+        _activeStreamId = null;
+        rethrow;
+      }
       recording = true;
       if (!_ownsInputTrack) {
         await finishInput(error: 'interrupted');
         return;
       }
-      track.enabled = true;
       if (_finishPending) {
         _finishPending = false;
         await finishInput();
       }
     } catch (error) {
-      _disableInputTrack();
+      try {
+        await _deactivateInputSending();
+      } catch (_) {
+        // Preserve the original sender or signaling error.
+      }
       _activeStreamId = null;
-      _activeAudioBaseline = null;
       _finishPending = false;
       _handleError(error, changeState: false);
-      if (error is MicrophoneInputException &&
-          error.kind == MicrophoneInputFailureKind.stalled) {
-        _requestMicrophoneRecovery();
-      }
     } finally {
       startingInput = false;
       notifyListeners();
@@ -300,34 +308,18 @@ class WorkspaceChatController extends ChangeNotifier {
     String? error,
   ) async {
     var eosError = error;
-    var requestRecovery = false;
-    _disableInputTrack();
     try {
-      final track = inputTrack;
-      if (track != null) {
-        try {
-          final finalCounter = await _readOutgoingAudioCounter(track);
-          final baseline = _activeAudioBaseline;
-          if (baseline != null &&
-              !finalCounter.outboundAdvancedFrom(baseline)) {
-            const stalled = MicrophoneInputException(
-              MicrophoneInputFailureKind.stalled,
-            );
-            lastError = stalled;
-            eosError ??= 'microphone_no_outbound_audio';
-            requestRecovery = true;
-          }
-        } catch (statsError) {
-          lastError = statsError;
-          eosError ??= 'microphone_stats_unavailable';
-        }
+      try {
+        await _deactivateInputSending();
+      } catch (senderError) {
+        lastError = senderError;
+        eosError ??= 'microphone_sender_disable_failed';
       }
       await session.endAudio(streamId, error: eosError);
     } catch (sendError) {
       _handleError(sendError, changeState: false);
     } finally {
       _activeStreamId = null;
-      _activeAudioBaseline = null;
       recording = false;
       notifyListeners();
       _historyRefreshTimer?.cancel();
@@ -336,22 +328,46 @@ class WorkspaceChatController extends ChangeNotifier {
         _refreshHistory,
       );
     }
-    if (requestRecovery) _requestMicrophoneRecovery();
   }
 
   void _startLevelMonitor() {
+    final levels = pcmAudioLevels;
+    if (levels != null && _pcmLevelSubscription == null) {
+      _pcmLevelSubscription = levels.listen(
+        _handlePcmAudioLevels,
+        onError: (_) => _hasPcmAudioLevels = false,
+        onDone: () {
+          _hasPcmAudioLevels = false;
+          _pcmLevelSubscription = null;
+        },
+      );
+    }
     _levelTimer?.cancel();
     _levelTimer = Timer.periodic(
-      const Duration(milliseconds: 90),
+      const Duration(milliseconds: 100),
       (_) => unawaited(_sampleAudioLevels()),
     );
   }
 
   Future<void> _sampleAudioLevels() async {
     final pc = peerConnection;
-    if (_disposed || pc == null) return;
+    if (_disposed || pc == null || _samplingAudioLevels || _hasPcmAudioLevels) {
+      return;
+    }
+    if (!recording && !playingOutput) {
+      final settledInput = _settleLevel(inputLevel, 0);
+      final settledOutput = _settleLevel(outputLevel, 0);
+      if (settledInput != inputLevel || settledOutput != outputLevel) {
+        inputLevel = settledInput;
+        outputLevel = settledOutput;
+        notifyListeners();
+      }
+      return;
+    }
+    _samplingAudioLevels = true;
     try {
       final reports = await pc.getStats();
+      if (_hasPcmAudioLevels) return;
       var input = 0.0;
       var output = 0.0;
       for (final report in reports) {
@@ -385,7 +401,23 @@ class WorkspaceChatController extends ChangeNotifier {
       notifyListeners();
     } catch (_) {
       // Stats are advisory and must not interrupt the conversation.
+    } finally {
+      _samplingAudioLevels = false;
     }
+  }
+
+  void _handlePcmAudioLevels(PcmAudioLevels levels) {
+    if (_disposed) return;
+    _hasPcmAudioLevels = true;
+    final nextInput = recording ? levels.input : 0.0;
+    final nextOutput = levels.output;
+    if ((nextInput - inputLevel).abs() < 0.0001 &&
+        (nextOutput - outputLevel).abs() < 0.0001) {
+      return;
+    }
+    inputLevel = nextInput;
+    outputLevel = nextOutput;
+    notifyListeners();
   }
 
   Future<void> replayHistory(String historyId) async {
@@ -406,80 +438,6 @@ class WorkspaceChatController extends ChangeNotifier {
       replayingHistoryId = null;
       notifyListeners();
     }
-  }
-
-  Future<_OutgoingAudioCounter> _readOutgoingAudioCounter(
-    rtc.MediaStreamTrack track,
-  ) async {
-    final provider = _statsProvider;
-    final pc = peerConnection;
-    if (provider == null && pc == null) {
-      throw const MicrophoneInputException(
-        MicrophoneInputFailureKind.statsUnavailable,
-      );
-    }
-    late final List<rtc.StatsReport> reports;
-    try {
-      reports = await (provider?.call() ?? pc!.getStats());
-    } catch (_) {
-      throw const MicrophoneInputException(
-        MicrophoneInputFailureKind.statsUnavailable,
-      );
-    }
-    rtc.StatsReport? source;
-    for (final report in reports) {
-      if (report.type == 'media-source' &&
-          (report.values['kind'] ?? report.values['mediaType']) == 'audio' &&
-          report.values['trackIdentifier'] == track.id) {
-        source = report;
-        break;
-      }
-    }
-    if (source == null) {
-      throw const MicrophoneInputException(
-        MicrophoneInputFailureKind.statsUnavailable,
-      );
-    }
-    rtc.StatsReport? outbound;
-    for (final report in reports) {
-      if (report.type == 'outbound-rtp' &&
-          (report.values['kind'] ?? report.values['mediaType']) == 'audio' &&
-          report.values['mediaSourceId'] == source.id) {
-        outbound = report;
-        break;
-      }
-    }
-    if (outbound == null) {
-      throw const MicrophoneInputException(
-        MicrophoneInputFailureKind.statsUnavailable,
-      );
-    }
-    final counter = _OutgoingAudioCounter(
-      samplesDuration: _optionalStatDouble(
-        source.values['totalSamplesDuration'],
-      ),
-      packetsSent: _optionalStatDouble(outbound.values['packetsSent']),
-      bytesSent: _optionalStatDouble(outbound.values['bytesSent']),
-    );
-    if (!counter.hasCounter) {
-      throw const MicrophoneInputException(
-        MicrophoneInputFailureKind.statsUnavailable,
-      );
-    }
-    return counter;
-  }
-
-  Future<_OutgoingAudioCounter> _waitForOutgoingAudio(
-    rtc.MediaStreamTrack track,
-    _OutgoingAudioCounter baseline,
-  ) async {
-    final deadline = DateTime.now().add(readinessTimeout);
-    while (DateTime.now().isBefore(deadline)) {
-      await Future<void>.delayed(readinessPollInterval);
-      final current = await _readOutgoingAudioCounter(track);
-      if (current.outboundAdvancedFrom(baseline)) return current;
-    }
-    throw const MicrophoneInputException(MicrophoneInputFailureKind.stalled);
   }
 
   void _handleEvent(PeerStreamEvent event) {
@@ -632,31 +590,14 @@ class WorkspaceChatController extends ChangeNotifier {
     );
   }
 
-  void _requestMicrophoneRecovery() {
-    final recover = onMicrophoneStalled;
-    if (_disposed || recover == null || _microphoneRecoveryRequested) return;
-    _microphoneRecoveryRequested = true;
-    unawaited(_recoverMicrophone(recover));
-  }
-
-  Future<void> _recoverMicrophone(Future<void> Function() recover) async {
-    try {
-      await recover();
-    } catch (error) {
-      if (!_disposed) _handleError(error, changeState: false);
-    } finally {
-      _microphoneRecoveryRequested = false;
-    }
-  }
-
-  void _disableInputTrack() {
-    if (_ownsInputTrack) inputTrack?.enabled = false;
+  Future<void> _deactivateInputSending() async {
+    if (!_ownsInputTrack) return;
+    await setInputSending?.call(false);
   }
 
   void _resetRecording() {
-    _disableInputTrack();
+    unawaited(_deactivateInputSending().catchError((_) {}));
     _activeStreamId = null;
-    _activeAudioBaseline = null;
     recording = false;
     startingInput = false;
     playingOutput = false;
@@ -677,16 +618,13 @@ class WorkspaceChatController extends ChangeNotifier {
 
   Future<void> _close() async {
     _disposed = true;
-    final startInput = _startInputInFlight;
-    if (startInput != null) {
-      _finishPending = true;
-      await startInput;
-    }
-    if (recording) await finishInput(error: 'interrupted');
+    await releaseInputTrack();
     _historyRefreshTimer?.cancel();
     _historyRefreshTimer = null;
     _levelTimer?.cancel();
     _levelTimer = null;
+    final pcmLevelSubscription = _pcmLevelSubscription;
+    _pcmLevelSubscription = null;
     _resetRecording();
 
     final historySubscription = _historySubscription;
@@ -698,6 +636,7 @@ class WorkspaceChatController extends ChangeNotifier {
     await Future.wait([
       if (historySubscription != null) historySubscription.cancel(),
       if (eventSubscription != null) eventSubscription.cancel(),
+      if (pcmLevelSubscription != null) pcmLevelSubscription.cancel(),
       if (session != null) session.close(),
     ]);
   }
@@ -754,33 +693,6 @@ double _statDouble(Object? value) {
   return 0;
 }
 
-double? _optionalStatDouble(Object? value) {
-  if (value is num) return value.toDouble();
-  if (value is String) return double.tryParse(value);
-  return null;
-}
-
-class _OutgoingAudioCounter {
-  const _OutgoingAudioCounter({
-    required this.samplesDuration,
-    required this.packetsSent,
-    required this.bytesSent,
-  });
-
-  final double? samplesDuration;
-  final double? packetsSent;
-  final double? bytesSent;
-
-  bool get hasCounter => packetsSent != null || bytesSent != null;
-
-  bool outboundAdvancedFrom(_OutgoingAudioCounter previous) =>
-      _advanced(packetsSent, previous.packetsSent) ||
-      _advanced(bytesSent, previous.bytesSent);
-}
-
-bool _advanced(double? current, double? previous) =>
-    current != null && previous != null && current > previous;
-
 class _AudioEnergySample {
   const _AudioEnergySample({required this.energy, required this.duration});
 
@@ -789,7 +701,7 @@ class _AudioEnergySample {
 }
 
 double _smoothLevel(double current, double target) {
-  final factor = target > current ? 0.5 : 0.16;
+  final factor = target > current ? 0.86 : 0.72;
   return current + (target - current) * factor;
 }
 

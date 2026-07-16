@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:gizclaw/gizclaw.dart';
 
+import '../audio/pcm_audio_level_source.dart';
 import '../connection/gizclaw_connection_controller.dart';
 import '../identity/app_identity_store.dart';
 import '../l10n/locale_resolution.dart';
@@ -73,7 +75,12 @@ class MobileDataController extends ChangeNotifier {
     DeviceInfo? deviceInfo,
     List<GizClawServer>? servers,
     this.identityStore,
+    this.backgroundReconnectInitialDelay = const Duration(seconds: 1),
+    this.backgroundReconnectMaxDelay = const Duration(seconds: 30),
   }) : database = database ?? AppDatabase(),
+       assert(!backgroundReconnectInitialDelay.isNegative),
+       assert(backgroundReconnectMaxDelay >= backgroundReconnectInitialDelay),
+       _backgroundReconnectDelay = backgroundReconnectInitialDelay,
        connection =
            connectionController ??
            GizClawConnectionController(
@@ -101,6 +108,8 @@ class MobileDataController extends ChangeNotifier {
 
   final AppDatabase database;
   final AppIdentityStore? identityStore;
+  final Duration backgroundReconnectInitialDelay;
+  final Duration backgroundReconnectMaxDelay;
   final GizClawConnectionController connection;
   List<GizClawServer> _servers;
   late final MobileDataRepository repository;
@@ -124,6 +133,9 @@ class MobileDataController extends ChangeNotifier {
   final Set<Future<void>> _startsInFlight = {};
   Future<GizClawClient>? _reconnecting;
   Future<MicrophoneStatus>? _microphoneRecovery;
+  Timer? _backgroundReconnectTimer;
+  late Duration _backgroundReconnectDelay;
+  bool _recoverMicrophoneAfterResume = false;
   Future<void>? _refreshInFlight;
   bool _refreshAgain = false;
   GizClawClient? _pendingRefreshClient;
@@ -178,6 +190,20 @@ class MobileDataController extends ChangeNotifier {
         current.availability == MicrophoneAvailability.unavailable) {
       unawaited(_handleEndedMicrophoneTrack(activeWorkspaceChat));
     }
+    if (!recoverySuppressed &&
+        connectionState != MobileConnectionState.connecting &&
+        !connection.isConnected) {
+      connectionState = MobileConnectionState.offline;
+      _scheduleReconnect();
+    } else if (!recoverySuppressed &&
+        connection.isConnected &&
+        connection.client != null &&
+        connectionState == MobileConnectionState.offline) {
+      connectionState = MobileConnectionState.connected;
+      _backgroundReconnectTimer?.cancel();
+      _backgroundReconnectTimer = null;
+      _backgroundReconnectDelay = backgroundReconnectInitialDelay;
+    }
     notifyListeners();
   }
 
@@ -199,10 +225,15 @@ class MobileDataController extends ChangeNotifier {
   }
 
   Future<MicrophoneStatus> recoverMicrophone() {
+    return _beginMicrophoneRecovery(force: false);
+  }
+
+  Future<MicrophoneStatus> _beginMicrophoneRecovery({required bool force}) {
     final active = _microphoneRecovery;
     if (active != null) return active;
     if (connectionState != MobileConnectionState.connected ||
-        microphoneStatus.availability == MicrophoneAvailability.ready) {
+        (!force &&
+            microphoneStatus.availability == MicrophoneAvailability.ready)) {
       return Future.value(microphoneStatus);
     }
     late final Future<MicrophoneStatus> recovery;
@@ -219,12 +250,51 @@ class MobileDataController extends ChangeNotifier {
     return microphoneStatus;
   }
 
+  void handleAppPaused() {
+    if (_closing) return;
+    _recoverMicrophoneAfterResume = true;
+    _backgroundReconnectDelay = backgroundReconnectInitialDelay;
+    if (!kReleaseMode) {
+      debugPrint(
+        'GizClaw lifecycle: background '
+        '(connected=${connection.isConnected})',
+      );
+    }
+    if (connectionState != MobileConnectionState.connected ||
+        !connection.isConnected) {
+      _scheduleReconnect();
+    }
+  }
+
   void handleAppResumed() {
-    if (connectionState == MobileConnectionState.connected &&
-        microphoneStatus.availability == MicrophoneAvailability.unavailable) {
+    _backgroundReconnectTimer?.cancel();
+    _backgroundReconnectTimer = null;
+    _backgroundReconnectDelay = backgroundReconnectInitialDelay;
+    final force = _recoverMicrophoneAfterResume;
+    _recoverMicrophoneAfterResume = false;
+    if (!kReleaseMode) {
+      debugPrint(
+        'GizClaw lifecycle: resumed '
+        '(connected=${connection.isConnected}, recoverMicrophone=$force)',
+      );
+    }
+    if (connection.profile.isConfigured &&
+        (connectionState != MobileConnectionState.connected ||
+            !connection.isConnected)) {
       unawaited(() async {
         try {
-          await recoverMicrophone();
+          await _reconnect();
+        } catch (_) {}
+      }());
+      return;
+    }
+    if (connectionState == MobileConnectionState.connected &&
+        (force ||
+            microphoneStatus.availability ==
+                MicrophoneAvailability.unavailable)) {
+      unawaited(() async {
+        try {
+          await _beginMicrophoneRecovery(force: force);
         } catch (_) {}
       }());
     }
@@ -304,13 +374,15 @@ class MobileDataController extends ChangeNotifier {
         await _watchServer(discoveredServerId);
       }
       lastError = error;
-      assert(() {
+      if (!kReleaseMode) {
         debugPrint('GizClaw connection failed: $error');
-        return true;
-      }());
+      }
       connectionState = connection.isConnected
           ? MobileConnectionState.connected
           : MobileConnectionState.offline;
+      if (connectionState == MobileConnectionState.offline) {
+        _scheduleReconnect();
+      }
       notifyListeners();
     }
   }
@@ -610,6 +682,61 @@ class MobileDataController extends ChangeNotifier {
 
   void _clearReconnect(Future<GizClawClient> reconnecting) {
     if (identical(_reconnecting, reconnecting)) _reconnecting = null;
+    if (connectionState != MobileConnectionState.connected ||
+        !connection.isConnected) {
+      _scheduleReconnect();
+    }
+  }
+
+  void _scheduleReconnect() {
+    if (_closing ||
+        !connection.profile.isConfigured ||
+        _backgroundReconnectTimer != null ||
+        _reconnecting != null) {
+      return;
+    }
+    final delay = _backgroundReconnectDelay;
+    final nextMilliseconds = (delay.inMilliseconds * 2)
+        .clamp(
+          backgroundReconnectInitialDelay.inMilliseconds,
+          backgroundReconnectMaxDelay.inMilliseconds,
+        )
+        .toInt();
+    _backgroundReconnectDelay = Duration(milliseconds: nextMilliseconds);
+    if (!kReleaseMode) {
+      debugPrint(
+        'GizClaw reconnect: scheduled in '
+        '${delay.inMilliseconds}ms',
+      );
+    }
+    _backgroundReconnectTimer = Timer(delay, () {
+      _backgroundReconnectTimer = null;
+      if (_closing) return;
+      if (connectionState == MobileConnectionState.connected &&
+          connection.isConnected) {
+        _backgroundReconnectDelay = backgroundReconnectInitialDelay;
+        return;
+      }
+      unawaited(_retryConnection());
+    });
+  }
+
+  Future<void> _retryConnection() async {
+    if (!kReleaseMode) {
+      debugPrint('GizClaw reconnect: attempting');
+    }
+    try {
+      await _reconnect();
+      _backgroundReconnectDelay = backgroundReconnectInitialDelay;
+      if (!kReleaseMode) {
+        debugPrint('GizClaw reconnect: connected');
+      }
+    } catch (error) {
+      if (!kReleaseMode) {
+        debugPrint('GizClaw reconnect: failed: $error');
+      }
+      // _clearReconnect schedules the next bounded-backoff attempt.
+    }
   }
 
   Future<GizClawClient> _performReconnect() async {
@@ -635,6 +762,12 @@ class MobileDataController extends ChangeNotifier {
           ? MobileConnectionState.connected
           : MobileConnectionState.offline;
       lastError = error;
+      if (connectionState == MobileConnectionState.offline) {
+        _scheduleReconnect();
+      }
+      if (!kReleaseMode) {
+        debugPrint('GizClaw reconnect failed: $error');
+      }
       notifyListeners();
       rethrow;
     }
@@ -948,11 +1081,10 @@ class MobileDataController extends ChangeNotifier {
       dataChannelFactory: connection.dataChannelFactory,
       peerConnection: connection.peerConnection,
       inputTrack: connection.microphoneTrack,
+      setInputSending: connection.setMicrophoneSending,
       ownsInputTrack: () => identical(_activeWorkspaceChat, chat),
-      onMicrophoneStalled: () async {
-        await recoverMicrophone();
-      },
       onTransportClosed: recoverTransport,
+      pcmAudioLevels: PcmAudioLevelSource.levels,
     );
     await _replaceActiveWorkspaceChat(chat);
     await chat.start(activate: false);
@@ -1018,6 +1150,9 @@ class MobileDataController extends ChangeNotifier {
     _startGeneration += 1;
     _serverWatchGeneration += 1;
     _refreshAgain = false;
+    _recoverMicrophoneAfterResume = false;
+    _backgroundReconnectTimer?.cancel();
+    _backgroundReconnectTimer = null;
 
     Object? firstError;
     StackTrace? firstStackTrace;
@@ -1042,7 +1177,7 @@ class MobileDataController extends ChangeNotifier {
     ]);
 
     final chat = _activeWorkspaceChat;
-    chat?.releaseInputTrack();
+    await chat?.releaseInputTrack();
     _activeWorkspaceChat = null;
     final subscriptions = <StreamSubscription<dynamic>?>[
       _workflowSubscription,

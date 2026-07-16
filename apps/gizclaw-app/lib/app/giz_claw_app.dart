@@ -42,7 +42,18 @@ class _GizClawAppState extends State<GizClawApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _data.handleAppResumed();
+    switch (state) {
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.paused:
+        _data.handleAppPaused();
+        break;
+      case AppLifecycleState.resumed:
+        _data.handleAppResumed();
+        break;
+      case AppLifecycleState.detached:
+      case AppLifecycleState.inactive:
+        break;
+    }
   }
 
   void _handleLocaleChanged() {
