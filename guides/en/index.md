@@ -4,7 +4,7 @@ layout: home
 hero:
   name: GizClaw Project Guide
   text: GizClaw project documentation
-  tagline: Build, review, and use the GizClaw agent runtime and edge server mesh.
+  tagline: Build, review, and use the GizClaw agent runtime and edge-server platform.
   actions:
     - theme: brand
       text: Get Started

@@ -14,48 +14,18 @@ Content suitable for `shared/`:
 
 Things that don't fit here: Single Resource-specific Specs, small value objects with only one parent schema, database rows, service dependencies, runtime locks, internal cache state, and temporary structures used only by a single handler.
 
-## Shared list
+## Shared ownership
 
-`shared/` Contains the following schema files organized by owner.
+`shared/` currently uses fine-grained physical files for stable schema types. The [HTTP Schema dependency rules](./type-dependencies#shared-ownership-map) maintain the actual files and ownership families; this page does not duplicate a second list that can drift.
 
-### Cross HTTP surface
+When changing a Shared schema:
 
-| file | included schema | actual consumer |
-| --- | --- | --- |
-| `shared/error.json` | `ErrorPayload`, `ErrorResponse` | Admin, Peer, Desktop HTTP |
-| `shared/device.json` | `DeviceInfo`, `HardwareInfo`, `PeerIMEI`, `PeerLabel` | Admin Peer view, Peer self/registration |
-| `shared/runtime.json` | `Runtime` and its common runtime value | Admin Peer runtime, Peer self runtime |
+- Start from an owner file that actually exists under `api/http/shared/`; do not invent aggregate domain file names.
+- Locate cross-surface error, identity, runtime, ACL, configuration, firmware, credential, model, voice, tool, workflow, workspace, and provider tenant values through the ownership map.
+- Keep Public-only DTOs in `peer.json`, Admin endpoint-specific DTOs in `admin.json`, and OpenAI-compatible DTOs in `openai-compat/v1/service.json`.
+- Keep Resource envelopes, metadata, Apply contracts, and the Resource union in `resources/resource.json`; Resource-specific data remains in the corresponding `resources/<kind>.json`.
 
-This is deterministically shared across surface collections. `PeerRegistrationStatus`, `PeerStatus` and `ServerInfo` currently only belong to the Public API and should be defined directly in `peer.json`. They cannot be put into shared just because they contain "Peer".
-
-### Admin API is shared with multiple Resources
-
-| Files | Containing schema families | Reuse boundaries |
-| --- | --- | --- |
-| `shared/acl.json` | Permission, Policy, Resource, Subject, Role/View public value | ACL Admin endpoints with multiple ACL Resources |
-| `shared/configuration.json` | `Configuration`, firmware/agent selection and other configuration value | Peer/registration model and PeerConfig Resource |
-| `shared/gameplay.json` | Gameplay metadata, Pet, Badge, Points, Game Result, common rules value | Gameplay Admin endpoints and Game/Pet/Badge Resources |
-| `shared/firmware.json` | Firmware, slot, artifact and selection public value | Firmware Admin endpoints and Firmware Resource |
-| `shared/credential.json` | Credential body and reusable credential value | Credential Admin endpoint and Credential Resource |
-| `shared/model.json` | Model kind, capabilities, provider, source and provider data | Model Admin endpoint and Model Resource |
-| `shared/voice.json` | Voice provider, source and provider data | Voice Admin endpoint and Voice Resource |
-| `shared/tool.json` | Tool executor, trigger, source and JSON schema value | Tool APIs, Workflow/Toolkit and Tool Resource |
-| `shared/workflow*.json` | Workflow, locale enum, i18n catalog, driver and various workflow variants | Workflow Admin API, Workspace parameters and Workflow Resource |
-| `shared/workspace.json` | Workspace parameters, input mode and common workspace value | Workspace Admin API, Workflow runtime and Workspace Resource |
-| `shared/provider-tenants.json` | Provider tenant common enum/value | Model, Voice and each Provider Tenant Resources |
-
-What is retained here is the value referenced by Admin response/request and Resource spec, and does not include Resource envelope. The `*Spec` unique to each Resource is still placed in the corresponding `resources/*.json`; if a value has only one owner left in the end, it should continue to be inlined, rather than being retained permanently just because it appears in this table.
-
-### Clearly does not belong to Shared
-
-| Type | Location |
-| --- | --- |
-| `PeerRegistrationStatus`, `PeerStatus`, `ServerInfo` | `peer.json` |
-| `ResourceAPIVersion`, `ResourceKind`, `ResourceMetadata` | `resources/resource.json` |
-| `ApplyAction`, `ApplyResult`, Resource union | `resources/resource.json` |
-| `ModelSpec`, `VoiceSpec`, `FirmwareSpec` and other single Resource Specs | corresponding to `resources/<resource>.json` |
-| OpenAI-compatible request/response models | `openai-compat/v1/service.json` |
-| Desktop-only Pod, endpoint health and local lifecycle models | `apps/wails` Desktop contract |
+If an existing Shared value is reduced to one owner, evaluate inlining it as a contract change. A generated public symbol is not sufficient reason to retain it forever, and a new Shared file requires evidence of independent reuse.
 
 `shared.json` is the current generation entry for `apitypes`: it exports Shared schema and references `resources/*.json` to generate Resource graph. This aggregation relationship only serves codegen and does not change the ownership boundary between `shared/` and `resources/`.
 
@@ -95,7 +65,7 @@ Machine-readable fields such as `category`, association ID, workflow reference, 
 
 "Visual content" does not automatically equal `display`. If the asset, clip, animation graph or action-to-clip mapping is consumed directly by the device, runtime or domain logic, it is the core content or associated data of the Resource. For example, PetDef's PIXA, canvas, clips, visual refs and `visual_clip_id` belong to the PetDef spec; `display` only saves the display metadata and localized text required for the management interface or user reading.
 
-Spec used by only one Resource should be defined in the same file as the Resource. For example, `ModelSpec` used only by Model Resource should be located at `resources/model.json`, and `shared/model_spec.json` should not be created separately.
+A new Spec used by only one Resource should be defined in the same file as that Resource. For a Spec that already lives under `shared/`, inspect every actual consumer and compatibility impact before moving it. Do not infer ownership from its name alone or create a parallel schema.
 
 Runtime connections, streams, temporary state, and provider clients cannot be stuffed into resource specs. Resource expresses the desired state, and domain service is responsible for verifying and realizing this state.
 

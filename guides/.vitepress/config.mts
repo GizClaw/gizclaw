@@ -318,7 +318,8 @@ export default withMermaid(
       },
     },
     themeConfig: {
-      i18nRouting: ({ page }, hash, targetLocale) => {
+      // VitePress 2.0.0-alpha.18 passes hash.value as the second argument.
+      i18nRouting: ({ page }, hash: string, targetLocale) => {
         const relativePath = page.value.relativePath;
         if (relativePath.startsWith("references/")) {
           const referencePath = relativePath

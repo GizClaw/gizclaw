@@ -14,48 +14,18 @@
 
 不适合放在这里的内容：单个 Resource 专属 Spec、只有一个父 schema 的小 value object、database row、service dependency、runtime lock、内部 cache state，以及只由单个 handler 使用的临时结构。
 
-## Shared 列表
+## Shared 所有权
 
-`shared/` 包含以下按 owner 组织的 schema 文件。
+`shared/` 当前按稳定 schema type 拆成细粒度物理文件。实际文件及其所有权族由 [HTTP Schema 依赖规则](./type-dependencies#shared-所有权映射) 维护；本页不复制第二份容易漂移的文件清单。
 
-### 跨 HTTP surface
+修改 Shared schema 时：
 
-| 文件 | 包含的 schema | 实际消费者 |
-| --- | --- | --- |
-| `shared/error.json` | `ErrorPayload`、`ErrorResponse` | Admin、Peer、Desktop HTTP |
-| `shared/device.json` | `DeviceInfo`、`HardwareInfo`、`PeerIMEI`、`PeerLabel` | Admin Peer view、Peer self/registration |
-| `shared/runtime.json` | `Runtime` 及其共同 runtime value | Admin Peer runtime、Peer self runtime |
+- 从 `api/http/shared/` 中实际存在的 owner 文件开始，不使用按领域臆造的聚合文件名；
+- 跨 surface error、identity、runtime、ACL、configuration、firmware、credential、model、voice、tool、workflow、workspace 与 provider tenant values 按所有权映射定位；
+- Public-only DTO 留在 `peer.json`，Admin endpoint 专属 DTO 留在 `admin.json`，OpenAI-compatible DTO 留在 `openai-compat/v1/service.json`；
+- Resource envelope、metadata、Apply contract 与 Resource union 留在 `resources/resource.json`，Resource 专属数据留在对应 `resources/<kind>.json`。
 
-这是确定的跨 surface shared 集合。`PeerRegistrationStatus`、`PeerStatus` 和 `ServerInfo` 目前只属于 Public API，应直接定义在 `peer.json`，不能因为它们包含 “Peer” 就放入 shared。
-
-### Admin API 与多个 Resources 共用
-
-| 文件 | 包含的 schema family | 复用边界 |
-| --- | --- | --- |
-| `shared/acl.json` | Permission、Policy、Resource、Subject、Role/View 公共 value | ACL Admin endpoints 与多个 ACL Resources |
-| `shared/configuration.json` | `Configuration`、firmware/agent selection 等配置 value | Peer/registration model 与 PeerConfig Resource |
-| `shared/gameplay.json` | Gameplay metadata、Pet、Badge、Points、Game Result、共同规则 value | Gameplay Admin endpoints 与 Game/Pet/Badge Resources |
-| `shared/firmware.json` | Firmware、slot、artifact 与 selection 公共 value | Firmware Admin endpoints 与 Firmware Resource |
-| `shared/credential.json` | Credential body 与可复用 credential value | Credential Admin endpoint 与 Credential Resource |
-| `shared/model.json` | Model kind、capabilities、provider、source 与 provider data | Model Admin endpoint 与 Model Resource |
-| `shared/voice.json` | Voice provider、source 与 provider data | Voice Admin endpoint 与 Voice Resource |
-| `shared/tool.json` | Tool executor、trigger、source 与 JSON schema value | Tool APIs、Workflow/Toolkit 与 Tool Resource |
-| `shared/workflow*.json` | Workflow、locale enum、i18n catalog、driver 与各 workflow variant | Workflow Admin API、Workspace parameters 与 Workflow Resource |
-| `shared/workspace.json` | Workspace parameters、input mode 与共同 workspace value | Workspace Admin API、Workflow runtime 与 Workspace Resource |
-| `shared/provider-tenants.json` | Provider tenant 共同 enum/value | Model、Voice 与各 Provider Tenant Resources |
-
-这里保留的是被 Admin response/request 与 Resource spec 共同引用的 value，并不包含 Resource envelope。每个 Resource 专属的 `*Spec` 仍放在对应 `resources/*.json`；如果某个 value 最终只剩一个 owner，也应继续内联，而不是因为出现在本表就永久保留。
-
-### 明确不属于 Shared
-
-| 类型 | 所属位置 |
-| --- | --- |
-| `PeerRegistrationStatus`、`PeerStatus`、`ServerInfo` | `peer.json` |
-| `ResourceAPIVersion`、`ResourceKind`、`ResourceMetadata` | `resources/resource.json` |
-| `ApplyAction`、`ApplyResult`、Resource union | `resources/resource.json` |
-| `ModelSpec`、`VoiceSpec`、`FirmwareSpec` 等单一 Resource Spec | 对应 `resources/<resource>.json` |
-| OpenAI-compatible request/response models | `openai-compat/v1/service.json` |
-| Desktop-only Pod、endpoint health 与 local lifecycle models | `apps/wails` Desktop contract |
+如果现有 Shared value 最终只剩一个 owner，应在 contract 变更中评估是否内联；不能因为已经生成公共 symbol 就永久保留，也不能在没有独立复用证据时新增 Shared 文件。
 
 `shared.json` 是当前 `apitypes` 的生成入口：它导出 Shared schema，并引用 `resources/*.json` 以生成 Resource graph。这个聚合关系只服务 codegen，不改变 `shared/` 与 `resources/` 的所有权边界。
 
@@ -97,7 +67,7 @@ Display 的共同命名是一项结构约定，不代表公共领域模型。不
 
 “视觉内容”不自动等于 `display`。如果 asset、clip、animation graph 或 action-to-clip mapping 被设备、runtime 或领域逻辑直接消费，它就是 Resource 的核心内容或关联数据。例如 PetDef 的 PIXA、canvas、clips、visual refs 和 `visual_clip_id` 属于 PetDef spec；`display` 只保存管理界面或用户阅读所需的展示 metadata 与本地化文本。
 
-只被一个 Resource 使用的 Spec 应与 Resource 定义在同一文件。例如只有 Model Resource 使用的 `ModelSpec` 应位于 `resources/model.json`，不再单独建立 `shared/model_spec.json`。
+新 Spec 如果只被一个 Resource 使用，应与该 Resource 定义在同一文件。对于已经位于 `shared/` 的 Spec，必须先核对所有实际 consumers 和兼容性影响，再决定是否迁移；不能只根据名称推断所有权，也不能再建立一份平行 schema。
 
 运行时连接、stream、临时状态和 provider client 不能塞进 resource spec。Resource 表达期望状态，领域 service 负责校验并实现该状态。
 
