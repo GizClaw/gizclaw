@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"reflect"
 	"testing"
 	"time"
 
@@ -51,7 +52,14 @@ func TestRPCServerPeerMethods(t *testing.T) {
 	}
 	serverGenX := &fakeRPCServerGenXService{}
 	peerRun := &peerrun.Server{Store: kv.NewMemory(nil)}
-	server := &rpcServer{peer: fake, peerRun: peerRun, peerRunRuntime: runRuntime, serverGenX: serverGenX, callerPublicKey: publicKey}
+	server := &rpcServer{
+		peer:            fake,
+		peerRun:         peerRun,
+		peerRunRuntime:  runRuntime,
+		serverResources: &fakeRPCRunWorkspaceResources{},
+		serverGenX:      serverGenX,
+		callerPublicKey: publicKey,
+	}
 	client := &rpcClient{}
 
 	info := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.ServerGetInfoResponse, error) {
@@ -183,7 +191,11 @@ func TestRPCServerPeerMethods(t *testing.T) {
 func TestRPCServerSetRunWorkspaceDoesNotRequireRuntime(t *testing.T) {
 	publicKey := giznet.PublicKey{1, 2, 3}
 	store := &peerrun.Server{Store: kv.NewMemory(nil)}
-	server := &rpcServer{peerRun: store, callerPublicKey: publicKey}
+	server := &rpcServer{
+		peerRun:         store,
+		serverResources: &fakeRPCRunWorkspaceResources{},
+		callerPublicKey: publicKey,
+	}
 	client := &rpcClient{}
 
 	setWorkspace := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.ServerSetRunWorkspaceResponse, error) {
@@ -198,6 +210,131 @@ func TestRPCServerSetRunWorkspaceDoesNotRequireRuntime(t *testing.T) {
 	}
 	if agent.Pending == nil || agent.Pending.WorkspaceName != "demo" || agent.Active != nil {
 		t.Fatalf("run agent after set = %+v", agent)
+	}
+}
+
+func TestRPCServerSetRunSelectionPersistsCanonicalWorkspace(t *testing.T) {
+	tests := []struct {
+		name   string
+		method rpcapi.RPCMethod
+		params *rpcapi.RPCPayload
+	}{
+		{
+			name:   "agent",
+			method: rpcapi.RPCMethodServerRunAgentSet,
+			params: mustRPCParams(rpcapi.ServerSetRunAgentRequest{WorkspaceName: "alias"}, (*rpcapi.RPCPayload).FromServerSetRunAgentRequest),
+		},
+		{
+			name:   "workspace",
+			method: rpcapi.RPCMethodServerRunWorkspaceSet,
+			params: mustRPCParams(rpcapi.ServerSetRunWorkspaceRequest{WorkspaceName: "alias"}, (*rpcapi.RPCPayload).FromServerSetRunWorkspaceRequest),
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			publicKey := giznet.PublicKey{1, 2, 3}
+			store := &peerrun.Server{Store: kv.NewMemory(nil)}
+			validator := &fakeRPCRunWorkspaceResources{canonicalName: "canonical"}
+			server := &rpcServer{peerRun: store, serverResources: validator, callerPublicKey: publicKey}
+
+			resp, err := server.dispatch(context.Background(), newRPCRequest("set", test.method, test.params))
+			if err != nil || resp.Error != nil {
+				t.Fatalf("dispatch() = %+v, %v", resp, err)
+			}
+			agent, err := store.GetRunAgent(context.Background(), publicKey)
+			if err != nil {
+				t.Fatalf("GetRunAgent() error = %v", err)
+			}
+			if agent.Pending == nil || agent.Pending.WorkspaceName != "canonical" || agent.Active != nil {
+				t.Fatalf("run agent after set = %+v", agent)
+			}
+			if !reflect.DeepEqual(validator.names, []string{"alias"}) {
+				t.Fatalf("validated workspace names = %#v", validator.names)
+			}
+		})
+	}
+}
+
+func TestRPCServerSetRunSelectionValidationFailureDoesNotMutate(t *testing.T) {
+	methods := []struct {
+		name   string
+		method rpcapi.RPCMethod
+		params func(string) *rpcapi.RPCPayload
+	}{
+		{
+			name:   "agent",
+			method: rpcapi.RPCMethodServerRunAgentSet,
+			params: func(name string) *rpcapi.RPCPayload {
+				return mustRPCParams(rpcapi.ServerSetRunAgentRequest{WorkspaceName: name}, (*rpcapi.RPCPayload).FromServerSetRunAgentRequest)
+			},
+		},
+		{
+			name:   "workspace",
+			method: rpcapi.RPCMethodServerRunWorkspaceSet,
+			params: func(name string) *rpcapi.RPCPayload {
+				return mustRPCParams(rpcapi.ServerSetRunWorkspaceRequest{WorkspaceName: name}, (*rpcapi.RPCPayload).FromServerSetRunWorkspaceRequest)
+			},
+		},
+	}
+	failures := []struct {
+		name          string
+		workspaceName string
+		rpcErr        *rpcapi.RPCError
+		validator     bool
+		wantCode      rpcapi.RPCErrorCode
+		wantCalls     int
+	}{
+		{name: "missing workspace", workspaceName: "new", rpcErr: &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "not found"}, validator: true, wantCode: rpcapi.RPCErrorCodeNotFound, wantCalls: 1},
+		{name: "permission denied", workspaceName: "new", rpcErr: &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeForbidden, Message: "denied"}, validator: true, wantCode: rpcapi.RPCErrorCodeForbidden, wantCalls: 1},
+		{name: "validator failure", workspaceName: "new", rpcErr: &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: "failed"}, validator: true, wantCode: rpcapi.RPCErrorCodeInternalError, wantCalls: 1},
+		{name: "validator missing", workspaceName: "new", wantCode: rpcapi.RPCErrorCodeInternalError},
+		{name: "invalid selection", workspaceName: " new ", validator: true, wantCode: rpcapi.RPCErrorCodeBadRequest},
+	}
+	for _, method := range methods {
+		for _, failure := range failures {
+			t.Run(method.name+"/"+failure.name, func(t *testing.T) {
+				publicKey := giznet.PublicKey{1, 2, 3}
+				store := &peerrun.Server{Store: kv.NewMemory(nil)}
+				active := apitypes.AgentSelection{WorkspaceName: "active"}
+				if _, err := store.SetRunAgent(context.Background(), publicKey, active); err != nil {
+					t.Fatalf("seed SetRunAgent(active) error = %v", err)
+				}
+				if _, err := store.ActivateRunAgent(context.Background(), publicKey, active); err != nil {
+					t.Fatalf("seed ActivateRunAgent() error = %v", err)
+				}
+				if _, err := store.SetRunAgent(context.Background(), publicKey, apitypes.AgentSelection{WorkspaceName: "pending"}); err != nil {
+					t.Fatalf("seed SetRunAgent(pending) error = %v", err)
+				}
+				before, err := store.GetRunAgent(context.Background(), publicKey)
+				if err != nil {
+					t.Fatalf("GetRunAgent(before) error = %v", err)
+				}
+
+				server := &rpcServer{peerRun: store, callerPublicKey: publicKey}
+				var validator *fakeRPCRunWorkspaceResources
+				if failure.validator {
+					validator = &fakeRPCRunWorkspaceResources{rpcErr: failure.rpcErr}
+					server.serverResources = validator
+				}
+				resp, err := server.dispatch(context.Background(), newRPCRequest("set", method.method, method.params(failure.workspaceName)))
+				if err != nil {
+					t.Fatalf("dispatch() error = %v", err)
+				}
+				if resp.Error == nil || resp.Error.Code != failure.wantCode {
+					t.Fatalf("dispatch() response = %+v, want code %v", resp, failure.wantCode)
+				}
+				after, err := store.GetRunAgent(context.Background(), publicKey)
+				if err != nil {
+					t.Fatalf("GetRunAgent(after) error = %v", err)
+				}
+				if !reflect.DeepEqual(after, before) {
+					t.Fatalf("run agent changed: before=%+v after=%+v", before, after)
+				}
+				if validator != nil && len(validator.names) != failure.wantCalls {
+					t.Fatalf("validation calls = %d, want %d", len(validator.names), failure.wantCalls)
+				}
+			})
+		}
 	}
 }
 
@@ -387,6 +524,27 @@ type fakeRPCPeerService struct {
 	putInfoError       error
 	waitPutInfoContext bool
 	putInfoStarted     chan struct{}
+}
+
+type fakeRPCRunWorkspaceResources struct {
+	canonicalName string
+	rpcErr        *rpcapi.RPCError
+	names         []string
+}
+
+func (f *fakeRPCRunWorkspaceResources) Dispatch(context.Context, *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
+	return nil, false, nil
+}
+
+func (f *fakeRPCRunWorkspaceResources) ValidateRunWorkspaceSelection(_ context.Context, name string) (string, *rpcapi.RPCError) {
+	f.names = append(f.names, name)
+	if f.rpcErr != nil {
+		return "", f.rpcErr
+	}
+	if f.canonicalName != "" {
+		return f.canonicalName, nil
+	}
+	return name, nil
 }
 
 type fakeRPCServerInfoService struct {

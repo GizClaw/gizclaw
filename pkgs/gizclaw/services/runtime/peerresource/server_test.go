@@ -10,6 +10,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -34,6 +35,115 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	_ "modernc.org/sqlite"
 )
+
+func TestValidateRunWorkspaceSelection(t *testing.T) {
+	t.Run("use permission and canonical name", func(t *testing.T) {
+		workspaces := &selectionWorkspaceAdminService{
+			response: adminhttp.GetWorkspace200JSONResponse(apitypes.Workspace{Name: "canonical"}),
+		}
+		authorizer := newRuleAuthorizer()
+		authorizer.allow(acl.ResourceKindWorkspace, "canonical", apitypes.ACLPermissionUse)
+		srv := &Server{Caller: giznet.PublicKey{1}, Workspaces: workspaces, ACL: authorizer}
+
+		got, rpcErr := srv.ValidateRunWorkspaceSelection(context.Background(), "alias")
+		if rpcErr != nil || got != "canonical" {
+			t.Fatalf("ValidateRunWorkspaceSelection() = %q, %#v", got, rpcErr)
+		}
+		if !reflect.DeepEqual(workspaces.names, []string{"alias"}) {
+			t.Fatalf("workspace lookup names = %#v", workspaces.names)
+		}
+		if got := authorizer.count(context.Background(), acl.ResourceKindWorkspace, "canonical", apitypes.ACLPermissionUse); got != 1 {
+			t.Fatalf("workspace use authorization calls = %d, want 1", got)
+		}
+		if got := authorizer.count(context.Background(), acl.ResourceKindWorkspace, "canonical", apitypes.ACLPermissionRead); got != 0 {
+			t.Fatalf("workspace read authorization calls = %d, want 0", got)
+		}
+	})
+
+	t.Run("read permission does not grant use", func(t *testing.T) {
+		authorizer := newRuleAuthorizer()
+		authorizer.allow(acl.ResourceKindWorkspace, "canonical", apitypes.ACLPermissionRead)
+		srv := &Server{
+			Caller:     giznet.PublicKey{1},
+			Workspaces: &selectionWorkspaceAdminService{response: adminhttp.GetWorkspace200JSONResponse(apitypes.Workspace{Name: "canonical"})},
+			ACL:        authorizer,
+		}
+
+		_, rpcErr := srv.ValidateRunWorkspaceSelection(context.Background(), "canonical")
+		if rpcErr == nil || rpcErr.Code != rpcapi.RPCErrorCodeForbidden {
+			t.Fatalf("ValidateRunWorkspaceSelection() error = %#v", rpcErr)
+		}
+		if got := authorizer.count(context.Background(), acl.ResourceKindWorkspace, "canonical", apitypes.ACLPermissionRead); got != 0 {
+			t.Fatalf("workspace read authorization calls = %d, want 0", got)
+		}
+	})
+
+	t.Run("missing workspace", func(t *testing.T) {
+		srv := &Server{
+			Caller: giznet.PublicKey{1},
+			Workspaces: &selectionWorkspaceAdminService{response: adminhttp.GetWorkspace404JSONResponse(
+				apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", "workspace not found"),
+			)},
+			ACL: allowAllAuthorizer{},
+		}
+
+		_, rpcErr := srv.ValidateRunWorkspaceSelection(context.Background(), "missing")
+		if rpcErr == nil || rpcErr.Code != rpcapi.RPCErrorCodeNotFound {
+			t.Fatalf("ValidateRunWorkspaceSelection() error = %#v", rpcErr)
+		}
+	})
+
+	tests := []struct {
+		name string
+		srv  *Server
+	}{
+		{name: "workspace service missing", srv: &Server{ACL: allowAllAuthorizer{}}},
+		{
+			name: "acl service missing",
+			srv: &Server{Workspaces: &selectionWorkspaceAdminService{
+				response: adminhttp.GetWorkspace200JSONResponse(apitypes.Workspace{Name: "canonical"}),
+			}},
+		},
+		{
+			name: "workspace lookup failure",
+			srv: &Server{
+				Workspaces: &selectionWorkspaceAdminService{err: errors.New("lookup failed")},
+				ACL:        allowAllAuthorizer{},
+			},
+		},
+		{
+			name: "workspace response failure",
+			srv: &Server{
+				Workspaces: &selectionWorkspaceAdminService{response: adminhttp.GetWorkspace500JSONResponse(
+					apitypes.NewErrorResponse("INTERNAL_ERROR", "lookup failed"),
+				)},
+				ACL: allowAllAuthorizer{},
+			},
+		},
+		{
+			name: "authorization failure",
+			srv: &Server{
+				Workspaces: &selectionWorkspaceAdminService{response: adminhttp.GetWorkspace200JSONResponse(apitypes.Workspace{Name: "canonical"})},
+				ACL:        errorAuthorizer{err: errors.New("authorize failed")},
+			},
+		},
+		{
+			name: "invalid canonical name",
+			srv: &Server{
+				Workspaces: &selectionWorkspaceAdminService{response: adminhttp.GetWorkspace200JSONResponse(apitypes.Workspace{Name: " canonical "})},
+				ACL:        allowAllAuthorizer{},
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, rpcErr := test.srv.ValidateRunWorkspaceSelection(context.Background(), "canonical")
+			if rpcErr == nil || rpcErr.Code != rpcapi.RPCErrorCodeInternalError {
+				t.Fatalf("ValidateRunWorkspaceSelection() error = %#v", rpcErr)
+			}
+		})
+	}
+}
 
 func TestServerAllowedCRUD(t *testing.T) {
 	srv := newTestResourceServer()
@@ -1345,6 +1455,18 @@ func newTestResourceServer() *Server {
 		Voices:      &voice.Server{Store: kv.NewMemory(nil), Now: func() time.Time { return time.Unix(1, 0).UTC() }},
 		ResourceACL: &recordingToolACL{},
 	}
+}
+
+type selectionWorkspaceAdminService struct {
+	workspace.WorkspaceAdminService
+	response adminhttp.GetWorkspaceResponseObject
+	err      error
+	names    []string
+}
+
+func (s *selectionWorkspaceAdminService) GetWorkspace(_ context.Context, request adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
+	s.names = append(s.names, string(request.Name))
+	return s.response, s.err
 }
 
 type failingWorkspaceRuntimeStore struct {
