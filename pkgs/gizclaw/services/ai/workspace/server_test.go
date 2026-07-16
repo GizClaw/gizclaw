@@ -3,6 +3,7 @@ package workspace
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
@@ -179,6 +180,12 @@ func TestServerSystemWorkspaceLifecycle(t *testing.T) {
 	}
 	if len(runtime.deleted) != 1 || runtime.deleted[0] != "friend-chat" {
 		t.Fatalf("runtime deleted after system delete = %#v", runtime.deleted)
+	}
+	if _, err := srv.DeleteSystemWorkspace(ctx, "friend-chat"); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("DeleteSystemWorkspace(missing) error = %v, want kv.ErrNotFound", err)
+	}
+	if len(runtime.deleted) != 2 || runtime.deleted[1] != "friend-chat" {
+		t.Fatalf("runtime deleted after missing system delete = %#v", runtime.deleted)
 	}
 }
 

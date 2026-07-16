@@ -201,6 +201,11 @@ func (s *Server) DeleteSystemWorkspace(ctx context.Context, name string) (apityp
 	name = strings.TrimSpace(name)
 	workspace, err := getWorkspace(ctx, store, name)
 	if err != nil {
+		if errors.Is(err, kv.ErrNotFound) && s.RuntimeStore != nil {
+			if cleanupErr := s.RuntimeStore.DeleteWorkspaceRuntime(ctx, name); cleanupErr != nil {
+				return apitypes.Workspace{}, cleanupErr
+			}
+		}
 		return apitypes.Workspace{}, err
 	}
 	if !workspaceIsSystem(workspace) {
