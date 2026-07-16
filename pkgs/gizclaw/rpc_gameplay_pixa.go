@@ -2,7 +2,6 @@ package gizclaw
 
 import (
 	"context"
-	"errors"
 	"io"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
@@ -84,11 +83,5 @@ func writeRPCDownload[T any](ctx context.Context, stream *rpcStream, req *rpcapi
 			return err
 		}
 	}
-	if err := writeReaderBinaryFrames(stream, reader); err != nil {
-		if errors.Is(err, io.EOF) {
-			return nil
-		}
-		return err
-	}
-	return nil
+	return writeReaderBinaryFrames(stream, reader)
 }

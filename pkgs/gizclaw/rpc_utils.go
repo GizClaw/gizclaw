@@ -12,11 +12,16 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
 )
 
 var errRPCMissingResult = errors.New("rpc: missing result")
 
 type rpcStreamDispatch func(context.Context, *rpcStream, *rpcapi.RPCRequest) (bool, error)
+
+type rpcObservationOptions struct {
+	peerPublicKey string
+}
 
 func handleRPC(conn net.Conn, dispatch func(context.Context, *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error)) error {
 	return handleRPCWithStream(conn, dispatch, nil)
@@ -27,6 +32,15 @@ func handleRPCWithStream(
 	dispatch func(context.Context, *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error),
 	streamDispatch rpcStreamDispatch,
 ) error {
+	return handleRPCWithStreamObserved(conn, dispatch, streamDispatch, nil)
+}
+
+func handleRPCWithStreamObserved(
+	conn net.Conn,
+	dispatch func(context.Context, *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error),
+	streamDispatch rpcStreamDispatch,
+	observation *rpcObservationOptions,
+) error {
 	stream, err := newRPCStream(context.Background(), conn)
 	if err != nil {
 		return err
@@ -34,7 +48,7 @@ func handleRPCWithStream(
 	defer stream.Close()
 
 	for {
-		done, err := handleRPCStreamRequest(stream, dispatch, streamDispatch)
+		done, err := handleRPCStreamRequestObserved(stream, dispatch, streamDispatch, observation)
 		if err != nil {
 			return err
 		}
@@ -49,21 +63,82 @@ func handleRPCStreamRequest(
 	dispatch func(context.Context, *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error),
 	streamDispatch rpcStreamDispatch,
 ) (bool, error) {
-	req, requestEOS, err := stream.ReadRequestEnvelope()
+	return handleRPCStreamRequestObserved(stream, dispatch, streamDispatch, nil)
+}
+
+func handleRPCStreamRequestObserved(
+	stream *rpcStream,
+	dispatch func(context.Context, *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error),
+	streamDispatch rpcStreamDispatch,
+	observation *rpcObservationOptions,
+) (done bool, resultErr error) {
+	first, err := stream.ReadFrame()
 	if err != nil {
 		if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
 			return true, nil
 		}
 		return false, err
 	}
+	var (
+		outcome       *observability.Outcome
+		completionCtx = stream.Context()
+		response      *rpcapi.RPCResponse
+		observedErr   error
+		wasCanceled   bool
+	)
+	if observation != nil {
+		outcome = observability.NewOutcome(observability.TransportRPC, observability.SurfacePeerRPC, "unknown")
+		outcome.SetPeer(observation.peerPublicKey, "")
+		completionCtx = observability.WithOutcome(completionCtx, outcome)
+		defer func() {
+			panicValue := recover()
+			code := 0
+			result := observability.ResultSuccess
+			if response != nil && response.Error != nil {
+				code = int(response.Error.Code)
+				result = rpcObservationResult(wasCanceled, code, nil)
+			}
+			if observedErr != nil {
+				result = rpcObservationResult(wasCanceled, code, observedErr)
+			}
+			if panicValue != nil {
+				outcome.MarkPanic()
+				result = observability.ResultPanic
+			}
+			outcome.SetRPC(code, result)
+			observability.Log(completionCtx, outcome)
+			if panicValue != nil {
+				panic(panicValue)
+			}
+		}()
+	}
+	req, requestEOS, err := stream.decodeRequestEnvelope(first)
+	if err != nil {
+		observedErr = err
+		wasCanceled = completionCtx.Err() != nil
+		return false, err
+	}
+	if outcome != nil && req != nil {
+		outcome.SetOperation(string(req.Method))
+		outcome.SetRequestID(req.Id)
+	}
+	previousResponseObserver := stream.responseObserver
+	stream.responseObserver = func(resp *rpcapi.RPCResponse) {
+		response = resp
+	}
+	defer func() {
+		stream.responseObserver = previousResponseObserver
+	}()
 	if streamDispatch != nil {
 		previousRequestEOSAlreadyConsumed := stream.requestEOSAlreadyConsumed
 		stream.requestEOSAlreadyConsumed = requestEOS
 		defer func() {
 			stream.requestEOSAlreadyConsumed = previousRequestEOSAlreadyConsumed
 		}()
-		handled, err := streamDispatch(stream.Context(), stream, req)
+		handled, err := streamDispatch(completionCtx, stream, req)
 		if err != nil {
+			observedErr = err
+			wasCanceled = completionCtx.Err() != nil
 			return false, err
 		}
 		if handled {
@@ -72,18 +147,26 @@ func handleRPCStreamRequest(
 	}
 	if !requestEOS {
 		if err := stream.ReadEOS(); err != nil {
+			observedErr = err
+			wasCanceled = completionCtx.Err() != nil
 			return false, err
 		}
 	}
 
 	ctx, stop := rpcConnContext(stream.conn)
+	if outcome != nil {
+		ctx = observability.WithOutcome(ctx, outcome)
+		completionCtx = ctx
+	}
 	resp, err := dispatch(ctx, req)
+	response = resp
+	wasCanceled = ctx.Err() != nil
+	cause := context.Cause(ctx)
 	stop()
 	if err != nil {
-		if ctx.Err() != nil {
-			if cause := context.Cause(ctx); cause != nil {
-				return false, cause
-			}
+		observedErr = err
+		if wasCanceled && cause != nil {
+			return false, cause
 		}
 		return false, err
 	}
@@ -97,18 +180,36 @@ func handleRPCStreamRequest(
 		resp.V = rpcapi.RPCVersionV1
 	}
 	if _, err := stream.WriteResponseEnvelopeForMethod(req.Method, resp); err != nil {
+		observedErr = err
 		if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
 			return true, nil
 		}
 		return false, err
 	}
 	if err := stream.WriteEOS(); err != nil {
+		observedErr = err
 		if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
 			return true, nil
 		}
 		return false, err
 	}
 	return false, nil
+}
+
+func rpcObservationResult(canceled bool, code int, err error) observability.Result {
+	if canceled {
+		return observability.ResultCanceled
+	}
+	if err != nil {
+		return observability.ResultTransportError
+	}
+	if code == 0 {
+		return observability.ResultSuccess
+	}
+	if code == int(rpcapi.RPCErrorCodeInternalError) || code >= 500 && code <= 599 {
+		return observability.ResultServerError
+	}
+	return observability.ResultClientError
 }
 
 func handleRPCPing(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
 	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -21,7 +22,7 @@ func (s *PeerService) servePublic(conn giznet.Conn) error {
 }
 
 func (s *PeerService) serveEdgePublic(conn giznet.Conn) error {
-	server := gizhttp.NewServer(conn, ServiceEdgeHTTP, s.edgeHTTPHandler(s.sessions))
+	server := gizhttp.NewServer(conn, ServiceEdgeHTTP, s.edgeHTTPHandlerForPeer(s.sessions, conn.PublicKey().String()))
 	defer func() {
 		_ = server.Shutdown(context.Background())
 	}()
@@ -30,6 +31,7 @@ func (s *PeerService) serveEdgePublic(conn giznet.Conn) error {
 
 func (s *PeerService) servePublicService(conn giznet.Conn, service uint64) error {
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	app.Use(observeFiberRoute)
 	app.Use(func(ctx *fiber.Ctx) error {
 		base := ctx.UserContext()
 		if base == nil {
@@ -41,7 +43,15 @@ func (s *PeerService) servePublicService(conn giznet.Conn, service uint64) error
 	})
 	peerhttp.RegisterHandlers(app, peerhttp.NewStrictHandler(s.public, nil))
 
-	server := gizhttp.NewServer(conn, service, fiberHTTPHandler(app))
+	surface := observability.SurfacePeerHTTP
+	if service == ServiceEdgeHTTP {
+		surface = observability.SurfaceEdgeHTTP
+	}
+	handler := observeHTTPHandler(fiberHTTPHandler(app), httpObservationOptions{
+		surface:       surface,
+		peerPublicKey: conn.PublicKey().String(),
+	})
+	server := gizhttp.NewServer(conn, service, handler)
 	defer func() {
 		_ = server.Shutdown(context.Background())
 	}()
@@ -62,6 +72,10 @@ func (s *PeerService) edgePublicHTTPHandler(sessions *publiclogin.SessionManager
 }
 
 func (s *PeerService) edgeHTTPHandler(sessions *publiclogin.SessionManager) http.Handler {
+	return s.edgeHTTPHandlerForPeer(sessions, "")
+}
+
+func (s *PeerService) edgeHTTPHandlerForPeer(sessions *publiclogin.SessionManager, peerPublicKey string) http.Handler {
 	mux := http.NewServeMux()
 	publicHandler := s.edgePublicHTTPHandler(sessions)
 	mux.Handle("/login", s.edgeLoginHTTPHandler(sessions))
@@ -71,7 +85,11 @@ func (s *PeerService) edgeHTTPHandler(sessions *publiclogin.SessionManager) http
 	mux.Handle("/me/status", publicHandler)
 	mux.Handle("/me/runtime", publicHandler)
 	mux.Handle("/openai/v1/", s.edgeOpenAIHTTPHandler(sessions))
-	return mux
+	return observeHTTPHandler(mux, httpObservationOptions{
+		surface:       observability.SurfaceEdgeHTTP,
+		peerPublicKey: peerPublicKey,
+		peerRole:      string(apitypes.PeerRoleEdgeNode),
+	})
 }
 
 type loginWithoutAuthorizer interface {
@@ -171,8 +189,12 @@ func (s *PeerService) publicHTTPHandlerWithOptions(sessions *publiclogin.Session
 			return nil
 		}
 		ctx.SetUserContext(peerhttp.WithCallerPublicKey(base, publicKey))
+		if !opts.requireClientPeer {
+			observability.SetPeer(ctx.UserContext(), publicKey.String(), "")
+		}
 		return ctx.Next()
 	})
+	app.Use(observeFiberRoute)
 	public := s.public
 	if opts.login != nil && public != nil {
 		copy := *public
@@ -224,8 +246,8 @@ func (s *PeerService) edgeSignalingPublicKey(ctx *fiber.Ctx) (giznet.PublicKey, 
 func setPeerHTTPCORSHeaders(ctx *fiber.Ctx) {
 	ctx.Set(fiber.HeaderAccessControlAllowOrigin, "*")
 	ctx.Set(fiber.HeaderAccessControlAllowMethods, "GET,POST,PUT,OPTIONS")
-	ctx.Set(fiber.HeaderAccessControlAllowHeaders, "Authorization,Content-Type,X-Public-Key,X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp")
-	ctx.Set(fiber.HeaderAccessControlExposeHeaders, "Content-Length,Content-Type")
+	ctx.Set(fiber.HeaderAccessControlAllowHeaders, "Authorization,Content-Type,X-Public-Key,X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp,X-Request-ID")
+	ctx.Set(fiber.HeaderAccessControlExposeHeaders, "Content-Length,Content-Type,X-Request-ID")
 }
 
 func isPeerHTTPPath(path string) bool {

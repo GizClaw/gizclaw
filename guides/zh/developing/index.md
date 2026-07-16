@@ -18,6 +18,7 @@ GizClaw 是面向 GizClaw 设备、桌面客户端和浏览器集成的 Agent Ru
 | Product domains | Device、runtime、AI、system、social 和 gameplay services 拥有各自资源与业务规则。 |
 | API 与 SDK | 根 `api/` 保存 HTTP/Protobuf source contract，并生成 Go、JavaScript、C、Flutter 等调用 surface。 |
 | Storage 与 media | Store packages 提供通用持久化/索引能力；Audio packages 提供 codec、PCM、重采样和 voiceprint。 |
+| Observability | 使用结构化日志定位单次请求，通过低 cardinality metrics 观察请求、runtime 与设备状态。具体字段与 ownership 见 [Observability](observability)。 |
 
 当前代码支持单 upstream 的 Edge ingress。分布式 membership、跨 Server 数据同步和全局路由不属于当前已完成的 Server Mesh 能力。
 
@@ -162,6 +163,8 @@ sequenceDiagram
 3. 修改领域行为时，把资源和业务规则留在对应 service；Server/Peer 文件只负责 composition、connection 与 dispatch。
 4. 修改 GenX/Audio/Store 等基础 package 时，不引入 GizClaw 产品资源或 provider credential ownership。
 5. 根据变更风险运行 focused tests；Go 行为变化默认最终需要 `go test ./...`，schema 变化还需要生成与跨语言验证。
+
+日志字段、metrics names、labels 和 instrumentation ownership 统一遵循 [Observability](observability)。
 
 进一步入口：
 

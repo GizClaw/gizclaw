@@ -39,26 +39,7 @@ func (s *rpcServer) handleFirmwareBinDownload(ctx context.Context, stream *rpcSt
 	}
 	defer reader.Close()
 
-	resp, err := newRPCResultResponse(req.Id, metadata, (*rpcapi.RPCPayload).FromFirmwareFilesDownloadResponse)
-	if err != nil {
-		return err
-	}
-	metadataEOS, err := stream.WriteResponseEnvelopeForMethod(req.Method, resp)
-	if err != nil {
-		return err
-	}
-	if metadataEOS {
-		if err := stream.WriteEOS(); err != nil {
-			return err
-		}
-	}
-	if err := writeReaderBinaryFrames(stream, reader); err != nil {
-		if errors.Is(err, io.EOF) {
-			return nil
-		}
-		return err
-	}
-	return nil
+	return writeRPCDownload(ctx, stream, req, metadata, (*rpcapi.RPCPayload).FromFirmwareFilesDownloadResponse, reader)
 }
 
 func writeReaderBinaryFrames(stream *rpcStream, reader io.Reader) error {

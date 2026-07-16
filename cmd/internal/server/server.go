@@ -18,6 +18,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	petagent "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/pet"
 	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizmetrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -29,9 +30,10 @@ var BuildCommit = "dev"
 // CmdServer owns the command-layer store registry for a gizclaw server.
 type CmdServer struct {
 	*gizclaw.Server
-	AdminPublicKey giznet.PublicKey
-	ServeToClients bool
-	stores         *stores.Stores
+	AdminPublicKey  giznet.PublicKey
+	ServeToClients  bool
+	stores          *stores.Stores
+	metricsShutdown func(context.Context) error
 }
 
 func (s *CmdServer) Close() error {
@@ -43,11 +45,23 @@ func (s *CmdServer) Close() error {
 		errs = append(errs, s.Server.Close())
 		s.Server = nil
 	}
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), gizmetrics.DefaultAppendTimeout)
+	errs = append(errs, s.shutdownMetrics(shutdownCtx))
+	cancel()
 	if s.stores != nil {
 		errs = append(errs, s.stores.Close())
 		s.stores = nil
 	}
 	return errors.Join(errs...)
+}
+
+func (s *CmdServer) shutdownMetrics(ctx context.Context) error {
+	if s == nil || s.metricsShutdown == nil {
+		return nil
+	}
+	shutdown := s.metricsShutdown
+	s.metricsShutdown = nil
+	return shutdown(ctx)
 }
 
 func (s *CmdServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -117,8 +131,14 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		return nil, fmt.Errorf("server: stores: %w", err)
 	}
 	openedStores := ss
+	var metricsShutdown func(context.Context) error
 	defer func() {
 		if err != nil {
+			if metricsShutdown != nil {
+				shutdownCtx, cancel := context.WithTimeout(context.Background(), gizmetrics.DefaultAppendTimeout)
+				err = errors.Join(err, metricsShutdown(shutdownCtx))
+				cancel()
+			}
 			err = errors.Join(err, openedStores.Close())
 		}
 	}()
@@ -316,6 +336,11 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		if gizServer.MetricsStore, err = ss.Metrics(defaultMetricsStore); err != nil {
 			return nil, fmt.Errorf("server: metrics store: %w", err)
 		}
+		metricsShutdown, err = gizmetrics.InstallStore(gizServer.MetricsStore)
+		if err != nil {
+			return nil, fmt.Errorf("server: install metrics recorder: %w", err)
+		}
+		cmdSrv.metricsShutdown = metricsShutdown
 	}
 	if err := bootstrapEdgeNodes(context.Background(), &runtimepeer.Server{Store: effectivePeerStore(gizServer)}, cfg.EdgeNodes); err != nil {
 		return nil, err

@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +16,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizmetrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -211,6 +213,120 @@ func TestNewWithOptionsWiresLegacyMetricsStore(t *testing.T) {
 	defer srv.Close()
 	if srv.Server.MetricsStore == nil {
 		t.Fatal("MetricsStore is nil")
+	}
+}
+
+func TestNewWithOptionsInstallsAndFlushesMetricsRecorder(t *testing.T) {
+	srv, err := newWithOptions(Config{
+		Listen:   "127.0.0.1:0",
+		Endpoint: "127.0.0.1:0",
+		Stores: map[string]stores.Config{
+			defaultPeersStore:   {Kind: stores.KindKeyValue, Backend: "memory"},
+			defaultMetricsStore: {Kind: stores.KindMetrics, Backend: "memory"},
+		},
+	}, newServerOptions{})
+	if err != nil {
+		t.Fatalf("newWithOptions() error = %v", err)
+	}
+	t.Cleanup(func() {
+		if err := srv.Close(); err != nil {
+			t.Errorf("Close() error = %v", err)
+		}
+	})
+
+	gizmetrics.AddCounter(context.Background(), "gizclaw_server_test_total", 2,
+		gizmetrics.Label{Name: "result", Value: "ok"},
+	)
+	if err := srv.shutdownMetrics(context.Background()); err != nil {
+		t.Fatalf("shutdownMetrics() error = %v", err)
+	}
+	series, err := srv.Server.MetricsStore.Latest(context.Background(), metrics.LatestQuery{
+		Selector: metrics.Selector{
+			Name: "gizclaw_server_test_total",
+			Matchers: []metrics.LabelMatcher{
+				{Name: "result", Op: metrics.MatchEqual, Value: "ok"},
+			},
+		},
+		At:       time.Now(),
+		Lookback: time.Minute,
+	})
+	if err != nil {
+		t.Fatalf("Latest() error = %v", err)
+	}
+	if len(series) != 1 || len(series[0].Points) != 1 || series[0].Points[0].Value != 2 {
+		t.Fatalf("Latest() = %#v, want one sample with value 2", series)
+	}
+}
+
+func TestNewWithOptionsWithoutMetricsStoreLeavesRecorderDisabled(t *testing.T) {
+	srv, err := newWithOptions(Config{
+		Listen:   "127.0.0.1:0",
+		Endpoint: "127.0.0.1:0",
+		Stores: map[string]stores.Config{
+			defaultPeersStore: {Kind: stores.KindKeyValue, Backend: "memory"},
+		},
+	}, newServerOptions{})
+	if err != nil {
+		t.Fatalf("newWithOptions() error = %v", err)
+	}
+	defer srv.Close()
+
+	if srv.metricsShutdown != nil {
+		t.Fatal("metricsShutdown is configured without a metrics store")
+	}
+	gizmetrics.AddCounter(context.Background(), "gizclaw_server_no_store_total", 1)
+}
+
+func TestCmdServerCloseStopsServerBeforeMetricsRecorder(t *testing.T) {
+	srv := &CmdServer{Server: &gizclaw.Server{}}
+	srv.metricsShutdown = func(context.Context) error {
+		if srv.Server != nil {
+			return errors.New("metrics recorder stopped before gizclaw server")
+		}
+		return nil
+	}
+	if err := srv.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+}
+
+func TestNewWithOptionsConcurrentMetricsInstallPreservesExistingRecorder(t *testing.T) {
+	existing := metrics.NewMemoryStore()
+	shutdown, err := gizmetrics.InstallStore(existing, gizmetrics.WithFlushInterval(time.Hour))
+	if err != nil {
+		t.Fatalf("InstallStore(existing) error = %v", err)
+	}
+	t.Cleanup(func() {
+		_ = shutdown(context.Background())
+		_ = existing.Close()
+	})
+
+	_, err = newWithOptions(Config{
+		Listen:   "127.0.0.1:0",
+		Endpoint: "127.0.0.1:0",
+		Stores: map[string]stores.Config{
+			defaultPeersStore:   {Kind: stores.KindKeyValue, Backend: "memory"},
+			defaultMetricsStore: {Kind: stores.KindMetrics, Backend: "memory"},
+		},
+	}, newServerOptions{})
+	if !errors.Is(err, gizmetrics.ErrAlreadyInstalled) {
+		t.Fatalf("newWithOptions() error = %v, want %v", err, gizmetrics.ErrAlreadyInstalled)
+	}
+
+	gizmetrics.AddCounter(context.Background(), "gizclaw_existing_recorder_total", 1)
+	if err := shutdown(context.Background()); err != nil {
+		t.Fatalf("shutdown(existing) error = %v", err)
+	}
+	series, err := existing.Latest(context.Background(), metrics.LatestQuery{
+		Selector: metrics.Selector{Name: "gizclaw_existing_recorder_total"},
+		At:       time.Now(),
+		Lookback: time.Minute,
+	})
+	if err != nil {
+		t.Fatalf("Latest(existing) error = %v", err)
+	}
+	if len(series) != 1 || len(series[0].Points) != 1 || series[0].Points[0].Value != 1 {
+		t.Fatalf("existing recorder series = %#v", series)
 	}
 }
 

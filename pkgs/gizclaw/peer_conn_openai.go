@@ -10,6 +10,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/openaihttp"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/openaiapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
@@ -30,9 +31,12 @@ func (h *PeerConn) openAIHTTPHandler() http.Handler {
 	h.initPeerGenX()
 
 	if h != nil && h.Conn != nil && h.Service != nil {
-		return h.Service.openAIHTTPHandlerForPeer(h.Conn.PublicKey(), h.serverGenX)
+		return observeHTTPHandler(h.Service.openAIHTTPHandlerForPeer(h.Conn.PublicKey(), h.serverGenX), httpObservationOptions{
+			surface:       observability.SurfacePeerOpenAI,
+			peerPublicKey: h.Conn.PublicKey().String(),
+		})
 	}
-	return newOpenAIHTTPHandler(&openaiapi.Server{})
+	return observeHTTPHandler(newOpenAIHTTPHandler(&openaiapi.Server{}), httpObservationOptions{surface: observability.SurfacePeerOpenAI})
 }
 
 func (s *PeerService) openAIHTTPHandlerForPeer(publicKey giznet.PublicKey, genxSvc *peergenx.Service) http.Handler {
@@ -104,6 +108,7 @@ func (p peerPublicKey) PublicKey() giznet.PublicKey {
 
 func newOpenAIHTTPHandler(svc *openaiapi.Server) http.Handler {
 	app := fiber.New(fiber.Config{DisableStartupMessage: true, StreamRequestBody: true})
+	app.Use(observeFiberRoute)
 	openaihttp.RegisterHandlersWithOptions(app, openaihttp.NewStrictHandler(svc, nil), openaihttp.FiberServerOptions{
 		BaseURL: "/v1",
 	})
@@ -141,7 +146,7 @@ func newOpenAIHTTPHandler(svc *openaiapi.Server) http.Handler {
 			HasNext:    list.HasNext,
 			NextCursor: list.NextCursor,
 		})
-	})
+	}).Name("ListVoices")
 	return fiberHTTPHandler(app)
 }
 

@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/credential"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/model"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/providertenants"
@@ -552,7 +553,7 @@ func (s *Server) init() error {
 	mux.Handle("/me/status", publicHandler)
 	mux.Handle("/me/runtime", publicHandler)
 	mux.Handle("/openai/v1/", s.peerOpenAIHTTPHandler(sessions))
-	s.httpHandler = mux
+	s.httpHandler = observeHTTPHandler(mux, httpObservationOptions{surface: observability.SurfaceServerPublic})
 	return nil
 }
 

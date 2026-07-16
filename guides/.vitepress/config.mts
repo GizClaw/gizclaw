@@ -6,6 +6,7 @@ const zhDevelopingSidebar = [
     text: "开发指引",
     items: [
       { text: "总览", link: "/zh/developing/" },
+      { text: "Observability", link: "/zh/developing/observability" },
       {
         text: "API Design",
         collapsed: false,

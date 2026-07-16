@@ -8,14 +8,19 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/gofiber/fiber/v2"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/credential"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/model"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
@@ -347,12 +352,83 @@ func TestWorkspacePeerDeleteRestoresOwnerBindingWhenResourceDeleteFails(t *testi
 func TestServerRejectsInvalidCustomIDs(t *testing.T) {
 	srv := newTestResourceServer()
 	srv.ACL = allowAllAuthorizer{}
+	capture := &resourceLogCapture{}
+	previous := slog.Default()
+	slog.SetDefault(slog.New(capture))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+	outcome := observability.NewOutcome(observability.TransportRPC, observability.SurfacePeerRPC, string(rpcapi.RPCMethodServerWorkspaceCreate))
+	ctx := observability.WithOutcome(context.Background(), outcome)
+	req := &rpcapi.RPCRequest{
+		V:      rpcapi.RPCVersionV1,
+		Id:     "workspace-create-invalid",
+		Method: rpcapi.RPCMethodServerWorkspaceCreate,
+		Params: rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
+			Name:         "bad",
+			WorkflowName: "workflow-a1",
+		}),
+	}
 
-	workspaceCreate := callRPC(t, srv, "workspace-create-invalid", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
-		Name:         "bad",
-		WorkflowName: "workflow-a1",
-	}))
+	workspaceCreate, handled, err := srv.Dispatch(ctx, req)
+	if err != nil || !handled {
+		t.Fatalf("Dispatch() handled=%v err=%v", handled, err)
+	}
 	requireRPCError(t, workspaceCreate, rpcapi.RPCErrorCodeBadRequest)
+	outcome.SetRequestID(req.Id)
+	outcome.SetRPC(int(workspaceCreate.Error.Code), observability.ResultClientError)
+	observability.Log(ctx, outcome)
+	attrs := capture.onlyAttrs(t)
+	for key, want := range map[string]any{
+		"error_code": "INVALID_WORKSPACE", "workspace_name": "bad", "workflow_name": "workflow-a1",
+		"request_id": "workspace-create-invalid", "rpc_code": int64(400),
+	} {
+		if got := attrs[key]; got != want {
+			t.Errorf("%s = %#v, want %#v", key, got, want)
+		}
+	}
+}
+
+func TestAdminResultWithCodePreservesCodeWithoutMessage(t *testing.T) {
+	_, rpcResp, code, err := adminResultWithCode[apitypes.Workspace](func(ctx *fiber.Ctx) error {
+		return ctx.Status(http.StatusBadRequest).JSON(apitypes.ErrorResponse{
+			Error: apitypes.ErrorPayload{Code: "INVALID_WORKSPACE"},
+		})
+	})
+	if err != nil {
+		t.Fatalf("adminResultWithCode() error = %v", err)
+	}
+	if code != "INVALID_WORKSPACE" || rpcResp == nil || rpcResp.Error == nil || rpcResp.Error.Code != rpcapi.RPCErrorCodeBadRequest || rpcResp.Error.Message != http.StatusText(http.StatusBadRequest) {
+		t.Fatalf("adminResultWithCode() = code %q response %#v", code, rpcResp)
+	}
+}
+
+type resourceLogCapture struct {
+	mu      sync.Mutex
+	records []slog.Record
+}
+
+func (h *resourceLogCapture) Enabled(context.Context, slog.Level) bool { return true }
+func (h *resourceLogCapture) WithAttrs([]slog.Attr) slog.Handler       { return h }
+func (h *resourceLogCapture) WithGroup(string) slog.Handler            { return h }
+func (h *resourceLogCapture) Handle(_ context.Context, record slog.Record) error {
+	h.mu.Lock()
+	h.records = append(h.records, record.Clone())
+	h.mu.Unlock()
+	return nil
+}
+
+func (h *resourceLogCapture) onlyAttrs(t *testing.T) map[string]any {
+	t.Helper()
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if len(h.records) != 1 {
+		t.Fatalf("records = %d, want 1", len(h.records))
+	}
+	attrs := make(map[string]any)
+	h.records[0].Attrs(func(attr slog.Attr) bool {
+		attrs[attr.Key] = attr.Value.Any()
+		return true
+	})
+	return attrs
 }
 
 func TestServerACLBoundaries(t *testing.T) {

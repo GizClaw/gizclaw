@@ -11,6 +11,7 @@ require (
 	github.com/GizClaw/flowcraft/sdkx v0.4.8
 	github.com/GizClaw/minimax-go v0.0.0-20260512045057-389426641c63
 	github.com/dgraph-io/badger/v4 v4.9.1
+	github.com/felixge/httpsnoop v1.0.4
 	github.com/goccy/go-yaml v1.19.2
 	github.com/gofiber/fiber/v2 v2.52.14
 	github.com/gogo/protobuf v1.3.2
@@ -88,7 +89,6 @@ require (
 	github.com/dprotaso/go-yit v0.0.0-20220510233725-9ba8df137936 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/expr-lang/expr v1.17.8 // indirect
-	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/getkin/kin-openapi v0.133.0 // indirect
 	github.com/go-faster/city v1.0.1 // indirect
 	github.com/go-faster/errors v0.7.1 // indirect

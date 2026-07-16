@@ -23,6 +23,7 @@ type rpcStream struct {
 	stop                      chan struct{}
 	done                      chan struct{}
 	requestEOSAlreadyConsumed bool
+	responseObserver          func(*rpcapi.RPCResponse)
 }
 
 type rpcRequest struct {
@@ -239,6 +240,7 @@ func (s *rpcStream) ReadResponseEnvelopeForMethod(method rpcapi.RPCMethod) (*rpc
 }
 
 func (s *rpcStream) WriteResponse(resp *rpcapi.RPCResponse) error {
+	s.observeResponse(resp)
 	frame, err := rpcapi.NewResponseFrame(resp)
 	if err != nil {
 		return err
@@ -247,6 +249,7 @@ func (s *rpcStream) WriteResponse(resp *rpcapi.RPCResponse) error {
 }
 
 func (s *rpcStream) WriteResponseForMethod(method rpcapi.RPCMethod, resp *rpcapi.RPCResponse) error {
+	s.observeResponse(resp)
 	frame, err := rpcapi.NewResponseFrameForMethod(method, resp)
 	if err != nil {
 		return err
@@ -255,6 +258,7 @@ func (s *rpcStream) WriteResponseForMethod(method rpcapi.RPCMethod, resp *rpcapi
 }
 
 func (s *rpcStream) WriteResponseEnvelope(resp *rpcapi.RPCResponse) (bool, error) {
+	s.observeResponse(resp)
 	frame, err := rpcapi.NewResponseFrame(resp)
 	if err != nil {
 		return false, err
@@ -263,11 +267,18 @@ func (s *rpcStream) WriteResponseEnvelope(resp *rpcapi.RPCResponse) (bool, error
 }
 
 func (s *rpcStream) WriteResponseEnvelopeForMethod(method rpcapi.RPCMethod, resp *rpcapi.RPCResponse) (bool, error) {
+	s.observeResponse(resp)
 	frame, err := rpcapi.NewResponseFrameForMethod(method, resp)
 	if err != nil {
 		return false, err
 	}
 	return s.writeProtobufEnvelope(frame.Payload)
+}
+
+func (s *rpcStream) observeResponse(resp *rpcapi.RPCResponse) {
+	if s != nil && s.responseObserver != nil {
+		s.responseObserver(resp)
+	}
 }
 
 func (s *rpcStream) Responses() iter.Seq2[*rpcapi.RPCResponse, error] {
