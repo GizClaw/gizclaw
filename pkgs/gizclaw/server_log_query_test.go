@@ -113,6 +113,10 @@ func TestServerLogStoreQueryCursor(t *testing.T) {
 	if !errors.As(err, &queryErr) || queryErr.Code != "LOG_CURSOR_MISMATCH" {
 		t.Fatalf("mismatch error = %v", err)
 	}
+	_, err = service.StreamServerLogs(context.Background(), ServerLogStreamRequest{Cursor: *end.NextCursor, Filter: "*", FilterSet: true}, nil)
+	if !errors.As(err, &queryErr) || queryErr.Code != "LOG_CURSOR_MISMATCH" {
+		t.Fatalf("wildcard mismatch error = %v", err)
+	}
 }
 
 func TestServerLogStoreQueryMapsStoreErrors(t *testing.T) {
