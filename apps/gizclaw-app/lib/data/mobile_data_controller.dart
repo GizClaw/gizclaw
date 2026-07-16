@@ -961,8 +961,10 @@ class MobileDataController extends ChangeNotifier {
 
   void _replaceActiveWorkspaceChat(WorkspaceChatController? chat) {
     if (identical(chat, _activeWorkspaceChat)) return;
-    _activeWorkspaceChat?.dispose();
+    final previous = _activeWorkspaceChat;
+    previous?.releaseInputTrack();
     _activeWorkspaceChat = chat;
+    previous?.dispose();
   }
 
   Future<void> close() {
@@ -1001,6 +1003,7 @@ class MobileDataController extends ChangeNotifier {
     ]);
 
     final chat = _activeWorkspaceChat;
+    chat?.releaseInputTrack();
     _activeWorkspaceChat = null;
     final subscriptions = <StreamSubscription<dynamic>?>[
       _workflowSubscription,

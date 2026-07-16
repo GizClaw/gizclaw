@@ -106,6 +106,7 @@ class WorkspaceChatController extends ChangeNotifier {
   final Map<String, _AudioEnergySample> _receivedAudioEnergy = {};
   String? replayingHistoryId;
   bool _disposed = false;
+  bool _inputTrackReleased = false;
   Future<void>? _closeFuture;
   Future<void>? _finishInputInFlight;
   Future<void>? _startInputInFlight;
@@ -121,7 +122,14 @@ class WorkspaceChatController extends ChangeNotifier {
       inputTrack != null &&
       _ownsInputTrack;
 
-  bool get _ownsInputTrack => ownsInputTrack?.call() ?? true;
+  bool get _ownsInputTrack =>
+      !_inputTrackReleased && (ownsInputTrack?.call() ?? true);
+
+  void releaseInputTrack() {
+    if (_inputTrackReleased) return;
+    _disableInputTrack();
+    _inputTrackReleased = true;
+  }
 
   Future<void> start({bool activate = true, bool conversation = true}) async {
     final stableServerId = serverId;

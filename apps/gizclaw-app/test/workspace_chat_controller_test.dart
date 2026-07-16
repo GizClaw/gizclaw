@@ -270,7 +270,7 @@ void main() {
   );
 
   test(
-    'stale chat cannot disable a borrowed track owned by its successor',
+    'releases a borrowed track before a successor takes ownership',
     () async {
       var counter = 0;
       var ownsInputTrack = true;
@@ -282,6 +282,9 @@ void main() {
       addTearDown(harness.database.close);
 
       await harness.controller.startInput();
+      harness.controller.releaseInputTrack();
+      expect(harness.track.enabled, isFalse);
+
       ownsInputTrack = false;
       harness.track.enabled = true;
       await harness.controller.close();
