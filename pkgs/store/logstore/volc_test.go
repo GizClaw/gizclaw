@@ -71,6 +71,21 @@ func TestVolcQueryPreservesStringAttributeLeaves(t *testing.T) {
 	}
 }
 
+func TestVolcQueryPreservesFixedFieldWhitespace(t *testing.T) {
+	client := &fakeVolcClient{response: &tls.SearchLogsResponse{Status: "complete", ListOver: true, Logs: []map[string]any{{
+		"id": " id ", "stream": " system ", "kind": " log ", "level": " WARN ", "msg": " message ",
+	}}}}
+	store := &VolcStore{topicID: "topic", client: client, writer: &fakeVolcProducer{}}
+	page, err := store.Query(context.Background(), validQuery())
+	if err != nil {
+		t.Fatalf("Query() error = %v", err)
+	}
+	got := page.Records[0]
+	if got.ID != " id " || got.Stream != " system " || got.Kind != " log " || got.Severity != " WARN " || got.Message != " message " {
+		t.Fatalf("record = %+v", got)
+	}
+}
+
 type fakeVolcProducer struct {
 	logs   []*pb.Log
 	closed int

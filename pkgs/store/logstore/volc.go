@@ -518,8 +518,8 @@ func recordFromVolc(raw map[string]any) (Record, error) {
 	legacyPath := firstVolcString(raw, "__path__", "__filename__")
 	legacy := legacySource == "gizclaw" && legacyPath == "slog"
 	record := Record{
-		ID: firstVolcString(raw, "id"), Time: recordTime, Stream: firstVolcString(raw, "stream"),
-		Kind: firstVolcString(raw, "kind"), Severity: firstVolcString(raw, "level"), Message: firstVolcString(raw, "msg", "message"),
+		ID: firstVolcRawString(raw, "id"), Time: recordTime, Stream: firstVolcRawString(raw, "stream"),
+		Kind: firstVolcRawString(raw, "kind"), Severity: firstVolcRawString(raw, "level"), Message: firstVolcRawString(raw, "msg", "message"),
 		Attributes: make(map[string]string),
 	}
 	if legacy {
@@ -676,6 +676,15 @@ func firstVolcString(raw map[string]any, keys ...string) string {
 			if result := strings.TrimSpace(volcString(value)); result != "" {
 				return result
 			}
+		}
+	}
+	return ""
+}
+
+func firstVolcRawString(raw map[string]any, keys ...string) string {
+	for _, key := range keys {
+		if value, exists := raw[key]; exists {
+			return volcString(value)
 		}
 	}
 	return ""
