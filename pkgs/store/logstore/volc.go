@@ -20,9 +20,11 @@ import (
 )
 
 const (
-	volcQueryTimeout = 30 * time.Second
-	volcCursorLimit  = 16 * 1024
-	volcMessageDelim = " \t\r\n"
+	volcQueryTimeout          = 30 * time.Second
+	volcCursorLimit           = 16 * 1024
+	volcMessageDelim          = " \t\r\n"
+	volcSecondsUpperBound     = int64(10_000_000_000)
+	volcNanosecondsLowerBound = int64(1_000_000_000_000_000)
 )
 
 // VolcConfig configures a Volc TLS log store. The topic and compatible index
@@ -511,23 +513,17 @@ func cappedContext(ctx context.Context, limit time.Duration) (context.Context, c
 }
 
 func recordFromVolc(raw map[string]any) (Record, error) {
-	timeMS, _ := firstVolcInt(raw, "__time__", "_time_", "Time", "time", "time_ms")
-	recordTime := time.UnixMilli(timeMS).UTC()
-	if ns, ok := firstVolcInt(raw, "__time_ns__", "_time_ns_", "time_ns"); ok {
-		if ns >= 0 && ns < int64(time.Millisecond) {
-			recordTime = recordTime.Add(time.Duration(ns))
-		} else if ns > 0 {
-			recordTime = time.Unix(0, ns).UTC()
-		}
-	}
+	recordTime := volcRecordTime(raw)
+	legacySource := firstVolcString(raw, "__source__")
+	legacyPath := firstVolcString(raw, "__path__", "__filename__")
+	legacy := legacySource == "gizclaw" && legacyPath == "slog"
 	record := Record{
 		ID: firstVolcString(raw, "id"), Time: recordTime, Stream: firstVolcString(raw, "stream"),
 		Kind: firstVolcString(raw, "kind"), Severity: firstVolcString(raw, "level"), Message: firstVolcString(raw, "msg", "message"),
 		Attributes: make(map[string]string),
 	}
-	legacy := record.Stream == "" && firstVolcString(raw, "__source__", "source") == "gizclaw"
 	if legacy {
-		record.Stream, record.Kind = "system", "log"
+		record.ID, record.Stream, record.Kind = "", "system", "log"
 	}
 	if value, exists := raw["attributes"]; exists && !legacy {
 		decoded, err := decodeVolcAttributes(value)
@@ -541,7 +537,7 @@ func recordFromVolc(raw map[string]any) (Record, error) {
 	} else if legacy {
 		keys := make([]string, 0, len(raw))
 		for key := range raw {
-			if !reservedVolcField(key) && ValidateAttributeName(key) == nil {
+			if !reservedLegacyVolcField(key) && ValidateAttributeName(key) == nil {
 				keys = append(keys, key)
 			}
 		}
@@ -549,14 +545,14 @@ func recordFromVolc(raw map[string]any) (Record, error) {
 		for _, key := range keys {
 			setVolcAttribute(record.Attributes, key, volcString(raw[key]))
 		}
-		if source := firstVolcString(raw, "__source__", "source"); source != "" {
-			setVolcAttribute(record.Attributes, "source", source)
+		if legacySource != "" {
+			setVolcAttribute(record.Attributes, "source", legacySource)
 		}
-		if path := firstVolcString(raw, "__path__", "__filename__", "path"); path != "" {
-			setVolcAttribute(record.Attributes, "path", path)
+		if legacyPath != "" {
+			setVolcAttribute(record.Attributes, "path", legacyPath)
 		}
 	}
-	if value, exists := raw["payload"]; exists {
+	if value, exists := raw["payload"]; exists && !legacy {
 		payload := []byte(volcString(value))
 		if !json.Valid(payload) {
 			return Record{}, errors.New("payload is not valid JSON")
@@ -564,6 +560,31 @@ func recordFromVolc(raw map[string]any) (Record, error) {
 		record.Payload = append(json.RawMessage(nil), payload...)
 	}
 	return record, nil
+}
+
+func volcRecordTime(raw map[string]any) time.Time {
+	value, _ := firstVolcInt(raw, "__time__", "_time_", "Time", "time", "time_ms")
+	nanoseconds, hasNanoseconds := firstVolcInt(raw, "__time_ns__", "_time_ns_", "time_ns")
+	if hasNanoseconds && nanoseconds >= volcNanosecondsLowerBound {
+		return time.Unix(0, nanoseconds).UTC()
+	}
+	if value > 0 && value < volcSecondsUpperBound {
+		if hasNanoseconds && nanoseconds >= 0 && nanoseconds < int64(time.Second) {
+			return time.Unix(value, nanoseconds).UTC()
+		}
+		return time.Unix(value, 0).UTC()
+	}
+	if value >= volcNanosecondsLowerBound {
+		return time.Unix(0, value).UTC()
+	}
+	recordTime := time.UnixMilli(value).UTC()
+	if hasNanoseconds && nanoseconds >= 0 && nanoseconds < int64(time.Millisecond) {
+		return recordTime.Add(time.Duration(nanoseconds))
+	}
+	if hasNanoseconds && nanoseconds >= 0 && nanoseconds < int64(time.Second) {
+		return time.Unix(recordTime.Unix(), nanoseconds).UTC()
+	}
+	return recordTime
 }
 
 type volcOperationError struct {
@@ -640,9 +661,9 @@ func setVolcAttribute(attributes map[string]string, key, value string) {
 	attributes[key] = value
 }
 
-func reservedVolcField(key string) bool {
+func reservedLegacyVolcField(key string) bool {
 	switch key {
-	case "id", "stream", "kind", "level", "msg", "message", "payload", "__time__", "_time_", "Time", "time", "time_ms", "__time_ns__", "_time_ns_", "time_ns", "__source__", "source", "__path__", "__filename__", "path":
+	case "level", "msg", "message", "__time__", "_time_", "Time", "time", "__time_ns__", "_time_ns_", "__source__", "source", "__path__", "__filename__", "path":
 		return true
 	default:
 		return false

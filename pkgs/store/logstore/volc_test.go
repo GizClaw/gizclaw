@@ -294,9 +294,11 @@ func TestVolcQueryRejectsInvalidProviderPages(t *testing.T) {
 }
 
 func TestVolcQueryNormalizesLegacyRecordAndNanoseconds(t *testing.T) {
+	timeMS := int64(1_700_000_000_123)
 	client := &fakeVolcClient{response: &tls.SearchLogsResponse{Status: "complete", ListOver: true, Logs: []map[string]any{{
-		"__time__": int64(1000), "__time_ns__": int64(123), "__source__": "gizclaw", "__path__": "slog",
-		"level": "WARN", "msg": "legacy", "request.method": "GET", "attributes": "legacy-value",
+		"__time__": timeMS, "__time_ns__": int64(456_789), "__source__": "gizclaw", "__path__": "slog",
+		"level": "WARN", "msg": "legacy", "id": "legacy-id", "stream": "user-stream", "kind": "user-kind",
+		"payload": "legacy-payload", "request.method": "GET", "attributes": "legacy-value",
 	}}}}
 	store := &VolcStore{topicID: "topic", client: client, writer: &fakeVolcProducer{}}
 	query := validQuery()
@@ -306,11 +308,45 @@ func TestVolcQueryNormalizesLegacyRecordAndNanoseconds(t *testing.T) {
 		t.Fatalf("Query() error = %v", err)
 	}
 	record := page.Records[0]
-	if record.Stream != "system" || record.Kind != "log" || record.ID != "" || record.Time.UnixNano() != time.UnixMilli(1000).UnixNano()+123 {
+	if record.Stream != "system" || record.Kind != "log" || record.ID != "" || record.Time.UnixNano() != time.UnixMilli(timeMS).UnixNano()+456_789 {
 		t.Fatalf("record = %+v", record)
 	}
-	if record.Attributes["source"] != "gizclaw" || record.Attributes["path"] != "slog" || record.Attributes["request.method"] != "GET" || record.Attributes["attributes"] != "legacy-value" {
+	if len(record.Payload) != 0 {
+		t.Fatalf("payload = %s", record.Payload)
+	}
+	if record.Attributes["source"] != "gizclaw" || record.Attributes["path"] != "slog" || record.Attributes["id"] != "legacy-id" || record.Attributes["stream"] != "user-stream" || record.Attributes["kind"] != "user-kind" || record.Attributes["payload"] != "legacy-payload" || record.Attributes["request.method"] != "GET" || record.Attributes["attributes"] != "legacy-value" {
 		t.Fatalf("attributes = %+v", record.Attributes)
+	}
+}
+
+func TestVolcRecordTimeNormalizesProviderUnits(t *testing.T) {
+	tests := map[string]struct {
+		raw  map[string]any
+		want time.Time
+	}{
+		"seconds with fraction": {
+			raw:  map[string]any{"__time__": int64(1_700_000_000), "__time_ns__": int64(123_456_789)},
+			want: time.Unix(1_700_000_000, 123_456_789).UTC(),
+		},
+		"milliseconds with remainder": {
+			raw:  map[string]any{"__time__": int64(1_700_000_000_123), "__time_ns__": int64(456_789)},
+			want: time.UnixMilli(1_700_000_000_123).Add(456_789 * time.Nanosecond).UTC(),
+		},
+		"nanoseconds": {
+			raw:  map[string]any{"__time__": int64(1_700_000_000_123_456_789)},
+			want: time.Unix(0, 1_700_000_000_123_456_789).UTC(),
+		},
+		"absolute nanosecond field": {
+			raw:  map[string]any{"__time__": int64(1_700_000_000), "__time_ns__": int64(1_700_000_000_123_456_789)},
+			want: time.Unix(0, 1_700_000_000_123_456_789).UTC(),
+		},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			if got := volcRecordTime(test.raw); !got.Equal(test.want) {
+				t.Fatalf("volcRecordTime() = %v, want %v", got, test.want)
+			}
+		})
 	}
 }
 
