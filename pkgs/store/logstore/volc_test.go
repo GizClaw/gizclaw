@@ -228,6 +228,21 @@ func TestVolcAppendAndQuery(t *testing.T) {
 	}
 }
 
+func TestVolcLogUsesProducerTimestampUnits(t *testing.T) {
+	record := validRecord()
+	record.Time = time.Unix(1_700_000_000, 123_456_789).UTC()
+	item, err := volcLog(record)
+	if err != nil {
+		t.Fatalf("volcLog() error = %v", err)
+	}
+	if item.Time != record.Time.Unix() {
+		t.Fatalf("Time = %d, want Unix seconds %d", item.Time, record.Time.Unix())
+	}
+	if item.GetTimeNs() != uint32(record.Time.Nanosecond()) {
+		t.Fatalf("TimeNs = %d, want nanosecond fraction %d", item.GetTimeNs(), record.Time.Nanosecond())
+	}
+}
+
 func TestBuildVolcQueryTranslatesAllStructuredOperators(t *testing.T) {
 	query := normalizedVolcQuery(Query{
 		Streams: []string{"event", "chat"}, Kinds: []string{"created"}, Severities: []string{"WARN"}, Text: `failed "request"`,

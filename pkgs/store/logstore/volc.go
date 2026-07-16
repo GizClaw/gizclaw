@@ -303,8 +303,8 @@ func volcLog(record Record) (*pb.Log, error) {
 	if len(record.Payload) != 0 {
 		contents = append(contents, &pb.LogContent{Key: "payload", Value: string(record.Payload)})
 	}
-	item := &pb.Log{Time: record.Time.UnixMilli(), Contents: contents}
-	item.OptionalTimeNs = &pb.Log_TimeNs{TimeNs: uint32(record.Time.Nanosecond() % int(time.Millisecond))}
+	item := &pb.Log{Time: record.Time.Unix(), Contents: contents}
+	item.OptionalTimeNs = &pb.Log_TimeNs{TimeNs: uint32(record.Time.Nanosecond())}
 	return item, nil
 }
 
