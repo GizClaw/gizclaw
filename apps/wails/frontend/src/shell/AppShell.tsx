@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, FormEvent } from "react";
+import type { CSSProperties, FormEvent, ReactNode } from "react";
 import QRCode from "qrcode";
 import {
   Activity,
@@ -805,6 +805,53 @@ function QRCodeImage({ label, payload }: { label: string; payload: string }) {
   );
 }
 
+type ManageListItemProps = {
+  className: string;
+  description: ReactNode;
+  icon: ReactNode;
+  iconClassName: string;
+  title: ReactNode;
+  trailing: ReactNode;
+} &
+  (
+    | { as: "section" }
+    | {
+        as: "button";
+        onClick(): void;
+      }
+  );
+
+function ManageListItem(props: ManageListItemProps) {
+  const content = (
+    <>
+      <span className={`manage-list-item-icon ${props.iconClassName}`}>
+        {props.icon}
+      </span>
+      <span className="manage-list-item-copy">
+        <strong>{props.title}</strong>
+        <small>{props.description}</small>
+      </span>
+      <span className="manage-list-item-trailing">{props.trailing}</span>
+    </>
+  );
+
+  if (props.as === "button") {
+    return (
+      <button
+        className={`manage-list-item manage-list-item-button ${props.className}`}
+        onClick={props.onClick}
+        type="button"
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <section className={`manage-list-item ${props.className}`}>{content}</section>
+  );
+}
+
 function LocalManageFace({
   api,
   onDelete,
@@ -822,57 +869,54 @@ function LocalManageFace({
   const local = pod.local!;
   return (
     <div className="manage-face local-manage-face">
-      <section className="local-status-card">
-        <span
-          className={`local-status-icon ${local.process.state === "running" ? "running" : ""}`}
-        >
-          <Server size={22} />
-        </span>
-        <div>
-          <small>{t("localServer")}</small>
-          <strong>
-            {local.process.state === "running" ? t("running") : t("stopped")}
-          </strong>
-        </div>
-        <button
-          className={`local-status-action ${
-            local.process.state === "running" ? "stop-action" : "start-action"
-          }`}
-          onClick={() =>
-            void run(() =>
+      <ManageListItem
+        as="section"
+        className="local-status-card"
+        description={t("localServer")}
+        icon={<Server size={22} />}
+        iconClassName={`local-status-icon ${local.process.state === "running" ? "running" : ""}`}
+        title={
+          local.process.state === "running" ? t("running") : t("stopped")
+        }
+        trailing={
+          <button
+            className={`local-status-action ${
               local.process.state === "running"
-                ? api.StopLocalServer(pod.id)
-                : api.StartLocalServer(pod.id),
-            )
-          }
-          type="button"
-        >
-          {local.process.state === "running" ? (
-            <CircleStop size={14} />
-          ) : (
-            <Play size={14} />
-          )}
-          <span>
-            {local.process.state === "running" ? t("stop") : t("start")}
-          </span>
-        </button>
-      </section>
-      <button
+                ? "stop-action"
+                : "start-action"
+            }`}
+            onClick={() =>
+              void run(() =>
+                local.process.state === "running"
+                  ? api.StopLocalServer(pod.id)
+                  : api.StartLocalServer(pod.id),
+              )
+            }
+            type="button"
+          >
+            {local.process.state === "running" ? (
+              <CircleStop size={14} />
+            ) : (
+              <Play size={14} />
+            )}
+            <span>
+              {local.process.state === "running" ? t("stop") : t("start")}
+            </span>
+          </button>
+        }
+      />
+      <ManageListItem
+        as="button"
         className="local-admin-action"
+        description={t("openInBrowser")}
+        icon={<Server size={22} />}
+        iconClassName="local-admin-icon"
         onClick={() =>
           openBrowserLaunch(api.OpenAdmin(pod.id, "local"), onError)
         }
-        type="button"
-      >
-        <span className="local-admin-icon">
-          <Server size={18} />
-        </span>
-        <span>
-          <strong>Admin</strong>
-          <small>{t("openInBrowser")}</small>
-        </span>
-        <ArrowUpRight size={15} />
-      </button>
+        title="Admin"
+        trailing={<ArrowUpRight size={15} />}
+      />
       <button className="pod-delete-action" onClick={onDelete} type="button">
         <Trash2 size={14} />
         {t("deletePod")}

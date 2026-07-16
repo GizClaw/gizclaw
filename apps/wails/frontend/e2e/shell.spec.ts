@@ -342,6 +342,7 @@ test("Add Pod creates a local environment without exposing keys", async ({
 test("local share stays simple and switches to focused controls", async ({
   page,
 }) => {
+  await page.emulateMedia({ colorScheme: "light" });
   await page.goto("/");
   await page.getByRole("button", { name: /Local Lab/ }).click();
   const dialog = page.getByRole("dialog");
@@ -378,6 +379,37 @@ test("local share stays simple and switches to focused controls", async ({
     .toBeLessThanOrEqual(340);
   await dialog.getByRole("button", { name: "Server controls" }).click();
   const statusCard = dialog.locator(".local-status-card");
+  const adminButton = dialog.getByRole("button", { name: /Admin/ });
+  await expect(statusCard).toHaveClass(/manage-list-item/);
+  await expect(adminButton).toHaveClass(/manage-list-item/);
+  await expect
+    .poll(() => statusCard.evaluate((element) => element.tagName))
+    .toBe("SECTION");
+  await expect
+    .poll(() => adminButton.evaluate((element) => element.tagName))
+    .toBe("BUTTON");
+  const sharedStyle = (selector: string) =>
+    dialog.locator(selector).evaluate((element) => {
+      const style = getComputedStyle(element);
+      const icon = element.querySelector(".manage-list-item-icon");
+      const iconStyle = icon ? getComputedStyle(icon) : null;
+      return {
+        backgroundColor: style.backgroundColor,
+        borderRadius: style.borderRadius,
+        color: style.color,
+        iconHeight: iconStyle?.height,
+        iconWidth: iconStyle?.width,
+        minHeight: style.minHeight,
+        padding: style.padding,
+      };
+    });
+  expect(await sharedStyle(".local-admin-action")).toEqual(
+    await sharedStyle(".local-status-card"),
+  );
+  await page.emulateMedia({ colorScheme: "dark" });
+  expect(await sharedStyle(".local-admin-action")).toEqual(
+    await sharedStyle(".local-status-card"),
+  );
   await expect(
     statusCard.getByRole("button", { name: "Stop" }),
   ).toBeVisible();
@@ -386,19 +418,18 @@ test("local share stays simple and switches to focused controls", async ({
   await expect(
     dialog.locator(".local-status-card").getByRole("button", { name: "Start" }),
   ).toBeVisible();
-  await expect(dialog.getByRole("button", { name: /Admin/ })).toBeVisible();
+  await expect(adminButton).toBeVisible();
   const deleteButton = dialog.getByRole("button", { name: "Delete Pod" });
   await expect(deleteButton).toBeVisible();
+  await expect(deleteButton).not.toHaveClass(/manage-list-item/);
   await expect
     .poll(async () => {
-      const admin = await dialog
-        .getByRole("button", { name: /Admin/ })
-        .boundingBox();
+      const admin = await adminButton.boundingBox();
       const remove = await deleteButton.boundingBox();
       return Boolean(admin && remove && remove.y > admin.y + admin.height);
     })
     .toBe(true);
-  await dialog.getByRole("button", { name: /Admin/ }).click();
+  await adminButton.click();
   await expect
     .poll(() => page.evaluate(() => (window as any).__GIZCLAW_WINDOW_ACTIONS__))
     .toContain("open:http://127.0.0.1:4101/#launch=admin-token");

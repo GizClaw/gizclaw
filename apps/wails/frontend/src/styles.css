@@ -910,22 +910,28 @@ select:focus-visible {
   color: #e0e2e7;
   font-size: 18px;
 }
-.local-status-card {
+.manage-list-item {
+  width: 100%;
   min-height: 72px;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   padding: 13px 14px;
+  border: 0;
   border-radius: 14px;
+  color: #d6d9df;
   background: rgba(255, 255, 255, 0.04);
+  text-align: left;
 }
-.local-status-icon {
+.manage-list-item-icon {
   width: 46px;
   height: 46px;
   display: grid;
   place-items: center;
   border-radius: 15px;
+}
+.local-status-icon {
   color: #8c96eb;
   background: rgba(116, 126, 255, 0.11);
 }
@@ -934,24 +940,32 @@ select:focus-visible {
   background: rgba(55, 181, 157, 0.12);
   box-shadow: 0 0 28px rgba(55, 181, 157, 0.12);
 }
-.local-status-card > div {
+.manage-list-item-copy {
   display: grid;
   gap: 3px;
 }
-.local-status-card small,
-.local-admin-action small {
+.manage-list-item-copy small {
   color: #70737c;
   font-size: 9px;
   letter-spacing: 0.05em;
 }
-.local-status-card strong {
+.manage-list-item-copy strong {
   color: #e4e6ea;
   font-size: 18px;
 }
-.local-status-action,
-.local-admin-action {
+.manage-list-item-trailing {
+  display: grid;
+  place-items: center;
+}
+.manage-list-item-button,
+.local-status-action {
   border: 0;
   cursor: pointer;
+}
+.manage-list-item-button {
+  transition:
+    transform 0.18s ease,
+    filter 0.18s ease;
 }
 .local-status-action {
   min-width: 72px;
@@ -974,31 +988,11 @@ select:focus-visible {
   background: rgba(255, 91, 113, 0.1);
 }
 .local-status-action:hover,
-.local-admin-action:hover {
+.manage-list-item-button:hover {
   transform: translateY(-1px);
   filter: brightness(1.08);
 }
-.local-admin-action {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 11px;
-  padding: 0 14px;
-  color: #d6d9df;
-  background: rgba(255, 255, 255, 0.045);
-  text-align: left;
-  min-height: 58px;
-}
-.local-admin-action > span:nth-child(2) {
-  display: grid;
-  gap: 3px;
-}
 .local-admin-icon {
-  width: 35px;
-  height: 35px;
-  display: grid;
-  place-items: center;
-  border-radius: 11px;
   color: #9ea8f8;
   background: rgba(116, 126, 255, 0.1);
 }
@@ -1991,10 +1985,11 @@ button:disabled {
   .pod-detail-page {
     background: transparent;
   }
-  .local-status-card {
+  .manage-list-item {
+    color: #3f4148;
     background: rgba(30, 31, 36, 0.045);
   }
-  .local-status-card strong {
+  .manage-list-item-copy strong {
     color: #292a30;
   }
   .local-status-action.start-action {
@@ -2004,10 +1999,6 @@ button:disabled {
   .local-status-action.stop-action {
     color: #c84a5d;
     background: rgba(210, 70, 91, 0.09);
-  }
-  .local-admin-action {
-    color: #3f4148;
-    background: rgba(30, 31, 36, 0.055);
   }
   .pod-delete-action {
     color: #c84a5d;
