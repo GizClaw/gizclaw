@@ -74,6 +74,108 @@ type agent struct {
 	cfg config
 }
 
+type asrInputTransport struct {
+	builder         *genx.StreamBuilder
+	onConsumerError func(error)
+
+	mu          sync.Mutex
+	terminal    bool
+	terminalErr error
+}
+
+func newASRInputTransport(onConsumerError func(error)) *asrInputTransport {
+	return &asrInputTransport{
+		builder:         genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 64),
+		onConsumerError: onConsumerError,
+	}
+}
+
+func (t *asrInputTransport) Stream() genx.Stream {
+	return &asrInputView{source: t.builder.Stream(), transport: t}
+}
+
+func (t *asrInputTransport) Add(chunks ...*genx.MessageChunk) error {
+	terminal, terminalErr := t.status()
+	if terminal {
+		if terminalErr != nil {
+			return terminalErr
+		}
+		return genx.ErrDone
+	}
+	if err := t.builder.Add(chunks...); err != nil {
+		if terminalErr := t.failure(); terminalErr != nil {
+			return terminalErr
+		}
+		return err
+	}
+	return nil
+}
+
+func (t *asrInputTransport) Done() error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.terminal {
+		return t.terminalErr
+	}
+	t.terminal = true
+	t.terminalErr = t.builder.Done(genx.Usage{})
+	return t.terminalErr
+}
+
+func (t *asrInputTransport) Abort(err error) error {
+	_, closeErr := t.abort(err)
+	return closeErr
+}
+
+func (t *asrInputTransport) abort(err error) (bool, error) {
+	if err == nil {
+		err = io.ErrClosedPipe
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.terminal {
+		return false, nil
+	}
+	t.terminal = true
+	t.terminalErr = err
+	return true, t.builder.Abort(err)
+}
+
+func (t *asrInputTransport) status() (bool, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.terminal, t.terminalErr
+}
+
+func (t *asrInputTransport) failure() error {
+	_, err := t.status()
+	return err
+}
+
+type asrInputView struct {
+	source    genx.Stream
+	transport *asrInputTransport
+}
+
+func (s *asrInputView) Next() (*genx.MessageChunk, error) {
+	return s.source.Next()
+}
+
+func (s *asrInputView) Close() error {
+	return nil
+}
+
+func (s *asrInputView) CloseWithError(err error) error {
+	if err == nil || isStreamDone(err) {
+		return nil
+	}
+	first, closeErr := s.transport.abort(err)
+	if first && s.transport.onConsumerError != nil {
+		s.transport.onConsumerError(err)
+	}
+	return closeErr
+}
+
 func (a agent) Transform(ctx context.Context, _ string, input genx.Stream) (genx.Stream, error) {
 	if input == nil {
 		return nil, fmt.Errorf("chatroom: input stream is required")
@@ -169,9 +271,19 @@ func forwardTextInput(ctx context.Context, input genx.Stream, builder *genx.Stre
 
 func (a agent) transcribeInput(ctx context.Context, input genx.Stream, output *genx.StreamBuilder) {
 	defer input.Close()
-	var asrInput *genx.StreamBuilder
+	stopInputCancel := context.AfterFunc(ctx, func() {
+		_ = input.CloseWithError(ctx.Err())
+	})
+	defer stopInputCancel()
+	var asrInput *asrInputTransport
 	var asr genx.Stream
 	var readDone chan error
+	var stopASRCancel func() bool
+	defer func() {
+		if stopASRCancel != nil {
+			stopASRCancel()
+		}
+	}()
 	streamID := &lockedString{value: defaultInputStreamID}
 	textOpen := false
 	textStreamID := ""
@@ -190,52 +302,97 @@ func (a agent) transcribeInput(ctx context.Context, input genx.Stream, output *g
 		if readDone != nil {
 			return nil
 		}
-		asrInput = genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 64)
+		asrInput = newASRInputTransport(func(err error) {
+			_ = input.CloseWithError(err)
+		})
 		var err error
 		asr, err = a.cfg.transformer.Transform(ctx, a.asrPattern(), asrInput.Stream())
 		if err != nil {
-			return fmt.Errorf("chatroom: start ASR: %w", err)
+			err = fmt.Errorf("chatroom: start ASR: %w", err)
+			_ = asrInput.Abort(err)
+			return err
 		}
-		readDone = make(chan error, 1)
+		asrStream := asr
+		stopASRCancel = context.AfterFunc(ctx, func() {
+			_ = asrStream.CloseWithError(ctx.Err())
+		})
+		done := make(chan error, 1)
+		readDone = done
 		go func() {
-			defer asr.Close()
-			readDone <- readTranscript(ctx, asr, output, streamID)
+			defer asrStream.Close()
+			err := readTranscript(ctx, asrStream, output, streamID)
+			if err != nil && ctx.Err() == nil {
+				_ = asrInput.Abort(err)
+				_ = input.CloseWithError(err)
+			}
+			done <- err
 		}()
 		return nil
+	}
+	waitTranscript := func() error {
+		if readDone == nil {
+			return nil
+		}
+		done := readDone
+		readDone = nil
+		select {
+		case err := <-done:
+			return err
+		case <-ctx.Done():
+			if asr != nil {
+				_ = asr.CloseWithError(ctx.Err())
+			}
+			<-done
+			return ctx.Err()
+		}
+	}
+	fail := func(err error) {
+		if asrInput != nil {
+			_ = asrInput.Abort(err)
+		}
+		if asr != nil {
+			_ = asr.CloseWithError(err)
+		}
+		_ = output.Abort(err)
+		_ = waitTranscript()
 	}
 
 	audioSeen := false
 	for {
 		if err := ctx.Err(); err != nil {
-			if asrInput != nil {
-				_ = asrInput.Abort(err)
-			}
-			_ = output.Abort(err)
+			fail(err)
 			return
 		}
 		chunk, err := input.Next()
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			fail(ctxErr)
+			return
+		}
+		if asrInput != nil {
+			if asrErr := asrInput.failure(); asrErr != nil {
+				fail(asrErr)
+				return
+			}
+		}
 		if err != nil {
 			if !isStreamDone(err) {
-				if asrInput != nil {
-					_ = asrInput.Abort(err)
-				}
-				_ = output.Abort(err)
+				fail(err)
 				return
 			}
 			if err := flushText(); err != nil {
-				_ = output.Abort(err)
+				fail(err)
 				return
 			}
 			if !audioSeen {
 				_ = output.Done(genx.Usage{})
 				return
 			}
-			if err := asrInput.Done(genx.Usage{}); err != nil {
-				_ = output.Abort(err)
+			if err := asrInput.Done(); err != nil {
+				fail(err)
 				return
 			}
-			if err := <-readDone; err != nil {
-				_ = output.Abort(err)
+			if err := waitTranscript(); err != nil {
+				fail(err)
 				return
 			}
 			_ = output.Done(genx.Usage{})
@@ -277,7 +434,7 @@ func (a agent) transcribeInput(ctx context.Context, input genx.Stream, output *g
 		}
 		audioSeen = true
 		if err := startASR(); err != nil {
-			_ = output.Abort(err)
+			fail(err)
 			return
 		}
 		next := chunk.Clone()
@@ -288,16 +445,16 @@ func (a agent) transcribeInput(ctx context.Context, input genx.Stream, output *g
 			next.Ctrl.StreamID = streamID.Get()
 		}
 		if err := asrInput.Add(next); err != nil {
-			_ = output.Abort(err)
+			fail(err)
 			return
 		}
 		if chunk.IsEndOfStream() {
-			if err := asrInput.Done(genx.Usage{}); err != nil {
-				_ = output.Abort(err)
+			if err := asrInput.Done(); err != nil {
+				fail(err)
 				return
 			}
-			if err := <-readDone; err != nil {
-				_ = output.Abort(err)
+			if err := waitTranscript(); err != nil {
+				fail(err)
 				return
 			}
 			_ = output.Done(genx.Usage{})

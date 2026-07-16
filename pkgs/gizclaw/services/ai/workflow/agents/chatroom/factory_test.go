@@ -368,6 +368,92 @@ func TestAgentTransformReportsAudioInputError(t *testing.T) {
 	}
 }
 
+func TestAgentTransformPreservesASRInputConsumerError(t *testing.T) {
+	want := errors.New("asr input consumer failed")
+	transformer := &consumerErrorASRTransformer{err: want, done: make(chan struct{})}
+	agent, err := (Factory{Transformer: transformer}).NewAgent(context.Background(), agenthost.Spec{
+		Workflow: validWorkflowWithTranscript("asr", true),
+	})
+	if err != nil {
+		t.Fatalf("NewAgent() error = %v", err)
+	}
+	input := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 2)
+	if err := input.Add(&genx.MessageChunk{
+		Role: genx.RoleUser,
+		Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}},
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-a"},
+	}); err != nil {
+		t.Fatalf("input.Add() error = %v", err)
+	}
+	output, err := agent.Transform(context.Background(), "demo", input.Stream())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	if _, err := output.Next(); !errors.Is(err, want) {
+		t.Fatalf("output.Next() error = %v, want %v", err, want)
+	} else if errors.Is(err, io.ErrClosedPipe) {
+		t.Fatalf("output.Next() replaced consumer error with transport error: %v", err)
+	}
+	select {
+	case <-transformer.done:
+	case <-time.After(time.Second):
+		t.Fatal("ASR transformer did not exit after consumer error")
+	}
+}
+
+func TestAgentTransformCancellationStopsASRPipeline(t *testing.T) {
+	transformer := &blockingASRTransformer{
+		ready:    make(chan struct{}),
+		inputErr: make(chan error, 1),
+		done:     make(chan struct{}),
+	}
+	agent, err := (Factory{Transformer: transformer}).NewAgent(context.Background(), agenthost.Spec{
+		Workflow: validWorkflowWithTranscript("asr", true),
+	})
+	if err != nil {
+		t.Fatalf("NewAgent() error = %v", err)
+	}
+	input := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 2)
+	if err := input.Add(&genx.MessageChunk{
+		Role: genx.RoleUser,
+		Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}},
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-a"},
+	}); err != nil {
+		t.Fatalf("input.Add() error = %v", err)
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	output, err := agent.Transform(ctx, "demo", input.Stream())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	select {
+	case <-transformer.ready:
+	case <-time.After(time.Second):
+		t.Fatal("ASR transformer did not start reading input")
+	}
+	cancel()
+	if _, err := output.Next(); !errors.Is(err, context.Canceled) {
+		t.Fatalf("output.Next() error = %v, want context.Canceled", err)
+	}
+	select {
+	case err := <-transformer.inputErr:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("ASR input error = %v, want context.Canceled", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("ASR input reader did not unblock after cancellation")
+	}
+	select {
+	case <-transformer.done:
+	case <-time.After(time.Second):
+		t.Fatal("ASR transformer did not exit after cancellation")
+	}
+	if err := input.Add(&genx.MessageChunk{Part: genx.Text("late")}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("input.Add() after cancellation error = %v, want context.Canceled", err)
+	}
+}
+
 func TestAgentTransformTranscribesAudioInput(t *testing.T) {
 	transformer := &scriptedASRTransformer{text: "hello"}
 	agent, err := (Factory{Transformer: transformer}).NewAgent(context.Background(), agenthost.Spec{
@@ -426,6 +512,35 @@ func TestAgentTransformTranscribesAudioInput(t *testing.T) {
 	}
 	if !input.waitClosed(100 * time.Millisecond) {
 		t.Fatal("input stream was not closed")
+	}
+}
+
+func TestASRInputTransportConsumerCloseBeforeProducerDone(t *testing.T) {
+	transport := newASRInputTransport(nil)
+	consumer := transport.Stream()
+	want := &genx.MessageChunk{
+		Role: genx.RoleUser,
+		Part: &genx.Blob{MIMEType: "audio/opus"},
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-a", EndOfStream: true},
+	}
+	if err := transport.Add(want); err != nil {
+		t.Fatalf("transport.Add() error = %v", err)
+	}
+	got, err := consumer.Next()
+	if err != nil {
+		t.Fatalf("consumer.Next() error = %v", err)
+	}
+	if got == nil || !got.IsEndOfStream() || got.Ctrl.StreamID != "turn-a" {
+		t.Fatalf("consumer.Next() = %#v, want audio EOS", got)
+	}
+	if err := consumer.Close(); err != nil {
+		t.Fatalf("consumer.Close() error = %v", err)
+	}
+	if err := transport.Done(); err != nil {
+		t.Fatalf("transport.Done() after consumer close error = %v", err)
+	}
+	if chunk, err := consumer.Next(); !isStreamDone(err) || chunk != nil {
+		t.Fatalf("consumer.Next() after Done = %#v, %v; want done", chunk, err)
 	}
 }
 
@@ -802,7 +917,6 @@ func (t *scriptedASRTransformer) Transform(_ context.Context, pattern string, in
 	t.mu.Unlock()
 	output := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 4)
 	go func() {
-		defer input.Close()
 		streamID := defaultInputStreamID
 		audioSeen := false
 		lastAudioMIME := "audio/opus"
@@ -841,6 +955,10 @@ func (t *scriptedASRTransformer) Transform(_ context.Context, pattern string, in
 				break
 			}
 		}
+		if err := input.Close(); err != nil {
+			_ = output.Abort(fmt.Errorf("fake ASR close input: %w", err))
+			return
+		}
 		if audioSeen {
 			history = append(history, &genx.MessageChunk{
 				Role: genx.RoleUser,
@@ -858,6 +976,52 @@ func (t *scriptedASRTransformer) Transform(_ context.Context, pattern string, in
 			&genx.MessageChunk{Role: genx.RoleUser, Name: transcriptLabel, Part: genx.Text(t.text), Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: transcriptLabel}},
 			&genx.MessageChunk{Role: genx.RoleUser, Name: transcriptLabel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: transcriptLabel, EndOfStream: true}},
 		)
+		_ = output.Done(genx.Usage{})
+	}()
+	return output.Stream(), nil
+}
+
+type consumerErrorASRTransformer struct {
+	err  error
+	done chan struct{}
+}
+
+func (t *consumerErrorASRTransformer) Transform(_ context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+	output := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 1)
+	go func() {
+		defer close(t.done)
+		if _, err := input.Next(); err != nil {
+			_ = output.Abort(err)
+			return
+		}
+		_ = input.CloseWithError(t.err)
+	}()
+	return output.Stream(), nil
+}
+
+type blockingASRTransformer struct {
+	ready    chan struct{}
+	inputErr chan error
+	done     chan struct{}
+}
+
+func (t *blockingASRTransformer) Transform(_ context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+	output := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 1)
+	go func() {
+		defer close(t.done)
+		defer input.Close()
+		if _, err := input.Next(); err != nil {
+			t.inputErr <- err
+			_ = output.Abort(err)
+			return
+		}
+		close(t.ready)
+		_, err := input.Next()
+		t.inputErr <- err
+		if err != nil {
+			_ = output.Abort(err)
+			return
+		}
 		_ = output.Done(genx.Usage{})
 	}()
 	return output.Stream(), nil
