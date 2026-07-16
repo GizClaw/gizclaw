@@ -55,6 +55,7 @@ type DoubaoRealtime struct {
 	mode              DoubaoRealtimeMode
 	retryInitial      time.Duration
 	retryMax          time.Duration
+	retryWait         func(context.Context, <-chan struct{}, time.Duration) bool
 }
 
 var _ genx.Transformer = (*DoubaoRealtime)(nil)
@@ -755,23 +756,23 @@ func (t *DoubaoRealtime) sessionLoop(ctx context.Context, input genx.Stream, out
 		session, err := t.realtime.OpenSession(workerCtx, config)
 		if err != nil {
 			slog.Warn("doubao: realtime provider connection failed; retrying", "error", err, "retryDelay", retryDelay)
-			if !waitDoubaoRealtimeRetry(workerCtx, output.Done(), retryDelay) {
+			if !t.waitRetry(workerCtx, output.Done(), retryDelay) {
 				continue
 			}
 			retryDelay = min(retryDelay*2, retryMax)
 			continue
-		}
-		retryDelay = t.retryInitial
-		if retryDelay <= 0 {
-			retryDelay = doubaoRealtimeRetryInitial
 		}
 		err = t.processSession(workerCtx, reader, output, session, runtime)
 		if err == nil {
 			return
 		}
 		if isDoubaoRealtimeRecoverable(err) {
-			slog.Warn("doubao: realtime provider session lost; reconnecting", "error", err)
+			slog.Warn("doubao: realtime provider session lost; reconnecting", "error", err, "retryDelay", retryDelay)
 			runtime.providerLost(t, output, err)
+			if !t.waitRetry(workerCtx, output.Done(), retryDelay) {
+				continue
+			}
+			retryDelay = min(retryDelay*2, retryMax)
 			continue
 		}
 		if workerCtx.Err() != nil {
@@ -785,6 +786,13 @@ func (t *DoubaoRealtime) sessionLoop(ctx context.Context, input genx.Stream, out
 		_ = output.CloseWithError(err)
 		return
 	}
+}
+
+func (t *DoubaoRealtime) waitRetry(ctx context.Context, outputDone <-chan struct{}, delay time.Duration) bool {
+	if t != nil && t.retryWait != nil {
+		return t.retryWait(ctx, outputDone, delay)
+	}
+	return waitDoubaoRealtimeRetry(ctx, outputDone, delay)
 }
 
 func (t *DoubaoRealtime) processLoop(ctx context.Context, input genx.Stream, output *bufferStream, session doubaoRealtimeSession) (*genx.MessageChunk, error) {
@@ -822,6 +830,7 @@ func (t *DoubaoRealtime) processSession(
 	assistant := runtime.assistant
 	pushToTalk := runtime.pushToTalk
 	pttTurn := runtime.pttTurn
+	pttResponses := &doubaoRealtimePTTResponses{}
 	streamIDs := runtime.streamIDs
 	audioInputs := runtime.audioInputs
 
@@ -856,19 +865,23 @@ func (t *DoubaoRealtime) processSession(
 		}
 		return true, nil
 	}
-	pushAssistantOutput := func(epoch uint64, chunk *genx.MessageChunk) error {
+	pushAssistantOutput := func(epoch uint64, response *doubaoRealtimePTTResponse, chunk *genx.MessageChunk) error {
 		if !assistant.canPush(epoch) {
 			return nil
 		}
 		if t.mode != DoubaoRealtimeModePushToTalk {
 			return output.Push(chunk)
 		}
-		err := pttTurn.pushAssistant(chunk)
+		if response == nil {
+			return nil
+		}
+		err := response.push(chunk)
 		if !errors.Is(err, errRealtimePTTOutputLimit) {
 			return err
 		}
-		_, _, _ = pttTurn.discard()
-		_, _, _ = pushToTalk.abort()
+		if _, active, _ := pttTurn.discardResponse(response); active {
+			_, _, _ = pushToTalk.abort()
+		}
 		assistant.setAccept(false)
 		assistant.nextEpoch()
 		if interruptErr := session.Interrupt(ctx); interruptErr != nil {
@@ -1005,6 +1018,7 @@ func (t *DoubaoRealtime) processSession(
 						if err := pttTurn.markASREnded(); err != nil {
 							return err
 						}
+						pttResponses.add(pttTurn.bindResponse(epoch, doubaoRealtimeEventResponseIdentity(event)))
 					case transcriptOpen:
 						if err := closeInputSegment(""); err != nil {
 							return err
@@ -1018,20 +1032,30 @@ func (t *DoubaoRealtime) processSession(
 					markAssistantPending(responseStreamID, epoch)
 
 				case doubaospeech.EventTTSStarted:
-					if !assistant.acceptsOutput() {
-						continue
+					var response *doubaoRealtimePTTResponse
+					epoch := assistant.currentEpoch()
+					if t.mode == DoubaoRealtimeModePushToTalk {
+						response = pttResponses.match(doubaoRealtimeEventResponseIdentity(event))
+						if response == nil {
+							continue
+						}
+						streamID = response.streamID
+						epoch = response.epoch
+						response.ttsStarted = true
+						pushToTalk.responseStarted(streamID, true)
+					} else {
+						if !assistant.acceptsOutput() {
+							continue
+						}
+						epoch = markAssistantStarted(streamID)
 					}
 					slog.Info("doubao: TTS started, sending BOS", "streamID", streamID)
-					epoch := markAssistantStarted(streamID)
-					if t.mode == DoubaoRealtimeModePushToTalk {
-						pushToTalk.responseStarted(true)
-					}
 					bosChunk := &genx.MessageChunk{
 						Role: genx.RoleModel,
 						Part: &genx.Blob{MIMEType: t.outputMIMEType()},
 						Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel, BeginOfStream: true},
 					}
-					if err := pushAssistantOutput(epoch, bosChunk); err != nil {
+					if err := pushAssistantOutput(epoch, response, bosChunk); err != nil {
 						return err
 					}
 
@@ -1041,42 +1065,55 @@ func (t *DoubaoRealtime) processSession(
 							Part: genx.Text(event.Text),
 							Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel},
 						}
-						if err := pushAssistantOutput(epoch, outChunk); err != nil {
+						if err := pushAssistantOutput(epoch, response, outChunk); err != nil {
 							return err
 						}
 					}
 
 				case doubaospeech.EventChatResponse:
-					if !assistant.acceptsOutput() {
-						continue
-					}
+					var response *doubaoRealtimePTTResponse
+					epoch := assistant.currentEpoch()
 					if t.mode == DoubaoRealtimeModePushToTalk {
-						pushToTalk.responseStarted(false)
+						response = pttResponses.match(doubaoRealtimeEventResponseIdentity(event))
+						if response == nil {
+							continue
+						}
+						streamID = response.streamID
+						epoch = response.epoch
+						pushToTalk.responseStarted(streamID, false)
+					} else if !assistant.acceptsOutput() {
+						continue
 					}
 					text := strings.TrimSpace(event.Text)
 					if text != "" {
 						slog.Debug("doubao: chat response", "text", text)
-						epoch := assistant.currentEpoch()
 						outChunk := &genx.MessageChunk{
 							Role: genx.RoleModel,
 							Part: genx.Text(text),
 							Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel},
 						}
-						if err := pushAssistantOutput(epoch, outChunk); err != nil {
+						if err := pushAssistantOutput(epoch, response, outChunk); err != nil {
 							return err
 						}
 					}
 
 				case doubaospeech.EventTTSAudioData:
-					if !assistant.acceptsOutput() {
-						continue
-					}
+					var response *doubaoRealtimePTTResponse
+					epoch := assistant.currentEpoch()
 					if t.mode == DoubaoRealtimeModePushToTalk {
-						pushToTalk.responseStarted(true)
+						response = pttResponses.match(doubaoRealtimeEventResponseIdentity(event))
+						if response == nil {
+							continue
+						}
+						streamID = response.streamID
+						epoch = response.epoch
+						response.ttsStarted = true
+						pushToTalk.responseStarted(streamID, true)
+					} else if !assistant.acceptsOutput() {
+						continue
 					}
 					if len(event.Audio) > 0 {
 						slog.Debug("doubao: audio received", "len", len(event.Audio))
-						epoch := assistant.currentEpoch()
 						blobs, err := t.outputAudioBlobs(event.Audio)
 						if err != nil {
 							return err
@@ -1087,7 +1124,7 @@ func (t *DoubaoRealtime) processSession(
 								Part: blob,
 								Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel},
 							}
-							if err := pushAssistantOutput(epoch, outChunk); err != nil {
+							if err := pushAssistantOutput(epoch, response, outChunk); err != nil {
 								return err
 							}
 							if !waitOutputFrame(epoch) {
@@ -1097,33 +1134,49 @@ func (t *DoubaoRealtime) processSession(
 					}
 
 				case doubaospeech.EventTTSFinished:
-					if !assistant.acceptsOutput() {
+					var response *doubaoRealtimePTTResponse
+					epoch := assistant.currentEpoch()
+					if t.mode == DoubaoRealtimeModePushToTalk {
+						response = pttResponses.match(doubaoRealtimeEventResponseIdentity(event))
+						if response == nil {
+							continue
+						}
+						streamID = response.streamID
+						epoch = response.epoch
+					} else if !assistant.acceptsOutput() {
 						continue
 					}
 					slog.Info("doubao: TTS finished, sending EOS", "streamID", streamID)
-					epoch := assistant.currentEpoch()
 					eosChunk := &genx.MessageChunk{
 						Role: genx.RoleModel,
 						Part: &genx.Blob{MIMEType: t.outputMIMEType()},
 						Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel, EndOfStream: true},
 					}
-					if err := pushAssistantOutput(epoch, eosChunk); err != nil {
+					if err := pushAssistantOutput(epoch, response, eosChunk); err != nil {
 						return err
 					}
 					markAssistantDone(epoch)
 					if t.mode == DoubaoRealtimeModePushToTalk {
-						pushToTalk.ttsFinished()
+						pushToTalk.ttsFinished(streamID)
+						response.ttsFinished = true
+						pttResponses.finish(response)
 					}
 
 				case doubaospeech.EventChatEnded:
-					if !assistant.acceptsOutput() {
+					var response *doubaoRealtimePTTResponse
+					epoch := assistant.currentEpoch()
+					if t.mode == DoubaoRealtimeModePushToTalk {
+						response = pttResponses.match(doubaoRealtimeEventResponseIdentity(event))
+						if response == nil {
+							continue
+						}
+						streamID = response.streamID
+						epoch = response.epoch
+						pushToTalk.chatEnded(streamID)
+					} else if !assistant.acceptsOutput() {
 						continue
 					}
-					if t.mode == DoubaoRealtimeModePushToTalk {
-						pushToTalk.chatEnded()
-					}
 					slog.Debug("doubao: chat ended")
-					epoch := assistant.currentEpoch()
 					doneChunk := &genx.MessageChunk{
 						Role: genx.RoleModel,
 						Part: genx.Text(""),
@@ -1133,8 +1186,12 @@ func (t *DoubaoRealtime) processSession(
 							EndOfStream: true,
 						},
 					}
-					if err := pushAssistantOutput(epoch, doneChunk); err != nil {
+					if err := pushAssistantOutput(epoch, response, doneChunk); err != nil {
 						return err
+					}
+					if response != nil {
+						response.chatEnded = true
+						pttResponses.finish(response)
 					}
 
 				case doubaospeech.EventSessionFinished:
@@ -1342,6 +1399,16 @@ func (t *DoubaoRealtime) pushInputEOSError(output *bufferStream, streamID string
 			Error:       err.Error(),
 		},
 	})
+}
+
+func doubaoRealtimeEventResponseIdentity(event *doubaospeech.RealtimeEvent) doubaoRealtimePTTResponseIdentity {
+	if event == nil {
+		return doubaoRealtimePTTResponseIdentity{}
+	}
+	return doubaoRealtimePTTResponseIdentity{
+		replyID:    strings.TrimSpace(event.ReplyID),
+		questionID: strings.TrimSpace(event.QuestionID),
+	}
 }
 
 func realtimeASRText(payload []byte) string {

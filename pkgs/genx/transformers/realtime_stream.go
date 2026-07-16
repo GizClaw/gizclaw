@@ -234,6 +234,26 @@ type doubaoRealtimePTTTurn struct {
 	assistantOut *realtimePTTOutputGate
 }
 
+type doubaoRealtimePTTResponse struct {
+	streamID string
+	epoch    uint64
+	identity doubaoRealtimePTTResponseIdentity
+	output   *realtimePTTOutputGate
+
+	ttsStarted  bool
+	ttsFinished bool
+	chatEnded   bool
+}
+
+type doubaoRealtimePTTResponseIdentity struct {
+	replyID    string
+	questionID string
+}
+
+type doubaoRealtimePTTResponses struct {
+	items []*doubaoRealtimePTTResponse
+}
+
 func (t *doubaoRealtimePTTTurn) begin(output realtimeChunkOutput, streamID, assistantLabel string, limit time.Duration) {
 	if t == nil {
 		return
@@ -339,6 +359,145 @@ func (t *doubaoRealtimePTTTurn) pushAssistant(chunk *genx.MessageChunk) error {
 	output := t.assistantOut
 	t.mu.Unlock()
 	return output.Push(chunk)
+}
+
+func (t *doubaoRealtimePTTTurn) bindResponse(epoch uint64, identity doubaoRealtimePTTResponseIdentity) *doubaoRealtimePTTResponse {
+	if t == nil {
+		return nil
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if !t.active || t.assistantOut == nil {
+		return nil
+	}
+	return &doubaoRealtimePTTResponse{
+		streamID: t.streamID,
+		epoch:    epoch,
+		identity: identity.normalized(),
+		output:   t.assistantOut,
+	}
+}
+
+func (t *doubaoRealtimePTTTurn) discardResponse(response *doubaoRealtimePTTResponse) (streamID string, active, committed bool) {
+	if t == nil || response == nil {
+		return "", false, false
+	}
+	t.mu.Lock()
+	if !t.active || t.assistantOut != response.output {
+		t.mu.Unlock()
+		return "", false, false
+	}
+	streamID = t.streamID
+	committed = t.committed
+	output := t.assistantOut
+	t.active = false
+	t.committed = false
+	t.hypothesis = ""
+	t.assistantOut = nil
+	t.mu.Unlock()
+	output.Discard()
+	return streamID, true, committed
+}
+
+func (r *doubaoRealtimePTTResponse) push(chunk *genx.MessageChunk) error {
+	if r == nil || r.output == nil {
+		return nil
+	}
+	return r.output.Push(chunk)
+}
+
+func (r *doubaoRealtimePTTResponse) done() bool {
+	return r != nil && r.chatEnded && (!r.ttsStarted || r.ttsFinished)
+}
+
+func (i doubaoRealtimePTTResponseIdentity) normalized() doubaoRealtimePTTResponseIdentity {
+	i.replyID = strings.TrimSpace(i.replyID)
+	i.questionID = strings.TrimSpace(i.questionID)
+	return i
+}
+
+func (i doubaoRealtimePTTResponseIdentity) empty() bool {
+	i = i.normalized()
+	return i.replyID == "" && i.questionID == ""
+}
+
+func (i doubaoRealtimePTTResponseIdentity) matches(other doubaoRealtimePTTResponseIdentity) bool {
+	i = i.normalized()
+	other = other.normalized()
+	if i.conflicts(other) {
+		return false
+	}
+	return (i.replyID != "" && i.replyID == other.replyID) ||
+		(i.questionID != "" && i.questionID == other.questionID)
+}
+
+func (i doubaoRealtimePTTResponseIdentity) conflicts(other doubaoRealtimePTTResponseIdentity) bool {
+	i = i.normalized()
+	other = other.normalized()
+	return (i.replyID != "" && other.replyID != "" && i.replyID != other.replyID) ||
+		(i.questionID != "" && other.questionID != "" && i.questionID != other.questionID)
+}
+
+func (i *doubaoRealtimePTTResponseIdentity) merge(other doubaoRealtimePTTResponseIdentity) {
+	if i == nil {
+		return
+	}
+	other = other.normalized()
+	if strings.TrimSpace(i.replyID) == "" {
+		i.replyID = other.replyID
+	}
+	if strings.TrimSpace(i.questionID) == "" {
+		i.questionID = other.questionID
+	}
+}
+
+func (q *doubaoRealtimePTTResponses) add(response *doubaoRealtimePTTResponse) {
+	if q == nil || response == nil {
+		return
+	}
+	q.items = append(q.items, response)
+}
+
+func (q *doubaoRealtimePTTResponses) match(identity doubaoRealtimePTTResponseIdentity) *doubaoRealtimePTTResponse {
+	if q == nil || len(q.items) == 0 {
+		return nil
+	}
+	identity = identity.normalized()
+	if identity.empty() {
+		return q.items[0]
+	}
+	for _, response := range q.items {
+		if response.identity.matches(identity) {
+			response.identity.merge(identity)
+			return response
+		}
+	}
+	for _, response := range q.items {
+		if response.identity.empty() {
+			response.identity = identity
+			return response
+		}
+	}
+	if len(q.items) == 1 && !q.items[0].identity.conflicts(identity) {
+		q.items[0].identity.merge(identity)
+		return q.items[0]
+	}
+	return nil
+}
+
+func (q *doubaoRealtimePTTResponses) finish(response *doubaoRealtimePTTResponse) {
+	if q == nil || response == nil || !response.done() {
+		return
+	}
+	for i, candidate := range q.items {
+		if candidate != response {
+			continue
+		}
+		copy(q.items[i:], q.items[i+1:])
+		q.items[len(q.items)-1] = nil
+		q.items = q.items[:len(q.items)-1]
+		return
+	}
 }
 
 func (t *doubaoRealtimePTTTurn) discard() (streamID string, active, committed bool) {
@@ -462,26 +621,35 @@ func (s *doubaoPushToTalkState) end() error {
 	return nil
 }
 
-func (s *doubaoPushToTalkState) responseStarted(tts bool) {
+func (s *doubaoPushToTalkState) responseStarted(streamID string, tts bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.streamID != strings.TrimSpace(streamID) {
+		return
+	}
 	if s.phase == doubaoPushToTalkWaitingResponse || s.phase == doubaoPushToTalkResponding {
 		s.phase = doubaoPushToTalkResponding
 		s.ttsStarted = s.ttsStarted || tts
 	}
 }
 
-func (s *doubaoPushToTalkState) chatEnded() {
+func (s *doubaoPushToTalkState) chatEnded(streamID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.streamID != strings.TrimSpace(streamID) {
+		return
+	}
 	if s.phase == doubaoPushToTalkResponding && !s.ttsStarted {
 		s.phase = doubaoPushToTalkIdle
 	}
 }
 
-func (s *doubaoPushToTalkState) ttsFinished() {
+func (s *doubaoPushToTalkState) ttsFinished(streamID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.streamID != strings.TrimSpace(streamID) {
+		return
+	}
 	if s.phase == doubaoPushToTalkResponding {
 		s.phase = doubaoPushToTalkIdle
 		s.ttsStarted = false
