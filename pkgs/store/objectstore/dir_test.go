@@ -1,6 +1,7 @@
 package objectstore
 
 import (
+	"errors"
 	"io"
 	"io/fs"
 	"os"
@@ -236,33 +237,66 @@ func TestDirMetadataFailureRestoresExistingObjectAndDeadline(t *testing.T) {
 	assertNoPutTemps(t, root)
 }
 
-func TestDirPutWithTTLExpiresObjects(t *testing.T) {
+func TestDirPutWithTTLRecordsDeadline(t *testing.T) {
 	store := Dir(t.TempDir())
-	if err := store.PutWithTTL("history/audio.opus", strings.NewReader("audio"), 20*time.Millisecond); err != nil {
+	ttl := time.Hour
+	before := time.Now()
+	if err := store.PutWithTTL("history/audio.opus", strings.NewReader("audio"), ttl); err != nil {
 		t.Fatalf("PutWithTTL: %v", err)
+	}
+	after := time.Now()
+
+	items, err := store.List("history")
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(items) != 1 || items[0].Name != "history/audio.opus" || items[0].Deadline.IsZero() {
+		t.Fatalf("List = %#v, want history/audio.opus with deadline", items)
+	}
+	deadline := items[0].Deadline
+	if deadline.Before(before.Add(ttl)) || deadline.After(after.Add(ttl)) {
+		t.Fatalf("deadline = %v, want within [%v, %v]", deadline, before.Add(ttl), after.Add(ttl))
+	}
+}
+
+func TestDirGetRemovesExpiredObject(t *testing.T) {
+	store := Dir(t.TempDir())
+	name := "history/get.opus"
+	if err := store.Put(name, strings.NewReader("audio")); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+	if err := store.writeMetadata(name, time.Now().Add(-time.Hour)); err != nil {
+		t.Fatalf("write expired metadata: %v", err)
+	}
+
+	r, err := store.Get(name)
+	if r != nil {
+		_ = r.Close()
+	}
+	if !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("Get expired object error = %v, want fs.ErrNotExist", err)
+	}
+	assertDirObjectRemoved(t, store, name)
+}
+
+func TestDirListRemovesExpiredObject(t *testing.T) {
+	store := Dir(t.TempDir())
+	name := "history/list.opus"
+	if err := store.Put(name, strings.NewReader("audio")); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+	if err := store.writeMetadata(name, time.Now().Add(-time.Hour)); err != nil {
+		t.Fatalf("write expired metadata: %v", err)
 	}
 
 	items, err := store.List("history")
 	if err != nil {
-		t.Fatalf("List before deadline: %v", err)
-	}
-	if len(items) != 1 || items[0].Name != "history/audio.opus" || items[0].Deadline.IsZero() {
-		t.Fatalf("List before deadline = %#v, want history/audio.opus with deadline", items)
-	}
-
-	time.Sleep(40 * time.Millisecond)
-	if _, err := store.Get("history/audio.opus"); err == nil {
-		t.Fatal("Get after deadline error = nil")
-	} else if !strings.Contains(err.Error(), fs.ErrNotExist.Error()) {
-		t.Fatalf("Get after deadline error = %v, want not exist", err)
-	}
-	items, err = store.List("history")
-	if err != nil {
-		t.Fatalf("List after deadline: %v", err)
+		t.Fatalf("List expired object: %v", err)
 	}
 	if len(items) != 0 {
-		t.Fatalf("List after deadline = %#v, want empty", items)
+		t.Fatalf("List expired object = %#v, want empty", items)
 	}
+	assertDirObjectRemoved(t, store, name)
 }
 
 func TestDirPutClearsObjectDeadline(t *testing.T) {
@@ -443,6 +477,15 @@ func assertNoPutTemps(t *testing.T, root string) {
 	}
 	if len(matches) != 0 {
 		t.Fatalf("temp files remain: %v", matches)
+	}
+}
+
+func assertDirObjectRemoved(t *testing.T, store Dir, name string) {
+	t.Helper()
+	for _, path := range []string{store.join(name), store.metadataPath(name)} {
+		if _, err := os.Stat(path); !errors.Is(err, fs.ErrNotExist) {
+			t.Errorf("Stat(%q) error = %v, want fs.ErrNotExist", path, err)
+		}
 	}
 }
 
