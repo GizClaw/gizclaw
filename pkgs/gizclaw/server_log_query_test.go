@@ -37,6 +37,13 @@ func TestParseServerLogFilter(t *testing.T) {
 			t.Fatalf("parseServerLogFilter(%q) error = nil", value)
 		}
 	}
+	quotedOperators, err := parseServerLogFilter(`text:"retry != nil" AND result:"a!=b" AND status!="a:b"`)
+	if err != nil {
+		t.Fatalf("parse quoted operators: %v", err)
+	}
+	if quotedOperators.Text != "retry != nil" || len(quotedOperators.Matchers) != 2 || quotedOperators.Matchers[0].Value != "a!=b" || quotedOperators.Matchers[1].Value != "a:b" {
+		t.Fatalf("quoted operator filter = %+v", quotedOperators)
+	}
 }
 
 func TestParseServerLogFilterBoundsAndEscaping(t *testing.T) {
@@ -61,7 +68,7 @@ func TestParseServerLogFilterBoundsAndEscaping(t *testing.T) {
 		strings.Repeat("a", 129) + ":value",
 		"field:" + strings.Repeat("v", maxServerLogFilterValue+1),
 		"field:\\escape", "field:value*", `field:"value*"`, "field:", "*:value", "kind:log", "message!=x", "text:*", "-level:*",
-		"__source__:gizclaw", "__path__:slog", "__time__:1",
+		"__source__:gizclaw", "__path__:slog", "__time__:1", "Time:1", "time:*",
 	}
 	for _, value := range rejected {
 		if _, err := parseServerLogFilter(value); err == nil {

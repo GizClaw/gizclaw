@@ -3,7 +3,9 @@
 package admin_test
 
 import (
+	"context"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -33,12 +35,23 @@ func TestAdminLogStreamUnconfiguredBackend(t *testing.T) {
 
 func TestAdminLogStreamVolcSmoke(t *testing.T) {
 	h := newAdminAPIHarness(t)
+	requestID := "log-store-smoke-" + strconv.FormatInt(time.Now().UnixNano(), 10)
+	limit := int32(1)
+	seed, err := h.api.ListPeersWithResponse(h.ctx, &adminhttp.ListPeersParams{Limit: &limit}, func(_ context.Context, request *http.Request) error {
+		request.Header.Set("X-Request-ID", requestID)
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("seed system log: %v", err)
+	}
+	requireStatusOK(t, seed, seed.Body)
+
 	deadline := time.Now().Add(30 * time.Second)
 	var lastBody string
 	for time.Now().Before(deadline) {
 		now := time.Now().UTC()
 		resp, err := h.api.StreamServerLogsWithResponse(h.ctx, &adminhttp.StreamServerLogsParams{
-			Filter: ptr("*"), StartTimeMs: ptr(now.Add(-5 * time.Minute).UnixMilli()),
+			Filter: ptr("request_id:" + requestID), StartTimeMs: ptr(now.Add(-5 * time.Minute).UnixMilli()),
 			EndTimeMs: ptr(now.Add(time.Minute).UnixMilli()), Limit: ptr(int32(10)),
 		})
 		if err != nil {

@@ -241,7 +241,7 @@ func parseServerLogFilter(value string) (parsedServerLogFilter, error) {
 			}
 			textSet = true
 			result.Text = decoded
-		case "message", "stream", "kind", "__source__", "__path__", "__filename__", "__time__", "_time_", "time_ms", "__time_ns__", "_time_ns_", "time_ns":
+		case "message", "stream", "kind", "__source__", "__path__", "__filename__", "__time__", "_time_", "Time", "time", "time_ms", "__time_ns__", "_time_ns_", "time_ns":
 			return parsedServerLogFilter{}, InvalidServerLogQuery("INVALID_LOG_QUERY", field+" is reserved")
 		default:
 			if err := logstore.ValidateAttributeName(field); err != nil {
@@ -319,14 +319,15 @@ func parseServerLogClause(clause string) (string, logstore.MatchOp, string, erro
 	if strings.HasPrefix(clause, "-") && strings.HasSuffix(clause, ":*") {
 		return strings.TrimSpace(clause[1 : len(clause)-2]), logstore.MatchNotExists, "*", nil
 	}
-	if field, raw, found := strings.Cut(clause, "!="); found {
-		return strings.TrimSpace(field), logstore.MatchNotEqual, strings.TrimSpace(raw), nil
+	notEqualIndex := strings.Index(clause, "!=")
+	colonIndex := strings.IndexByte(clause, ':')
+	if notEqualIndex >= 0 && (colonIndex < 0 || notEqualIndex < colonIndex) {
+		return strings.TrimSpace(clause[:notEqualIndex]), logstore.MatchNotEqual, strings.TrimSpace(clause[notEqualIndex+2:]), nil
 	}
-	field, raw, found := strings.Cut(clause, ":")
-	if !found {
+	if colonIndex < 0 {
 		return "", "", "", InvalidServerLogQuery("INVALID_LOG_QUERY", "filter clause is missing an operator")
 	}
-	field, raw = strings.TrimSpace(field), strings.TrimSpace(raw)
+	field, raw := strings.TrimSpace(clause[:colonIndex]), strings.TrimSpace(clause[colonIndex+1:])
 	op := logstore.MatchEqual
 	if raw == "*" {
 		op = logstore.MatchExists
