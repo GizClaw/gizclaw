@@ -69,7 +69,7 @@ func TestAdminAssetLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if downloadResponse.StatusCode != http.StatusOK || downloadResponse.Header.Get("Content-Type") != "image/png" || string(payload) != "png-data" || downloadResponse.Header.Get("ETag") == "" {
+	if downloadResponse.StatusCode != http.StatusOK || downloadResponse.Header.Get("Content-Type") != "application/octet-stream" || string(payload) != "png-data" || downloadResponse.Header.Get("ETag") == "" {
 		t.Fatalf("download status=%d content-type=%q etag=%q payload=%q", downloadResponse.StatusCode, downloadResponse.Header.Get("Content-Type"), downloadResponse.Header.Get("ETag"), payload)
 	}
 

@@ -115,7 +115,7 @@ type assetDownloadResponse struct {
 func (response assetDownloadResponse) VisitDownloadAssetResponse(ctx *fiber.Ctx) error {
 	defer response.Body.Close()
 	metadata := response.Asset.Metadata
-	ctx.Response().Header.SetContentType(metadata.MediaType)
+	ctx.Response().Header.SetContentType("application/octet-stream")
 	ctx.Response().Header.Set("Content-Length", strconv.FormatInt(metadata.SizeBytes, 10))
 	ctx.Response().Header.Set("ETag", strconv.Quote(hex.EncodeToString(metadata.SHA256[:])))
 	ctx.Status(http.StatusOK)
