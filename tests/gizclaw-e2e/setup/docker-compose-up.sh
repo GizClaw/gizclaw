@@ -158,6 +158,26 @@ validate_docker_project() {
   fi
 }
 
+docker_native_platform() {
+  local platform
+  if ! platform="$(docker version --format '{{.Server.Os}}/{{.Server.Arch}}' 2>/dev/null)"; then
+    echo "failed to determine Docker daemon platform" >&2
+    return 1
+  fi
+  case "$platform" in
+    linux/amd64 | linux/x86_64)
+      echo "linux/amd64"
+      ;;
+    linux/arm64 | linux/aarch64)
+      echo "linux/arm64"
+      ;;
+    *)
+      echo "unsupported Docker daemon platform: ${platform:-unknown}; expected linux/amd64 or linux/arm64" >&2
+      return 1
+      ;;
+  esac
+}
+
 rewrite_endpoint_configs() {
   local root="$1"
   local endpoint="$2"
@@ -347,10 +367,12 @@ export GIZCLAW_E2E_TURN_RELAY_MIN_PORT GIZCLAW_E2E_TURN_RELAY_MAX_PORT
 export GIZCLAW_E2E_DOCKER_ADMIN_BIND="${GIZCLAW_E2E_DOCKER_ADMIN_BIND:-127.0.0.1}"
 export GIZCLAW_E2E_DOCKER_SERVER_BIND="${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}"
 
-base_image="${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-amd64-cn-base}"
+docker_platform="$(docker_native_platform)"
+platform_slug="${docker_platform//\//-}"
+base_image="${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:${platform_slug}-cn-base}"
 if ! docker image inspect "$base_image" >/dev/null 2>&1; then
-  echo "==> build e2e Docker base $base_image"
-  docker build --platform=linux/amd64 -f "$repo_root/build/Dockerfile.cn.base" -t "$base_image" "$repo_root/build"
+  echo "==> build e2e Docker base $base_image for $docker_platform"
+  docker build --platform="$docker_platform" -f "$repo_root/build/Dockerfile.cn.base" -t "$base_image" "$repo_root/build"
 fi
 export GIZCLAW_E2E_DOCKER_BASE_IMAGE="$base_image"
 

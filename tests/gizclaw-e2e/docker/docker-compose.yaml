@@ -1,6 +1,5 @@
 services:
   server:
-    platform: linux/amd64
     build:
       context: ../../..
       dockerfile: tests/gizclaw-e2e/docker/Dockerfile.server
@@ -31,7 +30,6 @@ services:
       - "${GIZCLAW_E2E_DOCKER_ADMIN_BIND:-127.0.0.1}:${GIZCLAW_E2E_DOCKER_ADMIN_PORT:?set by docker-compose-up.sh}:9820/tcp"
 
   edge:
-    platform: linux/amd64
     build:
       context: ../../..
       dockerfile: tests/gizclaw-e2e/docker/Dockerfile.server
@@ -71,7 +69,6 @@ services:
       start_period: 300s
 
   desktop:
-    platform: linux/amd64
     build:
       context: ../../..
       dockerfile: tests/gizclaw-e2e/docker/Dockerfile.desktop

@@ -53,6 +53,13 @@ For manual work, start only the Docker e2e environment:
 bash tests/gizclaw-e2e/setup/docker-compose-up.sh
 ```
 
+The Docker stack uses the Docker daemon's native Linux platform. An amd64
+daemon uses `gizclaw-go:linux-amd64-cn-base`; an arm64 daemon uses
+`gizclaw-go:linux-arm64-cn-base`. The setup builds the matching shared base
+image when it is missing, then Compose reuses it for the server, edge, and
+desktop service images. Set `GIZCLAW_E2E_DOCKER_BASE_IMAGE` to use an existing
+custom base image instead.
+
 By default, the setup picks random free host ports for the edge endpoint and the
 server admin endpoint. Generated client contexts use the edge endpoint; generated
 admin contexts use the server admin endpoint.
