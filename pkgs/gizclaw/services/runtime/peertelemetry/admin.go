@@ -95,7 +95,8 @@ func (s *AdminService) QueryRange(ctx context.Context, peer giznet.PublicKey, fi
 	if err != nil {
 		return apitypes.PeerTelemetryRangeResponse{}, err
 	}
-	series, err := s.Metrics.Range(ctx, metrics.RangeQuery{Selector: selector, Start: start, End: end, Step: step})
+	queryStep := min(step, end.Sub(start))
+	series, err := s.Metrics.Range(ctx, metrics.RangeQuery{Selector: selector, Start: start, End: end, Step: queryStep})
 	if err != nil {
 		return apitypes.PeerTelemetryRangeResponse{}, fmt.Errorf("peertelemetry: query range %s: %w", field, err)
 	}

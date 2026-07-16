@@ -116,7 +116,7 @@ func (s *PrometheusStore) Latest(ctx context.Context, q LatestQuery) (SeriesSet,
 	if err != nil {
 		return nil, err
 	}
-	lookback := formatPrometheusRangeDuration(q.Lookback)
+	lookback := formatPrometheusRangeDuration(q.Lookback + time.Millisecond)
 	values, err := s.queryInstant(ctx, "last_over_time("+selector+"["+lookback+"])", q.At)
 	if err != nil {
 		return nil, err
@@ -132,13 +132,22 @@ func (s *PrometheusStore) Latest(ctx context.Context, q LatestQuery) (SeriesSet,
 			byKey[memorySeriesKey(q.Selector.Name, item.Labels)] = item.Points[len(item.Points)-1]
 		}
 	}
-	for i := range values {
-		values[i].Name = q.Selector.Name
-		if timestamp, ok := byKey[memorySeriesKey(q.Selector.Name, values[i].Labels)]; ok && len(values[i].Points) != 0 {
-			values[i].Points[0].Timestamp = time.UnixMilli(int64(math.Round(timestamp.Value * 1000))).UTC()
+	out := values[:0]
+	boundary := q.At.Add(-q.Lookback).UTC()
+	for _, item := range values {
+		timestamp, ok := byKey[memorySeriesKey(q.Selector.Name, item.Labels)]
+		if !ok || len(item.Points) == 0 {
+			continue
 		}
+		observedAt := time.UnixMilli(int64(math.Round(timestamp.Value * 1000))).UTC()
+		if observedAt.Before(boundary) {
+			continue
+		}
+		item.Name = q.Selector.Name
+		item.Points[0].Timestamp = observedAt
+		out = append(out, item)
 	}
-	return values, nil
+	return out, nil
 }
 
 // Range evaluates the backend-neutral range semantics over Prometheus samples.

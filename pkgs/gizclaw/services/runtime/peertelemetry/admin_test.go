@@ -188,6 +188,21 @@ func TestAdminQueryRangeDerivesStepAndOrdersDesc(t *testing.T) {
 	}
 }
 
+func TestAdminQueryRangeClampsBackendStepToRange(t *testing.T) {
+	t.Parallel()
+	peer := adminTestPeer()
+	start := time.Unix(1783400000, 0).UTC()
+	end := start.Add(time.Minute)
+	store := &fakeAdminMetricsStore{}
+	service := &AdminService{Metrics: store}
+	if _, err := service.QueryRange(context.Background(), peer, apitypes.PeerTelemetryFieldBatteryPercent, start, end, time.Hour, 10, apitypes.PeerTelemetryOrderAsc); err != nil {
+		t.Fatal(err)
+	}
+	if store.rangeQuery.Step != end.Sub(start) {
+		t.Fatalf("backend step = %s, want %s", store.rangeQuery.Step, end.Sub(start))
+	}
+}
+
 func TestAdminQueryRangeIncludesExactStartSample(t *testing.T) {
 	t.Parallel()
 

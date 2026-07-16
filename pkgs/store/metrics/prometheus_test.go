@@ -23,6 +23,10 @@ func TestPrometheusLatestTranslatesSelectorPrivately(t *testing.T) {
 			w.Write([]byte(`{"status":"success","data":{"resultType":"matrix","result":[]}}`))
 			return
 		}
+		if strings.Contains(q, "timestamp(") {
+			w.Write([]byte(`{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"__name__":"m","peer":"a"},"values":[[100,"99"]]}]}}`))
+			return
+		}
 		w.Write([]byte(`{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"__name__":"m","peer":"a"},"values":[[100,"2"]]}]}}`))
 	}))
 	defer server.Close()
@@ -36,6 +40,9 @@ func TestPrometheusLatestTranslatesSelectorPrivately(t *testing.T) {
 	}
 	if len(queries) != 2 || !strings.HasPrefix(queries[0], "last_over_time(") || !strings.Contains(queries[1], "timestamp(") || len(got) != 1 || got[0].Points[0].Value != 2 {
 		t.Fatalf("queries=%q got=%+v", queries, got)
+	}
+	if !got[0].Points[0].Timestamp.Equal(time.Unix(99, 0)) || !strings.Contains(queries[0], "[2001ms]") {
+		t.Fatalf("lookback boundary was not preserved: queries=%q got=%+v", queries, got)
 	}
 }
 

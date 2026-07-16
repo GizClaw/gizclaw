@@ -222,7 +222,7 @@ func (s *ClickHouseStore) Aggregate(ctx context.Context, q AggregateQuery) (Seri
 	if q.Bucket < time.Millisecond || q.Bucket%time.Millisecond != 0 {
 		return nil, fmt.Errorf("metrics: clickhouse aggregate bucket must have positive millisecond precision")
 	}
-	function := map[Aggregation]string{AggregationAvg: "avg(value)", AggregationMin: "min(value)", AggregationMax: "max(value)", AggregationSum: "sum(value)", AggregationCount: "count()", AggregationLast: "argMax(value, timestamp)"}[q.Operation]
+	function := map[Aggregation]string{AggregationAvg: "avg(value)", AggregationMin: "min(value)", AggregationMax: "max(value)", AggregationSum: "sum(value)", AggregationCount: "toFloat64(count())", AggregationLast: "argMax(value, timestamp)"}[q.Operation]
 	where, args := s.where(q.Selector, q.Start, q.End, true)
 	bucketMS := q.Bucket.Milliseconds()
 	innerArgs := []any{q.Start.UTC(), q.Start.UTC(), bucketMS}
