@@ -410,9 +410,7 @@ test("local share stays simple and switches to focused controls", async ({
   expect(await sharedStyle(".local-admin-action")).toEqual(
     await sharedStyle(".local-status-card"),
   );
-  await expect(
-    statusCard.getByRole("button", { name: "Stop" }),
-  ).toBeVisible();
+  await expect(statusCard.getByRole("button", { name: "Stop" })).toBeVisible();
   await expect(dialog.locator(".local-power-actions")).toHaveCount(0);
   await statusCard.getByRole("button", { name: "Stop" }).click();
   await expect(
@@ -502,6 +500,15 @@ test("Remote creation asks only for an access point and adds Servers later", asy
     detail.getByRole("button", { name: "Delete Pod" }),
   ).toBeVisible();
   await detail.getByRole("button", { name: "Add Server" }).click();
+  const serverEditor = page.locator(".server-editor-dialog");
+  await expect(serverEditor).toHaveAttribute(
+    "data-slot",
+    "desktop-dialog-content",
+  );
+  await page.keyboard.press("Escape");
+  await expect(serverEditor).not.toBeVisible();
+  await expect(detail).toBeVisible();
+  await detail.getByRole("button", { name: "Add Server" }).click();
   const adminPrivateKey = page.getByLabel("Admin private key");
   await expect(adminPrivateKey).toHaveAttribute("type", "password");
   await expect(page.getByText("Admin public key")).toHaveCount(0);
@@ -558,11 +565,20 @@ test("launcher uses rounded transparent framing and ambient card depth", async (
   await page.goto("/");
   const gridCards = page.locator(".pod-grid > *");
   await expect(gridCards.first()).toHaveClass(/mobile-app-card/);
+  await expect(gridCards.first()).toHaveAttribute("data-slot", "home-card");
+  await expect(page.locator(".pod-card").first()).toHaveAttribute(
+    "data-slot",
+    "home-card",
+  );
   await expect(gridCards.first()).toContainText("TestFlight");
   await expect(gridCards.first()).toContainText("Google Play");
   await gridCards.first().click();
   const mobileDialog = page.getByRole("dialog", { name: "GizClaw Mobile" });
   await expect(mobileDialog).toBeVisible();
+  await expect(mobileDialog).toHaveAttribute(
+    "data-slot",
+    "desktop-dialog-content",
+  );
   await expect(mobileDialog.locator(".qr-code")).toHaveAttribute(
     "data-qr-payload",
     /iOS \/ TestFlight/,

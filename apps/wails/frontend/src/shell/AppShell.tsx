@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, FormEvent, ReactNode } from "react";
+import type { CSSProperties, FormEvent } from "react";
 import QRCode from "qrcode";
 import {
   Activity,
@@ -25,6 +25,9 @@ import {
 import { setLocale, useMessages } from "../i18n";
 import { getDesktopAPI } from "../lib/runtime/desktop";
 import type { PodInput, PodSummary } from "../lib/runtime/types";
+import { DesktopDialog, DesktopDialogTitle } from "./DesktopDialog";
+import { HomeCard } from "./HomeCard";
+import { ManageListItem } from "./ManageListItem";
 import { NeatWaves } from "./NeatWaves";
 
 export function AppShell() {
@@ -240,117 +243,94 @@ export function AppShell() {
 function MobileAppCard({ onOpen }: { onOpen(): void }) {
   const t = useMessages();
   return (
-    <button
+    <HomeCard
       className="mobile-app-card"
       aria-label={t("mobileAppPromo")}
+      copyClassName="mobile-app-copy"
+      description={t("mobileAppHint")}
+      footer={
+        <span className="mobile-app-platforms" aria-hidden="true">
+          <span>
+            <b>iOS</b> TestFlight
+          </span>
+          <span>
+            <b>Android</b> Google Play
+          </span>
+        </span>
+      }
       onClick={onOpen}
-      type="button"
-    >
-      <span className="mobile-app-card-top">
-        <span className="mobile-app-icon">
-          <Smartphone size={18} />
-        </span>
-        <span className="mode-chip">Mobile</span>
-        <span className="mobile-app-status">{t("comingSoon")}</span>
-      </span>
-      <span className="pod-card-copy mobile-app-copy">
-        <strong>GizClaw Mobile</strong>
-        <small>{t("mobileAppHint")}</small>
-      </span>
-      <span className="mobile-app-platforms" aria-hidden="true">
-        <span>
-          <b>iOS</b> TestFlight
-        </span>
-        <span>
-          <b>Android</b> Google Play
-        </span>
-      </span>
-    </button>
+      title="GizClaw Mobile"
+      top={
+        <>
+          <span className="mobile-app-icon">
+            <Smartphone size={18} />
+          </span>
+          <span className="mode-chip">Mobile</span>
+          <span className="mobile-app-status">{t("comingSoon")}</span>
+        </>
+      }
+    />
   );
 }
 
 function MobileAppDialog({ onClose }: { onClose(): void }) {
   const t = useMessages();
-  const [closing, setClosing] = useState(false);
   const [platform, setPlatform] = useState<"ios" | "android">("ios");
   const channel = platform === "ios" ? "TestFlight" : "Google Play Beta";
   const platformName = platform === "ios" ? "iOS" : "Android";
   const payload = `GizClaw Mobile\n${platformName} / ${channel}\nComing soon`;
-  useEffect(() => {
-    const keydown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setClosing(true);
-    };
-    window.addEventListener("keydown", keydown);
-    return () => window.removeEventListener("keydown", keydown);
-  }, []);
-  useEffect(() => {
-    if (!closing) return;
-    const timer = window.setTimeout(onClose, 240);
-    return () => window.clearTimeout(timer);
-  }, [closing, onClose]);
   return (
-    <div
-      className={`dialog-backdrop ${closing ? "dialog-closing" : ""}`}
-      onAnimationEnd={(event) => {
-        if (closing && event.currentTarget === event.target) onClose();
-      }}
-      onMouseDown={(event) => {
-        if (event.currentTarget === event.target) setClosing(true);
-      }}
-      role="presentation"
-    >
-      <section
-        aria-labelledby="mobile-download-title"
-        aria-modal="true"
-        className="mobile-download-dialog"
-        role="dialog"
-      >
-        <header className="mobile-download-header">
-          <div>
-            <h2 id="mobile-download-title">GizClaw Mobile</h2>
-            <p>{t("mobileDownloadHint")}</p>
+    <DesktopDialog className="mobile-download-dialog" onClose={onClose}>
+      {(close) => (
+        <>
+          <header className="mobile-download-header">
+            <div>
+              <DesktopDialogTitle>
+                <h2>GizClaw Mobile</h2>
+              </DesktopDialogTitle>
+              <p>{t("mobileDownloadHint")}</p>
+            </div>
+            <button
+              aria-label={t("close")}
+              className="icon-button close-button"
+              onClick={close}
+              title={t("close")}
+              type="button"
+            >
+              <X size={20} />
+            </button>
+          </header>
+          <div className="mobile-platform-switch" role="group">
+            <button
+              aria-pressed={platform === "ios"}
+              className={platform === "ios" ? "selected" : ""}
+              onClick={() => setPlatform("ios")}
+              type="button"
+            >
+              <b>iOS</b>
+              <span>TestFlight</span>
+            </button>
+            <button
+              aria-pressed={platform === "android"}
+              className={platform === "android" ? "selected" : ""}
+              onClick={() => setPlatform("android")}
+              type="button"
+            >
+              <b>Android</b>
+              <span>Google Play</span>
+            </button>
           </div>
-          <button
-            aria-label={t("close")}
-            className="icon-button close-button"
-            onClick={() => setClosing(true)}
-            title={t("close")}
-            type="button"
-          >
-            <X size={20} />
-          </button>
-        </header>
-        <div className="mobile-platform-switch" role="group">
-          <button
-            aria-pressed={platform === "ios"}
-            className={platform === "ios" ? "selected" : ""}
-            onClick={() => setPlatform("ios")}
-            type="button"
-          >
-            <b>iOS</b>
-            <span>TestFlight</span>
-          </button>
-          <button
-            aria-pressed={platform === "android"}
-            className={platform === "android" ? "selected" : ""}
-            onClick={() => setPlatform("android")}
-            type="button"
-          >
-            <b>Android</b>
-            <span>Google Play</span>
-          </button>
-        </div>
-        <div className="mobile-download-qr">
-          <QRCodeImage label={t("mobileDownloadQRCode")} payload={payload} />
-          <strong>{channel}</strong>
-          <span>{t("comingSoon")}</span>
-        </div>
-        <p className="mobile-download-note">{t("mobileDownloadPreview")}</p>
-      </section>
-    </div>
+          <div className="mobile-download-qr">
+            <QRCodeImage label={t("mobileDownloadQRCode")} payload={payload} />
+            <strong>{channel}</strong>
+            <span>{t("comingSoon")}</span>
+          </div>
+          <p className="mobile-download-note">{t("mobileDownloadPreview")}</p>
+        </>
+      )}
+    </DesktopDialog>
   );
 }
-
 function WindowControls() {
   const t = useMessages();
   return (
@@ -406,8 +386,33 @@ function PodCard({
       ? t("local")
       : t("remote");
   return (
-    <button
+    <HomeCard
       className={`pod-card pod-card-${pod.valid ? pod.mode : "invalid"}`}
+      description={
+        !pod.valid
+          ? pod.error
+          : pod.local
+            ? running
+              ? t("running")
+              : t("stopped")
+            : `${remoteCount} ${remoteCount === 1 ? t("server") : t("servers")}`
+      }
+      footer={
+        pod.valid ? (
+          <span className="pod-card-capabilities">
+            <span
+              className={
+                pod.local?.admin_configured || adminCount > 0 ? "enabled" : ""
+              }
+            >
+              <Server size={12} /> Admin
+            </span>
+            <span className={pod.play_configured ? "enabled" : ""}>
+              <Sparkles size={12} /> Play
+            </span>
+          </span>
+        ) : null
+      }
       onClick={onOpen}
       style={
         {
@@ -416,51 +421,25 @@ function PodCard({
           "--card-hue-alt": (hue + 42) % 360,
         } as CSSProperties
       }
-      type="button"
-    >
-      <span className="pod-card-top">
-        <span className="mode-icon">
-          {!pod.valid ? (
-            <Activity size={18} />
-          ) : pod.mode === "local" ? (
-            <Laptop size={18} />
-          ) : (
-            <Cloud size={18} />
-          )}
-        </span>
-        <span className="mode-chip">{mode}</span>
-        <span className={`health-pulse ${online ? "online" : ""}`} />
-      </span>
-      <span className="pod-card-copy">
-        <strong>{pod.name}</strong>
-        <small>
-          {!pod.valid
-            ? pod.error
-            : pod.local
-              ? running
-                ? t("running")
-                : t("stopped")
-              : `${remoteCount} ${remoteCount === 1 ? t("server") : t("servers")}`}
-        </small>
-      </span>
-      {pod.valid ? (
-        <span className="pod-card-capabilities">
-          <span
-            className={
-              pod.local?.admin_configured || adminCount > 0 ? "enabled" : ""
-            }
-          >
-            <Server size={12} /> Admin
+      title={pod.name}
+      top={
+        <>
+          <span className="mode-icon">
+            {!pod.valid ? (
+              <Activity size={18} />
+            ) : pod.mode === "local" ? (
+              <Laptop size={18} />
+            ) : (
+              <Cloud size={18} />
+            )}
           </span>
-          <span className={pod.play_configured ? "enabled" : ""}>
-            <Sparkles size={12} /> Play
-          </span>
-        </span>
-      ) : null}
-    </button>
+          <span className="mode-chip">{mode}</span>
+          <span className={`health-pulse ${online ? "online" : ""}`} />
+        </>
+      }
+    />
   );
 }
-
 function PodDetail({
   api,
   pod,
@@ -483,7 +462,6 @@ function PodDetail({
   run(action: () => Promise<PodSummary>): Promise<void>;
 }) {
   const t = useMessages();
-  const [closing, setClosing] = useState(false);
   const [managing, setManaging] = useState(false);
   const [query, setQuery] = useState("");
   const [serverEditor, setServerEditor] = useState<PodServer | "new" | null>(
@@ -498,34 +476,13 @@ function PodDetail({
   const detailSubtitle = pod.local
     ? preferredLANAddress(pod.local.lan_addresses)
     : pod.id;
-  useEffect(() => {
-    const keydown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !serverEditor) setClosing(true);
-    };
-    window.addEventListener("keydown", keydown);
-    return () => window.removeEventListener("keydown", keydown);
-  }, [serverEditor]);
-  useEffect(() => {
-    if (!closing) return;
-    const timer = window.setTimeout(onClose, 240);
-    return () => window.clearTimeout(timer);
-  }, [closing, onClose]);
   return (
-    <div
-      className={`dialog-backdrop ${closing ? "dialog-closing" : ""}`}
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.currentTarget === event.target) setClosing(true);
-      }}
-      onAnimationEnd={(event) => {
-        if (closing && event.currentTarget === event.target) onClose();
-      }}
+    <DesktopDialog
+      className={`pod-dialog pod-dialog-${pod.mode} ${managing ? "is-managing" : ""}`}
+      onClose={onClose}
     >
-      <section
-        className={`pod-dialog pod-dialog-${pod.mode} ${managing ? "is-managing" : ""}`}
-        aria-modal="true"
-        role="dialog"
-      >
+      {(close) => (
+        <>
         <div className="dialog-aurora" />
         <header className="pod-dialog-header">
           {managing && pod.valid ? (
@@ -540,20 +497,22 @@ function PodDetail({
             </button>
           ) : null}
           <div className="pod-dialog-heading">
-            {pod.valid ? (
-              <h2>
-                <button
-                  className="pod-name-button"
-                  onClick={onEdit}
-                  title={t("renameServer")}
-                  type="button"
-                >
-                  {pod.name}
-                </button>
-              </h2>
-            ) : (
-              <h2>{pod.name}</h2>
-            )}
+            <DesktopDialogTitle>
+              {pod.valid ? (
+                <h2>
+                  <button
+                    className="pod-name-button"
+                    onClick={onEdit}
+                    title={t("renameServer")}
+                    type="button"
+                  >
+                    {pod.name}
+                  </button>
+                </h2>
+              ) : (
+                <h2>{pod.name}</h2>
+              )}
+            </DesktopDialogTitle>
           </div>
           <span className="pod-header-meta">
             {detailSubtitle || pod.description || pod.id}
@@ -561,7 +520,7 @@ function PodDetail({
           <button
             aria-label={t("close")}
             className="icon-button close-button"
-            onClick={() => setClosing(true)}
+            onClick={close}
             title={t("close")}
             type="button"
           >
@@ -685,8 +644,9 @@ function PodDetail({
             }}
           />
         ) : null}
-      </section>
-    </div>
+        </>
+      )}
+    </DesktopDialog>
   );
 }
 
@@ -802,53 +762,6 @@ function QRCodeImage({ label, payload }: { label: string; payload: string }) {
         <span className="qr-placeholder" />
       )}
     </div>
-  );
-}
-
-type ManageListItemProps = {
-  className: string;
-  description: ReactNode;
-  icon: ReactNode;
-  iconClassName: string;
-  title: ReactNode;
-  trailing: ReactNode;
-} &
-  (
-    | { as: "section" }
-    | {
-        as: "button";
-        onClick(): void;
-      }
-  );
-
-function ManageListItem(props: ManageListItemProps) {
-  const content = (
-    <>
-      <span className={`manage-list-item-icon ${props.iconClassName}`}>
-        {props.icon}
-      </span>
-      <span className="manage-list-item-copy">
-        <strong>{props.title}</strong>
-        <small>{props.description}</small>
-      </span>
-      <span className="manage-list-item-trailing">{props.trailing}</span>
-    </>
-  );
-
-  if (props.as === "button") {
-    return (
-      <button
-        className={`manage-list-item manage-list-item-button ${props.className}`}
-        onClick={props.onClick}
-        type="button"
-      >
-        {content}
-      </button>
-    );
-  }
-
-  return (
-    <section className={`manage-list-item ${props.className}`}>{content}</section>
   );
 }
 
@@ -1089,84 +1002,97 @@ function ServerEditorDialog({
   const [adminPrivateKey, setAdminPrivateKey] = useState("");
   const [saving, setSaving] = useState(false);
   return (
-    <div className="nested-dialog-backdrop">
-      <form
-        className="secret-dialog server-editor-dialog"
-        onSubmit={(event) => {
-          event.preventDefault();
-          setSaving(true);
-          void onSave({
-            id: server?.id ?? "",
-            name: name.trim(),
-            endpoint: endpoint.trim(),
-            admin_private_key: adminPrivateKey.trim() || undefined,
-          }).finally(() => setSaving(false));
-        }}
-      >
-        <header>
-          <div>
-            <span className="mode-chip">
-              {server ? t("editServer") : t("addServer")}
-            </span>
-            <h3>{server?.name || t("server")}</h3>
-          </div>
-          <button className="icon-button" onClick={onClose} type="button">
-            <X size={18} />
-          </button>
-        </header>
-        <div className="form-grid">
-          <Field
-            label={t("serverName")}
-            onChange={setName}
-            placeholder={t("optionalName")}
-            value={name}
-            wide
-          />
-          <Field
-            label={t("serverEndpoint")}
-            onChange={setEndpoint}
-            placeholder="115.191.6.117:9820"
-            required
-            value={endpoint}
-            wide
-          />
-          <Field
-            label={t("adminPrivateKey")}
-            onChange={setAdminPrivateKey}
-            placeholder={
-              server?.admin_configured
-                ? t("keepAdminPrivateKey")
-                : t("pasteAdminPrivateKey")
-            }
-            secret
-            value={adminPrivateKey}
-            wide
-          />
-        </div>
-        <footer>
-          {onDelete ? (
+    <DesktopDialog
+      className="secret-dialog server-editor-dialog"
+      nested
+      onClose={onClose}
+    >
+      {(close) => (
+        <form
+          className="desktop-dialog-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setSaving(true);
+            void onSave({
+              id: server?.id ?? "",
+              name: name.trim(),
+              endpoint: endpoint.trim(),
+              admin_private_key: adminPrivateKey.trim() || undefined,
+            }).finally(() => setSaving(false));
+          }}
+        >
+          <header>
+            <div>
+              <span className="mode-chip">
+                {server ? t("editServer") : t("addServer")}
+              </span>
+              <DesktopDialogTitle>
+                <h3>{server?.name || t("server")}</h3>
+              </DesktopDialogTitle>
+            </div>
             <button
-              className="danger-action"
-              disabled={saving}
-              onClick={() => void onDelete()}
+              aria-label={t("close")}
+              className="icon-button"
+              onClick={close}
+              title={t("close")}
               type="button"
             >
-              <Trash2 size={14} /> {t("removeServer")}
+              <X size={18} />
             </button>
-          ) : null}
-          <span />
-          <button className="secondary-action" onClick={onClose} type="button">
-            {t("cancel")}
-          </button>
-          <button className="primary-action" disabled={saving} type="submit">
-            {t("saveConfiguration")}
-          </button>
-        </footer>
-      </form>
-    </div>
+          </header>
+          <div className="form-grid">
+            <Field
+              label={t("serverName")}
+              onChange={setName}
+              placeholder={t("optionalName")}
+              value={name}
+              wide
+            />
+            <Field
+              label={t("serverEndpoint")}
+              onChange={setEndpoint}
+              placeholder="115.191.6.117:9820"
+              required
+              value={endpoint}
+              wide
+            />
+            <Field
+              label={t("adminPrivateKey")}
+              onChange={setAdminPrivateKey}
+              placeholder={
+                server?.admin_configured
+                  ? t("keepAdminPrivateKey")
+                  : t("pasteAdminPrivateKey")
+              }
+              secret
+              value={adminPrivateKey}
+              wide
+            />
+          </div>
+          <footer>
+            {onDelete ? (
+              <button
+                className="danger-action"
+                disabled={saving}
+                onClick={() => void onDelete()}
+                type="button"
+              >
+                <Trash2 size={14} /> {t("removeServer")}
+              </button>
+            ) : null}
+            <span />
+            <button className="secondary-action" onClick={close} type="button">
+              {t("cancel")}
+            </button>
+            <button className="primary-action" disabled={saving} type="submit">
+              {t("saveConfiguration")}
+            </button>
+          </footer>
+        </form>
+      )}
+    </DesktopDialog>
   );
 }
-
 function podInputWithServers(
   pod: PodSummary,
   servers: EditableServer[],
@@ -1197,12 +1123,6 @@ function CreatePodDialog({
   const [mode, setMode] = useState<"choose" | "remote">("choose");
   const [accessPoint, setAccessPoint] = useState("");
   const [saving, setSaving] = useState(false);
-  const [closing, setClosing] = useState(false);
-  useEffect(() => {
-    if (!closing) return;
-    const timer = window.setTimeout(onClose, 240);
-    return () => window.clearTimeout(timer);
-  }, [closing, onClose]);
 
   async function createLocal() {
     setSaving(true);
@@ -1233,19 +1153,12 @@ function CreatePodDialog({
   }
 
   return (
-    <div
-      className={`dialog-backdrop ${closing ? "dialog-closing" : ""}`}
-      onMouseDown={(event) => {
-        if (event.currentTarget === event.target) setClosing(true);
-      }}
-      onAnimationEnd={(event) => {
-        if (closing && event.currentTarget === event.target) onClose();
-      }}
-    >
-      <form
-        className="create-dialog compact-dialog"
-        onSubmit={(event) => void createRemote(event)}
-      >
+    <DesktopDialog className="create-dialog compact-dialog" onClose={onClose}>
+      {(close) => (
+        <form
+          className="desktop-dialog-form"
+          onSubmit={(event) => void createRemote(event)}
+        >
         <header>
           {mode === "remote" ? (
             <button
@@ -1258,13 +1171,15 @@ function CreatePodDialog({
           ) : (
             <div>
               <span className="mode-chip">{t("newEnvironment")}</span>
-              <h2>{t("addPod")}</h2>
+              <DesktopDialogTitle>
+                <h2>{t("addPod")}</h2>
+              </DesktopDialogTitle>
             </div>
           )}
           <button
             aria-label={t("close")}
             className="icon-button"
-            onClick={() => setClosing(true)}
+            onClick={close}
             title={t("close")}
             type="button"
           >
@@ -1300,7 +1215,9 @@ function CreatePodDialog({
           <div className="remote-create-step">
             <div>
               <span className="mode-chip">{t("remote")}</span>
-              <h2>{t("connectRemote")}</h2>
+              <DesktopDialogTitle>
+                <h2>{t("connectRemote")}</h2>
+              </DesktopDialogTitle>
             </div>
             <Field
               label={t("accessPoint")}
@@ -1315,8 +1232,9 @@ function CreatePodDialog({
             </button>
           </div>
         )}
-      </form>
-    </div>
+        </form>
+      )}
+    </DesktopDialog>
   );
 }
 
@@ -1331,12 +1249,6 @@ function PodSettingsDialog({
 }) {
   const t = useMessages();
   const [name, setName] = useState(initial.name);
-  const [closing, setClosing] = useState(false);
-  useEffect(() => {
-    if (!closing) return;
-    const timer = window.setTimeout(onClose, 240);
-    return () => window.clearTimeout(timer);
-  }, [closing, onClose]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -1365,24 +1277,24 @@ function PodSettingsDialog({
   }
 
   return (
-    <div
-      className={`dialog-backdrop ${closing ? "dialog-closing" : ""}`}
-      onAnimationEnd={(event) => {
-        if (closing && event.currentTarget === event.target) onClose();
-      }}
-    >
-      <form
-        className="create-dialog settings-dialog"
-        onSubmit={(event) => void submit(event)}
-      >
+    <DesktopDialog className="create-dialog settings-dialog" onClose={onClose}>
+      {(close) => (
+        <form
+          className="desktop-dialog-form"
+          onSubmit={(event) => void submit(event)}
+        >
         <header>
           <div>
             <span className="mode-chip">{t("editPod")}</span>
-            <h2>{initial.name}</h2>
+            <DesktopDialogTitle>
+              <h2>{initial.name}</h2>
+            </DesktopDialogTitle>
           </div>
           <button
+            aria-label={t("close")}
             className="icon-button"
-            onClick={() => setClosing(true)}
+            onClick={close}
+            title={t("close")}
             type="button"
           >
             <X size={18} />
@@ -1401,7 +1313,7 @@ function PodSettingsDialog({
         <footer>
           <button
             className="secondary-action"
-            onClick={() => setClosing(true)}
+            onClick={close}
             type="button"
           >
             {t("cancel")}
@@ -1410,8 +1322,9 @@ function PodSettingsDialog({
             {t("saveConfiguration")}
           </button>
         </footer>
-      </form>
-    </div>
+        </form>
+      )}
+    </DesktopDialog>
   );
 }
 
