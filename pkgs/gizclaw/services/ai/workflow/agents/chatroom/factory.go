@@ -20,6 +20,8 @@ const (
 	transcriptLabel      = "transcript"
 )
 
+var errASRInputConsumerClosed = errors.New("chatroom: ASR input consumer closed")
+
 type Factory struct {
 	Transformer genx.Transformer
 }
@@ -76,18 +78,20 @@ type agent struct {
 
 type asrInputTransport struct {
 	builder         *genx.StreamBuilder
-	onConsumerError func(error)
+	onConsumerClose func(error)
 
-	mu          sync.Mutex
-	terminal    bool
-	terminalErr error
-	completing  chan struct{}
+	mu             sync.Mutex
+	terminal       bool
+	terminalErr    error
+	completing     chan struct{}
+	consumerEOS    bool
+	consumerClosed bool
 }
 
-func newASRInputTransport(onConsumerError func(error)) *asrInputTransport {
+func newASRInputTransport(onConsumerClose func(error)) *asrInputTransport {
 	return &asrInputTransport{
 		builder:         genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 64),
-		onConsumerError: onConsumerError,
+		onConsumerClose: onConsumerClose,
 	}
 }
 
@@ -174,26 +178,49 @@ func (t *asrInputTransport) failure() error {
 	return err
 }
 
+func (t *asrInputTransport) markConsumerEOS() {
+	t.mu.Lock()
+	t.consumerEOS = true
+	t.mu.Unlock()
+}
+
+func (t *asrInputTransport) closeConsumer() bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.terminal || t.consumerEOS || t.consumerClosed {
+		return false
+	}
+	t.consumerClosed = true
+	return true
+}
+
 type asrInputView struct {
 	source    genx.Stream
 	transport *asrInputTransport
 }
 
 func (s *asrInputView) Next() (*genx.MessageChunk, error) {
-	return s.source.Next()
+	chunk, err := s.source.Next()
+	if chunk != nil && chunk.IsEndOfStream() {
+		s.transport.markConsumerEOS()
+	}
+	return chunk, err
 }
 
 func (s *asrInputView) Close() error {
+	if s.transport.closeConsumer() && s.transport.onConsumerClose != nil {
+		s.transport.onConsumerClose(nil)
+	}
 	return nil
 }
 
 func (s *asrInputView) CloseWithError(err error) error {
 	if err == nil || isStreamDone(err) {
-		return nil
+		return s.Close()
 	}
 	first, closeErr := s.transport.abort(err)
-	if first && s.transport.onConsumerError != nil {
-		s.transport.onConsumerError(err)
+	if first && s.transport.onConsumerClose != nil {
+		s.transport.onConsumerClose(err)
 	}
 	return closeErr
 }
@@ -326,6 +353,11 @@ func (a agent) transcribeInput(ctx context.Context, input genx.Stream, output *g
 			return nil
 		}
 		asrInput = newASRInputTransport(func(err error) {
+			if err == nil {
+				_ = asrInput.Abort(errASRInputConsumerClosed)
+				_ = input.Close()
+				return
+			}
 			_ = input.CloseWithError(err)
 		})
 		asrInputStream := asrInput
@@ -396,6 +428,13 @@ func (a agent) transcribeInput(ctx context.Context, input genx.Stream, output *g
 		_ = output.Abort(err)
 		drainTranscript()
 	}
+	finish := func() {
+		if err := waitTranscript(); err != nil {
+			fail(err)
+			return
+		}
+		_ = output.Done(genx.Usage{})
+	}
 
 	audioSeen := false
 	for {
@@ -410,6 +449,10 @@ func (a agent) transcribeInput(ctx context.Context, input genx.Stream, output *g
 		}
 		if asrInput != nil {
 			if asrErr := asrInput.failure(); asrErr != nil {
+				if errors.Is(asrErr, errASRInputConsumerClosed) {
+					finish()
+					return
+				}
 				fail(asrErr)
 				return
 			}
@@ -428,14 +471,14 @@ func (a agent) transcribeInput(ctx context.Context, input genx.Stream, output *g
 				return
 			}
 			if err := asrInput.Done(); err != nil {
+				if errors.Is(err, errASRInputConsumerClosed) {
+					finish()
+					return
+				}
 				fail(err)
 				return
 			}
-			if err := waitTranscript(); err != nil {
-				fail(err)
-				return
-			}
-			_ = output.Done(genx.Usage{})
+			finish()
 			return
 		}
 		if chunk == nil {
@@ -485,19 +528,23 @@ func (a agent) transcribeInput(ctx context.Context, input genx.Stream, output *g
 			next.Ctrl.StreamID = streamID.Get()
 		}
 		if err := asrInput.Add(next); err != nil {
+			if errors.Is(err, errASRInputConsumerClosed) {
+				finish()
+				return
+			}
 			fail(err)
 			return
 		}
 		if chunk.IsEndOfStream() {
 			if err := asrInput.Done(); err != nil {
+				if errors.Is(err, errASRInputConsumerClosed) {
+					finish()
+					return
+				}
 				fail(err)
 				return
 			}
-			if err := waitTranscript(); err != nil {
-				fail(err)
-				return
-			}
-			_ = output.Done(genx.Usage{})
+			finish()
 			return
 		}
 	}
