@@ -2,6 +2,7 @@ ARG BASE_IMAGE=docker.1ms.run/library/ubuntu:24.04
 FROM ${BASE_IMAGE} AS base
 
 ARG APT_MIRROR=http://mirrors.tuna.tsinghua.edu.cn/ubuntu
+ARG APT_PORTS_MIRROR=http://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports
 ARG GO_VERSION=1.26.2
 ARG GO_MIRROR=https://golang.google.cn/dl
 ARG NODE_VERSION=22.13.0
@@ -14,11 +15,17 @@ ENV PATH=/usr/local/go/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
 
 RUN set -eux; \
     . /etc/os-release; \
+    arch="$(dpkg --print-architecture)"; \
+    case "$arch" in \
+        amd64) apt_mirror="$APT_MIRROR" ;; \
+        arm64) apt_mirror="$APT_PORTS_MIRROR" ;; \
+        *) echo "unsupported architecture: $arch" >&2; exit 1 ;; \
+    esac; \
     rm -f /etc/apt/sources.list.d/*.sources; \
     { \
-        echo "deb ${APT_MIRROR} ${VERSION_CODENAME} main restricted universe multiverse"; \
-        echo "deb ${APT_MIRROR} ${VERSION_CODENAME}-updates main restricted universe multiverse"; \
-        echo "deb ${APT_MIRROR} ${VERSION_CODENAME}-security main restricted universe multiverse"; \
+        echo "deb ${apt_mirror} ${VERSION_CODENAME} main restricted universe multiverse"; \
+        echo "deb ${apt_mirror} ${VERSION_CODENAME}-updates main restricted universe multiverse"; \
+        echo "deb ${apt_mirror} ${VERSION_CODENAME}-security main restricted universe multiverse"; \
     } > /etc/apt/sources.list; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
