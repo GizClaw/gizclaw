@@ -61,7 +61,7 @@ stores:
       table: flowcraft_history
 ```
 
-The driver creates and validates a dedicated `MergeTree` table, partitioned by month and ordered by `(stream, timestamp, id)`. `Append` is transactional and returns keys only after commit. `Query` translates the structured contract directly to parameterized ClickHouse SQL and pages by `(timestamp, id)` without a separate index. `Replace` uses a synchronous `ALTER UPDATE`, and `Delete` uses a synchronous `ALTER DELETE`; both target exactly one `(stream, id)` pair. The driver rejects duplicate keys instead of silently mutating multiple rows.
+The driver creates and validates a dedicated `MergeTree` table, partitioned by month and ordered by `(timestamp, stream, id)`. `Append` serializes duplicate checks and synchronous batch insertion within one store instance, then returns keys only after commit. `Query` translates the structured contract directly to parameterized ClickHouse SQL and pages by `(timestamp, stream, id)` without a separate index. `Replace` uses a synchronous `ALTER UPDATE`, and `Delete` uses a synchronous `ALTER DELETE`; both target exactly one `(stream, id)` pair. The driver rejects duplicate keys instead of silently mutating multiple rows.
 
 The `database` field is optional when the DSN already selects one. The ClickHouse driver does not impose an additional local payload-size limit; operators remain responsible for service limits, retention, and table policy. The named-store registry owns the connection lifecycle.
 

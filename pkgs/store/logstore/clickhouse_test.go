@@ -43,6 +43,7 @@ func TestClickHouseCursorBindsQueryButNotLimit(t *testing.T) {
 		Query:   bound,
 		Position: clickHousePosition{
 			TimeUnixNano: time.UnixMilli(10).UnixNano(),
+			Stream:       "history",
 			ID:           "id",
 		},
 	})
@@ -72,7 +73,7 @@ func TestClickHouseCursorSupportsUnixEpochPosition(t *testing.T) {
 	value, err := encodeClickHouseCursor(clickHouseCursor{
 		Version:  1,
 		Query:    normalizeClickHouseQuery(Query{Start: time.UnixMilli(0), End: time.UnixMilli(1), Limit: 1, Order: OrderAsc}),
-		Position: clickHousePosition{ID: "epoch"},
+		Position: clickHousePosition{Stream: "history", ID: "epoch"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -99,7 +100,7 @@ func TestBuildClickHouseWhereTranslatesSelectorsAndCursor(t *testing.T) {
 		Limit: 2,
 		Order: OrderDesc,
 	})
-	position := &clickHousePosition{TimeUnixNano: time.UnixMilli(10).UnixNano(), ID: "id"}
+	position := &clickHousePosition{TimeUnixNano: time.UnixMilli(10).UnixNano(), Stream: "history", ID: "id"}
 	where, args := buildClickHouseWhere(bound, position)
 	for _, fragment := range []string{
 		"stream IN (?,?)",
@@ -107,18 +108,19 @@ func TestBuildClickHouseWhereTranslatesSelectorsAndCursor(t *testing.T) {
 		"severity IN (?)",
 		"position(message, ?) > 0",
 		"attributes[?] = ?",
-		"attributes[?] != ?",
+		"mapContains(attributes, ?) AND attributes[?] != ?",
 		"mapContains(attributes, ?)",
 		"NOT mapContains(attributes, ?)",
 		"timestamp < ?",
+		"stream < ?",
 		"id < ?",
 	} {
 		if !strings.Contains(where, fragment) {
 			t.Fatalf("where = %q, missing %q", where, fragment)
 		}
 	}
-	if len(args) != 16 {
-		t.Fatalf("args = %#v, want 16 values", args)
+	if len(args) != 19 {
+		t.Fatalf("args = %#v, want 19 values", args)
 	}
 	if got := args[2:4]; !reflect.DeepEqual(got, []any{"a", "b"}) {
 		t.Fatalf("stream args = %#v, want sorted selectors", got)

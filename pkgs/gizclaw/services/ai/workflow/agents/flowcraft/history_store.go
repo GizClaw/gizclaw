@@ -315,14 +315,16 @@ func (store *HistoryStore) encodeMessage(
 	id string,
 	recordTime time.Time,
 ) (logstore.Record, error) {
-	messageJSON, err := json.Marshal(message)
+	payload, err := json.Marshal(struct {
+		Version int               `json:"version"`
+		Message flowmodel.Message `json:"message"`
+	}{
+		Version: flowcraftHistorySchemaVersion,
+		Message: message,
+	})
 	if err != nil {
 		return logstore.Record{}, err
 	}
-	payload := make([]byte, 0, len(messageJSON)+24)
-	payload = append(payload, "{\"version\":1,\"message\":"...)
-	payload = append(payload, messageJSON...)
-	payload = append(payload, '}')
 	record := logstore.Record{
 		ID:      id,
 		Time:    recordTime.UTC(),

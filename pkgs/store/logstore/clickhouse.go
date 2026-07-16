@@ -37,6 +37,7 @@ type ClickHouseStore struct {
 	table     string
 	qualified string
 
+	appendMu  sync.Mutex
 	closeOnce sync.Once
 	closeErr  error
 }
@@ -79,7 +80,7 @@ func NewClickHouseStore(config ClickHouseConfig) (*ClickHouseStore, error) {
 	}
 	qualified := quoteClickHouseIdentifier(database) + "." + quoteClickHouseIdentifier(config.Table)
 	ddl := fmt.Sprintf(
-		"CREATE TABLE IF NOT EXISTS %s (id String, timestamp DateTime64(9, 'UTC'), stream String, kind String, severity String, message String, attributes Map(String, String), payload String) ENGINE = MergeTree PARTITION BY toYYYYMM(timestamp) ORDER BY (stream, timestamp, id)",
+		"CREATE TABLE IF NOT EXISTS %s (id String, timestamp DateTime64(9, 'UTC'), stream String, kind String, severity String, message String, attributes Map(String, String), payload String) ENGINE = MergeTree PARTITION BY toYYYYMM(timestamp) ORDER BY (timestamp, stream, id)",
 		qualified,
 	)
 	if _, err := db.ExecContext(ctx, ddl); err != nil {
@@ -166,6 +167,14 @@ func (store *ClickHouseStore) Append(ctx context.Context, records []Record) ([]R
 			return nil, fmt.Errorf("logstore: duplicate record key in append: stream %q id %q", key.Stream, key.ID)
 		}
 		seen[key] = struct{}{}
+	}
+	store.appendMu.Lock()
+	defer store.appendMu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	for _, record := range records {
+		key := record.Key()
 		exists, err := store.recordCount(ctx, key)
 		if err != nil {
 			return nil, err
@@ -245,9 +254,10 @@ func (store *ClickHouseStore) Query(ctx context.Context, query Query) (Page, err
 	}
 	args = append(args, query.Limit+1)
 	statement := fmt.Sprintf(
-		"SELECT id, timestamp, stream, kind, severity, message, attributes, payload FROM %s WHERE %s ORDER BY timestamp %s, id %s LIMIT ?",
+		"SELECT id, timestamp, stream, kind, severity, message, attributes, payload FROM %s WHERE %s ORDER BY timestamp %s, stream %s, id %s LIMIT ?",
 		store.qualified,
 		where,
+		direction,
 		direction,
 		direction,
 	)
@@ -295,6 +305,7 @@ func (store *ClickHouseStore) Query(ctx context.Context, query Query) (Page, err
 			Query:   bound,
 			Position: clickHousePosition{
 				TimeUnixNano: last.Time.UnixNano(),
+				Stream:       last.Stream,
 				ID:           last.ID,
 			},
 		})
@@ -452,6 +463,7 @@ type clickHouseBoundQuery struct {
 
 type clickHousePosition struct {
 	TimeUnixNano int64
+	Stream       string
 	ID           string
 }
 
@@ -524,8 +536,8 @@ func buildClickHouseWhere(query clickHouseBoundQuery, position *clickHousePositi
 			parts = append(parts, "attributes[?] = ?")
 			args = append(args, matcher.Name, matcher.Value)
 		case MatchNotEqual:
-			parts = append(parts, "attributes[?] != ?")
-			args = append(args, matcher.Name, matcher.Value)
+			parts = append(parts, "mapContains(attributes, ?) AND attributes[?] != ?")
+			args = append(args, matcher.Name, matcher.Name, matcher.Value)
 		case MatchExists:
 			parts = append(parts, "mapContains(attributes, ?)")
 			args = append(args, matcher.Name)
@@ -540,8 +552,8 @@ func buildClickHouseWhere(query clickHouseBoundQuery, position *clickHousePositi
 			operator = "<"
 		}
 		value := time.Unix(0, position.TimeUnixNano).UTC()
-		parts = append(parts, "(timestamp "+operator+" ? OR (timestamp = ? AND id "+operator+" ?))")
-		args = append(args, value, value, position.ID)
+		parts = append(parts, "(timestamp "+operator+" ? OR (timestamp = ? AND (stream "+operator+" ? OR (stream = ? AND id "+operator+" ?))))")
+		args = append(args, value, value, position.Stream, position.Stream, position.ID)
 	}
 	return strings.Join(parts, " AND "), args
 }
@@ -569,6 +581,7 @@ func decodeClickHouseCursor(value string) (clickHouseCursor, error) {
 	var cursor clickHouseCursor
 	if err := json.Unmarshal(data, &cursor); err != nil ||
 		cursor.Version != 1 ||
+		strings.TrimSpace(cursor.Position.Stream) == "" ||
 		strings.TrimSpace(cursor.Position.ID) == "" {
 		return clickHouseCursor{}, fmt.Errorf("%w: cursor is invalid", ErrCursorMismatch)
 	}
