@@ -757,7 +757,10 @@ func makeTestPixa(t *testing.T, clips []string, width uint16, height uint16) []b
 	paletteOffset := headerSize
 	clipOffset := paletteOffset + 2
 	frameOffset := clipOffset + len(clips)*clipEntrySize
-	payload := []byte{0x00, 0xf8, 0xe0, 0x07}
+	payload := make([]byte, int(width)*int(height)*2)
+	for i := 0; i < len(payload); i += 4 {
+		copy(payload[i:], []byte{0x00, 0xf8, 0xe0, 0x07})
+	}
 	payloadOffset := frameOffset + frameEntrySize
 	data := make([]byte, payloadOffset+len(payload))
 	copy(data[:4], "PIXA")
