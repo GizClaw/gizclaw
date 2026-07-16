@@ -368,6 +368,7 @@ export GIZCLAW_E2E_DOCKER_ADMIN_BIND="${GIZCLAW_E2E_DOCKER_ADMIN_BIND:-127.0.0.1
 export GIZCLAW_E2E_DOCKER_SERVER_BIND="${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}"
 
 docker_platform="$(docker_native_platform)"
+export DOCKER_DEFAULT_PLATFORM="$docker_platform"
 platform_slug="${docker_platform//\//-}"
 base_image="${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:${platform_slug}-cn-base}"
 if ! docker image inspect "$base_image" >/dev/null 2>&1; then
