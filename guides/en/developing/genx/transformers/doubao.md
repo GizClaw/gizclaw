@@ -15,6 +15,19 @@ Doubao Speech Adapter adapts Doubao speech protocol to `genx.Transformer`, cover
 
 Each Transformer's constructor options define stable configuration, and per-request options are passed through the context. The Adapter must internally convert beanbag events, audio formats, usage, final states, and errors to GenX Stream.
 
+## AST Translate input modes
+
+`DoubaoASTTranslate` supports realtime and Push-to-Talk audio input while keeping provider upload and event reception concurrent:
+
+| Mode | Output boundary |
+| --- | --- |
+| Realtime | Normalized transcript, translation, and TTS chunks are forwarded as provider events arrive. |
+| Push-to-Talk | Provider events are drained while input is active, but normalized transcript, translation, history, and TTS chunks remain unpublished until the matching input audio EOS. |
+
+For Push-to-Talk, input audio EOS commits the unpublished chunks once in their original order. A provider failure recorded before that commit discards the entire unpublished turn and returns the provider error without exposing retained data or control chunks. The commit gate is scoped to the input StreamID and provider session epoch so late events from an interrupted session cannot affect a reused StreamID.
+
+Unpublished assistant TTS output is limited to two minutes of normalized Opus packet duration per turn. Exceeding the limit discards the unpublished turn and emits one error EOS for that StreamID without closing the shared transformer output; input and history audio do not count toward this limit.
+
 ## Two sets of Realtime API
 
 | Boundary | Realtime Dialogue | Realtime Duplex |

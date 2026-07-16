@@ -15,6 +15,19 @@ Doubao Speech Adapter 将豆包语音协议适配为 `genx.Transformer`，覆盖
 
 每个 Transformer 的 constructor options 定义稳定配置，per-request options 通过 context 传递。Adapter 必须在内部完成豆包事件、音频格式、usage、终态和错误到 GenX Stream 的转换。
 
+## AST Translate 输入模式
+
+`DoubaoASTTranslate` 支持 realtime 和 Push-to-Talk 音频输入，同时保持 provider 上传与事件接收并发执行：
+
+| 模式 | 输出边界 |
+| --- | --- |
+| Realtime | Provider 事件到达时立即转发规范化后的 transcript、translation 和 TTS chunks。 |
+| Push-to-Talk | 输入期间持续消费 provider 事件，但规范化后的 transcript、translation、history 和 TTS chunks 在匹配的输入音频 EOS 前保持未发布。 |
+
+Push-to-Talk 的输入音频 EOS 按原始顺序一次性提交未发布 chunks。Provider failure 如果在提交前被记录，会丢弃整个未发布 turn 并返回 provider error，不暴露任何 retained data 或 control chunks。Commit gate 同时绑定输入 StreamID 与 provider session epoch，因此被打断 session 的迟到事件不能影响复用同一 StreamID 的新 session。
+
+每个 turn 未发布的 assistant TTS output 最多保留两分钟，以规范化 Opus packet duration 计算。超过限制时丢弃整个未发布 turn，并只为对应 StreamID 发送一个 error EOS，不关闭共享 transformer output；input 和 history audio 不计入该限制。
+
 ## 两套 Realtime API
 
 | 边界 | Realtime Dialogue | Realtime Duplex |
