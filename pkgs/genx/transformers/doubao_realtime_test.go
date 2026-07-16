@@ -220,6 +220,37 @@ func TestDoubaoRealtimePushToTalkEndsASR(t *testing.T) {
 	}
 }
 
+func TestDoubaoRealtimePushToTalkWaitsForAudioEOS(t *testing.T) {
+	endASR := make(chan struct{})
+	session := &fakeDoubaoRealtimeSession{
+		beforeRecv: endASR,
+		endASR:     endASR,
+		events:     []*doubaospeech.RealtimeEvent{{Type: doubaospeech.EventSessionFinished}},
+	}
+	tfr := NewDoubaoRealtime(nil,
+		WithDoubaoRealtimeInputFormat("pcm"),
+		WithDoubaoRealtimeInputTranscode(false),
+	)
+	input := &sliceRealtimeStream{chunks: []*genx.MessageChunk{
+		{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+		{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{2, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+	}}
+	output := newBufferStream(16)
+
+	if err := runDoubaoRealtimeProcessLoop(t, tfr, input, output, session); err != nil {
+		t.Fatalf("processLoop() error = %v", err)
+	}
+	if got := session.endASRCount(); got != 1 {
+		t.Fatalf("EndASR calls = %d, want 1", got)
+	}
+	if sent := session.audioFrames(); len(sent) != 2 {
+		t.Fatalf("SendAudio calls = %d, want 2", len(sent))
+	}
+}
+
 func TestDoubaoRealtimePushToTalkRejectsInvalidInputTransitions(t *testing.T) {
 	tests := []struct {
 		name       string

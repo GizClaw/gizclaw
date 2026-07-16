@@ -51,6 +51,21 @@ func realtimeStreamKey(streamID string) string {
 	return streamID
 }
 
+func realtimeAudioInputEOS(chunk *genx.MessageChunk) bool {
+	if chunk == nil || !chunk.IsEndOfStream() {
+		return false
+	}
+	if chunk.Part == nil {
+		return true
+	}
+	mimeType, ok := chunk.MIMEType()
+	if !ok {
+		return false
+	}
+	mimeType = realtimeBaseMIME(mimeType)
+	return strings.HasPrefix(mimeType, "audio/") || mimeType == "application/ogg"
+}
+
 func isRealtimeOpusMIME(mimeType string) bool {
 	mimeType = realtimeBaseMIME(mimeType)
 	return mimeType == "audio/opus" || strings.HasPrefix(mimeType, "audio/ogg")

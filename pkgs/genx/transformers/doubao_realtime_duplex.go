@@ -757,9 +757,9 @@ func (t *DoubaoRealtimeDuplex) processLoop(ctx context.Context, input genx.Strea
 			continue
 		}
 
-		// Duplex uses server-side turn detection. Input EOS only closes the
-		// local stream boundary; it must not commit audio.
-		if chunk.IsEndOfStream() {
+		// Duplex uses server-side turn detection. Audio-channel or route EOS
+		// only closes the local stream boundary; it must not commit audio.
+		if realtimeAudioInputEOS(chunk) {
 			streamID := streamIDs.serviceInput(chunk)
 			slog.Debug("doubao: received realtime EOS, closing local audio stream without commit", "streamID", streamID, "audioSent", audioSent)
 			audioInputs.closeStream(streamID)

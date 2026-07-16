@@ -1048,6 +1048,35 @@ func TestHistoryOutputTracksForwardMIMEsIndependently(t *testing.T) {
 	}
 }
 
+func TestHistoryOutputForwardsControlEOSAndClearsRoute(t *testing.T) {
+	output := &historyOutput{}
+	for _, chunk := range []*genx.MessageChunk{
+		{Role: genx.RoleModel, Name: "assistant", Part: genx.Text("live"), Ctrl: &genx.StreamCtrl{StreamID: "live", Label: "assistant"}},
+		{Role: genx.RoleModel, Name: "speaker", Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "live", Label: "speaker"}},
+	} {
+		if output.observeForwardChunk(chunk) {
+			t.Fatalf("active chunk was unexpectedly suppressed: %#v", chunk)
+		}
+	}
+	if got := output.interruptForwardOutput(); len(got) != 2 {
+		t.Fatalf("interrupt chunks = %#v, want two MIME EOS chunks", got)
+	}
+	status := &genx.MessageChunk{Role: genx.RoleModel, Name: "status", Part: genx.Text("working"), Ctrl: &genx.StreamCtrl{StreamID: "live", Label: "status"}}
+	if output.observeForwardChunk(status) {
+		t.Fatal("new label was unexpectedly suppressed")
+	}
+	routeEOS := &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "live", EndOfStream: true}}
+	if output.observeForwardChunk(routeEOS) {
+		t.Fatal("control-only EOS was suppressed after interruption")
+	}
+	if len(output.activeForward) != 0 || len(output.interruptedForward) != 0 {
+		t.Fatalf("forward state after route EOS = active %d, interrupted %d", len(output.activeForward), len(output.interruptedForward))
+	}
+	if got := output.interruptForwardOutput(); len(got) != 0 {
+		t.Fatalf("completed route emitted interruption chunks: %#v", got)
+	}
+}
+
 func TestHistoryPCMFormatAndChunkNames(t *testing.T) {
 	for _, tc := range []struct {
 		mime string

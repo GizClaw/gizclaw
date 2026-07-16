@@ -362,19 +362,17 @@ func (o *historyOutput) observeForwardChunk(chunk *genx.MessageChunk) bool {
 		if chunk.Part != nil || !chunk.IsEndOfStream() {
 			return false
 		}
-		interrupted := false
 		for key := range o.interruptedForward {
-			if key.historyForwardRouteKey == route.key() {
+			if key.streamID == route.streamID {
 				delete(o.interruptedForward, key)
-				interrupted = true
 			}
 		}
 		for key := range o.activeForward {
-			if key.historyForwardRouteKey == route.key() {
+			if key.streamID == route.streamID {
 				delete(o.activeForward, key)
 			}
 		}
-		return interrupted
+		return false
 	}
 	key := historyForwardChunkKey{historyForwardRouteKey: route.key(), mimeType: mimeType}
 	if _, interrupted := o.interruptedForward[key]; interrupted {

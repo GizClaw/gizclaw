@@ -892,8 +892,8 @@ func (t *DoubaoRealtime) processLoop(ctx context.Context, input genx.Stream, out
 			continue
 		}
 
-		// Handle EOS according to the configured input mode.
-		if chunk.IsEndOfStream() {
+		// Handle audio-channel or route EOS according to the configured input mode.
+		if realtimeAudioInputEOS(chunk) {
 			streamID := streamIDs.serviceInput(chunk)
 			if t.mode == DoubaoRealtimeModePushToTalk {
 				if err := pushToTalk.end(); err != nil {
