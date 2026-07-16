@@ -12,6 +12,7 @@ import (
 const maxDimensionLength = 128
 
 var safeDimensionRE = regexp.MustCompile(`^[A-Za-z0-9._:/-]+$`)
+var safeRouteRE = regexp.MustCompile(`^[A-Za-z0-9._:/@-]+$`)
 var safeOperationRE = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
 var safeRequestIDRE = regexp.MustCompile(`^[A-Za-z0-9._-]{1,128}$`)
 
@@ -257,7 +258,7 @@ func statusClass(status int) StatusClass {
 
 func boundedRoute(value string) string {
 	value = strings.TrimSpace(value)
-	if value == "" || len(value) > maxDimensionLength || !strings.HasPrefix(value, "/") || strings.ContainsAny(value, "?#") || !safeDimensionRE.MatchString(value) {
+	if value == "" || len(value) > maxDimensionLength || !strings.HasPrefix(value, "/") || strings.ContainsAny(value, "?#") || !safeRouteRE.MatchString(value) {
 		return "unknown"
 	}
 	return value

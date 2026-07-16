@@ -118,6 +118,7 @@ func observeHTTPHandler(next http.Handler, opts httpObservationOptions) http.Han
 
 		status := http.StatusOK
 		wroteHeader := false
+		var writeErr error
 		body := make([]byte, 0, 1024)
 		overflow := false
 		captureBody := func(p []byte) {
@@ -154,6 +155,9 @@ func observeHTTPHandler(next http.Handler, opts httpObservationOptions) http.Han
 						wroteHeader = true
 					}
 					n, err := next(p)
+					if err != nil && writeErr == nil {
+						writeErr = err
+					}
 					captureBody(p[:n])
 					return n, err
 				}
@@ -163,10 +167,14 @@ func observeHTTPHandler(next http.Handler, opts httpObservationOptions) http.Han
 					if requestID != "" {
 						writer.Header().Set(requestIDHeader, requestID)
 					}
-					return next(io.TeeReader(source, writerFunc(func(p []byte) (int, error) {
+					n, err := next(io.TeeReader(source, writerFunc(func(p []byte) (int, error) {
 						captureBody(p)
 						return len(p), nil
 					})))
+					if err != nil && writeErr == nil {
+						writeErr = err
+					}
+					return n, err
 				}
 			},
 		})
@@ -183,6 +191,9 @@ func observeHTTPHandler(next http.Handler, opts httpObservationOptions) http.Han
 				}
 			}
 			result := httpObservationResult(request.Context(), status)
+			if writeErr != nil {
+				result = observability.ResultTransportError
+			}
 			fallbackRoute, fallbackOperation := registeredHTTPFallback(request)
 			outcome.SetHTTPFallback(fallbackRoute, fallbackOperation)
 			outcome.SetHTTP(request.Method, "", status, result)

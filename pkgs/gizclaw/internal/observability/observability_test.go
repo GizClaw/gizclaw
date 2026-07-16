@@ -63,6 +63,9 @@ func TestOutcomeLogsBoundedScalarContract(t *testing.T) {
 }
 
 func TestOutcomeRejectsUnsafeValuesAndMapsLevels(t *testing.T) {
+	if got := boundedRoute("/firmwares/:name/@release"); got != "/firmwares/:name/@release" {
+		t.Fatalf("boundedRoute() = %q, want registered action route", got)
+	}
 	if got := boundedRoute("/users/private?token=secret"); got != "unknown" {
 		t.Fatalf("boundedRoute() = %q, want unknown", got)
 	}

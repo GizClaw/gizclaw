@@ -353,6 +353,43 @@ func TestObserveHTTPHandlerMapsRepresentativeStatuses(t *testing.T) {
 	}
 }
 
+func TestObserveHTTPHandlerLogsResponseWriteFailures(t *testing.T) {
+	tests := []struct {
+		name         string
+		write        func(http.ResponseWriter)
+		wantReadFrom bool
+	}{
+		{name: "write", write: func(writer http.ResponseWriter) {
+			_, _ = writer.Write([]byte("response"))
+		}},
+		{name: "read from", write: func(writer http.ResponseWriter) {
+			_, _ = io.Copy(writer, io.LimitReader(strings.NewReader("response"), 8))
+		}, wantReadFrom: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			capture := captureSlog(t)
+			writeErr := errors.New("secret writer failure")
+			writer := &observabilityErrorWriter{header: make(http.Header), err: writeErr}
+			handler := observeHTTPHandler(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+				test.write(response)
+			}), httpObservationOptions{surface: observability.SurfaceServerPublic})
+			handler.ServeHTTP(writer, httptest.NewRequest(http.MethodGet, "/", nil))
+			if got := writer.readFromCalls > 0; got != test.wantReadFrom {
+				t.Fatalf("ReadFrom called = %v, want %v; Write calls = %d", got, test.wantReadFrom, writer.writeCalls)
+			}
+
+			record, attrs := onlyCapturedRecord(t, capture)
+			if record.Level != slog.LevelError || attrs["result"] != "transport_error" || attrs["status"] != int64(http.StatusOK) {
+				t.Fatalf("record = (%s, %#v)", record.Level, attrs)
+			}
+			if strings.Contains(fmt.Sprint(attrs), writeErr.Error()) {
+				t.Fatalf("write error leaked into attrs: %#v", attrs)
+			}
+		})
+	}
+}
+
 func TestObserveHTTPHandlerLeavesMalformedAndOversizedErrorsUnchanged(t *testing.T) {
 	tests := []struct {
 		name string
@@ -464,6 +501,24 @@ func (w *observabilityAllWriter) ReadFrom(reader io.Reader) (int64, error) {
 	return w.body.ReadFrom(reader)
 }
 func (*observabilityAllWriter) Push(string, *http.PushOptions) error { return nil }
+
+type observabilityErrorWriter struct {
+	header        http.Header
+	err           error
+	writeCalls    int
+	readFromCalls int
+}
+
+func (w *observabilityErrorWriter) Header() http.Header { return w.header }
+func (*observabilityErrorWriter) WriteHeader(int)       {}
+func (w *observabilityErrorWriter) Write([]byte) (int, error) {
+	w.writeCalls++
+	return 0, w.err
+}
+func (w *observabilityErrorWriter) ReadFrom(io.Reader) (int64, error) {
+	w.readFromCalls++
+	return 0, w.err
+}
 
 func onlyCapturedRecord(t *testing.T, capture *slogCapture) (slog.Record, map[string]any) {
 	t.Helper()
