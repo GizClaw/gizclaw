@@ -86,6 +86,9 @@ func ReadValidated(r io.Reader, format Format) ([]byte, error) {
 		if pixelCount := int64(config.Width) * int64(config.Height); pixelCount > maxPNGPixelCount {
 			return nil, fmt.Errorf("%w: PNG dimensions %dx%d exceed the %d total pixel limit", ErrInvalid, config.Width, config.Height, maxPNGPixelCount)
 		}
+		if _, err := png.Decode(bytes.NewReader(data)); err != nil {
+			return nil, fmt.Errorf("%w: invalid PNG: %v", ErrInvalid, err)
+		}
 	case FormatPixa:
 		if err := validatePIXA(data); err != nil {
 			return nil, fmt.Errorf("%w: %v", ErrInvalid, err)

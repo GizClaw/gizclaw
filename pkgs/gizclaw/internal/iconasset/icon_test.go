@@ -53,6 +53,18 @@ func TestReadValidatedRejectsOversizedPNGDimensions(t *testing.T) {
 	}
 }
 
+func TestReadValidatedRejectsTruncatedPNG(t *testing.T) {
+	t.Parallel()
+	pngBytes := testPNG(t)
+	truncated := pngBytes[:len(pngBytes)-20]
+	if _, err := png.DecodeConfig(bytes.NewReader(truncated)); err != nil {
+		t.Fatalf("DecodeConfig(truncated PNG) error = %v, want header to remain valid", err)
+	}
+	if _, err := ReadValidated(bytes.NewReader(truncated), FormatPNG); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("ReadValidated(truncated PNG) error = %v, want ErrInvalid", err)
+	}
+}
+
 func TestOwnerObjectNames(t *testing.T) {
 	t.Parallel()
 	if got, want := ObjectName("team/demo", FormatPNG), "team%2Fdemo/icon.png"; got != want {
