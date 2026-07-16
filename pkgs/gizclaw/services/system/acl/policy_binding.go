@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/jmoiron/sqlx"
 )
 
 const (
@@ -37,7 +38,7 @@ func (s *Server) ListPolicyBindings(ctx context.Context, request ListPolicyBindi
 	if err != nil {
 		return nil, false, nil, err
 	}
-	rows, err := s.DB.QueryContext(ctx, query, args...)
+	rows, err := s.DB.QueryContext(ctx, s.DB.Rebind(query), args...)
 	if err != nil {
 		return nil, false, nil, err
 	}
@@ -171,7 +172,7 @@ func (s *Server) CreatePolicyBinding(ctx context.Context, id string, displayOrde
 	} else if !errors.Is(err, ErrPolicyBindingNotFound) {
 		return apitypes.ACLPolicyBinding{}, err
 	}
-	tx, err := s.DB.BeginTx(ctx, nil)
+	tx, err := s.DB.BeginTxx(ctx, nil)
 	if err != nil {
 		return apitypes.ACLPolicyBinding{}, err
 	}
@@ -214,7 +215,7 @@ func (s *Server) PutPolicyBinding(ctx context.Context, id string, displayOrder f
 		return apitypes.ACLPolicyBinding{}, err
 	}
 	now := s.now()
-	tx, err := s.DB.BeginTx(ctx, nil)
+	tx, err := s.DB.BeginTxx(ctx, nil)
 	if err != nil {
 		return apitypes.ACLPolicyBinding{}, err
 	}
@@ -239,7 +240,7 @@ func (s *Server) PutPolicyBinding(ctx context.Context, id string, displayOrder f
 	} else if ok {
 		return apitypes.ACLPolicyBinding{}, ErrPolicyBindingAlreadyExists
 	}
-	if _, err := tx.ExecContext(ctx, `
+	if _, err := tx.ExecContext(ctx, tx.Rebind(`
 INSERT INTO acl_policy_bindings (
 	id, display_order, subject_kind, subject_id, resource_kind, resource_id, role, not_before, expires_at, created_at, updated_at
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -252,7 +253,7 @@ ON CONFLICT(id) DO UPDATE SET
 	role = excluded.role,
 	not_before = excluded.not_before,
 	expires_at = excluded.expires_at,
-	updated_at = excluded.updated_at`,
+	updated_at = excluded.updated_at`),
 		existing.Id,
 		existing.DisplayOrder,
 		existing.Policy.Subject.Kind,
@@ -267,7 +268,7 @@ ON CONFLICT(id) DO UPDATE SET
 	); err != nil {
 		return apitypes.ACLPolicyBinding{}, err
 	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM acl_binding_permissions WHERE binding_id = ?`, existing.Id); err != nil {
+	if _, err := tx.ExecContext(ctx, tx.Rebind(`DELETE FROM acl_binding_permissions WHERE binding_id = ?`), existing.Id); err != nil {
 		return apitypes.ACLPolicyBinding{}, err
 	}
 	if err := insertPolicyBindingPermissions(ctx, tx, existing, role.Permissions); err != nil {
@@ -298,7 +299,7 @@ func (s *Server) DeletePolicyBinding(ctx context.Context, id string) (apitypes.A
 	if err != nil {
 		return apitypes.ACLPolicyBinding{}, err
 	}
-	tx, err := s.DB.BeginTx(ctx, nil)
+	tx, err := s.DB.BeginTxx(ctx, nil)
 	if err != nil {
 		return apitypes.ACLPolicyBinding{}, err
 	}
@@ -361,10 +362,10 @@ func normalizePolicy(policy apitypes.ACLPolicy) (apitypes.ACLPolicy, error) {
 }
 
 func insertPolicyBinding(ctx context.Context, exec sqlExecutor, binding apitypes.ACLPolicyBinding) error {
-	_, err := exec.ExecContext(ctx, `
+	_, err := exec.ExecContext(ctx, exec.Rebind(`
 INSERT INTO acl_policy_bindings (
 	id, display_order, subject_kind, subject_id, resource_kind, resource_id, role, not_before, expires_at, created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
 		binding.Id,
 		binding.DisplayOrder,
 		binding.Policy.Subject.Kind,
@@ -381,10 +382,10 @@ INSERT INTO acl_policy_bindings (
 }
 
 func getPolicyBinding(ctx context.Context, query sqlQuerier, id string) (apitypes.ACLPolicyBinding, error) {
-	return scanPolicyBinding(query.QueryRowContext(ctx, `
+	return scanPolicyBinding(query.QueryRowContext(ctx, query.Rebind(`
 SELECT id, display_order, subject_kind, subject_id, resource_kind, resource_id, role, not_before, expires_at, created_at, updated_at
 FROM acl_policy_bindings
-WHERE id = ?`, id))
+WHERE id = ?`), id))
 }
 
 func scanPolicyBinding(row policyBindingScanner) (apitypes.ACLPolicyBinding, error) {
@@ -431,10 +432,10 @@ func scanPolicyBinding(row policyBindingScanner) (apitypes.ACLPolicyBinding, err
 
 func insertPolicyBindingPermissions(ctx context.Context, exec sqlExecutor, binding apitypes.ACLPolicyBinding, permissions apitypes.ACLPermissionList) error {
 	for _, permission := range permissions {
-		if _, err := exec.ExecContext(ctx, `
+		if _, err := exec.ExecContext(ctx, exec.Rebind(`
 INSERT INTO acl_binding_permissions (
 	binding_id, subject_kind, subject_id, resource_kind, resource_id, permission, not_before, expires_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`),
 			binding.Id,
 			binding.Policy.Subject.Kind,
 			binding.Policy.Subject.Id,
@@ -450,11 +451,11 @@ INSERT INTO acl_binding_permissions (
 	return nil
 }
 
-func refreshRoleBindingPermissions(ctx context.Context, tx *sql.Tx, roleName string, permissions apitypes.ACLPermissionList) error {
-	rows, err := tx.QueryContext(ctx, `
+func refreshRoleBindingPermissions(ctx context.Context, tx *sqlx.Tx, roleName string, permissions apitypes.ACLPermissionList) error {
+	rows, err := tx.QueryContext(ctx, tx.Rebind(`
 SELECT id, display_order, subject_kind, subject_id, resource_kind, resource_id, role, not_before, expires_at, created_at, updated_at
 FROM acl_policy_bindings
-WHERE role = ?`, roleName)
+WHERE role = ?`), roleName)
 	if err != nil {
 		return err
 	}
@@ -470,7 +471,7 @@ WHERE role = ?`, roleName)
 	if err := rows.Err(); err != nil {
 		return err
 	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM acl_binding_permissions WHERE binding_id IN (SELECT id FROM acl_policy_bindings WHERE role = ?)`, roleName); err != nil {
+	if _, err := tx.ExecContext(ctx, tx.Rebind(`DELETE FROM acl_binding_permissions WHERE binding_id IN (SELECT id FROM acl_policy_bindings WHERE role = ?)`), roleName); err != nil {
 		return err
 	}
 	for _, binding := range bindings {
@@ -482,16 +483,16 @@ WHERE role = ?`, roleName)
 }
 
 func deletePolicyBinding(ctx context.Context, exec sqlExecutor, id string) error {
-	if _, err := exec.ExecContext(ctx, `DELETE FROM acl_binding_permissions WHERE binding_id = ?`, id); err != nil {
+	if _, err := exec.ExecContext(ctx, exec.Rebind(`DELETE FROM acl_binding_permissions WHERE binding_id = ?`), id); err != nil {
 		return err
 	}
-	_, err := exec.ExecContext(ctx, `DELETE FROM acl_policy_bindings WHERE id = ?`, id)
+	_, err := exec.ExecContext(ctx, exec.Rebind(`DELETE FROM acl_policy_bindings WHERE id = ?`), id)
 	return err
 }
 
 func policyBindingConflict(ctx context.Context, query sqlQuerier, id string, policy apitypes.ACLPolicy) (bool, error) {
 	var count int
-	err := query.QueryRowContext(ctx, `
+	err := query.QueryRowContext(ctx, query.Rebind(`
 SELECT count(*)
 FROM acl_policy_bindings
 WHERE id <> ?
@@ -499,7 +500,7 @@ WHERE id <> ?
   AND subject_id = ?
   AND resource_kind = ?
   AND resource_id = ?
-  AND role = ?`,
+  AND role = ?`),
 		id,
 		policy.Subject.Kind,
 		policy.Subject.Id,

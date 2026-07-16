@@ -3,7 +3,6 @@ package gizclaw
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"io"
@@ -28,6 +27,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
+	"github.com/jmoiron/sqlx"
 )
 
 func TestAdminServiceApplyResourceRequiresBody(t *testing.T) {
@@ -50,7 +50,7 @@ func TestAdminServiceDeletePeerPetUsesGameplayLifecycle(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db, err := sql.Open("sqlite", "file:admin-delete-peer-pet?mode=memory&cache=shared")
+	db, err := sqlx.Open("sqlite", "file:admin-delete-peer-pet?mode=memory&cache=shared")
 	if err != nil {
 		t.Fatalf("sql.Open() error = %v", err)
 	}

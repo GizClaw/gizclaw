@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -33,6 +32,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
+	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
 
@@ -1219,7 +1219,7 @@ func TestServerGameplayPixaDownloads(t *testing.T) {
 	} else if _, ok := resp.(adminhttp.CreateGameRuleset200JSONResponse); !ok {
 		t.Fatalf("CreateGameRuleset response = %T", resp)
 	}
-	db, err := sql.Open("sqlite", ":memory:")
+	db, err := sqlx.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("sql.Open error = %v", err)
 	}

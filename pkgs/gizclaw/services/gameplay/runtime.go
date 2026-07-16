@@ -16,6 +16,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/jmoiron/sqlx"
 )
 
 const defaultPetWorkflowName = "pet-care"
@@ -26,7 +27,7 @@ var (
 )
 
 type Runtime struct {
-	DB          *sql.DB
+	DB          *sqlx.DB
 	Catalog     *Catalog
 	Workflows   WorkflowService
 	Workspaces  workspace.SystemWorkspaceService
@@ -50,6 +51,9 @@ type ACL interface {
 func (r *Runtime) Migration(ctx context.Context) error {
 	db, err := r.db()
 	if err != nil {
+		return err
+	}
+	if err := validateSQLDialect(db.DriverName()); err != nil {
 		return err
 	}
 	for _, stmt := range []string{
@@ -144,20 +148,41 @@ func (r *Runtime) Migration(ctx context.Context) error {
 			return err
 		}
 	}
-	for _, stmt := range []string{
-		`ALTER TABLE gameplay_points_transactions ADD COLUMN source_type TEXT NOT NULL DEFAULT ''`,
-		`ALTER TABLE gameplay_points_transactions ADD COLUMN source_id TEXT NOT NULL DEFAULT ''`,
-		`ALTER TABLE gameplay_game_results ADD COLUMN max_score INTEGER`,
-		`ALTER TABLE gameplay_game_results ADD COLUMN difficulty TEXT`,
-		`ALTER TABLE gameplay_game_results ADD COLUMN duration_ms INTEGER`,
-		`ALTER TABLE gameplay_game_results ADD COLUMN idempotency_key TEXT`,
-		`ALTER TABLE gameplay_game_results ADD COLUMN occurred_at TEXT NOT NULL DEFAULT ''`,
-		`ALTER TABLE gameplay_reward_grants ADD COLUMN life_delta_json TEXT NOT NULL DEFAULT '{}'`,
-		`ALTER TABLE gameplay_reward_grants ADD COLUMN ability_delta_json TEXT NOT NULL DEFAULT '{}'`,
-		`ALTER TABLE gameplay_reward_grants ADD COLUMN source_type TEXT NOT NULL DEFAULT ''`,
-		`ALTER TABLE gameplay_reward_grants ADD COLUMN source_id TEXT NOT NULL DEFAULT ''`,
+	for _, migration := range []struct {
+		table      string
+		column     string
+		definition string
+	}{
+		{"gameplay_points_transactions", "source_type", "TEXT NOT NULL DEFAULT ''"},
+		{"gameplay_points_transactions", "source_id", "TEXT NOT NULL DEFAULT ''"},
+		{"gameplay_game_results", "max_score", "INTEGER"},
+		{"gameplay_game_results", "difficulty", "TEXT"},
+		{"gameplay_game_results", "duration_ms", "INTEGER"},
+		{"gameplay_game_results", "idempotency_key", "TEXT"},
+		{"gameplay_game_results", "occurred_at", "TEXT NOT NULL DEFAULT ''"},
+		{"gameplay_reward_grants", "life_delta_json", "TEXT NOT NULL DEFAULT '{}'"},
+		{"gameplay_reward_grants", "ability_delta_json", "TEXT NOT NULL DEFAULT '{}'"},
+		{"gameplay_reward_grants", "source_type", "TEXT NOT NULL DEFAULT ''"},
+		{"gameplay_reward_grants", "source_id", "TEXT NOT NULL DEFAULT ''"},
 	} {
-		if _, err := db.ExecContext(ctx, stmt); err != nil && !isDuplicateColumnError(err) {
+		exists, err := sqlColumnExists(ctx, db, migration.table, migration.column)
+		if err != nil {
+			return err
+		}
+		if exists {
+			continue
+		}
+		stmt := fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", migration.table, migration.column, migration.definition)
+		if _, err := db.ExecContext(ctx, stmt); err != nil {
+			// Another instance may have added the column after our catalog check.
+			// Re-read schema state instead of matching driver-specific error text.
+			exists, inspectErr := sqlColumnExists(ctx, db, migration.table, migration.column)
+			if inspectErr != nil {
+				return errors.Join(err, inspectErr)
+			}
+			if exists {
+				continue
+			}
 			return err
 		}
 	}
@@ -229,7 +254,7 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 	if err != nil {
 		return apitypes.PetAdoptResponse{}, err
 	}
-	tx, err := db.BeginTx(ctx, nil)
+	tx, err := db.BeginTxx(ctx, nil)
 	if err != nil {
 		return apitypes.PetAdoptResponse{}, err
 	}
@@ -263,7 +288,7 @@ func (r *Runtime) GetPet(ctx context.Context, owner, id string) (apitypes.Pet, e
 	if err != nil {
 		return apitypes.Pet{}, err
 	}
-	return scanPet(db.QueryRowContext(ctx, petSelectSQL()+` WHERE owner_public_key = ? AND id = ?`, owner, strings.TrimSpace(id)))
+	return scanPet(db.QueryRowContext(ctx, db.Rebind(petSelectSQL()+` WHERE owner_public_key = ? AND id = ?`), owner, strings.TrimSpace(id)))
 }
 
 // ResolvePetContext resolves the one adopted pet bound to a Workspace and its
@@ -278,7 +303,7 @@ func (r *Runtime) ResolvePetContext(ctx context.Context, workspaceName string) (
 	if workspaceName == "" {
 		return apitypes.Pet{}, apitypes.PetDef{}, errors.New("gameplay: workspace name is required")
 	}
-	rows, err := db.QueryContext(ctx, petSelectSQL()+` WHERE workspace_name = ? LIMIT 2`, workspaceName)
+	rows, err := db.QueryContext(ctx, db.Rebind(petSelectSQL()+` WHERE workspace_name = ? LIMIT 2`), workspaceName)
 	if err != nil {
 		return apitypes.Pet{}, apitypes.PetDef{}, err
 	}
@@ -316,7 +341,7 @@ func (r *Runtime) OwnerHasPetDef(ctx context.Context, owner, petDefID string) (b
 		return false, err
 	}
 	var exists int
-	err = db.QueryRowContext(ctx, `SELECT 1 FROM gameplay_pets WHERE owner_public_key = ? AND petdef_id = ? LIMIT 1`, owner, strings.TrimSpace(petDefID)).Scan(&exists)
+	err = db.QueryRowContext(ctx, db.Rebind(`SELECT 1 FROM gameplay_pets WHERE owner_public_key = ? AND petdef_id = ? LIMIT 1`), owner, strings.TrimSpace(petDefID)).Scan(&exists)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
 	}
@@ -338,7 +363,7 @@ func (r *Runtime) PutPet(ctx context.Context, owner string, req apitypes.PetPutR
 	if err != nil {
 		return apitypes.Pet{}, err
 	}
-	if _, err := db.ExecContext(ctx, `UPDATE gameplay_pets SET display_name = ?, updated_at = ? WHERE owner_public_key = ? AND id = ?`, pet.DisplayName, formatTime(pet.UpdatedAt), owner, pet.Id); err != nil {
+	if _, err := db.ExecContext(ctx, db.Rebind(`UPDATE gameplay_pets SET display_name = ?, updated_at = ? WHERE owner_public_key = ? AND id = ?`), pet.DisplayName, formatTime(pet.UpdatedAt), owner, pet.Id); err != nil {
 		return apitypes.Pet{}, err
 	}
 	return pet, nil
@@ -369,7 +394,7 @@ func (r *Runtime) DeletePet(ctx context.Context, owner, id string) (apitypes.Pet
 	if err != nil {
 		return apitypes.Pet{}, r.restorePetAfterDeleteFailure(cleanupCtx, pet, owner, err)
 	}
-	if _, err := db.ExecContext(ctx, `DELETE FROM gameplay_pets WHERE owner_public_key = ? AND id = ?`, owner, pet.Id); err != nil {
+	if _, err := db.ExecContext(ctx, db.Rebind(`DELETE FROM gameplay_pets WHERE owner_public_key = ? AND id = ?`), owner, pet.Id); err != nil {
 		return apitypes.Pet{}, r.restorePetAfterDeleteFailure(cleanupCtx, pet, owner, err)
 	}
 	return pet, nil
@@ -422,7 +447,7 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 	if err != nil {
 		return apitypes.PetDriveResponse{}, err
 	}
-	tx, err := db.BeginTx(ctx, nil)
+	tx, err := db.BeginTxx(ctx, nil)
 	if err != nil {
 		return apitypes.PetDriveResponse{}, err
 	}
@@ -588,7 +613,7 @@ func (r *Runtime) GetPoints(ctx context.Context, owner, rulesetName string) (api
 	if err != nil {
 		return apitypes.PointsAccount{}, err
 	}
-	tx, err := db.BeginTx(ctx, nil)
+	tx, err := db.BeginTxx(ctx, nil)
 	if err != nil {
 		return apitypes.PointsAccount{}, err
 	}
@@ -610,7 +635,7 @@ func (r *Runtime) GetPointsTransaction(ctx context.Context, owner, id string) (a
 	if err != nil {
 		return apitypes.PointsTransaction{}, err
 	}
-	return scanPointsTransaction(db.QueryRowContext(ctx, pointsTransactionSelectSQL()+` WHERE owner_public_key = ? AND id = ?`, owner, strings.TrimSpace(id)))
+	return scanPointsTransaction(db.QueryRowContext(ctx, db.Rebind(pointsTransactionSelectSQL()+` WHERE owner_public_key = ? AND id = ?`), owner, strings.TrimSpace(id)))
 }
 
 func (r *Runtime) ListBadges(ctx context.Context, owner string, req apitypes.GameplayListRequest) (apitypes.BadgeListResponse, error) {
@@ -623,7 +648,7 @@ func (r *Runtime) GetBadge(ctx context.Context, owner, id string) (apitypes.Badg
 	if err != nil {
 		return apitypes.Badge{}, err
 	}
-	return scanBadge(db.QueryRowContext(ctx, badgeSelectSQL()+` WHERE owner_public_key = ? AND id = ?`, owner, strings.TrimSpace(id)))
+	return scanBadge(db.QueryRowContext(ctx, db.Rebind(badgeSelectSQL()+` WHERE owner_public_key = ? AND id = ?`), owner, strings.TrimSpace(id)))
 }
 
 func (r *Runtime) OwnerHasBadgeDef(ctx context.Context, owner, badgeDefID string) (bool, error) {
@@ -632,7 +657,7 @@ func (r *Runtime) OwnerHasBadgeDef(ctx context.Context, owner, badgeDefID string
 		return false, err
 	}
 	var exists int
-	err = db.QueryRowContext(ctx, `SELECT 1 FROM gameplay_badges WHERE owner_public_key = ? AND badge_def_id = ? LIMIT 1`, owner, strings.TrimSpace(badgeDefID)).Scan(&exists)
+	err = db.QueryRowContext(ctx, db.Rebind(`SELECT 1 FROM gameplay_badges WHERE owner_public_key = ? AND badge_def_id = ? LIMIT 1`), owner, strings.TrimSpace(badgeDefID)).Scan(&exists)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
 	}
@@ -649,7 +674,7 @@ func (r *Runtime) GetGameResult(ctx context.Context, owner, id string) (apitypes
 	if err != nil {
 		return apitypes.GameResult{}, err
 	}
-	return scanGameResult(db.QueryRowContext(ctx, gameResultSelectSQL()+` WHERE owner_public_key = ? AND id = ?`, owner, strings.TrimSpace(id)))
+	return scanGameResult(db.QueryRowContext(ctx, db.Rebind(gameResultSelectSQL()+` WHERE owner_public_key = ? AND id = ?`), owner, strings.TrimSpace(id)))
 }
 
 func (r *Runtime) ListRewardGrants(ctx context.Context, owner string, req apitypes.GameplayListRequest) (apitypes.RewardGrantListResponse, error) {
@@ -662,7 +687,7 @@ func (r *Runtime) GetRewardGrant(ctx context.Context, owner, id string) (apitype
 	if err != nil {
 		return apitypes.RewardGrant{}, err
 	}
-	return scanRewardGrant(db.QueryRowContext(ctx, rewardGrantSelectSQL()+` WHERE owner_public_key = ? AND id = ?`, owner, strings.TrimSpace(id)))
+	return scanRewardGrant(db.QueryRowContext(ctx, db.Rebind(rewardGrantSelectSQL()+` WHERE owner_public_key = ? AND id = ?`), owner, strings.TrimSpace(id)))
 }
 
 func (r *Runtime) resolveRuleset(ctx context.Context, name string) (apitypes.GameRuleset, error) {
@@ -832,8 +857,8 @@ func petWorkspaceACLBindingID(workspaceName, owner string) string {
 	return "gameplay-pet-workspace:" + socialutil.EscapeStoreSegment(workspaceName) + ":" + socialutil.EscapeStoreSegment(owner)
 }
 
-func (r *Runtime) ensureAccountTx(ctx context.Context, tx *sql.Tx, owner string, ruleset apitypes.GameRuleset) (apitypes.PointsAccount, error) {
-	account, err := scanPointsAccount(tx.QueryRowContext(ctx, pointsAccountSelectSQL()+` WHERE owner_public_key = ? AND ruleset_name = ?`, owner, ruleset.Name))
+func (r *Runtime) ensureAccountTx(ctx context.Context, tx *sqlx.Tx, owner string, ruleset apitypes.GameRuleset) (apitypes.PointsAccount, error) {
+	account, err := scanPointsAccount(tx.QueryRowContext(ctx, tx.Rebind(pointsAccountSelectSQL()+` WHERE owner_public_key = ? AND ruleset_name = ?`), owner, ruleset.Name))
 	if err == nil {
 		return account, nil
 	}
@@ -852,11 +877,11 @@ func (r *Runtime) ensureAccountTx(ctx context.Context, tx *sql.Tx, owner string,
 	return account, nil
 }
 
-func (r *Runtime) applyPointsTx(ctx context.Context, tx *sql.Tx, account *apitypes.PointsAccount, delta int64, rulesetName, petID, gameResultID, rewardGrantID, reason, sourceType, sourceID string) (apitypes.PointsTransaction, error) {
+func (r *Runtime) applyPointsTx(ctx context.Context, tx *sqlx.Tx, account *apitypes.PointsAccount, delta int64, rulesetName, petID, gameResultID, rewardGrantID, reason, sourceType, sourceID string) (apitypes.PointsTransaction, error) {
 	return r.recordPointsTx(ctx, tx, account, delta, rulesetName, petID, gameResultID, rewardGrantID, reason, sourceType, sourceID, false)
 }
 
-func (r *Runtime) recordPointsTx(ctx context.Context, tx *sql.Tx, account *apitypes.PointsAccount, delta int64, rulesetName, petID, gameResultID, rewardGrantID, reason, sourceType, sourceID string, recordZero bool) (apitypes.PointsTransaction, error) {
+func (r *Runtime) recordPointsTx(ctx context.Context, tx *sqlx.Tx, account *apitypes.PointsAccount, delta int64, rulesetName, petID, gameResultID, rewardGrantID, reason, sourceType, sourceID string, recordZero bool) (apitypes.PointsTransaction, error) {
 	if delta == 0 && !recordZero {
 		return apitypes.PointsTransaction{}, nil
 	}
@@ -867,7 +892,7 @@ func (r *Runtime) recordPointsTx(ctx context.Context, tx *sql.Tx, account *apity
 	now := r.now()
 	account.Balance = next
 	account.UpdatedAt = now
-	if _, err := tx.ExecContext(ctx, `UPDATE gameplay_points_accounts SET balance = ?, updated_at = ? WHERE owner_public_key = ? AND ruleset_name = ?`, account.Balance, formatTime(account.UpdatedAt), account.OwnerPublicKey, account.RulesetName); err != nil {
+	if _, err := tx.ExecContext(ctx, tx.Rebind(`UPDATE gameplay_points_accounts SET balance = ?, updated_at = ? WHERE owner_public_key = ? AND ruleset_name = ?`), account.Balance, formatTime(account.UpdatedAt), account.OwnerPublicKey, account.RulesetName); err != nil {
 		return apitypes.PointsTransaction{}, err
 	}
 	txn := apitypes.PointsTransaction{
@@ -887,14 +912,14 @@ func (r *Runtime) recordPointsTx(ctx context.Context, tx *sql.Tx, account *apity
 	return txn, insertPointsTransaction(ctx, tx, txn)
 }
 
-func (r *Runtime) applyBadgeExp(ctx context.Context, tx *sql.Tx, owner, badgeDefID string, delta int64, now time.Time) (apitypes.Badge, error) {
+func (r *Runtime) applyBadgeExp(ctx context.Context, tx *sqlx.Tx, owner, badgeDefID string, delta int64, now time.Time) (apitypes.Badge, error) {
 	if badgeDefID == "" || delta == 0 {
 		return apitypes.Badge{}, nil
 	}
 	if _, err := r.Catalog.GetBadgeDefByID(ctx, badgeDefID); err != nil {
 		return apitypes.Badge{}, err
 	}
-	badge, err := scanBadge(tx.QueryRowContext(ctx, badgeSelectSQL()+` WHERE owner_public_key = ? AND id = ?`, owner, badgeDefID))
+	badge, err := scanBadge(tx.QueryRowContext(ctx, tx.Rebind(badgeSelectSQL()+` WHERE owner_public_key = ? AND id = ?`), owner, badgeDefID))
 	if errors.Is(err, sql.ErrNoRows) {
 		badge = apitypes.Badge{Id: badgeDefID, OwnerPublicKey: owner, BadgeDefId: badgeDefID, CreatedAt: now}
 	} else if err != nil {
@@ -932,7 +957,7 @@ func (r *Runtime) validateGameResult(ctx context.Context, ruleset apitypes.GameR
 	return err
 }
 
-func (r *Runtime) db() (*sql.DB, error) {
+func (r *Runtime) db() (*sqlx.DB, error) {
 	if r == nil || r.DB == nil {
 		return nil, errors.New("gameplay: sql db is not configured")
 	}
@@ -988,10 +1013,50 @@ func petLevel(exp int64) int64 {
 	return exp/100 + 1
 }
 
-func isDuplicateColumnError(err error) bool {
-	if err == nil {
-		return false
+func validateSQLDialect(driverName string) error {
+	switch driverName {
+	case "sqlite", "postgres":
+		return nil
+	default:
+		return fmt.Errorf("gameplay: unsupported sql dialect %q", driverName)
 	}
-	msg := strings.ToLower(err.Error())
-	return strings.Contains(msg, "duplicate column") || strings.Contains(msg, "already exists")
+}
+
+func sqlColumnExists(ctx context.Context, db *sqlx.DB, table, column string) (bool, error) {
+	switch db.DriverName() {
+	case "sqlite":
+		rows, err := db.QueryContext(ctx, fmt.Sprintf("PRAGMA table_info(%s)", table))
+		if err != nil {
+			return false, err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var cid int
+			var name string
+			var typ string
+			var notNull int
+			var defaultValue any
+			var pk int
+			if err := rows.Scan(&cid, &name, &typ, &notNull, &defaultValue, &pk); err != nil {
+				return false, err
+			}
+			if name == column {
+				return true, nil
+			}
+		}
+		return false, rows.Err()
+	case "postgres":
+		var exists bool
+		err := db.QueryRowContext(ctx, db.Rebind(`
+SELECT EXISTS (
+	SELECT 1
+	FROM information_schema.columns
+	WHERE table_schema = current_schema()
+	  AND table_name = ?
+	  AND column_name = ?
+)`), table, column).Scan(&exists)
+		return exists, err
+	default:
+		return false, fmt.Errorf("gameplay: unsupported sql dialect %q", db.DriverName())
+	}
 }

@@ -2,7 +2,6 @@ package resourcemanager
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -10,11 +9,12 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
+	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
 
 func TestApplyACLViewResource(t *testing.T) {
-	db, err := sql.Open("sqlite", ":memory:")
+	db, err := sqlx.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
@@ -174,7 +174,7 @@ func TestApplyACLPolicyBindingResource(t *testing.T) {
 
 func newACLResourceManager(t *testing.T) *Manager {
 	t.Helper()
-	db, err := sql.Open("sqlite", ":memory:")
+	db, err := sqlx.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}

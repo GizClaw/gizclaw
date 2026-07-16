@@ -2,16 +2,16 @@ package gizclaw
 
 import (
 	"context"
-	"database/sql"
 	"strings"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
+	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
 
 func TestMigratorMigrateRunsACL(t *testing.T) {
-	db, err := sql.Open("sqlite", ":memory:")
+	db, err := sqlx.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("sql.Open error = %v", err)
 	}

@@ -19,6 +19,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/goccy/go-yaml"
+	"github.com/jmoiron/sqlx"
 )
 
 type fakeDriver struct{}
@@ -46,6 +47,8 @@ func (fakePingFailConn) Ping(_ context.Context) error          { return errors.N
 func init() {
 	sql.Register("fake", fakeDriver{})
 	sql.Register("fake_ping_fail", fakePingFailDriver{})
+	sqlx.BindDriver("fake", sqlx.QUESTION)
+	sqlx.BindDriver("fake_ping_fail", sqlx.QUESTION)
 }
 
 type fakeLogStore struct{ closes int }
@@ -698,7 +701,7 @@ stores:
 		t.Fatalf("SQL(db): %v", err)
 	}
 	if db == nil {
-		t.Fatal("expected non-nil *sql.DB")
+		t.Fatal("expected non-nil *sqlx.DB")
 	}
 
 	db2, err := reg.SQL("db")
@@ -725,7 +728,7 @@ stores:
 		t.Fatalf("SQL(db) with dsn: %v", err)
 	}
 	if db == nil {
-		t.Fatal("expected non-nil *sql.DB")
+		t.Fatal("expected non-nil *sqlx.DB")
 	}
 }
 

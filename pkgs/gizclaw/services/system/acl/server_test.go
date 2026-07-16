@@ -2,7 +2,6 @@ package acl
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"io"
 	"log/slog"
@@ -10,6 +9,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
 
@@ -168,9 +168,9 @@ func TestServerClockAndLogger(t *testing.T) {
 	}
 }
 
-func openTestDB(t *testing.T) *sql.DB {
+func openTestDB(t *testing.T) *sqlx.DB {
 	t.Helper()
-	db, err := sql.Open("sqlite", ":memory:")
+	db, err := sqlx.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
@@ -190,7 +190,7 @@ func migratedTestServer(t *testing.T) *Server {
 	return server
 }
 
-func sqliteObjectExists(t *testing.T, db *sql.DB, kind, name string) bool {
+func sqliteObjectExists(t *testing.T, db *sqlx.DB, kind, name string) bool {
 	t.Helper()
 	var count int
 	if err := db.QueryRow(`SELECT count(*) FROM sqlite_master WHERE type = ? AND name = ?`, kind, name).Scan(&count); err != nil {
@@ -199,7 +199,7 @@ func sqliteObjectExists(t *testing.T, db *sql.DB, kind, name string) bool {
 	return count > 0
 }
 
-func sqliteColumnExists(t *testing.T, db *sql.DB, tableName, columnName string) bool {
+func sqliteColumnExists(t *testing.T, db *sqlx.DB, tableName, columnName string) bool {
 	t.Helper()
 	rows, err := db.Query(`PRAGMA table_info(` + tableName + `)`)
 	if err != nil {

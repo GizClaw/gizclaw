@@ -70,6 +70,60 @@ jobs:
           GOFLAGS: -mod=readonly
         run: go test -count=1 ./...
 
+  postgres:
+    name: PostgreSQL Integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: gizclaw
+          POSTGRES_PASSWORD: gizclaw
+          POSTGRES_DB: gizclaw_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gizclaw -d gizclaw_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      GIZCLAW_TEST_POSTGRES_DSN: postgres://gizclaw:gizclaw@127.0.0.1:5432/gizclaw_test?sslmode=disable
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          lfs: true
+
+      - name: Ensure Git LFS assets are available
+        run: git lfs pull
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Require PostgreSQL test DSN
+        run: test -n "$GIZCLAW_TEST_POSTGRES_DSN"
+
+      - name: Run PostgreSQL integration tests
+        env:
+          GOFLAGS: -mod=readonly
+        run: >-
+          go test -count=1 -p 1
+          ./cmd/internal/storage
+          ./cmd/internal/stores
+          ./cmd/internal/server
+          ./pkgs/gizclaw/services/system/acl
+          ./pkgs/gizclaw/services/gameplay
+
   nested-go-modules:
     name: Nested Go Modules
     runs-on: ubuntu-latest

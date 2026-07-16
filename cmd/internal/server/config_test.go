@@ -232,6 +232,40 @@ func TestNewWithLayeredStorageConfig(t *testing.T) {
 	}
 }
 
+func TestNewPreservesPostgresDialectThroughLayeredStorage(t *testing.T) {
+	dsn := strings.TrimSpace(os.Getenv("GIZCLAW_TEST_POSTGRES_DSN"))
+	if dsn == "" {
+		t.Skip("GIZCLAW_TEST_POSTGRES_DSN is not set")
+	}
+	cfg := validLayeredConfig(t.TempDir())
+	cfg.Storage["acl-db"] = storage.Config{Kind: storage.KindSQL, Postgres: &storage.SQLConfig{DSN: dsn}}
+	cfg.Storage["gameplay-db"] = storage.Config{Kind: storage.KindSQL, Postgres: &storage.SQLConfig{DSN: dsn}}
+
+	srv, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	t.Cleanup(func() { _ = srv.Close() })
+
+	for name, db := range map[string]interface {
+		DriverName() string
+		Rebind(string) string
+	}{
+		"acl":      srv.ACLDB,
+		"gameplay": srv.GameplayDB,
+	} {
+		if db == nil {
+			t.Fatalf("%s DB = nil", name)
+		}
+		if got := db.DriverName(); got != "postgres" {
+			t.Fatalf("%s DriverName() = %q, want postgres", name, got)
+		}
+		if got := db.Rebind("SELECT ?"); got != "SELECT $1" {
+			t.Fatalf("%s Rebind() = %q, want %q", name, got, "SELECT $1")
+		}
+	}
+}
+
 func TestNewWithLayeredStorageReportsStoreErrors(t *testing.T) {
 	dir := t.TempDir()
 

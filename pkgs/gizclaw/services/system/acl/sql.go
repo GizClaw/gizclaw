@@ -7,10 +7,12 @@ import (
 )
 
 type sqlExecutor interface {
+	Rebind(string) string
 	ExecContext(context.Context, string, ...any) (sql.Result, error)
 }
 
 type sqlQuerier interface {
+	Rebind(string) string
 	QueryRowContext(context.Context, string, ...any) *sql.Row
 }
 

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/jmoiron/sqlx"
 )
 
 type rowScanner interface {
@@ -48,7 +49,7 @@ func scanPet(row rowScanner) (apitypes.Pet, error) {
 	return pet, nil
 }
 
-func insertPet(ctx context.Context, tx *sql.Tx, pet apitypes.Pet) error {
+func insertPet(ctx context.Context, tx *sqlx.Tx, pet apitypes.Pet) error {
 	lifeJSON, err := marshalJSON(pet.Life)
 	if err != nil {
 		return err
@@ -58,12 +59,12 @@ func insertPet(ctx context.Context, tx *sql.Tx, pet apitypes.Pet) error {
 		return err
 	}
 	exp := petProgressionExp(pet)
-	_, err = tx.ExecContext(ctx, `INSERT INTO gameplay_pets (owner_public_key, id, ruleset_name, petdef_id, display_name, workspace_name, workflow_name, life_json, ability_json, exp, level, last_active_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+	_, err = tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_pets (owner_public_key, id, ruleset_name, petdef_id, display_name, workspace_name, workflow_name, life_json, ability_json, exp, level, last_active_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
 		pet.OwnerPublicKey, pet.Id, pet.RulesetName, pet.PetdefId, pet.DisplayName, pet.WorkspaceName, valueOrZero(pet.WorkflowName), lifeJSON, progressionJSON, exp, petLevel(exp), formatTime(pet.LastActiveAt), formatTime(pet.CreatedAt), formatTime(pet.UpdatedAt))
 	return err
 }
 
-func updatePet(ctx context.Context, tx *sql.Tx, pet apitypes.Pet) error {
+func updatePet(ctx context.Context, tx *sqlx.Tx, pet apitypes.Pet) error {
 	lifeJSON, err := marshalJSON(pet.Life)
 	if err != nil {
 		return err
@@ -73,7 +74,7 @@ func updatePet(ctx context.Context, tx *sql.Tx, pet apitypes.Pet) error {
 		return err
 	}
 	exp := petProgressionExp(pet)
-	_, err = tx.ExecContext(ctx, `UPDATE gameplay_pets SET display_name = ?, life_json = ?, ability_json = ?, exp = ?, level = ?, last_active_at = ?, updated_at = ? WHERE owner_public_key = ? AND id = ?`,
+	_, err = tx.ExecContext(ctx, tx.Rebind(`UPDATE gameplay_pets SET display_name = ?, life_json = ?, ability_json = ?, exp = ?, level = ?, last_active_at = ?, updated_at = ? WHERE owner_public_key = ? AND id = ?`),
 		pet.DisplayName, lifeJSON, progressionJSON, exp, petLevel(exp), formatTime(pet.LastActiveAt), formatTime(pet.UpdatedAt), pet.OwnerPublicKey, pet.Id)
 	return err
 }
@@ -93,8 +94,8 @@ func scanPointsAccount(row rowScanner) (apitypes.PointsAccount, error) {
 	return account, nil
 }
 
-func insertPointsAccount(ctx context.Context, tx *sql.Tx, account apitypes.PointsAccount) error {
-	_, err := tx.ExecContext(ctx, `INSERT INTO gameplay_points_accounts (owner_public_key, ruleset_name, balance, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
+func insertPointsAccount(ctx context.Context, tx *sqlx.Tx, account apitypes.PointsAccount) error {
+	_, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_points_accounts (owner_public_key, ruleset_name, balance, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`),
 		account.OwnerPublicKey, account.RulesetName, account.Balance, formatTime(account.CreatedAt), formatTime(account.UpdatedAt))
 	return err
 }
@@ -118,8 +119,8 @@ func scanPointsTransaction(row rowScanner) (apitypes.PointsTransaction, error) {
 	return item, nil
 }
 
-func insertPointsTransaction(ctx context.Context, tx *sql.Tx, item apitypes.PointsTransaction) error {
-	_, err := tx.ExecContext(ctx, `INSERT INTO gameplay_points_transactions (owner_public_key, id, ruleset_name, pet_id, game_result_id, reward_grant_id, delta, balance_after, reason, source_type, source_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+func insertPointsTransaction(ctx context.Context, tx *sqlx.Tx, item apitypes.PointsTransaction) error {
+	_, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_points_transactions (owner_public_key, id, ruleset_name, pet_id, game_result_id, reward_grant_id, delta, balance_after, reason, source_type, source_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
 		item.OwnerPublicKey, item.Id, item.RulesetName, nullableString(item.PetId), nullableString(item.GameResultId), nullableString(item.RewardGrantId), item.Delta, item.BalanceAfter, item.Reason, item.SourceType, item.SourceId, formatTime(item.CreatedAt))
 	return err
 }
@@ -141,9 +142,9 @@ func scanBadge(row rowScanner) (apitypes.Badge, error) {
 	return item, nil
 }
 
-func upsertBadge(ctx context.Context, tx *sql.Tx, item apitypes.Badge) error {
-	_, err := tx.ExecContext(ctx, `INSERT INTO gameplay_badges (owner_public_key, id, badge_def_id, exp, level, active, progress, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(owner_public_key, id) DO UPDATE SET exp = excluded.exp, level = excluded.level, active = excluded.active, progress = excluded.progress, updated_at = excluded.updated_at`,
+func upsertBadge(ctx context.Context, tx *sqlx.Tx, item apitypes.Badge) error {
+	_, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_badges (owner_public_key, id, badge_def_id, exp, level, active, progress, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(owner_public_key, id) DO UPDATE SET exp = excluded.exp, level = excluded.level, active = excluded.active, progress = excluded.progress, updated_at = excluded.updated_at`),
 		item.OwnerPublicKey, item.Id, item.BadgeDefId, item.Exp, item.Level, boolInt(item.Active), item.Progress, formatTime(item.CreatedAt), formatTime(item.UpdatedAt))
 	return err
 }
@@ -187,7 +188,7 @@ func scanGameResult(row rowScanner) (apitypes.GameResult, error) {
 	return item, nil
 }
 
-func insertGameResult(ctx context.Context, tx *sql.Tx, item apitypes.GameResult) error {
+func insertGameResult(ctx context.Context, tx *sqlx.Tx, item apitypes.GameResult) error {
 	payloadJSON := sql.NullString{}
 	if item.Payload != nil {
 		data, err := marshalJSON(*item.Payload)
@@ -196,13 +197,13 @@ func insertGameResult(ctx context.Context, tx *sql.Tx, item apitypes.GameResult)
 		}
 		payloadJSON = sql.NullString{String: data, Valid: true}
 	}
-	_, err := tx.ExecContext(ctx, `INSERT INTO gameplay_game_results (owner_public_key, id, ruleset_name, pet_id, game_def_id, score, max_score, difficulty, outcome, duration_ms, idempotency_key, payload_json, occurred_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+	_, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_game_results (owner_public_key, id, ruleset_name, pet_id, game_def_id, score, max_score, difficulty, outcome, duration_ms, idempotency_key, payload_json, occurred_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
 		item.OwnerPublicKey, item.Id, item.RulesetName, item.PetId, item.GameDefId, nullableInt64(item.Score), nullableInt64(item.MaxScore), nullableString(item.Difficulty), nullableString(item.Outcome), nullableInt64(item.DurationMs), nullableString(item.IdempotencyKey), payloadJSON, formatTime(item.OccurredAt), formatTime(item.CreatedAt))
 	return err
 }
 
-func findGameResultByIdempotencyKey(ctx context.Context, tx *sql.Tx, owner, rulesetName, key string) (apitypes.GameResult, error) {
-	return scanGameResult(tx.QueryRowContext(ctx, gameResultSelectSQL()+` WHERE owner_public_key = ? AND ruleset_name = ? AND idempotency_key = ?`, owner, rulesetName, strings.TrimSpace(key)))
+func findGameResultByIdempotencyKey(ctx context.Context, tx *sqlx.Tx, owner, rulesetName, key string) (apitypes.GameResult, error) {
+	return scanGameResult(tx.QueryRowContext(ctx, tx.Rebind(gameResultSelectSQL()+` WHERE owner_public_key = ? AND ruleset_name = ? AND idempotency_key = ?`), owner, rulesetName, strings.TrimSpace(key)))
 }
 
 func rewardGrantSelectSQL() string {
@@ -233,7 +234,7 @@ func scanRewardGrant(row rowScanner) (apitypes.RewardGrant, error) {
 	return item, nil
 }
 
-func insertRewardGrant(ctx context.Context, tx *sql.Tx, item apitypes.RewardGrant) error {
+func insertRewardGrant(ctx context.Context, tx *sqlx.Tx, item apitypes.RewardGrant) error {
 	badgeExpJSON, err := marshalJSON(item.BadgeExpDelta)
 	if err != nil {
 		return err
@@ -246,7 +247,7 @@ func insertRewardGrant(ctx context.Context, tx *sql.Tx, item apitypes.RewardGran
 	if err != nil {
 		return err
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO gameplay_reward_grants (owner_public_key, id, ruleset_name, pet_id, game_result_id, points_delta, pet_exp_delta, badge_exp_delta_json, life_delta_json, ability_delta_json, source_type, source_id, reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+	_, err = tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_reward_grants (owner_public_key, id, ruleset_name, pet_id, game_result_id, points_delta, pet_exp_delta, badge_exp_delta_json, life_delta_json, ability_delta_json, source_type, source_id, reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
 		item.OwnerPublicKey, item.Id, item.RulesetName, nullableString(item.PetId), nullableString(item.GameResultId), item.PointsDelta, item.PetExpDelta, badgeExpJSON, lifeDeltaJSON, abilityDeltaJSON, item.SourceType, item.SourceId, nullableString(item.Reason), formatTime(item.CreatedAt))
 	return err
 }
@@ -267,7 +268,7 @@ func listOwnerRows[T any](ctx context.Context, r *Runtime, owner, table string, 
 	}
 	query += ` ORDER BY id LIMIT ?`
 	args = append(args, limit+1)
-	rows, err := r.DB.QueryContext(ctx, query, args...)
+	rows, err := r.DB.QueryContext(ctx, r.DB.Rebind(query), args...)
 	if err != nil {
 		return nil, false, nil, err
 	}

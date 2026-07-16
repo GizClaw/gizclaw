@@ -4,7 +4,6 @@
 package stores
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"io"
@@ -20,6 +19,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/vecstore"
+	"github.com/jmoiron/sqlx"
 )
 
 // Kind constants for logical store categories.
@@ -67,7 +67,7 @@ type Stores struct {
 	graphs       map[string]graph.Graph
 	metrics      map[string]metrics.Store
 	logs         map[string]logstore.Store
-	sqls         map[string]*sql.DB
+	sqls         map[string]*sqlx.DB
 	logicClosers []io.Closer
 }
 
@@ -115,7 +115,7 @@ func NewWithStorage(physical *storage.Storage, configs map[string]Config) (*Stor
 		graphs:  make(map[string]graph.Graph),
 		metrics: make(map[string]metrics.Store),
 		logs:    make(map[string]logstore.Store),
-		sqls:    make(map[string]*sql.DB),
+		sqls:    make(map[string]*sqlx.DB),
 	}
 	ok := false
 	defer func() {
@@ -218,8 +218,8 @@ func (r *Stores) Graph(name string) (graph.Graph, error) {
 	return s, nil
 }
 
-// SQL returns the named *sql.DB.
-func (r *Stores) SQL(name string) (*sql.DB, error) {
+// SQL returns the named *sqlx.DB.
+func (r *Stores) SQL(name string) (*sqlx.DB, error) {
 	s, ok := r.sqls[name]
 	if !ok {
 		return nil, fmt.Errorf("stores: sql %q not found", name)
@@ -383,7 +383,7 @@ func (r *Stores) newLog(name string, cfg Config) (logstore.Store, error) {
 	return st, nil
 }
 
-func (r *Stores) newSQL(name string, cfg Config) (*sql.DB, error) {
+func (r *Stores) newSQL(name string, cfg Config) (*sqlx.DB, error) {
 	if cfg.Storage == "" {
 		return nil, fmt.Errorf("stores: sql %q requires storage reference", name)
 	}

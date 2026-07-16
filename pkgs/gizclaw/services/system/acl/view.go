@@ -33,7 +33,7 @@ WHERE name > ?`
 ORDER BY name
 LIMIT ?`
 	args = append(args, limit+1)
-	rows, err := s.DB.QueryContext(ctx, query, args...)
+	rows, err := s.DB.QueryContext(ctx, s.DB.Rebind(query), args...)
 	if err != nil {
 		return nil, false, nil, err
 	}
@@ -128,7 +128,7 @@ func (s *Server) DeleteView(ctx context.Context, name string) (apitypes.ACLView,
 	if err != nil {
 		return apitypes.ACLView{}, err
 	}
-	_, err = s.DB.ExecContext(ctx, `DELETE FROM acl_views WHERE name = ?`, name)
+	_, err = s.DB.ExecContext(ctx, s.DB.Rebind(`DELETE FROM acl_views WHERE name = ?`), name)
 	return view, err
 }
 
@@ -161,9 +161,9 @@ func normalizedViewDescription(value *string) *string {
 }
 
 func insertView(ctx context.Context, exec sqlExecutor, view apitypes.ACLView) error {
-	_, err := exec.ExecContext(ctx, `
+	_, err := exec.ExecContext(ctx, exec.Rebind(`
 INSERT INTO acl_views (name, description, created_at, updated_at)
-VALUES (?, ?, ?, ?)`,
+VALUES (?, ?, ?, ?)`),
 		view.Name,
 		nullableString(view.Description),
 		formatTime(view.CreatedAt),
@@ -173,12 +173,12 @@ VALUES (?, ?, ?, ?)`,
 }
 
 func upsertView(ctx context.Context, exec sqlExecutor, view apitypes.ACLView) error {
-	_, err := exec.ExecContext(ctx, `
+	_, err := exec.ExecContext(ctx, exec.Rebind(`
 INSERT INTO acl_views (name, description, created_at, updated_at)
 VALUES (?, ?, ?, ?)
 ON CONFLICT(name) DO UPDATE SET
 	description = excluded.description,
-	updated_at = excluded.updated_at`,
+	updated_at = excluded.updated_at`),
 		view.Name,
 		nullableString(view.Description),
 		formatTime(view.CreatedAt),
@@ -188,10 +188,10 @@ ON CONFLICT(name) DO UPDATE SET
 }
 
 func getView(ctx context.Context, query sqlQuerier, name string) (apitypes.ACLView, error) {
-	return scanView(query.QueryRowContext(ctx, `
+	return scanView(query.QueryRowContext(ctx, query.Rebind(`
 SELECT name, description, created_at, updated_at
 FROM acl_views
-WHERE name = ?`, name))
+WHERE name = ?`), name))
 }
 
 func scanView(scanner viewScanner) (apitypes.ACLView, error) {

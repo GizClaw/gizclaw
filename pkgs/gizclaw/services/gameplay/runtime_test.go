@@ -12,6 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
 
@@ -389,6 +390,10 @@ func TestRuntimeErrorsPaginationAndTimeDrive(t *testing.T) {
 	if err := (&Runtime{}).Migration(ctx); err == nil {
 		t.Fatal("Migration() without db should fail")
 	}
+	unsupported := &Runtime{DB: sqlx.NewDb(db.DB, "mysql")}
+	if err := unsupported.Migration(ctx); err == nil || !strings.Contains(err.Error(), `unsupported sql dialect "mysql"`) {
+		t.Fatalf("unsupported dialect Migration() error = %v", err)
+	}
 	if _, err := runtime.AdoptPet(ctx, "", apitypes.PetAdoptRequest{}); err == nil {
 		t.Fatal("AdoptPet() without owner should fail")
 	}
@@ -558,7 +563,7 @@ func TestResolvePetContextRequiresExactlyOneWorkspaceBinding(t *testing.T) {
 	}
 	insert := func(owner, id string) {
 		t.Helper()
-		tx, err := db.BeginTx(ctx, nil)
+		tx, err := db.BeginTxx(ctx, nil)
 		if err != nil {
 			t.Fatalf("BeginTx() error = %v", err)
 		}
@@ -938,9 +943,9 @@ func seedGameplayCatalog(t *testing.T, ctx context.Context, catalog *Catalog) {
 	}
 }
 
-func testDB(t *testing.T) *sql.DB {
+func testDB(t *testing.T) *sqlx.DB {
 	t.Helper()
-	db, err := sql.Open("sqlite", ":memory:")
+	db, err := sqlx.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("sql.Open() error = %v", err)
 	}

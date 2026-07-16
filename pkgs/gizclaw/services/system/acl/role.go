@@ -21,12 +21,12 @@ func (s *Server) ListRoles(ctx context.Context, request ListRolesRequest) ([]api
 		return nil, false, nil, err
 	}
 	cursor, limit := normalizeListParams(request.Cursor, request.Limit)
-	rows, err := s.DB.QueryContext(ctx, `
+	rows, err := s.DB.QueryContext(ctx, s.DB.Rebind(`
 SELECT name, permissions_json, created_at, updated_at
 FROM acl_roles
 WHERE name > ?
 ORDER BY name
-LIMIT ?`, cursor, limit+1)
+LIMIT ?`), cursor, limit+1)
 	if err != nil {
 		return nil, false, nil, err
 	}
@@ -83,7 +83,7 @@ func (s *Server) PutRole(ctx context.Context, name string, permissions apitypes.
 		return apitypes.ACLRole{}, err
 	}
 	now := s.now()
-	tx, err := s.DB.BeginTx(ctx, nil)
+	tx, err := s.DB.BeginTxx(ctx, nil)
 	if err != nil {
 		return apitypes.ACLRole{}, err
 	}
@@ -102,10 +102,10 @@ func (s *Server) PutRole(ctx context.Context, name string, permissions apitypes.
 	if err != nil {
 		return apitypes.ACLRole{}, err
 	}
-	if _, err := tx.ExecContext(ctx, `
+	if _, err := tx.ExecContext(ctx, tx.Rebind(`
 INSERT INTO acl_roles (name, permissions_json, created_at, updated_at)
 VALUES (?, ?, ?, ?)
-ON CONFLICT(name) DO UPDATE SET permissions_json = excluded.permissions_json, updated_at = excluded.updated_at`,
+ON CONFLICT(name) DO UPDATE SET permissions_json = excluded.permissions_json, updated_at = excluded.updated_at`),
 		existing.Name, string(data), formatTime(existing.CreatedAt), formatTime(existing.UpdatedAt),
 	); err != nil {
 		return apitypes.ACLRole{}, err
@@ -138,7 +138,7 @@ func (s *Server) DeleteRole(ctx context.Context, name string) (apitypes.ACLRole,
 	if err != nil {
 		return apitypes.ACLRole{}, err
 	}
-	tx, err := s.DB.BeginTx(ctx, nil)
+	tx, err := s.DB.BeginTxx(ctx, nil)
 	if err != nil {
 		return apitypes.ACLRole{}, err
 	}
@@ -147,10 +147,10 @@ func (s *Server) DeleteRole(ctx context.Context, name string) (apitypes.ACLRole,
 	if err != nil {
 		return apitypes.ACLRole{}, err
 	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM acl_roles WHERE name = ?`, name); err != nil {
+	if _, err := tx.ExecContext(ctx, tx.Rebind(`DELETE FROM acl_roles WHERE name = ?`), name); err != nil {
 		return apitypes.ACLRole{}, err
 	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM acl_binding_permissions WHERE binding_id IN (SELECT id FROM acl_policy_bindings WHERE role = ?)`, name); err != nil {
+	if _, err := tx.ExecContext(ctx, tx.Rebind(`DELETE FROM acl_binding_permissions WHERE binding_id IN (SELECT id FROM acl_policy_bindings WHERE role = ?)`), name); err != nil {
 		return apitypes.ACLRole{}, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -205,17 +205,17 @@ func insertRole(ctx context.Context, exec sqlExecutor, role apitypes.ACLRole) er
 	if err != nil {
 		return err
 	}
-	_, err = exec.ExecContext(ctx, `
+	_, err = exec.ExecContext(ctx, exec.Rebind(`
 INSERT INTO acl_roles (name, permissions_json, created_at, updated_at)
-VALUES (?, ?, ?, ?)`, role.Name, string(data), formatTime(role.CreatedAt), formatTime(role.UpdatedAt))
+VALUES (?, ?, ?, ?)`), role.Name, string(data), formatTime(role.CreatedAt), formatTime(role.UpdatedAt))
 	return err
 }
 
 func getRole(ctx context.Context, query sqlQuerier, name string) (apitypes.ACLRole, error) {
-	return scanRole(query.QueryRowContext(ctx, `
+	return scanRole(query.QueryRowContext(ctx, query.Rebind(`
 SELECT name, permissions_json, created_at, updated_at
 FROM acl_roles
-WHERE name = ?`, name))
+WHERE name = ?`), name))
 }
 
 func scanRole(row roleScanner) (apitypes.ACLRole, error) {

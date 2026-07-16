@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -30,6 +31,45 @@ func TestNewMigratorRunsACLMigration(t *testing.T) {
 	}
 	if _, err := migrator.ACL.DB.ExecContext(context.Background(), `INSERT INTO acl_views (name, created_at, updated_at) VALUES ('default', 'now', 'now')`); err != nil {
 		t.Fatalf("insert acl view after migration: %v", err)
+	}
+}
+
+func TestNewMigratorPreservesPostgresDialect(t *testing.T) {
+	dsn := strings.TrimSpace(os.Getenv("GIZCLAW_TEST_POSTGRES_DSN"))
+	if dsn == "" {
+		t.Skip("GIZCLAW_TEST_POSTGRES_DSN is not set")
+	}
+	migrator, err := NewMigrator(Config{
+		Storage: map[string]storage.Config{
+			"acl-db": {Kind: storage.KindSQL, Postgres: &storage.SQLConfig{DSN: dsn}},
+		},
+		Stores: map[string]stores.Config{
+			"acl": {Kind: stores.KindSQL, Storage: "acl-db"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewMigrator() error = %v", err)
+	}
+	t.Cleanup(func() { _ = migrator.Close() })
+	dropMigratorPostgresACLTables(t, migrator)
+	t.Cleanup(func() { dropMigratorPostgresACLTables(t, migrator) })
+
+	if got := migrator.ACL.DB.DriverName(); got != "postgres" {
+		t.Fatalf("DriverName() = %q, want postgres", got)
+	}
+	for range 2 {
+		if err := migrator.Migrate(context.Background()); err != nil {
+			t.Fatalf("Migrate() error = %v", err)
+		}
+	}
+}
+
+func dropMigratorPostgresACLTables(t *testing.T, migrator *CmdMigrator) {
+	t.Helper()
+	for _, table := range []string{"acl_binding_permissions", "acl_policy_bindings", "acl_views", "acl_roles"} {
+		if _, err := migrator.ACL.DB.ExecContext(context.Background(), "DROP TABLE IF EXISTS "+table+" CASCADE"); err != nil {
+			t.Errorf("drop %s: %v", table, err)
+		}
 	}
 }
 

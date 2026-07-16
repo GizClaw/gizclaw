@@ -2,7 +2,10 @@ package acl
 
 import (
 	"context"
+	"strings"
 	"testing"
+
+	"github.com/jmoiron/sqlx"
 )
 
 func TestMigrationCreatesTablesAndIndexes(t *testing.T) {
@@ -94,5 +97,10 @@ func TestMigrationValidation(t *testing.T) {
 	}
 	if err := (&Server{}).Migration(context.Background()); err == nil {
 		t.Fatal("missing db Migration() error = nil")
+	}
+	db := openTestDB(t)
+	unsupported := &Server{DB: sqlx.NewDb(db.DB, "mysql")}
+	if err := unsupported.Migration(context.Background()); err == nil || !strings.Contains(err.Error(), `unsupported sql dialect "mysql"`) {
+		t.Fatalf("unsupported dialect Migration() error = %v", err)
 	}
 }

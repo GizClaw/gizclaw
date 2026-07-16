@@ -13,6 +13,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/goccy/go-yaml"
+	"github.com/jmoiron/sqlx"
 )
 
 type fakeDriver struct{}
@@ -42,6 +43,8 @@ func (fakePingFailConn) Ping(_ context.Context) error          { return errors.N
 func init() {
 	sql.Register("storage_fake", fakeDriver{})
 	sql.Register("storage_fake_ping_fail", fakePingFailDriver{})
+	sqlx.BindDriver("storage_fake", sqlx.QUESTION)
+	sqlx.BindDriver("storage_fake_ping_fail", sqlx.QUESTION)
 }
 
 func TestNewNilConfigs(t *testing.T) {
@@ -356,7 +359,7 @@ func TestSQL(t *testing.T) {
 		t.Fatalf("SQL(db): %v", err)
 	}
 	if db == nil {
-		t.Fatal("expected non-nil *sql.DB")
+		t.Fatal("expected non-nil *sqlx.DB")
 	}
 }
 

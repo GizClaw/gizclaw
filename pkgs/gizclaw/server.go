@@ -2,7 +2,6 @@ package gizclaw
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"net/http"
 	"sync"
@@ -35,6 +34,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
+	"github.com/jmoiron/sqlx"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -79,7 +79,7 @@ type Server struct {
 	BadgeDefStore                kv.Store
 	GameDefStore                 kv.Store
 	GameplayAssets               objectstore.ObjectStore
-	GameplayDB                   *sql.DB
+	GameplayDB                   *sqlx.DB
 	MetricsStore                 metrics.Store
 	ServerLogQuery               ServerLogQueryService
 	FriendGroupMessageDefaultTTL time.Duration
@@ -92,7 +92,7 @@ type Server struct {
 	DefaultPeerView              string
 	PublicLoginAuthorizer        publiclogin.SessionAuthorizer
 	ICEServers                   []gizwebrtc.ICEServer
-	ACLDB                        *sql.DB
+	ACLDB                        *sqlx.DB
 	WebRTCSignalingHandler       http.Handler
 	EdgeNodes                    []giznet.PublicKey
 	PetWorkflow                  petagent.Config

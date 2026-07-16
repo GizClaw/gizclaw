@@ -4,7 +4,6 @@
 package storage
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"io"
@@ -15,6 +14,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/vecstore"
+	"github.com/jmoiron/sqlx"
 
 	_ "github.com/lib/pq"
 	_ "modernc.org/sqlite"
@@ -68,7 +68,7 @@ type Storage struct {
 	kvs     map[string]kv.Store
 	vecs    map[string]vecstore.Index
 	objects map[string]objectstore.ObjectStore
-	sqls    map[string]*sql.DB
+	sqls    map[string]*sqlx.DB
 	closers []io.Closer
 }
 
@@ -79,7 +79,7 @@ func New(configs map[string]Config) (*Storage, error) {
 		kvs:     make(map[string]kv.Store),
 		vecs:    make(map[string]vecstore.Index),
 		objects: make(map[string]objectstore.ObjectStore),
-		sqls:    make(map[string]*sql.DB),
+		sqls:    make(map[string]*sqlx.DB),
 	}
 	ok := false
 	defer func() {
@@ -118,7 +118,7 @@ func (s *Storage) VecStore(name string) (vecstore.Index, error) {
 }
 
 // SQL returns the named physical SQL backend.
-func (s *Storage) SQL(name string) (*sql.DB, error) {
+func (s *Storage) SQL(name string) (*sqlx.DB, error) {
 	st, ok := s.sqls[name]
 	if !ok {
 		return nil, fmt.Errorf("storage: sql %q not found", name)
@@ -189,7 +189,7 @@ func (s *Storage) build(name string, configs map[string]Config, states map[strin
 			s.objects[name] = st
 		}
 	case KindSQL:
-		var st *sql.DB
+		var st *sqlx.DB
 		st, err = newSQL(name, cfg)
 		if err == nil {
 			s.sqls[name] = st
@@ -274,7 +274,7 @@ func newObjectStore(name string, cfg Config) (objectstore.ObjectStore, error) {
 	return objectstore.Dir(cfg.FS.Dir), nil
 }
 
-func newSQL(name string, cfg Config) (*sql.DB, error) {
+func newSQL(name string, cfg Config) (*sqlx.DB, error) {
 	if blocks := driverBlocks(cfg); len(blocks) > 0 {
 		if err := validateDriverBlocks(name, KindSQL, blocks, "sqlite", "postgres"); err != nil {
 			return nil, err
@@ -284,13 +284,19 @@ func newSQL(name string, cfg Config) (*sql.DB, error) {
 	if backend == "" {
 		return nil, fmt.Errorf("storage: sql %q requires backend (driver name)", name)
 	}
+	if backend == "sqlite" {
+		sqlx.BindDriver(backend, sqlx.QUESTION)
+	}
+	if sqlx.BindType(backend) == sqlx.UNKNOWN {
+		return nil, fmt.Errorf("storage: sql %q unsupported dialect %q", name, backend)
+	}
 	if dsn == "" {
 		return nil, fmt.Errorf("storage: sql %q requires dsn", name)
 	}
 	if err := prepareSQLDir(name, cfg); err != nil {
 		return nil, err
 	}
-	db, err := sql.Open(backend, dsn)
+	db, err := sqlx.Open(backend, dsn)
 	if err != nil {
 		return nil, fmt.Errorf("storage: sql %q open: %w", name, err)
 	}
@@ -308,12 +314,12 @@ func newSQL(name string, cfg Config) (*sql.DB, error) {
 	return db, nil
 }
 
-func configureSQLitePool(db *sql.DB) {
+func configureSQLitePool(db *sqlx.DB) {
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
 }
 
-func configureSQLiteConnection(db *sql.DB) error {
+func configureSQLiteConnection(db *sqlx.DB) error {
 	for _, stmt := range []string{
 		`PRAGMA busy_timeout = 5000`,
 		`PRAGMA journal_mode = WAL`,

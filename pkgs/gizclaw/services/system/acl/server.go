@@ -2,7 +2,6 @@ package acl
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/jmoiron/sqlx"
 )
 
 const (
@@ -31,7 +31,7 @@ var (
 )
 
 type Server struct {
-	DB     *sql.DB
+	DB     *sqlx.DB
 	Now    func() time.Time
 	Logger *slog.Logger
 
@@ -78,7 +78,7 @@ func (s *Server) Authorize(ctx context.Context, request AuthorizeRequest) error 
 	for _, subject := range subjects {
 		subjectKind = strings.TrimSpace(string(subject.Kind))
 		subjectID = strings.TrimSpace(subject.Id)
-		if err := s.DB.QueryRowContext(ctx, `
+		if err := s.DB.QueryRowContext(ctx, s.DB.Rebind(`
 SELECT count(*)
 FROM acl_binding_permissions
 WHERE subject_kind = ?
@@ -87,7 +87,7 @@ WHERE subject_kind = ?
   AND resource_id = ?
   AND permission = ?
   AND (not_before IS NULL OR not_before <= ?)
-  AND (expires_at IS NULL OR expires_at > ?)`,
+  AND (expires_at IS NULL OR expires_at > ?)`),
 			subjectKind, subjectID, resourceKind, resourceID, string(request.Permission), now, now,
 		).Scan(&count); err != nil {
 			return err
@@ -158,12 +158,12 @@ func (s *Server) CleanupExpired(ctx context.Context, limit int) (int, error) {
 		return 0, nil
 	}
 	now := s.now().Format(time.RFC3339Nano)
-	rows, err := s.DB.QueryContext(ctx, `
+	rows, err := s.DB.QueryContext(ctx, s.DB.Rebind(`
 SELECT id
 FROM acl_policy_bindings
 WHERE expires_at IS NOT NULL AND expires_at <= ?
 ORDER BY expires_at, id
-LIMIT ?`, now, limit)
+LIMIT ?`), now, limit)
 	if err != nil {
 		return 0, err
 	}
