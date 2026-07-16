@@ -226,9 +226,12 @@ func validatePIXA(data []byte) error {
 	if size := binary.LittleEndian.Uint16(data[6:8]); size != headerSize {
 		return fmt.Errorf("invalid PIXA header size %d", size)
 	}
-	if binary.LittleEndian.Uint16(data[8:10]) == 0 || binary.LittleEndian.Uint16(data[10:12]) == 0 {
+	width := binary.LittleEndian.Uint16(data[8:10])
+	height := binary.LittleEndian.Uint16(data[10:12])
+	if width == 0 || height == 0 {
 		return errors.New("invalid PIXA canvas size")
 	}
+	canvasBytes := uint64(width) * uint64(height) * 2
 	colorCount := binary.LittleEndian.Uint16(data[12:14])
 	clipCount := binary.LittleEndian.Uint16(data[14:16])
 	frameCount := binary.LittleEndian.Uint32(data[16:20])
@@ -259,6 +262,7 @@ func validatePIXA(data []byte) error {
 			return errors.New("invalid PIXA clip frame range")
 		}
 	}
+	hasRenderableKeyFrame := false
 	for i := range int(frameCount) {
 		base := int(frameOffset) + i*frameEntrySize
 		offset := binary.LittleEndian.Uint32(data[base+4 : base+8])
@@ -266,6 +270,12 @@ func validatePIXA(data []byte) error {
 		if offset > payloadLength || length > payloadLength-offset {
 			return errors.New("invalid PIXA frame payload range")
 		}
+		if data[base+2] == 0 && uint64(length) >= canvasBytes {
+			hasRenderableKeyFrame = true
+		}
+	}
+	if !hasRenderableKeyFrame {
+		return fmt.Errorf("PIXA contains no key frame covering the %dx%d canvas", width, height)
 	}
 	return nil
 }

@@ -65,6 +65,38 @@ func TestReadValidatedRejectsTruncatedPNG(t *testing.T) {
 	}
 }
 
+func TestReadValidatedRejectsUnrenderablePIXA(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		mutate func([]byte)
+	}{
+		{
+			name: "key frame shorter than canvas",
+			mutate: func(data []byte) {
+				binary.LittleEndian.PutUint16(data[8:10], 2)
+			},
+		},
+		{
+			name: "no key frame",
+			mutate: func(data []byte) {
+				frameOffset := binary.LittleEndian.Uint32(data[28:32])
+				data[int(frameOffset)+2] = 1
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			data := testPIXA()
+			tt.mutate(data)
+			if _, err := ReadValidated(bytes.NewReader(data), FormatPixa); !errors.Is(err, ErrInvalid) {
+				t.Fatalf("ReadValidated(unrenderable PIXA) error = %v, want ErrInvalid", err)
+			}
+		})
+	}
+}
+
 func TestOwnerObjectNames(t *testing.T) {
 	t.Parallel()
 	if got, want := ObjectName("team/demo", FormatPNG), "team%2Fdemo/icon.png"; got != want {
