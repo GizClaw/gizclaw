@@ -50,7 +50,7 @@ func TestObserveHTTPHandlerLogsSafeDomainErrorAndRequestID(t *testing.T) {
 	capture := captureSlog(t)
 	handler := observeHTTPHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		outcome := observability.FromContext(r.Context())
-		outcome.SetOperation("CreateWorkspace")
+		outcome.SetOperation("createWorkspace")
 		outcome.SetRoute("/workspaces")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
@@ -71,7 +71,7 @@ func TestObserveHTTPHandlerLogsSafeDomainErrorAndRequestID(t *testing.T) {
 		t.Fatalf("record = (%v, %q)", record.Level, record.Message)
 	}
 	for key, want := range map[string]any{
-		"transport": "http", "surface": "admin-http", "operation": "CreateWorkspace",
+		"transport": "http", "surface": "admin-http", "operation": "createWorkspace",
 		"route": "/workspaces", "method": "POST", "status": int64(400), "status_class": "4xx",
 		"result": "client_error", "error_code": "INVALID_WORKSPACE", "request_id": "request-1",
 		"peer_public_key": "peer-key", "peer_role": "admin",
@@ -247,9 +247,29 @@ func TestObserveFiberRouteUsesRegisteredTemplateAndName(t *testing.T) {
 	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/users/private-user?token=secret", nil))
 
 	_, attrs := onlyCapturedRecord(t, capture)
-	if attrs["route"] != "/users/:id" || attrs["operation"] != "GetUser" {
+	if attrs["route"] != "/users/:id" || attrs["operation"] != "getUser" {
 		t.Fatalf("attrs = %#v", attrs)
 	}
+}
+
+func TestObserveFiberRouteConvertsGeneratedHandlerNameToOperationID(t *testing.T) {
+	capture := captureSlog(t)
+	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	app.Use(observeFiberRoute)
+	app.Get("/acl/views", (fiberOperationTestHandler{}).ListACLViews)
+	handler := observeHTTPHandler(fiberHTTPHandler(app), httpObservationOptions{surface: observability.SurfaceAdminHTTP})
+	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/acl/views", nil))
+
+	_, attrs := onlyCapturedRecord(t, capture)
+	if attrs["operation"] != "listACLViews" {
+		t.Fatalf("operation = %#v, want OpenAPI operation ID", attrs["operation"])
+	}
+}
+
+type fiberOperationTestHandler struct{}
+
+func (fiberOperationTestHandler) ListACLViews(ctx *fiber.Ctx) error {
+	return ctx.SendStatus(http.StatusNoContent)
 }
 
 func TestObserveFiberRouteLeavesUnknownRouteUnknown(t *testing.T) {
@@ -275,7 +295,7 @@ func TestObserveHTTPHandlerUsesRegisteredMuxFallback(t *testing.T) {
 	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, "/openai/v1/chat/completions", nil))
 
 	_, attrs := onlyCapturedRecord(t, capture)
-	if attrs["route"] != "/openai/v1/" || attrs["operation"] != "OpenAIProxy" {
+	if attrs["route"] != "/openai/v1/" || attrs["operation"] != "openAIProxy" {
 		t.Fatalf("attrs = %#v", attrs)
 	}
 }
@@ -294,8 +314,8 @@ func TestObservePeerHTTPAuthAndPreflightUseAllowlistedFallback(t *testing.T) {
 		wantStatus    int
 		wantOperation string
 	}{
-		{name: "auth rejection", method: http.MethodGet, path: "/me", wantStatus: http.StatusUnauthorized, wantOperation: "GetMe"},
-		{name: "preflight", method: http.MethodOptions, path: "/me/status", wantStatus: http.StatusNoContent, wantOperation: "CORSPreflight"},
+		{name: "auth rejection", method: http.MethodGet, path: "/me", wantStatus: http.StatusUnauthorized, wantOperation: "getMe"},
+		{name: "preflight", method: http.MethodOptions, path: "/me/status", wantStatus: http.StatusNoContent, wantOperation: "corsPreflight"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

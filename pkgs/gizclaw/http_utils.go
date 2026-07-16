@@ -235,7 +235,7 @@ func registeredHTTPOperation(method, pattern string) string {
 	if method == http.MethodOptions {
 		switch pattern {
 		case "/login", "/server-info", "/webrtc/v1/offer", "/me", "/me/runtime", "/me/status", "/openai/v1/":
-			return "CORSPreflight"
+			return "corsPreflight"
 		default:
 			return ""
 		}
@@ -243,33 +243,33 @@ func registeredHTTPOperation(method, pattern string) string {
 	switch pattern {
 	case "/login":
 		if method == http.MethodPost {
-			return "Login"
+			return "login"
 		}
 	case "/server-info":
 		if method == http.MethodGet {
-			return "GetServerInfo"
+			return "getServerInfo"
 		}
 	case "/webrtc/v1/offer":
 		if method == http.MethodPost {
-			return "CreateGiznetWebRTCOffer"
+			return "createGiznetWebRTCOffer"
 		}
 	case "/me":
 		if method == http.MethodGet {
-			return "GetMe"
+			return "getMe"
 		}
 	case "/me/runtime":
 		if method == http.MethodGet {
-			return "GetMeRuntime"
+			return "getMeRuntime"
 		}
 	case "/me/status":
 		switch method {
 		case http.MethodGet:
-			return "GetMeStatus"
+			return "getMeStatus"
 		case http.MethodPut:
-			return "PutMeStatus"
+			return "putMeStatus"
 		}
 	case "/openai/v1/":
-		return "OpenAIProxy"
+		return "openAIProxy"
 	}
 	return ""
 }
@@ -291,7 +291,7 @@ func observeFiberRoute(ctx *fiber.Ctx) error {
 	}
 	outcome.SetRoute(route.Path)
 	if route.Name != "" {
-		outcome.SetOperation(route.Name)
+		outcome.SetOperation(openAPIOperationID(route.Name))
 		return err
 	}
 	if len(route.Handlers) == 0 {
@@ -306,8 +306,15 @@ func observeFiberRoute(ctx *fiber.Ctx) error {
 		name = name[dot+1:]
 	}
 	name = strings.TrimSuffix(name, "-fm")
-	outcome.SetOperation(name)
+	outcome.SetOperation(openAPIOperationID(name))
 	return err
+}
+
+func openAPIOperationID(name string) string {
+	if name == "" || name[0] < 'A' || name[0] > 'Z' {
+		return name
+	}
+	return string(name[0]+('a'-'A')) + name[1:]
 }
 
 func validOrNewRequestID(value string, entropy io.Reader) (string, error) {
