@@ -9,6 +9,8 @@ import 'rpc_client.dart';
 import 'service_http.dart';
 import 'transport.dart';
 
+const int _maxIconDownloadBytes = 2 * 1024 * 1024;
+
 /// Copies caller-controlled fields from a Workspace response into its write
 /// payload without carrying output-only lifecycle metadata.
 payload.WorkspaceUpsert workspaceUpsertFromWorkspace(
@@ -363,6 +365,7 @@ class GizClawClient {
     final response = await rpc.callBinary(
       'server.workflow.icon.download',
       payload.WorkflowIconDownloadRequest(name: name, format: format),
+      maxBodyBytes: _maxIconDownloadBytes,
     );
     return IconDownloadResult(
       metadata: response.response as payload.WorkflowIconDownloadResponse,
@@ -375,6 +378,7 @@ class GizClawClient {
     final response = await rpc.callBinary(
       'server.workspace.icon.download',
       payload.WorkspaceIconDownloadRequest(name: name, format: format),
+      maxBodyBytes: _maxIconDownloadBytes,
     );
     return IconDownloadResult(
       metadata: response.response as payload.WorkspaceIconDownloadResponse,
@@ -387,6 +391,7 @@ class GizClawClient {
     final response = await rpc.callBinary(
       'server.info.icon.download',
       payload.ServerInfoIconDownloadRequest(format: format),
+      maxBodyBytes: _maxIconDownloadBytes,
     );
     return IconDownloadResult(
       metadata: response.response as payload.ServerInfoIconDownloadResponse,

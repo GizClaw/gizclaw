@@ -65,6 +65,7 @@ class PeerRpcClient {
     String methodName,
     GeneratedMessage request, {
     String? id,
+    int? maxBodyBytes,
     Duration? timeout,
   }) {
     return _call(
@@ -72,6 +73,7 @@ class PeerRpcClient {
       request,
       expectBody: true,
       id: id,
+      maxBodyBytes: maxBodyBytes,
       timeout: timeout,
     );
   }
@@ -100,6 +102,7 @@ class PeerRpcClient {
     required bool expectBody,
     Uint8List? requestBody,
     String? id,
+    int? maxBodyBytes,
     Duration? timeout,
   }) {
     late final String requestId;
@@ -116,6 +119,7 @@ class PeerRpcClient {
       responseReader = _ResponseReader(
         methodName,
         expectBody: expectBody,
+        maxBodyBytes: maxBodyBytes,
         requestId: requestId,
       );
     } catch (error, stackTrace) {
@@ -316,13 +320,24 @@ class _ResponseReader {
   _ResponseReader(
     this.methodName, {
     required this.expectBody,
+    this.maxBodyBytes,
     required this.requestId,
-  });
+  }) {
+    if (maxBodyBytes != null && maxBodyBytes! < 0) {
+      throw ArgumentError.value(
+        maxBodyBytes,
+        'maxBodyBytes',
+        'must be non-negative',
+      );
+    }
+  }
 
   final bool expectBody;
+  final int? maxBodyBytes;
   final String methodName;
   final String requestId;
   final _body = BytesBuilder(copy: false);
+  int _bodyLength = 0;
   final _envelopeChunks = <Uint8List>[];
   Uint8List _buffer = Uint8List(0);
   bool _envelopeRead = false;
@@ -383,6 +398,11 @@ class _ResponseReader {
     if (frame.type == rpcFrameTypeBinary) {
       if (!expectBody) {
         throw const FormatException('RPC response contains unexpected body');
+      }
+      _bodyLength += frame.payload.length;
+      final maxBytes = maxBodyBytes;
+      if (maxBytes != null && _bodyLength > maxBytes) {
+        throw FormatException('RPC response body exceeds $maxBytes bytes');
       }
       _body.add(frame.payload);
       return null;

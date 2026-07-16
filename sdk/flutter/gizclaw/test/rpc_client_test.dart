@@ -90,6 +90,52 @@ void main() {
     expect((await future).value.name, 'mobile');
   });
 
+  test('rejects binary RPC bodies above the configured limit', () async {
+    final factory = FakeDataChannelFactory();
+    final client = PeerRpcClient(factory, createId: () => 'rpc-body-limit');
+    final future = client.callBinary(
+      'server.workspace.history.audio.get',
+      payload.WorkspaceHistoryAudioGetRequest(
+        historyId: 'history-1',
+        workspaceName: 'main',
+      ),
+      maxBodyBytes: 3,
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    factory.channels.single.addMessage(
+      concatBytes([
+        ...encodeEnvelopeFrames(
+          rpc.RpcResponse(
+            id: 'rpc-body-limit',
+            payload: encodeRpcResponsePayload(
+              'server.workspace.history.audio.get',
+              payload.WorkspaceHistoryAudioGetResponse(
+                historyId: 'history-1',
+                mimeType: 'audio/wav',
+                workspaceName: 'main',
+              ),
+            ),
+          ).writeToBuffer(),
+        ),
+        encodeFrame(rpcFrameTypeBinary, Uint8List.fromList([1, 2])),
+        encodeFrame(rpcFrameTypeBinary, Uint8List.fromList([3, 4])),
+        encodeFrame(rpcFrameTypeEos),
+      ]),
+    );
+
+    await expectLater(
+      future,
+      throwsA(
+        isA<FormatException>().having(
+          (error) => error.message,
+          'message',
+          contains('exceeds 3 bytes'),
+        ),
+      ),
+    );
+  });
+
   test('surfaces protobuf RPC errors', () async {
     final factory = FakeDataChannelFactory();
     final client = PeerRpcClient(factory, createId: () => 'rpc-err');
