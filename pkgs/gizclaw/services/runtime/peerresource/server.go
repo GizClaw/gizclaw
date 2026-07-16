@@ -15,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/credential"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/model"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
@@ -440,7 +441,7 @@ func (s *Server) handleWorkspaceGet(ctx context.Context, req *rpcapi.RPCRequest)
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	return workspaceAdminRPCResponse(req.Id, adminResp.VisitGetWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspaceGetResponse)
+	return workspaceAdminRPCResponse(ctx, req.Id, adminResp.VisitGetWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspaceGetResponse)
 }
 
 func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
@@ -451,6 +452,8 @@ func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCReque
 	if !ok {
 		return invalidParams(req.Id), true, nil
 	}
+	observability.Annotate(ctx, observability.AnnotationWorkspaceName, params.Name)
+	observability.Annotate(ctx, observability.AnnotationWorkflowName, params.WorkflowName)
 	if resp := s.authorizeResponse(ctx, req.Id, acl.CollectionResource(acl.ResourceKindWorkspace), apitypes.ACLPermissionCreate); resp != nil {
 		return resp, true, nil
 	}
@@ -474,7 +477,7 @@ func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCReque
 			return internalError(req.Id, err.Error()), true, nil
 		}
 	}
-	return workspaceAdminRPCResponse(req.Id, adminResp.VisitCreateWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspaceCreateResponse), true, nil
+	return workspaceAdminRPCResponse(ctx, req.Id, adminResp.VisitCreateWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspaceCreateResponse), true, nil
 }
 
 func (s *Server) handleWorkspacePut(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
@@ -499,7 +502,7 @@ func (s *Server) handleWorkspacePut(ctx context.Context, req *rpcapi.RPCRequest)
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
-	return workspaceAdminRPCResponse(req.Id, adminResp.VisitPutWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspacePutResponse), true, nil
+	return workspaceAdminRPCResponse(ctx, req.Id, adminResp.VisitPutWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspacePutResponse), true, nil
 }
 
 func (s *Server) handleWorkspaceDelete(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -531,7 +534,7 @@ func (s *Server) handleWorkspaceDelete(ctx context.Context, req *rpcapi.RPCReque
 			}
 		}
 	}
-	return workspaceAdminRPCResponse(req.Id, adminResp.VisitDeleteWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspaceDeleteResponse)
+	return workspaceAdminRPCResponse(ctx, req.Id, adminResp.VisitDeleteWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspaceDeleteResponse)
 }
 
 func (s *Server) handleWorkspaceHistoryList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -1157,34 +1160,44 @@ func adminRPCResponse[T any](id string, visit func(*fiber.Ctx) error, encode fun
 	return resultResponse(id, result, encode)
 }
 
-func workspaceAdminRPCResponse[T any](id string, visit func(*fiber.Ctx) error, encode func(*rpcapi.RPCPayload, T) error) *rpcapi.RPCResponse {
-	result, rpcResp, err := adminResult[apitypes.Workspace](visit)
+func workspaceAdminRPCResponse[T any](ctx context.Context, id string, visit func(*fiber.Ctx) error, encode func(*rpcapi.RPCPayload, T) error) *rpcapi.RPCResponse {
+	result, rpcResp, errorCode, err := adminResultWithCode[apitypes.Workspace](visit)
 	if err != nil {
 		return internalError(id, err.Error())
 	}
 	if rpcResp != nil {
+		observability.SetErrorCode(ctx, errorCode)
 		return withRequestID(id, rpcResp)
 	}
 	return resultResponse(id, result, encode)
 }
 
 func adminResult[T any](visit func(*fiber.Ctx) error) (T, *rpcapi.RPCResponse, error) {
+	result, rpcResp, _, err := adminResultWithCode[T](visit)
+	return result, rpcResp, err
+}
+
+func adminResultWithCode[T any](visit func(*fiber.Ctx) error) (T, *rpcapi.RPCResponse, string, error) {
 	var result T
 	status, body, err := renderAdminResponse(visit)
 	if err != nil {
-		return result, nil, err
+		return result, nil, "", err
 	}
 	if status == http.StatusOK {
 		if err := json.Unmarshal(body, &result); err != nil {
-			return result, nil, err
+			return result, nil, "", err
 		}
-		return result, nil, nil
+		return result, nil, "", nil
 	}
 	var apiErr apitypes.ErrorResponse
-	if err := json.Unmarshal(body, &apiErr); err == nil && apiErr.Error.Message != "" {
-		return result, statusError("", status, apiErr.Error.Message), nil
+	if err := json.Unmarshal(body, &apiErr); err == nil && (apiErr.Error.Code != "" || apiErr.Error.Message != "") {
+		message := apiErr.Error.Message
+		if message == "" {
+			message = http.StatusText(status)
+		}
+		return result, statusError("", status, message), apiErr.Error.Code, nil
 	}
-	return result, statusError("", status, http.StatusText(status)), nil
+	return result, statusError("", status, http.StatusText(status)), "", nil
 }
 
 func renderAdminResponse(visit func(*fiber.Ctx) error) (int, []byte, error) {

@@ -61,6 +61,46 @@ func TestHandlerSendsSlogRecord(t *testing.T) {
 	}
 }
 
+func TestHandlerKeepsCompletionFieldsIndependentlyQueryable(t *testing.T) {
+	fake := &fakeProducer{}
+	handler := NewHandlerWithProducer(Config{TopicID: "topic", Level: slog.LevelInfo}, fake)
+	record := slog.NewRecord(time.Now(), slog.LevelWarn, "gizclaw: request completed", 0)
+	record.AddAttrs(
+		slog.String("transport", "http"),
+		slog.String("surface", "admin-http"),
+		slog.String("operation", "CreateWorkspace"),
+		slog.String("result", "client_error"),
+		slog.String("status_class", "4xx"),
+		slog.Int64("duration_ms", 8),
+		slog.String("method", "POST"),
+		slog.String("route", "/workspaces"),
+		slog.Int("status", 400),
+		slog.String("error_code", "INVALID_WORKSPACE"),
+		slog.String("request_id", "request-1"),
+		slog.String("peer_public_key", "peer-key"),
+		slog.String("peer_role", "admin"),
+		slog.String("workspace_name", "workspace-a"),
+		slog.String("workflow_name", "workflow-a"),
+	)
+	if err := handler.Handle(context.Background(), record); err != nil {
+		t.Fatalf("Handle() error = %v", err)
+	}
+
+	contents := logContents(fake.log)
+	for key, want := range map[string]string{
+		"level": "WARN", "msg": "gizclaw: request completed", "transport": "http",
+		"surface": "admin-http", "operation": "CreateWorkspace", "result": "client_error",
+		"status_class": "4xx", "duration_ms": "8", "method": "POST", "route": "/workspaces",
+		"status": "400", "error_code": "INVALID_WORKSPACE", "request_id": "request-1",
+		"peer_public_key": "peer-key", "peer_role": "admin", "workspace_name": "workspace-a",
+		"workflow_name": "workflow-a",
+	} {
+		if got := contents[key]; got != want {
+			t.Errorf("content[%s] = %q, want %q", key, got, want)
+		}
+	}
+}
+
 func TestHandlerEnabledAndClose(t *testing.T) {
 	fake := &fakeProducer{}
 	handler := NewHandlerWithProducer(Config{TopicID: "topic", Level: slog.LevelWarn}, fake)

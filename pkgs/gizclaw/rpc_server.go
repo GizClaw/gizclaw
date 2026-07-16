@@ -57,7 +57,13 @@ type rpcServer struct {
 }
 
 func (s *rpcServer) Handle(conn net.Conn) error {
-	return handleRPCWithStream(conn, s.dispatch, s.dispatchStream)
+	peerPublicKey := ""
+	if !s.callerPublicKey.IsZero() {
+		peerPublicKey = s.callerPublicKey.String()
+	}
+	return handleRPCWithStreamObserved(conn, s.dispatch, s.dispatchStream, &rpcObservationOptions{
+		peerPublicKey: peerPublicKey,
+	})
 }
 
 func (s *rpcServer) dispatchStream(ctx context.Context, stream *rpcStream, req *rpcapi.RPCRequest) (bool, error) {

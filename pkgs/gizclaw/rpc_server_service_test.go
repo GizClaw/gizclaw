@@ -228,10 +228,12 @@ func TestRPCServerHandleClosedConn(t *testing.T) {
 }
 
 func TestRPCServerContextCancelsWhenConnCloses(t *testing.T) {
+	capture := captureSlog(t)
 	serverSide, clientSide := net.Pipe()
 	defer serverSide.Close()
 
-	server := &rpcServer{peer: &fakeRPCPeerService{waitPutInfoContext: true}}
+	started := make(chan struct{})
+	server := &rpcServer{peer: &fakeRPCPeerService{waitPutInfoContext: true, putInfoStarted: started}}
 	errCh := make(chan error, 1)
 	go func() {
 		defer serverSide.Close()
@@ -242,10 +244,24 @@ func TestRPCServerContextCancelsWhenConnCloses(t *testing.T) {
 	if err := rpcapi.WriteRequest(clientSide, newRPCRequest("put-info-cancel", rpcapi.RPCMethodServerInfoPut, params)); err != nil {
 		t.Fatalf("WriteRequest() error = %v", err)
 	}
+	if err := rpcapi.WriteFrame(clientSide, rpcapi.Frame{Type: rpcapi.FrameTypeEOS}); err != nil {
+		t.Fatalf("WriteEOS() error = %v", err)
+	}
+	<-started
 	_ = clientSide.Close()
 
 	if err := <-errCh; !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrClosedPipe) {
 		t.Fatalf("Handle() error = %v, want %v or %v", err, io.EOF, io.ErrClosedPipe)
+	}
+	record, attrs := onlyCapturedRecord(t, capture)
+	if record.Level.String() != "WARN" || attrs["result"] != "canceled" || attrs["operation"] != string(rpcapi.RPCMethodServerInfoPut) || attrs["request_id"] != "put-info-cancel" {
+		t.Fatalf("record = (%s, %#v)", record.Level, attrs)
+	}
+	if attrs["rpc_code"] != int64(rpcapi.RPCErrorCodeInternalError) {
+		t.Fatalf("rpc_code = %#v, want existing internal error response code", attrs["rpc_code"])
+	}
+	if _, ok := attrs["peer_public_key"]; ok {
+		t.Fatalf("zero caller key was logged: %#v", attrs)
 	}
 }
 
@@ -370,6 +386,7 @@ type fakeRPCPeerService struct {
 	getInfoError       error
 	putInfoError       error
 	waitPutInfoContext bool
+	putInfoStarted     chan struct{}
 }
 
 type fakeRPCServerInfoService struct {
@@ -402,6 +419,9 @@ func (f *fakeRPCPeerService) GetSelfInfo(_ context.Context, publicKey giznet.Pub
 func (f *fakeRPCPeerService) PutSelfInfo(ctx context.Context, publicKey giznet.PublicKey, info apitypes.DeviceInfo) (apitypes.DeviceInfo, error) {
 	f.checkPublicKey(publicKey)
 	f.lastPutInfo = &info
+	if f.putInfoStarted != nil {
+		close(f.putInfoStarted)
+	}
 	if f.waitPutInfoContext {
 		<-ctx.Done()
 		return apitypes.DeviceInfo{}, ctx.Err()

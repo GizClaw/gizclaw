@@ -47,6 +47,48 @@ func TestFanoutHandlerJoinsErrors(t *testing.T) {
 	}
 }
 
+func TestFanoutHandlerPreservesCompletionScalarsForEveryChild(t *testing.T) {
+	firstState := &recordingState{}
+	secondState := &recordingState{}
+	handler := NewFanoutHandler(
+		&recordingHandler{min: slog.LevelInfo, state: firstState},
+		&recordingHandler{min: slog.LevelInfo, state: secondState},
+	)
+	record := slog.NewRecord(time.Now(), slog.LevelWarn, "gizclaw: request completed", 0)
+	record.AddAttrs(
+		slog.String("transport", "rpc"),
+		slog.String("surface", "peer-rpc"),
+		slog.String("operation", "server.workspace.create"),
+		slog.String("result", "client_error"),
+		slog.String("status_class", "4xx"),
+		slog.Int64("duration_ms", 12),
+		slog.Int("rpc_code", 400),
+		slog.String("error_code", "INVALID_WORKSPACE"),
+		slog.String("request_id", "request-1"),
+		slog.String("peer_public_key", "peer-key"),
+		slog.String("workspace_name", "workspace-a"),
+	)
+	if err := handler.Handle(context.Background(), record); err != nil {
+		t.Fatalf("Handle() error = %v", err)
+	}
+
+	for i, state := range []*recordingState{firstState, secondState} {
+		if len(state.records) != 1 || state.records[0].Level != slog.LevelWarn || state.records[0].Message != "gizclaw: request completed" {
+			t.Fatalf("child %d records = %#v", i, state.records)
+		}
+		for key, want := range map[string]string{
+			"transport": "rpc", "surface": "peer-rpc", "operation": "server.workspace.create",
+			"result": "client_error", "status_class": "4xx", "duration_ms": "12", "rpc_code": "400",
+			"error_code": "INVALID_WORKSPACE", "request_id": "request-1", "peer_public_key": "peer-key",
+			"workspace_name": "workspace-a",
+		} {
+			if got := state.attrs[key]; got != want {
+				t.Errorf("child %d attr %s = %q, want %q", i, key, got, want)
+			}
+		}
+	}
+}
+
 type recordingHandler struct {
 	min    slog.Level
 	state  *recordingState

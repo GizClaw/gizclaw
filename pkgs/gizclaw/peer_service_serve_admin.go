@@ -10,6 +10,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/credential"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/model"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/providertenants"
@@ -53,13 +54,19 @@ var _ adminhttp.StrictServerInterface = (*adminService)(nil)
 
 func (s *PeerService) serveAdmin(conn giznet.Conn) error {
 	app := fiber.New(fiber.Config{DisableStartupMessage: true, StreamRequestBody: true})
+	app.Use(observeFiberRoute)
 	app.Use(func(ctx *fiber.Ctx) error {
 		return ctx.Next()
 	})
 	handler := adminhttp.NewStrictHandler(s.admin, nil)
 	adminhttp.RegisterHandlers(app, handler)
 
-	server := gizhttp.NewServer(conn, ServiceAdminHTTP, fiberHTTPHandler(app))
+	httpHandler := observeHTTPHandler(fiberHTTPHandler(app), httpObservationOptions{
+		surface:       observability.SurfaceAdminHTTP,
+		peerPublicKey: conn.PublicKey().String(),
+		peerRole:      string(apitypes.PeerRoleAdmin),
+	})
+	server := gizhttp.NewServer(conn, ServiceAdminHTTP, httpHandler)
 	defer func() {
 		_ = server.Shutdown(context.Background())
 	}()

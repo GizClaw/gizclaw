@@ -75,6 +75,7 @@ their own agents through workspace runtimes.
   from agent runtimes.
 - [ ] Expanded digital content delivery for gameplay content beyond current pet
   and badge pixa resources.
+- [ ] Additional process-wide `slog` sinks beyond stderr and Volc TLS.
 - [ ] Refresh repository-local agent skills for current CLI, admin, server,
   firmware, gear, workspace, and Play workflows.
 

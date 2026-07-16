@@ -4,11 +4,19 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
 func TestRPCClientPingSingleRequestResponse(t *testing.T) {
@@ -92,6 +100,278 @@ func TestRPCServerHandleReusesStreamByDefault(t *testing.T) {
 	if err := <-serverErrCh; err != nil {
 		t.Fatalf("server Handle error = %v", err)
 	}
+}
+
+func TestRPCServerLogsDomainFailureOnce(t *testing.T) {
+	capture := captureSlog(t)
+	serverSide, clientSide := net.Pipe()
+	defer serverSide.Close()
+
+	serverErrCh := make(chan error, 1)
+	server := &rpcServer{
+		callerPublicKey: giznet.PublicKey{1},
+		serverResources: &peerresource.Server{
+			Caller:     giznet.PublicKey{1},
+			ACL:        allowResourceAuthorizer{},
+			Workspaces: invalidWorkspaceAdminService{},
+		},
+	}
+	go func() { serverErrCh <- server.Handle(serverSide) }()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	resp, err := callRPC(ctx, clientSide, &rpcapi.RPCRequest{
+		V:      rpcapi.RPCVersionV1,
+		Id:     "request-1",
+		Method: rpcapi.RPCMethodServerWorkspaceCreate,
+		Params: mustRPCParams(rpcapi.WorkspaceCreateRequest{
+			Name: "workspace-a", WorkflowName: "workflow-a",
+		}, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest),
+	})
+	if err != nil {
+		t.Fatalf("callRPC() error = %v", err)
+	}
+	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeBadRequest {
+		t.Fatalf("response = %#v", resp)
+	}
+	if resp.Error.Message != "unchanged client message" {
+		t.Fatalf("response message = %q", resp.Error.Message)
+	}
+	if err := clientSide.Close(); err != nil {
+		t.Fatalf("client Close() error = %v", err)
+	}
+	if err := <-serverErrCh; err != nil {
+		t.Fatalf("server Handle() error = %v", err)
+	}
+
+	record, attrs := onlyCapturedRecord(t, capture)
+	if record.Level.String() != "WARN" {
+		t.Fatalf("level = %s, want WARN", record.Level)
+	}
+	for key, want := range map[string]any{
+		"transport": "rpc", "surface": "peer-rpc", "operation": "server.workspace.create",
+		"result": "client_error", "rpc_code": int64(400), "request_id": "request-1",
+		"error_code": "INVALID_WORKSPACE", "workspace_name": "workspace-a", "workflow_name": "workflow-a",
+	} {
+		if got := attrs[key]; got != want {
+			t.Errorf("%s = %#v, want %#v", key, got, want)
+		}
+	}
+}
+
+func TestRPCServerCleanEOFDoesNotLogCompletion(t *testing.T) {
+	capture := captureSlog(t)
+	serverSide, clientSide := net.Pipe()
+	serverErrCh := make(chan error, 1)
+	go func() { serverErrCh <- (&rpcServer{}).Handle(serverSide) }()
+
+	if err := clientSide.Close(); err != nil {
+		t.Fatalf("client Close() error = %v", err)
+	}
+	if err := <-serverErrCh; err != nil {
+		t.Fatalf("server Handle() error = %v", err)
+	}
+	capture.mu.Lock()
+	defer capture.mu.Unlock()
+	if len(capture.records) != 0 {
+		t.Fatalf("records = %d, want 0", len(capture.records))
+	}
+}
+
+func TestRPCServerLogsMalformedRequestAfterFirstFrame(t *testing.T) {
+	capture := captureSlog(t)
+	serverSide, clientSide := net.Pipe()
+	defer serverSide.Close()
+	serverErrCh := make(chan error, 1)
+	go func() { serverErrCh <- (&rpcServer{}).Handle(serverSide) }()
+
+	if err := rpcapi.WriteFrame(clientSide, rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: []byte{0xff}}); err != nil {
+		t.Fatalf("WriteFrame() error = %v", err)
+	}
+	if err := clientSide.Close(); err != nil {
+		t.Fatalf("client Close() error = %v", err)
+	}
+	if err := <-serverErrCh; err == nil {
+		t.Fatal("server Handle() error = nil, want malformed request error")
+	}
+
+	record, attrs := onlyCapturedRecord(t, capture)
+	if record.Level.String() != "ERROR" {
+		t.Fatalf("level = %s, want ERROR", record.Level)
+	}
+	for key, want := range map[string]any{
+		"transport": "rpc", "surface": "peer-rpc", "operation": "unknown",
+		"result": "transport_error", "status_class": "unknown",
+	} {
+		if got := attrs[key]; got != want {
+			t.Errorf("%s = %#v, want %#v", key, got, want)
+		}
+	}
+	for _, key := range []string{"rpc_code", "request_id", "error_message"} {
+		if _, ok := attrs[key]; ok {
+			t.Errorf("unexpected %s = %#v", key, attrs[key])
+		}
+	}
+}
+
+func TestRPCServerLogsExistingParseErrorResponseAsWarn(t *testing.T) {
+	capture := captureSlog(t)
+	serverSide, clientSide := net.Pipe()
+	defer serverSide.Close()
+	serverErrCh := make(chan error, 1)
+	go func() {
+		serverErrCh <- handleRPCWithStreamObserved(serverSide, func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeParseError, Message: "secret parse text"}.RPCResponse(), nil
+		}, nil, &rpcObservationOptions{peerPublicKey: "peer-key"})
+	}()
+
+	resp, err := callRPC(context.Background(), clientSide, &rpcapi.RPCRequest{
+		V: rpcapi.RPCVersionV1, Id: "parse-1", Method: rpcapi.RPCMethodAllPing,
+	})
+	if err != nil {
+		t.Fatalf("callRPC() error = %v", err)
+	}
+	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeParseError {
+		t.Fatalf("response = %#v", resp)
+	}
+	_ = clientSide.Close()
+	if err := <-serverErrCh; err != nil {
+		t.Fatalf("server error = %v", err)
+	}
+	record, attrs := onlyCapturedRecord(t, capture)
+	if record.Level.String() != "WARN" || attrs["rpc_code"] != int64(rpcapi.RPCErrorCodeParseError) || attrs["result"] != "client_error" {
+		t.Fatalf("record = (%s, %#v)", record.Level, attrs)
+	}
+	if strings.Contains(fmt.Sprint(attrs), "secret parse text") {
+		t.Fatalf("response text leaked into attrs: %#v", attrs)
+	}
+}
+
+func TestRPCObservationResultMapsHTTPStyleServerCodes(t *testing.T) {
+	if got := rpcObservationResult(false, 500, nil); got != observability.ResultServerError {
+		t.Fatalf("rpcObservationResult(500) = %q", got)
+	}
+}
+
+func TestRPCServerLogsStreamingDispatchCompletionOnce(t *testing.T) {
+	capture := captureSlog(t)
+	serverSide, clientSide := net.Pipe()
+	defer serverSide.Close()
+	serverErrCh := make(chan error, 1)
+	go func() {
+		serverErrCh <- handleRPCWithStreamObserved(
+			serverSide,
+			func(context.Context, *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+				t.Error("ordinary dispatch was called")
+				return nil, nil
+			},
+			func(_ context.Context, stream *rpcStream, req *rpcapi.RPCRequest) (bool, error) {
+				if err := stream.ReadEOS(); err != nil {
+					return false, err
+				}
+				response, err := newRPCPingResponse(req.Id, rpcapi.PingResponse{ServerTime: 123})
+				if err != nil {
+					return false, err
+				}
+				if _, err := stream.WriteResponseEnvelopeForMethod(req.Method, response); err != nil {
+					return false, err
+				}
+				if err := stream.WriteEOS(); err != nil {
+					return false, err
+				}
+				return true, nil
+			},
+			&rpcObservationOptions{peerPublicKey: "peer-key"},
+		)
+	}()
+
+	resp, err := callRPC(context.Background(), clientSide, &rpcapi.RPCRequest{
+		V: rpcapi.RPCVersionV1, Id: "stream-1", Method: rpcapi.RPCMethodAllPing,
+	})
+	if err != nil {
+		t.Fatalf("callRPC() error = %v", err)
+	}
+	if resp.Error != nil {
+		t.Fatalf("response = %#v", resp)
+	}
+	_ = clientSide.Close()
+	if err := <-serverErrCh; err != nil {
+		t.Fatalf("server error = %v", err)
+	}
+	record, attrs := onlyCapturedRecord(t, capture)
+	if record.Level.String() != "INFO" || attrs["result"] != "success" || attrs["operation"] != string(rpcapi.RPCMethodAllPing) {
+		t.Fatalf("record = (%s, %#v)", record.Level, attrs)
+	}
+	if _, ok := attrs["rpc_code"]; ok {
+		t.Fatalf("success fabricated rpc_code: %#v", attrs)
+	}
+}
+
+func TestRPCServerLogsStreamingErrorResponse(t *testing.T) {
+	capture := captureSlog(t)
+	serverSide, clientSide := net.Pipe()
+	defer serverSide.Close()
+	serverErrCh := make(chan error, 1)
+	go func() {
+		serverErrCh <- handleRPCWithStreamObserved(
+			serverSide,
+			func(context.Context, *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) { return nil, nil },
+			func(_ context.Context, stream *rpcStream, req *rpcapi.RPCRequest) (bool, error) {
+				if err := stream.ReadEOS(); err != nil {
+					return false, err
+				}
+				return true, writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, "secret invalid params")
+			},
+			&rpcObservationOptions{peerPublicKey: "peer-key"},
+		)
+	}()
+
+	resp, err := callRPC(context.Background(), clientSide, &rpcapi.RPCRequest{
+		V: rpcapi.RPCVersionV1, Id: "stream-error-1", Method: rpcapi.RPCMethodAllSpeedTestRun,
+	})
+	if err != nil {
+		t.Fatalf("callRPC() error = %v", err)
+	}
+	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
+		t.Fatalf("response = %#v", resp)
+	}
+	_ = clientSide.Close()
+	if err := <-serverErrCh; err != nil {
+		t.Fatalf("server error = %v", err)
+	}
+	record, attrs := onlyCapturedRecord(t, capture)
+	if record.Level.String() != "WARN" || attrs["result"] != "client_error" || attrs["rpc_code"] != int64(rpcapi.RPCErrorCodeInvalidParams) {
+		t.Fatalf("record = (%s, %#v)", record.Level, attrs)
+	}
+	if strings.Contains(fmt.Sprint(attrs), "secret invalid params") {
+		t.Fatalf("response text leaked into attrs: %#v", attrs)
+	}
+}
+
+type allowResourceAuthorizer struct{}
+
+func (allowResourceAuthorizer) Authorize(context.Context, acl.AuthorizeRequest) error { return nil }
+
+type invalidWorkspaceAdminService struct{}
+
+func (invalidWorkspaceAdminService) ListWorkspaces(context.Context, adminhttp.ListWorkspacesRequestObject) (adminhttp.ListWorkspacesResponseObject, error) {
+	return nil, nil
+}
+
+func (invalidWorkspaceAdminService) CreateWorkspace(context.Context, adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
+	return adminhttp.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", "unchanged client message")), nil
+}
+
+func (invalidWorkspaceAdminService) DeleteWorkspace(context.Context, adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {
+	return nil, nil
+}
+
+func (invalidWorkspaceAdminService) GetWorkspace(context.Context, adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
+	return nil, nil
+}
+
+func (invalidWorkspaceAdminService) PutWorkspace(context.Context, adminhttp.PutWorkspaceRequestObject) (adminhttp.PutWorkspaceResponseObject, error) {
+	return nil, nil
 }
 
 func TestRPCServerStreamDispatchUsesConsumedContinuationEOS(t *testing.T) {

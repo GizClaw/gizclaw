@@ -18,6 +18,7 @@ Code review should use these boundaries to determine whether changes are in the 
 | Product domains | Device, runtime, AI, system, social and gameplay services have their own resources and business rules. |
 | API and SDK | Root `api/` stores the HTTP and Protobuf source contracts and generates Go, JavaScript, C, Flutter, and other client surfaces. |
 | Storage and media | Store packages provide general persistence/indexing capabilities; Audio packages provide codec, PCM, resampling, and voiceprint. |
+| Observability | Use structured logs to diagnose individual requests and low-cardinality metrics to observe requests, runtimes, and device state. See [Observability](observability) for fields and ownership. |
 
 The current code supports Edge ingress with a single upstream. Distributed membership, cross-server data synchronization, and global routing are not among the currently completed Server Mesh capabilities.
 
@@ -162,6 +163,8 @@ For specific signaling, Edge upstream, and service authorization, see the [Gizne
 3. When modifying domain behavior, leave resources and business rules in the corresponding service; the Server/Peer file is only responsible for composition, connection and dispatch.
 4. When modifying basic packages such as GenX/Audio/Store, do not introduce GizClaw product resources or provider credential ownership.
 5. Run focused tests based on the risk of change; Go behavior changes ultimately require `go test ./...` by default, and schema changes also need to be generated and cross-language verified.
+
+Follow [Observability](observability) for log fields, metric names, labels, and instrumentation ownership.
 
 Further entry point:
 
