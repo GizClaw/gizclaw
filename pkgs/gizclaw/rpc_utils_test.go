@@ -247,6 +247,62 @@ func TestRPCServerLogsExistingParseErrorResponseAsWarn(t *testing.T) {
 	}
 }
 
+func TestRPCServerLogsRethrownPanic(t *testing.T) {
+	capture := captureSlog(t)
+	serverSide, clientSide := net.Pipe()
+	defer serverSide.Close()
+	defer clientSide.Close()
+	stream, err := newRPCStream(context.Background(), serverSide)
+	if err != nil {
+		t.Fatalf("newRPCStream() error = %v", err)
+	}
+	defer stream.Close()
+
+	writerErr := make(chan error, 1)
+	go func() {
+		err := rpcapi.WriteRequest(clientSide, &rpcapi.RPCRequest{
+			V: rpcapi.RPCVersionV1, Id: "panic-1", Method: rpcapi.RPCMethodAllPing,
+		})
+		if err == nil {
+			err = rpcapi.WriteEOS(clientSide)
+		}
+		writerErr <- err
+	}()
+
+	var panicValue any
+	func() {
+		defer func() { panicValue = recover() }()
+		_, _ = handleRPCStreamRequestObserved(
+			stream,
+			func(context.Context, *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+				panic("secret panic value")
+			},
+			nil,
+			&rpcObservationOptions{peerPublicKey: "peer-key"},
+		)
+	}()
+	if panicValue == nil {
+		t.Fatal("RPC handler did not rethrow panic")
+	}
+	if err := <-writerErr; err != nil {
+		t.Fatalf("write request error = %v", err)
+	}
+
+	record, attrs := onlyCapturedRecord(t, capture)
+	if record.Level.String() != "ERROR" || attrs["result"] != "panic" || attrs["status_class"] != "unknown" {
+		t.Fatalf("record = (%s, %#v)", record.Level, attrs)
+	}
+	if attrs["operation"] != string(rpcapi.RPCMethodAllPing) || attrs["request_id"] != "panic-1" || attrs["peer_public_key"] != "peer-key" {
+		t.Fatalf("record = %#v", attrs)
+	}
+	if _, ok := attrs["rpc_code"]; ok {
+		t.Fatalf("panic fabricated rpc_code: %#v", attrs)
+	}
+	if strings.Contains(fmt.Sprint(attrs), "secret panic value") {
+		t.Fatalf("panic value leaked into attrs: %#v", attrs)
+	}
+}
+
 func TestRPCObservationResultMapsHTTPStyleServerCodes(t *testing.T) {
 	if got := rpcObservationResult(false, 500, nil); got != observability.ResultServerError {
 		t.Fatalf("rpcObservationResult(500) = %q", got)

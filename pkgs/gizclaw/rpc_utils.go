@@ -91,6 +91,7 @@ func handleRPCStreamRequestObserved(
 		outcome.SetPeer(observation.peerPublicKey, "")
 		completionCtx = observability.WithOutcome(completionCtx, outcome)
 		defer func() {
+			panicValue := recover()
 			code := 0
 			result := observability.ResultSuccess
 			if response != nil && response.Error != nil {
@@ -100,8 +101,15 @@ func handleRPCStreamRequestObserved(
 			if observedErr != nil {
 				result = rpcObservationResult(wasCanceled, code, observedErr)
 			}
+			if panicValue != nil {
+				outcome.MarkPanic()
+				result = observability.ResultPanic
+			}
 			outcome.SetRPC(code, result)
 			observability.Log(completionCtx, outcome)
+			if panicValue != nil {
+				panic(panicValue)
+			}
 		}()
 	}
 	req, requestEOS, err := stream.decodeRequestEnvelope(first)
