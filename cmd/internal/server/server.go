@@ -222,6 +222,12 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		gizServer.PublicLoginAuthorizer = gizclaw.PrivateHTTPIngressLoginAuthorizer(gizServer)
 	}
 	if len(cfg.Storage) > 0 {
+		if gizServer.AssetMetadataStore, err = ss.KV(defaultAssetMetadataStore); err != nil {
+			return nil, fmt.Errorf("server: asset metadata store: %w", err)
+		}
+		if gizServer.AssetObjects, err = ss.ObjectStore(defaultAssetObjectsStore); err != nil {
+			return nil, fmt.Errorf("server: asset object store: %w", err)
+		}
 		if gizServer.CredentialStore, err = ss.KV(defaultCredentialsStore); err != nil {
 			return nil, fmt.Errorf("server: credentials store: %w", err)
 		}

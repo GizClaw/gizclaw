@@ -8,6 +8,8 @@ import 'method_registry.dart';
 typedef MessageFactory = GeneratedMessage Function();
 
 final _messageFactories = <String, MessageFactory>{
+  'AssetDownloadRequest': payload.AssetDownloadRequest.new,
+  'AssetDownloadResponse': payload.AssetDownloadResponse.new,
   'BadgeDefPixaDownloadRequest': payload.BadgeDefPixaDownloadRequest.new,
   'BadgeDefPixaDownloadResponse': payload.BadgeDefPixaDownloadResponse.new,
   'ClientGetIdentifiersRequest': payload.ClientGetIdentifiersRequest.new,
@@ -237,6 +239,8 @@ final _messageFactories = <String, MessageFactory>{
 };
 
 final _messageTypes = <String, Type>{
+  'AssetDownloadRequest': payload.AssetDownloadRequest,
+  'AssetDownloadResponse': payload.AssetDownloadResponse,
   'BadgeDefPixaDownloadRequest': payload.BadgeDefPixaDownloadRequest,
   'BadgeDefPixaDownloadResponse': payload.BadgeDefPixaDownloadResponse,
   'ClientGetIdentifiersRequest': payload.ClientGetIdentifiersRequest,

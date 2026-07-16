@@ -25,6 +25,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/asset"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/resourcemanager"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
@@ -48,6 +49,8 @@ type adminService struct {
 	ResourceManager *resourcemanager.Manager
 	ServerLogs      ServerLogQueryService
 	PeerTelemetry   *peertelemetry.AdminService
+	Assets          *asset.Service
+	AssetMaxBytes   int64
 }
 
 var _ adminhttp.StrictServerInterface = (*adminService)(nil)

@@ -28,6 +28,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/asset"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/gofiber/fiber/v2"
@@ -42,20 +43,28 @@ type policyBindingLister interface {
 }
 
 type Server struct {
-	Caller       giznet.PublicKey
-	ACL          Authorizer
-	Firmwares    *firmware.Server
-	Workspaces   workspace.WorkspaceAdminService
-	Workflows    workflow.WorkflowAdminService
-	Models       model.ModelAdminService
-	Credentials  credential.CredentialAdminService
-	Voices       voice.VoiceAdminService
-	Contacts     *contact.Server
-	Friends      *friend.Server
-	FriendGroups *friendgroup.Server
-	Gameplay     *gameplay.Runtime
-	Tools        *toolkit.Server
-	ResourceACL  ResourceACLService
+	Caller        giznet.PublicKey
+	ACL           Authorizer
+	Firmwares     *firmware.Server
+	Workspaces    workspace.WorkspaceAdminService
+	Workflows     workflow.WorkflowAdminService
+	Models        model.ModelAdminService
+	Credentials   credential.CredentialAdminService
+	Voices        voice.VoiceAdminService
+	Contacts      *contact.Server
+	Friends       *friend.Server
+	FriendGroups  *friendgroup.Server
+	Gameplay      *gameplay.Runtime
+	Tools         *toolkit.Server
+	ResourceACL   ResourceACLService
+	Assets        *asset.Service
+	AssetDisplays ResourceDisplayAssetResolver
+}
+
+// ResourceDisplayAssetResolver verifies that an asset is in the public
+// displays projection of a Resource, rather than merely referenced elsewhere.
+type ResourceDisplayAssetResolver interface {
+	ResourceHasDisplayAsset(context.Context, asset.Owner, asset.Ref) (bool, error)
 }
 
 type WorkspaceHistoryService interface {

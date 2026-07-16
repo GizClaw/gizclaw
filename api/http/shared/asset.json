@@ -1,0 +1,99 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Asset Types",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "AssetRef": {
+        "type": "string",
+        "description": "Opaque reference to an immutable AssetService object.",
+        "pattern": "^asset://[0-9a-f]{32}$",
+        "example": "asset://7d9c87aa1a224de6b93082026f30c77e"
+      },
+      "AssetMetadata": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ref",
+          "media_type",
+          "size_bytes",
+          "sha256",
+          "created_at"
+        ],
+        "properties": {
+          "ref": {
+            "$ref": "#/components/schemas/AssetRef"
+          },
+          "media_type": {
+            "type": "string",
+            "pattern": "^[^/\\s]+/[^;\\s]+$"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AssetOwnerKind": {
+        "type": "string",
+        "enum": [
+          "resource",
+          "friend-group-message"
+        ]
+      },
+      "AssetBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "owner_kind",
+          "owner_id"
+        ],
+        "properties": {
+          "owner_kind": {
+            "$ref": "#/components/schemas/AssetOwnerKind"
+          },
+          "owner_id": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 512
+          }
+        }
+      },
+      "Asset": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "metadata",
+          "bindings"
+        ],
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/AssetMetadata"
+          },
+          "bindings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AssetBinding"
+            }
+          }
+        }
+      }
+    }
+  }
+}

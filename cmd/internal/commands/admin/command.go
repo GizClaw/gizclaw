@@ -2,6 +2,7 @@ package admincmd
 
 import (
 	aclcmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/acl"
+	assetscmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/assets"
 	credentialscmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/credentials"
 	dashscopetenantscmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/dashscopetenants"
 	firmwarescmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/firmwares"
@@ -33,6 +34,7 @@ func NewCmd() *cobra.Command {
 		newDeleteCmd(&ctxName),
 		newShowCmd(&ctxName),
 		aclcmd.NewCmd(),
+		assetscmd.NewCmd(),
 		peerscmd.NewCmd(),
 		petdefscmd.NewCmd(),
 		credentialscmd.NewCmd(),

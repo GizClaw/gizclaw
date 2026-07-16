@@ -7,6 +7,7 @@
 ```text
 services/system/
 ├── acl/               # Role、policy binding、ACL view 和授权判断
+├── asset/             # Stable AssetRef、metadata、reverse binding 与 binary lifecycle
 ├── publiclogin/       # Public HTTP login、assertion 和 session
 └── resourcemanager/   # Admin declarative resource 的统一入口
 ```
@@ -31,6 +32,16 @@ ACL 不负责 transport peer 是否能打开 giznet service；transport-level po
 
 ResourceManager 是跨领域协调层，不是所有 GizClaw resource 的实际 owner。
 
+Resource owner 写入时，ResourceManager 先为新增 refs 建立 pending binding，owner commit 成功后激活并移除旧 refs；写入失败则回滚 pending binding。删除 Resource 后按 owner 清理 reverse index。binding 只标识 owner kind 与 canonical owner ID，不记录 slot、JSON path 或字段号。
+
+### asset
+
+AssetService 统一拥有 immutable binary asset 的稳定引用、safe metadata、reverse-reference indexes 与 ObjectStore lifecycle。公开 ref 固定为 `asset://<32-lowercase-hex>`，由 CSPRNG 生成；它不携带 backend、bucket、目录、owner、文件名或 media type。
+
+metadata KV 保存 staging、ready、deleting lifecycle record，以及原子维护的 by-asset/by-owner binding indexes；逻辑 ObjectStore 只保存 `blobs/<id-prefix>/<id>` binary。`Put` 流式计算 size 与 SHA-256，`Open` 只读取 ready record，`Delete` 在 owner resolver 确认没有 live refs 后才停止服务并清理 object。`Reconcile` 由 Server lifecycle 显式调用，用于恢复 staging/deleting/pending 状态和报告 ready metadata/object 不一致。
+
+AssetService 不决定业务授权或内容格式。Admin surface 使用 Admin authentication；普通 Peer download 由 adapter 先验证 Resource public display membership 与 ACL；PNG、PIXA、TAR 或 audio 的内容校验仍由 owner 领域负责。
+
 ## 依赖与边界
 
 ```mermaid
@@ -41,6 +52,9 @@ flowchart TB
     ResourceManager --> Gameplay["services/gameplay"]
     ResourceManager --> Social["services/social"]
     ResourceManager --> ACL["acl"]
+    ResourceManager --> Asset["asset"]
+    Asset --> KV["metadata KV"]
+    Asset --> Objects["ObjectStore"]
     Public["Public HTTP"] --> Login["publiclogin"]
     Login --> ACL
 ```

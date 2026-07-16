@@ -16,7 +16,11 @@ import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:protobuf/protobuf.dart' as $pb;
 import 'package:protobuf/well_known_types/google/protobuf/struct.pb.dart' as $0;
 
+import 'system.pbenum.dart';
+
 export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
+
+export 'system.pbenum.dart';
 
 class ClientGetIdentifiersRequest extends $pb.GeneratedMessage {
   factory ClientGetIdentifiersRequest() => create();
@@ -1510,6 +1514,299 @@ class SpeedTestResponse extends $pb.GeneratedMessage {
   $core.bool hasUpContentLength() => $_has(1);
   @$pb.TagNumber(2)
   void clearUpContentLength() => $_clearField(2);
+}
+
+class AssetMetadata extends $pb.GeneratedMessage {
+  factory AssetMetadata({
+    $core.String? ref,
+    $core.String? mediaType,
+    $fixnum.Int64? sizeBytes,
+    $core.String? sha256,
+    $core.String? createdAt,
+    $core.String? expiresAt,
+  }) {
+    final result = create();
+    if (ref != null) result.ref = ref;
+    if (mediaType != null) result.mediaType = mediaType;
+    if (sizeBytes != null) result.sizeBytes = sizeBytes;
+    if (sha256 != null) result.sha256 = sha256;
+    if (createdAt != null) result.createdAt = createdAt;
+    if (expiresAt != null) result.expiresAt = expiresAt;
+    return result;
+  }
+
+  AssetMetadata._();
+
+  factory AssetMetadata.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory AssetMetadata.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AssetMetadata',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'ref')
+    ..aOS(2, _omitFieldNames ? '' : 'mediaType')
+    ..aInt64(3, _omitFieldNames ? '' : 'sizeBytes')
+    ..aOS(4, _omitFieldNames ? '' : 'sha256')
+    ..aOS(5, _omitFieldNames ? '' : 'createdAt')
+    ..aOS(6, _omitFieldNames ? '' : 'expiresAt')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AssetMetadata clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AssetMetadata copyWith(void Function(AssetMetadata) updates) =>
+      super.copyWith((message) => updates(message as AssetMetadata))
+          as AssetMetadata;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static AssetMetadata create() => AssetMetadata._();
+  @$core.override
+  AssetMetadata createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static AssetMetadata getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AssetMetadata>(create);
+  static AssetMetadata? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get ref => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set ref($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRef() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRef() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get mediaType => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set mediaType($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasMediaType() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMediaType() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get sizeBytes => $_getI64(2);
+  @$pb.TagNumber(3)
+  set sizeBytes($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSizeBytes() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSizeBytes() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get sha256 => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set sha256($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSha256() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSha256() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get createdAt => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set createdAt($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasCreatedAt() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearCreatedAt() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get expiresAt => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set expiresAt($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasExpiresAt() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearExpiresAt() => $_clearField(6);
+}
+
+class AssetDownloadRequest extends $pb.GeneratedMessage {
+  factory AssetDownloadRequest({
+    $core.String? ref,
+  }) {
+    final result = create();
+    if (ref != null) result.ref = ref;
+    return result;
+  }
+
+  AssetDownloadRequest._();
+
+  factory AssetDownloadRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory AssetDownloadRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AssetDownloadRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'ref')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AssetDownloadRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AssetDownloadRequest copyWith(void Function(AssetDownloadRequest) updates) =>
+      super.copyWith((message) => updates(message as AssetDownloadRequest))
+          as AssetDownloadRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static AssetDownloadRequest create() => AssetDownloadRequest._();
+  @$core.override
+  AssetDownloadRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static AssetDownloadRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AssetDownloadRequest>(create);
+  static AssetDownloadRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get ref => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set ref($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRef() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRef() => $_clearField(1);
+}
+
+class AssetDownloadResponse extends $pb.GeneratedMessage {
+  factory AssetDownloadResponse({
+    AssetMetadata? metadata,
+  }) {
+    final result = create();
+    if (metadata != null) result.metadata = metadata;
+    return result;
+  }
+
+  AssetDownloadResponse._();
+
+  factory AssetDownloadResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory AssetDownloadResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AssetDownloadResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOM<AssetMetadata>(1, _omitFieldNames ? '' : 'metadata',
+        subBuilder: AssetMetadata.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AssetDownloadResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AssetDownloadResponse copyWith(
+          void Function(AssetDownloadResponse) updates) =>
+      super.copyWith((message) => updates(message as AssetDownloadResponse))
+          as AssetDownloadResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static AssetDownloadResponse create() => AssetDownloadResponse._();
+  @$core.override
+  AssetDownloadResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static AssetDownloadResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AssetDownloadResponse>(create);
+  static AssetDownloadResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  AssetMetadata get metadata => $_getN(0);
+  @$pb.TagNumber(1)
+  set metadata(AssetMetadata value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasMetadata() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMetadata() => $_clearField(1);
+  @$pb.TagNumber(1)
+  AssetMetadata ensureMetadata() => $_ensure(0);
+}
+
+class AssetBinding extends $pb.GeneratedMessage {
+  factory AssetBinding({
+    AssetOwnerKind? ownerKind,
+    $core.String? ownerId,
+  }) {
+    final result = create();
+    if (ownerKind != null) result.ownerKind = ownerKind;
+    if (ownerId != null) result.ownerId = ownerId;
+    return result;
+  }
+
+  AssetBinding._();
+
+  factory AssetBinding.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory AssetBinding.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AssetBinding',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aE<AssetOwnerKind>(1, _omitFieldNames ? '' : 'ownerKind',
+        enumValues: AssetOwnerKind.values)
+    ..aOS(2, _omitFieldNames ? '' : 'ownerId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AssetBinding clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AssetBinding copyWith(void Function(AssetBinding) updates) =>
+      super.copyWith((message) => updates(message as AssetBinding))
+          as AssetBinding;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static AssetBinding create() => AssetBinding._();
+  @$core.override
+  AssetBinding createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static AssetBinding getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AssetBinding>(create);
+  static AssetBinding? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  AssetOwnerKind get ownerKind => $_getN(0);
+  @$pb.TagNumber(1)
+  set ownerKind(AssetOwnerKind value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasOwnerKind() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearOwnerKind() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get ownerId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set ownerId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasOwnerId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearOwnerId() => $_clearField(2);
 }
 
 const $core.bool _omitFieldNames =

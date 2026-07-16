@@ -958,6 +958,8 @@ func validLayeredConfig(dir string) Config {
 			"gameplay-db": {Kind: storage.KindSQL, SQLite: &storage.SQLConfig{Dir: filepath.Join(dir, "gameplay.sqlite")}},
 		},
 		Stores: map[string]stores.Config{
+			"assets":                      {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "assets"},
+			"asset-objects":               {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "assets"},
 			"peers":                       {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "peers"},
 			"credentials":                 {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "credentials"},
 			"firmwares":                   {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "firmwares"},

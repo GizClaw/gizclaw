@@ -10,6 +10,13 @@
 #error Regenerate this file with the current version of nanopb generator.
 #endif
 
+/* Enum definitions */
+typedef enum _gizclaw_rpc_v1_AssetOwnerKind {
+    gizclaw_rpc_v1_AssetOwnerKind_ASSET_OWNER_KIND_UNSPECIFIED = 0,
+    gizclaw_rpc_v1_AssetOwnerKind_ASSET_OWNER_KIND_RESOURCE = 1,
+    gizclaw_rpc_v1_AssetOwnerKind_ASSET_OWNER_KIND_FRIEND_GROUP_MESSAGE = 2
+} gizclaw_rpc_v1_AssetOwnerKind;
+
 /* Struct definitions */
 typedef struct _gizclaw_rpc_v1_ClientGetIdentifiersRequest {
     char dummy_field;
@@ -152,10 +159,67 @@ typedef struct _gizclaw_rpc_v1_SpeedTestResponse {
     int64_t up_content_length;
 } gizclaw_rpc_v1_SpeedTestResponse;
 
+typedef struct _gizclaw_rpc_v1_AssetMetadata {
+    pb_callback_t ref;
+    pb_callback_t media_type;
+    int64_t size_bytes;
+    pb_callback_t sha256;
+    pb_callback_t created_at;
+    pb_callback_t expires_at;
+} gizclaw_rpc_v1_AssetMetadata;
+
+typedef struct _gizclaw_rpc_v1_AssetDownloadRequest {
+    pb_callback_t ref;
+} gizclaw_rpc_v1_AssetDownloadRequest;
+
+typedef struct _gizclaw_rpc_v1_AssetDownloadResponse {
+    bool has_metadata;
+    gizclaw_rpc_v1_AssetMetadata metadata;
+} gizclaw_rpc_v1_AssetDownloadResponse;
+
+typedef struct _gizclaw_rpc_v1_AssetBinding {
+    gizclaw_rpc_v1_AssetOwnerKind owner_kind;
+    pb_callback_t owner_id;
+} gizclaw_rpc_v1_AssetBinding;
+
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* Helper constants for enums */
+#define _gizclaw_rpc_v1_AssetOwnerKind_MIN gizclaw_rpc_v1_AssetOwnerKind_ASSET_OWNER_KIND_UNSPECIFIED
+#define _gizclaw_rpc_v1_AssetOwnerKind_MAX gizclaw_rpc_v1_AssetOwnerKind_ASSET_OWNER_KIND_FRIEND_GROUP_MESSAGE
+#define _gizclaw_rpc_v1_AssetOwnerKind_ARRAYSIZE ((gizclaw_rpc_v1_AssetOwnerKind)(gizclaw_rpc_v1_AssetOwnerKind_ASSET_OWNER_KIND_FRIEND_GROUP_MESSAGE+1))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#define gizclaw_rpc_v1_AssetBinding_owner_kind_ENUMTYPE gizclaw_rpc_v1_AssetOwnerKind
+
 
 /* Initializer values for message structs */
 #define gizclaw_rpc_v1_ClientGetIdentifiersRequest_init_default {0}
@@ -181,6 +245,10 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerPutInfoResponse_init_default {false, gizclaw_rpc_v1_DeviceInfo_init_default}
 #define gizclaw_rpc_v1_SpeedTestRequest_init_default {0, 0}
 #define gizclaw_rpc_v1_SpeedTestResponse_init_default {0, 0}
+#define gizclaw_rpc_v1_AssetMetadata_init_default {{{NULL}, NULL}, {{NULL}, NULL}, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_AssetDownloadRequest_init_default {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_AssetDownloadResponse_init_default {false, gizclaw_rpc_v1_AssetMetadata_init_default}
+#define gizclaw_rpc_v1_AssetBinding_init_default {_gizclaw_rpc_v1_AssetOwnerKind_MIN, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ClientGetIdentifiersRequest_init_zero {0}
 #define gizclaw_rpc_v1_ClientGetIdentifiersResponse_init_zero {false, gizclaw_rpc_v1_RefreshIdentifiers_init_zero}
 #define gizclaw_rpc_v1_ClientGetInfoRequest_init_zero {0}
@@ -204,6 +272,10 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerPutInfoResponse_init_zero {false, gizclaw_rpc_v1_DeviceInfo_init_zero}
 #define gizclaw_rpc_v1_SpeedTestRequest_init_zero {0, 0}
 #define gizclaw_rpc_v1_SpeedTestResponse_init_zero {0, 0}
+#define gizclaw_rpc_v1_AssetMetadata_init_zero   {{{NULL}, NULL}, {{NULL}, NULL}, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_AssetDownloadRequest_init_zero {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_AssetDownloadResponse_init_zero {false, gizclaw_rpc_v1_AssetMetadata_init_zero}
+#define gizclaw_rpc_v1_AssetBinding_init_zero    {_gizclaw_rpc_v1_AssetOwnerKind_MIN, {{NULL}, NULL}}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define gizclaw_rpc_v1_HardwareInfo_hardware_revision_tag 1
@@ -256,6 +328,16 @@ extern "C" {
 #define gizclaw_rpc_v1_SpeedTestRequest_up_content_length_tag 2
 #define gizclaw_rpc_v1_SpeedTestResponse_down_content_length_tag 1
 #define gizclaw_rpc_v1_SpeedTestResponse_up_content_length_tag 2
+#define gizclaw_rpc_v1_AssetMetadata_ref_tag     1
+#define gizclaw_rpc_v1_AssetMetadata_media_type_tag 2
+#define gizclaw_rpc_v1_AssetMetadata_size_bytes_tag 3
+#define gizclaw_rpc_v1_AssetMetadata_sha256_tag  4
+#define gizclaw_rpc_v1_AssetMetadata_created_at_tag 5
+#define gizclaw_rpc_v1_AssetMetadata_expires_at_tag 6
+#define gizclaw_rpc_v1_AssetDownloadRequest_ref_tag 1
+#define gizclaw_rpc_v1_AssetDownloadResponse_metadata_tag 1
+#define gizclaw_rpc_v1_AssetBinding_owner_kind_tag 1
+#define gizclaw_rpc_v1_AssetBinding_owner_id_tag 2
 
 /* Struct field encoding specification for nanopb */
 #define gizclaw_rpc_v1_ClientGetIdentifiersRequest_FIELDLIST(X, a) \
@@ -417,6 +499,33 @@ X(a, STATIC,   SINGULAR, INT64,    up_content_length,   2)
 #define gizclaw_rpc_v1_SpeedTestResponse_CALLBACK NULL
 #define gizclaw_rpc_v1_SpeedTestResponse_DEFAULT NULL
 
+#define gizclaw_rpc_v1_AssetMetadata_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   ref,               1) \
+X(a, CALLBACK, SINGULAR, STRING,   media_type,        2) \
+X(a, STATIC,   SINGULAR, INT64,    size_bytes,        3) \
+X(a, CALLBACK, SINGULAR, STRING,   sha256,            4) \
+X(a, CALLBACK, SINGULAR, STRING,   created_at,        5) \
+X(a, CALLBACK, OPTIONAL, STRING,   expires_at,        6)
+#define gizclaw_rpc_v1_AssetMetadata_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_AssetMetadata_DEFAULT NULL
+
+#define gizclaw_rpc_v1_AssetDownloadRequest_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   ref,               1)
+#define gizclaw_rpc_v1_AssetDownloadRequest_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_AssetDownloadRequest_DEFAULT NULL
+
+#define gizclaw_rpc_v1_AssetDownloadResponse_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  metadata,          1)
+#define gizclaw_rpc_v1_AssetDownloadResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_AssetDownloadResponse_DEFAULT NULL
+#define gizclaw_rpc_v1_AssetDownloadResponse_metadata_MSGTYPE gizclaw_rpc_v1_AssetMetadata
+
+#define gizclaw_rpc_v1_AssetBinding_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UENUM,    owner_kind,        1) \
+X(a, CALLBACK, SINGULAR, STRING,   owner_id,          2)
+#define gizclaw_rpc_v1_AssetBinding_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_AssetBinding_DEFAULT NULL
+
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientGetIdentifiersRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientGetIdentifiersResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientGetInfoRequest_msg;
@@ -440,6 +549,10 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutInfoRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutInfoResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_SpeedTestRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_SpeedTestResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_AssetMetadata_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_AssetDownloadRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_AssetDownloadResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_AssetBinding_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
 #define gizclaw_rpc_v1_ClientGetIdentifiersRequest_fields &gizclaw_rpc_v1_ClientGetIdentifiersRequest_msg
@@ -465,6 +578,10 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_SpeedTestResponse_msg;
 #define gizclaw_rpc_v1_ServerPutInfoResponse_fields &gizclaw_rpc_v1_ServerPutInfoResponse_msg
 #define gizclaw_rpc_v1_SpeedTestRequest_fields &gizclaw_rpc_v1_SpeedTestRequest_msg
 #define gizclaw_rpc_v1_SpeedTestResponse_fields &gizclaw_rpc_v1_SpeedTestResponse_msg
+#define gizclaw_rpc_v1_AssetMetadata_fields &gizclaw_rpc_v1_AssetMetadata_msg
+#define gizclaw_rpc_v1_AssetDownloadRequest_fields &gizclaw_rpc_v1_AssetDownloadRequest_msg
+#define gizclaw_rpc_v1_AssetDownloadResponse_fields &gizclaw_rpc_v1_AssetDownloadResponse_msg
+#define gizclaw_rpc_v1_AssetBinding_fields &gizclaw_rpc_v1_AssetBinding_msg
 
 /* Maximum encoded size of messages (where known) */
 /* gizclaw_rpc_v1_ClientGetIdentifiersResponse_size depends on runtime parameters */
@@ -482,6 +599,10 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_SpeedTestResponse_msg;
 /* gizclaw_rpc_v1_ServerGetStatusResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerPutInfoRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerPutInfoResponse_size depends on runtime parameters */
+/* gizclaw_rpc_v1_AssetMetadata_size depends on runtime parameters */
+/* gizclaw_rpc_v1_AssetDownloadRequest_size depends on runtime parameters */
+/* gizclaw_rpc_v1_AssetDownloadResponse_size depends on runtime parameters */
+/* gizclaw_rpc_v1_AssetBinding_size depends on runtime parameters */
 #define GIZCLAW_RPC_V1_PAYLOAD_SYSTEM_PB_H_MAX_SIZE gizclaw_rpc_v1_SpeedTestRequest_size
 #define gizclaw_rpc_v1_ClientGetIdentifiersRequest_size 0
 #define gizclaw_rpc_v1_ClientGetInfoRequest_size 0

@@ -782,6 +782,32 @@ export type AclViewSpec = {
     description?: string;
 };
 
+export type Asset = {
+    metadata: AssetMetadata;
+    bindings: Array<AssetBinding>;
+};
+
+export type AssetBinding = {
+    owner_kind: AssetOwnerKind;
+    owner_id: string;
+};
+
+export type AssetMetadata = {
+    ref: AssetRef;
+    media_type: string;
+    size_bytes: number;
+    sha256: string;
+    created_at: string;
+    expires_at?: string;
+};
+
+export type AssetOwnerKind = 'resource' | 'friend-group-message';
+
+/**
+ * Opaque reference to an immutable AssetService object.
+ */
+export type AssetRef = string;
+
 export type Configuration = {
     /**
      * Current content view name selected for this peer.
@@ -2382,6 +2408,151 @@ export type ModelSource2 = ModelSource;
  * Filter models by provider kind
  */
 export type ModelProviderKind2 = ModelProviderKind;
+
+export type DeleteAssetData = {
+    body?: never;
+    path?: never;
+    query: {
+        ref: AssetRef;
+    };
+    url: '/assets';
+};
+
+export type DeleteAssetErrors = {
+    /**
+     * Invalid asset reference
+     */
+    400: ErrorResponse;
+    /**
+     * Asset not found
+     */
+    404: ErrorResponse;
+    /**
+     * Asset is still referenced
+     */
+    409: ErrorResponse;
+    /**
+     * Asset backend or owner resolver failure
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteAssetError = DeleteAssetErrors[keyof DeleteAssetErrors];
+
+export type DeleteAssetResponses = {
+    /**
+     * Asset deleted
+     */
+    204: void;
+};
+
+export type DeleteAssetResponse = DeleteAssetResponses[keyof DeleteAssetResponses];
+
+export type GetAssetData = {
+    body?: never;
+    path?: never;
+    query: {
+        ref: AssetRef;
+    };
+    url: '/assets';
+};
+
+export type GetAssetErrors = {
+    /**
+     * Invalid asset reference
+     */
+    400: ErrorResponse;
+    /**
+     * Asset not found
+     */
+    404: ErrorResponse;
+    /**
+     * Asset backend failure
+     */
+    500: ErrorResponse;
+};
+
+export type GetAssetError = GetAssetErrors[keyof GetAssetErrors];
+
+export type GetAssetResponses = {
+    /**
+     * Asset metadata and bindings
+     */
+    200: Asset;
+};
+
+export type GetAssetResponse = GetAssetResponses[keyof GetAssetResponses];
+
+export type UploadAssetData = {
+    body: Blob | File;
+    path?: never;
+    query: {
+        media_type: string;
+        expires_at?: string;
+    };
+    url: '/assets';
+};
+
+export type UploadAssetErrors = {
+    /**
+     * Invalid upload
+     */
+    400: ErrorResponse;
+    /**
+     * Asset exceeds the configured size limit
+     */
+    413: ErrorResponse;
+    /**
+     * Asset backend failure
+     */
+    500: ErrorResponse;
+};
+
+export type UploadAssetError = UploadAssetErrors[keyof UploadAssetErrors];
+
+export type UploadAssetResponses = {
+    /**
+     * Created asset metadata and empty bindings
+     */
+    201: Asset;
+};
+
+export type UploadAssetResponse = UploadAssetResponses[keyof UploadAssetResponses];
+
+export type DownloadAssetData = {
+    body?: never;
+    path?: never;
+    query: {
+        ref: AssetRef;
+    };
+    url: '/assets/content';
+};
+
+export type DownloadAssetErrors = {
+    /**
+     * Invalid asset reference
+     */
+    400: ErrorResponse;
+    /**
+     * Asset not found
+     */
+    404: ErrorResponse;
+    /**
+     * Asset backend failure
+     */
+    500: ErrorResponse;
+};
+
+export type DownloadAssetError = DownloadAssetErrors[keyof DownloadAssetErrors];
+
+export type DownloadAssetResponses = {
+    /**
+     * Immutable asset bytes
+     */
+    200: Blob | File;
+};
+
+export type DownloadAssetResponse = DownloadAssetResponses[keyof DownloadAssetResponses];
 
 export type StreamServerLogsData = {
     body?: never;

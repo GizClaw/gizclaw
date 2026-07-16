@@ -357,6 +357,16 @@ func (c *Client) DownloadBadgeDefPixa(ctx context.Context, id string, request rp
 	return c.rpcClient().DownloadBadgeDefPixa(ctx, stream, id, request, out)
 }
 
+// DownloadAsset downloads an authorized Resource display asset.
+func (c *Client) DownloadAsset(ctx context.Context, id string, request rpcpb.AssetDownloadRequest, out io.Writer) (AssetDownloadResult, error) {
+	stream, err := c.rpcConn()
+	if err != nil {
+		return AssetDownloadResult{}, err
+	}
+	defer func() { _ = stream.Close() }()
+	return c.rpcClient().DownloadAsset(ctx, stream, id, request, out)
+}
+
 func (c *Client) GetWorkspaceHistoryAudio(ctx context.Context, id string, request rpcapi.WorkspaceHistoryAudioGetRequest, out io.Writer) (WorkspaceHistoryAudioGetResult, error) {
 	stream, err := c.rpcConn()
 	if err != nil {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
@@ -21,11 +22,13 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/asset"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 // Services groups the admin services that own concrete resource writes.
 type Services struct {
+	Assets          *asset.Service
 	ACL             *acl.Server
 	Credentials     credential.CredentialAdminService
 	Firmwares       firmware.FirmwareAdminService
@@ -44,7 +47,8 @@ type Services struct {
 
 // Manager applies declarative admin resources by delegating to owner services.
 type Manager struct {
-	services Services
+	services     Services
+	assetWriteMu sync.Mutex
 }
 
 // Error is returned for apply failures that should map cleanly to HTTP later.
@@ -399,8 +403,7 @@ func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, name stri
 	}
 }
 
-// Put writes the provided resource and returns the stored resource state.
-func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes.Resource, error) {
+func (m *Manager) put(ctx context.Context, resource apitypes.Resource) (apitypes.Resource, error) {
 	if m == nil {
 		return apitypes.Resource{}, applyError(500, "RESOURCE_MANAGER_NOT_CONFIGURED", "resource manager is not configured")
 	}
@@ -868,8 +871,7 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 	}
 }
 
-// Delete removes a named concrete resource and returns the deleted resource state.
-func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, name string) (apitypes.Resource, error) {
+func (m *Manager) delete(ctx context.Context, kind apitypes.ResourceKind, name string) (apitypes.Resource, error) {
 	if m == nil {
 		return apitypes.Resource{}, applyError(500, "RESOURCE_MANAGER_NOT_CONFIGURED", "resource manager is not configured")
 	}
@@ -1205,8 +1207,7 @@ func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, name s
 	}
 }
 
-// Apply creates, updates, or leaves unchanged the provided resource.
-func (m *Manager) Apply(ctx context.Context, resource apitypes.Resource) (apitypes.ApplyResult, error) {
+func (m *Manager) apply(ctx context.Context, resource apitypes.Resource) (apitypes.ApplyResult, error) {
 	if m == nil {
 		return apitypes.ApplyResult{}, applyError(500, "RESOURCE_MANAGER_NOT_CONFIGURED", "resource manager is not configured")
 	}

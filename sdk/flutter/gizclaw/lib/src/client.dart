@@ -21,6 +21,13 @@ class PixaDownloadResult<T> {
   final PixaAsset asset;
 }
 
+class AssetDownloadResult {
+  const AssetDownloadResult({required this.metadata, required this.bytes});
+
+  final payload.AssetMetadata metadata;
+  final Uint8List bytes;
+}
+
 class GizClawClient {
   GizClawClient(
     GizClawDataChannelFactory transport, {
@@ -315,6 +322,21 @@ class GizClawClient {
       metadata: metadata,
       bytes: bytes,
       asset: validatePixa(bytes, mode: PixaValidationMode.petdef),
+    );
+  }
+
+  Future<AssetDownloadResult> downloadAsset(String ref) async {
+    final response = await rpc.callBinary(
+      'server.asset.download',
+      payload.AssetDownloadRequest(ref: ref),
+    );
+    final result = response.response as payload.AssetDownloadResponse;
+    if (!result.hasMetadata()) {
+      throw const FormatException('asset download response has no metadata');
+    }
+    return AssetDownloadResult(
+      metadata: result.metadata,
+      bytes: Uint8List.fromList(response.body),
     );
   }
 

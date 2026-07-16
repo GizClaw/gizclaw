@@ -610,6 +610,7 @@ func localWorkspaceStorage() map[string]workspaceStorageConfig {
 func localWorkspaceStores() map[string]workspaceStoreConfig {
 	stores := make(map[string]workspaceStoreConfig)
 	for _, name := range []string{
+		"assets",
 		"peers",
 		"credentials",
 		"firmwares",
@@ -633,6 +634,7 @@ func localWorkspaceStores() map[string]workspaceStoreConfig {
 		stores[name] = workspaceStoreConfig{Kind: "keyvalue", Storage: "local-kv", Prefix: name}
 	}
 	stores["firmware-assets"] = workspaceStoreConfig{Kind: "objectstore", Storage: "local-files", Prefix: "firmwares"}
+	stores["asset-objects"] = workspaceStoreConfig{Kind: "objectstore", Storage: "local-files", Prefix: "assets"}
 	stores["agenthost"] = workspaceStoreConfig{Kind: "objectstore", Storage: "agenthost-files"}
 	stores["gameplay-assets"] = workspaceStoreConfig{Kind: "objectstore", Storage: "local-files", Prefix: "gameplay"}
 	stores["friend-group-message-assets"] = workspaceStoreConfig{Kind: "objectstore", Storage: "local-files", Prefix: "friend-group-messages"}

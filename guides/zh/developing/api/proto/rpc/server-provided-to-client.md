@@ -27,6 +27,7 @@
 | `server.points.*` | Points account 与 transactions |
 | `server.game_result.*`、`server.reward_grant.*` | Gameplay result 与 reward query |
 | `server.tool.*` | Tool CRUD |
+| `server.asset.download` | 下载当前 Peer 有 read 权限的 Resource public display asset |
 
 `server.peer.lookup`、`server.peer.assign` 和 `server.route.resolve` 不属于本页；它们只提供给 Edge-node。
 
@@ -50,3 +51,9 @@ sequenceDiagram
 ```
 
 RPC adapter 负责 payload decode、method dispatch 和稳定 error mapping；领域 service 负责 authorization、resource rule、storage 与 lifecycle。不能在 generated RPC package 中实现这些业务行为。
+
+## Asset download
+
+`server.asset.download` 接受 canonical `asset://<32-lowercase-hex>`。Server 必须同时确认 reverse binding 仍与完整 owner 结构一致、ref 位于 Resource 的 public `displays` 投影，并完成该 Resource 的 read ACL；任一步失败都不能先发送 binary frame。
+
+成功 response 先发送 `AssetMetadata`，再使用既有 binary frame 传输 bytes。metadata 包含 ref、canonical media type、size、SHA-256、created time 与可选 expiration，不包含 bindings、ObjectStore key、backend 或 bucket。取消、disconnect、read failure 和 client early close 都必须关闭 reader 与 stream。

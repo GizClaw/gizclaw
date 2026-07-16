@@ -20,3 +20,7 @@ Firmware artifacts、workspace history、Agent memory binary data、Gameplay pix
 ## Ownership 边界
 
 Object Store 把目录视为实现细节，不提供任意 filesystem 操作。资源 metadata、content type、authorization 和版本规则属于调用领域；objectstore 只拥有 binary object lifecycle。
+
+跨领域共享的产品 asset 通过 `services/system/asset` 使用 ObjectStore。AssetService 负责 stable `asset://` ref、media type、size、digest、deadline、reverse bindings 和 recoverable lifecycle；ObjectStore 仍只看到 opaque object name 与 bytes。ObjectStore interface 不依赖 GizClaw Resource、ACL、AssetService 或生成 DTO，也不能通过 public API 暴露内部 object key。
+
+Server 为 AssetService 注入一个 metadata KV logical store `assets` 和一个 binary logical store `asset-objects`。当前 filesystem driver 与未来 backend 都通过同一 `objectstore.ObjectStore` contract 接入，领域服务不为新的共享 asset 增加 physical-backend 参数。

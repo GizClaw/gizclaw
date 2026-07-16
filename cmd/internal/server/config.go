@@ -98,6 +98,8 @@ const (
 	defaultBadgeDefsStore                = "badge-defs"
 	defaultGameDefsStore                 = "game-defs"
 	defaultGameplayAssetsStore           = "gameplay-assets"
+	defaultAssetMetadataStore            = "assets"
+	defaultAssetObjectsStore             = "asset-objects"
 	defaultGameplayDBStore               = "gameplay-db"
 	defaultMetricsStore                  = "metrics"
 )

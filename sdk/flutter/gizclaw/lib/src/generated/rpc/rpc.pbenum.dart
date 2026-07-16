@@ -292,6 +292,8 @@ class RpcMethod extends $pb.ProtobufEnum {
       104, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PET_ACTIONS_GET');
   static const RpcMethod RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD = RpcMethod._(
       105, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD');
+  static const RpcMethod RPC_METHOD_SERVER_ASSET_DOWNLOAD = RpcMethod._(
+      106, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_ASSET_DOWNLOAD');
 
   static const $core.List<RpcMethod> values = <RpcMethod>[
     RPC_METHOD_UNSPECIFIED,
@@ -396,10 +398,11 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_ROUTE_RESOLVE,
     RPC_METHOD_SERVER_PET_ACTIONS_GET,
     RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD,
+    RPC_METHOD_SERVER_ASSET_DOWNLOAD,
   ];
 
   static final $core.List<RpcMethod?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 105);
+      $pb.ProtobufEnum.$_initByValueList(values, 106);
   static RpcMethod? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

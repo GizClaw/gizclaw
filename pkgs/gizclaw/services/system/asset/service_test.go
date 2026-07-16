@@ -1,0 +1,456 @@
+package asset
+
+import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"errors"
+	"io"
+	"reflect"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
+)
+
+func TestRefRoundTripAndValidation(t *testing.T) {
+	ref := Ref("asset://7d9c87aa1a224de6b93082026f30c77e")
+	parsed, err := ParseRef(ref.String())
+	if err != nil || parsed != ref {
+		t.Fatalf("ParseRef() = %q, %v", parsed, err)
+	}
+	for _, invalid := range []string{
+		"",
+		"asset://7D9C87AA1A224DE6B93082026F30C77E",
+		"asset://7d9c87aa1a224de6b93082026f30c77",
+		"asset://7d9c87aa1a224de6b93082026f30c77e/extra",
+		"asset://7d9c87aa1a224de6b93082026f30c77e?x=1",
+		"https://example.com/icon.png",
+	} {
+		if _, err := ParseRef(invalid); !errors.Is(err, ErrInvalid) {
+			t.Fatalf("ParseRef(%q) error = %v", invalid, err)
+		}
+	}
+}
+
+func TestPutOpenAndMetadata(t *testing.T) {
+	now := time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC)
+	service, objects := newTestService(t, now, idSequence(idWithByte(1)))
+	payload := bytes.Repeat([]byte("gizclaw-asset"), 8192)
+	stored, err := service.Put(context.Background(), PutRequest{
+		MediaType: "image/png; charset=binary",
+		MaxBytes:  int64(len(payload)),
+	}, bytes.NewReader(payload))
+	if err != nil {
+		t.Fatalf("Put() error = %v", err)
+	}
+	wantRef := Ref("asset://01010101010101010101010101010101")
+	wantDigest := sha256.Sum256(payload)
+	if stored.Metadata.Ref != wantRef || stored.Metadata.MediaType != "image/png" || stored.Metadata.SizeBytes != int64(len(payload)) || stored.Metadata.SHA256 != wantDigest || !stored.Metadata.CreatedAt.Equal(now) {
+		t.Fatalf("Put() = %#v", stored)
+	}
+	opened, reader, err := service.Open(context.Background(), wantRef)
+	if err != nil {
+		t.Fatalf("Open() error = %v", err)
+	}
+	got, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("ReadAll() error = %v", err)
+	}
+	if err := reader.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+	if !bytes.Equal(got, payload) || !reflect.DeepEqual(opened.Metadata, stored.Metadata) {
+		t.Fatalf("Open() metadata=%#v bytes=%d", opened.Metadata, len(got))
+	}
+	if _, ok := objects.data[objectName("01010101010101010101010101010101")]; !ok {
+		t.Fatal("Put() did not write the sharded object key")
+	}
+}
+
+func TestPutEmptyLimitReaderFailureAndRollback(t *testing.T) {
+	now := time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC)
+	t.Run("empty", func(t *testing.T) {
+		service, _ := newTestService(t, now, idSequence(idWithByte(2)))
+		stored, err := service.Put(context.Background(), PutRequest{MediaType: "application/octet-stream", MaxBytes: 1}, bytes.NewReader(nil))
+		if err != nil || stored.Metadata.SizeBytes != 0 || stored.Metadata.SHA256 != sha256.Sum256(nil) {
+			t.Fatalf("Put(empty) = %#v, %v", stored, err)
+		}
+	})
+	t.Run("too large", func(t *testing.T) {
+		service, objects := newTestService(t, now, idSequence(idWithByte(3)))
+		_, err := service.Put(context.Background(), PutRequest{MediaType: "image/png", MaxBytes: 3}, bytes.NewBufferString("four"))
+		if !errors.Is(err, ErrTooLarge) {
+			t.Fatalf("Put(too large) error = %v", err)
+		}
+		if len(objects.data) != 0 {
+			t.Fatalf("Put(too large) objects = %v", objects.data)
+		}
+		if _, err := service.Get(context.Background(), Ref("asset://03030303030303030303030303030303")); !errors.Is(err, ErrNotFound) {
+			t.Fatalf("Get(rolled back) error = %v", err)
+		}
+	})
+	t.Run("reader failure", func(t *testing.T) {
+		service, objects := newTestService(t, now, idSequence(idWithByte(4)))
+		_, err := service.Put(context.Background(), PutRequest{MediaType: "image/png", MaxBytes: 100}, failingReader{})
+		if err == nil || len(objects.data) != 0 {
+			t.Fatalf("Put(reader failure) error=%v objects=%v", err, objects.data)
+		}
+	})
+}
+
+func TestPutValidationCollisionAndExpiration(t *testing.T) {
+	now := time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC)
+	clock := now
+	service, objects := newTestService(t, now, idSequence(idWithByte(5), idWithByte(5), idWithByte(6)))
+	service.now = func() time.Time { return clock }
+	first, err := service.Put(context.Background(), PutRequest{MediaType: "text/plain", MaxBytes: 10}, bytes.NewBufferString("one"))
+	if err != nil {
+		t.Fatalf("Put(first) error = %v", err)
+	}
+	expiresAt := now.Add(time.Hour)
+	second, err := service.Put(context.Background(), PutRequest{MediaType: "text/plain", MaxBytes: 10, ExpiresAt: &expiresAt}, bytes.NewBufferString("two"))
+	if err != nil {
+		t.Fatalf("Put(collision retry) error = %v", err)
+	}
+	if first.Metadata.Ref == second.Metadata.Ref || second.Metadata.Ref != Ref("asset://06060606060606060606060606060606") {
+		t.Fatalf("collision refs = %s, %s", first.Metadata.Ref, second.Metadata.Ref)
+	}
+	if got := objects.deadlines[objectName("06060606060606060606060606060606")]; !got.Equal(expiresAt) {
+		t.Fatalf("object deadline = %v", got)
+	}
+	clock = expiresAt
+	if _, _, err := service.Open(context.Background(), second.Metadata.Ref); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("Open(expired) error = %v", err)
+	}
+	for _, request := range []PutRequest{
+		{MediaType: "bad", MaxBytes: 1},
+		{MediaType: "image/png", MaxBytes: 0},
+		{MediaType: "image/png", MaxBytes: 1, ExpiresAt: &now},
+	} {
+		if _, err := service.Put(context.Background(), request, bytes.NewReader(nil)); !errors.Is(err, ErrInvalid) {
+			t.Fatalf("Put(%#v) error = %v", request, err)
+		}
+	}
+}
+
+func TestBindingsDeleteAndUnbindOwner(t *testing.T) {
+	now := time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC)
+	resolver := &testResolver{snapshots: make(map[Owner]OwnerSnapshot)}
+	service, _ := newTestService(t, now, idSequence(idWithByte(7), idWithByte(8)))
+	if err := service.RegisterOwnerResolver(OwnerKindResource, resolver); err != nil {
+		t.Fatalf("RegisterOwnerResolver() error = %v", err)
+	}
+	first := mustPut(t, service, "first")
+	second := mustPut(t, service, "second")
+	owner := Owner{Kind: OwnerKindResource, ID: "PetDef/tragon"}
+	resolver.snapshots[owner] = OwnerSnapshot{Exists: true, Refs: []Ref{first.Metadata.Ref, second.Metadata.Ref}}
+	for _, ref := range []Ref{first.Metadata.Ref, second.Metadata.Ref} {
+		if err := service.Bind(context.Background(), ref, Binding{Owner: owner}); err != nil {
+			t.Fatalf("Bind(%s) error = %v", ref, err)
+		}
+	}
+	bindings, err := service.Bindings(context.Background(), first.Metadata.Ref)
+	if err != nil || len(bindings) != 1 || bindings[0].Owner != owner {
+		t.Fatalf("Bindings() = %#v, %v", bindings, err)
+	}
+	if err := service.Delete(context.Background(), first.Metadata.Ref); !errors.Is(err, ErrInUse) {
+		t.Fatalf("Delete(live) error = %v", err)
+	}
+	resolver.snapshots[owner] = OwnerSnapshot{Exists: true, Refs: []Ref{second.Metadata.Ref}}
+	if err := service.Delete(context.Background(), first.Metadata.Ref); err != nil {
+		t.Fatalf("Delete(stale) error = %v", err)
+	}
+	if err := service.UnbindOwner(context.Background(), owner); err != nil {
+		t.Fatalf("UnbindOwner() error = %v", err)
+	}
+	bindings, err = service.Bindings(context.Background(), second.Metadata.Ref)
+	if err != nil || len(bindings) != 0 {
+		t.Fatalf("Bindings(after UnbindOwner) = %#v, %v", bindings, err)
+	}
+}
+
+func TestDeleteFailsClosedAndRetriesPartialCleanup(t *testing.T) {
+	now := time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC)
+	service, objects := newTestService(t, now, idSequence(idWithByte(9)))
+	stored := mustPut(t, service, "payload")
+	owner := Owner{Kind: OwnerKindResource, ID: "Workflow/demo"}
+	resolver := &testResolver{snapshots: map[Owner]OwnerSnapshot{owner: {Exists: true, Refs: []Ref{stored.Metadata.Ref}}}}
+	if err := service.RegisterOwnerResolver(OwnerKindResource, resolver); err != nil {
+		t.Fatalf("RegisterOwnerResolver() error = %v", err)
+	}
+	if err := service.Bind(context.Background(), stored.Metadata.Ref, Binding{Owner: owner}); err != nil {
+		t.Fatalf("Bind() error = %v", err)
+	}
+	resolver.err = ErrResolverUnavailable
+	if err := service.Delete(context.Background(), stored.Metadata.Ref); !errors.Is(err, ErrResolverUnavailable) {
+		t.Fatalf("Delete(no resolver) error = %v", err)
+	}
+	resolver.err = nil
+	resolver.snapshots[owner] = OwnerSnapshot{Exists: false}
+	objects.deleteErr = errors.New("delete unavailable")
+	if err := service.Delete(context.Background(), stored.Metadata.Ref); err == nil {
+		t.Fatal("Delete(partial) error = nil")
+	}
+	record, err := service.repo.asset(context.Background(), "09090909090909090909090909090909")
+	if err != nil || record.State != stateDeleting {
+		t.Fatalf("partial delete record = %#v, %v", record, err)
+	}
+	objects.deleteErr = nil
+	if err := service.Delete(context.Background(), stored.Metadata.Ref); err != nil {
+		t.Fatalf("Delete(retry) error = %v", err)
+	}
+}
+
+func TestLiveBindingsAndReconcile(t *testing.T) {
+	now := time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC)
+	resolver := &testResolver{snapshots: make(map[Owner]OwnerSnapshot)}
+	service, objects := newTestService(t, now, idSequence(idWithByte(10)))
+	if err := service.RegisterOwnerResolver(OwnerKindResource, resolver); err != nil {
+		t.Fatal(err)
+	}
+	stored := mustPut(t, service, "payload")
+	liveOwner := Owner{Kind: OwnerKindResource, ID: "Workflow/live"}
+	staleOwner := Owner{Kind: OwnerKindResource, ID: "Workflow/stale"}
+	resolver.snapshots[liveOwner] = OwnerSnapshot{Exists: true, Refs: []Ref{stored.Metadata.Ref}}
+	resolver.snapshots[staleOwner] = OwnerSnapshot{Exists: true, Refs: []Ref{stored.Metadata.Ref}}
+	for _, owner := range []Owner{liveOwner, staleOwner} {
+		if err := service.Bind(context.Background(), stored.Metadata.Ref, Binding{Owner: owner}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	resolver.snapshots[staleOwner] = OwnerSnapshot{Exists: true}
+	live, err := service.LiveBindings(context.Background(), stored.Metadata.Ref)
+	if err != nil || len(live) != 1 || live[0].Owner != liveOwner {
+		t.Fatalf("LiveBindings() = %#v, %v", live, err)
+	}
+	delete(objects.data, objectName("0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"))
+	if err := service.Reconcile(context.Background()); err == nil {
+		t.Fatal("Reconcile(missing ready object) error = nil")
+	}
+}
+
+func TestOpenAndReconcileRejectCorruptObject(t *testing.T) {
+	now := time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC)
+	service, objects := newTestService(t, now, idSequence(idWithByte(13)))
+	stored := mustPut(t, service, "original")
+	id, err := stored.Metadata.Ref.id()
+	if err != nil {
+		t.Fatal(err)
+	}
+	objects.mu.Lock()
+	objects.data[objectName(id)] = []byte("corrupt")
+	objects.mu.Unlock()
+	_, reader, err := service.Open(context.Background(), stored.Metadata.Ref)
+	if err != nil {
+		t.Fatalf("Open() error = %v", err)
+	}
+	if _, err := io.ReadAll(reader); !errors.Is(err, ErrIntegrity) {
+		t.Fatalf("ReadAll(corrupt) error = %v", err)
+	}
+	if err := reader.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+	if err := service.Reconcile(context.Background()); !errors.Is(err, ErrIntegrity) {
+		t.Fatalf("Reconcile(corrupt) error = %v", err)
+	}
+}
+
+func TestProtectActivateAndForgedBind(t *testing.T) {
+	now := time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC)
+	resolver := &testResolver{snapshots: make(map[Owner]OwnerSnapshot)}
+	service, _ := newTestService(t, now, idSequence(idWithByte(12)))
+	if err := service.RegisterOwnerResolver(OwnerKindResource, resolver); err != nil {
+		t.Fatal(err)
+	}
+	stored := mustPut(t, service, "payload")
+	owner := Owner{Kind: OwnerKindResource, ID: "Workflow/pending"}
+	binding := Binding{Owner: owner}
+	if err := service.Bind(context.Background(), stored.Metadata.Ref, binding); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("Bind(forged) error = %v", err)
+	}
+	if err := service.Protect(context.Background(), stored.Metadata.Ref, binding); err != nil {
+		t.Fatalf("Protect() error = %v", err)
+	}
+	if err := service.Delete(context.Background(), stored.Metadata.Ref); !errors.Is(err, ErrInUse) {
+		t.Fatalf("Delete(pending) error = %v", err)
+	}
+	resolver.snapshots[owner] = OwnerSnapshot{Exists: true, Refs: []Ref{stored.Metadata.Ref}}
+	if err := service.Activate(context.Background(), stored.Metadata.Ref, binding); err != nil {
+		t.Fatalf("Activate() error = %v", err)
+	}
+	live, err := service.LiveBindings(context.Background(), stored.Metadata.Ref)
+	if err != nil || len(live) != 1 || live[0].Owner != owner {
+		t.Fatalf("LiveBindings() = %#v, %v", live, err)
+	}
+}
+
+func TestOwnerValidation(t *testing.T) {
+	service, _ := newTestService(t, time.Now().UTC(), idSequence(idWithByte(11)))
+	stored := mustPut(t, service, "payload")
+	for _, owner := range []Owner{
+		{Kind: "unknown", ID: "Kind/name"},
+		{Kind: OwnerKindResource, ID: "missing-separator"},
+		{Kind: OwnerKindResource, ID: "Kind/"},
+		{Kind: OwnerKindFriendGroupMessage, ID: " group/message"},
+	} {
+		if err := service.Bind(context.Background(), stored.Metadata.Ref, Binding{Owner: owner}); !errors.Is(err, ErrInvalid) {
+			t.Fatalf("Bind(%#v) error = %v", owner, err)
+		}
+	}
+}
+
+func newTestService(t *testing.T, now time.Time, generator IDGenerator) (*Service, *memoryObjectStore) {
+	t.Helper()
+	objects := &memoryObjectStore{data: make(map[string][]byte), deadlines: make(map[string]time.Time)}
+	service, err := New(kv.NewMemory(nil), objects, Options{IDGenerator: generator, Now: func() time.Time { return now }})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	return service, objects
+}
+
+func mustPut(t *testing.T, service *Service, value string) Asset {
+	t.Helper()
+	stored, err := service.Put(context.Background(), PutRequest{MediaType: "application/octet-stream", MaxBytes: 1024}, bytes.NewBufferString(value))
+	if err != nil {
+		t.Fatalf("Put() error = %v", err)
+	}
+	return stored
+}
+
+func idWithByte(value byte) [idBytes]byte {
+	var id [idBytes]byte
+	for i := range id {
+		id[i] = value
+	}
+	return id
+}
+
+func idSequence(ids ...[idBytes]byte) IDGenerator {
+	var mu sync.Mutex
+	index := 0
+	return func() ([idBytes]byte, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		if index >= len(ids) {
+			return [idBytes]byte{}, errors.New("id sequence exhausted")
+		}
+		id := ids[index]
+		index++
+		return id, nil
+	}
+}
+
+type testResolver struct {
+	snapshots map[Owner]OwnerSnapshot
+	err       error
+}
+
+func (r *testResolver) ResolveAssetOwner(_ context.Context, owner Owner) (OwnerSnapshot, error) {
+	if r.err != nil {
+		return OwnerSnapshot{}, r.err
+	}
+	return r.snapshots[owner], nil
+}
+
+type ownerResolverFunc func(context.Context, Owner) (OwnerSnapshot, error)
+
+func (f ownerResolverFunc) ResolveAssetOwner(ctx context.Context, owner Owner) (OwnerSnapshot, error) {
+	return f(ctx, owner)
+}
+
+type memoryObjectStore struct {
+	mu        sync.Mutex
+	data      map[string][]byte
+	deadlines map[string]time.Time
+	putErr    error
+	getErr    error
+	deleteErr error
+}
+
+func (s *memoryObjectStore) Get(name string) (io.ReadCloser, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.getErr != nil {
+		return nil, s.getErr
+	}
+	data, exists := s.data[name]
+	if !exists {
+		return nil, errors.New("file does not exist")
+	}
+	return io.NopCloser(bytes.NewReader(append([]byte(nil), data...))), nil
+}
+
+func (s *memoryObjectStore) Put(name string, reader io.Reader) error {
+	return s.put(name, reader, time.Time{})
+}
+
+func (s *memoryObjectStore) PutWithDeadline(name string, reader io.Reader, deadline time.Time) error {
+	return s.put(name, reader, deadline)
+}
+
+func (s *memoryObjectStore) PutWithTTL(name string, reader io.Reader, ttl time.Duration) error {
+	return s.put(name, reader, time.Now().Add(ttl))
+}
+
+func (s *memoryObjectStore) put(name string, reader io.Reader, deadline time.Time) error {
+	if s.putErr != nil {
+		return s.putErr
+	}
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.data[name] = data
+	s.deadlines[name] = deadline
+	return nil
+}
+
+func (s *memoryObjectStore) Delete(name string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.deleteErr != nil {
+		return s.deleteErr
+	}
+	delete(s.data, name)
+	delete(s.deadlines, name)
+	return nil
+}
+
+func (s *memoryObjectStore) DeletePrefix(prefix string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for name := range s.data {
+		if strings.HasPrefix(name, prefix) {
+			delete(s.data, name)
+			delete(s.deadlines, name)
+		}
+	}
+	return nil
+}
+
+func (s *memoryObjectStore) List(prefix string) ([]objectstore.ObjectInfo, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	items := make([]objectstore.ObjectInfo, 0)
+	for name, data := range s.data {
+		if strings.HasPrefix(name, prefix) {
+			items = append(items, objectstore.ObjectInfo{Name: name, Size: int64(len(data)), Deadline: s.deadlines[name]})
+		}
+	}
+	return items, nil
+}
+
+type failingReader struct{}
+
+func (failingReader) Read([]byte) (int, error) {
+	return 0, errors.New("reader failed")
+}
+
+var _ objectstore.ObjectStore = (*memoryObjectStore)(nil)
