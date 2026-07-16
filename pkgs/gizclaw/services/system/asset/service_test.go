@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"io"
 	"reflect"
@@ -230,6 +231,28 @@ func TestLiveBindingsAndReconcile(t *testing.T) {
 	delete(objects.data, objectName("0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"))
 	if err := service.Reconcile(context.Background()); err == nil {
 		t.Fatal("Reconcile(missing ready object) error = nil")
+	}
+}
+
+func TestReconcileRejectsMalformedAssetID(t *testing.T) {
+	now := time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC)
+	service, _ := newTestService(t, now, idSequence(idWithByte(10)))
+	record := assetRecord{
+		SchemaVersion: assetSchemaVersion,
+		ID:            "x",
+		CreatedAt:     now.Add(-stagingGrace),
+		State:         stateStaging,
+	}
+	data, err := json.Marshal(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.repo.store.BatchSet(context.Background(), []kv.Entry{{Key: assetKey(record.ID), Value: data}}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := service.Reconcile(context.Background()); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("Reconcile(malformed id) error = %v", err)
 	}
 }
 

@@ -33,6 +33,10 @@ func (s *Server) PrepareAssetDownload(ctx context.Context, request rpcpb.AssetDo
 	}
 	authorized := false
 	for _, binding := range bindings {
+		resource, ok := assetACLResource(binding.Owner)
+		if !ok {
+			continue
+		}
 		if s.AssetDisplays == nil {
 			continue
 		}
@@ -41,10 +45,6 @@ func (s *Server) PrepareAssetDownload(ctx context.Context, request rpcpb.AssetDo
 			return rpcpb.AssetDownloadResponse{}, nil, nil, err
 		}
 		if !displayAsset {
-			continue
-		}
-		resource, ok := assetACLResource(binding.Owner)
-		if !ok {
 			continue
 		}
 		if err := s.authorizeErr(ctx, resource, apitypes.ACLPermissionRead); err == nil {

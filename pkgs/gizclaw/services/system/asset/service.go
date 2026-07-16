@@ -403,6 +403,14 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			errs = append(errs, fmt.Errorf("asset reconcile decode %v: %w", entry.Key, err))
 			continue
 		}
+		if len(entry.Key) != 3 || record.SchemaVersion != assetSchemaVersion || entry.Key[2] != record.ID {
+			errs = append(errs, fmt.Errorf("%w: invalid asset record %v", ErrInvalid, entry.Key))
+			continue
+		}
+		if _, err := refFromID(record.ID); err != nil {
+			errs = append(errs, fmt.Errorf("asset reconcile record %v: %w", entry.Key, err))
+			continue
+		}
 		switch record.State {
 		case stateStaging:
 			if now.Sub(record.CreatedAt) >= stagingGrace {

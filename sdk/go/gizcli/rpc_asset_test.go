@@ -58,3 +58,30 @@ func TestDownloadAssetStreamsMetadataAndBytes(t *testing.T) {
 		t.Fatalf("server error = %v", err)
 	}
 }
+
+func TestDownloadAssetRejectsMissingMetadataBeforeBinary(t *testing.T) {
+	serverSide, clientSide := net.Pipe()
+	defer serverSide.Close()
+	defer clientSide.Close()
+	serverErr := make(chan error, 1)
+	go func() {
+		request, err := readRPCRequestWithEOS(serverSide)
+		if err != nil {
+			serverErr <- err
+			return
+		}
+		response := resourceResponse(request.Id, rpcpb.AssetDownloadResponse{}, (*rpcapi.RPCPayload).FromAssetDownloadResponse)
+		serverErr <- rpcapi.WriteResponseForMethod(serverSide, rpcapi.RPCMethodServerAssetDownload, response)
+	}()
+	var out bytes.Buffer
+	_, err := (&rpcClient{}).DownloadAsset(context.Background(), clientSide, "asset-download", rpcpb.AssetDownloadRequest{Ref: "asset://01010101010101010101010101010101"}, &out)
+	if err == nil || !strings.Contains(err.Error(), "missing metadata") {
+		t.Fatalf("DownloadAsset(missing metadata) error = %v", err)
+	}
+	if out.Len() != 0 {
+		t.Fatalf("DownloadAsset(missing metadata) wrote %d bytes", out.Len())
+	}
+	if err := <-serverErr; err != nil {
+		t.Fatalf("server error = %v", err)
+	}
+}

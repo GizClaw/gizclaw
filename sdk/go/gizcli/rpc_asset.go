@@ -52,9 +52,13 @@ func (c *rpcClient) DownloadAsset(ctx context.Context, conn net.Conn, id string,
 	if err != nil {
 		return AssetDownloadResult{}, wrapRPCResultError("asset download", err)
 	}
+	metadata := result.GetMetadata()
+	if metadata == nil {
+		return AssetDownloadResult{}, fmt.Errorf("asset download: missing metadata")
+	}
 	written, err := copyBinaryFrames(out, stream)
 	if err != nil {
 		return AssetDownloadResult{}, err
 	}
-	return AssetDownloadResult{Metadata: result.GetMetadata(), Bytes: written}, nil
+	return AssetDownloadResult{Metadata: metadata, Bytes: written}, nil
 }

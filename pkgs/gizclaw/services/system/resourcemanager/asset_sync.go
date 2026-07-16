@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/asset"
@@ -159,10 +160,14 @@ func resourceIdentity(resource apitypes.Resource) (apitypes.ResourceKind, string
 	if err := json.Unmarshal(data, &header); err != nil {
 		return "", "", err
 	}
-	if !header.Kind.Valid() || header.Metadata.Name == "" {
+	kind := header.Kind
+	if !kind.Valid() {
+		kind = apitypes.ResourceKind(strings.TrimSuffix(string(kind), "Resource"))
+	}
+	if !kind.Valid() || header.Metadata.Name == "" {
 		return "", "", fmt.Errorf("invalid resource identity")
 	}
-	return header.Kind, header.Metadata.Name, nil
+	return kind, header.Metadata.Name, nil
 }
 
 func resourceAssetRefs(resource apitypes.Resource) (map[asset.Ref]struct{}, error) {
