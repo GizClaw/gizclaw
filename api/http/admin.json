@@ -121,11 +121,10 @@
             "name": "filter",
             "in": "query",
             "required": false,
-            "description": "GizClaw system-log filter. Use * or up to 32 AND-separated clauses: level:value, text:value, field:value, field!=value, field:*, or -field:*. Values are unquoted tokens or JSON string literals; level names are normalized to uppercase. Provider query syntax and metadata fields, wildcards inside values, OR, regex, and stream/kind/message overrides are not accepted.",
+            "description": "GizClaw system-log filter, limited to 4096 UTF-8 bytes. Use * or up to 32 AND-separated clauses: level:value, text:value, field:value, field!=value, field:*, or -field:*. Values are unquoted tokens or JSON string literals; level names are normalized to uppercase. Provider query syntax and metadata fields, wildcards inside values, OR, regex, and stream/kind/message overrides are not accepted.",
             "schema": {
               "type": "string",
-              "default": "*",
-              "maxLength": 4096
+              "default": "*"
             }
           },
           {

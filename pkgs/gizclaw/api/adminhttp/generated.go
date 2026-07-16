@@ -798,7 +798,7 @@ type ListGeminiTenantsParams struct {
 
 // StreamServerLogsParams defines parameters for StreamServerLogs.
 type StreamServerLogsParams struct {
-	// Filter GizClaw system-log filter. Use * or up to 32 AND-separated clauses: level:value, text:value, field:value, field!=value, field:*, or -field:*. Values are unquoted tokens or JSON string literals; level names are normalized to uppercase. Provider query syntax and metadata fields, wildcards inside values, OR, regex, and stream/kind/message overrides are not accepted.
+	// Filter GizClaw system-log filter, limited to 4096 UTF-8 bytes. Use * or up to 32 AND-separated clauses: level:value, text:value, field:value, field!=value, field:*, or -field:*. Values are unquoted tokens or JSON string literals; level names are normalized to uppercase. Provider query syntax and metadata fields, wildcards inside values, OR, regex, and stream/kind/message overrides are not accepted.
 	Filter *string `form:"filter,omitempty" json:"filter,omitempty"`
 
 	// StartTimeMs Inclusive search start time in Unix milliseconds. Required for the first page.
