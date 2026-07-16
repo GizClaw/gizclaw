@@ -32,6 +32,27 @@ func TestReadValidated(t *testing.T) {
 	}
 }
 
+func TestReadValidatedRejectsOversizedPNGDimensions(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		width  int
+		height int
+	}{
+		{name: "dimension", width: maxPNGDimension + 1, height: 1},
+		{name: "pixel count", width: 2049, height: 2048},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			data := encodedGrayPNG(t, tt.width, tt.height)
+			if _, err := ReadValidated(bytes.NewReader(data), FormatPNG); !errors.Is(err, ErrInvalid) {
+				t.Fatalf("ReadValidated(%dx%d PNG) error = %v, want ErrInvalid", tt.width, tt.height, err)
+			}
+		})
+	}
+}
+
 func TestOwnerObjectNames(t *testing.T) {
 	t.Parallel()
 	if got, want := ObjectName("team/demo", FormatPNG), "team%2Fdemo/icon.png"; got != want {
@@ -48,6 +69,15 @@ func testPNG(t *testing.T) []byte {
 	img := image.NewNRGBA(image.Rect(0, 0, 1, 1))
 	img.Set(0, 0, color.NRGBA{R: 1, G: 2, B: 3, A: 255})
 	if err := png.Encode(&out, img); err != nil {
+		t.Fatal(err)
+	}
+	return out.Bytes()
+}
+
+func encodedGrayPNG(t *testing.T, width, height int) []byte {
+	t.Helper()
+	var out bytes.Buffer
+	if err := png.Encode(&out, image.NewGray(image.Rect(0, 0, width, height))); err != nil {
 		t.Fatal(err)
 	}
 	return out.Bytes()

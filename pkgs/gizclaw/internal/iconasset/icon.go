@@ -15,7 +15,11 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
-const MaxBytes int64 = 2 * 1024 * 1024
+const (
+	MaxBytes         int64 = 2 * 1024 * 1024
+	maxPNGDimension        = 4096
+	maxPNGPixelCount int64 = 4 * 1024 * 1024
+)
 
 var (
 	ErrInvalid  = errors.New("invalid icon")
@@ -66,8 +70,21 @@ func ReadValidated(r io.Reader, format Format) ([]byte, error) {
 		if !bytes.HasPrefix(data, []byte("\x89PNG\r\n\x1a\n")) {
 			return nil, fmt.Errorf("%w: invalid PNG signature", ErrInvalid)
 		}
-		if _, err := png.DecodeConfig(bytes.NewReader(data)); err != nil {
+		config, err := png.DecodeConfig(bytes.NewReader(data))
+		if err != nil {
 			return nil, fmt.Errorf("%w: invalid PNG: %v", ErrInvalid, err)
+		}
+		if config.Width > maxPNGDimension || config.Height > maxPNGDimension {
+			return nil, fmt.Errorf(
+				"%w: PNG dimensions %dx%d exceed the %d pixel dimension limit",
+				ErrInvalid,
+				config.Width,
+				config.Height,
+				maxPNGDimension,
+			)
+		}
+		if pixelCount := int64(config.Width) * int64(config.Height); pixelCount > maxPNGPixelCount {
+			return nil, fmt.Errorf("%w: PNG dimensions %dx%d exceed the %d total pixel limit", ErrInvalid, config.Width, config.Height, maxPNGPixelCount)
 		}
 	case FormatPixa:
 		if err := validatePIXA(data); err != nil {
