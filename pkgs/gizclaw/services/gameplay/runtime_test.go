@@ -289,10 +289,11 @@ func TestRuntimeDeletePetReportsCleanupFailuresAndPreservesPet(t *testing.T) {
 	for _, tc := range []struct {
 		name          string
 		failACLDelete bool
-		failWorkspace bool
+		workspaceErr  error
 	}{
 		{name: "ACL", failACLDelete: true},
-		{name: "workspace", failWorkspace: true},
+		{name: "workspace", workspaceErr: errors.New("forced workspace cleanup failure")},
+		{name: "missing workspace", workspaceErr: kv.ErrNotFound},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			catalog := testCatalog(t, now)
@@ -316,11 +317,11 @@ func TestRuntimeDeletePetReportsCleanupFailuresAndPreservesPet(t *testing.T) {
 			if tc.failACLDelete {
 				aclService.deleteErr = errors.New("forced ACL cleanup failure")
 			}
-			if tc.failWorkspace {
-				workspaces.deleteErr = errors.New("forced workspace cleanup failure")
-			}
+			workspaces.deleteErr = tc.workspaceErr
 			if _, err := runtime.DeletePet(ctx, "peer-a", adopted.Pet.Id); err == nil {
 				t.Fatal("DeletePet() error = nil")
+			} else if errors.Is(err, kv.ErrNotFound) {
+				t.Fatalf("DeletePet() error = %v, must not map Workspace cleanup to Pet not found", err)
 			}
 			if got, err := runtime.GetPet(ctx, "peer-a", adopted.Pet.Id); err != nil || got.Id != adopted.Pet.Id {
 				t.Fatalf("GetPet() after failed delete = %#v, %v", got, err)

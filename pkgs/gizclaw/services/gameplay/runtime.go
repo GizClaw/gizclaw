@@ -361,9 +361,9 @@ func (r *Runtime) DeletePet(ctx context.Context, owner, id string) (apitypes.Pet
 	}
 	if _, err := r.Workspaces.DeleteSystemWorkspace(cleanupCtx, pet.WorkspaceName); err != nil {
 		if restoreErr := r.grantPetWorkspace(cleanupCtx, pet.WorkspaceName, owner); restoreErr != nil {
-			return apitypes.Pet{}, fmt.Errorf("delete pet %q workspace: %w; ACL rollback failed: %v", pet.Id, err, restoreErr)
+			return apitypes.Pet{}, fmt.Errorf("delete pet %q workspace: %v; ACL rollback failed: %v", pet.Id, err, restoreErr)
 		}
-		return apitypes.Pet{}, fmt.Errorf("delete pet %q workspace: %w", pet.Id, err)
+		return apitypes.Pet{}, fmt.Errorf("delete pet %q workspace: %v", pet.Id, err)
 	}
 	db, err := r.db()
 	if err != nil {
