@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -33,24 +34,81 @@ func (m *Manager) ResourceHasDisplayAsset(ctx context.Context, owner asset.Owner
 	if err != nil || !exists {
 		return false, err
 	}
-	data, err := json.Marshal(resource)
+	refs, err := resourceDisplayAssetRefs(resource)
 	if err != nil {
-		return false, fmt.Errorf("encode resource owner %s: %w", owner.ID, err)
+		return false, fmt.Errorf("resolve display assets for resource owner %s: %w", owner.ID, err)
 	}
-	var value map[string]json.RawMessage
-	if err := json.Unmarshal(data, &value); err != nil {
-		return false, fmt.Errorf("decode resource owner %s: %w", owner.ID, err)
+	return slices.Contains(refs, ref), nil
+}
+
+// resourceDisplayAssetRefs enumerates public display AssetRefs through the
+// generated Resource variants. Fields absent from the generated contract must
+// not become downloadable merely because they appear in raw JSON.
+func resourceDisplayAssetRefs(resource apitypes.Resource) ([]asset.Ref, error) {
+	kind, err := resource.Discriminator()
+	if err != nil {
+		return nil, err
 	}
-	displays, ok := value["displays"]
-	if !ok {
-		return false, nil
+	switch kind {
+	case string(apitypes.ResourceKindACLPolicyBinding), "ACLPolicyBindingResource":
+		return noDisplayAssetRefs(resource.AsACLPolicyBindingResource())
+	case string(apitypes.ResourceKindACLRole), "ACLRoleResource":
+		return noDisplayAssetRefs(resource.AsACLRoleResource())
+	case string(apitypes.ResourceKindACLView), "ACLViewResource":
+		return noDisplayAssetRefs(resource.AsACLViewResource())
+	case string(apitypes.ResourceKindBadgeDef), "BadgeDefResource":
+		return noDisplayAssetRefs(resource.AsBadgeDefResource())
+	case string(apitypes.ResourceKindContact), "ContactResource":
+		return noDisplayAssetRefs(resource.AsContactResource())
+	case string(apitypes.ResourceKindCredential), "CredentialResource":
+		return noDisplayAssetRefs(resource.AsCredentialResource())
+	case string(apitypes.ResourceKindDashScopeTenant), "DashScopeTenantResource":
+		return noDisplayAssetRefs(resource.AsDashScopeTenantResource())
+	case string(apitypes.ResourceKindFirmware), "FirmwareResource":
+		return noDisplayAssetRefs(resource.AsFirmwareResource())
+	case string(apitypes.ResourceKindFriend), "FriendResource":
+		return noDisplayAssetRefs(resource.AsFriendResource())
+	case string(apitypes.ResourceKindFriendGroup), "FriendGroupResource":
+		return noDisplayAssetRefs(resource.AsFriendGroupResource())
+	case string(apitypes.ResourceKindFriendGroupInviteToken), "FriendGroupInviteTokenResource":
+		return noDisplayAssetRefs(resource.AsFriendGroupInviteTokenResource())
+	case string(apitypes.ResourceKindFriendGroupMember), "FriendGroupMemberResource":
+		return noDisplayAssetRefs(resource.AsFriendGroupMemberResource())
+	case string(apitypes.ResourceKindGameDef), "GameDefResource":
+		return noDisplayAssetRefs(resource.AsGameDefResource())
+	case string(apitypes.ResourceKindGameRuleset), "GameRulesetResource":
+		return noDisplayAssetRefs(resource.AsGameRulesetResource())
+	case string(apitypes.ResourceKindGeminiTenant), "GeminiTenantResource":
+		return noDisplayAssetRefs(resource.AsGeminiTenantResource())
+	case string(apitypes.ResourceKindMiniMaxTenant), "MiniMaxTenantResource":
+		return noDisplayAssetRefs(resource.AsMiniMaxTenantResource())
+	case string(apitypes.ResourceKindModel), "ModelResource":
+		return noDisplayAssetRefs(resource.AsModelResource())
+	case string(apitypes.ResourceKindOpenAITenant), "OpenAITenantResource":
+		return noDisplayAssetRefs(resource.AsOpenAITenantResource())
+	case string(apitypes.ResourceKindPeerConfig), "PeerConfigResource":
+		return noDisplayAssetRefs(resource.AsPeerConfigResource())
+	case string(apitypes.ResourceKindPetDef), "PetDefResource":
+		return noDisplayAssetRefs(resource.AsPetDefResource())
+	case string(apitypes.ResourceKindResourceList), "ResourceListResource":
+		return noDisplayAssetRefs(resource.AsResourceListResource())
+	case string(apitypes.ResourceKindTool), "ToolResource":
+		return noDisplayAssetRefs(resource.AsToolResource())
+	case string(apitypes.ResourceKindVoice), "VoiceResource":
+		return noDisplayAssetRefs(resource.AsVoiceResource())
+	case string(apitypes.ResourceKindVolcTenant), "VolcTenantResource":
+		return noDisplayAssetRefs(resource.AsVolcTenantResource())
+	case string(apitypes.ResourceKindWorkflow), "WorkflowResource":
+		return noDisplayAssetRefs(resource.AsWorkflowResource())
+	case string(apitypes.ResourceKindWorkspace), "WorkspaceResource":
+		return noDisplayAssetRefs(resource.AsWorkspaceResource())
+	default:
+		return nil, fmt.Errorf("unsupported resource kind %q", kind)
 	}
-	for _, candidate := range assetRefsInJSON(displays) {
-		if candidate == ref {
-			return true, nil
-		}
-	}
-	return false, nil
+}
+
+func noDisplayAssetRefs[T any](_ T, err error) ([]asset.Ref, error) {
+	return nil, err
 }
 
 func (m *Manager) assetOwnerResource(ctx context.Context, owner asset.Owner) (apitypes.Resource, bool, error) {
