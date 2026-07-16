@@ -117,8 +117,14 @@ void main() {
       },
     );
     addTearDown(harness.close);
+    bool? trackEnabledAtBos;
+    harness.channel.onSend = (_) {
+      trackEnabledAtBos ??= harness.track.enabled;
+    };
 
     await harness.controller.startInput();
+    expect(trackEnabledAtBos, isFalse);
+    expect(harness.track.enabled, isTrue);
     await Future.wait([
       harness.controller.finishInput(),
       harness.controller.finishInput(),
@@ -590,6 +596,7 @@ class _MemoryDataChannel implements GizClawDataChannel {
   final sent = <Uint8List>[];
   final _messages = StreamController<Uint8List>.broadcast();
   Future<void>? sendGate;
+  void Function(Uint8List)? onSend;
 
   @override
   int? get bufferedAmount => 0;
@@ -611,6 +618,7 @@ class _MemoryDataChannel implements GizClawDataChannel {
 
   @override
   Future<void> send(Uint8List bytes) async {
+    onSend?.call(bytes);
     sent.add(bytes);
     final gate = sendGate;
     if (gate != null) await gate;

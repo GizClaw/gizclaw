@@ -242,11 +242,17 @@ class WorkspaceChatController extends ChangeNotifier {
       track.enabled = true;
       _activeAudioBaseline = await _waitForOutgoingAudio(track, baseline);
       if (!_ownsInputTrack) throw StateError('Microphone track owner changed');
+      track.enabled = false;
       final streamId =
           'audio-${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}';
       _activeStreamId = streamId;
       await session.beginAudio(streamId);
       recording = true;
+      if (!_ownsInputTrack) {
+        await finishInput(error: 'interrupted');
+        return;
+      }
+      track.enabled = true;
       if (_finishPending) {
         _finishPending = false;
         await finishInput();

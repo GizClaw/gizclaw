@@ -7,6 +7,8 @@ import 'package:gizclaw_app/connection/gizclaw_connection_controller.dart';
 import 'package:gizclaw_app/data/database/app_database.dart';
 import 'package:gizclaw_app/data/mobile_data_controller.dart';
 import 'package:gizclaw_app/data/repositories/mobile_data_repository.dart';
+import 'package:gizclaw_app/data/repositories/workspace_chat_repository.dart';
+import 'package:gizclaw_app/data/workspace_chat_controller.dart';
 import 'package:gizclaw_app/l10n/locale_resolution.dart';
 import 'package:gizclaw_app/prototype/prototype_models.dart';
 
@@ -180,6 +182,28 @@ void main() {
     await userRecovery;
     await controller.close();
   });
+
+  test(
+    'ends active input before recovering an ended microphone track',
+    () async {
+      final connection = _EndedMicrophoneConnection(
+        profile: _profile('gizclaw.local:9820'),
+      );
+      final controller = _EndedMicrophoneController(connection)
+        ..connectionState = MobileConnectionState.connected;
+      addTearDown(controller.close);
+      controller.chat.recording = true;
+
+      connection.endMicrophoneTrack();
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(controller.chat.finishErrors, ['microphone_track_ended']);
+      expect(controller.chat.recording, isFalse);
+      expect(controller.recoveryCalls, 1);
+      expect(controller.recoveredAfterFinish, isTrue);
+    },
+  );
 
   test('does not retry a mutating RPC after a transport failure', () async {
     var requests = 0;
@@ -665,6 +689,74 @@ class _BlockingReconnectConnection extends _CloseTrackingConnection {
   Future<GizClawClient> reconnect() {
     reconnectStarted.complete();
     return reconnectResult.future;
+  }
+}
+
+class _EndedMicrophoneConnection extends GizClawConnectionController {
+  _EndedMicrophoneConnection({required GizClawConnectionProfile profile})
+    : super(profile);
+
+  MicrophoneStatus status = const MicrophoneStatus.ready();
+
+  @override
+  MicrophoneStatus get microphoneStatus => status;
+
+  void endMicrophoneTrack() {
+    status = const MicrophoneStatus.unavailable(
+      failureKind: MicrophoneFailureKind.captureUnavailable,
+    );
+    notifyListeners();
+  }
+
+  @override
+  Future<void> close() async {}
+}
+
+class _EndedMicrophoneController extends MobileDataController {
+  _EndedMicrophoneController(_EndedMicrophoneConnection connection)
+    : super(
+        database: AppDatabase.forTesting(NativeDatabase.memory()),
+        connectionController: connection,
+      ) {
+    chat = _EndedTrackChatController(workspaceChatRepository);
+  }
+
+  late final _EndedTrackChatController chat;
+  int recoveryCalls = 0;
+  bool recoveredAfterFinish = false;
+
+  @override
+  WorkspaceChatController? get activeWorkspaceChat => chat;
+
+  @override
+  Future<MicrophoneStatus> recoverMicrophone() async {
+    recoveryCalls += 1;
+    recoveredAfterFinish = !chat.recording && chat.finishErrors.isNotEmpty;
+    return const MicrophoneStatus.ready();
+  }
+
+  @override
+  Future<void> close() async {
+    await chat.close();
+    await super.close();
+  }
+}
+
+class _EndedTrackChatController extends WorkspaceChatController {
+  _EndedTrackChatController(WorkspaceChatRepository repository)
+    : super(
+        workspaceName: 'translator',
+        repository: repository,
+        serverId: null,
+      );
+
+  final finishErrors = <String?>[];
+
+  @override
+  Future<void> finishInput({String? error}) async {
+    finishErrors.add(error);
+    await Future<void>.delayed(Duration.zero);
+    recording = false;
   }
 }
 

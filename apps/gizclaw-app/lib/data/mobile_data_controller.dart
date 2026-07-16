@@ -87,6 +87,7 @@ class MobileDataController extends ChangeNotifier {
          ),
        ) {
     repository = dataRepository ?? MobileDataRepository(this.database);
+    _observedMicrophoneStatus = connection.microphoneStatus;
     connection.addListener(_handleConnectionChanged);
   }
 
@@ -138,6 +139,7 @@ class MobileDataController extends ChangeNotifier {
   Future<void>? _closeFuture;
   bool _closing = false;
   bool _disposed = false;
+  late MicrophoneStatus _observedMicrophoneStatus;
   final Map<String, ({String title, String workspaceName})> _petRouteContexts =
       {};
   PeerRunWorkspaceState? runWorkspaceState;
@@ -164,7 +166,35 @@ class MobileDataController extends ChangeNotifier {
   Locale get effectiveLocale => _effectiveLocale;
   MicrophoneStatus get microphoneStatus => connection.microphoneStatus;
 
-  void _handleConnectionChanged() => notifyListeners();
+  void _handleConnectionChanged() {
+    final previous = _observedMicrophoneStatus;
+    final current = connection.microphoneStatus;
+    _observedMicrophoneStatus = current;
+    if (!_closing &&
+        connectionState == MobileConnectionState.connected &&
+        previous.availability == MicrophoneAvailability.ready &&
+        current.availability == MicrophoneAvailability.unavailable) {
+      unawaited(_handleEndedMicrophoneTrack(activeWorkspaceChat));
+    }
+    notifyListeners();
+  }
+
+  Future<void> _handleEndedMicrophoneTrack(
+    WorkspaceChatController? chat,
+  ) async {
+    if (chat != null && (chat.recording || chat.startingInput)) {
+      await chat.finishInput(error: 'microphone_track_ended');
+    }
+    if (_closing ||
+        microphoneStatus.availability != MicrophoneAvailability.unavailable) {
+      return;
+    }
+    try {
+      await recoverMicrophone();
+    } catch (_) {
+      // Reconnect already records the transport error for the UI.
+    }
+  }
 
   Future<MicrophoneStatus> recoverMicrophone() {
     final active = _microphoneRecovery;
