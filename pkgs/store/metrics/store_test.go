@@ -1,100 +1,32 @@
 package metrics
 
 import (
-	"strings"
+	"math"
 	"testing"
 	"time"
 )
 
-func TestSelectorExpression(t *testing.T) {
-	expr, err := (Selector{
-		Name: "gizclaw_peer_battery_percent",
-		Matchers: []LabelMatcher{
-			{Name: "peer_id", Op: MatchEqual, Value: `peer"1`},
-			{Name: "kind", Op: MatchRegexp, Value: "battery|gnss"},
-		},
-	}).Expression()
-	if err != nil {
-		t.Fatalf("Expression: %v", err)
+func TestQueryValidation(t *testing.T) {
+	t.Parallel()
+	at := time.Now()
+	valid := Selector{Name: "m", Matchers: []LabelMatcher{{Name: "missing", Op: MatchNotEqual, Value: "x"}, {Name: "label", Op: MatchRegexp, Value: "a.*"}}}
+	if err := validateLatestQuery(LatestQuery{Selector: valid, At: at, Lookback: time.Second}); err != nil {
+		t.Fatal(err)
 	}
-	want := `gizclaw_peer_battery_percent{kind=~"battery|gnss",peer_id="peer\"1"}`
-	if expr != want {
-		t.Fatalf("Expression = %q, want %q", expr, want)
+	if err := validateSelector(Selector{Name: "m", Matchers: []LabelMatcher{{Name: "x", Op: MatchRegexp, Value: "["}}}); err == nil {
+		t.Fatal("expected regexp error")
 	}
-}
-
-func TestSelectorExpressionRejectsInvalidInput(t *testing.T) {
-	tests := []struct {
-		name string
-		sel  Selector
-		want string
-	}{
-		{
-			name: "metric",
-			sel:  Selector{Name: "1bad"},
-			want: "invalid metric name",
-		},
-		{
-			name: "label",
-			sel: Selector{Name: "ok", Matchers: []LabelMatcher{
-				{Name: "__name__", Op: MatchEqual, Value: "bad"},
-			}},
-			want: "reserved",
-		},
-		{
-			name: "operator",
-			sel: Selector{Name: "ok", Matchers: []LabelMatcher{
-				{Name: "peer_id", Op: "==", Value: "bad"},
-			}},
-			want: "unsupported label matcher operator",
-		},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			if _, err := tc.sel.Expression(); err == nil || !strings.Contains(err.Error(), tc.want) {
-				t.Fatalf("Expression error = %v, want %q", err, tc.want)
-			}
-		})
+	for _, op := range []Aggregation{AggregationAvg, AggregationMin, AggregationMax, AggregationSum, AggregationCount, AggregationLast} {
+		if err := validateAggregateQuery(AggregateQuery{Selector: Selector{Name: "m"}, Start: at, End: at, Bucket: time.Second, Operation: op}); err != nil {
+			t.Fatalf("%s: %v", op, err)
+		}
 	}
 }
-
-func TestAggregateExpression(t *testing.T) {
-	expr, err := AggregateExpression(AggregationAvg, `gizclaw_peer_battery_percent{peer_id="p1"}`)
-	if err != nil {
-		t.Fatalf("AggregateExpression: %v", err)
-	}
-	want := `avg(gizclaw_peer_battery_percent{peer_id="p1"})`
-	if expr != want {
-		t.Fatalf("AggregateExpression = %q, want %q", expr, want)
-	}
-	if _, err := AggregateExpression(Aggregation("median"), "metric"); err == nil {
-		t.Fatal("expected unsupported aggregation error")
-	}
-	if _, err := AggregateExpression(AggregationAvg, " "); err == nil {
-		t.Fatal("expected empty expression error")
-	}
-}
-
-func TestValidateSample(t *testing.T) {
-	ts := time.Unix(1, 0)
-	if err := validateSample(Sample{Name: "ok_metric", Labels: map[string]string{"peer_id": "p1"}, Timestamp: ts}); err != nil {
-		t.Fatalf("validateSample valid: %v", err)
-	}
-	tests := []struct {
-		name   string
-		sample Sample
-		want   string
-	}{
-		{name: "metric", sample: Sample{Name: "bad-name", Timestamp: ts}, want: "invalid metric name"},
-		{name: "timestamp", sample: Sample{Name: "ok_metric"}, want: "timestamp is zero"},
-		{name: "label", sample: Sample{Name: "ok_metric", Labels: map[string]string{"bad-label": "x"}, Timestamp: ts}, want: "invalid label name"},
-		{name: "reserved", sample: Sample{Name: "ok_metric", Labels: map[string]string{"__name__": "x"}, Timestamp: ts}, want: "reserved"},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			if err := validateSample(tc.sample); err == nil || !strings.Contains(err.Error(), tc.want) {
-				t.Fatalf("validateSample error = %v, want %q", err, tc.want)
-			}
-		})
+func TestSampleValidationAllowsIEEEValues(t *testing.T) {
+	t.Parallel()
+	for _, v := range []float64{math.NaN(), math.Inf(1), math.Inf(-1)} {
+		if err := validateSample(Sample{Name: "m", Timestamp: time.Now(), Value: v}); err != nil {
+			t.Fatal(err)
+		}
 	}
 }

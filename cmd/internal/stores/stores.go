@@ -49,6 +49,7 @@ type Config struct {
 	DSN     string `yaml:"dsn"`     // legacy sql connection string field
 
 	Prometheus *metrics.PrometheusConfig `yaml:"prometheus"`
+	ClickHouse *metrics.ClickHouseConfig `yaml:"clickhouse"`
 	Memory     *struct{}                 `yaml:"memory"`
 }
 
@@ -305,7 +306,21 @@ func (r *Stores) newGraph(name string, cfg Config) (graph.Graph, error) {
 }
 
 func (r *Stores) newMetrics(name string, cfg Config) (metrics.Store, error) {
-	if cfg.Memory != nil || cfg.Backend == "memory" {
+	memory := cfg.Memory != nil || cfg.Backend == "memory"
+	count := 0
+	if memory {
+		count++
+	}
+	if cfg.Prometheus != nil {
+		count++
+	}
+	if cfg.ClickHouse != nil {
+		count++
+	}
+	if count != 1 {
+		return nil, fmt.Errorf("stores: metrics %q requires exactly one of memory, prometheus, or clickhouse", name)
+	}
+	if memory {
 		return metrics.NewMemoryStore(), nil
 	}
 	if cfg.Prometheus != nil {
@@ -315,7 +330,11 @@ func (r *Stores) newMetrics(name string, cfg Config) (metrics.Store, error) {
 		}
 		return st, nil
 	}
-	return nil, fmt.Errorf("stores: metrics %q requires prometheus or memory config", name)
+	st, err := metrics.NewClickHouseStore(*cfg.ClickHouse)
+	if err != nil {
+		return nil, fmt.Errorf("stores: metrics %q clickhouse: %w", name, err)
+	}
+	return st, nil
 }
 
 func (r *Stores) newSQL(name string, cfg Config) (*sql.DB, error) {

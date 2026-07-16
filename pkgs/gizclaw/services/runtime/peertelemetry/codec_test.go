@@ -183,16 +183,12 @@ func TestServiceReportWithMemoryMetricsStoreQueriesTelemetrySamples(t *testing.T
 		t.Fatalf("Report() error = %v", err)
 	}
 
-	batteryQuery, err := (metrics.Selector{
+	batterySelector := metrics.Selector{
 		Name:     MetricBatteryPercent,
 		Matchers: []metrics.LabelMatcher{{Name: "peer_id", Op: metrics.MatchEqual, Value: peer.String()}},
-	}).Expression()
-	if err != nil {
-		t.Fatalf("battery selector: %v", err)
 	}
-	got, err := store.Query(context.Background(), metrics.Query{
-		Expression: batteryQuery,
-		Time:       base.Add(1500 * time.Millisecond),
+	got, err := store.Latest(context.Background(), metrics.LatestQuery{
+		Selector: batterySelector, At: base.Add(1500 * time.Millisecond), Lookback: time.Minute,
 	})
 	if err != nil {
 		t.Fatalf("Query battery: %v", err)
@@ -200,11 +196,11 @@ func TestServiceReportWithMemoryMetricsStoreQueriesTelemetrySamples(t *testing.T
 	if len(got) != 1 || len(got[0].Points) != 1 || got[0].Points[0].Value != 71 {
 		t.Fatalf("battery query = %+v, want latest 71", got)
 	}
-	got, err = store.QueryRange(context.Background(), metrics.RangeQuery{
-		Expression: batteryQuery,
-		Start:      base,
-		End:        base.Add(time.Second),
-		Step:       time.Second,
+	got, err = store.Range(context.Background(), metrics.RangeQuery{
+		Selector: batterySelector,
+		Start:    base,
+		End:      base.Add(time.Second),
+		Step:     time.Second,
 	})
 	if err != nil {
 		t.Fatalf("QueryRange battery: %v", err)
@@ -213,16 +209,12 @@ func TestServiceReportWithMemoryMetricsStoreQueriesTelemetrySamples(t *testing.T
 		t.Fatalf("battery range = %+v, want 2 points", got)
 	}
 
-	gnssQuery, err := (metrics.Selector{
+	gnssSelector := metrics.Selector{
 		Name:     MetricGNSSLatitude,
 		Matchers: []metrics.LabelMatcher{{Name: "peer_id", Op: metrics.MatchEqual, Value: peer.String()}},
-	}).Expression()
-	if err != nil {
-		t.Fatalf("gnss selector: %v", err)
 	}
-	got, err = store.Query(context.Background(), metrics.Query{
-		Expression: gnssQuery,
-		Time:       base.Add(2 * time.Second),
+	got, err = store.Latest(context.Background(), metrics.LatestQuery{
+		Selector: gnssSelector, At: base.Add(2 * time.Second), Lookback: time.Minute,
 	})
 	if err != nil {
 		t.Fatalf("Query gnss: %v", err)
@@ -698,11 +690,15 @@ func (s *fakeMetricsStore) Append(ctx context.Context, samples []metrics.Sample)
 	return nil
 }
 
-func (s *fakeMetricsStore) Query(context.Context, metrics.Query) (metrics.SeriesSet, error) {
+func (s *fakeMetricsStore) Latest(context.Context, metrics.LatestQuery) (metrics.SeriesSet, error) {
 	return nil, nil
 }
 
-func (s *fakeMetricsStore) QueryRange(context.Context, metrics.RangeQuery) (metrics.SeriesSet, error) {
+func (s *fakeMetricsStore) Range(context.Context, metrics.RangeQuery) (metrics.SeriesSet, error) {
+	return nil, nil
+}
+
+func (s *fakeMetricsStore) Aggregate(context.Context, metrics.AggregateQuery) (metrics.SeriesSet, error) {
 	return nil, nil
 }
 

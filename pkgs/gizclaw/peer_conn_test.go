@@ -532,11 +532,15 @@ func (s *peerConnFakeMetrics) Append(_ context.Context, samples []metrics.Sample
 	return nil
 }
 
-func (s *peerConnFakeMetrics) Query(context.Context, metrics.Query) (metrics.SeriesSet, error) {
+func (s *peerConnFakeMetrics) Latest(context.Context, metrics.LatestQuery) (metrics.SeriesSet, error) {
 	return nil, nil
 }
 
-func (s *peerConnFakeMetrics) QueryRange(context.Context, metrics.RangeQuery) (metrics.SeriesSet, error) {
+func (s *peerConnFakeMetrics) Range(context.Context, metrics.RangeQuery) (metrics.SeriesSet, error) {
+	return nil, nil
+}
+
+func (s *peerConnFakeMetrics) Aggregate(context.Context, metrics.AggregateQuery) (metrics.SeriesSet, error) {
 	return nil, nil
 }
 

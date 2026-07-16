@@ -13,42 +13,48 @@ import (
 )
 
 type fakeAdminMetricsStore struct {
-	query        metrics.Query
-	queries      []metrics.Query
-	rangeQuery   metrics.RangeQuery
-	series       metrics.SeriesSet
-	querySeries  metrics.SeriesSet
-	rangeSeries  metrics.SeriesSet
-	seriesByExpr map[string]metrics.SeriesSet
-	err          error
+	query          metrics.LatestQuery
+	queries        []metrics.LatestQuery
+	rangeQuery     metrics.RangeQuery
+	aggregateQuery metrics.AggregateQuery
+	series         metrics.SeriesSet
+	querySeries    metrics.SeriesSet
+	rangeSeries    metrics.SeriesSet
+	err            error
 }
 
 func (s *fakeAdminMetricsStore) Append(context.Context, []metrics.Sample) error {
 	return nil
 }
 
-func (s *fakeAdminMetricsStore) Query(ctx context.Context, query metrics.Query) (metrics.SeriesSet, error) {
+func (s *fakeAdminMetricsStore) Latest(ctx context.Context, query metrics.LatestQuery) (metrics.SeriesSet, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	s.query = query
 	s.queries = append(s.queries, query)
-	if s.seriesByExpr != nil {
-		if series, ok := s.seriesByExpr[query.Expression]; ok {
-			return series, s.err
-		}
-	}
 	if s.querySeries != nil {
 		return s.querySeries, s.err
 	}
 	return s.series, s.err
 }
 
-func (s *fakeAdminMetricsStore) QueryRange(ctx context.Context, query metrics.RangeQuery) (metrics.SeriesSet, error) {
+func (s *fakeAdminMetricsStore) Range(ctx context.Context, query metrics.RangeQuery) (metrics.SeriesSet, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	s.rangeQuery = query
+	if s.rangeSeries != nil {
+		return s.rangeSeries, s.err
+	}
+	return s.series, s.err
+}
+
+func (s *fakeAdminMetricsStore) Aggregate(ctx context.Context, query metrics.AggregateQuery) (metrics.SeriesSet, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	s.aggregateQuery = query
 	if s.rangeSeries != nil {
 		return s.rangeSeries, s.err
 	}
@@ -64,24 +70,13 @@ func TestAdminLatestQueriesSelectedField(t *testing.T) {
 
 	peer := adminTestPeer()
 	observedAt := time.Unix(1783403541, 123000000).UTC()
-	valueExpr := `gizclaw_peer_battery_percent{peer_id="` + peer.String() + `"}`
-	timestampExpr := `timestamp(` + valueExpr + `)`
-	store := &fakeAdminMetricsStore{seriesByExpr: map[string]metrics.SeriesSet{
-		valueExpr: {{
-			Name: MetricBatteryPercent,
-			Points: []metrics.Point{{
-				Timestamp: observedAt.Add(time.Minute),
-				Value:     87,
-			}},
+	store := &fakeAdminMetricsStore{series: metrics.SeriesSet{{
+		Name: MetricBatteryPercent,
+		Points: []metrics.Point{{
+			Timestamp: observedAt,
+			Value:     87,
 		}},
-		timestampExpr: {{
-			Name: "timestamp",
-			Points: []metrics.Point{{
-				Timestamp: observedAt.Add(time.Minute),
-				Value:     float64(observedAt.UnixMilli()) / 1000,
-			}},
-		}},
-	}}
+	}}}
 	service := &AdminService{Metrics: store, Now: func() time.Time {
 		return observedAt.Add(time.Minute)
 	}}
@@ -90,8 +85,8 @@ func TestAdminLatestQueriesSelectedField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Latest() error = %v", err)
 	}
-	if len(store.queries) != 2 || store.queries[0].Expression != valueExpr || store.queries[1].Expression != timestampExpr {
-		t.Fatalf("queries = %#v, want value and timestamp expressions", store.queries)
+	if len(store.queries) != 1 || store.queries[0].Selector.Name != MetricBatteryPercent || store.queries[0].Lookback != defaultLatestLookback {
+		t.Fatalf("queries = %#v, want one structured latest query", store.queries)
 	}
 	if response.PeerPublicKey != peer.String() || len(response.Values) != 1 {
 		t.Fatalf("response = %#v", response)
@@ -136,28 +131,13 @@ func TestAdminLatestFallbackUsesBoundedOverTimeQueries(t *testing.T) {
 
 	peer := adminTestPeer()
 	observedAt := time.Unix(1783403541, 123000000).UTC()
-	valueExpr := `gizclaw_peer_battery_percent{peer_id="` + peer.String() + `"}`
-	timestampExpr := `timestamp(` + valueExpr + `)`
-	fallbackValueExpr := `last_over_time(` + valueExpr + `[720h])`
-	fallbackTimestampExpr := `last_over_time(timestamp(` + valueExpr + `)[720h:1m])`
-	store := &fakeAdminMetricsStore{seriesByExpr: map[string]metrics.SeriesSet{
-		valueExpr:     {},
-		timestampExpr: {},
-		fallbackValueExpr: {{
-			Name: "last_over_time",
-			Points: []metrics.Point{{
-				Timestamp: observedAt.Add(time.Hour),
-				Value:     74,
-			}},
+	store := &fakeAdminMetricsStore{series: metrics.SeriesSet{{
+		Name: MetricBatteryPercent,
+		Points: []metrics.Point{{
+			Timestamp: observedAt,
+			Value:     74,
 		}},
-		fallbackTimestampExpr: {{
-			Name: "last_over_time",
-			Points: []metrics.Point{{
-				Timestamp: observedAt.Add(time.Hour),
-				Value:     float64(observedAt.UnixMilli()) / 1000,
-			}},
-		}},
-	}}
+	}}}
 	service := &AdminService{Metrics: store, Now: func() time.Time {
 		return observedAt.Add(time.Hour)
 	}}
@@ -166,11 +146,8 @@ func TestAdminLatestFallbackUsesBoundedOverTimeQueries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Latest() error = %v", err)
 	}
-	if len(store.queries) != 3 {
-		t.Fatalf("queries = %#v, want instant value plus fallback value/timestamp", store.queries)
-	}
-	if store.queries[1].Expression != fallbackValueExpr || store.queries[2].Expression != fallbackTimestampExpr {
-		t.Fatalf("fallback queries = %#v, want bounded over-time expressions", store.queries[1:])
+	if len(store.queries) != 1 || store.queries[0].Lookback != defaultLatestLookback {
+		t.Fatalf("queries = %#v, want one bounded structured latest query", store.queries)
 	}
 	if len(response.Values) != 1 || response.Values[0].ObservedAtUnixMs != observedAt.UnixMilli() || response.Values[0].Value != 74 {
 		t.Fatalf("response = %#v", response)
@@ -200,12 +177,11 @@ func TestAdminQueryRangeDerivesStepAndOrdersDesc(t *testing.T) {
 	if store.rangeQuery.Step != 2*time.Minute {
 		t.Fatalf("step = %s, want 2m", store.rangeQuery.Step)
 	}
-	wantExpr := `last_over_time(gizclaw_peer_gnss_latitude{peer_id="` + peer.String() + `"}[2m])`
-	if store.rangeQuery.Expression != wantExpr {
-		t.Fatalf("range expression = %q, want %q", store.rangeQuery.Expression, wantExpr)
+	if store.rangeQuery.Selector.Name != MetricGNSSLatitude || store.rangeQuery.Selector.Matchers[0].Value != peer.String() {
+		t.Fatalf("range selector = %#v", store.rangeQuery.Selector)
 	}
-	if store.rangeQuery.Start != start.Add(2*time.Minute) {
-		t.Fatalf("range start = %s, want %s", store.rangeQuery.Start, start.Add(2*time.Minute))
+	if store.rangeQuery.Start != start {
+		t.Fatalf("range start = %s, want %s", store.rangeQuery.Start, start)
 	}
 	if len(response.Points) != 3 || response.Points[0].Value != 3 || response.Points[2].Value != 1 {
 		t.Fatalf("points = %#v", response.Points)
@@ -334,9 +310,8 @@ func TestAdminQueryRangeRoundsAutoStepToMilliseconds(t *testing.T) {
 	if store.rangeQuery.Step%time.Millisecond != 0 {
 		t.Fatalf("step = %s, want millisecond aligned", store.rangeQuery.Step)
 	}
-	wantExpr := `last_over_time(gizclaw_peer_battery_percent{peer_id="` + peer.String() + `"}[15063ms])`
-	if store.rangeQuery.Expression != wantExpr {
-		t.Fatalf("range expression = %q, want %q", store.rangeQuery.Expression, wantExpr)
+	if store.rangeQuery.Selector.Name != MetricBatteryPercent {
+		t.Fatalf("range selector = %#v", store.rangeQuery.Selector)
 	}
 }
 
@@ -349,7 +324,7 @@ func TestAdminAggregateLastBuildsPromQLOverTime(t *testing.T) {
 	store := &fakeAdminMetricsStore{series: metrics.SeriesSet{{
 		Name: "last_over_time",
 		Points: []metrics.Point{{
-			Timestamp: start.Add(time.Minute),
+			Timestamp: start,
 			Value:     42,
 		}},
 	}}}
@@ -359,15 +334,14 @@ func TestAdminAggregateLastBuildsPromQLOverTime(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Aggregate() error = %v", err)
 	}
-	wantExpr := `last_over_time(gizclaw_peer_system_temperature_c{peer_id="` + peer.String() + `"}[1m])`
-	if store.rangeQuery.Expression != wantExpr {
-		t.Fatalf("aggregate expression = %q, want %q", store.rangeQuery.Expression, wantExpr)
+	if store.aggregateQuery.Selector.Name != MetricSystemTemperature || store.aggregateQuery.Operation != metrics.AggregationLast {
+		t.Fatalf("aggregate query = %#v", store.aggregateQuery)
 	}
-	if store.rangeQuery.Step != time.Minute {
-		t.Fatalf("aggregate step = %s, want 1m", store.rangeQuery.Step)
+	if store.aggregateQuery.Bucket != time.Minute {
+		t.Fatalf("aggregate bucket = %s, want 1m", store.aggregateQuery.Bucket)
 	}
-	if store.rangeQuery.Start != start.Add(time.Minute) {
-		t.Fatalf("aggregate start = %s, want %s", store.rangeQuery.Start, start.Add(time.Minute))
+	if store.aggregateQuery.Start != start {
+		t.Fatalf("aggregate start = %s, want %s", store.aggregateQuery.Start, start)
 	}
 	if response.Aggregate != apitypes.PeerTelemetryAggregateLast || response.BucketMs != 60000 || len(response.Points) != 1 {
 		t.Fatalf("response = %#v", response)

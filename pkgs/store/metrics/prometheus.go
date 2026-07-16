@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"math"
 	"net/http"
 	"net/url"
@@ -106,42 +107,100 @@ func (s *PrometheusStore) Append(ctx context.Context, samples []Sample) error {
 	return nil
 }
 
-// Query executes an instant query through the Prometheus HTTP API.
-func (s *PrometheusStore) Query(ctx context.Context, query Query) (SeriesSet, error) {
-	if err := validateQueryExpression(query.Expression); err != nil {
+// Latest returns the newest matching Prometheus sample in the lookback window.
+func (s *PrometheusStore) Latest(ctx context.Context, q LatestQuery) (SeriesSet, error) {
+	if err := validateLatestQuery(q); err != nil {
 		return nil, err
 	}
-	values := url.Values{"query": []string{query.Expression}}
-	if !query.Time.IsZero() {
-		values.Set("time", formatPrometheusTime(query.Time))
+	memory, err := s.loadWindow(ctx, q.Selector, q.At.Add(-q.Lookback), q.At)
+	if err != nil {
+		return nil, err
 	}
-	return s.query(ctx, "/api/v1/query", values)
+	return memory.Latest(ctx, q)
 }
 
-// QueryRange executes a range query through the Prometheus HTTP API.
-func (s *PrometheusStore) QueryRange(ctx context.Context, query RangeQuery) (SeriesSet, error) {
-	if err := validateQueryExpression(query.Expression); err != nil {
+// Range evaluates the backend-neutral range semantics over Prometheus samples.
+func (s *PrometheusStore) Range(ctx context.Context, q RangeQuery) (SeriesSet, error) {
+	if err := validateRangeQuery(q); err != nil {
 		return nil, err
 	}
-	if query.Start.IsZero() {
-		return nil, fmt.Errorf("metrics: range query start is zero")
+	memory, err := s.loadWindow(ctx, q.Selector, q.Start, q.End)
+	if err != nil {
+		return nil, err
 	}
-	if query.End.IsZero() {
-		return nil, fmt.Errorf("metrics: range query end is zero")
+	return memory.Range(ctx, q)
+}
+
+// Aggregate evaluates bucketed aggregation over Prometheus samples.
+func (s *PrometheusStore) Aggregate(ctx context.Context, q AggregateQuery) (SeriesSet, error) {
+	if err := validateAggregateQuery(q); err != nil {
+		return nil, err
 	}
-	if query.End.Before(query.Start) {
-		return nil, fmt.Errorf("metrics: range query end is before start")
+	memory, err := s.loadWindow(ctx, q.Selector, q.Start, q.End)
+	if err != nil {
+		return nil, err
 	}
-	if query.Step <= 0 {
-		return nil, fmt.Errorf("metrics: range query step must be > 0")
+	return memory.Aggregate(ctx, q)
+}
+
+func (s *PrometheusStore) loadWindow(ctx context.Context, selector Selector, start, end time.Time) (*MemoryStore, error) {
+	duration := end.Sub(start)
+	duration = max(duration, time.Millisecond)
+	expr, err := prometheusSelector(selector)
+	if err != nil {
+		return nil, err
 	}
-	values := url.Values{
-		"query": []string{query.Expression},
-		"start": []string{formatPrometheusTime(query.Start)},
-		"end":   []string{formatPrometheusTime(query.End)},
-		"step":  []string{formatPrometheusDuration(query.Step)},
+	series, err := s.query(ctx, "/api/v1/query", url.Values{"query": {expr + "[" + formatPrometheusRangeDuration(duration) + "]"}, "time": {formatPrometheusTime(end)}})
+	if err != nil {
+		return nil, err
 	}
-	return s.query(ctx, "/api/v1/query_range", values)
+	// A range selector is left-open; fetch the boundary separately so the store contract can include Start.
+	boundary, err := s.query(ctx, "/api/v1/query", url.Values{"query": {expr + "[1ms]"}, "time": {formatPrometheusTime(start)}})
+	if err != nil {
+		return nil, err
+	}
+	samples := samplesFromSeries(series)
+	for _, item := range boundary {
+		for _, point := range item.Points {
+			if point.Timestamp.Equal(start.UTC()) {
+				samples = append(samples, Sample{Name: item.Name, Labels: item.Labels, Timestamp: point.Timestamp, Value: point.Value})
+			}
+		}
+	}
+	memory := NewMemoryStore()
+	if err := memory.Append(ctx, samples); err != nil {
+		return nil, err
+	}
+	return memory, nil
+}
+
+func prometheusSelector(selector Selector) (string, error) {
+	if err := validateSelector(selector); err != nil {
+		return "", err
+	}
+	matchers := slices.Clone(selector.Matchers)
+	slices.SortFunc(matchers, func(a, b LabelMatcher) int { return strings.Compare(a.Name, b.Name) })
+	if len(matchers) == 0 {
+		return selector.Name, nil
+	}
+	parts := make([]string, 0, len(matchers))
+	for _, m := range matchers {
+		parts = append(parts, m.Name+string(m.Op)+strconv.Quote(m.Value))
+	}
+	return selector.Name + "{" + strings.Join(parts, ",") + "}", nil
+}
+
+func formatPrometheusRangeDuration(d time.Duration) string {
+	return strconv.FormatInt(d.Milliseconds(), 10) + "ms"
+}
+func samplesFromSeries(series SeriesSet) []Sample {
+	out := []Sample{}
+	for _, item := range series {
+		for _, point := range item.Points {
+			out = append(out, Sample{Name: item.Name, Labels: item.Labels, Timestamp: point.Timestamp, Value: point.Value})
+		}
+	}
+	return out
 }
 
 // Close releases resources. The default HTTP client has no owned resources to
@@ -226,11 +285,6 @@ func readLimitedBody(r io.Reader) string {
 
 func formatPrometheusTime(t time.Time) string {
 	return strconv.FormatFloat(float64(t.UnixNano())/float64(time.Second), 'f', 3, 64)
-}
-
-func formatPrometheusDuration(d time.Duration) string {
-	seconds := float64(d) / float64(time.Second)
-	return strconv.FormatFloat(seconds, 'f', -1, 64)
 }
 
 type prometheusResponse struct {
@@ -341,9 +395,7 @@ func seriesFromMatrix(results []prometheusResult) (SeriesSet, error) {
 
 func seriesFromMetric(metric map[string]string) Series {
 	labels := make(map[string]string, len(metric))
-	for name, value := range metric {
-		labels[name] = value
-	}
+	maps.Copy(labels, metric)
 	name := labels["__name__"]
 	delete(labels, "__name__")
 	return Series{Name: name, Labels: labels}
