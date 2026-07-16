@@ -319,6 +319,7 @@ func TestOwnerValidation(t *testing.T) {
 		{Kind: OwnerKindResource, ID: "missing-separator"},
 		{Kind: OwnerKindResource, ID: "Kind/"},
 		{Kind: OwnerKindFriendGroupMessage, ID: " group/message"},
+		{Kind: OwnerKindFriendGroupMessage, ID: "group/message/extra"},
 	} {
 		if err := service.Bind(context.Background(), stored.Metadata.Ref, Binding{Owner: owner}); !errors.Is(err, ErrInvalid) {
 			t.Fatalf("Bind(%#v) error = %v", owner, err)

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -183,4 +184,42 @@ func TestAdminAssetRejectsOversizedUpload(t *testing.T) {
 	if _, ok := response.(adminhttp.UploadAsset413JSONResponse); !ok {
 		t.Fatalf("UploadAsset() response = %T", response)
 	}
+}
+
+func TestAdminAssetRejectsCorruptDownloadBeforeResponse(t *testing.T) {
+	objects := &corruptingAdminAssetObjectStore{ObjectStore: objectstore.Dir(t.TempDir())}
+	assets, err := asset.New(kv.NewMemory(nil), objects, asset.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, err := assets.Put(context.Background(), asset.PutRequest{
+		MediaType: "image/png",
+		MaxBytes:  1024,
+	}, bytes.NewBufferString("payload"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	objects.corrupt = true
+
+	response, err := (&adminService{Assets: assets}).DownloadAsset(context.Background(), adminhttp.DownloadAssetRequestObject{
+		Params: adminhttp.DownloadAssetParams{Ref: stored.Metadata.Ref.String()},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := response.(adminhttp.DownloadAsset500JSONResponse); !ok {
+		t.Fatalf("DownloadAsset() response = %T", response)
+	}
+}
+
+type corruptingAdminAssetObjectStore struct {
+	objectstore.ObjectStore
+	corrupt bool
+}
+
+func (s *corruptingAdminAssetObjectStore) Get(name string) (io.ReadCloser, error) {
+	if s.corrupt {
+		return io.NopCloser(strings.NewReader("corrupt")), nil
+	}
+	return s.ObjectStore.Get(name)
 }

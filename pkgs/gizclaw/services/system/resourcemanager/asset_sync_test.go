@@ -150,6 +150,30 @@ func TestResourceAssetBindingIgnoresDroppedRequestRef(t *testing.T) {
 	assertResourceAssetBinding(t, assets, ref, 0)
 }
 
+func TestResourceAssetBindingsSupportSlashInOwnerName(t *testing.T) {
+	ctx := context.Background()
+	manager := New(Services{Workflows: newFakeWorkflows()})
+	assets, err := asset.New(kv.NewMemory(nil), objectstore.Dir(t.TempDir()), asset.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := assets.RegisterOwnerResolver(asset.OwnerKindResource, manager); err != nil {
+		t.Fatal(err)
+	}
+	manager.services.Assets = assets
+	ref := putResourceAsset(t, assets, "slash")
+	const name = "group/asset-workflow"
+
+	if _, err := manager.Apply(ctx, workflowResourceWithAsset(t, name, ref)); err != nil {
+		t.Fatalf("Apply() error = %v", err)
+	}
+	assertResourceAssetBinding(t, assets, ref, 1)
+	if _, err := manager.Delete(ctx, apitypes.ResourceKindWorkflow, name); err != nil {
+		t.Fatalf("Delete() error = %v", err)
+	}
+	assertResourceAssetBinding(t, assets, ref, 0)
+}
+
 func putResourceAsset(t *testing.T, assets *asset.Service, body string) asset.Ref {
 	t.Helper()
 	stored, err := assets.Put(context.Background(), asset.PutRequest{

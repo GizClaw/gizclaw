@@ -76,6 +76,20 @@ func (s *adminService) DownloadAsset(ctx context.Context, request adminhttp.Down
 	if s.Assets == nil {
 		return adminhttp.DownloadAsset500JSONResponse(assetHTTPError("ASSET_SERVICE_NOT_CONFIGURED", "asset service is not configured")), nil
 	}
+	_, reader, err := s.Assets.Open(ctx, ref)
+	if err != nil {
+		if errors.Is(err, asset.ErrNotFound) {
+			return adminhttp.DownloadAsset404JSONResponse(assetHTTPError("ASSET_NOT_FOUND", "asset not found")), nil
+		}
+		return adminhttp.DownloadAsset500JSONResponse(assetHTTPError("ASSET_BACKEND_ERROR", "asset content could not be read")), nil
+	}
+	if _, err := io.Copy(io.Discard, reader); err != nil {
+		_ = reader.Close()
+		return adminhttp.DownloadAsset500JSONResponse(assetHTTPError("ASSET_BACKEND_ERROR", "asset content could not be read")), nil
+	}
+	if err := reader.Close(); err != nil {
+		return adminhttp.DownloadAsset500JSONResponse(assetHTTPError("ASSET_BACKEND_ERROR", "asset content could not be read")), nil
+	}
 	stored, reader, err := s.Assets.Open(ctx, ref)
 	if err != nil {
 		if errors.Is(err, asset.ErrNotFound) {

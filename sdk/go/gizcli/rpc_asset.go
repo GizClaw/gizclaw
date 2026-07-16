@@ -1,7 +1,10 @@
 package gizcli
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net"
@@ -56,9 +59,17 @@ func (c *rpcClient) DownloadAsset(ctx context.Context, conn net.Conn, id string,
 	if metadata == nil {
 		return AssetDownloadResult{}, fmt.Errorf("asset download: missing metadata")
 	}
-	written, err := copyBinaryFrames(out, stream)
+	expectedDigest, err := hex.DecodeString(metadata.GetSha256())
+	if err != nil || len(expectedDigest) != sha256.Size {
+		return AssetDownloadResult{}, fmt.Errorf("asset download: invalid sha256 metadata")
+	}
+	digest := sha256.New()
+	written, err := copyBinaryFrames(io.MultiWriter(out, digest), stream)
 	if err != nil {
 		return AssetDownloadResult{}, err
+	}
+	if written != metadata.GetSizeBytes() || !bytes.Equal(digest.Sum(nil), expectedDigest) {
+		return AssetDownloadResult{}, fmt.Errorf("asset download: content does not match metadata")
 	}
 	return AssetDownloadResult{Metadata: metadata, Bytes: written}, nil
 }

@@ -624,11 +624,11 @@ func validateOwner(owner Owner) error {
 	if !owner.Kind.Valid() {
 		return fmt.Errorf("%w: unsupported owner kind %q", ErrInvalid, owner.Kind)
 	}
-	if owner.ID == "" || owner.ID != strings.TrimSpace(owner.ID) || len(owner.ID) > 512 || strings.Count(owner.ID, "/") != 1 {
+	if owner.ID == "" || owner.ID != strings.TrimSpace(owner.ID) || len(owner.ID) > 512 {
 		return fmt.Errorf("%w: invalid owner id for %s", ErrInvalid, owner.Kind)
 	}
-	parts := strings.Split(owner.ID, "/")
-	if parts[0] == "" || parts[1] == "" {
+	prefix, suffix, ok := strings.Cut(owner.ID, "/")
+	if !ok || prefix == "" || suffix == "" || (owner.Kind != OwnerKindResource && strings.Contains(suffix, "/")) {
 		return fmt.Errorf("%w: invalid owner id for %s", ErrInvalid, owner.Kind)
 	}
 	if strings.IndexFunc(owner.ID, unicode.IsControl) >= 0 {

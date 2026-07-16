@@ -57,7 +57,7 @@ func (s *Server) PrepareAssetDownload(ctx context.Context, request rpcpb.AssetDo
 	if !authorized {
 		return rpcpb.AssetDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeForbidden, Message: "asset is not available to this peer"}, nil
 	}
-	stored, reader, err := s.Assets.Open(ctx, ref)
+	_, reader, err := s.Assets.Open(ctx, ref)
 	if err != nil {
 		if errors.Is(err, asset.ErrNotFound) {
 			return rpcpb.AssetDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "asset not found"}, nil
@@ -71,7 +71,7 @@ func (s *Server) PrepareAssetDownload(ctx context.Context, request rpcpb.AssetDo
 	if err := reader.Close(); err != nil {
 		return rpcpb.AssetDownloadResponse{}, nil, nil, err
 	}
-	stored, reader, err = s.Assets.Open(ctx, ref)
+	stored, reader, err := s.Assets.Open(ctx, ref)
 	if err != nil {
 		if errors.Is(err, asset.ErrNotFound) {
 			return rpcpb.AssetDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "asset not found"}, nil

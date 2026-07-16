@@ -3,6 +3,8 @@ package gizcli
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"net"
 	"strings"
 	"testing"
@@ -24,6 +26,7 @@ func TestDownloadAssetStreamsMetadataAndBytes(t *testing.T) {
 	defer serverSide.Close()
 	defer clientSide.Close()
 	payload := []byte("asset-payload")
+	digest := sha256.Sum256(payload)
 	serverErr := make(chan error, 1)
 	go func() {
 		request, err := readRPCRequestWithEOS(serverSide)
@@ -35,6 +38,7 @@ func TestDownloadAssetStreamsMetadataAndBytes(t *testing.T) {
 			Ref:       "asset://01010101010101010101010101010101",
 			MediaType: "image/png",
 			SizeBytes: int64(len(payload)),
+			Sha256:    hex.EncodeToString(digest[:]),
 		}}, (*rpcapi.RPCPayload).FromAssetDownloadResponse)
 		if err := rpcapi.WriteResponseForMethod(serverSide, rpcapi.RPCMethodServerAssetDownload, response); err != nil {
 			serverErr <- err
@@ -53,6 +57,45 @@ func TestDownloadAssetStreamsMetadataAndBytes(t *testing.T) {
 	}
 	if result.Metadata.GetMediaType() != "image/png" || result.Bytes != int64(len(payload)) || !bytes.Equal(out.Bytes(), payload) {
 		t.Fatalf("DownloadAsset() = %#v payload=%q", result, out.Bytes())
+	}
+	if err := <-serverErr; err != nil {
+		t.Fatalf("server error = %v", err)
+	}
+}
+
+func TestDownloadAssetRejectsContentThatDoesNotMatchMetadata(t *testing.T) {
+	serverSide, clientSide := net.Pipe()
+	defer serverSide.Close()
+	defer clientSide.Close()
+	payload := []byte("corrupt")
+	expected := sha256.Sum256([]byte("expected"))
+	serverErr := make(chan error, 1)
+	go func() {
+		request, err := readRPCRequestWithEOS(serverSide)
+		if err != nil {
+			serverErr <- err
+			return
+		}
+		response := resourceResponse(request.Id, rpcpb.AssetDownloadResponse{Metadata: &rpcpb.AssetMetadata{
+			Ref:       "asset://01010101010101010101010101010101",
+			MediaType: "image/png",
+			SizeBytes: int64(len(payload)),
+			Sha256:    hex.EncodeToString(expected[:]),
+		}}, (*rpcapi.RPCPayload).FromAssetDownloadResponse)
+		if err := rpcapi.WriteResponseForMethod(serverSide, rpcapi.RPCMethodServerAssetDownload, response); err != nil {
+			serverErr <- err
+			return
+		}
+		if err := rpcapi.WriteFrame(serverSide, rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: payload}); err != nil {
+			serverErr <- err
+			return
+		}
+		serverErr <- rpcapi.WriteEOS(serverSide)
+	}()
+	var out bytes.Buffer
+	_, err := (&rpcClient{}).DownloadAsset(context.Background(), clientSide, "asset-download", rpcpb.AssetDownloadRequest{Ref: "asset://01010101010101010101010101010101"}, &out)
+	if err == nil || !strings.Contains(err.Error(), "does not match metadata") {
+		t.Fatalf("DownloadAsset(corrupt) error = %v", err)
 	}
 	if err := <-serverErr; err != nil {
 		t.Fatalf("server error = %v", err)
