@@ -76,20 +76,57 @@ void main() {
       throwsA(
         isA<RpcError>()
             .having((error) => error.code, 'code', 404)
-            .having((error) => error.message, 'message', 'not found'),
+            .having((error) => error.message, 'message', 'not found')
+            .having((error) => error.requestId, 'requestId', 'rpc-err'),
       ),
     );
   });
 
-  test('accepts omitted payload for an empty response message', () async {
+  test('rejects a response whose body oneof is not set', () {
+    expect(
+      () => decodeRpcResponse(
+        'server.friend.list',
+        rpc.RpcResponse(id: 'req-1').writeToBuffer(),
+        const [],
+        'req-1',
+      ),
+      throwsA(
+        isA<FormatException>()
+            .having(
+              (error) => error.message,
+              'message',
+              contains('server.friend.list'),
+            )
+            .having((error) => error.message, 'message', contains('req-1')),
+      ),
+    );
+  });
+
+  test('decodes an explicitly empty payload from raw response bytes', () {
+    const responseBytes = <int>[
+      0x0a, 0x05, // Field 1: id = "req-1".
+      0x72,
+      0x65,
+      0x71,
+      0x2d,
+      0x31,
+      0x12, 0x00, // Field 2: payload is present with zero length.
+    ];
+    final envelope = rpc.RpcResponse.fromBuffer(responseBytes);
+
+    expect(envelope.whichBody(), rpc.RpcResponse_Body.payload);
+    expect(envelope.hasPayload(), isFalse);
+    expect(envelope.payload, isEmpty);
+
     final result = decodeRpcResponse(
-      'server.friend.invite_token.clear',
-      rpc.RpcResponse(id: 'rpc-empty').writeToBuffer(),
+      'server.friend.list',
+      responseBytes,
       const [],
-      'rpc-empty',
+      'req-1',
     );
 
-    expect(result.response, isA<payload.FriendInviteTokenClearResponse>());
+    expect(result.response, isA<payload.FriendListResponse>());
+    expect((result.response as payload.FriendListResponse).items, isEmpty);
   });
 
   test('rejects mismatched RPC response ids', () async {

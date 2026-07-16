@@ -247,27 +247,24 @@ RpcCallResult decodeRpcResponse(
       'RPC response id mismatch: got ${envelope.id}, want $requestId',
     );
   }
-  if (envelope.hasError()) {
-    throw RpcError(
-      envelope.error.code.value,
-      envelope.error.message,
-      requestId: envelope.id,
-    );
+  switch (envelope.whichBody()) {
+    case rpc.RpcResponse_Body.payload:
+      return RpcCallResult(
+        body: Uint8List.fromList(body),
+        response: decodeRpcResponsePayload(methodName, envelope.payload),
+      );
+    case rpc.RpcResponse_Body.error:
+      throw RpcError(
+        envelope.error.code.value,
+        envelope.error.message,
+        requestId: envelope.id,
+      );
+    case rpc.RpcResponse_Body.notSet:
+      throw FormatException(
+        'RPC response body is not set for $methodName '
+        '(request ${envelope.id})',
+      );
   }
-  if (!envelope.hasPayload()) {
-    final emptyResponse = decodeEmptyRpcResponsePayload(methodName);
-    if (emptyResponse == null) {
-      throw const FormatException('RPC response missing payload or error');
-    }
-    return RpcCallResult(
-      body: Uint8List.fromList(body),
-      response: emptyResponse,
-    );
-  }
-  return RpcCallResult(
-    body: Uint8List.fromList(body),
-    response: decodeRpcResponsePayload(methodName, envelope.payload),
-  );
 }
 
 String _defaultRpcId() {
