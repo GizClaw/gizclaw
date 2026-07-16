@@ -13,6 +13,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
+// Authorizer checks access to workspace history resources.
 type Authorizer interface {
 	Authorize(context.Context, acl.AuthorizeRequest) error
 }
@@ -33,8 +34,9 @@ func (s *Server) AppendWorkspaceHistory(ctx context.Context, workspaceName strin
 	return entry, nil
 }
 
-func (s *Server) ListWorkspaceHistory(ctx context.Context, subject apitypes.ACLSubject, workspaceName string, req apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error) {
-	store, err := s.authorizedHistoryStore(ctx, subject, workspaceName)
+// ListWorkspaceHistory authorizes and lists history for one workspace.
+func (s *Server) ListWorkspaceHistory(ctx context.Context, authorizer Authorizer, subject apitypes.ACLSubject, workspaceName string, req apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error) {
+	store, err := s.authorizedHistoryStore(ctx, authorizer, subject, workspaceName)
 	if err != nil {
 		return apitypes.PeerRunHistoryListResponse{}, err
 	}
@@ -49,8 +51,9 @@ func (s *Server) AdminListWorkspaceHistory(ctx context.Context, workspaceName st
 	return store.List(ctx, req)
 }
 
-func (s *Server) GetWorkspaceHistory(ctx context.Context, subject apitypes.ACLSubject, workspaceName, historyID string) (HistoryEntry, error) {
-	store, err := s.authorizedHistoryStore(ctx, subject, workspaceName)
+// GetWorkspaceHistory authorizes and returns one workspace history entry.
+func (s *Server) GetWorkspaceHistory(ctx context.Context, authorizer Authorizer, subject apitypes.ACLSubject, workspaceName, historyID string) (HistoryEntry, error) {
+	store, err := s.authorizedHistoryStore(ctx, authorizer, subject, workspaceName)
 	if err != nil {
 		return HistoryEntry{}, err
 	}
@@ -65,8 +68,9 @@ func (s *Server) AdminGetWorkspaceHistory(ctx context.Context, workspaceName, hi
 	return store.Get(ctx, historyID)
 }
 
-func (s *Server) ReadWorkspaceHistoryAsset(ctx context.Context, subject apitypes.ACLSubject, workspaceName, assetName string) (io.ReadCloser, error) {
-	store, err := s.authorizedHistoryStore(ctx, subject, workspaceName)
+// ReadWorkspaceHistoryAsset authorizes and opens one workspace history asset.
+func (s *Server) ReadWorkspaceHistoryAsset(ctx context.Context, authorizer Authorizer, subject apitypes.ACLSubject, workspaceName, assetName string) (io.ReadCloser, error) {
+	store, err := s.authorizedHistoryStore(ctx, authorizer, subject, workspaceName)
 	if err != nil {
 		return nil, err
 	}
@@ -94,22 +98,22 @@ func (s *Server) AdminReadWorkspaceHistoryAudio(ctx context.Context, workspaceNa
 	return nil, 0, fs.ErrNotExist
 }
 
-func (s *Server) authorizedHistoryStore(ctx context.Context, subject apitypes.ACLSubject, workspaceName string) (*HistoryStore, error) {
+func (s *Server) authorizedHistoryStore(ctx context.Context, authorizer Authorizer, subject apitypes.ACLSubject, workspaceName string) (*HistoryStore, error) {
 	workspaceName = strings.TrimSpace(workspaceName)
-	if err := s.authorizeHistoryRead(ctx, subject, workspaceName); err != nil {
+	if err := s.authorizeHistoryRead(ctx, authorizer, subject, workspaceName); err != nil {
 		return nil, err
 	}
 	return s.historyStore(ctx, workspaceName)
 }
 
-func (s *Server) authorizeHistoryRead(ctx context.Context, subject apitypes.ACLSubject, workspaceName string) error {
+func (s *Server) authorizeHistoryRead(ctx context.Context, authorizer Authorizer, subject apitypes.ACLSubject, workspaceName string) error {
 	if s == nil {
 		return fmt.Errorf("workspace: nil server")
 	}
-	if s.Authorizer == nil {
-		return nil
+	if authorizer == nil {
+		return fmt.Errorf("workspace: authorizer is required")
 	}
-	return s.Authorizer.Authorize(ctx, acl.AuthorizeRequest{
+	return authorizer.Authorize(ctx, acl.AuthorizeRequest{
 		Subject:    subject,
 		Resource:   acl.WorkspaceResource(workspaceName),
 		Permission: apitypes.ACLPermissionRead,

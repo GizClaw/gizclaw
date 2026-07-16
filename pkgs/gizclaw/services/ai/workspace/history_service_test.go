@@ -20,7 +20,6 @@ func TestServerWorkspaceHistoryServiceAuthorizesReadPaths(t *testing.T) {
 	srv := newTestServer(t)
 	srv.RuntimeStore = NewObjectRuntimeStore(objectstore.Dir(t.TempDir()))
 	auth := &historyServiceAuthorizer{}
-	srv.Authorizer = auth
 	ctx := context.Background()
 	seedWorkspace(t, srv, "demo0001")
 
@@ -34,7 +33,7 @@ func TestServerWorkspaceHistoryServiceAuthorizesReadPaths(t *testing.T) {
 		t.Fatalf("AppendWorkspaceHistory() error = %v", err)
 	}
 	subject := acl.PublicKeySubject("gear-a")
-	list, err := srv.ListWorkspaceHistory(ctx, subject, "demo0001", apitypes.PeerRunHistoryListRequest{})
+	list, err := srv.ListWorkspaceHistory(ctx, auth, subject, "demo0001", apitypes.PeerRunHistoryListRequest{})
 	if err != nil {
 		t.Fatalf("ListWorkspaceHistory() error = %v", err)
 	}
@@ -42,7 +41,7 @@ func TestServerWorkspaceHistoryServiceAuthorizesReadPaths(t *testing.T) {
 		t.Fatalf("ListWorkspaceHistory() = %+v", list)
 	}
 
-	got, err := srv.GetWorkspaceHistory(ctx, subject, "demo0001", entry.ID)
+	got, err := srv.GetWorkspaceHistory(ctx, auth, subject, "demo0001", entry.ID)
 	if err != nil {
 		t.Fatalf("GetWorkspaceHistory() error = %v", err)
 	}
@@ -50,7 +49,7 @@ func TestServerWorkspaceHistoryServiceAuthorizesReadPaths(t *testing.T) {
 		t.Fatalf("GetWorkspaceHistory() = %+v", got)
 	}
 
-	r, err := srv.ReadWorkspaceHistoryAsset(ctx, subject, "demo0001", entry.Assets[0].Name)
+	r, err := srv.ReadWorkspaceHistoryAsset(ctx, auth, subject, "demo0001", entry.Assets[0].Name)
 	if err != nil {
 		t.Fatalf("ReadWorkspaceHistoryAsset() error = %v", err)
 	}
@@ -132,7 +131,7 @@ func TestServerWorkspaceHistoryServiceDeniesReadPaths(t *testing.T) {
 
 	srv := newTestServer(t)
 	srv.RuntimeStore = NewObjectRuntimeStore(objectstore.Dir(t.TempDir()))
-	srv.Authorizer = &historyServiceAuthorizer{err: acl.ErrDenied}
+	auth := &historyServiceAuthorizer{err: acl.ErrDenied}
 	ctx := context.Background()
 	seedWorkspace(t, srv, "demo0001")
 
@@ -146,14 +145,66 @@ func TestServerWorkspaceHistoryServiceDeniesReadPaths(t *testing.T) {
 		t.Fatalf("AppendWorkspaceHistory() error = %v", err)
 	}
 	subject := acl.PublicKeySubject("gear-a")
-	if _, err := srv.ListWorkspaceHistory(ctx, subject, "demo0001", apitypes.PeerRunHistoryListRequest{}); !errors.Is(err, acl.ErrDenied) {
+	if _, err := srv.ListWorkspaceHistory(ctx, auth, subject, "demo0001", apitypes.PeerRunHistoryListRequest{}); !errors.Is(err, acl.ErrDenied) {
 		t.Fatalf("ListWorkspaceHistory() error = %v", err)
 	}
-	if _, err := srv.GetWorkspaceHistory(ctx, subject, "demo0001", entry.ID); !errors.Is(err, acl.ErrDenied) {
+	if _, err := srv.GetWorkspaceHistory(ctx, auth, subject, "demo0001", entry.ID); !errors.Is(err, acl.ErrDenied) {
 		t.Fatalf("GetWorkspaceHistory() error = %v", err)
 	}
-	if _, err := srv.ReadWorkspaceHistoryAsset(ctx, subject, "demo0001", entry.Assets[0].Name); !errors.Is(err, acl.ErrDenied) {
+	if _, err := srv.ReadWorkspaceHistoryAsset(ctx, auth, subject, "demo0001", entry.Assets[0].Name); !errors.Is(err, acl.ErrDenied) {
 		t.Fatalf("ReadWorkspaceHistoryAsset() error = %v", err)
+	}
+}
+
+func TestServerWorkspaceHistoryServiceRequiresAuthorizer(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(t)
+	srv.RuntimeStore = NewObjectRuntimeStore(objectstore.Dir(t.TempDir()))
+	ctx := context.Background()
+	seedWorkspace(t, srv, "demo0001")
+	entry, err := srv.AppendWorkspaceHistory(ctx, "demo0001", AppendHistoryRequest{
+		Type:  "agent",
+		Name:  "assistant",
+		Text:  "hello",
+		Asset: &AppendHistoryAsset{MIMEType: "audio/opus", Data: []byte("opus")},
+	})
+	if err != nil {
+		t.Fatalf("AppendWorkspaceHistory() error = %v", err)
+	}
+	subject := acl.PublicKeySubject("gear-a")
+	tests := []struct {
+		name string
+		read func() error
+	}{
+		{
+			name: "list",
+			read: func() error {
+				_, err := srv.ListWorkspaceHistory(ctx, nil, subject, "demo0001", apitypes.PeerRunHistoryListRequest{})
+				return err
+			},
+		},
+		{
+			name: "get",
+			read: func() error {
+				_, err := srv.GetWorkspaceHistory(ctx, nil, subject, "demo0001", entry.ID)
+				return err
+			},
+		},
+		{
+			name: "asset",
+			read: func() error {
+				_, err := srv.ReadWorkspaceHistoryAsset(ctx, nil, subject, "demo0001", entry.Assets[0].Name)
+				return err
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if err := test.read(); err == nil || !strings.Contains(err.Error(), "authorizer is required") {
+				t.Fatalf("read error = %v", err)
+			}
+		})
 	}
 }
 

@@ -414,7 +414,6 @@ func (s *Server) init() error {
 	if s.ACLDB != nil {
 		aclServer = &acl.Server{DB: s.ACLDB}
 	}
-	workspaceServer.Authorizer = aclServer
 	contactServer := &contact.Server{
 		Store: contactStore,
 	}

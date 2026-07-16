@@ -710,6 +710,112 @@ func TestServerWorkspaceHistoryRPC(t *testing.T) {
 	if err != nil || rpcErr == nil || rpcErr.Code != rpcapi.RPCErrorCodeNotFound || reader != nil {
 		t.Fatalf("PrepareWorkspaceHistoryAudioGet(missing asset) err = %v rpcErr = %+v reader = %v", err, rpcErr, reader)
 	}
+
+	_, reader, rpcErr, err = srv.PrepareWorkspaceHistoryAudioGet(context.Background(), rpcapi.WorkspaceHistoryAudioGetRequest{})
+	if err != nil || rpcErr == nil || rpcErr.Code != rpcapi.RPCErrorCodeInvalidParams || reader != nil {
+		t.Fatalf("PrepareWorkspaceHistoryAudioGet(invalid params) err = %v rpcErr = %+v reader = %v", err, rpcErr, reader)
+	}
+}
+
+func TestServerWorkspaceHistoryRPCAuthorizationAndErrors(t *testing.T) {
+	workflowStore := kv.NewMemory(nil)
+	workspaceServer := &workspace.Server{
+		Store:         kv.NewMemory(nil),
+		WorkflowStore: workflowStore,
+		RuntimeStore:  workspace.NewObjectRuntimeStore(objectstore.Dir(t.TempDir())),
+	}
+	srv := &Server{
+		Caller:      giznet.PublicKey{2},
+		ACL:         allowAllAuthorizer{},
+		Workflows:   &workflow.Server{Store: workflowStore},
+		Workspaces:  workspaceServer,
+		ResourceACL: &recordingToolACL{},
+	}
+	seedWorkflow(t, srv, "flow-history-auth")
+	requireNoRPCError(t, callRPC(t, srv, "workspace-create", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
+		Name:         "workspace-history-auth",
+		WorkflowName: "flow-history-auth",
+	})))
+	entry, err := workspaceServer.AppendWorkspaceHistory(context.Background(), "workspace-history-auth", workspace.AppendHistoryRequest{
+		Type:  "agent",
+		Name:  "assistant",
+		Text:  "authorized history",
+		Asset: &workspace.AppendHistoryAsset{MIMEType: "audio/opus", Data: []byte("opus")},
+	})
+	if err != nil {
+		t.Fatalf("AppendWorkspaceHistory() error = %v", err)
+	}
+
+	type historyRequest struct {
+		name   string
+		method rpcapi.RPCMethod
+		params *rpcapi.RPCPayload
+	}
+	historyRequests := func(workspaceName, historyID string) []historyRequest {
+		return []historyRequest{
+			{
+				name:   "list",
+				method: rpcapi.RPCMethodServerWorkspaceHistoryList,
+				params: rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceHistoryListRequest, rpcapi.WorkspaceHistoryListRequest{WorkspaceName: workspaceName}),
+			},
+			{
+				name:   "get",
+				method: rpcapi.RPCMethodServerWorkspaceHistoryGet,
+				params: rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceHistoryGetRequest, rpcapi.WorkspaceHistoryGetRequest{WorkspaceName: workspaceName, HistoryId: historyID}),
+			},
+			{
+				name:   "audio",
+				method: rpcapi.RPCMethodServerWorkspaceHistoryAudioGet,
+				params: rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceHistoryAudioGetRequest, rpcapi.WorkspaceHistoryAudioGetRequest{WorkspaceName: workspaceName, HistoryId: historyID}),
+			},
+		}
+	}
+
+	auth := newRuleAuthorizer()
+	auth.allow(acl.ResourceKindWorkspace, "workspace-history-auth", apitypes.ACLPermissionRead)
+	srv.ACL = auth
+	for _, request := range historyRequests("workspace-history-auth", entry.ID) {
+		requireNoRPCError(t, callRPC(t, srv, "history-authorized-"+request.name, request.method, request.params))
+	}
+	if got := auth.count(context.Background(), acl.ResourceKindWorkspace, "workspace-history-auth", apitypes.ACLPermissionRead); got != 4 {
+		t.Fatalf("workspace history authorization count = %d, want 4", got)
+	}
+
+	t.Run("denied", func(t *testing.T) {
+		srv.ACL = newRuleAuthorizer()
+		for _, request := range historyRequests("workspace-history-auth", entry.ID) {
+			requireRPCError(t, callRPC(t, srv, "history-denied-"+request.name, request.method, request.params), rpcapi.RPCErrorCodeForbidden)
+		}
+	})
+
+	t.Run("missing authorizer", func(t *testing.T) {
+		srv.ACL = nil
+		for _, request := range historyRequests("workspace-history-auth", entry.ID) {
+			requireRPCError(t, callRPC(t, srv, "history-no-auth-"+request.name, request.method, request.params), rpcapi.RPCErrorCodeInternalError)
+		}
+	})
+
+	t.Run("authorizer error", func(t *testing.T) {
+		srv.ACL = errorAuthorizer{err: errors.New("acl backend down")}
+		for _, request := range historyRequests("workspace-history-auth", entry.ID) {
+			requireRPCError(t, callRPC(t, srv, "history-auth-error-"+request.name, request.method, request.params), rpcapi.RPCErrorCodeInternalError)
+		}
+	})
+
+	t.Run("missing workspace", func(t *testing.T) {
+		srv.ACL = allowAllAuthorizer{}
+		for _, request := range historyRequests("missing-workspace", entry.ID) {
+			requireRPCError(t, callRPC(t, srv, "history-missing-workspace-"+request.name, request.method, request.params), rpcapi.RPCErrorCodeNotFound)
+		}
+	})
+
+	t.Run("missing history", func(t *testing.T) {
+		srv.ACL = allowAllAuthorizer{}
+		requests := historyRequests("workspace-history-auth", "missing-history")
+		for _, request := range requests[1:] {
+			requireRPCError(t, callRPC(t, srv, "history-missing-entry-"+request.name, request.method, request.params), rpcapi.RPCErrorCodeNotFound)
+		}
+	})
 }
 
 func TestServerListVoicesFiltersByACL(t *testing.T) {
