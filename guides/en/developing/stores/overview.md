@@ -8,7 +8,7 @@
 pkgs/store/
 ├── graph/        # Entity / Relation graph abstraction
 ├── kv/           # Ordered hierarchical key-value store
-├── logstore/     # Append-only searchable records and Volc TLS driver
+├── logstore/     # Searchable immutable/mutable records and log drivers
 ├── metrics/      # Time-series sample write and query
 ├── objectstore/  # Prefix-addressable binary object storage
 ├── vecid/        # Vector locality-sensitive identity registry
@@ -19,7 +19,7 @@ pkgs/store/
 | --- | --- | --- |
 | [graph](./graph) | Entity, Relation and adjacency query | Agent memory, recall |
 | [kv](./kv) | Ordered hierarchical key, CRUD and range traversal | GizClaw services, Agent memory, other stores |
-| [logstore](./logstore) | Structured record append, backend-neutral query and pagination | Process logs and conversation/event producers |
+| [logstore](./logstore) | Structured record append/mutation, backend-neutral query and pagination | Process logs and conversation/event producers |
 | [metrics](./metrics) | Sample writing, instant/range query and aggregation | Peer telemetry, Server metrics |
 | [objectstore](./objectstore) | Binary object, prefix list/delete and expiration | Firmware, workspace, gameplay assets, HNSW |
 | [vecid](./vecid) | Vector hashing, bucket and identity clustering | Voiceprint detection |

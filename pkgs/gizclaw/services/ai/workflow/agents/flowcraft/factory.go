@@ -29,6 +29,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 )
 
 const Type = "flowcraft"
@@ -61,7 +62,8 @@ var clawModelRoles = []struct {
 }
 
 type Factory struct {
-	GenX *peergenx.Service
+	GenX    *peergenx.Service
+	History logstore.MutableStore
 }
 
 // InputProvider returns transient Flowcraft Board inputs immediately before a
@@ -83,6 +85,7 @@ type ConfiguredAgentOptions struct {
 	AgentInitiativePolicy string
 	InputMode             string
 	LocalDir              string
+	WorkspaceName         string
 	InputProvider         InputProvider
 	Toolkit               *agenthost.ToolkitContext
 }
@@ -121,6 +124,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		AgentInitiativePolicy: initiativePolicy,
 		InputMode:             mode,
 		LocalDir:              spec.Runtime.LocalDir,
+		WorkspaceName:         spec.Workspace.Name,
 		Toolkit:               spec.Toolkit,
 	}
 	if workspaceParams != nil {
@@ -162,7 +166,15 @@ func (f Factory) NewConfiguredAgent(ctx context.Context, options ConfiguredAgent
 	if err != nil {
 		return nil, err
 	}
-	claw, err := flowclaw.New(ws)
+	var clawOptions []flowclaw.Option
+	if f.History != nil {
+		historyStore, err := NewHistoryStore(f.History, options.WorkspaceName)
+		if err != nil {
+			return nil, err
+		}
+		clawOptions = append(clawOptions, flowclaw.WithHistoryStore(historyStore))
+	}
+	claw, err := flowclaw.New(ws, clawOptions...)
 	if err != nil {
 		return nil, err
 	}

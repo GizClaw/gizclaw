@@ -100,6 +100,7 @@ const (
 	defaultGameplayAssetsStore           = "gameplay-assets"
 	defaultGameplayDBStore               = "gameplay-db"
 	defaultMetricsStore                  = "metrics"
+	defaultFlowcraftHistoryStore         = "flowcraft-history"
 )
 
 func LoadConfig(path string) (ConfigFile, error) {
@@ -397,23 +398,36 @@ func validateLoggingConfigShape(data []byte) error {
 			continue
 		}
 		for field := range mapping {
-			if field != "kind" && field != "volc" {
+			if field != "kind" && field != "volc" && field != "clickhouse" {
 				return fmt.Errorf("server: stores.%s field %q is invalid for kind log", name, field)
 			}
 		}
-		volcValue, exists := mapping["volc"]
+		if volcValue, exists := mapping["volc"]; exists {
+			volcMapping, ok := volcValue.(map[string]any)
+			if !ok {
+				return fmt.Errorf("server: stores.%s.volc must be a mapping", name)
+			}
+			for field := range volcMapping {
+				switch field {
+				case "endpoint", "region", "topic_id", "access_key_id", "access_key_secret":
+				default:
+					return fmt.Errorf("server: stores.%s.volc has unknown field %q", name, field)
+				}
+			}
+		}
+		clickhouseValue, exists := mapping["clickhouse"]
 		if !exists {
 			continue
 		}
-		volcMapping, ok := volcValue.(map[string]any)
+		clickhouseMapping, ok := clickhouseValue.(map[string]any)
 		if !ok {
-			return fmt.Errorf("server: stores.%s.volc must be a mapping", name)
+			return fmt.Errorf("server: stores.%s.clickhouse must be a mapping", name)
 		}
-		for field := range volcMapping {
+		for field := range clickhouseMapping {
 			switch field {
-			case "endpoint", "region", "topic_id", "access_key_id", "access_key_secret":
+			case "dsn", "database", "table":
 			default:
-				return fmt.Errorf("server: stores.%s.volc has unknown field %q", name, field)
+				return fmt.Errorf("server: stores.%s.clickhouse has unknown field %q", name, field)
 			}
 		}
 	}

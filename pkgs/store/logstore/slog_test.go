@@ -13,11 +13,18 @@ type captureAppender struct {
 	err     error
 }
 
-func (a *captureAppender) Append(_ context.Context, records []Record) error {
+func (a *captureAppender) Append(_ context.Context, records []Record) ([]RecordKey, error) {
 	for _, record := range records {
 		a.records = append(a.records, cloneRecord(record))
 	}
-	return a.err
+	if a.err != nil {
+		return nil, a.err
+	}
+	keys := make([]RecordKey, len(records))
+	for index, record := range records {
+		keys[index] = record.Key()
+	}
+	return keys, nil
 }
 
 func TestSlogHandlerProjectionAndCollisions(t *testing.T) {

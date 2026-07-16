@@ -195,6 +195,12 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 			return nil, fmt.Errorf("server: initialize log query service: %w", err)
 		}
 	}
+	if storeExists(cfg, defaultFlowcraftHistoryStore) {
+		gizServer.FlowcraftHistory, err = ss.MutableLog(defaultFlowcraftHistoryStore)
+		if err != nil {
+			return nil, fmt.Errorf("server: flowcraft history store %q: %w", defaultFlowcraftHistoryStore, err)
+		}
+	}
 	cmdSrv.Server = gizServer
 	if cfg.FriendGroups.MessageDefaultTTL != "" {
 		ttl, err := parseConfigDuration(cfg.FriendGroups.MessageDefaultTTL)

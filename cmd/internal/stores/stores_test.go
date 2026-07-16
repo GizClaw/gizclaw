@@ -53,16 +53,29 @@ func init() {
 
 type fakeLogStore struct{ closes int }
 
-func (*fakeLogStore) Append(context.Context, []logstore.Record) error { return nil }
+func (*fakeLogStore) Append(_ context.Context, records []logstore.Record) ([]logstore.RecordKey, error) {
+	keys := make([]logstore.RecordKey, len(records))
+	for index, record := range records {
+		keys[index] = record.Key()
+	}
+	return keys, nil
+}
 func (*fakeLogStore) Query(context.Context, logstore.Query) (logstore.Page, error) {
 	return logstore.Page{}, nil
 }
 func (s *fakeLogStore) Close() error { s.closes++; return nil }
 
+type fakeMutableLogStore struct{ fakeLogStore }
+
+func (*fakeMutableLogStore) Replace(context.Context, logstore.Record) error { return nil }
+func (*fakeMutableLogStore) Delete(context.Context, logstore.RecordKey) error {
+	return nil
+}
+
 func TestLogStoreRegistry(t *testing.T) {
 	want := &fakeLogStore{}
 	old := openVolcLogStore
-	openVolcLogStore = func(logstore.VolcConfig) (logstore.Store, error) { return want, nil }
+	openVolcLogStore = func(logstore.VolcConfig) (logstore.ImmutableStore, error) { return want, nil }
 	t.Cleanup(func() { openVolcLogStore = old })
 	registry, err := NewWithStorage(nil, map[string]Config{"logs": {Kind: KindLog, Volc: &logstore.VolcConfig{Endpoint: "endpoint"}}})
 	if err != nil {
@@ -84,6 +97,61 @@ func TestLogStoreRegistry(t *testing.T) {
 	}
 }
 
+func TestMutableLogStoreRegistry(t *testing.T) {
+	t.Setenv("GIZCLAW_TEST_CLICKHOUSE_DSN", "clickhouse://example")
+	want := &fakeMutableLogStore{}
+	var gotConfig logstore.ClickHouseConfig
+	old := openClickHouseLogStore
+	openClickHouseLogStore = func(config logstore.ClickHouseConfig) (logstore.MutableStore, error) {
+		gotConfig = config
+		return want, nil
+	}
+	t.Cleanup(func() { openClickHouseLogStore = old })
+	registry, err := NewWithStorage(nil, map[string]Config{"history": {
+		Kind: KindLog,
+		ClickHouse: &ClickHouseConfig{
+			DSN:      "$GIZCLAW_TEST_CLICKHOUSE_DSN",
+			Database: "default",
+			Table:    "history",
+		},
+	}})
+	if err != nil {
+		t.Fatalf("NewWithStorage() error = %v", err)
+	}
+	mutable, err := registry.MutableLog("history")
+	if err != nil || mutable != want {
+		t.Fatalf("MutableLog() = %v, %v", mutable, err)
+	}
+	if gotConfig.DSN != "clickhouse://example" || gotConfig.Database != "default" || gotConfig.Table != "history" {
+		t.Fatalf("clickhouse config = %+v", gotConfig)
+	}
+	if err := registry.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if want.closes != 1 {
+		t.Fatalf("close count = %d", want.closes)
+	}
+}
+
+func TestMutableLogRejectsImmutableDriver(t *testing.T) {
+	old := openVolcLogStore
+	openVolcLogStore = func(logstore.VolcConfig) (logstore.ImmutableStore, error) {
+		return &fakeLogStore{}, nil
+	}
+	t.Cleanup(func() { openVolcLogStore = old })
+	registry, err := NewWithStorage(nil, map[string]Config{"history": {
+		Kind: KindLog,
+		Volc: &logstore.VolcConfig{Endpoint: "endpoint"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = registry.Close() })
+	if _, err := registry.MutableLog("history"); err == nil || !strings.Contains(err.Error(), "does not support mutable records") {
+		t.Fatalf("MutableLog() error = %v", err)
+	}
+}
+
 func TestLogStoreRegistryValidatesBackendsAndClosesPartialConstruction(t *testing.T) {
 	if _, err := NewWithStorage(nil, map[string]Config{"logs": {Kind: KindLog}}); err == nil {
 		t.Fatal("missing Volc backend was accepted")
@@ -91,11 +159,18 @@ func TestLogStoreRegistryValidatesBackendsAndClosesPartialConstruction(t *testin
 	if _, err := NewWithStorage(nil, map[string]Config{"logs": {Kind: KindLog, Volc: &logstore.VolcConfig{}, Memory: &struct{}{}}}); err == nil {
 		t.Fatal("mixed backend fields were accepted")
 	}
+	if _, err := NewWithStorage(nil, map[string]Config{"logs": {
+		Kind:       KindLog,
+		Volc:       &logstore.VolcConfig{},
+		ClickHouse: &ClickHouseConfig{},
+	}}); err == nil {
+		t.Fatal("multiple log backends were accepted")
+	}
 
 	first := &fakeLogStore{}
 	calls := 0
 	old := openVolcLogStore
-	openVolcLogStore = func(logstore.VolcConfig) (logstore.Store, error) {
+	openVolcLogStore = func(logstore.VolcConfig) (logstore.ImmutableStore, error) {
 		calls++
 		if calls == 1 {
 			return first, nil
@@ -116,7 +191,7 @@ func TestLogStoreRegistryExpandsVolcEnvironment(t *testing.T) {
 	t.Setenv("GIZCLAW_TEST_VOLC_TOPIC", "expanded-topic")
 	var got logstore.VolcConfig
 	old := openVolcLogStore
-	openVolcLogStore = func(config logstore.VolcConfig) (logstore.Store, error) {
+	openVolcLogStore = func(config logstore.VolcConfig) (logstore.ImmutableStore, error) {
 		got = config
 		return &fakeLogStore{}, nil
 	}

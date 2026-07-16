@@ -1,17 +1,20 @@
 package logstore
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/volcengine/volc-sdk-golang/service/tls"
 	"github.com/volcengine/volc-sdk-golang/service/tls/common"
@@ -25,6 +28,7 @@ const (
 	volcMessageDelim          = " \t\r\n"
 	volcSecondsUpperBound     = int64(10_000_000_000)
 	volcNanosecondsLowerBound = int64(1_000_000_000_000_000)
+	volcDefaultMaxLogBytes    = 512 * 1024
 )
 
 // VolcConfig configures a Volc TLS log store. The topic and compatible index
@@ -51,11 +55,12 @@ type volcClient interface {
 
 // VolcStore persists records in one externally provisioned Volc TLS topic.
 type VolcStore struct {
-	topicID string
-	client  volcClient
-	writer  volcProducer
-	close   sync.Once
-	closed  atomic.Bool
+	topicID     string
+	client      volcClient
+	writer      volcProducer
+	close       sync.Once
+	closed      atomic.Bool
+	maxLogBytes int
 }
 
 // NewVolcStore validates the topic index without mutating it and starts the
@@ -84,41 +89,219 @@ func NewVolcStore(config VolcConfig) (*VolcStore, error) {
 	producerConfig.MaxBlockSec = int(volcQueryTimeout / time.Second)
 	writer := producer.NewProducer(producerConfig)
 	writer.Start()
-	return &VolcStore{topicID: config.TopicID, client: client, writer: writer}, nil
+	return &VolcStore{
+		topicID:     config.TopicID,
+		client:      client,
+		writer:      writer,
+		maxLogBytes: int(producerConfig.MaxBatchSize),
+	}, nil
 }
 
 // Append validates the complete batch before accepting records into the Volc producer.
-func (s *VolcStore) Append(ctx context.Context, records []Record) error {
+func (s *VolcStore) Append(ctx context.Context, records []Record) ([]RecordKey, error) {
 	if len(records) == 0 {
-		return nil
+		return []RecordKey{}, nil
 	}
 	if s == nil || s.writer == nil || s.topicID == "" {
-		return errors.New("logstore: volc store is not initialized")
+		return nil, errors.New("logstore: volc store is not initialized")
 	}
 	if s.closed.Load() {
-		return errors.New("logstore: volc store is closed")
+		return nil, errors.New("logstore: volc store is closed")
 	}
 	for _, record := range records {
 		if err := ValidateRecord(record); err != nil {
-			return err
+			return nil, err
 		}
 	}
+	keys := make([]RecordKey, 0, len(records))
 	for index, record := range records {
 		if err := ctx.Err(); err != nil {
-			return err
+			return keys, err
 		}
-		item, err := volcLog(cloneRecord(record))
+		item, err := s.volcRecordForAppend(record)
 		if err != nil {
-			return fmt.Errorf("logstore: encode Volc record %d: %w", index, err)
+			return keys, fmt.Errorf("logstore: encode Volc record %d: %w", index, err)
 		}
 		callCtx, cancel := cappedContext(ctx, volcQueryTimeout)
 		err = callVolcSend(callCtx, s.writer, s.topicID, item)
 		cancel()
 		if err != nil {
-			return newVolcOperationError(fmt.Sprintf("append record %d", index), err)
+			return keys, newVolcOperationError(fmt.Sprintf("append record %d", index), err)
+		}
+		keys = append(keys, record.Key())
+	}
+	return keys, nil
+}
+
+func (s *VolcStore) volcRecordForAppend(record Record) (*pb.Log, error) {
+	limit := s.maxLogBytes
+	if limit <= 0 {
+		limit = volcDefaultMaxLogBytes
+	}
+	truncated := cloneRecord(record)
+	payloadExhausted := false
+	for {
+		item, err := volcLog(truncated)
+		if err != nil {
+			return nil, err
+		}
+		if producer.GetLogSize(item) <= limit {
+			return item, nil
+		}
+		switch {
+		case truncated.Message != "":
+			truncated.Message = truncateVolcString(truncated.Message)
+		case truncateLargestVolcAttribute(truncated.Attributes):
+		case truncated.Severity != "":
+			truncated.Severity = truncateVolcString(truncated.Severity)
+		case len(truncated.Payload) != 0 && !payloadExhausted:
+			payload, changed, err := truncateVolcJSONPayload(truncated.Payload)
+			if err != nil {
+				return nil, err
+			}
+			if changed {
+				truncated.Payload = payload
+				continue
+			}
+			payloadExhausted = true
+		default:
+			return nil, fmt.Errorf("logstore: Volc record exceeds %d bytes after truncation", limit)
 		}
 	}
-	return nil
+}
+
+type volcJSONPathElement struct {
+	key   string
+	index int
+	array bool
+}
+
+func truncateVolcJSONPayload(payload json.RawMessage) (json.RawMessage, bool, error) {
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	decoder.UseNumber()
+	var value any
+	if err := decoder.Decode(&value); err != nil {
+		return nil, false, fmt.Errorf("decode payload for truncation: %w", err)
+	}
+	compact, err := json.Marshal(value)
+	if err != nil {
+		return nil, false, fmt.Errorf("encode payload for truncation: %w", err)
+	}
+	if len(compact) < len(payload) {
+		return compact, true, nil
+	}
+	path, largest := largestVolcJSONString(value)
+	if largest == 0 {
+		return payload, false, nil
+	}
+	if len(path) == 0 {
+		truncated, err := json.Marshal(truncateVolcString(value.(string)))
+		if err != nil {
+			return nil, false, fmt.Errorf("encode truncated payload: %w", err)
+		}
+		return truncated, true, nil
+	}
+	setVolcJSONString(value, path, truncateVolcString(stringAtVolcJSONPath(value, path)))
+	truncated, err := json.Marshal(value)
+	if err != nil {
+		return nil, false, fmt.Errorf("encode truncated payload: %w", err)
+	}
+	return truncated, true, nil
+}
+
+func largestVolcJSONString(value any) ([]volcJSONPathElement, int) {
+	type node struct {
+		value any
+		path  []volcJSONPathElement
+	}
+	stack := []node{{value: value}}
+	var selected []volcJSONPathElement
+	selectedBytes := 0
+	for len(stack) > 0 {
+		last := len(stack) - 1
+		current := stack[last]
+		stack = stack[:last]
+		switch typed := current.value.(type) {
+		case string:
+			if len(typed) > selectedBytes {
+				selected = current.path
+				selectedBytes = len(typed)
+			}
+		case map[string]any:
+			keys := make([]string, 0, len(typed))
+			for key := range typed {
+				keys = append(keys, key)
+			}
+			slices.Sort(keys)
+			slices.Reverse(keys)
+			for _, key := range keys {
+				path := append(append([]volcJSONPathElement(nil), current.path...), volcJSONPathElement{key: key})
+				stack = append(stack, node{value: typed[key], path: path})
+			}
+		case []any:
+			for index := len(typed) - 1; index >= 0; index-- {
+				path := append(append([]volcJSONPathElement(nil), current.path...), volcJSONPathElement{index: index, array: true})
+				stack = append(stack, node{value: typed[index], path: path})
+			}
+		}
+	}
+	return selected, selectedBytes
+}
+
+func stringAtVolcJSONPath(value any, path []volcJSONPathElement) string {
+	for _, element := range path {
+		if element.array {
+			value = value.([]any)[element.index]
+		} else {
+			value = value.(map[string]any)[element.key]
+		}
+	}
+	return value.(string)
+}
+
+func setVolcJSONString(value any, path []volcJSONPathElement, replacement string) {
+	for _, element := range path[:len(path)-1] {
+		if element.array {
+			value = value.([]any)[element.index]
+		} else {
+			value = value.(map[string]any)[element.key]
+		}
+	}
+	last := path[len(path)-1]
+	if last.array {
+		value.([]any)[last.index] = replacement
+		return
+	}
+	value.(map[string]any)[last.key] = replacement
+}
+
+func truncateVolcString(value string) string {
+	if len(value) <= 1 {
+		return ""
+	}
+	end := len(value) / 2
+	for end > 0 && !utf8.RuneStart(value[end]) {
+		end--
+	}
+	return value[:end]
+}
+
+func truncateLargestVolcAttribute(attributes map[string]string) bool {
+	var selected string
+	for name, value := range attributes {
+		if selected == "" || len(value) > len(attributes[selected]) || len(value) == len(attributes[selected]) && name < selected {
+			selected = name
+		}
+	}
+	if selected == "" {
+		return false
+	}
+	if attributes[selected] == "" {
+		delete(attributes, selected)
+		return true
+	}
+	attributes[selected] = truncateVolcString(attributes[selected])
+	return true
 }
 
 // Query returns one provider-context-backed ordered page.

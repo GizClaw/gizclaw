@@ -81,7 +81,8 @@ func (h *SlogHandler) Handle(ctx context.Context, record slog.Record) error {
 	if err := ValidateRecord(item); err != nil {
 		return err
 	}
-	return h.appender.Append(ctx, []Record{item})
+	_, err = h.appender.Append(ctx, []Record{item})
+	return err
 }
 
 // WithAttrs returns an adapter with additional handler-owned attributes.

@@ -622,12 +622,36 @@ func TestParseConfigRejectsUnknownLoggingFields(t *testing.T) {
 		"system_log: stderr\n",
 		"system_log:\n  unknown: true\n",
 		"system_log:\n  sinks:\n    - kind: stderr\n      path: file.log\n",
-		"stores:\n  logs:\n    kind: log\n    clickhouse: {}\n",
+		"stores:\n  logs:\n    kind: log\n    clickhouse:\n      dsn: x\n      unknown: y\n",
 		"stores:\n  logs:\n    kind: log\n    volc:\n      endpoint: x\n      unknown: y\n",
 	} {
 		if _, err := parseConfigData([]byte(data)); err == nil {
 			t.Fatalf("parseConfigData(%q) error = nil", data)
 		}
+	}
+}
+
+func TestParseConfigReadsFlowcraftHistoryClickHouse(t *testing.T) {
+	cfg, err := parseConfigData([]byte(`
+stores:
+  flowcraft-history:
+    kind: log
+    clickhouse:
+      dsn: clickhouse://localhost/default
+      database: default
+      table: gizclaw_flowcraft_history
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := cfg.Stores[defaultFlowcraftHistoryStore]
+	if store.Kind != stores.KindLog || store.ClickHouse == nil {
+		t.Fatalf("flowcraft history store = %+v", store)
+	}
+	if store.ClickHouse.DSN != "clickhouse://localhost/default" ||
+		store.ClickHouse.Database != "default" ||
+		store.ClickHouse.Table != "gizclaw_flowcraft_history" {
+		t.Fatalf("clickhouse config = %+v", store.ClickHouse)
 	}
 }
 
@@ -955,6 +979,18 @@ func TestNewRejectsMissingDefaultPeerStore(t *testing.T) {
 		t.Fatalf("New error = %v", err)
 	}
 
+}
+
+func TestNewRejectsNonMutableFlowcraftHistoryStore(t *testing.T) {
+	_, err := New(Config{
+		Stores: map[string]stores.Config{
+			defaultPeersStore:            {Kind: stores.KindKeyValue, Backend: "memory"},
+			defaultFlowcraftHistoryStore: {Kind: stores.KindKeyValue, Backend: "memory"},
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "flowcraft history store") {
+		t.Fatalf("New error = %v", err)
+	}
 }
 
 func validLayeredConfig(dir string) Config {
