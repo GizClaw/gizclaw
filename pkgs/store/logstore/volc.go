@@ -93,7 +93,7 @@ func NewVolcStore(config VolcConfig) (*VolcStore, error) {
 		topicID:     config.TopicID,
 		client:      client,
 		writer:      writer,
-		maxLogBytes: int(producerConfig.MaxBatchSize),
+		maxLogBytes: volcDefaultMaxLogBytes,
 	}, nil
 }
 

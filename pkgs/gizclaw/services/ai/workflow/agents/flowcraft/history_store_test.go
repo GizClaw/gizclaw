@@ -235,6 +235,35 @@ func TestHistoryStoreAppendReadRecentAndWorkspaceIsolation(t *testing.T) {
 	}
 }
 
+func TestHistoryStoreAppendMessagesOrdersSeparateCallsWithSameClock(t *testing.T) {
+	backend := &memoryHistoryLogStore{}
+	store, err := NewHistoryStore(backend, "workspace")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Unix(1_700_000_000, 100).UTC()
+	store.now = func() time.Time { return now }
+	first := flowmodel.NewTextMessage(flowmodel.RoleUser, "first")
+	second := flowmodel.NewTextMessage(flowmodel.RoleAssistant, "second")
+	if err := store.AppendMessages(context.Background(), "conversation", []flowmodel.Message{first}); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.AppendMessages(context.Background(), "conversation", []flowmodel.Message{second}); err != nil {
+		t.Fatal(err)
+	}
+	records := backend.snapshot()
+	if len(records) != 2 || !records[1].Time.After(records[0].Time) {
+		t.Fatalf("record times = %#v", records)
+	}
+	got, err := store.GetMessages(context.Background(), "conversation")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []flowmodel.Message{first, second}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("GetMessages() = %#v, want %#v", got, want)
+	}
+}
+
 func TestHistoryStoreSaveDeleteAndAppendAfterDelete(t *testing.T) {
 	backend := &memoryHistoryLogStore{}
 	store, err := NewHistoryStore(backend, "workspace")

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	memoryhistory "github.com/GizClaw/flowcraft/memory/history"
@@ -35,6 +36,7 @@ type HistoryStore struct {
 	store     logstore.MutableStore
 	workspace string
 	now       func() time.Time
+	mutation  sync.Mutex
 }
 
 // NewHistoryStore creates a workspace-scoped Flowcraft history adapter.
@@ -77,7 +79,24 @@ func (store *HistoryStore) GetRecentMessages(ctx context.Context, conversationID
 
 // AppendMessages appends only the supplied new messages.
 func (store *HistoryStore) AppendMessages(ctx context.Context, conversationID string, messages []flowmodel.Message) error {
-	return store.appendMessagesAfter(ctx, conversationID, messages, time.Time{})
+	if len(messages) == 0 {
+		return nil
+	}
+	conversationID, err := validateHistoryConversation(conversationID)
+	if err != nil {
+		return err
+	}
+	store.mutation.Lock()
+	defer store.mutation.Unlock()
+	existing, err := store.records(ctx, conversationID, logstore.OrderDesc, 1)
+	if err != nil {
+		return err
+	}
+	var after time.Time
+	if len(existing) > 0 {
+		after = existing[0].Time
+	}
+	return store.appendMessagesAfter(ctx, conversationID, messages, after)
 }
 
 func (store *HistoryStore) appendMessagesAfter(
@@ -129,6 +148,8 @@ func (store *HistoryStore) SaveMessages(ctx context.Context, conversationID stri
 	if err != nil {
 		return err
 	}
+	store.mutation.Lock()
+	defer store.mutation.Unlock()
 	existing, err := store.records(ctx, conversationID, logstore.OrderAsc, 0)
 	if err != nil {
 		return err
@@ -184,6 +205,8 @@ func (store *HistoryStore) DeleteMessages(ctx context.Context, conversationID st
 	if err != nil {
 		return err
 	}
+	store.mutation.Lock()
+	defer store.mutation.Unlock()
 	records, err := store.records(ctx, conversationID, logstore.OrderAsc, 0)
 	if err != nil {
 		return err
