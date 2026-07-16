@@ -2,7 +2,6 @@ package gizclaw
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -166,9 +165,6 @@ func (s *rpcServer) handleSpeedTest(ctx context.Context, stream *rpcStream, req 
 		return cancelStream(err)
 	})
 	if err := g.Wait(); err != nil {
-		if errors.Is(err, net.ErrClosed) {
-			return nil
-		}
 		return err
 	}
 	if err := ctx.Err(); err != nil {

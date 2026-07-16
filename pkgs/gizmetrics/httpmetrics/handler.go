@@ -84,6 +84,7 @@ func (h *handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	var (
 		wroteHeader bool
 		written     int64
+		writeErr    error
 	)
 	wrapped := httpsnoop.Wrap(writer, httpsnoop.Hooks{
 		WriteHeader: func(next httpsnoop.WriteHeaderFunc) httpsnoop.WriteHeaderFunc {
@@ -102,6 +103,9 @@ func (h *handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 				}
 				count, err := next(body)
 				written += int64(count)
+				if err != nil && writeErr == nil {
+					writeErr = err
+				}
 				return count, err
 			}
 		},
@@ -112,6 +116,9 @@ func (h *handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 				}
 				count, err := next(source)
 				written += count
+				if err != nil && writeErr == nil {
+					writeErr = err
+				}
 				return count, err
 			}
 		},
@@ -122,6 +129,9 @@ func (h *handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		panicValue := recover()
 		result := requestResult(request.Context(), status)
 		statusClass := httpStatusClass(status)
+		if writeErr != nil {
+			result = "transport_error"
+		}
 		if panicValue != nil {
 			result = "panic"
 			statusClass = "unknown"

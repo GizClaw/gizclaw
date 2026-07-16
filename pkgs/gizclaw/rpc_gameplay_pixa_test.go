@@ -3,6 +3,7 @@ package gizclaw
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net"
 	"testing"
@@ -93,6 +94,45 @@ func TestRPCServerPetPixaDownloadStreamsBinary(t *testing.T) {
 		t.Fatalf("request = %+v", service.petPixaRequest)
 	}
 }
+
+func TestWriteRPCDownloadPreservesWriteEOF(t *testing.T) {
+	conn := &failAfterWritesConn{remaining: 2, err: io.EOF}
+	stream := &rpcStream{ctx: context.Background(), conn: conn}
+	req := &rpcapi.RPCRequest{Id: "download", Method: rpcapi.RPCMethodServerBadgeDefPixaDownload}
+	err := writeRPCDownload(
+		context.Background(),
+		stream,
+		req,
+		rpcapi.BadgeDefPixaDownloadResponse{Id: "badge"},
+		(*rpcapi.RPCPayload).FromBadgeDefPixaDownloadResponse,
+		bytes.NewReader([]byte("payload")),
+	)
+	if !errors.Is(err, io.EOF) {
+		t.Fatalf("writeRPCDownload() error = %v, want EOF", err)
+	}
+}
+
+type failAfterWritesConn struct {
+	remaining int
+	err       error
+}
+
+func (c *failAfterWritesConn) Read([]byte) (int, error) { return 0, io.EOF }
+
+func (c *failAfterWritesConn) Write(body []byte) (int, error) {
+	if c.remaining == 0 {
+		return 0, c.err
+	}
+	c.remaining--
+	return len(body), nil
+}
+
+func (*failAfterWritesConn) Close() error                     { return nil }
+func (*failAfterWritesConn) LocalAddr() net.Addr              { return nil }
+func (*failAfterWritesConn) RemoteAddr() net.Addr             { return nil }
+func (*failAfterWritesConn) SetDeadline(time.Time) error      { return nil }
+func (*failAfterWritesConn) SetReadDeadline(time.Time) error  { return nil }
+func (*failAfterWritesConn) SetWriteDeadline(time.Time) error { return nil }
 
 type fakeGameplayPixaDownloadService struct {
 	petPixaMetadata rpcapi.PetPixaDownloadResponse

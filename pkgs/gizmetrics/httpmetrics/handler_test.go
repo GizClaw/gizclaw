@@ -128,6 +128,42 @@ func TestWrapRecordsAndRethrowsPanic(t *testing.T) {
 	}
 }
 
+func TestWrapClassifiesResponseWriterFailuresAsTransportErrors(t *testing.T) {
+	store, shutdown := installCaptureStore(t)
+	handler := Wrap(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/write":
+			_, _ = writer.Write([]byte("response"))
+		case "/read-from":
+			_, _ = io.Copy(writer, io.LimitReader(strings.NewReader("response"), 8))
+		}
+	}), "peer-http", func(request *http.Request) (string, bool) {
+		return strings.TrimPrefix(request.URL.Path, "/"), true
+	})
+
+	writeErr := errors.New("secret writer failure")
+	for _, path := range []string{"/write", "/read-from"} {
+		writer := &failingResponseWriter{header: make(http.Header), err: writeErr}
+		handler.ServeHTTP(writer, httptest.NewRequest(http.MethodGet, path, nil))
+	}
+	if err := shutdown(context.Background()); err != nil {
+		t.Fatalf("shutdown() error = %v", err)
+	}
+
+	for _, operation := range []string{"write", "read-from"} {
+		labels := requestLabels(operation, "2xx", "transport_error")
+		assertSampleValue(t, store.snapshot(), RequestsTotalMetric, labels, 1)
+		assertSampleValue(t, store.snapshot(), ResponseBytesMetric, labels, 0)
+	}
+	for _, sample := range store.snapshot() {
+		for _, value := range sample.Labels {
+			if strings.Contains(value, writeErr.Error()) {
+				t.Fatalf("write error leaked into labels: %#v", sample)
+			}
+		}
+	}
+}
+
 func TestWrapNeverFallsBackToRawRequestIdentity(t *testing.T) {
 	store, shutdown := installCaptureStore(t)
 	handler := Wrap(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
@@ -343,6 +379,19 @@ type minimalResponseWriter struct {
 	status int
 	body   bytes.Buffer
 }
+
+type failingResponseWriter struct {
+	header http.Header
+	err    error
+}
+
+func (w *failingResponseWriter) Header() http.Header { return w.header }
+
+func (w *failingResponseWriter) Write([]byte) (int, error) { return 0, w.err }
+
+func (*failingResponseWriter) WriteHeader(int) {}
+
+func (w *failingResponseWriter) ReadFrom(io.Reader) (int64, error) { return 0, w.err }
 
 func (w *minimalResponseWriter) Header() http.Header { return w.header }
 
