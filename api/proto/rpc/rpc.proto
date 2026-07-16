@@ -166,5 +166,4 @@ enum RpcMethod {
   RPC_METHOD_SERVER_ROUTE_RESOLVE = 103 [(rpc_method) = { name: "server.route.resolve" request: "ServerRouteResolveRequest" response: "ServerRouteResolveResponse" }];
   RPC_METHOD_SERVER_PET_ACTIONS_GET = 104 [(rpc_method) = { name: "server.pet.actions.get" request: "ServerPetActionsGetRequest" response: "ServerPetActionsGetResponse" }];
   RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD = 105 [(rpc_method) = { name: "server.pet.pixa.download" request: "ServerPetPixaDownloadRequest" response: "ServerPetPixaDownloadResponse" }];
-  RPC_METHOD_SERVER_ASSET_DOWNLOAD = 106 [(rpc_method) = { name: "server.asset.download" request: "AssetDownloadRequest" response: "AssetDownloadResponse" }];
 }

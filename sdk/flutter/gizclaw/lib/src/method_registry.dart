@@ -621,12 +621,6 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'ServerPetPixaDownloadRequest',
     responseType: 'ServerPetPixaDownloadResponse',
   ),
-  'server.asset.download': RpcMethodDescriptor(
-    id: 106,
-    name: 'server.asset.download',
-    requestType: 'AssetDownloadRequest',
-    responseType: 'AssetDownloadResponse',
-  ),
 };
 
 const rpcMethodNamesById = <int, String>{
@@ -731,7 +725,6 @@ const rpcMethodNamesById = <int, String>{
   103: 'server.route.resolve',
   104: 'server.pet.actions.get',
   105: 'server.pet.pixa.download',
-  106: 'server.asset.download',
 };
 
 RpcMethodDescriptor rpcMethodByName(String name) {

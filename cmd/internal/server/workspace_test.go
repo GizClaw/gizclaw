@@ -573,14 +573,6 @@ stores:
     kind: keyvalue
     storage: main-kv
     prefix: workflows
-  assets:
-    kind: keyvalue
-    storage: main-kv
-    prefix: assets
-  asset-objects:
-    kind: objectstore
-    storage: local-files
-    prefix: assets
   acl:
     kind: sql
     storage: acl-db

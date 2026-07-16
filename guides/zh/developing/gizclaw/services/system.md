@@ -1,18 +1,26 @@
 # services/system
 
-`pkgs/gizclaw/services/system` 提供多个产品领域共同依赖的系统级服务，包括访问控制、public login 和 declarative resource 管理。
+`pkgs/gizclaw/services/system` 提供多个产品领域共同依赖的系统级服务，包括 asset lifecycle、访问控制、public login 和 declarative resource 管理。
 
 ## 目录结构
 
 ```text
 services/system/
+├── asset/             # 共享 immutable asset Ref、metadata 和 binary lifecycle
 ├── acl/               # Role、policy binding、ACL view 和授权判断
-├── asset/             # Stable AssetRef、metadata、reverse binding 与 binary lifecycle
 ├── publiclogin/       # Public HTTP login、assertion 和 session
 └── resourcemanager/   # Admin declarative resource 的统一入口
 ```
 
 ## 子目录职责
+
+### asset
+
+提供由业务服务注入使用的共享 AssetService。它用 metadata KV 和一个逻辑 ObjectStore 管理 canonical immutable Ref、media type、size、SHA-256、TTL，以及流式 Put、Open、Delete 和显式 Reconcile。
+
+AssetService 不拥有 owner、binding、reference count、Resource schema、authorization 或 HTTP/RPC transport。调用 Put 的业务服务拥有返回 Ref 的引用完整性和删除策略：业务提交失败时清理新 Ref，业务对象替换或删除后再按自己的共享与 retention 规则删除旧 Ref。AssetService 不反查业务对象，也不判断一个 Ref 是否仍被引用。
+
+需要保存 product asset 的领域服务依赖同一个 AssetService，而不是各自依赖和配置 physical ObjectStore。领域服务继续负责 PNG、PIXA、TAR、Opus 等格式校验、业务 metadata、public endpoint 和 caller authorization。
 
 ### acl
 
@@ -32,16 +40,6 @@ ACL 不负责 transport peer 是否能打开 giznet service；transport-level po
 
 ResourceManager 是跨领域协调层，不是所有 GizClaw resource 的实际 owner。
 
-Resource owner 写入时，ResourceManager 先为新增 refs 建立 pending binding，owner commit 成功后激活并移除旧 refs；写入失败则回滚 pending binding。删除 Resource 后按 owner 清理 reverse index。binding 只标识 owner kind 与 canonical owner ID，不记录 slot、JSON path 或字段号。
-
-### asset
-
-AssetService 统一拥有 immutable binary asset 的稳定引用、safe metadata、reverse-reference indexes 与 ObjectStore lifecycle。公开 ref 固定为 `asset://<32-lowercase-hex>`，由 CSPRNG 生成；它不携带 backend、bucket、目录、owner、文件名或 media type。
-
-metadata KV 保存 staging、ready、deleting lifecycle record，以及原子维护的 by-asset/by-owner binding indexes；逻辑 ObjectStore 只保存 `blobs/<id-prefix>/<id>` binary。`Put` 流式计算 size 与 SHA-256，`Open` 只读取 ready record，`Delete` 在 owner resolver 确认没有 live refs 后才停止服务并清理 object。`Reconcile` 由 Server lifecycle 显式调用，用于恢复 staging/deleting/pending 状态和报告 ready metadata/object 不一致。
-
-AssetService 不决定业务授权或内容格式。Admin surface 使用 Admin authentication；普通 Peer download 由 adapter 先验证 Resource public display membership 与 ACL；PNG、PIXA、TAR 或 audio 的内容校验仍由 owner 领域负责。
-
 ## 依赖与边界
 
 ```mermaid
@@ -52,9 +50,8 @@ flowchart TB
     ResourceManager --> Gameplay["services/gameplay"]
     ResourceManager --> Social["services/social"]
     ResourceManager --> ACL["acl"]
-    ResourceManager --> Asset["asset"]
-    Asset --> KV["metadata KV"]
-    Asset --> Objects["ObjectStore"]
+    AssetConsumers["asset-owning domain services"] --> Asset["asset"]
+    Asset --> ObjectStore["store/objectstore"]
     Public["Public HTTP"] --> Login["publiclogin"]
     Login --> ACL
 ```
@@ -62,12 +59,14 @@ flowchart TB
 应该放在 `services/system`：
 
 - 跨领域统一使用的 product authorization 和 session 能力。
+- 由业务服务单向依赖的共享 immutable asset storage lifecycle。
 - Declarative resource 的跨领域 dispatch 与公共管理边界。
 - System-owned migration、validation 和持久化规则。
 
 不应该放在这里：
 
 - 各领域资源自己的业务实现。
+- Asset 的业务 owner、引用关系、格式、授权或 public transport。
 - Giznet transport security policy 或 WebRTC signaling crypto。
 - Edge proxy token forwarding。
 - CLI config、storage backend 创建和进程生命周期。

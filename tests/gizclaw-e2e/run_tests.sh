@@ -118,7 +118,6 @@ run_chat_pkg
 run_pkg "./tests/gizclaw-e2e/go/gameplay"
 run_pkg "./tests/gizclaw-e2e/go/rpc"
 run_pkg "./tests/gizclaw-e2e/go/social"
-run_pkg "./tests/gizclaw-e2e/cmd/admin"
 run_pkg "./tests/gizclaw-e2e/cmd/connect"
 
 echo "==> e2e run completed"

@@ -21,6 +21,6 @@ Firmware artifacts、workspace history、Agent memory binary data、Gameplay pix
 
 Object Store 把目录视为实现细节，不提供任意 filesystem 操作。资源 metadata、content type、authorization 和版本规则属于调用领域；objectstore 只拥有 binary object lifecycle。
 
-跨领域共享的产品 asset 通过 `services/system/asset` 使用 ObjectStore。AssetService 负责 stable `asset://` ref、media type、size、digest、deadline、reverse bindings 和 recoverable lifecycle；ObjectStore 仍只看到 opaque object name 与 bytes。ObjectStore interface 不依赖 GizClaw Resource、ACL、AssetService 或生成 DTO，也不能通过 public API 暴露内部 object key。
+`pkgs/gizclaw/services/system/asset` 位于 ObjectStore 之上，为多个产品领域提供同一份 immutable Ref、metadata、integrity、TTL 和 streaming lifecycle。需要 product AssetRef 的业务服务注入 AssetService，不直接配置 physical ObjectStore；workspace history、Agent memory、HNSW index 等内部 persistence 仍可按自己的 storage contract 直接使用 ObjectStore。
 
-Server 为 AssetService 注入一个 metadata KV logical store `assets` 和一个 binary logical store `asset-objects`。当前 filesystem driver 与未来 backend 都通过同一 `objectstore.ObjectStore` contract 接入，领域服务不为新的共享 asset 增加 physical-backend 参数。
+AssetService 不改变 ObjectStore interface，也不把业务 owner、binding、reference count、authorization、格式校验或 transport 下沉到 store 层。调用 AssetService 的业务服务拥有 Ref 的持久化和删除时机，ObjectStore 与 AssetService 都不会反查业务对象。

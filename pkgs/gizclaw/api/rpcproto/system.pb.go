@@ -24,55 +24,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type AssetOwnerKind int32
-
-const (
-	AssetOwnerKind_ASSET_OWNER_KIND_UNSPECIFIED          AssetOwnerKind = 0
-	AssetOwnerKind_ASSET_OWNER_KIND_RESOURCE             AssetOwnerKind = 1
-	AssetOwnerKind_ASSET_OWNER_KIND_FRIEND_GROUP_MESSAGE AssetOwnerKind = 2
-)
-
-// Enum value maps for AssetOwnerKind.
-var (
-	AssetOwnerKind_name = map[int32]string{
-		0: "ASSET_OWNER_KIND_UNSPECIFIED",
-		1: "ASSET_OWNER_KIND_RESOURCE",
-		2: "ASSET_OWNER_KIND_FRIEND_GROUP_MESSAGE",
-	}
-	AssetOwnerKind_value = map[string]int32{
-		"ASSET_OWNER_KIND_UNSPECIFIED":          0,
-		"ASSET_OWNER_KIND_RESOURCE":             1,
-		"ASSET_OWNER_KIND_FRIEND_GROUP_MESSAGE": 2,
-	}
-)
-
-func (x AssetOwnerKind) Enum() *AssetOwnerKind {
-	p := new(AssetOwnerKind)
-	*p = x
-	return p
-}
-
-func (x AssetOwnerKind) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (AssetOwnerKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_payload_system_proto_enumTypes[0].Descriptor()
-}
-
-func (AssetOwnerKind) Type() protoreflect.EnumType {
-	return &file_payload_system_proto_enumTypes[0]
-}
-
-func (x AssetOwnerKind) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use AssetOwnerKind.Descriptor instead.
-func (AssetOwnerKind) EnumDescriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{0}
-}
-
 type ClientGetIdentifiersRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -1249,230 +1200,6 @@ func (x *SpeedTestResponse) GetUpContentLength() int64 {
 	return 0
 }
 
-type AssetMetadata struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Ref           string                 `protobuf:"bytes,1,opt,name=ref,proto3" json:"ref,omitempty"`
-	MediaType     string                 `protobuf:"bytes,2,opt,name=media_type,json=mediaType,proto3" json:"media_type,omitempty"`
-	SizeBytes     int64                  `protobuf:"varint,3,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
-	Sha256        string                 `protobuf:"bytes,4,opt,name=sha256,proto3" json:"sha256,omitempty"`
-	CreatedAt     string                 `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	ExpiresAt     *string                `protobuf:"bytes,6,opt,name=expires_at,json=expiresAt,proto3,oneof" json:"expires_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *AssetMetadata) Reset() {
-	*x = AssetMetadata{}
-	mi := &file_payload_system_proto_msgTypes[22]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *AssetMetadata) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*AssetMetadata) ProtoMessage() {}
-
-func (x *AssetMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[22]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use AssetMetadata.ProtoReflect.Descriptor instead.
-func (*AssetMetadata) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{22}
-}
-
-func (x *AssetMetadata) GetRef() string {
-	if x != nil {
-		return x.Ref
-	}
-	return ""
-}
-
-func (x *AssetMetadata) GetMediaType() string {
-	if x != nil {
-		return x.MediaType
-	}
-	return ""
-}
-
-func (x *AssetMetadata) GetSizeBytes() int64 {
-	if x != nil {
-		return x.SizeBytes
-	}
-	return 0
-}
-
-func (x *AssetMetadata) GetSha256() string {
-	if x != nil {
-		return x.Sha256
-	}
-	return ""
-}
-
-func (x *AssetMetadata) GetCreatedAt() string {
-	if x != nil {
-		return x.CreatedAt
-	}
-	return ""
-}
-
-func (x *AssetMetadata) GetExpiresAt() string {
-	if x != nil && x.ExpiresAt != nil {
-		return *x.ExpiresAt
-	}
-	return ""
-}
-
-type AssetDownloadRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Ref           string                 `protobuf:"bytes,1,opt,name=ref,proto3" json:"ref,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *AssetDownloadRequest) Reset() {
-	*x = AssetDownloadRequest{}
-	mi := &file_payload_system_proto_msgTypes[23]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *AssetDownloadRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*AssetDownloadRequest) ProtoMessage() {}
-
-func (x *AssetDownloadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[23]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use AssetDownloadRequest.ProtoReflect.Descriptor instead.
-func (*AssetDownloadRequest) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{23}
-}
-
-func (x *AssetDownloadRequest) GetRef() string {
-	if x != nil {
-		return x.Ref
-	}
-	return ""
-}
-
-type AssetDownloadResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Metadata      *AssetMetadata         `protobuf:"bytes,1,opt,name=metadata,proto3" json:"metadata,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *AssetDownloadResponse) Reset() {
-	*x = AssetDownloadResponse{}
-	mi := &file_payload_system_proto_msgTypes[24]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *AssetDownloadResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*AssetDownloadResponse) ProtoMessage() {}
-
-func (x *AssetDownloadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[24]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use AssetDownloadResponse.ProtoReflect.Descriptor instead.
-func (*AssetDownloadResponse) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{24}
-}
-
-func (x *AssetDownloadResponse) GetMetadata() *AssetMetadata {
-	if x != nil {
-		return x.Metadata
-	}
-	return nil
-}
-
-type AssetBinding struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	OwnerKind     AssetOwnerKind         `protobuf:"varint,1,opt,name=owner_kind,json=ownerKind,proto3,enum=gizclaw.rpc.v1.AssetOwnerKind" json:"owner_kind,omitempty"`
-	OwnerId       string                 `protobuf:"bytes,2,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *AssetBinding) Reset() {
-	*x = AssetBinding{}
-	mi := &file_payload_system_proto_msgTypes[25]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *AssetBinding) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*AssetBinding) ProtoMessage() {}
-
-func (x *AssetBinding) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[25]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use AssetBinding.ProtoReflect.Descriptor instead.
-func (*AssetBinding) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{25}
-}
-
-func (x *AssetBinding) GetOwnerKind() AssetOwnerKind {
-	if x != nil {
-		return x.OwnerKind
-	}
-	return AssetOwnerKind_ASSET_OWNER_KIND_UNSPECIFIED
-}
-
-func (x *AssetBinding) GetOwnerId() string {
-	if x != nil {
-		return x.OwnerId
-	}
-	return ""
-}
-
 var File_payload_system_proto protoreflect.FileDescriptor
 
 const file_payload_system_proto_rawDesc = "" +
@@ -1581,31 +1308,7 @@ const file_payload_system_proto_rawDesc = "" +
 	"\x11up_content_length\x18\x02 \x01(\x03R\x0fupContentLength\"o\n" +
 	"\x11SpeedTestResponse\x12.\n" +
 	"\x13down_content_length\x18\x01 \x01(\x03R\x11downContentLength\x12*\n" +
-	"\x11up_content_length\x18\x02 \x01(\x03R\x0fupContentLength\"\xc9\x01\n" +
-	"\rAssetMetadata\x12\x10\n" +
-	"\x03ref\x18\x01 \x01(\tR\x03ref\x12\x1d\n" +
-	"\n" +
-	"media_type\x18\x02 \x01(\tR\tmediaType\x12\x1d\n" +
-	"\n" +
-	"size_bytes\x18\x03 \x01(\x03R\tsizeBytes\x12\x16\n" +
-	"\x06sha256\x18\x04 \x01(\tR\x06sha256\x12\x1d\n" +
-	"\n" +
-	"created_at\x18\x05 \x01(\tR\tcreatedAt\x12\"\n" +
-	"\n" +
-	"expires_at\x18\x06 \x01(\tH\x00R\texpiresAt\x88\x01\x01B\r\n" +
-	"\v_expires_at\"(\n" +
-	"\x14AssetDownloadRequest\x12\x10\n" +
-	"\x03ref\x18\x01 \x01(\tR\x03ref\"R\n" +
-	"\x15AssetDownloadResponse\x129\n" +
-	"\bmetadata\x18\x01 \x01(\v2\x1d.gizclaw.rpc.v1.AssetMetadataR\bmetadata\"h\n" +
-	"\fAssetBinding\x12=\n" +
-	"\n" +
-	"owner_kind\x18\x01 \x01(\x0e2\x1e.gizclaw.rpc.v1.AssetOwnerKindR\townerKind\x12\x19\n" +
-	"\bowner_id\x18\x02 \x01(\tR\aownerId*|\n" +
-	"\x0eAssetOwnerKind\x12 \n" +
-	"\x1cASSET_OWNER_KIND_UNSPECIFIED\x10\x00\x12\x1d\n" +
-	"\x19ASSET_OWNER_KIND_RESOURCE\x10\x01\x12)\n" +
-	"%ASSET_OWNER_KIND_FRIEND_GROUP_MESSAGE\x10\x02B?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
+	"\x11up_content_length\x18\x02 \x01(\x03R\x0fupContentLengthB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 
 var (
 	file_payload_system_proto_rawDescOnce sync.Once
@@ -1619,60 +1322,52 @@ func file_payload_system_proto_rawDescGZIP() []byte {
 	return file_payload_system_proto_rawDescData
 }
 
-var file_payload_system_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_payload_system_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
+var file_payload_system_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
 var file_payload_system_proto_goTypes = []any{
-	(AssetOwnerKind)(0),                  // 0: gizclaw.rpc.v1.AssetOwnerKind
-	(*ClientGetIdentifiersRequest)(nil),  // 1: gizclaw.rpc.v1.ClientGetIdentifiersRequest
-	(*ClientGetIdentifiersResponse)(nil), // 2: gizclaw.rpc.v1.ClientGetIdentifiersResponse
-	(*ClientGetInfoRequest)(nil),         // 3: gizclaw.rpc.v1.ClientGetInfoRequest
-	(*ClientGetInfoResponse)(nil),        // 4: gizclaw.rpc.v1.ClientGetInfoResponse
-	(*DeviceInfo)(nil),                   // 5: gizclaw.rpc.v1.DeviceInfo
-	(*HardwareInfo)(nil),                 // 6: gizclaw.rpc.v1.HardwareInfo
-	(*PeerIMEI)(nil),                     // 7: gizclaw.rpc.v1.PeerIMEI
-	(*PeerLabel)(nil),                    // 8: gizclaw.rpc.v1.PeerLabel
-	(*PeerStatus)(nil),                   // 9: gizclaw.rpc.v1.PeerStatus
-	(*PingRequest)(nil),                  // 10: gizclaw.rpc.v1.PingRequest
-	(*PingResponse)(nil),                 // 11: gizclaw.rpc.v1.PingResponse
-	(*RefreshIdentifiers)(nil),           // 12: gizclaw.rpc.v1.RefreshIdentifiers
-	(*RefreshInfo)(nil),                  // 13: gizclaw.rpc.v1.RefreshInfo
-	(*Runtime)(nil),                      // 14: gizclaw.rpc.v1.Runtime
-	(*ServerGetInfoRequest)(nil),         // 15: gizclaw.rpc.v1.ServerGetInfoRequest
-	(*ServerGetInfoResponse)(nil),        // 16: gizclaw.rpc.v1.ServerGetInfoResponse
-	(*ServerGetStatusRequest)(nil),       // 17: gizclaw.rpc.v1.ServerGetStatusRequest
-	(*ServerGetStatusResponse)(nil),      // 18: gizclaw.rpc.v1.ServerGetStatusResponse
-	(*ServerPutInfoRequest)(nil),         // 19: gizclaw.rpc.v1.ServerPutInfoRequest
-	(*ServerPutInfoResponse)(nil),        // 20: gizclaw.rpc.v1.ServerPutInfoResponse
-	(*SpeedTestRequest)(nil),             // 21: gizclaw.rpc.v1.SpeedTestRequest
-	(*SpeedTestResponse)(nil),            // 22: gizclaw.rpc.v1.SpeedTestResponse
-	(*AssetMetadata)(nil),                // 23: gizclaw.rpc.v1.AssetMetadata
-	(*AssetDownloadRequest)(nil),         // 24: gizclaw.rpc.v1.AssetDownloadRequest
-	(*AssetDownloadResponse)(nil),        // 25: gizclaw.rpc.v1.AssetDownloadResponse
-	(*AssetBinding)(nil),                 // 26: gizclaw.rpc.v1.AssetBinding
-	nil,                                  // 27: gizclaw.rpc.v1.PeerStatus.LabelsEntry
-	(*structpb.Struct)(nil),              // 28: google.protobuf.Struct
+	(*ClientGetIdentifiersRequest)(nil),  // 0: gizclaw.rpc.v1.ClientGetIdentifiersRequest
+	(*ClientGetIdentifiersResponse)(nil), // 1: gizclaw.rpc.v1.ClientGetIdentifiersResponse
+	(*ClientGetInfoRequest)(nil),         // 2: gizclaw.rpc.v1.ClientGetInfoRequest
+	(*ClientGetInfoResponse)(nil),        // 3: gizclaw.rpc.v1.ClientGetInfoResponse
+	(*DeviceInfo)(nil),                   // 4: gizclaw.rpc.v1.DeviceInfo
+	(*HardwareInfo)(nil),                 // 5: gizclaw.rpc.v1.HardwareInfo
+	(*PeerIMEI)(nil),                     // 6: gizclaw.rpc.v1.PeerIMEI
+	(*PeerLabel)(nil),                    // 7: gizclaw.rpc.v1.PeerLabel
+	(*PeerStatus)(nil),                   // 8: gizclaw.rpc.v1.PeerStatus
+	(*PingRequest)(nil),                  // 9: gizclaw.rpc.v1.PingRequest
+	(*PingResponse)(nil),                 // 10: gizclaw.rpc.v1.PingResponse
+	(*RefreshIdentifiers)(nil),           // 11: gizclaw.rpc.v1.RefreshIdentifiers
+	(*RefreshInfo)(nil),                  // 12: gizclaw.rpc.v1.RefreshInfo
+	(*Runtime)(nil),                      // 13: gizclaw.rpc.v1.Runtime
+	(*ServerGetInfoRequest)(nil),         // 14: gizclaw.rpc.v1.ServerGetInfoRequest
+	(*ServerGetInfoResponse)(nil),        // 15: gizclaw.rpc.v1.ServerGetInfoResponse
+	(*ServerGetStatusRequest)(nil),       // 16: gizclaw.rpc.v1.ServerGetStatusRequest
+	(*ServerGetStatusResponse)(nil),      // 17: gizclaw.rpc.v1.ServerGetStatusResponse
+	(*ServerPutInfoRequest)(nil),         // 18: gizclaw.rpc.v1.ServerPutInfoRequest
+	(*ServerPutInfoResponse)(nil),        // 19: gizclaw.rpc.v1.ServerPutInfoResponse
+	(*SpeedTestRequest)(nil),             // 20: gizclaw.rpc.v1.SpeedTestRequest
+	(*SpeedTestResponse)(nil),            // 21: gizclaw.rpc.v1.SpeedTestResponse
+	nil,                                  // 22: gizclaw.rpc.v1.PeerStatus.LabelsEntry
+	(*structpb.Struct)(nil),              // 23: google.protobuf.Struct
 }
 var file_payload_system_proto_depIdxs = []int32{
-	12, // 0: gizclaw.rpc.v1.ClientGetIdentifiersResponse.value:type_name -> gizclaw.rpc.v1.RefreshIdentifiers
-	13, // 1: gizclaw.rpc.v1.ClientGetInfoResponse.value:type_name -> gizclaw.rpc.v1.RefreshInfo
-	6,  // 2: gizclaw.rpc.v1.DeviceInfo.hardware:type_name -> gizclaw.rpc.v1.HardwareInfo
-	7,  // 3: gizclaw.rpc.v1.HardwareInfo.imeis:type_name -> gizclaw.rpc.v1.PeerIMEI
-	8,  // 4: gizclaw.rpc.v1.HardwareInfo.labels:type_name -> gizclaw.rpc.v1.PeerLabel
-	28, // 5: gizclaw.rpc.v1.PeerStatus.details:type_name -> google.protobuf.Struct
-	27, // 6: gizclaw.rpc.v1.PeerStatus.labels:type_name -> gizclaw.rpc.v1.PeerStatus.LabelsEntry
-	7,  // 7: gizclaw.rpc.v1.RefreshIdentifiers.imeis:type_name -> gizclaw.rpc.v1.PeerIMEI
-	8,  // 8: gizclaw.rpc.v1.RefreshIdentifiers.labels:type_name -> gizclaw.rpc.v1.PeerLabel
-	5,  // 9: gizclaw.rpc.v1.ServerGetInfoResponse.value:type_name -> gizclaw.rpc.v1.DeviceInfo
-	9,  // 10: gizclaw.rpc.v1.ServerGetStatusResponse.value:type_name -> gizclaw.rpc.v1.PeerStatus
-	5,  // 11: gizclaw.rpc.v1.ServerPutInfoRequest.value:type_name -> gizclaw.rpc.v1.DeviceInfo
-	5,  // 12: gizclaw.rpc.v1.ServerPutInfoResponse.value:type_name -> gizclaw.rpc.v1.DeviceInfo
-	23, // 13: gizclaw.rpc.v1.AssetDownloadResponse.metadata:type_name -> gizclaw.rpc.v1.AssetMetadata
-	0,  // 14: gizclaw.rpc.v1.AssetBinding.owner_kind:type_name -> gizclaw.rpc.v1.AssetOwnerKind
-	15, // [15:15] is the sub-list for method output_type
-	15, // [15:15] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	11, // 0: gizclaw.rpc.v1.ClientGetIdentifiersResponse.value:type_name -> gizclaw.rpc.v1.RefreshIdentifiers
+	12, // 1: gizclaw.rpc.v1.ClientGetInfoResponse.value:type_name -> gizclaw.rpc.v1.RefreshInfo
+	5,  // 2: gizclaw.rpc.v1.DeviceInfo.hardware:type_name -> gizclaw.rpc.v1.HardwareInfo
+	6,  // 3: gizclaw.rpc.v1.HardwareInfo.imeis:type_name -> gizclaw.rpc.v1.PeerIMEI
+	7,  // 4: gizclaw.rpc.v1.HardwareInfo.labels:type_name -> gizclaw.rpc.v1.PeerLabel
+	23, // 5: gizclaw.rpc.v1.PeerStatus.details:type_name -> google.protobuf.Struct
+	22, // 6: gizclaw.rpc.v1.PeerStatus.labels:type_name -> gizclaw.rpc.v1.PeerStatus.LabelsEntry
+	6,  // 7: gizclaw.rpc.v1.RefreshIdentifiers.imeis:type_name -> gizclaw.rpc.v1.PeerIMEI
+	7,  // 8: gizclaw.rpc.v1.RefreshIdentifiers.labels:type_name -> gizclaw.rpc.v1.PeerLabel
+	4,  // 9: gizclaw.rpc.v1.ServerGetInfoResponse.value:type_name -> gizclaw.rpc.v1.DeviceInfo
+	8,  // 10: gizclaw.rpc.v1.ServerGetStatusResponse.value:type_name -> gizclaw.rpc.v1.PeerStatus
+	4,  // 11: gizclaw.rpc.v1.ServerPutInfoRequest.value:type_name -> gizclaw.rpc.v1.DeviceInfo
+	4,  // 12: gizclaw.rpc.v1.ServerPutInfoResponse.value:type_name -> gizclaw.rpc.v1.DeviceInfo
+	13, // [13:13] is the sub-list for method output_type
+	13, // [13:13] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_payload_system_proto_init() }
@@ -1687,20 +1382,18 @@ func file_payload_system_proto_init() {
 	file_payload_system_proto_msgTypes[11].OneofWrappers = []any{}
 	file_payload_system_proto_msgTypes[12].OneofWrappers = []any{}
 	file_payload_system_proto_msgTypes[13].OneofWrappers = []any{}
-	file_payload_system_proto_msgTypes[22].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payload_system_proto_rawDesc), len(file_payload_system_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   27,
+			NumEnums:      0,
+			NumMessages:   23,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_payload_system_proto_goTypes,
 		DependencyIndexes: file_payload_system_proto_depIdxs,
-		EnumInfos:         file_payload_system_proto_enumTypes,
 		MessageInfos:      file_payload_system_proto_msgTypes,
 	}.Build()
 	File_payload_system_proto = out.File

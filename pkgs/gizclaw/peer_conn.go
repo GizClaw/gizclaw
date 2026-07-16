@@ -260,22 +260,20 @@ func (h *PeerConn) peerResources() *peerresource.Server {
 	}
 	manager := h.Service.manager
 	return &peerresource.Server{
-		Caller:        h.Conn.PublicKey(),
-		ACL:           h.peerAuthorizer(),
-		Firmwares:     manager.Firmwares,
-		Workspaces:    manager.Workspaces,
-		Workflows:     manager.Workflows,
-		Models:        manager.Models,
-		Credentials:   manager.Credentials,
-		Voices:        manager.Voices,
-		Contacts:      manager.Contacts,
-		Friends:       manager.Friends,
-		FriendGroups:  manager.FriendGroups,
-		Gameplay:      manager.Gameplay,
-		Tools:         manager.Tools,
-		ResourceACL:   manager.ACL,
-		Assets:        manager.Assets,
-		AssetDisplays: manager.ResourceManager,
+		Caller:       h.Conn.PublicKey(),
+		ACL:          h.peerAuthorizer(),
+		Firmwares:    manager.Firmwares,
+		Workspaces:   manager.Workspaces,
+		Workflows:    manager.Workflows,
+		Models:       manager.Models,
+		Credentials:  manager.Credentials,
+		Voices:       manager.Voices,
+		Contacts:     manager.Contacts,
+		Friends:      manager.Friends,
+		FriendGroups: manager.FriendGroups,
+		Gameplay:     manager.Gameplay,
+		Tools:        manager.Tools,
+		ResourceACL:  manager.ACL,
 	}
 }
 

@@ -125,8 +125,7 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PEER_ASSIGN = 102,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_ROUTE_RESOLVE = 103,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_ACTIONS_GET = 104,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD = 105,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_ASSET_DOWNLOAD = 106
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD = 105
 } gizclaw_rpc_v1_RpcMethod;
 
 /* Struct definitions */
@@ -184,8 +183,8 @@ extern "C" {
 #define _gizclaw_rpc_v1_RpcErrorCode_ARRAYSIZE ((gizclaw_rpc_v1_RpcErrorCode)(gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_CONFLICT+1))
 
 #define _gizclaw_rpc_v1_RpcMethod_MIN gizclaw_rpc_v1_RpcMethod_RPC_METHOD_UNSPECIFIED
-#define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_ASSET_DOWNLOAD
-#define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_ASSET_DOWNLOAD+1))
+#define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD
+#define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD+1))
 
 
 

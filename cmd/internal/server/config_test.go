@@ -232,20 +232,6 @@ func TestNewWithLayeredStorageConfig(t *testing.T) {
 	}
 }
 
-func TestNewWithLayeredStorageWithoutAssetStores(t *testing.T) {
-	cfg := validLayeredConfig(t.TempDir())
-	delete(cfg.Stores, defaultAssetMetadataStore)
-	delete(cfg.Stores, defaultAssetObjectsStore)
-	srv, err := New(cfg)
-	if err != nil {
-		t.Fatalf("New error = %v", err)
-	}
-	t.Cleanup(func() { _ = srv.Close() })
-	if srv.AssetMetadataStore != nil || srv.AssetObjects != nil {
-		t.Fatalf("asset stores unexpectedly wired: metadata=%v objects=%v", srv.AssetMetadataStore, srv.AssetObjects)
-	}
-}
-
 func TestNewWithLayeredStorageReportsStoreErrors(t *testing.T) {
 	dir := t.TempDir()
 
@@ -259,18 +245,6 @@ func TestNewWithLayeredStorageReportsStoreErrors(t *testing.T) {
 	logicalErrCfg.Stores["credentials"] = stores.Config{Kind: stores.KindKeyValue, Storage: "memory", Prefix: "bad:prefix"}
 	if _, err := New(logicalErrCfg); err == nil || !strings.Contains(err.Error(), "server: stores:") {
 		t.Fatalf("New(logical store error) = %v", err)
-	}
-
-	missingAssetObjectsCfg := validLayeredConfig(dir)
-	delete(missingAssetObjectsCfg.Stores, defaultAssetObjectsStore)
-	if _, err := New(missingAssetObjectsCfg); err == nil || !strings.Contains(err.Error(), "asset metadata and object stores must be configured together") {
-		t.Fatalf("New(missing asset object store) = %v", err)
-	}
-
-	missingAssetMetadataCfg := validLayeredConfig(dir)
-	delete(missingAssetMetadataCfg.Stores, defaultAssetMetadataStore)
-	if _, err := New(missingAssetMetadataCfg); err == nil || !strings.Contains(err.Error(), "asset metadata and object stores must be configured together") {
-		t.Fatalf("New(missing asset metadata store) = %v", err)
 	}
 
 	missingCredentialCfg := validLayeredConfig(dir)
@@ -984,8 +958,6 @@ func validLayeredConfig(dir string) Config {
 			"gameplay-db": {Kind: storage.KindSQL, SQLite: &storage.SQLConfig{Dir: filepath.Join(dir, "gameplay.sqlite")}},
 		},
 		Stores: map[string]stores.Config{
-			"assets":                      {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "assets"},
-			"asset-objects":               {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "assets"},
 			"peers":                       {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "peers"},
 			"credentials":                 {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "credentials"},
 			"firmwares":                   {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "firmwares"},

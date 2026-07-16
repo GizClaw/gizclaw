@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"io/fs"
 	"reflect"
 	"strings"
 	"sync"
@@ -34,6 +35,16 @@ func TestRefRoundTripAndValidation(t *testing.T) {
 		if _, err := ParseRef(invalid); !errors.Is(err, ErrInvalid) {
 			t.Fatalf("ParseRef(%q) error = %v", invalid, err)
 		}
+	}
+}
+
+func TestNewRequiresStores(t *testing.T) {
+	objects := &memoryObjectStore{data: make(map[string][]byte), deadlines: make(map[string]time.Time)}
+	if _, err := New(nil, objects, Options{}); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("New(nil metadata) error = %v", err)
+	}
+	if _, err := New(kv.NewMemory(nil), nil, Options{}); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("New(nil objects) error = %v", err)
 	}
 }
 
@@ -90,8 +101,8 @@ func TestPutEmptyLimitReaderFailureAndRollback(t *testing.T) {
 		if len(objects.data) != 0 {
 			t.Fatalf("Put(too large) objects = %v", objects.data)
 		}
-		if _, err := service.Get(context.Background(), Ref("asset://03030303030303030303030303030303")); !errors.Is(err, ErrNotFound) {
-			t.Fatalf("Get(rolled back) error = %v", err)
+		if _, _, err := service.Open(context.Background(), Ref("asset://03030303030303030303030303030303")); !errors.Is(err, ErrNotFound) {
+			t.Fatalf("Open(rolled back) error = %v", err)
 		}
 	})
 	t.Run("reader failure", func(t *testing.T) {
@@ -101,12 +112,52 @@ func TestPutEmptyLimitReaderFailureAndRollback(t *testing.T) {
 			t.Fatalf("Put(reader failure) error=%v objects=%v", err, objects.data)
 		}
 	})
+	t.Run("object store failure", func(t *testing.T) {
+		service, objects := newTestService(t, now, idSequence(idWithByte(13)))
+		objectErr := errors.New("object store unavailable")
+		objects.putErr = objectErr
+		_, err := service.Put(context.Background(), PutRequest{MediaType: "image/png", MaxBytes: 100}, bytes.NewBufferString("payload"))
+		if !errors.Is(err, objectErr) || len(objects.data) != 0 {
+			t.Fatalf("Put(object store failure) error=%v objects=%v", err, objects.data)
+		}
+		if _, err := service.repo.asset(context.Background(), "0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d"); !errors.Is(err, ErrNotFound) {
+			t.Fatalf("asset(rolled back object failure) error = %v", err)
+		}
+	})
+	t.Run("metadata publish failure", func(t *testing.T) {
+		metadata := &failingKVStore{
+			Store:          kv.NewMemory(nil),
+			failBatchSetAt: 2,
+			err:            errors.New("metadata unavailable"),
+		}
+		objects := &memoryObjectStore{data: make(map[string][]byte), deadlines: make(map[string]time.Time)}
+		service, err := New(metadata, objects, Options{IDGenerator: idSequence(idWithByte(14)), Now: func() time.Time { return now }})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = service.Put(context.Background(), PutRequest{MediaType: "image/png", MaxBytes: 100}, bytes.NewBufferString("payload"))
+		if !errors.Is(err, metadata.err) || len(objects.data) != 0 {
+			t.Fatalf("Put(metadata publish failure) error=%v objects=%v", err, objects.data)
+		}
+		if _, err := metadata.Get(context.Background(), assetKey("0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e")); !errors.Is(err, kv.ErrNotFound) {
+			t.Fatalf("metadata(rolled back publish failure) error = %v", err)
+		}
+	})
+	t.Run("canceled", func(t *testing.T) {
+		service, objects := newTestService(t, now, idSequence(idWithByte(5)))
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		_, err := service.Put(ctx, PutRequest{MediaType: "image/png", MaxBytes: 100}, bytes.NewBufferString("payload"))
+		if !errors.Is(err, context.Canceled) || len(objects.data) != 0 {
+			t.Fatalf("Put(canceled) error=%v objects=%v", err, objects.data)
+		}
+	})
 }
 
 func TestPutValidationCollisionAndExpiration(t *testing.T) {
 	now := time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC)
 	clock := now
-	service, objects := newTestService(t, now, idSequence(idWithByte(5), idWithByte(5), idWithByte(6)))
+	service, objects := newTestService(t, now, idSequence(idWithByte(6), idWithByte(6), idWithByte(7)))
 	service.now = func() time.Time { return clock }
 	first, err := service.Put(context.Background(), PutRequest{MediaType: "text/plain", MaxBytes: 10}, bytes.NewBufferString("one"))
 	if err != nil {
@@ -117,10 +168,10 @@ func TestPutValidationCollisionAndExpiration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Put(collision retry) error = %v", err)
 	}
-	if first.Metadata.Ref == second.Metadata.Ref || second.Metadata.Ref != Ref("asset://06060606060606060606060606060606") {
+	if first.Metadata.Ref == second.Metadata.Ref || second.Metadata.Ref != Ref("asset://07070707070707070707070707070707") {
 		t.Fatalf("collision refs = %s, %s", first.Metadata.Ref, second.Metadata.Ref)
 	}
-	if got := objects.deadlines[objectName("06060606060606060606060606060606")]; !got.Equal(expiresAt) {
+	if got := objects.deadlines[objectName("07070707070707070707070707070707")]; !got.Equal(expiresAt) {
 		t.Fatalf("object deadline = %v", got)
 	}
 	clock = expiresAt
@@ -138,65 +189,15 @@ func TestPutValidationCollisionAndExpiration(t *testing.T) {
 	}
 }
 
-func TestBindingsDeleteAndUnbindOwner(t *testing.T) {
+func TestDeleteRetriesPartialCleanupAndIsIdempotent(t *testing.T) {
 	now := time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC)
-	resolver := &testResolver{snapshots: make(map[Owner]OwnerSnapshot)}
-	service, _ := newTestService(t, now, idSequence(idWithByte(7), idWithByte(8)))
-	if err := service.RegisterOwnerResolver(OwnerKindResource, resolver); err != nil {
-		t.Fatalf("RegisterOwnerResolver() error = %v", err)
-	}
-	first := mustPut(t, service, "first")
-	second := mustPut(t, service, "second")
-	owner := Owner{Kind: OwnerKindResource, ID: "PetDef/tragon"}
-	resolver.snapshots[owner] = OwnerSnapshot{Exists: true, Refs: []Ref{first.Metadata.Ref, second.Metadata.Ref}}
-	for _, ref := range []Ref{first.Metadata.Ref, second.Metadata.Ref} {
-		if err := service.Bind(context.Background(), ref, Binding{Owner: owner}); err != nil {
-			t.Fatalf("Bind(%s) error = %v", ref, err)
-		}
-	}
-	bindings, err := service.Bindings(context.Background(), first.Metadata.Ref)
-	if err != nil || len(bindings) != 1 || bindings[0].Owner != owner {
-		t.Fatalf("Bindings() = %#v, %v", bindings, err)
-	}
-	if err := service.Delete(context.Background(), first.Metadata.Ref); !errors.Is(err, ErrInUse) {
-		t.Fatalf("Delete(live) error = %v", err)
-	}
-	resolver.snapshots[owner] = OwnerSnapshot{Exists: true, Refs: []Ref{second.Metadata.Ref}}
-	if err := service.Delete(context.Background(), first.Metadata.Ref); err != nil {
-		t.Fatalf("Delete(stale) error = %v", err)
-	}
-	if err := service.UnbindOwner(context.Background(), owner); err != nil {
-		t.Fatalf("UnbindOwner() error = %v", err)
-	}
-	bindings, err = service.Bindings(context.Background(), second.Metadata.Ref)
-	if err != nil || len(bindings) != 0 {
-		t.Fatalf("Bindings(after UnbindOwner) = %#v, %v", bindings, err)
-	}
-}
-
-func TestDeleteFailsClosedAndRetriesPartialCleanup(t *testing.T) {
-	now := time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC)
-	service, objects := newTestService(t, now, idSequence(idWithByte(9)))
+	service, objects := newTestService(t, now, idSequence(idWithByte(8)))
 	stored := mustPut(t, service, "payload")
-	owner := Owner{Kind: OwnerKindResource, ID: "Workflow/demo"}
-	resolver := &testResolver{snapshots: map[Owner]OwnerSnapshot{owner: {Exists: true, Refs: []Ref{stored.Metadata.Ref}}}}
-	if err := service.RegisterOwnerResolver(OwnerKindResource, resolver); err != nil {
-		t.Fatalf("RegisterOwnerResolver() error = %v", err)
-	}
-	if err := service.Bind(context.Background(), stored.Metadata.Ref, Binding{Owner: owner}); err != nil {
-		t.Fatalf("Bind() error = %v", err)
-	}
-	resolver.err = ErrResolverUnavailable
-	if err := service.Delete(context.Background(), stored.Metadata.Ref); !errors.Is(err, ErrResolverUnavailable) {
-		t.Fatalf("Delete(no resolver) error = %v", err)
-	}
-	resolver.err = nil
-	resolver.snapshots[owner] = OwnerSnapshot{Exists: false}
 	objects.deleteErr = errors.New("delete unavailable")
 	if err := service.Delete(context.Background(), stored.Metadata.Ref); err == nil {
 		t.Fatal("Delete(partial) error = nil")
 	}
-	record, err := service.repo.asset(context.Background(), "09090909090909090909090909090909")
+	record, err := service.repo.asset(context.Background(), "08080808080808080808080808080808")
 	if err != nil || record.State != stateDeleting {
 		t.Fatalf("partial delete record = %#v, %v", record, err)
 	}
@@ -204,39 +205,57 @@ func TestDeleteFailsClosedAndRetriesPartialCleanup(t *testing.T) {
 	if err := service.Delete(context.Background(), stored.Metadata.Ref); err != nil {
 		t.Fatalf("Delete(retry) error = %v", err)
 	}
+	if _, _, err := service.Open(context.Background(), stored.Metadata.Ref); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("Open(deleted) error = %v", err)
+	}
+	if err := service.Delete(context.Background(), stored.Metadata.Ref); err != nil {
+		t.Fatalf("Delete(idempotent) error = %v", err)
+	}
 }
 
-func TestLiveBindingsAndReconcile(t *testing.T) {
+func TestReconcileReportsMissingReadyObject(t *testing.T) {
 	now := time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC)
-	resolver := &testResolver{snapshots: make(map[Owner]OwnerSnapshot)}
-	service, objects := newTestService(t, now, idSequence(idWithByte(10)))
-	if err := service.RegisterOwnerResolver(OwnerKindResource, resolver); err != nil {
+	service, objects := newTestService(t, now, idSequence(idWithByte(9)))
+	stored := mustPut(t, service, "payload")
+	id, err := stored.Metadata.Ref.id()
+	if err != nil {
 		t.Fatal(err)
 	}
-	stored := mustPut(t, service, "payload")
-	liveOwner := Owner{Kind: OwnerKindResource, ID: "Workflow/live"}
-	staleOwner := Owner{Kind: OwnerKindResource, ID: "Workflow/stale"}
-	resolver.snapshots[liveOwner] = OwnerSnapshot{Exists: true, Refs: []Ref{stored.Metadata.Ref}}
-	resolver.snapshots[staleOwner] = OwnerSnapshot{Exists: true, Refs: []Ref{stored.Metadata.Ref}}
-	for _, owner := range []Owner{liveOwner, staleOwner} {
-		if err := service.Bind(context.Background(), stored.Metadata.Ref, Binding{Owner: owner}); err != nil {
-			t.Fatal(err)
-		}
-	}
-	resolver.snapshots[staleOwner] = OwnerSnapshot{Exists: true}
-	live, err := service.LiveBindings(context.Background(), stored.Metadata.Ref)
-	if err != nil || len(live) != 1 || live[0].Owner != liveOwner {
-		t.Fatalf("LiveBindings() = %#v, %v", live, err)
-	}
-	delete(objects.data, objectName("0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"))
+	delete(objects.data, objectName(id))
 	if err := service.Reconcile(context.Background()); err == nil {
 		t.Fatal("Reconcile(missing ready object) error = nil")
 	}
 }
 
+func TestReconcileCleansInterruptedStates(t *testing.T) {
+	now := time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC)
+	service, objects := newTestService(t, now, idSequence(idWithByte(10)))
+	records := []assetRecord{
+		{SchemaVersion: assetSchemaVersion, ID: strings.Repeat("a", idHexLen), CreatedAt: now.Add(-stagingGrace), State: stateStaging},
+		{SchemaVersion: assetSchemaVersion, ID: strings.Repeat("b", idHexLen), CreatedAt: now, State: stateDeleting},
+	}
+	for _, record := range records {
+		if err := service.repo.putAsset(context.Background(), record); err != nil {
+			t.Fatal(err)
+		}
+		objects.data[objectName(record.ID)] = []byte("partial")
+	}
+	if err := service.Reconcile(context.Background()); err != nil {
+		t.Fatalf("Reconcile() error = %v", err)
+	}
+	for _, record := range records {
+		if _, err := service.repo.asset(context.Background(), record.ID); !errors.Is(err, ErrNotFound) {
+			t.Fatalf("asset(%s) error = %v", record.ID, err)
+		}
+		if _, exists := objects.data[objectName(record.ID)]; exists {
+			t.Fatalf("object %s still exists", record.ID)
+		}
+	}
+}
+
 func TestReconcileRejectsMalformedAssetID(t *testing.T) {
 	now := time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC)
-	service, _ := newTestService(t, now, idSequence(idWithByte(10)))
+	service, _ := newTestService(t, now, idSequence(idWithByte(11)))
 	record := assetRecord{
 		SchemaVersion: assetSchemaVersion,
 		ID:            "x",
@@ -250,7 +269,6 @@ func TestReconcileRejectsMalformedAssetID(t *testing.T) {
 	if err := service.repo.store.BatchSet(context.Background(), []kv.Entry{{Key: assetKey(record.ID), Value: data}}); err != nil {
 		t.Fatal(err)
 	}
-
 	if err := service.Reconcile(context.Background()); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("Reconcile(malformed id) error = %v", err)
 	}
@@ -258,7 +276,7 @@ func TestReconcileRejectsMalformedAssetID(t *testing.T) {
 
 func TestOpenAndReconcileRejectCorruptObject(t *testing.T) {
 	now := time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC)
-	service, objects := newTestService(t, now, idSequence(idWithByte(13)))
+	service, objects := newTestService(t, now, idSequence(idWithByte(12)))
 	stored := mustPut(t, service, "original")
 	id, err := stored.Metadata.Ref.id()
 	if err != nil {
@@ -279,51 +297,6 @@ func TestOpenAndReconcileRejectCorruptObject(t *testing.T) {
 	}
 	if err := service.Reconcile(context.Background()); !errors.Is(err, ErrIntegrity) {
 		t.Fatalf("Reconcile(corrupt) error = %v", err)
-	}
-}
-
-func TestProtectActivateAndForgedBind(t *testing.T) {
-	now := time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC)
-	resolver := &testResolver{snapshots: make(map[Owner]OwnerSnapshot)}
-	service, _ := newTestService(t, now, idSequence(idWithByte(12)))
-	if err := service.RegisterOwnerResolver(OwnerKindResource, resolver); err != nil {
-		t.Fatal(err)
-	}
-	stored := mustPut(t, service, "payload")
-	owner := Owner{Kind: OwnerKindResource, ID: "Workflow/pending"}
-	binding := Binding{Owner: owner}
-	if err := service.Bind(context.Background(), stored.Metadata.Ref, binding); !errors.Is(err, ErrInvalid) {
-		t.Fatalf("Bind(forged) error = %v", err)
-	}
-	if err := service.Protect(context.Background(), stored.Metadata.Ref, binding); err != nil {
-		t.Fatalf("Protect() error = %v", err)
-	}
-	if err := service.Delete(context.Background(), stored.Metadata.Ref); !errors.Is(err, ErrInUse) {
-		t.Fatalf("Delete(pending) error = %v", err)
-	}
-	resolver.snapshots[owner] = OwnerSnapshot{Exists: true, Refs: []Ref{stored.Metadata.Ref}}
-	if err := service.Activate(context.Background(), stored.Metadata.Ref, binding); err != nil {
-		t.Fatalf("Activate() error = %v", err)
-	}
-	live, err := service.LiveBindings(context.Background(), stored.Metadata.Ref)
-	if err != nil || len(live) != 1 || live[0].Owner != owner {
-		t.Fatalf("LiveBindings() = %#v, %v", live, err)
-	}
-}
-
-func TestOwnerValidation(t *testing.T) {
-	service, _ := newTestService(t, time.Now().UTC(), idSequence(idWithByte(11)))
-	stored := mustPut(t, service, "payload")
-	for _, owner := range []Owner{
-		{Kind: "unknown", ID: "Kind/name"},
-		{Kind: OwnerKindResource, ID: "missing-separator"},
-		{Kind: OwnerKindResource, ID: "Kind/"},
-		{Kind: OwnerKindFriendGroupMessage, ID: " group/message"},
-		{Kind: OwnerKindFriendGroupMessage, ID: "group/message/extra"},
-	} {
-		if err := service.Bind(context.Background(), stored.Metadata.Ref, Binding{Owner: owner}); !errors.Is(err, ErrInvalid) {
-			t.Fatalf("Bind(%#v) error = %v", owner, err)
-		}
 	}
 }
 
@@ -369,24 +342,6 @@ func idSequence(ids ...[idBytes]byte) IDGenerator {
 	}
 }
 
-type testResolver struct {
-	snapshots map[Owner]OwnerSnapshot
-	err       error
-}
-
-func (r *testResolver) ResolveAssetOwner(_ context.Context, owner Owner) (OwnerSnapshot, error) {
-	if r.err != nil {
-		return OwnerSnapshot{}, r.err
-	}
-	return r.snapshots[owner], nil
-}
-
-type ownerResolverFunc func(context.Context, Owner) (OwnerSnapshot, error)
-
-func (f ownerResolverFunc) ResolveAssetOwner(ctx context.Context, owner Owner) (OwnerSnapshot, error) {
-	return f(ctx, owner)
-}
-
 type memoryObjectStore struct {
 	mu        sync.Mutex
 	data      map[string][]byte
@@ -394,6 +349,24 @@ type memoryObjectStore struct {
 	putErr    error
 	getErr    error
 	deleteErr error
+}
+
+type failingKVStore struct {
+	kv.Store
+	mu             sync.Mutex
+	batchSetCalls  int
+	failBatchSetAt int
+	err            error
+}
+
+func (s *failingKVStore) BatchSet(ctx context.Context, entries []kv.Entry) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.batchSetCalls++
+	if s.batchSetCalls == s.failBatchSetAt {
+		return s.err
+	}
+	return s.Store.BatchSet(ctx, entries)
 }
 
 func (s *memoryObjectStore) Get(name string) (io.ReadCloser, error) {
@@ -404,7 +377,7 @@ func (s *memoryObjectStore) Get(name string) (io.ReadCloser, error) {
 	}
 	data, exists := s.data[name]
 	if !exists {
-		return nil, errors.New("file does not exist")
+		return nil, fs.ErrNotExist
 	}
 	return io.NopCloser(bytes.NewReader(append([]byte(nil), data...))), nil
 }

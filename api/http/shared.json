@@ -8,21 +8,6 @@
   "paths": {},
   "components": {
     "schemas": {
-      "Asset": {
-        "$ref": "./shared/asset.json#/components/schemas/Asset"
-      },
-      "AssetBinding": {
-        "$ref": "./shared/asset.json#/components/schemas/AssetBinding"
-      },
-      "AssetMetadata": {
-        "$ref": "./shared/asset.json#/components/schemas/AssetMetadata"
-      },
-      "AssetOwnerKind": {
-        "$ref": "./shared/asset.json#/components/schemas/AssetOwnerKind"
-      },
-      "AssetRef": {
-        "$ref": "./shared/asset.json#/components/schemas/AssetRef"
-      },
       "ACLPermission": {
         "$ref": "./shared/acl_permission.json#/components/schemas/ACLPermission"
       },

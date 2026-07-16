@@ -199,24 +199,6 @@ func (e ApplyAction) Valid() bool {
 	}
 }
 
-// Defines values for AssetOwnerKind.
-const (
-	AssetOwnerKindFriendGroupMessage AssetOwnerKind = "friend-group-message"
-	AssetOwnerKindResource           AssetOwnerKind = "resource"
-)
-
-// Valid indicates whether the value is a known member of the AssetOwnerKind enum.
-func (e AssetOwnerKind) Valid() bool {
-	switch e {
-	case AssetOwnerKindFriendGroupMessage:
-		return true
-	case AssetOwnerKindResource:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for BadgeDefResourceKind.
 const (
 	BadgeDefResourceKindBadgeDef BadgeDefResourceKind = "BadgeDef"
@@ -1690,36 +1672,6 @@ type ApplyResult struct {
 	Message *string      `json:"message,omitempty"`
 	Name    string       `json:"name"`
 }
-
-// Asset defines model for Asset.
-type Asset struct {
-	Bindings []AssetBinding `json:"bindings"`
-	Metadata AssetMetadata  `json:"metadata"`
-}
-
-// AssetBinding defines model for AssetBinding.
-type AssetBinding struct {
-	OwnerId   string         `json:"owner_id"`
-	OwnerKind AssetOwnerKind `json:"owner_kind"`
-}
-
-// AssetMetadata defines model for AssetMetadata.
-type AssetMetadata struct {
-	CreatedAt time.Time  `json:"created_at"`
-	ExpiresAt *time.Time `json:"expires_at,omitempty"`
-	MediaType string     `json:"media_type"`
-
-	// Ref Opaque reference to an immutable AssetService object.
-	Ref       AssetRef `json:"ref"`
-	Sha256    string   `json:"sha256"`
-	SizeBytes int64    `json:"size_bytes"`
-}
-
-// AssetOwnerKind defines model for AssetOwnerKind.
-type AssetOwnerKind string
-
-// AssetRef Opaque reference to an immutable AssetService object.
-type AssetRef = string
 
 // Badge defines model for Badge.
 type Badge struct {

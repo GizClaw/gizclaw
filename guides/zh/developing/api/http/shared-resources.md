@@ -21,7 +21,7 @@
 修改 Shared schema 时：
 
 - 从 `api/http/shared/` 中实际存在的 owner 文件开始，不使用按领域臆造的聚合文件名；
-- 跨 surface error、identity、runtime、asset、ACL、configuration、firmware、credential、model、voice、tool、workflow、workspace 与 provider tenant values 按所有权映射定位；
+- 跨 surface error、identity、runtime、ACL、configuration、firmware、credential、model、voice、tool、workflow、workspace 与 provider tenant values 按所有权映射定位；
 - Public-only DTO 留在 `peer.json`，Admin endpoint 专属 DTO 留在 `admin.json`，OpenAI-compatible DTO 留在 `openai-compat/v1/service.json`；
 - Resource envelope、metadata、Apply contract 与 Resource union 留在 `resources/resource.json`，Resource 专属数据留在对应 `resources/<kind>.json`。
 

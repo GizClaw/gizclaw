@@ -24,7 +24,6 @@ type EnumDesc = {
 
 export type ASTTranslateMode = "" | "s2s" | "s2t" | "unspecified" | number;
 export type ASTTranslateWorkspaceParametersAgentType = "" | "ast-translate" | "unspecified" | number;
-export type AssetOwnerKind = "" | "friend_group_message" | "resource" | "unspecified" | number;
 export type ChatRoomMode = "" | "direct" | "group" | "unspecified" | number;
 export type ChatRoomWorkspaceParametersAgentType = "" | "chatroom" | "unspecified" | number;
 export type DashScopeTenantModelProviderDataApiMode = "" | "chat_completions" | "realtime" | "unspecified" | number;
@@ -96,24 +95,6 @@ export type ASTTranslateWorkspaceParameters = {
 };
 export type AgentSelection = {
   "workspace_name": string;
-};
-export type AssetBinding = {
-  "owner_kind": AssetOwnerKind;
-  "owner_id": string;
-};
-export type AssetDownloadRequest = {
-  "ref": string;
-};
-export type AssetDownloadResponse = {
-  "metadata": AssetMetadata;
-};
-export type AssetMetadata = {
-  "ref": string;
-  "media_type": string;
-  "size_bytes": number;
-  "sha256": string;
-  "created_at": string;
-  "expires_at"?: string;
 };
 export type Badge = {
   "active": boolean;
@@ -1428,7 +1409,6 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.identifiers.get": "ClientGetIdentifiersRequest",
   "client.info.get": "ClientGetInfoRequest",
   "client.tool.invoke": "ToolInvokeRequest",
-  "server.asset.download": "AssetDownloadRequest",
   "server.badge_def.pixa.download": "BadgeDefPixaDownloadRequest",
   "server.badge.get": "ServerBadgeGetRequest",
   "server.badge.list": "ServerBadgeListRequest",
@@ -1532,7 +1512,6 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.identifiers.get": "ClientGetIdentifiersResponse",
   "client.info.get": "ClientGetInfoResponse",
   "client.tool.invoke": "ToolInvokeResponse",
-  "server.asset.download": "AssetDownloadResponse",
   "server.badge_def.pixa.download": "BadgeDefPixaDownloadResponse",
   "server.badge.get": "ServerBadgeGetResponse",
   "server.badge.list": "ServerBadgeListResponse",
@@ -1636,73 +1615,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "workspace_name",
         "number": 1,
-        "type": "string"
-      }
-    ]
-  },
-  "AssetBinding": {
-    "fields": [
-      {
-        "name": "owner_kind",
-        "number": 1,
-        "type": "AssetOwnerKind"
-      },
-      {
-        "name": "owner_id",
-        "number": 2,
-        "type": "string"
-      }
-    ]
-  },
-  "AssetDownloadRequest": {
-    "fields": [
-      {
-        "name": "ref",
-        "number": 1,
-        "type": "string"
-      }
-    ]
-  },
-  "AssetDownloadResponse": {
-    "fields": [
-      {
-        "name": "metadata",
-        "number": 1,
-        "type": "AssetMetadata"
-      }
-    ]
-  },
-  "AssetMetadata": {
-    "fields": [
-      {
-        "name": "ref",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "media_type",
-        "number": 2,
-        "type": "string"
-      },
-      {
-        "name": "size_bytes",
-        "number": 3,
-        "type": "int64"
-      },
-      {
-        "name": "sha256",
-        "number": 4,
-        "type": "string"
-      },
-      {
-        "name": "created_at",
-        "number": 5,
-        "type": "string"
-      },
-      {
-        "name": "expires_at",
-        "number": 6,
-        "optional": true,
         "type": "string"
       }
     ]
@@ -8093,18 +8005,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   }
 };
 const ENUM_DESCS: Record<string, EnumDesc> = {
-  "AssetOwnerKind": {
-    "byName": {
-      "friend_group_message": 2,
-      "resource": 1,
-      "unspecified": 0
-    },
-    "byNumber": {
-      "0": "",
-      "1": "resource",
-      "2": "friend_group_message"
-    }
-  },
   "ASTTranslateMode": {
     "byName": {
       "s2s": 2,

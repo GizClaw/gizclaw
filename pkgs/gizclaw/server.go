@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -29,7 +28,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/asset"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/resourcemanager"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -81,9 +79,6 @@ type Server struct {
 	BadgeDefStore                kv.Store
 	GameDefStore                 kv.Store
 	GameplayAssets               objectstore.ObjectStore
-	AssetMetadataStore           kv.Store
-	AssetObjects                 objectstore.ObjectStore
-	AssetMaxBytes                int64
 	GameplayDB                   *sql.DB
 	MetricsStore                 metrics.Store
 	ServerLogQuery               ServerLogQueryService
@@ -498,19 +493,7 @@ func (s *Server) init() error {
 	manager.ProviderTenants = providerTenantsServer
 	manager.Gameplay = gameplayRuntime
 	manager.Metrics = s.MetricsStore
-	var assetService *asset.Service
-	if s.AssetMetadataStore != nil || s.AssetObjects != nil {
-		if s.AssetMetadataStore == nil || s.AssetObjects == nil {
-			return errors.New("gizclaw: asset metadata and object stores must be configured together")
-		}
-		created, err := asset.New(s.AssetMetadataStore, s.AssetObjects, asset.Options{})
-		if err != nil {
-			return fmt.Errorf("gizclaw: initialize asset service: %w", err)
-		}
-		assetService = created
-	}
 	resourceManager := resourcemanager.New(resourcemanager.Services{
-		Assets:          assetService,
 		ACL:             aclServer,
 		Credentials:     credentialServer,
 		Firmwares:       firmwareServer,
@@ -526,19 +509,6 @@ func (s *Server) init() error {
 		GameplayCatalog: gameplayCatalog,
 		Tools:           toolServer,
 	})
-	if assetService != nil {
-		if err := assetService.RegisterOwnerResolver(asset.OwnerKindResource, resourceManager); err != nil {
-			return fmt.Errorf("gizclaw: register resource asset resolver: %w", err)
-		}
-		if err := assetService.RegisterOwnerResolver(asset.OwnerKindFriendGroupMessage, friendGroupServer); err != nil {
-			return fmt.Errorf("gizclaw: register friend-group asset resolver: %w", err)
-		}
-		if err := assetService.Reconcile(context.Background()); err != nil {
-			return fmt.Errorf("gizclaw: reconcile assets: %w", err)
-		}
-	}
-	manager.Assets = assetService
-	manager.ResourceManager = resourceManager
 
 	s.manager = manager
 	s.peerService = &PeerService{
@@ -562,8 +532,6 @@ func (s *Server) init() error {
 			ResourceManager:             resourceManager,
 			ServerLogs:                  s.ServerLogQuery,
 			PeerTelemetry:               &peertelemetry.AdminService{Metrics: s.MetricsStore},
-			Assets:                      assetService,
-			AssetMaxBytes:               s.AssetMaxBytes,
 		},
 		public: &peerHTTP{
 			PeerHTTPService: peersServer,

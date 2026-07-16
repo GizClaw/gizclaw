@@ -121,31 +121,3 @@ message SpeedTestResponse {
   int64 down_content_length = 1;
   int64 up_content_length = 2;
 }
-
-message AssetMetadata {
-  string ref = 1;
-  string media_type = 2;
-  int64 size_bytes = 3;
-  string sha256 = 4;
-  string created_at = 5;
-  optional string expires_at = 6;
-}
-
-message AssetDownloadRequest {
-  string ref = 1;
-}
-
-message AssetDownloadResponse {
-  AssetMetadata metadata = 1;
-}
-
-enum AssetOwnerKind {
-  ASSET_OWNER_KIND_UNSPECIFIED = 0;
-  ASSET_OWNER_KIND_RESOURCE = 1;
-  ASSET_OWNER_KIND_FRIEND_GROUP_MESSAGE = 2;
-}
-
-message AssetBinding {
-  AssetOwnerKind owner_kind = 1;
-  string owner_id = 2;
-}

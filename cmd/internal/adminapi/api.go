@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/http"
 	"strings"
-	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
@@ -1203,73 +1201,6 @@ func DeleteWorkspace(ctx context.Context, c *gizcli.Client, name string) (apityp
 		return *resp.JSON200, nil
 	}
 	return apitypes.Workspace{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
-}
-
-// UploadAsset streams an immutable binary into the server AssetService.
-func UploadAsset(ctx context.Context, c *gizcli.Client, mediaType string, expiresAt *time.Time, body io.Reader) (apitypes.Asset, error) {
-	api, err := c.ServerAdminClient()
-	if err != nil {
-		return apitypes.Asset{}, err
-	}
-	resp, err := api.UploadAssetWithBodyWithResponse(ctx, &adminhttp.UploadAssetParams{
-		MediaType: mediaType,
-		ExpiresAt: expiresAt,
-	}, "application/octet-stream", body)
-	if err != nil {
-		return apitypes.Asset{}, err
-	}
-	if resp.JSON201 != nil {
-		return *resp.JSON201, nil
-	}
-	return apitypes.Asset{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON413, resp.JSON500)
-}
-
-// GetAsset loads safe metadata and reverse bindings for an asset.
-func GetAsset(ctx context.Context, c *gizcli.Client, ref string) (apitypes.Asset, error) {
-	api, err := c.ServerAdminClient()
-	if err != nil {
-		return apitypes.Asset{}, err
-	}
-	resp, err := api.GetAssetWithResponse(ctx, &adminhttp.GetAssetParams{Ref: apitypes.AssetRef(ref)})
-	if err != nil {
-		return apitypes.Asset{}, err
-	}
-	if resp.JSON200 != nil {
-		return *resp.JSON200, nil
-	}
-	return apitypes.Asset{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON404, resp.JSON500)
-}
-
-// DownloadAsset returns the immutable asset bytes through the Admin surface.
-func DownloadAsset(ctx context.Context, c *gizcli.Client, ref string) ([]byte, error) {
-	api, err := c.ServerAdminClient()
-	if err != nil {
-		return nil, err
-	}
-	resp, err := api.DownloadAssetWithResponse(ctx, &adminhttp.DownloadAssetParams{Ref: apitypes.AssetRef(ref)})
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode() == http.StatusOK {
-		return resp.Body, nil
-	}
-	return nil, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON404, resp.JSON500)
-}
-
-// DeleteAsset removes an unbound asset.
-func DeleteAsset(ctx context.Context, c *gizcli.Client, ref string) error {
-	api, err := c.ServerAdminClient()
-	if err != nil {
-		return err
-	}
-	resp, err := api.DeleteAssetWithResponse(ctx, &adminhttp.DeleteAssetParams{Ref: apitypes.AssetRef(ref)})
-	if err != nil {
-		return err
-	}
-	if resp.StatusCode() == http.StatusNoContent {
-		return nil
-	}
-	return responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON404, resp.JSON409, resp.JSON500)
 }
 
 func responseError(status int, body []byte, errs ...interface{}) error {

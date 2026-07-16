@@ -81,14 +81,6 @@ stores:
     kind: keyvalue
     storage: memory
     prefix: workflows
-  assets:
-    kind: keyvalue
-    storage: memory
-    prefix: assets
-  asset-objects:
-    kind: objectstore
-    storage: local-files
-    prefix: assets
   acl:
     kind: sql
     storage: acl-db
