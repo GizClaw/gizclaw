@@ -6,6 +6,7 @@ package gizclaw.rpc.v1;
 
 import "google/protobuf/struct.proto";
 import "payload/enums.proto";
+import "payload/icon.proto";
 
 option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpb";
 
@@ -572,6 +573,18 @@ message Workflow {
   string name = 1;
   WorkflowSpec spec = 2;
   optional WorkflowI18nCatalog i18n = 3;
+  optional Icon icon = 4;
+}
+
+message WorkflowIconDownloadRequest {
+  string name = 1;
+  IconFormat format = 2;
+}
+
+message WorkflowIconDownloadResponse {
+  string name = 1;
+  IconFormat format = 2;
+  int64 size_bytes = 3;
 }
 
 message WorkflowGetRequest {

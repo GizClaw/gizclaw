@@ -5,6 +5,8 @@ syntax = "proto3";
 package gizclaw.rpc.v1;
 
 import "google/protobuf/struct.proto";
+import "payload/enums.proto";
+import "payload/icon.proto";
 
 option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpb";
 
@@ -26,6 +28,7 @@ message DeviceInfo {
   optional HardwareInfo hardware = 1;
   optional string name = 2;
   optional string sn = 3;
+  optional Icon icon = 4;
 }
 
 message HardwareInfo {
@@ -109,6 +112,31 @@ message ServerPutInfoRequest {
 }
 
 message ServerPutInfoResponse {
+  DeviceInfo value = 1;
+}
+
+message ServerInfoIconDeleteRequest {
+  IconFormat format = 1;
+}
+
+message ServerInfoIconDeleteResponse {
+  DeviceInfo value = 1;
+}
+
+message ServerInfoIconDownloadRequest {
+  IconFormat format = 1;
+}
+
+message ServerInfoIconDownloadResponse {
+  IconFormat format = 1;
+  int64 size_bytes = 2;
+}
+
+message ServerInfoIconUploadRequest {
+  IconFormat format = 1;
+}
+
+message ServerInfoIconUploadResponse {
   DeviceInfo value = 1;
 }
 

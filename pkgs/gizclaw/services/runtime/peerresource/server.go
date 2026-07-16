@@ -806,7 +806,12 @@ func workflowRPCProjection(item apitypes.Workflow, lang rpcapi.WorkflowLocale) (
 	if err != nil {
 		return rpcapi.Workflow{}, err
 	}
+	icon, err := convertType[*rpcapi.Icon](item.Icon)
+	if err != nil {
+		return rpcapi.Workflow{}, err
+	}
 	return rpcapi.Workflow{
+		Icon: icon,
 		Name: item.Name,
 		Spec: spec,
 		I18n: selectedWorkflowCatalog(item.I18n, lang),

@@ -17,7 +17,8 @@ import 'package:protobuf/protobuf.dart' as $pb;
 import 'package:protobuf/well_known_types/google/protobuf/struct.pb.dart' as $0;
 
 import 'ai.pb.dart' as $2;
-import 'enums.pbenum.dart' as $3;
+import 'enums.pbenum.dart' as $4;
+import 'icon.pb.dart' as $3;
 import 'system.pb.dart' as $1;
 
 export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
@@ -156,7 +157,7 @@ class PeerRunHistoryEntry extends $pb.GeneratedMessage {
     $core.String? name,
     $core.bool? replayAvailable,
     $core.String? text,
-    $3.PeerRunHistoryEntryType? type,
+    $4.PeerRunHistoryEntryType? type,
   }) {
     final result = create();
     if (createdAt != null) result.createdAt = createdAt;
@@ -188,8 +189,8 @@ class PeerRunHistoryEntry extends $pb.GeneratedMessage {
     ..aOS(4, _omitFieldNames ? '' : 'name')
     ..aOB(5, _omitFieldNames ? '' : 'replayAvailable')
     ..aOS(6, _omitFieldNames ? '' : 'text')
-    ..aE<$3.PeerRunHistoryEntryType>(7, _omitFieldNames ? '' : 'type',
-        enumValues: $3.PeerRunHistoryEntryType.values)
+    ..aE<$4.PeerRunHistoryEntryType>(7, _omitFieldNames ? '' : 'type',
+        enumValues: $4.PeerRunHistoryEntryType.values)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -266,9 +267,9 @@ class PeerRunHistoryEntry extends $pb.GeneratedMessage {
   void clearText() => $_clearField(6);
 
   @$pb.TagNumber(7)
-  $3.PeerRunHistoryEntryType get type => $_getN(6);
+  $4.PeerRunHistoryEntryType get type => $_getN(6);
   @$pb.TagNumber(7)
-  set type($3.PeerRunHistoryEntryType value) => $_setField(7, value);
+  set type($4.PeerRunHistoryEntryType value) => $_setField(7, value);
   @$pb.TagNumber(7)
   $core.bool hasType() => $_has(6);
   @$pb.TagNumber(7)
@@ -279,7 +280,7 @@ class PeerRunHistoryListRequest extends $pb.GeneratedMessage {
   factory PeerRunHistoryListRequest({
     $core.String? cursor,
     $fixnum.Int64? limit,
-    $3.PeerRunHistoryListRequestOrder? order,
+    $4.PeerRunHistoryListRequestOrder? order,
   }) {
     final result = create();
     if (cursor != null) result.cursor = cursor;
@@ -303,8 +304,8 @@ class PeerRunHistoryListRequest extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'cursor')
     ..aInt64(2, _omitFieldNames ? '' : 'limit')
-    ..aE<$3.PeerRunHistoryListRequestOrder>(3, _omitFieldNames ? '' : 'order',
-        enumValues: $3.PeerRunHistoryListRequestOrder.values)
+    ..aE<$4.PeerRunHistoryListRequestOrder>(3, _omitFieldNames ? '' : 'order',
+        enumValues: $4.PeerRunHistoryListRequestOrder.values)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -346,9 +347,9 @@ class PeerRunHistoryListRequest extends $pb.GeneratedMessage {
   void clearLimit() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $3.PeerRunHistoryListRequestOrder get order => $_getN(2);
+  $4.PeerRunHistoryListRequestOrder get order => $_getN(2);
   @$pb.TagNumber(3)
-  set order($3.PeerRunHistoryListRequestOrder value) => $_setField(3, value);
+  set order($4.PeerRunHistoryListRequestOrder value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasOrder() => $_has(2);
   @$pb.TagNumber(3)
@@ -1107,7 +1108,7 @@ class PeerRunStatus extends $pb.GeneratedMessage {
   factory PeerRunStatus({
     $core.String? message,
     $core.String? startedAt,
-    $3.PeerRunStatusState? state,
+    $4.PeerRunStatusState? state,
     $core.String? updatedAt,
     $core.String? workspaceName,
   }) {
@@ -1135,8 +1136,8 @@ class PeerRunStatus extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'message')
     ..aOS(2, _omitFieldNames ? '' : 'startedAt')
-    ..aE<$3.PeerRunStatusState>(3, _omitFieldNames ? '' : 'state',
-        enumValues: $3.PeerRunStatusState.values)
+    ..aE<$4.PeerRunStatusState>(3, _omitFieldNames ? '' : 'state',
+        enumValues: $4.PeerRunStatusState.values)
     ..aOS(4, _omitFieldNames ? '' : 'updatedAt')
     ..aOS(5, _omitFieldNames ? '' : 'workspaceName')
     ..hasRequiredFields = false;
@@ -1179,9 +1180,9 @@ class PeerRunStatus extends $pb.GeneratedMessage {
   void clearStartedAt() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $3.PeerRunStatusState get state => $_getN(2);
+  $4.PeerRunStatusState get state => $_getN(2);
   @$pb.TagNumber(3)
-  set state($3.PeerRunStatusState value) => $_setField(3, value);
+  set state($4.PeerRunStatusState value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasState() => $_has(2);
   @$pb.TagNumber(3)
@@ -1215,7 +1216,7 @@ class PeerRunWorkspaceState extends $pb.GeneratedMessage {
     $core.String? message,
     $core.String? pendingWorkspaceName,
     $core.bool? recallAvailable,
-    $3.PeerRunStatusState? runtimeState,
+    $4.PeerRunStatusState? runtimeState,
     $core.String? selectedWorkspaceName,
     $core.String? startedAt,
     $core.String? updatedAt,
@@ -1263,8 +1264,8 @@ class PeerRunWorkspaceState extends $pb.GeneratedMessage {
     ..aOS(5, _omitFieldNames ? '' : 'message')
     ..aOS(6, _omitFieldNames ? '' : 'pendingWorkspaceName')
     ..aOB(7, _omitFieldNames ? '' : 'recallAvailable')
-    ..aE<$3.PeerRunStatusState>(8, _omitFieldNames ? '' : 'runtimeState',
-        enumValues: $3.PeerRunStatusState.values)
+    ..aE<$4.PeerRunStatusState>(8, _omitFieldNames ? '' : 'runtimeState',
+        enumValues: $4.PeerRunStatusState.values)
     ..aOS(9, _omitFieldNames ? '' : 'selectedWorkspaceName')
     ..aOS(10, _omitFieldNames ? '' : 'startedAt')
     ..aOS(11, _omitFieldNames ? '' : 'updatedAt')
@@ -1356,9 +1357,9 @@ class PeerRunWorkspaceState extends $pb.GeneratedMessage {
   void clearRecallAvailable() => $_clearField(7);
 
   @$pb.TagNumber(8)
-  $3.PeerRunStatusState get runtimeState => $_getN(7);
+  $4.PeerRunStatusState get runtimeState => $_getN(7);
   @$pb.TagNumber(8)
-  set runtimeState($3.PeerRunStatusState value) => $_setField(8, value);
+  set runtimeState($4.PeerRunStatusState value) => $_setField(8, value);
   @$pb.TagNumber(8)
   $core.bool hasRuntimeState() => $_has(7);
   @$pb.TagNumber(8)
@@ -2985,6 +2986,7 @@ class Workspace extends $pb.GeneratedMessage {
     $core.String? workflowName,
     $2.ToolkitPolicy? toolkit,
     $core.bool? system,
+    $3.Icon? icon,
   }) {
     final result = create();
     if (createdAt != null) result.createdAt = createdAt;
@@ -2995,6 +2997,7 @@ class Workspace extends $pb.GeneratedMessage {
     if (workflowName != null) result.workflowName = workflowName;
     if (toolkit != null) result.toolkit = toolkit;
     if (system != null) result.system = system;
+    if (icon != null) result.icon = icon;
     return result;
   }
 
@@ -3021,6 +3024,7 @@ class Workspace extends $pb.GeneratedMessage {
     ..aOM<$2.ToolkitPolicy>(7, _omitFieldNames ? '' : 'toolkit',
         subBuilder: $2.ToolkitPolicy.create)
     ..aOB(8, _omitFieldNames ? '' : 'system')
+    ..aOM<$3.Icon>(9, _omitFieldNames ? '' : 'icon', subBuilder: $3.Icon.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3116,6 +3120,17 @@ class Workspace extends $pb.GeneratedMessage {
   $core.bool hasSystem() => $_has(7);
   @$pb.TagNumber(8)
   void clearSystem() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $3.Icon get icon => $_getN(8);
+  @$pb.TagNumber(9)
+  set icon($3.Icon value) => $_setField(9, value);
+  @$pb.TagNumber(9)
+  $core.bool hasIcon() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearIcon() => $_clearField(9);
+  @$pb.TagNumber(9)
+  $3.Icon ensureIcon() => $_ensure(8);
 }
 
 /// Field numbers match Workspace so existing create and put clients remain wire
@@ -3214,6 +3229,158 @@ class WorkspaceUpsert extends $pb.GeneratedMessage {
   void clearToolkit() => $_clearField(7);
   @$pb.TagNumber(7)
   $2.ToolkitPolicy ensureToolkit() => $_ensure(3);
+}
+
+class WorkspaceIconDownloadRequest extends $pb.GeneratedMessage {
+  factory WorkspaceIconDownloadRequest({
+    $core.String? name,
+    $4.IconFormat? format,
+  }) {
+    final result = create();
+    if (name != null) result.name = name;
+    if (format != null) result.format = format;
+    return result;
+  }
+
+  WorkspaceIconDownloadRequest._();
+
+  factory WorkspaceIconDownloadRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory WorkspaceIconDownloadRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'WorkspaceIconDownloadRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aE<$4.IconFormat>(2, _omitFieldNames ? '' : 'format',
+        enumValues: $4.IconFormat.values)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WorkspaceIconDownloadRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WorkspaceIconDownloadRequest copyWith(
+          void Function(WorkspaceIconDownloadRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as WorkspaceIconDownloadRequest))
+          as WorkspaceIconDownloadRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static WorkspaceIconDownloadRequest create() =>
+      WorkspaceIconDownloadRequest._();
+  @$core.override
+  WorkspaceIconDownloadRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static WorkspaceIconDownloadRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<WorkspaceIconDownloadRequest>(create);
+  static WorkspaceIconDownloadRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $4.IconFormat get format => $_getN(1);
+  @$pb.TagNumber(2)
+  set format($4.IconFormat value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasFormat() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearFormat() => $_clearField(2);
+}
+
+class WorkspaceIconDownloadResponse extends $pb.GeneratedMessage {
+  factory WorkspaceIconDownloadResponse({
+    $core.String? name,
+    $4.IconFormat? format,
+    $fixnum.Int64? sizeBytes,
+  }) {
+    final result = create();
+    if (name != null) result.name = name;
+    if (format != null) result.format = format;
+    if (sizeBytes != null) result.sizeBytes = sizeBytes;
+    return result;
+  }
+
+  WorkspaceIconDownloadResponse._();
+
+  factory WorkspaceIconDownloadResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory WorkspaceIconDownloadResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'WorkspaceIconDownloadResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aE<$4.IconFormat>(2, _omitFieldNames ? '' : 'format',
+        enumValues: $4.IconFormat.values)
+    ..aInt64(3, _omitFieldNames ? '' : 'sizeBytes')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WorkspaceIconDownloadResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WorkspaceIconDownloadResponse copyWith(
+          void Function(WorkspaceIconDownloadResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as WorkspaceIconDownloadResponse))
+          as WorkspaceIconDownloadResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static WorkspaceIconDownloadResponse create() =>
+      WorkspaceIconDownloadResponse._();
+  @$core.override
+  WorkspaceIconDownloadResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static WorkspaceIconDownloadResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<WorkspaceIconDownloadResponse>(create);
+  static WorkspaceIconDownloadResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $4.IconFormat get format => $_getN(1);
+  @$pb.TagNumber(2)
+  set format($4.IconFormat value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasFormat() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearFormat() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get sizeBytes => $_getI64(2);
+  @$pb.TagNumber(3)
+  set sizeBytes($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSizeBytes() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSizeBytes() => $_clearField(3);
 }
 
 class WorkspaceCreateRequest extends $pb.GeneratedMessage {
@@ -3853,7 +4020,7 @@ class WorkspaceHistoryListRequest extends $pb.GeneratedMessage {
   factory WorkspaceHistoryListRequest({
     $core.String? cursor,
     $fixnum.Int64? limit,
-    $3.WorkspaceHistoryListRequestOrder? order,
+    $4.WorkspaceHistoryListRequestOrder? order,
     $core.String? workspaceName,
   }) {
     final result = create();
@@ -3879,8 +4046,8 @@ class WorkspaceHistoryListRequest extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'cursor')
     ..aInt64(2, _omitFieldNames ? '' : 'limit')
-    ..aE<$3.WorkspaceHistoryListRequestOrder>(3, _omitFieldNames ? '' : 'order',
-        enumValues: $3.WorkspaceHistoryListRequestOrder.values)
+    ..aE<$4.WorkspaceHistoryListRequestOrder>(3, _omitFieldNames ? '' : 'order',
+        enumValues: $4.WorkspaceHistoryListRequestOrder.values)
     ..aOS(4, _omitFieldNames ? '' : 'workspaceName')
     ..hasRequiredFields = false;
 
@@ -3925,9 +4092,9 @@ class WorkspaceHistoryListRequest extends $pb.GeneratedMessage {
   void clearLimit() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $3.WorkspaceHistoryListRequestOrder get order => $_getN(2);
+  $4.WorkspaceHistoryListRequestOrder get order => $_getN(2);
   @$pb.TagNumber(3)
-  set order($3.WorkspaceHistoryListRequestOrder value) => $_setField(3, value);
+  set order($4.WorkspaceHistoryListRequestOrder value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasOrder() => $_has(2);
   @$pb.TagNumber(3)

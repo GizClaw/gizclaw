@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -107,6 +108,9 @@ func NewWithStorage(physical *storage.Storage, configs map[string]Config) (*Stor
 	if physical == nil && needsPhysicalStorage(configs) {
 		return nil, fmt.Errorf("stores: storage registry is nil")
 	}
+	if err := validateObjectStorePrefixes(configs); err != nil {
+		return nil, err
+	}
 	s := &Stores{
 		storage: physical,
 		kvs:     make(map[string]kv.Store),
@@ -189,6 +193,47 @@ func NewWithStorage(physical *storage.Storage, configs map[string]Config) (*Stor
 
 	ok = true
 	return s, nil
+}
+
+func validateObjectStorePrefixes(configs map[string]Config) error {
+	type logicalStore struct {
+		name   string
+		prefix string
+	}
+	groups := map[string][]logicalStore{}
+	for name, cfg := range configs {
+		if cfg.Kind != KindObjectStore || cfg.Storage == "" {
+			continue
+		}
+		prefix, err := parseObjectPrefix(cfg.Prefix)
+		if err != nil {
+			return fmt.Errorf("stores: objectstore %q prefix: %w", name, err)
+		}
+		if cfg.Prefix != prefix {
+			return fmt.Errorf("stores: objectstore %q prefix %q is not clean; use %q", name, cfg.Prefix, prefix)
+		}
+		groups[cfg.Storage] = append(groups[cfg.Storage], logicalStore{name: name, prefix: prefix})
+	}
+	for physical, logical := range groups {
+		if len(logical) < 2 {
+			continue
+		}
+		slices.SortFunc(logical, func(a, b logicalStore) int { return strings.Compare(a.name, b.name) })
+		for _, store := range logical {
+			if store.prefix == "" {
+				return fmt.Errorf("stores: physical objectstore %q is shared; logical store %q requires a non-empty prefix", physical, store.name)
+			}
+		}
+		for i := range logical {
+			for j := i + 1; j < len(logical); j++ {
+				a, b := logical[i], logical[j]
+				if a.prefix == b.prefix || strings.HasPrefix(a.prefix, b.prefix+"/") || strings.HasPrefix(b.prefix, a.prefix+"/") {
+					return fmt.Errorf("stores: physical objectstore %q has overlapping prefixes for logical stores %q (%q) and %q (%q)", physical, a.name, a.prefix, b.name, b.prefix)
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // KV returns the named kv.Store.

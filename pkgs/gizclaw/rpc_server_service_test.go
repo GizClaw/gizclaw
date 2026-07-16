@@ -13,6 +13,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
@@ -185,6 +186,34 @@ func TestRPCServerPeerMethods(t *testing.T) {
 	}
 	if serverGenX.lastSay.Text != "hello" || serverGenX.lastSay.VoiceID != "voice-1" {
 		t.Fatalf("ServerRunSay request = %+v", serverGenX.lastSay)
+	}
+}
+
+func TestRPCPeerIconDeleteUsesCallerIdentity(t *testing.T) {
+	t.Parallel()
+	for _, publicKey := range []giznet.PublicKey{{1}, {2}} {
+		publicKey := publicKey
+		t.Run(publicKey.String(), func(t *testing.T) {
+			t.Parallel()
+			fake := &fakeRPCPeerService{t: t, wantPublicKey: publicKey}
+			params := mustRPCParams(
+				rpcapi.ServerInfoIconDeleteRequest{Format: rpcapi.IconFormatPng},
+				(*rpcapi.RPCPayload).FromServerInfoIconDeleteRequest,
+			)
+			response, err := (&rpcServer{peer: fake, callerPublicKey: publicKey}).dispatch(
+				context.Background(),
+				newRPCRequest("delete-icon", rpcapi.RPCMethodServerInfoIconDelete, params),
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if response.Error != nil {
+				t.Fatalf("DeletePeerIcon() error = %#v", response.Error)
+			}
+			if fake.deletedIconFormat != iconasset.FormatPNG {
+				t.Fatalf("DeletePeerIcon() format = %q", fake.deletedIconFormat)
+			}
+		})
 	}
 }
 
@@ -524,6 +553,7 @@ type fakeRPCPeerService struct {
 	putInfoError       error
 	waitPutInfoContext bool
 	putInfoStarted     chan struct{}
+	deletedIconFormat  iconasset.Format
 }
 
 type fakeRPCRunWorkspaceResources struct {
@@ -593,6 +623,25 @@ func (f *fakeRPCPeerService) PutSelfInfo(ctx context.Context, publicKey giznet.P
 func (f *fakeRPCPeerService) GetSelfRuntime(_ context.Context, publicKey giznet.PublicKey) apitypes.Runtime {
 	f.checkPublicKey(publicKey)
 	return f.runtime
+}
+
+func (f *fakeRPCPeerService) DownloadSelfIcon(_ context.Context, publicKey giznet.PublicKey, _ iconasset.Format) (io.ReadCloser, int64, error) {
+	f.checkPublicKey(publicKey)
+	return http.NoBody, 0, nil
+}
+
+func (f *fakeRPCPeerService) UploadSelfIcon(_ context.Context, publicKey giznet.PublicKey, _ iconasset.Format, body io.Reader) (apitypes.DeviceInfo, error) {
+	f.checkPublicKey(publicKey)
+	if _, err := io.Copy(io.Discard, body); err != nil {
+		return apitypes.DeviceInfo{}, err
+	}
+	return f.info, nil
+}
+
+func (f *fakeRPCPeerService) DeleteSelfIcon(_ context.Context, publicKey giznet.PublicKey, format iconasset.Format) (apitypes.DeviceInfo, error) {
+	f.checkPublicKey(publicKey)
+	f.deletedIconFormat = format
+	return f.info, nil
 }
 
 func (f *fakeRPCPeerService) checkPublicKey(publicKey giznet.PublicKey) {

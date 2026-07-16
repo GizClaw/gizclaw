@@ -90,11 +90,22 @@ const DeviceInfo$json = {
     },
     {'1': 'name', '3': 2, '4': 1, '5': 9, '9': 1, '10': 'name', '17': true},
     {'1': 'sn', '3': 3, '4': 1, '5': 9, '9': 2, '10': 'sn', '17': true},
+    {
+      '1': 'icon',
+      '3': 4,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.Icon',
+      '9': 3,
+      '10': 'icon',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_hardware'},
     {'1': '_name'},
     {'1': '_sn'},
+    {'1': '_icon'},
   ],
 };
 
@@ -102,7 +113,8 @@ const DeviceInfo$json = {
 final $typed_data.Uint8List deviceInfoDescriptor = $convert.base64Decode(
     'CgpEZXZpY2VJbmZvEj0KCGhhcmR3YXJlGAEgASgLMhwuZ2l6Y2xhdy5ycGMudjEuSGFyZHdhcm'
     'VJbmZvSABSCGhhcmR3YXJliAEBEhcKBG5hbWUYAiABKAlIAVIEbmFtZYgBARITCgJzbhgDIAEo'
-    'CUgCUgJzbogBAUILCglfaGFyZHdhcmVCBwoFX25hbWVCBQoDX3Nu');
+    'CUgCUgJzbogBARItCgRpY29uGAQgASgLMhQuZ2l6Y2xhdy5ycGMudjEuSWNvbkgDUgRpY29uiA'
+    'EBQgsKCV9oYXJkd2FyZUIHCgVfbmFtZUIFCgNfc25CBwoFX2ljb24=');
 
 @$core.Deprecated('Use hardwareInfoDescriptor instead')
 const HardwareInfo$json = {
@@ -569,6 +581,134 @@ const ServerPutInfoResponse$json = {
 final $typed_data.Uint8List serverPutInfoResponseDescriptor = $convert.base64Decode(
     'ChVTZXJ2ZXJQdXRJbmZvUmVzcG9uc2USMAoFdmFsdWUYASABKAsyGi5naXpjbGF3LnJwYy52MS'
     '5EZXZpY2VJbmZvUgV2YWx1ZQ==');
+
+@$core.Deprecated('Use serverInfoIconDeleteRequestDescriptor instead')
+const ServerInfoIconDeleteRequest$json = {
+  '1': 'ServerInfoIconDeleteRequest',
+  '2': [
+    {
+      '1': 'format',
+      '3': 1,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.IconFormat',
+      '10': 'format'
+    },
+  ],
+};
+
+/// Descriptor for `ServerInfoIconDeleteRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List serverInfoIconDeleteRequestDescriptor =
+    $convert.base64Decode(
+        'ChtTZXJ2ZXJJbmZvSWNvbkRlbGV0ZVJlcXVlc3QSMgoGZm9ybWF0GAEgASgOMhouZ2l6Y2xhdy'
+        '5ycGMudjEuSWNvbkZvcm1hdFIGZm9ybWF0');
+
+@$core.Deprecated('Use serverInfoIconDeleteResponseDescriptor instead')
+const ServerInfoIconDeleteResponse$json = {
+  '1': 'ServerInfoIconDeleteResponse',
+  '2': [
+    {
+      '1': 'value',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.DeviceInfo',
+      '10': 'value'
+    },
+  ],
+};
+
+/// Descriptor for `ServerInfoIconDeleteResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List serverInfoIconDeleteResponseDescriptor =
+    $convert.base64Decode(
+        'ChxTZXJ2ZXJJbmZvSWNvbkRlbGV0ZVJlc3BvbnNlEjAKBXZhbHVlGAEgASgLMhouZ2l6Y2xhdy'
+        '5ycGMudjEuRGV2aWNlSW5mb1IFdmFsdWU=');
+
+@$core.Deprecated('Use serverInfoIconDownloadRequestDescriptor instead')
+const ServerInfoIconDownloadRequest$json = {
+  '1': 'ServerInfoIconDownloadRequest',
+  '2': [
+    {
+      '1': 'format',
+      '3': 1,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.IconFormat',
+      '10': 'format'
+    },
+  ],
+};
+
+/// Descriptor for `ServerInfoIconDownloadRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List serverInfoIconDownloadRequestDescriptor =
+    $convert.base64Decode(
+        'Ch1TZXJ2ZXJJbmZvSWNvbkRvd25sb2FkUmVxdWVzdBIyCgZmb3JtYXQYASABKA4yGi5naXpjbG'
+        'F3LnJwYy52MS5JY29uRm9ybWF0UgZmb3JtYXQ=');
+
+@$core.Deprecated('Use serverInfoIconDownloadResponseDescriptor instead')
+const ServerInfoIconDownloadResponse$json = {
+  '1': 'ServerInfoIconDownloadResponse',
+  '2': [
+    {
+      '1': 'format',
+      '3': 1,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.IconFormat',
+      '10': 'format'
+    },
+    {'1': 'size_bytes', '3': 2, '4': 1, '5': 3, '10': 'sizeBytes'},
+  ],
+};
+
+/// Descriptor for `ServerInfoIconDownloadResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List serverInfoIconDownloadResponseDescriptor =
+    $convert.base64Decode(
+        'Ch5TZXJ2ZXJJbmZvSWNvbkRvd25sb2FkUmVzcG9uc2USMgoGZm9ybWF0GAEgASgOMhouZ2l6Y2'
+        'xhdy5ycGMudjEuSWNvbkZvcm1hdFIGZm9ybWF0Eh0KCnNpemVfYnl0ZXMYAiABKANSCXNpemVC'
+        'eXRlcw==');
+
+@$core.Deprecated('Use serverInfoIconUploadRequestDescriptor instead')
+const ServerInfoIconUploadRequest$json = {
+  '1': 'ServerInfoIconUploadRequest',
+  '2': [
+    {
+      '1': 'format',
+      '3': 1,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.IconFormat',
+      '10': 'format'
+    },
+  ],
+};
+
+/// Descriptor for `ServerInfoIconUploadRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List serverInfoIconUploadRequestDescriptor =
+    $convert.base64Decode(
+        'ChtTZXJ2ZXJJbmZvSWNvblVwbG9hZFJlcXVlc3QSMgoGZm9ybWF0GAEgASgOMhouZ2l6Y2xhdy'
+        '5ycGMudjEuSWNvbkZvcm1hdFIGZm9ybWF0');
+
+@$core.Deprecated('Use serverInfoIconUploadResponseDescriptor instead')
+const ServerInfoIconUploadResponse$json = {
+  '1': 'ServerInfoIconUploadResponse',
+  '2': [
+    {
+      '1': 'value',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.DeviceInfo',
+      '10': 'value'
+    },
+  ],
+};
+
+/// Descriptor for `ServerInfoIconUploadResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List serverInfoIconUploadResponseDescriptor =
+    $convert.base64Decode(
+        'ChxTZXJ2ZXJJbmZvSWNvblVwbG9hZFJlc3BvbnNlEjAKBXZhbHVlGAEgASgLMhouZ2l6Y2xhdy'
+        '5ycGMudjEuRGV2aWNlSW5mb1IFdmFsdWU=');
 
 @$core.Deprecated('Use speedTestRequestDescriptor instead')
 const SpeedTestRequest$json = {

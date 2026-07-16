@@ -37,11 +37,13 @@ func (m *Manager) applyWorkflow(ctx context.Context, resource apitypes.Resource)
 			struct {
 				Spec apitypes.WorkflowSpec  `json:"spec"`
 				I18n *apitypes.WorkflowI18n `json:"i18n,omitempty"`
-			}{Spec: existing.Spec, I18n: existing.I18n},
+				Icon *apitypes.Icon         `json:"icon,omitempty"`
+			}{Spec: existing.Spec, I18n: existing.I18n, Icon: existing.Icon},
 			struct {
 				Spec apitypes.WorkflowSpec  `json:"spec"`
 				I18n *apitypes.WorkflowI18n `json:"i18n,omitempty"`
-			}{Spec: item.Spec, I18n: item.I18n},
+				Icon *apitypes.Icon         `json:"icon,omitempty"`
+			}{Spec: item.Spec, I18n: item.I18n, Icon: item.Icon},
 		)
 		if err != nil {
 			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
@@ -136,6 +138,7 @@ func resourceFromWorkflow(_ string, item apitypes.Workflow) (apitypes.Resource, 
 		Kind:       apitypes.WorkflowResourceKind(apitypes.ResourceKindWorkflow),
 		Metadata:   apitypes.ResourceMetadata{Name: item.Name},
 		I18n:       item.I18n,
+		Icon:       item.Icon,
 		Spec:       item.Spec,
 	})
 }
@@ -143,6 +146,7 @@ func resourceFromWorkflow(_ string, item apitypes.Workflow) (apitypes.Resource, 
 func workflowFromResource(item apitypes.WorkflowResource) apitypes.Workflow {
 	return apitypes.Workflow{
 		I18n: item.I18n,
+		Icon: item.Icon,
 		Name: item.Metadata.Name,
 		Spec: item.Spec,
 	}

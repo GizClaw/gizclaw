@@ -189,6 +189,7 @@ type DeviceInfo struct {
 	Hardware      *HardwareInfo          `protobuf:"bytes,1,opt,name=hardware,proto3,oneof" json:"hardware,omitempty"`
 	Name          *string                `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`
 	Sn            *string                `protobuf:"bytes,3,opt,name=sn,proto3,oneof" json:"sn,omitempty"`
+	Icon          *Icon                  `protobuf:"bytes,4,opt,name=icon,proto3,oneof" json:"icon,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -242,6 +243,13 @@ func (x *DeviceInfo) GetSn() string {
 		return *x.Sn
 	}
 	return ""
+}
+
+func (x *DeviceInfo) GetIcon() *Icon {
+	if x != nil {
+		return x.Icon
+	}
+	return nil
 }
 
 type HardwareInfo struct {
@@ -1096,6 +1104,278 @@ func (x *ServerPutInfoResponse) GetValue() *DeviceInfo {
 	return nil
 }
 
+type ServerInfoIconDeleteRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Format        IconFormat             `protobuf:"varint,1,opt,name=format,proto3,enum=gizclaw.rpc.v1.IconFormat" json:"format,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ServerInfoIconDeleteRequest) Reset() {
+	*x = ServerInfoIconDeleteRequest{}
+	mi := &file_payload_system_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerInfoIconDeleteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerInfoIconDeleteRequest) ProtoMessage() {}
+
+func (x *ServerInfoIconDeleteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_system_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerInfoIconDeleteRequest.ProtoReflect.Descriptor instead.
+func (*ServerInfoIconDeleteRequest) Descriptor() ([]byte, []int) {
+	return file_payload_system_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *ServerInfoIconDeleteRequest) GetFormat() IconFormat {
+	if x != nil {
+		return x.Format
+	}
+	return IconFormat_ICON_FORMAT_UNSPECIFIED
+}
+
+type ServerInfoIconDeleteResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Value         *DeviceInfo            `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ServerInfoIconDeleteResponse) Reset() {
+	*x = ServerInfoIconDeleteResponse{}
+	mi := &file_payload_system_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerInfoIconDeleteResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerInfoIconDeleteResponse) ProtoMessage() {}
+
+func (x *ServerInfoIconDeleteResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_system_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerInfoIconDeleteResponse.ProtoReflect.Descriptor instead.
+func (*ServerInfoIconDeleteResponse) Descriptor() ([]byte, []int) {
+	return file_payload_system_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *ServerInfoIconDeleteResponse) GetValue() *DeviceInfo {
+	if x != nil {
+		return x.Value
+	}
+	return nil
+}
+
+type ServerInfoIconDownloadRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Format        IconFormat             `protobuf:"varint,1,opt,name=format,proto3,enum=gizclaw.rpc.v1.IconFormat" json:"format,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ServerInfoIconDownloadRequest) Reset() {
+	*x = ServerInfoIconDownloadRequest{}
+	mi := &file_payload_system_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerInfoIconDownloadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerInfoIconDownloadRequest) ProtoMessage() {}
+
+func (x *ServerInfoIconDownloadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_system_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerInfoIconDownloadRequest.ProtoReflect.Descriptor instead.
+func (*ServerInfoIconDownloadRequest) Descriptor() ([]byte, []int) {
+	return file_payload_system_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *ServerInfoIconDownloadRequest) GetFormat() IconFormat {
+	if x != nil {
+		return x.Format
+	}
+	return IconFormat_ICON_FORMAT_UNSPECIFIED
+}
+
+type ServerInfoIconDownloadResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Format        IconFormat             `protobuf:"varint,1,opt,name=format,proto3,enum=gizclaw.rpc.v1.IconFormat" json:"format,omitempty"`
+	SizeBytes     int64                  `protobuf:"varint,2,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ServerInfoIconDownloadResponse) Reset() {
+	*x = ServerInfoIconDownloadResponse{}
+	mi := &file_payload_system_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerInfoIconDownloadResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerInfoIconDownloadResponse) ProtoMessage() {}
+
+func (x *ServerInfoIconDownloadResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_system_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerInfoIconDownloadResponse.ProtoReflect.Descriptor instead.
+func (*ServerInfoIconDownloadResponse) Descriptor() ([]byte, []int) {
+	return file_payload_system_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *ServerInfoIconDownloadResponse) GetFormat() IconFormat {
+	if x != nil {
+		return x.Format
+	}
+	return IconFormat_ICON_FORMAT_UNSPECIFIED
+}
+
+func (x *ServerInfoIconDownloadResponse) GetSizeBytes() int64 {
+	if x != nil {
+		return x.SizeBytes
+	}
+	return 0
+}
+
+type ServerInfoIconUploadRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Format        IconFormat             `protobuf:"varint,1,opt,name=format,proto3,enum=gizclaw.rpc.v1.IconFormat" json:"format,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ServerInfoIconUploadRequest) Reset() {
+	*x = ServerInfoIconUploadRequest{}
+	mi := &file_payload_system_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerInfoIconUploadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerInfoIconUploadRequest) ProtoMessage() {}
+
+func (x *ServerInfoIconUploadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_system_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerInfoIconUploadRequest.ProtoReflect.Descriptor instead.
+func (*ServerInfoIconUploadRequest) Descriptor() ([]byte, []int) {
+	return file_payload_system_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *ServerInfoIconUploadRequest) GetFormat() IconFormat {
+	if x != nil {
+		return x.Format
+	}
+	return IconFormat_ICON_FORMAT_UNSPECIFIED
+}
+
+type ServerInfoIconUploadResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Value         *DeviceInfo            `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ServerInfoIconUploadResponse) Reset() {
+	*x = ServerInfoIconUploadResponse{}
+	mi := &file_payload_system_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerInfoIconUploadResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerInfoIconUploadResponse) ProtoMessage() {}
+
+func (x *ServerInfoIconUploadResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_system_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerInfoIconUploadResponse.ProtoReflect.Descriptor instead.
+func (*ServerInfoIconUploadResponse) Descriptor() ([]byte, []int) {
+	return file_payload_system_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *ServerInfoIconUploadResponse) GetValue() *DeviceInfo {
+	if x != nil {
+		return x.Value
+	}
+	return nil
+}
+
 type SpeedTestRequest struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	DownContentLength int64                  `protobuf:"varint,1,opt,name=down_content_length,json=downContentLength,proto3" json:"down_content_length,omitempty"`
@@ -1106,7 +1386,7 @@ type SpeedTestRequest struct {
 
 func (x *SpeedTestRequest) Reset() {
 	*x = SpeedTestRequest{}
-	mi := &file_payload_system_proto_msgTypes[20]
+	mi := &file_payload_system_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1118,7 +1398,7 @@ func (x *SpeedTestRequest) String() string {
 func (*SpeedTestRequest) ProtoMessage() {}
 
 func (x *SpeedTestRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[20]
+	mi := &file_payload_system_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1131,7 +1411,7 @@ func (x *SpeedTestRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SpeedTestRequest.ProtoReflect.Descriptor instead.
 func (*SpeedTestRequest) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{20}
+	return file_payload_system_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *SpeedTestRequest) GetDownContentLength() int64 {
@@ -1158,7 +1438,7 @@ type SpeedTestResponse struct {
 
 func (x *SpeedTestResponse) Reset() {
 	*x = SpeedTestResponse{}
-	mi := &file_payload_system_proto_msgTypes[21]
+	mi := &file_payload_system_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1170,7 +1450,7 @@ func (x *SpeedTestResponse) String() string {
 func (*SpeedTestResponse) ProtoMessage() {}
 
 func (x *SpeedTestResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[21]
+	mi := &file_payload_system_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1183,7 +1463,7 @@ func (x *SpeedTestResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SpeedTestResponse.ProtoReflect.Descriptor instead.
 func (*SpeedTestResponse) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{21}
+	return file_payload_system_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *SpeedTestResponse) GetDownContentLength() int64 {
@@ -1204,21 +1484,23 @@ var File_payload_system_proto protoreflect.FileDescriptor
 
 const file_payload_system_proto_rawDesc = "" +
 	"\n" +
-	"\x14payload/system.proto\x12\x0egizclaw.rpc.v1\x1a\x1cgoogle/protobuf/struct.proto\"\x1d\n" +
+	"\x14payload/system.proto\x12\x0egizclaw.rpc.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x13payload/enums.proto\x1a\x12payload/icon.proto\"\x1d\n" +
 	"\x1bClientGetIdentifiersRequest\"X\n" +
 	"\x1cClientGetIdentifiersResponse\x128\n" +
 	"\x05value\x18\x01 \x01(\v2\".gizclaw.rpc.v1.RefreshIdentifiersR\x05value\"\x16\n" +
 	"\x14ClientGetInfoRequest\"J\n" +
 	"\x15ClientGetInfoResponse\x121\n" +
-	"\x05value\x18\x01 \x01(\v2\x1b.gizclaw.rpc.v1.RefreshInfoR\x05value\"\x96\x01\n" +
+	"\x05value\x18\x01 \x01(\v2\x1b.gizclaw.rpc.v1.RefreshInfoR\x05value\"\xce\x01\n" +
 	"\n" +
 	"DeviceInfo\x12=\n" +
 	"\bhardware\x18\x01 \x01(\v2\x1c.gizclaw.rpc.v1.HardwareInfoH\x00R\bhardware\x88\x01\x01\x12\x17\n" +
 	"\x04name\x18\x02 \x01(\tH\x01R\x04name\x88\x01\x01\x12\x13\n" +
-	"\x02sn\x18\x03 \x01(\tH\x02R\x02sn\x88\x01\x01B\v\n" +
+	"\x02sn\x18\x03 \x01(\tH\x02R\x02sn\x88\x01\x01\x12-\n" +
+	"\x04icon\x18\x04 \x01(\v2\x14.gizclaw.rpc.v1.IconH\x03R\x04icon\x88\x01\x01B\v\n" +
 	"\t_hardwareB\a\n" +
 	"\x05_nameB\x05\n" +
-	"\x03_sn\"\x98\x02\n" +
+	"\x03_snB\a\n" +
+	"\x05_icon\"\x98\x02\n" +
 	"\fHardwareInfo\x120\n" +
 	"\x11hardware_revision\x18\x01 \x01(\tH\x00R\x10hardwareRevision\x88\x01\x01\x12.\n" +
 	"\x05imeis\x18\x02 \x03(\v2\x18.gizclaw.rpc.v1.PeerIMEIR\x05imeis\x121\n" +
@@ -1302,6 +1584,20 @@ const file_payload_system_proto_rawDesc = "" +
 	"\x14ServerPutInfoRequest\x120\n" +
 	"\x05value\x18\x01 \x01(\v2\x1a.gizclaw.rpc.v1.DeviceInfoR\x05value\"I\n" +
 	"\x15ServerPutInfoResponse\x120\n" +
+	"\x05value\x18\x01 \x01(\v2\x1a.gizclaw.rpc.v1.DeviceInfoR\x05value\"Q\n" +
+	"\x1bServerInfoIconDeleteRequest\x122\n" +
+	"\x06format\x18\x01 \x01(\x0e2\x1a.gizclaw.rpc.v1.IconFormatR\x06format\"P\n" +
+	"\x1cServerInfoIconDeleteResponse\x120\n" +
+	"\x05value\x18\x01 \x01(\v2\x1a.gizclaw.rpc.v1.DeviceInfoR\x05value\"S\n" +
+	"\x1dServerInfoIconDownloadRequest\x122\n" +
+	"\x06format\x18\x01 \x01(\x0e2\x1a.gizclaw.rpc.v1.IconFormatR\x06format\"s\n" +
+	"\x1eServerInfoIconDownloadResponse\x122\n" +
+	"\x06format\x18\x01 \x01(\x0e2\x1a.gizclaw.rpc.v1.IconFormatR\x06format\x12\x1d\n" +
+	"\n" +
+	"size_bytes\x18\x02 \x01(\x03R\tsizeBytes\"Q\n" +
+	"\x1bServerInfoIconUploadRequest\x122\n" +
+	"\x06format\x18\x01 \x01(\x0e2\x1a.gizclaw.rpc.v1.IconFormatR\x06format\"P\n" +
+	"\x1cServerInfoIconUploadResponse\x120\n" +
 	"\x05value\x18\x01 \x01(\v2\x1a.gizclaw.rpc.v1.DeviceInfoR\x05value\"n\n" +
 	"\x10SpeedTestRequest\x12.\n" +
 	"\x13down_content_length\x18\x01 \x01(\x03R\x11downContentLength\x12*\n" +
@@ -1322,52 +1618,67 @@ func file_payload_system_proto_rawDescGZIP() []byte {
 	return file_payload_system_proto_rawDescData
 }
 
-var file_payload_system_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
+var file_payload_system_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
 var file_payload_system_proto_goTypes = []any{
-	(*ClientGetIdentifiersRequest)(nil),  // 0: gizclaw.rpc.v1.ClientGetIdentifiersRequest
-	(*ClientGetIdentifiersResponse)(nil), // 1: gizclaw.rpc.v1.ClientGetIdentifiersResponse
-	(*ClientGetInfoRequest)(nil),         // 2: gizclaw.rpc.v1.ClientGetInfoRequest
-	(*ClientGetInfoResponse)(nil),        // 3: gizclaw.rpc.v1.ClientGetInfoResponse
-	(*DeviceInfo)(nil),                   // 4: gizclaw.rpc.v1.DeviceInfo
-	(*HardwareInfo)(nil),                 // 5: gizclaw.rpc.v1.HardwareInfo
-	(*PeerIMEI)(nil),                     // 6: gizclaw.rpc.v1.PeerIMEI
-	(*PeerLabel)(nil),                    // 7: gizclaw.rpc.v1.PeerLabel
-	(*PeerStatus)(nil),                   // 8: gizclaw.rpc.v1.PeerStatus
-	(*PingRequest)(nil),                  // 9: gizclaw.rpc.v1.PingRequest
-	(*PingResponse)(nil),                 // 10: gizclaw.rpc.v1.PingResponse
-	(*RefreshIdentifiers)(nil),           // 11: gizclaw.rpc.v1.RefreshIdentifiers
-	(*RefreshInfo)(nil),                  // 12: gizclaw.rpc.v1.RefreshInfo
-	(*Runtime)(nil),                      // 13: gizclaw.rpc.v1.Runtime
-	(*ServerGetInfoRequest)(nil),         // 14: gizclaw.rpc.v1.ServerGetInfoRequest
-	(*ServerGetInfoResponse)(nil),        // 15: gizclaw.rpc.v1.ServerGetInfoResponse
-	(*ServerGetStatusRequest)(nil),       // 16: gizclaw.rpc.v1.ServerGetStatusRequest
-	(*ServerGetStatusResponse)(nil),      // 17: gizclaw.rpc.v1.ServerGetStatusResponse
-	(*ServerPutInfoRequest)(nil),         // 18: gizclaw.rpc.v1.ServerPutInfoRequest
-	(*ServerPutInfoResponse)(nil),        // 19: gizclaw.rpc.v1.ServerPutInfoResponse
-	(*SpeedTestRequest)(nil),             // 20: gizclaw.rpc.v1.SpeedTestRequest
-	(*SpeedTestResponse)(nil),            // 21: gizclaw.rpc.v1.SpeedTestResponse
-	nil,                                  // 22: gizclaw.rpc.v1.PeerStatus.LabelsEntry
-	(*structpb.Struct)(nil),              // 23: google.protobuf.Struct
+	(*ClientGetIdentifiersRequest)(nil),    // 0: gizclaw.rpc.v1.ClientGetIdentifiersRequest
+	(*ClientGetIdentifiersResponse)(nil),   // 1: gizclaw.rpc.v1.ClientGetIdentifiersResponse
+	(*ClientGetInfoRequest)(nil),           // 2: gizclaw.rpc.v1.ClientGetInfoRequest
+	(*ClientGetInfoResponse)(nil),          // 3: gizclaw.rpc.v1.ClientGetInfoResponse
+	(*DeviceInfo)(nil),                     // 4: gizclaw.rpc.v1.DeviceInfo
+	(*HardwareInfo)(nil),                   // 5: gizclaw.rpc.v1.HardwareInfo
+	(*PeerIMEI)(nil),                       // 6: gizclaw.rpc.v1.PeerIMEI
+	(*PeerLabel)(nil),                      // 7: gizclaw.rpc.v1.PeerLabel
+	(*PeerStatus)(nil),                     // 8: gizclaw.rpc.v1.PeerStatus
+	(*PingRequest)(nil),                    // 9: gizclaw.rpc.v1.PingRequest
+	(*PingResponse)(nil),                   // 10: gizclaw.rpc.v1.PingResponse
+	(*RefreshIdentifiers)(nil),             // 11: gizclaw.rpc.v1.RefreshIdentifiers
+	(*RefreshInfo)(nil),                    // 12: gizclaw.rpc.v1.RefreshInfo
+	(*Runtime)(nil),                        // 13: gizclaw.rpc.v1.Runtime
+	(*ServerGetInfoRequest)(nil),           // 14: gizclaw.rpc.v1.ServerGetInfoRequest
+	(*ServerGetInfoResponse)(nil),          // 15: gizclaw.rpc.v1.ServerGetInfoResponse
+	(*ServerGetStatusRequest)(nil),         // 16: gizclaw.rpc.v1.ServerGetStatusRequest
+	(*ServerGetStatusResponse)(nil),        // 17: gizclaw.rpc.v1.ServerGetStatusResponse
+	(*ServerPutInfoRequest)(nil),           // 18: gizclaw.rpc.v1.ServerPutInfoRequest
+	(*ServerPutInfoResponse)(nil),          // 19: gizclaw.rpc.v1.ServerPutInfoResponse
+	(*ServerInfoIconDeleteRequest)(nil),    // 20: gizclaw.rpc.v1.ServerInfoIconDeleteRequest
+	(*ServerInfoIconDeleteResponse)(nil),   // 21: gizclaw.rpc.v1.ServerInfoIconDeleteResponse
+	(*ServerInfoIconDownloadRequest)(nil),  // 22: gizclaw.rpc.v1.ServerInfoIconDownloadRequest
+	(*ServerInfoIconDownloadResponse)(nil), // 23: gizclaw.rpc.v1.ServerInfoIconDownloadResponse
+	(*ServerInfoIconUploadRequest)(nil),    // 24: gizclaw.rpc.v1.ServerInfoIconUploadRequest
+	(*ServerInfoIconUploadResponse)(nil),   // 25: gizclaw.rpc.v1.ServerInfoIconUploadResponse
+	(*SpeedTestRequest)(nil),               // 26: gizclaw.rpc.v1.SpeedTestRequest
+	(*SpeedTestResponse)(nil),              // 27: gizclaw.rpc.v1.SpeedTestResponse
+	nil,                                    // 28: gizclaw.rpc.v1.PeerStatus.LabelsEntry
+	(*Icon)(nil),                           // 29: gizclaw.rpc.v1.Icon
+	(*structpb.Struct)(nil),                // 30: google.protobuf.Struct
+	(IconFormat)(0),                        // 31: gizclaw.rpc.v1.IconFormat
 }
 var file_payload_system_proto_depIdxs = []int32{
 	11, // 0: gizclaw.rpc.v1.ClientGetIdentifiersResponse.value:type_name -> gizclaw.rpc.v1.RefreshIdentifiers
 	12, // 1: gizclaw.rpc.v1.ClientGetInfoResponse.value:type_name -> gizclaw.rpc.v1.RefreshInfo
 	5,  // 2: gizclaw.rpc.v1.DeviceInfo.hardware:type_name -> gizclaw.rpc.v1.HardwareInfo
-	6,  // 3: gizclaw.rpc.v1.HardwareInfo.imeis:type_name -> gizclaw.rpc.v1.PeerIMEI
-	7,  // 4: gizclaw.rpc.v1.HardwareInfo.labels:type_name -> gizclaw.rpc.v1.PeerLabel
-	23, // 5: gizclaw.rpc.v1.PeerStatus.details:type_name -> google.protobuf.Struct
-	22, // 6: gizclaw.rpc.v1.PeerStatus.labels:type_name -> gizclaw.rpc.v1.PeerStatus.LabelsEntry
-	6,  // 7: gizclaw.rpc.v1.RefreshIdentifiers.imeis:type_name -> gizclaw.rpc.v1.PeerIMEI
-	7,  // 8: gizclaw.rpc.v1.RefreshIdentifiers.labels:type_name -> gizclaw.rpc.v1.PeerLabel
-	4,  // 9: gizclaw.rpc.v1.ServerGetInfoResponse.value:type_name -> gizclaw.rpc.v1.DeviceInfo
-	8,  // 10: gizclaw.rpc.v1.ServerGetStatusResponse.value:type_name -> gizclaw.rpc.v1.PeerStatus
-	4,  // 11: gizclaw.rpc.v1.ServerPutInfoRequest.value:type_name -> gizclaw.rpc.v1.DeviceInfo
-	4,  // 12: gizclaw.rpc.v1.ServerPutInfoResponse.value:type_name -> gizclaw.rpc.v1.DeviceInfo
-	13, // [13:13] is the sub-list for method output_type
-	13, // [13:13] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	29, // 3: gizclaw.rpc.v1.DeviceInfo.icon:type_name -> gizclaw.rpc.v1.Icon
+	6,  // 4: gizclaw.rpc.v1.HardwareInfo.imeis:type_name -> gizclaw.rpc.v1.PeerIMEI
+	7,  // 5: gizclaw.rpc.v1.HardwareInfo.labels:type_name -> gizclaw.rpc.v1.PeerLabel
+	30, // 6: gizclaw.rpc.v1.PeerStatus.details:type_name -> google.protobuf.Struct
+	28, // 7: gizclaw.rpc.v1.PeerStatus.labels:type_name -> gizclaw.rpc.v1.PeerStatus.LabelsEntry
+	6,  // 8: gizclaw.rpc.v1.RefreshIdentifiers.imeis:type_name -> gizclaw.rpc.v1.PeerIMEI
+	7,  // 9: gizclaw.rpc.v1.RefreshIdentifiers.labels:type_name -> gizclaw.rpc.v1.PeerLabel
+	4,  // 10: gizclaw.rpc.v1.ServerGetInfoResponse.value:type_name -> gizclaw.rpc.v1.DeviceInfo
+	8,  // 11: gizclaw.rpc.v1.ServerGetStatusResponse.value:type_name -> gizclaw.rpc.v1.PeerStatus
+	4,  // 12: gizclaw.rpc.v1.ServerPutInfoRequest.value:type_name -> gizclaw.rpc.v1.DeviceInfo
+	4,  // 13: gizclaw.rpc.v1.ServerPutInfoResponse.value:type_name -> gizclaw.rpc.v1.DeviceInfo
+	31, // 14: gizclaw.rpc.v1.ServerInfoIconDeleteRequest.format:type_name -> gizclaw.rpc.v1.IconFormat
+	4,  // 15: gizclaw.rpc.v1.ServerInfoIconDeleteResponse.value:type_name -> gizclaw.rpc.v1.DeviceInfo
+	31, // 16: gizclaw.rpc.v1.ServerInfoIconDownloadRequest.format:type_name -> gizclaw.rpc.v1.IconFormat
+	31, // 17: gizclaw.rpc.v1.ServerInfoIconDownloadResponse.format:type_name -> gizclaw.rpc.v1.IconFormat
+	31, // 18: gizclaw.rpc.v1.ServerInfoIconUploadRequest.format:type_name -> gizclaw.rpc.v1.IconFormat
+	4,  // 19: gizclaw.rpc.v1.ServerInfoIconUploadResponse.value:type_name -> gizclaw.rpc.v1.DeviceInfo
+	20, // [20:20] is the sub-list for method output_type
+	20, // [20:20] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_payload_system_proto_init() }
@@ -1375,6 +1686,8 @@ func file_payload_system_proto_init() {
 	if File_payload_system_proto != nil {
 		return
 	}
+	file_payload_enums_proto_init()
+	file_payload_icon_proto_init()
 	file_payload_system_proto_msgTypes[4].OneofWrappers = []any{}
 	file_payload_system_proto_msgTypes[5].OneofWrappers = []any{}
 	file_payload_system_proto_msgTypes[6].OneofWrappers = []any{}
@@ -1388,7 +1701,7 @@ func file_payload_system_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payload_system_proto_rawDesc), len(file_payload_system_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   23,
+			NumMessages:   29,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

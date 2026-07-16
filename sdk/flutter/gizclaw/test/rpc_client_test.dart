@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:gizclaw/src/generated/rpc/rpc.pb.dart' as rpc;
 import 'package:gizclaw/src/generated/rpc/payload.pb.dart' as payload;
+import 'package:gizclaw/src/generated/rpc/payload/enums.pbenum.dart' as enums;
 import 'package:gizclaw/src/payload_codec.dart';
 import 'package:gizclaw/src/rpc_client.dart';
 import 'package:gizclaw/src/rpc_frame.dart';
@@ -44,6 +46,48 @@ void main() {
 
     final decoded = await future;
     expect(decoded.value.name, 'demo-workspace');
+  });
+
+  test('streams binary upload frames after the request envelope', () async {
+    final factory = FakeDataChannelFactory();
+    final client = PeerRpcClient(factory, createId: () => 'rpc-upload');
+    final body = Uint8List.fromList(List<int>.generate(70000, (i) => i % 251));
+
+    final future = client.callUpload<payload.ServerInfoIconUploadResponse>(
+      'server.info.icon.upload',
+      payload.ServerInfoIconUploadRequest(
+        format: enums.IconFormat.ICON_FORMAT_PNG,
+      ),
+      body,
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    final frames = decodeFrames(factory.channels.single.sent.single);
+    expect(frames.last.type, rpcFrameTypeEos);
+    expect(frames.sublist(1, frames.length - 1), hasLength(2));
+    expect(
+      concatBytes(frames.sublist(1, frames.length - 1).map((f) => f.payload)),
+      body,
+    );
+
+    factory.channels.single.addMessage(
+      concatBytes([
+        ...encodeEnvelopeFrames(
+          rpc.RpcResponse(
+            id: 'rpc-upload',
+            payload: encodeRpcResponsePayload(
+              'server.info.icon.upload',
+              payload.ServerInfoIconUploadResponse(
+                value: payload.DeviceInfo(name: 'mobile'),
+              ),
+            ),
+          ).writeToBuffer(),
+        ),
+        encodeFrame(rpcFrameTypeEos),
+      ]),
+    );
+
+    expect((await future).value.name, 'mobile');
   });
 
   test('surfaces protobuf RPC errors', () async {

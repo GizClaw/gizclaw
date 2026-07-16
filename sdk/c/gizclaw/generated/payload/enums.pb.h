@@ -10,6 +10,12 @@
 #endif
 
 /* Enum definitions */
+typedef enum _gizclaw_rpc_v1_IconFormat {
+    gizclaw_rpc_v1_IconFormat_ICON_FORMAT_UNSPECIFIED = 0,
+    gizclaw_rpc_v1_IconFormat_ICON_FORMAT_PIXA = 1,
+    gizclaw_rpc_v1_IconFormat_ICON_FORMAT_PNG = 2
+} gizclaw_rpc_v1_IconFormat;
+
 typedef enum _gizclaw_rpc_v1_ASTTranslateMode {
     gizclaw_rpc_v1_ASTTranslateMode_ASTTRANSLATE_MODE_UNSPECIFIED = 0,
     gizclaw_rpc_v1_ASTTranslateMode_ASTTRANSLATE_MODE_S2T = 1,
@@ -232,6 +238,10 @@ extern "C" {
 #endif
 
 /* Helper constants for enums */
+#define _gizclaw_rpc_v1_IconFormat_MIN gizclaw_rpc_v1_IconFormat_ICON_FORMAT_UNSPECIFIED
+#define _gizclaw_rpc_v1_IconFormat_MAX gizclaw_rpc_v1_IconFormat_ICON_FORMAT_PNG
+#define _gizclaw_rpc_v1_IconFormat_ARRAYSIZE ((gizclaw_rpc_v1_IconFormat)(gizclaw_rpc_v1_IconFormat_ICON_FORMAT_PNG+1))
+
 #define _gizclaw_rpc_v1_ASTTranslateMode_MIN gizclaw_rpc_v1_ASTTranslateMode_ASTTRANSLATE_MODE_UNSPECIFIED
 #define _gizclaw_rpc_v1_ASTTranslateMode_MAX gizclaw_rpc_v1_ASTTranslateMode_ASTTRANSLATE_MODE_S2S
 #define _gizclaw_rpc_v1_ASTTranslateMode_ARRAYSIZE ((gizclaw_rpc_v1_ASTTranslateMode)(gizclaw_rpc_v1_ASTTranslateMode_ASTTRANSLATE_MODE_S2S+1))

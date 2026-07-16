@@ -15,6 +15,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
@@ -38,6 +39,7 @@ type Catalog struct {
 	GameDefs     kv.Store
 	Assets       objectstore.ObjectStore
 	Now          func() time.Time
+	IconLocks    iconasset.Locker
 }
 
 type CatalogAdminService interface {
@@ -68,6 +70,14 @@ type CatalogAdminService interface {
 }
 
 var _ CatalogAdminService = (*Catalog)(nil)
+
+type GameDefIconAdminService interface {
+	DownloadGameDefIcon(context.Context, adminhttp.DownloadGameDefIconRequestObject) (adminhttp.DownloadGameDefIconResponseObject, error)
+	UploadGameDefIcon(context.Context, adminhttp.UploadGameDefIconRequestObject) (adminhttp.UploadGameDefIconResponseObject, error)
+	DeleteGameDefIcon(context.Context, adminhttp.DeleteGameDefIconRequestObject) (adminhttp.DeleteGameDefIconResponseObject, error)
+}
+
+var _ GameDefIconAdminService = (*Catalog)(nil)
 
 func (c *Catalog) ListGameRulesets(ctx context.Context, request adminhttp.ListGameRulesetsRequestObject) (adminhttp.ListGameRulesetsResponseObject, error) {
 	store, err := c.store(c.GameRulesets, "game rulesets")
@@ -497,6 +507,9 @@ func (c *Catalog) CreateGameDef(ctx context.Context, request adminhttp.CreateGam
 	if request.Body == nil {
 		return adminhttp.CreateGameDef400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_DEF", "request body required")), nil
 	}
+	if request.Body.Icon != nil {
+		return adminhttp.CreateGameDef400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_DEF", "icon object names are managed by the icon API")), nil
+	}
 	store, err := c.store(c.GameDefs, "game defs")
 	if err != nil {
 		return adminhttp.CreateGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -526,12 +539,24 @@ func (c *Catalog) DeleteGameDef(ctx context.Context, request adminhttp.DeleteGam
 	if err != nil {
 		return nil, err
 	}
+	unlock := c.IconLocks.LockOwner(id)
+	defer unlock()
 	item, err := readJSON[apitypes.GameDef](ctx, store, gameDefKey(id))
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
 			return adminhttp.DeleteGameDef404JSONResponse(apitypes.NewErrorResponse("GAME_DEF_NOT_FOUND", fmt.Sprintf("game def %q not found", id))), nil
 		}
 		return adminhttp.DeleteGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	if item.Icon != nil && c.Assets == nil {
+		return adminhttp.DeleteGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "gameplay asset store not configured")), nil
+	}
+	if c.Assets != nil {
+		for _, format := range []iconasset.Format{iconasset.FormatPixa, iconasset.FormatPNG} {
+			if err := c.Assets.Delete(iconasset.GameDefObjectName(id, format)); err != nil {
+				return adminhttp.DeleteGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed to delete game def icon")), nil
+			}
+		}
 	}
 	if err := store.Delete(ctx, gameDefKey(id)); err != nil {
 		return adminhttp.DeleteGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -562,9 +587,14 @@ func (c *Catalog) PutGameDef(ctx context.Context, request adminhttp.PutGameDefRe
 	if err != nil {
 		return nil, err
 	}
+	unlock := c.IconLocks.LockRecord(id)
+	defer unlock()
 	previous, err := readJSON[apitypes.GameDef](ctx, store, gameDefKey(id))
 	if err != nil && !errors.Is(err, kv.ErrNotFound) {
 		return adminhttp.PutGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	if err := iconasset.ValidateProjection(previous.Icon, request.Body.Icon); err != nil {
+		return adminhttp.PutGameDef400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_DEF", err.Error())), nil
 	}
 	createdAt := time.Time{}
 	if err == nil {
@@ -574,6 +604,7 @@ func (c *Catalog) PutGameDef(ctx context.Context, request adminhttp.PutGameDefRe
 	if err != nil {
 		return adminhttp.PutGameDef400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_DEF", err.Error())), nil
 	}
+	item.Icon = previous.Icon
 	if err := writeJSON(ctx, store, gameDefKey(item.Id), item); err != nil {
 		return adminhttp.PutGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}

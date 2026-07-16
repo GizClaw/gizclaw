@@ -36,6 +36,9 @@
           "toolkit": {
             "$ref": "./toolkit_policy.json#/components/schemas/ToolkitPolicy"
           },
+          "icon": {
+            "$ref": "./icon.json#/components/schemas/Icon"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time"

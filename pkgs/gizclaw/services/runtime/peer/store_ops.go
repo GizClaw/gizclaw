@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -57,10 +58,16 @@ func isAutoConnectedPeer(peer apitypes.Peer) bool {
 }
 
 func (s *Server) putInfo(ctx context.Context, publicKey giznet.PublicKey, info apitypes.DeviceInfo) (apitypes.Peer, error) {
+	unlock := s.IconLocks.LockRecord(publicKey.String())
+	defer unlock()
 	peer, err := s.get(ctx, publicKey)
 	if err != nil {
 		return apitypes.Peer{}, err
 	}
+	if err := iconasset.ValidateProjection(peer.Device.Icon, info.Icon); err != nil {
+		return apitypes.Peer{}, err
+	}
+	info.Icon = peer.Device.Icon
 	peer.Device = info
 	return s.put(ctx, peer)
 }
@@ -139,9 +146,21 @@ func (s *Server) block(ctx context.Context, publicKey giznet.PublicKey) (apitype
 }
 
 func (s *Server) delete(ctx context.Context, publicKey giznet.PublicKey) (apitypes.Peer, error) {
+	unlock := s.IconLocks.LockOwner(publicKey.String())
+	defer unlock()
 	peer, err := s.get(ctx, publicKey)
 	if err != nil {
 		return apitypes.Peer{}, err
+	}
+	if peer.Device.Icon != nil && s.Assets == nil {
+		return apitypes.Peer{}, errors.New("peer: asset store not configured")
+	}
+	if s.Assets != nil {
+		for _, format := range []iconasset.Format{iconasset.FormatPixa, iconasset.FormatPNG} {
+			if err := s.Assets.Delete(iconasset.ObjectName(publicKey.String(), format)); err != nil {
+				return apitypes.Peer{}, errors.New("peer: failed to delete icon")
+			}
+		}
 	}
 	store, err := s.store()
 	if err != nil {

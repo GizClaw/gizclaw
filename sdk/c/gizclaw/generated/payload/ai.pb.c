@@ -270,6 +270,12 @@ PB_BIND(gizclaw_rpc_v1_VolcTenantVoiceProviderData, gizclaw_rpc_v1_VolcTenantVoi
 PB_BIND(gizclaw_rpc_v1_Workflow, gizclaw_rpc_v1_Workflow, 2)
 
 
+PB_BIND(gizclaw_rpc_v1_WorkflowIconDownloadRequest, gizclaw_rpc_v1_WorkflowIconDownloadRequest, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_WorkflowIconDownloadResponse, gizclaw_rpc_v1_WorkflowIconDownloadResponse, 2)
+
+
 PB_BIND(gizclaw_rpc_v1_WorkflowGetRequest, gizclaw_rpc_v1_WorkflowGetRequest, AUTO)
 
 

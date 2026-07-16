@@ -128,6 +128,9 @@
       "HardwareInfo": {
         "$ref": "./shared/hardware_info.json#/components/schemas/HardwareInfo"
       },
+      "Icon": {
+        "$ref": "./shared/icon.json#/components/schemas/Icon"
+      },
       "Registration": {
         "$ref": "./shared/registration.json#/components/schemas/Registration"
       },

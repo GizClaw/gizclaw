@@ -79,6 +79,9 @@ type Server struct {
 	BadgeDefStore                kv.Store
 	GameDefStore                 kv.Store
 	GameplayAssets               objectstore.ObjectStore
+	PeerAssets                   objectstore.ObjectStore
+	WorkspaceAssets              objectstore.ObjectStore
+	WorkflowAssets               objectstore.ObjectStore
 	GameplayDB                   *sqlx.DB
 	MetricsStore                 metrics.Store
 	ServerLogQuery               ServerLogQueryService
@@ -338,6 +341,9 @@ func (s *Server) init() error {
 		s.BadgeDefStore == nil &&
 		s.GameDefStore == nil &&
 		s.GameplayAssets == nil &&
+		s.PeerAssets == nil &&
+		s.WorkspaceAssets == nil &&
+		s.WorkflowAssets == nil &&
 		s.GameplayDB == nil &&
 		s.FriendGroupMessageDefaultTTL == 0 &&
 		s.FriendGroupMessageMaxTTL == 0 &&
@@ -385,6 +391,7 @@ func (s *Server) init() error {
 		ICETCP:          s.PublicICETCP,
 		ICEServers:      s.ICEServers,
 		DefaultPeerView: s.DefaultPeerView,
+		Assets:          s.PeerAssets,
 	}
 	manager := NewManager(peersServer)
 	manager.PetWorkflow = s.PetWorkflow
@@ -400,8 +407,8 @@ func (s *Server) init() error {
 		return err
 	}
 
-	workflowServer := &workflow.Server{Store: workflowStore}
-	workspaceServer := &workspace.Server{Store: workspaceStore, WorkflowStore: workflowStore}
+	workflowServer := &workflow.Server{Store: workflowStore, Assets: s.WorkflowAssets}
+	workspaceServer := &workspace.Server{Store: workspaceStore, WorkflowStore: workflowStore, Assets: s.WorkspaceAssets}
 	if s.AgentHostStore != nil {
 		workspaceServer.RuntimeStore = workspace.NewObjectRuntimeStore(s.AgentHostStore)
 	}
@@ -517,15 +524,19 @@ func (s *Server) init() error {
 			CredentialAdminService:      credentialServer,
 			FirmwareAdminService:        firmwareServer,
 			PeerAdminService:            peersServer,
+			PeerIconAdminService:        peersServer,
 			ModelAdminService:           modelServer,
 			VoiceAdminService:           voiceServer,
 			ProviderTenantsAdminService: providerTenantsServer,
 			WorkspaceAdminService:       workspaceServer,
+			WorkspaceIconAdminService:   workspaceServer,
 			WorkflowAdminService:        workflowServer,
+			WorkflowIconAdminService:    workflowServer,
 			Contacts:                    contactServer,
 			Friends:                     friendServer,
 			FriendGroups:                friendGroupServer,
 			CatalogAdminService:         gameplayCatalog,
+			GameDefIconAdminService:     gameplayCatalog,
 			Gameplay:                    gameplayRuntime,
 			ACL:                         aclServer,
 			ResourceManager:             resourceManager,

@@ -1217,10 +1217,21 @@ const Workspace$json = {
       '17': true
     },
     {'1': 'system', '3': 8, '4': 1, '5': 8, '10': 'system'},
+    {
+      '1': 'icon',
+      '3': 9,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.Icon',
+      '9': 2,
+      '10': 'icon',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_parameters'},
     {'1': '_toolkit'},
+    {'1': '_icon'},
   ],
 };
 
@@ -1231,8 +1242,9 @@ final $typed_data.Uint8List workspaceDescriptor = $convert.base64Decode(
     'ZXJzGAQgASgLMiMuZ2l6Y2xhdy5ycGMudjEuV29ya3NwYWNlUGFyYW1ldGVyc0gAUgpwYXJhbW'
     'V0ZXJziAEBEh0KCnVwZGF0ZWRfYXQYBSABKAlSCXVwZGF0ZWRBdBIjCg13b3JrZmxvd19uYW1l'
     'GAYgASgJUgx3b3JrZmxvd05hbWUSPAoHdG9vbGtpdBgHIAEoCzIdLmdpemNsYXcucnBjLnYxLl'
-    'Rvb2xraXRQb2xpY3lIAVIHdG9vbGtpdIgBARIWCgZzeXN0ZW0YCCABKAhSBnN5c3RlbUINCgtf'
-    'cGFyYW1ldGVyc0IKCghfdG9vbGtpdA==');
+    'Rvb2xraXRQb2xpY3lIAVIHdG9vbGtpdIgBARIWCgZzeXN0ZW0YCCABKAhSBnN5c3RlbRItCgRp'
+    'Y29uGAkgASgLMhQuZ2l6Y2xhdy5ycGMudjEuSWNvbkgCUgRpY29uiAEBQg0KC19wYXJhbWV0ZX'
+    'JzQgoKCF90b29sa2l0QgcKBV9pY29u');
 
 @$core.Deprecated('Use workspaceUpsertDescriptor instead')
 const WorkspaceUpsert$json = {
@@ -1274,6 +1286,52 @@ final $typed_data.Uint8List workspaceUpsertDescriptor = $convert.base64Decode(
     'EiMKDXdvcmtmbG93X25hbWUYBiABKAlSDHdvcmtmbG93TmFtZRI8Cgd0b29sa2l0GAcgASgLMh'
     '0uZ2l6Y2xhdy5ycGMudjEuVG9vbGtpdFBvbGljeUgBUgd0b29sa2l0iAEBQg0KC19wYXJhbWV0'
     'ZXJzQgoKCF90b29sa2l0');
+
+@$core.Deprecated('Use workspaceIconDownloadRequestDescriptor instead')
+const WorkspaceIconDownloadRequest$json = {
+  '1': 'WorkspaceIconDownloadRequest',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+    {
+      '1': 'format',
+      '3': 2,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.IconFormat',
+      '10': 'format'
+    },
+  ],
+};
+
+/// Descriptor for `WorkspaceIconDownloadRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List workspaceIconDownloadRequestDescriptor =
+    $convert.base64Decode(
+        'ChxXb3Jrc3BhY2VJY29uRG93bmxvYWRSZXF1ZXN0EhIKBG5hbWUYASABKAlSBG5hbWUSMgoGZm'
+        '9ybWF0GAIgASgOMhouZ2l6Y2xhdy5ycGMudjEuSWNvbkZvcm1hdFIGZm9ybWF0');
+
+@$core.Deprecated('Use workspaceIconDownloadResponseDescriptor instead')
+const WorkspaceIconDownloadResponse$json = {
+  '1': 'WorkspaceIconDownloadResponse',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+    {
+      '1': 'format',
+      '3': 2,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.IconFormat',
+      '10': 'format'
+    },
+    {'1': 'size_bytes', '3': 3, '4': 1, '5': 3, '10': 'sizeBytes'},
+  ],
+};
+
+/// Descriptor for `WorkspaceIconDownloadResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List workspaceIconDownloadResponseDescriptor =
+    $convert.base64Decode(
+        'Ch1Xb3Jrc3BhY2VJY29uRG93bmxvYWRSZXNwb25zZRISCgRuYW1lGAEgASgJUgRuYW1lEjIKBm'
+        'Zvcm1hdBgCIAEoDjIaLmdpemNsYXcucnBjLnYxLkljb25Gb3JtYXRSBmZvcm1hdBIdCgpzaXpl'
+        'X2J5dGVzGAMgASgDUglzaXplQnl0ZXM=');
 
 @$core.Deprecated('Use workspaceCreateRequestDescriptor instead')
 const WorkspaceCreateRequest$json = {

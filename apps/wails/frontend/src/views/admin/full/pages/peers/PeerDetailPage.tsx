@@ -33,6 +33,7 @@ import { StatusBadge } from "@/dashboard";
 import { usePeerDetail } from "../../hooks/usePeerDetail";
 import { formatDate, formatShortKey, peerTitle } from "../../lib/format";
 import { PeerTelemetryPanel } from "./PeerTelemetryPanel";
+import { DomainIconEditor } from "../../components/DomainIconEditor";
 
 export function PeerDetailPage(): JSX.Element {
   const params = useParams();
@@ -334,6 +335,12 @@ export function PeerDetailPage(): JSX.Element {
             </TabsContent>
 
             <TabsContent className="space-y-4" value="edit">
+              <DomainIconEditor
+                icon={detail.data?.info?.icon}
+                id={publicKey}
+                onChanged={detail.reload}
+                owner="peer"
+              />
               <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
                 <Card>
                   <CardHeader className="pb-3">

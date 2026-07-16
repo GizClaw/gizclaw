@@ -17,6 +17,7 @@ import {
   type ResourceKind,
 } from "@gizclaw/gizclaw/admin";
 import { PixaPreviewDialog } from "@/components/pixa/PixaPreviewDialog";
+import { DomainIconEditor } from "../../components/DomainIconEditor";
 import { Badge as BadgePill } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -307,6 +308,7 @@ export function ResourcesPage(): JSX.Element {
 
   const selectedSummary = useMemo(() => resourceSummary(kind), [kind]);
   const supportsPixa = kind === "PetDef" || kind === "BadgeDef";
+  const iconOwner = kind === "Workflow" ? "workflow" : kind === "Workspace" ? "workspace" : kind === "GameDef" ? "game-def" : null;
 
   const persistedPetDefPixaMetadata = async (): Promise<PetDefPixaMetadata | null> => {
     if (kind !== "PetDef") {
@@ -451,6 +453,15 @@ export function ResourcesPage(): JSX.Element {
           </CardContent>
         </Card>
       </div>
+
+      {resource !== null && iconOwner !== null ? (
+        <DomainIconEditor
+          icon={resourceIcon(resource)}
+          id={name.trim()}
+          onChanged={load}
+          owner={iconOwner}
+        />
+      ) : null}
 
       {applyResult !== null ? (
         <Card>
@@ -672,4 +683,12 @@ function resourceSummary(kind: ResourceKind): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function resourceIcon(value: unknown): { pixa?: string; png?: string } | undefined {
+  if (!isRecord(value) || !isRecord(value.icon)) return undefined;
+  return {
+    pixa: typeof value.icon.pixa === "string" ? value.icon.pixa : undefined,
+    png: typeof value.icon.png === "string" ? value.icon.png : undefined,
+  };
 }

@@ -674,6 +674,9 @@
           "spec": {
             "$ref": "#/components/schemas/GameDefSpec"
           },
+          "icon": {
+            "$ref": "./icon.json#/components/schemas/Icon"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time"

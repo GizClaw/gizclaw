@@ -1,7 +1,11 @@
 package peer
 
 import (
+	"bytes"
 	"context"
+	"image"
+	"image/png"
+	"io"
 	"testing"
 	"time"
 
@@ -11,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 type stubPeerManager struct {
@@ -41,9 +46,75 @@ func saveTestPeer(t *testing.T, server *Server, publicKey giznet.PublicKey, devi
 	}
 }
 
+func TestPeerIconLifecycle(t *testing.T) {
+	t.Parallel()
+	server := &Server{Store: mustBadgerInMemory(t, nil), Assets: objectstore.Dir(t.TempDir())}
+	peerKey := giznet.PublicKey{2}
+	publicKey := peerKey.String()
+	saveTestPeer(t, server, peerKey, apitypes.DeviceInfo{})
+
+	want := peerIconPNG(t)
+	uploadResponse, err := server.UploadPeerIcon(context.Background(), adminhttp.UploadPeerIconRequestObject{
+		PublicKey: publicKey, Format: adminhttp.UploadPeerIconParamsFormatPng, Body: bytes.NewReader(want),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	uploaded, ok := uploadResponse.(adminhttp.UploadPeerIcon200JSONResponse)
+	if !ok || uploaded.Icon == nil || uploaded.Icon.Png == nil || *uploaded.Icon.Png != publicKey+"/icon.png" {
+		t.Fatalf("UploadPeerIcon() response = %#v", uploadResponse)
+	}
+
+	downloadResponse, err := server.DownloadPeerIcon(context.Background(), adminhttp.DownloadPeerIconRequestObject{
+		PublicKey: publicKey, Format: adminhttp.DownloadPeerIconParamsFormatPng,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	downloaded, ok := downloadResponse.(adminhttp.DownloadPeerIcon200ImagepngResponse)
+	if !ok {
+		t.Fatalf("DownloadPeerIcon() response = %#v", downloadResponse)
+	}
+	got, err := io.ReadAll(downloaded.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if closer, ok := downloaded.Body.(io.Closer); ok {
+		if err := closer.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if !bytes.Equal(got, want) {
+		t.Fatalf("DownloadPeerIcon() bytes differ")
+	}
+
+	for i := range 2 {
+		deleteResponse, err := server.DeletePeerIcon(context.Background(), adminhttp.DeletePeerIconRequestObject{
+			PublicKey: publicKey, Format: adminhttp.DeletePeerIconParamsFormatPng,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		deleted, ok := deleteResponse.(adminhttp.DeletePeerIcon200JSONResponse)
+		if !ok || deleted.Icon != nil {
+			t.Fatalf("DeletePeerIcon(%d) response = %#v", i, deleteResponse)
+		}
+	}
+}
+
+func peerIconPNG(t *testing.T) []byte {
+	t.Helper()
+	var out bytes.Buffer
+	if err := png.Encode(&out, image.NewNRGBA(image.Rect(0, 0, 1, 1))); err != nil {
+		t.Fatal(err)
+	}
+	return out.Bytes()
+}
+
 func TestServerAdminPeerHandlers(t *testing.T) {
 	server := &Server{
-		Store: mustBadgerInMemory(t, nil),
+		Store:  mustBadgerInMemory(t, nil),
+		Assets: objectstore.Dir(t.TempDir()),
 	}
 
 	peerKey := giznet.PublicKey{1}
@@ -54,9 +125,11 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 	serial := "87654321"
 	labelKey := "region"
 	labelValue := "cn"
+	iconName := peerPublicKey + "/icon.png"
 
 	saveTestPeer(t, server, peerKey, apitypes.DeviceInfo{
-		Sn: &sn,
+		Sn:   &sn,
+		Icon: &apitypes.Icon{Png: &iconName},
 		Hardware: &apitypes.HardwareInfo{
 			Imeis:  &[]apitypes.PeerIMEI{{Tac: tac, Serial: serial}},
 			Labels: &[]apitypes.PeerLabel{{Key: labelKey, Value: labelValue}},
@@ -152,6 +225,20 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 	}
 	if updatedInfo.Name == nil || *updatedInfo.Name != updatedName {
 		t.Fatalf("PutPeerInfo = %+v", updatedInfo)
+	}
+	if updatedInfo.Icon == nil || updatedInfo.Icon.Png == nil || *updatedInfo.Icon.Png != iconName {
+		t.Fatalf("PutPeerInfo did not preserve icon = %+v", updatedInfo)
+	}
+	otherIcon := "other/icon.png"
+	putInfoResp, err = server.PutPeerInfo(ctx, adminhttp.PutPeerInfoRequestObject{
+		PublicKey: string(peerPublicKey),
+		Body:      &adminhttp.PutPeerInfoJSONRequestBody{Name: &updatedName, Icon: &apitypes.Icon{Png: &otherIcon}},
+	})
+	if err != nil {
+		t.Fatalf("PutPeerInfo(injected icon) error: %v", err)
+	}
+	if _, ok := putInfoResp.(adminhttp.PutPeerInfo400JSONResponse); !ok {
+		t.Fatalf("PutPeerInfo(injected icon) response type = %T", putInfoResp)
 	}
 
 	resolveSNResp, err := server.FindPubKeyBySN(ctx, adminhttp.FindPubKeyBySNRequestObject{Sn: sn})

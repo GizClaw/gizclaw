@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+// Shared icon payload protobuf schema.
+
+package gizclaw.rpc.v1;
+
+option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpb";
+
+message Icon {
+  optional string pixa = 1;
+  optional string png = 2;
+}

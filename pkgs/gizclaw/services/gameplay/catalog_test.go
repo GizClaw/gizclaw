@@ -152,6 +152,27 @@ func TestCatalogAdminCRUDAndAssets(t *testing.T) {
 		t.Fatalf("CreateGameDef() error = %v", err)
 	}
 	requireResponse[adminhttp.CreateGameDef200JSONResponse](t, gameResp)
+	gameIcon := makeTestPixa(t, []string{"icon"}, 16, 16)
+	uploadGameIconResp, err := catalog.UploadGameDefIcon(ctx, adminhttp.UploadGameDefIconRequestObject{
+		Id: "game-a", Format: adminhttp.UploadGameDefIconParamsFormatPixa, Body: bytes.NewReader(gameIcon),
+	})
+	if err != nil {
+		t.Fatalf("UploadGameDefIcon() error = %v", err)
+	}
+	uploadedGame := requireResponse[adminhttp.UploadGameDefIcon200JSONResponse](t, uploadGameIconResp)
+	if uploadedGame.Icon == nil || uploadedGame.Icon.Pixa == nil || *uploadedGame.Icon.Pixa != "game-defs/game-a/icon.pixa" {
+		t.Fatalf("UploadGameDefIcon() = %#v", uploadedGame)
+	}
+	downloadGameIconResp, err := catalog.DownloadGameDefIcon(ctx, adminhttp.DownloadGameDefIconRequestObject{
+		Id: "game-a", Format: adminhttp.DownloadGameDefIconParamsFormatPixa,
+	})
+	if err != nil {
+		t.Fatalf("DownloadGameDefIcon() error = %v", err)
+	}
+	downloadedGameIcon := requireResponse[adminhttp.DownloadGameDefIcon200ApplicationoctetStreamResponse](t, downloadGameIconResp)
+	if got := readAllBytes(t, downloadedGameIcon.Body); !bytes.Equal(got, gameIcon) {
+		t.Fatalf("DownloadGameDefIcon() bytes differ")
+	}
 	putGameResp, err := catalog.PutGameDef(ctx, adminhttp.PutGameDefRequestObject{
 		Id:   "game-a",
 		Body: &adminhttp.GameDefUpsert{Spec: apitypes.GameDefSpec{DisplayName: "Game A2"}},
@@ -159,8 +180,17 @@ func TestCatalogAdminCRUDAndAssets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PutGameDef() error = %v", err)
 	}
-	if game := requireResponse[adminhttp.PutGameDef200JSONResponse](t, putGameResp); game.Spec.DisplayName != "Game A2" {
+	if game := requireResponse[adminhttp.PutGameDef200JSONResponse](t, putGameResp); game.Spec.DisplayName != "Game A2" || game.Icon == nil || game.Icon.Pixa == nil {
 		t.Fatalf("PutGameDef() = %#v", game)
+	}
+	deleteGameIconResp, err := catalog.DeleteGameDefIcon(ctx, adminhttp.DeleteGameDefIconRequestObject{
+		Id: "game-a", Format: adminhttp.DeleteGameDefIconParamsFormatPixa,
+	})
+	if err != nil {
+		t.Fatalf("DeleteGameDefIcon() error = %v", err)
+	}
+	if game := requireResponse[adminhttp.DeleteGameDefIcon200JSONResponse](t, deleteGameIconResp); game.Icon != nil {
+		t.Fatalf("DeleteGameDefIcon() = %#v", game)
 	}
 	getGameResp, err := catalog.GetGameDef(ctx, adminhttp.GetGameDefRequestObject{Id: "game-a"})
 	if err != nil {

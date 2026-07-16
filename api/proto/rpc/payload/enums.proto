@@ -6,6 +6,12 @@ package gizclaw.rpc.v1;
 
 option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpb";
 
+enum IconFormat {
+  ICON_FORMAT_UNSPECIFIED = 0;
+  ICON_FORMAT_PIXA = 1;
+  ICON_FORMAT_PNG = 2;
+}
+
 enum ASTTranslateMode {
   ASTTRANSLATE_MODE_UNSPECIFIED = 0;
   ASTTRANSLATE_MODE_S2T = 1;

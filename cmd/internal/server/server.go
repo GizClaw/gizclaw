@@ -331,6 +331,21 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 				return nil, fmt.Errorf("server: gameplay assets store: %w", err)
 			}
 		}
+		if storeExists(cfg, defaultPeerAssetsStore) {
+			if gizServer.PeerAssets, err = ss.ObjectStore(defaultPeerAssetsStore); err != nil {
+				return nil, fmt.Errorf("server: peer assets store: %w", err)
+			}
+		}
+		if storeExists(cfg, defaultWorkspaceAssetsStore) {
+			if gizServer.WorkspaceAssets, err = ss.ObjectStore(defaultWorkspaceAssetsStore); err != nil {
+				return nil, fmt.Errorf("server: workspace assets store: %w", err)
+			}
+		}
+		if storeExists(cfg, defaultWorkflowAssetsStore) {
+			if gizServer.WorkflowAssets, err = ss.ObjectStore(defaultWorkflowAssetsStore); err != nil {
+				return nil, fmt.Errorf("server: workflow assets store: %w", err)
+			}
+		}
 		if storeExists(cfg, defaultGameplayDBStore) {
 			if gizServer.GameplayDB, err = ss.SQL(defaultGameplayDBStore); err != nil {
 				return nil, fmt.Errorf("server: gameplay db store: %w", err)
@@ -387,6 +402,9 @@ func usesLegacySharedStore(s *gizclaw.Server) bool {
 		s.BadgeDefStore == nil &&
 		s.GameDefStore == nil &&
 		s.GameplayAssets == nil &&
+		s.PeerAssets == nil &&
+		s.WorkspaceAssets == nil &&
+		s.WorkflowAssets == nil &&
 		s.GameplayDB == nil &&
 		s.FriendGroupMessageDefaultTTL == 0 &&
 		s.FriendGroupMessageMaxTTL == 0 &&

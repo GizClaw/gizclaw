@@ -1897,6 +1897,7 @@ type DashScopeTenantVoiceProviderData struct {
 // DeviceInfo defines model for DeviceInfo.
 type DeviceInfo struct {
 	Hardware *HardwareInfo `json:"hardware,omitempty"`
+	Icon     *Icon         `json:"icon,omitempty"`
 	Name     *string       `json:"name,omitempty"`
 	Sn       *string       `json:"sn,omitempty"`
 }
@@ -2348,6 +2349,7 @@ type FriendSpec struct {
 // GameDef defines model for GameDef.
 type GameDef struct {
 	CreatedAt time.Time   `json:"created_at"`
+	Icon      *Icon       `json:"icon,omitempty"`
 	Id        string      `json:"id"`
 	Spec      GameDefSpec `json:"spec"`
 	UpdatedAt time.Time   `json:"updated_at"`
@@ -2357,6 +2359,7 @@ type GameDef struct {
 type GameDefResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
 	ApiVersion ResourceAPIVersion  `json:"apiVersion"`
+	Icon       *Icon               `json:"icon,omitempty"`
 	Kind       GameDefResourceKind `json:"kind"`
 	Metadata   ResourceMetadata    `json:"metadata"`
 	Spec       GameDefSpec         `json:"spec"`
@@ -2532,6 +2535,15 @@ type HardwareInfo struct {
 	Labels           *[]PeerLabel `json:"labels,omitempty"`
 	Manufacturer     *string      `json:"manufacturer,omitempty"`
 	Model            *string      `json:"model,omitempty"`
+}
+
+// Icon defines model for Icon.
+type Icon struct {
+	// Pixa Owner-scoped relative PIXA object name.
+	Pixa *string `json:"pixa,omitempty"`
+
+	// Png Owner-scoped relative PNG object name.
+	Png *string `json:"png,omitempty"`
 }
 
 // MiniMaxCredentialBody defines model for MiniMaxCredentialBody.
@@ -3737,6 +3749,7 @@ type VolcTenantVoiceProviderData struct {
 type Workflow struct {
 	// I18n Workflow-owned closed locale catalogs. default_locale must name a present catalog property.
 	I18n *WorkflowI18n `json:"i18n,omitempty"`
+	Icon *Icon         `json:"icon,omitempty"`
 
 	// Name Stable workflow ID used by storage, paths, ACLs, and workspace references.
 	Name string       `json:"name"`
@@ -3769,6 +3782,7 @@ type WorkflowResource struct {
 
 	// I18n Workflow-owned closed locale catalogs. default_locale must name a present catalog property.
 	I18n *WorkflowI18n        `json:"i18n,omitempty"`
+	Icon *Icon                `json:"icon,omitempty"`
 	Kind WorkflowResourceKind `json:"kind"`
 
 	// Metadata metadata.name is the workflow custom ID.
@@ -3795,6 +3809,7 @@ type WorkflowSpec struct {
 // Workspace defines model for Workspace.
 type Workspace struct {
 	CreatedAt time.Time `json:"created_at"`
+	Icon      *Icon     `json:"icon,omitempty"`
 
 	// LastActiveAt Last user-visible workspace conversation or history activity time. Configuration-only updates must not modify this field.
 	LastActiveAt time.Time `json:"last_active_at"`
@@ -3824,6 +3839,7 @@ type WorkspaceParameters struct {
 type WorkspaceResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
 	ApiVersion ResourceAPIVersion    `json:"apiVersion"`
+	Icon       *Icon                 `json:"icon,omitempty"`
 	Kind       WorkspaceResourceKind `json:"kind"`
 
 	// Metadata metadata.name is the workspace custom ID. spec.workflow_name is the referenced workflow custom ID.

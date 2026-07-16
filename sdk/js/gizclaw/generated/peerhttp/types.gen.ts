@@ -24,6 +24,7 @@ export type DeviceInfo = {
     name?: string;
     sn?: string;
     hardware?: HardwareInfo;
+    icon?: Icon;
 };
 
 export type ErrorPayload = {
@@ -44,6 +45,17 @@ export type HardwareInfo = {
     hardware_revision?: string;
     imeis?: Array<PeerImei>;
     labels?: Array<PeerLabel>;
+};
+
+export type Icon = {
+    /**
+     * Owner-scoped relative PIXA object name.
+     */
+    pixa?: string;
+    /**
+     * Owner-scoped relative PNG object name.
+     */
+    png?: string;
 };
 
 export type PeerImei = {

@@ -39,6 +39,13 @@ class PixaDownloadResult<T> {
   final PixaAsset asset;
 }
 
+class IconDownloadResult<T> {
+  const IconDownloadResult({required this.metadata, required this.bytes});
+
+  final T metadata;
+  final Uint8List bytes;
+}
+
 class GizClawClient {
   GizClawClient(
     GizClawDataChannelFactory transport, {
@@ -348,6 +355,62 @@ class GizClawClient {
       metadata: metadata,
       bytes: bytes,
       asset: validatePixa(bytes, mode: PixaValidationMode.badgedef),
+    );
+  }
+
+  Future<IconDownloadResult<payload.WorkflowIconDownloadResponse>>
+  downloadWorkflowIcon(String name, enums.IconFormat format) async {
+    final response = await rpc.callBinary(
+      'server.workflow.icon.download',
+      payload.WorkflowIconDownloadRequest(name: name, format: format),
+    );
+    return IconDownloadResult(
+      metadata: response.response as payload.WorkflowIconDownloadResponse,
+      bytes: Uint8List.fromList(response.body),
+    );
+  }
+
+  Future<IconDownloadResult<payload.WorkspaceIconDownloadResponse>>
+  downloadWorkspaceIcon(String name, enums.IconFormat format) async {
+    final response = await rpc.callBinary(
+      'server.workspace.icon.download',
+      payload.WorkspaceIconDownloadRequest(name: name, format: format),
+    );
+    return IconDownloadResult(
+      metadata: response.response as payload.WorkspaceIconDownloadResponse,
+      bytes: Uint8List.fromList(response.body),
+    );
+  }
+
+  Future<IconDownloadResult<payload.ServerInfoIconDownloadResponse>>
+  downloadPeerIcon(enums.IconFormat format) async {
+    final response = await rpc.callBinary(
+      'server.info.icon.download',
+      payload.ServerInfoIconDownloadRequest(format: format),
+    );
+    return IconDownloadResult(
+      metadata: response.response as payload.ServerInfoIconDownloadResponse,
+      bytes: Uint8List.fromList(response.body),
+    );
+  }
+
+  Future<payload.ServerInfoIconUploadResponse> uploadPeerIcon(
+    enums.IconFormat format,
+    Uint8List bytes,
+  ) {
+    return rpc.callUpload<payload.ServerInfoIconUploadResponse>(
+      'server.info.icon.upload',
+      payload.ServerInfoIconUploadRequest(format: format),
+      bytes,
+    );
+  }
+
+  Future<payload.ServerInfoIconDeleteResponse> deletePeerIcon(
+    enums.IconFormat format,
+  ) {
+    return rpc.call<payload.ServerInfoIconDeleteResponse>(
+      'server.info.icon.delete',
+      payload.ServerInfoIconDeleteRequest(format: format),
     );
   }
 }

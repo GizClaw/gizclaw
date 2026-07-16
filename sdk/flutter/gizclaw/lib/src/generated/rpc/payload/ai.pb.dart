@@ -17,7 +17,8 @@ import 'package:protobuf/protobuf.dart' as $pb;
 import 'package:protobuf/well_known_types/google/protobuf/struct.pb.dart' as $0;
 
 import 'ai.pbenum.dart';
-import 'enums.pbenum.dart' as $1;
+import 'enums.pbenum.dart' as $2;
+import 'icon.pb.dart' as $1;
 
 export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 
@@ -293,7 +294,7 @@ class ASTTranslateWorkflowSpec extends $pb.GeneratedMessage {
     $core.bool? denoise,
     $core.bool? enableSourceLanguageDetect,
     $core.bool? isCustomSpeaker,
-    $1.ASTTranslateMode? mode,
+    $2.ASTTranslateMode? mode,
     $core.String? resourceId,
     $core.String? speakerId,
     $fixnum.Int64? speechRate,
@@ -332,8 +333,8 @@ class ASTTranslateWorkflowSpec extends $pb.GeneratedMessage {
     ..aOB(1, _omitFieldNames ? '' : 'denoise')
     ..aOB(2, _omitFieldNames ? '' : 'enableSourceLanguageDetect')
     ..aOB(3, _omitFieldNames ? '' : 'isCustomSpeaker')
-    ..aE<$1.ASTTranslateMode>(4, _omitFieldNames ? '' : 'mode',
-        enumValues: $1.ASTTranslateMode.values)
+    ..aE<$2.ASTTranslateMode>(4, _omitFieldNames ? '' : 'mode',
+        enumValues: $2.ASTTranslateMode.values)
     ..aOS(5, _omitFieldNames ? '' : 'resourceId')
     ..aOS(6, _omitFieldNames ? '' : 'speakerId')
     ..aInt64(7, _omitFieldNames ? '' : 'speechRate')
@@ -391,9 +392,9 @@ class ASTTranslateWorkflowSpec extends $pb.GeneratedMessage {
   void clearIsCustomSpeaker() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $1.ASTTranslateMode get mode => $_getN(3);
+  $2.ASTTranslateMode get mode => $_getN(3);
   @$pb.TagNumber(4)
-  set mode($1.ASTTranslateMode value) => $_setField(4, value);
+  set mode($2.ASTTranslateMode value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasMode() => $_has(3);
   @$pb.TagNumber(4)
@@ -458,14 +459,14 @@ class ASTTranslateWorkflowSpec extends $pb.GeneratedMessage {
 
 class ASTTranslateWorkspaceParameters extends $pb.GeneratedMessage {
   factory ASTTranslateWorkspaceParameters({
-    $1.ASTTranslateWorkspaceParametersAgentType? agentType,
+    $2.ASTTranslateWorkspaceParametersAgentType? agentType,
     $core.bool? denoise,
     $core.bool? e2e,
     $core.bool? enableSourceLanguageDetect,
-    $1.WorkspaceInputMode? input,
+    $2.WorkspaceInputMode? input,
     $core.bool? isCustomSpeaker,
     $core.String? langPair,
-    $1.ASTTranslateMode? mode,
+    $2.ASTTranslateMode? mode,
     $core.String? speakerId,
     $fixnum.Int64? speechRate,
     $core.String? translationModel,
@@ -503,18 +504,18 @@ class ASTTranslateWorkspaceParameters extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ASTTranslateWorkspaceParameters',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aE<$1.ASTTranslateWorkspaceParametersAgentType>(
+    ..aE<$2.ASTTranslateWorkspaceParametersAgentType>(
         1, _omitFieldNames ? '' : 'agentType',
-        enumValues: $1.ASTTranslateWorkspaceParametersAgentType.values)
+        enumValues: $2.ASTTranslateWorkspaceParametersAgentType.values)
     ..aOB(2, _omitFieldNames ? '' : 'denoise')
     ..aOB(3, _omitFieldNames ? '' : 'e2e')
     ..aOB(4, _omitFieldNames ? '' : 'enableSourceLanguageDetect')
-    ..aE<$1.WorkspaceInputMode>(5, _omitFieldNames ? '' : 'input',
-        enumValues: $1.WorkspaceInputMode.values)
+    ..aE<$2.WorkspaceInputMode>(5, _omitFieldNames ? '' : 'input',
+        enumValues: $2.WorkspaceInputMode.values)
     ..aOB(6, _omitFieldNames ? '' : 'isCustomSpeaker')
     ..aOS(7, _omitFieldNames ? '' : 'langPair')
-    ..aE<$1.ASTTranslateMode>(8, _omitFieldNames ? '' : 'mode',
-        enumValues: $1.ASTTranslateMode.values)
+    ..aE<$2.ASTTranslateMode>(8, _omitFieldNames ? '' : 'mode',
+        enumValues: $2.ASTTranslateMode.values)
     ..aOS(9, _omitFieldNames ? '' : 'speakerId')
     ..aInt64(10, _omitFieldNames ? '' : 'speechRate')
     ..aOS(11, _omitFieldNames ? '' : 'translationModel')
@@ -547,9 +548,9 @@ class ASTTranslateWorkspaceParameters extends $pb.GeneratedMessage {
   static ASTTranslateWorkspaceParameters? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $1.ASTTranslateWorkspaceParametersAgentType get agentType => $_getN(0);
+  $2.ASTTranslateWorkspaceParametersAgentType get agentType => $_getN(0);
   @$pb.TagNumber(1)
-  set agentType($1.ASTTranslateWorkspaceParametersAgentType value) =>
+  set agentType($2.ASTTranslateWorkspaceParametersAgentType value) =>
       $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasAgentType() => $_has(0);
@@ -584,9 +585,9 @@ class ASTTranslateWorkspaceParameters extends $pb.GeneratedMessage {
   void clearEnableSourceLanguageDetect() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  $1.WorkspaceInputMode get input => $_getN(4);
+  $2.WorkspaceInputMode get input => $_getN(4);
   @$pb.TagNumber(5)
-  set input($1.WorkspaceInputMode value) => $_setField(5, value);
+  set input($2.WorkspaceInputMode value) => $_setField(5, value);
   @$pb.TagNumber(5)
   $core.bool hasInput() => $_has(4);
   @$pb.TagNumber(5)
@@ -611,9 +612,9 @@ class ASTTranslateWorkspaceParameters extends $pb.GeneratedMessage {
   void clearLangPair() => $_clearField(7);
 
   @$pb.TagNumber(8)
-  $1.ASTTranslateMode get mode => $_getN(7);
+  $2.ASTTranslateMode get mode => $_getN(7);
   @$pb.TagNumber(8)
-  set mode($1.ASTTranslateMode value) => $_setField(8, value);
+  set mode($2.ASTTranslateMode value) => $_setField(8, value);
   @$pb.TagNumber(8)
   $core.bool hasMode() => $_has(7);
   @$pb.TagNumber(8)
@@ -927,10 +928,10 @@ class ChatRoomWorkspaceHistoryParameters extends $pb.GeneratedMessage {
 
 class ChatRoomWorkspaceParameters extends $pb.GeneratedMessage {
   factory ChatRoomWorkspaceParameters({
-    $1.ChatRoomWorkspaceParametersAgentType? agentType,
+    $2.ChatRoomWorkspaceParametersAgentType? agentType,
     ChatRoomWorkspaceHistoryParameters? history,
-    $1.WorkspaceInputMode? input,
-    $1.ChatRoomMode? mode,
+    $2.WorkspaceInputMode? input,
+    $2.ChatRoomMode? mode,
     ChatRoomWorkspaceTranscriptParameters? transcript,
   }) {
     final result = create();
@@ -955,16 +956,16 @@ class ChatRoomWorkspaceParameters extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ChatRoomWorkspaceParameters',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aE<$1.ChatRoomWorkspaceParametersAgentType>(
+    ..aE<$2.ChatRoomWorkspaceParametersAgentType>(
         1, _omitFieldNames ? '' : 'agentType',
-        enumValues: $1.ChatRoomWorkspaceParametersAgentType.values)
+        enumValues: $2.ChatRoomWorkspaceParametersAgentType.values)
     ..aOM<ChatRoomWorkspaceHistoryParameters>(
         2, _omitFieldNames ? '' : 'history',
         subBuilder: ChatRoomWorkspaceHistoryParameters.create)
-    ..aE<$1.WorkspaceInputMode>(3, _omitFieldNames ? '' : 'input',
-        enumValues: $1.WorkspaceInputMode.values)
-    ..aE<$1.ChatRoomMode>(4, _omitFieldNames ? '' : 'mode',
-        enumValues: $1.ChatRoomMode.values)
+    ..aE<$2.WorkspaceInputMode>(3, _omitFieldNames ? '' : 'input',
+        enumValues: $2.WorkspaceInputMode.values)
+    ..aE<$2.ChatRoomMode>(4, _omitFieldNames ? '' : 'mode',
+        enumValues: $2.ChatRoomMode.values)
     ..aOM<ChatRoomWorkspaceTranscriptParameters>(
         5, _omitFieldNames ? '' : 'transcript',
         subBuilder: ChatRoomWorkspaceTranscriptParameters.create)
@@ -993,9 +994,9 @@ class ChatRoomWorkspaceParameters extends $pb.GeneratedMessage {
   static ChatRoomWorkspaceParameters? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $1.ChatRoomWorkspaceParametersAgentType get agentType => $_getN(0);
+  $2.ChatRoomWorkspaceParametersAgentType get agentType => $_getN(0);
   @$pb.TagNumber(1)
-  set agentType($1.ChatRoomWorkspaceParametersAgentType value) =>
+  set agentType($2.ChatRoomWorkspaceParametersAgentType value) =>
       $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasAgentType() => $_has(0);
@@ -1014,18 +1015,18 @@ class ChatRoomWorkspaceParameters extends $pb.GeneratedMessage {
   ChatRoomWorkspaceHistoryParameters ensureHistory() => $_ensure(1);
 
   @$pb.TagNumber(3)
-  $1.WorkspaceInputMode get input => $_getN(2);
+  $2.WorkspaceInputMode get input => $_getN(2);
   @$pb.TagNumber(3)
-  set input($1.WorkspaceInputMode value) => $_setField(3, value);
+  set input($2.WorkspaceInputMode value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasInput() => $_has(2);
   @$pb.TagNumber(3)
   void clearInput() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $1.ChatRoomMode get mode => $_getN(3);
+  $2.ChatRoomMode get mode => $_getN(3);
   @$pb.TagNumber(4)
-  set mode($1.ChatRoomMode value) => $_setField(4, value);
+  set mode($2.ChatRoomMode value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasMode() => $_has(3);
   @$pb.TagNumber(4)
@@ -2082,7 +2083,7 @@ class DashScopeCredentialBody extends $pb.GeneratedMessage {
 
 class DashScopeTenantModelProviderData extends $pb.GeneratedMessage {
   factory DashScopeTenantModelProviderData({
-    $1.DashScopeTenantModelProviderDataApiMode? apiMode,
+    $2.DashScopeTenantModelProviderDataApiMode? apiMode,
     $core.String? upstreamModel,
   }) {
     final result = create();
@@ -2105,9 +2106,9 @@ class DashScopeTenantModelProviderData extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'DashScopeTenantModelProviderData',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aE<$1.DashScopeTenantModelProviderDataApiMode>(
+    ..aE<$2.DashScopeTenantModelProviderDataApiMode>(
         1, _omitFieldNames ? '' : 'apiMode',
-        enumValues: $1.DashScopeTenantModelProviderDataApiMode.values)
+        enumValues: $2.DashScopeTenantModelProviderDataApiMode.values)
     ..aOS(2, _omitFieldNames ? '' : 'upstreamModel')
     ..hasRequiredFields = false;
 
@@ -2135,9 +2136,9 @@ class DashScopeTenantModelProviderData extends $pb.GeneratedMessage {
   static DashScopeTenantModelProviderData? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $1.DashScopeTenantModelProviderDataApiMode get apiMode => $_getN(0);
+  $2.DashScopeTenantModelProviderDataApiMode get apiMode => $_getN(0);
   @$pb.TagNumber(1)
-  set apiMode($1.DashScopeTenantModelProviderDataApiMode value) =>
+  set apiMode($2.DashScopeTenantModelProviderDataApiMode value) =>
       $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasApiMode() => $_has(0);
@@ -2725,7 +2726,7 @@ class DoubaoRealtimeAudio extends $pb.GeneratedMessage {
 class DoubaoRealtimeAudioFormat extends $pb.GeneratedMessage {
   factory DoubaoRealtimeAudioFormat({
     $fixnum.Int64? rate,
-    $1.DoubaoRealtimeAudioFormatType? type,
+    $2.DoubaoRealtimeAudioFormatType? type,
   }) {
     final result = create();
     if (rate != null) result.rate = rate;
@@ -2747,8 +2748,8 @@ class DoubaoRealtimeAudioFormat extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aInt64(1, _omitFieldNames ? '' : 'rate')
-    ..aE<$1.DoubaoRealtimeAudioFormatType>(2, _omitFieldNames ? '' : 'type',
-        enumValues: $1.DoubaoRealtimeAudioFormatType.values)
+    ..aE<$2.DoubaoRealtimeAudioFormatType>(2, _omitFieldNames ? '' : 'type',
+        enumValues: $2.DoubaoRealtimeAudioFormatType.values)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2781,9 +2782,9 @@ class DoubaoRealtimeAudioFormat extends $pb.GeneratedMessage {
   void clearRate() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $1.DoubaoRealtimeAudioFormatType get type => $_getN(1);
+  $2.DoubaoRealtimeAudioFormatType get type => $_getN(1);
   @$pb.TagNumber(2)
-  set type($1.DoubaoRealtimeAudioFormatType value) => $_setField(2, value);
+  set type($2.DoubaoRealtimeAudioFormatType value) => $_setField(2, value);
   @$pb.TagNumber(2)
   $core.bool hasType() => $_has(1);
   @$pb.TagNumber(2)
@@ -3014,7 +3015,7 @@ class DoubaoRealtimeDialogExtra extends $pb.GeneratedMessage {
     $core.String? volcWebsearchBotId,
     $core.String? volcWebsearchNoResultMessage,
     $fixnum.Int64? volcWebsearchResultCount,
-    $1.DoubaoRealtimeDialogExtraVolcWebsearchType? volcWebsearchType,
+    $2.DoubaoRealtimeDialogExtraVolcWebsearchType? volcWebsearchType,
   }) {
     final result = create();
     if (auditResponse != null) result.auditResponse = auditResponse;
@@ -3061,9 +3062,9 @@ class DoubaoRealtimeDialogExtra extends $pb.GeneratedMessage {
     ..aOS(8, _omitFieldNames ? '' : 'volcWebsearchBotId')
     ..aOS(9, _omitFieldNames ? '' : 'volcWebsearchNoResultMessage')
     ..aInt64(10, _omitFieldNames ? '' : 'volcWebsearchResultCount')
-    ..aE<$1.DoubaoRealtimeDialogExtraVolcWebsearchType>(
+    ..aE<$2.DoubaoRealtimeDialogExtraVolcWebsearchType>(
         11, _omitFieldNames ? '' : 'volcWebsearchType',
-        enumValues: $1.DoubaoRealtimeDialogExtraVolcWebsearchType.values)
+        enumValues: $2.DoubaoRealtimeDialogExtraVolcWebsearchType.values)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3177,10 +3178,10 @@ class DoubaoRealtimeDialogExtra extends $pb.GeneratedMessage {
   void clearVolcWebsearchResultCount() => $_clearField(10);
 
   @$pb.TagNumber(11)
-  $1.DoubaoRealtimeDialogExtraVolcWebsearchType get volcWebsearchType =>
+  $2.DoubaoRealtimeDialogExtraVolcWebsearchType get volcWebsearchType =>
       $_getN(10);
   @$pb.TagNumber(11)
-  set volcWebsearchType($1.DoubaoRealtimeDialogExtraVolcWebsearchType value) =>
+  set volcWebsearchType($2.DoubaoRealtimeDialogExtraVolcWebsearchType value) =>
       $_setField(11, value);
   @$pb.TagNumber(11)
   $core.bool hasVolcWebsearchType() => $_has(10);
@@ -3282,7 +3283,7 @@ class DoubaoRealtimeFunctionTool extends $pb.GeneratedMessage {
     $core.String? name,
     DoubaoRealtimeJSONSchema? parameters,
     $core.bool? strict,
-    $1.DoubaoRealtimeFunctionToolType? type,
+    $2.DoubaoRealtimeFunctionToolType? type,
   }) {
     final result = create();
     if (description != null) result.description = description;
@@ -3311,8 +3312,8 @@ class DoubaoRealtimeFunctionTool extends $pb.GeneratedMessage {
     ..aOM<DoubaoRealtimeJSONSchema>(3, _omitFieldNames ? '' : 'parameters',
         subBuilder: DoubaoRealtimeJSONSchema.create)
     ..aOB(4, _omitFieldNames ? '' : 'strict')
-    ..aE<$1.DoubaoRealtimeFunctionToolType>(5, _omitFieldNames ? '' : 'type',
-        enumValues: $1.DoubaoRealtimeFunctionToolType.values)
+    ..aE<$2.DoubaoRealtimeFunctionToolType>(5, _omitFieldNames ? '' : 'type',
+        enumValues: $2.DoubaoRealtimeFunctionToolType.values)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3375,9 +3376,9 @@ class DoubaoRealtimeFunctionTool extends $pb.GeneratedMessage {
   void clearStrict() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  $1.DoubaoRealtimeFunctionToolType get type => $_getN(4);
+  $2.DoubaoRealtimeFunctionToolType get type => $_getN(4);
   @$pb.TagNumber(5)
-  set type($1.DoubaoRealtimeFunctionToolType value) => $_setField(5, value);
+  set type($2.DoubaoRealtimeFunctionToolType value) => $_setField(5, value);
   @$pb.TagNumber(5)
   $core.bool hasType() => $_has(4);
   @$pb.TagNumber(5)
@@ -3809,11 +3810,11 @@ class DoubaoRealtimeWorkflowSpec extends $pb.GeneratedMessage {
 
 class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
   factory DoubaoRealtimeWorkspaceParameters({
-    $1.DoubaoRealtimeWorkspaceParametersAgentType? agentType,
+    $2.DoubaoRealtimeWorkspaceParametersAgentType? agentType,
     DoubaoRealtimeAudio? audio,
     $core.bool? e2e,
     DoubaoRealtimeExtension? extension_4,
-    $1.WorkspaceInputMode? input,
+    $2.WorkspaceInputMode? input,
     $core.String? instructions,
     $core.String? model,
     $core.Iterable<DoubaoRealtimeFunctionTool>? tools,
@@ -3844,16 +3845,16 @@ class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'DoubaoRealtimeWorkspaceParameters',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aE<$1.DoubaoRealtimeWorkspaceParametersAgentType>(
+    ..aE<$2.DoubaoRealtimeWorkspaceParametersAgentType>(
         1, _omitFieldNames ? '' : 'agentType',
-        enumValues: $1.DoubaoRealtimeWorkspaceParametersAgentType.values)
+        enumValues: $2.DoubaoRealtimeWorkspaceParametersAgentType.values)
     ..aOM<DoubaoRealtimeAudio>(2, _omitFieldNames ? '' : 'audio',
         subBuilder: DoubaoRealtimeAudio.create)
     ..aOB(3, _omitFieldNames ? '' : 'e2e')
     ..aOM<DoubaoRealtimeExtension>(4, _omitFieldNames ? '' : 'extension',
         subBuilder: DoubaoRealtimeExtension.create)
-    ..aE<$1.WorkspaceInputMode>(5, _omitFieldNames ? '' : 'input',
-        enumValues: $1.WorkspaceInputMode.values)
+    ..aE<$2.WorkspaceInputMode>(5, _omitFieldNames ? '' : 'input',
+        enumValues: $2.WorkspaceInputMode.values)
     ..aOS(6, _omitFieldNames ? '' : 'instructions')
     ..aOS(7, _omitFieldNames ? '' : 'model')
     ..pPM<DoubaoRealtimeFunctionTool>(8, _omitFieldNames ? '' : 'tools',
@@ -3884,9 +3885,9 @@ class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
   static DoubaoRealtimeWorkspaceParameters? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $1.DoubaoRealtimeWorkspaceParametersAgentType get agentType => $_getN(0);
+  $2.DoubaoRealtimeWorkspaceParametersAgentType get agentType => $_getN(0);
   @$pb.TagNumber(1)
-  set agentType($1.DoubaoRealtimeWorkspaceParametersAgentType value) =>
+  set agentType($2.DoubaoRealtimeWorkspaceParametersAgentType value) =>
       $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasAgentType() => $_has(0);
@@ -3925,9 +3926,9 @@ class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
   DoubaoRealtimeExtension ensureExtension_4() => $_ensure(3);
 
   @$pb.TagNumber(5)
-  $1.WorkspaceInputMode get input => $_getN(4);
+  $2.WorkspaceInputMode get input => $_getN(4);
   @$pb.TagNumber(5)
-  set input($1.WorkspaceInputMode value) => $_setField(5, value);
+  set input($2.WorkspaceInputMode value) => $_setField(5, value);
   @$pb.TagNumber(5)
   $core.bool hasInput() => $_has(4);
   @$pb.TagNumber(5)
@@ -3957,9 +3958,9 @@ class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
 
 class FlowcraftConversationParameters extends $pb.GeneratedMessage {
   factory FlowcraftConversationParameters({
-    $1.FlowcraftConversationParametersAgentInitiativePolicy?
+    $2.FlowcraftConversationParametersAgentInitiativePolicy?
         agentInitiativePolicy,
-    $1.FlowcraftConversationParametersInitiative? initiative,
+    $2.FlowcraftConversationParametersInitiative? initiative,
   }) {
     final result = create();
     if (agentInitiativePolicy != null)
@@ -3981,13 +3982,13 @@ class FlowcraftConversationParameters extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'FlowcraftConversationParameters',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aE<$1.FlowcraftConversationParametersAgentInitiativePolicy>(
+    ..aE<$2.FlowcraftConversationParametersAgentInitiativePolicy>(
         1, _omitFieldNames ? '' : 'agentInitiativePolicy',
         enumValues:
-            $1.FlowcraftConversationParametersAgentInitiativePolicy.values)
-    ..aE<$1.FlowcraftConversationParametersInitiative>(
+            $2.FlowcraftConversationParametersAgentInitiativePolicy.values)
+    ..aE<$2.FlowcraftConversationParametersInitiative>(
         2, _omitFieldNames ? '' : 'initiative',
-        enumValues: $1.FlowcraftConversationParametersInitiative.values)
+        enumValues: $2.FlowcraftConversationParametersInitiative.values)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4014,11 +4015,11 @@ class FlowcraftConversationParameters extends $pb.GeneratedMessage {
   static FlowcraftConversationParameters? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $1.FlowcraftConversationParametersAgentInitiativePolicy
+  $2.FlowcraftConversationParametersAgentInitiativePolicy
       get agentInitiativePolicy => $_getN(0);
   @$pb.TagNumber(1)
   set agentInitiativePolicy(
-          $1.FlowcraftConversationParametersAgentInitiativePolicy value) =>
+          $2.FlowcraftConversationParametersAgentInitiativePolicy value) =>
       $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasAgentInitiativePolicy() => $_has(0);
@@ -4026,9 +4027,9 @@ class FlowcraftConversationParameters extends $pb.GeneratedMessage {
   void clearAgentInitiativePolicy() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $1.FlowcraftConversationParametersInitiative get initiative => $_getN(1);
+  $2.FlowcraftConversationParametersInitiative get initiative => $_getN(1);
   @$pb.TagNumber(2)
-  set initiative($1.FlowcraftConversationParametersInitiative value) =>
+  set initiative($2.FlowcraftConversationParametersInitiative value) =>
       $_setField(2, value);
   @$pb.TagNumber(2)
   $core.bool hasInitiative() => $_has(1);
@@ -4096,13 +4097,13 @@ class FlowcraftWorkflowSpec extends $pb.GeneratedMessage {
 
 class FlowcraftWorkspaceParameters extends $pb.GeneratedMessage {
   factory FlowcraftWorkspaceParameters({
-    $1.FlowcraftWorkspaceParametersAgentType? agentType,
+    $2.FlowcraftWorkspaceParametersAgentType? agentType,
     FlowcraftConversationParameters? conversation,
     $core.bool? e2e,
     $core.String? embeddingModel,
     $core.String? extractModel,
     $core.String? generateModel,
-    $1.WorkspaceInputMode? input,
+    $2.WorkspaceInputMode? input,
   }) {
     final result = create();
     if (agentType != null) result.agentType = agentType;
@@ -4128,9 +4129,9 @@ class FlowcraftWorkspaceParameters extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'FlowcraftWorkspaceParameters',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aE<$1.FlowcraftWorkspaceParametersAgentType>(
+    ..aE<$2.FlowcraftWorkspaceParametersAgentType>(
         1, _omitFieldNames ? '' : 'agentType',
-        enumValues: $1.FlowcraftWorkspaceParametersAgentType.values)
+        enumValues: $2.FlowcraftWorkspaceParametersAgentType.values)
     ..aOM<FlowcraftConversationParameters>(
         2, _omitFieldNames ? '' : 'conversation',
         subBuilder: FlowcraftConversationParameters.create)
@@ -4138,8 +4139,8 @@ class FlowcraftWorkspaceParameters extends $pb.GeneratedMessage {
     ..aOS(4, _omitFieldNames ? '' : 'embeddingModel')
     ..aOS(5, _omitFieldNames ? '' : 'extractModel')
     ..aOS(6, _omitFieldNames ? '' : 'generateModel')
-    ..aE<$1.WorkspaceInputMode>(7, _omitFieldNames ? '' : 'input',
-        enumValues: $1.WorkspaceInputMode.values)
+    ..aE<$2.WorkspaceInputMode>(7, _omitFieldNames ? '' : 'input',
+        enumValues: $2.WorkspaceInputMode.values)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4165,9 +4166,9 @@ class FlowcraftWorkspaceParameters extends $pb.GeneratedMessage {
   static FlowcraftWorkspaceParameters? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $1.FlowcraftWorkspaceParametersAgentType get agentType => $_getN(0);
+  $2.FlowcraftWorkspaceParametersAgentType get agentType => $_getN(0);
   @$pb.TagNumber(1)
-  set agentType($1.FlowcraftWorkspaceParametersAgentType value) =>
+  set agentType($2.FlowcraftWorkspaceParametersAgentType value) =>
       $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasAgentType() => $_has(0);
@@ -4223,9 +4224,9 @@ class FlowcraftWorkspaceParameters extends $pb.GeneratedMessage {
   void clearGenerateModel() => $_clearField(6);
 
   @$pb.TagNumber(7)
-  $1.WorkspaceInputMode get input => $_getN(6);
+  $2.WorkspaceInputMode get input => $_getN(6);
   @$pb.TagNumber(7)
-  set input($1.WorkspaceInputMode value) => $_setField(7, value);
+  set input($2.WorkspaceInputMode value) => $_setField(7, value);
   @$pb.TagNumber(7)
   $core.bool hasInput() => $_has(6);
   @$pb.TagNumber(7)
@@ -4234,7 +4235,7 @@ class FlowcraftWorkspaceParameters extends $pb.GeneratedMessage {
 
 class PetConversationParameters extends $pb.GeneratedMessage {
   factory PetConversationParameters({
-    $1.PetConversationParametersInitiative? initiative,
+    $2.PetConversationParametersInitiative? initiative,
   }) {
     final result = create();
     if (initiative != null) result.initiative = initiative;
@@ -4254,9 +4255,9 @@ class PetConversationParameters extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'PetConversationParameters',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aE<$1.PetConversationParametersInitiative>(
+    ..aE<$2.PetConversationParametersInitiative>(
         1, _omitFieldNames ? '' : 'initiative',
-        enumValues: $1.PetConversationParametersInitiative.values)
+        enumValues: $2.PetConversationParametersInitiative.values)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4280,9 +4281,9 @@ class PetConversationParameters extends $pb.GeneratedMessage {
   static PetConversationParameters? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $1.PetConversationParametersInitiative get initiative => $_getN(0);
+  $2.PetConversationParametersInitiative get initiative => $_getN(0);
   @$pb.TagNumber(1)
-  set initiative($1.PetConversationParametersInitiative value) =>
+  set initiative($2.PetConversationParametersInitiative value) =>
       $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasInitiative() => $_has(0);
@@ -4450,9 +4451,9 @@ class PetWorkflowSpec extends $pb.GeneratedMessage {
 
 class PetWorkspaceParameters extends $pb.GeneratedMessage {
   factory PetWorkspaceParameters({
-    $1.PetWorkspaceParametersAgentType? agentType,
+    $2.PetWorkspaceParametersAgentType? agentType,
     PetConversationParameters? conversation,
-    $1.WorkspaceInputMode? input,
+    $2.WorkspaceInputMode? input,
     PetPersonaParameters? persona,
     PetVoiceParameters? voice,
   }) {
@@ -4478,13 +4479,13 @@ class PetWorkspaceParameters extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'PetWorkspaceParameters',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aE<$1.PetWorkspaceParametersAgentType>(
+    ..aE<$2.PetWorkspaceParametersAgentType>(
         1, _omitFieldNames ? '' : 'agentType',
-        enumValues: $1.PetWorkspaceParametersAgentType.values)
+        enumValues: $2.PetWorkspaceParametersAgentType.values)
     ..aOM<PetConversationParameters>(2, _omitFieldNames ? '' : 'conversation',
         subBuilder: PetConversationParameters.create)
-    ..aE<$1.WorkspaceInputMode>(3, _omitFieldNames ? '' : 'input',
-        enumValues: $1.WorkspaceInputMode.values)
+    ..aE<$2.WorkspaceInputMode>(3, _omitFieldNames ? '' : 'input',
+        enumValues: $2.WorkspaceInputMode.values)
     ..aOM<PetPersonaParameters>(4, _omitFieldNames ? '' : 'persona',
         subBuilder: PetPersonaParameters.create)
     ..aOM<PetVoiceParameters>(5, _omitFieldNames ? '' : 'voice',
@@ -4512,9 +4513,9 @@ class PetWorkspaceParameters extends $pb.GeneratedMessage {
   static PetWorkspaceParameters? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $1.PetWorkspaceParametersAgentType get agentType => $_getN(0);
+  $2.PetWorkspaceParametersAgentType get agentType => $_getN(0);
   @$pb.TagNumber(1)
-  set agentType($1.PetWorkspaceParametersAgentType value) =>
+  set agentType($2.PetWorkspaceParametersAgentType value) =>
       $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasAgentType() => $_has(0);
@@ -4533,9 +4534,9 @@ class PetWorkspaceParameters extends $pb.GeneratedMessage {
   PetConversationParameters ensureConversation() => $_ensure(1);
 
   @$pb.TagNumber(3)
-  $1.WorkspaceInputMode get input => $_getN(2);
+  $2.WorkspaceInputMode get input => $_getN(2);
   @$pb.TagNumber(3)
-  set input($1.WorkspaceInputMode value) => $_setField(3, value);
+  set input($2.WorkspaceInputMode value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasInput() => $_has(2);
   @$pb.TagNumber(3)
@@ -5001,11 +5002,11 @@ class Model extends $pb.GeneratedMessage {
     $core.String? createdAt,
     $core.String? description,
     $core.String? id,
-    $1.ModelKind? kind,
+    $2.ModelKind? kind,
     $core.String? name,
     ModelProvider? provider,
     ModelProviderData? providerData,
-    $1.ModelSource? source,
+    $2.ModelSource? source,
     $core.String? syncedAt,
     $core.String? updatedAt,
   }) {
@@ -5042,15 +5043,15 @@ class Model extends $pb.GeneratedMessage {
     ..aOS(2, _omitFieldNames ? '' : 'createdAt')
     ..aOS(3, _omitFieldNames ? '' : 'description')
     ..aOS(4, _omitFieldNames ? '' : 'id')
-    ..aE<$1.ModelKind>(5, _omitFieldNames ? '' : 'kind',
-        enumValues: $1.ModelKind.values)
+    ..aE<$2.ModelKind>(5, _omitFieldNames ? '' : 'kind',
+        enumValues: $2.ModelKind.values)
     ..aOS(6, _omitFieldNames ? '' : 'name')
     ..aOM<ModelProvider>(7, _omitFieldNames ? '' : 'provider',
         subBuilder: ModelProvider.create)
     ..aOM<ModelProviderData>(8, _omitFieldNames ? '' : 'providerData',
         subBuilder: ModelProviderData.create)
-    ..aE<$1.ModelSource>(9, _omitFieldNames ? '' : 'source',
-        enumValues: $1.ModelSource.values)
+    ..aE<$2.ModelSource>(9, _omitFieldNames ? '' : 'source',
+        enumValues: $2.ModelSource.values)
     ..aOS(10, _omitFieldNames ? '' : 'syncedAt')
     ..aOS(11, _omitFieldNames ? '' : 'updatedAt')
     ..hasRequiredFields = false;
@@ -5112,9 +5113,9 @@ class Model extends $pb.GeneratedMessage {
   void clearId() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  $1.ModelKind get kind => $_getN(4);
+  $2.ModelKind get kind => $_getN(4);
   @$pb.TagNumber(5)
-  set kind($1.ModelKind value) => $_setField(5, value);
+  set kind($2.ModelKind value) => $_setField(5, value);
   @$pb.TagNumber(5)
   $core.bool hasKind() => $_has(4);
   @$pb.TagNumber(5)
@@ -5152,9 +5153,9 @@ class Model extends $pb.GeneratedMessage {
   ModelProviderData ensureProviderData() => $_ensure(7);
 
   @$pb.TagNumber(9)
-  $1.ModelSource get source => $_getN(8);
+  $2.ModelSource get source => $_getN(8);
   @$pb.TagNumber(9)
-  set source($1.ModelSource value) => $_setField(9, value);
+  set source($2.ModelSource value) => $_setField(9, value);
   @$pb.TagNumber(9)
   $core.bool hasSource() => $_has(8);
   @$pb.TagNumber(9)
@@ -5768,7 +5769,7 @@ class ModelListResponse extends $pb.GeneratedMessage {
 
 class ModelProvider extends $pb.GeneratedMessage {
   factory ModelProvider({
-    $1.ModelProviderKind? kind,
+    $2.ModelProviderKind? kind,
     $core.String? name,
   }) {
     final result = create();
@@ -5790,8 +5791,8 @@ class ModelProvider extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ModelProvider',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aE<$1.ModelProviderKind>(1, _omitFieldNames ? '' : 'kind',
-        enumValues: $1.ModelProviderKind.values)
+    ..aE<$2.ModelProviderKind>(1, _omitFieldNames ? '' : 'kind',
+        enumValues: $2.ModelProviderKind.values)
     ..aOS(2, _omitFieldNames ? '' : 'name')
     ..hasRequiredFields = false;
 
@@ -5815,9 +5816,9 @@ class ModelProvider extends $pb.GeneratedMessage {
   static ModelProvider? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $1.ModelProviderKind get kind => $_getN(0);
+  $2.ModelProviderKind get kind => $_getN(0);
   @$pb.TagNumber(1)
-  set kind($1.ModelProviderKind value) => $_setField(1, value);
+  set kind($2.ModelProviderKind value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasKind() => $_has(0);
   @$pb.TagNumber(1)
@@ -6547,7 +6548,7 @@ class Voice extends $pb.GeneratedMessage {
     $core.String? name,
     VoiceProvider? provider,
     VoiceProviderData? providerData,
-    $1.VoiceSource? source,
+    $2.VoiceSource? source,
     $core.String? syncedAt,
     $core.String? updatedAt,
   }) {
@@ -6585,8 +6586,8 @@ class Voice extends $pb.GeneratedMessage {
         subBuilder: VoiceProvider.create)
     ..aOM<VoiceProviderData>(6, _omitFieldNames ? '' : 'providerData',
         subBuilder: VoiceProviderData.create)
-    ..aE<$1.VoiceSource>(7, _omitFieldNames ? '' : 'source',
-        enumValues: $1.VoiceSource.values)
+    ..aE<$2.VoiceSource>(7, _omitFieldNames ? '' : 'source',
+        enumValues: $2.VoiceSource.values)
     ..aOS(8, _omitFieldNames ? '' : 'syncedAt')
     ..aOS(9, _omitFieldNames ? '' : 'updatedAt')
     ..hasRequiredFields = false;
@@ -6668,9 +6669,9 @@ class Voice extends $pb.GeneratedMessage {
   VoiceProviderData ensureProviderData() => $_ensure(5);
 
   @$pb.TagNumber(7)
-  $1.VoiceSource get source => $_getN(6);
+  $2.VoiceSource get source => $_getN(6);
   @$pb.TagNumber(7)
-  set source($1.VoiceSource value) => $_setField(7, value);
+  set source($2.VoiceSource value) => $_setField(7, value);
   @$pb.TagNumber(7)
   $core.bool hasSource() => $_has(6);
   @$pb.TagNumber(7)
@@ -6945,7 +6946,7 @@ class VoiceListResponse extends $pb.GeneratedMessage {
 
 class VoiceProvider extends $pb.GeneratedMessage {
   factory VoiceProvider({
-    $1.VoiceProviderKind? kind,
+    $2.VoiceProviderKind? kind,
     $core.String? name,
   }) {
     final result = create();
@@ -6967,8 +6968,8 @@ class VoiceProvider extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'VoiceProvider',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aE<$1.VoiceProviderKind>(1, _omitFieldNames ? '' : 'kind',
-        enumValues: $1.VoiceProviderKind.values)
+    ..aE<$2.VoiceProviderKind>(1, _omitFieldNames ? '' : 'kind',
+        enumValues: $2.VoiceProviderKind.values)
     ..aOS(2, _omitFieldNames ? '' : 'name')
     ..hasRequiredFields = false;
 
@@ -6992,9 +6993,9 @@ class VoiceProvider extends $pb.GeneratedMessage {
   static VoiceProvider? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $1.VoiceProviderKind get kind => $_getN(0);
+  $2.VoiceProviderKind get kind => $_getN(0);
   @$pb.TagNumber(1)
-  set kind($1.VoiceProviderKind value) => $_setField(1, value);
+  set kind($2.VoiceProviderKind value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasKind() => $_has(0);
   @$pb.TagNumber(1)
@@ -7289,7 +7290,7 @@ class VolcCredentialBody extends $pb.GeneratedMessage {
 
 class VolcTenantModelProviderData extends $pb.GeneratedMessage {
   factory VolcTenantModelProviderData({
-    $1.VolcTenantModelProviderDataApiMode? apiMode,
+    $2.VolcTenantModelProviderDataApiMode? apiMode,
     $core.String? defaultThinkingLevel,
     $core.String? resourceId,
     $core.bool? supportJsonOutput,
@@ -7333,9 +7334,9 @@ class VolcTenantModelProviderData extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'VolcTenantModelProviderData',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aE<$1.VolcTenantModelProviderDataApiMode>(
+    ..aE<$2.VolcTenantModelProviderDataApiMode>(
         1, _omitFieldNames ? '' : 'apiMode',
-        enumValues: $1.VolcTenantModelProviderDataApiMode.values)
+        enumValues: $2.VolcTenantModelProviderDataApiMode.values)
     ..aOS(2, _omitFieldNames ? '' : 'defaultThinkingLevel')
     ..aOS(3, _omitFieldNames ? '' : 'resourceId')
     ..aOB(4, _omitFieldNames ? '' : 'supportJsonOutput')
@@ -7372,9 +7373,9 @@ class VolcTenantModelProviderData extends $pb.GeneratedMessage {
   static VolcTenantModelProviderData? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $1.VolcTenantModelProviderDataApiMode get apiMode => $_getN(0);
+  $2.VolcTenantModelProviderDataApiMode get apiMode => $_getN(0);
   @$pb.TagNumber(1)
-  set apiMode($1.VolcTenantModelProviderDataApiMode value) =>
+  set apiMode($2.VolcTenantModelProviderDataApiMode value) =>
       $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasApiMode() => $_has(0);
@@ -7588,11 +7589,13 @@ class Workflow extends $pb.GeneratedMessage {
     $core.String? name,
     WorkflowSpec? spec,
     WorkflowI18nCatalog? i18n,
+    $1.Icon? icon,
   }) {
     final result = create();
     if (name != null) result.name = name;
     if (spec != null) result.spec = spec;
     if (i18n != null) result.i18n = i18n;
+    if (icon != null) result.icon = icon;
     return result;
   }
 
@@ -7614,6 +7617,7 @@ class Workflow extends $pb.GeneratedMessage {
         subBuilder: WorkflowSpec.create)
     ..aOM<WorkflowI18nCatalog>(3, _omitFieldNames ? '' : 'i18n',
         subBuilder: WorkflowI18nCatalog.create)
+    ..aOM<$1.Icon>(4, _omitFieldNames ? '' : 'icon', subBuilder: $1.Icon.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -7664,6 +7668,169 @@ class Workflow extends $pb.GeneratedMessage {
   void clearI18n() => $_clearField(3);
   @$pb.TagNumber(3)
   WorkflowI18nCatalog ensureI18n() => $_ensure(2);
+
+  @$pb.TagNumber(4)
+  $1.Icon get icon => $_getN(3);
+  @$pb.TagNumber(4)
+  set icon($1.Icon value) => $_setField(4, value);
+  @$pb.TagNumber(4)
+  $core.bool hasIcon() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearIcon() => $_clearField(4);
+  @$pb.TagNumber(4)
+  $1.Icon ensureIcon() => $_ensure(3);
+}
+
+class WorkflowIconDownloadRequest extends $pb.GeneratedMessage {
+  factory WorkflowIconDownloadRequest({
+    $core.String? name,
+    $2.IconFormat? format,
+  }) {
+    final result = create();
+    if (name != null) result.name = name;
+    if (format != null) result.format = format;
+    return result;
+  }
+
+  WorkflowIconDownloadRequest._();
+
+  factory WorkflowIconDownloadRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory WorkflowIconDownloadRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'WorkflowIconDownloadRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aE<$2.IconFormat>(2, _omitFieldNames ? '' : 'format',
+        enumValues: $2.IconFormat.values)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WorkflowIconDownloadRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WorkflowIconDownloadRequest copyWith(
+          void Function(WorkflowIconDownloadRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as WorkflowIconDownloadRequest))
+          as WorkflowIconDownloadRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static WorkflowIconDownloadRequest create() =>
+      WorkflowIconDownloadRequest._();
+  @$core.override
+  WorkflowIconDownloadRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static WorkflowIconDownloadRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<WorkflowIconDownloadRequest>(create);
+  static WorkflowIconDownloadRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $2.IconFormat get format => $_getN(1);
+  @$pb.TagNumber(2)
+  set format($2.IconFormat value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasFormat() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearFormat() => $_clearField(2);
+}
+
+class WorkflowIconDownloadResponse extends $pb.GeneratedMessage {
+  factory WorkflowIconDownloadResponse({
+    $core.String? name,
+    $2.IconFormat? format,
+    $fixnum.Int64? sizeBytes,
+  }) {
+    final result = create();
+    if (name != null) result.name = name;
+    if (format != null) result.format = format;
+    if (sizeBytes != null) result.sizeBytes = sizeBytes;
+    return result;
+  }
+
+  WorkflowIconDownloadResponse._();
+
+  factory WorkflowIconDownloadResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory WorkflowIconDownloadResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'WorkflowIconDownloadResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aE<$2.IconFormat>(2, _omitFieldNames ? '' : 'format',
+        enumValues: $2.IconFormat.values)
+    ..aInt64(3, _omitFieldNames ? '' : 'sizeBytes')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WorkflowIconDownloadResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WorkflowIconDownloadResponse copyWith(
+          void Function(WorkflowIconDownloadResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as WorkflowIconDownloadResponse))
+          as WorkflowIconDownloadResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static WorkflowIconDownloadResponse create() =>
+      WorkflowIconDownloadResponse._();
+  @$core.override
+  WorkflowIconDownloadResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static WorkflowIconDownloadResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<WorkflowIconDownloadResponse>(create);
+  static WorkflowIconDownloadResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $2.IconFormat get format => $_getN(1);
+  @$pb.TagNumber(2)
+  set format($2.IconFormat value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasFormat() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearFormat() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get sizeBytes => $_getI64(2);
+  @$pb.TagNumber(3)
+  set sizeBytes($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSizeBytes() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSizeBytes() => $_clearField(3);
 }
 
 class WorkflowGetRequest extends $pb.GeneratedMessage {
@@ -8118,7 +8285,7 @@ class WorkflowSpec extends $pb.GeneratedMessage {
     ASTTranslateWorkflowSpec? astTranslate,
     ChatRoomWorkflowSpec? chatroom,
     DoubaoRealtimeWorkflowSpec? doubaoRealtime,
-    $1.WorkflowDriver? driver,
+    $2.WorkflowDriver? driver,
     FlowcraftWorkflowSpec? flowcraft,
     ToolkitPolicy? toolkit,
     PetWorkflowSpec? pet,
@@ -8154,8 +8321,8 @@ class WorkflowSpec extends $pb.GeneratedMessage {
     ..aOM<DoubaoRealtimeWorkflowSpec>(
         3, _omitFieldNames ? '' : 'doubaoRealtime',
         subBuilder: DoubaoRealtimeWorkflowSpec.create)
-    ..aE<$1.WorkflowDriver>(4, _omitFieldNames ? '' : 'driver',
-        enumValues: $1.WorkflowDriver.values)
+    ..aE<$2.WorkflowDriver>(4, _omitFieldNames ? '' : 'driver',
+        enumValues: $2.WorkflowDriver.values)
     ..aOM<FlowcraftWorkflowSpec>(5, _omitFieldNames ? '' : 'flowcraft',
         subBuilder: FlowcraftWorkflowSpec.create)
     ..aOM<ToolkitPolicy>(6, _omitFieldNames ? '' : 'toolkit',
@@ -8217,9 +8384,9 @@ class WorkflowSpec extends $pb.GeneratedMessage {
   DoubaoRealtimeWorkflowSpec ensureDoubaoRealtime() => $_ensure(2);
 
   @$pb.TagNumber(4)
-  $1.WorkflowDriver get driver => $_getN(3);
+  $2.WorkflowDriver get driver => $_getN(3);
   @$pb.TagNumber(4)
-  set driver($1.WorkflowDriver value) => $_setField(4, value);
+  set driver($2.WorkflowDriver value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasDriver() => $_has(3);
   @$pb.TagNumber(4)
@@ -8261,7 +8428,7 @@ class WorkflowSpec extends $pb.GeneratedMessage {
 
 class ToolExecutor extends $pb.GeneratedMessage {
   factory ToolExecutor({
-    $1.ToolExecutorKind? kind,
+    $2.ToolExecutorKind? kind,
     $core.String? name,
     $core.String? method,
     $core.String? peerId,
@@ -8289,8 +8456,8 @@ class ToolExecutor extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ToolExecutor',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aE<$1.ToolExecutorKind>(1, _omitFieldNames ? '' : 'kind',
-        enumValues: $1.ToolExecutorKind.values)
+    ..aE<$2.ToolExecutorKind>(1, _omitFieldNames ? '' : 'kind',
+        enumValues: $2.ToolExecutorKind.values)
     ..aOS(2, _omitFieldNames ? '' : 'name')
     ..aOS(3, _omitFieldNames ? '' : 'method')
     ..aOS(4, _omitFieldNames ? '' : 'peerId')
@@ -8318,9 +8485,9 @@ class ToolExecutor extends $pb.GeneratedMessage {
   static ToolExecutor? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $1.ToolExecutorKind get kind => $_getN(0);
+  $2.ToolExecutorKind get kind => $_getN(0);
   @$pb.TagNumber(1)
-  set kind($1.ToolExecutorKind value) => $_setField(1, value);
+  set kind($2.ToolExecutorKind value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasKind() => $_has(0);
   @$pb.TagNumber(1)
@@ -8545,7 +8712,7 @@ class Tool extends $pb.GeneratedMessage {
     $core.String? id,
     $core.String? name,
     $core.String? description,
-    $1.ToolSource? source,
+    $2.ToolSource? source,
     $core.bool? enabled,
     $core.String? ownerPeer,
     $core.String? version,
@@ -8591,8 +8758,8 @@ class Tool extends $pb.GeneratedMessage {
     ..aOS(1, _omitFieldNames ? '' : 'id')
     ..aOS(2, _omitFieldNames ? '' : 'name')
     ..aOS(3, _omitFieldNames ? '' : 'description')
-    ..aE<$1.ToolSource>(4, _omitFieldNames ? '' : 'source',
-        enumValues: $1.ToolSource.values)
+    ..aE<$2.ToolSource>(4, _omitFieldNames ? '' : 'source',
+        enumValues: $2.ToolSource.values)
     ..aOB(5, _omitFieldNames ? '' : 'enabled')
     ..aOS(6, _omitFieldNames ? '' : 'ownerPeer')
     ..aOS(7, _omitFieldNames ? '' : 'version')
@@ -8656,9 +8823,9 @@ class Tool extends $pb.GeneratedMessage {
   void clearDescription() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $1.ToolSource get source => $_getN(3);
+  $2.ToolSource get source => $_getN(3);
   @$pb.TagNumber(4)
-  set source($1.ToolSource value) => $_setField(4, value);
+  set source($2.ToolSource value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasSource() => $_has(3);
   @$pb.TagNumber(4)

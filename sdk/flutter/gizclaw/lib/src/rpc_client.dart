@@ -76,10 +76,29 @@ class PeerRpcClient {
     );
   }
 
+  Future<T> callUpload<T extends GeneratedMessage>(
+    String methodName,
+    GeneratedMessage request,
+    Uint8List body, {
+    String? id,
+    Duration? timeout,
+  }) async {
+    final result = await _call(
+      methodName,
+      request,
+      expectBody: false,
+      requestBody: body,
+      id: id,
+      timeout: timeout,
+    );
+    return result.response as T;
+  }
+
   Future<RpcCallResult> _call(
     String methodName,
     GeneratedMessage request, {
     required bool expectBody,
+    Uint8List? requestBody,
     String? id,
     Duration? timeout,
   }) {
@@ -88,7 +107,12 @@ class PeerRpcClient {
     late final _ResponseReader responseReader;
     try {
       requestId = id ?? _createId();
-      encodedRequest = encodeRpcRequest(methodName, request, id: requestId);
+      encodedRequest = encodeRpcRequest(
+        methodName,
+        request,
+        id: requestId,
+        body: requestBody,
+      );
       responseReader = _ResponseReader(
         methodName,
         expectBody: expectBody,
@@ -217,6 +241,7 @@ Uint8List encodeRpcRequest(
   String methodName,
   GeneratedMessage request, {
   required String id,
+  Uint8List? body,
 }) {
   final descriptor = rpcMethodByName(methodName);
   final method = rpc.RpcMethod.valueOf(descriptor.id);
@@ -231,6 +256,21 @@ Uint8List encodeRpcRequest(
   final envelope = rpc.RpcRequest(id: id, method: method, payload: payload);
   return concatBytes([
     ...encodeEnvelopeFrames(envelope.writeToBuffer()),
+    if (body != null)
+      for (
+        var offset = 0;
+        offset < body.length;
+        offset += rpcMaxFramePayloadSize
+      )
+        encodeFrame(
+          rpcFrameTypeBinary,
+          body.sublist(
+            offset,
+            offset + rpcMaxFramePayloadSize > body.length
+                ? body.length
+                : offset + rpcMaxFramePayloadSize,
+          ),
+        ),
     encodeFrame(rpcFrameTypeEos),
   ]);
 }

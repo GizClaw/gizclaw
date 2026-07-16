@@ -5644,6 +5644,7 @@ type Workflow struct {
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Spec          *WorkflowSpec          `protobuf:"bytes,2,opt,name=spec,proto3" json:"spec,omitempty"`
 	I18N          *WorkflowI18NCatalog   `protobuf:"bytes,3,opt,name=i18n,proto3,oneof" json:"i18n,omitempty"`
+	Icon          *Icon                  `protobuf:"bytes,4,opt,name=icon,proto3,oneof" json:"icon,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5699,6 +5700,125 @@ func (x *Workflow) GetI18N() *WorkflowI18NCatalog {
 	return nil
 }
 
+func (x *Workflow) GetIcon() *Icon {
+	if x != nil {
+		return x.Icon
+	}
+	return nil
+}
+
+type WorkflowIconDownloadRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Format        IconFormat             `protobuf:"varint,2,opt,name=format,proto3,enum=gizclaw.rpc.v1.IconFormat" json:"format,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WorkflowIconDownloadRequest) Reset() {
+	*x = WorkflowIconDownloadRequest{}
+	mi := &file_payload_ai_proto_msgTypes[86]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WorkflowIconDownloadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WorkflowIconDownloadRequest) ProtoMessage() {}
+
+func (x *WorkflowIconDownloadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_ai_proto_msgTypes[86]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WorkflowIconDownloadRequest.ProtoReflect.Descriptor instead.
+func (*WorkflowIconDownloadRequest) Descriptor() ([]byte, []int) {
+	return file_payload_ai_proto_rawDescGZIP(), []int{86}
+}
+
+func (x *WorkflowIconDownloadRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *WorkflowIconDownloadRequest) GetFormat() IconFormat {
+	if x != nil {
+		return x.Format
+	}
+	return IconFormat_ICON_FORMAT_UNSPECIFIED
+}
+
+type WorkflowIconDownloadResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Format        IconFormat             `protobuf:"varint,2,opt,name=format,proto3,enum=gizclaw.rpc.v1.IconFormat" json:"format,omitempty"`
+	SizeBytes     int64                  `protobuf:"varint,3,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WorkflowIconDownloadResponse) Reset() {
+	*x = WorkflowIconDownloadResponse{}
+	mi := &file_payload_ai_proto_msgTypes[87]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WorkflowIconDownloadResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WorkflowIconDownloadResponse) ProtoMessage() {}
+
+func (x *WorkflowIconDownloadResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_ai_proto_msgTypes[87]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WorkflowIconDownloadResponse.ProtoReflect.Descriptor instead.
+func (*WorkflowIconDownloadResponse) Descriptor() ([]byte, []int) {
+	return file_payload_ai_proto_rawDescGZIP(), []int{87}
+}
+
+func (x *WorkflowIconDownloadResponse) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *WorkflowIconDownloadResponse) GetFormat() IconFormat {
+	if x != nil {
+		return x.Format
+	}
+	return IconFormat_ICON_FORMAT_UNSPECIFIED
+}
+
+func (x *WorkflowIconDownloadResponse) GetSizeBytes() int64 {
+	if x != nil {
+		return x.SizeBytes
+	}
+	return 0
+}
+
 type WorkflowGetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -5709,7 +5829,7 @@ type WorkflowGetRequest struct {
 
 func (x *WorkflowGetRequest) Reset() {
 	*x = WorkflowGetRequest{}
-	mi := &file_payload_ai_proto_msgTypes[86]
+	mi := &file_payload_ai_proto_msgTypes[88]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5721,7 +5841,7 @@ func (x *WorkflowGetRequest) String() string {
 func (*WorkflowGetRequest) ProtoMessage() {}
 
 func (x *WorkflowGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[86]
+	mi := &file_payload_ai_proto_msgTypes[88]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5734,7 +5854,7 @@ func (x *WorkflowGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkflowGetRequest.ProtoReflect.Descriptor instead.
 func (*WorkflowGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{86}
+	return file_payload_ai_proto_rawDescGZIP(), []int{88}
 }
 
 func (x *WorkflowGetRequest) GetName() string {
@@ -5760,7 +5880,7 @@ type WorkflowGetResponse struct {
 
 func (x *WorkflowGetResponse) Reset() {
 	*x = WorkflowGetResponse{}
-	mi := &file_payload_ai_proto_msgTypes[87]
+	mi := &file_payload_ai_proto_msgTypes[89]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5772,7 +5892,7 @@ func (x *WorkflowGetResponse) String() string {
 func (*WorkflowGetResponse) ProtoMessage() {}
 
 func (x *WorkflowGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[87]
+	mi := &file_payload_ai_proto_msgTypes[89]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5785,7 +5905,7 @@ func (x *WorkflowGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkflowGetResponse.ProtoReflect.Descriptor instead.
 func (*WorkflowGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{87}
+	return file_payload_ai_proto_rawDescGZIP(), []int{89}
 }
 
 func (x *WorkflowGetResponse) GetValue() *Workflow {
@@ -5806,7 +5926,7 @@ type WorkflowListRequest struct {
 
 func (x *WorkflowListRequest) Reset() {
 	*x = WorkflowListRequest{}
-	mi := &file_payload_ai_proto_msgTypes[88]
+	mi := &file_payload_ai_proto_msgTypes[90]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5818,7 +5938,7 @@ func (x *WorkflowListRequest) String() string {
 func (*WorkflowListRequest) ProtoMessage() {}
 
 func (x *WorkflowListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[88]
+	mi := &file_payload_ai_proto_msgTypes[90]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5831,7 +5951,7 @@ func (x *WorkflowListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkflowListRequest.ProtoReflect.Descriptor instead.
 func (*WorkflowListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{88}
+	return file_payload_ai_proto_rawDescGZIP(), []int{90}
 }
 
 func (x *WorkflowListRequest) GetCursor() string {
@@ -5866,7 +5986,7 @@ type WorkflowListResponse struct {
 
 func (x *WorkflowListResponse) Reset() {
 	*x = WorkflowListResponse{}
-	mi := &file_payload_ai_proto_msgTypes[89]
+	mi := &file_payload_ai_proto_msgTypes[91]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5878,7 +5998,7 @@ func (x *WorkflowListResponse) String() string {
 func (*WorkflowListResponse) ProtoMessage() {}
 
 func (x *WorkflowListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[89]
+	mi := &file_payload_ai_proto_msgTypes[91]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5891,7 +6011,7 @@ func (x *WorkflowListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkflowListResponse.ProtoReflect.Descriptor instead.
 func (*WorkflowListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{89}
+	return file_payload_ai_proto_rawDescGZIP(), []int{91}
 }
 
 func (x *WorkflowListResponse) GetHasNext() bool {
@@ -5925,7 +6045,7 @@ type WorkflowI18NCatalog struct {
 
 func (x *WorkflowI18NCatalog) Reset() {
 	*x = WorkflowI18NCatalog{}
-	mi := &file_payload_ai_proto_msgTypes[90]
+	mi := &file_payload_ai_proto_msgTypes[92]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5937,7 +6057,7 @@ func (x *WorkflowI18NCatalog) String() string {
 func (*WorkflowI18NCatalog) ProtoMessage() {}
 
 func (x *WorkflowI18NCatalog) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[90]
+	mi := &file_payload_ai_proto_msgTypes[92]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5950,7 +6070,7 @@ func (x *WorkflowI18NCatalog) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkflowI18NCatalog.ProtoReflect.Descriptor instead.
 func (*WorkflowI18NCatalog) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{90}
+	return file_payload_ai_proto_rawDescGZIP(), []int{92}
 }
 
 func (x *WorkflowI18NCatalog) GetName() string {
@@ -5976,7 +6096,7 @@ type ToolkitPolicyToolIds struct {
 
 func (x *ToolkitPolicyToolIds) Reset() {
 	*x = ToolkitPolicyToolIds{}
-	mi := &file_payload_ai_proto_msgTypes[91]
+	mi := &file_payload_ai_proto_msgTypes[93]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5988,7 +6108,7 @@ func (x *ToolkitPolicyToolIds) String() string {
 func (*ToolkitPolicyToolIds) ProtoMessage() {}
 
 func (x *ToolkitPolicyToolIds) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[91]
+	mi := &file_payload_ai_proto_msgTypes[93]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6001,7 +6121,7 @@ func (x *ToolkitPolicyToolIds) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolkitPolicyToolIds.ProtoReflect.Descriptor instead.
 func (*ToolkitPolicyToolIds) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{91}
+	return file_payload_ai_proto_rawDescGZIP(), []int{93}
 }
 
 func (x *ToolkitPolicyToolIds) GetValue() []string {
@@ -6020,7 +6140,7 @@ type ToolkitPolicy struct {
 
 func (x *ToolkitPolicy) Reset() {
 	*x = ToolkitPolicy{}
-	mi := &file_payload_ai_proto_msgTypes[92]
+	mi := &file_payload_ai_proto_msgTypes[94]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6032,7 +6152,7 @@ func (x *ToolkitPolicy) String() string {
 func (*ToolkitPolicy) ProtoMessage() {}
 
 func (x *ToolkitPolicy) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[92]
+	mi := &file_payload_ai_proto_msgTypes[94]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6045,7 +6165,7 @@ func (x *ToolkitPolicy) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolkitPolicy.ProtoReflect.Descriptor instead.
 func (*ToolkitPolicy) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{92}
+	return file_payload_ai_proto_rawDescGZIP(), []int{94}
 }
 
 func (x *ToolkitPolicy) GetToolIds() *ToolkitPolicyToolIds {
@@ -6070,7 +6190,7 @@ type WorkflowSpec struct {
 
 func (x *WorkflowSpec) Reset() {
 	*x = WorkflowSpec{}
-	mi := &file_payload_ai_proto_msgTypes[93]
+	mi := &file_payload_ai_proto_msgTypes[95]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6082,7 +6202,7 @@ func (x *WorkflowSpec) String() string {
 func (*WorkflowSpec) ProtoMessage() {}
 
 func (x *WorkflowSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[93]
+	mi := &file_payload_ai_proto_msgTypes[95]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6095,7 +6215,7 @@ func (x *WorkflowSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkflowSpec.ProtoReflect.Descriptor instead.
 func (*WorkflowSpec) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{93}
+	return file_payload_ai_proto_rawDescGZIP(), []int{95}
 }
 
 func (x *WorkflowSpec) GetAstTranslate() *ASTTranslateWorkflowSpec {
@@ -6160,7 +6280,7 @@ type ToolExecutor struct {
 
 func (x *ToolExecutor) Reset() {
 	*x = ToolExecutor{}
-	mi := &file_payload_ai_proto_msgTypes[94]
+	mi := &file_payload_ai_proto_msgTypes[96]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6172,7 +6292,7 @@ func (x *ToolExecutor) String() string {
 func (*ToolExecutor) ProtoMessage() {}
 
 func (x *ToolExecutor) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[94]
+	mi := &file_payload_ai_proto_msgTypes[96]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6185,7 +6305,7 @@ func (x *ToolExecutor) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolExecutor.ProtoReflect.Descriptor instead.
 func (*ToolExecutor) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{94}
+	return file_payload_ai_proto_rawDescGZIP(), []int{96}
 }
 
 func (x *ToolExecutor) GetKind() ToolExecutorKind {
@@ -6234,7 +6354,7 @@ type ToolTriggerExample struct {
 
 func (x *ToolTriggerExample) Reset() {
 	*x = ToolTriggerExample{}
-	mi := &file_payload_ai_proto_msgTypes[95]
+	mi := &file_payload_ai_proto_msgTypes[97]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6246,7 +6366,7 @@ func (x *ToolTriggerExample) String() string {
 func (*ToolTriggerExample) ProtoMessage() {}
 
 func (x *ToolTriggerExample) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[95]
+	mi := &file_payload_ai_proto_msgTypes[97]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6259,7 +6379,7 @@ func (x *ToolTriggerExample) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolTriggerExample.ProtoReflect.Descriptor instead.
 func (*ToolTriggerExample) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{95}
+	return file_payload_ai_proto_rawDescGZIP(), []int{97}
 }
 
 func (x *ToolTriggerExample) GetInput() string {
@@ -6296,7 +6416,7 @@ type ToolTrigger struct {
 
 func (x *ToolTrigger) Reset() {
 	*x = ToolTrigger{}
-	mi := &file_payload_ai_proto_msgTypes[96]
+	mi := &file_payload_ai_proto_msgTypes[98]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6308,7 +6428,7 @@ func (x *ToolTrigger) String() string {
 func (*ToolTrigger) ProtoMessage() {}
 
 func (x *ToolTrigger) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[96]
+	mi := &file_payload_ai_proto_msgTypes[98]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6321,7 +6441,7 @@ func (x *ToolTrigger) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolTrigger.ProtoReflect.Descriptor instead.
 func (*ToolTrigger) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{96}
+	return file_payload_ai_proto_rawDescGZIP(), []int{98}
 }
 
 func (x *ToolTrigger) GetName() string {
@@ -6381,7 +6501,7 @@ type Tool struct {
 
 func (x *Tool) Reset() {
 	*x = Tool{}
-	mi := &file_payload_ai_proto_msgTypes[97]
+	mi := &file_payload_ai_proto_msgTypes[99]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6393,7 +6513,7 @@ func (x *Tool) String() string {
 func (*Tool) ProtoMessage() {}
 
 func (x *Tool) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[97]
+	mi := &file_payload_ai_proto_msgTypes[99]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6406,7 +6526,7 @@ func (x *Tool) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Tool.ProtoReflect.Descriptor instead.
 func (*Tool) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{97}
+	return file_payload_ai_proto_rawDescGZIP(), []int{99}
 }
 
 func (x *Tool) GetId() string {
@@ -6517,7 +6637,7 @@ type ToolListRequest struct {
 
 func (x *ToolListRequest) Reset() {
 	*x = ToolListRequest{}
-	mi := &file_payload_ai_proto_msgTypes[98]
+	mi := &file_payload_ai_proto_msgTypes[100]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6529,7 +6649,7 @@ func (x *ToolListRequest) String() string {
 func (*ToolListRequest) ProtoMessage() {}
 
 func (x *ToolListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[98]
+	mi := &file_payload_ai_proto_msgTypes[100]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6542,7 +6662,7 @@ func (x *ToolListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolListRequest.ProtoReflect.Descriptor instead.
 func (*ToolListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{98}
+	return file_payload_ai_proto_rawDescGZIP(), []int{100}
 }
 
 func (x *ToolListRequest) GetCursor() string {
@@ -6570,7 +6690,7 @@ type ToolListResponse struct {
 
 func (x *ToolListResponse) Reset() {
 	*x = ToolListResponse{}
-	mi := &file_payload_ai_proto_msgTypes[99]
+	mi := &file_payload_ai_proto_msgTypes[101]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6582,7 +6702,7 @@ func (x *ToolListResponse) String() string {
 func (*ToolListResponse) ProtoMessage() {}
 
 func (x *ToolListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[99]
+	mi := &file_payload_ai_proto_msgTypes[101]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6595,7 +6715,7 @@ func (x *ToolListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolListResponse.ProtoReflect.Descriptor instead.
 func (*ToolListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{99}
+	return file_payload_ai_proto_rawDescGZIP(), []int{101}
 }
 
 func (x *ToolListResponse) GetItems() []*Tool {
@@ -6628,7 +6748,7 @@ type ToolGetRequest struct {
 
 func (x *ToolGetRequest) Reset() {
 	*x = ToolGetRequest{}
-	mi := &file_payload_ai_proto_msgTypes[100]
+	mi := &file_payload_ai_proto_msgTypes[102]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6640,7 +6760,7 @@ func (x *ToolGetRequest) String() string {
 func (*ToolGetRequest) ProtoMessage() {}
 
 func (x *ToolGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[100]
+	mi := &file_payload_ai_proto_msgTypes[102]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6653,7 +6773,7 @@ func (x *ToolGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolGetRequest.ProtoReflect.Descriptor instead.
 func (*ToolGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{100}
+	return file_payload_ai_proto_rawDescGZIP(), []int{102}
 }
 
 func (x *ToolGetRequest) GetId() string {
@@ -6672,7 +6792,7 @@ type ToolGetResponse struct {
 
 func (x *ToolGetResponse) Reset() {
 	*x = ToolGetResponse{}
-	mi := &file_payload_ai_proto_msgTypes[101]
+	mi := &file_payload_ai_proto_msgTypes[103]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6684,7 +6804,7 @@ func (x *ToolGetResponse) String() string {
 func (*ToolGetResponse) ProtoMessage() {}
 
 func (x *ToolGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[101]
+	mi := &file_payload_ai_proto_msgTypes[103]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6697,7 +6817,7 @@ func (x *ToolGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolGetResponse.ProtoReflect.Descriptor instead.
 func (*ToolGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{101}
+	return file_payload_ai_proto_rawDescGZIP(), []int{103}
 }
 
 func (x *ToolGetResponse) GetValue() *Tool {
@@ -6716,7 +6836,7 @@ type ToolCreateRequest struct {
 
 func (x *ToolCreateRequest) Reset() {
 	*x = ToolCreateRequest{}
-	mi := &file_payload_ai_proto_msgTypes[102]
+	mi := &file_payload_ai_proto_msgTypes[104]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6728,7 +6848,7 @@ func (x *ToolCreateRequest) String() string {
 func (*ToolCreateRequest) ProtoMessage() {}
 
 func (x *ToolCreateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[102]
+	mi := &file_payload_ai_proto_msgTypes[104]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6741,7 +6861,7 @@ func (x *ToolCreateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolCreateRequest.ProtoReflect.Descriptor instead.
 func (*ToolCreateRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{102}
+	return file_payload_ai_proto_rawDescGZIP(), []int{104}
 }
 
 func (x *ToolCreateRequest) GetValue() *Tool {
@@ -6760,7 +6880,7 @@ type ToolCreateResponse struct {
 
 func (x *ToolCreateResponse) Reset() {
 	*x = ToolCreateResponse{}
-	mi := &file_payload_ai_proto_msgTypes[103]
+	mi := &file_payload_ai_proto_msgTypes[105]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6772,7 +6892,7 @@ func (x *ToolCreateResponse) String() string {
 func (*ToolCreateResponse) ProtoMessage() {}
 
 func (x *ToolCreateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[103]
+	mi := &file_payload_ai_proto_msgTypes[105]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6785,7 +6905,7 @@ func (x *ToolCreateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolCreateResponse.ProtoReflect.Descriptor instead.
 func (*ToolCreateResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{103}
+	return file_payload_ai_proto_rawDescGZIP(), []int{105}
 }
 
 func (x *ToolCreateResponse) GetValue() *Tool {
@@ -6805,7 +6925,7 @@ type ToolPutRequest struct {
 
 func (x *ToolPutRequest) Reset() {
 	*x = ToolPutRequest{}
-	mi := &file_payload_ai_proto_msgTypes[104]
+	mi := &file_payload_ai_proto_msgTypes[106]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6817,7 +6937,7 @@ func (x *ToolPutRequest) String() string {
 func (*ToolPutRequest) ProtoMessage() {}
 
 func (x *ToolPutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[104]
+	mi := &file_payload_ai_proto_msgTypes[106]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6830,7 +6950,7 @@ func (x *ToolPutRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolPutRequest.ProtoReflect.Descriptor instead.
 func (*ToolPutRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{104}
+	return file_payload_ai_proto_rawDescGZIP(), []int{106}
 }
 
 func (x *ToolPutRequest) GetId() string {
@@ -6856,7 +6976,7 @@ type ToolPutResponse struct {
 
 func (x *ToolPutResponse) Reset() {
 	*x = ToolPutResponse{}
-	mi := &file_payload_ai_proto_msgTypes[105]
+	mi := &file_payload_ai_proto_msgTypes[107]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6868,7 +6988,7 @@ func (x *ToolPutResponse) String() string {
 func (*ToolPutResponse) ProtoMessage() {}
 
 func (x *ToolPutResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[105]
+	mi := &file_payload_ai_proto_msgTypes[107]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6881,7 +7001,7 @@ func (x *ToolPutResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolPutResponse.ProtoReflect.Descriptor instead.
 func (*ToolPutResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{105}
+	return file_payload_ai_proto_rawDescGZIP(), []int{107}
 }
 
 func (x *ToolPutResponse) GetValue() *Tool {
@@ -6900,7 +7020,7 @@ type ToolDeleteRequest struct {
 
 func (x *ToolDeleteRequest) Reset() {
 	*x = ToolDeleteRequest{}
-	mi := &file_payload_ai_proto_msgTypes[106]
+	mi := &file_payload_ai_proto_msgTypes[108]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6912,7 +7032,7 @@ func (x *ToolDeleteRequest) String() string {
 func (*ToolDeleteRequest) ProtoMessage() {}
 
 func (x *ToolDeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[106]
+	mi := &file_payload_ai_proto_msgTypes[108]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6925,7 +7045,7 @@ func (x *ToolDeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolDeleteRequest.ProtoReflect.Descriptor instead.
 func (*ToolDeleteRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{106}
+	return file_payload_ai_proto_rawDescGZIP(), []int{108}
 }
 
 func (x *ToolDeleteRequest) GetId() string {
@@ -6944,7 +7064,7 @@ type ToolDeleteResponse struct {
 
 func (x *ToolDeleteResponse) Reset() {
 	*x = ToolDeleteResponse{}
-	mi := &file_payload_ai_proto_msgTypes[107]
+	mi := &file_payload_ai_proto_msgTypes[109]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6956,7 +7076,7 @@ func (x *ToolDeleteResponse) String() string {
 func (*ToolDeleteResponse) ProtoMessage() {}
 
 func (x *ToolDeleteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[107]
+	mi := &file_payload_ai_proto_msgTypes[109]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6969,7 +7089,7 @@ func (x *ToolDeleteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolDeleteResponse.ProtoReflect.Descriptor instead.
 func (*ToolDeleteResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{107}
+	return file_payload_ai_proto_rawDescGZIP(), []int{109}
 }
 
 func (x *ToolDeleteResponse) GetValue() *Tool {
@@ -6991,7 +7111,7 @@ type ToolInvokeRequest struct {
 
 func (x *ToolInvokeRequest) Reset() {
 	*x = ToolInvokeRequest{}
-	mi := &file_payload_ai_proto_msgTypes[108]
+	mi := &file_payload_ai_proto_msgTypes[110]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7003,7 +7123,7 @@ func (x *ToolInvokeRequest) String() string {
 func (*ToolInvokeRequest) ProtoMessage() {}
 
 func (x *ToolInvokeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[108]
+	mi := &file_payload_ai_proto_msgTypes[110]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7016,7 +7136,7 @@ func (x *ToolInvokeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolInvokeRequest.ProtoReflect.Descriptor instead.
 func (*ToolInvokeRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{108}
+	return file_payload_ai_proto_rawDescGZIP(), []int{110}
 }
 
 func (x *ToolInvokeRequest) GetCallId() string {
@@ -7056,7 +7176,7 @@ type ToolInvokeResponse struct {
 
 func (x *ToolInvokeResponse) Reset() {
 	*x = ToolInvokeResponse{}
-	mi := &file_payload_ai_proto_msgTypes[109]
+	mi := &file_payload_ai_proto_msgTypes[111]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7068,7 +7188,7 @@ func (x *ToolInvokeResponse) String() string {
 func (*ToolInvokeResponse) ProtoMessage() {}
 
 func (x *ToolInvokeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[109]
+	mi := &file_payload_ai_proto_msgTypes[111]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7081,7 +7201,7 @@ func (x *ToolInvokeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolInvokeResponse.ProtoReflect.Descriptor instead.
 func (*ToolInvokeResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{109}
+	return file_payload_ai_proto_rawDescGZIP(), []int{111}
 }
 
 func (x *ToolInvokeResponse) GetDataJson() string {
@@ -7095,7 +7215,7 @@ var File_payload_ai_proto protoreflect.FileDescriptor
 
 const file_payload_ai_proto_rawDesc = "" +
 	"\n" +
-	"\x10payload/ai.proto\x12\x0egizclaw.rpc.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x13payload/enums.proto\"B\n" +
+	"\x10payload/ai.proto\x12\x0egizclaw.rpc.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x13payload/enums.proto\x1a\x12payload/icon.proto\"B\n" +
 	"#ASTTranslateExternalVoiceParameters\x12\x1b\n" +
 	"\ttts_voice\x18\x01 \x01(\tR\bttsVoice\"\x84\x02\n" +
 	"%ASTTranslateInternalSpeakerParameters\x12/\n" +
@@ -7748,12 +7868,22 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\f_resource_idB\b\n" +
 	"\x06_stateB\t\n" +
 	"\a_statusB\v\n" +
-	"\t_voice_id\"\x97\x01\n" +
+	"\t_voice_id\"\xcf\x01\n" +
 	"\bWorkflow\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x120\n" +
 	"\x04spec\x18\x02 \x01(\v2\x1c.gizclaw.rpc.v1.WorkflowSpecR\x04spec\x12<\n" +
-	"\x04i18n\x18\x03 \x01(\v2#.gizclaw.rpc.v1.WorkflowI18nCatalogH\x00R\x04i18n\x88\x01\x01B\a\n" +
-	"\x05_i18n\"j\n" +
+	"\x04i18n\x18\x03 \x01(\v2#.gizclaw.rpc.v1.WorkflowI18nCatalogH\x00R\x04i18n\x88\x01\x01\x12-\n" +
+	"\x04icon\x18\x04 \x01(\v2\x14.gizclaw.rpc.v1.IconH\x01R\x04icon\x88\x01\x01B\a\n" +
+	"\x05_i18nB\a\n" +
+	"\x05_icon\"e\n" +
+	"\x1bWorkflowIconDownloadRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x122\n" +
+	"\x06format\x18\x02 \x01(\x0e2\x1a.gizclaw.rpc.v1.IconFormatR\x06format\"\x85\x01\n" +
+	"\x1cWorkflowIconDownloadResponse\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x122\n" +
+	"\x06format\x18\x02 \x01(\x0e2\x1a.gizclaw.rpc.v1.IconFormatR\x06format\x12\x1d\n" +
+	"\n" +
+	"size_bytes\x18\x03 \x01(\x03R\tsizeBytes\"j\n" +
 	"\x12WorkflowGetRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x127\n" +
 	"\x04lang\x18\x02 \x01(\x0e2\x1e.gizclaw.rpc.v1.WorkflowLocaleH\x00R\x04lang\x88\x01\x01B\a\n" +
@@ -7905,7 +8035,7 @@ func file_payload_ai_proto_rawDescGZIP() []byte {
 }
 
 var file_payload_ai_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_payload_ai_proto_msgTypes = make([]protoimpl.MessageInfo, 112)
+var file_payload_ai_proto_msgTypes = make([]protoimpl.MessageInfo, 114)
 var file_payload_ai_proto_goTypes = []any{
 	(WorkflowLocale)(0),                                       // 0: gizclaw.rpc.v1.WorkflowLocale
 	(*ASTTranslateExternalVoiceParameters)(nil),               // 1: gizclaw.rpc.v1.ASTTranslateExternalVoiceParameters
@@ -7994,73 +8124,77 @@ var file_payload_ai_proto_goTypes = []any{
 	(*VolcTenantModelProviderData)(nil),                       // 84: gizclaw.rpc.v1.VolcTenantModelProviderData
 	(*VolcTenantVoiceProviderData)(nil),                       // 85: gizclaw.rpc.v1.VolcTenantVoiceProviderData
 	(*Workflow)(nil),                                          // 86: gizclaw.rpc.v1.Workflow
-	(*WorkflowGetRequest)(nil),                                // 87: gizclaw.rpc.v1.WorkflowGetRequest
-	(*WorkflowGetResponse)(nil),                               // 88: gizclaw.rpc.v1.WorkflowGetResponse
-	(*WorkflowListRequest)(nil),                               // 89: gizclaw.rpc.v1.WorkflowListRequest
-	(*WorkflowListResponse)(nil),                              // 90: gizclaw.rpc.v1.WorkflowListResponse
-	(*WorkflowI18NCatalog)(nil),                               // 91: gizclaw.rpc.v1.WorkflowI18nCatalog
-	(*ToolkitPolicyToolIds)(nil),                              // 92: gizclaw.rpc.v1.ToolkitPolicyToolIds
-	(*ToolkitPolicy)(nil),                                     // 93: gizclaw.rpc.v1.ToolkitPolicy
-	(*WorkflowSpec)(nil),                                      // 94: gizclaw.rpc.v1.WorkflowSpec
-	(*ToolExecutor)(nil),                                      // 95: gizclaw.rpc.v1.ToolExecutor
-	(*ToolTriggerExample)(nil),                                // 96: gizclaw.rpc.v1.ToolTriggerExample
-	(*ToolTrigger)(nil),                                       // 97: gizclaw.rpc.v1.ToolTrigger
-	(*Tool)(nil),                                              // 98: gizclaw.rpc.v1.Tool
-	(*ToolListRequest)(nil),                                   // 99: gizclaw.rpc.v1.ToolListRequest
-	(*ToolListResponse)(nil),                                  // 100: gizclaw.rpc.v1.ToolListResponse
-	(*ToolGetRequest)(nil),                                    // 101: gizclaw.rpc.v1.ToolGetRequest
-	(*ToolGetResponse)(nil),                                   // 102: gizclaw.rpc.v1.ToolGetResponse
-	(*ToolCreateRequest)(nil),                                 // 103: gizclaw.rpc.v1.ToolCreateRequest
-	(*ToolCreateResponse)(nil),                                // 104: gizclaw.rpc.v1.ToolCreateResponse
-	(*ToolPutRequest)(nil),                                    // 105: gizclaw.rpc.v1.ToolPutRequest
-	(*ToolPutResponse)(nil),                                   // 106: gizclaw.rpc.v1.ToolPutResponse
-	(*ToolDeleteRequest)(nil),                                 // 107: gizclaw.rpc.v1.ToolDeleteRequest
-	(*ToolDeleteResponse)(nil),                                // 108: gizclaw.rpc.v1.ToolDeleteResponse
-	(*ToolInvokeRequest)(nil),                                 // 109: gizclaw.rpc.v1.ToolInvokeRequest
-	(*ToolInvokeResponse)(nil),                                // 110: gizclaw.rpc.v1.ToolInvokeResponse
-	nil,                                                       // 111: gizclaw.rpc.v1.DoubaoRealtimeASRContext.CorrectWordsEntry
-	nil,                                                       // 112: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry
-	(ASTTranslateMode)(0),                                     // 113: gizclaw.rpc.v1.ASTTranslateMode
-	(ASTTranslateWorkspaceParametersAgentType)(0),             // 114: gizclaw.rpc.v1.ASTTranslateWorkspaceParametersAgentType
-	(WorkspaceInputMode)(0),                                   // 115: gizclaw.rpc.v1.WorkspaceInputMode
-	(ChatRoomWorkspaceParametersAgentType)(0),                 // 116: gizclaw.rpc.v1.ChatRoomWorkspaceParametersAgentType
-	(ChatRoomMode)(0),                                         // 117: gizclaw.rpc.v1.ChatRoomMode
-	(DashScopeTenantModelProviderDataApiMode)(0),              // 118: gizclaw.rpc.v1.DashScopeTenantModelProviderDataApiMode
-	(*structpb.Struct)(nil),                                   // 119: google.protobuf.Struct
-	(DoubaoRealtimeAudioFormatType)(0),                        // 120: gizclaw.rpc.v1.DoubaoRealtimeAudioFormatType
-	(DoubaoRealtimeDialogExtraVolcWebsearchType)(0),           // 121: gizclaw.rpc.v1.DoubaoRealtimeDialogExtraVolcWebsearchType
-	(DoubaoRealtimeFunctionToolType)(0),                       // 122: gizclaw.rpc.v1.DoubaoRealtimeFunctionToolType
-	(DoubaoRealtimeWorkspaceParametersAgentType)(0),           // 123: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParametersAgentType
-	(FlowcraftConversationParametersAgentInitiativePolicy)(0), // 124: gizclaw.rpc.v1.FlowcraftConversationParametersAgentInitiativePolicy
-	(FlowcraftConversationParametersInitiative)(0),            // 125: gizclaw.rpc.v1.FlowcraftConversationParametersInitiative
-	(FlowcraftWorkspaceParametersAgentType)(0),                // 126: gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentType
-	(PetConversationParametersInitiative)(0),                  // 127: gizclaw.rpc.v1.PetConversationParametersInitiative
-	(PetWorkspaceParametersAgentType)(0),                      // 128: gizclaw.rpc.v1.PetWorkspaceParametersAgentType
-	(ModelKind)(0),                                            // 129: gizclaw.rpc.v1.ModelKind
-	(ModelSource)(0),                                          // 130: gizclaw.rpc.v1.ModelSource
-	(ModelProviderKind)(0),                                    // 131: gizclaw.rpc.v1.ModelProviderKind
-	(VoiceSource)(0),                                          // 132: gizclaw.rpc.v1.VoiceSource
-	(VoiceProviderKind)(0),                                    // 133: gizclaw.rpc.v1.VoiceProviderKind
-	(VolcTenantModelProviderDataApiMode)(0),                   // 134: gizclaw.rpc.v1.VolcTenantModelProviderDataApiMode
-	(WorkflowDriver)(0),                                       // 135: gizclaw.rpc.v1.WorkflowDriver
-	(ToolExecutorKind)(0),                                     // 136: gizclaw.rpc.v1.ToolExecutorKind
-	(ToolSource)(0),                                           // 137: gizclaw.rpc.v1.ToolSource
+	(*WorkflowIconDownloadRequest)(nil),                       // 87: gizclaw.rpc.v1.WorkflowIconDownloadRequest
+	(*WorkflowIconDownloadResponse)(nil),                      // 88: gizclaw.rpc.v1.WorkflowIconDownloadResponse
+	(*WorkflowGetRequest)(nil),                                // 89: gizclaw.rpc.v1.WorkflowGetRequest
+	(*WorkflowGetResponse)(nil),                               // 90: gizclaw.rpc.v1.WorkflowGetResponse
+	(*WorkflowListRequest)(nil),                               // 91: gizclaw.rpc.v1.WorkflowListRequest
+	(*WorkflowListResponse)(nil),                              // 92: gizclaw.rpc.v1.WorkflowListResponse
+	(*WorkflowI18NCatalog)(nil),                               // 93: gizclaw.rpc.v1.WorkflowI18nCatalog
+	(*ToolkitPolicyToolIds)(nil),                              // 94: gizclaw.rpc.v1.ToolkitPolicyToolIds
+	(*ToolkitPolicy)(nil),                                     // 95: gizclaw.rpc.v1.ToolkitPolicy
+	(*WorkflowSpec)(nil),                                      // 96: gizclaw.rpc.v1.WorkflowSpec
+	(*ToolExecutor)(nil),                                      // 97: gizclaw.rpc.v1.ToolExecutor
+	(*ToolTriggerExample)(nil),                                // 98: gizclaw.rpc.v1.ToolTriggerExample
+	(*ToolTrigger)(nil),                                       // 99: gizclaw.rpc.v1.ToolTrigger
+	(*Tool)(nil),                                              // 100: gizclaw.rpc.v1.Tool
+	(*ToolListRequest)(nil),                                   // 101: gizclaw.rpc.v1.ToolListRequest
+	(*ToolListResponse)(nil),                                  // 102: gizclaw.rpc.v1.ToolListResponse
+	(*ToolGetRequest)(nil),                                    // 103: gizclaw.rpc.v1.ToolGetRequest
+	(*ToolGetResponse)(nil),                                   // 104: gizclaw.rpc.v1.ToolGetResponse
+	(*ToolCreateRequest)(nil),                                 // 105: gizclaw.rpc.v1.ToolCreateRequest
+	(*ToolCreateResponse)(nil),                                // 106: gizclaw.rpc.v1.ToolCreateResponse
+	(*ToolPutRequest)(nil),                                    // 107: gizclaw.rpc.v1.ToolPutRequest
+	(*ToolPutResponse)(nil),                                   // 108: gizclaw.rpc.v1.ToolPutResponse
+	(*ToolDeleteRequest)(nil),                                 // 109: gizclaw.rpc.v1.ToolDeleteRequest
+	(*ToolDeleteResponse)(nil),                                // 110: gizclaw.rpc.v1.ToolDeleteResponse
+	(*ToolInvokeRequest)(nil),                                 // 111: gizclaw.rpc.v1.ToolInvokeRequest
+	(*ToolInvokeResponse)(nil),                                // 112: gizclaw.rpc.v1.ToolInvokeResponse
+	nil,                                                       // 113: gizclaw.rpc.v1.DoubaoRealtimeASRContext.CorrectWordsEntry
+	nil,                                                       // 114: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry
+	(ASTTranslateMode)(0),                                     // 115: gizclaw.rpc.v1.ASTTranslateMode
+	(ASTTranslateWorkspaceParametersAgentType)(0),             // 116: gizclaw.rpc.v1.ASTTranslateWorkspaceParametersAgentType
+	(WorkspaceInputMode)(0),                                   // 117: gizclaw.rpc.v1.WorkspaceInputMode
+	(ChatRoomWorkspaceParametersAgentType)(0),                 // 118: gizclaw.rpc.v1.ChatRoomWorkspaceParametersAgentType
+	(ChatRoomMode)(0),                                         // 119: gizclaw.rpc.v1.ChatRoomMode
+	(DashScopeTenantModelProviderDataApiMode)(0),              // 120: gizclaw.rpc.v1.DashScopeTenantModelProviderDataApiMode
+	(*structpb.Struct)(nil),                                   // 121: google.protobuf.Struct
+	(DoubaoRealtimeAudioFormatType)(0),                        // 122: gizclaw.rpc.v1.DoubaoRealtimeAudioFormatType
+	(DoubaoRealtimeDialogExtraVolcWebsearchType)(0),           // 123: gizclaw.rpc.v1.DoubaoRealtimeDialogExtraVolcWebsearchType
+	(DoubaoRealtimeFunctionToolType)(0),                       // 124: gizclaw.rpc.v1.DoubaoRealtimeFunctionToolType
+	(DoubaoRealtimeWorkspaceParametersAgentType)(0),           // 125: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParametersAgentType
+	(FlowcraftConversationParametersAgentInitiativePolicy)(0), // 126: gizclaw.rpc.v1.FlowcraftConversationParametersAgentInitiativePolicy
+	(FlowcraftConversationParametersInitiative)(0),            // 127: gizclaw.rpc.v1.FlowcraftConversationParametersInitiative
+	(FlowcraftWorkspaceParametersAgentType)(0),                // 128: gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentType
+	(PetConversationParametersInitiative)(0),                  // 129: gizclaw.rpc.v1.PetConversationParametersInitiative
+	(PetWorkspaceParametersAgentType)(0),                      // 130: gizclaw.rpc.v1.PetWorkspaceParametersAgentType
+	(ModelKind)(0),                                            // 131: gizclaw.rpc.v1.ModelKind
+	(ModelSource)(0),                                          // 132: gizclaw.rpc.v1.ModelSource
+	(ModelProviderKind)(0),                                    // 133: gizclaw.rpc.v1.ModelProviderKind
+	(VoiceSource)(0),                                          // 134: gizclaw.rpc.v1.VoiceSource
+	(VoiceProviderKind)(0),                                    // 135: gizclaw.rpc.v1.VoiceProviderKind
+	(VolcTenantModelProviderDataApiMode)(0),                   // 136: gizclaw.rpc.v1.VolcTenantModelProviderDataApiMode
+	(*Icon)(nil),                                              // 137: gizclaw.rpc.v1.Icon
+	(IconFormat)(0),                                           // 138: gizclaw.rpc.v1.IconFormat
+	(WorkflowDriver)(0),                                       // 139: gizclaw.rpc.v1.WorkflowDriver
+	(ToolExecutorKind)(0),                                     // 140: gizclaw.rpc.v1.ToolExecutorKind
+	(ToolSource)(0),                                           // 141: gizclaw.rpc.v1.ToolSource
 }
 var file_payload_ai_proto_depIdxs = []int32{
 	2,   // 0: gizclaw.rpc.v1.ASTTranslateVoiceParameters.asttranslate_internal_speaker_parameters:type_name -> gizclaw.rpc.v1.ASTTranslateInternalSpeakerParameters
 	1,   // 1: gizclaw.rpc.v1.ASTTranslateVoiceParameters.asttranslate_external_voice_parameters:type_name -> gizclaw.rpc.v1.ASTTranslateExternalVoiceParameters
-	113, // 2: gizclaw.rpc.v1.ASTTranslateWorkflowSpec.mode:type_name -> gizclaw.rpc.v1.ASTTranslateMode
+	115, // 2: gizclaw.rpc.v1.ASTTranslateWorkflowSpec.mode:type_name -> gizclaw.rpc.v1.ASTTranslateMode
 	3,   // 3: gizclaw.rpc.v1.ASTTranslateWorkflowSpec.voice:type_name -> gizclaw.rpc.v1.ASTTranslateVoiceParameters
-	114, // 4: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.ASTTranslateWorkspaceParametersAgentType
-	115, // 5: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
-	113, // 6: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters.mode:type_name -> gizclaw.rpc.v1.ASTTranslateMode
+	116, // 4: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.ASTTranslateWorkspaceParametersAgentType
+	117, // 5: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
+	115, // 6: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters.mode:type_name -> gizclaw.rpc.v1.ASTTranslateMode
 	3,   // 7: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters.voice:type_name -> gizclaw.rpc.v1.ASTTranslateVoiceParameters
 	6,   // 8: gizclaw.rpc.v1.ChatRoomWorkflowSpec.history:type_name -> gizclaw.rpc.v1.ChatRoomWorkflowHistorySpec
 	8,   // 9: gizclaw.rpc.v1.ChatRoomWorkflowSpec.transcript:type_name -> gizclaw.rpc.v1.ChatRoomWorkflowTranscriptSpec
-	116, // 10: gizclaw.rpc.v1.ChatRoomWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.ChatRoomWorkspaceParametersAgentType
+	118, // 10: gizclaw.rpc.v1.ChatRoomWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.ChatRoomWorkspaceParametersAgentType
 	9,   // 11: gizclaw.rpc.v1.ChatRoomWorkspaceParameters.history:type_name -> gizclaw.rpc.v1.ChatRoomWorkspaceHistoryParameters
-	115, // 12: gizclaw.rpc.v1.ChatRoomWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
-	117, // 13: gizclaw.rpc.v1.ChatRoomWorkspaceParameters.mode:type_name -> gizclaw.rpc.v1.ChatRoomMode
+	117, // 12: gizclaw.rpc.v1.ChatRoomWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
+	119, // 13: gizclaw.rpc.v1.ChatRoomWorkspaceParameters.mode:type_name -> gizclaw.rpc.v1.ChatRoomMode
 	11,  // 14: gizclaw.rpc.v1.ChatRoomWorkspaceParameters.transcript:type_name -> gizclaw.rpc.v1.ChatRoomWorkspaceTranscriptParameters
 	13,  // 15: gizclaw.rpc.v1.Credential.body:type_name -> gizclaw.rpc.v1.CredentialBody
 	73,  // 16: gizclaw.rpc.v1.CredentialBody.open_aicredential_body:type_name -> gizclaw.rpc.v1.OpenAICredentialBody
@@ -8075,122 +8209,125 @@ var file_payload_ai_proto_depIdxs = []int32{
 	12,  // 25: gizclaw.rpc.v1.CredentialListResponse.items:type_name -> gizclaw.rpc.v1.Credential
 	12,  // 26: gizclaw.rpc.v1.CredentialPutRequest.body:type_name -> gizclaw.rpc.v1.Credential
 	12,  // 27: gizclaw.rpc.v1.CredentialPutResponse.value:type_name -> gizclaw.rpc.v1.Credential
-	118, // 28: gizclaw.rpc.v1.DashScopeTenantModelProviderData.api_mode:type_name -> gizclaw.rpc.v1.DashScopeTenantModelProviderDataApiMode
-	119, // 29: gizclaw.rpc.v1.DashScopeTenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
-	111, // 30: gizclaw.rpc.v1.DoubaoRealtimeASRContext.correct_words:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRContext.CorrectWordsEntry
+	120, // 28: gizclaw.rpc.v1.DashScopeTenantModelProviderData.api_mode:type_name -> gizclaw.rpc.v1.DashScopeTenantModelProviderDataApiMode
+	121, // 29: gizclaw.rpc.v1.DashScopeTenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
+	113, // 30: gizclaw.rpc.v1.DoubaoRealtimeASRContext.correct_words:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRContext.CorrectWordsEntry
 	31,  // 31: gizclaw.rpc.v1.DoubaoRealtimeASRContext.hotwords:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRHotword
 	30,  // 32: gizclaw.rpc.v1.DoubaoRealtimeASRExtension.extra:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRExtra
 	28,  // 33: gizclaw.rpc.v1.DoubaoRealtimeASRExtra.context:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRContext
 	34,  // 34: gizclaw.rpc.v1.DoubaoRealtimeAudio.input:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioInput
 	35,  // 35: gizclaw.rpc.v1.DoubaoRealtimeAudio.output:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioOutput
-	120, // 36: gizclaw.rpc.v1.DoubaoRealtimeAudioFormat.type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioFormatType
+	122, // 36: gizclaw.rpc.v1.DoubaoRealtimeAudioFormat.type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioFormatType
 	33,  // 37: gizclaw.rpc.v1.DoubaoRealtimeAudioInput.format:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioFormat
 	33,  // 38: gizclaw.rpc.v1.DoubaoRealtimeAudioOutput.format:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioFormat
 	37,  // 39: gizclaw.rpc.v1.DoubaoRealtimeDialogExtension.extra:type_name -> gizclaw.rpc.v1.DoubaoRealtimeDialogExtra
-	121, // 40: gizclaw.rpc.v1.DoubaoRealtimeDialogExtra.volc_websearch_type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeDialogExtraVolcWebsearchType
+	123, // 40: gizclaw.rpc.v1.DoubaoRealtimeDialogExtra.volc_websearch_type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeDialogExtraVolcWebsearchType
 	29,  // 41: gizclaw.rpc.v1.DoubaoRealtimeExtension.asr:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRExtension
 	36,  // 42: gizclaw.rpc.v1.DoubaoRealtimeExtension.dialog:type_name -> gizclaw.rpc.v1.DoubaoRealtimeDialogExtension
 	41,  // 43: gizclaw.rpc.v1.DoubaoRealtimeExtension.tts:type_name -> gizclaw.rpc.v1.DoubaoRealtimeTTSExtension
 	40,  // 44: gizclaw.rpc.v1.DoubaoRealtimeFunctionTool.parameters:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
-	122, // 45: gizclaw.rpc.v1.DoubaoRealtimeFunctionTool.type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeFunctionToolType
+	124, // 45: gizclaw.rpc.v1.DoubaoRealtimeFunctionTool.type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeFunctionToolType
 	40,  // 46: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.any_of:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
 	40,  // 47: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.items:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
-	112, // 48: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.properties:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry
+	114, // 48: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.properties:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry
 	42,  // 49: gizclaw.rpc.v1.DoubaoRealtimeTTSExtension.extra:type_name -> gizclaw.rpc.v1.DoubaoRealtimeTTSExtra
 	27,  // 50: gizclaw.rpc.v1.DoubaoRealtimeTTSExtra.aigc_metadata:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAIGCMetadata
 	32,  // 51: gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec.audio:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudio
 	38,  // 52: gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec.extension:type_name -> gizclaw.rpc.v1.DoubaoRealtimeExtension
 	39,  // 53: gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec.tools:type_name -> gizclaw.rpc.v1.DoubaoRealtimeFunctionTool
-	123, // 54: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParametersAgentType
+	125, // 54: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParametersAgentType
 	32,  // 55: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.audio:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudio
 	38,  // 56: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.extension:type_name -> gizclaw.rpc.v1.DoubaoRealtimeExtension
-	115, // 57: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
+	117, // 57: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
 	39,  // 58: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.tools:type_name -> gizclaw.rpc.v1.DoubaoRealtimeFunctionTool
-	124, // 59: gizclaw.rpc.v1.FlowcraftConversationParameters.agent_initiative_policy:type_name -> gizclaw.rpc.v1.FlowcraftConversationParametersAgentInitiativePolicy
-	125, // 60: gizclaw.rpc.v1.FlowcraftConversationParameters.initiative:type_name -> gizclaw.rpc.v1.FlowcraftConversationParametersInitiative
-	119, // 61: gizclaw.rpc.v1.FlowcraftWorkflowSpec.fields:type_name -> google.protobuf.Struct
-	126, // 62: gizclaw.rpc.v1.FlowcraftWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentType
+	126, // 59: gizclaw.rpc.v1.FlowcraftConversationParameters.agent_initiative_policy:type_name -> gizclaw.rpc.v1.FlowcraftConversationParametersAgentInitiativePolicy
+	127, // 60: gizclaw.rpc.v1.FlowcraftConversationParameters.initiative:type_name -> gizclaw.rpc.v1.FlowcraftConversationParametersInitiative
+	121, // 61: gizclaw.rpc.v1.FlowcraftWorkflowSpec.fields:type_name -> google.protobuf.Struct
+	128, // 62: gizclaw.rpc.v1.FlowcraftWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentType
 	45,  // 63: gizclaw.rpc.v1.FlowcraftWorkspaceParameters.conversation:type_name -> gizclaw.rpc.v1.FlowcraftConversationParameters
-	115, // 64: gizclaw.rpc.v1.FlowcraftWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
-	127, // 65: gizclaw.rpc.v1.PetConversationParameters.initiative:type_name -> gizclaw.rpc.v1.PetConversationParametersInitiative
-	128, // 66: gizclaw.rpc.v1.PetWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.PetWorkspaceParametersAgentType
+	117, // 64: gizclaw.rpc.v1.FlowcraftWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
+	129, // 65: gizclaw.rpc.v1.PetConversationParameters.initiative:type_name -> gizclaw.rpc.v1.PetConversationParametersInitiative
+	130, // 66: gizclaw.rpc.v1.PetWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.PetWorkspaceParametersAgentType
 	48,  // 67: gizclaw.rpc.v1.PetWorkspaceParameters.conversation:type_name -> gizclaw.rpc.v1.PetConversationParameters
-	115, // 68: gizclaw.rpc.v1.PetWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
+	117, // 68: gizclaw.rpc.v1.PetWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
 	49,  // 69: gizclaw.rpc.v1.PetWorkspaceParameters.persona:type_name -> gizclaw.rpc.v1.PetPersonaParameters
 	50,  // 70: gizclaw.rpc.v1.PetWorkspaceParameters.voice:type_name -> gizclaw.rpc.v1.PetVoiceParameters
-	119, // 71: gizclaw.rpc.v1.GeminiTenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
-	119, // 72: gizclaw.rpc.v1.MiniMaxTenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
+	121, // 71: gizclaw.rpc.v1.GeminiTenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
+	121, // 72: gizclaw.rpc.v1.MiniMaxTenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
 	59,  // 73: gizclaw.rpc.v1.Model.capabilities:type_name -> gizclaw.rpc.v1.ModelCapabilities
-	129, // 74: gizclaw.rpc.v1.Model.kind:type_name -> gizclaw.rpc.v1.ModelKind
+	131, // 74: gizclaw.rpc.v1.Model.kind:type_name -> gizclaw.rpc.v1.ModelKind
 	68,  // 75: gizclaw.rpc.v1.Model.provider:type_name -> gizclaw.rpc.v1.ModelProvider
 	69,  // 76: gizclaw.rpc.v1.Model.provider_data:type_name -> gizclaw.rpc.v1.ModelProviderData
-	130, // 77: gizclaw.rpc.v1.Model.source:type_name -> gizclaw.rpc.v1.ModelSource
+	132, // 77: gizclaw.rpc.v1.Model.source:type_name -> gizclaw.rpc.v1.ModelSource
 	72,  // 78: gizclaw.rpc.v1.ModelCapabilities.thinking:type_name -> gizclaw.rpc.v1.ModelThinkingCapability
 	58,  // 79: gizclaw.rpc.v1.ModelCreateRequest.value:type_name -> gizclaw.rpc.v1.Model
 	58,  // 80: gizclaw.rpc.v1.ModelCreateResponse.value:type_name -> gizclaw.rpc.v1.Model
 	58,  // 81: gizclaw.rpc.v1.ModelDeleteResponse.value:type_name -> gizclaw.rpc.v1.Model
 	58,  // 82: gizclaw.rpc.v1.ModelGetResponse.value:type_name -> gizclaw.rpc.v1.Model
 	58,  // 83: gizclaw.rpc.v1.ModelListResponse.items:type_name -> gizclaw.rpc.v1.Model
-	131, // 84: gizclaw.rpc.v1.ModelProvider.kind:type_name -> gizclaw.rpc.v1.ModelProviderKind
+	133, // 84: gizclaw.rpc.v1.ModelProvider.kind:type_name -> gizclaw.rpc.v1.ModelProviderKind
 	54,  // 85: gizclaw.rpc.v1.ModelProviderData.gemini_tenant_model_provider_data:type_name -> gizclaw.rpc.v1.GeminiTenantModelProviderData
 	25,  // 86: gizclaw.rpc.v1.ModelProviderData.dash_scope_tenant_model_provider_data:type_name -> gizclaw.rpc.v1.DashScopeTenantModelProviderData
 	74,  // 87: gizclaw.rpc.v1.ModelProviderData.open_aitenant_model_provider_data:type_name -> gizclaw.rpc.v1.OpenAITenantModelProviderData
 	84,  // 88: gizclaw.rpc.v1.ModelProviderData.volc_tenant_model_provider_data:type_name -> gizclaw.rpc.v1.VolcTenantModelProviderData
 	58,  // 89: gizclaw.rpc.v1.ModelPutRequest.body:type_name -> gizclaw.rpc.v1.Model
 	58,  // 90: gizclaw.rpc.v1.ModelPutResponse.value:type_name -> gizclaw.rpc.v1.Model
-	119, // 91: gizclaw.rpc.v1.OpenAITenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
+	121, // 91: gizclaw.rpc.v1.OpenAITenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
 	81,  // 92: gizclaw.rpc.v1.Voice.provider:type_name -> gizclaw.rpc.v1.VoiceProvider
 	82,  // 93: gizclaw.rpc.v1.Voice.provider_data:type_name -> gizclaw.rpc.v1.VoiceProviderData
-	132, // 94: gizclaw.rpc.v1.Voice.source:type_name -> gizclaw.rpc.v1.VoiceSource
+	134, // 94: gizclaw.rpc.v1.Voice.source:type_name -> gizclaw.rpc.v1.VoiceSource
 	76,  // 95: gizclaw.rpc.v1.VoiceGetResponse.value:type_name -> gizclaw.rpc.v1.Voice
 	76,  // 96: gizclaw.rpc.v1.VoiceListResponse.items:type_name -> gizclaw.rpc.v1.Voice
-	133, // 97: gizclaw.rpc.v1.VoiceProvider.kind:type_name -> gizclaw.rpc.v1.VoiceProviderKind
+	135, // 97: gizclaw.rpc.v1.VoiceProvider.kind:type_name -> gizclaw.rpc.v1.VoiceProviderKind
 	55,  // 98: gizclaw.rpc.v1.VoiceProviderData.gemini_tenant_voice_provider_data:type_name -> gizclaw.rpc.v1.GeminiTenantVoiceProviderData
 	26,  // 99: gizclaw.rpc.v1.VoiceProviderData.dash_scope_tenant_voice_provider_data:type_name -> gizclaw.rpc.v1.DashScopeTenantVoiceProviderData
 	75,  // 100: gizclaw.rpc.v1.VoiceProviderData.open_aitenant_voice_provider_data:type_name -> gizclaw.rpc.v1.OpenAITenantVoiceProviderData
 	57,  // 101: gizclaw.rpc.v1.VoiceProviderData.mini_max_tenant_voice_provider_data:type_name -> gizclaw.rpc.v1.MiniMaxTenantVoiceProviderData
 	85,  // 102: gizclaw.rpc.v1.VoiceProviderData.volc_tenant_voice_provider_data:type_name -> gizclaw.rpc.v1.VolcTenantVoiceProviderData
-	134, // 103: gizclaw.rpc.v1.VolcTenantModelProviderData.api_mode:type_name -> gizclaw.rpc.v1.VolcTenantModelProviderDataApiMode
-	119, // 104: gizclaw.rpc.v1.VolcTenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
-	94,  // 105: gizclaw.rpc.v1.Workflow.spec:type_name -> gizclaw.rpc.v1.WorkflowSpec
-	91,  // 106: gizclaw.rpc.v1.Workflow.i18n:type_name -> gizclaw.rpc.v1.WorkflowI18nCatalog
-	0,   // 107: gizclaw.rpc.v1.WorkflowGetRequest.lang:type_name -> gizclaw.rpc.v1.WorkflowLocale
-	86,  // 108: gizclaw.rpc.v1.WorkflowGetResponse.value:type_name -> gizclaw.rpc.v1.Workflow
-	0,   // 109: gizclaw.rpc.v1.WorkflowListRequest.lang:type_name -> gizclaw.rpc.v1.WorkflowLocale
-	86,  // 110: gizclaw.rpc.v1.WorkflowListResponse.items:type_name -> gizclaw.rpc.v1.Workflow
-	92,  // 111: gizclaw.rpc.v1.ToolkitPolicy.tool_ids:type_name -> gizclaw.rpc.v1.ToolkitPolicyToolIds
-	4,   // 112: gizclaw.rpc.v1.WorkflowSpec.ast_translate:type_name -> gizclaw.rpc.v1.ASTTranslateWorkflowSpec
-	7,   // 113: gizclaw.rpc.v1.WorkflowSpec.chatroom:type_name -> gizclaw.rpc.v1.ChatRoomWorkflowSpec
-	43,  // 114: gizclaw.rpc.v1.WorkflowSpec.doubao_realtime:type_name -> gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec
-	135, // 115: gizclaw.rpc.v1.WorkflowSpec.driver:type_name -> gizclaw.rpc.v1.WorkflowDriver
-	46,  // 116: gizclaw.rpc.v1.WorkflowSpec.flowcraft:type_name -> gizclaw.rpc.v1.FlowcraftWorkflowSpec
-	93,  // 117: gizclaw.rpc.v1.WorkflowSpec.toolkit:type_name -> gizclaw.rpc.v1.ToolkitPolicy
-	51,  // 118: gizclaw.rpc.v1.WorkflowSpec.pet:type_name -> gizclaw.rpc.v1.PetWorkflowSpec
-	136, // 119: gizclaw.rpc.v1.ToolExecutor.kind:type_name -> gizclaw.rpc.v1.ToolExecutorKind
-	119, // 120: gizclaw.rpc.v1.ToolExecutor.config:type_name -> google.protobuf.Struct
-	119, // 121: gizclaw.rpc.v1.ToolTriggerExample.args:type_name -> google.protobuf.Struct
-	96,  // 122: gizclaw.rpc.v1.ToolTrigger.examples:type_name -> gizclaw.rpc.v1.ToolTriggerExample
-	119, // 123: gizclaw.rpc.v1.ToolTrigger.metadata:type_name -> google.protobuf.Struct
-	137, // 124: gizclaw.rpc.v1.Tool.source:type_name -> gizclaw.rpc.v1.ToolSource
-	119, // 125: gizclaw.rpc.v1.Tool.input_schema:type_name -> google.protobuf.Struct
-	119, // 126: gizclaw.rpc.v1.Tool.output_schema:type_name -> google.protobuf.Struct
-	97,  // 127: gizclaw.rpc.v1.Tool.triggers:type_name -> gizclaw.rpc.v1.ToolTrigger
-	95,  // 128: gizclaw.rpc.v1.Tool.executor:type_name -> gizclaw.rpc.v1.ToolExecutor
-	119, // 129: gizclaw.rpc.v1.Tool.metadata:type_name -> google.protobuf.Struct
-	98,  // 130: gizclaw.rpc.v1.ToolListResponse.items:type_name -> gizclaw.rpc.v1.Tool
-	98,  // 131: gizclaw.rpc.v1.ToolGetResponse.value:type_name -> gizclaw.rpc.v1.Tool
-	98,  // 132: gizclaw.rpc.v1.ToolCreateRequest.value:type_name -> gizclaw.rpc.v1.Tool
-	98,  // 133: gizclaw.rpc.v1.ToolCreateResponse.value:type_name -> gizclaw.rpc.v1.Tool
-	98,  // 134: gizclaw.rpc.v1.ToolPutRequest.body:type_name -> gizclaw.rpc.v1.Tool
-	98,  // 135: gizclaw.rpc.v1.ToolPutResponse.value:type_name -> gizclaw.rpc.v1.Tool
-	98,  // 136: gizclaw.rpc.v1.ToolDeleteResponse.value:type_name -> gizclaw.rpc.v1.Tool
-	119, // 137: gizclaw.rpc.v1.ToolInvokeRequest.args:type_name -> google.protobuf.Struct
-	40,  // 138: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry.value:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
-	139, // [139:139] is the sub-list for method output_type
-	139, // [139:139] is the sub-list for method input_type
-	139, // [139:139] is the sub-list for extension type_name
-	139, // [139:139] is the sub-list for extension extendee
-	0,   // [0:139] is the sub-list for field type_name
+	136, // 103: gizclaw.rpc.v1.VolcTenantModelProviderData.api_mode:type_name -> gizclaw.rpc.v1.VolcTenantModelProviderDataApiMode
+	121, // 104: gizclaw.rpc.v1.VolcTenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
+	96,  // 105: gizclaw.rpc.v1.Workflow.spec:type_name -> gizclaw.rpc.v1.WorkflowSpec
+	93,  // 106: gizclaw.rpc.v1.Workflow.i18n:type_name -> gizclaw.rpc.v1.WorkflowI18nCatalog
+	137, // 107: gizclaw.rpc.v1.Workflow.icon:type_name -> gizclaw.rpc.v1.Icon
+	138, // 108: gizclaw.rpc.v1.WorkflowIconDownloadRequest.format:type_name -> gizclaw.rpc.v1.IconFormat
+	138, // 109: gizclaw.rpc.v1.WorkflowIconDownloadResponse.format:type_name -> gizclaw.rpc.v1.IconFormat
+	0,   // 110: gizclaw.rpc.v1.WorkflowGetRequest.lang:type_name -> gizclaw.rpc.v1.WorkflowLocale
+	86,  // 111: gizclaw.rpc.v1.WorkflowGetResponse.value:type_name -> gizclaw.rpc.v1.Workflow
+	0,   // 112: gizclaw.rpc.v1.WorkflowListRequest.lang:type_name -> gizclaw.rpc.v1.WorkflowLocale
+	86,  // 113: gizclaw.rpc.v1.WorkflowListResponse.items:type_name -> gizclaw.rpc.v1.Workflow
+	94,  // 114: gizclaw.rpc.v1.ToolkitPolicy.tool_ids:type_name -> gizclaw.rpc.v1.ToolkitPolicyToolIds
+	4,   // 115: gizclaw.rpc.v1.WorkflowSpec.ast_translate:type_name -> gizclaw.rpc.v1.ASTTranslateWorkflowSpec
+	7,   // 116: gizclaw.rpc.v1.WorkflowSpec.chatroom:type_name -> gizclaw.rpc.v1.ChatRoomWorkflowSpec
+	43,  // 117: gizclaw.rpc.v1.WorkflowSpec.doubao_realtime:type_name -> gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec
+	139, // 118: gizclaw.rpc.v1.WorkflowSpec.driver:type_name -> gizclaw.rpc.v1.WorkflowDriver
+	46,  // 119: gizclaw.rpc.v1.WorkflowSpec.flowcraft:type_name -> gizclaw.rpc.v1.FlowcraftWorkflowSpec
+	95,  // 120: gizclaw.rpc.v1.WorkflowSpec.toolkit:type_name -> gizclaw.rpc.v1.ToolkitPolicy
+	51,  // 121: gizclaw.rpc.v1.WorkflowSpec.pet:type_name -> gizclaw.rpc.v1.PetWorkflowSpec
+	140, // 122: gizclaw.rpc.v1.ToolExecutor.kind:type_name -> gizclaw.rpc.v1.ToolExecutorKind
+	121, // 123: gizclaw.rpc.v1.ToolExecutor.config:type_name -> google.protobuf.Struct
+	121, // 124: gizclaw.rpc.v1.ToolTriggerExample.args:type_name -> google.protobuf.Struct
+	98,  // 125: gizclaw.rpc.v1.ToolTrigger.examples:type_name -> gizclaw.rpc.v1.ToolTriggerExample
+	121, // 126: gizclaw.rpc.v1.ToolTrigger.metadata:type_name -> google.protobuf.Struct
+	141, // 127: gizclaw.rpc.v1.Tool.source:type_name -> gizclaw.rpc.v1.ToolSource
+	121, // 128: gizclaw.rpc.v1.Tool.input_schema:type_name -> google.protobuf.Struct
+	121, // 129: gizclaw.rpc.v1.Tool.output_schema:type_name -> google.protobuf.Struct
+	99,  // 130: gizclaw.rpc.v1.Tool.triggers:type_name -> gizclaw.rpc.v1.ToolTrigger
+	97,  // 131: gizclaw.rpc.v1.Tool.executor:type_name -> gizclaw.rpc.v1.ToolExecutor
+	121, // 132: gizclaw.rpc.v1.Tool.metadata:type_name -> google.protobuf.Struct
+	100, // 133: gizclaw.rpc.v1.ToolListResponse.items:type_name -> gizclaw.rpc.v1.Tool
+	100, // 134: gizclaw.rpc.v1.ToolGetResponse.value:type_name -> gizclaw.rpc.v1.Tool
+	100, // 135: gizclaw.rpc.v1.ToolCreateRequest.value:type_name -> gizclaw.rpc.v1.Tool
+	100, // 136: gizclaw.rpc.v1.ToolCreateResponse.value:type_name -> gizclaw.rpc.v1.Tool
+	100, // 137: gizclaw.rpc.v1.ToolPutRequest.body:type_name -> gizclaw.rpc.v1.Tool
+	100, // 138: gizclaw.rpc.v1.ToolPutResponse.value:type_name -> gizclaw.rpc.v1.Tool
+	100, // 139: gizclaw.rpc.v1.ToolDeleteResponse.value:type_name -> gizclaw.rpc.v1.Tool
+	121, // 140: gizclaw.rpc.v1.ToolInvokeRequest.args:type_name -> google.protobuf.Struct
+	40,  // 141: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry.value:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
+	142, // [142:142] is the sub-list for method output_type
+	142, // [142:142] is the sub-list for method input_type
+	142, // [142:142] is the sub-list for extension type_name
+	142, // [142:142] is the sub-list for extension extendee
+	0,   // [0:142] is the sub-list for field type_name
 }
 
 func init() { file_payload_ai_proto_init() }
@@ -8199,6 +8336,7 @@ func file_payload_ai_proto_init() {
 		return
 	}
 	file_payload_enums_proto_init()
+	file_payload_icon_proto_init()
 	file_payload_ai_proto_msgTypes[1].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[2].OneofWrappers = []any{
 		(*ASTTranslateVoiceParameters_AsttranslateInternalSpeakerParameters)(nil),
@@ -8277,25 +8415,25 @@ func file_payload_ai_proto_init() {
 	file_payload_ai_proto_msgTypes[83].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[84].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[85].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[86].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[88].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[89].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[90].OneofWrappers = []any{}
+	file_payload_ai_proto_msgTypes[91].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[92].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[93].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[94].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[95].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[96].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[97].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[98].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[99].OneofWrappers = []any{}
+	file_payload_ai_proto_msgTypes[100].OneofWrappers = []any{}
+	file_payload_ai_proto_msgTypes[101].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payload_ai_proto_rawDesc), len(file_payload_ai_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   112,
+			NumMessages:   114,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

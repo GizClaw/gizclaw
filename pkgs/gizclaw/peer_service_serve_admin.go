@@ -34,12 +34,16 @@ type adminService struct {
 	credential.CredentialAdminService
 	firmware.FirmwareAdminService
 	peer.PeerAdminService
+	peer.PeerIconAdminService
 	model.ModelAdminService
 	voice.VoiceAdminService
 	providertenants.ProviderTenantsAdminService
 	workspace.WorkspaceAdminService
+	workspace.WorkspaceIconAdminService
 	workflow.WorkflowAdminService
+	workflow.WorkflowIconAdminService
 	gameplay.CatalogAdminService
+	gameplay.GameDefIconAdminService
 	Contacts        *contact.Server
 	Friends         *friend.Server
 	FriendGroups    *friendgroup.Server

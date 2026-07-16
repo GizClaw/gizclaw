@@ -166,6 +166,7 @@ export type WorkspaceUpsert = {
     workflow_name: string;
     parameters?: WorkspaceParameters;
     toolkit?: ToolkitPolicy;
+    icon?: Icon;
 };
 
 export type WorkspaceList = {
@@ -341,6 +342,7 @@ export type BadgeDefUpsert = {
 export type GameDefUpsert = {
     id: string;
     spec: GameDefSpec;
+    icon?: Icon;
 };
 
 export type AclPolicyBindingResource = {
@@ -496,6 +498,7 @@ export type GameDefResource = {
     kind: 'GameDef';
     metadata: ResourceMetadata;
     spec: GameDefSpec;
+    icon?: Icon;
 };
 
 export type GameRulesetResource = {
@@ -690,6 +693,7 @@ export type WorkflowResource = {
     metadata: ResourceMetadata;
     spec: WorkflowSpec;
     i18n?: WorkflowI18n;
+    icon?: Icon;
 };
 
 export type WorkspaceResource = {
@@ -700,6 +704,7 @@ export type WorkspaceResource = {
      */
     metadata: ResourceMetadata;
     spec: WorkspaceSpec;
+    icon?: Icon;
 };
 
 /**
@@ -865,6 +870,7 @@ export type DeviceInfo = {
     name?: string;
     sn?: string;
     hardware?: HardwareInfo;
+    icon?: Icon;
 };
 
 export type ErrorPayload = {
@@ -1037,6 +1043,7 @@ export type BadgeListResponse = {
 export type GameDef = {
     id: string;
     spec: GameDefSpec;
+    icon?: Icon;
     created_at: string;
     updated_at: string;
 };
@@ -1359,6 +1366,17 @@ export type HardwareInfo = {
     hardware_revision?: string;
     imeis?: Array<PeerImei>;
     labels?: Array<PeerLabel>;
+};
+
+export type Icon = {
+    /**
+     * Owner-scoped relative PIXA object name.
+     */
+    pixa?: string;
+    /**
+     * Owner-scoped relative PNG object name.
+     */
+    png?: string;
 };
 
 export type MiniMaxTenant = {
@@ -1947,6 +1965,7 @@ export type Workflow = {
     name: string;
     spec: WorkflowSpec;
     i18n?: WorkflowI18n;
+    icon?: Icon;
 };
 
 /**
@@ -2182,6 +2201,7 @@ export type Workspace = {
     readonly system: boolean;
     parameters?: WorkspaceParameters;
     toolkit?: ToolkitPolicy;
+    icon?: Icon;
     created_at: string;
     /**
      * Last user-visible workspace conversation or history activity time. Configuration-only updates must not modify this field.
@@ -2379,6 +2399,7 @@ export type WorkspaceWritable = {
     workflow_name: string;
     parameters?: WorkspaceParameters;
     toolkit?: ToolkitPolicy;
+    icon?: Icon;
     created_at: string;
     /**
      * Last user-visible workspace conversation or history activity time. Configuration-only updates must not modify this field.
@@ -5902,6 +5923,110 @@ export type PutWorkflowResponses = {
 
 export type PutWorkflowResponse = PutWorkflowResponses[keyof PutWorkflowResponses];
 
+export type DeleteWorkflowIconData = {
+    body?: never;
+    path: {
+        name: string;
+        format: 'pixa' | 'png';
+    };
+    query?: never;
+    url: '/workflows/{name}/icon/{format}';
+};
+
+export type DeleteWorkflowIconErrors = {
+    /**
+     * Workflow not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteWorkflowIconError = DeleteWorkflowIconErrors[keyof DeleteWorkflowIconErrors];
+
+export type DeleteWorkflowIconResponses = {
+    /**
+     * Updated workflow
+     */
+    200: Workflow;
+};
+
+export type DeleteWorkflowIconResponse = DeleteWorkflowIconResponses[keyof DeleteWorkflowIconResponses];
+
+export type DownloadWorkflowIconData = {
+    body?: never;
+    path: {
+        name: string;
+        format: 'pixa' | 'png';
+    };
+    query?: never;
+    url: '/workflows/{name}/icon/{format}';
+};
+
+export type DownloadWorkflowIconErrors = {
+    /**
+     * Workflow or icon not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type DownloadWorkflowIconError = DownloadWorkflowIconErrors[keyof DownloadWorkflowIconErrors];
+
+export type DownloadWorkflowIconResponses = {
+    /**
+     * Workflow icon bytes
+     */
+    200: Blob | File;
+};
+
+export type DownloadWorkflowIconResponse = DownloadWorkflowIconResponses[keyof DownloadWorkflowIconResponses];
+
+export type UploadWorkflowIconData = {
+    body: Blob | File;
+    path: {
+        name: string;
+        format: 'pixa' | 'png';
+    };
+    query?: never;
+    url: '/workflows/{name}/icon/{format}';
+};
+
+export type UploadWorkflowIconErrors = {
+    /**
+     * Invalid icon
+     */
+    400: ErrorResponse;
+    /**
+     * Workflow not found
+     */
+    404: ErrorResponse;
+    /**
+     * Icon exceeds 2 MiB
+     */
+    413: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type UploadWorkflowIconError = UploadWorkflowIconErrors[keyof UploadWorkflowIconErrors];
+
+export type UploadWorkflowIconResponses = {
+    /**
+     * Updated workflow
+     */
+    200: Workflow;
+};
+
+export type UploadWorkflowIconResponse = UploadWorkflowIconResponses[keyof UploadWorkflowIconResponses];
+
 export type ListWorkspacesData = {
     body?: never;
     path?: never;
@@ -6074,6 +6199,110 @@ export type PutWorkspaceResponses = {
 };
 
 export type PutWorkspaceResponse = PutWorkspaceResponses[keyof PutWorkspaceResponses];
+
+export type DeleteWorkspaceIconData = {
+    body?: never;
+    path: {
+        name: string;
+        format: 'pixa' | 'png';
+    };
+    query?: never;
+    url: '/workspaces/{name}/icon/{format}';
+};
+
+export type DeleteWorkspaceIconErrors = {
+    /**
+     * Workspace not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteWorkspaceIconError = DeleteWorkspaceIconErrors[keyof DeleteWorkspaceIconErrors];
+
+export type DeleteWorkspaceIconResponses = {
+    /**
+     * Updated workspace
+     */
+    200: Workspace;
+};
+
+export type DeleteWorkspaceIconResponse = DeleteWorkspaceIconResponses[keyof DeleteWorkspaceIconResponses];
+
+export type DownloadWorkspaceIconData = {
+    body?: never;
+    path: {
+        name: string;
+        format: 'pixa' | 'png';
+    };
+    query?: never;
+    url: '/workspaces/{name}/icon/{format}';
+};
+
+export type DownloadWorkspaceIconErrors = {
+    /**
+     * Workspace or icon not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type DownloadWorkspaceIconError = DownloadWorkspaceIconErrors[keyof DownloadWorkspaceIconErrors];
+
+export type DownloadWorkspaceIconResponses = {
+    /**
+     * Workspace icon bytes
+     */
+    200: Blob | File;
+};
+
+export type DownloadWorkspaceIconResponse = DownloadWorkspaceIconResponses[keyof DownloadWorkspaceIconResponses];
+
+export type UploadWorkspaceIconData = {
+    body: Blob | File;
+    path: {
+        name: string;
+        format: 'pixa' | 'png';
+    };
+    query?: never;
+    url: '/workspaces/{name}/icon/{format}';
+};
+
+export type UploadWorkspaceIconErrors = {
+    /**
+     * Invalid icon
+     */
+    400: ErrorResponse;
+    /**
+     * Workspace not found
+     */
+    404: ErrorResponse;
+    /**
+     * Icon exceeds 2 MiB
+     */
+    413: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type UploadWorkspaceIconError = UploadWorkspaceIconErrors[keyof UploadWorkspaceIconErrors];
+
+export type UploadWorkspaceIconResponses = {
+    /**
+     * Updated workspace
+     */
+    200: Workspace;
+};
+
+export type UploadWorkspaceIconResponse = UploadWorkspaceIconResponses[keyof UploadWorkspaceIconResponses];
 
 export type ListWorkspaceHistoryData = {
     body?: never;
@@ -6508,6 +6737,10 @@ export type PutPeerInfoErrors = {
      * Peer not found
      */
     404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
 };
 
 export type PutPeerInfoError = PutPeerInfoErrors[keyof PutPeerInfoErrors];
@@ -6520,6 +6753,110 @@ export type PutPeerInfoResponses = {
 };
 
 export type PutPeerInfoResponse = PutPeerInfoResponses[keyof PutPeerInfoResponses];
+
+export type DeletePeerIconData = {
+    body?: never;
+    path: {
+        publicKey: string;
+        format: 'pixa' | 'png';
+    };
+    query?: never;
+    url: '/peers/{publicKey}/icon/{format}';
+};
+
+export type DeletePeerIconErrors = {
+    /**
+     * Peer not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type DeletePeerIconError = DeletePeerIconErrors[keyof DeletePeerIconErrors];
+
+export type DeletePeerIconResponses = {
+    /**
+     * Updated peer info
+     */
+    200: DeviceInfo;
+};
+
+export type DeletePeerIconResponse = DeletePeerIconResponses[keyof DeletePeerIconResponses];
+
+export type DownloadPeerIconData = {
+    body?: never;
+    path: {
+        publicKey: string;
+        format: 'pixa' | 'png';
+    };
+    query?: never;
+    url: '/peers/{publicKey}/icon/{format}';
+};
+
+export type DownloadPeerIconErrors = {
+    /**
+     * Peer or icon not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type DownloadPeerIconError = DownloadPeerIconErrors[keyof DownloadPeerIconErrors];
+
+export type DownloadPeerIconResponses = {
+    /**
+     * Peer icon bytes
+     */
+    200: Blob | File;
+};
+
+export type DownloadPeerIconResponse = DownloadPeerIconResponses[keyof DownloadPeerIconResponses];
+
+export type UploadPeerIconData = {
+    body: Blob | File;
+    path: {
+        publicKey: string;
+        format: 'pixa' | 'png';
+    };
+    query?: never;
+    url: '/peers/{publicKey}/icon/{format}';
+};
+
+export type UploadPeerIconErrors = {
+    /**
+     * Invalid icon
+     */
+    400: ErrorResponse;
+    /**
+     * Peer not found
+     */
+    404: ErrorResponse;
+    /**
+     * Icon exceeds 2 MiB
+     */
+    413: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type UploadPeerIconError = UploadPeerIconErrors[keyof UploadPeerIconErrors];
+
+export type UploadPeerIconResponses = {
+    /**
+     * Updated peer info
+     */
+    200: DeviceInfo;
+};
+
+export type UploadPeerIconResponse = UploadPeerIconResponses[keyof UploadPeerIconResponses];
 
 export type GetPeerConfigData = {
     body?: never;
@@ -7929,6 +8266,110 @@ export type PutGameDefResponses = {
 };
 
 export type PutGameDefResponse = PutGameDefResponses[keyof PutGameDefResponses];
+
+export type DeleteGameDefIconData = {
+    body?: never;
+    path: {
+        id: string;
+        format: 'pixa' | 'png';
+    };
+    query?: never;
+    url: '/game-defs/{id}/icon/{format}';
+};
+
+export type DeleteGameDefIconErrors = {
+    /**
+     * GameDef not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteGameDefIconError = DeleteGameDefIconErrors[keyof DeleteGameDefIconErrors];
+
+export type DeleteGameDefIconResponses = {
+    /**
+     * Updated GameDef
+     */
+    200: GameDef;
+};
+
+export type DeleteGameDefIconResponse = DeleteGameDefIconResponses[keyof DeleteGameDefIconResponses];
+
+export type DownloadGameDefIconData = {
+    body?: never;
+    path: {
+        id: string;
+        format: 'pixa' | 'png';
+    };
+    query?: never;
+    url: '/game-defs/{id}/icon/{format}';
+};
+
+export type DownloadGameDefIconErrors = {
+    /**
+     * GameDef or icon not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type DownloadGameDefIconError = DownloadGameDefIconErrors[keyof DownloadGameDefIconErrors];
+
+export type DownloadGameDefIconResponses = {
+    /**
+     * GameDef icon bytes
+     */
+    200: Blob | File;
+};
+
+export type DownloadGameDefIconResponse = DownloadGameDefIconResponses[keyof DownloadGameDefIconResponses];
+
+export type UploadGameDefIconData = {
+    body: Blob | File;
+    path: {
+        id: string;
+        format: 'pixa' | 'png';
+    };
+    query?: never;
+    url: '/game-defs/{id}/icon/{format}';
+};
+
+export type UploadGameDefIconErrors = {
+    /**
+     * Invalid icon
+     */
+    400: ErrorResponse;
+    /**
+     * GameDef not found
+     */
+    404: ErrorResponse;
+    /**
+     * Icon exceeds 2 MiB
+     */
+    413: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type UploadGameDefIconError = UploadGameDefIconErrors[keyof UploadGameDefIconErrors];
+
+export type UploadGameDefIconResponses = {
+    /**
+     * Updated GameDef
+     */
+    200: GameDef;
+};
+
+export type UploadGameDefIconResponse = UploadGameDefIconResponses[keyof UploadGameDefIconResponses];
 
 export type DownloadPetDefPixaData = {
     body?: never;

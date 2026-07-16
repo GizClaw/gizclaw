@@ -39,6 +39,9 @@
           },
           "i18n": {
             "$ref": "../shared/workflow_i18n.json#/components/schemas/WorkflowI18n"
+          },
+          "icon": {
+            "$ref": "../shared/icon.json#/components/schemas/Icon"
           }
         }
       }

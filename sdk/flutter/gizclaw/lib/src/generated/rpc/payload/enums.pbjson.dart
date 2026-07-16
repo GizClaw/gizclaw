@@ -15,6 +15,21 @@ import 'dart:convert' as $convert;
 import 'dart:core' as $core;
 import 'dart:typed_data' as $typed_data;
 
+@$core.Deprecated('Use iconFormatDescriptor instead')
+const IconFormat$json = {
+  '1': 'IconFormat',
+  '2': [
+    {'1': 'ICON_FORMAT_UNSPECIFIED', '2': 0},
+    {'1': 'ICON_FORMAT_PIXA', '2': 1},
+    {'1': 'ICON_FORMAT_PNG', '2': 2},
+  ],
+};
+
+/// Descriptor for `IconFormat`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List iconFormatDescriptor = $convert.base64Decode(
+    'CgpJY29uRm9ybWF0EhsKF0lDT05fRk9STUFUX1VOU1BFQ0lGSUVEEAASFAoQSUNPTl9GT1JNQV'
+    'RfUElYQRABEhMKD0lDT05fRk9STUFUX1BORxAC');
+
 @$core.Deprecated('Use aSTTranslateModeDescriptor instead')
 const ASTTranslateMode$json = {
   '1': 'ASTTranslateMode',

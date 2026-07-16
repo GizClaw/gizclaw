@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:gizclaw/gizclaw.dart';
 import 'package:go_router/go_router.dart';
 
@@ -1030,7 +1031,14 @@ class MePage extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      const _ProfileMark(),
+                      GestureDetector(
+                        onTap:
+                            data.connectionState ==
+                                MobileConnectionState.connected
+                            ? () => _editPeerIcon(context, data)
+                            : null,
+                        child: _ProfileMark(bytes: data.peerIconPng),
+                      ),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(
@@ -1221,7 +1229,9 @@ class _IdentityStatusPill extends StatelessWidget {
 }
 
 class _ProfileMark extends StatelessWidget {
-  const _ProfileMark();
+  const _ProfileMark({this.bytes});
+
+  final Uint8List? bytes;
 
   @override
   Widget build(BuildContext context) {
@@ -1232,13 +1242,52 @@ class _ProfileMark extends StatelessWidget {
         height: 54,
         alignment: Alignment.center,
         color: const Color(0xFFDCEEFF),
-        child: Text(
-          'GC',
-          style: GizText.title.copyWith(color: GizColors.primaryShadow),
-        ),
+        child: bytes == null
+            ? Text(
+                'GC',
+                style: GizText.title.copyWith(color: GizColors.primaryShadow),
+              )
+            : Image.memory(bytes!, fit: BoxFit.cover),
       ),
     );
   }
+}
+
+Future<void> _editPeerIcon(
+  BuildContext context,
+  MobileDataController data,
+) async {
+  final action = await showCupertinoModalPopup<String>(
+    context: context,
+    builder: (context) => CupertinoActionSheet(
+      title: const Text('Peer icon'),
+      actions: [
+        CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(context, 'upload'),
+          child: const Text('Choose PNG'),
+        ),
+        if (data.peerIconPng != null)
+          CupertinoActionSheetAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.pop(context, 'delete'),
+            child: const Text('Delete icon'),
+          ),
+      ],
+      cancelButton: CupertinoActionSheetAction(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+    ),
+  );
+  if (action == 'delete') {
+    await data.deletePeerIconPng();
+    return;
+  }
+  if (action != 'upload') return;
+  const png = XTypeGroup(label: 'PNG', extensions: ['png']);
+  final file = await openFile(acceptedTypeGroups: const [png]);
+  if (file == null) return;
+  await data.uploadPeerIconPng(await file.readAsBytes());
 }
 
 class SettingsRow extends StatelessWidget {

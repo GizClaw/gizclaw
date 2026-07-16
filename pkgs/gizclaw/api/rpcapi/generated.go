@@ -554,6 +554,9 @@ const (
 	RPCMethodServerGameResultList               RPCMethod = "server.game_result.list"
 	RPCMethodServerGameRulesetGet               RPCMethod = "server.game_ruleset.get"
 	RPCMethodServerInfoGet                      RPCMethod = "server.info.get"
+	RPCMethodServerInfoIconDelete               RPCMethod = "server.info.icon.delete"
+	RPCMethodServerInfoIconDownload             RPCMethod = "server.info.icon.download"
+	RPCMethodServerInfoIconUpload               RPCMethod = "server.info.icon.upload"
 	RPCMethodServerInfoPut                      RPCMethod = "server.info.put"
 	RPCMethodServerModelCreate                  RPCMethod = "server.model.create"
 	RPCMethodServerModelDelete                  RPCMethod = "server.model.delete"
@@ -594,6 +597,7 @@ const (
 	RPCMethodServerVoiceGet                     RPCMethod = "server.voice.get"
 	RPCMethodServerVoiceList                    RPCMethod = "server.voice.list"
 	RPCMethodServerWorkflowGet                  RPCMethod = "server.workflow.get"
+	RPCMethodServerWorkflowIconDownload         RPCMethod = "server.workflow.icon.download"
 	RPCMethodServerWorkflowList                 RPCMethod = "server.workflow.list"
 	RPCMethodServerWorkspaceCreate              RPCMethod = "server.workspace.create"
 	RPCMethodServerWorkspaceDelete              RPCMethod = "server.workspace.delete"
@@ -601,6 +605,7 @@ const (
 	RPCMethodServerWorkspaceHistoryAudioGet     RPCMethod = "server.workspace.history.audio.get"
 	RPCMethodServerWorkspaceHistoryGet          RPCMethod = "server.workspace.history.get"
 	RPCMethodServerWorkspaceHistoryList         RPCMethod = "server.workspace.history.list"
+	RPCMethodServerWorkspaceIconDownload        RPCMethod = "server.workspace.icon.download"
 	RPCMethodServerWorkspaceList                RPCMethod = "server.workspace.list"
 	RPCMethodServerWorkspacePut                 RPCMethod = "server.workspace.put"
 )
@@ -702,6 +707,12 @@ func (e RPCMethod) Valid() bool {
 		return true
 	case RPCMethodServerInfoGet:
 		return true
+	case RPCMethodServerInfoIconDelete:
+		return true
+	case RPCMethodServerInfoIconDownload:
+		return true
+	case RPCMethodServerInfoIconUpload:
+		return true
 	case RPCMethodServerInfoPut:
 		return true
 	case RPCMethodServerModelCreate:
@@ -792,6 +803,8 @@ func (e RPCMethod) Valid() bool {
 		return true
 	case RPCMethodServerWorkflowGet:
 		return true
+	case RPCMethodServerWorkflowIconDownload:
+		return true
 	case RPCMethodServerWorkflowList:
 		return true
 	case RPCMethodServerWorkspaceCreate:
@@ -805,6 +818,8 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodServerWorkspaceHistoryGet:
 		return true
 	case RPCMethodServerWorkspaceHistoryList:
+		return true
+	case RPCMethodServerWorkspaceIconDownload:
 		return true
 	case RPCMethodServerWorkspaceList:
 		return true
@@ -1313,8 +1328,34 @@ type DashScopeTenantVoiceProviderData struct {
 // DeviceInfo defines model for DeviceInfo.
 type DeviceInfo struct {
 	Hardware *HardwareInfo `json:"hardware,omitempty"`
+	Icon     *Icon         `json:"icon,omitempty"`
 	Name     *string       `json:"name,omitempty"`
 	Sn       *string       `json:"sn,omitempty"`
+}
+
+// Icon defines owner-managed optional PIXA and PNG icon object names.
+type Icon struct {
+	Pixa *string `json:"pixa,omitempty"`
+	Png  *string `json:"png,omitempty"`
+}
+
+// IconFormat identifies an icon representation.
+type IconFormat string
+
+const (
+	IconFormatUnspecified IconFormat = ""
+	IconFormatPixa        IconFormat = "pixa"
+	IconFormatPng         IconFormat = "png"
+)
+
+// Valid indicates whether the value is a known icon format.
+func (e IconFormat) Valid() bool {
+	switch e {
+	case IconFormatUnspecified, IconFormatPixa, IconFormatPng:
+		return true
+	default:
+		return false
+	}
 }
 
 // DoubaoRealtimeAIGCMetadata defines model for DoubaoRealtimeAIGCMetadata.
@@ -2764,6 +2805,33 @@ type ServerGetInfoRequest = map[string]interface{}
 // ServerGetInfoResponse defines model for ServerGetInfoResponse.
 type ServerGetInfoResponse = DeviceInfo
 
+// ServerInfoIconDeleteRequest defines model for ServerInfoIconDeleteRequest.
+type ServerInfoIconDeleteRequest struct {
+	Format IconFormat `json:"format"`
+}
+
+// ServerInfoIconDeleteResponse defines model for ServerInfoIconDeleteResponse.
+type ServerInfoIconDeleteResponse = DeviceInfo
+
+// ServerInfoIconDownloadRequest defines model for ServerInfoIconDownloadRequest.
+type ServerInfoIconDownloadRequest struct {
+	Format IconFormat `json:"format"`
+}
+
+// ServerInfoIconDownloadResponse defines model for ServerInfoIconDownloadResponse.
+type ServerInfoIconDownloadResponse struct {
+	Format    IconFormat `json:"format"`
+	SizeBytes int64      `json:"size_bytes"`
+}
+
+// ServerInfoIconUploadRequest defines model for ServerInfoIconUploadRequest.
+type ServerInfoIconUploadRequest struct {
+	Format IconFormat `json:"format"`
+}
+
+// ServerInfoIconUploadResponse defines model for ServerInfoIconUploadResponse.
+type ServerInfoIconUploadResponse = DeviceInfo
+
 // ServerGetRunAgentRequest defines model for ServerGetRunAgentRequest.
 type ServerGetRunAgentRequest = map[string]interface{}
 
@@ -3074,9 +3142,23 @@ type VolcTenantVoiceProviderData struct {
 
 // Workflow defines model for Workflow.
 type Workflow struct {
+	Icon *Icon                `json:"icon,omitempty"`
 	I18n *WorkflowI18nCatalog `json:"i18n,omitempty"`
 	Name string               `json:"name"`
 	Spec WorkflowSpec         `json:"spec"`
+}
+
+// WorkflowIconDownloadRequest defines model for WorkflowIconDownloadRequest.
+type WorkflowIconDownloadRequest struct {
+	Format IconFormat `json:"format"`
+	Name   string     `json:"name"`
+}
+
+// WorkflowIconDownloadResponse defines model for WorkflowIconDownloadResponse.
+type WorkflowIconDownloadResponse struct {
+	Format    IconFormat `json:"format"`
+	Name      string     `json:"name"`
+	SizeBytes int64      `json:"size_bytes"`
 }
 
 // WorkflowDriver defines model for WorkflowDriver.
@@ -3149,6 +3231,7 @@ type WorkflowSpec struct {
 // Workspace defines model for Workspace.
 type Workspace struct {
 	CreatedAt time.Time `json:"created_at"`
+	Icon      *Icon     `json:"icon,omitempty"`
 
 	// LastActiveAt Last user-visible workspace conversation or history activity time. Configuration-only updates must not modify this field.
 	LastActiveAt time.Time `json:"last_active_at"`
@@ -3170,6 +3253,19 @@ type WorkspaceUpsert struct {
 	Parameters   *WorkspaceParameters `json:"parameters,omitempty"`
 	Toolkit      *ToolkitPolicy       `json:"toolkit,omitempty"`
 	WorkflowName string               `json:"workflow_name"`
+}
+
+// WorkspaceIconDownloadRequest defines model for WorkspaceIconDownloadRequest.
+type WorkspaceIconDownloadRequest struct {
+	Format IconFormat `json:"format"`
+	Name   string     `json:"name"`
+}
+
+// WorkspaceIconDownloadResponse defines model for WorkspaceIconDownloadResponse.
+type WorkspaceIconDownloadResponse struct {
+	Format    IconFormat `json:"format"`
+	Name      string     `json:"name"`
+	SizeBytes int64      `json:"size_bytes"`
 }
 
 // WorkspaceCreateRequest defines model for WorkspaceCreateRequest.

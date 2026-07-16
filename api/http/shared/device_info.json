@@ -19,6 +19,9 @@
           },
           "hardware": {
             "$ref": "./hardware_info.json#/components/schemas/HardwareInfo"
+          },
+          "icon": {
+            "$ref": "./icon.json#/components/schemas/Icon"
           }
         }
       }

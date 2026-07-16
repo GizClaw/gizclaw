@@ -621,6 +621,36 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'ServerPetPixaDownloadRequest',
     responseType: 'ServerPetPixaDownloadResponse',
   ),
+  'server.workflow.icon.download': RpcMethodDescriptor(
+    id: 106,
+    name: 'server.workflow.icon.download',
+    requestType: 'WorkflowIconDownloadRequest',
+    responseType: 'WorkflowIconDownloadResponse',
+  ),
+  'server.workspace.icon.download': RpcMethodDescriptor(
+    id: 107,
+    name: 'server.workspace.icon.download',
+    requestType: 'WorkspaceIconDownloadRequest',
+    responseType: 'WorkspaceIconDownloadResponse',
+  ),
+  'server.info.icon.download': RpcMethodDescriptor(
+    id: 108,
+    name: 'server.info.icon.download',
+    requestType: 'ServerInfoIconDownloadRequest',
+    responseType: 'ServerInfoIconDownloadResponse',
+  ),
+  'server.info.icon.upload': RpcMethodDescriptor(
+    id: 109,
+    name: 'server.info.icon.upload',
+    requestType: 'ServerInfoIconUploadRequest',
+    responseType: 'ServerInfoIconUploadResponse',
+  ),
+  'server.info.icon.delete': RpcMethodDescriptor(
+    id: 110,
+    name: 'server.info.icon.delete',
+    requestType: 'ServerInfoIconDeleteRequest',
+    responseType: 'ServerInfoIconDeleteResponse',
+  ),
 };
 
 const rpcMethodNamesById = <int, String>{
@@ -725,6 +755,11 @@ const rpcMethodNamesById = <int, String>{
   103: 'server.route.resolve',
   104: 'server.pet.actions.get',
   105: 'server.pet.pixa.download',
+  106: 'server.workflow.icon.download',
+  107: 'server.workspace.icon.download',
+  108: 'server.info.icon.download',
+  109: 'server.info.icon.upload',
+  110: 'server.info.icon.delete',
 };
 
 RpcMethodDescriptor rpcMethodByName(String name) {

@@ -12,8 +12,10 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 var workflowsRoot = kv.Key{"by-name"}
@@ -24,7 +26,9 @@ const (
 )
 
 type Server struct {
-	Store kv.Store
+	Store     kv.Store
+	Assets    objectstore.ObjectStore
+	IconLocks iconasset.Locker
 }
 
 type WorkflowAdminService interface {
@@ -36,6 +40,14 @@ type WorkflowAdminService interface {
 }
 
 var _ WorkflowAdminService = (*Server)(nil)
+
+type WorkflowIconAdminService interface {
+	DownloadWorkflowIcon(context.Context, adminhttp.DownloadWorkflowIconRequestObject) (adminhttp.DownloadWorkflowIconResponseObject, error)
+	UploadWorkflowIcon(context.Context, adminhttp.UploadWorkflowIconRequestObject) (adminhttp.UploadWorkflowIconResponseObject, error)
+	DeleteWorkflowIcon(context.Context, adminhttp.DeleteWorkflowIconRequestObject) (adminhttp.DeleteWorkflowIconResponseObject, error)
+}
+
+var _ WorkflowIconAdminService = (*Server)(nil)
 
 type workflowEnvelope struct {
 	Name string           `json:"name"`
@@ -74,6 +86,9 @@ func (s *Server) CreateWorkflow(ctx context.Context, request adminhttp.CreateWor
 	if request.Body == nil {
 		return adminhttp.CreateWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", "request body required")), nil
 	}
+	if request.Body.Icon != nil {
+		return adminhttp.CreateWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", "icon object names are managed by the icon API")), nil
+	}
 	doc, raw, err := validateWorkflow(*request.Body, "")
 	if err != nil {
 		return adminhttp.CreateWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", err.Error())), nil
@@ -98,6 +113,8 @@ func (s *Server) DeleteWorkflow(ctx context.Context, request adminhttp.DeleteWor
 	if err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
+	unlock := s.IconLocks.LockOwner(name)
+	defer unlock()
 	key := workflowKey(name)
 	data, err := s.Store.Get(ctx, key)
 	if err != nil {
@@ -109,6 +126,16 @@ func (s *Server) DeleteWorkflow(ctx context.Context, request adminhttp.DeleteWor
 	doc, err := decodeWorkflow(data)
 	if err != nil {
 		return adminhttp.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	if doc.Icon != nil && s.Assets == nil {
+		return adminhttp.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "workflow asset store not configured")), nil
+	}
+	if s.Assets != nil {
+		for _, format := range []iconasset.Format{iconasset.FormatPixa, iconasset.FormatPNG} {
+			if err := s.Assets.Delete(iconasset.ObjectName(name, format)); err != nil {
+				return adminhttp.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed to delete workflow icon")), nil
+			}
+		}
 	}
 	if err := s.Store.Delete(ctx, key); err != nil {
 		return adminhttp.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -149,7 +176,24 @@ func (s *Server) PutWorkflow(ctx context.Context, request adminhttp.PutWorkflowR
 	if err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
-	doc, raw, err := validateWorkflow(*request.Body, name)
+	unlock := s.IconLocks.LockRecord(name)
+	defer unlock()
+	previousData, getErr := s.Store.Get(ctx, workflowKey(name))
+	var previous apitypes.Workflow
+	if getErr == nil {
+		previous, err = decodeWorkflow(previousData)
+		if err != nil {
+			return adminhttp.PutWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		}
+	} else if !errors.Is(getErr, kv.ErrNotFound) {
+		return adminhttp.PutWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", getErr.Error())), nil
+	}
+	if err := iconasset.ValidateProjection(previous.Icon, request.Body.Icon); err != nil {
+		return adminhttp.PutWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", err.Error())), nil
+	}
+	body := *request.Body
+	body.Icon = previous.Icon
+	doc, raw, err := validateWorkflow(body, name)
 	if err != nil {
 		return adminhttp.PutWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", err.Error())), nil
 	}

@@ -1,0 +1,30 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Icon Type",
+    "description": "Owner-managed icon object names.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "Icon": {
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "pixa": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Owner-scoped relative PIXA object name."
+          },
+          "png": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Owner-scoped relative PNG object name."
+          }
+        }
+      }
+    }
+  }
+}

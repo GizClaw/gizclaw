@@ -14,6 +14,28 @@ import 'dart:core' as $core;
 
 import 'package:protobuf/protobuf.dart' as $pb;
 
+class IconFormat extends $pb.ProtobufEnum {
+  static const IconFormat ICON_FORMAT_UNSPECIFIED =
+      IconFormat._(0, _omitEnumNames ? '' : 'ICON_FORMAT_UNSPECIFIED');
+  static const IconFormat ICON_FORMAT_PIXA =
+      IconFormat._(1, _omitEnumNames ? '' : 'ICON_FORMAT_PIXA');
+  static const IconFormat ICON_FORMAT_PNG =
+      IconFormat._(2, _omitEnumNames ? '' : 'ICON_FORMAT_PNG');
+
+  static const $core.List<IconFormat> values = <IconFormat>[
+    ICON_FORMAT_UNSPECIFIED,
+    ICON_FORMAT_PIXA,
+    ICON_FORMAT_PNG,
+  ];
+
+  static final $core.List<IconFormat?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 2);
+  static IconFormat? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const IconFormat._(super.value, super.name);
+}
+
 class ASTTranslateMode extends $pb.ProtobufEnum {
   static const ASTTranslateMode ASTTRANSLATE_MODE_UNSPECIFIED =
       ASTTranslateMode._(

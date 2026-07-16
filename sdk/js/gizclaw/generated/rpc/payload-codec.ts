@@ -38,6 +38,7 @@ export type FlowcraftConversationParametersInitiative = "" | "agent" | "peer" | 
 export type FlowcraftWorkspaceParametersAgentType = "" | "flowcraft" | "unspecified" | number;
 export type FriendGroupMemberMutableRole = "" | "admin" | "member" | "unspecified" | number;
 export type FriendGroupMemberRole = "" | "admin" | "member" | "owner" | "unspecified" | number;
+export type IconFormat = "" | "pixa" | "png" | "unspecified" | number;
 export type ModelKind = "" | "asr" | "embedding" | "llm" | "realtime" | "translation" | "tts" | "unspecified" | number;
 export type ModelProviderKind = "" | "dashscope-tenant" | "gemini-tenant" | "openai-tenant" | "unspecified" | "volc-tenant" | number;
 export type ModelSource = "" | "manual" | "sync" | "unspecified" | number;
@@ -234,6 +235,7 @@ export type DeviceInfo = {
   "hardware"?: HardwareInfo;
   "name"?: string;
   "sn"?: string;
+  "icon"?: Icon;
 };
 export type DoubaoRealtimeAIGCMetadata = {
   "content_producer"?: string;
@@ -674,6 +676,10 @@ export type HardwareInfo = {
   "manufacturer"?: string;
   "model"?: string;
 };
+export type Icon = {
+  "pixa"?: string;
+  "png"?: string;
+};
 export type MiniMaxCredentialBody = {
   "api_key"?: string;
   "base_url"?: string;
@@ -1101,6 +1107,21 @@ export type ServerGetRuntimeRequest = Record<string, never>;
 export type ServerGetRuntimeResponse = Runtime;
 export type ServerGetStatusRequest = Record<string, never>;
 export type ServerGetStatusResponse = PeerStatus;
+export type ServerInfoIconDeleteRequest = {
+  "format": IconFormat;
+};
+export type ServerInfoIconDeleteResponse = DeviceInfo;
+export type ServerInfoIconDownloadRequest = {
+  "format": IconFormat;
+};
+export type ServerInfoIconDownloadResponse = {
+  "format": IconFormat;
+  "size_bytes": number;
+};
+export type ServerInfoIconUploadRequest = {
+  "format": IconFormat;
+};
+export type ServerInfoIconUploadResponse = DeviceInfo;
 export type ServerListRunWorkspaceHistoryRequest = PeerRunHistoryListRequest;
 export type ServerListRunWorkspaceHistoryResponse = PeerRunHistoryListResponse;
 export type ServerPeerAssignRequest = {
@@ -1316,6 +1337,7 @@ export type Workflow = {
   "name": string;
   "spec": WorkflowSpec;
   "i18n"?: WorkflowI18nCatalog;
+  "icon"?: Icon;
 };
 export type WorkflowGetRequest = {
   "name": string;
@@ -1325,6 +1347,15 @@ export type WorkflowGetResponse = Workflow;
 export type WorkflowI18nCatalog = {
   "name"?: string;
   "description"?: string;
+};
+export type WorkflowIconDownloadRequest = {
+  "name": string;
+  "format": IconFormat;
+};
+export type WorkflowIconDownloadResponse = {
+  "name": string;
+  "format": IconFormat;
+  "size_bytes": number;
 };
 export type WorkflowListRequest = {
   "cursor"?: string;
@@ -1354,6 +1385,7 @@ export type Workspace = {
   "workflow_name": string;
   "toolkit"?: ToolkitPolicy;
   "system": boolean;
+  "icon"?: Icon;
 };
 export type WorkspaceCreateRequest = WorkspaceUpsert;
 export type WorkspaceCreateResponse = Workspace;
@@ -1387,6 +1419,15 @@ export type WorkspaceHistoryListRequest = {
   "workspace_name": string;
 };
 export type WorkspaceHistoryListResponse = PeerRunHistoryListResponse;
+export type WorkspaceIconDownloadRequest = {
+  "name": string;
+  "format": IconFormat;
+};
+export type WorkspaceIconDownloadResponse = {
+  "name": string;
+  "format": IconFormat;
+  "size_bytes": number;
+};
 export type WorkspaceListRequest = {
   "cursor"?: string;
   "limit"?: number;
@@ -1458,6 +1499,9 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.game_result.list": "ServerGameResultListRequest",
   "server.game_ruleset.get": "ServerGameRulesetGetRequest",
   "server.info.get": "ServerGetInfoRequest",
+  "server.info.icon.delete": "ServerInfoIconDeleteRequest",
+  "server.info.icon.download": "ServerInfoIconDownloadRequest",
+  "server.info.icon.upload": "ServerInfoIconUploadRequest",
   "server.info.put": "ServerPutInfoRequest",
   "server.model.create": "ModelCreateRequest",
   "server.model.delete": "ModelDeleteRequest",
@@ -1503,6 +1547,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.voice.get": "VoiceGetRequest",
   "server.voice.list": "VoiceListRequest",
   "server.workflow.get": "WorkflowGetRequest",
+  "server.workflow.icon.download": "WorkflowIconDownloadRequest",
   "server.workflow.list": "WorkflowListRequest",
   "server.workspace.create": "WorkspaceCreateRequest",
   "server.workspace.delete": "WorkspaceDeleteRequest",
@@ -1510,6 +1555,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.workspace.history.audio.get": "WorkspaceHistoryAudioGetRequest",
   "server.workspace.history.get": "WorkspaceHistoryGetRequest",
   "server.workspace.history.list": "WorkspaceHistoryListRequest",
+  "server.workspace.icon.download": "WorkspaceIconDownloadRequest",
   "server.workspace.list": "WorkspaceListRequest",
   "server.workspace.put": "WorkspacePutRequest"
 };
@@ -1561,6 +1607,9 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.game_result.list": "ServerGameResultListResponse",
   "server.game_ruleset.get": "ServerGameRulesetGetResponse",
   "server.info.get": "ServerGetInfoResponse",
+  "server.info.icon.delete": "ServerInfoIconDeleteResponse",
+  "server.info.icon.download": "ServerInfoIconDownloadResponse",
+  "server.info.icon.upload": "ServerInfoIconUploadResponse",
   "server.info.put": "ServerPutInfoResponse",
   "server.model.create": "ModelCreateResponse",
   "server.model.delete": "ModelDeleteResponse",
@@ -1606,6 +1655,7 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.voice.get": "VoiceGetResponse",
   "server.voice.list": "VoiceListResponse",
   "server.workflow.get": "WorkflowGetResponse",
+  "server.workflow.icon.download": "WorkflowIconDownloadResponse",
   "server.workflow.list": "WorkflowListResponse",
   "server.workspace.create": "WorkspaceCreateResponse",
   "server.workspace.delete": "WorkspaceDeleteResponse",
@@ -1613,6 +1663,7 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.workspace.history.audio.get": "WorkspaceHistoryAudioGetResponse",
   "server.workspace.history.get": "WorkspaceHistoryGetResponse",
   "server.workspace.history.list": "WorkspaceHistoryListResponse",
+  "server.workspace.icon.download": "WorkspaceIconDownloadResponse",
   "server.workspace.list": "WorkspaceListResponse",
   "server.workspace.put": "WorkspacePutResponse"
 };
@@ -2462,6 +2513,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 3,
         "optional": true,
         "type": "string"
+      },
+      {
+        "name": "icon",
+        "number": 4,
+        "optional": true,
+        "type": "Icon"
       }
     ]
   },
@@ -4402,6 +4459,22 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "model",
         "number": 5,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
+  "Icon": {
+    "fields": [
+      {
+        "name": "pixa",
+        "number": 1,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "png",
+        "number": 2,
         "optional": true,
         "type": "string"
       }
@@ -6432,6 +6505,65 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "ServerInfoIconDeleteRequest": {
+    "fields": [
+      {
+        "name": "format",
+        "number": 1,
+        "type": "IconFormat"
+      }
+    ]
+  },
+  "ServerInfoIconDeleteResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "DeviceInfo"
+      }
+    ]
+  },
+  "ServerInfoIconDownloadRequest": {
+    "fields": [
+      {
+        "name": "format",
+        "number": 1,
+        "type": "IconFormat"
+      }
+    ]
+  },
+  "ServerInfoIconDownloadResponse": {
+    "fields": [
+      {
+        "name": "format",
+        "number": 1,
+        "type": "IconFormat"
+      },
+      {
+        "name": "size_bytes",
+        "number": 2,
+        "type": "int64"
+      }
+    ]
+  },
+  "ServerInfoIconUploadRequest": {
+    "fields": [
+      {
+        "name": "format",
+        "number": 1,
+        "type": "IconFormat"
+      }
+    ]
+  },
+  "ServerInfoIconUploadResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "DeviceInfo"
+      }
+    ]
+  },
   "ServerListRunWorkspaceHistoryRequest": {
     "fields": [
       {
@@ -7587,6 +7719,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 3,
         "optional": true,
         "type": "WorkflowI18nCatalog"
+      },
+      {
+        "name": "icon",
+        "number": 4,
+        "optional": true,
+        "type": "Icon"
       }
     ]
   },
@@ -7627,6 +7765,39 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 2,
         "optional": true,
         "type": "string"
+      }
+    ]
+  },
+  "WorkflowIconDownloadRequest": {
+    "fields": [
+      {
+        "name": "name",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "format",
+        "number": 2,
+        "type": "IconFormat"
+      }
+    ]
+  },
+  "WorkflowIconDownloadResponse": {
+    "fields": [
+      {
+        "name": "name",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "format",
+        "number": 2,
+        "type": "IconFormat"
+      },
+      {
+        "name": "size_bytes",
+        "number": 3,
+        "type": "int64"
       }
     ]
   },
@@ -7761,6 +7932,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "system",
         "number": 8,
         "type": "bool"
+      },
+      {
+        "name": "icon",
+        "number": 9,
+        "optional": true,
+        "type": "Icon"
       }
     ]
   },
@@ -7912,6 +8089,39 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "PeerRunHistoryListResponse"
+      }
+    ]
+  },
+  "WorkspaceIconDownloadRequest": {
+    "fields": [
+      {
+        "name": "name",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "format",
+        "number": 2,
+        "type": "IconFormat"
+      }
+    ]
+  },
+  "WorkspaceIconDownloadResponse": {
+    "fields": [
+      {
+        "name": "name",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "format",
+        "number": 2,
+        "type": "IconFormat"
+      },
+      {
+        "name": "size_bytes",
+        "number": 3,
+        "type": "int64"
       }
     ]
   },
@@ -8235,6 +8445,18 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "1": "owner",
       "2": "admin",
       "3": "member"
+    }
+  },
+  "IconFormat": {
+    "byName": {
+      "pixa": 1,
+      "png": 2,
+      "unspecified": 0
+    },
+    "byNumber": {
+      "0": "",
+      "1": "pixa",
+      "2": "png"
     }
   },
   "ModelKind": {

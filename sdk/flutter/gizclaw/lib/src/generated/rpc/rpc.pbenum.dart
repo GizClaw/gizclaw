@@ -292,6 +292,17 @@ class RpcMethod extends $pb.ProtobufEnum {
       104, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PET_ACTIONS_GET');
   static const RpcMethod RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD = RpcMethod._(
       105, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD');
+  static const RpcMethod RPC_METHOD_SERVER_WORKFLOW_ICON_DOWNLOAD = RpcMethod._(
+      106, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKFLOW_ICON_DOWNLOAD');
+  static const RpcMethod RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD =
+      RpcMethod._(107,
+          _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD');
+  static const RpcMethod RPC_METHOD_SERVER_INFO_ICON_DOWNLOAD = RpcMethod._(
+      108, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_INFO_ICON_DOWNLOAD');
+  static const RpcMethod RPC_METHOD_SERVER_INFO_ICON_UPLOAD = RpcMethod._(
+      109, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_INFO_ICON_UPLOAD');
+  static const RpcMethod RPC_METHOD_SERVER_INFO_ICON_DELETE = RpcMethod._(
+      110, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_INFO_ICON_DELETE');
 
   static const $core.List<RpcMethod> values = <RpcMethod>[
     RPC_METHOD_UNSPECIFIED,
@@ -396,10 +407,15 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_ROUTE_RESOLVE,
     RPC_METHOD_SERVER_PET_ACTIONS_GET,
     RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD,
+    RPC_METHOD_SERVER_WORKFLOW_ICON_DOWNLOAD,
+    RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD,
+    RPC_METHOD_SERVER_INFO_ICON_DOWNLOAD,
+    RPC_METHOD_SERVER_INFO_ICON_UPLOAD,
+    RPC_METHOD_SERVER_INFO_ICON_DELETE,
   ];
 
   static final $core.List<RpcMethod?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 105);
+      $pb.ProtobufEnum.$_initByValueList(values, 110);
   static RpcMethod? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

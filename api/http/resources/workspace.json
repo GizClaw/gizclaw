@@ -36,6 +36,9 @@
           },
           "spec": {
             "$ref": "../shared/workspace_spec.json#/components/schemas/WorkspaceSpec"
+          },
+          "icon": {
+            "$ref": "../shared/icon.json#/components/schemas/Icon"
           }
         }
       }

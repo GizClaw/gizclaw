@@ -12,8 +12,10 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 var (
@@ -31,6 +33,8 @@ type Server struct {
 	Store         kv.Store
 	WorkflowStore kv.Store
 	RuntimeStore  RuntimeStore
+	Assets        objectstore.ObjectStore
+	IconLocks     iconasset.Locker
 }
 
 type WorkspaceAdminService interface {
@@ -59,6 +63,14 @@ type WorkspaceLifecycleService interface {
 var _ WorkspaceAdminService = (*Server)(nil)
 var _ WorkspaceLifecycleService = (*Server)(nil)
 
+type WorkspaceIconAdminService interface {
+	DownloadWorkspaceIcon(context.Context, adminhttp.DownloadWorkspaceIconRequestObject) (adminhttp.DownloadWorkspaceIconResponseObject, error)
+	UploadWorkspaceIcon(context.Context, adminhttp.UploadWorkspaceIconRequestObject) (adminhttp.UploadWorkspaceIconResponseObject, error)
+	DeleteWorkspaceIcon(context.Context, adminhttp.DeleteWorkspaceIconRequestObject) (adminhttp.DeleteWorkspaceIconResponseObject, error)
+}
+
+var _ WorkspaceIconAdminService = (*Server)(nil)
+
 func (s *Server) ListWorkspaces(ctx context.Context, request adminhttp.ListWorkspacesRequestObject) (adminhttp.ListWorkspacesResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
@@ -83,6 +95,9 @@ func (s *Server) CreateWorkspace(ctx context.Context, request adminhttp.CreateWo
 	}
 	if request.Body == nil {
 		return adminhttp.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", "request body required")), nil
+	}
+	if request.Body.Icon != nil {
+		return adminhttp.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", "icon object names are managed by the icon API")), nil
 	}
 	normalized, err := normalizeWorkspaceUpsert(*request.Body, "")
 	if err != nil {
@@ -169,6 +184,8 @@ func (s *Server) DeleteWorkspace(ctx context.Context, request adminhttp.DeleteWo
 	if err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
+	unlock := s.IconLocks.LockOwner(name)
+	defer unlock()
 	workspace, err := getWorkspace(ctx, store, name)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
@@ -199,6 +216,8 @@ func (s *Server) DeleteSystemWorkspace(ctx context.Context, name string) (apityp
 		return apitypes.Workspace{}, err
 	}
 	name = strings.TrimSpace(name)
+	unlock := s.IconLocks.LockOwner(name)
+	defer unlock()
 	workspace, err := getWorkspace(ctx, store, name)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) && s.RuntimeStore != nil {
@@ -218,6 +237,16 @@ func (s *Server) DeleteSystemWorkspace(ctx context.Context, name string) (apityp
 }
 
 func (s *Server) deleteWorkspaceRecord(ctx context.Context, store kv.Store, workspace apitypes.Workspace) error {
+	if workspace.Icon != nil && s.Assets == nil {
+		return errors.New("workspace asset store not configured")
+	}
+	if s.Assets != nil {
+		for _, format := range []iconasset.Format{iconasset.FormatPixa, iconasset.FormatPNG} {
+			if err := s.Assets.Delete(iconasset.ObjectName(string(workspace.Name), format)); err != nil {
+				return errors.New("failed to delete workspace icon")
+			}
+		}
+	}
 	if s.RuntimeStore != nil {
 		if err := s.RuntimeStore.DeleteWorkspaceRuntime(ctx, workspace.Name); err != nil {
 			return err
@@ -264,6 +293,8 @@ func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspac
 	if err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
+	unlock := s.IconLocks.LockRecord(name)
+	defer unlock()
 	normalized, err := normalizeWorkspaceUpsert(*request.Body, name)
 	if err != nil {
 		return adminhttp.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
@@ -279,6 +310,9 @@ func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspac
 	if err != nil && !errors.Is(err, kv.ErrNotFound) {
 		return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
+	if err := iconasset.ValidateProjection(previous.Icon, request.Body.Icon); err != nil {
+		return adminhttp.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
+	}
 	now := time.Now().UTC()
 	workspace := apitypes.Workspace{
 		CreatedAt:    now,
@@ -289,6 +323,7 @@ func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspac
 		Toolkit:      cloneToolkitPolicy(normalized.Toolkit),
 		UpdatedAt:    now,
 		WorkflowName: normalized.WorkflowName,
+		Icon:         previous.Icon,
 	}
 	if err == nil {
 		workspace.CreatedAt = previous.CreatedAt

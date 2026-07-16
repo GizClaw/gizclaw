@@ -804,6 +804,72 @@ func TestObjectStoreWithStoragePrefix(t *testing.T) {
 	}
 }
 
+func TestSharedObjectStorePrefixesMustBeNonEmptyAndDisjoint(t *testing.T) {
+	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
+		"assets": {Kind: physicalstorage.KindObjectStore, FS: &physicalstorage.FSConfig{Dir: t.TempDir()}},
+	})
+	if err != nil {
+		t.Fatalf("storage.New: %v", err)
+	}
+	defer physical.Close()
+
+	tests := []struct {
+		name   string
+		stores map[string]Config
+		want   string
+	}{
+		{
+			name: "empty",
+			stores: map[string]Config{
+				"a": {Kind: KindObjectStore, Storage: "assets"},
+				"b": {Kind: KindObjectStore, Storage: "assets", Prefix: "b"},
+			},
+			want: "requires a non-empty prefix",
+		},
+		{
+			name: "same",
+			stores: map[string]Config{
+				"a": {Kind: KindObjectStore, Storage: "assets", Prefix: "icons"},
+				"b": {Kind: KindObjectStore, Storage: "assets", Prefix: "icons"},
+			},
+			want: "overlapping prefixes",
+		},
+		{
+			name: "parent child",
+			stores: map[string]Config{
+				"a": {Kind: KindObjectStore, Storage: "assets", Prefix: "icons"},
+				"b": {Kind: KindObjectStore, Storage: "assets", Prefix: "icons/workflows"},
+			},
+			want: "overlapping prefixes",
+		},
+		{
+			name: "unclean",
+			stores: map[string]Config{
+				"a": {Kind: KindObjectStore, Storage: "assets", Prefix: "/icons/"},
+				"b": {Kind: KindObjectStore, Storage: "assets", Prefix: "other"},
+			},
+			want: "is not clean",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := NewWithStorage(physical, test.stores)
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("NewWithStorage() error = %v, want %q", err, test.want)
+			}
+		})
+	}
+
+	reg, err := NewWithStorage(physical, map[string]Config{
+		"gameplay": {Kind: KindObjectStore, Storage: "assets", Prefix: "gameplay"},
+		"peers":    {Kind: KindObjectStore, Storage: "assets", Prefix: "peers"},
+	})
+	if err != nil {
+		t.Fatalf("NewWithStorage(disjoint): %v", err)
+	}
+	defer reg.Close()
+}
+
 func TestObjectStoreNotFound(t *testing.T) {
 	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
 		"assets": {Kind: physicalstorage.KindObjectStore, FS: &physicalstorage.FSConfig{Dir: t.TempDir()}},

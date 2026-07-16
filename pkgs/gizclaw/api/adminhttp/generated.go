@@ -188,6 +188,168 @@ func (e TreeFirmwareArtifactEntriesParamsChannel) Valid() bool {
 	}
 }
 
+// Defines values for DeleteGameDefIconParamsFormat.
+const (
+	DeleteGameDefIconParamsFormatPixa DeleteGameDefIconParamsFormat = "pixa"
+	DeleteGameDefIconParamsFormatPng  DeleteGameDefIconParamsFormat = "png"
+)
+
+// Valid indicates whether the value is a known member of the DeleteGameDefIconParamsFormat enum.
+func (e DeleteGameDefIconParamsFormat) Valid() bool {
+	switch e {
+	case DeleteGameDefIconParamsFormatPixa:
+		return true
+	case DeleteGameDefIconParamsFormatPng:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DownloadGameDefIconParamsFormat.
+const (
+	DownloadGameDefIconParamsFormatPixa DownloadGameDefIconParamsFormat = "pixa"
+	DownloadGameDefIconParamsFormatPng  DownloadGameDefIconParamsFormat = "png"
+)
+
+// Valid indicates whether the value is a known member of the DownloadGameDefIconParamsFormat enum.
+func (e DownloadGameDefIconParamsFormat) Valid() bool {
+	switch e {
+	case DownloadGameDefIconParamsFormatPixa:
+		return true
+	case DownloadGameDefIconParamsFormatPng:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UploadGameDefIconParamsFormat.
+const (
+	UploadGameDefIconParamsFormatPixa UploadGameDefIconParamsFormat = "pixa"
+	UploadGameDefIconParamsFormatPng  UploadGameDefIconParamsFormat = "png"
+)
+
+// Valid indicates whether the value is a known member of the UploadGameDefIconParamsFormat enum.
+func (e UploadGameDefIconParamsFormat) Valid() bool {
+	switch e {
+	case UploadGameDefIconParamsFormatPixa:
+		return true
+	case UploadGameDefIconParamsFormatPng:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeletePeerIconParamsFormat.
+const (
+	DeletePeerIconParamsFormatPixa DeletePeerIconParamsFormat = "pixa"
+	DeletePeerIconParamsFormatPng  DeletePeerIconParamsFormat = "png"
+)
+
+// Valid indicates whether the value is a known member of the DeletePeerIconParamsFormat enum.
+func (e DeletePeerIconParamsFormat) Valid() bool {
+	switch e {
+	case DeletePeerIconParamsFormatPixa:
+		return true
+	case DeletePeerIconParamsFormatPng:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DownloadPeerIconParamsFormat.
+const (
+	DownloadPeerIconParamsFormatPixa DownloadPeerIconParamsFormat = "pixa"
+	DownloadPeerIconParamsFormatPng  DownloadPeerIconParamsFormat = "png"
+)
+
+// Valid indicates whether the value is a known member of the DownloadPeerIconParamsFormat enum.
+func (e DownloadPeerIconParamsFormat) Valid() bool {
+	switch e {
+	case DownloadPeerIconParamsFormatPixa:
+		return true
+	case DownloadPeerIconParamsFormatPng:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UploadPeerIconParamsFormat.
+const (
+	UploadPeerIconParamsFormatPixa UploadPeerIconParamsFormat = "pixa"
+	UploadPeerIconParamsFormatPng  UploadPeerIconParamsFormat = "png"
+)
+
+// Valid indicates whether the value is a known member of the UploadPeerIconParamsFormat enum.
+func (e UploadPeerIconParamsFormat) Valid() bool {
+	switch e {
+	case UploadPeerIconParamsFormatPixa:
+		return true
+	case UploadPeerIconParamsFormatPng:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeleteWorkflowIconParamsFormat.
+const (
+	DeleteWorkflowIconParamsFormatPixa DeleteWorkflowIconParamsFormat = "pixa"
+	DeleteWorkflowIconParamsFormatPng  DeleteWorkflowIconParamsFormat = "png"
+)
+
+// Valid indicates whether the value is a known member of the DeleteWorkflowIconParamsFormat enum.
+func (e DeleteWorkflowIconParamsFormat) Valid() bool {
+	switch e {
+	case DeleteWorkflowIconParamsFormatPixa:
+		return true
+	case DeleteWorkflowIconParamsFormatPng:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DownloadWorkflowIconParamsFormat.
+const (
+	DownloadWorkflowIconParamsFormatPixa DownloadWorkflowIconParamsFormat = "pixa"
+	DownloadWorkflowIconParamsFormatPng  DownloadWorkflowIconParamsFormat = "png"
+)
+
+// Valid indicates whether the value is a known member of the DownloadWorkflowIconParamsFormat enum.
+func (e DownloadWorkflowIconParamsFormat) Valid() bool {
+	switch e {
+	case DownloadWorkflowIconParamsFormatPixa:
+		return true
+	case DownloadWorkflowIconParamsFormatPng:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UploadWorkflowIconParamsFormat.
+const (
+	UploadWorkflowIconParamsFormatPixa UploadWorkflowIconParamsFormat = "pixa"
+	UploadWorkflowIconParamsFormatPng  UploadWorkflowIconParamsFormat = "png"
+)
+
+// Valid indicates whether the value is a known member of the UploadWorkflowIconParamsFormat enum.
+func (e UploadWorkflowIconParamsFormat) Valid() bool {
+	switch e {
+	case UploadWorkflowIconParamsFormatPixa:
+		return true
+	case UploadWorkflowIconParamsFormatPng:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListWorkspaceHistoryParamsOrder.
 const (
 	Asc  ListWorkspaceHistoryParamsOrder = "asc"
@@ -200,6 +362,60 @@ func (e ListWorkspaceHistoryParamsOrder) Valid() bool {
 	case Asc:
 		return true
 	case Desc:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeleteWorkspaceIconParamsFormat.
+const (
+	DeleteWorkspaceIconParamsFormatPixa DeleteWorkspaceIconParamsFormat = "pixa"
+	DeleteWorkspaceIconParamsFormatPng  DeleteWorkspaceIconParamsFormat = "png"
+)
+
+// Valid indicates whether the value is a known member of the DeleteWorkspaceIconParamsFormat enum.
+func (e DeleteWorkspaceIconParamsFormat) Valid() bool {
+	switch e {
+	case DeleteWorkspaceIconParamsFormatPixa:
+		return true
+	case DeleteWorkspaceIconParamsFormatPng:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DownloadWorkspaceIconParamsFormat.
+const (
+	DownloadWorkspaceIconParamsFormatPixa DownloadWorkspaceIconParamsFormat = "pixa"
+	DownloadWorkspaceIconParamsFormatPng  DownloadWorkspaceIconParamsFormat = "png"
+)
+
+// Valid indicates whether the value is a known member of the DownloadWorkspaceIconParamsFormat enum.
+func (e DownloadWorkspaceIconParamsFormat) Valid() bool {
+	switch e {
+	case DownloadWorkspaceIconParamsFormatPixa:
+		return true
+	case DownloadWorkspaceIconParamsFormatPng:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UploadWorkspaceIconParamsFormat.
+const (
+	UploadWorkspaceIconParamsFormatPixa UploadWorkspaceIconParamsFormat = "pixa"
+	UploadWorkspaceIconParamsFormatPng  UploadWorkspaceIconParamsFormat = "png"
+)
+
+// Valid indicates whether the value is a known member of the UploadWorkspaceIconParamsFormat enum.
+func (e UploadWorkspaceIconParamsFormat) Valid() bool {
+	switch e {
+	case UploadWorkspaceIconParamsFormatPixa:
+		return true
+	case UploadWorkspaceIconParamsFormatPng:
 		return true
 	default:
 		return false
@@ -408,6 +624,7 @@ type GameDefList struct {
 
 // GameDefUpsert defines model for GameDefUpsert.
 type GameDefUpsert struct {
+	Icon *externalRef0.Icon       `json:"icon,omitempty"`
 	Id   string                   `json:"id"`
 	Spec externalRef0.GameDefSpec `json:"spec"`
 }
@@ -609,7 +826,8 @@ type WorkspaceList struct {
 
 // WorkspaceUpsert defines model for WorkspaceUpsert.
 type WorkspaceUpsert struct {
-	Name string `json:"name"`
+	Icon *externalRef0.Icon `json:"icon,omitempty"`
+	Name string             `json:"name"`
 
 	// Parameters Agent-specific workspace parameters. The shape is selected by agent_type.
 	Parameters *externalRef0.WorkspaceParameters `json:"parameters,omitempty"`
@@ -778,6 +996,15 @@ type ListGameDefsParams struct {
 	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// DeleteGameDefIconParamsFormat defines parameters for DeleteGameDefIcon.
+type DeleteGameDefIconParamsFormat string
+
+// DownloadGameDefIconParamsFormat defines parameters for DownloadGameDefIcon.
+type DownloadGameDefIconParamsFormat string
+
+// UploadGameDefIconParamsFormat defines parameters for UploadGameDefIcon.
+type UploadGameDefIconParamsFormat string
+
 // ListGameRulesetsParams defines parameters for ListGameRulesets.
 type ListGameRulesetsParams struct {
 	// Cursor Opaque cursor returned by the previous list response
@@ -888,6 +1115,15 @@ type ListPeerGameResultsParams struct {
 	// Limit Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
 	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
 }
+
+// DeletePeerIconParamsFormat defines parameters for DeletePeerIcon.
+type DeletePeerIconParamsFormat string
+
+// DownloadPeerIconParamsFormat defines parameters for DownloadPeerIcon.
+type DownloadPeerIconParamsFormat string
+
+// UploadPeerIconParamsFormat defines parameters for UploadPeerIcon.
+type UploadPeerIconParamsFormat string
 
 // ListPeerPetsParams defines parameters for ListPeerPets.
 type ListPeerPetsParams struct {
@@ -1045,6 +1281,15 @@ type ListWorkflowsParams struct {
 	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// DeleteWorkflowIconParamsFormat defines parameters for DeleteWorkflowIcon.
+type DeleteWorkflowIconParamsFormat string
+
+// DownloadWorkflowIconParamsFormat defines parameters for DownloadWorkflowIcon.
+type DownloadWorkflowIconParamsFormat string
+
+// UploadWorkflowIconParamsFormat defines parameters for UploadWorkflowIcon.
+type UploadWorkflowIconParamsFormat string
+
 // ListWorkspacesParams defines parameters for ListWorkspaces.
 type ListWorkspacesParams struct {
 	// Cursor Opaque cursor returned by the previous list response
@@ -1068,6 +1313,15 @@ type ListWorkspaceHistoryParams struct {
 
 // ListWorkspaceHistoryParamsOrder defines parameters for ListWorkspaceHistory.
 type ListWorkspaceHistoryParamsOrder string
+
+// DeleteWorkspaceIconParamsFormat defines parameters for DeleteWorkspaceIcon.
+type DeleteWorkspaceIconParamsFormat string
+
+// DownloadWorkspaceIconParamsFormat defines parameters for DownloadWorkspaceIcon.
+type DownloadWorkspaceIconParamsFormat string
+
+// UploadWorkspaceIconParamsFormat defines parameters for UploadWorkspaceIcon.
+type UploadWorkspaceIconParamsFormat string
 
 // ApplyResourceJSONRequestBody defines body for ApplyResource for application/json ContentType.
 type ApplyResourceJSONRequestBody = externalRef0.ApplyResource
@@ -1482,6 +1736,15 @@ type ClientInterface interface {
 
 	PutGameDef(ctx context.Context, id string, body PutGameDefJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DeleteGameDefIcon request
+	DeleteGameDefIcon(ctx context.Context, id string, format DeleteGameDefIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DownloadGameDefIcon request
+	DownloadGameDefIcon(ctx context.Context, id string, format DownloadGameDefIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UploadGameDefIconWithBody request with any body
+	UploadGameDefIconWithBody(ctx context.Context, id string, format UploadGameDefIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListGameRulesets request
 	ListGameRulesets(ctx context.Context, params *ListGameRulesetsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1642,6 +1905,15 @@ type ClientInterface interface {
 
 	// GetPeerGameResult request
 	GetPeerGameResult(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeletePeerIcon request
+	DeletePeerIcon(ctx context.Context, publicKey string, format DeletePeerIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DownloadPeerIcon request
+	DownloadPeerIcon(ctx context.Context, publicKey string, format DownloadPeerIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UploadPeerIconWithBody request with any body
+	UploadPeerIconWithBody(ctx context.Context, publicKey string, format UploadPeerIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetPeerInfo request
 	GetPeerInfo(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1862,6 +2134,15 @@ type ClientInterface interface {
 
 	PutWorkflow(ctx context.Context, name string, body PutWorkflowJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DeleteWorkflowIcon request
+	DeleteWorkflowIcon(ctx context.Context, name string, format DeleteWorkflowIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DownloadWorkflowIcon request
+	DownloadWorkflowIcon(ctx context.Context, name string, format DownloadWorkflowIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UploadWorkflowIconWithBody request with any body
+	UploadWorkflowIconWithBody(ctx context.Context, name string, format UploadWorkflowIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListWorkspaces request
 	ListWorkspaces(ctx context.Context, params *ListWorkspacesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1889,6 +2170,15 @@ type ClientInterface interface {
 
 	// DownloadWorkspaceHistoryAudio request
 	DownloadWorkspaceHistoryAudio(ctx context.Context, name string, historyId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteWorkspaceIcon request
+	DeleteWorkspaceIcon(ctx context.Context, name string, format DeleteWorkspaceIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DownloadWorkspaceIcon request
+	DownloadWorkspaceIcon(ctx context.Context, name string, format DownloadWorkspaceIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UploadWorkspaceIconWithBody request with any body
+	UploadWorkspaceIconWithBody(ctx context.Context, name string, format UploadWorkspaceIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) ApplyResourceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -2719,6 +3009,42 @@ func (c *Client) PutGameDef(ctx context.Context, id string, body PutGameDefJSONR
 	return c.Client.Do(req)
 }
 
+func (c *Client) DeleteGameDefIcon(ctx context.Context, id string, format DeleteGameDefIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteGameDefIconRequest(c.Server, id, format)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DownloadGameDefIcon(ctx context.Context, id string, format DownloadGameDefIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadGameDefIconRequest(c.Server, id, format)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UploadGameDefIconWithBody(ctx context.Context, id string, format UploadGameDefIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUploadGameDefIconRequestWithBody(c.Server, id, format, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListGameRulesets(ctx context.Context, params *ListGameRulesetsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListGameRulesetsRequest(c.Server, params)
 	if err != nil {
@@ -3405,6 +3731,42 @@ func (c *Client) ListPeerGameResults(ctx context.Context, publicKey string, para
 
 func (c *Client) GetPeerGameResult(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetPeerGameResultRequest(c.Server, publicKey, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeletePeerIcon(ctx context.Context, publicKey string, format DeletePeerIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeletePeerIconRequest(c.Server, publicKey, format)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DownloadPeerIcon(ctx context.Context, publicKey string, format DownloadPeerIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadPeerIconRequest(c.Server, publicKey, format)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UploadPeerIconWithBody(ctx context.Context, publicKey string, format UploadPeerIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUploadPeerIconRequestWithBody(c.Server, publicKey, format, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4363,6 +4725,42 @@ func (c *Client) PutWorkflow(ctx context.Context, name string, body PutWorkflowJ
 	return c.Client.Do(req)
 }
 
+func (c *Client) DeleteWorkflowIcon(ctx context.Context, name string, format DeleteWorkflowIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteWorkflowIconRequest(c.Server, name, format)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DownloadWorkflowIcon(ctx context.Context, name string, format DownloadWorkflowIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadWorkflowIconRequest(c.Server, name, format)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UploadWorkflowIconWithBody(ctx context.Context, name string, format UploadWorkflowIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUploadWorkflowIconRequestWithBody(c.Server, name, format, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListWorkspaces(ctx context.Context, params *ListWorkspacesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListWorkspacesRequest(c.Server, params)
 	if err != nil {
@@ -4473,6 +4871,42 @@ func (c *Client) GetWorkspaceHistory(ctx context.Context, name string, historyId
 
 func (c *Client) DownloadWorkspaceHistoryAudio(ctx context.Context, name string, historyId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDownloadWorkspaceHistoryAudioRequest(c.Server, name, historyId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteWorkspaceIcon(ctx context.Context, name string, format DeleteWorkspaceIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteWorkspaceIconRequest(c.Server, name, format)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DownloadWorkspaceIcon(ctx context.Context, name string, format DownloadWorkspaceIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadWorkspaceIconRequest(c.Server, name, format)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UploadWorkspaceIconWithBody(ctx context.Context, name string, format UploadWorkspaceIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUploadWorkspaceIconRequestWithBody(c.Server, name, format, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -6938,6 +7372,131 @@ func NewPutGameDefRequestWithBody(server string, id string, contentType string, 
 	return req, nil
 }
 
+// NewDeleteGameDefIconRequest generates requests for DeleteGameDefIcon
+func NewDeleteGameDefIconRequest(server string, id string, format DeleteGameDefIconParamsFormat) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "format", format, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/game-defs/%s/icon/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDownloadGameDefIconRequest generates requests for DownloadGameDefIcon
+func NewDownloadGameDefIconRequest(server string, id string, format DownloadGameDefIconParamsFormat) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "format", format, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/game-defs/%s/icon/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUploadGameDefIconRequestWithBody generates requests for UploadGameDefIcon with any type of body
+func NewUploadGameDefIconRequestWithBody(server string, id string, format UploadGameDefIconParamsFormat, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "format", format, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/game-defs/%s/icon/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListGameRulesetsRequest generates requests for ListGameRulesets
 func NewListGameRulesetsRequest(server string, params *ListGameRulesetsParams) (*http.Request, error) {
 	var err error
@@ -9076,6 +9635,131 @@ func NewGetPeerGameResultRequest(server string, publicKey string, id string) (*h
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewDeletePeerIconRequest generates requests for DeletePeerIcon
+func NewDeletePeerIconRequest(server string, publicKey string, format DeletePeerIconParamsFormat) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "publicKey", publicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "format", format, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/peers/%s/icon/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDownloadPeerIconRequest generates requests for DownloadPeerIcon
+func NewDownloadPeerIconRequest(server string, publicKey string, format DownloadPeerIconParamsFormat) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "publicKey", publicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "format", format, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/peers/%s/icon/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUploadPeerIconRequestWithBody generates requests for UploadPeerIcon with any type of body
+func NewUploadPeerIconRequestWithBody(server string, publicKey string, format UploadPeerIconParamsFormat, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "publicKey", publicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "format", format, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/peers/%s/icon/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -12050,6 +12734,131 @@ func NewPutWorkflowRequestWithBody(server string, name string, contentType strin
 	return req, nil
 }
 
+// NewDeleteWorkflowIconRequest generates requests for DeleteWorkflowIcon
+func NewDeleteWorkflowIconRequest(server string, name string, format DeleteWorkflowIconParamsFormat) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "format", format, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/workflows/%s/icon/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDownloadWorkflowIconRequest generates requests for DownloadWorkflowIcon
+func NewDownloadWorkflowIconRequest(server string, name string, format DownloadWorkflowIconParamsFormat) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "format", format, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/workflows/%s/icon/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUploadWorkflowIconRequestWithBody generates requests for UploadWorkflowIcon with any type of body
+func NewUploadWorkflowIconRequestWithBody(server string, name string, format UploadWorkflowIconParamsFormat, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "format", format, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/workflows/%s/icon/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListWorkspacesRequest generates requests for ListWorkspaces
 func NewListWorkspacesRequest(server string, params *ListWorkspacesParams) (*http.Request, error) {
 	var err error
@@ -12440,6 +13249,131 @@ func NewDownloadWorkspaceHistoryAudioRequest(server string, name string, history
 	return req, nil
 }
 
+// NewDeleteWorkspaceIconRequest generates requests for DeleteWorkspaceIcon
+func NewDeleteWorkspaceIconRequest(server string, name string, format DeleteWorkspaceIconParamsFormat) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "format", format, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/workspaces/%s/icon/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDownloadWorkspaceIconRequest generates requests for DownloadWorkspaceIcon
+func NewDownloadWorkspaceIconRequest(server string, name string, format DownloadWorkspaceIconParamsFormat) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "format", format, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/workspaces/%s/icon/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUploadWorkspaceIconRequestWithBody generates requests for UploadWorkspaceIcon with any type of body
+func NewUploadWorkspaceIconRequestWithBody(server string, name string, format UploadWorkspaceIconParamsFormat, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "format", format, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/workspaces/%s/icon/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -12673,6 +13607,15 @@ type ClientWithResponsesInterface interface {
 
 	PutGameDefWithResponse(ctx context.Context, id string, body PutGameDefJSONRequestBody, reqEditors ...RequestEditorFn) (*PutGameDefResponse, error)
 
+	// DeleteGameDefIconWithResponse request
+	DeleteGameDefIconWithResponse(ctx context.Context, id string, format DeleteGameDefIconParamsFormat, reqEditors ...RequestEditorFn) (*DeleteGameDefIconResponse, error)
+
+	// DownloadGameDefIconWithResponse request
+	DownloadGameDefIconWithResponse(ctx context.Context, id string, format DownloadGameDefIconParamsFormat, reqEditors ...RequestEditorFn) (*DownloadGameDefIconResponse, error)
+
+	// UploadGameDefIconWithBodyWithResponse request with any body
+	UploadGameDefIconWithBodyWithResponse(ctx context.Context, id string, format UploadGameDefIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadGameDefIconResponse, error)
+
 	// ListGameRulesetsWithResponse request
 	ListGameRulesetsWithResponse(ctx context.Context, params *ListGameRulesetsParams, reqEditors ...RequestEditorFn) (*ListGameRulesetsResponse, error)
 
@@ -12833,6 +13776,15 @@ type ClientWithResponsesInterface interface {
 
 	// GetPeerGameResultWithResponse request
 	GetPeerGameResultWithResponse(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*GetPeerGameResultResponse, error)
+
+	// DeletePeerIconWithResponse request
+	DeletePeerIconWithResponse(ctx context.Context, publicKey string, format DeletePeerIconParamsFormat, reqEditors ...RequestEditorFn) (*DeletePeerIconResponse, error)
+
+	// DownloadPeerIconWithResponse request
+	DownloadPeerIconWithResponse(ctx context.Context, publicKey string, format DownloadPeerIconParamsFormat, reqEditors ...RequestEditorFn) (*DownloadPeerIconResponse, error)
+
+	// UploadPeerIconWithBodyWithResponse request with any body
+	UploadPeerIconWithBodyWithResponse(ctx context.Context, publicKey string, format UploadPeerIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadPeerIconResponse, error)
 
 	// GetPeerInfoWithResponse request
 	GetPeerInfoWithResponse(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*GetPeerInfoResponse, error)
@@ -13053,6 +14005,15 @@ type ClientWithResponsesInterface interface {
 
 	PutWorkflowWithResponse(ctx context.Context, name string, body PutWorkflowJSONRequestBody, reqEditors ...RequestEditorFn) (*PutWorkflowResponse, error)
 
+	// DeleteWorkflowIconWithResponse request
+	DeleteWorkflowIconWithResponse(ctx context.Context, name string, format DeleteWorkflowIconParamsFormat, reqEditors ...RequestEditorFn) (*DeleteWorkflowIconResponse, error)
+
+	// DownloadWorkflowIconWithResponse request
+	DownloadWorkflowIconWithResponse(ctx context.Context, name string, format DownloadWorkflowIconParamsFormat, reqEditors ...RequestEditorFn) (*DownloadWorkflowIconResponse, error)
+
+	// UploadWorkflowIconWithBodyWithResponse request with any body
+	UploadWorkflowIconWithBodyWithResponse(ctx context.Context, name string, format UploadWorkflowIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadWorkflowIconResponse, error)
+
 	// ListWorkspacesWithResponse request
 	ListWorkspacesWithResponse(ctx context.Context, params *ListWorkspacesParams, reqEditors ...RequestEditorFn) (*ListWorkspacesResponse, error)
 
@@ -13080,6 +14041,15 @@ type ClientWithResponsesInterface interface {
 
 	// DownloadWorkspaceHistoryAudioWithResponse request
 	DownloadWorkspaceHistoryAudioWithResponse(ctx context.Context, name string, historyId string, reqEditors ...RequestEditorFn) (*DownloadWorkspaceHistoryAudioResponse, error)
+
+	// DeleteWorkspaceIconWithResponse request
+	DeleteWorkspaceIconWithResponse(ctx context.Context, name string, format DeleteWorkspaceIconParamsFormat, reqEditors ...RequestEditorFn) (*DeleteWorkspaceIconResponse, error)
+
+	// DownloadWorkspaceIconWithResponse request
+	DownloadWorkspaceIconWithResponse(ctx context.Context, name string, format DownloadWorkspaceIconParamsFormat, reqEditors ...RequestEditorFn) (*DownloadWorkspaceIconResponse, error)
+
+	// UploadWorkspaceIconWithBodyWithResponse request with any body
+	UploadWorkspaceIconWithBodyWithResponse(ctx context.Context, name string, format UploadWorkspaceIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadWorkspaceIconResponse, error)
 }
 
 type ApplyResourceResponse struct {
@@ -14339,6 +15309,79 @@ func (r PutGameDefResponse) StatusCode() int {
 	return 0
 }
 
+type DeleteGameDefIconResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.GameDef
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteGameDefIconResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteGameDefIconResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DownloadGameDefIconResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DownloadGameDefIconResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DownloadGameDefIconResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UploadGameDefIconResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.GameDef
+	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
+	JSON413      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r UploadGameDefIconResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UploadGameDefIconResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListGameRulesetsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -15420,6 +16463,79 @@ func (r GetPeerGameResultResponse) StatusCode() int {
 	return 0
 }
 
+type DeletePeerIconResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.DeviceInfo
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DeletePeerIconResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeletePeerIconResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DownloadPeerIconResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DownloadPeerIconResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DownloadPeerIconResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UploadPeerIconResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.DeviceInfo
+	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
+	JSON413      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r UploadPeerIconResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UploadPeerIconResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetPeerInfoResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -15449,6 +16565,7 @@ type PutPeerInfoResponse struct {
 	JSON200      *externalRef0.DeviceInfo
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -16910,6 +18027,79 @@ func (r PutWorkflowResponse) StatusCode() int {
 	return 0
 }
 
+type DeleteWorkflowIconResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.Workflow
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteWorkflowIconResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteWorkflowIconResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DownloadWorkflowIconResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DownloadWorkflowIconResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DownloadWorkflowIconResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UploadWorkflowIconResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.Workflow
+	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
+	JSON413      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r UploadWorkflowIconResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UploadWorkflowIconResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListWorkspacesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -17099,6 +18289,79 @@ func (r DownloadWorkspaceHistoryAudioResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r DownloadWorkspaceHistoryAudioResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteWorkspaceIconResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.Workspace
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteWorkspaceIconResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteWorkspaceIconResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DownloadWorkspaceIconResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DownloadWorkspaceIconResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DownloadWorkspaceIconResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UploadWorkspaceIconResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.Workspace
+	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
+	JSON413      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r UploadWorkspaceIconResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UploadWorkspaceIconResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -17709,6 +18972,33 @@ func (c *ClientWithResponses) PutGameDefWithResponse(ctx context.Context, id str
 	return ParsePutGameDefResponse(rsp)
 }
 
+// DeleteGameDefIconWithResponse request returning *DeleteGameDefIconResponse
+func (c *ClientWithResponses) DeleteGameDefIconWithResponse(ctx context.Context, id string, format DeleteGameDefIconParamsFormat, reqEditors ...RequestEditorFn) (*DeleteGameDefIconResponse, error) {
+	rsp, err := c.DeleteGameDefIcon(ctx, id, format, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteGameDefIconResponse(rsp)
+}
+
+// DownloadGameDefIconWithResponse request returning *DownloadGameDefIconResponse
+func (c *ClientWithResponses) DownloadGameDefIconWithResponse(ctx context.Context, id string, format DownloadGameDefIconParamsFormat, reqEditors ...RequestEditorFn) (*DownloadGameDefIconResponse, error) {
+	rsp, err := c.DownloadGameDefIcon(ctx, id, format, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDownloadGameDefIconResponse(rsp)
+}
+
+// UploadGameDefIconWithBodyWithResponse request with arbitrary body returning *UploadGameDefIconResponse
+func (c *ClientWithResponses) UploadGameDefIconWithBodyWithResponse(ctx context.Context, id string, format UploadGameDefIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadGameDefIconResponse, error) {
+	rsp, err := c.UploadGameDefIconWithBody(ctx, id, format, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUploadGameDefIconResponse(rsp)
+}
+
 // ListGameRulesetsWithResponse request returning *ListGameRulesetsResponse
 func (c *ClientWithResponses) ListGameRulesetsWithResponse(ctx context.Context, params *ListGameRulesetsParams, reqEditors ...RequestEditorFn) (*ListGameRulesetsResponse, error) {
 	rsp, err := c.ListGameRulesets(ctx, params, reqEditors...)
@@ -18216,6 +19506,33 @@ func (c *ClientWithResponses) GetPeerGameResultWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseGetPeerGameResultResponse(rsp)
+}
+
+// DeletePeerIconWithResponse request returning *DeletePeerIconResponse
+func (c *ClientWithResponses) DeletePeerIconWithResponse(ctx context.Context, publicKey string, format DeletePeerIconParamsFormat, reqEditors ...RequestEditorFn) (*DeletePeerIconResponse, error) {
+	rsp, err := c.DeletePeerIcon(ctx, publicKey, format, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeletePeerIconResponse(rsp)
+}
+
+// DownloadPeerIconWithResponse request returning *DownloadPeerIconResponse
+func (c *ClientWithResponses) DownloadPeerIconWithResponse(ctx context.Context, publicKey string, format DownloadPeerIconParamsFormat, reqEditors ...RequestEditorFn) (*DownloadPeerIconResponse, error) {
+	rsp, err := c.DownloadPeerIcon(ctx, publicKey, format, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDownloadPeerIconResponse(rsp)
+}
+
+// UploadPeerIconWithBodyWithResponse request with arbitrary body returning *UploadPeerIconResponse
+func (c *ClientWithResponses) UploadPeerIconWithBodyWithResponse(ctx context.Context, publicKey string, format UploadPeerIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadPeerIconResponse, error) {
+	rsp, err := c.UploadPeerIconWithBody(ctx, publicKey, format, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUploadPeerIconResponse(rsp)
 }
 
 // GetPeerInfoWithResponse request returning *GetPeerInfoResponse
@@ -18911,6 +20228,33 @@ func (c *ClientWithResponses) PutWorkflowWithResponse(ctx context.Context, name 
 	return ParsePutWorkflowResponse(rsp)
 }
 
+// DeleteWorkflowIconWithResponse request returning *DeleteWorkflowIconResponse
+func (c *ClientWithResponses) DeleteWorkflowIconWithResponse(ctx context.Context, name string, format DeleteWorkflowIconParamsFormat, reqEditors ...RequestEditorFn) (*DeleteWorkflowIconResponse, error) {
+	rsp, err := c.DeleteWorkflowIcon(ctx, name, format, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteWorkflowIconResponse(rsp)
+}
+
+// DownloadWorkflowIconWithResponse request returning *DownloadWorkflowIconResponse
+func (c *ClientWithResponses) DownloadWorkflowIconWithResponse(ctx context.Context, name string, format DownloadWorkflowIconParamsFormat, reqEditors ...RequestEditorFn) (*DownloadWorkflowIconResponse, error) {
+	rsp, err := c.DownloadWorkflowIcon(ctx, name, format, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDownloadWorkflowIconResponse(rsp)
+}
+
+// UploadWorkflowIconWithBodyWithResponse request with arbitrary body returning *UploadWorkflowIconResponse
+func (c *ClientWithResponses) UploadWorkflowIconWithBodyWithResponse(ctx context.Context, name string, format UploadWorkflowIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadWorkflowIconResponse, error) {
+	rsp, err := c.UploadWorkflowIconWithBody(ctx, name, format, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUploadWorkflowIconResponse(rsp)
+}
+
 // ListWorkspacesWithResponse request returning *ListWorkspacesResponse
 func (c *ClientWithResponses) ListWorkspacesWithResponse(ctx context.Context, params *ListWorkspacesParams, reqEditors ...RequestEditorFn) (*ListWorkspacesResponse, error) {
 	rsp, err := c.ListWorkspaces(ctx, params, reqEditors...)
@@ -18997,6 +20341,33 @@ func (c *ClientWithResponses) DownloadWorkspaceHistoryAudioWithResponse(ctx cont
 		return nil, err
 	}
 	return ParseDownloadWorkspaceHistoryAudioResponse(rsp)
+}
+
+// DeleteWorkspaceIconWithResponse request returning *DeleteWorkspaceIconResponse
+func (c *ClientWithResponses) DeleteWorkspaceIconWithResponse(ctx context.Context, name string, format DeleteWorkspaceIconParamsFormat, reqEditors ...RequestEditorFn) (*DeleteWorkspaceIconResponse, error) {
+	rsp, err := c.DeleteWorkspaceIcon(ctx, name, format, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteWorkspaceIconResponse(rsp)
+}
+
+// DownloadWorkspaceIconWithResponse request returning *DownloadWorkspaceIconResponse
+func (c *ClientWithResponses) DownloadWorkspaceIconWithResponse(ctx context.Context, name string, format DownloadWorkspaceIconParamsFormat, reqEditors ...RequestEditorFn) (*DownloadWorkspaceIconResponse, error) {
+	rsp, err := c.DownloadWorkspaceIcon(ctx, name, format, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDownloadWorkspaceIconResponse(rsp)
+}
+
+// UploadWorkspaceIconWithBodyWithResponse request with arbitrary body returning *UploadWorkspaceIconResponse
+func (c *ClientWithResponses) UploadWorkspaceIconWithBodyWithResponse(ctx context.Context, name string, format UploadWorkspaceIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadWorkspaceIconResponse, error) {
+	rsp, err := c.UploadWorkspaceIconWithBody(ctx, name, format, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUploadWorkspaceIconResponse(rsp)
 }
 
 // ParseApplyResourceResponse parses an HTTP response from a ApplyResourceWithResponse call
@@ -21142,6 +22513,133 @@ func ParsePutGameDefResponse(rsp *http.Response) (*PutGameDefResponse, error) {
 	return response, nil
 }
 
+// ParseDeleteGameDefIconResponse parses an HTTP response from a DeleteGameDefIconWithResponse call
+func ParseDeleteGameDefIconResponse(rsp *http.Response) (*DeleteGameDefIconResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteGameDefIconResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.GameDef
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDownloadGameDefIconResponse parses an HTTP response from a DownloadGameDefIconWithResponse call
+func ParseDownloadGameDefIconResponse(rsp *http.Response) (*DownloadGameDefIconResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DownloadGameDefIconResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUploadGameDefIconResponse parses an HTTP response from a UploadGameDefIconWithResponse call
+func ParseUploadGameDefIconResponse(rsp *http.Response) (*UploadGameDefIconResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UploadGameDefIconResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.GameDef
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListGameRulesetsResponse parses an HTTP response from a ListGameRulesetsWithResponse call
 func ParseListGameRulesetsResponse(rsp *http.Response) (*ListGameRulesetsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -22949,6 +24447,133 @@ func ParseGetPeerGameResultResponse(rsp *http.Response) (*GetPeerGameResultRespo
 	return response, nil
 }
 
+// ParseDeletePeerIconResponse parses an HTTP response from a DeletePeerIconWithResponse call
+func ParseDeletePeerIconResponse(rsp *http.Response) (*DeletePeerIconResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeletePeerIconResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.DeviceInfo
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDownloadPeerIconResponse parses an HTTP response from a DownloadPeerIconWithResponse call
+func ParseDownloadPeerIconResponse(rsp *http.Response) (*DownloadPeerIconResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DownloadPeerIconResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUploadPeerIconResponse parses an HTTP response from a UploadPeerIconWithResponse call
+func ParseUploadPeerIconResponse(rsp *http.Response) (*UploadPeerIconResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UploadPeerIconResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.DeviceInfo
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetPeerInfoResponse parses an HTTP response from a GetPeerInfoWithResponse call
 func ParseGetPeerInfoResponse(rsp *http.Response) (*GetPeerInfoResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -23016,6 +24641,13 @@ func ParsePutPeerInfoResponse(rsp *http.Response) (*PutPeerInfoResponse, error) 
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 
@@ -25571,6 +27203,133 @@ func ParsePutWorkflowResponse(rsp *http.Response) (*PutWorkflowResponse, error) 
 	return response, nil
 }
 
+// ParseDeleteWorkflowIconResponse parses an HTTP response from a DeleteWorkflowIconWithResponse call
+func ParseDeleteWorkflowIconResponse(rsp *http.Response) (*DeleteWorkflowIconResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteWorkflowIconResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.Workflow
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDownloadWorkflowIconResponse parses an HTTP response from a DownloadWorkflowIconWithResponse call
+func ParseDownloadWorkflowIconResponse(rsp *http.Response) (*DownloadWorkflowIconResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DownloadWorkflowIconResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUploadWorkflowIconResponse parses an HTTP response from a UploadWorkflowIconWithResponse call
+func ParseUploadWorkflowIconResponse(rsp *http.Response) (*UploadWorkflowIconResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UploadWorkflowIconResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.Workflow
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListWorkspacesResponse parses an HTTP response from a ListWorkspacesWithResponse call
 func ParseListWorkspacesResponse(rsp *http.Response) (*ListWorkspacesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -25912,6 +27671,133 @@ func ParseDownloadWorkspaceHistoryAudioResponse(rsp *http.Response) (*DownloadWo
 	return response, nil
 }
 
+// ParseDeleteWorkspaceIconResponse parses an HTTP response from a DeleteWorkspaceIconWithResponse call
+func ParseDeleteWorkspaceIconResponse(rsp *http.Response) (*DeleteWorkspaceIconResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteWorkspaceIconResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.Workspace
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDownloadWorkspaceIconResponse parses an HTTP response from a DownloadWorkspaceIconWithResponse call
+func ParseDownloadWorkspaceIconResponse(rsp *http.Response) (*DownloadWorkspaceIconResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DownloadWorkspaceIconResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUploadWorkspaceIconResponse parses an HTTP response from a UploadWorkspaceIconWithResponse call
+func ParseUploadWorkspaceIconResponse(rsp *http.Response) (*UploadWorkspaceIconResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UploadWorkspaceIconResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.Workspace
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Apply an admin resource
@@ -26070,6 +27956,15 @@ type ServerInterface interface {
 	// Create or update a GameDef
 	// (PUT /game-defs/{id})
 	PutGameDef(c *fiber.Ctx, id string) error
+	// Delete a GameDef icon
+	// (DELETE /game-defs/{id}/icon/{format})
+	DeleteGameDefIcon(c *fiber.Ctx, id string, format DeleteGameDefIconParamsFormat) error
+	// Download a GameDef icon
+	// (GET /game-defs/{id}/icon/{format})
+	DownloadGameDefIcon(c *fiber.Ctx, id string, format DownloadGameDefIconParamsFormat) error
+	// Upload or replace a GameDef icon
+	// (PUT /game-defs/{id}/icon/{format})
+	UploadGameDefIcon(c *fiber.Ctx, id string, format UploadGameDefIconParamsFormat) error
 	// List GameRulesets
 	// (GET /game-rulesets)
 	ListGameRulesets(c *fiber.Ctx, params ListGameRulesetsParams) error
@@ -26205,6 +28100,15 @@ type ServerInterface interface {
 	// getPeerGameResult
 	// (GET /peers/{publicKey}/game-results/{id})
 	GetPeerGameResult(c *fiber.Ctx, publicKey string, id string) error
+	// Delete a peer profile icon
+	// (DELETE /peers/{publicKey}/icon/{format})
+	DeletePeerIcon(c *fiber.Ctx, publicKey string, format DeletePeerIconParamsFormat) error
+	// Download a peer profile icon
+	// (GET /peers/{publicKey}/icon/{format})
+	DownloadPeerIcon(c *fiber.Ctx, publicKey string, format DownloadPeerIconParamsFormat) error
+	// Upload or replace a peer profile icon
+	// (PUT /peers/{publicKey}/icon/{format})
+	UploadPeerIcon(c *fiber.Ctx, publicKey string, format UploadPeerIconParamsFormat) error
 	// Get peer device info
 	// (GET /peers/{publicKey}/info)
 	GetPeerInfo(c *fiber.Ctx, publicKey string) error
@@ -26388,6 +28292,15 @@ type ServerInterface interface {
 	// Create or update a workflow
 	// (PUT /workflows/{name})
 	PutWorkflow(c *fiber.Ctx, name string) error
+	// Delete a workflow icon
+	// (DELETE /workflows/{name}/icon/{format})
+	DeleteWorkflowIcon(c *fiber.Ctx, name string, format DeleteWorkflowIconParamsFormat) error
+	// Download a workflow icon
+	// (GET /workflows/{name}/icon/{format})
+	DownloadWorkflowIcon(c *fiber.Ctx, name string, format DownloadWorkflowIconParamsFormat) error
+	// Upload or replace a workflow icon
+	// (PUT /workflows/{name}/icon/{format})
+	UploadWorkflowIcon(c *fiber.Ctx, name string, format UploadWorkflowIconParamsFormat) error
 	// List all workspaces
 	// (GET /workspaces)
 	ListWorkspaces(c *fiber.Ctx, params ListWorkspacesParams) error
@@ -26412,6 +28325,15 @@ type ServerInterface interface {
 	// Download workspace history audio as Ogg Opus
 	// (GET /workspaces/{name}/history/{historyId}/audio.ogg)
 	DownloadWorkspaceHistoryAudio(c *fiber.Ctx, name string, historyId string) error
+	// Delete a workspace icon
+	// (DELETE /workspaces/{name}/icon/{format})
+	DeleteWorkspaceIcon(c *fiber.Ctx, name string, format DeleteWorkspaceIconParamsFormat) error
+	// Download a workspace icon
+	// (GET /workspaces/{name}/icon/{format})
+	DownloadWorkspaceIcon(c *fiber.Ctx, name string, format DownloadWorkspaceIconParamsFormat) error
+	// Upload or replace a workspace icon
+	// (PUT /workspaces/{name}/icon/{format})
+	UploadWorkspaceIcon(c *fiber.Ctx, name string, format UploadWorkspaceIconParamsFormat) error
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -27474,6 +29396,78 @@ func (siw *ServerInterfaceWrapper) PutGameDef(c *fiber.Ctx) error {
 	return siw.Handler.PutGameDef(c, id)
 }
 
+// DeleteGameDefIcon operation middleware
+func (siw *ServerInterfaceWrapper) DeleteGameDefIcon(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	// ------------- Path parameter "format" -------------
+	var format DeleteGameDefIconParamsFormat
+
+	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter format: %w", err).Error())
+	}
+
+	return siw.Handler.DeleteGameDefIcon(c, id, format)
+}
+
+// DownloadGameDefIcon operation middleware
+func (siw *ServerInterfaceWrapper) DownloadGameDefIcon(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	// ------------- Path parameter "format" -------------
+	var format DownloadGameDefIconParamsFormat
+
+	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter format: %w", err).Error())
+	}
+
+	return siw.Handler.DownloadGameDefIcon(c, id, format)
+}
+
+// UploadGameDefIcon operation middleware
+func (siw *ServerInterfaceWrapper) UploadGameDefIcon(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	// ------------- Path parameter "format" -------------
+	var format UploadGameDefIconParamsFormat
+
+	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter format: %w", err).Error())
+	}
+
+	return siw.Handler.UploadGameDefIcon(c, id, format)
+}
+
 // ListGameRulesets operation middleware
 func (siw *ServerInterfaceWrapper) ListGameRulesets(c *fiber.Ctx) error {
 
@@ -28405,6 +30399,78 @@ func (siw *ServerInterfaceWrapper) GetPeerGameResult(c *fiber.Ctx) error {
 	}
 
 	return siw.Handler.GetPeerGameResult(c, publicKey, id)
+}
+
+// DeletePeerIcon operation middleware
+func (siw *ServerInterfaceWrapper) DeletePeerIcon(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "publicKey" -------------
+	var publicKey string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
+	}
+
+	// ------------- Path parameter "format" -------------
+	var format DeletePeerIconParamsFormat
+
+	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter format: %w", err).Error())
+	}
+
+	return siw.Handler.DeletePeerIcon(c, publicKey, format)
+}
+
+// DownloadPeerIcon operation middleware
+func (siw *ServerInterfaceWrapper) DownloadPeerIcon(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "publicKey" -------------
+	var publicKey string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
+	}
+
+	// ------------- Path parameter "format" -------------
+	var format DownloadPeerIconParamsFormat
+
+	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter format: %w", err).Error())
+	}
+
+	return siw.Handler.DownloadPeerIcon(c, publicKey, format)
+}
+
+// UploadPeerIcon operation middleware
+func (siw *ServerInterfaceWrapper) UploadPeerIcon(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "publicKey" -------------
+	var publicKey string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
+	}
+
+	// ------------- Path parameter "format" -------------
+	var format UploadPeerIconParamsFormat
+
+	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter format: %w", err).Error())
+	}
+
+	return siw.Handler.UploadPeerIcon(c, publicKey, format)
 }
 
 // GetPeerInfo operation middleware
@@ -29825,6 +31891,78 @@ func (siw *ServerInterfaceWrapper) PutWorkflow(c *fiber.Ctx) error {
 	return siw.Handler.PutWorkflow(c, name)
 }
 
+// DeleteWorkflowIcon operation middleware
+func (siw *ServerInterfaceWrapper) DeleteWorkflowIcon(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+	}
+
+	// ------------- Path parameter "format" -------------
+	var format DeleteWorkflowIconParamsFormat
+
+	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter format: %w", err).Error())
+	}
+
+	return siw.Handler.DeleteWorkflowIcon(c, name, format)
+}
+
+// DownloadWorkflowIcon operation middleware
+func (siw *ServerInterfaceWrapper) DownloadWorkflowIcon(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+	}
+
+	// ------------- Path parameter "format" -------------
+	var format DownloadWorkflowIconParamsFormat
+
+	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter format: %w", err).Error())
+	}
+
+	return siw.Handler.DownloadWorkflowIcon(c, name, format)
+}
+
+// UploadWorkflowIcon operation middleware
+func (siw *ServerInterfaceWrapper) UploadWorkflowIcon(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+	}
+
+	// ------------- Path parameter "format" -------------
+	var format UploadWorkflowIconParamsFormat
+
+	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter format: %w", err).Error())
+	}
+
+	return siw.Handler.UploadWorkflowIcon(c, name, format)
+}
+
 // ListWorkspaces operation middleware
 func (siw *ServerInterfaceWrapper) ListWorkspaces(c *fiber.Ctx) error {
 
@@ -30004,6 +32142,78 @@ func (siw *ServerInterfaceWrapper) DownloadWorkspaceHistoryAudio(c *fiber.Ctx) e
 	return siw.Handler.DownloadWorkspaceHistoryAudio(c, name, historyId)
 }
 
+// DeleteWorkspaceIcon operation middleware
+func (siw *ServerInterfaceWrapper) DeleteWorkspaceIcon(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+	}
+
+	// ------------- Path parameter "format" -------------
+	var format DeleteWorkspaceIconParamsFormat
+
+	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter format: %w", err).Error())
+	}
+
+	return siw.Handler.DeleteWorkspaceIcon(c, name, format)
+}
+
+// DownloadWorkspaceIcon operation middleware
+func (siw *ServerInterfaceWrapper) DownloadWorkspaceIcon(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+	}
+
+	// ------------- Path parameter "format" -------------
+	var format DownloadWorkspaceIconParamsFormat
+
+	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter format: %w", err).Error())
+	}
+
+	return siw.Handler.DownloadWorkspaceIcon(c, name, format)
+}
+
+// UploadWorkspaceIcon operation middleware
+func (siw *ServerInterfaceWrapper) UploadWorkspaceIcon(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+	}
+
+	// ------------- Path parameter "format" -------------
+	var format UploadWorkspaceIconParamsFormat
+
+	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter format: %w", err).Error())
+	}
+
+	return siw.Handler.UploadWorkspaceIcon(c, name, format)
+}
+
 // FiberServerOptions provides options for the Fiber server.
 type FiberServerOptions struct {
 	BaseURL     string
@@ -30129,6 +32339,12 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Put(options.BaseURL+"/game-defs/:id", wrapper.PutGameDef)
 
+	router.Delete(options.BaseURL+"/game-defs/:id/icon/:format", wrapper.DeleteGameDefIcon)
+
+	router.Get(options.BaseURL+"/game-defs/:id/icon/:format", wrapper.DownloadGameDefIcon)
+
+	router.Put(options.BaseURL+"/game-defs/:id/icon/:format", wrapper.UploadGameDefIcon)
+
 	router.Get(options.BaseURL+"/game-rulesets", wrapper.ListGameRulesets)
 
 	router.Post(options.BaseURL+"/game-rulesets", wrapper.CreateGameRuleset)
@@ -30218,6 +32434,12 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Get(options.BaseURL+"/peers/:publicKey/game-results", wrapper.ListPeerGameResults)
 
 	router.Get(options.BaseURL+"/peers/:publicKey/game-results/:id", wrapper.GetPeerGameResult)
+
+	router.Delete(options.BaseURL+"/peers/:publicKey/icon/:format", wrapper.DeletePeerIcon)
+
+	router.Get(options.BaseURL+"/peers/:publicKey/icon/:format", wrapper.DownloadPeerIcon)
+
+	router.Put(options.BaseURL+"/peers/:publicKey/icon/:format", wrapper.UploadPeerIcon)
 
 	router.Get(options.BaseURL+"/peers/:publicKey/info", wrapper.GetPeerInfo)
 
@@ -30341,6 +32563,12 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Put(options.BaseURL+"/workflows/:name", wrapper.PutWorkflow)
 
+	router.Delete(options.BaseURL+"/workflows/:name/icon/:format", wrapper.DeleteWorkflowIcon)
+
+	router.Get(options.BaseURL+"/workflows/:name/icon/:format", wrapper.DownloadWorkflowIcon)
+
+	router.Put(options.BaseURL+"/workflows/:name/icon/:format", wrapper.UploadWorkflowIcon)
+
 	router.Get(options.BaseURL+"/workspaces", wrapper.ListWorkspaces)
 
 	router.Post(options.BaseURL+"/workspaces", wrapper.CreateWorkspace)
@@ -30356,6 +32584,12 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Get(options.BaseURL+"/workspaces/:name/history/:historyId", wrapper.GetWorkspaceHistory)
 
 	router.Get(options.BaseURL+"/workspaces/:name/history/:historyId/audio.ogg", wrapper.DownloadWorkspaceHistoryAudio)
+
+	router.Delete(options.BaseURL+"/workspaces/:name/icon/:format", wrapper.DeleteWorkspaceIcon)
+
+	router.Get(options.BaseURL+"/workspaces/:name/icon/:format", wrapper.DownloadWorkspaceIcon)
+
+	router.Put(options.BaseURL+"/workspaces/:name/icon/:format", wrapper.UploadWorkspaceIcon)
 
 }
 
@@ -32339,6 +34573,162 @@ func (response PutGameDef500JSONResponse) VisitPutGameDefResponse(ctx *fiber.Ctx
 	return ctx.JSON(&response)
 }
 
+type DeleteGameDefIconRequestObject struct {
+	Id     string                        `json:"id"`
+	Format DeleteGameDefIconParamsFormat `json:"format"`
+}
+
+type DeleteGameDefIconResponseObject interface {
+	VisitDeleteGameDefIconResponse(ctx *fiber.Ctx) error
+}
+
+type DeleteGameDefIcon200JSONResponse externalRef0.GameDef
+
+func (response DeleteGameDefIcon200JSONResponse) VisitDeleteGameDefIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteGameDefIcon404JSONResponse externalRef0.ErrorResponse
+
+func (response DeleteGameDefIcon404JSONResponse) VisitDeleteGameDefIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteGameDefIcon500JSONResponse externalRef0.ErrorResponse
+
+func (response DeleteGameDefIcon500JSONResponse) VisitDeleteGameDefIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type DownloadGameDefIconRequestObject struct {
+	Id     string                          `json:"id"`
+	Format DownloadGameDefIconParamsFormat `json:"format"`
+}
+
+type DownloadGameDefIconResponseObject interface {
+	VisitDownloadGameDefIconResponse(ctx *fiber.Ctx) error
+}
+
+type DownloadGameDefIcon200ApplicationoctetStreamResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response DownloadGameDefIcon200ApplicationoctetStreamResponse) VisitDownloadGameDefIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/octet-stream")
+	if response.ContentLength != 0 {
+		ctx.Response().Header.Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	ctx.Status(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(ctx.Response().BodyWriter(), response.Body)
+	return err
+}
+
+type DownloadGameDefIcon200ImagepngResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response DownloadGameDefIcon200ImagepngResponse) VisitDownloadGameDefIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "image/png")
+	if response.ContentLength != 0 {
+		ctx.Response().Header.Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	ctx.Status(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(ctx.Response().BodyWriter(), response.Body)
+	return err
+}
+
+type DownloadGameDefIcon404JSONResponse externalRef0.ErrorResponse
+
+func (response DownloadGameDefIcon404JSONResponse) VisitDownloadGameDefIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DownloadGameDefIcon500JSONResponse externalRef0.ErrorResponse
+
+func (response DownloadGameDefIcon500JSONResponse) VisitDownloadGameDefIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type UploadGameDefIconRequestObject struct {
+	Id     string                        `json:"id"`
+	Format UploadGameDefIconParamsFormat `json:"format"`
+	Body   io.Reader
+}
+
+type UploadGameDefIconResponseObject interface {
+	VisitUploadGameDefIconResponse(ctx *fiber.Ctx) error
+}
+
+type UploadGameDefIcon200JSONResponse externalRef0.GameDef
+
+func (response UploadGameDefIcon200JSONResponse) VisitUploadGameDefIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type UploadGameDefIcon400JSONResponse externalRef0.ErrorResponse
+
+func (response UploadGameDefIcon400JSONResponse) VisitUploadGameDefIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type UploadGameDefIcon404JSONResponse externalRef0.ErrorResponse
+
+func (response UploadGameDefIcon404JSONResponse) VisitUploadGameDefIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type UploadGameDefIcon413JSONResponse externalRef0.ErrorResponse
+
+func (response UploadGameDefIcon413JSONResponse) VisitUploadGameDefIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(413)
+
+	return ctx.JSON(&response)
+}
+
+type UploadGameDefIcon500JSONResponse externalRef0.ErrorResponse
+
+func (response UploadGameDefIcon500JSONResponse) VisitUploadGameDefIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
 type ListGameRulesetsRequestObject struct {
 	Params ListGameRulesetsParams
 }
@@ -33958,6 +36348,162 @@ func (response GetPeerGameResult500JSONResponse) VisitGetPeerGameResultResponse(
 	return ctx.JSON(&response)
 }
 
+type DeletePeerIconRequestObject struct {
+	PublicKey string                     `json:"publicKey"`
+	Format    DeletePeerIconParamsFormat `json:"format"`
+}
+
+type DeletePeerIconResponseObject interface {
+	VisitDeletePeerIconResponse(ctx *fiber.Ctx) error
+}
+
+type DeletePeerIcon200JSONResponse externalRef0.DeviceInfo
+
+func (response DeletePeerIcon200JSONResponse) VisitDeletePeerIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type DeletePeerIcon404JSONResponse externalRef0.ErrorResponse
+
+func (response DeletePeerIcon404JSONResponse) VisitDeletePeerIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DeletePeerIcon500JSONResponse externalRef0.ErrorResponse
+
+func (response DeletePeerIcon500JSONResponse) VisitDeletePeerIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type DownloadPeerIconRequestObject struct {
+	PublicKey string                       `json:"publicKey"`
+	Format    DownloadPeerIconParamsFormat `json:"format"`
+}
+
+type DownloadPeerIconResponseObject interface {
+	VisitDownloadPeerIconResponse(ctx *fiber.Ctx) error
+}
+
+type DownloadPeerIcon200ApplicationoctetStreamResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response DownloadPeerIcon200ApplicationoctetStreamResponse) VisitDownloadPeerIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/octet-stream")
+	if response.ContentLength != 0 {
+		ctx.Response().Header.Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	ctx.Status(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(ctx.Response().BodyWriter(), response.Body)
+	return err
+}
+
+type DownloadPeerIcon200ImagepngResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response DownloadPeerIcon200ImagepngResponse) VisitDownloadPeerIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "image/png")
+	if response.ContentLength != 0 {
+		ctx.Response().Header.Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	ctx.Status(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(ctx.Response().BodyWriter(), response.Body)
+	return err
+}
+
+type DownloadPeerIcon404JSONResponse externalRef0.ErrorResponse
+
+func (response DownloadPeerIcon404JSONResponse) VisitDownloadPeerIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DownloadPeerIcon500JSONResponse externalRef0.ErrorResponse
+
+func (response DownloadPeerIcon500JSONResponse) VisitDownloadPeerIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type UploadPeerIconRequestObject struct {
+	PublicKey string                     `json:"publicKey"`
+	Format    UploadPeerIconParamsFormat `json:"format"`
+	Body      io.Reader
+}
+
+type UploadPeerIconResponseObject interface {
+	VisitUploadPeerIconResponse(ctx *fiber.Ctx) error
+}
+
+type UploadPeerIcon200JSONResponse externalRef0.DeviceInfo
+
+func (response UploadPeerIcon200JSONResponse) VisitUploadPeerIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type UploadPeerIcon400JSONResponse externalRef0.ErrorResponse
+
+func (response UploadPeerIcon400JSONResponse) VisitUploadPeerIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type UploadPeerIcon404JSONResponse externalRef0.ErrorResponse
+
+func (response UploadPeerIcon404JSONResponse) VisitUploadPeerIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type UploadPeerIcon413JSONResponse externalRef0.ErrorResponse
+
+func (response UploadPeerIcon413JSONResponse) VisitUploadPeerIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(413)
+
+	return ctx.JSON(&response)
+}
+
+type UploadPeerIcon500JSONResponse externalRef0.ErrorResponse
+
+func (response UploadPeerIcon500JSONResponse) VisitUploadPeerIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
 type GetPeerInfoRequestObject struct {
 	PublicKey string `json:"publicKey"`
 }
@@ -34016,6 +36562,15 @@ type PutPeerInfo404JSONResponse externalRef0.ErrorResponse
 func (response PutPeerInfo404JSONResponse) VisitPutPeerInfoResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type PutPeerInfo500JSONResponse externalRef0.ErrorResponse
+
+func (response PutPeerInfo500JSONResponse) VisitPutPeerInfoResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
 
 	return ctx.JSON(&response)
 }
@@ -36380,6 +38935,162 @@ func (response PutWorkflow500JSONResponse) VisitPutWorkflowResponse(ctx *fiber.C
 	return ctx.JSON(&response)
 }
 
+type DeleteWorkflowIconRequestObject struct {
+	Name   string                         `json:"name"`
+	Format DeleteWorkflowIconParamsFormat `json:"format"`
+}
+
+type DeleteWorkflowIconResponseObject interface {
+	VisitDeleteWorkflowIconResponse(ctx *fiber.Ctx) error
+}
+
+type DeleteWorkflowIcon200JSONResponse externalRef0.Workflow
+
+func (response DeleteWorkflowIcon200JSONResponse) VisitDeleteWorkflowIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteWorkflowIcon404JSONResponse externalRef0.ErrorResponse
+
+func (response DeleteWorkflowIcon404JSONResponse) VisitDeleteWorkflowIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteWorkflowIcon500JSONResponse externalRef0.ErrorResponse
+
+func (response DeleteWorkflowIcon500JSONResponse) VisitDeleteWorkflowIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type DownloadWorkflowIconRequestObject struct {
+	Name   string                           `json:"name"`
+	Format DownloadWorkflowIconParamsFormat `json:"format"`
+}
+
+type DownloadWorkflowIconResponseObject interface {
+	VisitDownloadWorkflowIconResponse(ctx *fiber.Ctx) error
+}
+
+type DownloadWorkflowIcon200ApplicationoctetStreamResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response DownloadWorkflowIcon200ApplicationoctetStreamResponse) VisitDownloadWorkflowIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/octet-stream")
+	if response.ContentLength != 0 {
+		ctx.Response().Header.Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	ctx.Status(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(ctx.Response().BodyWriter(), response.Body)
+	return err
+}
+
+type DownloadWorkflowIcon200ImagepngResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response DownloadWorkflowIcon200ImagepngResponse) VisitDownloadWorkflowIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "image/png")
+	if response.ContentLength != 0 {
+		ctx.Response().Header.Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	ctx.Status(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(ctx.Response().BodyWriter(), response.Body)
+	return err
+}
+
+type DownloadWorkflowIcon404JSONResponse externalRef0.ErrorResponse
+
+func (response DownloadWorkflowIcon404JSONResponse) VisitDownloadWorkflowIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DownloadWorkflowIcon500JSONResponse externalRef0.ErrorResponse
+
+func (response DownloadWorkflowIcon500JSONResponse) VisitDownloadWorkflowIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type UploadWorkflowIconRequestObject struct {
+	Name   string                         `json:"name"`
+	Format UploadWorkflowIconParamsFormat `json:"format"`
+	Body   io.Reader
+}
+
+type UploadWorkflowIconResponseObject interface {
+	VisitUploadWorkflowIconResponse(ctx *fiber.Ctx) error
+}
+
+type UploadWorkflowIcon200JSONResponse externalRef0.Workflow
+
+func (response UploadWorkflowIcon200JSONResponse) VisitUploadWorkflowIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type UploadWorkflowIcon400JSONResponse externalRef0.ErrorResponse
+
+func (response UploadWorkflowIcon400JSONResponse) VisitUploadWorkflowIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type UploadWorkflowIcon404JSONResponse externalRef0.ErrorResponse
+
+func (response UploadWorkflowIcon404JSONResponse) VisitUploadWorkflowIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type UploadWorkflowIcon413JSONResponse externalRef0.ErrorResponse
+
+func (response UploadWorkflowIcon413JSONResponse) VisitUploadWorkflowIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(413)
+
+	return ctx.JSON(&response)
+}
+
+type UploadWorkflowIcon500JSONResponse externalRef0.ErrorResponse
+
+func (response UploadWorkflowIcon500JSONResponse) VisitUploadWorkflowIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
 type ListWorkspacesRequestObject struct {
 	Params ListWorkspacesParams
 }
@@ -36710,6 +39421,162 @@ func (response DownloadWorkspaceHistoryAudio500JSONResponse) VisitDownloadWorksp
 	return ctx.JSON(&response)
 }
 
+type DeleteWorkspaceIconRequestObject struct {
+	Name   string                          `json:"name"`
+	Format DeleteWorkspaceIconParamsFormat `json:"format"`
+}
+
+type DeleteWorkspaceIconResponseObject interface {
+	VisitDeleteWorkspaceIconResponse(ctx *fiber.Ctx) error
+}
+
+type DeleteWorkspaceIcon200JSONResponse externalRef0.Workspace
+
+func (response DeleteWorkspaceIcon200JSONResponse) VisitDeleteWorkspaceIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteWorkspaceIcon404JSONResponse externalRef0.ErrorResponse
+
+func (response DeleteWorkspaceIcon404JSONResponse) VisitDeleteWorkspaceIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteWorkspaceIcon500JSONResponse externalRef0.ErrorResponse
+
+func (response DeleteWorkspaceIcon500JSONResponse) VisitDeleteWorkspaceIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type DownloadWorkspaceIconRequestObject struct {
+	Name   string                            `json:"name"`
+	Format DownloadWorkspaceIconParamsFormat `json:"format"`
+}
+
+type DownloadWorkspaceIconResponseObject interface {
+	VisitDownloadWorkspaceIconResponse(ctx *fiber.Ctx) error
+}
+
+type DownloadWorkspaceIcon200ApplicationoctetStreamResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response DownloadWorkspaceIcon200ApplicationoctetStreamResponse) VisitDownloadWorkspaceIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/octet-stream")
+	if response.ContentLength != 0 {
+		ctx.Response().Header.Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	ctx.Status(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(ctx.Response().BodyWriter(), response.Body)
+	return err
+}
+
+type DownloadWorkspaceIcon200ImagepngResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response DownloadWorkspaceIcon200ImagepngResponse) VisitDownloadWorkspaceIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "image/png")
+	if response.ContentLength != 0 {
+		ctx.Response().Header.Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	ctx.Status(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(ctx.Response().BodyWriter(), response.Body)
+	return err
+}
+
+type DownloadWorkspaceIcon404JSONResponse externalRef0.ErrorResponse
+
+func (response DownloadWorkspaceIcon404JSONResponse) VisitDownloadWorkspaceIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DownloadWorkspaceIcon500JSONResponse externalRef0.ErrorResponse
+
+func (response DownloadWorkspaceIcon500JSONResponse) VisitDownloadWorkspaceIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type UploadWorkspaceIconRequestObject struct {
+	Name   string                          `json:"name"`
+	Format UploadWorkspaceIconParamsFormat `json:"format"`
+	Body   io.Reader
+}
+
+type UploadWorkspaceIconResponseObject interface {
+	VisitUploadWorkspaceIconResponse(ctx *fiber.Ctx) error
+}
+
+type UploadWorkspaceIcon200JSONResponse externalRef0.Workspace
+
+func (response UploadWorkspaceIcon200JSONResponse) VisitUploadWorkspaceIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type UploadWorkspaceIcon400JSONResponse externalRef0.ErrorResponse
+
+func (response UploadWorkspaceIcon400JSONResponse) VisitUploadWorkspaceIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type UploadWorkspaceIcon404JSONResponse externalRef0.ErrorResponse
+
+func (response UploadWorkspaceIcon404JSONResponse) VisitUploadWorkspaceIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type UploadWorkspaceIcon413JSONResponse externalRef0.ErrorResponse
+
+func (response UploadWorkspaceIcon413JSONResponse) VisitUploadWorkspaceIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(413)
+
+	return ctx.JSON(&response)
+}
+
+type UploadWorkspaceIcon500JSONResponse externalRef0.ErrorResponse
+
+func (response UploadWorkspaceIcon500JSONResponse) VisitUploadWorkspaceIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Apply an admin resource
@@ -36868,6 +39735,15 @@ type StrictServerInterface interface {
 	// Create or update a GameDef
 	// (PUT /game-defs/{id})
 	PutGameDef(ctx context.Context, request PutGameDefRequestObject) (PutGameDefResponseObject, error)
+	// Delete a GameDef icon
+	// (DELETE /game-defs/{id}/icon/{format})
+	DeleteGameDefIcon(ctx context.Context, request DeleteGameDefIconRequestObject) (DeleteGameDefIconResponseObject, error)
+	// Download a GameDef icon
+	// (GET /game-defs/{id}/icon/{format})
+	DownloadGameDefIcon(ctx context.Context, request DownloadGameDefIconRequestObject) (DownloadGameDefIconResponseObject, error)
+	// Upload or replace a GameDef icon
+	// (PUT /game-defs/{id}/icon/{format})
+	UploadGameDefIcon(ctx context.Context, request UploadGameDefIconRequestObject) (UploadGameDefIconResponseObject, error)
 	// List GameRulesets
 	// (GET /game-rulesets)
 	ListGameRulesets(ctx context.Context, request ListGameRulesetsRequestObject) (ListGameRulesetsResponseObject, error)
@@ -37003,6 +39879,15 @@ type StrictServerInterface interface {
 	// getPeerGameResult
 	// (GET /peers/{publicKey}/game-results/{id})
 	GetPeerGameResult(ctx context.Context, request GetPeerGameResultRequestObject) (GetPeerGameResultResponseObject, error)
+	// Delete a peer profile icon
+	// (DELETE /peers/{publicKey}/icon/{format})
+	DeletePeerIcon(ctx context.Context, request DeletePeerIconRequestObject) (DeletePeerIconResponseObject, error)
+	// Download a peer profile icon
+	// (GET /peers/{publicKey}/icon/{format})
+	DownloadPeerIcon(ctx context.Context, request DownloadPeerIconRequestObject) (DownloadPeerIconResponseObject, error)
+	// Upload or replace a peer profile icon
+	// (PUT /peers/{publicKey}/icon/{format})
+	UploadPeerIcon(ctx context.Context, request UploadPeerIconRequestObject) (UploadPeerIconResponseObject, error)
 	// Get peer device info
 	// (GET /peers/{publicKey}/info)
 	GetPeerInfo(ctx context.Context, request GetPeerInfoRequestObject) (GetPeerInfoResponseObject, error)
@@ -37186,6 +40071,15 @@ type StrictServerInterface interface {
 	// Create or update a workflow
 	// (PUT /workflows/{name})
 	PutWorkflow(ctx context.Context, request PutWorkflowRequestObject) (PutWorkflowResponseObject, error)
+	// Delete a workflow icon
+	// (DELETE /workflows/{name}/icon/{format})
+	DeleteWorkflowIcon(ctx context.Context, request DeleteWorkflowIconRequestObject) (DeleteWorkflowIconResponseObject, error)
+	// Download a workflow icon
+	// (GET /workflows/{name}/icon/{format})
+	DownloadWorkflowIcon(ctx context.Context, request DownloadWorkflowIconRequestObject) (DownloadWorkflowIconResponseObject, error)
+	// Upload or replace a workflow icon
+	// (PUT /workflows/{name}/icon/{format})
+	UploadWorkflowIcon(ctx context.Context, request UploadWorkflowIconRequestObject) (UploadWorkflowIconResponseObject, error)
 	// List all workspaces
 	// (GET /workspaces)
 	ListWorkspaces(ctx context.Context, request ListWorkspacesRequestObject) (ListWorkspacesResponseObject, error)
@@ -37210,6 +40104,15 @@ type StrictServerInterface interface {
 	// Download workspace history audio as Ogg Opus
 	// (GET /workspaces/{name}/history/{historyId}/audio.ogg)
 	DownloadWorkspaceHistoryAudio(ctx context.Context, request DownloadWorkspaceHistoryAudioRequestObject) (DownloadWorkspaceHistoryAudioResponseObject, error)
+	// Delete a workspace icon
+	// (DELETE /workspaces/{name}/icon/{format})
+	DeleteWorkspaceIcon(ctx context.Context, request DeleteWorkspaceIconRequestObject) (DeleteWorkspaceIconResponseObject, error)
+	// Download a workspace icon
+	// (GET /workspaces/{name}/icon/{format})
+	DownloadWorkspaceIcon(ctx context.Context, request DownloadWorkspaceIconRequestObject) (DownloadWorkspaceIconResponseObject, error)
+	// Upload or replace a workspace icon
+	// (PUT /workspaces/{name}/icon/{format})
+	UploadWorkspaceIcon(ctx context.Context, request UploadWorkspaceIconRequestObject) (UploadWorkspaceIconResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx *fiber.Ctx, args interface{}) (interface{}, error)
@@ -38747,6 +41650,96 @@ func (sh *strictHandler) PutGameDef(ctx *fiber.Ctx, id string) error {
 	return nil
 }
 
+// DeleteGameDefIcon operation middleware
+func (sh *strictHandler) DeleteGameDefIcon(ctx *fiber.Ctx, id string, format DeleteGameDefIconParamsFormat) error {
+	var request DeleteGameDefIconRequestObject
+
+	request.Id = id
+	request.Format = format
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteGameDefIcon(ctx.UserContext(), request.(DeleteGameDefIconRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteGameDefIcon")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DeleteGameDefIconResponseObject); ok {
+		if err := validResponse.VisitDeleteGameDefIconResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DownloadGameDefIcon operation middleware
+func (sh *strictHandler) DownloadGameDefIcon(ctx *fiber.Ctx, id string, format DownloadGameDefIconParamsFormat) error {
+	var request DownloadGameDefIconRequestObject
+
+	request.Id = id
+	request.Format = format
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DownloadGameDefIcon(ctx.UserContext(), request.(DownloadGameDefIconRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DownloadGameDefIcon")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DownloadGameDefIconResponseObject); ok {
+		if err := validResponse.VisitDownloadGameDefIconResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UploadGameDefIcon operation middleware
+func (sh *strictHandler) UploadGameDefIcon(ctx *fiber.Ctx, id string, format UploadGameDefIconParamsFormat) error {
+	var request UploadGameDefIconRequestObject
+
+	request.Id = id
+	request.Format = format
+
+	body := ctx.Context().RequestBodyStream()
+	if body == nil {
+		body = bytes.NewReader(ctx.Request().Body())
+	}
+	request.Body = body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.UploadGameDefIcon(ctx.UserContext(), request.(UploadGameDefIconRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UploadGameDefIcon")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(UploadGameDefIconResponseObject); ok {
+		if err := validResponse.VisitUploadGameDefIconResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // ListGameRulesets operation middleware
 func (sh *strictHandler) ListGameRulesets(ctx *fiber.Ctx, params ListGameRulesetsParams) error {
 	var request ListGameRulesetsRequestObject
@@ -40030,6 +43023,96 @@ func (sh *strictHandler) GetPeerGameResult(ctx *fiber.Ctx, publicKey string, id 
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(GetPeerGameResultResponseObject); ok {
 		if err := validResponse.VisitGetPeerGameResultResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeletePeerIcon operation middleware
+func (sh *strictHandler) DeletePeerIcon(ctx *fiber.Ctx, publicKey string, format DeletePeerIconParamsFormat) error {
+	var request DeletePeerIconRequestObject
+
+	request.PublicKey = publicKey
+	request.Format = format
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DeletePeerIcon(ctx.UserContext(), request.(DeletePeerIconRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeletePeerIcon")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DeletePeerIconResponseObject); ok {
+		if err := validResponse.VisitDeletePeerIconResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DownloadPeerIcon operation middleware
+func (sh *strictHandler) DownloadPeerIcon(ctx *fiber.Ctx, publicKey string, format DownloadPeerIconParamsFormat) error {
+	var request DownloadPeerIconRequestObject
+
+	request.PublicKey = publicKey
+	request.Format = format
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DownloadPeerIcon(ctx.UserContext(), request.(DownloadPeerIconRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DownloadPeerIcon")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DownloadPeerIconResponseObject); ok {
+		if err := validResponse.VisitDownloadPeerIconResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UploadPeerIcon operation middleware
+func (sh *strictHandler) UploadPeerIcon(ctx *fiber.Ctx, publicKey string, format UploadPeerIconParamsFormat) error {
+	var request UploadPeerIconRequestObject
+
+	request.PublicKey = publicKey
+	request.Format = format
+
+	body := ctx.Context().RequestBodyStream()
+	if body == nil {
+		body = bytes.NewReader(ctx.Request().Body())
+	}
+	request.Body = body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.UploadPeerIcon(ctx.UserContext(), request.(UploadPeerIconRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UploadPeerIcon")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(UploadPeerIconResponseObject); ok {
+		if err := validResponse.VisitUploadPeerIconResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {
@@ -41816,6 +44899,96 @@ func (sh *strictHandler) PutWorkflow(ctx *fiber.Ctx, name string) error {
 	return nil
 }
 
+// DeleteWorkflowIcon operation middleware
+func (sh *strictHandler) DeleteWorkflowIcon(ctx *fiber.Ctx, name string, format DeleteWorkflowIconParamsFormat) error {
+	var request DeleteWorkflowIconRequestObject
+
+	request.Name = name
+	request.Format = format
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteWorkflowIcon(ctx.UserContext(), request.(DeleteWorkflowIconRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteWorkflowIcon")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DeleteWorkflowIconResponseObject); ok {
+		if err := validResponse.VisitDeleteWorkflowIconResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DownloadWorkflowIcon operation middleware
+func (sh *strictHandler) DownloadWorkflowIcon(ctx *fiber.Ctx, name string, format DownloadWorkflowIconParamsFormat) error {
+	var request DownloadWorkflowIconRequestObject
+
+	request.Name = name
+	request.Format = format
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DownloadWorkflowIcon(ctx.UserContext(), request.(DownloadWorkflowIconRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DownloadWorkflowIcon")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DownloadWorkflowIconResponseObject); ok {
+		if err := validResponse.VisitDownloadWorkflowIconResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UploadWorkflowIcon operation middleware
+func (sh *strictHandler) UploadWorkflowIcon(ctx *fiber.Ctx, name string, format UploadWorkflowIconParamsFormat) error {
+	var request UploadWorkflowIconRequestObject
+
+	request.Name = name
+	request.Format = format
+
+	body := ctx.Context().RequestBodyStream()
+	if body == nil {
+		body = bytes.NewReader(ctx.Request().Body())
+	}
+	request.Body = body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.UploadWorkflowIcon(ctx.UserContext(), request.(UploadWorkflowIconRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UploadWorkflowIcon")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(UploadWorkflowIconResponseObject); ok {
+		if err := validResponse.VisitUploadWorkflowIconResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // ListWorkspaces operation middleware
 func (sh *strictHandler) ListWorkspaces(ctx *fiber.Ctx, params ListWorkspacesParams) error {
 	var request ListWorkspacesRequestObject
@@ -42037,6 +45210,96 @@ func (sh *strictHandler) DownloadWorkspaceHistoryAudio(ctx *fiber.Ctx, name stri
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(DownloadWorkspaceHistoryAudioResponseObject); ok {
 		if err := validResponse.VisitDownloadWorkspaceHistoryAudioResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteWorkspaceIcon operation middleware
+func (sh *strictHandler) DeleteWorkspaceIcon(ctx *fiber.Ctx, name string, format DeleteWorkspaceIconParamsFormat) error {
+	var request DeleteWorkspaceIconRequestObject
+
+	request.Name = name
+	request.Format = format
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteWorkspaceIcon(ctx.UserContext(), request.(DeleteWorkspaceIconRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteWorkspaceIcon")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DeleteWorkspaceIconResponseObject); ok {
+		if err := validResponse.VisitDeleteWorkspaceIconResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DownloadWorkspaceIcon operation middleware
+func (sh *strictHandler) DownloadWorkspaceIcon(ctx *fiber.Ctx, name string, format DownloadWorkspaceIconParamsFormat) error {
+	var request DownloadWorkspaceIconRequestObject
+
+	request.Name = name
+	request.Format = format
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DownloadWorkspaceIcon(ctx.UserContext(), request.(DownloadWorkspaceIconRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DownloadWorkspaceIcon")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DownloadWorkspaceIconResponseObject); ok {
+		if err := validResponse.VisitDownloadWorkspaceIconResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UploadWorkspaceIcon operation middleware
+func (sh *strictHandler) UploadWorkspaceIcon(ctx *fiber.Ctx, name string, format UploadWorkspaceIconParamsFormat) error {
+	var request UploadWorkspaceIconRequestObject
+
+	request.Name = name
+	request.Format = format
+
+	body := ctx.Context().RequestBodyStream()
+	if body == nil {
+		body = bytes.NewReader(ctx.Request().Body())
+	}
+	request.Body = body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.UploadWorkspaceIcon(ctx.UserContext(), request.(UploadWorkspaceIconRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UploadWorkspaceIcon")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(UploadWorkspaceIconResponseObject); ok {
+		if err := validResponse.VisitUploadWorkspaceIconResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

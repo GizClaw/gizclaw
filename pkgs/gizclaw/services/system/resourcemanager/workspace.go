@@ -34,7 +34,16 @@ func (m *Manager) applyWorkspace(ctx context.Context, resource apitypes.Resource
 		return apitypes.ApplyResult{}, err
 	}
 	if exists {
-		same, err := semanticEqual(workspaceSpec(existing), item.Spec)
+		same, err := semanticEqual(
+			struct {
+				Spec apitypes.WorkspaceSpec `json:"spec"`
+				Icon *apitypes.Icon         `json:"icon,omitempty"`
+			}{Spec: workspaceSpec(existing), Icon: existing.Icon},
+			struct {
+				Spec apitypes.WorkspaceSpec `json:"spec"`
+				Icon *apitypes.Icon         `json:"icon,omitempty"`
+			}{Spec: item.Spec, Icon: item.Icon},
+		)
 		if err != nil {
 			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
 		}
@@ -134,6 +143,7 @@ func workspaceSpec(workspace apitypes.Workspace) apitypes.WorkspaceSpec {
 
 func workspaceUpsert(resource apitypes.WorkspaceResource) adminhttp.WorkspaceUpsert {
 	return adminhttp.WorkspaceUpsert{
+		Icon:         resource.Icon,
 		Name:         string(resource.Metadata.Name),
 		Parameters:   resource.Spec.Parameters,
 		Toolkit:      resource.Spec.Toolkit,
@@ -146,6 +156,7 @@ func resourceFromWorkspace(item apitypes.Workspace) (apitypes.Resource, error) {
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.WorkspaceResourceKind(apitypes.ResourceKindWorkspace),
 		Metadata:   apitypes.ResourceMetadata{Name: string(item.Name)},
+		Icon:       item.Icon,
 		Spec:       workspaceSpec(item),
 	})
 }

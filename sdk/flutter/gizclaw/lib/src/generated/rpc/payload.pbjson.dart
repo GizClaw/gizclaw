@@ -5,6 +5,7 @@ export 'payload/edge.pbjson.dart';
 export 'payload/enums.pbjson.dart';
 export 'payload/firmware.pbjson.dart';
 export 'payload/gameplay.pbjson.dart';
+export 'payload/icon.pbjson.dart';
 export 'payload/social.pbjson.dart';
 export 'payload/system.pbjson.dart';
 export 'payload/workspace.pbjson.dart';

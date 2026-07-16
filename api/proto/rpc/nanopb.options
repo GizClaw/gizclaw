@@ -1,2 +1,8 @@
 gizclaw.rpc.v1.RpcResponse.body no_unions:true
 gizclaw.rpc.v1.RpcStreamFrame.body no_unions:true
+gizclaw.rpc.v1.Icon.pixa max_size:512
+gizclaw.rpc.v1.Icon.png max_size:512
+gizclaw.rpc.v1.WorkflowIconDownloadRequest.name max_size:256
+gizclaw.rpc.v1.WorkflowIconDownloadResponse.name max_size:256
+gizclaw.rpc.v1.WorkspaceIconDownloadRequest.name max_size:256
+gizclaw.rpc.v1.WorkspaceIconDownloadResponse.name max_size:256

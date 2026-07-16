@@ -31,6 +31,9 @@
           },
           "spec": {
             "$ref": "../shared/gameplay.json#/components/schemas/GameDefSpec"
+          },
+          "icon": {
+            "$ref": "../shared/icon.json#/components/schemas/Icon"
           }
         }
       }

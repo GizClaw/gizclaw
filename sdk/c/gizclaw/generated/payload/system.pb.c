@@ -18,7 +18,7 @@ PB_BIND(gizclaw_rpc_v1_ClientGetInfoRequest, gizclaw_rpc_v1_ClientGetInfoRequest
 PB_BIND(gizclaw_rpc_v1_ClientGetInfoResponse, gizclaw_rpc_v1_ClientGetInfoResponse, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_DeviceInfo, gizclaw_rpc_v1_DeviceInfo, AUTO)
+PB_BIND(gizclaw_rpc_v1_DeviceInfo, gizclaw_rpc_v1_DeviceInfo, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_HardwareInfo, gizclaw_rpc_v1_HardwareInfo, AUTO)
@@ -54,7 +54,7 @@ PB_BIND(gizclaw_rpc_v1_Runtime, gizclaw_rpc_v1_Runtime, AUTO)
 PB_BIND(gizclaw_rpc_v1_ServerGetInfoRequest, gizclaw_rpc_v1_ServerGetInfoRequest, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ServerGetInfoResponse, gizclaw_rpc_v1_ServerGetInfoResponse, AUTO)
+PB_BIND(gizclaw_rpc_v1_ServerGetInfoResponse, gizclaw_rpc_v1_ServerGetInfoResponse, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_ServerGetStatusRequest, gizclaw_rpc_v1_ServerGetStatusRequest, AUTO)
@@ -63,10 +63,28 @@ PB_BIND(gizclaw_rpc_v1_ServerGetStatusRequest, gizclaw_rpc_v1_ServerGetStatusReq
 PB_BIND(gizclaw_rpc_v1_ServerGetStatusResponse, gizclaw_rpc_v1_ServerGetStatusResponse, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ServerPutInfoRequest, gizclaw_rpc_v1_ServerPutInfoRequest, AUTO)
+PB_BIND(gizclaw_rpc_v1_ServerPutInfoRequest, gizclaw_rpc_v1_ServerPutInfoRequest, 2)
 
 
-PB_BIND(gizclaw_rpc_v1_ServerPutInfoResponse, gizclaw_rpc_v1_ServerPutInfoResponse, AUTO)
+PB_BIND(gizclaw_rpc_v1_ServerPutInfoResponse, gizclaw_rpc_v1_ServerPutInfoResponse, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_ServerInfoIconDeleteRequest, gizclaw_rpc_v1_ServerInfoIconDeleteRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ServerInfoIconDeleteResponse, gizclaw_rpc_v1_ServerInfoIconDeleteResponse, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_ServerInfoIconDownloadRequest, gizclaw_rpc_v1_ServerInfoIconDownloadRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ServerInfoIconDownloadResponse, gizclaw_rpc_v1_ServerInfoIconDownloadResponse, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ServerInfoIconUploadRequest, gizclaw_rpc_v1_ServerInfoIconUploadRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ServerInfoIconUploadResponse, gizclaw_rpc_v1_ServerInfoIconUploadResponse, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_SpeedTestRequest, gizclaw_rpc_v1_SpeedTestRequest, AUTO)

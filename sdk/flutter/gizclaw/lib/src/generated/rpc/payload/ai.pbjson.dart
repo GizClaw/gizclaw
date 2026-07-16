@@ -3731,9 +3731,20 @@ const Workflow$json = {
       '10': 'i18n',
       '17': true
     },
+    {
+      '1': 'icon',
+      '3': 4,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.Icon',
+      '9': 1,
+      '10': 'icon',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_i18n'},
+    {'1': '_icon'},
   ],
 };
 
@@ -3741,7 +3752,54 @@ const Workflow$json = {
 final $typed_data.Uint8List workflowDescriptor = $convert.base64Decode(
     'CghXb3JrZmxvdxISCgRuYW1lGAEgASgJUgRuYW1lEjAKBHNwZWMYAiABKAsyHC5naXpjbGF3Ln'
     'JwYy52MS5Xb3JrZmxvd1NwZWNSBHNwZWMSPAoEaTE4bhgDIAEoCzIjLmdpemNsYXcucnBjLnYx'
-    'LldvcmtmbG93STE4bkNhdGFsb2dIAFIEaTE4bogBAUIHCgVfaTE4bg==');
+    'LldvcmtmbG93STE4bkNhdGFsb2dIAFIEaTE4bogBARItCgRpY29uGAQgASgLMhQuZ2l6Y2xhdy'
+    '5ycGMudjEuSWNvbkgBUgRpY29uiAEBQgcKBV9pMThuQgcKBV9pY29u');
+
+@$core.Deprecated('Use workflowIconDownloadRequestDescriptor instead')
+const WorkflowIconDownloadRequest$json = {
+  '1': 'WorkflowIconDownloadRequest',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+    {
+      '1': 'format',
+      '3': 2,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.IconFormat',
+      '10': 'format'
+    },
+  ],
+};
+
+/// Descriptor for `WorkflowIconDownloadRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List workflowIconDownloadRequestDescriptor =
+    $convert.base64Decode(
+        'ChtXb3JrZmxvd0ljb25Eb3dubG9hZFJlcXVlc3QSEgoEbmFtZRgBIAEoCVIEbmFtZRIyCgZmb3'
+        'JtYXQYAiABKA4yGi5naXpjbGF3LnJwYy52MS5JY29uRm9ybWF0UgZmb3JtYXQ=');
+
+@$core.Deprecated('Use workflowIconDownloadResponseDescriptor instead')
+const WorkflowIconDownloadResponse$json = {
+  '1': 'WorkflowIconDownloadResponse',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+    {
+      '1': 'format',
+      '3': 2,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.IconFormat',
+      '10': 'format'
+    },
+    {'1': 'size_bytes', '3': 3, '4': 1, '5': 3, '10': 'sizeBytes'},
+  ],
+};
+
+/// Descriptor for `WorkflowIconDownloadResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List workflowIconDownloadResponseDescriptor =
+    $convert.base64Decode(
+        'ChxXb3JrZmxvd0ljb25Eb3dubG9hZFJlc3BvbnNlEhIKBG5hbWUYASABKAlSBG5hbWUSMgoGZm'
+        '9ybWF0GAIgASgOMhouZ2l6Y2xhdy5ycGMudjEuSWNvbkZvcm1hdFIGZm9ybWF0Eh0KCnNpemVf'
+        'Ynl0ZXMYAyABKANSCXNpemVCeXRlcw==');
 
 @$core.Deprecated('Use workflowGetRequestDescriptor instead')
 const WorkflowGetRequest$json = {

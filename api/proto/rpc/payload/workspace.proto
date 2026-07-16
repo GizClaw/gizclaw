@@ -6,6 +6,7 @@ package gizclaw.rpc.v1;
 
 import "google/protobuf/struct.proto";
 import "payload/enums.proto";
+import "payload/icon.proto";
 import "payload/system.proto";
 import "payload/ai.proto";
 
@@ -235,6 +236,7 @@ message Workspace {
   string workflow_name = 6;
   optional ToolkitPolicy toolkit = 7;
   bool system = 8;
+  optional Icon icon = 9;
 }
 
 // Field numbers match Workspace so existing create and put clients remain wire
@@ -244,6 +246,17 @@ message WorkspaceUpsert {
   optional WorkspaceParameters parameters = 4;
   string workflow_name = 6;
   optional ToolkitPolicy toolkit = 7;
+}
+
+message WorkspaceIconDownloadRequest {
+  string name = 1;
+  IconFormat format = 2;
+}
+
+message WorkspaceIconDownloadResponse {
+  string name = 1;
+  IconFormat format = 2;
+  int64 size_bytes = 3;
 }
 
 message WorkspaceCreateRequest {
