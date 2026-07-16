@@ -64,8 +64,8 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.ServeToClients {
 		t.Fatal("ServeToClients should default to false")
 	}
-	if cfg.Log.Level != "info" {
-		t.Fatalf("Log.Level = %q, want info", cfg.Log.Level)
+	if cfg.SystemLog.Level != "info" {
+		t.Fatalf("SystemLog.Level = %q, want info", cfg.SystemLog.Level)
 	}
 }
 
@@ -336,7 +336,7 @@ func TestNewWithPreparedConfig(t *testing.T) {
 	}
 }
 
-func TestNewWiresLogQueryBackendFromVolcLogConfig(t *testing.T) {
+func TestNewLeavesLogQueryUnconfiguredWithoutQueryStore(t *testing.T) {
 	disabledCfg := Config{
 		Listen:   "127.0.0.1:1234",
 		Endpoint: "127.0.0.1:1234",
@@ -348,27 +348,7 @@ func TestNewWiresLogQueryBackendFromVolcLogConfig(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = disabled.Close() })
 	if disabled.ServerLogQuery != nil {
-		t.Fatal("disabled Volc logging should not install log query backend")
-	}
-
-	enabledCfg := disabledCfg
-	enabledCfg.Log = logging.Config{
-		Volc: logging.VolcConfig{
-			Enabled:         true,
-			Endpoint:        "https://tls-cn-beijing.volces.com",
-			Region:          "cn-beijing",
-			TopicID:         "topic",
-			AccessKeyID:     "ak",
-			AccessKeySecret: "sk",
-		},
-	}
-	enabled, err := New(enabledCfg)
-	if err != nil {
-		t.Fatalf("New(enabled) error = %v", err)
-	}
-	t.Cleanup(func() { _ = enabled.Close() })
-	if enabled.ServerLogQuery == nil {
-		t.Fatal("enabled Volc logging should install log query backend")
+		t.Fatal("query service should be absent without system_log.query_store")
 	}
 }
 
@@ -559,20 +539,16 @@ func TestBootstrapEdgeNodesPreservesExistingPeerMetadata(t *testing.T) {
 	}
 }
 
-func TestLoadConfigReadsAndExpandsLogConfig(t *testing.T) {
-	t.Setenv("GIZCLAW_TEST_VOLC_AK", "ak")
-	t.Setenv("GIZCLAW_TEST_VOLC_SK", "sk")
+func TestLoadConfigReadsSystemLogConfig(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	data := `
-log:
+system_log:
   level: debug
-  volc:
-    enabled: true
-    endpoint: https://tls-cn-beijing.volces.com
-    region: cn-beijing
-    topic_id: test-topic
-    access_key_id: ${GIZCLAW_TEST_VOLC_AK}
-    access_key_secret: ${GIZCLAW_TEST_VOLC_SK}
+  query_store: logs
+  sinks:
+    - kind: stderr
+    - kind: store
+      store: logs
 `
 	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
@@ -582,28 +558,42 @@ log:
 	if err != nil {
 		t.Fatalf("LoadConfig error = %v", err)
 	}
-	if cfg.Log.Level != "debug" {
-		t.Fatalf("Log.Level = %q", cfg.Log.Level)
-	}
-	if !cfg.Log.Volc.Enabled || cfg.Log.Volc.AccessKeyID != "ak" || cfg.Log.Volc.AccessKeySecret != "sk" {
-		t.Fatalf("Log.Volc = %+v", cfg.Log.Volc)
+	if cfg.SystemLog.Level != "debug" || cfg.SystemLog.QueryStore != "logs" || len(cfg.SystemLog.Sinks) != 2 {
+		t.Fatalf("SystemLog = %+v", cfg.SystemLog)
 	}
 }
 
-func TestLoadConfigRejectsInvalidLogConfig(t *testing.T) {
+func TestLoadConfigRejectsLegacyAndInvalidSystemLogConfig(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
-	if err := os.WriteFile(path, []byte("log:\n  level: verbose\n"), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte("log:\n  level: info\n"), 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
 	}
-	if _, err := LoadConfig(path); err == nil || !strings.Contains(err.Error(), "log.level") {
-		t.Fatalf("LoadConfig invalid log level err = %v", err)
+	if _, err := LoadConfig(path); err == nil || !strings.Contains(err.Error(), "top-level log") {
+		t.Fatalf("LoadConfig legacy log err = %v", err)
 	}
 
-	if err := os.WriteFile(path, []byte("log:\n  volc:\n    enabled: true\n"), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte("system_log:\n  level: verbose\n"), 0o644); err != nil {
 		t.Fatalf("WriteFile enabled error = %v", err)
 	}
-	if _, err := LoadConfig(path); err == nil || !strings.Contains(err.Error(), "log.volc.endpoint") {
-		t.Fatalf("LoadConfig invalid volc err = %v", err)
+	if _, err := LoadConfig(path); err == nil || !strings.Contains(err.Error(), "system_log.level") {
+		t.Fatalf("LoadConfig invalid system log err = %v", err)
+	}
+}
+
+func TestParseConfigRejectsUnknownLoggingFields(t *testing.T) {
+	for _, data := range []string{
+		"log: null\n",
+		"log: disabled\nsystem_log:\n  sinks:\n    - kind: stderr\n",
+		"system_log: null\n",
+		"system_log: stderr\n",
+		"system_log:\n  unknown: true\n",
+		"system_log:\n  sinks:\n    - kind: stderr\n      path: file.log\n",
+		"stores:\n  logs:\n    kind: log\n    clickhouse: {}\n",
+		"stores:\n  logs:\n    kind: log\n    volc:\n      endpoint: x\n      unknown: y\n",
+	} {
+		if _, err := parseConfigData([]byte(data)); err == nil {
+			t.Fatalf("parseConfigData(%q) error = nil", data)
+		}
 	}
 }
 
@@ -616,22 +606,8 @@ func TestE2ELogConfigFixturesUseReadablePlaceholders(t *testing.T) {
 			if err != nil {
 				t.Fatalf("LoadConfig(%s) error = %v", path, err)
 			}
-			if cfg.Log.Level != "info" {
-				t.Fatalf("fixture log level = %q, want info", cfg.Log.Level)
-			}
-			if cfg.Log.Volc.Enabled {
-				t.Fatal("fixture Volc logging should be disabled")
-			}
-			for name, value := range map[string]string{
-				"endpoint":          cfg.Log.Volc.Endpoint,
-				"region":            cfg.Log.Volc.Region,
-				"topic_id":          cfg.Log.Volc.TopicID,
-				"access_key_id":     cfg.Log.Volc.AccessKeyID,
-				"access_key_secret": cfg.Log.Volc.AccessKeySecret,
-			} {
-				if value == "" || strings.Contains(value, "${") {
-					t.Fatalf("fixture log.volc.%s = %q, want readable placeholder", name, value)
-				}
+			if cfg.SystemLog.Level != "info" || len(cfg.SystemLog.Sinks) != 1 || cfg.SystemLog.Sinks[0].Kind != logging.SinkStderr {
+				t.Fatalf("fixture system log = %+v, want info stderr", cfg.SystemLog)
 			}
 		})
 	}
@@ -739,7 +715,7 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 			GenerateModel: "runtime-chat",
 			ASRModel:      "runtime-asr",
 		}},
-		Log: logging.Config{Level: "error"},
+		SystemLog: logging.Config{Level: "error"},
 	}
 	fileCfg := ConfigFile{
 		Listen:          "0.0.0.0:1234",
@@ -764,7 +740,7 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 			EmbeddingModel: "file-embedding",
 			ASRModel:       "file-asr",
 		}},
-		Log: logging.Config{Level: "warn"},
+		SystemLog: logging.Config{Level: "warn"},
 	}
 
 	merged, err := mergeFileConfig(runtimeCfg, fileCfg)
@@ -795,15 +771,15 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 	if got := merged.SystemTasks.PetFlowcraftWorkflow; got.GenerateModel != "runtime-chat" || got.ExtractModel != "file-extract" || got.EmbeddingModel != "file-embedding" || got.ASRModel != "runtime-asr" {
 		t.Fatalf("PetFlowcraftWorkflow = %#v", got)
 	}
-	if merged.Log.Level != "error" {
-		t.Fatalf("runtime Log should win, got %+v", merged.Log)
+	if merged.SystemLog.Level != "error" {
+		t.Fatalf("runtime SystemLog should win, got %+v", merged.SystemLog)
 	}
 	merged, err = mergeFileConfig(Config{}, fileCfg)
 	if err != nil {
 		t.Fatalf("mergeFileConfig file-only error = %v", err)
 	}
-	if merged.Log.Level != "warn" {
-		t.Fatalf("file Log should be used when runtime is empty, got %+v", merged.Log)
+	if merged.SystemLog.Level != "warn" {
+		t.Fatalf("file SystemLog should be used when runtime is empty, got %+v", merged.SystemLog)
 	}
 	if merged.DefaultPeerView != "file-client" {
 		t.Fatalf("file DefaultPeerView should be used when runtime is empty, got %q", merged.DefaultPeerView)

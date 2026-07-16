@@ -1,60 +1,84 @@
 package logging
 
 import (
-	"errors"
-	"io"
 	"log/slog"
 	"os"
 
-	"github.com/GizClaw/gizclaw-go/cmd/internal/logging/volclog"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 )
 
-// NewLogger builds the process logger and a cleanup function for closeable
-// sinks.
-func NewLogger(cfg Config) (*slog.Logger, func() error, error) {
+// StoreResolver resolves named LogStores without transferring ownership.
+type StoreResolver interface {
+	Log(string) (logstore.Store, error)
+}
+
+// NewLogger builds the process logger. Store-backed handlers do not own or
+// close registry-owned stores.
+func NewLogger(cfg Config, registries ...StoreResolver) (*slog.Logger, func() error, error) {
+	if len(registries) > 1 {
+		return nil, nil, &StoreResolutionError{Reason: "multiple store registries are not supported"}
+	}
 	cfg, err := PrepareConfig(cfg)
 	if err != nil {
 		return nil, nil, err
 	}
-	level, err := ParseLevel(cfg.Level)
-	if err != nil {
-		return nil, nil, err
+	var registry StoreResolver
+	if len(registries) > 0 {
+		registry = registries[0]
 	}
-	handlers := []slog.Handler{
-		slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}),
-	}
-	var closers []io.Closer
-	if cfg.Volc.Enabled {
-		handler, err := volclog.NewHandler(volclog.Config{
-			Endpoint:         cfg.Volc.Endpoint,
-			Region:           cfg.Volc.Region,
-			TopicID:          cfg.Volc.TopicID,
-			AccessKeyID:      cfg.Volc.AccessKeyID,
-			AccessKeySecret:  cfg.Volc.AccessKeySecret,
-			Level:            level,
-			EnableNanosecond: true,
-		})
+	handlers := make([]slog.Handler, 0, len(cfg.Sinks))
+	for _, sink := range cfg.Sinks {
+		level, err := ParseLevel(sink.Level)
 		if err != nil {
 			return nil, nil, err
 		}
-		handlers = append(handlers, handler)
-		closers = append(closers, handler)
-	}
-	cleanup := func() error {
-		var errs []error
-		for _, closer := range closers {
-			if err := closer.Close(); err != nil {
-				errs = append(errs, err)
+		switch sink.Kind {
+		case SinkStderr:
+			handlers = append(handlers, slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
+		case SinkStore:
+			if registry == nil {
+				return nil, nil, &StoreResolutionError{Name: sink.Store, Reason: "store registry is not available"}
 			}
+			store, err := registry.Log(sink.Store)
+			if err != nil {
+				return nil, nil, &StoreResolutionError{Name: sink.Store, Err: err}
+			}
+			handler, err := logstore.NewSlogHandler(store, "system", "log", level)
+			if err != nil {
+				return nil, nil, err
+			}
+			handlers = append(handlers, handler)
 		}
-		return errors.Join(errs...)
 	}
-	return slog.New(NewFanoutHandler(handlers...)), cleanup, nil
+	return slog.New(NewFanoutHandler(handlers...)), func() error { return nil }, nil
 }
 
+// StoreResolutionError reports an invalid store sink without exposing store configuration.
+type StoreResolutionError struct {
+	Name   string
+	Reason string
+	Err    error
+}
+
+func (e *StoreResolutionError) Error() string {
+	prefix := "system_log store"
+	if e.Name != "" {
+		prefix += " " + e.Name
+	}
+	if e.Reason != "" {
+		return prefix + ": " + e.Reason
+	}
+	if e.Err != nil {
+		return prefix + ": " + e.Err.Error()
+	}
+	return prefix + ": resolution failed"
+}
+
+func (e *StoreResolutionError) Unwrap() error { return e.Err }
+
 // InstallDefault installs the configured process logger and returns cleanup.
-func InstallDefault(cfg Config) (func() error, error) {
-	logger, cleanup, err := NewLogger(cfg)
+func InstallDefault(cfg Config, registries ...StoreResolver) (func() error, error) {
+	logger, cleanup, err := NewLogger(cfg, registries...)
 	if err != nil {
 		return nil, err
 	}

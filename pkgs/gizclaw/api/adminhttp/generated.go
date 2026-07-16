@@ -798,7 +798,7 @@ type ListGeminiTenantsParams struct {
 
 // StreamServerLogsParams defines parameters for StreamServerLogs.
 type StreamServerLogsParams struct {
-	// Filter Backend log query expression. Defaults to *.
+	// Filter GizClaw system-log filter. Use * or up to 32 AND-separated clauses: level:value, text:value, field:value, field!=value, field:*, or -field:*. Values are unquoted tokens or JSON string literals. Provider query syntax and metadata fields, wildcards inside values, OR, regex, and stream/kind/message overrides are not accepted.
 	Filter *string `form:"filter,omitempty" json:"filter,omitempty"`
 
 	// StartTimeMs Inclusive search start time in Unix milliseconds. Required for the first page.
@@ -813,7 +813,7 @@ type StreamServerLogsParams struct {
 	// Order Result order.
 	Order *string `form:"order,omitempty" json:"order,omitempty"`
 
-	// Cursor Opaque cursor returned by the previous end event.
+	// Cursor Opaque GizClaw cursor returned by the previous end event. Cursor-only continuation is supported; repeated filter, time, or order fields must match, while limit may change.
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 

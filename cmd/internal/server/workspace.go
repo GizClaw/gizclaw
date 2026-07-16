@@ -173,7 +173,14 @@ func ServeContext(ctx context.Context, workspace string, opts ServeOptions) (err
 	if err != nil {
 		return err
 	}
-	closeLogger, err := installConfiguredLogger(cfg.Log)
+	storeRegistry, err := newStoreRegistry(cfg)
+	if err != nil {
+		return fmt.Errorf("server: stores: %w", err)
+	}
+	defer func() {
+		err = errors.Join(err, storeRegistry.Close())
+	}()
+	closeLogger, err := installConfiguredLogger(cfg.SystemLog, storeRegistry)
 	if err != nil {
 		return err
 	}
@@ -181,7 +188,7 @@ func ServeContext(ctx context.Context, workspace string, opts ServeOptions) (err
 		err = errors.Join(err, closeLogger())
 	}()
 	if storeExists(cfg, defaultACLStore) {
-		migrator, err := NewMigrator(cfg)
+		migrator, err := newMigratorWithStores(cfg, storeRegistry, false)
 		if err != nil {
 			return err
 		}
@@ -201,7 +208,7 @@ func ServeContext(ctx context.Context, workspace string, opts ServeOptions) (err
 	publicMux := newPublicTCPMux(publicListener)
 	iceTCPListener := publicMux.ICETCPListener()
 	defer publicMux.Close()
-	srv, err := newWithOptions(cfg, newServerOptions{ICETCPListener: iceTCPListener})
+	srv, err := newWithOptions(cfg, newServerOptions{ICETCPListener: iceTCPListener, Stores: storeRegistry})
 	if err != nil {
 		return err
 	}

@@ -121,10 +121,11 @@
             "name": "filter",
             "in": "query",
             "required": false,
-            "description": "Backend log query expression. Defaults to *.",
+            "description": "GizClaw system-log filter. Use * or up to 32 AND-separated clauses: level:value, text:value, field:value, field!=value, field:*, or -field:*. Values are unquoted tokens or JSON string literals. Provider query syntax and metadata fields, wildcards inside values, OR, regex, and stream/kind/message overrides are not accepted.",
             "schema": {
               "type": "string",
-              "default": "*"
+              "default": "*",
+              "maxLength": 4096
             }
           },
           {
@@ -172,7 +173,7 @@
             "name": "cursor",
             "in": "query",
             "required": false,
-            "description": "Opaque cursor returned by the previous end event.",
+            "description": "Opaque GizClaw cursor returned by the previous end event. Cursor-only continuation is supported; repeated filter, time, or order fields must match, while limit may change.",
             "schema": {
               "type": "string"
             }

@@ -26,7 +26,7 @@ type Config struct {
 	DefaultPeerView string
 	Storage         map[string]storage.Config
 	Stores          map[string]stores.Config
-	Log             logging.Config
+	SystemLog       logging.Config
 	Friends         FriendsConfig
 	FriendGroups    FriendGroupsConfig
 	SystemTasks     SystemTasksConfig
@@ -67,7 +67,7 @@ type ConfigFile struct {
 	DefaultPeerView string                    `yaml:"default-peer-view"`
 	Storage         map[string]storage.Config `yaml:"storage"`
 	Stores          map[string]stores.Config  `yaml:"stores"`
-	Log             logging.Config            `yaml:"log"`
+	SystemLog       logging.Config            `yaml:"system_log"`
 	Friends         FriendsConfig             `yaml:"friends"`
 	FriendGroups    FriendGroupsConfig        `yaml:"friend_groups"`
 	SystemTasks     SystemTasksConfig         `yaml:"system_tasks"`
@@ -111,6 +111,9 @@ func LoadConfig(path string) (ConfigFile, error) {
 }
 
 func parseConfigData(data []byte) (ConfigFile, error) {
+	if err := validateLoggingConfigShape(data); err != nil {
+		return ConfigFile{}, err
+	}
 	var raw struct {
 		Identity        *IdentityConfig           `yaml:"identity"`
 		Listen          string                    `yaml:"listen"`
@@ -123,7 +126,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		DefaultPeerView string                    `yaml:"default-peer-view"`
 		Storage         map[string]storage.Config `yaml:"storage"`
 		Stores          map[string]stores.Config  `yaml:"stores"`
-		Log             logging.Config            `yaml:"log"`
+		SystemLog       logging.Config            `yaml:"system_log"`
 		Friends         FriendsConfig             `yaml:"friends"`
 		FriendGroups    FriendGroupsConfig        `yaml:"friend_groups"`
 		SystemTasks     SystemTasksConfig         `yaml:"system_tasks"`
@@ -135,7 +138,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 	if err != nil {
 		return ConfigFile{}, err
 	}
-	logCfg, err := logging.PrepareConfig(raw.Log)
+	logCfg, err := logging.PrepareConfig(raw.SystemLog)
 	if err != nil {
 		return ConfigFile{}, fmt.Errorf("server: %w", err)
 	}
@@ -169,7 +172,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		DefaultPeerView: raw.DefaultPeerView,
 		Storage:         raw.Storage,
 		Stores:          raw.Stores,
-		Log:             logCfg,
+		SystemLog:       logCfg,
 		Friends:         raw.Friends,
 		FriendGroups:    raw.FriendGroups,
 		SystemTasks:     raw.SystemTasks,
@@ -189,9 +192,9 @@ func resolveAdminPublicKey(publicKey *giznet.PublicKey) (giznet.PublicKey, error
 
 func DefaultConfig() Config {
 	return Config{
-		Listen:   "0.0.0.0:9820",
-		Endpoint: "0.0.0.0:9820",
-		Log:      logging.DefaultConfig(),
+		Listen:    "0.0.0.0:9820",
+		Endpoint:  "0.0.0.0:9820",
+		SystemLog: logging.DefaultConfig(),
 	}
 }
 
@@ -226,8 +229,8 @@ func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	if len(cfg.Storage) == 0 {
 		cfg.Storage = fileCfg.Storage
 	}
-	if cfg.Log.IsZero() {
-		cfg.Log = fileCfg.Log
+	if cfg.SystemLog.IsZero() {
+		cfg.SystemLog = fileCfg.SystemLog
 	}
 	cfg.Friends = mergeFriendsConfig(cfg.Friends, fileCfg.Friends)
 	cfg.FriendGroups = mergeFriendGroupsConfig(cfg.FriendGroups, fileCfg.FriendGroups)
@@ -286,11 +289,11 @@ func prepareConfig(cfg Config) (Config, error) {
 	if cfg.Endpoint == "" {
 		cfg.Endpoint = cfg.Listen
 	}
-	logCfg, err := logging.PrepareConfig(cfg.Log)
+	logCfg, err := logging.PrepareConfig(cfg.SystemLog)
 	if err != nil {
 		return Config{}, fmt.Errorf("server: %w", err)
 	}
-	cfg.Log = logCfg
+	cfg.SystemLog = logCfg
 	if err := cfg.validate(); err != nil {
 		return Config{}, err
 	}
@@ -311,7 +314,7 @@ func (cfg Config) validate() error {
 	if err := validateHostPort("endpoint", cfg.Endpoint); err != nil {
 		return err
 	}
-	if _, err := logging.PrepareConfig(cfg.Log); err != nil {
+	if _, err := logging.PrepareConfig(cfg.SystemLog); err != nil {
 		return fmt.Errorf("server: %w", err)
 	}
 	for i, publicKey := range cfg.EdgeNodes {
@@ -336,6 +339,83 @@ func (cfg Config) validate() error {
 	}
 	if cfg.FriendGroups.MessageMaxAudioBytes < 0 {
 		return fmt.Errorf("server: friend_groups.message_max_audio_bytes must be >= 0")
+	}
+	return nil
+}
+
+func validateLoggingConfigShape(data []byte) error {
+	var document map[string]any
+	if err := yaml.Unmarshal(data, &document); err != nil {
+		return err
+	}
+	if _, legacy := document["log"]; legacy {
+		return fmt.Errorf("server: top-level log configuration was removed; configure stores and system_log instead")
+	}
+	if systemLogValue, exists := document["system_log"]; exists {
+		mapping, ok := systemLogValue.(map[string]any)
+		if !ok {
+			return fmt.Errorf("server: system_log must be a mapping")
+		}
+		for field := range mapping {
+			switch field {
+			case "level", "query_store", "sinks":
+			default:
+				return fmt.Errorf("server: system_log has unknown field %q", field)
+			}
+		}
+		if sinksValue, exists := mapping["sinks"]; exists {
+			sinks, ok := sinksValue.([]any)
+			if !ok {
+				return fmt.Errorf("server: system_log.sinks must be a sequence")
+			}
+			for index, sinkValue := range sinks {
+				sink, ok := sinkValue.(map[string]any)
+				if !ok {
+					return fmt.Errorf("server: system_log.sinks[%d] must be a mapping", index)
+				}
+				for field := range sink {
+					switch field {
+					case "kind", "store", "level":
+					default:
+						return fmt.Errorf("server: system_log.sinks[%d] has unknown field %q", index, field)
+					}
+				}
+			}
+		}
+	}
+	storesValue, exists := document["stores"]
+	if !exists || storesValue == nil {
+		return nil
+	}
+	storeMappings, ok := storesValue.(map[string]any)
+	if !ok {
+		return nil
+	}
+	for name, value := range storeMappings {
+		mapping, ok := value.(map[string]any)
+		if !ok || fmt.Sprint(mapping["kind"]) != stores.KindLog {
+			continue
+		}
+		for field := range mapping {
+			if field != "kind" && field != "volc" {
+				return fmt.Errorf("server: stores.%s field %q is invalid for kind log", name, field)
+			}
+		}
+		volcValue, exists := mapping["volc"]
+		if !exists {
+			continue
+		}
+		volcMapping, ok := volcValue.(map[string]any)
+		if !ok {
+			return fmt.Errorf("server: stores.%s.volc must be a mapping", name)
+		}
+		for field := range volcMapping {
+			switch field {
+			case "endpoint", "region", "topic_id", "access_key_id", "access_key_secret":
+			default:
+				return fmt.Errorf("server: stores.%s.volc has unknown field %q", name, field)
+			}
+		}
 	}
 	return nil
 }

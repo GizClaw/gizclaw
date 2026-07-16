@@ -41,6 +41,10 @@ func NewMigrator(cfg Config) (migrator *CmdMigrator, err error) {
 		}
 	}()
 
+	return newMigratorWithStores(cfg, ss, true)
+}
+
+func newMigratorWithStores(cfg Config, ss *stores.Stores, owns bool) (*CmdMigrator, error) {
 	aclDB, err := ss.SQL(defaultACLStore)
 	if err != nil {
 		return nil, fmt.Errorf("server: acl store: %w", err)
@@ -67,7 +71,12 @@ func NewMigrator(cfg Config) (migrator *CmdMigrator, err error) {
 			Credentials: credentials,
 			Peers:       peers,
 		},
-		stores: ss,
+		stores: func() *stores.Stores {
+			if owns {
+				return ss
+			}
+			return nil
+		}(),
 	}, nil
 }
 

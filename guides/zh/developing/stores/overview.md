@@ -8,6 +8,7 @@
 pkgs/store/
 ├── graph/        # Entity / Relation graph abstraction
 ├── kv/           # Ordered hierarchical key-value store
+├── logstore/     # Append-only searchable records and Volc TLS driver
 ├── metrics/      # Time-series sample write and query
 ├── objectstore/  # Prefix-addressable binary object storage
 ├── vecid/        # Vector locality-sensitive identity registry
@@ -18,6 +19,7 @@ pkgs/store/
 | --- | --- | --- |
 | [graph](./graph) | Entity、Relation 与邻接查询 | Agent memory、recall |
 | [kv](./kv) | 有序层级 key、CRUD 与范围遍历 | GizClaw services、Agent memory、其他 stores |
+| [logstore](./logstore) | 追加结构化 record、backend-neutral 查询与分页 | 进程日志、conversation/event 等生产者 |
 | [metrics](./metrics) | Sample 写入、instant/range query 与 aggregation | Peer telemetry、Server metrics |
 | [objectstore](./objectstore) | Binary object、prefix list/delete 与 expiration | Firmware、workspace、gameplay assets、HNSW |
 | [vecid](./vecid) | Vector hashing、bucket 与 identity 聚类 | Voiceprint detection |

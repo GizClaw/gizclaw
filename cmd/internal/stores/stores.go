@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/graph"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/vecstore"
@@ -26,6 +28,7 @@ const (
 	KindVecStore    = storage.KindVecStore
 	KindGraph       = "graph"
 	KindMetrics     = "metrics"
+	KindLog         = "log"
 	KindObjectStore = storage.KindObjectStore
 	KindSQL         = storage.KindSQL
 )
@@ -51,6 +54,7 @@ type Config struct {
 	Prometheus *metrics.PrometheusConfig `yaml:"prometheus"`
 	ClickHouse *metrics.ClickHouseConfig `yaml:"clickhouse"`
 	Memory     *struct{}                 `yaml:"memory"`
+	Volc       *logstore.VolcConfig      `yaml:"volc"`
 }
 
 // Stores holds named logical store instances created eagerly by NewWithStorage.
@@ -62,6 +66,7 @@ type Stores struct {
 	objects      map[string]objectstore.ObjectStore
 	graphs       map[string]graph.Graph
 	metrics      map[string]metrics.Store
+	logs         map[string]logstore.Store
 	sqls         map[string]*sql.DB
 	logicClosers []io.Closer
 }
@@ -99,7 +104,7 @@ func NewWithOwnedStorage(physical *storage.Storage, configs map[string]Config) (
 // NewWithStorage creates logical stores on top of already-opened physical
 // storage backends. The caller owns the physical storage lifecycle.
 func NewWithStorage(physical *storage.Storage, configs map[string]Config) (*Stores, error) {
-	if physical == nil && len(configs) > 0 {
+	if physical == nil && needsPhysicalStorage(configs) {
 		return nil, fmt.Errorf("stores: storage registry is nil")
 	}
 	s := &Stores{
@@ -109,6 +114,7 @@ func NewWithStorage(physical *storage.Storage, configs map[string]Config) (*Stor
 		objects: make(map[string]objectstore.ObjectStore),
 		graphs:  make(map[string]graph.Graph),
 		metrics: make(map[string]metrics.Store),
+		logs:    make(map[string]logstore.Store),
 		sqls:    make(map[string]*sql.DB),
 	}
 	ok := false
@@ -159,6 +165,13 @@ func NewWithStorage(physical *storage.Storage, configs map[string]Config) (*Stor
 				return nil, err
 			}
 			s.metrics[name] = st
+			s.logicClosers = append(s.logicClosers, st)
+		case KindLog:
+			st, err := s.newLog(name, cfg)
+			if err != nil {
+				return nil, err
+			}
+			s.logs[name] = st
 			s.logicClosers = append(s.logicClosers, st)
 		default:
 			return nil, fmt.Errorf("stores: %q has unknown kind %q", name, cfg.Kind)
@@ -228,6 +241,15 @@ func (r *Stores) Metrics(name string) (metrics.Store, error) {
 	s, ok := r.metrics[name]
 	if !ok {
 		return nil, fmt.Errorf("stores: metrics %q not found", name)
+	}
+	return s, nil
+}
+
+// Log returns the named logstore.Store.
+func (r *Stores) Log(name string) (logstore.Store, error) {
+	s, ok := r.logs[name]
+	if !ok {
+		return nil, fmt.Errorf("stores: log %q not found", name)
 	}
 	return s, nil
 }
@@ -337,6 +359,30 @@ func (r *Stores) newMetrics(name string, cfg Config) (metrics.Store, error) {
 	return st, nil
 }
 
+var openVolcLogStore = func(config logstore.VolcConfig) (logstore.Store, error) {
+	return logstore.NewVolcStore(config)
+}
+
+func (r *Stores) newLog(name string, cfg Config) (logstore.Store, error) {
+	if cfg.Volc == nil {
+		return nil, fmt.Errorf("stores: log %q requires exactly one volc backend", name)
+	}
+	if cfg.Storage != "" || cfg.Prefix != "" || cfg.Backend != "" || cfg.Dir != "" || cfg.Store != "" || cfg.Dim != 0 || cfg.DSN != "" || cfg.Prometheus != nil || cfg.ClickHouse != nil || cfg.Memory != nil {
+		return nil, fmt.Errorf("stores: log %q contains fields owned by another store kind", name)
+	}
+	volc := *cfg.Volc
+	volc.Endpoint = os.ExpandEnv(volc.Endpoint)
+	volc.Region = os.ExpandEnv(volc.Region)
+	volc.TopicID = os.ExpandEnv(volc.TopicID)
+	volc.AccessKeyID = os.ExpandEnv(volc.AccessKeyID)
+	volc.AccessKeySecret = os.ExpandEnv(volc.AccessKeySecret)
+	st, err := openVolcLogStore(volc)
+	if err != nil {
+		return nil, fmt.Errorf("stores: log %q volc: %w", name, err)
+	}
+	return st, nil
+}
+
 func (r *Stores) newSQL(name string, cfg Config) (*sql.DB, error) {
 	if cfg.Storage == "" {
 		return nil, fmt.Errorf("stores: sql %q requires storage reference", name)
@@ -380,7 +426,7 @@ func legacyStorageConfigs(configs map[string]Config) map[string]storage.Config {
 	}
 	out := make(map[string]storage.Config, len(configs))
 	for name, cfg := range configs {
-		if cfg.Kind == KindGraph || cfg.Kind == KindMetrics {
+		if cfg.Kind == KindGraph || cfg.Kind == KindMetrics || cfg.Kind == KindLog {
 			continue
 		}
 		out[name] = storage.Config{
@@ -400,12 +446,23 @@ func legacyStoreConfigs(configs map[string]Config) map[string]Config {
 	}
 	out := make(map[string]Config, len(configs))
 	for name, cfg := range configs {
-		if cfg.Kind != KindGraph && cfg.Storage == "" {
+		if cfg.Kind != KindGraph && cfg.Kind != KindMetrics && cfg.Kind != KindLog && cfg.Storage == "" {
 			cfg.Storage = name
 		}
 		out[name] = cfg
 	}
 	return out
+}
+
+func needsPhysicalStorage(configs map[string]Config) bool {
+	for _, cfg := range configs {
+		switch cfg.Kind {
+		case KindGraph, KindMetrics, KindLog:
+		default:
+			return true
+		}
+	}
+	return false
 }
 
 func parseKeyPrefix(path string) (kv.Key, error) {

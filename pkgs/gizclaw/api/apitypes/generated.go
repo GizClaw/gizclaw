@@ -3482,16 +3482,16 @@ type ServerLogEntry struct {
 	// Message Log message.
 	Message string `json:"message"`
 
-	// Path Backend path or filename, initially slog.
+	// Path Structured path attribute, defaulting to slog for process logs.
 	Path string `json:"path"`
 
-	// Source Backend source, initially gizclaw for server logs written by the Volc sink.
+	// Source Structured source attribute, defaulting to gizclaw for process logs.
 	Source string `json:"source"`
 
 	// TimeMs Unix millisecond timestamp for display and filtering.
 	TimeMs int64 `json:"time_ms"`
 
-	// TimeNs Optional Unix nanosecond timestamp as a decimal string when the backend provides it.
+	// TimeNs Optional Unix nanosecond timestamp as a decimal string when sub-millisecond precision is available.
 	TimeNs *string `json:"time_ns,omitempty"`
 }
 

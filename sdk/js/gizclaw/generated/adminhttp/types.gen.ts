@@ -1702,7 +1702,7 @@ export type ServerLogEntry = {
      */
     time_ms: number;
     /**
-     * Optional Unix nanosecond timestamp as a decimal string when the backend provides it.
+     * Optional Unix nanosecond timestamp as a decimal string when sub-millisecond precision is available.
      */
     time_ns?: string;
     /**
@@ -1714,11 +1714,11 @@ export type ServerLogEntry = {
      */
     message: string;
     /**
-     * Backend source, initially gizclaw for server logs written by the Volc sink.
+     * Structured source attribute, defaulting to gizclaw for process logs.
      */
     source: string;
     /**
-     * Backend path or filename, initially slog.
+     * Structured path attribute, defaulting to slog for process logs.
      */
     path: string;
     /**
@@ -2388,7 +2388,7 @@ export type StreamServerLogsData = {
     path?: never;
     query?: {
         /**
-         * Backend log query expression. Defaults to *.
+         * GizClaw system-log filter. Use * or up to 32 AND-separated clauses: level:value, text:value, field:value, field!=value, field:*, or -field:*. Values are unquoted tokens or JSON string literals. Provider query syntax and metadata fields, wildcards inside values, OR, regex, and stream/kind/message overrides are not accepted.
          */
         filter?: string;
         /**
@@ -2408,7 +2408,7 @@ export type StreamServerLogsData = {
          */
         order?: string;
         /**
-         * Opaque cursor returned by the previous end event.
+         * Opaque GizClaw cursor returned by the previous end event. Cursor-only continuation is supported; repeated filter, time, or order fields must match, while limit may change.
          */
         cursor?: string;
     };

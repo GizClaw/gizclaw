@@ -36,38 +36,59 @@ export GIZCLAW_E2E_TURN_ENDPOINT="$container_turn_endpoint"
 export GIZCLAW_E2E_TURN_USERNAME="$container_turn_username"
 export GIZCLAW_E2E_TURN_CREDENTIAL="$container_turn_credential"
 : "${GIZCLAW_E2E_VOLC_LOG_ENABLED:=false}"
-: "${GIZCLAW_E2E_VOLC_LOG_ENDPOINT:=https://tls-cn-beijing.volces.com}"
-: "${GIZCLAW_E2E_VOLC_LOG_REGION:=cn-beijing}"
-: "${GIZCLAW_E2E_VOLC_LOG_TOPIC_ID:=gizclaw-server-log-topic}"
-: "${GIZCLAW_E2E_VOLC_LOG_ACCESS_KEY_ID:=volc-access-key-id}"
-: "${GIZCLAW_E2E_VOLC_LOG_ACCESS_KEY_SECRET:=volc-access-key-secret}"
+: "${GIZCLAW_E2E_VOLC_LOG_ENDPOINT:=}"
+: "${GIZCLAW_E2E_VOLC_LOG_REGION:=}"
+: "${GIZCLAW_E2E_VOLC_LOG_TOPIC_ID:=}"
+: "${GIZCLAW_E2E_VOLC_LOG_ACCESS_KEY_ID:=}"
+: "${GIZCLAW_E2E_VOLC_LOG_ACCESS_KEY_SECRET:=}"
 
 envsubst '${GIZCLAW_E2E_SERVER_ENDPOINT} ${GIZCLAW_E2E_TURN_ENDPOINT} ${GIZCLAW_E2E_TURN_USERNAME} ${GIZCLAW_E2E_TURN_CREDENTIAL}' \
   < "$repo_root/tests/gizclaw-e2e/testdata/server-workspace/config.yaml.template" \
   > "$workspace_dir/config.yaml"
-awk \
-  -v enabled="$GIZCLAW_E2E_VOLC_LOG_ENABLED" \
-  -v endpoint="$GIZCLAW_E2E_VOLC_LOG_ENDPOINT" \
-  -v region="$GIZCLAW_E2E_VOLC_LOG_REGION" \
-  -v topic_id="$GIZCLAW_E2E_VOLC_LOG_TOPIC_ID" \
-  -v access_key_id="$GIZCLAW_E2E_VOLC_LOG_ACCESS_KEY_ID" \
-  -v access_key_secret="$GIZCLAW_E2E_VOLC_LOG_ACCESS_KEY_SECRET" '
+if [[ "$GIZCLAW_E2E_VOLC_LOG_ENABLED" == "true" ]]; then
+  : "${GIZCLAW_E2E_VOLC_LOG_ENDPOINT:?missing GIZCLAW_E2E_VOLC_LOG_ENDPOINT}"
+  : "${GIZCLAW_E2E_VOLC_LOG_REGION:?missing GIZCLAW_E2E_VOLC_LOG_REGION}"
+  : "${GIZCLAW_E2E_VOLC_LOG_TOPIC_ID:?missing GIZCLAW_E2E_VOLC_LOG_TOPIC_ID}"
+  : "${GIZCLAW_E2E_VOLC_LOG_ACCESS_KEY_ID:?missing GIZCLAW_E2E_VOLC_LOG_ACCESS_KEY_ID}"
+  : "${GIZCLAW_E2E_VOLC_LOG_ACCESS_KEY_SECRET:?missing GIZCLAW_E2E_VOLC_LOG_ACCESS_KEY_SECRET}"
+  awk \
+    -v endpoint="$GIZCLAW_E2E_VOLC_LOG_ENDPOINT" \
+    -v region="$GIZCLAW_E2E_VOLC_LOG_REGION" \
+    -v topic_id="$GIZCLAW_E2E_VOLC_LOG_TOPIC_ID" \
+    -v access_key_id="$GIZCLAW_E2E_VOLC_LOG_ACCESS_KEY_ID" \
+    -v access_key_secret="$GIZCLAW_E2E_VOLC_LOG_ACCESS_KEY_SECRET" '
 function quote_yaml(value) {
   gsub(/\\/, "\\\\", value)
   gsub(/"/, "\\\"", value)
   return "\"" value "\""
 }
-/^  volc:/ { in_volc = 1; print; next }
-in_volc && /^    enabled:/ { print "    enabled: " enabled; next }
-in_volc && /^    endpoint:/ { print "    endpoint: " quote_yaml(endpoint); next }
-in_volc && /^    region:/ { print "    region: " quote_yaml(region); next }
-in_volc && /^    topic_id:/ { print "    topic_id: " quote_yaml(topic_id); next }
-in_volc && /^    access_key_id:/ { print "    access_key_id: " quote_yaml(access_key_id); next }
-in_volc && /^    access_key_secret:/ { print "    access_key_secret: " quote_yaml(access_key_secret); next }
-in_volc && /^  [^ ]/ { in_volc = 0 }
+ /^system_log:/ {
+  print "system_log:"
+  print "  level: info"
+  print "  query_store: logs"
+  print "  sinks:"
+  print "    - kind: stderr"
+  print "    - kind: store"
+  print "      store: logs"
+  skip_system_log = 1
+  next
+}
+skip_system_log && /^storage:/ { skip_system_log = 0 }
+skip_system_log { next }
+/^  peers:/ {
+  print "  logs:"
+  print "    kind: log"
+  print "    volc:"
+  print "      endpoint: " quote_yaml(endpoint)
+  print "      region: " quote_yaml(region)
+  print "      topic_id: " quote_yaml(topic_id)
+  print "      access_key_id: " quote_yaml(access_key_id)
+  print "      access_key_secret: " quote_yaml(access_key_secret)
+}
 { print }
-' "$workspace_dir/config.yaml" > "$workspace_dir/config.yaml.tmp"
-mv "$workspace_dir/config.yaml.tmp" "$workspace_dir/config.yaml"
+  ' "$workspace_dir/config.yaml" > "$workspace_dir/config.yaml.tmp"
+  mv "$workspace_dir/config.yaml.tmp" "$workspace_dir/config.yaml"
+fi
 
 "$setup_dir/build.sh" >/dev/null
 find "$GIZCLAW_E2E_CONFIG_HOME" -type f -name config.yaml -print0 |
