@@ -3156,13 +3156,24 @@ type Workspace struct {
 
 	// Parameters Agent-specific workspace parameters. The shape is selected by agent_type.
 	Parameters   *WorkspaceParameters `json:"parameters,omitempty"`
+	System       bool                 `json:"system"`
 	Toolkit      *ToolkitPolicy       `json:"toolkit,omitempty"`
 	UpdatedAt    time.Time            `json:"updated_at"`
 	WorkflowName string               `json:"workflow_name"`
 }
 
+// WorkspaceUpsert defines model for WorkspaceUpsert.
+type WorkspaceUpsert struct {
+	Name string `json:"name"`
+
+	// Parameters Agent-specific workspace parameters. The shape is selected by agent_type.
+	Parameters   *WorkspaceParameters `json:"parameters,omitempty"`
+	Toolkit      *ToolkitPolicy       `json:"toolkit,omitempty"`
+	WorkflowName string               `json:"workflow_name"`
+}
+
 // WorkspaceCreateRequest defines model for WorkspaceCreateRequest.
-type WorkspaceCreateRequest = Workspace
+type WorkspaceCreateRequest = WorkspaceUpsert
 
 // WorkspaceCreateResponse defines model for WorkspaceCreateResponse.
 type WorkspaceCreateResponse = Workspace
@@ -3244,8 +3255,8 @@ type WorkspaceParameters struct {
 
 // WorkspacePutRequest defines model for WorkspacePutRequest.
 type WorkspacePutRequest struct {
-	Body Workspace `json:"body"`
-	Name string    `json:"name"`
+	Body WorkspaceUpsert `json:"body"`
+	Name string          `json:"name"`
 }
 
 // WorkspacePutResponse defines model for WorkspacePutResponse.

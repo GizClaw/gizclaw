@@ -9,6 +9,24 @@ import 'rpc_client.dart';
 import 'service_http.dart';
 import 'transport.dart';
 
+/// Copies caller-controlled fields from a Workspace response into its write
+/// payload without carrying output-only lifecycle metadata.
+payload.WorkspaceUpsert workspaceUpsertFromWorkspace(
+  payload.Workspace workspace,
+) {
+  final upsert = payload.WorkspaceUpsert(
+    name: workspace.name,
+    workflowName: workspace.workflowName,
+  );
+  if (workspace.hasParameters()) {
+    upsert.parameters = workspace.parameters.deepCopy();
+  }
+  if (workspace.hasToolkit()) {
+    upsert.toolkit = workspace.toolkit.deepCopy();
+  }
+  return upsert;
+}
+
 class PixaDownloadResult<T> {
   const PixaDownloadResult({
     required this.metadata,
@@ -175,7 +193,7 @@ class GizClawClient {
   }
 
   Future<payload.WorkspaceCreateResponse> createWorkspace(
-    payload.Workspace workspace,
+    payload.WorkspaceUpsert workspace,
   ) {
     return rpc.call<payload.WorkspaceCreateResponse>(
       'server.workspace.create',
@@ -185,7 +203,7 @@ class GizClawClient {
 
   Future<payload.WorkspacePutResponse> putWorkspace(
     String name,
-    payload.Workspace workspace,
+    payload.WorkspaceUpsert workspace,
   ) {
     return rpc.call<payload.WorkspacePutResponse>(
       'server.workspace.put',

@@ -30,6 +30,8 @@ Gameplay owns:
 
 Gameplay can use workspace as an associated boundary for pet workspace or Agent memory, but the workspace resource itself is still owned by `services/ai/workspace`. Gameplay also uses ACL to complete access judgment, but does not redefine role or policy binding.
 
+An adopted Pet owns a system Workspace. Pet adoption and rollback use the internal system-Workspace lifecycle. Pet deletion must report ACL or Workspace cleanup failures, removes the Pet row only after required cleanup succeeds, and retains gameplay history, points, badges, results, transactions, and reward grants.
+
 ## Dependencies and boundaries
 
 ```mermaid

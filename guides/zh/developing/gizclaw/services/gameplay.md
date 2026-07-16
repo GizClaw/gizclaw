@@ -30,6 +30,8 @@ Gameplay 拥有：
 
 Gameplay 可以使用 workspace 作为 pet workspace 或 Agent memory 的关联边界，但 workspace 资源本身仍由 `services/ai/workspace` 拥有。Gameplay 也使用 ACL 完成访问判断，但不重新定义 role 或 policy binding。
 
+采用的 Pet 拥有一个 system Workspace。Pet adoption 与 rollback 使用内部 system-Workspace 生命周期。Pet 删除必须返回 ACL 或 Workspace 清理失败，只在必要清理成功后删除 Pet row，并保留 gameplay history、points、badge、result、transaction 和 reward grant。
+
 ## 依赖与边界
 
 ```mermaid

@@ -1353,8 +1353,9 @@ export type Workspace = {
   "updated_at": string;
   "workflow_name": string;
   "toolkit"?: ToolkitPolicy;
+  "system": boolean;
 };
-export type WorkspaceCreateRequest = Workspace;
+export type WorkspaceCreateRequest = WorkspaceUpsert;
 export type WorkspaceCreateResponse = Workspace;
 export type WorkspaceDeleteRequest = {
   "name": string;
@@ -1398,10 +1399,16 @@ export type WorkspaceListResponse = {
 };
 export type WorkspaceParameters = FlowcraftWorkspaceParameters | DoubaoRealtimeWorkspaceParameters | ASTTranslateWorkspaceParameters | ChatRoomWorkspaceParameters | PetWorkspaceParameters;
 export type WorkspacePutRequest = {
-  "body": Workspace;
+  "body": WorkspaceUpsert;
   "name": string;
 };
 export type WorkspacePutResponse = Workspace;
+export type WorkspaceUpsert = {
+  "name": string;
+  "parameters"?: WorkspaceParameters;
+  "workflow_name": string;
+  "toolkit"?: ToolkitPolicy;
+};
 
 const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "all.ping": "PingRequest",
@@ -7749,6 +7756,11 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 7,
         "optional": true,
         "type": "ToolkitPolicy"
+      },
+      {
+        "name": "system",
+        "number": 8,
+        "type": "bool"
       }
     ]
   },
@@ -7757,7 +7769,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "value",
         "number": 1,
-        "type": "Workspace"
+        "type": "WorkspaceUpsert"
       }
     ]
   },
@@ -7985,7 +7997,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "body",
         "number": 1,
-        "type": "Workspace"
+        "type": "WorkspaceUpsert"
       },
       {
         "name": "name",
@@ -8000,6 +8012,32 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "Workspace"
+      }
+    ]
+  },
+  "WorkspaceUpsert": {
+    "fields": [
+      {
+        "name": "name",
+        "number": 3,
+        "type": "string"
+      },
+      {
+        "name": "parameters",
+        "number": 4,
+        "optional": true,
+        "type": "WorkspaceParameters"
+      },
+      {
+        "name": "workflow_name",
+        "number": 6,
+        "type": "string"
+      },
+      {
+        "name": "toolkit",
+        "number": 7,
+        "optional": true,
+        "type": "ToolkitPolicy"
       }
     ]
   }

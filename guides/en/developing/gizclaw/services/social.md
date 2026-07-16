@@ -21,9 +21,13 @@ Owns peer's contact resources and contact lifecycle. Contact is the address book
 
 Has the ability to create, accept, and reject friend requests, as well as read and delete friend relationships. It can use ACL to determine permissions, but the friend state itself belongs to the social realm.
 
+Each direct-friend chat lifecycle owns a system Workspace and uses the internal Workspace create/delete capability for creation, rollback, and relationship deletion.
+
 ### friendgroup
 
 Has friend group, member, message, invite and message assets. Group membership and ACL role are relationships at different levels; one cannot be used to implicitly replace the other.
+
+Each Friend Group lifecycle owns a system Workspace and uses the internal Workspace create/delete capability for creation, rollback, and group deletion.
 
 ## Dependencies and boundaries
 

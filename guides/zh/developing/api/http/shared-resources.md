@@ -89,3 +89,9 @@ Schema 所有权依赖是 `shared/ ← resources/`；当前 codegen 再由 `shar
 ## 稳定性边界
 
 Schema name、property name、required 集合、enum value、discriminator 和 OpenAPI operation ID 都会影响生成 API。重命名或改变 optional/nullable 语义属于 caller-facing contract 变化，必须与所有生成语言和调用点一起审查。
+
+## Workspace 生命周期分类
+
+`Workspace.system` 是必填、只读的生命周期 metadata。通过通用 Admin HTTP、Peer RPC 和声明式 resource 创建的 Workspace 始终为 `system: false`；调用方不能通过 Workspace 输入设置或修改它。Friend、Friend Group 和 Pet 生命周期通过 Workspace service 的内部能力创建 `system: true` Workspace。
+
+对 system Workspace 执行通用 Workspace 删除会返回 HTTP 409 和 `SYSTEM_WORKSPACE_DELETE_FORBIDDEN`。只有拥有该 Workspace 的领域生命周期可以调用内部 system-Workspace 删除能力。已有持久化 Workspace 不迁移、不重新分类；分类保证只适用于此 contract 生效后创建的 Workspace。

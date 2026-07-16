@@ -1654,6 +1654,9 @@ type ClientInterface interface {
 	// ListPeerPets request
 	ListPeerPets(ctx context.Context, publicKey string, params *ListPeerPetsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DeletePeerPet request
+	DeletePeerPet(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetPeerPet request
 	GetPeerPet(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -3450,6 +3453,18 @@ func (c *Client) PutPeerInfo(ctx context.Context, publicKey string, body PutPeer
 
 func (c *Client) ListPeerPets(ctx context.Context, publicKey string, params *ListPeerPetsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListPeerPetsRequest(c.Server, publicKey, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeletePeerPet(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeletePeerPetRequest(c.Server, publicKey, id)
 	if err != nil {
 		return nil, err
 	}
@@ -9218,6 +9233,47 @@ func NewListPeerPetsRequest(server string, publicKey string, params *ListPeerPet
 	return req, nil
 }
 
+// NewDeletePeerPetRequest generates requests for DeletePeerPet
+func NewDeletePeerPetRequest(server string, publicKey string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "publicKey", publicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/peers/%s/pets/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetPeerPetRequest generates requests for GetPeerPet
 func NewGetPeerPetRequest(server string, publicKey string, id string) (*http.Request, error) {
 	var err error
@@ -12789,6 +12845,9 @@ type ClientWithResponsesInterface interface {
 	// ListPeerPetsWithResponse request
 	ListPeerPetsWithResponse(ctx context.Context, publicKey string, params *ListPeerPetsParams, reqEditors ...RequestEditorFn) (*ListPeerPetsResponse, error)
 
+	// DeletePeerPetWithResponse request
+	DeletePeerPetWithResponse(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*DeletePeerPetResponse, error)
+
 	// GetPeerPetWithResponse request
 	GetPeerPetWithResponse(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*GetPeerPetResponse, error)
 
@@ -15432,6 +15491,30 @@ func (r ListPeerPetsResponse) StatusCode() int {
 	return 0
 }
 
+type DeletePeerPetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.Pet
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DeletePeerPetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeletePeerPetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetPeerPetResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -16880,6 +16963,7 @@ type DeleteWorkspaceResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.Workspace
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -18167,6 +18251,15 @@ func (c *ClientWithResponses) ListPeerPetsWithResponse(ctx context.Context, publ
 		return nil, err
 	}
 	return ParseListPeerPetsResponse(rsp)
+}
+
+// DeletePeerPetWithResponse request returning *DeletePeerPetResponse
+func (c *ClientWithResponses) DeletePeerPetWithResponse(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*DeletePeerPetResponse, error) {
+	rsp, err := c.DeletePeerPet(ctx, publicKey, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeletePeerPetResponse(rsp)
 }
 
 // GetPeerPetWithResponse request returning *GetPeerPetResponse
@@ -22969,6 +23062,46 @@ func ParseListPeerPetsResponse(rsp *http.Response) (*ListPeerPetsResponse, error
 	return response, nil
 }
 
+// ParseDeletePeerPetResponse parses an HTTP response from a DeletePeerPetWithResponse call
+func ParseDeletePeerPetResponse(rsp *http.Response) (*DeletePeerPetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeletePeerPetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.Pet
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetPeerPetResponse parses an HTTP response from a GetPeerPetWithResponse call
 func ParseGetPeerPetResponse(rsp *http.Response) (*GetPeerPetResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -25546,6 +25679,13 @@ func ParseDeleteWorkspaceResponse(rsp *http.Response) (*DeleteWorkspaceResponse,
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -26074,6 +26214,9 @@ type ServerInterface interface {
 	// listPeerPets
 	// (GET /peers/{publicKey}/pets)
 	ListPeerPets(c *fiber.Ctx, publicKey string, params ListPeerPetsParams) error
+	// Delete a peer Pet
+	// (DELETE /peers/{publicKey}/pets/{id})
+	DeletePeerPet(c *fiber.Ctx, publicKey string, id string) error
 	// getPeerPet
 	// (GET /peers/{publicKey}/pets/{id})
 	GetPeerPet(c *fiber.Ctx, publicKey string, id string) error
@@ -28335,6 +28478,30 @@ func (siw *ServerInterfaceWrapper) ListPeerPets(c *fiber.Ctx) error {
 	return siw.Handler.ListPeerPets(c, publicKey, params)
 }
 
+// DeletePeerPet operation middleware
+func (siw *ServerInterfaceWrapper) DeletePeerPet(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "publicKey" -------------
+	var publicKey string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
+	}
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	return siw.Handler.DeletePeerPet(c, publicKey, id)
+}
+
 // GetPeerPet operation middleware
 func (siw *ServerInterfaceWrapper) GetPeerPet(c *fiber.Ctx) error {
 
@@ -30057,6 +30224,8 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Put(options.BaseURL+"/peers/:publicKey/info", wrapper.PutPeerInfo)
 
 	router.Get(options.BaseURL+"/peers/:publicKey/pets", wrapper.ListPeerPets)
+
+	router.Delete(options.BaseURL+"/peers/:publicKey/pets/:id", wrapper.DeletePeerPet)
 
 	router.Get(options.BaseURL+"/peers/:publicKey/pets/:id", wrapper.GetPeerPet)
 
@@ -33887,6 +34056,42 @@ func (response ListPeerPets500JSONResponse) VisitListPeerPetsResponse(ctx *fiber
 	return ctx.JSON(&response)
 }
 
+type DeletePeerPetRequestObject struct {
+	PublicKey string `json:"publicKey"`
+	Id        string `json:"id"`
+}
+
+type DeletePeerPetResponseObject interface {
+	VisitDeletePeerPetResponse(ctx *fiber.Ctx) error
+}
+
+type DeletePeerPet200JSONResponse externalRef0.Pet
+
+func (response DeletePeerPet200JSONResponse) VisitDeletePeerPetResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type DeletePeerPet404JSONResponse externalRef0.ErrorResponse
+
+func (response DeletePeerPet404JSONResponse) VisitDeletePeerPetResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DeletePeerPet500JSONResponse externalRef0.ErrorResponse
+
+func (response DeletePeerPet500JSONResponse) VisitDeletePeerPetResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
 type GetPeerPetRequestObject struct {
 	PublicKey string `json:"publicKey"`
 	Id        string `json:"id"`
@@ -36271,6 +36476,15 @@ func (response DeleteWorkspace404JSONResponse) VisitDeleteWorkspaceResponse(ctx 
 	return ctx.JSON(&response)
 }
 
+type DeleteWorkspace409JSONResponse externalRef0.ErrorResponse
+
+func (response DeleteWorkspace409JSONResponse) VisitDeleteWorkspaceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type DeleteWorkspace500JSONResponse externalRef0.ErrorResponse
 
 func (response DeleteWorkspace500JSONResponse) VisitDeleteWorkspaceResponse(ctx *fiber.Ctx) error {
@@ -36798,6 +37012,9 @@ type StrictServerInterface interface {
 	// listPeerPets
 	// (GET /peers/{publicKey}/pets)
 	ListPeerPets(ctx context.Context, request ListPeerPetsRequestObject) (ListPeerPetsResponseObject, error)
+	// Delete a peer Pet
+	// (DELETE /peers/{publicKey}/pets/{id})
+	DeletePeerPet(ctx context.Context, request DeletePeerPetRequestObject) (DeletePeerPetResponseObject, error)
 	// getPeerPet
 	// (GET /peers/{publicKey}/pets/{id})
 	GetPeerPet(ctx context.Context, request GetPeerPetRequestObject) (GetPeerPetResponseObject, error)
@@ -39901,6 +40118,34 @@ func (sh *strictHandler) ListPeerPets(ctx *fiber.Ctx, publicKey string, params L
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(ListPeerPetsResponseObject); ok {
 		if err := validResponse.VisitListPeerPetsResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeletePeerPet operation middleware
+func (sh *strictHandler) DeletePeerPet(ctx *fiber.Ctx, publicKey string, id string) error {
+	var request DeletePeerPetRequestObject
+
+	request.PublicKey = publicKey
+	request.Id = id
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DeletePeerPet(ctx.UserContext(), request.(DeletePeerPetRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeletePeerPet")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DeletePeerPetResponseObject); ok {
+		if err := validResponse.VisitDeletePeerPetResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

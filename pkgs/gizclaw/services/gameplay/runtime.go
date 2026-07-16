@@ -29,7 +29,7 @@ type Runtime struct {
 	DB          *sql.DB
 	Catalog     *Catalog
 	Workflows   WorkflowService
-	Workspaces  workspace.WorkspaceAdminService
+	Workspaces  workspace.SystemWorkspaceService
 	ACL         ACL
 	Now         func() time.Time
 	NewID       func() string
@@ -204,7 +204,7 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 	defer func() {
 		if !created && r.Workspaces != nil {
 			_ = r.revokePetWorkspace(ctx, workspaceName, owner)
-			_, _ = r.Workspaces.DeleteWorkspace(context.WithoutCancel(ctx), adminhttp.DeleteWorkspaceRequestObject{Name: workspaceName})
+			_, _ = r.Workspaces.DeleteSystemWorkspace(context.WithoutCancel(ctx), workspaceName)
 		}
 	}()
 	if err := r.grantPetWorkspace(ctx, workspaceName, owner); err != nil {
@@ -349,18 +349,57 @@ func (r *Runtime) DeletePet(ctx context.Context, owner, id string) (apitypes.Pet
 	if err != nil {
 		return apitypes.Pet{}, err
 	}
+	cleanupCtx := context.WithoutCancel(ctx)
+	if err := r.revokePetWorkspace(cleanupCtx, pet.WorkspaceName, owner); err != nil {
+		return apitypes.Pet{}, fmt.Errorf("delete pet %q ACL binding: %w", pet.Id, err)
+	}
+	if r.Workspaces == nil {
+		if restoreErr := r.grantPetWorkspace(cleanupCtx, pet.WorkspaceName, owner); restoreErr != nil {
+			return apitypes.Pet{}, fmt.Errorf("delete pet %q: workspace service is not configured; ACL rollback failed: %v", pet.Id, restoreErr)
+		}
+		return apitypes.Pet{}, fmt.Errorf("delete pet %q: workspace service is not configured", pet.Id)
+	}
+	if _, err := r.Workspaces.DeleteSystemWorkspace(cleanupCtx, pet.WorkspaceName); err != nil {
+		if restoreErr := r.grantPetWorkspace(cleanupCtx, pet.WorkspaceName, owner); restoreErr != nil {
+			return apitypes.Pet{}, fmt.Errorf("delete pet %q workspace: %v; ACL rollback failed: %v", pet.Id, err, restoreErr)
+		}
+		return apitypes.Pet{}, fmt.Errorf("delete pet %q workspace: %v", pet.Id, err)
+	}
 	db, err := r.db()
 	if err != nil {
-		return apitypes.Pet{}, err
+		return apitypes.Pet{}, r.restorePetAfterDeleteFailure(cleanupCtx, pet, owner, err)
 	}
 	if _, err := db.ExecContext(ctx, `DELETE FROM gameplay_pets WHERE owner_public_key = ? AND id = ?`, owner, pet.Id); err != nil {
-		return apitypes.Pet{}, err
-	}
-	_ = r.revokePetWorkspace(context.WithoutCancel(ctx), pet.WorkspaceName, owner)
-	if r.Workspaces != nil {
-		_, _ = r.Workspaces.DeleteWorkspace(context.WithoutCancel(ctx), adminhttp.DeleteWorkspaceRequestObject{Name: pet.WorkspaceName})
+		return apitypes.Pet{}, r.restorePetAfterDeleteFailure(cleanupCtx, pet, owner, err)
 	}
 	return pet, nil
+}
+
+func (r *Runtime) restorePetAfterDeleteFailure(ctx context.Context, pet apitypes.Pet, owner string, cause error) error {
+	var rollbackErrs []error
+	if r.Catalog == nil {
+		rollbackErrs = append(rollbackErrs, errors.New("restore workspace: catalog service is not configured"))
+	} else {
+		petDef, err := r.Catalog.GetPetDefByID(ctx, pet.PetdefId)
+		if err != nil {
+			rollbackErrs = append(rollbackErrs, fmt.Errorf("load PetDef: %w", err))
+		} else {
+			workflowName := strings.TrimSpace(valueOrZero(pet.WorkflowName))
+			if workflowName == "" {
+				workflowName = defaultPetWorkflowName
+			}
+			if err := r.createPetWorkspace(ctx, pet.WorkspaceName, workflowName, petDef); err != nil {
+				rollbackErrs = append(rollbackErrs, fmt.Errorf("restore workspace: %w", err))
+			}
+		}
+	}
+	if err := r.grantPetWorkspace(ctx, pet.WorkspaceName, owner); err != nil {
+		rollbackErrs = append(rollbackErrs, fmt.Errorf("restore ACL binding: %w", err))
+	}
+	if rollbackErr := errors.Join(rollbackErrs...); rollbackErr != nil {
+		return fmt.Errorf("delete pet %q row: %w; rollback failed: %v", pet.Id, cause, rollbackErr)
+	}
+	return fmt.Errorf("delete pet %q row: %w", pet.Id, cause)
 }
 
 func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDriveRequest) (apitypes.PetDriveResponse, error) {
@@ -715,22 +754,14 @@ func (r *Runtime) createPetWorkspace(ctx context.Context, name, workflowName str
 		return err
 	}
 	body := adminhttp.WorkspaceUpsert{Name: name, WorkflowName: workflowName, Parameters: &parameters}
-	resp, err := r.Workspaces.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
+	_, created, err := r.Workspaces.CreateSystemWorkspace(ctx, body)
 	if err != nil {
 		return err
 	}
-	switch v := resp.(type) {
-	case adminhttp.CreateWorkspace200JSONResponse:
-		return nil
-	case adminhttp.CreateWorkspace409JSONResponse:
-		return fmt.Errorf("create pet workspace: %s", v.Error.Message)
-	case adminhttp.CreateWorkspace400JSONResponse:
-		return fmt.Errorf("create pet workspace: %s", v.Error.Message)
-	case adminhttp.CreateWorkspace500JSONResponse:
-		return fmt.Errorf("create pet workspace: %s", v.Error.Message)
-	default:
-		return fmt.Errorf("create pet workspace: unexpected response %T", resp)
+	if !created {
+		return fmt.Errorf("create pet workspace %q: workspace already exists", name)
 	}
+	return nil
 }
 
 func (r *Runtime) validatePetWorkflow(ctx context.Context, name string) error {

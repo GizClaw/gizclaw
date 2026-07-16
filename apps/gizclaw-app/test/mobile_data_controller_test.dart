@@ -705,11 +705,12 @@ class _WorkspaceActivationClient extends _RunWorkspaceClient {
   @override
   Future<WorkspacePutResponse> putWorkspace(
     String name,
-    Workspace workspace,
+    WorkspaceUpsert workspace,
   ) async {
     putWorkspaceNames.add(name);
-    workspaces[name] = workspace.deepCopy();
-    return WorkspacePutResponse(value: workspace);
+    final stored = Workspace.fromBuffer(workspace.writeToBuffer());
+    workspaces[name] = stored;
+    return WorkspacePutResponse(value: stored);
   }
 
   @override

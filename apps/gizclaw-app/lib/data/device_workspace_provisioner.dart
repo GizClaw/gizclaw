@@ -20,10 +20,13 @@ class DeviceWorkspaceProvisioner {
   factory DeviceWorkspaceProvisioner.forClient(GizClawClient client) {
     return DeviceWorkspaceProvisioner(
       getWorkspace: (name) async => (await client.getWorkspace(name)).value,
-      createWorkspace: (workspace) async =>
-          (await client.createWorkspace(workspace)).value,
-      putWorkspace: (name, workspace) async =>
-          (await client.putWorkspace(name, workspace)).value,
+      createWorkspace: (workspace) async => (await client.createWorkspace(
+        workspaceUpsertFromWorkspace(workspace),
+      )).value,
+      putWorkspace: (name, workspace) async => (await client.putWorkspace(
+        name,
+        workspaceUpsertFromWorkspace(workspace),
+      )).value,
     );
   }
 

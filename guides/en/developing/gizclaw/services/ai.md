@@ -53,6 +53,8 @@ Workflow describes how to run an Agent, but does not own the online state and st
 
 Has workspace resources, workspace runtime storage and history. The Workspace is the persistence boundary for instantiating the Agent environment; the running Agent, input and output, and connection streams are the responsibility of the Runtime domain.
 
+Workspace also owns the immutable `system` lifecycle classification. Generic creation stores `system: false`; domain-owned creation stores `system: true`. Generic deletion rejects system Workspaces, while the internal system lifecycle surface is available only to the owning Social or Gameplay service.
+
 ## Dependencies and boundaries
 
 ```mermaid

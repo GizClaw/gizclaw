@@ -2984,6 +2984,7 @@ class Workspace extends $pb.GeneratedMessage {
     $core.String? updatedAt,
     $core.String? workflowName,
     $2.ToolkitPolicy? toolkit,
+    $core.bool? system,
   }) {
     final result = create();
     if (createdAt != null) result.createdAt = createdAt;
@@ -2993,6 +2994,7 @@ class Workspace extends $pb.GeneratedMessage {
     if (updatedAt != null) result.updatedAt = updatedAt;
     if (workflowName != null) result.workflowName = workflowName;
     if (toolkit != null) result.toolkit = toolkit;
+    if (system != null) result.system = system;
     return result;
   }
 
@@ -3018,6 +3020,7 @@ class Workspace extends $pb.GeneratedMessage {
     ..aOS(6, _omitFieldNames ? '' : 'workflowName')
     ..aOM<$2.ToolkitPolicy>(7, _omitFieldNames ? '' : 'toolkit',
         subBuilder: $2.ToolkitPolicy.create)
+    ..aOB(8, _omitFieldNames ? '' : 'system')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3104,11 +3107,118 @@ class Workspace extends $pb.GeneratedMessage {
   void clearToolkit() => $_clearField(7);
   @$pb.TagNumber(7)
   $2.ToolkitPolicy ensureToolkit() => $_ensure(6);
+
+  @$pb.TagNumber(8)
+  $core.bool get system => $_getBF(7);
+  @$pb.TagNumber(8)
+  set system($core.bool value) => $_setBool(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasSystem() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearSystem() => $_clearField(8);
+}
+
+/// Field numbers match Workspace so existing create and put clients remain wire
+/// compatible while output-only lifecycle fields stay out of write payloads.
+class WorkspaceUpsert extends $pb.GeneratedMessage {
+  factory WorkspaceUpsert({
+    $core.String? name,
+    WorkspaceParameters? parameters,
+    $core.String? workflowName,
+    $2.ToolkitPolicy? toolkit,
+  }) {
+    final result = create();
+    if (name != null) result.name = name;
+    if (parameters != null) result.parameters = parameters;
+    if (workflowName != null) result.workflowName = workflowName;
+    if (toolkit != null) result.toolkit = toolkit;
+    return result;
+  }
+
+  WorkspaceUpsert._();
+
+  factory WorkspaceUpsert.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory WorkspaceUpsert.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'WorkspaceUpsert',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(3, _omitFieldNames ? '' : 'name')
+    ..aOM<WorkspaceParameters>(4, _omitFieldNames ? '' : 'parameters',
+        subBuilder: WorkspaceParameters.create)
+    ..aOS(6, _omitFieldNames ? '' : 'workflowName')
+    ..aOM<$2.ToolkitPolicy>(7, _omitFieldNames ? '' : 'toolkit',
+        subBuilder: $2.ToolkitPolicy.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WorkspaceUpsert clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WorkspaceUpsert copyWith(void Function(WorkspaceUpsert) updates) =>
+      super.copyWith((message) => updates(message as WorkspaceUpsert))
+          as WorkspaceUpsert;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static WorkspaceUpsert create() => WorkspaceUpsert._();
+  @$core.override
+  WorkspaceUpsert createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static WorkspaceUpsert getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<WorkspaceUpsert>(create);
+  static WorkspaceUpsert? _defaultInstance;
+
+  @$pb.TagNumber(3)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(3)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(3)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(3)
+  void clearName() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  WorkspaceParameters get parameters => $_getN(1);
+  @$pb.TagNumber(4)
+  set parameters(WorkspaceParameters value) => $_setField(4, value);
+  @$pb.TagNumber(4)
+  $core.bool hasParameters() => $_has(1);
+  @$pb.TagNumber(4)
+  void clearParameters() => $_clearField(4);
+  @$pb.TagNumber(4)
+  WorkspaceParameters ensureParameters() => $_ensure(1);
+
+  @$pb.TagNumber(6)
+  $core.String get workflowName => $_getSZ(2);
+  @$pb.TagNumber(6)
+  set workflowName($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(6)
+  $core.bool hasWorkflowName() => $_has(2);
+  @$pb.TagNumber(6)
+  void clearWorkflowName() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $2.ToolkitPolicy get toolkit => $_getN(3);
+  @$pb.TagNumber(7)
+  set toolkit($2.ToolkitPolicy value) => $_setField(7, value);
+  @$pb.TagNumber(7)
+  $core.bool hasToolkit() => $_has(3);
+  @$pb.TagNumber(7)
+  void clearToolkit() => $_clearField(7);
+  @$pb.TagNumber(7)
+  $2.ToolkitPolicy ensureToolkit() => $_ensure(3);
 }
 
 class WorkspaceCreateRequest extends $pb.GeneratedMessage {
   factory WorkspaceCreateRequest({
-    Workspace? value,
+    WorkspaceUpsert? value,
   }) {
     final result = create();
     if (value != null) result.value = value;
@@ -3128,8 +3238,8 @@ class WorkspaceCreateRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'WorkspaceCreateRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOM<Workspace>(1, _omitFieldNames ? '' : 'value',
-        subBuilder: Workspace.create)
+    ..aOM<WorkspaceUpsert>(1, _omitFieldNames ? '' : 'value',
+        subBuilder: WorkspaceUpsert.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3153,15 +3263,15 @@ class WorkspaceCreateRequest extends $pb.GeneratedMessage {
   static WorkspaceCreateRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
-  Workspace get value => $_getN(0);
+  WorkspaceUpsert get value => $_getN(0);
   @$pb.TagNumber(1)
-  set value(Workspace value) => $_setField(1, value);
+  set value(WorkspaceUpsert value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasValue() => $_has(0);
   @$pb.TagNumber(1)
   void clearValue() => $_clearField(1);
   @$pb.TagNumber(1)
-  Workspace ensureValue() => $_ensure(0);
+  WorkspaceUpsert ensureValue() => $_ensure(0);
 }
 
 class WorkspaceCreateResponse extends $pb.GeneratedMessage {
@@ -4221,7 +4331,7 @@ class WorkspaceParameters extends $pb.GeneratedMessage {
 
 class WorkspacePutRequest extends $pb.GeneratedMessage {
   factory WorkspacePutRequest({
-    Workspace? body,
+    WorkspaceUpsert? body,
     $core.String? name,
   }) {
     final result = create();
@@ -4243,8 +4353,8 @@ class WorkspacePutRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'WorkspacePutRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOM<Workspace>(1, _omitFieldNames ? '' : 'body',
-        subBuilder: Workspace.create)
+    ..aOM<WorkspaceUpsert>(1, _omitFieldNames ? '' : 'body',
+        subBuilder: WorkspaceUpsert.create)
     ..aOS(2, _omitFieldNames ? '' : 'name')
     ..hasRequiredFields = false;
 
@@ -4268,15 +4378,15 @@ class WorkspacePutRequest extends $pb.GeneratedMessage {
   static WorkspacePutRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
-  Workspace get body => $_getN(0);
+  WorkspaceUpsert get body => $_getN(0);
   @$pb.TagNumber(1)
-  set body(Workspace value) => $_setField(1, value);
+  set body(WorkspaceUpsert value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasBody() => $_has(0);
   @$pb.TagNumber(1)
   void clearBody() => $_clearField(1);
   @$pb.TagNumber(1)
-  Workspace ensureBody() => $_ensure(0);
+  WorkspaceUpsert ensureBody() => $_ensure(0);
 
   @$pb.TagNumber(2)
   $core.String get name => $_getSZ(1);

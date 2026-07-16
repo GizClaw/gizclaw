@@ -411,7 +411,7 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 	var workspacePayload RPCPayload
 	if err := workspacePayload.FromWorkspacePutRequest(WorkspacePutRequest{
 		Name: "workspace-a",
-		Body: Workspace{
+		Body: WorkspaceUpsert{
 			Name:         "workspace-a",
 			WorkflowName: "workflow-a",
 			Parameters:   &workspaceParams,
@@ -433,6 +433,17 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 	if gotFlowcraft.Input == nil || *gotFlowcraft.Input != WorkspaceInputModeRealtime {
 		t.Fatalf("workspace input = %#v, want realtime", gotFlowcraft.Input)
 	}
+	var workspaceResponse RPCPayload
+	if err := workspaceResponse.FromWorkspaceGetResponse(WorkspaceGetResponse{Name: "workspace-a", System: true}); err != nil {
+		t.Fatalf("FromWorkspaceGetResponse error = %v", err)
+	}
+	gotWorkspaceResponse, err := workspaceResponse.AsWorkspaceGetResponse()
+	if err != nil {
+		t.Fatalf("AsWorkspaceGetResponse error = %v", err)
+	}
+	if !gotWorkspaceResponse.System {
+		t.Fatalf("workspace response system = false, want true: %#v", gotWorkspaceResponse)
+	}
 
 	voicePrompt := "warm"
 	var petWorkspaceParams WorkspaceParameters
@@ -444,7 +455,7 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 	var petWorkspacePayload RPCPayload
 	if err := petWorkspacePayload.FromWorkspacePutRequest(WorkspacePutRequest{
 		Name: "pet-a",
-		Body: Workspace{Name: "pet-a", WorkflowName: "pet-care", Parameters: &petWorkspaceParams},
+		Body: WorkspaceUpsert{Name: "pet-a", WorkflowName: "pet-care", Parameters: &petWorkspaceParams},
 	}); err != nil {
 		t.Fatalf("FromWorkspacePutRequest(pet) error = %v", err)
 	}

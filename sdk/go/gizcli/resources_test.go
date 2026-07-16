@@ -26,7 +26,7 @@ func TestClientResourceMethodsRequireConnection(t *testing.T) {
 			return client.CreateWorkspace(ctx, "workspace-create", rpcapi.WorkspaceCreateRequest{Name: "workspace-a", WorkflowName: "flow-a"})
 		}},
 		{"workspace put", func() (any, error) {
-			return client.PutWorkspace(ctx, "workspace-put", rpcapi.WorkspacePutRequest{Name: "workspace-a", Body: rpcapi.Workspace{Name: "workspace-a", WorkflowName: "flow-a"}})
+			return client.PutWorkspace(ctx, "workspace-put", rpcapi.WorkspacePutRequest{Name: "workspace-a", Body: rpcapi.WorkspaceUpsert{Name: "workspace-a", WorkflowName: "flow-a"}})
 		}},
 		{"workspace delete", func() (any, error) {
 			return client.DeleteWorkspace(ctx, "workspace-delete", rpcapi.WorkspaceDeleteRequest{Name: "workspace-a"})

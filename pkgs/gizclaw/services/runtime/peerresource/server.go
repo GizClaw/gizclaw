@@ -1330,6 +1330,12 @@ func convertValue(dst reflect.Value, src reflect.Value) error {
 		}
 		src = src.Elem()
 	}
+	if dst.Kind() == reflect.Bool && src.Kind() == reflect.Pointer && src.Type().Elem().Kind() == reflect.Bool {
+		if !src.IsNil() {
+			dst.SetBool(src.Elem().Bool())
+		}
+		return nil
+	}
 	if dst.Type() == reflect.TypeOf(apitypes.CredentialBody{}) && src.Type() == reflect.TypeOf(rpcapi.CredentialBody{}) {
 		body, err := rpcCredentialBodyToAPI(src.Interface().(rpcapi.CredentialBody))
 		if err != nil {

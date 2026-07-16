@@ -3,6 +3,7 @@ package workspace
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
@@ -36,6 +37,9 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	}
 	if created.Name != "alpha001" || created.WorkflowName != "workflow-1" {
 		t.Fatalf("CreateWorkspace() workspace = %#v", created)
+	}
+	if created.System == nil || *created.System {
+		t.Fatalf("CreateWorkspace() system = %#v, want false", created.System)
 	}
 	if created.CreatedAt.IsZero() || created.UpdatedAt.IsZero() || created.LastActiveAt.IsZero() {
 		t.Fatalf("CreateWorkspace() timestamps = %#v", created)
@@ -117,6 +121,103 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	}
 }
 
+func TestServerSystemWorkspaceLifecycle(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(t)
+	runtime := &recordingRuntimeStore{}
+	srv.RuntimeStore = runtime
+	ctx := context.Background()
+	seedWorkflow(t, srv, "chatroom")
+	body := adminhttp.WorkspaceUpsert{Name: "friend-chat", WorkflowName: "chatroom"}
+
+	created, wasCreated, err := srv.CreateSystemWorkspace(ctx, body)
+	if err != nil {
+		t.Fatalf("CreateSystemWorkspace() error = %v", err)
+	}
+	if !wasCreated || created.System == nil || !*created.System {
+		t.Fatalf("CreateSystemWorkspace() = %#v, created=%v", created, wasCreated)
+	}
+	existing, wasCreated, err := srv.CreateSystemWorkspace(ctx, body)
+	if err != nil {
+		t.Fatalf("CreateSystemWorkspace(existing) error = %v", err)
+	}
+	if wasCreated || existing.System == nil || !*existing.System {
+		t.Fatalf("CreateSystemWorkspace(existing) = %#v, created=%v", existing, wasCreated)
+	}
+
+	putBody := adminhttp.WorkspaceUpsert{Name: "friend-chat", WorkflowName: "chatroom"}
+	putResp, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: "friend-chat", Body: &putBody})
+	if err != nil {
+		t.Fatalf("PutWorkspace(system) error = %v", err)
+	}
+	updated, ok := putResp.(adminhttp.PutWorkspace200JSONResponse)
+	if !ok || updated.System == nil || !*updated.System {
+		t.Fatalf("PutWorkspace(system) response = %#v", putResp)
+	}
+
+	deleteResp, err := srv.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Name: "friend-chat"})
+	if err != nil {
+		t.Fatalf("DeleteWorkspace(system) error = %v", err)
+	}
+	blocked, ok := deleteResp.(adminhttp.DeleteWorkspace409JSONResponse)
+	if !ok || blocked.Error.Code != SystemWorkspaceDeleteForbiddenCode {
+		t.Fatalf("DeleteWorkspace(system) response = %#v", deleteResp)
+	}
+	if len(runtime.deleted) != 0 {
+		t.Fatalf("runtime deleted after rejected generic delete = %#v", runtime.deleted)
+	}
+	if _, err := getWorkspace(ctx, srv.Store, "friend-chat"); err != nil {
+		t.Fatalf("system workspace after rejected generic delete: %v", err)
+	}
+
+	deleted, err := srv.DeleteSystemWorkspace(ctx, "friend-chat")
+	if err != nil {
+		t.Fatalf("DeleteSystemWorkspace() error = %v", err)
+	}
+	if deleted.System == nil || !*deleted.System {
+		t.Fatalf("DeleteSystemWorkspace() = %#v", deleted)
+	}
+	if len(runtime.deleted) != 1 || runtime.deleted[0] != "friend-chat" {
+		t.Fatalf("runtime deleted after system delete = %#v", runtime.deleted)
+	}
+	if _, err := srv.DeleteSystemWorkspace(ctx, "friend-chat"); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("DeleteSystemWorkspace(missing) error = %v, want kv.ErrNotFound", err)
+	}
+	if len(runtime.deleted) != 2 || runtime.deleted[1] != "friend-chat" {
+		t.Fatalf("runtime deleted after missing system delete = %#v", runtime.deleted)
+	}
+}
+
+func TestServerSystemWorkspaceClassificationComesFromCreationPath(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(t)
+	srv.RuntimeStore = &recordingRuntimeStore{}
+	ctx := context.Background()
+	seedWorkflow(t, srv, "chatroom")
+	body := adminhttp.WorkspaceUpsert{Name: "friend-user-created", WorkflowName: "chatroom"}
+
+	createResp, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
+	if err != nil {
+		t.Fatalf("CreateWorkspace() error = %v", err)
+	}
+	created, ok := createResp.(adminhttp.CreateWorkspace200JSONResponse)
+	if !ok || created.System == nil || *created.System {
+		t.Fatalf("CreateWorkspace() response = %#v, want user Workspace", createResp)
+	}
+	if _, _, err := srv.CreateSystemWorkspace(ctx, body); err == nil {
+		t.Fatal("CreateSystemWorkspace(user Workspace) error = nil, want classification conflict")
+	}
+	deleteResp, err := srv.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Name: body.Name})
+	if err != nil {
+		t.Fatalf("DeleteWorkspace() error = %v", err)
+	}
+	if _, ok := deleteResp.(adminhttp.DeleteWorkspace200JSONResponse); !ok {
+		t.Fatalf("DeleteWorkspace() response = %#v", deleteResp)
+	}
+}
+
 func TestServerWorkspaceLastActiveBackfillsLegacyRecords(t *testing.T) {
 	t.Parallel()
 
@@ -144,6 +245,9 @@ func TestServerWorkspaceLastActiveBackfillsLegacyRecords(t *testing.T) {
 	}
 	if !got.LastActiveAt.Equal(createdAt) {
 		t.Fatalf("getWorkspace() last_active_at = %s, want created_at %s", got.LastActiveAt, createdAt)
+	}
+	if got.System == nil || *got.System {
+		t.Fatalf("getWorkspace() legacy system = %#v, want false", got.System)
 	}
 
 	listResp, err := srv.ListWorkspaces(ctx, adminhttp.ListWorkspacesRequestObject{})

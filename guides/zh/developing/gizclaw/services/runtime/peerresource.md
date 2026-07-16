@@ -56,6 +56,6 @@ sequenceDiagram
 
 Owner binding 使用当前 Peer public key 作为 subject、Workspace name 作为 resource，并授予统一的 `resource-owner` role。该 role 包含 `read`、`use` 和 `admin` 权限；Workspace 与 Tool 共用同一套 owner role 定义和 ACL service。
 
-删除 Workspace 时顺序相反：先删除 Workspace，再清理对应 owner binding。如果 binding 清理失败，服务会用已删除 Workspace 的内容重新创建 Workspace，并向 Peer 返回错误，避免出现“Workspace 已删除但 ACL owner binding 仍残留”的半完成状态。binding 已不存在视为删除成功。
+删除 Workspace 时先暂时移除对应 owner binding，再调用 Workspace service；service failure 或非成功响应都会恢复 binding。system Workspace 返回 RPC code 409；adapter 记录 `SYSTEM_WORKSPACE_DELETE_FORBIDDEN` observability error code，并保留 Workspace 与 owner binding。
 
-因此，Workspace 的资源记录和 owner binding 对 Peer RPC 表现为一个整体：创建操作不能留下没有 owner 权限的 Workspace，删除操作不能正常返回却遗留孤立的 owner binding。
+因此，Workspace 的资源记录和 owner binding 对 Peer RPC 表现为一个整体：创建不能留下没有 owner 权限的 Workspace，被拒绝或失败的删除也不能只移除其中一侧。

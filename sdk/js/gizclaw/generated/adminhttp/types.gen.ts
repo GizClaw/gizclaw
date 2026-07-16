@@ -2176,6 +2176,10 @@ export type PetWorkflowSpec = {
 export type Workspace = {
     name: string;
     workflow_name: string;
+    /**
+     * Whether the Workspace lifecycle is owned by another domain service. System Workspaces cannot be deleted through generic Workspace operations.
+     */
+    readonly system: boolean;
     parameters?: WorkspaceParameters;
     toolkit?: ToolkitPolicy;
     created_at: string;
@@ -2356,6 +2360,31 @@ export type WorkspaceSpec = {
     workflow_name: string;
     parameters?: WorkspaceParameters;
     toolkit?: ToolkitPolicy;
+};
+
+export type WorkspaceListWritable = {
+    has_next: boolean;
+    next_cursor?: string | null;
+    items: Array<WorkspaceWritable>;
+};
+
+export type AclPermissionListWritable = Array<AclPermission>;
+
+export type FriendGroupInviteTokenClearResponseWritable = {
+    [key: string]: never;
+};
+
+export type WorkspaceWritable = {
+    name: string;
+    workflow_name: string;
+    parameters?: WorkspaceParameters;
+    toolkit?: ToolkitPolicy;
+    created_at: string;
+    /**
+     * Last user-visible workspace conversation or history activity time. Configuration-only updates must not modify this field.
+     */
+    last_active_at: string;
+    updated_at: string;
 };
 
 /**
@@ -5958,6 +5987,10 @@ export type DeleteWorkspaceErrors = {
      */
     404: ErrorResponse;
     /**
+     * System Workspace deletion is forbidden through the generic Workspace lifecycle
+     */
+    409: ErrorResponse;
+    /**
      * Internal error
      */
     500: ErrorResponse;
@@ -8075,6 +8108,44 @@ export type ListPeerPetsResponses = {
 };
 
 export type ListPeerPetsResponse = ListPeerPetsResponses[keyof ListPeerPetsResponses];
+
+export type DeletePeerPetData = {
+    body?: never;
+    path: {
+        /**
+         * Peer public key
+         */
+        publicKey: string;
+        /**
+         * Resource identifier
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/peers/{publicKey}/pets/{id}';
+};
+
+export type DeletePeerPetErrors = {
+    /**
+     * Peer gameplay resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type DeletePeerPetError = DeletePeerPetErrors[keyof DeletePeerPetErrors];
+
+export type DeletePeerPetResponses = {
+    /**
+     * Pet
+     */
+    200: Pet;
+};
+
+export type DeletePeerPetResponse = DeletePeerPetResponses[keyof DeletePeerPetResponses];
 
 export type GetPeerPetData = {
     body?: never;
