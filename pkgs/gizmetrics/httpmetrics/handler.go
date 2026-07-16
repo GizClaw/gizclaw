@@ -78,8 +78,7 @@ func (h *handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	inflight := inflightKey{surface: h.surface, operation: operation, method: method}
-	current := addInflight(inflight, 1)
-	gizmetrics.SetGauge(request.Context(), RequestsInFlightMetric, float64(current), baseLabels...)
+	recordInflight(request.Context(), inflight, 1, baseLabels)
 	started := time.Now()
 	status := http.StatusOK
 	var (
@@ -119,8 +118,7 @@ func (h *handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	})
 
 	defer func() {
-		remaining := addInflight(inflight, -1)
-		gizmetrics.SetGauge(request.Context(), RequestsInFlightMetric, float64(remaining), baseLabels...)
+		recordInflight(request.Context(), inflight, -1, baseLabels)
 		panicValue := recover()
 		result := requestResult(request.Context(), status)
 		statusClass := httpStatusClass(status)
@@ -144,7 +142,7 @@ func (h *handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	h.next.ServeHTTP(wrapped, request)
 }
 
-func addInflight(key inflightKey, delta int64) int64 {
+func recordInflight(ctx context.Context, key inflightKey, delta int64, labels []gizmetrics.Label) {
 	inflightMu.Lock()
 	defer inflightMu.Unlock()
 	current := processInflight[key] + delta
@@ -153,7 +151,9 @@ func addInflight(key inflightKey, delta int64) int64 {
 	} else {
 		processInflight[key] = current
 	}
-	return current
+	// Keep publication ordered with the process count. SetGauge only updates the
+	// in-process recorder, so holding this lock never waits for store I/O.
+	gizmetrics.SetGauge(ctx, RequestsInFlightMetric, float64(current), labels...)
 }
 
 func boundedDimension(value string) string {

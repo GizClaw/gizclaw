@@ -218,6 +218,15 @@ func TestWrapAggregatesInflightAcrossWrapperInstances(t *testing.T) {
 	<-entered
 
 	labels := map[string]string{"surface": "peer-http", "operation": "shared.operation", "method": http.MethodGet}
+	key := inflightKey{surface: "peer-http", operation: "shared.operation", method: http.MethodGet}
+	inflightMu.Lock()
+	current := processInflight[key]
+	inflightMu.Unlock()
+	if current != 2 {
+		close(release)
+		group.Wait()
+		t.Fatalf("process in-flight count = %d, want 2", current)
+	}
 	deadline := time.Now().Add(time.Second)
 	for !hasSampleValue(store.snapshot(), RequestsInFlightMetric, labels, 2) {
 		if time.Now().After(deadline) {
