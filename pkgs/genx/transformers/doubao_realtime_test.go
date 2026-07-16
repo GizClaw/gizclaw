@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"iter"
 	"strings"
@@ -108,8 +107,8 @@ func TestDoubaoRealtimeConfigSetsRealtimeSession(t *testing.T) {
 		WithDoubaoRealtimeLoudnessRate(6),
 		WithDoubaoRealtimeASRExtra(doubaospeech.RealtimeASRExtra{
 			EndSmoothWindowMS: 800,
-			EnableCustomVAD:   boolPtr(true),
-			EnableASRTwopass:  boolPtr(true),
+			EnableCustomVAD:   new(true),
+			EnableASRTwopass:  new(true),
 			Context: &doubaospeech.RealtimeASRContext{
 				Hotwords:     []doubaospeech.RealtimeHotword{{Word: "GizClaw"}},
 				CorrectWords: map[string]string{"吉斯克劳": "GizClaw"},
@@ -119,7 +118,7 @@ func TestDoubaoRealtimeConfigSetsRealtimeSession(t *testing.T) {
 			ExplicitDialect: "sichuan",
 			TTS20Model:      "expressive",
 			AIGCMetadata: &doubaospeech.RealtimeAIGCMetadata{
-				Enable:          boolPtr(true),
+				Enable:          new(true),
 				ContentProducer: "gizclaw",
 				ProduceID:       "produce-1",
 			},
@@ -130,7 +129,7 @@ func TestDoubaoRealtimeConfigSetsRealtimeSession(t *testing.T) {
 		WithDoubaoRealtimeCharacterManifest("manifest"),
 		WithDoubaoRealtimeDialogID("dialog-1"),
 		WithDoubaoRealtimeDialogExtra(doubaospeech.RealtimeDialogExtra{
-			EnableVolcWebsearch:          boolPtr(true),
+			EnableVolcWebsearch:          new(true),
 			VolcWebsearchType:            "web",
 			VolcWebsearchResultCount:     3,
 			VolcWebsearchNoResultMessage: "没有找到相关搜索结果。",
@@ -297,9 +296,8 @@ func TestDoubaoRealtimePushToTalkRejectsInvalidInputTransitions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			endASR := make(chan struct{})
 			session := &fakeDoubaoRealtimeSession{
-				beforeRecv: endASR,
-				endASR:     endASR,
-				events:     []*doubaospeech.RealtimeEvent{{Type: doubaospeech.EventSessionFinished}},
+				endASR:           endASR,
+				blockAfterEvents: make(chan struct{}),
 			}
 			tfr := NewDoubaoRealtime(nil,
 				WithDoubaoRealtimeInputFormat("pcm"),
@@ -352,6 +350,328 @@ func TestDoubaoPushToTalkStateLifecycleAndBargeIn(t *testing.T) {
 	}
 }
 
+func TestDoubaoRealtimePTTTurnCommitsLatestHypothesisBeforeAssistantOutput(t *testing.T) {
+	output := &recordingRealtimeOutput{}
+	turn := &doubaoRealtimePTTTurn{}
+	turn.begin(output, "turn-1", doubaoRealtimeAssistantLabel, doubaoRealtimePTTOutputLimit)
+	turn.updateHypothesis("partial")
+	turn.updateHypothesis("final")
+	if err := turn.pushAssistant(&genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: genx.Text("answer"),
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: doubaoRealtimeAssistantLabel},
+	}); err != nil {
+		t.Fatalf("pushAssistant() error = %v", err)
+	}
+	if err := turn.markASREnded(); err != nil {
+		t.Fatalf("markASREnded() error = %v", err)
+	}
+	if got := output.chunks(); len(got) != 0 {
+		t.Fatalf("output before input EOS = %#v, want none", got)
+	}
+	if err := turn.markInputEnded(); err != nil {
+		t.Fatalf("markInputEnded() error = %v", err)
+	}
+
+	chunks := output.chunks()
+	if len(chunks) != 3 {
+		t.Fatalf("output chunks = %d, want transcript, transcript EOS, assistant", len(chunks))
+	}
+	if text, ok := chunks[0].Part.(genx.Text); !ok || text != "final" {
+		t.Fatalf("committed transcript = %#v, want final snapshot", chunks[0])
+	}
+	if chunks[1].Ctrl == nil || !chunks[1].Ctrl.EndOfStream || chunks[1].Ctrl.Label != doubaoRealtimeTranscriptLabel {
+		t.Fatalf("second chunk = %#v, want transcript EOS", chunks[1])
+	}
+	if text, ok := chunks[2].Part.(genx.Text); !ok || text != "answer" {
+		t.Fatalf("assistant output = %#v, want retained answer", chunks[2])
+	}
+}
+
+func TestDoubaoRealtimeProviderLossDoesNotRepeatCommittedPTTTranscriptEOS(t *testing.T) {
+	tfr := NewDoubaoRealtime(nil)
+	runtime := newDoubaoRealtimeRuntime(tfr)
+	defer runtime.close()
+	output := &recordingRealtimeOutput{}
+	runtime.pttTurn.begin(output, "turn-1", doubaoRealtimeAssistantLabel, doubaoRealtimePTTOutputLimit)
+	runtime.pttTurn.updateHypothesis("final")
+	if err := runtime.pttTurn.markInputEnded(); err != nil {
+		t.Fatalf("markInputEnded() error = %v", err)
+	}
+	if err := runtime.pttTurn.markASREnded(); err != nil {
+		t.Fatalf("markASREnded() error = %v", err)
+	}
+	before := len(output.chunks())
+	runtime.providerLost(tfr, output, errors.New("provider lost"))
+	if got := len(output.chunks()); got != before {
+		t.Fatalf("output chunks after provider loss = %d, want unchanged %d", got, before)
+	}
+}
+
+func TestRealtimePTTOutputGateEnforcesOpusDurationLimit(t *testing.T) {
+	packet := []byte{0x98}
+	packetDuration := time.Duration(historyOpusPacketDurationMS(packet)) * time.Millisecond
+	if packetDuration <= 0 {
+		t.Fatalf("packet duration = %s, want positive", packetDuration)
+	}
+	chunk := func() *genx.MessageChunk {
+		return &genx.MessageChunk{
+			Role: genx.RoleModel,
+			Part: &genx.Blob{MIMEType: "audio/opus", Data: packet},
+			Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: doubaoRealtimeAssistantLabel},
+		}
+	}
+	belowOutput := &recordingRealtimeOutput{}
+	below := newRealtimePTTOutputGate(belowOutput, "turn-below", doubaoRealtimeAssistantLabel, 2*packetDuration)
+	if err := below.Push(chunk()); err != nil {
+		t.Fatalf("below-limit Push() error = %v", err)
+	}
+	if err := below.Commit(); err != nil {
+		t.Fatalf("below-limit Commit() error = %v", err)
+	}
+	if got := len(belowOutput.chunks()); got != 1 {
+		t.Fatalf("below-limit output chunks = %d, want 1", got)
+	}
+
+	output := &recordingRealtimeOutput{}
+	gate := newRealtimePTTOutputGate(output, "turn-1", doubaoRealtimeAssistantLabel, 2*packetDuration)
+	if err := gate.Push(chunk()); err != nil {
+		t.Fatalf("first Push() error = %v", err)
+	}
+	if err := gate.Push(chunk()); err != nil {
+		t.Fatalf("exact-limit Push() error = %v", err)
+	}
+	if err := gate.Push(chunk()); !errors.Is(err, errRealtimePTTOutputLimit) {
+		t.Fatalf("over-limit Push() error = %v, want output limit", err)
+	}
+	chunks := output.chunks()
+	if len(chunks) != 1 || chunks[0].Ctrl == nil || !chunks[0].Ctrl.EndOfStream || chunks[0].Ctrl.Error == "" {
+		t.Fatalf("limit output = %#v, want one error EOS", chunks)
+	}
+	if err := gate.Commit(); !errors.Is(err, errRealtimePTTOutputLimit) {
+		t.Fatalf("Commit() error = %v, want output limit", err)
+	}
+	if got := len(output.chunks()); got != 1 {
+		t.Fatalf("output chunks after Commit = %d, want 1", got)
+	}
+
+	nextOutput := &recordingRealtimeOutput{}
+	next := newRealtimePTTOutputGate(nextOutput, "turn-2", doubaoRealtimeAssistantLabel, 2*packetDuration)
+	if err := next.Push(chunk()); err != nil {
+		t.Fatalf("next-turn Push() error = %v", err)
+	}
+	if err := next.Commit(); err != nil {
+		t.Fatalf("next-turn Commit() error = %v", err)
+	}
+	if got := len(nextOutput.chunks()); got != 1 {
+		t.Fatalf("next-turn output chunks = %d, want 1", got)
+	}
+}
+
+func TestDoubaoRealtimeEOSIsLocalInRealtimeMode(t *testing.T) {
+	session := &fakeDoubaoRealtimeSession{blockAfterEvents: make(chan struct{})}
+	tfr := NewDoubaoRealtime(nil,
+		WithDoubaoRealtimeMode(DoubaoRealtimeModeRealtime),
+		WithDoubaoRealtimeInputFormat("pcm"),
+		WithDoubaoRealtimeInputTranscode(false),
+	)
+	input := &sliceRealtimeStream{chunks: []*genx.MessageChunk{
+		{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+	}}
+	if err := runDoubaoRealtimeProcessLoop(t, tfr, input, newBufferStream(8), session); err != nil {
+		t.Fatalf("processLoop() error = %v", err)
+	}
+	if got := session.endASRCount(); got != 0 {
+		t.Fatalf("EndASR calls = %d, want 0", got)
+	}
+	if got := len(session.audioFrames()); got != 1 {
+		t.Fatalf("SendAudio calls = %d, want only the client audio frame", got)
+	}
+}
+
+func TestDoubaoRealtimeASRInfoInterruptsPendingAssistantOnce(t *testing.T) {
+	eventsDrained := make(chan struct{})
+	allowEOF := make(chan struct{})
+	session := &fakeDoubaoRealtimeSession{
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventASREnded},
+			{Type: doubaospeech.EventASRInfo},
+			{Type: doubaospeech.EventASRInfo},
+		},
+		eventsDrained:    eventsDrained,
+		blockAfterEvents: make(chan struct{}),
+	}
+	tfr := NewDoubaoRealtime(nil, WithDoubaoRealtimeMode(DoubaoRealtimeModeRealtime))
+	input := &gatedRealtimeStream{gate: allowEOF}
+	output := newBufferStream(8)
+	errCh := make(chan error, 1)
+	go func() { errCh <- runDoubaoRealtimeProcessLoop(t, tfr, input, output, session) }()
+	select {
+	case <-eventsDrained:
+	case <-time.After(2 * time.Second):
+		t.Fatal("realtime events were not drained")
+	}
+	close(allowEOF)
+	if err := <-errCh; err != nil {
+		t.Fatalf("processLoop() error = %v", err)
+	}
+	if got := session.interruptCount(); got != 1 {
+		t.Fatalf("Interrupt calls = %d, want 1", got)
+	}
+}
+
+func TestDoubaoRealtimeSessionLoopRetriesAndReusesDialogID(t *testing.T) {
+	opener := &fakeDoubaoRealtimeOpener{results: []fakeDoubaoRealtimeOpenResult{
+		{err: errors.New("connect-1")},
+		{err: errors.New("connect-2")},
+		{session: &fakeDoubaoRealtimeSession{blockAfterEvents: make(chan struct{})}},
+	}}
+	tfr := NewDoubaoRealtime(nil,
+		withDoubaoRealtimeOpener(opener),
+		WithDoubaoRealtimeDialogID("dialog-1"),
+	)
+	tfr.retryInitial = time.Millisecond
+	tfr.retryMax = 2 * time.Millisecond
+	output, err := tfr.Transform(context.Background(), "", &sliceRealtimeStream{})
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	if chunks := drainRealtimeTestOutput(t, output); len(chunks) != 0 {
+		t.Fatalf("output = %#v, want none", chunks)
+	}
+	if got := opener.callCount(); got != 3 {
+		t.Fatalf("OpenSession calls = %d, want two retries then one session", got)
+	}
+	for i, dialogID := range opener.dialogIDs() {
+		if dialogID != "dialog-1" {
+			t.Fatalf("OpenSession call %d dialog ID = %q, want dialog-1", i+1, dialogID)
+		}
+	}
+}
+
+func TestDoubaoRealtimeSessionLoopReplacesFinishedSession(t *testing.T) {
+	opener := &fakeDoubaoRealtimeOpener{results: []fakeDoubaoRealtimeOpenResult{
+		{session: &fakeDoubaoRealtimeSession{events: []*doubaospeech.RealtimeEvent{{Type: doubaospeech.EventSessionFinished}}}},
+		{session: &fakeDoubaoRealtimeSession{blockAfterEvents: make(chan struct{})}},
+	}}
+	tfr := NewDoubaoRealtime(nil, withDoubaoRealtimeOpener(opener))
+	input := newBlockingRealtimeStream()
+	output, err := tfr.Transform(context.Background(), "", input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	if !opener.waitForCalls(2, 2*time.Second) {
+		t.Fatalf("OpenSession calls = %d, want replacement session", opener.callCount())
+	}
+	if err := input.CloseWithError(io.EOF); err != nil {
+		t.Fatalf("CloseWithError(input) error = %v", err)
+	}
+	if chunks := drainRealtimeTestOutput(t, output); len(chunks) != 0 {
+		t.Fatalf("output = %#v, want none", chunks)
+	}
+	if got := opener.callCount(); got != 2 {
+		t.Fatalf("OpenSession calls = %d, want replacement session", got)
+	}
+}
+
+func TestDoubaoRealtimeSessionLoopStopsRetryOnContextCancellation(t *testing.T) {
+	opener := &fakeDoubaoRealtimeOpener{results: []fakeDoubaoRealtimeOpenResult{
+		{err: errors.New("connect-1")},
+		{err: errors.New("connect-2")},
+		{err: errors.New("connect-3")},
+	}}
+	tfr := NewDoubaoRealtime(nil, withDoubaoRealtimeOpener(opener))
+	tfr.retryInitial = time.Millisecond
+	tfr.retryMax = time.Millisecond
+	ctx, cancel := context.WithCancel(context.Background())
+	output, err := tfr.Transform(ctx, "", newBlockingRealtimeStream())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	if !opener.waitForCalls(3, 2*time.Second) {
+		t.Fatalf("OpenSession calls = %d, want ongoing retries", opener.callCount())
+	}
+	cancel()
+	if _, err := output.Next(); !errors.Is(err, context.Canceled) {
+		t.Fatalf("output Next() error = %v, want context canceled", err)
+	}
+	calls := opener.callCount()
+	time.Sleep(5 * time.Millisecond)
+	if got := opener.callCount(); got != calls {
+		t.Fatalf("OpenSession calls after cancellation = %d, want stable %d", got, calls)
+	}
+}
+
+func TestDoubaoRealtimeDoesNotReplayAmbiguousAudioAfterReconnect(t *testing.T) {
+	first := &fakeDoubaoRealtimeSession{
+		blockAfterEvents: make(chan struct{}),
+		sendAudioErr:     errors.New("write failed after handoff"),
+		sendAudioErrAt:   1,
+	}
+	second := &fakeDoubaoRealtimeSession{blockAfterEvents: make(chan struct{})}
+	opener := &fakeDoubaoRealtimeOpener{results: []fakeDoubaoRealtimeOpenResult{{session: first}, {session: second}}}
+	tfr := NewDoubaoRealtime(nil,
+		withDoubaoRealtimeOpener(opener),
+		WithDoubaoRealtimeMode(DoubaoRealtimeModeRealtime),
+		WithDoubaoRealtimeInputFormat("pcm"),
+		WithDoubaoRealtimeInputTranscode(false),
+	)
+	input := &sliceRealtimeStream{chunks: []*genx.MessageChunk{
+		{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{2, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+	}}
+	output, err := tfr.Transform(context.Background(), "", input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	_ = drainRealtimeTestOutput(t, output)
+	if got := first.audioFrames(); len(got) != 1 || !bytes.Equal(got[0], []byte{1, 0}) {
+		t.Fatalf("first session audio = %v, want first frame attempt", got)
+	}
+	if got := second.audioFrames(); len(got) != 1 || !bytes.Equal(got[0], []byte{2, 0}) {
+		t.Fatalf("replacement session audio = %v, want only unread second frame", got)
+	}
+}
+
+func TestDoubaoRealtimePTTDiscardsFailedTurnRemainderAfterReconnect(t *testing.T) {
+	first := &fakeDoubaoRealtimeSession{
+		blockAfterEvents: make(chan struct{}),
+		sendAudioErr:     errors.New("provider lost"),
+		sendAudioErrAt:   1,
+	}
+	second := &fakeDoubaoRealtimeSession{blockAfterEvents: make(chan struct{})}
+	opener := &fakeDoubaoRealtimeOpener{results: []fakeDoubaoRealtimeOpenResult{{session: first}, {session: second}}}
+	tfr := NewDoubaoRealtime(nil,
+		withDoubaoRealtimeOpener(opener),
+		WithDoubaoRealtimeMode(DoubaoRealtimeModePushToTalk),
+		WithDoubaoRealtimeInputFormat("pcm"),
+		WithDoubaoRealtimeInputTranscode(false),
+	)
+	input := &sliceRealtimeStream{chunks: []*genx.MessageChunk{
+		{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{2, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+		{Ctrl: &genx.StreamCtrl{StreamID: "turn-2", BeginOfStream: true}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{3, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-2"}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-2", EndOfStream: true}},
+	}}
+	output, err := tfr.Transform(context.Background(), "", input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	_ = drainRealtimeTestOutput(t, output)
+	if got := second.audioFrames(); len(got) != 1 || !bytes.Equal(got[0], []byte{3, 0}) {
+		t.Fatalf("replacement session audio = %v, want only next turn frame", got)
+	}
+	if got := second.endASRCount(); got != 1 {
+		t.Fatalf("replacement EndASR calls = %d, want only next turn", got)
+	}
+}
+
 func TestDoubaoRealtimeMapsRealtimeEventsToStreamChunks(t *testing.T) {
 	session := &fakeDoubaoRealtimeSession{
 		events: []*doubaospeech.RealtimeEvent{
@@ -365,7 +685,10 @@ func TestDoubaoRealtimeMapsRealtimeEventsToStreamChunks(t *testing.T) {
 			{Type: doubaospeech.EventSessionFinished},
 		},
 	}
-	tfr := NewDoubaoRealtime(nil, WithDoubaoRealtimeFormat("pcm"))
+	tfr := NewDoubaoRealtime(nil,
+		WithDoubaoRealtimeMode(DoubaoRealtimeModeRealtime),
+		WithDoubaoRealtimeFormat("pcm"),
+	)
 	output := newBufferStream(16)
 
 	err := runDoubaoRealtimeProcessLoop(t, tfr, &sliceRealtimeStream{}, output, session)
@@ -388,13 +711,14 @@ func TestDoubaoRealtimeInterruptsPendingResponseBeforeTTS(t *testing.T) {
 	eventsDrained := make(chan struct{})
 	releaseEvents := make(chan struct{})
 	allowNextInput := make(chan struct{})
-	firstDrained := make(chan struct{})
+	firstAudioSent := make(chan struct{})
 	session := &fakeDoubaoRealtimeSession{
 		events: []*doubaospeech.RealtimeEvent{
 			{Type: doubaospeech.EventASRResponse, Text: "第一段"},
 			{Type: doubaospeech.EventASREnded},
 		},
-		beforeRecv:       firstDrained,
+		beforeRecv:       firstAudioSent,
+		firstAudioSent:   firstAudioSent,
 		eventsDrained:    eventsDrained,
 		blockAfterEvents: releaseEvents,
 	}
@@ -410,8 +734,7 @@ func TestDoubaoRealtimeInterruptsPendingResponseBeforeTTS(t *testing.T) {
 			{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0, 2, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
 			{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
 		},
-		gate:         allowNextInput,
-		firstDrained: firstDrained,
+		gate: allowNextInput,
 		rest: []*genx.MessageChunk{
 			{Ctrl: &genx.StreamCtrl{StreamID: "turn-2", BeginOfStream: true}},
 		},
@@ -422,12 +745,7 @@ func TestDoubaoRealtimeInterruptsPendingResponseBeforeTTS(t *testing.T) {
 	output := newBufferStream(16)
 	errCh := make(chan error, 1)
 	go func() {
-		next, err := tfr.processLoop(ctx, input, output, session)
-		if err == nil {
-			if next == nil || next.Ctrl == nil || next.Ctrl.StreamID != "turn-2" || !next.Ctrl.BeginOfStream {
-				err = fmt.Errorf("processLoop() next chunk = %#v, want turn-2 BOS", next)
-			}
-		}
+		_, err := tfr.processLoop(ctx, input, output, session)
 		output.Close()
 		errCh <- err
 	}()
@@ -493,10 +811,7 @@ func TestDoubaoRealtimePushToTalkBargeInWhileWaitingResponse(t *testing.T) {
 	output := newBufferStream(16)
 	errCh := make(chan error, 1)
 	go func() {
-		next, err := tfr.processLoop(ctx, input, output, session)
-		if err == nil && (next == nil || next.Ctrl == nil || next.Ctrl.StreamID != "turn-2" || !next.Ctrl.BeginOfStream) {
-			err = fmt.Errorf("processLoop() next chunk = %#v, want turn-2 BOS", next)
-		}
+		_, err := tfr.processLoop(ctx, input, output, session)
 		output.Close()
 		errCh <- err
 	}()
@@ -549,7 +864,11 @@ func TestDoubaoRealtimeBargeInPropagatesInterruptFailure(t *testing.T) {
 	defer cancel()
 	errCh := make(chan error, 1)
 	go func() {
-		_, err := tfr.processLoop(ctx, input, newBufferStream(8), session)
+		reader := newDoubaoRealtimeInputReader(input)
+		defer reader.Close()
+		runtime := newDoubaoRealtimeRuntime(tfr)
+		defer runtime.close()
+		err := tfr.processSession(ctx, reader, newBufferStream(8), session, runtime)
 		errCh <- err
 	}()
 	select {
@@ -639,6 +958,80 @@ func hasRealtimeInterruptedEOS(chunks []*genx.MessageChunk, streamID string, rol
 	return false
 }
 
+type recordingRealtimeOutput struct {
+	mu    sync.Mutex
+	items []*genx.MessageChunk
+}
+
+func (o *recordingRealtimeOutput) Push(chunk *genx.MessageChunk) error {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.items = append(o.items, chunk.Clone())
+	return nil
+}
+
+func (o *recordingRealtimeOutput) chunks() []*genx.MessageChunk {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	items := make([]*genx.MessageChunk, 0, len(o.items))
+	for _, chunk := range o.items {
+		items = append(items, chunk.Clone())
+	}
+	return items
+}
+
+type fakeDoubaoRealtimeOpenResult struct {
+	session doubaoRealtimeSession
+	err     error
+}
+
+type fakeDoubaoRealtimeOpener struct {
+	mu      sync.Mutex
+	results []fakeDoubaoRealtimeOpenResult
+	calls   int
+	dialogs []string
+}
+
+func (o *fakeDoubaoRealtimeOpener) OpenSession(_ context.Context, cfg *doubaospeech.RealtimeConfig) (doubaoRealtimeSession, error) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.calls++
+	if cfg == nil {
+		o.dialogs = append(o.dialogs, "")
+	} else {
+		o.dialogs = append(o.dialogs, cfg.Dialog.DialogID)
+	}
+	if len(o.results) == 0 {
+		return nil, errors.New("unexpected extra OpenSession call")
+	}
+	result := o.results[0]
+	o.results = o.results[1:]
+	return result.session, result.err
+}
+
+func (o *fakeDoubaoRealtimeOpener) callCount() int {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return o.calls
+}
+
+func (o *fakeDoubaoRealtimeOpener) dialogIDs() []string {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return append([]string(nil), o.dialogs...)
+}
+
+func (o *fakeDoubaoRealtimeOpener) waitForCalls(want int, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if o.callCount() >= want {
+			return true
+		}
+		time.Sleep(time.Millisecond)
+	}
+	return o.callCount() >= want
+}
+
 type fakeDoubaoRealtimeSession struct {
 	events           []*doubaospeech.RealtimeEvent
 	beforeRecv       <-chan struct{}
@@ -646,6 +1039,9 @@ type fakeDoubaoRealtimeSession struct {
 	eventsDrained    chan<- struct{}
 	blockAfterEvents <-chan struct{}
 	interruptErr     error
+	sendAudioErr     error
+	sendAudioErrAt   int
+	firstAudioSent   chan struct{}
 
 	mu                sync.Mutex
 	audio             [][]byte
@@ -653,7 +1049,10 @@ type fakeDoubaoRealtimeSession struct {
 	endCount          int
 	interrupts        int
 	closed            bool
+	closedCh          chan struct{}
 	endOnce           sync.Once
+	firstAudioOnce    sync.Once
+	closeOnce         sync.Once
 	eventsDrainedOnce sync.Once
 }
 
@@ -664,6 +1063,12 @@ func (s *fakeDoubaoRealtimeSession) SendAudio(ctx context.Context, audio []byte)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.audio = append(s.audio, append([]byte(nil), audio...))
+	if s.firstAudioSent != nil {
+		s.firstAudioOnce.Do(func() { close(s.firstAudioSent) })
+	}
+	if s.sendAudioErr != nil && len(s.audio) == s.sendAudioErrAt {
+		return s.sendAudioErr
+	}
 	return nil
 }
 
@@ -699,8 +1104,13 @@ func (s *fakeDoubaoRealtimeSession) Interrupt(context.Context) error {
 
 func (s *fakeDoubaoRealtimeSession) Recv() iter.Seq2[*doubaospeech.RealtimeEvent, error] {
 	return func(yield func(*doubaospeech.RealtimeEvent, error) bool) {
+		closed := s.closedSignal()
 		if s.beforeRecv != nil {
-			<-s.beforeRecv
+			select {
+			case <-s.beforeRecv:
+			case <-closed:
+				return
+			}
 		}
 		for _, event := range s.events {
 			if !yield(event, nil) {
@@ -713,16 +1123,30 @@ func (s *fakeDoubaoRealtimeSession) Recv() iter.Seq2[*doubaospeech.RealtimeEvent
 			})
 		}
 		if s.blockAfterEvents != nil {
-			<-s.blockAfterEvents
+			select {
+			case <-s.blockAfterEvents:
+			case <-closed:
+			}
 		}
 	}
 }
 
 func (s *fakeDoubaoRealtimeSession) Close() error {
+	closed := s.closedSignal()
+	s.closeOnce.Do(func() { close(closed) })
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.closed = true
 	return nil
+}
+
+func (s *fakeDoubaoRealtimeSession) closedSignal() chan struct{} {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closedCh == nil {
+		s.closedCh = make(chan struct{})
+	}
+	return s.closedCh
 }
 
 func (s *fakeDoubaoRealtimeSession) endASRCount() int {
@@ -745,8 +1169,4 @@ func (s *fakeDoubaoRealtimeSession) audioFrames() [][]byte {
 		out[i] = append([]byte(nil), s.audio[i]...)
 	}
 	return out
-}
-
-func boolPtr(value bool) *bool {
-	return &value
 }

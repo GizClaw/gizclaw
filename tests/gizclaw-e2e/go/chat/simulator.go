@@ -248,6 +248,7 @@ type conversationMode struct {
 
 const flowcraftSelfStartStreamID = "flowcraft-self-start"
 const assistantAudioASRMinRatio = 0.35
+const realtimeInputTailSilence = 1200 * time.Millisecond
 
 func (d *personaDriver) runRound(ctx context.Context, index int, mode conversationMode) (roundStats, error) {
 	stat := roundStats{Index: index}
@@ -269,6 +270,13 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 	}
 	if len(packets) == 0 {
 		return stat, fmt.Errorf("round %d: speech returned no opus audio packets", index)
+	}
+	sendPackets := packets
+	if mode.Realtime {
+		sendPackets, err = realtimePacketsWithTailSilence(packets)
+		if err != nil {
+			return stat, fmt.Errorf("round %d: prepare realtime tail silence: %w", index, err)
+		}
 	}
 
 	if mode.SkipInputASR {
@@ -296,7 +304,7 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 	sendDone := make(chan error, 1)
 	if mode.Realtime {
 		go func() {
-			sendDone <- d.transport.sendAudioTurn(ctx, streamID, packets)
+			sendDone <- d.transport.sendAudioTurn(ctx, streamID, sendPackets)
 		}()
 	} else {
 		if err := d.transport.sendAudioTurn(ctx, streamID, packets); err != nil {
@@ -647,6 +655,16 @@ func (d *personaDriver) runInterruptScenario(ctx context.Context, index int, mod
 	if len(firstPackets) == 0 || len(secondPackets) == 0 {
 		return stat, fmt.Errorf("interrupt test needs non-empty opus packets")
 	}
+	if mode.Realtime {
+		firstPackets, err = realtimePacketsWithTailSilence(firstPackets)
+		if err != nil {
+			return stat, fmt.Errorf("interrupt prepare first realtime tail silence: %w", err)
+		}
+		secondPackets, err = realtimePacketsWithTailSilence(secondPackets)
+		if err != nil {
+			return stat, fmt.Errorf("interrupt prepare second realtime tail silence: %w", err)
+		}
+	}
 	if d.reloadAgent != nil && index == 1 {
 		if err := d.reloadAgent(ctx); err != nil && !isAgentAlreadyRunning(err) {
 			return stat, fmt.Errorf("interrupt reload workspace: %w", err)
@@ -896,6 +914,21 @@ func (d *personaDriver) runInterruptScenario(ctx context.Context, index int, mod
 			}
 		}
 	}
+}
+
+func realtimePacketsWithTailSilence(packets [][]byte) ([][]byte, error) {
+	silence, err := opusPacketsFromPCM16LE(
+		silencePCM16Mono16K(realtimeInputTailSilence),
+		realtimeAutoSplitSampleRate,
+		realtimeAutoSplitChannels,
+	)
+	if err != nil {
+		return nil, err
+	}
+	out := make([][]byte, 0, len(packets)+len(silence))
+	out = append(out, packets...)
+	out = append(out, silence...)
+	return out, nil
 }
 
 func workspaceAudioStreamID(index int) string {

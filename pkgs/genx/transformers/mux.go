@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/buffer"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -70,13 +71,13 @@ func (m *Mux) get(pattern string) (genx.Transformer, error) {
 
 // bufferStream wraps a buffer.Buffer as a genx.Stream.
 type bufferStream struct {
-	buf      *buffer.Buffer[*genx.MessageChunk]
-	closed   bool
-	closeErr error
+	buf       *buffer.Buffer[*genx.MessageChunk]
+	done      chan struct{}
+	closeOnce sync.Once
 }
 
 func newBufferStream(size int) *bufferStream {
-	return &bufferStream{buf: buffer.N[*genx.MessageChunk](size)}
+	return &bufferStream{buf: buffer.N[*genx.MessageChunk](size), done: make(chan struct{})}
 }
 
 func (s *bufferStream) Next() (*genx.MessageChunk, error) {
@@ -91,24 +92,27 @@ func (s *bufferStream) Next() (*genx.MessageChunk, error) {
 }
 
 func (s *bufferStream) Close() error {
-	if !s.closed {
-		s.closed = true
+	s.closeOnce.Do(func() {
+		close(s.done)
 		s.buf.CloseWrite()
-	}
+	})
 	return nil
 }
 
 func (s *bufferStream) CloseWithError(err error) error {
-	if !s.closed {
-		s.closed = true
-		s.closeErr = err
+	s.closeOnce.Do(func() {
+		close(s.done)
 		s.buf.CloseWithError(err)
-	}
+	})
 	return nil
 }
 
 func (s *bufferStream) Push(chunk *genx.MessageChunk) error {
 	return s.buf.Add(chunk)
+}
+
+func (s *bufferStream) Done() <-chan struct{} {
+	return s.done
 }
 
 // streamToReader converts a genx.Stream of Text chunks to an io.Reader.

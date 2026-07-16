@@ -1,10 +1,12 @@
 package transformers
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
@@ -88,6 +90,287 @@ func (s *realtimeAssistantLifecycle) canPush(epoch uint64) bool {
 	return s.acceptsOutput() && s.currentEpoch() == epoch
 }
 
+type realtimeChunkOutput interface {
+	Push(*genx.MessageChunk) error
+}
+
+var errRealtimePTTOutputLimit = errors.New("realtime push-to-talk output audio limit exceeded")
+
+type realtimePTTOutputGate struct {
+	mu       sync.Mutex
+	output   realtimeChunkOutput
+	streamID string
+	label    string
+	limit    time.Duration
+
+	committed        bool
+	terminal         bool
+	retained         []*genx.MessageChunk
+	retainedDuration time.Duration
+	limitErr         error
+}
+
+func newRealtimePTTOutputGate(output realtimeChunkOutput, streamID, label string, limit time.Duration) *realtimePTTOutputGate {
+	streamID = strings.TrimSpace(streamID)
+	if streamID == "" {
+		streamID = "audio"
+	}
+	return &realtimePTTOutputGate{
+		output:   output,
+		streamID: streamID,
+		label:    strings.TrimSpace(label),
+		limit:    limit,
+	}
+}
+
+func (g *realtimePTTOutputGate) Push(chunk *genx.MessageChunk) error {
+	if g == nil || chunk == nil {
+		return nil
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.terminal {
+		return nil
+	}
+	if g.committed {
+		return g.output.Push(chunk)
+	}
+
+	duration := realtimeAssistantOpusDuration(chunk, g.label)
+	if g.limit > 0 && duration > 0 && duration > g.limit-g.retainedDuration {
+		g.retained = nil
+		g.retainedDuration = 0
+		g.terminal = true
+		g.limitErr = fmt.Errorf("%w for StreamID %q (limit %s)", errRealtimePTTOutputLimit, g.streamID, g.limit)
+		if err := g.output.Push(realtimePTTOutputLimitChunk(g.streamID, g.label, g.limitErr)); err != nil {
+			return err
+		}
+		return g.limitErr
+	}
+
+	g.retainedDuration += duration
+	g.retained = append(g.retained, chunk.Clone())
+	return nil
+}
+
+func (g *realtimePTTOutputGate) Commit() error {
+	if g == nil {
+		return nil
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.limitErr != nil {
+		return g.limitErr
+	}
+	if g.terminal || g.committed {
+		return nil
+	}
+	for _, chunk := range g.retained {
+		if err := g.output.Push(chunk); err != nil {
+			g.terminal = true
+			g.retained = nil
+			g.retainedDuration = 0
+			return err
+		}
+	}
+	g.retained = nil
+	g.retainedDuration = 0
+	g.committed = true
+	return nil
+}
+
+func (g *realtimePTTOutputGate) Discard() {
+	if g == nil {
+		return
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.committed {
+		return
+	}
+	g.terminal = true
+	g.retained = nil
+	g.retainedDuration = 0
+}
+
+func realtimeAssistantOpusDuration(chunk *genx.MessageChunk, label string) time.Duration {
+	if chunk == nil || chunk.Role != genx.RoleModel || chunk.Ctrl == nil || chunk.Ctrl.Label != label {
+		return 0
+	}
+	blob, ok := chunk.Part.(*genx.Blob)
+	if !ok || blob == nil || len(blob.Data) == 0 || baseAudioMIME(blob.MIMEType) != "audio/opus" {
+		return 0
+	}
+	return time.Duration(historyOpusPacketDurationMS(blob.Data)) * time.Millisecond
+}
+
+func realtimePTTOutputLimitChunk(streamID, label string, err error) *genx.MessageChunk {
+	errText := ""
+	if err != nil {
+		errText = err.Error()
+	}
+	return &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Name: label,
+		Ctrl: &genx.StreamCtrl{
+			StreamID:    streamID,
+			Label:       label,
+			EndOfStream: true,
+			Error:       errText,
+		},
+	}
+}
+
+type doubaoRealtimePTTTurn struct {
+	mu sync.Mutex
+
+	active       bool
+	inputEnded   bool
+	asrEnded     bool
+	committed    bool
+	streamID     string
+	hypothesis   string
+	output       realtimeChunkOutput
+	assistantOut *realtimePTTOutputGate
+}
+
+func (t *doubaoRealtimePTTTurn) begin(output realtimeChunkOutput, streamID, assistantLabel string, limit time.Duration) {
+	if t == nil {
+		return
+	}
+	streamID = strings.TrimSpace(streamID)
+	if streamID == "" {
+		streamID = "audio"
+	}
+	t.mu.Lock()
+	previous := t.assistantOut
+	t.active = true
+	t.inputEnded = false
+	t.asrEnded = false
+	t.committed = false
+	t.streamID = streamID
+	t.hypothesis = ""
+	t.output = output
+	t.assistantOut = newRealtimePTTOutputGate(output, streamID, assistantLabel, limit)
+	t.mu.Unlock()
+	previous.Discard()
+}
+
+func (t *doubaoRealtimePTTTurn) updateHypothesis(text string) {
+	if t == nil {
+		return
+	}
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return
+	}
+	t.mu.Lock()
+	if t.active && !t.committed {
+		t.hypothesis = text
+	}
+	t.mu.Unlock()
+}
+
+func (t *doubaoRealtimePTTTurn) markInputEnded() error {
+	if t == nil {
+		return nil
+	}
+	t.mu.Lock()
+	if t.active {
+		t.inputEnded = true
+	}
+	t.mu.Unlock()
+	return t.commitIfReady()
+}
+
+func (t *doubaoRealtimePTTTurn) markASREnded() error {
+	if t == nil {
+		return nil
+	}
+	t.mu.Lock()
+	if t.active {
+		t.asrEnded = true
+	}
+	t.mu.Unlock()
+	return t.commitIfReady()
+}
+
+func (t *doubaoRealtimePTTTurn) commitIfReady() error {
+	t.mu.Lock()
+	if !t.active || !t.inputEnded || !t.asrEnded || t.committed {
+		t.mu.Unlock()
+		return nil
+	}
+	t.committed = true
+	streamID := t.streamID
+	text := t.hypothesis
+	output := t.output
+	assistantOut := t.assistantOut
+	t.mu.Unlock()
+
+	if strings.TrimSpace(text) != "" {
+		if err := output.Push(&genx.MessageChunk{
+			Role: genx.RoleUser,
+			Part: genx.Text(text),
+			Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeTranscriptLabel},
+		}); err != nil {
+			return err
+		}
+	}
+	if err := output.Push(&genx.MessageChunk{
+		Role: genx.RoleUser,
+		Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeTranscriptLabel, EndOfStream: true},
+	}); err != nil {
+		return err
+	}
+	return assistantOut.Commit()
+}
+
+func (t *doubaoRealtimePTTTurn) pushAssistant(chunk *genx.MessageChunk) error {
+	if t == nil {
+		return nil
+	}
+	t.mu.Lock()
+	if !t.active {
+		t.mu.Unlock()
+		return nil
+	}
+	output := t.assistantOut
+	t.mu.Unlock()
+	return output.Push(chunk)
+}
+
+func (t *doubaoRealtimePTTTurn) discard() (streamID string, active, committed bool) {
+	if t == nil {
+		return "", false, false
+	}
+	t.mu.Lock()
+	if !t.active {
+		t.mu.Unlock()
+		return "", false, false
+	}
+	streamID = t.streamID
+	committed = t.committed
+	output := t.assistantOut
+	t.active = false
+	t.committed = false
+	t.hypothesis = ""
+	t.assistantOut = nil
+	t.mu.Unlock()
+	output.Discard()
+	return streamID, true, committed
+}
+
+func (t *doubaoRealtimePTTTurn) stream() string {
+	if t == nil {
+		return ""
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.streamID
+}
+
 type doubaoPushToTalkPhase uint8
 
 const (
@@ -95,6 +378,7 @@ const (
 	doubaoPushToTalkCapturing
 	doubaoPushToTalkWaitingResponse
 	doubaoPushToTalkResponding
+	doubaoPushToTalkDiscarding
 )
 
 // doubaoPushToTalkState owns the user-turn lifecycle independently from the
@@ -110,6 +394,9 @@ type doubaoPushToTalkState struct {
 func (s *doubaoPushToTalkState) begin(streamID string) (bool, string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.phase == doubaoPushToTalkDiscarding {
+		return false, "", fmt.Errorf("doubao realtime push-to-talk received BOS before failed turn EOS")
+	}
 	if s.phase == doubaoPushToTalkCapturing {
 		return false, "", fmt.Errorf("doubao realtime push-to-talk received BOS while already capturing")
 	}
@@ -122,6 +409,38 @@ func (s *doubaoPushToTalkState) begin(streamID string) (bool, string, error) {
 	s.streamID = strings.TrimSpace(streamID)
 	s.ttsStarted = false
 	return bargeIn, interruptedStreamID, nil
+}
+
+func (s *doubaoPushToTalkState) abort() (string, bool, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.phase == doubaoPushToTalkIdle {
+		return "", false, false
+	}
+	streamID := s.streamID
+	wasCapturing := s.phase == doubaoPushToTalkCapturing
+	if wasCapturing {
+		s.phase = doubaoPushToTalkDiscarding
+	} else {
+		s.phase = doubaoPushToTalkIdle
+		s.streamID = ""
+	}
+	s.ttsStarted = false
+	return streamID, wasCapturing, true
+}
+
+func (s *doubaoPushToTalkState) discard(chunk *genx.MessageChunk) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.phase != doubaoPushToTalkDiscarding {
+		return false
+	}
+	if realtimeAudioInputEOS(chunk) {
+		s.phase = doubaoPushToTalkIdle
+		s.streamID = ""
+		s.ttsStarted = false
+	}
+	return true
 }
 
 func (s *doubaoPushToTalkState) requireCapturing(kind string) error {

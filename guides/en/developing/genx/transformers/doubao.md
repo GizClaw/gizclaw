@@ -51,6 +51,12 @@ The two Adapters can share GenX Stream, audio conversion, StreamID, and lifecycl
 | Realtime | Continuously sends audio, and the user utterance is divided by provider VAD; entering EOS only closes the local segment. |
 | Text | Sends text chunks, does not accept audio input. |
 
+The transformer owns the long-lived lifecycle. It starts connecting when `Transform` starts and reuses one healthy Realtime Dialogue session across input turns, BOS/EOS boundaries, and `Interrupt`. A provider terminal event, transport error, or session I/O error closes that provider session and starts serialized reconnect attempts with capped exponential backoff. Attempts continue until the transform context or output stream ends, and every replacement uses the same configured `DialogID`.
+
+Input already handed to a failed session is not replayed. Unread input remains behind the bounded stream backpressure and is consumed by the replacement session. In Push-to-Talk mode, provider loss invalidates the active turn: retained transcript and assistant output are discarded, the remaining chunks are consumed locally through that turn's audio EOS, and the next BOS starts a fresh turn.
+
+Realtime mode treats BOS, MIME EOS, and route EOS as local stream boundaries. They do not call `EndASR`, inject silence, commit audio, close the provider session, or trigger reconnect. Input EOF ends the transform and closes its current session without rebuilding it. Provider `ASRInfo` interrupts a pending or active assistant response at most once; duplicate speech-detection events and speech detection while no response is active are no-ops on the same healthy session.
+
 ### DoubaoRealtime Push-to-Talk state machine
 
 This section only describes `DoubaoRealtime`’s adaptation to the Realtime Dialogue API’s native Push-to-Talk mode. `DoubaoRealtimeDuplex` does not support Push-to-Talk and does not use this set of state machines.
@@ -69,6 +75,8 @@ stateDiagram-v2
 
 `DoubaoRealtime`’s Push-to-Talk adaptation must explicitly track the current turn: the Idle state cannot receive audio or EOS; each turn in Capturing can only accept EOS once; after EOS, it cannot continue to send audio to the same turn. When the new BOS arrives, if the previous assistant is still outputting, `Interrupt` of the Realtime Dialogue session should be called, and then the input boundary for the new turn should be established.
 
+Push-to-Talk retains the latest ASR hypothesis and all assistant output until both input audio EOS and provider `ASREnded` have occurred. It then publishes one final transcript plus transcript EOS before releasing assistant chunks in provider order. Retained assistant Opus is limited to two minutes of normalized packet duration; exceeding the limit discards the uncommitted turn, emits one assistant error EOS, and keeps the transformer available for later turns.
+
 All `OpenSession`, `SendAudio`, `SendText`, `EndASR`, interrupt/cancel and function-call output operations must use the context received by `Transform`. Cancel Transform must be able to terminate provider I/O, event receiver, input reader and output pacing, and cannot start `context.Background()` requests that are out of the calling life cycle.
 
 ## Public Realtime Pipeline
@@ -79,7 +87,9 @@ Realtime and Realtime Duplex can use different provider event adapters, but shou
 - per-stream audio input lifecycle;
 - StreamID, segment and response ID management;
 - assistant interruption epoch, BOS/EOS and output pacing;
-- pending input, session restart, context cancellation and error shutdown.Provider-specific event enum, session method and config conversion remain in their respective Adapters. Public media and stream lifecycle cannot be copied into two sets of realtime/duplex implementations.
+- pending input, session restart, context cancellation and error shutdown.
+
+Provider-specific event enum, session method and config conversion remain in their respective Adapters. Public media and stream lifecycle cannot be copied into two sets of realtime/duplex implementations.
 
 ## Change and regression constraints
 
