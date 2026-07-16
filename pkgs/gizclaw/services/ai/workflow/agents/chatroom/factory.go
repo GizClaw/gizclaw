@@ -81,6 +81,7 @@ type asrInputTransport struct {
 	mu          sync.Mutex
 	terminal    bool
 	terminalErr error
+	completing  chan struct{}
 }
 
 func newASRInputTransport(onConsumerError func(error)) *asrInputTransport {
@@ -113,13 +114,33 @@ func (t *asrInputTransport) Add(chunks ...*genx.MessageChunk) error {
 
 func (t *asrInputTransport) Done() error {
 	t.mu.Lock()
-	defer t.mu.Unlock()
 	if t.terminal {
-		return t.terminalErr
+		err := t.terminalErr
+		t.mu.Unlock()
+		return err
 	}
-	t.terminal = true
-	t.terminalErr = t.builder.Done(genx.Usage{})
-	return t.terminalErr
+	if t.completing != nil {
+		completing := t.completing
+		t.mu.Unlock()
+		<-completing
+		return t.failure()
+	}
+	completing := make(chan struct{})
+	t.completing = completing
+	t.mu.Unlock()
+
+	completionErr := t.builder.Done(genx.Usage{})
+
+	t.mu.Lock()
+	if !t.terminal {
+		t.terminal = true
+		t.terminalErr = completionErr
+	}
+	err := t.terminalErr
+	t.completing = nil
+	close(completing)
+	t.mu.Unlock()
+	return err
 }
 
 func (t *asrInputTransport) Abort(err error) error {
@@ -132,19 +153,20 @@ func (t *asrInputTransport) abort(err error) (bool, error) {
 		err = io.ErrClosedPipe
 	}
 	t.mu.Lock()
-	defer t.mu.Unlock()
 	if t.terminal {
+		t.mu.Unlock()
 		return false, nil
 	}
 	t.terminal = true
 	t.terminalErr = err
+	t.mu.Unlock()
 	return true, t.builder.Abort(err)
 }
 
 func (t *asrInputTransport) status() (bool, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	return t.terminal, t.terminalErr
+	return t.terminal || t.completing != nil, t.terminalErr
 }
 
 func (t *asrInputTransport) failure() error {
@@ -278,12 +300,7 @@ func (a agent) transcribeInput(ctx context.Context, input genx.Stream, output *g
 	var asrInput *asrInputTransport
 	var asr genx.Stream
 	var readDone chan error
-	var stopASRCancel func() bool
-	defer func() {
-		if stopASRCancel != nil {
-			stopASRCancel()
-		}
-	}()
+	var closeASROnce sync.Once
 	streamID := &lockedString{value: defaultInputStreamID}
 	textOpen := false
 	textStreamID := ""
@@ -313,13 +330,9 @@ func (a agent) transcribeInput(ctx context.Context, input genx.Stream, output *g
 			return err
 		}
 		asrStream := asr
-		stopASRCancel = context.AfterFunc(ctx, func() {
-			_ = asrStream.CloseWithError(ctx.Err())
-		})
 		done := make(chan error, 1)
 		readDone = done
 		go func() {
-			defer asrStream.Close()
 			err := readTranscript(ctx, asrStream, output, streamID)
 			if err != nil && ctx.Err() == nil {
 				_ = asrInput.Abort(err)
@@ -328,6 +341,21 @@ func (a agent) transcribeInput(ctx context.Context, input genx.Stream, output *g
 			done <- err
 		}()
 		return nil
+	}
+	drainTranscript := func() {
+		if readDone == nil {
+			return
+		}
+		done := readDone
+		readDone = nil
+		<-done
+	}
+	closeASR := func(err error) {
+		closeASROnce.Do(func() {
+			if asr != nil {
+				_ = asr.CloseWithError(err)
+			}
+		})
 	}
 	waitTranscript := func() error {
 		if readDone == nil {
@@ -339,9 +367,7 @@ func (a agent) transcribeInput(ctx context.Context, input genx.Stream, output *g
 		case err := <-done:
 			return err
 		case <-ctx.Done():
-			if asr != nil {
-				_ = asr.CloseWithError(ctx.Err())
-			}
+			closeASR(ctx.Err())
 			<-done
 			return ctx.Err()
 		}
@@ -350,11 +376,9 @@ func (a agent) transcribeInput(ctx context.Context, input genx.Stream, output *g
 		if asrInput != nil {
 			_ = asrInput.Abort(err)
 		}
-		if asr != nil {
-			_ = asr.CloseWithError(err)
-		}
+		closeASR(err)
 		_ = output.Abort(err)
-		_ = waitTranscript()
+		drainTranscript()
 	}
 
 	audioSeen := false

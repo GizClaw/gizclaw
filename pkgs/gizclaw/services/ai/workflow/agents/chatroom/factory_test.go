@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -449,6 +451,9 @@ func TestAgentTransformCancellationStopsASRPipeline(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("ASR transformer did not exit after cancellation")
 	}
+	if got := transformer.outputCloses.Load(); got != 1 {
+		t.Fatalf("ASR output close calls = %d, want 1", got)
+	}
 	if err := input.Add(&genx.MessageChunk{Part: genx.Text("late")}); !errors.Is(err, context.Canceled) {
 		t.Fatalf("input.Add() after cancellation error = %v, want context.Canceled", err)
 	}
@@ -541,6 +546,45 @@ func TestASRInputTransportConsumerCloseBeforeProducerDone(t *testing.T) {
 	}
 	if chunk, err := consumer.Next(); !isStreamDone(err) || chunk != nil {
 		t.Fatalf("consumer.Next() after Done = %#v, %v; want done", chunk, err)
+	}
+}
+
+func TestASRInputTransportAbortUnblocksPendingDone(t *testing.T) {
+	transport := newASRInputTransport(nil)
+	consumer := transport.Stream()
+	for range 64 {
+		if err := transport.Add(&genx.MessageChunk{Part: genx.Text("audio")}); err != nil {
+			t.Fatalf("transport.Add() error = %v", err)
+		}
+	}
+	done := make(chan error, 1)
+	go func() {
+		done <- transport.Done()
+	}()
+	deadline := time.Now().Add(time.Second)
+	for {
+		transport.mu.Lock()
+		completing := transport.completing != nil
+		transport.mu.Unlock()
+		if completing {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("transport.Done() did not enter completion")
+		}
+		runtime.Gosched()
+	}
+	want := errors.New("consumer stopped")
+	if err := consumer.CloseWithError(want); err != nil {
+		t.Fatalf("consumer.CloseWithError() error = %v", err)
+	}
+	select {
+	case err := <-done:
+		if !errors.Is(err, want) {
+			t.Fatalf("transport.Done() error = %v, want %v", err, want)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("transport.Done() remained blocked after consumer error")
 	}
 }
 
@@ -1000,9 +1044,10 @@ func (t *consumerErrorASRTransformer) Transform(_ context.Context, _ string, inp
 }
 
 type blockingASRTransformer struct {
-	ready    chan struct{}
-	inputErr chan error
-	done     chan struct{}
+	ready        chan struct{}
+	inputErr     chan error
+	done         chan struct{}
+	outputCloses atomic.Int32
 }
 
 func (t *blockingASRTransformer) Transform(_ context.Context, _ string, input genx.Stream) (genx.Stream, error) {
@@ -1024,7 +1069,22 @@ func (t *blockingASRTransformer) Transform(_ context.Context, _ string, input ge
 		}
 		_ = output.Done(genx.Usage{})
 	}()
-	return output.Stream(), nil
+	return &closeCountingStream{Stream: output.Stream(), closes: &t.outputCloses}, nil
+}
+
+type closeCountingStream struct {
+	genx.Stream
+	closes *atomic.Int32
+}
+
+func (s *closeCountingStream) Close() error {
+	s.closes.Add(1)
+	return s.Stream.Close()
+}
+
+func (s *closeCountingStream) CloseWithError(err error) error {
+	s.closes.Add(1)
+	return s.Stream.CloseWithError(err)
 }
 
 type realtimeASRTransformer struct {
