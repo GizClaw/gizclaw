@@ -118,45 +118,76 @@ func TestServerResourceACLRPC(t *testing.T) {
 	assertDeniedListsAreEmpty(t, env.ctx, denied)
 }
 
-func TestServerResourceCreateDoesNotGrantConcreteAdmin(t *testing.T) {
+func TestServerResourceCreatorOwnsConcreteResources(t *testing.T) {
 	env := newServerResourceHarness(t)
 	admin := serverResourceAdminClient(t, env)
 
-	workspaceName := "acl-create-only-workspace"
-	modelID := "acl-create-only-model"
-	credentialName := "acl-create-only-credential"
+	workspaceName := "acl-owner-workspace"
+	unownedWorkspaceName := "acl-unowned-workspace"
+	modelID := "acl-owner-model"
+	credentialName := "acl-owner-credential"
 	t.Cleanup(func() {
 		_, _ = admin.DeleteWorkspaceWithResponse(env.ctx, workspaceName)
+		_, _ = admin.DeleteWorkspaceWithResponse(env.ctx, unownedWorkspaceName)
 		_, _ = admin.DeleteModelWithResponse(env.ctx, modelID)
 		_, _ = admin.DeleteCredentialWithResponse(env.ctx, credentialName)
 	})
 	_, _ = admin.DeleteWorkspaceWithResponse(env.ctx, workspaceName)
+	_, _ = admin.DeleteWorkspaceWithResponse(env.ctx, unownedWorkspaceName)
 	_, _ = admin.DeleteModelWithResponse(env.ctx, modelID)
 	_, _ = admin.DeleteCredentialWithResponse(env.ctx, credentialName)
 
-	if _, err := env.peer.CreateWorkspace(env.ctx, "acl.create_only.workspace.create", rpcapi.WorkspaceCreateRequest{
+	created, err := admin.CreateWorkspaceWithResponse(env.ctx, adminhttp.WorkspaceUpsert{
+		Name:         unownedWorkspaceName,
+		WorkflowName: sharedWorkflow,
+	})
+	if err != nil || created.JSON200 == nil {
+		t.Fatalf("create unowned workspace: response=%#v error=%v", created, err)
+	}
+	if _, err := env.peer.DeleteWorkspace(env.ctx, "acl.owner.workspace.unowned.delete", rpcapi.WorkspaceDeleteRequest{Name: unownedWorkspaceName}); err == nil || !strings.Contains(err.Error(), "acl: denied") {
+		t.Fatalf("workspace.delete unowned error = %v", err)
+	}
+
+	if _, err := env.peer.CreateWorkspace(env.ctx, "acl.owner.workspace.create", rpcapi.WorkspaceCreateRequest{
 		Name:         workspaceName,
 		WorkflowName: sharedWorkflow,
 	}); err != nil {
-		t.Fatalf("workspace.create create-only: %v", err)
+		t.Fatalf("workspace.create owner: %v", err)
 	}
-	if _, err := env.peer.DeleteWorkspace(env.ctx, "acl.create_only.workspace.delete", rpcapi.WorkspaceDeleteRequest{Name: workspaceName}); err == nil || !strings.Contains(err.Error(), "acl: denied") {
-		t.Fatalf("workspace.delete create-only error = %v", err)
+	if _, err := env.peer.PutWorkspace(env.ctx, "acl.owner.workspace.put", rpcapi.WorkspacePutRequest{
+		Name: workspaceName,
+		Body: rpcapi.WorkspaceUpsert{Name: workspaceName, WorkflowName: sharedWorkflow},
+	}); err != nil {
+		t.Fatalf("workspace.put owner: %v", err)
 	}
-	if _, err := env.peer.CreateModel(env.ctx, "acl.create_only.model.create", rpcModel(modelID, "openai-main")); err != nil {
-		t.Fatalf("model.create create-only: %v", err)
+	if _, err := env.peer.DeleteWorkspace(env.ctx, "acl.owner.workspace.delete", rpcapi.WorkspaceDeleteRequest{Name: workspaceName}); err != nil {
+		t.Fatalf("workspace.delete owner: %v", err)
 	}
-	if _, err := env.peer.PutModel(env.ctx, "acl.create_only.model.put", rpcapi.ModelPutRequest{
+
+	if _, err := env.peer.CreateModel(env.ctx, "acl.owner.model.create", rpcModel(modelID, "openai-main")); err != nil {
+		t.Fatalf("model.create owner: %v", err)
+	}
+	if _, err := env.peer.PutModel(env.ctx, "acl.owner.model.put", rpcapi.ModelPutRequest{
 		Id:   modelID,
 		Body: rpcModel(modelID, "openai-main"),
-	}); err == nil || !strings.Contains(err.Error(), "acl: denied") {
-		t.Fatalf("model.put create-only error = %v", err)
+	}); err != nil {
+		t.Fatalf("model.put owner: %v", err)
 	}
-	if _, err := env.peer.CreateCredential(env.ctx, "acl.create_only.credential.create", rpcCredential(credentialName, "sk-create-only")); err != nil {
-		t.Fatalf("credential.create create-only: %v", err)
+	if _, err := env.peer.DeleteModel(env.ctx, "acl.owner.model.delete", rpcapi.ModelDeleteRequest{Id: modelID}); err != nil {
+		t.Fatalf("model.delete owner: %v", err)
 	}
-	if _, err := env.peer.DeleteCredential(env.ctx, "acl.create_only.credential.delete", rpcapi.CredentialDeleteRequest{Name: credentialName}); err == nil || !strings.Contains(err.Error(), "acl: denied") {
-		t.Fatalf("credential.delete create-only error = %v", err)
+
+	if _, err := env.peer.CreateCredential(env.ctx, "acl.owner.credential.create", rpcCredential(credentialName, "sk-created")); err != nil {
+		t.Fatalf("credential.create owner: %v", err)
+	}
+	if _, err := env.peer.PutCredential(env.ctx, "acl.owner.credential.put", rpcapi.CredentialPutRequest{
+		Name: credentialName,
+		Body: rpcCredential(credentialName, "sk-updated"),
+	}); err != nil {
+		t.Fatalf("credential.put owner: %v", err)
+	}
+	if _, err := env.peer.DeleteCredential(env.ctx, "acl.owner.credential.delete", rpcapi.CredentialDeleteRequest{Name: credentialName}); err != nil {
+		t.Fatalf("credential.delete owner: %v", err)
 	}
 }
 
