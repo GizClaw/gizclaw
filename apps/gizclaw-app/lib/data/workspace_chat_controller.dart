@@ -301,6 +301,7 @@ class WorkspaceChatController extends ChangeNotifier {
   ) async {
     var eosError = error;
     var requestRecovery = false;
+    _disableInputTrack();
     try {
       final track = inputTrack;
       if (track != null) {
@@ -325,7 +326,6 @@ class WorkspaceChatController extends ChangeNotifier {
     } catch (sendError) {
       _handleError(sendError, changeState: false);
     } finally {
-      _disableInputTrack();
       _activeStreamId = null;
       _activeAudioBaseline = null;
       recording = false;

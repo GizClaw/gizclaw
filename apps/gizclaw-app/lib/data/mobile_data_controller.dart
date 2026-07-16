@@ -138,6 +138,7 @@ class MobileDataController extends ChangeNotifier {
   WorkspaceChatController? _activeWorkspaceChat;
   Future<void>? _closeFuture;
   bool _closing = false;
+  bool _updatingConnectionProfile = false;
   bool _disposed = false;
   late MicrophoneStatus _observedMicrophoneStatus;
   final Map<String, ({String title, String workspaceName})> _petRouteContexts =
@@ -170,7 +171,8 @@ class MobileDataController extends ChangeNotifier {
     final previous = _observedMicrophoneStatus;
     final current = connection.microphoneStatus;
     _observedMicrophoneStatus = current;
-    if (!_closing &&
+    final recoverySuppressed = _closing || _updatingConnectionProfile;
+    if (!recoverySuppressed &&
         connectionState == MobileConnectionState.connected &&
         previous.availability == MicrophoneAvailability.ready &&
         current.availability == MicrophoneAvailability.unavailable) {
@@ -378,10 +380,15 @@ class MobileDataController extends ChangeNotifier {
     if (normalized == connection.profile.endpoint) return;
     _startGeneration += 1;
     await identityStore?.saveEndpoint(normalized);
-    _replaceActiveWorkspaceChat(null);
-    await connection.updateProfile(
-      connection.profile.copyWith(endpoint: normalized),
-    );
+    _updatingConnectionProfile = true;
+    try {
+      await _replaceActiveWorkspaceChat(null);
+      await connection.updateProfile(
+        connection.profile.copyWith(endpoint: normalized),
+      );
+    } finally {
+      _updatingConnectionProfile = false;
+    }
     await _stopWatchingServer();
     activeServerId = null;
     workflows = const [];
@@ -606,7 +613,7 @@ class MobileDataController extends ChangeNotifier {
   }
 
   Future<GizClawClient> _performReconnect() async {
-    _replaceActiveWorkspaceChat(null);
+    await _replaceActiveWorkspaceChat(null);
     connectionState = MobileConnectionState.connecting;
     notifyListeners();
     try {
@@ -869,7 +876,7 @@ class MobileDataController extends ChangeNotifier {
       await _loadActiveWorkspaceDocument(client);
     }
     if (workspaceName.isEmpty) {
-      _replaceActiveWorkspaceChat(null);
+      await _replaceActiveWorkspaceChat(null);
       notifyListeners();
       return;
     }
@@ -931,7 +938,7 @@ class MobileDataController extends ChangeNotifier {
       notifyListeners();
       return current;
     }
-    _replaceActiveWorkspaceChat(null);
+    await _replaceActiveWorkspaceChat(null);
     late final WorkspaceChatController chat;
     chat = WorkspaceChatController(
       workspaceName: workspaceName,
@@ -947,7 +954,7 @@ class MobileDataController extends ChangeNotifier {
       },
       onTransportClosed: recoverTransport,
     );
-    _replaceActiveWorkspaceChat(chat);
+    await _replaceActiveWorkspaceChat(chat);
     await chat.start(activate: false);
     notifyListeners();
     return chat;
@@ -984,17 +991,19 @@ class MobileDataController extends ChangeNotifier {
     }
     final reloaded = await client.reloadRunWorkspace();
     runWorkspaceState = reloaded.value;
-    _replaceActiveWorkspaceChat(null);
+    await _replaceActiveWorkspaceChat(null);
     await _installActiveWorkspaceChat(workspaceName);
     notifyListeners();
   }
 
-  void _replaceActiveWorkspaceChat(WorkspaceChatController? chat) {
+  Future<void> _replaceActiveWorkspaceChat(
+    WorkspaceChatController? chat,
+  ) async {
     if (identical(chat, _activeWorkspaceChat)) return;
     final previous = _activeWorkspaceChat;
-    previous?.releaseInputTrack();
-    _activeWorkspaceChat = chat;
+    await previous?.close();
     previous?.dispose();
+    _activeWorkspaceChat = chat;
   }
 
   Future<void> close() {

@@ -118,20 +118,38 @@ void main() {
     );
     addTearDown(harness.close);
     bool? trackEnabledAtBos;
-    harness.channel.onSend = (_) {
-      trackEnabledAtBos ??= harness.track.enabled;
+    bool? trackEnabledAtEos;
+    harness.channel.onSend = (bytes) {
+      final payload = decodeFrames(bytes).single.payload;
+      final event = jsonDecode(utf8.decode(payload)) as Map<String, dynamic>;
+      switch (event['type']) {
+        case 'bos':
+          trackEnabledAtBos = harness.track.enabled;
+        case 'eos':
+          trackEnabledAtEos = harness.track.enabled;
+      }
     };
 
     await harness.controller.startInput();
     expect(trackEnabledAtBos, isFalse);
     expect(harness.track.enabled, isTrue);
+    final eosGate = Completer<void>();
+    harness.channel.sendGate = eosGate.future;
+    final finish = harness.controller.finishInput();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(harness.track.enabled, isFalse);
+    expect(trackEnabledAtEos, isFalse);
+
+    eosGate.complete();
+    await finish;
+    harness.channel.sendGate = null;
     await Future.wait([
       harness.controller.finishInput(),
       harness.controller.finishInput(),
     ]);
 
     expect(_sentEventTypes(harness.channel), ['bos', 'eos']);
-    expect(harness.track.enabled, isFalse);
     await harness.controller.close();
     expect(harness.track.stopCalls, 0);
   });

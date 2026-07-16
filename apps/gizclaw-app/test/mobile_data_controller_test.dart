@@ -205,6 +205,37 @@ void main() {
     },
   );
 
+  test('suppresses microphone recovery during a server switch', () async {
+    final connection = _ProfileSwitchConnection(
+      profile: _profile('old.local:9820'),
+      client: _RunWorkspaceClient(),
+      serverId: 'server-a',
+    );
+    final controller = _RecoveryCountingMobileDataController(connection)
+      ..connectionState = MobileConnectionState.connected;
+    addTearDown(controller.close);
+
+    final switchServer = controller.updateServerEndpoint('new.local:9820');
+    await connection.updateStarted.future;
+    await Future<void>.delayed(Duration.zero);
+
+    expect(controller.recoveryCalls, 0);
+    expect(connection.connectCalls, 0);
+
+    connection.allowUpdate.complete();
+    await switchServer;
+    for (
+      var attempts = 0;
+      attempts < 20 && connection.connectCalls == 0;
+      attempts += 1
+    ) {
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    expect(controller.recoveryCalls, 0);
+    expect(connection.connectCalls, 1);
+  });
+
   test('does not retry a mutating RPC after a transport failure', () async {
     var requests = 0;
     var reconnects = 0;
@@ -710,6 +741,64 @@ class _EndedMicrophoneConnection extends GizClawConnectionController {
 
   @override
   Future<void> close() async {}
+}
+
+class _ProfileSwitchConnection extends _RefreshTestConnection {
+  _ProfileSwitchConnection({
+    required super.profile,
+    required super.client,
+    required super.serverId,
+  });
+
+  final updateStarted = Completer<void>();
+  final allowUpdate = Completer<void>();
+  MicrophoneStatus status = const MicrophoneStatus.ready();
+  bool connected = true;
+  int connectCalls = 0;
+
+  @override
+  bool get isConnected => connected;
+
+  @override
+  MicrophoneStatus get microphoneStatus => status;
+
+  @override
+  Future<void> updateProfile(GizClawConnectionProfile profile) async {
+    currentProfile = profile;
+    connected = false;
+    status = const MicrophoneStatus.unavailable();
+    notifyListeners();
+    updateStarted.complete();
+    await allowUpdate.future;
+  }
+
+  @override
+  Future<GizClawClient> connect() async {
+    connectCalls += 1;
+    connected = true;
+    status = const MicrophoneStatus.ready();
+    notifyListeners();
+    return currentClient;
+  }
+
+  @override
+  Future<void> close() async {}
+}
+
+class _RecoveryCountingMobileDataController extends MobileDataController {
+  _RecoveryCountingMobileDataController(_ProfileSwitchConnection connection)
+    : super(
+        database: AppDatabase.forTesting(NativeDatabase.memory()),
+        connectionController: connection,
+      );
+
+  int recoveryCalls = 0;
+
+  @override
+  Future<MicrophoneStatus> recoverMicrophone() async {
+    recoveryCalls += 1;
+    return const MicrophoneStatus.ready();
+  }
 }
 
 class _EndedMicrophoneController extends MobileDataController {
