@@ -2388,7 +2388,7 @@ export type StreamServerLogsData = {
     path?: never;
     query?: {
         /**
-         * GizClaw system-log filter. Use * or up to 32 AND-separated clauses: level:value, text:value, field:value, field!=value, field:*, or -field:*. Values are unquoted tokens or JSON string literals. Provider query syntax and metadata fields, wildcards inside values, OR, regex, and stream/kind/message overrides are not accepted.
+         * GizClaw system-log filter. Use * or up to 32 AND-separated clauses: level:value, text:value, field:value, field!=value, field:*, or -field:*. Values are unquoted tokens or JSON string literals; level names are normalized to uppercase. Provider query syntax and metadata fields, wildcards inside values, OR, regex, and stream/kind/message overrides are not accepted.
          */
         filter?: string;
         /**

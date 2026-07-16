@@ -32,7 +32,7 @@ See Volc TLS [CreateIndex](https://www.volcengine.com/docs/6470/112187), [query 
 
 The provider layout uses `id`, `stream`, `kind`, `level`, and `msg`, expands dotted attributes into nested `attributes` JSON, and stores the optional payload unchanged. Generic records use provider source `gizclaw` and filename `logstore`; process-log `source=gizclaw` and `path=slog` remain logical attributes. Record timestamps retain nanoseconds when available, while SearchLogs ranges and ordering use milliseconds.
 
-Queries use SearchLogs search expressions and provider Context, never SQL analysis. `Text` uses the key-value phrase form `msg:#"..."`; dynamic attribute field names are quoted before translation. Provider calls are capped at 30 seconds and honor shorter caller deadlines. Provider error bodies are not returned through the Store or Admin API. `Close` flushes the managed producer; the registry is its only owner.
+Queries use SearchLogs search expressions and provider Context, never SQL analysis. `Text` uses the key-value phrase form `msg:#"..."`; validated attribute names are emitted as JSON dotted paths such as `attributes.request_id`. Provider calls are capped at 30 seconds and honor shorter caller deadlines. Provider error bodies are not returned through the Store or Admin API. `Close` flushes the managed producer; the registry is its only owner.
 
 For `Streams=[system]` and `Kinds=[log]`, the driver also includes old records whose provider source is `gizclaw` and filename is `slog`. They participate in the same provider-side ordering and cursor instead of being fetched and merged separately. This is record compatibility only; the removed Server `log` configuration remains unsupported.
 

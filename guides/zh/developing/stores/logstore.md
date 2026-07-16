@@ -32,7 +32,7 @@ Operator-owned schema 和 search behavior 可参考 Volc TLS 的 [CreateIndex](h
 
 Provider layout 固定使用 `id`、`stream`、`kind`、`level`、`msg`，把 dotted attributes 展开为 nested `attributes` JSON，并原样保存可选 payload。Generic record 的 provider source 为 `gizclaw`、filename 为 `logstore`；process log 的 `source=gizclaw`、`path=slog` 仍是 logical attribute。Record timestamp 会保留可用的 nanoseconds，而 SearchLogs range 和 ordering 使用 milliseconds。
 
-查询使用 SearchLogs search expression 和 provider Context，不使用 SQL analysis。`Text` 使用 key-value phrase 形式 `msg:#"..."`，dynamic attribute field name 会在翻译时加引号。Provider call 最长 30 秒，并服从更短的 caller deadline；Store 和 Admin API 不返回 provider error body。`Close` 会 flush managed producer，且只有 registry 拥有它的生命周期。
+查询使用 SearchLogs search expression 和 provider Context，不使用 SQL analysis。`Text` 使用 key-value phrase 形式 `msg:#"..."`，已验证的 attribute name 以 `attributes.request_id` 这类 JSON dotted path 输出。Provider call 最长 30 秒，并服从更短的 caller deadline；Store 和 Admin API 不返回 provider error body。`Close` 会 flush managed producer，且只有 registry 拥有它的生命周期。
 
 当查询固定为 `Streams=[system]`、`Kinds=[log]` 时，driver 也会匹配 provider source 为 `gizclaw`、filename 为 `slog` 的旧记录。新旧记录共用 provider-side ordering 和 cursor，不会分别查询后再合并。这只是 record compatibility；已移除的 Server `log` 配置仍不兼容。
 

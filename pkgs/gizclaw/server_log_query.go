@@ -234,7 +234,7 @@ func parseServerLogFilter(value string) (parsedServerLogFilter, error) {
 				return parsedServerLogFilter{}, InvalidServerLogQuery("INVALID_LOG_QUERY", "level supports one equality clause")
 			}
 			levelSet = true
-			result.Severities = []string{decoded}
+			result.Severities = []string{strings.ToUpper(decoded)}
 		case "text":
 			if op != logstore.MatchEqual || raw == "*" || textSet {
 				return parsedServerLogFilter{}, InvalidServerLogQuery("INVALID_LOG_QUERY", "text supports one equality clause")

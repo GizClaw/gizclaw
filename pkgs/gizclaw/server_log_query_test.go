@@ -29,6 +29,10 @@ func TestParseServerLogFilter(t *testing.T) {
 	if len(filter.Severities) != 1 || filter.Severities[0] != "WARN" || filter.Text != "failed request" || len(filter.Matchers) != 3 {
 		t.Fatalf("filter = %+v", filter)
 	}
+	lowerLevel, err := parseServerLogFilter(`level:warn`)
+	if err != nil || len(lowerLevel.Severities) != 1 || lowerLevel.Severities[0] != "WARN" {
+		t.Fatalf("lowercase level filter = %+v, %v", lowerLevel, err)
+	}
 	for _, value := range []string{
 		`level!=WARN`, `message:x`, `stream:system`, `text:x OR text:y`, `field:foo*`,
 		`level:WARN AND level:ERROR`, `bad..field:x`, `field:"unterminated`,

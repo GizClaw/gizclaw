@@ -13,7 +13,7 @@ field:*
 -field:*
 ```
 
-A value is either a token without whitespace, quotes, or backslashes, or a JSON string literal; decoded values cannot contain wildcards. Fields follow the LogStore dotted-attribute grammar. `message`, `stream`, `kind`, and provider metadata/time fields are reserved. OR, regex, provider functions, and raw Volc expressions are rejected. Filters are limited to 4096 bytes, fields to 128 bytes, and decoded values to 1024 bytes.
+A value is either a token without whitespace, quotes, or backslashes, or a JSON string literal; decoded values cannot contain wildcards. Standard `level` names are normalized to the uppercase form emitted by `slog`. Fields follow the LogStore dotted-attribute grammar. `message`, `stream`, `kind`, and provider metadata/time fields are reserved. OR, regex, provider functions, and raw Volc expressions are rejected. Filters are limited to 4096 bytes, fields to 128 bytes, and decoded values to 1024 bytes.
 
 The adapter parses the complete filter into a structured `logstore.Query`. Returned cursors are GizClaw-owned outer cursors containing the normalized query and an opaque inner Store cursor; provider Context is never exposed. A continuation may send only the cursor and may change limit. Explicit repeated filter, time, or order fields must match the cursor or return `LOG_CURSOR_MISMATCH`.
 

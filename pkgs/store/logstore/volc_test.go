@@ -242,7 +242,7 @@ func TestBuildVolcQueryTranslatesAllStructuredOperators(t *testing.T) {
 	expression := buildVolcQuery(query)
 	for _, fragment := range []string{
 		`(stream:"chat" OR stream:"event")`, `kind:"created"`, `level:"WARN"`, `msg:#"failed \"request\""`,
-		`"attributes.http-method":"1"`, `("attributes.b":* AND NOT "attributes.b":"2")`, `"attributes.c":*`, `NOT "attributes.d":*`,
+		`attributes.http-method:"1"`, `(attributes.b:* AND NOT attributes.b:"2")`, `attributes.c:*`, `NOT attributes.d:*`,
 	} {
 		if !strings.Contains(expression, fragment) {
 			t.Errorf("query %q does not contain %q", expression, fragment)
@@ -281,7 +281,7 @@ func TestVolcQueryRejectsInvalidProviderPages(t *testing.T) {
 func TestVolcQueryNormalizesLegacyRecordAndNanoseconds(t *testing.T) {
 	client := &fakeVolcClient{response: &tls.SearchLogsResponse{Status: "complete", ListOver: true, Logs: []map[string]any{{
 		"__time__": int64(1000), "__time_ns__": int64(123), "__source__": "gizclaw", "__path__": "slog",
-		"level": "WARN", "msg": "legacy", "request.method": "GET",
+		"level": "WARN", "msg": "legacy", "request.method": "GET", "attributes": "legacy-value",
 	}}}}
 	store := &VolcStore{topicID: "topic", client: client, writer: &fakeVolcProducer{}}
 	query := validQuery()
@@ -294,7 +294,7 @@ func TestVolcQueryNormalizesLegacyRecordAndNanoseconds(t *testing.T) {
 	if record.Stream != "system" || record.Kind != "log" || record.ID != "" || record.Time.UnixNano() != time.UnixMilli(1000).UnixNano()+123 {
 		t.Fatalf("record = %+v", record)
 	}
-	if record.Attributes["source"] != "gizclaw" || record.Attributes["path"] != "slog" || record.Attributes["request.method"] != "GET" {
+	if record.Attributes["source"] != "gizclaw" || record.Attributes["path"] != "slog" || record.Attributes["request.method"] != "GET" || record.Attributes["attributes"] != "legacy-value" {
 		t.Fatalf("attributes = %+v", record.Attributes)
 	}
 }

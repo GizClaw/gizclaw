@@ -425,7 +425,7 @@ func buildVolcBranch(query volcBoundQuery, legacy bool) string {
 		clauses = append(clauses, "msg:#"+volcQuoted(query.Text))
 	}
 	for _, matcher := range query.Matchers {
-		field := volcQuoted("attributes." + matcher.Name)
+		field := "attributes." + matcher.Name
 		if legacy {
 			switch matcher.Name {
 			case "source":
@@ -433,7 +433,7 @@ func buildVolcBranch(query volcBoundQuery, legacy bool) string {
 			case "path":
 				field = "__path__"
 			default:
-				field = volcQuoted(matcher.Name)
+				field = matcher.Name
 			}
 		}
 		switch matcher.Op {
@@ -525,10 +525,11 @@ func recordFromVolc(raw map[string]any) (Record, error) {
 		Kind: firstVolcString(raw, "kind"), Severity: firstVolcString(raw, "level"), Message: firstVolcString(raw, "msg", "message"),
 		Attributes: make(map[string]string),
 	}
-	if record.Stream == "" && firstVolcString(raw, "__source__", "source") == "gizclaw" {
+	legacy := record.Stream == "" && firstVolcString(raw, "__source__", "source") == "gizclaw"
+	if legacy {
 		record.Stream, record.Kind = "system", "log"
 	}
-	if value, exists := raw["attributes"]; exists {
+	if value, exists := raw["attributes"]; exists && !legacy {
 		decoded, err := decodeVolcAttributes(value)
 		if err != nil {
 			return Record{}, err
@@ -537,7 +538,7 @@ func recordFromVolc(raw map[string]any) (Record, error) {
 		if err := validateAttributes(record.Attributes); err != nil {
 			return Record{}, fmt.Errorf("attributes: %w", err)
 		}
-	} else {
+	} else if legacy {
 		keys := make([]string, 0, len(raw))
 		for key := range raw {
 			if !reservedVolcField(key) && ValidateAttributeName(key) == nil {
