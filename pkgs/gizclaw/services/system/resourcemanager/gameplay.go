@@ -127,12 +127,10 @@ func (m *Manager) applyGameDef(ctx context.Context, resource apitypes.Resource) 
 		same, err := semanticEqual(
 			struct {
 				Spec apitypes.GameDefSpec `json:"spec"`
-				Icon *apitypes.Icon       `json:"icon,omitempty"`
-			}{Spec: existing.Spec, Icon: existing.Icon},
+			}{Spec: existing.Spec},
 			struct {
 				Spec apitypes.GameDefSpec `json:"spec"`
-				Icon *apitypes.Icon       `json:"icon,omitempty"`
-			}{Spec: item.Spec, Icon: item.Icon},
+			}{Spec: item.Spec},
 		)
 		if err != nil {
 			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
@@ -382,7 +380,7 @@ func badgeDefUpsert(resource apitypes.BadgeDefResource) adminhttp.BadgeDefUpsert
 }
 
 func gameDefUpsert(resource apitypes.GameDefResource) adminhttp.GameDefUpsert {
-	return adminhttp.GameDefUpsert{Id: resource.Metadata.Name, Icon: resource.Icon, Spec: resource.Spec}
+	return adminhttp.GameDefUpsert{Id: resource.Metadata.Name, Spec: resource.Spec}
 }
 
 func resourceFromGameRuleset(item apitypes.GameRuleset) (apitypes.Resource, error) {

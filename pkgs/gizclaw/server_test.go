@@ -100,6 +100,48 @@ func TestServerInitKeepsLegacyPeerPrefixWithMetricsStore(t *testing.T) {
 	}
 }
 
+func TestServerInitKeepsLegacyPeerPrefixWithObjectStores(t *testing.T) {
+	tests := []struct {
+		name      string
+		configure func(*Server, objectstore.ObjectStore)
+	}{
+		{name: "agent host", configure: func(server *Server, store objectstore.ObjectStore) { server.AgentHostStore = store }},
+		{name: "friend group message", configure: func(server *Server, store objectstore.ObjectStore) { server.FriendGroupMessageAssets = store }},
+		{name: "gameplay", configure: func(server *Server, store objectstore.ObjectStore) { server.GameplayAssets = store }},
+		{name: "peer", configure: func(server *Server, store objectstore.ObjectStore) { server.PeerAssets = store }},
+		{name: "workspace", configure: func(server *Server, store objectstore.ObjectStore) { server.WorkspaceAssets = store }},
+		{name: "workflow", configure: func(server *Server, store objectstore.ObjectStore) { server.WorkflowAssets = store }},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			keyPair, err := giznet.GenerateKeyPair()
+			if err != nil {
+				t.Fatalf("GenerateKeyPair() error = %v", err)
+			}
+			baseStore := kv.NewMemory(nil)
+			server := &Server{LocalStatic: *keyPair, PeerStore: baseStore}
+			tc.configure(server, objectstore.Dir(t.TempDir()))
+			if err := server.init(); err != nil {
+				t.Fatalf("init() error = %v", err)
+			}
+
+			peerKeyPair, err := giznet.GenerateKeyPair()
+			if err != nil {
+				t.Fatalf("GenerateKeyPair(peer) error = %v", err)
+			}
+			if _, err := server.manager.Peers.EnsureConnectedPeer(context.Background(), peerKeyPair.Public); err != nil {
+				t.Fatalf("EnsureConnectedPeer() error = %v", err)
+			}
+			if _, err := baseStore.Get(context.Background(), kv.Key{"peers", "by-pubkey", peerKeyPair.Public.String()}); err != nil {
+				t.Fatalf("prefixed peer key missing: %v", err)
+			}
+			if _, err := baseStore.Get(context.Background(), kv.Key{"by-pubkey", peerKeyPair.Public.String()}); !errors.Is(err, kv.ErrNotFound) {
+				t.Fatalf("root peer key error = %v, want ErrNotFound", err)
+			}
+		})
+	}
+}
+
 func TestServerInitWiresDefaultPeerView(t *testing.T) {
 	keyPair, err := giznet.GenerateKeyPair()
 	if err != nil {

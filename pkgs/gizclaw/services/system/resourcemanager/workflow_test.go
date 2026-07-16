@@ -128,6 +128,47 @@ func TestApplyWorkflowUnchangedSkipsPut(t *testing.T) {
 	}
 }
 
+func TestApplyWorkflowIgnoresOwnerManagedIcon(t *testing.T) {
+	workflows := newFakeWorkflows()
+	workflows.items["workflow"] = mustWorkflow(t, `{
+		"name": "workflow",
+		"icon": {"png": "workflow/icon.png"},
+		"spec": {"driver": "flowcraft", "flowcraft": {"prompt": "hello"}}
+	}`)
+	manager := New(Services{Workflows: workflows})
+
+	unchanged, err := manager.Apply(context.Background(), mustResource(t, `{
+		"apiVersion": "gizclaw.admin/v1alpha1",
+		"kind": "Workflow",
+		"metadata": {"name": "workflow"},
+		"spec": {"driver": "flowcraft", "flowcraft": {"prompt": "hello"}}
+	}`))
+	if err != nil {
+		t.Fatalf("Apply without icon returned error: %v", err)
+	}
+	if unchanged.Action != apitypes.ApplyActionUnchanged || workflows.putCount != 0 {
+		t.Fatalf("Apply without icon = %#v, putCount = %d", unchanged, workflows.putCount)
+	}
+
+	updated, err := manager.Apply(context.Background(), mustResource(t, `{
+		"apiVersion": "gizclaw.admin/v1alpha1",
+		"kind": "Workflow",
+		"metadata": {"name": "workflow"},
+		"icon": {"png": "caller-controlled/icon.png"},
+		"spec": {"driver": "flowcraft", "flowcraft": {"prompt": "updated"}}
+	}`))
+	if err != nil {
+		t.Fatalf("Apply with projected icon returned error: %v", err)
+	}
+	if updated.Action != apitypes.ApplyActionUpdated || workflows.putCount != 1 {
+		t.Fatalf("Apply with spec update = %#v, putCount = %d", updated, workflows.putCount)
+	}
+	icon := workflows.items["workflow"].Icon
+	if icon == nil || icon.Png == nil || *icon.Png != "workflow/icon.png" {
+		t.Fatalf("stored icon = %#v, want owner-managed projection", icon)
+	}
+}
+
 func TestApplyWorkflowNormalizesToolkitPolicyBeforeCompare(t *testing.T) {
 	workflows := newFakeWorkflows()
 	workflows.items["workflow"] = mustWorkflow(t, `{
@@ -285,6 +326,8 @@ func (f *fakeWorkflows) PutWorkflow(_ context.Context, request adminhttp.PutWork
 		return adminhttp.PutWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
 	}
 	f.putCount++
-	f.items[string(request.Name)] = *request.Body
-	return adminhttp.PutWorkflow200JSONResponse(*request.Body), nil
+	item := *request.Body
+	item.Icon = f.items[string(request.Name)].Icon
+	f.items[string(request.Name)] = item
+	return adminhttp.PutWorkflow200JSONResponse(item), nil
 }

@@ -158,6 +158,48 @@ func TestApplyWorkspaceUnchangedSkipsPut(t *testing.T) {
 	}
 }
 
+func TestApplyWorkspaceIgnoresOwnerManagedIcon(t *testing.T) {
+	iconName := "demo/icon.png"
+	workspaces := newFakeWorkspaces()
+	workspaces.items["demo"] = apitypes.Workspace{
+		Icon:         &apitypes.Icon{Png: &iconName},
+		Name:         "demo",
+		WorkflowName: "workflow",
+	}
+	manager := New(Services{Workspaces: workspaces})
+
+	unchanged, err := manager.Apply(context.Background(), mustResource(t, `{
+		"apiVersion": "gizclaw.admin/v1alpha1",
+		"kind": "Workspace",
+		"metadata": {"name": "demo"},
+		"spec": {"workflow_name": "workflow"}
+	}`))
+	if err != nil {
+		t.Fatalf("Apply without icon returned error: %v", err)
+	}
+	if unchanged.Action != apitypes.ApplyActionUnchanged || workspaces.putCount != 0 {
+		t.Fatalf("Apply without icon = %#v, putCount = %d", unchanged, workspaces.putCount)
+	}
+
+	updated, err := manager.Apply(context.Background(), mustResource(t, `{
+		"apiVersion": "gizclaw.admin/v1alpha1",
+		"kind": "Workspace",
+		"metadata": {"name": "demo"},
+		"icon": {"png": "caller-controlled/icon.png"},
+		"spec": {"workflow_name": "updated-workflow"}
+	}`))
+	if err != nil {
+		t.Fatalf("Apply with projected icon returned error: %v", err)
+	}
+	if updated.Action != apitypes.ApplyActionUpdated || workspaces.putCount != 1 {
+		t.Fatalf("Apply with spec update = %#v, putCount = %d", updated, workspaces.putCount)
+	}
+	icon := workspaces.items["demo"].Icon
+	if icon == nil || icon.Png == nil || *icon.Png != iconName {
+		t.Fatalf("stored icon = %#v, want owner-managed projection", icon)
+	}
+}
+
 func TestApplyWorkspaceNormalizesToolkitPolicyBeforeCompare(t *testing.T) {
 	toolIDs := []string{"system.mode.switch", "system.music.play"}
 	workspaces := newFakeWorkspaces()
@@ -296,9 +338,11 @@ func (f *fakeWorkspaces) PutWorkspace(_ context.Context, request adminhttp.PutWo
 	}
 	f.putCount++
 	body := *request.Body
+	previous := f.items[string(request.Name)]
 	now := time.Now().UTC()
 	item := apitypes.Workspace{
 		CreatedAt:    now,
+		Icon:         previous.Icon,
 		Name:         body.Name,
 		Parameters:   body.Parameters,
 		System:       new(false),

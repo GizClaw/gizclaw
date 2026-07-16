@@ -316,7 +316,6 @@ func (s *Server) init() error {
 
 	legacySharedStore := s.CredentialStore == nil &&
 		s.FirmwareStore == nil &&
-		s.AgentHostStore == nil &&
 		s.MiniMaxTenantStore == nil &&
 		s.VolcTenantStore == nil &&
 		s.ModelStore == nil &&
@@ -335,15 +334,10 @@ func (s *Server) init() error {
 		s.FriendGroupMemberStore == nil &&
 		s.FriendGroupBelongStore == nil &&
 		s.FriendGroupMessageStore == nil &&
-		s.FriendGroupMessageAssets == nil &&
 		s.GameRulesetStore == nil &&
 		s.PetDefStore == nil &&
 		s.BadgeDefStore == nil &&
 		s.GameDefStore == nil &&
-		s.GameplayAssets == nil &&
-		s.PeerAssets == nil &&
-		s.WorkspaceAssets == nil &&
-		s.WorkflowAssets == nil &&
 		s.GameplayDB == nil &&
 		s.FriendGroupMessageDefaultTTL == 0 &&
 		s.FriendGroupMessageMaxTTL == 0 &&
