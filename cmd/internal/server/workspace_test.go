@@ -406,12 +406,12 @@ func TestForceServeReturnsWorkspaceLoadError(t *testing.T) {
 	}
 }
 
-func TestServeContextClosesLoggerOnStartupFailure(t *testing.T) {
+func TestServeContextUsesBootstrapLoggerOnStoreStartupFailure(t *testing.T) {
 	workspace := t.TempDir()
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), []byte(`
 listen: 127.0.0.1:0
 endpoint: 127.0.0.1:9820
-log:
+system_log:
   level: debug
 stores:
   bad:
@@ -424,31 +424,20 @@ peers:
 	}
 
 	installed := false
-	closed := false
-	closeErr := errors.New("close logger")
-	restoreLoggingInstaller(t, func(cfg logging.Config) (func() error, error) {
+	restoreLoggingInstaller(t, func(cfg logging.Config, _ ...logging.StoreResolver) (func() error, error) {
 		installed = true
 		if cfg.Level != "debug" {
 			t.Fatalf("log config = %+v, want debug", cfg)
 		}
-		return func() error {
-			closed = true
-			return closeErr
-		}, nil
+		return func() error { return nil }, nil
 	})
 
 	err := ServeContext(context.Background(), workspace, ServeOptions{Force: true})
 	if err == nil {
 		t.Fatal("ServeContext should fail when New cannot build stores")
 	}
-	if !errors.Is(err, closeErr) {
-		t.Fatalf("ServeContext error = %v, want logger cleanup error", err)
-	}
-	if !installed {
-		t.Fatal("logger was not installed before startup work")
-	}
-	if !closed {
-		t.Fatal("logger cleanup was not called on startup failure")
+	if installed {
+		t.Fatal("configured logger was installed before stores were available")
 	}
 }
 
@@ -467,7 +456,7 @@ stores:
 
 	installed := make(chan struct{})
 	closed := make(chan struct{})
-	restoreLoggingInstaller(t, func(logging.Config) (func() error, error) {
+	restoreLoggingInstaller(t, func(logging.Config, ...logging.StoreResolver) (func() error, error) {
 		close(installed)
 		return func() error {
 			close(closed)
@@ -502,7 +491,7 @@ stores:
 	}
 }
 
-func restoreLoggingInstaller(t *testing.T, fn func(logging.Config) (func() error, error)) {
+func restoreLoggingInstaller(t *testing.T, fn func(logging.Config, ...logging.StoreResolver) (func() error, error)) {
 	t.Helper()
 	old := installConfiguredLogger
 	installConfiguredLogger = fn

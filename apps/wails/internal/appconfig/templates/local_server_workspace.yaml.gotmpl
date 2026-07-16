@@ -1,0 +1,65 @@
+identity:
+  private-key: {{ quote .PrivateKey }}
+listen: {{ quote .Listen }}
+endpoint: {{ quote .Endpoint }}
+serve-to-clients: {{ .ServeToClients }}
+{{ if .AdminPublicKey }}
+admin-public-key: {{ quote .AdminPublicKey }}
+{{ end }}
+system_log:
+  level: info
+  sinks:
+    - kind: stderr
+storage:
+  local-kv:
+    kind: keyvalue
+    badger:
+      dir: data/kv
+  local-files:
+    kind: objectstore
+    fs:
+      dir: data/objects
+  agenthost-files:
+    kind: objectstore
+    fs:
+      dir: data/agenthost
+  acl-db:
+    kind: sql
+    sqlite:
+      dir: data/acl.sqlite
+  history-db:
+    kind: sql
+    sqlite:
+      dir: data/history.sqlite
+  gameplay-db:
+    kind: sql
+    sqlite:
+      dir: data/gameplay.sqlite
+stores:
+  peers: {kind: keyvalue, storage: local-kv, prefix: peers}
+  credentials: {kind: keyvalue, storage: local-kv, prefix: credentials}
+  firmwares: {kind: keyvalue, storage: local-kv, prefix: firmwares}
+  minimax-tenants: {kind: keyvalue, storage: local-kv, prefix: minimax-tenants}
+  voices: {kind: keyvalue, storage: local-kv, prefix: voices}
+  workspaces: {kind: keyvalue, storage: local-kv, prefix: workspaces}
+  workflows: {kind: keyvalue, storage: local-kv, prefix: workflows}
+  game-rulesets: {kind: keyvalue, storage: local-kv, prefix: game-rulesets}
+  pet-defs: {kind: keyvalue, storage: local-kv, prefix: pet-defs}
+  badge-defs: {kind: keyvalue, storage: local-kv, prefix: badge-defs}
+  game-defs: {kind: keyvalue, storage: local-kv, prefix: game-defs}
+  contacts: {kind: keyvalue, storage: local-kv, prefix: contacts}
+  friend-invite-tokens: {kind: keyvalue, storage: local-kv, prefix: friend-invite-tokens}
+  friends: {kind: keyvalue, storage: local-kv, prefix: friends}
+  friend-groups: {kind: keyvalue, storage: local-kv, prefix: friend-groups}
+  friend-group-invite-tokens: {kind: keyvalue, storage: local-kv, prefix: friend-group-invite-tokens}
+  friend-group-members: {kind: keyvalue, storage: local-kv, prefix: friend-group-members}
+  friend-group-belongs: {kind: keyvalue, storage: local-kv, prefix: friend-group-belongs}
+  friend-group-messages: {kind: keyvalue, storage: local-kv, prefix: friend-group-messages}
+  firmware-assets: {kind: objectstore, storage: local-files, prefix: firmwares}
+  agenthost: {kind: objectstore, storage: agenthost-files}
+  gameplay-assets: {kind: objectstore, storage: local-files, prefix: gameplay}
+  friend-group-message-assets: {kind: objectstore, storage: local-files, prefix: friend-group-messages}
+  acl: {kind: sql, storage: acl-db}
+  history: {kind: sql, storage: history-db}
+  gameplay-db: {kind: sql, storage: gameplay-db}
+  metrics: {kind: metrics, memory: {}}

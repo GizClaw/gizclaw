@@ -16,6 +16,7 @@ import (
 	physicalstorage "github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/graph"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/goccy/go-yaml"
 )
@@ -45,6 +46,91 @@ func (fakePingFailConn) Ping(_ context.Context) error          { return errors.N
 func init() {
 	sql.Register("fake", fakeDriver{})
 	sql.Register("fake_ping_fail", fakePingFailDriver{})
+}
+
+type fakeLogStore struct{ closes int }
+
+func (*fakeLogStore) Append(context.Context, []logstore.Record) error { return nil }
+func (*fakeLogStore) Query(context.Context, logstore.Query) (logstore.Page, error) {
+	return logstore.Page{}, nil
+}
+func (s *fakeLogStore) Close() error { s.closes++; return nil }
+
+func TestLogStoreRegistry(t *testing.T) {
+	want := &fakeLogStore{}
+	old := openVolcLogStore
+	openVolcLogStore = func(logstore.VolcConfig) (logstore.Store, error) { return want, nil }
+	t.Cleanup(func() { openVolcLogStore = old })
+	registry, err := NewWithStorage(nil, map[string]Config{"logs": {Kind: KindLog, Volc: &logstore.VolcConfig{Endpoint: "endpoint"}}})
+	if err != nil {
+		t.Fatalf("NewWithStorage() error = %v", err)
+	}
+	got, err := registry.Log("logs")
+	if err != nil || got != want {
+		t.Fatalf("Log() = %v, %v", got, err)
+	}
+	if _, err := registry.Metrics("logs"); err == nil {
+		t.Fatal("wrong-kind lookup succeeded")
+	}
+	if err := registry.Close(); err != nil {
+		t.Fatal(err)
+	}
+	_ = registry.Close()
+	if want.closes != 1 {
+		t.Fatalf("close count = %d", want.closes)
+	}
+}
+
+func TestLogStoreRegistryValidatesBackendsAndClosesPartialConstruction(t *testing.T) {
+	if _, err := NewWithStorage(nil, map[string]Config{"logs": {Kind: KindLog}}); err == nil {
+		t.Fatal("missing Volc backend was accepted")
+	}
+	if _, err := NewWithStorage(nil, map[string]Config{"logs": {Kind: KindLog, Volc: &logstore.VolcConfig{}, Memory: &struct{}{}}}); err == nil {
+		t.Fatal("mixed backend fields were accepted")
+	}
+
+	first := &fakeLogStore{}
+	calls := 0
+	old := openVolcLogStore
+	openVolcLogStore = func(logstore.VolcConfig) (logstore.Store, error) {
+		calls++
+		if calls == 1 {
+			return first, nil
+		}
+		return nil, errors.New("open failed")
+	}
+	t.Cleanup(func() { openVolcLogStore = old })
+	_, err := NewWithStorage(nil, map[string]Config{
+		"first":  {Kind: KindLog, Volc: &logstore.VolcConfig{Endpoint: "first"}},
+		"second": {Kind: KindLog, Volc: &logstore.VolcConfig{Endpoint: "second"}},
+	})
+	if err == nil || first.closes != 1 {
+		t.Fatalf("construction error = %v, first closes = %d", err, first.closes)
+	}
+}
+
+func TestLogStoreRegistryExpandsVolcEnvironment(t *testing.T) {
+	t.Setenv("GIZCLAW_TEST_VOLC_TOPIC", "expanded-topic")
+	var got logstore.VolcConfig
+	old := openVolcLogStore
+	openVolcLogStore = func(config logstore.VolcConfig) (logstore.Store, error) {
+		got = config
+		return &fakeLogStore{}, nil
+	}
+	t.Cleanup(func() { openVolcLogStore = old })
+	registry, err := NewWithStorage(nil, map[string]Config{"logs": {
+		Kind: KindLog, Volc: &logstore.VolcConfig{TopicID: "$GIZCLAW_TEST_VOLC_TOPIC"},
+	}})
+	if err != nil {
+		t.Fatalf("NewWithStorage() error = %v", err)
+	}
+	t.Cleanup(func() { _ = registry.Close() })
+	if got.TopicID != "expanded-topic" {
+		t.Fatalf("topic = %q", got.TopicID)
+	}
+	if _, exists := legacyStorageConfigs(map[string]Config{"logs": {Kind: KindLog}})["logs"]; exists {
+		t.Fatal("logical LogStore was projected as physical storage")
+	}
 }
 
 func mustStores(t *testing.T, dataDir string, yml []byte) *Stores {

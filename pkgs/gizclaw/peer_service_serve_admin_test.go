@@ -495,6 +495,14 @@ func TestAdminServerLogsAllowsCursorOnlyContinuation(t *testing.T) {
 	if logs.req.StartTimeSet || logs.req.EndTimeSet || logs.req.FilterSet || logs.req.OrderSet {
 		t.Fatalf("unexpected explicit query fields = %#v", logs.req)
 	}
+
+	rec = serveAdminAsset(app, http.MethodGet, "/logs/stream?cursor=opaque&filter=", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("explicit empty filter status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if logs.req.Filter != "*" || !logs.req.FilterSet {
+		t.Fatalf("explicit empty filter request = %#v", logs.req)
+	}
 }
 
 func TestAdminPeerTelemetryLatest(t *testing.T) {

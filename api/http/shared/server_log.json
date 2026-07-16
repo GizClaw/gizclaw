@@ -27,7 +27,7 @@
           },
           "time_ns": {
             "type": "string",
-            "description": "Optional Unix nanosecond timestamp as a decimal string when the backend provides it."
+            "description": "Optional Unix nanosecond timestamp as a decimal string when sub-millisecond precision is available."
           },
           "level": {
             "type": "string",
@@ -39,11 +39,11 @@
           },
           "source": {
             "type": "string",
-            "description": "Backend source, initially gizclaw for server logs written by the Volc sink."
+            "description": "Structured source attribute, defaulting to gizclaw for process logs."
           },
           "path": {
             "type": "string",
-            "description": "Backend path or filename, initially slog."
+            "description": "Structured path attribute, defaulting to slog for process logs."
           },
           "fields": {
             "type": "object",

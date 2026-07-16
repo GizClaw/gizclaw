@@ -11,7 +11,6 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 
-	"github.com/GizClaw/gizclaw-go/cmd/internal/logging/volclog"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
@@ -33,6 +32,7 @@ type CmdServer struct {
 	AdminPublicKey  giznet.PublicKey
 	ServeToClients  bool
 	stores          *stores.Stores
+	ownsStores      bool
 	metricsShutdown func(context.Context) error
 }
 
@@ -48,7 +48,7 @@ func (s *CmdServer) Close() error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), gizmetrics.DefaultAppendTimeout)
 	errs = append(errs, s.shutdownMetrics(shutdownCtx))
 	cancel()
-	if s.stores != nil {
+	if s.ownsStores && s.stores != nil {
 		errs = append(errs, s.stores.Close())
 		s.stores = nil
 	}
@@ -115,6 +115,7 @@ func isPublicHTTPLoginRoute(method, path string) bool {
 // New wires an already prepared in-memory config into a command server.
 type newServerOptions struct {
 	ICETCPListener net.Listener
+	Stores         *stores.Stores
 }
 
 func New(cfg Config) (srv *CmdServer, err error) {
@@ -126,9 +127,14 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 	if err != nil {
 		return nil, err
 	}
-	ss, err := newStoreRegistry(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("server: stores: %w", err)
+	ss := newOpts.Stores
+	ownsStores := false
+	if ss == nil {
+		ss, err = newStoreRegistry(cfg)
+		if err != nil {
+			return nil, fmt.Errorf("server: stores: %w", err)
+		}
+		ownsStores = true
 	}
 	openedStores := ss
 	var metricsShutdown func(context.Context) error
@@ -139,7 +145,9 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 				err = errors.Join(err, metricsShutdown(shutdownCtx))
 				cancel()
 			}
-			err = errors.Join(err, openedStores.Close())
+			if ownsStores {
+				err = errors.Join(err, openedStores.Close())
+			}
 		}
 	}()
 
@@ -148,7 +156,7 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		return nil, fmt.Errorf("server: peers store: %w", err)
 	}
 
-	cmdSrv := &CmdServer{stores: ss, AdminPublicKey: cfg.AdminPublicKey, ServeToClients: cfg.ServeToClients}
+	cmdSrv := &CmdServer{stores: ss, ownsStores: ownsStores, AdminPublicKey: cfg.AdminPublicKey, ServeToClients: cfg.ServeToClients}
 	var gizServer *gizclaw.Server
 	gizServer = &gizclaw.Server{
 		LocalStatic:     *cfg.KeyPair,
@@ -177,18 +185,15 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 			},
 		},
 	}
-	if cfg.Log.Volc.Enabled {
-		logQuery, err := volclog.NewQueryService(volclog.Config{
-			Endpoint:        cfg.Log.Volc.Endpoint,
-			Region:          cfg.Log.Volc.Region,
-			TopicID:         cfg.Log.Volc.TopicID,
-			AccessKeyID:     cfg.Log.Volc.AccessKeyID,
-			AccessKeySecret: cfg.Log.Volc.AccessKeySecret,
-		})
+	if cfg.SystemLog.QueryStore != "" {
+		logQuery, err := ss.Log(cfg.SystemLog.QueryStore)
 		if err != nil {
-			return nil, fmt.Errorf("server: log query: %w", err)
+			return nil, fmt.Errorf("server: log query store %q: %w", cfg.SystemLog.QueryStore, err)
 		}
-		gizServer.ServerLogQuery = logQuery
+		gizServer.ServerLogQuery, err = gizclaw.NewServerLogQueryService(logQuery)
+		if err != nil {
+			return nil, fmt.Errorf("server: initialize log query service: %w", err)
+		}
 	}
 	cmdSrv.Server = gizServer
 	if cfg.FriendGroups.MessageDefaultTTL != "" {

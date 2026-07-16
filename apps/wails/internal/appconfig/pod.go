@@ -54,24 +54,6 @@ type RemoteServer struct {
 	AdminPrivateKey string `json:"admin_private_key,omitempty"`
 }
 
-type workspaceDirConfig struct {
-	Dir string `yaml:"dir"`
-}
-
-type workspaceStorageConfig struct {
-	Kind   string              `yaml:"kind"`
-	Badger *workspaceDirConfig `yaml:"badger,omitempty"`
-	FS     *workspaceDirConfig `yaml:"fs,omitempty"`
-	SQLite *workspaceDirConfig `yaml:"sqlite,omitempty"`
-}
-
-type workspaceStoreConfig struct {
-	Kind    string    `yaml:"kind"`
-	Storage string    `yaml:"storage,omitempty"`
-	Prefix  string    `yaml:"prefix,omitempty"`
-	Memory  *struct{} `yaml:"memory,omitempty"`
-}
-
 type Store struct {
 	Paths           Paths
 	materializeHook func(Pod) error
@@ -539,108 +521,7 @@ func (s Store) materializeWorkspace(pod Pod, dir string) error {
 		return fmt.Errorf("appconfig: create workspace: %w", err)
 	}
 	configPath := filepath.Join(workspace, "config.yaml")
-	var serverKey string
-	if data, err := os.ReadFile(configPath); err == nil {
-		var existing struct {
-			Identity struct {
-				PrivateKey giznet.Key `yaml:"private-key"`
-			} `yaml:"identity"`
-		}
-		if err := yaml.Unmarshal(data, &existing); err != nil {
-			return fmt.Errorf("appconfig: parse existing workspace config: %w", err)
-		}
-		if existing.Identity.PrivateKey.IsZero() {
-			return errors.New("appconfig: existing workspace config is missing its server identity")
-		}
-		serverKey = existing.Identity.PrivateKey.String()
-	} else if !os.IsNotExist(err) {
-		return fmt.Errorf("appconfig: read existing workspace config: %w", err)
-	}
-	if serverKey == "" {
-		kp, err := giznet.GenerateKeyPair()
-		if err != nil {
-			return fmt.Errorf("appconfig: generate local server identity: %w", err)
-		}
-		serverKey = kp.Private.String()
-	}
-	adminPublic := ""
-	if pod.LocalServer.AdminPrivateKey != "" {
-		kp, err := keyPair(pod.LocalServer.AdminPrivateKey)
-		if err != nil {
-			return err
-		}
-		adminPublic = kp.Public.String()
-	}
-	config := struct {
-		Identity struct {
-			PrivateKey string `yaml:"private-key"`
-		} `yaml:"identity"`
-		Listen         string                            `yaml:"listen"`
-		Endpoint       string                            `yaml:"endpoint"`
-		ServeToClients bool                              `yaml:"serve-to-clients"`
-		AdminPublicKey string                            `yaml:"admin-public-key,omitempty"`
-		Storage        map[string]workspaceStorageConfig `yaml:"storage"`
-		Stores         map[string]workspaceStoreConfig   `yaml:"stores"`
-	}{}
-	config.Identity.PrivateKey = serverKey
-	config.Listen = fmt.Sprintf("0.0.0.0:%d", pod.LocalServer.Port)
-	config.Endpoint = PreferredLANEndpoint(pod.LocalServer.Port)
-	config.ServeToClients = pod.ClientPrivateKey != "" || pod.LocalServer.AdminPrivateKey != ""
-	config.AdminPublicKey = adminPublic
-	config.Storage = localWorkspaceStorage()
-	config.Stores = localWorkspaceStores()
-	data, err := yaml.Marshal(config)
-	if err != nil {
-		return fmt.Errorf("appconfig: encode workspace config: %w", err)
-	}
-	return atomicWrite(configPath, data, 0o600)
-}
-
-func localWorkspaceStorage() map[string]workspaceStorageConfig {
-	return map[string]workspaceStorageConfig{
-		"local-kv":        {Kind: "keyvalue", Badger: &workspaceDirConfig{Dir: "data/kv"}},
-		"local-files":     {Kind: "objectstore", FS: &workspaceDirConfig{Dir: "data/objects"}},
-		"agenthost-files": {Kind: "objectstore", FS: &workspaceDirConfig{Dir: "data/agenthost"}},
-		"acl-db":          {Kind: "sql", SQLite: &workspaceDirConfig{Dir: "data/acl.sqlite"}},
-		"history-db":      {Kind: "sql", SQLite: &workspaceDirConfig{Dir: "data/history.sqlite"}},
-		"gameplay-db":     {Kind: "sql", SQLite: &workspaceDirConfig{Dir: "data/gameplay.sqlite"}},
-	}
-}
-
-func localWorkspaceStores() map[string]workspaceStoreConfig {
-	stores := make(map[string]workspaceStoreConfig)
-	for _, name := range []string{
-		"peers",
-		"credentials",
-		"firmwares",
-		"minimax-tenants",
-		"voices",
-		"workspaces",
-		"workflows",
-		"game-rulesets",
-		"pet-defs",
-		"badge-defs",
-		"game-defs",
-		"contacts",
-		"friend-invite-tokens",
-		"friends",
-		"friend-groups",
-		"friend-group-invite-tokens",
-		"friend-group-members",
-		"friend-group-belongs",
-		"friend-group-messages",
-	} {
-		stores[name] = workspaceStoreConfig{Kind: "keyvalue", Storage: "local-kv", Prefix: name}
-	}
-	stores["firmware-assets"] = workspaceStoreConfig{Kind: "objectstore", Storage: "local-files", Prefix: "firmwares"}
-	stores["agenthost"] = workspaceStoreConfig{Kind: "objectstore", Storage: "agenthost-files"}
-	stores["gameplay-assets"] = workspaceStoreConfig{Kind: "objectstore", Storage: "local-files", Prefix: "gameplay"}
-	stores["friend-group-message-assets"] = workspaceStoreConfig{Kind: "objectstore", Storage: "local-files", Prefix: "friend-group-messages"}
-	stores["acl"] = workspaceStoreConfig{Kind: "sql", Storage: "acl-db"}
-	stores["history"] = workspaceStoreConfig{Kind: "sql", Storage: "history-db"}
-	stores["gameplay-db"] = workspaceStoreConfig{Kind: "sql", Storage: "gameplay-db"}
-	stores["metrics"] = workspaceStoreConfig{Kind: "metrics", Memory: &struct{}{}}
-	return stores
+	return materializeLocalServerWorkspace(pod, configPath)
 }
 
 func writeContext(dir, description, privateKey, endpoint string) error {

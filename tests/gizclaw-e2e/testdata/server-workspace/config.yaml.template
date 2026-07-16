@@ -12,15 +12,10 @@ ice-servers:
 edge-nodes:
   - FNSseo3ePDEyJR27qEbDCSKBX4baMg826xXcanV4Huqs
 admin-public-key: "6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee"
-log:
+system_log:
   level: info
-  volc:
-    enabled: false
-    endpoint: https://tls-cn-beijing.volces.com
-    region: cn-beijing
-    topic_id: gizclaw-server-log-topic
-    access_key_id: volc-access-key-id
-    access_key_secret: volc-access-key-secret
+  sinks:
+    - kind: stderr
 storage:
   memory:
     kind: keyvalue

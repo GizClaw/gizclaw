@@ -91,7 +91,7 @@ Streaming RPC 只在完整 stream handler 返回时输出一次 completion recor
 
 ### 筛选
 
-`GET /logs/stream` 的 `filter` 是 backend-native query expression，当前 Volc 实现会原样传给 TLS。空 filter 使用 `*`。常用单字段筛选示例：
+`GET /logs/stream` 的 `filter` 使用 GizClaw-owned grammar，不接受 backend-native query。Filter 为 `*`，或最多 32 个 uppercase `AND` 连接的 clause；支持 `level:value`、`text:value`、`field:value`、`field!=value`、`field:*` 和 `-field:*`。例如：
 
 ```text
 level:ERROR
@@ -101,7 +101,7 @@ error_code:INVALID_WORKSPACE
 request_id:req-01
 ```
 
-组合、全文、正则和字段索引语法属于日志 backend；产品代码不能假设所有 backend 使用相同 grammar。请求 completion fields 落地并建立索引后，Grafana 与 Admin log query 都应直接按 scalar field 筛选，不解析 `message`。
+Value 是不含 whitespace、quote、backslash 或 wildcard 的 token，或不含 wildcard 的 JSON string literal。标准 level 名称会归一化为 uppercase。Field 使用 LogStore dotted-attribute grammar；`message`、`stream`、`kind` 和 provider metadata/time field 保留。不接受 OR、regex、provider function 或 raw provider expression。Filter 最长 4096 bytes，field 最长 128 bytes，decoded value 最长 1024 bytes。请求 completion fields 落地并建立索引后，Grafana 与 Admin log query 都应直接按 scalar field 筛选，不解析 `message`。
 
 首次查询必须提供 inclusive `start_time_ms` 和 exclusive `end_time_ms`。`limit` 默认 100、最大 1000，`order` 是 `asc` 或 `desc`。下一页使用 `end` event 返回的 opaque cursor；带 cursor 继续查询时不能改变 filter、时间范围或 order。
 

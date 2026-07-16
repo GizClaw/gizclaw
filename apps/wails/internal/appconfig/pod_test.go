@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/contextstore"
@@ -57,14 +58,32 @@ func TestStoreLocalPodMaterializesPrivateProjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	type workspaceDir struct {
+		Dir string `yaml:"dir"`
+	}
+	type workspaceStorage struct {
+		Kind   string        `yaml:"kind"`
+		Badger *workspaceDir `yaml:"badger"`
+	}
+	type workspaceStore struct {
+		Kind    string `yaml:"kind"`
+		Storage string `yaml:"storage"`
+		Prefix  string `yaml:"prefix"`
+	}
 	var workspace struct {
-		Listen         string                            `yaml:"listen"`
-		Endpoint       string                            `yaml:"endpoint"`
-		ServeToClients bool                              `yaml:"serve-to-clients"`
-		AdminPublicKey string                            `yaml:"admin-public-key"`
-		EdgeNodes      []any                             `yaml:"edge-nodes"`
-		Storage        map[string]workspaceStorageConfig `yaml:"storage"`
-		Stores         map[string]workspaceStoreConfig   `yaml:"stores"`
+		Listen         string                      `yaml:"listen"`
+		Endpoint       string                      `yaml:"endpoint"`
+		ServeToClients bool                        `yaml:"serve-to-clients"`
+		AdminPublicKey string                      `yaml:"admin-public-key"`
+		EdgeNodes      []any                       `yaml:"edge-nodes"`
+		Storage        map[string]workspaceStorage `yaml:"storage"`
+		Stores         map[string]workspaceStore   `yaml:"stores"`
+		SystemLog      struct {
+			Level string `yaml:"level"`
+			Sinks []struct {
+				Kind string `yaml:"kind"`
+			} `yaml:"sinks"`
+		} `yaml:"system_log"`
 	}
 	if err := yaml.Unmarshal(workspaceData, &workspace); err != nil {
 		t.Fatal(err)
@@ -81,6 +100,14 @@ func TestStoreLocalPodMaterializesPrivateProjection(t *testing.T) {
 	}
 	if peers := workspace.Stores["peers"]; peers.Kind != "keyvalue" || peers.Storage != "local-kv" || peers.Prefix != "peers" {
 		t.Fatalf("workspace peers store = %+v", peers)
+	}
+	if workspace.SystemLog.Level != "info" || len(workspace.SystemLog.Sinks) != 1 || workspace.SystemLog.Sinks[0].Kind != "stderr" {
+		t.Fatalf("workspace system log = %+v", workspace.SystemLog)
+	}
+	for _, forbidden := range []string{"query_store:", "kind: log", "volc:", "access_key_secret:"} {
+		if strings.Contains(string(workspaceData), forbidden) {
+			t.Fatalf("workspace contains forbidden default %q", forbidden)
+		}
 	}
 	for _, required := range []string{"credentials", "firmwares", "minimax-tenants", "voices", "workspaces", "workflows", "acl"} {
 		if _, ok := workspace.Stores[required]; !ok {

@@ -78,7 +78,7 @@ RPC reuses `RPCRequest.Id`; an invalid or unavailable ID is omitted from logs wi
 
 ### Filtering and safety
 
-`GET /logs/stream` accepts a backend-native `filter`. The Volc backend supports filters such as:
+`GET /logs/stream` accepts a GizClaw-owned `filter`, not a backend-native query. A filter is `*` or at most 32 clauses joined by uppercase `AND`; supported clauses are `level:value`, `text:value`, `field:value`, `field!=value`, `field:*`, and `-field:*`. For example:
 
 ```text
 level:ERROR
@@ -88,7 +88,7 @@ error_code:INVALID_WORKSPACE
 request_id:req-01
 ```
 
-Filter grammar, field indexes, full-text search, and regular expressions remain backend-specific. Completion fields stay independent scalar values, so callers do not parse `message`.
+Values are unquoted tokens without whitespace, quotes, backslashes, or wildcards, or JSON string literals without wildcards. Standard level names are normalized to uppercase. Fields use the LogStore dotted-attribute grammar; `message`, `stream`, `kind`, and provider metadata/time fields are reserved. OR, regular expressions, provider functions, and raw provider expressions are rejected. Filters are limited to 4096 bytes, fields to 128 bytes, and decoded values to 1024 bytes. Completion fields stay independent scalar values, so callers do not parse `message`.
 
 Completion logs never contain authorization headers, cookies, signatures, nonces, private keys, credentials, access keys, request or response bodies, SDP, audio, images, files, prompts, conversation text, workflow events, raw URLs or queries, provider error text, validation text, or panic values. They do not emit `error_message`. Only identities already used for authorization may be recorded as `peer_public_key`.
 

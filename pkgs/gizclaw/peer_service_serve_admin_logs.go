@@ -47,8 +47,10 @@ func serverLogStreamRequestFromParams(params adminhttp.StreamServerLogsParams) (
 		Limit:  defaultServerLogStreamLimit,
 		Order:  ServerLogOrderAsc,
 	}
-	if params.Filter != nil && strings.TrimSpace(*params.Filter) != "" {
-		req.Filter = strings.TrimSpace(*params.Filter)
+	if params.Filter != nil {
+		if filter := strings.TrimSpace(*params.Filter); filter != "" {
+			req.Filter = filter
+		}
 		req.FilterSet = true
 	}
 	if params.StartTimeMs != nil {
