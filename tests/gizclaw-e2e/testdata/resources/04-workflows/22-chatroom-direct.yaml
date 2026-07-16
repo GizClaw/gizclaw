@@ -6,7 +6,11 @@ metadata:
 i18n:
   default_locale: en
   en:
-    description: Direct chatroom message board workflow
+    name: Direct Chat
+    description: Exchange persistent one-to-one messages with a friend.
+  zh-CN:
+    name: 好友私聊
+    description: 与好友进行持久的一对一消息交流。
 spec:
   chatroom:
     history:

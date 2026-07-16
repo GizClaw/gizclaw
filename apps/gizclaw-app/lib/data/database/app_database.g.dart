@@ -330,6 +330,17 @@ class $WorkflowEntriesTable extends WorkflowEntries
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _iconPngMeta = const VerificationMeta(
+    'iconPng',
+  );
+  @override
+  late final GeneratedColumn<Uint8List> iconPng = GeneratedColumn<Uint8List>(
+    'icon_png',
+    aliasedName,
+    true,
+    type: DriftSqlType.blob,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _rawProtobufMeta = const VerificationMeta(
     'rawProtobuf',
   );
@@ -360,6 +371,7 @@ class $WorkflowEntriesTable extends WorkflowEntries
     locale,
     description,
     driver,
+    iconPng,
     rawProtobuf,
     refreshedAt,
   ];
@@ -416,6 +428,12 @@ class $WorkflowEntriesTable extends WorkflowEntries
     } else if (isInserting) {
       context.missing(_driverMeta);
     }
+    if (data.containsKey('icon_png')) {
+      context.handle(
+        _iconPngMeta,
+        iconPng.isAcceptableOrUnknown(data['icon_png']!, _iconPngMeta),
+      );
+    }
     if (data.containsKey('raw_protobuf')) {
       context.handle(
         _rawProtobufMeta,
@@ -467,6 +485,10 @@ class $WorkflowEntriesTable extends WorkflowEntries
         DriftSqlType.string,
         data['${effectivePrefix}driver'],
       )!,
+      iconPng: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}icon_png'],
+      ),
       rawProtobuf: attachedDatabase.typeMapping.read(
         DriftSqlType.blob,
         data['${effectivePrefix}raw_protobuf'],
@@ -490,6 +512,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
   final String? locale;
   final String description;
   final String driver;
+  final Uint8List? iconPng;
   final Uint8List rawProtobuf;
   final DateTime refreshedAt;
   const WorkflowEntry({
@@ -498,6 +521,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
     this.locale,
     required this.description,
     required this.driver,
+    this.iconPng,
     required this.rawProtobuf,
     required this.refreshedAt,
   });
@@ -511,6 +535,9 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
     }
     map['description'] = Variable<String>(description);
     map['driver'] = Variable<String>(driver);
+    if (!nullToAbsent || iconPng != null) {
+      map['icon_png'] = Variable<Uint8List>(iconPng);
+    }
     map['raw_protobuf'] = Variable<Uint8List>(rawProtobuf);
     map['refreshed_at'] = Variable<DateTime>(refreshedAt);
     return map;
@@ -525,6 +552,9 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
           : Value(locale),
       description: Value(description),
       driver: Value(driver),
+      iconPng: iconPng == null && nullToAbsent
+          ? const Value.absent()
+          : Value(iconPng),
       rawProtobuf: Value(rawProtobuf),
       refreshedAt: Value(refreshedAt),
     );
@@ -541,6 +571,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
       locale: serializer.fromJson<String?>(json['locale']),
       description: serializer.fromJson<String>(json['description']),
       driver: serializer.fromJson<String>(json['driver']),
+      iconPng: serializer.fromJson<Uint8List?>(json['iconPng']),
       rawProtobuf: serializer.fromJson<Uint8List>(json['rawProtobuf']),
       refreshedAt: serializer.fromJson<DateTime>(json['refreshedAt']),
     );
@@ -554,6 +585,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
       'locale': serializer.toJson<String?>(locale),
       'description': serializer.toJson<String>(description),
       'driver': serializer.toJson<String>(driver),
+      'iconPng': serializer.toJson<Uint8List?>(iconPng),
       'rawProtobuf': serializer.toJson<Uint8List>(rawProtobuf),
       'refreshedAt': serializer.toJson<DateTime>(refreshedAt),
     };
@@ -565,6 +597,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
     Value<String?> locale = const Value.absent(),
     String? description,
     String? driver,
+    Value<Uint8List?> iconPng = const Value.absent(),
     Uint8List? rawProtobuf,
     DateTime? refreshedAt,
   }) => WorkflowEntry(
@@ -573,6 +606,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
     locale: locale.present ? locale.value : this.locale,
     description: description ?? this.description,
     driver: driver ?? this.driver,
+    iconPng: iconPng.present ? iconPng.value : this.iconPng,
     rawProtobuf: rawProtobuf ?? this.rawProtobuf,
     refreshedAt: refreshedAt ?? this.refreshedAt,
   );
@@ -585,6 +619,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
           ? data.description.value
           : this.description,
       driver: data.driver.present ? data.driver.value : this.driver,
+      iconPng: data.iconPng.present ? data.iconPng.value : this.iconPng,
       rawProtobuf: data.rawProtobuf.present
           ? data.rawProtobuf.value
           : this.rawProtobuf,
@@ -602,6 +637,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
           ..write('locale: $locale, ')
           ..write('description: $description, ')
           ..write('driver: $driver, ')
+          ..write('iconPng: $iconPng, ')
           ..write('rawProtobuf: $rawProtobuf, ')
           ..write('refreshedAt: $refreshedAt')
           ..write(')'))
@@ -615,6 +651,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
     locale,
     description,
     driver,
+    $driftBlobEquality.hash(iconPng),
     $driftBlobEquality.hash(rawProtobuf),
     refreshedAt,
   );
@@ -627,6 +664,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
           other.locale == this.locale &&
           other.description == this.description &&
           other.driver == this.driver &&
+          $driftBlobEquality.equals(other.iconPng, this.iconPng) &&
           $driftBlobEquality.equals(other.rawProtobuf, this.rawProtobuf) &&
           other.refreshedAt == this.refreshedAt);
 }
@@ -637,6 +675,7 @@ class WorkflowEntriesCompanion extends UpdateCompanion<WorkflowEntry> {
   final Value<String?> locale;
   final Value<String> description;
   final Value<String> driver;
+  final Value<Uint8List?> iconPng;
   final Value<Uint8List> rawProtobuf;
   final Value<DateTime> refreshedAt;
   final Value<int> rowid;
@@ -646,6 +685,7 @@ class WorkflowEntriesCompanion extends UpdateCompanion<WorkflowEntry> {
     this.locale = const Value.absent(),
     this.description = const Value.absent(),
     this.driver = const Value.absent(),
+    this.iconPng = const Value.absent(),
     this.rawProtobuf = const Value.absent(),
     this.refreshedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -656,6 +696,7 @@ class WorkflowEntriesCompanion extends UpdateCompanion<WorkflowEntry> {
     this.locale = const Value.absent(),
     required String description,
     required String driver,
+    this.iconPng = const Value.absent(),
     required Uint8List rawProtobuf,
     required DateTime refreshedAt,
     this.rowid = const Value.absent(),
@@ -671,6 +712,7 @@ class WorkflowEntriesCompanion extends UpdateCompanion<WorkflowEntry> {
     Expression<String>? locale,
     Expression<String>? description,
     Expression<String>? driver,
+    Expression<Uint8List>? iconPng,
     Expression<Uint8List>? rawProtobuf,
     Expression<DateTime>? refreshedAt,
     Expression<int>? rowid,
@@ -681,6 +723,7 @@ class WorkflowEntriesCompanion extends UpdateCompanion<WorkflowEntry> {
       if (locale != null) 'locale': locale,
       if (description != null) 'description': description,
       if (driver != null) 'driver': driver,
+      if (iconPng != null) 'icon_png': iconPng,
       if (rawProtobuf != null) 'raw_protobuf': rawProtobuf,
       if (refreshedAt != null) 'refreshed_at': refreshedAt,
       if (rowid != null) 'rowid': rowid,
@@ -693,6 +736,7 @@ class WorkflowEntriesCompanion extends UpdateCompanion<WorkflowEntry> {
     Value<String?>? locale,
     Value<String>? description,
     Value<String>? driver,
+    Value<Uint8List?>? iconPng,
     Value<Uint8List>? rawProtobuf,
     Value<DateTime>? refreshedAt,
     Value<int>? rowid,
@@ -703,6 +747,7 @@ class WorkflowEntriesCompanion extends UpdateCompanion<WorkflowEntry> {
       locale: locale ?? this.locale,
       description: description ?? this.description,
       driver: driver ?? this.driver,
+      iconPng: iconPng ?? this.iconPng,
       rawProtobuf: rawProtobuf ?? this.rawProtobuf,
       refreshedAt: refreshedAt ?? this.refreshedAt,
       rowid: rowid ?? this.rowid,
@@ -727,6 +772,9 @@ class WorkflowEntriesCompanion extends UpdateCompanion<WorkflowEntry> {
     if (driver.present) {
       map['driver'] = Variable<String>(driver.value);
     }
+    if (iconPng.present) {
+      map['icon_png'] = Variable<Uint8List>(iconPng.value);
+    }
     if (rawProtobuf.present) {
       map['raw_protobuf'] = Variable<Uint8List>(rawProtobuf.value);
     }
@@ -747,6 +795,7 @@ class WorkflowEntriesCompanion extends UpdateCompanion<WorkflowEntry> {
           ..write('locale: $locale, ')
           ..write('description: $description, ')
           ..write('driver: $driver, ')
+          ..write('iconPng: $iconPng, ')
           ..write('rawProtobuf: $rawProtobuf, ')
           ..write('refreshedAt: $refreshedAt, ')
           ..write('rowid: $rowid')
@@ -3279,6 +3328,7 @@ typedef $$WorkflowEntriesTableCreateCompanionBuilder =
       Value<String?> locale,
       required String description,
       required String driver,
+      Value<Uint8List?> iconPng,
       required Uint8List rawProtobuf,
       required DateTime refreshedAt,
       Value<int> rowid,
@@ -3290,6 +3340,7 @@ typedef $$WorkflowEntriesTableUpdateCompanionBuilder =
       Value<String?> locale,
       Value<String> description,
       Value<String> driver,
+      Value<Uint8List?> iconPng,
       Value<Uint8List> rawProtobuf,
       Value<DateTime> refreshedAt,
       Value<int> rowid,
@@ -3326,6 +3377,11 @@ class $$WorkflowEntriesTableFilterComposer
 
   ColumnFilters<String> get driver => $composableBuilder(
     column: $table.driver,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<Uint8List> get iconPng => $composableBuilder(
+    column: $table.iconPng,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3374,6 +3430,11 @@ class $$WorkflowEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<Uint8List> get iconPng => $composableBuilder(
+    column: $table.iconPng,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<Uint8List> get rawProtobuf => $composableBuilder(
     column: $table.rawProtobuf,
     builder: (column) => ColumnOrderings(column),
@@ -3410,6 +3471,9 @@ class $$WorkflowEntriesTableAnnotationComposer
 
   GeneratedColumn<String> get driver =>
       $composableBuilder(column: $table.driver, builder: (column) => column);
+
+  GeneratedColumn<Uint8List> get iconPng =>
+      $composableBuilder(column: $table.iconPng, builder: (column) => column);
 
   GeneratedColumn<Uint8List> get rawProtobuf => $composableBuilder(
     column: $table.rawProtobuf,
@@ -3460,6 +3524,7 @@ class $$WorkflowEntriesTableTableManager
                 Value<String?> locale = const Value.absent(),
                 Value<String> description = const Value.absent(),
                 Value<String> driver = const Value.absent(),
+                Value<Uint8List?> iconPng = const Value.absent(),
                 Value<Uint8List> rawProtobuf = const Value.absent(),
                 Value<DateTime> refreshedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -3469,6 +3534,7 @@ class $$WorkflowEntriesTableTableManager
                 locale: locale,
                 description: description,
                 driver: driver,
+                iconPng: iconPng,
                 rawProtobuf: rawProtobuf,
                 refreshedAt: refreshedAt,
                 rowid: rowid,
@@ -3480,6 +3546,7 @@ class $$WorkflowEntriesTableTableManager
                 Value<String?> locale = const Value.absent(),
                 required String description,
                 required String driver,
+                Value<Uint8List?> iconPng = const Value.absent(),
                 required Uint8List rawProtobuf,
                 required DateTime refreshedAt,
                 Value<int> rowid = const Value.absent(),
@@ -3489,6 +3556,7 @@ class $$WorkflowEntriesTableTableManager
                 locale: locale,
                 description: description,
                 driver: driver,
+                iconPng: iconPng,
                 rawProtobuf: rawProtobuf,
                 refreshedAt: refreshedAt,
                 rowid: rowid,

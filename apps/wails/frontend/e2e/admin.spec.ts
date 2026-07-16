@@ -57,7 +57,14 @@ test.beforeEach(async ({ page }) => {
       ]),
       "/voices": pageResponse([{ id: "volc-voice-000", name: "Volc Voice", provider: { kind: "volc-tenant", name: "volc-tenant" }, source: "sync", updated_at: "2026-07-01T00:00:00Z" }]),
       "/volc-tenants": pageResponse([{ credential_name: "volc-credential", name: "volc-tenant", updated_at: "2026-07-01T00:00:00Z" }]),
-      "/workflows": pageResponse([{ metadata: { name: "openai-chat" }, spec: { driver: "workflow" } }]),
+      "/workflows": pageResponse([{
+        name: "openai-chat",
+        i18n: {
+          default_locale: "en",
+          en: { name: "OpenAI Chat", description: "Chat with an OpenAI model." },
+        },
+        spec: { driver: "flowcraft" },
+      }]),
       "/workspaces": pageResponse([{ name: "main-workspace", workflow_name: "openai-chat", updated_at: "2026-07-01T00:00:00Z" }]),
     };
     window.__GIZCLAW_DESKTOP_TEST_ADMIN_FETCH_PATHS__ = adminFetchPaths;
@@ -86,6 +93,7 @@ test("admin view renders full resource manager pages", async ({ page }) => {
 
   await page.getByRole("button", { name: "Workflows" }).click();
   await expect(page.getByRole("heading", { name: "Workflows" })).toBeVisible();
+  await expect(page.getByText("OpenAI Chat")).toBeVisible();
   await expect(page.getByText("openai-chat")).toBeVisible();
 
   await page.getByRole("button", { name: "Firmwares" }).click();

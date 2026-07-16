@@ -1106,7 +1106,12 @@ func (f *fakeRunControl) CreateWorkspace(_ context.Context, _ string, request rp
 	if f.createWorkspaceErr != nil {
 		return nil, f.createWorkspaceErr
 	}
-	return &request, nil
+	return &rpcapi.WorkspaceCreateResponse{
+		Name:         request.Name,
+		Parameters:   request.Parameters,
+		Toolkit:      request.Toolkit,
+		WorkflowName: request.WorkflowName,
+	}, nil
 }
 
 func (f *fakeRunControl) DeleteWorkspace(_ context.Context, _ string, request rpcapi.WorkspaceDeleteRequest) (*rpcapi.WorkspaceDeleteResponse, error) {
@@ -1130,7 +1135,12 @@ func (f *fakeRunControl) PutWorkspace(_ context.Context, _ string, request rpcap
 	if f.putWorkspaceErr != nil {
 		return nil, f.putWorkspaceErr
 	}
-	return &request.Body, nil
+	return &rpcapi.WorkspacePutResponse{
+		Name:         request.Body.Name,
+		Parameters:   request.Body.Parameters,
+		Toolkit:      request.Body.Toolkit,
+		WorkflowName: request.Body.WorkflowName,
+	}, nil
 }
 
 func (f *fakeRunControl) SetServerRunWorkspace(_ context.Context, _ string, request rpcapi.ServerSetRunWorkspaceRequest) (*rpcapi.ServerSetRunWorkspaceResponse, error) {

@@ -282,7 +282,10 @@ wait_docker_ready_file() {
   local service="$1"
   local ready_file="$2"
   local label="$3"
-  for _ in {1..300}; do
+  # Full deterministic provisioning includes the shared Workflow catalog and
+  # both owner-uploaded icon formats, so allow the same five-minute startup
+  # window as the server container health check.
+  for _ in {1..1500}; do
     local container_id container_state exit_code
     container_id="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" ps -q "$service" 2>/dev/null || true)"
     if [[ -n "$container_id" ]]; then

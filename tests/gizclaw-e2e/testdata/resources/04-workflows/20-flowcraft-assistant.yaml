@@ -3,6 +3,14 @@ apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
   name: flowcraft-assistant
+i18n:
+  default_locale: en
+  en:
+    name: General AI Assistant
+    description: Ask questions and get practical help from a flexible conversational assistant.
+  zh-CN:
+    name: 通用智能助手
+    description: 向灵活的对话助手提问并获得实用帮助。
 spec:
   driver: flowcraft
   flowcraft: {}

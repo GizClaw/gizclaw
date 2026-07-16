@@ -6,7 +6,11 @@ metadata:
 i18n:
   default_locale: en
   en:
-    description: 'Flowcraft raid: Poetry Adventure Li Bai'
+    name: Li Bai Poetry Adventure
+    description: Discover classical poetry through an interactive journey with Li Bai.
+  zh-CN:
+    name: 李白诗词冒险
+    description: 与李白一起在互动旅程中探索古典诗词。
 spec:
   driver: flowcraft
   flowcraft:

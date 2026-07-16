@@ -6,7 +6,11 @@ metadata:
 i18n:
   default_locale: en
   en:
-    description: Flowcraft support workflow
+    name: Support Assistant
+    description: Get concise guidance for common questions and support requests.
+  zh-CN:
+    name: 支持助手
+    description: 针对常见问题和支持请求获得简洁指引。
 spec:
   driver: flowcraft
   flowcraft:

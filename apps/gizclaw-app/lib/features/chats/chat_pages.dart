@@ -219,6 +219,8 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  _WorkflowIcon(workflow: workflow, size: 28),
+                  const SizedBox(width: 8),
                   if (workflow.name == _workflow.name) ...[
                     const Icon(GizIcons.checkmark_alt, size: 17),
                     const SizedBox(width: 8),
@@ -303,6 +305,8 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
             onPressed: widget.workflows.length > 1 ? _chooseWorkflow : null,
             child: Row(
               children: [
+                _WorkflowIcon(workflow: _workflow, size: 34),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     _workflow.title,
@@ -505,7 +509,7 @@ class _WorkspaceListTile extends StatelessWidget {
       context,
     ).workflow(workspace.workflowName);
     return GizListRow(
-      leading: GizResourceInitial(id: workspace.name),
+      leading: _WorkflowIcon(workflow: workflow),
       title: workspace.title,
       subtitle: '${workflow.title}  |  ${workspace.lastActive}',
       onPressed:
@@ -514,6 +518,37 @@ class _WorkspaceListTile extends StatelessWidget {
             '/raids/drivers/${workflow.driver.routeKey}/'
             '${Uri.encodeComponent(workspace.name)}',
           ),
+    );
+  }
+}
+
+class _WorkflowIcon extends StatelessWidget {
+  const _WorkflowIcon({required this.workflow, this.size = 50});
+
+  final double size;
+  final WorkflowCard workflow;
+
+  @override
+  Widget build(BuildContext context) {
+    final fallback = GizIconTile(
+      icon: workflow.icon,
+      backgroundColor: workflow.bannerColor,
+      foregroundColor: GizColors.surface,
+      size: size,
+      iconSize: size * 0.44,
+    );
+    final bytes = workflow.iconPng;
+    if (bytes == null || bytes.isEmpty) return fallback;
+    return GizSquircle(
+      key: ValueKey('workflow-icon-${workflow.name}'),
+      borderRadius: GizCorners.icon(size),
+      child: Image.memory(
+        bytes,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => fallback,
+      ),
     );
   }
 }

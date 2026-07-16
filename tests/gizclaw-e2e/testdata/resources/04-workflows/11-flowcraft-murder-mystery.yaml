@@ -6,7 +6,11 @@ metadata:
 i18n:
   default_locale: en
   en:
-    description: 'Flowcraft raid: Murder Mystery'
+    name: Murder Mystery Adventure
+    description: Investigate clues and question characters in an interactive mystery story.
+  zh-CN:
+    name: 谜案推理冒险
+    description: 在互动推理故事中调查线索并询问角色。
 spec:
   driver: flowcraft
   flowcraft:

@@ -6,7 +6,11 @@ metadata:
 i18n:
   default_locale: en
   en:
-    description: 'Flowcraft raid: Match Route'
+    name: Smart Intent Router
+    description: Match spoken requests to conversation, music, volume, stop, or web search actions.
+  zh-CN:
+    name: 智能意图路由
+    description: 将语音请求匹配到对话、音乐、音量、停止或网页搜索操作。
 spec:
   driver: flowcraft
   flowcraft:

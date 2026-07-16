@@ -6,7 +6,11 @@ metadata:
 i18n:
   default_locale: en
   en:
-    description: Flowcraft voice adapter workflow
+    name: Memory Voice Assistant
+    description: Talk with a voice assistant that remembers useful conversation details.
+  zh-CN:
+    name: 记忆语音助手
+    description: 与能够记住重要对话信息的语音助手交流。
 spec:
   driver: flowcraft
   flowcraft:

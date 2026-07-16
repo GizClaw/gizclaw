@@ -131,6 +131,8 @@ class MobileDataRepository {
     final workflows = await _allWorkflows(client, workflowLocale);
     final workspaces = await _allWorkspaces(client);
     if (!isCurrent()) return const [];
+    final workflowIcons = await _workflowIcons(client, workflows, isCurrent);
+    if (!isCurrent()) return const [];
     final refreshedAt = DateTime.now().toUtc();
 
     try {
@@ -158,6 +160,7 @@ class MobileDataRepository {
                 locale: Value(locale),
                 description: catalog?.description.trim() ?? '',
                 driver: workflow.spec.driver.name,
+                iconPng: Value(workflowIcons[workflow.name]),
                 rawProtobuf: Uint8List.fromList(workflow.writeToBuffer()),
                 refreshedAt: refreshedAt,
               );
@@ -380,7 +383,34 @@ WorkflowCard _workflowCardFromRow(WorkflowEntry row, String locale) {
         : localizedName,
     description: catalog?.description.trim() ?? '',
     driver: row.driver,
+    iconPng: row.iconPng,
   );
+}
+
+Future<Map<String, Uint8List>> _workflowIcons(
+  GizClawClient client,
+  List<Workflow> workflows,
+  bool Function() isCurrent,
+) async {
+  final icons = <String, Uint8List>{};
+  for (final workflow in workflows) {
+    _requireCurrent(isCurrent);
+    if (!workflow.hasIcon() || !workflow.icon.hasPng()) continue;
+    try {
+      final result = await client.downloadWorkflowIcon(
+        workflow.name,
+        IconFormat.ICON_FORMAT_PNG,
+      );
+      _requireCurrent(isCurrent);
+      if (result.bytes.isNotEmpty) icons[workflow.name] = result.bytes;
+    } on _StaleRefresh {
+      rethrow;
+    } catch (_) {
+      // Icon loading is best effort. The card keeps its owner-provided text and
+      // falls back to the driver placeholder when download or decode fails.
+    }
+  }
+  return icons;
 }
 
 WorkflowI18nCatalog? _workflowCatalog(Workflow workflow) =>

@@ -18,6 +18,7 @@ class WorkflowEntries extends Table {
   TextColumn get locale => text().nullable()();
   TextColumn get description => text()();
   TextColumn get driver => text()();
+  BlobColumn get iconPng => blob().nullable()();
   BlobColumn get rawProtobuf => blob()();
   DateTimeColumn get refreshedAt => dateTime()();
 
@@ -105,7 +106,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -120,6 +121,9 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 4) {
         await migrator.addColumn(workflowEntries, workflowEntries.locale);
+      }
+      if (from < 5) {
+        await migrator.addColumn(workflowEntries, workflowEntries.iconPng);
       }
     },
   );

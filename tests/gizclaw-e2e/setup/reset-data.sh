@@ -244,6 +244,29 @@ apply_resource() {
   run_gizclaw admin apply --context "$admin_context" -f "$resource_file"
 }
 
+upload_workflow_icons() {
+  local assets_dir="$testdata_dir/assets/workflows"
+  if [[ ! -d "$assets_dir" ]]; then
+    echo "missing workflow icon fixture directory: $assets_dir" >&2
+    exit 2
+  fi
+  local workflow_dir workflow_id format asset_path
+  while IFS= read -r workflow_dir; do
+    workflow_id="$(basename "$workflow_dir")"
+    for format in png pixa; do
+      asset_path="$workflow_dir/icon.$format"
+      if [[ ! -f "$asset_path" ]]; then
+        echo "missing workflow icon fixture: workflow=$workflow_id format=$format path=$asset_path" >&2
+        exit 2
+      fi
+      if ! run_gizclaw admin workflows upload-icon "$workflow_id" --format "$format" -f "$asset_path" --context "$admin_context" >/dev/null; then
+        echo "failed to provision workflow icon: workflow=$workflow_id format=$format" >&2
+        exit 1
+      fi
+    done
+  done < <(find "$assets_dir" -mindepth 1 -maxdepth 1 -type d -print | sort)
+}
+
 delete_firmware_artifact_if_exists() {
   local firmware_id="$1"
   local channel="$2"
@@ -284,6 +307,8 @@ init_data() {
   for file in "${files[@]}"; do
     apply_resource "$file"
   done
+
+  upload_workflow_icons
 
   if [[ "${GIZCLAW_E2E_SKIP_PROVIDER_SYNC:-0}" != "1" ]]; then
     run_gizclaw admin volc-tenants sync-voices volc-main --context "$admin_context" >/dev/null

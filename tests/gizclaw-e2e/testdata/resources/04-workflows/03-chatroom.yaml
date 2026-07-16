@@ -6,7 +6,11 @@ metadata:
 i18n:
   default_locale: en
   en:
-    description: Default workspace-backed social chat workflow
+    name: Social Chat Room
+    description: Share messages in a persistent room with friends or family.
+  zh-CN:
+    name: 社交聊天室
+    description: 与好友或家人在持久聊天室中交流消息。
 spec:
   driver: chatroom
   chatroom:

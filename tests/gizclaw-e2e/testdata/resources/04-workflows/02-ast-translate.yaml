@@ -6,7 +6,11 @@ metadata:
 i18n:
   default_locale: en
   en:
-    description: AST realtime translation workflow
+    name: Realtime Speech Translator
+    description: Translate a live conversation into another spoken language.
+  zh-CN:
+    name: 实时语音翻译
+    description: 将实时对话翻译为另一种语言的语音。
 spec:
   driver: ast-translate
   ast_translate:

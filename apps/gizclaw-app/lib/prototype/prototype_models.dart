@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/cupertino.dart';
 
 import '../giz_ui/giz_ui.dart';
@@ -32,6 +34,7 @@ class WorkflowCard {
     required this.bannerColor,
     required this.icon,
     required this.driver,
+    this.iconPng,
     this.imagePath,
   });
 
@@ -42,6 +45,7 @@ class WorkflowCard {
   final String category;
   final Color bannerColor;
   final IconData icon;
+  final Uint8List? iconPng;
   final WorkflowDriverKind driver;
   final String? imagePath;
 
@@ -50,6 +54,7 @@ class WorkflowCard {
     String? displayName,
     required String description,
     required String driver,
+    Uint8List? iconPng,
   }) {
     final title = displayName?.trim().isNotEmpty == true
         ? displayName!.trim()
@@ -64,6 +69,7 @@ class WorkflowCard {
         category: 'Productivity',
         bannerColor: GizColors.blue,
         icon: GizIcons.rectangle_3_offgrid,
+        iconPng: iconPng,
         driver: WorkflowDriverKind.flowcraft,
       );
     }
@@ -76,6 +82,7 @@ class WorkflowCard {
         category: 'Audio',
         bannerColor: GizColors.coral,
         icon: GizIcons.waveform_path,
+        iconPng: iconPng,
         driver: WorkflowDriverKind.doubaoRealtime,
       );
     }
@@ -88,6 +95,7 @@ class WorkflowCard {
         category: 'Code',
         bannerColor: GizColors.lavender,
         icon: GizIcons.chevron_left_slash_chevron_right,
+        iconPng: iconPng,
         driver: WorkflowDriverKind.astTranslate,
       );
     }
@@ -100,6 +108,7 @@ class WorkflowCard {
         category: 'Conversation',
         bannerColor: GizColors.accent,
         icon: GizIcons.waveform,
+        iconPng: iconPng,
         driver: WorkflowDriverKind.chatroom,
       );
     }
@@ -111,6 +120,7 @@ class WorkflowCard {
       category: 'Other',
       bannerColor: GizColors.secondaryInk,
       icon: GizIcons.question_circle,
+      iconPng: iconPng,
       driver: WorkflowDriverKind.unsupported,
     );
   }

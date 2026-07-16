@@ -1,6 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gizclaw/gizclaw.dart';
+import 'package:gizclaw/src/generated/rpc/payload/icon.pb.dart' as rpc;
 import 'package:gizclaw_app/data/database/app_database.dart';
 import 'package:gizclaw_app/data/repositories/mobile_data_repository.dart';
 import 'package:gizclaw_app/prototype/prototype_models.dart';
@@ -130,6 +133,53 @@ void main() {
     expect(card.title, 'stable-name');
     expect(card.subtitle, isEmpty);
     expect(client.lastWorkflowLang, WorkflowLocale.WORKFLOW_LOCALE_EN);
+  });
+
+  test('caches owner PNG icons and tolerates icon download failure', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = MobileDataRepository(database);
+    final client = _FakeClient(
+      workflows: [
+        Workflow(
+          name: 'with-icon',
+          icon: rpc.Icon(png: 'with-icon/icon.png'),
+          spec: WorkflowSpec(driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT),
+        ),
+        Workflow(
+          name: 'broken-icon',
+          icon: rpc.Icon(png: 'broken-icon/icon.png'),
+          spec: WorkflowSpec(driver: WorkflowDriver.WORKFLOW_DRIVER_CHATROOM),
+        ),
+      ],
+      workspaces: const [],
+      workflowIcons: {
+        'with-icon': Uint8List.fromList([1, 2, 3, 4]),
+      },
+    );
+
+    await repository.refresh(
+      client: client,
+      endpoint: 'local',
+      isCurrent: () => true,
+      locale: 'en',
+      serverId: 'server-a',
+      workflowLocale: WorkflowLocale.WORKFLOW_LOCALE_EN,
+    );
+
+    final cards = await repository
+        .watchWorkflows('server-a', locale: 'en')
+        .first;
+    expect(cards.firstWhere((item) => item.name == 'with-icon').iconPng, [
+      1,
+      2,
+      3,
+      4,
+    ]);
+    expect(
+      cards.firstWhere((item) => item.name == 'broken-icon').iconPng,
+      isNull,
+    );
   });
 
   test('ignores a cached catalog from another locale', () async {
@@ -318,11 +368,13 @@ class _FakeClient extends GizClawClient {
     required this.workspaces,
     this.friends = const [],
     this.friendGroups = const [],
+    this.workflowIcons = const {},
   }) : super(_NeverDataChannelFactory());
 
   final List<FriendGroupObject> friendGroups;
   final List<FriendObject> friends;
   final List<Workflow> workflows;
+  final Map<String, Uint8List> workflowIcons;
   final List<Workspace> workspaces;
   bool failFriends = false;
   WorkflowLocale? lastWorkflowLang;
@@ -344,6 +396,19 @@ class _FakeClient extends GizClawClient {
     String? prefix,
   }) async {
     return WorkspaceListResponse(items: workspaces);
+  }
+
+  @override
+  Future<IconDownloadResult<WorkflowIconDownloadResponse>> downloadWorkflowIcon(
+    String name,
+    IconFormat format,
+  ) async {
+    final bytes = workflowIcons[name];
+    if (bytes == null) throw StateError('workflow icon unavailable');
+    return IconDownloadResult(
+      metadata: WorkflowIconDownloadResponse(name: name, format: format),
+      bytes: bytes,
+    );
   }
 
   @override

@@ -6,7 +6,11 @@ metadata:
 i18n:
   default_locale: en
   en:
-    description: Built-in Flowcraft-backed conversation and memory runtime for adopted pets
+    name: Pet Care Companion
+    description: Talk with an adopted pet through a conversation and memory runtime.
+  zh-CN:
+    name: 宠物陪伴
+    description: 通过对话和记忆能力与领养的宠物互动。
 spec:
   driver: pet
   pet: {}

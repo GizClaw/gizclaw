@@ -1,9 +1,9 @@
-import { Check, Copy, Plus, RefreshCw } from "lucide-react";
+import { Check, Copy, ImageIcon, Plus, RefreshCw } from "lucide-react";
 import { DashboardActionButton } from "@/dashboard";
 import { DashboardPager } from "@/dashboard";
 import { DashboardTable } from "@/dashboard";
 import type { KeyboardEvent, MouseEvent } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
@@ -12,8 +12,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { expectData } from "@/dashboard";
-import { supportedWorkflowLocales } from "@/lib/gizclaw/workflow_i18n";
-import { listWorkflows, type Workflow, type WorkflowI18nCatalog } from "@gizclaw/gizclaw/admin";
+import { localizedAdminWorkflowText } from "@/lib/gizclaw/workflow_i18n";
+import { downloadWorkflowIcon, listWorkflows, type Workflow } from "@gizclaw/gizclaw/admin";
 
 import { ErrorBanner } from "@/dashboard";
 import { EmptyState } from "@/dashboard";
@@ -117,7 +117,7 @@ export function WorkflowsListPage(): JSX.Element {
             <DashboardTable className="table-fixed">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[28%]">Workflow ID</TableHead>
+                    <TableHead className="w-[32%]">Workflow</TableHead>
                     <TableHead className="w-36">Driver</TableHead>
                     <TableHead className="w-40">Spec</TableHead>
                     <TableHead>Description</TableHead>
@@ -135,27 +135,33 @@ export function WorkflowsListPage(): JSX.Element {
                       tabIndex={0}
                     >
                       <TableCell className="min-w-0">
-                        <div className="flex min-w-0 items-center gap-1.5">
-                          <button
-                            className="min-w-0 truncate rounded-sm text-left font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              openWorkflow(workflow.name);
-                            }}
-                            title={workflow.name}
-                            type="button"
-                          >
-                            {workflow.name}
-                          </button>
-                          <button
-                            aria-label={`Copy workflow name ${workflow.name}`}
-                            className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                            onClick={(event) => void copyWorkflowName(event, workflow.name)}
-                            title="Copy workflow name"
-                            type="button"
-                          >
-                            {copiedName === workflow.name ? <Check className="size-3 shrink-0 text-emerald-600" /> : <Copy className="size-3 shrink-0" />}
-                          </button>
+                        <div className="flex min-w-0 items-center gap-3">
+                          <WorkflowCatalogIcon workflow={workflow} />
+                          <div className="min-w-0">
+                            <button
+                              className="block min-w-0 truncate rounded-sm text-left font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openWorkflow(workflow.name);
+                              }}
+                              title={workflowDisplayName(workflow)}
+                              type="button"
+                            >
+                              {workflowDisplayName(workflow)}
+                            </button>
+                            <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                              <span className="truncate font-mono" title={workflow.name}>{workflow.name}</span>
+                              <button
+                                aria-label={`Copy workflow name ${workflow.name}`}
+                                className="shrink-0 rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                onClick={(event) => void copyWorkflowName(event, workflow.name)}
+                                title="Copy workflow name"
+                                type="button"
+                              >
+                                {copiedName === workflow.name ? <Check className="size-3 shrink-0 text-emerald-600" /> : <Copy className="size-3 shrink-0" />}
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -182,25 +188,48 @@ function isInteractiveTarget(target: EventTarget): boolean {
 }
 
 function workflowDescription(workflow: Workflow): string {
-  const catalog = workflowCatalog(workflow, navigator.languages);
-  return catalog?.description?.trim() ?? "";
+  return localizedAdminWorkflowText(workflow, navigator.languages).description ?? "";
 }
 
-function workflowCatalog(workflow: Workflow, localeTags: readonly string[]): WorkflowI18nCatalog | undefined {
-  const i18n = workflow.i18n;
-  if (!i18n) {
-    return undefined;
-  }
+function workflowDisplayName(workflow: Workflow): string {
+  return localizedAdminWorkflowText(workflow, navigator.languages).name ?? workflow.name;
+}
 
-  const candidates = supportedWorkflowLocales(localeTags);
-  candidates.push(i18n.default_locale);
-  for (const locale of candidates) {
-    const catalog = locale === "zh-CN" ? i18n["zh-CN"] : i18n.en;
-    if (typeof catalog === "object") {
-      return catalog;
-    }
-  }
-  return undefined;
+function WorkflowCatalogIcon({ workflow }: { workflow: Workflow }): JSX.Element {
+  const [source, setSource] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    let objectURL = "";
+    setSource("");
+    if (workflow.icon?.png == null) return () => undefined;
+    void expectData(downloadWorkflowIcon({ path: { name: workflow.name, format: "png" } }))
+      .then((blob) => {
+        if (!active) return;
+        objectURL = URL.createObjectURL(blob);
+        setSource(objectURL);
+      })
+      .catch(() => {
+        if (active) setSource("");
+      });
+    return () => {
+      active = false;
+      if (objectURL !== "") URL.revokeObjectURL(objectURL);
+    };
+  }, [workflow.icon?.png, workflow.name]);
+
+  return source === "" ? (
+    <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+      <ImageIcon className="size-5" />
+    </div>
+  ) : (
+    <img
+      alt=""
+      className="size-10 shrink-0 rounded-lg border object-contain"
+      onError={() => setSource("")}
+      src={source}
+    />
+  );
 }
 
 function workflowSpecLabel(workflow: Workflow): string {

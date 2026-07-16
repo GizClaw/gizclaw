@@ -133,6 +133,32 @@ init_data() {
     apply_resource "$resource_file"
   done
 
+  upload_workflow_icons() {
+    local assets_dir="$testdata_dir/assets/workflows"
+    if [[ ! -d "$assets_dir" ]]; then
+      echo "missing workflow icon fixture directory: $assets_dir" >&2
+      exit 2
+    fi
+    local workflow_dir workflow_id format asset_path
+    while IFS= read -r workflow_dir; do
+      workflow_id="$(basename "$workflow_dir")"
+      for format in png pixa; do
+        asset_path="$workflow_dir/icon.$format"
+        if [[ ! -f "$asset_path" ]]; then
+          echo "missing workflow icon fixture: workflow=$workflow_id format=$format path=$asset_path" >&2
+          exit 2
+        fi
+        if ! XDG_CONFIG_HOME="$config_home" \
+          "$bin_path" admin workflows upload-icon "$workflow_id" --format "$format" -f "$asset_path" --context "$admin_context" >/dev/null; then
+          echo "failed to provision workflow icon: workflow=$workflow_id format=$format" >&2
+          exit 1
+        fi
+      done
+    done < <(find "$assets_dir" -mindepth 1 -maxdepth 1 -type d -print | sort)
+  }
+
+  upload_workflow_icons
+
   if [[ "${GIZCLAW_E2E_SKIP_PROVIDER_SYNC:-0}" != "1" ]]; then
     XDG_CONFIG_HOME="$config_home" \
       "$bin_path" admin volc-tenants sync-voices volc-main --context "$admin_context" >/dev/null

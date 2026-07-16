@@ -6,7 +6,11 @@ metadata:
 i18n:
   default_locale: en
   en:
-    description: Doubao realtime conversation workflow
+    name: Realtime Voice Companion
+    description: Have a natural low-latency voice conversation with live search support.
+  zh-CN:
+    name: 实时语音伙伴
+    description: 进行低延迟的自然语音对话，并可使用实时搜索。
 spec:
   driver: doubao-realtime
   doubao_realtime:

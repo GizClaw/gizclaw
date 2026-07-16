@@ -6,7 +6,11 @@ metadata:
 i18n:
   default_locale: en
   en:
-    description: AST Chinese to Japanese speech translation workflow
+    name: Chinese to Japanese Interpreter
+    description: Translate spoken Chinese into natural Japanese speech in real time.
+  zh-CN:
+    name: 中日语音翻译
+    description: 将中文语音实时翻译为自然的日语语音。
 spec:
   driver: ast-translate
   ast_translate:

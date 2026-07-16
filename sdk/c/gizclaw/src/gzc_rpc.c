@@ -721,14 +721,13 @@ static int inbound_encode_response(
   response.id.funcs.encode = encode_pb_bytes;
   response.id.arg = &id_arg;
   if (has_error) {
-    response.which_body = gizclaw_rpc_v1_RpcResponse_error_tag;
-    response.body.error.code = error_code;
-    response.body.error.message.funcs.encode = encode_pb_bytes;
-    response.body.error.message.arg = &message_arg;
+    response.has_error = true;
+    response.error.code = error_code;
+    response.error.message.funcs.encode = encode_pb_bytes;
+    response.error.message.arg = &message_arg;
   } else {
-    response.which_body = gizclaw_rpc_v1_RpcResponse_payload_tag;
-    response.body.payload.funcs.encode = encode_pb_bytes;
-    response.body.payload.arg = &payload_arg;
+    response.payload.funcs.encode = encode_pb_bytes;
+    response.payload.arg = &payload_arg;
   }
   gzc_buf_reset(out);
   return encode_pb_message(inbound->platform, gizclaw_rpc_v1_RpcResponse_fields, &response, out);

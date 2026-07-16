@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  localizedAdminWorkflowText,
   selectedWorkflowText,
   supportedWorkflowLocales,
   workflowLocale,
@@ -16,6 +17,35 @@ test("workflowLocale leaves unsupported UI languages unspecified", () => {
   assert.equal(workflowLocale("zh-TW"), "unspecified");
   assert.equal(workflowLocale("zh-HK"), "unspecified");
   assert.equal(workflowLocale("zh-Hant-CN"), "unspecified");
+});
+
+test("localizedAdminWorkflowText selects browser locale and default fallback", () => {
+  const workflow = {
+    name: "assistant",
+    i18n: {
+      default_locale: "en",
+      en: { name: "Assistant", description: "General help" },
+      "zh-CN": { name: "助手", description: "通用帮助" },
+    },
+  };
+  assert.deepEqual(localizedAdminWorkflowText(workflow, ["zh-Hans-CN"]), {
+    description: "通用帮助",
+    name: "助手",
+  });
+  assert.deepEqual(localizedAdminWorkflowText(workflow, ["fr-FR"]), {
+    description: "General help",
+    name: "Assistant",
+  });
+});
+
+test("localizedAdminWorkflowText preserves stable-ID fallback for empty catalogs", () => {
+  assert.deepEqual(
+    localizedAdminWorkflowText(
+      { i18n: { default_locale: "en", en: { name: " ", description: "" } } },
+      ["en-US"],
+    ),
+    {},
+  );
 });
 
 test("supportedWorkflowLocales continues through browser fallbacks", () => {

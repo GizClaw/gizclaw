@@ -6,7 +6,11 @@ metadata:
 i18n:
   default_locale: en
   en:
-    description: 'Flowcraft raid: Multi Role Storyteller'
+    name: Multi-Character Story Studio
+    description: Create interactive stories told through several distinct characters.
+  zh-CN:
+    name: 多角色故事剧场
+    description: 通过多个鲜明角色共同演绎互动故事。
 spec:
   driver: flowcraft
   flowcraft:

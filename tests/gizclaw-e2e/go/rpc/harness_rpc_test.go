@@ -285,13 +285,22 @@ func testRPCCredentialBodyString(body rpcapi.CredentialBody, key string) string 
 }
 
 func adminWorkflow(name, description string) apitypes.Workflow {
+	displayName := name
+	zhName := name
+	zhDescription := description
+	if name == sharedWorkflow {
+		displayName = "Support Assistant"
+		zhName = "支持助手"
+		zhDescription = "针对常见问题和支持请求获得简洁指引。"
+	}
 	spec := apitypes.FlowcraftWorkflowSpec{
 		"entry_agent": "",
 	}
 	return apitypes.Workflow{
 		I18n: &apitypes.WorkflowI18n{
 			DefaultLocale: apitypes.WorkflowLocaleEn,
-			En:            &apitypes.WorkflowI18nCatalog{Description: &description},
+			En:            &apitypes.WorkflowI18nCatalog{Name: &displayName, Description: &description},
+			ZhCN:          &apitypes.WorkflowI18nCatalog{Name: &zhName, Description: &zhDescription},
 		},
 		Name: name,
 		Spec: apitypes.WorkflowSpec{

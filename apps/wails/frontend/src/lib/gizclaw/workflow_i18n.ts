@@ -3,6 +3,27 @@ export interface SelectedWorkflowText {
   name?: string;
 }
 
+export function localizedAdminWorkflowText(
+  workflow: unknown,
+  localeTags: readonly string[],
+): SelectedWorkflowText {
+  if (!isRecord(workflow) || !isRecord(workflow.i18n)) {
+    return {};
+  }
+  const candidates: string[] = supportedWorkflowLocales(localeTags);
+  const defaultLocale = optionalString(workflow.i18n.default_locale);
+  if (defaultLocale != null) candidates.push(defaultLocale);
+  for (const locale of candidates) {
+    const catalog = workflow.i18n[locale];
+    if (!isRecord(catalog)) continue;
+    const description = optionalString(catalog.description);
+    const name = optionalString(catalog.name);
+    if (description == null && name == null) return {};
+    return { description, name };
+  }
+  return {};
+}
+
 export function workflowLocale(localeTag: string): "en" | "unspecified" | "zh-CN" {
   const normalizedTag = localeTag.trim().replaceAll("_", "-").toLowerCase();
   const subtags = normalizedTag.split("-");

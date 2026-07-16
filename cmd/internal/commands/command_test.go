@@ -285,7 +285,7 @@ func TestAdminResourceHelp(t *testing.T) {
 		{[]string{"admin", "minimax-tenants", "--help"}, []string{"list", "get", "sync-voices"}, []string{"create", "put", "delete"}},
 		{[]string{"admin", "volc-tenants", "--help"}, []string{"list", "get", "sync-voices"}, []string{"create", "put", "delete"}},
 		{[]string{"admin", "voices", "--help"}, []string{"list", "get"}, []string{"create", "put", "delete"}},
-		{[]string{"admin", "workflows", "--help"}, []string{"list", "get"}, []string{"create", "put", "delete"}},
+		{[]string{"admin", "workflows", "--help"}, []string{"list", "get", "upload-icon", "download-icon", "delete-icon"}, []string{"create", "put", "delete"}},
 		{[]string{"admin", "workspaces", "--help"}, []string{"list", "get"}, []string{"create", "put", "delete"}},
 	} {
 		root := New()
@@ -302,7 +302,7 @@ func TestAdminResourceHelp(t *testing.T) {
 			}
 		}
 		for _, notWant := range tc.notWants {
-			if strings.Contains(out, "\n  "+notWant) || strings.Contains(out, "\n    "+notWant) {
+			if strings.Contains(out, "\n  "+notWant+" ") || strings.Contains(out, "\n    "+notWant+" ") {
 				t.Fatalf("%v help should not include write command %q: %s", tc.args, notWant, out)
 			}
 		}

@@ -6,7 +6,11 @@ metadata:
 i18n:
   default_locale: en
   en:
-    description: 'Flowcraft raid: Func Chat'
+    name: Smart Tool Companion
+    description: Chat naturally while routing requests to music, stories, and device controls.
+  zh-CN:
+    name: 智能工具伙伴
+    description: 在自然对话中调用音乐、故事和设备控制能力。
 spec:
   driver: flowcraft
   flowcraft:
