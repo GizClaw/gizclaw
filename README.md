@@ -9,13 +9,17 @@
 [![Release](https://img.shields.io/github/v/release/GizClaw/gizclaw?include_prereleases&sort=semver)](https://github.com/GizClaw/gizclaw/releases)
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-blue)](LICENSE)
 ![Transport](https://img.shields.io/badge/transport-WebRTC-0ea5e9)
-![SDK](https://img.shields.io/badge/SDK-C%20%7C%20JS%20%7C%20Go-22c55e)
+![SDK](https://img.shields.io/badge/SDK-C%20%7C%20Dart%20%7C%20JS%20%7C%20Go-22c55e)
 ![Status](https://img.shields.io/badge/status-active%20development-f59e0b)
 
-![GizClaw agent runtime and server mesh](guides/references/assets/readme-hero.png)
+![GizClaw agent runtime and edge-server platform](guides/references/assets/readme-hero.png)
 
-GizClaw is an out-of-the-box agent runtime and edge server mesh for GizClaw
-devices.
+GizClaw is an out-of-the-box agent runtime and edge-server platform for GizClaw
+devices. It currently supports authoritative servers and single-upstream edge
+ingress; a self-organizing multi-server mesh remains future work.
+
+**Documentation:** [English](https://gizclaw.github.io/gizclaw/en/) ·
+[简体中文](https://gizclaw.github.io/gizclaw/zh/)
 
 It provides the server, CLI, WebRTC transport, Admin/RPC APIs, workflow-backed
 agent runtime, device telemetry, state monitoring, OTA firmware delivery,
@@ -37,6 +41,8 @@ their own agents through workspace runtimes.
   workflows, Doubao AST translation, and Doubao realtime flows.
 - [x] WebRTC transport, signaling, and service streams for GizClaw node and
   client connectivity.
+- [x] Edge-node ingress and optional TURN relay with authoritative-server
+  forwarding over Giznet/WebRTC service streams.
 - [x] Device registration, configuration, telemetry intake, runtime state
   monitoring, and policy-controlled access.
 - [x] Admin and peer RPC APIs generated from shared OpenAPI/RPC schemas.
@@ -47,14 +53,12 @@ their own agents through workspace runtimes.
 - [x] Gameplay rulesets, point accounts, reward grants, pet adoption, drive
   actions, pet workspaces, game results, badge progression, and pixa asset
   delivery.
-- [x] Generated API packages and SDK surfaces for Go packages, JavaScript
-  browser clients, C-facing clients, CLI, and e2e harnesses.
+- [x] Generated API packages and SDK surfaces for Go, JavaScript, Dart/Flutter,
+  C-facing clients, CLI, and e2e harnesses.
 
 ## Roadmap
 
 - [ ] Production-ready Admin UI and Play UI.
-- [ ] Desktop app beyond the current debug/skeleton shell, including local
-  server management and end-user agent customization.
 - Other workflow, agent, and realtime conversation engines:
   - [ ] OpenAI Realtime
   - [ ] Coze
@@ -63,14 +67,10 @@ their own agents through workspace runtimes.
   built-in tool exposure for agent-driven reward grants.
 - [ ] Pet-readable gameplay event writes into pet workspace memory/history after
   care actions and game results.
-- [ ] Self-organizing server mesh where devices attach to one node and requests can
-  route through other nodes to the node that owns the target device data.
-- [ ] Edge node ingress: add an `edge-node` role and edge command/profile so
-  devices and browsers connect to public edge nodes while authoritative server
-  APIs can run over giznet/WebRTC DataChannel.
-- [ ] Server mesh design proposal: keep the distributed server mesh documented
-  for future work, but do not treat it as currently supported product behavior.
-- [ ] Broader SDK coverage, including Flutter/mobile clients.
+- [ ] Self-organizing server mesh where devices attach to one node and requests
+  can route through other nodes to the node that owns the target device data.
+- [ ] Stabilize the Flutter SDK and mobile client for broader end-user and
+  platform coverage.
 - [ ] Third-party digital content federation with joint authorization and access
   from agent runtimes.
 - [ ] Expanded digital content delivery for gameplay content beyond current pet
@@ -87,6 +87,8 @@ their own agents through workspace runtimes.
   CLI client helpers, and domain services.
 - `pkgs/giznet/`: WebRTC transport, HTTP-over-service streams, and transport
   contracts.
+- `pkgs/gizedge/`: single-upstream edge ingress, forwarding, and optional TURN
+  relay runtime.
 - `pkgs/store/`: key-value, object, SQL-backed, metrics, vector, graph, and
   identity store primitives.
 - `pkgs/agent/`: agent memory, recall, embedding, and local runtime support.
@@ -95,11 +97,13 @@ their own agents through workspace runtimes.
   voiceprint helpers.
 - `api/`: source OpenAPI and RPC schemas. Generated Go and TypeScript code is
   derived from these files.
-- `js/`: generated TypeScript SDK packages and browser/runtime tooling.
-- `c/`: C-facing SDK surface and bindings.
+- `sdk/`: Go, JavaScript/TypeScript, Dart/Flutter, and C-facing SDK surfaces.
+- `js/`: shared JavaScript packages and browser/runtime tooling.
 - `apps/wails/`: desktop shell and frontend.
 - `apps/gizclaw-app/`: Flutter mobile client for iOS and Android.
-- `guides/`: localized development, review, coding, usage, and Reference documentation.
+- `guides/`: localized development, review, coding, usage, and Reference
+  documentation.
+- `skills/`: project-level Agent Skills installable with `npx skills`.
 - `examples/`: runnable examples for GenX, WebRTC SFU, audio, songs, and
   voiceprint workflows.
 - `tests/`: unit, integration, and Docker-backed e2e test projects.
@@ -136,24 +140,47 @@ bash tests/gizclaw-e2e/run_tests.sh
 
 ## Documentation
 
-The Project Guide is the documentation entrypoint:
+The hosted [Project Guide](https://gizclaw.github.io/gizclaw/) selects English
+or Simplified Chinese from the browser language. Direct locale entrypoints are
+[English](https://gizclaw.github.io/gizclaw/en/) and
+[简体中文](https://gizclaw.github.io/gizclaw/zh/).
 
-- [Development Guide](guides/zh/developing/index.md): architecture, API design,
-  package boundaries, CLI, applications, and SDK development.
-- [Review Guide](guides/zh/reviewing/index.md): review workflow, review items,
-  self-review, PR Agent review, and issue review.
-- [Coding Styles](guides/zh/coding-styles/index.md): Go, JavaScript/TypeScript,
-  Dart/Flutter, C/cgo, and documentation conventions.
-- [Usage Guide](guides/zh/using/index.md): CLI, Wails, Flutter, and SDK usage.
-- [References](guides/references/index.md): Go references plus local Flutter
-  Dartdoc and TypeScript TypeDoc generation.
-- [API Design](guides/zh/developing/api/overview.md): HTTP, Protobuf/RPC,
-  schema ownership, and generated-surface boundaries.
+- [Development Guide](https://gizclaw.github.io/gizclaw/en/developing/):
+  architecture, API design, package boundaries, CLI, applications, and SDK
+  development.
+- [Review Guide](https://gizclaw.github.io/gizclaw/en/reviewing/): review
+  workflow, review items, self-review, PR Agent review, and issue review.
+- [Coding Conventions](https://gizclaw.github.io/gizclaw/en/coding-styles/): Go,
+  JavaScript/TypeScript, Dart/Flutter, C/cgo, and documentation conventions.
+- [Usage Guide](https://gizclaw.github.io/gizclaw/en/using/): CLI, Wails,
+  Flutter, and SDK usage.
+- [References](https://gizclaw.github.io/gizclaw/references/): Go references
+  plus local Flutter Dartdoc and TypeScript TypeDoc generation.
+- [API Design](https://gizclaw.github.io/gizclaw/en/developing/api/overview):
+  HTTP, Protobuf/RPC, schema ownership, and generated-surface boundaries.
 
-The source API contracts remain under [`api/`](api/README.md). Start the Guide
+Documentation sources remain under [`guides/`](guides/), and source API
+contracts remain under [`api/`](api/README.md). Start and validate the Guide
 locally with:
 
 ```sh
 npm ci --prefix guides
 npm --prefix guides run dev
+npm --prefix guides run build:site
 ```
+
+`build:site` checks that every Chinese Markdown route has an English counterpart
+before building the production site.
+
+## Agent Skills
+
+The repository includes project-level Agent Skills for CLI, server, context,
+Admin, firmware, workspace, and Play workflows. Install a skill from the
+repository root with:
+
+```sh
+npx skills add . --skill gizclaw-cli
+```
+
+See the [Agent Skills catalog](skills/README.md) for the full list and global
+installation commands.
