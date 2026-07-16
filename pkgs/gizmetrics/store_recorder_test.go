@@ -45,11 +45,15 @@ func (s *fakeMetricsStore) Append(ctx context.Context, samples []storemetrics.Sa
 	return err
 }
 
-func (s *fakeMetricsStore) Query(context.Context, storemetrics.Query) (storemetrics.SeriesSet, error) {
+func (s *fakeMetricsStore) Latest(context.Context, storemetrics.LatestQuery) (storemetrics.SeriesSet, error) {
 	return nil, nil
 }
 
-func (s *fakeMetricsStore) QueryRange(context.Context, storemetrics.RangeQuery) (storemetrics.SeriesSet, error) {
+func (s *fakeMetricsStore) Range(context.Context, storemetrics.RangeQuery) (storemetrics.SeriesSet, error) {
+	return nil, nil
+}
+
+func (s *fakeMetricsStore) Aggregate(context.Context, storemetrics.AggregateQuery) (storemetrics.SeriesSet, error) {
 	return nil, nil
 }
 

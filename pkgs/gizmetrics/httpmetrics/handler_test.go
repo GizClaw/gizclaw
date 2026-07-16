@@ -34,11 +34,15 @@ func (s *captureStore) Append(_ context.Context, samples []storemetrics.Sample) 
 	return nil
 }
 
-func (s *captureStore) Query(context.Context, storemetrics.Query) (storemetrics.SeriesSet, error) {
+func (s *captureStore) Latest(context.Context, storemetrics.LatestQuery) (storemetrics.SeriesSet, error) {
 	return nil, nil
 }
 
-func (s *captureStore) QueryRange(context.Context, storemetrics.RangeQuery) (storemetrics.SeriesSet, error) {
+func (s *captureStore) Range(context.Context, storemetrics.RangeQuery) (storemetrics.SeriesSet, error) {
+	return nil, nil
+}
+
+func (s *captureStore) Aggregate(context.Context, storemetrics.AggregateQuery) (storemetrics.SeriesSet, error) {
 	return nil, nil
 }
 

@@ -240,14 +240,21 @@ func TestNewWithOptionsInstallsAndFlushesMetricsRecorder(t *testing.T) {
 	if err := srv.shutdownMetrics(context.Background()); err != nil {
 		t.Fatalf("shutdownMetrics() error = %v", err)
 	}
-	series, err := srv.Server.MetricsStore.Query(context.Background(), metrics.Query{
-		Expression: `gizclaw_server_test_total{result="ok"}`,
+	series, err := srv.Server.MetricsStore.Latest(context.Background(), metrics.LatestQuery{
+		Selector: metrics.Selector{
+			Name: "gizclaw_server_test_total",
+			Matchers: []metrics.LabelMatcher{
+				{Name: "result", Op: metrics.MatchEqual, Value: "ok"},
+			},
+		},
+		At:       time.Now(),
+		Lookback: time.Minute,
 	})
 	if err != nil {
-		t.Fatalf("Query() error = %v", err)
+		t.Fatalf("Latest() error = %v", err)
 	}
 	if len(series) != 1 || len(series[0].Points) != 1 || series[0].Points[0].Value != 2 {
-		t.Fatalf("Query() = %#v, want one sample with value 2", series)
+		t.Fatalf("Latest() = %#v, want one sample with value 2", series)
 	}
 }
 
@@ -310,9 +317,13 @@ func TestNewWithOptionsConcurrentMetricsInstallPreservesExistingRecorder(t *test
 	if err := shutdown(context.Background()); err != nil {
 		t.Fatalf("shutdown(existing) error = %v", err)
 	}
-	series, err := existing.Query(context.Background(), metrics.Query{Expression: "gizclaw_existing_recorder_total"})
+	series, err := existing.Latest(context.Background(), metrics.LatestQuery{
+		Selector: metrics.Selector{Name: "gizclaw_existing_recorder_total"},
+		At:       time.Now(),
+		Lookback: time.Minute,
+	})
 	if err != nil {
-		t.Fatalf("Query(existing) error = %v", err)
+		t.Fatalf("Latest(existing) error = %v", err)
 	}
 	if len(series) != 1 || len(series[0].Points) != 1 || series[0].Points[0].Value != 1 {
 		t.Fatalf("existing recorder series = %#v", series)
