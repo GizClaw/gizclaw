@@ -1060,6 +1060,7 @@ class _GlobalConversationControlState extends State<GlobalConversationControl> {
         data.microphoneStatus.availability == MicrophoneAvailability.recovering;
     final microphoneBlocked = microphoneUnavailable || microphoneRecovering;
     final enabled = (chat?.canRecord ?? false) && !microphoneBlocked;
+    final inputActive = chat?.recording == true || chat?.startingInput == true;
     final title = workspace?.title ?? 'No active workspace';
     final status = _statusLabel(context, data, chat, mode);
     final control = _VoiceModeToggle(
@@ -1080,9 +1081,13 @@ class _GlobalConversationControlState extends State<GlobalConversationControl> {
           ? null
           : (target) => _setMode(data, target),
       onPttStart: enabled ? () => _startInput(chat!) : null,
-      onPttEnd: enabled ? () => unawaited(chat!.finishInput()) : null,
-      onRealtimeTap: enabled ? () => _toggleRealtime(chat!) : null,
-      onUnavailableTap: microphoneUnavailable
+      onPttEnd: chat != null && (enabled || inputActive)
+          ? () => unawaited(chat.finishInput())
+          : null,
+      onRealtimeTap: chat != null && (enabled || chat.recording)
+          ? () => _toggleRealtime(chat)
+          : null,
+      onUnavailableTap: microphoneUnavailable && !inputActive
           ? () => _recoverMicrophone(data)
           : null,
     );
@@ -1276,8 +1281,9 @@ class _VoiceModeToggleState extends State<_VoiceModeToggle> {
   void _handlePointerDown(PointerDownEvent event) {
     if (_pointer != null ||
         widget.switchingMode ||
-        widget.microphoneUnavailable ||
-        widget.microphoneRecovering) {
+        ((widget.microphoneUnavailable || widget.microphoneRecovering) &&
+            !widget.recording &&
+            !widget.preparing)) {
       return;
     }
     _pointer = event.pointer;

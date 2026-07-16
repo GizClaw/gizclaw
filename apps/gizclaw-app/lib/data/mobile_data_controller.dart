@@ -902,7 +902,8 @@ class MobileDataController extends ChangeNotifier {
       return current;
     }
     _replaceActiveWorkspaceChat(null);
-    final chat = WorkspaceChatController(
+    late final WorkspaceChatController chat;
+    chat = WorkspaceChatController(
       workspaceName: workspaceName,
       repository: workspaceChatRepository,
       serverId: activeServerId,
@@ -910,6 +911,7 @@ class MobileDataController extends ChangeNotifier {
       dataChannelFactory: connection.dataChannelFactory,
       peerConnection: connection.peerConnection,
       inputTrack: connection.microphoneTrack,
+      ownsInputTrack: () => identical(_activeWorkspaceChat, chat),
       onMicrophoneStalled: () async {
         await recoverMicrophone();
       },

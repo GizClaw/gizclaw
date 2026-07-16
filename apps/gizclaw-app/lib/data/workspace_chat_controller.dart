@@ -62,6 +62,7 @@ class WorkspaceChatController extends ChangeNotifier {
     this.dataChannelFactory,
     this.peerConnection,
     this.inputTrack,
+    this.ownsInputTrack,
     this.onMicrophoneStalled,
     this.onTransportClosed,
     WebRtcStatsProvider? statsProvider,
@@ -73,6 +74,7 @@ class WorkspaceChatController extends ChangeNotifier {
   final GizClawDataChannelFactory? dataChannelFactory;
   final rtc.RTCPeerConnection? peerConnection;
   final rtc.MediaStreamTrack? inputTrack;
+  final bool Function()? ownsInputTrack;
   final Future<void> Function()? onMicrophoneStalled;
   final Future<void> Function()? onTransportClosed;
   final Duration readinessPollInterval;
@@ -105,6 +107,7 @@ class WorkspaceChatController extends ChangeNotifier {
   String? replayingHistoryId;
   bool _disposed = false;
   Future<void>? _closeFuture;
+  Future<void>? _finishInputInFlight;
   Future<void>? _startInputInFlight;
   double inputLevel = 0;
   double outputLevel = 0;
@@ -115,7 +118,10 @@ class WorkspaceChatController extends ChangeNotifier {
       state == WorkspaceChatState.connected &&
       _session != null &&
       peerConnection != null &&
-      inputTrack != null;
+      inputTrack != null &&
+      _ownsInputTrack;
+
+  bool get _ownsInputTrack => ownsInputTrack?.call() ?? true;
 
   Future<void> start({bool activate = true, bool conversation = true}) async {
     final stableServerId = serverId;
@@ -196,7 +202,11 @@ class WorkspaceChatController extends ChangeNotifier {
 
   Future<void> startInput() {
     final session = _session;
-    if (_disposed || session == null || !canRecord || recording) {
+    if (_disposed ||
+        session == null ||
+        !canRecord ||
+        recording ||
+        _finishInputInFlight != null) {
       return Future.value();
     }
     final active = _startInputInFlight;
@@ -220,8 +230,10 @@ class WorkspaceChatController extends ChangeNotifier {
         );
       }
       final baseline = await _readOutgoingAudioCounter(track);
+      if (!_ownsInputTrack) throw StateError('Microphone track owner changed');
       track.enabled = true;
       _activeAudioBaseline = await _waitForOutgoingAudio(track, baseline);
+      if (!_ownsInputTrack) throw StateError('Microphone track owner changed');
       final streamId =
           'audio-${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}';
       _activeStreamId = streamId;
@@ -232,7 +244,7 @@ class WorkspaceChatController extends ChangeNotifier {
         await finishInput();
       }
     } catch (error) {
-      inputTrack?.enabled = false;
+      _disableInputTrack();
       _activeStreamId = null;
       _activeAudioBaseline = null;
       _finishPending = false;
@@ -247,30 +259,48 @@ class WorkspaceChatController extends ChangeNotifier {
     }
   }
 
-  Future<void> finishInput({String? error}) async {
+  Future<void> finishInput({String? error}) {
     if (startingInput && !recording) {
       _finishPending = true;
-      return;
+      return Future.value();
     }
+    final active = _finishInputInFlight;
+    if (active != null) return active;
     final session = _session;
     final streamId = _activeStreamId;
-    if (session == null || streamId == null || !recording) return;
-    _activeStreamId = null;
-    recording = false;
+    if (session == null || streamId == null || !recording) {
+      return Future.value();
+    }
+    late final Future<void> finish;
+    finish = _finishInput(session, streamId, error).whenComplete(() {
+      if (identical(_finishInputInFlight, finish)) {
+        _finishInputInFlight = null;
+      }
+    });
+    return _finishInputInFlight = finish;
+  }
+
+  Future<void> _finishInput(
+    WorkspaceEventSession session,
+    String streamId,
+    String? error,
+  ) async {
     var eosError = error;
+    var requestRecovery = false;
     try {
       final track = inputTrack;
       if (track != null) {
         try {
           final finalCounter = await _readOutgoingAudioCounter(track);
           final baseline = _activeAudioBaseline;
-          if (baseline != null && !finalCounter.advancedFrom(baseline)) {
+          if (baseline != null &&
+              !finalCounter.outboundAdvancedFrom(baseline)) {
             const stalled = MicrophoneInputException(
               MicrophoneInputFailureKind.stalled,
             );
             lastError = stalled;
             eosError ??= 'microphone_no_outbound_audio';
-            _requestMicrophoneRecovery();
+            requestRecovery = true;
           }
         } catch (statsError) {
           lastError = statsError;
@@ -281,8 +311,10 @@ class WorkspaceChatController extends ChangeNotifier {
     } catch (sendError) {
       _handleError(sendError, changeState: false);
     } finally {
-      inputTrack?.enabled = false;
+      _disableInputTrack();
+      _activeStreamId = null;
       _activeAudioBaseline = null;
+      recording = false;
       notifyListeners();
       _historyRefreshTimer?.cancel();
       _historyRefreshTimer = Timer(
@@ -290,6 +322,7 @@ class WorkspaceChatController extends ChangeNotifier {
         _refreshHistory,
       );
     }
+    if (requestRecovery) _requestMicrophoneRecovery();
   }
 
   void _startLevelMonitor() {
@@ -430,7 +463,7 @@ class WorkspaceChatController extends ChangeNotifier {
     while (DateTime.now().isBefore(deadline)) {
       await Future<void>.delayed(readinessPollInterval);
       final current = await _readOutgoingAudioCounter(track);
-      if (current.advancedFrom(baseline)) return current;
+      if (current.outboundAdvancedFrom(baseline)) return current;
     }
     throw const MicrophoneInputException(MicrophoneInputFailureKind.stalled);
   }
@@ -589,13 +622,25 @@ class WorkspaceChatController extends ChangeNotifier {
     final recover = onMicrophoneStalled;
     if (_disposed || recover == null || _microphoneRecoveryRequested) return;
     _microphoneRecoveryRequested = true;
-    unawaited(
-      recover().whenComplete(() => _microphoneRecoveryRequested = false),
-    );
+    unawaited(_recoverMicrophone(recover));
+  }
+
+  Future<void> _recoverMicrophone(Future<void> Function() recover) async {
+    try {
+      await recover();
+    } catch (error) {
+      if (!_disposed) _handleError(error, changeState: false);
+    } finally {
+      _microphoneRecoveryRequested = false;
+    }
+  }
+
+  void _disableInputTrack() {
+    if (_ownsInputTrack) inputTrack?.enabled = false;
   }
 
   void _resetRecording() {
-    inputTrack?.enabled = false;
+    _disableInputTrack();
     _activeStreamId = null;
     _activeAudioBaseline = null;
     recording = false;
@@ -712,11 +757,9 @@ class _OutgoingAudioCounter {
   final double? packetsSent;
   final double? bytesSent;
 
-  bool get hasCounter =>
-      samplesDuration != null || packetsSent != null || bytesSent != null;
+  bool get hasCounter => packetsSent != null || bytesSent != null;
 
-  bool advancedFrom(_OutgoingAudioCounter previous) =>
-      _advanced(samplesDuration, previous.samplesDuration) ||
+  bool outboundAdvancedFrom(_OutgoingAudioCounter previous) =>
       _advanced(packetsSent, previous.packetsSent) ||
       _advanced(bytesSent, previous.bytesSent);
 }

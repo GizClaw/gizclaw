@@ -599,6 +599,26 @@ void main() {
     );
   });
 
+  appTestWidgets('releases active PTT after microphone becomes unavailable', (
+    tester,
+  ) async {
+    final controller = _InterruptedMicrophoneController();
+    await pumpApp(tester, controller: controller);
+
+    final thumb = find.byKey(const ValueKey('voice-mode-thumb'));
+    final gesture = await tester.startGesture(tester.getCenter(thumb));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(controller.chat.recording, isTrue);
+
+    controller.interruptMicrophone();
+    await tester.pump();
+    await gesture.up();
+    await tester.pump();
+
+    expect(controller.chat.finishInputCalls, 1);
+    expect(controller.chat.recording, isFalse);
+  });
+
   appTestWidgets('opens group creation controls', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -890,6 +910,24 @@ class _UnavailableMicrophoneController extends _ModeSwitchController {
   }
 }
 
+class _InterruptedMicrophoneController extends _ModeSwitchController {
+  _InterruptedMicrophoneController() {
+    connectionState = MobileConnectionState.connected;
+  }
+
+  MicrophoneStatus status = const MicrophoneStatus.ready();
+
+  @override
+  MicrophoneStatus get microphoneStatus => status;
+
+  void interruptMicrophone() {
+    status = const MicrophoneStatus.unavailable(
+      failureKind: MicrophoneFailureKind.captureUnavailable,
+    );
+    notifyListeners();
+  }
+}
+
 class _ServerListTestController extends MobileDataController {
   _ServerListTestController()
     : super(
@@ -968,6 +1006,7 @@ class _ModeSwitchChatController extends WorkspaceChatController {
       );
 
   int startInputCalls = 0;
+  int finishInputCalls = 0;
 
   @override
   bool get canRecord => true;
@@ -976,6 +1015,13 @@ class _ModeSwitchChatController extends WorkspaceChatController {
   Future<void> startInput() async {
     startInputCalls += 1;
     recording = true;
+    notifyListeners();
+  }
+
+  @override
+  Future<void> finishInput({String? error}) async {
+    finishInputCalls += 1;
+    recording = false;
     notifyListeners();
   }
 }
