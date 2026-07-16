@@ -473,18 +473,16 @@ func TestHistoryRecorderControlEOSFinalizesRouteOnce(t *testing.T) {
 	history := workspace.NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
 	recorder := newHistoryRecorder(history, "", nil)
 	ctx := context.Background()
-	if err := recorder.ObserveOutput(ctx, &genx.MessageChunk{
-		Role: genx.RoleModel,
-		Name: "assistant",
-		Part: genx.Text("hello"),
-		Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"},
-	}); err != nil {
-		t.Fatalf("ObserveOutput(text) error = %v", err)
+	for _, chunk := range []*genx.MessageChunk{
+		{Role: genx.RoleModel, Name: "assistant", Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}},
+		{Role: genx.RoleModel, Name: "status", Part: genx.Text("working"), Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "status"}},
+	} {
+		if err := recorder.ObserveOutput(ctx, chunk); err != nil {
+			t.Fatalf("ObserveOutput(%s) error = %v", chunk.Name, err)
+		}
 	}
 	routeEOS := &genx.MessageChunk{
-		Role: genx.RoleModel,
-		Name: "assistant",
-		Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant", EndOfStream: true},
+		Ctrl: &genx.StreamCtrl{StreamID: "s1", EndOfStream: true},
 	}
 	if err := recorder.ObserveOutput(ctx, routeEOS); err != nil {
 		t.Fatalf("ObserveOutput(route EOS) error = %v", err)
@@ -499,7 +497,14 @@ func TestHistoryRecorderControlEOSFinalizesRouteOnce(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List() error = %v", err)
 	}
-	if len(resp.Items) != 1 || resp.Items[0].Text != "hello" {
+	if len(resp.Items) != 2 {
+		t.Fatalf("history items = %+v", resp.Items)
+	}
+	got := make(map[string]string, len(resp.Items))
+	for _, item := range resp.Items {
+		got[item.Name] = item.Text
+	}
+	if got["assistant"] != "hello" || got["status"] != "working" {
 		t.Fatalf("history items = %+v", resp.Items)
 	}
 }

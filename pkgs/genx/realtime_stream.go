@@ -336,10 +336,8 @@ func isRealtimeAudioChunk(chunk *MessageChunk) bool {
 	if idx := strings.IndexByte(mimeType, ';'); idx >= 0 {
 		mimeType = mimeType[:idx]
 	}
-	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(mimeType)), "audio/") {
-		return true
-	}
-	return false
+	mimeType = strings.ToLower(strings.TrimSpace(mimeType))
+	return strings.HasPrefix(mimeType, "audio/") || mimeType == "application/ogg"
 }
 
 func (s *RealtimeStream) signalLocked() {

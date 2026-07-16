@@ -708,6 +708,7 @@ type historyPendingEntry struct {
 	typ       string
 	gearID    string
 	name      string
+	streamID  string
 	channels  map[string]bool
 	audioMIME string
 	text      strings.Builder
@@ -850,7 +851,7 @@ func (r *historyRecorder) observe(ctx context.Context, chunk *genx.MessageChunk,
 	}
 	if chunk.IsEndOfStream() {
 		if chunk.Part == nil {
-			return r.flush(ctx, r.key(recordChunk, typ))
+			return r.flushRoute(ctx, historyChunkStreamID(recordChunk))
 		}
 		if entry == nil || !entry.channelsComplete() {
 			return nil
@@ -916,6 +917,7 @@ func (r *historyRecorder) pendingEntry(chunk *genx.MessageChunk, typ string, gea
 			typ:       typ,
 			gearID:    strings.TrimSpace(gearID),
 			name:      historyChunkName(chunk, typ),
+			streamID:  historyChunkStreamID(chunk),
 			createdAt: time.Now().UTC(),
 		}
 		r.pending[key] = entry
@@ -925,6 +927,12 @@ func (r *historyRecorder) pendingEntry(chunk *genx.MessageChunk, typ string, gea
 
 func deferGearAudioEntry(entry *historyPendingEntry) bool {
 	return entry != nil && entry.typ == historyEntryTypeGear && strings.TrimSpace(entry.text.String()) == "" && (len(entry.audio) > 0 || entry.oggAudio.Len() > 0 || entry.pcmWriter != nil)
+}
+
+func (r *historyRecorder) flushRoute(ctx context.Context, streamID string) error {
+	return r.flushMatching(ctx, func(entry *historyPendingEntry) bool {
+		return entry == nil || entry.streamID != streamID
+	})
 }
 
 func (r *historyRecorder) flush(ctx context.Context, key string) error {
@@ -1115,16 +1123,18 @@ func historyPCMFormat(mimeType string) (pcm.Format, bool) {
 }
 
 func (r *historyRecorder) key(chunk *genx.MessageChunk, typ string) string {
-	streamID := ""
 	label := ""
 	if chunk != nil && chunk.Ctrl != nil {
-		streamID = chunk.Ctrl.StreamID
 		label = chunk.Ctrl.Label
 	}
-	if streamID == "" {
-		streamID = "default"
+	return typ + ":" + historyChunkStreamID(chunk) + ":" + label + ":" + historyChunkName(chunk, typ)
+}
+
+func historyChunkStreamID(chunk *genx.MessageChunk) string {
+	if chunk != nil && chunk.Ctrl != nil && chunk.Ctrl.StreamID != "" {
+		return chunk.Ctrl.StreamID
 	}
-	return typ + ":" + streamID + ":" + label + ":" + historyChunkName(chunk, typ)
+	return "default"
 }
 
 func historyChunkName(chunk *genx.MessageChunk, typ string) string {
