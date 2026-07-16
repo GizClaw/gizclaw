@@ -459,6 +459,55 @@ func TestAgentTransformCancellationStopsASRPipeline(t *testing.T) {
 	}
 }
 
+func TestAgentTransformCancellationAbortsFullASRInputBuffer(t *testing.T) {
+	transformer := &stalledASRTransformer{started: make(chan struct{})}
+	agent, err := (Factory{Transformer: transformer}).NewAgent(context.Background(), agenthost.Spec{
+		Workflow: validWorkflowWithTranscript("asr", true),
+	})
+	if err != nil {
+		t.Fatalf("NewAgent() error = %v", err)
+	}
+	input := &recordingStream{doneErr: genx.ErrDone}
+	for range 65 {
+		input.chunks = append(input.chunks, &genx.MessageChunk{
+			Role: genx.RoleUser,
+			Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}},
+			Ctrl: &genx.StreamCtrl{StreamID: "turn-a"},
+		})
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	output, err := agent.Transform(ctx, "demo", input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	select {
+	case <-transformer.started:
+	case <-time.After(time.Second):
+		t.Fatal("ASR transformer did not start")
+	}
+	if !input.waitNexts(65, time.Second) {
+		t.Fatal("ASR producer did not fill the input buffer")
+	}
+	cancel()
+	result := make(chan error, 1)
+	go func() {
+		_, err := output.Next()
+		result <- err
+	}()
+	select {
+	case err := <-result:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("output.Next() error = %v, want context.Canceled", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("output.Next() remained blocked after cancellation")
+	}
+	if got := transformer.outputCloses.Load(); got != 1 {
+		t.Fatalf("ASR output close calls = %d, want 1", got)
+	}
+}
+
 func TestAgentTransformTranscribesAudioInput(t *testing.T) {
 	transformer := &scriptedASRTransformer{text: "hello"}
 	agent, err := (Factory{Transformer: transformer}).NewAgent(context.Background(), agenthost.Spec{
@@ -517,6 +566,12 @@ func TestAgentTransformTranscribesAudioInput(t *testing.T) {
 	}
 	if !input.waitClosed(100 * time.Millisecond) {
 		t.Fatal("input stream was not closed")
+	}
+	if got := transformer.outputCloses.Load(); got != 1 {
+		t.Fatalf("ASR output close calls = %d, want 1", got)
+	}
+	if got := transformer.outputErrorCloses.Load(); got != 0 {
+		t.Fatalf("ASR output error close calls = %d, want 0", got)
 	}
 }
 
@@ -948,11 +1003,29 @@ func (s *recordingStream) waitClosed(timeout time.Duration) bool {
 	}
 }
 
+func (s *recordingStream) waitNexts(want int, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for {
+		s.mu.Lock()
+		nexts := s.nexts
+		s.mu.Unlock()
+		if nexts >= want {
+			return true
+		}
+		if time.Now().After(deadline) {
+			return false
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
 type scriptedASRTransformer struct {
-	mu      sync.Mutex
-	pattern string
-	text    string
-	audio   [][]byte
+	mu                sync.Mutex
+	pattern           string
+	text              string
+	audio             [][]byte
+	outputCloses      atomic.Int32
+	outputErrorCloses atomic.Int32
 }
 
 func (t *scriptedASRTransformer) Transform(_ context.Context, pattern string, input genx.Stream) (genx.Stream, error) {
@@ -1022,7 +1095,11 @@ func (t *scriptedASRTransformer) Transform(_ context.Context, pattern string, in
 		)
 		_ = output.Done(genx.Usage{})
 	}()
-	return output.Stream(), nil
+	return &closeCountingStream{
+		Stream:      output.Stream(),
+		closes:      &t.outputCloses,
+		errorCloses: &t.outputErrorCloses,
+	}, nil
 }
 
 type consumerErrorASRTransformer struct {
@@ -1050,6 +1127,17 @@ type blockingASRTransformer struct {
 	outputCloses atomic.Int32
 }
 
+type stalledASRTransformer struct {
+	started      chan struct{}
+	outputCloses atomic.Int32
+}
+
+func (t *stalledASRTransformer) Transform(_ context.Context, _ string, _ genx.Stream) (genx.Stream, error) {
+	close(t.started)
+	output := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 1)
+	return &closeCountingStream{Stream: output.Stream(), closes: &t.outputCloses}, nil
+}
+
 func (t *blockingASRTransformer) Transform(_ context.Context, _ string, input genx.Stream) (genx.Stream, error) {
 	output := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 1)
 	go func() {
@@ -1074,7 +1162,8 @@ func (t *blockingASRTransformer) Transform(_ context.Context, _ string, input ge
 
 type closeCountingStream struct {
 	genx.Stream
-	closes *atomic.Int32
+	closes      *atomic.Int32
+	errorCloses *atomic.Int32
 }
 
 func (s *closeCountingStream) Close() error {
@@ -1084,6 +1173,9 @@ func (s *closeCountingStream) Close() error {
 
 func (s *closeCountingStream) CloseWithError(err error) error {
 	s.closes.Add(1)
+	if s.errorCloses != nil {
+		s.errorCloses.Add(1)
+	}
 	return s.Stream.CloseWithError(err)
 }
 

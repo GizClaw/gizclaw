@@ -300,6 +300,12 @@ func (a agent) transcribeInput(ctx context.Context, input genx.Stream, output *g
 	var asrInput *asrInputTransport
 	var asr genx.Stream
 	var readDone chan error
+	var stopASRInputCancel func() bool
+	defer func() {
+		if stopASRInputCancel != nil {
+			stopASRInputCancel()
+		}
+	}()
 	var closeASROnce sync.Once
 	streamID := &lockedString{value: defaultInputStreamID}
 	textOpen := false
@@ -321,6 +327,10 @@ func (a agent) transcribeInput(ctx context.Context, input genx.Stream, output *g
 		}
 		asrInput = newASRInputTransport(func(err error) {
 			_ = input.CloseWithError(err)
+		})
+		asrInputStream := asrInput
+		stopASRInputCancel = context.AfterFunc(ctx, func() {
+			_ = asrInputStream.Abort(ctx.Err())
 		})
 		var err error
 		asr, err = a.cfg.transformer.Transform(ctx, a.asrPattern(), asrInput.Stream())
@@ -352,9 +362,14 @@ func (a agent) transcribeInput(ctx context.Context, input genx.Stream, output *g
 	}
 	closeASR := func(err error) {
 		closeASROnce.Do(func() {
-			if asr != nil {
-				_ = asr.CloseWithError(err)
+			if asr == nil {
+				return
 			}
+			if err != nil {
+				_ = asr.CloseWithError(err)
+				return
+			}
+			_ = asr.Close()
 		})
 	}
 	waitTranscript := func() error {
@@ -365,6 +380,7 @@ func (a agent) transcribeInput(ctx context.Context, input genx.Stream, output *g
 		readDone = nil
 		select {
 		case err := <-done:
+			closeASR(err)
 			return err
 		case <-ctx.Done():
 			closeASR(ctx.Err())
