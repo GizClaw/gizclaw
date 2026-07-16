@@ -112,11 +112,33 @@ func (s *PrometheusStore) Latest(ctx context.Context, q LatestQuery) (SeriesSet,
 	if err := validateLatestQuery(q); err != nil {
 		return nil, err
 	}
-	memory, err := s.loadWindow(ctx, q.Selector, q.At.Add(-q.Lookback), q.At)
+	selector, err := prometheusSelector(q.Selector)
 	if err != nil {
 		return nil, err
 	}
-	return memory.Latest(ctx, q)
+	lookback := formatPrometheusRangeDuration(q.Lookback)
+	values, err := s.queryInstant(ctx, "last_over_time("+selector+"["+lookback+"])", q.At)
+	if err != nil {
+		return nil, err
+	}
+	resolution := min(q.Lookback, time.Minute)
+	timestamps, err := s.queryInstant(ctx, "last_over_time(timestamp("+selector+")["+lookback+":"+formatPrometheusRangeDuration(resolution)+"])", q.At)
+	if err != nil {
+		return nil, err
+	}
+	byKey := make(map[string]Point, len(timestamps))
+	for _, item := range timestamps {
+		if len(item.Points) != 0 {
+			byKey[memorySeriesKey(q.Selector.Name, item.Labels)] = item.Points[len(item.Points)-1]
+		}
+	}
+	for i := range values {
+		values[i].Name = q.Selector.Name
+		if timestamp, ok := byKey[memorySeriesKey(q.Selector.Name, values[i].Labels)]; ok && len(values[i].Points) != 0 {
+			values[i].Points[0].Timestamp = time.UnixMilli(int64(math.Round(timestamp.Value * 1000))).UTC()
+		}
+	}
+	return values, nil
 }
 
 // Range evaluates the backend-neutral range semantics over Prometheus samples.
@@ -124,11 +146,42 @@ func (s *PrometheusStore) Range(ctx context.Context, q RangeQuery) (SeriesSet, e
 	if err := validateRangeQuery(q); err != nil {
 		return nil, err
 	}
-	memory, err := s.loadWindow(ctx, q.Selector, q.Start, q.End)
+	selector, err := prometheusSelector(q.Selector)
 	if err != nil {
 		return nil, err
 	}
-	return memory.Range(ctx, q)
+	byKey := map[string]*Series{}
+	exact, err := s.queryInstant(ctx, selector+"[1ms]", q.Start)
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range exact {
+		for _, point := range item.Points {
+			if point.Timestamp.Equal(q.Start.UTC()) {
+				appendPrometheusPoint(byKey, q.Selector.Name, item.Labels, point)
+			}
+		}
+	}
+	alignedEnd := q.Start.Add(q.End.Sub(q.Start) / q.Step * q.Step)
+	if first := q.Start.Add(q.Step); !first.After(alignedEnd) {
+		series, err := s.queryRange(ctx, "last_over_time("+selector+"["+formatPrometheusRangeDuration(q.Step)+"])", first, alignedEnd, q.Step)
+		if err != nil {
+			return nil, err
+		}
+		mergePrometheusSeries(byKey, q.Selector.Name, series, 0)
+	}
+	if alignedEnd.Before(q.End) {
+		tail, err := s.queryInstant(ctx, "last_over_time("+selector+"["+formatPrometheusRangeDuration(q.Step)+"])", q.End)
+		if err != nil {
+			return nil, err
+		}
+		for _, item := range tail {
+			if len(item.Points) != 0 {
+				appendPrometheusPoint(byKey, q.Selector.Name, item.Labels, Point{Timestamp: q.End.UTC(), Value: item.Points[0].Value})
+			}
+		}
+	}
+	return prometheusSeriesSet(byKey), nil
 }
 
 // Aggregate evaluates bucketed aggregation over Prometheus samples.
@@ -136,11 +189,46 @@ func (s *PrometheusStore) Aggregate(ctx context.Context, q AggregateQuery) (Seri
 	if err := validateAggregateQuery(q); err != nil {
 		return nil, err
 	}
-	memory, err := s.loadWindow(ctx, q.Selector, q.Start, q.End)
+	selector, err := prometheusSelector(q.Selector)
 	if err != nil {
 		return nil, err
 	}
-	return memory.Aggregate(ctx, q)
+	operator := map[Aggregation]string{AggregationAvg: "avg_over_time", AggregationMin: "min_over_time", AggregationMax: "max_over_time", AggregationSum: "sum_over_time", AggregationCount: "count_over_time", AggregationLast: "last_over_time"}[q.Operation]
+	byKey := map[string]*Series{}
+	firstEnd := q.Start.Add(q.Bucket)
+	if firstEnd.After(q.End) {
+		firstEnd = q.End
+	}
+	first, err := s.loadWindow(ctx, q.Selector, q.Start, firstEnd)
+	if err != nil {
+		return nil, err
+	}
+	firstSeries, err := first.Aggregate(ctx, AggregateQuery{Selector: q.Selector, Start: q.Start, End: firstEnd, Bucket: q.Bucket, Operation: q.Operation})
+	if err != nil {
+		return nil, err
+	}
+	mergePrometheusSeries(byKey, q.Selector.Name, firstSeries, 0)
+	alignedEnd := q.Start.Add(q.End.Sub(q.Start) / q.Bucket * q.Bucket)
+	if second := q.Start.Add(2 * q.Bucket); !second.After(alignedEnd) {
+		series, err := s.queryRange(ctx, operator+"("+selector+"["+formatPrometheusRangeDuration(q.Bucket)+"])", second, alignedEnd, q.Bucket)
+		if err != nil {
+			return nil, err
+		}
+		mergePrometheusSeries(byKey, q.Selector.Name, series, -q.Bucket)
+	}
+	if alignedEnd.Before(q.End) && !alignedEnd.Equal(q.Start) {
+		tail := q.End.Sub(alignedEnd)
+		series, err := s.queryInstant(ctx, operator+"("+selector+"["+formatPrometheusRangeDuration(tail)+"])", q.End)
+		if err != nil {
+			return nil, err
+		}
+		for _, item := range series {
+			if len(item.Points) != 0 {
+				appendPrometheusPoint(byKey, q.Selector.Name, item.Labels, Point{Timestamp: alignedEnd.UTC(), Value: item.Points[0].Value})
+			}
+		}
+	}
+	return prometheusSeriesSet(byKey), nil
 }
 
 func (s *PrometheusStore) loadWindow(ctx context.Context, selector Selector, start, end time.Time) (*MemoryStore, error) {
@@ -174,6 +262,43 @@ func (s *PrometheusStore) loadWindow(ctx context.Context, selector Selector, sta
 	return memory, nil
 }
 
+func (s *PrometheusStore) queryInstant(ctx context.Context, expression string, at time.Time) (SeriesSet, error) {
+	return s.query(ctx, "/api/v1/query", url.Values{"query": {expression}, "time": {formatPrometheusTime(at)}})
+}
+
+func (s *PrometheusStore) queryRange(ctx context.Context, expression string, start, end time.Time, step time.Duration) (SeriesSet, error) {
+	return s.query(ctx, "/api/v1/query_range", url.Values{"query": {expression}, "start": {formatPrometheusTime(start)}, "end": {formatPrometheusTime(end)}, "step": {formatPrometheusRangeDuration(step)}})
+}
+
+func appendPrometheusPoint(items map[string]*Series, name string, labels map[string]string, point Point) {
+	key := memorySeriesKey(name, labels)
+	item := items[key]
+	if item == nil {
+		item = &Series{Name: name, Labels: cloneLabels(labels)}
+		items[key] = item
+	}
+	item.Points = append(item.Points, point)
+}
+
+func mergePrometheusSeries(items map[string]*Series, name string, series SeriesSet, timestampOffset time.Duration) {
+	for _, item := range series {
+		for _, point := range item.Points {
+			point.Timestamp = point.Timestamp.Add(timestampOffset).UTC()
+			appendPrometheusPoint(items, name, item.Labels, point)
+		}
+	}
+}
+
+func prometheusSeriesSet(items map[string]*Series) SeriesSet {
+	out := make(SeriesSet, 0, len(items))
+	for _, item := range items {
+		slices.SortFunc(item.Points, func(a, b Point) int { return a.Timestamp.Compare(b.Timestamp) })
+		out = append(out, *item)
+	}
+	sortSeries(out)
+	return out
+}
+
 func prometheusSelector(selector Selector) (string, error) {
 	if err := validateSelector(selector); err != nil {
 		return "", err
@@ -191,7 +316,8 @@ func prometheusSelector(selector Selector) (string, error) {
 }
 
 func formatPrometheusRangeDuration(d time.Duration) string {
-	return strconv.FormatInt(d.Milliseconds(), 10) + "ms"
+	milliseconds := max(int64(1), int64((d+time.Millisecond-1)/time.Millisecond))
+	return strconv.FormatInt(milliseconds, 10) + "ms"
 }
 func samplesFromSeries(series SeriesSet) []Sample {
 	out := []Sample{}
