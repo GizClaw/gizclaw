@@ -2,328 +2,95 @@ package metrics
 
 import (
 	"context"
-	"strings"
+	"math"
 	"testing"
 	"time"
 )
 
-func TestMemoryStoreAppendQueryAndRange(t *testing.T) {
+func TestMemoryStoreStructuredQueries(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	base := time.Unix(1_700_000_000, 0).UTC()
 	store := NewMemoryStore()
-	base := time.Unix(100, 0).UTC()
-	if err := store.Append(context.Background(), []Sample{
-		{Name: "gizclaw_peer_battery_percent", Labels: map[string]string{"peer_id": "p1"}, Timestamp: base, Value: 80},
-		{Name: "gizclaw_peer_battery_percent", Labels: map[string]string{"peer_id": "p1"}, Timestamp: base.Add(time.Second), Value: 81},
-		{Name: "gizclaw_peer_battery_percent", Labels: map[string]string{"peer_id": "p2"}, Timestamp: base, Value: 10},
-	}); err != nil {
-		t.Fatalf("Append: %v", err)
+	selector := Selector{Name: "temperature", Matchers: []LabelMatcher{{Name: "peer", Op: MatchEqual, Value: "a"}}}
+	samples := []Sample{
+		{Name: "temperature", Labels: map[string]string{"peer": "a"}, Timestamp: base, Value: 1},
+		{Name: "temperature", Labels: map[string]string{"peer": "a"}, Timestamp: base.Add(time.Minute), Value: 2},
+		{Name: "temperature", Labels: map[string]string{"peer": "a"}, Timestamp: base.Add(9 * time.Minute / 4), Value: 5},
+		{Name: "temperature", Labels: map[string]string{"peer": "a"}, Timestamp: base.Add(3 * time.Minute), Value: 4},
+		{Name: "temperature", Labels: map[string]string{"peer": "b"}, Timestamp: base, Value: 99},
 	}
-
-	query, err := (Selector{
-		Name:     "gizclaw_peer_battery_percent",
-		Matchers: []LabelMatcher{{Name: "peer_id", Op: MatchEqual, Value: "p1"}},
-	}).Expression()
+	if err := store.Append(ctx, samples); err != nil {
+		t.Fatal(err)
+	}
+	latest, err := store.Latest(ctx, LatestQuery{Selector: selector, At: base.Add(2 * time.Minute), Lookback: 2 * time.Minute})
 	if err != nil {
-		t.Fatalf("Expression: %v", err)
+		t.Fatal(err)
 	}
-	got, err := store.Query(context.Background(), Query{Expression: query, Time: base.Add(1500 * time.Millisecond)})
+	if got := latest[0].Points[0]; got.Value != 2 || !got.Timestamp.Equal(base.Add(time.Minute)) {
+		t.Fatalf("Latest=%+v", got)
+	}
+	rangeSet, err := store.Range(ctx, RangeQuery{Selector: selector, Start: base, End: base.Add(5 * time.Minute / 2), Step: time.Minute})
 	if err != nil {
-		t.Fatalf("Query: %v", err)
+		t.Fatal(err)
 	}
-	if len(got) != 1 || len(got[0].Points) != 1 || got[0].Points[0].Value != 81 {
-		t.Fatalf("Query result = %+v", got)
+	want := []Point{{base, 1}, {base.Add(time.Minute), 2}, {base.Add(5 * time.Minute / 2), 5}}
+	if !pointsEqual(rangeSet[0].Points, want) {
+		t.Fatalf("Range=%+v want %+v", rangeSet[0].Points, want)
 	}
-
-	got, err = store.Query(context.Background(), Query{Expression: "timestamp(" + query + ")", Time: base.Add(1500 * time.Millisecond)})
+	agg, err := store.Aggregate(ctx, AggregateQuery{Selector: selector, Start: base, End: base.Add(3 * time.Minute), Bucket: 2 * time.Minute, Operation: AggregationAvg})
 	if err != nil {
-		t.Fatalf("Query timestamp: %v", err)
+		t.Fatal(err)
 	}
-	if len(got) != 1 || len(got[0].Points) != 1 || got[0].Points[0].Value != float64(base.Add(time.Second).UnixMilli())/1000 {
-		t.Fatalf("timestamp query = %+v", got)
-	}
-
-	got, err = store.Query(context.Background(), Query{Expression: "last_over_time(timestamp(" + query + ")[30m:1m])", Time: base.Add(20 * time.Minute)})
-	if err != nil {
-		t.Fatalf("Query timestamp subquery: %v", err)
-	}
-	if len(got) != 1 || len(got[0].Points) != 1 || got[0].Points[0].Value != float64(base.Add(time.Second).UnixMilli())/1000 {
-		t.Fatalf("timestamp subquery = %+v", got)
-	}
-
-	got, err = store.QueryRange(context.Background(), RangeQuery{
-		Expression: query,
-		Start:      base,
-		End:        base.Add(time.Second),
-		Step:       time.Second,
-	})
-	if err != nil {
-		t.Fatalf("QueryRange: %v", err)
-	}
-	if len(got) != 1 || len(got[0].Points) != 2 {
-		t.Fatalf("QueryRange result = %+v", got)
-	}
-	if got[0].Points[0].Value != 80 || got[0].Points[1].Value != 81 {
-		t.Fatalf("QueryRange points = %+v", got[0].Points)
+	want = []Point{{base, 1.5}, {base.Add(2 * time.Minute), 4.5}}
+	if !pointsEqual(agg[0].Points, want) {
+		t.Fatalf("Aggregate=%+v want %+v", agg[0].Points, want)
 	}
 }
 
-func TestMemoryStoreAppendInvalidBatchDoesNotMutate(t *testing.T) {
-	store := NewMemoryStore()
-	base := time.Unix(100, 0).UTC()
-	err := store.Append(context.Background(), []Sample{
-		{Name: "metric_a", Labels: map[string]string{"peer_id": "p1"}, Timestamp: base, Value: 1},
-		{Name: "bad-name", Timestamp: base, Value: 2},
-	})
-	if err == nil || !strings.Contains(err.Error(), "invalid metric name") {
-		t.Fatalf("Append invalid batch error = %v, want invalid metric name", err)
+func TestMemoryStoreMatchersAndFloatValues(t *testing.T) {
+	t.Parallel()
+	s := NewMemoryStore()
+	at := time.Now().UTC()
+	if err := s.Append(context.Background(), []Sample{{Name: "m", Timestamp: at, Value: math.Inf(1)}, {Name: "m", Labels: map[string]string{"x": "abc"}, Timestamp: at, Value: math.NaN()}}); err != nil {
+		t.Fatal(err)
 	}
-	got, err := store.Query(context.Background(), Query{Expression: "metric_a", Time: base})
+	got, err := s.Latest(context.Background(), LatestQuery{Selector: Selector{Name: "m", Matchers: []LabelMatcher{{Name: "x", Op: MatchRegexp, Value: "a.*"}}}, At: at, Lookback: time.Second})
 	if err != nil {
-		t.Fatalf("Query after invalid batch: %v", err)
+		t.Fatal(err)
+	}
+	if len(got) != 1 || !math.IsNaN(got[0].Points[0].Value) {
+		t.Fatalf("got %+v", got)
+	}
+	got, err = s.Latest(context.Background(), LatestQuery{Selector: Selector{Name: "m", Matchers: []LabelMatcher{{Name: "x", Op: MatchRegexp, Value: "a"}}}, At: at, Lookback: time.Second})
+	if err != nil {
+		t.Fatal(err)
 	}
 	if len(got) != 0 {
-		t.Fatalf("invalid batch mutated store: %+v", got)
+		t.Fatalf("regexp must be fully anchored: %+v", got)
 	}
 }
-
-func TestMemoryStoreMatchersAndErrors(t *testing.T) {
-	store := NewMemoryStore()
-	base := time.Unix(100, 0).UTC()
-	if err := store.Append(context.Background(), []Sample{
-		{Name: "metric_a", Labels: map[string]string{"peer_id": "peer-a"}, Timestamp: base, Value: 1},
-		{Name: "metric_a", Labels: map[string]string{"peer_id": "peer-b"}, Timestamp: base, Value: 2},
-		{Name: "metric_a", Labels: map[string]string{"peer_id": "peer-ab"}, Timestamp: base, Value: 3},
-	}); err != nil {
-		t.Fatalf("Append: %v", err)
+func TestMemoryStoreValidationAndClose(t *testing.T) {
+	t.Parallel()
+	s := NewMemoryStore()
+	if _, err := s.Latest(context.Background(), LatestQuery{}); err == nil {
+		t.Fatal("expected validation error")
 	}
-	got, err := store.Query(context.Background(), Query{Expression: `metric_a{peer_id=~"peer-[ab]"}`, Time: base})
-	if err != nil {
-		t.Fatalf("Query regexp: %v", err)
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
 	}
-	if len(got) != 2 {
-		t.Fatalf("regexp query series = %d, want 2: %+v", len(got), got)
-	}
-	got, err = store.Query(context.Background(), Query{Expression: `metric_a{peer_id=~"peer-a"}`, Time: base})
-	if err != nil {
-		t.Fatalf("Query anchored regexp: %v", err)
-	}
-	if len(got) != 1 || got[0].Labels["peer_id"] != "peer-a" {
-		t.Fatalf("anchored regexp query = %+v, want only peer-a", got)
-	}
-	if err := store.Append(context.Background(), []Sample{
-		{Name: "metric_b", Labels: map[string]string{"label": "a!=b", "pattern": "x=y"}, Timestamp: base, Value: 4},
-	}); err != nil {
-		t.Fatalf("Append operator label values: %v", err)
-	}
-	got, err = store.Query(context.Background(), Query{Expression: `metric_b{label="a!=b",pattern=~"x=y"}`, Time: base})
-	if err != nil {
-		t.Fatalf("Query operator label values: %v", err)
-	}
-	if len(got) != 1 || got[0].Labels["label"] != "a!=b" {
-		t.Fatalf("operator label value query = %+v, want metric_b", got)
-	}
-	if _, err := store.Query(context.Background(), Query{Expression: `metric_a{peer_id=`}); err == nil || !strings.Contains(err.Error(), "unsupported") {
-		t.Fatalf("bad selector error = %v", err)
-	}
-	if err := store.Close(); err != nil {
-		t.Fatalf("Close: %v", err)
-	}
-	if _, err := store.Query(context.Background(), Query{Expression: "metric_a"}); err == nil || !strings.Contains(err.Error(), "closed") {
-		t.Fatalf("closed Query error = %v", err)
+	if err := s.Append(context.Background(), []Sample{{Name: "m", Timestamp: time.Now()}}); err == nil {
+		t.Fatal("expected closed error")
 	}
 }
-
-func TestMemoryStoreQueryZeroTimeUsesNow(t *testing.T) {
-	store := NewMemoryStore()
-	if err := store.Append(context.Background(), []Sample{
-		{Name: "metric_a", Timestamp: time.Now().Add(time.Hour).UTC(), Value: 1},
-	}); err != nil {
-		t.Fatalf("Append: %v", err)
+func pointsEqual(a, b []Point) bool {
+	if len(a) != len(b) {
+		return false
 	}
-	got, err := store.Query(context.Background(), Query{Expression: "metric_a"})
-	if err != nil {
-		t.Fatalf("Query: %v", err)
-	}
-	if len(got) != 0 {
-		t.Fatalf("Query zero time = %+v, want no future samples", got)
-	}
-}
-
-func TestMemoryStoreRangeHonorsStepAndAggregates(t *testing.T) {
-	store := NewMemoryStore()
-	base := time.Unix(1000, 0).UTC()
-	if err := store.Append(context.Background(), []Sample{
-		{Name: "metric_a", Labels: map[string]string{"peer_id": "p1"}, Timestamp: base, Value: 1},
-		{Name: "metric_a", Labels: map[string]string{"peer_id": "p1"}, Timestamp: base.Add(time.Second), Value: 2},
-		{Name: "metric_a", Labels: map[string]string{"peer_id": "p1"}, Timestamp: base.Add(2 * time.Second), Value: 3},
-		{Name: "metric_a", Labels: map[string]string{"peer_id": "p2"}, Timestamp: base, Value: 10},
-		{Name: "metric_a", Labels: map[string]string{"peer_id": "p2"}, Timestamp: base.Add(2 * time.Second), Value: 20},
-	}); err != nil {
-		t.Fatalf("Append: %v", err)
-	}
-
-	got, err := store.QueryRange(context.Background(), RangeQuery{
-		Expression: "metric_a",
-		Start:      base,
-		End:        base.Add(2 * time.Second),
-		Step:       2 * time.Second,
-	})
-	if err != nil {
-		t.Fatalf("QueryRange: %v", err)
-	}
-	if len(got) != 2 {
-		t.Fatalf("QueryRange series = %+v, want 2", got)
-	}
-	for _, series := range got {
-		if len(series.Points) != 2 {
-			t.Fatalf("series %s points = %+v, want 2 step-aligned points", series.Labels["peer_id"], series.Points)
-		}
-		if !series.Points[0].Timestamp.Equal(base) || !series.Points[1].Timestamp.Equal(base.Add(2*time.Second)) {
-			t.Fatalf("series %s timestamps = %+v, want step timestamps", series.Labels["peer_id"], series.Points)
+	for i := range a {
+		if !a[i].Timestamp.Equal(b[i].Timestamp) || a[i].Value != b[i].Value {
+			return false
 		}
 	}
-
-	got, err = store.Query(context.Background(), Query{
-		Expression: "avg(metric_a)",
-		Time:       base.Add(2 * time.Second),
-	})
-	if err != nil {
-		t.Fatalf("Query aggregate: %v", err)
-	}
-	if len(got) != 1 || len(got[0].Points) != 1 || got[0].Points[0].Value != 11.5 {
-		t.Fatalf("aggregate query = %+v, want avg 11.5", got)
-	}
-
-	got, err = store.QueryRange(context.Background(), RangeQuery{
-		Expression: "sum(metric_a)",
-		Start:      base,
-		End:        base.Add(2 * time.Second),
-		Step:       time.Second,
-	})
-	if err != nil {
-		t.Fatalf("QueryRange aggregate: %v", err)
-	}
-	if len(got) != 1 || len(got[0].Points) != 3 {
-		t.Fatalf("aggregate range = %+v, want 3 points", got)
-	}
-	if got[0].Points[0].Value != 11 || got[0].Points[1].Value != 12 || got[0].Points[2].Value != 23 {
-		t.Fatalf("aggregate range points = %+v", got[0].Points)
-	}
-}
-
-func TestMemoryStoreOverTimeFunctions(t *testing.T) {
-	store := NewMemoryStore()
-	base := time.Unix(1000, 0).UTC()
-	if err := store.Append(context.Background(), []Sample{
-		{Name: "metric_a", Labels: map[string]string{"peer_id": "p1"}, Timestamp: base, Value: 1},
-		{Name: "metric_a", Labels: map[string]string{"peer_id": "p1"}, Timestamp: base.Add(2 * time.Minute), Value: 3},
-		{Name: "metric_a", Labels: map[string]string{"peer_id": "p2"}, Timestamp: base.Add(time.Minute), Value: 10},
-	}); err != nil {
-		t.Fatalf("Append: %v", err)
-	}
-
-	got, err := store.Query(context.Background(), Query{
-		Expression: `last_over_time(metric_a{peer_id="p1"}[30m])`,
-		Time:       base.Add(20 * time.Minute),
-	})
-	if err != nil {
-		t.Fatalf("Query last_over_time: %v", err)
-	}
-	if len(got) != 1 || len(got[0].Points) != 1 || got[0].Points[0].Value != 3 {
-		t.Fatalf("last_over_time query = %+v, want p1 last value", got)
-	}
-	if !got[0].Points[0].Timestamp.Equal(base.Add(2 * time.Minute)) {
-		t.Fatalf("last_over_time timestamp = %s, want actual sample timestamp", got[0].Points[0].Timestamp)
-	}
-
-	got, err = store.Query(context.Background(), Query{
-		Expression: `metric_a{peer_id="p1"}[30m]`,
-		Time:       base.Add(20 * time.Minute),
-	})
-	if err != nil {
-		t.Fatalf("Query raw range selector: %v", err)
-	}
-	if len(got) != 1 || len(got[0].Points) != 2 {
-		t.Fatalf("raw range selector = %+v, want p1 raw samples", got)
-	}
-	if !got[0].Points[0].Timestamp.Equal(base) || got[0].Points[0].Value != 1 || !got[0].Points[1].Timestamp.Equal(base.Add(2*time.Minute)) || got[0].Points[1].Value != 3 {
-		t.Fatalf("raw range selector points = %+v", got[0].Points)
-	}
-
-	got, err = store.QueryRange(context.Background(), RangeQuery{
-		Expression: `sum_over_time(metric_a{peer_id="p1"}[2m])`,
-		Start:      base.Add(2 * time.Minute),
-		End:        base.Add(4 * time.Minute),
-		Step:       2 * time.Minute,
-	})
-	if err != nil {
-		t.Fatalf("QueryRange sum_over_time: %v", err)
-	}
-	if len(got) != 1 || len(got[0].Points) != 1 {
-		t.Fatalf("sum_over_time range = %+v, want 1 point", got)
-	}
-	if got[0].Points[0].Value != 3 {
-		t.Fatalf("sum_over_time points = %+v", got[0].Points)
-	}
-	if !got[0].Points[0].Timestamp.Equal(base.Add(2 * time.Minute)) {
-		t.Fatalf("sum_over_time timestamp = %s, want evaluation timestamp", got[0].Points[0].Timestamp)
-	}
-}
-
-func TestMemoryStoreQueriesRespectLookback(t *testing.T) {
-	store := NewMemoryStore()
-	base := time.Unix(1000, 0).UTC()
-	if err := store.Append(context.Background(), []Sample{
-		{Name: "metric_a", Labels: map[string]string{"peer_id": "p1"}, Timestamp: base, Value: 1},
-		{Name: "metric_a", Labels: map[string]string{"peer_id": "p2"}, Timestamp: base.Add(6 * time.Minute), Value: 2},
-	}); err != nil {
-		t.Fatalf("Append: %v", err)
-	}
-
-	got, err := store.Query(context.Background(), Query{
-		Expression: "metric_a",
-		Time:       base.Add(MemoryStoreDefaultLookback).Add(time.Millisecond),
-	})
-	if err != nil {
-		t.Fatalf("Query: %v", err)
-	}
-	if len(got) != 0 {
-		t.Fatalf("stale instant query = %+v, want empty", got)
-	}
-
-	got, err = store.QueryRange(context.Background(), RangeQuery{
-		Expression: "metric_a",
-		Start:      base,
-		End:        base.Add(6 * time.Minute),
-		Step:       3 * time.Minute,
-	})
-	if err != nil {
-		t.Fatalf("QueryRange: %v", err)
-	}
-	if len(got) != 2 {
-		t.Fatalf("range series = %+v, want 2 series", got)
-	}
-	for _, series := range got {
-		if series.Labels["peer_id"] == "p1" && len(series.Points) != 2 {
-			t.Fatalf("p1 points = %+v, want points only within lookback", series.Points)
-		}
-		if series.Labels["peer_id"] == "p2" && len(series.Points) != 1 {
-			t.Fatalf("p2 points = %+v, want fresh point only", series.Points)
-		}
-	}
-
-	got, err = store.QueryRange(context.Background(), RangeQuery{
-		Expression: "sum(metric_a)",
-		Start:      base,
-		End:        base.Add(6 * time.Minute),
-		Step:       3 * time.Minute,
-	})
-	if err != nil {
-		t.Fatalf("QueryRange aggregate: %v", err)
-	}
-	if len(got) != 1 || len(got[0].Points) != 3 {
-		t.Fatalf("aggregate range = %+v, want 3 non-empty points", got)
-	}
-	if got[0].Points[0].Value != 1 || got[0].Points[1].Value != 1 || got[0].Points[2].Value != 2 {
-		t.Fatalf("aggregate range points = %+v", got[0].Points)
-	}
+	return true
 }

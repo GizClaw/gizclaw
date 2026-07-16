@@ -1,22 +1,19 @@
-// Package metrics defines a business-neutral store for numeric time series
-// samples.
+// Package metrics defines a business-neutral store for numeric time series samples.
 package metrics
 
 import (
 	"context"
 	"fmt"
 	"regexp"
-	"slices"
-	"strconv"
-	"strings"
 	"time"
 )
 
-// Store persists numeric metric samples and queries them back as time series.
+// Store persists numeric metric samples through backend-neutral queries.
 type Store interface {
-	Append(ctx context.Context, samples []Sample) error
-	Query(ctx context.Context, query Query) (SeriesSet, error)
-	QueryRange(ctx context.Context, query RangeQuery) (SeriesSet, error)
+	Append(context.Context, []Sample) error
+	Latest(context.Context, LatestQuery) (SeriesSet, error)
+	Range(context.Context, RangeQuery) (SeriesSet, error)
+	Aggregate(context.Context, AggregateQuery) (SeriesSet, error)
 	Close() error
 }
 
@@ -28,18 +25,26 @@ type Sample struct {
 	Value     float64
 }
 
-// Query is an instant Prometheus-compatible metric query.
-type Query struct {
-	Expression string
-	Time       time.Time
+// LatestQuery selects the newest sample at or before At within Lookback.
+type LatestQuery struct {
+	Selector Selector
+	At       time.Time
+	Lookback time.Duration
 }
 
-// RangeQuery is a Prometheus-compatible metric range query.
+// RangeQuery evaluates step-sized last-sample windows over a time range.
 type RangeQuery struct {
-	Expression string
-	Start      time.Time
-	End        time.Time
+	Selector   Selector
+	Start, End time.Time
 	Step       time.Duration
+}
+
+// AggregateQuery evaluates one aggregation per bucket anchored at Start.
+type AggregateQuery struct {
+	Selector   Selector
+	Start, End time.Time
+	Bucket     time.Duration
+	Operation  Aggregation
 }
 
 // Point is one timestamped value returned by a query.
@@ -55,10 +60,10 @@ type Series struct {
 	Points []Point
 }
 
-// SeriesSet is the result of a query.
+// SeriesSet is a query result containing zero or more series.
 type SeriesSet []Series
 
-// MatchOp is a Prometheus label matcher operator.
+// MatchOp is a label matcher operator.
 type MatchOp string
 
 const (
@@ -68,42 +73,20 @@ const (
 	MatchNotRegexp MatchOp = "!~"
 )
 
-// LabelMatcher matches a metric label in a selector.
+// LabelMatcher matches a label; a missing label has the empty value.
 type LabelMatcher struct {
 	Name  string
 	Op    MatchOp
 	Value string
 }
 
-// Selector describes a metric selector before it is rendered to PromQL.
+// Selector identifies a metric and optional label matchers.
 type Selector struct {
 	Name     string
 	Matchers []LabelMatcher
 }
 
-// Expression renders a PromQL selector such as metric{peer_id="abc"}.
-func (s Selector) Expression() (string, error) {
-	if err := ValidateMetricName(s.Name); err != nil {
-		return "", err
-	}
-	matchers := slices.Clone(s.Matchers)
-	slices.SortFunc(matchers, func(a, b LabelMatcher) int {
-		return strings.Compare(a.Name, b.Name)
-	})
-	if len(matchers) == 0 {
-		return s.Name, nil
-	}
-	parts := make([]string, 0, len(matchers))
-	for _, matcher := range matchers {
-		if err := validateMatcher(matcher); err != nil {
-			return "", err
-		}
-		parts = append(parts, matcher.Name+string(matcher.Op)+strconv.Quote(matcher.Value))
-	}
-	return s.Name + "{" + strings.Join(parts, ",") + "}", nil
-}
-
-// Aggregation is a supported PromQL aggregation operator.
+// Aggregation identifies a supported bucket aggregation.
 type Aggregation string
 
 const (
@@ -112,28 +95,15 @@ const (
 	AggregationMax   Aggregation = "max"
 	AggregationSum   Aggregation = "sum"
 	AggregationCount Aggregation = "count"
+	AggregationLast  Aggregation = "last"
 )
-
-// AggregateExpression wraps expr with a supported PromQL aggregation.
-func AggregateExpression(aggregation Aggregation, expr string) (string, error) {
-	expr = strings.TrimSpace(expr)
-	if expr == "" {
-		return "", fmt.Errorf("metrics: query expression is empty")
-	}
-	switch aggregation {
-	case AggregationAvg, AggregationMin, AggregationMax, AggregationSum, AggregationCount:
-		return string(aggregation) + "(" + expr + ")", nil
-	default:
-		return "", fmt.Errorf("metrics: unsupported aggregation %q", aggregation)
-	}
-}
 
 var (
 	metricNameRE = regexp.MustCompile(`^[a-zA-Z_:][a-zA-Z0-9_:]*$`)
 	labelNameRE  = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 )
 
-// ValidateMetricName checks whether name is a valid Prometheus metric name.
+// ValidateMetricName validates a Prometheus-compatible metric name.
 func ValidateMetricName(name string) error {
 	if name == "" {
 		return fmt.Errorf("metrics: metric name is empty")
@@ -144,7 +114,7 @@ func ValidateMetricName(name string) error {
 	return nil
 }
 
-// ValidateLabelName checks whether name is a valid non-reserved label name.
+// ValidateLabelName validates a non-reserved label name.
 func ValidateLabelName(name string) error {
 	if name == "" {
 		return fmt.Errorf("metrics: label name is empty")
@@ -157,39 +127,93 @@ func ValidateLabelName(name string) error {
 	}
 	return nil
 }
-
-func validateSample(sample Sample) error {
-	if err := ValidateMetricName(sample.Name); err != nil {
+func validateSample(s Sample) error {
+	if err := ValidateMetricName(s.Name); err != nil {
 		return err
 	}
-	if sample.Timestamp.IsZero() {
-		return fmt.Errorf("metrics: sample %q timestamp is zero", sample.Name)
+	if s.Timestamp.IsZero() {
+		return fmt.Errorf("metrics: sample %q timestamp is zero", s.Name)
 	}
-	for name := range sample.Labels {
+	for name := range s.Labels {
 		if err := ValidateLabelName(name); err != nil {
 			return err
 		}
 	}
 	return nil
 }
-
-func validateQueryExpression(expr string) error {
-	if strings.TrimSpace(expr) == "" {
-		return fmt.Errorf("metrics: query expression is empty")
+func validateSelector(s Selector) error {
+	if err := ValidateMetricName(s.Name); err != nil {
+		return err
+	}
+	for _, m := range s.Matchers {
+		if err := validateMatcher(m); err != nil {
+			return err
+		}
+		if m.Op == MatchRegexp || m.Op == MatchNotRegexp {
+			if _, err := regexp.Compile("^(?:" + m.Value + ")$"); err != nil {
+				return fmt.Errorf("metrics: invalid matcher regexp for %q: %w", m.Name, err)
+			}
+		}
 	}
 	return nil
 }
-
-func validateMatcher(matcher LabelMatcher) error {
-	if err := ValidateLabelName(matcher.Name); err != nil {
+func validateMatcher(m LabelMatcher) error {
+	if err := ValidateLabelName(m.Name); err != nil {
 		return err
 	}
-	switch matcher.Op {
+	switch m.Op {
 	case MatchEqual, MatchNotEqual, MatchRegexp, MatchNotRegexp:
 		return nil
 	case "":
-		return fmt.Errorf("metrics: label matcher %q operator is empty", matcher.Name)
+		return fmt.Errorf("metrics: label matcher %q operator is empty", m.Name)
 	default:
-		return fmt.Errorf("metrics: unsupported label matcher operator %q", matcher.Op)
+		return fmt.Errorf("metrics: unsupported label matcher operator %q", m.Op)
+	}
+}
+func validateLatestQuery(q LatestQuery) error {
+	if err := validateSelector(q.Selector); err != nil {
+		return err
+	}
+	if q.At.IsZero() {
+		return fmt.Errorf("metrics: latest query time is zero")
+	}
+	if q.Lookback <= 0 {
+		return fmt.Errorf("metrics: latest query lookback must be > 0")
+	}
+	return nil
+}
+func validateRangeQuery(q RangeQuery) error {
+	if err := validateSelector(q.Selector); err != nil {
+		return err
+	}
+	if q.Start.IsZero() || q.End.IsZero() {
+		return fmt.Errorf("metrics: range query timestamps must be non-zero")
+	}
+	if q.End.Before(q.Start) {
+		return fmt.Errorf("metrics: range query end is before start")
+	}
+	if q.Step <= 0 {
+		return fmt.Errorf("metrics: range query step must be > 0")
+	}
+	return nil
+}
+func validateAggregateQuery(q AggregateQuery) error {
+	if err := validateSelector(q.Selector); err != nil {
+		return err
+	}
+	if q.Start.IsZero() || q.End.IsZero() {
+		return fmt.Errorf("metrics: aggregate query timestamps must be non-zero")
+	}
+	if q.End.Before(q.Start) {
+		return fmt.Errorf("metrics: aggregate query end is before start")
+	}
+	if q.Bucket <= 0 {
+		return fmt.Errorf("metrics: aggregate query bucket must be > 0")
+	}
+	switch q.Operation {
+	case AggregationAvg, AggregationMin, AggregationMax, AggregationSum, AggregationCount, AggregationLast:
+		return nil
+	default:
+		return fmt.Errorf("metrics: unsupported aggregation %q", q.Operation)
 	}
 }

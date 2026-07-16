@@ -507,7 +507,7 @@ stores:
 	if err != nil {
 		t.Fatalf("Metrics(metrics): %v", err)
 	}
-	series, err := st.Query(context.Background(), metrics.Query{Expression: "gizclaw_peer_battery_percent"})
+	series, err := st.Latest(context.Background(), metrics.LatestQuery{Selector: metrics.Selector{Name: "gizclaw_peer_battery_percent"}, At: time.Unix(11, 0), Lookback: time.Minute})
 	if err != nil {
 		t.Fatalf("Query: %v", err)
 	}
@@ -536,13 +536,20 @@ stores:
 func TestNewMetricsRequiresPrometheusConfig(t *testing.T) {
 	if _, err := New(map[string]Config{
 		"metrics": {Kind: KindMetrics},
-	}); err == nil || !strings.Contains(err.Error(), "requires prometheus or memory config") {
+	}); err == nil || !strings.Contains(err.Error(), "requires exactly one") {
 		t.Fatalf("New metrics missing prometheus err = %v", err)
 	}
 	if _, err := New(map[string]Config{
 		"metrics": {Kind: KindMetrics, Prometheus: &metrics.PrometheusConfig{QueryURL: "http://example.test"}},
 	}); err == nil || !strings.Contains(err.Error(), "remote_write_url is required") {
 		t.Fatalf("New metrics missing remote_write_url err = %v", err)
+	}
+}
+
+func TestNewMetricsRejectsMultipleBackends(t *testing.T) {
+	_, err := New(map[string]Config{"metrics": {Kind: KindMetrics, Memory: &struct{}{}, Prometheus: &metrics.PrometheusConfig{}}})
+	if err == nil || !strings.Contains(err.Error(), "requires exactly one") {
+		t.Fatalf("New metrics multiple backends err = %v", err)
 	}
 }
 
@@ -576,9 +583,9 @@ stores:
 	}}); err != nil {
 		t.Fatalf("Append: %v", err)
 	}
-	series, err := st.Query(context.Background(), metrics.Query{
-		Expression: `gizclaw_peer_battery_percent{peer_id="p1"}`,
-		Time:       time.Unix(10, 0).UTC(),
+	series, err := st.Latest(context.Background(), metrics.LatestQuery{
+		Selector: metrics.Selector{Name: "gizclaw_peer_battery_percent", Matchers: []metrics.LabelMatcher{{Name: "peer_id", Op: metrics.MatchEqual, Value: "p1"}}},
+		At:       time.Unix(10, 0).UTC(), Lookback: time.Minute,
 	})
 	if err != nil {
 		t.Fatalf("Query: %v", err)
