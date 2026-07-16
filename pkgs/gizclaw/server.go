@@ -305,7 +305,7 @@ func (s *Server) startCleanup() {
 
 // EffectivePeerStore returns the peer KV layout used by the server runtime.
 // Legacy single-KV configurations keep peer records under the peers prefix;
-// independently configured object stores do not change that layout.
+// peer, workspace, and workflow icon stores do not change that layout.
 func (s *Server) EffectivePeerStore() kv.Store {
 	if s == nil || s.PeerStore == nil {
 		return nil
@@ -319,6 +319,7 @@ func (s *Server) EffectivePeerStore() kv.Store {
 func (s *Server) usesLegacySharedStore() bool {
 	return s.CredentialStore == nil &&
 		s.FirmwareStore == nil &&
+		s.AgentHostStore == nil &&
 		s.MiniMaxTenantStore == nil &&
 		s.VolcTenantStore == nil &&
 		s.ModelStore == nil &&
@@ -337,10 +338,12 @@ func (s *Server) usesLegacySharedStore() bool {
 		s.FriendGroupMemberStore == nil &&
 		s.FriendGroupBelongStore == nil &&
 		s.FriendGroupMessageStore == nil &&
+		s.FriendGroupMessageAssets == nil &&
 		s.GameRulesetStore == nil &&
 		s.PetDefStore == nil &&
 		s.BadgeDefStore == nil &&
 		s.GameDefStore == nil &&
+		s.GameplayAssets == nil &&
 		s.GameplayDB == nil &&
 		s.FriendGroupMessageDefaultTTL == 0 &&
 		s.FriendGroupMessageMaxTTL == 0 &&
