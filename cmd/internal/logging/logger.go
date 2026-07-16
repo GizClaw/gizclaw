@@ -26,6 +26,7 @@ func NewLogger(cfg Config, registries ...StoreResolver) (*slog.Logger, func() er
 	if len(registries) > 0 {
 		registry = registries[0]
 	}
+	failureReporter := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})
 	handlers := make([]slog.Handler, 0, len(cfg.Sinks))
 	for _, sink := range cfg.Sinks {
 		level, err := ParseLevel(sink.Level)
@@ -47,7 +48,7 @@ func NewLogger(cfg Config, registries ...StoreResolver) (*slog.Logger, func() er
 			if err != nil {
 				return nil, nil, err
 			}
-			handlers = append(handlers, handler)
+			handlers = append(handlers, newStoreFailureReportingHandler(handler, failureReporter, sink.Store))
 		}
 	}
 	return slog.New(NewFanoutHandler(handlers...)), func() error { return nil }, nil

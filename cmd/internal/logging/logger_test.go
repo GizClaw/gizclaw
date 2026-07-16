@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -109,11 +110,38 @@ func TestNewLoggerStoreSinkUsesFixedSystemScope(t *testing.T) {
 	if len(store.records) != 1 || store.records[0].Stream != "system" || store.records[0].Kind != "log" || store.records[0].Attributes["request.id"] != "1" {
 		t.Fatalf("records = %+v", store.records)
 	}
+	fanout, ok := logger.Handler().(*FanoutHandler)
+	if !ok || len(fanout.handlers) != 1 {
+		t.Fatalf("logger handler = %#v", logger.Handler())
+	}
+	if _, ok := fanout.handlers[0].(*storeFailureReportingHandler); !ok {
+		t.Fatalf("store handler = %T", fanout.handlers[0])
+	}
 	if err := cleanup(); err != nil {
 		t.Fatal(err)
 	}
 	if store.closes != 0 {
 		t.Fatal("logger cleanup closed a registry-owned store")
+	}
+}
+
+func TestStoreFailureReportingHandlerReportsWithoutProviderText(t *testing.T) {
+	storeErr := errors.New("provider body contains a secret")
+	fallbackState := &recordingState{}
+	handler := newStoreFailureReportingHandler(
+		&recordingHandler{min: slog.LevelInfo, err: storeErr},
+		&recordingHandler{min: slog.LevelInfo, state: fallbackState},
+		"logs",
+	)
+	err := handler.Handle(context.Background(), slog.NewRecord(time.Now(), slog.LevelInfo, "original", 0))
+	if !errors.Is(err, storeErr) {
+		t.Fatalf("Handle() error = %v", err)
+	}
+	if len(fallbackState.records) != 1 || fallbackState.records[0].Message != "system log store sink failed" {
+		t.Fatalf("fallback records = %#v", fallbackState.records)
+	}
+	if fallbackState.attrs["store"] != "logs" || strings.Contains(fallbackState.records[0].Message, "provider body") {
+		t.Fatalf("fallback attrs = %#v record = %#v", fallbackState.attrs, fallbackState.records[0])
 	}
 }
 

@@ -1,7 +1,9 @@
 package gizclaw
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"strings"
 	"testing"
@@ -19,6 +21,15 @@ type fakeLogQuerier struct {
 func (f *fakeLogQuerier) Query(_ context.Context, query logstore.Query) (logstore.Page, error) {
 	f.queries = append(f.queries, query)
 	return f.page, f.err
+}
+
+func newTestServerLogQueryService(t *testing.T, querier logstore.Querier) ServerLogQueryService {
+	t.Helper()
+	service, err := NewServerLogQueryService(querier)
+	if err != nil {
+		t.Fatalf("NewServerLogQueryService() error = %v", err)
+	}
+	return service
 }
 
 func TestParseServerLogFilter(t *testing.T) {
@@ -85,16 +96,20 @@ func TestServerLogStoreQueryCursor(t *testing.T) {
 	querier := &fakeLogQuerier{page: logstore.Page{Records: []logstore.Record{{
 		ID: "id", Time: time.Unix(10, 123).UTC(), Stream: "system", Kind: "log", Severity: "warn", Message: "message",
 		Attributes: map[string]string{"source": "gizclaw", "path": "slog", "request.id": "1"},
-	}}, HasNext: true, NextCursor: "inner"}}
-	service := NewServerLogQueryService(querier)
+	}}, HasNext: true, NextCursor: "provider-secret-context"}}
+	service := newTestServerLogQueryService(t, querier)
 	end, err := service.StreamServerLogs(context.Background(), ServerLogStreamRequest{
 		Filter: "level:warn", StartTimeMs: 1000, EndTimeMs: 2000, Limit: 10, Order: ServerLogOrderDesc,
 	}, nil)
 	if err != nil {
 		t.Fatalf("StreamServerLogs() error = %v", err)
 	}
-	if end.NextCursor == nil || *end.NextCursor == "inner" {
+	if end.NextCursor == nil || *end.NextCursor == "provider-secret-context" {
 		t.Fatalf("outer cursor = %v", end.NextCursor)
+	}
+	decoded, err := base64.RawURLEncoding.DecodeString(*end.NextCursor)
+	if err != nil || bytes.Contains(decoded, []byte("provider-secret-context")) {
+		t.Fatalf("outer cursor exposes provider context: %q, %v", decoded, err)
 	}
 	query := querier.queries[0]
 	if len(query.Streams) != 1 || query.Streams[0] != "system" || len(query.Kinds) != 1 || query.Kinds[0] != "log" || query.Cursor != "" {
@@ -105,7 +120,7 @@ func TestServerLogStoreQueryCursor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("continuation error = %v", err)
 	}
-	if got := querier.queries[1]; got.Cursor != "inner" || got.Limit != 1 || got.Start.UnixMilli() != 1000 || got.Order != logstore.OrderDesc {
+	if got := querier.queries[1]; got.Cursor != "provider-secret-context" || got.Limit != 1 || got.Start.UnixMilli() != 1000 || got.Order != logstore.OrderDesc {
 		t.Fatalf("continuation query = %+v", got)
 	}
 	_, err = service.StreamServerLogs(context.Background(), ServerLogStreamRequest{Cursor: *end.NextCursor, Filter: "level:error", FilterSet: true}, nil)
@@ -117,11 +132,16 @@ func TestServerLogStoreQueryCursor(t *testing.T) {
 	if !errors.As(err, &queryErr) || queryErr.Code != "LOG_CURSOR_MISMATCH" {
 		t.Fatalf("wildcard mismatch error = %v", err)
 	}
+	other := newTestServerLogQueryService(t, &fakeLogQuerier{})
+	_, err = other.StreamServerLogs(context.Background(), ServerLogStreamRequest{Cursor: *end.NextCursor}, nil)
+	if !errors.As(err, &queryErr) || queryErr.Code != "INVALID_LOG_CURSOR" {
+		t.Fatalf("foreign service cursor error = %v", err)
+	}
 }
 
 func TestServerLogStoreQueryMapsStoreErrors(t *testing.T) {
 	querier := &fakeLogQuerier{err: logstore.ErrInvalidQuery}
-	service := NewServerLogQueryService(querier)
+	service := newTestServerLogQueryService(t, querier)
 	_, err := service.StreamServerLogs(context.Background(), ServerLogStreamRequest{StartTimeMs: 1000, EndTimeMs: 2000}, nil)
 	var queryErr *ServerLogQueryError
 	if !errors.As(err, &queryErr) || queryErr.Code != "INVALID_LOG_QUERY" {
@@ -135,7 +155,7 @@ func TestServerLogStoreQueryRejectsInvalidOrOutOfScopePage(t *testing.T) {
 		{Records: []logstore.Record{{Stream: "chat", Kind: "message"}}},
 	} {
 		querier := &fakeLogQuerier{page: page}
-		service := NewServerLogQueryService(querier)
+		service := newTestServerLogQueryService(t, querier)
 		_, err := service.StreamServerLogs(context.Background(), ServerLogStreamRequest{StartTimeMs: 1000, EndTimeMs: 2000}, nil)
 		var queryErr *ServerLogQueryError
 		if !errors.As(err, &queryErr) || queryErr.StatusCode != 502 {
@@ -145,7 +165,7 @@ func TestServerLogStoreQueryRejectsInvalidOrOutOfScopePage(t *testing.T) {
 }
 
 func TestServerLogStoreQueryRejectsNonPositiveStart(t *testing.T) {
-	service := NewServerLogQueryService(&fakeLogQuerier{})
+	service := newTestServerLogQueryService(t, &fakeLogQuerier{})
 	for _, start := range []int64{0, -1} {
 		_, err := service.StreamServerLogs(context.Background(), ServerLogStreamRequest{StartTimeMs: start, EndTimeMs: 2000}, nil)
 		var queryErr *ServerLogQueryError

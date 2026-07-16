@@ -4,6 +4,7 @@ package admin_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -64,10 +65,30 @@ func TestAdminLogStreamVolcSmoke(t *testing.T) {
 		if resp.StatusCode() != http.StatusOK || !strings.Contains(lastBody, "event: end") {
 			t.Fatalf("status = %d body=%s", resp.StatusCode(), lastBody)
 		}
-		if strings.Contains(lastBody, "event: log") {
+		if logStreamContainsRequestID(t, lastBody, requestID) {
 			return
 		}
 		time.Sleep(time.Second)
 	}
 	t.Fatalf("Volc LogStore returned no persisted system log before timeout; last body=%s", lastBody)
+}
+
+func logStreamContainsRequestID(t *testing.T, body, requestID string) bool {
+	t.Helper()
+	for _, block := range strings.Split(body, "\n\n") {
+		lines := strings.Split(block, "\n")
+		if len(lines) < 2 || lines[0] != "event: log" || !strings.HasPrefix(lines[1], "data: ") {
+			continue
+		}
+		var entry struct {
+			Fields map[string]string `json:"fields"`
+		}
+		if err := json.Unmarshal([]byte(strings.TrimPrefix(lines[1], "data: ")), &entry); err != nil {
+			t.Fatalf("decode log SSE payload: %v; block=%s", err, block)
+		}
+		if entry.Fields["request_id"] == requestID {
+			return true
+		}
+	}
+	return false
 }

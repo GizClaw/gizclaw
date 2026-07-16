@@ -2,6 +2,9 @@ package gizclaw
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -25,6 +28,7 @@ const (
 	maxServerLogFilterClauses   = 32
 	maxServerLogFilterValue     = 1024
 	maxServerLogCursorBytes     = 32 * 1024
+	adminLogCursorAAD           = "gizclaw-admin-log-cursor-v1"
 )
 
 type ServerLogOrder string
@@ -52,16 +56,23 @@ type ServerLogQueryService interface {
 }
 
 // NewServerLogQueryService adapts a backend-neutral Querier to the Admin system-log stream.
-func NewServerLogQueryService(querier logstore.Querier) ServerLogQueryService {
+func NewServerLogQueryService(querier logstore.Querier) (ServerLogQueryService, error) {
 	if querier == nil {
-		return nil
+		return nil, nil
 	}
-	return &serverLogStoreQuery{querier: querier}
+	cursorCodec, err := newAdminLogCursorCodec()
+	if err != nil {
+		return nil, fmt.Errorf("initialize admin log cursor codec: %w", err)
+	}
+	return &serverLogStoreQuery{querier: querier, cursorCodec: cursorCodec}, nil
 }
 
 type serverLogStoreQuery struct {
-	querier logstore.Querier
+	querier     logstore.Querier
+	cursorCodec *adminLogCursorCodec
 }
+
+type adminLogCursorCodec struct{ aead cipher.AEAD }
 
 type adminLogQuery struct {
 	Severities []string                    `json:"severities,omitempty"`
@@ -79,7 +90,7 @@ type adminLogCursor struct {
 }
 
 func (s *serverLogStoreQuery) StreamServerLogs(ctx context.Context, req ServerLogStreamRequest, emit func(apitypes.ServerLogEntry) error) (apitypes.ServerLogStreamEnd, error) {
-	query, err := prepareAdminLogQuery(req)
+	query, err := s.prepareAdminLogQuery(req)
 	if err != nil {
 		return apitypes.ServerLogStreamEnd{}, err
 	}
@@ -113,7 +124,7 @@ func (s *serverLogStoreQuery) StreamServerLogs(ctx context.Context, req ServerLo
 	}
 	end := apitypes.ServerLogStreamEnd{Count: int32(len(page.Records)), HasNext: page.HasNext}
 	if page.HasNext {
-		cursor, err := encodeAdminLogCursor(adminLogCursor{Version: 1, Query: adminQueryFromStore(query), StoreCursor: page.NextCursor})
+		cursor, err := s.cursorCodec.encode(adminLogCursor{Version: 1, Query: adminQueryFromStore(query), StoreCursor: page.NextCursor})
 		if err != nil {
 			return apitypes.ServerLogStreamEnd{}, ServerLogBackendError(err)
 		}
@@ -122,7 +133,7 @@ func (s *serverLogStoreQuery) StreamServerLogs(ctx context.Context, req ServerLo
 	return end, nil
 }
 
-func prepareAdminLogQuery(req ServerLogStreamRequest) (logstore.Query, error) {
+func (s *serverLogStoreQuery) prepareAdminLogQuery(req ServerLogStreamRequest) (logstore.Query, error) {
 	limit := req.Limit
 	if limit <= 0 {
 		limit = defaultServerLogStreamLimit
@@ -152,7 +163,7 @@ func prepareAdminLogQuery(req ServerLogStreamRequest) (logstore.Query, error) {
 		}
 		return query, nil
 	}
-	cursor, err := decodeAdminLogCursor(req.Cursor)
+	cursor, err := s.cursorCodec.decode(req.Cursor)
 	if err != nil {
 		return logstore.Query{}, err
 	}
@@ -368,25 +379,51 @@ func asciiSpace(value byte) bool {
 	return value == ' ' || value == '\t' || value == '\r' || value == '\n'
 }
 
-func encodeAdminLogCursor(cursor adminLogCursor) (string, error) {
+func newAdminLogCursorCodec() (*adminLogCursorCodec, error) {
+	key := make([]byte, 32)
+	if _, err := rand.Read(key); err != nil {
+		return nil, err
+	}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	aead, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+	return &adminLogCursorCodec{aead: aead}, nil
+}
+
+func (c *adminLogCursorCodec) encode(cursor adminLogCursor) (string, error) {
 	data, err := json.Marshal(cursor)
 	if err != nil {
 		return "", err
 	}
-	encoded := base64.RawURLEncoding.EncodeToString(data)
+	nonce := make([]byte, c.aead.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		return "", err
+	}
+	sealed := c.aead.Seal(nonce, nonce, data, []byte(adminLogCursorAAD))
+	encoded := base64.RawURLEncoding.EncodeToString(sealed)
 	if len(encoded) > maxServerLogCursorBytes {
 		return "", errors.New("admin log cursor is too large")
 	}
 	return encoded, nil
 }
 
-func decodeAdminLogCursor(value string) (adminLogCursor, error) {
+func (c *adminLogCursorCodec) decode(value string) (adminLogCursor, error) {
 	if len(value) > maxServerLogCursorBytes {
 		return adminLogCursor{}, InvalidServerLogQuery("INVALID_LOG_CURSOR", "cursor is too large")
 	}
 	data, err := base64.RawURLEncoding.DecodeString(strings.TrimSpace(value))
-	if err != nil || len(data) > maxServerLogCursorBytes {
+	nonceSize := c.aead.NonceSize()
+	if err != nil || len(data) <= nonceSize || len(data) > maxServerLogCursorBytes {
 		return adminLogCursor{}, InvalidServerLogQuery("INVALID_LOG_CURSOR", "cursor is malformed")
+	}
+	data, err = c.aead.Open(nil, data[:nonceSize], data[nonceSize:], []byte(adminLogCursorAAD))
+	if err != nil {
+		return adminLogCursor{}, InvalidServerLogQuery("INVALID_LOG_CURSOR", "cursor is invalid")
 	}
 	var cursor adminLogCursor
 	if json.Unmarshal(data, &cursor) != nil || cursor.Version != 1 || cursor.StoreCursor == "" || cursor.Query.StartMS <= 0 || cursor.Query.EndMS <= cursor.Query.StartMS || cursor.Query.Order != logstore.OrderAsc && cursor.Query.Order != logstore.OrderDesc {

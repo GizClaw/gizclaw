@@ -190,7 +190,10 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		if err != nil {
 			return nil, fmt.Errorf("server: log query store %q: %w", cfg.SystemLog.QueryStore, err)
 		}
-		gizServer.ServerLogQuery = gizclaw.NewServerLogQueryService(logQuery)
+		gizServer.ServerLogQuery, err = gizclaw.NewServerLogQueryService(logQuery)
+		if err != nil {
+			return nil, fmt.Errorf("server: initialize log query service: %w", err)
+		}
 	}
 	cmdSrv.Server = gizServer
 	if cfg.FriendGroups.MessageDefaultTTL != "" {
