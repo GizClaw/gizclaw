@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:typed_data';
+import 'dart:typed_data' as typed_data;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -158,7 +158,7 @@ class MobileDataController extends ChangeNotifier {
       {};
   PeerRunWorkspaceState? runWorkspaceState;
   Workspace? activeWorkspaceDocument;
-  Uint8List? peerIconPng;
+  typed_data.Uint8List? peerIconPng;
 
   WorkspaceChatController? get activeWorkspaceChat => _activeWorkspaceChat;
   String? get activeWorkspaceName {
@@ -472,6 +472,7 @@ class MobileDataController extends ChangeNotifier {
     _friendGroupChats = const [];
     runWorkspaceState = null;
     activeWorkspaceDocument = null;
+    peerIconPng = null;
     lastError = null;
     unawaited(start());
   }
@@ -660,11 +661,11 @@ class MobileDataController extends ChangeNotifier {
     );
   }
 
-  Future<void> uploadPeerIconPng(Uint8List bytes) async {
+  Future<void> uploadPeerIconPng(typed_data.Uint8List bytes) async {
     await runRpc(
       (client) => client.uploadPeerIcon(IconFormat.ICON_FORMAT_PNG, bytes),
     );
-    peerIconPng = Uint8List.fromList(bytes);
+    peerIconPng = typed_data.Uint8List.fromList(bytes);
     notifyListeners();
   }
 
@@ -784,6 +785,7 @@ class MobileDataController extends ChangeNotifier {
       }
       lastError = null;
       if (serverId != activeServerId) {
+        peerIconPng = null;
         await _watchServer(serverId);
       }
       await refresh(client: client, serverId: serverId);

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data' as typed_data;
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -473,14 +474,38 @@ void main() {
             dataRepository: repository,
           )
           ..activeServerId = 'old-server'
-          ..connectionState = MobileConnectionState.connected;
+          ..connectionState = MobileConnectionState.connected
+          ..peerIconPng = typed_data.Uint8List.fromList([1, 2, 3]);
     addTearDown(controller.close);
 
     await controller.recoverTransport();
 
     expect(controller.activeServerId, 'new-server');
+    expect(controller.peerIconPng, isNull);
     expect(repository.workflowWatchServerIds, ['new-server']);
     expect(repository.refreshServerIds, ['new-server']);
+  });
+
+  test('clears the cached peer icon when switching endpoints', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    final connection = _RefreshTestConnection(
+      profile: _profile('old.local:9820'),
+      client: _RunWorkspaceClient(),
+      serverId: 'server-a',
+    );
+    final controller =
+        MobileDataController(
+            database: database,
+            connectionController: connection,
+          )
+          ..connectionState = MobileConnectionState.connected
+          ..peerIconPng = typed_data.Uint8List.fromList([1, 2, 3]);
+    addTearDown(controller.close);
+
+    await controller.updateServerEndpoint('new.local:9820');
+
+    expect(controller.serverEndpoint, 'new.local:9820');
+    expect(controller.peerIconPng, isNull);
   });
 
   test('refreshes the selected locale after a same-server reconnect', () async {
@@ -775,6 +800,14 @@ class _RefreshTestConnection extends GizClawConnectionController {
 
   @override
   String get serverId => currentServerId;
+
+  @override
+  Future<GizClawClient> connect() async => currentClient;
+
+  @override
+  Future<void> updateProfile(GizClawConnectionProfile profile) async {
+    currentProfile = profile;
+  }
 }
 
 class _ReconnectTestConnection extends _RefreshTestConnection {
