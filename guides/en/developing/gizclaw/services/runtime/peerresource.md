@@ -56,6 +56,6 @@ sequenceDiagram
 
 Owner binding uses the current Peer public key as subject, Workspace name as resource, and grants the unified `resource-owner` role. This role contains `read`, `use` and `admin` permissions; Workspace and Tool share the same set of owner role definitions and ACL services.
 
-The order when deleting a Workspace is reversed: delete the Workspace first, and then clean up the corresponding owner binding. If the binding cleanup fails, the service will re-create the workspace using the contents of the deleted workspace and return an error to the peer to avoid the semi-completed state of "the workspace has been deleted but the ACL owner binding remains". The binding is deemed to have been deleted successfully if it no longer exists.
+Workspace deletion tentatively removes the corresponding owner binding before calling the Workspace service. Any service failure or non-success response restores the binding. A system Workspace is rejected with RPC code 409; the adapter records `SYSTEM_WORKSPACE_DELETE_FORBIDDEN` as its observability error code and preserves the Workspace and owner binding.
 
-Therefore, the Workspace resource record and owner binding behave as a whole to Peer RPC: the creation operation cannot leave a Workspace without owner permissions, and the deletion operation cannot return normally but leaves an isolated owner binding.
+Therefore, the Workspace resource record and owner binding behave as a whole to Peer RPC: creation cannot leave a Workspace without owner permissions, and rejected or failed deletion cannot remove only one side.

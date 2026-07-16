@@ -7,6 +7,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 )
 
 func TestApplyWorkspaceCreatesResource(t *testing.T) {
@@ -33,6 +34,9 @@ func TestApplyWorkspaceCreatesResource(t *testing.T) {
 	}
 	if workspaces.items["demo"].WorkflowName != "workflow" {
 		t.Fatalf("workflow = %q, want workflow", workspaces.items["demo"].WorkflowName)
+	}
+	if system := workspaces.items["demo"].System; system == nil || *system {
+		t.Fatalf("system = %#v, want false", system)
 	}
 }
 
@@ -231,6 +235,10 @@ func TestWorkspaceServiceErrorResponses(t *testing.T) {
 	workspaces.putStatus = 500
 	err = manager.putWorkspace(context.Background(), "demo", adminhttp.WorkspaceUpsert{})
 	assertResourceError(t, err, 500, "INTERNAL_ERROR")
+
+	workspaces.deleteStatus = 409
+	_, _, err = manager.deleteWorkspace(context.Background(), "demo")
+	assertResourceError(t, err, 409, workspace.SystemWorkspaceDeleteForbiddenCode)
 }
 
 type fakeWorkspaces struct {
@@ -254,6 +262,9 @@ func (f *fakeWorkspaces) CreateWorkspace(context.Context, adminhttp.CreateWorksp
 }
 
 func (f *fakeWorkspaces) DeleteWorkspace(_ context.Context, request adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {
+	if f.deleteStatus == 409 {
+		return adminhttp.DeleteWorkspace409JSONResponse(apitypes.NewErrorResponse(workspace.SystemWorkspaceDeleteForbiddenCode, "system Workspace deletion is forbidden")), nil
+	}
 	if f.deleteStatus == 500 {
 		return adminhttp.DeleteWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
 	}
@@ -290,6 +301,7 @@ func (f *fakeWorkspaces) PutWorkspace(_ context.Context, request adminhttp.PutWo
 		CreatedAt:    now,
 		Name:         body.Name,
 		Parameters:   body.Parameters,
+		System:       new(false),
 		Toolkit:      body.Toolkit,
 		UpdatedAt:    now,
 		WorkflowName: body.WorkflowName,

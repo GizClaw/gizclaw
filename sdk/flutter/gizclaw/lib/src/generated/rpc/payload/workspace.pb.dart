@@ -2984,6 +2984,7 @@ class Workspace extends $pb.GeneratedMessage {
     $core.String? updatedAt,
     $core.String? workflowName,
     $2.ToolkitPolicy? toolkit,
+    $core.bool? system,
   }) {
     final result = create();
     if (createdAt != null) result.createdAt = createdAt;
@@ -2993,6 +2994,7 @@ class Workspace extends $pb.GeneratedMessage {
     if (updatedAt != null) result.updatedAt = updatedAt;
     if (workflowName != null) result.workflowName = workflowName;
     if (toolkit != null) result.toolkit = toolkit;
+    if (system != null) result.system = system;
     return result;
   }
 
@@ -3018,6 +3020,7 @@ class Workspace extends $pb.GeneratedMessage {
     ..aOS(6, _omitFieldNames ? '' : 'workflowName')
     ..aOM<$2.ToolkitPolicy>(7, _omitFieldNames ? '' : 'toolkit',
         subBuilder: $2.ToolkitPolicy.create)
+    ..aOB(8, _omitFieldNames ? '' : 'system')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3104,6 +3107,15 @@ class Workspace extends $pb.GeneratedMessage {
   void clearToolkit() => $_clearField(7);
   @$pb.TagNumber(7)
   $2.ToolkitPolicy ensureToolkit() => $_ensure(6);
+
+  @$pb.TagNumber(8)
+  $core.bool get system => $_getBF(7);
+  @$pb.TagNumber(8)
+  set system($core.bool value) => $_setBool(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasSystem() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearSystem() => $_clearField(8);
 }
 
 class WorkspaceCreateRequest extends $pb.GeneratedMessage {

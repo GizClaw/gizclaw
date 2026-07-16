@@ -6206,6 +6206,16 @@
               }
             }
           },
+          "409": {
+            "description": "System Workspace deletion is forbidden through the generic Workspace lifecycle",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal error",
             "content": {
@@ -9651,6 +9661,65 @@
       }
     },
     "/peers/{publicKey}/pets/{id}": {
+      "delete": {
+        "operationId": "deletePeerPet",
+        "summary": "Delete a peer Pet",
+        "tags": [
+          "GameplayDebug"
+        ],
+        "parameters": [
+          {
+            "name": "publicKey",
+            "in": "path",
+            "required": true,
+            "description": "Peer public key",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/Pet"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Peer gameplay resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
       "get": {
         "operationId": "getPeerPet",
         "summary": "getPeerPet",

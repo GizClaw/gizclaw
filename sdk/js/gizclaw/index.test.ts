@@ -208,6 +208,20 @@ test("RPC payload codec round-trips pet workspace parameters", () => {
   });
 });
 
+test("RPC payload codec round-trips system workspace classification", () => {
+  const payload = encodeRPCResponsePayload("server.workspace.get", {
+    created_at: "2026-07-16T00:00:00Z",
+    last_active_at: "2026-07-16T00:00:00Z",
+    name: "friend-chat",
+    system: true,
+    updated_at: "2026-07-16T00:00:00Z",
+    workflow_name: "chatroom",
+  });
+
+  const decoded = decodeRPCResponsePayload("server.workspace.get", payload) as { system?: boolean };
+  assert.equal(decoded.system, true);
+});
+
 test("RPC payload codec rejects ambiguous numeric workspace discriminators", () => {
   assert.throws(
     () => encodeRPCRequestPayload("server.workspace.create", {

@@ -5,6 +5,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 )
 
@@ -114,6 +115,8 @@ func (m *Manager) deleteWorkspace(ctx context.Context, name string) (apitypes.Wo
 		return apitypes.Workspace(response), true, nil
 	case adminhttp.DeleteWorkspace404JSONResponse:
 		return apitypes.Workspace{}, false, nil
+	case adminhttp.DeleteWorkspace409JSONResponse:
+		return apitypes.Workspace{}, false, responseError(409, workspace.SystemWorkspaceDeleteForbiddenCode, "system Workspace deletion is forbidden", response)
 	case adminhttp.DeleteWorkspace500JSONResponse:
 		return apitypes.Workspace{}, false, responseError(500, "DELETE_WORKSPACE_FAILED", "failed to delete workspace", response)
 	default:

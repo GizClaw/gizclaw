@@ -16,8 +16,8 @@ import (
 )
 
 type WorkspaceService interface {
-	CreateWorkspace(context.Context, adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error)
-	DeleteWorkspace(context.Context, adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error)
+	CreateSystemWorkspace(context.Context, adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error)
+	DeleteSystemWorkspace(context.Context, string) (apitypes.Workspace, error)
 }
 
 type ACL interface {
@@ -391,17 +391,11 @@ func (s *Server) ensureDirectChatWorkspace(ctx context.Context, from, to string)
 			WorkflowName: socialutil.ChatRoomWorkflowName,
 			Parameters:   socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeDirect),
 		}
-		resp, err := s.Workspaces.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
+		_, wasCreated, err := s.Workspaces.CreateSystemWorkspace(ctx, body)
 		if err != nil {
 			return "", nil, err
 		}
-		switch resp.(type) {
-		case adminhttp.CreateWorkspace200JSONResponse:
-			created = true
-		case adminhttp.CreateWorkspace409JSONResponse:
-		default:
-			return "", nil, errors.New("social: create direct chat workspace failed")
-		}
+		created = wasCreated
 	}
 	if err := s.grantWorkspace(ctx, workspaceName, from, to); err != nil {
 		if created {
@@ -474,16 +468,11 @@ func (s *Server) deleteWorkspace(ctx context.Context, workspaceName string) erro
 	if s == nil || s.Workspaces == nil {
 		return nil
 	}
-	resp, err := s.Workspaces.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Name: workspaceName})
-	if err != nil {
-		return err
-	}
-	switch resp.(type) {
-	case adminhttp.DeleteWorkspace200JSONResponse, adminhttp.DeleteWorkspace404JSONResponse:
+	_, err := s.Workspaces.DeleteSystemWorkspace(ctx, workspaceName)
+	if errors.Is(err, kv.ErrNotFound) {
 		return nil
-	default:
-		return errors.New("social: delete direct chat workspace failed")
 	}
+	return err
 }
 
 func (s *Server) activeInviteToken(ctx context.Context, store kv.Store, owner string) (inviteTokenRecord, bool, error) {

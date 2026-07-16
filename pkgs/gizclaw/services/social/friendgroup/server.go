@@ -27,8 +27,8 @@ type ACL interface {
 }
 
 type WorkspaceService interface {
-	CreateWorkspace(context.Context, adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error)
-	DeleteWorkspace(context.Context, adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error)
+	CreateSystemWorkspace(context.Context, adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error)
+	DeleteSystemWorkspace(context.Context, string) (apitypes.Workspace, error)
 }
 
 type Server struct {
@@ -993,17 +993,11 @@ func (s *Server) ensureGroupWorkspace(ctx context.Context, workspaceName string,
 			WorkflowName: socialutil.ChatRoomWorkflowName,
 			Parameters:   socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeGroup),
 		}
-		resp, err := s.Workspaces.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
+		_, wasCreated, err := s.Workspaces.CreateSystemWorkspace(ctx, body)
 		if err != nil {
 			return false, err
 		}
-		switch resp.(type) {
-		case adminhttp.CreateWorkspace200JSONResponse:
-			created = true
-		case adminhttp.CreateWorkspace409JSONResponse:
-		default:
-			return false, errors.New("social: create group chat workspace failed")
-		}
+		created = wasCreated
 	}
 	owner = strings.TrimSpace(owner)
 	if owner == "" {
@@ -1106,16 +1100,11 @@ func (s *Server) deleteWorkspace(ctx context.Context, workspaceName string) erro
 	if s == nil || s.Workspaces == nil {
 		return nil
 	}
-	resp, err := s.Workspaces.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Name: workspaceName})
-	if err != nil {
-		return err
-	}
-	switch resp.(type) {
-	case adminhttp.DeleteWorkspace200JSONResponse, adminhttp.DeleteWorkspace404JSONResponse:
+	_, err := s.Workspaces.DeleteSystemWorkspace(ctx, workspaceName)
+	if errors.Is(err, kv.ErrNotFound) {
 		return nil
-	default:
-		return errors.New("social: delete group chat workspace failed")
 	}
+	return err
 }
 
 func (s *Server) restoreMember(ctx context.Context, friendGroupID, peerID string, current rpcapi.FriendGroupMemberObject, currentErr error) {

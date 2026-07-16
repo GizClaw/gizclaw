@@ -16,6 +16,7 @@ void main() {
     final client = GizClawClient(factory);
     final workspace = payload.Workspace(
       name: 'mobile-ast-device',
+      system: true,
       workflowName: 'volc-ast-translate',
     );
 
@@ -26,6 +27,7 @@ void main() {
             as payload.WorkspaceCreateRequest;
     expect(body.value.name, 'mobile-ast-device');
     expect(body.value.workflowName, 'volc-ast-translate');
+    expect(body.value.system, isTrue);
     _respond(
       factory.channels.single,
       request.id,
@@ -33,7 +35,9 @@ void main() {
       payload.WorkspaceCreateResponse(value: workspace),
     );
 
-    expect((await future).value.name, 'mobile-ast-device');
+    final created = (await future).value;
+    expect(created.name, 'mobile-ast-device');
+    expect(created.system, isTrue);
   });
 
   test('updates a typed workspace document', () async {

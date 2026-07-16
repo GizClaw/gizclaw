@@ -176,10 +176,11 @@ func TestServerAllowedCRUD(t *testing.T) {
 	}
 	workspaceCreate := callRPC(t, srv, "workspace-create", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
 		Name:         "workspace-a",
+		System:       true,
 		WorkflowName: "workflow-a1",
 		Parameters:   &createParams,
 	}))
-	if got := mustResult(t, workspaceCreate.Result.AsWorkspaceCreateResponse); got.Name != "workspace-a" || got.WorkflowName != "workflow-a1" {
+	if got := mustResult(t, workspaceCreate.Result.AsWorkspaceCreateResponse); got.Name != "workspace-a" || got.WorkflowName != "workflow-a1" || got.System {
 		t.Fatalf("workspace.create = %#v", got)
 	} else if got.Parameters == nil {
 		t.Fatalf("workspace.create parameters are nil: %#v", got)
@@ -456,6 +457,68 @@ func TestWorkspacePeerDeleteRestoresOwnerBindingWhenResourceDeleteFails(t *testi
 	requireNoRPCError(t, got)
 	if workspace := mustResult(t, got.Result.AsWorkspaceGetResponse); workspace.Name != "workspace-delete-fail" {
 		t.Fatalf("workspace after failed delete = %#v", workspace)
+	}
+}
+
+func TestWorkspacePeerDeleteRejectsSystemWorkspaceAndRestoresOwnerBinding(t *testing.T) {
+	srv := newTestResourceServer()
+	srv.ACL = allowAllAuthorizer{}
+	bindings := &recordingToolACL{}
+	srv.ResourceACL = bindings
+	seedWorkflow(t, srv, "chatroom")
+
+	workspaceService := srv.Workspaces.(*workspace.Server)
+	created, wasCreated, err := workspaceService.CreateSystemWorkspace(context.Background(), adminhttp.WorkspaceUpsert{
+		Name:         "friend-chat",
+		WorkflowName: "chatroom",
+	})
+	if err != nil || !wasCreated || created.System == nil || !*created.System {
+		t.Fatalf("CreateSystemWorkspace() = %#v, %v, %v", created, wasCreated, err)
+	}
+	bindingID := resourceOwnerBindingID(acl.WorkspaceResource("friend-chat"))
+	policy := apitypes.ACLPolicy{
+		Subject:  acl.PublicKeySubject(srv.Caller.String()),
+		Resource: acl.WorkspaceResource("friend-chat"),
+		Role:     resourceOwnerRole,
+	}
+	if _, err := bindings.PutPolicyBinding(context.Background(), bindingID, 0, policy); err != nil {
+		t.Fatalf("PutPolicyBinding() error = %v", err)
+	}
+
+	capture := &resourceLogCapture{}
+	previous := slog.Default()
+	slog.SetDefault(slog.New(capture))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+	outcome := observability.NewOutcome(observability.TransportRPC, observability.SurfacePeerRPC, string(rpcapi.RPCMethodServerWorkspaceDelete))
+	ctx := observability.WithOutcome(context.Background(), outcome)
+	req := &rpcapi.RPCRequest{
+		V:      rpcapi.RPCVersionV1,
+		Id:     "workspace-delete-system",
+		Method: rpcapi.RPCMethodServerWorkspaceDelete,
+		Params: rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceDeleteRequest, rpcapi.WorkspaceDeleteRequest{Name: "friend-chat"}),
+	}
+	deleted, handled, err := srv.Dispatch(ctx, req)
+	if err != nil || !handled {
+		t.Fatalf("Dispatch() handled=%v err=%v", handled, err)
+	}
+	requireRPCError(t, deleted, rpcapi.RPCErrorCodeConflict)
+	if !strings.Contains(deleted.Error.Message, "cannot be deleted through the generic Workspace lifecycle") {
+		t.Fatalf("RPC error message = %q", deleted.Error.Message)
+	}
+	if restored, ok := bindings.policyBinding(bindingID); !ok || restored != policy {
+		t.Fatalf("owner binding after rejection = %#v, %v; want %#v", restored, ok, policy)
+	}
+	if got, err := workspaceService.GetWorkspace(context.Background(), adminhttp.GetWorkspaceRequestObject{Name: "friend-chat"}); err != nil {
+		t.Fatalf("GetWorkspace() error = %v", err)
+	} else if _, ok := got.(adminhttp.GetWorkspace200JSONResponse); !ok {
+		t.Fatalf("GetWorkspace() response = %#v", got)
+	}
+
+	outcome.SetRequestID(req.Id)
+	outcome.SetRPC(int(deleted.Error.Code), observability.ResultClientError)
+	observability.Log(ctx, outcome)
+	if got := capture.onlyAttrs(t)["error_code"]; got != workspace.SystemWorkspaceDeleteForbiddenCode {
+		t.Fatalf("error_code = %#v, want %q", got, workspace.SystemWorkspaceDeleteForbiddenCode)
 	}
 }
 

@@ -3803,6 +3803,9 @@ type Workspace struct {
 	// Parameters Agent-specific workspace parameters. The shape is selected by agent_type.
 	Parameters *WorkspaceParameters `json:"parameters,omitempty"`
 
+	// System Whether the Workspace lifecycle is owned by another domain service. System Workspaces cannot be deleted through generic Workspace operations.
+	System *bool `json:"system,omitempty"`
+
 	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
 	Toolkit      *ToolkitPolicy `json:"toolkit,omitempty"`
 	UpdatedAt    time.Time      `json:"updated_at"`

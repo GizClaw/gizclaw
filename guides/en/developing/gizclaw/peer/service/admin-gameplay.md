@@ -2,7 +2,7 @@
 
 `Implementation file: peer_service_serve_admin_gameplay.go`
 
-Implement Admin read-only endpoints to query pet, badge, points, points transaction, game result and reward grant by Peer.
+Implements Admin endpoints to query pet, badge, points, points transaction, game result, and reward grant by Peer, and to delete a Pet through its owning Gameplay lifecycle.
 
 Gameplay resources and state belong to `services/gameplay`.
 
@@ -10,7 +10,7 @@ Gameplay resources and state belong to `services/gameplay`.
 
 | Function group | Function |
 | --- | --- |
-| `ListPeerPets` / `GetPeerPet` | Query Peer pet. |
+| `ListPeerPets` / `GetPeerPet` / `DeletePeerPet` | Query or delete a Peer pet. Deletion delegates all Workspace and ACL cleanup to Gameplay. |
 | `ListPeerBadges` / `GetPeerBadge` | Query Peer badge. |
 | `GetPeerPoints` | Query Peer points account. |
 | `ListPeerPointsTransactions` / `GetPeerPointsTransaction` | Query points transactions. |

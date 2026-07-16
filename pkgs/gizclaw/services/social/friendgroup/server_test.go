@@ -1177,6 +1177,23 @@ type recordingWorkspaceService struct {
 	deleted []string
 }
 
+func (s *recordingWorkspaceService) CreateSystemWorkspace(_ context.Context, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
+	for _, existing := range s.created {
+		if existing.Name == body.Name {
+			system := true
+			return apitypes.Workspace{Name: body.Name, WorkflowName: body.WorkflowName, Parameters: body.Parameters, System: &system}, false, nil
+		}
+	}
+	s.created = append(s.created, body)
+	system := true
+	return apitypes.Workspace{Name: body.Name, WorkflowName: body.WorkflowName, Parameters: body.Parameters, System: &system}, true, nil
+}
+
+func (s *recordingWorkspaceService) DeleteSystemWorkspace(_ context.Context, name string) (apitypes.Workspace, error) {
+	s.deleted = append(s.deleted, name)
+	return apitypes.Workspace{Name: name}, nil
+}
+
 func (s *recordingWorkspaceService) CreateWorkspace(_ context.Context, req adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
 	if req.Body == nil {
 		return adminhttp.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", "request body required")), nil
@@ -1198,6 +1215,21 @@ func (s *recordingWorkspaceService) DeleteWorkspace(_ context.Context, req admin
 type failingWorkspaceService struct {
 	createResp adminhttp.CreateWorkspaceResponseObject
 	createErr  error
+}
+
+func (s failingWorkspaceService) CreateSystemWorkspace(context.Context, adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
+	if s.createErr != nil {
+		return apitypes.Workspace{}, false, s.createErr
+	}
+	if s.createResp != nil {
+		return apitypes.Workspace{}, false, fmt.Errorf("create system workspace failed: %T", s.createResp)
+	}
+	system := true
+	return apitypes.Workspace{System: &system}, true, nil
+}
+
+func (s failingWorkspaceService) DeleteSystemWorkspace(context.Context, string) (apitypes.Workspace, error) {
+	return apitypes.Workspace{}, kv.ErrNotFound
 }
 
 func (s failingWorkspaceService) CreateWorkspace(context.Context, adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {

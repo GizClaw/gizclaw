@@ -413,6 +413,7 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 		Name: "workspace-a",
 		Body: Workspace{
 			Name:         "workspace-a",
+			System:       true,
 			WorkflowName: "workflow-a",
 			Parameters:   &workspaceParams,
 		},
@@ -425,6 +426,9 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 	}
 	if gotWorkspace.Body.Parameters == nil {
 		t.Fatalf("workspace parameters were dropped: %#v", gotWorkspace)
+	}
+	if !gotWorkspace.Body.System {
+		t.Fatalf("workspace system = false, want true: %#v", gotWorkspace)
 	}
 	gotFlowcraft, err := gotWorkspace.Body.Parameters.AsFlowcraftWorkspaceParameters()
 	if err != nil {

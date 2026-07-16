@@ -87,3 +87,9 @@ When adding fields, priority should be given to modifying their real owners: tru
 ## Stability Boundary
 
 Schema name, property name, required collection, enum value, discriminator and OpenAPI operation ID all affect the generated API. Renaming or changing optional/nullable semantics is a caller-facing contract change and must be reviewed with all generated languages ​​and call sites.
+
+## Workspace lifecycle classification
+
+`Workspace.system` is required, read-only lifecycle metadata. Generic Admin HTTP, Peer RPC, and declarative resource creation always produce `system: false`; callers cannot set or change it through Workspace input. Friend, Friend Group, and Pet lifecycles create `system: true` Workspaces through an internal Workspace service capability.
+
+Generic Workspace deletion returns HTTP 409 with `SYSTEM_WORKSPACE_DELETE_FORBIDDEN` for a system Workspace. Only the owning domain lifecycle can use the internal system-Workspace deletion capability. Existing persisted Workspaces are not migrated or reclassified; the classification guarantee applies to Workspaces created after this contract.

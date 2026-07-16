@@ -39,6 +39,20 @@ func (s *adminService) GetPeerPet(ctx context.Context, request adminhttp.GetPeer
 	return adminhttp.GetPeerPet200JSONResponse(item), nil
 }
 
+func (s *adminService) DeletePeerPet(ctx context.Context, request adminhttp.DeletePeerPetRequestObject) (adminhttp.DeletePeerPetResponseObject, error) {
+	if s.Gameplay == nil {
+		return adminhttp.DeletePeerPet500JSONResponse(gameplayNotConfiguredResponse()), nil
+	}
+	item, err := s.Gameplay.DeletePet(ctx, request.PublicKey, request.Id)
+	if err != nil {
+		if isGameplayNotFound(err) {
+			return adminhttp.DeletePeerPet404JSONResponse(apitypes.NewErrorResponse("PET_NOT_FOUND", err.Error())), nil
+		}
+		return adminhttp.DeletePeerPet500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	return adminhttp.DeletePeerPet200JSONResponse(item), nil
+}
+
 func (s *adminService) ListPeerBadges(ctx context.Context, request adminhttp.ListPeerBadgesRequestObject) (adminhttp.ListPeerBadgesResponseObject, error) {
 	if s.Gameplay == nil {
 		return adminhttp.ListPeerBadges500JSONResponse(gameplayNotConfiguredResponse()), nil

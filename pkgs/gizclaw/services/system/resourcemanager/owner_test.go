@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 )
 
@@ -366,6 +367,33 @@ func TestDeleteOwnedResourceRestoresOwnerWhenDeleteFails(t *testing.T) {
 	_, err := manager.Delete(ctx, apitypes.ResourceKindWorkspace, "demo")
 	assertResourceError(t, err, 500, "INTERNAL_ERROR")
 	assertWorkspaceOwnerBinding(t, manager, "demo", "owner-a")
+}
+
+func TestDeleteOwnedSystemWorkspaceRestoresOwnerBinding(t *testing.T) {
+	ctx := context.Background()
+	manager := newACLResourceManager(t)
+	workspaces := newFakeWorkspaces()
+	now := time.Now().UTC()
+	system := true
+	workspaces.items["demo"] = apitypes.Workspace{
+		CreatedAt:    now,
+		Name:         "demo",
+		System:       &system,
+		UpdatedAt:    now,
+		WorkflowName: "workflow",
+	}
+	workspaces.deleteStatus = 409
+	manager.services.Workspaces = workspaces
+	if _, err := manager.ensureOwnedResourceOwnerFromMetadata(ctx, apitypes.ACLResourceKindWorkspace, "demo", apitypes.ResourceMetadata{Name: "demo", OwnerPublicKey: ptr("owner-a")}); err != nil {
+		t.Fatalf("ensureOwnedResourceOwnerFromMetadata() error = %v", err)
+	}
+
+	_, err := manager.Delete(ctx, apitypes.ResourceKindWorkspace, "demo")
+	assertResourceError(t, err, 409, workspace.SystemWorkspaceDeleteForbiddenCode)
+	assertWorkspaceOwnerBinding(t, manager, "demo", "owner-a")
+	if _, ok := workspaces.items["demo"]; !ok {
+		t.Fatal("system Workspace was deleted")
+	}
 }
 
 func TestDeleteOwnedResourceRestoresOwnerWhenResourceMissing(t *testing.T) {

@@ -1216,6 +1216,7 @@ const Workspace$json = {
       '10': 'toolkit',
       '17': true
     },
+    {'1': 'system', '3': 8, '4': 1, '5': 8, '10': 'system'},
   ],
   '8': [
     {'1': '_parameters'},
@@ -1230,7 +1231,8 @@ final $typed_data.Uint8List workspaceDescriptor = $convert.base64Decode(
     'ZXJzGAQgASgLMiMuZ2l6Y2xhdy5ycGMudjEuV29ya3NwYWNlUGFyYW1ldGVyc0gAUgpwYXJhbW'
     'V0ZXJziAEBEh0KCnVwZGF0ZWRfYXQYBSABKAlSCXVwZGF0ZWRBdBIjCg13b3JrZmxvd19uYW1l'
     'GAYgASgJUgx3b3JrZmxvd05hbWUSPAoHdG9vbGtpdBgHIAEoCzIdLmdpemNsYXcucnBjLnYxLl'
-    'Rvb2xraXRQb2xpY3lIAVIHdG9vbGtpdIgBAUINCgtfcGFyYW1ldGVyc0IKCghfdG9vbGtpdA==');
+    'Rvb2xraXRQb2xpY3lIAVIHdG9vbGtpdIgBARIWCgZzeXN0ZW0YCCABKAhSBnN5c3RlbUINCgtf'
+    'cGFyYW1ldGVyc0IKCghfdG9vbGtpdA==');
 
 @$core.Deprecated('Use workspaceCreateRequestDescriptor instead')
 const WorkspaceCreateRequest$json = {

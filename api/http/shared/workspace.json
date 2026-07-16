@@ -13,6 +13,7 @@
         "required": [
           "name",
           "workflow_name",
+          "system",
           "created_at",
           "last_active_at",
           "updated_at"
@@ -23,6 +24,11 @@
           },
           "workflow_name": {
             "type": "string"
+          },
+          "system": {
+            "type": "boolean",
+            "readOnly": true,
+            "description": "Whether the Workspace lifecycle is owned by another domain service. System Workspaces cannot be deleted through generic Workspace operations."
           },
           "parameters": {
             "$ref": "./workspace_parameters.json#/components/schemas/WorkspaceParameters"

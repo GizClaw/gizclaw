@@ -22,8 +22,9 @@ var (
 )
 
 const (
-	defaultListLimit = 50
-	maxListLimit     = 200
+	defaultListLimit                   = 50
+	maxListLimit                       = 200
+	SystemWorkspaceDeleteForbiddenCode = "SYSTEM_WORKSPACE_DELETE_FORBIDDEN"
 )
 
 type Server struct {
@@ -40,7 +41,23 @@ type WorkspaceAdminService interface {
 	PutWorkspace(context.Context, adminhttp.PutWorkspaceRequestObject) (adminhttp.PutWorkspaceResponseObject, error)
 }
 
+// SystemWorkspaceService is the domain-only Workspace lifecycle surface. It is
+// intentionally not registered in Admin HTTP, Peer RPC, or resource manager
+// operations.
+type SystemWorkspaceService interface {
+	CreateSystemWorkspace(context.Context, adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error)
+	DeleteSystemWorkspace(context.Context, string) (apitypes.Workspace, error)
+}
+
+// WorkspaceLifecycleService combines the public administration surface with
+// the domain-only system Workspace lifecycle surface.
+type WorkspaceLifecycleService interface {
+	WorkspaceAdminService
+	SystemWorkspaceService
+}
+
 var _ WorkspaceAdminService = (*Server)(nil)
+var _ WorkspaceLifecycleService = (*Server)(nil)
 
 func (s *Server) ListWorkspaces(ctx context.Context, request adminhttp.ListWorkspacesRequestObject) (adminhttp.ListWorkspacesResponseObject, error) {
 	store, err := s.store()
@@ -83,25 +100,64 @@ func (s *Server) CreateWorkspace(ctx context.Context, request adminhttp.CreateWo
 	} else if !errors.Is(err, kv.ErrNotFound) {
 		return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
+	workspace, err := s.createWorkspaceRecord(ctx, store, normalized, false)
+	if err != nil {
+		return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	return adminhttp.CreateWorkspace200JSONResponse(workspace), nil
+}
+
+func (s *Server) CreateSystemWorkspace(ctx context.Context, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
+	store, err := s.store()
+	if err != nil {
+		return apitypes.Workspace{}, false, err
+	}
+	normalized, err := normalizeWorkspaceUpsert(body, "")
+	if err != nil {
+		return apitypes.Workspace{}, false, err
+	}
+	workflowStore, err := s.workflowStore()
+	if err != nil {
+		return apitypes.Workspace{}, false, err
+	}
+	if err := validateReferences(ctx, workflowStore, normalized); err != nil {
+		return apitypes.Workspace{}, false, err
+	}
+	existing, err := getWorkspace(ctx, store, string(normalized.Name))
+	if err == nil {
+		if !workspaceIsSystem(existing) {
+			return apitypes.Workspace{}, false, fmt.Errorf("workspace %q already exists as a user Workspace", normalized.Name)
+		}
+		return existing, false, nil
+	}
+	if !errors.Is(err, kv.ErrNotFound) {
+		return apitypes.Workspace{}, false, err
+	}
+	workspace, err := s.createWorkspaceRecord(ctx, store, normalized, true)
+	return workspace, err == nil, err
+}
+
+func (s *Server) createWorkspaceRecord(ctx context.Context, store kv.Store, normalized adminhttp.WorkspaceUpsert, system bool) (apitypes.Workspace, error) {
 	now := time.Now().UTC()
 	workspace := apitypes.Workspace{
 		CreatedAt:    now,
 		LastActiveAt: now,
 		Name:         normalized.Name,
 		Parameters:   cloneParameters(normalized.Parameters),
+		System:       boolPointer(system),
 		Toolkit:      cloneToolkitPolicy(normalized.Toolkit),
 		UpdatedAt:    now,
 		WorkflowName: normalized.WorkflowName,
 	}
 	if s.RuntimeStore != nil {
 		if _, err := s.RuntimeStore.PrepareWorkspace(ctx, workspace.Name); err != nil {
-			return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+			return apitypes.Workspace{}, err
 		}
 	}
 	if err := writeWorkspace(ctx, store, workspace); err != nil {
-		return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return apitypes.Workspace{}, err
 	}
-	return adminhttp.CreateWorkspace200JSONResponse(workspace), nil
+	return workspace, nil
 }
 
 func (s *Server) DeleteWorkspace(ctx context.Context, request adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {
@@ -125,17 +181,44 @@ func (s *Server) DeleteWorkspace(ctx context.Context, request adminhttp.DeleteWo
 		}
 		return adminhttp.DeleteWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if s.RuntimeStore != nil {
-		if err := s.RuntimeStore.DeleteWorkspaceRuntime(ctx, workspace.Name); err != nil {
-			return adminhttp.DeleteWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-		}
+	if workspaceIsSystem(workspace) {
+		return adminhttp.DeleteWorkspace409JSONResponse(apitypes.NewErrorResponse(
+			SystemWorkspaceDeleteForbiddenCode,
+			fmt.Sprintf("system workspace %q cannot be deleted through the generic Workspace lifecycle", workspace.Name),
+		)), nil
 	}
-	if err := store.BatchDelete(ctx, []kv.Key{
-		workspaceKey(string(workspace.Name)),
-	}); err != nil {
+	if err := s.deleteWorkspaceRecord(ctx, store, workspace); err != nil {
 		return adminhttp.DeleteWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.DeleteWorkspace200JSONResponse(workspace), nil
+}
+
+func (s *Server) DeleteSystemWorkspace(ctx context.Context, name string) (apitypes.Workspace, error) {
+	store, err := s.store()
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	name = strings.TrimSpace(name)
+	workspace, err := getWorkspace(ctx, store, name)
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	if !workspaceIsSystem(workspace) {
+		return apitypes.Workspace{}, fmt.Errorf("workspace %q is not a system Workspace", name)
+	}
+	if err := s.deleteWorkspaceRecord(ctx, store, workspace); err != nil {
+		return apitypes.Workspace{}, err
+	}
+	return workspace, nil
+}
+
+func (s *Server) deleteWorkspaceRecord(ctx context.Context, store kv.Store, workspace apitypes.Workspace) error {
+	if s.RuntimeStore != nil {
+		if err := s.RuntimeStore.DeleteWorkspaceRuntime(ctx, workspace.Name); err != nil {
+			return err
+		}
+	}
+	return store.BatchDelete(ctx, []kv.Key{workspaceKey(string(workspace.Name))})
 }
 
 func (s *Server) GetWorkspace(ctx context.Context, request adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
@@ -197,6 +280,7 @@ func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspac
 		LastActiveAt: now,
 		Name:         normalized.Name,
 		Parameters:   cloneParameters(normalized.Parameters),
+		System:       boolPointer(false),
 		Toolkit:      cloneToolkitPolicy(normalized.Toolkit),
 		UpdatedAt:    now,
 		WorkflowName: normalized.WorkflowName,
@@ -204,6 +288,7 @@ func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspac
 	if err == nil {
 		workspace.CreatedAt = previous.CreatedAt
 		workspace.LastActiveAt = previous.LastActiveAt
+		workspace.System = previous.System
 	}
 	if s.RuntimeStore != nil {
 		if _, err := s.RuntimeStore.PrepareWorkspace(ctx, workspace.Name); err != nil {
@@ -257,6 +342,9 @@ func listWorkspacePage(ctx context.Context, store kv.Store, prefix kv.Key, curso
 }
 
 func normalizeWorkspaceTimestamps(workspace apitypes.Workspace) apitypes.Workspace {
+	if workspace.System == nil {
+		workspace.System = boolPointer(false)
+	}
 	if workspace.LastActiveAt.IsZero() {
 		workspace.LastActiveAt = workspace.CreatedAt
 	}
@@ -264,6 +352,14 @@ func normalizeWorkspaceTimestamps(workspace apitypes.Workspace) apitypes.Workspa
 		workspace.LastActiveAt = workspace.UpdatedAt
 	}
 	return workspace
+}
+
+func workspaceIsSystem(workspace apitypes.Workspace) bool {
+	return workspace.System != nil && *workspace.System
+}
+
+func boolPointer(value bool) *bool {
+	return &value
 }
 
 func normalizeWorkspaceUpsert(in adminhttp.WorkspaceUpsert, expectedName string) (adminhttp.WorkspaceUpsert, error) {

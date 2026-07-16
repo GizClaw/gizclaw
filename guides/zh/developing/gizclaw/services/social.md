@@ -21,9 +21,13 @@ services/social/
 
 拥有 friend request 的创建、接受、拒绝，以及 friend relationship 的读取和删除。它可以使用 ACL 判断权限，但 friend 状态本身属于 social 领域。
 
+每个好友直聊生命周期拥有一个 system Workspace，并在创建、rollback 和关系删除时使用内部 Workspace create/delete 能力。
+
 ### friendgroup
 
 拥有 friend group、member、message、invite 和 message asset。Group membership 与 ACL role 是不同层面的关系；不能用其中一个隐式替代另一个。
+
+每个 Friend Group 生命周期拥有一个 system Workspace，并在创建、rollback 和群组删除时使用内部 Workspace create/delete 能力。
 
 ## 依赖与边界
 

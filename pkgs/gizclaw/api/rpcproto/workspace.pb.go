@@ -2257,6 +2257,7 @@ type Workspace struct {
 	UpdatedAt     string                 `protobuf:"bytes,5,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	WorkflowName  string                 `protobuf:"bytes,6,opt,name=workflow_name,json=workflowName,proto3" json:"workflow_name,omitempty"`
 	Toolkit       *ToolkitPolicy         `protobuf:"bytes,7,opt,name=toolkit,proto3,oneof" json:"toolkit,omitempty"`
+	System        bool                   `protobuf:"varint,8,opt,name=system,proto3" json:"system,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2338,6 +2339,13 @@ func (x *Workspace) GetToolkit() *ToolkitPolicy {
 		return x.Toolkit
 	}
 	return nil
+}
+
+func (x *Workspace) GetSystem() bool {
+	if x != nil {
+		return x.System
+	}
+	return false
 }
 
 type WorkspaceCreateRequest struct {
@@ -3478,7 +3486,7 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\x05value\x18\x01 \x01(\v2%.gizclaw.rpc.v1.PeerRunWorkspaceStateR\x05value\"\x16\n" +
 	"\x14ServerStopRunRequest\"L\n" +
 	"\x15ServerStopRunResponse\x123\n" +
-	"\x05value\x18\x01 \x01(\v2\x1d.gizclaw.rpc.v1.PeerRunStatusR\x05value\"\xcb\x02\n" +
+	"\x05value\x18\x01 \x01(\v2\x1d.gizclaw.rpc.v1.PeerRunStatusR\x05value\"\xe3\x02\n" +
 	"\tWorkspace\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x01 \x01(\tR\tcreatedAt\x12$\n" +
@@ -3490,7 +3498,8 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\x05 \x01(\tR\tupdatedAt\x12#\n" +
 	"\rworkflow_name\x18\x06 \x01(\tR\fworkflowName\x12<\n" +
-	"\atoolkit\x18\a \x01(\v2\x1d.gizclaw.rpc.v1.ToolkitPolicyH\x01R\atoolkit\x88\x01\x01B\r\n" +
+	"\atoolkit\x18\a \x01(\v2\x1d.gizclaw.rpc.v1.ToolkitPolicyH\x01R\atoolkit\x88\x01\x01\x12\x16\n" +
+	"\x06system\x18\b \x01(\bR\x06systemB\r\n" +
 	"\v_parametersB\n" +
 	"\n" +
 	"\b_toolkit\"I\n" +

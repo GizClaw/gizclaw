@@ -3156,6 +3156,7 @@ type Workspace struct {
 
 	// Parameters Agent-specific workspace parameters. The shape is selected by agent_type.
 	Parameters   *WorkspaceParameters `json:"parameters,omitempty"`
+	System       bool                 `json:"system"`
 	Toolkit      *ToolkitPolicy       `json:"toolkit,omitempty"`
 	UpdatedAt    time.Time            `json:"updated_at"`
 	WorkflowName string               `json:"workflow_name"`

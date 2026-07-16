@@ -3,6 +3,7 @@ package gizclaw
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"io"
@@ -18,6 +19,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
@@ -42,6 +44,67 @@ func TestAdminServiceApplyResourceRequiresBody(t *testing.T) {
 	if got.Error.Code != "INVALID_RESOURCE" {
 		t.Fatalf("ApplyResource() code = %q", got.Error.Code)
 	}
+}
+
+func TestAdminServiceDeletePeerPetUsesGameplayLifecycle(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", "file:admin-delete-peer-pet?mode=memory&cache=shared")
+	if err != nil {
+		t.Fatalf("sql.Open() error = %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	workspaces := &adminGameplayWorkspaceService{}
+	runtime := &gameplay.Runtime{DB: db, Workspaces: workspaces}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatalf("Migration() error = %v", err)
+	}
+	now := time.Date(2026, 7, 16, 12, 0, 0, 0, time.UTC).Format(time.RFC3339Nano)
+	if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pets (
+		owner_public_key, id, ruleset_name, petdef_id, display_name, workspace_name,
+		workflow_name, life_json, ability_json, exp, level, last_active_at, created_at, updated_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"peer-a", "pet-a", "default", "petdef-a", "Pet A", "pet-pet-a",
+		"pet-care", `{}`, `{}`, 0, 1, now, now, now,
+	); err != nil {
+		t.Fatalf("insert pet: %v", err)
+	}
+
+	service := &adminService{Gameplay: runtime}
+	resp, err := service.DeletePeerPet(ctx, adminhttp.DeletePeerPetRequestObject{PublicKey: "peer-a", Id: "pet-a"})
+	if err != nil {
+		t.Fatalf("DeletePeerPet() error = %v", err)
+	}
+	deleted, ok := resp.(adminhttp.DeletePeerPet200JSONResponse)
+	if !ok || deleted.Id != "pet-a" {
+		t.Fatalf("DeletePeerPet() response = %#v", resp)
+	}
+	if len(workspaces.deleted) != 1 || workspaces.deleted[0] != "pet-pet-a" {
+		t.Fatalf("deleted Workspaces = %#v", workspaces.deleted)
+	}
+	resp, err = service.DeletePeerPet(ctx, adminhttp.DeletePeerPetRequestObject{PublicKey: "peer-a", Id: "pet-a"})
+	if err != nil {
+		t.Fatalf("DeletePeerPet(missing) error = %v", err)
+	}
+	if _, ok := resp.(adminhttp.DeletePeerPet404JSONResponse); !ok {
+		t.Fatalf("DeletePeerPet(missing) response = %#v", resp)
+	}
+}
+
+type adminGameplayWorkspaceService struct {
+	deleted []string
+}
+
+func (s *adminGameplayWorkspaceService) CreateSystemWorkspace(_ context.Context, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
+	system := true
+	return apitypes.Workspace{Name: body.Name, WorkflowName: body.WorkflowName, System: &system}, true, nil
+}
+
+func (s *adminGameplayWorkspaceService) DeleteSystemWorkspace(_ context.Context, name string) (apitypes.Workspace, error) {
+	s.deleted = append(s.deleted, name)
+	system := true
+	return apitypes.Workspace{Name: name, System: &system}, nil
 }
 
 func TestAdminServiceResourceMethodsHandleValidationAndManagerErrors(t *testing.T) {

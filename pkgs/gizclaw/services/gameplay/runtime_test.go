@@ -231,6 +231,15 @@ func TestRuntimeAdoptAndDrive(t *testing.T) {
 	if deleted.Id != adopted.Pet.Id || len(workspaces.deleted) != 1 || workspaces.deleted[0] != "pet-pet-1" {
 		t.Fatalf("DeletePet() = %#v deletedWorkspaces=%#v", deleted, workspaces.deleted)
 	}
+	if got, err := runtime.ListGameResults(ctx, "peer-a", apitypes.GameplayListRequest{}); err != nil || len(got.Items) != 1 {
+		t.Fatalf("ListGameResults() after pet delete = %#v, %v", got, err)
+	}
+	if got, err := runtime.ListRewardGrants(ctx, "peer-a", apitypes.GameplayListRequest{}); err != nil || len(got.Items) != 1 {
+		t.Fatalf("ListRewardGrants() after pet delete = %#v, %v", got, err)
+	}
+	if got, err := runtime.ListPointsTransactions(ctx, "peer-a", apitypes.GameplayListRequest{}); err != nil || len(got.Items) != 3 {
+		t.Fatalf("ListPointsTransactions() after pet delete = %#v, %v", got, err)
+	}
 }
 
 func TestRuntimeAdoptGrantsAndDeleteRevokesPetWorkspace(t *testing.T) {
@@ -274,7 +283,60 @@ func TestRuntimeAdoptGrantsAndDeleteRevokesPetWorkspace(t *testing.T) {
 	}
 }
 
-func TestRuntimeAdoptCompensatesWorkspaceOnSQLError(t *testing.T) {
+func TestRuntimeDeletePetReportsCleanupFailuresAndPreservesPet(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 5, 10, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name          string
+		failACLDelete bool
+		failWorkspace bool
+	}{
+		{name: "ACL", failACLDelete: true},
+		{name: "workspace", failWorkspace: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			catalog := testCatalog(t, now)
+			seedGameplayCatalog(t, ctx, catalog)
+			workspaces := &recordingWorkspaceService{}
+			aclService := &recordingACLService{}
+			runtime := &Runtime{
+				DB:         testDB(t),
+				Catalog:    catalog,
+				Workflows:  petWorkflowService{},
+				Workspaces: workspaces,
+				ACL:        aclService,
+				Now:        func() time.Time { return now },
+				NewID:      sequentialIDs("pet-1", "adopt-txn"),
+			}
+			adopted, err := runtime.AdoptPet(ctx, "peer-a", apitypes.PetAdoptRequest{})
+			if err != nil {
+				t.Fatalf("AdoptPet() error = %v", err)
+			}
+			aclService.deleteErr = nil
+			if tc.failACLDelete {
+				aclService.deleteErr = errors.New("forced ACL cleanup failure")
+			}
+			if tc.failWorkspace {
+				workspaces.deleteErr = errors.New("forced workspace cleanup failure")
+			}
+			if _, err := runtime.DeletePet(ctx, "peer-a", adopted.Pet.Id); err == nil {
+				t.Fatal("DeletePet() error = nil")
+			}
+			if got, err := runtime.GetPet(ctx, "peer-a", adopted.Pet.Id); err != nil || got.Id != adopted.Pet.Id {
+				t.Fatalf("GetPet() after failed delete = %#v, %v", got, err)
+			}
+			bindingID := petWorkspaceACLBindingID(adopted.Pet.WorkspaceName, "peer-a")
+			if _, ok := aclService.bindings[bindingID]; !ok {
+				t.Fatalf("ACL binding %q was not preserved/restored", bindingID)
+			}
+			if len(workspaces.deleted) != 0 {
+				t.Fatalf("deleted workspaces after failed cleanup = %#v", workspaces.deleted)
+			}
+		})
+	}
+}
+
+func TestRuntimeAdoptDoesNotDeleteExistingSystemWorkspaceOnIDCollision(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 7, 5, 10, 0, 0, 0, time.UTC)
 	catalog := testCatalog(t, now)
@@ -300,8 +362,8 @@ func TestRuntimeAdoptCompensatesWorkspaceOnSQLError(t *testing.T) {
 	if _, err := runtime.AdoptPet(ctx, "peer-a", apitypes.PetAdoptRequest{}); err == nil {
 		t.Fatal("second AdoptPet() should fail")
 	}
-	if len(workspaces.deleted) != 1 || workspaces.deleted[0] != "pet-same-id" {
-		t.Fatalf("deleted workspaces = %#v", workspaces.deleted)
+	if len(workspaces.deleted) != 0 {
+		t.Fatalf("deleted workspaces = %#v, want existing workspace preserved", workspaces.deleted)
 	}
 }
 
@@ -898,8 +960,29 @@ func sequentialIDs(ids ...string) func() string {
 }
 
 type recordingWorkspaceService struct {
-	created []adminhttp.WorkspaceUpsert
-	deleted []string
+	created   []adminhttp.WorkspaceUpsert
+	deleted   []string
+	deleteErr error
+}
+
+func (s *recordingWorkspaceService) CreateSystemWorkspace(_ context.Context, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
+	for _, existing := range s.created {
+		if existing.Name == body.Name {
+			system := true
+			return apitypes.Workspace{Name: body.Name, WorkflowName: body.WorkflowName, Parameters: body.Parameters, System: &system}, false, nil
+		}
+	}
+	s.created = append(s.created, body)
+	system := true
+	return apitypes.Workspace{Name: body.Name, WorkflowName: body.WorkflowName, Parameters: body.Parameters, System: &system}, true, nil
+}
+
+func (s *recordingWorkspaceService) DeleteSystemWorkspace(_ context.Context, name string) (apitypes.Workspace, error) {
+	if s.deleteErr != nil {
+		return apitypes.Workspace{}, s.deleteErr
+	}
+	s.deleted = append(s.deleted, name)
+	return apitypes.Workspace{Name: name}, nil
 }
 
 type petWorkflowService struct {
@@ -945,6 +1028,17 @@ type workspaceResponseService struct {
 	resp adminhttp.CreateWorkspaceResponseObject
 }
 
+func (s workspaceResponseService) CreateSystemWorkspace(context.Context, adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
+	if response, ok := s.resp.(adminhttp.CreateWorkspace200JSONResponse); ok {
+		return apitypes.Workspace(response), true, nil
+	}
+	return apitypes.Workspace{}, false, fmt.Errorf("create system workspace failed: %T", s.resp)
+}
+
+func (s workspaceResponseService) DeleteSystemWorkspace(context.Context, string) (apitypes.Workspace, error) {
+	return apitypes.Workspace{}, nil
+}
+
 func (s workspaceResponseService) ListWorkspaces(context.Context, adminhttp.ListWorkspacesRequestObject) (adminhttp.ListWorkspacesResponseObject, error) {
 	return adminhttp.ListWorkspaces200JSONResponse(adminhttp.WorkspaceList{}), nil
 }
@@ -966,8 +1060,9 @@ func (s workspaceResponseService) PutWorkspace(context.Context, adminhttp.PutWor
 }
 
 type recordingACLService struct {
-	roles    map[string]apitypes.ACLPermissionList
-	bindings map[string]apitypes.ACLPolicy
+	roles     map[string]apitypes.ACLPermissionList
+	bindings  map[string]apitypes.ACLPolicy
+	deleteErr error
 }
 
 func (s *recordingACLService) PutRole(_ context.Context, name string, permissions apitypes.ACLPermissionList) (apitypes.ACLRole, error) {
@@ -987,6 +1082,9 @@ func (s *recordingACLService) PutPolicyBinding(_ context.Context, id string, _ f
 }
 
 func (s *recordingACLService) DeletePolicyBinding(_ context.Context, id string) (apitypes.ACLPolicyBinding, error) {
+	if s.deleteErr != nil {
+		return apitypes.ACLPolicyBinding{}, s.deleteErr
+	}
 	if s.bindings == nil {
 		return apitypes.ACLPolicyBinding{}, nil
 	}
