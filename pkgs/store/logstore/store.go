@@ -1,4 +1,4 @@
-// Package logstore defines a business-neutral append-only searchable record store.
+// Package logstore defines business-neutral searchable record stores.
 package logstore
 
 import (
@@ -25,11 +25,13 @@ var (
 	// ErrCursorMismatch identifies a cursor that is malformed, unsupported, or
 	// bound to different query fields.
 	ErrCursorMismatch = errors.New("logstore: cursor mismatch")
+	// ErrNotFound identifies a mutable record key that does not exist.
+	ErrNotFound = errors.New("logstore: record not found")
 )
 
-// Appender appends complete records to a log store.
+// Appender appends complete records and returns the accepted keys in input order.
 type Appender interface {
-	Append(context.Context, []Record) error
+	Append(context.Context, []Record) ([]RecordKey, error)
 }
 
 // Querier reads one ordered page from a log store.
@@ -37,14 +39,28 @@ type Querier interface {
 	Query(context.Context, Query) (Page, error)
 }
 
-// Store is a complete append, query, and lifecycle capability.
-type Store interface {
+// ImmutableStore is a complete append, query, and lifecycle capability.
+type ImmutableStore interface {
 	Appender
 	Querier
 	Close() error
 }
 
-// Record is one append-only searchable record.
+// MutableStore can replace and delete individual records in addition to the
+// immutable capabilities. Replace is not an upsert.
+type MutableStore interface {
+	ImmutableStore
+	Replace(context.Context, Record) error
+	Delete(context.Context, RecordKey) error
+}
+
+// RecordKey identifies one record within a stream.
+type RecordKey struct {
+	Stream string
+	ID     string
+}
+
+// Record is one searchable record.
 type Record struct {
 	ID         string
 	Time       time.Time
@@ -54,6 +70,11 @@ type Record struct {
 	Message    string
 	Attributes map[string]string
 	Payload    json.RawMessage
+}
+
+// Key returns the immutable identity of record.
+func (record Record) Key() RecordKey {
+	return RecordKey{Stream: record.Stream, ID: record.ID}
 }
 
 // MatchOp identifies an attribute matcher operation.
@@ -104,14 +125,11 @@ type Page struct {
 
 // ValidateRecord validates an append record without retaining its mutable data.
 func ValidateRecord(record Record) error {
-	if strings.TrimSpace(record.ID) == "" {
-		return errors.New("logstore: record id is required")
+	if err := ValidateRecordKey(record.Key()); err != nil {
+		return err
 	}
 	if record.Time.IsZero() {
 		return errors.New("logstore: record time is required")
-	}
-	if strings.TrimSpace(record.Stream) == "" {
-		return errors.New("logstore: record stream is required")
 	}
 	if strings.TrimSpace(record.Kind) == "" {
 		return errors.New("logstore: record kind is required")
@@ -120,6 +138,17 @@ func ValidateRecord(record Record) error {
 		return errors.New("logstore: record payload is not valid JSON")
 	}
 	return validateAttributes(record.Attributes)
+}
+
+// ValidateRecordKey validates a complete record identity.
+func ValidateRecordKey(key RecordKey) error {
+	if strings.TrimSpace(key.Stream) == "" {
+		return errors.New("logstore: record stream is required")
+	}
+	if strings.TrimSpace(key.ID) == "" {
+		return errors.New("logstore: record id is required")
+	}
+	return nil
 }
 
 func validateAttributes(attributes map[string]string) error {

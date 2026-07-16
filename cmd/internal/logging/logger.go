@@ -9,7 +9,7 @@ import (
 
 // StoreResolver resolves named LogStores without transferring ownership.
 type StoreResolver interface {
-	Log(string) (logstore.Store, error)
+	Log(string) (logstore.ImmutableStore, error)
 }
 
 // NewLogger builds the process logger. Store-backed handlers do not own or

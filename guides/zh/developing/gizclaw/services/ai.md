@@ -49,6 +49,14 @@ services/ai/
 
 Workflow 描述如何运行 Agent，但不拥有 Agent instance 的在线状态和 stream lifecycle。
 
+#### Flowcraft history
+
+Server 可以解析保留的 named log store `flowcraft-history`，并把它注入普通与 pet Flowcraft agent。该 store 必须实现 `logstore.MutableStore`；配置 Volc TLS 这类 immutable driver 会导致启动失败。未配置该 named store 时，Flowcraft 保持现有 workspace JSONL history。已有 JSONL 文件不会自动迁移；配置后的 store 发生错误时会直接返回错误，不会回退到文件。
+
+Adapter 为每条消息保存一条 `Stream=flowcraft-history`、`Kind=message` record。Indexed attributes 包含 `workspace_name`、`conversation_id` 和 `schema_version`；完整 Flowcraft message（包括 tool call、tool result 与 data-reference metadata）保存在 JSON payload 中。读取直接使用 LogStore query cursor。Save 会替换已有 message record、删除多余 record、追加新 record，不创建 snapshot、tombstone、operation log 或额外分页索引。
+
+这里仅处理 Flowcraft runtime history。Workspace `HistoryStore` 仍是独立 resource boundary，audio object 继续使用 object storage。
+
 ### [workspace](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/workspace)
 
 拥有 workspace 资源、workspace runtime storage 和 history。Workspace 是实例化 Agent 环境的持久化边界；运行中的 Agent、输入输出和 connection stream 由 Runtime 领域负责。

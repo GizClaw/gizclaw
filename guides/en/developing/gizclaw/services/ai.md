@@ -49,6 +49,14 @@ Owns workflow definition, driver selection, and workflow resource persistence. `
 
 Workflow describes how to run an Agent, but does not own the online state and stream lifecycle of the Agent instance.
 
+#### Flowcraft history
+
+The Server optionally resolves the reserved named log store `flowcraft-history` and injects it into both normal and pet Flowcraft agents. The store must implement `logstore.MutableStore`; configuring an immutable driver such as Volc TLS is a startup error. Without that named store, Flowcraft keeps its existing workspace JSONL history. Existing JSONL files are not migrated, and a configured store error is returned to the caller instead of falling back to the file.
+
+The adapter stores one `Stream=flowcraft-history`, `Kind=message` record per message. Indexed attributes contain `workspace_name`, `conversation_id`, and `schema_version`; the complete Flowcraft message, including tool calls, tool results, and data-reference metadata, stays in the JSON payload. Reads use the LogStore query cursor directly. Save replaces existing message records, deletes surplus records, and appends new records; it creates no snapshot, tombstone, operation log, or separate page index.
+
+This is Flowcraft runtime history only. Workspace `HistoryStore` remains a separate resource boundary, and audio objects continue to use object storage.
+
 ### [workspace](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/workspace)
 
 Has workspace resources, workspace runtime storage and history. The Workspace is the persistence boundary for instantiating the Agent environment; the running Agent, input and output, and connection streams are the responsibility of the Runtime domain.

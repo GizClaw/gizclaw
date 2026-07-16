@@ -2,6 +2,7 @@ package logstore
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -37,7 +38,7 @@ func TestVolcOperationErrorsHideProviderText(t *testing.T) {
 		t.Fatalf("index error = %v", err)
 	}
 	store := &VolcStore{topicID: "topic", client: client, writer: &fakeVolcProducer{err: providerErr}}
-	if err := store.Append(context.Background(), []Record{validRecord()}); !errors.Is(err, providerErr) || strings.Contains(err.Error(), "access-secret") {
+	if _, err := store.Append(context.Background(), []Record{validRecord()}); !errors.Is(err, providerErr) || strings.Contains(err.Error(), "access-secret") {
 		t.Fatalf("append error = %v", err)
 	}
 	if _, err := store.Query(context.Background(), validQuery()); !errors.Is(err, providerErr) || strings.Contains(err.Error(), "access-secret") {
@@ -162,7 +163,7 @@ func TestVolcAppendValidatesWholeBatchBeforeSendingAndReportsPartialFailure(t *t
 	store := &VolcStore{topicID: "topic", writer: writer}
 	invalid := validRecord()
 	invalid.Payload = []byte("{")
-	if err := store.Append(context.Background(), []Record{validRecord(), invalid}); err == nil {
+	if _, err := store.Append(context.Background(), []Record{validRecord(), invalid}); err == nil {
 		t.Fatal("invalid batch was accepted")
 	}
 	if writer.calls != 0 {
@@ -171,8 +172,15 @@ func TestVolcAppendValidatesWholeBatchBeforeSendingAndReportsPartialFailure(t *t
 
 	wantErr := errors.New("send failed")
 	writer.err, writer.failAt = wantErr, 2
-	if err := store.Append(context.Background(), []Record{validRecord(), validRecord()}); !errors.Is(err, wantErr) {
+	first := validRecord()
+	second := validRecord()
+	second.ID = "id-2"
+	keys, err := store.Append(context.Background(), []Record{first, second})
+	if !errors.Is(err, wantErr) {
 		t.Fatalf("Append() error = %v", err)
+	}
+	if len(keys) != 1 || keys[0] != first.Key() {
+		t.Fatalf("Append() keys = %+v, want accepted prefix %+v", keys, []RecordKey{first.Key()})
 	}
 	if writer.calls != 2 || len(writer.logs) != 1 {
 		t.Fatalf("calls = %d, accepted = %d", writer.calls, len(writer.logs))
@@ -189,8 +197,12 @@ func TestVolcAppendAndQuery(t *testing.T) {
 	}}
 	store := &VolcStore{topicID: "topic", client: client, writer: writer}
 	record := validRecord()
-	if err := store.Append(context.Background(), []Record{record}); err != nil {
+	keys, err := store.Append(context.Background(), []Record{record})
+	if err != nil {
 		t.Fatalf("Append() error = %v", err)
+	}
+	if len(keys) != 1 || keys[0] != record.Key() {
+		t.Fatalf("Append() keys = %+v, want %+v", keys, []RecordKey{record.Key()})
 	}
 	if len(writer.logs) != 1 || len(writer.logs[0].Contents) < 6 {
 		t.Fatalf("appended logs = %+v", writer.logs)
@@ -235,11 +247,60 @@ func TestVolcAppendAndQuery(t *testing.T) {
 	if writer.closed != 1 {
 		t.Fatalf("close count = %d", writer.closed)
 	}
-	if err := store.Append(context.Background(), []Record{validRecord()}); err == nil {
+	if _, err := store.Append(context.Background(), []Record{validRecord()}); err == nil {
 		t.Fatal("append after close succeeded")
 	}
 	if _, err := store.Query(context.Background(), validQuery()); err == nil {
 		t.Fatal("query after close succeeded")
+	}
+}
+
+func TestVolcAppendTruncatesOversizedRecordBeforeProducer(t *testing.T) {
+	writer := &fakeVolcProducer{}
+	store := &VolcStore{topicID: "topic", writer: writer, maxLogBytes: 1024}
+	record := validRecord()
+	record.Message = strings.Repeat("message", 1024)
+	record.Attributes["large"] = strings.Repeat("attribute", 1024)
+	payload, err := json.Marshal(map[string]any{
+		"version": 1,
+		"message": map[string]any{
+			"role":    "user",
+			"content": strings.Repeat("payload", 1024),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	record.Payload = payload
+	keys, err := store.Append(context.Background(), []Record{record})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(keys) != 1 || keys[0] != record.Key() {
+		t.Fatalf("keys = %+v", keys)
+	}
+	if len(writer.logs) != 1 || producer.GetLogSize(writer.logs[0]) > store.maxLogBytes {
+		t.Fatalf("producer log size = %d", producer.GetLogSize(writer.logs[0]))
+	}
+	contents := make(map[string]string)
+	for _, content := range writer.logs[0].Contents {
+		contents[content.Key] = content.Value
+	}
+	var truncated struct {
+		Version int `json:"version"`
+		Message struct {
+			Role    string `json:"role"`
+			Content string `json:"content"`
+		} `json:"message"`
+	}
+	if err := json.Unmarshal([]byte(contents["payload"]), &truncated); err != nil {
+		t.Fatalf("payload = %q: %v", contents["payload"], err)
+	}
+	if truncated.Version != 1 || truncated.Message.Role != "user" || len(truncated.Message.Content) >= 7*1024 {
+		t.Fatalf("payload = %q", contents["payload"])
+	}
+	if contents["id"] != record.ID || contents["stream"] != record.Stream {
+		t.Fatalf("identity fields = %+v", contents)
 	}
 }
 
@@ -403,7 +464,7 @@ func TestVolcAppendHonorsEarlierDeadline(t *testing.T) {
 	store := &VolcStore{topicID: "topic", writer: writer}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
-	if err := store.Append(ctx, []Record{validRecord()}); !errors.Is(err, context.DeadlineExceeded) {
+	if _, err := store.Append(ctx, []Record{validRecord()}); !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("Append() error = %v", err)
 	}
 }

@@ -1055,6 +1055,63 @@ func TestFactoryNewAgentWritesClawConfig(t *testing.T) {
 	}
 }
 
+func TestFactoryNewAgentInjectsWorkspaceScopedHistoryStore(t *testing.T) {
+	ctx := context.Background()
+	events := []string{}
+	service := peergenx.New(peergenx.Service{
+		Peer:            testPeer{},
+		Authorizer:      recordingAuthorizer{events: &events},
+		Models:          fakeModels{events: &events},
+		Voices:          fakeVoices{events: &events},
+		Credentials:     fakeCredentials{events: &events},
+		ProviderTenants: fakeTenants{events: &events},
+	})
+	generateModel := "chat"
+	var workspaceParams apitypes.WorkspaceParameters
+	if err := workspaceParams.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{GenerateModel: &generateModel}); err != nil {
+		t.Fatal(err)
+	}
+	workflow := testFlowcraftWorkflow(apitypes.FlowcraftWorkflowSpec{
+		"history": map[string]any{"enabled": true},
+		"memory":  map[string]any{"enabled": false},
+		"voice_adapter": map[string]any{
+			"asr_model":     "asr",
+			"default_voice": "voice",
+		},
+	})
+	backend := &memoryHistoryLogStore{}
+	localDir := t.TempDir()
+	transformer, err := (Factory{GenX: service, History: backend}).NewAgent(ctx, agenthost.Spec{
+		Workspace: apitypes.Workspace{Name: "workspace", Parameters: &workspaceParams},
+		Workflow:  workflow,
+		Runtime:   workspace.Runtime{LocalDir: localDir},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	agent, ok := transformer.(*agent)
+	if !ok {
+		t.Fatalf("NewAgent() = %T", transformer)
+	}
+	t.Cleanup(func() { _ = agent.claw.CloseContext(context.Background()) })
+	var response debugHistoryResponse
+	if err := agent.callDebug(ctx, http.MethodGet, "/debug/history?context_id=conversation", nil, &response); err != nil {
+		t.Fatal(err)
+	}
+	if !response.Enabled || response.ContextID != "conversation" || response.Count != 0 {
+		t.Fatalf("history response = %+v", response)
+	}
+	backend.mu.Lock()
+	queries := backend.queryCalls
+	backend.mu.Unlock()
+	if queries == 0 {
+		t.Fatal("debug history did not query the injected LogStore adapter")
+	}
+	if _, err := os.Stat(filepath.Join(localDir, "history", "conversation", "messages.jsonl")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("workspace history file exists or stat failed: %v", err)
+	}
+}
+
 func TestFactoryNewAgentReadsWorkspaceInputMode(t *testing.T) {
 	ctx := context.Background()
 	events := []string{}

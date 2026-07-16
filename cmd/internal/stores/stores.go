@@ -52,9 +52,17 @@ type Config struct {
 	DSN     string `yaml:"dsn"`     // legacy sql connection string field
 
 	Prometheus *metrics.PrometheusConfig `yaml:"prometheus"`
-	ClickHouse *metrics.ClickHouseConfig `yaml:"clickhouse"`
+	ClickHouse *ClickHouseConfig         `yaml:"clickhouse"`
 	Memory     *struct{}                 `yaml:"memory"`
 	Volc       *logstore.VolcConfig      `yaml:"volc"`
+}
+
+// ClickHouseConfig is the command-layer connection configuration projected
+// into either a metrics or log store driver according to Config.Kind.
+type ClickHouseConfig struct {
+	DSN      string `yaml:"dsn"`
+	Database string `yaml:"database"`
+	Table    string `yaml:"table"`
 }
 
 // Stores holds named logical store instances created eagerly by NewWithStorage.
@@ -66,7 +74,7 @@ type Stores struct {
 	objects      map[string]objectstore.ObjectStore
 	graphs       map[string]graph.Graph
 	metrics      map[string]metrics.Store
-	logs         map[string]logstore.Store
+	logs         map[string]logstore.ImmutableStore
 	sqls         map[string]*sqlx.DB
 	logicClosers []io.Closer
 }
@@ -114,7 +122,7 @@ func NewWithStorage(physical *storage.Storage, configs map[string]Config) (*Stor
 		objects: make(map[string]objectstore.ObjectStore),
 		graphs:  make(map[string]graph.Graph),
 		metrics: make(map[string]metrics.Store),
-		logs:    make(map[string]logstore.Store),
+		logs:    make(map[string]logstore.ImmutableStore),
 		sqls:    make(map[string]*sqlx.DB),
 	}
 	ok := false
@@ -245,13 +253,27 @@ func (r *Stores) Metrics(name string) (metrics.Store, error) {
 	return s, nil
 }
 
-// Log returns the named logstore.Store.
-func (r *Stores) Log(name string) (logstore.Store, error) {
+// Log returns the named logstore.ImmutableStore.
+func (r *Stores) Log(name string) (logstore.ImmutableStore, error) {
 	s, ok := r.logs[name]
 	if !ok {
 		return nil, fmt.Errorf("stores: log %q not found", name)
 	}
 	return s, nil
+}
+
+// MutableLog returns the named log store when its driver supports record
+// replacement and deletion.
+func (r *Stores) MutableLog(name string) (logstore.MutableStore, error) {
+	store, err := r.Log(name)
+	if err != nil {
+		return nil, err
+	}
+	mutable, ok := store.(logstore.MutableStore)
+	if !ok {
+		return nil, fmt.Errorf("stores: log %q does not support mutable records", name)
+	}
+	return mutable, nil
 }
 
 // Close releases logical stores, then any physical storage owned by this
@@ -352,23 +374,55 @@ func (r *Stores) newMetrics(name string, cfg Config) (metrics.Store, error) {
 		}
 		return st, nil
 	}
-	st, err := metrics.NewClickHouseStore(*cfg.ClickHouse)
+	if cfg.ClickHouse.Database != "" {
+		return nil, fmt.Errorf("stores: metrics %q clickhouse database must be selected by the dsn", name)
+	}
+	st, err := metrics.NewClickHouseStore(metrics.ClickHouseConfig{
+		DSN:   os.ExpandEnv(cfg.ClickHouse.DSN),
+		Table: os.ExpandEnv(cfg.ClickHouse.Table),
+	})
 	if err != nil {
 		return nil, fmt.Errorf("stores: metrics %q clickhouse: %w", name, err)
 	}
 	return st, nil
 }
 
-var openVolcLogStore = func(config logstore.VolcConfig) (logstore.Store, error) {
+var openVolcLogStore = func(config logstore.VolcConfig) (logstore.ImmutableStore, error) {
 	return logstore.NewVolcStore(config)
 }
 
-func (r *Stores) newLog(name string, cfg Config) (logstore.Store, error) {
-	if cfg.Volc == nil {
-		return nil, fmt.Errorf("stores: log %q requires exactly one volc backend", name)
+var openClickHouseLogStore = func(config logstore.ClickHouseConfig) (logstore.MutableStore, error) {
+	return logstore.NewClickHouseStore(config)
+}
+
+func (r *Stores) newLog(name string, cfg Config) (logstore.ImmutableStore, error) {
+	backendCount := 0
+	if cfg.Volc != nil {
+		backendCount++
 	}
-	if cfg.Storage != "" || cfg.Prefix != "" || cfg.Backend != "" || cfg.Dir != "" || cfg.Store != "" || cfg.Dim != 0 || cfg.DSN != "" || cfg.Prometheus != nil || cfg.ClickHouse != nil || cfg.Memory != nil {
+	if cfg.ClickHouse != nil {
+		backendCount++
+	}
+	if backendCount != 1 {
+		return nil, fmt.Errorf("stores: log %q requires exactly one of volc or clickhouse", name)
+	}
+	if cfg.Storage != "" || cfg.Prefix != "" || cfg.Backend != "" || cfg.Dir != "" || cfg.Store != "" || cfg.Dim != 0 || cfg.DSN != "" || cfg.Prometheus != nil || cfg.Memory != nil {
 		return nil, fmt.Errorf("stores: log %q contains fields owned by another store kind", name)
+	}
+	if cfg.ClickHouse != nil {
+		clickhouse := *cfg.ClickHouse
+		clickhouse.DSN = os.ExpandEnv(clickhouse.DSN)
+		clickhouse.Database = os.ExpandEnv(clickhouse.Database)
+		clickhouse.Table = os.ExpandEnv(clickhouse.Table)
+		store, err := openClickHouseLogStore(logstore.ClickHouseConfig{
+			DSN:      clickhouse.DSN,
+			Database: clickhouse.Database,
+			Table:    clickhouse.Table,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("stores: log %q clickhouse: %w", name, err)
+		}
+		return store, nil
 	}
 	volc := *cfg.Volc
 	volc.Endpoint = os.ExpandEnv(volc.Endpoint)

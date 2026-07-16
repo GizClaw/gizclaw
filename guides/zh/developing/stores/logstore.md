@@ -1,18 +1,29 @@
 # pkgs/store/logstore
 
-`pkgs/store/logstore` 提供跨业务领域复用的 append-only record、结构化查询和分页能力。它不是可编辑 message/resource database；conversation、event、audit 等生产者仍拥有自己的 authorization、retention 和 canonical resource。
+`pkgs/store/logstore` 提供跨业务领域复用的结构化 record、backend-neutral 查询与 cursor 分页。Immutable driver 支持追加与查询；mutable driver 还支持替换或删除单条 record。Conversation、event、audit 等生产者仍拥有自己的 authorization、retention 和 canonical resource。
 
 [Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/store/logstore)
 
 ## Contract
 
-`Appender`、`Querier` 和 `Store` 分别表达写入、查询和完整生命周期。`Record` 必须提供调用方生成的 `ID`、时间、`Stream` 与 `Kind`，并可附带 severity、message、indexed scalar attributes 和不索引的 JSON payload。Attribute 使用最长 128 bytes 的 canonical dotted path；每段匹配 `[A-Za-z_][A-Za-z0-9_-]*`，scalar/object prefix conflict 会被拒绝。
+`Appender.Append` 会为每条已接受的 record 返回一个 `RecordKey`。发生部分失败时，返回值是按输入顺序排列的已接受前缀。Key 是稳定的 `Stream` 与调用方生成的 `ID` 组合。`ImmutableStore` 组合追加、查询和生命周期能力；`MutableStore` 在此基础上增加 `Replace` 与 `Delete`，需要修改能力的调用方必须显式解析这个 capability。
 
-`Query` 使用结构化 selector，不接受 backend expression。时间窗口为毫秒对齐的 `[Start, End)`；stream、kind 和 severity 各自是 OR set，set 之间为 AND；text 是 case-sensitive phrase；attribute 支持 `=`、`!=`、`exists` 和 `not-exists`。Page limit 为 1–1000。Opaque cursor 绑定 selector、text、time 和 order，但允许 continuation 改变 limit。
+`Replace` 修改一个已存在 key 对应的 record，并保持该 key 不变；它不是 upsert，key 不存在时返回 `ErrNotFound`。`Delete` 只删除一个已存在 key，key 不存在时也返回 `ErrNotFound`。
 
-## Volc TLS
+`Record` 必须提供 `ID`、时间、`Stream` 与 `Kind`，并可附带 severity、message、indexed scalar attributes 和不索引的 JSON payload。Attribute 使用最长 128 bytes 的 canonical dotted path；每段匹配 `[A-Za-z_][A-Za-z0-9_-]*`，scalar/object prefix conflict 会被拒绝。
 
-当前仅提供 Volc TLS driver：
+`Query` 使用结构化 selector，不接受 backend expression。时间窗口为毫秒对齐的 `[Start, End)`；stream、kind 和 severity 各自是 OR set，set 之间为 AND；text 是 case-sensitive literal phrase；attribute 支持 `=`、`!=`、`exists` 和 `not-exists`。Page limit 为 1–1000。Opaque cursor 绑定 selector、text、time 和 order，但允许 continuation 改变 limit。
+
+## Drivers
+
+| Driver | Capability | 说明 |
+| --- | --- | --- |
+| Volc TLS | `ImmutableStore` | Managed producer 和 SearchLogs 查询；不支持 mutation |
+| ClickHouse | `MutableStore` | 独立 MergeTree 表与同步 replace/delete mutation |
+
+每个 named log store 配置必须且只能选择一个 driver。
+
+### Volc TLS
 
 ```yaml
 stores:
@@ -30,11 +41,29 @@ Topic、logset、retention 和 index 都由 operator 预先创建。构造 store
 
 Operator-owned schema 和 search behavior 可参考 Volc TLS 的 [CreateIndex](https://www.volcengine.com/docs/6470/112187)、[query syntax](https://www.volcengine.com/docs/6470/1206705) 和 [phrase query](https://www.volcengine.com/docs/6470/1206697)。
 
-Provider layout 固定使用 `id`、`stream`、`kind`、`level`、`msg`，把 dotted attributes 展开为 nested `attributes` JSON，并原样保存可选 payload。Generic record 的 provider source 为 `gizclaw`、filename 为 `logstore`；process log 的 `source=gizclaw`、`path=slog` 仍是 logical attribute。Record timestamp 会保留可用的 nanoseconds，而 SearchLogs range 和 ordering 使用 milliseconds。
+Provider layout 固定使用 `id`、`stream`、`kind`、`level`、`msg`，把 dotted attributes 展开为 nested `attributes` JSON，并保存可选 payload。提交前，driver 会把超出 producer 限制的 message、severity、attribute 与 payload value 自动截断，同时保留 `Stream`、`ID`、`Kind` 与时间。JSON payload 会先压缩，再按 value 边界缩短 string，保证 payload 结构合法且领域 envelope 仍可解码。无法安全缩小的 record 会返回错误。`Append` 返回 producer 已接受的 key；部分失败时也会返回已接受前缀。
+
+Generic record 的 provider source 为 `gizclaw`、filename 为 `logstore`；process log 的 `source=gizclaw`、`path=slog` 仍是 logical attribute。Record timestamp 会保留可用的 nanoseconds，而 SearchLogs range 和 ordering 使用 milliseconds。
 
 查询使用 SearchLogs search expression 和 provider Context，不使用 SQL analysis。`Text` 使用 key-value phrase 形式 `msg:#"..."`，已验证的 attribute name 以 `attributes.request_id` 这类 JSON dotted path 输出。Provider call 最长 30 秒，并服从更短的 caller deadline；Store 和 Admin API 不返回 provider error body。`Close` 会 flush managed producer，且只有 registry 拥有它的生命周期。
 
 当查询固定为 `Streams=[system]`、`Kinds=[log]` 时，driver 也会匹配 provider source 为 `gizclaw`、filename 为 `slog` 的旧记录。新旧记录共用 provider-side ordering 和 cursor，不会分别查询后再合并。这只是 record compatibility；已移除的 Server `log` 配置仍不兼容。
+
+### ClickHouse
+
+```yaml
+stores:
+  flowcraft-history:
+    kind: log
+    clickhouse:
+      dsn: ${CLICKHOUSE_DSN}
+      database: gizclaw
+      table: flowcraft_history
+```
+
+Driver 会创建并校验独立 `MergeTree` 表，按月分区，并按 `(timestamp, stream, id)` 排序。`Append` 会在同一 store instance 内串行执行查重与同步 batch insert，只在 commit 后返回 key；`Query` 把结构化 contract 直接转换为参数化 ClickHouse SQL，通过 `(timestamp, stream, id)` 分页，不建立额外分页索引。`Replace` 使用同步 `ALTER UPDATE`，`Delete` 使用同步 `ALTER DELETE`；二者都只针对一个 `(stream, id)`。发现重复 key 时会报错，不会静默修改多行。
+
+DSN 已选择 database 时可以省略 `database` 字段。ClickHouse driver 不额外施加本地 payload 大小限制；service limit、retention 和 table policy 仍由 operator 负责。Named-store registry 拥有 connection lifecycle。
 
 ## Process logging
 

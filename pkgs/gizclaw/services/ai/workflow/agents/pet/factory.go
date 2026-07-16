@@ -10,6 +10,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/flowcraft"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 )
 
 const Type = "pet"
@@ -30,9 +31,10 @@ type Config struct {
 }
 
 type Factory struct {
-	GenX   *peergenx.Service
-	Pets   ContextProvider
-	Config Config
+	GenX    *peergenx.Service
+	Pets    ContextProvider
+	Config  Config
+	History logstore.MutableStore
 }
 
 func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.Agent, error) {
@@ -99,6 +101,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		AgentInitiativePolicy: initiativePolicy,
 		InputMode:             inputMode,
 		LocalDir:              filepath.Join(localDir, "flowcraft"),
+		WorkspaceName:         workspaceName,
 		InputProvider: func(turnCtx context.Context) (map[string]any, error) {
 			pet, petDef, err := f.Pets.ResolvePetContext(turnCtx, workspaceName)
 			if err != nil {
@@ -108,7 +111,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		},
 		// Toolkit is intentionally omitted. Proactive Pet tools are owned by #224.
 	}
-	return (flowcraft.Factory{GenX: f.GenX}).NewConfiguredAgent(ctx, configured)
+	return (flowcraft.Factory{GenX: f.GenX, History: f.History}).NewConfiguredAgent(ctx, configured)
 }
 
 func resolveModels(server Config) (Config, error) {

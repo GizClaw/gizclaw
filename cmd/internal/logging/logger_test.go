@@ -17,9 +17,13 @@ type loggerTestStore struct {
 	closes  int
 }
 
-func (s *loggerTestStore) Append(_ context.Context, records []logstore.Record) error {
+func (s *loggerTestStore) Append(_ context.Context, records []logstore.Record) ([]logstore.RecordKey, error) {
 	s.records = append(s.records, records...)
-	return nil
+	keys := make([]logstore.RecordKey, len(records))
+	for index, record := range records {
+		keys[index] = record.Key()
+	}
+	return keys, nil
 }
 func (*loggerTestStore) Query(context.Context, logstore.Query) (logstore.Page, error) {
 	return logstore.Page{}, nil
@@ -28,13 +32,13 @@ func (s *loggerTestStore) Close() error { s.closes++; return nil }
 
 type loggerTestResolver struct{ store *loggerTestStore }
 
-func (r loggerTestResolver) Log(string) (logstore.Store, error) { return r.store, nil }
+func (r loggerTestResolver) Log(string) (logstore.ImmutableStore, error) { return r.store, nil }
 
 type namedLoggerTestResolver struct {
 	stores map[string]*orderedLoggerTestStore
 }
 
-func (r namedLoggerTestResolver) Log(name string) (logstore.Store, error) {
+func (r namedLoggerTestResolver) Log(name string) (logstore.ImmutableStore, error) {
 	store, ok := r.stores[name]
 	if !ok {
 		return nil, errors.New("missing store")
@@ -47,9 +51,9 @@ type orderedLoggerTestStore struct {
 	order *[]string
 }
 
-func (s *orderedLoggerTestStore) Append(context.Context, []logstore.Record) error {
+func (s *orderedLoggerTestStore) Append(context.Context, []logstore.Record) ([]logstore.RecordKey, error) {
 	*s.order = append(*s.order, s.name)
-	return nil
+	return []logstore.RecordKey{}, nil
 }
 func (*orderedLoggerTestStore) Query(context.Context, logstore.Query) (logstore.Page, error) {
 	return logstore.Page{}, nil

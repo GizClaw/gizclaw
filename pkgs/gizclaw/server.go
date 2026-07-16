@@ -32,6 +32,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/jmoiron/sqlx"
@@ -82,6 +83,7 @@ type Server struct {
 	GameplayDB                   *sqlx.DB
 	MetricsStore                 metrics.Store
 	ServerLogQuery               ServerLogQueryService
+	FlowcraftHistory             logstore.MutableStore
 	FriendGroupMessageDefaultTTL time.Duration
 	FriendGroupMessageMaxTTL     time.Duration
 	FriendGroupMessageCleanup    time.Duration
@@ -388,6 +390,7 @@ func (s *Server) init() error {
 	}
 	manager := NewManager(peersServer)
 	manager.PetWorkflow = s.PetWorkflow
+	manager.FlowcraftHistory = s.FlowcraftHistory
 	manager.PeerRoutes = &peerroute.Server{
 		Store:           peerRouteStore,
 		Peers:           peersServer,

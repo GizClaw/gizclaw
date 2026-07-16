@@ -1,18 +1,29 @@
 # pkgs/store/logstore
 
-`pkgs/store/logstore` provides reusable append-only records, structured queries, and pagination. It is not an editable message/resource database; conversation, event, and audit producers retain ownership of authorization, retention, and canonical resources.
+`pkgs/store/logstore` provides reusable structured records, backend-neutral queries, and cursor pagination. Immutable drivers support append and query; mutable drivers additionally support replacing or deleting one record. Conversation, event, and audit producers retain ownership of authorization, retention, and canonical resources.
 
 [Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/store/logstore)
 
 ## Contract
 
-`Appender`, `Querier`, and `Store` expose write, read, and complete lifecycle capabilities. A `Record` requires a caller-generated `ID`, time, `Stream`, and `Kind`, and can carry severity, message, indexed scalar attributes, and an unindexed JSON payload. Attribute names are canonical dotted paths of at most 128 bytes; each segment matches `[A-Za-z_][A-Za-z0-9_-]*`, and scalar/object prefix conflicts are rejected.
+`Appender.Append` returns a `RecordKey` for every accepted record. On a partial failure, the returned keys are the accepted prefix in input order. A key is the stable `Stream` and caller-generated `ID` pair. `ImmutableStore` combines append, query, and lifecycle capabilities. `MutableStore` extends it with `Replace` and `Delete`; callers that need mutation must resolve this capability explicitly.
 
-`Query` is structured and never accepts a backend expression. Its time window is the millisecond-aligned half-open interval `[Start, End)`. Stream, kind, and severity are OR sets that are ANDed across fields; text is a case-sensitive phrase; attributes support `=`, `!=`, `exists`, and `not-exists`. Page limits are 1–1000. Opaque cursors bind selectors, text, time, and order while allowing a different continuation limit.
+`Replace` changes the record at one existing key and preserves that key. It is not an upsert and returns `ErrNotFound` when the key does not exist. `Delete` removes exactly one existing key and also returns `ErrNotFound` for a missing key.
 
-## Volc TLS
+A `Record` requires an `ID`, time, `Stream`, and `Kind`, and can carry severity, message, indexed scalar attributes, and an unindexed JSON payload. Attribute names are canonical dotted paths of at most 128 bytes; each segment matches `[A-Za-z_][A-Za-z0-9_-]*`, and scalar/object prefix conflicts are rejected.
 
-Volc TLS is the only current driver:
+`Query` is structured and never accepts a backend expression. Its time window is the millisecond-aligned half-open interval `[Start, End)`. Stream, kind, and severity are OR sets that are ANDed across fields; text is a case-sensitive literal phrase; attributes support `=`, `!=`, `exists`, and `not-exists`. Page limits are 1–1000. Opaque cursors bind selectors, text, time, and order while allowing a different continuation limit.
+
+## Drivers
+
+| Driver | Capability | Notes |
+| --- | --- | --- |
+| Volc TLS | `ImmutableStore` | Managed producer and SearchLogs query; mutations are unsupported |
+| ClickHouse | `MutableStore` | Dedicated MergeTree table with synchronous replace and delete mutations |
+
+Each named log store config selects exactly one driver.
+
+### Volc TLS
 
 ```yaml
 stores:
@@ -30,11 +41,29 @@ The operator provisions the topic, logset, retention, and index. Store construct
 
 See Volc TLS [CreateIndex](https://www.volcengine.com/docs/6470/112187), [query syntax](https://www.volcengine.com/docs/6470/1206705), and [phrase query](https://www.volcengine.com/docs/6470/1206697) references for the operator-owned schema and search behavior.
 
-The provider layout uses `id`, `stream`, `kind`, `level`, and `msg`, expands dotted attributes into nested `attributes` JSON, and stores the optional payload unchanged. Generic records use provider source `gizclaw` and filename `logstore`; process-log `source=gizclaw` and `path=slog` remain logical attributes. Record timestamps retain nanoseconds when available, while SearchLogs ranges and ordering use milliseconds.
+The provider layout uses `id`, `stream`, `kind`, `level`, and `msg`, expands dotted attributes into nested `attributes` JSON, and stores the optional payload. Before submission, the driver truncates oversized message, severity, attribute, and payload values to the producer limit while preserving `Stream`, `ID`, `Kind`, and time. JSON payloads are compacted and string values are shortened at value boundaries so the payload remains structurally valid and domain envelopes remain decodable. A record that cannot be reduced safely is rejected. `Append` returns the keys accepted by the producer, including the accepted prefix on a partial failure.
+
+Generic records use provider source `gizclaw` and filename `logstore`; process-log `source=gizclaw` and `path=slog` remain logical attributes. Record timestamps retain nanoseconds when available, while SearchLogs ranges and ordering use milliseconds.
 
 Queries use SearchLogs search expressions and provider Context, never SQL analysis. `Text` uses the key-value phrase form `msg:#"..."`; validated attribute names are emitted as JSON dotted paths such as `attributes.request_id`. Provider calls are capped at 30 seconds and honor shorter caller deadlines. Provider error bodies are not returned through the Store or Admin API. `Close` flushes the managed producer; the registry is its only owner.
 
 For `Streams=[system]` and `Kinds=[log]`, the driver also includes old records whose provider source is `gizclaw` and filename is `slog`. They participate in the same provider-side ordering and cursor instead of being fetched and merged separately. This is record compatibility only; the removed Server `log` configuration remains unsupported.
+
+### ClickHouse
+
+```yaml
+stores:
+  flowcraft-history:
+    kind: log
+    clickhouse:
+      dsn: ${CLICKHOUSE_DSN}
+      database: gizclaw
+      table: flowcraft_history
+```
+
+The driver creates and validates a dedicated `MergeTree` table, partitioned by month and ordered by `(timestamp, stream, id)`. `Append` serializes duplicate checks and synchronous batch insertion within one store instance, then returns keys only after commit. `Query` translates the structured contract directly to parameterized ClickHouse SQL and pages by `(timestamp, stream, id)` without a separate index. `Replace` uses a synchronous `ALTER UPDATE`, and `Delete` uses a synchronous `ALTER DELETE`; both target exactly one `(stream, id)` pair. The driver rejects duplicate keys instead of silently mutating multiple rows.
+
+The `database` field is optional when the DSN already selects one. The ClickHouse driver does not impose an additional local payload-size limit; operators remain responsible for service limits, retention, and table policy. The named-store registry owns the connection lifecycle.
 
 ## Process logging
 

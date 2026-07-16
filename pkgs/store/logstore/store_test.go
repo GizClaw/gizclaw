@@ -1,6 +1,7 @@
 package logstore
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -32,6 +33,29 @@ func TestValidateRecord(t *testing.T) {
 		if err := ValidateRecord(record); err == nil {
 			t.Fatalf("ValidateRecord(%+v) error = nil", record)
 		}
+	}
+}
+
+func TestRecordKeyAndEmptyAppendContract(t *testing.T) {
+	record := validRecord()
+	if got, want := record.Key(), (RecordKey{Stream: record.Stream, ID: record.ID}); got != want {
+		t.Fatalf("Record.Key() = %+v, want %+v", got, want)
+	}
+	if err := ValidateRecordKey(record.Key()); err != nil {
+		t.Fatalf("ValidateRecordKey() error = %v", err)
+	}
+	for _, key := range []RecordKey{{ID: "id"}, {Stream: "stream"}} {
+		if err := ValidateRecordKey(key); err == nil {
+			t.Fatalf("ValidateRecordKey(%+v) error = nil", key)
+		}
+	}
+	keys, err := (&VolcStore{}).Append(context.Background(), nil)
+	if err != nil || len(keys) != 0 {
+		t.Fatalf("empty Append() = %+v, %v", keys, err)
+	}
+	var immutable ImmutableStore = &VolcStore{}
+	if _, mutable := immutable.(MutableStore); mutable {
+		t.Fatal("VolcStore unexpectedly satisfies MutableStore")
 	}
 }
 
