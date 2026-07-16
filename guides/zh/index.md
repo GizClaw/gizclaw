@@ -6,14 +6,14 @@ hero:
   text: GizClaw 项目文档
   actions:
     - theme: brand
-      text: 开发指引
-      link: /zh/developing/
-    - theme: alt
-      text: 使用说明
+      text: 开始使用
       link: /zh/using/
     - theme: alt
-      text: Reference
-      link: /references/
+      text: GitHub 仓库
+      link: https://github.com/GizClaw/gizclaw
+    - theme: alt
+      text: 开发指引
+      link: /zh/developing/
 
 features:
   - title: 开发指引

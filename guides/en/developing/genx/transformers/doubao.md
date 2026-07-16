@@ -1,0 +1,105 @@
+# Doubao Speech Adapter
+
+Doubao Speech Adapter adapts Doubao speech protocol to `genx.Transformer`, covering one-way recognition, speech generation, real-time dialogue, duplex real-time dialogue and voice translation.
+
+## Abilities
+
+| Transformer | Input and Output |
+| --- | --- |
+| [`DoubaoASRSAUC`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx/transformers#DoubaoASRSAUC) | Audio Stream → transcription Stream. |
+| [`DoubaoTTSSeedV2`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx/transformers#DoubaoTTSSeedV2) | Text Stream → generated audio Stream. |
+| [`DoubaoTTSICLV2`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx/transformers#DoubaoTTSICLV2) | Text Stream → ICL voice audio Stream. |
+| [`DoubaoRealtime`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx/transformers#DoubaoRealtime) | Adaptation bean bag Realtime Dialogue API (`volc.speech.dialog`), explicitly handles ASR, Chat, TTS events, and supports Push-to-Talk, continuous voice and text input. |
+| [`DoubaoRealtimeDuplex`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx/transformers#DoubaoRealtimeDuplex) | Adapt to the independent Realtime Duplex API, which only handles continuous duplex audio; use transcription, response text/audio, function call and response cancel events. |
+| [`DoubaoASTTranslate`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx/transformers#DoubaoASTTranslate) | Speech input → translated text/audio Stream. |
+
+Each Transformer's constructor options define stable configuration, and per-request options are passed through the context. The Adapter must internally convert beanbag events, audio formats, usage, final states, and errors to GenX Stream.
+
+## Two sets of Realtime API
+
+| Boundary | Realtime Dialogue | Realtime Duplex |
+| --- | --- | --- |
+| Go Adapter | `DoubaoRealtime` | `DoubaoRealtimeDuplex` |
+| Provider session | `Client.Realtime.Connect` | `Client.RealtimeDuplex.OpenSession` |
+| Input method | Push-to-Talk, continuous realtime, text | Continuous full-duplex audio |
+| Provider events | ASR, Chat, TTS, Session | Transcription, Response text/audio, Function call, Session |
+| Interrupt operation | `Interrupt` | `CancelResponse` |
+| Tool result | Not provided by this session contract | `SendFunctionCallOutputs` |
+
+The two Adapters can share GenX Stream, audio conversion, StreamID, and lifecycle infrastructure, but cannot merge provider session interface or event mapping. Push-to-Talk belongs only to the Realtime Dialogue API and should not be emulated by the Realtime Duplex Adapter.
+
+## Realtime Dialogue input mode
+
+`DoubaoRealtime` supports three input modes:
+
+| Mode | Input Boundaries |
+| --- | --- |
+| Push-to-Talk | BOS starts a push-to-talk, the audio chunks belong to the current turn, EOS ends the input and triggers `EndASR`. |
+| Realtime | Continuously sends audio, and the user utterance is divided by provider VAD; entering EOS only closes the local segment. |
+| Text | Sends text chunks, does not accept audio input. |
+
+### DoubaoRealtime Push-to-Talk state machine
+
+This section only describes `DoubaoRealtime`’s adaptation to the Realtime Dialogue API’s native Push-to-Talk mode. `DoubaoRealtimeDuplex` does not support Push-to-Talk and does not use this set of state machines.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Capturing: BOS
+    Capturing --> Capturing: audio chunk
+    Capturing --> WaitingResponse: EOS / EndASR
+    WaitingResponse --> Responding: assistant output starts
+    WaitingResponse --> Capturing: next BOS
+    Responding --> Idle: assistant output ends
+    Responding --> Capturing: BOS / interrupt response
+```
+
+`DoubaoRealtime`’s Push-to-Talk adaptation must explicitly track the current turn: the Idle state cannot receive audio or EOS; each turn in Capturing can only accept EOS once; after EOS, it cannot continue to send audio to the same turn. When the new BOS arrives, if the previous assistant is still outputting, `Interrupt` of the Realtime Dialogue session should be called, and then the input boundary for the new turn should be established.
+
+All `OpenSession`, `SendAudio`, `SendText`, `EndASR`, interrupt/cancel and function-call output operations must use the context received by `Transform`. Cancel Transform must be able to terminate provider I/O, event receiver, input reader and output pacing, and cannot start `context.Background()` requests that are out of the calling life cycle.
+
+## Public Realtime Pipeline
+
+Realtime and Realtime Duplex can use different provider event adapters, but should share the following basic components:
+
+- audio MIME normalization, PCM/MP3/Opus decode, Opus encode/transcode and frame preparation;
+- per-stream audio input lifecycle;
+- StreamID, segment and response ID management;
+- assistant interruption epoch, BOS/EOS and output pacing;
+- pending input, session restart, context cancellation and error shutdown.Provider-specific event enum, session method and config conversion remain in their respective Adapters. Public media and stream lifecycle cannot be copied into two sets of realtime/duplex implementations.
+
+## Change and regression constraints
+
+Doubao Transformers handle provider session, concurrent event receiver, audio codec, StreamID and BOS/EOS at the same time. Any modification must first fix the behavior contract and then change the implementation.
+
+### Bug fix process
+
+1. First add a regression test that can stabilize failure at the minimum level to prove the input, status and error results of the bug.
+2. If the problem exists in both Realtime and Duplex, first add the same test case to the public contract test; you cannot only repair one copy of the implementation.
+3. Only modify the layer with this responsibility: provider event mapping, public media pipeline or GenX Stream lifecycle, and cannot be easily rewritten across layers.
+4. Keep the mapping of provider event, GenX chunk, StreamID, role, label, BOS/EOS and error compatible; expected changes must update the contract document in the same change.
+5. After fixing, run target tests, full package tests, and race tests, and do a new code review.
+
+### Must-test behavior matrix
+
+| Dimensions | Required boundaries |
+| --- | --- |
+| Input format | PCM, MP3, raw Opus; supported sample rates and channels; illegal MIME and corrupt frames. |
+| Stream contract | BOS, data, EOS; duplicate/out-of-order marker; StreamID, role, label and terminal error. |
+| Lifecycle | normal close, context cancel, provider EOF/error, blocked Send/Recv, session restart and repeated Close. |
+| Realtime Dialogue | Push-to-Talk legal state transitions, single EndASR per turn, Realtime VAD, text mode and Interrupt. |
+| Realtime Duplex | continuous input, transcription, text/audio response, function call output and CancelResponse. |
+| Barge-in | pending response, text is being output, audio is being output; only one interrupted EOS is generated, and old epochs must not continue to be output. |
+| Output pacing | 20ms Opus pacing, cancel during wait, slow consumer and output backpressure. |
+
+Realtime and Duplex's public media and Stream lifecycle must use the same set of table-driven contract tests. Provider-specific fake session only supplements the differences of respective events/session and cannot replicate the entire set of common tests.
+
+### Required verification
+
+```sh
+go test ./pkgs/genx/transformers -count=1
+go test -race ./pkgs/genx/transformers -count=1
+go test ./pkgs/genx/... -count=1
+```
+
+Credential-protected integration tests must also be run when real provider contracts, SDK upgrades, or event schema changes are involved; unit test fakes cannot replace the real session's cancel, Close/Recv concurrency, and event ordering verification.

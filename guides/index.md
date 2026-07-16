@@ -21,5 +21,7 @@ onMounted(() => {
 </script>
 
 <noscript>
-  <a href="./zh/">进入 GizClaw 项目指引</a>
+  <a href="./zh/">简体中文</a>
+  ·
+  <a href="./en/">English</a>
 </noscript>

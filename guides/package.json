@@ -4,7 +4,8 @@
   "scripts": {
     "dev": "vitepress dev .",
     "build": "vitepress build .",
-    "build:site": "vitepress build .",
+    "build:site": "npm run check:locales && vitepress build .",
+    "check:locales": "node scripts/check-locale-parity.mjs",
     "preview": "vitepress preview ."
   },
   "devDependencies": {
