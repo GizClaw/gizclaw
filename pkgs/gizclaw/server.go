@@ -303,18 +303,21 @@ func (s *Server) startCleanup() {
 	}()
 }
 
-func (s *Server) init() error {
-	if s == nil {
-		return errors.New("gizclaw: nil server")
+// EffectivePeerStore returns the peer KV layout used by the server runtime.
+// Legacy single-KV configurations keep peer records under the peers prefix;
+// independently configured object stores do not change that layout.
+func (s *Server) EffectivePeerStore() kv.Store {
+	if s == nil || s.PeerStore == nil {
+		return nil
 	}
-	switch {
-	case s.LocalStatic.Private.IsZero():
-		return errors.New("gizclaw: empty local static private key")
-	case s.PeerStore == nil:
-		return errors.New("gizclaw: nil peer store")
+	if s.usesLegacySharedStore() {
+		return kv.Prefixed(s.PeerStore, kv.Key{"peers"})
 	}
+	return s.PeerStore
+}
 
-	legacySharedStore := s.CredentialStore == nil &&
+func (s *Server) usesLegacySharedStore() bool {
+	return s.CredentialStore == nil &&
 		s.FirmwareStore == nil &&
 		s.MiniMaxTenantStore == nil &&
 		s.VolcTenantStore == nil &&
@@ -343,10 +346,20 @@ func (s *Server) init() error {
 		s.FriendGroupMessageMaxTTL == 0 &&
 		s.FriendGroupMessageCleanup == 0 &&
 		s.FriendGroupMessageMaxBytes == 0
-	peerStore := s.PeerStore
-	if legacySharedStore {
-		peerStore = kv.Prefixed(s.PeerStore, kv.Key{"peers"})
+}
+
+func (s *Server) init() error {
+	if s == nil {
+		return errors.New("gizclaw: nil server")
 	}
+	switch {
+	case s.LocalStatic.Private.IsZero():
+		return errors.New("gizclaw: empty local static private key")
+	case s.PeerStore == nil:
+		return errors.New("gizclaw: nil peer store")
+	}
+
+	peerStore := s.EffectivePeerStore()
 	credentialStore := moduleStore(s.CredentialStore, s.PeerStore, "credentials")
 	firmwareStore := moduleStore(s.FirmwareStore, s.PeerStore, "firmwares")
 	miniMaxCredentialStore := moduleStore(s.MiniMaxCredentialStore, credentialStore, "")
