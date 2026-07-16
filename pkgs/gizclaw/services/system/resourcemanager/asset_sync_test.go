@@ -64,6 +64,38 @@ func TestResourceAssetBindingRollsBackFailedOwnerWrite(t *testing.T) {
 	assertResourceAssetBinding(t, assets, ref, 0)
 }
 
+func TestResourceAssetBindingRetryReactivatesCommittedRef(t *testing.T) {
+	ctx := context.Background()
+	workflows := newFakeWorkflows()
+	manager := New(Services{Workflows: workflows})
+	assets, err := asset.New(kv.NewMemory(nil), objectstore.Dir(t.TempDir()), asset.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := assets.RegisterOwnerResolver(asset.OwnerKindResource, manager); err != nil {
+		t.Fatal(err)
+	}
+	manager.services.Assets = assets
+	ref := putResourceAsset(t, assets, "retry")
+	resource := workflowResourceWithAsset(t, "asset-workflow", ref)
+	if _, err := manager.Apply(ctx, resource); err != nil {
+		t.Fatalf("Apply(initial) error = %v", err)
+	}
+	owner := asset.Owner{Kind: asset.OwnerKindResource, ID: "Workflow/asset-workflow"}
+	if err := assets.Protect(ctx, ref, asset.Binding{Owner: owner}); err != nil {
+		t.Fatalf("Protect() error = %v", err)
+	}
+	if live, err := assets.LiveBindings(ctx, ref); err != nil || len(live) != 0 {
+		t.Fatalf("LiveBindings(pending) = %#v, %v", live, err)
+	}
+	if _, err := manager.Apply(ctx, resource); err != nil {
+		t.Fatalf("Apply(retry) error = %v", err)
+	}
+	if live, err := assets.LiveBindings(ctx, ref); err != nil || len(live) != 1 || live[0].Owner != owner {
+		t.Fatalf("LiveBindings(reactivated) = %#v, %v", live, err)
+	}
+}
+
 func putResourceAsset(t *testing.T, assets *asset.Service, body string) asset.Ref {
 	t.Helper()
 	stored, err := assets.Put(context.Background(), asset.PutRequest{

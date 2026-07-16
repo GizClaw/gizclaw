@@ -104,6 +104,7 @@ func (m *Manager) prepareAssetWrite(ctx context.Context, resource apitypes.Resou
 	}
 	added := refDifference(newRefs, oldRefs)
 	removed := refDifference(oldRefs, newRefs)
+	current := refDifference(newRefs, nil)
 	binding := asset.Binding{Owner: owner}
 	protected := make([]asset.Ref, 0, len(added))
 	for _, ref := range added {
@@ -125,7 +126,7 @@ func (m *Manager) prepareAssetWrite(ctx context.Context, resource apitypes.Resou
 			return errors.Join(errs...)
 		}
 		var errs []error
-		for _, ref := range protected {
+		for _, ref := range current {
 			if err := m.services.Assets.Activate(ctx, ref, binding); err != nil {
 				errs = append(errs, fmt.Errorf("activate %s: %w", ref, err))
 			}
