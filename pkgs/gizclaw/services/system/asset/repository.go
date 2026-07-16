@@ -37,9 +37,6 @@ func (r repository) putAsset(ctx context.Context, record assetRecord) error {
 		return fmt.Errorf("asset metadata encode %s: %w", record.ID, err)
 	}
 	entry := kv.Entry{Key: assetKey(record.ID), Value: data}
-	if record.ExpiresAt != nil {
-		entry.Deadline = *record.ExpiresAt
-	}
 	if err := r.store.BatchSet(ctx, []kv.Entry{entry}); err != nil {
 		return fmt.Errorf("asset metadata put %s: %w", record.ID, err)
 	}

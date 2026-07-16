@@ -8,9 +8,11 @@ import (
 	"errors"
 	"io"
 	"io/fs"
+	"math"
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -178,14 +180,67 @@ func TestPutValidationCollisionAndExpiration(t *testing.T) {
 	if _, _, err := service.Open(context.Background(), second.Metadata.Ref); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("Open(expired) error = %v", err)
 	}
+	if err := service.Reconcile(context.Background()); err != nil {
+		t.Fatalf("Reconcile(expired) error = %v", err)
+	}
+	if _, err := service.repo.asset(context.Background(), "07070707070707070707070707070707"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("asset(expired) error = %v", err)
+	}
+	if err := service.Reconcile(context.Background()); err != nil {
+		t.Fatalf("Reconcile(expired retry) error = %v", err)
+	}
 	for _, request := range []PutRequest{
 		{MediaType: "bad", MaxBytes: 1},
 		{MediaType: "image/png", MaxBytes: 0},
+		{MediaType: "image/png", MaxBytes: math.MaxInt64},
 		{MediaType: "image/png", MaxBytes: 1, ExpiresAt: &now},
 	} {
 		if _, err := service.Put(context.Background(), request, bytes.NewReader(nil)); !errors.Is(err, ErrInvalid) {
 			t.Fatalf("Put(%#v) error = %v", request, err)
 		}
+	}
+}
+
+func TestReconcileDoesNotDeleteActiveStagingUpload(t *testing.T) {
+	now := time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC)
+	var clock atomic.Int64
+	clock.Store(now.UnixNano())
+	objects := &blockingObjectStore{
+		memoryObjectStore: &memoryObjectStore{data: make(map[string][]byte), deadlines: make(map[string]time.Time)},
+		started:           make(chan struct{}),
+		release:           make(chan struct{}),
+	}
+	service, err := New(kv.NewMemory(nil), objects, Options{
+		IDGenerator: idSequence(idWithByte(15)),
+		Now:         func() time.Time { return time.Unix(0, clock.Load()).UTC() },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := make(chan error, 1)
+	go func() {
+		_, err := service.Put(context.Background(), PutRequest{MediaType: "image/png", MaxBytes: 100}, bytes.NewBufferString("payload"))
+		result <- err
+	}()
+	<-objects.started
+	clock.Store(now.Add(stagingGrace).UnixNano())
+	if err := service.Reconcile(context.Background()); err != nil {
+		t.Fatalf("Reconcile(active upload) error = %v", err)
+	}
+	close(objects.release)
+	if err := <-result; err != nil {
+		t.Fatalf("Put(active upload) error = %v", err)
+	}
+	ref := Ref("asset://0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f")
+	_, reader, err := service.Open(context.Background(), ref)
+	if err != nil {
+		t.Fatalf("Open(active upload) error = %v", err)
+	}
+	if _, err := io.ReadAll(reader); err != nil {
+		t.Fatalf("ReadAll(active upload) error = %v", err)
+	}
+	if err := reader.Close(); err != nil {
+		t.Fatalf("Close(active upload) error = %v", err)
 	}
 }
 
@@ -300,6 +355,30 @@ func TestOpenAndReconcileRejectCorruptObject(t *testing.T) {
 	}
 }
 
+func TestOpenCloseVerifiesUnreadTrailingBytes(t *testing.T) {
+	now := time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC)
+	service, objects := newTestService(t, now, idSequence(idWithByte(16)))
+	stored := mustPut(t, service, "payload")
+	id, err := stored.Metadata.Ref.id()
+	if err != nil {
+		t.Fatal(err)
+	}
+	objects.mu.Lock()
+	objects.data[objectName(id)] = append(objects.data[objectName(id)], []byte("trailing")...)
+	objects.mu.Unlock()
+	_, reader, err := service.Open(context.Background(), stored.Metadata.Ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prefix := make([]byte, stored.Metadata.SizeBytes)
+	if _, err := io.ReadFull(reader, prefix); err != nil {
+		t.Fatalf("ReadFull() error = %v", err)
+	}
+	if err := reader.Close(); !errors.Is(err, ErrIntegrity) {
+		t.Fatalf("Close(trailing bytes) error = %v", err)
+	}
+}
+
 func newTestService(t *testing.T, now time.Time, generator IDGenerator) (*Service, *memoryObjectStore) {
 	t.Helper()
 	objects := &memoryObjectStore{data: make(map[string][]byte), deadlines: make(map[string]time.Time)}
@@ -349,6 +428,34 @@ type memoryObjectStore struct {
 	putErr    error
 	getErr    error
 	deleteErr error
+}
+
+type blockingObjectStore struct {
+	*memoryObjectStore
+	started chan struct{}
+	release chan struct{}
+	once    sync.Once
+}
+
+func (s *blockingObjectStore) Put(name string, reader io.Reader) error {
+	if err := s.memoryObjectStore.Put(name, reader); err != nil {
+		return err
+	}
+	s.wait()
+	return nil
+}
+
+func (s *blockingObjectStore) PutWithDeadline(name string, reader io.Reader, deadline time.Time) error {
+	if err := s.memoryObjectStore.PutWithDeadline(name, reader, deadline); err != nil {
+		return err
+	}
+	s.wait()
+	return nil
+}
+
+func (s *blockingObjectStore) wait() {
+	s.once.Do(func() { close(s.started) })
+	<-s.release
 }
 
 type failingKVStore struct {

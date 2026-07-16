@@ -12,6 +12,7 @@ import (
 	"hash"
 	"io"
 	"io/fs"
+	"math"
 	"mime"
 	"strings"
 	"sync"
@@ -43,6 +44,7 @@ type Service struct {
 	newID   IDGenerator
 	now     func() time.Time
 	mu      sync.Mutex
+	active  map[string]struct{}
 }
 
 // New creates an AssetService without starting background work.
@@ -66,6 +68,7 @@ func New(metadata kv.Store, objects objectstore.ObjectStore, options Options) (*
 		objects: objects,
 		newID:   newID,
 		now:     now,
+		active:  make(map[string]struct{}),
 	}, nil
 }
 
@@ -79,8 +82,8 @@ func (s *Service) Put(ctx context.Context, request PutRequest, body io.Reader) (
 		return Asset{}, fmt.Errorf("%w: invalid media type %q", ErrInvalid, request.MediaType)
 	}
 	mediaType = strings.ToLower(mediaType)
-	if request.MaxBytes <= 0 {
-		return Asset{}, fmt.Errorf("%w: max bytes must be positive", ErrInvalid)
+	if request.MaxBytes <= 0 || request.MaxBytes == math.MaxInt64 {
+		return Asset{}, fmt.Errorf("%w: max bytes must be between 1 and %d", ErrInvalid, int64(math.MaxInt64-1))
 	}
 	now := s.now().UTC()
 	var expiresAt *time.Time
@@ -95,6 +98,7 @@ func (s *Service) Put(ctx context.Context, request PutRequest, body io.Reader) (
 	if err != nil {
 		return Asset{}, err
 	}
+	defer s.finishActive(record.ID)
 
 	upload := newUploadReader(ctx, body, request.MaxBytes)
 	objectName := objectName(record.ID)
@@ -201,6 +205,9 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			errs = append(errs, fmt.Errorf("asset reconcile record %v: %w", entry.Key, err))
 			continue
 		}
+		if _, ok := s.active[record.ID]; ok {
+			continue
+		}
 		if record.ExpiresAt != nil && !now.Before(*record.ExpiresAt) {
 			if err := s.finishDelete(ctx, record); err != nil {
 				errs = append(errs, err)
@@ -269,6 +276,9 @@ func (s *Service) reserve(ctx context.Context, mediaType string, now time.Time, 
 			State:         stateStaging,
 		}
 		err = s.repo.putAsset(ctx, record)
+		if err == nil {
+			s.active[id] = struct{}{}
+		}
 		s.mu.Unlock()
 		if err != nil {
 			return assetRecord{}, err
@@ -276,6 +286,12 @@ func (s *Service) reserve(ctx context.Context, mediaType string, now time.Time, 
 		return record, nil
 	}
 	return assetRecord{}, fmt.Errorf("%w: asset id collision retry limit reached", ErrConflict)
+}
+
+func (s *Service) finishActive(id string) {
+	s.mu.Lock()
+	delete(s.active, id)
+	s.mu.Unlock()
 }
 
 func (s *Service) readyRecord(ctx context.Context, ref Ref) (assetRecord, error) {
@@ -380,7 +396,11 @@ func (r *verifyingReadCloser) Read(p []byte) (int, error) {
 }
 
 func (r *verifyingReadCloser) Close() error {
-	return r.reader.Close()
+	var verifyErr error
+	if !r.verified {
+		_, verifyErr = io.Copy(io.Discard, r)
+	}
+	return errors.Join(verifyErr, r.reader.Close())
 }
 
 func newUploadReader(ctx context.Context, reader io.Reader, maxBytes int64) *uploadReader {
