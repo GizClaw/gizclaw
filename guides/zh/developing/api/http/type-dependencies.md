@@ -50,28 +50,29 @@ Schema 只有满足以下至少一个条件才能进入 `shared/`：
 
 需要生成 Go 或 JavaScript symbol，不构成 Shared 的理由。只有一个 owner 的 schema 与 owner 放在同一文件。
 
-### Shared 封闭清单
+### Shared 所有权映射
 
-`shared/` 只允许包含以下文件：
+`shared/` 按稳定 schema type 拆成细粒度文件，而不是为每个领域维护一个聚合文件。当前文件按以下所有权族组织：
 
-| 文件 | 拥有的 schema |
-| --- | --- |
-| `error.json` | `ErrorPayload`、`ErrorResponse` |
-| `device.json` | `DeviceInfo`、`HardwareInfo`、`PeerIMEI`、`PeerLabel` |
-| `runtime.json` | `Runtime` 及跨 surface runtime values |
-| `acl.json` | Permission、Policy、ACL Resource、Subject、Role/View 公共 values |
-| `configuration.json` | `Configuration`、firmware/agent selection 等共同配置 values |
-| `gameplay.json` | Gameplay metadata、Pet、Badge、Points、Game Result 与共同规则 values |
-| `firmware.json` | Firmware、slot、artifact 与 selection 公共 values |
-| `credential.json` | Credential body 与跨 Resource/API 使用的 credential values |
-| `model.json` | Model kind、capabilities、provider、source 与 provider data |
-| `voice.json` | Voice provider、source 与 provider data |
-| `tool.json` | Tool executor、trigger、source 与 JSON schema values |
-| `workflow.json`、`workflow_i18n.json`、`workflow_locale.json` | Workflow identity、i18n、locale、driver 与 workflow variants |
-| `workspace.json` | Workspace parameters、input mode 与共同 workspace values |
-| `provider-tenants.json` | Model/Voice 共用的 provider tenant enums 与 values |
+| 所有权族 | 当前文件 | 拥有的 schema |
+| --- | --- | --- |
+| Error | `error_payload.json`、`error_response.json` | `ErrorPayload`、`ErrorResponse` |
+| Device identity | `device_info.json`、`hardware_info.json`、`peer_imei.json`、`peer_label.json` | Device、hardware 与稳定 identity values |
+| Runtime、Peer 与 Server state | `runtime.json`、`peer*.json`、`registration.json`、`server*.json` | Runtime、registration、Peer lifecycle、stream、telemetry 与 Server values |
+| ACL | `acl_*.json` | Permission、Policy、Resource、Subject、Role、View 与 binding values |
+| Configuration | `configuration.json`、`agent_selection.json`、`refresh_*.json` | 共同配置、Agent selection 与 refresh contracts |
+| Gameplay | `gameplay.json` | Gameplay metadata 与共同规则 values |
+| Firmware | `firmware*.json` | Firmware、slot、artifact、spec 与 selection values |
+| Credential | `credential*.json` | Credential body、spec 与跨 Resource/API 使用的 values |
+| Model | `model*.json` | Model kind、capabilities、provider、source、spec 与 provider data |
+| Voice | `voice*.json` | Voice provider、source、spec 与 provider data |
+| Tool | `tool*.json`、`toolkit_policy.json` | Tool executor、trigger、source、spec、policy 与 JSON schema values |
+| Workflow 与 Workspace | `workflow*.json`、`workspace*.json` | Workflow identity、i18n、locale、driver、variants 与 Workspace values |
+| Provider tenant | `*_tenant*.json` | 各 provider 的 tenant、spec、enum 与共享 values |
 
-这是封闭清单，不是示例。未列出的 schema 必须定义在其 owner 文件中：
+表中的 glob 是现有文件的所有权分组，不是可以直接创建的文件名。修改 schema 时必须先选择 `api/http/shared/` 中实际存在的 owner 文件；只有没有现有 owner 且满足 Shared 规则时才能新增文件。
+
+不属于上述 Shared 所有权族的 schema 必须定义在其 owner 文件中：
 
 - Public-only DTO 放入 `peer.json`。
 - Admin endpoint 专属 DTO 放入 `admin.json`。
@@ -79,7 +80,7 @@ Schema 只有满足以下至少一个条件才能进入 `shared/`：
 - Resource、专属 `*Spec` 和 nested values 放入对应 `resources/<kind>.json`。
 - Resource envelope、metadata、kind、Apply contract 与 union 放入 `resources/resource.json`。
 
-新增 `shared/*.json` 必须先证明存在多个独立 consumers，并同步更新本清单。不能先创建文件，再以“可能复用”为理由留在 Shared。
+新增 `shared/*.json` 必须先证明存在多个独立 consumers；新增所有权族时还必须同步更新本映射。不能先创建文件，再以“可能复用”为理由留在 Shared。
 
 ## Resource 规则
 
