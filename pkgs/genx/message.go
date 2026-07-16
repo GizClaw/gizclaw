@@ -3,7 +3,9 @@ package genx
 import (
 	"context"
 	"fmt"
+	"mime"
 	"slices"
+	"strings"
 )
 
 // Role constants define the producer of a message.
@@ -56,6 +58,34 @@ func (c *MessageChunk) IsBeginOfStream() bool {
 // IsEndOfStream returns true if this chunk is an end-of-stream boundary marker.
 func (c *MessageChunk) IsEndOfStream() bool {
 	return c != nil && c.Ctrl != nil && c.Ctrl.EndOfStream
+}
+
+// MIMEType returns the canonical MIME channel carried by the chunk's Part.
+// Text always uses text/plain. It returns false for a control-only chunk or an
+// invalid Blob MIME type.
+func (c *MessageChunk) MIMEType() (string, bool) {
+	if c == nil {
+		return "", false
+	}
+	switch part := c.Part.(type) {
+	case Text:
+		return "text/plain", true
+	case *Blob:
+		if part == nil {
+			return "", false
+		}
+		mimeType := strings.TrimSpace(part.MIMEType)
+		if mimeType == "" {
+			return "", false
+		}
+		mediaType, params, err := mime.ParseMediaType(mimeType)
+		if err != nil {
+			return "", false
+		}
+		return mime.FormatMediaType(mediaType, params), true
+	default:
+		return "", false
+	}
 }
 
 // NewBeginOfStream creates a BOS marker with the given StreamID.

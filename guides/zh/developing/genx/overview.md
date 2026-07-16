@@ -86,24 +86,26 @@ type Stream interface {
 
 | 字段 | 语义 |
 | --- | --- |
-| `StreamID` | 逻辑子流标识。同一段 text、audio、transcription 或 tool stream 的 chunks 使用相同 ID。 |
+| `StreamID` | 逻辑路由标识。相关联的 text、audio、transcription 或 tool chunks 可以共用同一 ID，同时保持各 MIME channel 的独立生命周期。 |
 | `Label` | 子流用途标签，例如 `transcript`、`assistant` 或 `history.user_audio`；它补充 StreamID，不替代唯一标识。 |
 | `Error` | 当前子流的终止错误文本。通常与 `EndOfStream` 一起使用，不等同于关闭整个 Stream。 |
-| `BeginOfStream` | 当前 chunk 是该 StreamID 的开始边界。可与携带首段 data 的 chunk 合并，也可以是纯控制 chunk。 |
-| `EndOfStream` | 当前 chunk 是该 StreamID 的结束边界。可携带最后一段 data、MIME type 或 Error。 |
+| `BeginOfStream` | 当前 chunk 是开始边界。携带 Part 时开始或声明对应 MIME channel；纯控制 chunk 则开始 StreamID route。 |
+| `EndOfStream` | 当前 chunk 是结束边界。携带 Part 时只结束对应 MIME channel；纯控制 chunk 则结束整个 StreamID route。它也可以携带最后一段 data 或 Error。 |
 | `Timestamp` | Chunk 的毫秒时间戳，供 `RealtimeStream` 排序和延迟处理；值为零时，`RealtimeStream` 会按当前时间补充单调递增值。 |
 
 `Ctrl == nil` 表示当前 chunk 没有显式的路由或边界控制信息。消费者应通过 `MessageChunk.IsBeginOfStream()` 和 `IsEndOfStream()` 判断边界，不直接假设 `Ctrl` 一定存在。
 
-#### StreamID 与 EOS
+#### StreamID、MIME channel 与 EOS
 
-`MessageChunk.Ctrl.StreamID` 标识同一逻辑子流。`BeginOfStream` 和 `EndOfStream` 明确标记该子流的开始与结束：
+`MessageChunk.Ctrl.StreamID` 标识一条逻辑路由。同一路由可以承载多个具有独立结束边界的 MIME channel：
 
-- EOS 只结束对应 StreamID，不代表整个 `Stream` 已经关闭。
-- 同一个 `Stream` 可以交错承载多个 StreamID；每个子流独立维护 BOS、data、EOS。
-- `Stream.Close` 关闭整个传输和生产者资源，不能用某个子流的 EOS 替代。
-- `CloseWithError` 终止整个 Stream；单个子流的失败可以通过该 StreamID 的 EOS control error 表达。
-- Adapter 必须保留 StreamID、role、label、BOS/EOS 和 error 语义，不能依靠私有 session 状态让边界只在实现内部可见。
+- `Text` 使用规范的 `text/plain` MIME channel；`Blob` 使用解析并规范化后的完整 MIME type，包括 `codecs=opus` 等具有语义的参数；大小写、参数顺序和无意义空格不会形成第二个 channel。
+- 携带 Part 的 EOS 只结束该 Part 对应的 MIME channel。例如，同一 StreamID 上的 `text/plain` EOS 不会结束 `audio/opus`。
+- `Part == nil` 的纯控制 EOS 结束整个 StreamID route 及其所有未完成 MIME channel，但仍不关闭外层 `Stream`。
+- 如果 producer 可能在当前已观察 channel 全部完成后再增加新 MIME channel，必须在此前通过携带 MIME 的 BOS 或 data chunk 声明该 channel，或者保持 route 直到发出纯控制 EOS。
+- 同一个 `Stream` 可以交错承载多个 StreamID；`Stream.Close` 和 `CloseWithError` 终止外层传输及所有未完成 route。
+- `Iter` 会聚合 content reader 直到外层 Stream 结束，不通过 `StreamElement` 暴露 route-aware EOS。
+- Adapter 必须保留 StreamID、role、label、MIME type、BOS/EOS 和 error 语义，不能依靠私有 session 状态让边界只在实现内部可见。
 
 ### Tool
 

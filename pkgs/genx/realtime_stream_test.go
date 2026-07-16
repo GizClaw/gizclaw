@@ -165,10 +165,10 @@ func TestRealtimeStreamNewBOSDropsPendingAudioFromPreviousStream(t *testing.T) {
 func TestRealtimeStreamNewBOSKeepsDifferentRouteAndNonAudio(t *testing.T) {
 	stream := NewRealtimeStream(WithRealtimeStreamDelay(0))
 	if err := stream.Push(context.Background(), &MessageChunk{
-		Part: Text("keep"),
-		Ctrl: &StreamCtrl{StreamID: "text-1", Label: "text", Timestamp: 1_000},
+		Part: Text(""),
+		Ctrl: &StreamCtrl{StreamID: "audio-1", Label: "mic", Timestamp: 1_000, EndOfStream: true},
 	}); err != nil {
-		t.Fatalf("Push(text) error = %v", err)
+		t.Fatalf("Push(text EOS) error = %v", err)
 	}
 	if err := stream.Push(context.Background(), &MessageChunk{
 		Part: &Blob{MIMEType: "audio/opus", Data: []byte{0x01}},
@@ -181,9 +181,30 @@ func TestRealtimeStreamNewBOSKeepsDifferentRouteAndNonAudio(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Push(BOS) error = %v", err)
 	}
-	assertRealtimeNextTimestamp(t, stream, 1_000, false)
+	assertRealtimeNextTimestamp(t, stream, 1_000, true)
 	assertRealtimeNextTimestamp(t, stream, 1_001, false)
 	assertRealtimeNextTimestamp(t, stream, 1_002, false)
+}
+
+func TestRealtimeAudioChunkClassification(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		chunk *MessageChunk
+		want  bool
+	}{
+		{name: "audio data", chunk: &MessageChunk{Part: &Blob{MIMEType: "audio/opus"}}, want: true},
+		{name: "parameterized audio eos", chunk: &MessageChunk{Part: &Blob{MIMEType: "audio/ogg; codecs=opus"}, Ctrl: &StreamCtrl{EndOfStream: true}}, want: true},
+		{name: "text eos", chunk: NewTextEndOfStream()},
+		{name: "non-audio blob eos", chunk: &MessageChunk{Part: &Blob{MIMEType: "application/json"}, Ctrl: &StreamCtrl{EndOfStream: true}}},
+		{name: "control eos", chunk: &MessageChunk{Ctrl: &StreamCtrl{EndOfStream: true}}, want: true},
+		{name: "control data", chunk: &MessageChunk{Ctrl: &StreamCtrl{BeginOfStream: true}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := isRealtimeAudioChunk(tc.chunk); got != tc.want {
+				t.Fatalf("isRealtimeAudioChunk() = %t, want %t", got, tc.want)
+			}
+		})
+	}
 }
 
 func TestRealtimeStreamNewStreamClampsExplicitLateTimestamps(t *testing.T) {

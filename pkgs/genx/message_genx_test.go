@@ -49,6 +49,33 @@ func TestMessageChunkConstructorsAndClone(t *testing.T) {
 	}
 }
 
+func TestMessageChunkMIMEType(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		chunk    *MessageChunk
+		mimeType string
+		ok       bool
+	}{
+		{name: "text", chunk: &MessageChunk{Part: Text("hello")}, mimeType: "text/plain", ok: true},
+		{name: "text eos", chunk: NewTextEndOfStream(), mimeType: "text/plain", ok: true},
+		{name: "blob", chunk: &MessageChunk{Part: &Blob{MIMEType: " Audio/OGG; CODECS=opus "}}, mimeType: "audio/ogg; codecs=opus", ok: true},
+		{name: "parameter order", chunk: &MessageChunk{Part: &Blob{MIMEType: "audio/L16; rate=16000; channels=1"}}, mimeType: "audio/l16; channels=1; rate=16000", ok: true},
+		{name: "blob eos", chunk: NewEndOfStream("audio/opus"), mimeType: "audio/opus", ok: true},
+		{name: "control eos", chunk: &MessageChunk{Ctrl: &StreamCtrl{EndOfStream: true}}},
+		{name: "empty blob mime", chunk: &MessageChunk{Part: &Blob{}}},
+		{name: "invalid blob mime", chunk: &MessageChunk{Part: &Blob{MIMEType: "audio/ogg; codecs"}}},
+		{name: "nil blob", chunk: &MessageChunk{Part: (*Blob)(nil)}},
+		{name: "nil chunk"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			mimeType, ok := tc.chunk.MIMEType()
+			if mimeType != tc.mimeType || ok != tc.ok {
+				t.Fatalf("MIMEType() = %q, %t, want %q, %t", mimeType, ok, tc.mimeType, tc.ok)
+			}
+		})
+	}
+}
+
 func TestFuncCallAndToolCallInvoke(t *testing.T) {
 	call := &FuncCall{Name: "orphan"}
 	if _, err := call.Invoke(context.Background()); err == nil {

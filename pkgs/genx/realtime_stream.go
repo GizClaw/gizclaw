@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"context"
 	"io"
+	"strings"
 	"sync"
 	"time"
 )
@@ -324,11 +325,21 @@ func isRealtimeAudioChunk(chunk *MessageChunk) bool {
 	if chunk == nil {
 		return false
 	}
-	if chunk.IsEndOfStream() {
+	if chunk.Part == nil {
+		// A control-only EOS closes the whole route, including audio.
+		return chunk.IsEndOfStream()
+	}
+	mimeType, ok := chunk.MIMEType()
+	if !ok {
+		return false
+	}
+	if idx := strings.IndexByte(mimeType, ';'); idx >= 0 {
+		mimeType = mimeType[:idx]
+	}
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(mimeType)), "audio/") {
 		return true
 	}
-	_, ok := chunk.Part.(*Blob)
-	return ok
+	return false
 }
 
 func (s *RealtimeStream) signalLocked() {

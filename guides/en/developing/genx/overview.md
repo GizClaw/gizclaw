@@ -86,24 +86,26 @@ type Stream interface {
 
 | Fields | Semantics |
 | --- | --- |
-| `StreamID` | Logical subflow identifier. Chunks of the same text, audio, transcription or tool stream use the same ID. |
+| `StreamID` | Logical route identifier. Correlated text, audio, transcription, or tool chunks can share the same ID while retaining independent MIME-channel lifecycles. |
 | `Label` | A substream usage tag, such as `transcript`, `assistant`, or `history.user_audio`; it supplements the StreamID and does not replace the unique identifier. |
 | `Error` | The termination error text of the current substream. Usually used together with `EndOfStream`, it is not equivalent to closing the entire Stream. |
-| `BeginOfStream` | The current chunk is the starting boundary of the StreamID. It can be merged with the chunk carrying the first piece of data, or it can be a pure control chunk. |
-| `EndOfStream` | The current chunk is the end boundary of the StreamID. Can carry the last piece of data, MIME type or Error. |
+| `BeginOfStream` | The current chunk is a starting boundary. A chunk with a Part begins or announces that MIME channel; a control-only chunk begins the StreamID route. |
+| `EndOfStream` | The current chunk is an end boundary. A chunk with a Part ends that MIME channel; a control-only chunk ends the whole StreamID route. It can also carry final data or Error. |
 | `Timestamp` | The millisecond timestamp of the Chunk for `RealtimeStream` sorting and delayed processing; when the value is zero, `RealtimeStream` will supplement the monotonically increasing value based on the current time. |
 
 `Ctrl == nil` means that the current chunk does not have explicit routing or boundary control information. Consumers should judge the boundaries through `MessageChunk.IsBeginOfStream()` and `IsEndOfStream()` and do not directly assume that `Ctrl` must exist.
 
-#### StreamID and EOS
+#### StreamID, MIME channels, and EOS
 
-`MessageChunk.Ctrl.StreamID` identifies the same logical subflow. `BeginOfStream` and `EndOfStream` explicitly mark the beginning and end of this substream:
+`MessageChunk.Ctrl.StreamID` identifies a logical route. One route can carry multiple MIME channels with independent completion boundaries:
 
-- EOS only ends the corresponding StreamID, which does not mean that the entire `Stream` has been closed.
-- The same `Stream` can carry multiple StreamIDs in an interleaved manner; each substream independently maintains BOS, data, and EOS.
-- `Stream.Close` Closes the entire transport and producer resources and cannot be replaced by EOS of a certain substream.
-- `CloseWithError` Terminates the entire Stream; failure of a single substream can be expressed via an EOS control error for that StreamID.
-- Adapter must preserve StreamID, role, label, BOS/EOS and error semantics, and cannot rely on private session state to make boundaries visible only within the implementation.
+- `Text` uses the canonical `text/plain` MIME channel. `Blob` uses its parsed and canonicalized MIME type, including semantically relevant parameters such as `codecs=opus`; case, parameter order, and insignificant spacing do not create a second channel.
+- An EOS chunk with a Part ends only that Part's MIME channel on the route. For example, `text/plain` EOS does not end `audio/opus` with the same StreamID.
+- A control-only EOS with `Part == nil` ends the whole StreamID route and all of its outstanding MIME channels. It still does not close the enclosing `Stream`.
+- A producer that may add a MIME channel after all currently observed channels complete must announce it with a MIME-bearing BOS or data chunk before that completion, or keep the route open until a control-only EOS.
+- The same `Stream` can carry multiple StreamIDs in an interleaved manner. `Stream.Close` and `CloseWithError` terminate the enclosing transport and all outstanding routes.
+- `Iter` aggregates content readers until the enclosing Stream ends; it does not expose route-aware EOS through `StreamElement`.
+- Adapters must preserve StreamID, role, label, MIME type, BOS/EOS, and error semantics instead of keeping boundaries only in private session state.
 
 ### Tool
 

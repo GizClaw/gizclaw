@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"io/fs"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -333,6 +334,7 @@ func TestHistoryAgentRecordsOutputAudioAsOggOpus(t *testing.T) {
 	agent := wrapHistoryAgent(historyTestAgent{output: historyStreamFromChunks(
 		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}},
 		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1, 2, 3}}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}},
+		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant", EndOfStream: true}},
 		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{4, 5}}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}},
 		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant", EndOfStream: true}},
 	)}, history)
@@ -379,6 +381,126 @@ func TestHistoryAgentRecordsOutputAudioAsOggOpus(t *testing.T) {
 	}
 	if !bytes.Equal(packets[2].Data, []byte{1, 2, 3}) || !bytes.Equal(packets[3].Data, []byte{4, 5}) {
 		t.Fatalf("audio packets = %#v %#v", packets[2].Data, packets[3].Data)
+	}
+}
+
+func TestHistoryAgentWaitsForTextAfterAudioEOS(t *testing.T) {
+	history := workspace.NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
+	agent := wrapHistoryAgent(historyTestAgent{output: historyStreamFromChunks(
+		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: genx.Text("hel"), Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}},
+		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1, 2, 3}}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}},
+		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant", EndOfStream: true}},
+		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: genx.Text("lo"), Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}},
+		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant", EndOfStream: true}},
+	)}, history)
+
+	out, err := agent.Transform(context.Background(), "demo", historyStreamFromChunks())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	for {
+		_, err := out.Next()
+		if IsStreamDone(err) {
+			break
+		}
+		if err != nil {
+			t.Fatalf("Next() error = %v", err)
+		}
+	}
+	resp, err := agent.ListHistory(context.Background(), apitypes.PeerRunHistoryListRequest{})
+	if err != nil {
+		t.Fatalf("ListHistory() error = %v", err)
+	}
+	if len(resp.Items) != 1 || resp.Items[0].Text != "hello" || !resp.Items[0].ReplayAvailable {
+		t.Fatalf("history items = %+v", resp.Items)
+	}
+}
+
+func TestHistoryAgentRejectsMultipleAudioMIMEChannels(t *testing.T) {
+	history := workspace.NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
+	agent := wrapHistoryAgent(historyTestAgent{output: historyStreamFromChunks(
+		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}},
+		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/ogg; codecs=opus"}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}},
+	)}, history)
+
+	out, err := agent.Transform(context.Background(), "demo", historyStreamFromChunks())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	for {
+		_, err = out.Next()
+		if err != nil {
+			break
+		}
+	}
+	if err == nil || !strings.Contains(err.Error(), "changed audio MIME type") {
+		t.Fatalf("Next() error = %v, want audio MIME change error", err)
+	}
+}
+
+func TestHistoryAgentIgnoresNonRecordableMIMECompletion(t *testing.T) {
+	history := workspace.NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
+	agent := wrapHistoryAgent(historyTestAgent{output: historyStreamFromChunks(
+		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: genx.Text("hel"), Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}},
+		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "application/json"}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant", EndOfStream: true}},
+		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: genx.Text("lo"), Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}},
+		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant", EndOfStream: true}},
+	)}, history)
+
+	out, err := agent.Transform(context.Background(), "demo", historyStreamFromChunks())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	for {
+		_, err := out.Next()
+		if IsStreamDone(err) {
+			break
+		}
+		if err != nil {
+			t.Fatalf("Next() error = %v", err)
+		}
+	}
+	resp, err := agent.ListHistory(context.Background(), apitypes.PeerRunHistoryListRequest{})
+	if err != nil {
+		t.Fatalf("ListHistory() error = %v", err)
+	}
+	if len(resp.Items) != 1 || resp.Items[0].Text != "hello" {
+		t.Fatalf("history items = %+v", resp.Items)
+	}
+}
+
+func TestHistoryRecorderControlEOSFinalizesRouteOnce(t *testing.T) {
+	history := workspace.NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
+	recorder := newHistoryRecorder(history, "", nil)
+	ctx := context.Background()
+	if err := recorder.ObserveOutput(ctx, &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Name: "assistant",
+		Part: genx.Text("hello"),
+		Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"},
+	}); err != nil {
+		t.Fatalf("ObserveOutput(text) error = %v", err)
+	}
+	routeEOS := &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Name: "assistant",
+		Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant", EndOfStream: true},
+	}
+	if err := recorder.ObserveOutput(ctx, routeEOS); err != nil {
+		t.Fatalf("ObserveOutput(route EOS) error = %v", err)
+	}
+	if err := recorder.ObserveOutput(ctx, routeEOS); err != nil {
+		t.Fatalf("ObserveOutput(duplicate route EOS) error = %v", err)
+	}
+	if len(recorder.pending) != 0 {
+		t.Fatalf("pending entries = %d, want 0", len(recorder.pending))
+	}
+	resp, err := history.List(ctx, apitypes.PeerRunHistoryListRequest{})
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+	if len(resp.Items) != 1 || resp.Items[0].Text != "hello" {
+		t.Fatalf("history items = %+v", resp.Items)
 	}
 }
 
@@ -885,6 +1007,39 @@ func TestHistoryAgentPlayInterruptsCurrentAgentOutput(t *testing.T) {
 		if chunk != nil && chunk.Ctrl != nil && chunk.Ctrl.StreamID == "live" && chunk.Ctrl.Error == "" {
 			t.Fatalf("stale interrupted stream chunk leaked = %#v", chunk)
 		}
+	}
+}
+
+func TestHistoryOutputTracksForwardMIMEsIndependently(t *testing.T) {
+	output := &historyOutput{}
+	text := &genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: genx.Text("live"), Ctrl: &genx.StreamCtrl{StreamID: "live", Label: "assistant"}}
+	audio := &genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "live", Label: "assistant"}}
+	if output.observeForwardChunk(text) || output.observeForwardChunk(audio) {
+		t.Fatal("active forward chunks were unexpectedly suppressed")
+	}
+	textEOS := text.Clone()
+	textEOS.Part = genx.Text("")
+	textEOS.Ctrl.EndOfStream = true
+	if output.observeForwardChunk(textEOS) {
+		t.Fatal("text EOS was unexpectedly suppressed")
+	}
+
+	interrupt := output.interruptForwardOutput()
+	if len(interrupt) != 1 {
+		t.Fatalf("interrupt chunks = %#v, want one audio EOS", interrupt)
+	}
+	mimeType, ok := interrupt[0].MIMEType()
+	if !ok || mimeType != "audio/opus" || !interrupt[0].IsEndOfStream() {
+		t.Fatalf("interrupt chunk = %#v", interrupt[0])
+	}
+	if !output.observeForwardChunk(audio) {
+		t.Fatal("stale audio was not suppressed after sibling text EOS")
+	}
+	audioEOS := audio.Clone()
+	audioEOS.Part = &genx.Blob{MIMEType: "audio/opus"}
+	audioEOS.Ctrl.EndOfStream = true
+	if !output.observeForwardChunk(audioEOS) {
+		t.Fatal("stale audio EOS was not suppressed")
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"mime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -76,7 +77,7 @@ type historyOutput struct {
 	replayLabel    string
 
 	forwardMu          sync.Mutex
-	activeForward      map[historyForwardRouteKey]historyForwardRoute
+	activeForward      map[historyForwardChunkKey]historyForwardRoute
 	interruptedForward map[historyForwardChunkKey]struct{}
 
 	notifyMu          sync.Mutex
@@ -98,7 +99,7 @@ type historyForwardRoute struct {
 
 type historyForwardChunkKey struct {
 	historyForwardRouteKey
-	kind string
+	mimeType string
 }
 
 func (a *historyAgent) Transform(ctx context.Context, pattern string, input genx.Stream) (genx.Stream, error) {
@@ -189,6 +190,7 @@ func (a *historyAgent) PlayHistory(ctx context.Context, req apitypes.PeerRunHist
 
 func (a *historyAgent) forwardOutput(ctx context.Context, outputKey string, outputState *historyOutput, input genx.Stream, output *genx.StreamBuilder, recorder *historyRecorder) {
 	defer input.Close()
+	defer recorder.discard()
 	for {
 		if err := ctx.Err(); err != nil {
 			_ = output.Abort(err)
@@ -349,13 +351,32 @@ func (o *historyOutput) observeForwardChunk(chunk *genx.MessageChunk) bool {
 	if o == nil {
 		return false
 	}
-	route, kind, ok := historyForwardChunkRoute(chunk)
+	route, ok := historyForwardChunkRoute(chunk)
 	if !ok {
 		return false
 	}
-	key := historyForwardChunkKey{historyForwardRouteKey: route.key(), kind: kind}
 	o.forwardMu.Lock()
 	defer o.forwardMu.Unlock()
+	mimeType, hasMIME := historyForwardChunkMIME(chunk)
+	if !hasMIME {
+		if chunk.Part != nil || !chunk.IsEndOfStream() {
+			return false
+		}
+		interrupted := false
+		for key := range o.interruptedForward {
+			if key.historyForwardRouteKey == route.key() {
+				delete(o.interruptedForward, key)
+				interrupted = true
+			}
+		}
+		for key := range o.activeForward {
+			if key.historyForwardRouteKey == route.key() {
+				delete(o.activeForward, key)
+			}
+		}
+		return interrupted
+	}
+	key := historyForwardChunkKey{historyForwardRouteKey: route.key(), mimeType: mimeType}
 	if _, interrupted := o.interruptedForward[key]; interrupted {
 		if chunk.IsEndOfStream() {
 			delete(o.interruptedForward, key)
@@ -363,13 +384,13 @@ func (o *historyOutput) observeForwardChunk(chunk *genx.MessageChunk) bool {
 		return true
 	}
 	if chunk.IsEndOfStream() {
-		delete(o.activeForward, route.key())
+		delete(o.activeForward, key)
 		return false
 	}
 	if o.activeForward == nil {
-		o.activeForward = make(map[historyForwardRouteKey]historyForwardRoute)
+		o.activeForward = make(map[historyForwardChunkKey]historyForwardRoute)
 	}
-	o.activeForward[route.key()] = route
+	o.activeForward[key] = route
 	return false
 }
 
@@ -382,26 +403,44 @@ func (o *historyOutput) interruptForwardOutput() []*genx.MessageChunk {
 	if len(o.activeForward) == 0 {
 		return nil
 	}
-	interrupt := make([]*genx.MessageChunk, 0, len(o.activeForward)*2)
+	interrupt := make([]*genx.MessageChunk, 0, len(o.activeForward))
 	if o.interruptedForward == nil {
 		o.interruptedForward = make(map[historyForwardChunkKey]struct{})
 	}
-	for key, route := range o.activeForward {
-		interrupt = append(interrupt, historyForwardInterruptedChunks(route)...)
-		o.interruptedForward[historyForwardChunkKey{historyForwardRouteKey: key, kind: "text"}] = struct{}{}
-		o.interruptedForward[historyForwardChunkKey{historyForwardRouteKey: key, kind: "audio"}] = struct{}{}
+	keys := make([]historyForwardChunkKey, 0, len(o.activeForward))
+	for key := range o.activeForward {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i].streamID != keys[j].streamID {
+			return keys[i].streamID < keys[j].streamID
+		}
+		if keys[i].label != keys[j].label {
+			return keys[i].label < keys[j].label
+		}
+		if keys[i].mimeType == keys[j].mimeType {
+			return false
+		}
+		if keys[i].mimeType == "text/plain" {
+			return true
+		}
+		if keys[j].mimeType == "text/plain" {
+			return false
+		}
+		return keys[i].mimeType < keys[j].mimeType
+	})
+	for _, key := range keys {
+		route := o.activeForward[key]
+		interrupt = append(interrupt, historyForwardInterruptedChunk(route, key.mimeType))
+		o.interruptedForward[key] = struct{}{}
 		delete(o.activeForward, key)
 	}
 	return interrupt
 }
 
-func historyForwardChunkRoute(chunk *genx.MessageChunk) (historyForwardRoute, string, bool) {
+func historyForwardChunkRoute(chunk *genx.MessageChunk) (historyForwardRoute, bool) {
 	if chunk == nil || chunk.Ctrl == nil {
-		return historyForwardRoute{}, "", false
-	}
-	kind := historyForwardChunkKind(chunk)
-	if kind == "" {
-		return historyForwardRoute{}, "", false
+		return historyForwardRoute{}, false
 	}
 	label := strings.TrimSpace(chunk.Ctrl.Label)
 	if label == "" {
@@ -423,35 +462,38 @@ func historyForwardChunkRoute(chunk *genx.MessageChunk) (historyForwardRoute, st
 		name:     name,
 		streamID: strings.TrimSpace(chunk.Ctrl.StreamID),
 		label:    label,
-	}, kind, true
+	}, true
 }
 
-func historyForwardChunkKind(chunk *genx.MessageChunk) string {
-	switch part := chunk.Part.(type) {
-	case genx.Text:
-		return "text"
-	case *genx.Blob:
-		if baseHistoryMIME(part.MIMEType) == "audio/opus" {
-			return "audio"
-		}
+func historyForwardChunkMIME(chunk *genx.MessageChunk) (string, bool) {
+	mimeType, ok := chunk.MIMEType()
+	if !ok {
+		return "", false
 	}
-	return ""
+	switch baseHistoryMIME(mimeType) {
+	case "text/plain", "audio/opus":
+		return mimeType, true
+	default:
+		return "", false
+	}
 }
 
 func (r historyForwardRoute) key() historyForwardRouteKey {
 	return historyForwardRouteKey{streamID: r.streamID, label: r.label}
 }
 
-func historyForwardInterruptedChunks(route historyForwardRoute) []*genx.MessageChunk {
-	textEOS := historyTextChunk(route.role, route.name, route.streamID, route.label, "", true)
-	textEOS.Ctrl.Error = historyReplayInterrupted
-	audioEOS := &genx.MessageChunk{
+func historyForwardInterruptedChunk(route historyForwardRoute, mimeType string) *genx.MessageChunk {
+	if mimeType == "text/plain" {
+		chunk := historyTextChunk(route.role, route.name, route.streamID, route.label, "", true)
+		chunk.Ctrl.Error = historyReplayInterrupted
+		return chunk
+	}
+	return &genx.MessageChunk{
 		Role: route.role,
 		Name: route.name,
-		Part: &genx.Blob{MIMEType: "audio/opus"},
+		Part: &genx.Blob{MIMEType: mimeType},
 		Ctrl: &genx.StreamCtrl{StreamID: route.streamID, Label: route.label, EndOfStream: true, Error: historyReplayInterrupted},
 	}
-	return []*genx.MessageChunk{textEOS, audioEOS}
 }
 
 func (o *historyOutput) startReplay(streamID string, role genx.Role, name string, label string, chunks []*genx.MessageChunk) error {
@@ -666,6 +708,8 @@ type historyPendingEntry struct {
 	typ       string
 	gearID    string
 	name      string
+	channels  map[string]bool
+	audioMIME string
 	text      strings.Builder
 	audio     [][]byte
 	oggAudio  bytes.Buffer
@@ -701,6 +745,24 @@ func (r *historyRecorder) Flush(ctx context.Context) error {
 	return r.flushMatching(ctx, nil)
 }
 
+func (r *historyRecorder) discard() {
+	if r == nil {
+		return
+	}
+	r.mu.Lock()
+	entries := make([]*historyPendingEntry, 0, len(r.pending))
+	for key, entry := range r.pending {
+		entries = append(entries, entry)
+		delete(r.pending, key)
+	}
+	r.mu.Unlock()
+	for _, entry := range entries {
+		if entry != nil && entry.pcmWriter != nil {
+			_ = entry.pcmWriter.Close()
+		}
+	}
+}
+
 func (r *historyRecorder) flushMatching(ctx context.Context, keep func(*historyPendingEntry) bool) error {
 	r.mu.Lock()
 	keys := make([]string, 0, len(r.pending))
@@ -724,30 +786,50 @@ func (r *historyRecorder) observe(ctx context.Context, chunk *genx.MessageChunk,
 		return nil
 	}
 	recordChunk := chunk
+	var (
+		entry    *historyPendingEntry
+		mimeType string
+	)
 	switch part := chunk.Part.(type) {
 	case genx.Text:
-		entry := r.pendingEntry(recordChunk, typ, gearID)
+		mimeType, _ = chunk.MIMEType()
+		entry = r.pendingEntry(recordChunk, typ, gearID)
+		if err := entry.observeChannel(mimeType, chunk.IsEndOfStream()); err != nil {
+			return err
+		}
 		if string(part) != "" {
 			entry.text.WriteString(string(part))
 		}
 	case *genx.Blob:
-		if part == nil || !isHistoryAudioMIME(part.MIMEType) {
+		var ok bool
+		mimeType, ok = chunk.MIMEType()
+		if !ok {
+			return fmt.Errorf("agenthost: history blob has missing or invalid MIME type")
+		}
+		if !isRecordableHistoryAudioMIME(mimeType) {
 			break
 		}
 		if typ == historyEntryTypeGear {
 			recordChunk = historyGearTranscriptChunk(chunk)
 		}
-		entry := r.pendingEntry(recordChunk, typ, gearID)
+		entry = r.pendingEntry(recordChunk, typ, gearID)
+		if entry.audioMIME != "" && entry.audioMIME != mimeType {
+			return fmt.Errorf("agenthost: history route changed audio MIME type from %q to %q", entry.audioMIME, mimeType)
+		}
+		entry.audioMIME = mimeType
+		if err := entry.observeChannel(mimeType, chunk.IsEndOfStream()); err != nil {
+			return err
+		}
 		if len(part.Data) == 0 {
 			break
 		}
-		switch baseHistoryMIME(part.MIMEType) {
+		switch baseHistoryMIME(mimeType) {
 		case "audio/opus":
 			entry.audio = append(entry.audio, append([]byte(nil), part.Data...))
 		case "audio/ogg", "application/ogg":
 			_, _ = entry.oggAudio.Write(part.Data)
 		default:
-			format, ok := historyPCMFormat(part.MIMEType)
+			format, ok := historyPCMFormat(mimeType)
 			if !ok {
 				break
 			}
@@ -767,14 +849,41 @@ func (r *historyRecorder) observe(ctx context.Context, chunk *genx.MessageChunk,
 		}
 	}
 	if chunk.IsEndOfStream() {
-		if r.deferGearAudioFlush(recordChunk, typ) {
+		if chunk.Part == nil {
+			return r.flush(ctx, r.key(recordChunk, typ))
+		}
+		if entry == nil || !entry.channelsComplete() {
 			return nil
 		}
-		if err := r.flush(ctx, r.key(recordChunk, typ)); err != nil {
-			return err
+		if mimeType != "text/plain" && deferGearAudioEntry(entry) {
+			return nil
 		}
+		return r.flush(ctx, r.key(recordChunk, typ))
 	}
 	return nil
+}
+
+func (e *historyPendingEntry) observeChannel(mimeType string, eos bool) error {
+	if e.channels == nil {
+		e.channels = make(map[string]bool)
+	}
+	if done, ok := e.channels[mimeType]; ok && done && !eos {
+		return fmt.Errorf("agenthost: history MIME channel %q received data after EOS", mimeType)
+	}
+	e.channels[mimeType] = eos
+	return nil
+}
+
+func (e *historyPendingEntry) channelsComplete() bool {
+	if e == nil || len(e.channels) == 0 {
+		return false
+	}
+	for _, done := range e.channels {
+		if !done {
+			return false
+		}
+	}
+	return true
 }
 
 func historyOutputOnlyChunk(chunk *genx.MessageChunk) bool {
@@ -812,23 +921,6 @@ func (r *historyRecorder) pendingEntry(chunk *genx.MessageChunk, typ string, gea
 		r.pending[key] = entry
 	}
 	return entry
-}
-
-func (r *historyRecorder) deferGearAudioFlush(chunk *genx.MessageChunk, typ string) bool {
-	if typ != historyEntryTypeGear || chunk == nil {
-		return false
-	}
-	if _, ok := chunk.Part.(genx.Text); ok {
-		return false
-	}
-	blob, ok := chunk.Part.(*genx.Blob)
-	if !ok || !isHistoryAudioMIME(blob.MIMEType) {
-		return false
-	}
-	r.mu.Lock()
-	entry := r.pending[r.key(chunk, typ)]
-	defer r.mu.Unlock()
-	return deferGearAudioEntry(entry)
 }
 
 func deferGearAudioEntry(entry *historyPendingEntry) bool {
@@ -974,6 +1066,16 @@ func baseHistoryMIME(mimeType string) string {
 func isHistoryAudioMIME(mimeType string) bool {
 	mimeType = baseHistoryMIME(mimeType)
 	return strings.HasPrefix(mimeType, "audio/") || mimeType == "application/ogg"
+}
+
+func isRecordableHistoryAudioMIME(mimeType string) bool {
+	switch baseHistoryMIME(mimeType) {
+	case "audio/opus", "audio/ogg", "application/ogg":
+		return true
+	default:
+		_, ok := historyPCMFormat(mimeType)
+		return ok
+	}
 }
 
 func historyPCMFormat(mimeType string) (pcm.Format, bool) {
