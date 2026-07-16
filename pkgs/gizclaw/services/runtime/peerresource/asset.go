@@ -64,6 +64,20 @@ func (s *Server) PrepareAssetDownload(ctx context.Context, request rpcpb.AssetDo
 		}
 		return rpcpb.AssetDownloadResponse{}, nil, nil, err
 	}
+	if _, err := io.Copy(io.Discard, reader); err != nil {
+		_ = reader.Close()
+		return rpcpb.AssetDownloadResponse{}, nil, nil, err
+	}
+	if err := reader.Close(); err != nil {
+		return rpcpb.AssetDownloadResponse{}, nil, nil, err
+	}
+	stored, reader, err = s.Assets.Open(ctx, ref)
+	if err != nil {
+		if errors.Is(err, asset.ErrNotFound) {
+			return rpcpb.AssetDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "asset not found"}, nil
+		}
+		return rpcpb.AssetDownloadResponse{}, nil, nil, err
+	}
 	metadata := stored.Metadata
 	response := rpcpb.AssetDownloadResponse{Metadata: &rpcpb.AssetMetadata{
 		Ref:       metadata.Ref.String(),

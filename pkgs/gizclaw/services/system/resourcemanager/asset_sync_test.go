@@ -124,6 +124,32 @@ func TestResourceAssetBindingsAcceptGeneratedDiscriminator(t *testing.T) {
 	assertResourceAssetBinding(t, assets, ref, 1)
 }
 
+func TestResourceAssetBindingIgnoresDroppedRequestRef(t *testing.T) {
+	ctx := context.Background()
+	manager := New(Services{Workflows: newFakeWorkflows()})
+	assets, err := asset.New(kv.NewMemory(nil), objectstore.Dir(t.TempDir()), asset.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := assets.RegisterOwnerResolver(asset.OwnerKindResource, manager); err != nil {
+		t.Fatal(err)
+	}
+	manager.services.Assets = assets
+	ref := putResourceAsset(t, assets, "dropped")
+	resource := mustResource(t, fmt.Sprintf(`{
+		"apiVersion":"gizclaw.admin/v1alpha1",
+		"kind":"Workflow",
+		"metadata":{"name":"asset-workflow"},
+		"unsupported_asset":%q,
+		"spec":{"driver":"flowcraft","flowcraft":{"prompt":"asset test"}}
+	}`, ref.String()))
+
+	if _, err := manager.Apply(ctx, resource); err != nil {
+		t.Fatalf("Apply() error = %v", err)
+	}
+	assertResourceAssetBinding(t, assets, ref, 0)
+}
+
 func putResourceAsset(t *testing.T, assets *asset.Service, body string) asset.Ref {
 	t.Helper()
 	stored, err := assets.Put(context.Background(), asset.PutRequest{

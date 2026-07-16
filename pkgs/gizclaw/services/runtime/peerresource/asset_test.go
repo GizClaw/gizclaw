@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strings"
 	"testing"
 
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
@@ -140,6 +141,49 @@ func TestPrepareAssetDownloadSkipsNonResourceBindings(t *testing.T) {
 	if err := reader.Close(); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestPrepareAssetDownloadRejectsCorruptObjectBeforeStreaming(t *testing.T) {
+	ctx := context.Background()
+	objects := &corruptingObjectStore{ObjectStore: objectstore.Dir(t.TempDir())}
+	assets, err := asset.New(kv.NewMemory(nil), objects, asset.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, err := assets.Put(ctx, asset.PutRequest{MediaType: "image/png", MaxBytes: 1024}, bytes.NewBufferString("payload"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner := asset.Owner{Kind: asset.OwnerKindResource, ID: "Workflow/demo"}
+	if err := assets.RegisterOwnerResolver(asset.OwnerKindResource, assetResolverFunc(func(context.Context, asset.Owner) (asset.OwnerSnapshot, error) {
+		return asset.OwnerSnapshot{Exists: true, Refs: []asset.Ref{stored.Metadata.Ref}}, nil
+	})); err != nil {
+		t.Fatal(err)
+	}
+	if err := assets.Bind(ctx, stored.Metadata.Ref, asset.Binding{Owner: owner}); err != nil {
+		t.Fatal(err)
+	}
+	objects.corrupt = true
+	server := &Server{ACL: allowAllAuthorizer{}, Assets: assets, AssetDisplays: displayAssetResolverFunc(func(context.Context, asset.Owner, asset.Ref) (bool, error) {
+		return true, nil
+	})}
+
+	_, reader, rpcErr, err := server.PrepareAssetDownload(ctx, rpcpb.AssetDownloadRequest{Ref: stored.Metadata.Ref.String()})
+	if !errors.Is(err, asset.ErrIntegrity) || rpcErr != nil || reader != nil {
+		t.Fatalf("PrepareAssetDownload() reader=%v rpcError=%v err=%v", reader, rpcErr, err)
+	}
+}
+
+type corruptingObjectStore struct {
+	objectstore.ObjectStore
+	corrupt bool
+}
+
+func (s *corruptingObjectStore) Get(name string) (io.ReadCloser, error) {
+	if s.corrupt {
+		return io.NopCloser(strings.NewReader("corrupt")), nil
+	}
+	return s.ObjectStore.Get(name)
 }
 
 type assetResolverFunc func(context.Context, asset.Owner) (asset.OwnerSnapshot, error)

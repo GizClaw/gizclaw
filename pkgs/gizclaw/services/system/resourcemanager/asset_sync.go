@@ -104,8 +104,13 @@ func (m *Manager) prepareAssetWrite(ctx context.Context, resource apitypes.Resou
 		return nil, applyError(400, "INVALID_ASSET_REF", err.Error())
 	}
 	added := refDifference(newRefs, oldRefs)
-	removed := refDifference(oldRefs, newRefs)
-	current := refDifference(newRefs, nil)
+	trackedRefs := make(map[asset.Ref]struct{}, len(oldRefs)+len(newRefs))
+	for ref := range oldRefs {
+		trackedRefs[ref] = struct{}{}
+	}
+	for ref := range newRefs {
+		trackedRefs[ref] = struct{}{}
+	}
 	binding := asset.Binding{Owner: owner}
 	protected := make([]asset.Ref, 0, len(added))
 	for _, ref := range added {
@@ -126,13 +131,21 @@ func (m *Manager) prepareAssetWrite(ctx context.Context, resource apitypes.Resou
 			}
 			return errors.Join(errs...)
 		}
+		stored, err := m.Get(ctx, kind, name)
+		if err != nil {
+			return applyError(500, "ASSET_BINDING_FAILED", fmt.Sprintf("load committed owner: %v", err))
+		}
+		committedRefs, err := resourceAssetRefs(stored)
+		if err != nil {
+			return applyError(500, "ASSET_BINDING_FAILED", fmt.Sprintf("inspect committed owner: %v", err))
+		}
 		var errs []error
-		for _, ref := range current {
+		for ref := range committedRefs {
 			if err := m.services.Assets.Activate(ctx, ref, binding); err != nil {
 				errs = append(errs, fmt.Errorf("activate %s: %w", ref, err))
 			}
 		}
-		for _, ref := range removed {
+		for _, ref := range refDifference(trackedRefs, committedRefs) {
 			if err := m.services.Assets.Unbind(ctx, ref, binding); err != nil {
 				errs = append(errs, fmt.Errorf("unbind %s: %w", ref, err))
 			}
