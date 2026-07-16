@@ -14,9 +14,8 @@ void main() {
   test('creates a typed workspace document', () async {
     final factory = FakeDataChannelFactory();
     final client = GizClawClient(factory);
-    final workspace = payload.Workspace(
+    final workspace = payload.WorkspaceUpsert(
       name: 'mobile-ast-device',
-      system: true,
       workflowName: 'volc-ast-translate',
     );
 
@@ -27,12 +26,17 @@ void main() {
             as payload.WorkspaceCreateRequest;
     expect(body.value.name, 'mobile-ast-device');
     expect(body.value.workflowName, 'volc-ast-translate');
-    expect(body.value.system, isTrue);
+
+    final responseWorkspace = payload.Workspace(
+      name: workspace.name,
+      system: true,
+      workflowName: workspace.workflowName,
+    );
     _respond(
       factory.channels.single,
       request.id,
       'server.workspace.create',
-      payload.WorkspaceCreateResponse(value: workspace),
+      payload.WorkspaceCreateResponse(value: responseWorkspace),
     );
 
     final created = (await future).value;
@@ -43,7 +47,7 @@ void main() {
   test('updates a typed workspace document', () async {
     final factory = FakeDataChannelFactory();
     final client = GizClawClient(factory);
-    final workspace = payload.Workspace(
+    final workspace = payload.WorkspaceUpsert(
       name: 'mobile-ast-device',
       workflowName: 'volc-ast-translate',
     );
@@ -59,7 +63,12 @@ void main() {
       factory.channels.single,
       request.id,
       'server.workspace.put',
-      payload.WorkspacePutResponse(value: workspace),
+      payload.WorkspacePutResponse(
+        value: payload.Workspace(
+          name: workspace.name,
+          workflowName: workspace.workflowName,
+        ),
+      ),
     );
 
     expect((await future).value.name, 'mobile-ast-device');

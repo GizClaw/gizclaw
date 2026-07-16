@@ -237,8 +237,17 @@ message Workspace {
   bool system = 8;
 }
 
+// Field numbers match Workspace so existing create and put clients remain wire
+// compatible while output-only lifecycle fields stay out of write payloads.
+message WorkspaceUpsert {
+  string name = 3;
+  optional WorkspaceParameters parameters = 4;
+  string workflow_name = 6;
+  optional ToolkitPolicy toolkit = 7;
+}
+
 message WorkspaceCreateRequest {
-  Workspace value = 1;
+  WorkspaceUpsert value = 1;
 }
 
 message WorkspaceCreateResponse {
@@ -316,7 +325,7 @@ message WorkspaceParameters {
 }
 
 message WorkspacePutRequest {
-  Workspace body = 1;
+  WorkspaceUpsert body = 1;
   string name = 2;
 }
 

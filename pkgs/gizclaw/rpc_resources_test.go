@@ -32,7 +32,10 @@ func TestRPCClientResourceMethods(t *testing.T) {
 		t.Fatalf("CreateWorkspace() = %+v", workspace)
 	}
 	workspace = callRPCPair(t, server, func(conn net.Conn) (*rpcapi.WorkspacePutResponse, error) {
-		return client.PutWorkspace(context.Background(), conn, "workspace-put", rpcapi.WorkspacePutRequest{Name: "workspace-a", Body: resourceWorkspace("workspace-a")})
+		return client.PutWorkspace(context.Background(), conn, "workspace-put", rpcapi.WorkspacePutRequest{
+			Name: "workspace-a",
+			Body: rpcapi.WorkspaceUpsert{Name: "workspace-a", WorkflowName: "flow-a"},
+		})
 	})
 	if workspace.Name != "workspace-a" {
 		t.Fatalf("PutWorkspace() = %+v", workspace)

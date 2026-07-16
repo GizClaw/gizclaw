@@ -1234,6 +1234,47 @@ final $typed_data.Uint8List workspaceDescriptor = $convert.base64Decode(
     'Rvb2xraXRQb2xpY3lIAVIHdG9vbGtpdIgBARIWCgZzeXN0ZW0YCCABKAhSBnN5c3RlbUINCgtf'
     'cGFyYW1ldGVyc0IKCghfdG9vbGtpdA==');
 
+@$core.Deprecated('Use workspaceUpsertDescriptor instead')
+const WorkspaceUpsert$json = {
+  '1': 'WorkspaceUpsert',
+  '2': [
+    {'1': 'name', '3': 3, '4': 1, '5': 9, '10': 'name'},
+    {
+      '1': 'parameters',
+      '3': 4,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.WorkspaceParameters',
+      '9': 0,
+      '10': 'parameters',
+      '17': true
+    },
+    {'1': 'workflow_name', '3': 6, '4': 1, '5': 9, '10': 'workflowName'},
+    {
+      '1': 'toolkit',
+      '3': 7,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.ToolkitPolicy',
+      '9': 1,
+      '10': 'toolkit',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_parameters'},
+    {'1': '_toolkit'},
+  ],
+};
+
+/// Descriptor for `WorkspaceUpsert`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List workspaceUpsertDescriptor = $convert.base64Decode(
+    'Cg9Xb3Jrc3BhY2VVcHNlcnQSEgoEbmFtZRgDIAEoCVIEbmFtZRJICgpwYXJhbWV0ZXJzGAQgAS'
+    'gLMiMuZ2l6Y2xhdy5ycGMudjEuV29ya3NwYWNlUGFyYW1ldGVyc0gAUgpwYXJhbWV0ZXJziAEB'
+    'EiMKDXdvcmtmbG93X25hbWUYBiABKAlSDHdvcmtmbG93TmFtZRI8Cgd0b29sa2l0GAcgASgLMh'
+    '0uZ2l6Y2xhdy5ycGMudjEuVG9vbGtpdFBvbGljeUgBUgd0b29sa2l0iAEBQg0KC19wYXJhbWV0'
+    'ZXJzQgoKCF90b29sa2l0');
+
 @$core.Deprecated('Use workspaceCreateRequestDescriptor instead')
 const WorkspaceCreateRequest$json = {
   '1': 'WorkspaceCreateRequest',
@@ -1243,7 +1284,7 @@ const WorkspaceCreateRequest$json = {
       '3': 1,
       '4': 1,
       '5': 11,
-      '6': '.gizclaw.rpc.v1.Workspace',
+      '6': '.gizclaw.rpc.v1.WorkspaceUpsert',
       '10': 'value'
     },
   ],
@@ -1252,8 +1293,8 @@ const WorkspaceCreateRequest$json = {
 /// Descriptor for `WorkspaceCreateRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List workspaceCreateRequestDescriptor =
     $convert.base64Decode(
-        'ChZXb3Jrc3BhY2VDcmVhdGVSZXF1ZXN0Ei8KBXZhbHVlGAEgASgLMhkuZ2l6Y2xhdy5ycGMudj'
-        'EuV29ya3NwYWNlUgV2YWx1ZQ==');
+        'ChZXb3Jrc3BhY2VDcmVhdGVSZXF1ZXN0EjUKBXZhbHVlGAEgASgLMh8uZ2l6Y2xhdy5ycGMudj'
+        'EuV29ya3NwYWNlVXBzZXJ0UgV2YWx1ZQ==');
 
 @$core.Deprecated('Use workspaceCreateResponseDescriptor instead')
 const WorkspaceCreateResponse$json = {
@@ -1599,7 +1640,7 @@ const WorkspacePutRequest$json = {
       '3': 1,
       '4': 1,
       '5': 11,
-      '6': '.gizclaw.rpc.v1.Workspace',
+      '6': '.gizclaw.rpc.v1.WorkspaceUpsert',
       '10': 'body'
     },
     {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
@@ -1608,8 +1649,8 @@ const WorkspacePutRequest$json = {
 
 /// Descriptor for `WorkspacePutRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List workspacePutRequestDescriptor = $convert.base64Decode(
-    'ChNXb3Jrc3BhY2VQdXRSZXF1ZXN0Ei0KBGJvZHkYASABKAsyGS5naXpjbGF3LnJwYy52MS5Xb3'
-    'Jrc3BhY2VSBGJvZHkSEgoEbmFtZRgCIAEoCVIEbmFtZQ==');
+    'ChNXb3Jrc3BhY2VQdXRSZXF1ZXN0EjMKBGJvZHkYASABKAsyHy5naXpjbGF3LnJwYy52MS5Xb3'
+    'Jrc3BhY2VVcHNlcnRSBGJvZHkSEgoEbmFtZRgCIAEoCVIEbmFtZQ==');
 
 @$core.Deprecated('Use workspacePutResponseDescriptor instead')
 const WorkspacePutResponse$json = {

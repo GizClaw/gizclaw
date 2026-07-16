@@ -626,7 +626,7 @@ class MobileDataController extends ChangeNotifier {
     final workspaceName = _newWorkspaceName(normalizedName);
     final response = await runRpc(
       (client) => client.createWorkspace(
-        Workspace(
+        WorkspaceUpsert(
           name: workspaceName,
           workflowName: normalizedWorkflow,
           parameters: newWorkspaceParametersForDriver(driver),
@@ -835,7 +835,10 @@ class MobileDataController extends ChangeNotifier {
     final driver = await _driverForWorkspace(workspace);
     final updated = workspaceWithDefaultInputParameters(workspace, driver);
     if (updated == null) return false;
-    await client.putWorkspace(resolvedWorkspaceName, updated);
+    await client.putWorkspace(
+      resolvedWorkspaceName,
+      workspaceUpsertFromWorkspace(updated),
+    );
     await _loadActiveWorkspaceDocument(
       client,
       workspaceName: resolvedWorkspaceName,
@@ -904,7 +907,10 @@ class MobileDataController extends ChangeNotifier {
         ) ??
         workspace.deepCopy();
     _setWorkspaceInputMode(updated, mode);
-    await client.putWorkspace(workspaceName, updated);
+    await client.putWorkspace(
+      workspaceName,
+      workspaceUpsertFromWorkspace(updated),
+    );
     await _loadActiveWorkspaceDocument(client);
     if (_workspaceInputMode(activeWorkspaceDocument) != mode) {
       throw StateError('GizClaw did not persist the requested input mode');

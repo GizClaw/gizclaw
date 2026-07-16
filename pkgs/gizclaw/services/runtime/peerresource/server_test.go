@@ -176,7 +176,6 @@ func TestServerAllowedCRUD(t *testing.T) {
 	}
 	workspaceCreate := callRPC(t, srv, "workspace-create", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
 		Name:         "workspace-a",
-		System:       true,
 		WorkflowName: "workflow-a1",
 		Parameters:   &createParams,
 	}))
@@ -207,7 +206,7 @@ func TestServerAllowedCRUD(t *testing.T) {
 	}
 	workspacePut := callRPC(t, srv, "workspace-put", rpcapi.RPCMethodServerWorkspacePut, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspacePutRequest, rpcapi.WorkspacePutRequest{
 		Name: "workspace-a",
-		Body: rpcapi.Workspace{Name: "workspace-a", WorkflowName: "workflow-a1", Parameters: &updateParams},
+		Body: rpcapi.WorkspaceUpsert{Name: "workspace-a", WorkflowName: "workflow-a1", Parameters: &updateParams},
 	}))
 	if got := mustResult(t, workspacePut.Result.AsWorkspacePutResponse); got.Parameters == nil {
 		t.Fatalf("workspace.put parameters are nil: %#v", got)

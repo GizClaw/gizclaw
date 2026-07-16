@@ -66,7 +66,7 @@ func TestServerWorkspaceRPC(t *testing.T) {
 	}
 	workspace, err = env.peer.PutWorkspace(env.ctx, "workspace.put", rpcapi.WorkspacePutRequest{
 		Name: mutationWorkspace,
-		Body: rpcapi.Workspace{
+		Body: rpcapi.WorkspaceUpsert{
 			Name:         mutationWorkspace,
 			WorkflowName: mutationWorkflow,
 			Parameters:   &updateParams,
