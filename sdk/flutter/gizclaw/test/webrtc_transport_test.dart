@@ -41,8 +41,76 @@ void main() {
         pc.addTransceiverCalls.single.init?.direction,
         rtc.TransceiverDirection.SendRecv,
       );
+      expect(pc.addTransceiverCalls.single.track, isNull);
+      expect(pc.createOfferCalls, 0);
     },
   );
+
+  test('attaches the exact local audio track before creating offer', () async {
+    final pc = _FakePeerConnection(stopAfterAudio: false);
+    final track = _FakeMediaStreamTrack(id: 'mic-1', kind: 'audio');
+    final stream = _FakeMediaStream('stream-1', [track]);
+
+    final connected = await connectFlutterGiznetWebRtc(
+      createPacketDataChannel: false,
+      localAudioStream: stream,
+      peerConnection: pc,
+      prepareOffer: (_) async => _preparedOffer(answerSdp: 'answer-sdp'),
+      sendOffer: (_) async => [1, 2, 3],
+    );
+
+    expect(connected, same(pc));
+    expect(pc.addTransceiverCalls, hasLength(1));
+    expect(pc.addTransceiverCalls.single.track, same(track));
+    expect(pc.addTransceiverCalls.single.kind, isNull);
+    expect(
+      pc.addTransceiverCalls.single.init?.direction,
+      rtc.TransceiverDirection.SendRecv,
+    );
+    expect(pc.addTransceiverCalls.single.init?.streams, [same(stream)]);
+    expect(pc.operations, ['addTransceiver', 'createOffer']);
+  });
+
+  test('rejects a local stream when audio transceiver is disabled', () async {
+    final track = _FakeMediaStreamTrack(id: 'mic-1', kind: 'audio');
+    final stream = _FakeMediaStream('stream-1', [track]);
+    var createCalls = 0;
+
+    await expectLater(
+      connectFlutterGiznetWebRtc(
+        addAudioTransceiver: false,
+        createPeerConnection: (_) async {
+          createCalls++;
+          return _FakePeerConnection();
+        },
+        localAudioStream: stream,
+        prepareOffer: (_) => throw UnimplementedError(),
+        sendOffer: (_) => throw UnimplementedError(),
+      ),
+      throwsArgumentError,
+    );
+
+    expect(createCalls, 0);
+  });
+
+  test('rejects a local stream without exactly one audio track', () async {
+    for (final tracks in <List<rtc.MediaStreamTrack>>[
+      const [],
+      [
+        _FakeMediaStreamTrack(id: 'mic-1', kind: 'audio'),
+        _FakeMediaStreamTrack(id: 'mic-2', kind: 'audio'),
+      ],
+    ]) {
+      await expectLater(
+        connectFlutterGiznetWebRtc(
+          localAudioStream: _FakeMediaStream('stream-1', tracks),
+          prepareOffer: (_) => throw UnimplementedError(),
+          sendOffer: (_) => throw UnimplementedError(),
+        ),
+        throwsArgumentError,
+      );
+    }
+  });
 
   test('disposes owned peer connection when signaling fails', () async {
     final pc = _FakePeerConnection(stopAfterAudio: false);
@@ -367,8 +435,9 @@ PreparedGiznetWebRtcOffer _preparedOffer({String answerSdp = 'answer'}) {
 }
 
 class _AddTransceiverCall {
-  const _AddTransceiverCall(this.kind, this.init);
+  const _AddTransceiverCall(this.track, this.kind, this.init);
 
+  final rtc.MediaStreamTrack? track;
   final rtc.RTCRtpMediaType? kind;
   final rtc.RTCRtpTransceiverInit? init;
 }
@@ -388,7 +457,9 @@ class _FakePeerConnection extends rtc.RTCPeerConnection {
   final addTransceiverCalls = <_AddTransceiverCall>[];
   final createdDataChannels = <_FakeRtcDataChannel>[];
   final dataChannelInits = <rtc.RTCDataChannelInit>[];
+  final operations = <String>[];
   int closeCalls = 0;
+  int createOfferCalls = 0;
   int disposeCalls = 0;
   rtc.RTCSessionDescription? localDescription;
   rtc.RTCSessionDescription? remoteDescription;
@@ -399,11 +470,12 @@ class _FakePeerConnection extends rtc.RTCPeerConnection {
     rtc.RTCRtpMediaType? kind,
     rtc.RTCRtpTransceiverInit? init,
   }) async {
-    addTransceiverCalls.add(_AddTransceiverCall(kind, init));
+    operations.add('addTransceiver');
+    addTransceiverCalls.add(_AddTransceiverCall(track, kind, init));
     if (stopAfterAudio) {
       throw _StopAfterAudio();
     }
-    throw UnimplementedError();
+    return _FakeRtpTransceiver();
   }
 
   @override
@@ -433,6 +505,8 @@ class _FakePeerConnection extends rtc.RTCPeerConnection {
   Future<rtc.RTCSessionDescription> createOffer([
     Map<String, dynamic> constraints = const {},
   ]) async {
+    operations.add('createOffer');
+    createOfferCalls++;
     return rtc.RTCSessionDescription('offer-sdp', 'offer');
   }
 
@@ -571,6 +645,106 @@ class _FakePeerConnection extends rtc.RTCPeerConnection {
 
   @override
   rtc.RTCSignalingState? get signalingState => null;
+}
+
+class _FakeRtpTransceiver extends rtc.RTCRtpTransceiver {
+  @override
+  Future<rtc.TransceiverDirection?> getCurrentDirection() async =>
+      rtc.TransceiverDirection.SendRecv;
+
+  @override
+  Future<rtc.TransceiverDirection> getDirection() async =>
+      rtc.TransceiverDirection.SendRecv;
+
+  @override
+  String get mid => '0';
+
+  @override
+  rtc.RTCRtpReceiver get receiver => throw UnimplementedError();
+
+  @override
+  rtc.RTCRtpSender get sender => throw UnimplementedError();
+
+  @override
+  Future<void> setCodecPreferences(
+    List<rtc.RTCRtpCodecCapability> codecs,
+  ) async {}
+
+  @override
+  Future<void> setDirection(rtc.TransceiverDirection direction) async {}
+
+  @override
+  Future<void> stop() async {}
+
+  @override
+  bool get stoped => false;
+
+  @override
+  String get transceiverId => 'transceiver-0';
+}
+
+class _FakeMediaStream extends rtc.MediaStream {
+  _FakeMediaStream(String id, this.tracks) : super(id, 'test');
+
+  final List<rtc.MediaStreamTrack> tracks;
+
+  @override
+  bool get active => true;
+
+  @override
+  Future<void> addTrack(
+    rtc.MediaStreamTrack track, {
+    bool addToNative = true,
+  }) async {
+    tracks.add(track);
+  }
+
+  @override
+  List<rtc.MediaStreamTrack> getAudioTracks() =>
+      tracks.where((track) => track.kind == 'audio').toList(growable: false);
+
+  @override
+  Future<void> getMediaTracks() async {}
+
+  @override
+  List<rtc.MediaStreamTrack> getTracks() => List.unmodifiable(tracks);
+
+  @override
+  List<rtc.MediaStreamTrack> getVideoTracks() =>
+      tracks.where((track) => track.kind == 'video').toList(growable: false);
+
+  @override
+  Future<void> removeTrack(
+    rtc.MediaStreamTrack track, {
+    bool removeFromNative = true,
+  }) async {
+    tracks.remove(track);
+  }
+}
+
+class _FakeMediaStreamTrack extends rtc.MediaStreamTrack {
+  _FakeMediaStreamTrack({required this.id, required this.kind});
+
+  @override
+  final String id;
+
+  @override
+  final String kind;
+
+  @override
+  String get label => id;
+
+  @override
+  bool enabled = false;
+
+  @override
+  bool get muted => false;
+
+  @override
+  Future<void> dispose() async {}
+
+  @override
+  Future<void> stop() async {}
 }
 
 class _FakeRtcDataChannel extends rtc.RTCDataChannel {

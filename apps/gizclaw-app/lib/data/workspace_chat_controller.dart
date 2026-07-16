@@ -5,11 +5,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:gizclaw/gizclaw.dart';
 
+import '../audio/pcm_audio_level_source.dart';
 import 'repositories/workspace_chat_repository.dart';
 
 enum WorkspaceChatState { loading, connecting, connected, offline, error }
 
 enum WorkspaceMessageState { complete, streaming, failed }
+
+typedef SetInputSending = Future<void> Function(bool active);
 
 class WorkspaceChatMessage {
   const WorkspaceChatMessage({
@@ -48,22 +51,29 @@ class WorkspaceChatController extends ChangeNotifier {
     this.client,
     this.dataChannelFactory,
     this.peerConnection,
+    this.inputTrack,
+    this.setInputSending,
+    this.ownsInputTrack,
     this.onTransportClosed,
+    this.pcmAudioLevels,
   });
 
   final GizClawClient? client;
   final GizClawDataChannelFactory? dataChannelFactory;
   final rtc.RTCPeerConnection? peerConnection;
+  final rtc.MediaStreamTrack? inputTrack;
+  final SetInputSending? setInputSending;
+  final bool Function()? ownsInputTrack;
   final Future<void> Function()? onTransportClosed;
+  final Stream<PcmAudioLevels>? pcmAudioLevels;
   final WorkspaceChatRepository repository;
   final String? serverId;
   final String workspaceName;
 
   StreamSubscription<List<CachedWorkspaceMessage>>? _historySubscription;
   StreamSubscription<PeerStreamEvent>? _eventSubscription;
+  StreamSubscription<PcmAudioLevels>? _pcmLevelSubscription;
   WorkspaceEventSession? _session;
-  rtc.MediaStream? _inputStream;
-  rtc.MediaStreamTrack? _inputTrack;
   String? _activeStreamId;
   Timer? _historyRefreshTimer;
   Timer? _levelTimer;
@@ -76,13 +86,17 @@ class WorkspaceChatController extends ChangeNotifier {
   bool startingInput = false;
   bool playingOutput = false;
   bool _finishPending = false;
-  bool _inputSenderConfigured = false;
   bool _transportRecoveryRequested = false;
+  bool _samplingAudioLevels = false;
+  bool _hasPcmAudioLevels = false;
   final Map<String, _AudioEnergySample> _sentAudioEnergy = {};
   final Map<String, _AudioEnergySample> _receivedAudioEnergy = {};
   String? replayingHistoryId;
   bool _disposed = false;
+  bool _inputTrackReleased = false;
   Future<void>? _closeFuture;
+  Future<void>? _finishInputInFlight;
+  Future<void>? _startInputInFlight;
   double inputLevel = 0;
   double outputLevel = 0;
 
@@ -91,7 +105,30 @@ class WorkspaceChatController extends ChangeNotifier {
   bool get canRecord =>
       state == WorkspaceChatState.connected &&
       _session != null &&
-      peerConnection != null;
+      peerConnection != null &&
+      inputTrack != null &&
+      setInputSending != null &&
+      _ownsInputTrack;
+
+  bool get _ownsInputTrack =>
+      !_inputTrackReleased && (ownsInputTrack?.call() ?? true);
+
+  Future<void> releaseInputTrack() async {
+    if (_inputTrackReleased) return;
+    final startInput = _startInputInFlight;
+    if (startInput != null) {
+      _finishPending = true;
+      await startInput;
+    }
+    if (recording) await finishInput(error: 'interrupted');
+    try {
+      await _deactivateInputSending();
+    } catch (error) {
+      lastError = error;
+    } finally {
+      _inputTrackReleased = true;
+    }
+  }
 
   Future<void> start({bool activate = true, bool conversation = true}) async {
     final stableServerId = serverId;
@@ -170,28 +207,71 @@ class WorkspaceChatController extends ChangeNotifier {
     }
   }
 
-  Future<void> startInput() async {
+  Future<void> startInput() {
     final session = _session;
-    if (session == null || !canRecord || recording || startingInput) return;
+    if (_disposed ||
+        session == null ||
+        !canRecord ||
+        recording ||
+        _finishInputInFlight != null) {
+      return Future.value();
+    }
+    final active = _startInputInFlight;
+    if (active != null) return active;
+    late final Future<void> start;
+    start = _startInput(session).whenComplete(() {
+      if (identical(_startInputInFlight, start)) _startInputInFlight = null;
+    });
+    return _startInputInFlight = start;
+  }
+
+  Future<void> _startInput(WorkspaceEventSession session) async {
     startingInput = true;
     lastError = null;
     notifyListeners();
     try {
-      final track = await _ensureInputTrack();
-      track.enabled = true;
-      await _bindInputTrack(track);
+      final setSending = setInputSending;
+      if (inputTrack == null || setSending == null) {
+        throw StateError('Microphone sender is unavailable');
+      }
       final streamId =
           'audio-${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}';
       _activeStreamId = streamId;
-      await Future<void>.delayed(const Duration(milliseconds: 260));
       await session.beginAudio(streamId);
+      if (!_ownsInputTrack) {
+        await session.endAudio(streamId, error: 'interrupted');
+        _activeStreamId = null;
+        return;
+      }
+      try {
+        await setSending(true);
+      } catch (error) {
+        try {
+          await session.endAudio(
+            streamId,
+            error: 'microphone_sender_enable_failed',
+          );
+        } catch (_) {
+          // Preserve the sender failure as the actionable error.
+        }
+        _activeStreamId = null;
+        rethrow;
+      }
       recording = true;
+      if (!_ownsInputTrack) {
+        await finishInput(error: 'interrupted');
+        return;
+      }
       if (_finishPending) {
         _finishPending = false;
         await finishInput();
       }
     } catch (error) {
-      _inputTrack?.enabled = false;
+      try {
+        await _deactivateInputSending();
+      } catch (_) {
+        // Preserve the original sender or signaling error.
+      }
       _activeStreamId = null;
       _finishPending = false;
       _handleError(error, changeState: false);
@@ -201,20 +281,44 @@ class WorkspaceChatController extends ChangeNotifier {
     }
   }
 
-  Future<void> finishInput({String? error}) async {
+  Future<void> finishInput({String? error}) {
     if (startingInput && !recording) {
       _finishPending = true;
-      return;
+      return Future.value();
     }
+    final active = _finishInputInFlight;
+    if (active != null) return active;
     final session = _session;
     final streamId = _activeStreamId;
-    if (session == null || streamId == null || !recording) return;
+    if (session == null || streamId == null || !recording) {
+      return Future.value();
+    }
+    late final Future<void> finish;
+    finish = _finishInput(session, streamId, error).whenComplete(() {
+      if (identical(_finishInputInFlight, finish)) {
+        _finishInputInFlight = null;
+      }
+    });
+    return _finishInputInFlight = finish;
+  }
+
+  Future<void> _finishInput(
+    WorkspaceEventSession session,
+    String streamId,
+    String? error,
+  ) async {
+    var eosError = error;
     try {
-      await session.endAudio(streamId, error: error);
+      try {
+        await _deactivateInputSending();
+      } catch (senderError) {
+        lastError = senderError;
+        eosError ??= 'microphone_sender_disable_failed';
+      }
+      await session.endAudio(streamId, error: eosError);
     } catch (sendError) {
       _handleError(sendError, changeState: false);
     } finally {
-      _inputTrack?.enabled = false;
       _activeStreamId = null;
       recording = false;
       notifyListeners();
@@ -227,18 +331,43 @@ class WorkspaceChatController extends ChangeNotifier {
   }
 
   void _startLevelMonitor() {
+    final levels = pcmAudioLevels;
+    if (levels != null && _pcmLevelSubscription == null) {
+      _pcmLevelSubscription = levels.listen(
+        _handlePcmAudioLevels,
+        onError: (_) => _hasPcmAudioLevels = false,
+        onDone: () {
+          _hasPcmAudioLevels = false;
+          _pcmLevelSubscription = null;
+        },
+      );
+    }
     _levelTimer?.cancel();
     _levelTimer = Timer.periodic(
-      const Duration(milliseconds: 90),
+      const Duration(milliseconds: 100),
       (_) => unawaited(_sampleAudioLevels()),
     );
   }
 
   Future<void> _sampleAudioLevels() async {
     final pc = peerConnection;
-    if (_disposed || pc == null) return;
+    if (_disposed || pc == null || _samplingAudioLevels || _hasPcmAudioLevels) {
+      return;
+    }
+    if (!recording && !playingOutput) {
+      final settledInput = _settleLevel(inputLevel, 0);
+      final settledOutput = _settleLevel(outputLevel, 0);
+      if (settledInput != inputLevel || settledOutput != outputLevel) {
+        inputLevel = settledInput;
+        outputLevel = settledOutput;
+        notifyListeners();
+      }
+      return;
+    }
+    _samplingAudioLevels = true;
     try {
       final reports = await pc.getStats();
+      if (_hasPcmAudioLevels) return;
       var input = 0.0;
       var output = 0.0;
       for (final report in reports) {
@@ -272,7 +401,23 @@ class WorkspaceChatController extends ChangeNotifier {
       notifyListeners();
     } catch (_) {
       // Stats are advisory and must not interrupt the conversation.
+    } finally {
+      _samplingAudioLevels = false;
     }
+  }
+
+  void _handlePcmAudioLevels(PcmAudioLevels levels) {
+    if (_disposed) return;
+    _hasPcmAudioLevels = true;
+    final nextInput = recording ? levels.input : 0.0;
+    final nextOutput = levels.output;
+    if ((nextInput - inputLevel).abs() < 0.0001 &&
+        (nextOutput - outputLevel).abs() < 0.0001) {
+      return;
+    }
+    inputLevel = nextInput;
+    outputLevel = nextOutput;
+    notifyListeners();
   }
 
   Future<void> replayHistory(String historyId) async {
@@ -293,59 +438,6 @@ class WorkspaceChatController extends ChangeNotifier {
       replayingHistoryId = null;
       notifyListeners();
     }
-  }
-
-  Future<rtc.MediaStreamTrack> _ensureInputTrack() async {
-    final existing = _inputTrack;
-    if (existing != null) return existing;
-    if (peerConnection == null) {
-      throw StateError('WebRTC connection is unavailable');
-    }
-    final media = await rtc.navigator.mediaDevices.getUserMedia({
-      'audio': {
-        'channelCount': 1,
-        'echoCancellation': true,
-        'noiseSuppression': true,
-      },
-      'video': false,
-    });
-    final tracks = media.getAudioTracks();
-    if (tracks.isEmpty) {
-      for (final track in media.getTracks()) {
-        track.stop();
-      }
-      throw StateError('Microphone capture returned no audio track');
-    }
-    final track = tracks.first;
-    _inputStream = media;
-    _inputTrack = track;
-    return track;
-  }
-
-  Future<void> _bindInputTrack(rtc.MediaStreamTrack track) async {
-    final pc = peerConnection;
-    final stream = _inputStream;
-    if (pc == null || stream == null) {
-      throw StateError('WebRTC microphone stream is unavailable');
-    }
-    rtc.RTCRtpTransceiver? audioTransceiver;
-    for (final transceiver in await pc.getTransceivers()) {
-      if (transceiver.sender.track?.kind == 'audio' ||
-          transceiver.receiver.track?.kind == 'audio') {
-        audioTransceiver = transceiver;
-        break;
-      }
-    }
-    if (audioTransceiver == null) {
-      throw StateError('WebRTC audio transceiver is unavailable');
-    }
-    await audioTransceiver.sender.replaceTrack(track);
-    if (!_inputSenderConfigured) {
-      await audioTransceiver.sender.setStreams([stream]);
-      _inputSenderConfigured = true;
-    }
-    await rtc.Helper.ensureAudioSession();
-    await rtc.Helper.setSpeakerphoneOnButPreferBluetooth();
   }
 
   void _handleEvent(PeerStreamEvent event) {
@@ -498,8 +590,13 @@ class WorkspaceChatController extends ChangeNotifier {
     );
   }
 
+  Future<void> _deactivateInputSending() async {
+    if (!_ownsInputTrack) return;
+    await setInputSending?.call(false);
+  }
+
   void _resetRecording() {
-    _inputTrack?.enabled = false;
+    unawaited(_deactivateInputSending().catchError((_) {}));
     _activeStreamId = null;
     recording = false;
     startingInput = false;
@@ -521,18 +618,14 @@ class WorkspaceChatController extends ChangeNotifier {
 
   Future<void> _close() async {
     _disposed = true;
+    await releaseInputTrack();
     _historyRefreshTimer?.cancel();
     _historyRefreshTimer = null;
     _levelTimer?.cancel();
     _levelTimer = null;
+    final pcmLevelSubscription = _pcmLevelSubscription;
+    _pcmLevelSubscription = null;
     _resetRecording();
-    _inputTrack?.stop();
-    _inputTrack = null;
-    for (final track
-        in _inputStream?.getTracks() ?? const <rtc.MediaStreamTrack>[]) {
-      track.stop();
-    }
-    _inputStream = null;
 
     final historySubscription = _historySubscription;
     _historySubscription = null;
@@ -543,6 +636,7 @@ class WorkspaceChatController extends ChangeNotifier {
     await Future.wait([
       if (historySubscription != null) historySubscription.cancel(),
       if (eventSubscription != null) eventSubscription.cancel(),
+      if (pcmLevelSubscription != null) pcmLevelSubscription.cancel(),
       if (session != null) session.close(),
     ]);
   }
@@ -607,7 +701,7 @@ class _AudioEnergySample {
 }
 
 double _smoothLevel(double current, double target) {
-  final factor = target > current ? 0.5 : 0.16;
+  final factor = target > current ? 0.86 : 0.72;
   return current + (target - current) * factor;
 }
 

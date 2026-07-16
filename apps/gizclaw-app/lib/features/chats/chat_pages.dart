@@ -527,10 +527,54 @@ class WorkspaceChatPage extends StatefulWidget {
   State<WorkspaceChatPage> createState() => _WorkspaceChatPageState();
 }
 
+typedef _WorkspaceMessageSnapshot = ({
+  int count,
+  String? lastId,
+  String? lastText,
+  WorkspaceMessageState? lastState,
+});
+
+typedef _WorkspaceChatViewSnapshot = ({
+  WorkspaceChatState? state,
+  bool recording,
+  Object? error,
+  String? replayingHistoryId,
+  _WorkspaceMessageSnapshot messages,
+});
+
+_WorkspaceMessageSnapshot _workspaceMessageSnapshot(
+  WorkspaceChatController? chat,
+) {
+  final messages = chat?.messages ?? const <WorkspaceChatMessage>[];
+  final last = messages.isEmpty ? null : messages.last;
+  return (
+    count: messages.length,
+    lastId: last?.id,
+    lastText: last?.text,
+    lastState: last?.state,
+  );
+}
+
+_WorkspaceChatViewSnapshot _workspaceChatViewSnapshot(
+  WorkspaceChatController? chat,
+) => (
+  state: chat?.state,
+  recording: chat?.recording ?? false,
+  error: chat?.lastError,
+  replayingHistoryId: chat?.replayingHistoryId,
+  messages: _workspaceMessageSnapshot(chat),
+);
+
 class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
+  static const _bottomFollowThreshold = 48.0;
+
   final _scrollController = ScrollController();
   WorkspaceChatController? _chat;
+  _WorkspaceChatViewSnapshot? _chatViewSnapshot;
   bool _ownsChat = false;
+  bool _autoScrollScheduled = false;
+  bool _stickToBottom = true;
+  bool _userScrolling = false;
   int _chatRequest = 0;
 
   @override
@@ -558,7 +602,12 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
     _bindChat(viewer, ownsChat: true, notify: true);
     await viewer.start(conversation: false);
     if (!mounted || request != _chatRequest) return;
+    final previousMessages = _chatViewSnapshot?.messages;
+    _chatViewSnapshot = _workspaceChatViewSnapshot(viewer);
     setState(() {});
+    if (previousMessages != _chatViewSnapshot?.messages) {
+      _scheduleBottomFollow();
+    }
   }
 
   void _bindChat(
@@ -571,23 +620,58 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
     if (_ownsChat) _chat?.dispose();
     _chat = chat;
     _ownsChat = ownsChat;
+    _chatViewSnapshot = _workspaceChatViewSnapshot(chat);
+    _stickToBottom = true;
+    _userScrolling = false;
     chat.addListener(_handleChatChanged);
     if (notify && mounted) setState(() {});
   }
 
   void _handleChatChanged() {
     if (!mounted) return;
+    final next = _workspaceChatViewSnapshot(_chat);
+    final messagesChanged = next.messages != _chatViewSnapshot?.messages;
+    if (next == _chatViewSnapshot) return;
+    _chatViewSnapshot = next;
     setState(() {});
+    if (messagesChanged) _scheduleBottomFollow();
+  }
+
+  void _scheduleBottomFollow() {
+    if (_autoScrollScheduled || _userScrolling || !_stickToBottom) return;
+    _autoScrollScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.minScrollExtent,
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-        );
+      _autoScrollScheduled = false;
+      if (!mounted ||
+          _userScrolling ||
+          !_stickToBottom ||
+          !_scrollController.hasClients) {
+        return;
       }
+      _scrollController.jumpTo(_scrollController.position.minScrollExtent);
     });
   }
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (notification.depth != 0) return false;
+    final userDriven = switch (notification) {
+      ScrollStartNotification(:final dragDetails) => dragDetails != null,
+      ScrollUpdateNotification(:final dragDetails) => dragDetails != null,
+      OverscrollNotification(:final dragDetails) => dragDetails != null,
+      _ => false,
+    };
+    if (userDriven) {
+      _userScrolling = true;
+      _stickToBottom = _isNearBottom(notification.metrics);
+    } else if (notification is ScrollEndNotification) {
+      _userScrolling = false;
+      _stickToBottom = _isNearBottom(notification.metrics);
+    }
+    return false;
+  }
+
+  bool _isNearBottom(ScrollMetrics metrics) =>
+      metrics.pixels <= metrics.minScrollExtent + _bottomFollowThreshold;
 
   @override
   void dispose() {
@@ -622,14 +706,17 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
           recording: chat?.recording ?? false,
           accent: accent,
           signal: signal,
-          child: _WorkspaceMessageList(
-            controller: _scrollController,
-            messages: messages,
-            state: chat?.state ?? WorkspaceChatState.loading,
-            signal: signal,
-            error: chat?.lastError,
-            replayingHistoryId: chat?.replayingHistoryId,
-            onReplay: isActiveWorkspace ? chat?.replayHistory : null,
+          child: NotificationListener<ScrollNotification>(
+            onNotification: _handleScrollNotification,
+            child: _WorkspaceMessageList(
+              controller: _scrollController,
+              messages: messages,
+              state: chat?.state ?? WorkspaceChatState.loading,
+              signal: signal,
+              error: chat?.lastError,
+              replayingHistoryId: chat?.replayingHistoryId,
+              onReplay: isActiveWorkspace ? chat?.replayHistory : null,
+            ),
           ),
         ),
       ),
@@ -1048,6 +1135,7 @@ class _WorkspaceMessageList extends StatelessWidget {
         stops: [0, 0.12, 0.3, 0.48, 0.64, 1],
       ).createShader(bounds),
       child: ListView.separated(
+        key: const ValueKey('workspace-message-list'),
         controller: controller,
         reverse: true,
         padding: EdgeInsets.fromLTRB(

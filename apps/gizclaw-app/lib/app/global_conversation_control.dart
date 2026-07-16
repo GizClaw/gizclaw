@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:gizclaw/gizclaw.dart';
 import 'package:go_router/go_router.dart';
 
+import '../connection/gizclaw_connection_controller.dart';
 import '../data/mobile_data_controller.dart';
 import '../data/workspace_chat_controller.dart';
 import '../giz_ui/giz_ui.dart';
@@ -182,18 +183,15 @@ class _DockCapsule extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(38),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: dark ? const Color(0xE013211C) : const Color(0xEDF5F6F2),
-              borderRadius: BorderRadius.circular(38),
-              border: Border.all(
-                color: dark ? const Color(0x3DFFFFFF) : const Color(0x26FFFFFF),
-              ),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: dark ? const Color(0xF013211C) : const Color(0xFAF5F6F2),
+            borderRadius: BorderRadius.circular(38),
+            border: Border.all(
+              color: dark ? const Color(0x3DFFFFFF) : const Color(0x26FFFFFF),
             ),
-            child: child,
           ),
+          child: child,
         ),
       ),
     );
@@ -207,21 +205,38 @@ class _GlobalAudioField extends StatefulWidget {
   State<_GlobalAudioField> createState() => _GlobalAudioFieldState();
 }
 
+typedef _AudioFieldSnapshot = ({
+  bool startingInput,
+  bool recording,
+  bool playingOutput,
+  double inputLevel,
+  double outputLevel,
+});
+
+_AudioFieldSnapshot _audioFieldSnapshot(WorkspaceChatController? chat) => (
+  startingInput: chat?.startingInput ?? false,
+  recording: chat?.recording ?? false,
+  playingOutput: chat?.playingOutput ?? false,
+  inputLevel: chat?.inputLevel ?? 0,
+  outputLevel: chat?.outputLevel ?? 0,
+);
+
 class _GlobalAudioFieldState extends State<_GlobalAudioField>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   WorkspaceChatController? _chat;
-  late final AnimationController _phase = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 4200),
-  );
-  late final AnimationController _presence =
-      AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: 260),
-        reverseDuration: const Duration(milliseconds: 760),
-      )..addStatusListener((status) {
-        if (status == AnimationStatus.dismissed) _phase.stop();
-      });
+  _AudioFieldSnapshot? _snapshot;
+  late final Ticker _levelTicker;
+  Duration _lastTick = Duration.zero;
+  double _animatedInputLevel = 0;
+  double _animatedOutputLevel = 0;
+  double _targetInputLevel = 0;
+  double _targetOutputLevel = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _levelTicker = createTicker(_animateAudioLevels);
+  }
 
   @override
   void didChangeDependencies() {
@@ -230,220 +245,162 @@ class _GlobalAudioFieldState extends State<_GlobalAudioField>
     if (identical(chat, _chat)) return;
     _chat?.removeListener(_handleChatChanged);
     _chat = chat;
+    _snapshot = _audioFieldSnapshot(chat);
+    _updateAudioTargets(_snapshot!);
     chat?.addListener(_handleChatChanged);
-    _syncAnimation();
   }
 
   void _handleChatChanged() {
-    _syncAnimation();
-    if (mounted) setState(() {});
+    final next = _audioFieldSnapshot(_chat);
+    if (next == _snapshot) return;
+    _snapshot = next;
+    _updateAudioTargets(next);
   }
 
-  void _syncAnimation() {
-    final chat = _chat;
-    final energized =
-        (chat?.startingInput ?? false) ||
-        (chat?.recording ?? false) ||
-        (chat?.playingOutput ?? false) ||
-        (chat?.inputLevel ?? 0) > 0.01 ||
-        (chat?.outputLevel ?? 0) > 0.01;
-    if (energized) {
-      if (!_phase.isAnimating) _phase.repeat();
-      _presence.forward();
-    } else {
-      _presence.reverse();
+  void _updateAudioTargets(_AudioFieldSnapshot snapshot) {
+    _targetInputLevel = snapshot.inputLevel;
+    _targetOutputLevel = snapshot.outputLevel;
+    if (!_levelTicker.isActive) {
+      _lastTick = Duration.zero;
+      _levelTicker.start();
+    }
+  }
+
+  void _animateAudioLevels(Duration elapsed) {
+    if (!mounted) return;
+    final delta = _lastTick == Duration.zero
+        ? 1 / 60
+        : ((elapsed - _lastTick).inMicroseconds /
+                  Duration.microsecondsPerSecond)
+              .clamp(0.0, 0.05);
+    _lastTick = elapsed;
+    final nextInput = _followAudioTarget(
+      _animatedInputLevel,
+      _targetInputLevel,
+      delta,
+    );
+    final nextOutput = _followAudioTarget(
+      _animatedOutputLevel,
+      _targetOutputLevel,
+      delta,
+    );
+    final settled =
+        (nextInput - _targetInputLevel).abs() < 0.0002 &&
+        (nextOutput - _targetOutputLevel).abs() < 0.0002;
+    setState(() {
+      _animatedInputLevel = settled ? _targetInputLevel : nextInput;
+      _animatedOutputLevel = settled ? _targetOutputLevel : nextOutput;
+    });
+    if (settled) {
+      _levelTicker.stop();
+      _lastTick = Duration.zero;
     }
   }
 
   @override
   void dispose() {
     _chat?.removeListener(_handleChatChanged);
-    _phase.dispose();
-    _presence.dispose();
+    _levelTicker.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
-    return AnimatedBuilder(
-      animation: Listenable.merge([_phase, _presence]),
-      builder: (context, child) {
-        final chat = _chat;
-        return RepaintBoundary(
-          key: const ValueKey('global-audio-field'),
-          child: CustomPaint(
-            painter: _AudioFieldPainter(
-              dark: dark,
-              phase: _phase.value,
-              presence: Curves.easeInOutCubic.transform(_presence.value),
-              inputLevel: chat?.inputLevel ?? 0,
-              outputLevel: chat?.outputLevel ?? 0,
-              inputActive:
-                  (chat?.startingInput ?? false) || (chat?.recording ?? false),
-              outputActive: chat?.playingOutput ?? false,
+    final snapshot = _snapshot ?? _audioFieldSnapshot(_chat);
+    final inputActive = snapshot.startingInput || snapshot.recording;
+    final inputSignal = _responsiveAudioLevel(_animatedInputLevel);
+    final outputSignal = _responsiveAudioLevel(_animatedOutputLevel);
+    final input = math.max(inputSignal, inputActive ? 0.06 : 0.0);
+    final output = math.max(outputSignal, snapshot.playingOutput ? 0.08 : 0.0);
+    final overall = math.max(input, output);
+    final signal = math.max(inputSignal, outputSignal).clamp(0.0, 1.0);
+    final response = math.pow(signal, 0.62).toDouble();
+    final energized = inputActive || snapshot.playingOutput || overall > 0.01;
+    final outputMix = (output / (input + output + 0.01)).clamp(0.0, 1.0);
+    final inputColor = Color.lerp(GizColors.accent, GizColors.success, 0.22)!;
+    final outputColor = Color.lerp(
+      GizColors.primaryHighlight,
+      GizColors.primaryShadow,
+      0.18,
+    )!;
+    final blend = Color.lerp(inputColor, outputColor, outputMix)!;
+    final bottomAlpha = dark ? 0.68 : 0.62;
+    final fieldWidth = MediaQuery.sizeOf(context).width;
+    final dockTop =
+        MediaQuery.paddingOf(context).bottom +
+        GlobalConversationOverlay.dockBottomSpacing +
+        GlobalConversationOverlay.dockHeight;
+    final visibleGlowHeight = dockTop + 16;
+    final glowScale = 0.88 + response * 0.22;
+
+    return RepaintBoundary(
+      key: const ValueKey('global-audio-field'),
+      child: AnimatedOpacity(
+        opacity: energized ? 1 : 0,
+        duration: energized
+            ? const Duration(milliseconds: 80)
+            : const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              width: fieldWidth,
+              height: fieldWidth,
+              left: 0,
+              bottom: visibleGlowHeight - fieldWidth,
+              child: Transform.scale(
+                key: const ValueKey('global-audio-field-scale'),
+                scale: glowScale,
+                alignment: Alignment.center,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: blend.withValues(alpha: dark ? 0.28 : 0.24),
+                        blurRadius: 42,
+                        spreadRadius: 12,
+                      ),
+                    ],
+                    gradient: RadialGradient(
+                      radius: 0.5,
+                      colors: [
+                        blend.withValues(alpha: bottomAlpha),
+                        blend.withValues(alpha: bottomAlpha * 0.86),
+                        blend.withValues(alpha: bottomAlpha * 0.62),
+                        blend.withValues(alpha: bottomAlpha * 0.36),
+                        blend.withValues(alpha: bottomAlpha * 0.14),
+                        blend.withValues(alpha: 0),
+                      ],
+                      stops: const [0, 0.28, 0.52, 0.72, 0.88, 1],
+                    ),
+                  ),
+                ),
+              ),
             ),
-            size: Size.infinite,
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 }
 
-class _AudioFieldPainter extends CustomPainter {
-  const _AudioFieldPainter({
-    required this.dark,
-    required this.phase,
-    required this.presence,
-    required this.inputLevel,
-    required this.outputLevel,
-    required this.inputActive,
-    required this.outputActive,
-  });
-
-  final bool dark;
-  final double phase;
-  final double presence;
-  final double inputLevel;
-  final double outputLevel;
-  final bool inputActive;
-  final bool outputActive;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (presence <= 0.001 || size.isEmpty) return;
-    final sampledInput = _responsiveAudioLevel(inputLevel);
-    final sampledOutput = _responsiveAudioLevel(outputLevel);
-    final input = math.max(sampledInput, inputActive ? 0.035 : 0.0);
-    final output = math.max(sampledOutput, outputActive ? 0.045 : 0.0);
-    final overall = math.max(input, output);
-    final angle = phase * math.pi * 2;
-    const inputColor = GizColors.accent;
-    const outputColor = GizColors.lavender;
-    final blend = Color.lerp(
-      inputColor,
-      outputColor,
-      output / (input + output + 0.01),
-    )!;
-
-    canvas.drawRect(
-      Offset.zero & size,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            const Color(0x00000000),
-            blend.withValues(
-              alpha: presence * (dark ? 0.025 : 0.018) * (0.4 + overall),
-            ),
-            blend.withValues(
-              alpha: presence * (dark ? 0.2 : 0.15) * (0.55 + overall * 0.45),
-            ),
-          ],
-          stops: const [0, 0.42, 1],
-        ).createShader(Offset.zero & size),
-    );
-
-    if (output > 0.001) {
-      _paintFlameLayer(
-        canvas,
-        size,
-        color: outputColor,
-        level: output,
-        overall: overall,
-        phase: angle * 0.86 + 1.7,
-        frequency: 4.3,
-      );
-    }
-    if (input > 0.001) {
-      _paintFlameLayer(
-        canvas,
-        size,
-        color: inputColor,
-        level: input,
-        overall: overall,
-        phase: -angle * 1.08,
-        frequency: 5.1,
-      );
-    }
-  }
-
-  void _paintFlameLayer(
-    Canvas canvas,
-    Size size, {
-    required Color color,
-    required double level,
-    required double overall,
-    required double phase,
-    required double frequency,
-  }) {
-    final flameHeight = size.height * (0.12 + level * 0.62 + overall * 0.14);
-    final path = Path()..moveTo(0, size.height);
-    const segments = 52;
-    for (var index = 0; index <= segments; index++) {
-      final progress = index / segments;
-      final tongue = math.pow(
-        (math.sin(progress * math.pi * frequency + phase) + 1) / 2,
-        2.6,
-      );
-      final detail = math.pow(
-        (math.sin(progress * math.pi * (frequency * 1.83) - phase * 0.71) + 1) /
-            2,
-        3.2,
-      );
-      final drift =
-          (math.sin(progress * math.pi * 2.2 + phase * 0.37) + 1) * 0.08;
-      final edgeFade = math.pow(
-        math.sin(progress * math.pi).clamp(0.0, 1.0),
-        0.38,
-      );
-      final profile = 0.18 + tongue * 0.54 + detail * 0.2 + drift;
-      final y = size.height - flameHeight * profile * edgeFade;
-      path.lineTo(progress * size.width, y);
-    }
-    path
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
-      ..close();
-    final bounds = path.getBounds();
-    canvas.drawPath(
-      path,
-      Paint()
-        ..blendMode = dark ? BlendMode.screen : BlendMode.srcOver
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            color.withValues(alpha: presence * (dark ? 0.025 : 0.018)),
-            color.withValues(alpha: presence * (dark ? 0.13 : 0.095)),
-            color.withValues(alpha: presence * (dark ? 0.32 : 0.24)),
-          ],
-          stops: const [0, 0.5, 1],
-        ).createShader(bounds),
-    );
-  }
-
-  @override
-  bool shouldRepaint(_AudioFieldPainter oldDelegate) =>
-      oldDelegate.dark != dark ||
-      oldDelegate.phase != phase ||
-      oldDelegate.presence != presence ||
-      oldDelegate.inputLevel != inputLevel ||
-      oldDelegate.outputLevel != outputLevel ||
-      oldDelegate.inputActive != inputActive ||
-      oldDelegate.outputActive != outputActive;
+double _followAudioTarget(double current, double target, double deltaSeconds) {
+  final timeConstant = target > current ? 0.036 : 0.11;
+  final amount = 1 - math.exp(-deltaSeconds / timeConstant);
+  return current + (target - current) * amount;
 }
 
 double _responsiveAudioLevel(double level) {
-  const noiseFloor = 0.008;
-  const fullScale = 0.22;
+  const noiseFloor = 0.012;
+  const fullScale = 0.1;
   final normalized = ((level - noiseFloor) / (fullScale - noiseFloor)).clamp(
     0.0,
     1.0,
   );
-  return math.pow(normalized, 0.82).toDouble();
+  return math.pow(normalized, 0.7).toDouble();
 }
 
 class _PrimaryDockNavigation extends StatefulWidget {
@@ -1017,8 +974,27 @@ class GlobalConversationControl extends StatefulWidget {
       _GlobalConversationControlState();
 }
 
+typedef _ConversationControlSnapshot = ({
+  WorkspaceChatState? state,
+  bool canRecord,
+  bool recording,
+  bool startingInput,
+  bool playingOutput,
+});
+
+_ConversationControlSnapshot _conversationControlSnapshot(
+  WorkspaceChatController? chat,
+) => (
+  state: chat?.state,
+  canRecord: chat?.canRecord ?? false,
+  recording: chat?.recording ?? false,
+  startingInput: chat?.startingInput ?? false,
+  playingOutput: chat?.playingOutput ?? false,
+);
+
 class _GlobalConversationControlState extends State<GlobalConversationControl> {
   WorkspaceChatController? _observedChat;
+  _ConversationControlSnapshot? _chatSnapshot;
   bool _switchingMode = false;
 
   @override
@@ -1028,10 +1004,14 @@ class _GlobalConversationControlState extends State<GlobalConversationControl> {
     if (identical(chat, _observedChat)) return;
     _observedChat?.removeListener(_handleChatChanged);
     _observedChat = chat;
+    _chatSnapshot = _conversationControlSnapshot(chat);
     chat?.addListener(_handleChatChanged);
   }
 
   void _handleChatChanged() {
+    final next = _conversationControlSnapshot(_observedChat);
+    if (next == _chatSnapshot) return;
+    _chatSnapshot = next;
     if (mounted) setState(() {});
   }
 
@@ -1050,22 +1030,45 @@ class _GlobalConversationControlState extends State<GlobalConversationControl> {
         ? null
         : data.workspace(workspaceName);
     final mode = _effectiveMode(data.activeInputMode);
-    final enabled = chat?.canRecord ?? false;
+    final microphoneUnavailable =
+        data.connectionState == MobileConnectionState.connected &&
+        data.microphoneStatus.availability ==
+            MicrophoneAvailability.unavailable;
+    final microphoneRecovering =
+        data.connectionState == MobileConnectionState.connected &&
+        data.microphoneStatus.availability == MicrophoneAvailability.recovering;
+    final microphoneBlocked = microphoneUnavailable || microphoneRecovering;
+    final enabled = (chat?.canRecord ?? false) && !microphoneBlocked;
+    final inputActive = chat?.recording == true || chat?.startingInput == true;
     final title = workspace?.title ?? 'No active workspace';
-    final status = _statusLabel(data, chat, mode);
+    final status = _statusLabel(context, data, chat, mode);
     final control = _VoiceModeToggle(
       enabled: enabled,
+      microphoneUnavailable: microphoneUnavailable,
+      microphoneRecovering: microphoneRecovering,
+      microphoneUnavailableSemantics:
+          data.microphoneStatus.failureKind ==
+              MicrophoneFailureKind.permissionDenied
+          ? context.l10n.microphonePermissionRetrySemantics
+          : context.l10n.microphoneCaptureRetrySemantics,
       mode: mode,
       switchingMode: _switchingMode,
       recording: chat?.recording ?? false,
       preparing: chat?.startingInput ?? false,
       playingOutput: chat?.playingOutput ?? false,
-      onSelectMode: workspaceName == null
+      onSelectMode: workspaceName == null || microphoneBlocked
           ? null
           : (target) => _setMode(data, target),
       onPttStart: enabled ? () => _startInput(chat!) : null,
-      onPttEnd: enabled ? () => unawaited(chat!.finishInput()) : null,
-      onRealtimeTap: enabled ? () => _toggleRealtime(chat!) : null,
+      onPttEnd: chat != null && (enabled || inputActive)
+          ? () => unawaited(chat.finishInput())
+          : null,
+      onRealtimeTap: chat != null && (enabled || chat.recording)
+          ? () => _toggleRealtime(chat)
+          : null,
+      onUnavailableTap: microphoneUnavailable && !inputActive
+          ? () => _recoverMicrophone(data)
+          : null,
     );
 
     if (widget.compact) {
@@ -1098,18 +1101,76 @@ class _GlobalConversationControlState extends State<GlobalConversationControl> {
   }
 
   Future<void> _startInput(WorkspaceChatController chat) async {
-    unawaited(HapticFeedback.mediumImpact());
     await chat.startInput();
   }
 
   Future<void> _toggleRealtime(WorkspaceChatController chat) async {
     if (chat.startingInput) return;
-    unawaited(HapticFeedback.mediumImpact());
     if (chat.recording) {
       await chat.finishInput();
     } else {
       await chat.startInput();
     }
+  }
+
+  Future<void> _recoverMicrophone(MobileDataController data) async {
+    unawaited(HapticFeedback.mediumImpact());
+    try {
+      await data.recoverMicrophone();
+    } catch (_) {
+      if (!mounted) return;
+      await _showMicrophoneError(data, data.microphoneStatus.failureKind);
+      return;
+    }
+    if (mounted &&
+        data.microphoneStatus.availability ==
+            MicrophoneAvailability.unavailable) {
+      await _showMicrophoneError(data, data.microphoneStatus.failureKind);
+    }
+  }
+
+  Future<void> _showMicrophoneError(
+    MobileDataController data,
+    MicrophoneFailureKind? failureKind,
+  ) {
+    final permissionDenied =
+        failureKind == MicrophoneFailureKind.permissionDenied;
+    return showCupertinoDialog<void>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: Text(
+          permissionDenied
+              ? context.l10n.microphonePermissionDeniedTitle
+              : context.l10n.microphoneUnavailableTitle,
+        ),
+        content: Text(
+          permissionDenied
+              ? context.l10n.microphonePermissionDeniedMessage
+              : context.l10n.microphoneUnavailableMessage,
+        ),
+        actions: permissionDenied
+            ? [
+                CupertinoDialogAction(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(context.l10n.commonOk),
+                ),
+              ]
+            : [
+                CupertinoDialogAction(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(context.l10n.commonCancel),
+                ),
+                CupertinoDialogAction(
+                  isDefaultAction: true,
+                  onPressed: () {
+                    Navigator.pop(context);
+                    unawaited(_recoverMicrophone(data));
+                  },
+                  child: Text(context.l10n.commonRetry),
+                ),
+              ],
+      ),
+    );
   }
 
   Future<void> _setMode(
@@ -1151,6 +1212,9 @@ class _GlobalConversationControlState extends State<GlobalConversationControl> {
 class _VoiceModeToggle extends StatefulWidget {
   const _VoiceModeToggle({
     required this.enabled,
+    required this.microphoneUnavailable,
+    required this.microphoneRecovering,
+    required this.microphoneUnavailableSemantics,
     required this.mode,
     required this.switchingMode,
     required this.recording,
@@ -1160,9 +1224,13 @@ class _VoiceModeToggle extends StatefulWidget {
     required this.onPttStart,
     required this.onPttEnd,
     required this.onRealtimeTap,
+    required this.onUnavailableTap,
   });
 
   final bool enabled;
+  final bool microphoneUnavailable;
+  final bool microphoneRecovering;
+  final String microphoneUnavailableSemantics;
   final WorkspaceInputMode mode;
   final bool switchingMode;
   final bool recording;
@@ -1172,6 +1240,7 @@ class _VoiceModeToggle extends StatefulWidget {
   final VoidCallback? onPttStart;
   final VoidCallback? onPttEnd;
   final VoidCallback? onRealtimeTap;
+  final VoidCallback? onUnavailableTap;
 
   @override
   State<_VoiceModeToggle> createState() => _VoiceModeToggleState();
@@ -1187,7 +1256,13 @@ class _VoiceModeToggleState extends State<_VoiceModeToggle> {
   bool _startedInRealtime = false;
 
   void _handlePointerDown(PointerDownEvent event) {
-    if (_pointer != null || widget.switchingMode) return;
+    if (_pointer != null ||
+        widget.switchingMode ||
+        ((widget.microphoneUnavailable || widget.microphoneRecovering) &&
+            !widget.recording &&
+            !widget.preparing)) {
+      return;
+    }
     _pointer = event.pointer;
     _pointerOrigin = event.position;
     _dragged = false;
@@ -1269,17 +1344,23 @@ class _VoiceModeToggleState extends State<_VoiceModeToggle> {
     final realtimeAccent = dark ? const Color(0xFFC1B4DC) : GizColors.lavender;
     final thumb = _VoiceModeThumb(
       enabled: widget.enabled,
+      microphoneUnavailable: widget.microphoneUnavailable,
+      microphoneRecovering: widget.microphoneRecovering,
       realtime: realtime,
       engaged: engaged,
       playingOutput: widget.playingOutput,
     );
-    final interactiveThumb = Listener(
+    final interactiveThumb = GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onPointerDown: _handlePointerDown,
-      onPointerMove: _handlePointerMove,
-      onPointerUp: _handlePointerUp,
-      onPointerCancel: _handlePointerCancel,
-      child: thumb,
+      onTap: widget.onUnavailableTap,
+      child: Listener(
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: _handlePointerDown,
+        onPointerMove: _handlePointerMove,
+        onPointerUp: _handlePointerUp,
+        onPointerCancel: _handlePointerCancel,
+        child: thumb,
+      ),
     );
 
     return SizedBox(
@@ -1297,7 +1378,11 @@ class _VoiceModeToggleState extends State<_VoiceModeToggle> {
                   icon: GizIcons.mic_fill,
                   color: pttAccent.withValues(alpha: realtime ? 0.48 : 0.72),
                   loading: widget.switchingMode && realtime,
-                  onPressed: !realtime || widget.switchingMode
+                  onPressed:
+                      !realtime ||
+                          widget.switchingMode ||
+                          widget.microphoneUnavailable ||
+                          widget.microphoneRecovering
                       ? null
                       : () => widget.onSelectMode?.call(
                           WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
@@ -1313,7 +1398,11 @@ class _VoiceModeToggleState extends State<_VoiceModeToggle> {
                     alpha: realtime ? 0.72 : 0.48,
                   ),
                   loading: widget.switchingMode && !realtime,
-                  onPressed: realtime || widget.switchingMode
+                  onPressed:
+                      realtime ||
+                          widget.switchingMode ||
+                          widget.microphoneUnavailable ||
+                          widget.microphoneRecovering
                       ? null
                       : () => widget.onSelectMode?.call(
                           WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME,
@@ -1331,12 +1420,16 @@ class _VoiceModeToggleState extends State<_VoiceModeToggle> {
             width: 58,
             height: 58,
             child: Semantics(
-              label: realtime
+              label: widget.microphoneUnavailable
+                  ? widget.microphoneUnavailableSemantics
+                  : widget.microphoneRecovering
+                  ? context.l10n.microphoneRecovering
+                  : realtime
                   ? widget.recording
-                        ? 'End realtime call'
-                        : 'Start realtime call'
-                  : 'Hold to talk',
-              button: true,
+                        ? context.l10n.voiceEndRealtimeSemantics
+                        : context.l10n.voiceStartRealtimeSemantics
+                  : context.l10n.voiceHoldToTalkSemantics,
+              button: !widget.microphoneRecovering,
               child: interactiveThumb,
             ),
           ),
@@ -1383,12 +1476,16 @@ class _VoiceModeTarget extends StatelessWidget {
 class _VoiceModeThumb extends StatelessWidget {
   const _VoiceModeThumb({
     required this.enabled,
+    required this.microphoneUnavailable,
+    required this.microphoneRecovering,
     required this.realtime,
     required this.engaged,
     required this.playingOutput,
   });
 
   final bool enabled;
+  final bool microphoneUnavailable;
+  final bool microphoneRecovering;
   final bool realtime;
   final bool engaged;
   final bool playingOutput;
@@ -1406,10 +1503,10 @@ class _VoiceModeThumb extends StatelessWidget {
         curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [GizColors.primaryHighlight, GizColors.primaryShadow],
+            colors: widgetColors,
           ),
           border: Border.all(
             color: dark ? const Color(0x5CFFFFFF) : const Color(0x52FFFFFF),
@@ -1430,18 +1527,27 @@ class _VoiceModeThumb extends StatelessWidget {
             scale: animation,
             child: FadeTransition(opacity: animation, child: child),
           ),
-          child: Icon(
-            realtime ? GizIcons.phone_fill : GizIcons.mic_fill,
-            key: ValueKey(realtime),
-            size: realtime ? 22 : 21,
-            color: enabled
-                ? const Color(0xFFF7F8F7)
-                : CupertinoColors.white.withValues(alpha: 0.46),
-          ),
+          child: microphoneRecovering
+              ? const CupertinoActivityIndicator(
+                  key: ValueKey('microphone-recovering'),
+                  color: CupertinoColors.white,
+                )
+              : Icon(
+                  realtime ? GizIcons.phone_fill : GizIcons.mic_fill,
+                  key: ValueKey(realtime),
+                  size: realtime ? 22 : 21,
+                  color: enabled || microphoneUnavailable
+                      ? const Color(0xFFF7F8F7)
+                      : CupertinoColors.white.withValues(alpha: 0.46),
+                ),
         ),
       ),
     );
   }
+
+  List<Color> get widgetColors => microphoneUnavailable
+      ? const [CupertinoColors.systemRed, CupertinoColors.systemRed]
+      : const [GizColors.primaryHighlight, GizColors.primaryShadow];
 }
 
 WorkspaceInputMode _effectiveMode(WorkspaceInputMode mode) =>
@@ -1450,21 +1556,34 @@ WorkspaceInputMode _effectiveMode(WorkspaceInputMode mode) =>
     : WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK;
 
 String _statusLabel(
+  BuildContext context,
   MobileDataController data,
   WorkspaceChatController? chat,
   WorkspaceInputMode mode,
 ) {
   if (data.connectionState == MobileConnectionState.connecting) {
-    return 'CONNECTING';
+    return context.l10n.conversationStatusConnecting;
   }
-  if (chat == null) return 'NO ACTIVE CONVERSATION';
+  if (data.connectionState == MobileConnectionState.connected &&
+      data.microphoneStatus.availability == MicrophoneAvailability.recovering) {
+    return context.l10n.microphoneRecovering;
+  }
+  if (data.connectionState == MobileConnectionState.connected &&
+      data.microphoneStatus.availability ==
+          MicrophoneAvailability.unavailable) {
+    return data.microphoneStatus.failureKind ==
+            MicrophoneFailureKind.permissionDenied
+        ? context.l10n.microphonePermissionRequiredStatus
+        : context.l10n.microphoneUnavailableStatus;
+  }
+  if (chat == null) return context.l10n.conversationStatusNoActive;
   if (chat.recording) {
     return mode == WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME
-        ? 'REALTIME LIVE'
-        : 'LISTENING';
+        ? context.l10n.conversationStatusRealtimeLive
+        : context.l10n.conversationStatusListening;
   }
-  if (chat.playingOutput) return 'SPEAKING';
+  if (chat.playingOutput) return context.l10n.conversationStatusSpeaking;
   return mode == WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME
-      ? 'REALTIME READY'
-      : 'HOLD TO TALK';
+      ? context.l10n.conversationStatusRealtimeReady
+      : context.l10n.conversationStatusHoldToTalk;
 }

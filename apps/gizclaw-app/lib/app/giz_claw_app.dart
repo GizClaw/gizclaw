@@ -40,6 +40,22 @@ class _GizClawAppState extends State<GizClawApp> with WidgetsBindingObserver {
     _locale.updatePlatformLocales(locales);
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.paused:
+        _data.handleAppPaused();
+        break;
+      case AppLifecycleState.resumed:
+        _data.handleAppResumed();
+        break;
+      case AppLifecycleState.detached:
+      case AppLifecycleState.inactive:
+        break;
+    }
+  }
+
   void _handleLocaleChanged() {
     _data.setEffectiveLocale(_locale.effectiveLocale);
     if (mounted) setState(() {});

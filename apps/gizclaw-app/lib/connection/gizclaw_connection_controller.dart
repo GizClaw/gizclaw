@@ -2,8 +2,60 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:gizclaw/gizclaw.dart';
+
+enum MicrophoneAvailability { ready, recovering, unavailable }
+
+enum MicrophoneFailureKind { permissionDenied, captureUnavailable }
+
+@immutable
+class MicrophoneStatus {
+  const MicrophoneStatus(this.availability, {this.failureKind});
+
+  const MicrophoneStatus.ready()
+    : availability = MicrophoneAvailability.ready,
+      failureKind = null;
+
+  const MicrophoneStatus.recovering()
+    : availability = MicrophoneAvailability.recovering,
+      failureKind = null;
+
+  const MicrophoneStatus.unavailable({this.failureKind})
+    : availability = MicrophoneAvailability.unavailable;
+
+  final MicrophoneAvailability availability;
+  final MicrophoneFailureKind? failureKind;
+
+  @override
+  bool operator ==(Object other) =>
+      other is MicrophoneStatus &&
+      other.availability == availability &&
+      other.failureKind == failureKind;
+
+  @override
+  int get hashCode => Object.hash(availability, failureKind);
+}
+
+typedef AcquireMicrophoneStream = Future<rtc.MediaStream> Function();
+typedef FetchGizClawServerInfo = Future<GiznetServerInfo> Function(Uri baseUri);
+typedef ConnectGizClawWebRtc =
+    Future<rtc.RTCPeerConnection> Function({
+      required rtc.MediaStream? localAudioStream,
+      required GizClawPeerRpcHandlers peerRpcHandlers,
+      required Future<PreparedGiznetWebRtcOffer> Function(String offerSdp)
+      prepareOffer,
+      required SendGiznetWebRtcOffer sendOffer,
+    });
+typedef PublishGizClawClientInfo =
+    Future<void> Function(GizClawClient client, DeviceInfo deviceInfo);
+typedef SetMicrophoneSending = Future<void> Function(bool active);
+typedef ConfigureMicrophoneSending =
+    Future<SetMicrophoneSending> Function(
+      rtc.RTCPeerConnection peerConnection,
+      rtc.MediaStreamTrack microphoneTrack,
+    );
 
 class GizClawConnectionProfile {
   const GizClawConnectionProfile({
@@ -34,28 +86,56 @@ class GizClawConnectionProfile {
   }
 }
 
-class GizClawConnectionController {
+class GizClawConnectionController extends ChangeNotifier {
   GizClawConnectionController(
     GizClawConnectionProfile profile, {
+    AcquireMicrophoneStream? acquireMicrophoneStream,
+    ConnectGizClawWebRtc? connectWebRtc,
     DeviceInfo? deviceInfo,
-  }) : _profile = profile,
-       _deviceInfo = deviceInfo ?? DeviceInfo(name: 'GizClaw App');
+    FetchGizClawServerInfo? fetchServerInfo,
+    PublishGizClawClientInfo? publishClientInfo,
+    ConfigureMicrophoneSending? configureMicrophoneSending,
+  }) : _acquireMicrophoneStream =
+           acquireMicrophoneStream ?? _defaultAcquireMicrophoneStream,
+       _configureMicrophoneSending =
+           configureMicrophoneSending ?? _defaultConfigureMicrophoneSending,
+       _connectWebRtc = connectWebRtc ?? _defaultConnectGizClawWebRtc,
+       _deviceInfo = deviceInfo ?? DeviceInfo(name: 'GizClaw App'),
+       _fetchServerInfo = fetchServerInfo ?? _defaultFetchServerInfo,
+       _profile = profile,
+       _publishClientInfo = publishClientInfo ?? _defaultPublishClientInfo;
 
   GizClawConnectionProfile _profile;
+  final AcquireMicrophoneStream _acquireMicrophoneStream;
+  final ConfigureMicrophoneSending _configureMicrophoneSending;
+  final ConnectGizClawWebRtc _connectWebRtc;
   final DeviceInfo _deviceInfo;
+  final FetchGizClawServerInfo _fetchServerInfo;
+  final PublishGizClawClientInfo _publishClientInfo;
 
   rtc.RTCPeerConnection? _peerConnection;
   rtc.RTCPeerConnection? _pendingPeerConnection;
+  rtc.MediaStream? _microphoneStream;
+  rtc.MediaStream? _pendingMicrophoneStream;
+  rtc.MediaStreamTrack? _microphoneTrack;
+  SetMicrophoneSending? _setMicrophoneSending;
   GizClawClient? _client;
   FlutterWebRtcDataChannelFactory? _dataChannelFactory;
   String? _clientPublicKey;
   String? _serverId;
-  int _profileRevision = 0;
+  int _connectionRevision = 0;
+  MicrophoneStatus _microphoneStatus = const MicrophoneStatus.unavailable();
+  Object? _lastMicrophoneError;
+  Future<void>? _closeFuture;
+  bool _disposed = false;
 
   GizClawClient? get client => _client;
   FlutterWebRtcDataChannelFactory? get dataChannelFactory =>
       _dataChannelFactory;
   rtc.RTCPeerConnection? get peerConnection => _peerConnection;
+  rtc.MediaStreamTrack? get microphoneTrack => _microphoneTrack;
+  MicrophoneStatus get microphoneStatus => _microphoneStatus;
+  Object? get lastMicrophoneError => _lastMicrophoneError;
   String? get clientPublicKey => _clientPublicKey ?? _profile.clientPublicKey;
   String? get serverId => _serverId;
   GizClawConnectionProfile get profile => _profile;
@@ -64,20 +144,22 @@ class GizClawConnectionController {
       rtc.RTCPeerConnectionState.RTCPeerConnectionStateConnected;
 
   Future<GizClawClient> connect() async {
+    final closing = _closeFuture;
+    if (closing != null) await closing;
+    if (_disposed) throw StateError('GizClaw connection is disposed');
     if (_client != null && isConnected) return _client!;
+    if (_client != null || _peerConnection != null) {
+      await close();
+    }
     final activeProfile = profile;
-    final profileRevision = _profileRevision;
+    final connectionRevision = _connectionRevision;
     if (!activeProfile.isConfigured) {
       throw StateError('No GizClaw server connection is configured');
     }
 
-    if (_client != null || _peerConnection != null) {
-      await close();
-    }
-
     final baseUri = _baseUri(activeProfile.endpoint);
     final info = await _fetchServerInfo(baseUri);
-    _ensureCurrentProfile(profileRevision, activeProfile);
+    _ensureCurrentProfile(connectionRevision, activeProfile);
     final identity = GiznetSignalingIdentity(
       clientPrivateKey: base58Decode(activeProfile.clientPrivateKey),
       clientPublicKey: activeProfile.clientPublicKey == null
@@ -85,52 +167,133 @@ class GizClawConnectionController {
           : base58Decode(activeProfile.clientPublicKey!),
       serverPublicKey: base58Decode(info.publicKey),
     );
-    if (Platform.isIOS) {
-      await rtc.Helper.setAppleAudioIOMode(
-        rtc.AppleAudioIOMode.localAndRemote,
-        preferSpeakerOutput: true,
+    await _configureAppleAudioSession();
+    _setMicrophoneStatus(const MicrophoneStatus.recovering());
+    rtc.MediaStream? microphoneStream;
+    rtc.MediaStreamTrack? microphoneTrack;
+    try {
+      microphoneStream = await _acquireMicrophoneStream();
+      final audioTracks = microphoneStream.getAudioTracks();
+      if (audioTracks.length != 1) {
+        throw StateError(
+          'Microphone capture returned ${audioTracks.length} audio tracks',
+        );
+      }
+      microphoneTrack = audioTracks.single;
+      microphoneTrack.enabled = false;
+      _pendingMicrophoneStream = microphoneStream;
+    } catch (error) {
+      if (microphoneStream != null) {
+        await _disposeMediaStream(microphoneStream);
+      }
+      microphoneStream = null;
+      microphoneTrack = null;
+      _lastMicrophoneError = error;
+      _setMicrophoneStatus(
+        MicrophoneStatus.unavailable(
+          failureKind: _microphoneFailureKind(error),
+        ),
       );
     }
-    String? preparedClientPublicKey;
-    final peerConnection = await connectFlutterGiznetWebRtc(
-      addAudioTransceiver: true,
-      peerRpcHandlers: GizClawPeerRpcHandlers(deviceInfo: () => _deviceInfo),
-      prepareOffer: (sdp) async {
-        final offer = await prepareEncryptedGiznetWebRtcOffer(identity, sdp);
-        preparedClientPublicKey = offer.clientPublicKey;
-        return offer;
-      },
-      sendOffer: (offer) =>
-          _sendOffer(baseUri.resolve(info.signalingPath), offer),
-    );
-    var registeredAsPending = false;
+    rtc.RTCPeerConnection? peerConnection;
     try {
-      _ensureCurrentProfile(profileRevision, activeProfile);
+      _ensureCurrentProfile(connectionRevision, activeProfile);
+      String? preparedClientPublicKey;
+      peerConnection = await _connectWebRtc(
+        localAudioStream: microphoneStream,
+        peerRpcHandlers: GizClawPeerRpcHandlers(deviceInfo: () => _deviceInfo),
+        prepareOffer: (sdp) async {
+          final offer = await prepareEncryptedGiznetWebRtcOffer(identity, sdp);
+          preparedClientPublicKey = offer.clientPublicKey;
+          return offer;
+        },
+        sendOffer: (offer) =>
+            _sendOffer(baseUri.resolve(info.signalingPath), offer),
+      );
+      _ensureCurrentProfile(connectionRevision, activeProfile);
       _pendingPeerConnection = peerConnection;
-      registeredAsPending = true;
+      if (microphoneTrack != null) {
+        try {
+          final setMicrophoneSending = await _configureMicrophoneSending(
+            peerConnection,
+            microphoneTrack,
+          );
+          await setMicrophoneSending(false);
+          _setMicrophoneSending = setMicrophoneSending;
+        } catch (error) {
+          microphoneTrack.enabled = false;
+          microphoneTrack = null;
+          _lastMicrophoneError = error;
+          _setMicrophoneStatus(
+            const MicrophoneStatus.unavailable(
+              failureKind: MicrophoneFailureKind.captureUnavailable,
+            ),
+          );
+        }
+      }
       await _waitForPeerConnection(peerConnection);
       await _prepareAudioPlayback(peerConnection);
-      _ensureCurrentProfile(profileRevision, activeProfile);
+      _ensureCurrentProfile(connectionRevision, activeProfile);
       final dataChannelFactory = FlutterWebRtcDataChannelFactory(
         peerConnection,
       );
       final client = GizClawClient(dataChannelFactory);
-      await client.putServerInfo(_deviceInfo);
-      _ensureCurrentProfile(profileRevision, activeProfile);
+      await _publishClientInfo(client, _deviceInfo);
+      _ensureCurrentProfile(connectionRevision, activeProfile);
       _pendingPeerConnection = null;
+      _pendingMicrophoneStream = null;
       _peerConnection = peerConnection;
+      _observePeerConnectionState(peerConnection, () {
+        if (identical(_peerConnection, peerConnection)) notifyListeners();
+      });
+      _microphoneStream = microphoneStream;
+      _microphoneTrack = microphoneTrack;
+      if (microphoneTrack != null) {
+        _lastMicrophoneError = null;
+        microphoneTrack.onEnded = () {
+          if (!identical(_microphoneTrack, microphoneTrack)) return;
+          _lastMicrophoneError = StateError('Microphone track ended');
+          _setMicrophoneStatus(
+            const MicrophoneStatus.unavailable(
+              failureKind: MicrophoneFailureKind.captureUnavailable,
+            ),
+          );
+        };
+        _setMicrophoneStatus(const MicrophoneStatus.ready());
+      }
       _serverId = info.publicKey;
       _clientPublicKey = preparedClientPublicKey;
       _dataChannelFactory = dataChannelFactory;
       return _client = client;
-    } catch (_) {
-      if (identical(_pendingPeerConnection, peerConnection)) {
+    } catch (error, stackTrace) {
+      _setMicrophoneSending = null;
+      final peerConnections = <rtc.RTCPeerConnection>[];
+      if (peerConnection != null &&
+          identical(_pendingPeerConnection, peerConnection)) {
         _pendingPeerConnection = null;
-        await peerConnection.close();
-      } else if (!registeredAsPending) {
-        await peerConnection.close();
+        peerConnections.add(peerConnection);
+      } else if (peerConnection != null) {
+        peerConnections.add(peerConnection);
       }
-      rethrow;
+      final streams = <rtc.MediaStream>[];
+      if (identical(_pendingMicrophoneStream, microphoneStream)) {
+        _pendingMicrophoneStream = null;
+        if (microphoneStream != null) {
+          streams.add(microphoneStream);
+        }
+      }
+      _setMicrophoneStatus(const MicrophoneStatus.unavailable());
+      try {
+        await _disposeWebRtcResources(
+          streams: streams,
+          peerConnections: peerConnections,
+        );
+      } catch (cleanupError) {
+        if (!kReleaseMode) {
+          debugPrint('GizClaw WebRTC cleanup failed: $cleanupError');
+        }
+      }
+      Error.throwWithStackTrace(error, stackTrace);
     }
   }
 
@@ -144,12 +307,22 @@ class GizClawConnectionController {
         profile.clientPrivateKey == _profile.clientPrivateKey) {
       return;
     }
-    _profileRevision += 1;
     _profile = profile;
     await close();
   }
 
-  Future<void> close() async {
+  Future<void> close() {
+    final active = _closeFuture;
+    if (active != null) return active;
+    _connectionRevision += 1;
+    late final Future<void> closing;
+    closing = _close().whenComplete(() {
+      if (identical(_closeFuture, closing)) _closeFuture = null;
+    });
+    return _closeFuture = closing;
+  }
+
+  Future<void> _close() async {
     _client = null;
     _dataChannelFactory = null;
     _clientPublicKey = null;
@@ -158,28 +331,293 @@ class GizClawConnectionController {
     _pendingPeerConnection = null;
     final peerConnection = _peerConnection;
     _peerConnection = null;
-    await pendingPeerConnection?.close();
-    await peerConnection?.close();
+    final pendingMicrophoneStream = _pendingMicrophoneStream;
+    _pendingMicrophoneStream = null;
+    final microphoneStream = _microphoneStream;
+    _microphoneStream = null;
+    final microphoneTrack = _microphoneTrack;
+    _microphoneTrack = null;
+    final setMicrophoneSending = _setMicrophoneSending;
+    _setMicrophoneSending = null;
+    if (setMicrophoneSending != null) {
+      try {
+        await setMicrophoneSending(false);
+      } catch (_) {
+        // Closing the peer connection below is the final send-side teardown.
+      }
+    }
+    microphoneTrack?.enabled = false;
+    microphoneTrack?.onEnded = null;
+    _setMicrophoneStatus(const MicrophoneStatus.unavailable());
+    final streams = <rtc.MediaStream>[?pendingMicrophoneStream];
+    if (microphoneStream != null &&
+        !identical(microphoneStream, pendingMicrophoneStream)) {
+      streams.add(microphoneStream);
+    }
+    final peerConnections = <rtc.RTCPeerConnection>[?pendingPeerConnection];
+    if (peerConnection != null &&
+        !identical(peerConnection, pendingPeerConnection)) {
+      peerConnections.add(peerConnection);
+    }
+    await _disposeWebRtcResources(
+      streams: streams,
+      peerConnections: peerConnections,
+    );
+  }
+
+  Future<void> setMicrophoneSending(bool active) async {
+    final setMicrophoneSending = _setMicrophoneSending;
+    final microphoneTrack = _microphoneTrack;
+    if (setMicrophoneSending == null || microphoneTrack == null) {
+      throw StateError('GizClaw microphone sender is unavailable');
+    }
+    try {
+      if (!active) microphoneTrack.enabled = false;
+      await setMicrophoneSending(active);
+      if (active) microphoneTrack.enabled = true;
+    } catch (error) {
+      microphoneTrack.enabled = false;
+      _lastMicrophoneError = error;
+      _setMicrophoneStatus(
+        const MicrophoneStatus.unavailable(
+          failureKind: MicrophoneFailureKind.captureUnavailable,
+        ),
+      );
+      rethrow;
+    }
+  }
+
+  void _setMicrophoneStatus(MicrophoneStatus status) {
+    if (_microphoneStatus == status) return;
+    _microphoneStatus = status;
+    notifyListeners();
   }
 
   void _ensureCurrentProfile(
     int revision,
     GizClawConnectionProfile activeProfile,
   ) {
-    if (revision != _profileRevision || !identical(activeProfile, _profile)) {
+    if (revision != _connectionRevision ||
+        !identical(activeProfile, _profile)) {
       throw StateError('GizClaw connection profile changed during setup');
     }
   }
+
+  @override
+  void notifyListeners() {
+    if (_disposed) return;
+    super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    unawaited(close());
+    super.dispose();
+  }
 }
+
+Future<rtc.MediaStream> _defaultAcquireMicrophoneStream() =>
+    rtc.navigator.mediaDevices.getUserMedia({
+      'audio': {
+        'channelCount': 1,
+        'echoCancellation': true,
+        'noiseSuppression': true,
+      },
+      'video': false,
+    });
+
+Future<SetMicrophoneSending> _defaultConfigureMicrophoneSending(
+  rtc.RTCPeerConnection peerConnection,
+  rtc.MediaStreamTrack microphoneTrack,
+) async {
+  final senders = await peerConnection.getSenders();
+  rtc.RTCRtpSender? microphoneSender;
+  for (final sender in senders) {
+    if (sender.track?.id == microphoneTrack.id) {
+      microphoneSender = sender;
+      break;
+    }
+  }
+  if (microphoneSender == null) {
+    for (final sender in senders) {
+      if (sender.track?.kind == 'audio') {
+        microphoneSender = sender;
+        break;
+      }
+    }
+  }
+  if (microphoneSender == null) {
+    throw StateError('WebRTC microphone sender is unavailable');
+  }
+
+  final initialEncodings = microphoneSender.parameters.encodings;
+  if (initialEncodings == null || initialEncodings.isEmpty) {
+    throw StateError('WebRTC microphone sender has no encoding');
+  }
+  var sending = initialEncodings.every((encoding) => encoding.active);
+  return (active) async {
+    if (sending == active) return;
+    if (!kReleaseMode) {
+      debugPrint('GizClaw microphone sender: setting active=$active');
+    }
+    final parameters = microphoneSender!.parameters;
+    final encodings = parameters.encodings;
+    if (encodings == null || encodings.isEmpty) {
+      throw StateError('WebRTC microphone sender has no encoding');
+    }
+    final previous = [for (final encoding in encodings) encoding.active];
+    for (final encoding in encodings) {
+      encoding.active = active;
+    }
+    try {
+      if (!await microphoneSender.setParameters(parameters)) {
+        throw StateError('WebRTC microphone sender rejected parameters');
+      }
+      sending = active;
+      if (!kReleaseMode) {
+        debugPrint('GizClaw microphone sender: active=$active');
+      }
+    } catch (_) {
+      for (var index = 0; index < encodings.length; index += 1) {
+        encodings[index].active = previous[index];
+      }
+      rethrow;
+    }
+  };
+}
+
+Future<rtc.RTCPeerConnection> _defaultConnectGizClawWebRtc({
+  required rtc.MediaStream? localAudioStream,
+  required GizClawPeerRpcHandlers peerRpcHandlers,
+  required Future<PreparedGiznetWebRtcOffer> Function(String offerSdp)
+  prepareOffer,
+  required SendGiznetWebRtcOffer sendOffer,
+}) => connectFlutterGiznetWebRtc(
+  addAudioTransceiver: true,
+  localAudioStream: localAudioStream,
+  peerRpcHandlers: peerRpcHandlers,
+  prepareOffer: prepareOffer,
+  sendOffer: sendOffer,
+);
+
+Future<void> _defaultPublishClientInfo(
+  GizClawClient client,
+  DeviceInfo deviceInfo,
+) async {
+  await client.putServerInfo(deviceInfo);
+}
+
+MicrophoneFailureKind _microphoneFailureKind(Object error) =>
+    error.toString().contains('NotAllowedError')
+    ? MicrophoneFailureKind.permissionDenied
+    : MicrophoneFailureKind.captureUnavailable;
+
+Future<void> _disposeMediaStream(rtc.MediaStream stream) async {
+  Object? stopError;
+  StackTrace? stopStackTrace;
+  try {
+    await _stopMediaStreamTracks(stream);
+  } catch (error, stackTrace) {
+    stopError = error;
+    stopStackTrace = stackTrace;
+  }
+  try {
+    await stream.dispose();
+  } catch (_) {
+    if (stopError == null) rethrow;
+  }
+  if (stopError case final error?) {
+    Error.throwWithStackTrace(error, stopStackTrace!);
+  }
+}
+
+Future<void> _stopMediaStreamTracks(rtc.MediaStream stream) =>
+    Future.wait([for (final track in stream.getTracks()) track.stop()]);
 
 Future<void> _prepareAudioPlayback(rtc.RTCPeerConnection peerConnection) async {
   for (final receiver in await peerConnection.getReceivers()) {
     final track = receiver.track;
     if (track?.kind == 'audio') track!.enabled = true;
   }
-  if (Platform.isIOS) await rtc.Helper.ensureAudioSession();
-  if (Platform.isIOS || Platform.isAndroid) {
+  if (Platform.isAndroid) {
     await rtc.Helper.setSpeakerphoneOnButPreferBluetooth();
+  }
+}
+
+Future<void> _disposePeerConnection(
+  rtc.RTCPeerConnection peerConnection,
+) async {
+  Object? closeError;
+  StackTrace? closeStackTrace;
+  try {
+    await peerConnection.close();
+  } catch (error, stackTrace) {
+    closeError = error;
+    closeStackTrace = stackTrace;
+  }
+  try {
+    await peerConnection.dispose();
+  } catch (_) {
+    if (closeError == null) rethrow;
+  }
+  if (closeError case final error?) {
+    Error.throwWithStackTrace(error, closeStackTrace!);
+  }
+}
+
+Future<void> _disposeWebRtcResources({
+  required Iterable<rtc.MediaStream> streams,
+  required Iterable<rtc.RTCPeerConnection> peerConnections,
+}) async {
+  Object? firstError;
+  StackTrace? firstStackTrace;
+
+  Future<void> attempt(Future<void> Function() action) async {
+    try {
+      await action();
+    } catch (error, stackTrace) {
+      firstError ??= error;
+      firstStackTrace ??= stackTrace;
+    }
+  }
+
+  for (final stream in streams) {
+    await attempt(() => _disposeMediaStream(stream));
+  }
+  for (final peerConnection in peerConnections) {
+    await attempt(() => _disposePeerConnection(peerConnection));
+  }
+  if (firstError case final error?) {
+    Error.throwWithStackTrace(error, firstStackTrace!);
+  }
+}
+
+Future<void>? _appleAudioSessionConfiguration;
+
+Future<void> _configureAppleAudioSession() async {
+  if (!Platform.isIOS) return;
+  final existing = _appleAudioSessionConfiguration;
+  if (existing != null) return existing;
+  final configuration = rtc.Helper.setAppleAudioConfiguration(
+    rtc.AppleAudioConfiguration(
+      appleAudioCategory: rtc.AppleAudioCategory.playAndRecord,
+      appleAudioCategoryOptions: {
+        rtc.AppleAudioCategoryOption.allowBluetooth,
+        rtc.AppleAudioCategoryOption.defaultToSpeaker,
+        rtc.AppleAudioCategoryOption.mixWithOthers,
+      },
+      appleAudioMode: rtc.AppleAudioMode.voiceChat,
+    ),
+  );
+  _appleAudioSessionConfiguration = configuration;
+  try {
+    await configuration;
+  } catch (_) {
+    if (identical(_appleAudioSessionConfiguration, configuration)) {
+      _appleAudioSessionConfiguration = null;
+    }
+    rethrow;
   }
 }
 
@@ -203,6 +641,20 @@ Future<void> _waitForPeerConnection(rtc.RTCPeerConnection peerConnection) {
     }
   };
   return completer.future.timeout(const Duration(seconds: 30));
+}
+
+void _observePeerConnectionState(
+  rtc.RTCPeerConnection peerConnection,
+  VoidCallback onStateChanged,
+) {
+  final previous = peerConnection.onConnectionState;
+  peerConnection.onConnectionState = (state) {
+    previous?.call(state);
+    if (!kReleaseMode) {
+      debugPrint('GizClaw WebRTC connection state: $state');
+    }
+    onStateChanged();
+  };
 }
 
 Uri _baseUri(String endpoint) {
@@ -256,7 +708,7 @@ int? _explicitEndpointPort(String value, {required bool hasScheme}) {
   return int.tryParse(authority.substring(separator + 1));
 }
 
-Future<GiznetServerInfo> _fetchServerInfo(Uri baseUri) async {
+Future<GiznetServerInfo> _defaultFetchServerInfo(Uri baseUri) async {
   final client = HttpClient();
   client.connectionTimeout = _httpRequestTimeout;
   try {

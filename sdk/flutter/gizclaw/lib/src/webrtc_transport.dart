@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 
 import 'peer_rpc_server.dart';
@@ -12,7 +12,7 @@ const _dataChannelMessageChunkSize = 1400;
 const _dataChannelBufferHighWaterMark = 1024 * 1024;
 const _dataChannelSendRetryDelay = Duration(milliseconds: 5);
 const _dataChannelNativeReadyGracePeriod = Duration(milliseconds: 250);
-const _dataChannelStatePollDelay = Duration(milliseconds: 10);
+const _dataChannelStatePollDelay = Duration(milliseconds: 250);
 
 final _servedPeerConnections = Expando<_ServedPeerConnection>();
 
@@ -94,14 +94,37 @@ Future<rtc.RTCPeerConnection> connectFlutterGiznetWebRtc({
       rtc.createPeerConnection,
   bool createPacketDataChannel = true,
   Map<String, dynamic> configuration = const {},
+  rtc.MediaStream? localAudioStream,
   required Future<PreparedGiznetWebRtcOffer> Function(String offerSdp)
   prepareOffer,
   GizClawPeerRpcHandlers? peerRpcHandlers,
   rtc.RTCPeerConnection? peerConnection,
   required SendGiznetWebRtcOffer sendOffer,
 }) async {
+  rtc.MediaStreamTrack? localAudioTrack;
+  if (localAudioStream != null) {
+    if (!addAudioTransceiver) {
+      throw ArgumentError.value(
+        addAudioTransceiver,
+        'addAudioTransceiver',
+        'must be true when localAudioStream is supplied',
+      );
+    }
+    final audioTracks = localAudioStream.getAudioTracks();
+    if (audioTracks.length != 1) {
+      throw ArgumentError.value(
+        localAudioStream,
+        'localAudioStream',
+        'must contain exactly one audio track',
+      );
+    }
+    localAudioTrack = audioTracks.single;
+  }
   final ownsPeerConnection = peerConnection == null;
   final pc = peerConnection ?? await createPeerConnection(configuration);
+  final stopPeerConnectionLogging = !kReleaseMode
+      ? _logPeerConnectionStates(pc)
+      : null;
   rtc.RTCDataChannel? packetDataChannel;
   try {
     serveFlutterGiznetWebRtcRpc(pc, handlers: peerRpcHandlers);
@@ -117,12 +140,18 @@ Future<rtc.RTCPeerConnection> connectFlutterGiznetWebRtc({
       );
     }
     if (addAudioTransceiver) {
-      await pc.addTransceiver(
-        kind: rtc.RTCRtpMediaType.RTCRtpMediaTypeAudio,
-        init: rtc.RTCRtpTransceiverInit(
-          direction: rtc.TransceiverDirection.SendRecv,
-        ),
+      final init = rtc.RTCRtpTransceiverInit(
+        direction: rtc.TransceiverDirection.SendRecv,
+        streams: localAudioStream == null ? null : [localAudioStream],
       );
+      if (localAudioTrack == null) {
+        await pc.addTransceiver(
+          kind: rtc.RTCRtpMediaType.RTCRtpMediaTypeAudio,
+          init: init,
+        );
+      } else {
+        await pc.addTransceiver(track: localAudioTrack, init: init);
+      }
     }
     final offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
@@ -150,6 +179,8 @@ Future<rtc.RTCPeerConnection> connectFlutterGiznetWebRtc({
       await _disposePeerConnection(pc);
     }
     rethrow;
+  } finally {
+    stopPeerConnectionLogging?.call();
   }
 }
 
@@ -278,6 +309,51 @@ Future<void> _waitForIceGatheringComplete(rtc.RTCPeerConnection pc) {
       throw TimeoutException('WebRTC ICE gathering timed out');
     },
   );
+}
+
+VoidCallback _logPeerConnectionStates(rtc.RTCPeerConnection pc) {
+  final previousConnectionState = pc.onConnectionState;
+  late final void Function(rtc.RTCPeerConnectionState) connectionHandler;
+  connectionHandler = (state) {
+    previousConnectionState?.call(state);
+    debugPrint('GizClaw WebRTC peer state: $state');
+  };
+  pc.onConnectionState = connectionHandler;
+  final previousIceConnectionState = pc.onIceConnectionState;
+  late final void Function(rtc.RTCIceConnectionState) iceConnectionHandler;
+  iceConnectionHandler = (state) {
+    previousIceConnectionState?.call(state);
+    debugPrint('GizClaw WebRTC ICE state: $state');
+  };
+  pc.onIceConnectionState = iceConnectionHandler;
+  final previousIceGatheringState = pc.onIceGatheringState;
+  late final void Function(rtc.RTCIceGatheringState) iceGatheringHandler;
+  iceGatheringHandler = (state) {
+    previousIceGatheringState?.call(state);
+    debugPrint('GizClaw WebRTC ICE gathering state: $state');
+  };
+  pc.onIceGatheringState = iceGatheringHandler;
+  final previousSignalingState = pc.onSignalingState;
+  late final void Function(rtc.RTCSignalingState) signalingHandler;
+  signalingHandler = (state) {
+    previousSignalingState?.call(state);
+    debugPrint('GizClaw WebRTC signaling state: $state');
+  };
+  pc.onSignalingState = signalingHandler;
+  return () {
+    if (pc.onConnectionState == connectionHandler) {
+      pc.onConnectionState = previousConnectionState;
+    }
+    if (pc.onIceConnectionState == iceConnectionHandler) {
+      pc.onIceConnectionState = previousIceConnectionState;
+    }
+    if (pc.onIceGatheringState == iceGatheringHandler) {
+      pc.onIceGatheringState = previousIceGatheringState;
+    }
+    if (pc.onSignalingState == signalingHandler) {
+      pc.onSignalingState = previousSignalingState;
+    }
+  };
 }
 
 Future<void> _waitForDataChannelOpen(rtc.RTCDataChannel channel) {

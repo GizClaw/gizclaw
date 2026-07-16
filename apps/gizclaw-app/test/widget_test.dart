@@ -113,6 +113,21 @@ void main() {
     expect(primaryNav('Raids'), findsNothing);
   });
 
+  appTestWidgets('forwards background and resume lifecycle changes', (
+    tester,
+  ) async {
+    final controller = _LifecycleController();
+    await pumpApp(tester, controller: controller);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+
+    expect(controller.pauseCalls, 1);
+    expect(controller.resumeCalls, 1);
+  });
+
   appTestWidgets('opens an unconfigured app on server onboarding', (
     tester,
   ) async {
@@ -444,6 +459,43 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  appTestWidgets('does not auto-scroll messages during a user drag', (
+    tester,
+  ) async {
+    final controller = _ScrollableMessagesController();
+    dataControllers.add(controller);
+    await tester.pumpWidget(
+      MobileDataScope(
+        controller: controller,
+        child: const CupertinoApp(
+          theme: gizCupertinoTheme,
+          home: WorkspaceChatPage(workspaceName: 'Parser pass'),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final messageList = find.byKey(const ValueKey('workspace-message-list'));
+    expect(messageList, findsOneWidget);
+    final scrollable = tester.state<ScrollableState>(
+      find.descendant(of: messageList, matching: find.byType(Scrollable)),
+    );
+    expect(scrollable.position.pixels, 0);
+
+    final gesture = await tester.startGesture(tester.getCenter(messageList));
+    await gesture.moveBy(const Offset(0, 260));
+    await tester.pump();
+    expect(scrollable.position.pixels, greaterThan(48));
+
+    controller.scrollChat.appendMessage('Message received while dragging');
+    await tester.pump();
+    expect(scrollable.position.pixels, greaterThan(48));
+
+    await gesture.up();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(scrollable.position.pixels, greaterThan(48));
+  });
+
   appTestWidgets('follows system brightness in the workspace signal room', (
     tester,
   ) async {
@@ -523,7 +575,34 @@ void main() {
     expect(find.byKey(const ValueKey('voice-mode-ptt')), findsOneWidget);
     expect(find.byKey(const ValueKey('voice-mode-realtime')), findsOneWidget);
     expect(find.byKey(const ValueKey('voice-mode-thumb')), findsOneWidget);
-    expect(find.byKey(const ValueKey('global-audio-field')), findsOneWidget);
+    final audioField = find.byKey(const ValueKey('global-audio-field'));
+    expect(audioField, findsOneWidget);
+    expect(
+      find.descendant(of: audioField, matching: find.byType(CustomPaint)),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('global-audio-field-scale')),
+      findsOneWidget,
+    );
+    final radialGlow = find.descendant(
+      of: audioField,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is DecoratedBox &&
+            widget.decoration is BoxDecoration &&
+            (widget.decoration as BoxDecoration).gradient is RadialGradient,
+      ),
+    );
+    expect(radialGlow, findsOneWidget);
+    final glow = tester.widget<DecoratedBox>(radialGlow);
+    final decoration = glow.decoration as BoxDecoration;
+    expect(decoration.shape, BoxShape.circle);
+    expect(decoration.borderRadius, isNull);
+    expect(decoration.gradient, isA<RadialGradient>());
+    expect(decoration.border, isNull);
+    expect(decoration.boxShadow, isNotEmpty);
+    expect(find.byKey(const ValueKey('global-audio-field-edge')), findsNothing);
   });
 
   appTestWidgets('slides the voice thumb between PTT and realtime', (
@@ -550,6 +629,73 @@ void main() {
       controller.mode,
       WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
     );
+  });
+
+  appTestWidgets('shows a red unavailable microphone and retries on tap', (
+    tester,
+  ) async {
+    final controller = _UnavailableMicrophoneController();
+    await pumpApp(tester, controller: controller);
+
+    final thumb = find.byKey(const ValueKey('voice-mode-thumb'));
+    final container = tester.widget<AnimatedContainer>(
+      find.descendant(of: thumb, matching: find.byType(AnimatedContainer)),
+    );
+    final decoration = container.decoration! as BoxDecoration;
+    expect((decoration.gradient! as LinearGradient).colors, const [
+      CupertinoColors.systemRed,
+      CupertinoColors.systemRed,
+    ]);
+    expect(
+      tester
+          .widgetList<Semantics>(
+            find.descendant(of: thumb, matching: find.byType(Semantics)),
+          )
+          .any(
+            (widget) =>
+                widget.properties.label ==
+                'Microphone unavailable: permission required. '
+                    'Double tap to retry',
+          ),
+      isTrue,
+    );
+    await tester.tap(thumb);
+    await tester.pump();
+
+    expect(controller.recoveryCalls, 1);
+    final recovered = tester.widget<AnimatedContainer>(
+      find.descendant(of: thumb, matching: find.byType(AnimatedContainer)),
+    );
+    expect(
+      (recovered.decoration! as BoxDecoration).gradient,
+      isNot(
+        isA<LinearGradient>().having(
+          (gradient) => gradient.colors,
+          'colors',
+          const [CupertinoColors.systemRed, CupertinoColors.systemRed],
+        ),
+      ),
+    );
+  });
+
+  appTestWidgets('releases active PTT after microphone becomes unavailable', (
+    tester,
+  ) async {
+    final controller = _InterruptedMicrophoneController();
+    await pumpApp(tester, controller: controller);
+
+    final thumb = find.byKey(const ValueKey('voice-mode-thumb'));
+    final gesture = await tester.startGesture(tester.getCenter(thumb));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(controller.chat.recording, isTrue);
+
+    controller.interruptMicrophone();
+    await tester.pump();
+    await gesture.up();
+    await tester.pump();
+
+    expect(controller.chat.finishInputCalls, 1);
+    expect(controller.chat.recording, isFalse);
   });
 
   appTestWidgets('opens group creation controls', (tester) async {
@@ -821,6 +967,108 @@ class _ModeSwitchController extends MobileDataController {
   }
 }
 
+class _ScrollableMessagesController extends _ModeSwitchController {
+  _ScrollableMessagesController() {
+    scrollChat = _ScrollableMessagesChatController(workspaceChatRepository);
+  }
+
+  late final _ScrollableMessagesChatController scrollChat;
+
+  @override
+  WorkspaceChatController? get activeWorkspaceChat => scrollChat;
+
+  @override
+  Future<void> close() async {
+    await scrollChat.close();
+    await super.close();
+  }
+}
+
+class _ScrollableMessagesChatController extends _ModeSwitchChatController {
+  _ScrollableMessagesChatController(super.repository);
+
+  final List<WorkspaceChatMessage> _visibleMessages = List.generate(
+    30,
+    (index) => WorkspaceChatMessage(
+      id: 'message-$index',
+      incoming: index.isEven,
+      text: 'Conversation message $index with enough text to fill the list.',
+      state: WorkspaceMessageState.complete,
+    ),
+  );
+
+  @override
+  List<WorkspaceChatMessage> get messages =>
+      List.unmodifiable(_visibleMessages);
+
+  void appendMessage(String text) {
+    _visibleMessages.add(
+      WorkspaceChatMessage(
+        id: 'message-${_visibleMessages.length}',
+        incoming: true,
+        text: text,
+        state: WorkspaceMessageState.complete,
+      ),
+    );
+    notifyListeners();
+  }
+}
+
+class _UnavailableMicrophoneController extends _ModeSwitchController {
+  _UnavailableMicrophoneController() {
+    connectionState = MobileConnectionState.connected;
+  }
+
+  MicrophoneStatus status = const MicrophoneStatus.unavailable(
+    failureKind: MicrophoneFailureKind.permissionDenied,
+  );
+  int recoveryCalls = 0;
+
+  @override
+  MicrophoneStatus get microphoneStatus => status;
+
+  @override
+  Future<MicrophoneStatus> recoverMicrophone() async {
+    recoveryCalls += 1;
+    status = const MicrophoneStatus.ready();
+    notifyListeners();
+    return status;
+  }
+}
+
+class _InterruptedMicrophoneController extends _ModeSwitchController {
+  _InterruptedMicrophoneController() {
+    connectionState = MobileConnectionState.connected;
+  }
+
+  MicrophoneStatus status = const MicrophoneStatus.ready();
+
+  @override
+  MicrophoneStatus get microphoneStatus => status;
+
+  void interruptMicrophone() {
+    status = const MicrophoneStatus.unavailable(
+      failureKind: MicrophoneFailureKind.captureUnavailable,
+    );
+    notifyListeners();
+  }
+}
+
+class _LifecycleController extends _ModeSwitchController {
+  int pauseCalls = 0;
+  int resumeCalls = 0;
+
+  @override
+  void handleAppPaused() {
+    pauseCalls += 1;
+  }
+
+  @override
+  void handleAppResumed() {
+    resumeCalls += 1;
+  }
+}
+
 class _ServerListTestController extends MobileDataController {
   _ServerListTestController()
     : super(
@@ -899,6 +1147,7 @@ class _ModeSwitchChatController extends WorkspaceChatController {
       );
 
   int startInputCalls = 0;
+  int finishInputCalls = 0;
 
   @override
   bool get canRecord => true;
@@ -907,6 +1156,13 @@ class _ModeSwitchChatController extends WorkspaceChatController {
   Future<void> startInput() async {
     startInputCalls += 1;
     recording = true;
+    notifyListeners();
+  }
+
+  @override
+  Future<void> finishInput({String? error}) async {
+    finishInputCalls += 1;
+    recording = false;
     notifyListeners();
   }
 }

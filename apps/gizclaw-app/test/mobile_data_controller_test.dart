@@ -7,6 +7,8 @@ import 'package:gizclaw_app/connection/gizclaw_connection_controller.dart';
 import 'package:gizclaw_app/data/database/app_database.dart';
 import 'package:gizclaw_app/data/mobile_data_controller.dart';
 import 'package:gizclaw_app/data/repositories/mobile_data_repository.dart';
+import 'package:gizclaw_app/data/repositories/workspace_chat_repository.dart';
+import 'package:gizclaw_app/data/workspace_chat_controller.dart';
 import 'package:gizclaw_app/l10n/locale_resolution.dart';
 import 'package:gizclaw_app/prototype/prototype_models.dart';
 
@@ -154,6 +156,217 @@ void main() {
 
     expect(connection.closeCalled, isTrue);
     expect(database.closeCalled, isTrue);
+  });
+
+  test('coalesces foreground and user microphone recovery', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    final client = _RunWorkspaceClient();
+    final connection = _BlockingReconnectConnection(
+      profile: _profile('gizclaw.local:9820'),
+      client: client,
+      serverId: 'server-a',
+    );
+    final controller = MobileDataController(
+      database: database,
+      connectionController: connection,
+    )..connectionState = MobileConnectionState.connected;
+
+    final userRecovery = controller.recoverMicrophone();
+    final foregroundRecovery = controller.recoverMicrophone();
+    expect(foregroundRecovery, same(userRecovery));
+    controller.handleAppResumed();
+    await connection.reconnectStarted.future;
+    await Future<void>.delayed(Duration.zero);
+
+    connection.reconnectResult.complete(client);
+    await userRecovery;
+    await controller.close();
+  });
+
+  test(
+    'forces one microphone recovery after returning from background',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      final client = _RunWorkspaceClient();
+      final connection = _BlockingReconnectConnection(
+        profile: _profile('gizclaw.local:9820'),
+        client: client,
+        serverId: 'server-a',
+        microphoneStatus: const MicrophoneStatus.ready(),
+      );
+      final controller = MobileDataController(
+        database: database,
+        connectionController: connection,
+      )..connectionState = MobileConnectionState.connected;
+
+      controller.handleAppResumed();
+      await Future<void>.delayed(Duration.zero);
+      expect(connection.reconnectCalls, 0);
+
+      controller.handleAppPaused();
+      controller.handleAppResumed();
+      await connection.reconnectStarted.future;
+      expect(connection.reconnectCalls, 1);
+
+      controller.handleAppPaused();
+      controller.handleAppResumed();
+      await Future<void>.delayed(Duration.zero);
+      expect(connection.reconnectCalls, 1);
+
+      connection.reconnectResult.complete(client);
+      await Future<void>.delayed(Duration.zero);
+      await controller.close();
+    },
+  );
+
+  test(
+    'retries a failed reconnect while the app remains backgrounded',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      final client = _RunWorkspaceClient();
+      final connection = _BackgroundRetryConnection(
+        profile: _profile('gizclaw.local:9820'),
+        client: client,
+        serverId: 'server-a',
+      );
+      final controller = MobileDataController(
+        database: database,
+        connectionController: connection,
+        backgroundReconnectInitialDelay: Duration.zero,
+        backgroundReconnectMaxDelay: Duration.zero,
+      )..connectionState = MobileConnectionState.connected;
+
+      controller.handleAppPaused();
+      await expectLater(controller.recoverTransport(), throwsStateError);
+      await connection.reconnected.future;
+      for (
+        var attempts = 0;
+        attempts < 20 &&
+            controller.connectionState != MobileConnectionState.connected;
+        attempts += 1
+      ) {
+        await Future<void>.delayed(Duration.zero);
+      }
+
+      expect(connection.reconnectCalls, 2);
+      expect(controller.connectionState, MobileConnectionState.connected);
+      await controller.close();
+    },
+  );
+
+  test('keeps retrying a failed connection in the foreground', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    final client = _RunWorkspaceClient();
+    final connection = _BackgroundRetryConnection(
+      profile: _profile('gizclaw.local:9820'),
+      client: client,
+      serverId: 'server-a',
+    );
+    final controller = MobileDataController(
+      database: database,
+      connectionController: connection,
+      backgroundReconnectInitialDelay: Duration.zero,
+      backgroundReconnectMaxDelay: Duration.zero,
+    )..connectionState = MobileConnectionState.connected;
+
+    await expectLater(controller.recoverTransport(), throwsStateError);
+    await connection.reconnected.future;
+    for (
+      var attempts = 0;
+      attempts < 20 &&
+          controller.connectionState != MobileConnectionState.connected;
+      attempts += 1
+    ) {
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    expect(connection.reconnectCalls, 2);
+    expect(controller.connectionState, MobileConnectionState.connected);
+    await controller.close();
+  });
+
+  test('reconnects immediately when the app resumes offline', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    final client = _RunWorkspaceClient();
+    final connection = _BackgroundRetryConnection(
+      profile: _profile('gizclaw.local:9820'),
+      client: client,
+      serverId: 'server-a',
+      failuresRemaining: 0,
+    )..connected = false;
+    final controller = MobileDataController(
+      database: database,
+      connectionController: connection,
+    )..connectionState = MobileConnectionState.offline;
+
+    controller.handleAppPaused();
+    controller.handleAppResumed();
+    await connection.reconnected.future;
+    for (
+      var attempts = 0;
+      attempts < 20 &&
+          controller.connectionState != MobileConnectionState.connected;
+      attempts += 1
+    ) {
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    expect(connection.reconnectCalls, 1);
+    expect(controller.connectionState, MobileConnectionState.connected);
+    await controller.close();
+  });
+
+  test(
+    'ends active input before recovering an ended microphone track',
+    () async {
+      final connection = _EndedMicrophoneConnection(
+        profile: _profile('gizclaw.local:9820'),
+      );
+      final controller = _EndedMicrophoneController(connection)
+        ..connectionState = MobileConnectionState.connected;
+      addTearDown(controller.close);
+      controller.chat.recording = true;
+
+      connection.endMicrophoneTrack();
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(controller.chat.finishErrors, ['microphone_track_ended']);
+      expect(controller.chat.recording, isFalse);
+      expect(controller.recoveryCalls, 1);
+      expect(controller.recoveredAfterFinish, isTrue);
+    },
+  );
+
+  test('suppresses microphone recovery during a server switch', () async {
+    final connection = _ProfileSwitchConnection(
+      profile: _profile('old.local:9820'),
+      client: _RunWorkspaceClient(),
+      serverId: 'server-a',
+    );
+    final controller = _RecoveryCountingMobileDataController(connection)
+      ..connectionState = MobileConnectionState.connected;
+    addTearDown(controller.close);
+
+    final switchServer = controller.updateServerEndpoint('new.local:9820');
+    await connection.updateStarted.future;
+    await Future<void>.delayed(Duration.zero);
+
+    expect(controller.recoveryCalls, 0);
+    expect(connection.connectCalls, 0);
+
+    connection.allowUpdate.complete();
+    await switchServer;
+    for (
+      var attempts = 0;
+      attempts < 20 && connection.connectCalls == 0;
+      attempts += 1
+    ) {
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    expect(controller.recoveryCalls, 0);
+    expect(connection.connectCalls, 1);
   });
 
   test('does not retry a mutating RPC after a transport failure', () async {
@@ -631,15 +844,176 @@ class _BlockingReconnectConnection extends _CloseTrackingConnection {
     required super.profile,
     required super.client,
     required super.serverId,
+    this.microphoneStatus = const MicrophoneStatus.unavailable(),
   });
 
   final reconnectStarted = Completer<void>();
   final reconnectResult = Completer<GizClawClient>();
+  @override
+  final MicrophoneStatus microphoneStatus;
+  int reconnectCalls = 0;
 
   @override
   Future<GizClawClient> reconnect() {
-    reconnectStarted.complete();
+    reconnectCalls += 1;
+    if (!reconnectStarted.isCompleted) reconnectStarted.complete();
     return reconnectResult.future;
+  }
+}
+
+class _BackgroundRetryConnection extends _RefreshTestConnection {
+  _BackgroundRetryConnection({
+    required super.profile,
+    required super.client,
+    required super.serverId,
+    this.failuresRemaining = 1,
+  });
+
+  final reconnected = Completer<void>();
+  int failuresRemaining;
+  int reconnectCalls = 0;
+  bool connected = true;
+
+  @override
+  bool get isConnected => connected;
+
+  @override
+  Future<GizClawClient> reconnect() async {
+    reconnectCalls += 1;
+    if (failuresRemaining > 0) {
+      failuresRemaining -= 1;
+      connected = false;
+      throw StateError('background reconnect failed');
+    }
+    connected = true;
+    if (!reconnected.isCompleted) reconnected.complete();
+    return currentClient;
+  }
+}
+
+class _EndedMicrophoneConnection extends GizClawConnectionController {
+  _EndedMicrophoneConnection({required GizClawConnectionProfile profile})
+    : super(profile);
+
+  MicrophoneStatus status = const MicrophoneStatus.ready();
+
+  @override
+  MicrophoneStatus get microphoneStatus => status;
+
+  void endMicrophoneTrack() {
+    status = const MicrophoneStatus.unavailable(
+      failureKind: MicrophoneFailureKind.captureUnavailable,
+    );
+    notifyListeners();
+  }
+
+  @override
+  Future<void> close() async {}
+}
+
+class _ProfileSwitchConnection extends _RefreshTestConnection {
+  _ProfileSwitchConnection({
+    required super.profile,
+    required super.client,
+    required super.serverId,
+  });
+
+  final updateStarted = Completer<void>();
+  final allowUpdate = Completer<void>();
+  MicrophoneStatus status = const MicrophoneStatus.ready();
+  bool connected = true;
+  int connectCalls = 0;
+
+  @override
+  bool get isConnected => connected;
+
+  @override
+  MicrophoneStatus get microphoneStatus => status;
+
+  @override
+  Future<void> updateProfile(GizClawConnectionProfile profile) async {
+    currentProfile = profile;
+    connected = false;
+    status = const MicrophoneStatus.unavailable();
+    notifyListeners();
+    updateStarted.complete();
+    await allowUpdate.future;
+  }
+
+  @override
+  Future<GizClawClient> connect() async {
+    connectCalls += 1;
+    connected = true;
+    status = const MicrophoneStatus.ready();
+    notifyListeners();
+    return currentClient;
+  }
+
+  @override
+  Future<void> close() async {}
+}
+
+class _RecoveryCountingMobileDataController extends MobileDataController {
+  _RecoveryCountingMobileDataController(_ProfileSwitchConnection connection)
+    : super(
+        database: AppDatabase.forTesting(NativeDatabase.memory()),
+        connectionController: connection,
+      );
+
+  int recoveryCalls = 0;
+
+  @override
+  Future<MicrophoneStatus> recoverMicrophone() async {
+    recoveryCalls += 1;
+    return const MicrophoneStatus.ready();
+  }
+}
+
+class _EndedMicrophoneController extends MobileDataController {
+  _EndedMicrophoneController(_EndedMicrophoneConnection connection)
+    : super(
+        database: AppDatabase.forTesting(NativeDatabase.memory()),
+        connectionController: connection,
+      ) {
+    chat = _EndedTrackChatController(workspaceChatRepository);
+  }
+
+  late final _EndedTrackChatController chat;
+  int recoveryCalls = 0;
+  bool recoveredAfterFinish = false;
+
+  @override
+  WorkspaceChatController? get activeWorkspaceChat => chat;
+
+  @override
+  Future<MicrophoneStatus> recoverMicrophone() async {
+    recoveryCalls += 1;
+    recoveredAfterFinish = !chat.recording && chat.finishErrors.isNotEmpty;
+    return const MicrophoneStatus.ready();
+  }
+
+  @override
+  Future<void> close() async {
+    await chat.close();
+    await super.close();
+  }
+}
+
+class _EndedTrackChatController extends WorkspaceChatController {
+  _EndedTrackChatController(WorkspaceChatRepository repository)
+    : super(
+        workspaceName: 'translator',
+        repository: repository,
+        serverId: null,
+      );
+
+  final finishErrors = <String?>[];
+
+  @override
+  Future<void> finishInput({String? error}) async {
+    finishErrors.add(error);
+    await Future<void>.delayed(Duration.zero);
+    recording = false;
   }
 }
 
