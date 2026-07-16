@@ -43,6 +43,10 @@ type rpcServerResourceService interface {
 	Dispatch(context.Context, *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error)
 }
 
+type rpcRunWorkspaceSelectionValidator interface {
+	ValidateRunWorkspaceSelection(context.Context, string) (string, *rpcapi.RPCError)
+}
+
 type rpcServerGenXService interface {
 	Say(context.Context, peergenx.SayRequest) (peergenx.SayResponse, error)
 }
@@ -320,6 +324,10 @@ func (s *rpcServer) handleSetRunAgent(ctx context.Context, req *rpcapi.RPCReques
 	if s.peerRun == nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer run service not configured"}.RPCResponse(), nil
 	}
+	selection, validationResp := s.validateRunWorkspaceSelection(ctx, req.Id, selection)
+	if validationResp != nil {
+		return validationResp, nil
+	}
 	resp, err := s.peerRun.SetRunAgent(ctx, s.callerPublicKey, selection)
 	if err != nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeBadRequest, Message: err.Error()}.RPCResponse(), nil
@@ -361,6 +369,10 @@ func (s *rpcServer) handleSetRunWorkspace(ctx context.Context, req *rpcapi.RPCRe
 	if s.peerRun == nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer run service not configured"}.RPCResponse(), nil
 	}
+	selection, validationResp := s.validateRunWorkspaceSelection(ctx, req.Id, selection)
+	if validationResp != nil {
+		return validationResp, nil
+	}
 	agent, err := s.peerRun.SetRunAgent(ctx, s.callerPublicKey, selection)
 	if err != nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeBadRequest, Message: err.Error()}.RPCResponse(), nil
@@ -374,6 +386,26 @@ func (s *rpcServer) handleSetRunWorkspace(ctx context.Context, req *rpcapi.RPCRe
 		return nil, err
 	}
 	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromServerSetRunWorkspaceResponse)
+}
+
+func (s *rpcServer) validateRunWorkspaceSelection(ctx context.Context, requestID string, selection apitypes.AgentSelection) (apitypes.AgentSelection, *rpcapi.RPCResponse) {
+	workspaceName := strings.TrimSpace(selection.WorkspaceName)
+	if workspaceName == "" {
+		return apitypes.AgentSelection{}, rpcapi.Error{RequestID: requestID, Code: rpcapi.RPCErrorCodeBadRequest, Message: "peerrun: workspace_name is required"}.RPCResponse()
+	}
+	if workspaceName != selection.WorkspaceName {
+		return apitypes.AgentSelection{}, rpcapi.Error{RequestID: requestID, Code: rpcapi.RPCErrorCodeBadRequest, Message: "peerrun: workspace_name must not have surrounding whitespace"}.RPCResponse()
+	}
+	validator, ok := s.serverResources.(rpcRunWorkspaceSelectionValidator)
+	if !ok {
+		return apitypes.AgentSelection{}, rpcapi.Error{RequestID: requestID, Code: rpcapi.RPCErrorCodeInternalError, Message: "run workspace selection validator not configured"}.RPCResponse()
+	}
+	canonicalName, rpcErr := validator.ValidateRunWorkspaceSelection(ctx, selection.WorkspaceName)
+	if rpcErr != nil {
+		return apitypes.AgentSelection{}, rpcapi.Error{RequestID: requestID, Code: rpcErr.Code, Message: rpcErr.Message}.RPCResponse()
+	}
+	selection.WorkspaceName = canonicalName
+	return selection, nil
 }
 
 func (s *rpcServer) handleReloadRunWorkspace(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {

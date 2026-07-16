@@ -426,6 +426,39 @@ func (s *Server) getWorkspaceForList(ctx context.Context, requestID, name string
 	return workspace, rpcResp, err
 }
 
+// ValidateRunWorkspaceSelection resolves a workspace selection and verifies
+// that the current peer may use the canonical workspace resource.
+func (s *Server) ValidateRunWorkspaceSelection(ctx context.Context, name string) (string, *rpcapi.RPCError) {
+	if s == nil || s.Workspaces == nil {
+		return "", &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: "workspace service not configured"}
+	}
+	resp, err := s.Workspaces.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: name})
+	if err != nil {
+		return "", &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: err.Error()}
+	}
+	workspace, rpcResp, err := adminResult[apitypes.Workspace](resp.VisitGetWorkspaceResponse)
+	if err != nil {
+		return "", &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: err.Error()}
+	}
+	if rpcResp != nil {
+		if rpcResp.Error == nil {
+			return "", &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: "workspace lookup returned an invalid response"}
+		}
+		return "", &rpcapi.RPCError{Code: rpcResp.Error.Code, Message: rpcResp.Error.Message}
+	}
+	canonicalName := strings.TrimSpace(workspace.Name)
+	if canonicalName == "" || canonicalName != workspace.Name {
+		return "", &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: "workspace service returned an invalid canonical name"}
+	}
+	if err := s.authorizeErr(ctx, acl.WorkspaceResource(canonicalName), apitypes.ACLPermissionUse); err != nil {
+		if errors.Is(err, acl.ErrDenied) {
+			return "", &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeForbidden, Message: err.Error()}
+		}
+		return "", &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: err.Error()}
+	}
+	return canonicalName, nil
+}
+
 func (s *Server) handleWorkspaceGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
 	if s.Workspaces == nil {
 		return internalError(req.Id, "workspace service not configured")
