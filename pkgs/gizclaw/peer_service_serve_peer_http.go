@@ -152,7 +152,6 @@ func (s *PeerService) edgeOpenAIHTTPHandler(sessions *publiclogin.SessionManager
 
 func (s *PeerService) publicHTTPHandlerWithOptions(sessions *publiclogin.SessionManager, opts publicHTTPOptions) http.Handler {
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
-	app.Use(observeFiberRoute)
 	app.Use(func(ctx *fiber.Ctx) error {
 		base := ctx.UserContext()
 		if base == nil {
@@ -195,6 +194,7 @@ func (s *PeerService) publicHTTPHandlerWithOptions(sessions *publiclogin.Session
 		}
 		return ctx.Next()
 	})
+	app.Use(observeFiberRoute)
 	public := s.public
 	if opts.login != nil && public != nil {
 		copy := *public

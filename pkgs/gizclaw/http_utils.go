@@ -183,7 +183,8 @@ func observeHTTPHandler(next http.Handler, opts httpObservationOptions) http.Han
 				}
 			}
 			result := httpObservationResult(request.Context(), status)
-			outcome.SetHTTPFallback(request.Pattern, registeredHTTPOperation(request))
+			fallbackRoute, fallbackOperation := registeredHTTPFallback(request)
+			outcome.SetHTTPFallback(fallbackRoute, fallbackOperation)
 			outcome.SetHTTP(request.Method, "", status, result)
 			if status >= http.StatusBadRequest {
 				outcome.SetErrorCode(observedHTTPErrorCode(writer.Header().Get("Content-Type"), body, overflow, status))
@@ -198,41 +199,59 @@ func observeHTTPHandler(next http.Handler, opts httpObservationOptions) http.Han
 	})
 }
 
-func registeredHTTPOperation(request *http.Request) string {
+func registeredHTTPFallback(request *http.Request) (string, string) {
 	if request == nil {
+		return "", ""
+	}
+	pattern := request.Pattern
+	if pattern == "" && request.URL != nil {
+		switch request.URL.Path {
+		case "/login", "/server-info", "/webrtc/v1/offer", "/me", "/me/runtime", "/me/status":
+			pattern = request.URL.Path
+		default:
+			if strings.HasPrefix(request.URL.Path, "/openai/v1/") {
+				pattern = "/openai/v1/"
+			}
+		}
+	}
+	return pattern, registeredHTTPOperation(request.Method, pattern)
+}
+
+func registeredHTTPOperation(method, pattern string) string {
+	if pattern == "" {
 		return ""
 	}
-	if request.Method == http.MethodOptions {
-		switch request.Pattern {
+	if method == http.MethodOptions {
+		switch pattern {
 		case "/login", "/server-info", "/webrtc/v1/offer", "/me", "/me/runtime", "/me/status", "/openai/v1/":
 			return "CORSPreflight"
 		default:
 			return ""
 		}
 	}
-	switch request.Pattern {
+	switch pattern {
 	case "/login":
-		if request.Method == http.MethodPost {
+		if method == http.MethodPost {
 			return "Login"
 		}
 	case "/server-info":
-		if request.Method == http.MethodGet {
+		if method == http.MethodGet {
 			return "GetServerInfo"
 		}
 	case "/webrtc/v1/offer":
-		if request.Method == http.MethodPost {
+		if method == http.MethodPost {
 			return "CreateGiznetWebRTCOffer"
 		}
 	case "/me":
-		if request.Method == http.MethodGet {
+		if method == http.MethodGet {
 			return "GetMe"
 		}
 	case "/me/runtime":
-		if request.Method == http.MethodGet {
+		if method == http.MethodGet {
 			return "GetMeRuntime"
 		}
 	case "/me/status":
-		switch request.Method {
+		switch method {
 		case http.MethodGet:
 			return "GetMeStatus"
 		case http.MethodPut:

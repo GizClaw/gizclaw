@@ -281,10 +281,37 @@ func TestObserveHTTPHandlerUsesRegisteredMuxFallback(t *testing.T) {
 }
 
 func TestRegisteredHTTPOperationRejectsWrongMethod(t *testing.T) {
-	request := httptest.NewRequest(http.MethodDelete, "/me", nil)
-	request.Pattern = "/me"
-	if got := registeredHTTPOperation(request); got != "" {
+	if got := registeredHTTPOperation(http.MethodDelete, "/me"); got != "" {
 		t.Fatalf("registeredHTTPOperation() = %q, want empty", got)
+	}
+}
+
+func TestObservePeerHTTPAuthAndPreflightUseAllowlistedFallback(t *testing.T) {
+	tests := []struct {
+		name          string
+		method        string
+		path          string
+		wantStatus    int
+		wantOperation string
+	}{
+		{name: "auth rejection", method: http.MethodGet, path: "/me", wantStatus: http.StatusUnauthorized, wantOperation: "GetMe"},
+		{name: "preflight", method: http.MethodOptions, path: "/me/status", wantStatus: http.StatusNoContent, wantOperation: "CORSPreflight"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			capture := captureSlog(t)
+			handler := observeHTTPHandler((&PeerService{}).publicHTTPHandler(nil), httpObservationOptions{surface: observability.SurfacePeerHTTP})
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, httptest.NewRequest(test.method, test.path, nil))
+
+			if recorder.Code != test.wantStatus {
+				t.Fatalf("status = %d, want %d", recorder.Code, test.wantStatus)
+			}
+			_, attrs := onlyCapturedRecord(t, capture)
+			if attrs["route"] != test.path || attrs["operation"] != test.wantOperation {
+				t.Fatalf("attrs = %#v", attrs)
+			}
+		})
 	}
 }
 
