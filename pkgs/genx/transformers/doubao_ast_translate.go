@@ -967,11 +967,10 @@ func (t *DoubaoASTTranslate) forwardEvents(output astTranslateOutput, session do
 			}
 			return nil
 		case doubaospeech.ASTEventSessionCanceled, doubaospeech.ASTEventSessionFailed:
-			var terminalErr error = event.Error
-			if terminalErr == nil {
-				terminalErr = fmt.Errorf("doubao ast translate terminal event %d", event.Type)
+			if event.Error != nil {
+				return failPTTGate(event.Error)
 			}
-			return failPTTGate(terminalErr)
+			return failPTTGate(fmt.Errorf("doubao ast translate terminal event %d", event.Type))
 		}
 	}
 	return nil
