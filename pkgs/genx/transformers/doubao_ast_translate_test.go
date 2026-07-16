@@ -489,6 +489,71 @@ func TestDoubaoASTTranslatePTTOutputLimitKeepsTransformerUsable(t *testing.T) {
 	}
 }
 
+func TestDoubaoASTTranslatePTTOutputGateCommitWaitsForProviderFailure(t *testing.T) {
+	providerErr := &doubaospeech.Error{Code: 500, Message: "provider failed concurrently with input EOS"}
+	output := &recordingASTTranslateOutput{}
+	gate := newASTTranslatePTTOutputGate(output, func() bool { return true }, "turn-provider-error")
+	if err := gate.Push(&genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: genx.Text("must stay buffered"),
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-provider-error", Label: doubaoASTTranslateAssistantLabel},
+	}); err != nil {
+		t.Fatalf("Push(buffered): %v", err)
+	}
+
+	eventDelivered := make(chan struct{})
+	allowFailure := make(chan struct{})
+	receiverDone := make(chan struct{})
+	events := gate.providerEventSequence(func(yield func(*doubaospeech.ASTTranslateEvent, error) bool) {
+		yield(&doubaospeech.ASTTranslateEvent{Type: doubaospeech.ASTEventSessionFailed, Error: providerErr}, nil)
+	})
+	go func() {
+		defer close(receiverDone)
+		for event, err := range events {
+			close(eventDelivered)
+			<-allowFailure
+			if err != nil {
+				gate.Fail(err)
+				return
+			}
+			gate.Fail(event.Error)
+			return
+		}
+	}()
+
+	select {
+	case <-eventDelivered:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for provider event delivery")
+	}
+	commitDone := make(chan error, 1)
+	go func() {
+		commitDone <- gate.Commit()
+	}()
+	select {
+	case err := <-commitDone:
+		t.Fatalf("Commit() returned before provider failure arbitration: %v", err)
+	case <-time.After(20 * time.Millisecond):
+	}
+	close(allowFailure)
+	select {
+	case err := <-commitDone:
+		if !errors.Is(err, providerErr) {
+			t.Fatalf("Commit() error = %v, want provider error", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for Commit()")
+	}
+	select {
+	case <-receiverDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for provider receiver")
+	}
+	if chunks := output.snapshot(); len(chunks) != 0 {
+		t.Fatalf("published chunks = %#v, want none", chunks)
+	}
+}
+
 func TestDoubaoASTTranslatePTTProviderErrorBeforeEOSDoesNotLeak(t *testing.T) {
 	providerErr := &doubaospeech.Error{Code: 500, Message: "provider failed before input EOS"}
 	terminalHandled := make(chan struct{})

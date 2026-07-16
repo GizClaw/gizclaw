@@ -669,16 +669,18 @@ type astTranslateOutput interface {
 
 type astTranslatePTTOutputGate struct {
 	mu       sync.Mutex
+	cond     *sync.Cond
 	output   astTranslateOutput
 	active   func() bool
 	streamID string
 
-	committed        bool
-	terminal         bool
-	retained         []*genx.MessageChunk
-	retainedDuration time.Duration
-	limitErr         error
-	terminalErr      error
+	committed              bool
+	terminal               bool
+	inFlightProviderEvents atomic.Int64
+	retained               []*genx.MessageChunk
+	retainedDuration       time.Duration
+	limitErr               error
+	terminalErr            error
 }
 
 func newASTTranslatePTTOutputGate(output astTranslateOutput, active func() bool, streamID string) *astTranslatePTTOutputGate {
@@ -686,11 +688,13 @@ func newASTTranslatePTTOutputGate(output astTranslateOutput, active func() bool,
 	if streamID == "" {
 		streamID = "audio"
 	}
-	return &astTranslatePTTOutputGate{
+	gate := &astTranslatePTTOutputGate{
 		output:   output,
 		active:   active,
 		streamID: streamID,
 	}
+	gate.cond = sync.NewCond(&gate.mu)
+	return gate
 }
 
 func (g *astTranslatePTTOutputGate) Push(chunk *genx.MessageChunk) error {
@@ -724,6 +728,7 @@ func (g *astTranslatePTTOutputGate) Push(chunk *genx.MessageChunk) error {
 			g.streamID,
 			doubaoASTTranslatePTTOutputLimit,
 		)
+		g.cond.Broadcast()
 		if err := g.output.Push(astTranslatePTTOutputLimitChunk(g.streamID, g.limitErr)); err != nil {
 			return err
 		}
@@ -741,6 +746,9 @@ func (g *astTranslatePTTOutputGate) Commit() error {
 	}
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	for g.inFlightProviderEvents.Load() > 0 && !g.terminal {
+		g.cond.Wait()
+	}
 	if g.limitErr != nil {
 		return g.limitErr
 	}
@@ -785,6 +793,34 @@ func (g *astTranslatePTTOutputGate) discard(err error) {
 	g.terminalErr = err
 	g.retained = nil
 	g.retainedDuration = 0
+	g.cond.Broadcast()
+}
+
+func (g *astTranslatePTTOutputGate) providerEventSequence(events iter.Seq2[*doubaospeech.ASTTranslateEvent, error]) iter.Seq2[*doubaospeech.ASTTranslateEvent, error] {
+	if g == nil {
+		return events
+	}
+	return func(yield func(*doubaospeech.ASTTranslateEvent, error) bool) {
+		events(func(event *doubaospeech.ASTTranslateEvent, err error) bool {
+			// Register before handing the event to forwardEvents so Commit either
+			// waits for this event or linearizes before its delivery.
+			g.beginProviderEvent()
+			defer g.endProviderEvent()
+			return yield(event, err)
+		})
+	}
+}
+
+func (g *astTranslatePTTOutputGate) beginProviderEvent() {
+	g.inFlightProviderEvents.Add(1)
+}
+
+func (g *astTranslatePTTOutputGate) endProviderEvent() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.inFlightProviderEvents.Add(-1) == 0 {
+		g.cond.Broadcast()
+	}
 }
 
 func (g *astTranslatePTTOutputGate) LimitExceeded() bool {
@@ -875,7 +911,11 @@ func (t *DoubaoASTTranslate) forwardEvents(output astTranslateOutput, session do
 		}
 		return err
 	}
-	for event, err := range session.Recv() {
+	events := session.Recv()
+	if gate, ok := output.(*astTranslatePTTOutputGate); ok {
+		events = gate.providerEventSequence(events)
+	}
+	for event, err := range events {
 		if err != nil {
 			failPTTGate(err)
 			_ = source.close(output, err.Error())
