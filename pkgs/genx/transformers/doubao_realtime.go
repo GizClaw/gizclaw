@@ -1538,7 +1538,12 @@ func (t *DoubaoRealtime) processSession(
 				var response *doubaoRealtimeTextResponse
 				if t.mode == DoubaoRealtimeModeText {
 					response = textResponses.begin()
+					if inputStreamID := streamIDs.serviceInput(chunk); inputStreamID != "" {
+						streamIDs.beginInput(inputStreamID)
+					}
+					responseStreamID := streamIDs.endInputSegment()
 					assistant.setAccept(true)
+					assistant.markPending(responseStreamID, assistant.currentEpoch())
 				}
 				if err := session.SendText(ctx, string(p)); err != nil {
 					textResponses.cancel(response)

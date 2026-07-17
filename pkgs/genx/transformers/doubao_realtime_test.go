@@ -931,6 +931,66 @@ func TestDoubaoRealtimeTextDrainsFinalResponseAfterInputEOF(t *testing.T) {
 	}
 }
 
+func TestDoubaoRealtimeTextProviderLossClosesPartialResponseRoutes(t *testing.T) {
+	textSent := make(chan struct{})
+	session := &fakeDoubaoRealtimeSession{
+		beforeRecv:    textSent,
+		firstTextSent: textSent,
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventChatResponse, Text: "partial answer"},
+			{Type: doubaospeech.EventTTSStarted},
+			{Type: doubaospeech.EventTTSAudioData, Audio: []byte{1, 2}},
+		},
+	}
+	tfr := NewDoubaoRealtime(nil,
+		WithDoubaoRealtimeMode(DoubaoRealtimeModeText),
+		WithDoubaoRealtimeFormat("pcm"),
+	)
+	runtime := newDoubaoRealtimeRuntime(tfr)
+	defer runtime.close()
+	output := newBufferStream(16)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	err := tfr.processSession(
+		ctx,
+		&sliceRealtimeStream{chunks: []*genx.MessageChunk{{Part: genx.Text("question")}}},
+		output,
+		session,
+		runtime,
+	)
+	if !isDoubaoRealtimeRecoverable(err) {
+		t.Fatalf("processSession() error = %v, want recoverable provider loss", err)
+	}
+	runtime.providerLost(tfr, output, errors.New("provider lost"))
+	if err := output.Close(); err != nil {
+		t.Fatalf("Close(output) error = %v", err)
+	}
+
+	chunks := drainRealtimeTestOutput(t, output)
+	if !hasRealtimeTestText(chunks, genx.RoleModel, "partial answer") {
+		t.Fatalf("output missing partial assistant text: %#v", chunks)
+	}
+	if !hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/pcm") {
+		t.Fatalf("output missing partial assistant audio: %#v", chunks)
+	}
+	var textClosed, audioClosed bool
+	for _, chunk := range chunks {
+		if chunk == nil || chunk.Role != genx.RoleModel || chunk.Ctrl == nil ||
+			chunk.Ctrl.StreamID != "audio" || !chunk.Ctrl.EndOfStream || chunk.Ctrl.Error != "provider lost" {
+			continue
+		}
+		switch chunk.Part.(type) {
+		case genx.Text:
+			textClosed = true
+		case *genx.Blob:
+			audioClosed = true
+		}
+	}
+	if !textClosed || !audioClosed {
+		t.Fatalf("provider loss did not close text and audio routes: %#v", chunks)
+	}
+}
+
 func TestDoubaoRealtimeTextReplacementSessionRestoresOutputAcceptance(t *testing.T) {
 	firstTextSent := make(chan struct{})
 	first := &fakeDoubaoRealtimeSession{
