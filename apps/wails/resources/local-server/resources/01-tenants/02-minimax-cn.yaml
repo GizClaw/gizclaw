@@ -7,4 +7,5 @@ spec:
   app_id: "1743491566246301824"
   group_id: "1743491566246301824"
   credential_name: minimax-cn-credential
+  base_url: https://api.minimaxi.com
   description: MiniMax CN tenant

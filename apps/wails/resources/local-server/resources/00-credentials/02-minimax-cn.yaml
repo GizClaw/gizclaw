@@ -7,4 +7,3 @@ spec:
   provider: minimax
   body:
     api_key: ${GIZCLAW_MINIMAX_CN_API_KEY}
-    voice_base_url: ${GIZCLAW_MINIMAX_CN_VOICE_BASE_URL:-}

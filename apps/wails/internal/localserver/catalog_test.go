@@ -1,6 +1,8 @@
 package localserver_test
 
 import (
+	"io/fs"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -23,8 +25,8 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 	if len(catalog.WorkflowIcons) != 10 || len(catalog.PetDefPIXAs) != 9 || len(catalog.VoiceSyncs) != 1 {
 		t.Fatalf("assets = workflows:%d pets:%d voice-sync:%d", len(catalog.WorkflowIcons), len(catalog.PetDefPIXAs), len(catalog.VoiceSyncs))
 	}
-	if len(catalog.Requirements) != 14 {
-		t.Fatalf("environment requirements = %d, want 14", len(catalog.Requirements))
+	if len(catalog.Requirements) != 12 {
+		t.Fatalf("environment requirements = %d, want 12", len(catalog.Requirements))
 	}
 	kinds := map[string]int{}
 	identities := map[string]bool{}
@@ -59,6 +61,16 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 		if requirement.Name == "input" {
 			t.Fatal("Flowcraft runtime placeholder was exposed as Desktop environment")
 		}
+		if requirement.Name == "GIZCLAW_MINIMAX_CN_VOICE_BASE_URL" || requirement.Name == "GIZCLAW_MINIMAX_GLOBAL_VOICE_BASE_URL" {
+			t.Fatalf("fixed MiniMax endpoint was exposed as Desktop environment %s", requirement.Name)
+		}
+	}
+	miniMaxTenant, err := fs.ReadFile(catalog.FS, "resources/01-tenants/02-minimax-cn.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(miniMaxTenant), "base_url: https://api.minimaxi.com") {
+		t.Fatal("MiniMax CN tenant does not use the fixed CN endpoint")
 	}
 }
 
