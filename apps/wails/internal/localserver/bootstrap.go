@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -60,6 +61,7 @@ func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironmen
 
 	environment := mergedCommandEnvironment(resolved)
 	environment = setCommandEnvironment(environment, "XDG_CONFIG_HOME", configHome)
+	environment = setCommandEnvironment(environment, "AppData", configHome)
 	environment = setCommandEnvironment(environment, "input", "${input}")
 	run := b.Run
 	if run == nil {
@@ -311,12 +313,16 @@ func mergedCommandEnvironment(overrides map[string]string) []string {
 }
 
 func setCommandEnvironment(environment []string, name, value string) []string {
-	prefix := name + "="
+	return setCommandEnvironmentForOS(environment, name, value, runtime.GOOS)
+}
+
+func setCommandEnvironmentForOS(environment []string, name, value, goos string) []string {
 	for i, entry := range environment {
-		if strings.HasPrefix(entry, prefix) {
-			environment[i] = prefix + value
+		entryName, _, ok := strings.Cut(entry, "=")
+		if ok && (entryName == name || goos == "windows" && strings.EqualFold(entryName, name)) {
+			environment[i] = name + "=" + value
 			return environment
 		}
 	}
-	return append(environment, prefix+value)
+	return append(environment, name+"="+value)
 }

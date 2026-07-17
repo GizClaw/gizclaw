@@ -56,6 +56,22 @@ func TestBootstrapperAppliesResourcesSyncsVoicesThenACLAndAssets(t *testing.T) {
 			if !strings.Contains(joinedEnvironment, "BOOTSTRAP_SAVED=desktop") || !strings.Contains(joinedEnvironment, "input=${input}") {
 				t.Fatalf("environment does not contain resolved values")
 			}
+			var xdgConfigHome, appData string
+			for _, entry := range environment {
+				name, value, _ := strings.Cut(entry, "=")
+				switch name {
+				case "XDG_CONFIG_HOME":
+					xdgConfigHome = value
+				case "AppData":
+					appData = value
+				}
+			}
+			if xdgConfigHome == "" || appData != xdgConfigHome {
+				t.Fatalf("CLI config roots = XDG_CONFIG_HOME %q, AppData %q", xdgConfigHome, appData)
+			}
+			if data, err := os.ReadFile(filepath.Join(appData, "gizclaw", "local", "config.yaml")); err != nil || string(data) != "context" {
+				t.Fatalf("Windows CLI context = %q, %v", data, err)
+			}
 			if len(args) >= 2 && args[0] == "admin" && args[1] == "apply" {
 				data, err := os.ReadFile(args[len(args)-1])
 				if err != nil {
@@ -86,6 +102,13 @@ func TestBootstrapperAppliesResourcesSyncsVoicesThenACLAndAssets(t *testing.T) {
 	}
 	if !strings.Contains(commands[3], "upload-icon workflow-a --format png") || !strings.Contains(commands[4], "upload-icon workflow-a --format pixa") || !strings.Contains(commands[5], "upload-pixa pet-a") {
 		t.Fatalf("asset commands = %v", commands[3:])
+	}
+}
+
+func TestSetCommandEnvironmentReplacesWindowsNameCaseInsensitively(t *testing.T) {
+	environment := setCommandEnvironmentForOS([]string{"APPDATA=old", "OTHER=value"}, "AppData", "new", "windows")
+	if got := strings.Join(environment, "\n"); got != "AppData=new\nOTHER=value" {
+		t.Fatalf("environment = %q", got)
 	}
 }
 
