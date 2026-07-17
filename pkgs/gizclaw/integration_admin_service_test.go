@@ -221,8 +221,8 @@ func TestIntegrationAdminServiceCredentialLifecycle(t *testing.T) {
 	updateBody := mustCredentialUpsert(t, `{
 			"name": "openai-primary",
 			"provider": "volc",
-			"description": "migrated credential",
-			"body": {"api_key": "volc-api-key"}
+			"description": "volc credential",
+			"body": {"ark_api_key": "volc-api-key"}
 	}`)
 	updated, err := putCredential(context.Background(), admin, "openai-primary", updateBody)
 	if err != nil {
@@ -231,7 +231,7 @@ func TestIntegrationAdminServiceCredentialLifecycle(t *testing.T) {
 	if updated.Provider != "volc" {
 		t.Fatalf("PutCredential = %#v", updated)
 	}
-	if testCredentialBodyString(updated.Body, "api_key") != "volc-api-key" {
+	if testCredentialBodyString(updated.Body, "ark_api_key") != "volc-api-key" {
 		t.Fatalf("PutCredential body = %#v", updated.Body)
 	}
 
@@ -243,7 +243,7 @@ func TestIntegrationAdminServiceCredentialLifecycle(t *testing.T) {
 	if len(filtered) != 1 || filtered[0].Name != "openai-primary" {
 		t.Fatalf("ListCredentials(provider) = %#v", filtered)
 	}
-	if testCredentialBodyString(filtered[0].Body, "api_key") != "volc-api-key" {
+	if testCredentialBodyString(filtered[0].Body, "ark_api_key") != "volc-api-key" {
 		t.Fatalf("ListCredentials(provider) body = %#v", filtered[0].Body)
 	}
 

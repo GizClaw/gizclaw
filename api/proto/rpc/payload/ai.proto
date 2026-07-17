@@ -533,11 +533,12 @@ message VoiceProviderData {
 }
 
 message VolcCredentialBody {
-  optional string api_key = 1;
-  optional string app_id = 2;
+  optional string speech_api_key = 1;
+  optional string speech_app_id = 2;
   optional string openapi_access_key = 3;
   optional string openapi_access_key_id = 4;
   optional string search_api_key = 5;
+  optional string ark_api_key = 6;
 }
 
 message VolcTenantModelProviderData {

@@ -1079,7 +1079,7 @@ func TestServerVolcTenantsCRUDAndSyncVoices(t *testing.T) {
 	seedCredential(t, srv, apitypes.Credential{
 		Name:      "volc-main",
 		Provider:  "volcengine",
-		Body:      testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app", "openapi_access_key_id": "ak", "openapi_access_key": "sk"}),
+		Body:      testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "openapi_access_key_id": "ak", "openapi_access_key": "sk"}),
 		CreatedAt: srv.now(),
 		UpdatedAt: srv.now(),
 	})
@@ -1247,7 +1247,7 @@ func TestServerVolcTenantPutGetAndValidation(t *testing.T) {
 	seedCredential(t, srv, apitypes.Credential{
 		Name:      "volc-main",
 		Provider:  "volc",
-		Body:      testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app", "openapi_access_key_id": "ak", "openapi_access_key": "sk"}),
+		Body:      testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "openapi_access_key_id": "ak", "openapi_access_key": "sk"}),
 		CreatedAt: srv.now(),
 		UpdatedAt: srv.now(),
 	})
@@ -1309,7 +1309,7 @@ func TestServerVolcTenantErrorResponses(t *testing.T) {
 	seedCredential(t, srv, apitypes.Credential{
 		Name:      "volc-main",
 		Provider:  "volc",
-		Body:      testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app", "openapi_access_key_id": "ak", "openapi_access_key": "sk"}),
+		Body:      testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "openapi_access_key_id": "ak", "openapi_access_key": "sk"}),
 		CreatedAt: srv.now(),
 		UpdatedAt: srv.now(),
 	})
@@ -1394,7 +1394,7 @@ func TestServerVolcSyncPublicOnlySkipsTrainStatusAPI(t *testing.T) {
 	seedCredential(t, srv, apitypes.Credential{
 		Name:      "volc-main",
 		Provider:  "volcengine",
-		Body:      testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app", "openapi_access_key_id": "ak", "openapi_access_key": "sk"}),
+		Body:      testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "openapi_access_key_id": "ak", "openapi_access_key": "sk"}),
 		CreatedAt: srv.now(),
 		UpdatedAt: srv.now(),
 	})
@@ -1443,7 +1443,7 @@ func TestServerVolcSyncTimbreFallbackMapsICLResourceID(t *testing.T) {
 	seedCredential(t, srv, apitypes.Credential{
 		Name:      "volc-main",
 		Provider:  "volcengine",
-		Body:      testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app", "openapi_access_key_id": "ak", "openapi_access_key": "sk"}),
+		Body:      testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "openapi_access_key_id": "ak", "openapi_access_key": "sk"}),
 		CreatedAt: srv.now(),
 		UpdatedAt: srv.now(),
 	})
@@ -1534,7 +1534,7 @@ func TestServerVolcSyncRejectsInvalidCredential(t *testing.T) {
 	seedCredential(t, srv, apitypes.Credential{
 		Name:      "volc-main",
 		Provider:  "volc",
-		Body:      testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app", "openapi_access_key_id": "ak"}),
+		Body:      testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "openapi_access_key_id": "ak"}),
 		CreatedAt: srv.now(),
 		UpdatedAt: srv.now(),
 	})
@@ -1564,7 +1564,7 @@ func TestVolcCredentialAndResourceHelpers(t *testing.T) {
 	appID, ak, sk, err := volcCredentialValues(apitypes.Credential{
 		Name: "volc-main",
 		Body: testVolcCredentialBodyFromStrings(map[string]string{
-			"app_id":                " app ",
+			"speech_app_id":         " app ",
 			"openapi_access_key_id": " ak ",
 			"openapi_access_key":    " sk ",
 		}),
@@ -1575,7 +1575,7 @@ func TestVolcCredentialAndResourceHelpers(t *testing.T) {
 	if appID != "app" || ak != "ak" || sk != "sk" {
 		t.Fatalf("volcCredentialValues() = %q, %q, %q", appID, ak, sk)
 	}
-	if _, _, _, err := volcCredentialValues(apitypes.Credential{Name: "missing", Body: testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app", "openapi_access_key_id": "ak"})}); err == nil {
+	if _, _, _, err := volcCredentialValues(apitypes.Credential{Name: "missing", Body: testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "openapi_access_key_id": "ak"})}); err == nil {
 		t.Fatal("volcCredentialValues(missing secret) error = nil")
 	}
 
@@ -1717,7 +1717,7 @@ func TestTenantReferenceValidation(t *testing.T) {
 	seedCredential(t, srv, apitypes.Credential{
 		Name:      "volc-cred",
 		Provider:  "volc",
-		Body:      testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app", "openapi_access_key_id": "ak", "openapi_access_key": "sk"}),
+		Body:      testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "openapi_access_key_id": "ak", "openapi_access_key": "sk"}),
 		CreatedAt: srv.now(),
 		UpdatedAt: srv.now(),
 	})
@@ -1742,21 +1742,21 @@ func TestVolcSpeakerClientForTenantValidation(t *testing.T) {
 	if _, err := srv.volcSpeakerClientForTenant(ctx, apitypes.Credential{
 		Name:     "wrong-provider",
 		Provider: "minimax",
-		Body:     testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app", "openapi_access_key_id": "ak", "openapi_access_key": "sk"}),
+		Body:     testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "openapi_access_key_id": "ak", "openapi_access_key": "sk"}),
 	}, tenant); err == nil || !strings.Contains(err.Error(), "provider must be volcengine") {
 		t.Fatalf("volcSpeakerClientForTenant(wrong provider) error = %v", err)
 	}
 	if _, err := srv.volcSpeakerClientForTenant(ctx, apitypes.Credential{
 		Name:     "missing-secret",
 		Provider: "volc",
-		Body:     testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app", "openapi_access_key_id": "ak"}),
+		Body:     testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "openapi_access_key_id": "ak"}),
 	}, tenant); err == nil || !strings.Contains(err.Error(), "missing openapi_access_key_id/openapi_access_key") {
 		t.Fatalf("volcSpeakerClientForTenant(missing secret) error = %v", err)
 	}
 	client, err := srv.volcSpeakerClientForTenant(ctx, apitypes.Credential{
 		Name:     "volc-main",
 		Provider: "volcengine",
-		Body:     testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app", "openapi_access_key_id": "ak", "openapi_access_key": "sk"}),
+		Body:     testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "openapi_access_key_id": "ak", "openapi_access_key": "sk"}),
 	}, tenant)
 	if err != nil {
 		t.Fatalf("volcSpeakerClientForTenant() error = %v", err)

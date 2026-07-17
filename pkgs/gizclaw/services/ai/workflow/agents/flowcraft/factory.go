@@ -2904,9 +2904,9 @@ func resolveVolcClawModelConfig(cfg peergenx.GeneratorConfig) (map[string]any, e
 	if err != nil {
 		return nil, err
 	}
-	apiKey := firstString(body.ApiKey)
+	apiKey := firstString(body.ArkApiKey)
 	if apiKey == "" {
-		return nil, fmt.Errorf("flowcraft: credential %q missing api_key", cfg.Credential.Name)
+		return nil, fmt.Errorf("flowcraft: credential %q missing ark_api_key", cfg.Credential.Name)
 	}
 	out := map[string]any{
 		"provider": "bytedance",

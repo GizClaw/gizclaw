@@ -3105,11 +3105,12 @@ type VoiceSource string
 
 // VolcCredentialBody defines model for VolcCredentialBody.
 type VolcCredentialBody struct {
-	ApiKey             *string `json:"api_key,omitempty"`
-	AppId              *string `json:"app_id,omitempty"`
+	ArkApiKey          *string `json:"ark_api_key,omitempty"`
 	OpenapiAccessKey   *string `json:"openapi_access_key,omitempty"`
 	OpenapiAccessKeyId *string `json:"openapi_access_key_id,omitempty"`
 	SearchApiKey       *string `json:"search_api_key,omitempty"`
+	SpeechApiKey       *string `json:"speech_api_key,omitempty"`
+	SpeechAppId        *string `json:"speech_app_id,omitempty"`
 }
 
 // VolcTenantModelProviderData defines model for VolcTenantModelProviderData.

@@ -1306,11 +1306,12 @@ export type VoiceProvider = {
 };
 export type VoiceProviderData = GeminiTenantVoiceProviderData | DashScopeTenantVoiceProviderData | OpenAITenantVoiceProviderData | MiniMaxTenantVoiceProviderData | VolcTenantVoiceProviderData;
 export type VolcCredentialBody = {
-  "api_key"?: string;
-  "app_id"?: string;
+  "speech_api_key"?: string;
+  "speech_app_id"?: string;
   "openapi_access_key"?: string;
   "openapi_access_key_id"?: string;
   "search_api_key"?: string;
+  "ark_api_key"?: string;
 };
 export type VolcTenantModelProviderData = {
   "api_mode"?: VolcTenantModelProviderDataApiMode;
@@ -7562,13 +7563,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "VolcCredentialBody": {
     "fields": [
       {
-        "name": "api_key",
+        "name": "speech_api_key",
         "number": 1,
         "optional": true,
         "type": "string"
       },
       {
-        "name": "app_id",
+        "name": "speech_app_id",
         "number": 2,
         "optional": true,
         "type": "string"
@@ -7588,6 +7589,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "search_api_key",
         "number": 5,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "ark_api_key",
+        "number": 6,
         "optional": true,
         "type": "string"
       }

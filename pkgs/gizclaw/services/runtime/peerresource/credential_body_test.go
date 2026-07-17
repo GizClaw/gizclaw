@@ -28,9 +28,12 @@ func testRPCCredentialBodyString(body rpcapi.CredentialBody, key string) string 
 func TestAPICredentialToRPCUsesProviderForBodyUnion(t *testing.T) {
 	var body apitypes.CredentialBody
 	if err := body.FromVolcCredentialBody(apitypes.VolcCredentialBody{
-		AppId:              testStringPtr("volc-app"),
+		ArkApiKey:          testStringPtr("volc-ark"),
 		OpenapiAccessKeyId: testStringPtr("ak-id"),
 		OpenapiAccessKey:   testStringPtr("ak-secret"),
+		SearchApiKey:       testStringPtr("search-key"),
+		SpeechApiKey:       testStringPtr("speech-key"),
+		SpeechAppId:        testStringPtr("volc-app"),
 	}); err != nil {
 		t.Fatalf("FromVolcCredentialBody() error = %v", err)
 	}
@@ -47,10 +50,32 @@ func TestAPICredentialToRPCUsesProviderForBodyUnion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsVolcCredentialBody() error = %v", err)
 	}
-	if volc.AppId == nil || *volc.AppId != "volc-app" || volc.OpenapiAccessKeyId == nil || *volc.OpenapiAccessKeyId != "ak-id" {
+	if volc.SpeechAppId == nil || *volc.SpeechAppId != "volc-app" ||
+		volc.SpeechApiKey == nil || *volc.SpeechApiKey != "speech-key" ||
+		volc.ArkApiKey == nil || *volc.ArkApiKey != "volc-ark" ||
+		volc.SearchApiKey == nil || *volc.SearchApiKey != "search-key" ||
+		volc.OpenapiAccessKeyId == nil || *volc.OpenapiAccessKeyId != "ak-id" ||
+		volc.OpenapiAccessKey == nil || *volc.OpenapiAccessKey != "ak-secret" {
 		t.Fatalf("volc credential body = %#v", volc)
 	}
 	if _, err := got.Body.AsOpenAICredentialBody(); err == nil {
 		t.Fatal("apiCredentialToRPC() encoded volc credential as OpenAI body")
+	}
+
+	roundTrip, err := rpcCredentialBodyToAPI(got.Body)
+	if err != nil {
+		t.Fatalf("rpcCredentialBodyToAPI() error = %v", err)
+	}
+	roundTripVolc, err := roundTrip.AsVolcCredentialBody()
+	if err != nil {
+		t.Fatalf("AsVolcCredentialBody(round trip) error = %v", err)
+	}
+	if roundTripVolc.SpeechAppId == nil || *roundTripVolc.SpeechAppId != "volc-app" ||
+		roundTripVolc.SpeechApiKey == nil || *roundTripVolc.SpeechApiKey != "speech-key" ||
+		roundTripVolc.ArkApiKey == nil || *roundTripVolc.ArkApiKey != "volc-ark" ||
+		roundTripVolc.SearchApiKey == nil || *roundTripVolc.SearchApiKey != "search-key" ||
+		roundTripVolc.OpenapiAccessKeyId == nil || *roundTripVolc.OpenapiAccessKeyId != "ak-id" ||
+		roundTripVolc.OpenapiAccessKey == nil || *roundTripVolc.OpenapiAccessKey != "ak-secret" {
+		t.Fatalf("round-trip volc credential body = %#v", roundTripVolc)
 	}
 }

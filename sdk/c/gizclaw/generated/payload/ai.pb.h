@@ -527,11 +527,12 @@ typedef struct _gizclaw_rpc_v1_VoiceProvider {
 } gizclaw_rpc_v1_VoiceProvider;
 
 typedef struct _gizclaw_rpc_v1_VolcCredentialBody {
-    pb_callback_t api_key;
-    pb_callback_t app_id;
+    pb_callback_t speech_api_key;
+    pb_callback_t speech_app_id;
     pb_callback_t openapi_access_key;
     pb_callback_t openapi_access_key_id;
     pb_callback_t search_api_key;
+    pb_callback_t ark_api_key;
 } gizclaw_rpc_v1_VolcCredentialBody;
 
 typedef struct _gizclaw_rpc_v1_CredentialBody {
@@ -1133,7 +1134,7 @@ extern "C" {
 #define gizclaw_rpc_v1_VoiceListResponse_init_default {0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_VoiceProvider_init_default {_gizclaw_rpc_v1_VoiceProviderKind_MIN, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_VoiceProviderData_init_default {0, {gizclaw_rpc_v1_GeminiTenantVoiceProviderData_init_default}}
-#define gizclaw_rpc_v1_VolcCredentialBody_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_VolcCredentialBody_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_VolcTenantModelProviderData_init_default {false, _gizclaw_rpc_v1_VolcTenantModelProviderDataApiMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_VolcTenantVoiceProviderData_init_default {false, google_protobuf_Struct_init_default, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_Workflow_init_default     {{{NULL}, NULL}, false, gizclaw_rpc_v1_WorkflowSpec_init_default, false, gizclaw_rpc_v1_WorkflowI18nCatalog_init_default, false, gizclaw_rpc_v1_Icon_init_default}
@@ -1247,7 +1248,7 @@ extern "C" {
 #define gizclaw_rpc_v1_VoiceListResponse_init_zero {0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_VoiceProvider_init_zero   {_gizclaw_rpc_v1_VoiceProviderKind_MIN, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_VoiceProviderData_init_zero {0, {gizclaw_rpc_v1_GeminiTenantVoiceProviderData_init_zero}}
-#define gizclaw_rpc_v1_VolcCredentialBody_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_VolcCredentialBody_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_VolcTenantModelProviderData_init_zero {false, _gizclaw_rpc_v1_VolcTenantModelProviderDataApiMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_VolcTenantVoiceProviderData_init_zero {false, google_protobuf_Struct_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_Workflow_init_zero        {{{NULL}, NULL}, false, gizclaw_rpc_v1_WorkflowSpec_init_zero, false, gizclaw_rpc_v1_WorkflowI18nCatalog_init_zero, false, gizclaw_rpc_v1_Icon_init_zero}
@@ -1496,11 +1497,12 @@ extern "C" {
 #define gizclaw_rpc_v1_VoiceListResponse_next_cursor_tag 3
 #define gizclaw_rpc_v1_VoiceProvider_kind_tag    1
 #define gizclaw_rpc_v1_VoiceProvider_name_tag    2
-#define gizclaw_rpc_v1_VolcCredentialBody_api_key_tag 1
-#define gizclaw_rpc_v1_VolcCredentialBody_app_id_tag 2
+#define gizclaw_rpc_v1_VolcCredentialBody_speech_api_key_tag 1
+#define gizclaw_rpc_v1_VolcCredentialBody_speech_app_id_tag 2
 #define gizclaw_rpc_v1_VolcCredentialBody_openapi_access_key_tag 3
 #define gizclaw_rpc_v1_VolcCredentialBody_openapi_access_key_id_tag 4
 #define gizclaw_rpc_v1_VolcCredentialBody_search_api_key_tag 5
+#define gizclaw_rpc_v1_VolcCredentialBody_ark_api_key_tag 6
 #define gizclaw_rpc_v1_CredentialBody_open_aicredential_body_tag 1
 #define gizclaw_rpc_v1_CredentialBody_gemini_credential_body_tag 2
 #define gizclaw_rpc_v1_CredentialBody_dash_scope_credential_body_tag 3
@@ -2339,11 +2341,12 @@ X(a, STATIC,   ONEOF,    MESSAGE,  (value,volc_tenant_voice_provider_data,value.
 #define gizclaw_rpc_v1_VoiceProviderData_value_volc_tenant_voice_provider_data_MSGTYPE gizclaw_rpc_v1_VolcTenantVoiceProviderData
 
 #define gizclaw_rpc_v1_VolcCredentialBody_FIELDLIST(X, a) \
-X(a, CALLBACK, OPTIONAL, STRING,   api_key,           1) \
-X(a, CALLBACK, OPTIONAL, STRING,   app_id,            2) \
+X(a, CALLBACK, OPTIONAL, STRING,   speech_api_key,    1) \
+X(a, CALLBACK, OPTIONAL, STRING,   speech_app_id,     2) \
 X(a, CALLBACK, OPTIONAL, STRING,   openapi_access_key,   3) \
 X(a, CALLBACK, OPTIONAL, STRING,   openapi_access_key_id,   4) \
-X(a, CALLBACK, OPTIONAL, STRING,   search_api_key,    5)
+X(a, CALLBACK, OPTIONAL, STRING,   search_api_key,    5) \
+X(a, CALLBACK, OPTIONAL, STRING,   ark_api_key,       6)
 #define gizclaw_rpc_v1_VolcCredentialBody_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_VolcCredentialBody_DEFAULT NULL
 

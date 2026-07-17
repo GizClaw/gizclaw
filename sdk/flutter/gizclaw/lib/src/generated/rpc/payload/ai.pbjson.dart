@@ -3464,15 +3464,23 @@ const VolcCredentialBody$json = {
   '1': 'VolcCredentialBody',
   '2': [
     {
-      '1': 'api_key',
+      '1': 'speech_api_key',
       '3': 1,
       '4': 1,
       '5': 9,
       '9': 0,
-      '10': 'apiKey',
+      '10': 'speechApiKey',
       '17': true
     },
-    {'1': 'app_id', '3': 2, '4': 1, '5': 9, '9': 1, '10': 'appId', '17': true},
+    {
+      '1': 'speech_app_id',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '9': 1,
+      '10': 'speechAppId',
+      '17': true
+    },
     {
       '1': 'openapi_access_key',
       '3': 3,
@@ -3500,24 +3508,36 @@ const VolcCredentialBody$json = {
       '10': 'searchApiKey',
       '17': true
     },
+    {
+      '1': 'ark_api_key',
+      '3': 6,
+      '4': 1,
+      '5': 9,
+      '9': 5,
+      '10': 'arkApiKey',
+      '17': true
+    },
   ],
   '8': [
-    {'1': '_api_key'},
-    {'1': '_app_id'},
+    {'1': '_speech_api_key'},
+    {'1': '_speech_app_id'},
     {'1': '_openapi_access_key'},
     {'1': '_openapi_access_key_id'},
     {'1': '_search_api_key'},
+    {'1': '_ark_api_key'},
   ],
 };
 
 /// Descriptor for `VolcCredentialBody`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List volcCredentialBodyDescriptor = $convert.base64Decode(
-    'ChJWb2xjQ3JlZGVudGlhbEJvZHkSHAoHYXBpX2tleRgBIAEoCUgAUgZhcGlLZXmIAQESGgoGYX'
-    'BwX2lkGAIgASgJSAFSBWFwcElkiAEBEjEKEm9wZW5hcGlfYWNjZXNzX2tleRgDIAEoCUgCUhBv'
-    'cGVuYXBpQWNjZXNzS2V5iAEBEjYKFW9wZW5hcGlfYWNjZXNzX2tleV9pZBgEIAEoCUgDUhJvcG'
-    'VuYXBpQWNjZXNzS2V5SWSIAQESKQoOc2VhcmNoX2FwaV9rZXkYBSABKAlIBFIMc2VhcmNoQXBp'
-    'S2V5iAEBQgoKCF9hcGlfa2V5QgkKB19hcHBfaWRCFQoTX29wZW5hcGlfYWNjZXNzX2tleUIYCh'
-    'Zfb3BlbmFwaV9hY2Nlc3Nfa2V5X2lkQhEKD19zZWFyY2hfYXBpX2tleQ==');
+    'ChJWb2xjQ3JlZGVudGlhbEJvZHkSKQoOc3BlZWNoX2FwaV9rZXkYASABKAlIAFIMc3BlZWNoQX'
+    'BpS2V5iAEBEicKDXNwZWVjaF9hcHBfaWQYAiABKAlIAVILc3BlZWNoQXBwSWSIAQESMQoSb3Bl'
+    'bmFwaV9hY2Nlc3Nfa2V5GAMgASgJSAJSEG9wZW5hcGlBY2Nlc3NLZXmIAQESNgoVb3BlbmFwaV'
+    '9hY2Nlc3Nfa2V5X2lkGAQgASgJSANSEm9wZW5hcGlBY2Nlc3NLZXlJZIgBARIpCg5zZWFyY2hf'
+    'YXBpX2tleRgFIAEoCUgEUgxzZWFyY2hBcGlLZXmIAQESIwoLYXJrX2FwaV9rZXkYBiABKAlIBV'
+    'IJYXJrQXBpS2V5iAEBQhEKD19zcGVlY2hfYXBpX2tleUIQCg5fc3BlZWNoX2FwcF9pZEIVChNf'
+    'b3BlbmFwaV9hY2Nlc3Nfa2V5QhgKFl9vcGVuYXBpX2FjY2Vzc19rZXlfaWRCEQoPX3NlYXJjaF'
+    '9hcGlfa2V5Qg4KDF9hcmtfYXBpX2tleQ==');
 
 @$core.Deprecated('Use volcTenantModelProviderDataDescriptor instead')
 const VolcTenantModelProviderData$json = {

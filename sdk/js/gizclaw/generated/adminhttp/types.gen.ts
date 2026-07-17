@@ -838,8 +838,9 @@ export type OpenAiCredentialBody = {
 };
 
 export type VolcCredentialBody = {
-    app_id?: string;
-    api_key?: string;
+    speech_app_id?: string;
+    speech_api_key?: string;
+    ark_api_key?: string;
     search_api_key?: string;
     openapi_access_key_id?: string;
     openapi_access_key?: string;

@@ -89,8 +89,8 @@ func TestServerCredentialsCRUD(t *testing.T) {
 	updateBody := mustCredentialUpsert(t, `{
 			"name": "openai-primary",
 			"provider": "volc",
-			"description": "migrated credential",
-			"body": {"api_key": "volc-api-key"}
+			"description": "volc credential",
+			"body": {"ark_api_key": "volc-api-key"}
 	}`)
 	putResp, err := srv.PutCredential(ctx, adminhttp.PutCredentialRequestObject{
 		Name: "openai-primary",
@@ -106,7 +106,7 @@ func TestServerCredentialsCRUD(t *testing.T) {
 	if updated.Provider != "volc" {
 		t.Fatalf("PutCredential() credential = %#v", updated)
 	}
-	if testCredentialBodyString(updated.Body, "api_key") != "volc-api-key" {
+	if testCredentialBodyString(updated.Body, "ark_api_key") != "volc-api-key" {
 		t.Fatalf("PutCredential() body = %#v", updated.Body)
 	}
 
@@ -139,7 +139,7 @@ func TestServerCredentialsCRUD(t *testing.T) {
 	if len(newList.Items) != 1 || newList.Items[0].Name != "openai-primary" {
 		t.Fatalf("ListCredentials(new provider) = %#v", newList)
 	}
-	if testCredentialBodyString(newList.Items[0].Body, "api_key") != "volc-api-key" {
+	if testCredentialBodyString(newList.Items[0].Body, "ark_api_key") != "volc-api-key" {
 		t.Fatalf("ListCredentials(new provider) body = %#v", newList.Items[0].Body)
 	}
 
@@ -157,6 +157,61 @@ func TestServerCredentialsCRUD(t *testing.T) {
 	}
 	if _, ok := getAfterDelete.(adminhttp.GetCredential404JSONResponse); !ok {
 		t.Fatalf("GetCredential() after delete response = %#v", getAfterDelete)
+	}
+}
+
+func TestServerVolcCredentialRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(t)
+	ctx := context.Background()
+	body := mustCredentialUpsert(t, `{
+		"name": "volc-main",
+		"provider": "volc",
+		"body": {
+			"speech_app_id": "speech-app",
+			"speech_api_key": "speech-key",
+			"ark_api_key": "ark-key",
+			"search_api_key": "search-key",
+			"openapi_access_key_id": "openapi-id",
+			"openapi_access_key": "openapi-secret"
+		}
+	}`)
+	createResp, err := srv.CreateCredential(ctx, adminhttp.CreateCredentialRequestObject{Body: &body})
+	if err != nil {
+		t.Fatalf("CreateCredential() error = %v", err)
+	}
+	created, ok := createResp.(adminhttp.CreateCredential200JSONResponse)
+	if !ok {
+		t.Fatalf("CreateCredential() response = %#v", createResp)
+	}
+
+	want := map[string]string{
+		"speech_app_id":         "speech-app",
+		"speech_api_key":        "speech-key",
+		"ark_api_key":           "ark-key",
+		"search_api_key":        "search-key",
+		"openapi_access_key_id": "openapi-id",
+		"openapi_access_key":    "openapi-secret",
+	}
+	for key, value := range want {
+		if got := testCredentialBodyString(created.Body, key); got != value {
+			t.Errorf("CreateCredential() body[%q] = %q, want %q", key, got, value)
+		}
+	}
+
+	getResp, err := srv.GetCredential(ctx, adminhttp.GetCredentialRequestObject{Name: "volc-main"})
+	if err != nil {
+		t.Fatalf("GetCredential() error = %v", err)
+	}
+	got, ok := getResp.(adminhttp.GetCredential200JSONResponse)
+	if !ok {
+		t.Fatalf("GetCredential() response = %#v", getResp)
+	}
+	for key, value := range want {
+		if actual := testCredentialBodyString(got.Body, key); actual != value {
+			t.Errorf("GetCredential() body[%q] = %q, want %q", key, actual, value)
+		}
 	}
 }
 
@@ -355,9 +410,14 @@ func TestValidateCredentialBodyProviderShapes(t *testing.T) {
 		{name: "gemini api key", provider: "gemini", body: `{"api_key":"sk-gemini"}`},
 		{name: "dashscope api key", provider: "dashscope", body: `{"api_key":"sk-dashscope"}`},
 		{name: "minimax api key", provider: "minimax", body: `{"api_key":"sk-minimax"}`},
-		{name: "volc speech api key", provider: "volc", body: `{"api_key":"sk-volc"}`},
-		{name: "volc openapi key", provider: "volc", body: `{"openapi_access_key_id":"ak","openapi_access_key":"sk"}`},
-		{name: "volcengine alias", provider: "volcengine", body: `{"api_key":"sk-volc"}`},
+		{name: "volc speech api key", provider: "volc", body: `{"speech_api_key":"sk-volc"}`},
+		{name: "volc speech app id", provider: "volc", body: `{"speech_app_id":"app-volc"}`},
+		{name: "volc ark api key", provider: "volc", body: `{"ark_api_key":"sk-ark"}`},
+		{name: "volc search api key", provider: "volc", body: `{"search_api_key":"sk-search"}`},
+		{name: "volc openapi key id", provider: "volc", body: `{"openapi_access_key_id":"ak"}`},
+		{name: "volc openapi key", provider: "volc", body: `{"openapi_access_key":"sk"}`},
+		{name: "volcengine alias", provider: "volcengine", body: `{"speech_api_key":"sk-volc"}`},
+		{name: "volc empty fields", provider: "volc", body: `{"speech_api_key":" ","ark_api_key":""}`, wantErr: true},
 		{name: "unsupported provider", provider: "unknown", body: `{"api_key":"sk-test"}`, wantErr: true},
 	}
 	for _, tt := range tests {
