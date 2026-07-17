@@ -106,6 +106,22 @@ func (sb *StreamBuilder) Add(evt ...*MessageChunk) error {
 	return nil
 }
 
+// Discard removes queued chunks that match predicate from a growable stream builder.
+func (sb *StreamBuilder) Discard(predicate func(*MessageChunk) bool) int {
+	if sb == nil || predicate == nil {
+		return 0
+	}
+	discarder, ok := sb.rb.(interface {
+		RemoveIf(func(*StreamEvent) bool) int
+	})
+	if !ok {
+		return 0
+	}
+	return discarder.RemoveIf(func(event *StreamEvent) bool {
+		return event != nil && event.Chunk != nil && predicate(event.Chunk)
+	})
+}
+
 func (sb *StreamBuilder) Abort(err error) error {
 	return sb.rb.CloseWithError(err)
 }

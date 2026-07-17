@@ -1,17 +1,21 @@
 package agenthost
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"mime"
 	"strconv"
 	"strings"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/mp3"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/resampler"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
 
@@ -34,6 +38,10 @@ type audioOutputChannel struct {
 type audioPCMDecoder interface {
 	Decode([]byte) ([]pcm.Chunk, error)
 	Close() error
+}
+
+type audioPCMFinalizer interface {
+	Finalize() ([]pcm.Chunk, error)
 }
 
 func newAudioOutputTracks(creator AudioTrackCreator) *audioOutputTracks {
@@ -142,6 +150,21 @@ func (o *audioOutputTracks) closeChannel(key audioOutputKey, errorText string) e
 		return nil
 	}
 	delete(o.channels, key)
+	if errorText == "" {
+		if finalizer, ok := channel.decoder.(audioPCMFinalizer); ok {
+			chunks, err := finalizer.Finalize()
+			if err != nil {
+				decoderErr := fmt.Errorf("agenthost: finalize audio decoder stream_id=%q mime=%q: %w", key.streamID, key.mimeType, err)
+				return errors.Join(decoderErr, channel.decoder.Close(), channel.ctrl.CloseWithError(decoderErr))
+			}
+			for _, chunk := range chunks {
+				if err := channel.track.Write(chunk); err != nil {
+					writeErr := fmt.Errorf("agenthost: write final audio stream_id=%q mime=%q: %w", key.streamID, key.mimeType, err)
+					return errors.Join(writeErr, channel.decoder.Close(), channel.ctrl.CloseWithError(writeErr))
+				}
+			}
+		}
+	}
 	decoderErr := channel.decoder.Close()
 	if decoderErr != nil {
 		decoderErr = fmt.Errorf("agenthost: close audio decoder stream_id=%q mime=%q: %w", key.streamID, key.mimeType, decoderErr)
@@ -205,6 +228,8 @@ func newAudioPCMDecoder(mimeType string) (audioPCMDecoder, error) {
 		return newRawOpusPCMDecoder(format)
 	case "audio/ogg", "application/ogg":
 		return &oggOpusPCMDecoder{}, nil
+	case "audio/mpeg", "audio/mp3", "audio/x-mpeg", "audio/x-mp3":
+		return &mp3PCMDecoder{}, nil
 	case "audio/l16", "audio/pcm", "audio/x-pcm":
 		format, err := audioPCMFormat(params, 16000, 1)
 		if err != nil {
@@ -253,6 +278,49 @@ func (d pcmBlobDecoder) Decode(data []byte) ([]pcm.Chunk, error) {
 }
 
 func (pcmBlobDecoder) Close() error { return nil }
+
+type mp3PCMDecoder struct {
+	data []byte
+}
+
+func (d *mp3PCMDecoder) Decode(data []byte) ([]pcm.Chunk, error) {
+	if d == nil {
+		return nil, fmt.Errorf("MP3 decoder is closed")
+	}
+	d.data = append(d.data, data...)
+	return nil, nil
+}
+
+func (d *mp3PCMDecoder) Finalize() ([]pcm.Chunk, error) {
+	if d == nil || len(d.data) == 0 {
+		return nil, fmt.Errorf("empty MP3 stream")
+	}
+	decoded, sampleRate, channels, err := mp3.DecodeFull(bytes.NewReader(d.data))
+	if err != nil {
+		return nil, err
+	}
+	source := resampler.Format{SampleRate: sampleRate, Stereo: channels == 2}
+	target := resampler.Format{SampleRate: 48000, Stereo: false}
+	if source != target {
+		converter, err := resampler.New(bytes.NewReader(decoded), source, target)
+		if err != nil {
+			return nil, err
+		}
+		decoded, err = io.ReadAll(converter)
+		closeErr := converter.Close()
+		if err != nil || closeErr != nil {
+			return nil, errors.Join(err, closeErr)
+		}
+	}
+	return []pcm.Chunk{pcm.L16Mono48K.DataChunk(decoded)}, nil
+}
+
+func (d *mp3PCMDecoder) Close() error {
+	if d != nil {
+		d.data = nil
+	}
+	return nil
+}
 
 type rawOpusPCMDecoder struct {
 	format  pcm.Format

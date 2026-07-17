@@ -111,6 +111,13 @@ func (s *bufferStream) Push(chunk *genx.MessageChunk) error {
 	return s.buf.Add(chunk)
 }
 
+func (s *bufferStream) discard(predicate func(*genx.MessageChunk) bool) int {
+	if s == nil || s.buf == nil {
+		return 0
+	}
+	return s.buf.RemoveIf(predicate)
+}
+
 func (s *bufferStream) Done() <-chan struct{} {
 	return s.done
 }

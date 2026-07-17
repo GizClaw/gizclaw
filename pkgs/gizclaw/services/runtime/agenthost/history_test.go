@@ -902,7 +902,7 @@ func TestHistoryAgentPlayRoutesToRequestGearOutput(t *testing.T) {
 	}
 }
 
-func TestHistoryAgentReplayDrainsWithoutPlaybackPacing(t *testing.T) {
+func TestHistoryAgentPlayInterruptsPreviousBufferedReplay(t *testing.T) {
 	history := workspace.NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
 	audio1, err := historyOggOpusAsset([][]byte{{1}, {2}, {3}, {4}})
 	if err != nil {
@@ -957,31 +957,34 @@ func TestHistoryAgentReplayDrainsWithoutPlaybackPacing(t *testing.T) {
 	} else if blob, ok := audio.Part.(*genx.Blob); !ok || !bytes.Equal(blob.Data, []byte{1}) {
 		t.Fatalf("first audio = %#v", audio)
 	}
-	for want := byte(2); want <= 4; want++ {
-		audio, err := out.Next()
-		if err != nil {
-			t.Fatalf("Next first audio packet %d: %v", want, err)
-		}
-		blob, ok := audio.Part.(*genx.Blob)
-		if !ok || !bytes.Equal(blob.Data, []byte{want}) {
-			t.Fatalf("first audio packet %d = %#v", want, audio)
-		}
-	}
-	if audioEOS, err := out.Next(); err != nil {
-		t.Fatalf("Next first audio eos: %v", err)
-	} else if audioEOS.Ctrl == nil || !audioEOS.Ctrl.EndOfStream || audioEOS.Ctrl.Error != "" {
-		t.Fatalf("first audio eos = %#v", audioEOS)
-	}
-
 	if resp, err := agent.PlayHistory(context.Background(), apitypes.PeerRunHistoryPlayRequest{HistoryId: second.ID}); err != nil || !resp.Accepted {
 		t.Fatalf("PlayHistory(second) = %+v, %v", resp, err)
 	}
-	secondText, err := out.Next()
-	if err != nil {
-		t.Fatalf("Next second text: %v", err)
+	var interruptedText, interruptedAudio, foundSecond bool
+	for range 8 {
+		chunk, err := out.Next()
+		if err != nil {
+			t.Fatalf("Next after replacement: %v", err)
+		}
+		if text, ok := chunk.Part.(genx.Text); ok && string(text) == "second" {
+			foundSecond = true
+			break
+		}
+		if blob, ok := chunk.Part.(*genx.Blob); ok && len(blob.Data) > 0 {
+			t.Fatalf("stale replay audio reached output after replacement: %#v", chunk)
+		}
+		if chunk.Ctrl == nil || !chunk.Ctrl.EndOfStream || chunk.Ctrl.Error != historyReplayInterrupted {
+			continue
+		}
+		switch chunk.Part.(type) {
+		case genx.Text:
+			interruptedText = true
+		case *genx.Blob:
+			interruptedAudio = true
+		}
 	}
-	if got, ok := secondText.Part.(genx.Text); !ok || string(got) != "second" {
-		t.Fatalf("second text = %#v", secondText)
+	if !interruptedText || !interruptedAudio || !foundSecond {
+		t.Fatalf("replacement result textEOS=%t audioEOS=%t second=%t", interruptedText, interruptedAudio, foundSecond)
 	}
 	_ = agentOutput.Close()
 }

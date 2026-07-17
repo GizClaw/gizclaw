@@ -1700,6 +1700,9 @@ func (a *agent) interruptOutput(output *genx.StreamBuilder, streamID string, epo
 	}
 	a.outputEpoch++
 	a.outputMu.Unlock()
+	output.Discard(func(chunk *genx.MessageChunk) bool {
+		return chunk != nil && chunk.Ctrl != nil && chunk.Ctrl.StreamID == streamID && chunk.Ctrl.Label == assistantLabel
+	})
 
 	textEOS := textChunk(genx.RoleModel, assistantLabel, streamID, assistantLabel, "", true)
 	audioEOS := audioChunk(assistantLabel, streamID, nil, true)

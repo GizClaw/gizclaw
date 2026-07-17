@@ -1312,6 +1312,8 @@ func TestDoubaoRealtimeInterruptsPendingResponseBeforeTTS(t *testing.T) {
 		events: []*doubaospeech.RealtimeEvent{
 			{Type: doubaospeech.EventASRResponse, Text: "第一段"},
 			{Type: doubaospeech.EventASREnded},
+			{Type: doubaospeech.EventTTSStarted},
+			{Type: doubaospeech.EventTTSAudioData, Audio: []byte{9, 8, 7}},
 		},
 		beforeRecv:       firstAudioSent,
 		firstAudioSent:   firstAudioSent,
@@ -1371,6 +1373,9 @@ func TestDoubaoRealtimeInterruptsPendingResponseBeforeTTS(t *testing.T) {
 	}
 	if !hasRealtimeInterruptedEOS(chunks, "turn-1:rt:1", genx.RoleModel, true) {
 		t.Fatalf("missing interrupted audio EOS for pending response: %#v", chunks)
+	}
+	if hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/pcm") {
+		t.Fatalf("interrupted audio backlog leaked before Error EOS: %#v", chunks)
 	}
 }
 

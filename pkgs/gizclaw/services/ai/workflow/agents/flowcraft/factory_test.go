@@ -1425,8 +1425,14 @@ func TestSynthesizeTextSegmentCanOmitAudioEOS(t *testing.T) {
 
 func TestWatchInputInterruptEmitsInterruptedEOSAndCancels(t *testing.T) {
 	a := &agent{}
-	output := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 4)
+	output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 4)
 	epoch := a.setActiveOutput(output, "audio-1")
+	if err := output.Add(
+		textChunk(genx.RoleModel, assistantLabel, "audio-1", assistantLabel, "stale", false),
+		audioChunk(assistantLabel, "audio-1", []byte{1, 2}, false),
+	); err != nil {
+		t.Fatalf("queue stale output: %v", err)
+	}
 	canceled := make(chan struct{}, 1)
 	a.watchInputInterrupt(context.Background(), &sliceStream{chunks: []*genx.MessageChunk{
 		{Part: genx.Text("ignored")},

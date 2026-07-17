@@ -516,6 +516,19 @@ func (o *historyOutput) startReplay(streamID string, role genx.Role, name string
 	o.replayLabel = label
 	o.replayMu.Unlock()
 	if len(interrupt) > 0 {
+		interruptedStreams := make(map[string]struct{}, len(interrupt))
+		for _, chunk := range interrupt {
+			if chunk != nil && chunk.Ctrl != nil {
+				interruptedStreams[chunk.Ctrl.StreamID] = struct{}{}
+			}
+		}
+		o.output.Discard(func(chunk *genx.MessageChunk) bool {
+			if chunk == nil || chunk.Ctrl == nil {
+				return false
+			}
+			_, interrupted := interruptedStreams[chunk.Ctrl.StreamID]
+			return interrupted
+		})
 		if err := o.output.Add(interrupt...); err != nil {
 			cancel()
 			o.finishReplay(seq)
@@ -535,13 +548,19 @@ func (o *historyOutput) runReplay(ctx context.Context, seq uint64, chunks []*gen
 		if err := ctx.Err(); err != nil {
 			return
 		}
-		if !o.isCurrentReplay(seq) {
-			return
-		}
-		if err := o.output.Add(chunk.Clone()); err != nil {
+		if !o.addReplayChunk(seq, chunk.Clone()) {
 			return
 		}
 	}
+}
+
+func (o *historyOutput) addReplayChunk(seq uint64, chunk *genx.MessageChunk) bool {
+	o.replayMu.Lock()
+	defer o.replayMu.Unlock()
+	if o.replaySeq != seq || o.replayStreamID == "" {
+		return false
+	}
+	return o.output.Add(chunk) == nil
 }
 
 func (o *historyOutput) finishReplay(seq uint64) {
@@ -552,10 +571,6 @@ func (o *historyOutput) finishReplay(seq uint64) {
 	defer o.replayMu.Unlock()
 	if o.replaySeq == seq {
 		o.replayCancel = nil
-		o.replayStreamID = ""
-		o.replayRole = ""
-		o.replayName = ""
-		o.replayLabel = ""
 	}
 }
 
@@ -630,15 +645,6 @@ func historyUpdatedChunk(lastUpdated time.Time) *genx.MessageChunk {
 			Timestamp: lastUpdated.UTC().UnixMilli(),
 		},
 	}
-}
-
-func (o *historyOutput) isCurrentReplay(seq uint64) bool {
-	if o == nil {
-		return false
-	}
-	o.replayMu.Lock()
-	defer o.replayMu.Unlock()
-	return o.replaySeq == seq && o.replayCancel != nil
 }
 
 func historyReplayInterruptedChunks(role genx.Role, name string, streamID string, label string) []*genx.MessageChunk {

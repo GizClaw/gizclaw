@@ -918,6 +918,9 @@ func (t *DoubaoRealtime) processSession(
 		if !interruption.interrupted {
 			return false
 		}
+		output.discard(func(chunk *genx.MessageChunk) bool {
+			return chunk != nil && chunk.Ctrl != nil && chunk.Ctrl.StreamID == interruption.streamID
+		})
 		if interruption.textOpen {
 			textEOS := &genx.MessageChunk{
 				Role: genx.RoleModel,

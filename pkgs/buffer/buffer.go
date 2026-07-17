@@ -174,6 +174,30 @@ func (b *Buffer[T]) Reset() {
 	b.buf = b.buf[:0]
 }
 
+// RemoveIf removes buffered values that match predicate while preserving the order of the rest.
+func (b *Buffer[T]) RemoveIf(predicate func(T) bool) int {
+	if predicate == nil {
+		return 0
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	kept := b.buf[:0]
+	removed := 0
+	for _, value := range b.buf {
+		if predicate(value) {
+			removed++
+			continue
+		}
+		kept = append(kept, value)
+	}
+	var zero T
+	for i := len(kept); i < len(b.buf); i++ {
+		b.buf[i] = zero
+	}
+	b.buf = kept
+	return removed
+}
+
 func (b *Buffer[T]) Len() int {
 	b.mu.Lock()
 	defer b.mu.Unlock()

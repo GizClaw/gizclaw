@@ -1,10 +1,12 @@
 package agenthost
 
 import (
+	"bytes"
 	"errors"
 	"strings"
 	"testing"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/mp3"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
@@ -113,6 +115,42 @@ func TestAudioOutputTracksRejectMalformedAudioMIMEWithContext(t *testing.T) {
 	}
 	if len(tracks.channels) != 0 {
 		t.Fatalf("active channels after malformed MIME = %d, want 0", len(tracks.channels))
+	}
+}
+
+func TestAudioOutputMP3DecoderFinalizesToPCM(t *testing.T) {
+	var encoded bytes.Buffer
+	encoder, err := mp3.NewEncoder(&encoded, 24000, 1)
+	if err != nil {
+		t.Fatalf("NewEncoder() error = %v", err)
+	}
+	input := make([]byte, 24000/50*2)
+	for i := 0; i < len(input); i += 2 {
+		input[i] = byte(i)
+	}
+	if _, err := encoder.Write(input); err != nil {
+		t.Fatalf("encoder.Write() error = %v", err)
+	}
+	if err := encoder.Close(); err != nil {
+		t.Fatalf("encoder.Close() error = %v", err)
+	}
+
+	decoder, err := newAudioPCMDecoder("audio/mpeg")
+	if err != nil {
+		t.Fatalf("newAudioPCMDecoder() error = %v", err)
+	}
+	if chunks, err := decoder.Decode(encoded.Bytes()); err != nil || len(chunks) != 0 {
+		t.Fatalf("Decode() = %d chunks, %v; want buffered MP3", len(chunks), err)
+	}
+	chunks, err := decoder.(audioPCMFinalizer).Finalize()
+	if err != nil {
+		t.Fatalf("Finalize() error = %v", err)
+	}
+	if len(chunks) != 1 || chunks[0].Format() != pcm.L16Mono48K || chunks[0].Len() == 0 {
+		t.Fatalf("Finalize() chunks = %#v, want non-empty 48 kHz mono PCM", chunks)
+	}
+	if err := decoder.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
 	}
 }
 
