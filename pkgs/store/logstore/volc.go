@@ -26,6 +26,7 @@ const (
 	volcQueryTimeout          = 30 * time.Second
 	volcCursorLimit           = 16 * 1024
 	volcMessageDelim          = " \t\r\n"
+	volcEscapedMessageDelim   = " \\t\\r\\n"
 	volcSecondsUpperBound     = int64(10_000_000_000)
 	volcNanosecondsLowerBound = int64(1_000_000_000_000_000)
 	volcDefaultMaxLogBytes    = 512 * 1024
@@ -456,13 +457,20 @@ func validateVolcIndex(client volcClient, topicID string) error {
 			return err
 		}
 	}
-	if err := validateVolcIndexValue("msg", fields["msg"], tls.Value{ValueType: "text", Delimiter: volcMessageDelim, CaseSensitive: true, IncludeChinese: true}); err != nil {
+	if err := validateVolcMessageIndexValue(fields["msg"]); err != nil {
 		return err
 	}
 	if err := validateVolcIndexValue("attributes", fields["attributes"], tls.Value{ValueType: "json", CaseSensitive: true, IndexAll: true}); err != nil {
 		return err
 	}
 	return nil
+}
+
+func validateVolcMessageIndexValue(got tls.Value) error {
+	if got.Delimiter == volcEscapedMessageDelim {
+		got.Delimiter = volcMessageDelim
+	}
+	return validateVolcIndexValue("msg", got, tls.Value{ValueType: "text", Delimiter: volcMessageDelim, CaseSensitive: true, IncludeChinese: true})
 }
 
 func validateVolcIndexValue(name string, got, want tls.Value) error {

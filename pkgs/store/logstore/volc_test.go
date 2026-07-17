@@ -130,15 +130,49 @@ func TestValidateVolcIndex(t *testing.T) {
 	}
 }
 
+func TestValidateVolcIndexAcceptsMessageDelimiters(t *testing.T) {
+	tests := map[string]string{
+		"logical whitespace": " \t\r\n",
+		"Volc escaped text":  " \\t\\r\\n",
+	}
+	for name, delimiter := range tests {
+		t.Run(name, func(t *testing.T) {
+			index := compatibleVolcIndex()
+			(*index.KeyValue)[4].Value.Delimiter = delimiter
+			if err := validateVolcIndex(&fakeVolcClient{index: index}, "topic"); err != nil {
+				t.Fatalf("validateVolcIndex() error = %v", err)
+			}
+		})
+	}
+}
+
+func TestValidateVolcIndexRejectsMessageDelimiters(t *testing.T) {
+	tests := map[string]string{
+		"comma":              ",",
+		"missing newline":    " \t\r",
+		"reordered":          " \r\t\n",
+		"partial escape":     " \\t\\r",
+		"extra byte":         " \\t\\r\\n ",
+		"double backslashes": " \\\\t\\\\r\\\\n",
+		"arbitrary escape":   " \\x09\\r\\n",
+	}
+	for name, delimiter := range tests {
+		t.Run(name, func(t *testing.T) {
+			index := compatibleVolcIndex()
+			(*index.KeyValue)[4].Value.Delimiter = delimiter
+			if err := validateVolcIndex(&fakeVolcClient{index: index}, "topic"); err == nil {
+				t.Fatal("incompatible delimiter was accepted")
+			}
+		})
+	}
+}
+
 func TestValidateVolcIndexRejectsIncompatibleSchemas(t *testing.T) {
 	tests := map[string]func(*tls.DescribeIndexResponse){
-		"full text":  func(index *tls.DescribeIndexResponse) { index.FullText = &tls.FullTextInfo{} },
-		"automatic":  func(index *tls.DescribeIndexResponse) { index.EnableAutoIndex = true },
-		"phrase":     func(index *tls.DescribeIndexResponse) { index.EnablePhraseIndex = false },
-		"missing id": func(index *tls.DescribeIndexResponse) { (*index.KeyValue)[0].Key = "other" },
-		"message tokenizer": func(index *tls.DescribeIndexResponse) {
-			(*index.KeyValue)[4].Value.Delimiter = ","
-		},
+		"full text":        func(index *tls.DescribeIndexResponse) { index.FullText = &tls.FullTextInfo{} },
+		"automatic":        func(index *tls.DescribeIndexResponse) { index.EnableAutoIndex = true },
+		"phrase":           func(index *tls.DescribeIndexResponse) { index.EnablePhraseIndex = false },
+		"missing id":       func(index *tls.DescribeIndexResponse) { (*index.KeyValue)[0].Key = "other" },
 		"attributes index": func(index *tls.DescribeIndexResponse) { (*index.KeyValue)[5].Value.IndexAll = false },
 		"payload index": func(index *tls.DescribeIndexResponse) {
 			*index.KeyValue = append(*index.KeyValue, tls.KeyValueInfo{Key: "payload", Value: tls.Value{ValueType: "json"}})

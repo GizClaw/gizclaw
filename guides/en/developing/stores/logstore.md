@@ -37,7 +37,7 @@ stores:
       access_key_secret: ${VOLC_TLS_ACCESS_KEY_SECRET}
 ```
 
-The operator provisions the topic, logset, retention, and index. Store construction calls only `DescribeIndex`; it never calls `CreateIndex` or `ModifyIndex`. The required index disables full-text and automatic indexing and enables phrase indexing. `id`, `stream`, `kind`, and `level` are case-sensitive non-tokenized text; `msg` is case-sensitive text with an ASCII-whitespace delimiter and Chinese terms enabled; `attributes` is case-sensitive JSON with `IndexAll=true`; `payload` must remain unindexed. The operator decides whether to rebuild historical data after enabling phrase indexing on an existing topic.
+The operator provisions the topic, logset, retention, and index. Store construction calls only `DescribeIndex`; it never calls `CreateIndex` or `ModifyIndex`. The required index disables full-text and automatic indexing and enables phrase indexing. `id`, `stream`, `kind`, and `level` are case-sensitive non-tokenized text; `msg` is case-sensitive text with an ASCII-whitespace delimiter and Chinese terms enabled; `attributes` is case-sensitive JSON with `IndexAll=true`; `payload` must remain unindexed. `DescribeIndex` may return the logical message delimiter as the literal escaped text ` \t\r\n`; the validator accepts that exact provider representation as equivalent without accepting other delimiter spellings. The operator decides whether to rebuild historical data after enabling phrase indexing on an existing topic.
 
 See Volc TLS [CreateIndex](https://www.volcengine.com/docs/6470/112187), [query syntax](https://www.volcengine.com/docs/6470/1206705), and [phrase query](https://www.volcengine.com/docs/6470/1206697) references for the operator-owned schema and search behavior.
 

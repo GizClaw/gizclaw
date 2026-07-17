@@ -37,7 +37,7 @@ stores:
       access_key_secret: ${VOLC_TLS_ACCESS_KEY_SECRET}
 ```
 
-Topic、logset、retention 和 index 都由 operator 预先创建。构造 store 时只调用 `DescribeIndex`，不会调用 `CreateIndex` 或 `ModifyIndex`。必需配置为：关闭 full-text 和 auto-index，启用 phrase index；`id`、`stream`、`kind`、`level` 是 case-sensitive non-tokenized text；`msg` 是 case-sensitive、ASCII whitespace delimiter、包含中文的 text；`attributes` 是 case-sensitive、`IndexAll=true` 的 JSON；`payload` 不得建立 index。已有 topic 后续启用 phrase index 时，历史数据是否 rebuild 由 operator 决定。
+Topic、logset、retention 和 index 都由 operator 预先创建。构造 store 时只调用 `DescribeIndex`，不会调用 `CreateIndex` 或 `ModifyIndex`。必需配置为：关闭 full-text 和 auto-index，启用 phrase index；`id`、`stream`、`kind`、`level` 是 case-sensitive non-tokenized text；`msg` 是 case-sensitive、ASCII whitespace delimiter、包含中文的 text；`attributes` 是 case-sensitive、`IndexAll=true` 的 JSON；`payload` 不得建立 index。`DescribeIndex` 可能把这个逻辑 delimiter 返回成字面转义文本 ` \t\r\n`；validator 仅把这个精确的 provider 表示视为等价形式，不接受其他 delimiter 写法。已有 topic 后续启用 phrase index 时，历史数据是否 rebuild 由 operator 决定。
 
 Operator-owned schema 和 search behavior 可参考 Volc TLS 的 [CreateIndex](https://www.volcengine.com/docs/6470/112187)、[query syntax](https://www.volcengine.com/docs/6470/1206705) 和 [phrase query](https://www.volcengine.com/docs/6470/1206697)。
 
