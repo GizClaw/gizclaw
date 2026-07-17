@@ -242,7 +242,7 @@ func sendGameplayAudioTurn(t *testing.T, ctx context.Context, stream *gizcli.Pee
 	}
 }
 
-func waitForGameplayAssistantResponse(parent context.Context, stream *gizcli.PeerStream, inputStreamID string) error {
+func waitForGameplayAssistantResponse(parent context.Context, stream genx.Stream, inputStreamID string) error {
 	ctx, cancel := context.WithTimeout(parent, 60*time.Second)
 	defer cancel()
 	var assistantText strings.Builder
@@ -256,6 +256,9 @@ func waitForGameplayAssistantResponse(parent context.Context, stream *gizcli.Pee
 			return fmt.Errorf("read pet audio response for %s: %w; text_done=%t audio_done=%t audio_packets=%d chunks=%s", inputStreamID, err, textDone, audioDone, audioPackets, strings.Join(trace, " | "))
 		}
 		trace = appendGameplayTrace(trace, gameplayChunkSummary(chunk))
+		if !gameplayResponseStreamIDMatches(gameplayChunkStreamID(chunk), inputStreamID) {
+			continue
+		}
 		label := gameplayChunkLabel(chunk)
 		if chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.Error) != "" {
 			return fmt.Errorf("pet audio response for %s returned error %q", inputStreamID, chunk.Ctrl.Error)
@@ -532,4 +535,69 @@ func gameplayChunkStreamID(chunk *genx.MessageChunk) string {
 		return ""
 	}
 	return strings.TrimSpace(chunk.Ctrl.StreamID)
+}
+
+func gameplayResponseStreamIDMatches(actual, input string) bool {
+	actual = strings.TrimSpace(actual)
+	input = strings.TrimSpace(input)
+	return input != "" && (actual == input || strings.HasPrefix(actual, input+":"))
+}
+
+type gameplayResponseTestStream struct {
+	chunks []*genx.MessageChunk
+}
+
+func (s *gameplayResponseTestStream) Next() (*genx.MessageChunk, error) {
+	if len(s.chunks) == 0 {
+		return nil, io.EOF
+	}
+	chunk := s.chunks[0]
+	s.chunks = s.chunks[1:]
+	return chunk, nil
+}
+
+func (*gameplayResponseTestStream) Close() error               { return nil }
+func (*gameplayResponseTestStream) CloseWithError(error) error { return nil }
+
+func TestWaitForGameplayAssistantResponseIgnoresPreviousAttempt(t *testing.T) {
+	const (
+		previous = "gameplay-pet-audio-1-1"
+		current  = "gameplay-pet-audio-1-2"
+		response = current + ":ast:1"
+	)
+	stream := &gameplayResponseTestStream{chunks: []*genx.MessageChunk{
+		{Ctrl: &genx.StreamCtrl{StreamID: previous, Error: "stale retryable error"}},
+		{Role: genx.RoleModel, Part: genx.Text("stale"), Ctrl: &genx.StreamCtrl{StreamID: previous, Label: "assistant", EndOfStream: true}},
+		{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{0x01}}, Ctrl: &genx.StreamCtrl{StreamID: previous, Label: "assistant"}},
+		{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: previous, Label: "assistant", EndOfStream: true}},
+		{Role: genx.RoleModel, Part: genx.Text("current"), Ctrl: &genx.StreamCtrl{StreamID: response, Label: "assistant", EndOfStream: true}},
+		{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{0x02}}, Ctrl: &genx.StreamCtrl{StreamID: response, Label: "assistant"}},
+		{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: response, Label: "assistant", EndOfStream: true}},
+	}}
+	if err := waitForGameplayAssistantResponse(t.Context(), stream, current); err != nil {
+		t.Fatalf("waitForGameplayAssistantResponse() error = %v", err)
+	}
+}
+
+func TestGameplayResponseStreamIDMatchesCurrentAttempt(t *testing.T) {
+	tests := []struct {
+		name   string
+		actual string
+		input  string
+		want   bool
+	}{
+		{name: "exact", actual: "gameplay-pet-audio-1-2", input: "gameplay-pet-audio-1-2", want: true},
+		{name: "AST response", actual: "gameplay-pet-audio-1-2:ast:1", input: "gameplay-pet-audio-1-2", want: true},
+		{name: "previous attempt", actual: "gameplay-pet-audio-1-1", input: "gameplay-pet-audio-1-2"},
+		{name: "similar attempt prefix", actual: "gameplay-pet-audio-1-20", input: "gameplay-pet-audio-1-2"},
+		{name: "missing response stream", input: "gameplay-pet-audio-1-2"},
+		{name: "missing input stream", actual: "gameplay-pet-audio-1-2"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := gameplayResponseStreamIDMatches(test.actual, test.input); got != test.want {
+				t.Fatalf("gameplayResponseStreamIDMatches(%q, %q) = %t, want %t", test.actual, test.input, got, test.want)
+			}
+		})
+	}
 }
