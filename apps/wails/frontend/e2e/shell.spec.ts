@@ -549,13 +549,22 @@ test("local share stays simple and switches to focused controls", async ({
 test("server controls delete a Pod after confirmation", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: /Local Lab/ }).click();
-  const detail = page.getByRole("dialog");
+  const detail = page.locator(".pod-dialog");
   await detail.getByRole("button", { name: "Server controls" }).click();
-  page.once("dialog", async (confirmation) => {
-    expect(confirmation.message()).toBe("Delete this Pod and its local data?");
-    await confirmation.accept();
-  });
   await detail.getByRole("button", { name: "Delete Pod" }).click();
+  const confirmation = page.locator(".delete-pod-dialog");
+  await expect(confirmation).toBeVisible();
+  await expect(confirmation).toContainText(
+    "Delete this Pod and its local data?",
+  );
+  await expect(
+    page.locator(".pod-card").filter({ hasText: "Local Lab" }),
+  ).toHaveCount(1);
+  await confirmation.getByRole("button", { name: "Cancel" }).click();
+  await expect(confirmation).not.toBeVisible();
+
+  await detail.getByRole("button", { name: "Delete Pod" }).click();
+  await confirmation.getByRole("button", { name: "Delete Pod" }).click();
   await expect(detail).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Local Lab/ })).toHaveCount(0);
 });

@@ -242,6 +242,7 @@ export function AppShell() {
               setSelected(null);
             } catch (reason) {
               setError(errorMessage(reason));
+              throw reason;
             }
           }}
           onEdit={() => setEditing(selected)}
@@ -509,6 +510,7 @@ function PodDetail({
 }) {
   const t = useMessages();
   const [managing, setManaging] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [query, setQuery] = useState("");
   const [serverEditor, setServerEditor] = useState<PodServer | "new" | null>(
     null,
@@ -593,9 +595,7 @@ function PodDetail({
               back={
                 <LocalManageFace
                   api={api}
-                  onDelete={() => {
-                    if (window.confirm(t("confirmDelete"))) void onDelete();
-                  }}
+                  onDelete={() => setConfirmingDelete(true)}
                   onError={onError}
                   pod={pod}
                   run={run}
@@ -620,9 +620,7 @@ function PodDetail({
                 <RemoteManageFace
                   api={api}
                   onAddServer={() => setServerEditor("new")}
-                  onDelete={() => {
-                    if (window.confirm(t("confirmDelete"))) void onDelete();
-                  }}
+                  onDelete={() => setConfirmingDelete(true)}
                   onEditServer={setServerEditor}
                   onError={onError}
                   onQuery={setQuery}
@@ -690,6 +688,78 @@ function PodDetail({
             }}
           />
         ) : null}
+        {confirmingDelete ? (
+          <DeletePodDialog
+            onClose={() => setConfirmingDelete(false)}
+            onDelete={onDelete}
+            podName={pod.name}
+          />
+        ) : null}
+        </>
+      )}
+    </DesktopDialog>
+  );
+}
+
+function DeletePodDialog({
+  onClose,
+  onDelete,
+  podName,
+}: {
+  onClose(): void;
+  onDelete(): Promise<void>;
+  podName: string;
+}) {
+  const t = useMessages();
+  const [deleting, setDeleting] = useState(false);
+  return (
+    <DesktopDialog
+      className="secret-dialog delete-pod-dialog"
+      nested
+      onClose={onClose}
+    >
+      {(close) => (
+        <>
+          <header>
+            <div>
+              <span className="mode-chip">{t("deletePod")}</span>
+              <DesktopDialogTitle>
+                <h3>{podName}</h3>
+              </DesktopDialogTitle>
+            </div>
+            <button
+              aria-label={t("close")}
+              className="icon-button"
+              disabled={deleting}
+              onClick={close}
+              title={t("close")}
+              type="button"
+            >
+              <X size={18} />
+            </button>
+          </header>
+          <p>{t("confirmDelete")}</p>
+          <footer>
+            <button
+              className="secondary-action"
+              disabled={deleting}
+              onClick={close}
+              type="button"
+            >
+              {t("cancel")}
+            </button>
+            <button
+              className="danger-action"
+              disabled={deleting}
+              onClick={() => {
+                setDeleting(true);
+                void onDelete().catch(() => setDeleting(false));
+              }}
+              type="button"
+            >
+              <Trash2 size={14} /> {t("deletePod")}
+            </button>
+          </footer>
         </>
       )}
     </DesktopDialog>
