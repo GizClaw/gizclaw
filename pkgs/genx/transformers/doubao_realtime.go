@@ -595,18 +595,21 @@ type doubaoRealtimeInputResult struct {
 }
 
 type doubaoRealtimeInputReader struct {
-	source    genx.Stream
-	results   chan doubaoRealtimeInputResult
-	done      chan struct{}
-	pending   *doubaoRealtimeInputResult
-	closeOnce sync.Once
+	source      genx.Stream
+	results     chan doubaoRealtimeInputResult
+	done        chan struct{}
+	terminal    chan struct{}
+	terminalErr error
+	pending     *doubaoRealtimeInputResult
+	closeOnce   sync.Once
 }
 
 func newDoubaoRealtimeInputReader(source genx.Stream) *doubaoRealtimeInputReader {
 	reader := &doubaoRealtimeInputReader{
-		source:  source,
-		results: make(chan doubaoRealtimeInputResult, 1),
-		done:    make(chan struct{}),
+		source:   source,
+		results:  make(chan doubaoRealtimeInputResult, 1),
+		done:     make(chan struct{}),
+		terminal: make(chan struct{}),
 	}
 	go reader.read()
 	return reader
@@ -617,6 +620,10 @@ func (r *doubaoRealtimeInputReader) read() {
 	for {
 		chunk, err := r.source.Next()
 		result := doubaoRealtimeInputResult{chunk: chunk, err: err}
+		if err != nil {
+			r.terminalErr = err
+			close(r.terminal)
+		}
 		select {
 		case r.results <- result:
 		case <-r.done:
@@ -626,6 +633,37 @@ func (r *doubaoRealtimeInputReader) read() {
 			return
 		}
 	}
+}
+
+func (r *doubaoRealtimeInputReader) terminalError() (error, bool) {
+	if r == nil || r.pending != nil {
+		return nil, false
+	}
+	select {
+	case <-r.terminal:
+		select {
+		case result, ok := <-r.results:
+			if !ok {
+				return r.terminalErr, true
+			}
+			if result.err == nil {
+				r.pending = &result
+				return nil, false
+			}
+			return result.err, true
+		default:
+			return r.terminalErr, true
+		}
+	default:
+		return nil, false
+	}
+}
+
+func (r *doubaoRealtimeInputReader) terminalDone() <-chan struct{} {
+	if r == nil || r.pending != nil {
+		return nil
+	}
+	return r.terminal
 }
 
 func (r *doubaoRealtimeInputReader) Next() (*genx.MessageChunk, error) {
@@ -739,10 +777,22 @@ func (t *DoubaoRealtime) sessionLoop(ctx context.Context, input genx.Stream, out
 	defer runtime.close()
 	defer output.Close()
 
-	retryDelay := t.retryInitial
-	if retryDelay <= 0 {
-		retryDelay = doubaoRealtimeRetryInitial
+	stopForTerminalInput := func() bool {
+		err, ended := reader.terminalError()
+		if !ended {
+			return false
+		}
+		if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, genx.ErrDone) {
+			_ = reader.CloseWithError(err)
+			_ = output.CloseWithError(err)
+		}
+		return true
 	}
+	retryInitial := t.retryInitial
+	if retryInitial <= 0 {
+		retryInitial = doubaoRealtimeRetryInitial
+	}
+	retryDelay := retryInitial
 	retryMax := max(t.retryMax, retryDelay)
 	for {
 		if err := workerCtx.Err(); err != nil {
@@ -752,24 +802,34 @@ func (t *DoubaoRealtime) sessionLoop(ctx context.Context, input genx.Stream, out
 			}
 			return
 		}
+		if stopForTerminalInput() {
+			return
+		}
 		config := t.realtimeConfig()
 		session, err := t.realtime.OpenSession(workerCtx, config)
 		if err != nil {
+			if stopForTerminalInput() {
+				return
+			}
 			slog.Warn("doubao: realtime provider connection failed; retrying", "error", err, "retryDelay", retryDelay)
-			if !t.waitRetry(workerCtx, output.Done(), retryDelay) {
+			if !t.waitRetry(workerCtx, output.Done(), reader.terminalDone(), retryDelay) {
 				continue
 			}
 			retryDelay = min(retryDelay*2, retryMax)
 			continue
 		}
+		retryDelay = retryInitial
 		err = t.processSession(workerCtx, reader, output, session, runtime)
 		if err == nil {
 			return
 		}
 		if isDoubaoRealtimeRecoverable(err) {
-			slog.Warn("doubao: realtime provider session lost; reconnecting", "error", err, "retryDelay", retryDelay)
 			runtime.providerLost(t, output, err)
-			if !t.waitRetry(workerCtx, output.Done(), retryDelay) {
+			if stopForTerminalInput() {
+				return
+			}
+			slog.Warn("doubao: realtime provider session lost; reconnecting", "error", err, "retryDelay", retryDelay)
+			if !t.waitRetry(workerCtx, output.Done(), reader.terminalDone(), retryDelay) {
 				continue
 			}
 			retryDelay = min(retryDelay*2, retryMax)
@@ -788,11 +848,11 @@ func (t *DoubaoRealtime) sessionLoop(ctx context.Context, input genx.Stream, out
 	}
 }
 
-func (t *DoubaoRealtime) waitRetry(ctx context.Context, outputDone <-chan struct{}, delay time.Duration) bool {
+func (t *DoubaoRealtime) waitRetry(ctx context.Context, outputDone, inputDone <-chan struct{}, delay time.Duration) bool {
 	if t != nil && t.retryWait != nil {
 		return t.retryWait(ctx, outputDone, delay)
 	}
-	return waitDoubaoRealtimeRetry(ctx, outputDone, delay)
+	return waitDoubaoRealtimeRetry(ctx, outputDone, inputDone, delay)
 }
 
 func (t *DoubaoRealtime) processLoop(ctx context.Context, input genx.Stream, output *bufferStream, session doubaoRealtimeSession) (*genx.MessageChunk, error) {
@@ -807,13 +867,15 @@ func (t *DoubaoRealtime) processLoop(ctx context.Context, input genx.Stream, out
 	return nil, err
 }
 
-func waitDoubaoRealtimeRetry(ctx context.Context, outputDone <-chan struct{}, delay time.Duration) bool {
+func waitDoubaoRealtimeRetry(ctx context.Context, outputDone, inputDone <-chan struct{}, delay time.Duration) bool {
 	timer := time.NewTimer(delay)
 	defer timer.Stop()
 	select {
 	case <-ctx.Done():
 		return false
 	case <-outputDone:
+		return false
+	case <-inputDone:
 		return false
 	case <-timer.C:
 		return true
@@ -1033,7 +1095,7 @@ func (t *DoubaoRealtime) processSession(
 
 				case doubaospeech.EventTTSStarted:
 					var response *doubaoRealtimePTTResponse
-					epoch := assistant.currentEpoch()
+					var epoch uint64
 					if t.mode == DoubaoRealtimeModePushToTalk {
 						response = pttResponses.match(doubaoRealtimeEventResponseIdentity(event))
 						if response == nil {
@@ -1244,6 +1306,25 @@ func (t *DoubaoRealtime) processSession(
 				return err
 			}
 			slog.Info("doubao: input EOF", "audioSent", audioSent)
+			if t.mode == DoubaoRealtimeModePushToTalk {
+				if responseDone, wait := pttTurn.responseDone(); wait {
+					select {
+					case <-responseDone:
+						return nil
+					default:
+					}
+					select {
+					case <-ctx.Done():
+						return ctx.Err()
+					case <-output.Done():
+						return nil
+					case <-responseDone:
+						return nil
+					case eventErr := <-eventsResult:
+						return eventErr
+					}
+				}
+			}
 			return nil
 		}
 

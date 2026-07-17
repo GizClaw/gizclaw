@@ -644,20 +644,48 @@ func TestDoubaoRealtimeSessionLoopRetriesAndReusesDialogID(t *testing.T) {
 	)
 	tfr.retryInitial = time.Millisecond
 	tfr.retryMax = 2 * time.Millisecond
-	output, err := tfr.Transform(context.Background(), "", &sliceRealtimeStream{})
+	input := newBlockingRealtimeStream()
+	output, err := tfr.Transform(context.Background(), "", input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
+	if !opener.waitForCalls(3, 2*time.Second) {
+		t.Fatalf("OpenSession calls = %d, want two retries then one session", opener.callCount())
+	}
+	if err := input.CloseWithError(io.EOF); err != nil {
+		t.Fatalf("CloseWithError(input) error = %v", err)
+	}
 	if chunks := drainRealtimeTestOutput(t, output); len(chunks) != 0 {
 		t.Fatalf("output = %#v, want none", chunks)
-	}
-	if got := opener.callCount(); got != 3 {
-		t.Fatalf("OpenSession calls = %d, want two retries then one session", got)
 	}
 	for i, dialogID := range opener.dialogIDs() {
 		if dialogID != "dialog-1" {
 			t.Fatalf("OpenSession call %d dialog ID = %q, want dialog-1", i+1, dialogID)
 		}
+	}
+}
+
+func TestDoubaoRealtimeSessionLoopStopsRetryWhenInputEnds(t *testing.T) {
+	allowEOF := make(chan struct{})
+	opener := &fakeDoubaoRealtimeOpener{results: []fakeDoubaoRealtimeOpenResult{
+		{err: errors.New("connect failed")},
+	}}
+	tfr := NewDoubaoRealtime(nil, withDoubaoRealtimeOpener(opener))
+	tfr.retryInitial = time.Hour
+	tfr.retryMax = time.Hour
+	output, err := tfr.Transform(context.Background(), "", &gatedRealtimeStream{gate: allowEOF})
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	if !opener.waitForCalls(1, 2*time.Second) {
+		t.Fatalf("OpenSession calls = %d, want initial attempt", opener.callCount())
+	}
+	close(allowEOF)
+	if chunks := drainRealtimeTestOutput(t, output); len(chunks) != 0 {
+		t.Fatalf("output = %#v, want none", chunks)
+	}
+	if got := opener.callCount(); got != 1 {
+		t.Fatalf("OpenSession calls = %d, want no retry after input EOF", got)
 	}
 }
 
@@ -686,7 +714,7 @@ func TestDoubaoRealtimeSessionLoopReplacesFinishedSession(t *testing.T) {
 	}
 }
 
-func TestDoubaoRealtimeSessionLoopBacksOffAfterProviderSessionFailures(t *testing.T) {
+func TestDoubaoRealtimeSessionLoopResetsBackoffAfterSuccessfulSession(t *testing.T) {
 	opener := &fakeDoubaoRealtimeOpener{results: []fakeDoubaoRealtimeOpenResult{
 		{session: &fakeDoubaoRealtimeSession{events: []*doubaospeech.RealtimeEvent{{Type: doubaospeech.EventSessionFinished}}}},
 		{session: &fakeDoubaoRealtimeSession{events: []*doubaospeech.RealtimeEvent{{Type: doubaospeech.EventSessionFinished}}}},
@@ -714,14 +742,61 @@ func TestDoubaoRealtimeSessionLoopBacksOffAfterProviderSessionFailures(t *testin
 	mu.Lock()
 	gotDelays := append([]time.Duration(nil), delays...)
 	mu.Unlock()
-	if !slices.Equal(gotDelays, []time.Duration{10 * time.Millisecond, 20 * time.Millisecond}) {
-		t.Fatalf("retry delays = %v, want [10ms 20ms]", gotDelays)
+	if !slices.Equal(gotDelays, []time.Duration{10 * time.Millisecond, 10 * time.Millisecond}) {
+		t.Fatalf("retry delays = %v, want [10ms 10ms]", gotDelays)
 	}
 	if err := input.CloseWithError(io.EOF); err != nil {
 		t.Fatalf("CloseWithError(input) error = %v", err)
 	}
 	if chunks := drainRealtimeTestOutput(t, output); len(chunks) != 0 {
 		t.Fatalf("output = %#v, want none", chunks)
+	}
+}
+
+func TestDoubaoRealtimePTTDrainsFinalResponseAfterInputEOF(t *testing.T) {
+	endASR := make(chan struct{})
+	session := &fakeDoubaoRealtimeSession{
+		beforeRecv:       endASR,
+		endASR:           endASR,
+		blockAfterEvents: make(chan struct{}),
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventASRResponse, Text: "question", QuestionID: "q-1"},
+			{Type: doubaospeech.EventASREnded, QuestionID: "q-1"},
+			{Type: doubaospeech.EventTTSStarted, QuestionID: "q-1", ReplyID: "r-1"},
+			{Type: doubaospeech.EventChatResponse, Text: "answer", ReplyID: "r-1"},
+			{Type: doubaospeech.EventTTSAudioData, Audio: []byte{1, 2}, ReplyID: "r-1"},
+			{Type: doubaospeech.EventTTSFinished, ReplyID: "r-1"},
+			{Type: doubaospeech.EventChatEnded, ReplyID: "r-1"},
+		},
+	}
+	opener := &fakeDoubaoRealtimeOpener{results: []fakeDoubaoRealtimeOpenResult{{session: session}}}
+	tfr := NewDoubaoRealtime(nil,
+		withDoubaoRealtimeOpener(opener),
+		WithDoubaoRealtimeMode(DoubaoRealtimeModePushToTalk),
+		WithDoubaoRealtimeInputFormat("pcm"),
+		WithDoubaoRealtimeInputTranscode(false),
+		WithDoubaoRealtimeFormat("pcm"),
+	)
+	input := &sliceRealtimeStream{chunks: []*genx.MessageChunk{
+		{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+	}}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	output, err := tfr.Transform(ctx, "", input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	chunks := drainRealtimeTestOutput(t, output)
+	if !hasRealtimeTestText(chunks, genx.RoleUser, "question") {
+		t.Fatalf("output missing final transcript: %#v", chunks)
+	}
+	if !hasRealtimeTestText(chunks, genx.RoleModel, "answer") {
+		t.Fatalf("output missing final assistant text: %#v", chunks)
+	}
+	if !hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/pcm") {
+		t.Fatalf("output missing final assistant audio: %#v", chunks)
 	}
 }
 
@@ -841,7 +916,17 @@ func TestDoubaoRealtimePTTDiscardsFailedTurnRemainderAfterReconnect(t *testing.T
 		sendAudioErr:     errors.New("provider lost"),
 		sendAudioErrAt:   1,
 	}
-	second := &fakeDoubaoRealtimeSession{blockAfterEvents: make(chan struct{})}
+	secondEndASR := make(chan struct{})
+	second := &fakeDoubaoRealtimeSession{
+		beforeRecv:       secondEndASR,
+		endASR:           secondEndASR,
+		blockAfterEvents: make(chan struct{}),
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventASREnded},
+			{Type: doubaospeech.EventChatResponse, Text: "second answer"},
+			{Type: doubaospeech.EventChatEnded},
+		},
+	}
 	opener := &fakeDoubaoRealtimeOpener{results: []fakeDoubaoRealtimeOpenResult{{session: first}, {session: second}}}
 	tfr := NewDoubaoRealtime(nil,
 		withDoubaoRealtimeOpener(opener),

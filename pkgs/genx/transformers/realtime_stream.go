@@ -232,17 +232,34 @@ type doubaoRealtimePTTTurn struct {
 	hypothesis   string
 	output       realtimeChunkOutput
 	assistantOut *realtimePTTOutputGate
+	completion   *doubaoRealtimePTTCompletion
 }
 
 type doubaoRealtimePTTResponse struct {
-	streamID string
-	epoch    uint64
-	identity doubaoRealtimePTTResponseIdentity
-	output   *realtimePTTOutputGate
+	streamID   string
+	epoch      uint64
+	identity   doubaoRealtimePTTResponseIdentity
+	output     *realtimePTTOutputGate
+	completion *doubaoRealtimePTTCompletion
 
 	ttsStarted  bool
 	ttsFinished bool
 	chatEnded   bool
+}
+
+type doubaoRealtimePTTCompletion struct {
+	done chan struct{}
+	once sync.Once
+}
+
+func newDoubaoRealtimePTTCompletion() *doubaoRealtimePTTCompletion {
+	return &doubaoRealtimePTTCompletion{done: make(chan struct{})}
+}
+
+func (c *doubaoRealtimePTTCompletion) complete() {
+	if c != nil {
+		c.once.Do(func() { close(c.done) })
+	}
 }
 
 type doubaoRealtimePTTResponseIdentity struct {
@@ -264,6 +281,7 @@ func (t *doubaoRealtimePTTTurn) begin(output realtimeChunkOutput, streamID, assi
 	}
 	t.mu.Lock()
 	previous := t.assistantOut
+	previousCompletion := t.completion
 	t.active = true
 	t.inputEnded = false
 	t.asrEnded = false
@@ -272,8 +290,10 @@ func (t *doubaoRealtimePTTTurn) begin(output realtimeChunkOutput, streamID, assi
 	t.hypothesis = ""
 	t.output = output
 	t.assistantOut = newRealtimePTTOutputGate(output, streamID, assistantLabel, limit)
+	t.completion = newDoubaoRealtimePTTCompletion()
 	t.mu.Unlock()
 	previous.Discard()
+	previousCompletion.complete()
 }
 
 func (t *doubaoRealtimePTTTurn) updateHypothesis(text string) {
@@ -371,10 +391,11 @@ func (t *doubaoRealtimePTTTurn) bindResponse(epoch uint64, identity doubaoRealti
 		return nil
 	}
 	return &doubaoRealtimePTTResponse{
-		streamID: t.streamID,
-		epoch:    epoch,
-		identity: identity.normalized(),
-		output:   t.assistantOut,
+		streamID:   t.streamID,
+		epoch:      epoch,
+		identity:   identity.normalized(),
+		output:     t.assistantOut,
+		completion: t.completion,
 	}
 }
 
@@ -390,13 +411,28 @@ func (t *doubaoRealtimePTTTurn) discardResponse(response *doubaoRealtimePTTRespo
 	streamID = t.streamID
 	committed = t.committed
 	output := t.assistantOut
+	completion := t.completion
 	t.active = false
 	t.committed = false
 	t.hypothesis = ""
 	t.assistantOut = nil
+	t.completion = nil
 	t.mu.Unlock()
 	output.Discard()
+	completion.complete()
 	return streamID, true, committed
+}
+
+func (t *doubaoRealtimePTTTurn) responseDone() (<-chan struct{}, bool) {
+	if t == nil {
+		return nil, false
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if !t.active || !t.inputEnded || t.completion == nil {
+		return nil, false
+	}
+	return t.completion.done, true
 }
 
 func (r *doubaoRealtimePTTResponse) push(chunk *genx.MessageChunk) error {
@@ -496,6 +532,7 @@ func (q *doubaoRealtimePTTResponses) finish(response *doubaoRealtimePTTResponse)
 		copy(q.items[i:], q.items[i+1:])
 		q.items[len(q.items)-1] = nil
 		q.items = q.items[:len(q.items)-1]
+		response.completion.complete()
 		return
 	}
 }
@@ -512,12 +549,15 @@ func (t *doubaoRealtimePTTTurn) discard() (streamID string, active, committed bo
 	streamID = t.streamID
 	committed = t.committed
 	output := t.assistantOut
+	completion := t.completion
 	t.active = false
 	t.committed = false
 	t.hypothesis = ""
 	t.assistantOut = nil
+	t.completion = nil
 	t.mu.Unlock()
 	output.Discard()
+	completion.complete()
 	return streamID, true, committed
 }
 
