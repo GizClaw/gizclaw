@@ -52,6 +52,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonRetry => 'Retry';
 
   @override
+  String get localNetworkRecoveryTitle =>
+      'Local network connection unavailable';
+
+  @override
+  String get localNetworkRecoveryMessage =>
+      'In iOS Settings, allow GizClaw to access the Local Network. Make sure this phone and the Server are on the same reachable Wi-Fi, then retry. VPN, guest Wi-Fi, or access-point isolation can also block the connection.';
+
+  @override
+  String get workspaceModelLoading => 'Loading available models…';
+
+  @override
+  String get generationModel => 'Generation model';
+
+  @override
+  String get extractionModel => 'Extraction model';
+
+  @override
+  String get embeddingModel => 'Embedding model';
+
+  @override
+  String get chooseModel => 'Choose a model';
+
+  @override
+  String get noCompatibleGeneratorModels =>
+      'No accessible generation models are available. Ask a Server administrator to configure and share an LLM model.';
+
+  @override
   String get microphonePermissionDeniedTitle =>
       'Microphone permission required';
 

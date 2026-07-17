@@ -19,6 +19,8 @@ import 'workspace_chat_controller.dart';
 
 enum MobileConnectionState { unconfigured, connecting, connected, offline }
 
+enum MobileConnectionFailureKind { generic, localNetwork }
+
 enum MobileWorkspaceSurface { raid, friend, group, pet }
 
 const _demoServerEndpoint = 'demo.gizclaw.local:9820';
@@ -65,6 +67,18 @@ class MobileWorkspaceDestination {
       '/raids/drivers/${driver!.routeKey}/'
           '${Uri.encodeComponent(workspaceName)}',
   };
+}
+
+class FlowcraftModelRequirements {
+  const FlowcraftModelRequirements({
+    required this.generateModel,
+    required this.extractModel,
+    required this.embeddingModel,
+  });
+
+  final bool generateModel;
+  final bool extractModel;
+  final bool embeddingModel;
 }
 
 class MobileDataController extends ChangeNotifier {
@@ -180,6 +194,13 @@ class MobileDataController extends ChangeNotifier {
   String? get clientPublicKey => connection.clientPublicKey;
   Locale get effectiveLocale => _effectiveLocale;
   MicrophoneStatus get microphoneStatus => connection.microphoneStatus;
+  MobileConnectionFailureKind? get connectionFailureKind =>
+      classifyMobileConnectionFailure(
+        endpoint: connection.profile.endpoint,
+        error: lastError,
+        platform: defaultTargetPlatform,
+        state: connectionState,
+      );
 
   void _handleConnectionChanged() {
     final previous = _observedMicrophoneStatus;
@@ -853,6 +874,10 @@ class MobileDataController extends ChangeNotifier {
     required WorkflowDriverKind driver,
     required String workflowName,
     required String name,
+    String? generateModel,
+    String? extractModel,
+    String? embeddingModel,
+    FlowcraftModelRequirements? flowcraftRequirements,
   }) async {
     final normalizedWorkflow = workflowName.trim();
     final normalizedName = name.trim();
@@ -865,18 +890,95 @@ class MobileDataController extends ChangeNotifier {
     if (normalizedName.length > 80) {
       throw ArgumentError.value(name, 'name', 'must be at most 80 characters');
     }
+    final normalizedGenerateModel = generateModel?.trim() ?? '';
+    final normalizedExtractModel = extractModel?.trim() ?? '';
+    final normalizedEmbeddingModel = embeddingModel?.trim() ?? '';
+    if (driver == WorkflowDriverKind.flowcraft) {
+      final requirements =
+          flowcraftRequirements ??
+          await flowcraftModelRequirements(normalizedWorkflow);
+      if (requirements.generateModel && normalizedGenerateModel.isEmpty) {
+        throw StateError('Choose a generation model');
+      }
+      if (requirements.extractModel && normalizedExtractModel.isEmpty) {
+        throw StateError('Choose an extraction model');
+      }
+      if (requirements.embeddingModel && normalizedEmbeddingModel.isEmpty) {
+        throw StateError('Choose an embedding model');
+      }
+    }
     final workspaceName = _newWorkspaceName(normalizedName);
     final response = await runRpc(
       (client) => client.createWorkspace(
         WorkspaceUpsert(
           name: workspaceName,
           workflowName: normalizedWorkflow,
-          parameters: newWorkspaceParametersForDriver(driver),
+          parameters: newWorkspaceParametersForDriver(
+            driver,
+            generateModel: normalizedGenerateModel,
+            extractModel: normalizedExtractModel,
+            embeddingModel: normalizedEmbeddingModel,
+          ),
         ),
       ),
     );
     await refresh();
     return response.value;
+  }
+
+  Future<List<Model>> listGeneratorModels() async {
+    final models = <Model>[];
+    String? cursor;
+    do {
+      final response = await runRpc(
+        (client) => client.listModels(cursor: cursor, limit: 200),
+      );
+      models.addAll(
+        response.items.where((model) => model.kind == ModelKind.MODEL_KIND_LLM),
+      );
+      cursor = response.hasNext && response.hasNextCursor()
+          ? response.nextCursor
+          : null;
+    } while (cursor != null && cursor.isNotEmpty);
+    models.sort((left, right) => left.id.compareTo(right.id));
+    return List.unmodifiable(models);
+  }
+
+  Future<FlowcraftModelRequirements> flowcraftModelRequirements(
+    String workflowName,
+  ) async {
+    final response = await runRpc(
+      (client) => client.getWorkflow(
+        workflowName,
+        lang: workflowLocaleForAppLocale(_effectiveLocale),
+      ),
+    );
+    final workflow = response.value;
+    if (!workflow.hasSpec() || !workflow.spec.hasFlowcraft()) {
+      throw StateError('Workflow $workflowName is not a FlowCraft workflow');
+    }
+    final settings = workflow.spec.flowcraft.fields.fields['settings'];
+    final fields = settings != null && settings.hasStructValue()
+        ? settings.structValue.fields
+        : null;
+    final generate = fields?['generate_model'];
+    final extract = fields?['extract_model'];
+    final embedding = fields?['embedding_model'];
+    return FlowcraftModelRequirements(
+      generateModel:
+          generate == null ||
+          !generate.hasStringValue() ||
+          generate.stringValue.trim().isEmpty ||
+          generate.stringValue.trim() == 'generate_model',
+      extractModel:
+          extract != null &&
+          extract.hasStringValue() &&
+          extract.stringValue.trim() == 'extract_model',
+      embeddingModel:
+          embedding != null &&
+          embedding.hasStringValue() &&
+          embedding.stringValue.trim() == 'embedding_model',
+    );
   }
 
   bool _isCurrentStart(int generation, String endpoint) {
@@ -1339,13 +1441,25 @@ String _newWorkspaceName(String workflowName) {
 
 @visibleForTesting
 WorkspaceParameters newWorkspaceParametersForDriver(
-  WorkflowDriverKind driver,
-) => switch (driver) {
+  WorkflowDriverKind driver, {
+  String? generateModel,
+  String? extractModel,
+  String? embeddingModel,
+}) => switch (driver) {
   WorkflowDriverKind.flowcraft => WorkspaceParameters(
     flowcraftWorkspaceParameters: FlowcraftWorkspaceParameters(
       agentType: FlowcraftWorkspaceParametersAgentType
           .FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT,
       input: WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
+      generateModel: generateModel?.trim().isEmpty == false
+          ? generateModel!.trim()
+          : null,
+      extractModel: extractModel?.trim().isEmpty == false
+          ? extractModel!.trim()
+          : null,
+      embeddingModel: embeddingModel?.trim().isEmpty == false
+          ? embeddingModel!.trim()
+          : null,
     ),
   ),
   WorkflowDriverKind.doubaoRealtime => WorkspaceParameters(
@@ -1456,6 +1570,43 @@ bool _isRecoverableTransportError(Object error) {
   if (error is! StateError) return false;
   final message = error.toString().toLowerCase();
   return message.contains('webrtc') || message.contains('data channel');
+}
+
+@visibleForTesting
+MobileConnectionFailureKind? classifyMobileConnectionFailure({
+  required String endpoint,
+  required Object? error,
+  required TargetPlatform platform,
+  required MobileConnectionState state,
+}) {
+  if (state != MobileConnectionState.offline || error == null) return null;
+  if (platform == TargetPlatform.iOS && _isLocalNetworkEndpoint(endpoint)) {
+    return MobileConnectionFailureKind.localNetwork;
+  }
+  return MobileConnectionFailureKind.generic;
+}
+
+bool _isLocalNetworkEndpoint(String endpoint) {
+  final host = Uri.tryParse('gizclaw://${endpoint.trim()}')?.host.toLowerCase();
+  if (host == null || host.isEmpty) return false;
+  if (host == 'localhost' || host.endsWith('.local')) return true;
+  final parts = host.split('.').map(int.tryParse).toList(growable: false);
+  if (parts.length == 4 && parts.every((part) => part != null)) {
+    final first = parts[0]!;
+    final second = parts[1]!;
+    return first == 10 ||
+        (first == 172 && second >= 16 && second <= 31) ||
+        (first == 192 && second == 168) ||
+        (first == 169 && second == 254) ||
+        first == 127;
+  }
+  return host == '::1' ||
+      host.startsWith('fc') ||
+      host.startsWith('fd') ||
+      host.startsWith('fe8') ||
+      host.startsWith('fe9') ||
+      host.startsWith('fea') ||
+      host.startsWith('feb');
 }
 
 @visibleForTesting

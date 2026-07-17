@@ -497,6 +497,9 @@ func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCReque
 	if err != nil {
 		return nil, true, err
 	}
+	if resp := s.authorizeWorkspaceModels(ctx, req.Id, body.WorkflowName, body.Parameters); resp != nil {
+		return resp, true, nil
+	}
 	adminResp, err := s.Workspaces.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
@@ -531,11 +534,44 @@ func (s *Server) handleWorkspacePut(ctx context.Context, req *rpcapi.RPCRequest)
 	if err != nil {
 		return nil, true, err
 	}
+	if resp := s.authorizeWorkspaceModels(ctx, req.Id, body.WorkflowName, body.Parameters); resp != nil {
+		return resp, true, nil
+	}
 	adminResp, err := s.Workspaces.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: params.Name, Body: &body})
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
 	return workspaceAdminRPCResponse(ctx, req.Id, adminResp.VisitPutWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspacePutResponse), true, nil
+}
+
+func (s *Server) authorizeWorkspaceModels(ctx context.Context, requestID, workflowName string, parameters *apitypes.WorkspaceParameters) *rpcapi.RPCResponse {
+	if s.Workflows == nil {
+		return internalError(requestID, "workflow service not configured")
+	}
+	response, err := s.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: workflowName})
+	if err != nil {
+		return internalError(requestID, err.Error())
+	}
+	workflowValue, rpcResponse, err := adminResult[apitypes.Workflow](response.VisitGetWorkflowResponse)
+	if err != nil {
+		return internalError(requestID, err.Error())
+	}
+	if rpcResponse != nil {
+		if rpcResponse.Error != nil && rpcResponse.Error.Code == rpcapi.RPCErrorCodeNotFound {
+			return nil
+		}
+		return withRequestID(requestID, rpcResponse)
+	}
+	references, err := workspace.ResolveFlowcraftModelReferences(workflowValue, parameters)
+	if err != nil {
+		return nil
+	}
+	for _, reference := range references {
+		if resp := s.authorizeResponse(ctx, requestID, acl.ModelResource(reference.ModelID), apitypes.ACLPermissionUse); resp != nil {
+			return resp
+		}
+	}
+	return nil
 }
 
 func (s *Server) handleWorkspaceDelete(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -780,8 +816,12 @@ func (s *Server) handleWorkflowGet(ctx context.Context, req *rpcapi.RPCRequest) 
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	if resp := s.authorizeResponse(ctx, req.Id, workflowResource(params.Name), apitypes.ACLPermissionRead); resp != nil {
-		return resp
+	allowed, err := s.authorizeWorkflowReadOrUse(ctx, params.Name)
+	if err != nil {
+		return authError(req.Id, err)
+	}
+	if !allowed {
+		return authError(req.Id, acl.ErrDenied)
 	}
 	adminResp, err := s.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: params.Name})
 	if err != nil {
@@ -799,6 +839,19 @@ func (s *Server) handleWorkflowGet(ctx context.Context, req *rpcapi.RPCRequest) 
 		return internalError(req.Id, err.Error())
 	}
 	return resultResponse(req.Id, projected, (*rpcapi.RPCPayload).FromWorkflowGetResponse)
+}
+
+func (s *Server) authorizeWorkflowReadOrUse(ctx context.Context, name string) (bool, error) {
+	for _, permission := range []apitypes.ACLPermission{apitypes.ACLPermissionRead, apitypes.ACLPermissionUse} {
+		err := s.authorizeErr(ctx, workflowResource(name), permission)
+		if err == nil {
+			return true, nil
+		}
+		if !errors.Is(err, acl.ErrDenied) {
+			return false, err
+		}
+	}
+	return false, nil
 }
 
 func workflowRPCProjection(item apitypes.Workflow, lang rpcapi.WorkflowLocale) (rpcapi.Workflow, error) {

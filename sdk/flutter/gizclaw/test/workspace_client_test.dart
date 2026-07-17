@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:gizclaw/src/client.dart';
 import 'package:gizclaw/src/generated/rpc/rpc.pb.dart' as rpc;
 import 'package:gizclaw/src/generated/rpc/payload.pb.dart' as payload;
+import 'package:gizclaw/src/generated/rpc/payload.pbenum.dart' as enums;
 import 'package:gizclaw/src/payload_codec.dart';
 import 'package:gizclaw/src/rpc_frame.dart';
 import 'package:protobuf/protobuf.dart';
@@ -11,6 +12,30 @@ import 'package:test/test.dart';
 import 'fake_transport.dart';
 
 void main() {
+  test('lists visible models with pagination', () async {
+    final factory = FakeDataChannelFactory();
+    final client = GizClawClient(factory);
+
+    final future = client.listModels(cursor: 'model-cursor', limit: 25);
+    final request = await _request(factory, 0);
+    final body =
+        decodeRpcRequestPayload('server.model.list', request.payload)
+            as payload.ModelListRequest;
+    expect(body.cursor, 'model-cursor');
+    expect(body.limit.toInt(), 25);
+    _respond(
+      factory.channels.single,
+      request.id,
+      'server.model.list',
+      payload.ModelListResponse(
+        items: [
+          payload.Model(id: 'chat-model', kind: enums.ModelKind.MODEL_KIND_LLM),
+        ],
+      ),
+    );
+    expect((await future).items.single.id, 'chat-model');
+  });
+
   test('creates a typed workspace document', () async {
     final factory = FakeDataChannelFactory();
     final client = GizClawClient(factory);

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -1137,6 +1139,9 @@ class MePage extends StatelessWidget {
               title: context.l10n.uiText(key: 'transport'),
               value: 'WebRTC · ${status.label}',
             ),
+            if (data.connectionFailureKind ==
+                MobileConnectionFailureKind.localNetwork)
+              _LocalNetworkRecoveryCard(data: data),
             const SizedBox(height: 26),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1196,6 +1201,50 @@ String _languagePreferenceLabel(BuildContext context) {
     AppLanguagePreference.simplifiedChinese =>
       context.l10n.languageSimplifiedChinese,
   };
+}
+
+class _LocalNetworkRecoveryCard extends StatelessWidget {
+  const _LocalNetworkRecoveryCard({required this.data});
+
+  final MobileDataController data;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      key: const ValueKey('local-network-recovery'),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+      child: GizSquircle(
+        borderRadius: GizCorners.compactCard,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          color: GizColors.coral.withValues(alpha: 0.12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                context.l10n.localNetworkRecoveryTitle,
+                style: GizText.title,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                context.l10n.localNetworkRecoveryMessage,
+                style: GizText.body,
+              ),
+              const SizedBox(height: 10),
+              CupertinoButton(
+                key: const ValueKey('local-network-retry'),
+                padding: EdgeInsets.zero,
+                onPressed: () {
+                  unawaited(data.recoverTransport().catchError((_) {}));
+                },
+                child: Text(context.l10n.commonRetry),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _IdentityStatusPill extends StatelessWidget {

@@ -32,9 +32,14 @@ const (
 type Server struct {
 	Store         kv.Store
 	WorkflowStore kv.Store
+	Models        ModelService
 	RuntimeStore  RuntimeStore
 	Assets        objectstore.ObjectStore
 	IconLocks     iconasset.Locker
+}
+
+type ModelService interface {
+	GetModel(context.Context, adminhttp.GetModelRequestObject) (adminhttp.GetModelResponseObject, error)
 }
 
 type WorkspaceAdminService interface {
@@ -107,8 +112,11 @@ func (s *Server) CreateWorkspace(ctx context.Context, request adminhttp.CreateWo
 	if err != nil {
 		return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := validateReferences(ctx, workflowStore, normalized); err != nil {
-		return adminhttp.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
+	if err := s.validateReferences(ctx, workflowStore, normalized); err != nil {
+		if isInvalidWorkspaceReference(err) {
+			return adminhttp.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
+		}
+		return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if _, err := store.Get(ctx, workspaceKey(string(normalized.Name))); err == nil {
 		return adminhttp.CreateWorkspace409JSONResponse(apitypes.NewErrorResponse("WORKSPACE_ALREADY_EXISTS", fmt.Sprintf("workspace %q already exists", normalized.Name))), nil
@@ -135,7 +143,7 @@ func (s *Server) CreateSystemWorkspace(ctx context.Context, body adminhttp.Works
 	if err != nil {
 		return apitypes.Workspace{}, false, err
 	}
-	if err := validateReferences(ctx, workflowStore, normalized); err != nil {
+	if err := s.validateReferences(ctx, workflowStore, normalized); err != nil {
 		return apitypes.Workspace{}, false, err
 	}
 	existing, err := getWorkspace(ctx, store, string(normalized.Name))
@@ -303,8 +311,11 @@ func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspac
 	if err != nil {
 		return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := validateReferences(ctx, workflowStore, normalized); err != nil {
-		return adminhttp.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
+	if err := s.validateReferences(ctx, workflowStore, normalized); err != nil {
+		if isInvalidWorkspaceReference(err) {
+			return adminhttp.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
+		}
+		return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	previous, err := getWorkspace(ctx, store, name)
 	if err != nil && !errors.Is(err, kv.ErrNotFound) {
@@ -431,14 +442,134 @@ func normalizeWorkspaceUpsert(in adminhttp.WorkspaceUpsert, expectedName string)
 	}, nil
 }
 
-func validateReferences(ctx context.Context, store kv.Store, workspace adminhttp.WorkspaceUpsert) error {
-	if _, err := store.Get(ctx, workflowReferenceKey(string(workspace.WorkflowName))); err != nil {
+func (s *Server) validateReferences(ctx context.Context, store kv.Store, workspace adminhttp.WorkspaceUpsert) error {
+	data, err := store.Get(ctx, workflowReferenceKey(string(workspace.WorkflowName)))
+	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return fmt.Errorf("workflow %q not found", workspace.WorkflowName)
+			return invalidWorkspaceReference("workflow %q not found", workspace.WorkflowName)
 		}
 		return err
 	}
+	var workflow apitypes.Workflow
+	if err := json.Unmarshal(data, &workflow); err != nil {
+		return fmt.Errorf("decode workflow %q: %w", workspace.WorkflowName, err)
+	}
+	if workflow.Spec.Driver != apitypes.WorkflowDriverFlowcraft {
+		return nil
+	}
+	references, err := ResolveFlowcraftModelReferences(workflow, workspace.Parameters)
+	if err != nil {
+		return err
+	}
+	for _, reference := range references {
+		if err := s.validateGeneratorModel(ctx, reference.Role, reference.ModelID); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+// FlowcraftModelReference is one effective Model selected for a FlowCraft role.
+type FlowcraftModelReference struct {
+	Role    string
+	ModelID string
+}
+
+// ResolveFlowcraftModelReferences resolves Workspace overrides and Workflow
+// settings into the concrete Models used by a FlowCraft runtime.
+func ResolveFlowcraftModelReferences(workflow apitypes.Workflow, workspaceParameters *apitypes.WorkspaceParameters) ([]FlowcraftModelReference, error) {
+	if workflow.Spec.Driver != apitypes.WorkflowDriverFlowcraft {
+		return nil, nil
+	}
+	parameters := apitypes.FlowcraftWorkspaceParameters{}
+	if workspaceParameters != nil {
+		var err error
+		parameters, err = workspaceParameters.AsFlowcraftWorkspaceParameters()
+		if err != nil {
+			return nil, invalidWorkspaceReference("flowcraft parameters are required: %v", err)
+		}
+	}
+	settings := map[string]any{}
+	if workflow.Spec.Flowcraft != nil {
+		if configured, ok := (*workflow.Spec.Flowcraft)["settings"].(map[string]any); ok {
+			settings = configured
+		}
+	}
+	roles := []struct {
+		name     string
+		value    *string
+		required bool
+	}{
+		{name: "generate_model", value: parameters.GenerateModel, required: true},
+		{name: "extract_model", value: parameters.ExtractModel},
+		{name: "embedding_model", value: parameters.EmbeddingModel},
+	}
+	references := make([]FlowcraftModelReference, 0, len(roles))
+	for _, role := range roles {
+		modelID, required := resolveFlowcraftModel(role.name, role.value, settings, role.required)
+		if modelID == "" {
+			if required {
+				return nil, invalidWorkspaceReference("flowcraft parameter %q requires a concrete Model resource name", role.name)
+			}
+			continue
+		}
+		references = append(references, FlowcraftModelReference{Role: role.name, ModelID: modelID})
+	}
+	return references, nil
+}
+
+func resolveFlowcraftModel(name string, workspaceValue *string, settings map[string]any, required bool) (string, bool) {
+	if workspaceValue != nil {
+		if value := strings.TrimSpace(*workspaceValue); value != "" {
+			if value == name {
+				return "", true
+			}
+			return value, true
+		}
+	}
+	configured, _ := settings[name].(string)
+	configured = strings.TrimSpace(configured)
+	if configured == "" {
+		return "", required
+	}
+	if configured == name {
+		return "", true
+	}
+	return configured, true
+}
+
+func (s *Server) validateGeneratorModel(ctx context.Context, role, modelID string) error {
+	if s == nil || s.Models == nil {
+		return errors.New("model service not configured")
+	}
+	response, err := s.Models.GetModel(ctx, adminhttp.GetModelRequestObject{Id: modelID})
+	if err != nil {
+		return err
+	}
+	model, ok := response.(adminhttp.GetModel200JSONResponse)
+	if _, missing := response.(adminhttp.GetModel404JSONResponse); missing {
+		return invalidWorkspaceReference("flowcraft parameter %q references missing Model %q", role, modelID)
+	}
+	if !ok {
+		return fmt.Errorf("validate flowcraft parameter %q Model %q: model service returned %T", role, modelID, response)
+	}
+	if model.Kind != apitypes.ModelKindLlm {
+		return invalidWorkspaceReference("flowcraft parameter %q Model %q has kind %q, want %q", role, modelID, model.Kind, apitypes.ModelKindLlm)
+	}
+	return nil
+}
+
+type invalidWorkspaceReferenceError struct {
+	error
+}
+
+func invalidWorkspaceReference(format string, args ...any) error {
+	return invalidWorkspaceReferenceError{error: fmt.Errorf(format, args...)}
+}
+
+func isInvalidWorkspaceReference(err error) bool {
+	var invalid invalidWorkspaceReferenceError
+	return errors.As(err, &invalid)
 }
 
 func workspaceKey(name string) kv.Key {

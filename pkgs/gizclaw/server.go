@@ -420,14 +420,14 @@ func (s *Server) init() error {
 		return err
 	}
 
+	modelServer := &model.Server{Store: modelStore}
 	workflowServer := &workflow.Server{Store: workflowStore, Assets: s.WorkflowAssets}
-	workspaceServer := &workspace.Server{Store: workspaceStore, WorkflowStore: workflowStore, Assets: s.WorkspaceAssets}
+	workspaceServer := &workspace.Server{Store: workspaceStore, WorkflowStore: workflowStore, Models: modelServer, Assets: s.WorkspaceAssets}
 	if s.AgentHostStore != nil {
 		workspaceServer.RuntimeStore = workspace.NewObjectRuntimeStore(s.AgentHostStore)
 	}
 	credentialServer := &credential.Server{Store: credentialStore}
 	firmwareServer := &firmware.Server{Store: firmwareStore, Assets: s.FirmwareAssets}
-	modelServer := &model.Server{Store: modelStore}
 	voiceServer := &voice.Server{Store: voiceStore}
 	toolServer := &toolkit.Server{Store: toolStore}
 	var aclServer *acl.Server

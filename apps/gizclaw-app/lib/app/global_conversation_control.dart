@@ -778,13 +778,13 @@ class _WorkspaceActivationButtonState
       await MobileDataScope.watch(
         context,
       ).activateWorkspaceChat(widget.workspaceName);
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       await showCupertinoDialog<void>(
         context: context,
         builder: (context) => CupertinoAlertDialog(
           title: Text(context.l10n.actionText(key: 'unableActivate')),
-          content: Text(context.l10n.actionText(key: 'actionFailed')),
+          content: Text(_workspaceActivationErrorMessage(context, error)),
           actions: [
             CupertinoDialogAction(
               onPressed: () => Navigator.of(context).pop(),
@@ -874,6 +874,12 @@ class _WorkspaceActivationButtonState
       ),
     );
   }
+}
+
+String _workspaceActivationErrorMessage(BuildContext context, Object error) {
+  final message = error.toString().trim();
+  if (message.isEmpty) return context.l10n.actionText(key: 'actionFailed');
+  return message.startsWith('Bad state: ') ? message.substring(11) : message;
 }
 
 class _DockContext {

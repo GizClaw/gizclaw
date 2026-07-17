@@ -479,6 +479,31 @@ test("clicking the Pod name opens a name-only editor", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("remote Pod settings update the QR access point without changing Admin endpoints", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: /China Development/ }).click();
+  const detail = page.getByRole("dialog");
+  await detail
+    .getByRole("button", { name: "China Development", exact: true })
+    .click();
+  const editor = page.locator(".settings-dialog");
+  await expect(editor.getByLabel("Access Point")).toHaveValue(
+    "ap.dev.gizclaw.com:9820",
+  );
+  await editor.getByLabel("Access Point").fill("mobile.example.com:9820");
+  await editor.getByRole("button", { name: "Save configuration" }).click();
+
+  await expect(detail.locator(".qr-code")).toHaveAttribute(
+    "data-qr-payload",
+    /mobile\.example\.com%3A9820/,
+  );
+  await detail.getByRole("button", { name: "Manage Servers" }).click();
+  await expect(detail.getByText("115.191.6.117:9820")).toBeVisible();
+  await expect(detail.getByText("115.191.6.118:9820")).toBeVisible();
+});
+
 test("Remote creation asks only for an access point and adds Servers later", async ({
   page,
 }) => {
