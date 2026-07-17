@@ -409,6 +409,30 @@ func TestDoubaoRealtimeProviderLossDoesNotRepeatCommittedPTTTranscriptEOS(t *tes
 	}
 }
 
+func TestDoubaoRealtimeProviderLossClosesOnlyOpenAssistantRoutes(t *testing.T) {
+	tfr := NewDoubaoRealtime(nil, WithDoubaoRealtimeFormat("pcm"))
+	runtime := newDoubaoRealtimeRuntime(tfr)
+	defer runtime.close()
+	output := &recordingRealtimeOutput{}
+	epoch := runtime.assistant.currentEpoch()
+	runtime.assistant.markPending("turn-1", epoch)
+	runtime.assistant.markAudioDone(epoch)
+
+	runtime.providerLost(tfr, output, errors.New("provider lost"))
+
+	chunks := output.chunks()
+	if len(chunks) != 1 {
+		t.Fatalf("output chunks after provider loss = %#v, want one text error EOS", chunks)
+	}
+	chunk := chunks[0]
+	if chunk.Ctrl == nil || !chunk.Ctrl.EndOfStream || chunk.Ctrl.Error == "" {
+		t.Fatalf("provider-loss chunk = %#v, want error EOS", chunk)
+	}
+	if _, ok := chunk.Part.(genx.Text); !ok {
+		t.Fatalf("provider-loss chunk part = %T, want text route", chunk.Part)
+	}
+}
+
 func TestDoubaoRealtimePTTResponsesMatchQuestionAndReplyIDs(t *testing.T) {
 	response := &doubaoRealtimePTTResponse{
 		streamID: "turn-1",
@@ -450,6 +474,9 @@ func TestDoubaoRealtimePTTLateTerminalEventKeepsOriginalTurnBinding(t *testing.T
 			{Type: doubaospeech.EventASREnded, QuestionID: "q-2"},
 			{Type: doubaospeech.EventChatResponse, Text: "second answer", QuestionID: "q-2", ReplyID: "r-2"},
 			{Type: doubaospeech.EventChatEnded, ReplyID: "r-2"},
+			{Type: doubaospeech.EventTTSStarted, ReplyID: "r-2"},
+			{Type: doubaospeech.EventTTSAudioData, Audio: []byte{2, 3}, ReplyID: "r-2"},
+			{Type: doubaospeech.EventTTSFinished, ReplyID: "r-2"},
 		},
 	}
 	opener := &fakeDoubaoRealtimeOpener{results: []fakeDoubaoRealtimeOpenResult{{session: session}}}
@@ -760,11 +787,11 @@ func TestDoubaoRealtimeTextDrainsFinalResponseAfterInputEOF(t *testing.T) {
 		firstTextSent:    textSent,
 		blockAfterEvents: make(chan struct{}),
 		events: []*doubaospeech.RealtimeEvent{
-			{Type: doubaospeech.EventTTSStarted},
 			{Type: doubaospeech.EventChatResponse, Text: "answer"},
+			{Type: doubaospeech.EventChatEnded},
+			{Type: doubaospeech.EventTTSStarted},
 			{Type: doubaospeech.EventTTSAudioData, Audio: []byte{1, 2}},
 			{Type: doubaospeech.EventTTSFinished},
-			{Type: doubaospeech.EventChatEnded},
 		},
 	}
 	opener := &fakeDoubaoRealtimeOpener{results: []fakeDoubaoRealtimeOpenResult{{session: session}}}
@@ -849,6 +876,8 @@ func TestDoubaoRealtimeDoesNotReplayAmbiguousTextAfterReconnect(t *testing.T) {
 		events: []*doubaospeech.RealtimeEvent{
 			{Type: doubaospeech.EventChatResponse, Text: "second answer"},
 			{Type: doubaospeech.EventChatEnded},
+			{Type: doubaospeech.EventTTSStarted},
+			{Type: doubaospeech.EventTTSFinished},
 		},
 	}
 	opener := &fakeDoubaoRealtimeOpener{results: []fakeDoubaoRealtimeOpenResult{{session: first}, {session: second}}}
@@ -969,6 +998,8 @@ func TestDoubaoRealtimePTTDiscardsFailedTurnRemainderAfterReconnect(t *testing.T
 			{Type: doubaospeech.EventASREnded},
 			{Type: doubaospeech.EventChatResponse, Text: "second answer"},
 			{Type: doubaospeech.EventChatEnded},
+			{Type: doubaospeech.EventTTSStarted},
+			{Type: doubaospeech.EventTTSFinished},
 		},
 	}
 	opener := &fakeDoubaoRealtimeOpener{results: []fakeDoubaoRealtimeOpenResult{{session: first}, {session: second}}}

@@ -574,17 +574,19 @@ func (r *doubaoRealtimeRuntime) providerLost(t *DoubaoRealtime, output realtimeC
 		})
 	}
 
-	assistantStreamID, assistantActive := r.assistant.interrupt(pttStreamID, false)
-	if assistantActive {
+	interruption := r.assistant.interruptRoutes(pttStreamID, false)
+	if interruption.interrupted && interruption.textOpen {
 		_ = output.Push(&genx.MessageChunk{
 			Role: genx.RoleModel,
 			Part: genx.Text(""),
-			Ctrl: &genx.StreamCtrl{StreamID: assistantStreamID, Label: doubaoRealtimeAssistantLabel, EndOfStream: true, Error: errText},
+			Ctrl: &genx.StreamCtrl{StreamID: interruption.streamID, Label: doubaoRealtimeAssistantLabel, EndOfStream: true, Error: errText},
 		})
+	}
+	if interruption.interrupted && interruption.audioOpen {
 		_ = output.Push(&genx.MessageChunk{
 			Role: genx.RoleModel,
 			Part: &genx.Blob{MIMEType: t.outputMIMEType()},
-			Ctrl: &genx.StreamCtrl{StreamID: assistantStreamID, Label: doubaoRealtimeAssistantLabel, EndOfStream: true, Error: errText},
+			Ctrl: &genx.StreamCtrl{StreamID: interruption.streamID, Label: doubaoRealtimeAssistantLabel, EndOfStream: true, Error: errText},
 		})
 	}
 }
@@ -903,26 +905,33 @@ func (t *DoubaoRealtime) processSession(
 	markAssistantStarted := func(streamID string) uint64 {
 		return assistant.markStarted(streamID)
 	}
-	markAssistantDone := func(epoch uint64) {
-		assistant.markDone(epoch)
+	markAssistantTextDone := func(epoch uint64) {
+		assistant.markTextDone(epoch)
+	}
+	markAssistantAudioDone := func(epoch uint64) {
+		assistant.markAudioDone(epoch)
 	}
 	interruptAssistant := func(streamID string, force bool) (bool, error) {
-		interruptedStreamID, interrupted := assistant.interrupt(streamID, force)
-		if !interrupted {
+		interruption := assistant.interruptRoutes(streamID, force)
+		if !interruption.interrupted {
 			return false, nil
 		}
-		textEOS := &genx.MessageChunk{
-			Role: genx.RoleModel,
-			Part: genx.Text(""),
-			Ctrl: &genx.StreamCtrl{StreamID: interruptedStreamID, Label: doubaoRealtimeAssistantLabel, EndOfStream: true, Error: doubaoRealtimeInterrupted},
+		if interruption.textOpen {
+			textEOS := &genx.MessageChunk{
+				Role: genx.RoleModel,
+				Part: genx.Text(""),
+				Ctrl: &genx.StreamCtrl{StreamID: interruption.streamID, Label: doubaoRealtimeAssistantLabel, EndOfStream: true, Error: doubaoRealtimeInterrupted},
+			}
+			_ = output.Push(textEOS)
 		}
-		audioEOS := &genx.MessageChunk{
-			Role: genx.RoleModel,
-			Part: &genx.Blob{MIMEType: t.outputMIMEType()},
-			Ctrl: &genx.StreamCtrl{StreamID: interruptedStreamID, Label: doubaoRealtimeAssistantLabel, EndOfStream: true, Error: doubaoRealtimeInterrupted},
+		if interruption.audioOpen {
+			audioEOS := &genx.MessageChunk{
+				Role: genx.RoleModel,
+				Part: &genx.Blob{MIMEType: t.outputMIMEType()},
+				Ctrl: &genx.StreamCtrl{StreamID: interruption.streamID, Label: doubaoRealtimeAssistantLabel, EndOfStream: true, Error: doubaoRealtimeInterrupted},
+			}
+			_ = output.Push(audioEOS)
 		}
-		_ = output.Push(textEOS)
-		_ = output.Push(audioEOS)
 		if err := session.Interrupt(ctx); err != nil {
 			return true, doubaoRealtimeRecoverable("interrupt response", err)
 		}
@@ -1226,7 +1235,7 @@ func (t *DoubaoRealtime) processSession(
 					if err := pushAssistantOutput(epoch, response, eosChunk); err != nil {
 						return err
 					}
-					markAssistantDone(epoch)
+					markAssistantAudioDone(epoch)
 					if t.mode == DoubaoRealtimeModePushToTalk {
 						pushToTalk.ttsFinished(streamID)
 						response.ttsFinished = true
@@ -1265,6 +1274,7 @@ func (t *DoubaoRealtime) processSession(
 					if err := pushAssistantOutput(epoch, response, doneChunk); err != nil {
 						return err
 					}
+					markAssistantTextDone(epoch)
 					if response != nil {
 						response.chatEnded = true
 						pttResponses.finish(response)

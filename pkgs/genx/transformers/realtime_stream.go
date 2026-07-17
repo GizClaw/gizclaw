@@ -15,10 +15,19 @@ type realtimeAssistantLifecycle struct {
 	epoch  atomic.Uint64
 	accept atomic.Bool
 
-	mu       sync.Mutex
-	active   bool
-	streamID string
-	activeAt uint64
+	mu        sync.Mutex
+	active    bool
+	streamID  string
+	activeAt  uint64
+	textDone  bool
+	audioDone bool
+}
+
+type realtimeAssistantInterruption struct {
+	streamID    string
+	interrupted bool
+	textOpen    bool
+	audioOpen   bool
 }
 
 func newRealtimeAssistantLifecycle() *realtimeAssistantLifecycle {
@@ -41,12 +50,27 @@ func (s *realtimeAssistantLifecycle) markPending(streamID string, epoch uint64) 
 	s.active = true
 	s.streamID = streamID
 	s.activeAt = epoch
+	s.textDone = false
+	s.audioDone = false
 	s.mu.Unlock()
 }
 
 func (s *realtimeAssistantLifecycle) markStarted(streamID string) uint64 {
 	epoch := s.currentEpoch()
-	s.markPending(streamID, epoch)
+	streamID = strings.TrimSpace(streamID)
+	s.mu.Lock()
+	if s.active && s.activeAt == epoch {
+		if streamID != "" {
+			s.streamID = streamID
+		}
+	} else if streamID != "" {
+		s.active = true
+		s.streamID = streamID
+		s.activeAt = epoch
+		s.textDone = false
+		s.audioDone = false
+	}
+	s.mu.Unlock()
 	return epoch
 }
 
@@ -54,6 +78,8 @@ func (s *realtimeAssistantLifecycle) markDone(epoch uint64) {
 	s.mu.Lock()
 	if s.activeAt == epoch {
 		s.active = false
+		s.textDone = true
+		s.audioDone = true
 	}
 	s.mu.Unlock()
 }
@@ -62,16 +88,41 @@ func (s *realtimeAssistantLifecycle) markDoneStream(streamID string) {
 	s.mu.Lock()
 	if s.streamID == streamID {
 		s.active = false
+		s.textDone = true
+		s.audioDone = true
 	}
 	s.mu.Unlock()
 }
 
-func (s *realtimeAssistantLifecycle) interrupt(fallback string, force bool) (string, bool) {
+func (s *realtimeAssistantLifecycle) markTextDone(epoch uint64) {
+	s.markRouteDone(epoch, true)
+}
+
+func (s *realtimeAssistantLifecycle) markAudioDone(epoch uint64) {
+	s.markRouteDone(epoch, false)
+}
+
+func (s *realtimeAssistantLifecycle) markRouteDone(epoch uint64, text bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.active || s.activeAt != epoch {
+		return
+	}
+	if text {
+		s.textDone = true
+	} else {
+		s.audioDone = true
+	}
+	s.active = !(s.textDone && s.audioDone)
+}
+
+func (s *realtimeAssistantLifecycle) interruptRoutes(fallback string, force bool) realtimeAssistantInterruption {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if !s.active && !force {
-		return "", false
+		return realtimeAssistantInterruption{}
 	}
+	wasActive := s.active
 	streamID := strings.TrimSpace(s.streamID)
 	if streamID == "" {
 		streamID = strings.TrimSpace(fallback)
@@ -83,7 +134,24 @@ func (s *realtimeAssistantLifecycle) interrupt(fallback string, force bool) (str
 	s.accept.Store(false)
 	epoch := s.epoch.Add(1)
 	s.activeAt = epoch
-	return streamID, true
+	interruption := realtimeAssistantInterruption{
+		streamID:    streamID,
+		interrupted: true,
+		textOpen:    !s.textDone,
+		audioOpen:   !s.audioDone,
+	}
+	if !wasActive && force {
+		interruption.textOpen = true
+		interruption.audioOpen = true
+	}
+	s.textDone = true
+	s.audioDone = true
+	return interruption
+}
+
+func (s *realtimeAssistantLifecycle) interrupt(fallback string, force bool) (string, bool) {
+	interruption := s.interruptRoutes(fallback, force)
+	return interruption.streamID, interruption.interrupted
 }
 
 func (s *realtimeAssistantLifecycle) canPush(epoch uint64) bool {
@@ -278,7 +346,7 @@ type doubaoRealtimeTextResponse struct {
 }
 
 func (r *doubaoRealtimeTextResponse) done() bool {
-	return r != nil && r.chatEnded && (!r.ttsStarted || r.ttsFinished)
+	return r != nil && r.chatEnded && r.ttsFinished
 }
 
 type doubaoRealtimeTextResponses struct {
@@ -545,7 +613,7 @@ func (r *doubaoRealtimePTTResponse) push(chunk *genx.MessageChunk) error {
 }
 
 func (r *doubaoRealtimePTTResponse) done() bool {
-	return r != nil && r.chatEnded && (!r.ttsStarted || r.ttsFinished)
+	return r != nil && r.chatEnded && r.ttsFinished
 }
 
 func (i doubaoRealtimePTTResponseIdentity) normalized() doubaoRealtimePTTResponseIdentity {
