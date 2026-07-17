@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     (window as any).__GIZCLAW_WINDOW_ACTIONS__ = [];
+    (window as any).__GIZCLAW_CREATE_CALLS__ = 0;
     window.runtime = {
       WindowHide() {
         (window as any).__GIZCLAW_WINDOW_ACTIONS__.push("hide");
@@ -149,6 +150,11 @@ test.beforeEach(async ({ page }) => {
         return bootstrapEnvironment;
       },
       async CreatePod(input) {
+        (window as any).__GIZCLAW_CREATE_CALLS__ += 1;
+        const delay = (window as any).__GIZCLAW_CREATE_DELAY__ ?? 0;
+        if (delay > 0) {
+          await new Promise((resolve) => window.setTimeout(resolve, delay));
+        }
         const pod = input.local_server
           ? {
               id: input.id || "pod-generated",
@@ -374,6 +380,37 @@ test("Add Pod creates a local environment without exposing keys", async ({
     page.getByRole("dialog").getByRole("img", { name: "Server QR code" }),
   ).toBeVisible();
   await expect(page.locator("body")).not.toContainText("private_key");
+});
+
+test("local creation shows progress and ignores repeated submits", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.evaluate(() => {
+    (window as any).__GIZCLAW_CREATE_DELAY__ = 800;
+  });
+  await page.getByRole("button", { name: "Add Pod" }).click();
+  const dialog = page.getByRole("dialog");
+  const local = dialog.getByRole("button", { name: /^Local/ });
+  await local.evaluate((element) => {
+    (element as HTMLButtonElement).click();
+    (element as HTMLButtonElement).click();
+  });
+  await expect(dialog.getByRole("status")).toContainText(
+    "Creating local server",
+  );
+  await expect(dialog.getByRole("button", { name: "Close" })).toBeDisabled();
+  await page.keyboard.press("Escape");
+  await expect(dialog.getByRole("status")).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__GIZCLAW_CREATE_CALLS__))
+    .toBe(1);
+  await expect(
+    page.getByRole("dialog").getByRole("heading", {
+      level: 2,
+      name: "Local Server",
+    }),
+  ).toBeVisible();
 });
 
 test("local creation opens an editable nested bootstrap environment form", async ({

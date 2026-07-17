@@ -129,6 +129,51 @@ func TestLocalPodCreationAssignsDistinctStablePorts(t *testing.T) {
 	}
 }
 
+func TestCreatePodRejectsConcurrentDuplicateRequest(t *testing.T) {
+	paths := appconfig.NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	b := &PodBridge{
+		Paths:  paths,
+		Store:  appconfig.Store{Paths: paths},
+		Health: endpointhealth.New(),
+		Local:  localserver.New(),
+	}
+	b.mutationMu.Lock()
+	firstDone := make(chan error, 1)
+	go func() {
+		_, err := b.CreatePod(context.Background(), PodInput{
+			Version: 1, ID: "first-create", Name: "First", RemoteAccessPoint: "127.0.0.1:19820",
+		})
+		firstDone <- err
+	}()
+	deadline := time.Now().Add(time.Second)
+	_, creating := b.creating.Load("first-create")
+	for !creating && time.Now().Before(deadline) {
+		runtime.Gosched()
+		_, creating = b.creating.Load("first-create")
+	}
+	if !creating {
+		b.mutationMu.Unlock()
+		t.Fatal("first CreatePod did not enter the single-flight section")
+	}
+	_, duplicateErr := b.CreatePod(context.Background(), PodInput{
+		Version: 1, ID: "first-create", Name: "Duplicate", RemoteAccessPoint: "127.0.0.1:19821",
+	})
+	b.mutationMu.Unlock()
+	if duplicateErr == nil || !strings.Contains(duplicateErr.Error(), "creation is already in progress") {
+		t.Fatalf("duplicate CreatePod() error = %v", duplicateErr)
+	}
+	if err := <-firstDone; err != nil {
+		t.Fatal(err)
+	}
+	listed, err := b.ListPods(context.Background())
+	if err != nil || len(listed) != 1 || listed[0].ID != "first-create" {
+		t.Fatalf("ListPods() = %+v, %v", listed, err)
+	}
+}
+
 func TestUpdatePodHonorsExplicitIdentityClearing(t *testing.T) {
 	paths := appconfig.NewPaths(t.TempDir())
 	if err := paths.Ensure(); err != nil {
@@ -231,14 +276,11 @@ func TestConcurrentLocalPodCreationAssignsDistinctPorts(t *testing.T) {
 	errs := make(chan error, 2)
 	var wg sync.WaitGroup
 	for _, id := range []string{"concurrent-a", "concurrent-b"} {
-		id := id
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			result, err := b.CreatePod(context.Background(), PodInput{Version: 1, ID: id, Name: id, LocalServer: &LocalServerInput{Port: 0}})
 			results <- result
 			errs <- err
-		}()
+		})
 	}
 	wg.Wait()
 	close(results)

@@ -5,11 +5,13 @@ import { Dialog as DialogPrimitive } from "radix-ui";
 export function DesktopDialog({
   children,
   className,
+  dismissible = true,
   nested = false,
   onClose,
 }: {
   children(close: () => void): ReactNode;
   className: string;
+  dismissible?: boolean;
   nested?: boolean;
   onClose(): void;
 }) {
@@ -26,9 +28,16 @@ export function DesktopDialog({
     return () => window.clearTimeout(timer);
   }, [open]);
 
-  const close = () => setOpen(false);
+  const close = () => {
+    if (dismissible) setOpen(false);
+  };
   return (
-    <DialogPrimitive.Root onOpenChange={setOpen} open={open}>
+    <DialogPrimitive.Root
+      onOpenChange={(next) => {
+        if (next || dismissible) setOpen(next);
+      }}
+      open={open}
+    >
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
           className={nested ? "nested-dialog-backdrop" : "dialog-backdrop"}

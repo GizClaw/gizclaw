@@ -109,6 +109,8 @@
   "localPodDefaultName": "Local Server",
   "remotePodDefaultName": "Remote Server",
   "localCreateHint": "Create immediately with an automatic port.",
+  "localCreateProgressTitle": "Creating local server",
+  "localCreateProgressHint": "Starting the server and installing bootstrap resources. This may take a few minutes; keep Desktop open.",
   "remoteCreateHint": "Connect through a remote access point.",
   "connectRemote": "Connect remote environment",
   "bootstrapEnvironment": "Bootstrap environment",

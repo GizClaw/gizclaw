@@ -10,6 +10,7 @@ import {
   Laptop,
   FolderOpen,
   KeyRound,
+  LoaderCircle,
   Maximize2,
   Minus,
   Pencil,
@@ -1243,12 +1244,15 @@ function CreatePodDialog({
   const [mode, setMode] = useState<"choose" | "remote">("choose");
   const [accessPoint, setAccessPoint] = useState("");
   const [saving, setSaving] = useState(false);
+  const submitting = useRef(false);
 
   async function createLocal() {
+    if (submitting.current) return;
     if (!bootstrapReady) {
       onConfigureEnvironment();
       return;
     }
+    submitting.current = true;
     setSaving(true);
     try {
       await onSave({
@@ -1257,12 +1261,15 @@ function CreatePodDialog({
         local_server: { port: 0 },
       });
     } finally {
+      submitting.current = false;
       setSaving(false);
     }
   }
 
   async function createRemote(event: FormEvent) {
     event.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
     setSaving(true);
     try {
       await onSave({
@@ -1272,90 +1279,111 @@ function CreatePodDialog({
         remote_servers: [],
       });
     } finally {
+      submitting.current = false;
       setSaving(false);
     }
   }
 
   return (
-    <DesktopDialog className="create-dialog compact-dialog" onClose={onClose}>
+    <DesktopDialog
+      className="create-dialog compact-dialog"
+      dismissible={!saving}
+      onClose={onClose}
+    >
       {(close) => (
         <form
           className="desktop-dialog-form"
           onSubmit={(event) => void createRemote(event)}
         >
-        <header>
-          {mode === "remote" ? (
+          <header>
+            {mode === "remote" ? (
+              <button
+                className="icon-button"
+                onClick={() => setMode("choose")}
+                type="button"
+              >
+                <ChevronLeft size={18} />
+              </button>
+            ) : (
+              <div>
+                <span className="mode-chip">{t("newEnvironment")}</span>
+                <DesktopDialogTitle>
+                  <h2>{t("addPod")}</h2>
+                </DesktopDialogTitle>
+              </div>
+            )}
             <button
+              aria-label={t("close")}
               className="icon-button"
-              onClick={() => setMode("choose")}
+              disabled={saving}
+              onClick={close}
+              title={t("close")}
               type="button"
             >
-              <ChevronLeft size={18} />
+              <X size={18} />
             </button>
+          </header>
+          {saving && mode === "choose" ? (
+            <div aria-live="polite" className="create-progress" role="status">
+              <span className="create-progress-spinner">
+                <LoaderCircle aria-hidden="true" size={27} />
+              </span>
+              <div>
+                <strong>{t("localCreateProgressTitle")}</strong>
+                <p>{t("localCreateProgressHint")}</p>
+              </div>
+              <span className="create-progress-track" />
+            </div>
+          ) : mode === "choose" ? (
+            <div className="create-mode-grid">
+              <button
+                disabled={saving}
+                onClick={() => void createLocal()}
+                type="button"
+              >
+                <span>
+                  <Laptop size={24} />
+                </span>
+                <strong>{t("local")}</strong>
+                <small>{t("localCreateHint")}</small>
+              </button>
+              <button
+                disabled={saving}
+                onClick={() => setMode("remote")}
+                type="button"
+              >
+                <span>
+                  <Cloud size={24} />
+                </span>
+                <strong>{t("remote")}</strong>
+                <small>{t("remoteCreateHint")}</small>
+              </button>
+            </div>
           ) : (
-            <div>
-              <span className="mode-chip">{t("newEnvironment")}</span>
-              <DesktopDialogTitle>
-                <h2>{t("addPod")}</h2>
-              </DesktopDialogTitle>
+            <div className="remote-create-step">
+              <div>
+                <span className="mode-chip">{t("remote")}</span>
+                <DesktopDialogTitle>
+                  <h2>{t("connectRemote")}</h2>
+                </DesktopDialogTitle>
+              </div>
+              <Field
+                label={t("accessPoint")}
+                onChange={setAccessPoint}
+                placeholder="ap.dev.gizclaw.com:9820"
+                required
+                value={accessPoint}
+                wide
+              />
+              <button
+                className="primary-action"
+                disabled={saving}
+                type="submit"
+              >
+                {t("create")}
+              </button>
             </div>
           )}
-          <button
-            aria-label={t("close")}
-            className="icon-button"
-            onClick={close}
-            title={t("close")}
-            type="button"
-          >
-            <X size={18} />
-          </button>
-        </header>
-        {mode === "choose" ? (
-          <div className="create-mode-grid">
-            <button
-              disabled={saving}
-              onClick={() => void createLocal()}
-              type="button"
-            >
-              <span>
-                <Laptop size={24} />
-              </span>
-              <strong>{t("local")}</strong>
-              <small>{t("localCreateHint")}</small>
-            </button>
-            <button
-              disabled={saving}
-              onClick={() => setMode("remote")}
-              type="button"
-            >
-              <span>
-                <Cloud size={24} />
-              </span>
-              <strong>{t("remote")}</strong>
-              <small>{t("remoteCreateHint")}</small>
-            </button>
-          </div>
-        ) : (
-          <div className="remote-create-step">
-            <div>
-              <span className="mode-chip">{t("remote")}</span>
-              <DesktopDialogTitle>
-                <h2>{t("connectRemote")}</h2>
-              </DesktopDialogTitle>
-            </div>
-            <Field
-              label={t("accessPoint")}
-              onChange={setAccessPoint}
-              placeholder="ap.dev.gizclaw.com:9820"
-              required
-              value={accessPoint}
-              wide
-            />
-            <button className="primary-action" disabled={saving} type="submit">
-              {t("create")}
-            </button>
-          </div>
-        )}
         </form>
       )}
     </DesktopDialog>

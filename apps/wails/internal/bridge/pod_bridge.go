@@ -33,6 +33,7 @@ type PodBridge struct {
 	WebUI                *webui.Manager
 
 	mutationMu sync.Mutex
+	creating   sync.Map
 	refreshMu  sync.Mutex
 	refreshes  map[string]*podRefresh
 }
@@ -220,6 +221,14 @@ func (b *PodBridge) GetPod(_ context.Context, id string) (PodSummary, error) {
 func (b *PodBridge) RevealPath(id string) (string, error) { return b.Store.PodDir(id) }
 
 func (b *PodBridge) CreatePod(ctx context.Context, input PodInput) (PodSummary, error) {
+	input.ID = strings.TrimSpace(input.ID)
+	if input.ID == "" {
+		input.ID = newInternalID("pod")
+	}
+	if _, loaded := b.creating.LoadOrStore(input.ID, struct{}{}); loaded {
+		return PodSummary{}, fmt.Errorf("desktop bridge: Pod %q creation is already in progress", input.ID)
+	}
+	defer b.creating.Delete(input.ID)
 	b.mutationMu.Lock()
 	defer b.mutationMu.Unlock()
 	var savedEnvironment map[string]string
@@ -232,9 +241,6 @@ func (b *PodBridge) CreatePod(ctx context.Context, input PodInput) (PodSummary, 
 			return PodSummary{}, fmt.Errorf("desktop bridge: configure bootstrap environment: %s", strings.Join(state.Missing, ", "))
 		}
 		savedEnvironment = saved
-	}
-	if strings.TrimSpace(input.ID) == "" {
-		input.ID = newInternalID("pod")
 	}
 	pod, err := b.inputToPod(input, nil)
 	if err != nil {

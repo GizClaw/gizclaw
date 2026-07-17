@@ -1267,6 +1267,57 @@ button:disabled {
   font-size: 10px;
   line-height: 1.45;
 }
+.create-progress {
+  min-height: 176px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  margin-top: 22px;
+  padding: 24px;
+  border-radius: 19px;
+  color: #f0f2f5;
+  background: rgba(118, 130, 255, 0.11);
+  box-shadow: inset 0 0 0 1px rgba(151, 161, 255, 0.2);
+}
+.create-progress-spinner {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 15px;
+  color: #aeb7ff;
+  background: rgba(118, 130, 255, 0.14);
+}
+.create-progress-spinner svg {
+  animation: spin 0.9s linear infinite;
+}
+.create-progress strong {
+  display: block;
+  font-size: 15px;
+}
+.create-progress p {
+  margin: 6px 0 0;
+  color: #aeb1bb;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.create-progress-track {
+  height: 3px;
+  grid-column: 1 / -1;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+}
+.create-progress-track::after {
+  width: 42%;
+  height: 100%;
+  display: block;
+  border-radius: inherit;
+  background: #aeb7ff;
+  content: "";
+  animation: create-progress-slide 1.4s ease-in-out infinite alternate;
+}
 .remote-create-step {
   display: grid;
   gap: 18px;
@@ -1612,6 +1663,14 @@ button:disabled {
     transform: rotate(360deg);
   }
 }
+@keyframes create-progress-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(150%);
+  }
+}
 
 @media (prefers-color-scheme: light) {
   :root {
@@ -1769,6 +1828,24 @@ button:disabled {
     box-shadow:
       inset 0 0 0 1px rgba(34, 142, 123, 0.4),
       0 14px 30px rgba(24, 113, 97, 0.1);
+  }
+  .create-progress {
+    color: #24252a;
+    background: rgba(118, 130, 255, 0.09);
+    box-shadow: inset 0 0 0 1px rgba(91, 104, 225, 0.18);
+  }
+  .create-progress-spinner {
+    color: #5968df;
+    background: rgba(118, 130, 255, 0.13);
+  }
+  .create-progress p {
+    color: #62656e;
+  }
+  .create-progress-track {
+    background: rgba(30, 31, 36, 0.09);
+  }
+  .create-progress-track::after {
+    background: #6876e8;
   }
   .primary-action {
     color: #f8f8fa;

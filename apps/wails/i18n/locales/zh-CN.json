@@ -109,6 +109,8 @@
   "localPodDefaultName": "本地服务器",
   "remotePodDefaultName": "远程服务器",
   "localCreateHint": "自动选择端口并立即创建。",
+  "localCreateProgressTitle": "正在创建本地服务器",
+  "localCreateProgressHint": "正在启动服务器并安装 Bootstrap 资源，可能需要几分钟，请保持 Desktop 运行。",
   "remoteCreateHint": "通过远程接入点连接。",
   "connectRemote": "连接远程环境",
   "bootstrapEnvironment": "Bootstrap 环境变量",
