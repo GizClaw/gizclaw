@@ -1223,8 +1223,11 @@ class _FlowcraftCreateController extends MobileDataController {
   @override
   Future<FlowcraftModelRequirements> flowcraftModelRequirements(
     String workflowName,
-  ) async =>
-      const FlowcraftModelRequirements(generateModel: true, extractModel: true);
+  ) async => const FlowcraftModelRequirements(
+    generateModel: true,
+    extractModel: true,
+    embeddingModel: false,
+  );
 
   @override
   Future<Workspace> createWorkspace({
@@ -1233,6 +1236,7 @@ class _FlowcraftCreateController extends MobileDataController {
     required String name,
     String? generateModel,
     String? extractModel,
+    String? embeddingModel,
     FlowcraftModelRequirements? flowcraftRequirements,
   }) async {
     this.generateModel = generateModel;

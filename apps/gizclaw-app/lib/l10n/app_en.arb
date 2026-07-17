@@ -38,6 +38,8 @@
   "@generationModel": {"description": "FlowCraft generation model field label."},
   "extractionModel": "Extraction model",
   "@extractionModel": {"description": "FlowCraft memory extraction model field label."},
+	"embeddingModel": "Embedding model",
+	"@embeddingModel": {"description": "FlowCraft embedding model field label."},
   "chooseModel": "Choose a model",
   "@chooseModel": {"description": "Workspace model-picker action."},
   "noCompatibleGeneratorModels": "No accessible generation models are available. Ask a Server administrator to configure and share an LLM model.",

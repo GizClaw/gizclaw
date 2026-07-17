@@ -69,6 +69,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get extractionModel => 'Extraction model';
 
   @override
+  String get embeddingModel => 'Embedding model';
+
+  @override
   String get chooseModel => 'Choose a model';
 
   @override

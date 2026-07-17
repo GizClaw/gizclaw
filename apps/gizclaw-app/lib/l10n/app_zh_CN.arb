@@ -38,6 +38,8 @@
   "@generationModel": {"description": "FlowCraft 生成模型字段标签。"},
   "extractionModel": "记忆提取模型",
   "@extractionModel": {"description": "FlowCraft 记忆提取模型字段标签。"},
+	"embeddingModel": "嵌入模型",
+	"@embeddingModel": {"description": "FlowCraft 嵌入模型字段标签。"},
   "chooseModel": "选择模型",
   "@chooseModel": {"description": "工作区模型选择操作。"},
   "noCompatibleGeneratorModels": "没有可访问的生成模型。请让服务器管理员配置并共享一个 LLM 模型。",

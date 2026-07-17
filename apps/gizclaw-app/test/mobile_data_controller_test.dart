@@ -596,10 +596,12 @@ void main() {
       WorkflowDriverKind.flowcraft,
       generateModel: 'chat-model',
       extractModel: 'memory-model',
+      embeddingModel: 'embedding-model',
     );
     final flowcraft = parameters.flowcraftWorkspaceParameters;
     expect(flowcraft.generateModel, 'chat-model');
     expect(flowcraft.extractModel, 'memory-model');
+    expect(flowcraft.embeddingModel, 'embedding-model');
     expect(
       flowcraft.input,
       WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,

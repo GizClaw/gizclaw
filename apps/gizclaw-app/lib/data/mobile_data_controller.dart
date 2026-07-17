@@ -73,10 +73,12 @@ class FlowcraftModelRequirements {
   const FlowcraftModelRequirements({
     required this.generateModel,
     required this.extractModel,
+    required this.embeddingModel,
   });
 
   final bool generateModel;
   final bool extractModel;
+  final bool embeddingModel;
 }
 
 class MobileDataController extends ChangeNotifier {
@@ -874,6 +876,7 @@ class MobileDataController extends ChangeNotifier {
     required String name,
     String? generateModel,
     String? extractModel,
+    String? embeddingModel,
     FlowcraftModelRequirements? flowcraftRequirements,
   }) async {
     final normalizedWorkflow = workflowName.trim();
@@ -889,6 +892,7 @@ class MobileDataController extends ChangeNotifier {
     }
     final normalizedGenerateModel = generateModel?.trim() ?? '';
     final normalizedExtractModel = extractModel?.trim() ?? '';
+    final normalizedEmbeddingModel = embeddingModel?.trim() ?? '';
     if (driver == WorkflowDriverKind.flowcraft) {
       final requirements =
           flowcraftRequirements ??
@@ -898,6 +902,9 @@ class MobileDataController extends ChangeNotifier {
       }
       if (requirements.extractModel && normalizedExtractModel.isEmpty) {
         throw StateError('Choose an extraction model');
+      }
+      if (requirements.embeddingModel && normalizedEmbeddingModel.isEmpty) {
+        throw StateError('Choose an embedding model');
       }
     }
     final workspaceName = _newWorkspaceName(normalizedName);
@@ -910,6 +917,7 @@ class MobileDataController extends ChangeNotifier {
             driver,
             generateModel: normalizedGenerateModel,
             extractModel: normalizedExtractModel,
+            embeddingModel: normalizedEmbeddingModel,
           ),
         ),
       ),
@@ -955,6 +963,7 @@ class MobileDataController extends ChangeNotifier {
         : null;
     final generate = fields?['generate_model'];
     final extract = fields?['extract_model'];
+    final embedding = fields?['embedding_model'];
     return FlowcraftModelRequirements(
       generateModel:
           generate == null ||
@@ -965,6 +974,10 @@ class MobileDataController extends ChangeNotifier {
           extract != null &&
           extract.hasStringValue() &&
           extract.stringValue.trim() == 'extract_model',
+      embeddingModel:
+          embedding != null &&
+          embedding.hasStringValue() &&
+          embedding.stringValue.trim() == 'embedding_model',
     );
   }
 
@@ -1431,6 +1444,7 @@ WorkspaceParameters newWorkspaceParametersForDriver(
   WorkflowDriverKind driver, {
   String? generateModel,
   String? extractModel,
+  String? embeddingModel,
 }) => switch (driver) {
   WorkflowDriverKind.flowcraft => WorkspaceParameters(
     flowcraftWorkspaceParameters: FlowcraftWorkspaceParameters(
@@ -1442,6 +1456,9 @@ WorkspaceParameters newWorkspaceParametersForDriver(
           : null,
       extractModel: extractModel?.trim().isEmpty == false
           ? extractModel!.trim()
+          : null,
+      embeddingModel: embeddingModel?.trim().isEmpty == false
+          ? embeddingModel!.trim()
           : null,
     ),
   ),

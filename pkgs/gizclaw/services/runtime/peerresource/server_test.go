@@ -671,6 +671,15 @@ func TestServerWorkspaceCreateRequiresModelUse(t *testing.T) {
 	auth.allow(acl.ResourceKindWorkflow, "flow-models", apitypes.ACLPermissionUse)
 	seedModel(t, srv, "chat-model")
 
+	configuredRequest := rpcapi.WorkspaceCreateRequest{
+		Name:         "workspace-configured-model",
+		WorkflowName: "flow-models",
+	}
+	configuredDenied := callRPC(t, srv, "workspace-configured-model-denied", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, configuredRequest))
+	if configuredDenied.Error == nil || configuredDenied.Error.Code != rpcapi.RPCErrorCodeBadRequest {
+		t.Fatalf("configured workspace model denial = %+v", configuredDenied.Error)
+	}
+
 	generateModel := "chat-model"
 	var parameters rpcapi.WorkspaceParameters
 	if err := parameters.FromFlowcraftWorkspaceParameters(rpcapi.FlowcraftWorkspaceParameters{
@@ -689,9 +698,33 @@ func TestServerWorkspaceCreateRequiresModelUse(t *testing.T) {
 		t.Fatalf("workspace model denial = %+v", denied.Error)
 	}
 	auth.allow(acl.ResourceKindModel, generateModel, apitypes.ACLPermissionUse)
+	requireNoRPCError(t, callRPC(t, srv, "workspace-configured-model-allowed", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, configuredRequest)))
 	requireNoRPCError(t, callRPC(t, srv, "workspace-model-allowed", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, request)))
-	if got := auth.count(ctx, acl.ResourceKindModel, generateModel, apitypes.ACLPermissionUse); got != 2 {
-		t.Fatalf("model use checks = %d, want 2", got)
+	if got := auth.count(ctx, acl.ResourceKindModel, generateModel, apitypes.ACLPermissionUse); got != 4 {
+		t.Fatalf("model use checks = %d, want 4", got)
+	}
+}
+
+func TestServerListModelsFiltersByUsePermission(t *testing.T) {
+	ctx := context.Background()
+	auth := newRuleAuthorizer()
+	srv := newTestResourceServer()
+	srv.ACL = auth
+	seedModel(t, srv, "read-only-model")
+	seedModel(t, srv, "usable-model")
+	auth.allow(acl.ResourceKindModel, "read-only-model", apitypes.ACLPermissionRead)
+	auth.allow(acl.ResourceKindModel, "usable-model", apitypes.ACLPermissionUse)
+
+	response, err := srv.ListModels(ctx, adminhttp.ListModelsRequestObject{})
+	if err != nil {
+		t.Fatalf("ListModels() error = %v", err)
+	}
+	list, ok := response.(adminhttp.ListModels200JSONResponse)
+	if !ok || len(list.Items) != 1 || list.Items[0].Id != "usable-model" {
+		t.Fatalf("ListModels() response = %#v", response)
+	}
+	if got := auth.count(ctx, acl.ResourceKindModel, "read-only-model", apitypes.ACLPermissionUse); got == 0 {
+		t.Fatal("ListModels() did not check use permission for read-only model")
 	}
 }
 
@@ -1759,7 +1792,7 @@ func flowcraftWorkflowDoc(name string) apitypes.Workflow {
 	spec := apitypes.FlowcraftWorkflowSpec{
 		"entry_agent": "",
 		"settings": map[string]any{
-			"generate_model": "generate_model",
+			"generate_model": "chat-model",
 		},
 	}
 	body.Spec = apitypes.WorkflowSpec{

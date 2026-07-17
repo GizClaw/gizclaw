@@ -37,6 +37,36 @@ test("transport failure replaces the Admin session once and retries once", async
   assert.equal(first.closeCalls, 1);
 });
 
+test("transport retry replays the complete request body", async () => {
+  const first = new FakePeerConnection();
+  const second = new FakePeerConnection();
+  const connections = [first, second];
+  let connectCalls = 0;
+  const session = new AdminPeerSessionManager({
+    connect: async () => connections[connectCalls++] as unknown as RTCPeerConnection,
+  });
+  await session.start();
+
+  const bodies: string[] = [];
+  const recoveringFetch = createRecoveringServiceFetch(session, (connection) => async (input) => {
+    const request = new Request(input);
+    bodies.push(await request.text());
+    if (connection === (first as unknown as RTCPeerConnection)) {
+      throw new Error("service data channel timed out");
+    }
+    return new Response("ok");
+  });
+
+  const response = await recoveringFetch("http://gizclaw/models", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ id: "chat-model" }),
+  });
+
+  assert.equal(await response.text(), "ok");
+  assert.deepEqual(bodies, ['{"id":"chat-model"}', '{"id":"chat-model"}']);
+});
+
 test("HTTP responses and request cancellation do not recover the session", async () => {
   const connection = new FakePeerConnection();
   let connectCalls = 0;

@@ -488,10 +488,12 @@ func TestServerRejectsIncompleteFlowcraftModelParameters(t *testing.T) {
 		{name: "missing parameters", body: `{"name":"missing-params","workflow_name":"flowcraft-chat"}`, want: `"generate_model" requires a concrete Model resource name`},
 		{name: "missing generate", body: `{"name":"missing-generate","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft"}}`, want: `"generate_model" requires a concrete Model resource name`},
 		{name: "symbolic generate", body: `{"name":"symbolic-generate","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"generate_model","extract_model":"chat-model"}}`, want: `"generate_model" requires a concrete Model resource name`},
-		{name: "missing model", body: `{"name":"missing-model","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"not-found","extract_model":"chat-model"}}`, want: `references missing Model "not-found"`},
-		{name: "wrong kind", body: `{"name":"wrong-kind","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"speech-model","extract_model":"chat-model"}}`, want: `has kind "tts", want "llm"`},
+		{name: "missing model", body: `{"name":"missing-model","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"not-found","extract_model":"chat-model","embedding_model":"chat-model"}}`, want: `references missing Model "not-found"`},
+		{name: "wrong kind", body: `{"name":"wrong-kind","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"speech-model","extract_model":"chat-model","embedding_model":"chat-model"}}`, want: `has kind "tts", want "llm"`},
 		{name: "missing extract", body: `{"name":"missing-extract","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"chat-model"}}`, want: `"extract_model" requires a concrete Model resource name`},
-		{name: "valid", body: `{"name":"valid-models","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"chat-model","extract_model":"chat-model"}}`, ok: true},
+		{name: "missing embedding", body: `{"name":"missing-embedding","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"chat-model","extract_model":"chat-model"}}`, want: `"embedding_model" requires a concrete Model resource name`},
+		{name: "missing embedding model", body: `{"name":"missing-embedding-model","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"chat-model","extract_model":"chat-model","embedding_model":"not-found"}}`, want: `references missing Model "not-found"`},
+		{name: "valid", body: `{"name":"valid-models","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"chat-model","extract_model":"chat-model","embedding_model":"chat-model"}}`, ok: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -517,7 +519,7 @@ func TestServerRejectsIncompleteFlowcraftModelParameters(t *testing.T) {
 	}
 
 	srv.Models = nil
-	body := mustWorkspaceUpsert(t, `{"name":"model-service-missing","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"chat-model","extract_model":"chat-model"}}`)
+	body := mustWorkspaceUpsert(t, `{"name":"model-service-missing","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"chat-model","extract_model":"chat-model","embedding_model":"chat-model"}}`)
 	resp, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
 	if err != nil {
 		t.Fatalf("CreateWorkspace(model service missing) error = %v", err)
@@ -588,6 +590,7 @@ func seedFlowcraftWorkflow(t *testing.T, srv *Server, name string, extract bool)
 	if extract {
 		settings += `,"extract_model":"extract_model"`
 	}
+	settings += `,"embedding_model":"embedding_model"`
 	store, err := srv.workflowStore()
 	if err != nil {
 		t.Fatalf("workflow store: %v", err)

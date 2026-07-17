@@ -198,6 +198,7 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
   List<String> _flowcraftModels = const [];
   String? _generateModel;
   String? _extractModel;
+  String? _embeddingModel;
   int _modelLoadGeneration = 0;
 
   @override
@@ -262,13 +263,17 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
       _flowcraftModels = const [];
       _generateModel = null;
       _extractModel = null;
+      _embeddingModel = null;
       _error = null;
     });
     try {
       final requirements = await widget.data.flowcraftModelRequirements(
         workflowName,
       );
-      final models = requirements.generateModel || requirements.extractModel
+      final models =
+          requirements.generateModel ||
+              requirements.extractModel ||
+              requirements.embeddingModel
           ? (await widget.data.listGeneratorModels())
                 .map((model) => model.id)
                 .toList()
@@ -283,7 +288,9 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
         _flowcraftRequirements = requirements;
         _flowcraftModels = models;
         if (_flowcraftModels.isEmpty &&
-            (requirements.generateModel || requirements.extractModel)) {
+            (requirements.generateModel ||
+                requirements.extractModel ||
+                requirements.embeddingModel)) {
           _error = StateError(context.l10n.noCompatibleGeneratorModels);
         }
       });
@@ -335,6 +342,7 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
     if (_loadingFlowcraftModels || requirements == null) return false;
     if (requirements.generateModel && _generateModel == null) return false;
     if (requirements.extractModel && _extractModel == null) return false;
+    if (requirements.embeddingModel && _embeddingModel == null) return false;
     return true;
   }
 
@@ -352,6 +360,7 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
         name: name,
         generateModel: _generateModel,
         extractModel: _extractModel,
+        embeddingModel: _embeddingModel,
         flowcraftRequirements: _flowcraftRequirements,
       );
       if (mounted) Navigator.pop(context, workspace.name);
@@ -459,6 +468,20 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
                   final model = await _chooseModel(_extractModel);
                   if (model != null && mounted) {
                     setState(() => _extractModel = model);
+                  }
+                },
+              ),
+            ],
+            if (requirements.embeddingModel) ...[
+              const SizedBox(height: 14),
+              _WorkspaceModelSelector(
+                key: const ValueKey('workspace-embedding-model'),
+                label: context.l10n.embeddingModel,
+                value: _embeddingModel,
+                onPressed: () async {
+                  final model = await _chooseModel(_embeddingModel);
+                  if (model != null && mounted) {
+                    setState(() => _embeddingModel = model);
                   }
                 },
               ),

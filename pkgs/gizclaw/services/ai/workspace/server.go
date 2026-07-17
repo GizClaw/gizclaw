@@ -457,11 +457,36 @@ func (s *Server) validateReferences(ctx context.Context, store kv.Store, workspa
 	if workflow.Spec.Driver != apitypes.WorkflowDriverFlowcraft {
 		return nil
 	}
+	references, err := ResolveFlowcraftModelReferences(workflow, workspace.Parameters)
+	if err != nil {
+		return err
+	}
+	for _, reference := range references {
+		if err := s.validateGeneratorModel(ctx, reference.Role, reference.ModelID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// FlowcraftModelReference is one effective Model selected for a FlowCraft role.
+type FlowcraftModelReference struct {
+	Role    string
+	ModelID string
+}
+
+// ResolveFlowcraftModelReferences resolves Workspace overrides and Workflow
+// settings into the concrete Models used by a FlowCraft runtime.
+func ResolveFlowcraftModelReferences(workflow apitypes.Workflow, workspaceParameters *apitypes.WorkspaceParameters) ([]FlowcraftModelReference, error) {
+	if workflow.Spec.Driver != apitypes.WorkflowDriverFlowcraft {
+		return nil, nil
+	}
 	parameters := apitypes.FlowcraftWorkspaceParameters{}
-	if workspace.Parameters != nil {
-		parameters, err = workspace.Parameters.AsFlowcraftWorkspaceParameters()
+	if workspaceParameters != nil {
+		var err error
+		parameters, err = workspaceParameters.AsFlowcraftWorkspaceParameters()
 		if err != nil {
-			return invalidWorkspaceReference("flowcraft parameters are required: %v", err)
+			return nil, invalidWorkspaceReference("flowcraft parameters are required: %v", err)
 		}
 	}
 	settings := map[string]any{}
@@ -477,20 +502,20 @@ func (s *Server) validateReferences(ctx context.Context, store kv.Store, workspa
 	}{
 		{name: "generate_model", value: parameters.GenerateModel, required: true},
 		{name: "extract_model", value: parameters.ExtractModel},
+		{name: "embedding_model", value: parameters.EmbeddingModel},
 	}
+	references := make([]FlowcraftModelReference, 0, len(roles))
 	for _, role := range roles {
 		modelID, required := resolveFlowcraftModel(role.name, role.value, settings, role.required)
 		if modelID == "" {
 			if required {
-				return invalidWorkspaceReference("flowcraft parameter %q requires a concrete Model resource name", role.name)
+				return nil, invalidWorkspaceReference("flowcraft parameter %q requires a concrete Model resource name", role.name)
 			}
 			continue
 		}
-		if err := s.validateGeneratorModel(ctx, role.name, modelID); err != nil {
-			return err
-		}
+		references = append(references, FlowcraftModelReference{Role: role.name, ModelID: modelID})
 	}
-	return nil
+	return references, nil
 }
 
 func resolveFlowcraftModel(name string, workspaceValue *string, settings map[string]any, required bool) (string, bool) {

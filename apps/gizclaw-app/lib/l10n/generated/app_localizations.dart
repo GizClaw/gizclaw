@@ -213,6 +213,12 @@ abstract class AppLocalizations {
   /// **'Extraction model'**
   String get extractionModel;
 
+  /// FlowCraft embedding model field label.
+  ///
+  /// In en, this message translates to:
+  /// **'Embedding model'**
+  String get embeddingModel;
+
   /// Workspace model-picker action.
   ///
   /// In en, this message translates to:

@@ -26,7 +26,7 @@ func (s *Server) ListModels(ctx context.Context, request adminhttp.ListModelsReq
 	}
 	items := make([]apitypes.Model, 0, len(list.Items))
 	for _, item := range list.Items {
-		err := s.authorizeErr(ctx, acl.ModelResource(item.Id), apitypes.ACLPermissionRead)
+		err := s.authorizeErr(ctx, acl.ModelResource(item.Id), apitypes.ACLPermissionUse)
 		if errors.Is(err, acl.ErrDenied) {
 			continue
 		}

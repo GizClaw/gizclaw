@@ -67,6 +67,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get extractionModel => '记忆提取模型';
 
   @override
+  String get embeddingModel => '嵌入模型';
+
+  @override
   String get chooseModel => '选择模型';
 
   @override
@@ -371,6 +374,9 @@ class AppLocalizationsZhCn extends AppLocalizationsZh {
 
   @override
   String get extractionModel => '记忆提取模型';
+
+  @override
+  String get embeddingModel => '嵌入模型';
 
   @override
   String get chooseModel => '选择模型';
