@@ -126,7 +126,6 @@
   "bootstrapEnvDeepSeekApiKey": "DeepSeek API 密钥",
   "bootstrapEnvGeminiApiKey": "Gemini API 密钥",
   "bootstrapEnvMiniMaxChinaApiKey": "MiniMax 中国区 API 密钥",
-  "bootstrapEnvMiniMaxGlobalApiKey": "MiniMax 全球区 API 密钥",
   "bootstrapEnvOpenAIApiKey": "OpenAI API 密钥",
   "bootstrapEnvQwenDashScopeApiKey": "通义千问 DashScope API 密钥",
   "bootstrapEnvVolcArkApiKey": "火山方舟 API 密钥",

@@ -3,6 +3,7 @@ package localserver
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,14 +23,16 @@ func TestBootstrapperAppliesResourcesSyncsVoicesThenACLAndAssets(t *testing.T) {
 	defaultValue := "default"
 	catalog := &Catalog{
 		FS: fstest.MapFS{
-			"resources/00-credentials/a.yaml": {Data: []byte("credential")},
-			"resources/90-acl/a.yaml":         {Data: []byte("acl")},
+			"resources/00-credentials/a.yaml": {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: Credential\nmetadata:\n  name: a\n")},
+			"resources/00-credentials/b.yaml": {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: Credential\nmetadata:\n  name: b\n")},
+			"resources/90-acl/a.yaml":         {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: ACLPolicyBinding\nmetadata:\n  name: a\n")},
 			"assets/workflows/a.png":          {Data: []byte("png")},
 			"assets/workflows/a.pixa":         {Data: []byte("pixa")},
 			"assets/pets/a.pixa":              {Data: []byte("pet")},
 		},
 		Resources: []ResourceEntry{
 			{Path: "resources/00-credentials/a.yaml", Kind: "Credential", Name: "a"},
+			{Path: "resources/00-credentials/b.yaml", Kind: "Credential", Name: "b"},
 			{Path: "resources/90-acl/a.yaml", Kind: "ACLPolicyBinding", Name: "a"},
 		},
 		Requirements: []EnvironmentRequirement{
@@ -52,6 +55,21 @@ func TestBootstrapperAppliesResourcesSyncsVoicesThenACLAndAssets(t *testing.T) {
 			joinedEnvironment := strings.Join(environment, "\n")
 			if !strings.Contains(joinedEnvironment, "BOOTSTRAP_SAVED=desktop") || !strings.Contains(joinedEnvironment, "input=${input}") {
 				t.Fatalf("environment does not contain resolved values")
+			}
+			if len(args) >= 2 && args[0] == "admin" && args[1] == "apply" {
+				data, err := os.ReadFile(args[len(args)-1])
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !strings.Contains(string(data), "kind: ResourceList") {
+					t.Fatalf("batched apply document = %s", data)
+				}
+				if strings.Contains(args[len(args)-1], "desktop-bootstrap-resources") {
+					first, second := strings.Index(string(data), "name: a"), strings.Index(string(data), "name: b")
+					if first < 0 || second <= first {
+						t.Fatalf("resource batch order = %s", data)
+					}
+				}
 			}
 			commands = append(commands, strings.Join(args, " "))
 			return nil
@@ -81,7 +99,7 @@ func TestBootstrapperIdentifiesFailingResourceWithoutEnvironmentValues(t *testin
 		t.Fatal(err)
 	}
 	catalog := &Catalog{
-		FS:        fstest.MapFS{"resources/00-credentials/a.yaml": {Data: []byte("secret")}},
+		FS:        fstest.MapFS{"resources/00-credentials/a.yaml": {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: Credential\nmetadata:\n  name: a\nspec:\n  provider: openai\n  body:\n    api_key: secret\n")}},
 		Resources: []ResourceEntry{{Path: "resources/00-credentials/a.yaml", Kind: "Credential", Name: "a"}},
 	}
 	bootstrapper := &Bootstrapper{
@@ -94,5 +112,49 @@ func TestBootstrapperIdentifiesFailingResourceWithoutEnvironmentValues(t *testin
 	err := bootstrapper.Apply(context.Background(), podDir, nil)
 	if err == nil || !strings.Contains(err.Error(), "Credential/a") || strings.Contains(err.Error(), "secret") {
 		t.Fatalf("Apply() error = %v", err)
+	}
+}
+
+func TestRunBootstrapCommandReturnsRedactedDiagnostic(t *testing.T) {
+	if os.Getenv("GIZCLAW_BOOTSTRAP_HELPER_PROCESS") == "1" {
+		_, _ = fmt.Fprintln(os.Stderr, "request rejected for secret-token")
+		os.Exit(1)
+	}
+	environment := append(os.Environ(),
+		"GIZCLAW_BOOTSTRAP_HELPER_PROCESS=1",
+		"GIZCLAW_MINIMAX_CN_API_KEY=secret-token",
+	)
+	err := runBootstrapCommand(context.Background(), os.Args[0], []string{"-test.run=TestRunBootstrapCommandReturnsRedactedDiagnostic"}, environment)
+	if err == nil || !strings.Contains(err.Error(), "request rejected") || strings.Contains(err.Error(), "secret-token") {
+		t.Fatalf("runBootstrapCommand() error = %v", err)
+	}
+}
+
+func TestRunBootstrapOperationRetriesTransientDialFailure(t *testing.T) {
+	var attempts int
+	run := func(context.Context, string, []string, []string) error {
+		attempts++
+		if attempts == 1 {
+			return errors.New("exit status 1: Error: gizclaw: dial: gizwebrtc: wait for packet channel: context deadline exceeded")
+		}
+		return nil
+	}
+	if err := runBootstrapOperation(context.Background(), run, "gizclaw", []string{"admin", "apply"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if attempts != 2 {
+		t.Fatalf("attempts = %d, want 2", attempts)
+	}
+}
+
+func TestRunBootstrapOperationDoesNotRetryApplyRejection(t *testing.T) {
+	var attempts int
+	run := func(context.Context, string, []string, []string) error {
+		attempts++
+		return errors.New("exit status 1: INVALID_CREDENTIAL")
+	}
+	err := runBootstrapOperation(context.Background(), run, "gizclaw", []string{"admin", "apply"}, nil)
+	if err == nil || attempts != 1 {
+		t.Fatalf("error = %v, attempts = %d", err, attempts)
 	}
 }

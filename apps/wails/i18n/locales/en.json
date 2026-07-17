@@ -126,7 +126,6 @@
   "bootstrapEnvDeepSeekApiKey": "DeepSeek API key",
   "bootstrapEnvGeminiApiKey": "Gemini API key",
   "bootstrapEnvMiniMaxChinaApiKey": "MiniMax China API key",
-  "bootstrapEnvMiniMaxGlobalApiKey": "MiniMax Global API key",
   "bootstrapEnvOpenAIApiKey": "OpenAI API key",
   "bootstrapEnvQwenDashScopeApiKey": "Qwen DashScope API key",
   "bootstrapEnvVolcArkApiKey": "Volcengine Ark API key",

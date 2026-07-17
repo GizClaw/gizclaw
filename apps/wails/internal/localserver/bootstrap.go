@@ -1,9 +1,9 @@
 package localserver
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"io/fs"
 	"maps"
 	"os"
@@ -11,6 +11,9 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
+
+	"github.com/goccy/go-yaml"
 )
 
 // Bootstrapper applies a validated catalog through the packaged companion CLI.
@@ -68,32 +71,52 @@ func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironmen
 			return err
 		}
 		args := []string{"admin", "apply", "--context", "local", "-f", file}
-		if err := run(ctx, executable, args, environment); err != nil {
+		if err := runBootstrapOperation(ctx, run, executable, args, environment); err != nil {
 			return fmt.Errorf("local server bootstrap: apply %s/%s from %s: %w", entry.Kind, entry.Name, entry.Path, err)
 		}
 		return nil
 	}
-	for _, entry := range b.Catalog.Resources {
-		if strings.Contains(entry.Path, "/90-acl/") {
-			continue
+	applyEntries := func(listName string, entries []ResourceEntry) error {
+		if len(entries) == 0 {
+			return nil
 		}
-		if err := apply(entry); err != nil {
+		file, err := b.extractResourceList(tempDir, listName, entries)
+		if err != nil {
 			return err
 		}
+		args := []string{"admin", "apply", "--context", "local", "-f", file}
+		if err := runBootstrapOperation(ctx, run, executable, args, environment); err == nil {
+			return nil
+		}
+		// ResourceList applies items sequentially and may have partially succeeded.
+		// Reapplying the idempotent entries individually both completes the batch
+		// after a transport failure and identifies a deterministic bad resource.
+		for _, entry := range entries {
+			if err := apply(entry); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	var resources, aclResources []ResourceEntry
+	for _, entry := range b.Catalog.Resources {
+		if strings.Contains(entry.Path, "/90-acl/") {
+			aclResources = append(aclResources, entry)
+		} else {
+			resources = append(resources, entry)
+		}
+	}
+	if err := applyEntries("desktop-bootstrap-resources", resources); err != nil {
+		return err
 	}
 	for _, item := range b.Catalog.VoiceSyncs {
 		args := []string{"admin", item.Provider + "-tenants", "sync-voices", item.Tenant, "--context", "local"}
-		if err := run(ctx, executable, args, environment); err != nil {
+		if err := runBootstrapOperation(ctx, run, executable, args, environment); err != nil {
 			return fmt.Errorf("local server bootstrap: sync %s voices for %s: %w", item.Provider, item.Tenant, err)
 		}
 	}
-	for _, entry := range b.Catalog.Resources {
-		if !strings.Contains(entry.Path, "/90-acl/") {
-			continue
-		}
-		if err := apply(entry); err != nil {
-			return err
-		}
+	if err := applyEntries("desktop-bootstrap-acl", aclResources); err != nil {
+		return err
 	}
 	for _, icon := range b.Catalog.WorkflowIcons {
 		for _, asset := range []struct {
@@ -105,7 +128,7 @@ func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironmen
 				return err
 			}
 			args := []string{"admin", "workflows", "upload-icon", icon.Workflow, "--format", asset.format, "--context", "local", "-f", file}
-			if err := run(ctx, executable, args, environment); err != nil {
+			if err := runBootstrapOperation(ctx, run, executable, args, environment); err != nil {
 				return fmt.Errorf("local server bootstrap: upload Workflow/%s %s icon: %w", icon.Workflow, asset.format, err)
 			}
 		}
@@ -116,11 +139,78 @@ func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironmen
 			return err
 		}
 		args := []string{"admin", "pet-defs", "upload-pixa", asset.PetDef, "--context", "local", "-f", file}
-		if err := run(ctx, executable, args, environment); err != nil {
+		if err := runBootstrapOperation(ctx, run, executable, args, environment); err != nil {
 			return fmt.Errorf("local server bootstrap: upload PetDef/%s PIXA: %w", asset.PetDef, err)
 		}
 	}
 	return nil
+}
+
+func (b *Bootstrapper) extractResourceList(root, name string, entries []ResourceEntry) (string, error) {
+	items := make([]any, 0, len(entries))
+	for _, entry := range entries {
+		data, err := fs.ReadFile(b.Catalog.FS, entry.Path)
+		if err != nil {
+			return "", fmt.Errorf("local server bootstrap: read bundled %s: %w", entry.Path, err)
+		}
+		var item any
+		if err := yaml.Unmarshal(data, &item); err != nil {
+			return "", fmt.Errorf("local server bootstrap: parse bundled %s: %w", entry.Path, err)
+		}
+		items = append(items, item)
+	}
+	document := map[string]any{
+		"apiVersion": "gizclaw.admin/v1alpha1",
+		"kind":       "ResourceList",
+		"metadata":   map[string]any{"name": name},
+		"spec":       map[string]any{"items": items},
+	}
+	data, err := yaml.Marshal(document)
+	if err != nil {
+		return "", fmt.Errorf("local server bootstrap: encode %s: %w", name, err)
+	}
+	destination := filepath.Join(root, name+".yaml")
+	if err := os.WriteFile(destination, data, 0o600); err != nil {
+		return "", fmt.Errorf("local server bootstrap: write %s: %w", name, err)
+	}
+	return destination, nil
+}
+
+func runBootstrapOperation(
+	ctx context.Context,
+	run func(context.Context, string, []string, []string) error,
+	executable string,
+	args, environment []string,
+) error {
+	const maxAttempts = 4
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		err := run(ctx, executable, args, environment)
+		if err == nil || ctx.Err() != nil || !isTransientBootstrapCommandError(err) || attempt == maxAttempts {
+			return err
+		}
+		delay := time.Duration(attempt) * 250 * time.Millisecond
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
+	return nil
+}
+
+func isTransientBootstrapCommandError(err error) bool {
+	detail := strings.ToLower(err.Error())
+	return strings.Contains(detail, "gizclaw: dial:") &&
+		(strings.Contains(detail, "context deadline exceeded") ||
+			strings.Contains(detail, "connection reset by peer") ||
+			strings.Contains(detail, "unexpected eof"))
 }
 
 // ResolveEnvironment applies Desktop-saved values before process values and
@@ -162,15 +252,41 @@ func (b *Bootstrapper) extract(root, name string) (string, error) {
 func runBootstrapCommand(ctx context.Context, executable string, args, environment []string) error {
 	cmd := exec.CommandContext(ctx, executable, args...)
 	cmd.Env = environment
-	cmd.Stdout = io.Discard
-	cmd.Stderr = io.Discard
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
+		if detail := redactedBootstrapCommandError(stderr.String(), environment); detail != "" {
+			return fmt.Errorf("%w: %s", err, detail)
+		}
 		return err
 	}
 	return nil
+}
+
+func redactedBootstrapCommandError(stderr string, environment []string) string {
+	detail := strings.TrimSpace(stderr)
+	if detail == "" {
+		return ""
+	}
+	var secrets []string
+	for _, entry := range environment {
+		name, value, ok := strings.Cut(entry, "=")
+		if ok && value != "" && strings.HasPrefix(name, "GIZCLAW_") {
+			secrets = append(secrets, value)
+		}
+	}
+	sort.Slice(secrets, func(i, j int) bool { return len(secrets[i]) > len(secrets[j]) })
+	for _, secret := range secrets {
+		detail = strings.ReplaceAll(detail, secret, "[REDACTED]")
+	}
+	const maxDetailBytes = 4096
+	if len(detail) > maxDetailBytes {
+		detail = detail[:maxDetailBytes] + "..."
+	}
+	return detail
 }
 
 func mergedCommandEnvironment(overrides map[string]string) []string {

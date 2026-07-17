@@ -1,9 +1,0 @@
----
-apiVersion: gizclaw.admin/v1alpha1
-kind: Credential
-metadata:
-  name: minimax-global-credential
-spec:
-  provider: minimax
-  body:
-    api_key: ${GIZCLAW_MINIMAX_GLOBAL_API_KEY}

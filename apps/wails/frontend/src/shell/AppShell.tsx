@@ -1533,7 +1533,6 @@ const bootstrapEnvironmentLabelKeys = {
   GIZCLAW_DEEPSEEK_API_KEY: "bootstrapEnvDeepSeekApiKey",
   GIZCLAW_GEMINI_API_KEY: "bootstrapEnvGeminiApiKey",
   GIZCLAW_MINIMAX_CN_API_KEY: "bootstrapEnvMiniMaxChinaApiKey",
-  GIZCLAW_MINIMAX_GLOBAL_API_KEY: "bootstrapEnvMiniMaxGlobalApiKey",
   GIZCLAW_OPENAI_API_KEY: "bootstrapEnvOpenAIApiKey",
   GIZCLAW_QWEN_DASHSCOPE_API_KEY: "bootstrapEnvQwenDashScopeApiKey",
   GIZCLAW_VOLC_ARK_API_KEY: "bootstrapEnvVolcArkApiKey",

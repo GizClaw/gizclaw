@@ -19,14 +19,14 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(catalog.Resources) != 70 {
-		t.Fatalf("resources = %d, want 70", len(catalog.Resources))
+	if len(catalog.Resources) != 69 {
+		t.Fatalf("resources = %d, want 69", len(catalog.Resources))
 	}
 	if len(catalog.WorkflowIcons) != 10 || len(catalog.PetDefPIXAs) != 9 || len(catalog.VoiceSyncs) != 1 {
 		t.Fatalf("assets = workflows:%d pets:%d voice-sync:%d", len(catalog.WorkflowIcons), len(catalog.PetDefPIXAs), len(catalog.VoiceSyncs))
 	}
-	if len(catalog.Requirements) != 12 {
-		t.Fatalf("environment requirements = %d, want 12", len(catalog.Requirements))
+	if len(catalog.Requirements) != 11 {
+		t.Fatalf("environment requirements = %d, want 11", len(catalog.Requirements))
 	}
 	kinds := map[string]int{}
 	identities := map[string]bool{}
@@ -48,7 +48,7 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 		}
 	}
 	for kind, want := range map[string]int{
-		"Credential": 8, "VolcTenant": 2, "MiniMaxTenant": 1,
+		"Credential": 7, "VolcTenant": 2, "MiniMaxTenant": 1,
 		"OpenAITenant": 2, "DashScopeTenant": 1, "Model": 10,
 		"Workflow": 10, "PetDef": 9, "GameRuleset": 1,
 		"ACLRole": 2, "ACLView": 1, "ACLPolicyBinding": 23,
@@ -64,6 +64,9 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 		if requirement.Name == "GIZCLAW_MINIMAX_CN_VOICE_BASE_URL" || requirement.Name == "GIZCLAW_MINIMAX_GLOBAL_VOICE_BASE_URL" {
 			t.Fatalf("fixed MiniMax endpoint was exposed as Desktop environment %s", requirement.Name)
 		}
+	}
+	if identities["Credential/minimax-global-credential"] {
+		t.Fatal("bundled unused MiniMax Global credential")
 	}
 	miniMaxTenant, err := fs.ReadFile(catalog.FS, "resources/01-tenants/02-minimax-cn.yaml")
 	if err != nil {
