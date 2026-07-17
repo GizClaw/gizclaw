@@ -11,7 +11,7 @@ apps/wails/
 ├── resources/              # 内嵌的新建本地 Server bootstrap catalog 与 assets
 ├── internal/
 │   ├── appconfig/       # pod.json、目录投影和权限
-│   ├── bridge/          # 不返回密钥的 Wails capability
+│   ├── bridge/          # Pod 密钥只写；bootstrap.env 可由受信任 Renderer 编辑
 │   ├── endpointhealth/  # /server-info 健康探测
 │   ├── localserver/     # 本地 Server 生命周期和有界日志
 │   ├── tray/            # 系统托盘适配
@@ -32,10 +32,15 @@ Flowcraft、测试 fixture、网络 catalog 或 AI 服务。Catalog 包含 Crede
 Model、Workflow、PetDef、GameRuleset、ACL 及其 Workflow PNG/PIXA、PetDef PIXA
 映射；不包含 Workspace，Workspace 仍由客户端创建。
 
-Desktop 配置根目录中的 `bootstrap-env.json` 以 `0600` 保存未来本地 Pod 创建所需
-的 write-only 值。bridge 只公开变量名以及 required、configured、defaulted、missing
-状态。Desktop 保存值优先于 process environment，资源中的 `${NAME:-default}` 最后
-生效。远程 Pod 的创建和更新不读取这些值。
+Desktop 配置根目录中的 `bootstrap.env` 以 `0600` 保存未来本地 Pod 创建所需的
+dotenv 值。为了支持表单和原始文本两种编辑方式，bridge 会把文件的完整 `content`
+以及每个已保存变量的 `value` 返回给受信任的 Desktop Renderer；因此 Desktop
+WebView 是 provider credential 的安全边界之一。只来自 process environment 或资源
+default 的值不会回传，前端只会看到对应变量已 configured 或 defaulted。
+
+这些值不会写入 `pod.json`、生成的 Server workspace、URL、Web Storage 或日志，
+远程 Pod 的创建和更新也不会读取它们。Desktop 保存值优先于 process environment，
+资源中的 `${NAME:-default}` 最后生效。
 
 本地 `CreatePod` 在保留目录前完成环境 preflight，然后以 `.initializing` 标记执行
 有界事务：生成投影、启动 companion、等待 Admin readiness、按顺序 apply 内嵌资源、
