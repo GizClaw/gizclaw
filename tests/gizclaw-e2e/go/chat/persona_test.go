@@ -496,12 +496,7 @@ func TestPersonaDriverDefaultOpenAIPaths(t *testing.T) {
 	}
 }
 
-func TestPersonaDriverSynthesizeRetriesRetryableAPIError(t *testing.T) {
-	oggAudio := testOggOpus(t, [][]byte{
-		[]byte("OpusHeadxxxx"),
-		[]byte("OpusTagsyyyy"),
-		{0x11, 0x22},
-	})
+func TestPersonaDriverSynthesizeDoesNotRetryBadRequest(t *testing.T) {
 	attempts := 0
 	client := openai.NewClient(
 		option.WithAPIKey("test"),
@@ -511,14 +506,11 @@ func TestPersonaDriverSynthesizeRetriesRetryableAPIError(t *testing.T) {
 				t.Fatalf("unexpected OpenAI path %s", req.URL.Path)
 			}
 			attempts++
-			if attempts == 1 {
-				return &http.Response{
-					StatusCode: http.StatusBadRequest,
-					Header:     http.Header{"Content-Type": []string{"application/json"}},
-					Body:       io.NopCloser(strings.NewReader(`{"error":{"message":"speech backend rejected request","type":"invalid_request_error","code":"speech_failed"}}`)),
-				}, nil
-			}
-			return binaryResponse("audio/ogg", oggAudio), nil
+			return &http.Response{
+				StatusCode: http.StatusBadRequest,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(`{"error":{"message":"speech backend rejected request","type":"invalid_request_error","code":"speech_failed"}}`)),
+			}, nil
 		})}),
 	)
 	driver := &personaDriver{
@@ -529,12 +521,12 @@ func TestPersonaDriverSynthesizeRetriesRetryableAPIError(t *testing.T) {
 		client: client,
 	}
 
-	audio, packets, err := driver.synthesizeOpus(context.Background(), "你好测试")
-	if err != nil {
-		t.Fatalf("synthesizeOpus() error = %v", err)
+	_, _, err := driver.synthesizeOpus(context.Background(), "你好测试")
+	if err == nil || !strings.Contains(err.Error(), "400 Bad Request") {
+		t.Fatalf("synthesizeOpus() error = %v, want 400 Bad Request", err)
 	}
-	if attempts != 2 || !bytes.Equal(audio, oggAudio) || len(packets) != 1 || !bytes.Equal(packets[0], []byte{0x11, 0x22}) {
-		t.Fatalf("synthesizeOpus() attempts/audio/packets = %d/%d/%#v", attempts, len(audio), packets)
+	if attempts != 1 {
+		t.Fatalf("synthesizeOpus() attempts = %d, want 1", attempts)
 	}
 }
 

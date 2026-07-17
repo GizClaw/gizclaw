@@ -286,8 +286,6 @@ func TestRetryableLiveWorkspaceError(t *testing.T) {
 		errors.New("ast websocket read: websocket: close 1006 (abnormal closure): unexpected EOF"),
 		errors.New("round 2: transport: timeout; recent events: none"),
 		errors.New("bytedance: response incomplete: length"),
-		errors.New("buffer: read from closed buffer: genx: generate error: flowcraft: claw event error: recall ingest: extract: recall two-pass extractor: content llm: bytedance.generate: 15.007s"),
-		errors.New("speech: POST \"http://gizclaw/v1/audio/speech\": 400 Bad Request"),
 		errors.New("peer event error: buffer: read from closed buffer: doubaospeech: [Server processing timeout] node execution timeout (code=55001010)"),
 		errors.New("peer event error: buffer: read from closed buffer: doubaospeech: [Server-side generic error] OperatorWrapper Process failed: big asr recv err. rpc timeout: CallWithTimeout: timeout in business code, timeout_config=3s"),
 		errors.New("peer event error: buffer: read from closed buffer: genx: generate error: flowcraft: read TTS voice \"你好\": flowcraft: send tts stream request: Post \"https://openspeech.bytedance.com/api/v3/tts/unidirectional\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)"),
@@ -304,6 +302,8 @@ func TestRetryableLiveWorkspaceError(t *testing.T) {
 		errors.New("client private key: invalid key"),
 		errors.New("interrupt missing second transcript"),
 		errors.New("context deadline exceeded"),
+		errors.New("buffer: read from closed buffer: genx: generate error: flowcraft: claw event error: recall ingest: extract: recall two-pass extractor: content llm: bytedance.generate: 15.007s"),
+		errors.New("speech: POST \"http://gizclaw/v1/audio/speech\": 400 Bad Request"),
 	}
 	for _, err := range notRetryable {
 		if isRetryableLiveWorkspaceError(err) {

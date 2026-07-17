@@ -1187,7 +1187,7 @@ func isRetryableSpeechError(err error) bool {
 		return false
 	}
 	switch apiErr.StatusCode {
-	case 400, 408, 409, 429:
+	case 408, 409, 429:
 		return true
 	default:
 		return apiErr.StatusCode >= 500
