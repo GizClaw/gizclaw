@@ -9,8 +9,9 @@ import (
 	"io"
 	"iter"
 	"log/slog"
+	"maps"
 	"strings"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	"github.com/GizClaw/doubao-speech-go"
@@ -52,6 +53,9 @@ type DoubaoRealtime struct {
 	dialogExtra       *doubaospeech.RealtimeDialogExtra
 	model             string // Model version: O, SC, 1.2.1.0 (O2.0), 2.2.0.0 (SC2.0)
 	mode              DoubaoRealtimeMode
+	retryInitial      time.Duration
+	retryMax          time.Duration
+	retryWait         func(context.Context, <-chan struct{}, time.Duration) bool
 }
 
 var _ genx.Transformer = (*DoubaoRealtime)(nil)
@@ -69,6 +73,10 @@ const (
 	doubaoRealtimeFixedOutputChannels   = 1
 
 	doubaoRealtimeOpusFrameDuration = 20 * time.Millisecond
+	doubaoRealtimePTTOutputLimit    = 2 * time.Minute
+	doubaoRealtimePTTOutputMaxBytes = 32 << 20
+	doubaoRealtimeRetryInitial      = 100 * time.Millisecond
+	doubaoRealtimeRetryMax          = 5 * time.Second
 )
 
 // DoubaoRealtimeMode controls how client input boundaries are interpreted.
@@ -302,6 +310,8 @@ func NewDoubaoRealtime(client *doubaospeech.Client, opts ...DoubaoRealtimeOption
 		model:           "O",  // Default to O version
 		botName:         "豆包", // Default bot name
 		mode:            DoubaoRealtimeModePushToTalk,
+		retryInitial:    doubaoRealtimeRetryInitial,
+		retryMax:        doubaoRealtimeRetryMax,
 	}
 	for _, opt := range opts {
 		opt(t)
@@ -412,9 +422,7 @@ func cloneDoubaoRealtimeASRExtra(extra *doubaospeech.RealtimeASRExtra) *doubaosp
 		}
 		if len(extra.Context.CorrectWords) > 0 {
 			copied.Context.CorrectWords = make(map[string]string, len(extra.Context.CorrectWords))
-			for key, value := range extra.Context.CorrectWords {
-				copied.Context.CorrectWords[key] = value
-			}
+			maps.Copy(copied.Context.CorrectWords, extra.Context.CorrectWords)
 		}
 	}
 	return &copied
@@ -483,37 +491,416 @@ func (t *DoubaoRealtime) realtimeInputMode() doubaospeech.RealtimeInputMode {
 	}
 }
 
-func (t *DoubaoRealtime) sessionLoop(ctx context.Context, input genx.Stream, output *bufferStream) {
-	defer output.Close()
-	var pending *genx.MessageChunk
-	for {
-		if err := ctx.Err(); err != nil {
-			output.CloseWithError(err)
-			return
-		}
-		config := t.realtimeConfig()
-		session, err := t.realtime.OpenSession(ctx, config)
-		if err != nil {
-			output.CloseWithError(fmt.Errorf("doubao realtime connect: %w", err))
-			return
-		}
-		next, err := t.processLoop(ctx, withPendingChunk(input, pending), output, session)
-		if err != nil {
-			output.CloseWithError(err)
-			return
-		}
-		if next == nil {
-			return
-		}
-		pending = next
+type doubaoRealtimeRecoverableError struct {
+	op    string
+	cause error
+}
+
+func (e *doubaoRealtimeRecoverableError) Error() string {
+	if e == nil {
+		return ""
+	}
+	if strings.TrimSpace(e.op) == "" {
+		return e.cause.Error()
+	}
+	return fmt.Sprintf("doubao realtime %s: %v", e.op, e.cause)
+}
+
+func (e *doubaoRealtimeRecoverableError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.cause
+}
+
+func doubaoRealtimeRecoverable(op string, err error) error {
+	if err == nil {
+		err = io.EOF
+	}
+	return &doubaoRealtimeRecoverableError{op: op, cause: err}
+}
+
+func isDoubaoRealtimeRecoverable(err error) bool {
+	var recoverable *doubaoRealtimeRecoverableError
+	return errors.As(err, &recoverable)
+}
+
+type doubaoRealtimeRuntime struct {
+	assistant   *realtimeAssistantLifecycle
+	pushToTalk  *doubaoPushToTalkState
+	pttTurn     *doubaoRealtimePTTTurn
+	streamIDs   *doubaoRealtimeStreamIDs
+	audioInputs *doubaoRealtimeAudioInputs
+}
+
+func newDoubaoRealtimeRuntime(t *DoubaoRealtime) *doubaoRealtimeRuntime {
+	return &doubaoRealtimeRuntime{
+		assistant:   newRealtimeAssistantLifecycle(),
+		pushToTalk:  &doubaoPushToTalkState{},
+		pttTurn:     &doubaoRealtimePTTTurn{},
+		streamIDs:   newDoubaoRealtimeStreamIDs(t.mode),
+		audioInputs: newDoubaoRealtimeAudioInputs(t.inputFormat, t.inputSampleRate, t.inputChannels, t.inputTranscode),
 	}
 }
 
+func (r *doubaoRealtimeRuntime) close() {
+	if r != nil && r.audioInputs != nil {
+		r.audioInputs.close()
+	}
+}
+
+func (r *doubaoRealtimeRuntime) providerLost(t *DoubaoRealtime, output realtimeChunkOutput, cause error) {
+	if r == nil {
+		return
+	}
+	errText := "doubao realtime provider session lost"
+	if cause != nil {
+		errText = cause.Error()
+	}
+	pttStreamID, pttActive, pttCommitted := r.pttTurn.discard()
+	stateStreamID, _, stateActive := r.pushToTalk.abort()
+	if pttStreamID == "" {
+		pttStreamID = stateStreamID
+	}
+	if (pttActive && !pttCommitted) || (!pttActive && stateActive) {
+		_ = output.Push(&genx.MessageChunk{
+			Role: genx.RoleUser,
+			Part: genx.Text(""),
+			Ctrl: &genx.StreamCtrl{
+				StreamID:    pttStreamID,
+				Label:       doubaoRealtimeTranscriptLabel,
+				EndOfStream: true,
+				Error:       errText,
+			},
+		})
+	}
+
+	interruption := r.assistant.interruptRoutes(pttStreamID, false)
+	if interruption.interrupted && interruption.textOpen {
+		_ = output.Push(&genx.MessageChunk{
+			Role: genx.RoleModel,
+			Part: genx.Text(""),
+			Ctrl: &genx.StreamCtrl{StreamID: interruption.streamID, Label: doubaoRealtimeAssistantLabel, EndOfStream: true, Error: errText},
+		})
+	}
+	if interruption.interrupted && interruption.audioOpen {
+		_ = output.Push(&genx.MessageChunk{
+			Role: genx.RoleModel,
+			Part: &genx.Blob{MIMEType: t.outputMIMEType()},
+			Ctrl: &genx.StreamCtrl{StreamID: interruption.streamID, Label: doubaoRealtimeAssistantLabel, EndOfStream: true, Error: errText},
+		})
+	}
+}
+
+type doubaoRealtimeInputResult struct {
+	chunk *genx.MessageChunk
+	err   error
+}
+
+type doubaoRealtimeInputReader struct {
+	source      genx.Stream
+	results     chan doubaoRealtimeInputResult
+	done        chan struct{}
+	terminal    chan struct{}
+	terminalErr error
+	pending     *doubaoRealtimeInputResult
+	closeOnce   sync.Once
+}
+
+func newDoubaoRealtimeInputReader(source genx.Stream) *doubaoRealtimeInputReader {
+	reader := &doubaoRealtimeInputReader{
+		source:   source,
+		results:  make(chan doubaoRealtimeInputResult, 1),
+		done:     make(chan struct{}),
+		terminal: make(chan struct{}),
+	}
+	go reader.read()
+	return reader
+}
+
+func (r *doubaoRealtimeInputReader) read() {
+	defer close(r.results)
+	for {
+		chunk, err := r.source.Next()
+		result := doubaoRealtimeInputResult{chunk: chunk, err: err}
+		if err != nil {
+			r.terminalErr = err
+			close(r.terminal)
+		}
+		select {
+		case r.results <- result:
+		case <-r.done:
+			return
+		}
+		if err != nil {
+			return
+		}
+	}
+}
+
+func (r *doubaoRealtimeInputReader) terminalError() (error, bool) {
+	if r == nil || r.pending != nil {
+		return nil, false
+	}
+	select {
+	case <-r.terminal:
+		select {
+		case result, ok := <-r.results:
+			if !ok {
+				return r.terminalErr, true
+			}
+			if result.err == nil {
+				r.pending = &result
+				return nil, false
+			}
+			return result.err, true
+		default:
+			return r.terminalErr, true
+		}
+	default:
+		return nil, false
+	}
+}
+
+func (r *doubaoRealtimeInputReader) terminalDone() <-chan struct{} {
+	if r == nil || r.pending != nil {
+		return nil
+	}
+	return r.terminal
+}
+
+func (r *doubaoRealtimeInputReader) Next() (*genx.MessageChunk, error) {
+	if r.pending != nil {
+		result := *r.pending
+		r.pending = nil
+		return result.chunk, result.err
+	}
+	result, ok := <-r.results
+	if !ok {
+		return nil, io.EOF
+	}
+	return result.chunk, result.err
+}
+
+func (r *doubaoRealtimeInputReader) NextOrDone(done <-chan struct{}) (*genx.MessageChunk, error, bool) {
+	if r.pending != nil {
+		select {
+		case <-done:
+			return nil, nil, true
+		default:
+		}
+		result := *r.pending
+		r.pending = nil
+		return result.chunk, result.err, false
+	}
+	select {
+	case <-done:
+		return nil, nil, true
+	default:
+	}
+	select {
+	case result, ok := <-r.results:
+		if !ok {
+			return nil, io.EOF, false
+		}
+		select {
+		case <-done:
+			r.pending = &result
+			return nil, nil, true
+		default:
+		}
+		return result.chunk, result.err, false
+	default:
+	}
+	select {
+	case <-done:
+		return nil, nil, true
+	case result, ok := <-r.results:
+		if !ok {
+			return nil, io.EOF, false
+		}
+		select {
+		case <-done:
+			r.pending = &result
+			return nil, nil, true
+		default:
+		}
+		return result.chunk, result.err, false
+	}
+}
+
+func (r *doubaoRealtimeInputReader) Close() error {
+	return r.CloseWithError(io.EOF)
+}
+
+func (r *doubaoRealtimeInputReader) CloseWithError(err error) error {
+	r.closeOnce.Do(func() {
+		close(r.done)
+		if err == nil || errors.Is(err, io.EOF) || errors.Is(err, genx.ErrDone) {
+			_ = r.source.Close()
+			return
+		}
+		_ = r.source.CloseWithError(err)
+	})
+	return nil
+}
+
+type doubaoRealtimeDoneAwareStream interface {
+	genx.Stream
+	NextOrDone(<-chan struct{}) (*genx.MessageChunk, error, bool)
+}
+
+func doubaoRealtimeNextOrDone(input genx.Stream, done <-chan struct{}) (*genx.MessageChunk, error, bool) {
+	if stream, ok := input.(doubaoRealtimeDoneAwareStream); ok {
+		return stream.NextOrDone(done)
+	}
+	select {
+	case <-done:
+		return nil, nil, true
+	default:
+	}
+	chunk, err := input.Next()
+	return chunk, err, false
+}
+
+func (t *DoubaoRealtime) sessionLoop(ctx context.Context, input genx.Stream, output *bufferStream) {
+	workerCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		select {
+		case <-workerCtx.Done():
+		case <-output.Done():
+			cancel()
+		}
+	}()
+
+	reader := newDoubaoRealtimeInputReader(input)
+	defer reader.Close()
+	runtime := newDoubaoRealtimeRuntime(t)
+	defer runtime.close()
+	defer output.Close()
+
+	stopForTerminalInput := func() bool {
+		err, ended := reader.terminalError()
+		if !ended {
+			return false
+		}
+		if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, genx.ErrDone) {
+			_ = reader.CloseWithError(err)
+			_ = output.CloseWithError(err)
+		}
+		return true
+	}
+	retryInitial := t.retryInitial
+	if retryInitial <= 0 {
+		retryInitial = doubaoRealtimeRetryInitial
+	}
+	retryDelay := retryInitial
+	retryMax := max(t.retryMax, retryDelay)
+	for {
+		if err := workerCtx.Err(); err != nil {
+			if ctx.Err() != nil {
+				_ = reader.CloseWithError(ctx.Err())
+				_ = output.CloseWithError(ctx.Err())
+			}
+			return
+		}
+		if stopForTerminalInput() {
+			return
+		}
+		config := t.realtimeConfig()
+		session, err := t.realtime.OpenSession(workerCtx, config)
+		if err != nil {
+			if stopForTerminalInput() {
+				return
+			}
+			slog.Warn("doubao: realtime provider connection failed; retrying", "error", err, "retryDelay", retryDelay)
+			if !t.waitRetry(workerCtx, output.Done(), reader.terminalDone(), retryDelay) {
+				continue
+			}
+			retryDelay = min(retryDelay*2, retryMax)
+			continue
+		}
+		retryDelay = retryInitial
+		err = t.processSession(workerCtx, reader, output, session, runtime)
+		if err == nil {
+			return
+		}
+		if isDoubaoRealtimeRecoverable(err) {
+			runtime.providerLost(t, output, err)
+			if stopForTerminalInput() {
+				return
+			}
+			slog.Warn("doubao: realtime provider session lost; reconnecting", "error", err, "retryDelay", retryDelay)
+			if !t.waitRetry(workerCtx, output.Done(), reader.terminalDone(), retryDelay) {
+				continue
+			}
+			retryDelay = min(retryDelay*2, retryMax)
+			continue
+		}
+		if workerCtx.Err() != nil {
+			if ctx.Err() != nil {
+				_ = reader.CloseWithError(ctx.Err())
+				_ = output.CloseWithError(ctx.Err())
+			}
+			return
+		}
+		_ = reader.CloseWithError(err)
+		_ = output.CloseWithError(err)
+		return
+	}
+}
+
+func (t *DoubaoRealtime) waitRetry(ctx context.Context, outputDone, inputDone <-chan struct{}, delay time.Duration) bool {
+	if t != nil && t.retryWait != nil {
+		return t.retryWait(ctx, outputDone, delay)
+	}
+	return waitDoubaoRealtimeRetry(ctx, outputDone, inputDone, delay)
+}
+
 func (t *DoubaoRealtime) processLoop(ctx context.Context, input genx.Stream, output *bufferStream, session doubaoRealtimeSession) (*genx.MessageChunk, error) {
-	defer session.Close()
-	var restarting atomic.Bool
-	assistant := newRealtimeAssistantLifecycle()
-	pushToTalk := &doubaoPushToTalkState{}
+	reader := newDoubaoRealtimeInputReader(input)
+	defer reader.Close()
+	runtime := newDoubaoRealtimeRuntime(t)
+	defer runtime.close()
+	err := t.processSession(ctx, reader, output, session, runtime)
+	if isDoubaoRealtimeRecoverable(err) {
+		return nil, nil
+	}
+	return nil, err
+}
+
+func waitDoubaoRealtimeRetry(ctx context.Context, outputDone, inputDone <-chan struct{}, delay time.Duration) bool {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-outputDone:
+		return false
+	case <-inputDone:
+		return false
+	case <-timer.C:
+		return true
+	}
+}
+
+func (t *DoubaoRealtime) processSession(
+	ctx context.Context,
+	input genx.Stream,
+	output *bufferStream,
+	session doubaoRealtimeSession,
+	runtime *doubaoRealtimeRuntime,
+) error {
+	assistant := runtime.assistant
+	pushToTalk := runtime.pushToTalk
+	pttTurn := runtime.pttTurn
+	pttASR := &doubaoRealtimePTTASRQueue{}
+	pttResponses := &doubaoRealtimePTTResponses{}
+	var pttControl sync.Mutex
+	textResponses := &doubaoRealtimeTextResponses{}
+	streamIDs := runtime.streamIDs
+	audioInputs := runtime.audioInputs
 
 	markAssistantPending := func(streamID string, epoch uint64) {
 		assistant.markPending(streamID, epoch)
@@ -521,36 +908,68 @@ func (t *DoubaoRealtime) processLoop(ctx context.Context, input genx.Stream, out
 	markAssistantStarted := func(streamID string) uint64 {
 		return assistant.markStarted(streamID)
 	}
-	markAssistantDone := func(epoch uint64) {
-		assistant.markDone(epoch)
+	markAssistantTextDone := func(epoch uint64) {
+		assistant.markTextDone(epoch)
+	}
+	markAssistantAudioDone := func(epoch uint64) {
+		assistant.markAudioDone(epoch)
+	}
+	interruptAssistantState := func(streamID string, force bool) bool {
+		interruption := assistant.interruptRoutes(streamID, force)
+		if !interruption.interrupted {
+			return false
+		}
+		if interruption.textOpen {
+			textEOS := &genx.MessageChunk{
+				Role: genx.RoleModel,
+				Part: genx.Text(""),
+				Ctrl: &genx.StreamCtrl{StreamID: interruption.streamID, Label: doubaoRealtimeAssistantLabel, EndOfStream: true, Error: doubaoRealtimeInterrupted},
+			}
+			_ = output.Push(textEOS)
+		}
+		if interruption.audioOpen {
+			audioEOS := &genx.MessageChunk{
+				Role: genx.RoleModel,
+				Part: &genx.Blob{MIMEType: t.outputMIMEType()},
+				Ctrl: &genx.StreamCtrl{StreamID: interruption.streamID, Label: doubaoRealtimeAssistantLabel, EndOfStream: true, Error: doubaoRealtimeInterrupted},
+			}
+			_ = output.Push(audioEOS)
+		}
+		return true
 	}
 	interruptAssistant := func(streamID string, force bool) (bool, error) {
-		interruptedStreamID, interrupted := assistant.interrupt(streamID, force)
+		interrupted := interruptAssistantState(streamID, force)
 		if !interrupted {
 			return false, nil
 		}
-		textEOS := &genx.MessageChunk{
-			Role: genx.RoleModel,
-			Part: genx.Text(""),
-			Ctrl: &genx.StreamCtrl{StreamID: interruptedStreamID, Label: doubaoRealtimeAssistantLabel, EndOfStream: true, Error: doubaoRealtimeInterrupted},
-		}
-		audioEOS := &genx.MessageChunk{
-			Role: genx.RoleModel,
-			Part: &genx.Blob{MIMEType: t.outputMIMEType()},
-			Ctrl: &genx.StreamCtrl{StreamID: interruptedStreamID, Label: doubaoRealtimeAssistantLabel, EndOfStream: true, Error: doubaoRealtimeInterrupted},
-		}
-		_ = output.Push(textEOS)
-		_ = output.Push(audioEOS)
 		if err := session.Interrupt(ctx); err != nil {
-			return true, fmt.Errorf("doubao realtime interrupt response: %w", err)
+			return true, doubaoRealtimeRecoverable("interrupt response", err)
 		}
 		return true, nil
 	}
-	pushAssistantOutput := func(epoch uint64, chunk *genx.MessageChunk) error {
+	pushAssistantOutput := func(epoch uint64, response *doubaoRealtimePTTResponse, chunk *genx.MessageChunk) error {
 		if !assistant.canPush(epoch) {
 			return nil
 		}
-		return output.Push(chunk)
+		if t.mode != DoubaoRealtimeModePushToTalk {
+			return output.Push(chunk)
+		}
+		if response == nil {
+			return nil
+		}
+		err := response.push(chunk)
+		if !errors.Is(err, errRealtimePTTOutputLimit) {
+			return err
+		}
+		if _, active, _ := pttTurn.discardResponse(response); active {
+			_, _, _ = pushToTalk.abort()
+		}
+		assistant.setAccept(false)
+		assistant.nextEpoch()
+		if interruptErr := session.Interrupt(ctx); interruptErr != nil {
+			return doubaoRealtimeRecoverable("interrupt response after push-to-talk output limit", interruptErr)
+		}
+		return nil
 	}
 	waitOutputFrame := func(epoch uint64) bool {
 		timer := time.NewTimer(doubaoRealtimeOpusFrameDuration)
@@ -563,14 +982,13 @@ func (t *DoubaoRealtime) processLoop(ctx context.Context, input genx.Stream, out
 		return assistant.canPush(epoch)
 	}
 
-	streamIDs := newDoubaoRealtimeStreamIDs(t.mode)
-
-	// Start goroutine to receive events
 	eventsDone := make(chan struct{})
+	eventsResult := make(chan error, 1)
 	go func() {
+		defer close(eventsDone)
 		lastTranscriptText := ""
 		transcriptOpen := false
-		closeInputSegment := func() error {
+		closeInputSegment := func(errText string) error {
 			inputStreamID := streamIDs.endInputSegment()
 			doneChunk := &genx.MessageChunk{
 				Role: genx.RoleUser,
@@ -579,6 +997,7 @@ func (t *DoubaoRealtime) processLoop(ctx context.Context, input genx.Stream, out
 					StreamID:    inputStreamID,
 					Label:       doubaoRealtimeTranscriptLabel,
 					EndOfStream: true,
+					Error:       errText,
 				},
 			}
 			if err := output.Push(doneChunk); err != nil {
@@ -588,316 +1007,457 @@ func (t *DoubaoRealtime) processLoop(ctx context.Context, input genx.Stream, out
 			transcriptOpen = false
 			return nil
 		}
-		defer func() {
-			if t.mode == DoubaoRealtimeModeRealtime && transcriptOpen {
-				if err := closeInputSegment(); err != nil {
-					output.CloseWithError(err)
-				}
-			}
-			close(eventsDone)
-		}()
-		for event, err := range session.Recv() {
-			if err != nil {
-				if restarting.Load() {
-					slog.Info("doubao: realtime session stopped for restart", "error", err)
-					return
-				}
-				if isDoubaoRealtimeIdleTimeout(err) {
-					slog.Info("doubao: realtime session idle timeout", "error", err)
-					return
-				}
-				if !assistant.acceptsOutput() && isDoubaoRealtimeInterruptedDone(err) {
-					slog.Info("doubao: realtime session interrupted", "error", err)
-					return
-				}
-				slog.Error("doubao: recv error", "error", err)
-				output.CloseWithError(err)
-				return
-			}
-
-			slog.Debug("doubao: received event", "type", event.Type, "text", event.Text, "audioLen", len(event.Audio))
-
-			// Get StreamID for this response
-			streamID := streamIDs.response()
-
-			// Handle different event types
-			switch event.Type {
-			case doubaospeech.EventASRInfo:
-				// ASR detected speech - log for debugging
-				// Note: Do NOT interrupt here. EventASRInfo is just speech detection,
-				// not a user interruption. Interruption should be handled by the
-				// cortex layer based on device state changes (e.g., user pressing button).
-				slog.Info("doubao: ASR info - speech detected")
-
-			case doubaospeech.EventASRResponse:
-				// ASR text result
-				text := strings.TrimSpace(event.Text)
-				if text == "" {
-					text = realtimeASRText(event.Payload)
-				}
-				slog.Info("doubao: ASR response", "text", text)
-				if text != "" {
-					delta := realtimeTextDelta(lastTranscriptText, text)
-					if delta == "" {
-						continue
+		receive := func() (retErr error) {
+			defer func() {
+				if t.mode == DoubaoRealtimeModeRealtime && transcriptOpen {
+					errText := ""
+					if isDoubaoRealtimeRecoverable(retErr) {
+						errText = retErr.Error()
 					}
-					if t.mode == DoubaoRealtimeModeRealtime && !transcriptOpen && !realtimeTextHasSemantic(delta) {
-						lastTranscriptText = ""
-						continue
+					if err := closeInputSegment(errText); retErr == nil && err != nil {
+						retErr = err
 					}
-					lastTranscriptText = text
-					outChunk := &genx.MessageChunk{
-						Role: genx.RoleUser,
-						Part: genx.Text(delta),
-						Ctrl: &genx.StreamCtrl{StreamID: streamIDs.input(), Label: doubaoRealtimeTranscriptLabel},
+				}
+			}()
+			for event, err := range session.Recv() {
+				if err != nil {
+					if ctx.Err() != nil {
+						return ctx.Err()
 					}
-					if err := output.Push(outChunk); err != nil {
-						return
-					}
-					transcriptOpen = true
-					if t.mode == DoubaoRealtimeModeRealtime && realtimeASRResponseEndsSegment(event, delta) {
-						if err := closeInputSegment(); err != nil {
-							return
+					return doubaoRealtimeRecoverable("receive events", err)
+				}
+				if event == nil {
+					continue
+				}
+
+				slog.Debug("doubao: received event", "type", event.Type, "text", event.Text, "audioLen", len(event.Audio))
+
+				streamID := streamIDs.response()
+				if t.mode == DoubaoRealtimeModePushToTalk {
+					streamID = firstNonEmptyString(pttTurn.stream(), streamID)
+				}
+
+				switch event.Type {
+				case doubaospeech.EventASRInfo:
+					slog.Info("doubao: ASR info - speech detected")
+					if t.mode == DoubaoRealtimeModeRealtime {
+						if _, err := interruptAssistant(streamID, false); err != nil {
+							return err
 						}
 					}
-				}
 
-			case doubaospeech.EventASREnded:
-				// User speech ended - pop StreamID for upcoming response
-				slog.Info("doubao: ASR ended")
-				assistant.setAccept(true)
-				epoch := assistant.nextEpoch()
-				responseStreamID := ""
-				switch {
-				case t.mode == DoubaoRealtimeModePushToTalk || transcriptOpen:
-					if err := closeInputSegment(); err != nil {
-						return
+				case doubaospeech.EventASRResponse:
+					text := strings.TrimSpace(event.Text)
+					if text == "" {
+						text = realtimeASRText(event.Payload)
 					}
-					responseStreamID = streamIDs.response()
-				case streamIDs.response() == "":
-					responseStreamID = streamIDs.endInputSegment()
-				default:
-					responseStreamID = streamIDs.response()
-				}
-				markAssistantPending(responseStreamID, epoch)
+					slog.Info("doubao: ASR response", "text", text)
+					if t.mode == DoubaoRealtimeModePushToTalk {
+						pttControl.Lock()
+						generation := pttASR.peek(pttTurn.currentGeneration())
+						pttTurn.updateHypothesisFor(generation, text)
+						pttControl.Unlock()
+						continue
+					}
+					if text != "" {
+						delta := realtimeTextDelta(lastTranscriptText, text)
+						if delta == "" {
+							continue
+						}
+						if t.mode == DoubaoRealtimeModeRealtime && !transcriptOpen && !realtimeTextHasSemantic(delta) {
+							lastTranscriptText = ""
+							continue
+						}
+						lastTranscriptText = text
+						outChunk := &genx.MessageChunk{
+							Role: genx.RoleUser,
+							Part: genx.Text(delta),
+							Ctrl: &genx.StreamCtrl{StreamID: streamIDs.input(), Label: doubaoRealtimeTranscriptLabel},
+						}
+						if err := output.Push(outChunk); err != nil {
+							return err
+						}
+						transcriptOpen = true
+						if t.mode == DoubaoRealtimeModeRealtime && realtimeASRResponseEndsSegment(event, delta) {
+							if err := closeInputSegment(""); err != nil {
+								return err
+							}
+						}
+					}
 
-			case doubaospeech.EventTTSStarted:
-				if !assistant.acceptsOutput() {
-					continue
-				}
-				// TTS started - send BOS to signal start of audio stream
-				slog.Info("doubao: TTS started, sending BOS", "streamID", streamID)
-				epoch := markAssistantStarted(streamID)
-				if t.mode == DoubaoRealtimeModePushToTalk {
-					pushToTalk.responseStarted(true)
-				}
-				bosChunk := &genx.MessageChunk{
-					Role: genx.RoleModel,
-					Part: &genx.Blob{MIMEType: t.outputMIMEType()},
-					Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel, BeginOfStream: true},
-				}
-				if err := pushAssistantOutput(epoch, bosChunk); err != nil {
-					return
-				}
+				case doubaospeech.EventASREnded:
+					slog.Info("doubao: ASR ended")
+					if t.mode == DoubaoRealtimeModePushToTalk {
+						pttControl.Lock()
+						pttGeneration, ok := pttASR.take()
+						if !ok {
+							pttControl.Unlock()
+							continue
+						}
+						text := strings.TrimSpace(event.Text)
+						if text == "" {
+							text = realtimeASRText(event.Payload)
+						}
+						pttTurn.updateHypothesisFor(pttGeneration, text)
+						matched, err := pttTurn.markASREndedFor(pttGeneration)
+						if err != nil {
+							pttControl.Unlock()
+							return err
+						}
+						if !matched {
+							pttControl.Unlock()
+							continue
+						}
+						assistant.setAccept(true)
+						epoch := assistant.nextEpoch()
+						response := pttTurn.bindResponseFor(pttGeneration, epoch, doubaoRealtimeEventResponseIdentity(event))
+						if response == nil {
+							pttControl.Unlock()
+							continue
+						}
+						pttResponses.add(response)
+						markAssistantPending(response.streamID, epoch)
+						pttControl.Unlock()
+						continue
+					}
+					assistant.setAccept(true)
+					epoch := assistant.nextEpoch()
+					responseStreamID := ""
+					switch {
+					case transcriptOpen:
+						if err := closeInputSegment(""); err != nil {
+							return err
+						}
+						responseStreamID = streamIDs.response()
+					case streamIDs.response() == "":
+						responseStreamID = streamIDs.endInputSegment()
+					default:
+						responseStreamID = streamIDs.response()
+					}
+					markAssistantPending(responseStreamID, epoch)
 
-				// Also send text if available
-				if event.Text != "" {
-					outChunk := &genx.MessageChunk{
+				case doubaospeech.EventTTSStarted:
+					var response *doubaoRealtimePTTResponse
+					var epoch uint64
+					if t.mode == DoubaoRealtimeModePushToTalk {
+						response = pttResponses.match(doubaoRealtimeEventResponseIdentity(event))
+						if response == nil {
+							continue
+						}
+						streamID = response.streamID
+						epoch = response.epoch
+						response.ttsStarted = true
+						pushToTalk.responseStarted(streamID, true)
+					} else {
+						if !assistant.acceptsOutput() {
+							continue
+						}
+						if t.mode == DoubaoRealtimeModeText {
+							textResponses.markTTSStarted()
+						}
+						epoch = markAssistantStarted(streamID)
+					}
+					slog.Info("doubao: TTS started, sending BOS", "streamID", streamID)
+					bosChunk := &genx.MessageChunk{
 						Role: genx.RoleModel,
-						Part: genx.Text(event.Text),
-						Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel},
+						Part: &genx.Blob{MIMEType: t.outputMIMEType()},
+						Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel, BeginOfStream: true},
 					}
-					if err := pushAssistantOutput(epoch, outChunk); err != nil {
-						return
+					if err := pushAssistantOutput(epoch, response, bosChunk); err != nil {
+						return err
 					}
-				}
 
-			case doubaospeech.EventChatResponse:
-				if !assistant.acceptsOutput() {
-					continue
-				}
-				if t.mode == DoubaoRealtimeModePushToTalk {
-					pushToTalk.responseStarted(false)
-				}
-				// Model text response
-				text := strings.TrimSpace(event.Text)
-				if text != "" {
-					slog.Debug("doubao: chat response", "text", text)
-					epoch := assistant.currentEpoch()
-					outChunk := &genx.MessageChunk{
-						Role: genx.RoleModel,
-						Part: genx.Text(text),
-						Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel},
-					}
-					if err := pushAssistantOutput(epoch, outChunk); err != nil {
-						return
-					}
-				}
-
-			case doubaospeech.EventTTSAudioData:
-				if !assistant.acceptsOutput() {
-					continue
-				}
-				if t.mode == DoubaoRealtimeModePushToTalk {
-					pushToTalk.responseStarted(true)
-				}
-				// Audio chunk received
-				if len(event.Audio) > 0 {
-					slog.Debug("doubao: audio received", "len", len(event.Audio))
-					epoch := assistant.currentEpoch()
-					blobs, err := t.outputAudioBlobs(event.Audio)
-					if err != nil {
-						output.CloseWithError(err)
-						return
-					}
-					for _, blob := range blobs {
+					if event.Text != "" {
 						outChunk := &genx.MessageChunk{
 							Role: genx.RoleModel,
-							Part: blob,
+							Part: genx.Text(event.Text),
 							Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel},
 						}
-						if err := pushAssistantOutput(epoch, outChunk); err != nil {
-							return
-						}
-						if !waitOutputFrame(epoch) {
-							break
+						if err := pushAssistantOutput(epoch, response, outChunk); err != nil {
+							return err
 						}
 					}
-				}
 
-			case doubaospeech.EventTTSFinished:
-				if !assistant.acceptsOutput() {
-					continue
-				}
-				// TTS finished - send EOS to signal end of audio stream
-				slog.Info("doubao: TTS finished, sending EOS", "streamID", streamID)
-				epoch := assistant.currentEpoch()
-				eosChunk := &genx.MessageChunk{
-					Role: genx.RoleModel,
-					Part: &genx.Blob{MIMEType: t.outputMIMEType()},
-					Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel, EndOfStream: true},
-				}
-				if err := pushAssistantOutput(epoch, eosChunk); err != nil {
-					return
-				}
-				markAssistantDone(epoch)
-				if t.mode == DoubaoRealtimeModePushToTalk {
-					pushToTalk.ttsFinished()
-				}
-				// Keep the realtime session open for normal multi-turn dialogue.
-				// Interrupt-driven BOS restarts the session explicitly so the
-				// utterance that interrupted the assistant is not lost.
+				case doubaospeech.EventChatResponse:
+					var response *doubaoRealtimePTTResponse
+					epoch := assistant.currentEpoch()
+					if t.mode == DoubaoRealtimeModePushToTalk {
+						response = pttResponses.match(doubaoRealtimeEventResponseIdentity(event))
+						if response == nil {
+							continue
+						}
+						streamID = response.streamID
+						epoch = response.epoch
+						pushToTalk.responseStarted(streamID, false)
+					} else if !assistant.acceptsOutput() {
+						continue
+					}
+					text := strings.TrimSpace(event.Text)
+					if text != "" {
+						slog.Debug("doubao: chat response", "text", text)
+						outChunk := &genx.MessageChunk{
+							Role: genx.RoleModel,
+							Part: genx.Text(text),
+							Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel},
+						}
+						if err := pushAssistantOutput(epoch, response, outChunk); err != nil {
+							return err
+						}
+					}
 
-			case doubaospeech.EventChatEnded:
-				if !assistant.acceptsOutput() {
-					continue
-				}
-				if t.mode == DoubaoRealtimeModePushToTalk {
-					pushToTalk.chatEnded()
-				}
-				// Model response ended (text complete, audio may follow)
-				slog.Debug("doubao: chat ended")
-				epoch := assistant.currentEpoch()
-				doneChunk := &genx.MessageChunk{
-					Role: genx.RoleModel,
-					Part: genx.Text(""),
-					Ctrl: &genx.StreamCtrl{
-						StreamID:    streamID,
-						Label:       doubaoRealtimeAssistantLabel,
-						EndOfStream: true,
-					},
-				}
-				if err := pushAssistantOutput(epoch, doneChunk); err != nil {
-					return
-				}
+				case doubaospeech.EventTTSAudioData:
+					var response *doubaoRealtimePTTResponse
+					epoch := assistant.currentEpoch()
+					if t.mode == DoubaoRealtimeModePushToTalk {
+						response = pttResponses.match(doubaoRealtimeEventResponseIdentity(event))
+						if response == nil {
+							continue
+						}
+						streamID = response.streamID
+						epoch = response.epoch
+						response.ttsStarted = true
+						pushToTalk.responseStarted(streamID, true)
+					} else if !assistant.acceptsOutput() {
+						continue
+					} else if t.mode == DoubaoRealtimeModeText {
+						textResponses.markTTSStarted()
+					}
+					if len(event.Audio) > 0 {
+						slog.Debug("doubao: audio received", "len", len(event.Audio))
+						blobs, err := t.outputAudioBlobs(event.Audio)
+						if err != nil {
+							return err
+						}
+						for _, blob := range blobs {
+							outChunk := &genx.MessageChunk{
+								Role: genx.RoleModel,
+								Part: blob,
+								Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel},
+							}
+							if err := pushAssistantOutput(epoch, response, outChunk); err != nil {
+								return err
+							}
+							if !waitOutputFrame(epoch) {
+								break
+							}
+						}
+					}
 
-			case doubaospeech.EventSessionFinished:
-				// Session ended
-				slog.Info("doubao: session ended")
-				return
+				case doubaospeech.EventTTSFinished:
+					var response *doubaoRealtimePTTResponse
+					epoch := assistant.currentEpoch()
+					if t.mode == DoubaoRealtimeModePushToTalk {
+						response = pttResponses.match(doubaoRealtimeEventResponseIdentity(event))
+						if response == nil {
+							continue
+						}
+						streamID = response.streamID
+						epoch = response.epoch
+					} else if !assistant.acceptsOutput() {
+						if t.mode == DoubaoRealtimeModeText {
+							textResponses.markTTSFinished()
+						}
+						continue
+					}
+					slog.Info("doubao: TTS finished, sending EOS", "streamID", streamID)
+					eosChunk := &genx.MessageChunk{
+						Role: genx.RoleModel,
+						Part: &genx.Blob{MIMEType: t.outputMIMEType()},
+						Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel, EndOfStream: true},
+					}
+					if err := pushAssistantOutput(epoch, response, eosChunk); err != nil {
+						return err
+					}
+					markAssistantAudioDone(epoch)
+					if t.mode == DoubaoRealtimeModePushToTalk {
+						pushToTalk.ttsFinished(streamID)
+						response.ttsFinished = true
+						pttResponses.finish(response)
+					} else if t.mode == DoubaoRealtimeModeText {
+						textResponses.markTTSFinished()
+					}
+
+				case doubaospeech.EventChatEnded:
+					var response *doubaoRealtimePTTResponse
+					epoch := assistant.currentEpoch()
+					if t.mode == DoubaoRealtimeModePushToTalk {
+						response = pttResponses.match(doubaoRealtimeEventResponseIdentity(event))
+						if response == nil {
+							continue
+						}
+						streamID = response.streamID
+						epoch = response.epoch
+						pushToTalk.chatEnded(streamID)
+					} else if !assistant.acceptsOutput() {
+						if t.mode == DoubaoRealtimeModeText {
+							textResponses.markChatEnded()
+						}
+						continue
+					}
+					slog.Debug("doubao: chat ended")
+					doneChunk := &genx.MessageChunk{
+						Role: genx.RoleModel,
+						Part: genx.Text(""),
+						Ctrl: &genx.StreamCtrl{
+							StreamID:    streamID,
+							Label:       doubaoRealtimeAssistantLabel,
+							EndOfStream: true,
+						},
+					}
+					if err := pushAssistantOutput(epoch, response, doneChunk); err != nil {
+						return err
+					}
+					markAssistantTextDone(epoch)
+					if response != nil {
+						response.chatEnded = true
+						pttResponses.finish(response)
+					} else if t.mode == DoubaoRealtimeModeText {
+						textResponses.markChatEnded()
+					}
+
+				case doubaospeech.EventSessionFinished:
+					slog.Info("doubao: session ended")
+					return doubaoRealtimeRecoverable("session finished", io.EOF)
+				}
 			}
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			return doubaoRealtimeRecoverable("receive events", io.EOF)
 		}
+		eventsResult <- receive()
+	}()
+	defer func() {
+		_ = session.Close()
+		<-eventsDone
 	}()
 
 	slog.Info("doubao: starting audio send loop")
 
-	// Send audio to realtime service
 	audioSent := 0
-	audioInputs := newDoubaoRealtimeAudioInputs(t.inputFormat, t.inputSampleRate, t.inputChannels, t.inputTranscode)
-	defer audioInputs.close()
-	for {
+	stop := make(chan struct{})
+	go func() {
 		select {
+		case <-ctx.Done():
+		case <-output.Done():
 		case <-eventsDone:
-			slog.Info("doubao: events done, waiting for next input")
-			for {
-				chunk, err := input.Next()
-				if err != nil {
-					if err != io.EOF && err != genx.ErrDone {
-						slog.Error("doubao: input error after events done", "error", err)
-						return nil, err
-					}
-					slog.Info("doubao: input EOF after events done", "audioSent", audioSent)
-					return nil, nil
-				}
-				if chunk != nil {
-					return chunk.Clone(), nil
-				}
-			}
-		default:
 		}
-
-		chunk, err := input.Next()
+		close(stop)
+	}()
+	for {
+		chunk, err, stopped := doubaoRealtimeNextOrDone(input, stop)
+		if stopped {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+			select {
+			case <-output.Done():
+				return nil
+			default:
+			}
+			return <-eventsResult
+		}
 		if err != nil {
 			if err != io.EOF && err != genx.ErrDone {
 				slog.Error("doubao: input error", "error", err)
-				return nil, err
-			} else {
-				slog.Info("doubao: input EOF", "audioSent", audioSent)
+				return err
 			}
-			// Wait for remaining events
-			<-eventsDone
-			return nil, nil
+			slog.Info("doubao: input EOF", "audioSent", audioSent)
+			var responseDone <-chan struct{}
+			var wait bool
+			switch t.mode {
+			case DoubaoRealtimeModePushToTalk:
+				responseDone, wait = pttTurn.responseDone()
+			case DoubaoRealtimeModeText:
+				responseDone, wait = textResponses.responseDone()
+			}
+			if wait {
+				select {
+				case <-responseDone:
+					return nil
+				default:
+				}
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-output.Done():
+					return nil
+				case <-responseDone:
+					return nil
+				case eventErr := <-eventsResult:
+					return eventErr
+				}
+			}
+			return nil
 		}
 
 		if chunk == nil {
 			continue
 		}
-
-		// Track StreamID from BOS marker only
-		if chunk.IsBeginOfStream() && chunk.Ctrl != nil && chunk.Ctrl.StreamID != "" {
-			bargeIn := false
-			interruptStreamID := chunk.Ctrl.StreamID
-			if t.mode == DoubaoRealtimeModePushToTalk {
-				var err error
-				var previousStreamID string
-				bargeIn, previousStreamID, err = pushToTalk.begin(chunk.Ctrl.StreamID)
-				if err != nil {
-					return nil, err
+		if t.mode == DoubaoRealtimeModePushToTalk && pushToTalk.discard(chunk) {
+			if realtimeAudioInputEOS(chunk) {
+				streamID := streamIDs.serviceInput(chunk)
+				historyStreamID := streamIDs.historyInput(chunk)
+				mimeType := ""
+				if blob, ok := chunk.Part.(*genx.Blob); ok {
+					mimeType = blob.MIMEType
 				}
+				if err := output.Push(historyUserAudioEOSChunk(historyStreamID, mimeType)); err != nil {
+					return err
+				}
+				audioInputs.closeStream(streamID)
+			}
+			continue
+		}
+
+		if chunk.IsBeginOfStream() && chunk.Ctrl != nil && chunk.Ctrl.StreamID != "" {
+			if t.mode == DoubaoRealtimeModePushToTalk {
+				pttControl.Lock()
+				bargeIn, previousStreamID, err := pushToTalk.begin(chunk.Ctrl.StreamID)
+				if err != nil {
+					pttControl.Unlock()
+					return err
+				}
+				interruptStreamID := chunk.Ctrl.StreamID
 				if previousStreamID != "" {
 					interruptStreamID = previousStreamID
 				}
+				interrupted := interruptAssistantState(interruptStreamID, bargeIn)
+				if interrupted {
+					_, _, _ = pttTurn.discard()
+				}
+				streamIDs.beginInput(chunk.Ctrl.StreamID)
+				pttTurn.begin(
+					output,
+					streamIDs.input(),
+					doubaoRealtimeAssistantLabel,
+					doubaoRealtimePTTOutputLimit,
+					realtimePTTOutputByteLimit(doubaoRealtimePTTOutputLimit, t.sampleRate, t.channels),
+				)
+				pttControl.Unlock()
+				if interrupted {
+					if err := session.Interrupt(ctx); err != nil {
+						return doubaoRealtimeRecoverable("interrupt response", err)
+					}
+				}
+				slog.Info("doubao: received BOS", "streamID", chunk.Ctrl.StreamID)
+				continue
 			}
-			interrupted, err := interruptAssistant(interruptStreamID, bargeIn)
-			if err != nil {
-				return nil, err
-			}
-			if interrupted {
-				slog.Info("doubao: restarting realtime session after interrupt", "streamID", chunk.Ctrl.StreamID)
-				restarting.Store(true)
-				return chunk.Clone(), nil
+			if _, err := interruptAssistant(chunk.Ctrl.StreamID, false); err != nil {
+				return err
 			}
 			streamIDs.beginInput(chunk.Ctrl.StreamID)
 			slog.Info("doubao: received BOS", "streamID", chunk.Ctrl.StreamID)
 			continue
 		}
 
-		// Handle audio-channel or route EOS according to the configured input mode.
 		if realtimeAudioInputEOS(chunk) {
 			streamID := streamIDs.serviceInput(chunk)
 			if t.mode == DoubaoRealtimeModePushToTalk {
 				if err := pushToTalk.end(); err != nil {
-					return nil, err
+					return err
 				}
 				historyStreamID := streamIDs.historyInput(chunk)
 				slog.Info("doubao: received EOS, ending ASR", "streamID", streamID, "historyStreamID", historyStreamID, "audioSent", audioSent)
@@ -906,39 +1466,39 @@ func (t *DoubaoRealtime) processLoop(ctx context.Context, input genx.Stream, out
 					mimeType = blob.MIMEType
 				}
 				if err := output.Push(historyUserAudioEOSChunk(historyStreamID, mimeType)); err != nil {
-					return nil, err
+					return err
 				}
+				pttASR.add(pttTurn.currentGeneration())
 				if err := session.EndASR(ctx); err != nil {
 					slog.Error("doubao: end ASR error", "error", err)
-					return nil, err
+					return doubaoRealtimeRecoverable("end ASR", err)
+				}
+				if err := pttTurn.markInputEnded(); err != nil {
+					return err
 				}
 			} else if t.mode != DoubaoRealtimeModeText {
-				slog.Info("doubao: received EOS, sending silence for VAD", "streamID", streamID, "audioSent", audioSent)
-				t.sendVADSilence(ctx, session, audioInputs.stream(streamID))
+				slog.Info("doubao: received realtime EOS, closing local audio input", "streamID", streamID, "audioSent", audioSent)
 			}
 			audioInputs.closeStream(streamID)
-			// Don't return - wait for Doubao to process and respond
 			continue
 		}
 
-		// Send based on part type
 		switch p := chunk.Part.(type) {
 		case *genx.Blob:
 			if t.mode == DoubaoRealtimeModeText {
-				return nil, fmt.Errorf("doubao realtime text mode does not accept audio input")
+				return fmt.Errorf("doubao realtime text mode does not accept audio input")
 			}
 			if t.mode == DoubaoRealtimeModePushToTalk {
 				if err := pushToTalk.requireCapturing("audio"); err != nil {
-					return nil, err
+					return err
 				}
 			}
-			// Send audio blob
 			if len(p.Data) > 0 {
 				streamID := streamIDs.serviceInput(chunk)
 				historyStreamID := streamIDs.historyInput(chunk)
 				if t.mode != DoubaoRealtimeModeRealtime {
 					if err := output.Push(historyUserAudioChunk(chunk, historyStreamID)); err != nil {
-						return nil, err
+						return err
 					}
 				}
 				audioInput, err := audioInputs.streamForBlob(streamID, p)
@@ -946,14 +1506,14 @@ func (t *DoubaoRealtime) processLoop(ctx context.Context, input genx.Stream, out
 					slog.Error("doubao: prepare audio error", "error", err)
 					t.pushInputEOSError(output, streamID, err)
 					audioInputs.closeStream(streamID)
-					return nil, err
+					return err
 				}
 				frames, err := audioInput.prepareFrames(p)
 				if err != nil {
 					slog.Error("doubao: prepare audio error", "error", err)
 					t.pushInputEOSError(output, streamID, err)
 					audioInputs.closeStream(streamID)
-					return nil, err
+					return err
 				}
 				if len(frames) == 0 {
 					continue
@@ -968,50 +1528,31 @@ func (t *DoubaoRealtime) processLoop(ctx context.Context, input genx.Stream, out
 					}
 					if err := session.SendAudio(ctx, audio); err != nil {
 						slog.Error("doubao: send audio error", "error", err)
-						return nil, err
+						return doubaoRealtimeRecoverable("send audio", err)
 					}
 				}
 			}
 		case genx.Text:
-			// Send text query
 			if len(p) > 0 {
 				slog.Info("doubao: sending text", "text", string(p))
+				var response *doubaoRealtimeTextResponse
+				if t.mode == DoubaoRealtimeModeText {
+					response = textResponses.begin()
+					if inputStreamID := streamIDs.serviceInput(chunk); inputStreamID != "" {
+						streamIDs.beginInput(inputStreamID)
+					}
+					responseStreamID := streamIDs.endInputSegment()
+					assistant.setAccept(true)
+					assistant.markPending(responseStreamID, assistant.currentEpoch())
+				}
 				if err := session.SendText(ctx, string(p)); err != nil {
+					textResponses.cancel(response)
 					slog.Error("doubao: send text error", "error", err)
-					return nil, err
+					return doubaoRealtimeRecoverable("send text", err)
 				}
 			}
 		}
 	}
-}
-
-type pendingChunkStream struct {
-	first *genx.MessageChunk
-	rest  genx.Stream
-}
-
-func withPendingChunk(rest genx.Stream, first *genx.MessageChunk) genx.Stream {
-	if first == nil {
-		return rest
-	}
-	return &pendingChunkStream{first: first, rest: rest}
-}
-
-func (s *pendingChunkStream) Next() (*genx.MessageChunk, error) {
-	if s.first != nil {
-		chunk := s.first
-		s.first = nil
-		return chunk, nil
-	}
-	return s.rest.Next()
-}
-
-func (s *pendingChunkStream) Close() error {
-	return s.rest.Close()
-}
-
-func (s *pendingChunkStream) CloseWithError(err error) error {
-	return s.rest.CloseWithError(err)
 }
 
 func (t *DoubaoRealtime) pushInputEOSError(output *bufferStream, streamID string, err error) {
@@ -1030,48 +1571,13 @@ func (t *DoubaoRealtime) pushInputEOSError(output *bufferStream, streamID string
 	})
 }
 
-func isDoubaoRealtimeIdleTimeout(err error) bool {
-	if err == nil {
-		return false
+func doubaoRealtimeEventResponseIdentity(event *doubaospeech.RealtimeEvent) doubaoRealtimePTTResponseIdentity {
+	if event == nil {
+		return doubaoRealtimePTTResponseIdentity{}
 	}
-	var apiErr *doubaospeech.Error
-	if errors.As(err, &apiErr) {
-		message := strings.ToLower(apiErr.Message)
-		if apiErr.Code == 55000001 && strings.Contains(message, "dialogaudioidletimeouterror") {
-			return true
-		}
-	}
-	text := strings.ToLower(err.Error())
-	return strings.Contains(text, "dialogaudioidletimeouterror")
-}
-
-func isDoubaoRealtimeInterruptedDone(err error) bool {
-	if err == nil {
-		return false
-	}
-	text := strings.ToLower(err.Error())
-	return strings.Contains(text, "the stream is done") || strings.Contains(text, "code = 13")
-}
-
-func (t *DoubaoRealtime) sendVADSilence(ctx context.Context, session doubaoRealtimeSession, audioInput *doubaoRealtimeAudioInput) {
-	if session == nil {
-		return
-	}
-	if audioInput == nil {
-		audioInput = newDoubaoRealtimeAudioInput(t.inputFormat, t.inputSampleRate, t.inputChannels, t.inputTranscode)
-		defer audioInput.close()
-	}
-	frames, err := audioInput.silenceFrames(50)
-	if err != nil {
-		slog.Error("doubao: prepare silence error", "error", err)
-		return
-	}
-	for _, frame := range frames {
-		if err := session.SendAudio(ctx, frame); err != nil {
-			slog.Error("doubao: send silence error", "error", err)
-			return
-		}
-		time.Sleep(20 * time.Millisecond)
+	return doubaoRealtimePTTResponseIdentity{
+		replyID:    strings.TrimSpace(event.ReplyID),
+		questionID: strings.TrimSpace(event.QuestionID),
 	}
 }
 
@@ -1210,6 +1716,34 @@ func (t *DoubaoRealtime) outputMIMEType() string {
 		return "audio/opus"
 	}
 	return t.mimeType()
+}
+
+func realtimePTTOutputByteLimit(limit time.Duration, sampleRate, channels int) int64 {
+	if limit <= 0 {
+		return 0
+	}
+	if sampleRate <= 0 {
+		sampleRate = doubaoRealtimeFixedOutputSampleRate
+	}
+	if channels <= 0 {
+		channels = doubaoRealtimeFixedOutputChannels
+	}
+	const bytesPerSample = int64(2)
+	const maxInt64 = int64(^uint64(0) >> 1)
+	sampleRate64 := int64(sampleRate)
+	channels64 := int64(channels)
+	if sampleRate64 > maxInt64/channels64/bytesPerSample {
+		return doubaoRealtimePTTOutputMaxBytes
+	}
+	bytesPerSecond := sampleRate64 * channels64 * bytesPerSample
+	seconds := int64(limit / time.Second)
+	if limit%time.Second != 0 {
+		seconds++
+	}
+	if seconds > maxInt64/bytesPerSecond {
+		return doubaoRealtimePTTOutputMaxBytes
+	}
+	return min(bytesPerSecond*seconds, int64(doubaoRealtimePTTOutputMaxBytes))
 }
 
 func (t *DoubaoRealtime) outputAudioBlobs(audio []byte) ([]*genx.Blob, error) {

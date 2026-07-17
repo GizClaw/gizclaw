@@ -188,6 +188,7 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 	var sentAudioDuration time.Duration
 	var sessionSeq uint64
 	var activeSessionSeq atomic.Uint64
+	var terminalSessionSeq atomic.Uint64
 	historyAudio := newASTTranslateHistoryAudioBuffer()
 	defer func() {
 		if rawOpusDecoder != nil {
@@ -235,6 +236,9 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 			sessionGate = nil
 		}
 		done := make(chan error, 1)
+		markTerminal := func() {
+			terminalSessionSeq.Store(seq)
+		}
 		start := make(chan struct{})
 		pttGate := sessionGate
 		recvDone = done
@@ -242,12 +246,13 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 		go func(activeStreamID string, start <-chan struct{}, eventOutput astTranslateOutput, pttGate *astTranslatePTTOutputGate) {
 			select {
 			case <-ctx.Done():
+				markTerminal()
 				pttGate.Discard()
 				done <- ctx.Err()
 				return
 			case <-start:
 			}
-			err := t.forwardEvents(eventOutput, next, activeStreamID, historyAudio)
+			err := t.forwardEvents(eventOutput, next, activeStreamID, historyAudio, markTerminal)
 			if errors.Is(err, errDoubaoASTTranslatePTTOutputLimit) {
 				_ = next.Close()
 			} else if err != nil {
@@ -487,7 +492,15 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 				continue
 			}
 			if strings.TrimSpace(streamID) != "" && strings.TrimSpace(id) != "" && id != streamID {
-				if err := interruptSession(id); err != nil {
+				var err error
+				activeSeq := activeSessionSeq.Load()
+				if activeSeq != 0 && terminalSessionSeq.Load() == activeSeq {
+					sessionFinishing = true
+					err = finishSession(true)
+				} else {
+					err = interruptSession(id)
+				}
+				if err != nil {
 					output.CloseWithError(err)
 					return
 				}
@@ -872,7 +885,14 @@ func (o astTranslateGatedOutput) Push(chunk *genx.MessageChunk) error {
 	return o.output.Push(chunk)
 }
 
-func (t *DoubaoASTTranslate) forwardEvents(output astTranslateOutput, session doubaoASTTranslateSession, streamID string, historyAudio *astTranslateHistoryAudioBuffer) (retErr error) {
+func (t *DoubaoASTTranslate) forwardEvents(
+	output astTranslateOutput,
+	session doubaoASTTranslateSession,
+	streamID string,
+	historyAudio *astTranslateHistoryAudioBuffer,
+	markTerminal func(),
+) (retErr error) {
+	defer markTerminal()
 	source := astTranslateTextState{role: genx.RoleUser, label: doubaoASTTranslateTranscriptLabel, streamID: streamID}
 	translation := astTranslateTextState{role: genx.RoleModel, label: doubaoASTTranslateAssistantLabel, streamID: streamID}
 	audio := astTranslateAudioState{streamID: streamID, mimeType: "audio/opus", decoder: newASTOggOpusFrameDecoder()}
@@ -917,6 +937,7 @@ func (t *DoubaoASTTranslate) forwardEvents(output astTranslateOutput, session do
 	}
 	for event, err := range events {
 		if err != nil {
+			markTerminal()
 			failPTTGate(err)
 			_ = source.close(output, err.Error())
 			_ = translation.close(output, err.Error())
@@ -1000,6 +1021,7 @@ func (t *DoubaoASTTranslate) forwardEvents(output astTranslateOutput, session do
 				return failPTTGate(err)
 			}
 		case doubaospeech.ASTEventSessionFinished:
+			markTerminal()
 			if !segmentByProvider {
 				if err := historyAudio.emitSegment(output, ensureSegment(), 0, 0); err != nil {
 					return failPTTGate(err)
@@ -1007,6 +1029,7 @@ func (t *DoubaoASTTranslate) forwardEvents(output astTranslateOutput, session do
 			}
 			return nil
 		case doubaospeech.ASTEventSessionCanceled, doubaospeech.ASTEventSessionFailed:
+			markTerminal()
 			if event.Error != nil {
 				return failPTTGate(event.Error)
 			}
