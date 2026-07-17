@@ -633,6 +633,7 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
       repository: data.workspaceChatRepository,
       serverId: data.activeServerId,
       client: data.connection.client,
+      onWorkspaceAccessError: data.reconcileWorkspaceFailure,
     );
     _bindChat(viewer, ownsChat: true, notify: true);
     await viewer.start(conversation: false);

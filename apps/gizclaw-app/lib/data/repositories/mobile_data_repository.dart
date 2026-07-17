@@ -14,6 +14,23 @@ class MobileDataRefreshWarning {
   String toString() => '$scope refresh failed: $error';
 }
 
+class WorkspaceSnapshotResult {
+  const WorkspaceSnapshotResult({
+    required this.applied,
+    required this.workspaceNames,
+  });
+
+  static const notApplied = WorkspaceSnapshotResult(
+    applied: false,
+    workspaceNames: <String>{},
+  );
+
+  final bool applied;
+  final Set<String> workspaceNames;
+
+  bool contains(String workspaceName) => workspaceNames.contains(workspaceName);
+}
+
 class MobileDataRepository {
   MobileDataRepository(this.database);
 
@@ -120,6 +137,13 @@ class MobileDataRepository {
     return row == null ? null : Workspace.fromBuffer(row.rawProtobuf);
   }
 
+  Future<void> deleteWorkspaceProjection(String serverId, String name) async {
+    await (database.delete(database.workspaceEntries)..where(
+          (row) => row.serverId.equals(serverId) & row.name.equals(name),
+        ))
+        .go();
+  }
+
   Future<List<MobileDataRefreshWarning>> refresh({
     required GizClawClient client,
     required String endpoint,
@@ -128,26 +152,150 @@ class MobileDataRepository {
     required String serverId,
     required WorkflowLocale workflowLocale,
   }) async {
-    final workflows = await _allWorkflows(client, workflowLocale);
-    final workspaces = await _allWorkspaces(client);
-    if (!isCurrent()) return const [];
-    final workflowIcons = await _workflowIcons(client, workflows, isCurrent);
-    if (!isCurrent()) return const [];
+    final warnings = <MobileDataRefreshWarning>[];
+    try {
+      await _refreshWorkflowSnapshot(
+        client: client,
+        endpoint: endpoint,
+        isCurrent: isCurrent,
+        locale: locale,
+        serverId: serverId,
+        workflowLocale: workflowLocale,
+      );
+    } catch (error) {
+      warnings.add(MobileDataRefreshWarning(scope: 'Workflows', error: error));
+    }
+    if (!isCurrent()) return warnings;
+
+    try {
+      await refreshWorkspaceSnapshot(
+        client: client,
+        endpoint: endpoint,
+        isCurrent: isCurrent,
+        serverId: serverId,
+      );
+    } catch (error) {
+      warnings.add(MobileDataRefreshWarning(scope: 'Workspaces', error: error));
+    }
+    if (!isCurrent()) return warnings;
+
     final refreshedAt = DateTime.now().toUtc();
+    try {
+      await _replaceFriends(
+        serverId: serverId,
+        friends: await _allFriends(client),
+        isCurrent: isCurrent,
+        refreshedAt: refreshedAt,
+      );
+    } on _StaleRefresh {
+      return warnings;
+    } catch (error) {
+      warnings.add(MobileDataRefreshWarning(scope: 'Friends', error: error));
+    }
+    if (!isCurrent()) return warnings;
+    try {
+      await _replaceFriendGroups(
+        serverId: serverId,
+        groups: await _allFriendGroups(client),
+        isCurrent: isCurrent,
+        refreshedAt: refreshedAt,
+      );
+    } on _StaleRefresh {
+      return warnings;
+    } catch (error) {
+      warnings.add(MobileDataRefreshWarning(scope: 'Groups', error: error));
+    }
+    return warnings;
+  }
+
+  Future<WorkspaceSnapshotResult> refreshWorkspaceSnapshot({
+    required GizClawClient client,
+    required String endpoint,
+    required bool Function() isCurrent,
+    required String serverId,
+  }) async {
+    final workspaces = await _allWorkspaces(client);
+    if (!isCurrent()) return WorkspaceSnapshotResult.notApplied;
+    final refreshedAt = DateTime.now().toUtc();
+    final workspaceNames = workspaces.map((item) => item.name).toSet();
 
     try {
       await database.transaction(() async {
         _requireCurrent(isCurrent);
+        await _upsertServer(
+          endpoint: endpoint,
+          refreshedAt: refreshedAt,
+          serverId: serverId,
+        );
+        _requireCurrent(isCurrent);
+        await database.batch((batch) {
+          batch.insertAllOnConflictUpdate(
+            database.workspaceEntries,
+            workspaces.map((workspace) {
+              return WorkspaceEntriesCompanion.insert(
+                serverId: serverId,
+                name: workspace.name,
+                workflowName: workspace.workflowName,
+                createdAt: Value(_dateTimeOrNull(workspace.createdAt)),
+                lastActiveAt: Value(_dateTimeOrNull(workspace.lastActiveAt)),
+                updatedAt: Value(_dateTimeOrNull(workspace.updatedAt)),
+                rawProtobuf: Uint8List.fromList(workspace.writeToBuffer()),
+                refreshedAt: refreshedAt,
+              );
+            }).toList(),
+          );
+        });
+        _requireCurrent(isCurrent);
+        await (database.delete(database.workspaceEntries)..where(
+              (row) =>
+                  row.serverId.equals(serverId) &
+                  row.name.isNotIn(workspaceNames),
+            ))
+            .go();
+        _requireCurrent(isCurrent);
         await database
-            .into(database.servers)
+            .into(database.syncStates)
             .insertOnConflictUpdate(
-              ServersCompanion.insert(
-                id: serverId,
-                endpoint: endpoint,
-                lastConnectedAt: Value(refreshedAt),
+              SyncStatesCompanion.insert(
+                serverId: serverId,
+                scope: 'workspace-snapshot',
+                lastSuccessfulRefreshAt: Value(refreshedAt),
               ),
             );
+      });
+    } on _StaleRefresh {
+      return WorkspaceSnapshotResult.notApplied;
+    }
 
+    return WorkspaceSnapshotResult(
+      applied: true,
+      workspaceNames: Set.unmodifiable(workspaceNames),
+    );
+  }
+
+  Future<bool> _refreshWorkflowSnapshot({
+    required GizClawClient client,
+    required String endpoint,
+    required bool Function() isCurrent,
+    required String locale,
+    required String serverId,
+    required WorkflowLocale workflowLocale,
+  }) async {
+    final workflows = await _allWorkflows(client, workflowLocale);
+    if (!isCurrent()) return false;
+    final workflowIcons = await _workflowIcons(client, workflows, isCurrent);
+    if (!isCurrent()) return false;
+    final refreshedAt = DateTime.now().toUtc();
+    final workflowNames = workflows.map((item) => item.name).toSet();
+
+    try {
+      await database.transaction(() async {
+        _requireCurrent(isCurrent);
+        await _upsertServer(
+          endpoint: endpoint,
+          refreshedAt: refreshedAt,
+          serverId: serverId,
+        );
         _requireCurrent(isCurrent);
         await database.batch((batch) {
           batch.insertAllOnConflictUpdate(
@@ -166,36 +314,12 @@ class MobileDataRepository {
               );
             }).toList(),
           );
-          batch.insertAllOnConflictUpdate(
-            database.workspaceEntries,
-            workspaces.map((workspace) {
-              return WorkspaceEntriesCompanion.insert(
-                serverId: serverId,
-                name: workspace.name,
-                workflowName: workspace.workflowName,
-                createdAt: Value(_dateTimeOrNull(workspace.createdAt)),
-                lastActiveAt: Value(_dateTimeOrNull(workspace.lastActiveAt)),
-                updatedAt: Value(_dateTimeOrNull(workspace.updatedAt)),
-                rawProtobuf: Uint8List.fromList(workspace.writeToBuffer()),
-                refreshedAt: refreshedAt,
-              );
-            }).toList(),
-          );
         });
-
         _requireCurrent(isCurrent);
-        final workflowNames = workflows.map((item) => item.name).toSet();
-        final workspaceNames = workspaces.map((item) => item.name).toSet();
         await (database.delete(database.workflowEntries)..where(
               (row) =>
                   row.serverId.equals(serverId) &
                   row.name.isNotIn(workflowNames),
-            ))
-            .go();
-        await (database.delete(database.workspaceEntries)..where(
-              (row) =>
-                  row.serverId.equals(serverId) &
-                  row.name.isNotIn(workspaceNames),
             ))
             .go();
         _requireCurrent(isCurrent);
@@ -204,43 +328,39 @@ class MobileDataRepository {
             .insertOnConflictUpdate(
               SyncStatesCompanion.insert(
                 serverId: serverId,
-                scope: 'workflow-workspace-snapshot',
+                scope: 'workflow-snapshot',
                 lastSuccessfulRefreshAt: Value(refreshedAt),
               ),
             );
       });
     } on _StaleRefresh {
-      return const [];
+      return false;
     }
-
-    final warnings = <MobileDataRefreshWarning>[];
-    try {
-      await _replaceFriends(
-        serverId: serverId,
-        friends: await _allFriends(client),
-        refreshedAt: refreshedAt,
-      );
-    } catch (error) {
-      warnings.add(MobileDataRefreshWarning(scope: 'Friends', error: error));
-    }
-    try {
-      await _replaceFriendGroups(
-        serverId: serverId,
-        groups: await _allFriendGroups(client),
-        refreshedAt: refreshedAt,
-      );
-    } catch (error) {
-      warnings.add(MobileDataRefreshWarning(scope: 'Groups', error: error));
-    }
-    return warnings;
+    return true;
   }
+
+  Future<void> _upsertServer({
+    required String endpoint,
+    required DateTime refreshedAt,
+    required String serverId,
+  }) => database
+      .into(database.servers)
+      .insertOnConflictUpdate(
+        ServersCompanion.insert(
+          id: serverId,
+          endpoint: endpoint,
+          lastConnectedAt: Value(refreshedAt),
+        ),
+      );
 
   Future<void> _replaceFriends({
     required String serverId,
     required List<FriendObject> friends,
+    required bool Function() isCurrent,
     required DateTime refreshedAt,
   }) async {
     await database.transaction(() async {
+      _requireCurrent(isCurrent);
       await database.batch((batch) {
         batch.insertAllOnConflictUpdate(
           database.friendEntries,
@@ -258,20 +378,24 @@ class MobileDataRepository {
           }).toList(),
         );
       });
+      _requireCurrent(isCurrent);
       final friendIds = friends.map(_friendKey).toSet();
       await (database.delete(database.friendEntries)..where(
             (row) => row.serverId.equals(serverId) & row.id.isNotIn(friendIds),
           ))
           .go();
+      _requireCurrent(isCurrent);
     });
   }
 
   Future<void> _replaceFriendGroups({
     required String serverId,
     required List<FriendGroupObject> groups,
+    required bool Function() isCurrent,
     required DateTime refreshedAt,
   }) async {
     await database.transaction(() async {
+      _requireCurrent(isCurrent);
       await database.batch((batch) {
         batch.insertAllOnConflictUpdate(
           database.friendGroupEntries,
@@ -290,11 +414,13 @@ class MobileDataRepository {
           }).toList(),
         );
       });
+      _requireCurrent(isCurrent);
       final groupIds = groups.map(_friendGroupKey).toSet();
       await (database.delete(database.friendGroupEntries)..where(
             (row) => row.serverId.equals(serverId) & row.id.isNotIn(groupIds),
           ))
           .go();
+      _requireCurrent(isCurrent);
     });
   }
 }

@@ -279,6 +279,100 @@ void main() {
     expect(controller.lastError, isA<StateError>());
   });
 
+  for (final code in [403, 404]) {
+    test('reconciles a typed $code history failure once', () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+      final error = RpcError(code, 'workspace unavailable');
+      final calls = <({String workspaceName, Object error})>[];
+      final controller = WorkspaceChatController(
+        workspaceName: 'translator',
+        repository: _ConfiguredFailingHistoryRepository(database, error),
+        serverId: 'server-a',
+        client: GizClawClient(_NeverDataChannelFactory()),
+        onWorkspaceAccessError: (workspaceName, error) async {
+          calls.add((workspaceName: workspaceName, error: error));
+        },
+      );
+      addTearDown(controller.close);
+
+      await controller.start(conversation: false);
+
+      expect(calls, hasLength(1));
+      expect(calls.single.workspaceName, 'translator');
+      expect(calls.single.error, same(error));
+      expect(controller.lastError, same(error));
+    });
+  }
+
+  test('reconciliation failure does not replace the history error', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final error = RpcError(403, 'workspace forbidden');
+    final controller = WorkspaceChatController(
+      workspaceName: 'translator',
+      repository: _ConfiguredFailingHistoryRepository(database, error),
+      serverId: 'server-a',
+      client: GizClawClient(_NeverDataChannelFactory()),
+      onWorkspaceAccessError: (_, _) async {
+        throw StateError('reconciliation failed');
+      },
+    );
+    addTearDown(controller.close);
+
+    await controller.start(conversation: false);
+
+    expect(controller.lastError, same(error));
+    expect(controller.state, WorkspaceChatState.error);
+  });
+
+  test('does not reconcile a non-authoritative history failure', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final error = RpcError(500, 'server unavailable');
+    var reconciliationCalls = 0;
+    final controller = WorkspaceChatController(
+      workspaceName: 'translator',
+      repository: _ConfiguredFailingHistoryRepository(database, error),
+      serverId: 'server-a',
+      client: GizClawClient(_NeverDataChannelFactory()),
+      onWorkspaceAccessError: (_, _) async {
+        reconciliationCalls += 1;
+      },
+    );
+    addTearDown(controller.close);
+
+    await controller.start(conversation: false);
+
+    expect(reconciliationCalls, 0);
+    expect(controller.lastError, same(error));
+  });
+
+  test('ignores a history failure that completes after close', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = _DeferredHistoryRepository(database);
+    var reconciliationCalls = 0;
+    final controller = WorkspaceChatController(
+      workspaceName: 'translator',
+      repository: repository,
+      serverId: 'server-a',
+      client: GizClawClient(_NeverDataChannelFactory()),
+      onWorkspaceAccessError: (_, _) async {
+        reconciliationCalls += 1;
+      },
+    );
+
+    final start = controller.start(conversation: false);
+    await repository.started.future;
+    await controller.close();
+    repository.result.completeError(RpcError(404, 'workspace missing'));
+    await start;
+
+    expect(reconciliationCalls, 0);
+    expect(controller.lastError, isNull);
+  });
+
   test('keeps repeated live text until a new history row arrives', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(database.close);
@@ -342,6 +436,38 @@ class _FailingHistoryRepository extends WorkspaceChatRepository {
     required String workspaceName,
   }) async {
     throw StateError('history unavailable');
+  }
+}
+
+class _ConfiguredFailingHistoryRepository extends WorkspaceChatRepository {
+  _ConfiguredFailingHistoryRepository(super.database, this.error);
+
+  final Object error;
+
+  @override
+  Future<List<CachedWorkspaceMessage>> refresh({
+    required GizClawClient client,
+    required String serverId,
+    required String workspaceName,
+  }) async {
+    throw error;
+  }
+}
+
+class _DeferredHistoryRepository extends WorkspaceChatRepository {
+  _DeferredHistoryRepository(super.database);
+
+  final started = Completer<void>();
+  final result = Completer<List<CachedWorkspaceMessage>>();
+
+  @override
+  Future<List<CachedWorkspaceMessage>> refresh({
+    required GizClawClient client,
+    required String serverId,
+    required String workspaceName,
+  }) {
+    started.complete();
+    return result.future;
   }
 }
 

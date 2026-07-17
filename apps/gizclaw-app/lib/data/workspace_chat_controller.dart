@@ -13,6 +13,8 @@ enum WorkspaceChatState { loading, connecting, connected, offline, error }
 enum WorkspaceMessageState { complete, streaming, failed }
 
 typedef SetInputSending = Future<void> Function(bool active);
+typedef WorkspaceAccessErrorCallback =
+    Future<void> Function(String workspaceName, Object error);
 
 class WorkspaceChatMessage {
   const WorkspaceChatMessage({
@@ -55,6 +57,7 @@ class WorkspaceChatController extends ChangeNotifier {
     this.setInputSending,
     this.ownsInputTrack,
     this.onTransportClosed,
+    this.onWorkspaceAccessError,
     this.pcmAudioLevels,
   });
 
@@ -65,6 +68,7 @@ class WorkspaceChatController extends ChangeNotifier {
   final SetInputSending? setInputSending;
   final bool Function()? ownsInputTrack;
   final Future<void> Function()? onTransportClosed;
+  final WorkspaceAccessErrorCallback? onWorkspaceAccessError;
   final Stream<PcmAudioLevels>? pcmAudioLevels;
   final WorkspaceChatRepository repository;
   final String? serverId;
@@ -521,11 +525,35 @@ class WorkspaceChatController extends ChangeNotifier {
         serverId: stableServerId,
         workspaceName: workspaceName,
       );
+      if (_disposed) return;
       _replaceCachedHistory(history);
       lastError = null;
       notifyListeners();
     } catch (error) {
+      if (_disposed) return;
+      await _reconcileWorkspaceAccessError(error);
+      if (_disposed) return;
       _handleError(error, changeState: _session == null && _cached.isEmpty);
+    }
+  }
+
+  Future<void> _reconcileWorkspaceAccessError(Object error) async {
+    final reconcile = onWorkspaceAccessError;
+    if (reconcile == null ||
+        error is! RpcError ||
+        (error.code != 403 && error.code != 404)) {
+      return;
+    }
+    try {
+      await reconcile(workspaceName, error);
+    } catch (reconciliationError) {
+      assert(() {
+        debugPrint(
+          'Workspace history reconciliation failed for $workspaceName: '
+          '$reconciliationError',
+        );
+        return true;
+      }());
     }
   }
 

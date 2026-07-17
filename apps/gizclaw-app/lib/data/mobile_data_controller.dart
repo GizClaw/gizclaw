@@ -29,9 +29,9 @@ Future<T> _workspaceActivationStep<T>(
 ) async {
   try {
     return await action();
-  } catch (error) {
+  } catch (error, stackTrace) {
     debugPrint('Workspace activation failed at $step: $error');
-    throw StateError('$step: $error');
+    Error.throwWithStackTrace(error, stackTrace);
   }
 }
 
@@ -995,6 +995,46 @@ class MobileDataController extends ChangeNotifier {
     return completer.future;
   }
 
+  Future<void> reconcileWorkspaceFailure(
+    String workspaceName,
+    Object error,
+  ) async {
+    if (error is! RpcError || (error.code != 403 && error.code != 404)) return;
+    final serverId = activeServerId;
+    if (serverId == null) return;
+
+    try {
+      if (error.code == 404) {
+        await repository.deleteWorkspaceProjection(serverId, workspaceName);
+        return;
+      }
+
+      final client = connection.client;
+      if (client == null) return;
+      final endpoint = connection.profile.endpoint;
+      final result = await repository.refreshWorkspaceSnapshot(
+        client: client,
+        endpoint: endpoint,
+        isCurrent: () =>
+            !_closing &&
+            activeServerId == serverId &&
+            connection.profile.endpoint == endpoint &&
+            identical(connection.client, client),
+        serverId: serverId,
+      );
+      if (!result.applied || result.contains(workspaceName)) return;
+      // Atomic snapshot replacement already removed the absent workspace.
+    } catch (reconciliationError) {
+      assert(() {
+        debugPrint(
+          'Workspace reconciliation failed for $workspaceName: '
+          '$reconciliationError',
+        );
+        return true;
+      }());
+    }
+  }
+
   Future<WorkspaceChatController> _activateWorkspaceChatNow(
     String workspaceName,
   ) async {
@@ -1002,10 +1042,16 @@ class MobileDataController extends ChangeNotifier {
     if (client == null) {
       throw StateError('Connect to GizClaw before switching workspace');
     }
-    final selected = await _workspaceActivationStep(
-      'select workspace',
-      () => client.setRunWorkspace(workspaceName),
-    );
+    late final ServerSetRunWorkspaceResponse selected;
+    try {
+      selected = await _workspaceActivationStep(
+        'select workspace',
+        () => client.setRunWorkspace(workspaceName),
+      );
+    } catch (error, stackTrace) {
+      await reconcileWorkspaceFailure(workspaceName, error);
+      Error.throwWithStackTrace(error, stackTrace);
+    }
     runWorkspaceState = selected.value;
     notifyListeners();
     await _workspaceActivationStep(
@@ -1122,6 +1168,7 @@ class MobileDataController extends ChangeNotifier {
       setInputSending: connection.setMicrophoneSending,
       ownsInputTrack: () => identical(_activeWorkspaceChat, chat),
       onTransportClosed: recoverTransport,
+      onWorkspaceAccessError: reconcileWorkspaceFailure,
       pcmAudioLevels: PcmAudioLevelSource.levels,
     );
     await _replaceActiveWorkspaceChat(chat);

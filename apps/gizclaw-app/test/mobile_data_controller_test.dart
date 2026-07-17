@@ -718,6 +718,199 @@ void main() {
     );
     expect(controller.activeWorkspaceName, 'workspace-new');
   });
+
+  test('404 selection failure evicts only the targeted projection', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    final repository = MobileDataRepository(database);
+    final client = _WorkspaceActivationClient();
+    final controller = MobileDataController(
+      database: database,
+      connectionController: _RefreshTestConnection(
+        profile: _profile('gizclaw.local:9820'),
+        client: client,
+        serverId: 'server-a',
+      ),
+      dataRepository: repository,
+    )..activeServerId = 'server-a';
+    addTearDown(controller.close);
+    await _seedWorkspaceProjection(repository, client, serverId: 'server-a');
+    await _seedWorkspaceProjection(repository, client, serverId: 'server-b');
+    final error = RpcError(404, 'workspace missing');
+    client.selectionError = error;
+
+    await expectLater(
+      controller.activateWorkspaceChat('workspace-new'),
+      throwsA(same(error)),
+    );
+
+    expect(
+      await repository.workspaceDocument('server-a', 'workspace-new'),
+      isNull,
+    );
+    expect(
+      await repository.workspaceDocument('server-a', 'workspace-old'),
+      isNotNull,
+    );
+    expect(
+      await repository.workspaceDocument('server-b', 'workspace-new'),
+      isNotNull,
+    );
+    expect(client.workspaceListCalls, 2);
+  });
+
+  test(
+    '403 selection failure removes a workspace absent from a fresh list',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      final repository = MobileDataRepository(database);
+      final client = _WorkspaceActivationClient();
+      final controller = MobileDataController(
+        database: database,
+        connectionController: _RefreshTestConnection(
+          profile: _profile('gizclaw.local:9820'),
+          client: client,
+          serverId: 'server-a',
+        ),
+        dataRepository: repository,
+      )..activeServerId = 'server-a';
+      addTearDown(controller.close);
+      await _seedWorkspaceProjection(repository, client, serverId: 'server-a');
+      final listCallsBeforeFailure = client.workspaceListCalls;
+      client.workspaceSnapshot = [
+        client.workspaces['workspace-old']!.deepCopy(),
+      ];
+      final error = RpcError(403, 'workspace hidden');
+      client.selectionError = error;
+
+      await expectLater(
+        controller.activateWorkspaceChat('workspace-new'),
+        throwsA(same(error)),
+      );
+
+      expect(client.workspaceListCalls, listCallsBeforeFailure + 1);
+      expect(
+        await repository.workspaceDocument('server-a', 'workspace-new'),
+        isNull,
+      );
+      expect(
+        await repository.workspaceDocument('server-a', 'workspace-old'),
+        isNotNull,
+      );
+    },
+  );
+
+  test(
+    '403 selection failure keeps a workspace present in the fresh list',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      final repository = MobileDataRepository(database);
+      final client = _WorkspaceActivationClient();
+      final controller = MobileDataController(
+        database: database,
+        connectionController: _RefreshTestConnection(
+          profile: _profile('gizclaw.local:9820'),
+          client: client,
+          serverId: 'server-a',
+        ),
+        dataRepository: repository,
+      )..activeServerId = 'server-a';
+      addTearDown(controller.close);
+      await _seedWorkspaceProjection(repository, client, serverId: 'server-a');
+      final error = RpcError(403, 'workspace forbidden');
+      client.selectionError = error;
+
+      await expectLater(
+        controller.activateWorkspaceChat('workspace-new'),
+        throwsA(same(error)),
+      );
+
+      expect(
+        await repository.workspaceDocument('server-a', 'workspace-new'),
+        isNotNull,
+      );
+    },
+  );
+
+  test(
+    'failed 403 reconciliation preserves projection and original error',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      final repository = MobileDataRepository(database);
+      final client = _WorkspaceActivationClient();
+      final controller = MobileDataController(
+        database: database,
+        connectionController: _RefreshTestConnection(
+          profile: _profile('gizclaw.local:9820'),
+          client: client,
+          serverId: 'server-a',
+        ),
+        dataRepository: repository,
+      )..activeServerId = 'server-a';
+      addTearDown(controller.close);
+      await _seedWorkspaceProjection(repository, client, serverId: 'server-a');
+      final error = RpcError(403, 'workspace forbidden');
+      client
+        ..selectionError = error
+        ..workspaceListError = StateError('workspace catalog unavailable');
+
+      await expectLater(
+        controller.activateWorkspaceChat('workspace-new'),
+        throwsA(same(error)),
+      );
+
+      expect(
+        await repository.workspaceDocument('server-a', 'workspace-new'),
+        isNotNull,
+      );
+    },
+  );
+
+  test(
+    'non-authoritative selection failure does not reconcile projection',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      final repository = MobileDataRepository(database);
+      final client = _WorkspaceActivationClient();
+      final controller = MobileDataController(
+        database: database,
+        connectionController: _RefreshTestConnection(
+          profile: _profile('gizclaw.local:9820'),
+          client: client,
+          serverId: 'server-a',
+        ),
+        dataRepository: repository,
+      )..activeServerId = 'server-a';
+      addTearDown(controller.close);
+      await _seedWorkspaceProjection(repository, client, serverId: 'server-a');
+      final listCallsBeforeFailure = client.workspaceListCalls;
+      final error = RpcError(500, 'server unavailable');
+      client.selectionError = error;
+
+      await expectLater(
+        controller.activateWorkspaceChat('workspace-new'),
+        throwsA(same(error)),
+      );
+
+      expect(client.workspaceListCalls, listCallsBeforeFailure);
+      expect(
+        await repository.workspaceDocument('server-a', 'workspace-new'),
+        isNotNull,
+      );
+    },
+  );
+}
+
+Future<void> _seedWorkspaceProjection(
+  MobileDataRepository repository,
+  _WorkspaceActivationClient client, {
+  required String serverId,
+}) async {
+  await repository.refreshWorkspaceSnapshot(
+    client: client,
+    endpoint: '$serverId.local',
+    isCurrent: () => true,
+    serverId: serverId,
+  );
 }
 
 GizClawConnectionProfile _profile(String endpoint) =>
@@ -1092,9 +1285,15 @@ class _WorkspaceActivationClient extends _RunWorkspaceClient {
     ),
   };
   final putWorkspaceNames = <String>[];
+  Object? selectionError;
+  Object? workspaceListError;
+  List<Workspace>? workspaceSnapshot;
+  int workspaceListCalls = 0;
 
   @override
   Future<ServerSetRunWorkspaceResponse> setRunWorkspace(String name) async {
+    final error = selectionError;
+    if (error != null) throw error;
     return ServerSetRunWorkspaceResponse(
       value: PeerRunWorkspaceState(
         activeWorkspaceName: 'workspace-old',
@@ -1102,6 +1301,18 @@ class _WorkspaceActivationClient extends _RunWorkspaceClient {
         pendingWorkspaceName: name,
       ),
     );
+  }
+
+  @override
+  Future<WorkspaceListResponse> listWorkspaces({
+    String? cursor,
+    int? limit,
+    String? prefix,
+  }) async {
+    workspaceListCalls += 1;
+    final error = workspaceListError;
+    if (error != null) throw error;
+    return WorkspaceListResponse(items: workspaceSnapshot ?? workspaces.values);
   }
 
   @override

@@ -283,6 +283,193 @@ void main() {
     expect(await repository.watchWorkspaces('server-a').first, isEmpty);
   });
 
+  test('workflow failure does not block a workspace snapshot', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = MobileDataRepository(database);
+    final client = _FakeClient(
+      workflows: [
+        Workflow(
+          name: 'stable-workflow',
+          spec: WorkflowSpec(driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT),
+        ),
+      ],
+      workspaces: [
+        Workspace(name: 'stale-workspace', workflowName: 'stable-workflow'),
+      ],
+    );
+    await repository.refresh(
+      client: client,
+      endpoint: 'local',
+      isCurrent: () => true,
+      locale: 'en',
+      serverId: 'server-a',
+      workflowLocale: WorkflowLocale.WORKFLOW_LOCALE_EN,
+    );
+
+    client.failWorkflows = true;
+    client.workspaces
+      ..clear()
+      ..add(
+        Workspace(name: 'fresh-workspace', workflowName: 'stable-workflow'),
+      );
+    final warnings = await repository.refresh(
+      client: client,
+      endpoint: 'local',
+      isCurrent: () => true,
+      locale: 'en',
+      serverId: 'server-a',
+      workflowLocale: WorkflowLocale.WORKFLOW_LOCALE_EN,
+    );
+
+    expect(warnings.map((warning) => warning.scope), contains('Workflows'));
+    expect(
+      (await repository.watchWorkflows('server-a', locale: 'en').first)
+          .single
+          .name,
+      'stable-workflow',
+    );
+    expect(
+      (await repository.watchWorkspaces('server-a').first).single.name,
+      'fresh-workspace',
+    );
+  });
+
+  test('workspace failure preserves the previous projection', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = MobileDataRepository(database);
+    final client = _FakeClient(
+      workflows: const [],
+      workspaces: [Workspace(name: 'cached', workflowName: 'flow-a')],
+    );
+    await repository.refreshWorkspaceSnapshot(
+      client: client,
+      endpoint: 'local',
+      isCurrent: () => true,
+      serverId: 'server-a',
+    );
+
+    client.workspaces.clear();
+    client.failWorkspaces = true;
+    final warnings = await repository.refresh(
+      client: client,
+      endpoint: 'local',
+      isCurrent: () => true,
+      locale: 'en',
+      serverId: 'server-a',
+      workflowLocale: WorkflowLocale.WORKFLOW_LOCALE_EN,
+    );
+
+    expect(warnings.map((warning) => warning.scope), contains('Workspaces'));
+    expect(
+      (await repository.watchWorkspaces('server-a').first).single.name,
+      'cached',
+    );
+  });
+
+  test('workspace snapshot evidence belongs to the committing call', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = MobileDataRepository(database);
+    final client = _FakeClient(
+      workflows: const [],
+      workspaces: [Workspace(name: 'visible', workflowName: 'flow-a')],
+    );
+
+    final applied = await repository.refreshWorkspaceSnapshot(
+      client: client,
+      endpoint: 'local',
+      isCurrent: () => true,
+      serverId: 'server-a',
+    );
+    client.workspaces.clear();
+    final stale = await repository.refreshWorkspaceSnapshot(
+      client: client,
+      endpoint: 'local',
+      isCurrent: () => false,
+      serverId: 'server-a',
+    );
+
+    expect(applied.applied, isTrue);
+    expect(applied.contains('visible'), isTrue);
+    expect(stale.applied, isFalse);
+    expect(stale.contains('visible'), isFalse);
+    expect(
+      (await repository.watchWorkspaces('server-a').first).single.name,
+      'visible',
+    );
+  });
+
+  test(
+    'failed workspace replacement preserves the previous projection',
+    () async {
+      final database = _FailingTransactionDatabase();
+      addTearDown(() async {
+        database.failTransactions = false;
+        await database.close();
+      });
+      final repository = MobileDataRepository(database);
+      final client = _FakeClient(
+        workflows: const [],
+        workspaces: [Workspace(name: 'cached', workflowName: 'flow-a')],
+      );
+      await repository.refreshWorkspaceSnapshot(
+        client: client,
+        endpoint: 'local',
+        isCurrent: () => true,
+        serverId: 'server-a',
+      );
+
+      client.workspaces.clear();
+      database.failTransactions = true;
+      await expectLater(
+        repository.refreshWorkspaceSnapshot(
+          client: client,
+          endpoint: 'local',
+          isCurrent: () => true,
+          serverId: 'server-a',
+        ),
+        throwsStateError,
+      );
+      database.failTransactions = false;
+
+      expect(
+        (await repository.watchWorkspaces('server-a').first).single.name,
+        'cached',
+      );
+    },
+  );
+
+  test('targeted eviction stays inside one server partition', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = MobileDataRepository(database);
+    final client = _FakeClient(
+      workflows: const [],
+      workspaces: [Workspace(name: 'shared-name', workflowName: 'flow-a')],
+    );
+    for (final serverId in ['server-a', 'server-b']) {
+      await repository.refreshWorkspaceSnapshot(
+        client: client,
+        endpoint: '$serverId.local',
+        isCurrent: () => true,
+        serverId: serverId,
+      );
+    }
+
+    await repository.deleteWorkspaceProjection('server-a', 'shared-name');
+
+    expect(
+      await repository.workspaceDocument('server-a', 'shared-name'),
+      isNull,
+    );
+    expect(
+      await repository.workspaceDocument('server-b', 'shared-name'),
+      isNotNull,
+    );
+  });
+
   test(
     'social RPC failure does not leave the workspace catalog stale',
     () async {
@@ -332,6 +519,7 @@ void main() {
         ..clear()
         ..add(Workspace(name: 'new-workspace', workflowName: 'new-workflow'));
       client.failFriends = true;
+      client.failFriendGroups = true;
 
       final warnings = await repository.refresh(
         client: client,
@@ -342,8 +530,8 @@ void main() {
         workflowLocale: WorkflowLocale.WORKFLOW_LOCALE_EN,
       );
 
-      expect(warnings, hasLength(1));
-      expect(warnings.single.scope, 'Friends');
+      expect(warnings, hasLength(2));
+      expect(warnings.map((warning) => warning.scope), ['Friends', 'Groups']);
       expect(
         (await repository.watchWorkflows('server-a', locale: 'en').first)
             .single
@@ -377,6 +565,9 @@ class _FakeClient extends GizClawClient {
   final Map<String, Uint8List> workflowIcons;
   final List<Workspace> workspaces;
   bool failFriends = false;
+  bool failFriendGroups = false;
+  bool failWorkflows = false;
+  bool failWorkspaces = false;
   WorkflowLocale? lastWorkflowLang;
 
   @override
@@ -385,6 +576,7 @@ class _FakeClient extends GizClawClient {
     int? limit,
     WorkflowLocale? lang,
   }) async {
+    if (failWorkflows) throw StateError('workflow catalog unavailable');
     lastWorkflowLang = lang;
     return WorkflowListResponse(items: workflows);
   }
@@ -395,6 +587,7 @@ class _FakeClient extends GizClawClient {
     int? limit,
     String? prefix,
   }) async {
+    if (failWorkspaces) throw StateError('workspace catalog unavailable');
     return WorkspaceListResponse(items: workspaces);
   }
 
@@ -422,7 +615,27 @@ class _FakeClient extends GizClawClient {
     String? cursor,
     int? limit,
   }) async {
+    if (failFriendGroups) {
+      throw const FormatException('friend group payload missing');
+    }
     return FriendGroupListResponse(items: friendGroups);
+  }
+}
+
+class _FailingTransactionDatabase extends AppDatabase {
+  _FailingTransactionDatabase() : super.forTesting(NativeDatabase.memory());
+
+  bool failTransactions = false;
+
+  @override
+  Future<T> transaction<T>(
+    Future<T> Function() action, {
+    bool requireNew = false,
+  }) {
+    if (failTransactions) {
+      return Future<T>.error(StateError('transaction failed'));
+    }
+    return super.transaction(action, requireNew: requireNew);
   }
 }
 
