@@ -1214,6 +1214,19 @@ test("waitForICEGatheringComplete uses a gathered candidate after the bounded wi
   }
 });
 
+test("waitForICEGatheringComplete rejects a host-only partial offer after the bounded window", async () => {
+  const pc = new FakeICEPeerConnection();
+  pc.localDescription = {
+    sdp: "v=0\r\na=candidate:1 1 UDP 1 192.0.2.1 5000 typ host\r\n",
+    type: "offer",
+  } as RTCSessionDescription;
+
+  await assert.rejects(
+    waitForICEGatheringComplete(pc as unknown as RTCPeerConnection, undefined, 1),
+    /before producing a relay candidate/,
+  );
+});
+
 test("sendGiznetWebRTCOffer posts the peer HTTP signaling request", async () => {
   const body = new Blob([new Uint8Array([1, 2, 3])]);
   const answer = new Blob([new Uint8Array([4, 5])]);

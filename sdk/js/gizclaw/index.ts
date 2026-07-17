@@ -1519,11 +1519,11 @@ export function waitForICEGatheringComplete(pc: RTCPeerConnection, signal?: Abor
       }
     };
     const onTimeout = (): void => {
-      if (/^a=candidate:/m.test(pc.localDescription?.sdp ?? "")) {
+      if (/^a=candidate:.*\btyp\s+relay\b/im.test(pc.localDescription?.sdp ?? "")) {
         complete();
         return;
       }
-      fail(new Error(`ICE gathering timed out after ${timeoutMs}ms before producing a candidate.`));
+      fail(new Error(`ICE gathering timed out after ${timeoutMs}ms before producing a relay candidate.`));
     };
     if (signal?.aborted) {
       reject(abortError());
