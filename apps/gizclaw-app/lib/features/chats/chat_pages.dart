@@ -193,11 +193,20 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
   late WorkflowCard _workflow;
   bool _busy = false;
   Object? _error;
+  bool _loadingFlowcraftModels = false;
+  FlowcraftModelRequirements? _flowcraftRequirements;
+  List<String> _flowcraftModels = const [];
+  String? _generateModel;
+  String? _extractModel;
+  int _modelLoadGeneration = 0;
 
   @override
   void initState() {
     super.initState();
     _workflow = widget.workflows.first;
+    if (widget.driver == WorkflowDriverKind.flowcraft) {
+      unawaited(_loadFlowcraftModels());
+    }
   }
 
   @override
@@ -236,7 +245,97 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
         ),
       ),
     );
-    if (workflow != null && mounted) setState(() => _workflow = workflow);
+    if (workflow != null && mounted) {
+      setState(() => _workflow = workflow);
+      if (widget.driver == WorkflowDriverKind.flowcraft) {
+        await _loadFlowcraftModels();
+      }
+    }
+  }
+
+  Future<void> _loadFlowcraftModels() async {
+    final generation = ++_modelLoadGeneration;
+    final workflowName = _workflow.name;
+    setState(() {
+      _loadingFlowcraftModels = true;
+      _flowcraftRequirements = null;
+      _flowcraftModels = const [];
+      _generateModel = null;
+      _extractModel = null;
+      _error = null;
+    });
+    try {
+      final requirements = await widget.data.flowcraftModelRequirements(
+        workflowName,
+      );
+      final models = requirements.generateModel || requirements.extractModel
+          ? (await widget.data.listGeneratorModels())
+                .map((model) => model.id)
+                .toList()
+          : const <String>[];
+      if (!mounted ||
+          generation != _modelLoadGeneration ||
+          workflowName != _workflow.name) {
+        return;
+      }
+      setState(() {
+        _loadingFlowcraftModels = false;
+        _flowcraftRequirements = requirements;
+        _flowcraftModels = models;
+        if (_flowcraftModels.isEmpty &&
+            (requirements.generateModel || requirements.extractModel)) {
+          _error = StateError(context.l10n.noCompatibleGeneratorModels);
+        }
+      });
+    } catch (error) {
+      if (!mounted ||
+          generation != _modelLoadGeneration ||
+          workflowName != _workflow.name) {
+        return;
+      }
+      setState(() {
+        _loadingFlowcraftModels = false;
+        _error = error;
+      });
+    }
+  }
+
+  Future<String?> _chooseModel(String? selected) {
+    return showCupertinoModalPopup<String>(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        title: Text(context.l10n.chooseModel),
+        actions: [
+          for (final model in _flowcraftModels)
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.pop(context, model),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (model == selected) ...[
+                    const Icon(GizIcons.checkmark_alt, size: 17),
+                    const SizedBox(width: 8),
+                  ],
+                  Flexible(child: Text(model)),
+                ],
+              ),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(context),
+          child: Text(context.l10n.commonCancel),
+        ),
+      ),
+    );
+  }
+
+  bool get _modelsReady {
+    if (widget.driver != WorkflowDriverKind.flowcraft) return true;
+    final requirements = _flowcraftRequirements;
+    if (_loadingFlowcraftModels || requirements == null) return false;
+    if (requirements.generateModel && _generateModel == null) return false;
+    if (requirements.extractModel && _extractModel == null) return false;
+    return true;
   }
 
   Future<void> _create() async {
@@ -251,6 +350,9 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
         driver: widget.driver,
         workflowName: _workflow.name,
         name: name,
+        generateModel: _generateModel,
+        extractModel: _extractModel,
+        flowcraftRequirements: _flowcraftRequirements,
       );
       if (mounted) Navigator.pop(context, workspace.name);
     } catch (error) {
@@ -323,6 +425,45 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
               ],
             ),
           ),
+          if (_loadingFlowcraftModels) ...[
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                const CupertinoActivityIndicator(),
+                const SizedBox(width: 8),
+                Text(context.l10n.workspaceModelLoading),
+              ],
+            ),
+          ] else if (_flowcraftRequirements case final requirements?) ...[
+            if (requirements.generateModel) ...[
+              const SizedBox(height: 14),
+              _WorkspaceModelSelector(
+                key: const ValueKey('workspace-generate-model'),
+                label: context.l10n.generationModel,
+                value: _generateModel,
+                onPressed: () async {
+                  final model = await _chooseModel(_generateModel);
+                  if (model != null && mounted) {
+                    setState(() => _generateModel = model);
+                  }
+                },
+              ),
+            ],
+            if (requirements.extractModel) ...[
+              const SizedBox(height: 14),
+              _WorkspaceModelSelector(
+                key: const ValueKey('workspace-extract-model'),
+                label: context.l10n.extractionModel,
+                value: _extractModel,
+                onPressed: () async {
+                  final model = await _chooseModel(_extractModel);
+                  if (model != null && mounted) {
+                    setState(() => _extractModel = model);
+                  }
+                },
+              ),
+            ],
+          ],
           const SizedBox(height: 14),
           CupertinoTextField(
             key: const ValueKey('workspace-display-name'),
@@ -346,9 +487,10 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
           ],
           const SizedBox(height: 14),
           CupertinoButton(
+            key: const ValueKey('create-workspace-submit'),
             color: GizColors.ink,
             disabledColor: GizColors.secondaryInk,
-            onPressed: _busy ? null : _create,
+            onPressed: _busy || !_modelsReady ? null : _create,
             child: _busy
                 ? const CupertinoActivityIndicator(color: GizColors.surface)
                 : Text(
@@ -357,6 +499,50 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
                   ),
           ),
           SizedBox(height: MediaQuery.viewInsetsOf(context).bottom),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkspaceModelSelector extends StatelessWidget {
+  const _WorkspaceModelSelector({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.onPressed,
+  });
+
+  final String label;
+  final String? value;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoButton(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      color: CupertinoColors.secondarySystemBackground.resolveFrom(context),
+      onPressed: onPressed,
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: GizText.label),
+                const SizedBox(height: 3),
+                Text(
+                  value ?? context.l10n.chooseModel,
+                  style: GizText.body.copyWith(color: GizColors.ink),
+                ),
+              ],
+            ),
+          ),
+          const Icon(
+            GizIcons.chevron_up_chevron_down,
+            size: 16,
+            color: GizColors.secondaryInk,
+          ),
         ],
       ),
     );

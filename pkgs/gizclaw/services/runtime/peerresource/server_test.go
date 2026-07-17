@@ -171,7 +171,10 @@ func TestServerAllowedCRUD(t *testing.T) {
 
 	createInput := rpcapi.WorkspaceInputModePushToTalk
 	var createParams rpcapi.WorkspaceParameters
-	if err := createParams.FromFlowcraftWorkspaceParameters(rpcapi.FlowcraftWorkspaceParameters{Input: &createInput}); err != nil {
+	if err := createParams.FromChatRoomWorkspaceParameters(rpcapi.ChatRoomWorkspaceParameters{
+		AgentType: rpcapi.ChatRoomWorkspaceParametersAgentTypeChatroom,
+		Input:     &createInput,
+	}); err != nil {
 		t.Fatalf("create workspace parameters: %v", err)
 	}
 	workspaceCreate := callRPC(t, srv, "workspace-create", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
@@ -183,7 +186,7 @@ func TestServerAllowedCRUD(t *testing.T) {
 		t.Fatalf("workspace.create = %#v", got)
 	} else if got.Parameters == nil {
 		t.Fatalf("workspace.create parameters are nil: %#v", got)
-	} else if typed, err := got.Parameters.AsFlowcraftWorkspaceParameters(); err != nil {
+	} else if typed, err := got.Parameters.AsChatRoomWorkspaceParameters(); err != nil {
 		t.Fatalf("workspace.create parameters decode: %v", err)
 	} else if typed.Input == nil || *typed.Input != rpcapi.WorkspaceInputModePushToTalk {
 		t.Fatalf("workspace.create input = %#v, want push-to-talk", typed.Input)
@@ -201,7 +204,10 @@ func TestServerAllowedCRUD(t *testing.T) {
 
 	updateInput := rpcapi.WorkspaceInputModeRealtime
 	var updateParams rpcapi.WorkspaceParameters
-	if err := updateParams.FromFlowcraftWorkspaceParameters(rpcapi.FlowcraftWorkspaceParameters{Input: &updateInput}); err != nil {
+	if err := updateParams.FromChatRoomWorkspaceParameters(rpcapi.ChatRoomWorkspaceParameters{
+		AgentType: rpcapi.ChatRoomWorkspaceParametersAgentTypeChatroom,
+		Input:     &updateInput,
+	}); err != nil {
 		t.Fatalf("update workspace parameters: %v", err)
 	}
 	workspacePut := callRPC(t, srv, "workspace-put", rpcapi.RPCMethodServerWorkspacePut, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspacePutRequest, rpcapi.WorkspacePutRequest{
@@ -210,7 +216,7 @@ func TestServerAllowedCRUD(t *testing.T) {
 	}))
 	if got := mustResult(t, workspacePut.Result.AsWorkspacePutResponse); got.Parameters == nil {
 		t.Fatalf("workspace.put parameters are nil: %#v", got)
-	} else if typed, err := got.Parameters.AsFlowcraftWorkspaceParameters(); err != nil {
+	} else if typed, err := got.Parameters.AsChatRoomWorkspaceParameters(); err != nil {
 		t.Fatalf("workspace.put parameters decode: %v", err)
 	} else if typed.Input == nil || *typed.Input != rpcapi.WorkspaceInputModeRealtime {
 		t.Fatalf("workspace.put input = %#v, want realtime", typed.Input)
@@ -652,6 +658,40 @@ func TestServerACLBoundaries(t *testing.T) {
 	}
 	if got := auth.count(ctx, acl.ResourceKindWorkspace, acl.CollectionResourceID, apitypes.ACLPermissionCreate); got == 0 {
 		t.Fatal("workspace.create did not check collection create")
+	}
+}
+
+func TestServerWorkspaceCreateRequiresModelUse(t *testing.T) {
+	ctx := context.Background()
+	auth := newRuleAuthorizer()
+	srv := newTestResourceServer()
+	srv.ACL = auth
+	seedFlowcraftWorkflow(t, srv, "flow-models")
+	auth.allow(acl.ResourceKindWorkspace, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
+	auth.allow(acl.ResourceKindWorkflow, "flow-models", apitypes.ACLPermissionUse)
+	seedModel(t, srv, "chat-model")
+
+	generateModel := "chat-model"
+	var parameters rpcapi.WorkspaceParameters
+	if err := parameters.FromFlowcraftWorkspaceParameters(rpcapi.FlowcraftWorkspaceParameters{
+		AgentType:     rpcapi.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+		GenerateModel: &generateModel,
+	}); err != nil {
+		t.Fatalf("FromFlowcraftWorkspaceParameters() error = %v", err)
+	}
+	request := rpcapi.WorkspaceCreateRequest{
+		Name:         "workspace-models",
+		WorkflowName: "flow-models",
+		Parameters:   &parameters,
+	}
+	denied := callRPC(t, srv, "workspace-model-denied", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, request))
+	if denied.Error == nil || denied.Error.Code != rpcapi.RPCErrorCodeBadRequest {
+		t.Fatalf("workspace model denial = %+v", denied.Error)
+	}
+	auth.allow(acl.ResourceKindModel, generateModel, apitypes.ACLPermissionUse)
+	requireNoRPCError(t, callRPC(t, srv, "workspace-model-allowed", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, request)))
+	if got := auth.count(ctx, acl.ResourceKindModel, generateModel, apitypes.ACLPermissionUse); got != 2 {
+		t.Fatalf("model use checks = %d, want 2", got)
 	}
 }
 
@@ -1508,11 +1548,12 @@ func TestSelectedWorkflowCatalogFallsBackToDefaultCatalog(t *testing.T) {
 
 func newTestResourceServer() *Server {
 	workflowStore := kv.NewMemory(nil)
+	modelServer := &model.Server{Store: kv.NewMemory(nil), Now: func() time.Time { return time.Unix(1, 0).UTC() }}
 	return &Server{
 		Caller:      giznet.PublicKey{1},
 		Workflows:   &workflow.Server{Store: workflowStore},
-		Workspaces:  &workspace.Server{Store: kv.NewMemory(nil), WorkflowStore: workflowStore},
-		Models:      &model.Server{Store: kv.NewMemory(nil), Now: func() time.Time { return time.Unix(1, 0).UTC() }},
+		Workspaces:  &workspace.Server{Store: kv.NewMemory(nil), WorkflowStore: workflowStore, Models: modelServer},
+		Models:      modelServer,
 		Credentials: &credential.Server{Store: kv.NewMemory(nil)},
 		Voices:      &voice.Server{Store: kv.NewMemory(nil), Now: func() time.Time { return time.Unix(1, 0).UTC() }},
 		ResourceACL: &recordingToolACL{},
@@ -1696,7 +1737,7 @@ func requireRPCError(t *testing.T, resp *rpcapi.RPCResponse, code rpcapi.RPCErro
 }
 
 func workflowDoc(name string) apitypes.Workflow {
-	spec := apitypes.FlowcraftWorkflowSpec{"entry_agent": ""}
+	spec := apitypes.ChatRoomWorkflowSpec{}
 	englishDescription := "English workflow"
 	chineseDescription := "中文工作流"
 	return apitypes.Workflow{
@@ -1707,10 +1748,25 @@ func workflowDoc(name string) apitypes.Workflow {
 		},
 		Name: name,
 		Spec: apitypes.WorkflowSpec{
-			Driver:    apitypes.WorkflowDriverFlowcraft,
-			Flowcraft: &spec,
+			Driver:   apitypes.WorkflowDriverChatroom,
+			Chatroom: &spec,
 		},
 	}
+}
+
+func flowcraftWorkflowDoc(name string) apitypes.Workflow {
+	body := workflowDoc(name)
+	spec := apitypes.FlowcraftWorkflowSpec{
+		"entry_agent": "",
+		"settings": map[string]any{
+			"generate_model": "generate_model",
+		},
+	}
+	body.Spec = apitypes.WorkflowSpec{
+		Driver:    apitypes.WorkflowDriverFlowcraft,
+		Flowcraft: &spec,
+	}
+	return body
 }
 
 func seedWorkflow(t *testing.T, srv *Server, name string) {
@@ -1722,6 +1778,38 @@ func seedWorkflow(t *testing.T, srv *Server, name string) {
 	}
 	if _, ok := response.(adminhttp.CreateWorkflow200JSONResponse); !ok {
 		t.Fatalf("CreateWorkflow(%q) response = %#v", name, response)
+	}
+}
+
+func seedFlowcraftWorkflow(t *testing.T, srv *Server, name string) {
+	t.Helper()
+	body := flowcraftWorkflowDoc(name)
+	response, err := srv.Workflows.CreateWorkflow(context.Background(), adminhttp.CreateWorkflowRequestObject{Body: &body})
+	if err != nil {
+		t.Fatalf("CreateWorkflow(%q) error = %v", name, err)
+	}
+	if _, ok := response.(adminhttp.CreateWorkflow200JSONResponse); !ok {
+		t.Fatalf("CreateWorkflow(%q) response = %#v", name, response)
+	}
+}
+
+func seedModel(t *testing.T, srv *Server, id string) {
+	t.Helper()
+	body := adminhttp.ModelUpsert{
+		Id:     id,
+		Kind:   apitypes.ModelKindLlm,
+		Source: apitypes.ModelSourceManual,
+		Provider: apitypes.ModelProvider{
+			Kind: "openai-tenant",
+			Name: "global",
+		},
+	}
+	response, err := srv.Models.CreateModel(context.Background(), adminhttp.CreateModelRequestObject{Body: &body})
+	if err != nil {
+		t.Fatalf("CreateModel(%q) error = %v", id, err)
+	}
+	if _, ok := response.(adminhttp.CreateModel200JSONResponse); !ok {
+		t.Fatalf("CreateModel(%q) response = %#v", id, response)
 	}
 }
 

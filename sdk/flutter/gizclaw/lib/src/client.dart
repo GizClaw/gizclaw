@@ -108,6 +108,17 @@ class GizClawClient {
     );
   }
 
+  Future<payload.ModelListResponse> listModels({String? cursor, int? limit}) {
+    final request = payload.ModelListRequest();
+    if (cursor != null) {
+      request.cursor = cursor;
+    }
+    if (limit != null) {
+      request.limit = Int64(limit);
+    }
+    return rpc.call<payload.ModelListResponse>('server.model.list', request);
+  }
+
   Future<payload.WorkspaceListResponse> listWorkspaces({
     String? cursor,
     int? limit,

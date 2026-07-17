@@ -183,6 +183,48 @@ abstract class AppLocalizations {
   /// **'Retry'**
   String get commonRetry;
 
+  /// Title for iOS LAN connection recovery guidance.
+  ///
+  /// In en, this message translates to:
+  /// **'Local network connection unavailable'**
+  String get localNetworkRecoveryTitle;
+
+  /// Recovery guidance for an iOS connection failure to a LAN Server.
+  ///
+  /// In en, this message translates to:
+  /// **'In iOS Settings, allow GizClaw to access the Local Network. Make sure this phone and the Server are on the same reachable Wi-Fi, then retry. VPN, guest Wi-Fi, or access-point isolation can also block the connection.'**
+  String get localNetworkRecoveryMessage;
+
+  /// Workspace model-picker loading state.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading available models…'**
+  String get workspaceModelLoading;
+
+  /// FlowCraft generation model field label.
+  ///
+  /// In en, this message translates to:
+  /// **'Generation model'**
+  String get generationModel;
+
+  /// FlowCraft memory extraction model field label.
+  ///
+  /// In en, this message translates to:
+  /// **'Extraction model'**
+  String get extractionModel;
+
+  /// Workspace model-picker action.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a model'**
+  String get chooseModel;
+
+  /// Error shown when FlowCraft workspace creation has no visible LLM models.
+  ///
+  /// In en, this message translates to:
+  /// **'No accessible generation models are available. Ask a Server administrator to configure and share an LLM model.'**
+  String get noCompatibleGeneratorModels;
+
   /// Title shown when microphone permission is denied.
   ///
   /// In en, this message translates to:

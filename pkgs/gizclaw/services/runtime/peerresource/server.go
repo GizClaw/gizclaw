@@ -493,6 +493,9 @@ func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCReque
 	if resp := s.authorizeResponse(ctx, req.Id, workflowResource(params.WorkflowName), apitypes.ACLPermissionUse); resp != nil {
 		return resp, true, nil
 	}
+	if resp := s.authorizeWorkspaceModels(ctx, req.Id, params.Parameters); resp != nil {
+		return resp, true, nil
+	}
 	body, err := convertType[adminhttp.CreateWorkspaceJSONRequestBody](params)
 	if err != nil {
 		return nil, true, err
@@ -527,6 +530,9 @@ func (s *Server) handleWorkspacePut(ctx context.Context, req *rpcapi.RPCRequest)
 	if resp := s.authorizeResponse(ctx, req.Id, workflowResource(params.Body.WorkflowName), apitypes.ACLPermissionUse); resp != nil {
 		return resp, true, nil
 	}
+	if resp := s.authorizeWorkspaceModels(ctx, req.Id, params.Body.Parameters); resp != nil {
+		return resp, true, nil
+	}
 	body, err := convertType[adminhttp.PutWorkspaceJSONRequestBody](params.Body)
 	if err != nil {
 		return nil, true, err
@@ -536,6 +542,25 @@ func (s *Server) handleWorkspacePut(ctx context.Context, req *rpcapi.RPCRequest)
 		return internalError(req.Id, err.Error()), true, nil
 	}
 	return workspaceAdminRPCResponse(ctx, req.Id, adminResp.VisitPutWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspacePutResponse), true, nil
+}
+
+func (s *Server) authorizeWorkspaceModels(ctx context.Context, requestID string, parameters *rpcapi.WorkspaceParameters) *rpcapi.RPCResponse {
+	if parameters == nil {
+		return nil
+	}
+	flowcraft, err := parameters.AsFlowcraftWorkspaceParameters()
+	if err != nil {
+		return nil
+	}
+	for _, modelID := range []*string{flowcraft.GenerateModel, flowcraft.ExtractModel, flowcraft.EmbeddingModel} {
+		if modelID == nil || strings.TrimSpace(*modelID) == "" {
+			continue
+		}
+		if resp := s.authorizeResponse(ctx, requestID, acl.ModelResource(strings.TrimSpace(*modelID)), apitypes.ACLPermissionUse); resp != nil {
+			return resp
+		}
+	}
+	return nil
 }
 
 func (s *Server) handleWorkspaceDelete(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {

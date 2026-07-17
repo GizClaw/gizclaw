@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data' as typed_data;
 
 import 'package:drift/native.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gizclaw/gizclaw.dart';
 import 'package:gizclaw_app/connection/gizclaw_connection_controller.dart';
@@ -14,6 +15,43 @@ import 'package:gizclaw_app/l10n/locale_resolution.dart';
 import 'package:gizclaw_app/prototype/prototype_models.dart';
 
 void main() {
+  test('classifies only iOS LAN failures as local-network recovery', () {
+    for (final endpoint in [
+      'gizclaw.local:9820',
+      '192.168.1.8:9820',
+      '10.0.0.8:9820',
+      '[fe80::1]:9820',
+    ]) {
+      expect(
+        classifyMobileConnectionFailure(
+          endpoint: endpoint,
+          error: StateError('No route to host'),
+          platform: TargetPlatform.iOS,
+          state: MobileConnectionState.offline,
+        ),
+        MobileConnectionFailureKind.localNetwork,
+      );
+    }
+    expect(
+      classifyMobileConnectionFailure(
+        endpoint: 'api.example.com:9820',
+        error: StateError('No route to host'),
+        platform: TargetPlatform.iOS,
+        state: MobileConnectionState.offline,
+      ),
+      MobileConnectionFailureKind.generic,
+    );
+    expect(
+      classifyMobileConnectionFailure(
+        endpoint: '192.168.1.8:9820',
+        error: StateError('No route to host'),
+        platform: TargetPlatform.android,
+        state: MobileConnectionState.offline,
+      ),
+      MobileConnectionFailureKind.generic,
+    );
+  });
+
   test('closes demo controller resources idempotently', () async {
     final controller = MobileDataController.demo(
       database: AppDatabase.forTesting(NativeDatabase.memory()),
@@ -551,6 +589,21 @@ void main() {
           .DOUBAO_REALTIME_WORKSPACE_PARAMETERS_AGENT_TYPE_DOUBAO_REALTIME,
     );
     expect(doubao.input, WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK);
+  });
+
+  test('includes concrete FlowCraft model parameters', () {
+    final parameters = newWorkspaceParametersForDriver(
+      WorkflowDriverKind.flowcraft,
+      generateModel: 'chat-model',
+      extractModel: 'memory-model',
+    );
+    final flowcraft = parameters.flowcraftWorkspaceParameters;
+    expect(flowcraft.generateModel, 'chat-model');
+    expect(flowcraft.extractModel, 'memory-model');
+    expect(
+      flowcraft.input,
+      WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
+    );
   });
 
   test('creates the auto S2S profile for a translation workspace', () {

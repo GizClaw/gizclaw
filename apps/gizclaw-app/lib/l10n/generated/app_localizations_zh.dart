@@ -51,6 +51,29 @@ class AppLocalizationsZh extends AppLocalizations {
   String get commonRetry => '重试';
 
   @override
+  String get localNetworkRecoveryTitle => '无法连接本地网络';
+
+  @override
+  String get localNetworkRecoveryMessage =>
+      '请在 iOS“设置”中允许 GizClaw 访问“本地网络”，并确认手机与服务器位于可互通的同一 Wi-Fi 后重试。VPN、访客 Wi-Fi 或 AP 隔离也可能阻止连接。';
+
+  @override
+  String get workspaceModelLoading => '正在加载可用模型…';
+
+  @override
+  String get generationModel => '生成模型';
+
+  @override
+  String get extractionModel => '记忆提取模型';
+
+  @override
+  String get chooseModel => '选择模型';
+
+  @override
+  String get noCompatibleGeneratorModels =>
+      '没有可访问的生成模型。请让服务器管理员配置并共享一个 LLM 模型。';
+
+  @override
   String get microphonePermissionDeniedTitle => '需要麦克风权限';
 
   @override
@@ -332,6 +355,29 @@ class AppLocalizationsZhCn extends AppLocalizationsZh {
 
   @override
   String get commonRetry => '重试';
+
+  @override
+  String get localNetworkRecoveryTitle => '无法连接本地网络';
+
+  @override
+  String get localNetworkRecoveryMessage =>
+      '请在 iOS“设置”中允许 GizClaw 访问“本地网络”，并确认手机与服务器位于可互通的同一 Wi-Fi 后重试。VPN、访客 Wi-Fi 或 AP 隔离也可能阻止连接。';
+
+  @override
+  String get workspaceModelLoading => '正在加载可用模型…';
+
+  @override
+  String get generationModel => '生成模型';
+
+  @override
+  String get extractionModel => '记忆提取模型';
+
+  @override
+  String get chooseModel => '选择模型';
+
+  @override
+  String get noCompatibleGeneratorModels =>
+      '没有可访问的生成模型。请让服务器管理员配置并共享一个 LLM 模型。';
 
   @override
   String get microphonePermissionDeniedTitle => '需要麦克风权限';

@@ -33,6 +33,181 @@ export interface AdminSession extends AdminDataClient {
   close(): void;
 }
 
+export type AdminPeerSessionState =
+  | { status: "connecting" | "ready" | "reconnecting" }
+  | { error: Error; status: "failed" };
+
+type AdminPeerConnector = (signal: AbortSignal) => Promise<RTCPeerConnection>;
+
+export class AdminPeerSessionManager {
+  readonly #connect: AdminPeerConnector;
+  readonly #disconnectedGraceMS: number;
+  readonly #onState: (state: AdminPeerSessionState) => void;
+  #closed = false;
+  #connection?: RTCPeerConnection;
+  #connectController?: AbortController;
+  #disconnectedTimer?: ReturnType<typeof setTimeout>;
+  #generation = 0;
+  #recovery?: Promise<RTCPeerConnection>;
+  #terminalError?: Error;
+
+  constructor({
+    connect,
+    disconnectedGraceMS = 2_000,
+    onState = () => undefined,
+  }: {
+    connect: AdminPeerConnector;
+    disconnectedGraceMS?: number;
+    onState?: (state: AdminPeerSessionState) => void;
+  }) {
+    this.#connect = connect;
+    this.#disconnectedGraceMS = disconnectedGraceMS;
+    this.#onState = onState;
+  }
+
+  async start(): Promise<RTCPeerConnection> {
+    this.#onState({ status: "connecting" });
+    return this.#replace(undefined, false);
+  }
+
+  async connection(): Promise<RTCPeerConnection> {
+    if (this.#terminalError != null) {
+      throw this.#terminalError;
+    }
+    if (this.#closed) {
+      throw new Error("Admin WebRTC session is closed.");
+    }
+    if (this.#connection != null && !isUnusableAdminConnection(this.#connection)) {
+      return this.#connection;
+    }
+    return this.recover(this.#connection);
+  }
+
+  recover(expected?: RTCPeerConnection): Promise<RTCPeerConnection> {
+    if (this.#terminalError != null) {
+      return Promise.reject(this.#terminalError);
+    }
+    if (this.#closed) {
+      return Promise.reject(new Error("Admin WebRTC session is closed."));
+    }
+    if (expected != null && expected !== this.#connection && this.#connection != null && !isUnusableAdminConnection(this.#connection)) {
+      return Promise.resolve(this.#connection);
+    }
+    if (this.#recovery != null) {
+      return this.#recovery;
+    }
+    return this.#replace(expected, true);
+  }
+
+  fail(error: unknown): Error {
+    const normalized = toError(error);
+    if (this.#closed) {
+      return normalized;
+    }
+    this.#terminalError = normalized;
+    this.#generation += 1;
+    this.#connectController?.abort();
+    this.#clearDisconnectedTimer();
+    const connection = this.#connection;
+    this.#connection = undefined;
+    connection?.close();
+    this.#onState({ error: normalized, status: "failed" });
+    return normalized;
+  }
+
+  close(): void {
+    if (this.#closed) {
+      return;
+    }
+    this.#closed = true;
+    this.#generation += 1;
+    this.#connectController?.abort();
+    this.#clearDisconnectedTimer();
+    const connection = this.#connection;
+    this.#connection = undefined;
+    connection?.close();
+  }
+
+  #replace(expected: RTCPeerConnection | undefined, recovering: boolean): Promise<RTCPeerConnection> {
+    if (recovering) {
+      this.#onState({ status: "reconnecting" });
+    }
+    this.#clearDisconnectedTimer();
+    const previous = this.#connection;
+    this.#connection = undefined;
+    previous?.close();
+    const generation = ++this.#generation;
+    const controller = new AbortController();
+    this.#connectController = controller;
+    const recovery = this.#connect(controller.signal)
+      .then((connection) => {
+        if (this.#closed || generation !== this.#generation) {
+          connection.close();
+          throw new Error("Admin WebRTC session was superseded.");
+        }
+        this.#connection = connection;
+        this.#observe(connection, generation);
+        this.#terminalError = undefined;
+        this.#onState({ status: "ready" });
+        return connection;
+      })
+      .catch((error: unknown) => {
+        if (!this.#closed && generation === this.#generation) {
+          this.fail(error);
+        }
+        throw toError(error);
+      })
+      .finally(() => {
+        if (this.#connectController === controller) {
+          this.#connectController = undefined;
+        }
+        if (this.#recovery === recovery) {
+          this.#recovery = undefined;
+        }
+      });
+    this.#recovery = recovery;
+    return recovery;
+  }
+
+  #observe(connection: RTCPeerConnection, generation: number): void {
+    connection.addEventListener("connectionstatechange", () => {
+      if (this.#closed || generation !== this.#generation || connection !== this.#connection) {
+        return;
+      }
+      if (connection.connectionState === "failed" || connection.connectionState === "closed") {
+        void this.recover(connection).catch(() => undefined);
+        return;
+      }
+      if (connection.connectionState === "disconnected") {
+        this.#clearDisconnectedTimer();
+        this.#disconnectedTimer = setTimeout(() => {
+          this.#disconnectedTimer = undefined;
+          if (generation === this.#generation && connection === this.#connection && connection.connectionState === "disconnected") {
+            void this.recover(connection).catch(() => undefined);
+          }
+        }, this.#disconnectedGraceMS);
+        return;
+      }
+      this.#clearDisconnectedTimer();
+    });
+  }
+
+  #clearDisconnectedTimer(): void {
+    if (this.#disconnectedTimer != null) {
+      clearTimeout(this.#disconnectedTimer);
+      this.#disconnectedTimer = undefined;
+    }
+  }
+}
+
+function isUnusableAdminConnection(connection: RTCPeerConnection): boolean {
+  return connection.connectionState === "closed" || connection.connectionState === "failed";
+}
+
+function toError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error));
+}
+
 export interface AdminSection {
   description: string;
   key: string;
@@ -83,7 +258,7 @@ export function createAdminDataClientFromPeerConnection(pc: WebRTCRPCDataChannel
   return createGeneratedAdminDataClient(createAdminAPIClient(pc));
 }
 
-export async function connectAdminPeerConnection(runtime: RuntimeContext): Promise<RTCPeerConnection> {
+export async function connectAdminPeerConnection(runtime: RuntimeContext, signal?: AbortSignal): Promise<RTCPeerConnection> {
   if (runtime.context == null) {
     throw new Error("Admin WebRTC session requires a selected context.");
   }
@@ -95,17 +270,31 @@ export async function connectAdminPeerConnection(runtime: RuntimeContext): Promi
   }
   const pc = new RTCPeerConnection();
   const controller = new AbortController();
+  const abort = () => controller.abort(signal?.reason);
+  if (signal?.aborted) {
+    abort();
+  } else {
+    signal?.addEventListener("abort", abort, { once: true });
+  }
   const timeout = window.setTimeout(() => controller.abort(), 15_000);
-  await connectGiznetWebRTCFromEndpoint({
-    addAudioTransceiver: false,
-    clientPrivateKey: base64Decode(runtime.private_key_base64),
-    clientPublicKey: runtime.context.local_public_key,
-    createPacketDataChannel: true,
-    endpoint: runtime.context.endpoint,
-    pc,
-    signal: controller.signal,
-  }).finally(() => window.clearTimeout(timeout));
-  return pc;
+  try {
+    await connectGiznetWebRTCFromEndpoint({
+      addAudioTransceiver: false,
+      clientPrivateKey: base64Decode(runtime.private_key_base64),
+      clientPublicKey: runtime.context.local_public_key,
+      createPacketDataChannel: true,
+      endpoint: runtime.context.endpoint,
+      pc,
+      signal: controller.signal,
+    });
+    return pc;
+  } catch (error: unknown) {
+    pc.close();
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+    signal?.removeEventListener("abort", abort);
+  }
 }
 
 export async function connectAdminSession(runtime: RuntimeContext): Promise<AdminSession> {

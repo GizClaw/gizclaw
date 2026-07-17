@@ -1249,6 +1249,9 @@ function PodSettingsDialog({
 }) {
   const t = useMessages();
   const [name, setName] = useState(initial.name);
+  const [accessPoint, setAccessPoint] = useState(
+    initial.remote?.access_point.endpoint ?? "",
+  );
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -1267,7 +1270,7 @@ function PodSettingsDialog({
     }
     await onSave({
       ...base,
-      remote_access_point: initial.remote!.access_point.endpoint,
+      remote_access_point: accessPoint.trim(),
       remote_servers: initial.remote!.servers.map((server) => ({
         id: server.id,
         name: server.name,
@@ -1309,6 +1312,16 @@ function PodSettingsDialog({
             value={name}
             wide
           />
+          {initial.remote ? (
+            <Field
+              label={t("accessPoint")}
+              onChange={setAccessPoint}
+              placeholder="ap.dev.gizclaw.com:9820"
+              required
+              value={accessPoint}
+              wide
+            />
+          ) : null}
         </div>
         <footer>
           <button

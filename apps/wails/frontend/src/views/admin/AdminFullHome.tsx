@@ -1,21 +1,23 @@
 import { useEffect, useState } from "react";
 import { MemoryRouter } from "react-router-dom";
 
-import { connectAdminPeerConnection } from "../../lib/gizclaw/admin";
+import { AdminPeerSessionManager, connectAdminPeerConnection } from "../../lib/gizclaw/admin";
 import type { RuntimeContext } from "../../lib/runtime/types";
-import { configureAdminClients, configureAdminClientsWithFetch } from "./full/lib/api";
+import { configureAdminClientsWithFetch, configureRecoveringAdminClients } from "./full/lib/api";
 import { AppRoutes } from "./full/router";
 import "./full/styles.css";
 
 export function AdminFullHome({ onSignOut, runtime }: { onSignOut(): Promise<void>; runtime: RuntimeContext }) {
   const [error, setError] = useState("");
   const [ready, setReady] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    let pc: RTCPeerConnection | undefined;
+    let session: AdminPeerSessionManager | undefined;
     setError("");
     setReady(false);
+    setReconnecting(false);
     const testFetch = window.__GIZCLAW_DESKTOP_TEST_ADMIN_FETCH__;
     if (testFetch != null) {
       configureAdminClientsWithFetch(testFetch);
@@ -24,15 +26,38 @@ export function AdminFullHome({ onSignOut, runtime }: { onSignOut(): Promise<voi
         cancelled = true;
       };
     }
-    connectAdminPeerConnection(runtime)
-      .then((next) => {
+    session = new AdminPeerSessionManager({
+      connect: (signal) => connectAdminPeerConnection(runtime, signal),
+      onState: (state) => {
         if (cancelled) {
-          next.close();
           return;
         }
-        pc = next;
-        configureAdminClients(next);
-        setReady(true);
+        if (state.status === "connecting") {
+          setError("");
+          setReady(false);
+          setReconnecting(false);
+        } else if (state.status === "reconnecting") {
+          setError("");
+          setReconnecting(true);
+        } else if (state.status === "ready") {
+          setError("");
+          setReady(true);
+          setReconnecting(false);
+        } else if (state.status === "failed") {
+          setError(state.error.message);
+          setReady(false);
+          setReconnecting(false);
+        }
+      },
+    });
+    configureRecoveringAdminClients(session);
+    session
+      .start()
+      .then(() => {
+        if (cancelled) {
+          session?.close();
+          return;
+        }
       })
       .catch((err: unknown) => {
         if (!cancelled) {
@@ -41,7 +66,7 @@ export function AdminFullHome({ onSignOut, runtime }: { onSignOut(): Promise<voi
       });
     return () => {
       cancelled = true;
-      pc?.close();
+      session?.close();
     };
   }, [runtime]);
 
@@ -52,9 +77,16 @@ export function AdminFullHome({ onSignOut, runtime }: { onSignOut(): Promise<voi
     return <ViewConnectionState title="Connecting Admin API" />;
   }
   return (
-    <MemoryRouter initialEntries={["/overview"]}>
-      <AppRoutes contextName={runtime.context?.name} onSignOut={onSignOut} />
-    </MemoryRouter>
+    <>
+      <MemoryRouter initialEntries={["/overview"]}>
+        <AppRoutes contextName={runtime.context?.name} onSignOut={onSignOut} />
+      </MemoryRouter>
+      {reconnecting ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <ViewConnectionState title="Reconnecting Admin API" />
+        </div>
+      ) : null}
+    </>
   );
 }
 

@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/model"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -467,6 +470,63 @@ func TestServerWorkspaceConflictAndMissingDelete(t *testing.T) {
 	}
 }
 
+func TestServerRejectsIncompleteFlowcraftModelParameters(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(t)
+	ctx := context.Background()
+	seedFlowcraftWorkflow(t, srv, "flowcraft-chat", true)
+	seedModel(t, srv, "chat-model", apitypes.ModelKindLlm)
+	seedModel(t, srv, "speech-model", apitypes.ModelKindTts)
+
+	tests := []struct {
+		name string
+		body string
+		want string
+		ok   bool
+	}{
+		{name: "missing parameters", body: `{"name":"missing-params","workflow_name":"flowcraft-chat"}`, want: `"generate_model" requires a concrete Model resource name`},
+		{name: "missing generate", body: `{"name":"missing-generate","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft"}}`, want: `"generate_model" requires a concrete Model resource name`},
+		{name: "symbolic generate", body: `{"name":"symbolic-generate","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"generate_model","extract_model":"chat-model"}}`, want: `"generate_model" requires a concrete Model resource name`},
+		{name: "missing model", body: `{"name":"missing-model","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"not-found","extract_model":"chat-model"}}`, want: `references missing Model "not-found"`},
+		{name: "wrong kind", body: `{"name":"wrong-kind","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"speech-model","extract_model":"chat-model"}}`, want: `has kind "tts", want "llm"`},
+		{name: "missing extract", body: `{"name":"missing-extract","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"chat-model"}}`, want: `"extract_model" requires a concrete Model resource name`},
+		{name: "valid", body: `{"name":"valid-models","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"chat-model","extract_model":"chat-model"}}`, ok: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := mustWorkspaceUpsert(t, tt.body)
+			resp, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
+			if err != nil {
+				t.Fatalf("CreateWorkspace() error = %v", err)
+			}
+			if tt.ok {
+				if _, ok := resp.(adminhttp.CreateWorkspace200JSONResponse); !ok {
+					t.Fatalf("CreateWorkspace() response = %#v", resp)
+				}
+				return
+			}
+			invalid, ok := resp.(adminhttp.CreateWorkspace400JSONResponse)
+			if !ok {
+				t.Fatalf("CreateWorkspace() response = %#v, want 400", resp)
+			}
+			if !strings.Contains(invalid.Error.Message, tt.want) {
+				t.Fatalf("CreateWorkspace() message = %q, want substring %q", invalid.Error.Message, tt.want)
+			}
+		})
+	}
+
+	srv.Models = nil
+	body := mustWorkspaceUpsert(t, `{"name":"model-service-missing","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"chat-model","extract_model":"chat-model"}}`)
+	resp, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
+	if err != nil {
+		t.Fatalf("CreateWorkspace(model service missing) error = %v", err)
+	}
+	if _, ok := resp.(adminhttp.CreateWorkspace500JSONResponse); !ok {
+		t.Fatalf("CreateWorkspace(model service missing) response = %#v, want 500", resp)
+	}
+}
+
 func TestServerStoreHelpers(t *testing.T) {
 	t.Parallel()
 
@@ -505,6 +565,7 @@ func newTestServer(t *testing.T) *Server {
 	return &Server{
 		Store:         kv.Prefixed(store, kv.Key{"workspaces"}),
 		WorkflowStore: kv.Prefixed(store, kv.Key{"workflows"}),
+		Models:        &model.Server{Store: kv.Prefixed(store, kv.Key{"models"})},
 	}
 }
 
@@ -517,6 +578,39 @@ func seedWorkflow(t *testing.T, srv *Server, name string) {
 	}
 	if err := store.Set(context.Background(), workflowReferenceKey(name), []byte(`{}`)); err != nil {
 		t.Fatalf("seed workflow %q: %v", name, err)
+	}
+}
+
+func seedFlowcraftWorkflow(t *testing.T, srv *Server, name string, extract bool) {
+	t.Helper()
+
+	settings := `"generate_model":"generate_model"`
+	if extract {
+		settings += `,"extract_model":"extract_model"`
+	}
+	store, err := srv.workflowStore()
+	if err != nil {
+		t.Fatalf("workflow store: %v", err)
+	}
+	body := fmt.Appendf(nil, `{"name":%q,"spec":{"driver":"flowcraft","flowcraft":{"settings":{%s}}}}`, name, settings)
+	if err := store.Set(context.Background(), workflowReferenceKey(name), body); err != nil {
+		t.Fatalf("seed flowcraft workflow %q: %v", name, err)
+	}
+}
+
+func seedModel(t *testing.T, srv *Server, id string, kind apitypes.ModelKind) {
+	t.Helper()
+
+	modelServer, ok := srv.Models.(*model.Server)
+	if !ok {
+		t.Fatalf("Models = %T", srv.Models)
+	}
+	data, err := json.Marshal(apitypes.Model{Id: id, Kind: kind})
+	if err != nil {
+		t.Fatalf("json.Marshal(model) error = %v", err)
+	}
+	if err := modelServer.Store.Set(context.Background(), kv.Key{"by-id", id}, data); err != nil {
+		t.Fatalf("seed model %q: %v", id, err)
 	}
 }
 

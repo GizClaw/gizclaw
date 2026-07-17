@@ -126,10 +126,22 @@ func TestIntegrationAdminServiceWorkspaceLifecycle(t *testing.T) {
 	if _, err := createWorkflow(context.Background(), admin, workflowDoc); err != nil {
 		t.Fatalf("CreateWorkflow error: %v", err)
 	}
+	if _, err := createModel(context.Background(), admin, adminhttp.ModelUpsert{
+		Id:     "updated",
+		Kind:   apitypes.ModelKindLlm,
+		Source: apitypes.ModelSourceManual,
+		Provider: apitypes.ModelProvider{
+			Kind: "openai-tenant",
+			Name: "global",
+		},
+	}); err != nil {
+		t.Fatalf("CreateModel error: %v", err)
+	}
 
 	createBody := adminhttp.WorkspaceUpsert{
 		Name:         "demo-workspace",
 		WorkflowName: "demo-workflow",
+		Parameters:   testFlowcraftWorkspaceParameters(),
 	}
 	created, err := createWorkspace(context.Background(), admin, createBody)
 	if err != nil {

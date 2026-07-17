@@ -1,5 +1,6 @@
 import 'package:drift/native.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gizclaw/gizclaw.dart';
 import 'package:gizclaw_app/main.dart';
@@ -15,6 +16,7 @@ import 'package:gizclaw_app/features/onboarding/server_onboarding_page.dart';
 import 'package:gizclaw_app/giz_ui/giz_ui.dart';
 import 'package:gizclaw_app/identity/app_identity_store.dart';
 import 'package:gizclaw_app/prototype/prototype_data.dart';
+import 'package:gizclaw_app/prototype/prototype_models.dart';
 
 AppDatabase _testDatabase() => AppDatabase.forTesting(NativeDatabase.memory());
 
@@ -362,6 +364,53 @@ void main() {
     expect(find.text('Builder Crew'), findsOneWidget);
     expect(find.textContaining('Group chat'), findsOneWidget);
     expect(find.byType(CupertinoTextField), findsNothing);
+  });
+
+  appTestWidgets('requires concrete FlowCraft model choices before creation', (
+    tester,
+  ) async {
+    final controller = _FlowcraftCreateController();
+    await pumpApp(tester, controller: controller);
+
+    await tapPrimaryNav(tester, 'Flowcraft');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('create-workspace-flowcraft')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('workspace-generate-model')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('workspace-extract-model')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<CupertinoButton>(
+            find.byKey(const ValueKey('create-workspace-submit')),
+          )
+          .onPressed,
+      isNull,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('workspace-generate-model')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('chat-a').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('workspace-extract-model')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('chat-b').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('workspace-display-name')),
+      'Model-backed raid',
+    );
+    await tester.tap(find.byKey(const ValueKey('create-workspace-submit')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(controller.generateModel, 'chat-a');
+    expect(controller.extractModel, 'chat-b');
   });
 
   appTestWidgets('keeps driver destinations visible without workspaces', (
@@ -806,6 +855,29 @@ void main() {
     expect(find.byKey(const ValueKey('selected-server')), findsOneWidget);
   });
 
+  appTestWidgets('shows actionable iOS local-network recovery guidance', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    try {
+      final controller = _LocalNetworkFailureController();
+      await pumpApp(tester, controller: controller);
+
+      await tapPrimaryNav(tester, 'Identity');
+      await tester.pumpAndSettle();
+      expect(find.text('Local network connection unavailable'), findsOneWidget);
+      expect(find.textContaining('same reachable Wi-Fi'), findsOneWidget);
+      final retry = find.byKey(const ValueKey('local-network-retry'));
+      await tester.ensureVisible(retry);
+      await tester.pumpAndSettle();
+      await tester.tap(retry);
+      await tester.pump();
+      expect(controller.retryCalls, 1);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
   appTestWidgets('adds a server from the pushed page', (tester) async {
     final controller = _ImmediateAddServerController();
     await pumpApp(tester, controller: controller);
@@ -883,6 +955,28 @@ void main() {
     );
     expect(find.byType(CupertinoTextField), findsNothing);
     expect(find.byType(CupertinoTabBar).hitTestable(), findsNothing);
+  });
+
+  appTestWidgets('shows the specific workspace activation failure', (
+    tester,
+  ) async {
+    final controller = _ActivationFailureController();
+    await pumpApp(tester, controller: controller);
+
+    await tapPrimaryNav(tester, 'Friends');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Avery'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.tap(find.byKey(const ValueKey('workspace-activation-button')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('Unable to activate'), findsOneWidget);
+    expect(
+      find.textContaining('flowcraft parameter "generate_model" requires'),
+      findsOneWidget,
+    );
   });
 
   appTestWidgets('fits the compact iPhone viewport', (tester) async {
@@ -1090,6 +1184,84 @@ class _ServerListTestController extends MobileDataController {
   Future<void> start() async {
     connectionState = MobileConnectionState.offline;
     notifyListeners();
+  }
+}
+
+class _FlowcraftCreateController extends MobileDataController {
+  _FlowcraftCreateController()
+    : super(
+        database: _testDatabase(),
+        profile: const GizClawConnectionProfile(
+          endpoint: _testServerEndpoint,
+          clientPrivateKey: 'test-key',
+        ),
+      ) {
+    workflows = [
+      WorkflowCard.fromServer(
+        name: 'flow-models',
+        description: 'Requires concrete models',
+        driver: 'flowcraft',
+      ),
+    ];
+  }
+
+  String? generateModel;
+  String? extractModel;
+
+  @override
+  Future<void> start() async {
+    connectionState = MobileConnectionState.offline;
+    notifyListeners();
+  }
+
+  @override
+  Future<List<Model>> listGeneratorModels() async => [
+    Model(id: 'chat-a', kind: ModelKind.MODEL_KIND_LLM),
+    Model(id: 'chat-b', kind: ModelKind.MODEL_KIND_LLM),
+  ];
+
+  @override
+  Future<FlowcraftModelRequirements> flowcraftModelRequirements(
+    String workflowName,
+  ) async =>
+      const FlowcraftModelRequirements(generateModel: true, extractModel: true);
+
+  @override
+  Future<Workspace> createWorkspace({
+    required WorkflowDriverKind driver,
+    required String workflowName,
+    required String name,
+    String? generateModel,
+    String? extractModel,
+    FlowcraftModelRequirements? flowcraftRequirements,
+  }) async {
+    this.generateModel = generateModel;
+    this.extractModel = extractModel;
+    return Workspace(name: 'created-workspace', workflowName: workflowName);
+  }
+}
+
+class _LocalNetworkFailureController extends _ServerListTestController {
+  _LocalNetworkFailureController() {
+    lastError = StateError('No route to host');
+  }
+
+  int retryCalls = 0;
+
+  @override
+  Future<void> recoverTransport() async {
+    retryCalls += 1;
+  }
+}
+
+class _ActivationFailureController extends _ServerListTestController {
+  @override
+  Future<WorkspaceChatController> activateWorkspaceChat(String workspaceName) {
+    return Future.error(
+      StateError(
+        'flowcraft parameter "generate_model" requires a concrete Model',
+      ),
+    );
   }
 }
 

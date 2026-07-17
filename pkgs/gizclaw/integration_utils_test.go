@@ -456,6 +456,21 @@ func createWorkspace(ctx context.Context, c *gizcli.Client, body adminhttp.Works
 	return apitypes.Workspace{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON409, resp.JSON500)
 }
 
+func createModel(ctx context.Context, c *gizcli.Client, body adminhttp.ModelUpsert) (apitypes.Model, error) {
+	api, err := c.ServerAdminClient()
+	if err != nil {
+		return apitypes.Model{}, err
+	}
+	resp, err := api.CreateModelWithResponse(ctx, body)
+	if err != nil {
+		return apitypes.Model{}, err
+	}
+	if resp.JSON200 != nil {
+		return *resp.JSON200, nil
+	}
+	return apitypes.Model{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON409, resp.JSON500)
+}
+
 func getWorkspace(ctx context.Context, c *gizcli.Client, name string) (apitypes.Workspace, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
