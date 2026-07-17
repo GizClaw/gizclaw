@@ -72,7 +72,6 @@ const (
 	doubaoRealtimeFixedOutputSampleRate = 24000
 	doubaoRealtimeFixedOutputChannels   = 1
 
-	doubaoRealtimeOpusFrameDuration = 20 * time.Millisecond
 	doubaoRealtimePTTOutputLimit    = 2 * time.Minute
 	doubaoRealtimePTTOutputMaxBytes = 32 << 20
 	doubaoRealtimeRetryInitial      = 100 * time.Millisecond
@@ -971,17 +970,6 @@ func (t *DoubaoRealtime) processSession(
 		}
 		return nil
 	}
-	waitOutputFrame := func(epoch uint64) bool {
-		timer := time.NewTimer(doubaoRealtimeOpusFrameDuration)
-		defer timer.Stop()
-		select {
-		case <-ctx.Done():
-			return false
-		case <-timer.C:
-		}
-		return assistant.canPush(epoch)
-	}
-
 	eventsDone := make(chan struct{})
 	eventsResult := make(chan error, 1)
 	go func() {
@@ -1236,9 +1224,6 @@ func (t *DoubaoRealtime) processSession(
 							}
 							if err := pushAssistantOutput(epoch, response, outChunk); err != nil {
 								return err
-							}
-							if !waitOutputFrame(epoch) {
-								break
 							}
 						}
 					}

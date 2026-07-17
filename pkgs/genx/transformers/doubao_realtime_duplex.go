@@ -12,7 +12,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/GizClaw/doubao-speech-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
@@ -61,8 +60,6 @@ const (
 	doubaoRealtimeDuplexFixedInputChannels    = 1
 	doubaoRealtimeDuplexFixedOutputFormat     = "ogg_opus"
 	doubaoRealtimeDuplexFixedOutputSampleRate = 24000
-
-	doubaoRealtimeDuplexOpusFrameDuration = 20 * time.Millisecond
 )
 
 type doubaoRealtimeDuplexOpener interface {
@@ -361,17 +358,6 @@ func (t *DoubaoRealtimeDuplex) processLoop(ctx context.Context, input genx.Strea
 		}
 		return output.Push(chunk)
 	}
-	waitOutputFrame := func(epoch uint64) bool {
-		timer := time.NewTimer(doubaoRealtimeDuplexOpusFrameDuration)
-		defer timer.Stop()
-		select {
-		case <-ctx.Done():
-			return false
-		case <-timer.C:
-		}
-		return assistant.canPush(epoch)
-	}
-
 	streamIDs := newDoubaoRealtimeDuplexStreamIDs()
 	audioStarted := false
 	audioStartedStreamID := ""
@@ -632,9 +618,6 @@ func (t *DoubaoRealtimeDuplex) processLoop(ctx context.Context, input genx.Strea
 					}); err != nil {
 						finishEventError(err)
 						return
-					}
-					if !waitOutputFrame(epoch) {
-						break
 					}
 				}
 			case doubaospeech.RealtimeDuplexEventResponseOutputAudioDone:

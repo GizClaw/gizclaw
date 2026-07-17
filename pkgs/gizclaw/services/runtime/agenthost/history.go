@@ -28,7 +28,6 @@ const (
 
 	historyOggOpusSampleRate = 48000
 	historyOggOpusChannels   = 1
-	historyReplayFrameDelay  = 20 * time.Millisecond
 	historyReplayInterrupted = "interrupted"
 	historyUpdatedLabel      = "workspace.history.updated"
 	historyUpdatedDelay      = 25 * time.Millisecond
@@ -107,7 +106,7 @@ func (a *historyAgent) Transform(ctx context.Context, pattern string, input genx
 		return nil, fmt.Errorf("agenthost: history agent is nil")
 	}
 	outputKey := historyOutputKey(ctx)
-	output := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 256)
+	output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 256)
 	outputState := &historyOutput{output: output}
 	a.outputMu.Lock()
 	if a.outputs == nil {
@@ -542,29 +541,7 @@ func (o *historyOutput) runReplay(ctx context.Context, seq uint64, chunks []*gen
 		if err := o.output.Add(chunk.Clone()); err != nil {
 			return
 		}
-		if historyReplayNeedsPace(chunk) {
-			if err := o.waitReplayFrame(ctx, seq); err != nil {
-				return
-			}
-		}
 	}
-}
-
-func (o *historyOutput) waitReplayFrame(ctx context.Context, seq uint64) error {
-	if !o.isCurrentReplay(seq) {
-		return context.Canceled
-	}
-	timer := time.NewTimer(historyReplayFrameDelay)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-timer.C:
-	}
-	if !o.isCurrentReplay(seq) {
-		return context.Canceled
-	}
-	return nil
 }
 
 func (o *historyOutput) finishReplay(seq uint64) {
@@ -683,14 +660,6 @@ func historyReplayInterruptedChunks(role genx.Role, name string, streamID string
 		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: label, EndOfStream: true, Error: historyReplayInterrupted},
 	}
 	return []*genx.MessageChunk{textEOS, audioEOS}
-}
-
-func historyReplayNeedsPace(chunk *genx.MessageChunk) bool {
-	if chunk == nil || chunk.IsEndOfStream() {
-		return false
-	}
-	blob, ok := chunk.Part.(*genx.Blob)
-	return ok && len(blob.Data) > 0 && baseHistoryMIME(blob.MIMEType) == "audio/opus"
 }
 
 type historyRecorder struct {

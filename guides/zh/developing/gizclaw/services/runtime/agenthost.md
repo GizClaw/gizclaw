@@ -30,7 +30,9 @@ flowchart TD
 | `Coordinator` / `MemoryCoordinator` | 为 workspace 提供排他 lease。 |
 | `Host` / `Registry` | 根据解析后的 `Spec` 选择并创建 Agent。 |
 | `InputStream` / `PushSource` | 将连续输入转换为 Agent 消费的 GenX Stream。 |
-| `MixerOutput` | 将 Agent audio output 接到 mixer track。 |
+| `MixerOutput` | 按 `(StreamID, canonical MIME)` 将 Agent audio decode 为 PCM，并接到独立 mixer track；MIME EOS 只关闭对应 track，control-only EOS 关闭 route 下全部 track。 |
 | `ToolkitContext` | 为一次 runtime 组合授权后的 ToolKit。 |
 
 所有 runtime 创建路径都必须具有对称的 cancel、stream close、lease release 和 registry cleanup。Agent definition、Workflow 与 Workspace 的持久化仍属于 AI services。
+
+Transformer 与 history replay 必须尽快把 provider output drain 到 growable stream buffer，不在该层按播放时钟等待。所有 MIME 最终都进入 mixer 的 PCM stream；`PeerConn` 只在 mixer 出口每个 20ms pacing opportunity 读取一帧、编码 Opus 并写入 WebRTC。普通 EOS 使用 `CloseWrite` 让已缓存 PCM 排空，error EOS 使用 `CloseWithError` 丢弃对应 track 的缓存。

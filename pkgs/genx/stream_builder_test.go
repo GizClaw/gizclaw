@@ -48,6 +48,28 @@ func TestStreamBuilderTerminalStates(t *testing.T) {
 	}
 }
 
+func TestGrowableStreamBuilderDoesNotBlockProducerAtInitialCapacity(t *testing.T) {
+	sb := NewGrowableStreamBuilder((&ModelContextBuilder{}).Build(), 1)
+	const count = 100
+	for i := range count {
+		if err := sb.Add(&MessageChunk{Part: Text("chunk")}); err != nil {
+			t.Fatalf("Add(%d) error = %v", i, err)
+		}
+	}
+	if err := sb.Done(Usage{}); err != nil {
+		t.Fatalf("Done() error = %v", err)
+	}
+	stream := sb.Stream()
+	for i := range count {
+		if _, err := stream.Next(); err != nil {
+			t.Fatalf("Next(%d) error = %v", i, err)
+		}
+	}
+	if err := readStreamTerminalError(t, stream); err == nil {
+		t.Fatal("terminal error = nil")
+	}
+}
+
 func TestStreamBuilderAddBindsToolAndInvoke(t *testing.T) {
 	tool := MustNewFuncTool[struct {
 		V int `json:"v"`

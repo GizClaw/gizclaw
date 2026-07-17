@@ -1540,18 +1540,6 @@ func TestRealtimeInputInterruptsCurrent(t *testing.T) {
 	}
 }
 
-func TestWaitOpusFrameCancellation(t *testing.T) {
-	a := &agent{}
-	if err := a.waitOpusFrame(context.Background(), 99); !errors.Is(err, context.Canceled) {
-		t.Fatalf("waitOpusFrame(stale) = %v, want canceled", err)
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	if err := a.waitOpusFrame(ctx, a.currentOutputEpoch()); !errors.Is(err, context.Canceled) {
-		t.Fatalf("waitOpusFrame(canceled) = %v, want canceled", err)
-	}
-}
-
 func TestAudioMIMEHelpers(t *testing.T) {
 	if got := baseMIME(" audio/ogg; codecs=opus "); got != "audio/ogg" {
 		t.Fatalf("baseMIME() = %q", got)

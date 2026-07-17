@@ -10,12 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
-	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
 const peerStreamEventVersion = 1
@@ -76,133 +74,20 @@ func (b *peerStreamEventBroker) Broadcast(event apitypes.PeerStreamEvent) error 
 type peerAgentOutput struct {
 	Events *peerStreamEventBroker
 	Tracks agenthost.AudioTrackCreator
-	Conn   peerDirectPacketWriter
-	Now    func() time.Time
-}
-
-type peerDirectPacketWriter interface {
-	Write(byte, []byte) (int, error)
 }
 
 func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream) error {
-	if output == nil {
-		return fmt.Errorf("gizclaw: agent output stream is required")
-	}
-	var pcmTrack pcm.Track
-	var pcmCtrl *pcm.TrackCtrl
-	opusPacer := peerOpusPacer{Now: o.Now}
-	defer func() {
-		if pcmCtrl != nil {
-			_ = pcmCtrl.Close()
-		}
-	}()
-	for {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		chunk, err := output.Next()
-		if err != nil {
-			if agenthost.IsStreamDone(err) {
-				return nil
-			}
-			return err
-		}
-		if chunk == nil {
-			continue
-		}
-		for _, event := range peerStreamEventsFromChunk(chunk) {
-			if err := o.Events.Broadcast(event); err != nil {
-				return err
-			}
-		}
-		blob, ok := chunk.Part.(*genx.Blob)
-		if ok && chunk.IsEndOfStream() && isPCMBlob(blob) && pcmCtrl != nil {
-			_ = pcmCtrl.Close()
-			pcmCtrl = nil
-			pcmTrack = nil
-			continue
-		}
-		if !ok || len(blob.Data) == 0 {
-			continue
-		}
-		switch {
-		case isOpusBlob(blob):
-			if err := opusPacer.Wait(ctx); err != nil {
-				return err
-			}
-			if err := o.writeOpusPacket(blob.Data); err != nil {
-				return err
-			}
-			opusPacer.Advance()
-		case isPCMBlob(blob):
-			if pcmTrack == nil {
-				if o.Tracks == nil {
-					return fmt.Errorf("gizclaw: audio track creator is required")
-				}
-				var err error
-				pcmTrack, pcmCtrl, err = o.Tracks.CreateAudioTrack(pcm.WithTrackLabel("agent"))
-				if err != nil {
+	return (agenthost.MixerOutput{
+		Tracks: o.Tracks,
+		Observe: func(chunk *genx.MessageChunk) error {
+			for _, event := range peerStreamEventsFromChunk(chunk) {
+				if err := o.Events.Broadcast(event); err != nil {
 					return err
 				}
 			}
-			if err := pcmTrack.Write(pcm.L16Mono16K.DataChunk(blob.Data)); err != nil {
-				return err
-			}
-		}
-	}
-}
-
-func (o peerAgentOutput) writeOpusPacket(frame []byte) error {
-	if o.Conn == nil {
-		return fmt.Errorf("gizclaw: peer conn is required for opus output")
-	}
-	_, err := o.Conn.Write(giznet.ProtocolOpusPacket, frame)
-	return err
-}
-
-type peerOpusPacer struct {
-	Now  func() time.Time
-	next time.Time
-}
-
-func (p *peerOpusPacer) Wait(ctx context.Context) error {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	if p == nil || p.next.IsZero() {
-		return nil
-	}
-	delay := p.next.Sub(p.now())
-	if delay <= 0 {
-		return nil
-	}
-	timer := time.NewTimer(delay)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-timer.C:
-		return nil
-	}
-}
-
-func (p *peerOpusPacer) Advance() {
-	if p == nil {
-		return
-	}
-	now := p.now()
-	base := now
-	if !p.next.IsZero() && p.next.After(base) {
-		base = p.next
-	}
-	p.next = base.Add(peerConnOpusFrameDuration)
-}
-
-func (p *peerOpusPacer) now() time.Time {
-	if p != nil && p.Now != nil {
-		return p.Now().UTC()
-	}
-	return time.Now().UTC()
+			return nil
+		},
+	}).ConsumeAgentOutput(ctx, output)
 }
 
 func readPeerStreamEvent(r io.Reader) (apitypes.PeerStreamEvent, error) {
@@ -391,23 +276,11 @@ func isOpusBlob(blob *genx.Blob) bool {
 	if blob == nil {
 		return false
 	}
-	return peerStreamBaseMIME(blob.MIMEType) == "audio/opus"
-}
-
-func isPCMBlob(blob *genx.Blob) bool {
-	if blob == nil {
-		return false
-	}
-	mimeType := peerStreamBaseMIME(blob.MIMEType)
-	return strings.HasPrefix(mimeType, "audio/l16") || mimeType == "audio/pcm" || mimeType == "audio/x-pcm"
-}
-
-func peerStreamBaseMIME(mimeType string) string {
-	mimeType = strings.ToLower(strings.TrimSpace(mimeType))
+	mimeType := strings.ToLower(strings.TrimSpace(blob.MIMEType))
 	if i := strings.IndexByte(mimeType, ';'); i >= 0 {
 		mimeType = strings.TrimSpace(mimeType[:i])
 	}
-	return mimeType
+	return mimeType == "audio/opus"
 }
 
 func opusPacketChunk(payload []byte) (*genx.MessageChunk, bool) {

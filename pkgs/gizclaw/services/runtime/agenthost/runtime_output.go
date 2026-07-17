@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -15,19 +14,21 @@ type AudioTrackCreator interface {
 }
 
 type MixerOutput struct {
-	Tracks AudioTrackCreator
+	Tracks  AudioTrackCreator
+	Observe func(*genx.MessageChunk) error
 }
 
-func (o MixerOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream) error {
+func (o MixerOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream) (retErr error) {
 	if output == nil {
 		return fmt.Errorf("agenthost: output stream is required")
 	}
-	var track pcm.Track
-	var ctrl *pcm.TrackCtrl
+	tracks := newAudioOutputTracks(o.Tracks)
 	defer func() {
-		if ctrl != nil {
-			_ = ctrl.Close()
+		if retErr != nil {
+			retErr = errors.Join(retErr, tracks.closeWithError(retErr))
+			return
 		}
+		retErr = tracks.closeWrite()
 	}()
 	for {
 		if err := ctx.Err(); err != nil {
@@ -40,32 +41,16 @@ func (o MixerOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream)
 			}
 			return err
 		}
-		if chunk == nil || chunk.IsEndOfStream() {
+		if chunk == nil {
 			continue
 		}
-		blob, ok := chunk.Part.(*genx.Blob)
-		if !ok || !isPCMBlob(blob) || len(blob.Data) == 0 {
-			continue
-		}
-		if track == nil {
-			if o.Tracks == nil {
-				return fmt.Errorf("agenthost: audio track creator is required")
-			}
-			track, ctrl, err = o.Tracks.CreateAudioTrack(pcm.WithTrackLabel("agent"))
-			if err != nil {
+		if o.Observe != nil {
+			if err := o.Observe(chunk); err != nil {
 				return err
 			}
 		}
-		if err := track.Write(pcm.L16Mono16K.DataChunk(blob.Data)); err != nil {
-			if errors.Is(err, context.Canceled) {
-				return err
-			}
-			return fmt.Errorf("agenthost: write audio chunk: %w", err)
+		if err := tracks.consume(chunk); err != nil {
+			return err
 		}
 	}
-}
-
-func isPCMBlob(blob *genx.Blob) bool {
-	mimeType := strings.ToLower(strings.TrimSpace(blob.MIMEType))
-	return strings.HasPrefix(mimeType, "audio/l16") || mimeType == "audio/pcm" || mimeType == "audio/x-pcm"
 }

@@ -42,8 +42,6 @@ const (
 	interruptedError     = "interrupted"
 )
 
-const opusFrameDuration = 20 * time.Millisecond
-
 type inputMode string
 
 const (
@@ -904,7 +902,7 @@ func (a *agent) Transform(ctx context.Context, _ string, input genx.Stream) (gen
 	if a == nil {
 		return nil, fmt.Errorf("flowcraft: agent is nil")
 	}
-	output := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 64)
+	output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 64)
 	a.setActiveOutput(output, defaultInputStreamID)
 	go a.run(ctx, input, output)
 	return output.Stream(), nil
@@ -1710,23 +1708,6 @@ func (a *agent) interruptOutput(output *genx.StreamBuilder, streamID string, epo
 	return output.Add(textEOS, audioEOS) == nil
 }
 
-func (a *agent) waitOpusFrame(ctx context.Context, epoch uint64) error {
-	if !a.isCurrentOutputEpoch(epoch) {
-		return context.Canceled
-	}
-	timer := time.NewTimer(opusFrameDuration)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-timer.C:
-	}
-	if !a.isCurrentOutputEpoch(epoch) {
-		return context.Canceled
-	}
-	return nil
-}
-
 func (a *agent) transcribeInputTurn(ctx context.Context, input genx.Stream, output *genx.StreamBuilder, epoch uint64, defaultStreamID string) (string, string, error) {
 	prefetched, err := readInputTurn(ctx, input, defaultStreamID)
 	turnStreamID := strings.TrimSpace(prefetched.streamID)
@@ -1966,9 +1947,6 @@ func (a *agent) drainTTSOutput(ctx context.Context, streamID, nodeID, voice stri
 			if err := a.addOutput(output, epoch, audioChunk(nodeID, streamID, blob.Data, false)); err != nil {
 				return err
 			}
-			if err := a.waitOpusFrame(ctx, epoch); err != nil {
-				return err
-			}
 		case "audio/ogg", "application/ogg":
 			frames, err := oggDecoder.Write(blob.Data)
 			if err != nil {
@@ -1976,9 +1954,6 @@ func (a *agent) drainTTSOutput(ctx context.Context, streamID, nodeID, voice stri
 			}
 			for _, frame := range frames {
 				if err := a.addOutput(output, epoch, audioChunk(nodeID, streamID, frame, false)); err != nil {
-					return err
-				}
-				if err := a.waitOpusFrame(ctx, epoch); err != nil {
 					return err
 				}
 			}

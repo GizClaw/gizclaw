@@ -902,7 +902,7 @@ func TestHistoryAgentPlayRoutesToRequestGearOutput(t *testing.T) {
 	}
 }
 
-func TestHistoryAgentPlayInterruptsPreviousReplay(t *testing.T) {
+func TestHistoryAgentReplayDrainsWithoutPlaybackPacing(t *testing.T) {
 	history := workspace.NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
 	audio1, err := historyOggOpusAsset([][]byte{{1}, {2}, {3}, {4}})
 	if err != nil {
@@ -957,22 +957,24 @@ func TestHistoryAgentPlayInterruptsPreviousReplay(t *testing.T) {
 	} else if blob, ok := audio.Part.(*genx.Blob); !ok || !bytes.Equal(blob.Data, []byte{1}) {
 		t.Fatalf("first audio = %#v", audio)
 	}
+	for want := byte(2); want <= 4; want++ {
+		audio, err := out.Next()
+		if err != nil {
+			t.Fatalf("Next first audio packet %d: %v", want, err)
+		}
+		blob, ok := audio.Part.(*genx.Blob)
+		if !ok || !bytes.Equal(blob.Data, []byte{want}) {
+			t.Fatalf("first audio packet %d = %#v", want, audio)
+		}
+	}
+	if audioEOS, err := out.Next(); err != nil {
+		t.Fatalf("Next first audio eos: %v", err)
+	} else if audioEOS.Ctrl == nil || !audioEOS.Ctrl.EndOfStream || audioEOS.Ctrl.Error != "" {
+		t.Fatalf("first audio eos = %#v", audioEOS)
+	}
+
 	if resp, err := agent.PlayHistory(context.Background(), apitypes.PeerRunHistoryPlayRequest{HistoryId: second.ID}); err != nil || !resp.Accepted {
 		t.Fatalf("PlayHistory(second) = %+v, %v", resp, err)
-	}
-	interruptedText, err := out.Next()
-	if err != nil {
-		t.Fatalf("Next interrupted text eos: %v", err)
-	}
-	if interruptedText.Ctrl == nil || interruptedText.Ctrl.Error != historyReplayInterrupted || !interruptedText.Ctrl.EndOfStream {
-		t.Fatalf("interrupted text eos = %#v", interruptedText)
-	}
-	interruptedAudio, err := out.Next()
-	if err != nil {
-		t.Fatalf("Next interrupted audio eos: %v", err)
-	}
-	if interruptedAudio.Ctrl == nil || interruptedAudio.Ctrl.Error != historyReplayInterrupted || !interruptedAudio.Ctrl.EndOfStream {
-		t.Fatalf("interrupted audio eos = %#v", interruptedAudio)
 	}
 	secondText, err := out.Next()
 	if err != nil {

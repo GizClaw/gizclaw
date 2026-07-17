@@ -26,13 +26,30 @@ type StreamEvent struct {
 }
 
 type StreamBuilder struct {
-	rb        *buffer.BlockBuffer[*StreamEvent]
+	rb        streamEventBuffer
 	funcTools map[string]*FuncTool
 }
 
+type streamEventBuffer interface {
+	Add(*StreamEvent) error
+	Next() (*StreamEvent, error)
+	Close() error
+	CloseWrite() error
+	CloseWithError(error) error
+}
+
 func NewStreamBuilder(mctx ModelContext, size int) *StreamBuilder {
+	return newStreamBuilder(mctx, buffer.BlockN[*StreamEvent](size))
+}
+
+// NewGrowableStreamBuilder creates a stream builder whose initial capacity can grow without blocking producers.
+func NewGrowableStreamBuilder(mctx ModelContext, initialCapacity int) *StreamBuilder {
+	return newStreamBuilder(mctx, buffer.N[*StreamEvent](initialCapacity))
+}
+
+func newStreamBuilder(mctx ModelContext, events streamEventBuffer) *StreamBuilder {
 	sb := &StreamBuilder{
-		rb:        buffer.BlockN[*StreamEvent](size),
+		rb:        events,
 		funcTools: make(map[string]*FuncTool),
 	}
 	for tool := range mctx.Tools() {
