@@ -11,19 +11,27 @@ import (
 func TestServerWorkflowRPC(t *testing.T) {
 	env := newServerResourceHarness(t)
 
-	workflowList, err := env.peer.ListWorkflows(env.ctx, "workflow.list.shared", rpcapi.WorkflowListRequest{Lang: rpcapi.WorkflowLocaleZhCN})
-	if err != nil {
-		t.Fatalf("workflow.list shared: %v", err)
-	}
-	if len(workflowList.Items) == 0 {
-		t.Fatalf("workflow.list returned no items")
-	}
 	var localized *rpcapi.Workflow
-	for i := range workflowList.Items {
-		if workflowList.Items[i].Name == sharedWorkflow {
-			localized = &workflowList.Items[i]
+	limit := 25
+	var cursor *string
+	for page := 0; page < 100 && localized == nil; page++ {
+		workflowList, err := env.peer.ListWorkflows(env.ctx, "workflow.list.shared", rpcapi.WorkflowListRequest{Lang: rpcapi.WorkflowLocaleZhCN, Cursor: cursor, Limit: &limit})
+		if err != nil {
+			t.Fatalf("workflow.list shared page %d: %v", page, err)
+		}
+		for i := range workflowList.Items {
+			if workflowList.Items[i].Name == sharedWorkflow {
+				localized = &workflowList.Items[i]
+				break
+			}
+		}
+		if localized != nil || !workflowList.HasNext {
 			break
 		}
+		if workflowList.NextCursor == nil || *workflowList.NextCursor == "" {
+			t.Fatalf("workflow.list shared page %d has_next without cursor", page)
+		}
+		cursor = workflowList.NextCursor
 	}
 	if localized == nil || localized.I18n == nil || localized.I18n.Name == nil || *localized.I18n.Name != "支持助手" {
 		t.Fatalf("zh-CN workflow catalog = %#v", localized)

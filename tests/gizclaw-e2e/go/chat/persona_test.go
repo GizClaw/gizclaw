@@ -107,6 +107,17 @@ func TestTextHelpers(t *testing.T) {
 	if got := cleanAssistantSpokenText(`<node id="answer">不要念出来</node>请继续。`); got != "请继续。" {
 		t.Fatalf("cleanAssistantSpokenText(xml block) = %q", got)
 	}
+	for _, text := range []string{
+		`你是3号平民，轮到你发言。></`,
+		`<seed:_tool_call><function werewolf></function>`,
+	} {
+		if err := validateAssistantOutputText(text); err == nil {
+			t.Fatalf("validateAssistantOutputText(%q) succeeded", text)
+		}
+	}
+	if err := validateAssistantOutputText("你是3号平民，轮到你发言。"); err != nil {
+		t.Fatalf("validateAssistantOutputText(clean) error = %v", err)
+	}
 	if got := normalizeTranscript("A-猫，12!"); got != "a猫12" {
 		t.Fatalf("normalizeTranscript() = %q", got)
 	}
@@ -247,6 +258,60 @@ func TestPrepareConversationRequiresConfiguredSelfStart(t *testing.T) {
 	_, err := driver.prepareConversation(context.Background(), conversationMode{})
 	if err == nil || !strings.Contains(err.Error(), "self-start did not emit output") {
 		t.Fatalf("prepareConversation() error = %v, want missing self-start", err)
+	}
+}
+
+func TestPrepareConversationDoesNotRequireHistoryForSelfStart(t *testing.T) {
+	assistantLabel := "assistant"
+	events := make(chan timedPeerEvent)
+	opusPackets := make(chan timedPeerPacket)
+	go func() {
+		events <- timedTextEvent("assistant", "你好")
+		opusPackets <- newTimedPeerPacket([]byte{0x01})
+		events <- timedTextDoneEvent("assistant")
+		events <- newTimedPeerEvent(apitypes.PeerStreamEvent{
+			Type:  apitypes.PeerStreamEventTypeEos,
+			Label: &assistantLabel,
+		})
+	}()
+
+	driver := &personaDriver{
+		cfg: config{
+			Agent:     "flowcraft",
+			Workspace: "self-start-without-history",
+			Timeout:   "2s",
+			timeout:   2 * time.Second,
+			Workflow: workflowConfig{
+				Flowcraft: map[string]interface{}{
+					"conversation": map[string]interface{}{"starts": "self"},
+				},
+			},
+		},
+		transport: &chatTransport{
+			events:      events,
+			opusPackets: opusPackets,
+			errs:        make(chan error),
+		},
+		runtimeClient: &fakeRunControl{
+			history: &rpcapi.ServerListRunWorkspaceHistoryResponse{Available: true},
+		},
+		newTransport: func() (*chatTransport, error) {
+			return &chatTransport{
+				events:      make(chan timedPeerEvent),
+				opusPackets: make(chan timedPeerPacket),
+				errs:        make(chan error),
+			}, nil
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	stats, err := driver.prepareConversation(ctx, conversationMode{SkipAssistantAudioASR: true})
+	if err != nil {
+		t.Fatalf("prepareConversation() error = %v", err)
+	}
+	if len(stats) != 1 || stats[0].AssistantText != "你好" {
+		t.Fatalf("self-start stats = %#v", stats)
 	}
 }
 
@@ -687,6 +752,49 @@ func TestPersonaDriverRunRoundVerifiesAssistantAudio(t *testing.T) {
 	}
 	if stat.DownlinkPackets != 1 {
 		t.Fatalf("downlink packets = %d, want 1", stat.DownlinkPackets)
+	}
+}
+
+func TestPersonaDriverRunRoundRejectsASTOutputReceivedBeforeInputEOS(t *testing.T) {
+	events := make(chan timedPeerEvent, 1)
+	stream := newFakePeerStream()
+	var publish sync.Once
+	stream.push = func(chunk *genx.MessageChunk) error {
+		if chunk.IsBeginOfStream() {
+			publish.Do(func() {
+				events <- timedTextEvent("transcript", "不应提前发布")
+			})
+		}
+		return nil
+	}
+	driver := &personaDriver{
+		cfg: config{Agent: "ast-translate", OutputDir: t.TempDir()},
+		runtimeClient: &fakeRunControl{
+			history: &rpcapi.ServerListRunWorkspaceHistoryResponse{Available: true},
+		},
+		transport: &chatTransport{
+			stream:         stream,
+			events:         events,
+			opusPackets:    make(chan timedPeerPacket),
+			errs:           make(chan error, 1),
+			packetInterval: time.Millisecond,
+		},
+		generateUtterance: func(context.Context, int) (string, error) {
+			return "你好测试", nil
+		},
+		synthesizeAudio: func(context.Context, string) ([]byte, [][]byte, error) {
+			return []byte("ogg-audio"), [][]byte{{0x11}, {0x22}}, nil
+		},
+		transcribeAudioFile: func(context.Context, string) (string, error) {
+			return "你好测试", nil
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	_, err := driver.runRound(ctx, 1, conversationMode{})
+	if err == nil || !strings.Contains(err.Error(), "AST push-to-talk published transcript") {
+		t.Fatalf("runRound() error = %v", err)
 	}
 }
 

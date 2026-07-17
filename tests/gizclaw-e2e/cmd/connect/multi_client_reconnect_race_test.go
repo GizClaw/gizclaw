@@ -10,7 +10,8 @@ import (
 )
 
 func TestMultiClientReconnectRaceUserStory(t *testing.T) {
-	h := clitest.NewSetupHarness(t, "403-multi-client-reconnect-race")
+	h := clitest.NewHarness(t, "403-multi-client-reconnect-race")
+	h.StartServerFromFixture("server_config.yaml")
 
 	contexts := []string{"alpha", "beta"}
 	for _, name := range contexts {

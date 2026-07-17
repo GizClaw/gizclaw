@@ -8,6 +8,7 @@ docker_dir="$e2e_dir/docker"
 compose_file="$docker_dir/docker-compose.yaml"
 env_file="$e2e_dir/.env"
 state_root="$e2e_dir/testdata/docker"
+default_turn_relay_port_count=100
 
 if [[ ! -f "$env_file" ]]; then
   echo "missing $env_file; copy .env.example and fill provider credentials before Docker e2e" >&2
@@ -337,10 +338,10 @@ if [[ -z "${GIZCLAW_E2E_EDGE_ENDPOINT:-}" ]]; then
   GIZCLAW_E2E_EDGE_ENDPOINT="${GIZCLAW_E2E_EDGE_HOST:-${GIZCLAW_E2E_SERVER_HOST:-127.0.0.1}}:$GIZCLAW_E2E_DOCKER_EDGE_PORT"
 fi
 if [[ -z "${GIZCLAW_E2E_TURN_RELAY_MIN_PORT:-}" ]]; then
-  GIZCLAW_E2E_TURN_RELAY_MIN_PORT="$(pick_free_udp_range 20)"
+  GIZCLAW_E2E_TURN_RELAY_MIN_PORT="$(pick_free_udp_range "$default_turn_relay_port_count")"
 fi
 if [[ -z "${GIZCLAW_E2E_TURN_RELAY_MAX_PORT:-}" ]]; then
-  GIZCLAW_E2E_TURN_RELAY_MAX_PORT=$((GIZCLAW_E2E_TURN_RELAY_MIN_PORT + 19))
+  GIZCLAW_E2E_TURN_RELAY_MAX_PORT=$((GIZCLAW_E2E_TURN_RELAY_MIN_PORT + default_turn_relay_port_count - 1))
 fi
 if [[ -z "${GIZCLAW_E2E_DOCKER_TURN_PORT:-}" ]]; then
   GIZCLAW_E2E_DOCKER_TURN_PORT="$(pick_free_udp_port "$GIZCLAW_E2E_TURN_RELAY_MIN_PORT" "$GIZCLAW_E2E_TURN_RELAY_MAX_PORT")"

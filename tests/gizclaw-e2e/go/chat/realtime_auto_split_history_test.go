@@ -5,5 +5,5 @@ package chat
 import "testing"
 
 func TestRealtimeAutoSplitHistory(t *testing.T) {
-	runLiveWorkspaceCase(t, workspaceCaseRealtimeAutoSplit, allWorkspaceConfigPaths(t))
+	runLiveWorkspaceCase(t, workspaceCaseRealtimeAutoSplit, realtimeAutoSplitWorkspaceConfigPaths(t))
 }

@@ -23,7 +23,7 @@ func TestContextInfoAndShowUserStory(t *testing.T) {
 
 	info := h.RunCLI("context", "info")
 	info.MustSucceed(t)
-	for _, want := range []string{`"name":"beta"`, `"current":true`, `"server_address":"127.0.0.1:9821"`} {
+	for _, want := range []string{`"name":"beta"`, `"current":true`, `"server_endpoint":"127.0.0.1:9821"`} {
 		if !strings.Contains(info.Stdout, want) {
 			t.Fatalf("context info missing %q:\n%s", want, info.Stdout)
 		}
@@ -31,7 +31,7 @@ func TestContextInfoAndShowUserStory(t *testing.T) {
 
 	show := h.RunCLI("context", "show", "alpha")
 	show.MustSucceed(t)
-	for _, want := range []string{`"name":"alpha"`, `"current":false`, `"server_address":"` + h.ClientEndpoint() + `"`} {
+	for _, want := range []string{`"name":"alpha"`, `"current":false`, `"server_endpoint":"` + h.ClientEndpoint() + `"`} {
 		if !strings.Contains(show.Stdout, want) {
 			t.Fatalf("context show missing %q:\n%s", want, show.Stdout)
 		}

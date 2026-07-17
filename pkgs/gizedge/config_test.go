@@ -508,7 +508,7 @@ func TestUpstreamTransportReconnectsAfterClosedConn(t *testing.T) {
 	}
 }
 
-func TestUpstreamTransportDoesNotResetCanceledRequest(t *testing.T) {
+func TestUpstreamTransportResetsCanceledRequest(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://gizclaw/server-info", nil)
@@ -521,11 +521,11 @@ func TestUpstreamTransportDoesNotResetCanceledRequest(t *testing.T) {
 	if _, err := transport.RoundTrip(req); err == nil {
 		t.Fatal("RoundTrip error = nil, want canceled request error")
 	}
-	if conn.closed {
-		t.Fatal("canceled request reset shared upstream conn")
+	if !conn.closed {
+		t.Fatal("canceled request left the failed shared upstream conn open")
 	}
-	if transport.conn == nil {
-		t.Fatal("canceled request cleared shared upstream conn")
+	if transport.conn != nil {
+		t.Fatal("canceled request left the failed shared upstream conn cached")
 	}
 }
 

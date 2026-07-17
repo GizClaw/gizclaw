@@ -1783,6 +1783,45 @@ func TestTranscribeInputTurnUsesPrefetchedStreamID(t *testing.T) {
 	}
 }
 
+func TestTranscribeInputTurnDoesNotTreatASRHistoryAudioEOSAsTranscriptEOS(t *testing.T) {
+	const streamID = "client-turn"
+	a := &agent{
+		transformers: fakeTransformerProvider{transformer: patternTransformer{
+			pattern: "model/asr",
+			stream: &sliceStream{chunks: []*genx.MessageChunk{
+				{Role: genx.RoleUser, Name: transcriptLabel, Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1, 2}}, Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: genx.HistoryUserAudioLabel}},
+				{Role: genx.RoleUser, Name: transcriptLabel, Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: genx.HistoryUserAudioLabel, EndOfStream: true}},
+				{Role: genx.RoleUser, Name: transcriptLabel, Part: genx.Text("你好"), Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: transcriptLabel, EndOfStream: true}},
+			}},
+		}},
+		asrModel: "asr",
+	}
+	output := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 16)
+	transcript, gotStreamID, err := a.transcribeInputTurn(context.Background(), &sliceStream{chunks: []*genx.MessageChunk{
+		{Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{3, 4}}, Ctrl: &genx.StreamCtrl{StreamID: streamID}},
+		{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true}},
+	}}, output, a.currentOutputEpoch(), "fallback")
+	if err != nil {
+		t.Fatalf("transcribeInputTurn() error = %v", err)
+	}
+	if transcript != "你好" || gotStreamID != streamID {
+		t.Fatalf("transcript=%q streamID=%q", transcript, gotStreamID)
+	}
+	if err := output.Done(genx.Usage{}); err != nil {
+		t.Fatalf("Done() error = %v", err)
+	}
+	chunks := drainChunks(t, output.Stream())
+	transcriptEOS := 0
+	for _, chunk := range chunks {
+		if chunk != nil && chunk.Ctrl != nil && chunk.Ctrl.Label == transcriptLabel && chunk.IsEndOfStream() {
+			transcriptEOS++
+		}
+	}
+	if transcriptEOS != 1 {
+		t.Fatalf("transcript EOS count = %d, want 1; chunks=%#v", transcriptEOS, chunks)
+	}
+}
+
 func TestTranscribeInputTurnStartASRError(t *testing.T) {
 	const streamID = "client-turn"
 	want := errors.New("start failed")

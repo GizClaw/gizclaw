@@ -54,6 +54,56 @@ func TestHistoryAgentRecordsOutputText(t *testing.T) {
 	}
 }
 
+func TestHistoryAgentFinalizesNodeNamedOutputOnRouteEOS(t *testing.T) {
+	history := workspace.NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
+	agentOutput := newBlockingHistoryStream()
+	agent := wrapHistoryAgent(historyTestAgent{output: agentOutput}, history)
+	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), "demo", historyStreamFromChunks())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+
+	for _, chunk := range []*genx.MessageChunk{
+		{Role: genx.RoleModel, Name: "answer", Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}},
+		{Role: genx.RoleModel, Name: "answer", Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1, 2, 3}}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}},
+		{Role: genx.RoleModel, Name: "answer", Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant", EndOfStream: true}},
+		{Role: genx.RoleModel, Name: "answer", Part: genx.Text("other stream"), Ctrl: &genx.StreamCtrl{StreamID: "s2", Label: "assistant"}},
+		{Role: genx.RoleModel, Name: "assistant", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant", EndOfStream: true}},
+	} {
+		agentOutput.ch <- chunk
+	}
+
+	var resp apitypes.PeerRunHistoryListResponse
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		resp, err = agent.ListHistory(context.Background(), apitypes.PeerRunHistoryListRequest{})
+		if err != nil {
+			t.Fatalf("ListHistory() error = %v", err)
+		}
+		if len(resp.Items) > 0 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	_ = agentOutput.Close()
+	for {
+		_, nextErr := out.Next()
+		if IsStreamDone(nextErr) {
+			break
+		}
+		if nextErr != nil {
+			t.Fatalf("Next() error = %v", nextErr)
+		}
+	}
+	if len(resp.Items) != 1 {
+		t.Fatalf("history items = %+v, want node output finalized before transform close", resp.Items)
+	}
+	item := resp.Items[0]
+	if item.Type != apitypes.PeerRunHistoryEntryTypeAgent || item.Name != "answer" || item.Text != "hello" || !item.ReplayAvailable {
+		t.Fatalf("history item = %+v", item)
+	}
+}
+
 func TestHistoryAgentStatusAndUnavailableReplay(t *testing.T) {
 	history := workspace.NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
 	agent := wrapHistoryAgent(historyTestAgent{output: historyStreamFromChunks()}, history)

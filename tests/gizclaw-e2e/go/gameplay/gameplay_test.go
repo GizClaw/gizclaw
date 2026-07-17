@@ -4,12 +4,10 @@ package gameplay_test
 
 import (
 	"context"
-	"io"
-	"strings"
+	"strconv"
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
 
@@ -133,7 +131,7 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 	requireRewardGrantID(t, grants.Items, drive.RewardGrants[0].Id)
 }
 
-func TestGameplayPetWorkspaceChat(t *testing.T) {
+func TestGameplayPetWorkspaceAudioHistory(t *testing.T) {
 	env := newSetupGameplayHarness(t, "client-gameplay-chat")
 
 	adopted, err := env.peer.AdoptPet(env.ctx, "gameplay.chat.pet.adopt", rpcapi.ServerPetAdoptRequest{
@@ -150,20 +148,76 @@ func TestGameplayPetWorkspaceChat(t *testing.T) {
 	if adopted.Pet.DisplayName != "Chat Pet" {
 		t.Fatalf("adopted chat pet = %#v", adopted.Pet)
 	}
+	workspace, err := env.peer.GetWorkspace(env.ctx, "gameplay.pet.audio.workspace.get", rpcapi.WorkspaceGetRequest{Name: adopted.Pet.WorkspaceName})
+	if err != nil {
+		t.Fatalf("get pet audio workspace: %v", err)
+	}
+	if workspace.Parameters == nil {
+		t.Fatal("pet audio workspace parameters are missing")
+	}
+	petParameters, err := workspace.Parameters.AsPetWorkspaceParameters()
+	if err != nil {
+		t.Fatalf("decode pet audio workspace parameters: %v", err)
+	}
 
 	if err := selectGameplayWorkspace(env.ctx, env.peer, adopted.Pet.WorkspaceName); err != nil {
 		t.Fatalf("select pet workspace %q: %v", adopted.Pet.WorkspaceName, err)
 	}
-	out, err := env.peer.Transform(env.ctx, "gameplay.pet.chat", chatTextStream("你好，我今天来看看你。"))
+	stream, err := env.peer.OpenPeerStream(512)
 	if err != nil {
-		t.Fatalf("pet workspace chat transform: %v", err)
+		t.Fatalf("open pet workspace audio stream: %v", err)
 	}
-	defer out.Close()
-	reply := readFirstModelText(t, env.ctx, out)
-	if strings.TrimSpace(reply) == "" {
-		t.Fatalf("pet workspace chat reply is empty")
+	defer stream.Close()
+
+	known := snapshotGameplayHistory(t, env.ctx, env.peer, adopted.Pet.WorkspaceName)
+	utterances := []string{"你好小爪，我今天来看看你。", "小爪，我们继续聊下一句话。"}
+	entries := make([]rpcapi.PeerRunHistoryEntry, 0, len(utterances))
+	for round, utterance := range utterances {
+		var responseErr error
+		for attempt := 1; attempt <= 3; attempt++ {
+			packets := synthesizeGameplayOpus(t, env, "volc-bigtts", petParameters.Voice.VoiceId, utterance)
+			streamID := "gameplay-pet-audio-" + strconv.Itoa(round+1) + "-" + strconv.Itoa(attempt)
+			sendGameplayAudioTurn(t, env.ctx, stream, streamID, packets)
+			responseErr = waitForGameplayAssistantResponse(env.ctx, stream, streamID)
+			retryable := isRetryableGameplayResponseError(responseErr)
+			result := "pass"
+			if responseErr != nil {
+				result = "fail"
+			}
+			t.Logf("gameplay_audio_round round=%d attempt=%d result=%s retryable=%t error=%v", round+1, attempt, result, retryable, responseErr)
+			if responseErr == nil || !retryable {
+				break
+			}
+			if attempt < 3 {
+				time.Sleep(time.Duration(attempt) * time.Second)
+			}
+		}
+		if responseErr != nil {
+			t.Fatalf("pet audio round %d failed after retry: %v", round+1, responseErr)
+		}
+
+		entry := waitForSingleGameplayTranscript(t, env.ctx, env.peer, adopted.Pet.WorkspaceName, known)
+		if entry.Id == "" || entry.Text == "" || !entry.ReplayAvailable {
+			t.Fatalf("pet audio history round %d = %#v, want combined replayable transcript", round+1, entry)
+		}
+		if round > 0 && entry.Id == entries[round-1].Id {
+			t.Fatalf("pet audio history round %d reused entry %q", round+1, entry.Id)
+		}
+		assertGameplayHistoryReplayAudio(t, env.ctx, env.peer, stream, entry)
+		known[entry.Id] = entry
+		entries = append(entries, entry)
 	}
-	waitForWorkspaceHistoryText(t, env.ctx, env.peer, adopted.Pet.WorkspaceName, "你好，我今天来看看你。")
+
+	first, err := env.peer.GetWorkspaceHistory(env.ctx, "gameplay.pet.history.first.get", rpcapi.WorkspaceHistoryGetRequest{
+		WorkspaceName: adopted.Pet.WorkspaceName,
+		HistoryId:     entries[0].Id,
+	})
+	if err != nil {
+		t.Fatalf("get first pet audio history after second turn: %v", err)
+	}
+	if first.Text != entries[0].Text || !first.ReplayAvailable {
+		t.Fatalf("first pet audio history changed after second turn: before=%#v after=%#v", entries[0], first)
+	}
 }
 
 func assertAdoptedStarterPet(t *testing.T, pet rpcapi.Pet) {
@@ -221,110 +275,6 @@ type workspaceStartError struct {
 
 func (e *workspaceStartError) Error() string {
 	return "workspace " + e.workspace + " did not start: " + e.message
-}
-
-func readFirstModelText(t *testing.T, ctx context.Context, stream genx.Stream) string {
-	t.Helper()
-
-	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
-	defer cancel()
-	var got strings.Builder
-	for {
-		chunk, err := nextChunk(ctx, stream)
-		if err != nil {
-			if err == genx.ErrDone || err == io.EOF {
-				return got.String()
-			}
-			t.Fatalf("read pet chat stream: %v", err)
-		}
-		if chunk == nil {
-			continue
-		}
-		if chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.Error) != "" {
-			t.Fatalf("pet chat stream returned error: %s", chunk.Ctrl.Error)
-		}
-		if text, ok := chunk.Part.(genx.Text); ok && chunk.Role == genx.RoleModel {
-			got.WriteString(string(text))
-			if strings.TrimSpace(got.String()) != "" {
-				return got.String()
-			}
-		}
-	}
-}
-
-func nextChunk(ctx context.Context, stream genx.Stream) (*genx.MessageChunk, error) {
-	type result struct {
-		chunk *genx.MessageChunk
-		err   error
-	}
-	ch := make(chan result, 1)
-	go func() {
-		chunk, err := stream.Next()
-		ch <- result{chunk: chunk, err: err}
-	}()
-	select {
-	case got := <-ch:
-		return got.chunk, got.err
-	case <-ctx.Done():
-		_ = stream.CloseWithError(ctx.Err())
-		return nil, ctx.Err()
-	}
-}
-
-func waitForWorkspaceHistoryText(t *testing.T, ctx context.Context, client interface {
-	ListWorkspaceHistory(context.Context, string, rpcapi.WorkspaceHistoryListRequest) (*rpcapi.WorkspaceHistoryListResponse, error)
-}, workspaceName, text string) rpcapi.PeerRunHistoryEntry {
-	t.Helper()
-
-	deadline := time.Now().Add(10 * time.Second)
-	var lastErr error
-	for {
-		list, err := client.ListWorkspaceHistory(ctx, "gameplay.workspace.history.list", rpcapi.WorkspaceHistoryListRequest{WorkspaceName: workspaceName})
-		if err == nil {
-			for _, item := range list.Items {
-				if item.Text == text {
-					return item
-				}
-			}
-			lastErr = nil
-		} else {
-			lastErr = err
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("history text %q not found in workspace %q, last error: %v", text, workspaceName, lastErr)
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-}
-
-func chatTextStream(text string) genx.Stream {
-	return &sliceStream{chunks: []*genx.MessageChunk{
-		{Role: genx.RoleUser, Name: "transcript", Part: genx.Text(text), Ctrl: &genx.StreamCtrl{StreamID: "gameplay-chat-text", Label: "transcript"}},
-		{Role: genx.RoleUser, Name: "transcript", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "gameplay-chat-text", Label: "transcript", EndOfStream: true}},
-	}}
-}
-
-type sliceStream struct {
-	chunks []*genx.MessageChunk
-}
-
-func (s *sliceStream) Next() (*genx.MessageChunk, error) {
-	if len(s.chunks) == 0 {
-		return nil, genx.ErrDone
-	}
-	chunk := s.chunks[0]
-	s.chunks = s.chunks[1:]
-	return chunk, nil
-}
-
-func (s *sliceStream) Close() error {
-	s.chunks = nil
-	return nil
-}
-
-func (s *sliceStream) CloseWithError(error) error {
-	s.chunks = nil
-	return nil
 }
 
 func requirePetID(t *testing.T, items []rpcapi.Pet, id string) {

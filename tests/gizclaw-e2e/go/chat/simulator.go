@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 
@@ -302,19 +303,26 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 	uplinkStart := time.Now()
 	responseStart := uplinkStart
 	sendDone := make(chan error, 1)
-	if mode.Realtime {
-		go func() {
-			sendDone <- d.transport.sendAudioTurn(ctx, streamID, sendPackets)
-		}()
-	} else {
-		if err := d.transport.sendAudioTurn(ctx, streamID, packets); err != nil {
-			return stat, fmt.Errorf("round %d: send audio turn: %w", index, err)
+	var inputEOSSentAt atomic.Int64
+	astPushToTalkGate := !mode.Realtime && d.cfg.isASTTranslateAgent()
+	var historyBeforeEOS map[string]struct{}
+	var historyGateTicker *time.Ticker
+	var historyGateTick <-chan time.Time
+	if astPushToTalkGate {
+		history, err := d.listRuntimeHistory(ctx, 100)
+		if err != nil {
+			return stat, fmt.Errorf("round %d: snapshot AST push-to-talk history: %w", index, err)
 		}
-		stat.UplinkSend = time.Since(uplinkStart)
-		responseStart = time.Now()
-		fmt.Printf("workspace_progress event=uplink_done workspace=%s round=%d stream=%s duration=%s\n", d.cfg.Workspace, index, streamID, stat.UplinkSend.Truncate(time.Millisecond))
-		close(sendDone)
+		historyBeforeEOS = historyItemIDs(history.Items)
+		historyGateTicker = time.NewTicker(100 * time.Millisecond)
+		historyGateTick = historyGateTicker.C
+		defer historyGateTicker.Stop()
 	}
+	go func() {
+		sendDone <- d.transport.sendAudioTurnObserved(ctx, streamID, sendPackets, func(sentAt time.Time) {
+			inputEOSSentAt.Store(sentAt.UnixNano())
+		})
+	}()
 
 	var transcriptText string
 	var assistant strings.Builder
@@ -333,6 +341,18 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 			return stat, fmt.Errorf("round %d: wait response: %w; recent events: %s", index, ctx.Err(), trace.String())
 		case <-responseDeadline.C:
 			return stat, fmt.Errorf("round %d: response timeout after %s; recent events: %s", index, responseTimeout, trace.String())
+		case <-historyGateTick:
+			history, err := d.listRuntimeHistory(ctx, 100)
+			if err != nil {
+				return stat, fmt.Errorf("round %d: observe AST push-to-talk history before input EOS: %w", index, err)
+			}
+			if eosNanos := inputEOSSentAt.Load(); eosNanos == 0 {
+				if item, ok := firstNewHistoryItem(history.Items, historyBeforeEOS); ok {
+					return stat, fmt.Errorf("round %d: AST push-to-talk published history %q before input EOS", index, item.Id)
+				}
+			} else {
+				historyGateTick = nil
+			}
 		case <-settle:
 			settle = nil
 			switch {
@@ -356,14 +376,31 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 				return stat, fmt.Errorf("round %d: send audio turn: %w", index, err)
 			}
 			stat.UplinkSend = time.Since(uplinkStart)
+			if eosNanos := inputEOSSentAt.Load(); eosNanos > 0 {
+				responseStart = time.Unix(0, eosNanos)
+			}
 			fmt.Printf("workspace_progress event=uplink_done workspace=%s round=%d stream=%s duration=%s\n", d.cfg.Workspace, index, streamID, stat.UplinkSend.Truncate(time.Millisecond))
 			sendDone = nil
+			historyGateTick = nil
+			if astPushToTalkGate {
+				history, historyErr := d.listRuntimeHistory(ctx, 100)
+				if historyErr != nil {
+					return stat, fmt.Errorf("round %d: verify AST push-to-talk history gate: %w", index, historyErr)
+				}
+				if item, ok := firstHistoryItemBeforeEOS(history.Items, historyBeforeEOS, responseStart); ok {
+					return stat, fmt.Errorf("round %d: AST push-to-talk history %q was created before input EOS at %s", index, item.Id, item.CreatedAt.Format(time.RFC3339Nano))
+				}
+				fmt.Printf("workspace_progress event=ast_ptt_output_gate workspace=%s round=%d history=clear eos_at=%s\n", d.cfg.Workspace, index, responseStart.Format(time.RFC3339Nano))
+			}
 			if assistantAudioDone && settle == nil {
 				settle = time.After(700 * time.Millisecond)
 			}
 		case received := <-d.transport.events:
 			event := received.event
 			label := eventLabel(event)
+			if astPushToTalkGate && (label == "transcript" || label == "assistant") && receivedBeforeInputEOS(received.receivedAt, inputEOSSentAt.Load()) {
+				return stat, fmt.Errorf("round %d: AST push-to-talk published %s %s before input EOS", index, label, event.Type)
+			}
 			switch label {
 			case "transcript":
 				if !acceptRoundEventStream(event, streamID, &transcriptStreamID) {
@@ -397,10 +434,10 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 				} else {
 					trace.add("assistant audio segment eos before uplink done stream=%s", eventStreamID(event))
 				}
-				fmt.Printf("workspace_progress event=assistant_audio_done workspace=%s round=%d stream=%s after_eos=%s packets=%d bytes=%d\n", d.cfg.Workspace, index, eventStreamID(event), afterStartLatency(received.receivedAt, responseStart).Truncate(time.Millisecond), stat.DownlinkPackets, stat.DownlinkBytes)
+				fmt.Printf("workspace_progress event=assistant_audio_done workspace=%s round=%d stream=%s after_eos=%s packets=%d bytes=%d\n", d.cfg.Workspace, index, eventStreamID(event), afterStartLatency(received.receivedAt, observedResponseStart(responseStart, inputEOSSentAt.Load())).Truncate(time.Millisecond), stat.DownlinkPackets, stat.DownlinkBytes)
 				continue
 			}
-			textLatency := afterStartLatency(received.receivedAt, responseStart)
+			textLatency := afterStartLatency(received.receivedAt, observedResponseStart(responseStart, inputEOSSentAt.Load()))
 			switch label {
 			case "transcript":
 				if isTranscriptDoneEvent(event) && stat.TranscriptDone == 0 {
@@ -412,7 +449,7 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 				}
 				if stat.FirstTranscriptChunk == 0 {
 					stat.FirstTranscriptChunk = textLatency
-					stat.FirstTranscriptBeforeEOS = sendDone != nil
+					stat.FirstTranscriptBeforeEOS = receivedBeforeInputEOS(received.receivedAt, inputEOSSentAt.Load())
 					fmt.Printf("workspace_progress event=transcript_first workspace=%s round=%d stream=%s after_eos=%s before_eos=%t chunk=%q\n", d.cfg.Workspace, index, eventStreamID(event), stat.FirstTranscriptChunk.Truncate(time.Millisecond), stat.FirstTranscriptBeforeEOS, *event.Text)
 				}
 				transcriptText = mergeTranscriptText(transcriptText, *event.Text)
@@ -436,9 +473,12 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 				}
 			}
 		case packet := <-d.transport.opusPackets:
+			if astPushToTalkGate && receivedBeforeInputEOS(packet.receivedAt, inputEOSSentAt.Load()) {
+				return stat, fmt.Errorf("round %d: AST push-to-talk published assistant audio before input EOS", index)
+			}
 			downlinkFrames = append(downlinkFrames, append([]byte(nil), packet.frame...))
 			if stat.FirstAudioChunk == 0 {
-				stat.FirstAudioChunk = afterStartLatency(packet.receivedAt, responseStart)
+				stat.FirstAudioChunk = afterStartLatency(packet.receivedAt, observedResponseStart(responseStart, inputEOSSentAt.Load()))
 				stat.FirstAudioBeforeTextDone = stat.AssistantTextDone == 0
 				fmt.Printf("workspace_progress event=assistant_audio_first workspace=%s round=%d after_eos=%s bytes=%d before_text_done=%t\n", d.cfg.Workspace, index, stat.FirstAudioChunk.Truncate(time.Millisecond), len(packet.frame), stat.FirstAudioBeforeTextDone)
 			}
@@ -455,6 +495,7 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 	}
 	stat.Transcript = strings.TrimSpace(transcriptText)
 	stat.AssistantText = strings.TrimSpace(assistant.String())
+	responseStart = observedResponseStart(responseStart, inputEOSSentAt.Load())
 	stat.ResponseTotal = time.Since(responseStart)
 	stat.WorkspaceTotal = time.Since(uplinkStart)
 	if stat.Transcript == "" {
@@ -470,6 +511,9 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 	}
 	if stat.AssistantTextDone == 0 {
 		return stat, fmt.Errorf("round %d: missing assistant text EOS; recent events: %s", index, trace.String())
+	}
+	if err := validateAssistantOutputText(stat.AssistantText); err != nil {
+		return stat, fmt.Errorf("round %d: %w; recent events: %s", index, err, trace.String())
 	}
 	if stat.DownlinkPackets == 0 {
 		return stat, fmt.Errorf("round %d: missing downlink audio; recent events: %s", index, trace.String())
@@ -935,6 +979,69 @@ func workspaceAudioStreamID(index int) string {
 	return fmt.Sprintf("audio-e2e-%d-%d", time.Now().UnixNano(), index)
 }
 
+func (d *personaDriver) listRuntimeHistory(ctx context.Context, limit int) (*rpcapi.ServerListRunWorkspaceHistoryResponse, error) {
+	if d == nil || d.runtimeClient == nil {
+		return nil, fmt.Errorf("runtime client is not configured")
+	}
+	history, err := d.runtimeClient.ListServerRunWorkspaceHistory(ctx, "workspacetest.ast_ptt.history", rpcapi.ServerListRunWorkspaceHistoryRequest{Limit: &limit})
+	if err != nil {
+		return nil, err
+	}
+	if history == nil || !history.Available {
+		return nil, fmt.Errorf("workspace history is unavailable")
+	}
+	return history, nil
+}
+
+func historyItemIDs(items []rpcapi.PeerRunHistoryEntry) map[string]struct{} {
+	ids := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		ids[item.Id] = struct{}{}
+	}
+	return ids
+}
+
+func firstNewHistoryItem(items []rpcapi.PeerRunHistoryEntry, before map[string]struct{}) (rpcapi.PeerRunHistoryEntry, bool) {
+	for _, item := range items {
+		if _, ok := before[item.Id]; !ok {
+			return item, true
+		}
+	}
+	return rpcapi.PeerRunHistoryEntry{}, false
+}
+
+func firstHistoryItemBeforeEOS(items []rpcapi.PeerRunHistoryEntry, before map[string]struct{}, eosSentAt time.Time) (rpcapi.PeerRunHistoryEntry, bool) {
+	if eosSentAt.IsZero() {
+		return rpcapi.PeerRunHistoryEntry{}, false
+	}
+	for _, item := range items {
+		if _, ok := before[item.Id]; ok || item.CreatedAt.IsZero() {
+			continue
+		}
+		if item.CreatedAt.Before(eosSentAt) {
+			return item, true
+		}
+	}
+	return rpcapi.PeerRunHistoryEntry{}, false
+}
+
+func receivedBeforeInputEOS(receivedAt time.Time, eosSentUnixNano int64) bool {
+	if eosSentUnixNano == 0 {
+		return true
+	}
+	if receivedAt.IsZero() {
+		return true
+	}
+	return receivedAt.Before(time.Unix(0, eosSentUnixNano))
+}
+
+func observedResponseStart(fallback time.Time, eosSentUnixNano int64) time.Time {
+	if eosSentUnixNano <= 0 {
+		return fallback
+	}
+	return time.Unix(0, eosSentUnixNano)
+}
+
 func streamIDMatches(actual, expected string) bool {
 	actual = strings.TrimSpace(actual)
 	expected = strings.TrimSpace(expected)
@@ -1394,6 +1501,24 @@ func cleanAssistantSpokenText(text string) string {
 	return cleanUtterance(text)
 }
 
+func validateAssistantOutputText(text string) error {
+	lower := strings.ToLower(text)
+	for _, marker := range []string{
+		"></",
+		"<seed:_tool_call",
+		"<tool_call",
+		"<node id=\"tool_call\"",
+		"<node id='tool_call'",
+		"<function",
+		"<parameter",
+	} {
+		if strings.Contains(lower, marker) {
+			return fmt.Errorf("assistant text contains internal markup fragment %q", marker)
+		}
+	}
+	return nil
+}
+
 func trimAssistantToolMarkupTail(text string) string {
 	lower := strings.ToLower(text)
 	cut := len(text)
@@ -1754,10 +1879,14 @@ func (t *chatTransport) readChunks(packets chan<- timedPeerPacket) {
 }
 
 func (t *chatTransport) sendAudioTurn(ctx context.Context, streamID string, packets [][]byte) error {
+	return t.sendAudioTurnObserved(ctx, streamID, packets, nil)
+}
+
+func (t *chatTransport) sendAudioTurnObserved(ctx context.Context, streamID string, packets [][]byte, onEOSSent func(time.Time)) error {
 	if err := t.sendAudioTurnBOS(ctx, streamID); err != nil {
 		return err
 	}
-	return t.sendAudioTurnAudioAndEOS(ctx, streamID, packets)
+	return t.sendAudioTurnAudioAndEOSObserved(ctx, streamID, packets, onEOSSent)
 }
 
 func (t *chatTransport) sendAudioTurnBOS(ctx context.Context, streamID string) error {
@@ -1769,6 +1898,10 @@ func (t *chatTransport) sendAudioTurnBOS(ctx context.Context, streamID string) e
 }
 
 func (t *chatTransport) sendAudioTurnAudioAndEOS(ctx context.Context, streamID string, packets [][]byte) error {
+	return t.sendAudioTurnAudioAndEOSObserved(ctx, streamID, packets, nil)
+}
+
+func (t *chatTransport) sendAudioTurnAudioAndEOSObserved(ctx context.Context, streamID string, packets [][]byte, onEOSSent func(time.Time)) error {
 	label := "workspacetest"
 	timestamp := time.Now().UnixMilli()
 	for i, packet := range packets {
@@ -1797,10 +1930,14 @@ func (t *chatTransport) sendAudioTurnAudioAndEOS(ctx context.Context, streamID s
 			}
 		}
 	}
-	return t.stream.Push(ctx, &genx.MessageChunk{
+	err := t.stream.Push(ctx, &genx.MessageChunk{
 		Part: &genx.Blob{MIMEType: "audio/opus"},
 		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: label, EndOfStream: true},
 	})
+	if err == nil && onEOSSent != nil {
+		onEOSSent(time.Now())
+	}
+	return err
 }
 
 func transportEventsFromChunk(chunk *genx.MessageChunk) []apitypes.PeerStreamEvent {

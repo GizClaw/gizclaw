@@ -1182,6 +1182,38 @@ test("waitForICEGatheringComplete resolves when completion races listener regist
   assert.equal(pc.iceGatheringState, "complete");
 });
 
+test("waitForICEGatheringComplete resolves on the end-of-candidates marker", async () => {
+  const pc = new FakeICEPeerConnection();
+  const controller = new AbortController();
+  const abortTimer = setTimeout(() => controller.abort(), 10);
+
+  try {
+    const gathering = waitForICEGatheringComplete(pc as unknown as RTCPeerConnection, controller.signal);
+    pc.emitEndOfCandidates();
+    await gathering;
+  } finally {
+    clearTimeout(abortTimer);
+  }
+
+  assert.equal(pc.iceGatheringState, "gathering");
+});
+
+test("waitForICEGatheringComplete uses a gathered candidate after the bounded window", async () => {
+  const pc = new FakeICEPeerConnection();
+  pc.localDescription = {
+    sdp: "v=0\r\na=candidate:1 1 UDP 1 192.0.2.1 5000 typ relay\r\n",
+    type: "offer",
+  } as RTCSessionDescription;
+  const controller = new AbortController();
+  const abortTimer = setTimeout(() => controller.abort(), 20);
+
+  try {
+    await waitForICEGatheringComplete(pc as unknown as RTCPeerConnection, controller.signal, 1);
+  } finally {
+    clearTimeout(abortTimer);
+  }
+});
+
 test("sendGiznetWebRTCOffer posts the peer HTTP signaling request", async () => {
   const body = new Blob([new Uint8Array([1, 2, 3])]);
   const answer = new Blob([new Uint8Array([4, 5])]);
@@ -1376,9 +1408,10 @@ class FakePeerConnection {
 class FakeICEPeerConnection {
   completeAfterFirstListener = false;
   iceGatheringState: RTCIceGatheringState = "gathering";
-  readonly listeners = new Map<string, Set<() => void>>();
+  localDescription: RTCSessionDescription | null = null;
+  readonly listeners = new Map<string, Set<(event?: unknown) => void>>();
 
-  addEventListener(type: string, listener: () => void): void {
+  addEventListener(type: string, listener: (event?: unknown) => void): void {
     let listeners = this.listeners.get(type);
     if (listeners == null) {
       listeners = new Set();
@@ -1390,8 +1423,14 @@ class FakeICEPeerConnection {
     }
   }
 
-  removeEventListener(type: string, listener: () => void): void {
+  removeEventListener(type: string, listener: (event?: unknown) => void): void {
     this.listeners.get(type)?.delete(listener);
+  }
+
+  emitEndOfCandidates(): void {
+    for (const listener of this.listeners.get("icecandidate") ?? []) {
+      listener({ candidate: null });
+    }
   }
 }
 

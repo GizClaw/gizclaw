@@ -5,7 +5,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/../.." && pwd)"
 setup_dir="$script_dir/setup"
 env_file="$script_dir/.env"
-default_skip_regexp='^(TestHumanReview|TestServerSocialRPCHumanReview|TestSocialRealtimeHistoryRPC)$'
+default_skip_regexp='^(TestHumanReview|TestServerSocialRPCHumanReview)$'
 go_test_timeout="45m"
 docker_project="${GIZCLAW_E2E_DOCKER_PROJECT:-}"
 docker_started=0
@@ -28,6 +28,7 @@ chat_default_live_patterns=(
 )
 
 unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
+export GIZCLAW_E2E_REQUIRE_LIVE=1
 
 cleanup() {
   if [[ "$docker_started" == "1" ]]; then
@@ -35,6 +36,25 @@ cleanup() {
   fi
 }
 trap cleanup EXIT
+
+run_timed() {
+	local phase="$1"
+	shift
+	local started=$SECONDS
+	local status=0
+	echo "==> phase start: $phase"
+	"$@" || status=$?
+	echo "==> phase done: $phase status=$status elapsed_seconds=$((SECONDS - started))"
+	return "$status"
+}
+
+prepare_node_dependencies() {
+	(cd "$repo_root" && npm ci)
+}
+
+prepare_nanopb() {
+	(cd "$repo_root" && git submodule update --init --recursive -- third_party/nanopb/upstream)
+}
 
 start_docker_stack() {
 	if [[ ! -f "$env_file" ]]; then
@@ -56,6 +76,12 @@ run_pkg() {
   (cd "$repo_root" && go test -v -tags gizclaw_e2e -count=1 -timeout "$go_test_timeout" -skip "$default_skip_regexp" "$pkg")
 }
 
+run_pkg_serial() {
+	local pkg="$1"
+	echo "==> go test -p 1 $pkg"
+	(cd "$repo_root" && go test -p 1 -v -tags gizclaw_e2e -count=1 -timeout "$go_test_timeout" -skip "$default_skip_regexp" "$pkg")
+}
+
 run_pkg_test() {
 	local pkg="$1"
 	local test_name="$2"
@@ -72,15 +98,17 @@ run_pkg_test_regex() {
 
 run_chat_pkg() {
 	local chat_skip_regexp
-	chat_skip_regexp="^($(IFS='|'; echo "${chat_live_tests[*]}")|TestHumanReview|TestServerSocialRPCHumanReview|TestSocialRealtimeHistoryRPC)$"
+	local status=0
+	chat_skip_regexp="^($(IFS='|'; echo "${chat_live_tests[*]}")|TestHumanReview|TestServerSocialRPCHumanReview)$"
 
   echo "==> go test $chat_pkg unit"
-  (cd "$repo_root" && go test -v -tags gizclaw_e2e -count=1 -timeout "$go_test_timeout" -skip "$chat_skip_regexp" "$chat_pkg")
+  (cd "$repo_root" && go test -v -tags gizclaw_e2e -count=1 -timeout "$go_test_timeout" -skip "$chat_skip_regexp" "$chat_pkg") || status=$?
 
 	local test_regex
 	for test_regex in "${chat_default_live_patterns[@]}"; do
-		run_pkg_test_regex "$chat_pkg" "$test_regex"
+		run_timed "chat:$test_regex" run_pkg_test_regex "$chat_pkg" "$test_regex" || status=$?
 	done
+	return "$status"
 }
 
 run_js_rpc_tests() {
@@ -102,22 +130,25 @@ run_desktop_tests() {
 	(cd "$repo_root" && go test -v -tags gizclaw_e2e -count=1 -timeout "$go_test_timeout" ./tests/gizclaw-e2e/desktop/...)
 }
 
+run_timed "preflight:npm-ci" prepare_node_dependencies
+run_timed "preflight:nanopb" prepare_nanopb
+
 echo "==> build host e2e CLI"
 mkdir -p "$script_dir/testdata/bin"
 (cd "$repo_root" && go build -o "$script_dir/testdata/bin/gizclaw" ./cmd/gizclaw)
 
-start_docker_stack
+run_timed "docker:setup" start_docker_stack
 
-run_js_rpc_tests
-run_desktop_tests
-run_pkg "./tests/gizclaw-e2e/cgo/rpc"
-run_pkg "./tests/gizclaw-e2e/cgo/chat"
-run_pkg "./tests/gizclaw-e2e/cgo/social"
-run_pkg "./tests/gizclaw-e2e/go/admin"
-run_chat_pkg
-run_pkg "./tests/gizclaw-e2e/go/gameplay"
-run_pkg "./tests/gizclaw-e2e/go/rpc"
-run_pkg "./tests/gizclaw-e2e/go/social"
-run_pkg "./tests/gizclaw-e2e/cmd/connect"
+run_timed "javascript" run_js_rpc_tests
+run_timed "desktop" run_desktop_tests
+run_timed "cgo:rpc" run_pkg "./tests/gizclaw-e2e/cgo/rpc"
+run_timed "cgo:chat" run_pkg "./tests/gizclaw-e2e/cgo/chat"
+run_timed "cgo:social" run_pkg "./tests/gizclaw-e2e/cgo/social"
+run_timed "go:admin" run_pkg "./tests/gizclaw-e2e/go/admin"
+run_timed "go:chat" run_chat_pkg
+run_timed "go:gameplay" run_pkg "./tests/gizclaw-e2e/go/gameplay"
+run_timed "go:rpc" run_pkg "./tests/gizclaw-e2e/go/rpc"
+run_timed "go:social" run_pkg "./tests/gizclaw-e2e/go/social"
+run_timed "cli" run_pkg_serial "./tests/gizclaw-e2e/cmd/..."
 
 echo "==> e2e run completed"

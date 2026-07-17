@@ -707,6 +707,7 @@ type historyPendingEntry struct {
 	gearID    string
 	name      string
 	streamID  string
+	label     string
 	channels  map[string]bool
 	audioMIME string
 	text      strings.Builder
@@ -792,6 +793,9 @@ func (r *historyRecorder) observe(ctx context.Context, chunk *genx.MessageChunk,
 	switch part := chunk.Part.(type) {
 	case genx.Text:
 		mimeType, _ = chunk.MIMEType()
+		if historyAgentRouteChannelEOS(chunk, part) {
+			return r.completeRouteChannel(ctx, chunk, typ, mimeType)
+		}
 		entry = r.pendingEntry(recordChunk, typ, gearID)
 		if err := entry.observeChannel(mimeType, chunk.IsEndOfStream()); err != nil {
 			return err
@@ -807,6 +811,9 @@ func (r *historyRecorder) observe(ctx context.Context, chunk *genx.MessageChunk,
 		}
 		if !isRecordableHistoryAudioMIME(mimeType) {
 			break
+		}
+		if historyAgentRouteChannelEOS(chunk, part) {
+			return r.completeRouteChannel(ctx, chunk, typ, mimeType)
 		}
 		if typ == historyEntryTypeGear {
 			recordChunk = historyGearTranscriptChunk(chunk)
@@ -858,6 +865,51 @@ func (r *historyRecorder) observe(ctx context.Context, chunk *genx.MessageChunk,
 			return nil
 		}
 		return r.flush(ctx, r.key(recordChunk, typ))
+	}
+	return nil
+}
+
+func historyAgentRouteChannelEOS(chunk *genx.MessageChunk, part any) bool {
+	if chunk == nil || chunk.Role == genx.RoleUser || !chunk.IsEndOfStream() || chunk.Ctrl == nil {
+		return false
+	}
+	name := strings.TrimSpace(chunk.Name)
+	label := strings.TrimSpace(chunk.Ctrl.Label)
+	if name == "" || label == "" || name != label {
+		return false
+	}
+	switch value := part.(type) {
+	case genx.Text:
+		return value == ""
+	case *genx.Blob:
+		return value != nil && len(value.Data) == 0
+	default:
+		return false
+	}
+}
+
+func (r *historyRecorder) completeRouteChannel(ctx context.Context, chunk *genx.MessageChunk, typ, mimeType string) error {
+	streamID := historyChunkStreamID(chunk)
+	label := strings.TrimSpace(chunk.Ctrl.Label)
+	r.mu.Lock()
+	keys := make([]string, 0, len(r.pending))
+	for key, entry := range r.pending {
+		if entry == nil || entry.typ != typ || entry.streamID != streamID || entry.label != label {
+			continue
+		}
+		if _, observed := entry.channels[mimeType]; !observed {
+			continue
+		}
+		entry.channels[mimeType] = true
+		if entry.channelsComplete() {
+			keys = append(keys, key)
+		}
+	}
+	r.mu.Unlock()
+	for _, key := range keys {
+		if err := r.flush(ctx, key); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -916,6 +968,7 @@ func (r *historyRecorder) pendingEntry(chunk *genx.MessageChunk, typ string, gea
 			gearID:    strings.TrimSpace(gearID),
 			name:      historyChunkName(chunk, typ),
 			streamID:  historyChunkStreamID(chunk),
+			label:     historyChunkLabel(chunk),
 			createdAt: time.Now().UTC(),
 		}
 		r.pending[key] = entry
@@ -1121,11 +1174,14 @@ func historyPCMFormat(mimeType string) (pcm.Format, bool) {
 }
 
 func (r *historyRecorder) key(chunk *genx.MessageChunk, typ string) string {
-	label := ""
+	return typ + ":" + historyChunkStreamID(chunk) + ":" + historyChunkLabel(chunk) + ":" + historyChunkName(chunk, typ)
+}
+
+func historyChunkLabel(chunk *genx.MessageChunk) string {
 	if chunk != nil && chunk.Ctrl != nil {
-		label = chunk.Ctrl.Label
+		return strings.TrimSpace(chunk.Ctrl.Label)
 	}
-	return typ + ":" + historyChunkStreamID(chunk) + ":" + label + ":" + historyChunkName(chunk, typ)
+	return ""
 }
 
 func historyChunkStreamID(chunk *genx.MessageChunk) string {

@@ -454,6 +454,20 @@ func TestWaitForGatheringRespectsContext(t *testing.T) {
 	}
 }
 
+func TestWaitForPacketChannelRespectsContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := waitForPacketChannel(ctx, make(chan struct{})); !errors.Is(err, context.Canceled) {
+		t.Fatalf("waitForPacketChannel canceled error = %v, want context.Canceled", err)
+	}
+
+	ready := make(chan struct{})
+	close(ready)
+	if err := waitForPacketChannel(context.Background(), ready); err != nil {
+		t.Fatalf("waitForPacketChannel ready error = %v", err)
+	}
+}
+
 func TestPostOfferAndDialReportSignalingHTTPError(t *testing.T) {
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {

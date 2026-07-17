@@ -58,7 +58,7 @@ func (d *personaDriver) verifyHistoryReplayWithOptions(ctx context.Context, item
 	streamID := ""
 	var trace roundEventTrace
 	start := time.Now()
-	responseTimeout := d.roundResponseTimeout()
+	responseTimeout := d.historyReplayResponseTimeout()
 	deadline := time.NewTimer(responseTimeout)
 	defer deadline.Stop()
 	for !textDone || !audioDone || stats.DownlinkPackets == 0 {
@@ -129,6 +129,16 @@ func (d *personaDriver) verifyHistoryReplayWithOptions(ctx context.Context, item
 	}
 	return stats, nil
 }
+
+func (d *personaDriver) historyReplayResponseTimeout() time.Duration {
+	timeout := d.roundResponseTimeout()
+	if timeout > historyReplayResponseTimeout {
+		return historyReplayResponseTimeout
+	}
+	return timeout
+}
+
+const historyReplayResponseTimeout = 60 * time.Second
 
 func (d *personaDriver) drainTransport() {
 	if d == nil || d.transport == nil {

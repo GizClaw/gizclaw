@@ -106,6 +106,7 @@ export type ConnectGiznetWebRTCOptions = {
   addAudioTransceiver?: boolean;
   createPacketDataChannel?: boolean;
   fetch?: typeof fetch;
+  iceGatheringTimeoutMs?: number;
   pc: RTCPeerConnection;
   prepareOffer: (offerSDP: string) => Promise<PreparedGiznetWebRTCOffer>;
   sendOffer?: (offer: PreparedGiznetWebRTCOffer, signal?: AbortSignal) => Promise<Blob>;
@@ -486,7 +487,7 @@ export async function connectGiznetWebRTC(options: ConnectGiznetWebRTCOptions): 
   prepareGiznetWebRTCPeerConnection(options.pc, options);
   const offer = await options.pc.createOffer();
   await options.pc.setLocalDescription(offer);
-  await waitForICEGatheringComplete(options.pc, options.signal);
+  await waitForICEGatheringComplete(options.pc, options.signal, options.iceGatheringTimeoutMs);
   const local = options.pc.localDescription;
   if (local == null) {
     throw new Error("WebRTC offer was not created.");
@@ -1470,14 +1471,22 @@ class ProtoReader {
   }
 }
 
-export function waitForICEGatheringComplete(pc: RTCPeerConnection, signal?: AbortSignal): Promise<void> {
+export function waitForICEGatheringComplete(pc: RTCPeerConnection, signal?: AbortSignal, timeoutMs = 10_000): Promise<void> {
   if (pc.iceGatheringState === "complete") {
     return Promise.resolve();
   }
+  if (!Number.isFinite(timeoutMs) || timeoutMs < 0) {
+    return Promise.reject(new Error("ICE gathering timeout must be a non-negative finite number."));
+  }
   return new Promise((resolve, reject) => {
     let settled = false;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
     const cleanup = (): void => {
+      if (timeout != null) {
+        clearTimeout(timeout);
+      }
       signal?.removeEventListener("abort", onAbort);
+      pc.removeEventListener("icecandidate", onCandidate);
       pc.removeEventListener("icegatheringstatechange", onStateChange);
     };
     const complete = (): void => {
@@ -1488,25 +1497,42 @@ export function waitForICEGatheringComplete(pc: RTCPeerConnection, signal?: Abor
       cleanup();
       resolve();
     };
-    const onAbort = (): void => {
+    const fail = (err: Error): void => {
       if (settled) {
         return;
       }
       settled = true;
       cleanup();
-      reject(abortError());
+      reject(err);
+    };
+    const onAbort = (): void => {
+      fail(abortError());
     };
     const onStateChange = (): void => {
       if (pc.iceGatheringState === "complete") {
         complete();
       }
     };
+    const onCandidate = (event: RTCPeerConnectionIceEvent): void => {
+      if (event.candidate == null) {
+        complete();
+      }
+    };
+    const onTimeout = (): void => {
+      if (/^a=candidate:/m.test(pc.localDescription?.sdp ?? "")) {
+        complete();
+        return;
+      }
+      fail(new Error(`ICE gathering timed out after ${timeoutMs}ms before producing a candidate.`));
+    };
     if (signal?.aborted) {
       reject(abortError());
       return;
     }
     signal?.addEventListener("abort", onAbort, { once: true });
+    pc.addEventListener("icecandidate", onCandidate);
     pc.addEventListener("icegatheringstatechange", onStateChange);
+    timeout = setTimeout(onTimeout, timeoutMs);
     if (pc.iceGatheringState === "complete") {
       complete();
     }
