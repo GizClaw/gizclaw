@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/appconfig"
@@ -27,6 +29,7 @@ func TestBootstrapKeepsMalformedPodVisible(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	app.bridge.Bootstrapper = nil
 	if _, err := app.CreatePod(bridge.PodInput{Version: 1, ID: "healthy", Name: "Healthy", LocalServer: &bridge.LocalServerInput{Port: 19083}}); err != nil {
 		t.Fatal(err)
 	}
@@ -51,6 +54,7 @@ func TestAppPodFacadeNeverReturnsPrivateKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	app.bridge.Bootstrapper = nil
 	admin := appconfigTestKey(t, 0x41)
 	client := appconfigTestKey(t, 0x42)
 	created, err := app.CreatePod(bridge.PodInput{
@@ -86,11 +90,37 @@ func TestAppFacadeRequiresConfiguredBridge(t *testing.T) {
 	if _, err := app.CreatePod(bridge.PodInput{}); err == nil {
 		t.Fatal("CreatePod error = nil")
 	}
+	if _, err := app.GetBootstrapEnvironment(); err == nil {
+		t.Fatal("GetBootstrapEnvironment error = nil")
+	}
+	if _, err := app.UpdateBootstrapEnvironment(bridge.BootstrapEnvironmentUpdate{}); err == nil {
+		t.Fatal("UpdateBootstrapEnvironment error = nil")
+	}
 	if _, err := app.OpenPlay("missing"); err == nil {
 		t.Fatal("OpenPlay error = nil")
 	}
 	if err := app.RevealPod("missing"); err == nil {
 		t.Fatal("RevealPod error = nil")
+	}
+}
+
+func TestBootstrapEnvironmentFacadeNeverReturnsStoredValues(t *testing.T) {
+	app, err := NewAppWithPaths(appconfig.NewPaths(t.TempDir()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	name := app.bridge.Catalog.Requirements[0].Name
+	const secret = "must-not-cross-the-bridge"
+	state, err := app.UpdateBootstrapEnvironment(bridge.BootstrapEnvironmentUpdate{Values: map[string]string{name: secret}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.Marshal(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), secret) {
+		t.Fatalf("bootstrap state exposed a stored value: %s", data)
 	}
 }
 

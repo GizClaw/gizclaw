@@ -18,6 +18,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/localserver"
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/tray"
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/webui"
+	desktopresources "github.com/GizClaw/gizclaw-go/apps/wails/resources"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -54,14 +55,30 @@ func NewAppWithPathsAndAssets(paths appconfig.Paths, assets fs.FS) (*App, error)
 	if err := paths.Ensure(); err != nil {
 		return nil, err
 	}
+	store := appconfig.Store{Paths: paths}
+	if err := store.CleanupIncomplete(); err != nil {
+		return nil, err
+	}
+	catalogFS, err := desktopresources.LocalServer()
+	if err != nil {
+		return nil, fmt.Errorf("desktop app: local server resources: %w", err)
+	}
+	catalog, err := localserver.LoadCatalog(catalogFS)
+	if err != nil {
+		return nil, err
+	}
+	local := localserver.New()
 	messages := appmessages.System()
 	app := &App{messages: messages, bridge: &bridge.PodBridge{
-		Paths:  paths,
-		Store:  appconfig.Store{Paths: paths},
-		Health: endpointhealth.New(),
-		Local:  localserver.New(),
-		WebUI:  webui.New(assets),
+		Paths:                paths,
+		Store:                store,
+		BootstrapEnvironment: appconfig.BootstrapEnvironmentStore{Path: paths.BootstrapEnvFile},
+		Catalog:              catalog,
+		Health:               endpointhealth.New(),
+		Local:                local,
+		WebUI:                webui.New(assets),
 	}}
+	app.bridge.Bootstrapper = &localserver.Bootstrapper{Catalog: catalog, Executable: local.ExecutablePath}
 	app.tray = tray.New(
 		tray.Callbacks{OpenWindow: app.openWindow, OpenPod: app.openPod, Quit: app.quit},
 		tray.Labels{OpenWindow: messages.Text("openWindow"), Quit: messages.Text("quit")},
@@ -194,11 +211,27 @@ func (a *App) CreatePod(input bridge.PodInput) (bridge.PodSummary, error) {
 	if a == nil || a.bridge == nil {
 		return bridge.PodSummary{}, fmt.Errorf("desktop app: bridge is not configured")
 	}
-	pod, err := a.bridge.CreatePod(context.Background(), input)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	pod, err := a.bridge.CreatePod(ctx, input)
 	if err == nil {
 		a.syncTray(false)
 	}
 	return pod, err
+}
+
+func (a *App) GetBootstrapEnvironment() (bridge.BootstrapEnvironmentState, error) {
+	if a == nil || a.bridge == nil {
+		return bridge.BootstrapEnvironmentState{}, fmt.Errorf("desktop app: bridge is not configured")
+	}
+	return a.bridge.GetBootstrapEnvironment(context.Background())
+}
+
+func (a *App) UpdateBootstrapEnvironment(update bridge.BootstrapEnvironmentUpdate) (bridge.BootstrapEnvironmentState, error) {
+	if a == nil || a.bridge == nil {
+		return bridge.BootstrapEnvironmentState{}, fmt.Errorf("desktop app: bridge is not configured")
+	}
+	return a.bridge.UpdateBootstrapEnvironment(context.Background(), update)
 }
 
 func (a *App) UpdatePod(input bridge.PodInput) (bridge.PodSummary, error) {

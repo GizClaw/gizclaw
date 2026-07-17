@@ -1,0 +1,11 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata: {name: ast-translate-zh-es}
+i18n:
+  default_locale: en
+  en: {name: Chinese/Spanish Interpreter, description: Translate spoken Chinese and Spanish in real time.}
+  zh-CN: {name: 中西语音翻译, description: 实时翻译中文和西班牙语语音。}
+spec:
+  driver: ast-translate
+  ast_translate: {translation_model: volc-ast-translate, mode: s2s, voice: {speaker_id: zh_female_vv_uranus_bigtts}, resource_id: volc.service_type.10053, denoise: false}

@@ -22,6 +22,18 @@ test.beforeEach(async ({ page }) => {
       state,
       public_key: `server-public-key-${endpoint}`,
     });
+    let bootstrapEnvironment = {
+      ready: true,
+      missing: [],
+      variables: [
+        {
+          name: "GIZCLAW_VOLC_SPEECH_API_KEY",
+          required: true,
+          configured: true,
+          defaulted: false,
+        },
+      ],
+    };
     const pods = [
       {
         id: "local-lab",
@@ -108,8 +120,25 @@ test.beforeEach(async ({ page }) => {
           locale: navigator.language.toLowerCase().startsWith("zh")
             ? "zh-CN"
             : "en",
+          bootstrap_environment: bootstrapEnvironment,
           pods,
         };
+      },
+      async GetBootstrapEnvironment() {
+        return bootstrapEnvironment;
+      },
+      async UpdateBootstrapEnvironment(update) {
+        bootstrapEnvironment = {
+          ready: Object.values(update.values).some(Boolean),
+          missing: Object.values(update.values).some(Boolean)
+            ? []
+            : ["GIZCLAW_VOLC_SPEECH_API_KEY"],
+          variables: bootstrapEnvironment.variables.map((variable) => ({
+            ...variable,
+            configured: Object.values(update.values).some(Boolean),
+          })),
+        };
+        return bootstrapEnvironment;
       },
       async CreatePod(input) {
         const pod = input.local_server
@@ -337,6 +366,47 @@ test("Add Pod creates a local environment without exposing keys", async ({
     page.getByRole("dialog").getByRole("img", { name: "Server QR code" }),
   ).toBeVisible();
   await expect(page.locator("body")).not.toContainText("private_key");
+});
+
+test("local creation requires write-only bootstrap environment values", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.evaluate(async () => {
+    await window.__GIZCLAW_DESKTOP_TEST_API__?.UpdateBootstrapEnvironment({
+      values: { GIZCLAW_VOLC_SPEECH_API_KEY: "" },
+    });
+    window.dispatchEvent(new Event("focus"));
+  });
+  await expect(
+    page.getByRole("button", { name: "Configure bootstrap" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Add Pod" }).click();
+  await page
+    .locator(".create-dialog")
+    .getByRole("button", { name: /^Local/ })
+    .click();
+  const environment = page
+    .getByRole("dialog")
+    .filter({ hasText: "Bootstrap environment" });
+  await expect(environment).toBeVisible();
+  const input = environment.getByLabel("GIZCLAW_VOLC_SPEECH_API_KEY");
+  await expect(input).toHaveAttribute("type", "password");
+  await input.fill("replacement-secret");
+  await environment
+    .getByRole("button", { name: "Save configuration" })
+    .click();
+  await expect(environment).toHaveCount(0);
+  await page
+    .locator(".create-dialog")
+    .getByRole("button", { name: /^Local/ })
+    .click();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByRole("heading", { level: 2, name: "Local Server" }),
+  ).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("replacement-secret");
 });
 
 test("local share stays simple and switches to focused controls", async ({

@@ -17,8 +17,13 @@ func TestMaterializeLocalServerWorkspaceUsesEmbeddedTemplateAndPreservesIdentity
 		t.Fatalf("first materialization: %v", err)
 	}
 	first := readRenderedWorkspace(t, path)
-	if first.Identity.PrivateKey.IsZero() || first.Listen != "0.0.0.0:19820" {
+	if first.Identity.PrivateKey.IsZero() || first.Listen != "0.0.0.0:19820" || first.DefaultPeerView != "default-client" {
 		t.Fatalf("first workspace = %+v", first)
+	}
+	if first.SystemTasks.PetFlowcraftWorkflow.GenerateModel != "minimax-cn-m3" ||
+		first.SystemTasks.PetFlowcraftWorkflow.ExtractModel != "deepseek-v4-flash" ||
+		first.SystemTasks.PetFlowcraftWorkflow.ASRModel != "volc-bigasr-sauc" {
+		t.Fatalf("pet Flowcraft system task = %+v", first.SystemTasks.PetFlowcraftWorkflow)
 	}
 
 	pod.LocalServer.Port = 19821
@@ -51,7 +56,15 @@ func readRenderedWorkspace(t *testing.T, path string) struct {
 	Identity struct {
 		PrivateKey giznet.Key `yaml:"private-key"`
 	} `yaml:"identity"`
-	Listen string `yaml:"listen"`
+	Listen          string `yaml:"listen"`
+	DefaultPeerView string `yaml:"default-peer-view"`
+	SystemTasks     struct {
+		PetFlowcraftWorkflow struct {
+			GenerateModel string `yaml:"generate_model"`
+			ExtractModel  string `yaml:"extract_model"`
+			ASRModel      string `yaml:"asr_model"`
+		} `yaml:"pet_flowcraft_workflow"`
+	} `yaml:"system_tasks"`
 } {
 	t.Helper()
 	data, err := os.ReadFile(path)
@@ -62,7 +75,15 @@ func readRenderedWorkspace(t *testing.T, path string) struct {
 		Identity struct {
 			PrivateKey giznet.Key `yaml:"private-key"`
 		} `yaml:"identity"`
-		Listen string `yaml:"listen"`
+		Listen          string `yaml:"listen"`
+		DefaultPeerView string `yaml:"default-peer-view"`
+		SystemTasks     struct {
+			PetFlowcraftWorkflow struct {
+				GenerateModel string `yaml:"generate_model"`
+				ExtractModel  string `yaml:"extract_model"`
+				ASRModel      string `yaml:"asr_model"`
+			} `yaml:"pet_flowcraft_workflow"`
+		} `yaml:"system_tasks"`
 	}
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		t.Fatal(err)

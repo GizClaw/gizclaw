@@ -20,9 +20,10 @@ import (
 )
 
 const (
-	PodManifestFile = "pod.json"
-	PodVersion      = 1
-	DefaultPort     = 9820
+	PodManifestFile         = "pod.json"
+	PodInitializationMarker = ".initializing"
+	PodVersion              = 1
+	DefaultPort             = 9820
 )
 
 var (
@@ -120,6 +121,11 @@ func (s Store) Entries() ([]Entry, error) {
 		if !entry.IsDir() {
 			continue
 		}
+		if _, markerErr := os.Lstat(filepath.Join(s.Paths.PodsDir, entry.Name(), PodInitializationMarker)); markerErr == nil {
+			continue
+		} else if !os.IsNotExist(markerErr) {
+			return nil, fmt.Errorf("appconfig: inspect initializing pod %q: %w", entry.Name(), markerErr)
+		}
 		manifest := filepath.Join(s.Paths.PodsDir, entry.Name(), PodManifestFile)
 		if _, err := os.Lstat(manifest); os.IsNotExist(err) {
 			continue
@@ -142,6 +148,58 @@ func (s Store) Entries() ([]Entry, error) {
 		return strings.ToLower(left) < strings.ToLower(right)
 	})
 	return result, nil
+}
+
+// MarkInitializing hides a reserved Pod from enumeration until its local
+// Server and complete bootstrap catalog have been initialized.
+func (s Store) MarkInitializing(id string) error {
+	if err := validateID("pod id", id); err != nil {
+		return err
+	}
+	dir := filepath.Join(s.Paths.PodsDir, id)
+	if err := secureDir(dir); err != nil {
+		return fmt.Errorf("appconfig: secure initializing pod: %w", err)
+	}
+	return atomicWrite(filepath.Join(dir, PodInitializationMarker), []byte("initializing\n"), 0o600)
+}
+
+func (s Store) CompleteInitialization(id string) error {
+	if err := validateID("pod id", id); err != nil {
+		return err
+	}
+	marker := filepath.Join(s.Paths.PodsDir, id, PodInitializationMarker)
+	if err := os.Remove(marker); err != nil {
+		return fmt.Errorf("appconfig: complete pod initialization: %w", err)
+	}
+	return nil
+}
+
+// CleanupIncomplete removes Pods whose creation was interrupted before the
+// initialization marker was cleared.
+func (s Store) CleanupIncomplete() error {
+	entries, err := os.ReadDir(s.Paths.PodsDir)
+	if err != nil {
+		return fmt.Errorf("appconfig: list pods for initialization cleanup: %w", err)
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		dir := filepath.Join(s.Paths.PodsDir, entry.Name())
+		marker := filepath.Join(dir, PodInitializationMarker)
+		if _, err := os.Lstat(marker); os.IsNotExist(err) {
+			continue
+		} else if err != nil {
+			return fmt.Errorf("appconfig: inspect initializing pod %q: %w", entry.Name(), err)
+		}
+		if err := rejectSymlinkDir(dir); err != nil {
+			return err
+		}
+		if err := os.RemoveAll(dir); err != nil {
+			return fmt.Errorf("appconfig: remove incomplete pod %q: %w", entry.Name(), err)
+		}
+	}
+	return nil
 }
 
 func (s Store) Load(id string) (Pod, error) {

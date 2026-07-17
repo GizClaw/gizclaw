@@ -1,0 +1,11 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: OpenAITenant
+metadata:
+  name: deepseek-main
+spec:
+  kind: compatible
+  credential_name: deepseek-main-credential
+  base_url: https://api.deepseek.com
+  api_mode: chat_completions
+  description: DeepSeek OpenAI-compatible tenant

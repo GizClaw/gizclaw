@@ -1,0 +1,61 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: GameRuleset
+metadata:
+  name: default-gameplay
+spec:
+  enabled: true
+  description: Default pet gameplay ruleset for the native Codex pet collection.
+  default_workflow_name: pet-care
+  points:
+    initial_balance: 100
+  drive:
+    default_reward: {points_delta: 5, pet_exp_delta: 3}
+    game_rewards:
+      journey-complete: {points_delta: 20, pet_exp_delta: 25}
+  pet_pool:
+    - petdef_id: petdef-bsod
+      weight: 100
+      rarity: common
+      adoption_cost: 10
+      workflow_name: pet-care
+    - petdef_id: petdef-codex
+      weight: 100
+      rarity: common
+      adoption_cost: 10
+      workflow_name: pet-care
+    - petdef_id: petdef-dewey
+      weight: 100
+      rarity: common
+      adoption_cost: 10
+      workflow_name: pet-care
+    - petdef_id: petdef-fireball
+      weight: 100
+      rarity: common
+      adoption_cost: 10
+      workflow_name: pet-care
+    - petdef_id: petdef-hoots
+      weight: 100
+      rarity: common
+      adoption_cost: 10
+      workflow_name: pet-care
+    - petdef_id: petdef-null-signal
+      weight: 100
+      rarity: common
+      adoption_cost: 10
+      workflow_name: pet-care
+    - petdef_id: petdef-rocky
+      weight: 100
+      rarity: common
+      adoption_cost: 10
+      workflow_name: pet-care
+    - petdef_id: petdef-seedy
+      weight: 100
+      rarity: common
+      adoption_cost: 10
+      workflow_name: pet-care
+    - petdef_id: petdef-stacky
+      weight: 100
+      rarity: common
+      adoption_cost: 10
+      workflow_name: pet-care

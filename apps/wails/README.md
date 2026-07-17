@@ -23,6 +23,12 @@ Pods live under `os.UserConfigDir()/GizClaw/pods/<id>/` by default:
 manifest update. Pod directories are mode `0700`; manifests, workspace config,
 and Context config files are atomically written with mode `0600`.
 
+The same config root contains a private `bootstrap-env.json` file. It stores
+write-only provider values used only while creating future local Pods. The
+Desktop API reports variable names and configured/defaulted/missing state, but
+never returns a stored value. Desktop-saved values override process environment
+values; resource-declared defaults are used last.
+
 A local Pod has one `local_server` with a stable port. The Server listens on
 `0.0.0.0:<port>` for LAN access while its local Admin and Client Contexts use
 `127.0.0.1:<port>`. The generated Server workspace publishes a current LAN
@@ -31,6 +37,13 @@ A local Pod automatically generates its Server identity, Admin identity, and
 desktop-local Play identity. Existing Pods missing these identities are filled
 on desktop bootstrap. The share QR contains only the display name, selected LAN
 endpoint, and Server public key; a scanning client generates its own identity.
+A new local Pod is returned only after its Server is ready, the embedded
+deploy-derived resource catalog has been applied, Volc voices have been synced,
+and all Workflow and PetDef assets have been uploaded. Failed initialization
+stops the process and removes the incomplete Pod. Desktop startup removes a Pod
+left with an initialization marker after an interrupted creation. Successful
+Pods are never reconciled or bootstrapped again during start, restart, or app
+upgrade.
 A remote Pod has one `remote_access_point` and zero or more
 `remote_servers`; Servers may be added after the Pod is created. Each Server's
 Admin private key is supplied by the user and stored write-only; omitting it
@@ -52,8 +65,8 @@ for local Server support.
 ## Runtime boundaries
 
 - The Wails bridge returns only configured/missing state; persisted private keys
-  never appear in Pod responses. Public halves may be returned for QR identity
-  pinning and remote Admin setup.
+  and bootstrap values never appear in responses. Public identity halves may be
+  returned for QR identity pinning and remote Admin setup.
 - Endpoint health uses bounded native `GET /server-info` probes without
   credentials.
 - Each Pod reuses at most one Admin listener and one Play listener, both bound

@@ -8,6 +8,7 @@
 
 ```text
 apps/wails/
+├── resources/              # 内嵌的新建本地 Server bootstrap catalog 与 assets
 ├── internal/
 │   ├── appconfig/       # pod.json、目录投影和权限
 │   ├── bridge/          # 不返回密钥的 Wails capability
@@ -22,6 +23,25 @@ apps/wails/
 Desktop App 不复制 `pkgs/gizclaw` 的服务端业务。`api/http/desktop.json` 是
 桌面 bridge DTO 的 schema source；更新后通过 `sdk/js` 的 `gen:sdk` 生成
 `frontend/src/generated/desktopservice`。
+
+## 本地 Server Bootstrap
+
+`resources/local-server` 是新建本地 Server 的版本化只读 bootstrap 数据源。资源
+内容来自 deploy，随 Desktop binary 使用 `go:embed` 编译，不在运行时访问 deploy、
+Flowcraft、测试 fixture、网络 catalog 或 AI 服务。Catalog 包含 Credential、Tenant、
+Model、Workflow、PetDef、GameRuleset、ACL 及其 Workflow PNG/PIXA、PetDef PIXA
+映射；不包含 Workspace，Workspace 仍由客户端创建。
+
+Desktop 配置根目录中的 `bootstrap-env.json` 以 `0600` 保存未来本地 Pod 创建所需
+的 write-only 值。bridge 只公开变量名以及 required、configured、defaulted、missing
+状态。Desktop 保存值优先于 process environment，资源中的 `${NAME:-default}` 最后
+生效。远程 Pod 的创建和更新不读取这些值。
+
+本地 `CreatePod` 在保留目录前完成环境 preflight，然后以 `.initializing` 标记执行
+有界事务：生成投影、启动 companion、等待 Admin readiness、按顺序 apply 内嵌资源、
+同步 Volc Voice、apply ACL，并通过 owner API 上传 Workflow 与 PetDef assets。任一步
+失败都会停止进程并删除该 Pod；启动 Desktop 时会清理崩溃遗留的初始化目录。标记
+清除后的 Pod 不会在普通 start、restart 或 Desktop upgrade 时重新 apply。
 
 ## Pod 投影
 

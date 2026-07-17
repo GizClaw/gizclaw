@@ -1,4 +1,6 @@
 import type {
+  BootstrapEnvironmentState,
+  BootstrapEnvironmentUpdate,
   DesktopBootstrap,
   DesktopPod,
   PodInputWritable,
@@ -30,6 +32,7 @@ export interface DesktopAPI {
   CreatePod(input: PodInputWritable): Promise<DesktopPod>;
   DeletePod(id: string): Promise<void>;
   GetPod(id: string): Promise<DesktopPod>;
+  GetBootstrapEnvironment(): Promise<BootstrapEnvironmentState>;
   ListPods(): Promise<DesktopPod[]>;
   OpenAdmin(podID: string, serverID: string): Promise<string>;
   OpenPlay(podID: string): Promise<string>;
@@ -39,4 +42,9 @@ export interface DesktopAPI {
   StartLocalServer(id: string): Promise<DesktopPod>;
   StopLocalServer(id: string): Promise<DesktopPod>;
   UpdatePod(input: PodInputWritable): Promise<DesktopPod>;
+  UpdateBootstrapEnvironment(
+    update: BootstrapEnvironmentUpdate,
+  ): Promise<BootstrapEnvironmentState>;
 }
+
+export type { BootstrapEnvironmentState, BootstrapEnvironmentUpdate };

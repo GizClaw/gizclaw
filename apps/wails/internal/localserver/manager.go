@@ -88,6 +88,12 @@ func (m *Manager) Start(podID, workspace string) (Status, error) {
 	return m.Status(podID), nil
 }
 
+// ExecutablePath returns the same companion binary used to run local Servers.
+// Bootstrap operations use it for the matching Admin CLI surface.
+func (m *Manager) ExecutablePath() (string, error) {
+	return m.resolveExecutable()
+}
+
 func (m *Manager) Stop(ctx context.Context, podID string) (Status, error) {
 	m.mu.Lock()
 	p := m.processes[podID]

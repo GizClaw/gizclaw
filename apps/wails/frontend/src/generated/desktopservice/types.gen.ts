@@ -10,7 +10,27 @@ export type Error = {
 
 export type DesktopBootstrap = {
     locale: 'en' | 'zh-CN';
+    bootstrap_environment: BootstrapEnvironmentState;
     pods: Array<DesktopPod>;
+};
+
+export type BootstrapEnvironmentState = {
+    ready: boolean;
+    missing: Array<string>;
+    variables: Array<BootstrapEnvironmentVariableState>;
+};
+
+export type BootstrapEnvironmentVariableState = {
+    name: string;
+    required: boolean;
+    configured: boolean;
+    defaulted: boolean;
+};
+
+export type BootstrapEnvironmentUpdate = {
+    values: {
+        [key: string]: string;
+    };
 };
 
 export type DesktopPod = {
@@ -152,6 +172,60 @@ export type GetDesktopBootstrapResponses = {
 };
 
 export type GetDesktopBootstrapResponse = GetDesktopBootstrapResponses[keyof GetDesktopBootstrapResponses];
+
+export type GetDesktopBootstrapEnvironmentData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/desktop/bootstrap-environment';
+};
+
+export type GetDesktopBootstrapEnvironmentErrors = {
+    /**
+     * Operation failed
+     */
+    500: Error;
+};
+
+export type GetDesktopBootstrapEnvironmentError = GetDesktopBootstrapEnvironmentErrors[keyof GetDesktopBootstrapEnvironmentErrors];
+
+export type GetDesktopBootstrapEnvironmentResponses = {
+    /**
+     * Bootstrap environment readiness
+     */
+    200: BootstrapEnvironmentState;
+};
+
+export type GetDesktopBootstrapEnvironmentResponse = GetDesktopBootstrapEnvironmentResponses[keyof GetDesktopBootstrapEnvironmentResponses];
+
+export type UpdateDesktopBootstrapEnvironmentData = {
+    body: BootstrapEnvironmentUpdate;
+    path?: never;
+    query?: never;
+    url: '/desktop/bootstrap-environment';
+};
+
+export type UpdateDesktopBootstrapEnvironmentErrors = {
+    /**
+     * Operation failed
+     */
+    400: Error;
+    /**
+     * Operation failed
+     */
+    500: Error;
+};
+
+export type UpdateDesktopBootstrapEnvironmentError = UpdateDesktopBootstrapEnvironmentErrors[keyof UpdateDesktopBootstrapEnvironmentErrors];
+
+export type UpdateDesktopBootstrapEnvironmentResponses = {
+    /**
+     * Updated bootstrap environment readiness
+     */
+    200: BootstrapEnvironmentState;
+};
+
+export type UpdateDesktopBootstrapEnvironmentResponse = UpdateDesktopBootstrapEnvironmentResponses[keyof UpdateDesktopBootstrapEnvironmentResponses];
 
 export type ListDesktopPodsData = {
     body?: never;

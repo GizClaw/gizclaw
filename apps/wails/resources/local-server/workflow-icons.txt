@@ -1,0 +1,11 @@
+# workflow png pixa
+ast-translate-zh-en-auto assets/workflows/ast-translate-zh-en-auto/icon.png assets/workflows/ast-translate-zh-en-auto/icon.pixa
+ast-translate-zh-ja assets/workflows/ast-translate-zh-ja/icon.png assets/workflows/ast-translate-zh-ja/icon.pixa
+ast-translate-zh-ko assets/workflows/ast-translate-zh-ko/icon.png assets/workflows/ast-translate-zh-ko/icon.pixa
+ast-translate-zh-es assets/workflows/ast-translate-zh-es/icon.png assets/workflows/ast-translate-zh-es/icon.pixa
+doubao-realtime-conversation assets/workflows/doubao-realtime-conversation/icon.png assets/workflows/doubao-realtime-conversation/icon.pixa
+flowcraft-chat-assistant assets/workflows/flowcraft-chat-assistant/icon.png assets/workflows/flowcraft-chat-assistant/icon.pixa
+flowcraft-journey-guide assets/workflows/flowcraft-journey-guide/icon.png assets/workflows/flowcraft-journey-guide/icon.pixa
+flowcraft-murder-mystery assets/workflows/flowcraft-murder-mystery/icon.png assets/workflows/flowcraft-murder-mystery/icon.pixa
+chatroom assets/workflows/chatroom/icon.png assets/workflows/chatroom/icon.pixa
+pet-care assets/workflows/pet-care/icon.png assets/workflows/pet-care/icon.pixa

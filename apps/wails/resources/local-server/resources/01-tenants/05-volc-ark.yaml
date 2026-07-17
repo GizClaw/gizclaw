@@ -1,0 +1,9 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: VolcTenant
+metadata:
+  name: volc-ark
+spec:
+  credential_name: volc-main-credential
+  description: Volcengine Ark tenant for Doubao foundation models
+  region: cn-beijing

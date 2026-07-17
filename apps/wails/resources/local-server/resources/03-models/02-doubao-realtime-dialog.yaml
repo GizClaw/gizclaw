@@ -1,0 +1,17 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Model
+metadata:
+  name: doubao-realtime-dialog
+spec:
+  kind: realtime
+  source: manual
+  provider:
+    kind: volc-tenant
+    name: volc-main
+  name: Doubao Realtime Dialog
+  description: Doubao realtime dialog model
+  provider_data:
+    api_mode: realtime
+    resource_id: volc.speech.dialog
+    upstream_model: "1.2.1.1"

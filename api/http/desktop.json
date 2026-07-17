@@ -8,6 +8,10 @@
   "servers": [{ "url": "/" }],
   "tags": [
     { "name": "Pods", "description": "Local Pod environment operations" },
+    {
+      "name": "Bootstrap environment",
+      "description": "Write-only values used to initialize future local Pods"
+    },
     { "name": "Local server", "description": "Local Pod server lifecycle" },
     {
       "name": "Browser UI",
@@ -29,6 +33,56 @@
               }
             }
           },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/desktop/bootstrap-environment": {
+      "get": {
+        "operationId": "getDesktopBootstrapEnvironment",
+        "tags": ["Bootstrap environment"],
+        "summary": "Inspect bootstrap readiness without returning stored values",
+        "responses": {
+          "200": {
+            "description": "Bootstrap environment readiness",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BootstrapEnvironmentState"
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
+      },
+      "put": {
+        "operationId": "updateDesktopBootstrapEnvironment",
+        "tags": ["Bootstrap environment"],
+        "summary": "Update write-only bootstrap values",
+        "description": "Omitted names remain unchanged and an explicitly empty value removes the saved value.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BootstrapEnvironmentUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated bootstrap environment readiness",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BootstrapEnvironmentState"
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/Error" },
           "500": { "$ref": "#/components/responses/Error" }
         }
       }
@@ -318,12 +372,53 @@
       },
       "DesktopBootstrap": {
         "type": "object",
-        "required": ["locale", "pods"],
+        "required": ["locale", "pods", "bootstrap_environment"],
         "properties": {
           "locale": { "type": "string", "enum": ["en", "zh-CN"] },
+          "bootstrap_environment": {
+            "$ref": "#/components/schemas/BootstrapEnvironmentState"
+          },
           "pods": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/DesktopPod" }
+          }
+        }
+      },
+      "BootstrapEnvironmentState": {
+        "type": "object",
+        "required": ["ready", "missing", "variables"],
+        "properties": {
+          "ready": { "type": "boolean" },
+          "missing": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "variables": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BootstrapEnvironmentVariableState"
+            }
+          }
+        }
+      },
+      "BootstrapEnvironmentVariableState": {
+        "type": "object",
+        "required": ["name", "required", "configured", "defaulted"],
+        "properties": {
+          "name": { "type": "string" },
+          "required": { "type": "boolean" },
+          "configured": { "type": "boolean" },
+          "defaulted": { "type": "boolean" }
+        }
+      },
+      "BootstrapEnvironmentUpdate": {
+        "type": "object",
+        "required": ["values"],
+        "properties": {
+          "values": {
+            "type": "object",
+            "writeOnly": true,
+            "additionalProperties": { "type": "string" }
           }
         }
       },

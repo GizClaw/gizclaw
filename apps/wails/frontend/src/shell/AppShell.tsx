@@ -9,6 +9,7 @@ import {
   Cloud,
   Laptop,
   FolderOpen,
+  KeyRound,
   Maximize2,
   Minus,
   Pencil,
@@ -24,7 +25,11 @@ import {
 
 import { setLocale, useMessages } from "../i18n";
 import { getDesktopAPI } from "../lib/runtime/desktop";
-import type { PodInput, PodSummary } from "../lib/runtime/types";
+import type {
+  BootstrapEnvironmentState,
+  PodInput,
+  PodSummary,
+} from "../lib/runtime/types";
 import { DesktopDialog, DesktopDialogTitle } from "./DesktopDialog";
 import { HomeCard } from "./HomeCard";
 import { ManageListItem } from "./ManageListItem";
@@ -38,6 +43,9 @@ export function AppShell() {
   const [creating, setCreating] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [editing, setEditing] = useState<PodSummary | null>(null);
+  const [bootstrapEnvironment, setBootstrapEnvironment] =
+    useState<BootstrapEnvironmentState | null>(null);
+  const [environmentOpen, setEnvironmentOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -48,6 +56,7 @@ export function AppShell() {
         .then(async (state) => {
           setLocale(state.locale);
           setPods(state.pods);
+          setBootstrapEnvironment(state.bootstrap_environment);
           const checked = await Promise.all(
             state.pods.map((pod) =>
               api.RefreshPodHealth(pod.id).catch(() => pod),
@@ -72,6 +81,7 @@ export function AppShell() {
               .Bootstrap()
               .then((state) => {
                 setLocale(state.locale);
+                setBootstrapEnvironment(state.bootstrap_environment);
                 const pod = state.pods.find((candidate) => candidate.id === id);
                 if (pod) {
                   setPods(state.pods);
@@ -163,8 +173,22 @@ export function AppShell() {
         className={`pod-canvas ${!loading && pods.length === 0 ? "pod-canvas-empty" : ""}`}
       >
         <header className="home-heading">
-          <h1 className="home-title">GizClaw</h1>
-          <p className="home-subtitle">{t("tagline")}</p>
+          <div>
+            <h1 className="home-title">GizClaw</h1>
+            <p className="home-subtitle">{t("tagline")}</p>
+          </div>
+          <button
+            className={`bootstrap-environment-button ${bootstrapEnvironment?.ready ? "is-ready" : "is-missing"}`}
+            onClick={() => setEnvironmentOpen(true)}
+            type="button"
+          >
+            <KeyRound size={14} />
+            <span>
+              {bootstrapEnvironment?.ready
+                ? t("bootstrapEnvironmentReady")
+                : t("bootstrapEnvironmentMissing")}
+            </span>
+          </button>
         </header>
         <div className="pod-grid" aria-label={t("pods")}>
           <MobileAppCard onOpen={() => setMobileOpen(true)} />
@@ -227,7 +251,24 @@ export function AppShell() {
         />
       ) : null}
       {creating ? (
-        <CreatePodDialog onClose={() => setCreating(false)} onSave={create} />
+        <CreatePodDialog
+          bootstrapReady={bootstrapEnvironment?.ready === true}
+          onClose={() => setCreating(false)}
+          onConfigureEnvironment={() => setEnvironmentOpen(true)}
+          onSave={create}
+        />
+      ) : null}
+      {environmentOpen && bootstrapEnvironment ? (
+        <BootstrapEnvironmentDialog
+          initial={bootstrapEnvironment}
+          onClose={() => setEnvironmentOpen(false)}
+          onError={(reason) => setError(errorMessage(reason))}
+          onSave={async (values) => {
+            const next = await api.UpdateBootstrapEnvironment({ values });
+            setBootstrapEnvironment(next);
+            setEnvironmentOpen(false);
+          }}
+        />
       ) : null}
       {editing ? (
         <PodSettingsDialog
@@ -1113,10 +1154,14 @@ function podInputWithServers(
 }
 
 function CreatePodDialog({
+  bootstrapReady,
   onClose,
+  onConfigureEnvironment,
   onSave,
 }: {
+  bootstrapReady: boolean;
   onClose(): void;
+  onConfigureEnvironment(): void;
   onSave(input: PodInput): Promise<void>;
 }) {
   const t = useMessages();
@@ -1125,6 +1170,10 @@ function CreatePodDialog({
   const [saving, setSaving] = useState(false);
 
   async function createLocal() {
+    if (!bootstrapReady) {
+      onConfigureEnvironment();
+      return;
+    }
     setSaving(true);
     try {
       await onSave({
@@ -1232,6 +1281,112 @@ function CreatePodDialog({
             </button>
           </div>
         )}
+        </form>
+      )}
+    </DesktopDialog>
+  );
+}
+
+function BootstrapEnvironmentDialog({
+  initial,
+  onClose,
+  onError,
+  onSave,
+}: {
+  initial: BootstrapEnvironmentState;
+  onClose(): void;
+  onError(reason: unknown): void;
+  onSave(values: Record<string, string>): Promise<void>;
+}) {
+  const t = useMessages();
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [cleared, setCleared] = useState<Set<string>>(new Set());
+  const [saving, setSaving] = useState(false);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    const changes: Record<string, string> = {};
+    for (const [name, value] of Object.entries(values)) {
+      if (value !== "") changes[name] = value;
+    }
+    for (const name of cleared) changes[name] = "";
+    setSaving(true);
+    try {
+      await onSave(changes);
+    } catch (reason) {
+      onError(reason);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <DesktopDialog className="create-dialog bootstrap-environment-dialog" onClose={onClose}>
+      {(close) => (
+        <form className="desktop-dialog-form" onSubmit={(event) => void submit(event)}>
+          <header>
+            <div>
+              <span className="mode-chip">{t("writeOnly")}</span>
+              <DesktopDialogTitle>
+                <h2>{t("bootstrapEnvironment")}</h2>
+              </DesktopDialogTitle>
+              <p className="bootstrap-environment-copy">
+                {t("bootstrapEnvironmentHint")}
+              </p>
+            </div>
+            <button aria-label={t("close")} className="icon-button" onClick={close} type="button">
+              <X size={18} />
+            </button>
+          </header>
+          <div className="bootstrap-environment-fields">
+            {initial.variables.map((variable) => (
+              <div className="bootstrap-environment-field" key={variable.name}>
+                <label>
+                  <span>{variable.name}</span>
+                  <input
+                    autoComplete="off"
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setValues((current) => ({ ...current, [variable.name]: value }));
+                      setCleared((current) => {
+                        const next = new Set(current);
+                        next.delete(variable.name);
+                        return next;
+                      });
+                    }}
+                    placeholder={
+                      variable.configured
+                        ? t("bootstrapValueConfigured")
+                        : variable.defaulted
+                          ? t("bootstrapValueDefaulted")
+                          : t("bootstrapValueRequired")
+                    }
+                    type="password"
+                    value={values[variable.name] ?? ""}
+                  />
+                </label>
+                <button
+                  className="bootstrap-clear-value"
+                  disabled={!variable.configured && !values[variable.name]}
+                  onClick={() => {
+                    setValues((current) => ({ ...current, [variable.name]: "" }));
+                    setCleared((current) => new Set(current).add(variable.name));
+                  }}
+                  type="button"
+                >
+                  {t("bootstrapClearSaved")}
+                </button>
+              </div>
+            ))}
+          </div>
+          <footer>
+            <button className="secondary-action" onClick={close} type="button">
+              {t("cancel")}
+            </button>
+            <button className="primary-action" disabled={saving} type="submit">
+              {t("saveConfiguration")}
+            </button>
+          </footer>
         </form>
       )}
     </DesktopDialog>

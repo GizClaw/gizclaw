@@ -1,0 +1,17 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata: {name: ast-translate-zh-en-auto}
+i18n:
+  default_locale: en
+  en: {name: Automatic Chinese/English Interpreter, description: Automatically translate spoken Chinese and English in either direction.}
+  zh-CN: {name: 中英语音自动翻译, description: 自动识别中文或英语并进行双向实时语音翻译。}
+spec:
+  driver: ast-translate
+  ast_translate:
+    translation_model: volc-ast-translate
+    mode: s2s
+    voice: {speaker_id: zh_female_vv_uranus_bigtts}
+    resource_id: volc.service_type.10053
+    enable_source_language_detect: true
+    denoise: false

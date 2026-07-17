@@ -1,0 +1,8 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: ACLRole
+metadata:
+  name: workspace-creator
+spec:
+  permissions:
+    - create

@@ -109,8 +109,31 @@ button {
 .home-heading {
   position: relative;
   z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
   margin: 0 0 24px;
   padding-left: 4px;
+}
+.bootstrap-environment-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  margin-bottom: 1px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  color: rgba(235, 238, 244, 0.74);
+  background: rgba(29, 31, 37, 0.7);
+  cursor: pointer;
+  font-size: 10px;
+}
+.bootstrap-environment-button.is-missing {
+  border-color: rgba(255, 174, 92, 0.32);
+  color: #ffd0a0;
+  background: rgba(82, 49, 25, 0.72);
 }
 .home-title {
   margin: 0;
@@ -1291,6 +1314,59 @@ button:disabled {
   justify-content: flex-end;
   gap: 8px;
   margin-top: 20px;
+}
+.bootstrap-environment-dialog {
+  width: min(680px, 100%);
+  max-height: calc(100vh - 60px);
+}
+.bootstrap-environment-copy {
+  max-width: 520px;
+  margin: 7px 0 0;
+  color: #858892;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.bootstrap-environment-fields {
+  display: grid;
+  gap: 9px;
+  margin-top: 20px;
+}
+.bootstrap-environment-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+.bootstrap-environment-field label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: #9b9ea8;
+  font-size: 10px;
+  font-weight: 650;
+}
+.bootstrap-environment-field input {
+  min-height: 39px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 10px;
+  outline: 0;
+  color: #eff1f4;
+  background: rgba(255, 255, 255, 0.055);
+}
+.bootstrap-clear-value {
+  min-height: 39px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  color: #aeb1ba;
+  background: rgba(255, 255, 255, 0.055);
+  cursor: pointer;
+  font-size: 9px;
+}
+.bootstrap-clear-value:disabled {
+  cursor: default;
+  opacity: 0.35;
 }
 
 .nested-dialog-backdrop {

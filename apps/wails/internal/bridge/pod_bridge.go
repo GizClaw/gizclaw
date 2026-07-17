@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -21,15 +22,23 @@ import (
 )
 
 type PodBridge struct {
-	Paths  appconfig.Paths
-	Store  appconfig.Store
-	Health *endpointhealth.Prober
-	Local  *localserver.Manager
-	WebUI  *webui.Manager
+	Paths                appconfig.Paths
+	Store                appconfig.Store
+	BootstrapEnvironment appconfig.BootstrapEnvironmentStore
+	Catalog              *localserver.Catalog
+	Bootstrapper         LocalPodBootstrapper
+	WaitLocalReady       func(context.Context, string, int) error
+	Health               *endpointhealth.Prober
+	Local                *localserver.Manager
+	WebUI                *webui.Manager
 
 	mutationMu sync.Mutex
 	refreshMu  sync.Mutex
 	refreshes  map[string]*podRefresh
+}
+
+type LocalPodBootstrapper interface {
+	Apply(context.Context, string, map[string]string) error
 }
 
 type podRefresh struct {
@@ -38,8 +47,26 @@ type podRefresh struct {
 }
 
 type BootstrapState struct {
-	Locale string       `json:"locale"`
-	Pods   []PodSummary `json:"pods"`
+	Locale               string                    `json:"locale"`
+	Pods                 []PodSummary              `json:"pods"`
+	BootstrapEnvironment BootstrapEnvironmentState `json:"bootstrap_environment"`
+}
+
+type BootstrapEnvironmentState struct {
+	Ready     bool                                `json:"ready"`
+	Missing   []string                            `json:"missing"`
+	Variables []BootstrapEnvironmentVariableState `json:"variables"`
+}
+
+type BootstrapEnvironmentVariableState struct {
+	Name       string `json:"name"`
+	Required   bool   `json:"required"`
+	Configured bool   `json:"configured"`
+	Defaulted  bool   `json:"defaulted"`
+}
+
+type BootstrapEnvironmentUpdate struct {
+	Values map[string]string `json:"values"`
 }
 
 type PodSummary struct {
@@ -107,7 +134,38 @@ func (b *PodBridge) Bootstrap(ctx context.Context) (BootstrapState, error) {
 	if err != nil {
 		return BootstrapState{}, err
 	}
-	return BootstrapState{Pods: pods}, nil
+	environment, _, err := b.bootstrapEnvironmentState()
+	if err != nil {
+		return BootstrapState{}, err
+	}
+	return BootstrapState{Pods: pods, BootstrapEnvironment: environment}, nil
+}
+
+func (b *PodBridge) GetBootstrapEnvironment(context.Context) (BootstrapEnvironmentState, error) {
+	state, _, err := b.bootstrapEnvironmentState()
+	return state, err
+}
+
+func (b *PodBridge) UpdateBootstrapEnvironment(_ context.Context, update BootstrapEnvironmentUpdate) (BootstrapEnvironmentState, error) {
+	b.mutationMu.Lock()
+	defer b.mutationMu.Unlock()
+	allowed := map[string]bool{}
+	if b.Catalog == nil {
+		return BootstrapEnvironmentState{}, fmt.Errorf("desktop bridge: bootstrap catalog is not configured")
+	}
+	for _, requirement := range b.Catalog.Requirements {
+		allowed[requirement.Name] = true
+	}
+	for name := range update.Values {
+		if !allowed[name] {
+			return BootstrapEnvironmentState{}, fmt.Errorf("desktop bridge: bootstrap environment %q is not used by the catalog", name)
+		}
+	}
+	if err := b.BootstrapEnvironment.Update(update.Values); err != nil {
+		return BootstrapEnvironmentState{}, err
+	}
+	state, _, err := b.bootstrapEnvironmentState()
+	return state, err
 }
 
 func (b *PodBridge) ListPods(context.Context) ([]PodSummary, error) {
@@ -155,9 +213,20 @@ func (b *PodBridge) GetPod(_ context.Context, id string) (PodSummary, error) {
 
 func (b *PodBridge) RevealPath(id string) (string, error) { return b.Store.PodDir(id) }
 
-func (b *PodBridge) CreatePod(_ context.Context, input PodInput) (PodSummary, error) {
+func (b *PodBridge) CreatePod(ctx context.Context, input PodInput) (PodSummary, error) {
 	b.mutationMu.Lock()
 	defer b.mutationMu.Unlock()
+	var savedEnvironment map[string]string
+	if input.LocalServer != nil && b.Bootstrapper != nil {
+		state, saved, err := b.bootstrapEnvironmentState()
+		if err != nil {
+			return PodSummary{}, err
+		}
+		if !state.Ready {
+			return PodSummary{}, fmt.Errorf("desktop bridge: configure bootstrap environment: %s", strings.Join(state.Missing, ", "))
+		}
+		savedEnvironment = saved
+	}
 	if strings.TrimSpace(input.ID) == "" {
 		input.ID = newInternalID("pod")
 	}
@@ -211,13 +280,101 @@ func (b *PodBridge) CreatePod(_ context.Context, input PodInput) (PodSummary, er
 		}
 		return PodSummary{}, fmt.Errorf("desktop bridge: reserve pod %q: %w", pod.ID, err)
 	}
+	initializing := pod.LocalServer != nil && b.Bootstrapper != nil
+	if initializing {
+		if err := b.Store.MarkInitializing(pod.ID); err != nil {
+			_ = os.RemoveAll(dir)
+			return PodSummary{}, err
+		}
+	}
 	if err := b.Store.Save(pod); err != nil {
 		if cleanupErr := os.RemoveAll(dir); cleanupErr != nil {
 			return PodSummary{}, fmt.Errorf("%w; cleanup new pod: %v", err, cleanupErr)
 		}
 		return PodSummary{}, err
 	}
+	if initializing {
+		if _, err := b.Local.Start(pod.ID, filepath.Join(dir, "workspace")); err != nil {
+			return PodSummary{}, b.cleanupFailedInitialization(ctx, pod.ID, dir, err)
+		}
+		if err := b.waitLocalReady(ctx, pod.ID, pod.LocalServer.Port); err != nil {
+			return PodSummary{}, b.cleanupFailedInitialization(ctx, pod.ID, dir, err)
+		}
+		if err := b.Bootstrapper.Apply(ctx, dir, savedEnvironment); err != nil {
+			return PodSummary{}, b.cleanupFailedInitialization(ctx, pod.ID, dir, err)
+		}
+		if status := b.Local.Status(pod.ID); status.State != "running" {
+			return PodSummary{}, b.cleanupFailedInitialization(ctx, pod.ID, dir, errors.New("desktop bridge: local server exited during bootstrap"))
+		}
+		if err := b.Store.CompleteInitialization(pod.ID); err != nil {
+			return PodSummary{}, b.cleanupFailedInitialization(ctx, pod.ID, dir, err)
+		}
+	}
 	return b.summary(pod), nil
+}
+
+func (b *PodBridge) bootstrapEnvironmentState() (BootstrapEnvironmentState, map[string]string, error) {
+	if b.Catalog == nil {
+		return BootstrapEnvironmentState{Ready: true}, map[string]string{}, nil
+	}
+	saved, err := b.BootstrapEnvironment.Load()
+	if err != nil {
+		return BootstrapEnvironmentState{}, nil, err
+	}
+	state := BootstrapEnvironmentState{Ready: true, Variables: make([]BootstrapEnvironmentVariableState, 0, len(b.Catalog.Requirements))}
+	for _, requirement := range b.Catalog.Requirements {
+		variable := BootstrapEnvironmentVariableState{Name: requirement.Name, Required: requirement.Default == nil}
+		if saved[requirement.Name] != "" {
+			variable.Configured = true
+		} else if value, ok := os.LookupEnv(requirement.Name); ok && value != "" {
+			variable.Configured = true
+		} else if requirement.Default != nil {
+			variable.Defaulted = true
+		} else {
+			state.Ready = false
+			state.Missing = append(state.Missing, requirement.Name)
+		}
+		state.Variables = append(state.Variables, variable)
+	}
+	return state, saved, nil
+}
+
+func (b *PodBridge) waitLocalReady(ctx context.Context, podID string, port int) error {
+	if b.WaitLocalReady != nil {
+		return b.WaitLocalReady(ctx, podID, port)
+	}
+	endpoint := fmt.Sprintf("127.0.0.1:%d", port)
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		status := b.Local.Status(podID)
+		if status.State == "failed" || status.State == "stopped" {
+			return fmt.Errorf("desktop bridge: local server exited before bootstrap readiness")
+		}
+		probeCtx, cancel := context.WithTimeout(ctx, 350*time.Millisecond)
+		result := b.Health.Probe(probeCtx, endpoint)
+		cancel()
+		if result.State == endpointhealth.Reachable {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("desktop bridge: wait for local server readiness: %w", ctx.Err())
+		case <-ticker.C:
+		}
+	}
+}
+
+func (b *PodBridge) cleanupFailedInitialization(ctx context.Context, podID, dir string, cause error) error {
+	stopCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	_, stopErr := b.Local.Stop(stopCtx, podID)
+	b.WebUI.ClosePod(podID)
+	removeErr := os.RemoveAll(dir)
+	if stopErr != nil || removeErr != nil {
+		return fmt.Errorf("%w; stop local server: %v; remove incomplete pod: %v", cause, stopErr, removeErr)
+	}
+	return cause
 }
 
 func (b *PodBridge) localPodPorts() (map[int]bool, error) {
