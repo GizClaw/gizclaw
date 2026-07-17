@@ -271,6 +271,108 @@ type doubaoRealtimePTTResponses struct {
 	items []*doubaoRealtimePTTResponse
 }
 
+type doubaoRealtimeTextResponse struct {
+	ttsStarted  bool
+	ttsFinished bool
+	chatEnded   bool
+}
+
+func (r *doubaoRealtimeTextResponse) done() bool {
+	return r != nil && r.chatEnded && (!r.ttsStarted || r.ttsFinished)
+}
+
+type doubaoRealtimeTextResponses struct {
+	mu    sync.Mutex
+	items []*doubaoRealtimeTextResponse
+	done  chan struct{}
+}
+
+func (q *doubaoRealtimeTextResponses) begin() *doubaoRealtimeTextResponse {
+	if q == nil {
+		return nil
+	}
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if len(q.items) == 0 {
+		q.done = make(chan struct{})
+	}
+	response := &doubaoRealtimeTextResponse{}
+	q.items = append(q.items, response)
+	return response
+}
+
+func (q *doubaoRealtimeTextResponses) cancel(response *doubaoRealtimeTextResponse) {
+	if q == nil || response == nil {
+		return
+	}
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	for i, candidate := range q.items {
+		if candidate != response {
+			continue
+		}
+		q.removeLocked(i)
+		return
+	}
+}
+
+func (q *doubaoRealtimeTextResponses) responseDone() (<-chan struct{}, bool) {
+	if q == nil {
+		return nil, false
+	}
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if len(q.items) == 0 || q.done == nil {
+		return nil, false
+	}
+	return q.done, true
+}
+
+func (q *doubaoRealtimeTextResponses) markTTSStarted() {
+	q.updateFirst(func(response *doubaoRealtimeTextResponse) {
+		response.ttsStarted = true
+	})
+}
+
+func (q *doubaoRealtimeTextResponses) markTTSFinished() {
+	q.updateFirst(func(response *doubaoRealtimeTextResponse) {
+		response.ttsStarted = true
+		response.ttsFinished = true
+	})
+}
+
+func (q *doubaoRealtimeTextResponses) markChatEnded() {
+	q.updateFirst(func(response *doubaoRealtimeTextResponse) {
+		response.chatEnded = true
+	})
+}
+
+func (q *doubaoRealtimeTextResponses) updateFirst(update func(*doubaoRealtimeTextResponse)) {
+	if q == nil {
+		return
+	}
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if len(q.items) == 0 {
+		return
+	}
+	response := q.items[0]
+	update(response)
+	if response.done() {
+		q.removeLocked(0)
+	}
+}
+
+func (q *doubaoRealtimeTextResponses) removeLocked(index int) {
+	copy(q.items[index:], q.items[index+1:])
+	q.items[len(q.items)-1] = nil
+	q.items = q.items[:len(q.items)-1]
+	if len(q.items) == 0 && q.done != nil {
+		close(q.done)
+		q.done = nil
+	}
+}
+
 func (t *doubaoRealtimePTTTurn) begin(output realtimeChunkOutput, streamID, assistantLabel string, limit time.Duration) {
 	if t == nil {
 		return

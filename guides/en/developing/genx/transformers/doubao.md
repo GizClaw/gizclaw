@@ -55,7 +55,7 @@ The transformer owns the long-lived lifecycle. It starts connecting when `Transf
 
 Input already handed to a failed session is not replayed. Unread input remains behind the bounded stream backpressure and is consumed by the replacement session. In Push-to-Talk mode, provider loss invalidates the active turn: retained transcript and assistant output are discarded, the remaining chunks are consumed locally through that turn's audio EOS, and the next BOS starts a fresh turn.
 
-Realtime mode treats BOS, MIME EOS, and route EOS as local stream boundaries. They do not call `EndASR`, inject silence, commit audio, close the provider session, or trigger reconnect. Input EOF ends the transform and closes its current session without rebuilding it. Provider `ASRInfo` interrupts a pending or active assistant response at most once; duplicate speech-detection events and speech detection while no response is active are no-ops on the same healthy session.
+Realtime mode treats BOS, MIME EOS, and route EOS as local stream boundaries. They do not call `EndASR`, inject silence, commit audio, close the provider session, or trigger reconnect. Input EOF remains terminal for the transform: it stops reconnecting and closes the current session after draining the matching Chat/TTS response for a submitted finite Push-to-Talk or Text turn; it closes immediately when no response is pending and never triggers a rebuild. Provider `ASRInfo` interrupts a pending or active assistant response at most once; duplicate speech-detection events and speech detection while no response is active are no-ops on the same healthy session.
 
 ### DoubaoRealtime Push-to-Talk state machine
 

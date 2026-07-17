@@ -753,6 +753,41 @@ func TestDoubaoRealtimeSessionLoopResetsBackoffAfterSuccessfulSession(t *testing
 	}
 }
 
+func TestDoubaoRealtimeTextDrainsFinalResponseAfterInputEOF(t *testing.T) {
+	textSent := make(chan struct{})
+	session := &fakeDoubaoRealtimeSession{
+		beforeRecv:       textSent,
+		firstTextSent:    textSent,
+		blockAfterEvents: make(chan struct{}),
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventTTSStarted},
+			{Type: doubaospeech.EventChatResponse, Text: "answer"},
+			{Type: doubaospeech.EventTTSAudioData, Audio: []byte{1, 2}},
+			{Type: doubaospeech.EventTTSFinished},
+			{Type: doubaospeech.EventChatEnded},
+		},
+	}
+	opener := &fakeDoubaoRealtimeOpener{results: []fakeDoubaoRealtimeOpenResult{{session: session}}}
+	tfr := NewDoubaoRealtime(nil,
+		withDoubaoRealtimeOpener(opener),
+		WithDoubaoRealtimeMode(DoubaoRealtimeModeText),
+		WithDoubaoRealtimeFormat("pcm"),
+	)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	output, err := tfr.Transform(ctx, "", &sliceRealtimeStream{chunks: []*genx.MessageChunk{{Part: genx.Text("question")}}})
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	chunks := drainRealtimeTestOutput(t, output)
+	if !hasRealtimeTestText(chunks, genx.RoleModel, "answer") {
+		t.Fatalf("output missing final assistant text: %#v", chunks)
+	}
+	if !hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/pcm") {
+		t.Fatalf("output missing final assistant audio: %#v", chunks)
+	}
+}
+
 func TestDoubaoRealtimePTTDrainsFinalResponseAfterInputEOF(t *testing.T) {
 	endASR := make(chan struct{})
 	session := &fakeDoubaoRealtimeSession{
@@ -806,7 +841,16 @@ func TestDoubaoRealtimeDoesNotReplayAmbiguousTextAfterReconnect(t *testing.T) {
 		sendTextErr:      errors.New("write failed after handoff"),
 		sendTextErrAt:    1,
 	}
-	second := &fakeDoubaoRealtimeSession{blockAfterEvents: make(chan struct{})}
+	secondTextSent := make(chan struct{})
+	second := &fakeDoubaoRealtimeSession{
+		beforeRecv:       secondTextSent,
+		firstTextSent:    secondTextSent,
+		blockAfterEvents: make(chan struct{}),
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventChatResponse, Text: "second answer"},
+			{Type: doubaospeech.EventChatEnded},
+		},
+	}
 	opener := &fakeDoubaoRealtimeOpener{results: []fakeDoubaoRealtimeOpenResult{{session: first}, {session: second}}}
 	tfr := NewDoubaoRealtime(nil,
 		withDoubaoRealtimeOpener(opener),
@@ -839,8 +883,8 @@ func TestDoubaoRealtimeDoesNotReplayAmbiguousTextAfterReconnect(t *testing.T) {
 	if err := input.Close(); err != nil {
 		t.Fatalf("Close(input) error = %v", err)
 	}
-	if chunks := drainRealtimeTestOutput(t, output); len(chunks) != 0 {
-		t.Fatalf("output = %#v, want none", chunks)
+	if chunks := drainRealtimeTestOutput(t, output); !hasRealtimeTestText(chunks, genx.RoleModel, "second answer") {
+		t.Fatalf("output missing replacement response: %#v", chunks)
 	}
 	if got := first.textMessages(); !slices.Equal(got, []string{"first"}) {
 		t.Fatalf("first session text = %v, want [first]", got)
@@ -1328,6 +1372,7 @@ type fakeDoubaoRealtimeSession struct {
 	firstAudioSent   chan struct{}
 	sendTextErr      error
 	sendTextErrAt    int
+	firstTextSent    chan struct{}
 	pauseBeforeEvent int
 	eventPaused      chan struct{}
 	resumeEvents     <-chan struct{}
@@ -1341,6 +1386,7 @@ type fakeDoubaoRealtimeSession struct {
 	closedCh          chan struct{}
 	endOnce           sync.Once
 	firstAudioOnce    sync.Once
+	firstTextOnce     sync.Once
 	closeOnce         sync.Once
 	eventsDrainedOnce sync.Once
 	eventPauseOnce    sync.Once
@@ -1369,6 +1415,9 @@ func (s *fakeDoubaoRealtimeSession) SendText(ctx context.Context, text string) e
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.texts = append(s.texts, text)
+	if s.firstTextSent != nil {
+		s.firstTextOnce.Do(func() { close(s.firstTextSent) })
+	}
 	if s.sendTextErr != nil && len(s.texts) == s.sendTextErrAt {
 		return s.sendTextErr
 	}
