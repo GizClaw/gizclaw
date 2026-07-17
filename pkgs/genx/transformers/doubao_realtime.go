@@ -1538,6 +1538,7 @@ func (t *DoubaoRealtime) processSession(
 				var response *doubaoRealtimeTextResponse
 				if t.mode == DoubaoRealtimeModeText {
 					response = textResponses.begin()
+					assistant.setAccept(true)
 				}
 				if err := session.SendText(ctx, string(p)); err != nil {
 					textResponses.cancel(response)

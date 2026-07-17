@@ -931,6 +931,67 @@ func TestDoubaoRealtimeTextDrainsFinalResponseAfterInputEOF(t *testing.T) {
 	}
 }
 
+func TestDoubaoRealtimeTextReplacementSessionRestoresOutputAcceptance(t *testing.T) {
+	firstTextSent := make(chan struct{})
+	first := &fakeDoubaoRealtimeSession{
+		beforeRecv:    firstTextSent,
+		firstTextSent: firstTextSent,
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventASREnded},
+			{Type: doubaospeech.EventTTSStarted},
+		},
+	}
+	secondTextSent := make(chan struct{})
+	second := &fakeDoubaoRealtimeSession{
+		beforeRecv:       secondTextSent,
+		firstTextSent:    secondTextSent,
+		blockAfterEvents: make(chan struct{}),
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventChatResponse, Text: "replacement answer"},
+			{Type: doubaospeech.EventChatEnded},
+			{Type: doubaospeech.EventTTSStarted},
+			{Type: doubaospeech.EventTTSAudioData, Audio: []byte{1, 2}},
+			{Type: doubaospeech.EventTTSFinished},
+		},
+	}
+	opener := &fakeDoubaoRealtimeOpener{results: []fakeDoubaoRealtimeOpenResult{{session: first}, {session: second}}}
+	tfr := NewDoubaoRealtime(nil,
+		withDoubaoRealtimeOpener(opener),
+		WithDoubaoRealtimeMode(DoubaoRealtimeModeText),
+		WithDoubaoRealtimeFormat("pcm"),
+	)
+	tfr.retryWait = func(context.Context, <-chan struct{}, time.Duration) bool { return true }
+	input := newBufferStream(4)
+	if err := input.Push(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}}); err != nil {
+		t.Fatalf("Push(BOS) error = %v", err)
+	}
+	if err := input.Push(&genx.MessageChunk{Part: genx.Text("first")}); err != nil {
+		t.Fatalf("Push(first text) error = %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	output, err := tfr.Transform(ctx, "", input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	if !opener.waitForCalls(2, 2*time.Second) {
+		t.Fatalf("OpenSession calls = %d, want replacement session", opener.callCount())
+	}
+	if err := input.Push(&genx.MessageChunk{Part: genx.Text("second")}); err != nil {
+		t.Fatalf("Push(second text) error = %v", err)
+	}
+	if err := input.Close(); err != nil {
+		t.Fatalf("Close(input) error = %v", err)
+	}
+	chunks := drainRealtimeTestOutput(t, output)
+	if !hasRealtimeTestText(chunks, genx.RoleModel, "replacement answer") {
+		t.Fatalf("output missing replacement assistant text: %#v", chunks)
+	}
+	if !hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/pcm") {
+		t.Fatalf("output missing replacement assistant audio: %#v", chunks)
+	}
+}
+
 func TestDoubaoRealtimePTTDrainsFinalResponseAfterInputEOF(t *testing.T) {
 	endASR := make(chan struct{})
 	session := &fakeDoubaoRealtimeSession{
