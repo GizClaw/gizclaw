@@ -426,6 +426,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
       repository: data.workspaceChatRepository,
       serverId: data.activeServerId,
       client: data.connection.client,
+      onWorkspaceAccessError: data.reconcileWorkspaceFailure,
     );
     _replaceChat(viewer, pet.workspaceName, ownsChat: true);
     await viewer.start(conversation: false);
