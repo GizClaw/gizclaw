@@ -14,7 +14,12 @@ enum WorkspaceMessageState { complete, streaming, failed }
 
 typedef SetInputSending = Future<void> Function(bool active);
 typedef WorkspaceAccessErrorCallback =
-    Future<void> Function(String workspaceName, Object error);
+    Future<void> Function(
+      String workspaceName,
+      Object error,
+      GizClawClient sourceClient,
+      String sourceServerId,
+    );
 
 class WorkspaceChatMessage {
   const WorkspaceChatMessage({
@@ -531,13 +536,21 @@ class WorkspaceChatController extends ChangeNotifier {
       notifyListeners();
     } catch (error) {
       if (_disposed) return;
-      await _reconcileWorkspaceAccessError(error);
+      await _reconcileWorkspaceAccessError(
+        error,
+        sourceClient: activeClient,
+        sourceServerId: stableServerId,
+      );
       if (_disposed) return;
       _handleError(error, changeState: _session == null && _cached.isEmpty);
     }
   }
 
-  Future<void> _reconcileWorkspaceAccessError(Object error) async {
+  Future<void> _reconcileWorkspaceAccessError(
+    Object error, {
+    required GizClawClient sourceClient,
+    required String sourceServerId,
+  }) async {
     final reconcile = onWorkspaceAccessError;
     if (reconcile == null ||
         error is! RpcError ||
@@ -545,7 +558,7 @@ class WorkspaceChatController extends ChangeNotifier {
       return;
     }
     try {
-      await reconcile(workspaceName, error);
+      await reconcile(workspaceName, error, sourceClient, sourceServerId);
     } catch (reconciliationError) {
       assert(() {
         debugPrint(

@@ -284,15 +284,30 @@ void main() {
       final database = AppDatabase.forTesting(NativeDatabase.memory());
       addTearDown(database.close);
       final error = RpcError(code, 'workspace unavailable');
-      final calls = <({String workspaceName, Object error})>[];
+      final client = GizClawClient(_NeverDataChannelFactory());
+      final calls =
+          <
+            ({
+              String workspaceName,
+              Object error,
+              GizClawClient sourceClient,
+              String sourceServerId,
+            })
+          >[];
       final controller = WorkspaceChatController(
         workspaceName: 'translator',
         repository: _ConfiguredFailingHistoryRepository(database, error),
         serverId: 'server-a',
-        client: GizClawClient(_NeverDataChannelFactory()),
-        onWorkspaceAccessError: (workspaceName, error) async {
-          calls.add((workspaceName: workspaceName, error: error));
-        },
+        client: client,
+        onWorkspaceAccessError:
+            (workspaceName, error, sourceClient, sourceServerId) async {
+              calls.add((
+                workspaceName: workspaceName,
+                error: error,
+                sourceClient: sourceClient,
+                sourceServerId: sourceServerId,
+              ));
+            },
       );
       addTearDown(controller.close);
 
@@ -301,6 +316,8 @@ void main() {
       expect(calls, hasLength(1));
       expect(calls.single.workspaceName, 'translator');
       expect(calls.single.error, same(error));
+      expect(calls.single.sourceClient, same(client));
+      expect(calls.single.sourceServerId, 'server-a');
       expect(controller.lastError, same(error));
     });
   }
@@ -314,7 +331,7 @@ void main() {
       repository: _ConfiguredFailingHistoryRepository(database, error),
       serverId: 'server-a',
       client: GizClawClient(_NeverDataChannelFactory()),
-      onWorkspaceAccessError: (_, _) async {
+      onWorkspaceAccessError: (_, _, _, _) async {
         throw StateError('reconciliation failed');
       },
     );
@@ -336,7 +353,7 @@ void main() {
       repository: _ConfiguredFailingHistoryRepository(database, error),
       serverId: 'server-a',
       client: GizClawClient(_NeverDataChannelFactory()),
-      onWorkspaceAccessError: (_, _) async {
+      onWorkspaceAccessError: (_, _, _, _) async {
         reconciliationCalls += 1;
       },
     );
@@ -358,7 +375,7 @@ void main() {
       repository: repository,
       serverId: 'server-a',
       client: GizClawClient(_NeverDataChannelFactory()),
-      onWorkspaceAccessError: (_, _) async {
+      onWorkspaceAccessError: (_, _, _, _) async {
         reconciliationCalls += 1;
       },
     );

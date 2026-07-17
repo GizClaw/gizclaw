@@ -758,6 +758,47 @@ void main() {
     expect(client.workspaceListCalls, 2);
   });
 
+  test('stale client 404 does not evict a refreshed projection', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    final repository = MobileDataRepository(database);
+    final staleClient = _WorkspaceActivationClient();
+    final currentClient = _WorkspaceActivationClient();
+    final connection = _RefreshTestConnection(
+      profile: _profile('gizclaw.local:9820'),
+      client: staleClient,
+      serverId: 'server-a',
+    );
+    final controller = MobileDataController(
+      database: database,
+      connectionController: connection,
+      dataRepository: repository,
+    )..activeServerId = 'server-a';
+    addTearDown(controller.close);
+    await _seedWorkspaceProjection(
+      repository,
+      staleClient,
+      serverId: 'server-a',
+    );
+    connection.currentClient = currentClient;
+    await _seedWorkspaceProjection(
+      repository,
+      currentClient,
+      serverId: 'server-a',
+    );
+
+    await controller.reconcileWorkspaceFailure(
+      'workspace-new',
+      RpcError(404, 'stale workspace response'),
+      staleClient,
+      'server-a',
+    );
+
+    expect(
+      await repository.workspaceDocument('server-a', 'workspace-new'),
+      isNotNull,
+    );
+  });
+
   test(
     '403 selection failure removes a workspace absent from a fresh list',
     () async {

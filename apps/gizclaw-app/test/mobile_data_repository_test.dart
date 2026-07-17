@@ -458,7 +458,11 @@ void main() {
       );
     }
 
-    await repository.deleteWorkspaceProjection('server-a', 'shared-name');
+    await repository.deleteWorkspaceProjection(
+      'server-a',
+      'shared-name',
+      isCurrent: () => true,
+    );
 
     expect(
       await repository.workspaceDocument('server-a', 'shared-name'),
@@ -466,6 +470,34 @@ void main() {
     );
     expect(
       await repository.workspaceDocument('server-b', 'shared-name'),
+      isNotNull,
+    );
+  });
+
+  test('targeted eviction rolls back when its source becomes stale', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = MobileDataRepository(database);
+    final client = _FakeClient(
+      workflows: const [],
+      workspaces: [Workspace(name: 'visible', workflowName: 'flow-a')],
+    );
+    await repository.refreshWorkspaceSnapshot(
+      client: client,
+      endpoint: 'server-a.local',
+      isCurrent: () => true,
+      serverId: 'server-a',
+    );
+    var freshnessChecks = 0;
+
+    await repository.deleteWorkspaceProjection(
+      'server-a',
+      'visible',
+      isCurrent: () => freshnessChecks++ == 0,
+    );
+
+    expect(
+      await repository.workspaceDocument('server-a', 'visible'),
       isNotNull,
     );
   });

@@ -137,11 +137,23 @@ class MobileDataRepository {
     return row == null ? null : Workspace.fromBuffer(row.rawProtobuf);
   }
 
-  Future<void> deleteWorkspaceProjection(String serverId, String name) async {
-    await (database.delete(database.workspaceEntries)..where(
-          (row) => row.serverId.equals(serverId) & row.name.equals(name),
-        ))
-        .go();
+  Future<void> deleteWorkspaceProjection(
+    String serverId,
+    String name, {
+    required bool Function() isCurrent,
+  }) async {
+    try {
+      await database.transaction(() async {
+        _requireCurrent(isCurrent);
+        await (database.delete(database.workspaceEntries)..where(
+              (row) => row.serverId.equals(serverId) & row.name.equals(name),
+            ))
+            .go();
+        _requireCurrent(isCurrent);
+      });
+    } on _StaleRefresh {
+      return;
+    }
   }
 
   Future<List<MobileDataRefreshWarning>> refresh({

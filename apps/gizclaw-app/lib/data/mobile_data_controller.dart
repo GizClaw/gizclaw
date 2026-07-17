@@ -998,29 +998,35 @@ class MobileDataController extends ChangeNotifier {
   Future<void> reconcileWorkspaceFailure(
     String workspaceName,
     Object error,
+    GizClawClient sourceClient,
+    String sourceServerId,
   ) async {
     if (error is! RpcError || (error.code != 403 && error.code != 404)) return;
-    final serverId = activeServerId;
-    if (serverId == null) return;
+    bool isCurrent() =>
+        !_closing &&
+        activeServerId == sourceServerId &&
+        identical(connection.client, sourceClient);
+    if (!isCurrent()) return;
 
     try {
       if (error.code == 404) {
-        await repository.deleteWorkspaceProjection(serverId, workspaceName);
+        await repository.deleteWorkspaceProjection(
+          sourceServerId,
+          workspaceName,
+          isCurrent: isCurrent,
+        );
         return;
       }
 
-      final client = connection.client;
-      if (client == null) return;
       final endpoint = connection.profile.endpoint;
       final result = await repository.refreshWorkspaceSnapshot(
-        client: client,
+        client: sourceClient,
         endpoint: endpoint,
         isCurrent: () =>
-            !_closing &&
-            activeServerId == serverId &&
+            isCurrent() &&
             connection.profile.endpoint == endpoint &&
-            identical(connection.client, client),
-        serverId: serverId,
+            identical(connection.client, sourceClient),
+        serverId: sourceServerId,
       );
       if (!result.applied || result.contains(workspaceName)) return;
       // Atomic snapshot replacement already removed the absent workspace.
@@ -1042,6 +1048,7 @@ class MobileDataController extends ChangeNotifier {
     if (client == null) {
       throw StateError('Connect to GizClaw before switching workspace');
     }
+    final sourceServerId = activeServerId;
     late final ServerSetRunWorkspaceResponse selected;
     try {
       selected = await _workspaceActivationStep(
@@ -1049,7 +1056,14 @@ class MobileDataController extends ChangeNotifier {
         () => client.setRunWorkspace(workspaceName),
       );
     } catch (error, stackTrace) {
-      await reconcileWorkspaceFailure(workspaceName, error);
+      if (sourceServerId != null) {
+        await reconcileWorkspaceFailure(
+          workspaceName,
+          error,
+          client,
+          sourceServerId,
+        );
+      }
       Error.throwWithStackTrace(error, stackTrace);
     }
     runWorkspaceState = selected.value;
