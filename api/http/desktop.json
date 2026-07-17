@@ -110,7 +110,7 @@
       "post": {
         "operationId": "createDesktopPod",
         "tags": ["Pods"],
-        "summary": "Create and materialize a Pod",
+        "summary": "Create a Pod and start local initialization",
         "requestBody": {
           "required": true,
           "content": {
@@ -121,7 +121,7 @@
         },
         "responses": {
           "201": {
-            "description": "Created Pod",
+            "description": "Created Pod; local bootstrap may still be initializing",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/DesktopPod" }
@@ -436,6 +436,9 @@
           "mode": { "type": "string", "enum": ["local", "remote", "invalid"] },
           "valid": { "type": "boolean" },
           "error": { "type": "string" },
+          "initialization": {
+            "$ref": "#/components/schemas/PodInitialization"
+          },
           "play_configured": { "type": "boolean" },
           "play_public_key": {
             "type": "string",
@@ -443,6 +446,17 @@
           },
           "local": { "$ref": "#/components/schemas/DesktopLocalPod" },
           "remote": { "$ref": "#/components/schemas/DesktopRemotePod" }
+        }
+      },
+      "PodInitialization": {
+        "type": "object",
+        "required": ["state"],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": ["initializing", "failed"]
+          },
+          "error": { "type": "string" }
         }
       },
       "DesktopLocalPod": {

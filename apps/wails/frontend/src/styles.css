@@ -439,6 +439,11 @@ select:focus-visible {
   background: #55d6a7;
   box-shadow: 0 0 10px rgba(85, 214, 167, 0.56);
 }
+.health-pulse.initializing {
+  background: #8e9aff;
+  box-shadow: 0 0 10px rgba(142, 154, 255, 0.48);
+  animation: initialization-pulse 1.2s ease-in-out infinite alternate;
+}
 .home-card-copy {
   display: grid;
   gap: 4px;
@@ -1195,6 +1200,49 @@ button:disabled {
   max-width: 700px;
   margin: 0 0 16px;
 }
+.pod-initialization-detail {
+  min-height: 320px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  place-content: center;
+  align-items: center;
+  gap: 16px;
+  padding: 32px;
+}
+.pod-initialization-icon {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  color: #aeb7ff;
+  background: rgba(118, 130, 255, 0.14);
+}
+.pod-initialization-detail:not(.is-failed) .pod-initialization-icon svg {
+  animation: spin 0.9s linear infinite;
+}
+.pod-initialization-detail h3 {
+  margin: 0;
+  color: #f0f2f5;
+  font-size: 18px;
+}
+.pod-initialization-detail p {
+  max-width: 540px;
+  margin: 7px 0 0;
+  color: #979aa4;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.pod-initialization-detail.is-failed .pod-initialization-icon,
+.pod-initialization-detail.is-failed h3 {
+  color: #ff8999;
+}
+.pod-initialization-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
 
 .create-dialog header,
 .secret-dialog header {
@@ -1266,57 +1314,6 @@ button:disabled {
   color: #767983;
   font-size: 10px;
   line-height: 1.45;
-}
-.create-progress {
-  min-height: 176px;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 14px;
-  margin-top: 22px;
-  padding: 24px;
-  border-radius: 19px;
-  color: #f0f2f5;
-  background: rgba(118, 130, 255, 0.11);
-  box-shadow: inset 0 0 0 1px rgba(151, 161, 255, 0.2);
-}
-.create-progress-spinner {
-  width: 48px;
-  height: 48px;
-  display: grid;
-  place-items: center;
-  border-radius: 15px;
-  color: #aeb7ff;
-  background: rgba(118, 130, 255, 0.14);
-}
-.create-progress-spinner svg {
-  animation: spin 0.9s linear infinite;
-}
-.create-progress strong {
-  display: block;
-  font-size: 15px;
-}
-.create-progress p {
-  margin: 6px 0 0;
-  color: #aeb1bb;
-  font-size: 11px;
-  line-height: 1.5;
-}
-.create-progress-track {
-  height: 3px;
-  grid-column: 1 / -1;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.09);
-}
-.create-progress-track::after {
-  width: 42%;
-  height: 100%;
-  display: block;
-  border-radius: inherit;
-  background: #aeb7ff;
-  content: "";
-  animation: create-progress-slide 1.4s ease-in-out infinite alternate;
 }
 .remote-create-step {
   display: grid;
@@ -1663,12 +1660,12 @@ button:disabled {
     transform: rotate(360deg);
   }
 }
-@keyframes create-progress-slide {
+@keyframes initialization-pulse {
   from {
-    transform: translateX(-100%);
+    opacity: 0.45;
   }
   to {
-    transform: translateX(150%);
+    opacity: 1;
   }
 }
 
@@ -1829,23 +1826,18 @@ button:disabled {
       inset 0 0 0 1px rgba(34, 142, 123, 0.4),
       0 14px 30px rgba(24, 113, 97, 0.1);
   }
-  .create-progress {
-    color: #24252a;
-    background: rgba(118, 130, 255, 0.09);
-    box-shadow: inset 0 0 0 1px rgba(91, 104, 225, 0.18);
-  }
-  .create-progress-spinner {
+  .pod-initialization-icon {
     color: #5968df;
     background: rgba(118, 130, 255, 0.13);
   }
-  .create-progress p {
+  .pod-initialization-detail h3 {
+    color: #24252a;
+  }
+  .pod-initialization-detail.is-failed h3 {
+    color: #c84a5d;
+  }
+  .pod-initialization-detail p {
     color: #62656e;
-  }
-  .create-progress-track {
-    background: rgba(30, 31, 36, 0.09);
-  }
-  .create-progress-track::after {
-    background: #6876e8;
   }
   .primary-action {
     color: #f8f8fa;

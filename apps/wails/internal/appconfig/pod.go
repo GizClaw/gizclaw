@@ -66,6 +66,11 @@ type Entry struct {
 	Err error
 }
 
+type PodInitialization struct {
+	State string `json:"state"`
+	Error string `json:"error,omitempty"`
+}
+
 func (s Store) LocalServerPublicKey(id string) (string, error) {
 	pod, err := s.Load(id)
 	if err != nil {
@@ -121,11 +126,6 @@ func (s Store) Entries() ([]Entry, error) {
 		if !entry.IsDir() {
 			continue
 		}
-		if _, markerErr := os.Lstat(filepath.Join(s.Paths.PodsDir, entry.Name(), PodInitializationMarker)); markerErr == nil {
-			continue
-		} else if !os.IsNotExist(markerErr) {
-			return nil, fmt.Errorf("appconfig: inspect initializing pod %q: %w", entry.Name(), markerErr)
-		}
 		manifest := filepath.Join(s.Paths.PodsDir, entry.Name(), PodManifestFile)
 		if _, err := os.Lstat(manifest); os.IsNotExist(err) {
 			continue
@@ -150,8 +150,8 @@ func (s Store) Entries() ([]Entry, error) {
 	return result, nil
 }
 
-// MarkInitializing hides a reserved Pod from enumeration until its local
-// Server and complete bootstrap catalog have been initialized.
+// MarkInitializing records that a visible Pod is still installing its local
+// Server bootstrap catalog.
 func (s Store) MarkInitializing(id string) error {
 	if err := validateID("pod id", id); err != nil {
 		return err
@@ -160,7 +160,7 @@ func (s Store) MarkInitializing(id string) error {
 	if err := secureDir(dir); err != nil {
 		return fmt.Errorf("appconfig: secure initializing pod: %w", err)
 	}
-	return atomicWrite(filepath.Join(dir, PodInitializationMarker), []byte("initializing\n"), 0o600)
+	return s.writeInitialization(id, PodInitialization{State: "initializing"})
 }
 
 func (s Store) CompleteInitialization(id string) error {
@@ -172,6 +172,74 @@ func (s Store) CompleteInitialization(id string) error {
 		return fmt.Errorf("appconfig: complete pod initialization: %w", err)
 	}
 	return nil
+}
+
+func (s Store) FailInitialization(id string, cause error) error {
+	if cause == nil {
+		return errors.New("appconfig: initialization failure cause is required")
+	}
+	return s.writeInitialization(id, PodInitialization{State: "failed", Error: cause.Error()})
+}
+
+func (s Store) Initialization(id string) (*PodInitialization, error) {
+	if err := validateID("pod id", id); err != nil {
+		return nil, err
+	}
+	marker := filepath.Join(s.Paths.PodsDir, id, PodInitializationMarker)
+	info, err := os.Lstat(marker)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("appconfig: inspect pod initialization: %w", err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+		return nil, errors.New("appconfig: pod initialization marker must be a regular file")
+	}
+	data, err := os.ReadFile(marker)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("appconfig: read pod initialization: %w", err)
+	}
+	if string(data) == "initializing\n" {
+		return &PodInitialization{State: "initializing"}, nil
+	}
+	var status PodInitialization
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&status); err != nil {
+		return nil, fmt.Errorf("appconfig: parse pod initialization: %w", err)
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err == nil {
+		return nil, errors.New("appconfig: parse pod initialization: trailing JSON value")
+	} else if !errors.Is(err, io.EOF) {
+		return nil, fmt.Errorf("appconfig: parse pod initialization: trailing data: %w", err)
+	}
+	if status.State != "initializing" && status.State != "failed" {
+		return nil, fmt.Errorf("appconfig: unsupported pod initialization state %q", status.State)
+	}
+	if status.State == "failed" && strings.TrimSpace(status.Error) == "" {
+		return nil, errors.New("appconfig: failed pod initialization is missing an error")
+	}
+	return &status, nil
+}
+
+func (s Store) writeInitialization(id string, status PodInitialization) error {
+	if err := validateID("pod id", id); err != nil {
+		return err
+	}
+	dir := filepath.Join(s.Paths.PodsDir, id)
+	if err := secureDir(dir); err != nil {
+		return fmt.Errorf("appconfig: secure initializing pod: %w", err)
+	}
+	data, err := json.Marshal(status)
+	if err != nil {
+		return fmt.Errorf("appconfig: encode pod initialization: %w", err)
+	}
+	return atomicWrite(filepath.Join(dir, PodInitializationMarker), append(data, '\n'), 0o600)
 }
 
 // CleanupIncomplete removes Pods whose creation was interrupted before the
@@ -186,11 +254,14 @@ func (s Store) CleanupIncomplete() error {
 			continue
 		}
 		dir := filepath.Join(s.Paths.PodsDir, entry.Name())
-		marker := filepath.Join(dir, PodInitializationMarker)
-		if _, err := os.Lstat(marker); os.IsNotExist(err) {
+		status, err := s.Initialization(entry.Name())
+		if status == nil && err == nil {
 			continue
 		} else if err != nil {
 			return fmt.Errorf("appconfig: inspect initializing pod %q: %w", entry.Name(), err)
+		}
+		if status.State == "failed" {
+			continue
 		}
 		if err := rejectSymlinkDir(dir); err != nil {
 			return err

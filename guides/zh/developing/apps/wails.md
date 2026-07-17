@@ -42,11 +42,17 @@ default 的值不会回传，前端只会看到对应变量已 configured 或 de
 远程 Pod 的创建和更新也不会读取它们。Desktop 保存值优先于 process environment，
 资源中的 `${NAME:-default}` 最后生效。
 
-本地 `CreatePod` 在保留目录前完成环境 preflight，然后以 `.initializing` 标记执行
-有界事务：生成投影、启动 companion、等待 Admin readiness、按顺序 apply 内嵌资源、
-同步 Volc Voice、apply ACL，并通过 owner API 上传 Workflow 与 PetDef assets。任一步
-失败都会停止进程并删除该 Pod；启动 Desktop 时会清理崩溃遗留的初始化目录。标记
-清除后的 Pod 不会在普通 start、restart 或 Desktop upgrade 时重新 apply。
+本地 `CreatePod` 在保留目录前完成环境 preflight，同步生成 manifest 和投影并写入
+`.initializing` 状态后立即返回。可取消的后台任务随后启动 companion、等待 Admin
+readiness、按顺序 apply 内嵌资源、同步 Volc Voice、apply ACL，并通过 owner API
+上传 Workflow 与 PetDef assets。Bridge 在初始化期间拒绝 update、start、stop、
+restart、Admin 和 Play 操作；delete 会先取消并等待后台任务。
+
+`.initializing` 是 `0600` 的持久化 JSON 状态：`initializing` 会出现在 Pod 列表和
+详情中，成功后删除；失败时停止进程并原子改写为带脱敏错误的 `failed`，由用户查看
+目录或删除。启动 Desktop 时只清理被退出或崩溃中断的 `initializing` 目录，保留
+`failed` Pod。状态清除后的 Pod 不会在普通 start、restart 或 Desktop upgrade 时
+重新 apply。
 
 ## Pod 投影
 

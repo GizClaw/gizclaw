@@ -48,7 +48,7 @@ export const updateDesktopBootstrapEnvironment = <ThrowOnError extends boolean =
 export const listDesktopPods = <ThrowOnError extends boolean = false>(options?: Options<ListDesktopPodsData, ThrowOnError>): RequestResult<ListDesktopPodsResponses, ListDesktopPodsErrors, ThrowOnError> => (options?.client ?? client).get<ListDesktopPodsResponses, ListDesktopPodsErrors, ThrowOnError>({ url: '/desktop/pods', ...options });
 
 /**
- * Create and materialize a Pod
+ * Create a Pod and start local initialization
  */
 export const createDesktopPod = <ThrowOnError extends boolean = false>(options: Options<CreateDesktopPodData, ThrowOnError>): RequestResult<CreateDesktopPodResponses, CreateDesktopPodErrors, ThrowOnError> => (options.client ?? client).post<CreateDesktopPodResponses, CreateDesktopPodErrors, ThrowOnError>({
     url: '/desktop/pods',

@@ -151,11 +151,7 @@ test.beforeEach(async ({ page }) => {
       },
       async CreatePod(input) {
         (window as any).__GIZCLAW_CREATE_CALLS__ += 1;
-        const delay = (window as any).__GIZCLAW_CREATE_DELAY__ ?? 0;
-        if (delay > 0) {
-          await new Promise((resolve) => window.setTimeout(resolve, delay));
-        }
-        const pod = input.local_server
+        const pod: any = input.local_server
           ? {
               id: input.id || "pod-generated",
               name: input.name,
@@ -187,6 +183,15 @@ test.beforeEach(async ({ page }) => {
                 servers: [],
               },
             };
+        const initializationDelay =
+          (window as any).__GIZCLAW_INITIALIZATION_DELAY__ ?? 0;
+        if (input.local_server && initializationDelay > 0) {
+          pod.initialization = { state: "initializing" };
+          pod.local.process.state = "running";
+          window.setTimeout(() => {
+            delete pod.initialization;
+          }, initializationDelay);
+        }
         pods.push(pod);
         return pod;
       },
@@ -195,7 +200,7 @@ test.beforeEach(async ({ page }) => {
         if (index >= 0) pods.splice(index, 1);
       },
       async GetPod(id) {
-        return pods.find((pod) => pod.id === id);
+        return structuredClone(pods.find((pod) => pod.id === id));
       },
       async ListPods() {
         return pods;
@@ -208,7 +213,7 @@ test.beforeEach(async ({ page }) => {
       },
       async RevealPod() {},
       async RefreshPodHealth(id) {
-        return pods.find((pod) => pod.id === id);
+        return structuredClone(pods.find((pod) => pod.id === id));
       },
       async RestartLocalServer(id) {
         return pods.find((pod) => pod.id === id);
@@ -371,6 +376,7 @@ test("Add Pod creates a local environment without exposing keys", async ({
     .locator(".create-dialog")
     .getByRole("button", { name: /^Local/ })
     .click();
+  await page.locator(".pod-card", { hasText: "Local Server" }).click();
   await expect(
     page
       .getByRole("dialog")
@@ -382,35 +388,35 @@ test("Add Pod creates a local environment without exposing keys", async ({
   await expect(page.locator("body")).not.toContainText("private_key");
 });
 
-test("local creation shows progress and ignores repeated submits", async ({
+test("local creation returns immediately and reports initialization in Pod details", async ({
   page,
 }) => {
   await page.goto("/");
   await page.evaluate(() => {
-    (window as any).__GIZCLAW_CREATE_DELAY__ = 800;
+    (window as any).__GIZCLAW_INITIALIZATION_DELAY__ = 1600;
   });
   await page.getByRole("button", { name: "Add Pod" }).click();
-  const dialog = page.getByRole("dialog");
-  const local = dialog.getByRole("button", { name: /^Local/ });
+  const createDialog = page.getByRole("dialog");
+  const local = createDialog.getByRole("button", { name: /^Local/ });
   await local.evaluate((element) => {
     (element as HTMLButtonElement).click();
     (element as HTMLButtonElement).click();
   });
-  await expect(dialog.getByRole("status")).toContainText(
-    "Creating local server",
-  );
-  await expect(dialog.getByRole("button", { name: "Close" })).toBeDisabled();
-  await page.keyboard.press("Escape");
-  await expect(dialog.getByRole("status")).toBeVisible();
+  await expect(createDialog).toHaveCount(0);
+  const card = page.locator(".pod-card", { hasText: "Local Server" });
+  await expect(card).toContainText("Initializing data");
   await expect
     .poll(() => page.evaluate(() => (window as any).__GIZCLAW_CREATE_CALLS__))
     .toBe(1);
-  await expect(
-    page.getByRole("dialog").getByRole("heading", {
-      level: 2,
-      name: "Local Server",
-    }),
-  ).toBeVisible();
+  await card.click();
+  const detail = page.getByRole("dialog");
+  await expect(detail.getByRole("status")).toContainText("Initializing data");
+  await expect(detail.getByRole("img", { name: "Server QR code" })).toHaveCount(
+    0,
+  );
+  await expect(detail.getByRole("img", { name: "Server QR code" })).toBeVisible({
+    timeout: 5000,
+  });
 });
 
 test("local creation opens an editable nested bootstrap environment form", async ({
@@ -465,6 +471,7 @@ test("local creation opens an editable nested bootstrap environment form", async
     .locator(".create-dialog")
     .getByRole("button", { name: /^Local/ })
     .click();
+  await page.locator(".pod-card", { hasText: "Local Server" }).click();
   await expect(
     page
       .getByRole("dialog")

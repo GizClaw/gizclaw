@@ -468,18 +468,31 @@ func TestListPodsMigratesMissingDesktopIdentities(t *testing.T) {
 }
 
 type fakeLocalPodBootstrapper struct {
-	called bool
-	calls  int
-	err    error
+	called  atomic.Bool
+	calls   atomic.Int32
+	err     error
+	started chan struct{}
+	release chan struct{}
+	once    sync.Once
 }
 
-func (f *fakeLocalPodBootstrapper) Apply(context.Context, string, map[string]string) error {
-	f.called = true
-	f.calls++
+func (f *fakeLocalPodBootstrapper) Apply(ctx context.Context, _ string, _ map[string]string) error {
+	f.called.Store(true)
+	f.calls.Add(1)
+	if f.started != nil {
+		f.once.Do(func() { close(f.started) })
+	}
+	if f.release != nil {
+		select {
+		case <-f.release:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 	return f.err
 }
 
-func TestLocalPodCreationBootstrapsBeforeBecomingVisible(t *testing.T) {
+func TestLocalPodCreationReturnsWhileBootstrapRunsInBackground(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("test helper uses a POSIX shell script")
 	}
@@ -497,7 +510,7 @@ func TestLocalPodCreationBootstrapsBeforeBecomingVisible(t *testing.T) {
 	}
 	local := localserver.New()
 	local.Executable = executable
-	bootstrapper := &fakeLocalPodBootstrapper{}
+	bootstrapper := &fakeLocalPodBootstrapper{started: make(chan struct{}), release: make(chan struct{})}
 	b := &PodBridge{
 		Paths:                paths,
 		Store:                appconfig.Store{Paths: paths},
@@ -514,15 +527,23 @@ func TestLocalPodCreationBootstrapsBeforeBecomingVisible(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bootstrapper.called || created.Local == nil || created.Local.Process.State != "running" {
-		t.Fatalf("CreatePod() = %+v, bootstrap called = %v", created, bootstrapper.called)
-	}
-	if _, err := os.Stat(filepath.Join(paths.PodsDir, created.ID, appconfig.PodInitializationMarker)); !os.IsNotExist(err) {
-		t.Fatalf("initialization marker remains: %v", err)
+	if created.Initialization == nil || created.Initialization.State != "initializing" {
+		t.Fatalf("CreatePod() = %+v", created)
 	}
 	listed, err := b.ListPods(context.Background())
-	if err != nil || len(listed) != 1 {
-		t.Fatalf("ListPods() = %+v, %v", listed, err)
+	if err != nil || len(listed) != 1 || listed[0].Initialization == nil {
+		t.Fatalf("ListPods() during initialization = %+v, %v", listed, err)
+	}
+	select {
+	case <-bootstrapper.started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("background bootstrap did not start")
+	}
+	close(bootstrapper.release)
+	waitForInitializationState(t, b.Store, created.ID, "")
+	ready, err := b.GetPod(context.Background(), created.ID)
+	if err != nil || ready.Initialization != nil || ready.Local == nil || ready.Local.Process.State != "running" {
+		t.Fatalf("GetPod() after initialization = %+v, %v", ready, err)
 	}
 	stopCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	if _, err := b.StopLocal(stopCtx, created.ID); err != nil {
@@ -533,15 +554,64 @@ func TestLocalPodCreationBootstrapsBeforeBecomingVisible(t *testing.T) {
 	if _, err := b.StartLocal(context.Background(), created.ID); err != nil {
 		t.Fatal(err)
 	}
-	if bootstrapper.calls != 1 {
-		t.Fatalf("bootstrap calls after restart = %d, want 1", bootstrapper.calls)
+	if bootstrapper.calls.Load() != 1 {
+		t.Fatalf("bootstrap calls after restart = %d, want 1", bootstrapper.calls.Load())
 	}
 	stopCtx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	_, _ = local.Stop(stopCtx, created.ID)
 }
 
-func TestLocalPodBootstrapFailureRemovesPodAndStopsProcess(t *testing.T) {
+func TestDeletePodCancelsBackgroundInitialization(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test helper uses a POSIX shell script")
+	}
+	paths := appconfig.NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	executable := filepath.Join(t.TempDir(), "fake-gizclaw")
+	if err := os.WriteFile(executable, []byte("#!/bin/sh\ntrap 'exit 0' INT TERM\nwhile :; do sleep 1; done\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	local := localserver.New()
+	local.Executable = executable
+	bootstrapper := &fakeLocalPodBootstrapper{started: make(chan struct{}), release: make(chan struct{})}
+	b := &PodBridge{
+		Paths:                paths,
+		Store:                appconfig.Store{Paths: paths},
+		BootstrapEnvironment: appconfig.BootstrapEnvironmentStore{Path: paths.BootstrapEnvFile},
+		Catalog:              &localserver.Catalog{},
+		Bootstrapper:         bootstrapper,
+		WaitLocalReady:       func(context.Context, string, int) error { return nil },
+		Health:               endpointhealth.New(),
+		Local:                local,
+		WebUI:                webui.New(fstest.MapFS{}),
+	}
+	defer b.WebUI.Shutdown()
+	created, err := b.CreatePod(context.Background(), PodInput{Version: 1, ID: "cancel-initialization", Name: "Cancel", LocalServer: &LocalServerInput{Port: 0}})
+	if err != nil || created.Initialization == nil {
+		t.Fatalf("CreatePod() = %+v, %v", created, err)
+	}
+	select {
+	case <-bootstrapper.started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("background bootstrap did not start")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if err := b.DeletePod(ctx, created.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(paths.PodsDir, created.ID)); !os.IsNotExist(err) {
+		t.Fatalf("deleted initializing Pod still exists: %v", err)
+	}
+	if local.Status(created.ID).State != "stopped" {
+		t.Fatalf("deleted process state = %+v", local.Status(created.ID))
+	}
+}
+
+func TestLocalPodBootstrapFailureRemainsVisibleAndStopsProcess(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("test helper uses a POSIX shell script")
 	}
@@ -568,12 +638,17 @@ func TestLocalPodBootstrapFailureRemovesPodAndStopsProcess(t *testing.T) {
 		WebUI:                webui.New(fstest.MapFS{}),
 	}
 	defer b.WebUI.Shutdown()
-	_, err := b.CreatePod(context.Background(), PodInput{Version: 1, ID: "bootstrap-failure", Name: "Failure", LocalServer: &LocalServerInput{Port: 0}})
-	if err == nil || !strings.Contains(err.Error(), "apply rejected") {
-		t.Fatalf("CreatePod() error = %v", err)
+	created, err := b.CreatePod(context.Background(), PodInput{Version: 1, ID: "bootstrap-failure", Name: "Failure", LocalServer: &LocalServerInput{Port: 0}})
+	if err != nil || created.Initialization == nil || created.Initialization.State != "initializing" {
+		t.Fatalf("CreatePod() = %+v, %v", created, err)
 	}
-	if _, err := os.Stat(filepath.Join(paths.PodsDir, "bootstrap-failure")); !os.IsNotExist(err) {
-		t.Fatalf("failed Pod still exists: %v", err)
+	status := waitForInitializationState(t, b.Store, created.ID, "failed")
+	if !strings.Contains(status.Error, "apply rejected") {
+		t.Fatalf("initialization failure = %+v", status)
+	}
+	failed, err := b.GetPod(context.Background(), created.ID)
+	if err != nil || failed.Initialization == nil || failed.Initialization.State != "failed" {
+		t.Fatalf("GetPod() after failure = %+v, %v", failed, err)
 	}
 	if local.Status("bootstrap-failure").State != "stopped" {
 		t.Fatalf("failed process state = %+v", local.Status("bootstrap-failure"))
@@ -601,7 +676,7 @@ func TestMissingBootstrapEnvironmentFailsBeforePodReservation(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "DEFINITELY_MISSING_BOOTSTRAP_VALUE") {
 		t.Fatalf("CreatePod() error = %v", err)
 	}
-	if bootstrapper.called {
+	if bootstrapper.called.Load() {
 		t.Fatal("bootstrap ran with missing environment")
 	}
 	if _, err := os.Stat(filepath.Join(paths.PodsDir, "not-reserved")); !os.IsNotExist(err) {
@@ -610,14 +685,34 @@ func TestMissingBootstrapEnvironmentFailsBeforePodReservation(t *testing.T) {
 	remote, err := b.CreatePod(context.Background(), PodInput{
 		Version: 1, ID: "remote-without-bootstrap", Name: "Remote", RemoteAccessPoint: "127.0.0.1:19820",
 	})
-	if err != nil || remote.Remote == nil || bootstrapper.called {
-		t.Fatalf("remote CreatePod() = %+v, %v; bootstrap called = %v", remote, err, bootstrapper.called)
+	if err != nil || remote.Remote == nil || bootstrapper.called.Load() {
+		t.Fatalf("remote CreatePod() = %+v, %v; bootstrap called = %v", remote, err, bootstrapper.called.Load())
 	}
 	t.Setenv("DEFINITELY_MISSING_BOOTSTRAP_VALUE", "from-process")
 	state, err := b.GetBootstrapEnvironment(context.Background())
 	if err != nil || !state.Ready || len(state.Missing) != 0 || !state.Variables[0].Configured {
 		t.Fatalf("process environment state = %+v, %v", state, err)
 	}
+}
+
+func waitForInitializationState(t *testing.T, store appconfig.Store, id, want string) *appconfig.PodInitialization {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		status, err := store.Initialization(id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want == "" && status == nil {
+			return nil
+		}
+		if status != nil && status.State == want {
+			return status
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("Pod %q initialization did not reach %q", id, want)
+	return nil
 }
 
 func bridgeTestKey(t *testing.T, fill byte) string {

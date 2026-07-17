@@ -46,6 +46,7 @@ export type DesktopPod = {
     mode: 'local' | 'remote' | 'invalid';
     valid: boolean;
     error?: string;
+    initialization?: PodInitialization;
     play_configured: boolean;
     /**
      * Public half of the desktop-local Play identity.
@@ -53,6 +54,11 @@ export type DesktopPod = {
     play_public_key?: string;
     local?: DesktopLocalPod;
     remote?: DesktopRemotePod;
+};
+
+export type PodInitialization = {
+    state: 'initializing' | 'failed';
+    error?: string;
 };
 
 export type DesktopLocalPod = {
@@ -284,7 +290,7 @@ export type CreateDesktopPodError = CreateDesktopPodErrors[keyof CreateDesktopPo
 
 export type CreateDesktopPodResponses = {
     /**
-     * Created Pod
+     * Created Pod; local bootstrap may still be initializing
      */
     201: DesktopPod;
 };

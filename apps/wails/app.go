@@ -99,6 +99,7 @@ func (a *App) shutdown(context.Context) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	a.bridge.ShutdownInitializations(ctx)
 	a.bridge.Local.Shutdown(ctx)
 	a.bridge.WebUI.Shutdown()
 	if a.tray != nil {
@@ -211,9 +212,7 @@ func (a *App) CreatePod(input bridge.PodInput) (bridge.PodSummary, error) {
 	if a == nil || a.bridge == nil {
 		return bridge.PodSummary{}, fmt.Errorf("desktop app: bridge is not configured")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-	defer cancel()
-	pod, err := a.bridge.CreatePod(ctx, input)
+	pod, err := a.bridge.CreatePod(context.Background(), input)
 	if err == nil {
 		a.syncTray(false)
 	}

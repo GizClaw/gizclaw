@@ -1,6 +1,7 @@
 package appconfig
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -98,12 +99,18 @@ func TestCleanupIncompletePods(t *testing.T) {
 		t.Fatal(err)
 	}
 	store := Store{Paths: paths}
-	for _, id := range []string{"complete", "incomplete"} {
+	for _, id := range []string{"complete", "incomplete", "failed"} {
 		if err := os.Mkdir(filepath.Join(paths.PodsDir, id), 0o700); err != nil {
 			t.Fatal(err)
 		}
 	}
 	if err := store.MarkInitializing("incomplete"); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.MarkInitializing("failed"); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.FailInitialization("failed", errors.New("apply rejected")); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.CleanupIncomplete(); err != nil {
@@ -114,5 +121,9 @@ func TestCleanupIncompletePods(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(paths.PodsDir, "complete")); err != nil {
 		t.Fatalf("complete pod was removed: %v", err)
+	}
+	status, err := store.Initialization("failed")
+	if err != nil || status == nil || status.State != "failed" || status.Error != "apply rejected" {
+		t.Fatalf("failed initialization = %+v, %v", status, err)
 	}
 }

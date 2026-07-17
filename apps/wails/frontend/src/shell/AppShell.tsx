@@ -107,6 +107,24 @@ export function AppShell() {
     };
   }, [api]);
 
+  useEffect(() => {
+    if (selected?.initialization?.state !== "initializing") return;
+    const id = selected.id;
+    const refresh = () => {
+      void api
+        .GetPod(id)
+        .then((next) => {
+          setPods((current) =>
+            current.map((pod) => (pod.id === next.id ? next : pod)),
+          );
+          setSelected((current) => (current?.id === next.id ? next : current));
+        })
+        .catch((reason) => setError(errorMessage(reason)));
+    };
+    const timer = window.setInterval(refresh, 750);
+    return () => window.clearInterval(timer);
+  }, [api, selected?.id, selected?.initialization?.state]);
+
   function replacePod(next: PodSummary) {
     setPods((current) =>
       current.map((pod) => (pod.id === next.id ? next : pod)),
@@ -129,7 +147,7 @@ export function AppShell() {
       const pod = await api.CreatePod(input);
       setPods((current) => [...current, pod]);
       setCreating(false);
-      setSelected(pod);
+      if (pod.mode === "remote") setSelected(pod);
     } catch (reason) {
       setError(errorMessage(reason));
     }
@@ -426,25 +444,32 @@ function PodCard({
   const adminCount =
     pod.remote?.servers.filter((server) => server.admin_configured).length ?? 0;
   const running = pod.local?.process.state === "running";
-  const online = running || pod.remote?.access_point.state === "reachable";
+  const initializing = pod.initialization?.state === "initializing";
+  const initializationFailed = pod.initialization?.state === "failed";
+  const online =
+    !pod.initialization &&
+    (running || pod.remote?.access_point.state === "reachable");
   const hue = stableHue(pod.id);
   const mode = !pod.valid
     ? t("invalid")
     : pod.mode === "local"
       ? t("local")
       : t("remote");
+  const description = !pod.valid
+    ? pod.error
+    : initializing
+      ? t("initializingData")
+      : initializationFailed
+        ? t("initializationFailed")
+        : pod.local
+          ? running
+            ? t("running")
+            : t("stopped")
+          : `${remoteCount} ${remoteCount === 1 ? t("server") : t("servers")}`;
   return (
     <HomeCard
       className={`pod-card pod-card-${pod.valid ? pod.mode : "invalid"}`}
-      description={
-        !pod.valid
-          ? pod.error
-          : pod.local
-            ? running
-              ? t("running")
-              : t("stopped")
-            : `${remoteCount} ${remoteCount === 1 ? t("server") : t("servers")}`
-      }
+      description={description}
       footer={
         pod.valid ? (
           <span className="pod-card-capabilities">
@@ -482,7 +507,9 @@ function PodCard({
             )}
           </span>
           <span className="mode-chip">{mode}</span>
-          <span className={`health-pulse ${online ? "online" : ""}`} />
+          <span
+            className={`health-pulse ${online ? "online" : ""} ${initializing ? "initializing" : ""}`}
+          />
         </>
       }
     />
@@ -547,7 +574,7 @@ function PodDetail({
           ) : null}
           <div className="pod-dialog-heading">
             <DesktopDialogTitle>
-              {pod.valid ? (
+              {pod.valid && !pod.initialization ? (
                 <h2>
                   <button
                     className="pod-name-button"
@@ -591,6 +618,12 @@ function PodDetail({
                 {t("reveal")}
               </button>
             </div>
+          ) : pod.initialization ? (
+            <PodInitializationDetail
+              initialization={pod.initialization}
+              onDelete={() => setConfirmingDelete(true)}
+              onReveal={onReveal}
+            />
           ) : pod.local ? (
             <PodDetailPages
               back={
@@ -699,6 +732,54 @@ function PodDetail({
         </>
       )}
     </DesktopDialog>
+  );
+}
+
+function PodInitializationDetail({
+  initialization,
+  onDelete,
+  onReveal,
+}: {
+  initialization: NonNullable<PodSummary["initialization"]>;
+  onDelete(): void;
+  onReveal(): void;
+}) {
+  const t = useMessages();
+  const failed = initialization.state === "failed";
+  return (
+    <div
+      aria-live="polite"
+      className={`pod-initialization-detail ${failed ? "is-failed" : ""}`}
+      role="status"
+    >
+      <span className="pod-initialization-icon">
+        {failed ? (
+          <Activity aria-hidden="true" size={28} />
+        ) : (
+          <LoaderCircle aria-hidden="true" size={30} />
+        )}
+      </span>
+      <div>
+        <h3>{t(failed ? "initializationFailed" : "initializingData")}</h3>
+        <p>
+          {failed
+            ? initialization.error || t("initializationFailedHint")
+            : t("initializingDataHint")}
+        </p>
+      </div>
+      {failed ? (
+        <div className="pod-initialization-actions">
+          <button className="secondary-action" onClick={onReveal} type="button">
+            <FolderOpen size={15} />
+            {t("reveal")}
+          </button>
+          <button className="danger-action" onClick={onDelete} type="button">
+            <Trash2 size={15} />
+            {t("deletePod")}
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -1285,11 +1366,7 @@ function CreatePodDialog({
   }
 
   return (
-    <DesktopDialog
-      className="create-dialog compact-dialog"
-      dismissible={!saving}
-      onClose={onClose}
-    >
+    <DesktopDialog className="create-dialog compact-dialog" onClose={onClose}>
       {(close) => (
         <form
           className="desktop-dialog-form"
@@ -1323,18 +1400,7 @@ function CreatePodDialog({
               <X size={18} />
             </button>
           </header>
-          {saving && mode === "choose" ? (
-            <div aria-live="polite" className="create-progress" role="status">
-              <span className="create-progress-spinner">
-                <LoaderCircle aria-hidden="true" size={27} />
-              </span>
-              <div>
-                <strong>{t("localCreateProgressTitle")}</strong>
-                <p>{t("localCreateProgressHint")}</p>
-              </div>
-              <span className="create-progress-track" />
-            </div>
-          ) : mode === "choose" ? (
+          {mode === "choose" ? (
             <div className="create-mode-grid">
               <button
                 disabled={saving}

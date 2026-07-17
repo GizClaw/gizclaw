@@ -32,10 +32,11 @@ type PodBridge struct {
 	Local                *localserver.Manager
 	WebUI                *webui.Manager
 
-	mutationMu sync.Mutex
-	creating   sync.Map
-	refreshMu  sync.Mutex
-	refreshes  map[string]*podRefresh
+	mutationMu   sync.Mutex
+	creating     sync.Map
+	initializing sync.Map
+	refreshMu    sync.Mutex
+	refreshes    map[string]*podRefresh
 }
 
 type LocalPodBootstrapper interface {
@@ -43,6 +44,11 @@ type LocalPodBootstrapper interface {
 }
 
 type podRefresh struct {
+	cancel context.CancelFunc
+	done   chan struct{}
+}
+
+type podInitialization struct {
 	cancel context.CancelFunc
 	done   chan struct{}
 }
@@ -73,16 +79,22 @@ type BootstrapEnvironmentUpdate struct {
 }
 
 type PodSummary struct {
-	ID             string         `json:"id"`
-	Name           string         `json:"name"`
-	Description    string         `json:"description,omitempty"`
-	Mode           string         `json:"mode"`
-	Valid          bool           `json:"valid"`
-	Error          string         `json:"error,omitempty"`
-	PlayConfigured bool           `json:"play_configured"`
-	PlayPublicKey  string         `json:"play_public_key,omitempty"`
-	Local          *LocalSummary  `json:"local,omitempty"`
-	Remote         *RemoteSummary `json:"remote,omitempty"`
+	ID             string                 `json:"id"`
+	Name           string                 `json:"name"`
+	Description    string                 `json:"description,omitempty"`
+	Mode           string                 `json:"mode"`
+	Valid          bool                   `json:"valid"`
+	Error          string                 `json:"error,omitempty"`
+	Initialization *InitializationSummary `json:"initialization,omitempty"`
+	PlayConfigured bool                   `json:"play_configured"`
+	PlayPublicKey  string                 `json:"play_public_key,omitempty"`
+	Local          *LocalSummary          `json:"local,omitempty"`
+	Remote         *RemoteSummary         `json:"remote,omitempty"`
+}
+
+type InitializationSummary struct {
+	State string `json:"state"`
+	Error string `json:"error,omitempty"`
 }
 
 type LocalSummary struct {
@@ -220,7 +232,7 @@ func (b *PodBridge) GetPod(_ context.Context, id string) (PodSummary, error) {
 
 func (b *PodBridge) RevealPath(id string) (string, error) { return b.Store.PodDir(id) }
 
-func (b *PodBridge) CreatePod(ctx context.Context, input PodInput) (PodSummary, error) {
+func (b *PodBridge) CreatePod(_ context.Context, input PodInput) (PodSummary, error) {
 	input.ID = strings.TrimSpace(input.ID)
 	if input.ID == "" {
 		input.ID = newInternalID("pod")
@@ -306,23 +318,51 @@ func (b *PodBridge) CreatePod(ctx context.Context, input PodInput) (PodSummary, 
 		return PodSummary{}, err
 	}
 	if initializing {
-		if _, err := b.Local.Start(pod.ID, filepath.Join(dir, "workspace")); err != nil {
-			return PodSummary{}, b.cleanupFailedInitialization(ctx, pod.ID, dir, err)
-		}
-		if err := b.waitLocalReady(ctx, pod.ID, pod.LocalServer.Port); err != nil {
-			return PodSummary{}, b.cleanupFailedInitialization(ctx, pod.ID, dir, err)
-		}
-		if err := b.Bootstrapper.Apply(ctx, dir, savedEnvironment); err != nil {
-			return PodSummary{}, b.cleanupFailedInitialization(ctx, pod.ID, dir, err)
-		}
-		if status := b.Local.Status(pod.ID); status.State != "running" {
-			return PodSummary{}, b.cleanupFailedInitialization(ctx, pod.ID, dir, errors.New("desktop bridge: local server exited during bootstrap"))
-		}
-		if err := b.Store.CompleteInitialization(pod.ID); err != nil {
-			return PodSummary{}, b.cleanupFailedInitialization(ctx, pod.ID, dir, err)
-		}
+		b.startLocalInitialization(pod, dir, savedEnvironment)
 	}
 	return b.summary(pod), nil
+}
+
+func (b *PodBridge) startLocalInitialization(pod appconfig.Pod, dir string, savedEnvironment map[string]string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	task := &podInitialization{cancel: cancel, done: make(chan struct{})}
+	b.initializing.Store(pod.ID, task)
+	go func() {
+		defer close(task.done)
+		defer cancel()
+		defer b.initializing.Delete(pod.ID)
+		err := b.initializeLocalPod(ctx, pod, dir, savedEnvironment)
+		if err == nil {
+			return
+		}
+		stopCtx, stopCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		_, stopErr := b.Local.Stop(stopCtx, pod.ID)
+		stopCancel()
+		b.WebUI.ClosePod(pod.ID)
+		if errors.Is(ctx.Err(), context.Canceled) {
+			return
+		}
+		if stopErr != nil {
+			err = fmt.Errorf("%w; stop local server: %v", err, stopErr)
+		}
+		_ = b.Store.FailInitialization(pod.ID, err)
+	}()
+}
+
+func (b *PodBridge) initializeLocalPod(ctx context.Context, pod appconfig.Pod, dir string, savedEnvironment map[string]string) error {
+	if _, err := b.Local.Start(pod.ID, filepath.Join(dir, "workspace")); err != nil {
+		return err
+	}
+	if err := b.waitLocalReady(ctx, pod.ID, pod.LocalServer.Port); err != nil {
+		return err
+	}
+	if err := b.Bootstrapper.Apply(ctx, dir, savedEnvironment); err != nil {
+		return err
+	}
+	if status := b.Local.Status(pod.ID); status.State != "running" {
+		return errors.New("desktop bridge: local server exited during bootstrap")
+	}
+	return b.Store.CompleteInitialization(pod.ID)
 }
 
 func (b *PodBridge) bootstrapEnvironmentState() (BootstrapEnvironmentState, map[string]string, error) {
@@ -381,18 +421,6 @@ func (b *PodBridge) waitLocalReady(ctx context.Context, podID string, port int) 
 	}
 }
 
-func (b *PodBridge) cleanupFailedInitialization(ctx context.Context, podID, dir string, cause error) error {
-	stopCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-	defer cancel()
-	_, stopErr := b.Local.Stop(stopCtx, podID)
-	b.WebUI.ClosePod(podID)
-	removeErr := os.RemoveAll(dir)
-	if stopErr != nil || removeErr != nil {
-		return fmt.Errorf("%w; stop local server: %v; remove incomplete pod: %v", cause, stopErr, removeErr)
-	}
-	return cause
-}
-
 func (b *PodBridge) localPodPorts() (map[int]bool, error) {
 	entries, err := b.Store.Entries()
 	if err != nil {
@@ -410,6 +438,9 @@ func (b *PodBridge) localPodPorts() (map[int]bool, error) {
 func (b *PodBridge) UpdatePod(ctx context.Context, input PodInput) (PodSummary, error) {
 	b.mutationMu.Lock()
 	defer b.mutationMu.Unlock()
+	if err := b.requireInitializationComplete(input.ID); err != nil {
+		return PodSummary{}, err
+	}
 	existing, err := b.Store.Load(input.ID)
 	if err != nil {
 		return PodSummary{}, err
@@ -463,6 +494,11 @@ func (b *PodBridge) UpdatePod(ctx context.Context, input PodInput) (PodSummary, 
 }
 
 func (b *PodBridge) DeletePod(ctx context.Context, id string) error {
+	waitCtx, waitCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer waitCancel()
+	if err := b.cancelInitialization(waitCtx, id); err != nil {
+		return err
+	}
 	stopCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	_, _ = b.Local.Stop(stopCtx, id)
@@ -470,10 +506,61 @@ func (b *PodBridge) DeletePod(ctx context.Context, id string) error {
 	return b.Store.Delete(id)
 }
 
+func (b *PodBridge) cancelInitialization(ctx context.Context, id string) error {
+	value, ok := b.initializing.Load(id)
+	if !ok {
+		return nil
+	}
+	task := value.(*podInitialization)
+	task.cancel()
+	select {
+	case <-task.done:
+		return nil
+	case <-ctx.Done():
+		return fmt.Errorf("desktop bridge: cancel Pod initialization: %w", ctx.Err())
+	}
+}
+
+// ShutdownInitializations cancels background bootstrap work before Desktop
+// stops its local Server processes.
+func (b *PodBridge) ShutdownInitializations(ctx context.Context) {
+	tasks := make([]*podInitialization, 0)
+	b.initializing.Range(func(_, value any) bool {
+		task := value.(*podInitialization)
+		task.cancel()
+		tasks = append(tasks, task)
+		return true
+	})
+	for _, task := range tasks {
+		select {
+		case <-task.done:
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (b *PodBridge) requireInitializationComplete(id string) error {
+	initialization, err := b.Store.Initialization(id)
+	if err != nil {
+		return err
+	}
+	if initialization == nil {
+		return nil
+	}
+	if initialization.State == "failed" {
+		return fmt.Errorf("desktop bridge: Pod initialization failed: %s", initialization.Error)
+	}
+	return errors.New("desktop bridge: Pod initialization is still in progress")
+}
+
 func (b *PodBridge) RefreshHealth(ctx context.Context, id string) (PodSummary, error) {
 	pod, err := b.Store.Load(id)
 	if err != nil {
 		return PodSummary{}, err
+	}
+	if initialization, initErr := b.Store.Initialization(id); initErr != nil || initialization != nil {
+		return b.summary(pod), nil
 	}
 	endpoints := make([]string, 0, len(pod.RemoteServers)+1)
 	if pod.LocalServer != nil {
@@ -515,6 +602,9 @@ func (b *PodBridge) RefreshHealth(ctx context.Context, id string) (PodSummary, e
 }
 
 func (b *PodBridge) StartLocal(_ context.Context, id string) (PodSummary, error) {
+	if err := b.requireInitializationComplete(id); err != nil {
+		return PodSummary{}, err
+	}
 	pod, err := b.Store.Load(id)
 	if err != nil {
 		return PodSummary{}, err
@@ -537,6 +627,9 @@ func (b *PodBridge) StartLocal(_ context.Context, id string) (PodSummary, error)
 }
 
 func (b *PodBridge) StopLocal(ctx context.Context, id string) (PodSummary, error) {
+	if err := b.requireInitializationComplete(id); err != nil {
+		return PodSummary{}, err
+	}
 	pod, err := b.Store.Load(id)
 	if err != nil {
 		return PodSummary{}, err
@@ -554,6 +647,9 @@ func (b *PodBridge) StopLocal(ctx context.Context, id string) (PodSummary, error
 }
 
 func (b *PodBridge) RestartLocal(ctx context.Context, id string) (PodSummary, error) {
+	if err := b.requireInitializationComplete(id); err != nil {
+		return PodSummary{}, err
+	}
 	pod, err := b.Store.Load(id)
 	if err != nil {
 		return PodSummary{}, err
@@ -579,6 +675,9 @@ func (b *PodBridge) RestartLocal(ctx context.Context, id string) (PodSummary, er
 }
 
 func (b *PodBridge) AdminURL(_ context.Context, podID, serverID string) (string, error) {
+	if err := b.requireInitializationComplete(podID); err != nil {
+		return "", err
+	}
 	pod, err := b.Store.Load(podID)
 	if err != nil {
 		return "", err
@@ -623,6 +722,9 @@ func (b *PodBridge) AdminURL(_ context.Context, podID, serverID string) (string,
 }
 
 func (b *PodBridge) PlayURL(_ context.Context, podID string) (string, error) {
+	if err := b.requireInitializationComplete(podID); err != nil {
+		return "", err
+	}
 	pod, err := b.Store.Load(podID)
 	if err != nil {
 		return "", err
@@ -643,6 +745,11 @@ func (b *PodBridge) PlayURL(_ context.Context, podID string) (string, error) {
 
 func (b *PodBridge) summary(pod appconfig.Pod) PodSummary {
 	summary := PodSummary{ID: pod.ID, Name: pod.Name, Description: pod.Description, PlayConfigured: pod.ClientPrivateKey != "", PlayPublicKey: publicKeyForPrivate(pod.ClientPrivateKey), Valid: true}
+	if initialization, err := b.Store.Initialization(pod.ID); err != nil {
+		summary.Initialization = &InitializationSummary{State: "failed", Error: err.Error()}
+	} else if initialization != nil {
+		summary.Initialization = &InitializationSummary{State: initialization.State, Error: initialization.Error}
+	}
 	if pod.LocalServer != nil {
 		endpoint := fmt.Sprintf("127.0.0.1:%d", pod.LocalServer.Port)
 		summary.Mode = "local"

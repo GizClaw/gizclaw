@@ -37,13 +37,15 @@ A local Pod automatically generates its Server identity, Admin identity, and
 desktop-local Play identity. Existing Pods missing these identities are filled
 on desktop bootstrap. The share QR contains only the display name, selected LAN
 endpoint, and Server public key; a scanning client generates its own identity.
-A new local Pod is returned only after its Server is ready, the embedded
-deploy-derived resource catalog has been applied, Volc voices have been synced,
-and all Workflow and PetDef assets have been uploaded. Failed initialization
-stops the process and removes the incomplete Pod. Desktop startup removes a Pod
-left with an initialization marker after an interrupted creation. Successful
-Pods are never reconciled or bootstrapped again during start, restart, or app
-upgrade.
+A new local Pod is returned as soon as its manifest and projections are
+persisted. The response carries an `initializing` state while a cancellable
+background task starts the Server, applies the embedded deploy-derived catalog,
+syncs Volc voices, and uploads all Workflow and PetDef assets. A successful task
+clears the state; a failed task stops the process and persists its redacted
+error so the Pod remains visible and deletable. Desktop startup removes a Pod
+left actively initializing after an interrupted creation, while failed Pods
+remain visible. Successful Pods are never reconciled or bootstrapped again
+during start, restart, or app upgrade.
 A remote Pod has one `remote_access_point` and zero or more
 `remote_servers`; Servers may be added after the Pod is created. Each Server's
 Admin private key is supplied by the user and stored write-only; omitting it

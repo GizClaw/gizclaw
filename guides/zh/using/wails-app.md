@@ -38,11 +38,14 @@ Renderer/WebView 可以读取文件全文和已保存值；只来自启动进程
 “清除已保存值”会删除本地覆盖。Desktop 保存值优先于启动进程的同名环境变量。
 
 缺少必填值时仍可管理现有 Pod 或创建远程 Pod，但不能创建本地 Pod。补齐后创建
-本地 Pod 会启动新的 Server、apply 内嵌 Credential/Tenant/Model/Workflow/ACL/
-Gameplay catalog、同步所需 Voice，并上传 Workflow 与 PetDef assets；全部完成后
-该 Pod 才会出现在首页。创建失败或中断的目录会被清理。已经成功创建的 Pod 在
+本地 Pod 会在 manifest 和投影保存后立即回到首页。Pod 卡片显示“正在初始化数据”；
+点开后可查看持续更新的初始化状态，也可以关闭详情稍后再看。后台任务会启动新的
+Server、apply 内嵌 Credential/Tenant/Model/Workflow/ACL/Gameplay catalog、同步
+所需 Voice，并上传 Workflow 与 PetDef assets。全部完成后详情自动切换为正常界面。
+
+初始化失败会停止 Server，并在 Pod 详情中保留脱敏错误、目录入口和删除操作。退出
+Desktop 或崩溃时仍在初始化的 Pod 会在下次启动时清理；已经成功创建的 Pod 在
 Desktop 或 Server 重启时不会重新 apply，因此用户后续修改和删除的资源会保留。
-初始化期间创建窗口持续显示进度并且不能关闭；重复点击不会发出额外创建请求。
 
 ## 健康状态
 
