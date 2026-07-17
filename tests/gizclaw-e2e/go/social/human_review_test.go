@@ -79,7 +79,7 @@ func TestServerSocialRPCHumanReview(t *testing.T) {
 	})
 }
 
-func newSocialHumanReviewHarness(t *testing.T) *clitest.Harness {
+func newSocialHumanReviewHarness(t *testing.T) *sharedSocialClients {
 	t.Helper()
 
 	h := clitest.NewSetupHarness(t, "client-social-human-review")
@@ -100,7 +100,7 @@ func newSocialHumanReviewHarness(t *testing.T) *clitest.Harness {
 	for _, peer := range []string{"peer-a", "peer-b"} {
 		putSocialHumanReviewPeerConfig(t, api, h.ContextPublicKey(peer))
 	}
-	return h
+	return newSharedSocialClients(t, h)
 }
 
 func requireSocialHumanReviewProviderEnv(t *testing.T) {
@@ -156,16 +156,14 @@ func putSocialHumanReviewPeerConfig(t *testing.T, api *adminhttp.ClientWithRespo
 	}
 }
 
-func runSocialHumanReviewAudioStory(t *testing.T, h *clitest.Harness, playback *socialHumanReviewPlayback, writerContext, readerContext, workspaceName string, texts []string) {
+func runSocialHumanReviewAudioStory(t *testing.T, h socialHarness, playback *socialHumanReviewPlayback, writerContext, readerContext, workspaceName string, texts []string) {
 	t.Helper()
 	if len(texts) < 3 {
 		t.Fatalf("social human-review audio story needs at least 3 rounds, got %d", len(texts))
 	}
 
-	writer := h.ConnectClientFromContext(writerContext)
-	defer writer.Close()
-	reader := h.ConnectClientFromContext(readerContext)
-	defer reader.Close()
+	writer := h.Client(writerContext)
+	reader := h.Client(readerContext)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
