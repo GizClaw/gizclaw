@@ -2970,7 +2970,8 @@ func (f fakeCredentials) GetCredential(_ context.Context, request adminhttp.GetC
 		return adminhttp.GetCredential200JSONResponse(apitypes.Credential{
 			Name: request.Name,
 			Body: testVolcCredentialBodyFromStrings(map[string]string{
-				"api_key": "test-key",
+				"speech_api_key": "speech-key",
+				"ark_api_key":    "test-key",
 			}),
 		}), nil
 	}

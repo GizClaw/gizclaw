@@ -61,11 +61,12 @@ func rpcCredentialBodyToAPI(in rpcapi.CredentialBody) (apitypes.CredentialBody, 
 	}
 	if typed, err := in.AsVolcCredentialBody(); err == nil {
 		err = out.FromVolcCredentialBody(apitypes.VolcCredentialBody{
-			ApiKey:             typed.ApiKey,
-			AppId:              typed.AppId,
+			ArkApiKey:          typed.ArkApiKey,
 			OpenapiAccessKey:   typed.OpenapiAccessKey,
 			OpenapiAccessKeyId: typed.OpenapiAccessKeyId,
 			SearchApiKey:       typed.SearchApiKey,
+			SpeechApiKey:       typed.SpeechApiKey,
+			SpeechAppId:        typed.SpeechAppId,
 		})
 		return out, err
 	}
@@ -160,11 +161,12 @@ func apiCredentialBodyToRPC(provider string, in apitypes.CredentialBody) (rpcapi
 			return out, err
 		}
 		err = out.FromVolcCredentialBody(rpcapi.VolcCredentialBody{
-			ApiKey:             typed.ApiKey,
-			AppId:              typed.AppId,
+			ArkApiKey:          typed.ArkApiKey,
 			OpenapiAccessKey:   typed.OpenapiAccessKey,
 			OpenapiAccessKeyId: typed.OpenapiAccessKeyId,
 			SearchApiKey:       typed.SearchApiKey,
+			SpeechApiKey:       typed.SpeechApiKey,
+			SpeechAppId:        typed.SpeechAppId,
 		})
 		return out, err
 	default:

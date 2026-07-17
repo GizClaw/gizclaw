@@ -32,18 +32,6 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: ACLPolicyBinding
     metadata:
-      name: view-default-client-credential-volc-ark
-    spec:
-      subject:
-        kind: view
-        id: default-client
-      resource:
-        kind: credential
-        id: volc-ark-credential
-      role: default-client
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: ACLPolicyBinding
-    metadata:
       name: view-default-client-credential-minimax-cn
     spec:
       subject:

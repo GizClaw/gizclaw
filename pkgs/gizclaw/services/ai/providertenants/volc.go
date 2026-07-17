@@ -482,11 +482,11 @@ func volcCredentialValues(credential apitypes.Credential) (string, string, strin
 	if err != nil {
 		return "", "", "", err
 	}
-	appID := ptrString(body.AppId)
+	appID := ptrString(body.SpeechAppId)
 	ak := ptrString(body.OpenapiAccessKeyId)
 	sk := ptrString(body.OpenapiAccessKey)
 	if appID == "" {
-		return "", "", "", fmt.Errorf("credential %q is missing app_id", credential.Name)
+		return "", "", "", fmt.Errorf("credential %q is missing speech_app_id", credential.Name)
 	}
 	if ak == "" || sk == "" {
 		return "", "", "", fmt.Errorf("credential %q is missing openapi_access_key_id/openapi_access_key", credential.Name)
@@ -607,7 +607,7 @@ func (p *volcMegaTTSTrainStatusPage) captureRawStatuses() error {
 func listAllVolcSpeakers(ctx context.Context, client VolcSpeakerClient, tenant apitypes.VolcTenant, appID string) ([]volcSpeakerRecord, error) {
 	appID = strings.TrimSpace(appID)
 	if appID == "" {
-		return nil, errors.New("Volcengine credential app_id is required")
+		return nil, errors.New("Volcengine credential speech_app_id is required")
 	}
 	resourceIDs := volcTenantResourceIDs(tenant)
 	resourceFilter := volcResourceIDSet(resourceIDs)

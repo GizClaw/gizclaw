@@ -279,6 +279,30 @@ test("RPC payload codec rejects ambiguous oneof payloads", () => {
   );
 });
 
+test("RPC payload codec preserves service-owned Volc credentials", () => {
+  const body = {
+    speech_api_key: "speech-key",
+    speech_app_id: "speech-app",
+    openapi_access_key: "openapi-secret",
+    openapi_access_key_id: "openapi-id",
+    search_api_key: "search-key",
+    ark_api_key: "ark-key",
+  };
+  const payload = encodeRPCRequestPayload("server.credential.create", {
+    body,
+    created_at: "now",
+    name: "volc-main",
+    provider: "volc",
+    updated_at: "now",
+  });
+
+  const decoded = decodeRPCRequestPayload("server.credential.create", payload) as {
+    body?: Record<string, string>;
+  };
+
+  assert.deepEqual(decoded.body, body);
+});
+
 test("RPC method map preserves generated payload types", () => {
   const source = readFileSync(new URL("./generated/rpc/method-map.ts", import.meta.url), "utf8");
 

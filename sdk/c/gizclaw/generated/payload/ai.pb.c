@@ -45,22 +45,22 @@ PB_BIND(gizclaw_rpc_v1_Credential, gizclaw_rpc_v1_Credential, AUTO)
 PB_BIND(gizclaw_rpc_v1_CredentialBody, gizclaw_rpc_v1_CredentialBody, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_CredentialCreateRequest, gizclaw_rpc_v1_CredentialCreateRequest, AUTO)
+PB_BIND(gizclaw_rpc_v1_CredentialCreateRequest, gizclaw_rpc_v1_CredentialCreateRequest, 2)
 
 
-PB_BIND(gizclaw_rpc_v1_CredentialCreateResponse, gizclaw_rpc_v1_CredentialCreateResponse, AUTO)
+PB_BIND(gizclaw_rpc_v1_CredentialCreateResponse, gizclaw_rpc_v1_CredentialCreateResponse, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_CredentialDeleteRequest, gizclaw_rpc_v1_CredentialDeleteRequest, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_CredentialDeleteResponse, gizclaw_rpc_v1_CredentialDeleteResponse, AUTO)
+PB_BIND(gizclaw_rpc_v1_CredentialDeleteResponse, gizclaw_rpc_v1_CredentialDeleteResponse, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_CredentialGetRequest, gizclaw_rpc_v1_CredentialGetRequest, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_CredentialGetResponse, gizclaw_rpc_v1_CredentialGetResponse, AUTO)
+PB_BIND(gizclaw_rpc_v1_CredentialGetResponse, gizclaw_rpc_v1_CredentialGetResponse, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_CredentialListRequest, gizclaw_rpc_v1_CredentialListRequest, AUTO)
@@ -69,10 +69,10 @@ PB_BIND(gizclaw_rpc_v1_CredentialListRequest, gizclaw_rpc_v1_CredentialListReque
 PB_BIND(gizclaw_rpc_v1_CredentialListResponse, gizclaw_rpc_v1_CredentialListResponse, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_CredentialPutRequest, gizclaw_rpc_v1_CredentialPutRequest, AUTO)
+PB_BIND(gizclaw_rpc_v1_CredentialPutRequest, gizclaw_rpc_v1_CredentialPutRequest, 2)
 
 
-PB_BIND(gizclaw_rpc_v1_CredentialPutResponse, gizclaw_rpc_v1_CredentialPutResponse, AUTO)
+PB_BIND(gizclaw_rpc_v1_CredentialPutResponse, gizclaw_rpc_v1_CredentialPutResponse, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_DashScopeCredentialBody, gizclaw_rpc_v1_DashScopeCredentialBody, AUTO)

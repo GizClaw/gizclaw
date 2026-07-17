@@ -7187,19 +7187,21 @@ class VoiceProviderData extends $pb.GeneratedMessage {
 
 class VolcCredentialBody extends $pb.GeneratedMessage {
   factory VolcCredentialBody({
-    $core.String? apiKey,
-    $core.String? appId,
+    $core.String? speechApiKey,
+    $core.String? speechAppId,
     $core.String? openapiAccessKey,
     $core.String? openapiAccessKeyId,
     $core.String? searchApiKey,
+    $core.String? arkApiKey,
   }) {
     final result = create();
-    if (apiKey != null) result.apiKey = apiKey;
-    if (appId != null) result.appId = appId;
+    if (speechApiKey != null) result.speechApiKey = speechApiKey;
+    if (speechAppId != null) result.speechAppId = speechAppId;
     if (openapiAccessKey != null) result.openapiAccessKey = openapiAccessKey;
     if (openapiAccessKeyId != null)
       result.openapiAccessKeyId = openapiAccessKeyId;
     if (searchApiKey != null) result.searchApiKey = searchApiKey;
+    if (arkApiKey != null) result.arkApiKey = arkApiKey;
     return result;
   }
 
@@ -7216,11 +7218,12 @@ class VolcCredentialBody extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'VolcCredentialBody',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'apiKey')
-    ..aOS(2, _omitFieldNames ? '' : 'appId')
+    ..aOS(1, _omitFieldNames ? '' : 'speechApiKey')
+    ..aOS(2, _omitFieldNames ? '' : 'speechAppId')
     ..aOS(3, _omitFieldNames ? '' : 'openapiAccessKey')
     ..aOS(4, _omitFieldNames ? '' : 'openapiAccessKeyId')
     ..aOS(5, _omitFieldNames ? '' : 'searchApiKey')
+    ..aOS(6, _omitFieldNames ? '' : 'arkApiKey')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -7243,22 +7246,22 @@ class VolcCredentialBody extends $pb.GeneratedMessage {
   static VolcCredentialBody? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get apiKey => $_getSZ(0);
+  $core.String get speechApiKey => $_getSZ(0);
   @$pb.TagNumber(1)
-  set apiKey($core.String value) => $_setString(0, value);
+  set speechApiKey($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasApiKey() => $_has(0);
+  $core.bool hasSpeechApiKey() => $_has(0);
   @$pb.TagNumber(1)
-  void clearApiKey() => $_clearField(1);
+  void clearSpeechApiKey() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $core.String get appId => $_getSZ(1);
+  $core.String get speechAppId => $_getSZ(1);
   @$pb.TagNumber(2)
-  set appId($core.String value) => $_setString(1, value);
+  set speechAppId($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
-  $core.bool hasAppId() => $_has(1);
+  $core.bool hasSpeechAppId() => $_has(1);
   @$pb.TagNumber(2)
-  void clearAppId() => $_clearField(2);
+  void clearSpeechAppId() => $_clearField(2);
 
   @$pb.TagNumber(3)
   $core.String get openapiAccessKey => $_getSZ(2);
@@ -7286,6 +7289,15 @@ class VolcCredentialBody extends $pb.GeneratedMessage {
   $core.bool hasSearchApiKey() => $_has(4);
   @$pb.TagNumber(5)
   void clearSearchApiKey() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get arkApiKey => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set arkApiKey($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasArkApiKey() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearArkApiKey() => $_clearField(6);
 }
 
 class VolcTenantModelProviderData extends $pb.GeneratedMessage {

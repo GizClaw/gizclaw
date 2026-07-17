@@ -12,8 +12,8 @@ import (
 func TestDefaultBuilderBuildsVolcASTTranslateTransformer(t *testing.T) {
 	body := apitypes.CredentialBody{}
 	if err := body.FromVolcCredentialBody(apitypes.VolcCredentialBody{
-		AppId:  testStringPtr("speech-app-id"),
-		ApiKey: testStringPtr("speech-api-key"),
+		SpeechAppId:  testStringPtr("speech-app-id"),
+		SpeechApiKey: testStringPtr("speech-api-key"),
 	}); err != nil {
 		t.Fatalf("FromVolcCredentialBody() error = %v", err)
 	}

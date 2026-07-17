@@ -303,7 +303,7 @@ func TestDefaultBuilderBuildsVolcArkGenerator(t *testing.T) {
 		},
 		Credential: apitypes.Credential{
 			Name: "volc-key",
-			Body: testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app", "api_key": "ark-test"}),
+			Body: testVolcCredentialBodyFromStrings(map[string]string{"speech_api_key": "speech-test", "ark_api_key": "ark-test"}),
 		},
 	})
 	if err != nil {
@@ -319,6 +319,68 @@ func TestDefaultBuilderBuildsVolcArkGenerator(t *testing.T) {
 	thinking, ok := openaiGen.ExtraFields["thinking"].(map[string]any)
 	if !ok || thinking["type"] != "disabled" {
 		t.Fatalf("OpenAIGenerator ExtraFields = %#v, want thinking.type=disabled", openaiGen.ExtraFields)
+	}
+}
+
+func TestDefaultBuilderRejectsWrongVolcServiceKey(t *testing.T) {
+	_, err := (DefaultBuilder{}).BuildGenerator(context.Background(), GeneratorConfig{
+		Model: apitypes.Model{Id: "chat", Kind: apitypes.ModelKindLlm},
+		Tenant: Tenant{
+			Kind: "volc-tenant",
+			Volc: &apitypes.VolcTenant{Name: "main"},
+		},
+		Credential: apitypes.Credential{
+			Name: "volc-key",
+			Body: testVolcCredentialBodyFromStrings(map[string]string{"speech_api_key": "speech-key"}),
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "missing ark_api_key for volc ark") {
+		t.Fatalf("BuildGenerator() error = %v, want missing ark_api_key", err)
+	}
+
+	_, err = (DefaultBuilder{}).BuildTransformer(context.Background(), TransformerConfig{
+		Model: &apitypes.Model{Id: "asr", Kind: apitypes.ModelKindAsr},
+		Tenant: Tenant{
+			Kind: "volc-tenant",
+			Volc: &apitypes.VolcTenant{Name: "main"},
+		},
+		Credential: apitypes.Credential{
+			Name: "volc-key",
+			Body: testVolcCredentialBodyFromStrings(map[string]string{
+				"speech_app_id": "speech-app",
+				"ark_api_key":   "ark-key",
+			}),
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "missing speech_api_key for doubao asr") {
+		t.Fatalf("BuildTransformer() error = %v, want missing speech_api_key", err)
+	}
+
+	_, err = (DefaultBuilder{}).BuildTransformer(context.Background(), TransformerConfig{
+		Model: &apitypes.Model{
+			Id:   "dialog",
+			Kind: apitypes.ModelKindRealtime,
+			ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{
+				UpstreamModel: stringPtr("O"),
+			}),
+		},
+		Tenant: Tenant{
+			Kind: "volc-tenant",
+			Volc: &apitypes.VolcTenant{Name: "main"},
+		},
+		Credential: apitypes.Credential{
+			Name: "volc-key",
+			Body: testVolcCredentialBodyFromStrings(map[string]string{
+				"speech_app_id":  "speech-app",
+				"speech_api_key": "speech-key",
+			}),
+		},
+		Params: map[string]any{
+			"extension": `{"dialog":{"extra":{"enable_volc_websearch":true}}}`,
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "missing search_api_key for doubao realtime web search") {
+		t.Fatalf("BuildTransformer() error = %v, want missing search_api_key", err)
 	}
 }
 
@@ -340,7 +402,7 @@ func TestDefaultBuilderBuildsVolcASRTransformer(t *testing.T) {
 		},
 		Credential: apitypes.Credential{
 			Name: "volc-token",
-			Body: testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app", "api_key": "tok"}),
+			Body: testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "speech_api_key": "tok"}),
 		},
 	})
 	if err != nil {
@@ -393,7 +455,7 @@ func TestDefaultBuilderBuildsVolcASRTransformerFromParams(t *testing.T) {
 		},
 		Credential: apitypes.Credential{
 			Name: "volc-token",
-			Body: testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app", "api_key": "tok"}),
+			Body: testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "speech_api_key": "tok"}),
 		},
 		Params: map[string]any{
 			"format":          "pcm",
@@ -447,7 +509,7 @@ func TestDefaultBuilderBuildsVolcRealtimeTransformer(t *testing.T) {
 		},
 		Credential: apitypes.Credential{
 			Name: "volc-token",
-			Body: testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app", "api_key": "runtime-key"}),
+			Body: testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "speech_api_key": "runtime-key"}),
 		},
 		Params: map[string]any{
 			"output_voice": "speaker-id",
@@ -473,7 +535,7 @@ func TestDefaultBuilderBuildsVolcRealtimeTransformer(t *testing.T) {
 	}
 }
 
-func TestDefaultBuilderBuildsVolcRealtimeTransformerUsesAPIKey(t *testing.T) {
+func TestDefaultBuilderBuildsVolcRealtimeTransformerUsesSpeechAPIKey(t *testing.T) {
 	tf, err := (DefaultBuilder{}).BuildTransformer(context.Background(), TransformerConfig{
 		Model: &apitypes.Model{
 			Id:   "dialog",
@@ -489,7 +551,7 @@ func TestDefaultBuilderBuildsVolcRealtimeTransformerUsesAPIKey(t *testing.T) {
 		},
 		Credential: apitypes.Credential{
 			Name: "volc-token",
-			Body: testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app", "api_key": "speech-runtime-key"}),
+			Body: testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "speech_api_key": "speech-runtime-key"}),
 		},
 	})
 	if err != nil {
@@ -520,8 +582,8 @@ func TestDefaultBuilderBuildsVolcRealtimeTransformerFromWorkflowParams(t *testin
 		Credential: apitypes.Credential{
 			Name: "volc-token",
 			Body: testVolcCredentialBodyFromStrings(map[string]string{
-				"app_id":         "app",
-				"api_key":        "realtime-key",
+				"speech_app_id":  "app",
+				"speech_api_key": "realtime-key",
 				"search_api_key": "search-key",
 			}),
 		},
@@ -651,7 +713,7 @@ func TestDefaultBuilderRejectsUnsupportedVolcRealtimeMode(t *testing.T) {
 		},
 		Credential: apitypes.Credential{
 			Name: "volc-token",
-			Body: testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app", "api_key": "realtime-key"}),
+			Body: testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "speech_api_key": "realtime-key"}),
 		},
 		Params: map[string]any{"mode": "bad"},
 	})
@@ -678,7 +740,7 @@ func TestDefaultBuilderRejectsVolcRealtimeMissingUpstreamModel(t *testing.T) {
 		},
 		Credential: apitypes.Credential{
 			Name: "volc-token",
-			Body: testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app", "api_key": "realtime-key"}),
+			Body: testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "speech_api_key": "realtime-key"}),
 		},
 	})
 	if err == nil || !strings.Contains(err.Error(), `missing upstream_model for doubao realtime`) {
@@ -742,7 +804,7 @@ func TestDefaultBuilderBuildsVoiceTransformers(t *testing.T) {
 					Kind: "volc-tenant",
 					Volc: &apitypes.VolcTenant{Name: "main", CredentialName: "volc-token"},
 				},
-				Credential: apitypes.Credential{Name: "volc-token", Body: testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app", "api_key": "tok"})},
+				Credential: apitypes.Credential{Name: "volc-token", Body: testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "speech_api_key": "tok"})},
 			},
 			wantFormat:     defaultVolcTTSAudioFormat,
 			wantSampleRate: defaultTTSAudioSampleRate,
@@ -939,7 +1001,7 @@ func TestDefaultBuilderRejectsInvalidTransformerConfigs(t *testing.T) {
 					Kind: string(apitypes.VoiceProviderKindVolcTenant),
 					Volc: &apitypes.VolcTenant{Name: "main"},
 				},
-				Credential: apitypes.Credential{Body: testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app", "api_key": "tok"})},
+				Credential: apitypes.Credential{Body: testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "speech_api_key": "tok"})},
 			},
 		},
 		{
@@ -1587,7 +1649,7 @@ func (f fakeCredentials) GetCredential(_ context.Context, request adminhttp.GetC
 	*f.events = append(*f.events, "get:credential:"+request.Name)
 	return adminhttp.GetCredential200JSONResponse(apitypes.Credential{
 		Name: request.Name,
-		Body: testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app", "api_key": "sk-test"}),
+		Body: testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "speech_api_key": "sk-test"}),
 	}), nil
 }
 

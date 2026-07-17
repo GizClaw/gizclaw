@@ -4,6 +4,6 @@ kind: VolcTenant
 metadata:
   name: volc-ark
 spec:
-  credential_name: volc-ark-credential
+  credential_name: volc-main-credential
   description: Volc Ark LLM tenant
   region: cn-beijing

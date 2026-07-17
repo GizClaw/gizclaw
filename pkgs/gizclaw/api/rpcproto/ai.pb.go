@@ -5357,11 +5357,12 @@ func (*VoiceProviderData_VolcTenantVoiceProviderData) isVoiceProviderData_Value(
 
 type VolcCredentialBody struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
-	ApiKey             *string                `protobuf:"bytes,1,opt,name=api_key,json=apiKey,proto3,oneof" json:"api_key,omitempty"`
-	AppId              *string                `protobuf:"bytes,2,opt,name=app_id,json=appId,proto3,oneof" json:"app_id,omitempty"`
+	SpeechApiKey       *string                `protobuf:"bytes,1,opt,name=speech_api_key,json=speechApiKey,proto3,oneof" json:"speech_api_key,omitempty"`
+	SpeechAppId        *string                `protobuf:"bytes,2,opt,name=speech_app_id,json=speechAppId,proto3,oneof" json:"speech_app_id,omitempty"`
 	OpenapiAccessKey   *string                `protobuf:"bytes,3,opt,name=openapi_access_key,json=openapiAccessKey,proto3,oneof" json:"openapi_access_key,omitempty"`
 	OpenapiAccessKeyId *string                `protobuf:"bytes,4,opt,name=openapi_access_key_id,json=openapiAccessKeyId,proto3,oneof" json:"openapi_access_key_id,omitempty"`
 	SearchApiKey       *string                `protobuf:"bytes,5,opt,name=search_api_key,json=searchApiKey,proto3,oneof" json:"search_api_key,omitempty"`
+	ArkApiKey          *string                `protobuf:"bytes,6,opt,name=ark_api_key,json=arkApiKey,proto3,oneof" json:"ark_api_key,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -5396,16 +5397,16 @@ func (*VolcCredentialBody) Descriptor() ([]byte, []int) {
 	return file_payload_ai_proto_rawDescGZIP(), []int{82}
 }
 
-func (x *VolcCredentialBody) GetApiKey() string {
-	if x != nil && x.ApiKey != nil {
-		return *x.ApiKey
+func (x *VolcCredentialBody) GetSpeechApiKey() string {
+	if x != nil && x.SpeechApiKey != nil {
+		return *x.SpeechApiKey
 	}
 	return ""
 }
 
-func (x *VolcCredentialBody) GetAppId() string {
-	if x != nil && x.AppId != nil {
-		return *x.AppId
+func (x *VolcCredentialBody) GetSpeechAppId() string {
+	if x != nil && x.SpeechAppId != nil {
+		return *x.SpeechAppId
 	}
 	return ""
 }
@@ -5427,6 +5428,13 @@ func (x *VolcCredentialBody) GetOpenapiAccessKeyId() string {
 func (x *VolcCredentialBody) GetSearchApiKey() string {
 	if x != nil && x.SearchApiKey != nil {
 		return *x.SearchApiKey
+	}
+	return ""
+}
+
+func (x *VolcCredentialBody) GetArkApiKey() string {
+	if x != nil && x.ArkApiKey != nil {
+		return *x.ArkApiKey
 	}
 	return ""
 }
@@ -7818,19 +7826,20 @@ const file_payload_ai_proto_rawDesc = "" +
 	"!open_aitenant_voice_provider_data\x18\x03 \x01(\v2-.gizclaw.rpc.v1.OpenAITenantVoiceProviderDataH\x00R\x1dopenAitenantVoiceProviderData\x12}\n" +
 	"#mini_max_tenant_voice_provider_data\x18\x04 \x01(\v2..gizclaw.rpc.v1.MiniMaxTenantVoiceProviderDataH\x00R\x1eminiMaxTenantVoiceProviderData\x12s\n" +
 	"\x1fvolc_tenant_voice_provider_data\x18\x05 \x01(\v2+.gizclaw.rpc.v1.VolcTenantVoiceProviderDataH\x00R\x1bvolcTenantVoiceProviderDataB\a\n" +
-	"\x05value\"\xbf\x02\n" +
-	"\x12VolcCredentialBody\x12\x1c\n" +
-	"\aapi_key\x18\x01 \x01(\tH\x00R\x06apiKey\x88\x01\x01\x12\x1a\n" +
-	"\x06app_id\x18\x02 \x01(\tH\x01R\x05appId\x88\x01\x01\x121\n" +
+	"\x05value\"\x9c\x03\n" +
+	"\x12VolcCredentialBody\x12)\n" +
+	"\x0espeech_api_key\x18\x01 \x01(\tH\x00R\fspeechApiKey\x88\x01\x01\x12'\n" +
+	"\rspeech_app_id\x18\x02 \x01(\tH\x01R\vspeechAppId\x88\x01\x01\x121\n" +
 	"\x12openapi_access_key\x18\x03 \x01(\tH\x02R\x10openapiAccessKey\x88\x01\x01\x126\n" +
 	"\x15openapi_access_key_id\x18\x04 \x01(\tH\x03R\x12openapiAccessKeyId\x88\x01\x01\x12)\n" +
-	"\x0esearch_api_key\x18\x05 \x01(\tH\x04R\fsearchApiKey\x88\x01\x01B\n" +
-	"\n" +
-	"\b_api_keyB\t\n" +
-	"\a_app_idB\x15\n" +
+	"\x0esearch_api_key\x18\x05 \x01(\tH\x04R\fsearchApiKey\x88\x01\x01\x12#\n" +
+	"\vark_api_key\x18\x06 \x01(\tH\x05R\tarkApiKey\x88\x01\x01B\x11\n" +
+	"\x0f_speech_api_keyB\x10\n" +
+	"\x0e_speech_app_idB\x15\n" +
 	"\x13_openapi_access_keyB\x18\n" +
 	"\x16_openapi_access_key_idB\x11\n" +
-	"\x0f_search_api_key\"\xe5\x06\n" +
+	"\x0f_search_api_keyB\x0e\n" +
+	"\f_ark_api_key\"\xe5\x06\n" +
 	"\x1bVolcTenantModelProviderData\x12R\n" +
 	"\bapi_mode\x18\x01 \x01(\x0e22.gizclaw.rpc.v1.VolcTenantModelProviderDataApiModeH\x00R\aapiMode\x88\x01\x01\x129\n" +
 	"\x16default_thinking_level\x18\x02 \x01(\tH\x01R\x14defaultThinkingLevel\x88\x01\x01\x12$\n" +
