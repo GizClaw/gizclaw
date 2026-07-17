@@ -13,30 +13,54 @@ func (s *Server) ListModels(ctx context.Context, request adminhttp.ListModelsReq
 	if s.Models == nil {
 		return adminhttp.ListModels500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "model service not configured")), nil
 	}
-	resp, err := s.Models.ListModels(ctx, request)
-	if err != nil {
-		return nil, err
+	limit := int32(50)
+	if request.Params.Limit != nil && *request.Params.Limit > 0 {
+		limit = *request.Params.Limit
 	}
-	list, rpcResp, err := adminResult[adminhttp.ModelList](resp.VisitListModelsResponse)
-	if err != nil {
-		return resp, nil
+	if limit > 200 {
+		limit = 200
 	}
-	if rpcResp != nil {
-		return resp, nil
-	}
-	items := make([]apitypes.Model, 0, len(list.Items))
-	for _, item := range list.Items {
-		err := s.authorizeErr(ctx, acl.ModelResource(item.Id), apitypes.ACLPermissionUse)
-		if errors.Is(err, acl.ErrDenied) {
-			continue
-		}
+
+	cursor := request.Params.Cursor
+	one := int32(1)
+	items := make([]apitypes.Model, 0, limit+1)
+	visibleCursors := make([]*string, 0, limit+1)
+	for int32(len(items)) <= limit {
+		pageReq := request
+		pageReq.Params.Cursor = cursor
+		pageReq.Params.Limit = &one
+		resp, err := s.Models.ListModels(ctx, pageReq)
 		if err != nil {
 			return nil, err
 		}
-		items = append(items, item)
+		list, rpcResp, err := adminResult[adminhttp.ModelList](resp.VisitListModelsResponse)
+		if err != nil || rpcResp != nil {
+			return resp, nil
+		}
+		if len(list.Items) == 0 {
+			break
+		}
+		item := list.Items[0]
+		err = s.authorizeErr(ctx, acl.ModelResource(item.Id), apitypes.ACLPermissionUse)
+		if err == nil {
+			items = append(items, item)
+			visibleCursors = append(visibleCursors, list.NextCursor)
+		} else if !errors.Is(err, acl.ErrDenied) {
+			return nil, err
+		}
+		if !list.HasNext || list.NextCursor == nil || *list.NextCursor == "" {
+			break
+		}
+		cursor = list.NextCursor
 	}
-	list.Items = items
-	return adminhttp.ListModels200JSONResponse(list), nil
+
+	out := adminhttp.ModelList{Items: items}
+	if int32(len(items)) > limit {
+		out.Items = items[:limit]
+		out.HasNext = true
+		out.NextCursor = visibleCursors[limit-1]
+	}
+	return adminhttp.ListModels200JSONResponse(out), nil
 }
 
 func (s *Server) GetModel(ctx context.Context, request adminhttp.GetModelRequestObject) (adminhttp.GetModelResponseObject, error) {

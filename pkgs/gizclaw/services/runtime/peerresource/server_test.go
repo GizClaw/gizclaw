@@ -728,6 +728,50 @@ func TestServerListModelsFiltersByUsePermission(t *testing.T) {
 	}
 }
 
+func TestServerListModelsPaginatesAfterUseFiltering(t *testing.T) {
+	ctx := context.Background()
+	auth := newRuleAuthorizer()
+	srv := newTestResourceServer()
+	srv.ACL = auth
+	for _, id := range []string{"hidden-a", "hidden-b", "visible-c", "visible-d"} {
+		seedModel(t, srv, id)
+	}
+	auth.allow(acl.ResourceKindModel, "visible-c", apitypes.ACLPermissionUse)
+	auth.allow(acl.ResourceKindModel, "visible-d", apitypes.ACLPermissionUse)
+
+	limit := int32(1)
+	firstResp, err := srv.ListModels(ctx, adminhttp.ListModelsRequestObject{Params: adminhttp.ListModelsParams{Limit: &limit}})
+	if err != nil {
+		t.Fatalf("ListModels(first) error = %v", err)
+	}
+	first := firstResp.(adminhttp.ListModels200JSONResponse)
+	if len(first.Items) != 1 || first.Items[0].Id != "visible-c" || !first.HasNext || first.NextCursor == nil || *first.NextCursor == "hidden-a" || *first.NextCursor == "hidden-b" {
+		t.Fatalf("ListModels(first) = %#v", first)
+	}
+	secondResp, err := srv.ListModels(ctx, adminhttp.ListModelsRequestObject{Params: adminhttp.ListModelsParams{Cursor: first.NextCursor, Limit: &limit}})
+	if err != nil {
+		t.Fatalf("ListModels(second) error = %v", err)
+	}
+	second := secondResp.(adminhttp.ListModels200JSONResponse)
+	if len(second.Items) != 1 || second.Items[0].Id != "visible-d" || second.HasNext || second.NextCursor != nil {
+		t.Fatalf("ListModels(second) = %#v", second)
+	}
+}
+
+func TestServerWorkflowGetAllowsUsePermission(t *testing.T) {
+	auth := newRuleAuthorizer()
+	srv := newTestResourceServer()
+	srv.ACL = auth
+	seedWorkflow(t, srv, "workflow-a1")
+	auth.allow(acl.ResourceKindWorkflow, "workflow-a1", apitypes.ACLPermissionUse)
+
+	resp := callRPC(t, srv, "workflow-get-use", rpcapi.RPCMethodServerWorkflowGet, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowGetRequest, rpcapi.WorkflowGetRequest{Name: "workflow-a1"}))
+	requireNoRPCError(t, resp)
+	if got := auth.count(context.Background(), acl.ResourceKindWorkflow, "workflow-a1", apitypes.ACLPermissionUse); got != 1 {
+		t.Fatalf("workflow use checks = %d, want 1", got)
+	}
+}
+
 func TestServerWorkspaceListPrefixUsesACLDiscovery(t *testing.T) {
 	ctx := context.Background()
 	auth := newListingAuthorizer()
