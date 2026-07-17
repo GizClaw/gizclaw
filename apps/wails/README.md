@@ -64,9 +64,12 @@ for local Server support.
 
 ## Runtime boundaries
 
-- The Wails bridge returns only configured/missing state; persisted private keys
-  and bootstrap values never appear in responses. Public identity halves may be
-  returned for QR identity pinning and remote Admin setup.
+- Persisted Admin and Client private keys never appear in Wails bridge responses.
+  Public identity halves may be returned for QR identity pinning and remote
+  Admin setup.
+- The trusted Desktop Renderer receives editable `bootstrap.env` content and
+  saved values so its form and dotenv views can be prefilled. Values sourced
+  only from the process environment or resource defaults are not returned.
 - Endpoint health uses bounded native `GET /server-info` probes without
   credentials.
 - Each Pod reuses at most one Admin listener and one Play listener, both bound
