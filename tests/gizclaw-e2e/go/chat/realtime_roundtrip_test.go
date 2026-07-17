@@ -5,5 +5,5 @@ package chat
 import "testing"
 
 func TestRealtimeRoundtrip(t *testing.T) {
-	runLiveWorkspaceCase(t, workspaceCaseRealtimeRoundtrip, allWorkspaceConfigPaths(t))
+	runLiveWorkspaceCase(t, workspaceCaseRealtimeRoundtrip, continuousWorkspaceConfigPaths(t))
 }

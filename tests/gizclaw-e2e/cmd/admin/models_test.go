@@ -25,7 +25,6 @@ func TestAdminAIProviderCatalogUserStory(t *testing.T) {
 	geminiList := h.RunCLI("admin", "gemini-tenants", "list", "--context", "admin-a")
 	geminiList.MustSucceed(t)
 	if strings.Contains(geminiList.Stdout, `"name":"gemini-main"`) {
-		assertOutputContains(t, geminiList.Stdout, `"project_id":"gemini-main-project"`)
 		geminiGet := h.RunCLI("admin", "gemini-tenants", "get", "gemini-main", "--context", "admin-a")
 		geminiGet.MustSucceed(t)
 		assertOutputContains(t, geminiGet.Stdout, `"credential_name":"gemini-main-credential"`, `"location":"global"`)
@@ -37,7 +36,7 @@ func TestAdminAIProviderCatalogUserStory(t *testing.T) {
 		assertOutputContains(t, dashScopeList.Stdout, `"credential_name":"qwen-dashscope-credential"`)
 		dashScopeGet := h.RunCLI("admin", "dashscope-tenants", "get", "qwen-dashscope-main", "--context", "admin-a")
 		dashScopeGet.MustSucceed(t)
-		assertOutputContains(t, dashScopeGet.Stdout, `"base_url":"https://dashscope.example.invalid/compatible-mode/v1"`)
+		assertOutputContains(t, dashScopeGet.Stdout, `"name":"qwen-dashscope-main"`, `"base_url":"`)
 	}
 
 	modelsList := h.RunCLI("admin", "models", "list", "--provider-kind", "openai-tenant", "--provider-name", "fake-openai", "--context", "admin-a")

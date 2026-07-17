@@ -1910,7 +1910,7 @@ spec:
             tool_names:
             - werewolf_game_event
           id: call_game_event
-          publish: true
+          publish: false
           type: llm
         - config:
             max_tokens: 64
@@ -1926,7 +1926,7 @@ spec:
             tool_names:
             - werewolf_game_event
           id: call_game_over_event
-          publish: true
+          publish: false
           type: llm
         - config:
             source: |

@@ -5,5 +5,5 @@ package chat
 import "testing"
 
 func TestHistoryReplay(t *testing.T) {
-	runLiveWorkspaceCase(t, workspaceCaseHistoryReplay, allWorkspaceConfigPaths(t))
+	runLiveWorkspaceCase(t, workspaceCaseHistoryReplay, historyReplayWorkspaceConfigPaths(t))
 }

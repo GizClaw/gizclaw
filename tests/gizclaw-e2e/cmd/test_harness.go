@@ -35,6 +35,7 @@ const (
 	serverStopTimeout      = 5 * time.Second
 	readyTimeout           = 30 * time.Second
 	probeTimeout           = time.Second
+	serverInfoRetryTimeout = 5 * time.Second
 	pollInterval           = 20 * time.Millisecond
 )
 
@@ -396,7 +397,7 @@ func (h *Harness) CreateContext(name string) Result {
 
 func (h *Harness) CreateAdminContext(name string) Result {
 	h.t.Helper()
-	return h.CreateContextWith(name, h.adminEndpoint())
+	return h.InstallFixedAdminContext(name)
 }
 
 func (h *Harness) CreateContextWith(name, serverAddr string) Result {
@@ -977,6 +978,19 @@ func (h *Harness) renderServerFixture(fixtureName string, replacements map[strin
 		rendered = strings.ReplaceAll(rendered, old, newValue)
 	}
 	if listenAddr := replacements[fixtureListenAddrToken]; listenAddr != "" {
+		cfg := serverWorkspaceConfig{}
+		if err := yaml.Unmarshal([]byte(rendered), &cfg); err != nil {
+			h.t.Fatalf("parse rendered server fixture identity: %v", err)
+		}
+		keyPair, err := giznet.GenerateKeyPair()
+		if err != nil {
+			h.t.Fatalf("generate isolated server identity: %v", err)
+		}
+		if cfg.Identity.PrivateKey.IsZero() {
+			h.t.Fatal("rendered server fixture has no identity.private-key")
+		}
+		rendered = strings.Replace(rendered, cfg.Identity.PrivateKey.String(), keyPair.Private.String(), 1)
+
 		h.ServerAddr = listenAddr
 		rendered = stripYAMLTopLevelBlock(rendered, "ice-servers:")
 		rendered = strings.ReplaceAll(rendered, "listen: 127.0.0.1:9820", "listen: "+listenAddr)
@@ -1078,14 +1092,28 @@ func fetchE2EServerInfo(endpoint string) (e2eServerInfo, error) {
 	if endpoint == "" {
 		return e2eServerInfo{}, fmt.Errorf("server endpoint is empty")
 	}
+	deadline := time.Now().Add(serverInfoRetryTimeout)
+	for {
+		info, retryable, err := fetchE2EServerInfoOnce(endpoint)
+		if err == nil {
+			return info, nil
+		}
+		if !retryable || !time.Now().Before(deadline) {
+			return e2eServerInfo{}, err
+		}
+		time.Sleep(pollInterval)
+	}
+}
+
+func fetchE2EServerInfoOnce(endpoint string) (e2eServerInfo, bool, error) {
 	client := http.Client{Timeout: probeTimeout}
 	resp, err := client.Get("http://" + endpoint + "/server-info")
 	if err != nil {
-		return e2eServerInfo{}, err
+		return e2eServerInfo{}, true, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return e2eServerInfo{}, fmt.Errorf("server-info status=%d", resp.StatusCode)
+		return e2eServerInfo{}, resp.StatusCode >= http.StatusInternalServerError, fmt.Errorf("server-info status=%d", resp.StatusCode)
 	}
 	var body struct {
 		PublicKey     string                `json:"public_key"`
@@ -1094,31 +1122,31 @@ func fetchE2EServerInfo(endpoint string) (e2eServerInfo, error) {
 		ICEServers    []gizwebrtc.ICEServer `json:"ice_servers"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return e2eServerInfo{}, err
+		return e2eServerInfo{}, false, err
 	}
 	if body.Protocol != "" && body.Protocol != "gizclaw-webrtc" {
-		return e2eServerInfo{}, fmt.Errorf("server-info protocol=%q", body.Protocol)
+		return e2eServerInfo{}, false, fmt.Errorf("server-info protocol=%q", body.Protocol)
 	}
 	var serverPublicKey giznet.PublicKey
 	if err := serverPublicKey.UnmarshalText([]byte(strings.TrimSpace(body.PublicKey))); err != nil {
-		return e2eServerInfo{}, fmt.Errorf("server-info public_key: %w", err)
+		return e2eServerInfo{}, false, fmt.Errorf("server-info public_key: %w", err)
 	}
 	if serverPublicKey.IsZero() {
-		return e2eServerInfo{}, fmt.Errorf("server-info public_key is zero")
+		return e2eServerInfo{}, false, fmt.Errorf("server-info public_key is zero")
 	}
 	signalingPath := strings.TrimSpace(body.SignalingPath)
 	if signalingPath == "" {
 		signalingPath = gizwebrtc.SignalingPath
 	}
 	if !strings.HasPrefix(signalingPath, "/") || strings.HasPrefix(signalingPath, "//") {
-		return e2eServerInfo{}, fmt.Errorf("server-info signaling_path=%q", signalingPath)
+		return e2eServerInfo{}, false, fmt.Errorf("server-info signaling_path=%q", signalingPath)
 	}
 	signalingURL := url.URL{Scheme: "http", Host: endpoint, Path: signalingPath}
 	return e2eServerInfo{
 		PublicKey:    serverPublicKey,
 		SignalingURL: signalingURL.String(),
 		ICEServers:   body.ICEServers,
-	}, nil
+	}, false, nil
 }
 
 func serverWorkspaceEndpoint(cfg serverWorkspaceConfig) string {

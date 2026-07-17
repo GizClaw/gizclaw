@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -46,6 +47,34 @@ func TestFetchE2EServerInfoIncludesICEServers(t *testing.T) {
 	}
 	if info.ICEServers[0].Username != "edge" || info.ICEServers[0].Credential != "secret" {
 		t.Fatalf("ICE server credentials = %+v", info.ICEServers[0])
+	}
+}
+
+func TestFetchE2EServerInfoRetriesTransientFailure(t *testing.T) {
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair error = %v", err)
+	}
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if requests.Add(1) == 1 {
+			http.Error(w, "stale upstream", http.StatusBadGateway)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintf(w, `{"protocol":"gizclaw-webrtc","public_key":%q}`, serverKey.Public.String())
+	}))
+	defer server.Close()
+
+	info, err := fetchE2EServerInfo(strings.TrimPrefix(server.URL, "http://"))
+	if err != nil {
+		t.Fatalf("fetchE2EServerInfo error = %v", err)
+	}
+	if !info.PublicKey.Equal(serverKey.Public) {
+		t.Fatalf("PublicKey = %v, want %v", info.PublicKey, serverKey.Public)
+	}
+	if got := requests.Load(); got != 2 {
+		t.Fatalf("requests = %d, want 2", got)
 	}
 }
 

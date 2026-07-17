@@ -40,7 +40,7 @@ func TestAdminWorkflowsUserStory(t *testing.T) {
 		t.Fatalf("workflows get missing resource fields:\n%s", rpcGet.Stdout)
 	}
 
-	asset := filepath.Join("..", "..", "testdata", "assets", "workflows", "flowcraft-support", "icon.png")
+	asset := filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "assets", "workflows", "flowcraft-support", "icon.png")
 	for range 2 {
 		upload := h.RunCLI("admin", "workflows", "upload-icon", "flowcraft-support", "--format", "png", "-f", asset, "--context", "admin-a")
 		upload.MustSucceed(t)

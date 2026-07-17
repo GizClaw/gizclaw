@@ -42,10 +42,37 @@ Run the full ordered e2e gate:
 bash tests/gizclaw-e2e/run_tests.sh
 ```
 
-The script builds the host e2e CLI, starts the Docker Compose stack, waits for
-the server and desktop surface, writes a generated host-side runtime env, runs
-the ordered JS, desktop, Admin API, chat, gameplay, RPC, social, and selected
-CLI suites, and stops the stack on success or failure.
+The script installs the locked host Node.js workspaces and initializes the
+nanopb runtime submodule before starting Docker, so missing host prerequisites
+fail before the expensive environment setup. It then builds the host e2e CLI,
+starts the Docker Compose stack, waits for the server and desktop surface,
+writes a generated host-side runtime env, runs the ordered JS, desktop, C/cgo,
+Admin API, chat, gameplay, RPC, social, and complete maintained CLI suites, and
+stops the stack on success or failure. Required live cases fail rather than
+being reported as skipped when the environment becomes unavailable.
+
+Each ordered phase emits `phase start` and `phase done` lines with status and
+elapsed seconds. Chat live cases also emit one `workspace_case_attempt` and
+`workspace_case_attempt_done` pair per configuration attempt, including retry
+number, elapsed time, result, and whether the failure was retryable.
+
+The automated chat matrix separates catalog compatibility from deep behavior:
+
+- `TestPushToTalkRoundtrip` runs one real push-to-talk turn for every committed
+  workspace configuration.
+- `TestRealtimeRoundtrip` runs three continuous turns on representative
+  Flowcraft, AST translation, and native realtime configurations.
+- push-to-talk interruption covers Flowcraft plus AST external TTS; realtime
+  interruption covers representative Flowcraft, AST, and native realtime
+  configurations.
+- realtime auto-split covers AST and native realtime history semantics.
+- history replay runs two recorded Flowcraft turns and is the only generic chat
+  case that plays agent history; its output wait is capped at 60 seconds.
+
+This preserves all 14 catalog configurations and every behavior while avoiding
+the previous six-tests-by-14-configurations Cartesian product. Catalog,
+continuous-conversation, interruption, and auto-split cases still validate
+history, memory, and recall state without repeating agent replay and audio ASR.
 
 For manual work, start only the Docker e2e environment:
 
@@ -83,10 +110,14 @@ GIZCLAW_E2E_EDGE_ENDPOINT=192.168.1.20:19821 \
 ```
 
 The edge host port maps to container `9821/tcp`, and TURN uses its own UDP
-listener plus relay range. The server also publishes an admin-only TCP endpoint
-on `GIZCLAW_E2E_DOCKER_ADMIN_PORT`, bound to `127.0.0.1` by default. Devices and
-browser/client tests still use `GIZCLAW_E2E_EDGE_ENDPOINT`; host-side admin
-commands use `GIZCLAW_E2E_SERVER_ENDPOINT`.
+listener plus a 100-port relay range by default. The larger range supports the
+long ordered gate without exhausting relay allocations that remain alive while
+WebRTC closes asynchronously. Set `GIZCLAW_E2E_TURN_RELAY_MIN_PORT` and
+`GIZCLAW_E2E_TURN_RELAY_MAX_PORT` to override it. The server also publishes an
+admin-only TCP endpoint on `GIZCLAW_E2E_DOCKER_ADMIN_PORT`, bound to `127.0.0.1`
+by default. Devices and browser/client tests still use
+`GIZCLAW_E2E_EDGE_ENDPOINT`; host-side admin commands use
+`GIZCLAW_E2E_SERVER_ENDPOINT`.
 
 ## Runtime Env
 
@@ -105,10 +136,12 @@ It also writes the latest environment path:
 tests/gizclaw-e2e/testdata/docker/current.env
 ```
 
-Source it before running host-side manual commands:
+Export it before running host-side manual commands:
 
 ```sh
+set -a
 source tests/gizclaw-e2e/testdata/docker/current.env
+set +a
 ```
 
 Important values in `current.env`:
@@ -220,7 +253,7 @@ go test -tags gizclaw_e2e -count=1 \
   ./tests/gizclaw-e2e/go/social
 
 go test -tags gizclaw_e2e -count=1 ./tests/gizclaw-e2e/desktop/...
-go test -tags gizclaw_e2e -count=1 ./tests/gizclaw-e2e/cmd/connect
+go test -tags gizclaw_e2e -count=1 ./tests/gizclaw-e2e/cmd/...
 ```
 
 Human-review cases are separate because they require interactive audio review:
@@ -237,7 +270,8 @@ Stop the current Docker e2e environment and remove generated runtime state:
 bash tests/gizclaw-e2e/setup/docker-compose-down.sh
 ```
 
-Generated server data, Docker runtime contexts, and binaries stay ignored:
+The stop script also removes project-local Compose images. Generated server
+data, Docker runtime contexts, and binaries stay ignored:
 
 ```text
 tests/gizclaw-e2e/testdata/server-workspace/data/

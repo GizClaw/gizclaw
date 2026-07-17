@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/json"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -12,6 +13,11 @@ import (
 
 	"github.com/goccy/go-yaml"
 )
+
+type workflowNodePublication struct {
+	ID      string `json:"id" yaml:"id"`
+	Publish *bool  `json:"publish" yaml:"publish"`
+}
 
 var workflowFixtureFiles = []string{
 	"00-ast-translate-tts.yaml",
@@ -133,6 +139,65 @@ func TestWorkflowIconProvisioningScriptsUseOwnerAPI(t *testing.T) {
 				t.Fatalf("%s directly references %q", path, forbidden)
 			}
 		}
+	}
+}
+
+func TestWerewolfLifecycleToolNodesAreInternal(t *testing.T) {
+	var resource struct {
+		Spec struct {
+			Flowcraft struct {
+				Agent struct {
+					Graph struct {
+						Nodes []workflowNodePublication `yaml:"nodes"`
+					} `yaml:"graph"`
+				} `yaml:"agent"`
+			} `yaml:"flowcraft"`
+		} `yaml:"spec"`
+	}
+	resourceRaw, err := os.ReadFile(filepath.Join("resources", "04-workflows", "13-flowcraft-werewolf.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := yaml.Unmarshal(resourceRaw, &resource); err != nil {
+		t.Fatal(err)
+	}
+	assertWerewolfLifecycleNodesInternal(t, "resource", resource.Spec.Flowcraft.Agent.Graph.Nodes)
+
+	var workspace struct {
+		Workflow struct {
+			Flowcraft struct {
+				Agent struct {
+					Graph struct {
+						Nodes []workflowNodePublication `json:"nodes"`
+					} `json:"graph"`
+				} `json:"agent"`
+			} `json:"flowcraft"`
+		} `json:"workflow"`
+	}
+	workspaceRaw, err := os.ReadFile(filepath.Join("workspaces", "flowcraft-werewolf.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(workspaceRaw, &workspace); err != nil {
+		t.Fatal(err)
+	}
+	assertWerewolfLifecycleNodesInternal(t, "workspace", workspace.Workflow.Flowcraft.Agent.Graph.Nodes)
+}
+
+func assertWerewolfLifecycleNodesInternal(t *testing.T, source string, nodes []workflowNodePublication) {
+	t.Helper()
+	want := map[string]bool{"call_game_event": false, "call_game_over_event": false}
+	for _, node := range nodes {
+		if _, ok := want[node.ID]; !ok {
+			continue
+		}
+		if node.Publish == nil || *node.Publish {
+			t.Fatalf("%s node %s publish = %v, want explicit false", source, node.ID, node.Publish)
+		}
+		delete(want, node.ID)
+	}
+	if len(want) != 0 {
+		t.Fatalf("%s missing lifecycle nodes: %v", source, want)
 	}
 }
 

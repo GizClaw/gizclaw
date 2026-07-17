@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -90,6 +91,9 @@ func TestWorkspaceCaseAppliesInputMode(t *testing.T) {
 	if got.Workspace != "demo-workflow-hist" {
 		t.Fatalf("history-replay workspace = %q", got.Workspace)
 	}
+	if got.Rounds != 2 {
+		t.Fatalf("history-replay rounds = %d, want 2", got.Rounds)
+	}
 	got, err = workspaceCaseHumanReview.applyConfig(got)
 	if err != nil {
 		t.Fatalf("applyConfig(human-review) error = %v", err)
@@ -99,6 +103,41 @@ func TestWorkspaceCaseAppliesInputMode(t *testing.T) {
 	}
 	if got.Workspace != "demo-workflow-review" {
 		t.Fatalf("human-review workspace = %q", got.Workspace)
+	}
+	if got.Rounds != 3 {
+		t.Fatalf("human-review rounds = %d, want 3", got.Rounds)
+	}
+
+	catalog, err := workspaceCasePushToTalkRoundtrip.applyConfig(config{
+		Rounds:   3,
+		Workflow: workflowConfig{Name: "demo.workflow"},
+	})
+	if err != nil {
+		t.Fatalf("applyConfig(catalog) error = %v", err)
+	}
+	if catalog.Rounds != 1 || catalog.workspaceMode() != "push_to_talk" {
+		t.Fatalf("catalog config rounds/mode = %d/%q, want 1/push_to_talk", catalog.Rounds, catalog.workspaceMode())
+	}
+	if !workspaceCasePushToTalkRoundtrip.runtimeValidationOptions().SkipReplay {
+		t.Fatal("catalog smoke unexpectedly replays history")
+	}
+}
+
+func TestWorkspaceCaseKeepsReplayValidationInDedicatedCase(t *testing.T) {
+	if !workspaceCasePushToTalkRoundtrip.runtimeValidationOptions().SkipReplay {
+		t.Fatal("catalog roundtrip should not duplicate dedicated replay validation")
+	}
+	if !workspaceCaseRealtimeRoundtrip.runtimeValidationOptions().SkipReplay {
+		t.Fatal("continuous roundtrip should not duplicate dedicated replay validation")
+	}
+	if !workspaceCaseRealtimeInterrupt.runtimeValidationOptions().SkipReplay {
+		t.Fatal("interrupt should not replay a possibly partial response")
+	}
+	if !workspaceCaseRealtimeAutoSplit.runtimeValidationOptions().SkipReplay {
+		t.Fatal("auto split should keep replay validation in its dedicated gear-history path")
+	}
+	if workspaceCaseHistoryReplay.runtimeValidationOptions().SkipReplay {
+		t.Fatal("history replay case must play a replayable agent item")
 	}
 }
 
@@ -200,6 +239,46 @@ func TestInterruptWorkspaceConfigPathsIncludeExternalTTS(t *testing.T) {
 	}
 }
 
+func TestDeepWorkspaceConfigPathsAreCapabilityRepresentatives(t *testing.T) {
+	tests := []struct {
+		name  string
+		paths []string
+		want  []string
+	}{
+		{
+			name:  "continuous",
+			paths: continuousWorkspaceConfigPaths(t),
+			want:  []string{"ast-translate.json", "doubao-realtime.json", "flowcraft-basic.json"},
+		},
+		{
+			name:  "realtime interrupt",
+			paths: realtimeInterruptWorkspaceConfigPaths(t),
+			want:  []string{"ast-translate.json", "doubao-realtime.json", "flowcraft-basic.json"},
+		},
+		{
+			name:  "realtime auto split",
+			paths: realtimeAutoSplitWorkspaceConfigPaths(t),
+			want:  []string{"ast-translate.json", "doubao-realtime.json"},
+		},
+		{
+			name:  "history replay",
+			paths: historyReplayWorkspaceConfigPaths(t),
+			want:  []string{"flowcraft-basic.json"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := make([]string, 0, len(tt.paths))
+			for _, path := range tt.paths {
+				got = append(got, filepath.Base(path))
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("selected configs = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestRetryableLiveWorkspaceError(t *testing.T) {
 	retryable := []error{
 		errors.New("flowcraft: read ASR: buffer: read from closed buffer: websocket connect failed: Bad Gateway"),
@@ -207,10 +286,9 @@ func TestRetryableLiveWorkspaceError(t *testing.T) {
 		errors.New("ast websocket read: websocket: close 1006 (abnormal closure): unexpected EOF"),
 		errors.New("round 2: transport: timeout; recent events: none"),
 		errors.New("bytedance: response incomplete: length"),
-		errors.New("buffer: read from closed buffer: genx: generate error: flowcraft: claw event error: recall ingest: extract: recall two-pass extractor: content llm: bytedance.generate: 15.007s"),
-		errors.New("speech: POST \"http://gizclaw/v1/audio/speech\": 400 Bad Request"),
 		errors.New("peer event error: buffer: read from closed buffer: doubaospeech: [Server processing timeout] node execution timeout (code=55001010)"),
 		errors.New("peer event error: buffer: read from closed buffer: doubaospeech: [Server-side generic error] OperatorWrapper Process failed: big asr recv err. rpc timeout: CallWithTimeout: timeout in business code, timeout_config=3s"),
+		errors.New("peer event error: buffer: read from closed buffer: genx: generate error: flowcraft: read TTS voice \"你好\": flowcraft: send tts stream request: Post \"https://openspeech.bytedance.com/api/v3/tts/unidirectional\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)"),
 		errors.New("interrupt second transcript mismatch: similarity 0.21 below 0.45"),
 	}
 	for _, err := range retryable {
@@ -224,6 +302,8 @@ func TestRetryableLiveWorkspaceError(t *testing.T) {
 		errors.New("client private key: invalid key"),
 		errors.New("interrupt missing second transcript"),
 		errors.New("context deadline exceeded"),
+		errors.New("buffer: read from closed buffer: genx: generate error: flowcraft: claw event error: recall ingest: extract: recall two-pass extractor: content llm: bytedance.generate: 15.007s"),
+		errors.New("speech: POST \"http://gizclaw/v1/audio/speech\": 400 Bad Request"),
 	}
 	for _, err := range notRetryable {
 		if isRetryableLiveWorkspaceError(err) {
@@ -893,7 +973,7 @@ func TestValidateWorkspaceRuntimeAllowsDisabledMemory(t *testing.T) {
 	}
 }
 
-func TestValidateWorkspaceRuntimeAllowsMissingReplayWhenConfigured(t *testing.T) {
+func TestValidateWorkspaceRuntimeSkipsReplayWhenConfigured(t *testing.T) {
 	workspace := "flowcraft-voice"
 	control := &fakeRunControl{
 		workspaceStates: []*rpcapi.ServerGetRunWorkspaceResponse{
@@ -914,12 +994,62 @@ func TestValidateWorkspaceRuntimeAllowsMissingReplayWhenConfigured(t *testing.T)
 	report, err := validateWorkspaceRuntime(context.Background(), nil, control, config{
 		Workspace: workspace,
 		Agent:     "flowcraft",
-	}, []roundStats{{Transcript: "你好"}}, workspaceRuntimeValidationOptions{AllowMissingReplay: true})
+	}, []roundStats{{Transcript: "你好"}}, workspaceRuntimeValidationOptions{SkipReplay: true})
 	if err != nil {
 		t.Fatalf("validateWorkspaceRuntime() error = %v", err)
 	}
 	if report == nil || report.HistoryCount != 1 || report.ReplayState != "" || report.ReplayHistoryID != "" {
 		t.Fatalf("runtime report = %+v", report)
+	}
+}
+
+func TestHistoryReplayResponseTimeoutIsBounded(t *testing.T) {
+	driver := &personaDriver{cfg: config{timeout: 20 * time.Minute}}
+	if got := driver.historyReplayResponseTimeout(); got != time.Minute {
+		t.Fatalf("history replay timeout = %s, want 1m", got)
+	}
+	driver.cfg.timeout = 30 * time.Second
+	if got := driver.historyReplayResponseTimeout(); got != 30*time.Second {
+		t.Fatalf("history replay timeout = %s, want 30s", got)
+	}
+}
+
+func TestValidateWorkspaceRuntimeWaitsForReplayableAgentHistory(t *testing.T) {
+	workspace := "flowcraft-voice"
+	control := &fakeRunControl{
+		workspaceStates: []*rpcapi.ServerGetRunWorkspaceResponse{
+			{RuntimeState: rpcapi.PeerRunStatusStateRunning, WorkspaceName: workspace},
+		},
+		historyStates: []*rpcapi.ServerListRunWorkspaceHistoryResponse{
+			{
+				Available: true,
+				Items: []rpcapi.PeerRunHistoryEntry{{
+					Id:              "gear:000000",
+					ReplayAvailable: true,
+					Text:            "用户输入",
+					Type:            rpcapi.PeerRunHistoryEntryTypeGear,
+				}},
+			},
+			{
+				Available: true,
+				Items: []rpcapi.PeerRunHistoryEntry{{
+					Id:              "agent:000000",
+					ReplayAvailable: true,
+					Text:            "助手回复",
+					Type:            rpcapi.PeerRunHistoryEntryTypeAgent,
+				}},
+			},
+		},
+	}
+	report, err := validateWorkspaceRuntime(context.Background(), nil, control, config{
+		Workspace: workspace,
+		Agent:     "flowcraft",
+	}, []roundStats{{Transcript: "你好"}}, workspaceRuntimeValidationOptions{})
+	if err != nil {
+		t.Fatalf("validateWorkspaceRuntime() error = %v", err)
+	}
+	if report == nil || report.ReplayHistoryID != "agent:000000" || len(control.historyStates) != 0 {
+		t.Fatalf("runtime report = %+v remaining history states = %d", report, len(control.historyStates))
 	}
 }
 
@@ -1075,6 +1205,7 @@ type fakeRunControl struct {
 	statusErr          error
 	workspaceStates    []*rpcapi.ServerGetRunWorkspaceResponse
 	history            *rpcapi.ServerListRunWorkspaceHistoryResponse
+	historyStates      []*rpcapi.ServerListRunWorkspaceHistoryResponse
 	play               *rpcapi.ServerPlayRunWorkspaceHistoryResponse
 	memory             *rpcapi.ServerGetRunWorkspaceMemoryStatsResponse
 	recall             *rpcapi.ServerRunWorkspaceRecallResponse
@@ -1166,6 +1297,11 @@ func (f *fakeRunControl) GetServerRunWorkspace(context.Context, string) (*rpcapi
 }
 
 func (f *fakeRunControl) ListServerRunWorkspaceHistory(context.Context, string, rpcapi.ServerListRunWorkspaceHistoryRequest) (*rpcapi.ServerListRunWorkspaceHistoryResponse, error) {
+	if len(f.historyStates) > 0 {
+		history := f.historyStates[0]
+		f.historyStates = f.historyStates[1:]
+		return history, nil
+	}
 	if f.history != nil {
 		return f.history, nil
 	}

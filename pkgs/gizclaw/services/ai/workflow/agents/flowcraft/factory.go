@@ -1777,6 +1777,9 @@ func (a *agent) transcribeInputTurn(ctx context.Context, input genx.Stream, outp
 			}
 			return "", turnStreamID, fmt.Errorf("flowcraft: read ASR: %w", err)
 		}
+		if chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.Label) == genx.HistoryUserAudioLabel {
+			continue
+		}
 		text, ok := chunk.Part.(genx.Text)
 		if chunk.IsEndOfStream() {
 			transcriptEOS = true

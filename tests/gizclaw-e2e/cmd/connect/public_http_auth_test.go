@@ -15,6 +15,8 @@ func TestPublicHTTPAuthUserStory(t *testing.T) {
 	h := clitest.NewSetupHarness(t, "303-public-http-auth")
 
 	h.CreateContext("device-http").MustSucceed(t)
+	client := h.ConnectClientFromContext("device-http")
+	defer func() { _ = client.Close() }()
 	serverInfoResp, err := http.Get(h.PublicHTTPURL() + "/server-info")
 	if err != nil {
 		t.Fatalf("GET server-info: %v", err)

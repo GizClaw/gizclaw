@@ -52,8 +52,8 @@ type workspaceCaseResult struct {
 }
 
 type workspaceRuntimeValidationOptions struct {
-	AllowMissingReplay bool
-	Replay             historyReplayVerifyOptions
+	SkipReplay bool
+	Replay     historyReplayVerifyOptions
 }
 
 func (c workspaceCase) runtimeValidationOptions() workspaceRuntimeValidationOptions {
@@ -66,12 +66,8 @@ func (c workspaceCase) runtimeValidationOptions() workspaceRuntimeValidationOpti
 				AssistantAudioASRReason: "history-replay",
 			},
 		}
-	case workspaceCasePushToTalkInterrupt, workspaceCaseRealtimeInterrupt:
-		return workspaceRuntimeValidationOptions{
-			AllowMissingReplay: true,
-		}
 	default:
-		return workspaceRuntimeValidationOptions{}
+		return workspaceRuntimeValidationOptions{SkipReplay: true}
 	}
 }
 
@@ -161,8 +157,11 @@ func (c workspaceCase) applyConfig(cfg config) (config, error) {
 	switch c {
 	case workspaceCasePushToTalkRoundtrip, workspaceCasePushToTalkInterrupt, workspaceCaseHistoryReplay, workspaceCaseHumanReview:
 		cfg.Workflow.Parameters.Input = string(rpcapi.WorkspaceInputModePushToTalk)
-		if c == workspaceCaseHistoryReplay && cfg.Rounds < 1 {
+		if c == workspaceCasePushToTalkRoundtrip {
 			cfg.Rounds = 1
+		}
+		if c == workspaceCaseHistoryReplay {
+			cfg.Rounds = 2
 		}
 		if c == workspaceCaseHumanReview && cfg.Rounds < 3 {
 			cfg.Rounds = 3
@@ -691,13 +690,17 @@ func validateWorkspaceRuntime(ctx context.Context, driver *personaDriver, client
 			}
 			return nil, fmt.Errorf("runtime rpc history unavailable: %s", message)
 		}
-		if len(history.Items) > 0 {
+		_, hasReplay := replayHistoryItem(history.Items)
+		if len(history.Items) > 0 && (options.SkipReplay || hasReplay) {
 			break
 		}
 		select {
 		case <-ctx.Done():
 			return nil, fmt.Errorf("runtime rpc history returned no items: %w", ctx.Err())
 		case <-historyDeadline.C:
+			if len(history.Items) > 0 {
+				return nil, fmt.Errorf("runtime rpc history has no replayable agent item")
+			}
 			return nil, fmt.Errorf("runtime rpc history returned no items")
 		case <-time.After(500 * time.Millisecond):
 		}
@@ -734,12 +737,12 @@ func validateWorkspaceRuntime(ctx context.Context, driver *personaDriver, client
 	report.RecallAvailable = recallAvailable
 	report.RecallHitCount = recallHitCount
 	report.RecallQueryChars = runeCount(query)
+	if options.SkipReplay {
+		return report, nil
+	}
 
 	historyItem, ok := replayHistoryItem(history.Items)
 	if !ok {
-		if options.AllowMissingReplay {
-			return report, nil
-		}
 		return nil, fmt.Errorf("runtime rpc history has no replayable agent item")
 	}
 	if driver != nil {

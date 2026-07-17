@@ -123,60 +123,81 @@ type upstreamTransport struct {
 	cfg         Config
 	upstreamURL *url.URL
 
-	mu       sync.Mutex
-	conn     giznet.Conn
-	listener giznet.Listener
+	mu        sync.Mutex
+	conn      giznet.Conn
+	listener  giznet.Listener
+	connEpoch uint64
 }
 
 func newUpstreamTransport(ctx context.Context, cfg Config, upstreamURL *url.URL) (*upstreamTransport, error) {
 	transport := &upstreamTransport{ctx: ctx, cfg: cfg, upstreamURL: upstreamURL}
-	if _, err := transport.currentConn(); err != nil {
+	if _, _, err := transport.currentConn(); err != nil {
 		return nil, err
 	}
 	return transport, nil
 }
 
 func (t *upstreamTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	resp, err := t.roundTrip(req)
+	resp, conn, epoch, err := t.roundTrip(req)
 	if err == nil {
 		return resp, nil
 	}
+	if !upstreamConnectionFailed(conn, err) {
+		return nil, err
+	}
+	t.resetConn(epoch)
 	if req.Context().Err() != nil {
 		return nil, err
 	}
-	t.resetConn()
 	if !canRetryUpstreamRequest(req.Method) {
 		return nil, err
 	}
-	return t.roundTrip(req)
+	resp, _, _, err = t.roundTrip(req)
+	return resp, err
 }
 
-func (t *upstreamTransport) roundTrip(req *http.Request) (*http.Response, error) {
-	conn, err := t.currentConn()
+func (t *upstreamTransport) roundTrip(req *http.Request) (*http.Response, giznet.Conn, uint64, error) {
+	conn, epoch, err := t.currentConn()
 	if err != nil {
-		return nil, err
+		return nil, nil, 0, err
 	}
-	return gizhttp.NewRoundTripper(conn, gizclaw.ServiceEdgeHTTP).RoundTrip(req)
+	resp, err := gizhttp.NewRoundTripper(conn, gizclaw.ServiceEdgeHTTP).RoundTrip(req)
+	return resp, conn, epoch, err
 }
 
-func (t *upstreamTransport) currentConn() (giznet.Conn, error) {
+func (t *upstreamTransport) currentConn() (giznet.Conn, uint64, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if t.conn != nil {
-		return t.conn, nil
+		return t.conn, t.connEpoch, nil
 	}
 	conn, listener, err := dialUpstream(t.ctx, t.cfg, t.upstreamURL)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	t.conn = conn
 	t.listener = listener
-	return conn, nil
+	t.connEpoch++
+	return conn, t.connEpoch, nil
 }
 
-func (t *upstreamTransport) resetConn() {
+func upstreamConnectionFailed(conn giznet.Conn, err error) bool {
+	if gizhttp.IsClosed(err) {
+		return true
+	}
+	if conn == nil {
+		return false
+	}
+	info := conn.PeerInfo()
+	return info != nil && info.State == giznet.PeerStateOffline
+}
+
+func (t *upstreamTransport) resetConn(epoch uint64) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	if epoch == 0 || epoch != t.connEpoch {
+		return
+	}
 	t.closeLocked()
 }
 

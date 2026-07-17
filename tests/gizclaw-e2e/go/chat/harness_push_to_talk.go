@@ -101,9 +101,6 @@ func (d *personaDriver) prepareConversation(ctx context.Context, mode conversati
 		if !ok {
 			return nil, fmt.Errorf("self-start is required by workflow but did not run")
 		}
-		if err := d.waitFlowcraftHistoryProgress(ctx, "self-start"); err != nil {
-			return nil, err
-		}
 		if d.newTransport != nil {
 			if err := d.resetTransport(); err != nil {
 				return nil, fmt.Errorf("reopen transport after self-start: %w", err)
@@ -148,6 +145,9 @@ func (d *personaDriver) consumeSelfStart(ctx context.Context, skipAssistantAudio
 			stat.WorkspaceTotal = stat.ResponseTotal
 			if stat.AssistantText == "" {
 				return stat, true, fmt.Errorf("self-start missing assistant text; recent events: %s", trace.String())
+			}
+			if err := validateAssistantOutputText(stat.AssistantText); err != nil {
+				return stat, true, fmt.Errorf("self-start: %w; recent events: %s", err, trace.String())
 			}
 			if stat.DownlinkPackets == 0 {
 				return stat, true, fmt.Errorf("self-start missing downlink audio; recent events: %s", trace.String())

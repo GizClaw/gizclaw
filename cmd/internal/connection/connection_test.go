@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -37,6 +38,8 @@ func resetConnectHooks(t *testing.T) {
 	origProbeReady := probeReady
 	origTimeout := connectReadyTimeout
 	origPoll := connectPollInterval
+	origServerInfoTimeout := serverInfoAttemptTimeout
+	origServerInfoRetryDelay := serverInfoRetryDelay
 	t.Cleanup(func() {
 		dialFromContext = origDialFromContext
 		fetchServerInfo = origFetchServerInfo
@@ -45,6 +48,8 @@ func resetConnectHooks(t *testing.T) {
 		probeReady = origProbeReady
 		connectReadyTimeout = origTimeout
 		connectPollInterval = origPoll
+		serverInfoAttemptTimeout = origServerInfoTimeout
+		serverInfoRetryDelay = origServerInfoRetryDelay
 	})
 }
 
@@ -124,6 +129,104 @@ func TestDialFromContextMissingServerInfoPublicKey(t *testing.T) {
 	_, _, _, err = DialFromContext("local")
 	if err == nil || !strings.Contains(err.Error(), "server-info missing public_key") {
 		t.Fatalf("DialFromContext error = %v", err)
+	}
+}
+
+func TestDialFromContextRetriesTransientServerInfoTimeout(t *testing.T) {
+	resetConnectHooks(t)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	serverInfoAttemptTimeout = 20 * time.Millisecond
+	serverInfoRetryDelay = time.Millisecond
+
+	serverKey := testServerPublicKeyText(0xab)
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if requests.Add(1) == 1 {
+			<-r.Context().Done()
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"protocol":"gizclaw-webrtc","public_key":"` + serverKey + `"}`))
+	}))
+	defer server.Close()
+
+	store, err := clicontext.DefaultStore()
+	if err != nil {
+		t.Fatalf("DefaultStore error = %v", err)
+	}
+	if err := store.Create("local", strings.TrimPrefix(server.URL, "http://")); err != nil {
+		t.Fatalf("Create error = %v", err)
+	}
+
+	_, serverPK, _, err := DialFromContext("local")
+	if err != nil {
+		t.Fatalf("DialFromContext error = %v", err)
+	}
+	if serverPK.String() != serverKey {
+		t.Fatalf("server public key = %s, want %s", serverPK, serverKey)
+	}
+	if got := requests.Load(); got != 2 {
+		t.Fatalf("requests = %d, want 2", got)
+	}
+}
+
+func TestDialFromContextRetriesServerInfo5xx(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	serverKey := testServerPublicKeyText(0xab)
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if requests.Add(1) == 1 {
+			http.Error(w, "stale upstream", http.StatusBadGateway)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"protocol":"gizclaw-webrtc","public_key":"` + serverKey + `"}`))
+	}))
+	defer server.Close()
+
+	store, err := clicontext.DefaultStore()
+	if err != nil {
+		t.Fatalf("DefaultStore error = %v", err)
+	}
+	if err := store.Create("local", strings.TrimPrefix(server.URL, "http://")); err != nil {
+		t.Fatalf("Create error = %v", err)
+	}
+
+	_, _, _, err = DialFromContext("local")
+	if err != nil {
+		t.Fatalf("DialFromContext error = %v", err)
+	}
+	if got := requests.Load(); got != 2 {
+		t.Fatalf("requests = %d, want 2", got)
+	}
+}
+
+func TestDialFromContextDoesNotRetryInvalidServerInfo(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"protocol":"not-gizclaw","public_key":"ignored"}`))
+	}))
+	defer server.Close()
+
+	store, err := clicontext.DefaultStore()
+	if err != nil {
+		t.Fatalf("DefaultStore error = %v", err)
+	}
+	if err := store.Create("local", strings.TrimPrefix(server.URL, "http://")); err != nil {
+		t.Fatalf("Create error = %v", err)
+	}
+
+	_, _, _, err = DialFromContext("local")
+	if err == nil || !strings.Contains(err.Error(), "server-info protocol") {
+		t.Fatalf("DialFromContext error = %v", err)
+	}
+	if got := requests.Load(); got != 1 {
+		t.Fatalf("requests = %d, want 1", got)
 	}
 }
 

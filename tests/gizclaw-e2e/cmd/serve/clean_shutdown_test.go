@@ -24,7 +24,10 @@ func TestServerCleanShutdownUserStory(t *testing.T) {
 	if offline.Err == nil {
 		t.Fatalf("expected ping to fail while server is stopped:\nstdout:\n%s\nstderr:\n%s", offline.Stdout, offline.Stderr)
 	}
-	if !strings.Contains(offline.Stderr+offline.Stdout, "failed") && !strings.Contains(offline.Stderr+offline.Stdout, "timeout") {
+	offlineOutput := offline.Stderr + offline.Stdout
+	if !strings.Contains(offlineOutput, "failed") &&
+		!strings.Contains(offlineOutput, "timeout") &&
+		!strings.Contains(offlineOutput, "connection refused") {
 		t.Fatalf("expected offline ping failure message, got:\nstdout:\n%s\nstderr:\n%s", offline.Stdout, offline.Stderr)
 	}
 

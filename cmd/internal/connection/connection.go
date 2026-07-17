@@ -3,6 +3,7 @@ package connection
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -16,7 +17,12 @@ import (
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
 
-const serverInfoTimeout = 5 * time.Second
+const serverInfoRetryAttempts = 2
+
+var (
+	serverInfoAttemptTimeout = 5 * time.Second
+	serverInfoRetryDelay     = 100 * time.Millisecond
+)
 
 type serverInfoMetadata struct {
 	PublicKey    giznet.PublicKey
@@ -42,9 +48,7 @@ func DialFromContext(name string) (*gizcli.Client, giznet.PublicKey, string, err
 		return nil, giznet.PublicKey{}, "", fmt.Errorf("no active context; run 'gizclaw context create' first")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), serverInfoTimeout)
-	defer cancel()
-	info, err := fetchServerInfo(ctx, cliCtx.Config.Server.Endpoint)
+	info, err := fetchServerInfoWithRetry(cliCtx.Config.Server.Endpoint)
 	if err != nil {
 		return nil, giznet.PublicKey{}, "", err
 	}
@@ -79,6 +83,38 @@ var probeReady = probePeerHTTPReady
 var connectReadyTimeout = 5 * time.Second
 var connectPollInterval = 10 * time.Millisecond
 
+type retryableServerInfoError struct {
+	err error
+}
+
+func (e *retryableServerInfoError) Error() string {
+	return e.err.Error()
+}
+
+func (e *retryableServerInfoError) Unwrap() error {
+	return e.err
+}
+
+func fetchServerInfoWithRetry(endpoint string) (serverInfoMetadata, error) {
+	var lastErr error
+	for attempt := 0; attempt < serverInfoRetryAttempts; attempt++ {
+		ctx, cancel := context.WithTimeout(context.Background(), serverInfoAttemptTimeout)
+		info, err := fetchServerInfo(ctx, endpoint)
+		cancel()
+		if err == nil {
+			return info, nil
+		}
+		lastErr = err
+
+		var retryable *retryableServerInfoError
+		if !errors.As(err, &retryable) || attempt+1 == serverInfoRetryAttempts {
+			return serverInfoMetadata{}, err
+		}
+		time.Sleep(serverInfoRetryDelay)
+	}
+	return serverInfoMetadata{}, lastErr
+}
+
 func fetchPeerHTTPInfo(ctx context.Context, endpoint string) (serverInfoMetadata, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+endpoint+"/server-info", nil)
 	if err != nil {
@@ -86,11 +122,15 @@ func fetchPeerHTTPInfo(ctx context.Context, endpoint string) (serverInfoMetadata
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return serverInfoMetadata{}, fmt.Errorf("server-info fetch: %w", err)
+		return serverInfoMetadata{}, &retryableServerInfoError{err: fmt.Errorf("server-info fetch: %w", err)}
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return serverInfoMetadata{}, fmt.Errorf("server-info status: %s", resp.Status)
+		err := fmt.Errorf("server-info status: %s", resp.Status)
+		if resp.StatusCode >= http.StatusInternalServerError {
+			return serverInfoMetadata{}, &retryableServerInfoError{err: err}
+		}
+		return serverInfoMetadata{}, err
 	}
 	var body struct {
 		PublicKey     string `json:"public_key"`

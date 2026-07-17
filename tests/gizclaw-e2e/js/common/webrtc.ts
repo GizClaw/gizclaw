@@ -6,6 +6,7 @@ import { GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL, connectGiznetWebRTCFromEndpoin
 import { base58Decode, base58Encode } from "@gizclaw/gizclaw/signaling";
 
 export const repoRoot = path.resolve(import.meta.dirname, "../../../..");
+const setupConnectTimeoutMs = 30_000;
 
 export type Identity = {
   clientPrivateKey: Uint8Array;
@@ -15,14 +16,21 @@ export type Identity = {
 
 export async function connectSetupPeer(identityDir: string): Promise<wrtc.RTCPeerConnection> {
   const identity = await loadIdentity(identityDir);
-  const pc = new wrtc.RTCPeerConnection();
-  await connectGiznetWebRTCFromEndpoint({
-    clientPrivateKey: identity.clientPrivateKey,
-    endpoint: identity.endpoint,
-    pc: pc as unknown as RTCPeerConnection,
-  });
-  await new Promise((resolve) => setTimeout(resolve, 100));
-  return pc;
+  const pc = new wrtc.RTCPeerConnection({ iceTransportPolicy: "relay" });
+  try {
+    await connectGiznetWebRTCFromEndpoint({
+      clientPrivateKey: identity.clientPrivateKey,
+      endpoint: identity.endpoint,
+      pc: pc as unknown as RTCPeerConnection,
+      signal: AbortSignal.timeout(setupConnectTimeoutMs),
+    });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    return pc;
+  } catch (err) {
+    const wrapped = setupConnectError(pc, err);
+    closePeerConnection(pc);
+    throw wrapped;
+  }
 }
 
 export type SetupPeerWithPacketChannel = {
@@ -32,19 +40,26 @@ export type SetupPeerWithPacketChannel = {
 
 export async function connectSetupPeerWithPacketChannel(identityDir: string): Promise<SetupPeerWithPacketChannel> {
   const identity = await loadIdentity(identityDir);
-  const pc = new wrtc.RTCPeerConnection();
+  const pc = new wrtc.RTCPeerConnection({ iceTransportPolicy: "relay" });
   const packetChannel = pc.createDataChannel(GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL, {
     maxRetransmits: 0,
     ordered: false,
   }) as unknown as RTCDataChannel;
-  await connectGiznetWebRTCFromEndpoint({
-    clientPrivateKey: identity.clientPrivateKey,
-    createPacketDataChannel: false,
-    endpoint: identity.endpoint,
-    pc: pc as unknown as RTCPeerConnection,
-  });
-  await waitForDataChannelOpen(packetChannel);
-  return { packetChannel, pc };
+  try {
+    await connectGiznetWebRTCFromEndpoint({
+      clientPrivateKey: identity.clientPrivateKey,
+      createPacketDataChannel: false,
+      endpoint: identity.endpoint,
+      pc: pc as unknown as RTCPeerConnection,
+      signal: AbortSignal.timeout(setupConnectTimeoutMs),
+    });
+    await waitForDataChannelOpen(packetChannel);
+    return { packetChannel, pc };
+  } catch (err) {
+    const wrapped = setupConnectError(pc, err);
+    closePeerConnection(pc);
+    throw wrapped;
+  }
 }
 
 export async function loadIdentity(dir: string): Promise<Identity> {
@@ -76,6 +91,14 @@ export async function assertSetupServerAvailable(endpoint: string): Promise<void
 
 export function closePeerConnection(pc: wrtc.RTCPeerConnection): void {
   pc.close();
+}
+
+function setupConnectError(pc: wrtc.RTCPeerConnection, cause: unknown): Error {
+  const candidateCount = pc.localDescription?.sdp.match(/^a=candidate:/gm)?.length ?? 0;
+  return new Error(
+    `setup WebRTC connect failed: connection=${pc.connectionState} iceConnection=${pc.iceConnectionState} iceGathering=${pc.iceGatheringState} signaling=${pc.signalingState} localCandidates=${candidateCount}`,
+    { cause },
+  );
 }
 
 function waitForDataChannelOpen(channel: RTCDataChannel): Promise<void> {

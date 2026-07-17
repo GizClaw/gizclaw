@@ -14,7 +14,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
-	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
 )
 
 func TestSocialRealtimeHistoryRPC(t *testing.T) {
@@ -51,16 +50,14 @@ func TestSocialRealtimeHistoryRPC(t *testing.T) {
 	})
 }
 
-func runSocialRealtimeAudioHistory(t *testing.T, h *clitest.Harness, writerContext, readerContext, workspaceName string, texts []string) {
+func runSocialRealtimeAudioHistory(t *testing.T, h socialHarness, writerContext, readerContext, workspaceName string, texts []string) {
 	t.Helper()
 	if len(texts) < 3 {
 		t.Fatalf("social realtime history test needs at least 3 utterances, got %d", len(texts))
 	}
 
-	writer := h.ConnectClientFromContext(writerContext)
-	defer writer.Close()
-	reader := h.ConnectClientFromContext(readerContext)
-	defer reader.Close()
+	writer := h.Client(writerContext)
+	reader := h.Client(readerContext)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()

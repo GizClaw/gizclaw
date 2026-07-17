@@ -21,7 +21,7 @@ if [[ -z "$project" ]]; then
   exit 2
 fi
 
-docker compose -p "$project" -f "$compose_file" down -v "$@"
+docker compose -p "$project" -f "$compose_file" down -v --rmi local "$@"
 
 state_dir="$e2e_dir/testdata/docker/$project"
 rm -rf "$state_dir"

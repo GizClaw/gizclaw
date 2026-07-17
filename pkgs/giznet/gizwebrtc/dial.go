@@ -125,19 +125,13 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 		_ = l.Close()
 		return nil, nil, err
 	}
-	select {
-	case <-conn.readyCh:
-		l.enqueueConn(conn)
-		return l, conn, nil
-	case <-ctx.Done():
+	if err := waitForPacketChannel(ctx, conn.readyCh); err != nil {
 		_ = conn.Close()
 		_ = l.Close()
-		return nil, nil, ctx.Err()
-	case <-time.After(10 * time.Second):
-		_ = conn.Close()
-		_ = l.Close()
-		return nil, nil, fmt.Errorf("gizwebrtc: timeout waiting for packet channel")
+		return nil, nil, err
 	}
+	l.enqueueConn(conn)
+	return l, conn, nil
 }
 
 func waitForGathering(ctx context.Context, gatherComplete <-chan struct{}) error {
@@ -146,6 +140,15 @@ func waitForGathering(ctx context.Context, gatherComplete <-chan struct{}) error
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
+	}
+}
+
+func waitForPacketChannel(ctx context.Context, ready <-chan struct{}) error {
+	select {
+	case <-ready:
+		return nil
+	case <-ctx.Done():
+		return fmt.Errorf("gizwebrtc: wait for packet channel: %w", ctx.Err())
 	}
 }
 
