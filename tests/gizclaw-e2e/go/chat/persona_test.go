@@ -790,6 +790,28 @@ func TestPersonaDriverRunRoundRejectsASTOutputReceivedBeforeInputEOS(t *testing.
 	}
 }
 
+func TestChatTransportRecordsEOSBoundaryBeforePush(t *testing.T) {
+	stream := newFakePeerStream()
+	eosBoundaryRecorded := false
+	stream.push = func(chunk *genx.MessageChunk) error {
+		if chunk.IsEndOfStream() && !eosBoundaryRecorded {
+			t.Fatal("EOS boundary was not recorded before transport push")
+		}
+		return nil
+	}
+	transport := &chatTransport{stream: stream}
+
+	err := transport.sendAudioTurnObserved(context.Background(), "input-stream", [][]byte{{0x11}}, func(time.Time) {
+		eosBoundaryRecorded = true
+	})
+	if err != nil {
+		t.Fatalf("sendAudioTurnObserved() error = %v", err)
+	}
+	if !eosBoundaryRecorded {
+		t.Fatal("EOS boundary was not recorded")
+	}
+}
+
 func TestPersonaDriverRunRoundLightweightSkipsSemanticASR(t *testing.T) {
 	events := make(chan timedPeerEvent, 5)
 	label := "assistant"

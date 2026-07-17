@@ -1882,11 +1882,11 @@ func (t *chatTransport) sendAudioTurn(ctx context.Context, streamID string, pack
 	return t.sendAudioTurnObserved(ctx, streamID, packets, nil)
 }
 
-func (t *chatTransport) sendAudioTurnObserved(ctx context.Context, streamID string, packets [][]byte, onEOSSent func(time.Time)) error {
+func (t *chatTransport) sendAudioTurnObserved(ctx context.Context, streamID string, packets [][]byte, onEOSBoundary func(time.Time)) error {
 	if err := t.sendAudioTurnBOS(ctx, streamID); err != nil {
 		return err
 	}
-	return t.sendAudioTurnAudioAndEOSObserved(ctx, streamID, packets, onEOSSent)
+	return t.sendAudioTurnAudioAndEOSObserved(ctx, streamID, packets, onEOSBoundary)
 }
 
 func (t *chatTransport) sendAudioTurnBOS(ctx context.Context, streamID string) error {
@@ -1901,7 +1901,7 @@ func (t *chatTransport) sendAudioTurnAudioAndEOS(ctx context.Context, streamID s
 	return t.sendAudioTurnAudioAndEOSObserved(ctx, streamID, packets, nil)
 }
 
-func (t *chatTransport) sendAudioTurnAudioAndEOSObserved(ctx context.Context, streamID string, packets [][]byte, onEOSSent func(time.Time)) error {
+func (t *chatTransport) sendAudioTurnAudioAndEOSObserved(ctx context.Context, streamID string, packets [][]byte, onEOSBoundary func(time.Time)) error {
 	label := "workspacetest"
 	timestamp := time.Now().UnixMilli()
 	for i, packet := range packets {
@@ -1930,14 +1930,13 @@ func (t *chatTransport) sendAudioTurnAudioAndEOSObserved(ctx context.Context, st
 			}
 		}
 	}
-	err := t.stream.Push(ctx, &genx.MessageChunk{
+	if onEOSBoundary != nil {
+		onEOSBoundary(time.Now())
+	}
+	return t.stream.Push(ctx, &genx.MessageChunk{
 		Part: &genx.Blob{MIMEType: "audio/opus"},
 		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: label, EndOfStream: true},
 	})
-	if err == nil && onEOSSent != nil {
-		onEOSSent(time.Now())
-	}
-	return err
 }
 
 func transportEventsFromChunk(chunk *genx.MessageChunk) []apitypes.PeerStreamEvent {
