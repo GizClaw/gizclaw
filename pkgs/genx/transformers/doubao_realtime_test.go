@@ -354,7 +354,7 @@ func TestDoubaoPushToTalkStateLifecycleAndBargeIn(t *testing.T) {
 func TestDoubaoRealtimePTTTurnCommitsLatestHypothesisBeforeAssistantOutput(t *testing.T) {
 	output := &recordingRealtimeOutput{}
 	turn := &doubaoRealtimePTTTurn{}
-	turn.begin(output, "turn-1", doubaoRealtimeAssistantLabel, doubaoRealtimePTTOutputLimit)
+	turn.begin(output, "turn-1", doubaoRealtimeAssistantLabel, doubaoRealtimePTTOutputLimit, 0)
 	turn.updateHypothesis("partial")
 	turn.updateHypothesis("final")
 	if err := turn.pushAssistant(&genx.MessageChunk{
@@ -394,7 +394,7 @@ func TestDoubaoRealtimeProviderLossDoesNotRepeatCommittedPTTTranscriptEOS(t *tes
 	runtime := newDoubaoRealtimeRuntime(tfr)
 	defer runtime.close()
 	output := &recordingRealtimeOutput{}
-	runtime.pttTurn.begin(output, "turn-1", doubaoRealtimeAssistantLabel, doubaoRealtimePTTOutputLimit)
+	runtime.pttTurn.begin(output, "turn-1", doubaoRealtimeAssistantLabel, doubaoRealtimePTTOutputLimit, 0)
 	runtime.pttTurn.updateHypothesis("final")
 	if err := runtime.pttTurn.markInputEnded(); err != nil {
 		t.Fatalf("markInputEnded() error = %v", err)
@@ -545,6 +545,89 @@ func TestDoubaoRealtimePTTLateTerminalEventKeepsOriginalTurnBinding(t *testing.T
 	}
 }
 
+func TestDoubaoRealtimePTTBargeInIgnoresDelayedASRTerminal(t *testing.T) {
+	endASR := make(chan struct{})
+	eventPaused := make(chan struct{})
+	resumeEvents := make(chan struct{})
+	session := &fakeDoubaoRealtimeSession{
+		beforeRecv:       endASR,
+		endASR:           endASR,
+		blockAfterEvents: make(chan struct{}),
+		pauseBeforeEvent: 0,
+		eventPaused:      eventPaused,
+		resumeEvents:     resumeEvents,
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventASRResponse, Text: "old transcript", QuestionID: "q-1"},
+			{Type: doubaospeech.EventASREnded, QuestionID: "q-1"},
+			{Type: doubaospeech.EventASRResponse, Text: "new transcript", QuestionID: "q-2"},
+			{Type: doubaospeech.EventASREnded, QuestionID: "q-2"},
+			{Type: doubaospeech.EventChatResponse, Text: "new answer", QuestionID: "q-2", ReplyID: "r-2"},
+			{Type: doubaospeech.EventChatEnded, ReplyID: "r-2"},
+			{Type: doubaospeech.EventTTSStarted, ReplyID: "r-2"},
+			{Type: doubaospeech.EventTTSAudioData, Audio: []byte{2, 3}, ReplyID: "r-2"},
+			{Type: doubaospeech.EventTTSFinished, ReplyID: "r-2"},
+		},
+	}
+	opener := &fakeDoubaoRealtimeOpener{results: []fakeDoubaoRealtimeOpenResult{{session: session}}}
+	tfr := NewDoubaoRealtime(nil,
+		withDoubaoRealtimeOpener(opener),
+		WithDoubaoRealtimeMode(DoubaoRealtimeModePushToTalk),
+		WithDoubaoRealtimeInputFormat("pcm"),
+		WithDoubaoRealtimeInputTranscode(false),
+		WithDoubaoRealtimeFormat("pcm"),
+	)
+	input := newBufferStream(16)
+	output, err := tfr.Transform(context.Background(), "", input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	pushTurn := func(streamID string, sample byte) {
+		t.Helper()
+		for _, chunk := range []*genx.MessageChunk{
+			{Ctrl: &genx.StreamCtrl{StreamID: streamID, BeginOfStream: true}},
+			{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{sample, 0}}, Ctrl: &genx.StreamCtrl{StreamID: streamID}},
+			{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true}},
+		} {
+			if err := input.Push(chunk); err != nil {
+				t.Fatalf("Push(%s) error = %v", streamID, err)
+			}
+		}
+	}
+
+	pushTurn("turn-1", 1)
+	select {
+	case <-eventPaused:
+	case <-time.After(2 * time.Second):
+		t.Fatal("provider events did not pause before the delayed first-turn ASR events")
+	}
+	pushTurn("turn-2", 2)
+	if !session.waitForEndASRCount(2, 2*time.Second) {
+		t.Fatalf("EndASR calls = %d, want 2", session.endASRCount())
+	}
+	close(resumeEvents)
+	if err := input.Close(); err != nil {
+		t.Fatalf("Close(input) error = %v", err)
+	}
+
+	chunks := drainRealtimeTestOutput(t, output)
+	for _, chunk := range chunks {
+		text, ok := chunk.Part.(genx.Text)
+		if !ok || chunk.Ctrl == nil {
+			continue
+		}
+		if string(text) == "old transcript" {
+			t.Fatalf("delayed first-turn transcript leaked into output: %#v", chunks)
+		}
+		if (string(text) == "new transcript" || string(text) == "new answer") && chunk.Ctrl.StreamID != "turn-2" {
+			t.Fatalf("new-turn text %q used StreamID %q, want turn-2; chunks = %#v", text, chunk.Ctrl.StreamID, chunks)
+		}
+	}
+	if !hasRealtimeTestText(chunks, genx.RoleUser, "new transcript") ||
+		!hasRealtimeTestText(chunks, genx.RoleModel, "new answer") {
+		t.Fatalf("new turn did not complete normally: %#v", chunks)
+	}
+}
+
 func TestRealtimePTTOutputGateEnforcesOpusDurationLimit(t *testing.T) {
 	packet := []byte{0x98}
 	packetDuration := time.Duration(historyOpusPacketDurationMS(packet)) * time.Millisecond
@@ -559,7 +642,7 @@ func TestRealtimePTTOutputGateEnforcesOpusDurationLimit(t *testing.T) {
 		}
 	}
 	belowOutput := &recordingRealtimeOutput{}
-	below := newRealtimePTTOutputGate(belowOutput, "turn-below", doubaoRealtimeAssistantLabel, 2*packetDuration)
+	below := newRealtimePTTOutputGate(belowOutput, "turn-below", doubaoRealtimeAssistantLabel, 2*packetDuration, 0)
 	if err := below.Push(chunk()); err != nil {
 		t.Fatalf("below-limit Push() error = %v", err)
 	}
@@ -571,7 +654,7 @@ func TestRealtimePTTOutputGateEnforcesOpusDurationLimit(t *testing.T) {
 	}
 
 	output := &recordingRealtimeOutput{}
-	gate := newRealtimePTTOutputGate(output, "turn-1", doubaoRealtimeAssistantLabel, 2*packetDuration)
+	gate := newRealtimePTTOutputGate(output, "turn-1", doubaoRealtimeAssistantLabel, 2*packetDuration, 0)
 	if err := gate.Push(chunk()); err != nil {
 		t.Fatalf("first Push() error = %v", err)
 	}
@@ -593,7 +676,7 @@ func TestRealtimePTTOutputGateEnforcesOpusDurationLimit(t *testing.T) {
 	}
 
 	nextOutput := &recordingRealtimeOutput{}
-	next := newRealtimePTTOutputGate(nextOutput, "turn-2", doubaoRealtimeAssistantLabel, 2*packetDuration)
+	next := newRealtimePTTOutputGate(nextOutput, "turn-2", doubaoRealtimeAssistantLabel, 2*packetDuration, 0)
 	if err := next.Push(chunk()); err != nil {
 		t.Fatalf("next-turn Push() error = %v", err)
 	}
@@ -602,6 +685,39 @@ func TestRealtimePTTOutputGateEnforcesOpusDurationLimit(t *testing.T) {
 	}
 	if got := len(nextOutput.chunks()); got != 1 {
 		t.Fatalf("next-turn output chunks = %d, want 1", got)
+	}
+}
+
+func TestRealtimePTTOutputGateEnforcesByteLimitForNonOpus(t *testing.T) {
+	if got, want := realtimePTTOutputByteLimit(2*time.Minute, 24000, 1), int64(5_760_000); got != want {
+		t.Fatalf("default PCM byte limit = %d, want %d", got, want)
+	}
+	maxInt := int(^uint(0) >> 1)
+	if got := realtimePTTOutputByteLimit(2*time.Minute, maxInt, maxInt); got != doubaoRealtimePTTOutputMaxBytes {
+		t.Fatalf("oversized format byte limit = %d, want hard cap %d", got, doubaoRealtimePTTOutputMaxBytes)
+	}
+	for _, mimeType := range []string{"audio/pcm", "audio/mpeg"} {
+		t.Run(mimeType, func(t *testing.T) {
+			output := &recordingRealtimeOutput{}
+			gate := newRealtimePTTOutputGate(output, "turn-1", doubaoRealtimeAssistantLabel, time.Hour, 4)
+			chunk := func(data []byte) *genx.MessageChunk {
+				return &genx.MessageChunk{
+					Role: genx.RoleModel,
+					Part: &genx.Blob{MIMEType: mimeType, Data: data},
+					Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: doubaoRealtimeAssistantLabel},
+				}
+			}
+			if err := gate.Push(chunk([]byte{1, 2, 3, 4})); err != nil {
+				t.Fatalf("exact-limit Push() error = %v", err)
+			}
+			if err := gate.Push(chunk([]byte{5})); !errors.Is(err, errRealtimePTTOutputLimit) {
+				t.Fatalf("over-limit Push() error = %v, want output limit", err)
+			}
+			chunks := output.chunks()
+			if len(chunks) != 1 || chunks[0].Ctrl == nil || !chunks[0].Ctrl.EndOfStream || chunks[0].Ctrl.Error == "" {
+				t.Fatalf("limit output = %#v, want one error EOS", chunks)
+			}
+		})
 	}
 }
 
@@ -1208,17 +1324,29 @@ func TestDoubaoRealtimeBargeInPropagatesInterruptFailure(t *testing.T) {
 	eventsDrained := make(chan struct{})
 	releaseEvents := make(chan struct{})
 	allowInput := make(chan struct{})
+	endASR := make(chan struct{})
 	session := &fakeDoubaoRealtimeSession{
 		events:           []*doubaospeech.RealtimeEvent{{Type: doubaospeech.EventASREnded}},
+		beforeRecv:       endASR,
+		endASR:           endASR,
 		eventsDrained:    eventsDrained,
 		blockAfterEvents: releaseEvents,
 		interruptErr:     errors.New("interrupt failed"),
 	}
 	input := &gatedRealtimeStream{
+		first: []*genx.MessageChunk{
+			{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+			{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+			{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+		},
 		gate: allowInput,
 		rest: []*genx.MessageChunk{{Ctrl: &genx.StreamCtrl{StreamID: "turn-2", BeginOfStream: true}}},
 	}
-	tfr := NewDoubaoRealtime(nil, WithDoubaoRealtimeMode(DoubaoRealtimeModePushToTalk))
+	tfr := NewDoubaoRealtime(nil,
+		WithDoubaoRealtimeMode(DoubaoRealtimeModePushToTalk),
+		WithDoubaoRealtimeInputFormat("pcm"),
+		WithDoubaoRealtimeInputTranscode(false),
+	)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	errCh := make(chan error, 1)

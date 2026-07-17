@@ -74,6 +74,7 @@ const (
 
 	doubaoRealtimeOpusFrameDuration = 20 * time.Millisecond
 	doubaoRealtimePTTOutputLimit    = 2 * time.Minute
+	doubaoRealtimePTTOutputMaxBytes = 32 << 20
 	doubaoRealtimeRetryInitial      = 100 * time.Millisecond
 	doubaoRealtimeRetryMax          = 5 * time.Second
 )
@@ -894,7 +895,9 @@ func (t *DoubaoRealtime) processSession(
 	assistant := runtime.assistant
 	pushToTalk := runtime.pushToTalk
 	pttTurn := runtime.pttTurn
+	pttASR := &doubaoRealtimePTTASRQueue{}
 	pttResponses := &doubaoRealtimePTTResponses{}
+	var pttControl sync.Mutex
 	textResponses := &doubaoRealtimeTextResponses{}
 	streamIDs := runtime.streamIDs
 	audioInputs := runtime.audioInputs
@@ -911,10 +914,10 @@ func (t *DoubaoRealtime) processSession(
 	markAssistantAudioDone := func(epoch uint64) {
 		assistant.markAudioDone(epoch)
 	}
-	interruptAssistant := func(streamID string, force bool) (bool, error) {
+	interruptAssistantState := func(streamID string, force bool) bool {
 		interruption := assistant.interruptRoutes(streamID, force)
 		if !interruption.interrupted {
-			return false, nil
+			return false
 		}
 		if interruption.textOpen {
 			textEOS := &genx.MessageChunk{
@@ -931,6 +934,13 @@ func (t *DoubaoRealtime) processSession(
 				Ctrl: &genx.StreamCtrl{StreamID: interruption.streamID, Label: doubaoRealtimeAssistantLabel, EndOfStream: true, Error: doubaoRealtimeInterrupted},
 			}
 			_ = output.Push(audioEOS)
+		}
+		return true
+	}
+	interruptAssistant := func(streamID string, force bool) (bool, error) {
+		interrupted := interruptAssistantState(streamID, force)
+		if !interrupted {
+			return false, nil
 		}
 		if err := session.Interrupt(ctx); err != nil {
 			return true, doubaoRealtimeRecoverable("interrupt response", err)
@@ -1043,7 +1053,10 @@ func (t *DoubaoRealtime) processSession(
 					}
 					slog.Info("doubao: ASR response", "text", text)
 					if t.mode == DoubaoRealtimeModePushToTalk {
-						pttTurn.updateHypothesis(text)
+						pttControl.Lock()
+						generation := pttASR.peek(pttTurn.currentGeneration())
+						pttTurn.updateHypothesisFor(generation, text)
+						pttControl.Unlock()
 						continue
 					}
 					if text != "" {
@@ -1075,22 +1088,42 @@ func (t *DoubaoRealtime) processSession(
 				case doubaospeech.EventASREnded:
 					slog.Info("doubao: ASR ended")
 					if t.mode == DoubaoRealtimeModePushToTalk {
+						pttControl.Lock()
+						pttGeneration, ok := pttASR.take()
+						if !ok {
+							pttControl.Unlock()
+							continue
+						}
 						text := strings.TrimSpace(event.Text)
 						if text == "" {
 							text = realtimeASRText(event.Payload)
 						}
-						pttTurn.updateHypothesis(text)
+						pttTurn.updateHypothesisFor(pttGeneration, text)
+						matched, err := pttTurn.markASREndedFor(pttGeneration)
+						if err != nil {
+							pttControl.Unlock()
+							return err
+						}
+						if !matched {
+							pttControl.Unlock()
+							continue
+						}
+						assistant.setAccept(true)
+						epoch := assistant.nextEpoch()
+						response := pttTurn.bindResponseFor(pttGeneration, epoch, doubaoRealtimeEventResponseIdentity(event))
+						if response == nil {
+							pttControl.Unlock()
+							continue
+						}
+						pttResponses.add(response)
+						markAssistantPending(response.streamID, epoch)
+						pttControl.Unlock()
+						continue
 					}
 					assistant.setAccept(true)
 					epoch := assistant.nextEpoch()
 					responseStreamID := ""
 					switch {
-					case t.mode == DoubaoRealtimeModePushToTalk:
-						responseStreamID = streamIDs.endInputSegment()
-						if err := pttTurn.markASREnded(); err != nil {
-							return err
-						}
-						pttResponses.add(pttTurn.bindResponse(epoch, doubaoRealtimeEventResponseIdentity(event)))
 					case transcriptOpen:
 						if err := closeInputSegment(""); err != nil {
 							return err
@@ -1380,30 +1413,42 @@ func (t *DoubaoRealtime) processSession(
 		}
 
 		if chunk.IsBeginOfStream() && chunk.Ctrl != nil && chunk.Ctrl.StreamID != "" {
-			bargeIn := false
-			interruptStreamID := chunk.Ctrl.StreamID
 			if t.mode == DoubaoRealtimeModePushToTalk {
-				var err error
-				var previousStreamID string
-				bargeIn, previousStreamID, err = pushToTalk.begin(chunk.Ctrl.StreamID)
+				pttControl.Lock()
+				bargeIn, previousStreamID, err := pushToTalk.begin(chunk.Ctrl.StreamID)
 				if err != nil {
+					pttControl.Unlock()
 					return err
 				}
+				interruptStreamID := chunk.Ctrl.StreamID
 				if previousStreamID != "" {
 					interruptStreamID = previousStreamID
 				}
+				interrupted := interruptAssistantState(interruptStreamID, bargeIn)
+				if interrupted {
+					_, _, _ = pttTurn.discard()
+				}
+				streamIDs.beginInput(chunk.Ctrl.StreamID)
+				pttTurn.begin(
+					output,
+					streamIDs.input(),
+					doubaoRealtimeAssistantLabel,
+					doubaoRealtimePTTOutputLimit,
+					realtimePTTOutputByteLimit(doubaoRealtimePTTOutputLimit, t.sampleRate, t.channels),
+				)
+				pttControl.Unlock()
+				if interrupted {
+					if err := session.Interrupt(ctx); err != nil {
+						return doubaoRealtimeRecoverable("interrupt response", err)
+					}
+				}
+				slog.Info("doubao: received BOS", "streamID", chunk.Ctrl.StreamID)
+				continue
 			}
-			interrupted, err := interruptAssistant(interruptStreamID, bargeIn)
-			if err != nil {
+			if _, err := interruptAssistant(chunk.Ctrl.StreamID, false); err != nil {
 				return err
 			}
-			if interrupted && t.mode == DoubaoRealtimeModePushToTalk {
-				_, _, _ = pttTurn.discard()
-			}
 			streamIDs.beginInput(chunk.Ctrl.StreamID)
-			if t.mode == DoubaoRealtimeModePushToTalk {
-				pttTurn.begin(output, streamIDs.input(), doubaoRealtimeAssistantLabel, doubaoRealtimePTTOutputLimit)
-			}
 			slog.Info("doubao: received BOS", "streamID", chunk.Ctrl.StreamID)
 			continue
 		}
@@ -1423,6 +1468,7 @@ func (t *DoubaoRealtime) processSession(
 				if err := output.Push(historyUserAudioEOSChunk(historyStreamID, mimeType)); err != nil {
 					return err
 				}
+				pttASR.add(pttTurn.currentGeneration())
 				if err := session.EndASR(ctx); err != nil {
 					slog.Error("doubao: end ASR error", "error", err)
 					return doubaoRealtimeRecoverable("end ASR", err)
@@ -1664,6 +1710,34 @@ func (t *DoubaoRealtime) outputMIMEType() string {
 		return "audio/opus"
 	}
 	return t.mimeType()
+}
+
+func realtimePTTOutputByteLimit(limit time.Duration, sampleRate, channels int) int64 {
+	if limit <= 0 {
+		return 0
+	}
+	if sampleRate <= 0 {
+		sampleRate = doubaoRealtimeFixedOutputSampleRate
+	}
+	if channels <= 0 {
+		channels = doubaoRealtimeFixedOutputChannels
+	}
+	const bytesPerSample = int64(2)
+	const maxInt64 = int64(^uint64(0) >> 1)
+	sampleRate64 := int64(sampleRate)
+	channels64 := int64(channels)
+	if sampleRate64 > maxInt64/channels64/bytesPerSample {
+		return doubaoRealtimePTTOutputMaxBytes
+	}
+	bytesPerSecond := sampleRate64 * channels64 * bytesPerSample
+	seconds := int64(limit / time.Second)
+	if limit%time.Second != 0 {
+		seconds++
+	}
+	if seconds > maxInt64/bytesPerSecond {
+		return doubaoRealtimePTTOutputMaxBytes
+	}
+	return min(bytesPerSecond*seconds, int64(doubaoRealtimePTTOutputMaxBytes))
 }
 
 func (t *DoubaoRealtime) outputAudioBlobs(audio []byte) ([]*genx.Blob, error) {

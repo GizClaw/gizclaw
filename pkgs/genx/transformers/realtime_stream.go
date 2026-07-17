@@ -170,15 +170,17 @@ type realtimePTTOutputGate struct {
 	streamID string
 	label    string
 	limit    time.Duration
+	maxBytes int64
 
 	committed        bool
 	terminal         bool
 	retained         []*genx.MessageChunk
 	retainedDuration time.Duration
+	retainedBytes    int64
 	limitErr         error
 }
 
-func newRealtimePTTOutputGate(output realtimeChunkOutput, streamID, label string, limit time.Duration) *realtimePTTOutputGate {
+func newRealtimePTTOutputGate(output realtimeChunkOutput, streamID, label string, limit time.Duration, maxBytes int64) *realtimePTTOutputGate {
 	streamID = strings.TrimSpace(streamID)
 	if streamID == "" {
 		streamID = "audio"
@@ -188,6 +190,7 @@ func newRealtimePTTOutputGate(output realtimeChunkOutput, streamID, label string
 		streamID: streamID,
 		label:    strings.TrimSpace(label),
 		limit:    limit,
+		maxBytes: maxBytes,
 	}
 }
 
@@ -205,9 +208,13 @@ func (g *realtimePTTOutputGate) Push(chunk *genx.MessageChunk) error {
 	}
 
 	duration := realtimeAssistantOpusDuration(chunk, g.label)
-	if g.limit > 0 && duration > 0 && duration > g.limit-g.retainedDuration {
+	bytes := realtimeAssistantAudioBytes(chunk, g.label)
+	durationExceeded := g.limit > 0 && duration > 0 && duration > g.limit-g.retainedDuration
+	bytesExceeded := g.maxBytes > 0 && bytes > g.maxBytes-g.retainedBytes
+	if durationExceeded || bytesExceeded {
 		g.retained = nil
 		g.retainedDuration = 0
+		g.retainedBytes = 0
 		g.terminal = true
 		g.limitErr = fmt.Errorf("%w for StreamID %q (limit %s)", errRealtimePTTOutputLimit, g.streamID, g.limit)
 		if err := g.output.Push(realtimePTTOutputLimitChunk(g.streamID, g.label, g.limitErr)); err != nil {
@@ -217,6 +224,7 @@ func (g *realtimePTTOutputGate) Push(chunk *genx.MessageChunk) error {
 	}
 
 	g.retainedDuration += duration
+	g.retainedBytes += bytes
 	g.retained = append(g.retained, chunk.Clone())
 	return nil
 }
@@ -238,11 +246,13 @@ func (g *realtimePTTOutputGate) Commit() error {
 			g.terminal = true
 			g.retained = nil
 			g.retainedDuration = 0
+			g.retainedBytes = 0
 			return err
 		}
 	}
 	g.retained = nil
 	g.retainedDuration = 0
+	g.retainedBytes = 0
 	g.committed = true
 	return nil
 }
@@ -259,6 +269,7 @@ func (g *realtimePTTOutputGate) Discard() {
 	g.terminal = true
 	g.retained = nil
 	g.retainedDuration = 0
+	g.retainedBytes = 0
 }
 
 func realtimeAssistantOpusDuration(chunk *genx.MessageChunk, label string) time.Duration {
@@ -270,6 +281,17 @@ func realtimeAssistantOpusDuration(chunk *genx.MessageChunk, label string) time.
 		return 0
 	}
 	return time.Duration(historyOpusPacketDurationMS(blob.Data)) * time.Millisecond
+}
+
+func realtimeAssistantAudioBytes(chunk *genx.MessageChunk, label string) int64 {
+	if chunk == nil || chunk.Role != genx.RoleModel || chunk.Ctrl == nil || chunk.Ctrl.Label != label {
+		return 0
+	}
+	blob, ok := chunk.Part.(*genx.Blob)
+	if !ok || blob == nil {
+		return 0
+	}
+	return int64(len(blob.Data))
 }
 
 func realtimePTTOutputLimitChunk(streamID, label string, err error) *genx.MessageChunk {
@@ -292,6 +314,7 @@ func realtimePTTOutputLimitChunk(streamID, label string, err error) *genx.Messag
 type doubaoRealtimePTTTurn struct {
 	mu sync.Mutex
 
+	generation   uint64
 	active       bool
 	inputEnded   bool
 	asrEnded     bool
@@ -301,6 +324,11 @@ type doubaoRealtimePTTTurn struct {
 	output       realtimeChunkOutput
 	assistantOut *realtimePTTOutputGate
 	completion   *doubaoRealtimePTTCompletion
+}
+
+type doubaoRealtimePTTASRQueue struct {
+	mu          sync.Mutex
+	generations []uint64
 }
 
 type doubaoRealtimePTTResponse struct {
@@ -441,7 +469,7 @@ func (q *doubaoRealtimeTextResponses) removeLocked(index int) {
 	}
 }
 
-func (t *doubaoRealtimePTTTurn) begin(output realtimeChunkOutput, streamID, assistantLabel string, limit time.Duration) {
+func (t *doubaoRealtimePTTTurn) begin(output realtimeChunkOutput, streamID, assistantLabel string, limit time.Duration, maxBytes int64) {
 	if t == nil {
 		return
 	}
@@ -452,6 +480,10 @@ func (t *doubaoRealtimePTTTurn) begin(output realtimeChunkOutput, streamID, assi
 	t.mu.Lock()
 	previous := t.assistantOut
 	previousCompletion := t.completion
+	t.generation++
+	if t.generation == 0 {
+		t.generation = 1
+	}
 	t.active = true
 	t.inputEnded = false
 	t.asrEnded = false
@@ -459,7 +491,7 @@ func (t *doubaoRealtimePTTTurn) begin(output realtimeChunkOutput, streamID, assi
 	t.streamID = streamID
 	t.hypothesis = ""
 	t.output = output
-	t.assistantOut = newRealtimePTTOutputGate(output, streamID, assistantLabel, limit)
+	t.assistantOut = newRealtimePTTOutputGate(output, streamID, assistantLabel, limit, maxBytes)
 	t.completion = newDoubaoRealtimePTTCompletion()
 	t.mu.Unlock()
 	previous.Discard()
@@ -467,6 +499,10 @@ func (t *doubaoRealtimePTTTurn) begin(output realtimeChunkOutput, streamID, assi
 }
 
 func (t *doubaoRealtimePTTTurn) updateHypothesis(text string) {
+	t.updateHypothesisFor(t.currentGeneration(), text)
+}
+
+func (t *doubaoRealtimePTTTurn) updateHypothesisFor(generation uint64, text string) {
 	if t == nil {
 		return
 	}
@@ -475,7 +511,7 @@ func (t *doubaoRealtimePTTTurn) updateHypothesis(text string) {
 		return
 	}
 	t.mu.Lock()
-	if t.active && !t.committed {
+	if t.active && t.generation == generation && !t.committed {
 		t.hypothesis = text
 	}
 	t.mu.Unlock()
@@ -494,15 +530,22 @@ func (t *doubaoRealtimePTTTurn) markInputEnded() error {
 }
 
 func (t *doubaoRealtimePTTTurn) markASREnded() error {
+	_, err := t.markASREndedFor(t.currentGeneration())
+	return err
+}
+
+func (t *doubaoRealtimePTTTurn) markASREndedFor(generation uint64) (bool, error) {
 	if t == nil {
-		return nil
+		return false, nil
 	}
 	t.mu.Lock()
-	if t.active {
-		t.asrEnded = true
+	if !t.active || t.generation != generation {
+		t.mu.Unlock()
+		return false, nil
 	}
+	t.asrEnded = true
 	t.mu.Unlock()
-	return t.commitIfReady()
+	return true, t.commitIfReady()
 }
 
 func (t *doubaoRealtimePTTTurn) commitIfReady() error {
@@ -551,13 +594,13 @@ func (t *doubaoRealtimePTTTurn) pushAssistant(chunk *genx.MessageChunk) error {
 	return output.Push(chunk)
 }
 
-func (t *doubaoRealtimePTTTurn) bindResponse(epoch uint64, identity doubaoRealtimePTTResponseIdentity) *doubaoRealtimePTTResponse {
+func (t *doubaoRealtimePTTTurn) bindResponseFor(generation, epoch uint64, identity doubaoRealtimePTTResponseIdentity) *doubaoRealtimePTTResponse {
 	if t == nil {
 		return nil
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	if !t.active || t.assistantOut == nil {
+	if !t.active || t.generation != generation || t.assistantOut == nil {
 		return nil
 	}
 	return &doubaoRealtimePTTResponse{
@@ -567,6 +610,52 @@ func (t *doubaoRealtimePTTTurn) bindResponse(epoch uint64, identity doubaoRealti
 		output:     t.assistantOut,
 		completion: t.completion,
 	}
+}
+
+func (t *doubaoRealtimePTTTurn) currentGeneration() uint64 {
+	if t == nil {
+		return 0
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.generation
+}
+
+func (q *doubaoRealtimePTTASRQueue) add(generation uint64) {
+	if q == nil || generation == 0 {
+		return
+	}
+	q.mu.Lock()
+	q.generations = append(q.generations, generation)
+	q.mu.Unlock()
+}
+
+func (q *doubaoRealtimePTTASRQueue) peek(fallback uint64) uint64 {
+	if q == nil {
+		return fallback
+	}
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if len(q.generations) == 0 {
+		return fallback
+	}
+	return q.generations[0]
+}
+
+func (q *doubaoRealtimePTTASRQueue) take() (uint64, bool) {
+	if q == nil {
+		return 0, false
+	}
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if len(q.generations) == 0 {
+		return 0, false
+	}
+	generation := q.generations[0]
+	copy(q.generations, q.generations[1:])
+	q.generations[len(q.generations)-1] = 0
+	q.generations = q.generations[:len(q.generations)-1]
+	return generation, true
 }
 
 func (t *doubaoRealtimePTTTurn) discardResponse(response *doubaoRealtimePTTResponse) (streamID string, active, committed bool) {
