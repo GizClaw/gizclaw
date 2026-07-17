@@ -104,14 +104,15 @@ func TestAppFacadeRequiresConfiguredBridge(t *testing.T) {
 	}
 }
 
-func TestBootstrapEnvironmentFacadeNeverReturnsStoredValues(t *testing.T) {
+func TestBootstrapEnvironmentFacadeReturnsEditableDotenvContent(t *testing.T) {
 	app, err := NewAppWithPaths(appconfig.NewPaths(t.TempDir()))
 	if err != nil {
 		t.Fatal(err)
 	}
 	name := app.bridge.Catalog.Requirements[0].Name
 	const secret = "must-not-cross-the-bridge"
-	state, err := app.UpdateBootstrapEnvironment(bridge.BootstrapEnvironmentUpdate{Values: map[string]string{name: secret}})
+	content := name + "=" + secret + "\n"
+	state, err := app.UpdateBootstrapEnvironment(bridge.BootstrapEnvironmentUpdate{Content: content})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,8 +120,14 @@ func TestBootstrapEnvironmentFacadeNeverReturnsStoredValues(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(data), secret) {
-		t.Fatalf("bootstrap state exposed a stored value: %s", data)
+	if !strings.Contains(string(data), secret) || state.Content != content || state.Variables[0].Value != secret {
+		t.Fatalf("bootstrap state did not return editable content: %s", data)
+	}
+	if _, err := app.UpdateBootstrapEnvironment(bridge.BootstrapEnvironmentUpdate{Content: "UNKNOWN_PROVIDER_TOKEN=value\n"}); err == nil {
+		t.Fatal("unknown bootstrap environment name was accepted")
+	}
+	if _, err := app.UpdateBootstrapEnvironment(bridge.BootstrapEnvironmentUpdate{Content: "NOT AN ASSIGNMENT\n"}); err == nil {
+		t.Fatal("malformed bootstrap environment content was accepted")
 	}
 }
 

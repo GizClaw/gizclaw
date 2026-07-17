@@ -446,7 +446,7 @@ func TestLocalPodCreationBootstrapsBeforeBecomingVisible(t *testing.T) {
 		t.Fatal(err)
 	}
 	environment := appconfig.BootstrapEnvironmentStore{Path: paths.BootstrapEnvFile}
-	if err := environment.Update(map[string]string{"BOOTSTRAP_REQUIRED": "configured"}); err != nil {
+	if err := environment.Replace("BOOTSTRAP_REQUIRED=configured\n"); err != nil {
 		t.Fatal(err)
 	}
 	executable := filepath.Join(t.TempDir(), "fake-gizclaw")

@@ -55,6 +55,7 @@ type BootstrapState struct {
 type BootstrapEnvironmentState struct {
 	Ready     bool                                `json:"ready"`
 	Missing   []string                            `json:"missing"`
+	Content   string                              `json:"content"`
 	Variables []BootstrapEnvironmentVariableState `json:"variables"`
 }
 
@@ -63,10 +64,11 @@ type BootstrapEnvironmentVariableState struct {
 	Required   bool   `json:"required"`
 	Configured bool   `json:"configured"`
 	Defaulted  bool   `json:"defaulted"`
+	Value      string `json:"value"`
 }
 
 type BootstrapEnvironmentUpdate struct {
-	Values map[string]string `json:"values"`
+	Content string `json:"content"`
 }
 
 type PodSummary struct {
@@ -149,6 +151,10 @@ func (b *PodBridge) GetBootstrapEnvironment(context.Context) (BootstrapEnvironme
 func (b *PodBridge) UpdateBootstrapEnvironment(_ context.Context, update BootstrapEnvironmentUpdate) (BootstrapEnvironmentState, error) {
 	b.mutationMu.Lock()
 	defer b.mutationMu.Unlock()
+	values, err := appconfig.ParseBootstrapEnvironment(update.Content)
+	if err != nil {
+		return BootstrapEnvironmentState{}, err
+	}
 	allowed := map[string]bool{}
 	if b.Catalog == nil {
 		return BootstrapEnvironmentState{}, fmt.Errorf("desktop bridge: bootstrap catalog is not configured")
@@ -156,12 +162,12 @@ func (b *PodBridge) UpdateBootstrapEnvironment(_ context.Context, update Bootstr
 	for _, requirement := range b.Catalog.Requirements {
 		allowed[requirement.Name] = true
 	}
-	for name := range update.Values {
+	for name := range values {
 		if !allowed[name] {
 			return BootstrapEnvironmentState{}, fmt.Errorf("desktop bridge: bootstrap environment %q is not used by the catalog", name)
 		}
 	}
-	if err := b.BootstrapEnvironment.Update(update.Values); err != nil {
+	if err := b.BootstrapEnvironment.Replace(update.Content); err != nil {
 		return BootstrapEnvironmentState{}, err
 	}
 	state, _, err := b.bootstrapEnvironmentState()
@@ -317,13 +323,17 @@ func (b *PodBridge) bootstrapEnvironmentState() (BootstrapEnvironmentState, map[
 	if b.Catalog == nil {
 		return BootstrapEnvironmentState{Ready: true}, map[string]string{}, nil
 	}
-	saved, err := b.BootstrapEnvironment.Load()
+	content, err := b.BootstrapEnvironment.Content()
 	if err != nil {
 		return BootstrapEnvironmentState{}, nil, err
 	}
-	state := BootstrapEnvironmentState{Ready: true, Variables: make([]BootstrapEnvironmentVariableState, 0, len(b.Catalog.Requirements))}
+	saved, err := appconfig.ParseBootstrapEnvironment(content)
+	if err != nil {
+		return BootstrapEnvironmentState{}, nil, err
+	}
+	state := BootstrapEnvironmentState{Ready: true, Content: content, Variables: make([]BootstrapEnvironmentVariableState, 0, len(b.Catalog.Requirements))}
 	for _, requirement := range b.Catalog.Requirements {
-		variable := BootstrapEnvironmentVariableState{Name: requirement.Name, Required: requirement.Default == nil}
+		variable := BootstrapEnvironmentVariableState{Name: requirement.Name, Required: requirement.Default == nil, Value: saved[requirement.Name]}
 		if saved[requirement.Name] != "" {
 			variable.Configured = true
 		} else if value, ok := os.LookupEnv(requirement.Name); ok && value != "" {

@@ -25,12 +25,14 @@ test.beforeEach(async ({ page }) => {
     let bootstrapEnvironment = {
       ready: true,
       missing: [],
+      content: "GIZCLAW_VOLC_SPEECH_API_KEY=initial-secret\n",
       variables: [
         {
           name: "GIZCLAW_VOLC_SPEECH_API_KEY",
           required: true,
           configured: true,
           defaulted: false,
+          value: "initial-secret",
         },
       ],
     };
@@ -128,14 +130,20 @@ test.beforeEach(async ({ page }) => {
         return bootstrapEnvironment;
       },
       async UpdateBootstrapEnvironment(update) {
+        const match = /^GIZCLAW_VOLC_SPEECH_API_KEY=(.*)$/m.exec(
+          update.content,
+        );
+        const value = match?.[1]?.replace(/^['"]|['"]$/g, "") ?? "";
         bootstrapEnvironment = {
-          ready: Object.values(update.values).some(Boolean),
-          missing: Object.values(update.values).some(Boolean)
+          ready: value !== "",
+          missing: value !== ""
             ? []
             : ["GIZCLAW_VOLC_SPEECH_API_KEY"],
+          content: update.content,
           variables: bootstrapEnvironment.variables.map((variable) => ({
             ...variable,
-            configured: Object.values(update.values).some(Boolean),
+            configured: value !== "",
+            value,
           })),
         };
         return bootstrapEnvironment;
@@ -368,13 +376,13 @@ test("Add Pod creates a local environment without exposing keys", async ({
   await expect(page.locator("body")).not.toContainText("private_key");
 });
 
-test("local creation requires write-only bootstrap environment values", async ({
+test("local creation opens an editable nested bootstrap environment form", async ({
   page,
 }) => {
   await page.goto("/");
   await page.evaluate(async () => {
     await window.__GIZCLAW_DESKTOP_TEST_API__?.UpdateBootstrapEnvironment({
-      values: { GIZCLAW_VOLC_SPEECH_API_KEY: "" },
+      content: "",
     });
     window.dispatchEvent(new Event("focus"));
   });
@@ -390,8 +398,27 @@ test("local creation requires write-only bootstrap environment values", async ({
     .getByRole("dialog")
     .filter({ hasText: "Bootstrap environment" });
   await expect(environment).toBeVisible();
-  const input = environment.getByLabel("GIZCLAW_VOLC_SPEECH_API_KEY");
-  await expect(input).toHaveAttribute("type", "password");
+  await page.waitForTimeout(400);
+  const modeTabs = environment.getByRole("tablist");
+  const saveButton = environment.getByRole("button", {
+    name: "Save configuration",
+  });
+  const tabsBeforeScroll = await modeTabs.boundingBox();
+  const saveBeforeScroll = await saveButton.boundingBox();
+  await environment.locator(".bootstrap-environment-scroll-region").evaluate(
+    (element) => {
+      element.scrollTop = element.scrollHeight;
+    },
+  );
+  expect(
+    Math.abs((await modeTabs.boundingBox())!.y - tabsBeforeScroll!.y),
+  ).toBeLessThan(1);
+  expect(
+    Math.abs((await saveButton.boundingBox())!.y - saveBeforeScroll!.y),
+  ).toBeLessThan(1);
+  const input = environment.getByLabel("Volcengine Speech API key");
+  await expect(input).toHaveAttribute("type", "text");
+  await expect(input).toBeEditable();
   await input.fill("replacement-secret");
   await environment
     .getByRole("button", { name: "Save configuration" })
@@ -572,6 +599,41 @@ test("remote Pod settings update the QR access point without changing Admin endp
   await detail.getByRole("button", { name: "Manage Servers" }).click();
   await expect(detail.getByText("115.191.6.117:9820")).toBeVisible();
   await expect(detail.getByText("115.191.6.118:9820")).toBeVisible();
+});
+
+test("bootstrap environment supports direct dotenv text editing", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Bootstrap ready" }).click();
+  const environment = page
+    .getByRole("dialog")
+    .filter({ hasText: "Bootstrap environment" });
+  await expect(environment.getByRole("heading")).toHaveCSS(
+    "color",
+    "rgb(32, 33, 38)",
+  );
+  const formInput = environment.getByLabel("Volcengine Speech API key");
+  await expect(formInput).toHaveCSS("color", "rgb(32, 33, 38)");
+  expect(
+    await formInput.evaluate(
+      (element) => getComputedStyle(element, "::placeholder").color,
+    ),
+  ).toBe("rgb(157, 161, 170)");
+  await environment.getByRole("tab", { name: ".env text" }).click();
+  const editor = environment.getByLabel(".env text");
+  await expect(editor).toBeEditable();
+  await editor.fill(
+    "# Speech provider\nGIZCLAW_VOLC_SPEECH_API_KEY=text-editor-secret\n",
+  );
+  await environment
+    .getByRole("button", { name: "Save configuration" })
+    .click();
+  await expect(environment).toHaveCount(0);
+  await page.getByRole("button", { name: "Bootstrap ready" }).click();
+  await expect(
+    page.getByRole("dialog").getByLabel("Volcengine Speech API key"),
+  ).toHaveValue("text-editor-secret");
 });
 
 test("Remote creation asks only for an access point and adds Servers later", async ({

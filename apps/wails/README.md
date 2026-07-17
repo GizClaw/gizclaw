@@ -23,11 +23,11 @@ Pods live under `os.UserConfigDir()/GizClaw/pods/<id>/` by default:
 manifest update. Pod directories are mode `0700`; manifests, workspace config,
 and Context config files are atomically written with mode `0600`.
 
-The same config root contains a private `bootstrap-env.json` file. It stores
-write-only provider values used only while creating future local Pods. The
-Desktop API reports variable names and configured/defaulted/missing state, but
-never returns a stored value. Desktop-saved values override process environment
-values; resource-declared defaults are used last.
+The same config root contains a private, editable `bootstrap.env` dotenv file.
+It stores provider values used only while creating future local Pods. Desktop
+offers both a human-readable form and a raw dotenv editor for this file.
+Desktop-saved values override process environment values; resource-declared
+defaults are used last.
 
 A local Pod has one `local_server` with a stable port. The Server listens on
 `0.0.0.0:<port>` for LAN access while its local Admin and Client Contexts use

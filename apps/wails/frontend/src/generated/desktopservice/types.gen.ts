@@ -17,6 +17,10 @@ export type DesktopBootstrap = {
 export type BootstrapEnvironmentState = {
     ready: boolean;
     missing: Array<string>;
+    /**
+     * Current editable bootstrap.env content.
+     */
+    content: string;
     variables: Array<BootstrapEnvironmentVariableState>;
 };
 
@@ -25,12 +29,14 @@ export type BootstrapEnvironmentVariableState = {
     required: boolean;
     configured: boolean;
     defaulted: boolean;
+    /**
+     * Value stored in bootstrap.env, or empty when the value comes from the process environment or catalog default.
+     */
+    value: string;
 };
 
 export type BootstrapEnvironmentUpdate = {
-    values: {
-        [key: string]: string;
-    };
+    content: string;
 };
 
 export type DesktopPod = {

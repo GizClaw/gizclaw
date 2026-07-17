@@ -32,7 +32,7 @@ func NewPaths(root string) Paths {
 	return Paths{
 		ConfigRoot:       root,
 		PodsDir:          filepath.Join(root, "pods"),
-		BootstrapEnvFile: filepath.Join(root, "bootstrap-env.json"),
+		BootstrapEnvFile: filepath.Join(root, "bootstrap.env"),
 	}
 }
 

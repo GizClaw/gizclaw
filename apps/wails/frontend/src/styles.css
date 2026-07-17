@@ -1317,56 +1317,164 @@ button:disabled {
 }
 .bootstrap-environment-dialog {
   width: min(680px, 100%);
+  height: min(760px, calc(100vh - 60px));
   max-height: calc(100vh - 60px);
+  padding: 0;
+  overflow: hidden;
+}
+.bootstrap-environment-form {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+}
+.bootstrap-environment-form > header,
+.bootstrap-environment-form > footer,
+.bootstrap-environment-mode-switch {
+  flex: 0 0 auto;
+}
+.bootstrap-environment-dialog h2 {
+  color: #f7f8fa;
 }
 .bootstrap-environment-copy {
   max-width: 520px;
   margin: 7px 0 0;
-  color: #858892;
-  font-size: 11px;
+  color: #c8cbd3;
+  font-size: 12px;
   line-height: 1.5;
+}
+.bootstrap-environment-mode-switch {
+  width: fit-content;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  margin-top: 18px;
+  padding: 3px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.045);
+}
+.bootstrap-environment-mode-switch button {
+  min-width: 96px;
+  padding: 7px 11px;
+  border: 0;
+  border-radius: 8px;
+  color: #c4c7d0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 10px;
+}
+.bootstrap-environment-mode-switch button.is-active {
+  color: #f1f3f6;
+  background: rgba(137, 151, 255, 0.17);
+  box-shadow: inset 0 0 0 1px rgba(151, 161, 255, 0.18);
 }
 .bootstrap-environment-fields {
   display: grid;
-  gap: 9px;
-  margin-top: 20px;
+  gap: 13px;
+}
+.bootstrap-environment-scroll-region {
+  min-height: 0;
+  flex: 1 1 auto;
+  margin-top: 16px;
+  padding-right: 8px;
+  overflow: auto;
+  scrollbar-gutter: stable;
 }
 .bootstrap-environment-field {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 8px;
+  gap: 7px;
 }
 .bootstrap-environment-field label {
-  display: grid;
-  gap: 6px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
   min-width: 0;
-  color: #9b9ea8;
-  font-size: 10px;
+  color: #f0f1f4;
+  font-size: 12px;
   font-weight: 650;
 }
-.bootstrap-environment-field input {
+.bootstrap-environment-field label code {
+  overflow: hidden;
+  color: #b5b8c2;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bootstrap-environment-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+.bootstrap-environment-input-row input {
   min-height: 39px;
   padding: 0 11px;
   border: 0;
   border-radius: 10px;
   outline: 0;
-  color: #eff1f4;
-  background: rgba(255, 255, 255, 0.055);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  font-size: 11px;
+  font-weight: 400;
+}
+.bootstrap-environment-input-row input::placeholder {
+  color: #888c96;
+  opacity: 1;
+}
+.bootstrap-environment-input-row input:focus,
+.bootstrap-environment-text-editor textarea:focus {
+  box-shadow: 0 0 0 2px rgba(137, 151, 255, 0.32);
 }
 .bootstrap-clear-value {
   min-height: 39px;
   padding: 0 10px;
   border: 0;
   border-radius: 10px;
-  color: #aeb1ba;
-  background: rgba(255, 255, 255, 0.055);
+  color: #d1d3da;
+  background: rgba(255, 255, 255, 0.09);
   cursor: pointer;
   font-size: 9px;
 }
 .bootstrap-clear-value:disabled {
   cursor: default;
   opacity: 0.35;
+}
+.bootstrap-environment-text-editor {
+  min-height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(280px, 1fr);
+  gap: 9px;
+}
+.bootstrap-environment-text-editor p {
+  margin: 0;
+  color: #c8cbd3;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.bootstrap-environment-text-editor textarea {
+  width: 100%;
+  min-height: 280px;
+  resize: vertical;
+  padding: 13px;
+  border: 0;
+  border-radius: 12px;
+  outline: 0;
+  color: #ffffff;
+  background: rgba(8, 9, 12, 0.9);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+  line-height: 1.55;
+  tab-size: 2;
+}
+.bootstrap-environment-form > footer {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .nested-dialog-backdrop {
@@ -1688,6 +1796,52 @@ button:disabled {
   .server-add-card:hover {
     color: #292a30;
     background: rgba(30, 31, 36, 0.07);
+  }
+  .bootstrap-environment-dialog h2 {
+    color: #202126;
+  }
+  .bootstrap-environment-copy,
+  .bootstrap-environment-text-editor p {
+    color: #62656e;
+  }
+  .bootstrap-environment-mode-switch {
+    background: rgba(30, 31, 36, 0.07);
+  }
+  .bootstrap-environment-mode-switch button {
+    color: #5f626b;
+  }
+  .bootstrap-environment-mode-switch button.is-active {
+    color: #292a30;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow:
+      0 3px 9px rgba(44, 45, 52, 0.09),
+      inset 0 0 0 1px rgba(30, 31, 36, 0.08);
+  }
+  .bootstrap-environment-field label {
+    color: #292a30;
+  }
+  .bootstrap-environment-field label code {
+    color: #6c707a;
+  }
+  .bootstrap-environment-input-row input {
+    color: #202126;
+    background: rgba(30, 31, 36, 0.065);
+    box-shadow: inset 0 0 0 1px rgba(30, 31, 36, 0.08);
+  }
+  .bootstrap-environment-input-row input::placeholder {
+    color: #9da1aa;
+  }
+  .bootstrap-clear-value {
+    color: #4f525b;
+    background: rgba(30, 31, 36, 0.075);
+  }
+  .bootstrap-environment-text-editor textarea {
+    color: #202126;
+    background: rgba(30, 31, 36, 0.055);
+    box-shadow: inset 0 0 0 1px rgba(30, 31, 36, 0.1);
+  }
+  .bootstrap-environment-form > footer {
+    border-top-color: rgba(30, 31, 36, 0.09);
   }
 }
 

@@ -3,28 +3,32 @@ package appconfig
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
+	"strings"
 	"testing"
 )
 
-func TestBootstrapEnvironmentStoreIsWriteOnlyAndPrivate(t *testing.T) {
+func TestBootstrapEnvironmentStoreIsEditableDotenvAndPrivate(t *testing.T) {
 	paths := NewPaths(t.TempDir())
 	if err := paths.Ensure(); err != nil {
 		t.Fatal(err)
 	}
 	store := BootstrapEnvironmentStore{Path: paths.BootstrapEnvFile}
-	if err := store.Update(map[string]string{"TOKEN_A": "first", "TOKEN_B": "second"}); err != nil {
-		t.Fatal(err)
-	}
-	if err := store.Update(map[string]string{"TOKEN_A": "replacement", "TOKEN_B": ""}); err != nil {
+	content := "# Provider credentials\nTOKEN_A=replacement\nTOKEN_B='second value'\n"
+	if err := store.Replace(content); err != nil {
 		t.Fatal(err)
 	}
 	values, err := store.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(values) != 1 || values["TOKEN_A"] != "replacement" {
+	if len(values) != 2 || values["TOKEN_A"] != "replacement" || values["TOKEN_B"] != "second value" {
 		t.Fatalf("Load() = %#v", values)
+	}
+	stored, err := store.Content()
+	if err != nil || stored != content {
+		t.Fatalf("Content() = %q, %v", stored, err)
 	}
 	info, err := os.Stat(paths.BootstrapEnvFile)
 	if err != nil {
@@ -43,16 +47,48 @@ func TestBootstrapEnvironmentStoreRejectsSymlink(t *testing.T) {
 		t.Skip("symlink permissions vary on Windows")
 	}
 	root := t.TempDir()
-	target := filepath.Join(root, "target.json")
-	if err := os.WriteFile(target, []byte("{}\n"), 0o600); err != nil {
+	target := filepath.Join(root, "target.env")
+	if err := os.WriteFile(target, []byte("TOKEN=value\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	link := filepath.Join(root, "bootstrap-env.json")
+	link := filepath.Join(root, "bootstrap.env")
 	if err := os.Symlink(target, link); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := (BootstrapEnvironmentStore{Path: link}).Load(); err == nil {
 		t.Fatal("Load() error = nil")
+	}
+}
+
+func TestParseBootstrapEnvironment(t *testing.T) {
+	content := "# comment\nexport PLAIN=value # comment\nSINGLE='literal # value'\nDOUBLE=\"line\\nvalue\"\nEMPTY=\n"
+	values, err := ParseBootstrapEnvironment(content)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"PLAIN":  "value",
+		"SINGLE": "literal # value",
+		"DOUBLE": "line\nvalue",
+		"EMPTY":  "",
+	}
+	if !reflect.DeepEqual(values, want) {
+		t.Fatalf("ParseBootstrapEnvironment() = %#v, want %#v", values, want)
+	}
+}
+
+func TestParseBootstrapEnvironmentRejectsInvalidInput(t *testing.T) {
+	for _, content := range []string{
+		"NOT AN ASSIGNMENT\n",
+		"1INVALID=value\n",
+		"DUPLICATE=first\nDUPLICATE=second\n",
+		"QUOTE='unterminated\n",
+		"QUOTE=\"value\" trailing\n",
+		"TOKEN=" + strings.Repeat("x", maxBootstrapEnvironmentSize) + "\n",
+	} {
+		if _, err := ParseBootstrapEnvironment(content); err == nil {
+			t.Fatalf("ParseBootstrapEnvironment(%q) error = nil", content)
+		}
 	}
 }
 

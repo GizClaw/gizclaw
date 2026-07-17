@@ -34,6 +34,10 @@ import { DesktopDialog, DesktopDialogTitle } from "./DesktopDialog";
 import { HomeCard } from "./HomeCard";
 import { ManageListItem } from "./ManageListItem";
 import { NeatWaves } from "./NeatWaves";
+import {
+  readBootstrapEnvValues,
+  updateBootstrapEnvContent,
+} from "./bootstrap-env";
 
 export function AppShell() {
   const api = useMemo(() => getDesktopAPI(), []);
@@ -261,10 +265,11 @@ export function AppShell() {
       {environmentOpen && bootstrapEnvironment ? (
         <BootstrapEnvironmentDialog
           initial={bootstrapEnvironment}
+          nested={creating}
           onClose={() => setEnvironmentOpen(false)}
           onError={(reason) => setError(errorMessage(reason))}
-          onSave={async (values) => {
-            const next = await api.UpdateBootstrapEnvironment({ values });
+          onSave={async (content) => {
+            const next = await api.UpdateBootstrapEnvironment({ content });
             setBootstrapEnvironment(next);
             setEnvironmentOpen(false);
           }}
@@ -1289,30 +1294,36 @@ function CreatePodDialog({
 
 function BootstrapEnvironmentDialog({
   initial,
+  nested,
   onClose,
   onError,
   onSave,
 }: {
   initial: BootstrapEnvironmentState;
+  nested: boolean;
   onClose(): void;
   onError(reason: unknown): void;
-  onSave(values: Record<string, string>): Promise<void>;
+  onSave(content: string): Promise<void>;
 }) {
   const t = useMessages();
-  const [values, setValues] = useState<Record<string, string>>({});
-  const [cleared, setCleared] = useState<Set<string>>(new Set());
+  const names = useMemo(
+    () => initial.variables.map((variable) => variable.name),
+    [initial.variables],
+  );
+  const [mode, setMode] = useState<"form" | "text">("form");
+  const [content, setContent] = useState(initial.content);
+  const [values, setValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      initial.variables.map((variable) => [variable.name, variable.value]),
+    ),
+  );
   const [saving, setSaving] = useState(false);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const changes: Record<string, string> = {};
-    for (const [name, value] of Object.entries(values)) {
-      if (value !== "") changes[name] = value;
-    }
-    for (const name of cleared) changes[name] = "";
     setSaving(true);
     try {
-      await onSave(changes);
+      await onSave(content);
     } catch (reason) {
       onError(reason);
     } finally {
@@ -1321,12 +1332,14 @@ function BootstrapEnvironmentDialog({
   }
 
   return (
-    <DesktopDialog className="create-dialog bootstrap-environment-dialog" onClose={onClose}>
+    <DesktopDialog className="create-dialog bootstrap-environment-dialog" nested={nested} onClose={onClose}>
       {(close) => (
-        <form className="desktop-dialog-form" onSubmit={(event) => void submit(event)}>
+        <form
+          className="desktop-dialog-form bootstrap-environment-form"
+          onSubmit={(event) => void submit(event)}
+        >
           <header>
             <div>
-              <span className="mode-chip">{t("writeOnly")}</span>
               <DesktopDialogTitle>
                 <h2>{t("bootstrapEnvironment")}</h2>
               </DesktopDialogTitle>
@@ -1338,46 +1351,99 @@ function BootstrapEnvironmentDialog({
               <X size={18} />
             </button>
           </header>
-          <div className="bootstrap-environment-fields">
-            {initial.variables.map((variable) => (
-              <div className="bootstrap-environment-field" key={variable.name}>
-                <label>
-                  <span>{variable.name}</span>
-                  <input
-                    autoComplete="off"
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setValues((current) => ({ ...current, [variable.name]: value }));
-                      setCleared((current) => {
-                        const next = new Set(current);
-                        next.delete(variable.name);
-                        return next;
-                      });
-                    }}
-                    placeholder={
-                      variable.configured
-                        ? t("bootstrapValueConfigured")
-                        : variable.defaulted
-                          ? t("bootstrapValueDefaulted")
-                          : t("bootstrapValueRequired")
-                    }
-                    type="password"
-                    value={values[variable.name] ?? ""}
-                  />
-                </label>
-                <button
-                  className="bootstrap-clear-value"
-                  disabled={!variable.configured && !values[variable.name]}
-                  onClick={() => {
-                    setValues((current) => ({ ...current, [variable.name]: "" }));
-                    setCleared((current) => new Set(current).add(variable.name));
-                  }}
-                  type="button"
-                >
-                  {t("bootstrapClearSaved")}
-                </button>
+          <div className="bootstrap-environment-mode-switch" role="tablist">
+            <button
+              aria-selected={mode === "form"}
+              className={mode === "form" ? "is-active" : ""}
+              onClick={() => setMode("form")}
+              role="tab"
+              type="button"
+            >
+              {t("bootstrapEnvironmentFormMode")}
+            </button>
+            <button
+              aria-selected={mode === "text"}
+              className={mode === "text" ? "is-active" : ""}
+              onClick={() => setMode("text")}
+              role="tab"
+              type="button"
+            >
+              {t("bootstrapEnvironmentTextMode")}
+            </button>
+          </div>
+          <div className="bootstrap-environment-scroll-region">
+            {mode === "form" ? (
+              <div className="bootstrap-environment-fields">
+                {initial.variables.map((variable, index) => {
+                  const inputID = `bootstrap-environment-${index}`;
+                  return (
+                    <div className="bootstrap-environment-field" key={variable.name}>
+                      <label htmlFor={inputID}>
+                        <span>{bootstrapEnvironmentLabel(variable.name, t)}</span>
+                        <code title={t("bootstrapEnvironmentKey")}>{variable.name}</code>
+                      </label>
+                      <div className="bootstrap-environment-input-row">
+                        <input
+                          autoComplete="off"
+                          id={inputID}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            setValues((current) => {
+                              const next = { ...current, [variable.name]: value };
+                              setContent((currentContent) =>
+                                updateBootstrapEnvContent(currentContent, names, next),
+                              );
+                              return next;
+                            });
+                          }}
+                          placeholder={
+                            variable.configured
+                              ? t("bootstrapValueConfigured")
+                              : variable.defaulted
+                                ? t("bootstrapValueDefaulted")
+                                : t("bootstrapValueRequired")
+                          }
+                          type="text"
+                          value={values[variable.name] ?? ""}
+                        />
+                        <button
+                          className="bootstrap-clear-value"
+                          disabled={!values[variable.name]}
+                          onClick={() => {
+                            setValues((current) => {
+                              const next = { ...current, [variable.name]: "" };
+                              setContent((currentContent) =>
+                                updateBootstrapEnvContent(currentContent, names, next),
+                              );
+                              return next;
+                            });
+                          }}
+                          type="button"
+                        >
+                          {t("bootstrapClearSaved")}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
+            ) : (
+              <div className="bootstrap-environment-text-editor">
+                <p>{t("bootstrapEnvironmentTextHint")}</p>
+                <textarea
+                  aria-label={t("bootstrapEnvironmentTextMode")}
+                  autoCapitalize="off"
+                  autoComplete="off"
+                  onChange={(event) => {
+                    const nextContent = event.target.value;
+                    setContent(nextContent);
+                    setValues(readBootstrapEnvValues(nextContent, names));
+                  }}
+                  spellCheck={false}
+                  value={content}
+                />
+              </div>
+            )}
           </div>
           <footer>
             <button className="secondary-action" onClick={close} type="button">
@@ -1391,6 +1457,38 @@ function BootstrapEnvironmentDialog({
       )}
     </DesktopDialog>
   );
+}
+
+const bootstrapEnvironmentLabelKeys = {
+  GIZCLAW_DEEPSEEK_API_KEY: "bootstrapEnvDeepSeekApiKey",
+  GIZCLAW_GEMINI_API_KEY: "bootstrapEnvGeminiApiKey",
+  GIZCLAW_MINIMAX_CN_API_KEY: "bootstrapEnvMiniMaxChinaApiKey",
+  GIZCLAW_MINIMAX_CN_VOICE_BASE_URL: "bootstrapEnvMiniMaxChinaVoiceBaseUrl",
+  GIZCLAW_MINIMAX_GLOBAL_API_KEY: "bootstrapEnvMiniMaxGlobalApiKey",
+  GIZCLAW_MINIMAX_GLOBAL_VOICE_BASE_URL: "bootstrapEnvMiniMaxGlobalVoiceBaseUrl",
+  GIZCLAW_OPENAI_API_KEY: "bootstrapEnvOpenAIApiKey",
+  GIZCLAW_QWEN_DASHSCOPE_API_KEY: "bootstrapEnvQwenDashScopeApiKey",
+  GIZCLAW_VOLC_ARK_API_KEY: "bootstrapEnvVolcArkApiKey",
+  GIZCLAW_VOLC_OPENAPI_ACCESS_KEY: "bootstrapEnvVolcOpenApiAccessKey",
+  GIZCLAW_VOLC_OPENAPI_ACCESS_KEY_ID: "bootstrapEnvVolcOpenApiAccessKeyId",
+  GIZCLAW_VOLC_SEARCH_API_KEY: "bootstrapEnvVolcSearchApiKey",
+  GIZCLAW_VOLC_SPEECH_API_KEY: "bootstrapEnvVolcSpeechApiKey",
+  GIZCLAW_VOLC_SPEECH_APP_ID: "bootstrapEnvVolcSpeechAppId",
+} as const;
+
+function bootstrapEnvironmentLabel(
+  name: string,
+  t: ReturnType<typeof useMessages>,
+): string {
+  const key = bootstrapEnvironmentLabelKeys[
+    name as keyof typeof bootstrapEnvironmentLabelKeys
+  ];
+  if (key) return t(key);
+  return name
+    .replace(/^GIZCLAW_/, "")
+    .toLowerCase()
+    .replaceAll("_", " ")
+    .replace(/^./, (character) => character.toUpperCase());
 }
 
 function PodSettingsDialog({

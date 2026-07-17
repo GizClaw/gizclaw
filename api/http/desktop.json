@@ -41,7 +41,7 @@
       "get": {
         "operationId": "getDesktopBootstrapEnvironment",
         "tags": ["Bootstrap environment"],
-        "summary": "Inspect bootstrap readiness without returning stored values",
+        "summary": "Read the editable Desktop bootstrap environment",
         "responses": {
           "200": {
             "description": "Bootstrap environment readiness",
@@ -59,8 +59,8 @@
       "put": {
         "operationId": "updateDesktopBootstrapEnvironment",
         "tags": ["Bootstrap environment"],
-        "summary": "Update write-only bootstrap values",
-        "description": "Omitted names remain unchanged and an explicitly empty value removes the saved value.",
+        "summary": "Replace the editable Desktop bootstrap environment",
+        "description": "The content is validated as a dotenv file and may contain only names used by the bundled catalog.",
         "requestBody": {
           "required": true,
           "content": {
@@ -386,12 +386,16 @@
       },
       "BootstrapEnvironmentState": {
         "type": "object",
-        "required": ["ready", "missing", "variables"],
+        "required": ["ready", "missing", "content", "variables"],
         "properties": {
           "ready": { "type": "boolean" },
           "missing": {
             "type": "array",
             "items": { "type": "string" }
+          },
+          "content": {
+            "type": "string",
+            "description": "Current editable bootstrap.env content."
           },
           "variables": {
             "type": "array",
@@ -403,23 +407,23 @@
       },
       "BootstrapEnvironmentVariableState": {
         "type": "object",
-        "required": ["name", "required", "configured", "defaulted"],
+        "required": ["name", "required", "configured", "defaulted", "value"],
         "properties": {
           "name": { "type": "string" },
           "required": { "type": "boolean" },
           "configured": { "type": "boolean" },
-          "defaulted": { "type": "boolean" }
+          "defaulted": { "type": "boolean" },
+          "value": {
+            "type": "string",
+            "description": "Value stored in bootstrap.env, or empty when the value comes from the process environment or catalog default."
+          }
         }
       },
       "BootstrapEnvironmentUpdate": {
         "type": "object",
-        "required": ["values"],
+        "required": ["content"],
         "properties": {
-          "values": {
-            "type": "object",
-            "writeOnly": true,
-            "additionalProperties": { "type": "string" }
-          }
+          "content": { "type": "string" }
         }
       },
       "DesktopPod": {

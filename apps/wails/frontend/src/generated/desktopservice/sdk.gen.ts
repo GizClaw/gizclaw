@@ -24,14 +24,14 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 export const getDesktopBootstrap = <ThrowOnError extends boolean = false>(options?: Options<GetDesktopBootstrapData, ThrowOnError>): RequestResult<GetDesktopBootstrapResponses, GetDesktopBootstrapErrors, ThrowOnError> => (options?.client ?? client).get<GetDesktopBootstrapResponses, GetDesktopBootstrapErrors, ThrowOnError>({ url: '/desktop/bootstrap', ...options });
 
 /**
- * Inspect bootstrap readiness without returning stored values
+ * Read the editable Desktop bootstrap environment
  */
 export const getDesktopBootstrapEnvironment = <ThrowOnError extends boolean = false>(options?: Options<GetDesktopBootstrapEnvironmentData, ThrowOnError>): RequestResult<GetDesktopBootstrapEnvironmentResponses, GetDesktopBootstrapEnvironmentErrors, ThrowOnError> => (options?.client ?? client).get<GetDesktopBootstrapEnvironmentResponses, GetDesktopBootstrapEnvironmentErrors, ThrowOnError>({ url: '/desktop/bootstrap-environment', ...options });
 
 /**
- * Update write-only bootstrap values
+ * Replace the editable Desktop bootstrap environment
  *
- * Omitted names remain unchanged and an explicitly empty value removes the saved value.
+ * The content is validated as a dotenv file and may contain only names used by the bundled catalog.
  */
 export const updateDesktopBootstrapEnvironment = <ThrowOnError extends boolean = false>(options: Options<UpdateDesktopBootstrapEnvironmentData, ThrowOnError>): RequestResult<UpdateDesktopBootstrapEnvironmentResponses, UpdateDesktopBootstrapEnvironmentErrors, ThrowOnError> => (options.client ?? client).put<UpdateDesktopBootstrapEnvironmentResponses, UpdateDesktopBootstrapEnvironmentErrors, ThrowOnError>({
     url: '/desktop/bootstrap-environment',
