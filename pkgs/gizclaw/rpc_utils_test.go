@@ -14,6 +14,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -106,6 +107,7 @@ func TestRPCServerLogsDomainFailureOnce(t *testing.T) {
 	capture := captureSlog(t)
 	serverSide, clientSide := net.Pipe()
 	defer serverSide.Close()
+	t.Cleanup(func() { _ = clientSide.Close() })
 
 	serverErrCh := make(chan error, 1)
 	server := &rpcServer{
@@ -114,6 +116,10 @@ func TestRPCServerLogsDomainFailureOnce(t *testing.T) {
 			Caller:     giznet.PublicKey{1},
 			ACL:        allowResourceAuthorizer{},
 			Workspaces: invalidWorkspaceAdminService{},
+			Workflows: fixedWorkflowAdminService{value: apitypes.Workflow{
+				Name: "workflow-a",
+				Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverChatroom},
+			}},
 		},
 	}
 	go func() { serverErrCh <- server.Handle(serverSide) }()
@@ -409,6 +415,15 @@ type allowResourceAuthorizer struct{}
 func (allowResourceAuthorizer) Authorize(context.Context, acl.AuthorizeRequest) error { return nil }
 
 type invalidWorkspaceAdminService struct{}
+
+type fixedWorkflowAdminService struct {
+	workflow.WorkflowAdminService
+	value apitypes.Workflow
+}
+
+func (s fixedWorkflowAdminService) GetWorkflow(context.Context, adminhttp.GetWorkflowRequestObject) (adminhttp.GetWorkflowResponseObject, error) {
+	return adminhttp.GetWorkflow200JSONResponse(s.value), nil
+}
 
 func (invalidWorkspaceAdminService) ListWorkspaces(context.Context, adminhttp.ListWorkspacesRequestObject) (adminhttp.ListWorkspacesResponseObject, error) {
 	return nil, nil
