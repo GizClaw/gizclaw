@@ -33,7 +33,6 @@
             "properties": {
               "token": {
                 "type": "string",
-                "writeOnly": true,
                 "description": "Raw registration token returned exactly once."
               }
             }

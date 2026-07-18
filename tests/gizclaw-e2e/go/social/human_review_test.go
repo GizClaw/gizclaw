@@ -177,11 +177,11 @@ func registerSocialHumanReviewProfile(t *testing.T, api *adminhttp.ClientWithRes
 	if err != nil {
 		t.Fatalf("create social human-review RegistrationToken: %v", err)
 	}
-	if tokenResp.JSON200 == nil || tokenResp.JSON200.Token == nil {
+	if tokenResp.JSON200 == nil || tokenResp.JSON200.Token == "" {
 		t.Fatalf("create social human-review RegistrationToken status %d: %s", tokenResp.StatusCode(), strings.TrimSpace(string(tokenResp.Body)))
 	}
 	for _, peerName := range peers {
-		registered, err := clients.Client(peerName).Register(ctx, "server.register.social-human-review", *tokenResp.JSON200.Token)
+		registered, err := clients.Client(peerName).Register(ctx, "server.register.social-human-review", tokenResp.JSON200.Token)
 		if err != nil {
 			t.Fatalf("register %s for social human review: %v", peerName, err)
 		}

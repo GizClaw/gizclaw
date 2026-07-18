@@ -41,6 +41,7 @@ type Pod struct {
 	RemoteServers         []RemoteServer `json:"remote_servers,omitempty"`
 	RemoteAccessPoint     string         `json:"remote_access_point,omitempty"`
 	ClientPrivateKey      string         `json:"client_private_key,omitempty"`
+	RegistrationToken     string         `json:"registration_token,omitempty"`
 }
 
 type LocalServer struct {

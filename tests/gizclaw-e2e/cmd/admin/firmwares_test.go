@@ -158,10 +158,10 @@ func createFirmwareRegistrationToken(t *testing.T, h *clitest.Harness, firmwareN
 	if err != nil {
 		t.Fatalf("create firmware RegistrationToken: %v", err)
 	}
-	if tokenResp.JSON200 == nil || tokenResp.JSON200.Token == nil {
+	if tokenResp.JSON200 == nil || tokenResp.JSON200.Token == "" {
 		t.Fatalf("create firmware RegistrationToken status %d: %s", tokenResp.StatusCode(), strings.TrimSpace(string(tokenResp.Body)))
 	}
-	return *tokenResp.JSON200.Token
+	return tokenResp.JSON200.Token
 }
 
 func assertDeviceFirmwareRPC(t *testing.T, h *clitest.Harness, contextName, registrationToken, outputPath string) {

@@ -182,10 +182,10 @@ func createChatRegistrationToken(t *testing.T, selected workspaceCase) string {
 	if err != nil {
 		t.Fatalf("create chat RegistrationToken: %v", err)
 	}
-	if tokenResp.JSON200 == nil || tokenResp.JSON200.Token == nil {
+	if tokenResp.JSON200 == nil || tokenResp.JSON200.Token == "" {
 		t.Fatalf("create chat RegistrationToken status %d: %s", tokenResp.StatusCode(), strings.TrimSpace(string(tokenResp.Body)))
 	}
-	return *tokenResp.JSON200.Token
+	return tokenResp.JSON200.Token
 }
 
 func runConfigWithLiveRetry(path, contextConfigPath string, selected workspaceCase) error {

@@ -81,10 +81,10 @@ func registerGameplayProfile(t *testing.T, h *clitest.Harness, peer *gizcli.Clie
 	if err != nil {
 		t.Fatalf("create gameplay RegistrationToken: %v", err)
 	}
-	if tokenResp.JSON200 == nil || tokenResp.JSON200.Token == nil {
+	if tokenResp.JSON200 == nil || tokenResp.JSON200.Token == "" {
 		t.Fatalf("create gameplay RegistrationToken status %d: %s", tokenResp.StatusCode(), strings.TrimSpace(string(tokenResp.Body)))
 	}
-	registered, err := peer.Register(ctx, "server.register.gameplay", *tokenResp.JSON200.Token)
+	registered, err := peer.Register(ctx, "server.register.gameplay", tokenResp.JSON200.Token)
 	if err != nil {
 		t.Fatalf("register gameplay connection: %v", err)
 	}

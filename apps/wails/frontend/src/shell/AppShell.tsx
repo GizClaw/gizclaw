@@ -1343,6 +1343,7 @@ function CreatePodDialog({
   const t = useMessages();
   const [mode, setMode] = useState<"choose" | "remote">("choose");
   const [accessPoint, setAccessPoint] = useState("");
+  const [registrationToken, setRegistrationToken] = useState("");
   const [saving, setSaving] = useState(false);
   const submitting = useRef(false);
 
@@ -1377,6 +1378,7 @@ function CreatePodDialog({
         name: t("remotePodDefaultName"),
         remote_access_point: accessPoint.trim(),
         remote_servers: [],
+        registration_token: registrationToken.trim(),
       });
     } finally {
       submitting.current = false;
@@ -1458,6 +1460,15 @@ function CreatePodDialog({
                 placeholder="ap.dev.gizclaw.com:9820"
                 required
                 value={accessPoint}
+                wide
+              />
+              <Field
+                label={t("registrationToken")}
+                onChange={setRegistrationToken}
+                placeholder={t("pasteRegistrationToken")}
+                required
+                secret
+                value={registrationToken}
                 wide
               />
               <button
@@ -1692,6 +1703,7 @@ function PodSettingsDialog({
   const [accessPoint, setAccessPoint] = useState(
     initial.remote?.access_point.endpoint ?? "",
   );
+  const [registrationToken, setRegistrationToken] = useState("");
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -1711,6 +1723,7 @@ function PodSettingsDialog({
     await onSave({
       ...base,
       remote_access_point: accessPoint.trim(),
+      registration_token: registrationToken.trim() || undefined,
       remote_servers: initial.remote!.servers.map((server) => ({
         id: server.id,
         name: server.name,
@@ -1753,14 +1766,24 @@ function PodSettingsDialog({
             wide
           />
           {initial.remote ? (
-            <Field
-              label={t("accessPoint")}
-              onChange={setAccessPoint}
-              placeholder="ap.dev.gizclaw.com:9820"
-              required
-              value={accessPoint}
-              wide
-            />
+            <>
+              <Field
+                label={t("accessPoint")}
+                onChange={setAccessPoint}
+                placeholder="ap.dev.gizclaw.com:9820"
+                required
+                value={accessPoint}
+                wide
+              />
+              <Field
+                label={t("registrationToken")}
+                onChange={setRegistrationToken}
+                placeholder={t("keepRegistrationToken")}
+                secret
+                value={registrationToken}
+                wide
+              />
+            </>
           ) : null}
         </div>
         <footer>

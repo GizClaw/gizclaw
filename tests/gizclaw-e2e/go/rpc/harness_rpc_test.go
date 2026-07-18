@@ -183,10 +183,10 @@ func registerRuntimeProfile(t *testing.T, h *clitest.Harness, peer *gizcli.Clien
 	if err != nil {
 		t.Fatalf("create RegistrationToken for %s: %v", contextName, err)
 	}
-	if tokenResp.JSON200 == nil || tokenResp.JSON200.Token == nil {
+	if tokenResp.JSON200 == nil || tokenResp.JSON200.Token == "" {
 		t.Fatalf("create RegistrationToken for %s status %d: %s", contextName, tokenResp.StatusCode(), strings.TrimSpace(string(tokenResp.Body)))
 	}
-	registered, err := peer.Register(ctx, "server.register."+contextName, *tokenResp.JSON200.Token)
+	registered, err := peer.Register(ctx, "server.register."+contextName, tokenResp.JSON200.Token)
 	if err != nil {
 		t.Fatalf("server.register for %s: %v", contextName, err)
 	}

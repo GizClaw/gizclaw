@@ -142,6 +142,10 @@ export type PodInputWritable = unknown & {
     remote_servers?: Array<RemoteServerInputWritable>;
     remote_access_point?: string;
     client_private_key?: string;
+    /**
+     * Pre-provisioned RegistrationToken submitted by remote Play on each connection.
+     */
+    registration_token?: string;
 };
 
 export type LocalServerInputWritable = {

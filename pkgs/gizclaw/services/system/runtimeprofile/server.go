@@ -274,7 +274,7 @@ func (s *Server) CreateRegistrationToken(ctx context.Context, request adminhttp.
 	if err := store.BatchSet(ctx, []kv.Entry{{Key: tokenKey(name), Value: encoded}, {Key: tokenHashKey(digest), Value: []byte(name)}}); err != nil {
 		return adminhttp.CreateRegistrationToken500JSONResponse(internalError(err)), nil
 	}
-	return adminhttp.CreateRegistrationToken200JSONResponse(apitypes.RegistrationTokenCreateResult{Name: name, FirmwareName: firmwareName, RuntimeProfileName: profileName, CreatedAt: createdAt, Token: &raw}), nil
+	return adminhttp.CreateRegistrationToken200JSONResponse(apitypes.RegistrationTokenCreateResult{Name: name, FirmwareName: firmwareName, RuntimeProfileName: profileName, CreatedAt: createdAt, Token: raw}), nil
 }
 
 func (s *Server) GetRegistrationToken(ctx context.Context, request adminhttp.GetRegistrationTokenRequestObject) (adminhttp.GetRegistrationTokenResponseObject, error) {

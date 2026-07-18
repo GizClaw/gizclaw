@@ -46,7 +46,8 @@ func (m *Manager) putRegistrationToken(ctx context.Context, item apitypes.Regist
 	switch response := response.(type) {
 	case adminhttp.CreateRegistrationToken200JSONResponse:
 		stored := apitypes.RegistrationToken{Name: response.Name, FirmwareName: response.FirmwareName, RuntimeProfileName: response.RuntimeProfileName, CreatedAt: response.CreatedAt}
-		return resourceFromRegistrationToken(stored, response.Token)
+		token := response.Token
+		return resourceFromRegistrationToken(stored, &token)
 	case adminhttp.CreateRegistrationToken400JSONResponse:
 		return apitypes.Resource{}, responseError(400, "CREATE_REGISTRATION_TOKEN_FAILED", "failed to create RegistrationToken", response)
 	case adminhttp.CreateRegistrationToken409JSONResponse:

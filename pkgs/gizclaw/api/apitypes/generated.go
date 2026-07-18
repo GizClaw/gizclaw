@@ -3038,7 +3038,7 @@ type RegistrationTokenCreateResult struct {
 	RuntimeProfileName string    `json:"runtime_profile_name"`
 
 	// Token Raw registration token returned exactly once.
-	Token *string `json:"token,omitempty"`
+	Token string `json:"token"`
 }
 
 // RegistrationTokenResource defines model for RegistrationTokenResource.

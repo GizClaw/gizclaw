@@ -556,7 +556,12 @@
             "items": { "$ref": "#/components/schemas/RemoteServerInput" }
           },
           "remote_access_point": { "type": "string" },
-          "client_private_key": { "type": "string", "writeOnly": true }
+          "client_private_key": { "type": "string", "writeOnly": true },
+          "registration_token": {
+            "type": "string",
+            "writeOnly": true,
+            "description": "Pre-provisioned RegistrationToken submitted by remote Play on each connection."
+          }
         },
         "oneOf": [
           {

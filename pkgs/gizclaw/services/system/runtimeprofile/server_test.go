@@ -38,10 +38,10 @@ func TestRegistrationTokenIsReturnedOnceAndStoredAsHash(t *testing.T) {
 		t.Fatal(err)
 	}
 	created, ok := response.(adminhttp.CreateRegistrationToken200JSONResponse)
-	if !ok || created.Token == nil || *created.Token == "" {
+	if !ok || created.Token == "" {
 		t.Fatalf("create response = %#v, want one-time token", response)
 	}
-	raw := *created.Token
+	raw := created.Token
 	stored, err := store.Get(ctx, tokenKey("pet-board"))
 	if err != nil {
 		t.Fatal(err)
@@ -100,14 +100,14 @@ func TestRegistrationTokenCanBeReusedUntilDeleted(t *testing.T) {
 	}
 	created := response.(adminhttp.CreateRegistrationToken200JSONResponse)
 	for range 2 {
-		if _, err := s.ResolveRegistration(ctx, *created.Token); err != nil {
+		if _, err := s.ResolveRegistration(ctx, created.Token); err != nil {
 			t.Fatalf("reusable token resolve: %v", err)
 		}
 	}
 	if _, err := s.DeleteRegistrationToken(ctx, adminhttp.DeleteRegistrationTokenRequestObject{Name: "pet-board"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.ResolveRegistration(ctx, *created.Token); !errors.Is(err, kv.ErrNotFound) {
+	if _, err := s.ResolveRegistration(ctx, created.Token); !errors.Is(err, kv.ErrNotFound) {
 		t.Fatalf("resolve after delete error = %v, want not found", err)
 	}
 }
@@ -144,9 +144,7 @@ func TestConcurrentRegistrationTokenCreateKeepsNameAndHashIndexesConsistent(t *t
 		switch value := response.(type) {
 		case adminhttp.CreateRegistrationToken200JSONResponse:
 			created++
-			if value.Token != nil {
-				raw = *value.Token
-			}
+			raw = value.Token
 		case adminhttp.CreateRegistrationToken409JSONResponse:
 			conflicts++
 		default:

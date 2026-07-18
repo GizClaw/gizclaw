@@ -121,10 +121,10 @@ func createRegistrationToken(t *testing.T, server *runtimeprofile.Server, profil
 		t.Fatal(err)
 	}
 	created, ok := tokenResponse.(adminhttp.CreateRegistrationToken200JSONResponse)
-	if !ok || created.Token == nil || strings.TrimSpace(*created.Token) == "" {
+	if !ok || strings.TrimSpace(created.Token) == "" {
 		t.Fatalf("create RegistrationToken = %#v", tokenResponse)
 	}
-	return *created.Token
+	return created.Token
 }
 
 func registerRPC(t *testing.T, server *rpcServer, token string) rpcapi.ServerRegisterResponse {

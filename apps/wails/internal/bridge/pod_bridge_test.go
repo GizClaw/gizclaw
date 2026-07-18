@@ -36,6 +36,7 @@ func TestRemotePodPreservesWriteOnlyKeysAndHandsAdminAllServers(t *testing.T) {
 	defer web.Shutdown()
 	bridge := &PodBridge{Paths: paths, Store: appconfig.Store{Paths: paths}, Health: endpointhealth.New(), Local: localserver.New(), WebUI: web}
 	adminA, adminB, client := bridgeTestKey(t, 0x71), bridgeTestKey(t, 0x72), bridgeTestKey(t, 0x73)
+	registrationToken := "remote-registration-secret"
 	created, err := bridge.CreatePod(context.Background(), PodInput{
 		Version: 1,
 		ID:      "remote-lab",
@@ -46,6 +47,7 @@ func TestRemotePodPreservesWriteOnlyKeysAndHandsAdminAllServers(t *testing.T) {
 		},
 		RemoteAccessPoint: "127.0.0.1:19820",
 		ClientPrivateKey:  &client,
+		RegistrationToken: &registrationToken,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -74,7 +76,7 @@ func TestRemotePodPreservesWriteOnlyKeysAndHandsAdminAllServers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if persisted.RemoteServers[0].AdminPrivateKey != adminA || persisted.RemoteServers[1].AdminPrivateKey != adminB || persisted.ClientPrivateKey != client {
+	if persisted.RemoteServers[0].AdminPrivateKey != adminA || persisted.RemoteServers[1].AdminPrivateKey != adminB || persisted.ClientPrivateKey != client || persisted.RegistrationToken != registrationToken {
 		t.Fatal("omitted write-only keys were not preserved")
 	}
 
@@ -98,6 +100,30 @@ func TestRemotePodPreservesWriteOnlyKeysAndHandsAdminAllServers(t *testing.T) {
 	}
 	if runtime.AdminServerID != "server-b" || len(runtime.AdminServers) != 2 || runtime.AdminServers[1].Context.Endpoint != "127.0.0.1:19002" {
 		t.Fatalf("Admin runtime = %+v", runtime)
+	}
+
+	playLaunch, err := bridge.PlayURL(context.Background(), "remote-lab")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(playLaunch, registrationToken) {
+		t.Fatal("Play URL contains the RegistrationToken")
+	}
+	playParsed, _ := url.Parse(playLaunch)
+	playBody, _ := json.Marshal(map[string]string{"token": playParsed.Query().Get("token")})
+	playRequest, _ := http.NewRequest(http.MethodPost, "http://"+playParsed.Host+"/__gizclaw/runtime", bytes.NewReader(playBody))
+	playRequest.Header.Set("Origin", "http://"+playParsed.Host)
+	playResponse, err := http.DefaultClient.Do(playRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer playResponse.Body.Close()
+	var playRuntime webui.Runtime
+	if err := json.NewDecoder(playResponse.Body).Decode(&playRuntime); err != nil {
+		t.Fatal(err)
+	}
+	if playRuntime.RegistrationToken != registrationToken {
+		t.Fatalf("remote Play RegistrationToken = %q", playRuntime.RegistrationToken)
 	}
 }
 
@@ -450,8 +476,8 @@ func TestPodCreationGeneratesInternalIDsAndAllowsEmptyRemoteInventory(t *testing
 	if !local.PlayConfigured || local.PlayPublicKey == "" || local.Local == nil || !local.Local.AdminConfigured || local.Local.AdminPublicKey == "" || local.Local.ServerPublicKey == "" {
 		t.Fatalf("generated local identities = %+v", local)
 	}
-	if !remote.PlayConfigured || remote.PlayPublicKey == "" {
-		t.Fatalf("generated remote Play identity = %+v", remote)
+	if remote.PlayConfigured || remote.PlayPublicKey == "" {
+		t.Fatalf("remote Play should wait for a RegistrationToken: %+v", remote)
 	}
 	if remote.Remote == nil || len(remote.Remote.Servers) != 0 {
 		t.Fatalf("remote summary = %+v", remote.Remote)

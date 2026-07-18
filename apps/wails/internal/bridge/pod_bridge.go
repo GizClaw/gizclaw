@@ -131,6 +131,7 @@ type PodInput struct {
 	RemoteServers     []RemoteServerInput `json:"remote_servers,omitempty"`
 	RemoteAccessPoint string              `json:"remote_access_point,omitempty"`
 	ClientPrivateKey  *string             `json:"client_private_key,omitempty"`
+	RegistrationToken *string             `json:"registration_token,omitempty"`
 }
 
 type LocalServerInput struct {
@@ -861,12 +862,21 @@ func (b *PodBridge) PlayURL(_ context.Context, podID string) (string, error) {
 		if runtime.RegistrationToken == "" {
 			return "", fmt.Errorf("desktop bridge: local Play registration token is empty")
 		}
+	} else {
+		runtime.RegistrationToken = strings.TrimSpace(pod.RegistrationToken)
+		if runtime.RegistrationToken == "" {
+			return "", fmt.Errorf("desktop bridge: remote Play RegistrationToken is not configured")
+		}
 	}
 	return b.WebUI.LaunchURL(podID, "play", runtime)
 }
 
 func (b *PodBridge) summary(pod appconfig.Pod) PodSummary {
-	summary := PodSummary{ID: pod.ID, Name: pod.Name, Description: pod.Description, PlayConfigured: pod.ClientPrivateKey != "", PlayPublicKey: publicKeyForPrivate(pod.ClientPrivateKey), Valid: true}
+	playConfigured := pod.ClientPrivateKey != ""
+	if pod.LocalServer == nil {
+		playConfigured = playConfigured && strings.TrimSpace(pod.RegistrationToken) != ""
+	}
+	summary := PodSummary{ID: pod.ID, Name: pod.Name, Description: pod.Description, PlayConfigured: playConfigured, PlayPublicKey: publicKeyForPrivate(pod.ClientPrivateKey), Valid: true}
 	if initialization, err := b.Store.Initialization(pod.ID); err != nil {
 		summary.Initialization = &InitializationSummary{State: "failed", Error: err.Error()}
 	} else if initialization != nil {
@@ -998,10 +1008,13 @@ func (b *PodBridge) inputToPod(input PodInput, existing *appconfig.Pod) (appconf
 		pod.RemoteServers = append(pod.RemoteServers, appconfig.RemoteServer{ID: serverID, Name: name, Endpoint: strings.TrimSpace(server.Endpoint), AdminPrivateKey: secretValue(server.AdminPrivateKey, oldKey)})
 	}
 	oldClient := ""
+	oldRegistrationToken := ""
 	if existing != nil {
 		oldClient = existing.ClientPrivateKey
+		oldRegistrationToken = existing.RegistrationToken
 	}
 	pod.ClientPrivateKey = secretValue(input.ClientPrivateKey, oldClient)
+	pod.RegistrationToken = secretValue(input.RegistrationToken, oldRegistrationToken)
 	return pod, nil
 }
 

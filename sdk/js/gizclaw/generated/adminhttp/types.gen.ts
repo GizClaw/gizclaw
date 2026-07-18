@@ -1475,7 +1475,12 @@ export type RegistrationToken = {
     created_at: string;
 };
 
-export type RegistrationTokenCreateResult = RegistrationToken;
+export type RegistrationTokenCreateResult = RegistrationToken & {
+    /**
+     * Raw registration token returned exactly once.
+     */
+    token: string;
+};
 
 export type Runtime = {
     online: boolean;
@@ -2394,13 +2399,6 @@ export type ModelWritable = {
     synced_at?: string;
     created_at: string;
     updated_at: string;
-};
-
-export type RegistrationTokenCreateResultWritable = RegistrationToken & {
-    /**
-     * Raw registration token returned exactly once.
-     */
-    token: string;
 };
 
 export type FriendGroupInviteTokenClearResponseWritable = {
