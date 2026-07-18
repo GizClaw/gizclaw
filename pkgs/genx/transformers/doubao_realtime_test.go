@@ -1160,6 +1160,18 @@ func TestDoubaoRealtimeDoesNotReplayAmbiguousTextAfterReconnect(t *testing.T) {
 	}
 }
 
+func TestDoubaoRealtimeInterruptDiscardKeepsUserTranscript(t *testing.T) {
+	streamID := "turn"
+	transcript := &genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "transcript"}}
+	assistant := &genx.MessageChunk{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel}}
+	if isDoubaoRealtimeAssistantChunk(transcript, streamID) {
+		t.Fatal("user transcript matched assistant discard")
+	}
+	if !isDoubaoRealtimeAssistantChunk(assistant, streamID) {
+		t.Fatal("assistant audio did not match assistant discard")
+	}
+}
+
 func TestDoubaoRealtimeSessionLoopStopsRetryOnContextCancellation(t *testing.T) {
 	opener := &fakeDoubaoRealtimeOpener{results: []fakeDoubaoRealtimeOpenResult{
 		{err: errors.New("connect-1")},

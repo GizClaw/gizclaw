@@ -919,7 +919,7 @@ func (t *DoubaoRealtime) processSession(
 			return false
 		}
 		output.discard(func(chunk *genx.MessageChunk) bool {
-			return chunk != nil && chunk.Ctrl != nil && chunk.Ctrl.StreamID == interruption.streamID
+			return isDoubaoRealtimeAssistantChunk(chunk, interruption.streamID)
 		})
 		if interruption.textOpen {
 			textEOS := &genx.MessageChunk{
@@ -1541,6 +1541,11 @@ func (t *DoubaoRealtime) processSession(
 			}
 		}
 	}
+}
+
+func isDoubaoRealtimeAssistantChunk(chunk *genx.MessageChunk, streamID string) bool {
+	return chunk != nil && chunk.Role == genx.RoleModel && chunk.Ctrl != nil &&
+		chunk.Ctrl.StreamID == streamID && chunk.Ctrl.Label == doubaoRealtimeAssistantLabel
 }
 
 func (t *DoubaoRealtime) pushInputEOSError(output *bufferStream, streamID string, err error) {

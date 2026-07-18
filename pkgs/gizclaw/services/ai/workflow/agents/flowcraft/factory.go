@@ -932,12 +932,20 @@ func (a *agent) run(ctx context.Context, input genx.Stream, output *genx.StreamB
 
 	inputDone := false
 	var inputErr error
+	var completed *flowcraftActiveTurn
+	startTurn := func(turn flowcraftInputTurn) {
+		if completed != nil {
+			_ = a.interruptQueuedOutput(output, completed.streamID, completed.epoch)
+			completed = nil
+		}
+		current = a.startFlowcraftTurn(ctx, output, turn)
+	}
 	for {
 		if current == nil && inputDone {
 			select {
 			case turn, ok := <-turns:
 				if ok {
-					current = a.startFlowcraftTurn(ctx, output, turn)
+					startTurn(turn)
 					continue
 				}
 			default:
@@ -957,7 +965,7 @@ func (a *agent) run(ctx context.Context, input genx.Stream, output *genx.StreamB
 					inputDone = true
 					continue
 				}
-				current = a.startFlowcraftTurn(ctx, output, turn)
+				startTurn(turn)
 			case err := <-readerDone:
 				inputDone = true
 				inputErr = err
@@ -977,6 +985,7 @@ func (a *agent) run(ctx context.Context, input genx.Stream, output *genx.StreamB
 			}
 			current.cancel()
 			_ = a.interruptOutput(output, current.streamID, current.epoch)
+			completed = nil
 			current = a.startFlowcraftTurn(ctx, output, turn)
 		case err := <-current.done:
 			if err != nil && !errors.Is(err, context.Canceled) {
@@ -987,6 +996,7 @@ func (a *agent) run(ctx context.Context, input genx.Stream, output *genx.StreamB
 				_ = output.Unexpected(genx.Usage{}, err)
 				return
 			}
+			completed = current
 			current = nil
 		case err := <-readerDone:
 			inputDone = true
@@ -1149,12 +1159,17 @@ func (a *agent) runRealtime(ctx context.Context, input genx.Stream, output *genx
 	feedClosed := false
 	realtimeTurnIndex := 0
 	var pending []flowcraftTranscriptTurn
+	var completed *flowcraftActiveTurn
 	startPending := func() {
 		if current != nil || len(pending) == 0 {
 			return
 		}
 		turn := pending[0]
 		pending = pending[1:]
+		if completed != nil {
+			_ = a.interruptQueuedOutput(output, completed.streamID, completed.epoch)
+			completed = nil
+		}
 		current = a.startFlowcraftTranscriptTurn(ctx, output, turn.streamID, turn.transcript, true, turn.historyAudio...)
 	}
 	queueTranscript := func(text string, asrStreamID string) {
@@ -1174,11 +1189,16 @@ func (a *agent) runRealtime(ctx context.Context, input genx.Stream, output *genx
 	interruptCurrent := func() {
 		pending = nil
 		if current == nil {
+			if completed != nil {
+				_ = a.interruptQueuedOutput(output, completed.streamID, completed.epoch)
+				completed = nil
+			}
 			return
 		}
 		current.cancel()
 		_ = a.interruptOutput(output, current.streamID, current.epoch)
 		current = nil
+		completed = nil
 	}
 	interruptForInput := func(streamID string) {
 		if current == nil || !realtimeInputInterruptsCurrent(current.streamID, streamID) {
@@ -1269,6 +1289,7 @@ func (a *agent) runRealtime(ctx context.Context, input genx.Stream, output *genx
 		if current == nil {
 			select {
 			case <-inputStarted:
+				interruptCurrent()
 				continue
 			case result := <-asrResults:
 				if result.err != nil {
@@ -1304,6 +1325,7 @@ func (a *agent) runRealtime(ctx context.Context, input genx.Stream, output *genx
 				_ = output.Unexpected(genx.Usage{}, err)
 				return
 			}
+			completed = current
 			current = nil
 			continue
 		default:
@@ -1330,6 +1352,7 @@ func (a *agent) runRealtime(ctx context.Context, input genx.Stream, output *genx
 				_ = output.Unexpected(genx.Usage{}, err)
 				return
 			}
+			completed = current
 			current = nil
 		case feedResult = <-feedDone:
 			feedClosed = true
@@ -1700,10 +1723,39 @@ func (a *agent) interruptOutput(output *genx.StreamBuilder, streamID string, epo
 	}
 	a.outputEpoch++
 	a.outputMu.Unlock()
-	output.Discard(func(chunk *genx.MessageChunk) bool {
-		return chunk != nil && chunk.Ctrl != nil && chunk.Ctrl.StreamID == streamID && chunk.Ctrl.Label == assistantLabel
-	})
+	a.discardAssistantOutput(output, streamID)
+	return addInterruptedOutputEOS(output, streamID)
+}
 
+func (a *agent) interruptQueuedOutput(output *genx.StreamBuilder, streamID string, epoch uint64) bool {
+	if output == nil {
+		return false
+	}
+	if strings.TrimSpace(streamID) == "" {
+		streamID = defaultInputStreamID
+	}
+	a.outputMu.Lock()
+	if a.outputEpoch != epoch {
+		a.outputMu.Unlock()
+		return false
+	}
+	if a.discardAssistantOutput(output, streamID) == 0 {
+		a.outputMu.Unlock()
+		return false
+	}
+	a.outputEpoch++
+	a.outputMu.Unlock()
+	return addInterruptedOutputEOS(output, streamID)
+}
+
+func (a *agent) discardAssistantOutput(output *genx.StreamBuilder, streamID string) int {
+	return output.Discard(func(chunk *genx.MessageChunk) bool {
+		return chunk != nil && chunk.Role == genx.RoleModel && chunk.Ctrl != nil &&
+			chunk.Ctrl.StreamID == streamID && chunk.Ctrl.Label == assistantLabel
+	})
+}
+
+func addInterruptedOutputEOS(output *genx.StreamBuilder, streamID string) bool {
 	textEOS := textChunk(genx.RoleModel, assistantLabel, streamID, assistantLabel, "", true)
 	audioEOS := audioChunk(assistantLabel, streamID, nil, true)
 	textEOS.Ctrl.Error = interruptedError

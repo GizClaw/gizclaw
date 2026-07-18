@@ -1524,6 +1524,37 @@ func TestInterruptOutputGuards(t *testing.T) {
 	}
 }
 
+func TestInterruptQueuedOutputDiscardsCompletedAssistantOnly(t *testing.T) {
+	a := &agent{}
+	output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 4)
+	epoch := a.setActiveOutput(output, "audio")
+	if err := output.Add(
+		textChunk(genx.RoleUser, transcriptLabel, "audio", transcriptLabel, "hello", false),
+		audioChunk(assistantLabel, "audio", []byte{1, 2}, false),
+		audioChunk(assistantLabel, "audio", nil, true),
+	); err != nil {
+		t.Fatalf("queue output: %v", err)
+	}
+	if !a.interruptQueuedOutput(output, "audio", epoch) {
+		t.Fatal("interruptQueuedOutput() = false")
+	}
+	if err := output.Done(genx.Usage{}); err != nil {
+		t.Fatalf("Done() error = %v", err)
+	}
+	chunks := drainChunks(t, output.Stream())
+	if len(chunks) != 3 {
+		t.Fatalf("chunks = %#v, want transcript and two interrupted EOS chunks", chunks)
+	}
+	if chunks[0].Role != genx.RoleUser || chunks[0].Ctrl == nil || chunks[0].Ctrl.Label != transcriptLabel {
+		t.Fatalf("preserved transcript = %#v", chunks[0])
+	}
+	for _, chunk := range chunks[1:] {
+		if chunk.Ctrl == nil || !chunk.Ctrl.EndOfStream || chunk.Ctrl.Error != interruptedError {
+			t.Fatalf("interrupted chunk = %#v", chunk)
+		}
+	}
+}
+
 func TestRealtimeInputInterruptsCurrent(t *testing.T) {
 	tests := []struct {
 		name    string
