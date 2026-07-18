@@ -1894,12 +1894,19 @@ type DashScopeTenantVoiceProviderData struct {
 	VoiceId *string                 `json:"voice_id,omitempty"`
 }
 
+// DeviceIdentifiers defines model for DeviceIdentifiers.
+type DeviceIdentifiers struct {
+	Imeis  *[]PeerIMEI  `json:"imeis,omitempty"`
+	Labels *[]PeerLabel `json:"labels,omitempty"`
+	Sn     *string      `json:"sn,omitempty"`
+}
+
 // DeviceInfo defines model for DeviceInfo.
 type DeviceInfo struct {
-	Hardware *HardwareInfo `json:"hardware,omitempty"`
-	Icon     *Icon         `json:"icon,omitempty"`
-	Name     *string       `json:"name,omitempty"`
-	Sn       *string       `json:"sn,omitempty"`
+	Emoji       *string            `json:"emoji,omitempty"`
+	Hardware    *HardwareInfo      `json:"hardware,omitempty"`
+	Identifiers *DeviceIdentifiers `json:"identifiers,omitempty"`
+	Name        *string            `json:"name,omitempty"`
 }
 
 // DoubaoRealtimeAIGCMetadata defines model for DoubaoRealtimeAIGCMetadata.
@@ -2530,11 +2537,9 @@ type GeminiTenantVoiceProviderData struct {
 
 // HardwareInfo defines model for HardwareInfo.
 type HardwareInfo struct {
-	HardwareRevision *string      `json:"hardware_revision,omitempty"`
-	Imeis            *[]PeerIMEI  `json:"imeis,omitempty"`
-	Labels           *[]PeerLabel `json:"labels,omitempty"`
-	Manufacturer     *string      `json:"manufacturer,omitempty"`
-	Model            *string      `json:"model,omitempty"`
+	HardwareRevision *string `json:"hardware_revision,omitempty"`
+	Manufacturer     *string `json:"manufacturer,omitempty"`
+	Model            *string `json:"model,omitempty"`
 }
 
 // Icon defines model for Icon.
@@ -3360,21 +3365,6 @@ type PointsTransactionListResponse struct {
 	HasNext    bool                `json:"has_next"`
 	Items      []PointsTransaction `json:"items"`
 	NextCursor *string             `json:"next_cursor,omitempty"`
-}
-
-// RefreshIdentifiers defines model for RefreshIdentifiers.
-type RefreshIdentifiers struct {
-	Imeis  *[]PeerIMEI  `json:"imeis,omitempty"`
-	Labels *[]PeerLabel `json:"labels,omitempty"`
-	Sn     *string      `json:"sn,omitempty"`
-}
-
-// RefreshInfo defines model for RefreshInfo.
-type RefreshInfo struct {
-	HardwareRevision *string `json:"hardware_revision,omitempty"`
-	Manufacturer     *string `json:"manufacturer,omitempty"`
-	Model            *string `json:"model,omitempty"`
-	Name             *string `json:"name,omitempty"`
 }
 
 // Registration defines model for Registration.

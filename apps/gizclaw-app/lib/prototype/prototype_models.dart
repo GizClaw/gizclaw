@@ -171,9 +171,11 @@ class ChatroomWorkspaceMetadata {
     required this.kind,
     this.description = '',
     this.resourceId = '',
+    this.emoji = '',
   });
 
   final String description;
+  final String emoji;
   final ChatroomWorkspaceKind kind;
   final String resourceId;
   final String title;

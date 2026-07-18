@@ -25,3 +25,9 @@ This prefix has server-perspective online connection indexing and cross-connecti
 | `peerRPCConn` / `callPeerRPC` | Open Peer RPC stream and execute typed RPC call. |
 | `retainTelemetryStatusLock` / `releaseTelemetryStatusLock` | Manage telemetry status and update the lock life cycle by public key. |
 | `applyPeerRefreshInfo` / `applyPeerRefreshIdentifiers` | Merge RPC refresh response into the persistent Peer model. |
+
+## Device metadata ownership
+
+`client.info.get` refreshes only `HardwareInfo` (`hardware_revision`, `manufacturer`, and `model`). `client.identifiers.get` refreshes `DeviceIdentifiers` (`sn`, `imeis`, and `labels`). The server-owned profile fields `name` and `emoji` are changed through `server.info.put` and are not overwritten by reverse refresh.
+
+Friends read these text profile fields through `server.friend.info.get`. The method requires an existing caller-scoped friend relation and returns no binary avatar data.

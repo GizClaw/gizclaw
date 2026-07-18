@@ -199,8 +199,8 @@ func TestApplyPeerRefreshIdentifiersSkipsUnchangedCollections(t *testing.T) {
 	sn := "sn-1"
 	peer := apitypes.Peer{
 		Device: apitypes.DeviceInfo{
-			Sn: &sn,
-			Hardware: &apitypes.HardwareInfo{
+			Identifiers: &apitypes.DeviceIdentifiers{
+				Sn: &sn,
 				Imeis: &[]apitypes.PeerIMEI{{
 					Name:   &name,
 					Tac:    "12345678",
@@ -213,7 +213,7 @@ func TestApplyPeerRefreshIdentifiersSkipsUnchangedCollections(t *testing.T) {
 			},
 		},
 	}
-	identifiers := apitypes.RefreshIdentifiers{
+	identifiers := apitypes.DeviceIdentifiers{
 		Sn: &sn,
 		Imeis: &[]apitypes.PeerIMEI{{
 			Name:   &name,
@@ -239,7 +239,7 @@ func TestApplyPeerRefreshIdentifiersUpdatesChangedCollections(t *testing.T) {
 	nextName := "secondary"
 	peer := apitypes.Peer{
 		Device: apitypes.DeviceInfo{
-			Hardware: &apitypes.HardwareInfo{
+			Identifiers: &apitypes.DeviceIdentifiers{
 				Imeis: &[]apitypes.PeerIMEI{{
 					Name:   &name,
 					Tac:    "12345678",
@@ -252,7 +252,7 @@ func TestApplyPeerRefreshIdentifiersUpdatesChangedCollections(t *testing.T) {
 			},
 		},
 	}
-	identifiers := apitypes.RefreshIdentifiers{
+	identifiers := apitypes.DeviceIdentifiers{
 		Imeis: &[]apitypes.PeerIMEI{{
 			Name:   &nextName,
 			Tac:    "87654321",
@@ -270,11 +270,11 @@ func TestApplyPeerRefreshIdentifiersUpdatesChangedCollections(t *testing.T) {
 	if len(updatedFields) != 2 {
 		t.Fatalf("applyPeerRefreshIdentifiers() updatedFields = %v, want 2 entries", updatedFields)
 	}
-	if peer.Device.Hardware == nil || peer.Device.Hardware.Imeis == nil || (*peer.Device.Hardware.Imeis)[0].Tac != "87654321" {
-		t.Fatalf("IMEIs not updated: %+v", peer.Device.Hardware)
+	if peer.Device.Identifiers == nil || peer.Device.Identifiers.Imeis == nil || (*peer.Device.Identifiers.Imeis)[0].Tac != "87654321" {
+		t.Fatalf("IMEIs not updated: %+v", peer.Device.Identifiers)
 	}
-	if peer.Device.Hardware.Labels == nil || (*peer.Device.Hardware.Labels)[0].Value != "cn-west" {
-		t.Fatalf("labels not updated: %+v", peer.Device.Hardware)
+	if peer.Device.Identifiers.Labels == nil || (*peer.Device.Identifiers.Labels)[0].Value != "cn-west" {
+		t.Fatalf("labels not updated: %+v", peer.Device.Identifiers)
 	}
 }
 

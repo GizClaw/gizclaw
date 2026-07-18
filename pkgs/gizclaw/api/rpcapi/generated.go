@@ -530,6 +530,7 @@ const (
 	RPCMethodServerFirmwareList                 RPCMethod = "server.firmware.list"
 	RPCMethodServerFriendAdd                    RPCMethod = "server.friend.add"
 	RPCMethodServerFriendDelete                 RPCMethod = "server.friend.delete"
+	RPCMethodServerFriendInfoGet                RPCMethod = "server.friend.info.get"
 	RPCMethodServerFriendGroupCreate            RPCMethod = "server.friend_group.create"
 	RPCMethodServerFriendGroupDelete            RPCMethod = "server.friend_group.delete"
 	RPCMethodServerFriendGroupGet               RPCMethod = "server.friend_group.get"
@@ -554,9 +555,6 @@ const (
 	RPCMethodServerGameResultList               RPCMethod = "server.game_result.list"
 	RPCMethodServerGameRulesetGet               RPCMethod = "server.game_ruleset.get"
 	RPCMethodServerInfoGet                      RPCMethod = "server.info.get"
-	RPCMethodServerInfoIconDelete               RPCMethod = "server.info.icon.delete"
-	RPCMethodServerInfoIconDownload             RPCMethod = "server.info.icon.download"
-	RPCMethodServerInfoIconUpload               RPCMethod = "server.info.icon.upload"
 	RPCMethodServerInfoPut                      RPCMethod = "server.info.put"
 	RPCMethodServerModelCreate                  RPCMethod = "server.model.create"
 	RPCMethodServerModelDelete                  RPCMethod = "server.model.delete"
@@ -659,6 +657,8 @@ func (e RPCMethod) Valid() bool {
 		return true
 	case RPCMethodServerFriendDelete:
 		return true
+	case RPCMethodServerFriendInfoGet:
+		return true
 	case RPCMethodServerFriendGroupCreate:
 		return true
 	case RPCMethodServerFriendGroupDelete:
@@ -706,12 +706,6 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodServerGameRulesetGet:
 		return true
 	case RPCMethodServerInfoGet:
-		return true
-	case RPCMethodServerInfoIconDelete:
-		return true
-	case RPCMethodServerInfoIconDownload:
-		return true
-	case RPCMethodServerInfoIconUpload:
 		return true
 	case RPCMethodServerInfoPut:
 		return true
@@ -1178,13 +1172,13 @@ type ChatRoomWorkspaceTranscriptParameters struct {
 type ClientGetIdentifiersRequest = map[string]interface{}
 
 // ClientGetIdentifiersResponse defines model for ClientGetIdentifiersResponse.
-type ClientGetIdentifiersResponse = RefreshIdentifiers
+type ClientGetIdentifiersResponse = DeviceIdentifiers
 
 // ClientGetInfoRequest defines model for ClientGetInfoRequest.
 type ClientGetInfoRequest = map[string]interface{}
 
 // ClientGetInfoResponse defines model for ClientGetInfoResponse.
-type ClientGetInfoResponse = RefreshInfo
+type ClientGetInfoResponse = HardwareInfo
 
 // ContactCreateRequest defines model for ContactCreateRequest.
 type ContactCreateRequest struct {
@@ -1327,10 +1321,17 @@ type DashScopeTenantVoiceProviderData struct {
 
 // DeviceInfo defines model for DeviceInfo.
 type DeviceInfo struct {
-	Hardware *HardwareInfo `json:"hardware,omitempty"`
-	Icon     *Icon         `json:"icon,omitempty"`
-	Name     *string       `json:"name,omitempty"`
-	Sn       *string       `json:"sn,omitempty"`
+	Emoji       *string            `json:"emoji,omitempty"`
+	Hardware    *HardwareInfo      `json:"hardware,omitempty"`
+	Identifiers *DeviceIdentifiers `json:"identifiers,omitempty"`
+	Name        *string            `json:"name,omitempty"`
+}
+
+// DeviceIdentifiers defines model for DeviceIdentifiers.
+type DeviceIdentifiers struct {
+	Imeis  *[]PeerIMEI  `json:"imeis,omitempty"`
+	Labels *[]PeerLabel `json:"labels,omitempty"`
+	Sn     *string      `json:"sn,omitempty"`
 }
 
 // Icon defines owner-managed optional PIXA and PNG icon object names.
@@ -1704,6 +1705,23 @@ type FriendDeleteRequest struct {
 
 // FriendDeleteResponse defines model for FriendDeleteResponse.
 type FriendDeleteResponse = FriendObject
+
+// FriendInfo defines model for FriendInfo.
+type FriendInfo struct {
+	Emoji *string `json:"emoji,omitempty"`
+	Name  *string `json:"name,omitempty"`
+}
+
+// FriendInfoGetRequest defines model for FriendInfoGetRequest.
+type FriendInfoGetRequest struct {
+	Id string `json:"id"`
+}
+
+// FriendInfoGetResponse defines model for FriendInfoGetResponse.
+type FriendInfoGetResponse struct {
+	Id    string     `json:"id"`
+	Value FriendInfo `json:"value"`
+}
 
 // FriendGroupCreateRequest defines model for FriendGroupCreateRequest.
 type FriendGroupCreateRequest struct {
@@ -2083,11 +2101,9 @@ type GeminiTenantVoiceProviderData struct {
 
 // HardwareInfo defines model for HardwareInfo.
 type HardwareInfo struct {
-	HardwareRevision *string      `json:"hardware_revision,omitempty"`
-	Imeis            *[]PeerIMEI  `json:"imeis,omitempty"`
-	Labels           *[]PeerLabel `json:"labels,omitempty"`
-	Manufacturer     *string      `json:"manufacturer,omitempty"`
-	Model            *string      `json:"model,omitempty"`
+	HardwareRevision *string `json:"hardware_revision,omitempty"`
+	Manufacturer     *string `json:"manufacturer,omitempty"`
+	Model            *string `json:"model,omitempty"`
 }
 
 // MiniMaxCredentialBody defines model for MiniMaxCredentialBody.
@@ -2720,21 +2736,6 @@ type RPCResponse struct {
 // RPCVersion defines model for RPCVersion.
 type RPCVersion int
 
-// RefreshIdentifiers defines model for RefreshIdentifiers.
-type RefreshIdentifiers struct {
-	Imeis  *[]PeerIMEI  `json:"imeis,omitempty"`
-	Labels *[]PeerLabel `json:"labels,omitempty"`
-	Sn     *string      `json:"sn,omitempty"`
-}
-
-// RefreshInfo defines model for RefreshInfo.
-type RefreshInfo struct {
-	HardwareRevision *string `json:"hardware_revision,omitempty"`
-	Manufacturer     *string `json:"manufacturer,omitempty"`
-	Model            *string `json:"model,omitempty"`
-	Name             *string `json:"name,omitempty"`
-}
-
 // RewardGrant defines model for RewardGrant.
 type RewardGrant struct {
 	BadgeExpDelta  map[string]int64 `json:"badge_exp_delta"`
@@ -2804,33 +2805,6 @@ type ServerGetInfoRequest = map[string]interface{}
 
 // ServerGetInfoResponse defines model for ServerGetInfoResponse.
 type ServerGetInfoResponse = DeviceInfo
-
-// ServerInfoIconDeleteRequest defines model for ServerInfoIconDeleteRequest.
-type ServerInfoIconDeleteRequest struct {
-	Format IconFormat `json:"format"`
-}
-
-// ServerInfoIconDeleteResponse defines model for ServerInfoIconDeleteResponse.
-type ServerInfoIconDeleteResponse = DeviceInfo
-
-// ServerInfoIconDownloadRequest defines model for ServerInfoIconDownloadRequest.
-type ServerInfoIconDownloadRequest struct {
-	Format IconFormat `json:"format"`
-}
-
-// ServerInfoIconDownloadResponse defines model for ServerInfoIconDownloadResponse.
-type ServerInfoIconDownloadResponse struct {
-	Format    IconFormat `json:"format"`
-	SizeBytes int64      `json:"size_bytes"`
-}
-
-// ServerInfoIconUploadRequest defines model for ServerInfoIconUploadRequest.
-type ServerInfoIconUploadRequest struct {
-	Format IconFormat `json:"format"`
-}
-
-// ServerInfoIconUploadResponse defines model for ServerInfoIconUploadResponse.
-type ServerInfoIconUploadResponse = DeviceInfo
 
 // ServerGetRunAgentRequest defines model for ServerGetRunAgentRequest.
 type ServerGetRunAgentRequest = map[string]interface{}

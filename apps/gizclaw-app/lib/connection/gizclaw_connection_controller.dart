@@ -505,7 +505,11 @@ Future<void> _defaultPublishClientInfo(
   GizClawClient client,
   DeviceInfo deviceInfo,
 ) async {
-  await client.putServerInfo(deviceInfo);
+  final current = await client.getServerInfo();
+  if (current.value.hasName() || current.value.hasEmoji()) return;
+  await client.putServerInfo(
+    DeviceInfo(name: deviceInfo.hasName() ? deviceInfo.name : null),
+  );
 }
 
 MicrophoneFailureKind _microphoneFailureKind(Object error) =>

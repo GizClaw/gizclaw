@@ -78,6 +78,23 @@ typedef struct _gizclaw_rpc_v1_FriendDeleteRequest {
     pb_callback_t id;
 } gizclaw_rpc_v1_FriendDeleteRequest;
 
+typedef struct _gizclaw_rpc_v1_FriendInfo {
+    bool has_name;
+    char name[256];
+    bool has_emoji;
+    char emoji[64];
+} gizclaw_rpc_v1_FriendInfo;
+
+typedef struct _gizclaw_rpc_v1_FriendInfoGetRequest {
+    char id[256];
+} gizclaw_rpc_v1_FriendInfoGetRequest;
+
+typedef struct _gizclaw_rpc_v1_FriendInfoGetResponse {
+    char id[256];
+    bool has_value;
+    gizclaw_rpc_v1_FriendInfo value;
+} gizclaw_rpc_v1_FriendInfoGetResponse;
+
 typedef struct _gizclaw_rpc_v1_FriendGroupCreateRequest {
     pb_callback_t description;
     pb_callback_t name;
@@ -360,6 +377,9 @@ extern "C" {
 #define gizclaw_rpc_v1_FriendAddResponse_init_default {false, gizclaw_rpc_v1_FriendObject_init_default}
 #define gizclaw_rpc_v1_FriendDeleteRequest_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_FriendDeleteResponse_init_default {false, gizclaw_rpc_v1_FriendObject_init_default}
+#define gizclaw_rpc_v1_FriendInfo_init_default   {false, "", false, ""}
+#define gizclaw_rpc_v1_FriendInfoGetRequest_init_default {""}
+#define gizclaw_rpc_v1_FriendInfoGetResponse_init_default {"", false, gizclaw_rpc_v1_FriendInfo_init_default}
 #define gizclaw_rpc_v1_FriendGroupCreateRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FriendGroupCreateResponse_init_default {false, gizclaw_rpc_v1_FriendGroupObject_init_default}
 #define gizclaw_rpc_v1_FriendGroupDeleteRequest_init_default {{{NULL}, NULL}}
@@ -419,6 +439,9 @@ extern "C" {
 #define gizclaw_rpc_v1_FriendAddResponse_init_zero {false, gizclaw_rpc_v1_FriendObject_init_zero}
 #define gizclaw_rpc_v1_FriendDeleteRequest_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_FriendDeleteResponse_init_zero {false, gizclaw_rpc_v1_FriendObject_init_zero}
+#define gizclaw_rpc_v1_FriendInfo_init_zero      {false, "", false, ""}
+#define gizclaw_rpc_v1_FriendInfoGetRequest_init_zero {""}
+#define gizclaw_rpc_v1_FriendInfoGetResponse_init_zero {"", false, gizclaw_rpc_v1_FriendInfo_init_zero}
 #define gizclaw_rpc_v1_FriendGroupCreateRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FriendGroupCreateResponse_init_zero {false, gizclaw_rpc_v1_FriendGroupObject_init_zero}
 #define gizclaw_rpc_v1_FriendGroupDeleteRequest_init_zero {{{NULL}, NULL}}
@@ -488,6 +511,11 @@ extern "C" {
 #define gizclaw_rpc_v1_ContactPutResponse_value_tag 1
 #define gizclaw_rpc_v1_FriendAddRequest_invite_token_tag 1
 #define gizclaw_rpc_v1_FriendDeleteRequest_id_tag 1
+#define gizclaw_rpc_v1_FriendInfo_name_tag       1
+#define gizclaw_rpc_v1_FriendInfo_emoji_tag      2
+#define gizclaw_rpc_v1_FriendInfoGetRequest_id_tag 1
+#define gizclaw_rpc_v1_FriendInfoGetResponse_id_tag 1
+#define gizclaw_rpc_v1_FriendInfoGetResponse_value_tag 2
 #define gizclaw_rpc_v1_FriendGroupCreateRequest_description_tag 1
 #define gizclaw_rpc_v1_FriendGroupCreateRequest_name_tag 2
 #define gizclaw_rpc_v1_FriendGroupDeleteRequest_id_tag 1
@@ -677,6 +705,24 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
 #define gizclaw_rpc_v1_FriendDeleteResponse_CALLBACK NULL
 #define gizclaw_rpc_v1_FriendDeleteResponse_DEFAULT NULL
 #define gizclaw_rpc_v1_FriendDeleteResponse_value_MSGTYPE gizclaw_rpc_v1_FriendObject
+
+#define gizclaw_rpc_v1_FriendInfo_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, STRING,   name,              1) \
+X(a, STATIC,   OPTIONAL, STRING,   emoji,             2)
+#define gizclaw_rpc_v1_FriendInfo_CALLBACK NULL
+#define gizclaw_rpc_v1_FriendInfo_DEFAULT NULL
+
+#define gizclaw_rpc_v1_FriendInfoGetRequest_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   id,                1)
+#define gizclaw_rpc_v1_FriendInfoGetRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_FriendInfoGetRequest_DEFAULT NULL
+
+#define gizclaw_rpc_v1_FriendInfoGetResponse_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   id,                1) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  value,             2)
+#define gizclaw_rpc_v1_FriendInfoGetResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_FriendInfoGetResponse_DEFAULT NULL
+#define gizclaw_rpc_v1_FriendInfoGetResponse_value_MSGTYPE gizclaw_rpc_v1_FriendInfo
 
 #define gizclaw_rpc_v1_FriendGroupCreateRequest_FIELDLIST(X, a) \
 X(a, CALLBACK, OPTIONAL, STRING,   description,       1) \
@@ -983,6 +1029,9 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_FriendAddRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_FriendAddResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_FriendDeleteRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_FriendDeleteResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_FriendInfo_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_FriendInfoGetRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_FriendInfoGetResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_FriendGroupCreateRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_FriendGroupCreateResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_FriendGroupDeleteRequest_msg;
@@ -1044,6 +1093,9 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_FriendObject_msg;
 #define gizclaw_rpc_v1_FriendAddResponse_fields &gizclaw_rpc_v1_FriendAddResponse_msg
 #define gizclaw_rpc_v1_FriendDeleteRequest_fields &gizclaw_rpc_v1_FriendDeleteRequest_msg
 #define gizclaw_rpc_v1_FriendDeleteResponse_fields &gizclaw_rpc_v1_FriendDeleteResponse_msg
+#define gizclaw_rpc_v1_FriendInfo_fields &gizclaw_rpc_v1_FriendInfo_msg
+#define gizclaw_rpc_v1_FriendInfoGetRequest_fields &gizclaw_rpc_v1_FriendInfoGetRequest_msg
+#define gizclaw_rpc_v1_FriendInfoGetResponse_fields &gizclaw_rpc_v1_FriendInfoGetResponse_msg
 #define gizclaw_rpc_v1_FriendGroupCreateRequest_fields &gizclaw_rpc_v1_FriendGroupCreateRequest_msg
 #define gizclaw_rpc_v1_FriendGroupCreateResponse_fields &gizclaw_rpc_v1_FriendGroupCreateResponse_msg
 #define gizclaw_rpc_v1_FriendGroupDeleteRequest_fields &gizclaw_rpc_v1_FriendGroupDeleteRequest_msg
@@ -1144,7 +1196,11 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_FriendObject_msg;
 /* gizclaw_rpc_v1_FriendListRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_FriendListResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_FriendObject_size depends on runtime parameters */
+#define GIZCLAW_RPC_V1_PAYLOAD_SOCIAL_PB_H_MAX_SIZE gizclaw_rpc_v1_FriendInfoGetResponse_size
 #define gizclaw_rpc_v1_FriendGroupInviteTokenClearResponse_size 0
+#define gizclaw_rpc_v1_FriendInfoGetRequest_size 258
+#define gizclaw_rpc_v1_FriendInfoGetResponse_size 584
+#define gizclaw_rpc_v1_FriendInfo_size           323
 #define gizclaw_rpc_v1_FriendInviteTokenClearRequest_size 0
 #define gizclaw_rpc_v1_FriendInviteTokenClearResponse_size 0
 #define gizclaw_rpc_v1_FriendInviteTokenCreateRequest_size 0

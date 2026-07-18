@@ -156,8 +156,8 @@ func TestIntegrationRPCPeerClientMethods(t *testing.T) {
 		defer cancel()
 
 		if _, err := client.PutServerInfo(ctx, "rpc-put-info-initial", rpcapi.ServerPutInfoRequest{
-			Name: strPtr("rpc-peer"),
-			Sn:   strPtr("rpc-sn"),
+			Name:  strPtr("rpc-peer"),
+			Emoji: strPtr("🤖"),
 		}); err != nil {
 			errLast = err
 			return err

@@ -964,6 +964,195 @@ class FriendDeleteResponse extends $pb.GeneratedMessage {
   FriendObject ensureValue() => $_ensure(0);
 }
 
+class FriendInfo extends $pb.GeneratedMessage {
+  factory FriendInfo({
+    $core.String? name,
+    $core.String? emoji,
+  }) {
+    final result = create();
+    if (name != null) result.name = name;
+    if (emoji != null) result.emoji = emoji;
+    return result;
+  }
+
+  FriendInfo._();
+
+  factory FriendInfo.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory FriendInfo.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'FriendInfo',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aOS(2, _omitFieldNames ? '' : 'emoji')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FriendInfo clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FriendInfo copyWith(void Function(FriendInfo) updates) =>
+      super.copyWith((message) => updates(message as FriendInfo)) as FriendInfo;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static FriendInfo create() => FriendInfo._();
+  @$core.override
+  FriendInfo createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static FriendInfo getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<FriendInfo>(create);
+  static FriendInfo? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get emoji => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set emoji($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasEmoji() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearEmoji() => $_clearField(2);
+}
+
+class FriendInfoGetRequest extends $pb.GeneratedMessage {
+  factory FriendInfoGetRequest({
+    $core.String? id,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    return result;
+  }
+
+  FriendInfoGetRequest._();
+
+  factory FriendInfoGetRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory FriendInfoGetRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'FriendInfoGetRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FriendInfoGetRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FriendInfoGetRequest copyWith(void Function(FriendInfoGetRequest) updates) =>
+      super.copyWith((message) => updates(message as FriendInfoGetRequest))
+          as FriendInfoGetRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static FriendInfoGetRequest create() => FriendInfoGetRequest._();
+  @$core.override
+  FriendInfoGetRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static FriendInfoGetRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<FriendInfoGetRequest>(create);
+  static FriendInfoGetRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+}
+
+class FriendInfoGetResponse extends $pb.GeneratedMessage {
+  factory FriendInfoGetResponse({
+    $core.String? id,
+    FriendInfo? value,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (value != null) result.value = value;
+    return result;
+  }
+
+  FriendInfoGetResponse._();
+
+  factory FriendInfoGetResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory FriendInfoGetResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'FriendInfoGetResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOM<FriendInfo>(2, _omitFieldNames ? '' : 'value',
+        subBuilder: FriendInfo.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FriendInfoGetResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FriendInfoGetResponse copyWith(
+          void Function(FriendInfoGetResponse) updates) =>
+      super.copyWith((message) => updates(message as FriendInfoGetResponse))
+          as FriendInfoGetResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static FriendInfoGetResponse create() => FriendInfoGetResponse._();
+  @$core.override
+  FriendInfoGetResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static FriendInfoGetResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<FriendInfoGetResponse>(create);
+  static FriendInfoGetResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  FriendInfo get value => $_getN(1);
+  @$pb.TagNumber(2)
+  set value(FriendInfo value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasValue() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearValue() => $_clearField(2);
+  @$pb.TagNumber(2)
+  FriendInfo ensureValue() => $_ensure(1);
+}
+
 class FriendGroupCreateRequest extends $pb.GeneratedMessage {
   factory FriendGroupCreateRequest({
     $core.String? description,

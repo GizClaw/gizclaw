@@ -12,8 +12,45 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
+
+type profileStub struct {
+	want giznet.PublicKey
+	info apitypes.DeviceInfo
+}
+
+func (s profileStub) GetSelfInfo(_ context.Context, key giznet.PublicKey) (apitypes.DeviceInfo, error) {
+	if key != s.want {
+		return apitypes.DeviceInfo{}, errors.New("unexpected profile key")
+	}
+	return s.info, nil
+}
+
+func TestGetFriendInfoRequiresCallerRelation(t *testing.T) {
+	ctx := context.Background()
+	owner := giznet.PublicKey{1}.String()
+	targetKey := giznet.PublicKey{2}
+	target := targetKey.String()
+	name, emoji := "Astronaut", "🧑‍🚀"
+	s := newTestServer()
+	s.Profiles = profileStub{want: targetKey, info: apitypes.DeviceInfo{Name: &name, Emoji: &emoji}}
+	relationID := socialutil.RelationID(owner, target)
+	if err := socialutil.WriteJSON(ctx, s.Friends, socialutil.FriendKey(owner, relationID), rpcapi.FriendObject{Id: &target, PeerPublicKey: &target}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.GetFriendInfo(ctx, owner, rpcapi.FriendInfoGetRequest{Id: target})
+	if err != nil {
+		t.Fatalf("GetFriendInfo() error = %v", err)
+	}
+	if got.Id != target || got.Value.Name == nil || *got.Value.Name != name || got.Value.Emoji == nil || *got.Value.Emoji != emoji {
+		t.Fatalf("GetFriendInfo() = %+v", got)
+	}
+	if _, err := s.GetFriendInfo(ctx, giznet.PublicKey{3}.String(), rpcapi.FriendInfoGetRequest{Id: target}); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("GetFriendInfo() unauthorized error = %v, want not found", err)
+	}
+}
 
 func TestInviteTokenLifecycleAndAddFriend(t *testing.T) {
 	ctx := context.Background()

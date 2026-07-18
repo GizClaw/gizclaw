@@ -242,60 +242,6 @@ func (e UploadGameDefIconParamsFormat) Valid() bool {
 	}
 }
 
-// Defines values for DeletePeerIconParamsFormat.
-const (
-	DeletePeerIconParamsFormatPixa DeletePeerIconParamsFormat = "pixa"
-	DeletePeerIconParamsFormatPng  DeletePeerIconParamsFormat = "png"
-)
-
-// Valid indicates whether the value is a known member of the DeletePeerIconParamsFormat enum.
-func (e DeletePeerIconParamsFormat) Valid() bool {
-	switch e {
-	case DeletePeerIconParamsFormatPixa:
-		return true
-	case DeletePeerIconParamsFormatPng:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for DownloadPeerIconParamsFormat.
-const (
-	DownloadPeerIconParamsFormatPixa DownloadPeerIconParamsFormat = "pixa"
-	DownloadPeerIconParamsFormatPng  DownloadPeerIconParamsFormat = "png"
-)
-
-// Valid indicates whether the value is a known member of the DownloadPeerIconParamsFormat enum.
-func (e DownloadPeerIconParamsFormat) Valid() bool {
-	switch e {
-	case DownloadPeerIconParamsFormatPixa:
-		return true
-	case DownloadPeerIconParamsFormatPng:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for UploadPeerIconParamsFormat.
-const (
-	UploadPeerIconParamsFormatPixa UploadPeerIconParamsFormat = "pixa"
-	UploadPeerIconParamsFormatPng  UploadPeerIconParamsFormat = "png"
-)
-
-// Valid indicates whether the value is a known member of the UploadPeerIconParamsFormat enum.
-func (e UploadPeerIconParamsFormat) Valid() bool {
-	switch e {
-	case UploadPeerIconParamsFormatPixa:
-		return true
-	case UploadPeerIconParamsFormatPng:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for DeleteWorkflowIconParamsFormat.
 const (
 	DeleteWorkflowIconParamsFormatPixa DeleteWorkflowIconParamsFormat = "pixa"
@@ -406,16 +352,16 @@ func (e DownloadWorkspaceIconParamsFormat) Valid() bool {
 
 // Defines values for UploadWorkspaceIconParamsFormat.
 const (
-	UploadWorkspaceIconParamsFormatPixa UploadWorkspaceIconParamsFormat = "pixa"
-	UploadWorkspaceIconParamsFormatPng  UploadWorkspaceIconParamsFormat = "png"
+	Pixa UploadWorkspaceIconParamsFormat = "pixa"
+	Png  UploadWorkspaceIconParamsFormat = "png"
 )
 
 // Valid indicates whether the value is a known member of the UploadWorkspaceIconParamsFormat enum.
 func (e UploadWorkspaceIconParamsFormat) Valid() bool {
 	switch e {
-	case UploadWorkspaceIconParamsFormatPixa:
+	case Pixa:
 		return true
-	case UploadWorkspaceIconParamsFormatPng:
+	case Png:
 		return true
 	default:
 		return false
@@ -1115,15 +1061,6 @@ type ListPeerGameResultsParams struct {
 	// Limit Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
 	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
 }
-
-// DeletePeerIconParamsFormat defines parameters for DeletePeerIcon.
-type DeletePeerIconParamsFormat string
-
-// DownloadPeerIconParamsFormat defines parameters for DownloadPeerIcon.
-type DownloadPeerIconParamsFormat string
-
-// UploadPeerIconParamsFormat defines parameters for UploadPeerIcon.
-type UploadPeerIconParamsFormat string
 
 // ListPeerPetsParams defines parameters for ListPeerPets.
 type ListPeerPetsParams struct {
@@ -1905,15 +1842,6 @@ type ClientInterface interface {
 
 	// GetPeerGameResult request
 	GetPeerGameResult(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// DeletePeerIcon request
-	DeletePeerIcon(ctx context.Context, publicKey string, format DeletePeerIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// DownloadPeerIcon request
-	DownloadPeerIcon(ctx context.Context, publicKey string, format DownloadPeerIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// UploadPeerIconWithBody request with any body
-	UploadPeerIconWithBody(ctx context.Context, publicKey string, format UploadPeerIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetPeerInfo request
 	GetPeerInfo(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3731,42 +3659,6 @@ func (c *Client) ListPeerGameResults(ctx context.Context, publicKey string, para
 
 func (c *Client) GetPeerGameResult(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetPeerGameResultRequest(c.Server, publicKey, id)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) DeletePeerIcon(ctx context.Context, publicKey string, format DeletePeerIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeletePeerIconRequest(c.Server, publicKey, format)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) DownloadPeerIcon(ctx context.Context, publicKey string, format DownloadPeerIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDownloadPeerIconRequest(c.Server, publicKey, format)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) UploadPeerIconWithBody(ctx context.Context, publicKey string, format UploadPeerIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUploadPeerIconRequestWithBody(c.Server, publicKey, format, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -9639,131 +9531,6 @@ func NewGetPeerGameResultRequest(server string, publicKey string, id string) (*h
 	return req, nil
 }
 
-// NewDeletePeerIconRequest generates requests for DeletePeerIcon
-func NewDeletePeerIconRequest(server string, publicKey string, format DeletePeerIconParamsFormat) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "publicKey", publicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "format", format, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/peers/%s/icon/%s", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewDownloadPeerIconRequest generates requests for DownloadPeerIcon
-func NewDownloadPeerIconRequest(server string, publicKey string, format DownloadPeerIconParamsFormat) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "publicKey", publicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "format", format, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/peers/%s/icon/%s", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewUploadPeerIconRequestWithBody generates requests for UploadPeerIcon with any type of body
-func NewUploadPeerIconRequestWithBody(server string, publicKey string, format UploadPeerIconParamsFormat, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "publicKey", publicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "format", format, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/peers/%s/icon/%s", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("PUT", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
 // NewGetPeerInfoRequest generates requests for GetPeerInfo
 func NewGetPeerInfoRequest(server string, publicKey string) (*http.Request, error) {
 	var err error
@@ -13777,15 +13544,6 @@ type ClientWithResponsesInterface interface {
 	// GetPeerGameResultWithResponse request
 	GetPeerGameResultWithResponse(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*GetPeerGameResultResponse, error)
 
-	// DeletePeerIconWithResponse request
-	DeletePeerIconWithResponse(ctx context.Context, publicKey string, format DeletePeerIconParamsFormat, reqEditors ...RequestEditorFn) (*DeletePeerIconResponse, error)
-
-	// DownloadPeerIconWithResponse request
-	DownloadPeerIconWithResponse(ctx context.Context, publicKey string, format DownloadPeerIconParamsFormat, reqEditors ...RequestEditorFn) (*DownloadPeerIconResponse, error)
-
-	// UploadPeerIconWithBodyWithResponse request with any body
-	UploadPeerIconWithBodyWithResponse(ctx context.Context, publicKey string, format UploadPeerIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadPeerIconResponse, error)
-
 	// GetPeerInfoWithResponse request
 	GetPeerInfoWithResponse(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*GetPeerInfoResponse, error)
 
@@ -16457,79 +16215,6 @@ func (r GetPeerGameResultResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetPeerGameResultResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type DeletePeerIconResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.DeviceInfo
-	JSON404      *externalRef0.ErrorResponse
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r DeletePeerIconResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r DeletePeerIconResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type DownloadPeerIconResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON404      *externalRef0.ErrorResponse
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r DownloadPeerIconResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r DownloadPeerIconResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type UploadPeerIconResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.DeviceInfo
-	JSON400      *externalRef0.ErrorResponse
-	JSON404      *externalRef0.ErrorResponse
-	JSON413      *externalRef0.ErrorResponse
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r UploadPeerIconResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r UploadPeerIconResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -19506,33 +19191,6 @@ func (c *ClientWithResponses) GetPeerGameResultWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseGetPeerGameResultResponse(rsp)
-}
-
-// DeletePeerIconWithResponse request returning *DeletePeerIconResponse
-func (c *ClientWithResponses) DeletePeerIconWithResponse(ctx context.Context, publicKey string, format DeletePeerIconParamsFormat, reqEditors ...RequestEditorFn) (*DeletePeerIconResponse, error) {
-	rsp, err := c.DeletePeerIcon(ctx, publicKey, format, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseDeletePeerIconResponse(rsp)
-}
-
-// DownloadPeerIconWithResponse request returning *DownloadPeerIconResponse
-func (c *ClientWithResponses) DownloadPeerIconWithResponse(ctx context.Context, publicKey string, format DownloadPeerIconParamsFormat, reqEditors ...RequestEditorFn) (*DownloadPeerIconResponse, error) {
-	rsp, err := c.DownloadPeerIcon(ctx, publicKey, format, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseDownloadPeerIconResponse(rsp)
-}
-
-// UploadPeerIconWithBodyWithResponse request with arbitrary body returning *UploadPeerIconResponse
-func (c *ClientWithResponses) UploadPeerIconWithBodyWithResponse(ctx context.Context, publicKey string, format UploadPeerIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadPeerIconResponse, error) {
-	rsp, err := c.UploadPeerIconWithBody(ctx, publicKey, format, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUploadPeerIconResponse(rsp)
 }
 
 // GetPeerInfoWithResponse request returning *GetPeerInfoResponse
@@ -24447,133 +24105,6 @@ func ParseGetPeerGameResultResponse(rsp *http.Response) (*GetPeerGameResultRespo
 	return response, nil
 }
 
-// ParseDeletePeerIconResponse parses an HTTP response from a DeletePeerIconWithResponse call
-func ParseDeletePeerIconResponse(rsp *http.Response) (*DeletePeerIconResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &DeletePeerIconResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.DeviceInfo
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseDownloadPeerIconResponse parses an HTTP response from a DownloadPeerIconWithResponse call
-func ParseDownloadPeerIconResponse(rsp *http.Response) (*DownloadPeerIconResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &DownloadPeerIconResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseUploadPeerIconResponse parses an HTTP response from a UploadPeerIconWithResponse call
-func ParseUploadPeerIconResponse(rsp *http.Response) (*UploadPeerIconResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &UploadPeerIconResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.DeviceInfo
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON413 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParseGetPeerInfoResponse parses an HTTP response from a GetPeerInfoWithResponse call
 func ParseGetPeerInfoResponse(rsp *http.Response) (*GetPeerInfoResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -28100,15 +27631,6 @@ type ServerInterface interface {
 	// getPeerGameResult
 	// (GET /peers/{publicKey}/game-results/{id})
 	GetPeerGameResult(c *fiber.Ctx, publicKey string, id string) error
-	// Delete a peer profile icon
-	// (DELETE /peers/{publicKey}/icon/{format})
-	DeletePeerIcon(c *fiber.Ctx, publicKey string, format DeletePeerIconParamsFormat) error
-	// Download a peer profile icon
-	// (GET /peers/{publicKey}/icon/{format})
-	DownloadPeerIcon(c *fiber.Ctx, publicKey string, format DownloadPeerIconParamsFormat) error
-	// Upload or replace a peer profile icon
-	// (PUT /peers/{publicKey}/icon/{format})
-	UploadPeerIcon(c *fiber.Ctx, publicKey string, format UploadPeerIconParamsFormat) error
 	// Get peer device info
 	// (GET /peers/{publicKey}/info)
 	GetPeerInfo(c *fiber.Ctx, publicKey string) error
@@ -30401,78 +29923,6 @@ func (siw *ServerInterfaceWrapper) GetPeerGameResult(c *fiber.Ctx) error {
 	return siw.Handler.GetPeerGameResult(c, publicKey, id)
 }
 
-// DeletePeerIcon operation middleware
-func (siw *ServerInterfaceWrapper) DeletePeerIcon(c *fiber.Ctx) error {
-
-	var err error
-
-	// ------------- Path parameter "publicKey" -------------
-	var publicKey string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
-	}
-
-	// ------------- Path parameter "format" -------------
-	var format DeletePeerIconParamsFormat
-
-	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter format: %w", err).Error())
-	}
-
-	return siw.Handler.DeletePeerIcon(c, publicKey, format)
-}
-
-// DownloadPeerIcon operation middleware
-func (siw *ServerInterfaceWrapper) DownloadPeerIcon(c *fiber.Ctx) error {
-
-	var err error
-
-	// ------------- Path parameter "publicKey" -------------
-	var publicKey string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
-	}
-
-	// ------------- Path parameter "format" -------------
-	var format DownloadPeerIconParamsFormat
-
-	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter format: %w", err).Error())
-	}
-
-	return siw.Handler.DownloadPeerIcon(c, publicKey, format)
-}
-
-// UploadPeerIcon operation middleware
-func (siw *ServerInterfaceWrapper) UploadPeerIcon(c *fiber.Ctx) error {
-
-	var err error
-
-	// ------------- Path parameter "publicKey" -------------
-	var publicKey string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
-	}
-
-	// ------------- Path parameter "format" -------------
-	var format UploadPeerIconParamsFormat
-
-	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter format: %w", err).Error())
-	}
-
-	return siw.Handler.UploadPeerIcon(c, publicKey, format)
-}
-
 // GetPeerInfo operation middleware
 func (siw *ServerInterfaceWrapper) GetPeerInfo(c *fiber.Ctx) error {
 
@@ -32434,12 +31884,6 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Get(options.BaseURL+"/peers/:publicKey/game-results", wrapper.ListPeerGameResults)
 
 	router.Get(options.BaseURL+"/peers/:publicKey/game-results/:id", wrapper.GetPeerGameResult)
-
-	router.Delete(options.BaseURL+"/peers/:publicKey/icon/:format", wrapper.DeletePeerIcon)
-
-	router.Get(options.BaseURL+"/peers/:publicKey/icon/:format", wrapper.DownloadPeerIcon)
-
-	router.Put(options.BaseURL+"/peers/:publicKey/icon/:format", wrapper.UploadPeerIcon)
 
 	router.Get(options.BaseURL+"/peers/:publicKey/info", wrapper.GetPeerInfo)
 
@@ -36348,162 +35792,6 @@ func (response GetPeerGameResult500JSONResponse) VisitGetPeerGameResultResponse(
 	return ctx.JSON(&response)
 }
 
-type DeletePeerIconRequestObject struct {
-	PublicKey string                     `json:"publicKey"`
-	Format    DeletePeerIconParamsFormat `json:"format"`
-}
-
-type DeletePeerIconResponseObject interface {
-	VisitDeletePeerIconResponse(ctx *fiber.Ctx) error
-}
-
-type DeletePeerIcon200JSONResponse externalRef0.DeviceInfo
-
-func (response DeletePeerIcon200JSONResponse) VisitDeletePeerIconResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type DeletePeerIcon404JSONResponse externalRef0.ErrorResponse
-
-func (response DeletePeerIcon404JSONResponse) VisitDeletePeerIconResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type DeletePeerIcon500JSONResponse externalRef0.ErrorResponse
-
-func (response DeletePeerIcon500JSONResponse) VisitDeletePeerIconResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type DownloadPeerIconRequestObject struct {
-	PublicKey string                       `json:"publicKey"`
-	Format    DownloadPeerIconParamsFormat `json:"format"`
-}
-
-type DownloadPeerIconResponseObject interface {
-	VisitDownloadPeerIconResponse(ctx *fiber.Ctx) error
-}
-
-type DownloadPeerIcon200ApplicationoctetStreamResponse struct {
-	Body          io.Reader
-	ContentLength int64
-}
-
-func (response DownloadPeerIcon200ApplicationoctetStreamResponse) VisitDownloadPeerIconResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/octet-stream")
-	if response.ContentLength != 0 {
-		ctx.Response().Header.Set("Content-Length", fmt.Sprint(response.ContentLength))
-	}
-	ctx.Status(200)
-
-	if closer, ok := response.Body.(io.ReadCloser); ok {
-		defer closer.Close()
-	}
-	_, err := io.Copy(ctx.Response().BodyWriter(), response.Body)
-	return err
-}
-
-type DownloadPeerIcon200ImagepngResponse struct {
-	Body          io.Reader
-	ContentLength int64
-}
-
-func (response DownloadPeerIcon200ImagepngResponse) VisitDownloadPeerIconResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "image/png")
-	if response.ContentLength != 0 {
-		ctx.Response().Header.Set("Content-Length", fmt.Sprint(response.ContentLength))
-	}
-	ctx.Status(200)
-
-	if closer, ok := response.Body.(io.ReadCloser); ok {
-		defer closer.Close()
-	}
-	_, err := io.Copy(ctx.Response().BodyWriter(), response.Body)
-	return err
-}
-
-type DownloadPeerIcon404JSONResponse externalRef0.ErrorResponse
-
-func (response DownloadPeerIcon404JSONResponse) VisitDownloadPeerIconResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type DownloadPeerIcon500JSONResponse externalRef0.ErrorResponse
-
-func (response DownloadPeerIcon500JSONResponse) VisitDownloadPeerIconResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type UploadPeerIconRequestObject struct {
-	PublicKey string                     `json:"publicKey"`
-	Format    UploadPeerIconParamsFormat `json:"format"`
-	Body      io.Reader
-}
-
-type UploadPeerIconResponseObject interface {
-	VisitUploadPeerIconResponse(ctx *fiber.Ctx) error
-}
-
-type UploadPeerIcon200JSONResponse externalRef0.DeviceInfo
-
-func (response UploadPeerIcon200JSONResponse) VisitUploadPeerIconResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type UploadPeerIcon400JSONResponse externalRef0.ErrorResponse
-
-func (response UploadPeerIcon400JSONResponse) VisitUploadPeerIconResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type UploadPeerIcon404JSONResponse externalRef0.ErrorResponse
-
-func (response UploadPeerIcon404JSONResponse) VisitUploadPeerIconResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type UploadPeerIcon413JSONResponse externalRef0.ErrorResponse
-
-func (response UploadPeerIcon413JSONResponse) VisitUploadPeerIconResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(413)
-
-	return ctx.JSON(&response)
-}
-
-type UploadPeerIcon500JSONResponse externalRef0.ErrorResponse
-
-func (response UploadPeerIcon500JSONResponse) VisitUploadPeerIconResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
 type GetPeerInfoRequestObject struct {
 	PublicKey string `json:"publicKey"`
 }
@@ -39879,15 +39167,6 @@ type StrictServerInterface interface {
 	// getPeerGameResult
 	// (GET /peers/{publicKey}/game-results/{id})
 	GetPeerGameResult(ctx context.Context, request GetPeerGameResultRequestObject) (GetPeerGameResultResponseObject, error)
-	// Delete a peer profile icon
-	// (DELETE /peers/{publicKey}/icon/{format})
-	DeletePeerIcon(ctx context.Context, request DeletePeerIconRequestObject) (DeletePeerIconResponseObject, error)
-	// Download a peer profile icon
-	// (GET /peers/{publicKey}/icon/{format})
-	DownloadPeerIcon(ctx context.Context, request DownloadPeerIconRequestObject) (DownloadPeerIconResponseObject, error)
-	// Upload or replace a peer profile icon
-	// (PUT /peers/{publicKey}/icon/{format})
-	UploadPeerIcon(ctx context.Context, request UploadPeerIconRequestObject) (UploadPeerIconResponseObject, error)
 	// Get peer device info
 	// (GET /peers/{publicKey}/info)
 	GetPeerInfo(ctx context.Context, request GetPeerInfoRequestObject) (GetPeerInfoResponseObject, error)
@@ -43023,96 +42302,6 @@ func (sh *strictHandler) GetPeerGameResult(ctx *fiber.Ctx, publicKey string, id 
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(GetPeerGameResultResponseObject); ok {
 		if err := validResponse.VisitGetPeerGameResultResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// DeletePeerIcon operation middleware
-func (sh *strictHandler) DeletePeerIcon(ctx *fiber.Ctx, publicKey string, format DeletePeerIconParamsFormat) error {
-	var request DeletePeerIconRequestObject
-
-	request.PublicKey = publicKey
-	request.Format = format
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.DeletePeerIcon(ctx.UserContext(), request.(DeletePeerIconRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "DeletePeerIcon")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(DeletePeerIconResponseObject); ok {
-		if err := validResponse.VisitDeletePeerIconResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// DownloadPeerIcon operation middleware
-func (sh *strictHandler) DownloadPeerIcon(ctx *fiber.Ctx, publicKey string, format DownloadPeerIconParamsFormat) error {
-	var request DownloadPeerIconRequestObject
-
-	request.PublicKey = publicKey
-	request.Format = format
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.DownloadPeerIcon(ctx.UserContext(), request.(DownloadPeerIconRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "DownloadPeerIcon")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(DownloadPeerIconResponseObject); ok {
-		if err := validResponse.VisitDownloadPeerIconResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// UploadPeerIcon operation middleware
-func (sh *strictHandler) UploadPeerIcon(ctx *fiber.Ctx, publicKey string, format UploadPeerIconParamsFormat) error {
-	var request UploadPeerIconRequestObject
-
-	request.PublicKey = publicKey
-	request.Format = format
-
-	body := ctx.Context().RequestBodyStream()
-	if body == nil {
-		body = bytes.NewReader(ctx.Request().Body())
-	}
-	request.Body = body
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.UploadPeerIcon(ctx.UserContext(), request.(UploadPeerIconRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "UploadPeerIcon")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(UploadPeerIconResponseObject); ok {
-		if err := validResponse.VisitUploadPeerIconResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

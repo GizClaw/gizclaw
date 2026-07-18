@@ -144,6 +144,10 @@ func (c *rpcClient) ListFriends(ctx context.Context, conn net.Conn, id string, r
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendList, request, (*rpcapi.RPCPayload).FromFriendListRequest, rpcapi.RPCPayload.AsFriendListResponse, "friend list")
 }
 
+func (c *rpcClient) GetFriendInfo(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendInfoGetRequest) (*rpcapi.FriendInfoGetResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendInfoGet, request, (*rpcapi.RPCPayload).FromFriendInfoGetRequest, rpcapi.RPCPayload.AsFriendInfoGetResponse, "friend info get")
+}
+
 func (c *rpcClient) DeleteFriend(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendDeleteRequest) (*rpcapi.FriendDeleteResponse, error) {
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendDelete, request, (*rpcapi.RPCPayload).FromFriendDeleteRequest, rpcapi.RPCPayload.AsFriendDeleteResponse, "friend delete")
 }

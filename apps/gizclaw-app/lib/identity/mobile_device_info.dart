@@ -14,6 +14,8 @@ Future<DeviceInfo> loadMobileDeviceInfo({DeviceInfoPlugin? plugin}) async {
           hardwareRevision: info.utsname.machine,
           manufacturer: 'Apple',
           model: info.modelName,
+        ),
+        identifiers: DeviceIdentifiers(
           labels: [
             PeerLabel(key: 'platform', value: 'ios'),
             PeerLabel(key: 'os_version', value: info.systemVersion),
@@ -33,6 +35,8 @@ Future<DeviceInfo> loadMobileDeviceInfo({DeviceInfoPlugin? plugin}) async {
           hardwareRevision: info.hardware,
           manufacturer: info.manufacturer,
           model: info.model,
+        ),
+        identifiers: DeviceIdentifiers(
           labels: [
             PeerLabel(key: 'platform', value: 'android'),
             PeerLabel(key: 'os_version', value: info.version.release),
@@ -55,7 +59,7 @@ DeviceInfo fallbackMobileDeviceInfo() {
   final platform = Platform.operatingSystem;
   return DeviceInfo(
     name: 'GizClaw App',
-    hardware: HardwareInfo(
+    identifiers: DeviceIdentifiers(
       labels: [
         PeerLabel(key: 'platform', value: platform),
         PeerLabel(key: 'os_version', value: Platform.operatingSystemVersion),

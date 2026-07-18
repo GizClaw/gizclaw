@@ -43,8 +43,8 @@ func TestConvertHelpers(t *testing.T) {
 	}
 
 	adminDevice, err := toAdminDeviceInfo(apitypes.DeviceInfo{
-		Name: peer.Device.Name,
-		Sn:   peer.Device.Sn,
+		Name:        peer.Device.Name,
+		Identifiers: peer.Device.Identifiers,
 	})
 	if err != nil {
 		t.Fatalf("toAdminDeviceInfo error: %v", err)

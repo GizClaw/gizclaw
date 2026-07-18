@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:file_selector/file_selector.dart';
 import 'package:gizclaw/gizclaw.dart';
 import 'package:go_router/go_router.dart';
 
@@ -274,7 +273,9 @@ class FriendRow extends StatelessWidget {
           alignment: Alignment.center,
           color: avatarColors[index % avatarColors.length],
           child: Text(
-            friend.title.substring(0, 1).toUpperCase(),
+            friend.emoji.isNotEmpty
+                ? friend.emoji
+                : friend.title.substring(0, 1).toUpperCase(),
             style: GizText.sectionTitle,
           ),
         ),
@@ -1037,9 +1038,9 @@ class MePage extends StatelessWidget {
                         onTap:
                             data.connectionState ==
                                 MobileConnectionState.connected
-                            ? () => _editPeerIcon(context, data)
+                            ? () => _editPeerProfile(context, data)
                             : null,
-                        child: _ProfileMark(bytes: data.peerIconPng),
+                        child: _ProfileMark(emoji: data.peerEmoji),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -1278,9 +1279,9 @@ class _IdentityStatusPill extends StatelessWidget {
 }
 
 class _ProfileMark extends StatelessWidget {
-  const _ProfileMark({this.bytes});
+  const _ProfileMark({required this.emoji});
 
-  final Uint8List? bytes;
+  final String emoji;
 
   @override
   Widget build(BuildContext context) {
@@ -1291,52 +1292,51 @@ class _ProfileMark extends StatelessWidget {
         height: 54,
         alignment: Alignment.center,
         color: const Color(0xFFDCEEFF),
-        child: bytes == null
-            ? Text(
-                'GC',
-                style: GizText.title.copyWith(color: GizColors.primaryShadow),
-              )
-            : Image.memory(bytes!, fit: BoxFit.cover),
+        child: Text(
+          emoji.trim().isEmpty ? 'GC' : emoji,
+          style: GizText.title.copyWith(color: GizColors.primaryShadow),
+        ),
       ),
     );
   }
 }
 
-Future<void> _editPeerIcon(
+Future<void> _editPeerProfile(
   BuildContext context,
   MobileDataController data,
 ) async {
-  final action = await showCupertinoModalPopup<String>(
+  final name = TextEditingController(text: data.peerName);
+  final emoji = TextEditingController(text: data.peerEmoji);
+  final save = await showCupertinoDialog<bool>(
     context: context,
-    builder: (context) => CupertinoActionSheet(
-      title: const Text('Peer icon'),
-      actions: [
-        CupertinoActionSheetAction(
-          onPressed: () => Navigator.pop(context, 'upload'),
-          child: const Text('Choose PNG'),
-        ),
-        if (data.peerIconPng != null)
-          CupertinoActionSheetAction(
-            isDestructiveAction: true,
-            onPressed: () => Navigator.pop(context, 'delete'),
-            child: const Text('Delete icon'),
-          ),
-      ],
-      cancelButton: CupertinoActionSheetAction(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
+    builder: (context) => CupertinoAlertDialog(
+      title: const Text('Device profile'),
+      content: Column(
+        children: [
+          const SizedBox(height: 12),
+          CupertinoTextField(controller: name, placeholder: 'Nickname'),
+          const SizedBox(height: 8),
+          CupertinoTextField(controller: emoji, placeholder: 'Emoji'),
+        ],
       ),
+      actions: [
+        CupertinoDialogAction(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        CupertinoDialogAction(
+          isDefaultAction: true,
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('Save'),
+        ),
+      ],
     ),
   );
-  if (action == 'delete') {
-    await data.deletePeerIconPng();
-    return;
+  if (save == true) {
+    await data.updatePeerProfile(name: name.text, emoji: emoji.text);
   }
-  if (action != 'upload') return;
-  const png = XTypeGroup(label: 'PNG', extensions: ['png']);
-  final file = await openFile(acceptedTypeGroups: const [png]);
-  if (file == null) return;
-  await data.uploadPeerIconPng(await file.readAsBytes());
+  name.dispose();
+  emoji.dispose();
 }
 
 class SettingsRow extends StatelessWidget {

@@ -40,8 +40,8 @@ func TestIndexEntriesAndKeys(t *testing.T) {
 		CreatedAt: time.Unix(1, 0),
 		UpdatedAt: time.Unix(2, 0),
 		Device: apitypes.DeviceInfo{
-			Sn: &sn,
-			Hardware: &apitypes.HardwareInfo{
+			Identifiers: &apitypes.DeviceIdentifiers{
+				Sn:     &sn,
 				Imeis:  &[]apitypes.PeerIMEI{{Tac: "123", Serial: "456"}},
 				Labels: &[]apitypes.PeerLabel{{Key: "site", Value: "lab"}},
 			},

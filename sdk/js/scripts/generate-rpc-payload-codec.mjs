@@ -10,8 +10,8 @@ const OPTIONAL_REPEATED_FIELDS = new Set([
   "DoubaoRealtimeJSONSchema.anyOf",
   "DoubaoRealtimeJSONSchema.enum",
   "DoubaoRealtimeJSONSchema.required",
-  "RefreshIdentifiers.imeis",
-  "RefreshIdentifiers.labels",
+  "DeviceIdentifiers.imeis",
+  "DeviceIdentifiers.labels",
 ]);
 
 const OPTIONAL_MAP_FIELDS = new Set([

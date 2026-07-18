@@ -105,11 +105,13 @@ void main() {
 
   final device = DeviceInfo(
     name: 'Test Phone',
-    sn: 'serial-1',
     hardware: HardwareInfo(
       hardwareRevision: 'revision-1',
       manufacturer: 'GizClaw',
       model: 'Phone Pro',
+    ),
+    identifiers: DeviceIdentifiers(
+      sn: 'serial-1',
       imeis: [PeerIMEI(name: 'cellular', serial: 'imei-1')],
       labels: [PeerLabel(key: 'platform', value: 'test')],
     ),
@@ -133,7 +135,6 @@ void main() {
     final info =
         decodeRpcResponsePayload('client.info.get', infoResponse.payload)
             as ClientGetInfoResponse;
-    expect(info.value.name, 'Test Phone');
     expect(info.value.hardwareRevision, 'revision-1');
     expect(info.value.manufacturer, 'GizClaw');
     expect(info.value.model, 'Phone Pro');

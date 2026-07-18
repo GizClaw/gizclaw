@@ -16,11 +16,12 @@ func TestRPCClientHandleDeviceInfoMethods(t *testing.T) {
 
 	name := "main"
 	device := &Client{Device: apitypes.DeviceInfo{
-		Name: new("peer-1"),
-		Sn:   new("sn-1"),
 		Hardware: &apitypes.HardwareInfo{
 			Manufacturer: new("Acme"),
 			Model:        new("M1"),
+		},
+		Identifiers: &apitypes.DeviceIdentifiers{
+			Sn: new("sn-1"),
 			Imeis: &[]apitypes.PeerIMEI{{
 				Name:   &name,
 				Tac:    "12345678",
@@ -39,7 +40,7 @@ func TestRPCClientHandleDeviceInfoMethods(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetClientInfo() error = %v", err)
 	}
-	if info.Name == nil || *info.Name != "peer-1" || info.Manufacturer == nil || *info.Manufacturer != "Acme" {
+	if info.Manufacturer == nil || *info.Manufacturer != "Acme" {
 		t.Fatalf("GetClientInfo() = %+v", info)
 	}
 	if err := <-errCh; err != nil {

@@ -350,7 +350,7 @@ void main() {
     final info =
         decodeRpcResponsePayload('client.info.get', response.payload)
             as ClientGetInfoResponse;
-    expect(info.value.name, 'Test Phone');
+    expect(info.value.hasModel(), isFalse);
   });
 
   test('treats a newly created native data channel as connecting', () async {

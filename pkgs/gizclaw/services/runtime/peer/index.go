@@ -10,24 +10,24 @@ import (
 )
 
 func peerSN(peer apitypes.Peer) string {
-	if peer.Device.Sn == nil {
+	if peer.Device.Identifiers == nil || peer.Device.Identifiers.Sn == nil {
 		return ""
 	}
-	return *peer.Device.Sn
+	return *peer.Device.Identifiers.Sn
 }
 
 func peerIMEIs(peer apitypes.Peer) []apitypes.PeerIMEI {
-	if peer.Device.Hardware == nil || peer.Device.Hardware.Imeis == nil {
+	if peer.Device.Identifiers == nil || peer.Device.Identifiers.Imeis == nil {
 		return nil
 	}
-	return *peer.Device.Hardware.Imeis
+	return *peer.Device.Identifiers.Imeis
 }
 
 func peerLabels(peer apitypes.Peer) []apitypes.PeerLabel {
-	if peer.Device.Hardware == nil || peer.Device.Hardware.Labels == nil {
+	if peer.Device.Identifiers == nil || peer.Device.Identifiers.Labels == nil {
 		return nil
 	}
-	return *peer.Device.Hardware.Labels
+	return *peer.Device.Identifiers.Labels
 }
 
 func dedupeIMEIs(items []apitypes.PeerIMEI) []apitypes.PeerIMEI {

@@ -181,6 +181,12 @@ func (c *Client) ListFriends(ctx context.Context, id string, request rpcapi.Frie
 	})
 }
 
+func (c *Client) GetFriendInfo(ctx context.Context, id string, request rpcapi.FriendInfoGetRequest) (*rpcapi.FriendInfoGetResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendInfoGetResponse, error) {
+		return client.GetFriendInfo(ctx, conn, id, request)
+	})
+}
+
 func (c *Client) DeleteFriend(ctx context.Context, id string, request rpcapi.FriendDeleteRequest) (*rpcapi.FriendDeleteResponse, error) {
 	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendDeleteResponse, error) {
 		return client.DeleteFriend(ctx, conn, id, request)

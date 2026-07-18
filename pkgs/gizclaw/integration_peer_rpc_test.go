@@ -25,7 +25,7 @@ func TestIntegrationPeerRPCRefresh(t *testing.T) {
 			Manufacturer: strPtr("Acme"),
 			Model:        strPtr("M1"),
 		},
-		Sn: strPtr("sn-r1"),
+		Identifiers: &apitypes.DeviceIdentifiers{Sn: strPtr("sn-r1")},
 	})
 	devicePublicKey := ensurePeerInfo(t, device, apitypes.DeviceInfo{Name: strPtr("peer")})
 

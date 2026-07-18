@@ -403,7 +403,6 @@ func (s *Server) init() error {
 		ICETCP:          s.PublicICETCP,
 		ICEServers:      s.ICEServers,
 		DefaultPeerView: s.DefaultPeerView,
-		Assets:          s.PeerAssets,
 	}
 	manager := NewManager(peersServer)
 	manager.PetWorkflow = s.PetWorkflow
@@ -442,6 +441,7 @@ func (s *Server) init() error {
 		Friends:      friendStore,
 		Workspaces:   workspaceServer,
 		ACL:          aclServer,
+		Profiles:     peersServer,
 	}
 	friendGroupServer := &friendgroup.Server{
 		Groups:               friendGroupStore,
@@ -537,7 +537,6 @@ func (s *Server) init() error {
 			CredentialAdminService:      credentialServer,
 			FirmwareAdminService:        firmwareServer,
 			PeerAdminService:            peersServer,
-			PeerIconAdminService:        peersServer,
 			ModelAdminService:           modelServer,
 			VoiceAdminService:           voiceServer,
 			ProviderTenantsAdminService: providerTenantsServer,

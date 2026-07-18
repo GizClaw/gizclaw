@@ -101,6 +101,7 @@ func IsMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerFriendInviteTokenClear,
 		rpcapi.RPCMethodServerFriendAdd,
 		rpcapi.RPCMethodServerFriendList,
+		rpcapi.RPCMethodServerFriendInfoGet,
 		rpcapi.RPCMethodServerFriendDelete,
 		rpcapi.RPCMethodServerFriendGroupList,
 		rpcapi.RPCMethodServerFriendGroupGet,
@@ -223,6 +224,8 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 		return s.handleFriendAdd(ctx, req), true, nil
 	case rpcapi.RPCMethodServerFriendList:
 		return s.handleFriendList(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendInfoGet:
+		return s.handleFriendInfoGet(ctx, req), true, nil
 	case rpcapi.RPCMethodServerFriendDelete:
 		return s.handleFriendDelete(ctx, req), true, nil
 	case rpcapi.RPCMethodServerFriendGroupList:

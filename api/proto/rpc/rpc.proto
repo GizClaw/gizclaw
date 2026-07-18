@@ -168,7 +168,5 @@ enum RpcMethod {
   RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD = 105 [(rpc_method) = { name: "server.pet.pixa.download" request: "ServerPetPixaDownloadRequest" response: "ServerPetPixaDownloadResponse" }];
   RPC_METHOD_SERVER_WORKFLOW_ICON_DOWNLOAD = 106 [(rpc_method) = { name: "server.workflow.icon.download" request: "WorkflowIconDownloadRequest" response: "WorkflowIconDownloadResponse" }];
   RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD = 107 [(rpc_method) = { name: "server.workspace.icon.download" request: "WorkspaceIconDownloadRequest" response: "WorkspaceIconDownloadResponse" }];
-  RPC_METHOD_SERVER_INFO_ICON_DOWNLOAD = 108 [(rpc_method) = { name: "server.info.icon.download" request: "ServerInfoIconDownloadRequest" response: "ServerInfoIconDownloadResponse" }];
-  RPC_METHOD_SERVER_INFO_ICON_UPLOAD = 109 [(rpc_method) = { name: "server.info.icon.upload" request: "ServerInfoIconUploadRequest" response: "ServerInfoIconUploadResponse" }];
-  RPC_METHOD_SERVER_INFO_ICON_DELETE = 110 [(rpc_method) = { name: "server.info.icon.delete" request: "ServerInfoIconDeleteRequest" response: "ServerInfoIconDeleteResponse" }];
+  RPC_METHOD_SERVER_FRIEND_INFO_GET = 108 [(rpc_method) = { name: "server.friend.info.get" request: "FriendInfoGetRequest" response: "FriendInfoGetResponse" }];
 }

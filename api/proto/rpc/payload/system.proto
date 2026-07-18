@@ -5,8 +5,6 @@ syntax = "proto3";
 package gizclaw.rpc.v1;
 
 import "google/protobuf/struct.proto";
-import "payload/enums.proto";
-import "payload/icon.proto";
 
 option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpb";
 
@@ -14,29 +12,33 @@ message ClientGetIdentifiersRequest {
 }
 
 message ClientGetIdentifiersResponse {
-  RefreshIdentifiers value = 1;
+  DeviceIdentifiers value = 1;
 }
 
 message ClientGetInfoRequest {
 }
 
 message ClientGetInfoResponse {
-  RefreshInfo value = 1;
+  HardwareInfo value = 1;
 }
 
 message DeviceInfo {
   optional HardwareInfo hardware = 1;
   optional string name = 2;
-  optional string sn = 3;
-  optional Icon icon = 4;
+  optional string emoji = 4;
+  optional DeviceIdentifiers identifiers = 5;
+}
+
+message DeviceIdentifiers {
+  optional string sn = 1;
+  repeated PeerIMEI imeis = 2;
+  repeated PeerLabel labels = 3;
 }
 
 message HardwareInfo {
   optional string hardware_revision = 1;
-  repeated PeerIMEI imeis = 2;
-  repeated PeerLabel labels = 3;
-  optional string manufacturer = 4;
-  optional string model = 5;
+  optional string manufacturer = 2;
+  optional string model = 3;
 }
 
 message PeerIMEI {
@@ -72,19 +74,6 @@ message PingResponse {
   int64 server_time = 1;
 }
 
-message RefreshIdentifiers {
-  repeated PeerIMEI imeis = 1;
-  repeated PeerLabel labels = 2;
-  optional string sn = 3;
-}
-
-message RefreshInfo {
-  optional string hardware_revision = 1;
-  optional string manufacturer = 2;
-  optional string model = 3;
-  optional string name = 4;
-}
-
 message Runtime {
   optional string last_addr = 1;
   string last_seen_at = 2;
@@ -112,31 +101,6 @@ message ServerPutInfoRequest {
 }
 
 message ServerPutInfoResponse {
-  DeviceInfo value = 1;
-}
-
-message ServerInfoIconDeleteRequest {
-  IconFormat format = 1;
-}
-
-message ServerInfoIconDeleteResponse {
-  DeviceInfo value = 1;
-}
-
-message ServerInfoIconDownloadRequest {
-  IconFormat format = 1;
-}
-
-message ServerInfoIconDownloadResponse {
-  IconFormat format = 1;
-  int64 size_bytes = 2;
-}
-
-message ServerInfoIconUploadRequest {
-  IconFormat format = 1;
-}
-
-message ServerInfoIconUploadResponse {
   DeviceInfo value = 1;
 }
 

@@ -147,9 +147,9 @@ export type ChatRoomWorkspaceTranscriptParameters = {
   "enabled"?: boolean;
 };
 export type ClientGetIdentifiersRequest = Record<string, never>;
-export type ClientGetIdentifiersResponse = RefreshIdentifiers;
+export type ClientGetIdentifiersResponse = DeviceIdentifiers;
 export type ClientGetInfoRequest = Record<string, never>;
-export type ClientGetInfoResponse = RefreshInfo;
+export type ClientGetInfoResponse = HardwareInfo;
 export type ContactCreateRequest = {
   "display_name"?: string;
   "phone_number"?: string;
@@ -231,11 +231,16 @@ export type DashScopeTenantVoiceProviderData = {
   "raw": Record<string, unknown>;
   "voice_id"?: string;
 };
+export type DeviceIdentifiers = {
+  "sn"?: string;
+  "imeis"?: PeerIMEI[];
+  "labels"?: PeerLabel[];
+};
 export type DeviceInfo = {
   "hardware"?: HardwareInfo;
   "name"?: string;
-  "sn"?: string;
-  "icon"?: Icon;
+  "emoji"?: string;
+  "identifiers"?: DeviceIdentifiers;
 };
 export type DoubaoRealtimeAIGCMetadata = {
   "content_producer"?: string;
@@ -562,6 +567,17 @@ export type FriendGroupPutRequest = {
   "name"?: string;
 };
 export type FriendGroupPutResponse = FriendGroupObject;
+export type FriendInfo = {
+  "name"?: string;
+  "emoji"?: string;
+};
+export type FriendInfoGetRequest = {
+  "id": string;
+};
+export type FriendInfoGetResponse = {
+  "id": string;
+  "value": FriendInfo;
+};
 export type FriendInviteTokenClearRequest = Record<string, never>;
 export type FriendInviteTokenClearResponse = Record<string, never>;
 export type FriendInviteTokenCreateRequest = Record<string, never>;
@@ -671,8 +687,6 @@ export type GeminiTenantVoiceProviderData = {
 };
 export type HardwareInfo = {
   "hardware_revision"?: string;
-  "imeis": PeerIMEI[];
-  "labels": PeerLabel[];
   "manufacturer"?: string;
   "model"?: string;
 };
@@ -1044,17 +1058,6 @@ export type PointsTransactionListResponse = {
   "items": PointsTransaction[];
   "next_cursor"?: string;
 };
-export type RefreshIdentifiers = {
-  "imeis"?: PeerIMEI[];
-  "labels"?: PeerLabel[];
-  "sn"?: string;
-};
-export type RefreshInfo = {
-  "hardware_revision"?: string;
-  "manufacturer"?: string;
-  "model"?: string;
-  "name"?: string;
-};
 export type RewardGrant = {
   "badge_exp_delta": Record<string, number>;
   "created_at": string;
@@ -1107,21 +1110,6 @@ export type ServerGetRuntimeRequest = Record<string, never>;
 export type ServerGetRuntimeResponse = Runtime;
 export type ServerGetStatusRequest = Record<string, never>;
 export type ServerGetStatusResponse = PeerStatus;
-export type ServerInfoIconDeleteRequest = {
-  "format": IconFormat;
-};
-export type ServerInfoIconDeleteResponse = DeviceInfo;
-export type ServerInfoIconDownloadRequest = {
-  "format": IconFormat;
-};
-export type ServerInfoIconDownloadResponse = {
-  "format": IconFormat;
-  "size_bytes": number;
-};
-export type ServerInfoIconUploadRequest = {
-  "format": IconFormat;
-};
-export type ServerInfoIconUploadResponse = DeviceInfo;
 export type ServerListRunWorkspaceHistoryRequest = PeerRunHistoryListRequest;
 export type ServerListRunWorkspaceHistoryResponse = PeerRunHistoryListResponse;
 export type ServerPeerAssignRequest = {
@@ -1492,6 +1480,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.friend_group.put": "FriendGroupPutRequest",
   "server.friend.add": "FriendAddRequest",
   "server.friend.delete": "FriendDeleteRequest",
+  "server.friend.info.get": "FriendInfoGetRequest",
   "server.friend.invite_token.clear": "FriendInviteTokenClearRequest",
   "server.friend.invite_token.create": "FriendInviteTokenCreateRequest",
   "server.friend.invite_token.get": "FriendInviteTokenGetRequest",
@@ -1500,9 +1489,6 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.game_result.list": "ServerGameResultListRequest",
   "server.game_ruleset.get": "ServerGameRulesetGetRequest",
   "server.info.get": "ServerGetInfoRequest",
-  "server.info.icon.delete": "ServerInfoIconDeleteRequest",
-  "server.info.icon.download": "ServerInfoIconDownloadRequest",
-  "server.info.icon.upload": "ServerInfoIconUploadRequest",
   "server.info.put": "ServerPutInfoRequest",
   "server.model.create": "ModelCreateRequest",
   "server.model.delete": "ModelDeleteRequest",
@@ -1600,6 +1586,7 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.friend_group.put": "FriendGroupPutResponse",
   "server.friend.add": "FriendAddResponse",
   "server.friend.delete": "FriendDeleteResponse",
+  "server.friend.info.get": "FriendInfoGetResponse",
   "server.friend.invite_token.clear": "FriendInviteTokenClearResponse",
   "server.friend.invite_token.create": "FriendInviteTokenCreateResponse",
   "server.friend.invite_token.get": "FriendInviteTokenGetResponse",
@@ -1608,9 +1595,6 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.game_result.list": "ServerGameResultListResponse",
   "server.game_ruleset.get": "ServerGameRulesetGetResponse",
   "server.info.get": "ServerGetInfoResponse",
-  "server.info.icon.delete": "ServerInfoIconDeleteResponse",
-  "server.info.icon.download": "ServerInfoIconDownloadResponse",
-  "server.info.icon.upload": "ServerInfoIconUploadResponse",
   "server.info.put": "ServerPutInfoResponse",
   "server.model.create": "ModelCreateResponse",
   "server.model.delete": "ModelDeleteResponse",
@@ -2081,7 +2065,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "value",
         "number": 1,
-        "type": "RefreshIdentifiers"
+        "type": "DeviceIdentifiers"
       }
     ]
   },
@@ -2093,7 +2077,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "value",
         "number": 1,
-        "type": "RefreshInfo"
+        "type": "HardwareInfo"
       }
     ]
   },
@@ -2495,6 +2479,30 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "DeviceIdentifiers": {
+    "fields": [
+      {
+        "name": "sn",
+        "number": 1,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "imeis",
+        "number": 2,
+        "optionalRepeated": true,
+        "repeated": true,
+        "type": "PeerIMEI"
+      },
+      {
+        "name": "labels",
+        "number": 3,
+        "optionalRepeated": true,
+        "repeated": true,
+        "type": "PeerLabel"
+      }
+    ]
+  },
   "DeviceInfo": {
     "fields": [
       {
@@ -2510,16 +2518,16 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "sn",
-        "number": 3,
+        "name": "emoji",
+        "number": 4,
         "optional": true,
         "type": "string"
       },
       {
-        "name": "icon",
-        "number": 4,
+        "name": "identifiers",
+        "number": 5,
         "optional": true,
-        "type": "Icon"
+        "type": "DeviceIdentifiers"
       }
     ]
   },
@@ -3974,6 +3982,45 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "FriendInfo": {
+    "fields": [
+      {
+        "name": "name",
+        "number": 1,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "emoji",
+        "number": 2,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
+  "FriendInfoGetRequest": {
+    "fields": [
+      {
+        "name": "id",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "FriendInfoGetResponse": {
+    "fields": [
+      {
+        "name": "id",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "value",
+        "number": 2,
+        "type": "FriendInfo"
+      }
+    ]
+  },
   "FriendInviteTokenClearRequest": {
     "fields": []
   },
@@ -4440,26 +4487,14 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "imeis",
-        "number": 2,
-        "repeated": true,
-        "type": "PeerIMEI"
-      },
-      {
-        "name": "labels",
-        "number": 3,
-        "repeated": true,
-        "type": "PeerLabel"
-      },
-      {
         "name": "manufacturer",
-        "number": 4,
+        "number": 2,
         "optional": true,
         "type": "string"
       },
       {
         "name": "model",
-        "number": 5,
+        "number": 3,
         "optional": true,
         "type": "string"
       }
@@ -6152,58 +6187,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
-  "RefreshIdentifiers": {
-    "fields": [
-      {
-        "name": "imeis",
-        "number": 1,
-        "optionalRepeated": true,
-        "repeated": true,
-        "type": "PeerIMEI"
-      },
-      {
-        "name": "labels",
-        "number": 2,
-        "optionalRepeated": true,
-        "repeated": true,
-        "type": "PeerLabel"
-      },
-      {
-        "name": "sn",
-        "number": 3,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "RefreshInfo": {
-    "fields": [
-      {
-        "name": "hardware_revision",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "manufacturer",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "model",
-        "number": 3,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "name",
-        "number": 4,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
   "RewardGrant": {
     "fields": [
       {
@@ -6503,65 +6486,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "PeerStatus"
-      }
-    ]
-  },
-  "ServerInfoIconDeleteRequest": {
-    "fields": [
-      {
-        "name": "format",
-        "number": 1,
-        "type": "IconFormat"
-      }
-    ]
-  },
-  "ServerInfoIconDeleteResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "DeviceInfo"
-      }
-    ]
-  },
-  "ServerInfoIconDownloadRequest": {
-    "fields": [
-      {
-        "name": "format",
-        "number": 1,
-        "type": "IconFormat"
-      }
-    ]
-  },
-  "ServerInfoIconDownloadResponse": {
-    "fields": [
-      {
-        "name": "format",
-        "number": 1,
-        "type": "IconFormat"
-      },
-      {
-        "name": "size_bytes",
-        "number": 2,
-        "type": "int64"
-      }
-    ]
-  },
-  "ServerInfoIconUploadRequest": {
-    "fields": [
-      {
-        "name": "format",
-        "number": 1,
-        "type": "IconFormat"
-      }
-    ]
-  },
-  "ServerInfoIconUploadResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "DeviceInfo"
       }
     ]
   },

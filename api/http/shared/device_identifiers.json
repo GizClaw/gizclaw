@@ -1,14 +1,14 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Refresh Identifiers Type",
-    "description": "Peer refresh identifiers schema.",
+    "title": "Device Identifiers Type",
+    "description": "DeviceIdentifiers schema.",
     "version": "1.0.0"
   },
   "paths": {},
   "components": {
     "schemas": {
-      "RefreshIdentifiers": {
+      "DeviceIdentifiers": {
         "type": "object",
         "properties": {
           "sn": {

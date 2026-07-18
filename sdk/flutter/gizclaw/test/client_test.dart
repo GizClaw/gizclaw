@@ -10,10 +10,7 @@ void main() {
   test('uploads the local device info to the server', () async {
     final factory = FakeDataChannelFactory();
     final client = GizClawClient(factory);
-    final device = DeviceInfo(
-      name: 'Test Phone',
-      hardware: HardwareInfo(model: 'Phone Pro'),
-    );
+    final device = DeviceInfo(name: 'Test Phone', emoji: '📱');
 
     final future = client.putServerInfo(device);
     await Future<void>.delayed(Duration.zero);
@@ -26,7 +23,8 @@ void main() {
         decodeRpcRequestPayload('server.info.put', request.payload)
             as ServerPutInfoRequest;
     expect(params.value.name, 'Test Phone');
-    expect(params.value.hardware.model, 'Phone Pro');
+    expect(params.value.emoji, '📱');
+    expect(params.value.hasHardware(), isFalse);
 
     channel.addMessage(
       concatBytes([

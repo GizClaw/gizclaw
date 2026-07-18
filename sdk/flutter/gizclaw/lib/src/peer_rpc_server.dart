@@ -248,8 +248,7 @@ class _InboundPeerRpcChannel {
       );
     }
     final device = await provider();
-    final info = payload.RefreshInfo();
-    if (device.hasName()) info.name = device.name;
+    final info = payload.HardwareInfo();
     if (device.hasHardware()) {
       final hardware = device.hardware;
       if (hardware.hasHardwareRevision()) {
@@ -279,11 +278,11 @@ class _InboundPeerRpcChannel {
       );
     }
     final device = await provider();
-    final identifiers = payload.RefreshIdentifiers();
-    if (device.hasSn()) identifiers.sn = device.sn;
-    if (device.hasHardware()) {
-      identifiers.imeis.addAll(device.hardware.imeis);
-      identifiers.labels.addAll(device.hardware.labels);
+    final identifiers = payload.DeviceIdentifiers();
+    if (device.hasIdentifiers()) {
+      if (device.identifiers.hasSn()) identifiers.sn = device.identifiers.sn;
+      identifiers.imeis.addAll(device.identifiers.imeis);
+      identifiers.labels.addAll(device.identifiers.labels);
     }
     return _rpcPayloadResponse(
       request.id,

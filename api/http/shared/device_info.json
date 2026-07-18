@@ -14,14 +14,14 @@
           "name": {
             "type": "string"
           },
-          "sn": {
+          "emoji": {
             "type": "string"
           },
           "hardware": {
             "$ref": "./hardware_info.json#/components/schemas/HardwareInfo"
           },
-          "icon": {
-            "$ref": "./icon.json#/components/schemas/Icon"
+          "identifiers": {
+            "$ref": "./device_identifiers.json#/components/schemas/DeviceIdentifiers"
           }
         }
       }

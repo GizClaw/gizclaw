@@ -1,11 +1,8 @@
 package peer
 
 import (
-	"bytes"
 	"context"
-	"image"
-	"image/png"
-	"io"
+	"errors"
 	"testing"
 	"time"
 
@@ -15,7 +12,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 type stubPeerManager struct {
@@ -46,76 +42,8 @@ func saveTestPeer(t *testing.T, server *Server, publicKey giznet.PublicKey, devi
 	}
 }
 
-func TestPeerIconLifecycle(t *testing.T) {
-	t.Parallel()
-	server := &Server{Store: mustBadgerInMemory(t, nil), Assets: objectstore.Dir(t.TempDir())}
-	peerKey := giznet.PublicKey{2}
-	publicKey := peerKey.String()
-	saveTestPeer(t, server, peerKey, apitypes.DeviceInfo{})
-
-	want := peerIconPNG(t)
-	uploadResponse, err := server.UploadPeerIcon(context.Background(), adminhttp.UploadPeerIconRequestObject{
-		PublicKey: publicKey, Format: adminhttp.UploadPeerIconParamsFormatPng, Body: bytes.NewReader(want),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	uploaded, ok := uploadResponse.(adminhttp.UploadPeerIcon200JSONResponse)
-	if !ok || uploaded.Icon == nil || uploaded.Icon.Png == nil || *uploaded.Icon.Png != publicKey+"/icon.png" {
-		t.Fatalf("UploadPeerIcon() response = %#v", uploadResponse)
-	}
-
-	downloadResponse, err := server.DownloadPeerIcon(context.Background(), adminhttp.DownloadPeerIconRequestObject{
-		PublicKey: publicKey, Format: adminhttp.DownloadPeerIconParamsFormatPng,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	downloaded, ok := downloadResponse.(adminhttp.DownloadPeerIcon200ImagepngResponse)
-	if !ok {
-		t.Fatalf("DownloadPeerIcon() response = %#v", downloadResponse)
-	}
-	got, err := io.ReadAll(downloaded.Body)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if closer, ok := downloaded.Body.(io.Closer); ok {
-		if err := closer.Close(); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if !bytes.Equal(got, want) {
-		t.Fatalf("DownloadPeerIcon() bytes differ")
-	}
-
-	for i := range 2 {
-		deleteResponse, err := server.DeletePeerIcon(context.Background(), adminhttp.DeletePeerIconRequestObject{
-			PublicKey: publicKey, Format: adminhttp.DeletePeerIconParamsFormatPng,
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		deleted, ok := deleteResponse.(adminhttp.DeletePeerIcon200JSONResponse)
-		if !ok || deleted.Icon != nil {
-			t.Fatalf("DeletePeerIcon(%d) response = %#v", i, deleteResponse)
-		}
-	}
-}
-
-func peerIconPNG(t *testing.T) []byte {
-	t.Helper()
-	var out bytes.Buffer
-	if err := png.Encode(&out, image.NewNRGBA(image.Rect(0, 0, 1, 1))); err != nil {
-		t.Fatal(err)
-	}
-	return out.Bytes()
-}
-
 func TestServerAdminPeerHandlers(t *testing.T) {
-	server := &Server{
-		Store:  mustBadgerInMemory(t, nil),
-		Assets: objectstore.Dir(t.TempDir()),
-	}
+	server := &Server{Store: mustBadgerInMemory(t, nil)}
 
 	peerKey := giznet.PublicKey{1}
 	peerPublicKey := peerKey.String()
@@ -125,12 +53,10 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 	serial := "87654321"
 	labelKey := "region"
 	labelValue := "cn"
-	iconName := peerPublicKey + "/icon.png"
 
 	saveTestPeer(t, server, peerKey, apitypes.DeviceInfo{
-		Sn:   &sn,
-		Icon: &apitypes.Icon{Png: &iconName},
-		Hardware: &apitypes.HardwareInfo{
+		Identifiers: &apitypes.DeviceIdentifiers{
+			Sn:     &sn,
 			Imeis:  &[]apitypes.PeerIMEI{{Tac: tac, Serial: serial}},
 			Labels: &[]apitypes.PeerLabel{{Key: labelKey, Value: labelValue}},
 		},
@@ -200,7 +126,7 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 	if !ok {
 		t.Fatalf("GetPeerInfo response type = %T", getInfoResp)
 	}
-	if info.Hardware == nil || info.Hardware.Imeis == nil || len(*info.Hardware.Imeis) != 1 {
+	if info.Identifiers == nil || info.Identifiers.Imeis == nil || len(*info.Identifiers.Imeis) != 1 {
 		t.Fatalf("GetPeerInfo = %+v", info)
 	}
 
@@ -209,11 +135,6 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 		PublicKey: string(peerPublicKey),
 		Body: &adminhttp.PutPeerInfoJSONRequestBody{
 			Name: &updatedName,
-			Sn:   &sn,
-			Hardware: &apitypes.HardwareInfo{
-				Imeis:  &[]apitypes.PeerIMEI{{Tac: tac, Serial: serial}},
-				Labels: &[]apitypes.PeerLabel{{Key: labelKey, Value: labelValue}},
-			},
 		},
 	})
 	if err != nil {
@@ -226,19 +147,19 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 	if updatedInfo.Name == nil || *updatedInfo.Name != updatedName {
 		t.Fatalf("PutPeerInfo = %+v", updatedInfo)
 	}
-	if updatedInfo.Icon == nil || updatedInfo.Icon.Png == nil || *updatedInfo.Icon.Png != iconName {
-		t.Fatalf("PutPeerInfo did not preserve icon = %+v", updatedInfo)
+	if updatedInfo.Identifiers == nil || updatedInfo.Identifiers.Sn == nil || *updatedInfo.Identifiers.Sn != sn {
+		t.Fatalf("PutPeerInfo did not preserve identifiers = %+v", updatedInfo)
 	}
-	otherIcon := "other/icon.png"
+	invalidHardware := &apitypes.HardwareInfo{Model: &updatedName}
 	putInfoResp, err = server.PutPeerInfo(ctx, adminhttp.PutPeerInfoRequestObject{
 		PublicKey: string(peerPublicKey),
-		Body:      &adminhttp.PutPeerInfoJSONRequestBody{Name: &updatedName, Icon: &apitypes.Icon{Png: &otherIcon}},
+		Body:      &adminhttp.PutPeerInfoJSONRequestBody{Name: &updatedName, Hardware: invalidHardware},
 	})
 	if err != nil {
-		t.Fatalf("PutPeerInfo(injected icon) error: %v", err)
+		t.Fatalf("PutPeerInfo(injected hardware) error: %v", err)
 	}
 	if _, ok := putInfoResp.(adminhttp.PutPeerInfo400JSONResponse); !ok {
-		t.Fatalf("PutPeerInfo(injected icon) response type = %T", putInfoResp)
+		t.Fatalf("PutPeerInfo(injected hardware) response type = %T", putInfoResp)
 	}
 
 	resolveSNResp, err := server.FindPubKeyBySN(ctx, adminhttp.FindPubKeyBySNRequestObject{Sn: sn})
@@ -331,7 +252,7 @@ func TestServerListPeersPagination(t *testing.T) {
 
 	registerPeer := func(publicKey giznet.PublicKey, labelValue string) {
 		saveTestPeer(t, server, publicKey, apitypes.DeviceInfo{
-			Hardware: &apitypes.HardwareInfo{
+			Identifiers: &apitypes.DeviceIdentifiers{
 				Labels: &[]apitypes.PeerLabel{{Key: "region", Value: labelValue}},
 			},
 		})
@@ -537,8 +458,8 @@ func TestPeerHTTPHandlers(t *testing.T) {
 
 	saveTestPeer(t, server, peerKey, apitypes.DeviceInfo{
 		Name: &name,
-		Sn:   &sn,
-		Hardware: &apitypes.HardwareInfo{
+		Identifiers: &apitypes.DeviceIdentifiers{
+			Sn:     &sn,
 			Labels: &[]apitypes.PeerLabel{{Key: labelKey, Value: labelValue}},
 		},
 	})
@@ -547,8 +468,8 @@ func TestPeerHTTPHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetSelfInfo error: %v", err)
 	}
-	if info.Sn == nil || *info.Sn != sn {
-		t.Fatalf("GetSelfInfo sn = %v", info.Sn)
+	if info.Identifiers == nil || info.Identifiers.Sn == nil || *info.Identifiers.Sn != sn {
+		t.Fatalf("GetSelfInfo identifiers = %v", info.Identifiers)
 	}
 
 	serverInfoResp, err := server.GetServerInfo(context.Background(), peerhttp.GetServerInfoRequestObject{})
@@ -657,7 +578,7 @@ func TestPeerHTTPHandlersPutInfoConfigAndRuntime(t *testing.T) {
 	}
 
 	sn := "sn-old"
-	saveTestPeer(t, server, peerKey, apitypes.DeviceInfo{Sn: &sn})
+	saveTestPeer(t, server, peerKey, apitypes.DeviceInfo{Identifiers: &apitypes.DeviceIdentifiers{Sn: &sn}})
 
 	view := "under-12"
 	_, err := server.PutPeerConfig(context.Background(), adminhttp.PutPeerConfigRequestObject{
@@ -684,13 +605,17 @@ func TestPeerHTTPHandlersPutInfoConfigAndRuntime(t *testing.T) {
 		t.Fatalf("GetPeerConfig = %+v", cfg)
 	}
 
-	newSN := "sn-new"
-	putInfo, err := server.PutSelfInfo(context.Background(), peerKey, apitypes.DeviceInfo{Sn: &newSN})
+	newEmoji := "🧑‍🚀"
+	putInfo, err := server.PutSelfInfo(context.Background(), peerKey, apitypes.DeviceInfo{Emoji: &newEmoji})
 	if err != nil {
 		t.Fatalf("PutSelfInfo error: %v", err)
 	}
-	if putInfo.Sn == nil || *putInfo.Sn != newSN {
+	if putInfo.Emoji == nil || *putInfo.Emoji != newEmoji {
 		t.Fatalf("PutSelfInfo = %+v", putInfo)
+	}
+	tooLong := string(make([]byte, 65))
+	if _, err := server.PutSelfInfo(context.Background(), peerKey, apitypes.DeviceInfo{Emoji: &tooLong}); !errors.Is(err, ErrInvalidInfo) {
+		t.Fatalf("PutSelfInfo(long emoji) error = %v, want ErrInvalidInfo", err)
 	}
 
 	publicRuntime := server.GetSelfRuntime(context.Background(), peerKey)

@@ -12,6 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -26,14 +27,39 @@ type ACL interface {
 	DeletePolicyBinding(context.Context, string) (apitypes.ACLPolicyBinding, error)
 }
 
+type ProfileService interface {
+	GetSelfInfo(context.Context, giznet.PublicKey) (apitypes.DeviceInfo, error)
+}
+
 type Server struct {
 	InviteTokens kv.Store
 	Friends      kv.Store
 	Workspaces   WorkspaceService
 	ACL          ACL
+	Profiles     ProfileService
 
 	Now   func() time.Time
 	NewID func() string
+}
+
+func (s *Server) GetFriendInfo(ctx context.Context, owner string, req rpcapi.FriendInfoGetRequest) (rpcapi.FriendInfoGetResponse, error) {
+	relation, err := s.GetFriendRelation(ctx, owner, req.Id)
+	if err != nil {
+		return rpcapi.FriendInfoGetResponse{}, err
+	}
+	if s.Profiles == nil {
+		return rpcapi.FriendInfoGetResponse{}, errors.New("social: profile service not configured")
+	}
+	id := strings.TrimSpace(socialutil.StringValue(relation.PeerPublicKey))
+	var publicKey giznet.PublicKey
+	if err := publicKey.UnmarshalText([]byte(id)); err != nil {
+		return rpcapi.FriendInfoGetResponse{}, err
+	}
+	info, err := s.Profiles.GetSelfInfo(ctx, publicKey)
+	if err != nil {
+		return rpcapi.FriendInfoGetResponse{}, err
+	}
+	return rpcapi.FriendInfoGetResponse{Id: id, Value: rpcapi.FriendInfo{Name: info.Name, Emoji: info.Emoji}}, nil
 }
 
 type inviteTokenRecord struct {

@@ -68,6 +68,13 @@ class GizClawClient {
   final ServiceHttpClient peerOpenAi;
   final PeerRpcClient rpc;
 
+  Future<payload.ServerGetInfoResponse> getServerInfo() {
+    return rpc.call<payload.ServerGetInfoResponse>(
+      'server.info.get',
+      payload.ServerGetInfoRequest(),
+    );
+  }
+
   Future<payload.ServerPutInfoResponse> putServerInfo(
     payload.DeviceInfo value,
   ) {
@@ -145,6 +152,13 @@ class GizClawClient {
     if (cursor != null) request.cursor = cursor;
     if (limit != null) request.limit = Int64(limit);
     return rpc.call<payload.FriendListResponse>('server.friend.list', request);
+  }
+
+  Future<payload.FriendInfoGetResponse> getFriendInfo(String id) {
+    return rpc.call<payload.FriendInfoGetResponse>(
+      'server.friend.info.get',
+      payload.FriendInfoGetRequest(id: id),
+    );
   }
 
   Future<payload.FriendInviteTokenGetResponse> getFriendInviteToken() {
@@ -394,39 +408,6 @@ class GizClawClient {
     return IconDownloadResult(
       metadata: response.response as payload.WorkspaceIconDownloadResponse,
       bytes: Uint8List.fromList(response.body),
-    );
-  }
-
-  Future<IconDownloadResult<payload.ServerInfoIconDownloadResponse>>
-  downloadPeerIcon(enums.IconFormat format) async {
-    final response = await rpc.callBinary(
-      'server.info.icon.download',
-      payload.ServerInfoIconDownloadRequest(format: format),
-      maxBodyBytes: _maxIconDownloadBytes,
-    );
-    return IconDownloadResult(
-      metadata: response.response as payload.ServerInfoIconDownloadResponse,
-      bytes: Uint8List.fromList(response.body),
-    );
-  }
-
-  Future<payload.ServerInfoIconUploadResponse> uploadPeerIcon(
-    enums.IconFormat format,
-    Uint8List bytes,
-  ) {
-    return rpc.callUpload<payload.ServerInfoIconUploadResponse>(
-      'server.info.icon.upload',
-      payload.ServerInfoIconUploadRequest(format: format),
-      bytes,
-    );
-  }
-
-  Future<payload.ServerInfoIconDeleteResponse> deletePeerIcon(
-    enums.IconFormat format,
-  ) {
-    return rpc.call<payload.ServerInfoIconDeleteResponse>(
-      'server.info.icon.delete',
-      payload.ServerInfoIconDeleteRequest(format: format),
     );
   }
 }

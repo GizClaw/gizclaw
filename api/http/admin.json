@@ -7023,24 +7023,6 @@
         }
       }
     },
-    "/peers/{publicKey}/icon/{format}": {
-      "get": {
-        "operationId": "downloadPeerIcon", "summary": "Download a peer profile icon", "tags": ["Peers"],
-        "parameters": [{"name": "publicKey", "in": "path", "required": true, "schema": {"type": "string"}}, {"name": "format", "in": "path", "required": true, "schema": {"type": "string", "enum": ["pixa", "png"]}}],
-        "responses": {"200": {"description": "Peer icon bytes", "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}, "image/png": {"schema": {"type": "string", "format": "binary"}}}}, "404": {"description": "Peer or icon not found", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}, "500": {"description": "Internal error", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}}
-      },
-      "put": {
-        "operationId": "uploadPeerIcon", "summary": "Upload or replace a peer profile icon", "tags": ["Peers"],
-        "parameters": [{"name": "publicKey", "in": "path", "required": true, "schema": {"type": "string"}}, {"name": "format", "in": "path", "required": true, "schema": {"type": "string", "enum": ["pixa", "png"]}}],
-        "requestBody": {"required": true, "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}},
-        "responses": {"200": {"description": "Updated peer info", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/DeviceInfo"}}}}, "400": {"description": "Invalid icon", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}, "404": {"description": "Peer not found", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}, "413": {"description": "Icon exceeds 2 MiB", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}, "500": {"description": "Internal error", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}}
-      },
-      "delete": {
-        "operationId": "deletePeerIcon", "summary": "Delete a peer profile icon", "tags": ["Peers"],
-        "parameters": [{"name": "publicKey", "in": "path", "required": true, "schema": {"type": "string"}}, {"name": "format", "in": "path", "required": true, "schema": {"type": "string", "enum": ["pixa", "png"]}}],
-        "responses": {"200": {"description": "Updated peer info", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/DeviceInfo"}}}}, "404": {"description": "Peer not found", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}, "500": {"description": "Internal error", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}}
-      }
-    },
     "/peers/{publicKey}/config": {
       "get": {
         "operationId": "getPeerConfig",
