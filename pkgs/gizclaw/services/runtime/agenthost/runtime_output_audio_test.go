@@ -231,6 +231,90 @@ func TestMixerOutputPublishesEOSAfterTrackDrain(t *testing.T) {
 	}
 }
 
+func TestMixerOutputConsumesInterruptWhilePreviousTrackDrains(t *testing.T) {
+	creator := newRecordingAudioTrackCreator()
+	output := &notifyingSliceStream{sliceStream: sliceStream{chunks: []*genx.MessageChunk{
+		pcmOutputChunk("answer", "audio/pcm", []byte{1, 0}, true, ""),
+		pcmOutputChunk("answer", "audio/pcm", nil, true, "interrupted"),
+	}, doneErr: genx.ErrDone}, secondRead: make(chan struct{})}
+	done := make(chan error, 1)
+	go func() {
+		done <- (MixerOutput{Tracks: creator, WaitForAudioDrain: true}).ConsumeAgentOutput(t.Context(), output)
+	}()
+	select {
+	case <-output.secondRead:
+	case <-time.After(time.Second):
+		t.Fatal("consumer stopped reading while the previous track drained")
+	}
+	buffer := make([]byte, creator.mixer.Output().BytesInDuration(20*time.Millisecond))
+	_, _ = creator.mixer.Read(buffer)
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("ConsumeAgentOutput() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("ConsumeAgentOutput() did not finish after interruption")
+	}
+}
+
+type notifyingSliceStream struct {
+	sliceStream
+	reads      int
+	secondRead chan struct{}
+}
+
+func (s *notifyingSliceStream) Next() (*genx.MessageChunk, error) {
+	s.reads++
+	if s.reads == 2 {
+		close(s.secondRead)
+	}
+	return s.sliceStream.Next()
+}
+
+func TestAudioOutputTracksErrorEOSAbandonsPartialOgg(t *testing.T) {
+	creator := newRecordingAudioTrackCreator()
+	tracks := newAudioOutputTracks(creator)
+	if err := tracks.consume(pcmOutputChunk("answer", "audio/ogg", []byte("OggS"), false, "")); err != nil {
+		t.Fatalf("consume partial Ogg error = %v", err)
+	}
+	if err := tracks.consume(pcmOutputChunk("answer", "audio/ogg", nil, true, "interrupted")); err != nil {
+		t.Fatalf("consume interrupted EOS error = %v", err)
+	}
+}
+
+func TestOggOpusPCMDecoderAcceptsChainedStreams(t *testing.T) {
+	encoder, err := opus.NewEncoder(48000, 1, opus.ApplicationAudio)
+	if err != nil {
+		t.Fatalf("NewEncoder() error = %v", err)
+	}
+	defer encoder.Close()
+	packet, err := encoder.Encode(make([]int16, 960), 960)
+	if err != nil {
+		t.Fatalf("Encode() error = %v", err)
+	}
+	first, err := historyOggOpusAsset([][]byte{packet})
+	if err != nil {
+		t.Fatalf("historyOggOpusAsset(first) error = %v", err)
+	}
+	second, err := historyOggOpusAsset([][]byte{packet})
+	if err != nil {
+		t.Fatalf("historyOggOpusAsset(second) error = %v", err)
+	}
+	decoder, err := newAudioPCMDecoder("audio/ogg")
+	if err != nil {
+		t.Fatalf("newAudioPCMDecoder() error = %v", err)
+	}
+	defer decoder.Close()
+	chunks, err := decoder.Decode(append(first, second...))
+	if err != nil {
+		t.Fatalf("Decode(chained Ogg) error = %v", err)
+	}
+	if len(chunks) != 2 {
+		t.Fatalf("Decode(chained Ogg) chunks = %d, want 2", len(chunks))
+	}
+}
+
 func pcmOutputChunk(streamID, mimeType string, data []byte, eos bool, errorText string) *genx.MessageChunk {
 	return &genx.MessageChunk{
 		Part: &genx.Blob{MIMEType: mimeType, Data: data},

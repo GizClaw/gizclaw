@@ -24,6 +24,18 @@ func (o MixerOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream)
 		return fmt.Errorf("agenthost: output stream is required")
 	}
 	tracks := newAudioOutputTracks(o.Tracks)
+	var pendingObserve []*genx.MessageChunk
+	observe := func(chunks []*genx.MessageChunk) error {
+		if o.Observe == nil {
+			return nil
+		}
+		for _, chunk := range chunks {
+			if err := o.Observe(chunk); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	defer func() {
 		if retErr != nil {
 			retErr = errors.Join(retErr, tracks.closeWithError(retErr))
@@ -38,6 +50,14 @@ func (o MixerOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream)
 		chunk, err := output.Next()
 		if err != nil {
 			if IsStreamDone(err) {
+				if o.WaitForAudioDrain {
+					if err := tracks.waitPending(ctx); err != nil {
+						return err
+					}
+				}
+				if err := observe(pendingObserve); err != nil {
+					return err
+				}
 				return nil
 			}
 			return err
@@ -48,13 +68,16 @@ func (o MixerOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream)
 		if err := tracks.consume(chunk); err != nil {
 			return err
 		}
-		if o.WaitForAudioDrain {
-			if err := tracks.waitPending(ctx); err != nil {
-				return err
+		if o.WaitForAudioDrain && (len(pendingObserve) > 0 || !tracks.pendingDrained()) {
+			pendingObserve = append(pendingObserve, chunk)
+			if tracks.pendingDrained() {
+				if err := observe(pendingObserve); err != nil {
+					return err
+				}
+				pendingObserve = nil
 			}
-		}
-		if o.Observe != nil {
-			if err := o.Observe(chunk); err != nil {
+		} else {
+			if err := observe([]*genx.MessageChunk{chunk}); err != nil {
 				return err
 			}
 		}

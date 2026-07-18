@@ -1067,6 +1067,41 @@ func TestHistoryAgentPlayInterruptsCurrentAgentOutput(t *testing.T) {
 	}
 }
 
+func TestHistoryReplayDiscardKeepsOtherRouteOnSameStream(t *testing.T) {
+	output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
+	stream := output.Stream()
+	assistantRoute := historyForwardRoute{role: genx.RoleModel, name: "assistant", streamID: "shared", label: "assistant"}
+	historyOutput := &historyOutput{
+		output: output,
+		activeForward: map[historyForwardChunkKey]historyForwardRoute{
+			{historyForwardRouteKey: assistantRoute.key(), mimeType: "audio/opus"}: assistantRoute,
+		},
+	}
+	if err := output.Add(
+		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "shared", Label: "assistant"}},
+		&genx.MessageChunk{Role: genx.RoleUser, Name: "user", Part: genx.Text("keep"), Ctrl: &genx.StreamCtrl{StreamID: "shared", Label: "transcript"}},
+	); err != nil {
+		t.Fatalf("Add() error = %v", err)
+	}
+	if err := historyOutput.startReplay("replay", genx.RoleModel, "assistant", "assistant", nil); err != nil {
+		t.Fatalf("startReplay() error = %v", err)
+	}
+	kept, err := stream.Next()
+	if err != nil {
+		t.Fatalf("Next() error = %v", err)
+	}
+	if text, ok := kept.Part.(genx.Text); !ok || string(text) != "keep" {
+		t.Fatalf("kept chunk = %#v, want user transcript", kept)
+	}
+	interrupted, err := stream.Next()
+	if err != nil {
+		t.Fatalf("Next(interrupted) error = %v", err)
+	}
+	if interrupted.Ctrl == nil || interrupted.Ctrl.Label != "assistant" || interrupted.Ctrl.Error != historyReplayInterrupted {
+		t.Fatalf("interrupted chunk = %#v", interrupted)
+	}
+}
+
 func TestHistoryOutputTracksForwardMIMEsIndependently(t *testing.T) {
 	output := &historyOutput{}
 	text := &genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: genx.Text("live"), Ctrl: &genx.StreamCtrl{StreamID: "live", Label: "assistant"}}

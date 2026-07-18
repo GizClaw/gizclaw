@@ -26,9 +26,14 @@ type audioOutputKey struct {
 }
 
 type audioOutputTracks struct {
-	creator     AudioTrackCreator
-	channels    map[audioOutputKey]*audioOutputChannel
-	pendingDone []<-chan struct{}
+	creator  AudioTrackCreator
+	channels map[audioOutputKey]*audioOutputChannel
+	pending  []audioOutputPending
+}
+
+type audioOutputPending struct {
+	key  audioOutputKey
+	ctrl *pcm.TrackCtrl
 }
 
 type audioOutputChannel struct {
@@ -44,6 +49,10 @@ type audioPCMDecoder interface {
 
 type audioPCMFinalizer interface {
 	Finalize() ([]pcm.Chunk, error)
+}
+
+type audioPCMAborter interface {
+	Abort() error
 }
 
 func newAudioOutputTracks(creator AudioTrackCreator) *audioOutputTracks {
@@ -143,12 +152,22 @@ func (o *audioOutputTracks) closeRoute(streamID, errorText string) error {
 			errs = errors.Join(errs, o.closeChannel(key, errorText))
 		}
 	}
+	if errorText != "" {
+		errs = errors.Join(errs, o.closePending(func(key audioOutputKey) bool {
+			return key.streamID == streamID
+		}, errorText))
+	}
 	return errs
 }
 
 func (o *audioOutputTracks) closeChannel(key audioOutputKey, errorText string) error {
 	channel := o.channels[key]
 	if channel == nil {
+		if errorText != "" {
+			return o.closePending(func(pendingKey audioOutputKey) bool {
+				return pendingKey == key
+			}, errorText)
+		}
 		return nil
 	}
 	delete(o.channels, key)
@@ -167,13 +186,20 @@ func (o *audioOutputTracks) closeChannel(key audioOutputKey, errorText string) e
 			}
 		}
 	}
-	decoderErr := channel.decoder.Close()
+	var decoderErr error
+	if errorText != "" {
+		decoderErr = abortAudioPCMDecoder(channel.decoder)
+	} else {
+		decoderErr = channel.decoder.Close()
+	}
 	if decoderErr != nil {
 		decoderErr = fmt.Errorf("agenthost: close audio decoder stream_id=%q mime=%q: %w", key.streamID, key.mimeType, decoderErr)
 	}
 	if errorText != "" {
 		closeErr := fmt.Errorf("agenthost: audio stream_id=%q mime=%q: %s", key.streamID, key.mimeType, errorText)
-		return errors.Join(decoderErr, channel.ctrl.CloseWithError(closeErr))
+		return errors.Join(decoderErr, channel.ctrl.CloseWithError(closeErr), o.closePending(func(pendingKey audioOutputKey) bool {
+			return pendingKey == key
+		}, errorText))
 	}
 	if decoderErr != nil {
 		return errors.Join(decoderErr, channel.ctrl.CloseWithError(decoderErr))
@@ -181,16 +207,51 @@ func (o *audioOutputTracks) closeChannel(key audioOutputKey, errorText string) e
 	if err := channel.ctrl.CloseWrite(); err != nil {
 		return err
 	}
-	o.pendingDone = append(o.pendingDone, channel.ctrl.Done())
+	o.pending = append(o.pending, audioOutputPending{key: key, ctrl: channel.ctrl})
 	return nil
 }
 
-func (o *audioOutputTracks) waitPending(ctx context.Context) error {
-	for len(o.pendingDone) > 0 {
-		done := o.pendingDone[0]
-		o.pendingDone = o.pendingDone[1:]
+func abortAudioPCMDecoder(decoder audioPCMDecoder) error {
+	if aborter, ok := decoder.(audioPCMAborter); ok {
+		return aborter.Abort()
+	}
+	return decoder.Close()
+}
+
+func (o *audioOutputTracks) closePending(match func(audioOutputKey) bool, errorText string) error {
+	var errs error
+	kept := o.pending[:0]
+	for _, pending := range o.pending {
+		if !match(pending.key) {
+			kept = append(kept, pending)
+			continue
+		}
+		closeErr := fmt.Errorf("agenthost: audio stream_id=%q mime=%q: %s", pending.key.streamID, pending.key.mimeType, errorText)
+		errs = errors.Join(errs, pending.ctrl.CloseWithError(closeErr))
+		kept = append(kept, pending)
+	}
+	o.pending = kept
+	return errs
+}
+
+func (o *audioOutputTracks) pendingDrained() bool {
+	for _, pending := range o.pending {
 		select {
-		case <-done:
+		case <-pending.ctrl.Done():
+		default:
+			return false
+		}
+	}
+	o.pending = o.pending[:0]
+	return true
+}
+
+func (o *audioOutputTracks) waitPending(ctx context.Context) error {
+	for len(o.pending) > 0 {
+		pending := o.pending[0]
+		o.pending = o.pending[1:]
+		select {
+		case <-pending.ctrl.Done():
 		case <-ctx.Done():
 			return ctx.Err()
 		}
@@ -213,8 +274,12 @@ func (o *audioOutputTracks) closeWithError(err error) error {
 	var errs error
 	for key, channel := range o.channels {
 		delete(o.channels, key)
-		errs = errors.Join(errs, channel.decoder.Close(), channel.ctrl.CloseWithError(err))
+		errs = errors.Join(errs, abortAudioPCMDecoder(channel.decoder), channel.ctrl.CloseWithError(err))
 	}
+	for _, pending := range o.pending {
+		errs = errors.Join(errs, pending.ctrl.CloseWithError(err))
+	}
+	o.pending = o.pending[:0]
 	return errs
 }
 
@@ -394,9 +459,13 @@ func (d *oggOpusPCMDecoder) Decode(data []byte) ([]pcm.Chunk, error) {
 	for _, packet := range packets {
 		switch {
 		case codecconv.IsOpusHeadPacket(packet.Data):
-			if d.started || d.opus != nil {
-				return nil, fmt.Errorf("unexpected OpusHead after audio started")
+			if d.opus != nil {
+				if err := d.opus.Close(); err != nil {
+					return nil, err
+				}
+				d.opus = nil
 			}
+			d.started = false
 			_, channels, err := codecconv.ParseOpusHeadPacket(packet.Data)
 			if err != nil {
 				return nil, err
@@ -439,4 +508,18 @@ func (d *oggOpusPCMDecoder) Close() error {
 		d.opus = nil
 	}
 	return errors.Join(d.packets.Close(), opusErr)
+}
+
+func (d *oggOpusPCMDecoder) Abort() error {
+	if d == nil {
+		return nil
+	}
+	d.packets = ogg.PacketDecoder{}
+	d.started = false
+	if d.opus == nil {
+		return nil
+	}
+	err := d.opus.Close()
+	d.opus = nil
+	return err
 }

@@ -516,18 +516,22 @@ func (o *historyOutput) startReplay(streamID string, role genx.Role, name string
 	o.replayLabel = label
 	o.replayMu.Unlock()
 	if len(interrupt) > 0 {
-		interruptedStreams := make(map[string]struct{}, len(interrupt))
+		interruptedRoutes := make(map[historyForwardChunkKey]historyForwardRoute, len(interrupt))
 		for _, chunk := range interrupt {
-			if chunk != nil && chunk.Ctrl != nil {
-				interruptedStreams[chunk.Ctrl.StreamID] = struct{}{}
+			route, routeOK := historyForwardChunkRoute(chunk)
+			mimeType, mimeOK := historyForwardChunkMIME(chunk)
+			if routeOK && mimeOK {
+				interruptedRoutes[historyForwardChunkKey{historyForwardRouteKey: route.key(), mimeType: mimeType}] = route
 			}
 		}
 		o.output.Discard(func(chunk *genx.MessageChunk) bool {
-			if chunk == nil || chunk.Ctrl == nil {
+			route, routeOK := historyForwardChunkRoute(chunk)
+			mimeType, mimeOK := historyForwardChunkMIME(chunk)
+			if !routeOK || !mimeOK {
 				return false
 			}
-			_, interrupted := interruptedStreams[chunk.Ctrl.StreamID]
-			return interrupted
+			interruptedRoute, interrupted := interruptedRoutes[historyForwardChunkKey{historyForwardRouteKey: route.key(), mimeType: mimeType}]
+			return interrupted && interruptedRoute == route
 		})
 		if err := o.output.Add(interrupt...); err != nil {
 			cancel()
