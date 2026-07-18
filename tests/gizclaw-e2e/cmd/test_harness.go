@@ -499,6 +499,33 @@ func (h *Harness) RegisterContext(name string, extraArgs ...string) Result {
 	if err != nil {
 		return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
 	}
+	if info.Hardware != nil || info.Identifiers != nil {
+		const refreshAdminContext = "__register-admin"
+		if result := h.InstallFixedAdminContext(refreshAdminContext); result.Err != nil {
+			return Result{Args: []string{"register-context", name}, Err: result.Err, Stderr: result.Stderr}
+		}
+		admin, adminCloseWait, err := h.connectClientFromContextWithCloseWait(refreshAdminContext)
+		if err != nil {
+			return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
+		}
+		defer adminCloseWait()
+		adminAPI, err := admin.ServerAdminClient()
+		if err != nil {
+			return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
+		}
+		refresh, err := adminAPI.RefreshPeerWithResponse(ctx, h.ContextPublicKey(name))
+		if err != nil {
+			return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
+		}
+		if refresh.JSON200 == nil {
+			err := fmt.Errorf("refresh peer status %d: %s", refresh.StatusCode(), refresh.Body)
+			return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
+		}
+		resp, err = c.GetServerInfo(ctx, "server.info.get")
+		if err != nil {
+			return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
+		}
+	}
 	data, err := json.Marshal(resp)
 	if err != nil {
 		return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
