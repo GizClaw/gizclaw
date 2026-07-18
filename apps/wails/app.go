@@ -60,7 +60,7 @@ func NewAppWithPathsAndAssets(paths appconfig.Paths, assets fs.FS) (*App, error)
 	local := localserver.New()
 	health := endpointhealth.New()
 	recovery := &bridge.PodBridge{Paths: paths, Store: store, Health: health, Local: local}
-	if err := stopInterruptedLocalServers(store, recovery); err != nil {
+	if err := stopInterruptedLocalServers(context.Background(), store, recovery); err != nil {
 		return nil, err
 	}
 	if err := store.CleanupIncomplete(); err != nil {
@@ -95,7 +95,7 @@ func NewAppWithPathsAndAssets(paths appconfig.Paths, assets fs.FS) (*App, error)
 	return app, nil
 }
 
-func stopInterruptedLocalServers(store appconfig.Store, recovery *bridge.PodBridge) error {
+func stopInterruptedLocalServers(ctx context.Context, store appconfig.Store, recovery *bridge.PodBridge) error {
 	entries, err := store.Entries()
 	if err != nil {
 		return fmt.Errorf("desktop app: inspect interrupted local servers: %w", err)
@@ -111,9 +111,9 @@ func stopInterruptedLocalServers(store appconfig.Store, recovery *bridge.PodBrid
 		if initialization == nil || initialization.State != "initializing" {
 			continue
 		}
-		status, err := recovery.RecoverLocalServer(context.Background(), entry.Pod.ID)
+		status, err := recovery.RecoverLocalServer(ctx, entry.Pod.ID)
 		if err != nil {
-			continue
+			return fmt.Errorf("desktop app: verify interrupted local server %q before cleanup: %w", entry.Pod.ID, err)
 		}
 		if status.State != "running" {
 			continue

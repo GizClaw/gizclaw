@@ -188,6 +188,11 @@ func (b *PodBridge) RecoverLocalServer(ctx context.Context, id string) (localser
 }
 
 func (b *PodBridge) recoverLocalServer(ctx context.Context, pod appconfig.Pod) (localserver.Status, error) {
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+	}
 	workspace := filepath.Join(b.Paths.PodsDir, pod.ID, "workspace")
 	return b.Local.Recover(pod.ID, workspace, func(pid int) error {
 		expectedPublicKey, err := b.Store.LocalServerPublicKey(pod.ID)
@@ -195,14 +200,20 @@ func (b *PodBridge) recoverLocalServer(ctx context.Context, pod appconfig.Pod) (
 			return err
 		}
 		endpoint := fmt.Sprintf("127.0.0.1:%d", pod.LocalServer.Port)
-		result := b.Health.Probe(ctx, endpoint)
-		if result.State != endpointhealth.Reachable {
-			return fmt.Errorf("PID %d server-info is not reachable: %s", pid, result.Message)
+		for {
+			result := b.Health.Probe(ctx, endpoint)
+			if result.State == endpointhealth.Reachable {
+				if result.PublicKey != expectedPublicKey {
+					return fmt.Errorf("PID %d server identity does not match Pod %q: %w", pid, pod.ID, localserver.ErrProcessIdentityMismatch)
+				}
+				return nil
+			}
+			select {
+			case <-ctx.Done():
+				return fmt.Errorf("PID %d server-info verification timed out (%s): %w", pid, result.Message, ctx.Err())
+			case <-time.After(100 * time.Millisecond):
+			}
 		}
-		if result.PublicKey != expectedPublicKey {
-			return fmt.Errorf("PID %d server identity does not match Pod %q", pid, pod.ID)
-		}
-		return nil
 	})
 }
 

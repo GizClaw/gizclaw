@@ -181,7 +181,7 @@ func TestManagerRemovesStaleWorkspacePID(t *testing.T) {
 	}
 }
 
-func TestManagerRejectsUnverifiedLivePID(t *testing.T) {
+func TestManagerPreservesLivePIDAfterTransientVerificationFailure(t *testing.T) {
 	workspace := t.TempDir()
 	pidPath := filepath.Join(workspace, PIDFile)
 	if err := os.WriteFile(pidPath, fmt.Appendf(nil, "%d\n", os.Getpid()), 0o600); err != nil {
@@ -189,15 +189,35 @@ func TestManagerRejectsUnverifiedLivePID(t *testing.T) {
 	}
 	manager := New()
 	if _, err := manager.Recover("local-lab", workspace, func(int) error {
-		return errors.New("server identity mismatch")
-	}); err == nil || !strings.Contains(err.Error(), "identity mismatch") {
+		return errors.New("server-info unavailable")
+	}); err == nil || !strings.Contains(err.Error(), "server-info unavailable") {
+		t.Fatalf("Recover() error = %v", err)
+	}
+	if status := manager.Status("local-lab"); status.State != "failed" || status.PID != 0 {
+		t.Fatalf("Status() = %+v", status)
+	}
+	if _, err := os.Stat(pidPath); err != nil {
+		t.Fatalf("preserved PID file error = %v", err)
+	}
+}
+
+func TestManagerRemovesDefinitivelyMismatchedLivePID(t *testing.T) {
+	workspace := t.TempDir()
+	pidPath := filepath.Join(workspace, PIDFile)
+	if err := os.WriteFile(pidPath, fmt.Appendf(nil, "%d\n", os.Getpid()), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	manager := New()
+	if _, err := manager.Recover("local-lab", workspace, func(int) error {
+		return fmt.Errorf("wrong public key: %w", ErrProcessIdentityMismatch)
+	}); err == nil || !errors.Is(err, ErrProcessIdentityMismatch) {
 		t.Fatalf("Recover() error = %v", err)
 	}
 	if status := manager.Status("local-lab"); status.State != "failed" || status.PID != 0 {
 		t.Fatalf("Status() = %+v", status)
 	}
 	if _, err := os.Stat(pidPath); !os.IsNotExist(err) {
-		t.Fatalf("rejected PID file error = %v", err)
+		t.Fatalf("mismatched PID file error = %v", err)
 	}
 }
 

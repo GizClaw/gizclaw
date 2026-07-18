@@ -10,11 +10,13 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/appconfig"
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/bridge"
+	"github.com/GizClaw/gizclaw-go/apps/wails/internal/endpointhealth"
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/localserver"
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/webui"
 )
@@ -56,7 +58,7 @@ func TestNewAppRecoversLocalServerFromWorkspacePID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	startLocalServerInfo(t, seed.bridge.Store, created.ID, created.Local.Port)
+	attempts := startWarmingLocalServerInfo(t, seed.bridge.Store, created.ID, created.Local.Port, 2)
 
 	restarted, err := NewAppWithPaths(paths)
 	if err != nil {
@@ -70,6 +72,9 @@ func TestNewAppRecoversLocalServerFromWorkspacePID(t *testing.T) {
 	recovered := restarted.bridge.Local.Status(created.ID)
 	if recovered.State != "running" || recovered.PID != started.PID {
 		t.Fatalf("recovered process = %+v, want PID %d", recovered, started.PID)
+	}
+	if attempts.Load() < 3 {
+		t.Fatalf("server-info attempts = %d, want at least 3", attempts.Load())
 	}
 }
 
@@ -116,7 +121,67 @@ func TestNewAppStopsServerBeforeCleaningInterruptedPod(t *testing.T) {
 	}
 }
 
+func TestInterruptedCleanupPreservesLiveServerUntilIdentityIsVerified(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the test helper is a POSIX shell script")
+	}
+	paths := appconfig.NewPaths(t.TempDir())
+	seed, err := NewAppWithPaths(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed.bridge.Bootstrapper = nil
+	created, err := seed.CreatePod(bridge.PodInput{Version: 1, Name: "Warming Up", LocalServer: &bridge.LocalServerInput{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := seed.bridge.Store.MarkInitializing(created.ID); err != nil {
+		t.Fatal(err)
+	}
+	executable := filepath.Join(t.TempDir(), "gizclaw")
+	script := "#!/bin/sh\ntrap 'exit 0' INT TERM\nwhile :; do sleep 1; done\n"
+	if err := os.WriteFile(executable, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	seed.bridge.Local.Executable = executable
+	started, err := seed.bridge.Local.Start(created.ID, filepath.Join(paths.PodsDir, created.ID, "workspace"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		seed.bridge.Local.Shutdown(ctx)
+	})
+
+	recovery := &bridge.PodBridge{
+		Paths:  paths,
+		Store:  seed.bridge.Store,
+		Health: endpointhealth.New(),
+		Local:  localserver.New(),
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	if err := stopInterruptedLocalServers(ctx, seed.bridge.Store, recovery); err == nil || !strings.Contains(err.Error(), "before cleanup") {
+		t.Fatalf("stopInterruptedLocalServers() error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(paths.PodsDir, created.ID)); err != nil {
+		t.Fatalf("interrupted Pod directory was not preserved: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(paths.PodsDir, created.ID, "workspace", localserver.PIDFile)); err != nil {
+		t.Fatalf("interrupted PID file was not preserved: %v", err)
+	}
+	if status := seed.bridge.Local.Status(created.ID); status.State != "running" || status.PID != started.PID {
+		t.Fatalf("interrupted local server = %+v, want running PID %d", status, started.PID)
+	}
+}
+
 func startLocalServerInfo(t *testing.T, store appconfig.Store, id string, port int) {
+	t.Helper()
+	startWarmingLocalServerInfo(t, store, id, port, 0)
+}
+
+func startWarmingLocalServerInfo(t *testing.T, store appconfig.Store, id string, port, failedAttempts int) *atomic.Int32 {
 	t.Helper()
 	publicKey, err := store.LocalServerPublicKey(id)
 	if err != nil {
@@ -126,7 +191,12 @@ func startLocalServerInfo(t *testing.T, store appconfig.Store, id string, port i
 	if err != nil {
 		t.Fatal(err)
 	}
+	var attempts atomic.Int32
 	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if attempts.Add(1) <= int32(failedAttempts) {
+			http.Error(w, "server is warming up", http.StatusServiceUnavailable)
+			return
+		}
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"endpoint":       fmt.Sprintf("127.0.0.1:%d", port),
 			"protocol":       "gizclaw-webrtc",
@@ -137,6 +207,7 @@ func startLocalServerInfo(t *testing.T, store appconfig.Store, id string, port i
 	})}
 	go func() { _ = server.Serve(listener) }()
 	t.Cleanup(func() { _ = server.Close() })
+	return &attempts
 }
 
 func TestBootstrapKeepsMalformedPodVisible(t *testing.T) {

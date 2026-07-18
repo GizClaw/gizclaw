@@ -23,6 +23,15 @@ Desktop App does not copy the server-side business of `pkgs/gizclaw`. `api/http/
 Schema source of desktop bridge DTO; generated through `gen:sdk` of `sdk/js` after update
 `frontend/src/generated/desktopservice`.
 
+## Local Server recovery
+
+Each running local Server stores `workspace/server.pid`. After an abnormal Desktop exit, recovery
+first confirms that the PID is alive and retries the Pod's loopback `/server-info` identity check for
+up to five seconds. Transient verification failures preserve the PID; a definitive public-key
+mismatch removes it. Desktop never signals an unverified PID. For an interrupted bootstrap, cleanup
+only removes the workspace after the recovered Server has been stopped; otherwise the PID and
+workspace are preserved and cleanup aborts.
+
 ## Pod projection
 
 `pod.json` is the only editable configuration source. After each save, `appconfig.Store` is updated atomically:

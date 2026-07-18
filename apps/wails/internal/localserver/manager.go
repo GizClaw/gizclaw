@@ -20,6 +20,10 @@ const (
 	PIDFile       = "server.pid"
 )
 
+// ErrProcessIdentityMismatch marks a definitive verifier result proving that
+// a persisted PID does not belong to the expected local Server.
+var ErrProcessIdentityMismatch = errors.New("local server: process identity mismatch")
+
 type Status struct {
 	State string   `json:"state"`
 	PID   int      `json:"pid,omitempty"`
@@ -258,8 +262,10 @@ func (m *Manager) recoverLocked(podID, workspace string, verify ProcessVerifier)
 	}
 	if err := verify(pid); err != nil {
 		_ = osProcess.Release()
-		if removeErr := removePIDIfMatches(pidPath, pid); removeErr != nil {
-			return nil, removeErr
+		if errors.Is(err, ErrProcessIdentityMismatch) {
+			if removeErr := removePIDIfMatches(pidPath, pid); removeErr != nil {
+				return nil, removeErr
+			}
 		}
 		return nil, fmt.Errorf("local server: verify persisted PID %d: %w", pid, err)
 	}

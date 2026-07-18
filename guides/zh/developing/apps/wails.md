@@ -62,11 +62,12 @@ restart、Admin 和 Play 操作；delete 会先取消并等待后台任务。
 原子写入。正常停止、退出或 Desktop 的 Quit 会清除该文件；Desktop 异常退出时
 Server 与 PID 文件都保留。下次启动会扫描有效的本地 Pod，验证 PID 文件为普通文件
 且进程仍存活，并要求该 Pod 的 loopback `/server-info` 公钥与 workspace identity 一致，
-然后才恢复进程管理。验证失败的 PID 不会被 signal，从而避免 PID 被系统复用后误杀
-其他进程；验证通过的 Server 不会因为占用既有端口而被重新启动或终止。
+然后才恢复进程管理。`/server-info` 会在 5 秒内有界重试；超时等瞬时验证失败会保留
+PID，明确的 identity mismatch 才会清除 PID。未验证的 PID 不会被 signal，从而避免
+PID 被系统复用后误杀其他进程；验证通过的 Server 不会因为占用既有端口而被重新启动或终止。
 失效 PID 会在恢复时清除，恢复的非子进程通过存活探测更新生命周期状态。若崩溃发生
 在 bootstrap 尚未完成时，Desktop 会先接管并停止该 Server，再按现有约定清理不完整
-Pod，避免删除 PID 文件后留下无法管理的进程。
+Pod；若身份验证仍未完成，则保留 PID 与 workspace 并中止清理，避免留下无法管理的进程。
 
 ## Pod 投影
 
