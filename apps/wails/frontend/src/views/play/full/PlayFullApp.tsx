@@ -133,7 +133,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/components/ui/utils";
 import { DashboardEmptyState, DashboardPager, DashboardShell, DashboardTable, DashboardTableCard, type DashboardNavItem } from "@/dashboard";
-import { getPlayOpenAIClient } from "../../../lib/gizclaw/openai";
+import { getPlayOpenAIClient, readPlaySpeechAudioBlob } from "../../../lib/gizclaw/openai";
 
 type Section = "overview" | "contacts" | "friends" | "friendGroups" | "gameplay" | "workspaces" | "workflows" | "models" | "credentials" | "firmwares" | "voices";
 type TopDrawer = "workspace" | "social-chat" | "test-chat" | null;
@@ -3742,7 +3742,7 @@ async function fetchSpeechAudioBlob({ input, signal, voice }: { input: string; s
         {
           input,
           model: "tts",
-          response_format: "mp3",
+          response_format: "opus",
           stream_format: "sse",
           voice,
         },
@@ -3752,7 +3752,7 @@ async function fetchSpeechAudioBlob({ input, signal, voice }: { input: string; s
       );
       if (response.ok) {
         toast.info("Speech stream response received");
-        return readSpeechStreamAudioBlob(response);
+        return readPlaySpeechAudioBlob(response, "audio/ogg");
       }
       const message = await responseErrorMessage(response);
       if (attempt === 0 && isTransientSpeechProxyError(message)) {
@@ -3789,80 +3789,6 @@ async function responseErrorMessage(response: Response): Promise<string> {
   }
   const body = (await response.text().catch(() => "")).trim();
   return body === "" ? status : `${status}\n${body}`;
-}
-
-async function readSpeechStreamAudioBlob(response: Response): Promise<Blob> {
-  const contentType = response.headers.get("content-type") ?? "";
-  if (!contentType.startsWith("text/event-stream")) {
-    return response.blob();
-  }
-  if (response.body == null) {
-    throw new Error("Speech stream response has no body");
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  const chunks: BlobPart[] = [];
-  let pending = "";
-  let doneEvent = false;
-
-  const processLine = (line: string) => {
-    const trimmed = line.trim();
-    if (trimmed === "" || !trimmed.startsWith("data:")) {
-      return;
-    }
-    const data = trimmed.slice("data:".length).trim();
-    const event = JSON.parse(data) as { audio?: string; done?: boolean; type?: string };
-    switch (event.type) {
-      case "speech.audio.delta":
-        if (event.audio == null || event.audio === "") {
-          throw new Error("Speech stream audio delta is empty");
-        }
-        chunks.push(base64ToArrayBuffer(event.audio));
-        return;
-      case "speech.audio.done":
-        doneEvent = true;
-        return;
-      default:
-        throw new Error(`Unexpected speech stream event: ${event.type ?? "unknown"}`);
-    }
-  };
-
-  for (;;) {
-    const { done, value } = await reader.read();
-    pending += decoder.decode(value ?? new Uint8Array(), { stream: !done });
-    for (;;) {
-      const newline = pending.indexOf("\n");
-      if (newline < 0) {
-        break;
-      }
-      const line = pending.slice(0, newline);
-      pending = pending.slice(newline + 1);
-      processLine(line);
-    }
-    if (done) {
-      break;
-    }
-  }
-  if (pending.trim() !== "") {
-    processLine(pending);
-  }
-  if (chunks.length === 0) {
-    throw new Error("Speech stream returned no audio chunks");
-  }
-  if (!doneEvent) {
-    throw new Error("Speech stream ended without done event");
-  }
-  return new Blob(chunks, { type: "audio/mpeg" });
-}
-
-function base64ToArrayBuffer(value: string): ArrayBuffer {
-  const binary = atob(value);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
 function BranchPicker(): JSX.Element {
