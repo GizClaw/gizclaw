@@ -15,13 +15,12 @@ func TestServerInfoRPC(t *testing.T) {
 	if err != nil {
 		t.Fatalf("server.info.get initial: %v", err)
 	}
-	if info.Sn == nil || *info.Sn != "peer-a-sn" {
+	if info.Identifiers == nil || info.Identifiers.Sn == nil || *info.Identifiers.Sn != "peer-a-sn" {
 		t.Fatalf("server.info.get initial = %#v, want peer-a sn", info)
 	}
 
 	name := "RPC Peer A"
 	put, err := env.peer.PutServerInfo(env.ctx, "server.info.put", rpcapi.ServerPutInfoRequest{
-		Sn:   testStringPtr("peer-a-sn-updated"),
 		Name: &name,
 	})
 	if err != nil {
@@ -34,7 +33,7 @@ func TestServerInfoRPC(t *testing.T) {
 	if err != nil {
 		t.Fatalf("server.info.get updated: %v", err)
 	}
-	if got.Sn == nil || *got.Sn != "peer-a-sn-updated" || got.Name == nil || *got.Name != name {
+	if got.Identifiers == nil || got.Identifiers.Sn == nil || *got.Identifiers.Sn != "peer-a-sn" || got.Name == nil || *got.Name != name {
 		t.Fatalf("server.info.get updated = %#v", got)
 	}
 }

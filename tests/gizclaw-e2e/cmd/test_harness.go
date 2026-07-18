@@ -507,7 +507,8 @@ func (h *Harness) RegisterContext(name string, extraArgs ...string) Result {
 
 func (h *Harness) deviceInfoFromArgs(_ string, extraArgs ...string) (apitypes.DeviceInfo, error) {
 	device := apitypes.DeviceInfo{
-		Hardware: &apitypes.HardwareInfo{},
+		Hardware:    &apitypes.HardwareInfo{},
+		Identifiers: &apitypes.DeviceIdentifiers{},
 	}
 	for i := 0; i < len(extraArgs); i++ {
 		flag := extraArgs[i]
@@ -523,7 +524,7 @@ func (h *Harness) deviceInfoFromArgs(_ string, extraArgs ...string) (apitypes.De
 		case "--name":
 			device.Name = &value
 		case "--sn":
-			device.Sn = &value
+			device.Identifiers.Sn = &value
 		case "--manufacturer":
 			device.Hardware.Manufacturer = &value
 		case "--model":

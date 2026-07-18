@@ -189,8 +189,8 @@ export function PeerDetailPage(): JSX.Element {
         const trimmedName = deviceName.trim();
         const trimmedEmoji = deviceEmoji.trim();
         const nextInfo: DeviceInfo = {
-          name: trimmedName === "" ? undefined : trimmedName,
-          emoji: trimmedEmoji === "" ? undefined : trimmedEmoji,
+          name: trimmedName,
+          emoji: trimmedEmoji,
         };
         await expectData(
           putPeerInfo({

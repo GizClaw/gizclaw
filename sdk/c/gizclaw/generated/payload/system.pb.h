@@ -46,7 +46,7 @@ typedef struct _gizclaw_rpc_v1_DeviceInfo {
     gizclaw_rpc_v1_HardwareInfo hardware;
     pb_callback_t name;
     bool has_emoji;
-    char emoji[64];
+    char emoji[65];
     bool has_identifiers;
     gizclaw_rpc_v1_DeviceIdentifiers identifiers;
 } gizclaw_rpc_v1_DeviceInfo;

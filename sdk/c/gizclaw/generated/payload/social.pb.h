@@ -80,9 +80,9 @@ typedef struct _gizclaw_rpc_v1_FriendDeleteRequest {
 
 typedef struct _gizclaw_rpc_v1_FriendInfo {
     bool has_name;
-    char name[256];
+    char name[257];
     bool has_emoji;
-    char emoji[64];
+    char emoji[65];
 } gizclaw_rpc_v1_FriendInfo;
 
 typedef struct _gizclaw_rpc_v1_FriendInfoGetRequest {
@@ -1199,8 +1199,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_FriendObject_msg;
 #define GIZCLAW_RPC_V1_PAYLOAD_SOCIAL_PB_H_MAX_SIZE gizclaw_rpc_v1_FriendInfoGetResponse_size
 #define gizclaw_rpc_v1_FriendGroupInviteTokenClearResponse_size 0
 #define gizclaw_rpc_v1_FriendInfoGetRequest_size 258
-#define gizclaw_rpc_v1_FriendInfoGetResponse_size 584
-#define gizclaw_rpc_v1_FriendInfo_size           323
+#define gizclaw_rpc_v1_FriendInfoGetResponse_size 586
+#define gizclaw_rpc_v1_FriendInfo_size           325
 #define gizclaw_rpc_v1_FriendInviteTokenClearRequest_size 0
 #define gizclaw_rpc_v1_FriendInviteTokenClearResponse_size 0
 #define gizclaw_rpc_v1_FriendInviteTokenCreateRequest_size 0
