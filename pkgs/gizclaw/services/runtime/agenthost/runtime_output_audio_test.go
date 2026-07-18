@@ -339,8 +339,12 @@ func TestMixerOutputConsumesRouteInterruptWhilePreviousTrackDrains(t *testing.T)
 	interrupt := &genx.MessageChunk{
 		Ctrl: &genx.StreamCtrl{StreamID: "answer", EndOfStream: true, Error: "interrupted"},
 	}
+	routeEOS := &genx.MessageChunk{
+		Ctrl: &genx.StreamCtrl{StreamID: "answer", EndOfStream: true},
+	}
 	output := &notifyingSliceStream{sliceStream: sliceStream{chunks: []*genx.MessageChunk{
 		pcmOutputChunk("answer", "audio/pcm", []byte{1, 0}, true, ""),
+		routeEOS,
 		interrupt,
 	}, doneErr: genx.ErrDone}, secondRead: make(chan struct{})}
 	done := make(chan error, 1)

@@ -111,6 +111,34 @@ func TestDoubaoRealtimeDuplexAudioInputsArePerStream(t *testing.T) {
 	}
 }
 
+func TestDoubaoRealtimeDuplexInterruptDiscardMatchesOnlyAssistantRoute(t *testing.T) {
+	streamID := "turn"
+	transcript := &genx.MessageChunk{
+		Role: genx.RoleUser,
+		Part: genx.Text("hello"),
+		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeDuplexTranscriptLabel},
+	}
+	assistant := &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}},
+		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeDuplexAssistantLabel},
+	}
+	otherAssistant := &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{2}},
+		Ctrl: &genx.StreamCtrl{StreamID: "other", Label: doubaoRealtimeDuplexAssistantLabel},
+	}
+	if isDoubaoRealtimeDuplexAssistantChunk(transcript, streamID) {
+		t.Fatal("user transcript matched assistant discard")
+	}
+	if !isDoubaoRealtimeDuplexAssistantChunk(assistant, streamID) {
+		t.Fatal("assistant audio did not match assistant discard")
+	}
+	if isDoubaoRealtimeDuplexAssistantChunk(otherAssistant, streamID) {
+		t.Fatal("other assistant route matched assistant discard")
+	}
+}
+
 func TestChunkInputStreamIDUsesActiveStreamForDirectAudio(t *testing.T) {
 	chunk := &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "audio"}}
 	if got := doubaoRealtimeDuplexChunkInputStreamID(chunk, "turn-1"); got != "turn-1" {

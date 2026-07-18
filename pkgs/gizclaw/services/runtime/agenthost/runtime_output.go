@@ -162,9 +162,13 @@ func removeSupersededAudioEOS(pending []*genx.MessageChunk, interrupt *genx.Mess
 		}
 		queuedMIME, queuedMIMEOK := chunk.MIMEType()
 		if chunk.Ctrl != nil && chunk.IsEndOfStream() && chunk.Ctrl.Error == "" &&
-			chunk.Ctrl.StreamID == interrupt.Ctrl.StreamID && queuedMIMEOK && isMixerAudioMIME(queuedMIME) &&
-			(routeInterrupt || queuedMIME == interruptMIME) {
-			continue
+			chunk.Ctrl.StreamID == interrupt.Ctrl.StreamID {
+			if routeInterrupt && chunk.Part == nil {
+				continue
+			}
+			if queuedMIMEOK && isMixerAudioMIME(queuedMIME) && (routeInterrupt || queuedMIME == interruptMIME) {
+				continue
+			}
 		}
 		kept = append(kept, chunk)
 	}

@@ -1585,6 +1585,64 @@ func TestInterruptQueuedOutputSignalsConsumedAssistant(t *testing.T) {
 	}
 }
 
+func TestFinishCompletedOutputDoesNotInterruptEmptyTurn(t *testing.T) {
+	a := &agent{}
+	output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 2)
+	observations := newFlowcraftOutputObservations()
+	epoch := a.setActiveOutput(output, "audio", observations)
+	observations.begin("audio")
+	if err := a.addOutput(output, epoch,
+		textChunk(genx.RoleModel, assistantLabel, "audio", assistantLabel, "", true),
+		audioChunk(assistantLabel, "audio", nil, true),
+	); err != nil {
+		t.Fatalf("queue empty completion: %v", err)
+	}
+
+	a.finishCompletedOutput(output, &flowcraftActiveTurn{streamID: "audio", epoch: epoch}, observations)
+
+	if got := a.currentOutputEpoch(); got != epoch {
+		t.Fatalf("output epoch = %d, want unchanged %d", got, epoch)
+	}
+	if err := output.Done(genx.Usage{}); err != nil {
+		t.Fatalf("Done() error = %v", err)
+	}
+	chunks := drainChunks(t, output.Stream())
+	if len(chunks) != 2 {
+		t.Fatalf("chunks = %#v, want two successful EOS chunks", chunks)
+	}
+	for _, chunk := range chunks {
+		if chunk.Ctrl == nil || !chunk.Ctrl.EndOfStream || chunk.Ctrl.Error != "" {
+			t.Fatalf("completion chunk = %#v, want successful EOS", chunk)
+		}
+	}
+}
+
+func TestFinishCompletedOutputInterruptsUnobservedQueuedAssistant(t *testing.T) {
+	a := &agent{}
+	output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 2)
+	observations := newFlowcraftOutputObservations()
+	epoch := a.setActiveOutput(output, "audio", observations)
+	observations.begin("audio")
+	if err := a.addOutput(output, epoch, audioChunk(assistantLabel, "audio", []byte{1, 2}, false)); err != nil {
+		t.Fatalf("queue output: %v", err)
+	}
+
+	a.finishCompletedOutput(output, &flowcraftActiveTurn{streamID: "audio", epoch: epoch}, observations)
+
+	if err := output.Done(genx.Usage{}); err != nil {
+		t.Fatalf("Done() error = %v", err)
+	}
+	chunks := drainChunks(t, output.Stream())
+	if len(chunks) != 2 {
+		t.Fatalf("chunks = %#v, want two interrupted EOS chunks", chunks)
+	}
+	for _, chunk := range chunks {
+		if chunk.Ctrl == nil || !chunk.Ctrl.EndOfStream || chunk.Ctrl.Error != interruptedError {
+			t.Fatalf("interrupted chunk = %#v", chunk)
+		}
+	}
+}
+
 func TestRealtimeInputInterruptsCurrent(t *testing.T) {
 	tests := []struct {
 		name    string

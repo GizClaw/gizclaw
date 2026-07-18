@@ -336,6 +336,9 @@ func (t *DoubaoRealtimeDuplex) processLoop(ctx context.Context, input genx.Strea
 		if !interrupted {
 			return false
 		}
+		output.discard(func(chunk *genx.MessageChunk) bool {
+			return isDoubaoRealtimeDuplexAssistantChunk(chunk, interruptedStreamID)
+		})
 		textEOS := &genx.MessageChunk{
 			Role: genx.RoleModel,
 			Part: genx.Text(""),
@@ -810,6 +813,11 @@ func (t *DoubaoRealtimeDuplex) processLoop(ctx context.Context, input genx.Strea
 			}
 		}
 	}
+}
+
+func isDoubaoRealtimeDuplexAssistantChunk(chunk *genx.MessageChunk, streamID string) bool {
+	return chunk != nil && chunk.Role == genx.RoleModel && chunk.Ctrl != nil &&
+		chunk.Ctrl.StreamID == streamID && chunk.Ctrl.Label == doubaoRealtimeDuplexAssistantLabel
 }
 
 type doubaoRealtimeDuplexPendingChunkStream struct {
