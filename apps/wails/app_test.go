@@ -1,14 +1,18 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/appconfig"
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/bridge"
+	"github.com/GizClaw/gizclaw-go/apps/wails/internal/localserver"
+	"github.com/GizClaw/gizclaw-go/apps/wails/internal/webui"
 )
 
 func TestNewAppUsesConfiguredHome(t *testing.T) {
@@ -135,6 +139,38 @@ func TestFileURLForWindowsPath(t *testing.T) {
 	if got := fileURLForOS(`C:\Users\gizclaw\pod`, "windows"); got != "file:///C:/Users/gizclaw/pod" {
 		t.Fatalf("fileURLForOS() = %q", got)
 	}
+}
+
+func TestQuitStopsLocalServerBeforeRuntimeExit(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the test helper is a POSIX shell script")
+	}
+	dir := t.TempDir()
+	executable := filepath.Join(dir, "gizclaw")
+	script := "#!/bin/sh\ntrap 'exit 0' INT TERM\nwhile :; do sleep 1; done\n"
+	if err := os.WriteFile(executable, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	local := localserver.New()
+	local.Executable = executable
+	app := &App{bridge: &bridge.PodBridge{
+		Local: local,
+		WebUI: webui.New(os.DirFS(dir)),
+	}}
+	if _, err := local.Start("local-lab", filepath.Join(dir, "workspace")); err != nil {
+		t.Fatal(err)
+	}
+
+	app.quit()
+	if status := local.Status("local-lab"); status.State != "stopped" || status.PID != 0 {
+		t.Fatalf("local server after quit() = %+v", status)
+	}
+	if !app.quitting {
+		t.Fatal("quit() did not mark the app as quitting")
+	}
+
+	// Wails calls OnShutdown after runtime.Quit. The second cleanup must be safe.
+	app.shutdown(context.Background())
 }
 
 func appconfigTestKey(t *testing.T, fill byte) string {

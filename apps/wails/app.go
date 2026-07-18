@@ -23,12 +23,13 @@ import (
 )
 
 type App struct {
-	bridge   *bridge.PodBridge
-	ctx      context.Context
-	tray     *tray.Manager
-	mu       sync.RWMutex
-	quitting bool
-	messages appmessages.Catalog
+	bridge       *bridge.PodBridge
+	ctx          context.Context
+	tray         *tray.Manager
+	mu           sync.RWMutex
+	quitting     bool
+	shutdownOnce sync.Once
+	messages     appmessages.Catalog
 }
 
 func NewApp() (*App, error) {
@@ -97,14 +98,16 @@ func (a *App) shutdown(context.Context) {
 	if a == nil || a.bridge == nil {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	a.bridge.ShutdownInitializations(ctx)
-	a.bridge.Local.Shutdown(ctx)
-	a.bridge.WebUI.Shutdown()
-	if a.tray != nil {
-		a.tray.Stop()
-	}
+	a.shutdownOnce.Do(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		a.bridge.ShutdownInitializations(ctx)
+		a.bridge.Local.Shutdown(ctx)
+		a.bridge.WebUI.Shutdown()
+		if a.tray != nil {
+			a.tray.Stop()
+		}
+	})
 }
 
 func (a *App) beforeClose(ctx context.Context) bool {
@@ -138,6 +141,7 @@ func (a *App) quit() {
 	a.mu.Lock()
 	a.quitting = true
 	a.mu.Unlock()
+	a.shutdown(context.Background())
 	if ctx := a.runtimeContext(); ctx != nil {
 		runtime.Quit(ctx)
 	}

@@ -94,3 +94,58 @@ func TestManagerReportsUnexpectedExit(t *testing.T) {
 		t.Fatalf("Status() = %+v", status)
 	}
 }
+
+func TestManagerShutdownStopsAllProcessesAndRejectsNewStarts(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the test helper is a POSIX shell script")
+	}
+	dir := t.TempDir()
+	executable := filepath.Join(dir, "gizclaw")
+	script := "#!/bin/sh\ntrap 'exit 0' INT TERM\nwhile :; do sleep 1; done\n"
+	if err := os.WriteFile(executable, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	manager := New()
+	manager.Executable = executable
+	for _, id := range []string{"first", "second"} {
+		if _, err := manager.Start(id, filepath.Join(dir, id)); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	manager.Shutdown(ctx)
+	for _, id := range []string{"first", "second"} {
+		if status := manager.Status(id); status.State != "stopped" || status.PID != 0 {
+			t.Fatalf("Status(%q) after Shutdown() = %+v", id, status)
+		}
+	}
+	if _, err := manager.Start("late", filepath.Join(dir, "late")); err == nil {
+		t.Fatal("Start() during shutdown error = nil")
+	}
+}
+
+func TestManagerShutdownKillsProcessAfterTimeout(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the test helper is a POSIX shell script")
+	}
+	dir := t.TempDir()
+	executable := filepath.Join(dir, "gizclaw")
+	script := "#!/bin/sh\ntrap '' INT TERM\nwhile :; do :; done\n"
+	if err := os.WriteFile(executable, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	manager := New()
+	manager.Executable = executable
+	if _, err := manager.Start("stubborn", filepath.Join(dir, "workspace")); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	manager.Shutdown(ctx)
+	if status := manager.Status("stubborn"); status.State != "stopped" || status.PID != 0 {
+		t.Fatalf("Status() after forced Shutdown() = %+v", status)
+	}
+}

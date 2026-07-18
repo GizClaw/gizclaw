@@ -3,6 +3,7 @@ package localserver
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -35,6 +36,7 @@ type Manager struct {
 
 	mu        sync.Mutex
 	processes map[string]*process
+	closing   bool
 }
 
 func New() *Manager {
@@ -43,6 +45,10 @@ func New() *Manager {
 
 func (m *Manager) Start(podID, workspace string) (Status, error) {
 	m.mu.Lock()
+	if m.closing {
+		m.mu.Unlock()
+		return Status{}, errors.New("local server: manager is shutting down")
+	}
 	if current := m.processes[podID]; current != nil && current.state == "running" {
 		status := snapshot(current)
 		m.mu.Unlock()
@@ -97,13 +103,15 @@ func (m *Manager) ExecutablePath() (string, error) {
 func (m *Manager) Stop(ctx context.Context, podID string) (Status, error) {
 	m.mu.Lock()
 	p := m.processes[podID]
-	if p == nil || p.state != "running" {
+	if p == nil || (p.state != "running" && p.state != "stopping") {
 		m.mu.Unlock()
 		return Status{State: "stopped"}, nil
 	}
-	p.state = "stopping"
-	if err := p.cmd.Process.Signal(os.Interrupt); err != nil {
-		_ = p.cmd.Process.Kill()
+	if p.state == "running" {
+		p.state = "stopping"
+		if err := p.cmd.Process.Signal(os.Interrupt); err != nil {
+			_ = p.cmd.Process.Kill()
+		}
 	}
 	done := p.done
 	m.mu.Unlock()
@@ -134,14 +142,42 @@ func (m *Manager) Status(podID string) Status {
 
 func (m *Manager) Shutdown(ctx context.Context) {
 	m.mu.Lock()
-	ids := make([]string, 0, len(m.processes))
-	for id := range m.processes {
-		ids = append(ids, id)
+	m.closing = true
+	processes := make([]*process, 0, len(m.processes))
+	for _, p := range m.processes {
+		if p.state != "running" && p.state != "stopping" {
+			continue
+		}
+		if p.state == "running" {
+			p.state = "stopping"
+			if err := p.cmd.Process.Signal(os.Interrupt); err != nil {
+				_ = p.cmd.Process.Kill()
+			}
+		}
+		processes = append(processes, p)
 	}
 	m.mu.Unlock()
-	for _, id := range ids {
-		_, _ = m.Stop(ctx, id)
+
+	done := make(chan struct{})
+	go func() {
+		for _, p := range processes {
+			<-p.done
+		}
+		close(done)
+	}()
+	select {
+	case <-done:
+		return
+	case <-ctx.Done():
 	}
+	for _, p := range processes {
+		select {
+		case <-p.done:
+		default:
+			_ = p.cmd.Process.Kill()
+		}
+	}
+	<-done
 }
 
 func (m *Manager) capture(p *process, reader io.Reader) {
