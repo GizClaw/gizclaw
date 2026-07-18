@@ -497,6 +497,10 @@ export async function connectGiznetWebRTC(options: ConnectGiznetWebRTCOptions): 
   const encryptedAnswer = await (options.sendOffer ?? ((item, signal) => sendGiznetWebRTCOffer(item, { fetch: options.fetch, signal })))(prepared, options.signal);
   const answerSDP = await prepared.openAnswer(encryptedAnswer);
   await options.pc.setRemoteDescription({ sdp: answerSDP, type: "answer" });
+  const packetDataChannel = getGiznetWebRTCPacketDataChannel(options.pc);
+  if (packetDataChannel != null) {
+    await waitForDataChannelOpen(packetDataChannel, options.signal);
+  }
   return options.pc;
 }
 
@@ -506,15 +510,21 @@ export async function connectGiznetWebRTCFromEndpoint(options: ConnectGiznetWebR
   applyGiznetServerInfoICEServers(options.pc, serverInfo);
   return connectGiznetWebRTC({
     ...options,
-    prepareOffer: (offerSDP) =>
-      prepareEncryptedGiznetWebRTCOffer(
+    prepareOffer: async (offerSDP) => {
+      const prepared = await prepareEncryptedGiznetWebRTCOffer(
         {
           clientPrivateKey: options.clientPrivateKey,
           clientPublicKey: options.clientPublicKey,
           serverPublicKey: serverInfo.public_key,
         },
         offerSDP,
-      ),
+      );
+      return {
+        ...prepared,
+        openAnswer: async (encryptedAnswer) =>
+          rewriteGiznetWebRTCAnswerForEndpoint(await prepared.openAnswer(encryptedAnswer), options.endpoint),
+      };
+    },
     sendOffer: (offer, signal) =>
       sendGiznetWebRTCOffer(offer, {
         baseUrl: serverInfoBaseURL(options),
@@ -523,6 +533,42 @@ export async function connectGiznetWebRTCFromEndpoint(options: ConnectGiznetWebR
         url: signalingPath,
       }),
   });
+}
+
+export function rewriteGiznetWebRTCAnswerForEndpoint(answerSDP: string, endpoint?: string): string {
+  const target = loopbackICEEndpoint(endpoint);
+  if (target == null) {
+    return answerSDP;
+  }
+  return answerSDP.replace(/^a=candidate:.*$/gm, (line) => {
+    const trailingCR = line.endsWith("\r") ? "\r" : "";
+    const fields = line.slice(0, line.length - trailingCR.length).split(/\s+/);
+    if (fields.length < 8 || fields[6]?.toLowerCase() !== "typ" || fields[7]?.toLowerCase() !== "host") {
+      return line;
+    }
+    fields[4] = target.host;
+    fields[5] = target.port;
+    return `${fields.join(" ")}${trailingCR}`;
+  });
+}
+
+function loopbackICEEndpoint(endpoint?: string): { host: string; port: string } | undefined {
+  const value = endpoint?.trim() ?? "";
+  if (value === "") {
+    return undefined;
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(`http://${value}`);
+  } catch {
+    return undefined;
+  }
+  const host = parsed.hostname.replace(/^\[(.*)\]$/, "$1");
+  const isLoopback = host === "localhost" || host === "::1" || /^127(?:\.\d{1,3}){3}$/.test(host);
+  if (!isLoopback || parsed.port === "") {
+    return undefined;
+  }
+  return { host, port: parsed.port };
 }
 
 export function applyGiznetServerInfoICEServers(pc: RTCPeerConnection, serverInfo: Pick<GiznetServerInfo, "ice_servers">): void {

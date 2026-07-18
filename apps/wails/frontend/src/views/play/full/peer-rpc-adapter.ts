@@ -1,4 +1,4 @@
-import { applyGiznetServerInfoICEServers, fetchGiznetServerInfo, sendGiznetWebRTCOffer } from "@gizclaw/gizclaw";
+import { applyGiznetServerInfoICEServers, fetchGiznetServerInfo, rewriteGiznetWebRTCAnswerForEndpoint, sendGiznetWebRTCOffer } from "@gizclaw/gizclaw";
 import {
   RPC_METHODS,
   type ContactObject as RPCContactObject,
@@ -416,7 +416,7 @@ export const createWebRtcOffer = async (_options: RequestOptions): Promise<ApiRe
       baseUrl: `http://${runtime.context.endpoint}`,
       url: serverInfo.signaling_path,
     });
-    const answerSDP = await offer.openAnswer(encryptedAnswer);
+    const answerSDP = rewriteGiznetWebRTCAnswerForEndpoint(await offer.openAnswer(encryptedAnswer), runtime.context.endpoint);
     return { data: { sdp: answerSDP, type: "answer" } };
   } catch (error) {
     return { error };
