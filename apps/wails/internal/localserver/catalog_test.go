@@ -19,8 +19,8 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(catalog.Resources) != 70 {
-		t.Fatalf("resources = %d, want 70", len(catalog.Resources))
+	if len(catalog.Resources) != 74 {
+		t.Fatalf("resources = %d, want 74", len(catalog.Resources))
 	}
 	if len(catalog.WorkflowIcons) != 10 || len(catalog.PetDefPIXAs) != 9 || len(catalog.VoiceSyncs) != 1 {
 		t.Fatalf("assets = workflows:%d pets:%d voice-sync:%d", len(catalog.WorkflowIcons), len(catalog.PetDefPIXAs), len(catalog.VoiceSyncs))
@@ -37,6 +37,15 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 			t.Fatalf("bundled client-created resource: %+v", resource)
 		}
 	}
+	for _, resource := range catalog.Resources {
+		if resource.Kind != "Model" {
+			continue
+		}
+		binding := "ACLPolicyBinding/default-client-model-" + resource.Name
+		if !identities[binding] {
+			t.Fatalf("model %s is missing default-client use ACL %s", resource.Name, binding)
+		}
+	}
 	for _, identity := range []string{
 		"ACLPolicyBinding/default-client-model-minimax-cn-m3",
 		"ACLPolicyBinding/default-client-credential-minimax-cn-openai-credential",
@@ -51,7 +60,7 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 		"Credential": 7, "VolcTenant": 2, "MiniMaxTenant": 1,
 		"OpenAITenant": 2, "DashScopeTenant": 1, "Model": 10,
 		"Workflow": 10, "PetDef": 9, "GameRuleset": 1,
-		"ACLRole": 3, "ACLView": 1, "ACLPolicyBinding": 23,
+		"ACLRole": 3, "ACLView": 1, "ACLPolicyBinding": 27,
 	} {
 		if kinds[kind] != want {
 			t.Fatalf("%s resources = %d, want %d", kind, kinds[kind], want)

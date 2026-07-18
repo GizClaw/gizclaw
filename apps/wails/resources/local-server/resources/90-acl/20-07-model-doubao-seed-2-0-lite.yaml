@@ -1,0 +1,8 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: ACLPolicyBinding
+metadata: {name: default-client-model-doubao-seed-2-0-lite}
+spec:
+  subject: {kind: view, id: default-client}
+  resource: {kind: model, id: doubao-seed-2-0-lite}
+  role: default-client

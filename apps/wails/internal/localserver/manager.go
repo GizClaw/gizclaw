@@ -134,6 +134,7 @@ func (m *Manager) Recover(podID, workspace string, verify ProcessVerifier) (Stat
 		return Status{}, err
 	}
 	if p == nil {
+		delete(m.processes, podID)
 		return Status{State: "stopped"}, nil
 	}
 	return snapshot(p), nil
@@ -266,6 +267,7 @@ func (m *Manager) recoverLocked(podID, workspace string, verify ProcessVerifier)
 			if removeErr := removePIDIfMatches(pidPath, pid); removeErr != nil {
 				return nil, removeErr
 			}
+			return nil, nil
 		}
 		return nil, fmt.Errorf("local server: verify persisted PID %d: %w", pid, err)
 	}

@@ -1,0 +1,8 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: ACLPolicyBinding
+metadata: {name: default-client-model-doubao-embedding-vision}
+spec:
+  subject: {kind: view, id: default-client}
+  resource: {kind: model, id: doubao-embedding-vision}
+  role: default-client

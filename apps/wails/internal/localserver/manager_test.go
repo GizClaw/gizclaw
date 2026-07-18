@@ -208,13 +208,17 @@ func TestManagerRemovesDefinitivelyMismatchedLivePID(t *testing.T) {
 		t.Fatal(err)
 	}
 	manager := New()
-	if _, err := manager.Recover("local-lab", workspace, func(int) error {
+	status, err := manager.Recover("local-lab", workspace, func(int) error {
 		return fmt.Errorf("wrong public key: %w", ErrProcessIdentityMismatch)
-	}); err == nil || !errors.Is(err, ErrProcessIdentityMismatch) {
-		t.Fatalf("Recover() error = %v", err)
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
-	if status := manager.Status("local-lab"); status.State != "failed" || status.PID != 0 {
-		t.Fatalf("Status() = %+v", status)
+	if status.State != "stopped" || status.PID != 0 {
+		t.Fatalf("Recover() = %+v", status)
+	}
+	if current := manager.Status("local-lab"); current.State != "stopped" || current.PID != 0 {
+		t.Fatalf("Status() = %+v", current)
 	}
 	if _, err := os.Stat(pidPath); !os.IsNotExist(err) {
 		t.Fatalf("mismatched PID file error = %v", err)

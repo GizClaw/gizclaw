@@ -165,16 +165,16 @@ func (b *PodBridge) RecoverLocalServers(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	var recoveryErrors []error
 	for _, entry := range entries {
 		if entry.Err != nil || entry.Pod.LocalServer == nil {
 			continue
 		}
 		if _, err := b.recoverLocalServer(ctx, entry.Pod); err != nil {
-			recoveryErrors = append(recoveryErrors, fmt.Errorf("pod %q: %w", entry.Pod.ID, err))
+			endpoint := fmt.Sprintf("127.0.0.1:%d", entry.Pod.LocalServer.Port)
+			b.Health.MarkUnreachable(endpoint, fmt.Sprintf("local server recovery failed: %v", err))
 		}
 	}
-	return errors.Join(recoveryErrors...)
+	return nil
 }
 
 // RecoverLocalServer verifies and attaches process management to one local
@@ -218,6 +218,16 @@ func (b *PodBridge) recoverLocalServer(ctx context.Context, pod appconfig.Pod) (
 			}
 		}
 	})
+}
+
+func (b *PodBridge) recoverLocalServerForMutation(ctx context.Context, pod appconfig.Pod) error {
+	if pod.LocalServer == nil || b.Local.Status(pod.ID).State == "running" {
+		return nil
+	}
+	if _, err := b.recoverLocalServer(ctx, pod); err != nil {
+		return fmt.Errorf("desktop bridge: verify local server before lifecycle operation: %w", err)
+	}
+	return nil
 }
 
 func (b *PodBridge) GetBootstrapEnvironment(context.Context) (BootstrapEnvironmentState, error) {
@@ -522,6 +532,9 @@ func (b *PodBridge) UpdatePod(ctx context.Context, input PodInput) (PodSummary, 
 	if err != nil {
 		return PodSummary{}, err
 	}
+	if err := b.recoverLocalServerForMutation(ctx, existing); err != nil {
+		return PodSummary{}, err
+	}
 	if _, err := ensurePodIdentities(&existing); err != nil {
 		return PodSummary{}, err
 	}
@@ -575,6 +588,18 @@ func (b *PodBridge) DeletePod(ctx context.Context, id string) error {
 	defer waitCancel()
 	if err := b.cancelInitialization(waitCtx, id); err != nil {
 		return err
+	}
+	if pod, err := b.Store.Load(id); err == nil {
+		if err := b.recoverLocalServerForMutation(ctx, pod); err != nil {
+			return err
+		}
+	} else {
+		pidPath := filepath.Join(b.Paths.PodsDir, id, "workspace", localserver.PIDFile)
+		if _, statErr := os.Lstat(pidPath); statErr == nil {
+			return fmt.Errorf("desktop bridge: cannot delete invalid Pod %q while a persisted PID requires verification", id)
+		} else if !os.IsNotExist(statErr) {
+			return fmt.Errorf("desktop bridge: inspect invalid Pod %q PID: %w", id, statErr)
+		}
 	}
 	stopCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
@@ -689,15 +714,13 @@ func (b *PodBridge) StartLocal(ctx context.Context, id string) (PodSummary, erro
 	if pod.LocalServer == nil {
 		return PodSummary{}, fmt.Errorf("desktop bridge: pod %q is remote", id)
 	}
+	if err := b.recoverLocalServerForMutation(ctx, pod); err != nil {
+		return PodSummary{}, err
+	}
 	if err := b.Store.Save(pod); err != nil {
 		return PodSummary{}, fmt.Errorf("desktop bridge: refresh local workspace: %w", err)
 	}
 	workspace := filepath.Join(b.Paths.PodsDir, id, "workspace")
-	if b.Local.Status(id).State != "running" {
-		if _, err := b.recoverLocalServer(ctx, pod); err != nil {
-			return PodSummary{}, err
-		}
-	}
 	if b.Local.Status(id).State != "running" {
 		if listenErr := appconfig.CheckPortAvailable(pod.LocalServer.Port); listenErr != nil {
 			return PodSummary{}, fmt.Errorf("desktop bridge: local server port %d is already in use", pod.LocalServer.Port)
@@ -720,6 +743,9 @@ func (b *PodBridge) StopLocal(ctx context.Context, id string) (PodSummary, error
 	if pod.LocalServer == nil {
 		return PodSummary{}, fmt.Errorf("desktop bridge: pod %q is remote", id)
 	}
+	if err := b.recoverLocalServerForMutation(ctx, pod); err != nil {
+		return PodSummary{}, err
+	}
 	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if _, err := b.Local.Stop(stopCtx, id); err != nil {
@@ -739,6 +765,9 @@ func (b *PodBridge) RestartLocal(ctx context.Context, id string) (PodSummary, er
 	}
 	if pod.LocalServer == nil {
 		return PodSummary{}, fmt.Errorf("desktop bridge: pod %q is remote", id)
+	}
+	if err := b.recoverLocalServerForMutation(ctx, pod); err != nil {
+		return PodSummary{}, err
 	}
 	if err := b.Store.Save(pod); err != nil {
 		return PodSummary{}, fmt.Errorf("desktop bridge: refresh local workspace: %w", err)

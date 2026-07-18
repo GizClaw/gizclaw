@@ -774,18 +774,22 @@ func TestRecoverLocalServerRejectsMismatchedServerIdentity(t *testing.T) {
 	go func() { _ = server.Serve(listener) }()
 	defer server.Close()
 
-	if _, err := b.RecoverLocalServer(context.Background(), created.ID); err == nil || !strings.Contains(err.Error(), "identity does not match") {
-		t.Fatalf("RecoverLocalServer() error = %v", err)
+	status, err := b.RecoverLocalServer(context.Background(), created.ID)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if status := b.Local.Status(created.ID); status.State != "failed" || status.PID != 0 {
-		t.Fatalf("process status = %+v", status)
+	if status.State != "stopped" || status.PID != 0 {
+		t.Fatalf("RecoverLocalServer() = %+v", status)
+	}
+	if current := b.Local.Status(created.ID); current.State != "stopped" || current.PID != 0 {
+		t.Fatalf("process status = %+v", current)
 	}
 	if _, err := os.Stat(pidPath); !os.IsNotExist(err) {
 		t.Fatalf("mismatched PID file error = %v", err)
 	}
 }
 
-func TestRecoverLocalServersReportsEveryUnverifiedLivePID(t *testing.T) {
+func TestRecoverLocalServersSurfacesEveryUnverifiedLivePID(t *testing.T) {
 	paths := appconfig.NewPaths(t.TempDir())
 	if err := paths.Ensure(); err != nil {
 		t.Fatal(err)
@@ -811,14 +815,10 @@ func TestRecoverLocalServersReportsEveryUnverifiedLivePID(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
-	err := b.RecoverLocalServers(ctx)
-	if err == nil {
-		t.Fatal("RecoverLocalServers() error = nil")
+	if err := b.RecoverLocalServers(ctx); err != nil {
+		t.Fatal(err)
 	}
 	for _, id := range []string{"recover-first", "recover-second"} {
-		if !strings.Contains(err.Error(), id) {
-			t.Fatalf("RecoverLocalServers() error = %v, want Pod %q", err, id)
-		}
 		pidPath := filepath.Join(paths.PodsDir, id, "workspace", localserver.PIDFile)
 		if _, statErr := os.Stat(pidPath); statErr != nil {
 			t.Fatalf("Pod %q PID file was not preserved: %v", id, statErr)
@@ -826,6 +826,97 @@ func TestRecoverLocalServersReportsEveryUnverifiedLivePID(t *testing.T) {
 		if status := b.Local.Status(id); status.State != "failed" || status.PID != 0 {
 			t.Fatalf("Pod %q process status = %+v", id, status)
 		}
+		pod, err := b.Store.Load(id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		summary := b.summary(pod)
+		if summary.Local == nil || summary.Local.Process.State != "failed" || !strings.Contains(summary.Local.Health.Message, "recovery failed") {
+			t.Fatalf("Pod %q summary = %+v", id, summary)
+		}
+	}
+}
+
+func TestLifecycleMutationsRejectUnverifiedLivePID(t *testing.T) {
+	paths := appconfig.NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	b := &PodBridge{
+		Paths:  paths,
+		Store:  appconfig.Store{Paths: paths},
+		Health: endpointhealth.New(),
+		Local:  localserver.New(),
+		WebUI:  webui.New(fstest.MapFS{}),
+	}
+	defer b.WebUI.Shutdown()
+	created, err := b.CreatePod(context.Background(), PodInput{Version: 1, ID: "unverified", Name: "Unverified", LocalServer: &LocalServerInput{Port: 0}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pidPath := filepath.Join(paths.PodsDir, created.ID, "workspace", localserver.PIDFile)
+	if err := os.WriteFile(pidPath, fmt.Appendf(nil, "%d\n", os.Getpid()), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	operations := map[string]func(context.Context) error{
+		"delete": func(ctx context.Context) error { return b.DeletePod(ctx, created.ID) },
+		"restart": func(ctx context.Context) error {
+			_, err := b.RestartLocal(ctx, created.ID)
+			return err
+		},
+		"start": func(ctx context.Context) error {
+			_, err := b.StartLocal(ctx, created.ID)
+			return err
+		},
+		"stop": func(ctx context.Context) error {
+			_, err := b.StopLocal(ctx, created.ID)
+			return err
+		},
+		"update": func(ctx context.Context) error {
+			_, err := b.UpdatePod(ctx, PodInput{Version: 1, ID: created.ID, Name: "Changed", LocalServer: &LocalServerInput{Port: created.Local.Port}})
+			return err
+		},
+	}
+	for name, operation := range operations {
+		t.Run(name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+			defer cancel()
+			if err := operation(ctx); err == nil || !strings.Contains(err.Error(), "verify local server") {
+				t.Fatalf("operation error = %v", err)
+			}
+		})
+	}
+	if _, err := os.Stat(pidPath); err != nil {
+		t.Fatalf("PID file was not preserved: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(paths.PodsDir, created.ID)); err != nil {
+		t.Fatalf("Pod directory was not preserved: %v", err)
+	}
+}
+
+func TestDeleteInvalidPodRejectsPersistedPID(t *testing.T) {
+	paths := appconfig.NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	podDir := filepath.Join(paths.PodsDir, "invalid-live")
+	workspace := filepath.Join(podDir, "workspace")
+	if err := os.MkdirAll(workspace, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(podDir, appconfig.PodManifestFile), []byte("{"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	pidPath := filepath.Join(workspace, localserver.PIDFile)
+	if err := os.WriteFile(pidPath, fmt.Appendf(nil, "%d\n", os.Getpid()), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	b := &PodBridge{Paths: paths, Store: appconfig.Store{Paths: paths}}
+	if err := b.DeletePod(context.Background(), "invalid-live"); err == nil || !strings.Contains(err.Error(), "requires verification") {
+		t.Fatalf("DeletePod() error = %v", err)
+	}
+	if _, err := os.Stat(pidPath); err != nil {
+		t.Fatalf("PID file was not preserved: %v", err)
 	}
 }
 
