@@ -557,15 +557,15 @@ func (h *PeerConn) streamMixedAudio(hasWrittenBefore bool) (wrote bool, err erro
 
 	frameSize := int(peerConnMixerFormat.SamplesInDuration(peerConnOpusFrameDuration))
 	for {
+		if !waitForPacing() {
+			return wrote, nil
+		}
 		chunk, err := peerConnMixerFormat.ReadChunk(mx, peerConnOpusFrameDuration)
 		if err != nil {
 			if h.isClosed() && errors.Is(err, io.ErrClosedPipe) {
 				return wrote, nil
 			}
 			return wrote, err
-		}
-		if !waitForPacing() {
-			return wrote, nil
 		}
 
 		packet, err := enc.Encode(peerConnPCMChunkToInt16(chunk), frameSize)

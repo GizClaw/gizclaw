@@ -77,6 +77,7 @@ type historyOutput struct {
 
 	forwardMu          sync.Mutex
 	activeForward      map[historyForwardChunkKey]historyForwardRoute
+	terminalForward    map[historyForwardChunkKey]struct{}
 	interruptedForward map[historyForwardChunkKey]struct{}
 
 	notifyMu          sync.Mutex
@@ -156,6 +157,7 @@ func (s *historyOutputStream) ObserveOutput(chunk *genx.MessageChunk) {
 		return
 	}
 	s.output.observeReplayOutput(chunk)
+	s.output.observeForwardOutput(chunk)
 	if s.output.upstreamObserver != nil {
 		s.output.upstreamObserver.ObserveOutput(chunk)
 	}
@@ -325,6 +327,7 @@ func (o *historyOutput) clearForwardOutput() {
 	o.forwardMu.Lock()
 	defer o.forwardMu.Unlock()
 	o.activeForward = nil
+	o.terminalForward = nil
 	o.interruptedForward = nil
 }
 
@@ -398,7 +401,10 @@ func (o *historyOutput) observeForwardChunk(chunk *genx.MessageChunk) bool {
 		}
 		for key := range o.activeForward {
 			if key.streamID == route.streamID {
-				delete(o.activeForward, key)
+				if o.terminalForward == nil {
+					o.terminalForward = make(map[historyForwardChunkKey]struct{})
+				}
+				o.terminalForward[key] = struct{}{}
 			}
 		}
 		return false
@@ -411,14 +417,48 @@ func (o *historyOutput) observeForwardChunk(chunk *genx.MessageChunk) bool {
 		return true
 	}
 	if chunk.IsEndOfStream() {
-		delete(o.activeForward, key)
+		if _, active := o.activeForward[key]; active {
+			if o.terminalForward == nil {
+				o.terminalForward = make(map[historyForwardChunkKey]struct{})
+			}
+			o.terminalForward[key] = struct{}{}
+		}
 		return false
 	}
 	if o.activeForward == nil {
 		o.activeForward = make(map[historyForwardChunkKey]historyForwardRoute)
 	}
 	o.activeForward[key] = route
+	delete(o.terminalForward, key)
 	return false
+}
+
+func (o *historyOutput) observeForwardOutput(chunk *genx.MessageChunk) {
+	if o == nil || chunk == nil || !chunk.IsEndOfStream() {
+		return
+	}
+	route, ok := historyForwardChunkRoute(chunk)
+	if !ok {
+		return
+	}
+	mimeType, hasMIME := historyForwardChunkMIME(chunk)
+	o.forwardMu.Lock()
+	defer o.forwardMu.Unlock()
+	if hasMIME {
+		key := historyForwardChunkKey{historyForwardRouteKey: route.key(), mimeType: mimeType}
+		delete(o.activeForward, key)
+		delete(o.terminalForward, key)
+		return
+	}
+	if chunk.Part != nil {
+		return
+	}
+	for key := range o.activeForward {
+		if key.streamID == route.streamID {
+			delete(o.activeForward, key)
+			delete(o.terminalForward, key)
+		}
+	}
 }
 
 func (o *historyOutput) interruptForwardOutput() []*genx.MessageChunk {
@@ -459,8 +499,11 @@ func (o *historyOutput) interruptForwardOutput() []*genx.MessageChunk {
 	for _, key := range keys {
 		route := o.activeForward[key]
 		interrupt = append(interrupt, historyForwardInterruptedChunk(route, key.mimeType))
-		o.interruptedForward[key] = struct{}{}
+		if _, terminal := o.terminalForward[key]; !terminal {
+			o.interruptedForward[key] = struct{}{}
+		}
 		delete(o.activeForward, key)
+		delete(o.terminalForward, key)
 	}
 	return interrupt
 }
@@ -497,12 +540,10 @@ func historyForwardChunkMIME(chunk *genx.MessageChunk) (string, bool) {
 	if !ok {
 		return "", false
 	}
-	switch baseHistoryMIME(mimeType) {
-	case "text/plain", "audio/opus":
+	if baseHistoryMIME(mimeType) == "text/plain" || isMixerAudioMIME(mimeType) {
 		return mimeType, true
-	default:
-		return "", false
 	}
+	return "", false
 }
 
 func (r historyForwardRoute) key() historyForwardRouteKey {

@@ -251,8 +251,14 @@ func TestPeerConnPacesMixedAudioAtEgress(t *testing.T) {
 			t.Fatalf("packet %d RTP ticks = %d, want 960", index, ticks)
 		}
 	}
+	select {
+	case <-ctrl.Done():
+		t.Fatal("track was marked drained before the next pacing tick")
+	default:
+	}
 
 	peer.closed.Store(true)
+	close(ticks)
 	if err := mx.Close(); err != nil {
 		t.Fatalf("mixer.Close() error = %v", err)
 	}
