@@ -263,16 +263,22 @@ func TestMixerOutputConsumesInterruptWhilePreviousTrackDrains(t *testing.T) {
 			},
 		}).ConsumeAgentOutput(t.Context(), output)
 	}()
+	var track pcm.Track
+	select {
+	case track = <-creator.created:
+	case <-time.After(time.Second):
+		t.Fatal("audio track was not created")
+	}
 	select {
 	case <-output.secondRead:
 	case <-time.After(time.Second):
 		t.Fatal("consumer stopped reading while the previous track drained")
 	}
+	waitForTrackWriteError(t, track, "interrupted")
 	buffer := make([]byte, creator.mixer.Output().BytesInDuration(60*time.Millisecond))
 	readDone := make(chan struct{})
 	go func() {
 		defer close(readDone)
-		_, _ = creator.mixer.Read(buffer)
 		_, _ = creator.mixer.Read(buffer)
 	}()
 	select {
@@ -289,6 +295,26 @@ func TestMixerOutputConsumesInterruptWhilePreviousTrackDrains(t *testing.T) {
 	<-readDone
 	if len(observed) != 1 || observed[0].Ctrl == nil || observed[0].Ctrl.Error != "interrupted" {
 		t.Fatalf("observed chunks = %#v, want only interrupted EOS", observed)
+	}
+}
+
+func waitForTrackWriteError(t *testing.T, track pcm.Track, contains string) {
+	t.Helper()
+	deadline := time.NewTimer(time.Second)
+	defer deadline.Stop()
+	ticker := time.NewTicker(time.Millisecond)
+	defer ticker.Stop()
+	var lastErr error
+	for {
+		lastErr = track.Write(pcm.L16Mono16K.DataChunk(nil))
+		if lastErr != nil && strings.Contains(lastErr.Error(), contains) {
+			return
+		}
+		select {
+		case <-deadline.C:
+			t.Fatalf("track write error = %v, want error containing %q", lastErr, contains)
+		case <-ticker.C:
+		}
 	}
 }
 
@@ -379,18 +405,26 @@ func pcmOutputChunk(streamID, mimeType string, data []byte, eos bool, errorText 
 }
 
 type recordingAudioTrackCreator struct {
-	mixer  *pcm.Mixer
-	tracks []pcm.Track
+	mixer   *pcm.Mixer
+	tracks  []pcm.Track
+	created chan pcm.Track
 }
 
 func newRecordingAudioTrackCreator() *recordingAudioTrackCreator {
-	return &recordingAudioTrackCreator{mixer: pcm.NewMixer(pcm.L16Mono16K)}
+	return &recordingAudioTrackCreator{
+		mixer:   pcm.NewMixer(pcm.L16Mono16K),
+		created: make(chan pcm.Track, 1),
+	}
 }
 
 func (c *recordingAudioTrackCreator) CreateAudioTrack(opts ...pcm.TrackOption) (pcm.Track, *pcm.TrackCtrl, error) {
 	track, ctrl, err := c.mixer.CreateTrack(opts...)
 	if err == nil {
 		c.tracks = append(c.tracks, track)
+		select {
+		case c.created <- track:
+		default:
+		}
 	}
 	return track, ctrl, err
 }
