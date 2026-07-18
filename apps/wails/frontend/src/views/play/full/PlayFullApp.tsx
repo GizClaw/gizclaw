@@ -86,6 +86,7 @@ import {
   streamPlayableVoices as streamPlayableVoicesSDK,
   type BadgeObject,
   type ContactObject,
+  type Credential,
   type FriendGroupInviteTokenGetResponse,
   type FriendGroupMemberMutableRole,
   type FriendGroupMemberObject,
@@ -95,6 +96,7 @@ import {
   type Firmware,
   type GameResultObject,
   type GameRulesetObject,
+  type Model,
   type PeerRunHistoryEntry,
   type PeerRunMemoryStatsResponse,
   type PeerRunRecallHit,
@@ -139,44 +141,6 @@ import { getPlayOpenAIClient, readPlaySpeechAudioBlob } from "../../../lib/gizcl
 type Section = "overview" | "contacts" | "friends" | "friendGroups" | "gameplay" | "workspaces" | "workflows" | "models" | "credentials" | "firmwares" | "voices";
 type TopDrawer = "workspace" | "social-chat" | "test-chat" | null;
 
-type ModelSpec = {
-  capabilities?: ModelCapabilities;
-  created_at?: string;
-  description?: string;
-  id: string;
-  kind?: string;
-  name?: string;
-  owned_by?: string;
-  provider?: { kind: string; name: string };
-  source?: string;
-  support_json_output?: boolean;
-  support_temperature?: boolean;
-  support_text_only?: boolean;
-  support_tool_calls?: boolean;
-  support_thinking?: boolean;
-  thinking_param?: string;
-  thinking_level_param?: string;
-  thinking_levels?: string[];
-  default_thinking_level?: string;
-  updated_at?: string;
-  use_system_role?: boolean;
-};
-
-type ModelCapabilities = {
-  json_output?: boolean;
-  system_role?: boolean;
-  temperature?: boolean;
-  text_only?: boolean;
-  thinking?: {
-    default_level?: string;
-    level_param?: string;
-    levels?: string[];
-    param?: string;
-    supported: boolean;
-  };
-  tool_calls?: boolean;
-};
-
 type Voice = {
   id: string;
   name?: string;
@@ -187,8 +151,6 @@ type Voice = {
   source: string;
   updated_at?: string;
 };
-
-type ResourceItem = Record<string, unknown>;
 
 type PageResponse<T> = {
   data?: T[];
@@ -290,7 +252,7 @@ const topDrawerContentClassName =
 export function PlayFullApp({ contextName, onSignOut }: { contextName?: string; onSignOut(): Promise<void> }): JSX.Element {
   const [section, setSection] = useState<Section>("overview");
   const [topDrawer, setTopDrawer] = useState<TopDrawer>(null);
-  const [models, setModels] = useState<ModelSpec[]>([]);
+  const [models, setModels] = useState<Model[]>([]);
   const [selectedFriend, setSelectedFriend] = useState<FriendObject | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<FriendGroupObject | null>(null);
   const [selectedFirmware, setSelectedFirmware] = useState<Firmware | null>(null);
@@ -2041,7 +2003,7 @@ function SocialChatDrawer({
 }
 
 function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean) => void; open: boolean }): JSX.Element {
-  const [workspaces, setWorkspaces] = useState<ResourceItem[]>([]);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [state, setState] = useState<PlayWorkspaceState | null>(null);
   const [selectedWorkspace, setSelectedWorkspace] = useState("");
   const [history, setHistory] = useState<PeerRunHistoryEntry[]>([]);
@@ -2117,7 +2079,7 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
     setLoading(true);
     setError("");
     try {
-      const [workspacePage, workspaceState] = await Promise.all([listPeerResourcePage("workspaces", ""), expectData(getPeerRunWorkspace())]);
+      const [workspacePage, workspaceState] = await Promise.all([listWorkspacesPage(""), expectData(getPeerRunWorkspace())]);
       const nextState = normalizeWorkspaceState(workspaceState);
       setWorkspaces(sortWorkspacesByActivity(workspacePage.items ?? workspacePage.data ?? []));
       setState(nextState);
@@ -2290,7 +2252,7 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
                 loading={loading}
                 value={selectedWorkspace}
                 onChange={setSelectedWorkspace}
-                options={workspaces.map((workspace) => stringField(workspace, "name")).filter((name) => name !== "")}
+                options={workspaces.map((workspace) => workspace.name).filter((name) => name !== "")}
               />
             </div>
             <div className="flex items-end gap-2">
@@ -3157,7 +3119,7 @@ function WorkspaceRecallPanel({ error, hits, loading, onQueryChange, onRun, quer
   );
 }
 
-function ChatTester({ models, onOpenChange, open }: { models: ModelSpec[]; onOpenChange: (open: boolean) => void; open: boolean }): JSX.Element {
+function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenChange: (open: boolean) => void; open: boolean }): JSX.Element {
   const [sessions, setSessions] = useState<ChatSession[]>(() => loadChatSessions());
   const [activeSessionID, setActiveSessionID] = useState(() => sessions[0]?.id ?? createChatSession().id);
   const [selectedModel, setSelectedModel] = useState("");
@@ -3174,9 +3136,9 @@ function ChatTester({ models, onOpenChange, open }: { models: ModelSpec[]; onOpe
   const [resetToken, setResetToken] = useState(0);
   const selectedModelSpec = useMemo(() => models.find((model) => model.id === selectedModel), [models, selectedModel]);
   const playableVoices = useMemo(() => voices.filter(isPlayableVoice), [voices]);
-  const thinkingLevels = useMemo(() => selectedModelSpec?.thinking_levels ?? [], [selectedModelSpec]);
-  const supportsThinking = selectedModelSpec?.support_thinking === true;
-  const supportsTemperature = selectedModelSpec?.support_temperature !== false;
+  const thinkingLevels = useMemo(() => selectedModelSpec?.capabilities?.thinking?.levels ?? [], [selectedModelSpec]);
+  const supportsThinking = selectedModelSpec?.capabilities?.thinking?.supported === true;
+  const supportsTemperature = selectedModelSpec?.capabilities?.temperature !== false;
 
   const reportChatError = useCallback((message: string) => {
     setChatError(message);
@@ -3241,7 +3203,7 @@ function ChatTester({ models, onOpenChange, open }: { models: ModelSpec[]; onOpe
       setThinkingLevel("");
       return;
     }
-    const defaultLevel = selectedModelSpec?.default_thinking_level ?? thinkingLevels[0] ?? "";
+    const defaultLevel = selectedModelSpec?.capabilities?.thinking?.default_level ?? thinkingLevels[0] ?? "";
     setThinkingLevel((current) => (current !== "" && thinkingLevels.includes(current) ? current : defaultLevel));
   }, [selectedModelSpec, supportsThinking, thinkingLevels]);
 
@@ -4226,7 +4188,7 @@ function PagedSimpleTable<T>({
 
 function WorkspacesPanel(): JSX.Element {
   const loadPage = useCallback(async (cursor: string) => {
-    const page = await listPeerResourcePage("workspaces", cursor);
+    const page = await listWorkspacesPage(cursor);
     const items = page.items ?? page.data;
     if (items == null) {
       return page;
@@ -4235,10 +4197,10 @@ function WorkspacesPanel(): JSX.Element {
   }, []);
   return (
     <PagedSimpleTable
-      columns={["Display name", "Workspace ID", "Workflow", "Last active", "Updated"]}
+      columns={["Name", "Workflow", "Last active", "Updated"]}
       empty="No workspaces"
       loadPage={loadPage}
-      row={(item) => [stringField(item, "display_name") || "-", stringField(item, "name"), stringField(item, "workflow_name"), formatDate(stringField(item, "last_active_at")), formatDate(stringField(item, "updated_at"))]}
+      row={(item) => [item.name, item.workflow_name, formatDate(item.last_active_at), formatDate(item.updated_at)]}
       title="Workspaces"
     />
   );
@@ -4258,13 +4220,13 @@ function WorkflowsPanel(): JSX.Element {
 }
 
 function CredentialsPanel(): JSX.Element {
-  const loadPage = useCallback((cursor: string) => listPeerResourcePage("credentials", cursor), []);
+  const loadPage = useCallback((cursor: string) => listCredentialsPage(cursor), []);
   return (
     <PagedSimpleTable
-      columns={["Name", "Provider", "Method", "Description", "Updated"]}
+      columns={["Name", "Provider", "Auth fields", "Description", "Updated"]}
       empty="No credentials"
       loadPage={loadPage}
-      row={(item) => [stringField(item, "name"), stringField(item, "provider"), stringField(item, "method"), stringField(item, "description"), formatDate(stringField(item, "updated_at"))]}
+      row={(item) => [item.name, item.provider, credentialAuthSummary(item), item.description ?? "", formatDate(item.updated_at)]}
       title="Credentials"
     />
   );
@@ -4444,7 +4406,7 @@ function firmwareSlotSummary(slot: Firmware["slots"]["stable"]): string {
   return slot.description?.trim() || "-";
 }
 
-function ModelsPanel({ initialModels }: { initialModels: ModelSpec[] }): JSX.Element {
+function ModelsPanel({ initialModels }: { initialModels: Model[] }): JSX.Element {
   const loadPage = useCallback((cursor: string) => listModelsPage(cursor), []);
   const pager = usePagedList(loadPage);
   const models = pager.page.items.length === 0 && pager.page.loading ? initialModels : pager.page.items;
@@ -4481,7 +4443,7 @@ function ModelsPanel({ initialModels }: { initialModels: ModelSpec[] }): JSX.Ele
                       <TableCell className="font-mono text-xs font-medium">{model.id}</TableCell>
                       <TableCell>{model.kind ?? "-"}</TableCell>
                       <TableCell>{model.provider == null ? "-" : `${model.provider.kind}/${model.provider.name}`}</TableCell>
-                      <TableCell>{model.support_thinking === true ? <Badge variant="outline">{model.thinking_param || "on"}</Badge> : "-"}</TableCell>
+                      <TableCell>{model.capabilities?.thinking?.supported === true ? <Badge variant="outline">{model.capabilities.thinking.param || "on"}</Badge> : "-"}</TableCell>
                       <TableCell>{model.source ?? "-"}</TableCell>
                       <TableCell className="text-muted-foreground">{formatDate(model.updated_at)}</TableCell>
                     </TableRow>
@@ -4682,13 +4644,13 @@ function LoadingGrid(): JSX.Element {
   );
 }
 
-async function listModels(): Promise<ModelSpec[]> {
+async function listModels(): Promise<Model[]> {
   const response = await listModelsPage("");
   return response.items ?? [];
 }
 
-function listModelsPage(cursor: string): Promise<PageResponse<ModelSpec>> {
-  return expectData(listPeerModels({ query: pageQuery(cursor) })) as Promise<PageResponse<ModelSpec>>;
+function listModelsPage(cursor: string): Promise<PageResponse<Model>> {
+  return expectData(listPeerModels({ query: pageQuery(cursor) }));
 }
 
 function listVoicesPage(cursor: string): Promise<PageResponse<Voice>> {
@@ -4697,6 +4659,14 @@ function listVoicesPage(cursor: string): Promise<PageResponse<Voice>> {
 
 function listWorkflowsPage(cursor: string): Promise<PageResponse<PeerWorkflow>> {
   return expectData(listPeerWorkflows({ query: pageQuery(cursor) }));
+}
+
+function listWorkspacesPage(cursor: string): Promise<PageResponse<Workspace>> {
+  return expectData(listPeerWorkspaces({ query: pageQuery(cursor) }));
+}
+
+function listCredentialsPage(cursor: string): Promise<PageResponse<Credential>> {
+  return expectData(listPeerCredentials({ query: pageQuery(cursor) }));
 }
 
 function listFirmwaresPage(cursor: string): Promise<PageResponse<Firmware>> {
@@ -4737,30 +4707,6 @@ function mergeVoices(voices: Voice[]): Voice[] {
 
 function isPlayableVoice(voice: Voice): boolean {
   return voice.provider.kind === "volc-tenant";
-}
-
-async function listPeerResourcePage(name: string, cursor: string): Promise<PageResponse<ResourceItem>> {
-  const query = pageQuery(cursor);
-  switch (name) {
-    case "contacts":
-      return expectData(listPeerContacts({ query })) as Promise<PageResponse<ResourceItem>>;
-    case "credentials":
-      return expectData(listPeerCredentials({ query })) as Promise<PageResponse<ResourceItem>>;
-    case "firmwares":
-      return expectData(listPeerFirmwares({ query })) as Promise<PageResponse<ResourceItem>>;
-    case "friend-groups":
-      return expectData(listPeerFriendGroups({ query })) as Promise<PageResponse<ResourceItem>>;
-    case "friends":
-      return expectData(listPeerFriends({ query })) as Promise<PageResponse<ResourceItem>>;
-    case "models":
-      return expectData(listPeerModels({ query })) as Promise<PageResponse<ResourceItem>>;
-    case "voices":
-      return expectData(listPeerVoices({ query })) as Promise<PageResponse<ResourceItem>>;
-    case "workspaces":
-      return expectData(listPeerWorkspaces({ query })) as Promise<PageResponse<ResourceItem>>;
-    default:
-      throw new Error(`Unsupported peer resource: ${name}`);
-  }
 }
 
 async function createWorkspaceVoiceSession({
@@ -5047,39 +4993,19 @@ function sectionTitle(section: Section): string {
   return sections.find((item) => item.id === section)?.label ?? "OpenAI Gateway";
 }
 
-function objectField(item: ResourceItem, key: string): ResourceItem {
-  const value = item[key];
-  return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as ResourceItem) : {};
-}
-
-function stringField(item: ResourceItem, key: string): string {
-  const value = item[key];
-  if (value == null) {
-    return "";
-  }
-  if (typeof value === "string") {
-    return value;
-  }
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value);
-  }
-  return jsonSummary(value);
-}
-
-function sortWorkspacesByActivity(items: ResourceItem[]): ResourceItem[] {
+function sortWorkspacesByActivity(items: Workspace[]): Workspace[] {
   return [...items].sort((left, right) => {
     const leftTime = workspaceActivityTime(left);
     const rightTime = workspaceActivityTime(right);
     if (leftTime !== rightTime) {
       return rightTime - leftTime;
     }
-    return stringField(left, "name").localeCompare(stringField(right, "name"));
+    return left.name.localeCompare(right.name);
   });
 }
 
-function workspaceActivityTime(item: ResourceItem): number {
-  for (const key of ["last_active_at", "updated_at", "created_at"]) {
-    const value = stringField(item, key);
+function workspaceActivityTime(item: Workspace): number {
+  for (const value of [item.last_active_at, item.updated_at, item.created_at]) {
     if (value === "") {
       continue;
     }
@@ -5091,9 +5017,11 @@ function workspaceActivityTime(item: ResourceItem): number {
   return 0;
 }
 
-function summaryField(item: ResourceItem, key: string): string {
-  const value = item[key];
-  return value == null ? "" : jsonSummary(value);
+function credentialAuthSummary(credential: Credential): string {
+  const keys = Object.entries(credential.body)
+    .filter(([, value]) => value !== undefined && value !== "")
+    .map(([key]) => key);
+  return keys.length === 0 ? "empty body" : keys.join(", ");
 }
 
 function jsonSummary(value: unknown): string {

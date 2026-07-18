@@ -14,7 +14,16 @@ test.beforeEach(async ({ page }) => {
     const snapshot = {
       badges: [{ active: true, badge_def_id: "badge-basic", exp: 125, id: "badge-basic", level: 1, ruleset_name: "default-gameplay" }],
       contacts: [{ id: "contact-main", name: "Main Contact", title: "Main Contact" }],
-      credentials: [{ id: "fake-openai-credential-000", title: "Fake OpenAI Credential" }],
+      credentials: [
+        {
+          body: { api_key: "fake-openai-api-key" },
+          created_at: "2026-07-01T00:00:00Z",
+          description: "Fake OpenAI credential",
+          name: "fake-openai-credential-000",
+          provider: "openai",
+          updated_at: "2026-07-01T00:00:00Z",
+        },
+      ],
       firmwares: [{ id: "devkit-firmware-main", name: "devkit-firmware-main", slots: { beta: {}, develop: {}, pending: {}, stable: { description: "stable" } }, title: "Devkit Firmware" }],
       friendGroups: [{ id: "story-group", my_role: "member", name: "Story Group", workspace_name: "story-group-workspace" }],
       friends: [{ id: "peer-b", peer_public_key: "peer-b", name: "Peer B", workspace_name: "friend-workspace" }],
@@ -25,7 +34,26 @@ test.beforeEach(async ({ page }) => {
         { created_at: "2026-07-01T00:00:01Z", id: "20260701T000001Z-2", name: "answer", replay_available: true, text: "收到，我们继续。", type: "agent", updated_at: "2026-07-01T00:00:01Z" },
       ],
       memoryStats: { total: 2 },
-      models: [{ id: "fake-openai-chat-000", name: "Fake OpenAI Chat", title: "Fake OpenAI Chat" }],
+      models: [
+        {
+          capabilities: {
+            temperature: true,
+            thinking: {
+              default_level: "enabled",
+              levels: ["enabled", "disabled"],
+              param: "thinking.type",
+              supported: true,
+            },
+          },
+          created_at: "2026-07-01T00:00:00Z",
+          id: "fake-openai-chat-000",
+          kind: "llm",
+          name: "Fake OpenAI Chat",
+          provider: { kind: "openai-tenant", name: "fake-openai" },
+          source: "manual",
+          updated_at: "2026-07-01T00:00:00Z",
+        },
+      ],
       pets: [
         {
           display_name: "Starter Pet",
@@ -62,7 +90,16 @@ test.beforeEach(async ({ page }) => {
           spec: { driver: "flowcraft" },
         },
       ],
-      workspaces: [{ id: "flowcraft-chat", name: "flowcraft-chat", title: "Flowcraft Chat Workspace", workflow_name: "flowcraft-chat" }],
+      workspaces: [
+        {
+          created_at: "2026-07-01T00:00:00Z",
+          last_active_at: "2026-07-01T00:00:01Z",
+          name: "flowcraft-chat",
+          system: false,
+          updated_at: "2026-07-01T00:00:01Z",
+          workflow_name: "flowcraft-chat",
+        },
+      ],
     };
     const pageResponse = (items) => ({ has_next: false, items, next_cursor: null });
     const findByID = (items, id) => items.find((item) => item.id === id) ?? null;
@@ -251,7 +288,18 @@ test("play view renders the full desktop play surface", async ({ page }) => {
 
   await page.getByRole("button", { name: /Workspaces/ }).click();
   await expect(page.getByRole("heading", { name: "Workspaces" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Name" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Display name" })).toHaveCount(0);
   await expect(page.getByText("flowcraft-chat").first()).toBeVisible();
+
+  await page.getByRole("button", { name: /Models 1/ }).click();
+  await expect(page.getByRole("heading", { name: "Models" })).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: "fake-openai-chat-000" })).toContainText("thinking.type");
+
+  await page.getByRole("button", { name: /Credentials/ }).click();
+  await expect(page.getByRole("heading", { name: "Credentials" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Auth fields" })).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: "fake-openai-credential-000" })).toContainText("api_key");
 
   await page.getByRole("button", { name: /Friends/ }).click();
   await expect(page.getByRole("heading", { name: "Friends" })).toBeVisible();
