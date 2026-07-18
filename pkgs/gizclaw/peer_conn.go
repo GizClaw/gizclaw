@@ -185,6 +185,9 @@ func (h *PeerConn) initRPC() {
 		h.rpc.registrations = h.Service.manager.RuntimeProfiles
 		h.rpc.onRegistration = func(registration runtimeprofile.Registration) {
 			h.registration.Store(&registration)
+			if h.Conn != nil {
+				h.Service.manager.SetPeerRegistration(h.Conn.PublicKey(), h.Conn, registration)
+			}
 		}
 	}
 	if h.Conn != nil {

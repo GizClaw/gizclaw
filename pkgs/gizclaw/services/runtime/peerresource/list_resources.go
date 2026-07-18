@@ -3,6 +3,7 @@ package peerresource
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -80,6 +81,9 @@ func (s *Server) ListVoices(ctx context.Context, request adminhttp.ListVoicesReq
 		if rpcResponse != nil {
 			return adminhttp.ListVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", rpcResponse.Error.Message)), nil
 		}
+		if !voiceMatchesListParams(item, request.Params) {
+			continue
+		}
 		items = append(items, item)
 	}
 	requested := 50
@@ -92,6 +96,28 @@ func (s *Server) ListVoices(ctx context.Context, request adminhttp.ListVoicesReq
 		HasNext:    hasNext,
 		NextCursor: nextCursor,
 	}), nil
+}
+
+func voiceMatchesListParams(item apitypes.Voice, params adminhttp.ListVoicesParams) bool {
+	if params.Source != nil {
+		source := strings.TrimSpace(string(*params.Source))
+		if source != "" && string(item.Source) != source {
+			return false
+		}
+	}
+	if params.ProviderKind != nil {
+		kind := strings.TrimSpace(string(*params.ProviderKind))
+		if kind != "" && string(item.Provider.Kind) != kind {
+			return false
+		}
+	}
+	if params.ProviderName != nil {
+		name := strings.TrimSpace(*params.ProviderName)
+		if name != "" && item.Provider.Name != name {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *Server) GetVoice(ctx context.Context, request adminhttp.GetVoiceRequestObject) (adminhttp.GetVoiceResponseObject, error) {

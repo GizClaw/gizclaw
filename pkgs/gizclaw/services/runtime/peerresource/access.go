@@ -305,7 +305,7 @@ func (s *Server) domainWorkspaceNames(ctx context.Context) ([]string, error) {
 			cursor = page.NextCursor
 		}
 	}
-	if s.Gameplay != nil {
+	if s.Gameplay != nil && s.Gameplay.DB != nil {
 		var cursor *string
 		for {
 			page, err := s.Gameplay.ListPets(ctx, owner, apitypes.GameplayListRequest{Cursor: cursor, Limit: &limit})

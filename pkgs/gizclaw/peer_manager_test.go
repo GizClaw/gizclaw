@@ -8,6 +8,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
@@ -76,6 +77,56 @@ func TestManagerSetPeerUpSameConnectionDoesNotReplace(t *testing.T) {
 	}
 	if runtime := manager.PeerRuntime(context.Background(), key); !runtime.Online || !runtime.LastSeenAt.IsZero() {
 		t.Fatalf("runtime after same-conn replacement = %+v", runtime)
+	}
+}
+
+func TestManagerPeerRegistrationFollowsActiveConnection(t *testing.T) {
+	manager := &Manager{}
+	key := giznet.PublicKey{1}
+	oldConn := &testGiznetConn{}
+	newConn := &testGiznetConn{}
+	oldRegistration := runtimeprofile.Registration{
+		FirmwareName: "firmware-old",
+		RuntimeProfile: apitypes.RuntimeProfile{
+			Name: "profile-old",
+		},
+	}
+
+	manager.SetPeerUp(key, oldConn)
+	if !manager.SetPeerRegistration(key, oldConn, oldRegistration) {
+		t.Fatal("SetPeerRegistration() rejected active connection")
+	}
+	resources := (&PeerService{manager: manager}).peerResources(key)
+	if profile := resources.RuntimeProfile(); profile == nil || profile.Name != "profile-old" {
+		t.Fatalf("active RuntimeProfile = %#v", profile)
+	}
+	if firmware := resources.FirmwareName(); firmware != "firmware-old" {
+		t.Fatalf("active firmware = %q", firmware)
+	}
+
+	manager.SetPeerUp(key, newConn)
+	if _, ok := manager.PeerRegistration(key); ok {
+		t.Fatal("replacement connection inherited stale registration")
+	}
+	if manager.SetPeerRegistration(key, oldConn, oldRegistration) {
+		t.Fatal("SetPeerRegistration() accepted stale connection")
+	}
+	newRegistration := runtimeprofile.Registration{
+		FirmwareName: "firmware-new",
+		RuntimeProfile: apitypes.RuntimeProfile{
+			Name: "profile-new",
+		},
+	}
+	if !manager.SetPeerRegistration(key, newConn, newRegistration) {
+		t.Fatal("SetPeerRegistration() rejected replacement connection")
+	}
+	manager.SetPeerDown(key, oldConn)
+	if registration, ok := manager.PeerRegistration(key); !ok || registration.RuntimeProfile.Name != "profile-new" {
+		t.Fatalf("stale disconnect changed registration = %#v, %v", registration, ok)
+	}
+	manager.SetPeerDown(key, newConn)
+	if _, ok := manager.PeerRegistration(key); ok {
+		t.Fatal("disconnected peer retained registration")
 	}
 }
 

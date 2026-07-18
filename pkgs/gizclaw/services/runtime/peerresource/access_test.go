@@ -1,11 +1,14 @@
 package peerresource
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 )
 
 func TestOrderedUniqueKeepsProfileBeforeOwner(t *testing.T) {
@@ -89,5 +92,40 @@ func TestPageVoicesUsesProfileOrder(t *testing.T) {
 	page, hasNext, cursor = pageVoices(items, cursor, &limit)
 	if !reflect.DeepEqual(page, items[2:]) || hasNext || cursor != nil {
 		t.Fatalf("second page = %#v, hasNext=%v cursor=%v", page, hasNext, cursor)
+	}
+}
+
+func TestVoiceMatchesListParams(t *testing.T) {
+	item := apitypes.Voice{
+		Source: apitypes.VoiceSourceManual,
+		Provider: apitypes.VoiceProvider{
+			Kind: apitypes.VoiceProviderKindOpenaiTenant,
+			Name: "primary",
+		},
+	}
+	source := adminhttp.VoiceSource(apitypes.VoiceSourceManual)
+	kind := adminhttp.VoiceProviderKind(apitypes.VoiceProviderKindOpenaiTenant)
+	name := "primary"
+	if !voiceMatchesListParams(item, adminhttp.ListVoicesParams{Source: &source, ProviderKind: &kind, ProviderName: &name}) {
+		t.Fatal("voiceMatchesListParams() rejected matching voice")
+	}
+	otherName := "other"
+	if voiceMatchesListParams(item, adminhttp.ListVoicesParams{ProviderName: &otherName}) {
+		t.Fatal("voiceMatchesListParams() accepted mismatched provider name")
+	}
+	otherSource := adminhttp.VoiceSource(apitypes.VoiceSourceSync)
+	if voiceMatchesListParams(item, adminhttp.ListVoicesParams{Source: &otherSource}) {
+		t.Fatal("voiceMatchesListParams() accepted mismatched source")
+	}
+}
+
+func TestDomainWorkspaceNamesSkipsGameplayWithoutDatabase(t *testing.T) {
+	server := &Server{Gameplay: &gameplay.Runtime{}}
+	names, err := server.domainWorkspaceNames(context.Background())
+	if err != nil {
+		t.Fatalf("domainWorkspaceNames() error = %v", err)
+	}
+	if len(names) != 0 {
+		t.Fatalf("domainWorkspaceNames() = %#v, want empty", names)
 	}
 }

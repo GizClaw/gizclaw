@@ -83,6 +83,21 @@ func (s *PeerService) peerResources(publicKey giznet.PublicKey) *peerresource.Se
 		FriendGroups: manager.FriendGroups,
 		Gameplay:     manager.Gameplay,
 		Tools:        manager.Tools,
+		RuntimeProfile: func() *apitypes.RuntimeProfile {
+			registration, ok := manager.PeerRegistration(publicKey)
+			if !ok {
+				return nil
+			}
+			profile := registration.RuntimeProfile
+			return &profile
+		},
+		FirmwareName: func() string {
+			registration, ok := manager.PeerRegistration(publicKey)
+			if !ok {
+				return ""
+			}
+			return registration.FirmwareName
+		},
 	}
 }
 
