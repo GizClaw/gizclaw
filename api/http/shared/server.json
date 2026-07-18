@@ -17,7 +17,7 @@
         "$ref": "../shared/device_info.json#/components/schemas/DeviceInfo"
       },
       "ServerPutInfoRequest": {
-        "$ref": "../shared/device_info.json#/components/schemas/DeviceInfo"
+        "$ref": "../shared/device_info.json#/components/schemas/DeviceProfile"
       },
       "ServerPutInfoResponse": {
         "$ref": "../shared/device_info.json#/components/schemas/DeviceInfo"
@@ -985,6 +985,46 @@
       },
       "FriendDeleteResponse": {
         "$ref": "#/components/schemas/FriendObject"
+      },
+      "FriendInfo": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "emoji": {
+            "type": "string"
+          }
+        }
+      },
+      "FriendInfoGetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "FriendInfoGetResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/FriendInfo"
+          }
+        },
+        "required": [
+          "id",
+          "value"
+        ]
       },
       "FriendGroupObject": {
         "type": "object",

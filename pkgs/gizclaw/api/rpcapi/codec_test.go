@@ -146,7 +146,7 @@ func TestRPCUnionTypes(t *testing.T) {
 	assertResponseUnion(t, "ServerGetInfo", ServerGetInfoResponse{Name: stringPtr("peer-1")}, (*RPCPayload).FromServerGetInfoResponse, RPCPayload.AsServerGetInfoResponse, (*RPCPayload).MergeServerGetInfoResponse)
 	assertResponseUnion(t, "ServerPutInfo", ServerPutInfoResponse{Name: stringPtr("peer-2")}, (*RPCPayload).FromServerPutInfoResponse, RPCPayload.AsServerPutInfoResponse, (*RPCPayload).MergeServerPutInfoResponse)
 	assertResponseUnion(t, "ServerGetRuntime", ServerGetRuntimeResponse{Online: true, LastSeenAt: now}, (*RPCPayload).FromServerGetRuntimeResponse, RPCPayload.AsServerGetRuntimeResponse, (*RPCPayload).MergeServerGetRuntimeResponse)
-	assertResponseUnion(t, "ClientGetInfo", ClientGetInfoResponse{Name: stringPtr("peer-1")}, (*RPCPayload).FromClientGetInfoResponse, RPCPayload.AsClientGetInfoResponse, (*RPCPayload).MergeClientGetInfoResponse)
+	assertResponseUnion(t, "ClientGetInfo", ClientGetInfoResponse{Model: stringPtr("model-1")}, (*RPCPayload).FromClientGetInfoResponse, RPCPayload.AsClientGetInfoResponse, (*RPCPayload).MergeClientGetInfoResponse)
 	assertResponseUnion(t, "ClientGetIdentifiers", ClientGetIdentifiersResponse{Sn: stringPtr("sn-1")}, (*RPCPayload).FromClientGetIdentifiersResponse, RPCPayload.AsClientGetIdentifiersResponse, (*RPCPayload).MergeClientGetIdentifiersResponse)
 }
 

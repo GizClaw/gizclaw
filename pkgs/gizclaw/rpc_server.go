@@ -10,7 +10,6 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
@@ -88,10 +87,6 @@ func (s *rpcServer) dispatchStream(ctx context.Context, stream *rpcStream, req *
 		return true, s.handleWorkflowIconDownload(ctx, stream, req)
 	case rpcapi.RPCMethodServerWorkspaceIconDownload:
 		return true, s.handleWorkspaceIconDownload(ctx, stream, req)
-	case rpcapi.RPCMethodServerInfoIconDownload:
-		return true, s.handleInfoIconDownload(ctx, stream, req)
-	case rpcapi.RPCMethodServerInfoIconUpload:
-		return true, s.handleInfoIconUpload(ctx, stream, req)
 	case rpcapi.RPCMethodServerWorkspaceHistoryAudioGet:
 		return true, s.handleWorkspaceHistoryAudioGet(ctx, stream, req)
 	default:
@@ -110,8 +105,6 @@ func (s *rpcServer) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpca
 		return s.handleGetInfo(ctx, req)
 	case rpcapi.RPCMethodServerInfoPut:
 		return s.handlePutInfo(ctx, req)
-	case rpcapi.RPCMethodServerInfoIconDelete:
-		return s.handleInfoIconDelete(ctx, req)
 	case rpcapi.RPCMethodServerRuntimeGet:
 		return s.handleGetRuntime(ctx, req)
 	case rpcapi.RPCMethodServerStatusGet:
@@ -196,6 +189,7 @@ func isPlannedServerMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerFriendInviteTokenClear,
 		rpcapi.RPCMethodServerFriendAdd,
 		rpcapi.RPCMethodServerFriendList,
+		rpcapi.RPCMethodServerFriendInfoGet,
 		rpcapi.RPCMethodServerFriendDelete,
 		rpcapi.RPCMethodServerFriendGroupList,
 		rpcapi.RPCMethodServerFriendGroupGet,
@@ -261,7 +255,7 @@ func (s *rpcServer) handlePutInfo(ctx context.Context, req *rpcapi.RPCRequest) (
 		if errors.Is(err, peer.ErrPeerNotFound) {
 			return rpcAPIError(req.Id, http.StatusNotFound, apitypes.NewErrorResponse("PEER_NOT_FOUND", err.Error())), nil
 		}
-		if errors.Is(err, iconasset.ErrInvalid) {
+		if errors.Is(err, peer.ErrInvalidInfo) {
 			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: err.Error()}.RPCResponse(), nil
 		}
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: err.Error()}.RPCResponse(), nil

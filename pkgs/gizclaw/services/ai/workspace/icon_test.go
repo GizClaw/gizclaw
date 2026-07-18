@@ -34,7 +34,7 @@ func TestWorkspaceIconLifecycleAndProjection(t *testing.T) {
 
 	want := workspaceIconPNG(t)
 	uploadResponse, err := srv.UploadWorkspaceIcon(ctx, adminhttp.UploadWorkspaceIconRequestObject{
-		Name: "workspace-icon", Format: adminhttp.UploadWorkspaceIconParamsFormatPng, Body: bytes.NewReader(want),
+		Name: "workspace-icon", Format: adminhttp.UploadWorkspaceIconParamsFormat("png"), Body: bytes.NewReader(want),
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -264,7 +264,16 @@ func ensureAdminPeer(t testing.TB, ts *testServer, c *gizcli.Client, info apityp
 
 func ensurePeerInfo(t testing.TB, c *gizcli.Client, info apitypes.DeviceInfo) string {
 	t.Helper()
-	if _, err := putInfo(context.Background(), c, info); err != nil {
+	c.Device.Name = info.Name
+	c.Device.Emoji = info.Emoji
+	if info.Hardware != nil {
+		c.Device.Hardware = info.Hardware
+	}
+	if info.Identifiers != nil {
+		c.Device.Identifiers = info.Identifiers
+	}
+	profile := apitypes.DeviceInfo{Name: info.Name, Emoji: info.Emoji}
+	if _, err := putInfo(context.Background(), c, profile); err != nil {
 		t.Fatalf("PutInfo error: %v", err)
 	}
 	return c.KeyPair.Public.String()

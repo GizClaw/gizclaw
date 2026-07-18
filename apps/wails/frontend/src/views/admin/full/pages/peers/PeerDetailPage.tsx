@@ -33,7 +33,6 @@ import { StatusBadge } from "@/dashboard";
 import { usePeerDetail } from "../../hooks/usePeerDetail";
 import { formatDate, formatShortKey, peerTitle } from "../../lib/format";
 import { PeerTelemetryPanel } from "./PeerTelemetryPanel";
-import { DomainIconEditor } from "../../components/DomainIconEditor";
 
 export function PeerDetailPage(): JSX.Element {
   const params = useParams();
@@ -52,6 +51,7 @@ export function PeerDetailPage(): JSX.Element {
   const [peerActionBusy, setPeerActionBusy] = useState<string | null>(null);
   const [approveRole, setApproveRole] = useState<PeerRole>("client");
   const [deviceName, setDeviceName] = useState("");
+  const [deviceEmoji, setDeviceEmoji] = useState("");
   const [peerConfigResource, setPeerConfigResource] = useState<Resource | null>(null);
 
   const registration = detail.data?.registration ?? null;
@@ -64,7 +64,8 @@ export function PeerDetailPage(): JSX.Element {
       setApproveRole(detail.data.registration.role);
     }
     setDeviceName(detail.data?.info?.name ?? "");
-  }, [detail.data?.info?.name, detail.data?.registration?.role]);
+    setDeviceEmoji(detail.data?.info?.emoji ?? "");
+  }, [detail.data?.info?.emoji, detail.data?.info?.name, detail.data?.registration?.role]);
 
   const loadPeerConfigResource = useCallback(async () => {
     if (publicKey === "") {
@@ -186,9 +187,10 @@ export function PeerDetailPage(): JSX.Element {
       "info",
       async () => {
         const trimmedName = deviceName.trim();
+        const trimmedEmoji = deviceEmoji.trim();
         const nextInfo: DeviceInfo = {
-          ...(detail.data?.info ?? {}),
-          name: trimmedName === "" ? undefined : trimmedName,
+          name: trimmedName,
+          emoji: trimmedEmoji,
         };
         await expectData(
           putPeerInfo({
@@ -200,7 +202,7 @@ export function PeerDetailPage(): JSX.Element {
       },
       deviceName.trim() === "" ? "Peer name cleared." : `Peer renamed to ${deviceName.trim()}.`,
     );
-  }, [detail, deviceName, publicKey, runPeerAction]);
+  }, [detail, deviceEmoji, deviceName, publicKey, runPeerAction]);
 
   if (publicKey === "") {
     return <EmptyState description="Missing peer public key in the URL." title="Invalid route" />;
@@ -282,7 +284,8 @@ export function PeerDetailPage(): JSX.Element {
                 <DetailBlock
                   items={[
                     ["Name", detail.data?.info?.name],
-                    ["Serial", detail.data?.info?.sn],
+                    ["Emoji", detail.data?.info?.emoji],
+                    ["Serial", detail.data?.info?.identifiers?.sn],
                     ["Manufacturer", detail.data?.info?.hardware?.manufacturer],
                     ["Model", detail.data?.info?.hardware?.model],
                     ["Revision", detail.data?.info?.hardware?.hardware_revision],
@@ -335,12 +338,6 @@ export function PeerDetailPage(): JSX.Element {
             </TabsContent>
 
             <TabsContent className="space-y-4" value="edit">
-              <DomainIconEditor
-                icon={detail.data?.info?.icon}
-                id={publicKey}
-                onChanged={detail.reload}
-                owner="peer"
-              />
               <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
                 <Card>
                   <CardHeader className="pb-3">
@@ -353,6 +350,13 @@ export function PeerDetailPage(): JSX.Element {
                         onChange={(event) => setDeviceName(event.target.value)}
                         placeholder="Living room display"
                         value={deviceName}
+                      />
+                    </FormField>
+                    <FormField description="A platform-rendered Unicode emoji sequence, up to 64 UTF-8 bytes." label="Emoji">
+                      <Input
+                        onChange={(event) => setDeviceEmoji(event.target.value)}
+                        placeholder="🧑‍🚀"
+                        value={deviceEmoji}
                       />
                     </FormField>
                     <div className="flex justify-end border-t pt-4">

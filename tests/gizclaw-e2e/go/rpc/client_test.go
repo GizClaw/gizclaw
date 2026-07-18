@@ -21,14 +21,15 @@ func TestClientRPC(t *testing.T) {
 		Value: "client-rpc",
 	}}
 	env.peer.Device = apitypes.DeviceInfo{
-		Name: testStringPtr("client-rpc-device"),
-		Sn:   testStringPtr("client-rpc-sn"),
 		Hardware: &apitypes.HardwareInfo{
 			Manufacturer:     testStringPtr("GizClaw"),
 			Model:            testStringPtr("E2E RPC"),
 			HardwareRevision: testStringPtr("rev-a"),
-			Imeis:            &imeis,
-			Labels:           &labels,
+		},
+		Identifiers: &apitypes.DeviceIdentifiers{
+			Sn:     testStringPtr("client-rpc-sn"),
+			Imeis:  &imeis,
+			Labels: &labels,
 		},
 	}
 
@@ -49,11 +50,8 @@ func TestClientRPC(t *testing.T) {
 		t.Fatalf("refresh peer errors = %v", *resp.JSON200.Errors)
 	}
 	got := resp.JSON200.Peer.Device
-	if got.Name == nil || *got.Name != "client-rpc-device" {
-		t.Fatalf("refreshed device name = %#v", got.Name)
-	}
-	if got.Sn == nil || *got.Sn != "client-rpc-sn" {
-		t.Fatalf("refreshed device sn = %#v", got.Sn)
+	if got.Identifiers == nil || got.Identifiers.Sn == nil || *got.Identifiers.Sn != "client-rpc-sn" {
+		t.Fatalf("refreshed device identifiers = %#v", got.Identifiers)
 	}
 	if got.Hardware == nil {
 		t.Fatalf("refreshed hardware is nil: %#v", got)
@@ -64,13 +62,13 @@ func TestClientRPC(t *testing.T) {
 	if got.Hardware.Model == nil || *got.Hardware.Model != "E2E RPC" {
 		t.Fatalf("refreshed model = %#v", got.Hardware.Model)
 	}
-	if got.Hardware.Imeis == nil || len(*got.Hardware.Imeis) != 1 || (*got.Hardware.Imeis)[0].Serial != "901234" {
-		t.Fatalf("refreshed imeis = %#v", got.Hardware.Imeis)
+	if got.Identifiers.Imeis == nil || len(*got.Identifiers.Imeis) != 1 || (*got.Identifiers.Imeis)[0].Serial != "901234" {
+		t.Fatalf("refreshed imeis = %#v", got.Identifiers.Imeis)
 	}
-	if got.Hardware.Labels == nil || len(*got.Hardware.Labels) != 1 || (*got.Hardware.Labels)[0].Value != "client-rpc" {
-		t.Fatalf("refreshed labels = %#v", got.Hardware.Labels)
+	if got.Identifiers.Labels == nil || len(*got.Identifiers.Labels) != 1 || (*got.Identifiers.Labels)[0].Value != "client-rpc" {
+		t.Fatalf("refreshed labels = %#v", got.Identifiers.Labels)
 	}
-	if resp.JSON200.UpdatedFields == nil || !hasString(*resp.JSON200.UpdatedFields, "device.name") || !hasString(*resp.JSON200.UpdatedFields, "device.hardware.imeis") {
+	if resp.JSON200.UpdatedFields == nil || !hasString(*resp.JSON200.UpdatedFields, "device.identifiers.imeis") {
 		t.Fatalf("updated fields = %#v", resp.JSON200.UpdatedFields)
 	}
 }

@@ -19,18 +19,6 @@
           },
           "hardware_revision": {
             "type": "string"
-          },
-          "imeis": {
-            "type": "array",
-            "items": {
-              "$ref": "./peer_imei.json#/components/schemas/PeerIMEI"
-            }
-          },
-          "labels": {
-            "type": "array",
-            "items": {
-              "$ref": "./peer_label.json#/components/schemas/PeerLabel"
-            }
           }
         }
       }

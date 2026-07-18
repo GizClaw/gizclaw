@@ -6,20 +6,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { expectData, toMessage } from "@/dashboard";
 import {
   deleteGameDefIcon,
-  deletePeerIcon,
   deleteWorkflowIcon,
   deleteWorkspaceIcon,
   downloadGameDefIcon,
-  downloadPeerIcon,
   downloadWorkflowIcon,
   downloadWorkspaceIcon,
   uploadGameDefIcon,
-  uploadPeerIcon,
   uploadWorkflowIcon,
   uploadWorkspaceIcon,
 } from "@gizclaw/gizclaw/admin";
 
-type IconOwner = "game-def" | "peer" | "workflow" | "workspace";
+type IconOwner = "game-def" | "workflow" | "workspace";
 type IconFormat = "pixa" | "png";
 
 type Props = {
@@ -52,18 +49,15 @@ export function DomainIconEditor({ icon, id, onChanged, owner }: Props): JSX.Ele
   };
 
   const upload = (format: IconFormat, file: File): Promise<void> => run(`upload-${format}`, async () => {
-    const path = owner === "peer" ? { publicKey: id, format } : owner === "game-def" ? { id, format } : { name: id, format };
-    if (owner === "peer") await expectData(uploadPeerIcon({ body: file, path: path as { publicKey: string; format: IconFormat } }));
-    else if (owner === "game-def") await expectData(uploadGameDefIcon({ body: file, path: path as { id: string; format: IconFormat } }));
+    const path = owner === "game-def" ? { id, format } : { name: id, format };
+    if (owner === "game-def") await expectData(uploadGameDefIcon({ body: file, path: path as { id: string; format: IconFormat } }));
     else if (owner === "workflow") await expectData(uploadWorkflowIcon({ body: file, path: path as { name: string; format: IconFormat } }));
     else await expectData(uploadWorkspaceIcon({ body: file, path: path as { name: string; format: IconFormat } }));
     if (format === "png") setPreview(file);
   });
 
   const download = (format: IconFormat): Promise<void> => run(`download-${format}`, async () => {
-    const blob = owner === "peer"
-      ? await expectData(downloadPeerIcon({ path: { publicKey: id, format } }))
-      : owner === "game-def"
+    const blob = owner === "game-def"
         ? await expectData(downloadGameDefIcon({ path: { id, format } }))
         : owner === "workflow"
           ? await expectData(downloadWorkflowIcon({ path: { name: id, format } }))
@@ -81,8 +75,7 @@ export function DomainIconEditor({ icon, id, onChanged, owner }: Props): JSX.Ele
   });
 
   const remove = (format: IconFormat): Promise<void> => run(`delete-${format}`, async () => {
-    if (owner === "peer") await expectData(deletePeerIcon({ path: { publicKey: id, format } }));
-    else if (owner === "game-def") await expectData(deleteGameDefIcon({ path: { id, format } }));
+    if (owner === "game-def") await expectData(deleteGameDefIcon({ path: { id, format } }));
     else if (owner === "workflow") await expectData(deleteWorkflowIcon({ path: { name: id, format } }));
     else await expectData(deleteWorkspaceIcon({ path: { name: id, format } }));
     if (format === "png") setPreviewURL("");

@@ -34,7 +34,6 @@ type adminService struct {
 	credential.CredentialAdminService
 	firmware.FirmwareAdminService
 	peer.PeerAdminService
-	peer.PeerIconAdminService
 	model.ModelAdminService
 	voice.VoiceAdminService
 	providertenants.ProviderTenantsAdminService

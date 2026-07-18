@@ -14,10 +14,7 @@ import 'dart:core' as $core;
 
 import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:protobuf/protobuf.dart' as $pb;
-import 'package:protobuf/well_known_types/google/protobuf/struct.pb.dart' as $1;
-
-import 'enums.pbenum.dart' as $2;
-import 'icon.pb.dart' as $0;
+import 'package:protobuf/well_known_types/google/protobuf/struct.pb.dart' as $0;
 
 export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 
@@ -64,7 +61,7 @@ class ClientGetIdentifiersRequest extends $pb.GeneratedMessage {
 
 class ClientGetIdentifiersResponse extends $pb.GeneratedMessage {
   factory ClientGetIdentifiersResponse({
-    RefreshIdentifiers? value,
+    DeviceIdentifiers? value,
   }) {
     final result = create();
     if (value != null) result.value = value;
@@ -84,8 +81,8 @@ class ClientGetIdentifiersResponse extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ClientGetIdentifiersResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOM<RefreshIdentifiers>(1, _omitFieldNames ? '' : 'value',
-        subBuilder: RefreshIdentifiers.create)
+    ..aOM<DeviceIdentifiers>(1, _omitFieldNames ? '' : 'value',
+        subBuilder: DeviceIdentifiers.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -111,15 +108,15 @@ class ClientGetIdentifiersResponse extends $pb.GeneratedMessage {
   static ClientGetIdentifiersResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
-  RefreshIdentifiers get value => $_getN(0);
+  DeviceIdentifiers get value => $_getN(0);
   @$pb.TagNumber(1)
-  set value(RefreshIdentifiers value) => $_setField(1, value);
+  set value(DeviceIdentifiers value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasValue() => $_has(0);
   @$pb.TagNumber(1)
   void clearValue() => $_clearField(1);
   @$pb.TagNumber(1)
-  RefreshIdentifiers ensureValue() => $_ensure(0);
+  DeviceIdentifiers ensureValue() => $_ensure(0);
 }
 
 class ClientGetInfoRequest extends $pb.GeneratedMessage {
@@ -162,7 +159,7 @@ class ClientGetInfoRequest extends $pb.GeneratedMessage {
 
 class ClientGetInfoResponse extends $pb.GeneratedMessage {
   factory ClientGetInfoResponse({
-    RefreshInfo? value,
+    HardwareInfo? value,
   }) {
     final result = create();
     if (value != null) result.value = value;
@@ -182,8 +179,8 @@ class ClientGetInfoResponse extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ClientGetInfoResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOM<RefreshInfo>(1, _omitFieldNames ? '' : 'value',
-        subBuilder: RefreshInfo.create)
+    ..aOM<HardwareInfo>(1, _omitFieldNames ? '' : 'value',
+        subBuilder: HardwareInfo.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -207,29 +204,29 @@ class ClientGetInfoResponse extends $pb.GeneratedMessage {
   static ClientGetInfoResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
-  RefreshInfo get value => $_getN(0);
+  HardwareInfo get value => $_getN(0);
   @$pb.TagNumber(1)
-  set value(RefreshInfo value) => $_setField(1, value);
+  set value(HardwareInfo value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasValue() => $_has(0);
   @$pb.TagNumber(1)
   void clearValue() => $_clearField(1);
   @$pb.TagNumber(1)
-  RefreshInfo ensureValue() => $_ensure(0);
+  HardwareInfo ensureValue() => $_ensure(0);
 }
 
 class DeviceInfo extends $pb.GeneratedMessage {
   factory DeviceInfo({
     HardwareInfo? hardware,
     $core.String? name,
-    $core.String? sn,
-    $0.Icon? icon,
+    $core.String? emoji,
+    DeviceIdentifiers? identifiers,
   }) {
     final result = create();
     if (hardware != null) result.hardware = hardware;
     if (name != null) result.name = name;
-    if (sn != null) result.sn = sn;
-    if (icon != null) result.icon = icon;
+    if (emoji != null) result.emoji = emoji;
+    if (identifiers != null) result.identifiers = identifiers;
     return result;
   }
 
@@ -249,8 +246,9 @@ class DeviceInfo extends $pb.GeneratedMessage {
     ..aOM<HardwareInfo>(1, _omitFieldNames ? '' : 'hardware',
         subBuilder: HardwareInfo.create)
     ..aOS(2, _omitFieldNames ? '' : 'name')
-    ..aOS(3, _omitFieldNames ? '' : 'sn')
-    ..aOM<$0.Icon>(4, _omitFieldNames ? '' : 'icon', subBuilder: $0.Icon.create)
+    ..aOS(4, _omitFieldNames ? '' : 'emoji')
+    ..aOM<DeviceIdentifiers>(5, _omitFieldNames ? '' : 'identifiers',
+        subBuilder: DeviceIdentifiers.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -291,39 +289,169 @@ class DeviceInfo extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearName() => $_clearField(2);
 
-  @$pb.TagNumber(3)
-  $core.String get sn => $_getSZ(2);
-  @$pb.TagNumber(3)
-  set sn($core.String value) => $_setString(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasSn() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearSn() => $_clearField(3);
+  @$pb.TagNumber(4)
+  $core.String get emoji => $_getSZ(2);
+  @$pb.TagNumber(4)
+  set emoji($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(4)
+  $core.bool hasEmoji() => $_has(2);
+  @$pb.TagNumber(4)
+  void clearEmoji() => $_clearField(4);
 
-  @$pb.TagNumber(4)
-  $0.Icon get icon => $_getN(3);
-  @$pb.TagNumber(4)
-  set icon($0.Icon value) => $_setField(4, value);
-  @$pb.TagNumber(4)
-  $core.bool hasIcon() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearIcon() => $_clearField(4);
-  @$pb.TagNumber(4)
-  $0.Icon ensureIcon() => $_ensure(3);
+  @$pb.TagNumber(5)
+  DeviceIdentifiers get identifiers => $_getN(3);
+  @$pb.TagNumber(5)
+  set identifiers(DeviceIdentifiers value) => $_setField(5, value);
+  @$pb.TagNumber(5)
+  $core.bool hasIdentifiers() => $_has(3);
+  @$pb.TagNumber(5)
+  void clearIdentifiers() => $_clearField(5);
+  @$pb.TagNumber(5)
+  DeviceIdentifiers ensureIdentifiers() => $_ensure(3);
+}
+
+class DeviceProfile extends $pb.GeneratedMessage {
+  factory DeviceProfile({
+    $core.String? name,
+    $core.String? emoji,
+  }) {
+    final result = create();
+    if (name != null) result.name = name;
+    if (emoji != null) result.emoji = emoji;
+    return result;
+  }
+
+  DeviceProfile._();
+
+  factory DeviceProfile.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeviceProfile.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeviceProfile',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aOS(2, _omitFieldNames ? '' : 'emoji')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeviceProfile clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeviceProfile copyWith(void Function(DeviceProfile) updates) =>
+      super.copyWith((message) => updates(message as DeviceProfile))
+          as DeviceProfile;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeviceProfile create() => DeviceProfile._();
+  @$core.override
+  DeviceProfile createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeviceProfile getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeviceProfile>(create);
+  static DeviceProfile? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get emoji => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set emoji($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasEmoji() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearEmoji() => $_clearField(2);
+}
+
+class DeviceIdentifiers extends $pb.GeneratedMessage {
+  factory DeviceIdentifiers({
+    $core.String? sn,
+    $core.Iterable<PeerIMEI>? imeis,
+    $core.Iterable<PeerLabel>? labels,
+  }) {
+    final result = create();
+    if (sn != null) result.sn = sn;
+    if (imeis != null) result.imeis.addAll(imeis);
+    if (labels != null) result.labels.addAll(labels);
+    return result;
+  }
+
+  DeviceIdentifiers._();
+
+  factory DeviceIdentifiers.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeviceIdentifiers.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeviceIdentifiers',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'sn')
+    ..pPM<PeerIMEI>(2, _omitFieldNames ? '' : 'imeis',
+        subBuilder: PeerIMEI.create)
+    ..pPM<PeerLabel>(3, _omitFieldNames ? '' : 'labels',
+        subBuilder: PeerLabel.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeviceIdentifiers clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeviceIdentifiers copyWith(void Function(DeviceIdentifiers) updates) =>
+      super.copyWith((message) => updates(message as DeviceIdentifiers))
+          as DeviceIdentifiers;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeviceIdentifiers create() => DeviceIdentifiers._();
+  @$core.override
+  DeviceIdentifiers createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeviceIdentifiers getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeviceIdentifiers>(create);
+  static DeviceIdentifiers? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get sn => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set sn($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSn() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSn() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $pb.PbList<PeerIMEI> get imeis => $_getList(1);
+
+  @$pb.TagNumber(3)
+  $pb.PbList<PeerLabel> get labels => $_getList(2);
 }
 
 class HardwareInfo extends $pb.GeneratedMessage {
   factory HardwareInfo({
     $core.String? hardwareRevision,
-    $core.Iterable<PeerIMEI>? imeis,
-    $core.Iterable<PeerLabel>? labels,
     $core.String? manufacturer,
     $core.String? model,
   }) {
     final result = create();
     if (hardwareRevision != null) result.hardwareRevision = hardwareRevision;
-    if (imeis != null) result.imeis.addAll(imeis);
-    if (labels != null) result.labels.addAll(labels);
     if (manufacturer != null) result.manufacturer = manufacturer;
     if (model != null) result.model = model;
     return result;
@@ -343,12 +471,8 @@ class HardwareInfo extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'hardwareRevision')
-    ..pPM<PeerIMEI>(2, _omitFieldNames ? '' : 'imeis',
-        subBuilder: PeerIMEI.create)
-    ..pPM<PeerLabel>(3, _omitFieldNames ? '' : 'labels',
-        subBuilder: PeerLabel.create)
-    ..aOS(4, _omitFieldNames ? '' : 'manufacturer')
-    ..aOS(5, _omitFieldNames ? '' : 'model')
+    ..aOS(2, _omitFieldNames ? '' : 'manufacturer')
+    ..aOS(3, _omitFieldNames ? '' : 'model')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -380,28 +504,22 @@ class HardwareInfo extends $pb.GeneratedMessage {
   void clearHardwareRevision() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $pb.PbList<PeerIMEI> get imeis => $_getList(1);
+  $core.String get manufacturer => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set manufacturer($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasManufacturer() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearManufacturer() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $pb.PbList<PeerLabel> get labels => $_getList(2);
-
-  @$pb.TagNumber(4)
-  $core.String get manufacturer => $_getSZ(3);
-  @$pb.TagNumber(4)
-  set manufacturer($core.String value) => $_setString(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasManufacturer() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearManufacturer() => $_clearField(4);
-
-  @$pb.TagNumber(5)
-  $core.String get model => $_getSZ(4);
-  @$pb.TagNumber(5)
-  set model($core.String value) => $_setString(4, value);
-  @$pb.TagNumber(5)
-  $core.bool hasModel() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearModel() => $_clearField(5);
+  $core.String get model => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set model($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasModel() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearModel() => $_clearField(3);
 }
 
 class PeerIMEI extends $pb.GeneratedMessage {
@@ -550,7 +668,7 @@ class PeerStatus extends $pb.GeneratedMessage {
   factory PeerStatus({
     $fixnum.Int64? batteryPercent,
     $core.bool? charging,
-    $1.Struct? details,
+    $0.Struct? details,
     $core.double? gnssAccuracyM,
     $core.double? gnssAltitudeM,
     $core.double? gnssLatitude,
@@ -590,8 +708,8 @@ class PeerStatus extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aInt64(1, _omitFieldNames ? '' : 'batteryPercent')
     ..aOB(2, _omitFieldNames ? '' : 'charging')
-    ..aOM<$1.Struct>(3, _omitFieldNames ? '' : 'details',
-        subBuilder: $1.Struct.create)
+    ..aOM<$0.Struct>(3, _omitFieldNames ? '' : 'details',
+        subBuilder: $0.Struct.create)
     ..aD(4, _omitFieldNames ? '' : 'gnssAccuracyM')
     ..aD(5, _omitFieldNames ? '' : 'gnssAltitudeM')
     ..aD(6, _omitFieldNames ? '' : 'gnssLatitude')
@@ -643,15 +761,15 @@ class PeerStatus extends $pb.GeneratedMessage {
   void clearCharging() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $1.Struct get details => $_getN(2);
+  $0.Struct get details => $_getN(2);
   @$pb.TagNumber(3)
-  set details($1.Struct value) => $_setField(3, value);
+  set details($0.Struct value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasDetails() => $_has(2);
   @$pb.TagNumber(3)
   void clearDetails() => $_clearField(3);
   @$pb.TagNumber(3)
-  $1.Struct ensureDetails() => $_ensure(2);
+  $0.Struct ensureDetails() => $_ensure(2);
 
   @$pb.TagNumber(4)
   $core.double get gnssAccuracyM => $_getN(3);
@@ -826,164 +944,6 @@ class PingResponse extends $pb.GeneratedMessage {
   $core.bool hasServerTime() => $_has(0);
   @$pb.TagNumber(1)
   void clearServerTime() => $_clearField(1);
-}
-
-class RefreshIdentifiers extends $pb.GeneratedMessage {
-  factory RefreshIdentifiers({
-    $core.Iterable<PeerIMEI>? imeis,
-    $core.Iterable<PeerLabel>? labels,
-    $core.String? sn,
-  }) {
-    final result = create();
-    if (imeis != null) result.imeis.addAll(imeis);
-    if (labels != null) result.labels.addAll(labels);
-    if (sn != null) result.sn = sn;
-    return result;
-  }
-
-  RefreshIdentifiers._();
-
-  factory RefreshIdentifiers.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory RefreshIdentifiers.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'RefreshIdentifiers',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..pPM<PeerIMEI>(1, _omitFieldNames ? '' : 'imeis',
-        subBuilder: PeerIMEI.create)
-    ..pPM<PeerLabel>(2, _omitFieldNames ? '' : 'labels',
-        subBuilder: PeerLabel.create)
-    ..aOS(3, _omitFieldNames ? '' : 'sn')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  RefreshIdentifiers clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  RefreshIdentifiers copyWith(void Function(RefreshIdentifiers) updates) =>
-      super.copyWith((message) => updates(message as RefreshIdentifiers))
-          as RefreshIdentifiers;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static RefreshIdentifiers create() => RefreshIdentifiers._();
-  @$core.override
-  RefreshIdentifiers createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static RefreshIdentifiers getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<RefreshIdentifiers>(create);
-  static RefreshIdentifiers? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $pb.PbList<PeerIMEI> get imeis => $_getList(0);
-
-  @$pb.TagNumber(2)
-  $pb.PbList<PeerLabel> get labels => $_getList(1);
-
-  @$pb.TagNumber(3)
-  $core.String get sn => $_getSZ(2);
-  @$pb.TagNumber(3)
-  set sn($core.String value) => $_setString(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasSn() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearSn() => $_clearField(3);
-}
-
-class RefreshInfo extends $pb.GeneratedMessage {
-  factory RefreshInfo({
-    $core.String? hardwareRevision,
-    $core.String? manufacturer,
-    $core.String? model,
-    $core.String? name,
-  }) {
-    final result = create();
-    if (hardwareRevision != null) result.hardwareRevision = hardwareRevision;
-    if (manufacturer != null) result.manufacturer = manufacturer;
-    if (model != null) result.model = model;
-    if (name != null) result.name = name;
-    return result;
-  }
-
-  RefreshInfo._();
-
-  factory RefreshInfo.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory RefreshInfo.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'RefreshInfo',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'hardwareRevision')
-    ..aOS(2, _omitFieldNames ? '' : 'manufacturer')
-    ..aOS(3, _omitFieldNames ? '' : 'model')
-    ..aOS(4, _omitFieldNames ? '' : 'name')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  RefreshInfo clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  RefreshInfo copyWith(void Function(RefreshInfo) updates) =>
-      super.copyWith((message) => updates(message as RefreshInfo))
-          as RefreshInfo;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static RefreshInfo create() => RefreshInfo._();
-  @$core.override
-  RefreshInfo createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static RefreshInfo getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<RefreshInfo>(create);
-  static RefreshInfo? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get hardwareRevision => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set hardwareRevision($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasHardwareRevision() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearHardwareRevision() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.String get manufacturer => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set manufacturer($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasManufacturer() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearManufacturer() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $core.String get model => $_getSZ(2);
-  @$pb.TagNumber(3)
-  set model($core.String value) => $_setString(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasModel() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearModel() => $_clearField(3);
-
-  @$pb.TagNumber(4)
-  $core.String get name => $_getSZ(3);
-  @$pb.TagNumber(4)
-  set name($core.String value) => $_setString(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasName() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearName() => $_clearField(4);
 }
 
 class Runtime extends $pb.GeneratedMessage {
@@ -1284,7 +1244,7 @@ class ServerGetStatusResponse extends $pb.GeneratedMessage {
 
 class ServerPutInfoRequest extends $pb.GeneratedMessage {
   factory ServerPutInfoRequest({
-    DeviceInfo? value,
+    DeviceProfile? value,
   }) {
     final result = create();
     if (value != null) result.value = value;
@@ -1304,8 +1264,8 @@ class ServerPutInfoRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ServerPutInfoRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOM<DeviceInfo>(1, _omitFieldNames ? '' : 'value',
-        subBuilder: DeviceInfo.create)
+    ..aOM<DeviceProfile>(1, _omitFieldNames ? '' : 'value',
+        subBuilder: DeviceProfile.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1328,15 +1288,15 @@ class ServerPutInfoRequest extends $pb.GeneratedMessage {
   static ServerPutInfoRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
-  DeviceInfo get value => $_getN(0);
+  DeviceProfile get value => $_getN(0);
   @$pb.TagNumber(1)
-  set value(DeviceInfo value) => $_setField(1, value);
+  set value(DeviceProfile value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasValue() => $_has(0);
   @$pb.TagNumber(1)
   void clearValue() => $_clearField(1);
   @$pb.TagNumber(1)
-  DeviceInfo ensureValue() => $_ensure(0);
+  DeviceProfile ensureValue() => $_ensure(0);
 }
 
 class ServerPutInfoResponse extends $pb.GeneratedMessage {
@@ -1384,370 +1344,6 @@ class ServerPutInfoResponse extends $pb.GeneratedMessage {
   static ServerPutInfoResponse getDefault() => _defaultInstance ??=
       $pb.GeneratedMessage.$_defaultFor<ServerPutInfoResponse>(create);
   static ServerPutInfoResponse? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  DeviceInfo get value => $_getN(0);
-  @$pb.TagNumber(1)
-  set value(DeviceInfo value) => $_setField(1, value);
-  @$pb.TagNumber(1)
-  $core.bool hasValue() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearValue() => $_clearField(1);
-  @$pb.TagNumber(1)
-  DeviceInfo ensureValue() => $_ensure(0);
-}
-
-class ServerInfoIconDeleteRequest extends $pb.GeneratedMessage {
-  factory ServerInfoIconDeleteRequest({
-    $2.IconFormat? format,
-  }) {
-    final result = create();
-    if (format != null) result.format = format;
-    return result;
-  }
-
-  ServerInfoIconDeleteRequest._();
-
-  factory ServerInfoIconDeleteRequest.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ServerInfoIconDeleteRequest.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ServerInfoIconDeleteRequest',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aE<$2.IconFormat>(1, _omitFieldNames ? '' : 'format',
-        enumValues: $2.IconFormat.values)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ServerInfoIconDeleteRequest clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ServerInfoIconDeleteRequest copyWith(
-          void Function(ServerInfoIconDeleteRequest) updates) =>
-      super.copyWith(
-              (message) => updates(message as ServerInfoIconDeleteRequest))
-          as ServerInfoIconDeleteRequest;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ServerInfoIconDeleteRequest create() =>
-      ServerInfoIconDeleteRequest._();
-  @$core.override
-  ServerInfoIconDeleteRequest createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ServerInfoIconDeleteRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ServerInfoIconDeleteRequest>(create);
-  static ServerInfoIconDeleteRequest? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $2.IconFormat get format => $_getN(0);
-  @$pb.TagNumber(1)
-  set format($2.IconFormat value) => $_setField(1, value);
-  @$pb.TagNumber(1)
-  $core.bool hasFormat() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearFormat() => $_clearField(1);
-}
-
-class ServerInfoIconDeleteResponse extends $pb.GeneratedMessage {
-  factory ServerInfoIconDeleteResponse({
-    DeviceInfo? value,
-  }) {
-    final result = create();
-    if (value != null) result.value = value;
-    return result;
-  }
-
-  ServerInfoIconDeleteResponse._();
-
-  factory ServerInfoIconDeleteResponse.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ServerInfoIconDeleteResponse.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ServerInfoIconDeleteResponse',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOM<DeviceInfo>(1, _omitFieldNames ? '' : 'value',
-        subBuilder: DeviceInfo.create)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ServerInfoIconDeleteResponse clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ServerInfoIconDeleteResponse copyWith(
-          void Function(ServerInfoIconDeleteResponse) updates) =>
-      super.copyWith(
-              (message) => updates(message as ServerInfoIconDeleteResponse))
-          as ServerInfoIconDeleteResponse;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ServerInfoIconDeleteResponse create() =>
-      ServerInfoIconDeleteResponse._();
-  @$core.override
-  ServerInfoIconDeleteResponse createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ServerInfoIconDeleteResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ServerInfoIconDeleteResponse>(create);
-  static ServerInfoIconDeleteResponse? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  DeviceInfo get value => $_getN(0);
-  @$pb.TagNumber(1)
-  set value(DeviceInfo value) => $_setField(1, value);
-  @$pb.TagNumber(1)
-  $core.bool hasValue() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearValue() => $_clearField(1);
-  @$pb.TagNumber(1)
-  DeviceInfo ensureValue() => $_ensure(0);
-}
-
-class ServerInfoIconDownloadRequest extends $pb.GeneratedMessage {
-  factory ServerInfoIconDownloadRequest({
-    $2.IconFormat? format,
-  }) {
-    final result = create();
-    if (format != null) result.format = format;
-    return result;
-  }
-
-  ServerInfoIconDownloadRequest._();
-
-  factory ServerInfoIconDownloadRequest.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ServerInfoIconDownloadRequest.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ServerInfoIconDownloadRequest',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aE<$2.IconFormat>(1, _omitFieldNames ? '' : 'format',
-        enumValues: $2.IconFormat.values)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ServerInfoIconDownloadRequest clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ServerInfoIconDownloadRequest copyWith(
-          void Function(ServerInfoIconDownloadRequest) updates) =>
-      super.copyWith(
-              (message) => updates(message as ServerInfoIconDownloadRequest))
-          as ServerInfoIconDownloadRequest;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ServerInfoIconDownloadRequest create() =>
-      ServerInfoIconDownloadRequest._();
-  @$core.override
-  ServerInfoIconDownloadRequest createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ServerInfoIconDownloadRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ServerInfoIconDownloadRequest>(create);
-  static ServerInfoIconDownloadRequest? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $2.IconFormat get format => $_getN(0);
-  @$pb.TagNumber(1)
-  set format($2.IconFormat value) => $_setField(1, value);
-  @$pb.TagNumber(1)
-  $core.bool hasFormat() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearFormat() => $_clearField(1);
-}
-
-class ServerInfoIconDownloadResponse extends $pb.GeneratedMessage {
-  factory ServerInfoIconDownloadResponse({
-    $2.IconFormat? format,
-    $fixnum.Int64? sizeBytes,
-  }) {
-    final result = create();
-    if (format != null) result.format = format;
-    if (sizeBytes != null) result.sizeBytes = sizeBytes;
-    return result;
-  }
-
-  ServerInfoIconDownloadResponse._();
-
-  factory ServerInfoIconDownloadResponse.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ServerInfoIconDownloadResponse.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ServerInfoIconDownloadResponse',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aE<$2.IconFormat>(1, _omitFieldNames ? '' : 'format',
-        enumValues: $2.IconFormat.values)
-    ..aInt64(2, _omitFieldNames ? '' : 'sizeBytes')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ServerInfoIconDownloadResponse clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ServerInfoIconDownloadResponse copyWith(
-          void Function(ServerInfoIconDownloadResponse) updates) =>
-      super.copyWith(
-              (message) => updates(message as ServerInfoIconDownloadResponse))
-          as ServerInfoIconDownloadResponse;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ServerInfoIconDownloadResponse create() =>
-      ServerInfoIconDownloadResponse._();
-  @$core.override
-  ServerInfoIconDownloadResponse createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ServerInfoIconDownloadResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ServerInfoIconDownloadResponse>(create);
-  static ServerInfoIconDownloadResponse? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $2.IconFormat get format => $_getN(0);
-  @$pb.TagNumber(1)
-  set format($2.IconFormat value) => $_setField(1, value);
-  @$pb.TagNumber(1)
-  $core.bool hasFormat() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearFormat() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $fixnum.Int64 get sizeBytes => $_getI64(1);
-  @$pb.TagNumber(2)
-  set sizeBytes($fixnum.Int64 value) => $_setInt64(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasSizeBytes() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearSizeBytes() => $_clearField(2);
-}
-
-class ServerInfoIconUploadRequest extends $pb.GeneratedMessage {
-  factory ServerInfoIconUploadRequest({
-    $2.IconFormat? format,
-  }) {
-    final result = create();
-    if (format != null) result.format = format;
-    return result;
-  }
-
-  ServerInfoIconUploadRequest._();
-
-  factory ServerInfoIconUploadRequest.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ServerInfoIconUploadRequest.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ServerInfoIconUploadRequest',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aE<$2.IconFormat>(1, _omitFieldNames ? '' : 'format',
-        enumValues: $2.IconFormat.values)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ServerInfoIconUploadRequest clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ServerInfoIconUploadRequest copyWith(
-          void Function(ServerInfoIconUploadRequest) updates) =>
-      super.copyWith(
-              (message) => updates(message as ServerInfoIconUploadRequest))
-          as ServerInfoIconUploadRequest;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ServerInfoIconUploadRequest create() =>
-      ServerInfoIconUploadRequest._();
-  @$core.override
-  ServerInfoIconUploadRequest createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ServerInfoIconUploadRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ServerInfoIconUploadRequest>(create);
-  static ServerInfoIconUploadRequest? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $2.IconFormat get format => $_getN(0);
-  @$pb.TagNumber(1)
-  set format($2.IconFormat value) => $_setField(1, value);
-  @$pb.TagNumber(1)
-  $core.bool hasFormat() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearFormat() => $_clearField(1);
-}
-
-class ServerInfoIconUploadResponse extends $pb.GeneratedMessage {
-  factory ServerInfoIconUploadResponse({
-    DeviceInfo? value,
-  }) {
-    final result = create();
-    if (value != null) result.value = value;
-    return result;
-  }
-
-  ServerInfoIconUploadResponse._();
-
-  factory ServerInfoIconUploadResponse.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ServerInfoIconUploadResponse.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ServerInfoIconUploadResponse',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOM<DeviceInfo>(1, _omitFieldNames ? '' : 'value',
-        subBuilder: DeviceInfo.create)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ServerInfoIconUploadResponse clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ServerInfoIconUploadResponse copyWith(
-          void Function(ServerInfoIconUploadResponse) updates) =>
-      super.copyWith(
-              (message) => updates(message as ServerInfoIconUploadResponse))
-          as ServerInfoIconUploadResponse;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ServerInfoIconUploadResponse create() =>
-      ServerInfoIconUploadResponse._();
-  @$core.override
-  ServerInfoIconUploadResponse createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ServerInfoIconUploadResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ServerInfoIconUploadResponse>(create);
-  static ServerInfoIconUploadResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
   DeviceInfo get value => $_getN(0);

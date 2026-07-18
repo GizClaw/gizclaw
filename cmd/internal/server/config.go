@@ -98,7 +98,6 @@ const (
 	defaultBadgeDefsStore                = "badge-defs"
 	defaultGameDefsStore                 = "game-defs"
 	defaultGameplayAssetsStore           = "gameplay-assets"
-	defaultPeerAssetsStore               = "peer-assets"
 	defaultWorkspaceAssetsStore          = "workspace-assets"
 	defaultWorkflowAssetsStore           = "workflow-assets"
 	defaultGameplayDBStore               = "gameplay-db"

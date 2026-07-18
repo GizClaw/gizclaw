@@ -78,6 +78,20 @@ message FriendDeleteResponse {
   FriendObject value = 1;
 }
 
+message FriendInfo {
+  optional string name = 1;
+  optional string emoji = 2;
+}
+
+message FriendInfoGetRequest {
+  string id = 1;
+}
+
+message FriendInfoGetResponse {
+  string id = 1;
+  FriendInfo value = 2;
+}
+
 message FriendGroupCreateRequest {
   optional string description = 1;
   string name = 2;

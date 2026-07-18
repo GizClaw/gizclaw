@@ -20,11 +20,17 @@ export type GiznetWebRtcSignalingError = {
     error: string;
 };
 
+export type DeviceIdentifiers = {
+    sn?: string;
+    imeis?: Array<PeerImei>;
+    labels?: Array<PeerLabel>;
+};
+
 export type DeviceInfo = {
     name?: string;
-    sn?: string;
+    emoji?: string;
     hardware?: HardwareInfo;
-    icon?: Icon;
+    identifiers?: DeviceIdentifiers;
 };
 
 export type ErrorPayload = {
@@ -43,19 +49,6 @@ export type HardwareInfo = {
     manufacturer?: string;
     model?: string;
     hardware_revision?: string;
-    imeis?: Array<PeerImei>;
-    labels?: Array<PeerLabel>;
-};
-
-export type Icon = {
-    /**
-     * Owner-scoped relative PIXA object name.
-     */
-    pixa?: string;
-    /**
-     * Owner-scoped relative PNG object name.
-     */
-    png?: string;
 };
 
 export type PeerImei = {

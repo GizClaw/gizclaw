@@ -25,3 +25,9 @@
 | `peerRPCConn` / `callPeerRPC` | 打开 Peer RPC stream 并执行 typed RPC call。 |
 | `retainTelemetryStatusLock` / `releaseTelemetryStatusLock` | 按 public key 管理 telemetry status 更新锁的生命周期。 |
 | `applyPeerRefreshInfo` / `applyPeerRefreshIdentifiers` | 将 RPC refresh response 合并到持久化 Peer model。 |
+
+## 设备元数据归属
+
+`client.info.get` 只反向刷新 `HardwareInfo`（`hardware_revision`、`manufacturer`、`model`）。`client.identifiers.get` 只反向刷新 `DeviceIdentifiers`（`sn`、`imeis`、`labels`）。由 Server 持有的个人资料字段 `name` 与 `emoji` 通过 `server.info.put` 修改，不会被反向刷新覆盖。`name` 必须是有效 UTF-8 且不超过 256 bytes，`emoji` 必须是有效 UTF-8 且不超过 64 bytes。
+
+好友通过 `server.friend.info.get` 读取这些文本资料。该方法要求调用者作用域内已存在好友关系，并且不返回二进制头像数据。

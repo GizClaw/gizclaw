@@ -59,6 +59,9 @@
       "DeviceInfo": {
         "$ref": "./shared/device_info.json#/components/schemas/DeviceInfo"
       },
+      "DeviceIdentifiers": {
+        "$ref": "./shared/device_identifiers.json#/components/schemas/DeviceIdentifiers"
+      },
       "ErrorPayload": {
         "$ref": "./shared/error_payload.json#/components/schemas/ErrorPayload"
       },
@@ -145,12 +148,6 @@
       },
       "ServerLogStreamEnd": {
         "$ref": "./shared/server_log.json#/components/schemas/ServerLogStreamEnd"
-      },
-      "RefreshInfo": {
-        "$ref": "./shared/refresh_info.json#/components/schemas/RefreshInfo"
-      },
-      "RefreshIdentifiers": {
-        "$ref": "./shared/refresh_identifiers.json#/components/schemas/RefreshIdentifiers"
       },
       "Credential": {
         "$ref": "./shared/credential.json#/components/schemas/Credential"

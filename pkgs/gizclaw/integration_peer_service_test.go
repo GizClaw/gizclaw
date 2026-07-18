@@ -17,8 +17,8 @@ func TestIntegrationPeerServiceLifecycle(t *testing.T) {
 	device := newTestClient(t, ts)
 	devicePublicKey := ensurePeerInfo(t, device, apitypes.DeviceInfo{
 		Name: strPtr("peer"),
-		Sn:   strPtr("sn/1"),
-		Hardware: &apitypes.HardwareInfo{
+		Identifiers: &apitypes.DeviceIdentifiers{
+			Sn:    strPtr("sn/1"),
 			Imeis: &[]apitypes.PeerIMEI{{Name: strPtr("main"), Tac: "12345678", Serial: "0000001"}},
 			Labels: &[]apitypes.PeerLabel{{
 				Key:   "batch",
@@ -37,6 +37,9 @@ func TestIntegrationPeerServiceLifecycle(t *testing.T) {
 
 	if _, err := approvePeer(context.Background(), admin, devicePublicKey, apitypes.PeerRoleClient); err != nil {
 		t.Fatalf("ApprovePeer error: %v", err)
+	}
+	if _, err := refreshPeer(context.Background(), admin, devicePublicKey); err != nil {
+		t.Fatalf("RefreshPeer error: %v", err)
 	}
 	if _, err := getPeer(context.Background(), admin, devicePublicKey); err != nil {
 		t.Fatalf("GetPeer error: %v", err)

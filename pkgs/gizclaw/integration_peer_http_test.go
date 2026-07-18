@@ -15,8 +15,8 @@ func TestIntegrationPeerHTTPAutoPeerAndReadBack(t *testing.T) {
 	}
 
 	publicKey := ensurePeerInfo(t, device, apitypes.DeviceInfo{
-		Name: strPtr("demo-device"),
-		Sn:   strPtr("sn-001"),
+		Name:        strPtr("demo-device"),
+		Identifiers: &apitypes.DeviceIdentifiers{Sn: strPtr("sn-001")},
 		Hardware: &apitypes.HardwareInfo{
 			Manufacturer: strPtr("Acme"),
 			Model:        strPtr("M1"),
@@ -46,8 +46,8 @@ func TestIntegrationPeerHTTPAutoPeerAndReadBack(t *testing.T) {
 		t.Fatalf("GetServerInfo error: %v", err)
 	}
 	if _, err := putInfo(context.Background(), device, apitypes.DeviceInfo{
-		Name: strPtr("demo-device-2"),
-		Sn:   strPtr("sn-002"),
+		Name:  strPtr("demo-device-2"),
+		Emoji: strPtr("🧑‍🚀"),
 	}); err != nil {
 		t.Fatalf("PutInfo error: %v", err)
 	}

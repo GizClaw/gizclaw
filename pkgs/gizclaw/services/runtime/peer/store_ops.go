@@ -8,9 +8,9 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -58,17 +58,23 @@ func isAutoConnectedPeer(peer apitypes.Peer) bool {
 }
 
 func (s *Server) putInfo(ctx context.Context, publicKey giznet.PublicKey, info apitypes.DeviceInfo) (apitypes.Peer, error) {
+	if info.Hardware != nil || info.Identifiers != nil {
+		return apitypes.Peer{}, fmt.Errorf("%w: hardware and identifiers are read-only", ErrInvalidInfo)
+	}
+	if info.Name != nil && (!utf8.ValidString(*info.Name) || len(*info.Name) > 256) {
+		return apitypes.Peer{}, fmt.Errorf("%w: name must be valid UTF-8 and at most 256 bytes", ErrInvalidInfo)
+	}
+	if info.Emoji != nil && (!utf8.ValidString(*info.Emoji) || len(*info.Emoji) > 64) {
+		return apitypes.Peer{}, fmt.Errorf("%w: emoji must be valid UTF-8 and at most 64 bytes", ErrInvalidInfo)
+	}
 	unlock := s.IconLocks.LockRecord(publicKey.String())
 	defer unlock()
 	peer, err := s.get(ctx, publicKey)
 	if err != nil {
 		return apitypes.Peer{}, err
 	}
-	if err := iconasset.ValidateProjection(peer.Device.Icon, info.Icon); err != nil {
-		return apitypes.Peer{}, err
-	}
-	info.Icon = peer.Device.Icon
-	peer.Device = info
+	peer.Device.Name = info.Name
+	peer.Device.Emoji = info.Emoji
 	return s.putRecord(ctx, peer)
 }
 
@@ -159,21 +165,11 @@ func (s *Server) block(ctx context.Context, publicKey giznet.PublicKey) (apitype
 }
 
 func (s *Server) delete(ctx context.Context, publicKey giznet.PublicKey) (apitypes.Peer, error) {
-	unlock := s.IconLocks.LockOwner(publicKey.String())
+	unlock := s.IconLocks.LockRecord(publicKey.String())
 	defer unlock()
 	peer, err := s.get(ctx, publicKey)
 	if err != nil {
 		return apitypes.Peer{}, err
-	}
-	if peer.Device.Icon != nil && s.Assets == nil {
-		return apitypes.Peer{}, errors.New("peer: asset store not configured")
-	}
-	if s.Assets != nil {
-		for _, format := range []iconasset.Format{iconasset.FormatPixa, iconasset.FormatPNG} {
-			if err := s.Assets.Delete(iconasset.ObjectName(publicKey.String(), format)); err != nil {
-				return apitypes.Peer{}, errors.New("peer: failed to delete icon")
-			}
-		}
 	}
 	store, err := s.store()
 	if err != nil {
@@ -270,16 +266,6 @@ func (s *Server) put(ctx context.Context, peer apitypes.Peer) (apitypes.Peer, er
 	recordUnlock := s.IconLocks.LockRecord(publicKey.String())
 	defer recordUnlock()
 
-	old, err := s.get(ctx, publicKey)
-	if err != nil && !errors.Is(err, ErrPeerNotFound) {
-		return apitypes.Peer{}, err
-	}
-	if err == nil {
-		if err := iconasset.ValidateProjection(old.Device.Icon, peer.Device.Icon); err != nil {
-			return apitypes.Peer{}, err
-		}
-		peer.Device.Icon = old.Device.Icon
-	}
 	return s.putRecord(ctx, peer)
 }
 

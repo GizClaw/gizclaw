@@ -3,7 +3,6 @@ import 'dart:typed_data';
 
 import 'package:gizclaw/src/generated/rpc/rpc.pb.dart' as rpc;
 import 'package:gizclaw/src/generated/rpc/payload.pb.dart' as payload;
-import 'package:gizclaw/src/generated/rpc/payload/enums.pbenum.dart' as enums;
 import 'package:gizclaw/src/payload_codec.dart';
 import 'package:gizclaw/src/rpc_client.dart';
 import 'package:gizclaw/src/rpc_frame.dart';
@@ -53,10 +52,10 @@ void main() {
     final client = PeerRpcClient(factory, createId: () => 'rpc-upload');
     final body = Uint8List.fromList(List<int>.generate(70000, (i) => i % 251));
 
-    final future = client.callUpload<payload.ServerInfoIconUploadResponse>(
-      'server.info.icon.upload',
-      payload.ServerInfoIconUploadRequest(
-        format: enums.IconFormat.ICON_FORMAT_PNG,
+    final future = client.callUpload<payload.ServerPutInfoResponse>(
+      'server.info.put',
+      payload.ServerPutInfoRequest(
+        value: payload.DeviceProfile(name: 'mobile'),
       ),
       body,
     );
@@ -76,8 +75,8 @@ void main() {
           rpc.RpcResponse(
             id: 'rpc-upload',
             payload: encodeRpcResponsePayload(
-              'server.info.icon.upload',
-              payload.ServerInfoIconUploadResponse(
+              'server.info.put',
+              payload.ServerPutInfoResponse(
                 value: payload.DeviceInfo(name: 'mobile'),
               ),
             ),

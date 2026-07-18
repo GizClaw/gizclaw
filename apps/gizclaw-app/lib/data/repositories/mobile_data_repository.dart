@@ -35,6 +35,7 @@ class MobileDataRepository {
   MobileDataRepository(this.database);
 
   final AppDatabase database;
+  final Map<String, Map<String, FriendInfo>> _friendInfos = {};
 
   Future<String?> serverIdForEndpoint(String endpoint) async {
     final query = database.select(database.servers)
@@ -73,19 +74,24 @@ class MobileDataRepository {
     final query = database.select(database.friendEntries)
       ..where((row) => row.serverId.equals(serverId))
       ..orderBy([(row) => OrderingTerm.asc(row.peerPublicKey)]);
-    return query.watch().map(
-      (rows) => rows
+    return query.watch().map((rows) {
+      final infos = _friendInfos[serverId] ?? const <String, FriendInfo>{};
+      return rows
           .where((row) => row.workspaceName?.isNotEmpty ?? false)
-          .map(
-            (row) => ChatroomWorkspaceMetadata(
+          .map((row) {
+            final info = infos[row.id];
+            return ChatroomWorkspaceMetadata(
               workspaceName: row.workspaceName!,
-              title: row.id,
+              title: (info?.name.trim().isNotEmpty ?? false)
+                  ? info!.name
+                  : row.id,
+              emoji: info?.emoji ?? '',
               kind: ChatroomWorkspaceKind.direct,
               resourceId: row.id,
-            ),
-          )
-          .toList(growable: false),
-    );
+            );
+          })
+          .toList(growable: false);
+    });
   }
 
   Stream<List<ChatroomWorkspaceMetadata>> watchFriendGroupChats(
@@ -193,9 +199,17 @@ class MobileDataRepository {
 
     final refreshedAt = DateTime.now().toUtc();
     try {
+      final friends = await _allFriends(client);
+      final infos = await _allFriendInfos(
+        client,
+        friends,
+        previous: _friendInfos[serverId],
+      );
+      _requireCurrent(isCurrent);
+      _friendInfos[serverId] = infos;
       await _replaceFriends(
         serverId: serverId,
-        friends: await _allFriends(client),
+        friends: friends,
         isCurrent: isCurrent,
         refreshedAt: refreshedAt,
       );
@@ -483,6 +497,24 @@ Future<List<FriendObject>> _allFriends(GizClawClient client) async {
     cursor = response.hasNext ? response.nextCursor : null;
   } while (cursor != null && cursor.isNotEmpty);
   return items.where((item) => _friendKey(item).isNotEmpty).toList();
+}
+
+Future<Map<String, FriendInfo>> _allFriendInfos(
+  GizClawClient client,
+  List<FriendObject> friends, {
+  Map<String, FriendInfo>? previous,
+}) async {
+  final infos = <String, FriendInfo>{...?previous};
+  for (final friend in friends) {
+    final id = _friendKey(friend);
+    try {
+      final response = await client.getFriendInfo(id);
+      if (response.hasValue()) infos[id] = response.value;
+    } catch (_) {
+      // Keep the last cached profile when a single friend lookup is transiently unavailable.
+    }
+  }
+  return infos;
 }
 
 Future<List<FriendGroupObject>> _allFriendGroups(GizClawClient client) async {

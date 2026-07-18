@@ -483,12 +483,13 @@ func (h *Harness) RegisterContext(name string, extraArgs ...string) Result {
 	if err != nil {
 		return Result{Args: append([]string{"register-context", name}, extraArgs...), Err: err, Stderr: err.Error()}
 	}
-	c, closeWait, err := h.connectClientFromContextWithCloseWait(name)
+	c, closeWait, err := h.connectClientFromContextWithDevice(name, info)
 	if err != nil {
 		return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
 	}
 	defer closeWait()
-	rpcReq, err := convertHarnessAPIType[rpcapi.ServerPutInfoRequest](info)
+	profile := apitypes.DeviceInfo{Name: info.Name, Emoji: info.Emoji}
+	rpcReq, err := convertHarnessAPIType[rpcapi.ServerPutInfoRequest](profile)
 	if err != nil {
 		return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
 	}
@@ -498,6 +499,36 @@ func (h *Harness) RegisterContext(name string, extraArgs ...string) Result {
 	if err != nil {
 		return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
 	}
+	if info.Hardware != nil || info.Identifiers != nil {
+		const refreshAdminContext = "__register-admin"
+		if result := h.InstallFixedAdminContext(refreshAdminContext); result.Err != nil {
+			return Result{Args: []string{"register-context", name}, Err: result.Err, Stderr: result.Stderr}
+		}
+		if result := h.UseContext(name); result.Err != nil {
+			return Result{Args: []string{"register-context", name}, Err: result.Err, Stderr: result.Stderr}
+		}
+		admin, adminCloseWait, err := h.connectClientFromContextWithCloseWait(refreshAdminContext)
+		if err != nil {
+			return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
+		}
+		defer adminCloseWait()
+		adminAPI, err := admin.ServerAdminClient()
+		if err != nil {
+			return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
+		}
+		refresh, err := adminAPI.RefreshPeerWithResponse(ctx, h.ContextPublicKey(name))
+		if err != nil {
+			return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
+		}
+		if refresh.JSON200 == nil {
+			err := fmt.Errorf("refresh peer status %d: %s", refresh.StatusCode(), refresh.Body)
+			return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
+		}
+		resp, err = c.GetServerInfo(ctx, "server.info.get")
+		if err != nil {
+			return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
+		}
+	}
 	data, err := json.Marshal(resp)
 	if err != nil {
 		return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
@@ -506,9 +537,7 @@ func (h *Harness) RegisterContext(name string, extraArgs ...string) Result {
 }
 
 func (h *Harness) deviceInfoFromArgs(_ string, extraArgs ...string) (apitypes.DeviceInfo, error) {
-	device := apitypes.DeviceInfo{
-		Hardware: &apitypes.HardwareInfo{},
-	}
+	device := apitypes.DeviceInfo{}
 	for i := 0; i < len(extraArgs); i++ {
 		flag := extraArgs[i]
 		if !strings.HasPrefix(flag, "--") {
@@ -523,12 +552,24 @@ func (h *Harness) deviceInfoFromArgs(_ string, extraArgs ...string) (apitypes.De
 		case "--name":
 			device.Name = &value
 		case "--sn":
-			device.Sn = &value
+			if device.Identifiers == nil {
+				device.Identifiers = &apitypes.DeviceIdentifiers{}
+			}
+			device.Identifiers.Sn = &value
 		case "--manufacturer":
+			if device.Hardware == nil {
+				device.Hardware = &apitypes.HardwareInfo{}
+			}
 			device.Hardware.Manufacturer = &value
 		case "--model":
+			if device.Hardware == nil {
+				device.Hardware = &apitypes.HardwareInfo{}
+			}
 			device.Hardware.Model = &value
 		case "--hardware-revision":
+			if device.Hardware == nil {
+				device.Hardware = &apitypes.HardwareInfo{}
+			}
 			device.Hardware.HardwareRevision = &value
 		default:
 			return apitypes.DeviceInfo{}, fmt.Errorf("unsupported register arg %q", flag)
@@ -716,6 +757,10 @@ func (h *Harness) connectClientFromContext(name string) (*gizcli.Client, error) 
 }
 
 func (h *Harness) connectClientFromContextWithCloseWait(name string) (*gizcli.Client, func(), error) {
+	return h.connectClientFromContextWithDevice(name, apitypes.DeviceInfo{})
+}
+
+func (h *Harness) connectClientFromContextWithDevice(name string, device apitypes.DeviceInfo) (*gizcli.Client, func(), error) {
 	cfg, err := h.readContextConfig(name)
 	if err != nil {
 		return nil, nil, err
@@ -737,6 +782,7 @@ func (h *Harness) connectClientFromContextWithCloseWait(name string) (*gizcli.Cl
 	client := &gizcli.Client{
 		KeyPair:       keyPair,
 		DialTransport: e2eDialTransport(cfg),
+		Device:        device,
 	}
 	if err := client.Dial(serverInfo.PublicKey, cliContextDialAddr(cfg)); err != nil {
 		_ = client.Close()

@@ -199,9 +199,7 @@ const (
 	RpcMethod_RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD                RpcMethod = 105
 	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_ICON_DOWNLOAD           RpcMethod = 106
 	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD          RpcMethod = 107
-	RpcMethod_RPC_METHOD_SERVER_INFO_ICON_DOWNLOAD               RpcMethod = 108
-	RpcMethod_RPC_METHOD_SERVER_INFO_ICON_UPLOAD                 RpcMethod = 109
-	RpcMethod_RPC_METHOD_SERVER_INFO_ICON_DELETE                 RpcMethod = 110
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_INFO_GET                  RpcMethod = 108
 )
 
 // Enum value maps for RpcMethod.
@@ -311,9 +309,7 @@ var (
 		105: "RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD",
 		106: "RPC_METHOD_SERVER_WORKFLOW_ICON_DOWNLOAD",
 		107: "RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD",
-		108: "RPC_METHOD_SERVER_INFO_ICON_DOWNLOAD",
-		109: "RPC_METHOD_SERVER_INFO_ICON_UPLOAD",
-		110: "RPC_METHOD_SERVER_INFO_ICON_DELETE",
+		108: "RPC_METHOD_SERVER_FRIEND_INFO_GET",
 	}
 	RpcMethod_value = map[string]int32{
 		"RPC_METHOD_UNSPECIFIED":                             0,
@@ -420,9 +416,7 @@ var (
 		"RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD":                105,
 		"RPC_METHOD_SERVER_WORKFLOW_ICON_DOWNLOAD":           106,
 		"RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD":          107,
-		"RPC_METHOD_SERVER_INFO_ICON_DOWNLOAD":               108,
-		"RPC_METHOD_SERVER_INFO_ICON_UPLOAD":                 109,
-		"RPC_METHOD_SERVER_INFO_ICON_DELETE":                 110,
+		"RPC_METHOD_SERVER_FRIEND_INFO_GET":                  108,
 	}
 )
 
@@ -915,7 +909,7 @@ const file_rpc_proto_rawDesc = "" +
 	"\x1aRPC_ERROR_CODE_BAD_REQUEST\x10\x90\x03\x12\x1d\n" +
 	"\x18RPC_ERROR_CODE_FORBIDDEN\x10\x93\x03\x12\x1d\n" +
 	"\x18RPC_ERROR_CODE_NOT_FOUND\x10\x94\x03\x12\x1c\n" +
-	"\x17RPC_ERROR_CODE_CONFLICT\x10\x99\x03*\xfce\n" +
+	"\x17RPC_ERROR_CODE_CONFLICT\x10\x99\x03*\xddc\n" +
 	"\tRpcMethod\x12\x1a\n" +
 	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12B\n" +
 	"\x13RPC_METHOD_ALL_PING\x10\x01\x1a)\xc2\xf3\x18%\n" +
@@ -1124,13 +1118,9 @@ const file_rpc_proto_rawDesc = "" +
 	"(RPC_METHOD_SERVER_WORKFLOW_ICON_DOWNLOAD\x10j\x1a^\xc2\xf3\x18Z\n" +
 	"\x1dserver.workflow.icon.download\x12\x1bWorkflowIconDownloadRequest\x1a\x1cWorkflowIconDownloadResponse\x12\x90\x01\n" +
 	")RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD\x10k\x1aa\xc2\xf3\x18]\n" +
-	"\x1eserver.workspace.icon.download\x12\x1cWorkspaceIconDownloadRequest\x1a\x1dWorkspaceIconDownloadResponse\x12\x88\x01\n" +
-	"$RPC_METHOD_SERVER_INFO_ICON_DOWNLOAD\x10l\x1a^\xc2\xf3\x18Z\n" +
-	"\x19server.info.icon.download\x12\x1dServerInfoIconDownloadRequest\x1a\x1eServerInfoIconDownloadResponse\x12\x80\x01\n" +
-	"\"RPC_METHOD_SERVER_INFO_ICON_UPLOAD\x10m\x1aX\xc2\xf3\x18T\n" +
-	"\x17server.info.icon.upload\x12\x1bServerInfoIconUploadRequest\x1a\x1cServerInfoIconUploadResponse\x12\x80\x01\n" +
-	"\"RPC_METHOD_SERVER_INFO_ICON_DELETE\x10n\x1aX\xc2\xf3\x18T\n" +
-	"\x17server.info.icon.delete\x12\x1bServerInfoIconDeleteRequest\x1a\x1cServerInfoIconDeleteResponse\"\x04\b#\x10%*!RPC_METHOD_SERVER_WORKFLOW_CREATE*\x1eRPC_METHOD_SERVER_WORKFLOW_PUT*!RPC_METHOD_SERVER_WORKFLOW_DELETE:d\n" +
+	"\x1eserver.workspace.icon.download\x12\x1cWorkspaceIconDownloadRequest\x1a\x1dWorkspaceIconDownloadResponse\x12p\n" +
+	"!RPC_METHOD_SERVER_FRIEND_INFO_GET\x10l\x1aI\xc2\xf3\x18E\n" +
+	"\x16server.friend.info.get\x12\x14FriendInfoGetRequest\x1a\x15FriendInfoGetResponse\"\x04\b#\x10%*!RPC_METHOD_SERVER_WORKFLOW_CREATE*\x1eRPC_METHOD_SERVER_WORKFLOW_PUT*!RPC_METHOD_SERVER_WORKFLOW_DELETE:d\n" +
 	"\n" +
 	"rpc_method\x12!.google.protobuf.EnumValueOptions\x18\xb8\x8e\x03 \x01(\v2 .gizclaw.rpc.v1.RpcMethodOptionsR\trpcMethodB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 

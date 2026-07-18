@@ -20,12 +20,12 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 var (
 	ErrPeerNotFound      = errors.New("peer: peer not found")
 	ErrPeerAlreadyExists = errors.New("peer: peer already exists")
+	ErrInvalidInfo       = errors.New("peer: invalid device info")
 )
 
 const (
@@ -49,7 +49,6 @@ type Server struct {
 	ICEServers      []gizwebrtc.ICEServer
 	DefaultPeerView string
 	PeerManager     PeerManager
-	Assets          objectstore.ObjectStore
 	IconLocks       iconasset.Locker
 
 	mu sync.Mutex
@@ -77,14 +76,6 @@ type PeerHTTPService interface {
 
 var _ PeerAdminService = (*Server)(nil)
 var _ PeerHTTPService = (*Server)(nil)
-
-type PeerIconAdminService interface {
-	DownloadPeerIcon(context.Context, adminhttp.DownloadPeerIconRequestObject) (adminhttp.DownloadPeerIconResponseObject, error)
-	UploadPeerIcon(context.Context, adminhttp.UploadPeerIconRequestObject) (adminhttp.UploadPeerIconResponseObject, error)
-	DeletePeerIcon(context.Context, adminhttp.DeletePeerIconRequestObject) (adminhttp.DeletePeerIconResponseObject, error)
-}
-
-var _ PeerIconAdminService = (*Server)(nil)
 
 // ListPeers implements `adminhttp.StrictServerInterface.ListPeers`.
 func (s *Server) ListPeers(ctx context.Context, request adminhttp.ListPeersRequestObject) (adminhttp.ListPeersResponseObject, error) {
@@ -206,15 +197,12 @@ func (s *Server) PutPeerInfo(ctx context.Context, request adminhttp.PutPeerInfoR
 	if err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
-	info, err := toAdminDeviceInfo(*request.Body)
-	if err != nil {
-		return adminhttp.PutPeerInfo400JSONResponse(apitypes.NewErrorResponse("INVALID_DEVICE_INFO", err.Error())), nil
-	}
+	info := apitypes.DeviceInfo{Name: request.Body.Name, Emoji: request.Body.Emoji}
 	peer, err := s.putInfo(ctx, publicKey, info)
 	if errors.Is(err, ErrPeerNotFound) {
 		return adminhttp.PutPeerInfo404JSONResponse(apitypes.NewErrorResponse("PEER_NOT_FOUND", err.Error())), nil
 	}
-	if errors.Is(err, iconasset.ErrInvalid) {
+	if errors.Is(err, ErrInvalidInfo) {
 		return adminhttp.PutPeerInfo400JSONResponse(apitypes.NewErrorResponse("INVALID_DEVICE_INFO", err.Error())), nil
 	}
 	if err != nil {

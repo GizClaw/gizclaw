@@ -336,11 +336,6 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 				return nil, fmt.Errorf("server: gameplay assets store: %w", err)
 			}
 		}
-		if storeExists(cfg, defaultPeerAssetsStore) {
-			if gizServer.PeerAssets, err = ss.ObjectStore(defaultPeerAssetsStore); err != nil {
-				return nil, fmt.Errorf("server: peer assets store: %w", err)
-			}
-		}
 		if storeExists(cfg, defaultWorkspaceAssetsStore) {
 			if gizServer.WorkspaceAssets, err = ss.ObjectStore(defaultWorkspaceAssetsStore); err != nil {
 				return nil, fmt.Errorf("server: workspace assets store: %w", err)

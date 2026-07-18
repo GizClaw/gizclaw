@@ -375,27 +375,6 @@ func (c *Client) DownloadWorkspaceIcon(ctx context.Context, id string, request r
 	return c.rpcClient().DownloadWorkspaceIcon(ctx, stream, id, request, out)
 }
 
-func (c *Client) DownloadPeerIcon(ctx context.Context, id string, request rpcapi.ServerInfoIconDownloadRequest, out io.Writer) (PeerIconDownloadResult, error) {
-	stream, err := c.rpcConn()
-	if err != nil {
-		return PeerIconDownloadResult{}, err
-	}
-	defer func() { _ = stream.Close() }()
-	return c.rpcClient().DownloadPeerIcon(ctx, stream, id, request, out)
-}
-
-func (c *Client) UploadPeerIcon(ctx context.Context, id string, request rpcapi.ServerInfoIconUploadRequest, body io.Reader) (*rpcapi.ServerInfoIconUploadResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerInfoIconUploadResponse, error) {
-		return client.UploadPeerIcon(ctx, conn, id, request, body)
-	})
-}
-
-func (c *Client) DeletePeerIcon(ctx context.Context, id string, request rpcapi.ServerInfoIconDeleteRequest) (*rpcapi.ServerInfoIconDeleteResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerInfoIconDeleteResponse, error) {
-		return client.DeletePeerIcon(ctx, conn, id, request)
-	})
-}
-
 func (c *Client) GetWorkspaceHistoryAudio(ctx context.Context, id string, request rpcapi.WorkspaceHistoryAudioGetRequest, out io.Writer) (WorkspaceHistoryAudioGetResult, error) {
 	stream, err := c.rpcConn()
 	if err != nil {
@@ -594,11 +573,8 @@ func (c *Client) dispatchPeerPacket(protocol byte, payload []byte) {
 	}
 }
 
-func peerDeviceToPeerRefreshInfo(in apitypes.DeviceInfo) apitypes.RefreshInfo {
-	out := apitypes.RefreshInfo{}
-	if in.Name != nil {
-		out.Name = in.Name
-	}
+func peerDeviceToPeerRefreshInfo(in apitypes.DeviceInfo) apitypes.HardwareInfo {
+	out := apitypes.HardwareInfo{}
 	if in.Hardware != nil {
 		out.Manufacturer = in.Hardware.Manufacturer
 		out.Model = in.Hardware.Model
@@ -623,21 +599,21 @@ func peerToPeerPeerLabel(in apitypes.PeerLabel) apitypes.PeerLabel {
 	}
 }
 
-func peerDeviceToPeerRefreshIdentifiers(in apitypes.DeviceInfo) apitypes.RefreshIdentifiers {
-	out := apitypes.RefreshIdentifiers{}
-	out.Sn = in.Sn
-	if in.Hardware != nil {
-		if in.Hardware.Imeis != nil {
-			items := make([]apitypes.PeerIMEI, len(*in.Hardware.Imeis))
-			for i := range *in.Hardware.Imeis {
-				items[i] = peerToPeerPeerIMEI((*in.Hardware.Imeis)[i])
+func peerDeviceToPeerRefreshIdentifiers(in apitypes.DeviceInfo) apitypes.DeviceIdentifiers {
+	out := apitypes.DeviceIdentifiers{}
+	if in.Identifiers != nil {
+		out.Sn = in.Identifiers.Sn
+		if in.Identifiers.Imeis != nil {
+			items := make([]apitypes.PeerIMEI, len(*in.Identifiers.Imeis))
+			for i := range *in.Identifiers.Imeis {
+				items[i] = peerToPeerPeerIMEI((*in.Identifiers.Imeis)[i])
 			}
 			out.Imeis = &items
 		}
-		if in.Hardware.Labels != nil {
-			items := make([]apitypes.PeerLabel, len(*in.Hardware.Labels))
-			for i := range *in.Hardware.Labels {
-				items[i] = peerToPeerPeerLabel((*in.Hardware.Labels)[i])
+		if in.Identifiers.Labels != nil {
+			items := make([]apitypes.PeerLabel, len(*in.Identifiers.Labels))
+			for i := range *in.Identifiers.Labels {
+				items[i] = peerToPeerPeerLabel((*in.Identifiers.Labels)[i])
 			}
 			out.Labels = &items
 		}

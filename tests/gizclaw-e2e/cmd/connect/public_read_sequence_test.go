@@ -30,7 +30,7 @@ func TestClientPublicReadSequenceUserStory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get device info: %v", err)
 	}
-	if info == nil || info.Sn == nil || *info.Sn != "device-a-sn" {
+	if info == nil || info.Identifiers == nil || info.Identifiers.Sn == nil || *info.Identifiers.Sn != "device-a-sn" {
 		t.Fatalf("expected device info response, got %+v", info)
 	}
 

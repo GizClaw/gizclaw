@@ -87,14 +87,27 @@ func TestSetName(t *testing.T) {
 	resetRPCHooks(t)
 	oldName := "old"
 	newName := "new"
+	emoji := "🧑‍🚀"
+	model := "device"
+	serial := "serial"
+	hardware := rpcapi.HardwareInfo{Model: &model}
+	identifiers := rpcapi.DeviceIdentifiers{Sn: &serial}
 	getServerInfoRPC = func(context.Context, *gizcli.Client, string) (*rpcapi.ServerGetInfoResponse, error) {
-		return &rpcapi.ServerGetInfoResponse{Name: &oldName}, nil
+		return &rpcapi.ServerGetInfoResponse{
+			Name:        &oldName,
+			Emoji:       &emoji,
+			Hardware:    &hardware,
+			Identifiers: &identifiers,
+		}, nil
 	}
 	putServerInfoRPC = func(_ context.Context, _ *gizcli.Client, _ string, req rpcapi.ServerPutInfoRequest) (*rpcapi.ServerPutInfoResponse, error) {
 		if req.Name == nil || *req.Name != newName {
 			t.Fatalf("request name = %v", req.Name)
 		}
-		return &rpcapi.ServerPutInfoResponse{Name: req.Name}, nil
+		if req.Emoji == nil || *req.Emoji != emoji {
+			t.Fatalf("request emoji = %v", req.Emoji)
+		}
+		return &rpcapi.ServerPutInfoResponse{Name: req.Name, Emoji: req.Emoji}, nil
 	}
 	got, err := SetName(context.Background(), nil, newName)
 	if err != nil {

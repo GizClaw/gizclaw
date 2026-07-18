@@ -867,11 +867,17 @@ export type DashScopeTenantSpec = {
     description?: string;
 };
 
+export type DeviceIdentifiers = {
+    sn?: string;
+    imeis?: Array<PeerImei>;
+    labels?: Array<PeerLabel>;
+};
+
 export type DeviceInfo = {
     name?: string;
-    sn?: string;
+    emoji?: string;
     hardware?: HardwareInfo;
-    icon?: Icon;
+    identifiers?: DeviceIdentifiers;
 };
 
 export type ErrorPayload = {
@@ -1365,8 +1371,6 @@ export type HardwareInfo = {
     manufacturer?: string;
     model?: string;
     hardware_revision?: string;
-    imeis?: Array<PeerImei>;
-    labels?: Array<PeerLabel>;
 };
 
 export type Icon = {
@@ -6718,7 +6722,13 @@ export type GetPeerInfoResponses = {
 export type GetPeerInfoResponse = GetPeerInfoResponses[keyof GetPeerInfoResponses];
 
 export type PutPeerInfoData = {
-    body: DeviceInfo;
+    /**
+     * Writable peer profile fields.
+     */
+    body: {
+        name?: string;
+        emoji?: string;
+    };
     path: {
         /**
          * Peer public key
@@ -6754,110 +6764,6 @@ export type PutPeerInfoResponses = {
 };
 
 export type PutPeerInfoResponse = PutPeerInfoResponses[keyof PutPeerInfoResponses];
-
-export type DeletePeerIconData = {
-    body?: never;
-    path: {
-        publicKey: string;
-        format: 'pixa' | 'png';
-    };
-    query?: never;
-    url: '/peers/{publicKey}/icon/{format}';
-};
-
-export type DeletePeerIconErrors = {
-    /**
-     * Peer not found
-     */
-    404: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type DeletePeerIconError = DeletePeerIconErrors[keyof DeletePeerIconErrors];
-
-export type DeletePeerIconResponses = {
-    /**
-     * Updated peer info
-     */
-    200: DeviceInfo;
-};
-
-export type DeletePeerIconResponse = DeletePeerIconResponses[keyof DeletePeerIconResponses];
-
-export type DownloadPeerIconData = {
-    body?: never;
-    path: {
-        publicKey: string;
-        format: 'pixa' | 'png';
-    };
-    query?: never;
-    url: '/peers/{publicKey}/icon/{format}';
-};
-
-export type DownloadPeerIconErrors = {
-    /**
-     * Peer or icon not found
-     */
-    404: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type DownloadPeerIconError = DownloadPeerIconErrors[keyof DownloadPeerIconErrors];
-
-export type DownloadPeerIconResponses = {
-    /**
-     * Peer icon bytes
-     */
-    200: Blob | File;
-};
-
-export type DownloadPeerIconResponse = DownloadPeerIconResponses[keyof DownloadPeerIconResponses];
-
-export type UploadPeerIconData = {
-    body: Blob | File;
-    path: {
-        publicKey: string;
-        format: 'pixa' | 'png';
-    };
-    query?: never;
-    url: '/peers/{publicKey}/icon/{format}';
-};
-
-export type UploadPeerIconErrors = {
-    /**
-     * Invalid icon
-     */
-    400: ErrorResponse;
-    /**
-     * Peer not found
-     */
-    404: ErrorResponse;
-    /**
-     * Icon exceeds 2 MiB
-     */
-    413: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type UploadPeerIconError = UploadPeerIconErrors[keyof UploadPeerIconErrors];
-
-export type UploadPeerIconResponses = {
-    /**
-     * Updated peer info
-     */
-    200: DeviceInfo;
-};
-
-export type UploadPeerIconResponse = UploadPeerIconResponses[keyof UploadPeerIconResponses];
 
 export type GetPeerConfigData = {
     body?: never;

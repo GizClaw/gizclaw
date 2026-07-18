@@ -83,6 +83,8 @@ final _messageFactories = <String, MessageFactory>{
   'FriendGroupMessageSendResponse': payload.FriendGroupMessageSendResponse.new,
   'FriendGroupPutRequest': payload.FriendGroupPutRequest.new,
   'FriendGroupPutResponse': payload.FriendGroupPutResponse.new,
+  'FriendInfoGetRequest': payload.FriendInfoGetRequest.new,
+  'FriendInfoGetResponse': payload.FriendInfoGetResponse.new,
   'FriendInviteTokenClearRequest': payload.FriendInviteTokenClearRequest.new,
   'FriendInviteTokenClearResponse': payload.FriendInviteTokenClearResponse.new,
   'FriendInviteTokenCreateRequest': payload.FriendInviteTokenCreateRequest.new,
@@ -130,12 +132,6 @@ final _messageFactories = <String, MessageFactory>{
   'ServerGetRuntimeResponse': payload.ServerGetRuntimeResponse.new,
   'ServerGetStatusRequest': payload.ServerGetStatusRequest.new,
   'ServerGetStatusResponse': payload.ServerGetStatusResponse.new,
-  'ServerInfoIconDeleteRequest': payload.ServerInfoIconDeleteRequest.new,
-  'ServerInfoIconDeleteResponse': payload.ServerInfoIconDeleteResponse.new,
-  'ServerInfoIconDownloadRequest': payload.ServerInfoIconDownloadRequest.new,
-  'ServerInfoIconDownloadResponse': payload.ServerInfoIconDownloadResponse.new,
-  'ServerInfoIconUploadRequest': payload.ServerInfoIconUploadRequest.new,
-  'ServerInfoIconUploadResponse': payload.ServerInfoIconUploadResponse.new,
   'ServerListRunWorkspaceHistoryRequest':
       payload.ServerListRunWorkspaceHistoryRequest.new,
   'ServerListRunWorkspaceHistoryResponse':
@@ -320,6 +316,8 @@ final _messageTypes = <String, Type>{
   'FriendGroupMessageSendResponse': payload.FriendGroupMessageSendResponse,
   'FriendGroupPutRequest': payload.FriendGroupPutRequest,
   'FriendGroupPutResponse': payload.FriendGroupPutResponse,
+  'FriendInfoGetRequest': payload.FriendInfoGetRequest,
+  'FriendInfoGetResponse': payload.FriendInfoGetResponse,
   'FriendInviteTokenClearRequest': payload.FriendInviteTokenClearRequest,
   'FriendInviteTokenClearResponse': payload.FriendInviteTokenClearResponse,
   'FriendInviteTokenCreateRequest': payload.FriendInviteTokenCreateRequest,
@@ -366,12 +364,6 @@ final _messageTypes = <String, Type>{
   'ServerGetRuntimeResponse': payload.ServerGetRuntimeResponse,
   'ServerGetStatusRequest': payload.ServerGetStatusRequest,
   'ServerGetStatusResponse': payload.ServerGetStatusResponse,
-  'ServerInfoIconDeleteRequest': payload.ServerInfoIconDeleteRequest,
-  'ServerInfoIconDeleteResponse': payload.ServerInfoIconDeleteResponse,
-  'ServerInfoIconDownloadRequest': payload.ServerInfoIconDownloadRequest,
-  'ServerInfoIconDownloadResponse': payload.ServerInfoIconDownloadResponse,
-  'ServerInfoIconUploadRequest': payload.ServerInfoIconUploadRequest,
-  'ServerInfoIconUploadResponse': payload.ServerInfoIconUploadResponse,
   'ServerListRunWorkspaceHistoryRequest':
       payload.ServerListRunWorkspaceHistoryRequest,
   'ServerListRunWorkspaceHistoryResponse':

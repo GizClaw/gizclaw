@@ -46,8 +46,10 @@ func SetName(ctx context.Context, c *gizcli.Client, name string) (apitypes.Devic
 	if err != nil {
 		return apitypes.DeviceInfo{}, err
 	}
-	info.Name = &name
-	return PutInfo(ctx, c, info)
+	return PutInfo(ctx, c, apitypes.DeviceInfo{
+		Name:  &name,
+		Emoji: info.Emoji,
+	})
 }
 
 func GetRuntime(ctx context.Context, c *gizcli.Client) (apitypes.Runtime, error) {

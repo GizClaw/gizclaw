@@ -321,7 +321,7 @@ func (m *Manager) refreshPeer(ctx context.Context, publicKey giznet.PublicKey, p
 		}
 		errs = append(errs, "info: "+err.Error())
 	} else {
-		info, err := convertRPCType[apitypes.RefreshInfo](*infoResp)
+		info, err := convertRPCType[apitypes.HardwareInfo](*infoResp)
 		if err != nil {
 			errs = append(errs, "info: "+err.Error())
 		} else {
@@ -339,7 +339,7 @@ func (m *Manager) refreshPeer(ctx context.Context, publicKey giznet.PublicKey, p
 		}
 		errs = append(errs, "identifiers: "+err.Error())
 	} else {
-		identifiers, err := convertRPCType[apitypes.RefreshIdentifiers](*identifiersResp)
+		identifiers, err := convertRPCType[apitypes.DeviceIdentifiers](*identifiersResp)
 		if err != nil {
 			errs = append(errs, "identifiers: "+err.Error())
 		} else {
@@ -366,13 +366,9 @@ func isPeerDisconnectedError(err error) bool {
 		strings.Contains(msg, "closed network connection")
 }
 
-func applyPeerRefreshInfo(peer *apitypes.Peer, info apitypes.RefreshInfo, updatedFields *[]string) {
+func applyPeerRefreshInfo(peer *apitypes.Peer, info apitypes.HardwareInfo, updatedFields *[]string) {
 	if peer == nil {
 		return
-	}
-	if info.Name != nil && *info.Name != "" && !equalStringPtr(peer.Device.Name, info.Name) {
-		peer.Device.Name = info.Name
-		*updatedFields = append(*updatedFields, "device.name")
 	}
 	if info.Manufacturer != nil && *info.Manufacturer != "" {
 		hardware := ensurePeerHardware(&peer.Device)
@@ -397,30 +393,36 @@ func applyPeerRefreshInfo(peer *apitypes.Peer, info apitypes.RefreshInfo, update
 	}
 }
 
-func applyPeerRefreshIdentifiers(peer *apitypes.Peer, identifiers apitypes.RefreshIdentifiers, updatedFields *[]string) {
+func applyPeerRefreshIdentifiers(peer *apitypes.Peer, identifiers apitypes.DeviceIdentifiers, updatedFields *[]string) {
 	if peer == nil {
 		return
 	}
-	if identifiers.Sn != nil && *identifiers.Sn != "" && !equalStringPtr(peer.Device.Sn, identifiers.Sn) {
-		peer.Device.Sn = identifiers.Sn
-		*updatedFields = append(*updatedFields, "device.sn")
+	deviceIdentifiers := ensurePeerIdentifiers(&peer.Device)
+	if identifiers.Sn != nil && *identifiers.Sn != "" && !equalStringPtr(deviceIdentifiers.Sn, identifiers.Sn) {
+		deviceIdentifiers.Sn = identifiers.Sn
+		*updatedFields = append(*updatedFields, "device.identifiers.sn")
 	}
 	if identifiers.Imeis != nil && len(*identifiers.Imeis) > 0 {
 		items := toPeerIMEIs(*identifiers.Imeis)
-		hardware := ensurePeerHardware(&peer.Device)
-		if !equalPeerIMEISlice(hardware.Imeis, items) {
-			hardware.Imeis = &items
-			*updatedFields = append(*updatedFields, "device.hardware.imeis")
+		if !equalPeerIMEISlice(deviceIdentifiers.Imeis, items) {
+			deviceIdentifiers.Imeis = &items
+			*updatedFields = append(*updatedFields, "device.identifiers.imeis")
 		}
 	}
 	if identifiers.Labels != nil && len(*identifiers.Labels) > 0 {
 		items := toPeerLabels(*identifiers.Labels)
-		hardware := ensurePeerHardware(&peer.Device)
-		if !equalPeerLabelSlice(hardware.Labels, items) {
-			hardware.Labels = &items
-			*updatedFields = append(*updatedFields, "device.hardware.labels")
+		if !equalPeerLabelSlice(deviceIdentifiers.Labels, items) {
+			deviceIdentifiers.Labels = &items
+			*updatedFields = append(*updatedFields, "device.identifiers.labels")
 		}
 	}
+}
+
+func ensurePeerIdentifiers(device *apitypes.DeviceInfo) *apitypes.DeviceIdentifiers {
+	if device.Identifiers == nil {
+		device.Identifiers = &apitypes.DeviceIdentifiers{}
+	}
+	return device.Identifiers
 }
 
 func ensurePeerHardware(device *apitypes.DeviceInfo) *apitypes.HardwareInfo {

@@ -5,7 +5,7 @@ package admin_test
 import (
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 )
 
 func TestAdminAPIPeerConfigInfoRuntime(t *testing.T) {
@@ -36,13 +36,11 @@ func TestAdminAPIPeerConfigInfoRuntime(t *testing.T) {
 		t.Fatalf("get peer info: %v", err)
 	}
 	requireStatusOK(t, info, info.Body)
-	if info.JSON200 == nil || info.JSON200.Sn == nil || *info.JSON200.Sn != env.peerSN {
+	if info.JSON200 == nil || info.JSON200.Identifiers == nil || info.JSON200.Identifiers.Sn == nil || *info.JSON200.Identifiers.Sn != env.peerSN {
 		t.Fatalf("get peer info = %#v", info.JSON200)
 	}
 
-	nextInfo := *info.JSON200
-	nextInfo.Name = ptr("admin-api-peer-info")
-	nextInfo.Hardware = &apitypes.HardwareInfo{Model: ptr("Admin API E2E")}
+	nextInfo := adminhttp.PutPeerInfoJSONRequestBody{Name: ptr("admin-api-peer-info")}
 	putInfo, err := env.api.PutPeerInfoWithResponse(env.ctx, env.peerKey, nextInfo)
 	if err != nil {
 		t.Fatalf("put peer info: %v", err)

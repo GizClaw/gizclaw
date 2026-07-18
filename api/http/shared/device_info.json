@@ -8,20 +8,32 @@
   "paths": {},
   "components": {
     "schemas": {
+      "DeviceProfile": {
+        "type": "object",
+        "description": "Writable device profile fields.",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "emoji": {
+            "type": "string"
+          }
+        }
+      },
       "DeviceInfo": {
         "type": "object",
         "properties": {
           "name": {
             "type": "string"
           },
-          "sn": {
+          "emoji": {
             "type": "string"
           },
           "hardware": {
             "$ref": "./hardware_info.json#/components/schemas/HardwareInfo"
           },
-          "icon": {
-            "$ref": "./icon.json#/components/schemas/Icon"
+          "identifiers": {
+            "$ref": "./device_identifiers.json#/components/schemas/DeviceIdentifiers"
           }
         }
       }

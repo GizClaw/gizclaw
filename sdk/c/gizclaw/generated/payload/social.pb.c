@@ -51,6 +51,15 @@ PB_BIND(gizclaw_rpc_v1_FriendDeleteRequest, gizclaw_rpc_v1_FriendDeleteRequest, 
 PB_BIND(gizclaw_rpc_v1_FriendDeleteResponse, gizclaw_rpc_v1_FriendDeleteResponse, AUTO)
 
 
+PB_BIND(gizclaw_rpc_v1_FriendInfo, gizclaw_rpc_v1_FriendInfo, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_FriendInfoGetRequest, gizclaw_rpc_v1_FriendInfoGetRequest, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_FriendInfoGetResponse, gizclaw_rpc_v1_FriendInfoGetResponse, 2)
+
+
 PB_BIND(gizclaw_rpc_v1_FriendGroupCreateRequest, gizclaw_rpc_v1_FriendGroupCreateRequest, AUTO)
 
 

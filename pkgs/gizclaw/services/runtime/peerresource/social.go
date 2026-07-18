@@ -156,6 +156,21 @@ func (s *Server) handleFriendList(ctx context.Context, req *rpcapi.RPCRequest) *
 	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromFriendListResponse)
 }
 
+func (s *Server) handleFriendInfoGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
+	if s.Friends == nil {
+		return internalError(req.Id, "friend service not configured")
+	}
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsFriendInfoGetRequest)
+	if !ok {
+		return invalidParams(req.Id)
+	}
+	result, err := s.Friends.GetFriendInfo(ctx, s.Caller.String(), params)
+	if err != nil {
+		return businessError(req.Id, err)
+	}
+	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromFriendInfoGetResponse)
+}
+
 func (s *Server) handleFriendDelete(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
 	if s.Friends == nil {
 		return internalError(req.Id, "friend service not configured")

@@ -365,6 +365,57 @@ final $typed_data.Uint8List friendDeleteResponseDescriptor = $convert.base64Deco
     'ChRGcmllbmREZWxldGVSZXNwb25zZRIyCgV2YWx1ZRgBIAEoCzIcLmdpemNsYXcucnBjLnYxLk'
     'ZyaWVuZE9iamVjdFIFdmFsdWU=');
 
+@$core.Deprecated('Use friendInfoDescriptor instead')
+const FriendInfo$json = {
+  '1': 'FriendInfo',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'name', '17': true},
+    {'1': 'emoji', '3': 2, '4': 1, '5': 9, '9': 1, '10': 'emoji', '17': true},
+  ],
+  '8': [
+    {'1': '_name'},
+    {'1': '_emoji'},
+  ],
+};
+
+/// Descriptor for `FriendInfo`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List friendInfoDescriptor = $convert.base64Decode(
+    'CgpGcmllbmRJbmZvEhcKBG5hbWUYASABKAlIAFIEbmFtZYgBARIZCgVlbW9qaRgCIAEoCUgBUg'
+    'VlbW9qaYgBAUIHCgVfbmFtZUIICgZfZW1vamk=');
+
+@$core.Deprecated('Use friendInfoGetRequestDescriptor instead')
+const FriendInfoGetRequest$json = {
+  '1': 'FriendInfoGetRequest',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+  ],
+};
+
+/// Descriptor for `FriendInfoGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List friendInfoGetRequestDescriptor = $convert
+    .base64Decode('ChRGcmllbmRJbmZvR2V0UmVxdWVzdBIOCgJpZBgBIAEoCVICaWQ=');
+
+@$core.Deprecated('Use friendInfoGetResponseDescriptor instead')
+const FriendInfoGetResponse$json = {
+  '1': 'FriendInfoGetResponse',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+    {
+      '1': 'value',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.FriendInfo',
+      '10': 'value'
+    },
+  ],
+};
+
+/// Descriptor for `FriendInfoGetResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List friendInfoGetResponseDescriptor = $convert.base64Decode(
+    'ChVGcmllbmRJbmZvR2V0UmVzcG9uc2USDgoCaWQYASABKAlSAmlkEjAKBXZhbHVlGAIgASgLMh'
+    'ouZ2l6Y2xhdy5ycGMudjEuRnJpZW5kSW5mb1IFdmFsdWU=');
+
 @$core.Deprecated('Use friendGroupCreateRequestDescriptor instead')
 const FriendGroupCreateRequest$json = {
   '1': 'FriendGroupCreateRequest',

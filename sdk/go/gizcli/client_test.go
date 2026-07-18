@@ -94,13 +94,15 @@ func TestClientAccessorsAndConversions(t *testing.T) {
 
 	name := "main"
 	device := apitypes.DeviceInfo{
-		Sn: func() *string {
-			v := "sn-1"
-			return &v
-		}(),
 		Hardware: &apitypes.HardwareInfo{
 			Manufacturer: func() *string { v := "Acme"; return &v }(),
 			Model:        func() *string { v := "M1"; return &v }(),
+		},
+		Identifiers: &apitypes.DeviceIdentifiers{
+			Sn: func() *string {
+				v := "sn-1"
+				return &v
+			}(),
 			Imeis: &[]apitypes.PeerIMEI{{
 				Name:   &name,
 				Tac:    "12345678",
