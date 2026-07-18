@@ -142,58 +142,6 @@ func TestManagerEnsurePeerCreatesDefaultPeer(t *testing.T) {
 	}
 }
 
-func TestManagerEnsurePeerPreservesExistingPeer(t *testing.T) {
-	service := &peer.Server{Store: mustBadgerInMemory(t, nil)}
-	manager := NewManager(service)
-	ctx := context.Background()
-	key := giznet.PublicKey{1}
-	if _, err := service.SavePeer(ctx, apitypes.Peer{
-		PublicKey:     key.String(),
-		Role:          apitypes.PeerRoleAdmin,
-		Status:        apitypes.PeerRegistrationStatusBlocked,
-		Device:        apitypes.DeviceInfo{},
-		Configuration: apitypes.Configuration{},
-	}); err != nil {
-		t.Fatalf("SavePeer error = %v", err)
-	}
-
-	got, err := manager.EnsurePeer(ctx, key)
-	if err != nil {
-		t.Fatalf("EnsurePeer error = %v", err)
-	}
-	if got.Role != apitypes.PeerRoleAdmin || got.Status != apitypes.PeerRegistrationStatusBlocked {
-		t.Fatalf("EnsurePeer overwrote existing peer: %+v", got)
-	}
-}
-
-func TestManagerRefreshDeviceErrors(t *testing.T) {
-	service := &peer.Server{Store: mustBadgerInMemory(t, nil)}
-	manager := NewManager(service)
-	ctx := context.Background()
-	missingKey := giznet.PublicKey{1}
-	deviceKey := giznet.PublicKey{2}
-
-	if _, _, err := manager.RefreshPeer(ctx, missingKey); !errors.Is(err, peer.ErrPeerNotFound) {
-		t.Fatalf("RefreshPeer missing err = %v", err)
-	}
-
-	if _, err := service.SavePeer(ctx, apitypes.Peer{
-		PublicKey:     deviceKey.String(),
-		Role:          apitypes.PeerRoleUnspecified,
-		Status:        apitypes.PeerRegistrationStatusUnspecified,
-		Device:        apitypes.DeviceInfo{},
-		Configuration: apitypes.Configuration{},
-	}); err != nil {
-		t.Fatalf("SavePeer error: %v", err)
-	}
-
-	if _, online, err := manager.RefreshPeer(ctx, deviceKey); !errors.Is(err, ErrDeviceOffline) {
-		t.Fatalf("RefreshPeer offline err = %v", err)
-	} else if online {
-		t.Fatal("offline RefreshPeer should report online=false")
-	}
-}
-
 func TestApplyPeerRefreshIdentifiersSkipsUnchangedCollections(t *testing.T) {
 	name := "primary"
 	sn := "sn-1"

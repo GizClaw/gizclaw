@@ -109,7 +109,7 @@ func TestStoreLocalPodMaterializesPrivateProjection(t *testing.T) {
 			t.Fatalf("workspace contains forbidden default %q", forbidden)
 		}
 	}
-	for _, required := range []string{"credentials", "firmwares", "minimax-tenants", "voices", "workspaces", "workflows", "acl"} {
+	for _, required := range []string{"credentials", "firmwares", "runtime-profiles", "minimax-tenants", "voices", "workspaces", "workflows"} {
 		if _, ok := workspace.Stores[required]; !ok {
 			t.Fatalf("workspace required store %q is missing", required)
 		}

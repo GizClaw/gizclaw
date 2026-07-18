@@ -101,6 +101,55 @@ func TestRemotePodPreservesWriteOnlyKeysAndHandsAdminAllServers(t *testing.T) {
 	}
 }
 
+func TestLocalPlayRuntimeHandsOffRegistrationTokenWithoutPuttingItInURL(t *testing.T) {
+	paths := appconfig.NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	web := webui.New(fstest.MapFS{"play.html": {Data: []byte("play")}})
+	defer web.Shutdown()
+	store := appconfig.Store{Paths: paths}
+	pod := appconfig.Pod{
+		Version:               1,
+		ID:                    "local-play",
+		Name:                  "Local Play",
+		IdentitiesInitialized: true,
+		LocalServer:           &appconfig.LocalServer{Port: 19820, AdminPrivateKey: bridgeTestKey(t, 0x74)},
+		ClientPrivateKey:      bridgeTestKey(t, 0x75),
+	}
+	if err := store.Save(pod); err != nil {
+		t.Fatal(err)
+	}
+	tokenPath := filepath.Join(paths.PodsDir, pod.ID, "workspace", localserver.RegistrationTokenFile)
+	if err := os.WriteFile(tokenPath, []byte("local-registration-secret"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	bridge := &PodBridge{Paths: paths, Store: store, Health: endpointhealth.New(), Local: localserver.New(), WebUI: web}
+	launch, err := bridge.PlayURL(context.Background(), pod.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(launch, "local-registration-secret") {
+		t.Fatal("Play URL contains the RegistrationToken")
+	}
+	parsed, _ := url.Parse(launch)
+	body, _ := json.Marshal(map[string]string{"token": parsed.Query().Get("token")})
+	request, _ := http.NewRequest(http.MethodPost, "http://"+parsed.Host+"/__gizclaw/runtime", bytes.NewReader(body))
+	request.Header.Set("Origin", "http://"+parsed.Host)
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	var runtime webui.Runtime
+	if err := json.NewDecoder(response.Body).Decode(&runtime); err != nil {
+		t.Fatal(err)
+	}
+	if runtime.RegistrationToken != "local-registration-secret" {
+		t.Fatalf("Play RegistrationToken = %q", runtime.RegistrationToken)
+	}
+}
+
 func TestLocalPodCreationAssignsDistinctStablePorts(t *testing.T) {
 	paths := appconfig.NewPaths(t.TempDir())
 	if err := paths.Ensure(); err != nil {
@@ -510,6 +559,10 @@ func TestLocalPodCreationReturnsWhileBootstrapRunsInBackground(t *testing.T) {
 	}
 	local := localserver.New()
 	local.Executable = executable
+	port, err := appconfig.FindAvailablePort(0)
+	if err != nil {
+		t.Fatal(err)
+	}
 	bootstrapper := &fakeLocalPodBootstrapper{started: make(chan struct{}), release: make(chan struct{})}
 	b := &PodBridge{
 		Paths:                paths,
@@ -523,10 +576,6 @@ func TestLocalPodCreationReturnsWhileBootstrapRunsInBackground(t *testing.T) {
 		WebUI:                webui.New(fstest.MapFS{}),
 	}
 	defer b.WebUI.Shutdown()
-	port, err := appconfig.FindAvailablePort(0)
-	if err != nil {
-		t.Fatal(err)
-	}
 	created, err := b.CreatePod(context.Background(), PodInput{Version: 1, ID: "bootstrapped", Name: "Bootstrapped", LocalServer: &LocalServerInput{Port: port}})
 	if err != nil {
 		t.Fatal(err)

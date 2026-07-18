@@ -20,13 +20,12 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 // Services groups the admin services that own concrete resource writes.
 type Services struct {
-	ACL             *acl.Server
 	Credentials     credential.CredentialAdminService
 	Firmwares       firmware.FirmwareAdminService
 	Peers           peer.PeerAdminService
@@ -40,6 +39,7 @@ type Services struct {
 	FriendGroups    *friendgroup.Server
 	GameplayCatalog gameplay.CatalogAdminService
 	Tools           *toolkit.Server
+	RuntimeProfiles *runtimeprofile.Server
 }
 
 // Manager applies declarative admin resources by delegating to owner services.
@@ -75,42 +75,6 @@ func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, name stri
 		return apitypes.Resource{}, applyError(400, "INVALID_RESOURCE", "metadata.name is required")
 	}
 	switch kind {
-	case apitypes.ResourceKindACLPolicyBinding:
-		if m.services.ACL == nil {
-			return apitypes.Resource{}, missingService("acl")
-		}
-		item, exists, err := m.getACLPolicyBinding(ctx, string(pathParam(name)))
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
-		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
-		}
-		return resourceFromACLPolicyBinding(item)
-	case apitypes.ResourceKindACLRole:
-		if m.services.ACL == nil {
-			return apitypes.Resource{}, missingService("acl")
-		}
-		item, exists, err := m.getACLRole(ctx, string(pathParam(name)))
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
-		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
-		}
-		return resourceFromACLRole(item)
-	case apitypes.ResourceKindACLView:
-		if m.services.ACL == nil {
-			return apitypes.Resource{}, missingService("acl")
-		}
-		item, exists, err := m.getACLView(ctx, string(pathParam(name)))
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
-		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
-		}
-		return resourceFromACLView(item)
 	case apitypes.ResourceKindCredential:
 		if m.services.Credentials == nil {
 			return apitypes.Resource{}, missingService("credentials")
@@ -122,11 +86,7 @@ func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, name stri
 		if !exists {
 			return apitypes.Resource{}, notFound(kind, name)
 		}
-		resource, err := resourceFromCredential(item)
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
-		return m.withOwnedResourceOwner(ctx, apitypes.ACLResourceKindCredential, name, resource)
+		return resourceFromCredential(item)
 	case apitypes.ResourceKindFirmware:
 		if m.services.Firmwares == nil {
 			return apitypes.Resource{}, missingService("firmwares")
@@ -138,20 +98,25 @@ func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, name stri
 		if !exists {
 			return apitypes.Resource{}, notFound(kind, name)
 		}
-		resource, err := resourceFromFirmware(item)
+		return resourceFromFirmware(item)
+	case apitypes.ResourceKindRuntimeProfile:
+		item, exists, err := m.getRuntimeProfile(ctx, string(pathParam(name)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
-		return m.withOwnedResourceOwner(ctx, apitypes.ACLResourceKindFirmware, name, resource)
-	case apitypes.ResourceKindPeerConfig:
-		if m.services.Peers == nil {
-			return apitypes.Resource{}, missingService("peers")
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
 		}
-		item, err := m.getPeerConfig(ctx, string(pathParam(name)))
+		return resourceFromRuntimeProfile(item)
+	case apitypes.ResourceKindRegistrationToken:
+		item, exists, err := m.getRegistrationToken(ctx, string(pathParam(name)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
-		return resourceFromPeerConfig(name, item)
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromRegistrationToken(item, nil)
 	case apitypes.ResourceKindModel:
 		if m.services.Models == nil {
 			return apitypes.Resource{}, missingService("models")
@@ -163,11 +128,7 @@ func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, name stri
 		if !exists {
 			return apitypes.Resource{}, notFound(kind, name)
 		}
-		resource, err := resourceFromModel(item)
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
-		return m.withOwnedResourceOwner(ctx, apitypes.ACLResourceKindModel, name, resource)
+		return resourceFromModel(item)
 	case apitypes.ResourceKindTool:
 		if m.services.Tools == nil {
 			return apitypes.Resource{}, missingService("tools")
@@ -179,24 +140,7 @@ func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, name stri
 		if !exists {
 			return apitypes.Resource{}, notFound(kind, name)
 		}
-		resource, err := resourceFromTool(item)
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
-		return m.withOwnedResourceOwner(ctx, apitypes.ACLResourceKindTool, name, resource)
-	case apitypes.ResourceKindGameRuleset:
-		item, exists, err := m.getGameRuleset(ctx, string(pathParam(name)))
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
-		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
-		}
-		resource, err := resourceFromGameRuleset(item)
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
-		return m.withOwnedResourceOwner(ctx, apitypes.ACLResourceKindGameruleset, name, resource)
+		return resourceFromTool(item)
 	case apitypes.ResourceKindPetDef:
 		item, exists, err := m.getPetDef(ctx, string(pathParam(name)))
 		if err != nil {
@@ -295,11 +239,7 @@ func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, name stri
 		if !exists {
 			return apitypes.Resource{}, notFound(kind, name)
 		}
-		resource, err := resourceFromVoice(item)
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
-		return m.withOwnedResourceOwner(ctx, apitypes.ACLResourceKindVoice, name, resource)
+		return resourceFromVoice(item)
 	case apitypes.ResourceKindWorkspace:
 		if m.services.Workspaces == nil {
 			return apitypes.Resource{}, missingService("workspaces")
@@ -311,11 +251,7 @@ func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, name stri
 		if !exists {
 			return apitypes.Resource{}, notFound(kind, name)
 		}
-		resource, err := resourceFromWorkspace(item)
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
-		return m.withOwnedResourceOwner(ctx, apitypes.ACLResourceKindWorkspace, name, resource)
+		return resourceFromWorkspace(item)
 	case apitypes.ResourceKindWorkflow:
 		if m.services.Workflows == nil {
 			return apitypes.Resource{}, missingService("workflows")
@@ -327,11 +263,7 @@ func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, name stri
 		if !exists {
 			return apitypes.Resource{}, notFound(kind, name)
 		}
-		resource, err := resourceFromWorkflow(name, item)
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
-		return m.withOwnedResourceOwner(ctx, apitypes.ACLResourceKindWorkflow, name, resource)
+		return resourceFromWorkflow(name, item)
 	case apitypes.ResourceKindResourceList:
 		return apitypes.Resource{}, applyError(400, "UNSUPPORTED_RESOURCE_GET", "ResourceList is not stored as a named resource")
 	case apitypes.ResourceKindFriend:
@@ -409,51 +341,6 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		return apitypes.Resource{}, applyError(400, "INVALID_RESOURCE", err.Error())
 	}
 	switch kind {
-	case string(apitypes.ResourceKindACLPolicyBinding), "ACLPolicyBindingResource":
-		if m.services.ACL == nil {
-			return apitypes.Resource{}, missingService("acl")
-		}
-		item, err := resource.AsACLPolicyBindingResource()
-		if err != nil {
-			return apitypes.Resource{}, applyError(400, "INVALID_ACL_POLICY_BINDING_RESOURCE", err.Error())
-		}
-		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
-			return apitypes.Resource{}, err
-		}
-		if _, err := m.services.ACL.PutPolicyBinding(ctx, string(pathParam(item.Metadata.Name)), 0, item.Spec); err != nil {
-			return apitypes.Resource{}, err
-		}
-		return m.Get(ctx, apitypes.ResourceKindACLPolicyBinding, item.Metadata.Name)
-	case string(apitypes.ResourceKindACLRole), "ACLRoleResource":
-		if m.services.ACL == nil {
-			return apitypes.Resource{}, missingService("acl")
-		}
-		item, err := resource.AsACLRoleResource()
-		if err != nil {
-			return apitypes.Resource{}, applyError(400, "INVALID_ACL_ROLE_RESOURCE", err.Error())
-		}
-		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
-			return apitypes.Resource{}, err
-		}
-		if _, err := m.services.ACL.PutRole(ctx, string(pathParam(item.Metadata.Name)), item.Spec.Permissions); err != nil {
-			return apitypes.Resource{}, err
-		}
-		return m.Get(ctx, apitypes.ResourceKindACLRole, item.Metadata.Name)
-	case string(apitypes.ResourceKindACLView), "ACLViewResource":
-		if m.services.ACL == nil {
-			return apitypes.Resource{}, missingService("acl")
-		}
-		item, err := resource.AsACLViewResource()
-		if err != nil {
-			return apitypes.Resource{}, applyError(400, "INVALID_ACL_VIEW_RESOURCE", err.Error())
-		}
-		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
-			return apitypes.Resource{}, err
-		}
-		if _, err := m.services.ACL.PutView(ctx, string(pathParam(item.Metadata.Name)), item.Spec); err != nil {
-			return apitypes.Resource{}, err
-		}
-		return m.Get(ctx, apitypes.ResourceKindACLView, item.Metadata.Name)
 	case string(apitypes.ResourceKindCredential), "CredentialResource":
 		if m.services.Credentials == nil {
 			return apitypes.Resource{}, missingService("credentials")
@@ -465,19 +352,8 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 			return apitypes.Resource{}, err
 		}
-		_, exists, err := m.getCredential(ctx, string(pathParam(item.Metadata.Name)))
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
-		if err := m.validateOwnedResourceOwner(apitypes.ACLResourceKindCredential, item.Metadata.Name, item.Metadata, exists); err != nil {
-			return apitypes.Resource{}, err
-		}
-		ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindCredential, item.Metadata.Name, item.Metadata)
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
 		if err := m.putCredential(ctx, string(pathParam(item.Metadata.Name)), credentialUpsert(item)); err != nil {
-			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
+			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindCredential, item.Metadata.Name)
 	case string(apitypes.ResourceKindFirmware), "FirmwareResource":
@@ -491,36 +367,31 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 			return apitypes.Resource{}, err
 		}
-		_, exists, err := m.getFirmware(ctx, string(pathParam(item.Metadata.Name)))
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
-		if err := m.validateOwnedResourceOwner(apitypes.ACLResourceKindFirmware, item.Metadata.Name, item.Metadata, exists); err != nil {
-			return apitypes.Resource{}, err
-		}
-		ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindFirmware, item.Metadata.Name, item.Metadata)
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
 		if err := m.putFirmware(ctx, string(pathParam(item.Metadata.Name)), firmwareUpsert(item)); err != nil {
-			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
+			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindFirmware, item.Metadata.Name)
-	case string(apitypes.ResourceKindPeerConfig), "PeerConfigResource":
-		if m.services.Peers == nil {
-			return apitypes.Resource{}, missingService("peers")
-		}
-		item, err := resource.AsPeerConfigResource()
+	case string(apitypes.ResourceKindRuntimeProfile), "RuntimeProfileResource":
+		item, err := resource.AsRuntimeProfileResource()
 		if err != nil {
-			return apitypes.Resource{}, applyError(400, "INVALID_PEER_CONFIG_RESOURCE", err.Error())
+			return apitypes.Resource{}, applyError(400, "INVALID_RUNTIME_PROFILE_RESOURCE", err.Error())
 		}
 		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 			return apitypes.Resource{}, err
 		}
-		if err := m.putPeerConfig(ctx, string(pathParam(item.Metadata.Name)), item.Spec); err != nil {
+		if err := m.putRuntimeProfile(ctx, item.Metadata.Name, item.Spec); err != nil {
 			return apitypes.Resource{}, err
 		}
-		return m.Get(ctx, apitypes.ResourceKindPeerConfig, item.Metadata.Name)
+		return m.Get(ctx, apitypes.ResourceKindRuntimeProfile, item.Metadata.Name)
+	case string(apitypes.ResourceKindRegistrationToken), "RegistrationTokenResource":
+		item, err := resource.AsRegistrationTokenResource()
+		if err != nil {
+			return apitypes.Resource{}, applyError(400, "INVALID_REGISTRATION_TOKEN_RESOURCE", err.Error())
+		}
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.putRegistrationToken(ctx, item)
 	case string(apitypes.ResourceKindDashScopeTenant), "DashScopeTenantResource":
 		if m.services.ProviderTenants == nil {
 			return apitypes.Resource{}, missingService("provider tenants")
@@ -592,19 +463,8 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 			return apitypes.Resource{}, err
 		}
-		_, exists, err := m.getModel(ctx, string(pathParam(item.Metadata.Name)))
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
-		if err := m.validateOwnedResourceOwner(apitypes.ACLResourceKindModel, item.Metadata.Name, item.Metadata, exists); err != nil {
-			return apitypes.Resource{}, err
-		}
-		ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindModel, item.Metadata.Name, item.Metadata)
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
 		if err := m.putModel(ctx, string(pathParam(item.Metadata.Name)), modelUpsert(item)); err != nil {
-			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
+			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindModel, item.Metadata.Name)
 	case string(apitypes.ResourceKindTool), "ToolResource":
@@ -619,29 +479,6 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 			return apitypes.Resource{}, err
 		}
 		return m.putToolResource(ctx, item)
-	case string(apitypes.ResourceKindGameRuleset), "GameRulesetResource":
-		item, err := resource.AsGameRulesetResource()
-		if err != nil {
-			return apitypes.Resource{}, applyError(400, "INVALID_GAME_RULESET_RESOURCE", err.Error())
-		}
-		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
-			return apitypes.Resource{}, err
-		}
-		_, exists, err := m.getGameRuleset(ctx, string(pathParam(item.Metadata.Name)))
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
-		if err := m.validateOwnedResourceOwner(apitypes.ACLResourceKindGameruleset, item.Metadata.Name, item.Metadata, exists); err != nil {
-			return apitypes.Resource{}, err
-		}
-		ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindGameruleset, item.Metadata.Name, item.Metadata)
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
-		if err := m.putGameRuleset(ctx, string(pathParam(item.Metadata.Name)), gameRulesetUpsert(item)); err != nil {
-			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
-		}
-		return m.Get(ctx, apitypes.ResourceKindGameRuleset, item.Metadata.Name)
 	case string(apitypes.ResourceKindPetDef), "PetDefResource":
 		item, err := resource.AsPetDefResource()
 		if err != nil {
@@ -721,19 +558,8 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 			return apitypes.Resource{}, err
 		}
-		_, exists, err := m.getVoice(ctx, string(pathParam(item.Metadata.Name)))
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
-		if err := m.validateOwnedResourceOwner(apitypes.ACLResourceKindVoice, item.Metadata.Name, item.Metadata, exists); err != nil {
-			return apitypes.Resource{}, err
-		}
-		ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindVoice, item.Metadata.Name, item.Metadata)
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
 		if err := m.putVoice(ctx, string(pathParam(item.Metadata.Name)), voiceUpsert(item)); err != nil {
-			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
+			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindVoice, item.Metadata.Name)
 	case string(apitypes.ResourceKindWorkspace), "WorkspaceResource":
@@ -747,19 +573,8 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 			return apitypes.Resource{}, err
 		}
-		_, exists, err := m.getWorkspace(ctx, string(pathParam(item.Metadata.Name)))
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
-		if err := m.validateOwnedResourceOwner(apitypes.ACLResourceKindWorkspace, item.Metadata.Name, item.Metadata, exists); err != nil {
-			return apitypes.Resource{}, err
-		}
-		ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindWorkspace, item.Metadata.Name, item.Metadata)
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
 		if err := m.putWorkspace(ctx, string(pathParam(item.Metadata.Name)), workspaceUpsert(item)); err != nil {
-			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
+			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindWorkspace, item.Metadata.Name)
 	case string(apitypes.ResourceKindWorkflow), "WorkflowResource":
@@ -773,19 +588,8 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 			return apitypes.Resource{}, err
 		}
-		_, exists, err := m.getWorkflow(ctx, string(pathParam(item.Metadata.Name)))
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
-		if err := m.validateOwnedResourceOwner(apitypes.ACLResourceKindWorkflow, item.Metadata.Name, item.Metadata, exists); err != nil {
-			return apitypes.Resource{}, err
-		}
-		ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindWorkflow, item.Metadata.Name, item.Metadata)
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
 		if err := m.putWorkflow(ctx, string(pathParam(item.Metadata.Name)), workflowFromResource(item)); err != nil {
-			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
+			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindWorkflow, item.Metadata.Name)
 	case string(apitypes.ResourceKindFriend), "FriendResource":
@@ -877,90 +681,58 @@ func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, name s
 		return apitypes.Resource{}, applyError(400, "INVALID_RESOURCE", "metadata.name is required")
 	}
 	switch kind {
-	case apitypes.ResourceKindACLPolicyBinding:
-		if m.services.ACL == nil {
-			return apitypes.Resource{}, missingService("acl")
-		}
-		item, err := m.services.ACL.DeletePolicyBinding(ctx, string(pathParam(name)))
-		if err != nil {
-			if errors.Is(err, acl.ErrPolicyBindingNotFound) {
-				return apitypes.Resource{}, notFound(kind, name)
-			}
-			return apitypes.Resource{}, err
-		}
-		return resourceFromACLPolicyBinding(item)
-	case apitypes.ResourceKindACLRole:
-		if m.services.ACL == nil {
-			return apitypes.Resource{}, missingService("acl")
-		}
-		item, err := m.services.ACL.DeleteRole(ctx, string(pathParam(name)))
-		if err != nil {
-			if errors.Is(err, acl.ErrRoleNotFound) {
-				return apitypes.Resource{}, notFound(kind, name)
-			}
-			return apitypes.Resource{}, err
-		}
-		return resourceFromACLRole(item)
-	case apitypes.ResourceKindACLView:
-		if m.services.ACL == nil {
-			return apitypes.Resource{}, missingService("acl")
-		}
-		item, err := m.services.ACL.DeleteView(ctx, string(pathParam(name)))
-		if err != nil {
-			if errors.Is(err, acl.ErrViewNotFound) {
-				return apitypes.Resource{}, notFound(kind, name)
-			}
-			return apitypes.Resource{}, err
-		}
-		return resourceFromACLView(item)
 	case apitypes.ResourceKindCredential:
 		if m.services.Credentials == nil {
 			return apitypes.Resource{}, missingService("credentials")
 		}
-		ownerRollback, err := m.removeOwnedResourceOwnerBeforeDelete(ctx, apitypes.ACLResourceKindCredential, name)
+		item, exists, err := m.deleteCredential(ctx, string(pathParam(name)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
-		item, exists, err := m.deleteCredential(ctx, string(pathParam(name)))
-		if err != nil {
-			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
-		}
 		if !exists {
-			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, notFound(kind, name))
+			return apitypes.Resource{}, notFound(kind, name)
 		}
 		return resourceFromCredential(item)
 	case apitypes.ResourceKindFirmware:
 		if m.services.Firmwares == nil {
 			return apitypes.Resource{}, missingService("firmwares")
 		}
-		ownerRollback, err := m.removeOwnedResourceOwnerBeforeDelete(ctx, apitypes.ACLResourceKindFirmware, name)
+		item, exists, err := m.deleteFirmware(ctx, string(pathParam(name)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
-		item, exists, err := m.deleteFirmware(ctx, string(pathParam(name)))
-		if err != nil {
-			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
-		}
 		if !exists {
-			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, notFound(kind, name))
+			return apitypes.Resource{}, notFound(kind, name)
 		}
 		return resourceFromFirmware(item)
-	case apitypes.ResourceKindPeerConfig:
-		return apitypes.Resource{}, applyError(400, "UNSUPPORTED_RESOURCE_DELETE", "PeerConfig cannot be deleted independently")
+	case apitypes.ResourceKindRuntimeProfile:
+		item, exists, err := m.deleteRuntimeProfile(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromRuntimeProfile(item)
+	case apitypes.ResourceKindRegistrationToken:
+		item, exists, err := m.deleteRegistrationToken(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromRegistrationToken(item, nil)
 	case apitypes.ResourceKindModel:
 		if m.services.Models == nil {
 			return apitypes.Resource{}, missingService("models")
 		}
-		ownerRollback, err := m.removeOwnedResourceOwnerBeforeDelete(ctx, apitypes.ACLResourceKindModel, name)
+		item, exists, err := m.deleteModel(ctx, string(pathParam(name)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
-		item, exists, err := m.deleteModel(ctx, string(pathParam(name)))
-		if err != nil {
-			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
-		}
 		if !exists {
-			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, notFound(kind, name))
+			return apitypes.Resource{}, notFound(kind, name)
 		}
 		return resourceFromModel(item)
 	case apitypes.ResourceKindTool:
@@ -975,19 +747,6 @@ func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, name s
 			return apitypes.Resource{}, notFound(kind, name)
 		}
 		return resourceFromTool(item)
-	case apitypes.ResourceKindGameRuleset:
-		ownerRollback, err := m.removeOwnedResourceOwnerBeforeDelete(ctx, apitypes.ACLResourceKindGameruleset, name)
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
-		item, exists, err := m.deleteGameRuleset(ctx, string(pathParam(name)))
-		if err != nil {
-			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
-		}
-		if !exists {
-			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, notFound(kind, name))
-		}
-		return resourceFromGameRuleset(item)
 	case apitypes.ResourceKindPetDef:
 		item, exists, err := m.deletePetDef(ctx, string(pathParam(name)))
 		if err != nil {
@@ -1079,48 +838,36 @@ func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, name s
 		if m.services.Voices == nil {
 			return apitypes.Resource{}, missingService("voices")
 		}
-		ownerRollback, err := m.removeOwnedResourceOwnerBeforeDelete(ctx, apitypes.ACLResourceKindVoice, name)
+		item, exists, err := m.deleteVoice(ctx, string(pathParam(name)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
-		item, exists, err := m.deleteVoice(ctx, string(pathParam(name)))
-		if err != nil {
-			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
-		}
 		if !exists {
-			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, notFound(kind, name))
+			return apitypes.Resource{}, notFound(kind, name)
 		}
 		return resourceFromVoice(item)
 	case apitypes.ResourceKindWorkspace:
 		if m.services.Workspaces == nil {
 			return apitypes.Resource{}, missingService("workspaces")
 		}
-		ownerRollback, err := m.removeOwnedResourceOwnerBeforeDelete(ctx, apitypes.ACLResourceKindWorkspace, name)
+		item, exists, err := m.deleteWorkspace(ctx, string(pathParam(name)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
-		item, exists, err := m.deleteWorkspace(ctx, string(pathParam(name)))
-		if err != nil {
-			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
-		}
 		if !exists {
-			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, notFound(kind, name))
+			return apitypes.Resource{}, notFound(kind, name)
 		}
 		return resourceFromWorkspace(item)
 	case apitypes.ResourceKindWorkflow:
 		if m.services.Workflows == nil {
 			return apitypes.Resource{}, missingService("workflows")
 		}
-		ownerRollback, err := m.removeOwnedResourceOwnerBeforeDelete(ctx, apitypes.ACLResourceKindWorkflow, name)
+		item, exists, err := m.deleteWorkflow(ctx, string(pathParam(name)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
-		item, exists, err := m.deleteWorkflow(ctx, string(pathParam(name)))
-		if err != nil {
-			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
-		}
 		if !exists {
-			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, notFound(kind, name))
+			return apitypes.Resource{}, notFound(kind, name)
 		}
 		return resourceFromWorkflow(name, item)
 	case apitypes.ResourceKindResourceList:
@@ -1215,18 +962,14 @@ func (m *Manager) Apply(ctx context.Context, resource apitypes.Resource) (apityp
 		return apitypes.ApplyResult{}, applyError(400, "INVALID_RESOURCE", err.Error())
 	}
 	switch kind {
-	case string(apitypes.ResourceKindACLPolicyBinding), "ACLPolicyBindingResource":
-		return m.applyACLPolicyBinding(ctx, resource)
-	case string(apitypes.ResourceKindACLRole), "ACLRoleResource":
-		return m.applyACLRole(ctx, resource)
-	case string(apitypes.ResourceKindACLView), "ACLViewResource":
-		return m.applyACLView(ctx, resource)
 	case string(apitypes.ResourceKindCredential), "CredentialResource":
 		return m.applyCredential(ctx, resource)
 	case string(apitypes.ResourceKindFirmware), "FirmwareResource":
 		return m.applyFirmware(ctx, resource)
-	case string(apitypes.ResourceKindPeerConfig), "PeerConfigResource":
-		return m.applyPeerConfig(ctx, resource)
+	case string(apitypes.ResourceKindRuntimeProfile), "RuntimeProfileResource":
+		return m.applyRuntimeProfile(ctx, resource)
+	case string(apitypes.ResourceKindRegistrationToken), "RegistrationTokenResource":
+		return apitypes.ApplyResult{}, applyError(400, "REGISTRATION_TOKEN_APPLY_UNSUPPORTED", "use RegistrationToken create so the one-time token can be returned")
 	case string(apitypes.ResourceKindDashScopeTenant), "DashScopeTenantResource":
 		return m.applyDashScopeTenant(ctx, resource)
 	case string(apitypes.ResourceKindMiniMaxTenant), "MiniMaxTenantResource":
@@ -1239,8 +982,6 @@ func (m *Manager) Apply(ctx context.Context, resource apitypes.Resource) (apityp
 		return m.applyModel(ctx, resource)
 	case string(apitypes.ResourceKindTool), "ToolResource":
 		return m.applyTool(ctx, resource)
-	case string(apitypes.ResourceKindGameRuleset), "GameRulesetResource":
-		return m.applyGameRuleset(ctx, resource)
 	case string(apitypes.ResourceKindPetDef), "PetDefResource":
 		return m.applyPetDef(ctx, resource)
 	case string(apitypes.ResourceKindBadgeDef), "BadgeDefResource":

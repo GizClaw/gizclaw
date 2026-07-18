@@ -193,13 +193,11 @@ gizclaw_bin="tests/gizclaw-e2e/testdata/bin/gizclaw"
 "$gizclaw_bin" context info
 ```
 
-`context create` generates a new client identity. If that identity should use
-the default shared client view, pass its `identity_public` from
-`gizclaw context info` to the Docker-backed setup server:
-
-```sh
-bash tests/gizclaw-e2e/setup/apply_client_view.sh <identity_public>
-```
+`context create` generates a new client identity. To expose seeded resources to
+that device, create a RegistrationToken for the intended firmware and
+RuntimeProfile through the admin CLI, then pass the raw token once with
+`--registration-token` on a resource command. The server snapshots that profile
+onto the connection; reconnecting requires registration again.
 
 Then regular CLI commands can use the context:
 
@@ -295,8 +293,8 @@ tests/gizclaw-e2e/testdata/bin/
 ## Resource Set
 
 Docker setup creates a small real deployment: provider tenants, model rows,
-voice rows, workflows, workspaces, firmware entries, ACL policy bindings, and
-social graph rows. Client, CLI, and UI tests should use this shared business
+voice rows, workflows, workspaces, firmware entries, RuntimeProfiles, and social
+graph rows. Client, CLI, and UI tests should use this shared business
 resource set instead of adding private per-test or UI-specific resource groups.
 Tests may still create and delete `mutation-*` resources for mutation coverage.
 
@@ -307,13 +305,13 @@ resources/
   00-credentials/
   01-tenants/
   03-models/
+  03-tools/
   04-workflows/
   05-workspaces/
   06-firmwares/
   07-gameplay/
   08-voices/
   09-social/
-  90-acl/
   assets/
 ```
 
@@ -408,7 +406,7 @@ prefix, and individual methods should be split by `Test...` functions.
 ordinary `_test.go` files.
 
 `go/social` contains friend and friend-group behavior. These tests are
-client-driven and should cover relation changes, workspace ACL visibility,
+client-driven and should cover relation changes, domain-workspace visibility,
 message rounds, `workspace.history.updated`, history list/get cursor behavior,
 and history replay.
 

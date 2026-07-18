@@ -3,13 +3,10 @@
 package migrate_test
 
 import (
-	"database/sql"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
-	_ "modernc.org/sqlite"
 )
 
 func TestServerMigrateWorkspaceUserStory(t *testing.T) {
@@ -23,14 +20,5 @@ func TestServerMigrateWorkspaceUserStory(t *testing.T) {
 		if !strings.Contains(result.Stdout, "Migrated workspace ") {
 			t.Fatalf("migrate output = %q", result.Stdout)
 		}
-	}
-
-	db, err := sql.Open("sqlite", filepath.Join(h.ServerWorkspace, "data", "acl.sqlite"))
-	if err != nil {
-		t.Fatalf("open migrated sqlite db: %v", err)
-	}
-	defer db.Close()
-	if _, err := db.Exec(`INSERT INTO acl_views (name, created_at, updated_at) VALUES ('default', 'now', 'now')`); err != nil {
-		t.Fatalf("insert acl view after migrate: %v", err)
 	}
 }

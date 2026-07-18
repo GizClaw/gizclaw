@@ -23,6 +23,6 @@ func (s *Server) peerOpenAIHTTPHandler(sessions *publiclogin.SessionManager) htt
 			http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
 			return
 		}
-		http.StripPrefix("/openai", s.peerService.openAIHTTPHandlerForPeer(publicKey, nil)).ServeHTTP(w, r)
+		http.StripPrefix("/openai", s.peerService.openAIHTTPHandlerForPeer(publicKey, nil, nil)).ServeHTTP(w, r)
 	})
 }

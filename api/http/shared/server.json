@@ -1571,18 +1571,6 @@
           }
         }
       },
-      "ServerGameRulesetGetRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "name": {
-            "type": "string"
-          }
-        }
-      },
-      "ServerGameRulesetGetResponse": {
-        "$ref": "../shared/gameplay.json#/components/schemas/GameRuleset"
-      },
       "BadgeDefPixaDownloadRequest": {
         "type": "object",
         "required": [
@@ -1655,12 +1643,7 @@
       },
       "ServerPointsGetRequest": {
         "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "ruleset_name": {
-            "type": "string"
-          }
-        }
+        "additionalProperties": false
       },
       "ServerPointsGetResponse": {
         "$ref": "../shared/gameplay.json#/components/schemas/PointsAccount"

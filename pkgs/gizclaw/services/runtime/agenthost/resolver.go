@@ -80,9 +80,9 @@ func (r ServiceResolver) resolveToolkit(ctx context.Context, ws apitypes.Workspa
 	if r.ToolBuilder == nil || r.ToolExecutors == nil {
 		return nil, fmt.Errorf("agenthost: toolkit services are required")
 	}
-	subject, ok := aclSubjectFromContext(ctx)
+	access, ok := resourceAccessFromContext(ctx)
 	if !ok {
-		return nil, fmt.Errorf("agenthost: authenticated subject is required for toolkit")
+		return nil, fmt.Errorf("agenthost: resource access context is required for toolkit")
 	}
 	workflowIDs, workflowRestrict, err := policyToolIDs(workflow.Spec.Toolkit)
 	if err != nil {
@@ -100,17 +100,12 @@ func (r ServiceResolver) resolveToolkit(ctx context.Context, ws apitypes.Workspa
 	case workspaceRestrict:
 		ids = workspaceIDs
 	}
-	builder := r.ToolBuilder
-	if authorizer := toolkitAuthorizerFromContext(ctx); authorizer != nil {
-		copied := *r.ToolBuilder
-		copied.Authorizer = authorizer
-		builder = &copied
-	}
 	return &ToolkitContext{
-		Builder:   builder,
+		Builder:   r.ToolBuilder,
 		Executors: r.ToolExecutors,
 		BuildRequest: toolkit.BuildRequest{
-			Subject:         subject,
+			OwnerPublicKey:  access.ownerPublicKey,
+			ProfileToolIDs:  append([]string(nil), access.profileToolIDs...),
 			AllowedToolIDs:  ids,
 			RestrictToolIDs: restrict,
 		},

@@ -1227,11 +1227,21 @@ const Workspace$json = {
       '10': 'icon',
       '17': true
     },
+    {
+      '1': 'owner_public_key',
+      '3': 10,
+      '4': 1,
+      '5': 9,
+      '9': 3,
+      '10': 'ownerPublicKey',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_parameters'},
     {'1': '_toolkit'},
     {'1': '_icon'},
+    {'1': '_owner_public_key'},
   ],
 };
 
@@ -1243,8 +1253,9 @@ final $typed_data.Uint8List workspaceDescriptor = $convert.base64Decode(
     'V0ZXJziAEBEh0KCnVwZGF0ZWRfYXQYBSABKAlSCXVwZGF0ZWRBdBIjCg13b3JrZmxvd19uYW1l'
     'GAYgASgJUgx3b3JrZmxvd05hbWUSPAoHdG9vbGtpdBgHIAEoCzIdLmdpemNsYXcucnBjLnYxLl'
     'Rvb2xraXRQb2xpY3lIAVIHdG9vbGtpdIgBARIWCgZzeXN0ZW0YCCABKAhSBnN5c3RlbRItCgRp'
-    'Y29uGAkgASgLMhQuZ2l6Y2xhdy5ycGMudjEuSWNvbkgCUgRpY29uiAEBQg0KC19wYXJhbWV0ZX'
-    'JzQgoKCF90b29sa2l0QgcKBV9pY29u');
+    'Y29uGAkgASgLMhQuZ2l6Y2xhdy5ycGMudjEuSWNvbkgCUgRpY29uiAEBEi0KEG93bmVyX3B1Ym'
+    'xpY19rZXkYCiABKAlIA1IOb3duZXJQdWJsaWNLZXmIAQFCDQoLX3BhcmFtZXRlcnNCCgoIX3Rv'
+    'b2xraXRCBwoFX2ljb25CEwoRX293bmVyX3B1YmxpY19rZXk=');
 
 @$core.Deprecated('Use workspaceUpsertDescriptor instead')
 const WorkspaceUpsert$json = {

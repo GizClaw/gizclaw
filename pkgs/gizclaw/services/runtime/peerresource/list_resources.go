@@ -2,136 +2,96 @@ package peerresource
 
 import (
 	"context"
-	"errors"
+	"net/http"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 )
 
 func (s *Server) ListModels(ctx context.Context, request adminhttp.ListModelsRequestObject) (adminhttp.ListModelsResponseObject, error) {
 	if s.Models == nil {
 		return adminhttp.ListModels500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "model service not configured")), nil
 	}
-	limit := int32(50)
-	if request.Params.Limit != nil && *request.Params.Limit > 0 {
-		limit = *request.Params.Limit
+	items, err := s.effectiveModels(ctx)
+	if err != nil {
+		return adminhttp.ListModels500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if limit > 200 {
-		limit = 200
+	requested := 50
+	if request.Params.Limit != nil {
+		requested = int(*request.Params.Limit)
 	}
-
-	cursor := request.Params.Cursor
-	one := int32(1)
-	items := make([]apitypes.Model, 0, limit+1)
-	visibleCursors := make([]*string, 0, limit+1)
-	for int32(len(items)) <= limit {
-		pageReq := request
-		pageReq.Params.Cursor = cursor
-		pageReq.Params.Limit = &one
-		resp, err := s.Models.ListModels(ctx, pageReq)
-		if err != nil {
-			return nil, err
-		}
-		list, rpcResp, err := adminResult[adminhttp.ModelList](resp.VisitListModelsResponse)
-		if err != nil || rpcResp != nil {
-			return resp, nil
-		}
-		if len(list.Items) == 0 {
-			break
-		}
-		item := list.Items[0]
-		err = s.authorizeErr(ctx, acl.ModelResource(item.Id), apitypes.ACLPermissionUse)
-		if err == nil {
-			items = append(items, item)
-			visibleCursors = append(visibleCursors, list.NextCursor)
-		} else if !errors.Is(err, acl.ErrDenied) {
-			return nil, err
-		}
-		if !list.HasNext || list.NextCursor == nil || *list.NextCursor == "" {
-			break
-		}
-		cursor = list.NextCursor
-	}
-
-	out := adminhttp.ModelList{Items: items}
-	if int32(len(items)) > limit {
-		out.Items = items[:limit]
-		out.HasNext = true
-		out.NextCursor = visibleCursors[limit-1]
-	}
-	return adminhttp.ListModels200JSONResponse(out), nil
+	page, hasNext, nextCursor := pageModels(items, request.Params.Cursor, &requested)
+	return adminhttp.ListModels200JSONResponse(adminhttp.ModelList{Items: page, HasNext: hasNext, NextCursor: nextCursor}), nil
 }
 
 func (s *Server) GetModel(ctx context.Context, request adminhttp.GetModelRequestObject) (adminhttp.GetModelResponseObject, error) {
 	if s.Models == nil {
 		return adminhttp.GetModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "model service not configured")), nil
 	}
-	if err := s.authorizeErr(ctx, acl.ModelResource(request.Id), apitypes.ACLPermissionRead); err != nil {
-		return adminhttp.GetModel500JSONResponse(apitypes.NewErrorResponse("ACL_DENIED", err.Error())), nil
+	response, err := s.Models.GetModel(ctx, request)
+	if err != nil {
+		return nil, err
 	}
-	return s.Models.GetModel(ctx, request)
+	item, rpcResponse, decodeErr := adminResult[apitypes.Model](response.VisitGetModelResponse)
+	if decodeErr != nil || rpcResponse != nil {
+		return response, nil
+	}
+	if !s.profileAllows(profileModels, request.Id) && !s.owns(item.OwnerPublicKey) {
+		return adminhttp.GetModel404JSONResponse(apitypes.NewErrorResponse("MODEL_NOT_FOUND", "model not found")), nil
+	}
+	return response, nil
 }
 
 func (s *Server) GetCredential(ctx context.Context, request adminhttp.GetCredentialRequestObject) (adminhttp.GetCredentialResponseObject, error) {
 	if s.Credentials == nil {
 		return adminhttp.GetCredential500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "credential service not configured")), nil
 	}
-	if err := s.authorizeErr(ctx, acl.CredentialResource(request.Name), apitypes.ACLPermissionRead); err != nil {
-		return adminhttp.GetCredential500JSONResponse(apitypes.NewErrorResponse("ACL_DENIED", err.Error())), nil
+	response, err := s.Credentials.GetCredential(ctx, request)
+	if err != nil {
+		return nil, err
 	}
-	return s.Credentials.GetCredential(ctx, request)
+	item, rpcResponse, decodeErr := adminResult[apitypes.Credential](response.VisitGetCredentialResponse)
+	if decodeErr != nil || rpcResponse != nil {
+		return response, nil
+	}
+	if !s.owns(item.OwnerPublicKey) {
+		return adminhttp.GetCredential404JSONResponse(apitypes.NewErrorResponse("CREDENTIAL_NOT_FOUND", "credential not found")), nil
+	}
+	return response, nil
 }
 
 func (s *Server) ListVoices(ctx context.Context, request adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error) {
 	if s.Voices == nil {
 		return adminhttp.ListVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "voice service not configured")), nil
 	}
-	cursor := request.Params.Cursor
-	limit := int32(50)
-	if request.Params.Limit != nil && *request.Params.Limit > 0 {
-		limit = *request.Params.Limit
-	}
-	if limit > 200 {
-		limit = 200
-	}
-
-	out := adminhttp.VoiceList{Items: []apitypes.Voice{}}
-	for {
-		pageReq := request
-		pageReq.Params.Cursor = cursor
-		pageReq.Params.Limit = &limit
-		resp, err := s.Voices.ListVoices(ctx, pageReq)
+	items := make([]apitypes.Voice, 0, len(s.profileNames(profileVoices)))
+	for _, id := range s.profileNames(profileVoices) {
+		response, err := s.Voices.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: id})
 		if err != nil {
 			return nil, err
 		}
-		list, rpcResp, err := adminResult[adminhttp.VoiceList](resp.VisitListVoicesResponse)
+		item, rpcResponse, err := adminResult[apitypes.Voice](response.VisitGetVoiceResponse)
 		if err != nil {
-			return resp, nil
+			return nil, err
 		}
-		if rpcResp != nil {
-			return resp, nil
+		if isNotFoundResponse(rpcResponse) {
+			continue
 		}
-		for _, item := range list.Items {
-			err := s.authorizeErr(ctx, acl.VoiceResource(string(item.Id)), apitypes.ACLPermissionRead)
-			if errors.Is(err, acl.ErrDenied) {
-				continue
-			}
-			if err != nil {
-				return nil, err
-			}
-			out.Items = append(out.Items, item)
-			if int32(len(out.Items)) >= limit {
-				out.HasNext = list.HasNext
-				out.NextCursor = list.NextCursor
-				return adminhttp.ListVoices200JSONResponse(out), nil
-			}
+		if rpcResponse != nil {
+			return adminhttp.ListVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", rpcResponse.Error.Message)), nil
 		}
-		if !list.HasNext || list.NextCursor == nil || *list.NextCursor == "" {
-			return adminhttp.ListVoices200JSONResponse(out), nil
-		}
-		cursor = list.NextCursor
+		items = append(items, item)
 	}
+	requested := 50
+	if request.Params.Limit != nil {
+		requested = int(*request.Params.Limit)
+	}
+	page, hasNext, nextCursor := pageVoices(items, request.Params.Cursor, &requested)
+	return adminhttp.ListVoices200JSONResponse(adminhttp.VoiceList{
+		Items:      page,
+		HasNext:    hasNext,
+		NextCursor: nextCursor,
+	}), nil
 }
 
 func (s *Server) GetVoice(ctx context.Context, request adminhttp.GetVoiceRequestObject) (adminhttp.GetVoiceResponseObject, error) {
@@ -139,8 +99,8 @@ func (s *Server) GetVoice(ctx context.Context, request adminhttp.GetVoiceRequest
 		return adminhttp.GetVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "voice service not configured")), nil
 	}
 	id := string(request.Id)
-	if err := s.authorizeErr(ctx, acl.VoiceResource(id), apitypes.ACLPermissionRead); err != nil {
-		return adminhttp.GetVoice500JSONResponse(apitypes.NewErrorResponse("ACL_DENIED", err.Error())), nil
+	if !s.profileAllows(profileVoices, id) {
+		return adminhttp.GetVoice404JSONResponse(apitypes.NewErrorResponse("VOICE_NOT_FOUND", http.StatusText(http.StatusNotFound))), nil
 	}
 	return s.Voices.GetVoice(ctx, request)
 }

@@ -15,7 +15,6 @@
           "role",
           "status",
           "device",
-          "configuration",
           "created_at",
           "updated_at"
         ],
@@ -31,9 +30,6 @@
           },
           "device": {
             "$ref": "./device_info.json#/components/schemas/DeviceInfo"
-          },
-          "configuration": {
-            "$ref": "./configuration.json#/components/schemas/Configuration"
           },
           "auto_registered": {
             "type": "boolean"

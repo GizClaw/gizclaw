@@ -79,6 +79,14 @@ message PingResponse {
   int64 server_time = 1;
 }
 
+message ServerRegisterRequest {
+  string token = 1;
+}
+
+message ServerRegisterResponse {
+  string firmware_name = 1;
+  string runtime_profile_name = 2;
+}
 message Runtime {
   optional string last_addr = 1;
   string last_seen_at = 2;

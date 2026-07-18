@@ -9,7 +9,7 @@ import (
 
 // PrepareCgoPushToTalkWorkspace recreates and reloads a voice workspace using
 // the same setup path as the Go chat e2e cases, then returns its workspace name.
-func PrepareCgoPushToTalkWorkspace(ctx context.Context, configPath, contextConfigPath string) (string, error) {
+func PrepareCgoPushToTalkWorkspace(ctx context.Context, configPath, contextConfigPath, registrationToken string) (string, error) {
 	cfg, err := loadConfig(configPath, contextConfigPath)
 	if err != nil {
 		return "", err
@@ -26,6 +26,9 @@ func PrepareCgoPushToTalkWorkspace(ctx context.Context, configPath, contextConfi
 		_ = client.Close()
 		<-serveDone
 	}()
+	if _, err := client.Register(ctx, "cgo-chat.register", registrationToken); err != nil {
+		return "", fmt.Errorf("register cgo chat client: %w", err)
+	}
 	cfg, err = ensureWorkspace(ctx, client, cfg)
 	if err != nil {
 		return "", err

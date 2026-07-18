@@ -553,9 +553,9 @@ const (
 	RPCMethodServerFriendList                   RPCMethod = "server.friend.list"
 	RPCMethodServerGameResultGet                RPCMethod = "server.game_result.get"
 	RPCMethodServerGameResultList               RPCMethod = "server.game_result.list"
-	RPCMethodServerGameRulesetGet               RPCMethod = "server.game_ruleset.get"
 	RPCMethodServerInfoGet                      RPCMethod = "server.info.get"
 	RPCMethodServerInfoPut                      RPCMethod = "server.info.put"
+	RPCMethodServerRegister                     RPCMethod = "server.register"
 	RPCMethodServerModelCreate                  RPCMethod = "server.model.create"
 	RPCMethodServerModelDelete                  RPCMethod = "server.model.delete"
 	RPCMethodServerModelGet                     RPCMethod = "server.model.get"
@@ -703,11 +703,11 @@ func (e RPCMethod) Valid() bool {
 		return true
 	case RPCMethodServerGameResultList:
 		return true
-	case RPCMethodServerGameRulesetGet:
-		return true
 	case RPCMethodServerInfoGet:
 		return true
 	case RPCMethodServerInfoPut:
+		return true
+	case RPCMethodServerRegister:
 		return true
 	case RPCMethodServerModelCreate:
 		return true
@@ -1240,12 +1240,13 @@ type ContactPutResponse = ContactObject
 // Credential defines model for Credential.
 type Credential struct {
 	// Body Provider-specific credential payload. The shape is selected by Credential.provider.
-	Body        CredentialBody `json:"body"`
-	CreatedAt   time.Time      `json:"created_at"`
-	Description *string        `json:"description,omitempty"`
-	Name        string         `json:"name"`
-	Provider    string         `json:"provider"`
-	UpdatedAt   time.Time      `json:"updated_at"`
+	Body           CredentialBody `json:"body"`
+	CreatedAt      time.Time      `json:"created_at"`
+	Description    *string        `json:"description,omitempty"`
+	Name           string         `json:"name"`
+	OwnerPublicKey *string        `json:"owner_public_key,omitempty"`
+	Provider       string         `json:"provider"`
+	UpdatedAt      time.Time      `json:"updated_at"`
 }
 
 // CredentialBody Provider-specific credential payload. The shape is selected by Credential.provider.
@@ -2002,20 +2003,20 @@ type GameDefSpec struct {
 
 // GameResult defines model for GameResult.
 type GameResult struct {
-	CreatedAt      time.Time         `json:"created_at"`
-	Difficulty     *string           `json:"difficulty,omitempty"`
-	DurationMs     *int64            `json:"duration_ms,omitempty"`
-	GameDefId      string            `json:"game_def_id"`
-	Id             string            `json:"id"`
-	IdempotencyKey *string           `json:"idempotency_key,omitempty"`
-	MaxScore       *int64            `json:"max_score,omitempty"`
-	OccurredAt     time.Time         `json:"occurred_at"`
-	Outcome        *string           `json:"outcome,omitempty"`
-	OwnerPublicKey string            `json:"owner_public_key"`
-	Payload        *GameplayMetadata `json:"payload,omitempty"`
-	PetId          string            `json:"pet_id"`
-	RulesetName    string            `json:"ruleset_name"`
-	Score          *int64            `json:"score,omitempty"`
+	CreatedAt          time.Time         `json:"created_at"`
+	Difficulty         *string           `json:"difficulty,omitempty"`
+	DurationMs         *int64            `json:"duration_ms,omitempty"`
+	GameDefId          string            `json:"game_def_id"`
+	Id                 string            `json:"id"`
+	IdempotencyKey     *string           `json:"idempotency_key,omitempty"`
+	MaxScore           *int64            `json:"max_score,omitempty"`
+	OccurredAt         time.Time         `json:"occurred_at"`
+	Outcome            *string           `json:"outcome,omitempty"`
+	OwnerPublicKey     string            `json:"owner_public_key"`
+	Payload            *GameplayMetadata `json:"payload,omitempty"`
+	PetId              string            `json:"pet_id"`
+	RuntimeProfileName string            `json:"runtime_profile_name"`
+	Score              *int64            `json:"score,omitempty"`
 }
 
 // GameResultListResponse defines model for GameResultListResponse.
@@ -2030,47 +2031,6 @@ type GameRewardSpec struct {
 	BadgeExpDelta *map[string]int64 `json:"badge_exp_delta,omitempty"`
 	PetExpDelta   *int64            `json:"pet_exp_delta,omitempty"`
 	PointsDelta   *int64            `json:"points_delta,omitempty"`
-}
-
-// GameRuleset defines model for GameRuleset.
-type GameRuleset struct {
-	CreatedAt time.Time       `json:"created_at"`
-	Name      string          `json:"name"`
-	Spec      GameRulesetSpec `json:"spec"`
-	UpdatedAt time.Time       `json:"updated_at"`
-}
-
-// GameRulesetDriveSpec defines model for GameRulesetDriveSpec.
-type GameRulesetDriveSpec struct {
-	DefaultReward *GameRewardSpec            `json:"default_reward,omitempty"`
-	GameRewards   *map[string]GameRewardSpec `json:"game_rewards,omitempty"`
-}
-
-// GameRulesetPetPoolEntry defines model for GameRulesetPetPoolEntry.
-type GameRulesetPetPoolEntry struct {
-	AdoptionCost *int64  `json:"adoption_cost,omitempty"`
-	PetdefId     string  `json:"petdef_id"`
-	Rarity       *string `json:"rarity,omitempty"`
-	Weight       int64   `json:"weight"`
-	WorkflowName *string `json:"workflow_name,omitempty"`
-}
-
-// GameRulesetPointsSpec defines model for GameRulesetPointsSpec.
-type GameRulesetPointsSpec struct {
-	InitialBalance *int64 `json:"initial_balance,omitempty"`
-}
-
-// GameRulesetSpec defines model for GameRulesetSpec.
-type GameRulesetSpec struct {
-	BadgeDefIds         *[]string                 `json:"badge_def_ids,omitempty"`
-	DefaultWorkflowName *string                   `json:"default_workflow_name,omitempty"`
-	Description         *string                   `json:"description,omitempty"`
-	Drive               *GameRulesetDriveSpec     `json:"drive,omitempty"`
-	Enabled             bool                      `json:"enabled"`
-	GameDefIds          *[]string                 `json:"game_def_ids,omitempty"`
-	Metadata            *GameplayMetadata         `json:"metadata,omitempty"`
-	PetPool             []GameRulesetPetPoolEntry `json:"pet_pool"`
-	Points              *GameRulesetPointsSpec    `json:"points,omitempty"`
 }
 
 // GameplayGetRequest defines model for GameplayGetRequest.
@@ -2139,9 +2099,10 @@ type Model struct {
 	Id           string             `json:"id"`
 
 	// Kind Runtime role of a model.
-	Kind     ModelKind     `json:"kind"`
-	Name     *string       `json:"name,omitempty"`
-	Provider ModelProvider `json:"provider"`
+	Kind           ModelKind     `json:"kind"`
+	Name           *string       `json:"name,omitempty"`
+	OwnerPublicKey *string       `json:"owner_public_key,omitempty"`
+	Provider       ModelProvider `json:"provider"`
 
 	// ProviderData Provider-specific model runtime configuration. The shape is selected by Model.provider.kind.
 	ProviderData *ModelProviderData `json:"provider_data,omitempty"`
@@ -2428,24 +2389,22 @@ type PeerStatus struct {
 
 // Pet defines model for Pet.
 type Pet struct {
-	CreatedAt      time.Time      `json:"created_at"`
-	DisplayName    string         `json:"display_name"`
-	Id             string         `json:"id"`
-	LastActiveAt   time.Time      `json:"last_active_at"`
-	Life           PetLife        `json:"life"`
-	OwnerPublicKey string         `json:"owner_public_key"`
-	PetdefId       string         `json:"petdef_id"`
-	Progression    PetProgression `json:"progression"`
-	RulesetName    string         `json:"ruleset_name"`
-	UpdatedAt      time.Time      `json:"updated_at"`
-	WorkflowName   *string        `json:"workflow_name,omitempty"`
-	WorkspaceName  string         `json:"workspace_name"`
+	CreatedAt          time.Time      `json:"created_at"`
+	DisplayName        string         `json:"display_name"`
+	Id                 string         `json:"id"`
+	LastActiveAt       time.Time      `json:"last_active_at"`
+	Life               PetLife        `json:"life"`
+	OwnerPublicKey     string         `json:"owner_public_key"`
+	PetdefId           string         `json:"petdef_id"`
+	Progression        PetProgression `json:"progression"`
+	RuntimeProfileName string         `json:"runtime_profile_name"`
+	UpdatedAt          time.Time      `json:"updated_at"`
+	WorkspaceName      string         `json:"workspace_name"`
 }
 
 // PetAdoptRequest defines model for PetAdoptRequest.
 type PetAdoptRequest struct {
 	DisplayName *string `json:"display_name,omitempty"`
-	RulesetName *string `json:"ruleset_name,omitempty"`
 }
 
 // PetAdoptResponse defines model for PetAdoptResponse.
@@ -2580,7 +2539,6 @@ type PetDefSpec struct {
 	I18n          PetDefI18nSpec      `json:"i18n"`
 	Visual        PetDefVisualSpec    `json:"visual"`
 	Voice         PetDefVoiceSpec     `json:"voice"`
-	WorkflowName  *string             `json:"workflow_name,omitempty"`
 }
 
 // PetDefVisualRefSpec defines model for PetDefVisualRefSpec.
@@ -2674,27 +2632,27 @@ type PingResponse struct {
 
 // PointsAccount defines model for PointsAccount.
 type PointsAccount struct {
-	Balance        int64     `json:"balance"`
-	CreatedAt      time.Time `json:"created_at"`
-	OwnerPublicKey string    `json:"owner_public_key"`
-	RulesetName    string    `json:"ruleset_name"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	Balance            int64     `json:"balance"`
+	CreatedAt          time.Time `json:"created_at"`
+	OwnerPublicKey     string    `json:"owner_public_key"`
+	RuntimeProfileName string    `json:"runtime_profile_name"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 // PointsTransaction defines model for PointsTransaction.
 type PointsTransaction struct {
-	BalanceAfter   int64     `json:"balance_after"`
-	CreatedAt      time.Time `json:"created_at"`
-	Delta          int64     `json:"delta"`
-	GameResultId   *string   `json:"game_result_id,omitempty"`
-	Id             string    `json:"id"`
-	OwnerPublicKey string    `json:"owner_public_key"`
-	PetId          *string   `json:"pet_id,omitempty"`
-	Reason         string    `json:"reason"`
-	RewardGrantId  *string   `json:"reward_grant_id,omitempty"`
-	RulesetName    string    `json:"ruleset_name"`
-	SourceId       string    `json:"source_id"`
-	SourceType     string    `json:"source_type"`
+	BalanceAfter       int64     `json:"balance_after"`
+	CreatedAt          time.Time `json:"created_at"`
+	Delta              int64     `json:"delta"`
+	GameResultId       *string   `json:"game_result_id,omitempty"`
+	Id                 string    `json:"id"`
+	OwnerPublicKey     string    `json:"owner_public_key"`
+	PetId              *string   `json:"pet_id,omitempty"`
+	Reason             string    `json:"reason"`
+	RewardGrantId      *string   `json:"reward_grant_id,omitempty"`
+	RuntimeProfileName string    `json:"runtime_profile_name"`
+	SourceId           string    `json:"source_id"`
+	SourceType         string    `json:"source_type"`
 }
 
 // PointsTransactionListResponse defines model for PointsTransactionListResponse.
@@ -2744,18 +2702,18 @@ type RPCVersion int
 
 // RewardGrant defines model for RewardGrant.
 type RewardGrant struct {
-	BadgeExpDelta  map[string]int64 `json:"badge_exp_delta"`
-	CreatedAt      time.Time        `json:"created_at"`
-	GameResultId   *string          `json:"game_result_id,omitempty"`
-	Id             string           `json:"id"`
-	OwnerPublicKey string           `json:"owner_public_key"`
-	PetExpDelta    int64            `json:"pet_exp_delta"`
-	PetId          *string          `json:"pet_id,omitempty"`
-	PointsDelta    int64            `json:"points_delta"`
-	Reason         *string          `json:"reason,omitempty"`
-	RulesetName    string           `json:"ruleset_name"`
-	SourceId       string           `json:"source_id"`
-	SourceType     string           `json:"source_type"`
+	BadgeExpDelta      map[string]int64 `json:"badge_exp_delta"`
+	CreatedAt          time.Time        `json:"created_at"`
+	GameResultId       *string          `json:"game_result_id,omitempty"`
+	Id                 string           `json:"id"`
+	OwnerPublicKey     string           `json:"owner_public_key"`
+	PetExpDelta        int64            `json:"pet_exp_delta"`
+	PetId              *string          `json:"pet_id,omitempty"`
+	PointsDelta        int64            `json:"points_delta"`
+	Reason             *string          `json:"reason,omitempty"`
+	RuntimeProfileName string           `json:"runtime_profile_name"`
+	SourceId           string           `json:"source_id"`
+	SourceType         string           `json:"source_type"`
 }
 
 // RewardGrantListResponse defines model for RewardGrantListResponse.
@@ -2797,14 +2755,6 @@ type ServerGameResultListRequest = GameplayListRequest
 
 // ServerGameResultListResponse defines model for ServerGameResultListResponse.
 type ServerGameResultListResponse = GameResultListResponse
-
-// ServerGameRulesetGetRequest defines model for ServerGameRulesetGetRequest.
-type ServerGameRulesetGetRequest struct {
-	Name *string `json:"name,omitempty"`
-}
-
-// ServerGameRulesetGetResponse defines model for ServerGameRulesetGetResponse.
-type ServerGameRulesetGetResponse = GameRuleset
 
 // ServerGetInfoRequest defines model for ServerGetInfoRequest.
 type ServerGetInfoRequest = map[string]interface{}
@@ -2897,9 +2847,7 @@ type ServerPlayRunWorkspaceHistoryRequest = PeerRunHistoryPlayRequest
 type ServerPlayRunWorkspaceHistoryResponse = PeerRunHistoryPlayResponse
 
 // ServerPointsGetRequest defines model for ServerPointsGetRequest.
-type ServerPointsGetRequest struct {
-	RulesetName *string `json:"ruleset_name,omitempty"`
-}
+type ServerPointsGetRequest = map[string]interface{}
 
 // ServerPointsGetResponse defines model for ServerPointsGetResponse.
 type ServerPointsGetResponse = PointsAccount
@@ -3215,8 +3163,9 @@ type Workspace struct {
 	Icon      *Icon     `json:"icon,omitempty"`
 
 	// LastActiveAt Last user-visible workspace conversation or history activity time. Configuration-only updates must not modify this field.
-	LastActiveAt time.Time `json:"last_active_at"`
-	Name         string    `json:"name"`
+	LastActiveAt   time.Time `json:"last_active_at"`
+	Name           string    `json:"name"`
+	OwnerPublicKey *string   `json:"owner_public_key,omitempty"`
 
 	// Parameters Agent-specific workspace parameters. The shape is selected by agent_type.
 	Parameters   *WorkspaceParameters `json:"parameters,omitempty"`
@@ -4778,23 +4727,6 @@ func (t *RPCPayload) MergeFriendGroupMessageSendRequest(v FriendGroupMessageSend
 	return t.merge("FriendGroupMessageSendRequest", v)
 }
 
-// AsServerGameRulesetGetRequest decodes the RPCPayload as a ServerGameRulesetGetRequest
-func (t RPCPayload) AsServerGameRulesetGetRequest() (ServerGameRulesetGetRequest, error) {
-	var body ServerGameRulesetGetRequest
-	err := t.decode("ServerGameRulesetGetRequest", &body)
-	return body, err
-}
-
-// FromServerGameRulesetGetRequest overwrites any protobuf payload as the provided ServerGameRulesetGetRequest
-func (t *RPCPayload) FromServerGameRulesetGetRequest(v ServerGameRulesetGetRequest) error {
-	return t.encode("ServerGameRulesetGetRequest", v)
-}
-
-// MergeServerGameRulesetGetRequest performs a merge with any protobuf payload, using the provided ServerGameRulesetGetRequest
-func (t *RPCPayload) MergeServerGameRulesetGetRequest(v ServerGameRulesetGetRequest) error {
-	return t.merge("ServerGameRulesetGetRequest", v)
-}
-
 // AsBadgeDefPixaDownloadRequest decodes the RPCPayload as a BadgeDefPixaDownloadRequest
 func (t RPCPayload) AsBadgeDefPixaDownloadRequest() (BadgeDefPixaDownloadRequest, error) {
 	var body BadgeDefPixaDownloadRequest
@@ -6306,23 +6238,6 @@ func (t *RPCPayload) FromFriendGroupMessageSendResponse(v FriendGroupMessageSend
 // MergeFriendGroupMessageSendResponse performs a merge with any protobuf payload, using the provided FriendGroupMessageSendResponse
 func (t *RPCPayload) MergeFriendGroupMessageSendResponse(v FriendGroupMessageSendResponse) error {
 	return t.merge("FriendGroupMessageSendResponse", v)
-}
-
-// AsServerGameRulesetGetResponse decodes the RPCPayload as a ServerGameRulesetGetResponse
-func (t RPCPayload) AsServerGameRulesetGetResponse() (ServerGameRulesetGetResponse, error) {
-	var body ServerGameRulesetGetResponse
-	err := t.decode("ServerGameRulesetGetResponse", &body)
-	return body, err
-}
-
-// FromServerGameRulesetGetResponse overwrites any protobuf payload as the provided ServerGameRulesetGetResponse
-func (t *RPCPayload) FromServerGameRulesetGetResponse(v ServerGameRulesetGetResponse) error {
-	return t.encode("ServerGameRulesetGetResponse", v)
-}
-
-// MergeServerGameRulesetGetResponse performs a merge with any protobuf payload, using the provided ServerGameRulesetGetResponse
-func (t *RPCPayload) MergeServerGameRulesetGetResponse(v ServerGameRulesetGetResponse) error {
-	return t.merge("ServerGameRulesetGetResponse", v)
 }
 
 // AsBadgeDefPixaDownloadResponse decodes the RPCPayload as a BadgeDefPixaDownloadResponse

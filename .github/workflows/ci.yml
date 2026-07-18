@@ -121,7 +121,6 @@ jobs:
           ./cmd/internal/storage
           ./cmd/internal/stores
           ./cmd/internal/server
-          ./pkgs/gizclaw/services/system/acl
           ./pkgs/gizclaw/services/gameplay
 
   nested-go-modules:

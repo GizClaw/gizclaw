@@ -3,17 +3,14 @@ import { useCallback, useEffect, useState } from "react";
 import { expectData, toMessage } from "@/dashboard";
 import {
   getPeer,
-  getPeerConfig,
   getPeerInfo,
   getPeerRuntime,
-  type Configuration,
   type DeviceInfo,
   type Registration,
   type Runtime,
 } from "@gizclaw/gizclaw/admin";
 
 export interface PeerDetail {
-  config: Configuration | null;
   info: DeviceInfo | null;
   registration: Registration | null;
   runtime: Runtime | null;
@@ -41,15 +38,13 @@ export function usePeerDetail(publicKey: string | undefined): PeerDetailState & 
     setState({ data: null, error: "", loading: true });
     try {
       const registration = await expectData(getPeer({ path: { publicKey } }));
-      const [info, config, runtime] = await Promise.all([
+	  const [info, runtime] = await Promise.all([
         loadOptional(() => expectData(getPeerInfo({ path: { publicKey } }))),
-        loadOptional(() => expectData(getPeerConfig({ path: { publicKey } }))),
         loadOptional(() => expectData(getPeerRuntime({ path: { publicKey } }))),
       ]);
 
       setState({
         data: {
-          config,
           info,
           registration,
           runtime,

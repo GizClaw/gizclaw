@@ -12,7 +12,7 @@ test.beforeEach(async ({ page }) => {
     window.__GIZCLAW_DESKTOP_TEST_RUNTIME__ = { context, private_key_base64: "cHJpdmF0ZS1rZXktbWF0ZXJpYWw=" };
     const actions: string[] = [];
     const snapshot = {
-      badges: [{ active: true, badge_def_id: "badge-basic", exp: 125, id: "badge-basic", level: 1, ruleset_name: "default-gameplay" }],
+      badges: [{ active: true, badge_def_id: "badge-basic", exp: 125, id: "badge-basic", level: 1 }],
       contacts: [{ id: "contact-main", name: "Main Contact", title: "Main Contact" }],
       credentials: [
         {
@@ -61,25 +61,17 @@ test.beforeEach(async ({ page }) => {
           life: { clean: 80, hunger: 90 },
           petdef_id: "petdef-basic",
           progression: { xp: 90 },
-          ruleset_name: "default-gameplay",
+          runtime_profile_name: "default-gameplay",
           workspace_name: "pet-pet-main",
         },
       ],
-      points: { balance: 100, id: "default-gameplay", ruleset_name: "default-gameplay", updated_at: "2026-07-01T00:00:00Z" },
+      points: { balance: 100, runtime_profile_name: "default-gameplay", updated_at: "2026-07-01T00:00:00Z" },
       pointsTransactions: [],
       runWorkspace: {
         active_workspace_name: "flowcraft-chat",
         mode: "push",
         workspace_mode: "push",
         workspace_name: "flowcraft-chat",
-      },
-      ruleset: {
-        name: "default-gameplay",
-        spec: {
-          enabled: true,
-          pet_pool: [{ adoption_cost: 10, petdef_id: "petdef-basic", weight: 100 }],
-          points: { initial_balance: 100 },
-        },
       },
       voices: [{ id: "volc-voice-000", name: "Volc Voice", provider: { kind: "volc-tenant", name: "volc-tenant" }, source: "sync" }],
       warnings: [],
@@ -113,7 +105,7 @@ test.beforeEach(async ({ page }) => {
           life: { clean: 100, hunger: 100 },
           petdef_id: "petdef-basic",
           progression: { xp: 0 },
-          ruleset_name: "default-gameplay",
+          runtime_profile_name: "default-gameplay",
           workspace_name: `pet-${id}`,
         };
         snapshot.pets.push(pet);
@@ -187,9 +179,6 @@ test.beforeEach(async ({ page }) => {
       },
       async getGameResult(req) {
         return findByID(snapshot.gameResults, req.id);
-      },
-      async getGameRuleset() {
-        return snapshot.ruleset;
       },
       async getPet(req) {
         return findByID(snapshot.pets, req.id);
@@ -283,7 +272,7 @@ test("play view renders the full desktop play surface", async ({ page }) => {
 
   await expect(page.getByText("OpenAI Gateway")).toBeVisible();
   await expect(page.getByRole("button", { name: /Workspaces/ })).toBeVisible();
-  await expect(page.getByText("ACL-controlled resources are listed in the resource sections.")).toBeVisible();
+  await expect(page.getByText("RuntimeProfile and owner resources are listed in the resource sections.")).toBeVisible();
   await expect(page.getByRole("button", { name: /Models 1/ })).toBeVisible();
 
   await page.getByRole("button", { name: /Workspaces/ }).click();

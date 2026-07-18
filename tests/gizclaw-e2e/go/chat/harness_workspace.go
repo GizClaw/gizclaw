@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -101,6 +102,11 @@ func runConfig(configPath, contextConfigPath string, selectedCase workspaceCase)
 		_ = client.Close()
 		<-serveDone
 	}()
+	if token := strings.TrimSpace(os.Getenv("GIZCLAW_E2E_CHAT_REGISTRATION_TOKEN")); token != "" {
+		if _, err := client.Register(ctx, "workspacetest.register", token); err != nil {
+			return fmt.Errorf("register chat client: %w", err)
+		}
+	}
 
 	if cfg.shouldEnsureWorkspace() {
 		ensured, err := ensureWorkspaceForRun(ctx, client, cfg)

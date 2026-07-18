@@ -1,7 +1,6 @@
 package admincmd
 
 import (
-	aclcmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/acl"
 	credentialscmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/credentials"
 	dashscopetenantscmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/dashscopetenants"
 	firmwarescmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/firmwares"
@@ -11,6 +10,8 @@ import (
 	openaitenantscmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/openaitenants"
 	peerscmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/peers"
 	petdefscmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/petdefs"
+	registrationtokenscmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/registrationtokens"
+	runtimeprofilescmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/runtimeprofiles"
 	voicescmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/voices"
 	volctenantscmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/volctenants"
 	workflowscmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/workflows"
@@ -32,9 +33,10 @@ func NewCmd() *cobra.Command {
 		newApplyCmd(&ctxName),
 		newDeleteCmd(&ctxName),
 		newShowCmd(&ctxName),
-		aclcmd.NewCmd(),
 		peerscmd.NewCmd(),
 		petdefscmd.NewCmd(),
+		registrationtokenscmd.NewCmd(),
+		runtimeprofilescmd.NewCmd(),
 		credentialscmd.NewCmd(),
 		firmwarescmd.NewCmd(),
 		openaitenantscmd.NewCmd(),

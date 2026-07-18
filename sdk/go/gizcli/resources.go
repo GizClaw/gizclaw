@@ -5,7 +5,15 @@ import (
 	"net"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 )
+
+// Register applies a pre-distributed RegistrationToken to the current connection.
+func (c *Client) Register(ctx context.Context, id, token string) (*rpcpb.ServerRegisterResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcpb.ServerRegisterResponse, error) {
+		return client.Register(ctx, conn, id, token)
+	})
+}
 
 func (c *Client) ListWorkspaces(ctx context.Context, id string, request rpcapi.WorkspaceListRequest) (*rpcapi.WorkspaceListResponse, error) {
 	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.WorkspaceListResponse, error) {
@@ -286,12 +294,6 @@ func (c *Client) GetFriendGroupMessage(ctx context.Context, id string, request r
 func (c *Client) SendFriendGroupMessage(ctx context.Context, id string, request rpcapi.FriendGroupMessageSendRequest) (*rpcapi.FriendGroupMessageSendResponse, error) {
 	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendGroupMessageSendResponse, error) {
 		return client.SendFriendGroupMessage(ctx, conn, id, request)
-	})
-}
-
-func (c *Client) GetGameRuleset(ctx context.Context, id string, request rpcapi.ServerGameRulesetGetRequest) (*rpcapi.ServerGameRulesetGetResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerGameRulesetGetResponse, error) {
-		return client.GetGameRuleset(ctx, conn, id, request)
 	})
 }
 

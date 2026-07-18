@@ -24,40 +24,6 @@ export type ApproveRequest = {
     role: PeerRole;
 };
 
-export type AclViewUpsert = {
-    name: string;
-    description?: string;
-};
-
-export type AclViewList = {
-    has_next: boolean;
-    next_cursor?: string | null;
-    items: Array<AclView>;
-};
-
-export type AclRoleUpsert = {
-    name: string;
-    permissions: AclPermissionList;
-};
-
-export type AclRoleList = {
-    has_next: boolean;
-    next_cursor?: string | null;
-    items: Array<AclRole>;
-};
-
-export type AclPolicyBindingUpsert = {
-    id?: string;
-    display_order?: number;
-    policy: AclPolicy;
-};
-
-export type AclPolicyBindingList = {
-    has_next: boolean;
-    next_cursor?: string | null;
-    items: Array<AclPolicyBinding>;
-};
-
 export type FirmwareUpsert = {
     name: string;
     description?: string;
@@ -299,12 +265,6 @@ export type AdminFriendGroupInviteTokenPutRequest = {
     expires_at: string;
 };
 
-export type GameRulesetList = {
-    has_next: boolean;
-    next_cursor?: string | null;
-    items: Array<GameRuleset>;
-};
-
 export type PetDefList = {
     has_next: boolean;
     next_cursor?: string | null;
@@ -321,11 +281,6 @@ export type GameDefList = {
     has_next: boolean;
     next_cursor?: string | null;
     items: Array<GameDef>;
-};
-
-export type GameRulesetUpsert = {
-    name: string;
-    spec: GameRulesetSpec;
 };
 
 export type PetDefUpsert = {
@@ -345,25 +300,27 @@ export type GameDefUpsert = {
     icon?: Icon;
 };
 
-export type AclPolicyBindingResource = {
-    apiVersion: ResourceApiVersion;
-    kind: 'ACLPolicyBinding';
-    metadata: ResourceMetadata;
-    spec: AclPolicy;
+export type RuntimeProfileList = {
+    has_next: boolean;
+    next_cursor?: string | null;
+    items: Array<RuntimeProfile>;
 };
 
-export type AclRoleResource = {
-    apiVersion: ResourceApiVersion;
-    kind: 'ACLRole';
-    metadata: ResourceMetadata;
-    spec: AclRoleSpec;
+export type RuntimeProfileUpsert = {
+    name: string;
+    spec: RuntimeProfileSpec;
 };
 
-export type AclViewResource = {
-    apiVersion: ResourceApiVersion;
-    kind: 'ACLView';
-    metadata: ResourceMetadata;
-    spec: AclViewSpec;
+export type RegistrationTokenList = {
+    has_next: boolean;
+    next_cursor?: string | null;
+    items: Array<RegistrationToken>;
+};
+
+export type RegistrationTokenUpsert = {
+    name: string;
+    firmware_name: string;
+    runtime_profile_name: string;
 };
 
 export type BadgeDefResource = {
@@ -501,13 +458,6 @@ export type GameDefResource = {
     icon?: Icon;
 };
 
-export type GameRulesetResource = {
-    apiVersion: ResourceApiVersion;
-    kind: 'GameRuleset';
-    metadata: ResourceMetadata;
-    spec: GameRulesetSpec;
-};
-
 export type GeminiTenantResource = {
     apiVersion: ResourceApiVersion;
     kind: 'GeminiTenant';
@@ -536,19 +486,22 @@ export type OpenAiTenantResource = {
     spec: OpenAiTenantSpec;
 };
 
-export type PeerConfigResource = {
-    apiVersion: ResourceApiVersion;
-    kind: 'PeerConfig';
-    metadata: ResourceMetadata;
-    spec: Configuration;
-};
-
 export type PetDefResource = {
     apiVersion: ResourceApiVersion;
     kind: 'PetDef';
     metadata: ResourceMetadata;
     spec: PetDefSpec;
     i18n?: PetDefI18nSpec;
+};
+
+export type RegistrationTokenResource = {
+    apiVersion: ResourceApiVersion;
+    kind: 'RegistrationToken';
+    metadata: ResourceMetadata;
+    spec: {
+        firmware_name: string;
+        runtime_profile_name: string;
+    };
 };
 
 /**
@@ -569,12 +522,6 @@ export type ApplyResult = {
 };
 
 export type Resource = ({
-    kind: 'ACLPolicyBindingResource';
-} & AclPolicyBindingResource) | ({
-    kind: 'ACLRoleResource';
-} & AclRoleResource) | ({
-    kind: 'ACLViewResource';
-} & AclViewResource) | ({
     kind: 'CredentialResource';
 } & CredentialResource) | ({
     kind: 'FirmwareResource';
@@ -609,16 +556,16 @@ export type Resource = ({
 } & WorkflowResource) | ({
     kind: 'WorkspaceResource';
 } & WorkspaceResource) | ({
-    kind: 'PeerConfigResource';
-} & PeerConfigResource) | ({
-    kind: 'GameRulesetResource';
-} & GameRulesetResource) | ({
     kind: 'PetDefResource';
 } & PetDefResource) | ({
     kind: 'BadgeDefResource';
 } & BadgeDefResource) | ({
     kind: 'GameDefResource';
 } & GameDefResource) | ({
+    kind: 'RuntimeProfileResource';
+} & RuntimeProfileResource) | ({
+    kind: 'RegistrationTokenResource';
+} & RegistrationTokenResource) | ({
     kind: 'ResourceListResource';
 } & ResourceListResource);
 
@@ -630,11 +577,11 @@ export type ResourceApiVersion = 'gizclaw.admin/v1alpha1';
 /**
  * Declarative GizClaw resource kind.
  */
-export type ResourceKind = 'Credential' | 'ACLPolicyBinding' | 'ACLRole' | 'ACLView' | 'Firmware' | 'Contact' | 'Friend' | 'FriendGroup' | 'FriendGroupInviteToken' | 'FriendGroupMember' | 'Model' | 'DashScopeTenant' | 'GeminiTenant' | 'MiniMaxTenant' | 'OpenAITenant' | 'VolcTenant' | 'Voice' | 'Tool' | 'Workflow' | 'Workspace' | 'PeerConfig' | 'GameRuleset' | 'PetDef' | 'BadgeDef' | 'GameDef' | 'ResourceList';
+export type ResourceKind = 'Credential' | 'Firmware' | 'Contact' | 'Friend' | 'FriendGroup' | 'FriendGroupInviteToken' | 'FriendGroupMember' | 'Model' | 'DashScopeTenant' | 'GeminiTenant' | 'MiniMaxTenant' | 'OpenAITenant' | 'VolcTenant' | 'Voice' | 'Tool' | 'Workflow' | 'Workspace' | 'PetDef' | 'BadgeDef' | 'GameDef' | 'RuntimeProfile' | 'RegistrationToken' | 'ResourceList';
 
 export type ResourceMetadata = {
     /**
-     * Resource name. Kind-specific rules apply. User-defined custom IDs use 8-48 lowercase ASCII characters, start with [a-z], end with [a-z0-9], and contain only [a-z0-9._-]. For PeerConfig this is the peer public key.
+     * Resource name. Kind-specific rules apply. User-defined custom IDs use 8-48 lowercase ASCII characters, start with [a-z], end with [a-z0-9], and contain only [a-z0-9._-].
      */
     name: string;
     annotations?: {
@@ -644,7 +591,7 @@ export type ResourceMetadata = {
         [key: string]: string;
     };
     /**
-     * Primary owner peer public key hint for ACL-backed managed resources. ResourceManager persists ownership as an ACL binding and may synthesize this value from ACL on read.
+     * Immutable owner Public Key for Client-created resources. Admin-owned resources omit this field.
      */
     owner_public_key?: string;
 };
@@ -658,6 +605,13 @@ export type ResourceListResource = {
 
 export type ResourceListSpec = {
     items: Array<Resource>;
+};
+
+export type RuntimeProfileResource = {
+    apiVersion: ResourceApiVersion;
+    kind: 'RuntimeProfile';
+    metadata: ResourceMetadata;
+    spec: RuntimeProfileSpec;
 };
 
 export type ToolResource = {
@@ -707,96 +661,12 @@ export type WorkspaceResource = {
     icon?: Icon;
 };
 
-/**
- * ACL permission enum.
- */
-export type AclPermission = 'read' | 'use' | 'create' | 'admin';
-
-export type AclPermissionList = Array<AclPermission>;
-
-/**
- * ACL policy describing one subject-resource-role relation and optional validity window.
- */
-export type AclPolicy = {
-    subject: AclSubject;
-    resource: AclResource;
-    role: string;
-    not_before?: string;
-    expires_at?: string;
-};
-
-export type AclPolicyBinding = {
-    id: string;
-    display_order: number;
-    policy: AclPolicy;
-    created_at: string;
-    updated_at: string;
-};
-
-/**
- * ACL resource identity. Stored canonically as kind:id.
- */
-export type AclResource = {
-    kind: AclResourceKind;
-    /**
-     * Resource identifier for the selected kind.
-     */
-    id: string;
-};
-
-/**
- * ACL resource identity kind.
- */
-export type AclResourceKind = 'workspace' | 'workflow' | 'voice' | 'credential' | 'model' | 'view' | 'firmware' | 'gameruleset' | 'tool';
-
-export type AclRole = {
-    name: string;
-    permissions: AclPermissionList;
-    created_at: string;
-    updated_at: string;
-};
-
-export type AclRoleSpec = {
-    permissions: AclPermissionList;
-};
-
-/**
- * ACL subject identity. Stored canonically as kind:id.
- */
-export type AclSubject = {
-    kind: AclSubjectKind;
-    /**
-     * Subject identifier for the selected kind.
-     */
-    id: string;
-};
-
-/**
- * ACL subject identity kind.
- */
-export type AclSubjectKind = 'pk' | 'view' | 'all_peers';
-
-export type AclView = {
-    name: string;
-    description?: string;
-    created_at: string;
-    updated_at: string;
-};
-
-export type AclViewSpec = {
-    description?: string;
-};
-
-export type Configuration = {
-    /**
-     * Current content view name selected for this peer.
-     */
-    view?: string;
-    firmware?: FirmwareSelection;
-};
-
 export type Credential = {
     name: string;
+    /**
+     * Immutable Public Key of the Client that created this Credential. Admin-created Credentials omit it.
+     */
+    readonly owner_public_key?: string;
     provider: string;
     body: CredentialBody;
     description?: string;
@@ -975,17 +845,6 @@ export type FirmwareArtifactTree = {
     items: Array<FirmwareArtifactEntry>;
 };
 
-export type FirmwareSelection = {
-    /**
-     * Firmware release-line id selected for the peer.
-     */
-    id: string;
-    /**
-     * Firmware channel selected for the peer.
-     */
-    channel: 'stable' | 'beta' | 'develop' | 'pending';
-};
-
 export type FirmwareSlot = {
     description?: string;
     artifact?: FirmwareArtifact;
@@ -1067,7 +926,6 @@ export type GameDefSpec = {
 export type GameResult = {
     id: string;
     owner_public_key: string;
-    ruleset_name: string;
     pet_id: string;
     game_def_id: string;
     score?: number;
@@ -1079,58 +937,13 @@ export type GameResult = {
     payload?: GameplayMetadata;
     occurred_at: string;
     created_at: string;
+    runtime_profile_name: string;
 };
 
 export type GameResultListResponse = {
     items: Array<GameResult>;
     has_next: boolean;
     next_cursor?: string;
-};
-
-export type GameRewardSpec = {
-    points_delta?: number;
-    pet_exp_delta?: number;
-    badge_exp_delta?: {
-        [key: string]: number;
-    };
-};
-
-export type GameRuleset = {
-    name: string;
-    spec: GameRulesetSpec;
-    created_at: string;
-    updated_at: string;
-};
-
-export type GameRulesetDriveSpec = {
-    default_reward?: GameRewardSpec;
-    game_rewards?: {
-        [key: string]: GameRewardSpec;
-    };
-};
-
-export type GameRulesetPetPoolEntry = {
-    petdef_id: string;
-    weight: number;
-    rarity?: string;
-    adoption_cost?: number;
-    workflow_name?: string;
-};
-
-export type GameRulesetPointsSpec = {
-    initial_balance?: number;
-};
-
-export type GameRulesetSpec = {
-    enabled: boolean;
-    description?: string;
-    default_workflow_name?: string;
-    points?: GameRulesetPointsSpec;
-    pet_pool: Array<GameRulesetPetPoolEntry>;
-    badge_def_ids?: Array<string>;
-    game_def_ids?: Array<string>;
-    drive?: GameRulesetDriveSpec;
-    metadata?: GameplayMetadata;
 };
 
 export type GameplayMetadata = {
@@ -1140,16 +953,15 @@ export type GameplayMetadata = {
 export type Pet = {
     id: string;
     owner_public_key: string;
-    ruleset_name: string;
     petdef_id: string;
     display_name: string;
     workspace_name: string;
-    workflow_name?: string;
     life: PetLife;
     progression: PetProgression;
     last_active_at: string;
     created_at: string;
     updated_at: string;
+    runtime_profile_name: string;
 };
 
 export type PetAttrDelta = {
@@ -1252,7 +1064,6 @@ export type PetDefPixaSpec = {
 };
 
 export type PetDefSpec = {
-    workflow_name?: string;
     attr: PetDefAttrSpec;
     character: PetDefCharacterSpec;
     voice: PetDefVoiceSpec;
@@ -1298,16 +1109,15 @@ export type PetProgression = {
 
 export type PointsAccount = {
     owner_public_key: string;
-    ruleset_name: string;
     balance: number;
     created_at: string;
     updated_at: string;
+    runtime_profile_name: string;
 };
 
 export type PointsTransaction = {
     id: string;
     owner_public_key: string;
-    ruleset_name: string;
     pet_id?: string;
     game_result_id?: string;
     reward_grant_id?: string;
@@ -1317,6 +1127,7 @@ export type PointsTransaction = {
     source_type: string;
     source_id: string;
     created_at: string;
+    runtime_profile_name: string;
 };
 
 export type PointsTransactionListResponse = {
@@ -1328,7 +1139,6 @@ export type PointsTransactionListResponse = {
 export type RewardGrant = {
     id: string;
     owner_public_key: string;
-    ruleset_name: string;
     pet_id?: string;
     game_result_id?: string;
     points_delta: number;
@@ -1340,6 +1150,7 @@ export type RewardGrant = {
     source_id: string;
     reason?: string;
     created_at: string;
+    runtime_profile_name: string;
 };
 
 export type RewardGrantListResponse = {
@@ -1406,6 +1217,10 @@ export type MiniMaxTenantSpec = {
 
 export type Model = {
     id: string;
+    /**
+     * Immutable Public Key of the Client that created this Model. Admin-created Models omit it.
+     */
+    readonly owner_public_key?: string;
     kind: ModelKind;
     source: ModelSource;
     provider: ModelProvider;
@@ -1547,7 +1362,6 @@ export type Peer = {
     role: PeerRole;
     status: PeerRegistrationStatus;
     device: DeviceInfo;
-    configuration: Configuration;
     auto_registered?: boolean;
     created_at: string;
     updated_at: string;
@@ -1654,12 +1468,89 @@ export type Registration = {
     approved_at?: string;
 };
 
+export type RegistrationToken = {
+    name: string;
+    firmware_name: string;
+    runtime_profile_name: string;
+    created_at: string;
+};
+
+export type RegistrationTokenCreateResult = RegistrationToken;
+
 export type Runtime = {
     online: boolean;
     last_seen_at: string;
     last_addr?: string;
     rx_bytes?: number;
     tx_bytes?: number;
+};
+
+export type RuntimeProfile = {
+    name: string;
+    spec: RuntimeProfileSpec;
+    created_at: string;
+    updated_at: string;
+};
+
+export type RuntimeProfileDriveSpec = {
+    default_reward?: RuntimeProfileRewardSpec;
+    game_rewards?: {
+        [key: string]: RuntimeProfileRewardSpec;
+    };
+};
+
+export type RuntimeProfileGameplaySpec = {
+    points?: RuntimeProfilePointsSpec;
+    pet_pool?: Array<RuntimeProfilePetPoolEntry>;
+    drive?: RuntimeProfileDriveSpec;
+};
+
+export type RuntimeProfilePetPoolEntry = {
+    pet_def: string;
+    weight: number;
+    rarity?: string;
+    adoption_cost?: number;
+};
+
+export type RuntimeProfilePointsSpec = {
+    initial_balance?: number;
+};
+
+export type RuntimeProfileResources = {
+    workflows?: {
+        [key: string]: string;
+    };
+    models?: {
+        [key: string]: string;
+    };
+    voices?: {
+        [key: string]: string;
+    };
+    tools?: {
+        [key: string]: string;
+    };
+    pet_defs?: {
+        [key: string]: string;
+    };
+    game_defs?: {
+        [key: string]: string;
+    };
+    badge_defs?: {
+        [key: string]: string;
+    };
+};
+
+export type RuntimeProfileRewardSpec = {
+    points_delta?: number;
+    pet_exp_delta?: number;
+    badge_exp_delta?: {
+        [key: string]: number;
+    };
+};
+
+export type RuntimeProfileSpec = {
+    resources: RuntimeProfileResources;
+    gameplay?: RuntimeProfileGameplaySpec;
 };
 
 export type FriendGroupInviteTokenClearResponse = {
@@ -1965,7 +1856,7 @@ export type VolcTenantSpec = {
 
 export type Workflow = {
     /**
-     * Stable workflow ID used by storage, paths, ACLs, and workspace references.
+     * Stable workflow ID used by storage, paths, RuntimeProfiles, and workspace references.
      */
     name: string;
     spec: WorkflowSpec;
@@ -2199,6 +2090,10 @@ export type PetWorkflowSpec = {
 
 export type Workspace = {
     name: string;
+    /**
+     * Immutable Public Key of the Client that created this Workspace. System and Admin-created Workspaces may omit it.
+     */
+    readonly owner_public_key?: string;
     workflow_name: string;
     /**
      * Whether the Workspace lifecycle is owned by another domain service. System Workspaces cannot be deleted through generic Workspace operations.
@@ -2387,13 +2282,126 @@ export type WorkspaceSpec = {
     toolkit?: ToolkitPolicy;
 };
 
+export type CredentialListWritable = {
+    has_next: boolean;
+    next_cursor?: string | null;
+    items: Array<CredentialWritable>;
+};
+
+export type ModelListWritable = {
+    has_next: boolean;
+    next_cursor?: string | null;
+    items: Array<ModelWritable>;
+};
+
 export type WorkspaceListWritable = {
     has_next: boolean;
     next_cursor?: string | null;
     items: Array<WorkspaceWritable>;
 };
 
-export type AclPermissionListWritable = Array<AclPermission>;
+export type RegistrationTokenResourceWritable = {
+    apiVersion: ResourceApiVersion;
+    kind: 'RegistrationToken';
+    metadata: ResourceMetadata;
+    spec: {
+        firmware_name: string;
+        runtime_profile_name: string;
+    };
+    /**
+     * Present only in a successful create/apply response.
+     */
+    token?: string;
+};
+
+export type ResourceWritable = ({
+    kind: 'CredentialResource';
+} & CredentialResource) | ({
+    kind: 'FirmwareResource';
+} & FirmwareResource) | ({
+    kind: 'ContactResource';
+} & ContactResource) | ({
+    kind: 'FriendResource';
+} & FriendResource) | ({
+    kind: 'FriendGroupResource';
+} & FriendGroupResource) | ({
+    kind: 'FriendGroupInviteTokenResource';
+} & FriendGroupInviteTokenResource) | ({
+    kind: 'FriendGroupMemberResource';
+} & FriendGroupMemberResource) | ({
+    kind: 'ModelResource';
+} & ModelResource) | ({
+    kind: 'DashScopeTenantResource';
+} & DashScopeTenantResource) | ({
+    kind: 'GeminiTenantResource';
+} & GeminiTenantResource) | ({
+    kind: 'MiniMaxTenantResource';
+} & MiniMaxTenantResource) | ({
+    kind: 'OpenAITenantResource';
+} & OpenAiTenantResource) | ({
+    kind: 'VolcTenantResource';
+} & VolcTenantResource) | ({
+    kind: 'VoiceResource';
+} & VoiceResource) | ({
+    kind: 'ToolResource';
+} & ToolResource) | ({
+    kind: 'WorkflowResource';
+} & WorkflowResource) | ({
+    kind: 'WorkspaceResource';
+} & WorkspaceResource) | ({
+    kind: 'PetDefResource';
+} & PetDefResource) | ({
+    kind: 'BadgeDefResource';
+} & BadgeDefResource) | ({
+    kind: 'GameDefResource';
+} & GameDefResource) | ({
+    kind: 'RuntimeProfileResource';
+} & RuntimeProfileResource) | ({
+    kind: 'RegistrationTokenResourceWritable';
+} & RegistrationTokenResourceWritable) | ({
+    kind: 'ResourceListResourceWritable';
+} & ResourceListResourceWritable);
+
+export type ResourceListResourceWritable = {
+    apiVersion: ResourceApiVersion;
+    kind: 'ResourceList';
+    metadata: ResourceMetadata;
+    spec: ResourceListSpecWritable;
+};
+
+export type ResourceListSpecWritable = {
+    items: Array<ResourceWritable>;
+};
+
+export type CredentialWritable = {
+    name: string;
+    provider: string;
+    body: CredentialBody;
+    description?: string;
+    created_at: string;
+    updated_at: string;
+};
+
+export type ModelWritable = {
+    id: string;
+    kind: ModelKind;
+    source: ModelSource;
+    provider: ModelProvider;
+    name?: string;
+    description?: string;
+    capabilities?: ModelCapabilities;
+    provider_data?: ModelProviderData;
+    synced_at?: string;
+    created_at: string;
+    updated_at: string;
+};
+
+export type RegistrationTokenCreateResultWritable = RegistrationToken & {
+    /**
+     * Raw registration token returned exactly once.
+     */
+    token: string;
+};
 
 export type FriendGroupInviteTokenClearResponseWritable = {
     [key: string]: never;
@@ -2497,7 +2505,7 @@ export type StreamServerLogsResponses = {
 export type StreamServerLogsResponse = StreamServerLogsResponses[keyof StreamServerLogsResponses];
 
 export type ApplyResourceData = {
-    body: Resource;
+    body: ResourceWritable;
     path?: never;
     query?: never;
     url: '/@apply';
@@ -2626,7 +2634,7 @@ export type GetResourceResponses = {
 export type GetResourceResponse = GetResourceResponses[keyof GetResourceResponses];
 
 export type PutResourceData = {
-    body: Resource;
+    body: ResourceWritable;
     path: {
         /**
          * Declarative resource kind
@@ -3502,545 +3510,6 @@ export type PutFriendGroupInviteTokenResponses = {
 };
 
 export type PutFriendGroupInviteTokenResponse = PutFriendGroupInviteTokenResponses[keyof PutFriendGroupInviteTokenResponses];
-
-export type ListAclViewsData = {
-    body?: never;
-    path?: never;
-    query?: {
-        /**
-         * Opaque cursor returned by the previous list response
-         */
-        cursor?: string;
-        /**
-         * Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
-         */
-        limit?: number;
-    };
-    url: '/acl/views';
-};
-
-export type ListAclViewsErrors = {
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type ListAclViewsError = ListAclViewsErrors[keyof ListAclViewsErrors];
-
-export type ListAclViewsResponses = {
-    /**
-     * ACL view list
-     */
-    200: AclViewList;
-};
-
-export type ListAclViewsResponse = ListAclViewsResponses[keyof ListAclViewsResponses];
-
-export type CreateAclViewData = {
-    body: AclViewUpsert;
-    path?: never;
-    query?: never;
-    url: '/acl/views';
-};
-
-export type CreateAclViewErrors = {
-    /**
-     * Invalid ACL view payload
-     */
-    400: ErrorResponse;
-    /**
-     * ACL view already exists
-     */
-    409: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type CreateAclViewError = CreateAclViewErrors[keyof CreateAclViewErrors];
-
-export type CreateAclViewResponses = {
-    /**
-     * Created ACL view
-     */
-    200: AclView;
-};
-
-export type CreateAclViewResponse = CreateAclViewResponses[keyof CreateAclViewResponses];
-
-export type DeleteAclViewData = {
-    body?: never;
-    path: {
-        /**
-         * ACL view name
-         */
-        name: string;
-    };
-    query?: never;
-    url: '/acl/views/{name}';
-};
-
-export type DeleteAclViewErrors = {
-    /**
-     * ACL view not found
-     */
-    404: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type DeleteAclViewError = DeleteAclViewErrors[keyof DeleteAclViewErrors];
-
-export type DeleteAclViewResponses = {
-    /**
-     * Deleted ACL view
-     */
-    200: AclView;
-};
-
-export type DeleteAclViewResponse = DeleteAclViewResponses[keyof DeleteAclViewResponses];
-
-export type GetAclViewData = {
-    body?: never;
-    path: {
-        /**
-         * ACL view name
-         */
-        name: string;
-    };
-    query?: never;
-    url: '/acl/views/{name}';
-};
-
-export type GetAclViewErrors = {
-    /**
-     * ACL view not found
-     */
-    404: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type GetAclViewError = GetAclViewErrors[keyof GetAclViewErrors];
-
-export type GetAclViewResponses = {
-    /**
-     * ACL view
-     */
-    200: AclView;
-};
-
-export type GetAclViewResponse = GetAclViewResponses[keyof GetAclViewResponses];
-
-export type PutAclViewData = {
-    body: AclViewUpsert;
-    path: {
-        /**
-         * ACL view name
-         */
-        name: string;
-    };
-    query?: never;
-    url: '/acl/views/{name}';
-};
-
-export type PutAclViewErrors = {
-    /**
-     * Invalid ACL view payload
-     */
-    400: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type PutAclViewError = PutAclViewErrors[keyof PutAclViewErrors];
-
-export type PutAclViewResponses = {
-    /**
-     * Stored ACL view
-     */
-    200: AclView;
-};
-
-export type PutAclViewResponse = PutAclViewResponses[keyof PutAclViewResponses];
-
-export type ListAclRolesData = {
-    body?: never;
-    path?: never;
-    query?: {
-        /**
-         * Opaque cursor returned by the previous list response
-         */
-        cursor?: string;
-        /**
-         * Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
-         */
-        limit?: number;
-    };
-    url: '/acl/roles';
-};
-
-export type ListAclRolesErrors = {
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type ListAclRolesError = ListAclRolesErrors[keyof ListAclRolesErrors];
-
-export type ListAclRolesResponses = {
-    /**
-     * ACL role list
-     */
-    200: AclRoleList;
-};
-
-export type ListAclRolesResponse = ListAclRolesResponses[keyof ListAclRolesResponses];
-
-export type CreateAclRoleData = {
-    body: AclRoleUpsert;
-    path?: never;
-    query?: never;
-    url: '/acl/roles';
-};
-
-export type CreateAclRoleErrors = {
-    /**
-     * Invalid ACL role payload
-     */
-    400: ErrorResponse;
-    /**
-     * ACL role already exists
-     */
-    409: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type CreateAclRoleError = CreateAclRoleErrors[keyof CreateAclRoleErrors];
-
-export type CreateAclRoleResponses = {
-    /**
-     * Created ACL role
-     */
-    200: AclRole;
-};
-
-export type CreateAclRoleResponse = CreateAclRoleResponses[keyof CreateAclRoleResponses];
-
-export type DeleteAclRoleData = {
-    body?: never;
-    path: {
-        /**
-         * ACL role name
-         */
-        name: string;
-    };
-    query?: never;
-    url: '/acl/roles/{name}';
-};
-
-export type DeleteAclRoleErrors = {
-    /**
-     * ACL role not found
-     */
-    404: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type DeleteAclRoleError = DeleteAclRoleErrors[keyof DeleteAclRoleErrors];
-
-export type DeleteAclRoleResponses = {
-    /**
-     * Deleted ACL role
-     */
-    200: AclRole;
-};
-
-export type DeleteAclRoleResponse = DeleteAclRoleResponses[keyof DeleteAclRoleResponses];
-
-export type GetAclRoleData = {
-    body?: never;
-    path: {
-        /**
-         * ACL role name
-         */
-        name: string;
-    };
-    query?: never;
-    url: '/acl/roles/{name}';
-};
-
-export type GetAclRoleErrors = {
-    /**
-     * ACL role not found
-     */
-    404: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type GetAclRoleError = GetAclRoleErrors[keyof GetAclRoleErrors];
-
-export type GetAclRoleResponses = {
-    /**
-     * ACL role
-     */
-    200: AclRole;
-};
-
-export type GetAclRoleResponse = GetAclRoleResponses[keyof GetAclRoleResponses];
-
-export type PutAclRoleData = {
-    body: AclRoleUpsert;
-    path: {
-        /**
-         * ACL role name
-         */
-        name: string;
-    };
-    query?: never;
-    url: '/acl/roles/{name}';
-};
-
-export type PutAclRoleErrors = {
-    /**
-     * Invalid ACL role payload
-     */
-    400: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type PutAclRoleError = PutAclRoleErrors[keyof PutAclRoleErrors];
-
-export type PutAclRoleResponses = {
-    /**
-     * Stored ACL role
-     */
-    200: AclRole;
-};
-
-export type PutAclRoleResponse = PutAclRoleResponses[keyof PutAclRoleResponses];
-
-export type ListAclPolicyBindingsData = {
-    body?: never;
-    path?: never;
-    query?: {
-        /**
-         * Opaque cursor returned by the previous list response
-         */
-        cursor?: string;
-        /**
-         * Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
-         */
-        limit?: number;
-        /**
-         * Filter by ACL subject kind
-         */
-        subject_kind?: AclSubjectKind;
-        /**
-         * Filter by ACL subject identifier
-         */
-        subject_id?: string;
-        /**
-         * Filter by ACL resource kind
-         */
-        resource_kind?: AclResourceKind;
-        /**
-         * Filter by ACL resource identifier
-         */
-        resource_id?: string;
-        /**
-         * Filter by ACL resource identifier prefix
-         */
-        resource_id_prefix?: string;
-        /**
-         * Filter by ACL role name
-         */
-        role?: string;
-        /**
-         * Filter by expanded ACL permission
-         */
-        permission?: AclPermission;
-        /**
-         * Sort ACL policy bindings by id or display order
-         */
-        order_by?: string;
-    };
-    url: '/acl/policy-bindings';
-};
-
-export type ListAclPolicyBindingsErrors = {
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type ListAclPolicyBindingsError = ListAclPolicyBindingsErrors[keyof ListAclPolicyBindingsErrors];
-
-export type ListAclPolicyBindingsResponses = {
-    /**
-     * ACL policy binding list
-     */
-    200: AclPolicyBindingList;
-};
-
-export type ListAclPolicyBindingsResponse = ListAclPolicyBindingsResponses[keyof ListAclPolicyBindingsResponses];
-
-export type CreateAclPolicyBindingData = {
-    body: AclPolicyBindingUpsert;
-    path?: never;
-    query?: never;
-    url: '/acl/policy-bindings';
-};
-
-export type CreateAclPolicyBindingErrors = {
-    /**
-     * Invalid ACL policy binding payload
-     */
-    400: ErrorResponse;
-    /**
-     * ACL policy binding already exists
-     */
-    409: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type CreateAclPolicyBindingError = CreateAclPolicyBindingErrors[keyof CreateAclPolicyBindingErrors];
-
-export type CreateAclPolicyBindingResponses = {
-    /**
-     * Created ACL policy binding
-     */
-    200: AclPolicyBinding;
-};
-
-export type CreateAclPolicyBindingResponse = CreateAclPolicyBindingResponses[keyof CreateAclPolicyBindingResponses];
-
-export type DeleteAclPolicyBindingData = {
-    body?: never;
-    path: {
-        /**
-         * ACL policy binding id
-         */
-        id: string;
-    };
-    query?: never;
-    url: '/acl/policy-bindings/{id}';
-};
-
-export type DeleteAclPolicyBindingErrors = {
-    /**
-     * ACL policy binding not found
-     */
-    404: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type DeleteAclPolicyBindingError = DeleteAclPolicyBindingErrors[keyof DeleteAclPolicyBindingErrors];
-
-export type DeleteAclPolicyBindingResponses = {
-    /**
-     * Deleted ACL policy binding
-     */
-    200: AclPolicyBinding;
-};
-
-export type DeleteAclPolicyBindingResponse = DeleteAclPolicyBindingResponses[keyof DeleteAclPolicyBindingResponses];
-
-export type GetAclPolicyBindingData = {
-    body?: never;
-    path: {
-        /**
-         * ACL policy binding id
-         */
-        id: string;
-    };
-    query?: never;
-    url: '/acl/policy-bindings/{id}';
-};
-
-export type GetAclPolicyBindingErrors = {
-    /**
-     * ACL policy binding not found
-     */
-    404: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type GetAclPolicyBindingError = GetAclPolicyBindingErrors[keyof GetAclPolicyBindingErrors];
-
-export type GetAclPolicyBindingResponses = {
-    /**
-     * ACL policy binding
-     */
-    200: AclPolicyBinding;
-};
-
-export type GetAclPolicyBindingResponse = GetAclPolicyBindingResponses[keyof GetAclPolicyBindingResponses];
-
-export type PutAclPolicyBindingData = {
-    body: AclPolicyBindingUpsert;
-    path: {
-        /**
-         * ACL policy binding id
-         */
-        id: string;
-    };
-    query?: never;
-    url: '/acl/policy-bindings/{id}';
-};
-
-export type PutAclPolicyBindingErrors = {
-    /**
-     * Invalid ACL policy binding payload
-     */
-    400: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type PutAclPolicyBindingError = PutAclPolicyBindingErrors[keyof PutAclPolicyBindingErrors];
-
-export type PutAclPolicyBindingResponses = {
-    /**
-     * Stored ACL policy binding
-     */
-    200: AclPolicyBinding;
-};
-
-export type PutAclPolicyBindingResponse = PutAclPolicyBindingResponses[keyof PutAclPolicyBindingResponses];
 
 export type ListWorkflowsData = {
     body?: never;
@@ -6765,70 +6234,6 @@ export type PutPeerInfoResponses = {
 
 export type PutPeerInfoResponse = PutPeerInfoResponses[keyof PutPeerInfoResponses];
 
-export type GetPeerConfigData = {
-    body?: never;
-    path: {
-        /**
-         * Peer public key
-         */
-        publicKey: string;
-    };
-    query?: never;
-    url: '/peers/{publicKey}/config';
-};
-
-export type GetPeerConfigErrors = {
-    /**
-     * Peer not found
-     */
-    404: ErrorResponse;
-};
-
-export type GetPeerConfigError = GetPeerConfigErrors[keyof GetPeerConfigErrors];
-
-export type GetPeerConfigResponses = {
-    /**
-     * Configuration
-     */
-    200: Configuration;
-};
-
-export type GetPeerConfigResponse = GetPeerConfigResponses[keyof GetPeerConfigResponses];
-
-export type PutPeerConfigData = {
-    body: Configuration;
-    path: {
-        /**
-         * Peer public key
-         */
-        publicKey: string;
-    };
-    query?: never;
-    url: '/peers/{publicKey}/config';
-};
-
-export type PutPeerConfigErrors = {
-    /**
-     * Invalid params
-     */
-    400: ErrorResponse;
-    /**
-     * Peer not found
-     */
-    404: ErrorResponse;
-};
-
-export type PutPeerConfigError = PutPeerConfigErrors[keyof PutPeerConfigErrors];
-
-export type PutPeerConfigResponses = {
-    /**
-     * Updated configuration
-     */
-    200: Configuration;
-};
-
-export type PutPeerConfigResponse = PutPeerConfigResponses[keyof PutPeerConfigResponses];
-
 export type GetPeerRuntimeData = {
     body?: never;
     path: {
@@ -7481,179 +6886,6 @@ export type DownloadFirmwareArtifactEntryResponses = {
 };
 
 export type DownloadFirmwareArtifactEntryResponse = DownloadFirmwareArtifactEntryResponses[keyof DownloadFirmwareArtifactEntryResponses];
-
-export type ListGameRulesetsData = {
-    body?: never;
-    path?: never;
-    query?: {
-        /**
-         * Opaque cursor returned by the previous list response
-         */
-        cursor?: string;
-        /**
-         * Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
-         */
-        limit?: number;
-    };
-    url: '/game-rulesets';
-};
-
-export type ListGameRulesetsErrors = {
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type ListGameRulesetsError = ListGameRulesetsErrors[keyof ListGameRulesetsErrors];
-
-export type ListGameRulesetsResponses = {
-    /**
-     * GameRuleset list
-     */
-    200: GameRulesetList;
-};
-
-export type ListGameRulesetsResponse = ListGameRulesetsResponses[keyof ListGameRulesetsResponses];
-
-export type CreateGameRulesetData = {
-    body: GameRulesetUpsert;
-    path?: never;
-    query?: never;
-    url: '/game-rulesets';
-};
-
-export type CreateGameRulesetErrors = {
-    /**
-     * Invalid GameRuleset
-     */
-    400: ErrorResponse;
-    /**
-     * GameRuleset already exists
-     */
-    409: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type CreateGameRulesetError = CreateGameRulesetErrors[keyof CreateGameRulesetErrors];
-
-export type CreateGameRulesetResponses = {
-    /**
-     * Created GameRuleset
-     */
-    200: GameRuleset;
-};
-
-export type CreateGameRulesetResponse = CreateGameRulesetResponses[keyof CreateGameRulesetResponses];
-
-export type DeleteGameRulesetData = {
-    body?: never;
-    path: {
-        /**
-         * GameRuleset identifier
-         */
-        name: string;
-    };
-    query?: never;
-    url: '/game-rulesets/{name}';
-};
-
-export type DeleteGameRulesetErrors = {
-    /**
-     * GameRuleset not found
-     */
-    404: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type DeleteGameRulesetError = DeleteGameRulesetErrors[keyof DeleteGameRulesetErrors];
-
-export type DeleteGameRulesetResponses = {
-    /**
-     * Deleted GameRuleset
-     */
-    200: GameRuleset;
-};
-
-export type DeleteGameRulesetResponse = DeleteGameRulesetResponses[keyof DeleteGameRulesetResponses];
-
-export type GetGameRulesetData = {
-    body?: never;
-    path: {
-        /**
-         * GameRuleset identifier
-         */
-        name: string;
-    };
-    query?: never;
-    url: '/game-rulesets/{name}';
-};
-
-export type GetGameRulesetErrors = {
-    /**
-     * GameRuleset not found
-     */
-    404: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type GetGameRulesetError = GetGameRulesetErrors[keyof GetGameRulesetErrors];
-
-export type GetGameRulesetResponses = {
-    /**
-     * GameRuleset
-     */
-    200: GameRuleset;
-};
-
-export type GetGameRulesetResponse = GetGameRulesetResponses[keyof GetGameRulesetResponses];
-
-export type PutGameRulesetData = {
-    body: GameRulesetUpsert;
-    path: {
-        /**
-         * GameRuleset identifier
-         */
-        name: string;
-    };
-    query?: never;
-    url: '/game-rulesets/{name}';
-};
-
-export type PutGameRulesetErrors = {
-    /**
-     * Invalid GameRuleset
-     */
-    400: ErrorResponse;
-    /**
-     * GameRuleset conflict
-     */
-    409: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type PutGameRulesetError = PutGameRulesetErrors[keyof PutGameRulesetErrors];
-
-export type PutGameRulesetResponses = {
-    /**
-     * Stored GameRuleset
-     */
-    200: GameRuleset;
-};
-
-export type PutGameRulesetResponse = PutGameRulesetResponses[keyof PutGameRulesetResponses];
 
 export type ListPetDefsData = {
     body?: never;
@@ -8890,3 +8122,311 @@ export type GetPeerRewardGrantResponses = {
 };
 
 export type GetPeerRewardGrantResponse = GetPeerRewardGrantResponses[keyof GetPeerRewardGrantResponses];
+
+export type ListRuntimeProfilesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Opaque cursor returned by the previous list response
+         */
+        cursor?: string;
+        /**
+         * Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
+         */
+        limit?: number;
+    };
+    url: '/runtime-profiles';
+};
+
+export type ListRuntimeProfilesErrors = {
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type ListRuntimeProfilesError = ListRuntimeProfilesErrors[keyof ListRuntimeProfilesErrors];
+
+export type ListRuntimeProfilesResponses = {
+    /**
+     * RuntimeProfile list
+     */
+    200: RuntimeProfileList;
+};
+
+export type ListRuntimeProfilesResponse = ListRuntimeProfilesResponses[keyof ListRuntimeProfilesResponses];
+
+export type CreateRuntimeProfileData = {
+    body: RuntimeProfileUpsert;
+    path?: never;
+    query?: never;
+    url: '/runtime-profiles';
+};
+
+export type CreateRuntimeProfileErrors = {
+    /**
+     * Invalid RuntimeProfile
+     */
+    400: ErrorResponse;
+    /**
+     * RuntimeProfile already exists
+     */
+    409: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type CreateRuntimeProfileError = CreateRuntimeProfileErrors[keyof CreateRuntimeProfileErrors];
+
+export type CreateRuntimeProfileResponses = {
+    /**
+     * Created RuntimeProfile
+     */
+    200: RuntimeProfile;
+};
+
+export type CreateRuntimeProfileResponse = CreateRuntimeProfileResponses[keyof CreateRuntimeProfileResponses];
+
+export type DeleteRuntimeProfileData = {
+    body?: never;
+    path: {
+        /**
+         * RuntimeProfile identifier
+         */
+        name: string;
+    };
+    query?: never;
+    url: '/runtime-profiles/{name}';
+};
+
+export type DeleteRuntimeProfileErrors = {
+    /**
+     * RuntimeProfile not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteRuntimeProfileError = DeleteRuntimeProfileErrors[keyof DeleteRuntimeProfileErrors];
+
+export type DeleteRuntimeProfileResponses = {
+    /**
+     * Deleted RuntimeProfile
+     */
+    200: RuntimeProfile;
+};
+
+export type DeleteRuntimeProfileResponse = DeleteRuntimeProfileResponses[keyof DeleteRuntimeProfileResponses];
+
+export type GetRuntimeProfileData = {
+    body?: never;
+    path: {
+        /**
+         * RuntimeProfile identifier
+         */
+        name: string;
+    };
+    query?: never;
+    url: '/runtime-profiles/{name}';
+};
+
+export type GetRuntimeProfileErrors = {
+    /**
+     * RuntimeProfile not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type GetRuntimeProfileError = GetRuntimeProfileErrors[keyof GetRuntimeProfileErrors];
+
+export type GetRuntimeProfileResponses = {
+    /**
+     * RuntimeProfile
+     */
+    200: RuntimeProfile;
+};
+
+export type GetRuntimeProfileResponse = GetRuntimeProfileResponses[keyof GetRuntimeProfileResponses];
+
+export type PutRuntimeProfileData = {
+    body: RuntimeProfileUpsert;
+    path: {
+        /**
+         * RuntimeProfile identifier
+         */
+        name: string;
+    };
+    query?: never;
+    url: '/runtime-profiles/{name}';
+};
+
+export type PutRuntimeProfileErrors = {
+    /**
+     * Invalid RuntimeProfile
+     */
+    400: ErrorResponse;
+    /**
+     * RuntimeProfile conflict
+     */
+    409: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type PutRuntimeProfileError = PutRuntimeProfileErrors[keyof PutRuntimeProfileErrors];
+
+export type PutRuntimeProfileResponses = {
+    /**
+     * Stored RuntimeProfile
+     */
+    200: RuntimeProfile;
+};
+
+export type PutRuntimeProfileResponse = PutRuntimeProfileResponses[keyof PutRuntimeProfileResponses];
+
+export type ListRegistrationTokensData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Opaque cursor returned by the previous list response
+         */
+        cursor?: string;
+        /**
+         * Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
+         */
+        limit?: number;
+    };
+    url: '/registration-tokens';
+};
+
+export type ListRegistrationTokensErrors = {
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type ListRegistrationTokensError = ListRegistrationTokensErrors[keyof ListRegistrationTokensErrors];
+
+export type ListRegistrationTokensResponses = {
+    /**
+     * RegistrationToken list
+     */
+    200: RegistrationTokenList;
+};
+
+export type ListRegistrationTokensResponse = ListRegistrationTokensResponses[keyof ListRegistrationTokensResponses];
+
+export type CreateRegistrationTokenData = {
+    body: RegistrationTokenUpsert;
+    path?: never;
+    query?: never;
+    url: '/registration-tokens';
+};
+
+export type CreateRegistrationTokenErrors = {
+    /**
+     * Invalid RegistrationToken
+     */
+    400: ErrorResponse;
+    /**
+     * RegistrationToken already exists
+     */
+    409: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type CreateRegistrationTokenError = CreateRegistrationTokenErrors[keyof CreateRegistrationTokenErrors];
+
+export type CreateRegistrationTokenResponses = {
+    /**
+     * Created RegistrationToken
+     */
+    200: RegistrationTokenCreateResult;
+};
+
+export type CreateRegistrationTokenResponse = CreateRegistrationTokenResponses[keyof CreateRegistrationTokenResponses];
+
+export type DeleteRegistrationTokenData = {
+    body?: never;
+    path: {
+        /**
+         * RegistrationToken identifier
+         */
+        name: string;
+    };
+    query?: never;
+    url: '/registration-tokens/{name}';
+};
+
+export type DeleteRegistrationTokenErrors = {
+    /**
+     * RegistrationToken not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteRegistrationTokenError = DeleteRegistrationTokenErrors[keyof DeleteRegistrationTokenErrors];
+
+export type DeleteRegistrationTokenResponses = {
+    /**
+     * Deleted RegistrationToken
+     */
+    200: RegistrationToken;
+};
+
+export type DeleteRegistrationTokenResponse = DeleteRegistrationTokenResponses[keyof DeleteRegistrationTokenResponses];
+
+export type GetRegistrationTokenData = {
+    body?: never;
+    path: {
+        /**
+         * RegistrationToken identifier
+         */
+        name: string;
+    };
+    query?: never;
+    url: '/registration-tokens/{name}';
+};
+
+export type GetRegistrationTokenErrors = {
+    /**
+     * RegistrationToken not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type GetRegistrationTokenError = GetRegistrationTokenErrors[keyof GetRegistrationTokenErrors];
+
+export type GetRegistrationTokenResponses = {
+    /**
+     * RegistrationToken
+     */
+    200: RegistrationToken;
+};
+
+export type GetRegistrationTokenResponse = GetRegistrationTokenResponses[keyof GetRegistrationTokenResponses];

@@ -11,7 +11,7 @@ import (
 	"testing/fstest"
 )
 
-func TestBootstrapperAppliesResourcesSyncsVoicesThenACLAndAssets(t *testing.T) {
+func TestBootstrapperAppliesResourcesSyncsVoicesUploadsAssetsAndCreatesRegistrationToken(t *testing.T) {
 	podDir := t.TempDir()
 	contextDir := filepath.Join(podDir, "admin_context", "local")
 	if err := os.MkdirAll(contextDir, 0o700); err != nil {
@@ -25,7 +25,6 @@ func TestBootstrapperAppliesResourcesSyncsVoicesThenACLAndAssets(t *testing.T) {
 		FS: fstest.MapFS{
 			"resources/00-credentials/a.yaml": {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: Credential\nmetadata:\n  name: a\n")},
 			"resources/00-credentials/b.yaml": {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: Credential\nmetadata:\n  name: b\n")},
-			"resources/90-acl/a.yaml":         {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: ACLPolicyBinding\nmetadata:\n  name: a\n")},
 			"assets/workflows/a.png":          {Data: []byte("png")},
 			"assets/workflows/a.pixa":         {Data: []byte("pixa")},
 			"assets/pets/a.pixa":              {Data: []byte("pet")},
@@ -33,7 +32,6 @@ func TestBootstrapperAppliesResourcesSyncsVoicesThenACLAndAssets(t *testing.T) {
 		Resources: []ResourceEntry{
 			{Path: "resources/00-credentials/a.yaml", Kind: "Credential", Name: "a"},
 			{Path: "resources/00-credentials/b.yaml", Kind: "Credential", Name: "b"},
-			{Path: "resources/90-acl/a.yaml", Kind: "ACLPolicyBinding", Name: "a"},
 		},
 		Requirements: []EnvironmentRequirement{
 			{Name: "BOOTSTRAP_SAVED"},
@@ -45,33 +43,36 @@ func TestBootstrapperAppliesResourcesSyncsVoicesThenACLAndAssets(t *testing.T) {
 	}
 	t.Setenv("BOOTSTRAP_SAVED", "process")
 	var commands []string
+	checkCommand := func(executable string, args, environment []string) {
+		if executable != "/fake/gizclaw" {
+			t.Fatalf("executable = %q", executable)
+		}
+		joinedEnvironment := strings.Join(environment, "\n")
+		if !strings.Contains(joinedEnvironment, "BOOTSTRAP_SAVED=desktop") || !strings.Contains(joinedEnvironment, "input=${input}") {
+			t.Fatalf("environment does not contain resolved values")
+		}
+		var xdgConfigHome, appData string
+		for _, entry := range environment {
+			name, value, _ := strings.Cut(entry, "=")
+			switch name {
+			case "XDG_CONFIG_HOME":
+				xdgConfigHome = value
+			case "AppData":
+				appData = value
+			}
+		}
+		if xdgConfigHome == "" || appData != xdgConfigHome {
+			t.Fatalf("CLI config roots = XDG_CONFIG_HOME %q, AppData %q", xdgConfigHome, appData)
+		}
+		if data, err := os.ReadFile(filepath.Join(appData, "gizclaw", "local", "config.yaml")); err != nil || string(data) != "context" {
+			t.Fatalf("Windows CLI context = %q, %v", data, err)
+		}
+		commands = append(commands, strings.Join(args, " "))
+	}
 	bootstrapper := &Bootstrapper{
 		Catalog:    catalog,
 		Executable: func() (string, error) { return "/fake/gizclaw", nil },
 		Run: func(_ context.Context, executable string, args, environment []string) error {
-			if executable != "/fake/gizclaw" {
-				t.Fatalf("executable = %q", executable)
-			}
-			joinedEnvironment := strings.Join(environment, "\n")
-			if !strings.Contains(joinedEnvironment, "BOOTSTRAP_SAVED=desktop") || !strings.Contains(joinedEnvironment, "input=${input}") {
-				t.Fatalf("environment does not contain resolved values")
-			}
-			var xdgConfigHome, appData string
-			for _, entry := range environment {
-				name, value, _ := strings.Cut(entry, "=")
-				switch name {
-				case "XDG_CONFIG_HOME":
-					xdgConfigHome = value
-				case "AppData":
-					appData = value
-				}
-			}
-			if xdgConfigHome == "" || appData != xdgConfigHome {
-				t.Fatalf("CLI config roots = XDG_CONFIG_HOME %q, AppData %q", xdgConfigHome, appData)
-			}
-			if data, err := os.ReadFile(filepath.Join(appData, "gizclaw", "local", "config.yaml")); err != nil || string(data) != "context" {
-				t.Fatalf("Windows CLI context = %q, %v", data, err)
-			}
 			if len(args) >= 2 && args[0] == "admin" && args[1] == "apply" {
 				data, err := os.ReadFile(args[len(args)-1])
 				if err != nil {
@@ -87,8 +88,19 @@ func TestBootstrapperAppliesResourcesSyncsVoicesThenACLAndAssets(t *testing.T) {
 					}
 				}
 			}
-			commands = append(commands, strings.Join(args, " "))
+			checkCommand(executable, args, environment)
 			return nil
+		},
+		RunOutput: func(_ context.Context, executable string, args, environment []string) ([]byte, error) {
+			checkCommand(executable, args, environment)
+			request, err := os.ReadFile(args[len(args)-1])
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := string(request); !strings.Contains(got, `"name":"desktop-local"`) || !strings.Contains(got, `"firmware_name":"desktop-local"`) || !strings.Contains(got, `"runtime_profile_name":"desktop-local"`) {
+				t.Fatalf("RegistrationToken request = %s", got)
+			}
+			return []byte(`{"name":"desktop-local","firmware_name":"desktop-local","runtime_profile_name":"desktop-local","token":"registration-secret"}`), nil
 		},
 	}
 	if err := bootstrapper.Apply(context.Background(), podDir, map[string]string{"BOOTSTRAP_SAVED": "desktop"}); err != nil {
@@ -97,11 +109,29 @@ func TestBootstrapperAppliesResourcesSyncsVoicesThenACLAndAssets(t *testing.T) {
 	if len(commands) != 6 {
 		t.Fatalf("commands = %d: %v", len(commands), commands)
 	}
-	if !strings.Contains(commands[0], "admin apply") || !strings.Contains(commands[1], "volc-tenants sync-voices volc-main") || !strings.Contains(commands[2], "admin apply") {
-		t.Fatalf("resource/sync/ACL order = %v", commands[:3])
+	if !strings.Contains(commands[0], "admin apply") || !strings.Contains(commands[1], "volc-tenants sync-voices volc-main") {
+		t.Fatalf("resource/sync order = %v", commands[:2])
 	}
-	if !strings.Contains(commands[3], "upload-icon workflow-a --format png") || !strings.Contains(commands[4], "upload-icon workflow-a --format pixa") || !strings.Contains(commands[5], "upload-pixa pet-a") {
-		t.Fatalf("asset commands = %v", commands[3:])
+	if !strings.Contains(commands[2], "upload-icon workflow-a --format png") || !strings.Contains(commands[3], "upload-icon workflow-a --format pixa") || !strings.Contains(commands[4], "upload-pixa pet-a") {
+		t.Fatalf("asset commands = %v", commands[2:5])
+	}
+	if !strings.Contains(commands[5], "registration-tokens create --context local") {
+		t.Fatalf("RegistrationToken command = %q", commands[5])
+	}
+	tokenPath := filepath.Join(podDir, "workspace", RegistrationTokenFile)
+	token, err := os.ReadFile(tokenPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(token) != "registration-secret" {
+		t.Fatalf("registration token = %q", token)
+	}
+	info, err := os.Stat(tokenPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Fatalf("registration token mode = %o", info.Mode().Perm())
 	}
 }
 

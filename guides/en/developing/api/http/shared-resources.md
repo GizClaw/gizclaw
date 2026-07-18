@@ -21,7 +21,7 @@ Things that don't fit here: Single Resource-specific Specs, small value objects 
 When changing a Shared schema:
 
 - Start from an owner file that actually exists under `api/http/shared/`; do not invent aggregate domain file names.
-- Locate cross-surface error, identity, runtime, ACL, configuration, firmware, credential, model, voice, tool, workflow, workspace, and provider tenant values through the ownership map.
+- Locate cross-surface error, identity, RuntimeProfile, registration, firmware, credential, model, voice, tool, workflow, workspace, and provider tenant values through the ownership map.
 - Keep Public-only DTOs in `peer.json`, Admin endpoint-specific DTOs in `admin.json`, and OpenAI-compatible DTOs in `openai-compat/v1/service.json`.
 - Keep Resource envelopes, metadata, Apply contracts, and the Resource union in `resources/resource.json`; Resource-specific data remains in the corresponding `resources/<kind>.json`.
 

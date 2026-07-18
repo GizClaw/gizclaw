@@ -24,10 +24,6 @@
       "description": "Business resource asset upload and download operations"
     },
     {
-      "name": "ACL",
-      "description": "ACL role and policy binding operations"
-    },
-    {
       "name": "Credentials",
       "description": "Provider credential operations"
     },
@@ -82,10 +78,6 @@
     {
       "name": "PetDefs",
       "description": "Pet definition catalog operations"
-    },
-    {
-      "name": "GameRulesets",
-      "description": "Gameplay ruleset catalog operations"
     },
     {
       "name": "Resource",
@@ -1960,901 +1952,6 @@
           },
           "404": {
             "description": "Resource not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/acl/views": {
-      "get": {
-        "operationId": "listACLViews",
-        "summary": "List ACL views",
-        "tags": [
-          "ACL"
-        ],
-        "parameters": [
-          {
-            "name": "cursor",
-            "in": "query",
-            "required": false,
-            "description": "Opaque cursor returned by the previous list response",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "description": "Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 50
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "ACL view list",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ACLViewList"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "operationId": "createACLView",
-        "summary": "Create an ACL view",
-        "tags": [
-          "ACL"
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ACLViewUpsert"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Created ACL view",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ACLView"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid ACL view payload",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "ACL view already exists",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/acl/views/{name}": {
-      "get": {
-        "operationId": "getACLView",
-        "summary": "Get an ACL view",
-        "tags": [
-          "ACL"
-        ],
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "description": "ACL view name",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "ACL view",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ACLView"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "ACL view not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "operationId": "putACLView",
-        "summary": "Create or update an ACL view",
-        "tags": [
-          "ACL"
-        ],
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "description": "ACL view name",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ACLViewUpsert"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Stored ACL view",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ACLView"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid ACL view payload",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "operationId": "deleteACLView",
-        "summary": "Delete an ACL view",
-        "tags": [
-          "ACL"
-        ],
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "description": "ACL view name",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Deleted ACL view",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ACLView"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "ACL view not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/acl/roles": {
-      "get": {
-        "operationId": "listACLRoles",
-        "summary": "List ACL roles",
-        "tags": [
-          "ACL"
-        ],
-        "parameters": [
-          {
-            "name": "cursor",
-            "in": "query",
-            "required": false,
-            "description": "Opaque cursor returned by the previous list response",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "description": "Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 50
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "ACL role list",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ACLRoleList"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "operationId": "createACLRole",
-        "summary": "Create an ACL role",
-        "tags": [
-          "ACL"
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ACLRoleUpsert"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Created ACL role",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ACLRole"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid ACL role payload",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "ACL role already exists",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/acl/roles/{name}": {
-      "get": {
-        "operationId": "getACLRole",
-        "summary": "Get an ACL role",
-        "tags": [
-          "ACL"
-        ],
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "description": "ACL role name",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "ACL role",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ACLRole"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "ACL role not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "operationId": "putACLRole",
-        "summary": "Create or update an ACL role",
-        "tags": [
-          "ACL"
-        ],
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "description": "ACL role name",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ACLRoleUpsert"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Stored ACL role",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ACLRole"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid ACL role payload",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "operationId": "deleteACLRole",
-        "summary": "Delete an ACL role",
-        "tags": [
-          "ACL"
-        ],
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "description": "ACL role name",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Deleted ACL role",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ACLRole"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "ACL role not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/acl/policy-bindings": {
-      "get": {
-        "operationId": "listACLPolicyBindings",
-        "summary": "List ACL policy bindings",
-        "tags": [
-          "ACL"
-        ],
-        "parameters": [
-          {
-            "name": "cursor",
-            "in": "query",
-            "required": false,
-            "description": "Opaque cursor returned by the previous list response",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "description": "Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 50
-            }
-          },
-          {
-            "name": "subject_kind",
-            "in": "query",
-            "required": false,
-            "description": "Filter by ACL subject kind",
-            "schema": {
-              "$ref": "./shared.json#/components/schemas/ACLSubjectKind"
-            }
-          },
-          {
-            "name": "subject_id",
-            "in": "query",
-            "required": false,
-            "description": "Filter by ACL subject identifier",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "resource_kind",
-            "in": "query",
-            "required": false,
-            "description": "Filter by ACL resource kind",
-            "schema": {
-              "$ref": "./shared.json#/components/schemas/ACLResourceKind"
-            }
-          },
-          {
-            "name": "resource_id",
-            "in": "query",
-            "required": false,
-            "description": "Filter by ACL resource identifier",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "resource_id_prefix",
-            "in": "query",
-            "required": false,
-            "description": "Filter by ACL resource identifier prefix",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "role",
-            "in": "query",
-            "required": false,
-            "description": "Filter by ACL role name",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "permission",
-            "in": "query",
-            "required": false,
-            "description": "Filter by expanded ACL permission",
-            "schema": {
-              "$ref": "./shared.json#/components/schemas/ACLPermission"
-            }
-          },
-          {
-            "name": "order_by",
-            "in": "query",
-            "required": false,
-            "description": "Sort ACL policy bindings by id or display order",
-            "schema": {
-              "type": "string",
-              "default": "id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "ACL policy binding list",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ACLPolicyBindingList"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "operationId": "createACLPolicyBinding",
-        "summary": "Create an ACL policy binding",
-        "tags": [
-          "ACL"
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ACLPolicyBindingUpsert"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Created ACL policy binding",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ACLPolicyBinding"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid ACL policy binding payload",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "ACL policy binding already exists",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/acl/policy-bindings/{id}": {
-      "get": {
-        "operationId": "getACLPolicyBinding",
-        "summary": "Get an ACL policy binding",
-        "tags": [
-          "ACL"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "description": "ACL policy binding id",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "ACL policy binding",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ACLPolicyBinding"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "ACL policy binding not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "operationId": "putACLPolicyBinding",
-        "summary": "Create or update an ACL policy binding",
-        "tags": [
-          "ACL"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "description": "ACL policy binding id",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ACLPolicyBindingUpsert"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Stored ACL policy binding",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ACLPolicyBinding"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid ACL policy binding payload",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "operationId": "deleteACLPolicyBinding",
-        "summary": "Delete an ACL policy binding",
-        "tags": [
-          "ACL"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "description": "ACL policy binding id",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Deleted ACL policy binding",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ACLPolicyBinding"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "ACL policy binding not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -5949,46 +5046,222 @@
       "get": {
         "operationId": "downloadWorkflowIcon",
         "summary": "Download a workflow icon",
-        "tags": ["Workflows"],
+        "tags": [
+          "Workflows"
+        ],
         "parameters": [
-          {"name": "name", "in": "path", "required": true, "schema": {"type": "string"}},
-          {"name": "format", "in": "path", "required": true, "schema": {"type": "string", "enum": ["pixa", "png"]}}
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pixa",
+                "png"
+              ]
+            }
+          }
         ],
         "responses": {
-          "200": {"description": "Workflow icon bytes", "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}, "image/png": {"schema": {"type": "string", "format": "binary"}}}},
-          "404": {"description": "Workflow or icon not found", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
-          "500": {"description": "Internal error", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}
+          "200": {
+            "description": "Workflow icon bytes",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workflow or icon not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       },
       "put": {
         "operationId": "uploadWorkflowIcon",
         "summary": "Upload or replace a workflow icon",
-        "tags": ["Workflows"],
-        "parameters": [
-          {"name": "name", "in": "path", "required": true, "schema": {"type": "string"}},
-          {"name": "format", "in": "path", "required": true, "schema": {"type": "string", "enum": ["pixa", "png"]}}
+        "tags": [
+          "Workflows"
         ],
-        "requestBody": {"required": true, "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}},
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pixa",
+                "png"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
         "responses": {
-          "200": {"description": "Updated workflow", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/Workflow"}}}},
-          "400": {"description": "Invalid icon", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
-          "404": {"description": "Workflow not found", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
-          "413": {"description": "Icon exceeds 2 MiB", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
-          "500": {"description": "Internal error", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}
+          "200": {
+            "description": "Updated workflow",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/Workflow"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid icon",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workflow not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Icon exceeds 2 MiB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       },
       "delete": {
         "operationId": "deleteWorkflowIcon",
         "summary": "Delete a workflow icon",
-        "tags": ["Workflows"],
+        "tags": [
+          "Workflows"
+        ],
         "parameters": [
-          {"name": "name", "in": "path", "required": true, "schema": {"type": "string"}},
-          {"name": "format", "in": "path", "required": true, "schema": {"type": "string", "enum": ["pixa", "png"]}}
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pixa",
+                "png"
+              ]
+            }
+          }
         ],
         "responses": {
-          "200": {"description": "Updated workflow", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/Workflow"}}}},
-          "404": {"description": "Workflow not found", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
-          "500": {"description": "Internal error", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}
+          "200": {
+            "description": "Updated workflow",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/Workflow"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workflow not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -6278,20 +5551,229 @@
     },
     "/workspaces/{name}/icon/{format}": {
       "get": {
-        "operationId": "downloadWorkspaceIcon", "summary": "Download a workspace icon", "tags": ["Workspaces"],
-        "parameters": [{"name": "name", "in": "path", "required": true, "schema": {"type": "string"}}, {"name": "format", "in": "path", "required": true, "schema": {"type": "string", "enum": ["pixa", "png"]}}],
-        "responses": {"200": {"description": "Workspace icon bytes", "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}, "image/png": {"schema": {"type": "string", "format": "binary"}}}}, "404": {"description": "Workspace or icon not found", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}, "500": {"description": "Internal error", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}}
+        "operationId": "downloadWorkspaceIcon",
+        "summary": "Download a workspace icon",
+        "tags": [
+          "Workspaces"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pixa",
+                "png"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workspace icon bytes",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workspace or icon not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
       },
       "put": {
-        "operationId": "uploadWorkspaceIcon", "summary": "Upload or replace a workspace icon", "tags": ["Workspaces"],
-        "parameters": [{"name": "name", "in": "path", "required": true, "schema": {"type": "string"}}, {"name": "format", "in": "path", "required": true, "schema": {"type": "string", "enum": ["pixa", "png"], "x-enum-varnames": ["UploadWorkspaceIconParamsFormatPixa", "UploadWorkspaceIconParamsFormatPng"]}}],
-        "requestBody": {"required": true, "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}},
-        "responses": {"200": {"description": "Updated workspace", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/Workspace"}}}}, "400": {"description": "Invalid icon", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}, "404": {"description": "Workspace not found", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}, "413": {"description": "Icon exceeds 2 MiB", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}, "500": {"description": "Internal error", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}}
+        "operationId": "uploadWorkspaceIcon",
+        "summary": "Upload or replace a workspace icon",
+        "tags": [
+          "Workspaces"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pixa",
+                "png"
+              ],
+              "x-enum-varnames": [
+                "UploadWorkspaceIconParamsFormatPixa",
+                "UploadWorkspaceIconParamsFormatPng"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated workspace",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/Workspace"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid icon",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workspace not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Icon exceeds 2 MiB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
       },
       "delete": {
-        "operationId": "deleteWorkspaceIcon", "summary": "Delete a workspace icon", "tags": ["Workspaces"],
-        "parameters": [{"name": "name", "in": "path", "required": true, "schema": {"type": "string"}}, {"name": "format", "in": "path", "required": true, "schema": {"type": "string", "enum": ["pixa", "png"]}}],
-        "responses": {"200": {"description": "Updated workspace", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/Workspace"}}}}, "404": {"description": "Workspace not found", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}, "500": {"description": "Internal error", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}}
+        "operationId": "deleteWorkspaceIcon",
+        "summary": "Delete a workspace icon",
+        "tags": [
+          "Workspaces"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pixa",
+                "png"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated workspace",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/Workspace"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workspace not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/workspaces/{name}/history": {
@@ -7021,108 +6503,6 @@
           },
           "500": {
             "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/peers/{publicKey}/config": {
-      "get": {
-        "operationId": "getPeerConfig",
-        "summary": "Get peer configuration",
-        "tags": [
-          "Resource"
-        ],
-        "parameters": [
-          {
-            "name": "publicKey",
-            "in": "path",
-            "required": true,
-            "description": "Peer public key",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Configuration",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/Configuration"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Peer not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "operationId": "putPeerConfig",
-        "summary": "Update peer configuration",
-        "tags": [
-          "Resource"
-        ],
-        "parameters": [
-          {
-            "name": "publicKey",
-            "in": "path",
-            "required": true,
-            "description": "Peer public key",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./shared.json#/components/schemas/Configuration"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Updated configuration",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/Configuration"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid params",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Peer not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -8308,290 +7688,6 @@
         }
       }
     },
-    "/game-rulesets": {
-      "get": {
-        "operationId": "listGameRulesets",
-        "summary": "List GameRulesets",
-        "tags": [
-          "GameRulesets"
-        ],
-        "parameters": [
-          {
-            "name": "cursor",
-            "in": "query",
-            "required": false,
-            "description": "Opaque cursor returned by the previous list response",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "description": "Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 50
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "GameRuleset list",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GameRulesetList"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "operationId": "createGameRuleset",
-        "summary": "Create a GameRuleset",
-        "tags": [
-          "GameRulesets"
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GameRulesetUpsert"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Created GameRuleset",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/GameRuleset"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid GameRuleset",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "GameRuleset already exists",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/game-rulesets/{name}": {
-      "get": {
-        "operationId": "getGameRuleset",
-        "summary": "Get a GameRuleset",
-        "tags": [
-          "GameRulesets"
-        ],
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "description": "GameRuleset identifier",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "GameRuleset",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/GameRuleset"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "GameRuleset not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "operationId": "putGameRuleset",
-        "summary": "Create or update a GameRuleset",
-        "tags": [
-          "GameRulesets"
-        ],
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "description": "GameRuleset identifier",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GameRulesetUpsert"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Stored GameRuleset",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/GameRuleset"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid GameRuleset",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "GameRuleset conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "operationId": "deleteGameRuleset",
-        "summary": "Delete a GameRuleset",
-        "tags": [
-          "GameRulesets"
-        ],
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "description": "GameRuleset identifier",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Deleted GameRuleset",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/GameRuleset"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "GameRuleset not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/pet-defs": {
       "get": {
         "operationId": "listPetDefs",
@@ -9446,20 +8542,225 @@
     },
     "/game-defs/{id}/icon/{format}": {
       "get": {
-        "operationId": "downloadGameDefIcon", "summary": "Download a GameDef icon", "tags": ["GameDefs"],
-        "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}, {"name": "format", "in": "path", "required": true, "schema": {"type": "string", "enum": ["pixa", "png"]}}],
-        "responses": {"200": {"description": "GameDef icon bytes", "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}, "image/png": {"schema": {"type": "string", "format": "binary"}}}}, "404": {"description": "GameDef or icon not found", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}, "500": {"description": "Internal error", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}}
+        "operationId": "downloadGameDefIcon",
+        "summary": "Download a GameDef icon",
+        "tags": [
+          "GameDefs"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pixa",
+                "png"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "GameDef icon bytes",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "GameDef or icon not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
       },
       "put": {
-        "operationId": "uploadGameDefIcon", "summary": "Upload or replace a GameDef icon", "tags": ["GameDefs"],
-        "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}, {"name": "format", "in": "path", "required": true, "schema": {"type": "string", "enum": ["pixa", "png"]}}],
-        "requestBody": {"required": true, "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}},
-        "responses": {"200": {"description": "Updated GameDef", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/GameDef"}}}}, "400": {"description": "Invalid icon", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}, "404": {"description": "GameDef not found", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}, "413": {"description": "Icon exceeds 2 MiB", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}, "500": {"description": "Internal error", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}}
+        "operationId": "uploadGameDefIcon",
+        "summary": "Upload or replace a GameDef icon",
+        "tags": [
+          "GameDefs"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pixa",
+                "png"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated GameDef",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/GameDef"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid icon",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "GameDef not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Icon exceeds 2 MiB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
       },
       "delete": {
-        "operationId": "deleteGameDefIcon", "summary": "Delete a GameDef icon", "tags": ["GameDefs"],
-        "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}, {"name": "format", "in": "path", "required": true, "schema": {"type": "string", "enum": ["pixa", "png"]}}],
-        "responses": {"200": {"description": "Updated GameDef", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/GameDef"}}}}, "404": {"description": "GameDef not found", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}, "500": {"description": "Internal error", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}}
+        "operationId": "deleteGameDefIcon",
+        "summary": "Delete a GameDef icon",
+        "tags": [
+          "GameDefs"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pixa",
+                "png"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated GameDef",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/GameDef"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "GameDef not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/pet-defs/{id}/pixa": {
@@ -10465,6 +9766,504 @@
           }
         }
       }
+    },
+    "/runtime-profiles": {
+      "get": {
+        "operationId": "listRuntimeProfiles",
+        "summary": "List RuntimeProfiles",
+        "tags": [
+          "RuntimeProfiles"
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor returned by the previous list response",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "RuntimeProfile list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeProfileList"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createRuntimeProfile",
+        "summary": "Create a RuntimeProfile",
+        "tags": [
+          "RuntimeProfiles"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuntimeProfileUpsert"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Created RuntimeProfile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/RuntimeProfile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid RuntimeProfile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "RuntimeProfile already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/runtime-profiles/{name}": {
+      "get": {
+        "operationId": "getRuntimeProfile",
+        "summary": "Get a RuntimeProfile",
+        "tags": [
+          "RuntimeProfiles"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "description": "RuntimeProfile identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "RuntimeProfile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/RuntimeProfile"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RuntimeProfile not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putRuntimeProfile",
+        "summary": "Create or update a RuntimeProfile",
+        "tags": [
+          "RuntimeProfiles"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "description": "RuntimeProfile identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuntimeProfileUpsert"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stored RuntimeProfile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/RuntimeProfile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid RuntimeProfile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "RuntimeProfile conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteRuntimeProfile",
+        "summary": "Delete a RuntimeProfile",
+        "tags": [
+          "RuntimeProfiles"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "description": "RuntimeProfile identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted RuntimeProfile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/RuntimeProfile"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RuntimeProfile not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/registration-tokens": {
+      "get": {
+        "operationId": "listRegistrationTokens",
+        "summary": "List RegistrationTokens",
+        "tags": [
+          "RegistrationTokens"
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor returned by the previous list response",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "RegistrationToken list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationTokenList"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createRegistrationToken",
+        "summary": "Create a RegistrationToken",
+        "tags": [
+          "RegistrationTokens"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistrationTokenUpsert"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Created RegistrationToken",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/RegistrationTokenCreateResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid RegistrationToken",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "RegistrationToken already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/registration-tokens/{name}": {
+      "get": {
+        "operationId": "getRegistrationToken",
+        "summary": "Get a RegistrationToken",
+        "tags": [
+          "RegistrationTokens"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "description": "RegistrationToken identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "RegistrationToken",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/RegistrationToken"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RegistrationToken not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteRegistrationToken",
+        "summary": "Delete a RegistrationToken",
+        "tags": [
+          "RegistrationTokens"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "description": "RegistrationToken identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted RegistrationToken",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/RegistrationToken"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RegistrationToken not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -10533,119 +10332,6 @@
         "properties": {
           "role": {
             "$ref": "./shared.json#/components/schemas/PeerRole"
-          }
-        }
-      },
-      "ACLViewUpsert": {
-        "type": "object",
-        "required": [
-          "name"
-        ],
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          }
-        }
-      },
-      "ACLViewList": {
-        "type": "object",
-        "required": [
-          "items",
-          "has_next"
-        ],
-        "properties": {
-          "has_next": {
-            "type": "boolean"
-          },
-          "next_cursor": {
-            "type": "string",
-            "nullable": true
-          },
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "./shared.json#/components/schemas/ACLView"
-            }
-          }
-        }
-      },
-      "ACLRoleUpsert": {
-        "type": "object",
-        "required": [
-          "name",
-          "permissions"
-        ],
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "permissions": {
-            "$ref": "./shared.json#/components/schemas/ACLPermissionList"
-          }
-        }
-      },
-      "ACLRoleList": {
-        "type": "object",
-        "required": [
-          "items",
-          "has_next"
-        ],
-        "properties": {
-          "has_next": {
-            "type": "boolean"
-          },
-          "next_cursor": {
-            "type": "string",
-            "nullable": true
-          },
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "./shared.json#/components/schemas/ACLRole"
-            }
-          }
-        }
-      },
-      "ACLPolicyBindingUpsert": {
-        "type": "object",
-        "required": [
-          "policy"
-        ],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "display_order": {
-            "type": "number",
-            "format": "double"
-          },
-          "policy": {
-            "$ref": "./shared.json#/components/schemas/ACLPolicy"
-          }
-        }
-      },
-      "ACLPolicyBindingList": {
-        "type": "object",
-        "required": [
-          "items",
-          "has_next"
-        ],
-        "properties": {
-          "has_next": {
-            "type": "boolean"
-          },
-          "next_cursor": {
-            "type": "string",
-            "nullable": true
-          },
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "./shared.json#/components/schemas/ACLPolicyBinding"
-            }
           }
         }
       },
@@ -11504,28 +11190,6 @@
           }
         }
       },
-      "GameRulesetList": {
-        "type": "object",
-        "required": [
-          "items",
-          "has_next"
-        ],
-        "properties": {
-          "has_next": {
-            "type": "boolean"
-          },
-          "next_cursor": {
-            "type": "string",
-            "nullable": true
-          },
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "./shared.json#/components/schemas/GameRuleset"
-            }
-          }
-        }
-      },
       "PetDefList": {
         "type": "object",
         "required": [
@@ -11592,22 +11256,6 @@
           }
         }
       },
-      "GameRulesetUpsert": {
-        "type": "object",
-        "required": [
-          "name",
-          "spec"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "spec": {
-            "$ref": "./shared.json#/components/schemas/GameRulesetSpec"
-          }
-        }
-      },
       "PetDefUpsert": {
         "type": "object",
         "required": [
@@ -11659,6 +11307,86 @@
           },
           "icon": {
             "$ref": "./shared.json#/components/schemas/Icon"
+          }
+        }
+      },
+      "RuntimeProfileList": {
+        "type": "object",
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "./shared.json#/components/schemas/RuntimeProfile"
+            }
+          }
+        }
+      },
+      "RuntimeProfileUpsert": {
+        "type": "object",
+        "required": [
+          "name",
+          "spec"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "spec": {
+            "$ref": "./shared.json#/components/schemas/RuntimeProfileSpec"
+          }
+        }
+      },
+      "RegistrationTokenList": {
+        "type": "object",
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "./shared.json#/components/schemas/RegistrationToken"
+            }
+          }
+        }
+      },
+      "RegistrationTokenUpsert": {
+        "type": "object",
+        "required": [
+          "name",
+          "firmware_name",
+          "runtime_profile_name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "firmware_name": {
+            "type": "string"
+          },
+          "runtime_profile_name": {
+            "type": "string"
           }
         }
       }

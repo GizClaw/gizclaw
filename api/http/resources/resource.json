@@ -20,9 +20,6 @@
         "description": "Declarative GizClaw resource kind.",
         "enum": [
           "Credential",
-          "ACLPolicyBinding",
-          "ACLRole",
-          "ACLView",
           "Firmware",
           "Contact",
           "Friend",
@@ -39,11 +36,11 @@
           "Tool",
           "Workflow",
           "Workspace",
-          "PeerConfig",
-          "GameRuleset",
           "PetDef",
           "BadgeDef",
           "GameDef",
+          "RuntimeProfile",
+          "RegistrationToken",
           "ResourceList"
         ]
       },
@@ -55,7 +52,7 @@
         "properties": {
           "name": {
             "type": "string",
-            "description": "Resource name. Kind-specific rules apply. User-defined custom IDs use 8-48 lowercase ASCII characters, start with [a-z], end with [a-z0-9], and contain only [a-z0-9._-]. For PeerConfig this is the peer public key."
+            "description": "Resource name. Kind-specific rules apply. User-defined custom IDs use 8-48 lowercase ASCII characters, start with [a-z], end with [a-z0-9], and contain only [a-z0-9._-]."
           },
           "annotations": {
             "type": "object",
@@ -71,21 +68,12 @@
           },
           "owner_public_key": {
             "type": "string",
-            "description": "Primary owner peer public key hint for ACL-backed managed resources. ResourceManager persists ownership as an ACL binding and may synthesize this value from ACL on read."
+            "description": "Immutable owner Public Key for Client-created resources. Admin-owned resources omit this field."
           }
         }
       },
       "Resource": {
         "oneOf": [
-          {
-            "$ref": "./acl_policy_binding.json#/components/schemas/ACLPolicyBindingResource"
-          },
-          {
-            "$ref": "./acl_role.json#/components/schemas/ACLRoleResource"
-          },
-          {
-            "$ref": "./acl_view.json#/components/schemas/ACLViewResource"
-          },
           {
             "$ref": "./credential.json#/components/schemas/CredentialResource"
           },
@@ -138,12 +126,6 @@
             "$ref": "./workspace.json#/components/schemas/WorkspaceResource"
           },
           {
-            "$ref": "./peer_config.json#/components/schemas/PeerConfigResource"
-          },
-          {
-            "$ref": "./game_ruleset.json#/components/schemas/GameRulesetResource"
-          },
-          {
             "$ref": "./pet_def.json#/components/schemas/PetDefResource"
           },
           {
@@ -153,15 +135,18 @@
             "$ref": "./game_def.json#/components/schemas/GameDefResource"
           },
           {
+            "$ref": "./runtime_profile.json#/components/schemas/RuntimeProfileResource"
+          },
+          {
+            "$ref": "./registration_token.json#/components/schemas/RegistrationTokenResource"
+          },
+          {
             "$ref": "./resource_list.json#/components/schemas/ResourceListResource"
           }
         ],
         "discriminator": {
           "propertyName": "kind",
           "mapping": {
-            "ACLPolicyBinding": "./acl_policy_binding.json#/components/schemas/ACLPolicyBindingResource",
-            "ACLRole": "./acl_role.json#/components/schemas/ACLRoleResource",
-            "ACLView": "./acl_view.json#/components/schemas/ACLViewResource",
             "Credential": "./credential.json#/components/schemas/CredentialResource",
             "Firmware": "./firmware.json#/components/schemas/FirmwareResource",
             "Contact": "./contact.json#/components/schemas/ContactResource",
@@ -179,12 +164,12 @@
             "Tool": "./tool.json#/components/schemas/ToolResource",
             "Workflow": "./workflow.json#/components/schemas/WorkflowResource",
             "Workspace": "./workspace.json#/components/schemas/WorkspaceResource",
-            "PeerConfig": "./peer_config.json#/components/schemas/PeerConfigResource",
             "ResourceList": "./resource_list.json#/components/schemas/ResourceListResource",
-            "GameRuleset": "./game_ruleset.json#/components/schemas/GameRulesetResource",
             "PetDef": "./pet_def.json#/components/schemas/PetDefResource",
             "BadgeDef": "./badge_def.json#/components/schemas/BadgeDefResource",
-            "GameDef": "./game_def.json#/components/schemas/GameDefResource"
+            "GameDef": "./game_def.json#/components/schemas/GameDefResource",
+            "RuntimeProfile": "./runtime_profile.json#/components/schemas/RuntimeProfileResource",
+            "RegistrationToken": "./registration_token.json#/components/schemas/RegistrationTokenResource"
           }
         }
       },

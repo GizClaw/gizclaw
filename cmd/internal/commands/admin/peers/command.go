@@ -5,44 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
-
 	"github.com/GizClaw/gizclaw-go/cmd/internal/adminapi"
-	"github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/cmdutil"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/connection"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/spf13/cobra"
 )
-
-type peerConfigClient interface {
-	GetPeerConfig(ctx context.Context, publicKey string) (apitypes.Configuration, error)
-	PutPeerConfig(ctx context.Context, publicKey string, cfg apitypes.Configuration) (apitypes.Configuration, error)
-	Close() error
-}
-
-type peerConfigBridge struct {
-	c *gizcli.Client
-}
-
-func (g *peerConfigBridge) GetPeerConfig(ctx context.Context, publicKey string) (apitypes.Configuration, error) {
-	return getPeerConfig(ctx, g.c, publicKey)
-}
-
-func (g *peerConfigBridge) PutPeerConfig(ctx context.Context, publicKey string, cfg apitypes.Configuration) (apitypes.Configuration, error) {
-	return putPeerConfig(ctx, g.c, publicKey, cfg)
-}
-
-func (g *peerConfigBridge) Close() error {
-	return g.c.Close()
-}
-
-var openPeerConfigClient = func(ctxName string) (peerConfigClient, error) {
-	c, err := connectFromContext(ctxName)
-	if err != nil {
-		return nil, err
-	}
-	return &peerConfigBridge{c: c}, nil
-}
 
 var (
 	connectFromContext = connection.ConnectFromContext
@@ -53,8 +20,6 @@ var (
 	approvePeer        = adminapi.ApprovePeer
 	blockPeer          = adminapi.BlockPeer
 	getPeerInfo        = adminapi.GetPeerInfo
-	getPeerConfig      = adminapi.GetPeerConfig
-	putPeerConfig      = adminapi.PutPeerConfig
 	getPeerRuntime     = adminapi.GetPeerRuntime
 	deletePeer         = adminapi.DeletePeer
 	refreshPeer        = adminapi.RefreshPeer
@@ -195,24 +160,6 @@ func newCmd(use, short string) *cobra.Command {
 			},
 		},
 		&cobra.Command{
-			Use:   "config <pubkey>",
-			Short: "Get peer config snapshot",
-			Args:  cobra.ExactArgs(1),
-			RunE: func(cmd *cobra.Command, args []string) error {
-				c, err := connectFromContext(ctxName)
-				if err != nil {
-					return err
-				}
-				defer c.Close()
-				item, err := getPeerConfig(context.Background(), c, args[0])
-				if err != nil {
-					return err
-				}
-				return json.NewEncoder(cmd.OutOrStdout()).Encode(item)
-			},
-		},
-		newPutConfigCmd(&ctxName),
-		&cobra.Command{
 			Use:   "runtime <pubkey>",
 			Short: "Get peer runtime snapshot",
 			Args:  cobra.ExactArgs(1),
@@ -264,33 +211,5 @@ func newCmd(use, short string) *cobra.Command {
 			},
 		},
 	)
-	return cmd
-}
-
-func newPutConfigCmd(ctxName *string) *cobra.Command {
-	var file string
-	cmd := &cobra.Command{
-		Use:   "put-config <pubkey> --file <config.json>",
-		Short: "Replace peer config",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := cmdutil.ReadJSONFile[apitypes.Configuration](file)
-			if err != nil {
-				return err
-			}
-			c, err := openPeerConfigClient(*ctxName)
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-			item, err := c.PutPeerConfig(context.Background(), args[0], cfg)
-			if err != nil {
-				return err
-			}
-			return json.NewEncoder(cmd.OutOrStdout()).Encode(item)
-		},
-	}
-	cmd.Flags().StringVar(&file, "file", "", "path to config JSON")
-	_ = cmd.MarkFlagRequired("file")
 	return cmd
 }

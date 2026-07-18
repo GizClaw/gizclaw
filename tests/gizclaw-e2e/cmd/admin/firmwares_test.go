@@ -6,7 +6,6 @@ import (
 	"archive/tar"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -104,15 +103,8 @@ func TestAdminFirmwaresUserStory(t *testing.T) {
 	uploadData.MustSucceed(t)
 	assertContains(t, uploadData.Stdout, `"tar_path":"devkit/pending/artifact/artifact.tar"`, `"sha256":`)
 
-	configPath := filepath.Join(h.SandboxDir, "device-firmware-config.json")
-	if err := os.WriteFile(configPath, []byte(`{"firmware":{"id":"devkit","channel":"stable"}}`), 0o644); err != nil {
-		t.Fatalf("write peer config: %v", err)
-	}
-	putConfig := h.RunCLI("admin", "peers", "put-config", h.ContextPublicKey("device-a"), "--file", configPath, "--context", "admin-a")
-	putConfig.MustSucceed(t)
-	assertContains(t, putConfig.Stdout, `"firmware":{`, `"id":"devkit"`, `"channel":"stable"`)
-	grantFirmwareRead(t, h, "device-a", "devkit")
-	assertDeviceFirmwareRPC(t, h, "device-a", filepath.Join(h.SandboxDir, "downloaded-app.bin"))
+	registrationToken := createFirmwareRegistrationToken(t, h, "devkit")
+	assertDeviceFirmwareRPC(t, h, "device-a", registrationToken, filepath.Join(h.SandboxDir, "downloaded-app.bin"))
 
 	release := h.RunCLI("admin", "firmwares", "release", "devkit", "--context", "admin-a")
 	release.MustSucceed(t)
@@ -131,23 +123,14 @@ func TestAdminFirmwaresUserStory(t *testing.T) {
 	assertContains(t, delete.Stdout, `"name":"devkit"`)
 }
 
-func TestAdminFirmwaresSharedSetupCatalog(t *testing.T) {
-	h := clitest.NewSetupHarness(t, "511-admin-firmwares-shared-resources")
-	h.CreateAdminContext("admin-a").MustSucceed(t)
-	h.RegisterContext("admin-a", "--sn", "admin-sn").MustSucceed(t)
-
-	list := h.RunCLI("admin", "firmwares", "list", "--context", "admin-a")
-	list.MustSucceed(t)
-	assertContains(t, list.Stdout, `"name":"devkit-firmware-main"`, `"name":"devkit-firmware-079"`)
-
-	get := h.RunCLI("admin", "firmwares", "get", "devkit-firmware-main", "--context", "admin-a")
-	get.MustSucceed(t)
-	assertContains(t, get.Stdout, `"name":"devkit-firmware-main"`, `"tar_path":"devkit-firmware-main/stable/artifact/artifact.tar"`)
+type firmwareDownloadCLIResponse struct {
+	Metadata rpcapi.FirmwareFilesDownloadResponse `json:"metadata"`
+	Bytes    int64                                `json:"bytes"`
+	Output   string                               `json:"output"`
 }
 
-func grantFirmwareRead(t *testing.T, h *clitest.Harness, peerContext string, firmwareID string) {
+func createFirmwareRegistrationToken(t *testing.T, h *clitest.Harness, firmwareName string) string {
 	t.Helper()
-
 	admin := h.ConnectClientFromContext("admin-a")
 	defer admin.Close()
 	api, err := admin.ServerAdminClient()
@@ -156,57 +139,50 @@ func grantFirmwareRead(t *testing.T, h *clitest.Harness, peerContext string, fir
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-
-	role := "firmware-reader"
-	roleResp, err := api.CreateACLRoleWithResponse(ctx, adminhttp.ACLRoleUpsert{
-		Name:        role,
-		Permissions: apitypes.ACLPermissionList{apitypes.ACLPermissionRead},
+	profileName := "firmware-test"
+	profileResp, err := api.PutRuntimeProfileWithResponse(ctx, profileName, adminhttp.RuntimeProfileUpsert{
+		Name: profileName,
+		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{}},
 	})
 	if err != nil {
-		t.Fatalf("create firmware ACL role: %v", err)
+		t.Fatalf("put firmware RuntimeProfile: %v", err)
 	}
-	if roleResp.JSON200 == nil {
-		t.Fatalf("create firmware ACL role status %d: %s", roleResp.StatusCode(), strings.TrimSpace(string(roleResp.Body)))
+	if profileResp.JSON200 == nil {
+		t.Fatalf("put firmware RuntimeProfile status %d: %s", profileResp.StatusCode(), strings.TrimSpace(string(profileResp.Body)))
 	}
-	bindingID := fmt.Sprintf("firmware-read-%s-%s", peerContext, firmwareID)
-	bindingResp, err := api.CreateACLPolicyBindingWithResponse(ctx, adminhttp.ACLPolicyBindingUpsert{
-		Id: &bindingID,
-		Policy: apitypes.ACLPolicy{
-			Subject:  apitypes.ACLSubject{Kind: apitypes.ACLSubjectKindPk, Id: h.ContextPublicKey(peerContext)},
-			Resource: apitypes.ACLResource{Kind: apitypes.ACLResourceKindFirmware, Id: firmwareID},
-			Role:     role,
-		},
+	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
+		Name:               "firmware-test",
+		FirmwareName:       firmwareName,
+		RuntimeProfileName: profileName,
 	})
 	if err != nil {
-		t.Fatalf("create firmware ACL binding: %v", err)
+		t.Fatalf("create firmware RegistrationToken: %v", err)
 	}
-	if bindingResp.JSON200 == nil {
-		t.Fatalf("create firmware ACL binding status %d: %s", bindingResp.StatusCode(), strings.TrimSpace(string(bindingResp.Body)))
+	if tokenResp.JSON200 == nil || tokenResp.JSON200.Token == nil {
+		t.Fatalf("create firmware RegistrationToken status %d: %s", tokenResp.StatusCode(), strings.TrimSpace(string(tokenResp.Body)))
 	}
+	return *tokenResp.JSON200.Token
 }
 
-func assertDeviceFirmwareRPC(t *testing.T, h *clitest.Harness, contextName string, outputPath string) {
+func assertDeviceFirmwareRPC(t *testing.T, h *clitest.Harness, contextName, registrationToken, outputPath string) {
 	t.Helper()
 
-	list := mustRunCLIJSON[rpcapi.FirmwareListResponse](t, h, "connect", "firmware", "list", "--context", contextName)
+	registerArgs := []string{"--context", contextName, "--registration-token", registrationToken}
+	list := mustRunCLIJSON[rpcapi.FirmwareListResponse](t, h, append([]string{"connect", "firmware", "list"}, registerArgs...)...)
 	if len(list.Items) != 1 || list.Items[0].Name != "devkit" {
 		t.Fatalf("firmware list = %#v", list)
 	}
-	get := mustRunCLIJSON[rpcapi.FirmwareGetResponse](t, h, "connect", "firmware", "get", "--firmware-id", "devkit", "--context", contextName)
+	getArgs := append([]string{"connect", "firmware", "get", "--firmware-id", "devkit"}, registerArgs...)
+	get := mustRunCLIJSON[rpcapi.FirmwareGetResponse](t, h, getArgs...)
 	if get.Slots.Stable.Artifact == nil {
 		t.Fatalf("firmware get = %#v", get)
 	}
-	download := mustRunCLIJSON[firmwareDownloadCLIResponse](t, h, "connect", "firmware", "download", "--firmware-id", "devkit", "--channel", "stable", "--path", "firmware/main.bin", "--output", outputPath, "--context", contextName)
+	downloadArgs := append([]string{"connect", "firmware", "download", "--firmware-id", "devkit", "--channel", "stable", "--path", "firmware/main.bin", "--output", outputPath}, registerArgs...)
+	download := mustRunCLIJSON[firmwareDownloadCLIResponse](t, h, downloadArgs...)
 	if download.Bytes != 20 || download.Metadata.File.Path != "firmware/main.bin" {
 		t.Fatalf("firmware download = %#v", download)
 	}
 	assertFileContent(t, outputPath, "app firmware payload")
-}
-
-type firmwareDownloadCLIResponse struct {
-	Metadata rpcapi.FirmwareFilesDownloadResponse `json:"metadata"`
-	Bytes    int64                                `json:"bytes"`
-	Output   string                               `json:"output"`
 }
 
 func writeFirmwareTarFile(t *testing.T, filePath string, files map[string]string) {

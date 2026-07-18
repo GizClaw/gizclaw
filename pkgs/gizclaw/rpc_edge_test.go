@@ -13,56 +13,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
-func TestEdgeRPCAssignLookupResolve(t *testing.T) {
-	peerKey := giznet.PublicKey{1}
-	serverKey := giznet.PublicKey{2}
-	peers := edgeTestPeers{items: map[giznet.PublicKey]apitypes.Peer{
-		peerKey: {
-			PublicKey:     peerKey.String(),
-			Role:          apitypes.PeerRoleClient,
-			Status:        apitypes.PeerRegistrationStatusActive,
-			Device:        apitypes.DeviceInfo{},
-			Configuration: apitypes.Configuration{},
-		},
-	}}
-	server := &edgeRPCServer{routes: &peerroute.Server{
-		Store:           kv.NewMemory(nil),
-		Peers:           peers,
-		ServerPublicKey: serverKey,
-		ServerEndpoint:  "server:9820",
-	}}
-
-	assignResp := edgeDispatch(t, server, "assign", rpcapi.RPCMethodServerPeerAssign, edgeParams(t, (*rpcapi.RPCPayload).FromServerPeerAssignRequest, rpcpb.ServerPeerAssignRequest{PeerPublicKey: peerKey.String()}))
-	if assignResp.Error != nil || assignResp.Result == nil {
-		t.Fatalf("assign response = %+v", assignResp)
-	}
-	assigned, err := assignResp.Result.AsServerPeerAssignResponse()
-	if err != nil {
-		t.Fatalf("AsServerPeerAssignResponse error = %v", err)
-	}
-	if assigned.Assignment.PeerPublicKey != peerKey.String() || assigned.Assignment.ServerEndpoint != "server:9820" || assigned.Assignment.Version != 1 {
-		t.Fatalf("assigned = %+v", assigned.Assignment)
-	}
-
-	lookupResp := edgeDispatch(t, server, "lookup", rpcapi.RPCMethodServerPeerLookup, edgeParams(t, (*rpcapi.RPCPayload).FromServerPeerLookupRequest, rpcpb.ServerPeerLookupRequest{PeerPublicKey: peerKey.String()}))
-	lookedUp, err := lookupResp.Result.AsServerPeerLookupResponse()
-	if err != nil {
-		t.Fatalf("AsServerPeerLookupResponse error = %v", err)
-	}
-	if lookedUp.Assignment.GetPeerPublicKey() != assigned.Assignment.GetPeerPublicKey() || lookedUp.Assignment.GetVersion() != assigned.Assignment.GetVersion() {
-		t.Fatalf("lookup assignment = %+v, want %+v", lookedUp.Assignment, assigned.Assignment)
-	}
-
-	resolveResp := edgeDispatch(t, server, "resolve", rpcapi.RPCMethodServerRouteResolve, edgeParams(t, (*rpcapi.RPCPayload).FromServerRouteResolveRequest, rpcpb.ServerRouteResolveRequest{TargetPeerPublicKey: peerKey.String()}))
-	resolved, err := resolveResp.Result.AsServerRouteResolveResponse()
-	if err != nil {
-		t.Fatalf("AsServerRouteResolveResponse error = %v", err)
-	}
-	if resolved.Assignment.GetPeerPublicKey() != assigned.Assignment.GetPeerPublicKey() || resolved.Assignment.GetVersion() != assigned.Assignment.GetVersion() {
-		t.Fatalf("resolve assignment = %+v, want %+v", resolved.Assignment, assigned.Assignment)
-	}
-}
-
 func TestEdgeRPCRejectsMismatchedPayload(t *testing.T) {
 	peerKey := giznet.PublicKey{1}
 	server := &edgeRPCServer{routes: &peerroute.Server{Store: kv.NewMemory(nil)}}
@@ -92,28 +42,6 @@ func TestEdgeRPCMapsMissingPeerToNotFound(t *testing.T) {
 	resp := edgeDispatch(t, server, "assign", rpcapi.RPCMethodServerPeerAssign, edgeParams(t, (*rpcapi.RPCPayload).FromServerPeerAssignRequest, rpcpb.ServerPeerAssignRequest{PeerPublicKey: peerKey.String()}))
 	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeNotFound {
 		t.Fatalf("missing peer response = %+v", resp)
-	}
-}
-
-func TestEdgeRPCRejectsNonClientAssignment(t *testing.T) {
-	peerKey := giznet.PublicKey{1}
-	server := &edgeRPCServer{routes: &peerroute.Server{
-		Store: kv.NewMemory(nil),
-		Peers: edgeTestPeers{items: map[giznet.PublicKey]apitypes.Peer{
-			peerKey: {
-				PublicKey:     peerKey.String(),
-				Role:          apitypes.PeerRoleServer,
-				Status:        apitypes.PeerRegistrationStatusActive,
-				Device:        apitypes.DeviceInfo{},
-				Configuration: apitypes.Configuration{},
-			},
-		}},
-		ServerPublicKey: giznet.PublicKey{2},
-		ServerEndpoint:  "server:9820",
-	}}
-	resp := edgeDispatch(t, server, "assign", rpcapi.RPCMethodServerPeerAssign, edgeParams(t, (*rpcapi.RPCPayload).FromServerPeerAssignRequest, rpcpb.ServerPeerAssignRequest{PeerPublicKey: peerKey.String()}))
-	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
-		t.Fatalf("server peer assign response = %+v", resp)
 	}
 }
 

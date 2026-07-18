@@ -27,10 +27,6 @@ import {
 } from "./pages/providers/ProviderTenantPages";
 import { VolcTenantDetailPage } from "./pages/providers/VolcTenantDetailPage";
 import { VolcTenantsListPage } from "./pages/providers/VolcTenantsListPage";
-import { ACLPage } from "./pages/settings/ACLPage";
-import { ACLPolicyBindingDetailPage } from "./pages/settings/ACLPolicyBindingDetailPage";
-import { ACLRoleDetailPage } from "./pages/settings/ACLRoleDetailPage";
-import { ACLViewDetailPage } from "./pages/settings/ACLViewDetailPage";
 import { ResourcesPage } from "./pages/resources/ResourcesPage";
 import { ContactDetailPage } from "./pages/social/ContactDetailPage";
 import { ContactsListPage } from "./pages/social/ContactsListPage";
@@ -77,10 +73,6 @@ export function AppRoutes({ contextName, onSignOut }: { contextName?: string; on
         <Route element={<FriendDetailPage />} path="social/friends/:ownerPublicKey/:id" />
         <Route element={<FriendGroupsListPage />} path="social/friend-groups" />
         <Route element={<FriendGroupDetailPage />} path="social/friend-groups/:id" />
-        <Route element={<ACLPage />} path="settings/acl" />
-        <Route element={<ACLPolicyBindingDetailPage />} path="settings/acl/policy-bindings/:id" />
-        <Route element={<ACLRoleDetailPage />} path="settings/acl/roles/:name" />
-        <Route element={<ACLViewDetailPage />} path="settings/acl/views/:name" />
       </Route>
       <Route element={<Navigate replace to="/overview" />} path="*" />
     </Routes>

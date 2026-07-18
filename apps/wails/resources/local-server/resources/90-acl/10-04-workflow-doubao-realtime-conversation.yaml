@@ -1,8 +1,0 @@
----
-apiVersion: gizclaw.admin/v1alpha1
-kind: ACLPolicyBinding
-metadata: {name: default-client-workflow-doubao-realtime-conversation}
-spec:
-  subject: {kind: view, id: default-client}
-  resource: {kind: workflow, id: doubao-realtime-conversation}
-  role: default-client

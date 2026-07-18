@@ -25,10 +25,11 @@ type Context struct {
 }
 
 type Runtime struct {
-	Context          *Context             `json:"context"`
-	PrivateKeyBase64 string               `json:"private_key_base64"`
-	AdminServers     []AdminServerRuntime `json:"admin_servers,omitempty"`
-	AdminServerID    string               `json:"admin_server_id,omitempty"`
+	Context           *Context             `json:"context"`
+	PrivateKeyBase64  string               `json:"private_key_base64"`
+	RegistrationToken string               `json:"registration_token,omitempty"`
+	AdminServers      []AdminServerRuntime `json:"admin_servers,omitempty"`
+	AdminServerID     string               `json:"admin_server_id,omitempty"`
 }
 
 type AdminServerRuntime struct {

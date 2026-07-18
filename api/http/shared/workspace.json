@@ -19,9 +19,14 @@
           "updated_at"
         ],
         "properties": {
-          "name": {
-            "type": "string"
-          },
+    "name": {
+      "type": "string"
+    },
+    "owner_public_key": {
+      "type": "string",
+      "readOnly": true,
+      "description": "Immutable Public Key of the Client that created this Workspace. System and Admin-created Workspaces may omit it."
+    },
           "workflow_name": {
             "type": "string"
           },

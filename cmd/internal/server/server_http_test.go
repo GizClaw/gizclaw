@@ -64,18 +64,16 @@ func TestCmdServerPrivateIngressRequiresAuthorizedSession(t *testing.T) {
 	peers := &peer.Server{Store: kv.Prefixed(srv.Server.PeerStore, kv.Key{"peers"})}
 	for _, item := range []apitypes.Peer{
 		{
-			PublicKey:     adminKey.Public.String(),
-			Role:          apitypes.PeerRoleAdmin,
-			Status:        apitypes.PeerRegistrationStatusActive,
-			Device:        apitypes.DeviceInfo{},
-			Configuration: apitypes.Configuration{},
+			PublicKey: adminKey.Public.String(),
+			Role:      apitypes.PeerRoleAdmin,
+			Status:    apitypes.PeerRegistrationStatusActive,
+			Device:    apitypes.DeviceInfo{},
 		},
 		{
-			PublicKey:     clientKey.Public.String(),
-			Role:          apitypes.PeerRoleClient,
-			Status:        apitypes.PeerRegistrationStatusActive,
-			Device:        apitypes.DeviceInfo{},
-			Configuration: apitypes.Configuration{},
+			PublicKey: clientKey.Public.String(),
+			Role:      apitypes.PeerRoleClient,
+			Status:    apitypes.PeerRegistrationStatusActive,
+			Device:    apitypes.DeviceInfo{},
 		},
 	} {
 		if _, err := peers.SavePeer(context.Background(), item); err != nil {
@@ -186,11 +184,10 @@ func TestCmdServerPrivateIngressRequiresAuthorizedSession(t *testing.T) {
 	}
 
 	if _, err := peers.SavePeer(context.Background(), apitypes.Peer{
-		PublicKey:     adminKey.Public.String(),
-		Role:          apitypes.PeerRoleClient,
-		Status:        apitypes.PeerRegistrationStatusActive,
-		Device:        apitypes.DeviceInfo{},
-		Configuration: apitypes.Configuration{},
+		PublicKey: adminKey.Public.String(),
+		Role:      apitypes.PeerRoleClient,
+		Status:    apitypes.PeerRegistrationStatusActive,
+		Device:    apitypes.DeviceInfo{},
 	}); err != nil {
 		t.Fatalf("SavePeer(demoted admin) error = %v", err)
 	}
@@ -262,11 +259,10 @@ func TestSideControlDirectTCPWhenServeToClientsEnabled(t *testing.T) {
 	defer srv.Close()
 	peers := &peer.Server{Store: kv.Prefixed(srv.Server.PeerStore, kv.Key{"peers"})}
 	if _, err := peers.SavePeer(context.Background(), apitypes.Peer{
-		PublicKey:     targetKey.Public.String(),
-		Role:          apitypes.PeerRoleClient,
-		Status:        apitypes.PeerRegistrationStatusActive,
-		Device:        apitypes.DeviceInfo{},
-		Configuration: apitypes.Configuration{},
+		PublicKey: targetKey.Public.String(),
+		Role:      apitypes.PeerRoleClient,
+		Status:    apitypes.PeerRegistrationStatusActive,
+		Device:    apitypes.DeviceInfo{},
 	}); err != nil {
 		t.Fatalf("SavePeer(target) error = %v", err)
 	}

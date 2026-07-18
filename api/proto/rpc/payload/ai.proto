@@ -95,6 +95,7 @@ message Credential {
   string name = 4;
   string provider = 5;
   string updated_at = 6;
+  optional string owner_public_key = 7;
 }
 
 message CredentialBody {
@@ -383,6 +384,7 @@ message Model {
   ModelSource source = 9;
   optional string synced_at = 10;
   string updated_at = 11;
+  optional string owner_public_key = 12;
 }
 
 message ModelCapabilities {
@@ -669,6 +671,7 @@ message Tool {
   optional google.protobuf.Struct metadata = 12;
   string created_at = 13;
   string updated_at = 14;
+  optional string owner_public_key = 15;
 }
 
 message ToolListRequest {

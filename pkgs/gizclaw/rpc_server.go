@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -13,7 +14,9 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 type rpcPeerService interface {
@@ -52,12 +55,15 @@ type rpcServerGenXService interface {
 }
 
 type rpcServer struct {
-	peer            rpcPeerService
-	peerRun         rpcPeerRunService
-	peerRunRuntime  rpcPeerRunRuntime
-	serverResources rpcServerResourceService
-	serverGenX      rpcServerGenXService
-	callerPublicKey giznet.PublicKey
+	peer               rpcPeerService
+	peerRun            rpcPeerRunService
+	peerRunRuntime     rpcPeerRunRuntime
+	serverResources    rpcServerResourceService
+	serverGenX         rpcServerGenXService
+	registrations      *runtimeprofile.Server
+	onRegistration     func(runtimeprofile.Registration)
+	registrationSource string
+	callerPublicKey    giznet.PublicKey
 }
 
 func (s *rpcServer) Handle(conn net.Conn) error {
@@ -103,6 +109,8 @@ func (s *rpcServer) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpca
 		return handleRPCPing(ctx, req)
 	case rpcapi.RPCMethodServerInfoGet:
 		return s.handleGetInfo(ctx, req)
+	case rpcapi.RPCMethodServerRegister:
+		return s.handleRegister(ctx, req)
 	case rpcapi.RPCMethodServerInfoPut:
 		return s.handlePutInfo(ctx, req)
 	case rpcapi.RPCMethodServerRuntimeGet:
@@ -147,6 +155,33 @@ func (s *rpcServer) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpca
 		}
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeMethodNotFound, Message: fmt.Sprintf("unknown method: %s", req.Method)}.RPCResponse(), nil
 	}
+}
+
+func (s *rpcServer) handleRegister(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+	if req.Params == nil {
+		return rpcInvalidParams(req.Id), nil
+	}
+	params, err := req.Params.AsServerRegisterRequest()
+	if err != nil || strings.TrimSpace(params.Token) == "" {
+		return rpcInvalidParams(req.Id), nil
+	}
+	if s.registrations == nil {
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "registration service not configured"}.RPCResponse(), nil
+	}
+	registration, err := s.registrations.ResolveRegistration(ctx, params.Token)
+	if err != nil {
+		slog.WarnContext(ctx, "device registration rejected", "peer_public_key", s.callerPublicKey.String(), "source", s.registrationSource, "error", err)
+		if errors.Is(err, kv.ErrNotFound) {
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeForbidden, Message: "invalid registration token"}.RPCResponse(), nil
+		}
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "registration failed"}.RPCResponse(), nil
+	}
+	if s.onRegistration != nil {
+		s.onRegistration(registration)
+	}
+	slog.InfoContext(ctx, "device registration accepted", "peer_public_key", s.callerPublicKey.String(), "source", s.registrationSource, "registration_token", registration.TokenName, "firmware", registration.FirmwareName, "runtime_profile", registration.RuntimeProfile.Name)
+	response := rpcapi.ServerRegisterResponse{FirmwareName: registration.FirmwareName, RuntimeProfileName: registration.RuntimeProfile.Name}
+	return newRPCResultResponse(req.Id, response, (*rpcapi.RPCPayload).FromServerRegisterResponse)
 }
 
 func rpcNotImplemented(id string, method rpcapi.RPCMethod) *rpcapi.RPCResponse {

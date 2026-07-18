@@ -23,6 +23,22 @@ Desktop App does not copy the server-side business of `pkgs/gizclaw`. `api/http/
 Schema source of desktop bridge DTO; generated through `gen:sdk` of `sdk/js` after update
 `frontend/src/generated/desktopservice`.
 
+## Local Server bootstrap
+
+`resources/local-server` is the versioned, read-only bootstrap source embedded in the Desktop
+binary. It contains Credentials, Tenants, Models, Workflows, PetDefs, a Firmware, a RuntimeProfile,
+and the Workflow and PetDef assets required by a new local Server. It contains no Workspace because
+Workspaces remain client-created resources.
+
+After applying the catalog, synchronizing dynamic Volc Voices, and uploading owner-managed assets,
+Desktop creates a RegistrationToken mapped to the bundled Firmware and RuntimeProfile. Its raw value
+is written only to the Pod's private workspace with mode `0600`. When local Play opens, the bridge
+passes that token through the separately protected per-launch Browser Runtime handoff. Play calls
+`server.register` on the
+same persistent WebRTC connection before loading RuntimeProfile resources. The RegistrationToken
+never enters the URL, `pod.json`, Web Storage, or logs. Desktop does not create RegistrationTokens for
+remote Pods.
+
 ## Local Server recovery
 
 Each running local Server stores `workspace/server.pid`. After an abnormal Desktop exit, recovery

@@ -1,0 +1,43 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "RegistrationToken Resource Schema",
+    "description": "RegistrationToken declarative resource envelope.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "RegistrationTokenResource": {
+        "type": "object",
+        "required": ["apiVersion", "kind", "metadata", "spec"],
+        "properties": {
+          "apiVersion": {
+            "$ref": "./resource.json#/components/schemas/ResourceAPIVersion"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["RegistrationToken"]
+          },
+          "metadata": {
+            "$ref": "./resource.json#/components/schemas/ResourceMetadata"
+          },
+          "spec": {
+            "type": "object",
+            "required": ["firmware_name", "runtime_profile_name"],
+            "additionalProperties": false,
+            "properties": {
+              "firmware_name": { "type": "string" },
+              "runtime_profile_name": { "type": "string" }
+            }
+          },
+          "token": {
+            "type": "string",
+            "writeOnly": true,
+            "description": "Present only in a successful create/apply response."
+          }
+        }
+      }
+    }
+  }
+}

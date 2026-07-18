@@ -32,12 +32,6 @@ func TestHTTPErrorHelpersAndVisitors(t *testing.T) {
 		}
 	}
 
-	checkStatus("get-peer-config", func(c *fiber.Ctx) error {
-		return getPeerConfig500JSONResponse(apitypes.NewErrorResponse("ERR", "boom")).VisitGetPeerConfigResponse(c)
-	})
-	checkStatus("put-peer-config", func(c *fiber.Ctx) error {
-		return putPeerConfig500JSONResponse(apitypes.NewErrorResponse("ERR", "boom")).VisitPutPeerConfigResponse(c)
-	})
 	checkStatus("get-peer-info", func(c *fiber.Ctx) error {
 		return getPeerInfo500JSONResponse(apitypes.NewErrorResponse("ERR", "boom")).VisitGetPeerInfoResponse(c)
 	})

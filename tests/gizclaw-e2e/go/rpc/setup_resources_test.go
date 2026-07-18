@@ -37,11 +37,14 @@ func newSharedSetupRPCHarness(t *testing.T) *sharedSetupRPCHarness {
 	identitiesHome := getenvDefault("GIZCLAW_E2E_IDENTITIES_HOME", filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "identities"))
 	contextName := getenvDefault("GIZCLAW_E2E_PEER_IDENTITY", "peer")
 	h.SetContextDirAlias("gear1", filepath.Join(identitiesHome, contextName))
+	adminContextName := getenvDefault("GIZCLAW_E2E_ADMIN_IDENTITY", "admin")
+	h.SetContextDirAlias("admin-a", filepath.Join(identitiesHome, adminContextName))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	t.Cleanup(cancel)
 	peer := h.ConnectClientFromContext("gear1")
 	t.Cleanup(func() { peer.Close() })
+	registerRuntimeProfile(t, h, peer, "shared-resources", sharedRuntimeProfileSpec())
 	return &sharedSetupRPCHarness{ctx: ctx, h: h, peer: peer}
 }
 
@@ -50,24 +53,27 @@ func TestSharedSetupRPCResourcesPagination(t *testing.T) {
 
 	workflowNames := collectWorkflowNames(t, env.ctx, env.peer, 25)
 	requireName(t, workflowNames, "flowcraft-support")
-	requirePrefixCount(t, workflowNames, "flowcraft-scenario-", 120)
+	requireName(t, workflowNames, sharedChatroomWorkflow)
 
 	workspaceNames := collectWorkspaceNames(t, env.ctx, env.peer, 25)
-	requireName(t, workspaceNames, "support-desk-workspace")
-	requireName(t, workspaceNames, "family-circle-chatroom-workspace")
-	requirePrefixCount(t, workspaceNames, "workspace-scenario-", 120)
+	requirePrefixCount(t, workspaceNames, "social-", 2)
+	if workspaceNames["support-desk-workspace"] {
+		t.Fatalf("unowned support Workspace unexpectedly accessible: %#v", workspaceNames)
+	}
 
 	modelIDs := collectModelIDs(t, env.ctx, env.peer, 25)
 	requireName(t, modelIDs, "fake-openai-chat-000")
-	requirePrefixCount(t, modelIDs, "fake-openai-chat-", 80)
 
 	credentialNames := collectCredentialNames(t, env.ctx, env.peer, 25)
-	requireName(t, credentialNames, "fake-openai-credential-000")
-	requirePrefixCount(t, credentialNames, "fake-openai-credential-", 50)
+	if len(credentialNames) != 0 {
+		t.Fatalf("unowned Credentials unexpectedly accessible: %#v", credentialNames)
+	}
 
 	firmwareNames := collectFirmwareNames(t, env.ctx, env.peer, 25)
 	requireName(t, firmwareNames, "devkit-firmware-main")
-	requirePrefixCount(t, firmwareNames, "devkit-firmware-", 80)
+	if len(firmwareNames) != 1 {
+		t.Fatalf("firmware list = %#v, want only RegistrationToken Firmware", firmwareNames)
+	}
 }
 
 func TestSharedSetupRPCFirmwareDownloadFixture(t *testing.T) {

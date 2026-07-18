@@ -2249,18 +2249,19 @@ func (x *ServerStopRunResponse) GetValue() *PeerRunStatus {
 }
 
 type Workspace struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	CreatedAt     string                 `protobuf:"bytes,1,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	LastActiveAt  string                 `protobuf:"bytes,2,opt,name=last_active_at,json=lastActiveAt,proto3" json:"last_active_at,omitempty"`
-	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	Parameters    *WorkspaceParameters   `protobuf:"bytes,4,opt,name=parameters,proto3,oneof" json:"parameters,omitempty"`
-	UpdatedAt     string                 `protobuf:"bytes,5,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	WorkflowName  string                 `protobuf:"bytes,6,opt,name=workflow_name,json=workflowName,proto3" json:"workflow_name,omitempty"`
-	Toolkit       *ToolkitPolicy         `protobuf:"bytes,7,opt,name=toolkit,proto3,oneof" json:"toolkit,omitempty"`
-	System        bool                   `protobuf:"varint,8,opt,name=system,proto3" json:"system,omitempty"`
-	Icon          *Icon                  `protobuf:"bytes,9,opt,name=icon,proto3,oneof" json:"icon,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	CreatedAt      string                 `protobuf:"bytes,1,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	LastActiveAt   string                 `protobuf:"bytes,2,opt,name=last_active_at,json=lastActiveAt,proto3" json:"last_active_at,omitempty"`
+	Name           string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Parameters     *WorkspaceParameters   `protobuf:"bytes,4,opt,name=parameters,proto3,oneof" json:"parameters,omitempty"`
+	UpdatedAt      string                 `protobuf:"bytes,5,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	WorkflowName   string                 `protobuf:"bytes,6,opt,name=workflow_name,json=workflowName,proto3" json:"workflow_name,omitempty"`
+	Toolkit        *ToolkitPolicy         `protobuf:"bytes,7,opt,name=toolkit,proto3,oneof" json:"toolkit,omitempty"`
+	System         bool                   `protobuf:"varint,8,opt,name=system,proto3" json:"system,omitempty"`
+	Icon           *Icon                  `protobuf:"bytes,9,opt,name=icon,proto3,oneof" json:"icon,omitempty"`
+	OwnerPublicKey *string                `protobuf:"bytes,10,opt,name=owner_public_key,json=ownerPublicKey,proto3,oneof" json:"owner_public_key,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Workspace) Reset() {
@@ -2354,6 +2355,13 @@ func (x *Workspace) GetIcon() *Icon {
 		return x.Icon
 	}
 	return nil
+}
+
+func (x *Workspace) GetOwnerPublicKey() string {
+	if x != nil && x.OwnerPublicKey != nil {
+		return *x.OwnerPublicKey
+	}
+	return ""
 }
 
 // Field numbers match Workspace so existing create and put clients remain wire
@@ -3676,7 +3684,7 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\x05value\x18\x01 \x01(\v2%.gizclaw.rpc.v1.PeerRunWorkspaceStateR\x05value\"\x16\n" +
 	"\x14ServerStopRunRequest\"L\n" +
 	"\x15ServerStopRunResponse\x123\n" +
-	"\x05value\x18\x01 \x01(\v2\x1d.gizclaw.rpc.v1.PeerRunStatusR\x05value\"\x9b\x03\n" +
+	"\x05value\x18\x01 \x01(\v2\x1d.gizclaw.rpc.v1.PeerRunStatusR\x05value\"\xdf\x03\n" +
 	"\tWorkspace\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x01 \x01(\tR\tcreatedAt\x12$\n" +
@@ -3690,11 +3698,14 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\rworkflow_name\x18\x06 \x01(\tR\fworkflowName\x12<\n" +
 	"\atoolkit\x18\a \x01(\v2\x1d.gizclaw.rpc.v1.ToolkitPolicyH\x01R\atoolkit\x88\x01\x01\x12\x16\n" +
 	"\x06system\x18\b \x01(\bR\x06system\x12-\n" +
-	"\x04icon\x18\t \x01(\v2\x14.gizclaw.rpc.v1.IconH\x02R\x04icon\x88\x01\x01B\r\n" +
+	"\x04icon\x18\t \x01(\v2\x14.gizclaw.rpc.v1.IconH\x02R\x04icon\x88\x01\x01\x12-\n" +
+	"\x10owner_public_key\x18\n" +
+	" \x01(\tH\x03R\x0eownerPublicKey\x88\x01\x01B\r\n" +
 	"\v_parametersB\n" +
 	"\n" +
 	"\b_toolkitB\a\n" +
-	"\x05_icon\"\xed\x01\n" +
+	"\x05_iconB\x13\n" +
+	"\x11_owner_public_key\"\xed\x01\n" +
 	"\x0fWorkspaceUpsert\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12H\n" +
 	"\n" +

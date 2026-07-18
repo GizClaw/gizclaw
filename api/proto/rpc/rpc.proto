@@ -138,7 +138,7 @@ enum RpcMethod {
   RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST = 74 [(rpc_method) = { name: "server.friend_group.messages.list" request: "FriendGroupMessageListRequest" response: "FriendGroupMessageListResponse" }];
   RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET = 75 [(rpc_method) = { name: "server.friend_group.messages.get" request: "FriendGroupMessageGetRequest" response: "FriendGroupMessageGetResponse" }];
   RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND = 76 [(rpc_method) = { name: "server.friend_group.messages.send" request: "FriendGroupMessageSendRequest" response: "FriendGroupMessageSendResponse" }];
-  RPC_METHOD_SERVER_GAME_RULESET_GET = 77 [(rpc_method) = { name: "server.game_ruleset.get" request: "ServerGameRulesetGetRequest" response: "ServerGameRulesetGetResponse" }];
+  reserved 77;
   RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD = 79 [(rpc_method) = { name: "server.badge_def.pixa.download" request: "BadgeDefPixaDownloadRequest" response: "BadgeDefPixaDownloadResponse" }];
   RPC_METHOD_SERVER_PET_LIST = 80 [(rpc_method) = { name: "server.pet.list" request: "ServerPetListRequest" response: "ServerPetListResponse" }];
   RPC_METHOD_SERVER_PET_GET = 81 [(rpc_method) = { name: "server.pet.get" request: "ServerPetGetRequest" response: "ServerPetGetResponse" }];
@@ -169,4 +169,5 @@ enum RpcMethod {
   RPC_METHOD_SERVER_WORKFLOW_ICON_DOWNLOAD = 106 [(rpc_method) = { name: "server.workflow.icon.download" request: "WorkflowIconDownloadRequest" response: "WorkflowIconDownloadResponse" }];
   RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD = 107 [(rpc_method) = { name: "server.workspace.icon.download" request: "WorkspaceIconDownloadRequest" response: "WorkspaceIconDownloadResponse" }];
   RPC_METHOD_SERVER_FRIEND_INFO_GET = 108 [(rpc_method) = { name: "server.friend.info.get" request: "FriendInfoGetRequest" response: "FriendInfoGetResponse" }];
+  RPC_METHOD_SERVER_REGISTER = 109 [(rpc_method) = { name: "server.register" request: "ServerRegisterRequest" response: "ServerRegisterResponse" }];
 }

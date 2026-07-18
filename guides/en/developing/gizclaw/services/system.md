@@ -1,29 +1,32 @@
 # services/system
 
-`pkgs/gizclaw/services/system` Provides system-level services that multiple product areas rely on, including access control, public login, and declarative resource management.
+`pkgs/gizclaw/services/system` provides shared system services including RuntimeProfile, device registration, resource ownership, public login, and declarative resource management.
 
 ## Directory structure
 
 ```text
 services/system/
-├── acl/               # roles, policy bindings, ACL views, and authorization decisions
+├── ownership/         # owner context, owner index keys, and write rules
 ├── publiclogin/       # Public HTTP login, assertions, and sessions
-└── resourcemanager/   # unified entry point for Admin declarative resources
+├── resourcemanager/   # unified entry point for Admin declarative resources
+└── runtimeprofile/    # RuntimeProfile and RegistrationToken
 ```
 
 ## Subdirectory responsibilities
 
-### acl
+### ownership
 
-Possess GizClaw's role, policy binding, ACL view, subject/resource permission and authorization judgment. Other domains can query ACLs, but cannot establish conflicting second sets of common permissions models within their respective packages.
+Defines the common owner context and KV index convention for Workspace, Model, Credential, and Tool. An owner may read, use, update, and delete a resource. Friend, FriendGroup, and Pet domain relationships add visibility for their system Workspaces.
 
-ACL is not responsible for whether the transport peer can open the giznet service; transport-level policy and product resource authorization are different boundaries.
+### runtimeprofile
+
+Owns RuntimeProfile and RegistrationToken KV state, validation, hash indexes, and registration resolution. RuntimeProfile resources are unioned with owned resources; it does not define reader, member, or administrator roles. See [RuntimeProfile and device registration](./runtime-profile).
 
 ### publiclogin
 
 Responsible for Public HTTP callers completing identity proof and obtaining typed sessions. A primary session represents the current Peer; a Side Control session uses a single-use device token and binds both the controller identity and target Peer. This package does not own browser routes, Edge proxying, or business resource implementations.
 
-Final resource authorization is still performed by ACL and corresponding domain services. Successful login does not mean having access to all resources.
+Final resource access is decided by RuntimeProfile, ownership, and the relevant domain relationship. Successful login does not grant every resource.
 
 ### resourcemanager
 
@@ -40,9 +43,10 @@ flowchart TB
     ResourceManager --> Device["services/device"]
     ResourceManager --> Gameplay["services/gameplay"]
     ResourceManager --> Social["services/social"]
-    ResourceManager --> ACL["acl"]
+    ResourceManager --> Profile["runtimeprofile"]
+    ResourceManager --> Ownership["ownership"]
     Public["Public HTTP"] --> Login["publiclogin"]
-    Login --> ACL
+    Login --> Profile
 ```
 
 Should be placed at `services/system`:

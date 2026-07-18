@@ -29,7 +29,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
@@ -50,11 +50,11 @@ type telemetryStatusLock struct {
 }
 
 type Manager struct {
-	Peers      *peer.Server
-	PeerRoutes *peerroute.Server
-	PeerRun    *peerrun.Server
-	AgentHost  *agenthost.Host
-	ACL        *acl.Server
+	Peers           *peer.Server
+	PeerRoutes      *peerroute.Server
+	PeerRun         *peerrun.Server
+	AgentHost       *agenthost.Host
+	RuntimeProfiles *runtimeprofile.Server
 
 	Workspaces       workspace.WorkspaceAdminService
 	Workflows        workflow.WorkflowAdminService

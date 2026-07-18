@@ -206,18 +206,16 @@ func ServeContext(ctx context.Context, workspace string, opts ServeOptions) (err
 	defer func() {
 		err = errors.Join(err, closeLogger())
 	}()
-	if storeExists(cfg, defaultACLStore) {
-		migrator, err := newMigratorWithStores(cfg, storeRegistry, false)
-		if err != nil {
-			return err
-		}
-		if err := migrator.Migrate(ctx); err != nil {
-			_ = migrator.Close()
-			return err
-		}
-		if err := migrator.Close(); err != nil {
-			return err
-		}
+	migrator, err := newMigratorWithStores(cfg, storeRegistry, false)
+	if err != nil {
+		return err
+	}
+	if err := migrator.Migrate(ctx); err != nil {
+		_ = migrator.Close()
+		return err
+	}
+	if err := migrator.Close(); err != nil {
+		return err
 	}
 
 	publicListener, err := net.Listen("tcp", cfg.PublicAPIListenAddr())

@@ -846,15 +846,16 @@ func (x *ChatRoomWorkspaceTranscriptParameters) GetEnabled() bool {
 }
 
 type Credential struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Body          *CredentialBody        `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
-	CreatedAt     string                 `protobuf:"bytes,2,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	Description   *string                `protobuf:"bytes,3,opt,name=description,proto3,oneof" json:"description,omitempty"`
-	Name          string                 `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
-	Provider      string                 `protobuf:"bytes,5,opt,name=provider,proto3" json:"provider,omitempty"`
-	UpdatedAt     string                 `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Body           *CredentialBody        `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
+	CreatedAt      string                 `protobuf:"bytes,2,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	Description    *string                `protobuf:"bytes,3,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	Name           string                 `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
+	Provider       string                 `protobuf:"bytes,5,opt,name=provider,proto3" json:"provider,omitempty"`
+	UpdatedAt      string                 `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	OwnerPublicKey *string                `protobuf:"bytes,7,opt,name=owner_public_key,json=ownerPublicKey,proto3,oneof" json:"owner_public_key,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Credential) Reset() {
@@ -925,6 +926,13 @@ func (x *Credential) GetProvider() string {
 func (x *Credential) GetUpdatedAt() string {
 	if x != nil {
 		return x.UpdatedAt
+	}
+	return ""
+}
+
+func (x *Credential) GetOwnerPublicKey() string {
+	if x != nil && x.OwnerPublicKey != nil {
+		return *x.OwnerPublicKey
 	}
 	return ""
 }
@@ -3700,20 +3708,21 @@ func (x *MiniMaxTenantVoiceProviderData) GetVoiceType() string {
 }
 
 type Model struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Capabilities  *ModelCapabilities     `protobuf:"bytes,1,opt,name=capabilities,proto3,oneof" json:"capabilities,omitempty"`
-	CreatedAt     string                 `protobuf:"bytes,2,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	Description   *string                `protobuf:"bytes,3,opt,name=description,proto3,oneof" json:"description,omitempty"`
-	Id            string                 `protobuf:"bytes,4,opt,name=id,proto3" json:"id,omitempty"`
-	Kind          ModelKind              `protobuf:"varint,5,opt,name=kind,proto3,enum=gizclaw.rpc.v1.ModelKind" json:"kind,omitempty"`
-	Name          *string                `protobuf:"bytes,6,opt,name=name,proto3,oneof" json:"name,omitempty"`
-	Provider      *ModelProvider         `protobuf:"bytes,7,opt,name=provider,proto3" json:"provider,omitempty"`
-	ProviderData  *ModelProviderData     `protobuf:"bytes,8,opt,name=provider_data,json=providerData,proto3,oneof" json:"provider_data,omitempty"`
-	Source        ModelSource            `protobuf:"varint,9,opt,name=source,proto3,enum=gizclaw.rpc.v1.ModelSource" json:"source,omitempty"`
-	SyncedAt      *string                `protobuf:"bytes,10,opt,name=synced_at,json=syncedAt,proto3,oneof" json:"synced_at,omitempty"`
-	UpdatedAt     string                 `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Capabilities   *ModelCapabilities     `protobuf:"bytes,1,opt,name=capabilities,proto3,oneof" json:"capabilities,omitempty"`
+	CreatedAt      string                 `protobuf:"bytes,2,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	Description    *string                `protobuf:"bytes,3,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	Id             string                 `protobuf:"bytes,4,opt,name=id,proto3" json:"id,omitempty"`
+	Kind           ModelKind              `protobuf:"varint,5,opt,name=kind,proto3,enum=gizclaw.rpc.v1.ModelKind" json:"kind,omitempty"`
+	Name           *string                `protobuf:"bytes,6,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	Provider       *ModelProvider         `protobuf:"bytes,7,opt,name=provider,proto3" json:"provider,omitempty"`
+	ProviderData   *ModelProviderData     `protobuf:"bytes,8,opt,name=provider_data,json=providerData,proto3,oneof" json:"provider_data,omitempty"`
+	Source         ModelSource            `protobuf:"varint,9,opt,name=source,proto3,enum=gizclaw.rpc.v1.ModelSource" json:"source,omitempty"`
+	SyncedAt       *string                `protobuf:"bytes,10,opt,name=synced_at,json=syncedAt,proto3,oneof" json:"synced_at,omitempty"`
+	UpdatedAt      string                 `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	OwnerPublicKey *string                `protobuf:"bytes,12,opt,name=owner_public_key,json=ownerPublicKey,proto3,oneof" json:"owner_public_key,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Model) Reset() {
@@ -3819,6 +3828,13 @@ func (x *Model) GetSyncedAt() string {
 func (x *Model) GetUpdatedAt() string {
 	if x != nil {
 		return x.UpdatedAt
+	}
+	return ""
+}
+
+func (x *Model) GetOwnerPublicKey() string {
+	if x != nil && x.OwnerPublicKey != nil {
+		return *x.OwnerPublicKey
 	}
 	return ""
 }
@@ -6488,23 +6504,24 @@ func (x *ToolTrigger) GetMetadata() *structpb.Struct {
 }
 
 type Tool struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name          *string                `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`
-	Description   *string                `protobuf:"bytes,3,opt,name=description,proto3,oneof" json:"description,omitempty"`
-	Source        ToolSource             `protobuf:"varint,4,opt,name=source,proto3,enum=gizclaw.rpc.v1.ToolSource" json:"source,omitempty"`
-	Enabled       *bool                  `protobuf:"varint,5,opt,name=enabled,proto3,oneof" json:"enabled,omitempty"`
-	OwnerPeer     *string                `protobuf:"bytes,6,opt,name=owner_peer,json=ownerPeer,proto3,oneof" json:"owner_peer,omitempty"`
-	Version       *string                `protobuf:"bytes,7,opt,name=version,proto3,oneof" json:"version,omitempty"`
-	InputSchema   *structpb.Struct       `protobuf:"bytes,8,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"`
-	OutputSchema  *structpb.Struct       `protobuf:"bytes,9,opt,name=output_schema,json=outputSchema,proto3,oneof" json:"output_schema,omitempty"`
-	Triggers      []*ToolTrigger         `protobuf:"bytes,10,rep,name=triggers,proto3" json:"triggers,omitempty"`
-	Executor      *ToolExecutor          `protobuf:"bytes,11,opt,name=executor,proto3" json:"executor,omitempty"`
-	Metadata      *structpb.Struct       `protobuf:"bytes,12,opt,name=metadata,proto3,oneof" json:"metadata,omitempty"`
-	CreatedAt     string                 `protobuf:"bytes,13,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     string                 `protobuf:"bytes,14,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name           *string                `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	Description    *string                `protobuf:"bytes,3,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	Source         ToolSource             `protobuf:"varint,4,opt,name=source,proto3,enum=gizclaw.rpc.v1.ToolSource" json:"source,omitempty"`
+	Enabled        *bool                  `protobuf:"varint,5,opt,name=enabled,proto3,oneof" json:"enabled,omitempty"`
+	OwnerPeer      *string                `protobuf:"bytes,6,opt,name=owner_peer,json=ownerPeer,proto3,oneof" json:"owner_peer,omitempty"`
+	Version        *string                `protobuf:"bytes,7,opt,name=version,proto3,oneof" json:"version,omitempty"`
+	InputSchema    *structpb.Struct       `protobuf:"bytes,8,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"`
+	OutputSchema   *structpb.Struct       `protobuf:"bytes,9,opt,name=output_schema,json=outputSchema,proto3,oneof" json:"output_schema,omitempty"`
+	Triggers       []*ToolTrigger         `protobuf:"bytes,10,rep,name=triggers,proto3" json:"triggers,omitempty"`
+	Executor       *ToolExecutor          `protobuf:"bytes,11,opt,name=executor,proto3" json:"executor,omitempty"`
+	Metadata       *structpb.Struct       `protobuf:"bytes,12,opt,name=metadata,proto3,oneof" json:"metadata,omitempty"`
+	CreatedAt      string                 `protobuf:"bytes,13,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt      string                 `protobuf:"bytes,14,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	OwnerPublicKey *string                `protobuf:"bytes,15,opt,name=owner_public_key,json=ownerPublicKey,proto3,oneof" json:"owner_public_key,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Tool) Reset() {
@@ -6631,6 +6648,13 @@ func (x *Tool) GetCreatedAt() string {
 func (x *Tool) GetUpdatedAt() string {
 	if x != nil {
 		return x.UpdatedAt
+	}
+	return ""
+}
+
+func (x *Tool) GetOwnerPublicKey() string {
+	if x != nil && x.OwnerPublicKey != nil {
+		return *x.OwnerPublicKey
 	}
 	return ""
 }
@@ -7337,7 +7361,7 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\n" +
 	"_asr_modelB\n" +
 	"\n" +
-	"\b_enabled\"\xe5\x01\n" +
+	"\b_enabled\"\xa9\x02\n" +
 	"\n" +
 	"Credential\x122\n" +
 	"\x04body\x18\x01 \x01(\v2\x1e.gizclaw.rpc.v1.CredentialBodyR\x04body\x12\x1d\n" +
@@ -7347,8 +7371,10 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\x04name\x18\x04 \x01(\tR\x04name\x12\x1a\n" +
 	"\bprovider\x18\x05 \x01(\tR\bprovider\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\x06 \x01(\tR\tupdatedAtB\x0e\n" +
-	"\f_description\"\xf7\x03\n" +
+	"updated_at\x18\x06 \x01(\tR\tupdatedAt\x12-\n" +
+	"\x10owner_public_key\x18\a \x01(\tH\x01R\x0eownerPublicKey\x88\x01\x01B\x0e\n" +
+	"\f_descriptionB\x13\n" +
+	"\x11_owner_public_key\"\xf7\x03\n" +
 	"\x0eCredentialBody\x12\\\n" +
 	"\x16open_aicredential_body\x18\x01 \x01(\v2$.gizclaw.rpc.v1.OpenAICredentialBodyH\x00R\x14openAicredentialBody\x12\\\n" +
 	"\x16gemini_credential_body\x18\x02 \x01(\v2$.gizclaw.rpc.v1.GeminiCredentialBodyH\x00R\x14geminiCredentialBody\x12f\n" +
@@ -7661,7 +7687,7 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\x06_modelB\x0e\n" +
 	"\f_sample_rateB\v\n" +
 	"\t_voice_idB\r\n" +
-	"\v_voice_type\"\xb9\x04\n" +
+	"\v_voice_type\"\xfd\x04\n" +
 	"\x05Model\x12J\n" +
 	"\fcapabilities\x18\x01 \x01(\v2!.gizclaw.rpc.v1.ModelCapabilitiesH\x00R\fcapabilities\x88\x01\x01\x12\x1d\n" +
 	"\n" +
@@ -7676,13 +7702,15 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\tsynced_at\x18\n" +
 	" \x01(\tH\x04R\bsyncedAt\x88\x01\x01\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\v \x01(\tR\tupdatedAtB\x0f\n" +
+	"updated_at\x18\v \x01(\tR\tupdatedAt\x12-\n" +
+	"\x10owner_public_key\x18\f \x01(\tH\x05R\x0eownerPublicKey\x88\x01\x01B\x0f\n" +
 	"\r_capabilitiesB\x0e\n" +
 	"\f_descriptionB\a\n" +
 	"\x05_nameB\x10\n" +
 	"\x0e_provider_dataB\f\n" +
 	"\n" +
-	"_synced_at\"\xf0\x02\n" +
+	"_synced_atB\x13\n" +
+	"\x11_owner_public_key\"\xf0\x02\n" +
 	"\x11ModelCapabilities\x12$\n" +
 	"\vjson_output\x18\x01 \x01(\bH\x00R\n" +
 	"jsonOutput\x88\x01\x01\x12$\n" +
@@ -7962,7 +7990,7 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\bexamples\x18\x04 \x03(\v2\".gizclaw.rpc.v1.ToolTriggerExampleR\bexamples\x128\n" +
 	"\bmetadata\x18\x05 \x01(\v2\x17.google.protobuf.StructH\x01R\bmetadata\x88\x01\x01B\x0e\n" +
 	"\f_descriptionB\v\n" +
-	"\t_metadata\"\xb5\x05\n" +
+	"\t_metadata\"\xf9\x05\n" +
 	"\x04Tool\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01\x12%\n" +
@@ -7981,7 +8009,8 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\r \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\x0e \x01(\tR\tupdatedAtB\a\n" +
+	"updated_at\x18\x0e \x01(\tR\tupdatedAt\x12-\n" +
+	"\x10owner_public_key\x18\x0f \x01(\tH\aR\x0eownerPublicKey\x88\x01\x01B\a\n" +
 	"\x05_nameB\x0e\n" +
 	"\f_descriptionB\n" +
 	"\n" +
@@ -7990,7 +8019,8 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\n" +
 	"\b_versionB\x10\n" +
 	"\x0e_output_schemaB\v\n" +
-	"\t_metadata\"^\n" +
+	"\t_metadataB\x13\n" +
+	"\x11_owner_public_key\"^\n" +
 	"\x0fToolListRequest\x12\x1b\n" +
 	"\x06cursor\x18\x01 \x01(\tH\x00R\x06cursor\x88\x01\x01\x12\x19\n" +
 	"\x05limit\x18\x02 \x01(\x03H\x01R\x05limit\x88\x01\x01B\t\n" +

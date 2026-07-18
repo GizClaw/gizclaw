@@ -13,7 +13,7 @@ pkgs/gizclaw/services/
 ├── gameplay/    # gameplay catalog, pets, points, rewards, and assets
 ├── runtime/     # online Peer and Agent runtime capabilities
 ├── social/      # contacts, friends, and friend groups
-└── system/      # ACL, public login, and unified resource management
+└── system/      # RuntimeProfile, ownership, public login, and resource management
 ```
 
 ## Domain relationship
@@ -36,8 +36,8 @@ flowchart TB
 Dependencies in the diagram represent explicit collaborations that are allowed to exist, not that one domain owns data from another domain:
 
 - Runtime starts the Agent using AI resources but does not own the workflow, workspace, model or credentials.
-- Gameplay can use workspace and ACL, but does not own Agent Runtime or System policy.
-- AI, Gameplay, and Social use the ACL or unified resource capabilities provided by System, but each still has its own domain resources.
+- Gameplay can use Workspace, RuntimeProfile, and ownership, but does not own Agent Runtime.
+- AI, Gameplay, and Social use RuntimeProfile, ownership, or unified resource capabilities from System while retaining their own domain resources.
 
 ## Service Catalog Rules
 
@@ -64,3 +64,4 @@ The following content should not be placed in `services/`:
 - [Runtime](runtime/overview.md)
 - [Social](social.md)
 - [System](system.md)
+- [RuntimeProfile](runtime-profile.md)

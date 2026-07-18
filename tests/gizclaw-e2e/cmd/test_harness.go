@@ -707,6 +707,28 @@ func (h *Harness) ConnectClientFromContext(name string) *gizcli.Client {
 	return client
 }
 
+func (h *Harness) ConnectClientFromContextEventually(name string, timeout time.Duration) *gizcli.Client {
+	h.t.Helper()
+
+	deadline := time.Now().Add(timeout)
+	var lastErr error
+	for attempt := 1; ; attempt++ {
+		client, err := h.connectClientFromContext(name)
+		if err == nil {
+			if attempt > 1 {
+				h.t.Logf("connect context %s succeeded on attempt %d", name, attempt)
+			}
+			return client
+		}
+		lastErr = err
+		if time.Now().After(deadline) {
+			h.t.Fatalf("connect client from context %q within %s: %v", name, timeout, lastErr)
+		}
+		h.t.Logf("connect context %s attempt %d failed: %v", name, attempt, err)
+		time.Sleep(250 * time.Millisecond)
+	}
+}
+
 func (h *Harness) SetContextAlias(alias, configHome, contextName string) {
 	h.t.Helper()
 	alias = strings.TrimSpace(alias)

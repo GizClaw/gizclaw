@@ -13,7 +13,7 @@ pkgs/gizclaw/services/
 ├── gameplay/    # Gameplay catalog、pet、points、reward 和 assets
 ├── runtime/     # Peer 与 Agent 的在线运行能力
 ├── social/      # Contact、friend 和 friend group
-└── system/      # ACL、public login 和统一资源管理
+└── system/      # RuntimeProfile、ownership、public login 和统一资源管理
 ```
 
 ## 领域关系
@@ -36,8 +36,8 @@ flowchart TB
 图中的依赖表示允许存在的显式协作，不表示一个领域拥有另一个领域的数据：
 
 - Runtime 使用 AI 资源启动 Agent，但不拥有 workflow、workspace、model 或 credential。
-- Gameplay 可以使用 workspace 和 ACL，但不拥有 Agent Runtime 或 System policy。
-- AI、Gameplay 和 Social 使用 System 提供的 ACL 或统一资源能力，但各自仍拥有自己的领域资源。
+- Gameplay 可以使用 workspace、RuntimeProfile 和 ownership，但不拥有 Agent Runtime。
+- AI、Gameplay 和 Social 使用 System 提供的 RuntimeProfile、ownership 或统一资源能力，但各自仍拥有自己的领域资源。
 
 ## 服务目录规则
 
@@ -64,3 +64,4 @@ flowchart TB
 - [Runtime](runtime/overview.md)
 - [Social](social.md)
 - [System](system.md)
+- [RuntimeProfile](runtime-profile.md)

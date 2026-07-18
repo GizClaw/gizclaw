@@ -517,7 +517,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
     final catalog = _catalogFor(context, _presentation);
     final metrics = _petMetrics(pet, catalog).take(4).toList();
     final progression = pet.progression.value.entries.isEmpty
-        ? pet.rulesetName
+        ? pet.runtimeProfileName
         : pet.progression.value.entries
               .map((entry) => '${_title(entry.key)} ${entry.value}')
               .join('  |  ');
@@ -1102,7 +1102,7 @@ class _PetCoverCard extends StatelessWidget {
                               Text(
                                 compact
                                     ? _petProgressionLabel(pet)
-                                    : '${pet.rulesetName}  /  ${_petProgressionLabel(pet)}',
+                                    : '${pet.runtimeProfileName}  /  ${_petProgressionLabel(pet)}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: GizText.label.copyWith(
@@ -2299,7 +2299,7 @@ String _petStateLabel(PetActions? presentation, Pet pet, PixaAsset? pixa) {
 }
 
 String _petProgressionLabel(Pet pet) {
-  if (pet.progression.value.isEmpty) return pet.rulesetName;
+  if (pet.progression.value.isEmpty) return pet.runtimeProfileName;
   final entry = pet.progression.value.entries.first;
   return '${entry.key.toUpperCase()} ${entry.value}';
 }

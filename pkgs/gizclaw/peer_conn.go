@@ -18,6 +18,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"golang.org/x/sync/errgroup"
 )
@@ -53,6 +54,7 @@ type PeerConn struct {
 	rpc               *rpcServer
 	audioPacing       <-chan time.Time
 	closed            atomic.Bool
+	registration      atomic.Pointer[runtimeprofile.Registration]
 }
 
 // CreateAudioTrack creates a writable audio track on the peer mixer.
@@ -180,9 +182,16 @@ func (h *PeerConn) initRPC() {
 		h.rpc.peerRunRuntime = h.agentHost
 		h.rpc.serverGenX = h.serverGenX
 		h.rpc.serverResources = h.peerResources()
+		h.rpc.registrations = h.Service.manager.RuntimeProfiles
+		h.rpc.onRegistration = func(registration runtimeprofile.Registration) {
+			h.registration.Store(&registration)
+		}
 	}
 	if h.Conn != nil {
 		h.rpc.callerPublicKey = h.Conn.PublicKey()
+		if info := h.Conn.PeerInfo(); info != nil && info.Endpoint != nil {
+			h.rpc.registrationSource = info.Endpoint.String()
+		}
 	}
 }
 
@@ -211,15 +220,30 @@ func (h *PeerConn) initAgentHost() {
 	if manager.AgentHost == nil || manager.PeerRun == nil {
 		return
 	}
+	resources := h.peerResources()
 	h.agentInput = newPeerRealtimeSource()
 	h.events = newPeerStreamEventBroker()
 	host := newPeerAgentHost(manager.AgentHost, h.serverGenX, manager.Gameplay, manager.PetWorkflow, manager.FlowcraftHistory)
 	h.agentHost = &agenthost.Service{
-		Host:       host,
-		PeerRun:    manager.PeerRun,
-		Authorizer: h.peerAuthorizer(),
-		PublicKey:  h.Conn.PublicKey(),
-		Source:     h.agentInput,
+		Host:      host,
+		PeerRun:   manager.PeerRun,
+		PublicKey: h.Conn.PublicKey(),
+		RuntimeProfile: func() *apitypes.RuntimeProfile {
+			registration := h.registration.Load()
+			if registration == nil {
+				return nil
+			}
+			profile := registration.RuntimeProfile
+			return &profile
+		},
+		ValidateWorkspaceSelection: func(ctx context.Context, name string) (string, error) {
+			canonicalName, rpcErr := resources.ValidateRunWorkspaceSelection(ctx, name)
+			if rpcErr != nil {
+				return "", errors.New(rpcErr.Message)
+			}
+			return canonicalName, nil
+		},
+		Source: h.agentInput,
 		Consumer: peerAgentOutput{
 			Events: h.events,
 			Tracks: h,
@@ -236,16 +260,15 @@ func (h *PeerConn) initPeerGenX() {
 		return
 	}
 	manager := h.Service.manager
-	if manager.ACL == nil || manager.Models == nil || manager.Voices == nil || manager.Credentials == nil || manager.ProviderTenants == nil {
+	if manager.Models == nil || manager.Voices == nil || manager.Credentials == nil || manager.ProviderTenants == nil {
 		return
 	}
 	resources := h.peerResources()
 	h.serverGenX = peergenx.New(peergenx.Service{
 		Peer:            h.Conn,
-		Authorizer:      h.peerAuthorizer(),
 		Models:          resources,
 		Voices:          resources,
-		Credentials:     resources,
+		Credentials:     manager.Credentials,
 		ProviderTenants: manager.ProviderTenants,
 		AudioOutput:     agenthost.MixerOutput{Tracks: h},
 	})
@@ -261,7 +284,6 @@ func (h *PeerConn) peerResources() *peerresource.Server {
 	manager := h.Service.manager
 	return &peerresource.Server{
 		Caller:       h.Conn.PublicKey(),
-		ACL:          h.peerAuthorizer(),
 		Firmwares:    manager.Firmwares,
 		Workspaces:   manager.Workspaces,
 		Workflows:    manager.Workflows,
@@ -273,22 +295,21 @@ func (h *PeerConn) peerResources() *peerresource.Server {
 		FriendGroups: manager.FriendGroups,
 		Gameplay:     manager.Gameplay,
 		Tools:        manager.Tools,
-		ResourceACL:  manager.ACL,
-	}
-}
-
-func (h *PeerConn) peerAuthorizer() aclAuthorizer {
-	if h == nil || h.Conn == nil || h.Service == nil || h.Service.manager == nil {
-		return nil
-	}
-	manager := h.Service.manager
-	if manager.ACL == nil {
-		return nil
-	}
-	return peerAuthorizer{
-		ACL:       manager.ACL,
-		Peers:     manager.Peers,
-		PublicKey: h.Conn.PublicKey(),
+		RuntimeProfile: func() *apitypes.RuntimeProfile {
+			registration := h.registration.Load()
+			if registration == nil {
+				return nil
+			}
+			profile := registration.RuntimeProfile
+			return &profile
+		},
+		FirmwareName: func() string {
+			registration := h.registration.Load()
+			if registration == nil {
+				return ""
+			}
+			return registration.FirmwareName
+		},
 	}
 }
 

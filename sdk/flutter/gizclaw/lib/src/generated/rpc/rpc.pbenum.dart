@@ -235,8 +235,6 @@ class RpcMethod extends $pb.ProtobufEnum {
   static const RpcMethod RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND =
       RpcMethod._(76,
           _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND');
-  static const RpcMethod RPC_METHOD_SERVER_GAME_RULESET_GET = RpcMethod._(
-      77, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_GAME_RULESET_GET');
   static const RpcMethod RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD = RpcMethod
       ._(79, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD');
   static const RpcMethod RPC_METHOD_SERVER_PET_LIST =
@@ -299,6 +297,8 @@ class RpcMethod extends $pb.ProtobufEnum {
           _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD');
   static const RpcMethod RPC_METHOD_SERVER_FRIEND_INFO_GET = RpcMethod._(
       108, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_INFO_GET');
+  static const RpcMethod RPC_METHOD_SERVER_REGISTER =
+      RpcMethod._(109, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_REGISTER');
 
   static const $core.List<RpcMethod> values = <RpcMethod>[
     RPC_METHOD_UNSPECIFIED,
@@ -375,7 +375,6 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST,
     RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET,
     RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND,
-    RPC_METHOD_SERVER_GAME_RULESET_GET,
     RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD,
     RPC_METHOD_SERVER_PET_LIST,
     RPC_METHOD_SERVER_PET_GET,
@@ -406,10 +405,11 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_WORKFLOW_ICON_DOWNLOAD,
     RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD,
     RPC_METHOD_SERVER_FRIEND_INFO_GET,
+    RPC_METHOD_SERVER_REGISTER,
   ];
 
   static final $core.List<RpcMethod?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 108);
+      $pb.ProtobufEnum.$_initByValueList(values, 109);
   static RpcMethod? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

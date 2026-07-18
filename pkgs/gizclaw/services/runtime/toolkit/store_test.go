@@ -69,6 +69,45 @@ func TestServerPutGetListDelete(t *testing.T) {
 	}
 }
 
+func TestServerToolOwnerIsImmutableAndIndexed(t *testing.T) {
+	ctx := context.Background()
+	store := &Server{Store: kv.NewMemory(nil)}
+	tool := testDeviceTool("peer.peer-a.music.play", "peer-a")
+	created, err := store.PutTool(ctx, tool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.OwnerPublicKey == nil || *created.OwnerPublicKey != "peer-a" {
+		t.Fatalf("created OwnerPublicKey = %#v", created.OwnerPublicKey)
+	}
+
+	other := "peer-b"
+	created.OwnerPublicKey = &other
+	updated, err := store.PutTool(ctx, created)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.OwnerPublicKey == nil || *updated.OwnerPublicKey != "peer-a" {
+		t.Fatalf("updated OwnerPublicKey = %#v, want immutable peer-a", updated.OwnerPublicKey)
+	}
+	owned, err := store.ListToolsByOwner(ctx, "peer-a")
+	if err != nil || len(owned) != 1 || owned[0].ID != tool.ID {
+		t.Fatalf("ListToolsByOwner(peer-a) = %#v, %v", owned, err)
+	}
+	otherOwned, err := store.ListToolsByOwner(ctx, other)
+	if err != nil || len(otherOwned) != 0 {
+		t.Fatalf("ListToolsByOwner(peer-b) = %#v, %v", otherOwned, err)
+	}
+
+	if err := store.DeleteTool(ctx, tool.ID); err != nil {
+		t.Fatal(err)
+	}
+	owned, err = store.ListToolsByOwner(ctx, "peer-a")
+	if err != nil || len(owned) != 0 {
+		t.Fatalf("ListToolsByOwner(peer-a) after delete = %#v, %v", owned, err)
+	}
+}
+
 func TestNormalizeToolValidatesExecutorAndSchema(t *testing.T) {
 	tool := testBuiltinTool("system.bad")
 	for _, schema := range []jsonschema.Schema{

@@ -16,7 +16,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
@@ -113,8 +112,11 @@ func TestRPCServerLogsDomainFailureOnce(t *testing.T) {
 	server := &rpcServer{
 		callerPublicKey: giznet.PublicKey{1},
 		serverResources: &peerresource.Server{
-			Caller:     giznet.PublicKey{1},
-			ACL:        allowResourceAuthorizer{},
+			Caller: giznet.PublicKey{1},
+			RuntimeProfile: func() *apitypes.RuntimeProfile {
+				workflows := map[string]string{"chat": "workflow-a"}
+				return &apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Workflows: &workflows}}}
+			},
 			Workspaces: invalidWorkspaceAdminService{},
 			Workflows: fixedWorkflowAdminService{value: apitypes.Workflow{
 				Name: "workflow-a",
@@ -409,10 +411,6 @@ func TestRPCServerLogsStreamingErrorResponse(t *testing.T) {
 		t.Fatalf("response text leaked into attrs: %#v", attrs)
 	}
 }
-
-type allowResourceAuthorizer struct{}
-
-func (allowResourceAuthorizer) Authorize(context.Context, acl.AuthorizeRequest) error { return nil }
 
 type invalidWorkspaceAdminService struct{}
 

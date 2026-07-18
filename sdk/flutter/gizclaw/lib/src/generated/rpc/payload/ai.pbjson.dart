@@ -643,9 +643,19 @@ const Credential$json = {
     {'1': 'name', '3': 4, '4': 1, '5': 9, '10': 'name'},
     {'1': 'provider', '3': 5, '4': 1, '5': 9, '10': 'provider'},
     {'1': 'updated_at', '3': 6, '4': 1, '5': 9, '10': 'updatedAt'},
+    {
+      '1': 'owner_public_key',
+      '3': 7,
+      '4': 1,
+      '5': 9,
+      '9': 1,
+      '10': 'ownerPublicKey',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_description'},
+    {'1': '_owner_public_key'},
   ],
 };
 
@@ -654,8 +664,9 @@ final $typed_data.Uint8List credentialDescriptor = $convert.base64Decode(
     'CgpDcmVkZW50aWFsEjIKBGJvZHkYASABKAsyHi5naXpjbGF3LnJwYy52MS5DcmVkZW50aWFsQm'
     '9keVIEYm9keRIdCgpjcmVhdGVkX2F0GAIgASgJUgljcmVhdGVkQXQSJQoLZGVzY3JpcHRpb24Y'
     'AyABKAlIAFILZGVzY3JpcHRpb26IAQESEgoEbmFtZRgEIAEoCVIEbmFtZRIaCghwcm92aWRlch'
-    'gFIAEoCVIIcHJvdmlkZXISHQoKdXBkYXRlZF9hdBgGIAEoCVIJdXBkYXRlZEF0Qg4KDF9kZXNj'
-    'cmlwdGlvbg==');
+    'gFIAEoCVIIcHJvdmlkZXISHQoKdXBkYXRlZF9hdBgGIAEoCVIJdXBkYXRlZEF0Ei0KEG93bmVy'
+    'X3B1YmxpY19rZXkYByABKAlIAVIOb3duZXJQdWJsaWNLZXmIAQFCDgoMX2Rlc2NyaXB0aW9uQh'
+    'MKEV9vd25lcl9wdWJsaWNfa2V5');
 
 @$core.Deprecated('Use credentialBodyDescriptor instead')
 const CredentialBody$json = {
@@ -2581,6 +2592,15 @@ const Model$json = {
       '17': true
     },
     {'1': 'updated_at', '3': 11, '4': 1, '5': 9, '10': 'updatedAt'},
+    {
+      '1': 'owner_public_key',
+      '3': 12,
+      '4': 1,
+      '5': 9,
+      '9': 5,
+      '10': 'ownerPublicKey',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_capabilities'},
@@ -2588,6 +2608,7 @@ const Model$json = {
     {'1': '_name'},
     {'1': '_provider_data'},
     {'1': '_synced_at'},
+    {'1': '_owner_public_key'},
   ],
 };
 
@@ -2601,9 +2622,10 @@ final $typed_data.Uint8List modelDescriptor = $convert.base64Decode(
     '1vZGVsUHJvdmlkZXJSCHByb3ZpZGVyEksKDXByb3ZpZGVyX2RhdGEYCCABKAsyIS5naXpjbGF3'
     'LnJwYy52MS5Nb2RlbFByb3ZpZGVyRGF0YUgDUgxwcm92aWRlckRhdGGIAQESMwoGc291cmNlGA'
     'kgASgOMhsuZ2l6Y2xhdy5ycGMudjEuTW9kZWxTb3VyY2VSBnNvdXJjZRIgCglzeW5jZWRfYXQY'
-    'CiABKAlIBFIIc3luY2VkQXSIAQESHQoKdXBkYXRlZF9hdBgLIAEoCVIJdXBkYXRlZEF0Qg8KDV'
-    '9jYXBhYmlsaXRpZXNCDgoMX2Rlc2NyaXB0aW9uQgcKBV9uYW1lQhAKDl9wcm92aWRlcl9kYXRh'
-    'QgwKCl9zeW5jZWRfYXQ=');
+    'CiABKAlIBFIIc3luY2VkQXSIAQESHQoKdXBkYXRlZF9hdBgLIAEoCVIJdXBkYXRlZEF0Ei0KEG'
+    '93bmVyX3B1YmxpY19rZXkYDCABKAlIBVIOb3duZXJQdWJsaWNLZXmIAQFCDwoNX2NhcGFiaWxp'
+    'dGllc0IOCgxfZGVzY3JpcHRpb25CBwoFX25hbWVCEAoOX3Byb3ZpZGVyX2RhdGFCDAoKX3N5bm'
+    'NlZF9hdEITChFfb3duZXJfcHVibGljX2tleQ==');
 
 @$core.Deprecated('Use modelCapabilitiesDescriptor instead')
 const ModelCapabilities$json = {
@@ -4315,6 +4337,15 @@ const Tool$json = {
     },
     {'1': 'created_at', '3': 13, '4': 1, '5': 9, '10': 'createdAt'},
     {'1': 'updated_at', '3': 14, '4': 1, '5': 9, '10': 'updatedAt'},
+    {
+      '1': 'owner_public_key',
+      '3': 15,
+      '4': 1,
+      '5': 9,
+      '9': 7,
+      '10': 'ownerPublicKey',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_name'},
@@ -4324,6 +4355,7 @@ const Tool$json = {
     {'1': '_version'},
     {'1': '_output_schema'},
     {'1': '_metadata'},
+    {'1': '_owner_public_key'},
   ],
 };
 
@@ -4339,9 +4371,10 @@ final $typed_data.Uint8List toolDescriptor = $convert.base64Decode(
     'xhdy5ycGMudjEuVG9vbFRyaWdnZXJSCHRyaWdnZXJzEjgKCGV4ZWN1dG9yGAsgASgLMhwuZ2l6'
     'Y2xhdy5ycGMudjEuVG9vbEV4ZWN1dG9yUghleGVjdXRvchI4CghtZXRhZGF0YRgMIAEoCzIXLm'
     'dvb2dsZS5wcm90b2J1Zi5TdHJ1Y3RIBlIIbWV0YWRhdGGIAQESHQoKY3JlYXRlZF9hdBgNIAEo'
-    'CVIJY3JlYXRlZEF0Eh0KCnVwZGF0ZWRfYXQYDiABKAlSCXVwZGF0ZWRBdEIHCgVfbmFtZUIOCg'
-    'xfZGVzY3JpcHRpb25CCgoIX2VuYWJsZWRCDQoLX293bmVyX3BlZXJCCgoIX3ZlcnNpb25CEAoO'
-    'X291dHB1dF9zY2hlbWFCCwoJX21ldGFkYXRh');
+    'CVIJY3JlYXRlZEF0Eh0KCnVwZGF0ZWRfYXQYDiABKAlSCXVwZGF0ZWRBdBItChBvd25lcl9wdW'
+    'JsaWNfa2V5GA8gASgJSAdSDm93bmVyUHVibGljS2V5iAEBQgcKBV9uYW1lQg4KDF9kZXNjcmlw'
+    'dGlvbkIKCghfZW5hYmxlZEINCgtfb3duZXJfcGVlckIKCghfdmVyc2lvbkIQCg5fb3V0cHV0X3'
+    'NjaGVtYUILCglfbWV0YWRhdGFCEwoRX293bmVyX3B1YmxpY19rZXk=');
 
 @$core.Deprecated('Use toolListRequestDescriptor instead')
 const ToolListRequest$json = {

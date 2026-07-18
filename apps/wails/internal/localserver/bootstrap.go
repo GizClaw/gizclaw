@@ -3,6 +3,7 @@ package localserver
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"maps"
@@ -17,11 +18,19 @@ import (
 	"github.com/goccy/go-yaml"
 )
 
+const (
+	// RegistrationTokenFile is the private workspace file that hands the local
+	// Desktop client's registration credential to the Play surface.
+	RegistrationTokenFile = "registration-token"
+	desktopResourceName   = "desktop-local"
+)
+
 // Bootstrapper applies a validated catalog through the packaged companion CLI.
 type Bootstrapper struct {
 	Catalog    *Catalog
 	Executable func() (string, error)
 	Run        func(context.Context, string, []string, []string) error
+	RunOutput  func(context.Context, string, []string, []string) ([]byte, error)
 }
 
 // Apply creates every declarative resource, synchronizes dynamic voice
@@ -100,15 +109,7 @@ func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironmen
 		}
 		return nil
 	}
-	var resources, aclResources []ResourceEntry
-	for _, entry := range b.Catalog.Resources {
-		if strings.Contains(entry.Path, "/90-acl/") {
-			aclResources = append(aclResources, entry)
-		} else {
-			resources = append(resources, entry)
-		}
-	}
-	if err := applyEntries("desktop-bootstrap-resources", resources); err != nil {
+	if err := applyEntries("desktop-bootstrap-resources", b.Catalog.Resources); err != nil {
 		return err
 	}
 	for _, item := range b.Catalog.VoiceSyncs {
@@ -116,9 +117,6 @@ func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironmen
 		if err := runBootstrapOperation(ctx, run, executable, args, environment); err != nil {
 			return fmt.Errorf("local server bootstrap: sync %s voices for %s: %w", item.Provider, item.Tenant, err)
 		}
-	}
-	if err := applyEntries("desktop-bootstrap-acl", aclResources); err != nil {
-		return err
 	}
 	for _, icon := range b.Catalog.WorkflowIcons {
 		for _, asset := range []struct {
@@ -144,6 +142,62 @@ func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironmen
 		if err := runBootstrapOperation(ctx, run, executable, args, environment); err != nil {
 			return fmt.Errorf("local server bootstrap: upload PetDef/%s PIXA: %w", asset.PetDef, err)
 		}
+	}
+	if err := b.createRegistrationToken(ctx, tempDir, podDir, executable, environment); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (b *Bootstrapper) createRegistrationToken(ctx context.Context, tempDir, podDir, executable string, environment []string) error {
+	request := struct {
+		Name               string `json:"name"`
+		FirmwareName       string `json:"firmware_name"`
+		RuntimeProfileName string `json:"runtime_profile_name"`
+	}{
+		Name:               desktopResourceName,
+		FirmwareName:       desktopResourceName,
+		RuntimeProfileName: desktopResourceName,
+	}
+	data, err := json.Marshal(request)
+	if err != nil {
+		return fmt.Errorf("local server bootstrap: encode RegistrationToken request: %w", err)
+	}
+	requestFile := filepath.Join(tempDir, "registration-token.json")
+	if err := os.WriteFile(requestFile, data, 0o600); err != nil {
+		return fmt.Errorf("local server bootstrap: write RegistrationToken request: %w", err)
+	}
+	runOutput := b.RunOutput
+	if runOutput == nil {
+		runOutput = runBootstrapCommandOutput
+	}
+	output, err := runOutput(ctx, executable, []string{"admin", "registration-tokens", "create", "--context", "local", "-f", requestFile}, environment)
+	if err != nil {
+		return fmt.Errorf("local server bootstrap: create RegistrationToken/%s: %w", desktopResourceName, err)
+	}
+	var result struct {
+		Token *string `json:"token"`
+	}
+	if err := json.Unmarshal(output, &result); err != nil {
+		return fmt.Errorf("local server bootstrap: decode RegistrationToken response: %w", err)
+	}
+	token := ""
+	if result.Token != nil {
+		token = strings.TrimSpace(*result.Token)
+	}
+	if token == "" {
+		return fmt.Errorf("local server bootstrap: RegistrationToken response did not include a raw token")
+	}
+	workspaceDir := filepath.Join(podDir, "workspace")
+	if err := os.MkdirAll(workspaceDir, 0o700); err != nil {
+		return fmt.Errorf("local server bootstrap: create private token directory: %w", err)
+	}
+	tokenFile := filepath.Join(workspaceDir, RegistrationTokenFile)
+	if err := os.WriteFile(tokenFile, []byte(token), 0o600); err != nil {
+		return fmt.Errorf("local server bootstrap: persist RegistrationToken: %w", err)
+	}
+	if err := os.Chmod(tokenFile, 0o600); err != nil {
+		return fmt.Errorf("local server bootstrap: secure RegistrationToken: %w", err)
 	}
 	return nil
 }
@@ -266,6 +320,25 @@ func runBootstrapCommand(ctx context.Context, executable string, args, environme
 		return err
 	}
 	return nil
+}
+
+func runBootstrapCommandOutput(ctx context.Context, executable string, args, environment []string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, executable, args...)
+	cmd.Env = environment
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		if detail := redactedBootstrapCommandError(stderr.String(), environment); detail != "" {
+			return nil, fmt.Errorf("%w: %s", err, detail)
+		}
+		return nil, err
+	}
+	return stdout.Bytes(), nil
 }
 
 func redactedBootstrapCommandError(stderr string, environment []string) string {

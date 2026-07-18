@@ -10,7 +10,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -18,35 +17,29 @@ func (s *Server) handleFirmwareList(ctx context.Context, req *rpcapi.RPCRequest)
 	if s.Firmwares == nil {
 		return internalError(req.Id, "firmware service not configured")
 	}
-	params, ok := decodeOptionalParams(req, rpcapi.RPCPayload.AsFirmwareListRequest)
+	_, ok := decodeOptionalParams(req, rpcapi.RPCPayload.AsFirmwareListRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	resp, err := s.Firmwares.ListFirmwares(ctx, adminhttp.ListFirmwaresRequestObject{
-		Params: adminhttp.ListFirmwaresParams{Cursor: params.Cursor, Limit: int32Ptr(params.Limit)},
-	})
+	name := ""
+	if s.FirmwareName != nil {
+		name = s.FirmwareName()
+	}
+	if name == "" {
+		return resultResponse(req.Id, adminhttp.FirmwareList{Items: []apitypes.Firmware{}}, (*rpcapi.RPCPayload).FromFirmwareListResponse)
+	}
+	resp, err := s.Firmwares.GetFirmware(ctx, adminhttp.GetFirmwareRequestObject{Name: name})
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	list, rpcResp, err := adminResult[adminhttp.FirmwareList](resp.VisitListFirmwaresResponse)
+	item, rpcResp, err := adminResult[apitypes.Firmware](resp.VisitGetFirmwareResponse)
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
 	if rpcResp != nil {
 		return withRequestID(req.Id, rpcResp)
 	}
-	items := make([]apitypes.Firmware, 0, len(list.Items))
-	for _, item := range list.Items {
-		err := s.authorizeErr(ctx, acl.FirmwareResource(item.Name), apitypes.ACLPermissionRead)
-		if errors.Is(err, acl.ErrDenied) {
-			continue
-		}
-		if err != nil {
-			return authError(req.Id, err)
-		}
-		items = append(items, item)
-	}
-	return resultResponse(req.Id, adminhttp.FirmwareList{Items: items, HasNext: list.HasNext, NextCursor: list.NextCursor}, (*rpcapi.RPCPayload).FromFirmwareListResponse)
+	return resultResponse(req.Id, adminhttp.FirmwareList{Items: []apitypes.Firmware{item}}, (*rpcapi.RPCPayload).FromFirmwareListResponse)
 }
 
 func (s *Server) handleFirmwareGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -121,8 +114,12 @@ func (s *Server) firmwareGet(ctx context.Context, id string) (apitypes.Firmware,
 	if s.Firmwares == nil || s.Firmwares.Store == nil {
 		return apitypes.Firmware{}, errors.New("firmware service not configured")
 	}
-	if err := s.authorizeErr(ctx, acl.FirmwareResource(id), apitypes.ACLPermissionRead); err != nil {
-		return apitypes.Firmware{}, err
+	registered := ""
+	if s.FirmwareName != nil {
+		registered = s.FirmwareName()
+	}
+	if registered == "" || registered != id {
+		return apitypes.Firmware{}, kv.ErrNotFound
 	}
 	return firmware.Get(ctx, s.Firmwares.Store, id)
 }
@@ -160,12 +157,8 @@ func firmwareRPCErrorBody(err error) *rpcapi.RPCError {
 		return nil
 	case errors.Is(err, kv.ErrNotFound):
 		return &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "firmware not found"}
-	case errors.Is(err, acl.ErrDenied):
-		return &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeForbidden, Message: err.Error()}
 	case errors.Is(err, errInvalidFirmwareRequest):
 		return &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInvalidParams, Message: err.Error()}
-	case err.Error() == "acl service not configured":
-		return &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: err.Error()}
 	default:
 		return &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: err.Error()}
 	}

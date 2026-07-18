@@ -49,7 +49,7 @@ message GameResult {
   string owner_public_key = 10;
   optional GameplayMetadata payload = 11;
   string pet_id = 12;
-  string ruleset_name = 13;
+  string runtime_profile_name = 13;
   optional int64 score = 14;
 }
 
@@ -66,45 +66,6 @@ message GameRewardSpec {
   map<string, int64> badge_exp_delta = 2;
   optional int64 pet_exp_delta = 4;
   optional int64 points_delta = 5;
-}
-
-message GameRuleset {
-  string created_at = 1;
-  string name = 2;
-  GameRulesetSpec spec = 3;
-  string updated_at = 4;
-}
-
-message GameRulesetDriveSpec {
-  reserved 1, 2, 5;
-  reserved "action_costs", "action_rewards", "life_decay_per_hour";
-
-  optional GameRewardSpec default_reward = 3;
-  map<string, GameRewardSpec> game_rewards = 4;
-}
-
-message GameRulesetPetPoolEntry {
-  optional int64 adoption_cost = 1;
-  string petdef_id = 2;
-  optional string rarity = 3;
-  int64 weight = 4;
-  optional string workflow_name = 5;
-}
-
-message GameRulesetPointsSpec {
-  optional int64 initial_balance = 1;
-}
-
-message GameRulesetSpec {
-  repeated string badge_def_ids = 1;
-  optional string default_workflow_name = 2;
-  optional string description = 3;
-  optional GameRulesetDriveSpec drive = 4;
-  bool enabled = 5;
-  repeated string game_def_ids = 6;
-  optional GameplayMetadata metadata = 7;
-  repeated GameRulesetPetPoolEntry pet_pool = 8;
-  optional GameRulesetPointsSpec points = 9;
 }
 
 message GameplayGetRequest {
@@ -131,16 +92,18 @@ message Pet {
   PetLife life = 8;
   string owner_public_key = 9;
   string petdef_id = 10;
-  string ruleset_name = 11;
+  string runtime_profile_name = 11;
   string updated_at = 12;
-  optional string workflow_name = 13;
+  reserved 13;
+  reserved "workflow_name";
   string workspace_name = 14;
   PetProgression progression = 15;
 }
 
 message PetAdoptRequest {
   optional string display_name = 1;
-  optional string ruleset_name = 2;
+  reserved 2;
+  reserved "ruleset_name";
 }
 
 message PetAdoptResponse {
@@ -245,7 +208,7 @@ message PointsAccount {
   int64 balance = 1;
   string created_at = 2;
   string owner_public_key = 3;
-  string ruleset_name = 4;
+  string runtime_profile_name = 4;
   string updated_at = 5;
 }
 
@@ -259,7 +222,7 @@ message PointsTransaction {
   optional string pet_id = 7;
   string reason = 8;
   optional string reward_grant_id = 9;
-  string ruleset_name = 10;
+  string runtime_profile_name = 10;
   string source_id = 11;
   string source_type = 12;
 }
@@ -283,7 +246,7 @@ message RewardGrant {
   optional string pet_id = 9;
   int64 points_delta = 10;
   optional string reason = 11;
-  string ruleset_name = 12;
+  string runtime_profile_name = 12;
   string source_id = 13;
   string source_type = 14;
 }
@@ -324,14 +287,6 @@ message ServerGameResultListRequest {
 
 message ServerGameResultListResponse {
   GameResultListResponse value = 1;
-}
-
-message ServerGameRulesetGetRequest {
-  optional string name = 1;
-}
-
-message ServerGameRulesetGetResponse {
-  GameRuleset value = 1;
 }
 
 message ServerPetAdoptRequest {
@@ -399,7 +354,8 @@ message ServerPetPutResponse {
 }
 
 message ServerPointsGetRequest {
-  optional string ruleset_name = 1;
+  reserved 1;
+  reserved "ruleset_name";
 }
 
 message ServerPointsGetResponse {

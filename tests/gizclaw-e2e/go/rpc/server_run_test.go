@@ -10,6 +10,19 @@ import (
 
 func TestServerRunRPC(t *testing.T) {
 	env := newServerResourceHarness(t)
+	workspaceName := "run-rpc-workspace"
+	_, _ = env.peer.DeleteWorkspace(env.ctx, "server.run.workspace.delete.preclean", rpcapi.WorkspaceDeleteRequest{Name: workspaceName})
+	if _, err := env.peer.CreateWorkspace(env.ctx, "server.run.workspace.create", rpcapi.WorkspaceCreateRequest{
+		Name:         workspaceName,
+		WorkflowName: sharedChatroomWorkflow,
+		Parameters:   rpcChatroomWorkspaceParameters(t),
+	}); err != nil {
+		t.Fatalf("server.run workspace.create: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = env.peer.StopServerRun(env.ctx, "server.run.stop.cleanup")
+		_, _ = env.peer.DeleteWorkspace(env.ctx, "server.run.workspace.delete.cleanup", rpcapi.WorkspaceDeleteRequest{Name: workspaceName})
+	})
 
 	status, err := env.peer.GetServerRunStatus(env.ctx, "server.run.status")
 	if err != nil {
@@ -19,18 +32,18 @@ func TestServerRunRPC(t *testing.T) {
 		t.Fatalf("server.run.status state = %q", status.State)
 	}
 
-	workspace, err := env.peer.SetServerRunWorkspace(env.ctx, "server.run.workspace.set", rpcapi.ServerSetRunWorkspaceRequest{WorkspaceName: sharedChatroomWorkspace})
+	workspace, err := env.peer.SetServerRunWorkspace(env.ctx, "server.run.workspace.set", rpcapi.ServerSetRunWorkspaceRequest{WorkspaceName: workspaceName})
 	if err != nil {
 		t.Fatalf("server.run.workspace.set: %v", err)
 	}
-	if workspace.WorkspaceName != sharedChatroomWorkspace {
+	if workspace.WorkspaceName != workspaceName {
 		t.Fatalf("server.run.workspace.set = %#v", workspace)
 	}
 	workspace, err = env.peer.GetServerRunWorkspace(env.ctx, "server.run.workspace.get")
 	if err != nil {
 		t.Fatalf("server.run.workspace.get: %v", err)
 	}
-	if workspace.WorkspaceName != sharedChatroomWorkspace {
+	if workspace.WorkspaceName != workspaceName {
 		t.Fatalf("server.run.workspace.get = %#v", workspace)
 	}
 

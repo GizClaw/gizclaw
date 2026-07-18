@@ -56,7 +56,7 @@ Has a runtime ToolKit visible to GizClaw Tool resources, policies, executors, an
 flowchart TB
     Root["pkgs/gizclaw<br/>Peer connection and surface"] --> Runtime["services/runtime"]
     Runtime --> AI["services/ai<br/>Persistent Agent resources"]
-    Runtime --> System["services/system<br/>ACL"]
+    Runtime --> System["services/system<br/>RuntimeProfile + ownership"]
     Runtime --> Store["pkgs/store"]
     Root --> Giznet["pkgs/giznet<br/>transport"]
 ```

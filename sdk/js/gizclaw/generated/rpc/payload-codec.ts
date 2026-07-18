@@ -192,6 +192,7 @@ export type Credential = {
   "name": string;
   "provider": string;
   "updated_at": string;
+  "owner_public_key"?: string;
 };
 export type CredentialBody = OpenAICredentialBody | GeminiCredentialBody | DashScopeCredentialBody | MiniMaxCredentialBody | VolcCredentialBody;
 export type CredentialCreateRequest = Credential;
@@ -623,7 +624,7 @@ export type GameResult = {
   "owner_public_key": string;
   "payload"?: GameplayMetadata;
   "pet_id": string;
-  "ruleset_name": string;
+  "runtime_profile_name": string;
   "score"?: number;
 };
 export type GameResultListResponse = {
@@ -635,37 +636,6 @@ export type GameRewardSpec = {
   "badge_exp_delta": Record<string, number>;
   "pet_exp_delta"?: number;
   "points_delta"?: number;
-};
-export type GameRuleset = {
-  "created_at": string;
-  "name": string;
-  "spec": GameRulesetSpec;
-  "updated_at": string;
-};
-export type GameRulesetDriveSpec = {
-  "default_reward"?: GameRewardSpec;
-  "game_rewards": Record<string, GameRewardSpec>;
-};
-export type GameRulesetPetPoolEntry = {
-  "adoption_cost"?: number;
-  "petdef_id": string;
-  "rarity"?: string;
-  "weight": number;
-  "workflow_name"?: string;
-};
-export type GameRulesetPointsSpec = {
-  "initial_balance"?: number;
-};
-export type GameRulesetSpec = {
-  "badge_def_ids": string[];
-  "default_workflow_name"?: string;
-  "description"?: string;
-  "drive"?: GameRulesetDriveSpec;
-  "enabled": boolean;
-  "game_def_ids": string[];
-  "metadata"?: GameplayMetadata;
-  "pet_pool": GameRulesetPetPoolEntry[];
-  "points"?: GameRulesetPointsSpec;
 };
 export type GameplayGetRequest = {
   "id": string;
@@ -725,6 +695,7 @@ export type Model = {
   "source": ModelSource;
   "synced_at"?: string;
   "updated_at": string;
+  "owner_public_key"?: string;
 };
 export type ModelCapabilities = {
   "json_output"?: boolean;
@@ -920,9 +891,8 @@ export type Pet = {
   "life": PetLife;
   "owner_public_key": string;
   "petdef_id": string;
-  "ruleset_name": string;
+  "runtime_profile_name": string;
   "updated_at": string;
-  "workflow_name"?: string;
   "workspace_name": string;
   "progression": PetProgression;
 };
@@ -955,7 +925,6 @@ export type PetActionsI18nCatalog = {
 };
 export type PetAdoptRequest = {
   "display_name"?: string;
-  "ruleset_name"?: string;
 };
 export type PetAdoptResponse = {
   "pet": Pet;
@@ -1040,7 +1009,7 @@ export type PointsAccount = {
   "balance": number;
   "created_at": string;
   "owner_public_key": string;
-  "ruleset_name": string;
+  "runtime_profile_name": string;
   "updated_at": string;
 };
 export type PointsTransaction = {
@@ -1053,7 +1022,7 @@ export type PointsTransaction = {
   "pet_id"?: string;
   "reason": string;
   "reward_grant_id"?: string;
-  "ruleset_name": string;
+  "runtime_profile_name": string;
   "source_id": string;
   "source_type": string;
 };
@@ -1072,7 +1041,7 @@ export type RewardGrant = {
   "pet_id"?: string;
   "points_delta": number;
   "reason"?: string;
-  "ruleset_name": string;
+  "runtime_profile_name": string;
   "source_id": string;
   "source_type": string;
 };
@@ -1096,10 +1065,6 @@ export type ServerGameResultGetRequest = GameplayGetRequest;
 export type ServerGameResultGetResponse = GameResult;
 export type ServerGameResultListRequest = GameplayListRequest;
 export type ServerGameResultListResponse = GameResultListResponse;
-export type ServerGameRulesetGetRequest = {
-  "name"?: string;
-};
-export type ServerGameRulesetGetResponse = GameRuleset;
 export type ServerGetInfoRequest = Record<string, never>;
 export type ServerGetInfoResponse = DeviceInfo;
 export type ServerGetRunAgentRequest = Record<string, never>;
@@ -1147,9 +1112,7 @@ export type ServerPetPutRequest = PetPutRequest;
 export type ServerPetPutResponse = Pet;
 export type ServerPlayRunWorkspaceHistoryRequest = PeerRunHistoryPlayRequest;
 export type ServerPlayRunWorkspaceHistoryResponse = PeerRunHistoryPlayResponse;
-export type ServerPointsGetRequest = {
-  "ruleset_name"?: string;
-};
+export type ServerPointsGetRequest = Record<string, never>;
 export type ServerPointsGetResponse = PointsAccount;
 export type ServerPointsTransactionGetRequest = GameplayGetRequest;
 export type ServerPointsTransactionGetResponse = PointsTransaction;
@@ -1157,6 +1120,13 @@ export type ServerPointsTransactionListRequest = GameplayListRequest;
 export type ServerPointsTransactionListResponse = PointsTransactionListResponse;
 export type ServerPutInfoRequest = DeviceProfile;
 export type ServerPutInfoResponse = DeviceInfo;
+export type ServerRegisterRequest = {
+  "token": string;
+};
+export type ServerRegisterResponse = {
+  "firmware_name": string;
+  "runtime_profile_name": string;
+};
 export type ServerReloadRunRequest = Record<string, never>;
 export type ServerReloadRunResponse = PeerRunStatus;
 export type ServerReloadRunWorkspaceRequest = Record<string, never>;
@@ -1211,6 +1181,7 @@ export type Tool = {
   "metadata"?: Record<string, unknown>;
   "created_at": string;
   "updated_at": string;
+  "owner_public_key"?: string;
 };
 export type ToolCreateRequest = Tool;
 export type ToolCreateResponse = Tool;
@@ -1379,6 +1350,7 @@ export type Workspace = {
   "toolkit"?: ToolkitPolicy;
   "system": boolean;
   "icon"?: Icon;
+  "owner_public_key"?: string;
 };
 export type WorkspaceCreateRequest = WorkspaceUpsert;
 export type WorkspaceCreateResponse = Workspace;
@@ -1491,7 +1463,6 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.friend.list": "FriendListRequest",
   "server.game_result.get": "ServerGameResultGetRequest",
   "server.game_result.list": "ServerGameResultListRequest",
-  "server.game_ruleset.get": "ServerGameRulesetGetRequest",
   "server.info.get": "ServerGetInfoRequest",
   "server.info.put": "ServerPutInfoRequest",
   "server.model.create": "ModelCreateRequest",
@@ -1512,6 +1483,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.points.get": "ServerPointsGetRequest",
   "server.points.transactions.get": "ServerPointsTransactionGetRequest",
   "server.points.transactions.list": "ServerPointsTransactionListRequest",
+  "server.register": "ServerRegisterRequest",
   "server.reward_grant.get": "ServerRewardGrantGetRequest",
   "server.reward_grant.list": "ServerRewardGrantListRequest",
   "server.route.resolve": "ServerRouteResolveRequest",
@@ -1597,7 +1569,6 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.friend.list": "FriendListResponse",
   "server.game_result.get": "ServerGameResultGetResponse",
   "server.game_result.list": "ServerGameResultListResponse",
-  "server.game_ruleset.get": "ServerGameRulesetGetResponse",
   "server.info.get": "ServerGetInfoResponse",
   "server.info.put": "ServerPutInfoResponse",
   "server.model.create": "ModelCreateResponse",
@@ -1618,6 +1589,7 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.points.get": "ServerPointsGetResponse",
   "server.points.transactions.get": "ServerPointsTransactionGetResponse",
   "server.points.transactions.list": "ServerPointsTransactionListResponse",
+  "server.register": "ServerRegisterResponse",
   "server.reward_grant.get": "ServerRewardGrantGetResponse",
   "server.reward_grant.list": "ServerRewardGrantListResponse",
   "server.route.resolve": "ServerRouteResolveResponse",
@@ -2278,6 +2250,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "updated_at",
         "number": 6,
+        "type": "string"
+      },
+      {
+        "name": "owner_public_key",
+        "number": 7,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -4257,7 +4235,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "ruleset_name",
+        "name": "runtime_profile_name",
         "number": 13,
         "type": "string"
       },
@@ -4309,145 +4287,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 5,
         "optional": true,
         "type": "int64"
-      }
-    ]
-  },
-  "GameRuleset": {
-    "fields": [
-      {
-        "name": "created_at",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "name",
-        "number": 2,
-        "type": "string"
-      },
-      {
-        "name": "spec",
-        "number": 3,
-        "type": "GameRulesetSpec"
-      },
-      {
-        "name": "updated_at",
-        "number": 4,
-        "type": "string"
-      }
-    ]
-  },
-  "GameRulesetDriveSpec": {
-    "fields": [
-      {
-        "name": "default_reward",
-        "number": 3,
-        "optional": true,
-        "type": "GameRewardSpec"
-      },
-      {
-        "mapValue": "GameRewardSpec",
-        "name": "game_rewards",
-        "number": 4,
-        "type": "map"
-      }
-    ]
-  },
-  "GameRulesetPetPoolEntry": {
-    "fields": [
-      {
-        "name": "adoption_cost",
-        "number": 1,
-        "optional": true,
-        "type": "int64"
-      },
-      {
-        "name": "petdef_id",
-        "number": 2,
-        "type": "string"
-      },
-      {
-        "name": "rarity",
-        "number": 3,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "weight",
-        "number": 4,
-        "type": "int64"
-      },
-      {
-        "name": "workflow_name",
-        "number": 5,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "GameRulesetPointsSpec": {
-    "fields": [
-      {
-        "name": "initial_balance",
-        "number": 1,
-        "optional": true,
-        "type": "int64"
-      }
-    ]
-  },
-  "GameRulesetSpec": {
-    "fields": [
-      {
-        "name": "badge_def_ids",
-        "number": 1,
-        "repeated": true,
-        "type": "string"
-      },
-      {
-        "name": "default_workflow_name",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "description",
-        "number": 3,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "drive",
-        "number": 4,
-        "optional": true,
-        "type": "GameRulesetDriveSpec"
-      },
-      {
-        "name": "enabled",
-        "number": 5,
-        "type": "bool"
-      },
-      {
-        "name": "game_def_ids",
-        "number": 6,
-        "repeated": true,
-        "type": "string"
-      },
-      {
-        "name": "metadata",
-        "number": 7,
-        "optional": true,
-        "type": "GameplayMetadata"
-      },
-      {
-        "name": "pet_pool",
-        "number": 8,
-        "repeated": true,
-        "type": "GameRulesetPetPoolEntry"
-      },
-      {
-        "name": "points",
-        "number": 9,
-        "optional": true,
-        "type": "GameRulesetPointsSpec"
       }
     ]
   },
@@ -4669,6 +4508,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "updated_at",
         "number": 11,
+        "type": "string"
+      },
+      {
+        "name": "owner_public_key",
+        "number": 12,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -5599,19 +5444,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "ruleset_name",
+        "name": "runtime_profile_name",
         "number": 11,
         "type": "string"
       },
       {
         "name": "updated_at",
         "number": 12,
-        "type": "string"
-      },
-      {
-        "name": "workflow_name",
-        "number": 13,
-        "optional": true,
         "type": "string"
       },
       {
@@ -5749,12 +5588,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "display_name",
         "number": 1,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "ruleset_name",
-        "number": 2,
         "optional": true,
         "type": "string"
       }
@@ -6108,7 +5941,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "ruleset_name",
+        "name": "runtime_profile_name",
         "number": 4,
         "type": "string"
       },
@@ -6170,7 +6003,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "ruleset_name",
+        "name": "runtime_profile_name",
         "number": 10,
         "type": "string"
       },
@@ -6259,7 +6092,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "ruleset_name",
+        "name": "runtime_profile_name",
         "number": 12,
         "type": "string"
       },
@@ -6397,25 +6230,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "GameResultListResponse"
-      }
-    ]
-  },
-  "ServerGameRulesetGetRequest": {
-    "fields": [
-      {
-        "name": "name",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "ServerGameRulesetGetResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "GameRuleset"
       }
     ]
   },
@@ -6732,14 +6546,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
     ]
   },
   "ServerPointsGetRequest": {
-    "fields": [
-      {
-        "name": "ruleset_name",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      }
-    ]
+    "fields": []
   },
   "ServerPointsGetResponse": {
     "fields": [
@@ -6801,6 +6608,29 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "DeviceInfo"
+      }
+    ]
+  },
+  "ServerRegisterRequest": {
+    "fields": [
+      {
+        "name": "token",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "ServerRegisterResponse": {
+    "fields": [
+      {
+        "name": "firmware_name",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "runtime_profile_name",
+        "number": 2,
+        "type": "string"
       }
     ]
   },
@@ -7090,6 +6920,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "updated_at",
         "number": 14,
+        "type": "string"
+      },
+      {
+        "name": "owner_public_key",
+        "number": 15,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -7889,6 +7725,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 9,
         "optional": true,
         "type": "Icon"
+      },
+      {
+        "name": "owner_public_key",
+        "number": 10,
+        "optional": true,
+        "type": "string"
       }
     ]
   },

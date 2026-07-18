@@ -59,7 +59,7 @@ Schema 只有满足以下至少一个条件才能进入 `shared/`：
 | Error | `error_payload.json`、`error_response.json` | `ErrorPayload`、`ErrorResponse` |
 | Device identity | `device_info.json`、`hardware_info.json`、`peer_imei.json`、`peer_label.json` | Device、hardware 与稳定 identity values |
 | Runtime、Peer 与 Server state | `runtime.json`、`peer*.json`、`registration.json`、`server*.json` | Runtime、registration、Peer lifecycle、stream、telemetry 与 Server values |
-| ACL | `acl_*.json` | Permission、Policy、Resource、Subject、Role、View 与 binding values |
+| Runtime access | `runtime_profile*.json`、`registration_token.json` | Profile allow list、Gameplay 配置与设备注册 token metadata |
 | Configuration | `configuration.json`、`agent_selection.json`、`refresh_*.json` | 共同配置、Agent selection 与 refresh contracts |
 | Gameplay | `gameplay.json` | Gameplay metadata 与共同规则 values |
 | Firmware | `firmware*.json` | Firmware、slot、artifact、spec 与 selection values |

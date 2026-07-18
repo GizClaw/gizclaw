@@ -1,8 +1,0 @@
----
-apiVersion: gizclaw.admin/v1alpha1
-kind: ACLPolicyBinding
-metadata: {name: default-client-model-qwen3.7-text-embedding}
-spec:
-  subject: {kind: view, id: default-client}
-  resource: {kind: model, id: qwen3.7-text-embedding}
-  role: default-client

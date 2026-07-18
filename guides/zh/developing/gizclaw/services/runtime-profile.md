@@ -1,0 +1,69 @@
+# RuntimeProfile 与设备注册
+
+`RuntimeProfile` 定义设备连接可用的服务器资源和 Gameplay 配置。它与资源的 owner 机制互补：设备可以访问 RuntimeProfile 允许的资源，也可以访问自己拥有的资源；查询结果先列 RuntimeProfile 资源，再列 owner 资源。
+
+## Declarative structure
+
+```yaml
+apiVersion: gizclaw.admin/v1alpha1
+kind: RuntimeProfile
+metadata:
+  name: h106-tragon
+spec:
+  resources:
+    workflows:
+      chat: general-chat
+    models:
+      primary: model-default
+    voices:
+      assistant: voice-default
+    tools:
+      weather: weather-v2
+    pet_defs:
+      tragon: petdef-tragon
+    game_defs:
+      dinodive: game-dinodive
+    badge_defs:
+      dinodive-master: badge-dinodive-master
+  gameplay:
+    points:
+      initial_balance: 100
+    pet_pool:
+      - pet_def: tragon
+        weight: 100
+        rarity: common
+        adoption_cost: 10
+    drive:
+      game_rewards:
+        dinodive:
+          points_delta: 20
+          badge_exp_delta:
+            dinodive-master: 100
+```
+
+`resources` 中每个 map 都是 profile-local alias 到真实资源名的映射。映射的 value 组成 allow list；普通 RPC 仍使用真实资源名，不接受 alias。Gameplay 配置只在当前 RuntimeProfile 内使用 alias，例如 `pet_def: tragon` 对应 `petdef-tragon`。
+
+同一个真实资源可以绑定多个 alias，加载时会去重。被引用的真实资源已经删除或不存在时，加载方忽略该项，不阻止 RuntimeProfile 保存、加载或删除。RuntimeProfile 不包含 icon、显示名称或 i18n；客户端固件按 alias 自己映射，例如 `chat -> icon` 和 `chat -> name`。
+
+## RegistrationToken
+
+`RegistrationToken` 由管理员预先创建，关联一个 Firmware 和一个 RuntimeProfile。原始 token 只在创建响应中返回一次，服务端只保存 SHA-256 hash。Token 可重复用于多个注册，直到被删除；没有 enable/disable 状态，也不保存使用记录或 public-key binding。
+
+设备把 token 预烧录进固件。连接建立后，设备调用 `server.register`；服务端校验 token，并把 Firmware 与 RuntimeProfile 快照保存到当前 connection。修改 RuntimeProfile 不会改变已经建立的连接，设备 reconnect 后重新注册才会取得新配置。
+
+注册成功和失败都写入 system log。日志包含 Peer public key、连接来源、RegistrationToken 名称、Firmware 和 RuntimeProfile；业务数据库不保存 token 使用历史。
+
+## 访问规则
+
+| 来源 | list / get / use | put / delete |
+| --- | --- | --- |
+| RuntimeProfile allow list | 允许，不检查 owner | 不允许 |
+| 当前 Peer 是 owner | 允许 | 允许 |
+| Friend、FriendGroup 或 Pet 的 system Workspace | 按领域关系允许 | 按领域规则处理 |
+| 其他资源 | 不可见、不可用 | 不允许 |
+
+未注册设备仍可以调用公开 RPC；它只是没有 RuntimeProfile 资源。设备通过公开 CRUD 创建的 Workspace、Model、Credential 和 Tool 自动记录当前 Peer 为 owner。Workflow 的公开 surface 只提供 list/get。
+
+调用 Model 或 Voice 时，服务端在内部解析其配置的 ProviderTenant 和底层 Credential。设备对 Model 或 Voice 的访问权允许这次调用，但不会让底层 Credential 出现在 credential list/get 中，也不会授予 Credential 修改权限。因此 RuntimeProfile 只列出 Model 和 Voice，不列出其实现所用的 Credential；owner 创建的 Model 同样可以使用它配置的 ProviderTenant，而不会因此取得服务端 Credential 的 owner 权限。
+
+Firmware 不在 `resources` map 中：RegistrationToken 直接选择当前连接对应的 Firmware。删除 RuntimeProfile 或 RegistrationToken 不级联删除其他资源；已经建立的 connection 继续使用自己的快照，直到断线。

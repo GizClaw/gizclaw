@@ -18,7 +18,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -174,33 +173,6 @@ func TestServerInitPreservesExistingObjectStorePeerLayout(t *testing.T) {
 				t.Fatalf("prefixed peer key error = %v, want ErrNotFound", err)
 			}
 		})
-	}
-}
-
-func TestServerInitWiresDefaultPeerView(t *testing.T) {
-	keyPair, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair() error = %v", err)
-	}
-	server := &Server{
-		LocalStatic:     *keyPair,
-		PeerStore:       mustBadgerInMemory(t, nil),
-		DefaultPeerView: "default-client",
-	}
-	if err := server.init(); err != nil {
-		t.Fatalf("init() error = %v", err)
-	}
-
-	peerKeyPair, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair(peer) error = %v", err)
-	}
-	created, err := server.manager.Peers.EnsureConnectedPeer(context.Background(), peerKeyPair.Public)
-	if err != nil {
-		t.Fatalf("EnsureConnectedPeer() error = %v", err)
-	}
-	if created.Configuration.View == nil || *created.Configuration.View != "default-client" {
-		t.Fatalf("created view = %v, want default-client", created.Configuration.View)
 	}
 }
 
@@ -735,71 +707,6 @@ func publicHTTPTestLogin(t *testing.T, baseURL string, serverPublicKey giznet.Pu
 		t.Fatalf("decode login response: %v", err)
 	}
 	return result
-}
-
-func TestServerSecurityPolicyAllowServiceUsesPeerPolicy(t *testing.T) {
-	var nilServer *Server
-	if (*ServerSecurityPolicy)(nilServer).AllowService(giznet.PublicKey{}, ServicePeerRPC) {
-		t.Fatal("nil server should deny all services")
-	}
-
-	peerKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair peer error = %v", err)
-	}
-	adminKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair admin error = %v", err)
-	}
-	peersServer := &peer.Server{Store: mustBadgerInMemory(t, nil)}
-	if _, err := peersServer.SavePeer(context.Background(), apitypes.Peer{
-		PublicKey:     peerKey.Public.String(),
-		Role:          apitypes.PeerRoleClient,
-		Status:        apitypes.PeerRegistrationStatusActive,
-		Device:        apitypes.DeviceInfo{},
-		Configuration: apitypes.Configuration{},
-	}); err != nil {
-		t.Fatalf("SavePeer peer error = %v", err)
-	}
-	if _, err := peersServer.SavePeer(context.Background(), apitypes.Peer{
-		PublicKey:     adminKey.Public.String(),
-		Role:          apitypes.PeerRoleAdmin,
-		Status:        apitypes.PeerRegistrationStatusActive,
-		Device:        apitypes.DeviceInfo{},
-		Configuration: apitypes.Configuration{},
-	}); err != nil {
-		t.Fatalf("SavePeer admin error = %v", err)
-	}
-	server := &Server{manager: NewManager(peersServer)}
-	policy := (*ServerSecurityPolicy)(server)
-	if !policy.AllowService(peerKey.Public, ServicePeerRPC) {
-		t.Fatal("peer should allow rpc")
-	}
-	if !policy.AllowService(peerKey.Public, ServicePeerHTTP) {
-		t.Fatal("peer should allow server public")
-	}
-	if policy.AllowService(peerKey.Public, ServiceAdminHTTP) {
-		t.Fatal("non-admin peer should not allow admin")
-	}
-	if !policy.AllowService(adminKey.Public, ServiceAdminHTTP) {
-		t.Fatal("active admin peer should allow admin")
-	}
-	configuredKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair configured error = %v", err)
-	}
-	server.SecurityPolicy = testGiznetSecurityPolicy{
-		allowService: func(publicKey giznet.PublicKey, service uint64) bool {
-			return service == ServiceAdminHTTP && publicKey == configuredKey.Public
-		},
-	}
-	if !policy.AllowService(configuredKey.Public, ServiceAdminHTTP) {
-		t.Fatal("configured security policy should allow admin")
-	}
-	server.SecurityPolicy = nil
-	if policy.AllowService(configuredKey.Public, ServiceAdminHTTP) {
-		t.Fatal("missing configured security policy should not allow admin")
-	}
 }
 
 func TestServerPeerEventHandlerDoesNotClearActivePeer(t *testing.T) {

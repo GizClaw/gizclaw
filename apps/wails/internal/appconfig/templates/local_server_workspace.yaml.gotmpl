@@ -6,7 +6,6 @@ serve-to-clients: {{ .ServeToClients }}
 {{ if .AdminPublicKey }}
 admin-public-key: {{ quote .AdminPublicKey }}
 {{ end }}
-default-peer-view: default-client
 system_tasks:
   pet_flowcraft_workflow:
     generate_model: minimax-cn-m3
@@ -29,10 +28,6 @@ storage:
     kind: objectstore
     fs:
       dir: data/agenthost
-  acl-db:
-    kind: sql
-    sqlite:
-      dir: data/acl.sqlite
   history-db:
     kind: sql
     sqlite:
@@ -45,11 +40,11 @@ stores:
   peers: {kind: keyvalue, storage: local-kv, prefix: peers}
   credentials: {kind: keyvalue, storage: local-kv, prefix: credentials}
   firmwares: {kind: keyvalue, storage: local-kv, prefix: firmwares}
+  runtime-profiles: {kind: keyvalue, storage: local-kv, prefix: runtime-profiles}
   minimax-tenants: {kind: keyvalue, storage: local-kv, prefix: minimax-tenants}
   voices: {kind: keyvalue, storage: local-kv, prefix: voices}
   workspaces: {kind: keyvalue, storage: local-kv, prefix: workspaces}
   workflows: {kind: keyvalue, storage: local-kv, prefix: workflows}
-  game-rulesets: {kind: keyvalue, storage: local-kv, prefix: game-rulesets}
   pet-defs: {kind: keyvalue, storage: local-kv, prefix: pet-defs}
   badge-defs: {kind: keyvalue, storage: local-kv, prefix: badge-defs}
   game-defs: {kind: keyvalue, storage: local-kv, prefix: game-defs}
@@ -67,7 +62,6 @@ stores:
   friend-group-message-assets: {kind: objectstore, storage: local-files, prefix: friend-group-messages}
   workspace-assets: {kind: objectstore, storage: local-files, prefix: workspaces}
   workflow-assets: {kind: objectstore, storage: local-files, prefix: workflows}
-  acl: {kind: sql, storage: acl-db}
   history: {kind: sql, storage: history-db}
   gameplay-db: {kind: sql, storage: gameplay-db}
   metrics: {kind: metrics, memory: {}}

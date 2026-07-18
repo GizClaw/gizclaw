@@ -91,7 +91,7 @@ Edge Node 使用 `pkgs/giznet/gizwebrtc` 连接配置的 authoritative Server，
 
 Edge Node 可以同时运行可选的 TURN UDP relay，为无法直接建立 WebRTC 路径的连接提供 relay 能力。
 
-TURN runtime 只负责 relay listener、认证和 relay port range。它不负责 GizClaw 用户登录、peer ACL、route assignment 或业务授权。TURN credential 与 GizClaw resource credential 也不是同一类数据。
+TURN runtime 只负责 relay listener、认证和 relay port range。它不负责 GizClaw 用户登录、Peer resource access、route assignment 或业务授权。TURN credential 与 GizClaw resource credential 也不是同一类数据。
 
 ## 依赖关系
 
@@ -125,7 +125,7 @@ flowchart TB
 不应该放在 `pkgs/gizedge`：
 
 - Peer、workspace、firmware、gameplay、social 或 Agent 领域服务。
-- Authoritative resource storage 和最终 ACL 判断。
+- Authoritative resource storage 和最终 resource access 判断。
 - Transport-independent connection contract 或通用 WebRTC 实现。
 - GizClaw Server 的 HTTP/RPC handler。
 - Server storage backend、migration 和 workspace runtime 组装。

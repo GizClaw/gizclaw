@@ -1,58 +1,13 @@
 # services/gameplay
 
-`pkgs/gizclaw/services/gameplay` 拥有 GizClaw Gameplay 的 catalog、玩家状态、奖励行为和数字资产。当前 Gameplay 服务保持为一个 package，因为这些资源共同参与同一套规则和事务边界。
-
-[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/gameplay)
-
-## 领域内容
-
-```text
-services/gameplay/
-├── Catalog       # GameRuleset、PetDef、BadgeDef 和 GameDef
-├── Runtime       # Pet、points、badge 和 game result 状态
-├── Reward        # Reward grant 与 points/badge 变化
-├── Assets        # PetDef/BadgeDef 等 pixa 资源
-└── Storage       # KV、object store 与 gameplay SQL state
-```
-
-这是一张领域职责图，不是 Go 文件或类型清单。
+`pkgs/gizclaw/services/gameplay` 拥有 Gameplay catalog、玩家状态、奖励行为和数字资产。Gameplay 配置属于连接的 RuntimeProfile，不再有独立 GameRuleset 资源。
 
 ## Ownership
 
-Gameplay 拥有：
+Gameplay 拥有 PetDef、BadgeDef、GameDef、Pet、points account、transaction、reward grant、badge progression 和 game result。RuntimeProfile 的 `pet_defs`、`game_defs` 和 `badge_defs` map 提供 profile-local alias；`gameplay.pet_pool` 与 reward 配置通过 alias 引用这些定义。
 
-- GameRuleset 定义的 Gameplay 规则集合。
-- Pet、badge 和 game 的 catalog definition。
-- Pet adoption、更新、删除和 drive 等 care action。
-- Points account、transaction、reward grant 和 badge progression。
-- Game result 的写入和查询。
-- Gameplay definition 关联的 pixa 数字资产。
+领养 Pet 时，服务从当前 connection 的 RuntimeProfile snapshot 解析规则，并把 RuntimeProfile 名写入 Pet 和相关状态。Pet 创建的 system Workspace 使用内置 `pet-care` Workflow；`pet-care` 不需要出现在 RuntimeProfile 的 `workflows` map 中。
 
-Gameplay 可以使用 workspace 作为 pet workspace 或 Agent memory 的关联边界，但 workspace 资源本身仍由 `services/ai/workspace` 拥有。Gameplay 也使用 ACL 完成访问判断，但不重新定义 role 或 policy binding。
+被 alias 映射的定义不存在时会被忽略。没有有效 PetDef 的 profile 不能领养 Pet；未在当前 profile 中允许的 GameDef 不能提交 game result。删除定义或 RuntimeProfile 不级联删除已有 Gameplay 历史。
 
-采用的 Pet 拥有一个 system Workspace。Pet adoption 与 rollback 使用内部 system-Workspace 生命周期。Pet 删除必须返回 ACL 或 Workspace 清理失败，只在必要清理成功后删除 Pet row，并保留 gameplay history、points、badge、result、transaction 和 reward grant。
-
-## 依赖与边界
-
-```mermaid
-flowchart LR
-    Surface["Admin / Peer Gameplay surface"] --> Gameplay["services/gameplay"]
-    Gameplay --> Workspace["services/ai/workspace"]
-    Gameplay --> ACL["services/system/acl"]
-    Gameplay --> Store["KV / SQL / Object store"]
-```
-
-应该放在 `services/gameplay`：
-
-- Gameplay catalog 和 player/pet state。
-- Points、reward、badge、game result 和 care action 的领域规则。
-- Gameplay-owned pixa assets 和一致性检查。
-
-不应该放在这里：
-
-- 通用 digital content storage 或 pixa codec。
-- Workspace、Agent Runtime 或 social graph 的实现。
-- Admin/Peer transport 和 route registration。
-- 与 Gameplay 无关的通用 accounting、SQL 或 object-store helper。
-
-当 Gameplay 继续增长时，应根据资源 ownership 和事务边界决定是否拆子 package，不能只按 API endpoint 数量机械拆分。
+Gameplay 使用 Workspace owner 和 Pet 领域关系，不创建额外 role 或 policy binding。Pet 删除会先清理 system Workspace，成功后删除 Pet row，并保留 points、badge、result、transaction 和 reward grant 历史。

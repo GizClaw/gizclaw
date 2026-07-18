@@ -687,6 +687,7 @@ func TestRPCMethodValid(t *testing.T) {
 		RPCMethodClientIdentifiersGet,
 		RPCMethodServerInfoGet,
 		RPCMethodServerInfoPut,
+		RPCMethodServerRegister,
 		RPCMethodServerRuntimeGet,
 		RPCMethodServerInfoGet,
 	} {

@@ -53,16 +53,16 @@ func TestExecutorRegistryDispatchesDeviceAndBuilderTracksReconnect(t *testing.T)
 	}
 	builder := &Builder{Tools: store, Availability: registry}
 
-	kit, err := builder.Build(ctx, BuildRequest{})
+	kit, err := builder.Build(ctx, BuildRequest{OwnerPublicKey: "peer-a"})
 	if err != nil || len(kit.Tools) != 0 {
 		t.Fatalf("Build(offline) = %#v, %v", kit, err)
 	}
 	client.online = true
-	kit, err = builder.Build(ctx, BuildRequest{})
+	kit, err = builder.Build(ctx, BuildRequest{OwnerPublicKey: "peer-a"})
 	if err != nil || len(kit.Tools) != 1 {
 		t.Fatalf("Build(reconnected) = %#v, %v", kit, err)
 	}
-	if _, err := builder.Invoke(ctx, registry, InvokeRequest{Name: kit.Tools[0].ID}); err != nil {
+	if _, err := builder.Invoke(ctx, registry, InvokeRequest{Build: BuildRequest{OwnerPublicKey: "peer-a"}, Name: kit.Tools[0].ID}); err != nil {
 		t.Fatalf("Invoke(device) error = %v", err)
 	}
 }

@@ -347,8 +347,6 @@ func TestAdminPeersHelp(t *testing.T) {
 		"resolve-sn",
 		"resolve-imei",
 		"info",
-		"config",
-		"put-config",
 		"runtime",
 	} {
 		if !strings.Contains(out, want) {

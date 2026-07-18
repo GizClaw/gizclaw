@@ -237,6 +237,7 @@ message Workspace {
   optional ToolkitPolicy toolkit = 7;
   bool system = 8;
   optional Icon icon = 9;
+  optional string owner_public_key = 10;
 }
 
 // Field numbers match Workspace so existing create and put clients remain wire

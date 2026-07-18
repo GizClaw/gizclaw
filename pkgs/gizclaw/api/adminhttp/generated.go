@@ -368,48 +368,6 @@ func (e UploadWorkspaceIconParamsFormat) Valid() bool {
 	}
 }
 
-// ACLPolicyBindingList defines model for ACLPolicyBindingList.
-type ACLPolicyBindingList struct {
-	HasNext    bool                            `json:"has_next"`
-	Items      []externalRef0.ACLPolicyBinding `json:"items"`
-	NextCursor *string                         `json:"next_cursor,omitempty"`
-}
-
-// ACLPolicyBindingUpsert defines model for ACLPolicyBindingUpsert.
-type ACLPolicyBindingUpsert struct {
-	DisplayOrder *float64 `json:"display_order,omitempty"`
-	Id           *string  `json:"id,omitempty"`
-
-	// Policy ACL policy describing one subject-resource-role relation and optional validity window.
-	Policy externalRef0.ACLPolicy `json:"policy"`
-}
-
-// ACLRoleList defines model for ACLRoleList.
-type ACLRoleList struct {
-	HasNext    bool                   `json:"has_next"`
-	Items      []externalRef0.ACLRole `json:"items"`
-	NextCursor *string                `json:"next_cursor,omitempty"`
-}
-
-// ACLRoleUpsert defines model for ACLRoleUpsert.
-type ACLRoleUpsert struct {
-	Name        string                         `json:"name"`
-	Permissions externalRef0.ACLPermissionList `json:"permissions"`
-}
-
-// ACLViewList defines model for ACLViewList.
-type ACLViewList struct {
-	HasNext    bool                   `json:"has_next"`
-	Items      []externalRef0.ACLView `json:"items"`
-	NextCursor *string                `json:"next_cursor,omitempty"`
-}
-
-// ACLViewUpsert defines model for ACLViewUpsert.
-type ACLViewUpsert struct {
-	Description *string `json:"description,omitempty"`
-	Name        string  `json:"name"`
-}
-
 // AdminContactCreateRequest defines model for AdminContactCreateRequest.
 type AdminContactCreateRequest struct {
 	DisplayName    *string `json:"display_name,omitempty"`
@@ -575,19 +533,6 @@ type GameDefUpsert struct {
 	Spec externalRef0.GameDefSpec `json:"spec"`
 }
 
-// GameRulesetList defines model for GameRulesetList.
-type GameRulesetList struct {
-	HasNext    bool                       `json:"has_next"`
-	Items      []externalRef0.GameRuleset `json:"items"`
-	NextCursor *string                    `json:"next_cursor,omitempty"`
-}
-
-// GameRulesetUpsert defines model for GameRulesetUpsert.
-type GameRulesetUpsert struct {
-	Name string                       `json:"name"`
-	Spec externalRef0.GameRulesetSpec `json:"spec"`
-}
-
 // GeminiTenantList defines model for GeminiTenantList.
 type GeminiTenantList struct {
 	HasNext    bool                        `json:"has_next"`
@@ -709,6 +654,33 @@ type RegistrationList struct {
 	NextCursor *string                     `json:"next_cursor,omitempty"`
 }
 
+// RegistrationTokenList defines model for RegistrationTokenList.
+type RegistrationTokenList struct {
+	HasNext    bool                             `json:"has_next"`
+	Items      []externalRef0.RegistrationToken `json:"items"`
+	NextCursor *string                          `json:"next_cursor,omitempty"`
+}
+
+// RegistrationTokenUpsert defines model for RegistrationTokenUpsert.
+type RegistrationTokenUpsert struct {
+	FirmwareName       string `json:"firmware_name"`
+	Name               string `json:"name"`
+	RuntimeProfileName string `json:"runtime_profile_name"`
+}
+
+// RuntimeProfileList defines model for RuntimeProfileList.
+type RuntimeProfileList struct {
+	HasNext    bool                          `json:"has_next"`
+	Items      []externalRef0.RuntimeProfile `json:"items"`
+	NextCursor *string                       `json:"next_cursor,omitempty"`
+}
+
+// RuntimeProfileUpsert defines model for RuntimeProfileUpsert.
+type RuntimeProfileUpsert struct {
+	Name string                          `json:"name"`
+	Spec externalRef0.RuntimeProfileSpec `json:"spec"`
+}
+
 // VoiceList defines model for VoiceList.
 type VoiceList struct {
 	HasNext    bool                 `json:"has_next"`
@@ -797,57 +769,6 @@ type VoiceProviderKind = externalRef0.VoiceProviderKind
 
 // VoiceSource How the voice entered the global catalog
 type VoiceSource = externalRef0.VoiceSource
-
-// ListACLPolicyBindingsParams defines parameters for ListACLPolicyBindings.
-type ListACLPolicyBindingsParams struct {
-	// Cursor Opaque cursor returned by the previous list response
-	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
-
-	// Limit Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
-	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
-
-	// SubjectKind Filter by ACL subject kind
-	SubjectKind *externalRef0.ACLSubjectKind `form:"subject_kind,omitempty" json:"subject_kind,omitempty"`
-
-	// SubjectId Filter by ACL subject identifier
-	SubjectId *string `form:"subject_id,omitempty" json:"subject_id,omitempty"`
-
-	// ResourceKind Filter by ACL resource kind
-	ResourceKind *externalRef0.ACLResourceKind `form:"resource_kind,omitempty" json:"resource_kind,omitempty"`
-
-	// ResourceId Filter by ACL resource identifier
-	ResourceId *string `form:"resource_id,omitempty" json:"resource_id,omitempty"`
-
-	// ResourceIdPrefix Filter by ACL resource identifier prefix
-	ResourceIdPrefix *string `form:"resource_id_prefix,omitempty" json:"resource_id_prefix,omitempty"`
-
-	// Role Filter by ACL role name
-	Role *string `form:"role,omitempty" json:"role,omitempty"`
-
-	// Permission Filter by expanded ACL permission
-	Permission *externalRef0.ACLPermission `form:"permission,omitempty" json:"permission,omitempty"`
-
-	// OrderBy Sort ACL policy bindings by id or display order
-	OrderBy *string `form:"order_by,omitempty" json:"order_by,omitempty"`
-}
-
-// ListACLRolesParams defines parameters for ListACLRoles.
-type ListACLRolesParams struct {
-	// Cursor Opaque cursor returned by the previous list response
-	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
-
-	// Limit Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
-	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
-}
-
-// ListACLViewsParams defines parameters for ListACLViews.
-type ListACLViewsParams struct {
-	// Cursor Opaque cursor returned by the previous list response
-	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
-
-	// Limit Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
-	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
-}
 
 // ListBadgeDefsParams defines parameters for ListBadgeDefs.
 type ListBadgeDefsParams struct {
@@ -950,15 +871,6 @@ type DownloadGameDefIconParamsFormat string
 
 // UploadGameDefIconParamsFormat defines parameters for UploadGameDefIcon.
 type UploadGameDefIconParamsFormat string
-
-// ListGameRulesetsParams defines parameters for ListGameRulesets.
-type ListGameRulesetsParams struct {
-	// Cursor Opaque cursor returned by the previous list response
-	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
-
-	// Limit Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
-	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
-}
 
 // ListGeminiTenantsParams defines parameters for ListGeminiTenants.
 type ListGeminiTenantsParams struct {
@@ -1149,6 +1061,24 @@ type ListPetDefsParams struct {
 	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// ListRegistrationTokensParams defines parameters for ListRegistrationTokens.
+type ListRegistrationTokensParams struct {
+	// Cursor Opaque cursor returned by the previous list response
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Limit Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
+	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListRuntimeProfilesParams defines parameters for ListRuntimeProfiles.
+type ListRuntimeProfilesParams struct {
+	// Cursor Opaque cursor returned by the previous list response
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Limit Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
+	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // ListContactsParams defines parameters for ListContacts.
 type ListContactsParams struct {
 	// OwnerPublicKey Optional owner peer public key filter.
@@ -1269,24 +1199,6 @@ type UploadWorkspaceIconParamsFormat string
 // ApplyResourceJSONRequestBody defines body for ApplyResource for application/json ContentType.
 type ApplyResourceJSONRequestBody = externalRef0.ApplyResource
 
-// CreateACLPolicyBindingJSONRequestBody defines body for CreateACLPolicyBinding for application/json ContentType.
-type CreateACLPolicyBindingJSONRequestBody = ACLPolicyBindingUpsert
-
-// PutACLPolicyBindingJSONRequestBody defines body for PutACLPolicyBinding for application/json ContentType.
-type PutACLPolicyBindingJSONRequestBody = ACLPolicyBindingUpsert
-
-// CreateACLRoleJSONRequestBody defines body for CreateACLRole for application/json ContentType.
-type CreateACLRoleJSONRequestBody = ACLRoleUpsert
-
-// PutACLRoleJSONRequestBody defines body for PutACLRole for application/json ContentType.
-type PutACLRoleJSONRequestBody = ACLRoleUpsert
-
-// CreateACLViewJSONRequestBody defines body for CreateACLView for application/json ContentType.
-type CreateACLViewJSONRequestBody = ACLViewUpsert
-
-// PutACLViewJSONRequestBody defines body for PutACLView for application/json ContentType.
-type PutACLViewJSONRequestBody = ACLViewUpsert
-
 // CreateBadgeDefJSONRequestBody defines body for CreateBadgeDef for application/json ContentType.
 type CreateBadgeDefJSONRequestBody = BadgeDefUpsert
 
@@ -1317,12 +1229,6 @@ type CreateGameDefJSONRequestBody = GameDefUpsert
 // PutGameDefJSONRequestBody defines body for PutGameDef for application/json ContentType.
 type PutGameDefJSONRequestBody = GameDefUpsert
 
-// CreateGameRulesetJSONRequestBody defines body for CreateGameRuleset for application/json ContentType.
-type CreateGameRulesetJSONRequestBody = GameRulesetUpsert
-
-// PutGameRulesetJSONRequestBody defines body for PutGameRuleset for application/json ContentType.
-type PutGameRulesetJSONRequestBody = GameRulesetUpsert
-
 // CreateGeminiTenantJSONRequestBody defines body for CreateGeminiTenant for application/json ContentType.
 type CreateGeminiTenantJSONRequestBody = GeminiTenantUpsert
 
@@ -1350,9 +1256,6 @@ type PutOpenAITenantJSONRequestBody = OpenAITenantUpsert
 // ApprovePeerJSONRequestBody defines body for ApprovePeer for application/json ContentType.
 type ApprovePeerJSONRequestBody = ApproveRequest
 
-// PutPeerConfigJSONRequestBody defines body for PutPeerConfig for application/json ContentType.
-type PutPeerConfigJSONRequestBody = externalRef0.Configuration
-
 // CreatePeerFriendJSONRequestBody defines body for CreatePeerFriend for application/json ContentType.
 type CreatePeerFriendJSONRequestBody = AdminFriendCreateRequest
 
@@ -1365,8 +1268,17 @@ type CreatePetDefJSONRequestBody = PetDefUpsert
 // PutPetDefJSONRequestBody defines body for PutPetDef for application/json ContentType.
 type PutPetDefJSONRequestBody = PetDefUpsert
 
+// CreateRegistrationTokenJSONRequestBody defines body for CreateRegistrationToken for application/json ContentType.
+type CreateRegistrationTokenJSONRequestBody = RegistrationTokenUpsert
+
 // PutResourceJSONRequestBody defines body for PutResource for application/json ContentType.
 type PutResourceJSONRequestBody = externalRef0.Resource
+
+// CreateRuntimeProfileJSONRequestBody defines body for CreateRuntimeProfile for application/json ContentType.
+type CreateRuntimeProfileJSONRequestBody = RuntimeProfileUpsert
+
+// PutRuntimeProfileJSONRequestBody defines body for PutRuntimeProfile for application/json ContentType.
+type PutRuntimeProfileJSONRequestBody = RuntimeProfileUpsert
 
 // CreateContactJSONRequestBody defines body for CreateContact for application/json ContentType.
 type CreateContactJSONRequestBody = AdminContactCreateRequest
@@ -1493,63 +1405,6 @@ type ClientInterface interface {
 	ApplyResourceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	ApplyResource(ctx context.Context, body ApplyResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// ListACLPolicyBindings request
-	ListACLPolicyBindings(ctx context.Context, params *ListACLPolicyBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// CreateACLPolicyBindingWithBody request with any body
-	CreateACLPolicyBindingWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	CreateACLPolicyBinding(ctx context.Context, body CreateACLPolicyBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// DeleteACLPolicyBinding request
-	DeleteACLPolicyBinding(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetACLPolicyBinding request
-	GetACLPolicyBinding(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// PutACLPolicyBindingWithBody request with any body
-	PutACLPolicyBindingWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	PutACLPolicyBinding(ctx context.Context, id string, body PutACLPolicyBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// ListACLRoles request
-	ListACLRoles(ctx context.Context, params *ListACLRolesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// CreateACLRoleWithBody request with any body
-	CreateACLRoleWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	CreateACLRole(ctx context.Context, body CreateACLRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// DeleteACLRole request
-	DeleteACLRole(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetACLRole request
-	GetACLRole(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// PutACLRoleWithBody request with any body
-	PutACLRoleWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	PutACLRole(ctx context.Context, name string, body PutACLRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// ListACLViews request
-	ListACLViews(ctx context.Context, params *ListACLViewsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// CreateACLViewWithBody request with any body
-	CreateACLViewWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	CreateACLView(ctx context.Context, body CreateACLViewJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// DeleteACLView request
-	DeleteACLView(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetACLView request
-	GetACLView(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// PutACLViewWithBody request with any body
-	PutACLViewWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	PutACLView(ctx context.Context, name string, body PutACLViewJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListBadgeDefs request
 	ListBadgeDefs(ctx context.Context, params *ListBadgeDefsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1688,25 +1543,6 @@ type ClientInterface interface {
 	// UploadGameDefIconWithBody request with any body
 	UploadGameDefIconWithBody(ctx context.Context, id string, format UploadGameDefIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListGameRulesets request
-	ListGameRulesets(ctx context.Context, params *ListGameRulesetsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// CreateGameRulesetWithBody request with any body
-	CreateGameRulesetWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	CreateGameRuleset(ctx context.Context, body CreateGameRulesetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// DeleteGameRuleset request
-	DeleteGameRuleset(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetGameRuleset request
-	GetGameRuleset(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// PutGameRulesetWithBody request with any body
-	PutGameRulesetWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	PutGameRuleset(ctx context.Context, name string, body PutGameRulesetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// ListGeminiTenants request
 	ListGeminiTenants(ctx context.Context, params *ListGeminiTenantsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1821,14 +1657,6 @@ type ClientInterface interface {
 	// GetPeerBadge request
 	GetPeerBadge(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetPeerConfig request
-	GetPeerConfig(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// PutPeerConfigWithBody request with any body
-	PutPeerConfigWithBody(ctx context.Context, publicKey string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	PutPeerConfig(ctx context.Context, publicKey string, body PutPeerConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// ListPeerFriends request
 	ListPeerFriends(ctx context.Context, publicKey string, params *ListPeerFriendsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1918,6 +1746,20 @@ type ClientInterface interface {
 	// UploadPetDefPixaWithBody request with any body
 	UploadPetDefPixaWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListRegistrationTokens request
+	ListRegistrationTokens(ctx context.Context, params *ListRegistrationTokensParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateRegistrationTokenWithBody request with any body
+	CreateRegistrationTokenWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateRegistrationToken(ctx context.Context, body CreateRegistrationTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteRegistrationToken request
+	DeleteRegistrationToken(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetRegistrationToken request
+	GetRegistrationToken(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// DeleteResource request
 	DeleteResource(ctx context.Context, kind ResourceKind, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1928,6 +1770,25 @@ type ClientInterface interface {
 	PutResourceWithBody(ctx context.Context, kind ResourceKind, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PutResource(ctx context.Context, kind ResourceKind, name string, body PutResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListRuntimeProfiles request
+	ListRuntimeProfiles(ctx context.Context, params *ListRuntimeProfilesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateRuntimeProfileWithBody request with any body
+	CreateRuntimeProfileWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateRuntimeProfile(ctx context.Context, body CreateRuntimeProfileJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteRuntimeProfile request
+	DeleteRuntimeProfile(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetRuntimeProfile request
+	GetRuntimeProfile(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutRuntimeProfileWithBody request with any body
+	PutRuntimeProfileWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PutRuntimeProfile(ctx context.Context, name string, body PutRuntimeProfileJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListContacts request
 	ListContacts(ctx context.Context, params *ListContactsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2129,258 +1990,6 @@ func (c *Client) ApplyResourceWithBody(ctx context.Context, contentType string, 
 
 func (c *Client) ApplyResource(ctx context.Context, body ApplyResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewApplyResourceRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ListACLPolicyBindings(ctx context.Context, params *ListACLPolicyBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListACLPolicyBindingsRequest(c.Server, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateACLPolicyBindingWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateACLPolicyBindingRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateACLPolicyBinding(ctx context.Context, body CreateACLPolicyBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateACLPolicyBindingRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) DeleteACLPolicyBinding(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteACLPolicyBindingRequest(c.Server, id)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetACLPolicyBinding(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetACLPolicyBindingRequest(c.Server, id)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PutACLPolicyBindingWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutACLPolicyBindingRequestWithBody(c.Server, id, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PutACLPolicyBinding(ctx context.Context, id string, body PutACLPolicyBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutACLPolicyBindingRequest(c.Server, id, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ListACLRoles(ctx context.Context, params *ListACLRolesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListACLRolesRequest(c.Server, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateACLRoleWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateACLRoleRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateACLRole(ctx context.Context, body CreateACLRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateACLRoleRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) DeleteACLRole(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteACLRoleRequest(c.Server, name)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetACLRole(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetACLRoleRequest(c.Server, name)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PutACLRoleWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutACLRoleRequestWithBody(c.Server, name, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PutACLRole(ctx context.Context, name string, body PutACLRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutACLRoleRequest(c.Server, name, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ListACLViews(ctx context.Context, params *ListACLViewsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListACLViewsRequest(c.Server, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateACLViewWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateACLViewRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateACLView(ctx context.Context, body CreateACLViewJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateACLViewRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) DeleteACLView(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteACLViewRequest(c.Server, name)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetACLView(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetACLViewRequest(c.Server, name)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PutACLViewWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutACLViewRequestWithBody(c.Server, name, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PutACLView(ctx context.Context, name string, body PutACLViewJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutACLViewRequest(c.Server, name, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2979,90 +2588,6 @@ func (c *Client) UploadGameDefIconWithBody(ctx context.Context, id string, forma
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListGameRulesets(ctx context.Context, params *ListGameRulesetsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListGameRulesetsRequest(c.Server, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateGameRulesetWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateGameRulesetRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateGameRuleset(ctx context.Context, body CreateGameRulesetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateGameRulesetRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) DeleteGameRuleset(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteGameRulesetRequest(c.Server, name)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetGameRuleset(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetGameRulesetRequest(c.Server, name)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PutGameRulesetWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutGameRulesetRequestWithBody(c.Server, name, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PutGameRuleset(ctx context.Context, name string, body PutGameRulesetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutGameRulesetRequest(c.Server, name, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 func (c *Client) ListGeminiTenants(ctx context.Context, params *ListGeminiTenantsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListGeminiTenantsRequest(c.Server, params)
 	if err != nil {
@@ -3555,42 +3080,6 @@ func (c *Client) GetPeerBadge(ctx context.Context, publicKey string, id string, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetPeerConfig(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetPeerConfigRequest(c.Server, publicKey)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PutPeerConfigWithBody(ctx context.Context, publicKey string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutPeerConfigRequestWithBody(c.Server, publicKey, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PutPeerConfig(ctx context.Context, publicKey string, body PutPeerConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutPeerConfigRequest(c.Server, publicKey, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 func (c *Client) ListPeerFriends(ctx context.Context, publicKey string, params *ListPeerFriendsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListPeerFriendsRequest(c.Server, publicKey, params)
 	if err != nil {
@@ -3963,6 +3452,66 @@ func (c *Client) UploadPetDefPixaWithBody(ctx context.Context, id string, conten
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListRegistrationTokens(ctx context.Context, params *ListRegistrationTokensParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListRegistrationTokensRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateRegistrationTokenWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateRegistrationTokenRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateRegistrationToken(ctx context.Context, body CreateRegistrationTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateRegistrationTokenRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteRegistrationToken(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteRegistrationTokenRequest(c.Server, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetRegistrationToken(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetRegistrationTokenRequest(c.Server, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) DeleteResource(ctx context.Context, kind ResourceKind, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteResourceRequest(c.Server, kind, name)
 	if err != nil {
@@ -4001,6 +3550,90 @@ func (c *Client) PutResourceWithBody(ctx context.Context, kind ResourceKind, nam
 
 func (c *Client) PutResource(ctx context.Context, kind ResourceKind, name string, body PutResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPutResourceRequest(c.Server, kind, name, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListRuntimeProfiles(ctx context.Context, params *ListRuntimeProfilesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListRuntimeProfilesRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateRuntimeProfileWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateRuntimeProfileRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateRuntimeProfile(ctx context.Context, body CreateRuntimeProfileJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateRuntimeProfileRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteRuntimeProfile(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteRuntimeProfileRequest(c.Server, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetRuntimeProfile(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetRuntimeProfileRequest(c.Server, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutRuntimeProfileWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutRuntimeProfileRequestWithBody(c.Server, name, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutRuntimeProfile(ctx context.Context, name string, body PutRuntimeProfileJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutRuntimeProfileRequest(c.Server, name, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4846,794 +4479,6 @@ func NewApplyResourceRequestWithBody(server string, contentType string, body io.
 	}
 
 	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewListACLPolicyBindingsRequest generates requests for ListACLPolicyBindings
-func NewListACLPolicyBindingsRequest(server string, params *ListACLPolicyBindingsParams) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/acl/policy-bindings")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if params.Cursor != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.Limit != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.SubjectKind != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "subject_kind", *params.SubjectKind, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.SubjectId != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "subject_id", *params.SubjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.ResourceKind != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "resource_kind", *params.ResourceKind, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.ResourceId != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "resource_id", *params.ResourceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.ResourceIdPrefix != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "resource_id_prefix", *params.ResourceIdPrefix, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.Role != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "role", *params.Role, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.Permission != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "permission", *params.Permission, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.OrderBy != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "order_by", *params.OrderBy, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewCreateACLPolicyBindingRequest calls the generic CreateACLPolicyBinding builder with application/json body
-func NewCreateACLPolicyBindingRequest(server string, body CreateACLPolicyBindingJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateACLPolicyBindingRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewCreateACLPolicyBindingRequestWithBody generates requests for CreateACLPolicyBinding with any type of body
-func NewCreateACLPolicyBindingRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/acl/policy-bindings")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewDeleteACLPolicyBindingRequest generates requests for DeleteACLPolicyBinding
-func NewDeleteACLPolicyBindingRequest(server string, id string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/acl/policy-bindings/%s", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewGetACLPolicyBindingRequest generates requests for GetACLPolicyBinding
-func NewGetACLPolicyBindingRequest(server string, id string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/acl/policy-bindings/%s", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewPutACLPolicyBindingRequest calls the generic PutACLPolicyBinding builder with application/json body
-func NewPutACLPolicyBindingRequest(server string, id string, body PutACLPolicyBindingJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewPutACLPolicyBindingRequestWithBody(server, id, "application/json", bodyReader)
-}
-
-// NewPutACLPolicyBindingRequestWithBody generates requests for PutACLPolicyBinding with any type of body
-func NewPutACLPolicyBindingRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/acl/policy-bindings/%s", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("PUT", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewListACLRolesRequest generates requests for ListACLRoles
-func NewListACLRolesRequest(server string, params *ListACLRolesParams) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/acl/roles")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if params.Cursor != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.Limit != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewCreateACLRoleRequest calls the generic CreateACLRole builder with application/json body
-func NewCreateACLRoleRequest(server string, body CreateACLRoleJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateACLRoleRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewCreateACLRoleRequestWithBody generates requests for CreateACLRole with any type of body
-func NewCreateACLRoleRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/acl/roles")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewDeleteACLRoleRequest generates requests for DeleteACLRole
-func NewDeleteACLRoleRequest(server string, name string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/acl/roles/%s", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewGetACLRoleRequest generates requests for GetACLRole
-func NewGetACLRoleRequest(server string, name string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/acl/roles/%s", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewPutACLRoleRequest calls the generic PutACLRole builder with application/json body
-func NewPutACLRoleRequest(server string, name string, body PutACLRoleJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewPutACLRoleRequestWithBody(server, name, "application/json", bodyReader)
-}
-
-// NewPutACLRoleRequestWithBody generates requests for PutACLRole with any type of body
-func NewPutACLRoleRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/acl/roles/%s", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("PUT", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewListACLViewsRequest generates requests for ListACLViews
-func NewListACLViewsRequest(server string, params *ListACLViewsParams) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/acl/views")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if params.Cursor != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.Limit != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewCreateACLViewRequest calls the generic CreateACLView builder with application/json body
-func NewCreateACLViewRequest(server string, body CreateACLViewJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateACLViewRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewCreateACLViewRequestWithBody generates requests for CreateACLView with any type of body
-func NewCreateACLViewRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/acl/views")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewDeleteACLViewRequest generates requests for DeleteACLView
-func NewDeleteACLViewRequest(server string, name string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/acl/views/%s", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewGetACLViewRequest generates requests for GetACLView
-func NewGetACLViewRequest(server string, name string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/acl/views/%s", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewPutACLViewRequest calls the generic PutACLView builder with application/json body
-func NewPutACLViewRequest(server string, name string, body PutACLViewJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewPutACLViewRequestWithBody(server, name, "application/json", bodyReader)
-}
-
-// NewPutACLViewRequestWithBody generates requests for PutACLView with any type of body
-func NewPutACLViewRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/acl/views/%s", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("PUT", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -7395,226 +6240,6 @@ func NewUploadGameDefIconRequestWithBody(server string, id string, format Upload
 	return req, nil
 }
 
-// NewListGameRulesetsRequest generates requests for ListGameRulesets
-func NewListGameRulesetsRequest(server string, params *ListGameRulesetsParams) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/game-rulesets")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if params.Cursor != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.Limit != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewCreateGameRulesetRequest calls the generic CreateGameRuleset builder with application/json body
-func NewCreateGameRulesetRequest(server string, body CreateGameRulesetJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateGameRulesetRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewCreateGameRulesetRequestWithBody generates requests for CreateGameRuleset with any type of body
-func NewCreateGameRulesetRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/game-rulesets")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewDeleteGameRulesetRequest generates requests for DeleteGameRuleset
-func NewDeleteGameRulesetRequest(server string, name string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/game-rulesets/%s", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewGetGameRulesetRequest generates requests for GetGameRuleset
-func NewGetGameRulesetRequest(server string, name string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/game-rulesets/%s", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewPutGameRulesetRequest calls the generic PutGameRuleset builder with application/json body
-func NewPutGameRulesetRequest(server string, name string, body PutGameRulesetJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewPutGameRulesetRequestWithBody(server, name, "application/json", bodyReader)
-}
-
-// NewPutGameRulesetRequestWithBody generates requests for PutGameRuleset with any type of body
-func NewPutGameRulesetRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/game-rulesets/%s", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("PUT", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
 // NewListGeminiTenantsRequest generates requests for ListGeminiTenants
 func NewListGeminiTenantsRequest(server string, params *ListGeminiTenantsParams) (*http.Request, error) {
 	var err error
@@ -9142,87 +7767,6 @@ func NewGetPeerBadgeRequest(server string, publicKey string, id string) (*http.R
 	return req, nil
 }
 
-// NewGetPeerConfigRequest generates requests for GetPeerConfig
-func NewGetPeerConfigRequest(server string, publicKey string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "publicKey", publicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/peers/%s/config", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewPutPeerConfigRequest calls the generic PutPeerConfig builder with application/json body
-func NewPutPeerConfigRequest(server string, publicKey string, body PutPeerConfigJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewPutPeerConfigRequestWithBody(server, publicKey, "application/json", bodyReader)
-}
-
-// NewPutPeerConfigRequestWithBody generates requests for PutPeerConfig with any type of body
-func NewPutPeerConfigRequestWithBody(server string, publicKey string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "publicKey", publicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/peers/%s/config", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("PUT", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
 // NewListPeerFriendsRequest generates requests for ListPeerFriends
 func NewListPeerFriendsRequest(server string, publicKey string, params *ListPeerFriendsParams) (*http.Request, error) {
 	var err error
@@ -10636,6 +9180,179 @@ func NewUploadPetDefPixaRequestWithBody(server string, id string, contentType st
 	return req, nil
 }
 
+// NewListRegistrationTokensRequest generates requests for ListRegistrationTokens
+func NewListRegistrationTokensRequest(server string, params *ListRegistrationTokensParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/registration-tokens")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateRegistrationTokenRequest calls the generic CreateRegistrationToken builder with application/json body
+func NewCreateRegistrationTokenRequest(server string, body CreateRegistrationTokenJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateRegistrationTokenRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateRegistrationTokenRequestWithBody generates requests for CreateRegistrationToken with any type of body
+func NewCreateRegistrationTokenRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/registration-tokens")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteRegistrationTokenRequest generates requests for DeleteRegistrationToken
+func NewDeleteRegistrationTokenRequest(server string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/registration-tokens/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetRegistrationTokenRequest generates requests for GetRegistrationToken
+func NewGetRegistrationTokenRequest(server string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/registration-tokens/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewDeleteResourceRequest generates requests for DeleteResource
 func NewDeleteResourceRequest(server string, kind ResourceKind, name string) (*http.Request, error) {
 	var err error
@@ -10753,6 +9470,226 @@ func NewPutResourceRequestWithBody(server string, kind ResourceKind, name string
 	}
 
 	operationPath := fmt.Sprintf("/resources/%s/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListRuntimeProfilesRequest generates requests for ListRuntimeProfiles
+func NewListRuntimeProfilesRequest(server string, params *ListRuntimeProfilesParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/runtime-profiles")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateRuntimeProfileRequest calls the generic CreateRuntimeProfile builder with application/json body
+func NewCreateRuntimeProfileRequest(server string, body CreateRuntimeProfileJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateRuntimeProfileRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateRuntimeProfileRequestWithBody generates requests for CreateRuntimeProfile with any type of body
+func NewCreateRuntimeProfileRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/runtime-profiles")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteRuntimeProfileRequest generates requests for DeleteRuntimeProfile
+func NewDeleteRuntimeProfileRequest(server string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/runtime-profiles/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetRuntimeProfileRequest generates requests for GetRuntimeProfile
+func NewGetRuntimeProfileRequest(server string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/runtime-profiles/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutRuntimeProfileRequest calls the generic PutRuntimeProfile builder with application/json body
+func NewPutRuntimeProfileRequest(server string, name string, body PutRuntimeProfileJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutRuntimeProfileRequestWithBody(server, name, "application/json", bodyReader)
+}
+
+// NewPutRuntimeProfileRequestWithBody generates requests for PutRuntimeProfile with any type of body
+func NewPutRuntimeProfileRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/runtime-profiles/%s", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -13195,63 +12132,6 @@ type ClientWithResponsesInterface interface {
 
 	ApplyResourceWithResponse(ctx context.Context, body ApplyResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*ApplyResourceResponse, error)
 
-	// ListACLPolicyBindingsWithResponse request
-	ListACLPolicyBindingsWithResponse(ctx context.Context, params *ListACLPolicyBindingsParams, reqEditors ...RequestEditorFn) (*ListACLPolicyBindingsResponse, error)
-
-	// CreateACLPolicyBindingWithBodyWithResponse request with any body
-	CreateACLPolicyBindingWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateACLPolicyBindingResponse, error)
-
-	CreateACLPolicyBindingWithResponse(ctx context.Context, body CreateACLPolicyBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateACLPolicyBindingResponse, error)
-
-	// DeleteACLPolicyBindingWithResponse request
-	DeleteACLPolicyBindingWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteACLPolicyBindingResponse, error)
-
-	// GetACLPolicyBindingWithResponse request
-	GetACLPolicyBindingWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetACLPolicyBindingResponse, error)
-
-	// PutACLPolicyBindingWithBodyWithResponse request with any body
-	PutACLPolicyBindingWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutACLPolicyBindingResponse, error)
-
-	PutACLPolicyBindingWithResponse(ctx context.Context, id string, body PutACLPolicyBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*PutACLPolicyBindingResponse, error)
-
-	// ListACLRolesWithResponse request
-	ListACLRolesWithResponse(ctx context.Context, params *ListACLRolesParams, reqEditors ...RequestEditorFn) (*ListACLRolesResponse, error)
-
-	// CreateACLRoleWithBodyWithResponse request with any body
-	CreateACLRoleWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateACLRoleResponse, error)
-
-	CreateACLRoleWithResponse(ctx context.Context, body CreateACLRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateACLRoleResponse, error)
-
-	// DeleteACLRoleWithResponse request
-	DeleteACLRoleWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteACLRoleResponse, error)
-
-	// GetACLRoleWithResponse request
-	GetACLRoleWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetACLRoleResponse, error)
-
-	// PutACLRoleWithBodyWithResponse request with any body
-	PutACLRoleWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutACLRoleResponse, error)
-
-	PutACLRoleWithResponse(ctx context.Context, name string, body PutACLRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*PutACLRoleResponse, error)
-
-	// ListACLViewsWithResponse request
-	ListACLViewsWithResponse(ctx context.Context, params *ListACLViewsParams, reqEditors ...RequestEditorFn) (*ListACLViewsResponse, error)
-
-	// CreateACLViewWithBodyWithResponse request with any body
-	CreateACLViewWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateACLViewResponse, error)
-
-	CreateACLViewWithResponse(ctx context.Context, body CreateACLViewJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateACLViewResponse, error)
-
-	// DeleteACLViewWithResponse request
-	DeleteACLViewWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteACLViewResponse, error)
-
-	// GetACLViewWithResponse request
-	GetACLViewWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetACLViewResponse, error)
-
-	// PutACLViewWithBodyWithResponse request with any body
-	PutACLViewWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutACLViewResponse, error)
-
-	PutACLViewWithResponse(ctx context.Context, name string, body PutACLViewJSONRequestBody, reqEditors ...RequestEditorFn) (*PutACLViewResponse, error)
-
 	// ListBadgeDefsWithResponse request
 	ListBadgeDefsWithResponse(ctx context.Context, params *ListBadgeDefsParams, reqEditors ...RequestEditorFn) (*ListBadgeDefsResponse, error)
 
@@ -13389,25 +12269,6 @@ type ClientWithResponsesInterface interface {
 	// UploadGameDefIconWithBodyWithResponse request with any body
 	UploadGameDefIconWithBodyWithResponse(ctx context.Context, id string, format UploadGameDefIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadGameDefIconResponse, error)
 
-	// ListGameRulesetsWithResponse request
-	ListGameRulesetsWithResponse(ctx context.Context, params *ListGameRulesetsParams, reqEditors ...RequestEditorFn) (*ListGameRulesetsResponse, error)
-
-	// CreateGameRulesetWithBodyWithResponse request with any body
-	CreateGameRulesetWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGameRulesetResponse, error)
-
-	CreateGameRulesetWithResponse(ctx context.Context, body CreateGameRulesetJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateGameRulesetResponse, error)
-
-	// DeleteGameRulesetWithResponse request
-	DeleteGameRulesetWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteGameRulesetResponse, error)
-
-	// GetGameRulesetWithResponse request
-	GetGameRulesetWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetGameRulesetResponse, error)
-
-	// PutGameRulesetWithBodyWithResponse request with any body
-	PutGameRulesetWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutGameRulesetResponse, error)
-
-	PutGameRulesetWithResponse(ctx context.Context, name string, body PutGameRulesetJSONRequestBody, reqEditors ...RequestEditorFn) (*PutGameRulesetResponse, error)
-
 	// ListGeminiTenantsWithResponse request
 	ListGeminiTenantsWithResponse(ctx context.Context, params *ListGeminiTenantsParams, reqEditors ...RequestEditorFn) (*ListGeminiTenantsResponse, error)
 
@@ -13522,14 +12383,6 @@ type ClientWithResponsesInterface interface {
 	// GetPeerBadgeWithResponse request
 	GetPeerBadgeWithResponse(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*GetPeerBadgeResponse, error)
 
-	// GetPeerConfigWithResponse request
-	GetPeerConfigWithResponse(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*GetPeerConfigResponse, error)
-
-	// PutPeerConfigWithBodyWithResponse request with any body
-	PutPeerConfigWithBodyWithResponse(ctx context.Context, publicKey string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutPeerConfigResponse, error)
-
-	PutPeerConfigWithResponse(ctx context.Context, publicKey string, body PutPeerConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*PutPeerConfigResponse, error)
-
 	// ListPeerFriendsWithResponse request
 	ListPeerFriendsWithResponse(ctx context.Context, publicKey string, params *ListPeerFriendsParams, reqEditors ...RequestEditorFn) (*ListPeerFriendsResponse, error)
 
@@ -13619,6 +12472,20 @@ type ClientWithResponsesInterface interface {
 	// UploadPetDefPixaWithBodyWithResponse request with any body
 	UploadPetDefPixaWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadPetDefPixaResponse, error)
 
+	// ListRegistrationTokensWithResponse request
+	ListRegistrationTokensWithResponse(ctx context.Context, params *ListRegistrationTokensParams, reqEditors ...RequestEditorFn) (*ListRegistrationTokensResponse, error)
+
+	// CreateRegistrationTokenWithBodyWithResponse request with any body
+	CreateRegistrationTokenWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateRegistrationTokenResponse, error)
+
+	CreateRegistrationTokenWithResponse(ctx context.Context, body CreateRegistrationTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateRegistrationTokenResponse, error)
+
+	// DeleteRegistrationTokenWithResponse request
+	DeleteRegistrationTokenWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteRegistrationTokenResponse, error)
+
+	// GetRegistrationTokenWithResponse request
+	GetRegistrationTokenWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetRegistrationTokenResponse, error)
+
 	// DeleteResourceWithResponse request
 	DeleteResourceWithResponse(ctx context.Context, kind ResourceKind, name string, reqEditors ...RequestEditorFn) (*DeleteResourceResponse, error)
 
@@ -13629,6 +12496,25 @@ type ClientWithResponsesInterface interface {
 	PutResourceWithBodyWithResponse(ctx context.Context, kind ResourceKind, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutResourceResponse, error)
 
 	PutResourceWithResponse(ctx context.Context, kind ResourceKind, name string, body PutResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*PutResourceResponse, error)
+
+	// ListRuntimeProfilesWithResponse request
+	ListRuntimeProfilesWithResponse(ctx context.Context, params *ListRuntimeProfilesParams, reqEditors ...RequestEditorFn) (*ListRuntimeProfilesResponse, error)
+
+	// CreateRuntimeProfileWithBodyWithResponse request with any body
+	CreateRuntimeProfileWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateRuntimeProfileResponse, error)
+
+	CreateRuntimeProfileWithResponse(ctx context.Context, body CreateRuntimeProfileJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateRuntimeProfileResponse, error)
+
+	// DeleteRuntimeProfileWithResponse request
+	DeleteRuntimeProfileWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteRuntimeProfileResponse, error)
+
+	// GetRuntimeProfileWithResponse request
+	GetRuntimeProfileWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetRuntimeProfileResponse, error)
+
+	// PutRuntimeProfileWithBodyWithResponse request with any body
+	PutRuntimeProfileWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutRuntimeProfileResponse, error)
+
+	PutRuntimeProfileWithResponse(ctx context.Context, name string, body PutRuntimeProfileJSONRequestBody, reqEditors ...RequestEditorFn) (*PutRuntimeProfileResponse, error)
 
 	// ListContactsWithResponse request
 	ListContactsWithResponse(ctx context.Context, params *ListContactsParams, reqEditors ...RequestEditorFn) (*ListContactsResponse, error)
@@ -13836,366 +12722,6 @@ func (r ApplyResourceResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ApplyResourceResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type ListACLPolicyBindingsResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ACLPolicyBindingList
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r ListACLPolicyBindingsResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ListACLPolicyBindingsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type CreateACLPolicyBindingResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.ACLPolicyBinding
-	JSON400      *externalRef0.ErrorResponse
-	JSON409      *externalRef0.ErrorResponse
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r CreateACLPolicyBindingResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r CreateACLPolicyBindingResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type DeleteACLPolicyBindingResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.ACLPolicyBinding
-	JSON404      *externalRef0.ErrorResponse
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r DeleteACLPolicyBindingResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r DeleteACLPolicyBindingResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type GetACLPolicyBindingResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.ACLPolicyBinding
-	JSON404      *externalRef0.ErrorResponse
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r GetACLPolicyBindingResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetACLPolicyBindingResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type PutACLPolicyBindingResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.ACLPolicyBinding
-	JSON400      *externalRef0.ErrorResponse
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r PutACLPolicyBindingResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r PutACLPolicyBindingResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type ListACLRolesResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ACLRoleList
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r ListACLRolesResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ListACLRolesResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type CreateACLRoleResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.ACLRole
-	JSON400      *externalRef0.ErrorResponse
-	JSON409      *externalRef0.ErrorResponse
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r CreateACLRoleResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r CreateACLRoleResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type DeleteACLRoleResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.ACLRole
-	JSON404      *externalRef0.ErrorResponse
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r DeleteACLRoleResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r DeleteACLRoleResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type GetACLRoleResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.ACLRole
-	JSON404      *externalRef0.ErrorResponse
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r GetACLRoleResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetACLRoleResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type PutACLRoleResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.ACLRole
-	JSON400      *externalRef0.ErrorResponse
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r PutACLRoleResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r PutACLRoleResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type ListACLViewsResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ACLViewList
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r ListACLViewsResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ListACLViewsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type CreateACLViewResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.ACLView
-	JSON400      *externalRef0.ErrorResponse
-	JSON409      *externalRef0.ErrorResponse
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r CreateACLViewResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r CreateACLViewResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type DeleteACLViewResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.ACLView
-	JSON404      *externalRef0.ErrorResponse
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r DeleteACLViewResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r DeleteACLViewResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type GetACLViewResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.ACLView
-	JSON404      *externalRef0.ErrorResponse
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r GetACLViewResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetACLViewResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type PutACLViewResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.ACLView
-	JSON400      *externalRef0.ErrorResponse
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r PutACLViewResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r PutACLViewResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -15146,127 +13672,6 @@ func (r UploadGameDefIconResponse) StatusCode() int {
 	return 0
 }
 
-type ListGameRulesetsResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *GameRulesetList
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r ListGameRulesetsResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ListGameRulesetsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type CreateGameRulesetResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.GameRuleset
-	JSON400      *externalRef0.ErrorResponse
-	JSON409      *externalRef0.ErrorResponse
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r CreateGameRulesetResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r CreateGameRulesetResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type DeleteGameRulesetResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.GameRuleset
-	JSON404      *externalRef0.ErrorResponse
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r DeleteGameRulesetResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r DeleteGameRulesetResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type GetGameRulesetResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.GameRuleset
-	JSON404      *externalRef0.ErrorResponse
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r GetGameRulesetResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetGameRulesetResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type PutGameRulesetResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.GameRuleset
-	JSON400      *externalRef0.ErrorResponse
-	JSON409      *externalRef0.ErrorResponse
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r PutGameRulesetResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r PutGameRulesetResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 type ListGeminiTenantsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -16032,53 +14437,6 @@ func (r GetPeerBadgeResponse) StatusCode() int {
 	return 0
 }
 
-type GetPeerConfigResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.Configuration
-	JSON404      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r GetPeerConfigResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetPeerConfigResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type PutPeerConfigResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.Configuration
-	JSON400      *externalRef0.ErrorResponse
-	JSON404      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r PutPeerConfigResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r PutPeerConfigResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 type ListPeerFriendsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -16729,6 +15087,102 @@ func (r UploadPetDefPixaResponse) StatusCode() int {
 	return 0
 }
 
+type ListRegistrationTokensResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *RegistrationTokenList
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListRegistrationTokensResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListRegistrationTokensResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateRegistrationTokenResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.RegistrationTokenCreateResult
+	JSON400      *externalRef0.ErrorResponse
+	JSON409      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateRegistrationTokenResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateRegistrationTokenResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteRegistrationTokenResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.RegistrationToken
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteRegistrationTokenResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteRegistrationTokenResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetRegistrationTokenResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.RegistrationToken
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetRegistrationTokenResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetRegistrationTokenResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type DeleteResourceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -16802,6 +15256,127 @@ func (r PutResourceResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r PutResourceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListRuntimeProfilesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *RuntimeProfileList
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListRuntimeProfilesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListRuntimeProfilesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateRuntimeProfileResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.RuntimeProfile
+	JSON400      *externalRef0.ErrorResponse
+	JSON409      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateRuntimeProfileResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateRuntimeProfileResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteRuntimeProfileResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.RuntimeProfile
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteRuntimeProfileResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteRuntimeProfileResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetRuntimeProfileResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.RuntimeProfile
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetRuntimeProfileResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetRuntimeProfileResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PutRuntimeProfileResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.RuntimeProfile
+	JSON400      *externalRef0.ErrorResponse
+	JSON409      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PutRuntimeProfileResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutRuntimeProfileResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -18076,189 +16651,6 @@ func (c *ClientWithResponses) ApplyResourceWithResponse(ctx context.Context, bod
 	return ParseApplyResourceResponse(rsp)
 }
 
-// ListACLPolicyBindingsWithResponse request returning *ListACLPolicyBindingsResponse
-func (c *ClientWithResponses) ListACLPolicyBindingsWithResponse(ctx context.Context, params *ListACLPolicyBindingsParams, reqEditors ...RequestEditorFn) (*ListACLPolicyBindingsResponse, error) {
-	rsp, err := c.ListACLPolicyBindings(ctx, params, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseListACLPolicyBindingsResponse(rsp)
-}
-
-// CreateACLPolicyBindingWithBodyWithResponse request with arbitrary body returning *CreateACLPolicyBindingResponse
-func (c *ClientWithResponses) CreateACLPolicyBindingWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateACLPolicyBindingResponse, error) {
-	rsp, err := c.CreateACLPolicyBindingWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateACLPolicyBindingResponse(rsp)
-}
-
-func (c *ClientWithResponses) CreateACLPolicyBindingWithResponse(ctx context.Context, body CreateACLPolicyBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateACLPolicyBindingResponse, error) {
-	rsp, err := c.CreateACLPolicyBinding(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateACLPolicyBindingResponse(rsp)
-}
-
-// DeleteACLPolicyBindingWithResponse request returning *DeleteACLPolicyBindingResponse
-func (c *ClientWithResponses) DeleteACLPolicyBindingWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteACLPolicyBindingResponse, error) {
-	rsp, err := c.DeleteACLPolicyBinding(ctx, id, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseDeleteACLPolicyBindingResponse(rsp)
-}
-
-// GetACLPolicyBindingWithResponse request returning *GetACLPolicyBindingResponse
-func (c *ClientWithResponses) GetACLPolicyBindingWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetACLPolicyBindingResponse, error) {
-	rsp, err := c.GetACLPolicyBinding(ctx, id, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetACLPolicyBindingResponse(rsp)
-}
-
-// PutACLPolicyBindingWithBodyWithResponse request with arbitrary body returning *PutACLPolicyBindingResponse
-func (c *ClientWithResponses) PutACLPolicyBindingWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutACLPolicyBindingResponse, error) {
-	rsp, err := c.PutACLPolicyBindingWithBody(ctx, id, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePutACLPolicyBindingResponse(rsp)
-}
-
-func (c *ClientWithResponses) PutACLPolicyBindingWithResponse(ctx context.Context, id string, body PutACLPolicyBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*PutACLPolicyBindingResponse, error) {
-	rsp, err := c.PutACLPolicyBinding(ctx, id, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePutACLPolicyBindingResponse(rsp)
-}
-
-// ListACLRolesWithResponse request returning *ListACLRolesResponse
-func (c *ClientWithResponses) ListACLRolesWithResponse(ctx context.Context, params *ListACLRolesParams, reqEditors ...RequestEditorFn) (*ListACLRolesResponse, error) {
-	rsp, err := c.ListACLRoles(ctx, params, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseListACLRolesResponse(rsp)
-}
-
-// CreateACLRoleWithBodyWithResponse request with arbitrary body returning *CreateACLRoleResponse
-func (c *ClientWithResponses) CreateACLRoleWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateACLRoleResponse, error) {
-	rsp, err := c.CreateACLRoleWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateACLRoleResponse(rsp)
-}
-
-func (c *ClientWithResponses) CreateACLRoleWithResponse(ctx context.Context, body CreateACLRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateACLRoleResponse, error) {
-	rsp, err := c.CreateACLRole(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateACLRoleResponse(rsp)
-}
-
-// DeleteACLRoleWithResponse request returning *DeleteACLRoleResponse
-func (c *ClientWithResponses) DeleteACLRoleWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteACLRoleResponse, error) {
-	rsp, err := c.DeleteACLRole(ctx, name, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseDeleteACLRoleResponse(rsp)
-}
-
-// GetACLRoleWithResponse request returning *GetACLRoleResponse
-func (c *ClientWithResponses) GetACLRoleWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetACLRoleResponse, error) {
-	rsp, err := c.GetACLRole(ctx, name, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetACLRoleResponse(rsp)
-}
-
-// PutACLRoleWithBodyWithResponse request with arbitrary body returning *PutACLRoleResponse
-func (c *ClientWithResponses) PutACLRoleWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutACLRoleResponse, error) {
-	rsp, err := c.PutACLRoleWithBody(ctx, name, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePutACLRoleResponse(rsp)
-}
-
-func (c *ClientWithResponses) PutACLRoleWithResponse(ctx context.Context, name string, body PutACLRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*PutACLRoleResponse, error) {
-	rsp, err := c.PutACLRole(ctx, name, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePutACLRoleResponse(rsp)
-}
-
-// ListACLViewsWithResponse request returning *ListACLViewsResponse
-func (c *ClientWithResponses) ListACLViewsWithResponse(ctx context.Context, params *ListACLViewsParams, reqEditors ...RequestEditorFn) (*ListACLViewsResponse, error) {
-	rsp, err := c.ListACLViews(ctx, params, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseListACLViewsResponse(rsp)
-}
-
-// CreateACLViewWithBodyWithResponse request with arbitrary body returning *CreateACLViewResponse
-func (c *ClientWithResponses) CreateACLViewWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateACLViewResponse, error) {
-	rsp, err := c.CreateACLViewWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateACLViewResponse(rsp)
-}
-
-func (c *ClientWithResponses) CreateACLViewWithResponse(ctx context.Context, body CreateACLViewJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateACLViewResponse, error) {
-	rsp, err := c.CreateACLView(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateACLViewResponse(rsp)
-}
-
-// DeleteACLViewWithResponse request returning *DeleteACLViewResponse
-func (c *ClientWithResponses) DeleteACLViewWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteACLViewResponse, error) {
-	rsp, err := c.DeleteACLView(ctx, name, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseDeleteACLViewResponse(rsp)
-}
-
-// GetACLViewWithResponse request returning *GetACLViewResponse
-func (c *ClientWithResponses) GetACLViewWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetACLViewResponse, error) {
-	rsp, err := c.GetACLView(ctx, name, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetACLViewResponse(rsp)
-}
-
-// PutACLViewWithBodyWithResponse request with arbitrary body returning *PutACLViewResponse
-func (c *ClientWithResponses) PutACLViewWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutACLViewResponse, error) {
-	rsp, err := c.PutACLViewWithBody(ctx, name, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePutACLViewResponse(rsp)
-}
-
-func (c *ClientWithResponses) PutACLViewWithResponse(ctx context.Context, name string, body PutACLViewJSONRequestBody, reqEditors ...RequestEditorFn) (*PutACLViewResponse, error) {
-	rsp, err := c.PutACLView(ctx, name, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePutACLViewResponse(rsp)
-}
-
 // ListBadgeDefsWithResponse request returning *ListBadgeDefsResponse
 func (c *ClientWithResponses) ListBadgeDefsWithResponse(ctx context.Context, params *ListBadgeDefsParams, reqEditors ...RequestEditorFn) (*ListBadgeDefsResponse, error) {
 	rsp, err := c.ListBadgeDefs(ctx, params, reqEditors...)
@@ -18690,67 +17082,6 @@ func (c *ClientWithResponses) UploadGameDefIconWithBodyWithResponse(ctx context.
 	return ParseUploadGameDefIconResponse(rsp)
 }
 
-// ListGameRulesetsWithResponse request returning *ListGameRulesetsResponse
-func (c *ClientWithResponses) ListGameRulesetsWithResponse(ctx context.Context, params *ListGameRulesetsParams, reqEditors ...RequestEditorFn) (*ListGameRulesetsResponse, error) {
-	rsp, err := c.ListGameRulesets(ctx, params, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseListGameRulesetsResponse(rsp)
-}
-
-// CreateGameRulesetWithBodyWithResponse request with arbitrary body returning *CreateGameRulesetResponse
-func (c *ClientWithResponses) CreateGameRulesetWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGameRulesetResponse, error) {
-	rsp, err := c.CreateGameRulesetWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateGameRulesetResponse(rsp)
-}
-
-func (c *ClientWithResponses) CreateGameRulesetWithResponse(ctx context.Context, body CreateGameRulesetJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateGameRulesetResponse, error) {
-	rsp, err := c.CreateGameRuleset(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateGameRulesetResponse(rsp)
-}
-
-// DeleteGameRulesetWithResponse request returning *DeleteGameRulesetResponse
-func (c *ClientWithResponses) DeleteGameRulesetWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteGameRulesetResponse, error) {
-	rsp, err := c.DeleteGameRuleset(ctx, name, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseDeleteGameRulesetResponse(rsp)
-}
-
-// GetGameRulesetWithResponse request returning *GetGameRulesetResponse
-func (c *ClientWithResponses) GetGameRulesetWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetGameRulesetResponse, error) {
-	rsp, err := c.GetGameRuleset(ctx, name, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetGameRulesetResponse(rsp)
-}
-
-// PutGameRulesetWithBodyWithResponse request with arbitrary body returning *PutGameRulesetResponse
-func (c *ClientWithResponses) PutGameRulesetWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutGameRulesetResponse, error) {
-	rsp, err := c.PutGameRulesetWithBody(ctx, name, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePutGameRulesetResponse(rsp)
-}
-
-func (c *ClientWithResponses) PutGameRulesetWithResponse(ctx context.Context, name string, body PutGameRulesetJSONRequestBody, reqEditors ...RequestEditorFn) (*PutGameRulesetResponse, error) {
-	rsp, err := c.PutGameRuleset(ctx, name, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePutGameRulesetResponse(rsp)
-}
-
 // ListGeminiTenantsWithResponse request returning *ListGeminiTenantsResponse
 func (c *ClientWithResponses) ListGeminiTenantsWithResponse(ctx context.Context, params *ListGeminiTenantsParams, reqEditors ...RequestEditorFn) (*ListGeminiTenantsResponse, error) {
 	rsp, err := c.ListGeminiTenants(ctx, params, reqEditors...)
@@ -19111,32 +17442,6 @@ func (c *ClientWithResponses) GetPeerBadgeWithResponse(ctx context.Context, publ
 	return ParseGetPeerBadgeResponse(rsp)
 }
 
-// GetPeerConfigWithResponse request returning *GetPeerConfigResponse
-func (c *ClientWithResponses) GetPeerConfigWithResponse(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*GetPeerConfigResponse, error) {
-	rsp, err := c.GetPeerConfig(ctx, publicKey, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetPeerConfigResponse(rsp)
-}
-
-// PutPeerConfigWithBodyWithResponse request with arbitrary body returning *PutPeerConfigResponse
-func (c *ClientWithResponses) PutPeerConfigWithBodyWithResponse(ctx context.Context, publicKey string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutPeerConfigResponse, error) {
-	rsp, err := c.PutPeerConfigWithBody(ctx, publicKey, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePutPeerConfigResponse(rsp)
-}
-
-func (c *ClientWithResponses) PutPeerConfigWithResponse(ctx context.Context, publicKey string, body PutPeerConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*PutPeerConfigResponse, error) {
-	rsp, err := c.PutPeerConfig(ctx, publicKey, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePutPeerConfigResponse(rsp)
-}
-
 // ListPeerFriendsWithResponse request returning *ListPeerFriendsResponse
 func (c *ClientWithResponses) ListPeerFriendsWithResponse(ctx context.Context, publicKey string, params *ListPeerFriendsParams, reqEditors ...RequestEditorFn) (*ListPeerFriendsResponse, error) {
 	rsp, err := c.ListPeerFriends(ctx, publicKey, params, reqEditors...)
@@ -19412,6 +17717,50 @@ func (c *ClientWithResponses) UploadPetDefPixaWithBodyWithResponse(ctx context.C
 	return ParseUploadPetDefPixaResponse(rsp)
 }
 
+// ListRegistrationTokensWithResponse request returning *ListRegistrationTokensResponse
+func (c *ClientWithResponses) ListRegistrationTokensWithResponse(ctx context.Context, params *ListRegistrationTokensParams, reqEditors ...RequestEditorFn) (*ListRegistrationTokensResponse, error) {
+	rsp, err := c.ListRegistrationTokens(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListRegistrationTokensResponse(rsp)
+}
+
+// CreateRegistrationTokenWithBodyWithResponse request with arbitrary body returning *CreateRegistrationTokenResponse
+func (c *ClientWithResponses) CreateRegistrationTokenWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateRegistrationTokenResponse, error) {
+	rsp, err := c.CreateRegistrationTokenWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateRegistrationTokenResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateRegistrationTokenWithResponse(ctx context.Context, body CreateRegistrationTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateRegistrationTokenResponse, error) {
+	rsp, err := c.CreateRegistrationToken(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateRegistrationTokenResponse(rsp)
+}
+
+// DeleteRegistrationTokenWithResponse request returning *DeleteRegistrationTokenResponse
+func (c *ClientWithResponses) DeleteRegistrationTokenWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteRegistrationTokenResponse, error) {
+	rsp, err := c.DeleteRegistrationToken(ctx, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteRegistrationTokenResponse(rsp)
+}
+
+// GetRegistrationTokenWithResponse request returning *GetRegistrationTokenResponse
+func (c *ClientWithResponses) GetRegistrationTokenWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetRegistrationTokenResponse, error) {
+	rsp, err := c.GetRegistrationToken(ctx, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetRegistrationTokenResponse(rsp)
+}
+
 // DeleteResourceWithResponse request returning *DeleteResourceResponse
 func (c *ClientWithResponses) DeleteResourceWithResponse(ctx context.Context, kind ResourceKind, name string, reqEditors ...RequestEditorFn) (*DeleteResourceResponse, error) {
 	rsp, err := c.DeleteResource(ctx, kind, name, reqEditors...)
@@ -19445,6 +17794,67 @@ func (c *ClientWithResponses) PutResourceWithResponse(ctx context.Context, kind 
 		return nil, err
 	}
 	return ParsePutResourceResponse(rsp)
+}
+
+// ListRuntimeProfilesWithResponse request returning *ListRuntimeProfilesResponse
+func (c *ClientWithResponses) ListRuntimeProfilesWithResponse(ctx context.Context, params *ListRuntimeProfilesParams, reqEditors ...RequestEditorFn) (*ListRuntimeProfilesResponse, error) {
+	rsp, err := c.ListRuntimeProfiles(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListRuntimeProfilesResponse(rsp)
+}
+
+// CreateRuntimeProfileWithBodyWithResponse request with arbitrary body returning *CreateRuntimeProfileResponse
+func (c *ClientWithResponses) CreateRuntimeProfileWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateRuntimeProfileResponse, error) {
+	rsp, err := c.CreateRuntimeProfileWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateRuntimeProfileResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateRuntimeProfileWithResponse(ctx context.Context, body CreateRuntimeProfileJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateRuntimeProfileResponse, error) {
+	rsp, err := c.CreateRuntimeProfile(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateRuntimeProfileResponse(rsp)
+}
+
+// DeleteRuntimeProfileWithResponse request returning *DeleteRuntimeProfileResponse
+func (c *ClientWithResponses) DeleteRuntimeProfileWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteRuntimeProfileResponse, error) {
+	rsp, err := c.DeleteRuntimeProfile(ctx, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteRuntimeProfileResponse(rsp)
+}
+
+// GetRuntimeProfileWithResponse request returning *GetRuntimeProfileResponse
+func (c *ClientWithResponses) GetRuntimeProfileWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetRuntimeProfileResponse, error) {
+	rsp, err := c.GetRuntimeProfile(ctx, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetRuntimeProfileResponse(rsp)
+}
+
+// PutRuntimeProfileWithBodyWithResponse request with arbitrary body returning *PutRuntimeProfileResponse
+func (c *ClientWithResponses) PutRuntimeProfileWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutRuntimeProfileResponse, error) {
+	rsp, err := c.PutRuntimeProfileWithBody(ctx, name, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutRuntimeProfileResponse(rsp)
+}
+
+func (c *ClientWithResponses) PutRuntimeProfileWithResponse(ctx context.Context, name string, body PutRuntimeProfileJSONRequestBody, reqEditors ...RequestEditorFn) (*PutRuntimeProfileResponse, error) {
+	rsp, err := c.PutRuntimeProfile(ctx, name, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutRuntimeProfileResponse(rsp)
 }
 
 // ListContactsWithResponse request returning *ListContactsResponse
@@ -20082,606 +18492,6 @@ func ParseApplyResourceResponse(rsp *http.Response) (*ApplyResourceResponse, err
 			return nil, err
 		}
 		response.JSON501 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseListACLPolicyBindingsResponse parses an HTTP response from a ListACLPolicyBindingsWithResponse call
-func ParseListACLPolicyBindingsResponse(rsp *http.Response) (*ListACLPolicyBindingsResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ListACLPolicyBindingsResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ACLPolicyBindingList
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseCreateACLPolicyBindingResponse parses an HTTP response from a CreateACLPolicyBindingWithResponse call
-func ParseCreateACLPolicyBindingResponse(rsp *http.Response) (*CreateACLPolicyBindingResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &CreateACLPolicyBindingResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.ACLPolicyBinding
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseDeleteACLPolicyBindingResponse parses an HTTP response from a DeleteACLPolicyBindingWithResponse call
-func ParseDeleteACLPolicyBindingResponse(rsp *http.Response) (*DeleteACLPolicyBindingResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &DeleteACLPolicyBindingResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.ACLPolicyBinding
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetACLPolicyBindingResponse parses an HTTP response from a GetACLPolicyBindingWithResponse call
-func ParseGetACLPolicyBindingResponse(rsp *http.Response) (*GetACLPolicyBindingResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetACLPolicyBindingResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.ACLPolicyBinding
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParsePutACLPolicyBindingResponse parses an HTTP response from a PutACLPolicyBindingWithResponse call
-func ParsePutACLPolicyBindingResponse(rsp *http.Response) (*PutACLPolicyBindingResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &PutACLPolicyBindingResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.ACLPolicyBinding
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseListACLRolesResponse parses an HTTP response from a ListACLRolesWithResponse call
-func ParseListACLRolesResponse(rsp *http.Response) (*ListACLRolesResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ListACLRolesResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ACLRoleList
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseCreateACLRoleResponse parses an HTTP response from a CreateACLRoleWithResponse call
-func ParseCreateACLRoleResponse(rsp *http.Response) (*CreateACLRoleResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &CreateACLRoleResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.ACLRole
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseDeleteACLRoleResponse parses an HTTP response from a DeleteACLRoleWithResponse call
-func ParseDeleteACLRoleResponse(rsp *http.Response) (*DeleteACLRoleResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &DeleteACLRoleResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.ACLRole
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetACLRoleResponse parses an HTTP response from a GetACLRoleWithResponse call
-func ParseGetACLRoleResponse(rsp *http.Response) (*GetACLRoleResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetACLRoleResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.ACLRole
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParsePutACLRoleResponse parses an HTTP response from a PutACLRoleWithResponse call
-func ParsePutACLRoleResponse(rsp *http.Response) (*PutACLRoleResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &PutACLRoleResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.ACLRole
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseListACLViewsResponse parses an HTTP response from a ListACLViewsWithResponse call
-func ParseListACLViewsResponse(rsp *http.Response) (*ListACLViewsResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ListACLViewsResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ACLViewList
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseCreateACLViewResponse parses an HTTP response from a CreateACLViewWithResponse call
-func ParseCreateACLViewResponse(rsp *http.Response) (*CreateACLViewResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &CreateACLViewResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.ACLView
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseDeleteACLViewResponse parses an HTTP response from a DeleteACLViewWithResponse call
-func ParseDeleteACLViewResponse(rsp *http.Response) (*DeleteACLViewResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &DeleteACLViewResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.ACLView
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetACLViewResponse parses an HTTP response from a GetACLViewWithResponse call
-func ParseGetACLViewResponse(rsp *http.Response) (*GetACLViewResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetACLViewResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.ACLView
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParsePutACLViewResponse parses an HTTP response from a PutACLViewWithResponse call
-func ParsePutACLViewResponse(rsp *http.Response) (*PutACLViewResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &PutACLViewResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.ACLView
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
 
 	}
 
@@ -22304,213 +20114,6 @@ func ParseUploadGameDefIconResponse(rsp *http.Response) (*UploadGameDefIconRespo
 	return response, nil
 }
 
-// ParseListGameRulesetsResponse parses an HTTP response from a ListGameRulesetsWithResponse call
-func ParseListGameRulesetsResponse(rsp *http.Response) (*ListGameRulesetsResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ListGameRulesetsResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest GameRulesetList
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseCreateGameRulesetResponse parses an HTTP response from a CreateGameRulesetWithResponse call
-func ParseCreateGameRulesetResponse(rsp *http.Response) (*CreateGameRulesetResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &CreateGameRulesetResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.GameRuleset
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseDeleteGameRulesetResponse parses an HTTP response from a DeleteGameRulesetWithResponse call
-func ParseDeleteGameRulesetResponse(rsp *http.Response) (*DeleteGameRulesetResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &DeleteGameRulesetResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.GameRuleset
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetGameRulesetResponse parses an HTTP response from a GetGameRulesetWithResponse call
-func ParseGetGameRulesetResponse(rsp *http.Response) (*GetGameRulesetResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetGameRulesetResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.GameRuleset
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParsePutGameRulesetResponse parses an HTTP response from a PutGameRulesetWithResponse call
-func ParsePutGameRulesetResponse(rsp *http.Response) (*PutGameRulesetResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &PutGameRulesetResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.GameRuleset
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParseListGeminiTenantsResponse parses an HTTP response from a ListGeminiTenantsWithResponse call
 func ParseListGeminiTenantsResponse(rsp *http.Response) (*ListGeminiTenantsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -23770,79 +21373,6 @@ func ParseGetPeerBadgeResponse(rsp *http.Response) (*GetPeerBadgeResponse, error
 	return response, nil
 }
 
-// ParseGetPeerConfigResponse parses an HTTP response from a GetPeerConfigWithResponse call
-func ParseGetPeerConfigResponse(rsp *http.Response) (*GetPeerConfigResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetPeerConfigResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.Configuration
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParsePutPeerConfigResponse parses an HTTP response from a PutPeerConfigWithResponse call
-func ParsePutPeerConfigResponse(rsp *http.Response) (*PutPeerConfigResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &PutPeerConfigResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.Configuration
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParseListPeerFriendsResponse parses an HTTP response from a ListPeerFriendsWithResponse call
 func ParseListPeerFriendsResponse(rsp *http.Response) (*ListPeerFriendsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -24937,6 +22467,166 @@ func ParseUploadPetDefPixaResponse(rsp *http.Response) (*UploadPetDefPixaRespons
 	return response, nil
 }
 
+// ParseListRegistrationTokensResponse parses an HTTP response from a ListRegistrationTokensWithResponse call
+func ParseListRegistrationTokensResponse(rsp *http.Response) (*ListRegistrationTokensResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListRegistrationTokensResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RegistrationTokenList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateRegistrationTokenResponse parses an HTTP response from a CreateRegistrationTokenWithResponse call
+func ParseCreateRegistrationTokenResponse(rsp *http.Response) (*CreateRegistrationTokenResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateRegistrationTokenResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.RegistrationTokenCreateResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteRegistrationTokenResponse parses an HTTP response from a DeleteRegistrationTokenWithResponse call
+func ParseDeleteRegistrationTokenResponse(rsp *http.Response) (*DeleteRegistrationTokenResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteRegistrationTokenResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.RegistrationToken
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetRegistrationTokenResponse parses an HTTP response from a GetRegistrationTokenWithResponse call
+func ParseGetRegistrationTokenResponse(rsp *http.Response) (*GetRegistrationTokenResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetRegistrationTokenResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.RegistrationToken
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseDeleteResourceResponse parses an HTTP response from a DeleteResourceWithResponse call
 func ParseDeleteResourceResponse(rsp *http.Response) (*DeleteResourceResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -25100,6 +22790,213 @@ func ParsePutResourceResponse(rsp *http.Response) (*PutResourceResponse, error) 
 			return nil, err
 		}
 		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListRuntimeProfilesResponse parses an HTTP response from a ListRuntimeProfilesWithResponse call
+func ParseListRuntimeProfilesResponse(rsp *http.Response) (*ListRuntimeProfilesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListRuntimeProfilesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RuntimeProfileList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateRuntimeProfileResponse parses an HTTP response from a CreateRuntimeProfileWithResponse call
+func ParseCreateRuntimeProfileResponse(rsp *http.Response) (*CreateRuntimeProfileResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateRuntimeProfileResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.RuntimeProfile
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteRuntimeProfileResponse parses an HTTP response from a DeleteRuntimeProfileWithResponse call
+func ParseDeleteRuntimeProfileResponse(rsp *http.Response) (*DeleteRuntimeProfileResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteRuntimeProfileResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.RuntimeProfile
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetRuntimeProfileResponse parses an HTTP response from a GetRuntimeProfileWithResponse call
+func ParseGetRuntimeProfileResponse(rsp *http.Response) (*GetRuntimeProfileResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetRuntimeProfileResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.RuntimeProfile
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutRuntimeProfileResponse parses an HTTP response from a PutRuntimeProfileWithResponse call
+func ParsePutRuntimeProfileResponse(rsp *http.Response) (*PutRuntimeProfileResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutRuntimeProfileResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.RuntimeProfile
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 
@@ -27340,51 +25237,6 @@ type ServerInterface interface {
 	// Apply an admin resource
 	// (POST /@apply)
 	ApplyResource(c *fiber.Ctx) error
-	// List ACL policy bindings
-	// (GET /acl/policy-bindings)
-	ListACLPolicyBindings(c *fiber.Ctx, params ListACLPolicyBindingsParams) error
-	// Create an ACL policy binding
-	// (POST /acl/policy-bindings)
-	CreateACLPolicyBinding(c *fiber.Ctx) error
-	// Delete an ACL policy binding
-	// (DELETE /acl/policy-bindings/{id})
-	DeleteACLPolicyBinding(c *fiber.Ctx, id string) error
-	// Get an ACL policy binding
-	// (GET /acl/policy-bindings/{id})
-	GetACLPolicyBinding(c *fiber.Ctx, id string) error
-	// Create or update an ACL policy binding
-	// (PUT /acl/policy-bindings/{id})
-	PutACLPolicyBinding(c *fiber.Ctx, id string) error
-	// List ACL roles
-	// (GET /acl/roles)
-	ListACLRoles(c *fiber.Ctx, params ListACLRolesParams) error
-	// Create an ACL role
-	// (POST /acl/roles)
-	CreateACLRole(c *fiber.Ctx) error
-	// Delete an ACL role
-	// (DELETE /acl/roles/{name})
-	DeleteACLRole(c *fiber.Ctx, name string) error
-	// Get an ACL role
-	// (GET /acl/roles/{name})
-	GetACLRole(c *fiber.Ctx, name string) error
-	// Create or update an ACL role
-	// (PUT /acl/roles/{name})
-	PutACLRole(c *fiber.Ctx, name string) error
-	// List ACL views
-	// (GET /acl/views)
-	ListACLViews(c *fiber.Ctx, params ListACLViewsParams) error
-	// Create an ACL view
-	// (POST /acl/views)
-	CreateACLView(c *fiber.Ctx) error
-	// Delete an ACL view
-	// (DELETE /acl/views/{name})
-	DeleteACLView(c *fiber.Ctx, name string) error
-	// Get an ACL view
-	// (GET /acl/views/{name})
-	GetACLView(c *fiber.Ctx, name string) error
-	// Create or update an ACL view
-	// (PUT /acl/views/{name})
-	PutACLView(c *fiber.Ctx, name string) error
 	// List BadgeDefs
 	// (GET /badge-defs)
 	ListBadgeDefs(c *fiber.Ctx, params ListBadgeDefsParams) error
@@ -27502,21 +25354,6 @@ type ServerInterface interface {
 	// Upload or replace a GameDef icon
 	// (PUT /game-defs/{id}/icon/{format})
 	UploadGameDefIcon(c *fiber.Ctx, id string, format UploadGameDefIconParamsFormat) error
-	// List GameRulesets
-	// (GET /game-rulesets)
-	ListGameRulesets(c *fiber.Ctx, params ListGameRulesetsParams) error
-	// Create a GameRuleset
-	// (POST /game-rulesets)
-	CreateGameRuleset(c *fiber.Ctx) error
-	// Delete a GameRuleset
-	// (DELETE /game-rulesets/{name})
-	DeleteGameRuleset(c *fiber.Ctx, name string) error
-	// Get a GameRuleset
-	// (GET /game-rulesets/{name})
-	GetGameRuleset(c *fiber.Ctx, name string) error
-	// Create or update a GameRuleset
-	// (PUT /game-rulesets/{name})
-	PutGameRuleset(c *fiber.Ctx, name string) error
 	// List all Gemini tenants
 	// (GET /gemini-tenants)
 	ListGeminiTenants(c *fiber.Ctx, params ListGeminiTenantsParams) error
@@ -27613,12 +25450,6 @@ type ServerInterface interface {
 	// getPeerBadge
 	// (GET /peers/{publicKey}/badges/{id})
 	GetPeerBadge(c *fiber.Ctx, publicKey string, id string) error
-	// Get peer configuration
-	// (GET /peers/{publicKey}/config)
-	GetPeerConfig(c *fiber.Ctx, publicKey string) error
-	// Update peer configuration
-	// (PUT /peers/{publicKey}/config)
-	PutPeerConfig(c *fiber.Ctx, publicKey string) error
 	// List one peer owner-view friend rows
 	// (GET /peers/{publicKey}/friends)
 	ListPeerFriends(c *fiber.Ctx, publicKey string, params ListPeerFriendsParams) error
@@ -27700,6 +25531,18 @@ type ServerInterface interface {
 	// Upload PetDefPixa
 	// (PUT /pet-defs/{id}/pixa)
 	UploadPetDefPixa(c *fiber.Ctx, id string) error
+	// List RegistrationTokens
+	// (GET /registration-tokens)
+	ListRegistrationTokens(c *fiber.Ctx, params ListRegistrationTokensParams) error
+	// Create a RegistrationToken
+	// (POST /registration-tokens)
+	CreateRegistrationToken(c *fiber.Ctx) error
+	// Delete a RegistrationToken
+	// (DELETE /registration-tokens/{name})
+	DeleteRegistrationToken(c *fiber.Ctx, name string) error
+	// Get a RegistrationToken
+	// (GET /registration-tokens/{name})
+	GetRegistrationToken(c *fiber.Ctx, name string) error
 	// Delete an admin resource
 	// (DELETE /resources/{kind}/{name})
 	DeleteResource(c *fiber.Ctx, kind ResourceKind, name string) error
@@ -27709,6 +25552,21 @@ type ServerInterface interface {
 	// Create or update an admin resource
 	// (PUT /resources/{kind}/{name})
 	PutResource(c *fiber.Ctx, kind ResourceKind, name string) error
+	// List RuntimeProfiles
+	// (GET /runtime-profiles)
+	ListRuntimeProfiles(c *fiber.Ctx, params ListRuntimeProfilesParams) error
+	// Create a RuntimeProfile
+	// (POST /runtime-profiles)
+	CreateRuntimeProfile(c *fiber.Ctx) error
+	// Delete a RuntimeProfile
+	// (DELETE /runtime-profiles/{name})
+	DeleteRuntimeProfile(c *fiber.Ctx, name string) error
+	// Get a RuntimeProfile
+	// (GET /runtime-profiles/{name})
+	GetRuntimeProfile(c *fiber.Ctx, name string) error
+	// Create or update a RuntimeProfile
+	// (PUT /runtime-profiles/{name})
+	PutRuntimeProfile(c *fiber.Ctx, name string) error
 	// List global contacts
 	// (GET /social/contacts)
 	ListContacts(c *fiber.Ctx, params ListContactsParams) error
@@ -27875,317 +25733,6 @@ type MiddlewareFunc fiber.Handler
 func (siw *ServerInterfaceWrapper) ApplyResource(c *fiber.Ctx) error {
 
 	return siw.Handler.ApplyResource(c)
-}
-
-// ListACLPolicyBindings operation middleware
-func (siw *ServerInterfaceWrapper) ListACLPolicyBindings(c *fiber.Ctx) error {
-
-	var err error
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params ListACLPolicyBindingsParams
-
-	var query url.Values
-	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
-	}
-
-	// ------------- Optional query parameter "cursor" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
-	}
-
-	// ------------- Optional query parameter "limit" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
-	}
-
-	// ------------- Optional query parameter "subject_kind" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "subject_kind", query, &params.SubjectKind, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter subject_kind: %w", err).Error())
-	}
-
-	// ------------- Optional query parameter "subject_id" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "subject_id", query, &params.SubjectId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter subject_id: %w", err).Error())
-	}
-
-	// ------------- Optional query parameter "resource_kind" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "resource_kind", query, &params.ResourceKind, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter resource_kind: %w", err).Error())
-	}
-
-	// ------------- Optional query parameter "resource_id" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "resource_id", query, &params.ResourceId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter resource_id: %w", err).Error())
-	}
-
-	// ------------- Optional query parameter "resource_id_prefix" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "resource_id_prefix", query, &params.ResourceIdPrefix, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter resource_id_prefix: %w", err).Error())
-	}
-
-	// ------------- Optional query parameter "role" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "role", query, &params.Role, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter role: %w", err).Error())
-	}
-
-	// ------------- Optional query parameter "permission" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "permission", query, &params.Permission, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter permission: %w", err).Error())
-	}
-
-	// ------------- Optional query parameter "order_by" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "order_by", query, &params.OrderBy, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter order_by: %w", err).Error())
-	}
-
-	return siw.Handler.ListACLPolicyBindings(c, params)
-}
-
-// CreateACLPolicyBinding operation middleware
-func (siw *ServerInterfaceWrapper) CreateACLPolicyBinding(c *fiber.Ctx) error {
-
-	return siw.Handler.CreateACLPolicyBinding(c)
-}
-
-// DeleteACLPolicyBinding operation middleware
-func (siw *ServerInterfaceWrapper) DeleteACLPolicyBinding(c *fiber.Ctx) error {
-
-	var err error
-
-	// ------------- Path parameter "id" -------------
-	var id string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
-	}
-
-	return siw.Handler.DeleteACLPolicyBinding(c, id)
-}
-
-// GetACLPolicyBinding operation middleware
-func (siw *ServerInterfaceWrapper) GetACLPolicyBinding(c *fiber.Ctx) error {
-
-	var err error
-
-	// ------------- Path parameter "id" -------------
-	var id string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
-	}
-
-	return siw.Handler.GetACLPolicyBinding(c, id)
-}
-
-// PutACLPolicyBinding operation middleware
-func (siw *ServerInterfaceWrapper) PutACLPolicyBinding(c *fiber.Ctx) error {
-
-	var err error
-
-	// ------------- Path parameter "id" -------------
-	var id string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
-	}
-
-	return siw.Handler.PutACLPolicyBinding(c, id)
-}
-
-// ListACLRoles operation middleware
-func (siw *ServerInterfaceWrapper) ListACLRoles(c *fiber.Ctx) error {
-
-	var err error
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params ListACLRolesParams
-
-	var query url.Values
-	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
-	}
-
-	// ------------- Optional query parameter "cursor" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
-	}
-
-	// ------------- Optional query parameter "limit" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
-	}
-
-	return siw.Handler.ListACLRoles(c, params)
-}
-
-// CreateACLRole operation middleware
-func (siw *ServerInterfaceWrapper) CreateACLRole(c *fiber.Ctx) error {
-
-	return siw.Handler.CreateACLRole(c)
-}
-
-// DeleteACLRole operation middleware
-func (siw *ServerInterfaceWrapper) DeleteACLRole(c *fiber.Ctx) error {
-
-	var err error
-
-	// ------------- Path parameter "name" -------------
-	var name string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
-	}
-
-	return siw.Handler.DeleteACLRole(c, name)
-}
-
-// GetACLRole operation middleware
-func (siw *ServerInterfaceWrapper) GetACLRole(c *fiber.Ctx) error {
-
-	var err error
-
-	// ------------- Path parameter "name" -------------
-	var name string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
-	}
-
-	return siw.Handler.GetACLRole(c, name)
-}
-
-// PutACLRole operation middleware
-func (siw *ServerInterfaceWrapper) PutACLRole(c *fiber.Ctx) error {
-
-	var err error
-
-	// ------------- Path parameter "name" -------------
-	var name string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
-	}
-
-	return siw.Handler.PutACLRole(c, name)
-}
-
-// ListACLViews operation middleware
-func (siw *ServerInterfaceWrapper) ListACLViews(c *fiber.Ctx) error {
-
-	var err error
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params ListACLViewsParams
-
-	var query url.Values
-	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
-	}
-
-	// ------------- Optional query parameter "cursor" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
-	}
-
-	// ------------- Optional query parameter "limit" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
-	}
-
-	return siw.Handler.ListACLViews(c, params)
-}
-
-// CreateACLView operation middleware
-func (siw *ServerInterfaceWrapper) CreateACLView(c *fiber.Ctx) error {
-
-	return siw.Handler.CreateACLView(c)
-}
-
-// DeleteACLView operation middleware
-func (siw *ServerInterfaceWrapper) DeleteACLView(c *fiber.Ctx) error {
-
-	var err error
-
-	// ------------- Path parameter "name" -------------
-	var name string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
-	}
-
-	return siw.Handler.DeleteACLView(c, name)
-}
-
-// GetACLView operation middleware
-func (siw *ServerInterfaceWrapper) GetACLView(c *fiber.Ctx) error {
-
-	var err error
-
-	// ------------- Path parameter "name" -------------
-	var name string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
-	}
-
-	return siw.Handler.GetACLView(c, name)
-}
-
-// PutACLView operation middleware
-func (siw *ServerInterfaceWrapper) PutACLView(c *fiber.Ctx) error {
-
-	var err error
-
-	// ------------- Path parameter "name" -------------
-	var name string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
-	}
-
-	return siw.Handler.PutACLView(c, name)
 }
 
 // ListBadgeDefs operation middleware
@@ -28996,91 +26543,6 @@ func (siw *ServerInterfaceWrapper) UploadGameDefIcon(c *fiber.Ctx) error {
 	return siw.Handler.UploadGameDefIcon(c, id, format)
 }
 
-// ListGameRulesets operation middleware
-func (siw *ServerInterfaceWrapper) ListGameRulesets(c *fiber.Ctx) error {
-
-	var err error
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params ListGameRulesetsParams
-
-	var query url.Values
-	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
-	}
-
-	// ------------- Optional query parameter "cursor" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
-	}
-
-	// ------------- Optional query parameter "limit" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
-	}
-
-	return siw.Handler.ListGameRulesets(c, params)
-}
-
-// CreateGameRuleset operation middleware
-func (siw *ServerInterfaceWrapper) CreateGameRuleset(c *fiber.Ctx) error {
-
-	return siw.Handler.CreateGameRuleset(c)
-}
-
-// DeleteGameRuleset operation middleware
-func (siw *ServerInterfaceWrapper) DeleteGameRuleset(c *fiber.Ctx) error {
-
-	var err error
-
-	// ------------- Path parameter "name" -------------
-	var name string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
-	}
-
-	return siw.Handler.DeleteGameRuleset(c, name)
-}
-
-// GetGameRuleset operation middleware
-func (siw *ServerInterfaceWrapper) GetGameRuleset(c *fiber.Ctx) error {
-
-	var err error
-
-	// ------------- Path parameter "name" -------------
-	var name string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
-	}
-
-	return siw.Handler.GetGameRuleset(c, name)
-}
-
-// PutGameRuleset operation middleware
-func (siw *ServerInterfaceWrapper) PutGameRuleset(c *fiber.Ctx) error {
-
-	var err error
-
-	// ------------- Path parameter "name" -------------
-	var name string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
-	}
-
-	return siw.Handler.PutGameRuleset(c, name)
-}
-
 // ListGeminiTenants operation middleware
 func (siw *ServerInterfaceWrapper) ListGeminiTenants(c *fiber.Ctx) error {
 
@@ -29729,38 +27191,6 @@ func (siw *ServerInterfaceWrapper) GetPeerBadge(c *fiber.Ctx) error {
 	}
 
 	return siw.Handler.GetPeerBadge(c, publicKey, id)
-}
-
-// GetPeerConfig operation middleware
-func (siw *ServerInterfaceWrapper) GetPeerConfig(c *fiber.Ctx) error {
-
-	var err error
-
-	// ------------- Path parameter "publicKey" -------------
-	var publicKey string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
-	}
-
-	return siw.Handler.GetPeerConfig(c, publicKey)
-}
-
-// PutPeerConfig operation middleware
-func (siw *ServerInterfaceWrapper) PutPeerConfig(c *fiber.Ctx) error {
-
-	var err error
-
-	// ------------- Path parameter "publicKey" -------------
-	var publicKey string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
-	}
-
-	return siw.Handler.PutPeerConfig(c, publicKey)
 }
 
 // ListPeerFriends operation middleware
@@ -30546,6 +27976,75 @@ func (siw *ServerInterfaceWrapper) UploadPetDefPixa(c *fiber.Ctx) error {
 	return siw.Handler.UploadPetDefPixa(c, id)
 }
 
+// ListRegistrationTokens operation middleware
+func (siw *ServerInterfaceWrapper) ListRegistrationTokens(c *fiber.Ctx) error {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListRegistrationTokensParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
+	}
+
+	return siw.Handler.ListRegistrationTokens(c, params)
+}
+
+// CreateRegistrationToken operation middleware
+func (siw *ServerInterfaceWrapper) CreateRegistrationToken(c *fiber.Ctx) error {
+
+	return siw.Handler.CreateRegistrationToken(c)
+}
+
+// DeleteRegistrationToken operation middleware
+func (siw *ServerInterfaceWrapper) DeleteRegistrationToken(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+	}
+
+	return siw.Handler.DeleteRegistrationToken(c, name)
+}
+
+// GetRegistrationToken operation middleware
+func (siw *ServerInterfaceWrapper) GetRegistrationToken(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+	}
+
+	return siw.Handler.GetRegistrationToken(c, name)
+}
+
 // DeleteResource operation middleware
 func (siw *ServerInterfaceWrapper) DeleteResource(c *fiber.Ctx) error {
 
@@ -30616,6 +28115,91 @@ func (siw *ServerInterfaceWrapper) PutResource(c *fiber.Ctx) error {
 	}
 
 	return siw.Handler.PutResource(c, kind, name)
+}
+
+// ListRuntimeProfiles operation middleware
+func (siw *ServerInterfaceWrapper) ListRuntimeProfiles(c *fiber.Ctx) error {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListRuntimeProfilesParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
+	}
+
+	return siw.Handler.ListRuntimeProfiles(c, params)
+}
+
+// CreateRuntimeProfile operation middleware
+func (siw *ServerInterfaceWrapper) CreateRuntimeProfile(c *fiber.Ctx) error {
+
+	return siw.Handler.CreateRuntimeProfile(c)
+}
+
+// DeleteRuntimeProfile operation middleware
+func (siw *ServerInterfaceWrapper) DeleteRuntimeProfile(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+	}
+
+	return siw.Handler.DeleteRuntimeProfile(c, name)
+}
+
+// GetRuntimeProfile operation middleware
+func (siw *ServerInterfaceWrapper) GetRuntimeProfile(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+	}
+
+	return siw.Handler.GetRuntimeProfile(c, name)
+}
+
+// PutRuntimeProfile operation middleware
+func (siw *ServerInterfaceWrapper) PutRuntimeProfile(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+	}
+
+	return siw.Handler.PutRuntimeProfile(c, name)
 }
 
 // ListContacts operation middleware
@@ -31693,36 +29277,6 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Post(options.BaseURL+"/@apply", wrapper.ApplyResource)
 
-	router.Get(options.BaseURL+"/acl/policy-bindings", wrapper.ListACLPolicyBindings)
-
-	router.Post(options.BaseURL+"/acl/policy-bindings", wrapper.CreateACLPolicyBinding)
-
-	router.Delete(options.BaseURL+"/acl/policy-bindings/:id", wrapper.DeleteACLPolicyBinding)
-
-	router.Get(options.BaseURL+"/acl/policy-bindings/:id", wrapper.GetACLPolicyBinding)
-
-	router.Put(options.BaseURL+"/acl/policy-bindings/:id", wrapper.PutACLPolicyBinding)
-
-	router.Get(options.BaseURL+"/acl/roles", wrapper.ListACLRoles)
-
-	router.Post(options.BaseURL+"/acl/roles", wrapper.CreateACLRole)
-
-	router.Delete(options.BaseURL+"/acl/roles/:name", wrapper.DeleteACLRole)
-
-	router.Get(options.BaseURL+"/acl/roles/:name", wrapper.GetACLRole)
-
-	router.Put(options.BaseURL+"/acl/roles/:name", wrapper.PutACLRole)
-
-	router.Get(options.BaseURL+"/acl/views", wrapper.ListACLViews)
-
-	router.Post(options.BaseURL+"/acl/views", wrapper.CreateACLView)
-
-	router.Delete(options.BaseURL+"/acl/views/:name", wrapper.DeleteACLView)
-
-	router.Get(options.BaseURL+"/acl/views/:name", wrapper.GetACLView)
-
-	router.Put(options.BaseURL+"/acl/views/:name", wrapper.PutACLView)
-
 	router.Get(options.BaseURL+"/badge-defs", wrapper.ListBadgeDefs)
 
 	router.Post(options.BaseURL+"/badge-defs", wrapper.CreateBadgeDef)
@@ -31801,16 +29355,6 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Put(options.BaseURL+"/game-defs/:id/icon/:format", wrapper.UploadGameDefIcon)
 
-	router.Get(options.BaseURL+"/game-rulesets", wrapper.ListGameRulesets)
-
-	router.Post(options.BaseURL+"/game-rulesets", wrapper.CreateGameRuleset)
-
-	router.Delete(options.BaseURL+"/game-rulesets/:name", wrapper.DeleteGameRuleset)
-
-	router.Get(options.BaseURL+"/game-rulesets/:name", wrapper.GetGameRuleset)
-
-	router.Put(options.BaseURL+"/game-rulesets/:name", wrapper.PutGameRuleset)
-
 	router.Get(options.BaseURL+"/gemini-tenants", wrapper.ListGeminiTenants)
 
 	router.Post(options.BaseURL+"/gemini-tenants", wrapper.CreateGeminiTenant)
@@ -31875,10 +29419,6 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Get(options.BaseURL+"/peers/:publicKey/badges/:id", wrapper.GetPeerBadge)
 
-	router.Get(options.BaseURL+"/peers/:publicKey/config", wrapper.GetPeerConfig)
-
-	router.Put(options.BaseURL+"/peers/:publicKey/config", wrapper.PutPeerConfig)
-
 	router.Get(options.BaseURL+"/peers/:publicKey/friends", wrapper.ListPeerFriends)
 
 	router.Post(options.BaseURL+"/peers/:publicKey/friends", wrapper.CreatePeerFriend)
@@ -31933,11 +29473,29 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Put(options.BaseURL+"/pet-defs/:id/pixa", wrapper.UploadPetDefPixa)
 
+	router.Get(options.BaseURL+"/registration-tokens", wrapper.ListRegistrationTokens)
+
+	router.Post(options.BaseURL+"/registration-tokens", wrapper.CreateRegistrationToken)
+
+	router.Delete(options.BaseURL+"/registration-tokens/:name", wrapper.DeleteRegistrationToken)
+
+	router.Get(options.BaseURL+"/registration-tokens/:name", wrapper.GetRegistrationToken)
+
 	router.Delete(options.BaseURL+"/resources/:kind/:name", wrapper.DeleteResource)
 
 	router.Get(options.BaseURL+"/resources/:kind/:name", wrapper.GetResource)
 
 	router.Put(options.BaseURL+"/resources/:kind/:name", wrapper.PutResource)
+
+	router.Get(options.BaseURL+"/runtime-profiles", wrapper.ListRuntimeProfiles)
+
+	router.Post(options.BaseURL+"/runtime-profiles", wrapper.CreateRuntimeProfile)
+
+	router.Delete(options.BaseURL+"/runtime-profiles/:name", wrapper.DeleteRuntimeProfile)
+
+	router.Get(options.BaseURL+"/runtime-profiles/:name", wrapper.GetRuntimeProfile)
+
+	router.Put(options.BaseURL+"/runtime-profiles/:name", wrapper.PutRuntimeProfile)
 
 	router.Get(options.BaseURL+"/social/contacts", wrapper.ListContacts)
 
@@ -32093,534 +29651,6 @@ type ApplyResource501JSONResponse externalRef0.ErrorResponse
 func (response ApplyResource501JSONResponse) VisitApplyResourceResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(501)
-
-	return ctx.JSON(&response)
-}
-
-type ListACLPolicyBindingsRequestObject struct {
-	Params ListACLPolicyBindingsParams
-}
-
-type ListACLPolicyBindingsResponseObject interface {
-	VisitListACLPolicyBindingsResponse(ctx *fiber.Ctx) error
-}
-
-type ListACLPolicyBindings200JSONResponse ACLPolicyBindingList
-
-func (response ListACLPolicyBindings200JSONResponse) VisitListACLPolicyBindingsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type ListACLPolicyBindings500JSONResponse externalRef0.ErrorResponse
-
-func (response ListACLPolicyBindings500JSONResponse) VisitListACLPolicyBindingsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type CreateACLPolicyBindingRequestObject struct {
-	Body *CreateACLPolicyBindingJSONRequestBody
-}
-
-type CreateACLPolicyBindingResponseObject interface {
-	VisitCreateACLPolicyBindingResponse(ctx *fiber.Ctx) error
-}
-
-type CreateACLPolicyBinding200JSONResponse externalRef0.ACLPolicyBinding
-
-func (response CreateACLPolicyBinding200JSONResponse) VisitCreateACLPolicyBindingResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type CreateACLPolicyBinding400JSONResponse externalRef0.ErrorResponse
-
-func (response CreateACLPolicyBinding400JSONResponse) VisitCreateACLPolicyBindingResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type CreateACLPolicyBinding409JSONResponse externalRef0.ErrorResponse
-
-func (response CreateACLPolicyBinding409JSONResponse) VisitCreateACLPolicyBindingResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type CreateACLPolicyBinding500JSONResponse externalRef0.ErrorResponse
-
-func (response CreateACLPolicyBinding500JSONResponse) VisitCreateACLPolicyBindingResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type DeleteACLPolicyBindingRequestObject struct {
-	Id string `json:"id"`
-}
-
-type DeleteACLPolicyBindingResponseObject interface {
-	VisitDeleteACLPolicyBindingResponse(ctx *fiber.Ctx) error
-}
-
-type DeleteACLPolicyBinding200JSONResponse externalRef0.ACLPolicyBinding
-
-func (response DeleteACLPolicyBinding200JSONResponse) VisitDeleteACLPolicyBindingResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type DeleteACLPolicyBinding404JSONResponse externalRef0.ErrorResponse
-
-func (response DeleteACLPolicyBinding404JSONResponse) VisitDeleteACLPolicyBindingResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type DeleteACLPolicyBinding500JSONResponse externalRef0.ErrorResponse
-
-func (response DeleteACLPolicyBinding500JSONResponse) VisitDeleteACLPolicyBindingResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type GetACLPolicyBindingRequestObject struct {
-	Id string `json:"id"`
-}
-
-type GetACLPolicyBindingResponseObject interface {
-	VisitGetACLPolicyBindingResponse(ctx *fiber.Ctx) error
-}
-
-type GetACLPolicyBinding200JSONResponse externalRef0.ACLPolicyBinding
-
-func (response GetACLPolicyBinding200JSONResponse) VisitGetACLPolicyBindingResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type GetACLPolicyBinding404JSONResponse externalRef0.ErrorResponse
-
-func (response GetACLPolicyBinding404JSONResponse) VisitGetACLPolicyBindingResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type GetACLPolicyBinding500JSONResponse externalRef0.ErrorResponse
-
-func (response GetACLPolicyBinding500JSONResponse) VisitGetACLPolicyBindingResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type PutACLPolicyBindingRequestObject struct {
-	Id   string `json:"id"`
-	Body *PutACLPolicyBindingJSONRequestBody
-}
-
-type PutACLPolicyBindingResponseObject interface {
-	VisitPutACLPolicyBindingResponse(ctx *fiber.Ctx) error
-}
-
-type PutACLPolicyBinding200JSONResponse externalRef0.ACLPolicyBinding
-
-func (response PutACLPolicyBinding200JSONResponse) VisitPutACLPolicyBindingResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type PutACLPolicyBinding400JSONResponse externalRef0.ErrorResponse
-
-func (response PutACLPolicyBinding400JSONResponse) VisitPutACLPolicyBindingResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type PutACLPolicyBinding500JSONResponse externalRef0.ErrorResponse
-
-func (response PutACLPolicyBinding500JSONResponse) VisitPutACLPolicyBindingResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type ListACLRolesRequestObject struct {
-	Params ListACLRolesParams
-}
-
-type ListACLRolesResponseObject interface {
-	VisitListACLRolesResponse(ctx *fiber.Ctx) error
-}
-
-type ListACLRoles200JSONResponse ACLRoleList
-
-func (response ListACLRoles200JSONResponse) VisitListACLRolesResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type ListACLRoles500JSONResponse externalRef0.ErrorResponse
-
-func (response ListACLRoles500JSONResponse) VisitListACLRolesResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type CreateACLRoleRequestObject struct {
-	Body *CreateACLRoleJSONRequestBody
-}
-
-type CreateACLRoleResponseObject interface {
-	VisitCreateACLRoleResponse(ctx *fiber.Ctx) error
-}
-
-type CreateACLRole200JSONResponse externalRef0.ACLRole
-
-func (response CreateACLRole200JSONResponse) VisitCreateACLRoleResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type CreateACLRole400JSONResponse externalRef0.ErrorResponse
-
-func (response CreateACLRole400JSONResponse) VisitCreateACLRoleResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type CreateACLRole409JSONResponse externalRef0.ErrorResponse
-
-func (response CreateACLRole409JSONResponse) VisitCreateACLRoleResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type CreateACLRole500JSONResponse externalRef0.ErrorResponse
-
-func (response CreateACLRole500JSONResponse) VisitCreateACLRoleResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type DeleteACLRoleRequestObject struct {
-	Name string `json:"name"`
-}
-
-type DeleteACLRoleResponseObject interface {
-	VisitDeleteACLRoleResponse(ctx *fiber.Ctx) error
-}
-
-type DeleteACLRole200JSONResponse externalRef0.ACLRole
-
-func (response DeleteACLRole200JSONResponse) VisitDeleteACLRoleResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type DeleteACLRole404JSONResponse externalRef0.ErrorResponse
-
-func (response DeleteACLRole404JSONResponse) VisitDeleteACLRoleResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type DeleteACLRole500JSONResponse externalRef0.ErrorResponse
-
-func (response DeleteACLRole500JSONResponse) VisitDeleteACLRoleResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type GetACLRoleRequestObject struct {
-	Name string `json:"name"`
-}
-
-type GetACLRoleResponseObject interface {
-	VisitGetACLRoleResponse(ctx *fiber.Ctx) error
-}
-
-type GetACLRole200JSONResponse externalRef0.ACLRole
-
-func (response GetACLRole200JSONResponse) VisitGetACLRoleResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type GetACLRole404JSONResponse externalRef0.ErrorResponse
-
-func (response GetACLRole404JSONResponse) VisitGetACLRoleResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type GetACLRole500JSONResponse externalRef0.ErrorResponse
-
-func (response GetACLRole500JSONResponse) VisitGetACLRoleResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type PutACLRoleRequestObject struct {
-	Name string `json:"name"`
-	Body *PutACLRoleJSONRequestBody
-}
-
-type PutACLRoleResponseObject interface {
-	VisitPutACLRoleResponse(ctx *fiber.Ctx) error
-}
-
-type PutACLRole200JSONResponse externalRef0.ACLRole
-
-func (response PutACLRole200JSONResponse) VisitPutACLRoleResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type PutACLRole400JSONResponse externalRef0.ErrorResponse
-
-func (response PutACLRole400JSONResponse) VisitPutACLRoleResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type PutACLRole500JSONResponse externalRef0.ErrorResponse
-
-func (response PutACLRole500JSONResponse) VisitPutACLRoleResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type ListACLViewsRequestObject struct {
-	Params ListACLViewsParams
-}
-
-type ListACLViewsResponseObject interface {
-	VisitListACLViewsResponse(ctx *fiber.Ctx) error
-}
-
-type ListACLViews200JSONResponse ACLViewList
-
-func (response ListACLViews200JSONResponse) VisitListACLViewsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type ListACLViews500JSONResponse externalRef0.ErrorResponse
-
-func (response ListACLViews500JSONResponse) VisitListACLViewsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type CreateACLViewRequestObject struct {
-	Body *CreateACLViewJSONRequestBody
-}
-
-type CreateACLViewResponseObject interface {
-	VisitCreateACLViewResponse(ctx *fiber.Ctx) error
-}
-
-type CreateACLView200JSONResponse externalRef0.ACLView
-
-func (response CreateACLView200JSONResponse) VisitCreateACLViewResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type CreateACLView400JSONResponse externalRef0.ErrorResponse
-
-func (response CreateACLView400JSONResponse) VisitCreateACLViewResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type CreateACLView409JSONResponse externalRef0.ErrorResponse
-
-func (response CreateACLView409JSONResponse) VisitCreateACLViewResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type CreateACLView500JSONResponse externalRef0.ErrorResponse
-
-func (response CreateACLView500JSONResponse) VisitCreateACLViewResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type DeleteACLViewRequestObject struct {
-	Name string `json:"name"`
-}
-
-type DeleteACLViewResponseObject interface {
-	VisitDeleteACLViewResponse(ctx *fiber.Ctx) error
-}
-
-type DeleteACLView200JSONResponse externalRef0.ACLView
-
-func (response DeleteACLView200JSONResponse) VisitDeleteACLViewResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type DeleteACLView404JSONResponse externalRef0.ErrorResponse
-
-func (response DeleteACLView404JSONResponse) VisitDeleteACLViewResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type DeleteACLView500JSONResponse externalRef0.ErrorResponse
-
-func (response DeleteACLView500JSONResponse) VisitDeleteACLViewResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type GetACLViewRequestObject struct {
-	Name string `json:"name"`
-}
-
-type GetACLViewResponseObject interface {
-	VisitGetACLViewResponse(ctx *fiber.Ctx) error
-}
-
-type GetACLView200JSONResponse externalRef0.ACLView
-
-func (response GetACLView200JSONResponse) VisitGetACLViewResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type GetACLView404JSONResponse externalRef0.ErrorResponse
-
-func (response GetACLView404JSONResponse) VisitGetACLViewResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type GetACLView500JSONResponse externalRef0.ErrorResponse
-
-func (response GetACLView500JSONResponse) VisitGetACLViewResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type PutACLViewRequestObject struct {
-	Name string `json:"name"`
-	Body *PutACLViewJSONRequestBody
-}
-
-type PutACLViewResponseObject interface {
-	VisitPutACLViewResponse(ctx *fiber.Ctx) error
-}
-
-type PutACLView200JSONResponse externalRef0.ACLView
-
-func (response PutACLView200JSONResponse) VisitPutACLViewResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type PutACLView400JSONResponse externalRef0.ErrorResponse
-
-func (response PutACLView400JSONResponse) VisitPutACLViewResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type PutACLView500JSONResponse externalRef0.ErrorResponse
-
-func (response PutACLView500JSONResponse) VisitPutACLViewResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
 
 	return ctx.JSON(&response)
 }
@@ -34179,191 +31209,6 @@ func (response UploadGameDefIcon500JSONResponse) VisitUploadGameDefIconResponse(
 	return ctx.JSON(&response)
 }
 
-type ListGameRulesetsRequestObject struct {
-	Params ListGameRulesetsParams
-}
-
-type ListGameRulesetsResponseObject interface {
-	VisitListGameRulesetsResponse(ctx *fiber.Ctx) error
-}
-
-type ListGameRulesets200JSONResponse GameRulesetList
-
-func (response ListGameRulesets200JSONResponse) VisitListGameRulesetsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type ListGameRulesets500JSONResponse externalRef0.ErrorResponse
-
-func (response ListGameRulesets500JSONResponse) VisitListGameRulesetsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type CreateGameRulesetRequestObject struct {
-	Body *CreateGameRulesetJSONRequestBody
-}
-
-type CreateGameRulesetResponseObject interface {
-	VisitCreateGameRulesetResponse(ctx *fiber.Ctx) error
-}
-
-type CreateGameRuleset200JSONResponse externalRef0.GameRuleset
-
-func (response CreateGameRuleset200JSONResponse) VisitCreateGameRulesetResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type CreateGameRuleset400JSONResponse externalRef0.ErrorResponse
-
-func (response CreateGameRuleset400JSONResponse) VisitCreateGameRulesetResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type CreateGameRuleset409JSONResponse externalRef0.ErrorResponse
-
-func (response CreateGameRuleset409JSONResponse) VisitCreateGameRulesetResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type CreateGameRuleset500JSONResponse externalRef0.ErrorResponse
-
-func (response CreateGameRuleset500JSONResponse) VisitCreateGameRulesetResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type DeleteGameRulesetRequestObject struct {
-	Name string `json:"name"`
-}
-
-type DeleteGameRulesetResponseObject interface {
-	VisitDeleteGameRulesetResponse(ctx *fiber.Ctx) error
-}
-
-type DeleteGameRuleset200JSONResponse externalRef0.GameRuleset
-
-func (response DeleteGameRuleset200JSONResponse) VisitDeleteGameRulesetResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type DeleteGameRuleset404JSONResponse externalRef0.ErrorResponse
-
-func (response DeleteGameRuleset404JSONResponse) VisitDeleteGameRulesetResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type DeleteGameRuleset500JSONResponse externalRef0.ErrorResponse
-
-func (response DeleteGameRuleset500JSONResponse) VisitDeleteGameRulesetResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type GetGameRulesetRequestObject struct {
-	Name string `json:"name"`
-}
-
-type GetGameRulesetResponseObject interface {
-	VisitGetGameRulesetResponse(ctx *fiber.Ctx) error
-}
-
-type GetGameRuleset200JSONResponse externalRef0.GameRuleset
-
-func (response GetGameRuleset200JSONResponse) VisitGetGameRulesetResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type GetGameRuleset404JSONResponse externalRef0.ErrorResponse
-
-func (response GetGameRuleset404JSONResponse) VisitGetGameRulesetResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type GetGameRuleset500JSONResponse externalRef0.ErrorResponse
-
-func (response GetGameRuleset500JSONResponse) VisitGetGameRulesetResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type PutGameRulesetRequestObject struct {
-	Name string `json:"name"`
-	Body *PutGameRulesetJSONRequestBody
-}
-
-type PutGameRulesetResponseObject interface {
-	VisitPutGameRulesetResponse(ctx *fiber.Ctx) error
-}
-
-type PutGameRuleset200JSONResponse externalRef0.GameRuleset
-
-func (response PutGameRuleset200JSONResponse) VisitPutGameRulesetResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type PutGameRuleset400JSONResponse externalRef0.ErrorResponse
-
-func (response PutGameRuleset400JSONResponse) VisitPutGameRulesetResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type PutGameRuleset409JSONResponse externalRef0.ErrorResponse
-
-func (response PutGameRuleset409JSONResponse) VisitPutGameRulesetResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type PutGameRuleset500JSONResponse externalRef0.ErrorResponse
-
-func (response PutGameRuleset500JSONResponse) VisitPutGameRulesetResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
 type ListGeminiTenantsRequestObject struct {
 	Params ListGeminiTenantsParams
 }
@@ -35484,68 +32329,6 @@ func (response GetPeerBadge500JSONResponse) VisitGetPeerBadgeResponse(ctx *fiber
 	return ctx.JSON(&response)
 }
 
-type GetPeerConfigRequestObject struct {
-	PublicKey string `json:"publicKey"`
-}
-
-type GetPeerConfigResponseObject interface {
-	VisitGetPeerConfigResponse(ctx *fiber.Ctx) error
-}
-
-type GetPeerConfig200JSONResponse externalRef0.Configuration
-
-func (response GetPeerConfig200JSONResponse) VisitGetPeerConfigResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type GetPeerConfig404JSONResponse externalRef0.ErrorResponse
-
-func (response GetPeerConfig404JSONResponse) VisitGetPeerConfigResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type PutPeerConfigRequestObject struct {
-	PublicKey string `json:"publicKey"`
-	Body      *PutPeerConfigJSONRequestBody
-}
-
-type PutPeerConfigResponseObject interface {
-	VisitPutPeerConfigResponse(ctx *fiber.Ctx) error
-}
-
-type PutPeerConfig200JSONResponse externalRef0.Configuration
-
-func (response PutPeerConfig200JSONResponse) VisitPutPeerConfigResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type PutPeerConfig400JSONResponse externalRef0.ErrorResponse
-
-func (response PutPeerConfig400JSONResponse) VisitPutPeerConfigResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type PutPeerConfig404JSONResponse externalRef0.ErrorResponse
-
-func (response PutPeerConfig404JSONResponse) VisitPutPeerConfigResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
 type ListPeerFriendsRequestObject struct {
 	PublicKey string `json:"publicKey"`
 	Params    ListPeerFriendsParams
@@ -36547,6 +33330,146 @@ func (response UploadPetDefPixa500JSONResponse) VisitUploadPetDefPixaResponse(ct
 	return ctx.JSON(&response)
 }
 
+type ListRegistrationTokensRequestObject struct {
+	Params ListRegistrationTokensParams
+}
+
+type ListRegistrationTokensResponseObject interface {
+	VisitListRegistrationTokensResponse(ctx *fiber.Ctx) error
+}
+
+type ListRegistrationTokens200JSONResponse RegistrationTokenList
+
+func (response ListRegistrationTokens200JSONResponse) VisitListRegistrationTokensResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListRegistrationTokens500JSONResponse externalRef0.ErrorResponse
+
+func (response ListRegistrationTokens500JSONResponse) VisitListRegistrationTokensResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type CreateRegistrationTokenRequestObject struct {
+	Body *CreateRegistrationTokenJSONRequestBody
+}
+
+type CreateRegistrationTokenResponseObject interface {
+	VisitCreateRegistrationTokenResponse(ctx *fiber.Ctx) error
+}
+
+type CreateRegistrationToken200JSONResponse externalRef0.RegistrationTokenCreateResult
+
+func (response CreateRegistrationToken200JSONResponse) VisitCreateRegistrationTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type CreateRegistrationToken400JSONResponse externalRef0.ErrorResponse
+
+func (response CreateRegistrationToken400JSONResponse) VisitCreateRegistrationTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type CreateRegistrationToken409JSONResponse externalRef0.ErrorResponse
+
+func (response CreateRegistrationToken409JSONResponse) VisitCreateRegistrationTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type CreateRegistrationToken500JSONResponse externalRef0.ErrorResponse
+
+func (response CreateRegistrationToken500JSONResponse) VisitCreateRegistrationTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteRegistrationTokenRequestObject struct {
+	Name string `json:"name"`
+}
+
+type DeleteRegistrationTokenResponseObject interface {
+	VisitDeleteRegistrationTokenResponse(ctx *fiber.Ctx) error
+}
+
+type DeleteRegistrationToken200JSONResponse externalRef0.RegistrationToken
+
+func (response DeleteRegistrationToken200JSONResponse) VisitDeleteRegistrationTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteRegistrationToken404JSONResponse externalRef0.ErrorResponse
+
+func (response DeleteRegistrationToken404JSONResponse) VisitDeleteRegistrationTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteRegistrationToken500JSONResponse externalRef0.ErrorResponse
+
+func (response DeleteRegistrationToken500JSONResponse) VisitDeleteRegistrationTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetRegistrationTokenRequestObject struct {
+	Name string `json:"name"`
+}
+
+type GetRegistrationTokenResponseObject interface {
+	VisitGetRegistrationTokenResponse(ctx *fiber.Ctx) error
+}
+
+type GetRegistrationToken200JSONResponse externalRef0.RegistrationToken
+
+func (response GetRegistrationToken200JSONResponse) VisitGetRegistrationTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetRegistrationToken404JSONResponse externalRef0.ErrorResponse
+
+func (response GetRegistrationToken404JSONResponse) VisitGetRegistrationTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetRegistrationToken500JSONResponse externalRef0.ErrorResponse
+
+func (response GetRegistrationToken500JSONResponse) VisitGetRegistrationTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
 type DeleteResourceRequestObject struct {
 	Kind ResourceKind `json:"kind"`
 	Name string       `json:"name"`
@@ -36716,6 +33639,191 @@ type PutResource501JSONResponse externalRef0.ErrorResponse
 func (response PutResource501JSONResponse) VisitPutResourceResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(501)
+
+	return ctx.JSON(&response)
+}
+
+type ListRuntimeProfilesRequestObject struct {
+	Params ListRuntimeProfilesParams
+}
+
+type ListRuntimeProfilesResponseObject interface {
+	VisitListRuntimeProfilesResponse(ctx *fiber.Ctx) error
+}
+
+type ListRuntimeProfiles200JSONResponse RuntimeProfileList
+
+func (response ListRuntimeProfiles200JSONResponse) VisitListRuntimeProfilesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListRuntimeProfiles500JSONResponse externalRef0.ErrorResponse
+
+func (response ListRuntimeProfiles500JSONResponse) VisitListRuntimeProfilesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type CreateRuntimeProfileRequestObject struct {
+	Body *CreateRuntimeProfileJSONRequestBody
+}
+
+type CreateRuntimeProfileResponseObject interface {
+	VisitCreateRuntimeProfileResponse(ctx *fiber.Ctx) error
+}
+
+type CreateRuntimeProfile200JSONResponse externalRef0.RuntimeProfile
+
+func (response CreateRuntimeProfile200JSONResponse) VisitCreateRuntimeProfileResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type CreateRuntimeProfile400JSONResponse externalRef0.ErrorResponse
+
+func (response CreateRuntimeProfile400JSONResponse) VisitCreateRuntimeProfileResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type CreateRuntimeProfile409JSONResponse externalRef0.ErrorResponse
+
+func (response CreateRuntimeProfile409JSONResponse) VisitCreateRuntimeProfileResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type CreateRuntimeProfile500JSONResponse externalRef0.ErrorResponse
+
+func (response CreateRuntimeProfile500JSONResponse) VisitCreateRuntimeProfileResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteRuntimeProfileRequestObject struct {
+	Name string `json:"name"`
+}
+
+type DeleteRuntimeProfileResponseObject interface {
+	VisitDeleteRuntimeProfileResponse(ctx *fiber.Ctx) error
+}
+
+type DeleteRuntimeProfile200JSONResponse externalRef0.RuntimeProfile
+
+func (response DeleteRuntimeProfile200JSONResponse) VisitDeleteRuntimeProfileResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteRuntimeProfile404JSONResponse externalRef0.ErrorResponse
+
+func (response DeleteRuntimeProfile404JSONResponse) VisitDeleteRuntimeProfileResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteRuntimeProfile500JSONResponse externalRef0.ErrorResponse
+
+func (response DeleteRuntimeProfile500JSONResponse) VisitDeleteRuntimeProfileResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetRuntimeProfileRequestObject struct {
+	Name string `json:"name"`
+}
+
+type GetRuntimeProfileResponseObject interface {
+	VisitGetRuntimeProfileResponse(ctx *fiber.Ctx) error
+}
+
+type GetRuntimeProfile200JSONResponse externalRef0.RuntimeProfile
+
+func (response GetRuntimeProfile200JSONResponse) VisitGetRuntimeProfileResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetRuntimeProfile404JSONResponse externalRef0.ErrorResponse
+
+func (response GetRuntimeProfile404JSONResponse) VisitGetRuntimeProfileResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetRuntimeProfile500JSONResponse externalRef0.ErrorResponse
+
+func (response GetRuntimeProfile500JSONResponse) VisitGetRuntimeProfileResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type PutRuntimeProfileRequestObject struct {
+	Name string `json:"name"`
+	Body *PutRuntimeProfileJSONRequestBody
+}
+
+type PutRuntimeProfileResponseObject interface {
+	VisitPutRuntimeProfileResponse(ctx *fiber.Ctx) error
+}
+
+type PutRuntimeProfile200JSONResponse externalRef0.RuntimeProfile
+
+func (response PutRuntimeProfile200JSONResponse) VisitPutRuntimeProfileResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type PutRuntimeProfile400JSONResponse externalRef0.ErrorResponse
+
+func (response PutRuntimeProfile400JSONResponse) VisitPutRuntimeProfileResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type PutRuntimeProfile409JSONResponse externalRef0.ErrorResponse
+
+func (response PutRuntimeProfile409JSONResponse) VisitPutRuntimeProfileResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type PutRuntimeProfile500JSONResponse externalRef0.ErrorResponse
+
+func (response PutRuntimeProfile500JSONResponse) VisitPutRuntimeProfileResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
 
 	return ctx.JSON(&response)
 }
@@ -38876,51 +35984,6 @@ type StrictServerInterface interface {
 	// Apply an admin resource
 	// (POST /@apply)
 	ApplyResource(ctx context.Context, request ApplyResourceRequestObject) (ApplyResourceResponseObject, error)
-	// List ACL policy bindings
-	// (GET /acl/policy-bindings)
-	ListACLPolicyBindings(ctx context.Context, request ListACLPolicyBindingsRequestObject) (ListACLPolicyBindingsResponseObject, error)
-	// Create an ACL policy binding
-	// (POST /acl/policy-bindings)
-	CreateACLPolicyBinding(ctx context.Context, request CreateACLPolicyBindingRequestObject) (CreateACLPolicyBindingResponseObject, error)
-	// Delete an ACL policy binding
-	// (DELETE /acl/policy-bindings/{id})
-	DeleteACLPolicyBinding(ctx context.Context, request DeleteACLPolicyBindingRequestObject) (DeleteACLPolicyBindingResponseObject, error)
-	// Get an ACL policy binding
-	// (GET /acl/policy-bindings/{id})
-	GetACLPolicyBinding(ctx context.Context, request GetACLPolicyBindingRequestObject) (GetACLPolicyBindingResponseObject, error)
-	// Create or update an ACL policy binding
-	// (PUT /acl/policy-bindings/{id})
-	PutACLPolicyBinding(ctx context.Context, request PutACLPolicyBindingRequestObject) (PutACLPolicyBindingResponseObject, error)
-	// List ACL roles
-	// (GET /acl/roles)
-	ListACLRoles(ctx context.Context, request ListACLRolesRequestObject) (ListACLRolesResponseObject, error)
-	// Create an ACL role
-	// (POST /acl/roles)
-	CreateACLRole(ctx context.Context, request CreateACLRoleRequestObject) (CreateACLRoleResponseObject, error)
-	// Delete an ACL role
-	// (DELETE /acl/roles/{name})
-	DeleteACLRole(ctx context.Context, request DeleteACLRoleRequestObject) (DeleteACLRoleResponseObject, error)
-	// Get an ACL role
-	// (GET /acl/roles/{name})
-	GetACLRole(ctx context.Context, request GetACLRoleRequestObject) (GetACLRoleResponseObject, error)
-	// Create or update an ACL role
-	// (PUT /acl/roles/{name})
-	PutACLRole(ctx context.Context, request PutACLRoleRequestObject) (PutACLRoleResponseObject, error)
-	// List ACL views
-	// (GET /acl/views)
-	ListACLViews(ctx context.Context, request ListACLViewsRequestObject) (ListACLViewsResponseObject, error)
-	// Create an ACL view
-	// (POST /acl/views)
-	CreateACLView(ctx context.Context, request CreateACLViewRequestObject) (CreateACLViewResponseObject, error)
-	// Delete an ACL view
-	// (DELETE /acl/views/{name})
-	DeleteACLView(ctx context.Context, request DeleteACLViewRequestObject) (DeleteACLViewResponseObject, error)
-	// Get an ACL view
-	// (GET /acl/views/{name})
-	GetACLView(ctx context.Context, request GetACLViewRequestObject) (GetACLViewResponseObject, error)
-	// Create or update an ACL view
-	// (PUT /acl/views/{name})
-	PutACLView(ctx context.Context, request PutACLViewRequestObject) (PutACLViewResponseObject, error)
 	// List BadgeDefs
 	// (GET /badge-defs)
 	ListBadgeDefs(ctx context.Context, request ListBadgeDefsRequestObject) (ListBadgeDefsResponseObject, error)
@@ -39038,21 +36101,6 @@ type StrictServerInterface interface {
 	// Upload or replace a GameDef icon
 	// (PUT /game-defs/{id}/icon/{format})
 	UploadGameDefIcon(ctx context.Context, request UploadGameDefIconRequestObject) (UploadGameDefIconResponseObject, error)
-	// List GameRulesets
-	// (GET /game-rulesets)
-	ListGameRulesets(ctx context.Context, request ListGameRulesetsRequestObject) (ListGameRulesetsResponseObject, error)
-	// Create a GameRuleset
-	// (POST /game-rulesets)
-	CreateGameRuleset(ctx context.Context, request CreateGameRulesetRequestObject) (CreateGameRulesetResponseObject, error)
-	// Delete a GameRuleset
-	// (DELETE /game-rulesets/{name})
-	DeleteGameRuleset(ctx context.Context, request DeleteGameRulesetRequestObject) (DeleteGameRulesetResponseObject, error)
-	// Get a GameRuleset
-	// (GET /game-rulesets/{name})
-	GetGameRuleset(ctx context.Context, request GetGameRulesetRequestObject) (GetGameRulesetResponseObject, error)
-	// Create or update a GameRuleset
-	// (PUT /game-rulesets/{name})
-	PutGameRuleset(ctx context.Context, request PutGameRulesetRequestObject) (PutGameRulesetResponseObject, error)
 	// List all Gemini tenants
 	// (GET /gemini-tenants)
 	ListGeminiTenants(ctx context.Context, request ListGeminiTenantsRequestObject) (ListGeminiTenantsResponseObject, error)
@@ -39149,12 +36197,6 @@ type StrictServerInterface interface {
 	// getPeerBadge
 	// (GET /peers/{publicKey}/badges/{id})
 	GetPeerBadge(ctx context.Context, request GetPeerBadgeRequestObject) (GetPeerBadgeResponseObject, error)
-	// Get peer configuration
-	// (GET /peers/{publicKey}/config)
-	GetPeerConfig(ctx context.Context, request GetPeerConfigRequestObject) (GetPeerConfigResponseObject, error)
-	// Update peer configuration
-	// (PUT /peers/{publicKey}/config)
-	PutPeerConfig(ctx context.Context, request PutPeerConfigRequestObject) (PutPeerConfigResponseObject, error)
 	// List one peer owner-view friend rows
 	// (GET /peers/{publicKey}/friends)
 	ListPeerFriends(ctx context.Context, request ListPeerFriendsRequestObject) (ListPeerFriendsResponseObject, error)
@@ -39236,6 +36278,18 @@ type StrictServerInterface interface {
 	// Upload PetDefPixa
 	// (PUT /pet-defs/{id}/pixa)
 	UploadPetDefPixa(ctx context.Context, request UploadPetDefPixaRequestObject) (UploadPetDefPixaResponseObject, error)
+	// List RegistrationTokens
+	// (GET /registration-tokens)
+	ListRegistrationTokens(ctx context.Context, request ListRegistrationTokensRequestObject) (ListRegistrationTokensResponseObject, error)
+	// Create a RegistrationToken
+	// (POST /registration-tokens)
+	CreateRegistrationToken(ctx context.Context, request CreateRegistrationTokenRequestObject) (CreateRegistrationTokenResponseObject, error)
+	// Delete a RegistrationToken
+	// (DELETE /registration-tokens/{name})
+	DeleteRegistrationToken(ctx context.Context, request DeleteRegistrationTokenRequestObject) (DeleteRegistrationTokenResponseObject, error)
+	// Get a RegistrationToken
+	// (GET /registration-tokens/{name})
+	GetRegistrationToken(ctx context.Context, request GetRegistrationTokenRequestObject) (GetRegistrationTokenResponseObject, error)
 	// Delete an admin resource
 	// (DELETE /resources/{kind}/{name})
 	DeleteResource(ctx context.Context, request DeleteResourceRequestObject) (DeleteResourceResponseObject, error)
@@ -39245,6 +36299,21 @@ type StrictServerInterface interface {
 	// Create or update an admin resource
 	// (PUT /resources/{kind}/{name})
 	PutResource(ctx context.Context, request PutResourceRequestObject) (PutResourceResponseObject, error)
+	// List RuntimeProfiles
+	// (GET /runtime-profiles)
+	ListRuntimeProfiles(ctx context.Context, request ListRuntimeProfilesRequestObject) (ListRuntimeProfilesResponseObject, error)
+	// Create a RuntimeProfile
+	// (POST /runtime-profiles)
+	CreateRuntimeProfile(ctx context.Context, request CreateRuntimeProfileRequestObject) (CreateRuntimeProfileResponseObject, error)
+	// Delete a RuntimeProfile
+	// (DELETE /runtime-profiles/{name})
+	DeleteRuntimeProfile(ctx context.Context, request DeleteRuntimeProfileRequestObject) (DeleteRuntimeProfileResponseObject, error)
+	// Get a RuntimeProfile
+	// (GET /runtime-profiles/{name})
+	GetRuntimeProfile(ctx context.Context, request GetRuntimeProfileRequestObject) (GetRuntimeProfileResponseObject, error)
+	// Create or update a RuntimeProfile
+	// (PUT /runtime-profiles/{name})
+	PutRuntimeProfile(ctx context.Context, request PutRuntimeProfileRequestObject) (PutRuntimeProfileResponseObject, error)
 	// List global contacts
 	// (GET /social/contacts)
 	ListContacts(ctx context.Context, request ListContactsRequestObject) (ListContactsResponseObject, error)
@@ -39447,441 +36516,6 @@ func (sh *strictHandler) ApplyResource(ctx *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(ApplyResourceResponseObject); ok {
 		if err := validResponse.VisitApplyResourceResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// ListACLPolicyBindings operation middleware
-func (sh *strictHandler) ListACLPolicyBindings(ctx *fiber.Ctx, params ListACLPolicyBindingsParams) error {
-	var request ListACLPolicyBindingsRequestObject
-
-	request.Params = params
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.ListACLPolicyBindings(ctx.UserContext(), request.(ListACLPolicyBindingsRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListACLPolicyBindings")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(ListACLPolicyBindingsResponseObject); ok {
-		if err := validResponse.VisitListACLPolicyBindingsResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// CreateACLPolicyBinding operation middleware
-func (sh *strictHandler) CreateACLPolicyBinding(ctx *fiber.Ctx) error {
-	var request CreateACLPolicyBindingRequestObject
-
-	var body CreateACLPolicyBindingJSONRequestBody
-	if err := ctx.BodyParser(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	}
-	request.Body = &body
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.CreateACLPolicyBinding(ctx.UserContext(), request.(CreateACLPolicyBindingRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "CreateACLPolicyBinding")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(CreateACLPolicyBindingResponseObject); ok {
-		if err := validResponse.VisitCreateACLPolicyBindingResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// DeleteACLPolicyBinding operation middleware
-func (sh *strictHandler) DeleteACLPolicyBinding(ctx *fiber.Ctx, id string) error {
-	var request DeleteACLPolicyBindingRequestObject
-
-	request.Id = id
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.DeleteACLPolicyBinding(ctx.UserContext(), request.(DeleteACLPolicyBindingRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "DeleteACLPolicyBinding")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(DeleteACLPolicyBindingResponseObject); ok {
-		if err := validResponse.VisitDeleteACLPolicyBindingResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// GetACLPolicyBinding operation middleware
-func (sh *strictHandler) GetACLPolicyBinding(ctx *fiber.Ctx, id string) error {
-	var request GetACLPolicyBindingRequestObject
-
-	request.Id = id
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.GetACLPolicyBinding(ctx.UserContext(), request.(GetACLPolicyBindingRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetACLPolicyBinding")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(GetACLPolicyBindingResponseObject); ok {
-		if err := validResponse.VisitGetACLPolicyBindingResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// PutACLPolicyBinding operation middleware
-func (sh *strictHandler) PutACLPolicyBinding(ctx *fiber.Ctx, id string) error {
-	var request PutACLPolicyBindingRequestObject
-
-	request.Id = id
-
-	var body PutACLPolicyBindingJSONRequestBody
-	if err := ctx.BodyParser(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	}
-	request.Body = &body
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.PutACLPolicyBinding(ctx.UserContext(), request.(PutACLPolicyBindingRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "PutACLPolicyBinding")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(PutACLPolicyBindingResponseObject); ok {
-		if err := validResponse.VisitPutACLPolicyBindingResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// ListACLRoles operation middleware
-func (sh *strictHandler) ListACLRoles(ctx *fiber.Ctx, params ListACLRolesParams) error {
-	var request ListACLRolesRequestObject
-
-	request.Params = params
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.ListACLRoles(ctx.UserContext(), request.(ListACLRolesRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListACLRoles")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(ListACLRolesResponseObject); ok {
-		if err := validResponse.VisitListACLRolesResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// CreateACLRole operation middleware
-func (sh *strictHandler) CreateACLRole(ctx *fiber.Ctx) error {
-	var request CreateACLRoleRequestObject
-
-	var body CreateACLRoleJSONRequestBody
-	if err := ctx.BodyParser(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	}
-	request.Body = &body
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.CreateACLRole(ctx.UserContext(), request.(CreateACLRoleRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "CreateACLRole")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(CreateACLRoleResponseObject); ok {
-		if err := validResponse.VisitCreateACLRoleResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// DeleteACLRole operation middleware
-func (sh *strictHandler) DeleteACLRole(ctx *fiber.Ctx, name string) error {
-	var request DeleteACLRoleRequestObject
-
-	request.Name = name
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.DeleteACLRole(ctx.UserContext(), request.(DeleteACLRoleRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "DeleteACLRole")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(DeleteACLRoleResponseObject); ok {
-		if err := validResponse.VisitDeleteACLRoleResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// GetACLRole operation middleware
-func (sh *strictHandler) GetACLRole(ctx *fiber.Ctx, name string) error {
-	var request GetACLRoleRequestObject
-
-	request.Name = name
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.GetACLRole(ctx.UserContext(), request.(GetACLRoleRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetACLRole")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(GetACLRoleResponseObject); ok {
-		if err := validResponse.VisitGetACLRoleResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// PutACLRole operation middleware
-func (sh *strictHandler) PutACLRole(ctx *fiber.Ctx, name string) error {
-	var request PutACLRoleRequestObject
-
-	request.Name = name
-
-	var body PutACLRoleJSONRequestBody
-	if err := ctx.BodyParser(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	}
-	request.Body = &body
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.PutACLRole(ctx.UserContext(), request.(PutACLRoleRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "PutACLRole")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(PutACLRoleResponseObject); ok {
-		if err := validResponse.VisitPutACLRoleResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// ListACLViews operation middleware
-func (sh *strictHandler) ListACLViews(ctx *fiber.Ctx, params ListACLViewsParams) error {
-	var request ListACLViewsRequestObject
-
-	request.Params = params
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.ListACLViews(ctx.UserContext(), request.(ListACLViewsRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListACLViews")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(ListACLViewsResponseObject); ok {
-		if err := validResponse.VisitListACLViewsResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// CreateACLView operation middleware
-func (sh *strictHandler) CreateACLView(ctx *fiber.Ctx) error {
-	var request CreateACLViewRequestObject
-
-	var body CreateACLViewJSONRequestBody
-	if err := ctx.BodyParser(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	}
-	request.Body = &body
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.CreateACLView(ctx.UserContext(), request.(CreateACLViewRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "CreateACLView")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(CreateACLViewResponseObject); ok {
-		if err := validResponse.VisitCreateACLViewResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// DeleteACLView operation middleware
-func (sh *strictHandler) DeleteACLView(ctx *fiber.Ctx, name string) error {
-	var request DeleteACLViewRequestObject
-
-	request.Name = name
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.DeleteACLView(ctx.UserContext(), request.(DeleteACLViewRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "DeleteACLView")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(DeleteACLViewResponseObject); ok {
-		if err := validResponse.VisitDeleteACLViewResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// GetACLView operation middleware
-func (sh *strictHandler) GetACLView(ctx *fiber.Ctx, name string) error {
-	var request GetACLViewRequestObject
-
-	request.Name = name
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.GetACLView(ctx.UserContext(), request.(GetACLViewRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetACLView")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(GetACLViewResponseObject); ok {
-		if err := validResponse.VisitGetACLViewResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// PutACLView operation middleware
-func (sh *strictHandler) PutACLView(ctx *fiber.Ctx, name string) error {
-	var request PutACLViewRequestObject
-
-	request.Name = name
-
-	var body PutACLViewJSONRequestBody
-	if err := ctx.BodyParser(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	}
-	request.Body = &body
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.PutACLView(ctx.UserContext(), request.(PutACLViewRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "PutACLView")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(PutACLViewResponseObject); ok {
-		if err := validResponse.VisitPutACLViewResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {
@@ -41025,151 +37659,6 @@ func (sh *strictHandler) UploadGameDefIcon(ctx *fiber.Ctx, id string, format Upl
 	return nil
 }
 
-// ListGameRulesets operation middleware
-func (sh *strictHandler) ListGameRulesets(ctx *fiber.Ctx, params ListGameRulesetsParams) error {
-	var request ListGameRulesetsRequestObject
-
-	request.Params = params
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.ListGameRulesets(ctx.UserContext(), request.(ListGameRulesetsRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListGameRulesets")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(ListGameRulesetsResponseObject); ok {
-		if err := validResponse.VisitListGameRulesetsResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// CreateGameRuleset operation middleware
-func (sh *strictHandler) CreateGameRuleset(ctx *fiber.Ctx) error {
-	var request CreateGameRulesetRequestObject
-
-	var body CreateGameRulesetJSONRequestBody
-	if err := ctx.BodyParser(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	}
-	request.Body = &body
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.CreateGameRuleset(ctx.UserContext(), request.(CreateGameRulesetRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "CreateGameRuleset")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(CreateGameRulesetResponseObject); ok {
-		if err := validResponse.VisitCreateGameRulesetResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// DeleteGameRuleset operation middleware
-func (sh *strictHandler) DeleteGameRuleset(ctx *fiber.Ctx, name string) error {
-	var request DeleteGameRulesetRequestObject
-
-	request.Name = name
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.DeleteGameRuleset(ctx.UserContext(), request.(DeleteGameRulesetRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "DeleteGameRuleset")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(DeleteGameRulesetResponseObject); ok {
-		if err := validResponse.VisitDeleteGameRulesetResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// GetGameRuleset operation middleware
-func (sh *strictHandler) GetGameRuleset(ctx *fiber.Ctx, name string) error {
-	var request GetGameRulesetRequestObject
-
-	request.Name = name
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.GetGameRuleset(ctx.UserContext(), request.(GetGameRulesetRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetGameRuleset")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(GetGameRulesetResponseObject); ok {
-		if err := validResponse.VisitGetGameRulesetResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// PutGameRuleset operation middleware
-func (sh *strictHandler) PutGameRuleset(ctx *fiber.Ctx, name string) error {
-	var request PutGameRulesetRequestObject
-
-	request.Name = name
-
-	var body PutGameRulesetJSONRequestBody
-	if err := ctx.BodyParser(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	}
-	request.Body = &body
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.PutGameRuleset(ctx.UserContext(), request.(PutGameRulesetRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "PutGameRuleset")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(PutGameRulesetResponseObject); ok {
-		if err := validResponse.VisitPutGameRulesetResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
 // ListGeminiTenants operation middleware
 func (sh *strictHandler) ListGeminiTenants(ctx *fiber.Ctx, params ListGeminiTenantsParams) error {
 	var request ListGeminiTenantsRequestObject
@@ -42083,66 +38572,6 @@ func (sh *strictHandler) GetPeerBadge(ctx *fiber.Ctx, publicKey string, id strin
 	return nil
 }
 
-// GetPeerConfig operation middleware
-func (sh *strictHandler) GetPeerConfig(ctx *fiber.Ctx, publicKey string) error {
-	var request GetPeerConfigRequestObject
-
-	request.PublicKey = publicKey
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.GetPeerConfig(ctx.UserContext(), request.(GetPeerConfigRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetPeerConfig")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(GetPeerConfigResponseObject); ok {
-		if err := validResponse.VisitGetPeerConfigResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// PutPeerConfig operation middleware
-func (sh *strictHandler) PutPeerConfig(ctx *fiber.Ctx, publicKey string) error {
-	var request PutPeerConfigRequestObject
-
-	request.PublicKey = publicKey
-
-	var body PutPeerConfigJSONRequestBody
-	if err := ctx.BodyParser(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	}
-	request.Body = &body
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.PutPeerConfig(ctx.UserContext(), request.(PutPeerConfigRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "PutPeerConfig")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(PutPeerConfigResponseObject); ok {
-		if err := validResponse.VisitPutPeerConfigResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
 // ListPeerFriends operation middleware
 func (sh *strictHandler) ListPeerFriends(ctx *fiber.Ctx, publicKey string, params ListPeerFriendsParams) error {
 	var request ListPeerFriendsRequestObject
@@ -42915,6 +39344,118 @@ func (sh *strictHandler) UploadPetDefPixa(ctx *fiber.Ctx, id string) error {
 	return nil
 }
 
+// ListRegistrationTokens operation middleware
+func (sh *strictHandler) ListRegistrationTokens(ctx *fiber.Ctx, params ListRegistrationTokensParams) error {
+	var request ListRegistrationTokensRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListRegistrationTokens(ctx.UserContext(), request.(ListRegistrationTokensRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListRegistrationTokens")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListRegistrationTokensResponseObject); ok {
+		if err := validResponse.VisitListRegistrationTokensResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateRegistrationToken operation middleware
+func (sh *strictHandler) CreateRegistrationToken(ctx *fiber.Ctx) error {
+	var request CreateRegistrationTokenRequestObject
+
+	var body CreateRegistrationTokenJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateRegistrationToken(ctx.UserContext(), request.(CreateRegistrationTokenRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateRegistrationToken")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(CreateRegistrationTokenResponseObject); ok {
+		if err := validResponse.VisitCreateRegistrationTokenResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteRegistrationToken operation middleware
+func (sh *strictHandler) DeleteRegistrationToken(ctx *fiber.Ctx, name string) error {
+	var request DeleteRegistrationTokenRequestObject
+
+	request.Name = name
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteRegistrationToken(ctx.UserContext(), request.(DeleteRegistrationTokenRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteRegistrationToken")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DeleteRegistrationTokenResponseObject); ok {
+		if err := validResponse.VisitDeleteRegistrationTokenResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetRegistrationToken operation middleware
+func (sh *strictHandler) GetRegistrationToken(ctx *fiber.Ctx, name string) error {
+	var request GetRegistrationTokenRequestObject
+
+	request.Name = name
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRegistrationToken(ctx.UserContext(), request.(GetRegistrationTokenRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRegistrationToken")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetRegistrationTokenResponseObject); ok {
+		if err := validResponse.VisitGetRegistrationTokenResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // DeleteResource operation middleware
 func (sh *strictHandler) DeleteResource(ctx *fiber.Ctx, kind ResourceKind, name string) error {
 	var request DeleteResourceRequestObject
@@ -43007,6 +39548,151 @@ func (sh *strictHandler) PutResource(ctx *fiber.Ctx, kind ResourceKind, name str
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(PutResourceResponseObject); ok {
 		if err := validResponse.VisitPutResourceResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListRuntimeProfiles operation middleware
+func (sh *strictHandler) ListRuntimeProfiles(ctx *fiber.Ctx, params ListRuntimeProfilesParams) error {
+	var request ListRuntimeProfilesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListRuntimeProfiles(ctx.UserContext(), request.(ListRuntimeProfilesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListRuntimeProfiles")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListRuntimeProfilesResponseObject); ok {
+		if err := validResponse.VisitListRuntimeProfilesResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateRuntimeProfile operation middleware
+func (sh *strictHandler) CreateRuntimeProfile(ctx *fiber.Ctx) error {
+	var request CreateRuntimeProfileRequestObject
+
+	var body CreateRuntimeProfileJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateRuntimeProfile(ctx.UserContext(), request.(CreateRuntimeProfileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateRuntimeProfile")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(CreateRuntimeProfileResponseObject); ok {
+		if err := validResponse.VisitCreateRuntimeProfileResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteRuntimeProfile operation middleware
+func (sh *strictHandler) DeleteRuntimeProfile(ctx *fiber.Ctx, name string) error {
+	var request DeleteRuntimeProfileRequestObject
+
+	request.Name = name
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteRuntimeProfile(ctx.UserContext(), request.(DeleteRuntimeProfileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteRuntimeProfile")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DeleteRuntimeProfileResponseObject); ok {
+		if err := validResponse.VisitDeleteRuntimeProfileResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetRuntimeProfile operation middleware
+func (sh *strictHandler) GetRuntimeProfile(ctx *fiber.Ctx, name string) error {
+	var request GetRuntimeProfileRequestObject
+
+	request.Name = name
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRuntimeProfile(ctx.UserContext(), request.(GetRuntimeProfileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRuntimeProfile")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetRuntimeProfileResponseObject); ok {
+		if err := validResponse.VisitGetRuntimeProfileResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// PutRuntimeProfile operation middleware
+func (sh *strictHandler) PutRuntimeProfile(ctx *fiber.Ctx, name string) error {
+	var request PutRuntimeProfileRequestObject
+
+	request.Name = name
+
+	var body PutRuntimeProfileJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.PutRuntimeProfile(ctx.UserContext(), request.(PutRuntimeProfileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutRuntimeProfile")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(PutRuntimeProfileResponseObject); ok {
+		if err := validResponse.VisitPutRuntimeProfileResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

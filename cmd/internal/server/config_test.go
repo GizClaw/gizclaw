@@ -98,16 +98,6 @@ endpoint: 127.0.0.1:9820
 	}
 }
 
-func TestParseConfigDefaultPeerView(t *testing.T) {
-	cfg, err := parseConfigData([]byte("default-peer-view: default-client\n"))
-	if err != nil {
-		t.Fatalf("parseConfigData error = %v", err)
-	}
-	if cfg.DefaultPeerView != "default-client" {
-		t.Fatalf("DefaultPeerView = %q, want default-client", cfg.DefaultPeerView)
-	}
-}
-
 func TestParseConfigPetFlowcraftWorkflowModels(t *testing.T) {
 	cfg, err := parseConfigData([]byte(`
 system_tasks:
@@ -150,42 +140,6 @@ func TestAdminPublicKeySecurityPolicy(t *testing.T) {
 	}
 }
 
-func TestAdminPublicKeyAutoRegistersAsClientWithDefaultView(t *testing.T) {
-	adminPublicKey := testPublicKey(1)
-	srv, err := New(Config{
-		Listen:          "127.0.0.1:9820",
-		Endpoint:        "127.0.0.1:9820",
-		AdminPublicKey:  adminPublicKey,
-		DefaultPeerView: "default-client",
-		Stores: map[string]stores.Config{
-			defaultPeersStore: {Kind: stores.KindKeyValue, Backend: "memory"},
-		},
-	})
-	if err != nil {
-		t.Fatalf("New error = %v", err)
-	}
-	t.Cleanup(func() { _ = srv.Close() })
-	srv.Server.PeerListenerFactories = nil
-	srv.Server.PeerListeners = []giznet.Listener{closedPeerListener{}}
-	if err := srv.Listen(); err != nil {
-		t.Fatalf("Listen error = %v", err)
-	}
-
-	created, err := srv.Manager().EnsurePeer(context.Background(), adminPublicKey)
-	if err != nil {
-		t.Fatalf("EnsurePeer error = %v", err)
-	}
-	if created.Role != apitypes.PeerRoleClient || created.Status != apitypes.PeerRegistrationStatusActive {
-		t.Fatalf("created peer = %+v, want active client", created)
-	}
-	if created.Configuration.View == nil || *created.Configuration.View != "default-client" {
-		t.Fatalf("created view = %v, want default-client", created.Configuration.View)
-	}
-	if !srv.SecurityPolicy.AllowService(adminPublicKey, gizclaw.ServiceAdminHTTP) {
-		t.Fatal("admin-public-key should retain independent Admin API access")
-	}
-}
-
 func TestNewWithLayeredStorageConfig(t *testing.T) {
 	dir := t.TempDir()
 	srv, err := New(validLayeredConfig(dir))
@@ -206,7 +160,7 @@ func TestNewWithLayeredStorageConfig(t *testing.T) {
 	if srv.ContactStore == nil || srv.FriendInviteTokenStore == nil || srv.FriendStore == nil || srv.FriendGroupStore == nil || srv.FriendGroupInviteTokenStore == nil || srv.FriendGroupMemberStore == nil || srv.FriendGroupMessageStore == nil || srv.FriendGroupMessageAssets == nil {
 		t.Fatalf("social stores not wired: %+v", srv.Server)
 	}
-	if srv.GameRulesetStore == nil || srv.PetDefStore == nil || srv.BadgeDefStore == nil || srv.GameDefStore == nil || srv.GameplayAssets == nil || srv.WorkspaceAssets == nil || srv.WorkflowAssets == nil || srv.GameplayDB == nil {
+	if srv.PetDefStore == nil || srv.BadgeDefStore == nil || srv.GameDefStore == nil || srv.GameplayAssets == nil || srv.WorkspaceAssets == nil || srv.WorkflowAssets == nil || srv.GameplayDB == nil {
 		t.Fatalf("gameplay stores not wired: %+v", srv.Server)
 	}
 	if srv.FriendGroupMessageDefaultTTL != 24*time.Hour || srv.FriendGroupMessageMaxTTL != 7*24*time.Hour || srv.FriendGroupMessageCleanup != 5*time.Minute || srv.FriendGroupMessageMaxBytes != 2097152 {
@@ -214,9 +168,6 @@ func TestNewWithLayeredStorageConfig(t *testing.T) {
 	}
 	if srv.PetWorkflow.GenerateModel != "pet-chat" || srv.PetWorkflow.ExtractModel != "pet-extract" || srv.PetWorkflow.EmbeddingModel != "pet-embedding" || srv.PetWorkflow.ASRModel != "pet-asr" {
 		t.Fatalf("PetWorkflow config not wired: %#v", srv.PetWorkflow)
-	}
-	if srv.ACLDB == nil {
-		t.Fatalf("acl store not wired: %v", srv.ACLDB)
 	}
 }
 
@@ -226,7 +177,6 @@ func TestNewPreservesPostgresDialectThroughLayeredStorage(t *testing.T) {
 		t.Skip("GIZCLAW_TEST_POSTGRES_DSN is not set")
 	}
 	cfg := validLayeredConfig(t.TempDir())
-	cfg.Storage["acl-db"] = storage.Config{Kind: storage.KindSQL, Postgres: &storage.SQLConfig{DSN: dsn}}
 	cfg.Storage["gameplay-db"] = storage.Config{Kind: storage.KindSQL, Postgres: &storage.SQLConfig{DSN: dsn}}
 
 	srv, err := New(cfg)
@@ -239,7 +189,6 @@ func TestNewPreservesPostgresDialectThroughLayeredStorage(t *testing.T) {
 		DriverName() string
 		Rebind(string) string
 	}{
-		"acl":      srv.ACLDB,
 		"gameplay": srv.GameplayDB,
 	} {
 		if db == nil {
@@ -317,45 +266,6 @@ func TestNewWithLayeredStorageReportsStoreErrors(t *testing.T) {
 		t.Fatalf("New(missing workflows store) = %v", err)
 	}
 
-	missingACLCfg := validLayeredConfig(dir)
-	delete(missingACLCfg.Stores, "acl")
-	if _, err := New(missingACLCfg); err == nil || !strings.Contains(err.Error(), "server: acl store:") {
-		t.Fatalf("New(missing acl store) = %v", err)
-	}
-}
-
-func TestNewWithPreparedConfig(t *testing.T) {
-	adminPublicKey := strings.Repeat("ab", giznet.KeySize)
-	adminKey, err := giznet.KeyFromHex(adminPublicKey)
-	if err != nil {
-		t.Fatalf("KeyFromHex error = %v", err)
-	}
-	srv, err := New(Config{
-		Listen:          "127.0.0.1:1234",
-		Endpoint:        "127.0.0.1:1234",
-		AdminPublicKey:  adminKey,
-		DefaultPeerView: " default-client ",
-		Stores: map[string]stores.Config{
-			"peers": {Kind: stores.KindKeyValue, Backend: "memory"},
-		},
-	})
-	if err != nil {
-		t.Fatalf("New error = %v", err)
-	}
-	t.Cleanup(func() { _ = srv.Close() })
-
-	if srv.PeerStore == nil {
-		t.Fatal("PeerStore is nil")
-	}
-	if srv.PublicKey().String() == "" {
-		t.Fatal("PublicKey should not be empty")
-	}
-	if srv.AdminPublicKey != adminKey {
-		t.Fatalf("AdminPublicKey = %v, want %v", srv.AdminPublicKey, adminKey)
-	}
-	if srv.DefaultPeerView != "default-client" {
-		t.Fatalf("DefaultPeerView = %q, want default-client", srv.DefaultPeerView)
-	}
 }
 
 func TestNewLeavesLogQueryUnconfiguredWithoutQueryStore(t *testing.T) {
@@ -511,53 +421,6 @@ func TestNewBootstrapsConfiguredEdgeNodesWithLegacySharedStore(t *testing.T) {
 	}
 	if peer.Role != apitypes.PeerRoleEdgeNode || peer.Status != apitypes.PeerRegistrationStatusActive {
 		t.Fatalf("bootstrapped legacy edge peer = %+v", peer)
-	}
-}
-
-func TestBootstrapEdgeNodesPreservesExistingPeerMetadata(t *testing.T) {
-	edgeKey := testKeyPair(t, 0x15)
-	peerStore := &runtimepeer.Server{Store: kv.NewMemory(nil)}
-	name := "edge-a"
-	view := "dashboard"
-	autoRegistered := true
-	approvedAt := time.Unix(123, 0).UTC()
-	existing, err := peerStore.SavePeer(context.Background(), apitypes.Peer{
-		PublicKey:      edgeKey.Public.String(),
-		Role:           apitypes.PeerRoleClient,
-		Status:         apitypes.PeerRegistrationStatusBlocked,
-		ApprovedAt:     &approvedAt,
-		AutoRegistered: &autoRegistered,
-		Device:         apitypes.DeviceInfo{Name: &name},
-		Configuration:  apitypes.Configuration{View: &view},
-	})
-	if err != nil {
-		t.Fatalf("SavePeer error = %v", err)
-	}
-
-	if err := bootstrapEdgeNodes(context.Background(), peerStore, []giznet.PublicKey{edgeKey.Public}); err != nil {
-		t.Fatalf("bootstrapEdgeNodes error = %v", err)
-	}
-	peer, err := peerStore.LoadPeer(context.Background(), edgeKey.Public)
-	if err != nil {
-		t.Fatalf("LoadPeer error = %v", err)
-	}
-	if peer.Role != apitypes.PeerRoleEdgeNode || peer.Status != apitypes.PeerRegistrationStatusActive {
-		t.Fatalf("bootstrapped edge peer = %+v", peer)
-	}
-	if peer.Device.Name == nil || *peer.Device.Name != name {
-		t.Fatalf("Device.Name = %v, want %q", peer.Device.Name, name)
-	}
-	if peer.Configuration.View == nil || *peer.Configuration.View != view {
-		t.Fatalf("Configuration.View = %v, want %q", peer.Configuration.View, view)
-	}
-	if peer.AutoRegistered == nil || !*peer.AutoRegistered {
-		t.Fatalf("AutoRegistered = %v, want true", peer.AutoRegistered)
-	}
-	if peer.ApprovedAt == nil || !peer.ApprovedAt.Equal(approvedAt) {
-		t.Fatalf("ApprovedAt = %v, want %v", peer.ApprovedAt, approvedAt)
-	}
-	if !peer.CreatedAt.Equal(existing.CreatedAt) {
-		t.Fatalf("CreatedAt = %v, want %v", peer.CreatedAt, existing.CreatedAt)
 	}
 }
 
@@ -856,110 +719,6 @@ func TestLoadConfigErrors(t *testing.T) {
 	}
 }
 
-func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
-	adminKey, err := giznet.KeyFromHex(strings.Repeat("01", giznet.KeySize))
-	if err != nil {
-		t.Fatalf("KeyFromHex error = %v", err)
-	}
-	fileAdminKey, err := giznet.KeyFromHex(strings.Repeat("02", giznet.KeySize))
-	if err != nil {
-		t.Fatalf("KeyFromHex file error = %v", err)
-	}
-	runtimeCfg := Config{
-		Listen:          "0.0.0.0:9999",
-		Endpoint:        "127.0.0.1:9999",
-		AdminPublicKey:  adminKey,
-		DefaultPeerView: "runtime-client",
-		Storage: map[string]storage.Config{
-			"runtime-storage": {Kind: "keyvalue", Backend: "memory"},
-		},
-		Stores: map[string]stores.Config{
-			"runtime": {Kind: "keyvalue", Backend: "memory"},
-		},
-		FriendGroups: FriendGroupsConfig{
-			MessageDefaultTTL:      "2h",
-			MessageMaxTTL:          "3d",
-			MessageCleanupInterval: "30s",
-			MessageMaxAudioBytes:   1024,
-		},
-		SystemTasks: SystemTasksConfig{PetFlowcraftWorkflow: PetFlowcraftWorkflowTaskConfig{
-			GenerateModel: "runtime-chat",
-			ASRModel:      "runtime-asr",
-		}},
-		SystemLog: logging.Config{Level: "error"},
-	}
-	fileCfg := ConfigFile{
-		Listen:          "0.0.0.0:1234",
-		Endpoint:        "127.0.0.1:1234",
-		AdminPublicKey:  fileAdminKey,
-		DefaultPeerView: "file-client",
-		Storage: map[string]storage.Config{
-			"file-storage": {Kind: "keyvalue", Backend: "memory"},
-		},
-		Stores: map[string]stores.Config{
-			"file": {Kind: "keyvalue", Backend: "memory"},
-		},
-		FriendGroups: FriendGroupsConfig{
-			MessageDefaultTTL:      "24h",
-			MessageMaxTTL:          "7d",
-			MessageCleanupInterval: "5m",
-			MessageMaxAudioBytes:   2048,
-		},
-		SystemTasks: SystemTasksConfig{PetFlowcraftWorkflow: PetFlowcraftWorkflowTaskConfig{
-			GenerateModel:  "file-chat",
-			ExtractModel:   "file-extract",
-			EmbeddingModel: "file-embedding",
-			ASRModel:       "file-asr",
-		}},
-		SystemLog: logging.Config{Level: "warn"},
-	}
-
-	merged, err := mergeFileConfig(runtimeCfg, fileCfg)
-	if err != nil {
-		t.Fatalf("mergeFileConfig error = %v", err)
-	}
-	if merged.Endpoint != "127.0.0.1:9999" {
-		t.Fatalf("Endpoint = %q", merged.Endpoint)
-	}
-	if merged.Listen != "0.0.0.0:9999" {
-		t.Fatalf("Listen = %q", merged.Listen)
-	}
-	if merged.AdminPublicKey != runtimeCfg.AdminPublicKey {
-		t.Fatalf("AdminPublicKey = %v, want %v", merged.AdminPublicKey, runtimeCfg.AdminPublicKey)
-	}
-	if merged.DefaultPeerView != "runtime-client" {
-		t.Fatalf("DefaultPeerView = %q, want runtime-client", merged.DefaultPeerView)
-	}
-	if len(merged.Stores) != 1 || merged.Stores["runtime"].Backend != "memory" {
-		t.Fatalf("Stores = %+v", merged.Stores)
-	}
-	if len(merged.Storage) != 1 || merged.Storage["runtime-storage"].Backend != "memory" {
-		t.Fatalf("Storage = %+v", merged.Storage)
-	}
-	if merged.FriendGroups.MessageDefaultTTL != "2h" || merged.FriendGroups.MessageMaxTTL != "3d" || merged.FriendGroups.MessageCleanupInterval != "30s" || merged.FriendGroups.MessageMaxAudioBytes != 1024 {
-		t.Fatalf("FriendGroups = %+v", merged.FriendGroups)
-	}
-	if got := merged.SystemTasks.PetFlowcraftWorkflow; got.GenerateModel != "runtime-chat" || got.ExtractModel != "file-extract" || got.EmbeddingModel != "file-embedding" || got.ASRModel != "runtime-asr" {
-		t.Fatalf("PetFlowcraftWorkflow = %#v", got)
-	}
-	if merged.SystemLog.Level != "error" {
-		t.Fatalf("runtime SystemLog should win, got %+v", merged.SystemLog)
-	}
-	merged, err = mergeFileConfig(Config{}, fileCfg)
-	if err != nil {
-		t.Fatalf("mergeFileConfig file-only error = %v", err)
-	}
-	if merged.SystemLog.Level != "warn" {
-		t.Fatalf("file SystemLog should be used when runtime is empty, got %+v", merged.SystemLog)
-	}
-	if merged.DefaultPeerView != "file-client" {
-		t.Fatalf("file DefaultPeerView should be used when runtime is empty, got %q", merged.DefaultPeerView)
-	}
-	if merged.SystemTasks.PetFlowcraftWorkflow != fileCfg.SystemTasks.PetFlowcraftWorkflow {
-		t.Fatalf("file PetFlowcraftWorkflow was not used: %#v", merged.SystemTasks.PetFlowcraftWorkflow)
-	}
-}
-
 func TestValidateReportsSpecificMissingFields(t *testing.T) {
 	tests := []struct {
 		name string
@@ -1048,29 +807,6 @@ func TestPrepareConfigGeneratesKeyPairAndDefaultPorts(t *testing.T) {
 	}
 }
 
-func TestPrepareConfigNormalizesDefaultPeerView(t *testing.T) {
-	tests := []struct {
-		name  string
-		value string
-		want  string
-	}{
-		{name: "surrounding whitespace", value: "  default-client\t", want: "default-client"},
-		{name: "whitespace only", value: " \t\n", want: ""},
-		{name: "empty", value: "", want: ""},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			cfg, err := prepareConfig(Config{DefaultPeerView: tc.value})
-			if err != nil {
-				t.Fatalf("prepareConfig error = %v", err)
-			}
-			if cfg.DefaultPeerView != tc.want {
-				t.Fatalf("DefaultPeerView = %q, want %q", cfg.DefaultPeerView, tc.want)
-			}
-		})
-	}
-}
-
 func TestNewRejectsUnknownStores(t *testing.T) {
 	_, err := New(Config{
 		Stores: map[string]stores.Config{
@@ -1113,7 +849,6 @@ func validLayeredConfig(dir string) Config {
 		Storage: map[string]storage.Config{
 			"memory":      {Kind: storage.KindKeyValue, Memory: &storage.MemoryConfig{}},
 			"local-files": {Kind: storage.KindObjectStore, FS: &storage.FSConfig{Dir: dir}},
-			"acl-db":      {Kind: storage.KindSQL, SQLite: &storage.SQLConfig{Dir: filepath.Join(dir, "acl.sqlite")}},
 			"gameplay-db": {Kind: storage.KindSQL, SQLite: &storage.SQLConfig{Dir: filepath.Join(dir, "gameplay.sqlite")}},
 		},
 		Stores: map[string]stores.Config{
@@ -1121,6 +856,7 @@ func validLayeredConfig(dir string) Config {
 			"credentials":                 {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "credentials"},
 			"firmwares":                   {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "firmwares"},
 			"firmware-assets":             {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "firmwares"},
+			"runtime-profiles":            {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "runtime-profiles"},
 			"agenthost":                   {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "agenthost"},
 			"minimax-tenants":             {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "minimax-tenants"},
 			"voices":                      {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "voices"},
@@ -1134,8 +870,6 @@ func validLayeredConfig(dir string) Config {
 			"friend-group-members":        {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-group-members"},
 			"friend-group-messages":       {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-group-messages"},
 			"friend-group-message-assets": {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "friend-group-messages"},
-			"acl":                         {Kind: stores.KindSQL, Storage: "acl-db"},
-			"game-rulesets":               {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "game-rulesets"},
 			"pet-defs":                    {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "pet-defs"},
 			"badge-defs":                  {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "badge-defs"},
 			"game-defs":                   {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "game-defs"},

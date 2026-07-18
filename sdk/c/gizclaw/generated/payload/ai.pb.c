@@ -39,7 +39,7 @@ PB_BIND(gizclaw_rpc_v1_ChatRoomWorkspaceParameters, gizclaw_rpc_v1_ChatRoomWorks
 PB_BIND(gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters, gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_Credential, gizclaw_rpc_v1_Credential, AUTO)
+PB_BIND(gizclaw_rpc_v1_Credential, gizclaw_rpc_v1_Credential, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_CredentialBody, gizclaw_rpc_v1_CredentialBody, AUTO)

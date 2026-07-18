@@ -13,7 +13,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
@@ -22,7 +21,6 @@ func TestGeneratorAuthorizesBeforeReadingModel(t *testing.T) {
 	events := []string{}
 	svc := New(Service{
 		Peer:            newTestPeer(),
-		Authorizer:      &recordingAuthorizer{events: &events},
 		Models:          fakeModels{events: &events},
 		Credentials:     fakeCredentials{events: &events},
 		ProviderTenants: fakeTenants{events: &events},
@@ -38,35 +36,12 @@ func TestGeneratorAuthorizesBeforeReadingModel(t *testing.T) {
 	}
 
 	want := []string{
-		"auth:model:chat:read",
 		"get:model:chat",
-		"auth:model:chat:use",
 		"get:tenant:openai:main",
-		"auth:credential:openai-key:use",
 		"get:credential:openai-key",
 		"build:generator:chat",
 		"call:generator:model/chat",
 	}
-	if !reflect.DeepEqual(events, want) {
-		t.Fatalf("events = %#v, want %#v", events, want)
-	}
-}
-
-func TestGeneratorDeniedReadDoesNotReadModel(t *testing.T) {
-	ctx := context.Background()
-	events := []string{}
-	svc := New(Service{
-		Peer:       newTestPeer(),
-		Authorizer: &recordingAuthorizer{events: &events, deny: "auth:model:chat:read"},
-		Models:     fakeModels{events: &events},
-		Builder:    fakeBuilder{events: &events},
-	})
-
-	_, err := svc.Generator().GenerateStream(ctx, "model/chat", nil)
-	if !errors.Is(err, ErrDenied) {
-		t.Fatalf("GenerateStream() error = %v, want %v", err, ErrDenied)
-	}
-	want := []string{"auth:model:chat:read"}
 	if !reflect.DeepEqual(events, want) {
 		t.Fatalf("events = %#v, want %#v", events, want)
 	}
@@ -77,7 +52,6 @@ func TestTransformerVoiceAuthorizesBeforeReadingVoiceAndCredential(t *testing.T)
 	events := []string{}
 	svc := New(Service{
 		Peer:            newTestPeer(),
-		Authorizer:      &recordingAuthorizer{events: &events},
 		Voices:          fakeVoices{events: &events},
 		Credentials:     fakeCredentials{events: &events},
 		ProviderTenants: fakeTenants{events: &events},
@@ -93,11 +67,8 @@ func TestTransformerVoiceAuthorizesBeforeReadingVoiceAndCredential(t *testing.T)
 	}
 
 	want := []string{
-		"auth:voice:cancan:read",
 		"get:voice:cancan",
-		"auth:voice:cancan:use",
 		"get:tenant:volc:main",
-		"auth:credential:volc-token:use",
 		"get:credential:volc-token",
 		"build:transformer:voice:cancan",
 		"call:transformer:voice/cancan",
@@ -112,7 +83,6 @@ func TestTransformerModelASRUsesVolcTenant(t *testing.T) {
 	events := []string{}
 	svc := New(Service{
 		Peer:            newTestPeer(),
-		Authorizer:      &recordingAuthorizer{events: &events},
 		Models:          fakeModels{events: &events, modelKind: apitypes.ModelKindAsr, providerKind: "volc-tenant"},
 		Credentials:     fakeCredentials{events: &events},
 		ProviderTenants: fakeTenants{events: &events},
@@ -124,11 +94,8 @@ func TestTransformerModelASRUsesVolcTenant(t *testing.T) {
 	}
 
 	want := []string{
-		"auth:model:asr:read",
 		"get:model:asr",
-		"auth:model:asr:use",
 		"get:tenant:volc:main",
-		"auth:credential:volc-token:use",
 		"get:credential:volc-token",
 		"build:transformer:model:asr",
 		"call:transformer:model/asr",
@@ -143,7 +110,6 @@ func TestTransformerModelRealtimeUsesVolcTenant(t *testing.T) {
 	events := []string{}
 	svc := New(Service{
 		Peer:            newTestPeer(),
-		Authorizer:      &recordingAuthorizer{events: &events},
 		Models:          fakeModels{events: &events, modelKind: apitypes.ModelKindRealtime, providerKind: "volc-tenant"},
 		Credentials:     fakeCredentials{events: &events},
 		ProviderTenants: fakeTenants{events: &events},
@@ -155,11 +121,8 @@ func TestTransformerModelRealtimeUsesVolcTenant(t *testing.T) {
 	}
 
 	want := []string{
-		"auth:model:realtime:read",
 		"get:model:realtime",
-		"auth:model:realtime:use",
 		"get:tenant:volc:main",
-		"auth:credential:volc-token:use",
 		"get:credential:volc-token",
 		"build:transformer:model:realtime",
 		"call:transformer:model/realtime",
@@ -174,7 +137,6 @@ func TestTransformerVoiceSupportsMiniMaxTenant(t *testing.T) {
 	events := []string{}
 	svc := New(Service{
 		Peer:            newTestPeer(),
-		Authorizer:      &recordingAuthorizer{events: &events},
 		Voices:          fakeVoices{events: &events, providerKind: apitypes.VoiceProviderKindMinimaxTenant},
 		Credentials:     fakeCredentials{events: &events},
 		ProviderTenants: fakeTenants{events: &events},
@@ -186,68 +148,11 @@ func TestTransformerVoiceSupportsMiniMaxTenant(t *testing.T) {
 	}
 
 	want := []string{
-		"auth:voice:minimax:read",
 		"get:voice:minimax",
-		"auth:voice:minimax:use",
 		"get:tenant:minimax:main",
-		"auth:credential:minimax-key:use",
 		"get:credential:minimax-key",
 		"build:transformer:voice:minimax",
 		"call:transformer:voice/minimax",
-	}
-	if !reflect.DeepEqual(events, want) {
-		t.Fatalf("events = %#v, want %#v", events, want)
-	}
-}
-
-func TestTransformerDeniedVoiceUseDoesNotReadCredential(t *testing.T) {
-	ctx := context.Background()
-	events := []string{}
-	svc := New(Service{
-		Peer:            newTestPeer(),
-		Authorizer:      &recordingAuthorizer{events: &events, deny: "auth:voice:cancan:use"},
-		Voices:          fakeVoices{events: &events},
-		Credentials:     fakeCredentials{events: &events},
-		ProviderTenants: fakeTenants{events: &events},
-		Builder:         fakeBuilder{events: &events},
-	})
-
-	_, err := svc.Transformer().Transform(ctx, "voice/cancan", fakeStream{})
-	if !errors.Is(err, ErrDenied) {
-		t.Fatalf("Transform() error = %v, want %v", err, ErrDenied)
-	}
-	want := []string{
-		"auth:voice:cancan:read",
-		"get:voice:cancan",
-		"auth:voice:cancan:use",
-	}
-	if !reflect.DeepEqual(events, want) {
-		t.Fatalf("events = %#v, want %#v", events, want)
-	}
-}
-
-func TestGeneratorDeniedCredentialUseDoesNotReadCredential(t *testing.T) {
-	ctx := context.Background()
-	events := []string{}
-	svc := New(Service{
-		Peer:            newTestPeer(),
-		Authorizer:      &recordingAuthorizer{events: &events, deny: "auth:credential:openai-key:use"},
-		Models:          fakeModels{events: &events},
-		Credentials:     fakeCredentials{events: &events},
-		ProviderTenants: fakeTenants{events: &events},
-		Builder:         fakeBuilder{events: &events},
-	})
-
-	_, err := svc.Generator().GenerateStream(ctx, "model/chat", nil)
-	if !errors.Is(err, ErrDenied) {
-		t.Fatalf("GenerateStream() error = %v, want %v", err, ErrDenied)
-	}
-	want := []string{
-		"auth:model:chat:read",
-		"get:model:chat",
-		"auth:model:chat:use",
-		"get:tenant:openai:main",
-		"auth:credential:openai-key:use",
 	}
 	if !reflect.DeepEqual(events, want) {
 		t.Fatalf("events = %#v, want %#v", events, want)
@@ -1159,7 +1064,6 @@ func TestGeneratorInvokeUsesResolvedModel(t *testing.T) {
 	events := []string{}
 	svc := New(Service{
 		Peer:            newTestPeer(),
-		Authorizer:      &recordingAuthorizer{events: &events},
 		Models:          fakeModels{events: &events},
 		Credentials:     fakeCredentials{events: &events},
 		ProviderTenants: fakeTenants{events: &events},
@@ -1171,11 +1075,8 @@ func TestGeneratorInvokeUsesResolvedModel(t *testing.T) {
 	}
 
 	want := []string{
-		"auth:model:chat:read",
 		"get:model:chat",
-		"auth:model:chat:use",
 		"get:tenant:openai:main",
-		"auth:credential:openai-key:use",
 		"get:credential:openai-key",
 		"build:generator:chat",
 		"call:invoke:model/chat",
@@ -1198,7 +1099,6 @@ func TestResolveGeneratorSupportsAdditionalTenantKinds(t *testing.T) {
 			events := []string{}
 			svc := New(Service{
 				Peer:            newTestPeer(),
-				Authorizer:      &recordingAuthorizer{events: &events},
 				Models:          fakeModels{events: &events, providerKind: tc.providerKind},
 				Credentials:     fakeCredentials{events: &events},
 				ProviderTenants: fakeTenants{events: &events},
@@ -1219,8 +1119,7 @@ func TestListAccessibleGeneratorConfigsEnumeratesAuthorizedLLMs(t *testing.T) {
 	ctx := context.Background()
 	events := []string{}
 	svc := New(Service{
-		Peer:       newTestPeer(),
-		Authorizer: &recordingAuthorizer{events: &events, deny: "auth:model:denied:read"},
+		Peer: newTestPeer(),
 		Models: fakeModels{events: &events, listItems: []apitypes.Model{
 			testModel("chat", apitypes.ModelKindLlm),
 			testModel("asr", apitypes.ModelKindAsr),
@@ -1234,63 +1133,18 @@ func TestListAccessibleGeneratorConfigsEnumeratesAuthorizedLLMs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListAccessibleGeneratorConfigs() error = %v", err)
 	}
-	if len(got) != 1 || got[0].Model.Id != "chat" || got[0].Pattern != "model/chat" {
-		t.Fatalf("ListAccessibleGeneratorConfigs() = %#v, want only chat", got)
+	if len(got) != 2 || got[0].Model.Id != "chat" || got[1].Model.Id != "denied" {
+		t.Fatalf("ListAccessibleGeneratorConfigs() = %#v, want both LLMs from the effective resource view", got)
 	}
 	want := []string{
 		"list:models",
-		"auth:model:chat:read",
-		"auth:model:chat:use",
 		"get:tenant:openai:main",
-		"auth:credential:openai-key:use",
 		"get:credential:openai-key",
-		"auth:model:denied:read",
+		"get:tenant:openai:main",
+		"get:credential:openai-key",
 	}
 	if !reflect.DeepEqual(events, want) {
 		t.Fatalf("events = %#v, want %#v", events, want)
-	}
-}
-
-func TestListAccessibleGeneratorConfigsErrorsAndUseDenial(t *testing.T) {
-	ctx := context.Background()
-	if _, err := (*Service)(nil).ListAccessibleGeneratorConfigs(ctx); !errors.Is(err, ErrNotConfigured) {
-		t.Fatalf("nil ListAccessibleGeneratorConfigs() error = %v, want %v", err, ErrNotConfigured)
-	}
-	if _, err := (&Service{}).ListAccessibleGeneratorConfigs(ctx); !errors.Is(err, ErrNotConfigured) {
-		t.Fatalf("missing models ListAccessibleGeneratorConfigs() error = %v, want %v", err, ErrNotConfigured)
-	}
-	if _, err := (&Service{Models: responseModels{}}).ListAccessibleGeneratorConfigs(ctx); !errors.Is(err, ErrNotConfigured) {
-		t.Fatalf("missing lister ListAccessibleGeneratorConfigs() error = %v, want %v", err, ErrNotConfigured)
-	}
-	svc := &Service{Models: responseModelLister{response: adminhttp.ListModels500JSONResponse{}}}
-	if _, err := svc.ListAccessibleGeneratorConfigs(ctx); !errors.Is(err, ErrInvalid) {
-		t.Fatalf("bad list response error = %v, want %v", err, ErrInvalid)
-	}
-
-	events := []string{}
-	deniedUse := New(Service{
-		Peer:       newTestPeer(),
-		Authorizer: &recordingAuthorizer{events: &events, deny: "auth:model:denied:use"},
-		Models: fakeModels{events: &events, listItems: []apitypes.Model{
-			testModel("denied", apitypes.ModelKindLlm),
-		}},
-		Credentials:     fakeCredentials{events: &events},
-		ProviderTenants: fakeTenants{events: &events},
-	})
-	got, err := deniedUse.ListAccessibleGeneratorConfigs(ctx)
-	if err != nil {
-		t.Fatalf("denied use ListAccessibleGeneratorConfigs() error = %v", err)
-	}
-	if len(got) != 0 {
-		t.Fatalf("denied use configs = %#v, want empty", got)
-	}
-	want := []string{
-		"list:models",
-		"auth:model:denied:read",
-		"auth:model:denied:use",
-	}
-	if !reflect.DeepEqual(events, want) {
-		t.Fatalf("denied use events = %#v, want %#v", events, want)
 	}
 }
 
@@ -1502,20 +1356,6 @@ func newTestPeer() testPeer {
 	var p testPeer
 	p[0] = 1
 	return p
-}
-
-type recordingAuthorizer struct {
-	events *[]string
-	deny   string
-}
-
-func (a *recordingAuthorizer) Authorize(_ context.Context, request acl.AuthorizeRequest) error {
-	event := "auth:" + string(request.Resource.Kind) + ":" + request.Resource.Id + ":" + string(request.Permission)
-	*a.events = append(*a.events, event)
-	if a.deny == event {
-		return acl.ErrDenied
-	}
-	return nil
 }
 
 type fakeModels struct {

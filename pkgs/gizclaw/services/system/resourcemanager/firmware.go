@@ -23,31 +23,17 @@ func (m *Manager) applyFirmware(ctx context.Context, resource apitypes.Resource)
 	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	if err := m.validateOwnedResourceOwner(apitypes.ACLResourceKindFirmware, item.Metadata.Name, item.Metadata, exists); err != nil {
-		return apitypes.ApplyResult{}, err
-	}
 	if exists {
 		same, err := semanticEqual(firmwareSpec(existing), item.Spec)
 		if err != nil {
 			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
 		}
 		if same {
-			ownerChanged, err := m.ensureOwnedResourceOwnerFromMetadata(ctx, apitypes.ACLResourceKindFirmware, item.Metadata.Name, item.Metadata)
-			if err != nil {
-				return apitypes.ApplyResult{}, err
-			}
-			if ownerChanged {
-				return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindFirmware, item.Metadata.Name), nil
-			}
 			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindFirmware, item.Metadata.Name), nil
 		}
 	}
-	ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindFirmware, item.Metadata.Name, item.Metadata)
-	if err != nil {
-		return apitypes.ApplyResult{}, err
-	}
 	if err := m.putFirmware(ctx, name, firmwareUpsert(item)); err != nil {
-		return apitypes.ApplyResult{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
+		return apitypes.ApplyResult{}, err
 	}
 	if exists {
 		return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindFirmware, item.Metadata.Name), nil

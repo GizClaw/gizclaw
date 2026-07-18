@@ -3,13 +3,9 @@ package peergenx
 import (
 	"context"
 	"errors"
-	"fmt"
-	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
@@ -23,10 +19,6 @@ var (
 
 type Peer interface {
 	PublicKey() giznet.PublicKey
-}
-
-type Authorizer interface {
-	Authorize(context.Context, acl.AuthorizeRequest) error
 }
 
 type ModelGetter interface {
@@ -64,7 +56,6 @@ type AudioOutput interface {
 
 type Service struct {
 	Peer            Peer
-	Authorizer      Authorizer
 	Models          ModelGetter
 	Voices          VoiceGetter
 	Credentials     CredentialGetter
@@ -149,48 +140,4 @@ func (s *Service) builder() Builder {
 		return s.Builder
 	}
 	return DefaultBuilder{}
-}
-
-func (s *Service) subject() (apitypes.ACLSubject, error) {
-	if s == nil || s.Peer == nil {
-		return apitypes.ACLSubject{}, fmt.Errorf("%w: peer is required", ErrNotConfigured)
-	}
-	publicKey := strings.TrimSpace(s.Peer.PublicKey().String())
-	if publicKey == "" {
-		return apitypes.ACLSubject{}, fmt.Errorf("%w: peer public key is required", ErrInvalid)
-	}
-	return acl.PublicKeySubject(publicKey), nil
-}
-
-func (s *Service) authorize(ctx context.Context, resource apitypes.ACLResource, permission apitypes.ACLPermission) error {
-	if s == nil || s.Authorizer == nil {
-		return fmt.Errorf("%w: authorizer is required", ErrNotConfigured)
-	}
-	subject, err := s.subject()
-	if err != nil {
-		return err
-	}
-	if err := s.Authorizer.Authorize(ctx, acl.AuthorizeRequest{
-		Subject:    subject,
-		Resource:   resource,
-		Permission: permission,
-	}); err != nil {
-		if errors.Is(err, acl.ErrDenied) {
-			return fmt.Errorf("%w: %s %s %s", ErrDenied, subject.Id, permission, resource.Id)
-		}
-		return err
-	}
-	return nil
-}
-
-func modelResource(id string) apitypes.ACLResource {
-	return apitypes.ACLResource{Kind: apitypes.ACLResourceKindModel, Id: id}
-}
-
-func voiceResource(id string) apitypes.ACLResource {
-	return apitypes.ACLResource{Kind: apitypes.ACLResourceKindVoice, Id: id}
-}
-
-func credentialResource(name string) apitypes.ACLResource {
-	return apitypes.ACLResource{Kind: apitypes.ACLResourceKindCredential, Id: name}
 }

@@ -554,6 +554,8 @@ typedef struct _gizclaw_rpc_v1_Credential {
     pb_callback_t name;
     pb_callback_t provider;
     pb_callback_t updated_at;
+    bool has_owner_public_key;
+    char owner_public_key[65];
 } gizclaw_rpc_v1_Credential;
 
 typedef struct _gizclaw_rpc_v1_CredentialCreateRequest {
@@ -633,6 +635,8 @@ typedef struct _gizclaw_rpc_v1_Model {
     gizclaw_rpc_v1_ModelSource source;
     pb_callback_t synced_at;
     pb_callback_t updated_at;
+    bool has_owner_public_key;
+    char owner_public_key[65];
 } gizclaw_rpc_v1_Model;
 
 typedef struct _gizclaw_rpc_v1_ModelCreateRequest {
@@ -826,6 +830,7 @@ typedef struct _gizclaw_rpc_v1_Tool {
     google_protobuf_Struct metadata;
     pb_callback_t created_at;
     pb_callback_t updated_at;
+    pb_callback_t owner_public_key;
 } gizclaw_rpc_v1_Tool;
 
 typedef struct _gizclaw_rpc_v1_ToolListRequest {
@@ -1061,7 +1066,7 @@ extern "C" {
 #define gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_init_default {_gizclaw_rpc_v1_ChatRoomWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters_init_default, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, _gizclaw_rpc_v1_ChatRoomMode_MIN, false, gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_init_default}
 #define gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_init_default {{{NULL}, NULL}, false, 0}
-#define gizclaw_rpc_v1_Credential_init_default   {false, gizclaw_rpc_v1_CredentialBody_init_default, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Credential_init_default   {false, gizclaw_rpc_v1_CredentialBody_init_default, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, ""}
 #define gizclaw_rpc_v1_CredentialBody_init_default {0, {gizclaw_rpc_v1_OpenAICredentialBody_init_default}}
 #define gizclaw_rpc_v1_CredentialCreateRequest_init_default {false, gizclaw_rpc_v1_Credential_init_default}
 #define gizclaw_rpc_v1_CredentialCreateResponse_init_default {false, gizclaw_rpc_v1_Credential_init_default}
@@ -1109,7 +1114,7 @@ extern "C" {
 #define gizclaw_rpc_v1_GeminiTenantVoiceProviderData_init_default {false, google_protobuf_Struct_init_default, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_MiniMaxCredentialBody_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_MiniMaxTenantVoiceProviderData_init_default {{{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_default, false, 0, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_Model_init_default        {false, gizclaw_rpc_v1_ModelCapabilities_init_default, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ModelKind_MIN, {{NULL}, NULL}, false, gizclaw_rpc_v1_ModelProvider_init_default, false, gizclaw_rpc_v1_ModelProviderData_init_default, _gizclaw_rpc_v1_ModelSource_MIN, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Model_init_default        {false, gizclaw_rpc_v1_ModelCapabilities_init_default, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ModelKind_MIN, {{NULL}, NULL}, false, gizclaw_rpc_v1_ModelProvider_init_default, false, gizclaw_rpc_v1_ModelProviderData_init_default, _gizclaw_rpc_v1_ModelSource_MIN, {{NULL}, NULL}, {{NULL}, NULL}, false, ""}
 #define gizclaw_rpc_v1_ModelCapabilities_init_default {false, 0, false, 0, false, 0, false, 0, false, gizclaw_rpc_v1_ModelThinkingCapability_init_default, false, 0}
 #define gizclaw_rpc_v1_ModelCreateRequest_init_default {false, gizclaw_rpc_v1_Model_init_default}
 #define gizclaw_rpc_v1_ModelCreateResponse_init_default {false, gizclaw_rpc_v1_Model_init_default}
@@ -1151,7 +1156,7 @@ extern "C" {
 #define gizclaw_rpc_v1_ToolExecutor_init_default {_gizclaw_rpc_v1_ToolExecutorKind_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_default}
 #define gizclaw_rpc_v1_ToolTriggerExample_init_default {{{NULL}, NULL}, false, google_protobuf_Struct_init_default, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolTrigger_init_default  {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_default}
-#define gizclaw_rpc_v1_Tool_init_default         {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ToolSource_MIN, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_default, false, google_protobuf_Struct_init_default, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolExecutor_init_default, false, google_protobuf_Struct_init_default, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Tool_init_default         {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ToolSource_MIN, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_default, false, google_protobuf_Struct_init_default, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolExecutor_init_default, false, google_protobuf_Struct_init_default, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolListRequest_init_default {{{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_ToolListResponse_init_default {{{NULL}, NULL}, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolGetRequest_init_default {{{NULL}, NULL}}
@@ -1175,7 +1180,7 @@ extern "C" {
 #define gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_init_zero {_gizclaw_rpc_v1_ChatRoomWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters_init_zero, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, _gizclaw_rpc_v1_ChatRoomMode_MIN, false, gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_init_zero}
 #define gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_init_zero {{{NULL}, NULL}, false, 0}
-#define gizclaw_rpc_v1_Credential_init_zero      {false, gizclaw_rpc_v1_CredentialBody_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Credential_init_zero      {false, gizclaw_rpc_v1_CredentialBody_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, ""}
 #define gizclaw_rpc_v1_CredentialBody_init_zero  {0, {gizclaw_rpc_v1_OpenAICredentialBody_init_zero}}
 #define gizclaw_rpc_v1_CredentialCreateRequest_init_zero {false, gizclaw_rpc_v1_Credential_init_zero}
 #define gizclaw_rpc_v1_CredentialCreateResponse_init_zero {false, gizclaw_rpc_v1_Credential_init_zero}
@@ -1223,7 +1228,7 @@ extern "C" {
 #define gizclaw_rpc_v1_GeminiTenantVoiceProviderData_init_zero {false, google_protobuf_Struct_init_zero, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_MiniMaxCredentialBody_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_MiniMaxTenantVoiceProviderData_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_zero, false, 0, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_Model_init_zero           {false, gizclaw_rpc_v1_ModelCapabilities_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ModelKind_MIN, {{NULL}, NULL}, false, gizclaw_rpc_v1_ModelProvider_init_zero, false, gizclaw_rpc_v1_ModelProviderData_init_zero, _gizclaw_rpc_v1_ModelSource_MIN, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Model_init_zero           {false, gizclaw_rpc_v1_ModelCapabilities_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ModelKind_MIN, {{NULL}, NULL}, false, gizclaw_rpc_v1_ModelProvider_init_zero, false, gizclaw_rpc_v1_ModelProviderData_init_zero, _gizclaw_rpc_v1_ModelSource_MIN, {{NULL}, NULL}, {{NULL}, NULL}, false, ""}
 #define gizclaw_rpc_v1_ModelCapabilities_init_zero {false, 0, false, 0, false, 0, false, 0, false, gizclaw_rpc_v1_ModelThinkingCapability_init_zero, false, 0}
 #define gizclaw_rpc_v1_ModelCreateRequest_init_zero {false, gizclaw_rpc_v1_Model_init_zero}
 #define gizclaw_rpc_v1_ModelCreateResponse_init_zero {false, gizclaw_rpc_v1_Model_init_zero}
@@ -1265,7 +1270,7 @@ extern "C" {
 #define gizclaw_rpc_v1_ToolExecutor_init_zero    {_gizclaw_rpc_v1_ToolExecutorKind_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_zero}
 #define gizclaw_rpc_v1_ToolTriggerExample_init_zero {{{NULL}, NULL}, false, google_protobuf_Struct_init_zero, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolTrigger_init_zero     {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_zero}
-#define gizclaw_rpc_v1_Tool_init_zero            {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ToolSource_MIN, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_zero, false, google_protobuf_Struct_init_zero, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolExecutor_init_zero, false, google_protobuf_Struct_init_zero, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Tool_init_zero            {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ToolSource_MIN, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_zero, false, google_protobuf_Struct_init_zero, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolExecutor_init_zero, false, google_protobuf_Struct_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolListRequest_init_zero {{{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_ToolListResponse_init_zero {{{NULL}, NULL}, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolGetRequest_init_zero  {{{NULL}, NULL}}
@@ -1514,6 +1519,7 @@ extern "C" {
 #define gizclaw_rpc_v1_Credential_name_tag       4
 #define gizclaw_rpc_v1_Credential_provider_tag   5
 #define gizclaw_rpc_v1_Credential_updated_at_tag 6
+#define gizclaw_rpc_v1_Credential_owner_public_key_tag 7
 #define gizclaw_rpc_v1_CredentialCreateRequest_value_tag 1
 #define gizclaw_rpc_v1_CredentialCreateResponse_value_tag 1
 #define gizclaw_rpc_v1_CredentialDeleteResponse_value_tag 1
@@ -1548,6 +1554,7 @@ extern "C" {
 #define gizclaw_rpc_v1_Model_source_tag          9
 #define gizclaw_rpc_v1_Model_synced_at_tag       10
 #define gizclaw_rpc_v1_Model_updated_at_tag      11
+#define gizclaw_rpc_v1_Model_owner_public_key_tag 12
 #define gizclaw_rpc_v1_ModelCreateRequest_value_tag 1
 #define gizclaw_rpc_v1_ModelCreateResponse_value_tag 1
 #define gizclaw_rpc_v1_ModelDeleteResponse_value_tag 1
@@ -1631,6 +1638,7 @@ extern "C" {
 #define gizclaw_rpc_v1_Tool_metadata_tag         12
 #define gizclaw_rpc_v1_Tool_created_at_tag       13
 #define gizclaw_rpc_v1_Tool_updated_at_tag       14
+#define gizclaw_rpc_v1_Tool_owner_public_key_tag 15
 #define gizclaw_rpc_v1_ToolListRequest_cursor_tag 1
 #define gizclaw_rpc_v1_ToolListRequest_limit_tag 2
 #define gizclaw_rpc_v1_ToolListResponse_items_tag 1
@@ -1753,7 +1761,8 @@ X(a, CALLBACK, SINGULAR, STRING,   created_at,        2) \
 X(a, CALLBACK, OPTIONAL, STRING,   description,       3) \
 X(a, CALLBACK, SINGULAR, STRING,   name,              4) \
 X(a, CALLBACK, SINGULAR, STRING,   provider,          5) \
-X(a, CALLBACK, SINGULAR, STRING,   updated_at,        6)
+X(a, CALLBACK, SINGULAR, STRING,   updated_at,        6) \
+X(a, STATIC,   OPTIONAL, STRING,   owner_public_key,   7)
 #define gizclaw_rpc_v1_Credential_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Credential_DEFAULT NULL
 #define gizclaw_rpc_v1_Credential_body_MSGTYPE gizclaw_rpc_v1_CredentialBody
@@ -2144,7 +2153,8 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  provider,          7) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  provider_data,     8) \
 X(a, STATIC,   SINGULAR, UENUM,    source,            9) \
 X(a, CALLBACK, OPTIONAL, STRING,   synced_at,        10) \
-X(a, CALLBACK, SINGULAR, STRING,   updated_at,       11)
+X(a, CALLBACK, SINGULAR, STRING,   updated_at,       11) \
+X(a, STATIC,   OPTIONAL, STRING,   owner_public_key,  12)
 #define gizclaw_rpc_v1_Model_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Model_DEFAULT NULL
 #define gizclaw_rpc_v1_Model_capabilities_MSGTYPE gizclaw_rpc_v1_ModelCapabilities
@@ -2504,7 +2514,8 @@ X(a, CALLBACK, REPEATED, MESSAGE,  triggers,         10) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  executor,         11) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  metadata,         12) \
 X(a, CALLBACK, SINGULAR, STRING,   created_at,       13) \
-X(a, CALLBACK, SINGULAR, STRING,   updated_at,       14)
+X(a, CALLBACK, SINGULAR, STRING,   updated_at,       14) \
+X(a, CALLBACK, OPTIONAL, STRING,   owner_public_key,  15)
 #define gizclaw_rpc_v1_Tool_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Tool_DEFAULT NULL
 #define gizclaw_rpc_v1_Tool_input_schema_MSGTYPE google_protobuf_Struct

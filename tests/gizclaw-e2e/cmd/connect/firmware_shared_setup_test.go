@@ -4,37 +4,42 @@ package connect_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
 )
 
 func TestFirmwareSharedSetupDownload(t *testing.T) {
 	h := clitest.NewSetupHarness(t, "304-firmware-shared-download")
+	h.InstallFixedAdminContext("admin-a").MustSucceed(t)
 	h.CreateContext("device-a").MustSucceed(t)
 	h.RegisterContext("device-a", "--sn", "shared-firmware-device").MustSucceed(t)
-	applyClientView(t, h, h.ContextPublicKey("device-a"))
+	token := createFirmwareRegistrationToken(t, h)
 
-	list := h.RunCLI("connect", "firmware", "list", "--context", "device-a")
+	list := h.RunCLI("connect", "firmware", "list", "--context", "device-a", "--registration-token", token)
 	list.MustSucceed(t)
-	assertOutputContains(t, list.Stdout, `"name":"devkit-firmware-000"`, `"has_next":true`)
+	assertOutputContains(t, list.Stdout, `"name":"devkit-firmware-main"`, `"has_next":false`)
 
-	getMain := h.RunCLI("connect", "firmware", "get", "--firmware-id", "devkit-firmware-main", "--context", "device-a")
+	getMain := h.RunCLI("connect", "firmware", "get", "--firmware-id", "devkit-firmware-main", "--context", "device-a", "--registration-token", token)
 	getMain.MustSucceed(t)
 	assertOutputContains(t, getMain.Stdout, `"name":"devkit-firmware-main"`)
 
-	getLast := h.RunCLI("connect", "firmware", "get", "--firmware-id", "devkit-firmware-079", "--context", "device-a")
-	getLast.MustSucceed(t)
-	assertOutputContains(t, getLast.Stdout, `"name":"devkit-firmware-079"`)
+	getOther := h.RunCLI("connect", "firmware", "get", "--firmware-id", "devkit-firmware-079", "--context", "device-a", "--registration-token", token)
+	if getOther.Err == nil {
+		t.Fatalf("other firmware unexpectedly accessible:\n%s", getOther.Stdout)
+	}
 
 	outputPath := filepath.Join(h.SandboxDir, "MANIFEST.txt")
-	download := mustRunCLIJSON[firmwareDownloadCLIResponse](t, h, "connect", "firmware", "download", "--firmware-id", "devkit-firmware-main", "--channel", "stable", "--path", "MANIFEST.txt", "--output", outputPath, "--context", "device-a")
+	download := mustRunCLIJSON[firmwareDownloadCLIResponse](t, h, "connect", "firmware", "download", "--firmware-id", "devkit-firmware-main", "--channel", "stable", "--path", "MANIFEST.txt", "--output", outputPath, "--context", "device-a", "--registration-token", token)
 	if download.Bytes <= 0 || download.Metadata.File.Path != "MANIFEST.txt" {
 		t.Fatalf("firmware download = %#v", download)
 	}
@@ -47,7 +52,7 @@ func TestFirmwareSharedSetupDownload(t *testing.T) {
 	}
 
 	binPath := filepath.Join(h.SandboxDir, "main.bin")
-	binDownload := mustRunCLIJSON[firmwareDownloadCLIResponse](t, h, "connect", "firmware", "download", "--firmware-id", "devkit-firmware-main", "--channel", "stable", "--path", "firmware/main.bin", "--output", binPath, "--context", "device-a")
+	binDownload := mustRunCLIJSON[firmwareDownloadCLIResponse](t, h, "connect", "firmware", "download", "--firmware-id", "devkit-firmware-main", "--channel", "stable", "--path", "firmware/main.bin", "--output", binPath, "--context", "device-a", "--registration-token", token)
 	if binDownload.Bytes <= 0 || binDownload.Metadata.File.Path != "firmware/main.bin" {
 		t.Fatalf("firmware bin download = %#v", binDownload)
 	}
@@ -79,17 +84,39 @@ func mustRunCLIJSON[T any](t *testing.T, h *clitest.Harness, args ...string) T {
 	return out
 }
 
-func applyClientView(t *testing.T, h *clitest.Harness, peerPublicKey string) {
+func createFirmwareRegistrationToken(t *testing.T, h *clitest.Harness) string {
 	t.Helper()
-
-	script := filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "setup", "apply_client_view.sh")
-	cmd := exec.Command("bash", script, peerPublicKey)
-	cmd.Dir = h.RepoRoot
-	cmd.Env = os.Environ()
-	output, err := cmd.CombinedOutput()
+	admin := h.ConnectClientFromContext("admin-a")
+	defer admin.Close()
+	api, err := admin.ServerAdminClient()
 	if err != nil {
-		t.Fatalf("apply client view: %v\n%s", err, string(output))
+		t.Fatalf("create admin client: %v", err)
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	profileName := "e2e-firmware-main"
+	profileResp, err := api.PutRuntimeProfileWithResponse(ctx, profileName, adminhttp.RuntimeProfileUpsert{
+		Name: profileName,
+		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{}},
+	})
+	if err != nil {
+		t.Fatalf("put RuntimeProfile: %v", err)
+	}
+	if profileResp.JSON200 == nil {
+		t.Fatalf("put RuntimeProfile: err=%v status=%d body=%s", err, profileResp.StatusCode(), strings.TrimSpace(string(profileResp.Body)))
+	}
+	tokenName := "e2e-firmware-main-token"
+	_, _ = api.DeleteRegistrationTokenWithResponse(ctx, tokenName)
+	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
+		Name: tokenName, FirmwareName: "devkit-firmware-main", RuntimeProfileName: profileName,
+	})
+	if err != nil {
+		t.Fatalf("create RegistrationToken: %v", err)
+	}
+	if tokenResp.JSON200 == nil || tokenResp.JSON200.Token == nil {
+		t.Fatalf("create RegistrationToken: err=%v status=%d body=%s", err, tokenResp.StatusCode(), strings.TrimSpace(string(tokenResp.Body)))
+	}
+	return *tokenResp.JSON200.Token
 }
 
 func assertOutputContains(t *testing.T, output string, values ...string) {

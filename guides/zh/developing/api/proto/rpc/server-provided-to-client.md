@@ -18,7 +18,7 @@
 | `server.contact.*` | Contact CRUD |
 | `server.friend.*` | Friend 与 invite-token operations |
 | `server.friend_group.*` | Group、member、message 与 invite-token operations |
-| `server.game_ruleset.*` | Gameplay ruleset lookup |
+| `server.register` | 使用 RegistrationToken 选择当前 connection 的 Firmware 与 RuntimeProfile |
 | `server.pet.*` | Pet resource CRUD 与 drive |
 | `server.pet.actions.get` | 按 Pet 获取可用 actions，不返回完整 PetDef |
 | `server.pet.pixa.download` | 按 Pet 下载 PIXA metadata 与素材，不暴露 PetDef API |

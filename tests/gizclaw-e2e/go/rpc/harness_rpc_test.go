@@ -64,6 +64,7 @@ func newServerResourceHarness(t *testing.T) *serverResourceHarness {
 	t.Cleanup(cancel)
 	peer := h.ConnectClientFromContext("peer-a")
 	t.Cleanup(func() { peer.Close() })
+	registerRuntimeProfile(t, h, peer, "peer-a", sharedRuntimeProfileSpec())
 	return &serverResourceHarness{h: h, ctx: ctx, peer: peer}
 }
 
@@ -80,6 +81,8 @@ func newSocialRPCHarness(t *testing.T) *socialRPCHarness {
 	t.Cleanup(cancel)
 	a := h.ConnectClientFromContext("peer-a")
 	b := h.ConnectClientFromContext("peer-b")
+	registerRuntimeProfile(t, h, a, "peer-a", sharedRuntimeProfileSpec())
+	registerRuntimeProfile(t, h, b, "peer-b", sharedRuntimeProfileSpec())
 	c := h.ConnectClientFromContext("peer-c")
 	d := h.ConnectClientFromContext("peer-d")
 	t.Cleanup(func() { a.Close() })
@@ -133,12 +136,24 @@ func registerSetupPeer(t *testing.T, h *clitest.Harness, contextName, serial str
 
 	h.CreateContext(contextName).MustSucceed(t)
 	h.RegisterContext(contextName, "--sn", serial).MustSucceed(t)
-	if defaultClientView {
-		applyDefaultClientView(t, h, contextName)
-	}
+	_ = defaultClientView
 }
 
-func applyDefaultClientView(t *testing.T, h *clitest.Harness, contextName string) {
+func sharedRuntimeProfileSpec() apitypes.RuntimeProfileSpec {
+	workflows := map[string]string{
+		"shared":   sharedWorkflow,
+		"chatroom": sharedChatroomWorkflow,
+		"mutation": mutationWorkflow,
+	}
+	models := map[string]string{
+		"shared":       sharedModel,
+		"reward-claim": "reward-claim",
+		"pet-action":   "pet-action",
+	}
+	return apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Workflows: &workflows, Models: &models}}
+}
+
+func registerRuntimeProfile(t *testing.T, h *clitest.Harness, peer *gizcli.Client, contextName string, spec apitypes.RuntimeProfileSpec) {
 	t.Helper()
 
 	admin := h.ConnectClientFromContext("admin-a")
@@ -149,45 +164,34 @@ func applyDefaultClientView(t *testing.T, h *clitest.Harness, contextName string
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	view := "default-client"
-	resp, err := api.PutPeerConfigWithResponse(ctx, h.ContextPublicKey(contextName), apitypes.Configuration{
-		View: &view,
+	profileName := "e2e-" + contextName
+	profileResp, err := api.PutRuntimeProfileWithResponse(ctx, profileName, adminhttp.RuntimeProfileUpsert{
+		Name: profileName,
+		Spec: spec,
 	})
 	if err != nil {
-		t.Fatalf("put peer config for %s: %v", contextName, err)
+		t.Fatalf("put RuntimeProfile for %s: %v", contextName, err)
 	}
-	if resp.JSON200 == nil {
-		t.Fatalf("put peer config for %s status %d: %s", contextName, resp.StatusCode(), strings.TrimSpace(string(resp.Body)))
+	if profileResp.JSON200 == nil {
+		t.Fatalf("put RuntimeProfile for %s status %d: %s", contextName, profileResp.StatusCode(), strings.TrimSpace(string(profileResp.Body)))
 	}
-	applyPeerWorkspacePrefixBinding(t, h, api, contextName)
-}
-
-func applyPeerWorkspacePrefixBinding(t *testing.T, h *clitest.Harness, api *adminhttp.ClientWithResponses, contextName string) {
-	t.Helper()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	peerPublicKey := h.ContextPublicKey(contextName)
-	id := "e2e-rpc-workspace-prefix-" + peerPublicKey + "-" + sharedChatroomWorkspace
-	resp, err := api.CreateACLPolicyBindingWithResponse(ctx, adminhttp.ACLPolicyBindingUpsert{
-		Id: &id,
-		Policy: apitypes.ACLPolicy{
-			Subject: apitypes.ACLSubject{
-				Kind: apitypes.ACLSubjectKindPk,
-				Id:   peerPublicKey,
-			},
-			Resource: apitypes.ACLResource{
-				Kind: apitypes.ACLResourceKindWorkspace,
-				Id:   sharedChatroomWorkspace,
-			},
-			Role: "standard-client",
-		},
+	tokenName := "e2e-token-" + contextName
+	_, _ = api.DeleteRegistrationTokenWithResponse(ctx, tokenName)
+	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
+		Name: tokenName, FirmwareName: sharedFirmware, RuntimeProfileName: profileName,
 	})
 	if err != nil {
-		t.Fatalf("create workspace prefix ACL binding for %s: %v", contextName, err)
+		t.Fatalf("create RegistrationToken for %s: %v", contextName, err)
 	}
-	if resp.JSON200 == nil {
-		t.Fatalf("create workspace prefix ACL binding for %s status %d: %s", contextName, resp.StatusCode(), strings.TrimSpace(string(resp.Body)))
+	if tokenResp.JSON200 == nil || tokenResp.JSON200.Token == nil {
+		t.Fatalf("create RegistrationToken for %s status %d: %s", contextName, tokenResp.StatusCode(), strings.TrimSpace(string(tokenResp.Body)))
+	}
+	registered, err := peer.Register(ctx, "server.register."+contextName, *tokenResp.JSON200.Token)
+	if err != nil {
+		t.Fatalf("server.register for %s: %v", contextName, err)
+	}
+	if registered.RuntimeProfileName != profileName || registered.FirmwareName != sharedFirmware {
+		t.Fatalf("server.register for %s = %#v", contextName, registered)
 	}
 }
 
@@ -330,6 +334,31 @@ func rpcCredential(name, apiKey string) rpcapi.Credential {
 	}
 }
 
+func rpcFlowcraftWorkspaceParameters(t *testing.T, input rpcapi.WorkspaceInputMode) *rpcapi.WorkspaceParameters {
+	t.Helper()
+	generateModel := sharedModel
+	var params rpcapi.WorkspaceParameters
+	if err := params.FromFlowcraftWorkspaceParameters(rpcapi.FlowcraftWorkspaceParameters{
+		AgentType:     rpcapi.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+		Input:         &input,
+		GenerateModel: &generateModel,
+	}); err != nil {
+		t.Fatalf("build Flowcraft Workspace parameters: %v", err)
+	}
+	return &params
+}
+
+func rpcChatroomWorkspaceParameters(t *testing.T) *rpcapi.WorkspaceParameters {
+	t.Helper()
+	var params rpcapi.WorkspaceParameters
+	if err := params.FromChatRoomWorkspaceParameters(rpcapi.ChatRoomWorkspaceParameters{
+		AgentType: rpcapi.ChatRoomWorkspaceParametersAgentTypeChatroom,
+	}); err != nil {
+		t.Fatalf("build ChatRoom Workspace parameters: %v", err)
+	}
+	return &params
+}
+
 func assertWorkflowPagination(t *testing.T, ctx context.Context, peer *gizcli.Client, wants ...string) {
 	t.Helper()
 
@@ -400,12 +429,12 @@ func assertWorkspacePrefixList(t *testing.T, ctx context.Context, peer *gizcli.C
 	t.Helper()
 
 	limit := 10
-	prefix := "direct-chatroom-"
+	prefix := "mutation-rpc-"
 	list, err := peer.ListWorkspaces(ctx, "workspace.list.prefix", rpcapi.WorkspaceListRequest{Prefix: &prefix, Limit: &limit})
 	if err != nil {
 		t.Fatalf("workspace.list prefix: %v", err)
 	}
-	if len(list.Items) != 1 || list.Items[0].Name != sharedChatroomWorkspace {
+	if len(list.Items) != 2 || list.Items[0].Name != mutationWorkspace || list.Items[1].Name != mutationWorkspace+"-page" {
 		t.Fatalf("workspace.list prefix items = %#v", list.Items)
 	}
 }

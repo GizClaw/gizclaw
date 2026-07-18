@@ -48,6 +48,12 @@ PB_BIND(gizclaw_rpc_v1_PingRequest, gizclaw_rpc_v1_PingRequest, AUTO)
 PB_BIND(gizclaw_rpc_v1_PingResponse, gizclaw_rpc_v1_PingResponse, AUTO)
 
 
+PB_BIND(gizclaw_rpc_v1_ServerRegisterRequest, gizclaw_rpc_v1_ServerRegisterRequest, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_ServerRegisterResponse, gizclaw_rpc_v1_ServerRegisterResponse, 2)
+
+
 PB_BIND(gizclaw_rpc_v1_Runtime, gizclaw_rpc_v1_Runtime, AUTO)
 
 

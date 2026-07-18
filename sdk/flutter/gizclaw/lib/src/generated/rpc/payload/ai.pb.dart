@@ -1124,6 +1124,7 @@ class Credential extends $pb.GeneratedMessage {
     $core.String? name,
     $core.String? provider,
     $core.String? updatedAt,
+    $core.String? ownerPublicKey,
   }) {
     final result = create();
     if (body != null) result.body = body;
@@ -1132,6 +1133,7 @@ class Credential extends $pb.GeneratedMessage {
     if (name != null) result.name = name;
     if (provider != null) result.provider = provider;
     if (updatedAt != null) result.updatedAt = updatedAt;
+    if (ownerPublicKey != null) result.ownerPublicKey = ownerPublicKey;
     return result;
   }
 
@@ -1155,6 +1157,7 @@ class Credential extends $pb.GeneratedMessage {
     ..aOS(4, _omitFieldNames ? '' : 'name')
     ..aOS(5, _omitFieldNames ? '' : 'provider')
     ..aOS(6, _omitFieldNames ? '' : 'updatedAt')
+    ..aOS(7, _omitFieldNames ? '' : 'ownerPublicKey')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1230,6 +1233,15 @@ class Credential extends $pb.GeneratedMessage {
   $core.bool hasUpdatedAt() => $_has(5);
   @$pb.TagNumber(6)
   void clearUpdatedAt() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get ownerPublicKey => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set ownerPublicKey($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasOwnerPublicKey() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearOwnerPublicKey() => $_clearField(7);
 }
 
 enum CredentialBody_Value {
@@ -5009,6 +5021,7 @@ class Model extends $pb.GeneratedMessage {
     $2.ModelSource? source,
     $core.String? syncedAt,
     $core.String? updatedAt,
+    $core.String? ownerPublicKey,
   }) {
     final result = create();
     if (capabilities != null) result.capabilities = capabilities;
@@ -5022,6 +5035,7 @@ class Model extends $pb.GeneratedMessage {
     if (source != null) result.source = source;
     if (syncedAt != null) result.syncedAt = syncedAt;
     if (updatedAt != null) result.updatedAt = updatedAt;
+    if (ownerPublicKey != null) result.ownerPublicKey = ownerPublicKey;
     return result;
   }
 
@@ -5054,6 +5068,7 @@ class Model extends $pb.GeneratedMessage {
         enumValues: $2.ModelSource.values)
     ..aOS(10, _omitFieldNames ? '' : 'syncedAt')
     ..aOS(11, _omitFieldNames ? '' : 'updatedAt')
+    ..aOS(12, _omitFieldNames ? '' : 'ownerPublicKey')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -5178,6 +5193,15 @@ class Model extends $pb.GeneratedMessage {
   $core.bool hasUpdatedAt() => $_has(10);
   @$pb.TagNumber(11)
   void clearUpdatedAt() => $_clearField(11);
+
+  @$pb.TagNumber(12)
+  $core.String get ownerPublicKey => $_getSZ(11);
+  @$pb.TagNumber(12)
+  set ownerPublicKey($core.String value) => $_setString(11, value);
+  @$pb.TagNumber(12)
+  $core.bool hasOwnerPublicKey() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearOwnerPublicKey() => $_clearField(12);
 }
 
 class ModelCapabilities extends $pb.GeneratedMessage {
@@ -8735,6 +8759,7 @@ class Tool extends $pb.GeneratedMessage {
     $0.Struct? metadata,
     $core.String? createdAt,
     $core.String? updatedAt,
+    $core.String? ownerPublicKey,
   }) {
     final result = create();
     if (id != null) result.id = id;
@@ -8751,6 +8776,7 @@ class Tool extends $pb.GeneratedMessage {
     if (metadata != null) result.metadata = metadata;
     if (createdAt != null) result.createdAt = createdAt;
     if (updatedAt != null) result.updatedAt = updatedAt;
+    if (ownerPublicKey != null) result.ownerPublicKey = ownerPublicKey;
     return result;
   }
 
@@ -8787,6 +8813,7 @@ class Tool extends $pb.GeneratedMessage {
         subBuilder: $0.Struct.create)
     ..aOS(13, _omitFieldNames ? '' : 'createdAt')
     ..aOS(14, _omitFieldNames ? '' : 'updatedAt')
+    ..aOS(15, _omitFieldNames ? '' : 'ownerPublicKey')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -8934,6 +8961,15 @@ class Tool extends $pb.GeneratedMessage {
   $core.bool hasUpdatedAt() => $_has(13);
   @$pb.TagNumber(14)
   void clearUpdatedAt() => $_clearField(14);
+
+  @$pb.TagNumber(15)
+  $core.String get ownerPublicKey => $_getSZ(14);
+  @$pb.TagNumber(15)
+  set ownerPublicKey($core.String value) => $_setString(14, value);
+  @$pb.TagNumber(15)
+  $core.bool hasOwnerPublicKey() => $_has(14);
+  @$pb.TagNumber(15)
+  void clearOwnerPublicKey() => $_clearField(15);
 }
 
 class ToolListRequest extends $pb.GeneratedMessage {

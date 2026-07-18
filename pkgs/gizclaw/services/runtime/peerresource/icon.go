@@ -2,18 +2,15 @@ package peerresource
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 )
 
 func (s *Server) PrepareWorkflowIconDownload(ctx context.Context, params rpcapi.WorkflowIconDownloadRequest) (rpcapi.WorkflowIconDownloadResponse, io.ReadCloser, *rpcapi.RPCError, error) {
@@ -22,11 +19,8 @@ func (s *Server) PrepareWorkflowIconDownload(ctx context.Context, params rpcapi.
 	if name == "" || err != nil {
 		return rpcapi.WorkflowIconDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInvalidParams, Message: "workflow name and icon format are required"}, nil
 	}
-	if err := s.authorizeErr(ctx, workflowResource(name), apitypes.ACLPermissionRead); err != nil {
-		if errors.Is(err, acl.ErrDenied) {
-			return rpcapi.WorkflowIconDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeForbidden, Message: err.Error()}, nil
-		}
-		return rpcapi.WorkflowIconDownloadResponse{}, nil, nil, err
+	if !s.profileAllows(profileWorkflows, name) {
+		return rpcapi.WorkflowIconDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "workflow not found"}, nil
 	}
 	icons, ok := s.Workflows.(workflow.WorkflowIconAdminService)
 	if !ok || icons == nil {
@@ -49,11 +43,8 @@ func (s *Server) PrepareWorkspaceIconDownload(ctx context.Context, params rpcapi
 	if name == "" || err != nil {
 		return rpcapi.WorkspaceIconDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInvalidParams, Message: "workspace name and icon format are required"}, nil
 	}
-	if err := s.authorizeErr(ctx, acl.WorkspaceResource(name), apitypes.ACLPermissionRead); err != nil {
-		if errors.Is(err, acl.ErrDenied) {
-			return rpcapi.WorkspaceIconDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeForbidden, Message: err.Error()}, nil
-		}
-		return rpcapi.WorkspaceIconDownloadResponse{}, nil, nil, err
+	if response := s.requireWorkspaceAccess(ctx, "", name); response != nil {
+		return rpcapi.WorkspaceIconDownloadResponse{}, nil, &rpcapi.RPCError{Code: response.Error.Code, Message: response.Error.Message}, nil
 	}
 	icons, ok := s.Workspaces.(workspace.WorkspaceIconAdminService)
 	if !ok || icons == nil {

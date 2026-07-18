@@ -256,19 +256,19 @@ func TestObserveFiberRouteConvertsGeneratedHandlerNameToOperationID(t *testing.T
 	capture := captureSlog(t)
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 	app.Use(observeFiberRoute)
-	app.Get("/acl/views", (fiberOperationTestHandler{}).ListACLViews)
+	app.Get("/runtime-profiles", (fiberOperationTestHandler{}).ListRuntimeProfiles)
 	handler := observeHTTPHandler(fiberHTTPHandler(app), httpObservationOptions{surface: observability.SurfaceAdminHTTP})
-	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/acl/views", nil))
+	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/runtime-profiles", nil))
 
 	_, attrs := onlyCapturedRecord(t, capture)
-	if attrs["operation"] != "listACLViews" {
+	if attrs["operation"] != "listRuntimeProfiles" {
 		t.Fatalf("operation = %#v, want OpenAPI operation ID", attrs["operation"])
 	}
 }
 
 type fiberOperationTestHandler struct{}
 
-func (fiberOperationTestHandler) ListACLViews(ctx *fiber.Ctx) error {
+func (fiberOperationTestHandler) ListRuntimeProfiles(ctx *fiber.Ctx) error {
 	return ctx.SendStatus(http.StatusNoContent)
 }
 

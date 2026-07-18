@@ -21,13 +21,13 @@ func TestPostgresGameplayContract(t *testing.T) {
 
 	now := time.Date(2026, 7, 17, 8, 0, 0, 0, time.UTC)
 	catalog := testCatalog(t, now)
-	seedGameplayCatalog(t, ctx, catalog)
+	profile := seedGameplayCatalog(t, ctx, catalog)
+	ctx = WithRuntimeProfile(ctx, profile)
 	runtime := &Runtime{
 		DB:         db,
 		Catalog:    catalog,
 		Workflows:  petWorkflowService{},
 		Workspaces: &recordingWorkspaceService{},
-		ACL:        &recordingACLService{},
 		Now:        func() time.Time { return now },
 		NewID:      sequentialIDs("pet-postgres", "adopt-txn", "game-result", "reward-grant", "drive-txn", "reward-txn"),
 		PickWeight: func(int64) int64 { return 0 },
@@ -125,7 +125,7 @@ func TestPostgresGameplayContract(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BeginTxx() error = %v", err)
 	}
-	if _, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_points_accounts (owner_public_key, ruleset_name, balance, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`),
+	if _, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_points_accounts (owner_public_key, runtime_profile_name, balance, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`),
 		"rollback-peer", "default", 1, formatTime(now), formatTime(now)); err != nil {
 		_ = tx.Rollback()
 		t.Fatalf("transactional insert error = %v", err)

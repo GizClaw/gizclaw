@@ -11,7 +11,6 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
@@ -28,10 +27,6 @@ var (
 type PeerRunStore interface {
 	ResolveRunAgent(context.Context, giznet.PublicKey) (apitypes.AgentSelection, error)
 	ActivateRunAgent(context.Context, giznet.PublicKey, apitypes.AgentSelection) (apitypes.PeerRunAgent, error)
-}
-
-type Authorizer interface {
-	Authorize(context.Context, acl.AuthorizeRequest) error
 }
 
 type StreamSource interface {
@@ -54,16 +49,19 @@ func (f StreamConsumerFunc) ConsumeAgentOutput(ctx context.Context, stream genx.
 	return f(ctx, stream)
 }
 
+type WorkspaceSelectionValidatorFunc func(context.Context, string) (string, error)
+
 type Service struct {
-	Host            genx.Transformer
-	PeerRun         PeerRunStore
-	Authorizer      Authorizer
-	PublicKey       giznet.PublicKey
-	Source          StreamSource
-	Consumer        StreamConsumer
-	OnConsumerError func(context.Context, string, error)
-	Logger          *slog.Logger
-	Now             func() time.Time
+	Host                       genx.Transformer
+	PeerRun                    PeerRunStore
+	RuntimeProfile             func() *apitypes.RuntimeProfile
+	ValidateWorkspaceSelection WorkspaceSelectionValidatorFunc
+	PublicKey                  giznet.PublicKey
+	Source                     StreamSource
+	Consumer                   StreamConsumer
+	OnConsumerError            func(context.Context, string, error)
+	Logger                     *slog.Logger
+	Now                        func() time.Time
 
 	mu      sync.Mutex
 	runtime *runtime
@@ -85,8 +83,12 @@ func (s *Service) Reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	if err != nil {
 		return s.setErrorStatus("", err), err
 	}
-	if err := s.authorize(ctx, selection); err != nil {
-		return s.setErrorStatus(selection.WorkspaceName, err), err
+	if s.ValidateWorkspaceSelection != nil {
+		canonicalName, err := s.ValidateWorkspaceSelection(ctx, selection.WorkspaceName)
+		if err != nil {
+			return s.setErrorStatus(selection.WorkspaceName, err), err
+		}
+		selection.WorkspaceName = canonicalName
 	}
 	s.setStatus(apitypes.PeerRunStatusStateStarting, selection.WorkspaceName, nil, nil)
 	previous := s.swap(nil)
@@ -102,11 +104,15 @@ func (s *Service) Reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 		err := errors.New("agenthost: input stream is required")
 		return s.setErrorStatus(selection.WorkspaceName, err), err
 	}
-	subject := acl.PublicKeySubject(s.PublicKey.String())
-	baseCtx := WithACLSubject(withHistoryGearID(context.WithoutCancel(ctx), s.PublicKey.String()), subject)
-	if s.Authorizer != nil {
-		baseCtx = WithToolkitAuthorizer(baseCtx, s.Authorizer)
+	var profileToolIDs []string
+	if s.RuntimeProfile != nil {
+		if profile := s.RuntimeProfile(); profile != nil && profile.Spec.Resources.Tools != nil {
+			for _, toolID := range *profile.Spec.Resources.Tools {
+				profileToolIDs = append(profileToolIDs, toolID)
+			}
+		}
 	}
+	baseCtx := WithResourceAccess(withHistoryGearID(context.WithoutCancel(ctx), s.PublicKey.String()), s.PublicKey.String(), profileToolIDs)
 	runCtx, cancel := context.WithCancel(baseCtx)
 	pattern := workspacePattern(selection.WorkspaceName)
 	agent, release, output, err := s.openAgentOutput(runCtx, pattern, input)
@@ -292,21 +298,6 @@ func (s *Service) validate() error {
 	}
 }
 
-func (s *Service) authorize(ctx context.Context, selection apitypes.AgentSelection) error {
-	return s.authorizeWorkspace(ctx, selection.WorkspaceName)
-}
-
-func (s *Service) authorizeWorkspace(ctx context.Context, workspaceName string) error {
-	if s.Authorizer == nil {
-		return nil
-	}
-	return s.Authorizer.Authorize(ctx, acl.AuthorizeRequest{
-		Subject:    acl.PublicKeySubject(s.PublicKey.String()),
-		Resource:   acl.WorkspaceResource(workspaceName),
-		Permission: apitypes.ACLPermissionUse,
-	})
-}
-
 func (s *Service) gearContext(ctx context.Context) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
@@ -340,9 +331,6 @@ func (s *Service) currentRuntimeForFeature(ctx context.Context) (*runtime, error
 	rt := s.currentRuntime()
 	if rt == nil || rt.agent == nil {
 		return nil, ErrNoActiveWorkspace
-	}
-	if err := s.authorizeWorkspace(ctx, rt.workspace); err != nil {
-		return nil, err
 	}
 	return rt, nil
 }

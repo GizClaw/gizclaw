@@ -10,7 +10,6 @@ spec:
     metadata:
       name: petdef-starter
     spec:
-      workflow_name: pet-care
       attr:
         life:
           hunger:
@@ -94,29 +93,35 @@ spec:
       - win
       - lose
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: GameRuleset
+    kind: RuntimeProfile
     metadata:
       name: default-gameplay
     spec:
-      enabled: true
-      description: Default gameplay e2e ruleset.
-      default_workflow_name: pet-care
-      points:
-        initial_balance: 100
-      pet_pool:
-      - petdef_id: petdef-starter
-        weight: 100
-        rarity: common
-        adoption_cost: 10
-        workflow_name: pet-care
-      badge_def_ids:
-      - badge-starter
-      game_def_ids:
-      - game-starter
-      drive:
-        game_rewards:
-          game-starter:
-            points_delta: 20
-            pet_exp_delta: 25
-            badge_exp_delta:
-              badge-starter: 100
+      resources:
+        models:
+          pet-chat: pet-flowcraft-workflow-chat
+          pet-extract: pet-flowcraft-workflow-extract
+          pet-asr: pet-flowcraft-workflow-asr
+        voices:
+          pet: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+        pet_defs:
+          starter: petdef-starter
+        badge_defs:
+          starter: badge-starter
+        game_defs:
+          starter: game-starter
+      gameplay:
+        points:
+          initial_balance: 100
+        pet_pool:
+        - pet_def: starter
+          weight: 100
+          rarity: common
+          adoption_cost: 10
+        drive:
+          game_rewards:
+            starter:
+              points_delta: 20
+              pet_exp_delta: 25
+              badge_exp_delta:
+                starter: 100

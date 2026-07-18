@@ -27,7 +27,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/google/jsonschema-go/jsonschema"
@@ -1023,7 +1022,6 @@ func TestFactoryNewAgentWritesClawConfig(t *testing.T) {
 	events := []string{}
 	service := peergenx.New(peergenx.Service{
 		Peer:            testPeer{},
-		Authorizer:      recordingAuthorizer{events: &events},
 		Models:          fakeModels{events: &events},
 		Voices:          fakeVoices{events: &events},
 		Credentials:     fakeCredentials{events: &events},
@@ -1072,7 +1070,6 @@ func TestFactoryNewAgentInjectsWorkspaceScopedHistoryStore(t *testing.T) {
 	events := []string{}
 	service := peergenx.New(peergenx.Service{
 		Peer:            testPeer{},
-		Authorizer:      recordingAuthorizer{events: &events},
 		Models:          fakeModels{events: &events},
 		Voices:          fakeVoices{events: &events},
 		Credentials:     fakeCredentials{events: &events},
@@ -1129,7 +1126,6 @@ func TestFactoryNewAgentReadsWorkspaceInputMode(t *testing.T) {
 	events := []string{}
 	service := peergenx.New(peergenx.Service{
 		Peer:            testPeer{},
-		Authorizer:      recordingAuthorizer{events: &events},
 		Models:          fakeModels{events: &events},
 		Voices:          fakeVoices{events: &events},
 		Credentials:     fakeCredentials{events: &events},
@@ -1174,7 +1170,6 @@ func TestFactoryNewAgentRejectsNonFlowcraftWorkspaceParameters(t *testing.T) {
 	events := []string{}
 	service := peergenx.New(peergenx.Service{
 		Peer:            testPeer{},
-		Authorizer:      recordingAuthorizer{events: &events},
 		Models:          fakeModels{events: &events},
 		Voices:          fakeVoices{events: &events},
 		Credentials:     fakeCredentials{events: &events},
@@ -1257,38 +1252,6 @@ func TestFlowcraftConversationSettingsReadsWorkspaceInitiative(t *testing.T) {
 	})
 	if starts != "self" || policy != "once_when_empty" {
 		t.Fatalf("settings = %q/%q, want self/once_when_empty", starts, policy)
-	}
-}
-
-func TestFactoryNewAgentFailsClosedOnDeniedVoice(t *testing.T) {
-	ctx := context.Background()
-	events := []string{}
-	service := peergenx.New(peergenx.Service{
-		Peer:            testPeer{},
-		Authorizer:      denyResourceAuthorizer{kind: apitypes.ACLResourceKindVoice, id: "voice"},
-		Models:          fakeModels{events: &events},
-		Voices:          fakeVoices{events: &events},
-		Credentials:     fakeCredentials{events: &events},
-		ProviderTenants: fakeTenants{events: &events},
-	})
-	generateModel := "chat"
-	var workspaceParams apitypes.WorkspaceParameters
-	if err := workspaceParams.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{GenerateModel: &generateModel}); err != nil {
-		t.Fatalf("FromFlowcraftWorkspaceParameters() error = %v", err)
-	}
-	workflow := testFlowcraftWorkflow(apitypes.FlowcraftWorkflowSpec{
-		"voice_adapter": map[string]any{
-			"asr_model":     "asr",
-			"default_voice": "voice",
-		},
-	})
-	_, err := (Factory{GenX: service}).NewAgent(ctx, agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "ws", Parameters: &workspaceParams},
-		Workflow:  workflow,
-		Runtime:   workspace.Runtime{LocalDir: t.TempDir()},
-	})
-	if err == nil || !errors.Is(err, peergenx.ErrDenied) || !strings.Contains(err.Error(), `resolve voice "voice"`) {
-		t.Fatalf("NewAgent() error = %v, want denied voice", err)
 	}
 }
 
@@ -2094,18 +2057,19 @@ func TestLockedString(t *testing.T) {
 	}
 }
 
-func toolkitTestContext(t *testing.T, subject string, allowed []string) *agenthost.ToolkitContext {
+func toolkitTestContext(t *testing.T, owner string, allowed []string) *agenthost.ToolkitContext {
 	t.Helper()
 	ctx := context.Background()
 	ptr := func(value string) *string { return &value }
 	store := &toolkit.Server{Store: kv.NewMemory(nil)}
 	tool := toolkit.Tool{
-		ID:          "system.music.play",
-		Name:        ptr("play_music"),
-		Description: ptr("Play music"),
-		Source:      toolkit.ToolSourceBuiltin,
-		Enabled:     true,
-		InputSchema: jsonschema.Schema{Type: "object"},
+		ID:             "system.music.play",
+		Name:           ptr("play_music"),
+		Description:    ptr("Play music"),
+		Source:         toolkit.ToolSourceBuiltin,
+		Enabled:        true,
+		OwnerPublicKey: ptr(owner),
+		InputSchema:    jsonschema.Schema{Type: "object"},
 		Executor: toolkit.ToolExecutor{
 			Kind: toolkit.ToolExecutorKindBuiltin,
 			Name: ptr("music.play"),
@@ -2118,7 +2082,7 @@ func toolkitTestContext(t *testing.T, subject string, allowed []string) *agentho
 		Builder:   &toolkit.Builder{Tools: store},
 		Executors: toolkit.NewExecutorRegistry(),
 		BuildRequest: toolkit.BuildRequest{
-			Subject:         acl.PublicKeySubject(subject),
+			OwnerPublicKey:  owner,
 			AllowedToolIDs:  allowed,
 			RestrictToolIDs: true,
 		},
@@ -2141,7 +2105,6 @@ func TestBuildClawConfigInjectsPeerResolvedOpenAIModel(t *testing.T) {
 	events := []string{}
 	service := peergenx.New(peergenx.Service{
 		Peer:            testPeer{},
-		Authorizer:      recordingAuthorizer{events: &events},
 		Models:          fakeModels{events: &events},
 		Credentials:     fakeCredentials{events: &events},
 		ProviderTenants: fakeTenants{events: &events},
@@ -2165,10 +2128,7 @@ func TestBuildClawConfigInjectsPeerResolvedOpenAIModel(t *testing.T) {
 
 	wantPrefix := []string{
 		"list:models",
-		"auth:model:chat:read",
-		"auth:model:chat:use",
 		"get:tenant:openai:main",
-		"auth:credential:openai-key:use",
 		"get:credential:openai-key",
 	}
 	if len(events) < len(wantPrefix) || !reflect.DeepEqual(events[:len(wantPrefix)], wantPrefix) {
@@ -2203,7 +2163,6 @@ func TestBuildClawConfigInjectsToolkitTools(t *testing.T) {
 	events := []string{}
 	service := peergenx.New(peergenx.Service{
 		Peer:            testPeer{},
-		Authorizer:      recordingAuthorizer{events: &events},
 		Models:          fakeModels{events: &events},
 		Credentials:     fakeCredentials{events: &events},
 		ProviderTenants: fakeTenants{events: &events},
@@ -2281,7 +2240,6 @@ func TestBuildClawConfigMapsVolcTenantLLMToBytedance(t *testing.T) {
 	events := []string{}
 	service := peergenx.New(peergenx.Service{
 		Peer:            testPeer{},
-		Authorizer:      recordingAuthorizer{events: &events},
 		Models:          fakeModels{events: &events, providerKind: apitypes.ModelProviderKindVolcTenant},
 		Credentials:     fakeCredentials{events: &events},
 		ProviderTenants: fakeTenants{events: &events},
@@ -2313,7 +2271,6 @@ func TestBuildClawConfigInjectsOptionalModelRoles(t *testing.T) {
 	events := []string{}
 	service := peergenx.New(peergenx.Service{
 		Peer:            testPeer{},
-		Authorizer:      recordingAuthorizer{events: &events},
 		Models:          fakeModels{events: &events},
 		Credentials:     fakeCredentials{events: &events},
 		ProviderTenants: fakeTenants{events: &events},
@@ -2354,7 +2311,6 @@ func TestBuildClawConfigRejectsUnsupportedProvider(t *testing.T) {
 	events := []string{}
 	service := peergenx.New(peergenx.Service{
 		Peer:            testPeer{},
-		Authorizer:      recordingAuthorizer{events: &events},
 		Models:          fakeModels{events: &events, providerKind: apitypes.ModelProviderKindGeminiTenant},
 		Credentials:     fakeCredentials{events: &events},
 		ProviderTenants: fakeTenants{events: &events},
@@ -2844,31 +2800,6 @@ func TestBuildClawConfigRequiresGenerateModel(t *testing.T) {
 	}
 }
 
-func TestBuildClawConfigFailsClosedOnDeniedModel(t *testing.T) {
-	events := []string{}
-	service := peergenx.New(peergenx.Service{
-		Peer:            testPeer{},
-		Authorizer:      denyAuthorizer{},
-		Models:          fakeModels{events: &events},
-		Credentials:     fakeCredentials{events: &events},
-		ProviderTenants: fakeTenants{events: &events},
-	})
-	generateModel := "chat"
-	var workspaceParams apitypes.WorkspaceParameters
-	if err := workspaceParams.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{GenerateModel: &generateModel}); err != nil {
-		t.Fatalf("FromFlowcraftWorkspaceParameters() error = %v", err)
-	}
-	_, err := buildClawConfig(context.Background(), service, agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "ws", Parameters: &workspaceParams},
-	}, workflowConfig{})
-	if err == nil || !strings.Contains(err.Error(), "not accessible as a generator") {
-		t.Fatalf("buildClawConfig() error = %v, want inaccessible model", err)
-	}
-	if !reflect.DeepEqual(events, []string{"list:models"}) {
-		t.Fatalf("model events after ACL denial = %#v, want list only", events)
-	}
-}
-
 func TestMergeTranscriptHandlesFullAndDeltaResults(t *testing.T) {
 	text := mergeTranscript("", "你好")
 	text = mergeTranscript(text, "你好世界")
@@ -3000,33 +2931,6 @@ func (testPeer) PublicKey() giznet.PublicKey {
 	var key giznet.PublicKey
 	key[0] = 1
 	return key
-}
-
-type recordingAuthorizer struct {
-	events *[]string
-}
-
-func (a recordingAuthorizer) Authorize(_ context.Context, request acl.AuthorizeRequest) error {
-	*a.events = append(*a.events, "auth:"+string(request.Resource.Kind)+":"+request.Resource.Id+":"+string(request.Permission))
-	return nil
-}
-
-type denyAuthorizer struct{}
-
-func (denyAuthorizer) Authorize(context.Context, acl.AuthorizeRequest) error {
-	return acl.ErrDenied
-}
-
-type denyResourceAuthorizer struct {
-	kind apitypes.ACLResourceKind
-	id   string
-}
-
-func (a denyResourceAuthorizer) Authorize(_ context.Context, request acl.AuthorizeRequest) error {
-	if request.Resource.Kind == a.kind && request.Resource.Id == a.id {
-		return acl.ErrDenied
-	}
-	return nil
 }
 
 type fakeModels struct {

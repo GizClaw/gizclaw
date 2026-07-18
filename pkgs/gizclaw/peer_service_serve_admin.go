@@ -24,8 +24,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/resourcemanager"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 )
@@ -43,11 +43,11 @@ type adminService struct {
 	workflow.WorkflowIconAdminService
 	gameplay.CatalogAdminService
 	gameplay.GameDefIconAdminService
+	runtimeprofile.AdminService
 	Contacts        *contact.Server
 	Friends         *friend.Server
 	FriendGroups    *friendgroup.Server
 	Gameplay        *gameplay.Runtime
-	ACL             *acl.Server
 	ResourceManager *resourcemanager.Manager
 	ServerLogs      ServerLogQueryService
 	PeerTelemetry   *peertelemetry.AdminService

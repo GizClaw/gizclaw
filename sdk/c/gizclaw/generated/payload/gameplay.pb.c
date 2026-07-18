@@ -30,24 +30,6 @@ PB_BIND(gizclaw_rpc_v1_GameRewardSpec, gizclaw_rpc_v1_GameRewardSpec, AUTO)
 PB_BIND(gizclaw_rpc_v1_GameRewardSpec_BadgeExpDeltaEntry, gizclaw_rpc_v1_GameRewardSpec_BadgeExpDeltaEntry, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_GameRuleset, gizclaw_rpc_v1_GameRuleset, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_GameRulesetDriveSpec, gizclaw_rpc_v1_GameRulesetDriveSpec, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_GameRulesetDriveSpec_GameRewardsEntry, gizclaw_rpc_v1_GameRulesetDriveSpec_GameRewardsEntry, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_GameRulesetPetPoolEntry, gizclaw_rpc_v1_GameRulesetPetPoolEntry, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_GameRulesetPointsSpec, gizclaw_rpc_v1_GameRulesetPointsSpec, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_GameRulesetSpec, gizclaw_rpc_v1_GameRulesetSpec, 2)
-
-
 PB_BIND(gizclaw_rpc_v1_GameplayGetRequest, gizclaw_rpc_v1_GameplayGetRequest, AUTO)
 
 
@@ -160,12 +142,6 @@ PB_BIND(gizclaw_rpc_v1_ServerGameResultListRequest, gizclaw_rpc_v1_ServerGameRes
 
 
 PB_BIND(gizclaw_rpc_v1_ServerGameResultListResponse, gizclaw_rpc_v1_ServerGameResultListResponse, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_ServerGameRulesetGetRequest, gizclaw_rpc_v1_ServerGameRulesetGetRequest, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_ServerGameRulesetGetResponse, gizclaw_rpc_v1_ServerGameRulesetGetResponse, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_ServerPetAdoptRequest, gizclaw_rpc_v1_ServerPetAdoptRequest, AUTO)

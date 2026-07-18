@@ -105,6 +105,15 @@ typedef struct _gizclaw_rpc_v1_PingResponse {
     int64_t server_time;
 } gizclaw_rpc_v1_PingResponse;
 
+typedef struct _gizclaw_rpc_v1_ServerRegisterRequest {
+    char token[256];
+} gizclaw_rpc_v1_ServerRegisterRequest;
+
+typedef struct _gizclaw_rpc_v1_ServerRegisterResponse {
+    char firmware_name[256];
+    char runtime_profile_name[256];
+} gizclaw_rpc_v1_ServerRegisterResponse;
+
 typedef struct _gizclaw_rpc_v1_Runtime {
     pb_callback_t last_addr;
     pb_callback_t last_seen_at;
@@ -173,6 +182,8 @@ extern "C" {
 #define gizclaw_rpc_v1_PeerStatus_LabelsEntry_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PingRequest_init_default  {0}
 #define gizclaw_rpc_v1_PingResponse_init_default {0}
+#define gizclaw_rpc_v1_ServerRegisterRequest_init_default {""}
+#define gizclaw_rpc_v1_ServerRegisterResponse_init_default {"", ""}
 #define gizclaw_rpc_v1_Runtime_init_default      {{{NULL}, NULL}, {{NULL}, NULL}, 0, false, 0, false, 0}
 #define gizclaw_rpc_v1_ServerGetInfoRequest_init_default {0}
 #define gizclaw_rpc_v1_ServerGetInfoResponse_init_default {false, gizclaw_rpc_v1_DeviceInfo_init_default}
@@ -196,6 +207,8 @@ extern "C" {
 #define gizclaw_rpc_v1_PeerStatus_LabelsEntry_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PingRequest_init_zero     {0}
 #define gizclaw_rpc_v1_PingResponse_init_zero    {0}
+#define gizclaw_rpc_v1_ServerRegisterRequest_init_zero {""}
+#define gizclaw_rpc_v1_ServerRegisterResponse_init_zero {"", ""}
 #define gizclaw_rpc_v1_Runtime_init_zero         {{{NULL}, NULL}, {{NULL}, NULL}, 0, false, 0, false, 0}
 #define gizclaw_rpc_v1_ServerGetInfoRequest_init_zero {0}
 #define gizclaw_rpc_v1_ServerGetInfoResponse_init_zero {false, gizclaw_rpc_v1_DeviceInfo_init_zero}
@@ -241,6 +254,9 @@ extern "C" {
 #define gizclaw_rpc_v1_PeerStatus_LabelsEntry_value_tag 2
 #define gizclaw_rpc_v1_PingRequest_client_send_time_tag 1
 #define gizclaw_rpc_v1_PingResponse_server_time_tag 1
+#define gizclaw_rpc_v1_ServerRegisterRequest_token_tag 1
+#define gizclaw_rpc_v1_ServerRegisterResponse_firmware_name_tag 1
+#define gizclaw_rpc_v1_ServerRegisterResponse_runtime_profile_name_tag 2
 #define gizclaw_rpc_v1_Runtime_last_addr_tag     1
 #define gizclaw_rpc_v1_Runtime_last_seen_at_tag  2
 #define gizclaw_rpc_v1_Runtime_online_tag        3
@@ -356,6 +372,17 @@ X(a, STATIC,   SINGULAR, INT64,    server_time,       1)
 #define gizclaw_rpc_v1_PingResponse_CALLBACK NULL
 #define gizclaw_rpc_v1_PingResponse_DEFAULT NULL
 
+#define gizclaw_rpc_v1_ServerRegisterRequest_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   token,             1)
+#define gizclaw_rpc_v1_ServerRegisterRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_ServerRegisterRequest_DEFAULT NULL
+
+#define gizclaw_rpc_v1_ServerRegisterResponse_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   firmware_name,     1) \
+X(a, STATIC,   SINGULAR, STRING,   runtime_profile_name,   2)
+#define gizclaw_rpc_v1_ServerRegisterResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_ServerRegisterResponse_DEFAULT NULL
+
 #define gizclaw_rpc_v1_Runtime_FIELDLIST(X, a) \
 X(a, CALLBACK, OPTIONAL, STRING,   last_addr,         1) \
 X(a, CALLBACK, SINGULAR, STRING,   last_seen_at,      2) \
@@ -425,6 +452,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_PeerStatus_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PeerStatus_LabelsEntry_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PingRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PingResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ServerRegisterRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ServerRegisterResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_Runtime_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerGetInfoRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerGetInfoResponse_msg;
@@ -450,6 +479,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_SpeedTestResponse_msg;
 #define gizclaw_rpc_v1_PeerStatus_LabelsEntry_fields &gizclaw_rpc_v1_PeerStatus_LabelsEntry_msg
 #define gizclaw_rpc_v1_PingRequest_fields &gizclaw_rpc_v1_PingRequest_msg
 #define gizclaw_rpc_v1_PingResponse_fields &gizclaw_rpc_v1_PingResponse_msg
+#define gizclaw_rpc_v1_ServerRegisterRequest_fields &gizclaw_rpc_v1_ServerRegisterRequest_msg
+#define gizclaw_rpc_v1_ServerRegisterResponse_fields &gizclaw_rpc_v1_ServerRegisterResponse_msg
 #define gizclaw_rpc_v1_Runtime_fields &gizclaw_rpc_v1_Runtime_msg
 #define gizclaw_rpc_v1_ServerGetInfoRequest_fields &gizclaw_rpc_v1_ServerGetInfoRequest_msg
 #define gizclaw_rpc_v1_ServerGetInfoResponse_fields &gizclaw_rpc_v1_ServerGetInfoResponse_msg
@@ -474,7 +505,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_SpeedTestResponse_msg;
 /* gizclaw_rpc_v1_ServerGetInfoResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerGetStatusResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerPutInfoResponse_size depends on runtime parameters */
-#define GIZCLAW_RPC_V1_PAYLOAD_SYSTEM_PB_H_MAX_SIZE gizclaw_rpc_v1_ServerPutInfoRequest_size
+#define GIZCLAW_RPC_V1_PAYLOAD_SYSTEM_PB_H_MAX_SIZE gizclaw_rpc_v1_ServerRegisterResponse_size
 #define gizclaw_rpc_v1_ClientGetIdentifiersRequest_size 0
 #define gizclaw_rpc_v1_ClientGetInfoRequest_size 0
 #define gizclaw_rpc_v1_DeviceProfile_size        325
@@ -483,6 +514,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_SpeedTestResponse_msg;
 #define gizclaw_rpc_v1_ServerGetInfoRequest_size 0
 #define gizclaw_rpc_v1_ServerGetStatusRequest_size 0
 #define gizclaw_rpc_v1_ServerPutInfoRequest_size 328
+#define gizclaw_rpc_v1_ServerRegisterRequest_size 258
+#define gizclaw_rpc_v1_ServerRegisterResponse_size 516
 #define gizclaw_rpc_v1_SpeedTestRequest_size     22
 #define gizclaw_rpc_v1_SpeedTestResponse_size    22
 

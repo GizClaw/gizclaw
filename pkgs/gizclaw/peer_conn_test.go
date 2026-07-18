@@ -24,7 +24,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
@@ -126,12 +125,6 @@ func TestPeerConnHelpersAndRPCHandle(t *testing.T) {
 				return adminhttp.ListModels200JSONResponse(adminhttp.ModelList{Items: []apitypes.Model{
 					{Id: "chat", Provider: apitypes.ModelProvider{Name: "main"}},
 				}}), nil
-			}),
-			Authorizer: peerConnAuthorizerFunc(func(_ context.Context, req acl.AuthorizeRequest) error {
-				if req.Subject.Id != keyPair.Public.String() {
-					t.Fatalf("subject = %q, want current peer public key", req.Subject.Id)
-				}
-				return nil
 			}),
 			Voices: peerConnVoiceListerFunc(func(_ context.Context, req adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error) {
 				voiceRequests = append(voiceRequests, req)
@@ -316,12 +309,6 @@ func (f peerConnModelListerFunc) ListModels(ctx context.Context, req adminhttp.L
 type peerConnVoiceListerFunc func(context.Context, adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error)
 
 func (f peerConnVoiceListerFunc) ListVoices(ctx context.Context, req adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error) {
-	return f(ctx, req)
-}
-
-type peerConnAuthorizerFunc func(context.Context, acl.AuthorizeRequest) error
-
-func (f peerConnAuthorizerFunc) Authorize(ctx context.Context, req acl.AuthorizeRequest) error {
 	return f(ctx, req)
 }
 

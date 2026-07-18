@@ -10,7 +10,6 @@ import {
   Mic2,
   PackageCheck,
   ServerCog,
-  ShieldCheck,
   UsersRound,
   Workflow,
 } from "lucide-react";
@@ -58,10 +57,7 @@ export const adminNavGroups: Array<DashboardNavGroup<string>> = [
   },
   {
     label: "Settings",
-    items: [
-      { id: "/resources", icon: FileJson, label: "Resources" },
-      { id: "/settings/acl", icon: ShieldCheck, label: "Access Control" },
-    ],
+	items: [{ id: "/resources", icon: FileJson, label: "Resources" }],
   },
 ];
 

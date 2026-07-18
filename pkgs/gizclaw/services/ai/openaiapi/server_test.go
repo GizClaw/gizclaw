@@ -19,11 +19,10 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/openaihttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
-func TestListModelsFiltersDeniedModels(t *testing.T) {
+func TestListModelsUsesPeerFilteredModels(t *testing.T) {
 	caller := mustKey(t)
 	srv := &Server{
 		Caller: caller.Public,
@@ -35,15 +34,6 @@ func TestListModelsFiltersDeniedModels(t *testing.T) {
 				},
 			}), nil
 		}),
-		Authorizer: authorizerFunc(func(_ context.Context, req acl.AuthorizeRequest) error {
-			if req.Subject.Id != caller.Public.String() {
-				t.Fatalf("subject = %q, want caller public key", req.Subject.Id)
-			}
-			if req.Resource.Id == "denied" {
-				return acl.ErrDenied
-			}
-			return nil
-		}),
 	}
 
 	resp, err := srv.ListModels(context.Background(), openaihttp.ListModelsRequestObject{})
@@ -54,7 +44,7 @@ func TestListModelsFiltersDeniedModels(t *testing.T) {
 	if !ok {
 		t.Fatalf("ListModels() response = %T", resp)
 	}
-	if len(list.Data) != 1 || list.Data[0].Id != "allowed" || list.Data[0].OwnedBy != "tenant-a" {
+	if len(list.Data) != 2 || list.Data[0].Id != "allowed" || list.Data[0].OwnedBy != "tenant-a" || list.Data[1].Id != "denied" {
 		t.Fatalf("ListModels() data = %#v", list.Data)
 	}
 }
@@ -81,7 +71,6 @@ func TestListModelsPaginationAndErrors(t *testing.T) {
 				return adminhttp.ListModels200JSONResponse(adminhttp.ModelList{Items: []apitypes.Model{testModel("second", "")}}), nil
 			}
 		}),
-		Authorizer: authorizerFunc(func(context.Context, acl.AuthorizeRequest) error { return nil }),
 	}
 	resp, err := srv.ListModels(context.Background(), openaihttp.ListModelsRequestObject{})
 	if err != nil {
@@ -96,8 +85,7 @@ func TestListModelsPaginationAndErrors(t *testing.T) {
 		t.Fatal("ListModels() without model service succeeded")
 	}
 	_, err = (&Server{
-		Caller:     caller.Public,
-		Authorizer: authorizerFunc(func(context.Context, acl.AuthorizeRequest) error { return nil }),
+		Caller: caller.Public,
 		Models: modelListerFunc(func(context.Context, adminhttp.ListModelsRequestObject) (adminhttp.ListModelsResponseObject, error) {
 			return adminhttp.ListModels500JSONResponse(apitypes.NewErrorResponse("ERR", "failed")), nil
 		}),
@@ -853,12 +841,6 @@ func (f modelListerFunc) ListModels(ctx context.Context, req adminhttp.ListModel
 type voiceListerFunc func(context.Context, adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error)
 
 func (f voiceListerFunc) ListVoices(ctx context.Context, req adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error) {
-	return f(ctx, req)
-}
-
-type authorizerFunc func(context.Context, acl.AuthorizeRequest) error
-
-func (f authorizerFunc) Authorize(ctx context.Context, req acl.AuthorizeRequest) error {
 	return f(ctx, req)
 }
 

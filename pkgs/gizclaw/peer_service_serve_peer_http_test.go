@@ -222,11 +222,10 @@ func TestPeerServiceEdgePublicRequiresActiveClientPeer(t *testing.T) {
 				t.Fatalf("GenerateKeyPair(peer) error = %v", err)
 			}
 			if _, err := peersServer.SavePeer(context.Background(), apitypes.Peer{
-				PublicKey:     keyPair.Public.String(),
-				Role:          tc.role,
-				Status:        tc.status,
-				Device:        apitypes.DeviceInfo{},
-				Configuration: apitypes.Configuration{},
+				PublicKey: keyPair.Public.String(),
+				Role:      tc.role,
+				Status:    tc.status,
+				Device:    apitypes.DeviceInfo{},
 			}); err != nil {
 				t.Fatalf("SavePeer error = %v", err)
 			}
@@ -285,11 +284,10 @@ func TestPeerServiceEdgeSignalingRequiresActiveClientPeer(t *testing.T) {
 				t.Fatalf("GenerateKeyPair(peer) error = %v", err)
 			}
 			if _, err := peersServer.SavePeer(context.Background(), apitypes.Peer{
-				PublicKey:     keyPair.Public.String(),
-				Role:          tc.role,
-				Status:        tc.status,
-				Device:        apitypes.DeviceInfo{},
-				Configuration: apitypes.Configuration{},
+				PublicKey: keyPair.Public.String(),
+				Role:      tc.role,
+				Status:    tc.status,
+				Device:    apitypes.DeviceInfo{},
 			}); err != nil {
 				t.Fatalf("SavePeer error = %v", err)
 			}
@@ -343,11 +341,10 @@ func TestPeerServiceEdgeLoginRequiresActiveClientBeforeBypass(t *testing.T) {
 		ServerPublicKey: serverKey.Public,
 	}
 	if _, err := peersServer.SavePeer(context.Background(), apitypes.Peer{
-		PublicKey:     clientKey.Public.String(),
-		Role:          apitypes.PeerRoleClient,
-		Status:        apitypes.PeerRegistrationStatusActive,
-		Device:        apitypes.DeviceInfo{},
-		Configuration: apitypes.Configuration{},
+		PublicKey: clientKey.Public.String(),
+		Role:      apitypes.PeerRoleClient,
+		Status:    apitypes.PeerRegistrationStatusActive,
+		Device:    apitypes.DeviceInfo{},
 	}); err != nil {
 		t.Fatalf("SavePeer error = %v", err)
 	}
@@ -566,11 +563,10 @@ func TestPeerServiceEdgeOpenAIRequiresActiveClientPeer(t *testing.T) {
 				t.Fatalf("GenerateKeyPair(peer) error = %v", err)
 			}
 			if _, err := peersServer.SavePeer(context.Background(), apitypes.Peer{
-				PublicKey:     keyPair.Public.String(),
-				Role:          tc.role,
-				Status:        tc.status,
-				Device:        apitypes.DeviceInfo{},
-				Configuration: apitypes.Configuration{},
+				PublicKey: keyPair.Public.String(),
+				Role:      tc.role,
+				Status:    tc.status,
+				Device:    apitypes.DeviceInfo{},
 			}); err != nil {
 				t.Fatalf("SavePeer error = %v", err)
 			}

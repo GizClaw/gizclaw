@@ -19,7 +19,7 @@
           "name": {
             "type": "string",
             "minLength": 1,
-            "description": "Stable workflow ID used by storage, paths, ACLs, and workspace references.",
+            "description": "Stable workflow ID used by storage, paths, RuntimeProfiles, and workspace references.",
             "x-go-type-skip-optional-pointer": true,
             "example": "demo-assistant"
           },

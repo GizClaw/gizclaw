@@ -12,7 +12,8 @@ Pods live under `os.UserConfigDir()/GizClaw/pods/<id>/` by default:
 <pod>/
 ├── pod.json
 ├── workspace/                 # local Pods only
-│   └── config.yaml
+│   ├── config.yaml
+│   └── registration-token     # private desktop-local RegistrationToken
 ├── admin_context/<context-id>/ # projected Admin contexts
 │   └── config.yaml
 └── client_context/            # generated desktop-local Play identity
@@ -40,7 +41,8 @@ endpoint, and Server public key; a scanning client generates its own identity.
 A new local Pod is returned as soon as its manifest and projections are
 persisted. The response carries an `initializing` state while a cancellable
 background task starts the Server, applies the embedded deploy-derived catalog,
-syncs Volc voices, and uploads all Workflow and PetDef assets. A successful task
+syncs Volc voices, uploads all Workflow and PetDef assets, and creates the
+RegistrationToken that selects the bundled Firmware and RuntimeProfile. A successful task
 clears the state; a failed task stops the process and persists its redacted
 error so the Pod remains visible and deletable. Desktop startup removes a Pod
 left actively initializing after an interrupted creation, while failed Pods
@@ -80,6 +82,9 @@ for local Server support.
   local URL query and can be reused across opens and page refreshes until that
   listener closes. Runtime private keys remain in Desktop memory and are not placed
   in the URL, browser storage, static assets, or logs.
+- Local Play receives its raw RegistrationToken only through the protected runtime
+  handoff and calls `server.register` before loading RuntimeProfile resources. The
+  RegistrationToken is not placed in the URL, `pod.json`, browser storage, or logs.
 - The frameless shell provides native-runtime hide, minimise, and maximise
   controls. Closing the window hides it while Server and browser listeners keep
   running.

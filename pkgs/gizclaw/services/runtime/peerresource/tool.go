@@ -5,29 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 )
-
-const resourceOwnerRole = toolkit.ResourceOwnerRole
-
-type ResourceACLService interface {
-	CreateRole(context.Context, string, apitypes.ACLPermissionList) (apitypes.ACLRole, error)
-	GetRole(context.Context, string) (apitypes.ACLRole, error)
-	PutPolicyBinding(context.Context, string, float64, apitypes.ACLPolicy) (apitypes.ACLPolicyBinding, error)
-	DeletePolicyBinding(context.Context, string) (apitypes.ACLPolicyBinding, error)
-}
-
-var resourceOwnerPermissions = apitypes.ACLPermissionList{
-	apitypes.ACLPermissionRead,
-	apitypes.ACLPermissionUse,
-	apitypes.ACLPermissionAdmin,
-}
 
 func (s *Server) handleToolList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
 	if s.Tools == nil {
@@ -37,25 +19,40 @@ func (s *Server) handleToolList(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	tools, err := s.Tools.ListTools(ctx)
+	tools, err := s.Tools.ListToolsByOwner(ctx, s.Caller.String())
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
+	byID := make(map[string]toolkit.Tool, len(tools))
+	owned := make([]string, 0, len(tools))
+	for _, tool := range tools {
+		byID[tool.ID] = tool
+		if tool.OwnerPublicKey != nil && *tool.OwnerPublicKey == s.Caller.String() {
+			owned = append(owned, tool.ID)
+		}
+	}
+	ordered := orderedUnique(s.profileNames(profileTools), owned)
 	cursor := strings.TrimSpace(valueOrZero(params.Cursor))
-	cursorKey := url.PathEscape(cursor)
 	limit := peerListLimit(params.Limit)
 	items := make([]rpcapi.Tool, 0, limit)
 	hasNext := false
-	for _, tool := range tools {
-		if url.PathEscape(tool.ID) <= cursorKey {
+	started := cursor == ""
+	for _, id := range ordered {
+		if !started {
+			if id == cursor {
+				started = true
+			}
 			continue
 		}
-		err := s.authorizeErr(ctx, acl.ToolResource(tool.ID), apitypes.ACLPermissionRead)
-		if errors.Is(err, acl.ErrDenied) {
-			continue
-		}
-		if err != nil {
-			return authError(req.Id, err)
+		tool, ok := byID[id]
+		if !ok {
+			tool, err = s.Tools.GetTool(ctx, id)
+			if errors.Is(err, toolkit.ErrToolNotFound) {
+				continue
+			}
+			if err != nil {
+				return internalError(req.Id, err.Error())
+			}
 		}
 		if len(items) == limit {
 			hasNext = true
@@ -83,15 +80,15 @@ func (s *Server) handleToolGet(ctx context.Context, req *rpcapi.RPCRequest) *rpc
 	if !ok || strings.TrimSpace(params.Id) == "" {
 		return invalidParams(req.Id)
 	}
-	if resp := s.authorizeResponse(ctx, req.Id, acl.ToolResource(params.Id), apitypes.ACLPermissionRead); resp != nil {
-		return resp
-	}
 	tool, err := s.Tools.GetTool(ctx, params.Id)
 	if errors.Is(err, toolkit.ErrToolNotFound) {
 		return statusError(req.Id, http.StatusNotFound, err.Error())
 	}
 	if err != nil {
 		return internalError(req.Id, err.Error())
+	}
+	if !s.profileAllows(profileTools, params.Id) && (tool.OwnerPublicKey == nil || *tool.OwnerPublicKey != s.Caller.String()) {
+		return statusError(req.Id, http.StatusNotFound, "tool not found")
 	}
 	item, err := toolkit.ToRPC(tool)
 	if err != nil {
@@ -108,9 +105,6 @@ func (s *Server) handleToolCreate(ctx context.Context, req *rpcapi.RPCRequest) *
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	if resp := s.authorizeResponse(ctx, req.Id, acl.CollectionResource(acl.ResourceKindTool), apitypes.ACLPermissionCreate); resp != nil {
-		return resp
-	}
 	tool, err := s.peerDeviceTool(params)
 	if err != nil {
 		return statusError(req.Id, http.StatusBadRequest, err.Error())
@@ -123,10 +117,6 @@ func (s *Server) handleToolCreate(ctx context.Context, req *rpcapi.RPCRequest) *
 	stored, err := s.Tools.PutTool(ctx, tool)
 	if err != nil {
 		return statusError(req.Id, http.StatusBadRequest, err.Error())
-	}
-	if err := s.grantToolOwner(ctx, stored.ID); err != nil {
-		_ = s.Tools.DeleteTool(context.WithoutCancel(ctx), stored.ID)
-		return internalError(req.Id, err.Error())
 	}
 	item, err := toolkit.ToRPC(stored)
 	if err != nil {
@@ -142,9 +132,6 @@ func (s *Server) handleToolPut(ctx context.Context, req *rpcapi.RPCRequest) *rpc
 	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsToolPutRequest)
 	if !ok || strings.TrimSpace(params.Id) == "" || params.Body.Id != params.Id {
 		return invalidParams(req.Id)
-	}
-	if resp := s.authorizeResponse(ctx, req.Id, acl.ToolResource(params.Id), apitypes.ACLPermissionAdmin); resp != nil {
-		return resp
 	}
 	tool, err := s.peerDeviceTool(params.Body)
 	if err != nil {
@@ -178,9 +165,6 @@ func (s *Server) handleToolDelete(ctx context.Context, req *rpcapi.RPCRequest) *
 	if !ok || strings.TrimSpace(params.Id) == "" {
 		return invalidParams(req.Id)
 	}
-	if resp := s.authorizeResponse(ctx, req.Id, acl.ToolResource(params.Id), apitypes.ACLPermissionAdmin); resp != nil {
-		return resp
-	}
 	stored, err := s.Tools.GetTool(ctx, params.Id)
 	if errors.Is(err, toolkit.ErrToolNotFound) {
 		return statusError(req.Id, http.StatusNotFound, err.Error())
@@ -193,19 +177,6 @@ func (s *Server) handleToolDelete(ctx context.Context, req *rpcapi.RPCRequest) *
 	}
 	if err := s.Tools.DeleteTool(ctx, params.Id); err != nil {
 		return internalError(req.Id, err.Error())
-	}
-	if s.ResourceACL != nil {
-		for _, bindingID := range []string{
-			legacyToolOwnerBindingID(params.Id, s.Caller.String()),
-			toolOwnerBindingID(params.Id, s.Caller.String()),
-		} {
-			if _, err := s.ResourceACL.DeletePolicyBinding(context.WithoutCancel(ctx), bindingID); err != nil && !errors.Is(err, acl.ErrPolicyBindingNotFound) {
-				if _, rollbackErr := s.Tools.PutTool(context.WithoutCancel(ctx), stored); rollbackErr != nil {
-					return internalError(req.Id, fmt.Sprintf("%v; Tool rollback failed: %v", err, rollbackErr))
-				}
-				return internalError(req.Id, err.Error())
-			}
-		}
 	}
 	item, err := toolkit.ToRPC(stored)
 	if err != nil {
@@ -226,6 +197,10 @@ func (s *Server) peerDeviceTool(value rpcapi.Tool) (toolkit.Tool, error) {
 		return toolkit.Tool{}, errors.New("owner_peer must match the authenticated peer")
 	}
 	value.OwnerPeer = &caller
+	if value.OwnerPublicKey != nil && strings.TrimSpace(*value.OwnerPublicKey) != caller {
+		return toolkit.Tool{}, errors.New("owner_public_key must match the authenticated peer")
+	}
+	value.OwnerPublicKey = &caller
 	if value.Executor.Kind != rpcapi.ToolExecutorKindDeviceRpc {
 		return toolkit.Tool{}, errors.New("device Tool must use a device_rpc executor")
 	}
@@ -238,63 +213,8 @@ func (s *Server) peerDeviceTool(value rpcapi.Tool) (toolkit.Tool, error) {
 
 func (s *Server) validateOwnedDeviceTool(tool toolkit.Tool) error {
 	caller := s.Caller.String()
-	if tool.Source != toolkit.ToolSourceDevice || !strings.HasPrefix(tool.ID, "peer."+caller+".") || tool.OwnerPeer == nil || *tool.OwnerPeer != caller {
+	if tool.Source != toolkit.ToolSourceDevice || !strings.HasPrefix(tool.ID, "peer."+caller+".") || tool.OwnerPublicKey == nil || *tool.OwnerPublicKey != caller {
 		return errors.New("peer may modify only its own device Tools")
 	}
 	return nil
-}
-
-func (s *Server) grantToolOwner(ctx context.Context, toolID string) error {
-	return s.grantResourceOwner(ctx, acl.ToolResource(toolID))
-}
-
-func (s *Server) ensureResourceOwnerRole(ctx context.Context) error {
-	role, err := s.ResourceACL.GetRole(ctx, resourceOwnerRole)
-	if err == nil {
-		if permissionListsEqual(role.Permissions, resourceOwnerPermissions) {
-			return nil
-		}
-		return fmt.Errorf("%s ACL role permissions are not current", resourceOwnerRole)
-	}
-	if !errors.Is(err, acl.ErrRoleNotFound) {
-		return err
-	}
-	if _, err := s.ResourceACL.CreateRole(ctx, resourceOwnerRole, resourceOwnerPermissions); err != nil {
-		if !errors.Is(err, acl.ErrRoleAlreadyExists) {
-			return err
-		}
-		role, err = s.ResourceACL.GetRole(ctx, resourceOwnerRole)
-		if err != nil {
-			return err
-		}
-		if !permissionListsEqual(role.Permissions, resourceOwnerPermissions) {
-			return fmt.Errorf("%s ACL role permissions are not current", resourceOwnerRole)
-		}
-	}
-	return nil
-}
-
-func permissionListsEqual(left, right apitypes.ACLPermissionList) bool {
-	if len(left) != len(right) {
-		return false
-	}
-	seen := make(map[apitypes.ACLPermission]int, len(left))
-	for _, permission := range left {
-		seen[permission]++
-	}
-	for _, permission := range right {
-		if seen[permission] == 0 {
-			return false
-		}
-		seen[permission]--
-	}
-	return true
-}
-
-func toolOwnerBindingID(toolID, owner string) string {
-	return resourceOwnerBindingID(acl.ToolResource(toolID))
-}
-
-func legacyToolOwnerBindingID(toolID, owner string) string {
-	return toolkit.LegacyToolOwnerPolicyBindingID(toolID, owner)
 }

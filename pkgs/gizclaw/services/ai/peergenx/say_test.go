@@ -16,7 +16,6 @@ func TestSayUsesVoiceTransformerAndConsumesOutput(t *testing.T) {
 	output := &recordingAudioOutput{}
 	svc := New(Service{
 		Peer:            newTestPeer(),
-		Authorizer:      &recordingAuthorizer{events: &events},
 		Voices:          fakeVoices{events: &events},
 		Credentials:     fakeCredentials{events: &events},
 		ProviderTenants: fakeTenants{events: &events},
@@ -32,11 +31,8 @@ func TestSayUsesVoiceTransformerAndConsumesOutput(t *testing.T) {
 		t.Fatalf("Say() = %+v, want accepted", resp)
 	}
 	wantEvents := []string{
-		"auth:voice:cancan:read",
 		"get:voice:cancan",
-		"auth:voice:cancan:use",
 		"get:tenant:volc:main",
-		"auth:credential:volc-token:use",
 		"get:credential:volc-token",
 		"build:transformer:voice:cancan",
 		"call:transformer:voice/cancan",
@@ -74,7 +70,6 @@ func TestResolveTransformerAllowsTTSModel(t *testing.T) {
 	events := []string{}
 	svc := New(Service{
 		Peer:            newTestPeer(),
-		Authorizer:      &recordingAuthorizer{events: &events},
 		Models:          fakeModels{events: &events, modelKind: apitypes.ModelKindTts, providerKind: "volc-tenant"},
 		Credentials:     fakeCredentials{events: &events},
 		ProviderTenants: fakeTenants{events: &events},

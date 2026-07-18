@@ -19,13 +19,13 @@ services/social/
 
 ### friend
 
-拥有 friend request 的创建、接受、拒绝，以及 friend relationship 的读取和删除。它可以使用 ACL 判断权限，但 friend 状态本身属于 social 领域。
+拥有 friend request 的创建、接受、拒绝，以及 friend relationship 的读取和删除。Friend 关系直接决定双方对 system Workspace 的访问，不创建通用访问 role。
 
 每个好友直聊生命周期拥有一个 system Workspace，并在创建、rollback 和关系删除时使用内部 Workspace create/delete 能力。
 
 ### friendgroup
 
-拥有 friend group、member、message、invite 和 message asset。Group membership 与 ACL role 是不同层面的关系；不能用其中一个隐式替代另一个。
+拥有 friend group、member、message、invite 和 message asset。Group membership 直接决定成员对 group system Workspace 的访问。
 
 每个 Friend Group 生命周期拥有一个 system Workspace，并在创建、rollback 和群组删除时使用内部 Workspace create/delete 能力。
 
@@ -34,7 +34,7 @@ services/social/
 ```mermaid
 flowchart LR
     Surface["Admin / Peer Social surface"] --> Social["services/social"]
-    Social --> ACL["services/system/acl"]
+    Social --> Workspace["services/ai/workspace"]
     Social --> KV["KV stores"]
     Social --> Assets["Message object store"]
 ```
@@ -47,7 +47,7 @@ flowchart LR
 不应该放在这里：
 
 - Giznet peer connection 或 signaling contact。
-- ACL role、policy binding 和通用 authorization engine。
+- RuntimeProfile、owner index 或通用注册逻辑。
 - Chat Agent、workspace runtime 或通用 messaging transport。
 - Admin/Peer route registration。
 

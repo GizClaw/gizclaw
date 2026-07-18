@@ -2,17 +2,13 @@ package peerresource
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"io"
 	"strings"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 )
 
 func (s *Server) gameplayRuntime(req *rpcapi.RPCRequest) (*gameplay.Runtime, *rpcapi.RPCResponse) {
@@ -20,25 +16,6 @@ func (s *Server) gameplayRuntime(req *rpcapi.RPCRequest) (*gameplay.Runtime, *rp
 		return nil, internalError(req.Id, "gameplay service not configured")
 	}
 	return s.Gameplay, nil
-}
-
-func (s *Server) handleGameRulesetGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	runtime, failure := s.gameplayRuntime(req)
-	if failure != nil {
-		return failure
-	}
-	params, ok := decodeOptionalParams(req, rpcapi.RPCPayload.AsServerGameRulesetGetRequest)
-	if !ok {
-		return invalidParams(req.Id)
-	}
-	resp, err := runtime.GetGameRuleset(ctx, valueOrZero(params.Name))
-	if err != nil {
-		return businessError(req.Id, err)
-	}
-	if auth := s.authorizeResponse(ctx, req.Id, acl.GameRulesetResource(resp.Name), apitypes.ACLPermissionRead); auth != nil {
-		return auth
-	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerGameRulesetGetResponse)
 }
 
 func (s *Server) handlePetPixaDownload(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -115,11 +92,7 @@ func (s *Server) PrepareBadgeDefPixaDownload(ctx context.Context, params rpcapi.
 	if err != nil {
 		return rpcapi.BadgeDefPixaDownloadResponse{}, nil, gameplayRPCError(err), nil
 	}
-	allowed, err := s.authorizeGameRulesetForBadgeDef(ctx, runtime.Catalog, id)
-	if err != nil {
-		return rpcapi.BadgeDefPixaDownloadResponse{}, nil, nil, err
-	}
-	if !allowed {
+	if !s.profileAllows(profileBadgeDefs, id) {
 		return rpcapi.BadgeDefPixaDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeForbidden, Message: "badge def pixa is not available to this peer"}, nil
 	}
 	path := valueOrZero(item.PixaPath)
@@ -128,65 +101,6 @@ func (s *Server) PrepareBadgeDefPixaDownload(ctx context.Context, params rpcapi.
 		return rpcapi.BadgeDefPixaDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: err.Error()}, nil
 	}
 	return rpcapi.BadgeDefPixaDownloadResponse{Id: item.Id, PixaPath: item.PixaPath, SizeBytes: size}, reader, nil, nil
-}
-
-func (s *Server) authorizeGameRulesetForBadgeDef(ctx context.Context, catalog *gameplay.Catalog, id string) (bool, error) {
-	return s.authorizeMatchingGameRuleset(ctx, catalog, func(ruleset apitypes.GameRuleset) bool {
-		for _, badgeID := range valueOrZero(ruleset.Spec.BadgeDefIds) {
-			if strings.TrimSpace(badgeID) == id {
-				return true
-			}
-		}
-		return false
-	})
-}
-
-func (s *Server) authorizeMatchingGameRuleset(ctx context.Context, catalog *gameplay.Catalog, match func(apitypes.GameRuleset) bool) (bool, error) {
-	if catalog == nil {
-		return false, errors.New("gameplay catalog is not configured")
-	}
-	limit := int32(200)
-	cursor := ""
-	for {
-		params := adminhttp.ListGameRulesetsParams{Limit: &limit}
-		if cursor != "" {
-			params.Cursor = &cursor
-		}
-		resp, err := catalog.ListGameRulesets(ctx, adminhttp.ListGameRulesetsRequestObject{Params: params})
-		if err != nil {
-			return false, err
-		}
-		list, ok := resp.(adminhttp.ListGameRulesets200JSONResponse)
-		if !ok {
-			return false, fmt.Errorf("list game rulesets returned %T", resp)
-		}
-		for _, ruleset := range list.Items {
-			if !match(ruleset) {
-				continue
-			}
-			allowed, err := s.authorizeGameRulesetReadOrUse(ctx, ruleset.Name)
-			if err != nil || allowed {
-				return allowed, err
-			}
-		}
-		if !list.HasNext || list.NextCursor == nil {
-			return false, nil
-		}
-		cursor = *list.NextCursor
-	}
-}
-
-func (s *Server) authorizeGameRulesetReadOrUse(ctx context.Context, name string) (bool, error) {
-	for _, permission := range []apitypes.ACLPermission{apitypes.ACLPermissionRead, apitypes.ACLPermissionUse} {
-		err := s.authorizeErr(ctx, acl.GameRulesetResource(name), permission)
-		if err == nil {
-			return true, nil
-		}
-		if !errors.Is(err, acl.ErrDenied) {
-			return false, err
-		}
-	}
-	return false, nil
 }
 
 func (s *Server) handlePetList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -368,15 +282,11 @@ func (s *Server) handlePetAdopt(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	ruleset, err := runtime.GetGameRuleset(ctx, valueOrZero(apiParams.RulesetName))
-	if err != nil {
-		return businessError(req.Id, err)
+	profileCtx, failure := s.gameplayProfileContext(ctx, req.Id)
+	if failure != nil {
+		return failure
 	}
-	if auth := s.authorizeResponse(ctx, req.Id, acl.GameRulesetResource(ruleset.Name), apitypes.ACLPermissionUse); auth != nil {
-		return auth
-	}
-	apiParams.RulesetName = &ruleset.Name
-	resp, err := runtime.AdoptPet(ctx, s.Caller.String(), apiParams)
+	resp, err := runtime.AdoptPet(profileCtx, s.Caller.String(), apiParams)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -432,7 +342,11 @@ func (s *Server) handlePetDrive(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	resp, err := runtime.DrivePet(ctx, s.Caller.String(), apiParams)
+	profileCtx, failure := s.gameplayProfileContext(ctx, req.Id)
+	if failure != nil {
+		return failure
+	}
+	resp, err := runtime.DrivePet(profileCtx, s.Caller.String(), apiParams)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -444,15 +358,30 @@ func (s *Server) handlePointsGet(ctx context.Context, req *rpcapi.RPCRequest) *r
 	if failure != nil {
 		return failure
 	}
-	params, ok := decodeOptionalParams(req, rpcapi.RPCPayload.AsServerPointsGetRequest)
+	_, ok := decodeOptionalParams(req, rpcapi.RPCPayload.AsServerPointsGetRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	resp, err := runtime.GetPoints(ctx, s.Caller.String(), valueOrZero(params.RulesetName))
+	profileCtx, failure := s.gameplayProfileContext(ctx, req.Id)
+	if failure != nil {
+		return failure
+	}
+	resp, err := runtime.GetPoints(profileCtx, s.Caller.String(), "")
 	if err != nil {
 		return businessError(req.Id, err)
 	}
 	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerPointsGetResponse)
+}
+
+func (s *Server) gameplayProfileContext(ctx context.Context, requestID string) (context.Context, *rpcapi.RPCResponse) {
+	if s == nil || s.RuntimeProfile == nil {
+		return ctx, statusError(requestID, 403, "device has no active RuntimeProfile")
+	}
+	profile := s.RuntimeProfile()
+	if profile == nil {
+		return ctx, statusError(requestID, 403, "device has no active RuntimeProfile")
+	}
+	return gameplay.WithRuntimeProfile(ctx, *profile), nil
 }
 
 func (s *Server) handlePointsTransactionsList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {

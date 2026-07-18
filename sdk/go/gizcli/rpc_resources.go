@@ -5,7 +5,24 @@ import (
 	"net"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 )
+
+func (c *rpcClient) Register(ctx context.Context, conn net.Conn, id, token string) (*rpcpb.ServerRegisterResponse, error) {
+	request := rpcapi.ServerRegisterRequest{Token: token}
+	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromServerRegisterRequest)
+	if err != nil {
+		return nil, err
+	}
+	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodServerRegister, params), rpcapi.RPCPayload.AsServerRegisterResponse)
+	if err != nil {
+		return nil, wrapRPCResultError("server register", err)
+	}
+	return &rpcpb.ServerRegisterResponse{
+		FirmwareName:       result.FirmwareName,
+		RuntimeProfileName: result.RuntimeProfileName,
+	}, nil
+}
 
 func callResourceRPC[Req any, Resp any](
 	ctx context.Context,
@@ -202,10 +219,6 @@ func (c *rpcClient) PutFriendGroupMember(ctx context.Context, conn net.Conn, id 
 
 func (c *rpcClient) DeleteFriendGroupMember(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendGroupMemberDeleteRequest) (*rpcapi.FriendGroupMemberDeleteResponse, error) {
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendGroupMembersDelete, request, (*rpcapi.RPCPayload).FromFriendGroupMemberDeleteRequest, rpcapi.RPCPayload.AsFriendGroupMemberDeleteResponse, "friend group member delete")
-}
-
-func (c *rpcClient) GetGameRuleset(ctx context.Context, conn net.Conn, id string, request rpcapi.ServerGameRulesetGetRequest) (*rpcapi.ServerGameRulesetGetResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerGameRulesetGet, request, (*rpcapi.RPCPayload).FromServerGameRulesetGetRequest, rpcapi.RPCPayload.AsServerGameRulesetGetResponse, "game ruleset get")
 }
 
 func (c *rpcClient) ListPets(ctx context.Context, conn net.Conn, id string, request rpcapi.ServerPetListRequest) (*rpcapi.ServerPetListResponse, error) {

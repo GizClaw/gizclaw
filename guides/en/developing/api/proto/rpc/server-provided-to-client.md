@@ -18,7 +18,7 @@ This set of capabilities is implemented by Server and called by Client/Device th
 | `server.contact.*` | Contact CRUD |
 | `server.friend.*` | Friend and invite-token operations |
 | `server.friend_group.*` | Group, member, message and invite-token operations |
-| `server.game_ruleset.*` | Gameplay ruleset lookup |
+| `server.register` | Select the current connection's Firmware and RuntimeProfile with a RegistrationToken |
 | `server.pet.*` | Pet resource CRUD and drive |
 | `server.pet.actions.get` | Press Pet to get available actions, without returning the complete PetDef |
 | `server.pet.pixa.download` | Press Pet to download PIXA metadata and materials without exposing PetDef API |

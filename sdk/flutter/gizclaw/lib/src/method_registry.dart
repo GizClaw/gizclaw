@@ -453,12 +453,6 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'FriendGroupMessageSendRequest',
     responseType: 'FriendGroupMessageSendResponse',
   ),
-  'server.game_ruleset.get': RpcMethodDescriptor(
-    id: 77,
-    name: 'server.game_ruleset.get',
-    requestType: 'ServerGameRulesetGetRequest',
-    responseType: 'ServerGameRulesetGetResponse',
-  ),
   'server.badge_def.pixa.download': RpcMethodDescriptor(
     id: 79,
     name: 'server.badge_def.pixa.download',
@@ -639,6 +633,12 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'FriendInfoGetRequest',
     responseType: 'FriendInfoGetResponse',
   ),
+  'server.register': RpcMethodDescriptor(
+    id: 109,
+    name: 'server.register',
+    requestType: 'ServerRegisterRequest',
+    responseType: 'ServerRegisterResponse',
+  ),
 };
 
 const rpcMethodNamesById = <int, String>{
@@ -715,7 +715,6 @@ const rpcMethodNamesById = <int, String>{
   74: 'server.friend_group.messages.list',
   75: 'server.friend_group.messages.get',
   76: 'server.friend_group.messages.send',
-  77: 'server.game_ruleset.get',
   79: 'server.badge_def.pixa.download',
   80: 'server.pet.list',
   81: 'server.pet.get',
@@ -746,6 +745,7 @@ const rpcMethodNamesById = <int, String>{
   106: 'server.workflow.icon.download',
   107: 'server.workspace.icon.download',
   108: 'server.friend.info.get',
+  109: 'server.register',
 };
 
 RpcMethodDescriptor rpcMethodByName(String name) {

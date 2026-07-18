@@ -14,6 +14,18 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 )
 
+func saveTestPeer(t *testing.T, server *Server, publicKey giznet.PublicKey, device apitypes.DeviceInfo) {
+	t.Helper()
+	if _, err := server.SavePeer(context.Background(), apitypes.Peer{
+		PublicKey: publicKey.String(),
+		Role:      apitypes.PeerRoleClient,
+		Status:    apitypes.PeerRegistrationStatusActive,
+		Device:    device,
+	}); err != nil {
+		t.Fatalf("SavePeer(%s) error: %v", publicKey, err)
+	}
+}
+
 type stubPeerManager struct {
 	runtime       apitypes.Runtime
 	refreshResult adminhttp.RefreshResult
@@ -27,19 +39,6 @@ func (m stubPeerManager) PeerRuntime(context.Context, giznet.PublicKey) apitypes
 
 func (m stubPeerManager) RefreshPeer(context.Context, giznet.PublicKey) (adminhttp.RefreshResult, bool, error) {
 	return m.refreshResult, m.refreshOnline, m.refreshErr
-}
-
-func saveTestPeer(t *testing.T, server *Server, publicKey giznet.PublicKey, device apitypes.DeviceInfo) {
-	t.Helper()
-	if _, err := server.SavePeer(context.Background(), apitypes.Peer{
-		PublicKey:     publicKey.String(),
-		Role:          apitypes.PeerRoleClient,
-		Status:        apitypes.PeerRegistrationStatusActive,
-		Device:        device,
-		Configuration: apitypes.Configuration{},
-	}); err != nil {
-		t.Fatalf("SavePeer(%s) error: %v", publicKey, err)
-	}
 }
 
 func TestServerAdminPeerHandlers(t *testing.T) {
@@ -86,34 +85,6 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 	}
 	if len(listed.Items) != 1 || listed.Items[0].PublicKey != peerPublicKey {
 		t.Fatalf("ListPeers items = %+v", listed.Items)
-	}
-
-	view := "under-12"
-	putConfigResp, err := server.PutPeerConfig(ctx, adminhttp.PutPeerConfigRequestObject{
-		PublicKey: string(peerPublicKey),
-		Body: &adminhttp.PutPeerConfigJSONRequestBody{
-			View: &view,
-		},
-	})
-	if err != nil {
-		t.Fatalf("PutPeerConfig error: %v", err)
-	}
-	if _, ok := putConfigResp.(adminhttp.PutPeerConfig200JSONResponse); !ok {
-		t.Fatalf("PutPeerConfig response type = %T", putConfigResp)
-	}
-
-	getConfigResp, err := server.GetPeerConfig(ctx, adminhttp.GetPeerConfigRequestObject{
-		PublicKey: string(peerPublicKey),
-	})
-	if err != nil {
-		t.Fatalf("GetPeerConfig error: %v", err)
-	}
-	cfg, ok := getConfigResp.(adminhttp.GetPeerConfig200JSONResponse)
-	if !ok {
-		t.Fatalf("GetPeerConfig response type = %T", getConfigResp)
-	}
-	if cfg.View == nil || *cfg.View != view {
-		t.Fatalf("GetPeerConfig = %+v", cfg)
 	}
 
 	getInfoResp, err := server.GetPeerInfo(ctx, adminhttp.GetPeerInfoRequestObject{
@@ -371,7 +342,6 @@ func TestServerRuntimeHandlers(t *testing.T) {
 	now := time.Unix(1_700_200_000, 0).UTC()
 	runtimeAddr := "10.0.0.1:1234"
 	peerKey := giznet.PublicKey{3}
-	peerPublicKey := peerKey.String()
 	server := &Server{
 		Store: mustBadgerInMemory(t, nil),
 		PeerManager: stubPeerManager{
@@ -395,7 +365,7 @@ func TestServerRuntimeHandlers(t *testing.T) {
 	saveTestPeer(t, server, peerKey, apitypes.DeviceInfo{})
 
 	getPeerRuntimeResp, err := server.GetPeerRuntime(context.Background(), adminhttp.GetPeerRuntimeRequestObject{
-		PublicKey: string(peerPublicKey),
+		PublicKey: peerKey.String(),
 	})
 	if err != nil {
 		t.Fatalf("GetPeerRuntime error: %v", err)
@@ -414,7 +384,7 @@ func TestServerRuntimeHandlers(t *testing.T) {
 	}
 
 	refreshResp, err := server.RefreshPeer(context.Background(), adminhttp.RefreshPeerRequestObject{
-		PublicKey: string(peerPublicKey),
+		PublicKey: peerKey.String(),
 	})
 	if err != nil {
 		t.Fatalf("RefreshPeer error: %v", err)
@@ -423,7 +393,7 @@ func TestServerRuntimeHandlers(t *testing.T) {
 	if !ok {
 		t.Fatalf("RefreshPeer response type = %T", refreshResp)
 	}
-	if refreshed.Peer.PublicKey != peerPublicKey || refreshed.UpdatedFields == nil || len(*refreshed.UpdatedFields) != 1 {
+	if refreshed.Peer.PublicKey != peerKey.String() || refreshed.UpdatedFields == nil || len(*refreshed.UpdatedFields) != 1 {
 		t.Fatalf("RefreshPeer = %+v", refreshed)
 	}
 }
@@ -549,11 +519,10 @@ func TestServerInfoICEServersMintShortLivedCredentials(t *testing.T) {
 	}
 }
 
-func TestPeerHTTPHandlersPutInfoConfigAndRuntime(t *testing.T) {
+func TestPeerHTTPHandlersPutInfoAndRuntime(t *testing.T) {
 	now := time.Unix(1_700_500_000, 0).UTC()
 	runtimeAddr := "10.0.0.1:8888"
 	peerKey := giznet.PublicKey{4}
-	peerPublicKey := peerKey.String()
 	server := &Server{
 		Store: mustBadgerInMemory(t, nil),
 		PeerManager: stubPeerManager{
@@ -567,31 +536,6 @@ func TestPeerHTTPHandlersPutInfoConfigAndRuntime(t *testing.T) {
 
 	sn := "sn-old"
 	saveTestPeer(t, server, peerKey, apitypes.DeviceInfo{Identifiers: &apitypes.DeviceIdentifiers{Sn: &sn}})
-
-	view := "under-12"
-	_, err := server.PutPeerConfig(context.Background(), adminhttp.PutPeerConfigRequestObject{
-		PublicKey: string(peerPublicKey),
-		Body: &adminhttp.PutPeerConfigJSONRequestBody{
-			View: &view,
-		},
-	})
-	if err != nil {
-		t.Fatalf("PutPeerConfig error: %v", err)
-	}
-
-	getConfigResp, err := server.GetPeerConfig(context.Background(), adminhttp.GetPeerConfigRequestObject{
-		PublicKey: string(peerPublicKey),
-	})
-	if err != nil {
-		t.Fatalf("GetPeerConfig error: %v", err)
-	}
-	cfg, ok := getConfigResp.(adminhttp.GetPeerConfig200JSONResponse)
-	if !ok {
-		t.Fatalf("GetPeerConfig response type = %T", getConfigResp)
-	}
-	if cfg.View == nil || *cfg.View != view {
-		t.Fatalf("GetPeerConfig = %+v", cfg)
-	}
 
 	newEmoji := "🧑‍🚀"
 	putInfo, err := server.PutSelfInfo(context.Background(), peerKey, apitypes.DeviceInfo{Emoji: &newEmoji})

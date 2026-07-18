@@ -19,31 +19,12 @@ func newGameplayCmd() *cobra.Command {
 		Short: "Use peer gameplay resources",
 	}
 	cmd.AddCommand(
-		newGameplayRulesetCmd(),
 		newPetCmd(),
 		newPointsCmd(),
 		newBadgeCmd(),
 		newGameResultCmd(),
 		newRewardGrantCmd(),
 	)
-	return cmd
-}
-
-func newGameplayRulesetCmd() *cobra.Command {
-	var opts connectRPCOptions
-	var name string
-	cmd := &cobra.Command{
-		Use:   "ruleset",
-		Short: "Show the current gameplay ruleset",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.GetGameRuleset(ctx, "server.game_ruleset.get", rpcapi.ServerGameRulesetGetRequest{Name: optionalString(name)})
-			})
-		},
-	}
-	opts.addFlags(cmd)
-	cmd.Flags().StringVar(&name, "name", "", "ruleset name")
 	return cmd
 }
 
@@ -163,7 +144,6 @@ func newPetPixaCmd() *cobra.Command {
 
 func newPetAdoptCmd() *cobra.Command {
 	var opts connectRPCOptions
-	var ruleset string
 	var displayName string
 	cmd := &cobra.Command{
 		Use:   "adopt",
@@ -172,14 +152,12 @@ func newPetAdoptCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
 				return c.AdoptPet(ctx, "server.pet.adopt", rpcapi.ServerPetAdoptRequest{
-					RulesetName: optionalString(ruleset),
 					DisplayName: optionalString(displayName),
 				})
 			})
 		},
 	}
 	opts.addFlags(cmd)
-	cmd.Flags().StringVar(&ruleset, "ruleset", "", "ruleset name")
 	cmd.Flags().StringVar(&displayName, "name", "", "pet display name")
 	return cmd
 }
@@ -287,19 +265,17 @@ func newPointsCmd() *cobra.Command {
 
 func newPointsGetCmd() *cobra.Command {
 	var opts connectRPCOptions
-	var ruleset string
 	cmd := &cobra.Command{
 		Use:   "get",
 		Short: "Get points account",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.GetPoints(ctx, "server.points.get", rpcapi.ServerPointsGetRequest{RulesetName: optionalString(ruleset)})
+				return c.GetPoints(ctx, "server.points.get", rpcapi.ServerPointsGetRequest{})
 			})
 		},
 	}
 	opts.addFlags(cmd)
-	cmd.Flags().StringVar(&ruleset, "ruleset", "", "ruleset name")
 	return cmd
 }
 

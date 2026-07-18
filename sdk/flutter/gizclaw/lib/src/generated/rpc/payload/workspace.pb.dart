@@ -2987,6 +2987,7 @@ class Workspace extends $pb.GeneratedMessage {
     $2.ToolkitPolicy? toolkit,
     $core.bool? system,
     $3.Icon? icon,
+    $core.String? ownerPublicKey,
   }) {
     final result = create();
     if (createdAt != null) result.createdAt = createdAt;
@@ -2998,6 +2999,7 @@ class Workspace extends $pb.GeneratedMessage {
     if (toolkit != null) result.toolkit = toolkit;
     if (system != null) result.system = system;
     if (icon != null) result.icon = icon;
+    if (ownerPublicKey != null) result.ownerPublicKey = ownerPublicKey;
     return result;
   }
 
@@ -3025,6 +3027,7 @@ class Workspace extends $pb.GeneratedMessage {
         subBuilder: $2.ToolkitPolicy.create)
     ..aOB(8, _omitFieldNames ? '' : 'system')
     ..aOM<$3.Icon>(9, _omitFieldNames ? '' : 'icon', subBuilder: $3.Icon.create)
+    ..aOS(10, _omitFieldNames ? '' : 'ownerPublicKey')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3131,6 +3134,15 @@ class Workspace extends $pb.GeneratedMessage {
   void clearIcon() => $_clearField(9);
   @$pb.TagNumber(9)
   $3.Icon ensureIcon() => $_ensure(8);
+
+  @$pb.TagNumber(10)
+  $core.String get ownerPublicKey => $_getSZ(9);
+  @$pb.TagNumber(10)
+  set ownerPublicKey($core.String value) => $_setString(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasOwnerPublicKey() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearOwnerPublicKey() => $_clearField(10);
 }
 
 /// Field numbers match Workspace so existing create and put clients remain wire

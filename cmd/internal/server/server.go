@@ -183,14 +183,13 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 	cmdSrv := &CmdServer{stores: ss, ownsStores: ownsStores, AdminPublicKey: cfg.AdminPublicKey, ServeToClients: cfg.ServeToClients}
 	var gizServer *gizclaw.Server
 	gizServer = &gizclaw.Server{
-		LocalStatic:     *cfg.KeyPair,
-		PeerStore:       peersKV,
-		BuildCommit:     BuildCommit,
-		PublicEndpoint:  cfg.Endpoint,
-		PublicICETCP:    newOpts.ICETCPListener != nil,
-		DefaultPeerView: cfg.DefaultPeerView,
-		EdgeNodes:       cfg.EdgeNodes,
-		ICEServers:      cfg.ICEServers,
+		LocalStatic:    *cfg.KeyPair,
+		PeerStore:      peersKV,
+		BuildCommit:    BuildCommit,
+		PublicEndpoint: cfg.Endpoint,
+		PublicICETCP:   newOpts.ICETCPListener != nil,
+		EdgeNodes:      cfg.EdgeNodes,
+		ICEServers:     cfg.ICEServers,
 		PetWorkflow: petagent.Config{
 			GenerateModel:  cfg.SystemTasks.PetFlowcraftWorkflow.GenerateModel,
 			ExtractModel:   cfg.SystemTasks.PetFlowcraftWorkflow.ExtractModel,
@@ -263,6 +262,11 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		if gizServer.FirmwareStore, err = ss.KV(defaultFirmwaresStore); err != nil {
 			return nil, fmt.Errorf("server: firmwares store: %w", err)
 		}
+		if storeExists(cfg, defaultRuntimeProfilesStore) {
+			if gizServer.RuntimeProfileStore, err = ss.KV(defaultRuntimeProfilesStore); err != nil {
+				return nil, fmt.Errorf("server: runtime profiles store: %w", err)
+			}
+		}
 		if storeExists(cfg, defaultFirmwareAssetsStore) {
 			if gizServer.FirmwareAssets, err = ss.ObjectStore(defaultFirmwareAssetsStore); err != nil {
 				return nil, fmt.Errorf("server: firmwares assets store: %w", err)
@@ -287,9 +291,6 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		}
 		if gizServer.WorkflowStore, err = ss.KV(defaultWorkflowsStore); err != nil {
 			return nil, fmt.Errorf("server: workflows store: %w", err)
-		}
-		if gizServer.ACLDB, err = ss.SQL(defaultACLStore); err != nil {
-			return nil, fmt.Errorf("server: acl store: %w", err)
 		}
 		if storeExists(cfg, defaultContactsStore) {
 			if gizServer.ContactStore, err = ss.KV(defaultContactsStore); err != nil {
@@ -334,11 +335,6 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		if storeExists(cfg, defaultFriendGroupMessageAssetsStore) {
 			if gizServer.FriendGroupMessageAssets, err = ss.ObjectStore(defaultFriendGroupMessageAssetsStore); err != nil {
 				return nil, fmt.Errorf("server: friend group message assets store: %w", err)
-			}
-		}
-		if storeExists(cfg, defaultGameRulesetsStore) {
-			if gizServer.GameRulesetStore, err = ss.KV(defaultGameRulesetsStore); err != nil {
-				return nil, fmt.Errorf("server: game rulesets store: %w", err)
 			}
 		}
 		if storeExists(cfg, defaultPetDefsStore) {

@@ -852,6 +852,16 @@ func (b *PodBridge) PlayURL(_ context.Context, podID string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if pod.LocalServer != nil {
+		token, err := os.ReadFile(filepath.Join(b.Paths.PodsDir, podID, "workspace", localserver.RegistrationTokenFile))
+		if err != nil {
+			return "", fmt.Errorf("desktop bridge: read local Play registration token: %w", err)
+		}
+		runtime.RegistrationToken = strings.TrimSpace(string(token))
+		if runtime.RegistrationToken == "" {
+			return "", fmt.Errorf("desktop bridge: local Play registration token is empty")
+		}
+	}
 	return b.WebUI.LaunchURL(podID, "play", runtime)
 }
 

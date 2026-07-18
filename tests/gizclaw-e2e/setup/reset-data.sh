@@ -196,9 +196,6 @@ resource_names() {
 delete_resource() {
   local kind="$1"
   local name="$2"
-  if [[ "$kind" == "PeerConfig" ]]; then
-    return 0
-  fi
 
   local output status
   set +e

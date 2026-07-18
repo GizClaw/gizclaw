@@ -14,16 +14,7 @@ import (
 func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 	env := newIsolatedGameplayHarness(t)
 
-	ruleset, err := env.peer.GetGameRuleset(env.ctx, "gameplay.game_ruleset.get", rpcapi.ServerGameRulesetGetRequest{Name: testStringPtr("default-gameplay")})
-	if err != nil {
-		t.Fatalf("game_ruleset.get default-gameplay: %v", err)
-	}
-	if ruleset.Name != "default-gameplay" || !ruleset.Spec.Enabled || ruleset.Spec.DefaultWorkflowName == nil || *ruleset.Spec.DefaultWorkflowName != "pet-care" {
-		t.Fatalf("game_ruleset.get = %#v", ruleset)
-	}
-
 	adopted, err := env.peer.AdoptPet(env.ctx, "gameplay.pet.adopt", rpcapi.ServerPetAdoptRequest{
-		RulesetName: testStringPtr("default-gameplay"),
 		DisplayName: testStringPtr("E2E Pet"),
 	})
 	if err != nil {
@@ -135,7 +126,6 @@ func TestGameplayPetWorkspaceAudioHistory(t *testing.T) {
 	env := newSetupGameplayHarness(t, "client-gameplay-chat")
 
 	adopted, err := env.peer.AdoptPet(env.ctx, "gameplay.chat.pet.adopt", rpcapi.ServerPetAdoptRequest{
-		RulesetName: testStringPtr("default-gameplay"),
 		DisplayName: testStringPtr("Chat Pet"),
 	})
 	if err != nil {
@@ -225,8 +215,8 @@ func assertAdoptedStarterPet(t *testing.T, pet rpcapi.Pet) {
 	if pet.PetdefId != "petdef-starter" || pet.DisplayName == "" || pet.WorkspaceName == "" {
 		t.Fatalf("adopted pet = %#v", pet)
 	}
-	if pet.WorkflowName == nil || *pet.WorkflowName != "pet-care" {
-		t.Fatalf("adopted pet workflow = %#v", pet.WorkflowName)
+	if pet.RuntimeProfileName != "default-gameplay" {
+		t.Fatalf("adopted pet RuntimeProfile = %q", pet.RuntimeProfileName)
 	}
 }
 

@@ -9,7 +9,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/credential"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 )
 
 type CmdMigrator struct {
@@ -56,10 +55,6 @@ func newMigratorContext(ctx context.Context, cfg Config) (migrator *CmdMigrator,
 }
 
 func newMigratorWithStores(cfg Config, ss *stores.Stores, owns bool) (*CmdMigrator, error) {
-	aclDB, err := ss.SQL(defaultACLStore)
-	if err != nil {
-		return nil, fmt.Errorf("server: acl store: %w", err)
-	}
 	var peers *peer.Server
 	if storeExists(cfg, defaultPeersStore) {
 		peerKV, err := ss.KV(defaultPeersStore)
@@ -78,7 +73,6 @@ func newMigratorWithStores(cfg Config, ss *stores.Stores, owns bool) (*CmdMigrat
 	}
 	return &CmdMigrator{
 		Migrator: &gizclaw.Migrator{
-			ACL:         &acl.Server{DB: aclDB},
 			Credentials: credentials,
 			Peers:       peers,
 		},

@@ -1,8 +1,0 @@
----
-apiVersion: gizclaw.admin/v1alpha1
-kind: ACLPolicyBinding
-metadata: {name: default-client-workflow-ast-translate-zh-en-auto}
-spec:
-  subject: {kind: view, id: default-client}
-  resource: {kind: workflow, id: ast-translate-zh-en-auto}
-  role: default-client

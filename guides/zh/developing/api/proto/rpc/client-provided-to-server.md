@@ -21,6 +21,6 @@ sequenceDiagram
     Client-->>Server: typed response / RPC error
 ```
 
-Client provider 只能返回该 Client 拥有或可执行的数据。Server resources、ACL decision、跨 Peer lookup 和持久化管理不能实现为 `client.*`。
+Client provider 只能返回该 Client 拥有或可执行的数据。Server resource access decision、跨 Peer lookup 和持久化管理不能实现为 `client.*`。
 
 Go Client 的 provider dispatch 位于 `sdk/go/gizcli` 的 RPC Client implementation；Server 侧通过在线 Peer connection 调用这些 methods。

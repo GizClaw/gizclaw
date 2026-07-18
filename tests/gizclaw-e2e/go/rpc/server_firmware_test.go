@@ -4,7 +4,6 @@ package rpc_test
 
 import (
 	"bytes"
-	"strings"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
@@ -43,7 +42,7 @@ func TestServerFirmwareRPC(t *testing.T) {
 	if len(deniedList.Items) != 0 {
 		t.Fatalf("firmware.list denied items = %#v", deniedList.Items)
 	}
-	if _, err := denied.GetFirmware(env.ctx, "firmware.get.denied", rpcapi.FirmwareGetRequest{FirmwareId: sharedFirmware}); err == nil || !strings.Contains(err.Error(), "acl: denied") {
+	if _, err := denied.GetFirmware(env.ctx, "firmware.get.denied", rpcapi.FirmwareGetRequest{FirmwareId: sharedFirmware}); err == nil {
 		t.Fatalf("firmware.get denied error = %v", err)
 	}
 	var deniedOut bytes.Buffer
@@ -51,7 +50,7 @@ func TestServerFirmwareRPC(t *testing.T) {
 		FirmwareId: sharedFirmware,
 		Channel:    rpcapi.FirmwareChannelNameStable,
 		Path:       "firmware/main.bin",
-	}, &deniedOut); err == nil || !strings.Contains(err.Error(), "acl: denied") {
+	}, &deniedOut); err == nil {
 		t.Fatalf("firmware.files.download denied error = %v", err)
 	}
 }

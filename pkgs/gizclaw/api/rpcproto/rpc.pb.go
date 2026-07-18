@@ -169,7 +169,6 @@ const (
 	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST       RpcMethod = 74
 	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET        RpcMethod = 75
 	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND       RpcMethod = 76
-	RpcMethod_RPC_METHOD_SERVER_GAME_RULESET_GET                 RpcMethod = 77
 	RpcMethod_RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD          RpcMethod = 79
 	RpcMethod_RPC_METHOD_SERVER_PET_LIST                         RpcMethod = 80
 	RpcMethod_RPC_METHOD_SERVER_PET_GET                          RpcMethod = 81
@@ -200,6 +199,7 @@ const (
 	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_ICON_DOWNLOAD           RpcMethod = 106
 	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD          RpcMethod = 107
 	RpcMethod_RPC_METHOD_SERVER_FRIEND_INFO_GET                  RpcMethod = 108
+	RpcMethod_RPC_METHOD_SERVER_REGISTER                         RpcMethod = 109
 )
 
 // Enum value maps for RpcMethod.
@@ -279,7 +279,6 @@ var (
 		74:  "RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST",
 		75:  "RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET",
 		76:  "RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND",
-		77:  "RPC_METHOD_SERVER_GAME_RULESET_GET",
 		79:  "RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD",
 		80:  "RPC_METHOD_SERVER_PET_LIST",
 		81:  "RPC_METHOD_SERVER_PET_GET",
@@ -310,6 +309,7 @@ var (
 		106: "RPC_METHOD_SERVER_WORKFLOW_ICON_DOWNLOAD",
 		107: "RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD",
 		108: "RPC_METHOD_SERVER_FRIEND_INFO_GET",
+		109: "RPC_METHOD_SERVER_REGISTER",
 	}
 	RpcMethod_value = map[string]int32{
 		"RPC_METHOD_UNSPECIFIED":                             0,
@@ -386,7 +386,6 @@ var (
 		"RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST":       74,
 		"RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET":        75,
 		"RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND":       76,
-		"RPC_METHOD_SERVER_GAME_RULESET_GET":                 77,
 		"RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD":          79,
 		"RPC_METHOD_SERVER_PET_LIST":                         80,
 		"RPC_METHOD_SERVER_PET_GET":                          81,
@@ -417,6 +416,7 @@ var (
 		"RPC_METHOD_SERVER_WORKFLOW_ICON_DOWNLOAD":           106,
 		"RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD":          107,
 		"RPC_METHOD_SERVER_FRIEND_INFO_GET":                  108,
+		"RPC_METHOD_SERVER_REGISTER":                         109,
 	}
 )
 
@@ -909,7 +909,7 @@ const file_rpc_proto_rawDesc = "" +
 	"\x1aRPC_ERROR_CODE_BAD_REQUEST\x10\x90\x03\x12\x1d\n" +
 	"\x18RPC_ERROR_CODE_FORBIDDEN\x10\x93\x03\x12\x1d\n" +
 	"\x18RPC_ERROR_CODE_NOT_FOUND\x10\x94\x03\x12\x1c\n" +
-	"\x17RPC_ERROR_CODE_CONFLICT\x10\x99\x03*\xddc\n" +
+	"\x17RPC_ERROR_CODE_CONFLICT\x10\x99\x03*\xc6c\n" +
 	"\tRpcMethod\x12\x1a\n" +
 	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12B\n" +
 	"\x13RPC_METHOD_ALL_PING\x10\x01\x1a)\xc2\xf3\x18%\n" +
@@ -1058,9 +1058,7 @@ const file_rpc_proto_rawDesc = "" +
 	"+RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET\x10K\x1ac\xc2\xf3\x18_\n" +
 	" server.friend_group.messages.get\x12\x1cFriendGroupMessageGetRequest\x1a\x1dFriendGroupMessageGetResponse\x12\x98\x01\n" +
 	",RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND\x10L\x1af\xc2\xf3\x18b\n" +
-	"!server.friend_group.messages.send\x12\x1dFriendGroupMessageSendRequest\x1a\x1eFriendGroupMessageSendResponse\x12\x80\x01\n" +
-	"\"RPC_METHOD_SERVER_GAME_RULESET_GET\x10M\x1aX\xc2\xf3\x18T\n" +
-	"\x17server.game_ruleset.get\x12\x1bServerGameRulesetGetRequest\x1a\x1cServerGameRulesetGetResponse\x12\x8e\x01\n" +
+	"!server.friend_group.messages.send\x12\x1dFriendGroupMessageSendRequest\x1a\x1eFriendGroupMessageSendResponse\x12\x8e\x01\n" +
 	")RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD\x10O\x1a_\xc2\xf3\x18[\n" +
 	"\x1eserver.badge_def.pixa.download\x12\x1bBadgeDefPixaDownloadRequest\x1a\x1cBadgeDefPixaDownloadResponse\x12b\n" +
 	"\x1aRPC_METHOD_SERVER_PET_LIST\x10P\x1aB\xc2\xf3\x18>\n" +
@@ -1120,7 +1118,9 @@ const file_rpc_proto_rawDesc = "" +
 	")RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD\x10k\x1aa\xc2\xf3\x18]\n" +
 	"\x1eserver.workspace.icon.download\x12\x1cWorkspaceIconDownloadRequest\x1a\x1dWorkspaceIconDownloadResponse\x12p\n" +
 	"!RPC_METHOD_SERVER_FRIEND_INFO_GET\x10l\x1aI\xc2\xf3\x18E\n" +
-	"\x16server.friend.info.get\x12\x14FriendInfoGetRequest\x1a\x15FriendInfoGetResponse\"\x04\b#\x10%*!RPC_METHOD_SERVER_WORKFLOW_CREATE*\x1eRPC_METHOD_SERVER_WORKFLOW_PUT*!RPC_METHOD_SERVER_WORKFLOW_DELETE:d\n" +
+	"\x16server.friend.info.get\x12\x14FriendInfoGetRequest\x1a\x15FriendInfoGetResponse\x12d\n" +
+	"\x1aRPC_METHOD_SERVER_REGISTER\x10m\x1aD\xc2\xf3\x18@\n" +
+	"\x0fserver.register\x12\x15ServerRegisterRequest\x1a\x16ServerRegisterResponse\"\x04\b#\x10%\"\x04\bM\x10M*!RPC_METHOD_SERVER_WORKFLOW_CREATE*\x1eRPC_METHOD_SERVER_WORKFLOW_PUT*!RPC_METHOD_SERVER_WORKFLOW_DELETE:d\n" +
 	"\n" +
 	"rpc_method\x12!.google.protobuf.EnumValueOptions\x18\xb8\x8e\x03 \x01(\v2 .gizclaw.rpc.v1.RpcMethodOptionsR\trpcMethodB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 

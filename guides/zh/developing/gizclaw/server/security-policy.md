@@ -4,7 +4,7 @@
 
 实现 Giznet Server 的 transport security policy：判断 public key 是否允许建立 Peer connection，以及该 Peer 是否允许打开指定 Giznet service。
 
-它负责 connection/service 准入；产品资源级 ACL 属于 `services/system/acl`。
+它负责 connection/service 准入；产品资源访问由 RuntimeProfile、owner 和领域关系决定。
 
 ## 核心结构与主函数
 

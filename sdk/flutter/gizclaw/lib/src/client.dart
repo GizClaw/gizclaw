@@ -315,16 +315,10 @@ class GizClawClient {
     );
   }
 
-  Future<payload.ServerPetAdoptResponse> adoptPet({
-    String? displayName,
-    String? rulesetName,
-  }) {
+  Future<payload.ServerPetAdoptResponse> adoptPet({String? displayName}) {
     final value = payload.PetAdoptRequest();
     if (displayName != null && displayName.isNotEmpty) {
       value.displayName = displayName;
-    }
-    if (rulesetName != null && rulesetName.isNotEmpty) {
-      value.rulesetName = rulesetName;
     }
     return rpc.call<payload.ServerPetAdoptResponse>(
       'server.pet.adopt',
