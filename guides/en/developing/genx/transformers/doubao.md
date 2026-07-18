@@ -77,7 +77,7 @@ stateDiagram-v2
 
 Push-to-Talk retains the latest ASR hypothesis and all assistant output until both input audio EOS and provider `ASREnded` have occurred. It then publishes one final transcript plus transcript EOS before releasing assistant chunks in provider order. Retained assistant Opus is limited to two minutes of normalized packet duration; exceeding the limit discards the uncommitted turn, emits one assistant error EOS, and keeps the transformer available for later turns.
 
-All `OpenSession`, `SendAudio`, `SendText`, `EndASR`, interrupt/cancel and function-call output operations must use the context received by `Transform`. Cancel Transform must be able to terminate provider I/O, event receiver, input reader and output pacing, and cannot start `context.Background()` requests that are out of the calling life cycle.
+All `OpenSession`, `SendAudio`, `SendText`, `EndASR`, interrupt/cancel and function-call output operations must use the context received by `Transform`. Cancel Transform must be able to terminate provider I/O, event receiver and input reader, and cannot start `context.Background()` requests that are out of the calling life cycle.
 
 ## Public Realtime Pipeline
 
@@ -86,7 +86,7 @@ Realtime and Realtime Duplex can use different provider event adapters, but shou
 - audio MIME normalization, PCM/MP3/Opus decode, Opus encode/transcode and frame preparation;
 - per-stream audio input lifecycle;
 - StreamID, segment and response ID management;
-- assistant interruption epoch, BOS/EOS and output pacing;
+- assistant interruption epoch, BOS/EOS and growable output buffering;
 - pending input, session restart, context cancellation and error shutdown.
 
 Provider-specific event enum, session method and config conversion remain in their respective Adapters. Public media and stream lifecycle cannot be copied into two sets of realtime/duplex implementations.
@@ -113,7 +113,7 @@ Doubao Transformers handle provider session, concurrent event receiver, audio co
 | Realtime Dialogue | Push-to-Talk legal state transitions, single EndASR per turn, Realtime VAD, text mode and Interrupt. |
 | Realtime Duplex | continuous input, transcription, text/audio response, function call output and CancelResponse. |
 | Barge-in | pending response, text is being output, audio is being output; only one interrupted EOS is generated, and old epochs must not continue to be output. |
-| Output pacing | 20ms Opus pacing, cancel during wait, slow consumer and output backpressure. |
+| Output buffering | Provider audio drains immediately into a growable buffer; a slow consumer must not backpressure the provider session. |
 
 Realtime and Duplex's public media and Stream lifecycle must use the same set of table-driven contract tests. Provider-specific fake session only supplements the differences of respective events/session and cannot replicate the entire set of common tests.
 

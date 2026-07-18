@@ -51,6 +51,7 @@ type PeerConn struct {
 	serverGenX        *peergenx.Service
 	mixer             *pcm.Mixer
 	rpc               *rpcServer
+	audioPacing       <-chan time.Time
 	closed            atomic.Bool
 }
 
@@ -222,7 +223,6 @@ func (h *PeerConn) initAgentHost() {
 		Consumer: peerAgentOutput{
 			Events: h.events,
 			Tracks: h,
-			Conn:   h.Conn,
 		},
 		OnConsumerError: h.broadcastAgentOutputError,
 	}
@@ -552,9 +552,14 @@ func (h *PeerConn) streamMixedAudio(hasWrittenBefore bool) (wrote bool, err erro
 	defer func() {
 		_ = enc.Close()
 	}()
+	waitForPacing, stopPacing := h.audioPacingWaiter()
+	defer stopPacing()
 
 	frameSize := int(peerConnMixerFormat.SamplesInDuration(peerConnOpusFrameDuration))
 	for {
+		if !waitForPacing() {
+			return wrote, nil
+		}
 		chunk, err := peerConnMixerFormat.ReadChunk(mx, peerConnOpusFrameDuration)
 		if err != nil {
 			if h.isClosed() && errors.Is(err, io.ErrClosedPipe) {
@@ -575,6 +580,24 @@ func (h *PeerConn) streamMixedAudio(hasWrittenBefore bool) (wrote bool, err erro
 			return wrote, err
 		}
 	}
+}
+
+func (h *PeerConn) audioPacingWaiter() (func() bool, func()) {
+	if h != nil && h.audioPacing != nil {
+		return func() bool {
+			_, ok := <-h.audioPacing
+			return ok
+		}, func() {}
+	}
+	timer := time.NewTimer(peerConnOpusFrameDuration)
+	if !timer.Stop() {
+		<-timer.C
+	}
+	return func() bool {
+		timer.Reset(peerConnOpusFrameDuration)
+		<-timer.C
+		return true
+	}, func() { timer.Stop() }
 }
 
 func (h *PeerConn) isClosed() bool {

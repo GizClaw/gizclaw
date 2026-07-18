@@ -1160,6 +1160,18 @@ func TestDoubaoRealtimeDoesNotReplayAmbiguousTextAfterReconnect(t *testing.T) {
 	}
 }
 
+func TestDoubaoRealtimeInterruptDiscardKeepsUserTranscript(t *testing.T) {
+	streamID := "turn"
+	transcript := &genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "transcript"}}
+	assistant := &genx.MessageChunk{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel}}
+	if isDoubaoRealtimeAssistantChunk(transcript, streamID) {
+		t.Fatal("user transcript matched assistant discard")
+	}
+	if !isDoubaoRealtimeAssistantChunk(assistant, streamID) {
+		t.Fatal("assistant audio did not match assistant discard")
+	}
+}
+
 func TestDoubaoRealtimeSessionLoopStopsRetryOnContextCancellation(t *testing.T) {
 	opener := &fakeDoubaoRealtimeOpener{results: []fakeDoubaoRealtimeOpenResult{
 		{err: errors.New("connect-1")},
@@ -1312,6 +1324,8 @@ func TestDoubaoRealtimeInterruptsPendingResponseBeforeTTS(t *testing.T) {
 		events: []*doubaospeech.RealtimeEvent{
 			{Type: doubaospeech.EventASRResponse, Text: "第一段"},
 			{Type: doubaospeech.EventASREnded},
+			{Type: doubaospeech.EventTTSStarted},
+			{Type: doubaospeech.EventTTSAudioData, Audio: []byte{9, 8, 7}},
 		},
 		beforeRecv:       firstAudioSent,
 		firstAudioSent:   firstAudioSent,
@@ -1371,6 +1385,9 @@ func TestDoubaoRealtimeInterruptsPendingResponseBeforeTTS(t *testing.T) {
 	}
 	if !hasRealtimeInterruptedEOS(chunks, "turn-1:rt:1", genx.RoleModel, true) {
 		t.Fatalf("missing interrupted audio EOS for pending response: %#v", chunks)
+	}
+	if hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/pcm") {
+		t.Fatalf("interrupted audio backlog leaked before Error EOS: %#v", chunks)
 	}
 }
 

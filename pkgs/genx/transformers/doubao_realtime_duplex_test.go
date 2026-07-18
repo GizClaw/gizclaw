@@ -111,6 +111,34 @@ func TestDoubaoRealtimeDuplexAudioInputsArePerStream(t *testing.T) {
 	}
 }
 
+func TestDoubaoRealtimeDuplexInterruptDiscardMatchesOnlyAssistantRoute(t *testing.T) {
+	streamID := "turn"
+	transcript := &genx.MessageChunk{
+		Role: genx.RoleUser,
+		Part: genx.Text("hello"),
+		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeDuplexTranscriptLabel},
+	}
+	assistant := &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}},
+		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeDuplexAssistantLabel},
+	}
+	otherAssistant := &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{2}},
+		Ctrl: &genx.StreamCtrl{StreamID: "other", Label: doubaoRealtimeDuplexAssistantLabel},
+	}
+	if isDoubaoRealtimeDuplexAssistantChunk(transcript, streamID) {
+		t.Fatal("user transcript matched assistant discard")
+	}
+	if !isDoubaoRealtimeDuplexAssistantChunk(assistant, streamID) {
+		t.Fatal("assistant audio did not match assistant discard")
+	}
+	if isDoubaoRealtimeDuplexAssistantChunk(otherAssistant, streamID) {
+		t.Fatal("other assistant route matched assistant discard")
+	}
+}
+
 func TestChunkInputStreamIDUsesActiveStreamForDirectAudio(t *testing.T) {
 	chunk := &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "audio"}}
 	if got := doubaoRealtimeDuplexChunkInputStreamID(chunk, "turn-1"); got != "turn-1" {
@@ -850,12 +878,15 @@ func TestDoubaoRealtimeDuplexTextDoneAfterAudioDoneAllowsNextTurn(t *testing.T) 
 	output := newBufferStream(16)
 	defer output.Close()
 	drainDone := make(chan struct{})
+	drained := make(chan *genx.MessageChunk, 16)
 	go func() {
 		defer close(drainDone)
 		for {
-			if _, err := output.Next(); err != nil {
+			chunk, err := output.Next()
+			if err != nil {
 				return
 			}
+			drained <- chunk
 		}
 	}()
 	errCh := make(chan error, 1)
@@ -869,8 +900,26 @@ func TestDoubaoRealtimeDuplexTextDoneAfterAudioDoneAllowsNextTurn(t *testing.T) 
 	case <-ctx.Done():
 		t.Fatalf("events did not drain: %v", ctx.Err())
 	}
+	textDone := false
+	audioDone := false
+	for !textDone || !audioDone {
+		select {
+		case chunk := <-drained:
+			if chunk == nil || !chunk.IsEndOfStream() || chunk.Ctrl == nil || chunk.Ctrl.StreamID != "turn-1" {
+				continue
+			}
+			switch chunk.Part.(type) {
+			case genx.Text:
+				textDone = true
+			case *genx.Blob:
+				audioDone = true
+			}
+		case <-ctx.Done():
+			t.Fatalf("final output was not consumed: %v", ctx.Err())
+		}
+	}
 	close(allowNextInput)
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 	if session.cancelCount() != 0 {
 		t.Fatalf("CancelResponse calls = %d, want 0", session.cancelCount())
 	}

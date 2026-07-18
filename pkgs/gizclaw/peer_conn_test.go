@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
@@ -198,6 +199,112 @@ func TestPeerConnHelpersAndRPCHandle(t *testing.T) {
 			t.Fatalf("GET /models status = %d, want 404", resp.Code)
 		}
 	})
+}
+
+func TestPeerConnPacesMixedAudioAtEgress(t *testing.T) {
+	mx := pcm.NewMixer(peerConnMixerFormat)
+	track, ctrl, err := mx.CreateTrack()
+	if err != nil {
+		t.Fatalf("CreateTrack() error = %v", err)
+	}
+	frame := make([]byte, peerConnMixerFormat.BytesInDuration(peerConnOpusFrameDuration))
+	for i := range frame {
+		frame[i] = byte(i)
+	}
+	if err := track.Write(peerConnMixerFormat.DataChunk(append(append([]byte(nil), frame...), frame...))); err != nil {
+		t.Fatalf("track.Write() error = %v", err)
+	}
+	if err := track.Write(peerConnMixerFormat.DataChunk(frame)); err != nil {
+		t.Fatalf("track.Write() error = %v", err)
+	}
+	if err := ctrl.CloseWrite(); err != nil {
+		t.Fatalf("CloseWrite() error = %v", err)
+	}
+
+	conn := &recordingGiznetConn{written: make(chan struct{}, 3)}
+	ticks := make(chan time.Time)
+	peer := &PeerConn{Conn: conn, mixer: mx, audioPacing: ticks}
+	result := make(chan error, 1)
+	go func() {
+		_, err := peer.streamMixedAudio(false)
+		result <- err
+	}()
+
+	for want := 1; want <= 3; want++ {
+		ticks <- time.Now()
+		select {
+		case <-conn.written:
+		case <-time.After(time.Second):
+			t.Fatalf("timed out waiting for packet %d", want)
+		}
+		if got := conn.packetCount(); got != want {
+			t.Fatalf("packet count after tick %d = %d, want %d", want, got, want)
+		}
+		select {
+		case <-conn.written:
+			t.Fatalf("wrote packet without the next pacing tick")
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+	for index, packet := range conn.recordedPackets() {
+		if ticks := codecconv.OpusPacketRTPTicks(packet); ticks != 960 {
+			t.Fatalf("packet %d RTP ticks = %d, want 960", index, ticks)
+		}
+	}
+	select {
+	case <-ctrl.Done():
+		t.Fatal("track was marked drained before the next pacing tick")
+	default:
+	}
+
+	peer.closed.Store(true)
+	close(ticks)
+	if err := mx.Close(); err != nil {
+		t.Fatalf("mixer.Close() error = %v", err)
+	}
+	select {
+	case err := <-result:
+		if err != nil {
+			t.Fatalf("streamMixedAudio() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("streamMixedAudio() did not stop")
+	}
+}
+
+type recordingGiznetConn struct {
+	testGiznetConn
+
+	mu      sync.Mutex
+	packets [][]byte
+	written chan struct{}
+}
+
+func (c *recordingGiznetConn) Write(protocol byte, packet []byte) (int, error) {
+	if protocol != giznet.ProtocolOpusPacket {
+		return 0, errors.New("unexpected protocol")
+	}
+	c.mu.Lock()
+	c.packets = append(c.packets, append([]byte(nil), packet...))
+	c.mu.Unlock()
+	c.written <- struct{}{}
+	return len(packet), nil
+}
+
+func (c *recordingGiznetConn) packetCount() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return len(c.packets)
+}
+
+func (c *recordingGiznetConn) recordedPackets() [][]byte {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	packets := make([][]byte, len(c.packets))
+	for i, packet := range c.packets {
+		packets[i] = append([]byte(nil), packet...)
+	}
+	return packets
 }
 
 type peerConnModelListerFunc func(context.Context, adminhttp.ListModelsRequestObject) (adminhttp.ListModelsResponseObject, error)

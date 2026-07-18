@@ -30,7 +30,9 @@ flowchart TD
 | `Coordinator` / `MemoryCoordinator` | Provide an exclusive lease for the workspace. |
 | `Host` / `Registry` | Select and create an Agent based on the parsed `Spec`. |
 | `InputStream` / `PushSource` | Convert continuous input into a GenX Stream consumed by the Agent. |
-| `MixerOutput` | Connect the Agent audio output to the mixer track. |
+| `MixerOutput` | Decode Agent audio into PCM on one mixer track per `(StreamID, canonical MIME)`; MIME EOS closes only that track, while control-only EOS closes every track on the route. |
 | `ToolkitContext` | ToolKit after authorization for a runtime combination. |
 
 All runtime creation paths must have symmetric cancel, stream close, lease release, and registry cleanup. The persistence of Agent definition, Workflow, and Workspace still belongs to AI services.
+
+Transformers and history replay drain provider output into growable stream buffers without waiting on a playback clock. Raw Opus, Ogg/Opus, MP3, and PCM audio are decoded or normalized before entering the mixed PCM stream; `PeerConn` reads one frame at each 20 ms pacing opportunity, encodes Opus, and writes it to WebRTC. Normal EOS uses `CloseWrite` so buffered PCM drains, while error EOS uses `CloseWithError` to discard the matching track and its unconsumed stream backlog.

@@ -116,6 +116,34 @@ func (s *realtimeAssistantLifecycle) markRouteDone(epoch uint64, text bool) {
 	s.active = !(s.textDone && s.audioDone)
 }
 
+func (s *realtimeAssistantLifecycle) markRouteDoneStream(streamID string, text bool) {
+	streamID = strings.TrimSpace(streamID)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.active || streamID == "" || s.streamID != streamID {
+		return
+	}
+	if text {
+		s.textDone = true
+	} else {
+		s.audioDone = true
+	}
+	s.active = !(s.textDone && s.audioDone)
+}
+
+func observeRealtimeAssistantOutput(assistant *realtimeAssistantLifecycle, label string, chunk *genx.MessageChunk) {
+	if assistant == nil || chunk == nil || chunk.Ctrl == nil || chunk.Role != genx.RoleModel ||
+		chunk.Ctrl.Label != label || !chunk.IsEndOfStream() {
+		return
+	}
+	switch chunk.Part.(type) {
+	case genx.Text:
+		assistant.markRouteDoneStream(chunk.Ctrl.StreamID, true)
+	case *genx.Blob:
+		assistant.markRouteDoneStream(chunk.Ctrl.StreamID, false)
+	}
+}
+
 func (s *realtimeAssistantLifecycle) interruptRoutes(fallback string, force bool) realtimeAssistantInterruption {
 	s.mu.Lock()
 	defer s.mu.Unlock()

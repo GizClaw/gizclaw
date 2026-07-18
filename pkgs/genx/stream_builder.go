@@ -26,13 +26,30 @@ type StreamEvent struct {
 }
 
 type StreamBuilder struct {
-	rb        *buffer.BlockBuffer[*StreamEvent]
+	rb        streamEventBuffer
 	funcTools map[string]*FuncTool
 }
 
+type streamEventBuffer interface {
+	Add(*StreamEvent) error
+	Next() (*StreamEvent, error)
+	Close() error
+	CloseWrite() error
+	CloseWithError(error) error
+}
+
 func NewStreamBuilder(mctx ModelContext, size int) *StreamBuilder {
+	return newStreamBuilder(mctx, buffer.BlockN[*StreamEvent](size))
+}
+
+// NewGrowableStreamBuilder creates a stream builder whose initial capacity can grow without blocking producers.
+func NewGrowableStreamBuilder(mctx ModelContext, initialCapacity int) *StreamBuilder {
+	return newStreamBuilder(mctx, buffer.N[*StreamEvent](initialCapacity))
+}
+
+func newStreamBuilder(mctx ModelContext, events streamEventBuffer) *StreamBuilder {
 	sb := &StreamBuilder{
-		rb:        buffer.BlockN[*StreamEvent](size),
+		rb:        events,
 		funcTools: make(map[string]*FuncTool),
 	}
 	for tool := range mctx.Tools() {
@@ -87,6 +104,22 @@ func (sb *StreamBuilder) Add(evt ...*MessageChunk) error {
 		}
 	}
 	return nil
+}
+
+// Discard removes queued chunks that match predicate from a growable stream builder.
+func (sb *StreamBuilder) Discard(predicate func(*MessageChunk) bool) int {
+	if sb == nil || predicate == nil {
+		return 0
+	}
+	discarder, ok := sb.rb.(interface {
+		RemoveIf(func(*StreamEvent) bool) int
+	})
+	if !ok {
+		return 0
+	}
+	return discarder.RemoveIf(func(event *StreamEvent) bool {
+		return event != nil && event.Chunk != nil && predicate(event.Chunk)
+	})
 }
 
 func (sb *StreamBuilder) Abort(err error) error {

@@ -41,6 +41,33 @@ func TestFormatProperties(t *testing.T) {
 	}
 }
 
+func TestL16Format(t *testing.T) {
+	tests := []struct {
+		rate     int
+		channels int
+		want     Format
+	}{
+		{16000, 1, L16Mono16K},
+		{24000, 1, L16Mono24K},
+		{48000, 1, L16Mono48K},
+		{16000, 2, L16Stereo16K},
+		{24000, 2, L16Stereo24K},
+		{48000, 2, L16Stereo48K},
+	}
+	for _, tt := range tests {
+		got, err := L16Format(tt.rate, tt.channels)
+		if err != nil || got != tt.want {
+			t.Fatalf("L16Format(%d, %d) = (%v, %v), want (%v, nil)", tt.rate, tt.channels, got, err, tt.want)
+		}
+		if got.SampleRate() != tt.rate || got.Channels() != tt.channels || got.Depth() != 16 {
+			t.Fatalf("format %v shape = %d/%d/%d", got, got.SampleRate(), got.Channels(), got.Depth())
+		}
+	}
+	if _, err := L16Format(44100, 1); err == nil {
+		t.Fatal("L16Format(44100, 1) expected error")
+	}
+}
+
 func TestFormatDurationConversions(t *testing.T) {
 	f := L16Mono16K
 

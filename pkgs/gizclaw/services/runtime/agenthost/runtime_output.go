@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -14,58 +13,164 @@ type AudioTrackCreator interface {
 	CreateAudioTrack(...pcm.TrackOption) (pcm.Track, *pcm.TrackCtrl, error)
 }
 
-type MixerOutput struct {
-	Tracks AudioTrackCreator
+// OutputObservationStream lets an output producer track when chunks have
+// reached their final consumer. MixerOutput defers audio observation until the
+// corresponding mixer track has drained.
+type OutputObservationStream interface {
+	genx.Stream
+	DeferOutputObservation()
+	ObserveOutput(*genx.MessageChunk)
 }
 
-func (o MixerOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream) error {
+func deferOutputObservation(stream genx.Stream) OutputObservationStream {
+	observer, _ := stream.(OutputObservationStream)
+	if observer != nil {
+		observer.DeferOutputObservation()
+	}
+	return observer
+}
+
+type MixerOutput struct {
+	Tracks            AudioTrackCreator
+	Observe           func(*genx.MessageChunk) error
+	WaitForAudioDrain bool
+}
+
+func (o MixerOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream) (retErr error) {
 	if output == nil {
 		return fmt.Errorf("agenthost: output stream is required")
 	}
-	var track pcm.Track
-	var ctrl *pcm.TrackCtrl
-	defer func() {
-		if ctrl != nil {
-			_ = ctrl.Close()
+	outputObserver := deferOutputObservation(output)
+	tracks := newAudioOutputTracks(o.Tracks)
+	type outputResult struct {
+		chunk *genx.MessageChunk
+		err   error
+	}
+	results := make(chan outputResult)
+	readCtx, cancelRead := context.WithCancel(ctx)
+	defer cancelRead()
+	go func() {
+		for {
+			chunk, err := output.Next()
+			select {
+			case results <- outputResult{chunk: chunk, err: err}:
+			case <-readCtx.Done():
+				return
+			}
+			if err != nil {
+				return
+			}
 		}
 	}()
-	for {
-		if err := ctx.Err(); err != nil {
-			return err
+	var pendingObserve []*genx.MessageChunk
+	observe := func(chunks []*genx.MessageChunk) error {
+		for _, chunk := range chunks {
+			if o.Observe != nil {
+				if err := o.Observe(chunk); err != nil {
+					return err
+				}
+			}
+			if outputObserver != nil {
+				outputObserver.ObserveOutput(chunk)
+			}
 		}
-		chunk, err := output.Next()
+		return nil
+	}
+	defer func() {
+		if retErr != nil {
+			retErr = errors.Join(retErr, output.CloseWithError(retErr), tracks.closeWithError(retErr))
+			return
+		}
+		retErr = tracks.closeWrite()
+	}()
+	for {
+		var pendingDone <-chan struct{}
+		if o.WaitForAudioDrain && len(pendingObserve) > 0 {
+			pendingDone = tracks.nextPendingDone()
+		}
+		var result outputResult
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-pendingDone:
+			tracks.removeDrainedPending()
+			if !tracks.hasPending() {
+				if err := observe(pendingObserve); err != nil {
+					return err
+				}
+				pendingObserve = nil
+			}
+			continue
+		case result = <-results:
+		}
+		chunk, err := result.chunk, result.err
 		if err != nil {
 			if IsStreamDone(err) {
+				if err := tracks.closeWrite(); err != nil {
+					return err
+				}
+				if o.WaitForAudioDrain {
+					if err := tracks.waitPending(ctx); err != nil {
+						return err
+					}
+				}
+				if err := observe(pendingObserve); err != nil {
+					return err
+				}
 				return nil
 			}
 			return err
 		}
-		if chunk == nil || chunk.IsEndOfStream() {
+		if chunk == nil {
 			continue
 		}
-		blob, ok := chunk.Part.(*genx.Blob)
-		if !ok || !isPCMBlob(blob) || len(blob.Data) == 0 {
-			continue
+		if err := tracks.consume(chunk); err != nil {
+			return err
 		}
-		if track == nil {
-			if o.Tracks == nil {
-				return fmt.Errorf("agenthost: audio track creator is required")
+		pendingObserve = removeSupersededAudioEOS(pendingObserve, chunk)
+		tracks.removeDrainedPending()
+		if o.WaitForAudioDrain && (len(pendingObserve) > 0 || tracks.hasPending()) {
+			pendingObserve = append(pendingObserve, chunk)
+			if !tracks.hasPending() {
+				if err := observe(pendingObserve); err != nil {
+					return err
+				}
+				pendingObserve = nil
 			}
-			track, ctrl, err = o.Tracks.CreateAudioTrack(pcm.WithTrackLabel("agent"))
-			if err != nil {
+		} else {
+			if err := observe([]*genx.MessageChunk{chunk}); err != nil {
 				return err
 			}
-		}
-		if err := track.Write(pcm.L16Mono16K.DataChunk(blob.Data)); err != nil {
-			if errors.Is(err, context.Canceled) {
-				return err
-			}
-			return fmt.Errorf("agenthost: write audio chunk: %w", err)
 		}
 	}
 }
 
-func isPCMBlob(blob *genx.Blob) bool {
-	mimeType := strings.ToLower(strings.TrimSpace(blob.MIMEType))
-	return strings.HasPrefix(mimeType, "audio/l16") || mimeType == "audio/pcm" || mimeType == "audio/x-pcm"
+func removeSupersededAudioEOS(pending []*genx.MessageChunk, interrupt *genx.MessageChunk) []*genx.MessageChunk {
+	if interrupt == nil || interrupt.Ctrl == nil || !interrupt.IsEndOfStream() || interrupt.Ctrl.Error == "" {
+		return pending
+	}
+	interruptMIME, hasInterruptMIME := interrupt.MIMEType()
+	routeInterrupt := interrupt.Part == nil
+	if !routeInterrupt && (!hasInterruptMIME || !isMixerAudioMIME(interruptMIME)) {
+		return pending
+	}
+	kept := pending[:0]
+	for _, chunk := range pending {
+		if chunk == nil {
+			kept = append(kept, chunk)
+			continue
+		}
+		queuedMIME, queuedMIMEOK := chunk.MIMEType()
+		if chunk.Ctrl != nil && chunk.IsEndOfStream() && chunk.Ctrl.Error == "" &&
+			chunk.Ctrl.StreamID == interrupt.Ctrl.StreamID {
+			if routeInterrupt && chunk.Part == nil {
+				continue
+			}
+			if queuedMIMEOK && isMixerAudioMIME(queuedMIME) && (routeInterrupt || queuedMIME == interruptMIME) {
+				continue
+			}
+		}
+		kept = append(kept, chunk)
+	}
+	return kept
 }

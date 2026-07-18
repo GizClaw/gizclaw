@@ -72,7 +72,6 @@ const (
 	doubaoRealtimeFixedOutputSampleRate = 24000
 	doubaoRealtimeFixedOutputChannels   = 1
 
-	doubaoRealtimeOpusFrameDuration = 20 * time.Millisecond
 	doubaoRealtimePTTOutputLimit    = 2 * time.Minute
 	doubaoRealtimePTTOutputMaxBytes = 32 << 20
 	doubaoRealtimeRetryInitial      = 100 * time.Millisecond
@@ -778,6 +777,10 @@ func (t *DoubaoRealtime) sessionLoop(ctx context.Context, input genx.Stream, out
 	defer reader.Close()
 	runtime := newDoubaoRealtimeRuntime(t)
 	defer runtime.close()
+	output.setOutputObserver(func(chunk *genx.MessageChunk) {
+		observeRealtimeAssistantOutput(runtime.assistant, doubaoRealtimeAssistantLabel, chunk)
+	})
+	defer output.setOutputObserver(nil)
 	defer output.Close()
 
 	stopForTerminalInput := func() bool {
@@ -908,17 +911,14 @@ func (t *DoubaoRealtime) processSession(
 	markAssistantStarted := func(streamID string) uint64 {
 		return assistant.markStarted(streamID)
 	}
-	markAssistantTextDone := func(epoch uint64) {
-		assistant.markTextDone(epoch)
-	}
-	markAssistantAudioDone := func(epoch uint64) {
-		assistant.markAudioDone(epoch)
-	}
 	interruptAssistantState := func(streamID string, force bool) bool {
 		interruption := assistant.interruptRoutes(streamID, force)
 		if !interruption.interrupted {
 			return false
 		}
+		output.discard(func(chunk *genx.MessageChunk) bool {
+			return isDoubaoRealtimeAssistantChunk(chunk, interruption.streamID)
+		})
 		if interruption.textOpen {
 			textEOS := &genx.MessageChunk{
 				Role: genx.RoleModel,
@@ -971,17 +971,6 @@ func (t *DoubaoRealtime) processSession(
 		}
 		return nil
 	}
-	waitOutputFrame := func(epoch uint64) bool {
-		timer := time.NewTimer(doubaoRealtimeOpusFrameDuration)
-		defer timer.Stop()
-		select {
-		case <-ctx.Done():
-			return false
-		case <-timer.C:
-		}
-		return assistant.canPush(epoch)
-	}
-
 	eventsDone := make(chan struct{})
 	eventsResult := make(chan error, 1)
 	go func() {
@@ -1237,9 +1226,6 @@ func (t *DoubaoRealtime) processSession(
 							if err := pushAssistantOutput(epoch, response, outChunk); err != nil {
 								return err
 							}
-							if !waitOutputFrame(epoch) {
-								break
-							}
 						}
 					}
 
@@ -1268,7 +1254,6 @@ func (t *DoubaoRealtime) processSession(
 					if err := pushAssistantOutput(epoch, response, eosChunk); err != nil {
 						return err
 					}
-					markAssistantAudioDone(epoch)
 					if t.mode == DoubaoRealtimeModePushToTalk {
 						pushToTalk.ttsFinished(streamID)
 						response.ttsFinished = true
@@ -1307,7 +1292,6 @@ func (t *DoubaoRealtime) processSession(
 					if err := pushAssistantOutput(epoch, response, doneChunk); err != nil {
 						return err
 					}
-					markAssistantTextDone(epoch)
 					if response != nil {
 						response.chatEnded = true
 						pttResponses.finish(response)
@@ -1553,6 +1537,11 @@ func (t *DoubaoRealtime) processSession(
 			}
 		}
 	}
+}
+
+func isDoubaoRealtimeAssistantChunk(chunk *genx.MessageChunk, streamID string) bool {
+	return chunk != nil && chunk.Role == genx.RoleModel && chunk.Ctrl != nil &&
+		chunk.Ctrl.StreamID == streamID && chunk.Ctrl.Label == doubaoRealtimeAssistantLabel
 }
 
 func (t *DoubaoRealtime) pushInputEOSError(output *bufferStream, streamID string, err error) {

@@ -981,12 +981,17 @@ type fakeTracks struct {
 	created  int
 	track    *fakeTrack
 	writeErr error
+	mixer    *pcm.Mixer
 }
 
 func (t *fakeTracks) CreateAudioTrack(...pcm.TrackOption) (pcm.Track, *pcm.TrackCtrl, error) {
 	t.created++
 	t.track = &fakeTrack{err: t.writeErr}
-	return t.track, nil, nil
+	if t.mixer == nil {
+		t.mixer = pcm.NewMixer(pcm.L16Mono16K)
+	}
+	_, ctrl, err := t.mixer.CreateTrack()
+	return t.track, ctrl, err
 }
 
 type fakeTrack struct {

@@ -48,6 +48,52 @@ func TestStreamBuilderTerminalStates(t *testing.T) {
 	}
 }
 
+func TestGrowableStreamBuilderDoesNotBlockProducerAtInitialCapacity(t *testing.T) {
+	sb := NewGrowableStreamBuilder((&ModelContextBuilder{}).Build(), 1)
+	const count = 100
+	for i := range count {
+		if err := sb.Add(&MessageChunk{Part: Text("chunk")}); err != nil {
+			t.Fatalf("Add(%d) error = %v", i, err)
+		}
+	}
+	if err := sb.Done(Usage{}); err != nil {
+		t.Fatalf("Done() error = %v", err)
+	}
+	stream := sb.Stream()
+	for i := range count {
+		if _, err := stream.Next(); err != nil {
+			t.Fatalf("Next(%d) error = %v", i, err)
+		}
+	}
+	if err := readStreamTerminalError(t, stream); err == nil {
+		t.Fatal("terminal error = nil")
+	}
+}
+
+func TestGrowableStreamBuilderDiscardRemovesMatchingQueuedChunks(t *testing.T) {
+	sb := NewGrowableStreamBuilder((&ModelContextBuilder{}).Build(), 1)
+	for _, streamID := range []string{"old", "keep", "old"} {
+		if err := sb.Add(&MessageChunk{Part: Text(streamID), Ctrl: &StreamCtrl{StreamID: streamID}}); err != nil {
+			t.Fatalf("Add(%q) error = %v", streamID, err)
+		}
+	}
+	if removed := sb.Discard(func(chunk *MessageChunk) bool {
+		return chunk.Ctrl != nil && chunk.Ctrl.StreamID == "old"
+	}); removed != 2 {
+		t.Fatalf("Discard() = %d, want 2", removed)
+	}
+	if err := sb.Done(Usage{}); err != nil {
+		t.Fatalf("Done() error = %v", err)
+	}
+	chunk, err := sb.Stream().Next()
+	if err != nil {
+		t.Fatalf("Next() error = %v", err)
+	}
+	if got := string(chunk.Part.(Text)); got != "keep" {
+		t.Fatalf("Next() text = %q, want keep", got)
+	}
+}
+
 func TestStreamBuilderAddBindsToolAndInvoke(t *testing.T) {
 	tool := MustNewFuncTool[struct {
 		V int `json:"v"`

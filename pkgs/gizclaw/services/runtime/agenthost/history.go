@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
@@ -28,7 +29,6 @@ const (
 
 	historyOggOpusSampleRate = 48000
 	historyOggOpusChannels   = 1
-	historyReplayFrameDelay  = 20 * time.Millisecond
 	historyReplayInterrupted = "interrupted"
 	historyUpdatedLabel      = "workspace.history.updated"
 	historyUpdatedDelay      = 25 * time.Millisecond
@@ -66,18 +66,18 @@ type historyAgent struct {
 }
 
 type historyOutput struct {
-	output *genx.StreamBuilder
+	output           *genx.StreamBuilder
+	upstreamObserver OutputObservationStream
 
 	replayMu       sync.Mutex
 	replayCancel   context.CancelFunc
 	replaySeq      uint64
 	replayStreamID string
-	replayRole     genx.Role
-	replayName     string
-	replayLabel    string
+	replayPending  map[historyForwardChunkKey]historyForwardRoute
 
 	forwardMu          sync.Mutex
 	activeForward      map[historyForwardChunkKey]historyForwardRoute
+	terminalForward    map[historyForwardChunkKey]struct{}
 	interruptedForward map[historyForwardChunkKey]struct{}
 
 	notifyMu          sync.Mutex
@@ -107,7 +107,7 @@ func (a *historyAgent) Transform(ctx context.Context, pattern string, input genx
 		return nil, fmt.Errorf("agenthost: history agent is nil")
 	}
 	outputKey := historyOutputKey(ctx)
-	output := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 256)
+	output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 256)
 	outputState := &historyOutput{output: output}
 	a.outputMu.Lock()
 	if a.outputs == nil {
@@ -127,8 +127,40 @@ func (a *historyAgent) Transform(ctx context.Context, pattern string, input genx
 		_ = output.Abort(err)
 		return nil, err
 	}
+	outputState.upstreamObserver = deferOutputObservation(agentOutput)
 	go a.forwardOutput(ctx, outputKey, outputState, agentOutput, output, recorder)
-	return output.Stream(), nil
+	return &historyOutputStream{Stream: output.Stream(), output: outputState}, nil
+}
+
+type historyOutputStream struct {
+	genx.Stream
+	output              *historyOutput
+	observationDeferred atomic.Bool
+}
+
+var _ OutputObservationStream = (*historyOutputStream)(nil)
+
+func (s *historyOutputStream) Next() (*genx.MessageChunk, error) {
+	chunk, err := s.Stream.Next()
+	if chunk != nil && !s.observationDeferred.Load() {
+		s.ObserveOutput(chunk)
+	}
+	return chunk, err
+}
+
+func (s *historyOutputStream) DeferOutputObservation() {
+	s.observationDeferred.Store(true)
+}
+
+func (s *historyOutputStream) ObserveOutput(chunk *genx.MessageChunk) {
+	if s == nil || s.output == nil {
+		return
+	}
+	s.output.observeReplayOutput(chunk)
+	s.output.observeForwardOutput(chunk)
+	if s.output.upstreamObserver != nil {
+		s.output.upstreamObserver.ObserveOutput(chunk)
+	}
 }
 
 func (a *historyAgent) Status(ctx context.Context) (apitypes.PeerRunWorkspaceState, error) {
@@ -180,8 +212,7 @@ func (a *historyAgent) PlayHistory(ctx context.Context, req apitypes.PeerRunHist
 		message := "history entry has no replayable content"
 		return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryId: req.HistoryId, State: "empty", Message: &message}, nil
 	}
-	role, name, label := historyReplayRoute(entry)
-	if err := outputState.startReplay(streamID, role, name, label, chunks); err != nil {
+	if err := outputState.startReplay(streamID, chunks); err != nil {
 		message := err.Error()
 		return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryId: req.HistoryId, State: "unavailable", Message: &message}, nil
 	}
@@ -296,6 +327,7 @@ func (o *historyOutput) clearForwardOutput() {
 	o.forwardMu.Lock()
 	defer o.forwardMu.Unlock()
 	o.activeForward = nil
+	o.terminalForward = nil
 	o.interruptedForward = nil
 }
 
@@ -369,7 +401,10 @@ func (o *historyOutput) observeForwardChunk(chunk *genx.MessageChunk) bool {
 		}
 		for key := range o.activeForward {
 			if key.streamID == route.streamID {
-				delete(o.activeForward, key)
+				if o.terminalForward == nil {
+					o.terminalForward = make(map[historyForwardChunkKey]struct{})
+				}
+				o.terminalForward[key] = struct{}{}
 			}
 		}
 		return false
@@ -382,14 +417,48 @@ func (o *historyOutput) observeForwardChunk(chunk *genx.MessageChunk) bool {
 		return true
 	}
 	if chunk.IsEndOfStream() {
-		delete(o.activeForward, key)
+		if _, active := o.activeForward[key]; active {
+			if o.terminalForward == nil {
+				o.terminalForward = make(map[historyForwardChunkKey]struct{})
+			}
+			o.terminalForward[key] = struct{}{}
+		}
 		return false
 	}
 	if o.activeForward == nil {
 		o.activeForward = make(map[historyForwardChunkKey]historyForwardRoute)
 	}
 	o.activeForward[key] = route
+	delete(o.terminalForward, key)
 	return false
+}
+
+func (o *historyOutput) observeForwardOutput(chunk *genx.MessageChunk) {
+	if o == nil || chunk == nil || !chunk.IsEndOfStream() {
+		return
+	}
+	route, ok := historyForwardChunkRoute(chunk)
+	if !ok {
+		return
+	}
+	mimeType, hasMIME := historyForwardChunkMIME(chunk)
+	o.forwardMu.Lock()
+	defer o.forwardMu.Unlock()
+	if hasMIME {
+		key := historyForwardChunkKey{historyForwardRouteKey: route.key(), mimeType: mimeType}
+		delete(o.activeForward, key)
+		delete(o.terminalForward, key)
+		return
+	}
+	if chunk.Part != nil {
+		return
+	}
+	for key := range o.activeForward {
+		if key.streamID == route.streamID {
+			delete(o.activeForward, key)
+			delete(o.terminalForward, key)
+		}
+	}
 }
 
 func (o *historyOutput) interruptForwardOutput() []*genx.MessageChunk {
@@ -430,8 +499,11 @@ func (o *historyOutput) interruptForwardOutput() []*genx.MessageChunk {
 	for _, key := range keys {
 		route := o.activeForward[key]
 		interrupt = append(interrupt, historyForwardInterruptedChunk(route, key.mimeType))
-		o.interruptedForward[key] = struct{}{}
+		if _, terminal := o.terminalForward[key]; !terminal {
+			o.interruptedForward[key] = struct{}{}
+		}
 		delete(o.activeForward, key)
+		delete(o.terminalForward, key)
 	}
 	return interrupt
 }
@@ -468,12 +540,10 @@ func historyForwardChunkMIME(chunk *genx.MessageChunk) (string, bool) {
 	if !ok {
 		return "", false
 	}
-	switch baseHistoryMIME(mimeType) {
-	case "text/plain", "audio/opus":
+	if baseHistoryMIME(mimeType) == "text/plain" || isMixerAudioMIME(mimeType) {
 		return mimeType, true
-	default:
-		return "", false
 	}
+	return "", false
 }
 
 func (r historyForwardRoute) key() historyForwardRouteKey {
@@ -494,7 +564,7 @@ func historyForwardInterruptedChunk(route historyForwardRoute, mimeType string) 
 	}
 }
 
-func (o *historyOutput) startReplay(streamID string, role genx.Role, name string, label string, chunks []*genx.MessageChunk) error {
+func (o *historyOutput) startReplay(streamID string, chunks []*genx.MessageChunk) error {
 	if o == nil || o.output == nil {
 		return fmt.Errorf("workspace history replay requires an active output stream")
 	}
@@ -505,18 +575,33 @@ func (o *historyOutput) startReplay(streamID string, role genx.Role, name string
 		o.replayCancel()
 	}
 	if o.replayStreamID != "" {
-		interrupt = historyReplayInterruptedChunks(o.replayRole, o.replayName, o.replayStreamID, o.replayLabel)
+		interrupt = historyReplayPendingInterrupts(o.replayPending)
 	}
 	interrupt = append(interrupt, o.interruptForwardOutput()...)
 	o.replaySeq++
 	seq := o.replaySeq
 	o.replayCancel = cancel
 	o.replayStreamID = streamID
-	o.replayRole = role
-	o.replayName = name
-	o.replayLabel = label
+	o.replayPending = historyReplayPendingRoutes(chunks)
 	o.replayMu.Unlock()
 	if len(interrupt) > 0 {
+		interruptedRoutes := make(map[historyForwardChunkKey]historyForwardRoute, len(interrupt))
+		for _, chunk := range interrupt {
+			route, routeOK := historyForwardChunkRoute(chunk)
+			mimeType, mimeOK := historyForwardChunkMIME(chunk)
+			if routeOK && mimeOK {
+				interruptedRoutes[historyForwardChunkKey{historyForwardRouteKey: route.key(), mimeType: mimeType}] = route
+			}
+		}
+		o.output.Discard(func(chunk *genx.MessageChunk) bool {
+			route, routeOK := historyForwardChunkRoute(chunk)
+			mimeType, mimeOK := historyForwardChunkMIME(chunk)
+			if !routeOK || !mimeOK {
+				return false
+			}
+			interruptedRoute, interrupted := interruptedRoutes[historyForwardChunkKey{historyForwardRouteKey: route.key(), mimeType: mimeType}]
+			return interrupted && interruptedRoute == route
+		})
 		if err := o.output.Add(interrupt...); err != nil {
 			cancel()
 			o.finishReplay(seq)
@@ -528,7 +613,6 @@ func (o *historyOutput) startReplay(streamID string, role genx.Role, name string
 }
 
 func (o *historyOutput) runReplay(ctx context.Context, seq uint64, chunks []*genx.MessageChunk) {
-	defer o.finishReplay(seq)
 	for _, chunk := range chunks {
 		if chunk == nil {
 			continue
@@ -536,35 +620,21 @@ func (o *historyOutput) runReplay(ctx context.Context, seq uint64, chunks []*gen
 		if err := ctx.Err(); err != nil {
 			return
 		}
-		if !o.isCurrentReplay(seq) {
+		if !o.addReplayChunk(seq, chunk.Clone()) {
+			o.finishReplay(seq)
 			return
-		}
-		if err := o.output.Add(chunk.Clone()); err != nil {
-			return
-		}
-		if historyReplayNeedsPace(chunk) {
-			if err := o.waitReplayFrame(ctx, seq); err != nil {
-				return
-			}
 		}
 	}
+	o.finishReplayIfObserved(seq)
 }
 
-func (o *historyOutput) waitReplayFrame(ctx context.Context, seq uint64) error {
-	if !o.isCurrentReplay(seq) {
-		return context.Canceled
+func (o *historyOutput) addReplayChunk(seq uint64, chunk *genx.MessageChunk) bool {
+	o.replayMu.Lock()
+	defer o.replayMu.Unlock()
+	if o.replaySeq != seq || o.replayStreamID == "" {
+		return false
 	}
-	timer := time.NewTimer(historyReplayFrameDelay)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-timer.C:
-	}
-	if !o.isCurrentReplay(seq) {
-		return context.Canceled
-	}
-	return nil
+	return o.output.Add(chunk) == nil
 }
 
 func (o *historyOutput) finishReplay(seq uint64) {
@@ -574,12 +644,49 @@ func (o *historyOutput) finishReplay(seq uint64) {
 	o.replayMu.Lock()
 	defer o.replayMu.Unlock()
 	if o.replaySeq == seq {
-		o.replayCancel = nil
-		o.replayStreamID = ""
-		o.replayRole = ""
-		o.replayName = ""
-		o.replayLabel = ""
+		o.clearReplayLocked()
 	}
+}
+
+func (o *historyOutput) finishReplayIfObserved(seq uint64) {
+	if o == nil {
+		return
+	}
+	o.replayMu.Lock()
+	defer o.replayMu.Unlock()
+	if o.replaySeq == seq && len(o.replayPending) == 0 {
+		o.clearReplayLocked()
+	}
+}
+
+func (o *historyOutput) observeReplayOutput(chunk *genx.MessageChunk) {
+	if o == nil || chunk == nil || !chunk.IsEndOfStream() {
+		return
+	}
+	route, routeOK := historyForwardChunkRoute(chunk)
+	mimeType, mimeOK := historyForwardChunkMIME(chunk)
+	if !routeOK || !mimeOK {
+		return
+	}
+	key := historyForwardChunkKey{historyForwardRouteKey: route.key(), mimeType: mimeType}
+	o.replayMu.Lock()
+	defer o.replayMu.Unlock()
+	if route.streamID != o.replayStreamID {
+		return
+	}
+	if pendingRoute, ok := o.replayPending[key]; !ok || pendingRoute != route {
+		return
+	}
+	delete(o.replayPending, key)
+	if len(o.replayPending) == 0 {
+		o.clearReplayLocked()
+	}
+}
+
+func (o *historyOutput) clearReplayLocked() {
+	o.replayCancel = nil
+	o.replayStreamID = ""
+	o.replayPending = nil
 }
 
 func (o *historyOutput) cancelReplay() {
@@ -588,11 +695,7 @@ func (o *historyOutput) cancelReplay() {
 	}
 	o.replayMu.Lock()
 	cancel := o.replayCancel
-	o.replayCancel = nil
-	o.replayStreamID = ""
-	o.replayRole = ""
-	o.replayName = ""
-	o.replayLabel = ""
+	o.clearReplayLocked()
 	o.replaySeq++
 	o.replayMu.Unlock()
 	if cancel != nil {
@@ -655,42 +758,40 @@ func historyUpdatedChunk(lastUpdated time.Time) *genx.MessageChunk {
 	}
 }
 
-func (o *historyOutput) isCurrentReplay(seq uint64) bool {
-	if o == nil {
-		return false
+func historyReplayPendingRoutes(chunks []*genx.MessageChunk) map[historyForwardChunkKey]historyForwardRoute {
+	pending := make(map[historyForwardChunkKey]historyForwardRoute)
+	for _, chunk := range chunks {
+		if chunk == nil || !chunk.IsEndOfStream() {
+			continue
+		}
+		route, routeOK := historyForwardChunkRoute(chunk)
+		mimeType, mimeOK := historyForwardChunkMIME(chunk)
+		if routeOK && mimeOK {
+			pending[historyForwardChunkKey{historyForwardRouteKey: route.key(), mimeType: mimeType}] = route
+		}
 	}
-	o.replayMu.Lock()
-	defer o.replayMu.Unlock()
-	return o.replaySeq == seq && o.replayCancel != nil
+	return pending
 }
 
-func historyReplayInterruptedChunks(role genx.Role, name string, streamID string, label string) []*genx.MessageChunk {
-	if role == "" {
-		role = genx.RoleModel
+func historyReplayPendingInterrupts(pending map[historyForwardChunkKey]historyForwardRoute) []*genx.MessageChunk {
+	keys := make([]historyForwardChunkKey, 0, len(pending))
+	for key := range pending {
+		keys = append(keys, key)
 	}
-	if strings.TrimSpace(label) == "" {
-		label = "assistant"
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i].streamID != keys[j].streamID {
+			return keys[i].streamID < keys[j].streamID
+		}
+		if keys[i].label != keys[j].label {
+			return keys[i].label < keys[j].label
+		}
+		return keys[i].mimeType < keys[j].mimeType
+	})
+	interrupt := make([]*genx.MessageChunk, 0, len(keys))
+	for _, key := range keys {
+		interrupt = append(interrupt, historyForwardInterruptedChunk(pending[key], key.mimeType))
 	}
-	if strings.TrimSpace(name) == "" {
-		name = label
-	}
-	textEOS := historyTextChunk(role, name, streamID, label, "", true)
-	textEOS.Ctrl.Error = historyReplayInterrupted
-	audioEOS := &genx.MessageChunk{
-		Role: role,
-		Name: name,
-		Part: &genx.Blob{MIMEType: "audio/opus"},
-		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: label, EndOfStream: true, Error: historyReplayInterrupted},
-	}
-	return []*genx.MessageChunk{textEOS, audioEOS}
-}
-
-func historyReplayNeedsPace(chunk *genx.MessageChunk) bool {
-	if chunk == nil || chunk.IsEndOfStream() {
-		return false
-	}
-	blob, ok := chunk.Part.(*genx.Blob)
-	return ok && len(blob.Data) > 0 && baseHistoryMIME(blob.MIMEType) == "audio/opus"
+	return interrupt
 }
 
 type historyRecorder struct {
@@ -713,6 +814,7 @@ type historyPendingEntry struct {
 	text      strings.Builder
 	audio     [][]byte
 	oggAudio  bytes.Buffer
+	mp3Audio  bytes.Buffer
 	pcmAudio  bytes.Buffer
 	pcmWriter *codecconv.PCMToOggOpusEncoder
 	pcmFormat pcm.Format
@@ -834,6 +936,8 @@ func (r *historyRecorder) observe(ctx context.Context, chunk *genx.MessageChunk,
 			entry.audio = append(entry.audio, append([]byte(nil), part.Data...))
 		case "audio/ogg", "application/ogg":
 			_, _ = entry.oggAudio.Write(part.Data)
+		case "audio/mpeg", "audio/mp3", "audio/x-mpeg", "audio/x-mp3":
+			_, _ = entry.mp3Audio.Write(part.Data)
 		default:
 			format, ok := historyPCMFormat(mimeType)
 			if !ok {
@@ -977,7 +1081,8 @@ func (r *historyRecorder) pendingEntry(chunk *genx.MessageChunk, typ string, gea
 }
 
 func deferGearAudioEntry(entry *historyPendingEntry) bool {
-	return entry != nil && entry.typ == historyEntryTypeGear && strings.TrimSpace(entry.text.String()) == "" && (len(entry.audio) > 0 || entry.oggAudio.Len() > 0 || entry.pcmWriter != nil)
+	return entry != nil && entry.typ == historyEntryTypeGear && strings.TrimSpace(entry.text.String()) == "" &&
+		(len(entry.audio) > 0 || entry.oggAudio.Len() > 0 || entry.mp3Audio.Len() > 0 || entry.pcmWriter != nil)
 }
 
 func (r *historyRecorder) flushRoute(ctx context.Context, streamID string) error {
@@ -1000,6 +1105,30 @@ func (r *historyRecorder) flush(ctx context.Context, key string) error {
 			return err
 		}
 		entry.audio = append(entry.audio, frames...)
+	}
+	if entry.mp3Audio.Len() > 0 {
+		decoder := &mp3PCMDecoder{data: append([]byte(nil), entry.mp3Audio.Bytes()...)}
+		chunks, err := decoder.Finalize()
+		if err != nil {
+			return fmt.Errorf("agenthost: decode history MP3: %w", err)
+		}
+		defer decoder.Close()
+		for _, chunk := range chunks {
+			format := chunk.Format()
+			if entry.pcmWriter == nil {
+				writer, err := codecconv.NewPCMToOggOpusEncoder(&entry.pcmAudio, format.SampleRate(), format.Channels(), opus.ApplicationVoIP)
+				if err != nil {
+					return err
+				}
+				entry.pcmWriter = writer
+				entry.pcmFormat = format
+			} else if entry.pcmFormat != format {
+				return fmt.Errorf("agenthost: history MP3 changed PCM format from %s to %s", entry.pcmFormat, format)
+			}
+			if _, err := chunk.WriteTo(entry.pcmWriter); err != nil {
+				return err
+			}
+		}
 	}
 	var pcmAsset []byte
 	if entry.pcmWriter != nil {
@@ -1129,7 +1258,7 @@ func isHistoryAudioMIME(mimeType string) bool {
 
 func isRecordableHistoryAudioMIME(mimeType string) bool {
 	switch baseHistoryMIME(mimeType) {
-	case "audio/opus", "audio/ogg", "application/ogg":
+	case "audio/opus", "audio/ogg", "application/ogg", "audio/mpeg", "audio/mp3", "audio/x-mpeg", "audio/x-mp3":
 		return true
 	default:
 		_, ok := historyPCMFormat(mimeType)

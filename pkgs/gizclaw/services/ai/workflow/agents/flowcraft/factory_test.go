@@ -435,13 +435,19 @@ func TestAgentTransformRunsMultipleTurns(t *testing.T) {
 		t.Fatalf("add first turn: %v", err)
 	}
 	var chunks []*genx.MessageChunk
-	for {
+	firstTextDone := false
+	firstAudioDone := false
+	for !firstTextDone || !firstAudioDone {
 		chunk := nextChunkWithTimeout(t, stream)
 		chunks = append(chunks, chunk)
-		if chunk.Ctrl != nil && chunk.Ctrl.StreamID == "audio-1" && chunk.Ctrl.Label == assistantLabel && chunk.Ctrl.EndOfStream {
-			if _, ok := chunk.Part.(*genx.Blob); ok {
-				break
-			}
+		if chunk.Ctrl == nil || chunk.Ctrl.StreamID != "audio-1" || chunk.Ctrl.Label != assistantLabel || !chunk.Ctrl.EndOfStream {
+			continue
+		}
+		switch chunk.Part.(type) {
+		case genx.Text:
+			firstTextDone = true
+		case *genx.Blob:
+			firstAudioDone = true
 		}
 	}
 	if err := input.Add(
@@ -463,6 +469,9 @@ func TestAgentTransformRunsMultipleTurns(t *testing.T) {
 	for _, chunk := range chunks {
 		if chunk.Ctrl == nil {
 			continue
+		}
+		if chunk.Ctrl.Error == interruptedError {
+			t.Fatalf("completed turn was interrupted after its output drained: %#v", chunk)
 		}
 		streamID := chunk.Ctrl.StreamID
 		switch {
@@ -1425,8 +1434,14 @@ func TestSynthesizeTextSegmentCanOmitAudioEOS(t *testing.T) {
 
 func TestWatchInputInterruptEmitsInterruptedEOSAndCancels(t *testing.T) {
 	a := &agent{}
-	output := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 4)
+	output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 4)
 	epoch := a.setActiveOutput(output, "audio-1")
+	if err := output.Add(
+		textChunk(genx.RoleModel, assistantLabel, "audio-1", assistantLabel, "stale", false),
+		audioChunk(assistantLabel, "audio-1", []byte{1, 2}, false),
+	); err != nil {
+		t.Fatalf("queue stale output: %v", err)
+	}
 	canceled := make(chan struct{}, 1)
 	a.watchInputInterrupt(context.Background(), &sliceStream{chunks: []*genx.MessageChunk{
 		{Part: genx.Text("ignored")},
@@ -1518,6 +1533,116 @@ func TestInterruptOutputGuards(t *testing.T) {
 	}
 }
 
+func TestInterruptQueuedOutputDiscardsCompletedAssistantOnly(t *testing.T) {
+	a := &agent{}
+	output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 4)
+	epoch := a.setActiveOutput(output, "audio")
+	if err := output.Add(
+		textChunk(genx.RoleUser, transcriptLabel, "audio", transcriptLabel, "hello", false),
+		audioChunk(assistantLabel, "audio", []byte{1, 2}, false),
+		audioChunk(assistantLabel, "audio", nil, true),
+	); err != nil {
+		t.Fatalf("queue output: %v", err)
+	}
+	if !a.interruptQueuedOutput(output, "audio", epoch) {
+		t.Fatal("interruptQueuedOutput() = false")
+	}
+	if err := output.Done(genx.Usage{}); err != nil {
+		t.Fatalf("Done() error = %v", err)
+	}
+	chunks := drainChunks(t, output.Stream())
+	if len(chunks) != 3 {
+		t.Fatalf("chunks = %#v, want transcript and two interrupted EOS chunks", chunks)
+	}
+	if chunks[0].Role != genx.RoleUser || chunks[0].Ctrl == nil || chunks[0].Ctrl.Label != transcriptLabel {
+		t.Fatalf("preserved transcript = %#v", chunks[0])
+	}
+	for _, chunk := range chunks[1:] {
+		if chunk.Ctrl == nil || !chunk.Ctrl.EndOfStream || chunk.Ctrl.Error != interruptedError {
+			t.Fatalf("interrupted chunk = %#v", chunk)
+		}
+	}
+}
+
+func TestInterruptQueuedOutputSignalsConsumedAssistant(t *testing.T) {
+	a := &agent{}
+	output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 2)
+	epoch := a.setActiveOutput(output, "audio")
+	if !a.interruptQueuedOutput(output, "audio", epoch) {
+		t.Fatal("interruptQueuedOutput() = false")
+	}
+	if err := output.Done(genx.Usage{}); err != nil {
+		t.Fatalf("Done() error = %v", err)
+	}
+	chunks := drainChunks(t, output.Stream())
+	if len(chunks) != 2 {
+		t.Fatalf("chunks = %#v, want two interrupted EOS chunks", chunks)
+	}
+	for _, chunk := range chunks {
+		if chunk.Ctrl == nil || !chunk.Ctrl.EndOfStream || chunk.Ctrl.Error != interruptedError {
+			t.Fatalf("interrupted chunk = %#v", chunk)
+		}
+	}
+}
+
+func TestFinishCompletedOutputDoesNotInterruptEmptyTurn(t *testing.T) {
+	a := &agent{}
+	output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 2)
+	observations := newFlowcraftOutputObservations()
+	epoch := a.setActiveOutput(output, "audio", observations)
+	observations.begin("audio")
+	if err := a.addOutput(output, epoch,
+		textChunk(genx.RoleModel, assistantLabel, "audio", assistantLabel, "", true),
+		audioChunk(assistantLabel, "audio", nil, true),
+	); err != nil {
+		t.Fatalf("queue empty completion: %v", err)
+	}
+
+	a.finishCompletedOutput(output, &flowcraftActiveTurn{streamID: "audio", epoch: epoch}, observations)
+
+	if got := a.currentOutputEpoch(); got != epoch {
+		t.Fatalf("output epoch = %d, want unchanged %d", got, epoch)
+	}
+	if err := output.Done(genx.Usage{}); err != nil {
+		t.Fatalf("Done() error = %v", err)
+	}
+	chunks := drainChunks(t, output.Stream())
+	if len(chunks) != 2 {
+		t.Fatalf("chunks = %#v, want two successful EOS chunks", chunks)
+	}
+	for _, chunk := range chunks {
+		if chunk.Ctrl == nil || !chunk.Ctrl.EndOfStream || chunk.Ctrl.Error != "" {
+			t.Fatalf("completion chunk = %#v, want successful EOS", chunk)
+		}
+	}
+}
+
+func TestFinishCompletedOutputInterruptsUnobservedQueuedAssistant(t *testing.T) {
+	a := &agent{}
+	output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 2)
+	observations := newFlowcraftOutputObservations()
+	epoch := a.setActiveOutput(output, "audio", observations)
+	observations.begin("audio")
+	if err := a.addOutput(output, epoch, audioChunk(assistantLabel, "audio", []byte{1, 2}, false)); err != nil {
+		t.Fatalf("queue output: %v", err)
+	}
+
+	a.finishCompletedOutput(output, &flowcraftActiveTurn{streamID: "audio", epoch: epoch}, observations)
+
+	if err := output.Done(genx.Usage{}); err != nil {
+		t.Fatalf("Done() error = %v", err)
+	}
+	chunks := drainChunks(t, output.Stream())
+	if len(chunks) != 2 {
+		t.Fatalf("chunks = %#v, want two interrupted EOS chunks", chunks)
+	}
+	for _, chunk := range chunks {
+		if chunk.Ctrl == nil || !chunk.Ctrl.EndOfStream || chunk.Ctrl.Error != interruptedError {
+			t.Fatalf("interrupted chunk = %#v", chunk)
+		}
+	}
+}
+
 func TestRealtimeInputInterruptsCurrent(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -1537,18 +1662,6 @@ func TestRealtimeInputInterruptsCurrent(t *testing.T) {
 				t.Fatalf("realtimeInputInterruptsCurrent(%q, %q) = %t, want %t", tt.current, tt.input, got, tt.want)
 			}
 		})
-	}
-}
-
-func TestWaitOpusFrameCancellation(t *testing.T) {
-	a := &agent{}
-	if err := a.waitOpusFrame(context.Background(), 99); !errors.Is(err, context.Canceled) {
-		t.Fatalf("waitOpusFrame(stale) = %v, want canceled", err)
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	if err := a.waitOpusFrame(ctx, a.currentOutputEpoch()); !errors.Is(err, context.Canceled) {
-		t.Fatalf("waitOpusFrame(canceled) = %v, want canceled", err)
 	}
 }
 

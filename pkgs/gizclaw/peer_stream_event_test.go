@@ -3,16 +3,16 @@ package gizclaw
 import (
 	"bytes"
 	"context"
-	"errors"
 	"io"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
-	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
 func TestPeerStreamEventFrameRoundTrip(t *testing.T) {
@@ -140,53 +140,66 @@ func TestPeerStreamEventChunkMapping(t *testing.T) {
 	}
 }
 
-func TestPeerAgentOutputWritesRawOpus(t *testing.T) {
-	writer := &recordingDirectPackets{ch: make(chan []byte, 1)}
+func TestPeerAgentOutputDecodesOpusIntoPCMTrack(t *testing.T) {
+	const frameSize = 960
+	encoder, err := opus.NewEncoder(48000, 1, opus.ApplicationAudio)
+	if err != nil {
+		t.Fatalf("NewEncoder() error = %v", err)
+	}
+	defer encoder.Close()
+	packet, err := encoder.Encode(make([]int16, frameSize), frameSize)
+	if err != nil {
+		t.Fatalf("Encode() error = %v", err)
+	}
+	tracks := &peerStreamFakeTracks{createdCh: make(chan struct{}, 1)}
 	output := &peerStreamSliceStream{chunks: []*genx.MessageChunk{
 		{
-			Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{0x01, 0x02, 0x03}},
+			Part: &genx.Blob{MIMEType: "audio/opus", Data: packet},
+			Ctrl: &genx.StreamCtrl{StreamID: "answer"},
 		},
 	}, doneErr: genx.ErrDone}
-	err := (peerAgentOutput{Events: newPeerStreamEventBroker(), Conn: writer}).ConsumeAgentOutput(context.Background(), output)
-	if err != nil {
+	done := make(chan error, 1)
+	go func() {
+		done <- (peerAgentOutput{Events: newPeerStreamEventBroker(), Tracks: tracks}).ConsumeAgentOutput(context.Background(), output)
+	}()
+	<-tracks.createdCh
+	if err := waitPeerAgentOutputDrain(t, tracks.mixer, done); err != nil {
 		t.Fatalf("ConsumeAgentOutput() error = %v", err)
 	}
-	select {
-	case payload := <-writer.ch:
-		if !bytes.Equal(payload, []byte{0x01, 0x02, 0x03}) {
-			t.Fatalf("output opus frame=%x", payload)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("timed out waiting for opus output")
+	if tracks.created != 1 || len(tracks.track.chunks) != 1 {
+		t.Fatalf("tracks created=%d chunks=%d, want 1/1", tracks.created, len(tracks.track.chunks))
+	}
+	if got := tracks.track.chunks[0].Format(); got != pcm.L16Mono48K {
+		t.Fatalf("decoded format = %v, want %v", got, pcm.L16Mono48K)
 	}
 }
 
-func TestPeerAgentOutputSkipsOggDirectPacket(t *testing.T) {
-	writer := &recordingDirectPackets{ch: make(chan []byte, 1)}
+func TestPeerAgentOutputRejectsMalformedOgg(t *testing.T) {
+	tracks := &peerStreamFakeTracks{}
 	output := &peerStreamSliceStream{chunks: []*genx.MessageChunk{
 		{
 			Part: &genx.Blob{MIMEType: "audio/ogg; codecs=opus", Data: []byte("OggS")},
+			Ctrl: &genx.StreamCtrl{StreamID: "answer", EndOfStream: true},
 		},
 	}, doneErr: genx.ErrDone}
-	err := (peerAgentOutput{Events: newPeerStreamEventBroker(), Conn: writer}).ConsumeAgentOutput(context.Background(), output)
-	if err != nil {
-		t.Fatalf("ConsumeAgentOutput() error = %v", err)
-	}
-	select {
-	case payload := <-writer.ch:
-		t.Fatalf("audio/ogg was written as direct opus: %x", payload)
-	default:
+	err := (peerAgentOutput{Events: newPeerStreamEventBroker(), Tracks: tracks}).ConsumeAgentOutput(context.Background(), output)
+	if err == nil || !strings.Contains(err.Error(), "stream_id=\"answer\"") {
+		t.Fatalf("ConsumeAgentOutput() error = %v, want contextual Ogg error", err)
 	}
 }
 
 func TestPeerAgentOutputReusesPCMTrack(t *testing.T) {
-	tracks := &peerStreamFakeTracks{}
+	tracks := &peerStreamFakeTracks{createdCh: make(chan struct{}, 1)}
 	output := &peerStreamSliceStream{chunks: []*genx.MessageChunk{
 		{Part: &genx.Blob{MIMEType: "audio/L16; rate=16000; channels=1", Data: []byte{1, 0}}},
 		{Part: &genx.Blob{MIMEType: "audio/L16; rate=16000; channels=1", Data: []byte{2, 0}}},
 	}, doneErr: genx.ErrDone}
-	err := (peerAgentOutput{Tracks: tracks}).ConsumeAgentOutput(context.Background(), output)
-	if err != nil {
+	done := make(chan error, 1)
+	go func() {
+		done <- (peerAgentOutput{Tracks: tracks}).ConsumeAgentOutput(context.Background(), output)
+	}()
+	<-tracks.createdCh
+	if err := waitPeerAgentOutputDrain(t, tracks.mixer, done); err != nil {
 		t.Fatalf("ConsumeAgentOutput() error = %v", err)
 	}
 	if tracks.created != 1 {
@@ -223,14 +236,51 @@ func (*peerStreamSliceStream) CloseWithError(error) error {
 }
 
 type peerStreamFakeTracks struct {
-	created int
-	track   *peerStreamFakeTrack
+	created   int
+	createdCh chan struct{}
+	track     *peerStreamFakeTrack
+	mixer     *pcm.Mixer
 }
 
 func (t *peerStreamFakeTracks) CreateAudioTrack(...pcm.TrackOption) (pcm.Track, *pcm.TrackCtrl, error) {
 	t.created++
 	t.track = &peerStreamFakeTrack{}
-	return t.track, nil, nil
+	if t.mixer == nil {
+		t.mixer = pcm.NewMixer(pcm.L16Mono16K)
+	}
+	_, ctrl, err := t.mixer.CreateTrack()
+	if t.createdCh != nil {
+		select {
+		case t.createdCh <- struct{}{}:
+		default:
+		}
+	}
+	return t.track, ctrl, err
+}
+
+func waitPeerAgentOutputDrain(t *testing.T, mixer *pcm.Mixer, done <-chan error) error {
+	t.Helper()
+	buffer := make([]byte, mixer.Output().BytesInDuration(60*time.Millisecond))
+	readDone := make(chan struct{})
+	go func() {
+		defer close(readDone)
+		for {
+			if _, err := mixer.Read(buffer); err != nil {
+				return
+			}
+		}
+	}()
+	select {
+	case err := <-done:
+		_ = mixer.Close()
+		<-readDone
+		return err
+	case <-time.After(time.Second):
+		_ = mixer.Close()
+		<-readDone
+		t.Fatal("audio output did not finish after mixer drain")
+		return nil
+	}
 }
 
 type peerStreamFakeTrack struct {
@@ -240,16 +290,4 @@ type peerStreamFakeTrack struct {
 func (t *peerStreamFakeTrack) Write(chunk pcm.Chunk) error {
 	t.chunks = append(t.chunks, chunk)
 	return nil
-}
-
-type recordingDirectPackets struct {
-	ch chan []byte
-}
-
-func (w *recordingDirectPackets) Write(protocol byte, payload []byte) (int, error) {
-	if protocol != giznet.ProtocolOpusPacket {
-		return 0, errors.New("unexpected protocol")
-	}
-	w.ch <- append([]byte(nil), payload...)
-	return len(payload), nil
 }

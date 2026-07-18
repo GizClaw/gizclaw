@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"sync/atomic"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/buffer"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -71,9 +72,12 @@ func (m *Mux) get(pattern string) (genx.Transformer, error) {
 
 // bufferStream wraps a buffer.Buffer as a genx.Stream.
 type bufferStream struct {
-	buf       *buffer.Buffer[*genx.MessageChunk]
-	done      chan struct{}
-	closeOnce sync.Once
+	buf                 *buffer.Buffer[*genx.MessageChunk]
+	done                chan struct{}
+	closeOnce           sync.Once
+	observationDeferred atomic.Bool
+	observationMu       sync.RWMutex
+	observeOutput       func(*genx.MessageChunk)
 }
 
 func newBufferStream(size int) *bufferStream {
@@ -88,7 +92,37 @@ func (s *bufferStream) Next() (*genx.MessageChunk, error) {
 		}
 		return nil, err
 	}
+	if chunk != nil && !s.observationDeferred.Load() {
+		s.ObserveOutput(chunk)
+	}
 	return chunk, nil
+}
+
+func (s *bufferStream) DeferOutputObservation() {
+	if s != nil {
+		s.observationDeferred.Store(true)
+	}
+}
+
+func (s *bufferStream) ObserveOutput(chunk *genx.MessageChunk) {
+	if s == nil || chunk == nil {
+		return
+	}
+	s.observationMu.RLock()
+	observe := s.observeOutput
+	s.observationMu.RUnlock()
+	if observe != nil {
+		observe(chunk)
+	}
+}
+
+func (s *bufferStream) setOutputObserver(observe func(*genx.MessageChunk)) {
+	if s == nil {
+		return
+	}
+	s.observationMu.Lock()
+	s.observeOutput = observe
+	s.observationMu.Unlock()
 }
 
 func (s *bufferStream) Close() error {
@@ -109,6 +143,13 @@ func (s *bufferStream) CloseWithError(err error) error {
 
 func (s *bufferStream) Push(chunk *genx.MessageChunk) error {
 	return s.buf.Add(chunk)
+}
+
+func (s *bufferStream) discard(predicate func(*genx.MessageChunk) bool) int {
+	if s == nil || s.buf == nil {
+		return 0
+	}
+	return s.buf.RemoveIf(predicate)
 }
 
 func (s *bufferStream) Done() <-chan struct{} {

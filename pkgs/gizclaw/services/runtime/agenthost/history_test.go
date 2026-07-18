@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/mp3"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
@@ -51,6 +52,44 @@ func TestHistoryAgentRecordsOutputText(t *testing.T) {
 	item := resp.Items[0]
 	if item.Type != apitypes.PeerRunHistoryEntryTypeAgent || item.Name != "assistant" || item.Text != "hello" || !item.ReplayAvailable {
 		t.Fatalf("history item = %+v", item)
+	}
+}
+
+func TestHistoryAgentForwardsFinalOutputObservation(t *testing.T) {
+	chunk := &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Name: "assistant",
+		Part: genx.Text("hello"),
+		Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"},
+	}
+	upstream := newRecordingObservationStream(historyStreamFromChunks(chunk))
+	agent := wrapHistoryAgent(historyTestAgent{output: upstream}, workspace.NewHistoryStore(objectstore.Dir(t.TempDir()), "demo"))
+	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), "demo", historyStreamFromChunks())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	select {
+	case <-upstream.deferred:
+	case <-time.After(time.Second):
+		t.Fatal("history wrapper did not defer upstream observation")
+	}
+	got, err := out.Next()
+	if err != nil {
+		t.Fatalf("Next() error = %v", err)
+	}
+	if got.Role != chunk.Role || got.Name != chunk.Name || got.Part != chunk.Part || got.Ctrl == nil || got.Ctrl.StreamID != chunk.Ctrl.StreamID {
+		t.Fatalf("Next() chunk = %#v, want %#v", got, chunk)
+	}
+	select {
+	case observed := <-upstream.observed:
+		if observed != got {
+			t.Fatalf("observed chunk = %#v, want forwarded chunk %#v", observed, got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("history wrapper did not forward final output observation")
+	}
+	if _, err := out.Next(); !IsStreamDone(err) {
+		t.Fatalf("Next() done error = %v", err)
 	}
 }
 
@@ -725,6 +764,70 @@ func TestHistoryAgentRecordsSplitOggOutput(t *testing.T) {
 	}
 }
 
+func TestHistoryAgentRecordsMP3OutputAsOggOpus(t *testing.T) {
+	var encoded bytes.Buffer
+	encoder, err := mp3.NewEncoder(&encoded, 24000, 1)
+	if err != nil {
+		t.Fatalf("NewEncoder() error = %v", err)
+	}
+	if _, err := encoder.Write(make([]byte, 24000/10*2)); err != nil {
+		t.Fatalf("encoder.Write() error = %v", err)
+	}
+	if err := encoder.Close(); err != nil {
+		t.Fatalf("encoder.Close() error = %v", err)
+	}
+	history := workspace.NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
+	agent := wrapHistoryAgent(historyTestAgent{output: historyStreamFromChunks(
+		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/mpeg", Data: encoded.Bytes()}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}},
+		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/mpeg"}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant", EndOfStream: true}},
+	)}, history)
+
+	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), "demo", historyStreamFromChunks())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	for {
+		_, err := out.Next()
+		if IsStreamDone(err) {
+			break
+		}
+		if err != nil {
+			t.Fatalf("Next() error = %v", err)
+		}
+	}
+
+	resp, err := agent.ListHistory(context.Background(), apitypes.PeerRunHistoryListRequest{})
+	if err != nil {
+		t.Fatalf("ListHistory() error = %v", err)
+	}
+	if len(resp.Items) != 1 {
+		t.Fatalf("history items = %+v", resp.Items)
+	}
+	entry, err := history.Get(context.Background(), resp.Items[0].Id)
+	if err != nil {
+		t.Fatalf("Get history: %v", err)
+	}
+	if len(entry.Assets) != 1 || entry.Assets[0].MIMEType != "audio/ogg; codecs=opus" {
+		t.Fatalf("history assets = %+v", entry.Assets)
+	}
+	reader, err := history.ReadAsset(context.Background(), entry.Assets[0].Name)
+	if err != nil {
+		t.Fatalf("ReadAsset: %v", err)
+	}
+	defer reader.Close()
+	asset, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("ReadAll: %v", err)
+	}
+	frames, err := historyOpusFramesFromOgg(asset)
+	if err != nil {
+		t.Fatalf("historyOpusFramesFromOgg: %v", err)
+	}
+	if len(frames) == 0 {
+		t.Fatal("stored Ogg/Opus asset contains no audio frames")
+	}
+}
+
 func TestHistoryAgentPlayInjectsReplayOutput(t *testing.T) {
 	history := workspace.NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
 	now := time.Date(2026, 6, 21, 12, 0, 0, 0, time.UTC)
@@ -902,7 +1005,7 @@ func TestHistoryAgentPlayRoutesToRequestGearOutput(t *testing.T) {
 	}
 }
 
-func TestHistoryAgentPlayInterruptsPreviousReplay(t *testing.T) {
+func TestHistoryAgentPlayInterruptsBufferedReplayAfterEnqueue(t *testing.T) {
 	history := workspace.NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
 	audio1, err := historyOggOpusAsset([][]byte{{1}, {2}, {3}, {4}})
 	if err != nil {
@@ -960,26 +1063,28 @@ func TestHistoryAgentPlayInterruptsPreviousReplay(t *testing.T) {
 	if resp, err := agent.PlayHistory(context.Background(), apitypes.PeerRunHistoryPlayRequest{HistoryId: second.ID}); err != nil || !resp.Accepted {
 		t.Fatalf("PlayHistory(second) = %+v, %v", resp, err)
 	}
-	interruptedText, err := out.Next()
-	if err != nil {
-		t.Fatalf("Next interrupted text eos: %v", err)
+	var interruptedText, interruptedAudio, foundSecond bool
+	for range 12 {
+		chunk, err := out.Next()
+		if err != nil {
+			t.Fatalf("Next after replacement: %v", err)
+		}
+		if text, ok := chunk.Part.(genx.Text); ok && string(text) == "second" {
+			foundSecond = true
+			break
+		}
+		if chunk.Ctrl == nil || !chunk.Ctrl.EndOfStream || chunk.Ctrl.Error != historyReplayInterrupted {
+			continue
+		}
+		switch chunk.Part.(type) {
+		case genx.Text:
+			interruptedText = true
+		case *genx.Blob:
+			interruptedAudio = true
+		}
 	}
-	if interruptedText.Ctrl == nil || interruptedText.Ctrl.Error != historyReplayInterrupted || !interruptedText.Ctrl.EndOfStream {
-		t.Fatalf("interrupted text eos = %#v", interruptedText)
-	}
-	interruptedAudio, err := out.Next()
-	if err != nil {
-		t.Fatalf("Next interrupted audio eos: %v", err)
-	}
-	if interruptedAudio.Ctrl == nil || interruptedAudio.Ctrl.Error != historyReplayInterrupted || !interruptedAudio.Ctrl.EndOfStream {
-		t.Fatalf("interrupted audio eos = %#v", interruptedAudio)
-	}
-	secondText, err := out.Next()
-	if err != nil {
-		t.Fatalf("Next second text: %v", err)
-	}
-	if got, ok := secondText.Part.(genx.Text); !ok || string(got) != "second" {
-		t.Fatalf("second text = %#v", secondText)
+	if interruptedText || !interruptedAudio || !foundSecond {
+		t.Fatalf("replacement result textEOS=%t audioEOS=%t second=%t", interruptedText, interruptedAudio, foundSecond)
 	}
 	_ = agentOutput.Close()
 }
@@ -1065,6 +1170,41 @@ func TestHistoryAgentPlayInterruptsCurrentAgentOutput(t *testing.T) {
 	}
 }
 
+func TestHistoryReplayDiscardKeepsOtherRouteOnSameStream(t *testing.T) {
+	output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
+	stream := output.Stream()
+	assistantRoute := historyForwardRoute{role: genx.RoleModel, name: "assistant", streamID: "shared", label: "assistant"}
+	historyOutput := &historyOutput{
+		output: output,
+		activeForward: map[historyForwardChunkKey]historyForwardRoute{
+			{historyForwardRouteKey: assistantRoute.key(), mimeType: "audio/opus"}: assistantRoute,
+		},
+	}
+	if err := output.Add(
+		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "shared", Label: "assistant"}},
+		&genx.MessageChunk{Role: genx.RoleUser, Name: "user", Part: genx.Text("keep"), Ctrl: &genx.StreamCtrl{StreamID: "shared", Label: "transcript"}},
+	); err != nil {
+		t.Fatalf("Add() error = %v", err)
+	}
+	if err := historyOutput.startReplay("replay", nil); err != nil {
+		t.Fatalf("startReplay() error = %v", err)
+	}
+	kept, err := stream.Next()
+	if err != nil {
+		t.Fatalf("Next() error = %v", err)
+	}
+	if text, ok := kept.Part.(genx.Text); !ok || string(text) != "keep" {
+		t.Fatalf("kept chunk = %#v, want user transcript", kept)
+	}
+	interrupted, err := stream.Next()
+	if err != nil {
+		t.Fatalf("Next(interrupted) error = %v", err)
+	}
+	if interrupted.Ctrl == nil || interrupted.Ctrl.Label != "assistant" || interrupted.Ctrl.Error != historyReplayInterrupted {
+		t.Fatalf("interrupted chunk = %#v", interrupted)
+	}
+}
+
 func TestHistoryOutputTracksForwardMIMEsIndependently(t *testing.T) {
 	output := &historyOutput{}
 	text := &genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: genx.Text("live"), Ctrl: &genx.StreamCtrl{StreamID: "live", Label: "assistant"}}
@@ -1078,6 +1218,7 @@ func TestHistoryOutputTracksForwardMIMEsIndependently(t *testing.T) {
 	if output.observeForwardChunk(textEOS) {
 		t.Fatal("text EOS was unexpectedly suppressed")
 	}
+	output.observeForwardOutput(textEOS)
 
 	interrupt := output.interruptForwardOutput()
 	if len(interrupt) != 1 {
@@ -1095,6 +1236,76 @@ func TestHistoryOutputTracksForwardMIMEsIndependently(t *testing.T) {
 	audioEOS.Ctrl.EndOfStream = true
 	if !output.observeForwardChunk(audioEOS) {
 		t.Fatal("stale audio EOS was not suppressed")
+	}
+}
+
+func TestHistoryOutputKeepsForwardRouteUntilEOSObserved(t *testing.T) {
+	output := &historyOutput{}
+	audio := &genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "live", Label: "assistant"}}
+	if output.observeForwardChunk(audio) {
+		t.Fatal("active audio was unexpectedly suppressed")
+	}
+	audioEOS := audio.Clone()
+	audioEOS.Part = &genx.Blob{MIMEType: "audio/opus"}
+	audioEOS.Ctrl.EndOfStream = true
+	if output.observeForwardChunk(audioEOS) {
+		t.Fatal("audio EOS was unexpectedly suppressed")
+	}
+	if interrupt := output.interruptForwardOutput(); len(interrupt) != 1 {
+		t.Fatalf("interrupt before final EOS observation = %#v, want one audio EOS", interrupt)
+	}
+
+	completed := &historyOutput{}
+	if completed.observeForwardChunk(audio) || completed.observeForwardChunk(audioEOS) {
+		t.Fatal("completed audio chunks were unexpectedly suppressed")
+	}
+	completed.observeForwardOutput(audioEOS)
+	if interrupt := completed.interruptForwardOutput(); len(interrupt) != 0 {
+		t.Fatalf("interrupt after final EOS observation = %#v, want none", interrupt)
+	}
+}
+
+func TestHistoryOutputInterruptsMixerAudioMIMEs(t *testing.T) {
+	output := &historyOutput{}
+	mimeTypes := []string{
+		"application/ogg",
+		"audio/mpeg",
+		"audio/ogg",
+		"audio/pcm; rate=16000; channels=1",
+	}
+	want := make(map[string]bool, len(mimeTypes))
+	for _, mimeType := range mimeTypes {
+		chunk := &genx.MessageChunk{
+			Role: genx.RoleModel,
+			Name: mimeType,
+			Part: &genx.Blob{MIMEType: mimeType, Data: []byte{1}},
+			Ctrl: &genx.StreamCtrl{StreamID: "live", Label: mimeType},
+		}
+		if output.observeForwardChunk(chunk) {
+			t.Fatalf("active %s chunk was unexpectedly suppressed", mimeType)
+		}
+		canonical, ok := chunk.MIMEType()
+		if !ok {
+			t.Fatalf("MIMEType(%q) was invalid", mimeType)
+		}
+		want[canonical] = true
+	}
+	interrupt := output.interruptForwardOutput()
+	if len(interrupt) != len(mimeTypes) {
+		t.Fatalf("interrupt chunks = %#v, want %d audio EOS chunks", interrupt, len(mimeTypes))
+	}
+	got := make(map[string]bool, len(interrupt))
+	for _, chunk := range interrupt {
+		mimeType, ok := chunk.MIMEType()
+		if !ok || !chunk.IsEndOfStream() {
+			t.Fatalf("interrupt chunk = %#v", chunk)
+		}
+		got[mimeType] = true
+	}
+	for mimeType := range want {
+		if !got[mimeType] {
+			t.Errorf("missing interruption for %s", mimeType)
+		}
 	}
 }
 
@@ -1119,7 +1330,11 @@ func TestHistoryOutputForwardsControlEOSAndClearsRoute(t *testing.T) {
 	if output.observeForwardChunk(routeEOS) {
 		t.Fatal("control-only EOS was suppressed after interruption")
 	}
-	if len(output.activeForward) != 0 || len(output.interruptedForward) != 0 {
+	if len(output.activeForward) != 1 || len(output.terminalForward) != 1 || len(output.interruptedForward) != 0 {
+		t.Fatalf("forward state before observing route EOS = active %d, terminal %d, interrupted %d", len(output.activeForward), len(output.terminalForward), len(output.interruptedForward))
+	}
+	output.observeForwardOutput(routeEOS)
+	if len(output.activeForward) != 0 || len(output.terminalForward) != 0 || len(output.interruptedForward) != 0 {
 		t.Fatalf("forward state after route EOS = active %d, interrupted %d", len(output.activeForward), len(output.interruptedForward))
 	}
 	if got := output.interruptForwardOutput(); len(got) != 0 {

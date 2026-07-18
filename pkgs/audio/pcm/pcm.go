@@ -2,6 +2,7 @@ package pcm
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"time"
 )
@@ -13,7 +14,33 @@ const (
 	L16Mono24K
 	// L16Mono48K represents audio/L16; rate=48000; channels=1.
 	L16Mono48K
+	// L16Stereo16K represents audio/L16; rate=16000; channels=2.
+	L16Stereo16K
+	// L16Stereo24K represents audio/L16; rate=24000; channels=2.
+	L16Stereo24K
+	// L16Stereo48K represents audio/L16; rate=48000; channels=2.
+	L16Stereo48K
 )
+
+// L16Format returns the supported signed 16-bit PCM format for sampleRate and channels.
+func L16Format(sampleRate, channels int) (Format, error) {
+	switch {
+	case sampleRate == 16000 && channels == 1:
+		return L16Mono16K, nil
+	case sampleRate == 24000 && channels == 1:
+		return L16Mono24K, nil
+	case sampleRate == 48000 && channels == 1:
+		return L16Mono48K, nil
+	case sampleRate == 16000 && channels == 2:
+		return L16Stereo16K, nil
+	case sampleRate == 24000 && channels == 2:
+		return L16Stereo24K, nil
+	case sampleRate == 48000 && channels == 2:
+		return L16Stereo48K, nil
+	default:
+		return 0, fmt.Errorf("pcm: unsupported L16 format rate=%d channels=%d", sampleRate, channels)
+	}
+}
 
 // Chunk is a chunk of audio data.
 type Chunk interface {
@@ -28,11 +55,11 @@ type Format int
 // SampleRate returns the sample rate in Hz for this format.
 func (f Format) SampleRate() int {
 	switch f {
-	case L16Mono16K:
+	case L16Mono16K, L16Stereo16K:
 		return 16000
-	case L16Mono24K:
+	case L16Mono24K, L16Stereo24K:
 		return 24000
-	case L16Mono48K:
+	case L16Mono48K, L16Stereo48K:
 		return 48000
 	}
 	panic("pcm: invalid audio type")
@@ -43,6 +70,8 @@ func (f Format) Channels() int {
 	switch f {
 	case L16Mono16K, L16Mono24K, L16Mono48K:
 		return 1
+	case L16Stereo16K, L16Stereo24K, L16Stereo48K:
+		return 2
 	}
 	panic("pcm: invalid audio type")
 }
@@ -50,7 +79,7 @@ func (f Format) Channels() int {
 // Depth returns the bit depth for this format.
 func (f Format) Depth() int {
 	switch f {
-	case L16Mono16K, L16Mono24K, L16Mono48K:
+	case L16Mono16K, L16Mono24K, L16Mono48K, L16Stereo16K, L16Stereo24K, L16Stereo48K:
 		return 16
 	}
 	panic("pcm: invalid audio type")
@@ -122,6 +151,12 @@ func (f Format) String() string {
 		return "audio/L16; rate=24000; channels=1"
 	case L16Mono48K:
 		return "audio/L16; rate=48000; channels=1"
+	case L16Stereo16K:
+		return "audio/L16; rate=16000; channels=2"
+	case L16Stereo24K:
+		return "audio/L16; rate=24000; channels=2"
+	case L16Stereo48K:
+		return "audio/L16; rate=48000; channels=2"
 	}
 	panic("pcm: invalid audio type")
 }
