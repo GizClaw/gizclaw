@@ -260,10 +260,13 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// Login request without the optional body
+	Login(ctx context.Context, params *LoginParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// LoginWithBody request with any body
 	LoginWithBody(ctx context.Context, params *LoginParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	Login(ctx context.Context, params *LoginParams, body LoginJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	LoginWithJSONBody(ctx context.Context, params *LoginParams, body LoginJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetMe request
 	GetMe(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -335,6 +338,18 @@ type ClientInterface interface {
 	CreateGiznetWebRTCOfferWithBody(ctx context.Context, params *CreateGiznetWebRTCOfferParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
+func (c *Client) Login(ctx context.Context, params *LoginParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLoginRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) LoginWithBody(ctx context.Context, params *LoginParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewLoginRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
@@ -347,8 +362,8 @@ func (c *Client) LoginWithBody(ctx context.Context, params *LoginParams, content
 	return c.Client.Do(req)
 }
 
-func (c *Client) Login(ctx context.Context, params *LoginParams, body LoginJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewLoginRequest(c.Server, params, body)
+func (c *Client) LoginWithJSONBody(ctx context.Context, params *LoginParams, body LoginJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLoginRequestWithJSONBody(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -647,8 +662,18 @@ func (c *Client) CreateGiznetWebRTCOfferWithBody(ctx context.Context, params *Cr
 	return c.Client.Do(req)
 }
 
-// NewLoginRequest calls the generic Login builder with application/json body
-func NewLoginRequest(server string, params *LoginParams, body LoginJSONRequestBody) (*http.Request, error) {
+// NewLoginRequest generates a request without the optional body.
+func NewLoginRequest(server string, params *LoginParams) (*http.Request, error) {
+	req, err := NewLoginRequestWithBody(server, params, "", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Del("Content-Type")
+	return req, nil
+}
+
+// NewLoginRequestWithJSONBody calls the generic Login builder with application/json body
+func NewLoginRequestWithJSONBody(server string, params *LoginParams, body LoginJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
@@ -1642,10 +1667,13 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// LoginWithResponse request without the optional body
+	LoginWithResponse(ctx context.Context, params *LoginParams, reqEditors ...RequestEditorFn) (*LoginResponse, error)
+
 	// LoginWithBodyWithResponse request with any body
 	LoginWithBodyWithResponse(ctx context.Context, params *LoginParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LoginResponse, error)
 
-	LoginWithResponse(ctx context.Context, params *LoginParams, body LoginJSONRequestBody, reqEditors ...RequestEditorFn) (*LoginResponse, error)
+	LoginWithJSONBodyWithResponse(ctx context.Context, params *LoginParams, body LoginJSONRequestBody, reqEditors ...RequestEditorFn) (*LoginResponse, error)
 
 	// GetMeWithResponse request
 	GetMeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMeResponse, error)
@@ -2280,6 +2308,15 @@ func (r CreateGiznetWebRTCOfferResponse) StatusCode() int {
 	return 0
 }
 
+// LoginWithResponse request without the optional body returning *LoginResponse
+func (c *ClientWithResponses) LoginWithResponse(ctx context.Context, params *LoginParams, reqEditors ...RequestEditorFn) (*LoginResponse, error) {
+	rsp, err := c.Login(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLoginResponse(rsp)
+}
+
 // LoginWithBodyWithResponse request with arbitrary body returning *LoginResponse
 func (c *ClientWithResponses) LoginWithBodyWithResponse(ctx context.Context, params *LoginParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LoginResponse, error) {
 	rsp, err := c.LoginWithBody(ctx, params, contentType, body, reqEditors...)
@@ -2289,8 +2326,8 @@ func (c *ClientWithResponses) LoginWithBodyWithResponse(ctx context.Context, par
 	return ParseLoginResponse(rsp)
 }
 
-func (c *ClientWithResponses) LoginWithResponse(ctx context.Context, params *LoginParams, body LoginJSONRequestBody, reqEditors ...RequestEditorFn) (*LoginResponse, error) {
-	rsp, err := c.Login(ctx, params, body, reqEditors...)
+func (c *ClientWithResponses) LoginWithJSONBodyWithResponse(ctx context.Context, params *LoginParams, body LoginJSONRequestBody, reqEditors ...RequestEditorFn) (*LoginResponse, error) {
+	rsp, err := c.LoginWithJSONBody(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}

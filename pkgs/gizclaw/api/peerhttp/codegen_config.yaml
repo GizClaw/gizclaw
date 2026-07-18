@@ -9,3 +9,6 @@ import-mapping:
   ./shared/server.json: github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi
 output-options:
   skip-prune: true
+  user-templates:
+    client.tmpl: ./templates/client.tmpl
+    client-with-responses.tmpl: ./templates/client-with-responses.tmpl

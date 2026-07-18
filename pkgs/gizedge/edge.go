@@ -290,12 +290,15 @@ func edgeCORSHandler(next http.Handler) http.Handler {
 
 func setEdgeCORSHeaders(header http.Header) {
 	header.Set("Access-Control-Allow-Origin", "*")
-	header.Set("Access-Control-Allow-Methods", "GET,POST,PUT,OPTIONS")
+	header.Set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
 	header.Set("Access-Control-Allow-Headers", "Authorization,Content-Type,X-Public-Key,X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp")
 	header.Set("Access-Control-Expose-Headers", "Content-Length,Content-Type")
 }
 
 func isEdgePeerHTTPPath(path string) bool {
+	if strings.HasPrefix(path, "/me/side-control/") || strings.HasPrefix(path, "/side-control/") {
+		return true
+	}
 	switch path {
 	case "/login", "/server-info", "/webrtc/v1/offer", "/me", "/me/status", "/me/runtime":
 		return true
