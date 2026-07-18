@@ -108,6 +108,7 @@ import {
   type PointsTransactionObject,
   type RewardGrantObject,
   type WebRtcSessionDescription,
+  type Workflow as PeerWorkflow,
   type Workspace,
   type WorkspaceParameters,
 } from "./peer-rpc-adapter";
@@ -4244,16 +4245,13 @@ function WorkspacesPanel(): JSX.Element {
 }
 
 function WorkflowsPanel(): JSX.Element {
-  const loadPage = useCallback((cursor: string) => listPeerResourcePage("workflows", cursor), []);
+  const loadPage = useCallback((cursor: string) => listWorkflowsPage(cursor), []);
   return (
     <PagedSimpleTable
-      columns={["Name", "Kind", "API Version"]}
+      columns={["Name", "Display name", "Driver", "Description"]}
       empty="No workflows"
       loadPage={loadPage}
-      row={(item) => {
-        const metadata = objectField(item, "metadata");
-        return [stringField(metadata, "name"), stringField(item, "kind"), stringField(item, "apiVersion")];
-      }}
+      row={(item) => [item.name, item.i18n?.name ?? "", String(item.spec.driver), item.i18n?.description ?? ""]}
       title="Workflows"
     />
   );
@@ -4697,6 +4695,10 @@ function listVoicesPage(cursor: string): Promise<PageResponse<Voice>> {
   return expectData(listClientVoices({ query: pageQuery(cursor) })) as Promise<PageResponse<Voice>>;
 }
 
+function listWorkflowsPage(cursor: string): Promise<PageResponse<PeerWorkflow>> {
+  return expectData(listPeerWorkflows({ query: pageQuery(cursor) }));
+}
+
 function listFirmwaresPage(cursor: string): Promise<PageResponse<Firmware>> {
   return expectData(listPeerFirmwares({ query: pageQuery(cursor) })) as Promise<PageResponse<Firmware>>;
 }
@@ -4754,8 +4756,6 @@ async function listPeerResourcePage(name: string, cursor: string): Promise<PageR
       return expectData(listPeerModels({ query })) as Promise<PageResponse<ResourceItem>>;
     case "voices":
       return expectData(listPeerVoices({ query })) as Promise<PageResponse<ResourceItem>>;
-    case "workflows":
-      return expectData(listPeerWorkflows({ query })) as Promise<PageResponse<ResourceItem>>;
     case "workspaces":
       return expectData(listPeerWorkspaces({ query })) as Promise<PageResponse<ResourceItem>>;
     default:

@@ -55,7 +55,13 @@ test.beforeEach(async ({ page }) => {
       },
       voices: [{ id: "volc-voice-000", name: "Volc Voice", provider: { kind: "volc-tenant", name: "volc-tenant" }, source: "sync" }],
       warnings: [],
-      workflows: [{ id: "flowcraft-chat", name: "Flowcraft Chat Workflow", title: "Flowcraft Chat Workflow" }],
+      workflows: [
+        {
+          i18n: { description: "General-purpose chat workflow", name: "Flowcraft Chat Assistant" },
+          name: "flowcraft-chat",
+          spec: { driver: "flowcraft" },
+        },
+      ],
       workspaces: [{ id: "flowcraft-chat", name: "flowcraft-chat", title: "Flowcraft Chat Workspace", workflow_name: "flowcraft-chat" }],
     };
     const pageResponse = (items) => ({ has_next: false, items, next_cursor: null });
@@ -254,6 +260,13 @@ test("play view renders the full desktop play surface", async ({ page }) => {
   await page.getByRole("button", { name: /Firmwares/ }).click();
   await expect(page.getByRole("heading", { name: "Firmwares" })).toBeVisible();
   await expect(page.getByText("devkit-firmware-main")).toBeVisible();
+
+  await page.getByRole("button", { name: /Workflows/ }).click();
+  await expect(page.getByRole("heading", { name: "Workflows" })).toBeVisible();
+  const workflowRow = page.getByRole("row").filter({ hasText: "flowcraft-chat" });
+  await expect(workflowRow).toContainText("Flowcraft Chat Assistant");
+  await expect(workflowRow).toContainText("flowcraft");
+  await expect(workflowRow).toContainText("General-purpose chat workflow");
 });
 
 test("play workspace drawer sends direct RPC-backed actions", async ({ page }) => {
