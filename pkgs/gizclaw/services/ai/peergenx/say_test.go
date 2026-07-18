@@ -36,7 +36,6 @@ func TestSayUsesVoiceTransformerAndConsumesOutput(t *testing.T) {
 		"get:voice:cancan",
 		"auth:voice:cancan:use",
 		"get:tenant:volc:main",
-		"auth:credential:volc-token:read",
 		"auth:credential:volc-token:use",
 		"get:credential:volc-token",
 		"build:transformer:voice:cancan",

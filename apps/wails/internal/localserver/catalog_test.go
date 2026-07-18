@@ -19,8 +19,8 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(catalog.Resources) != 69 {
-		t.Fatalf("resources = %d, want 69", len(catalog.Resources))
+	if len(catalog.Resources) != 70 {
+		t.Fatalf("resources = %d, want 70", len(catalog.Resources))
 	}
 	if len(catalog.WorkflowIcons) != 10 || len(catalog.PetDefPIXAs) != 9 || len(catalog.VoiceSyncs) != 1 {
 		t.Fatalf("assets = workflows:%d pets:%d voice-sync:%d", len(catalog.WorkflowIcons), len(catalog.PetDefPIXAs), len(catalog.VoiceSyncs))
@@ -39,7 +39,7 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 	}
 	for _, identity := range []string{
 		"ACLPolicyBinding/default-client-model-minimax-cn-m3",
-		"ACLPolicyBinding/default-client-credential-minimax-cn-credential",
+		"ACLPolicyBinding/default-client-credential-minimax-cn-openai-credential",
 		"ACLPolicyBinding/default-client-voice-volc-sunwukong",
 		"ACLPolicyBinding/default-client-gameruleset-default-gameplay",
 	} {
@@ -51,10 +51,30 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 		"Credential": 7, "VolcTenant": 2, "MiniMaxTenant": 1,
 		"OpenAITenant": 2, "DashScopeTenant": 1, "Model": 10,
 		"Workflow": 10, "PetDef": 9, "GameRuleset": 1,
-		"ACLRole": 2, "ACLView": 1, "ACLPolicyBinding": 23,
+		"ACLRole": 3, "ACLView": 1, "ACLPolicyBinding": 23,
 	} {
 		if kinds[kind] != want {
 			t.Fatalf("%s resources = %d, want %d", kind, kinds[kind], want)
+		}
+	}
+	credentialRole, err := fs.ReadFile(catalog.FS, "resources/90-acl/02-credential-user-role.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(credentialRole), "    - use") || strings.Contains(string(credentialRole), "    - read") {
+		t.Fatalf("credential-user role must grant use without read:\n%s", credentialRole)
+	}
+	for _, name := range []string{
+		"30-00-credential-volc-main-credential.yaml",
+		"30-01-credential-deepseek-main-credential.yaml",
+		"30-02-credential-minimax-cn-openai-credential.yaml",
+	} {
+		binding, err := fs.ReadFile(catalog.FS, "resources/90-acl/"+name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(binding), "role: credential-user") {
+			t.Fatalf("credential binding %s is peer-readable:\n%s", name, binding)
 		}
 	}
 	for _, requirement := range catalog.Requirements {

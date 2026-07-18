@@ -2042,7 +2042,6 @@ func TestBuildClawConfigInjectsPeerResolvedOpenAIModel(t *testing.T) {
 		"auth:model:chat:read",
 		"auth:model:chat:use",
 		"get:tenant:openai:main",
-		"auth:credential:openai-key:read",
 		"auth:credential:openai-key:use",
 		"get:credential:openai-key",
 	}

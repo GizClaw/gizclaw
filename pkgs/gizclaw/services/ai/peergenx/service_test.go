@@ -42,7 +42,6 @@ func TestGeneratorAuthorizesBeforeReadingModel(t *testing.T) {
 		"get:model:chat",
 		"auth:model:chat:use",
 		"get:tenant:openai:main",
-		"auth:credential:openai-key:read",
 		"auth:credential:openai-key:use",
 		"get:credential:openai-key",
 		"build:generator:chat",
@@ -98,7 +97,6 @@ func TestTransformerVoiceAuthorizesBeforeReadingVoiceAndCredential(t *testing.T)
 		"get:voice:cancan",
 		"auth:voice:cancan:use",
 		"get:tenant:volc:main",
-		"auth:credential:volc-token:read",
 		"auth:credential:volc-token:use",
 		"get:credential:volc-token",
 		"build:transformer:voice:cancan",
@@ -130,7 +128,6 @@ func TestTransformerModelASRUsesVolcTenant(t *testing.T) {
 		"get:model:asr",
 		"auth:model:asr:use",
 		"get:tenant:volc:main",
-		"auth:credential:volc-token:read",
 		"auth:credential:volc-token:use",
 		"get:credential:volc-token",
 		"build:transformer:model:asr",
@@ -162,7 +159,6 @@ func TestTransformerModelRealtimeUsesVolcTenant(t *testing.T) {
 		"get:model:realtime",
 		"auth:model:realtime:use",
 		"get:tenant:volc:main",
-		"auth:credential:volc-token:read",
 		"auth:credential:volc-token:use",
 		"get:credential:volc-token",
 		"build:transformer:model:realtime",
@@ -194,7 +190,6 @@ func TestTransformerVoiceSupportsMiniMaxTenant(t *testing.T) {
 		"get:voice:minimax",
 		"auth:voice:minimax:use",
 		"get:tenant:minimax:main",
-		"auth:credential:minimax-key:read",
 		"auth:credential:minimax-key:use",
 		"get:credential:minimax-key",
 		"build:transformer:voice:minimax",
@@ -225,6 +220,34 @@ func TestTransformerDeniedVoiceUseDoesNotReadCredential(t *testing.T) {
 		"auth:voice:cancan:read",
 		"get:voice:cancan",
 		"auth:voice:cancan:use",
+	}
+	if !reflect.DeepEqual(events, want) {
+		t.Fatalf("events = %#v, want %#v", events, want)
+	}
+}
+
+func TestGeneratorDeniedCredentialUseDoesNotReadCredential(t *testing.T) {
+	ctx := context.Background()
+	events := []string{}
+	svc := New(Service{
+		Peer:            newTestPeer(),
+		Authorizer:      &recordingAuthorizer{events: &events, deny: "auth:credential:openai-key:use"},
+		Models:          fakeModels{events: &events},
+		Credentials:     fakeCredentials{events: &events},
+		ProviderTenants: fakeTenants{events: &events},
+		Builder:         fakeBuilder{events: &events},
+	})
+
+	_, err := svc.Generator().GenerateStream(ctx, "model/chat", nil)
+	if !errors.Is(err, ErrDenied) {
+		t.Fatalf("GenerateStream() error = %v, want %v", err, ErrDenied)
+	}
+	want := []string{
+		"auth:model:chat:read",
+		"get:model:chat",
+		"auth:model:chat:use",
+		"get:tenant:openai:main",
+		"auth:credential:openai-key:use",
 	}
 	if !reflect.DeepEqual(events, want) {
 		t.Fatalf("events = %#v, want %#v", events, want)
@@ -1152,7 +1175,6 @@ func TestGeneratorInvokeUsesResolvedModel(t *testing.T) {
 		"get:model:chat",
 		"auth:model:chat:use",
 		"get:tenant:openai:main",
-		"auth:credential:openai-key:read",
 		"auth:credential:openai-key:use",
 		"get:credential:openai-key",
 		"build:generator:chat",
@@ -1220,7 +1242,6 @@ func TestListAccessibleGeneratorConfigsEnumeratesAuthorizedLLMs(t *testing.T) {
 		"auth:model:chat:read",
 		"auth:model:chat:use",
 		"get:tenant:openai:main",
-		"auth:credential:openai-key:read",
 		"auth:credential:openai-key:use",
 		"get:credential:openai-key",
 		"auth:model:denied:read",
