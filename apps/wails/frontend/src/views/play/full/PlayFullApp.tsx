@@ -133,6 +133,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/components/ui/utils";
 import { DashboardEmptyState, DashboardPager, DashboardShell, DashboardTable, DashboardTableCard, type DashboardNavItem } from "@/dashboard";
+import { getPlayOpenAIClient } from "../../../lib/gizclaw/openai";
 
 type Section = "overview" | "contacts" | "friends" | "friendGroups" | "gameplay" | "workspaces" | "workflows" | "models" | "credentials" | "firmwares" | "voices";
 type TopDrawer = "workspace" | "social-chat" | "test-chat" | null;
@@ -282,21 +283,8 @@ const sections: Array<DashboardNavItem<Section>> = [
 const chatSessionsKey = "gizclaw.openai.chat.sessions";
 const chatStore = new Map<string, string>();
 const workspaceAudioPlaybackRequestEvent = "gizclaw:workspace-audio-play-request";
-const openAIAPIKey = "gizclaw-play";
 const topDrawerContentClassName =
   "top-32 h-[calc(100dvh-8rem)] w-[min(100vw,1120px)] gap-0 p-0 sm:top-24 sm:h-[calc(100dvh-6rem)] sm:max-w-none lg:top-20 lg:h-[calc(100dvh-5rem)]";
-
-let openAIClient: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI {
-  openAIClient ??= new OpenAI({
-    apiKey: openAIAPIKey,
-    baseURL: `${window.location.origin}/v1`,
-    dangerouslyAllowBrowser: true,
-    maxRetries: 1,
-  });
-  return openAIClient;
-}
 
 export function PlayFullApp({ contextName, onSignOut }: { contextName?: string; onSignOut(): Promise<void> }): JSX.Element {
   const [section, setSection] = useState<Section>("overview");
@@ -3750,7 +3738,7 @@ function playAudioWithTimeout(audio: HTMLAudioElement): Promise<void> {
 async function fetchSpeechAudioBlob({ input, signal, voice }: { input: string; signal: AbortSignal; voice: string }): Promise<Blob> {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      const response = await getOpenAIClient().audio.speech.create(
+      const response = await getPlayOpenAIClient().audio.speech.create(
         {
           input,
           model: "tts",
@@ -5347,7 +5335,7 @@ function createOpenAIChatAdapter({
       } satisfies OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming & { thinking?: ChatThinkingOptions };
       let stream: AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>;
       try {
-        stream = await getOpenAIClient().chat.completions.create(body, { signal: abortSignal });
+        stream = await getPlayOpenAIClient().chat.completions.create(body, { signal: abortSignal });
       } catch (err) {
         if (isAbortError(err)) {
           return;
@@ -5463,7 +5451,7 @@ async function generateChatTitle(model: string, messages: ChatCompletionMessageP
   if (firstUserMessage === "") {
     return "";
   }
-  const response = await getOpenAIClient().chat.completions.create(
+  const response = await getPlayOpenAIClient().chat.completions.create(
     {
       messages: [
         {
