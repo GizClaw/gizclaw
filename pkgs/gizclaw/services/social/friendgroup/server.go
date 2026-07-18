@@ -557,6 +557,9 @@ func (s *Server) AdminPutFriendGroupMember(ctx context.Context, friendGroupID, p
 	if !role.Valid() {
 		return rpcapi.FriendGroupMemberObject{}, errors.New("social: invalid group member role")
 	}
+	if _, err := s.AdminGetFriendGroup(ctx, friendGroupID); err != nil {
+		return rpcapi.FriendGroupMemberObject{}, err
+	}
 	if _, err := s.groupMember(ctx, friendGroupID, peerID); err != nil && !errors.Is(err, kv.ErrNotFound) {
 		return rpcapi.FriendGroupMemberObject{}, err
 	}

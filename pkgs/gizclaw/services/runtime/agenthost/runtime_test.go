@@ -235,6 +235,30 @@ func TestServiceWorkspaceFeatureResponsesWithoutActiveWorkspace(t *testing.T) {
 	}
 }
 
+func TestServiceWorkspaceFeaturesRevalidateActiveWorkspace(t *testing.T) {
+	wantErr := errors.New("workspace access revoked")
+	svc := &Service{
+		ValidateWorkspaceSelection: func(_ context.Context, name string) (string, error) {
+			if name != "friend-workspace" {
+				t.Fatalf("ValidateWorkspaceSelection name = %q, want friend-workspace", name)
+			}
+			return "", wantErr
+		},
+		runtime: &runtime{
+			agent:     asAgent(fixedTransformer{text: "unused"}),
+			workspace: "friend-workspace",
+		},
+	}
+
+	history, err := svc.ListWorkspaceHistory(context.Background(), apitypes.PeerRunHistoryListRequest{})
+	if err != nil {
+		t.Fatalf("ListWorkspaceHistory() error = %v", err)
+	}
+	if history.Available || history.Message == nil || !strings.Contains(*history.Message, wantErr.Error()) {
+		t.Fatalf("ListWorkspaceHistory() = %+v", history)
+	}
+}
+
 func TestTransformerAgentDefaults(t *testing.T) {
 	agent := asAgent(fixedTransformer{text: "ok"})
 	if agent == nil {

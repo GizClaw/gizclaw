@@ -332,6 +332,15 @@ func (s *Service) currentRuntimeForFeature(ctx context.Context) (*runtime, error
 	if rt == nil || rt.agent == nil {
 		return nil, ErrNoActiveWorkspace
 	}
+	if s.ValidateWorkspaceSelection != nil {
+		canonicalName, err := s.ValidateWorkspaceSelection(ctx, rt.workspace)
+		if err != nil {
+			return nil, err
+		}
+		if canonicalName != rt.workspace {
+			return nil, fmt.Errorf("agenthost: active workspace changed from %q to %q", rt.workspace, canonicalName)
+		}
+	}
 	return rt, nil
 }
 

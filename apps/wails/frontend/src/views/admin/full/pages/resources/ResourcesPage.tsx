@@ -33,8 +33,9 @@ import { expectData, toMessage } from "@/dashboard";
 
 const resourceKinds: ResourceKind[] = [
   "Credential",
-	"Firmware",
-	"RuntimeProfile",
+  "Firmware",
+  "RuntimeProfile",
+  "RegistrationToken",
   "PetDef",
   "BadgeDef",
   "GameDef",
@@ -581,18 +582,23 @@ function resourceSpecTemplate(kind: ResourceKind): unknown {
         input_schema: { type: "object", properties: {} },
         executor: { kind: "builtin", name: "tool.example" },
       };
-	case "RuntimeProfile":
+    case "RuntimeProfile":
       return {
-		resources: {
-			workflows: { chat: "general-chat" },
-			models: { primary: "model-default" },
-			voices: { assistant: "voice-default" },
-			tools: { weather: "weather-v2" },
-			pet_defs: { tragon: "petdef-tragon" },
-			game_defs: { dinodive: "game-dinodive" },
-			badge_defs: { "dinodive-master": "badge-dinodive-master" },
-		},
-		gameplay: { points: { initial_balance: 100 }, pet_pool: [{ pet_def: "tragon", weight: 100, adoption_cost: 10 }] },
+        resources: {
+          workflows: { chat: "general-chat" },
+          models: { primary: "model-default" },
+          voices: { assistant: "voice-default" },
+          tools: { weather: "weather-v2" },
+          pet_defs: { tragon: "petdef-tragon" },
+          game_defs: { dinodive: "game-dinodive" },
+          badge_defs: { "dinodive-master": "badge-dinodive-master" },
+        },
+        gameplay: { points: { initial_balance: 100 }, pet_pool: [{ pet_def: "tragon", weight: 100, adoption_cost: 10 }] },
+      };
+    case "RegistrationToken":
+      return {
+        firmware_name: "firmware-default",
+        runtime_profile_name: "runtime-profile-default",
       };
     case "PetDef":
       return {
@@ -659,12 +665,12 @@ function resourceSummary(kind: ResourceKind): string {
       return "Apply multiple resources in one request. The server rejects get/delete for ResourceList.";
     case "Tool":
       return "Admin-managed executable capability with typed input schema and builtin or device RPC execution.";
-	case "RuntimeProfile":
-	  return "Ordered server-managed resource access plus gameplay configuration for registered devices.";
-	case "RegistrationToken":
-	  return "Reusable registration credential mapped to one Firmware and one RuntimeProfile. The raw token is returned only when created.";
+    case "RuntimeProfile":
+      return "Ordered server-managed resource access plus gameplay configuration for registered devices.";
+    case "RegistrationToken":
+      return "Reusable registration credential mapped to one Firmware and one RuntimeProfile. The raw token is returned only when created.";
     case "PetDef":
-	  return "Admin-managed pet definition used by RuntimeProfile adoption pools.";
+      return "Admin-managed pet definition used by RuntimeProfile adoption pools.";
     case "BadgeDef":
       return "Admin-managed badge definition that peer badge progress references.";
     case "GameDef":

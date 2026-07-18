@@ -225,7 +225,7 @@ func TestSayHelp(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, want := range []string{"say --voice <voice-id> <text>", "--context", "--voice", "--timeout"} {
+	for _, want := range []string{"say --voice <voice-id> <text>", "--context", "--registration-token", "--voice", "--timeout"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("say help missing %q: %s", want, out)
 		}

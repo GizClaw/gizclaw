@@ -151,9 +151,8 @@ func newRunStatusCmd() *cobra.Command {
 }
 
 func newSayCmd() *cobra.Command {
-	var ctxName string
+	var opts connectRPCOptions
 	var voiceID string
-	var timeout time.Duration = 30 * time.Second
 
 	cmd := &cobra.Command{
 		Use:   "say --voice <voice-id> <text>",
@@ -171,27 +170,16 @@ func newSayCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, err := connectFromContext(ctxName)
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-
-			ctx, cancel := context.WithTimeout(context.Background(), timeout)
-			defer cancel()
-			resp, err := c.ServerRunSay(ctx, "server.run.say", rpcapi.ServerRunSayRequest{
-				Text:    strings.Join(args, " "),
-				VoiceId: stringPtr(strings.TrimSpace(voiceID)),
+			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
+				return c.ServerRunSay(ctx, "server.run.say", rpcapi.ServerRunSayRequest{
+					Text:    strings.Join(args, " "),
+					VoiceId: stringPtr(strings.TrimSpace(voiceID)),
+				})
 			})
-			if err != nil {
-				return err
-			}
-			return json.NewEncoder(cmd.OutOrStdout()).Encode(resp)
 		},
 	}
-	cmd.Flags().StringVar(&ctxName, "context", "", "context name (default: current)")
+	opts.addFlags(cmd)
 	cmd.Flags().StringVar(&voiceID, "voice", "", "voice id")
-	cmd.Flags().DurationVar(&timeout, "timeout", timeout, "say timeout")
 	return cmd
 }
 

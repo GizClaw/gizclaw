@@ -250,6 +250,12 @@ func TestConfigurationErrorsAndHelpers(t *testing.T) {
 	if _, err := s.AdminListFriendGroupMembers(ctx, "missing", rpcapi.FriendGroupMemberListRequest{}); !errors.Is(err, kv.ErrNotFound) {
 		t.Fatalf("AdminListFriendGroupMembers missing group error = %v, want kv.ErrNotFound", err)
 	}
+	if _, err := s.AdminPutFriendGroupMember(ctx, "missing", "peer-b", rpcapi.FriendGroupMemberRoleMember); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("AdminPutFriendGroupMember missing group error = %v, want kv.ErrNotFound", err)
+	}
+	if _, err := s.groupMember(ctx, "missing", "peer-b"); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("groupMember after rejected admin put error = %v, want kv.ErrNotFound", err)
+	}
 	if _, err := s.AdminPutFriendGroupMember(ctx, friendGroupID, "peer-b", rpcapi.FriendGroupMemberRole("observer")); err == nil {
 		t.Fatal("AdminPutFriendGroupMember invalid role error = nil")
 	}
