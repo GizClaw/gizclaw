@@ -104,6 +104,7 @@ func (o MixerOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream)
 		if err := tracks.consume(chunk); err != nil {
 			return err
 		}
+		pendingObserve = removeSupersededAudioEOS(pendingObserve, chunk)
 		tracks.removeDrainedPending()
 		if o.WaitForAudioDrain && (len(pendingObserve) > 0 || tracks.hasPending()) {
 			pendingObserve = append(pendingObserve, chunk)
@@ -119,4 +120,28 @@ func (o MixerOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream)
 			}
 		}
 	}
+}
+
+func removeSupersededAudioEOS(pending []*genx.MessageChunk, interrupt *genx.MessageChunk) []*genx.MessageChunk {
+	if interrupt == nil || interrupt.Ctrl == nil || !interrupt.IsEndOfStream() || interrupt.Ctrl.Error == "" {
+		return pending
+	}
+	mimeType, ok := interrupt.MIMEType()
+	if !ok || !isMixerAudioMIME(mimeType) {
+		return pending
+	}
+	kept := pending[:0]
+	for _, chunk := range pending {
+		if chunk == nil {
+			kept = append(kept, chunk)
+			continue
+		}
+		queuedMIME, queuedMIMEOK := chunk.MIMEType()
+		if chunk.Ctrl != nil && chunk.IsEndOfStream() && chunk.Ctrl.Error == "" &&
+			chunk.Ctrl.StreamID == interrupt.Ctrl.StreamID && queuedMIMEOK && queuedMIME == mimeType {
+			continue
+		}
+		kept = append(kept, chunk)
+	}
+	return kept
 }

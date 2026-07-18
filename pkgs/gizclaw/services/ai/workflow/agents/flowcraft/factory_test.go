@@ -1555,6 +1555,27 @@ func TestInterruptQueuedOutputDiscardsCompletedAssistantOnly(t *testing.T) {
 	}
 }
 
+func TestInterruptQueuedOutputSignalsConsumedAssistant(t *testing.T) {
+	a := &agent{}
+	output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 2)
+	epoch := a.setActiveOutput(output, "audio")
+	if !a.interruptQueuedOutput(output, "audio", epoch) {
+		t.Fatal("interruptQueuedOutput() = false")
+	}
+	if err := output.Done(genx.Usage{}); err != nil {
+		t.Fatalf("Done() error = %v", err)
+	}
+	chunks := drainChunks(t, output.Stream())
+	if len(chunks) != 2 {
+		t.Fatalf("chunks = %#v, want two interrupted EOS chunks", chunks)
+	}
+	for _, chunk := range chunks {
+		if chunk.Ctrl == nil || !chunk.Ctrl.EndOfStream || chunk.Ctrl.Error != interruptedError {
+			t.Fatalf("interrupted chunk = %#v", chunk)
+		}
+	}
+}
+
 func TestRealtimeInputInterruptsCurrent(t *testing.T) {
 	tests := []struct {
 		name    string

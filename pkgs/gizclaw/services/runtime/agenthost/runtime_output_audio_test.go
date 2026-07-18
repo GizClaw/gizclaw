@@ -247,13 +247,21 @@ func (s *blockingSliceStream) Next() (*genx.MessageChunk, error) {
 
 func TestMixerOutputConsumesInterruptWhilePreviousTrackDrains(t *testing.T) {
 	creator := newRecordingAudioTrackCreator()
+	var observed []*genx.MessageChunk
 	output := &notifyingSliceStream{sliceStream: sliceStream{chunks: []*genx.MessageChunk{
 		pcmOutputChunk("answer", "audio/pcm", []byte{1, 0}, true, ""),
 		pcmOutputChunk("answer", "audio/pcm", nil, true, "interrupted"),
 	}, doneErr: genx.ErrDone}, secondRead: make(chan struct{})}
 	done := make(chan error, 1)
 	go func() {
-		done <- (MixerOutput{Tracks: creator, WaitForAudioDrain: true}).ConsumeAgentOutput(t.Context(), output)
+		done <- (MixerOutput{
+			Tracks:            creator,
+			WaitForAudioDrain: true,
+			Observe: func(chunk *genx.MessageChunk) error {
+				observed = append(observed, chunk)
+				return nil
+			},
+		}).ConsumeAgentOutput(t.Context(), output)
 	}()
 	select {
 	case <-output.secondRead:
@@ -279,6 +287,31 @@ func TestMixerOutputConsumesInterruptWhilePreviousTrackDrains(t *testing.T) {
 		t.Fatalf("mixer.Close() error = %v", err)
 	}
 	<-readDone
+	if len(observed) != 1 || observed[0].Ctrl == nil || observed[0].Ctrl.Error != "interrupted" {
+		t.Fatalf("observed chunks = %#v, want only interrupted EOS", observed)
+	}
+}
+
+func TestAudioOutputTracksWaitCancellationKeepsPendingTrack(t *testing.T) {
+	creator := newRecordingAudioTrackCreator()
+	tracks := newAudioOutputTracks(creator)
+	if err := tracks.consume(pcmOutputChunk("answer", "audio/pcm", []byte{1, 0}, true, "")); err != nil {
+		t.Fatalf("consume() error = %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := tracks.waitPending(ctx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("waitPending() error = %v, want context canceled", err)
+	}
+	if !tracks.hasPending() {
+		t.Fatal("pending track was removed before it drained")
+	}
+	if err := tracks.closeWithError(ctx.Err()); err != nil {
+		t.Fatalf("closeWithError() error = %v", err)
+	}
+	if err := creator.tracks[0].Write(pcm.L16Mono16K.DataChunk([]byte{2, 0})); !errors.Is(err, context.Canceled) {
+		t.Fatalf("write after cancellation error = %v, want context canceled", err)
+	}
 }
 
 type notifyingSliceStream struct {

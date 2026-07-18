@@ -259,9 +259,9 @@ func (o *audioOutputTracks) hasPending() bool {
 func (o *audioOutputTracks) waitPending(ctx context.Context) error {
 	for len(o.pending) > 0 {
 		pending := o.pending[0]
-		o.pending = o.pending[1:]
 		select {
 		case <-pending.ctrl.Done():
+			o.pending = o.pending[1:]
 		case <-ctx.Done():
 			return ctx.Err()
 		}

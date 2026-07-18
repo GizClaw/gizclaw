@@ -1739,10 +1739,7 @@ func (a *agent) interruptQueuedOutput(output *genx.StreamBuilder, streamID strin
 		a.outputMu.Unlock()
 		return false
 	}
-	if a.discardAssistantOutput(output, streamID) == 0 {
-		a.outputMu.Unlock()
-		return false
-	}
+	a.discardAssistantOutput(output, streamID)
 	a.outputEpoch++
 	a.outputMu.Unlock()
 	return addInterruptedOutputEOS(output, streamID)
