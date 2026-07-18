@@ -6974,7 +6974,16 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./shared.json#/components/schemas/DeviceInfo"
+                "type": "object",
+                "description": "Writable peer profile fields.",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "emoji": {
+                    "type": "string"
+                  }
+                }
               }
             }
           }

@@ -150,18 +150,6 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 	if updatedInfo.Identifiers == nil || updatedInfo.Identifiers.Sn == nil || *updatedInfo.Identifiers.Sn != sn {
 		t.Fatalf("PutPeerInfo did not preserve identifiers = %+v", updatedInfo)
 	}
-	invalidHardware := &apitypes.HardwareInfo{Model: &updatedName}
-	putInfoResp, err = server.PutPeerInfo(ctx, adminhttp.PutPeerInfoRequestObject{
-		PublicKey: string(peerPublicKey),
-		Body:      &adminhttp.PutPeerInfoJSONRequestBody{Name: &updatedName, Hardware: invalidHardware},
-	})
-	if err != nil {
-		t.Fatalf("PutPeerInfo(injected hardware) error: %v", err)
-	}
-	if _, ok := putInfoResp.(adminhttp.PutPeerInfo400JSONResponse); !ok {
-		t.Fatalf("PutPeerInfo(injected hardware) response type = %T", putInfoResp)
-	}
-
 	resolveSNResp, err := server.FindPubKeyBySN(ctx, adminhttp.FindPubKeyBySNRequestObject{Sn: sn})
 	if err != nil {
 		t.Fatalf("FindPubKeyBySN error: %v", err)

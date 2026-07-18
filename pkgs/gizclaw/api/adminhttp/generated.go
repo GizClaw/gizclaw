@@ -1062,6 +1062,12 @@ type ListPeerGameResultsParams struct {
 	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// PutPeerInfoJSONBody defines parameters for PutPeerInfo.
+type PutPeerInfoJSONBody struct {
+	Emoji *string `json:"emoji,omitempty"`
+	Name  *string `json:"name,omitempty"`
+}
+
 // ListPeerPetsParams defines parameters for ListPeerPets.
 type ListPeerPetsParams struct {
 	// Cursor Opaque cursor returned by the previous list response
@@ -1351,7 +1357,7 @@ type PutPeerConfigJSONRequestBody = externalRef0.Configuration
 type CreatePeerFriendJSONRequestBody = AdminFriendCreateRequest
 
 // PutPeerInfoJSONRequestBody defines body for PutPeerInfo for application/json ContentType.
-type PutPeerInfoJSONRequestBody = externalRef0.DeviceInfo
+type PutPeerInfoJSONRequestBody PutPeerInfoJSONBody
 
 // CreatePetDefJSONRequestBody defines body for CreatePetDef for application/json ContentType.
 type CreatePetDefJSONRequestBody = PetDefUpsert

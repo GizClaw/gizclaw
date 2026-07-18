@@ -197,10 +197,7 @@ func (s *Server) PutPeerInfo(ctx context.Context, request adminhttp.PutPeerInfoR
 	if err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
-	info, err := toAdminDeviceInfo(*request.Body)
-	if err != nil {
-		return adminhttp.PutPeerInfo400JSONResponse(apitypes.NewErrorResponse("INVALID_DEVICE_INFO", err.Error())), nil
-	}
+	info := apitypes.DeviceInfo{Name: request.Body.Name, Emoji: request.Body.Emoji}
 	peer, err := s.putInfo(ctx, publicKey, info)
 	if errors.Is(err, ErrPeerNotFound) {
 		return adminhttp.PutPeerInfo404JSONResponse(apitypes.NewErrorResponse("PEER_NOT_FOUND", err.Error())), nil
