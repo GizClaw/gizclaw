@@ -191,9 +191,9 @@ func TestRawOpusDecoderAcceptsMaximumDurationPacket(t *testing.T) {
 func TestMixerOutputPublishesEOSAfterTrackDrain(t *testing.T) {
 	creator := newRecordingAudioTrackCreator()
 	observed := make(chan struct{})
-	output := &sliceStream{chunks: []*genx.MessageChunk{
+	output := &blockingSliceStream{sliceStream: sliceStream{chunks: []*genx.MessageChunk{
 		pcmOutputChunk("answer", "audio/pcm", []byte{1, 0}, true, ""),
-	}, doneErr: genx.ErrDone}
+	}, doneErr: genx.ErrDone}, release: make(chan struct{})}
 	done := make(chan error, 1)
 	go func() {
 		done <- (MixerOutput{
@@ -222,6 +222,7 @@ func TestMixerOutputPublishesEOSAfterTrackDrain(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("EOS was not observed after mixer drain")
 	}
+	close(output.release)
 	if err := creator.mixer.Close(); err != nil {
 		t.Fatalf("mixer.Close() error = %v", err)
 	}
@@ -229,6 +230,19 @@ func TestMixerOutputPublishesEOSAfterTrackDrain(t *testing.T) {
 	if err := <-done; err != nil {
 		t.Fatalf("ConsumeAgentOutput() error = %v", err)
 	}
+}
+
+type blockingSliceStream struct {
+	sliceStream
+	release chan struct{}
+}
+
+func (s *blockingSliceStream) Next() (*genx.MessageChunk, error) {
+	if len(s.chunks) > 0 {
+		return s.sliceStream.Next()
+	}
+	<-s.release
+	return nil, s.doneErr
 }
 
 func TestMixerOutputConsumesInterruptWhilePreviousTrackDrains(t *testing.T) {
@@ -246,8 +260,13 @@ func TestMixerOutputConsumesInterruptWhilePreviousTrackDrains(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("consumer stopped reading while the previous track drained")
 	}
-	buffer := make([]byte, creator.mixer.Output().BytesInDuration(20*time.Millisecond))
-	_, _ = creator.mixer.Read(buffer)
+	buffer := make([]byte, creator.mixer.Output().BytesInDuration(60*time.Millisecond))
+	readDone := make(chan struct{})
+	go func() {
+		defer close(readDone)
+		_, _ = creator.mixer.Read(buffer)
+		_, _ = creator.mixer.Read(buffer)
+	}()
 	select {
 	case err := <-done:
 		if err != nil {
@@ -256,6 +275,10 @@ func TestMixerOutputConsumesInterruptWhilePreviousTrackDrains(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("ConsumeAgentOutput() did not finish after interruption")
 	}
+	if err := creator.mixer.Close(); err != nil {
+		t.Fatalf("mixer.Close() error = %v", err)
+	}
+	<-readDone
 }
 
 type notifyingSliceStream struct {

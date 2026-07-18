@@ -24,6 +24,26 @@ func (o MixerOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream)
 		return fmt.Errorf("agenthost: output stream is required")
 	}
 	tracks := newAudioOutputTracks(o.Tracks)
+	type outputResult struct {
+		chunk *genx.MessageChunk
+		err   error
+	}
+	results := make(chan outputResult)
+	readCtx, cancelRead := context.WithCancel(ctx)
+	defer cancelRead()
+	go func() {
+		for {
+			chunk, err := output.Next()
+			select {
+			case results <- outputResult{chunk: chunk, err: err}:
+			case <-readCtx.Done():
+				return
+			}
+			if err != nil {
+				return
+			}
+		}
+	}()
 	var pendingObserve []*genx.MessageChunk
 	observe := func(chunks []*genx.MessageChunk) error {
 		if o.Observe == nil {
@@ -44,10 +64,26 @@ func (o MixerOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream)
 		retErr = tracks.closeWrite()
 	}()
 	for {
-		if err := ctx.Err(); err != nil {
-			return err
+		var pendingDone <-chan struct{}
+		if o.WaitForAudioDrain && len(pendingObserve) > 0 {
+			pendingDone = tracks.nextPendingDone()
 		}
-		chunk, err := output.Next()
+		var result outputResult
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-pendingDone:
+			tracks.removeDrainedPending()
+			if !tracks.hasPending() {
+				if err := observe(pendingObserve); err != nil {
+					return err
+				}
+				pendingObserve = nil
+			}
+			continue
+		case result = <-results:
+		}
+		chunk, err := result.chunk, result.err
 		if err != nil {
 			if IsStreamDone(err) {
 				if o.WaitForAudioDrain {
@@ -68,9 +104,10 @@ func (o MixerOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream)
 		if err := tracks.consume(chunk); err != nil {
 			return err
 		}
-		if o.WaitForAudioDrain && (len(pendingObserve) > 0 || !tracks.pendingDrained()) {
+		tracks.removeDrainedPending()
+		if o.WaitForAudioDrain && (len(pendingObserve) > 0 || tracks.hasPending()) {
 			pendingObserve = append(pendingObserve, chunk)
-			if tracks.pendingDrained() {
+			if !tracks.hasPending() {
 				if err := observe(pendingObserve); err != nil {
 					return err
 				}

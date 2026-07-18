@@ -234,16 +234,26 @@ func (o *audioOutputTracks) closePending(match func(audioOutputKey) bool, errorT
 	return errs
 }
 
-func (o *audioOutputTracks) pendingDrained() bool {
-	for _, pending := range o.pending {
+func (o *audioOutputTracks) nextPendingDone() <-chan struct{} {
+	if len(o.pending) == 0 {
+		return nil
+	}
+	return o.pending[0].ctrl.Done()
+}
+
+func (o *audioOutputTracks) removeDrainedPending() {
+	for len(o.pending) > 0 {
 		select {
-		case <-pending.ctrl.Done():
+		case <-o.pending[0].ctrl.Done():
+			o.pending = o.pending[1:]
 		default:
-			return false
+			return
 		}
 	}
-	o.pending = o.pending[:0]
-	return true
+}
+
+func (o *audioOutputTracks) hasPending() bool {
+	return len(o.pending) > 0
 }
 
 func (o *audioOutputTracks) waitPending(ctx context.Context) error {
