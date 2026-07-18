@@ -29,6 +29,11 @@ message DeviceInfo {
   optional DeviceIdentifiers identifiers = 5;
 }
 
+message DeviceProfile {
+  optional string name = 1;
+  optional string emoji = 2;
+}
+
 message DeviceIdentifiers {
   optional string sn = 1;
   repeated PeerIMEI imeis = 2;
@@ -97,7 +102,7 @@ message ServerGetStatusResponse {
 }
 
 message ServerPutInfoRequest {
-  DeviceInfo value = 1;
+  DeviceProfile value = 1;
 }
 
 message ServerPutInfoResponse {

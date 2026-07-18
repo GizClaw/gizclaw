@@ -693,7 +693,7 @@ class MobileDataController extends ChangeNotifier {
   }) async {
     final value = await runRpc(
       (client) => client.putServerInfo(
-        DeviceInfo(name: name.trim(), emoji: emoji.trim()),
+        DeviceProfile(name: name.trim(), emoji: emoji.trim()),
       ),
     );
     peerName = value.value.name;

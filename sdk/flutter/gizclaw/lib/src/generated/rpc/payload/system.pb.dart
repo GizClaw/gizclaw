@@ -310,6 +310,72 @@ class DeviceInfo extends $pb.GeneratedMessage {
   DeviceIdentifiers ensureIdentifiers() => $_ensure(3);
 }
 
+class DeviceProfile extends $pb.GeneratedMessage {
+  factory DeviceProfile({
+    $core.String? name,
+    $core.String? emoji,
+  }) {
+    final result = create();
+    if (name != null) result.name = name;
+    if (emoji != null) result.emoji = emoji;
+    return result;
+  }
+
+  DeviceProfile._();
+
+  factory DeviceProfile.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeviceProfile.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeviceProfile',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aOS(2, _omitFieldNames ? '' : 'emoji')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeviceProfile clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeviceProfile copyWith(void Function(DeviceProfile) updates) =>
+      super.copyWith((message) => updates(message as DeviceProfile))
+          as DeviceProfile;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeviceProfile create() => DeviceProfile._();
+  @$core.override
+  DeviceProfile createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeviceProfile getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeviceProfile>(create);
+  static DeviceProfile? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get emoji => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set emoji($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasEmoji() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearEmoji() => $_clearField(2);
+}
+
 class DeviceIdentifiers extends $pb.GeneratedMessage {
   factory DeviceIdentifiers({
     $core.String? sn,
@@ -1178,7 +1244,7 @@ class ServerGetStatusResponse extends $pb.GeneratedMessage {
 
 class ServerPutInfoRequest extends $pb.GeneratedMessage {
   factory ServerPutInfoRequest({
-    DeviceInfo? value,
+    DeviceProfile? value,
   }) {
     final result = create();
     if (value != null) result.value = value;
@@ -1198,8 +1264,8 @@ class ServerPutInfoRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ServerPutInfoRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOM<DeviceInfo>(1, _omitFieldNames ? '' : 'value',
-        subBuilder: DeviceInfo.create)
+    ..aOM<DeviceProfile>(1, _omitFieldNames ? '' : 'value',
+        subBuilder: DeviceProfile.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1222,15 +1288,15 @@ class ServerPutInfoRequest extends $pb.GeneratedMessage {
   static ServerPutInfoRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
-  DeviceInfo get value => $_getN(0);
+  DeviceProfile get value => $_getN(0);
   @$pb.TagNumber(1)
-  set value(DeviceInfo value) => $_setField(1, value);
+  set value(DeviceProfile value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasValue() => $_has(0);
   @$pb.TagNumber(1)
   void clearValue() => $_clearField(1);
   @$pb.TagNumber(1)
-  DeviceInfo ensureValue() => $_ensure(0);
+  DeviceProfile ensureValue() => $_ensure(0);
 }
 
 class ServerPutInfoResponse extends $pb.GeneratedMessage {

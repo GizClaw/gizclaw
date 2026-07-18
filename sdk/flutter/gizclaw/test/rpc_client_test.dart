@@ -54,7 +54,9 @@ void main() {
 
     final future = client.callUpload<payload.ServerPutInfoResponse>(
       'server.info.put',
-      payload.ServerPutInfoRequest(value: payload.DeviceInfo(name: 'mobile')),
+      payload.ServerPutInfoRequest(
+        value: payload.DeviceProfile(name: 'mobile'),
+      ),
       body,
     );
     await Future<void>.delayed(Duration.zero);

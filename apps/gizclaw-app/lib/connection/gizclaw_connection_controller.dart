@@ -508,7 +508,7 @@ Future<void> _defaultPublishClientInfo(
   final current = await client.getServerInfo();
   if (current.value.hasName() || current.value.hasEmoji()) return;
   await client.putServerInfo(
-    DeviceInfo(name: deviceInfo.hasName() ? deviceInfo.name : null),
+    DeviceProfile(name: deviceInfo.hasName() ? deviceInfo.name : null),
   );
 }
 

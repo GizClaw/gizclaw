@@ -76,7 +76,7 @@ class GizClawClient {
   }
 
   Future<payload.ServerPutInfoResponse> putServerInfo(
-    payload.DeviceInfo value,
+    payload.DeviceProfile value,
   ) {
     return rpc.call<payload.ServerPutInfoResponse>(
       'server.info.put',

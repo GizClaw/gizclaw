@@ -19,6 +19,13 @@ typedef struct _gizclaw_rpc_v1_ClientGetInfoRequest {
     char dummy_field;
 } gizclaw_rpc_v1_ClientGetInfoRequest;
 
+typedef struct _gizclaw_rpc_v1_DeviceProfile {
+    bool has_name;
+    char name[257];
+    bool has_emoji;
+    char emoji[65];
+} gizclaw_rpc_v1_DeviceProfile;
+
 typedef struct _gizclaw_rpc_v1_DeviceIdentifiers {
     pb_callback_t sn;
     pb_callback_t imeis;
@@ -128,7 +135,7 @@ typedef struct _gizclaw_rpc_v1_ServerGetStatusResponse {
 
 typedef struct _gizclaw_rpc_v1_ServerPutInfoRequest {
     bool has_value;
-    gizclaw_rpc_v1_DeviceInfo value;
+    gizclaw_rpc_v1_DeviceProfile value;
 } gizclaw_rpc_v1_ServerPutInfoRequest;
 
 typedef struct _gizclaw_rpc_v1_ServerPutInfoResponse {
@@ -157,6 +164,7 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientGetInfoRequest_init_default {0}
 #define gizclaw_rpc_v1_ClientGetInfoResponse_init_default {false, gizclaw_rpc_v1_HardwareInfo_init_default}
 #define gizclaw_rpc_v1_DeviceInfo_init_default   {false, gizclaw_rpc_v1_HardwareInfo_init_default, {{NULL}, NULL}, false, "", false, gizclaw_rpc_v1_DeviceIdentifiers_init_default}
+#define gizclaw_rpc_v1_DeviceProfile_init_default {false, "", false, ""}
 #define gizclaw_rpc_v1_DeviceIdentifiers_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_HardwareInfo_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerIMEI_init_default     {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
@@ -170,7 +178,7 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerGetInfoResponse_init_default {false, gizclaw_rpc_v1_DeviceInfo_init_default}
 #define gizclaw_rpc_v1_ServerGetStatusRequest_init_default {0}
 #define gizclaw_rpc_v1_ServerGetStatusResponse_init_default {false, gizclaw_rpc_v1_PeerStatus_init_default}
-#define gizclaw_rpc_v1_ServerPutInfoRequest_init_default {false, gizclaw_rpc_v1_DeviceInfo_init_default}
+#define gizclaw_rpc_v1_ServerPutInfoRequest_init_default {false, gizclaw_rpc_v1_DeviceProfile_init_default}
 #define gizclaw_rpc_v1_ServerPutInfoResponse_init_default {false, gizclaw_rpc_v1_DeviceInfo_init_default}
 #define gizclaw_rpc_v1_SpeedTestRequest_init_default {0, 0}
 #define gizclaw_rpc_v1_SpeedTestResponse_init_default {0, 0}
@@ -179,6 +187,7 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientGetInfoRequest_init_zero {0}
 #define gizclaw_rpc_v1_ClientGetInfoResponse_init_zero {false, gizclaw_rpc_v1_HardwareInfo_init_zero}
 #define gizclaw_rpc_v1_DeviceInfo_init_zero      {false, gizclaw_rpc_v1_HardwareInfo_init_zero, {{NULL}, NULL}, false, "", false, gizclaw_rpc_v1_DeviceIdentifiers_init_zero}
+#define gizclaw_rpc_v1_DeviceProfile_init_zero   {false, "", false, ""}
 #define gizclaw_rpc_v1_DeviceIdentifiers_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_HardwareInfo_init_zero    {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerIMEI_init_zero        {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
@@ -192,12 +201,14 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerGetInfoResponse_init_zero {false, gizclaw_rpc_v1_DeviceInfo_init_zero}
 #define gizclaw_rpc_v1_ServerGetStatusRequest_init_zero {0}
 #define gizclaw_rpc_v1_ServerGetStatusResponse_init_zero {false, gizclaw_rpc_v1_PeerStatus_init_zero}
-#define gizclaw_rpc_v1_ServerPutInfoRequest_init_zero {false, gizclaw_rpc_v1_DeviceInfo_init_zero}
+#define gizclaw_rpc_v1_ServerPutInfoRequest_init_zero {false, gizclaw_rpc_v1_DeviceProfile_init_zero}
 #define gizclaw_rpc_v1_ServerPutInfoResponse_init_zero {false, gizclaw_rpc_v1_DeviceInfo_init_zero}
 #define gizclaw_rpc_v1_SpeedTestRequest_init_zero {0, 0}
 #define gizclaw_rpc_v1_SpeedTestResponse_init_zero {0, 0}
 
 /* Field tags (for use in manual encoding/decoding) */
+#define gizclaw_rpc_v1_DeviceProfile_name_tag    1
+#define gizclaw_rpc_v1_DeviceProfile_emoji_tag   2
 #define gizclaw_rpc_v1_DeviceIdentifiers_sn_tag  1
 #define gizclaw_rpc_v1_DeviceIdentifiers_imeis_tag 2
 #define gizclaw_rpc_v1_DeviceIdentifiers_labels_tag 3
@@ -276,6 +287,12 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  identifiers,       5)
 #define gizclaw_rpc_v1_DeviceInfo_DEFAULT NULL
 #define gizclaw_rpc_v1_DeviceInfo_hardware_MSGTYPE gizclaw_rpc_v1_HardwareInfo
 #define gizclaw_rpc_v1_DeviceInfo_identifiers_MSGTYPE gizclaw_rpc_v1_DeviceIdentifiers
+
+#define gizclaw_rpc_v1_DeviceProfile_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, STRING,   name,              1) \
+X(a, STATIC,   OPTIONAL, STRING,   emoji,             2)
+#define gizclaw_rpc_v1_DeviceProfile_CALLBACK NULL
+#define gizclaw_rpc_v1_DeviceProfile_DEFAULT NULL
 
 #define gizclaw_rpc_v1_DeviceIdentifiers_FIELDLIST(X, a) \
 X(a, CALLBACK, OPTIONAL, STRING,   sn,                1) \
@@ -374,7 +391,7 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
 X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
 #define gizclaw_rpc_v1_ServerPutInfoRequest_CALLBACK NULL
 #define gizclaw_rpc_v1_ServerPutInfoRequest_DEFAULT NULL
-#define gizclaw_rpc_v1_ServerPutInfoRequest_value_MSGTYPE gizclaw_rpc_v1_DeviceInfo
+#define gizclaw_rpc_v1_ServerPutInfoRequest_value_MSGTYPE gizclaw_rpc_v1_DeviceProfile
 
 #define gizclaw_rpc_v1_ServerPutInfoResponse_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
@@ -399,6 +416,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ClientGetIdentifiersResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientGetInfoRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientGetInfoResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_DeviceInfo_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_DeviceProfile_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_DeviceIdentifiers_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_HardwareInfo_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PeerIMEI_msg;
@@ -423,6 +441,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_SpeedTestResponse_msg;
 #define gizclaw_rpc_v1_ClientGetInfoRequest_fields &gizclaw_rpc_v1_ClientGetInfoRequest_msg
 #define gizclaw_rpc_v1_ClientGetInfoResponse_fields &gizclaw_rpc_v1_ClientGetInfoResponse_msg
 #define gizclaw_rpc_v1_DeviceInfo_fields &gizclaw_rpc_v1_DeviceInfo_msg
+#define gizclaw_rpc_v1_DeviceProfile_fields &gizclaw_rpc_v1_DeviceProfile_msg
 #define gizclaw_rpc_v1_DeviceIdentifiers_fields &gizclaw_rpc_v1_DeviceIdentifiers_msg
 #define gizclaw_rpc_v1_HardwareInfo_fields &gizclaw_rpc_v1_HardwareInfo_msg
 #define gizclaw_rpc_v1_PeerIMEI_fields &gizclaw_rpc_v1_PeerIMEI_msg
@@ -454,15 +473,16 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_SpeedTestResponse_msg;
 /* gizclaw_rpc_v1_Runtime_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerGetInfoResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerGetStatusResponse_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ServerPutInfoRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerPutInfoResponse_size depends on runtime parameters */
-#define GIZCLAW_RPC_V1_PAYLOAD_SYSTEM_PB_H_MAX_SIZE gizclaw_rpc_v1_SpeedTestRequest_size
+#define GIZCLAW_RPC_V1_PAYLOAD_SYSTEM_PB_H_MAX_SIZE gizclaw_rpc_v1_ServerPutInfoRequest_size
 #define gizclaw_rpc_v1_ClientGetIdentifiersRequest_size 0
 #define gizclaw_rpc_v1_ClientGetInfoRequest_size 0
+#define gizclaw_rpc_v1_DeviceProfile_size        325
 #define gizclaw_rpc_v1_PingRequest_size          11
 #define gizclaw_rpc_v1_PingResponse_size         11
 #define gizclaw_rpc_v1_ServerGetInfoRequest_size 0
 #define gizclaw_rpc_v1_ServerGetStatusRequest_size 0
+#define gizclaw_rpc_v1_ServerPutInfoRequest_size 328
 #define gizclaw_rpc_v1_SpeedTestRequest_size     22
 #define gizclaw_rpc_v1_SpeedTestResponse_size    22
 

@@ -7,6 +7,8 @@ gizclaw.rpc.v1.WorkflowIconDownloadResponse.name max_size:256
 gizclaw.rpc.v1.WorkspaceIconDownloadRequest.name max_size:256
 gizclaw.rpc.v1.WorkspaceIconDownloadResponse.name max_size:256
 gizclaw.rpc.v1.DeviceInfo.emoji max_size:65
+gizclaw.rpc.v1.DeviceProfile.name max_size:257
+gizclaw.rpc.v1.DeviceProfile.emoji max_size:65
 gizclaw.rpc.v1.FriendInfo.name max_size:257
 gizclaw.rpc.v1.FriendInfo.emoji max_size:65
 gizclaw.rpc.v1.FriendInfoGetRequest.id max_size:256

@@ -17,7 +17,7 @@
         "$ref": "../shared/device_info.json#/components/schemas/DeviceInfo"
       },
       "ServerPutInfoRequest": {
-        "$ref": "../shared/device_info.json#/components/schemas/DeviceInfo"
+        "$ref": "../shared/device_info.json#/components/schemas/DeviceProfile"
       },
       "ServerPutInfoResponse": {
         "$ref": "../shared/device_info.json#/components/schemas/DeviceInfo"

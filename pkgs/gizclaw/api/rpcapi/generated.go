@@ -1327,6 +1327,12 @@ type DeviceInfo struct {
 	Name        *string            `json:"name,omitempty"`
 }
 
+// DeviceProfile defines model for DeviceProfile.
+type DeviceProfile struct {
+	Emoji *string `json:"emoji,omitempty"`
+	Name  *string `json:"name,omitempty"`
+}
+
 // DeviceIdentifiers defines model for DeviceIdentifiers.
 type DeviceIdentifiers struct {
 	Imeis  *[]PeerIMEI  `json:"imeis,omitempty"`
@@ -2911,7 +2917,7 @@ type ServerPointsTransactionListRequest = GameplayListRequest
 type ServerPointsTransactionListResponse = PointsTransactionListResponse
 
 // ServerPutInfoRequest defines model for ServerPutInfoRequest.
-type ServerPutInfoRequest = DeviceInfo
+type ServerPutInfoRequest = DeviceProfile
 
 // ServerPutInfoResponse defines model for ServerPutInfoResponse.
 type ServerPutInfoResponse = DeviceInfo

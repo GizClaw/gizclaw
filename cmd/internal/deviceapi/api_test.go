@@ -107,9 +107,6 @@ func TestSetName(t *testing.T) {
 		if req.Emoji == nil || *req.Emoji != emoji {
 			t.Fatalf("request emoji = %v", req.Emoji)
 		}
-		if req.Hardware != nil || req.Identifiers != nil {
-			t.Fatalf("request includes read-only metadata: %#v", req)
-		}
 		return &rpcapi.ServerPutInfoResponse{Name: req.Name, Emoji: req.Emoji}, nil
 	}
 	got, err := SetName(context.Background(), nil, newName)

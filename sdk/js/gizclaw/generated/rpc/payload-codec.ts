@@ -242,6 +242,10 @@ export type DeviceInfo = {
   "emoji"?: string;
   "identifiers"?: DeviceIdentifiers;
 };
+export type DeviceProfile = {
+  "name"?: string;
+  "emoji"?: string;
+};
 export type DoubaoRealtimeAIGCMetadata = {
   "content_producer"?: string;
   "content_propagator"?: string;
@@ -1151,7 +1155,7 @@ export type ServerPointsTransactionGetRequest = GameplayGetRequest;
 export type ServerPointsTransactionGetResponse = PointsTransaction;
 export type ServerPointsTransactionListRequest = GameplayListRequest;
 export type ServerPointsTransactionListResponse = PointsTransactionListResponse;
-export type ServerPutInfoRequest = DeviceInfo;
+export type ServerPutInfoRequest = DeviceProfile;
 export type ServerPutInfoResponse = DeviceInfo;
 export type ServerReloadRunRequest = Record<string, never>;
 export type ServerReloadRunResponse = PeerRunStatus;
@@ -2528,6 +2532,22 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 5,
         "optional": true,
         "type": "DeviceIdentifiers"
+      }
+    ]
+  },
+  "DeviceProfile": {
+    "fields": [
+      {
+        "name": "name",
+        "number": 1,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "emoji",
+        "number": 2,
+        "optional": true,
+        "type": "string"
       }
     ]
   },
@@ -6771,7 +6791,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "value",
         "number": 1,
-        "type": "DeviceInfo"
+        "type": "DeviceProfile"
       }
     ]
   },

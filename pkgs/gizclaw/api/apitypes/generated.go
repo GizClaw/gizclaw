@@ -1909,6 +1909,12 @@ type DeviceInfo struct {
 	Name        *string            `json:"name,omitempty"`
 }
 
+// DeviceProfile Writable device profile fields.
+type DeviceProfile struct {
+	Emoji *string `json:"emoji,omitempty"`
+	Name  *string `json:"name,omitempty"`
+}
+
 // DoubaoRealtimeAIGCMetadata defines model for DoubaoRealtimeAIGCMetadata.
 type DoubaoRealtimeAIGCMetadata struct {
 	ContentProducer   *string `json:"content_producer,omitempty"`

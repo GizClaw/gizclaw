@@ -6722,7 +6722,13 @@ export type GetPeerInfoResponses = {
 export type GetPeerInfoResponse = GetPeerInfoResponses[keyof GetPeerInfoResponses];
 
 export type PutPeerInfoData = {
-    body: DeviceInfo;
+    /**
+     * Writable peer profile fields.
+     */
+    body: {
+        name?: string;
+        emoji?: string;
+    };
     path: {
         /**
          * Peer public key

@@ -8,6 +8,18 @@
   "paths": {},
   "components": {
     "schemas": {
+      "DeviceProfile": {
+        "type": "object",
+        "description": "Writable device profile fields.",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "emoji": {
+            "type": "string"
+          }
+        }
+      },
       "DeviceInfo": {
         "type": "object",
         "properties": {

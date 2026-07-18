@@ -117,6 +117,24 @@ final $typed_data.Uint8List deviceInfoDescriptor = $convert.base64Decode(
     'RldmljZUlkZW50aWZpZXJzSANSC2lkZW50aWZpZXJziAEBQgsKCV9oYXJkd2FyZUIHCgVfbmFt'
     'ZUIICgZfZW1vamlCDgoMX2lkZW50aWZpZXJz');
 
+@$core.Deprecated('Use deviceProfileDescriptor instead')
+const DeviceProfile$json = {
+  '1': 'DeviceProfile',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'name', '17': true},
+    {'1': 'emoji', '3': 2, '4': 1, '5': 9, '9': 1, '10': 'emoji', '17': true},
+  ],
+  '8': [
+    {'1': '_name'},
+    {'1': '_emoji'},
+  ],
+};
+
+/// Descriptor for `DeviceProfile`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List deviceProfileDescriptor = $convert.base64Decode(
+    'Cg1EZXZpY2VQcm9maWxlEhcKBG5hbWUYASABKAlIAFIEbmFtZYgBARIZCgVlbW9qaRgCIAEoCU'
+    'gBUgVlbW9qaYgBAUIHCgVfbmFtZUIICgZfZW1vamk=');
+
 @$core.Deprecated('Use deviceIdentifiersDescriptor instead')
 const DeviceIdentifiers$json = {
   '1': 'DeviceIdentifiers',
@@ -494,7 +512,7 @@ const ServerPutInfoRequest$json = {
       '3': 1,
       '4': 1,
       '5': 11,
-      '6': '.gizclaw.rpc.v1.DeviceInfo',
+      '6': '.gizclaw.rpc.v1.DeviceProfile',
       '10': 'value'
     },
   ],
@@ -502,8 +520,8 @@ const ServerPutInfoRequest$json = {
 
 /// Descriptor for `ServerPutInfoRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List serverPutInfoRequestDescriptor = $convert.base64Decode(
-    'ChRTZXJ2ZXJQdXRJbmZvUmVxdWVzdBIwCgV2YWx1ZRgBIAEoCzIaLmdpemNsYXcucnBjLnYxLk'
-    'RldmljZUluZm9SBXZhbHVl');
+    'ChRTZXJ2ZXJQdXRJbmZvUmVxdWVzdBIzCgV2YWx1ZRgBIAEoCzIdLmdpemNsYXcucnBjLnYxLk'
+    'RldmljZVByb2ZpbGVSBXZhbHVl');
 
 @$core.Deprecated('Use serverPutInfoResponseDescriptor instead')
 const ServerPutInfoResponse$json = {

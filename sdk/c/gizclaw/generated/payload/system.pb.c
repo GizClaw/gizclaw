@@ -21,6 +21,9 @@ PB_BIND(gizclaw_rpc_v1_ClientGetInfoResponse, gizclaw_rpc_v1_ClientGetInfoRespon
 PB_BIND(gizclaw_rpc_v1_DeviceInfo, gizclaw_rpc_v1_DeviceInfo, 2)
 
 
+PB_BIND(gizclaw_rpc_v1_DeviceProfile, gizclaw_rpc_v1_DeviceProfile, 2)
+
+
 PB_BIND(gizclaw_rpc_v1_DeviceIdentifiers, gizclaw_rpc_v1_DeviceIdentifiers, AUTO)
 
 
