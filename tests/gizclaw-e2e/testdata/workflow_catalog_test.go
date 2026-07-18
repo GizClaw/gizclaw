@@ -218,7 +218,6 @@ func TestE2EServerConfigProvidesOwnerAssetStores(t *testing.T) {
 	}
 	wants := map[string]string{
 		"gameplay-assets":  "gameplay",
-		"peer-assets":      "peers",
 		"workspace-assets": "workspaces",
 		"workflow-assets":  "workflows",
 	}

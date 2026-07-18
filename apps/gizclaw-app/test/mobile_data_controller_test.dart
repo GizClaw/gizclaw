@@ -511,12 +511,16 @@ void main() {
             dataRepository: repository,
           )
           ..activeServerId = 'old-server'
+          ..peerName = 'Old peer'
+          ..peerEmoji = '👴'
           ..connectionState = MobileConnectionState.connected;
     addTearDown(controller.close);
 
     await controller.recoverTransport();
 
     expect(controller.activeServerId, 'new-server');
+    expect(controller.peerName, isEmpty);
+    expect(controller.peerEmoji, isEmpty);
     expect(repository.workflowWatchServerIds, ['new-server']);
     expect(repository.refreshServerIds, ['new-server']);
   });

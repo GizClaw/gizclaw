@@ -80,7 +80,6 @@ type Server struct {
 	BadgeDefStore                kv.Store
 	GameDefStore                 kv.Store
 	GameplayAssets               objectstore.ObjectStore
-	PeerAssets                   objectstore.ObjectStore
 	WorkspaceAssets              objectstore.ObjectStore
 	WorkflowAssets               objectstore.ObjectStore
 	GameplayDB                   *sqlx.DB

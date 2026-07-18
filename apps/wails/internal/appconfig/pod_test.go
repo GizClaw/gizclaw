@@ -115,7 +115,6 @@ func TestStoreLocalPodMaterializesPrivateProjection(t *testing.T) {
 		}
 	}
 	for name, prefix := range map[string]string{
-		"peer-assets":      "peers",
 		"workspace-assets": "workspaces",
 		"workflow-assets":  "workflows",
 	} {

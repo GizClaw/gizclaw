@@ -483,12 +483,13 @@ func (h *Harness) RegisterContext(name string, extraArgs ...string) Result {
 	if err != nil {
 		return Result{Args: append([]string{"register-context", name}, extraArgs...), Err: err, Stderr: err.Error()}
 	}
-	c, closeWait, err := h.connectClientFromContextWithCloseWait(name)
+	c, closeWait, err := h.connectClientFromContextWithDevice(name, info)
 	if err != nil {
 		return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
 	}
 	defer closeWait()
-	rpcReq, err := convertHarnessAPIType[rpcapi.ServerPutInfoRequest](info)
+	profile := apitypes.DeviceInfo{Name: info.Name, Emoji: info.Emoji}
+	rpcReq, err := convertHarnessAPIType[rpcapi.ServerPutInfoRequest](profile)
 	if err != nil {
 		return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
 	}
@@ -717,6 +718,10 @@ func (h *Harness) connectClientFromContext(name string) (*gizcli.Client, error) 
 }
 
 func (h *Harness) connectClientFromContextWithCloseWait(name string) (*gizcli.Client, func(), error) {
+	return h.connectClientFromContextWithDevice(name, apitypes.DeviceInfo{})
+}
+
+func (h *Harness) connectClientFromContextWithDevice(name string, device apitypes.DeviceInfo) (*gizcli.Client, func(), error) {
 	cfg, err := h.readContextConfig(name)
 	if err != nil {
 		return nil, nil, err
@@ -738,6 +743,7 @@ func (h *Harness) connectClientFromContextWithCloseWait(name string) (*gizcli.Cl
 	client := &gizcli.Client{
 		KeyPair:       keyPair,
 		DialTransport: e2eDialTransport(cfg),
+		Device:        device,
 	}
 	if err := client.Dial(serverInfo.PublicKey, cliContextDialAddr(cfg)); err != nil {
 		_ = client.Close()

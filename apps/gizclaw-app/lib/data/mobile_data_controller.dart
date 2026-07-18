@@ -486,6 +486,8 @@ class MobileDataController extends ChangeNotifier {
     }
     await _stopWatchingServer();
     activeServerId = null;
+    peerName = '';
+    peerEmoji = '';
     workflows = const [];
     workspaces = const [];
     chatroomWorkspaces = const [];
@@ -532,6 +534,10 @@ class MobileDataController extends ChangeNotifier {
 
   Future<void> _watchServer(String serverId) async {
     final generation = ++_serverWatchGeneration;
+    if (activeServerId != serverId) {
+      peerName = '';
+      peerEmoji = '';
+    }
     activeServerId = serverId;
     await _workflowSubscription?.cancel();
     await _workspaceSubscription?.cancel();

@@ -218,7 +218,7 @@ func TestNewWithLayeredStorageConfig(t *testing.T) {
 	if srv.ContactStore == nil || srv.FriendInviteTokenStore == nil || srv.FriendStore == nil || srv.FriendGroupStore == nil || srv.FriendGroupInviteTokenStore == nil || srv.FriendGroupMemberStore == nil || srv.FriendGroupMessageStore == nil || srv.FriendGroupMessageAssets == nil {
 		t.Fatalf("social stores not wired: %+v", srv.Server)
 	}
-	if srv.GameRulesetStore == nil || srv.PetDefStore == nil || srv.BadgeDefStore == nil || srv.GameDefStore == nil || srv.GameplayAssets == nil || srv.PeerAssets == nil || srv.WorkspaceAssets == nil || srv.WorkflowAssets == nil || srv.GameplayDB == nil {
+	if srv.GameRulesetStore == nil || srv.PetDefStore == nil || srv.BadgeDefStore == nil || srv.GameDefStore == nil || srv.GameplayAssets == nil || srv.WorkspaceAssets == nil || srv.WorkflowAssets == nil || srv.GameplayDB == nil {
 		t.Fatalf("gameplay stores not wired: %+v", srv.Server)
 	}
 	if srv.FriendGroupMessageDefaultTTL != 24*time.Hour || srv.FriendGroupMessageMaxTTL != 7*24*time.Hour || srv.FriendGroupMessageCleanup != 5*time.Minute || srv.FriendGroupMessageMaxBytes != 2097152 {
@@ -1027,7 +1027,6 @@ func validLayeredConfig(dir string) Config {
 			"badge-defs":                  {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "badge-defs"},
 			"game-defs":                   {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "game-defs"},
 			"gameplay-assets":             {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "gameplay"},
-			"peer-assets":                 {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "peers"},
 			"workspace-assets":            {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "workspaces"},
 			"workflow-assets":             {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "workflows"},
 			"gameplay-db":                 {Kind: stores.KindSQL, Storage: "gameplay-db"},

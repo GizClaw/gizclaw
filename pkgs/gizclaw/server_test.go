@@ -105,7 +105,6 @@ func TestServerInitKeepsLegacyPeerPrefixWithObjectStores(t *testing.T) {
 		name      string
 		configure func(*Server, objectstore.ObjectStore)
 	}{
-		{name: "peer", configure: func(server *Server, store objectstore.ObjectStore) { server.PeerAssets = store }},
 		{name: "workspace", configure: func(server *Server, store objectstore.ObjectStore) { server.WorkspaceAssets = store }},
 		{name: "workflow", configure: func(server *Server, store objectstore.ObjectStore) { server.WorkflowAssets = store }},
 	}
