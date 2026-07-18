@@ -435,13 +435,19 @@ func TestAgentTransformRunsMultipleTurns(t *testing.T) {
 		t.Fatalf("add first turn: %v", err)
 	}
 	var chunks []*genx.MessageChunk
-	for {
+	firstTextDone := false
+	firstAudioDone := false
+	for !firstTextDone || !firstAudioDone {
 		chunk := nextChunkWithTimeout(t, stream)
 		chunks = append(chunks, chunk)
-		if chunk.Ctrl != nil && chunk.Ctrl.StreamID == "audio-1" && chunk.Ctrl.Label == assistantLabel && chunk.Ctrl.EndOfStream {
-			if _, ok := chunk.Part.(*genx.Blob); ok {
-				break
-			}
+		if chunk.Ctrl == nil || chunk.Ctrl.StreamID != "audio-1" || chunk.Ctrl.Label != assistantLabel || !chunk.Ctrl.EndOfStream {
+			continue
+		}
+		switch chunk.Part.(type) {
+		case genx.Text:
+			firstTextDone = true
+		case *genx.Blob:
+			firstAudioDone = true
 		}
 	}
 	if err := input.Add(
