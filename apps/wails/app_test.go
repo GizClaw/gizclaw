@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/appconfig"
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/bridge"
@@ -24,6 +25,89 @@ func TestNewAppUsesConfiguredHome(t *testing.T) {
 	}
 	if app == nil || app.bridge == nil || app.bridge.Paths.ConfigRoot != root {
 		t.Fatalf("NewApp() = %#v", app)
+	}
+}
+
+func TestNewAppRecoversLocalServerFromWorkspacePID(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the test helper is a POSIX shell script")
+	}
+	paths := appconfig.NewPaths(t.TempDir())
+	seed, err := NewAppWithPaths(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed.bridge.Bootstrapper = nil
+	created, err := seed.CreatePod(bridge.PodInput{Version: 1, Name: "Recovered", LocalServer: &bridge.LocalServerInput{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	executable := filepath.Join(t.TempDir(), "gizclaw")
+	script := "#!/bin/sh\ntrap 'exit 0' INT TERM\nwhile :; do sleep 1; done\n"
+	if err := os.WriteFile(executable, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	seed.bridge.Local.Executable = executable
+	workspace := filepath.Join(paths.PodsDir, created.ID, "workspace")
+	started, err := seed.bridge.Local.Start(created.ID, workspace)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	restarted, err := NewAppWithPaths(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		restarted.bridge.Local.Shutdown(ctx)
+	})
+	recovered := restarted.bridge.Local.Status(created.ID)
+	if recovered.State != "running" || recovered.PID != started.PID {
+		t.Fatalf("recovered process = %+v, want PID %d", recovered, started.PID)
+	}
+}
+
+func TestNewAppStopsServerBeforeCleaningInterruptedPod(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the test helper is a POSIX shell script")
+	}
+	paths := appconfig.NewPaths(t.TempDir())
+	seed, err := NewAppWithPaths(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed.bridge.Bootstrapper = nil
+	created, err := seed.CreatePod(bridge.PodInput{Version: 1, Name: "Interrupted", LocalServer: &bridge.LocalServerInput{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := seed.bridge.Store.MarkInitializing(created.ID); err != nil {
+		t.Fatal(err)
+	}
+	executable := filepath.Join(t.TempDir(), "gizclaw")
+	script := "#!/bin/sh\ntrap 'exit 0' INT TERM\nwhile :; do sleep 1; done\n"
+	if err := os.WriteFile(executable, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	seed.bridge.Local.Executable = executable
+	if _, err := seed.bridge.Local.Start(created.ID, filepath.Join(paths.PodsDir, created.ID, "workspace")); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := NewAppWithPaths(paths); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(paths.PodsDir, created.ID)); !os.IsNotExist(err) {
+		t.Fatalf("interrupted Pod directory error = %v", err)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for seed.bridge.Local.Status(created.ID).State == "running" && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if status := seed.bridge.Local.Status(created.ID); status.State == "running" || status.PID != 0 {
+		t.Fatalf("interrupted local server = %+v", status)
 	}
 }
 

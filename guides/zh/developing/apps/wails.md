@@ -54,6 +54,14 @@ restart、Admin 和 Play 操作；delete 会先取消并等待后台任务。
 `failed` Pod。状态清除后的 Pod 不会在普通 start、restart 或 Desktop upgrade 时
 重新 apply。
 
+每个运行中的本地 Server 在自己的 `workspace/server.pid` 保存 PID，文件以 `0600`
+原子写入。正常停止、退出或 Desktop 的 Quit 会清除该文件；Desktop 异常退出时
+Server 与 PID 文件都保留。下次启动会扫描有效的本地 Pod，验证 PID 文件为普通文件
+且进程仍存活，然后恢复进程管理，不会因为已有 Server 占用端口而重新启动或终止它。
+失效 PID 会在恢复时清除，恢复的非子进程通过存活探测更新生命周期状态。若崩溃发生
+在 bootstrap 尚未完成时，Desktop 会先接管并停止该 Server，再按现有约定清理不完整
+Pod，避免删除 PID 文件后留下无法管理的进程。
+
 ## Pod 投影
 
 `pod.json` 是唯一可编辑的配置来源。每次保存后，`appconfig.Store` 原子更新：

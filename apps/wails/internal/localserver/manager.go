@@ -9,11 +9,16 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
-const EnvExecutable = "GIZCLAW_DESKTOP_SERVER_EXECUTABLE"
+const (
+	EnvExecutable = "GIZCLAW_DESKTOP_SERVER_EXECUTABLE"
+	PIDFile       = "server.pid"
+)
 
 type Status struct {
 	State string   `json:"state"`
@@ -23,11 +28,12 @@ type Status struct {
 }
 
 type process struct {
-	cmd   *exec.Cmd
-	logs  []string
-	err   string
-	done  chan struct{}
-	state string
+	process *os.Process
+	pidPath string
+	logs    []string
+	err     string
+	done    chan struct{}
+	state   string
 }
 
 type Manager struct {
@@ -49,8 +55,16 @@ func (m *Manager) Start(podID, workspace string) (Status, error) {
 		m.mu.Unlock()
 		return Status{}, errors.New("local server: manager is shutting down")
 	}
-	if current := m.processes[podID]; current != nil && current.state == "running" {
+	if current := m.processes[podID]; current != nil && (current.state == "running" || current.state == "stopping") {
 		status := snapshot(current)
+		m.mu.Unlock()
+		return status, nil
+	}
+	if recovered, err := m.recoverLocked(podID, workspace); err != nil {
+		m.mu.Unlock()
+		return Status{}, err
+	} else if recovered != nil {
+		status := snapshot(recovered)
 		m.mu.Unlock()
 		return status, nil
 	}
@@ -74,24 +88,48 @@ func (m *Manager) Start(podID, workspace string) (Status, error) {
 		m.mu.Unlock()
 		return Status{}, fmt.Errorf("local server: start: %w", err)
 	}
-	p := &process{cmd: cmd, done: make(chan struct{}), state: "running"}
+	pidPath := filepath.Join(workspace, PIDFile)
+	if err := writePID(pidPath, cmd.Process.Pid); err != nil {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		m.mu.Unlock()
+		return Status{}, err
+	}
+	p := &process{process: cmd.Process, pidPath: pidPath, done: make(chan struct{}), state: "running"}
 	m.processes[podID] = p
 	m.mu.Unlock()
 	go m.capture(p, stdout)
 	go m.capture(p, stderr)
 	go func() {
 		err := cmd.Wait()
-		m.mu.Lock()
-		if err != nil && p.state != "stopping" {
-			p.err = err.Error()
-			p.state = "failed"
-		} else {
-			p.state = "stopped"
-		}
-		close(p.done)
-		m.mu.Unlock()
+		m.finish(p, err)
 	}()
 	return m.Status(podID), nil
+}
+
+// Recover attaches the manager to a local Server recorded in its workspace.
+// Attached processes are polled because they are no longer children of the
+// current Desktop process and therefore cannot be waited on with exec.Cmd.
+func (m *Manager) Recover(podID, workspace string) (Status, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.closing {
+		return Status{}, errors.New("local server: manager is shutting down")
+	}
+	if current := m.processes[podID]; current != nil && (current.state == "running" || current.state == "stopping") {
+		return snapshot(current), nil
+	}
+	p, err := m.recoverLocked(podID, workspace)
+	if err != nil {
+		done := make(chan struct{})
+		close(done)
+		m.processes[podID] = &process{done: done, state: "failed", err: err.Error()}
+		return Status{}, err
+	}
+	if p == nil {
+		return Status{State: "stopped"}, nil
+	}
+	return snapshot(p), nil
 }
 
 // ExecutablePath returns the same companion binary used to run local Servers.
@@ -109,8 +147,8 @@ func (m *Manager) Stop(ctx context.Context, podID string) (Status, error) {
 	}
 	if p.state == "running" {
 		p.state = "stopping"
-		if err := p.cmd.Process.Signal(os.Interrupt); err != nil {
-			_ = p.cmd.Process.Kill()
+		if err := p.process.Signal(os.Interrupt); err != nil {
+			_ = p.process.Kill()
 		}
 	}
 	done := p.done
@@ -118,7 +156,7 @@ func (m *Manager) Stop(ctx context.Context, podID string) (Status, error) {
 	select {
 	case <-done:
 	case <-ctx.Done():
-		_ = p.cmd.Process.Kill()
+		_ = p.process.Kill()
 		<-done
 	}
 	return m.Status(podID), nil
@@ -150,8 +188,8 @@ func (m *Manager) Shutdown(ctx context.Context) {
 		}
 		if p.state == "running" {
 			p.state = "stopping"
-			if err := p.cmd.Process.Signal(os.Interrupt); err != nil {
-				_ = p.cmd.Process.Kill()
+			if err := p.process.Signal(os.Interrupt); err != nil {
+				_ = p.process.Kill()
 			}
 		}
 		processes = append(processes, p)
@@ -174,7 +212,7 @@ func (m *Manager) Shutdown(ctx context.Context) {
 		select {
 		case <-p.done:
 		default:
-			_ = p.cmd.Process.Kill()
+			_ = p.process.Kill()
 		}
 	}
 	<-done
@@ -190,6 +228,144 @@ func (m *Manager) capture(p *process, reader io.Reader) {
 		}
 		m.mu.Unlock()
 	}
+}
+
+func (m *Manager) recoverLocked(podID, workspace string) (*process, error) {
+	pidPath := filepath.Join(workspace, PIDFile)
+	pid, found, err := readPID(pidPath)
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, nil
+	}
+	osProcess, err := os.FindProcess(pid)
+	if err != nil || !processRunning(osProcess) {
+		if osProcess != nil {
+			_ = osProcess.Release()
+		}
+		if removeErr := removePIDIfMatches(pidPath, pid); removeErr != nil {
+			return nil, removeErr
+		}
+		return nil, nil
+	}
+	p := &process{process: osProcess, pidPath: pidPath, done: make(chan struct{}), state: "running"}
+	m.processes[podID] = p
+	go m.monitorAttached(p)
+	return p, nil
+}
+
+func (m *Manager) monitorAttached(p *process) {
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	for range ticker.C {
+		if processRunning(p.process) {
+			continue
+		}
+		m.finish(p, nil)
+		_ = p.process.Release()
+		return
+	}
+}
+
+func (m *Manager) finish(p *process, waitErr error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if waitErr != nil && p.state != "stopping" {
+		p.err = waitErr.Error()
+		p.state = "failed"
+	} else {
+		p.state = "stopped"
+	}
+	if err := removePIDIfMatches(p.pidPath, p.process.Pid); err != nil && p.err == "" {
+		p.err = err.Error()
+		p.state = "failed"
+	}
+	close(p.done)
+}
+
+func readPID(path string) (int, bool, error) {
+	info, err := os.Lstat(path)
+	if os.IsNotExist(err) {
+		return 0, false, nil
+	}
+	if err != nil {
+		return 0, false, fmt.Errorf("local server: inspect PID file: %w", err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+		return 0, false, errors.New("local server: PID file must be a regular file")
+	}
+	if info.Size() > 32 {
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			return 0, false, fmt.Errorf("local server: remove invalid PID file: %w", err)
+		}
+		return 0, false, nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0, false, fmt.Errorf("local server: read PID file: %w", err)
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err == nil && pid > 0 {
+		return pid, true, nil
+	}
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return 0, false, fmt.Errorf("local server: remove invalid PID file: %w", err)
+	}
+	return 0, false, nil
+}
+
+func writePID(path string, pid int) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return fmt.Errorf("local server: create PID directory: %w", err)
+	}
+	info, err := os.Lstat(dir)
+	if err != nil {
+		return fmt.Errorf("local server: inspect PID directory: %w", err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+		return errors.New("local server: PID directory must be a directory")
+	}
+	tmp, err := os.CreateTemp(dir, ".server.pid-*")
+	if err != nil {
+		return fmt.Errorf("local server: create PID file: %w", err)
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+	if err := tmp.Chmod(0o600); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("local server: secure PID file: %w", err)
+	}
+	if _, err := fmt.Fprintf(tmp, "%d\n", pid); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("local server: write PID file: %w", err)
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("local server: sync PID file: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("local server: close PID file: %w", err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		return fmt.Errorf("local server: publish PID file: %w", err)
+	}
+	return nil
+}
+
+func removePIDIfMatches(path string, pid int) error {
+	if path == "" {
+		return nil
+	}
+	current, found, err := readPID(path)
+	if err != nil || !found || current != pid {
+		return err
+	}
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("local server: remove PID file: %w", err)
+	}
+	return nil
 }
 
 func (m *Manager) resolveExecutable() (string, error) {
@@ -219,8 +395,8 @@ func (m *Manager) resolveExecutable() (string, error) {
 
 func snapshot(p *process) Status {
 	status := Status{State: p.state, Error: p.err, Logs: append([]string(nil), p.logs...)}
-	if p.cmd != nil && p.cmd.Process != nil && p.state == "running" {
-		status.PID = p.cmd.Process.Pid
+	if p.process != nil && (p.state == "running" || p.state == "stopping") {
+		status.PID = p.process.Pid
 	}
 	return status
 }

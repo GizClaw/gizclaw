@@ -156,6 +156,23 @@ func (b *PodBridge) Bootstrap(ctx context.Context) (BootstrapState, error) {
 	return BootstrapState{Pods: pods, BootstrapEnvironment: environment}, nil
 }
 
+// RecoverLocalServers attaches process management to local Servers that
+// survived a previous Desktop process. Invalid Pod manifests remain visible
+// through ListPods and do not prevent recovery of other Pods.
+func (b *PodBridge) RecoverLocalServers() error {
+	entries, err := b.Store.Entries()
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if entry.Err != nil || entry.Pod.LocalServer == nil {
+			continue
+		}
+		_, _ = b.Local.Recover(entry.Pod.ID, filepath.Join(b.Paths.PodsDir, entry.Pod.ID, "workspace"))
+	}
+	return nil
+}
+
 func (b *PodBridge) GetBootstrapEnvironment(context.Context) (BootstrapEnvironmentState, error) {
 	state, _, err := b.bootstrapEnvironmentState()
 	return state, err
@@ -615,12 +632,18 @@ func (b *PodBridge) StartLocal(_ context.Context, id string) (PodSummary, error)
 	if err := b.Store.Save(pod); err != nil {
 		return PodSummary{}, fmt.Errorf("desktop bridge: refresh local workspace: %w", err)
 	}
+	workspace := filepath.Join(b.Paths.PodsDir, id, "workspace")
+	if b.Local.Status(id).State != "running" {
+		if _, err := b.Local.Recover(id, workspace); err != nil {
+			return PodSummary{}, err
+		}
+	}
 	if b.Local.Status(id).State != "running" {
 		if listenErr := appconfig.CheckPortAvailable(pod.LocalServer.Port); listenErr != nil {
 			return PodSummary{}, fmt.Errorf("desktop bridge: local server port %d is already in use", pod.LocalServer.Port)
 		}
 	}
-	if _, err := b.Local.Start(id, filepath.Join(b.Paths.PodsDir, id, "workspace")); err != nil {
+	if _, err := b.Local.Start(id, workspace); err != nil {
 		return PodSummary{}, err
 	}
 	return b.summary(pod), nil
