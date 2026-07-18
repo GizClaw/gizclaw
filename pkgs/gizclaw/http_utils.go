@@ -62,30 +62,48 @@ func writeFiberSessionError(ctx *fiber.Ctx, err error) {
 }
 
 func authenticatePrimaryHTTPSession(w http.ResponseWriter, r *http.Request, sessions *publiclogin.SessionManager) (giznet.PublicKey, bool) {
-	principal, err := sessions.AuthenticateHeadersPrincipal(r.Header.Get("Authorization"), r.Header.Get(publiclogin.PublicKeyHeader))
+	authenticated, ok := authenticatePrimaryHTTPSessionState(w, r, sessions)
+	return authenticated.PublicKey, ok
+}
+
+func authenticateHTTPSession(w http.ResponseWriter, r *http.Request, sessions *publiclogin.SessionManager) (giznet.PublicKey, bool) {
+	authenticated, ok := authenticateHTTPSessionState(w, r, sessions)
+	return authenticated.PublicKey, ok
+}
+
+func authenticateHTTPSessionState(w http.ResponseWriter, r *http.Request, sessions *publiclogin.SessionManager) (publiclogin.AuthenticatedSession, bool) {
+	authenticated, err := sessions.AuthenticateHeadersSession(r.Header.Get("Authorization"), r.Header.Get(publiclogin.PublicKeyHeader))
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
 		if errors.Is(err, publiclogin.ErrPublicKeyMismatch) {
 			_, _ = io.WriteString(w, `{"error":{"code":"PUBLIC_KEY_MISMATCH","message":"x-public-key does not match bearer session"}}`)
-			return giznet.PublicKey{}, false
+			return publiclogin.AuthenticatedSession{}, false
 		}
 		_, _ = io.WriteString(w, `{"error":{"code":"INVALID_SESSION","message":"missing or invalid bearer session"}}`)
-		return giznet.PublicKey{}, false
+		return publiclogin.AuthenticatedSession{}, false
 	}
-	if principal.Kind != publiclogin.SessionKindPrimary {
+	return authenticated, true
+}
+
+func authenticatePrimaryHTTPSessionState(w http.ResponseWriter, r *http.Request, sessions *publiclogin.SessionManager) (publiclogin.AuthenticatedSession, bool) {
+	authenticated, ok := authenticateHTTPSessionState(w, r, sessions)
+	if !ok {
+		return publiclogin.AuthenticatedSession{}, false
+	}
+	if authenticated.Kind != publiclogin.SessionKindPrimary {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = io.WriteString(w, `{"error":{"code":"PRIMARY_SESSION_REQUIRED","message":"primary session required"}}`)
-		return giznet.PublicKey{}, false
+		return publiclogin.AuthenticatedSession{}, false
 	}
-	return principal.PublicKey, true
+	return authenticated, true
 }
 
 func setPublicHTTPCORSHeaders(header http.Header) {
 	header.Set("Access-Control-Allow-Origin", "*")
 	header.Set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
-	header.Set("Access-Control-Allow-Headers", "Authorization,Content-Type,X-Public-Key,X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp,X-Request-ID")
+	header.Set("Access-Control-Allow-Headers", "Authorization,Content-Type,X-Public-Key,X-Registration-Token,X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp,X-Request-ID")
 	header.Set("Access-Control-Expose-Headers", "Content-Length,Content-Type,X-Request-ID")
 }
 

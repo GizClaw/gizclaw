@@ -50,6 +50,8 @@ typedef ConnectGizClawWebRtc =
     });
 typedef PublishGizClawClientInfo =
     Future<void> Function(GizClawClient client, DeviceInfo deviceInfo);
+typedef RegisterGizClawServer =
+    Future<void> Function(GizClawClient client, String token);
 typedef SetMicrophoneSending = Future<void> Function(bool active);
 typedef ConfigureMicrophoneSending =
     Future<SetMicrophoneSending> Function(
@@ -62,26 +64,33 @@ class GizClawConnectionProfile {
     required this.endpoint,
     required this.clientPrivateKey,
     this.clientPublicKey,
+    this.registrationToken = '',
   });
 
   factory GizClawConnectionProfile.fromEnvironment() {
     return const GizClawConnectionProfile(
       endpoint: String.fromEnvironment('GIZCLAW_ENDPOINT'),
       clientPrivateKey: String.fromEnvironment('GIZCLAW_PRIVATE_KEY'),
+      registrationToken: String.fromEnvironment('GIZCLAW_REGISTRATION_TOKEN'),
     );
   }
 
   final String endpoint;
   final String clientPrivateKey;
   final String? clientPublicKey;
+  final String registrationToken;
 
   bool get isConfigured => endpoint.isNotEmpty && clientPrivateKey.isNotEmpty;
 
-  GizClawConnectionProfile copyWith({String? endpoint}) {
+  GizClawConnectionProfile copyWith({
+    String? endpoint,
+    String? registrationToken,
+  }) {
     return GizClawConnectionProfile(
       endpoint: endpoint ?? this.endpoint,
       clientPrivateKey: clientPrivateKey,
       clientPublicKey: clientPublicKey,
+      registrationToken: registrationToken ?? this.registrationToken,
     );
   }
 }
@@ -94,6 +103,7 @@ class GizClawConnectionController extends ChangeNotifier {
     DeviceInfo? deviceInfo,
     FetchGizClawServerInfo? fetchServerInfo,
     PublishGizClawClientInfo? publishClientInfo,
+    RegisterGizClawServer? registerServer,
     ConfigureMicrophoneSending? configureMicrophoneSending,
   }) : _acquireMicrophoneStream =
            acquireMicrophoneStream ?? _defaultAcquireMicrophoneStream,
@@ -103,7 +113,8 @@ class GizClawConnectionController extends ChangeNotifier {
        _deviceInfo = deviceInfo ?? DeviceInfo(name: 'GizClaw App'),
        _fetchServerInfo = fetchServerInfo ?? _defaultFetchServerInfo,
        _profile = profile,
-       _publishClientInfo = publishClientInfo ?? _defaultPublishClientInfo;
+       _publishClientInfo = publishClientInfo ?? _defaultPublishClientInfo,
+       _registerServer = registerServer ?? _defaultRegisterServer;
 
   GizClawConnectionProfile _profile;
   final AcquireMicrophoneStream _acquireMicrophoneStream;
@@ -112,6 +123,7 @@ class GizClawConnectionController extends ChangeNotifier {
   final DeviceInfo _deviceInfo;
   final FetchGizClawServerInfo _fetchServerInfo;
   final PublishGizClawClientInfo _publishClientInfo;
+  final RegisterGizClawServer _registerServer;
 
   rtc.RTCPeerConnection? _peerConnection;
   rtc.RTCPeerConnection? _pendingPeerConnection;
@@ -238,6 +250,10 @@ class GizClawConnectionController extends ChangeNotifier {
         peerConnection,
       );
       final client = GizClawClient(dataChannelFactory);
+      final registrationToken = activeProfile.registrationToken.trim();
+      if (registrationToken.isNotEmpty) {
+        await _registerServer(client, registrationToken);
+      }
       await _publishClientInfo(client, _deviceInfo);
       _ensureCurrentProfile(connectionRevision, activeProfile);
       _pendingPeerConnection = null;
@@ -304,7 +320,8 @@ class GizClawConnectionController extends ChangeNotifier {
 
   Future<void> updateProfile(GizClawConnectionProfile profile) async {
     if (profile.endpoint == _profile.endpoint &&
-        profile.clientPrivateKey == _profile.clientPrivateKey) {
+        profile.clientPrivateKey == _profile.clientPrivateKey &&
+        profile.registrationToken == _profile.registrationToken) {
       return;
     }
     _profile = profile;
@@ -415,6 +432,10 @@ class GizClawConnectionController extends ChangeNotifier {
     unawaited(close());
     super.dispose();
   }
+}
+
+Future<void> _defaultRegisterServer(GizClawClient client, String token) async {
+  await client.register(token);
 }
 
 Future<rtc.MediaStream> _defaultAcquireMicrophoneStream() =>

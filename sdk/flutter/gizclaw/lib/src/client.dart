@@ -68,6 +68,13 @@ class GizClawClient {
   final ServiceHttpClient peerOpenAi;
   final PeerRpcClient rpc;
 
+  Future<payload.ServerRegisterResponse> register(String token) {
+    return rpc.call<payload.ServerRegisterResponse>(
+      'server.register',
+      payload.ServerRegisterRequest(token: token),
+    );
+  }
+
   Future<payload.ServerGetInfoResponse> getServerInfo() {
     return rpc.call<payload.ServerGetInfoResponse>(
       'server.info.get',

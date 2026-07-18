@@ -105,6 +105,9 @@ class MobileDataController extends ChangeNotifier {
          _mergeServers(
            servers ?? const [],
            profile?.endpoint ?? connectionController?.profile.endpoint ?? '',
+           profile?.registrationToken ??
+               connectionController?.profile.registrationToken ??
+               '',
          ),
        ) {
     repository = dataRepository ?? MobileDataRepository(this.database);
@@ -412,21 +415,27 @@ class MobileDataController extends ChangeNotifier {
 
   Future<void> updateServerEndpoint(String endpoint) async {
     final normalized = _normalizeRequiredServerEndpoint(endpoint);
+    GizClawServer? selected;
+    for (final server in _servers) {
+      if (server.accessPoint == normalized) selected = server;
+    }
     if (!_servers.any((server) => server.accessPoint == normalized)) {
+      selected = GizClawServer(name: normalized, accessPoint: normalized);
       final nextServers = List<GizClawServer>.unmodifiable([
         ..._servers,
-        GizClawServer(name: normalized, accessPoint: normalized),
+        selected,
       ]);
       await identityStore?.saveCustomServers(nextServers);
       _servers = nextServers;
       notifyListeners();
     }
-    await _activateServerEndpoint(normalized);
+    await _activateServer(selected!);
   }
 
   Future<void> addServer({
     required String name,
     required String accessPoint,
+    String registrationToken = '',
   }) async {
     final normalizedName = name.trim();
     if (normalizedName.isEmpty) {
@@ -439,26 +448,46 @@ class MobileDataController extends ChangeNotifier {
     final server = GizClawServer(
       name: normalizedName,
       accessPoint: normalizedEndpoint,
+      registrationToken: registrationToken.trim(),
     );
     final nextServers = List<GizClawServer>.unmodifiable([..._servers, server]);
     await identityStore?.saveCustomServers(nextServers);
     _servers = nextServers;
     notifyListeners();
-    await _activateServerEndpoint(normalizedEndpoint);
+    await _activateServer(server);
   }
 
   Future<void> addOrSelectServer({
     required String name,
     required String accessPoint,
+    String registrationToken = '',
   }) async {
     final normalizedEndpoint = _normalizeRequiredServerEndpoint(accessPoint);
-    for (final server in _servers) {
+    for (var index = 0; index < _servers.length; index += 1) {
+      var server = _servers[index];
       if (server.accessPoint == normalizedEndpoint) {
+        final token = registrationToken.trim();
+        if (token.isNotEmpty && token != server.registrationToken) {
+          server = GizClawServer(
+            name: server.name,
+            accessPoint: server.accessPoint,
+            registrationToken: token,
+          );
+          final nextServers = [..._servers];
+          nextServers[index] = server;
+          await identityStore?.saveCustomServers(nextServers);
+          _servers = List.unmodifiable(nextServers);
+          notifyListeners();
+        }
         await selectServer(server);
         return;
       }
     }
-    await addServer(name: name, accessPoint: normalizedEndpoint);
+    await addServer(
+      name: name,
+      accessPoint: normalizedEndpoint,
+      registrationToken: registrationToken,
+    );
   }
 
   Future<void> selectServer(GizClawServer server) async {
@@ -467,19 +496,26 @@ class MobileDataController extends ChangeNotifier {
     )) {
       throw ArgumentError.value(server.accessPoint, 'server', 'Unknown server');
     }
-    await _activateServerEndpoint(server.accessPoint);
+    await _activateServer(server);
   }
 
-  Future<void> _activateServerEndpoint(String endpoint) async {
-    final normalized = _normalizeRequiredServerEndpoint(endpoint);
-    if (normalized == connection.profile.endpoint) return;
+  Future<void> _activateServer(GizClawServer server) async {
+    final normalized = _normalizeRequiredServerEndpoint(server.accessPoint);
+    final registrationToken = server.registrationToken.trim();
+    if (normalized == connection.profile.endpoint &&
+        registrationToken == connection.profile.registrationToken) {
+      return;
+    }
     _startGeneration += 1;
     await identityStore?.saveEndpoint(normalized);
     _updatingConnectionProfile = true;
     try {
       await _replaceActiveWorkspaceChat(null);
       await connection.updateProfile(
-        connection.profile.copyWith(endpoint: normalized),
+        connection.profile.copyWith(
+          endpoint: normalized,
+          registrationToken: registrationToken,
+        ),
       );
     } finally {
       _updatingConnectionProfile = false;
@@ -1627,19 +1663,40 @@ Future<T> runRpcWithTransportRecovery<T, Transport>({
 List<GizClawServer> _mergeServers(
   List<GizClawServer> servers,
   String activeEndpoint,
+  String activeRegistrationToken,
 ) {
   final merged = <GizClawServer>[];
   final endpoints = <String>{};
+  final trimmedActiveEndpoint = activeEndpoint.trim();
+  final normalizedActiveEndpoint = trimmedActiveEndpoint.isEmpty
+      ? ''
+      : normalizeGizClawEndpoint(trimmedActiveEndpoint);
   for (final server in servers) {
     final endpoint = normalizeGizClawEndpoint(server.accessPoint);
     if (endpoint.isEmpty || !endpoints.add(endpoint)) continue;
-    merged.add(GizClawServer(name: server.name.trim(), accessPoint: endpoint));
+    final registrationToken = server.registrationToken.trim().isNotEmpty
+        ? server.registrationToken.trim()
+        : endpoint == normalizedActiveEndpoint
+        ? activeRegistrationToken.trim()
+        : '';
+    merged.add(
+      GizClawServer(
+        name: server.name.trim(),
+        accessPoint: endpoint,
+        registrationToken: registrationToken,
+      ),
+    );
   }
-  final trimmedActiveEndpoint = activeEndpoint.trim();
   if (trimmedActiveEndpoint.isNotEmpty) {
-    final endpoint = normalizeGizClawEndpoint(trimmedActiveEndpoint);
+    final endpoint = normalizedActiveEndpoint;
     if (endpoints.add(endpoint)) {
-      merged.add(GizClawServer(name: endpoint, accessPoint: endpoint));
+      merged.add(
+        GizClawServer(
+          name: endpoint,
+          accessPoint: endpoint,
+          registrationToken: activeRegistrationToken.trim(),
+        ),
+      );
     }
   }
   return merged;

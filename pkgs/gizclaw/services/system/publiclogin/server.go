@@ -10,12 +10,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -29,7 +31,8 @@ const (
 	maxLoginAssertionTTL    = 5 * time.Minute
 	loginAssertionClockSkew = time.Minute
 
-	PublicKeyHeader = "X-Public-Key"
+	PublicKeyHeader         = "X-Public-Key"
+	RegistrationTokenHeader = "X-Registration-Token"
 )
 
 var (
@@ -61,11 +64,14 @@ type PeerHTTP interface {
 
 type SessionAuthorizer func(context.Context, giznet.PublicKey) error
 
+type RegistrationResolver func(context.Context, string) (runtimeprofile.Registration, error)
+
 type Server struct {
 	KeyPair *giznet.KeyPair
 	Store   kv.Store
 
-	SessionAuthorizer SessionAuthorizer
+	SessionAuthorizer    SessionAuthorizer
+	RegistrationResolver RegistrationResolver
 
 	mu       sync.Mutex
 	sessions *SessionManager
@@ -113,17 +119,36 @@ func (s *Server) login(ctx context.Context, request peerhttp.LoginRequestObject,
 	if assertion == "" {
 		return peerhttp.Login401JSONResponse(apitypes.NewErrorResponse("MISSING_ASSERTION", "missing bearer assertion")), nil
 	}
+	var registration *runtimeprofile.Registration
 	var result peerhttp.LoginResult
 	var err error
-	if request.Body == nil || isBodylessLogin(ctx) {
-		result, err = s.SessionManager().login(ctx, s.KeyPair, publicKey, assertion, authorizer)
-	} else if request.Body.GrantType == peerhttp.SideControl && strings.TrimSpace(request.Body.DeviceToken) != "" {
+	switch {
+	case request.Body == nil || isBodylessLogin(ctx):
+		if request.Params.XRegistrationToken != nil {
+			rawToken := strings.TrimSpace(*request.Params.XRegistrationToken)
+			if rawToken != "" {
+				if s.RegistrationResolver == nil {
+					return peerhttp.Login401JSONResponse(apitypes.NewErrorResponse("UNSUPPORTED_REGISTRATION", "registration is not configured")), nil
+				}
+				resolved, resolveErr := s.RegistrationResolver(ctx, rawToken)
+				if resolveErr != nil {
+					slog.WarnContext(ctx, "public HTTP registration rejected", "peer_public_key", publicKey.String(), "error", resolveErr)
+					return peerhttp.Login401JSONResponse(apitypes.NewErrorResponse("INVALID_REGISTRATION_TOKEN", "registration token is invalid")), nil
+				}
+				registration = &resolved
+			}
+		}
+		result, err = s.SessionManager().loginWithRegistration(ctx, s.KeyPair, publicKey, assertion, authorizer, registration)
+	case request.Body.GrantType == peerhttp.SideControl && strings.TrimSpace(request.Body.DeviceToken) != "" && request.Params.XRegistrationToken == nil:
 		result, err = s.SessionManager().loginSideControl(ctx, s.KeyPair, publicKey, assertion, request.Body.DeviceToken)
-	} else {
+	default:
 		return peerhttp.Login401JSONResponse(apitypes.NewErrorResponse("INVALID_GRANT", "unsupported login grant")), nil
 	}
 	if err != nil {
 		return peerhttp.Login401JSONResponse(apitypes.NewErrorResponse("INVALID_ASSERTION", err.Error())), nil
+	}
+	if registration != nil {
+		slog.InfoContext(ctx, "public HTTP registration accepted", "peer_public_key", publicKey.String(), "registration_token", registration.TokenName, "firmware", registration.FirmwareName, "runtime_profile", registration.RuntimeProfile.Name)
 	}
 	return peerhttp.Login200JSONResponse(result), nil
 }
@@ -136,12 +161,18 @@ type SessionManager struct {
 }
 
 type session struct {
-	Kind            SessionKind `json:"kind,omitempty"`
-	PublicKey       string      `json:"public_key"`
-	TargetPublicKey string      `json:"target_public_key,omitempty"`
-	SessionID       string      `json:"session_id,omitempty"`
-	IssuedAt        int64       `json:"issued_at,omitempty"`
-	ExpiresAt       int64       `json:"expires_at"`
+	Kind            SessionKind                  `json:"kind,omitempty"`
+	PublicKey       string                       `json:"public_key"`
+	TargetPublicKey string                       `json:"target_public_key,omitempty"`
+	SessionID       string                       `json:"session_id,omitempty"`
+	IssuedAt        int64                        `json:"issued_at,omitempty"`
+	ExpiresAt       int64                        `json:"expires_at"`
+	Registration    *runtimeprofile.Registration `json:"registration,omitempty"`
+}
+
+type AuthenticatedSession struct {
+	Principal
+	Registration *runtimeprofile.Registration
 }
 
 func NewSessionManager(store kv.Store) *SessionManager {
@@ -182,6 +213,10 @@ func newLoginAssertionAt(keyPair *giznet.KeyPair, serverPublicKey giznet.PublicK
 }
 
 func (m *SessionManager) login(ctx context.Context, serverKeyPair *giznet.KeyPair, publicKey giznet.PublicKey, assertion string, authorizer SessionAuthorizer) (peerhttp.LoginResult, error) {
+	return m.loginWithRegistration(ctx, serverKeyPair, publicKey, assertion, authorizer, nil)
+}
+
+func (m *SessionManager) loginWithRegistration(ctx context.Context, serverKeyPair *giznet.KeyPair, publicKey giznet.PublicKey, assertion string, authorizer SessionAuthorizer, registration *runtimeprofile.Registration) (peerhttp.LoginResult, error) {
 	if m == nil || m.Store == nil {
 		return peerhttp.LoginResult{}, errInvalidSession
 	}
@@ -214,10 +249,11 @@ func (m *SessionManager) login(ctx context.Context, serverKeyPair *giznet.KeyPai
 	}
 	expiresAt := now.Add(defaultSessionTTL)
 	body, err := json.Marshal(session{
-		Kind:      SessionKindPrimary,
-		PublicKey: publicKey.String(),
-		IssuedAt:  now.UnixMilli(),
-		ExpiresAt: expiresAt.UnixMilli(),
+		Kind:         SessionKindPrimary,
+		PublicKey:    publicKey.String(),
+		IssuedAt:     now.UnixMilli(),
+		ExpiresAt:    expiresAt.UnixMilli(),
+		Registration: registration,
 	})
 	if err != nil {
 		return peerhttp.LoginResult{}, err
@@ -244,43 +280,39 @@ func (m *SessionManager) login(ctx context.Context, serverKeyPair *giznet.KeyPai
 }
 
 func (m *SessionManager) Authenticate(header string) (giznet.PublicKey, error) {
-	principal, err := m.AuthenticatePrincipal(header)
-	if err != nil {
-		return giznet.PublicKey{}, err
-	}
-	return principal.PublicKey, nil
+	authenticated, err := m.AuthenticateSession(header)
+	return authenticated.PublicKey, err
 }
 
-// AuthenticatePrincipal resolves a bearer token to its typed session principal.
-func (m *SessionManager) AuthenticatePrincipal(header string) (Principal, error) {
+func (m *SessionManager) AuthenticateSession(header string) (AuthenticatedSession, error) {
 	token := bearerToken(header)
 	if token == "" {
-		return Principal{}, errInvalidSession
+		return AuthenticatedSession{}, errInvalidSession
 	}
 	if m == nil || m.Store == nil {
-		return Principal{}, errInvalidSession
+		return AuthenticatedSession{}, errInvalidSession
 	}
 	now := m.nowOrDefault()
 
 	data, err := m.Store.Get(context.Background(), sessionKey(token))
 	if errors.Is(err, kv.ErrNotFound) {
-		return Principal{}, errInvalidSession
+		return AuthenticatedSession{}, errInvalidSession
 	}
 	if err != nil {
-		return Principal{}, err
+		return AuthenticatedSession{}, err
 	}
 	var sess session
 	if err := json.Unmarshal(data, &sess); err != nil {
-		return Principal{}, errInvalidSession
+		return AuthenticatedSession{}, errInvalidSession
 	}
 	expiresAt := time.UnixMilli(sess.ExpiresAt)
 	if sess.PublicKey == "" || !expiresAt.After(now) {
 		_ = m.Store.Delete(context.Background(), sessionKey(token))
-		return Principal{}, errInvalidSession
+		return AuthenticatedSession{}, errInvalidSession
 	}
 	var publicKey giznet.PublicKey
 	if err := publicKey.UnmarshalText([]byte(sess.PublicKey)); err != nil {
-		return Principal{}, errInvalidSession
+		return AuthenticatedSession{}, errInvalidSession
 	}
 	kind := sess.Kind
 	if kind == "" {
@@ -295,30 +327,44 @@ func (m *SessionManager) AuthenticatePrincipal(header string) (Principal, error)
 	}
 	if sess.TargetPublicKey != "" {
 		if err := principal.TargetPublicKey.UnmarshalText([]byte(sess.TargetPublicKey)); err != nil {
-			return Principal{}, errInvalidSession
+			return AuthenticatedSession{}, errInvalidSession
 		}
 	}
-	return principal, nil
+	return AuthenticatedSession{Principal: principal, Registration: sess.Registration}, nil
 }
 
 func (m *SessionManager) AuthenticateHeaders(authorization, publicKeyHeader string) (giznet.PublicKey, error) {
-	principal, err := m.AuthenticateHeadersPrincipal(authorization, publicKeyHeader)
+	authenticated, err := m.AuthenticateHeadersSession(authorization, publicKeyHeader)
+	return authenticated.PublicKey, err
+}
+
+func (m *SessionManager) AuthenticateHeadersSession(authorization, publicKeyHeader string) (AuthenticatedSession, error) {
+	authenticated, err := m.AuthenticateSession(authorization)
 	if err != nil {
-		return giznet.PublicKey{}, err
+		return AuthenticatedSession{}, err
 	}
-	return principal.PublicKey, nil
+	if publicKeyHeader != "" && publicKeyHeader != authenticated.PublicKey.String() {
+		return AuthenticatedSession{}, ErrPublicKeyMismatch
+	}
+	return authenticated, nil
+}
+
+// AuthenticatePrincipal resolves a bearer token to its typed session principal.
+func (m *SessionManager) AuthenticatePrincipal(header string) (Principal, error) {
+	authenticated, err := m.AuthenticateSession(header)
+	if err != nil {
+		return Principal{}, err
+	}
+	return authenticated.Principal, nil
 }
 
 // AuthenticateHeadersPrincipal authenticates a bearer and verifies its optional public-key header.
 func (m *SessionManager) AuthenticateHeadersPrincipal(authorization, publicKeyHeader string) (Principal, error) {
-	principal, err := m.AuthenticatePrincipal(authorization)
+	authenticated, err := m.AuthenticateHeadersSession(authorization, publicKeyHeader)
 	if err != nil {
 		return Principal{}, err
 	}
-	if publicKeyHeader != "" && publicKeyHeader != principal.PublicKey.String() {
-		return Principal{}, ErrPublicKeyMismatch
-	}
-	return principal, nil
+	return authenticated.Principal, nil
 }
 
 func (m *SessionManager) nowOrDefault() time.Time {

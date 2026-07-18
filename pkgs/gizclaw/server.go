@@ -433,6 +433,7 @@ func (s *Server) init() error {
 			return err == nil, err
 		},
 	}
+	publicLoginServer.RegistrationResolver = runtimeProfileServer.ResolveRegistration
 	voiceServer := &voice.Server{Store: voiceStore}
 	toolServer := &toolkit.Server{Store: toolStore}
 	contactServer := &contact.Server{

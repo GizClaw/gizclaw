@@ -51,6 +51,8 @@ spec:
 
 设备把 token 预烧录进固件。连接建立后，设备调用 `server.register`；服务端校验 token，并把 Firmware 与 RuntimeProfile 快照保存到当前 connection。修改 RuntimeProfile 不会改变已经建立的连接，设备 reconnect 后重新注册才会取得新配置。
 
+公开 HTTP 客户端在 `POST /login` 时通过可选的 `X-Registration-Token` header 提交同一个 token。得到的 bearer session 保存对应的 Firmware 和 RuntimeProfile 快照，因此 `/openai/v1` 不依赖并行存在的 Peer RPC connection，也能解析相同的 RuntimeProfile Model 和 Voice。
+
 注册成功和失败都写入 system log。日志包含 Peer public key、连接来源、RegistrationToken 名称、Firmware 和 RuntimeProfile；业务数据库不保存 token 使用历史。
 
 ## 访问规则
@@ -64,6 +66,6 @@ spec:
 
 未注册设备仍可以调用公开 RPC；它只是没有 RuntimeProfile 资源。设备通过公开 CRUD 创建的 Workspace、Model、Credential 和 Tool 自动记录当前 Peer 为 owner。Workflow 的公开 surface 只提供 list/get。
 
-调用 Model 或 Voice 时，服务端在内部解析其配置的 ProviderTenant 和底层 Credential。设备对 Model 或 Voice 的访问权允许这次调用，但不会让底层 Credential 出现在 credential list/get 中，也不会授予 Credential 修改权限。因此 RuntimeProfile 只列出 Model 和 Voice，不列出其实现所用的 Credential；owner 创建的 Model 同样可以使用它配置的 ProviderTenant，而不会因此取得服务端 Credential 的 owner 权限。
+调用 Model 或 Voice 时，服务端在内部解析其配置的 ProviderTenant 和底层 Credential。RuntimeProfile 允许的 Model 或 Voice 可以使用对应的服务端 Credential，但不会让 Credential 出现在 credential list/get 中，也不会授予修改权限。RuntimeProfile 之外由 owner 创建的 Model 只能使用同一个 Peer 拥有的 Credential，不能通过 ProviderTenant 选择无关的服务端 Credential。
 
 Firmware 不在 `resources` map 中：RegistrationToken 直接选择当前连接对应的 Firmware。删除 RuntimeProfile 或 RegistrationToken 不级联删除其他资源；已经建立的 connection 继续使用自己的快照，直到断线。

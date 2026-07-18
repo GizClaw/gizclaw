@@ -130,6 +130,9 @@ type Unauthorized = externalRef0.ErrorResponse
 type LoginParams struct {
 	XPublicKey    string `json:"X-Public-Key"`
 	Authorization string `json:"Authorization"`
+
+	// XRegistrationToken Pre-provisioned RegistrationToken used to attach a RuntimeProfile snapshot to the new HTTP session.
+	XRegistrationToken *string `json:"X-Registration-Token,omitempty"`
 }
 
 // ListSideControlContactsParams defines parameters for ListSideControlContacts.
@@ -728,6 +731,17 @@ func NewLoginRequestWithBody(server string, params *LoginParams, contentType str
 		}
 
 		req.Header.Set("Authorization", headerParam1)
+
+		if params.XRegistrationToken != nil {
+			var headerParam2 string
+
+			headerParam2, err = runtime.StyleParamWithOptions("simple", false, "X-Registration-Token", *params.XRegistrationToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Registration-Token", headerParam2)
+		}
 
 	}
 
@@ -3805,6 +3819,23 @@ func (siw *ServerInterfaceWrapper) Login(c *fiber.Ctx) error {
 	} else {
 		err = fmt.Errorf("Header parameter Authorization is required, but not found: %w", err)
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+
+	// ------------- Optional header parameter "X-Registration-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Registration-Token")]; found {
+		var XRegistrationToken string
+		n := len(valueList)
+		if n != 1 {
+			return fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf("Too many values for ParamName X-Registration-Token, 1 is required, but %d found", n))
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Registration-Token", valueList[0], &XRegistrationToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter X-Registration-Token: %w", err).Error())
+		}
+
+		params.XRegistrationToken = &XRegistrationToken
+
 	}
 
 	return siw.Handler.Login(c, params)

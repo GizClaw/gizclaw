@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
@@ -499,6 +500,47 @@ func TestServerServeHTTPLoginRegisterAndPeerAPI(t *testing.T) {
 	if err := server.init(); err != nil {
 		t.Fatalf("init error = %v", err)
 	}
+	modelResponse, err := server.manager.Models.CreateModel(context.Background(), adminhttp.CreateModelRequestObject{Body: &adminhttp.ModelUpsert{
+		Id:     "profile-model",
+		Kind:   apitypes.ModelKindLlm,
+		Source: apitypes.ModelSourceManual,
+		Provider: apitypes.ModelProvider{
+			Kind: "openai-tenant",
+			Name: "global",
+		},
+	}})
+	if err != nil {
+		t.Fatalf("CreateModel error = %v", err)
+	}
+	if _, ok := modelResponse.(adminhttp.CreateModel200JSONResponse); !ok {
+		t.Fatalf("CreateModel response = %#v", modelResponse)
+	}
+	models := map[string]string{"primary": "profile-model"}
+	profileResponse, err := server.manager.RuntimeProfiles.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
+		Name: "public-http-profile",
+		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{
+			Models: &models,
+		}},
+	}})
+	if err != nil {
+		t.Fatalf("CreateRuntimeProfile error = %v", err)
+	}
+	if _, ok := profileResponse.(adminhttp.CreateRuntimeProfile200JSONResponse); !ok {
+		t.Fatalf("CreateRuntimeProfile response = %#v", profileResponse)
+	}
+	server.manager.RuntimeProfiles.FirmwareExists = func(context.Context, string) (bool, error) { return true, nil }
+	tokenResponse, err := server.manager.RuntimeProfiles.CreateRegistrationToken(context.Background(), adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
+		Name:               "public-http-token",
+		FirmwareName:       "test-firmware",
+		RuntimeProfileName: "public-http-profile",
+	}})
+	if err != nil {
+		t.Fatalf("CreateRegistrationToken error = %v", err)
+	}
+	createdToken, ok := tokenResponse.(adminhttp.CreateRegistrationToken200JSONResponse)
+	if !ok || createdToken.Token == "" {
+		t.Fatalf("CreateRegistrationToken response = %#v", tokenResponse)
+	}
 	if _, err := server.manager.EnsurePeer(context.Background(), deviceKey.Public); err != nil {
 		t.Fatalf("EnsurePeer error = %v", err)
 	}
@@ -523,7 +565,7 @@ func TestServerServeHTTPLoginRegisterAndPeerAPI(t *testing.T) {
 	}
 	_ = oldInfoResp.Body.Close()
 
-	session := publicHTTPTestLogin(t, ts.URL, serverKey.Public, deviceKey)
+	session := publicHTTPTestLogin(t, ts.URL, serverKey.Public, deviceKey, createdToken.Token)
 
 	openAIPreflightReq, err := http.NewRequestWithContext(context.Background(), http.MethodOptions, ts.URL+"/openai/v1/models", nil)
 	if err != nil {
@@ -531,7 +573,7 @@ func TestServerServeHTTPLoginRegisterAndPeerAPI(t *testing.T) {
 	}
 	openAIPreflightReq.Header.Set("Origin", "wails://wails.localhost")
 	openAIPreflightReq.Header.Set("Access-Control-Request-Method", http.MethodGet)
-	openAIPreflightReq.Header.Set("Access-Control-Request-Headers", "authorization,x-public-key")
+	openAIPreflightReq.Header.Set("Access-Control-Request-Headers", "authorization,x-public-key,x-registration-token")
 	openAIPreflightResp, err := http.DefaultClient.Do(openAIPreflightReq)
 	if err != nil {
 		t.Fatalf("OPTIONS /openai/v1/models error = %v", err)
@@ -541,7 +583,7 @@ func TestServerServeHTTPLoginRegisterAndPeerAPI(t *testing.T) {
 		body, _ := io.ReadAll(openAIPreflightResp.Body)
 		t.Fatalf("OPTIONS /openai/v1/models status = %d body=%s", openAIPreflightResp.StatusCode, string(body))
 	}
-	if got := openAIPreflightResp.Header.Get("Access-Control-Allow-Headers"); !strings.Contains(got, "Authorization") || !strings.Contains(got, publiclogin.PublicKeyHeader) {
+	if got := openAIPreflightResp.Header.Get("Access-Control-Allow-Headers"); !strings.Contains(got, "Authorization") || !strings.Contains(got, publiclogin.PublicKeyHeader) || !strings.Contains(got, publiclogin.RegistrationTokenHeader) {
 		t.Fatalf("Access-Control-Allow-Headers = %q, want session headers", got)
 	}
 
@@ -676,13 +718,22 @@ func TestServerServeHTTPLoginRegisterAndPeerAPI(t *testing.T) {
 		t.Fatalf("GET /openai/v1/models error = %v", err)
 	}
 	defer openAIResp.Body.Close()
-	if openAIResp.StatusCode == http.StatusNotFound || openAIResp.StatusCode == http.StatusUnauthorized {
+	if openAIResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(openAIResp.Body)
 		t.Fatalf("GET /openai/v1/models status = %d body=%s", openAIResp.StatusCode, string(body))
 	}
+	var modelList struct {
+		Data []apitypes.Model `json:"data"`
+	}
+	if err := json.NewDecoder(openAIResp.Body).Decode(&modelList); err != nil {
+		t.Fatalf("decode GET /openai/v1/models response: %v", err)
+	}
+	if len(modelList.Data) != 1 || modelList.Data[0].Id != "profile-model" {
+		t.Fatalf("GET /openai/v1/models data = %#v", modelList.Data)
+	}
 }
 
-func publicHTTPTestLogin(t *testing.T, baseURL string, serverPublicKey giznet.PublicKey, deviceKey *giznet.KeyPair) peerhttp.LoginResult {
+func publicHTTPTestLogin(t *testing.T, baseURL string, serverPublicKey giznet.PublicKey, deviceKey *giznet.KeyPair, registrationTokens ...string) peerhttp.LoginResult {
 	t.Helper()
 	assertion, err := publiclogin.NewLoginAssertion(deviceKey, serverPublicKey, time.Minute)
 	if err != nil {
@@ -694,6 +745,9 @@ func publicHTTPTestLogin(t *testing.T, baseURL string, serverPublicKey giznet.Pu
 	}
 	req.Header.Set(publiclogin.PublicKeyHeader, deviceKey.Public.String())
 	req.Header.Set("Authorization", "Bearer "+assertion)
+	if len(registrationTokens) > 0 && strings.TrimSpace(registrationTokens[0]) != "" {
+		req.Header.Set(publiclogin.RegistrationTokenHeader, registrationTokens[0])
+	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("POST login error = %v", err)

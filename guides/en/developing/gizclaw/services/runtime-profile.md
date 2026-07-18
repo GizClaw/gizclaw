@@ -51,6 +51,8 @@ An administrator pre-creates a `RegistrationToken` that references one Firmware 
 
 The token is provisioned into firmware. After connecting, the device calls `server.register`; the server validates the token and snapshots its Firmware and RuntimeProfile onto that connection. Updating a RuntimeProfile does not mutate established connections. A reconnect and new registration loads the new configuration.
 
+Public HTTP clients provide the same token in the optional `X-Registration-Token` header on `POST /login`. The resulting bearer session keeps that Firmware and RuntimeProfile snapshot, so `/openai/v1` resolves the same profile-qualified Models and Voices without requiring a concurrent Peer RPC connection.
+
 Successful and rejected registrations are written to the system log with the Peer public key, connection source, RegistrationToken name, Firmware, and RuntimeProfile. No token usage records are stored in the business database.
 
 ## Access rules
@@ -64,6 +66,6 @@ Successful and rejected registrations are written to the system log with the Pee
 
 An unregistered device may still call public RPC methods; it simply has no RuntimeProfile resources. Workspace, Model, Credential, and Tool resources created through public CRUD record the current Peer as owner. The public Workflow surface remains list/get only.
 
-Model and Voice invocation resolves the configured ProviderTenant and its backing Credential internally. Access to the Model or Voice authorizes that invocation, but it does not expose the Credential through credential list/get or grant Credential mutation. Therefore RuntimeProfile lists Models and Voices, not their implementation Credentials; an owner-created Model likewise uses its configured ProviderTenant without acquiring ownership of the server-side Credential.
+Model and Voice invocation resolves the configured ProviderTenant and its backing Credential internally. Access to a RuntimeProfile-qualified Model or Voice authorizes use of its server-side Credential, but does not expose that Credential through credential list/get or grant mutation. An owner-created Model outside the RuntimeProfile may use only a Credential owned by the same Peer; it cannot select an unrelated server-owned Credential through a ProviderTenant.
 
 Firmware is not part of the `resources` maps: RegistrationToken directly selects the Firmware for the current connection. Deleting a RuntimeProfile or RegistrationToken does not cascade to other resources. An established connection keeps its snapshot until disconnect.

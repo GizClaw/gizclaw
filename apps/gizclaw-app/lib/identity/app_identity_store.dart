@@ -14,10 +14,15 @@ abstract interface class IdentityValueStore {
 }
 
 class GizClawServer {
-  const GizClawServer({required this.name, required this.accessPoint});
+  const GizClawServer({
+    required this.name,
+    required this.accessPoint,
+    this.registrationToken = '',
+  });
 
   final String name;
   final String accessPoint;
+  final String registrationToken;
 }
 
 class AppIdentityStore {
@@ -33,6 +38,8 @@ class AppIdentityStore {
   static const privateKeyStorageKey = 'gizclaw.client.private-key.v1';
   static const endpointStorageKey = 'gizclaw.server.endpoint.v1';
   static const customServersStorageKey = 'gizclaw.servers.custom.v1';
+  static const registrationTokensStorageKey =
+      'gizclaw.servers.registration-tokens.v1';
 
   final IdentityValueStore _secureValues;
   final IdentityValueStore _preferences;
@@ -56,11 +63,22 @@ class AppIdentityStore {
     final endpoint = endpointValue.isEmpty
         ? ''
         : normalizeGizClawEndpoint(endpointValue);
+    final registrationTokens = await _loadRegistrationTokens();
+    final fallbackEndpoint = _fallbackProfile.endpoint.trim().isEmpty
+        ? ''
+        : normalizeGizClawEndpoint(_fallbackProfile.endpoint);
+    final registrationToken = endpoint.isEmpty
+        ? ''
+        : registrationTokens[endpoint] ??
+              (endpoint == fallbackEndpoint
+                  ? _fallbackProfile.registrationToken
+                  : '');
     final publicKey = await _deriveClientPublicKey(base58Decode(privateKey));
     return GizClawConnectionProfile(
       endpoint: endpoint,
       clientPrivateKey: privateKey,
       clientPublicKey: publicKey,
+      registrationToken: registrationToken,
     );
   }
 
@@ -73,13 +91,14 @@ class AppIdentityStore {
 
   Future<List<GizClawServer>> loadServers() async {
     final customServers = <GizClawServer>[];
+    final registrationTokens = await _loadRegistrationTokens();
     final encoded = await _preferences.read(customServersStorageKey);
     if (encoded != null && encoded.trim().isNotEmpty) {
       try {
         final values = jsonDecode(encoded);
         if (values is List<Object?>) {
           for (final value in values) {
-            final server = _decodeServer(value);
+            final server = _decodeServer(value, registrationTokens);
             if (server != null) customServers.add(server);
           }
         }
@@ -100,7 +119,15 @@ class AppIdentityStore {
       );
       if (!known) {
         customServers.add(
-          GizClawServer(name: normalized, accessPoint: normalized),
+          GizClawServer(
+            name: normalized,
+            accessPoint: normalized,
+            registrationToken:
+                registrationTokens[normalized] ??
+                (normalized == normalizeGizClawEndpoint(fallbackEndpoint)
+                    ? _fallbackProfile.registrationToken
+                    : ''),
+          ),
         );
       }
     }
@@ -108,7 +135,7 @@ class AppIdentityStore {
     return List.unmodifiable(customServers);
   }
 
-  Future<void> saveCustomServers(List<GizClawServer> servers) {
+  Future<void> saveCustomServers(List<GizClawServer> servers) async {
     final encoded = jsonEncode([
       for (final server in servers)
         {
@@ -116,11 +143,46 @@ class AppIdentityStore {
           'access_point': normalizeGizClawEndpoint(server.accessPoint),
         },
     ]);
-    return _preferences.write(customServersStorageKey, encoded);
+    final registrationTokens = <String, String>{};
+    for (final server in servers) {
+      final token = server.registrationToken.trim();
+      if (token.isEmpty) continue;
+      registrationTokens[normalizeGizClawEndpoint(server.accessPoint)] = token;
+    }
+    await _preferences.write(customServersStorageKey, encoded);
+    await _secureValues.write(
+      registrationTokensStorageKey,
+      jsonEncode(registrationTokens),
+    );
+  }
+
+  Future<Map<String, String>> _loadRegistrationTokens() async {
+    final encoded = await _secureValues.read(registrationTokensStorageKey);
+    if (encoded == null || encoded.trim().isEmpty) return const {};
+    try {
+      final value = jsonDecode(encoded);
+      if (value is! Map<String, Object?>) return const {};
+      final out = <String, String>{};
+      for (final entry in value.entries) {
+        if (entry.value case final String token when token.trim().isNotEmpty) {
+          try {
+            out[normalizeGizClawEndpoint(entry.key)] = token.trim();
+          } on FormatException {
+            // Ignore malformed endpoint keys in secure storage.
+          }
+        }
+      }
+      return out;
+    } on FormatException {
+      return const {};
+    }
   }
 }
 
-GizClawServer? _decodeServer(Object? value) {
+GizClawServer? _decodeServer(
+  Object? value,
+  Map<String, String> registrationTokens,
+) {
   if (value is! Map<String, Object?>) return null;
   final name = value['name'];
   final accessPoint = value['access_point'];
@@ -130,7 +192,11 @@ GizClawServer? _decodeServer(Object? value) {
   try {
     final normalizedEndpoint = normalizeGizClawEndpoint(accessPoint);
     if (normalizedEndpoint.isEmpty) return null;
-    return GizClawServer(name: name.trim(), accessPoint: normalizedEndpoint);
+    return GizClawServer(
+      name: name.trim(),
+      accessPoint: normalizedEndpoint,
+      registrationToken: registrationTokens[normalizedEndpoint] ?? '',
+    );
   } on FormatException {
     return null;
   }

@@ -66,6 +66,10 @@ func (s *PeerService) openAIHTTPHandlerForPeer(publicKey giznet.PublicKey, genxS
 }
 
 func (s *PeerService) peerResources(publicKey giznet.PublicKey) *peerresource.Server {
+	return s.peerResourcesWithProfile(publicKey, nil)
+}
+
+func (s *PeerService) peerResourcesWithProfile(publicKey giznet.PublicKey, sessionProfile *apitypes.RuntimeProfile) *peerresource.Server {
 	if s == nil || s.manager == nil {
 		return nil
 	}
@@ -84,6 +88,10 @@ func (s *PeerService) peerResources(publicKey giznet.PublicKey) *peerresource.Se
 		Gameplay:     manager.Gameplay,
 		Tools:        manager.Tools,
 		RuntimeProfile: func() *apitypes.RuntimeProfile {
+			if sessionProfile != nil {
+				profile := *sessionProfile
+				return &profile
+			}
 			registration, ok := manager.PeerRegistration(publicKey)
 			if !ok {
 				return nil
