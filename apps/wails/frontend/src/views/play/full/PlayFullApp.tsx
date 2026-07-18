@@ -5183,13 +5183,13 @@ function createOpenAIChatAdapter({
       const body = {
         messages: chatMessages,
         model,
-        stream: true,
+        stream: false,
         ...(Number.isFinite(temperature) ? { temperature } : {}),
         ...(thinking == null ? {} : { thinking }),
-      } satisfies OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming & { thinking?: ChatThinkingOptions };
-      let stream: AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>;
+      } satisfies OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming & { thinking?: ChatThinkingOptions };
+      let completion: OpenAI.Chat.Completions.ChatCompletion;
       try {
-        stream = await getPlayOpenAIClient().chat.completions.create(body, { signal: abortSignal });
+        completion = await getPlayOpenAIClient().chat.completions.create(body, { signal: abortSignal });
       } catch (err) {
         if (isAbortError(err)) {
           return;
@@ -5212,24 +5212,7 @@ function createOpenAIChatAdapter({
           });
       }
 
-      let text = "";
-      try {
-        for await (const chunk of stream) {
-          const delta = chunk.choices[0]?.delta?.content ?? "";
-          if (delta !== "") {
-            text += delta;
-            yield { content: [{ type: "text", text }] };
-          }
-        }
-      } catch (err) {
-        if (isAbortError(err)) {
-          return;
-        }
-        const errorText = chatRequestErrorText(model, errorToMessage(err));
-        onChatError(errorText);
-        yield chatErrorResult(errorText, text);
-        return;
-      }
+      const text = completion.choices[0]?.message.content ?? "";
       onCompleteText?.(text);
       yield { content: [{ type: "text", text }], status: { type: "complete", reason: "stop" } };
     },
