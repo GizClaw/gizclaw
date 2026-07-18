@@ -1,0 +1,9 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Credential
+metadata:
+  name: gemini-main-credential
+spec:
+  provider: gemini
+  body:
+    api_key: ${GIZCLAW_GEMINI_API_KEY}

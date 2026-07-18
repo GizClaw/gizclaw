@@ -1,0 +1,9 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: ACLPolicyBinding
+metadata:
+  name: default-client-workspace-create
+spec:
+  subject: {kind: view, id: default-client}
+  resource: {kind: workspace, id: __collection__}
+  role: workspace-creator

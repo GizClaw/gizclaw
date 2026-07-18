@@ -236,9 +236,6 @@ func (s *Service) resolveCredential(ctx context.Context, name string) (apitypes.
 	if s == nil || s.Credentials == nil {
 		return apitypes.Credential{}, fmt.Errorf("%w: credential getter is required", ErrNotConfigured)
 	}
-	if err := s.authorize(ctx, credentialResource(name), apitypes.ACLPermissionRead); err != nil {
-		return apitypes.Credential{}, err
-	}
 	if err := s.authorize(ctx, credentialResource(name), apitypes.ACLPermissionUse); err != nil {
 		return apitypes.Credential{}, err
 	}

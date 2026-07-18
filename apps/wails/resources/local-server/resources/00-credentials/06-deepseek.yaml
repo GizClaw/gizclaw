@@ -1,0 +1,9 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Credential
+metadata:
+  name: deepseek-main-credential
+spec:
+  provider: openai
+  body:
+    api_key: ${GIZCLAW_DEEPSEEK_API_KEY}

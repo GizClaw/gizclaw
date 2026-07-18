@@ -8,13 +8,14 @@
 
 ```text
 apps/wails/
+├── resources/              # 内嵌的新建本地 Server bootstrap catalog 与 assets
 ├── internal/
 │   ├── appconfig/       # pod.json、目录投影和权限
-│   ├── bridge/          # 不返回密钥的 Wails capability
+│   ├── bridge/          # Pod 密钥只写；bootstrap.env 可由受信任 Renderer 编辑
 │   ├── endpointhealth/  # /server-info 健康探测
 │   ├── localserver/     # 本地 Server 生命周期和有界日志
 │   ├── tray/            # 系统托盘适配
-│   └── webui/           # loopback HTTP 与一次性交接
+│   └── webui/           # loopback HTTP 与本地 runtime token
 ├── i18n/locales/        # en、zh-CN 文案
 └── frontend/            # Pod 桌面首页及 Admin/Play 浏览器入口
 ```
@@ -22,6 +23,54 @@ apps/wails/
 Desktop App 不复制 `pkgs/gizclaw` 的服务端业务。`api/http/desktop.json` 是
 桌面 bridge DTO 的 schema source；更新后通过 `sdk/js` 的 `gen:sdk` 生成
 `frontend/src/generated/desktopservice`。
+
+## 本地 Server Bootstrap
+
+`resources/local-server` 是新建本地 Server 的版本化只读 bootstrap 数据源。资源
+内容来自 deploy，随 Desktop binary 使用 `go:embed` 编译，不在运行时访问 deploy、
+Flowcraft、测试 fixture、网络 catalog 或 AI 服务。Catalog 包含 Credential、Tenant、
+Model、Workflow、PetDef、GameRuleset、ACL 及其 Workflow PNG/PIXA、PetDef PIXA
+映射；不包含 Workspace，Workspace 仍由客户端创建。
+
+Desktop 配置根目录中的 `bootstrap.env` 以 `0600` 保存未来本地 Pod 创建所需的
+dotenv 值。为了支持表单和原始文本两种编辑方式，bridge 会把文件的完整 `content`
+以及每个已保存变量的 `value` 返回给受信任的 Desktop Renderer；因此 Desktop
+WebView 是 provider credential 的安全边界之一。只来自 process environment 或资源
+default 的值不会回传，前端只会看到对应变量已 configured 或 defaulted。
+
+这些值不会写入 `pod.json`、生成的 Server workspace、URL、Web Storage 或日志，
+远程 Pod 的创建和更新也不会读取它们。Desktop 保存值优先于 process environment，
+资源中的 `${NAME:-default}` 最后生效。
+
+如果用户在 Desktop 外手动写坏 `bootstrap.env`，Bootstrap 仍返回 Pod 列表、原始 dotenv
+内容和解析错误。环境编辑器自动进入文本模式以便修复；在内容重新通过解析前，本地
+Pod 创建保持禁用。
+
+本地 `CreatePod` 在保留目录前完成环境 preflight，同步生成 manifest 和投影并写入
+`.initializing` 状态后立即返回。可取消的后台任务随后启动 companion、等待 Admin
+readiness、按顺序 apply 内嵌资源、同步 Volc Voice、apply ACL，并通过 owner API
+上传 Workflow 与 PetDef assets。Bridge 在初始化期间拒绝 update、start、stop、
+restart、Admin 和 Play 操作；delete 会先取消并等待后台任务。
+
+`.initializing` 是 `0600` 的持久化 JSON 状态：`initializing` 会出现在 Pod 列表和
+详情中，成功后删除；失败时停止进程并原子改写为带脱敏错误的 `failed`，由用户查看
+目录或删除。启动 Desktop 时只清理被退出或崩溃中断的 `initializing` 目录，保留
+`failed` Pod。状态清除后的 Pod 不会在普通 start、restart 或 Desktop upgrade 时
+重新 apply。
+
+每个运行中的本地 Server 在自己的 `workspace/server.pid` 保存 PID，文件以 `0600`
+原子写入。正常停止、退出或 Desktop 的 Quit 会清除该文件；Desktop 异常退出时
+Server 与 PID 文件都保留。下次启动会扫描有效的本地 Pod，验证 PID 文件为普通文件
+且进程仍存活，并要求该 Pod 的 loopback `/server-info` 公钥与 workspace identity 一致，
+然后才恢复进程管理。`/server-info` 会在 5 秒内有界重试；超时等瞬时验证失败会保留
+PID，明确的 identity mismatch 才会清除 PID。未验证的 PID 不会被 signal，从而避免
+PID 被系统复用后误杀其他进程；验证通过的 Server 不会因为占用既有端口而被重新启动或终止。
+失效 PID 会在恢复时清除，恢复的非子进程通过存活探测更新生命周期状态。若崩溃发生
+在 bootstrap 尚未完成时，Desktop 会先接管并停止该 Server，再按现有约定清理不完整
+Pod；若身份验证仍未完成，则保留 PID 与 workspace 并中止清理，避免留下无法管理的进程。
+普通本地 Pod 的瞬时恢复错误会显示为 failed process/health 状态而不阻止 Desktop 启动；
+delete、stop、restart、start 和 update 会先重试验证，PID 仍未验证时拒绝操作，明确的
+identity mismatch 则清除 stale PID 并按 stopped 处理。
 
 ## Pod 投影
 
@@ -52,10 +101,12 @@ key 和 store inventory，并以 `0600` 原子写入。模板显式使用 info-l
 
 ## 浏览器 Runtime
 
-Admin 与 Play 的静态产物分别从 `admin.html` 和 `play.html` 启动。每个
-Pod/surface 只保留一个 `127.0.0.1:0` listener。每次打开浏览器都生成新的
-随机 token，浏览器以同源 POST 一次性领取 Runtime 后立即从地址栏移除 token。
-交接结果禁止缓存；密钥不得进入 URL、Web Storage、日志或静态文件。
+Admin 与 Play 的静态产物分别从 `admin.html` 和 `play.html` 启动。每个 Pod/surface
+只保留一个 `127.0.0.1:0` listener，每次打开生成独立随机 token，并将该 token 与
+本次选择的 Runtime 绑定。token 保留在本地 URL query 中，浏览器以同源 POST 领取
+Runtime；同一 URL 页面刷新时继续使用自己的 token，直到对应 listener 关闭。交接
+结果禁止缓存；
+Runtime 私钥不得进入 URL、Web Storage、日志或静态文件。
 
 Go 部分遵循 [Go 编码规范](/zh/coding-styles/go)，frontend 遵循
 [JavaScript 与 TypeScript](/zh/coding-styles/js)。

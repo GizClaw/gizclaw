@@ -19,6 +19,7 @@ import {
   applyGiznetServerInfoICEServers,
   createAdminAPIFetch,
   batteryTelemetry,
+  connectGiznetWebRTC,
   createWebRTCFetch,
   decodeFrames,
   encodeTelemetryPacket,
@@ -30,6 +31,7 @@ import {
   getGiznetWebRTCPacketDataChannel,
   parseRPCResponse,
   prepareGiznetWebRTCPeerConnection,
+  rewriteGiznetWebRTCAnswerForEndpoint,
   sendGiznetWebRTCTelemetry,
   sendGiznetWebRTCOffer,
   systemTelemetry,
@@ -791,6 +793,47 @@ test("createAdminAPIFetch waits for open readyState before sending", async () =>
   assert.deepEqual(await response.json(), { has_next: false, items: [] });
 });
 
+test("connectGiznetWebRTC waits for the packet data channel", async () => {
+  const pc = new FakePeerConnection();
+  let settled = false;
+  const connected = connectGiznetWebRTC({
+    pc: pc as unknown as RTCPeerConnection,
+    prepareOffer: async () => ({
+      body: new Blob(),
+      clientPublicKey: "client",
+      nonce: "nonce",
+      openAnswer: async () => "v=0",
+      timestamp: 1,
+    }),
+    sendOffer: async () => new Blob(),
+  }).then((result) => {
+    settled = true;
+    return result;
+  });
+  await pc.waitForChannel(GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL);
+  assert.equal(settled, false);
+
+  pc.channel(GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL).open();
+
+  assert.equal(await connected, pc);
+  assert.equal(settled, true);
+});
+
+test("rewriteGiznetWebRTCAnswerForEndpoint uses a loopback signaling endpoint for host candidates", () => {
+  const answer = [
+    "v=0",
+    "a=candidate:1 1 udp 2130706431 100.100.100.100 63933 typ host generation 0",
+    "a=candidate:2 1 udp 1694498815 198.51.100.10 50000 typ srflx raddr 100.100.100.100 rport 63933",
+    "",
+  ].join("\r\n");
+
+  const rewritten = rewriteGiznetWebRTCAnswerForEndpoint(answer, "127.0.0.1:63933");
+
+  assert.match(rewritten, /a=candidate:1 1 udp 2130706431 127\.0\.0\.1 63933 typ host/);
+  assert.match(rewritten, /a=candidate:2 1 udp 1694498815 198\.51\.100\.10 50000 typ srflx/);
+  assert.equal(rewriteGiznetWebRTCAnswerForEndpoint(answer, "192.168.1.20:63933"), answer);
+});
+
 test("createAdminAPIFetch reads chunked HTTP service responses", async () => {
   const pc = new FakePeerConnection();
   const adminFetch = createAdminAPIFetch(pc);
@@ -1381,6 +1424,8 @@ test("prepareEncryptedGiznetWebRTCOffer builds a browser-safe encrypted offer", 
 
 class FakePeerConnection {
   channels: FakeDataChannel[] = [];
+  iceGatheringState: RTCIceGatheringState = "complete";
+  localDescription: RTCSessionDescription | null = null;
   transceivers: Array<{ init?: RTCRtpTransceiverInit; kind: string }> = [];
   readonly listeners = new Map<string, Set<(event: unknown) => void>>();
 
@@ -1389,6 +1434,16 @@ class FakePeerConnection {
     this.channels.push(channel);
     return channel;
   }
+
+  async createOffer(): Promise<RTCSessionDescriptionInit> {
+    return { sdp: "v=0", type: "offer" };
+  }
+
+  async setLocalDescription(description: RTCLocalSessionDescriptionInit): Promise<void> {
+    this.localDescription = description as RTCSessionDescription;
+  }
+
+  async setRemoteDescription(_description: RTCSessionDescriptionInit): Promise<void> {}
 
   addTransceiver(kind: string, init?: RTCRtpTransceiverInit): void {
     this.transceivers.push({ kind, init });
@@ -1415,6 +1470,24 @@ class FakePeerConnection {
       throw new Error("no channel created");
     }
     return channel;
+  }
+
+  channel(label: string): FakeDataChannel {
+    const channel = this.channels.find((item) => item.label === label);
+    if (channel == null) {
+      throw new Error(`channel ${label} was not created`);
+    }
+    return channel;
+  }
+
+  async waitForChannel(label: string): Promise<void> {
+    for (let i = 0; i < 50; i += 1) {
+      if (this.channels.some((channel) => channel.label === label)) {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    throw new Error(`channel ${label} was not created`);
   }
 }
 

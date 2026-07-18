@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.ts';
 import { client } from './client.gen.ts';
-import type { CreateDesktopPodData, CreateDesktopPodErrors, CreateDesktopPodResponses, DeleteDesktopPodData, DeleteDesktopPodErrors, DeleteDesktopPodResponses, GetDesktopBootstrapData, GetDesktopBootstrapErrors, GetDesktopBootstrapResponses, GetDesktopPodData, GetDesktopPodErrors, GetDesktopPodResponses, ListDesktopPodsData, ListDesktopPodsErrors, ListDesktopPodsResponses, OpenDesktopAdminData, OpenDesktopAdminErrors, OpenDesktopAdminResponses, OpenDesktopPlayData, OpenDesktopPlayErrors, OpenDesktopPlayResponses, RefreshDesktopPodHealthData, RefreshDesktopPodHealthErrors, RefreshDesktopPodHealthResponses, RestartDesktopLocalServerData, RestartDesktopLocalServerErrors, RestartDesktopLocalServerResponses, RevealDesktopPodData, RevealDesktopPodErrors, RevealDesktopPodResponses, StartDesktopLocalServerData, StartDesktopLocalServerErrors, StartDesktopLocalServerResponses, StopDesktopLocalServerData, StopDesktopLocalServerErrors, StopDesktopLocalServerResponses, UpdateDesktopPodData, UpdateDesktopPodErrors, UpdateDesktopPodResponses } from './types.gen.ts';
+import type { CreateDesktopPodData, CreateDesktopPodErrors, CreateDesktopPodResponses, DeleteDesktopPodData, DeleteDesktopPodErrors, DeleteDesktopPodResponses, GetDesktopBootstrapData, GetDesktopBootstrapEnvironmentData, GetDesktopBootstrapEnvironmentErrors, GetDesktopBootstrapEnvironmentResponses, GetDesktopBootstrapErrors, GetDesktopBootstrapResponses, GetDesktopPodData, GetDesktopPodErrors, GetDesktopPodResponses, ListDesktopPodsData, ListDesktopPodsErrors, ListDesktopPodsResponses, OpenDesktopAdminData, OpenDesktopAdminErrors, OpenDesktopAdminResponses, OpenDesktopPlayData, OpenDesktopPlayErrors, OpenDesktopPlayResponses, RefreshDesktopPodHealthData, RefreshDesktopPodHealthErrors, RefreshDesktopPodHealthResponses, RestartDesktopLocalServerData, RestartDesktopLocalServerErrors, RestartDesktopLocalServerResponses, RevealDesktopPodData, RevealDesktopPodErrors, RevealDesktopPodResponses, StartDesktopLocalServerData, StartDesktopLocalServerErrors, StartDesktopLocalServerResponses, StopDesktopLocalServerData, StopDesktopLocalServerErrors, StopDesktopLocalServerResponses, UpdateDesktopBootstrapEnvironmentData, UpdateDesktopBootstrapEnvironmentErrors, UpdateDesktopBootstrapEnvironmentResponses, UpdateDesktopPodData, UpdateDesktopPodErrors, UpdateDesktopPodResponses } from './types.gen.ts';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -24,12 +24,31 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 export const getDesktopBootstrap = <ThrowOnError extends boolean = false>(options?: Options<GetDesktopBootstrapData, ThrowOnError>): RequestResult<GetDesktopBootstrapResponses, GetDesktopBootstrapErrors, ThrowOnError> => (options?.client ?? client).get<GetDesktopBootstrapResponses, GetDesktopBootstrapErrors, ThrowOnError>({ url: '/desktop/bootstrap', ...options });
 
 /**
+ * Read the editable Desktop bootstrap environment
+ */
+export const getDesktopBootstrapEnvironment = <ThrowOnError extends boolean = false>(options?: Options<GetDesktopBootstrapEnvironmentData, ThrowOnError>): RequestResult<GetDesktopBootstrapEnvironmentResponses, GetDesktopBootstrapEnvironmentErrors, ThrowOnError> => (options?.client ?? client).get<GetDesktopBootstrapEnvironmentResponses, GetDesktopBootstrapEnvironmentErrors, ThrowOnError>({ url: '/desktop/bootstrap-environment', ...options });
+
+/**
+ * Replace the editable Desktop bootstrap environment
+ *
+ * The content is validated as a dotenv file and may contain only names used by the bundled catalog.
+ */
+export const updateDesktopBootstrapEnvironment = <ThrowOnError extends boolean = false>(options: Options<UpdateDesktopBootstrapEnvironmentData, ThrowOnError>): RequestResult<UpdateDesktopBootstrapEnvironmentResponses, UpdateDesktopBootstrapEnvironmentErrors, ThrowOnError> => (options.client ?? client).put<UpdateDesktopBootstrapEnvironmentResponses, UpdateDesktopBootstrapEnvironmentErrors, ThrowOnError>({
+    url: '/desktop/bootstrap-environment',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * List Pods without secret material
  */
 export const listDesktopPods = <ThrowOnError extends boolean = false>(options?: Options<ListDesktopPodsData, ThrowOnError>): RequestResult<ListDesktopPodsResponses, ListDesktopPodsErrors, ThrowOnError> => (options?.client ?? client).get<ListDesktopPodsResponses, ListDesktopPodsErrors, ThrowOnError>({ url: '/desktop/pods', ...options });
 
 /**
- * Create and materialize a Pod
+ * Create a Pod and start local initialization
  */
 export const createDesktopPod = <ThrowOnError extends boolean = false>(options: Options<CreateDesktopPodData, ThrowOnError>): RequestResult<CreateDesktopPodResponses, CreateDesktopPodErrors, ThrowOnError> => (options.client ?? client).post<CreateDesktopPodResponses, CreateDesktopPodErrors, ThrowOnError>({
     url: '/desktop/pods',

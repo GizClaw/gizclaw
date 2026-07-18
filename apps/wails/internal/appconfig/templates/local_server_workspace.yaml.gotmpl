@@ -6,6 +6,12 @@ serve-to-clients: {{ .ServeToClients }}
 {{ if .AdminPublicKey }}
 admin-public-key: {{ quote .AdminPublicKey }}
 {{ end }}
+default-peer-view: default-client
+system_tasks:
+  pet_flowcraft_workflow:
+    generate_model: minimax-cn-m3
+    extract_model: deepseek-v4-flash
+    asr_model: volc-bigasr-sauc
 system_log:
   level: info
   sinks:

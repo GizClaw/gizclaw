@@ -1,0 +1,23 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Model
+metadata:
+  name: minimax-cn-m3
+spec:
+  kind: llm
+  source: manual
+  provider:
+    kind: openai-tenant
+    name: minimax-cn-openai
+  name: MiniMax M3 CN
+  description: MiniMax M3 through the CN OpenAI-compatible API
+  capabilities:
+    system_role: true
+    temperature: true
+    text_only: true
+    tool_calls: true
+  provider_data:
+    upstream_model: MiniMax-M3
+    support_text_only: true
+    support_tool_calls: true
+    use_system_role: true

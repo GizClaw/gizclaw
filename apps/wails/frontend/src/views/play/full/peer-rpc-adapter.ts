@@ -1,7 +1,9 @@
-import { applyGiznetServerInfoICEServers, fetchGiznetServerInfo, sendGiznetWebRTCOffer } from "@gizclaw/gizclaw";
+import { applyGiznetServerInfoICEServers, fetchGiznetServerInfo, rewriteGiznetWebRTCAnswerForEndpoint, sendGiznetWebRTCOffer } from "@gizclaw/gizclaw";
 import {
   RPC_METHODS,
   type ContactObject as RPCContactObject,
+  type Credential as RPCCredential,
+  type CredentialListResponse as RPCCredentialListResponse,
   type Firmware as RPCFirmware,
   type FriendGroupInviteTokenGetResponse as RPCFriendGroupInviteTokenGetResponse,
   type FriendGroupMemberMutableRole as RPCFriendGroupMemberMutableRole,
@@ -12,6 +14,8 @@ import {
   type Badge as RPCBadge,
   type GameResult as RPCGameResult,
   type GameRuleset as RPCGameRuleset,
+  type Model as RPCModel,
+  type ModelListResponse as RPCModelListResponse,
   type Pet as RPCPet,
   type PetActions as RPCPetActions,
   type PeerRPCMethodName,
@@ -26,7 +30,10 @@ import {
   type PeerRunWorkspaceState as RPCPeerRunWorkspaceState,
   type RPCMethodMap,
   type Workspace as RPCWorkspace,
+  type WorkspaceListResponse as RPCWorkspaceListResponse,
   type WorkspaceParameters as RPCWorkspaceParameters,
+  type Workflow as RPCWorkflow,
+  type WorkflowListResponse as RPCWorkflowListResponse,
 } from "@gizclaw/gizclaw/rpc";
 import { base64Decode, prepareEncryptedGiznetWebRTCOffer } from "@gizclaw/gizclaw/signaling";
 import type { RuntimeContext } from "../../../lib/runtime/types";
@@ -168,6 +175,7 @@ async function callRPCBinary<M extends PeerRPCMethodName>(method: M, options?: R
 }
 
 export type ContactObject = RPCContactObject;
+export type Credential = RPCCredential;
 export type FriendGroupInviteTokenGetResponse = RPCFriendGroupInviteTokenGetResponse;
 export type FriendGroupMemberMutableRole = RPCFriendGroupMemberMutableRole;
 export type FriendGroupMemberObject = RPCFriendGroupMemberObject;
@@ -178,6 +186,7 @@ export type BadgeObject = RPCBadge;
 export type Firmware = RPCFirmware;
 export type GameResultObject = RPCGameResult;
 export type GameRulesetObject = RPCGameRuleset;
+export type Model = RPCModel;
 export type PetObject = RPCPet;
 export type PetActionsObject = RPCPetActions;
 export type PointsAccountObject = RPCPointsAccount;
@@ -201,6 +210,7 @@ export type PlayVoiceStreamEvent = any;
 export type WebRtcSessionDescription = RTCSessionDescriptionInit;
 export type Workspace = RPCWorkspace;
 export type WorkspaceParameters = RPCWorkspaceParameters;
+export type Workflow = RPCWorkflow;
 
 function normalizeInjectedRecallResponse(value: unknown): PeerRunRecallResponse {
   const record = isRecord(value) ? value : {};
@@ -306,10 +316,10 @@ export const getPeerWorkspaceHistoryAudio = async (options: RequestOptions): Pro
 };
 
 export const listPeerFirmwares = (options?: RequestOptions) => currentDataClient ? snapshotResult("firmwares") : callRPC(RPC_METHODS["server.firmware.list"], options);
-export const listPeerWorkspaces = (options?: RequestOptions) => currentDataClient ? snapshotResult("workspaces") : callRPC(RPC_METHODS["server.workspace.list"], options);
-export const listPeerWorkflows = (options?: RequestOptions) => currentDataClient ? snapshotResult("workflows") : callRPC(RPC_METHODS["server.workflow.list"], options);
-export const listPeerModels = (options?: RequestOptions) => currentDataClient ? snapshotResult("models") : callRPC(RPC_METHODS["server.model.list"], options);
-export const listPeerCredentials = (options?: RequestOptions) => currentDataClient ? snapshotResult("credentials") : callRPC(RPC_METHODS["server.credential.list"], options);
+export const listPeerWorkspaces = (options?: RequestOptions): Promise<ApiResult<RPCWorkspaceListResponse>> => currentDataClient ? snapshotResult<RPCWorkspaceListResponse>("workspaces") : callRPC(RPC_METHODS["server.workspace.list"], options);
+export const listPeerWorkflows = (options?: RequestOptions): Promise<ApiResult<RPCWorkflowListResponse>> => currentDataClient ? snapshotResult<RPCWorkflowListResponse>("workflows") : callRPC(RPC_METHODS["server.workflow.list"], options);
+export const listPeerModels = (options?: RequestOptions): Promise<ApiResult<RPCModelListResponse>> => currentDataClient ? snapshotResult<RPCModelListResponse>("models") : callRPC(RPC_METHODS["server.model.list"], options);
+export const listPeerCredentials = (options?: RequestOptions): Promise<ApiResult<RPCCredentialListResponse>> => currentDataClient ? snapshotResult<RPCCredentialListResponse>("credentials") : callRPC(RPC_METHODS["server.credential.list"], options);
 export const listPeerVoices = (options?: RequestOptions) => currentDataClient ? snapshotResult("voices") : callRPC(RPC_METHODS["server.voice.list"], options);
 export const listClientVoices = listPeerVoices;
 
@@ -416,7 +426,7 @@ export const createWebRtcOffer = async (_options: RequestOptions): Promise<ApiRe
       baseUrl: `http://${runtime.context.endpoint}`,
       url: serverInfo.signaling_path,
     });
-    const answerSDP = await offer.openAnswer(encryptedAnswer);
+    const answerSDP = rewriteGiznetWebRTCAnswerForEndpoint(await offer.openAnswer(encryptedAnswer), runtime.context.endpoint);
     return { data: { sdp: answerSDP, type: "answer" } };
   } catch (error) {
     return { error };

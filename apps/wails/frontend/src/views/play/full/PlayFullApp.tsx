@@ -86,6 +86,7 @@ import {
   streamPlayableVoices as streamPlayableVoicesSDK,
   type BadgeObject,
   type ContactObject,
+  type Credential,
   type FriendGroupInviteTokenGetResponse,
   type FriendGroupMemberMutableRole,
   type FriendGroupMemberObject,
@@ -95,6 +96,7 @@ import {
   type Firmware,
   type GameResultObject,
   type GameRulesetObject,
+  type Model,
   type PeerRunHistoryEntry,
   type PeerRunMemoryStatsResponse,
   type PeerRunRecallHit,
@@ -108,6 +110,7 @@ import {
   type PointsTransactionObject,
   type RewardGrantObject,
   type WebRtcSessionDescription,
+  type Workflow as PeerWorkflow,
   type Workspace,
   type WorkspaceParameters,
 } from "./peer-rpc-adapter";
@@ -133,47 +136,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/components/ui/utils";
 import { DashboardEmptyState, DashboardPager, DashboardShell, DashboardTable, DashboardTableCard, type DashboardNavItem } from "@/dashboard";
+import { getPlayOpenAIClient, readPlaySpeechAudioBlob } from "../../../lib/gizclaw/openai";
 
 type Section = "overview" | "contacts" | "friends" | "friendGroups" | "gameplay" | "workspaces" | "workflows" | "models" | "credentials" | "firmwares" | "voices";
 type TopDrawer = "workspace" | "social-chat" | "test-chat" | null;
-
-type ModelSpec = {
-  capabilities?: ModelCapabilities;
-  created_at?: string;
-  description?: string;
-  id: string;
-  kind?: string;
-  name?: string;
-  owned_by?: string;
-  provider?: { kind: string; name: string };
-  source?: string;
-  support_json_output?: boolean;
-  support_temperature?: boolean;
-  support_text_only?: boolean;
-  support_tool_calls?: boolean;
-  support_thinking?: boolean;
-  thinking_param?: string;
-  thinking_level_param?: string;
-  thinking_levels?: string[];
-  default_thinking_level?: string;
-  updated_at?: string;
-  use_system_role?: boolean;
-};
-
-type ModelCapabilities = {
-  json_output?: boolean;
-  system_role?: boolean;
-  temperature?: boolean;
-  text_only?: boolean;
-  thinking?: {
-    default_level?: string;
-    level_param?: string;
-    levels?: string[];
-    param?: string;
-    supported: boolean;
-  };
-  tool_calls?: boolean;
-};
 
 type Voice = {
   id: string;
@@ -185,8 +151,6 @@ type Voice = {
   source: string;
   updated_at?: string;
 };
-
-type ResourceItem = Record<string, unknown>;
 
 type PageResponse<T> = {
   data?: T[];
@@ -282,26 +246,13 @@ const sections: Array<DashboardNavItem<Section>> = [
 const chatSessionsKey = "gizclaw.openai.chat.sessions";
 const chatStore = new Map<string, string>();
 const workspaceAudioPlaybackRequestEvent = "gizclaw:workspace-audio-play-request";
-const openAIAPIKey = "gizclaw-play";
 const topDrawerContentClassName =
   "top-32 h-[calc(100dvh-8rem)] w-[min(100vw,1120px)] gap-0 p-0 sm:top-24 sm:h-[calc(100dvh-6rem)] sm:max-w-none lg:top-20 lg:h-[calc(100dvh-5rem)]";
-
-let openAIClient: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI {
-  openAIClient ??= new OpenAI({
-    apiKey: openAIAPIKey,
-    baseURL: `${window.location.origin}/v1`,
-    dangerouslyAllowBrowser: true,
-    maxRetries: 1,
-  });
-  return openAIClient;
-}
 
 export function PlayFullApp({ contextName, onSignOut }: { contextName?: string; onSignOut(): Promise<void> }): JSX.Element {
   const [section, setSection] = useState<Section>("overview");
   const [topDrawer, setTopDrawer] = useState<TopDrawer>(null);
-  const [models, setModels] = useState<ModelSpec[]>([]);
+  const [models, setModels] = useState<Model[]>([]);
   const [selectedFriend, setSelectedFriend] = useState<FriendObject | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<FriendGroupObject | null>(null);
   const [selectedFirmware, setSelectedFirmware] = useState<Firmware | null>(null);
@@ -2052,7 +2003,7 @@ function SocialChatDrawer({
 }
 
 function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean) => void; open: boolean }): JSX.Element {
-  const [workspaces, setWorkspaces] = useState<ResourceItem[]>([]);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [state, setState] = useState<PlayWorkspaceState | null>(null);
   const [selectedWorkspace, setSelectedWorkspace] = useState("");
   const [history, setHistory] = useState<PeerRunHistoryEntry[]>([]);
@@ -2128,7 +2079,7 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
     setLoading(true);
     setError("");
     try {
-      const [workspacePage, workspaceState] = await Promise.all([listPeerResourcePage("workspaces", ""), expectData(getPeerRunWorkspace())]);
+      const [workspacePage, workspaceState] = await Promise.all([listWorkspacesPage(""), expectData(getPeerRunWorkspace())]);
       const nextState = normalizeWorkspaceState(workspaceState);
       setWorkspaces(sortWorkspacesByActivity(workspacePage.items ?? workspacePage.data ?? []));
       setState(nextState);
@@ -2301,7 +2252,7 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
                 loading={loading}
                 value={selectedWorkspace}
                 onChange={setSelectedWorkspace}
-                options={workspaces.map((workspace) => stringField(workspace, "name")).filter((name) => name !== "")}
+                options={workspaces.map((workspace) => workspace.name).filter((name) => name !== "")}
               />
             </div>
             <div className="flex items-end gap-2">
@@ -3168,7 +3119,7 @@ function WorkspaceRecallPanel({ error, hits, loading, onQueryChange, onRun, quer
   );
 }
 
-function ChatTester({ models, onOpenChange, open }: { models: ModelSpec[]; onOpenChange: (open: boolean) => void; open: boolean }): JSX.Element {
+function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenChange: (open: boolean) => void; open: boolean }): JSX.Element {
   const [sessions, setSessions] = useState<ChatSession[]>(() => loadChatSessions());
   const [activeSessionID, setActiveSessionID] = useState(() => sessions[0]?.id ?? createChatSession().id);
   const [selectedModel, setSelectedModel] = useState("");
@@ -3185,9 +3136,9 @@ function ChatTester({ models, onOpenChange, open }: { models: ModelSpec[]; onOpe
   const [resetToken, setResetToken] = useState(0);
   const selectedModelSpec = useMemo(() => models.find((model) => model.id === selectedModel), [models, selectedModel]);
   const playableVoices = useMemo(() => voices.filter(isPlayableVoice), [voices]);
-  const thinkingLevels = useMemo(() => selectedModelSpec?.thinking_levels ?? [], [selectedModelSpec]);
-  const supportsThinking = selectedModelSpec?.support_thinking === true;
-  const supportsTemperature = selectedModelSpec?.support_temperature !== false;
+  const thinkingLevels = useMemo(() => selectedModelSpec?.capabilities?.thinking?.levels ?? [], [selectedModelSpec]);
+  const supportsThinking = selectedModelSpec?.capabilities?.thinking?.supported === true;
+  const supportsTemperature = selectedModelSpec?.capabilities?.temperature !== false;
 
   const reportChatError = useCallback((message: string) => {
     setChatError(message);
@@ -3252,7 +3203,7 @@ function ChatTester({ models, onOpenChange, open }: { models: ModelSpec[]; onOpe
       setThinkingLevel("");
       return;
     }
-    const defaultLevel = selectedModelSpec?.default_thinking_level ?? thinkingLevels[0] ?? "";
+    const defaultLevel = selectedModelSpec?.capabilities?.thinking?.default_level ?? thinkingLevels[0] ?? "";
     setThinkingLevel((current) => (current !== "" && thinkingLevels.includes(current) ? current : defaultLevel));
   }, [selectedModelSpec, supportsThinking, thinkingLevels]);
 
@@ -3750,11 +3701,11 @@ function playAudioWithTimeout(audio: HTMLAudioElement): Promise<void> {
 async function fetchSpeechAudioBlob({ input, signal, voice }: { input: string; signal: AbortSignal; voice: string }): Promise<Blob> {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      const response = await getOpenAIClient().audio.speech.create(
+      const response = await getPlayOpenAIClient().audio.speech.create(
         {
           input,
           model: "tts",
-          response_format: "mp3",
+          response_format: "opus",
           stream_format: "sse",
           voice,
         },
@@ -3764,7 +3715,7 @@ async function fetchSpeechAudioBlob({ input, signal, voice }: { input: string; s
       );
       if (response.ok) {
         toast.info("Speech stream response received");
-        return readSpeechStreamAudioBlob(response);
+        return readPlaySpeechAudioBlob(response, "audio/ogg");
       }
       const message = await responseErrorMessage(response);
       if (attempt === 0 && isTransientSpeechProxyError(message)) {
@@ -3801,80 +3752,6 @@ async function responseErrorMessage(response: Response): Promise<string> {
   }
   const body = (await response.text().catch(() => "")).trim();
   return body === "" ? status : `${status}\n${body}`;
-}
-
-async function readSpeechStreamAudioBlob(response: Response): Promise<Blob> {
-  const contentType = response.headers.get("content-type") ?? "";
-  if (!contentType.startsWith("text/event-stream")) {
-    return response.blob();
-  }
-  if (response.body == null) {
-    throw new Error("Speech stream response has no body");
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  const chunks: BlobPart[] = [];
-  let pending = "";
-  let doneEvent = false;
-
-  const processLine = (line: string) => {
-    const trimmed = line.trim();
-    if (trimmed === "" || !trimmed.startsWith("data:")) {
-      return;
-    }
-    const data = trimmed.slice("data:".length).trim();
-    const event = JSON.parse(data) as { audio?: string; done?: boolean; type?: string };
-    switch (event.type) {
-      case "speech.audio.delta":
-        if (event.audio == null || event.audio === "") {
-          throw new Error("Speech stream audio delta is empty");
-        }
-        chunks.push(base64ToArrayBuffer(event.audio));
-        return;
-      case "speech.audio.done":
-        doneEvent = true;
-        return;
-      default:
-        throw new Error(`Unexpected speech stream event: ${event.type ?? "unknown"}`);
-    }
-  };
-
-  for (;;) {
-    const { done, value } = await reader.read();
-    pending += decoder.decode(value ?? new Uint8Array(), { stream: !done });
-    for (;;) {
-      const newline = pending.indexOf("\n");
-      if (newline < 0) {
-        break;
-      }
-      const line = pending.slice(0, newline);
-      pending = pending.slice(newline + 1);
-      processLine(line);
-    }
-    if (done) {
-      break;
-    }
-  }
-  if (pending.trim() !== "") {
-    processLine(pending);
-  }
-  if (chunks.length === 0) {
-    throw new Error("Speech stream returned no audio chunks");
-  }
-  if (!doneEvent) {
-    throw new Error("Speech stream ended without done event");
-  }
-  return new Blob(chunks, { type: "audio/mpeg" });
-}
-
-function base64ToArrayBuffer(value: string): ArrayBuffer {
-  const binary = atob(value);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
 function BranchPicker(): JSX.Element {
@@ -4311,7 +4188,7 @@ function PagedSimpleTable<T>({
 
 function WorkspacesPanel(): JSX.Element {
   const loadPage = useCallback(async (cursor: string) => {
-    const page = await listPeerResourcePage("workspaces", cursor);
+    const page = await listWorkspacesPage(cursor);
     const items = page.items ?? page.data;
     if (items == null) {
       return page;
@@ -4320,39 +4197,36 @@ function WorkspacesPanel(): JSX.Element {
   }, []);
   return (
     <PagedSimpleTable
-      columns={["Display name", "Workspace ID", "Workflow", "Last active", "Updated"]}
+      columns={["Name", "Workflow", "Last active", "Updated"]}
       empty="No workspaces"
       loadPage={loadPage}
-      row={(item) => [stringField(item, "display_name") || "-", stringField(item, "name"), stringField(item, "workflow_name"), formatDate(stringField(item, "last_active_at")), formatDate(stringField(item, "updated_at"))]}
+      row={(item) => [item.name, item.workflow_name, formatDate(item.last_active_at), formatDate(item.updated_at)]}
       title="Workspaces"
     />
   );
 }
 
 function WorkflowsPanel(): JSX.Element {
-  const loadPage = useCallback((cursor: string) => listPeerResourcePage("workflows", cursor), []);
+  const loadPage = useCallback((cursor: string) => listWorkflowsPage(cursor), []);
   return (
     <PagedSimpleTable
-      columns={["Name", "Kind", "API Version"]}
+      columns={["Name", "Display name", "Driver", "Description"]}
       empty="No workflows"
       loadPage={loadPage}
-      row={(item) => {
-        const metadata = objectField(item, "metadata");
-        return [stringField(metadata, "name"), stringField(item, "kind"), stringField(item, "apiVersion")];
-      }}
+      row={(item) => [item.name, item.i18n?.name ?? "", String(item.spec.driver), item.i18n?.description ?? ""]}
       title="Workflows"
     />
   );
 }
 
 function CredentialsPanel(): JSX.Element {
-  const loadPage = useCallback((cursor: string) => listPeerResourcePage("credentials", cursor), []);
+  const loadPage = useCallback((cursor: string) => listCredentialsPage(cursor), []);
   return (
     <PagedSimpleTable
-      columns={["Name", "Provider", "Method", "Description", "Updated"]}
+      columns={["Name", "Provider", "Auth fields", "Description", "Updated"]}
       empty="No credentials"
       loadPage={loadPage}
-      row={(item) => [stringField(item, "name"), stringField(item, "provider"), stringField(item, "method"), stringField(item, "description"), formatDate(stringField(item, "updated_at"))]}
+      row={(item) => [item.name, item.provider, credentialAuthSummary(item), item.description ?? "", formatDate(item.updated_at)]}
       title="Credentials"
     />
   );
@@ -4532,7 +4406,7 @@ function firmwareSlotSummary(slot: Firmware["slots"]["stable"]): string {
   return slot.description?.trim() || "-";
 }
 
-function ModelsPanel({ initialModels }: { initialModels: ModelSpec[] }): JSX.Element {
+function ModelsPanel({ initialModels }: { initialModels: Model[] }): JSX.Element {
   const loadPage = useCallback((cursor: string) => listModelsPage(cursor), []);
   const pager = usePagedList(loadPage);
   const models = pager.page.items.length === 0 && pager.page.loading ? initialModels : pager.page.items;
@@ -4569,7 +4443,7 @@ function ModelsPanel({ initialModels }: { initialModels: ModelSpec[] }): JSX.Ele
                       <TableCell className="font-mono text-xs font-medium">{model.id}</TableCell>
                       <TableCell>{model.kind ?? "-"}</TableCell>
                       <TableCell>{model.provider == null ? "-" : `${model.provider.kind}/${model.provider.name}`}</TableCell>
-                      <TableCell>{model.support_thinking === true ? <Badge variant="outline">{model.thinking_param || "on"}</Badge> : "-"}</TableCell>
+                      <TableCell>{model.capabilities?.thinking?.supported === true ? <Badge variant="outline">{model.capabilities.thinking.param || "on"}</Badge> : "-"}</TableCell>
                       <TableCell>{model.source ?? "-"}</TableCell>
                       <TableCell className="text-muted-foreground">{formatDate(model.updated_at)}</TableCell>
                     </TableRow>
@@ -4770,17 +4644,29 @@ function LoadingGrid(): JSX.Element {
   );
 }
 
-async function listModels(): Promise<ModelSpec[]> {
+async function listModels(): Promise<Model[]> {
   const response = await listModelsPage("");
   return response.items ?? [];
 }
 
-function listModelsPage(cursor: string): Promise<PageResponse<ModelSpec>> {
-  return expectData(listPeerModels({ query: pageQuery(cursor) })) as Promise<PageResponse<ModelSpec>>;
+function listModelsPage(cursor: string): Promise<PageResponse<Model>> {
+  return expectData(listPeerModels({ query: pageQuery(cursor) }));
 }
 
 function listVoicesPage(cursor: string): Promise<PageResponse<Voice>> {
   return expectData(listClientVoices({ query: pageQuery(cursor) })) as Promise<PageResponse<Voice>>;
+}
+
+function listWorkflowsPage(cursor: string): Promise<PageResponse<PeerWorkflow>> {
+  return expectData(listPeerWorkflows({ query: pageQuery(cursor) }));
+}
+
+function listWorkspacesPage(cursor: string): Promise<PageResponse<Workspace>> {
+  return expectData(listPeerWorkspaces({ query: pageQuery(cursor) }));
+}
+
+function listCredentialsPage(cursor: string): Promise<PageResponse<Credential>> {
+  return expectData(listPeerCredentials({ query: pageQuery(cursor) }));
 }
 
 function listFirmwaresPage(cursor: string): Promise<PageResponse<Firmware>> {
@@ -4821,32 +4707,6 @@ function mergeVoices(voices: Voice[]): Voice[] {
 
 function isPlayableVoice(voice: Voice): boolean {
   return voice.provider.kind === "volc-tenant";
-}
-
-async function listPeerResourcePage(name: string, cursor: string): Promise<PageResponse<ResourceItem>> {
-  const query = pageQuery(cursor);
-  switch (name) {
-    case "contacts":
-      return expectData(listPeerContacts({ query })) as Promise<PageResponse<ResourceItem>>;
-    case "credentials":
-      return expectData(listPeerCredentials({ query })) as Promise<PageResponse<ResourceItem>>;
-    case "firmwares":
-      return expectData(listPeerFirmwares({ query })) as Promise<PageResponse<ResourceItem>>;
-    case "friend-groups":
-      return expectData(listPeerFriendGroups({ query })) as Promise<PageResponse<ResourceItem>>;
-    case "friends":
-      return expectData(listPeerFriends({ query })) as Promise<PageResponse<ResourceItem>>;
-    case "models":
-      return expectData(listPeerModels({ query })) as Promise<PageResponse<ResourceItem>>;
-    case "voices":
-      return expectData(listPeerVoices({ query })) as Promise<PageResponse<ResourceItem>>;
-    case "workflows":
-      return expectData(listPeerWorkflows({ query })) as Promise<PageResponse<ResourceItem>>;
-    case "workspaces":
-      return expectData(listPeerWorkspaces({ query })) as Promise<PageResponse<ResourceItem>>;
-    default:
-      throw new Error(`Unsupported peer resource: ${name}`);
-  }
 }
 
 async function createWorkspaceVoiceSession({
@@ -5133,39 +4993,19 @@ function sectionTitle(section: Section): string {
   return sections.find((item) => item.id === section)?.label ?? "OpenAI Gateway";
 }
 
-function objectField(item: ResourceItem, key: string): ResourceItem {
-  const value = item[key];
-  return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as ResourceItem) : {};
-}
-
-function stringField(item: ResourceItem, key: string): string {
-  const value = item[key];
-  if (value == null) {
-    return "";
-  }
-  if (typeof value === "string") {
-    return value;
-  }
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value);
-  }
-  return jsonSummary(value);
-}
-
-function sortWorkspacesByActivity(items: ResourceItem[]): ResourceItem[] {
+function sortWorkspacesByActivity(items: Workspace[]): Workspace[] {
   return [...items].sort((left, right) => {
     const leftTime = workspaceActivityTime(left);
     const rightTime = workspaceActivityTime(right);
     if (leftTime !== rightTime) {
       return rightTime - leftTime;
     }
-    return stringField(left, "name").localeCompare(stringField(right, "name"));
+    return left.name.localeCompare(right.name);
   });
 }
 
-function workspaceActivityTime(item: ResourceItem): number {
-  for (const key of ["last_active_at", "updated_at", "created_at"]) {
-    const value = stringField(item, key);
+function workspaceActivityTime(item: Workspace): number {
+  for (const value of [item.last_active_at, item.updated_at, item.created_at]) {
     if (value === "") {
       continue;
     }
@@ -5177,9 +5017,11 @@ function workspaceActivityTime(item: ResourceItem): number {
   return 0;
 }
 
-function summaryField(item: ResourceItem, key: string): string {
-  const value = item[key];
-  return value == null ? "" : jsonSummary(value);
+function credentialAuthSummary(credential: Credential): string {
+  const keys = Object.entries(credential.body)
+    .filter(([, value]) => value !== undefined && value !== "")
+    .map(([key]) => key);
+  return keys.length === 0 ? "empty body" : keys.join(", ");
 }
 
 function jsonSummary(value: unknown): string {
@@ -5341,13 +5183,13 @@ function createOpenAIChatAdapter({
       const body = {
         messages: chatMessages,
         model,
-        stream: true,
+        stream: false,
         ...(Number.isFinite(temperature) ? { temperature } : {}),
         ...(thinking == null ? {} : { thinking }),
-      } satisfies OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming & { thinking?: ChatThinkingOptions };
-      let stream: AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>;
+      } satisfies OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming & { thinking?: ChatThinkingOptions };
+      let completion: OpenAI.Chat.Completions.ChatCompletion;
       try {
-        stream = await getOpenAIClient().chat.completions.create(body, { signal: abortSignal });
+        completion = await getPlayOpenAIClient().chat.completions.create(body, { signal: abortSignal });
       } catch (err) {
         if (isAbortError(err)) {
           return;
@@ -5370,24 +5212,7 @@ function createOpenAIChatAdapter({
           });
       }
 
-      let text = "";
-      try {
-        for await (const chunk of stream) {
-          const delta = chunk.choices[0]?.delta?.content ?? "";
-          if (delta !== "") {
-            text += delta;
-            yield { content: [{ type: "text", text }] };
-          }
-        }
-      } catch (err) {
-        if (isAbortError(err)) {
-          return;
-        }
-        const errorText = chatRequestErrorText(model, errorToMessage(err));
-        onChatError(errorText);
-        yield chatErrorResult(errorText, text);
-        return;
-      }
+      const text = completion.choices[0]?.message.content ?? "";
       onCompleteText?.(text);
       yield { content: [{ type: "text", text }], status: { type: "complete", reason: "stop" } };
     },
@@ -5463,7 +5288,7 @@ async function generateChatTitle(model: string, messages: ChatCompletionMessageP
   if (firstUserMessage === "") {
     return "";
   }
-  const response = await getOpenAIClient().chat.completions.create(
+  const response = await getPlayOpenAIClient().chat.completions.create(
     {
       messages: [
         {

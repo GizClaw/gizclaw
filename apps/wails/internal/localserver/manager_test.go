@@ -2,9 +2,12 @@ package localserver
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -92,5 +95,187 @@ func TestManagerReportsUnexpectedExit(t *testing.T) {
 	}
 	if status.State != "failed" || status.Error == "" {
 		t.Fatalf("Status() = %+v", status)
+	}
+}
+
+func TestManagerRecoversExistingProcessFromWorkspacePID(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the test helper is a POSIX shell script")
+	}
+	dir := t.TempDir()
+	workspace := filepath.Join(dir, "workspace")
+	executable := filepath.Join(dir, "gizclaw")
+	script := "#!/bin/sh\ntrap 'exit 0' INT TERM\nwhile :; do sleep 1; done\n"
+	if err := os.WriteFile(executable, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	original := New()
+	original.Executable = executable
+	started, err := original.Start("local-lab", workspace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pidData, err := os.ReadFile(filepath.Join(workspace, PIDFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	pidInfo, err := os.Stat(filepath.Join(workspace, PIDFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pidInfo.Mode().Perm() != 0o600 {
+		t.Fatalf("PID file mode = %o", pidInfo.Mode().Perm())
+	}
+	if string(pidData) != fmt.Sprintf("%d\n", started.PID) {
+		t.Fatalf("PID file = %q, want %d", pidData, started.PID)
+	}
+
+	restartedDesktop := New()
+	recovered, err := restartedDesktop.Recover("local-lab", workspace, func(pid int) error {
+		if pid != started.PID {
+			return fmt.Errorf("PID = %d, want %d", pid, started.PID)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if recovered.State != "running" || recovered.PID != started.PID {
+		t.Fatalf("Recover() = %+v, want PID %d", recovered, started.PID)
+	}
+	duplicate, err := restartedDesktop.Start("local-lab", workspace)
+	if err != nil || duplicate.PID != started.PID {
+		t.Fatalf("Start() after recovery = %+v, %v", duplicate, err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	stopped, err := restartedDesktop.Stop(ctx, "local-lab")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stopped.State != "stopped" || stopped.PID != 0 {
+		t.Fatalf("Stop() recovered process = %+v", stopped)
+	}
+	if _, err := os.Stat(filepath.Join(workspace, PIDFile)); !os.IsNotExist(err) {
+		t.Fatalf("PID file after Stop() error = %v", err)
+	}
+}
+
+func TestManagerRemovesStaleWorkspacePID(t *testing.T) {
+	workspace := t.TempDir()
+	pidPath := filepath.Join(workspace, PIDFile)
+	if err := os.WriteFile(pidPath, []byte("not-a-pid\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	status, err := New().Recover("local-lab", workspace, func(int) error { return nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.State != "stopped" {
+		t.Fatalf("Recover() = %+v", status)
+	}
+	if _, err := os.Stat(pidPath); !os.IsNotExist(err) {
+		t.Fatalf("stale PID file error = %v", err)
+	}
+}
+
+func TestManagerPreservesLivePIDAfterTransientVerificationFailure(t *testing.T) {
+	workspace := t.TempDir()
+	pidPath := filepath.Join(workspace, PIDFile)
+	if err := os.WriteFile(pidPath, fmt.Appendf(nil, "%d\n", os.Getpid()), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	manager := New()
+	if _, err := manager.Recover("local-lab", workspace, func(int) error {
+		return errors.New("server-info unavailable")
+	}); err == nil || !strings.Contains(err.Error(), "server-info unavailable") {
+		t.Fatalf("Recover() error = %v", err)
+	}
+	if status := manager.Status("local-lab"); status.State != "failed" || status.PID != 0 {
+		t.Fatalf("Status() = %+v", status)
+	}
+	if _, err := os.Stat(pidPath); err != nil {
+		t.Fatalf("preserved PID file error = %v", err)
+	}
+}
+
+func TestManagerRemovesDefinitivelyMismatchedLivePID(t *testing.T) {
+	workspace := t.TempDir()
+	pidPath := filepath.Join(workspace, PIDFile)
+	if err := os.WriteFile(pidPath, fmt.Appendf(nil, "%d\n", os.Getpid()), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	manager := New()
+	status, err := manager.Recover("local-lab", workspace, func(int) error {
+		return fmt.Errorf("wrong public key: %w", ErrProcessIdentityMismatch)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.State != "stopped" || status.PID != 0 {
+		t.Fatalf("Recover() = %+v", status)
+	}
+	if current := manager.Status("local-lab"); current.State != "stopped" || current.PID != 0 {
+		t.Fatalf("Status() = %+v", current)
+	}
+	if _, err := os.Stat(pidPath); !os.IsNotExist(err) {
+		t.Fatalf("mismatched PID file error = %v", err)
+	}
+}
+
+func TestManagerShutdownStopsAllProcessesAndRejectsNewStarts(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the test helper is a POSIX shell script")
+	}
+	dir := t.TempDir()
+	executable := filepath.Join(dir, "gizclaw")
+	script := "#!/bin/sh\ntrap 'exit 0' INT TERM\nwhile :; do sleep 1; done\n"
+	if err := os.WriteFile(executable, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	manager := New()
+	manager.Executable = executable
+	for _, id := range []string{"first", "second"} {
+		if _, err := manager.Start(id, filepath.Join(dir, id)); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	manager.Shutdown(ctx)
+	for _, id := range []string{"first", "second"} {
+		if status := manager.Status(id); status.State != "stopped" || status.PID != 0 {
+			t.Fatalf("Status(%q) after Shutdown() = %+v", id, status)
+		}
+	}
+	if _, err := manager.Start("late", filepath.Join(dir, "late")); err == nil {
+		t.Fatal("Start() during shutdown error = nil")
+	}
+}
+
+func TestManagerShutdownKillsProcessAfterTimeout(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the test helper is a POSIX shell script")
+	}
+	dir := t.TempDir()
+	executable := filepath.Join(dir, "gizclaw")
+	script := "#!/bin/sh\ntrap '' INT TERM\nwhile :; do :; done\n"
+	if err := os.WriteFile(executable, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	manager := New()
+	manager.Executable = executable
+	if _, err := manager.Start("stubborn", filepath.Join(dir, "workspace")); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	manager.Shutdown(ctx)
+	if status := manager.Status("stubborn"); status.State != "stopped" || status.PID != 0 {
+		t.Fatalf("Status() after forced Shutdown() = %+v", status)
 	}
 }

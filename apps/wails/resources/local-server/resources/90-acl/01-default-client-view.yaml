@@ -1,0 +1,7 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: ACLView
+metadata:
+  name: default-client
+spec:
+  description: Default GizClaw client resource view

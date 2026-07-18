@@ -1,0 +1,9 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: ACLRole
+metadata:
+  name: default-client
+spec:
+  permissions:
+    - read
+    - use

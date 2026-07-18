@@ -1,0 +1,8 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: ACLPolicyBinding
+metadata: {name: default-client-model-deepseek-v4-flash}
+spec:
+  subject: {kind: view, id: default-client}
+  resource: {kind: model, id: deepseek-v4-flash}
+  role: default-client

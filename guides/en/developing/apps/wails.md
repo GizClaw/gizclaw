@@ -14,7 +14,7 @@ apps/wails/
 │   ├── endpointhealth/  # /server-info health probes
 │   ├── localserver/     # local Server lifecycle and bounded logs
 │   ├── tray/            # system tray integration
-│   └── webui/           # loopback HTTP and one-time handoff
+│   └── webui/           # loopback HTTP and local runtime tokens
 ├── i18n/locales/        # en and zh-CN copy
 └── frontend/            # Pod desktop home and Admin/Play browser entry points
 ```
@@ -22,6 +22,17 @@ apps/wails/
 Desktop App does not copy the server-side business of `pkgs/gizclaw`. `api/http/desktop.json` Yes
 Schema source of desktop bridge DTO; generated through `gen:sdk` of `sdk/js` after update
 `frontend/src/generated/desktopservice`.
+
+## Local Server recovery
+
+Each running local Server stores `workspace/server.pid`. After an abnormal Desktop exit, recovery
+first confirms that the PID is alive and retries the Pod's loopback `/server-info` identity check for
+up to five seconds. Transient verification failures preserve the PID; a definitive public-key
+mismatch removes it. Desktop never signals an unverified PID. For an interrupted bootstrap, cleanup
+only removes the workspace after the recovered Server has been stopped; otherwise the PID and
+workspace are preserved and cleanup aborts. Normal local Pods with transient recovery failures remain
+visible with failed process and health status. Lifecycle mutations retry verification and are rejected
+while the PID remains unverified; a definitive identity mismatch clears the stale PID as stopped.
 
 ## Pod projection
 
@@ -52,10 +63,12 @@ Persistence keys cannot be returned.
 
 ## Browser Runtime
 
-The static products of Admin and Play are started from `admin.html` and `play.html` respectively. each
-Pod/surface only retains one `127.0.0.1:0` listener. Generate new ones every time you open the browser
-Random token, the browser will remove the token from the address bar immediately after receiving the Runtime via POST from the same source.
-Handover results are not cached; keys must not enter URLs, Web Storage, logs, or static files.
+The static products of Admin and Play are started from `admin.html` and `play.html` respectively. Each
+Pod/surface retains one `127.0.0.1:0` listener and creates a distinct random token for every launch,
+binding that token to the selected Runtime. The token remains in the local URL query, and the browser
+presents it through a same-origin POST whenever it opens or refreshes. Each launch token remains valid
+until its listener closes. Runtime responses are not
+cached; private keys must not enter URLs, Web Storage, logs, or static files.
 
 The Go part follows [Go coding specifications](/en/coding-styles/go), and the frontend follows
 [JavaScript and TypeScript](/en/coding-styles/js).

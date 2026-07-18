@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     (window as any).__GIZCLAW_WINDOW_ACTIONS__ = [];
+    (window as any).__GIZCLAW_CREATE_CALLS__ = 0;
     window.runtime = {
       WindowHide() {
         (window as any).__GIZCLAW_WINDOW_ACTIONS__.push("hide");
@@ -22,6 +23,20 @@ test.beforeEach(async ({ page }) => {
       state,
       public_key: `server-public-key-${endpoint}`,
     });
+    let bootstrapEnvironment = {
+      ready: true,
+      missing: [],
+      content: "GIZCLAW_VOLC_SPEECH_API_KEY=initial-secret\n",
+      variables: [
+        {
+          name: "GIZCLAW_VOLC_SPEECH_API_KEY",
+          required: true,
+          configured: true,
+          defaulted: false,
+          value: "initial-secret",
+        },
+      ],
+    };
     const pods = [
       {
         id: "local-lab",
@@ -108,11 +123,35 @@ test.beforeEach(async ({ page }) => {
           locale: navigator.language.toLowerCase().startsWith("zh")
             ? "zh-CN"
             : "en",
+          bootstrap_environment: bootstrapEnvironment,
           pods,
         };
       },
+      async GetBootstrapEnvironment() {
+        return bootstrapEnvironment;
+      },
+      async UpdateBootstrapEnvironment(update) {
+        const match = /^GIZCLAW_VOLC_SPEECH_API_KEY=(.*)$/m.exec(
+          update.content,
+        );
+        const value = match?.[1]?.replace(/^['"]|['"]$/g, "") ?? "";
+        bootstrapEnvironment = {
+          ready: value !== "",
+          missing: value !== ""
+            ? []
+            : ["GIZCLAW_VOLC_SPEECH_API_KEY"],
+          content: update.content,
+          variables: bootstrapEnvironment.variables.map((variable) => ({
+            ...variable,
+            configured: value !== "",
+            value,
+          })),
+        };
+        return bootstrapEnvironment;
+      },
       async CreatePod(input) {
-        const pod = input.local_server
+        (window as any).__GIZCLAW_CREATE_CALLS__ += 1;
+        const pod: any = input.local_server
           ? {
               id: input.id || "pod-generated",
               name: input.name,
@@ -144,6 +183,15 @@ test.beforeEach(async ({ page }) => {
                 servers: [],
               },
             };
+        const initializationDelay =
+          (window as any).__GIZCLAW_INITIALIZATION_DELAY__ ?? 0;
+        if (input.local_server && initializationDelay > 0) {
+          pod.initialization = { state: "initializing" };
+          pod.local.process.state = "running";
+          window.setTimeout(() => {
+            delete pod.initialization;
+          }, initializationDelay);
+        }
         pods.push(pod);
         return pod;
       },
@@ -152,20 +200,20 @@ test.beforeEach(async ({ page }) => {
         if (index >= 0) pods.splice(index, 1);
       },
       async GetPod(id) {
-        return pods.find((pod) => pod.id === id);
+        return structuredClone(pods.find((pod) => pod.id === id));
       },
       async ListPods() {
         return pods;
       },
       async OpenAdmin() {
-        return "http://127.0.0.1:4101/#launch=admin-token";
+        return "http://127.0.0.1:4101/?token=admin-token";
       },
       async OpenPlay() {
-        return "http://127.0.0.1:4102/#launch=play-token";
+        return "http://127.0.0.1:4102/?token=play-token";
       },
       async RevealPod() {},
       async RefreshPodHealth(id) {
-        return pods.find((pod) => pod.id === id);
+        return structuredClone(pods.find((pod) => pod.id === id));
       },
       async RestartLocalServer(id) {
         return pods.find((pod) => pod.id === id);
@@ -328,6 +376,7 @@ test("Add Pod creates a local environment without exposing keys", async ({
     .locator(".create-dialog")
     .getByRole("button", { name: /^Local/ })
     .click();
+  await page.locator(".pod-card", { hasText: "Local Server" }).click();
   await expect(
     page
       .getByRole("dialog")
@@ -337,6 +386,118 @@ test("Add Pod creates a local environment without exposing keys", async ({
     page.getByRole("dialog").getByRole("img", { name: "Server QR code" }),
   ).toBeVisible();
   await expect(page.locator("body")).not.toContainText("private_key");
+});
+
+test("local creation returns immediately and reports initialization in Pod details", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.evaluate(() => {
+    (window as any).__GIZCLAW_INITIALIZATION_DELAY__ = 1600;
+  });
+  await page.getByRole("button", { name: "Add Pod" }).click();
+  const createDialog = page.getByRole("dialog");
+  const local = createDialog.getByRole("button", { name: /^Local/ });
+  await local.evaluate((element) => {
+    (element as HTMLButtonElement).click();
+    (element as HTMLButtonElement).click();
+  });
+  await expect(createDialog).toHaveCount(0);
+  const card = page.locator(".pod-card", { hasText: "Local Server" });
+  await expect(card).toContainText("Initializing data");
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__GIZCLAW_CREATE_CALLS__))
+    .toBe(1);
+  await card.click();
+  const detail = page.getByRole("dialog");
+  await expect(detail.getByRole("status")).toContainText("Initializing data");
+  await expect(detail.getByRole("img", { name: "Server QR code" })).toHaveCount(
+    0,
+  );
+  await expect(detail.getByRole("img", { name: "Server QR code" })).toBeVisible({
+    timeout: 5000,
+  });
+});
+
+test("local creation refreshes the initializing Pod card without opening details", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.evaluate(() => {
+    (window as any).__GIZCLAW_INITIALIZATION_DELAY__ = 1200;
+  });
+  await page.getByRole("button", { name: "Add Pod" }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: /^Local/ })
+    .click();
+
+  const card = page.locator(".pod-card", { hasText: "Local Server" });
+  await expect(card).toContainText("Initializing data");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(card).not.toContainText("Initializing data", { timeout: 5000 });
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("local creation opens an editable nested bootstrap environment form", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.evaluate(async () => {
+    await window.__GIZCLAW_DESKTOP_TEST_API__?.UpdateBootstrapEnvironment({
+      content: "",
+    });
+    window.dispatchEvent(new Event("focus"));
+  });
+  await expect(
+    page.getByRole("button", { name: "Configure bootstrap" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Add Pod" }).click();
+  await page
+    .locator(".create-dialog")
+    .getByRole("button", { name: /^Local/ })
+    .click();
+  const environment = page
+    .getByRole("dialog")
+    .filter({ hasText: "Bootstrap environment" });
+  await expect(environment).toBeVisible();
+  await page.waitForTimeout(400);
+  const modeTabs = environment.getByRole("tablist");
+  const saveButton = environment.getByRole("button", {
+    name: "Save configuration",
+  });
+  const tabsBeforeScroll = await modeTabs.boundingBox();
+  const saveBeforeScroll = await saveButton.boundingBox();
+  await environment.locator(".bootstrap-environment-scroll-region").evaluate(
+    (element) => {
+      element.scrollTop = element.scrollHeight;
+    },
+  );
+  expect(
+    Math.abs((await modeTabs.boundingBox())!.y - tabsBeforeScroll!.y),
+  ).toBeLessThan(1);
+  expect(
+    Math.abs((await saveButton.boundingBox())!.y - saveBeforeScroll!.y),
+  ).toBeLessThan(1);
+  const input = environment.getByLabel("Volcengine Speech API key");
+  await expect(input).toHaveAttribute("type", "text");
+  await expect(input).toBeEditable();
+  await input.fill("replacement-secret");
+  await environment
+    .getByRole("button", { name: "Save configuration" })
+    .click();
+  await expect(environment).toHaveCount(0);
+  await page
+    .locator(".create-dialog")
+    .getByRole("button", { name: /^Local/ })
+    .click();
+  await page.locator(".pod-card", { hasText: "Local Server" }).click();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByRole("heading", { level: 2, name: "Local Server" }),
+  ).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("replacement-secret");
 });
 
 test("local share stays simple and switches to focused controls", async ({
@@ -366,7 +527,7 @@ test("local share stays simple and switches to focused controls", async ({
   await dialog.getByRole("button", { name: /Play/ }).click();
   await expect
     .poll(() => page.evaluate(() => (window as any).__GIZCLAW_WINDOW_ACTIONS__))
-    .toContain("open:http://127.0.0.1:4102/#launch=play-token");
+    .toContain("open:http://127.0.0.1:4102/?token=play-token");
   await expect
     .poll(() => dialog.evaluate((element) => element.clientWidth))
     .toBeLessThanOrEqual(420);
@@ -430,7 +591,7 @@ test("local share stays simple and switches to focused controls", async ({
   await adminButton.click();
   await expect
     .poll(() => page.evaluate(() => (window as any).__GIZCLAW_WINDOW_ACTIONS__))
-    .toContain("open:http://127.0.0.1:4101/#launch=admin-token");
+    .toContain("open:http://127.0.0.1:4101/?token=admin-token");
   await expect(dialog.getByRole("button", { name: /Play/ })).toHaveCount(0);
   await expect(dialog.getByRole("button", { name: /Restart/ })).toHaveCount(0);
   await expect(dialog.getByText("server ready")).toHaveCount(0);
@@ -452,13 +613,22 @@ test("local share stays simple and switches to focused controls", async ({
 test("server controls delete a Pod after confirmation", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: /Local Lab/ }).click();
-  const detail = page.getByRole("dialog");
+  const detail = page.locator(".pod-dialog");
   await detail.getByRole("button", { name: "Server controls" }).click();
-  page.once("dialog", async (confirmation) => {
-    expect(confirmation.message()).toBe("Delete this Pod and its local data?");
-    await confirmation.accept();
-  });
   await detail.getByRole("button", { name: "Delete Pod" }).click();
+  const confirmation = page.locator(".delete-pod-dialog");
+  await expect(confirmation).toBeVisible();
+  await expect(confirmation).toContainText(
+    "Delete this Pod and its local data?",
+  );
+  await expect(
+    page.locator(".pod-card").filter({ hasText: "Local Lab" }),
+  ).toHaveCount(1);
+  await confirmation.getByRole("button", { name: "Cancel" }).click();
+  await expect(confirmation).not.toBeVisible();
+
+  await detail.getByRole("button", { name: "Delete Pod" }).click();
+  await confirmation.getByRole("button", { name: "Delete Pod" }).click();
   await expect(detail).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Local Lab/ })).toHaveCount(0);
 });
@@ -502,6 +672,41 @@ test("remote Pod settings update the QR access point without changing Admin endp
   await detail.getByRole("button", { name: "Manage Servers" }).click();
   await expect(detail.getByText("115.191.6.117:9820")).toBeVisible();
   await expect(detail.getByText("115.191.6.118:9820")).toBeVisible();
+});
+
+test("bootstrap environment supports direct dotenv text editing", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Bootstrap ready" }).click();
+  const environment = page
+    .getByRole("dialog")
+    .filter({ hasText: "Bootstrap environment" });
+  await expect(environment.getByRole("heading")).toHaveCSS(
+    "color",
+    "rgb(32, 33, 38)",
+  );
+  const formInput = environment.getByLabel("Volcengine Speech API key");
+  await expect(formInput).toHaveCSS("color", "rgb(32, 33, 38)");
+  expect(
+    await formInput.evaluate(
+      (element) => getComputedStyle(element, "::placeholder").color,
+    ),
+  ).toBe("rgb(157, 161, 170)");
+  await environment.getByRole("tab", { name: ".env text" }).click();
+  const editor = environment.getByLabel(".env text");
+  await expect(editor).toBeEditable();
+  await editor.fill(
+    "# Speech provider\nGIZCLAW_VOLC_SPEECH_API_KEY=text-editor-secret\n",
+  );
+  await environment
+    .getByRole("button", { name: "Save configuration" })
+    .click();
+  await expect(environment).toHaveCount(0);
+  await page.getByRole("button", { name: "Bootstrap ready" }).click();
+  await expect(
+    page.getByRole("dialog").getByLabel("Volcengine Speech API key"),
+  ).toHaveValue("text-editor-secret");
 });
 
 test("Remote creation asks only for an access point and adds Servers later", async ({

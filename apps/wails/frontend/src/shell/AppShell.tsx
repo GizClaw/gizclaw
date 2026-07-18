@@ -9,6 +9,8 @@ import {
   Cloud,
   Laptop,
   FolderOpen,
+  KeyRound,
+  LoaderCircle,
   Maximize2,
   Minus,
   Pencil,
@@ -24,11 +26,19 @@ import {
 
 import { setLocale, useMessages } from "../i18n";
 import { getDesktopAPI } from "../lib/runtime/desktop";
-import type { PodInput, PodSummary } from "../lib/runtime/types";
+import type {
+  BootstrapEnvironmentState,
+  PodInput,
+  PodSummary,
+} from "../lib/runtime/types";
 import { DesktopDialog, DesktopDialogTitle } from "./DesktopDialog";
 import { HomeCard } from "./HomeCard";
 import { ManageListItem } from "./ManageListItem";
 import { NeatWaves } from "./NeatWaves";
+import {
+  readBootstrapEnvValues,
+  updateBootstrapEnvContent,
+} from "./bootstrap-env";
 
 export function AppShell() {
   const api = useMemo(() => getDesktopAPI(), []);
@@ -38,8 +48,16 @@ export function AppShell() {
   const [creating, setCreating] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [editing, setEditing] = useState<PodSummary | null>(null);
+  const [bootstrapEnvironment, setBootstrapEnvironment] =
+    useState<BootstrapEnvironmentState | null>(null);
+  const [environmentOpen, setEnvironmentOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const initializingPodIDs = pods
+    .filter((pod) => pod.initialization?.state === "initializing")
+    .map((pod) => pod.id)
+    .sort()
+    .join("\n");
 
   useEffect(() => {
     const refresh = () =>
@@ -48,6 +66,7 @@ export function AppShell() {
         .then(async (state) => {
           setLocale(state.locale);
           setPods(state.pods);
+          setBootstrapEnvironment(state.bootstrap_environment);
           const checked = await Promise.all(
             state.pods.map((pod) =>
               api.RefreshPodHealth(pod.id).catch(() => pod),
@@ -72,6 +91,7 @@ export function AppShell() {
               .Bootstrap()
               .then((state) => {
                 setLocale(state.locale);
+                setBootstrapEnvironment(state.bootstrap_environment);
                 const pod = state.pods.find((candidate) => candidate.id === id);
                 if (pod) {
                   setPods(state.pods);
@@ -91,6 +111,38 @@ export function AppShell() {
       window.removeEventListener("focus", onFocus);
     };
   }, [api]);
+
+  useEffect(() => {
+    if (initializingPodIDs === "") return;
+    const ids = initializingPodIDs.split("\n");
+    let refreshing = false;
+    let cancelled = false;
+    const refresh = async () => {
+      if (refreshing) return;
+      refreshing = true;
+      try {
+        const nextPods = await Promise.all(ids.map((id) => api.GetPod(id)));
+        if (cancelled) return;
+        const byID = new Map(nextPods.map((pod) => [pod.id, pod]));
+        setPods((current) =>
+          current.map((pod) => byID.get(pod.id) ?? pod),
+        );
+        setSelected((current) =>
+          current == null ? null : byID.get(current.id) ?? current,
+        );
+      } catch (reason) {
+        if (!cancelled) setError(errorMessage(reason));
+      } finally {
+        refreshing = false;
+      }
+    };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 750);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [api, initializingPodIDs]);
 
   function replacePod(next: PodSummary) {
     setPods((current) =>
@@ -114,7 +166,7 @@ export function AppShell() {
       const pod = await api.CreatePod(input);
       setPods((current) => [...current, pod]);
       setCreating(false);
-      setSelected(pod);
+      if (pod.mode === "remote") setSelected(pod);
     } catch (reason) {
       setError(errorMessage(reason));
     }
@@ -163,8 +215,22 @@ export function AppShell() {
         className={`pod-canvas ${!loading && pods.length === 0 ? "pod-canvas-empty" : ""}`}
       >
         <header className="home-heading">
-          <h1 className="home-title">GizClaw</h1>
-          <p className="home-subtitle">{t("tagline")}</p>
+          <div>
+            <h1 className="home-title">GizClaw</h1>
+            <p className="home-subtitle">{t("tagline")}</p>
+          </div>
+          <button
+            className={`bootstrap-environment-button ${bootstrapEnvironment?.ready ? "is-ready" : "is-missing"}`}
+            onClick={() => setEnvironmentOpen(true)}
+            type="button"
+          >
+            <KeyRound size={14} />
+            <span>
+              {bootstrapEnvironment?.ready
+                ? t("bootstrapEnvironmentReady")
+                : t("bootstrapEnvironmentMissing")}
+            </span>
+          </button>
         </header>
         <div className="pod-grid" aria-label={t("pods")}>
           <MobileAppCard onOpen={() => setMobileOpen(true)} />
@@ -214,6 +280,7 @@ export function AppShell() {
               setSelected(null);
             } catch (reason) {
               setError(errorMessage(reason));
+              throw reason;
             }
           }}
           onEdit={() => setEditing(selected)}
@@ -227,7 +294,25 @@ export function AppShell() {
         />
       ) : null}
       {creating ? (
-        <CreatePodDialog onClose={() => setCreating(false)} onSave={create} />
+        <CreatePodDialog
+          bootstrapReady={bootstrapEnvironment?.ready === true}
+          onClose={() => setCreating(false)}
+          onConfigureEnvironment={() => setEnvironmentOpen(true)}
+          onSave={create}
+        />
+      ) : null}
+      {environmentOpen && bootstrapEnvironment ? (
+        <BootstrapEnvironmentDialog
+          initial={bootstrapEnvironment}
+          nested={creating}
+          onClose={() => setEnvironmentOpen(false)}
+          onError={(reason) => setError(errorMessage(reason))}
+          onSave={async (content) => {
+            const next = await api.UpdateBootstrapEnvironment({ content });
+            setBootstrapEnvironment(next);
+            setEnvironmentOpen(false);
+          }}
+        />
       ) : null}
       {editing ? (
         <PodSettingsDialog
@@ -378,25 +463,32 @@ function PodCard({
   const adminCount =
     pod.remote?.servers.filter((server) => server.admin_configured).length ?? 0;
   const running = pod.local?.process.state === "running";
-  const online = running || pod.remote?.access_point.state === "reachable";
+  const initializing = pod.initialization?.state === "initializing";
+  const initializationFailed = pod.initialization?.state === "failed";
+  const online =
+    !pod.initialization &&
+    (running || pod.remote?.access_point.state === "reachable");
   const hue = stableHue(pod.id);
   const mode = !pod.valid
     ? t("invalid")
     : pod.mode === "local"
       ? t("local")
       : t("remote");
+  const description = !pod.valid
+    ? pod.error
+    : initializing
+      ? t("initializingData")
+      : initializationFailed
+        ? t("initializationFailed")
+        : pod.local
+          ? running
+            ? t("running")
+            : t("stopped")
+          : `${remoteCount} ${remoteCount === 1 ? t("server") : t("servers")}`;
   return (
     <HomeCard
       className={`pod-card pod-card-${pod.valid ? pod.mode : "invalid"}`}
-      description={
-        !pod.valid
-          ? pod.error
-          : pod.local
-            ? running
-              ? t("running")
-              : t("stopped")
-            : `${remoteCount} ${remoteCount === 1 ? t("server") : t("servers")}`
-      }
+      description={description}
       footer={
         pod.valid ? (
           <span className="pod-card-capabilities">
@@ -434,7 +526,9 @@ function PodCard({
             )}
           </span>
           <span className="mode-chip">{mode}</span>
-          <span className={`health-pulse ${online ? "online" : ""}`} />
+          <span
+            className={`health-pulse ${online ? "online" : ""} ${initializing ? "initializing" : ""}`}
+          />
         </>
       }
     />
@@ -463,6 +557,7 @@ function PodDetail({
 }) {
   const t = useMessages();
   const [managing, setManaging] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [query, setQuery] = useState("");
   const [serverEditor, setServerEditor] = useState<PodServer | "new" | null>(
     null,
@@ -498,7 +593,7 @@ function PodDetail({
           ) : null}
           <div className="pod-dialog-heading">
             <DesktopDialogTitle>
-              {pod.valid ? (
+              {pod.valid && !pod.initialization ? (
                 <h2>
                   <button
                     className="pod-name-button"
@@ -542,14 +637,18 @@ function PodDetail({
                 {t("reveal")}
               </button>
             </div>
+          ) : pod.initialization ? (
+            <PodInitializationDetail
+              initialization={pod.initialization}
+              onDelete={() => setConfirmingDelete(true)}
+              onReveal={onReveal}
+            />
           ) : pod.local ? (
             <PodDetailPages
               back={
                 <LocalManageFace
                   api={api}
-                  onDelete={() => {
-                    if (window.confirm(t("confirmDelete"))) void onDelete();
-                  }}
+                  onDelete={() => setConfirmingDelete(true)}
                   onError={onError}
                   pod={pod}
                   run={run}
@@ -574,9 +673,7 @@ function PodDetail({
                 <RemoteManageFace
                   api={api}
                   onAddServer={() => setServerEditor("new")}
-                  onDelete={() => {
-                    if (window.confirm(t("confirmDelete"))) void onDelete();
-                  }}
+                  onDelete={() => setConfirmingDelete(true)}
                   onEditServer={setServerEditor}
                   onError={onError}
                   onQuery={setQuery}
@@ -644,6 +741,126 @@ function PodDetail({
             }}
           />
         ) : null}
+        {confirmingDelete ? (
+          <DeletePodDialog
+            onClose={() => setConfirmingDelete(false)}
+            onDelete={onDelete}
+            podName={pod.name}
+          />
+        ) : null}
+        </>
+      )}
+    </DesktopDialog>
+  );
+}
+
+function PodInitializationDetail({
+  initialization,
+  onDelete,
+  onReveal,
+}: {
+  initialization: NonNullable<PodSummary["initialization"]>;
+  onDelete(): void;
+  onReveal(): void;
+}) {
+  const t = useMessages();
+  const failed = initialization.state === "failed";
+  return (
+    <div
+      aria-live="polite"
+      className={`pod-initialization-detail ${failed ? "is-failed" : ""}`}
+      role="status"
+    >
+      <span className="pod-initialization-icon">
+        {failed ? (
+          <Activity aria-hidden="true" size={28} />
+        ) : (
+          <LoaderCircle aria-hidden="true" size={30} />
+        )}
+      </span>
+      <div>
+        <h3>{t(failed ? "initializationFailed" : "initializingData")}</h3>
+        <p>
+          {failed
+            ? initialization.error || t("initializationFailedHint")
+            : t("initializingDataHint")}
+        </p>
+      </div>
+      {failed ? (
+        <div className="pod-initialization-actions">
+          <button className="secondary-action" onClick={onReveal} type="button">
+            <FolderOpen size={15} />
+            {t("reveal")}
+          </button>
+          <button className="danger-action" onClick={onDelete} type="button">
+            <Trash2 size={15} />
+            {t("deletePod")}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function DeletePodDialog({
+  onClose,
+  onDelete,
+  podName,
+}: {
+  onClose(): void;
+  onDelete(): Promise<void>;
+  podName: string;
+}) {
+  const t = useMessages();
+  const [deleting, setDeleting] = useState(false);
+  return (
+    <DesktopDialog
+      className="secret-dialog delete-pod-dialog"
+      nested
+      onClose={onClose}
+    >
+      {(close) => (
+        <>
+          <header>
+            <div>
+              <span className="mode-chip">{t("deletePod")}</span>
+              <DesktopDialogTitle>
+                <h3>{podName}</h3>
+              </DesktopDialogTitle>
+            </div>
+            <button
+              aria-label={t("close")}
+              className="icon-button"
+              disabled={deleting}
+              onClick={close}
+              title={t("close")}
+              type="button"
+            >
+              <X size={18} />
+            </button>
+          </header>
+          <p>{t("confirmDelete")}</p>
+          <footer>
+            <button
+              className="secondary-action"
+              disabled={deleting}
+              onClick={close}
+              type="button"
+            >
+              {t("cancel")}
+            </button>
+            <button
+              className="danger-action"
+              disabled={deleting}
+              onClick={() => {
+                setDeleting(true);
+                void onDelete().catch(() => setDeleting(false));
+              }}
+              type="button"
+            >
+              <Trash2 size={14} /> {t("deletePod")}
+            </button>
+          </footer>
         </>
       )}
     </DesktopDialog>
@@ -1113,18 +1330,29 @@ function podInputWithServers(
 }
 
 function CreatePodDialog({
+  bootstrapReady,
   onClose,
+  onConfigureEnvironment,
   onSave,
 }: {
+  bootstrapReady: boolean;
   onClose(): void;
+  onConfigureEnvironment(): void;
   onSave(input: PodInput): Promise<void>;
 }) {
   const t = useMessages();
   const [mode, setMode] = useState<"choose" | "remote">("choose");
   const [accessPoint, setAccessPoint] = useState("");
   const [saving, setSaving] = useState(false);
+  const submitting = useRef(false);
 
   async function createLocal() {
+    if (submitting.current) return;
+    if (!bootstrapReady) {
+      onConfigureEnvironment();
+      return;
+    }
+    submitting.current = true;
     setSaving(true);
     try {
       await onSave({
@@ -1133,12 +1361,15 @@ function CreatePodDialog({
         local_server: { port: 0 },
       });
     } finally {
+      submitting.current = false;
       setSaving(false);
     }
   }
 
   async function createRemote(event: FormEvent) {
     event.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
     setSaving(true);
     try {
       await onSave({
@@ -1148,6 +1379,7 @@ function CreatePodDialog({
         remote_servers: [],
       });
     } finally {
+      submitting.current = false;
       setSaving(false);
     }
   }
@@ -1159,83 +1391,291 @@ function CreatePodDialog({
           className="desktop-dialog-form"
           onSubmit={(event) => void createRemote(event)}
         >
-        <header>
-          {mode === "remote" ? (
+          <header>
+            {mode === "remote" ? (
+              <button
+                className="icon-button"
+                onClick={() => setMode("choose")}
+                type="button"
+              >
+                <ChevronLeft size={18} />
+              </button>
+            ) : (
+              <div>
+                <span className="mode-chip">{t("newEnvironment")}</span>
+                <DesktopDialogTitle>
+                  <h2>{t("addPod")}</h2>
+                </DesktopDialogTitle>
+              </div>
+            )}
             <button
+              aria-label={t("close")}
               className="icon-button"
-              onClick={() => setMode("choose")}
+              disabled={saving}
+              onClick={close}
+              title={t("close")}
               type="button"
             >
-              <ChevronLeft size={18} />
+              <X size={18} />
             </button>
+          </header>
+          {mode === "choose" ? (
+            <div className="create-mode-grid">
+              <button
+                disabled={saving}
+                onClick={() => void createLocal()}
+                type="button"
+              >
+                <span>
+                  <Laptop size={24} />
+                </span>
+                <strong>{t("local")}</strong>
+                <small>{t("localCreateHint")}</small>
+              </button>
+              <button
+                disabled={saving}
+                onClick={() => setMode("remote")}
+                type="button"
+              >
+                <span>
+                  <Cloud size={24} />
+                </span>
+                <strong>{t("remote")}</strong>
+                <small>{t("remoteCreateHint")}</small>
+              </button>
+            </div>
           ) : (
-            <div>
-              <span className="mode-chip">{t("newEnvironment")}</span>
-              <DesktopDialogTitle>
-                <h2>{t("addPod")}</h2>
-              </DesktopDialogTitle>
+            <div className="remote-create-step">
+              <div>
+                <span className="mode-chip">{t("remote")}</span>
+                <DesktopDialogTitle>
+                  <h2>{t("connectRemote")}</h2>
+                </DesktopDialogTitle>
+              </div>
+              <Field
+                label={t("accessPoint")}
+                onChange={setAccessPoint}
+                placeholder="ap.dev.gizclaw.com:9820"
+                required
+                value={accessPoint}
+                wide
+              />
+              <button
+                className="primary-action"
+                disabled={saving}
+                type="submit"
+              >
+                {t("create")}
+              </button>
             </div>
           )}
-          <button
-            aria-label={t("close")}
-            className="icon-button"
-            onClick={close}
-            title={t("close")}
-            type="button"
-          >
-            <X size={18} />
-          </button>
-        </header>
-        {mode === "choose" ? (
-          <div className="create-mode-grid">
-            <button
-              disabled={saving}
-              onClick={() => void createLocal()}
-              type="button"
-            >
-              <span>
-                <Laptop size={24} />
-              </span>
-              <strong>{t("local")}</strong>
-              <small>{t("localCreateHint")}</small>
-            </button>
-            <button
-              disabled={saving}
-              onClick={() => setMode("remote")}
-              type="button"
-            >
-              <span>
-                <Cloud size={24} />
-              </span>
-              <strong>{t("remote")}</strong>
-              <small>{t("remoteCreateHint")}</small>
-            </button>
-          </div>
-        ) : (
-          <div className="remote-create-step">
-            <div>
-              <span className="mode-chip">{t("remote")}</span>
-              <DesktopDialogTitle>
-                <h2>{t("connectRemote")}</h2>
-              </DesktopDialogTitle>
-            </div>
-            <Field
-              label={t("accessPoint")}
-              onChange={setAccessPoint}
-              placeholder="ap.dev.gizclaw.com:9820"
-              required
-              value={accessPoint}
-              wide
-            />
-            <button className="primary-action" disabled={saving} type="submit">
-              {t("create")}
-            </button>
-          </div>
-        )}
         </form>
       )}
     </DesktopDialog>
   );
+}
+
+function BootstrapEnvironmentDialog({
+  initial,
+  nested,
+  onClose,
+  onError,
+  onSave,
+}: {
+  initial: BootstrapEnvironmentState;
+  nested: boolean;
+  onClose(): void;
+  onError(reason: unknown): void;
+  onSave(content: string): Promise<void>;
+}) {
+  const t = useMessages();
+  const names = useMemo(
+    () => initial.variables.map((variable) => variable.name),
+    [initial.variables],
+  );
+  const [mode, setMode] = useState<"form" | "text">(
+    initial.error ? "text" : "form",
+  );
+  const [content, setContent] = useState(initial.content);
+  const [values, setValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      initial.variables.map((variable) => [variable.name, variable.value]),
+    ),
+  );
+  const [saving, setSaving] = useState(false);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    try {
+      await onSave(content);
+    } catch (reason) {
+      onError(reason);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <DesktopDialog className="create-dialog bootstrap-environment-dialog" nested={nested} onClose={onClose}>
+      {(close) => (
+        <form
+          className="desktop-dialog-form bootstrap-environment-form"
+          onSubmit={(event) => void submit(event)}
+        >
+          <header>
+            <div>
+              <DesktopDialogTitle>
+                <h2>{t("bootstrapEnvironment")}</h2>
+              </DesktopDialogTitle>
+              <p className="bootstrap-environment-copy">
+                {t("bootstrapEnvironmentHint")}
+              </p>
+            </div>
+            <button aria-label={t("close")} className="icon-button" onClick={close} type="button">
+              <X size={18} />
+            </button>
+          </header>
+          <div className="bootstrap-environment-mode-switch" role="tablist">
+            <button
+              aria-selected={mode === "form"}
+              className={mode === "form" ? "is-active" : ""}
+              onClick={() => setMode("form")}
+              role="tab"
+              type="button"
+            >
+              {t("bootstrapEnvironmentFormMode")}
+            </button>
+            <button
+              aria-selected={mode === "text"}
+              className={mode === "text" ? "is-active" : ""}
+              onClick={() => setMode("text")}
+              role="tab"
+              type="button"
+            >
+              {t("bootstrapEnvironmentTextMode")}
+            </button>
+          </div>
+          <div className="bootstrap-environment-scroll-region">
+            {initial.error ? (
+              <p className="bootstrap-environment-error" role="alert">
+                {initial.error}
+              </p>
+            ) : null}
+            {mode === "form" ? (
+              <div className="bootstrap-environment-fields">
+                {initial.variables.map((variable, index) => {
+                  const inputID = `bootstrap-environment-${index}`;
+                  return (
+                    <div className="bootstrap-environment-field" key={variable.name}>
+                      <label htmlFor={inputID}>
+                        <span>{bootstrapEnvironmentLabel(variable.name, t)}</span>
+                        <code title={t("bootstrapEnvironmentKey")}>{variable.name}</code>
+                      </label>
+                      <div className="bootstrap-environment-input-row">
+                        <input
+                          autoComplete="off"
+                          id={inputID}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            setValues((current) => {
+                              const next = { ...current, [variable.name]: value };
+                              setContent((currentContent) =>
+                                updateBootstrapEnvContent(currentContent, names, next),
+                              );
+                              return next;
+                            });
+                          }}
+                          placeholder={
+                            variable.configured
+                              ? t("bootstrapValueConfigured")
+                              : variable.defaulted
+                                ? t("bootstrapValueDefaulted")
+                                : t("bootstrapValueRequired")
+                          }
+                          type="text"
+                          value={values[variable.name] ?? ""}
+                        />
+                        <button
+                          className="bootstrap-clear-value"
+                          disabled={!values[variable.name]}
+                          onClick={() => {
+                            setValues((current) => {
+                              const next = { ...current, [variable.name]: "" };
+                              setContent((currentContent) =>
+                                updateBootstrapEnvContent(currentContent, names, next),
+                              );
+                              return next;
+                            });
+                          }}
+                          type="button"
+                        >
+                          {t("bootstrapClearSaved")}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="bootstrap-environment-text-editor">
+                <p>{t("bootstrapEnvironmentTextHint")}</p>
+                <textarea
+                  aria-label={t("bootstrapEnvironmentTextMode")}
+                  autoCapitalize="off"
+                  autoComplete="off"
+                  onChange={(event) => {
+                    const nextContent = event.target.value;
+                    setContent(nextContent);
+                    setValues(readBootstrapEnvValues(nextContent, names));
+                  }}
+                  spellCheck={false}
+                  value={content}
+                />
+              </div>
+            )}
+          </div>
+          <footer>
+            <button className="secondary-action" onClick={close} type="button">
+              {t("cancel")}
+            </button>
+            <button className="primary-action" disabled={saving} type="submit">
+              {t("saveConfiguration")}
+            </button>
+          </footer>
+        </form>
+      )}
+    </DesktopDialog>
+  );
+}
+
+const bootstrapEnvironmentLabelKeys = {
+  GIZCLAW_DEEPSEEK_API_KEY: "bootstrapEnvDeepSeekApiKey",
+  GIZCLAW_GEMINI_API_KEY: "bootstrapEnvGeminiApiKey",
+  GIZCLAW_MINIMAX_CN_API_KEY: "bootstrapEnvMiniMaxChinaApiKey",
+  GIZCLAW_OPENAI_API_KEY: "bootstrapEnvOpenAIApiKey",
+  GIZCLAW_QWEN_DASHSCOPE_API_KEY: "bootstrapEnvQwenDashScopeApiKey",
+  GIZCLAW_VOLC_ARK_API_KEY: "bootstrapEnvVolcArkApiKey",
+  GIZCLAW_VOLC_OPENAPI_ACCESS_KEY: "bootstrapEnvVolcOpenApiAccessKey",
+  GIZCLAW_VOLC_OPENAPI_ACCESS_KEY_ID: "bootstrapEnvVolcOpenApiAccessKeyId",
+  GIZCLAW_VOLC_SEARCH_API_KEY: "bootstrapEnvVolcSearchApiKey",
+  GIZCLAW_VOLC_SPEECH_API_KEY: "bootstrapEnvVolcSpeechApiKey",
+  GIZCLAW_VOLC_SPEECH_APP_ID: "bootstrapEnvVolcSpeechAppId",
+} as const;
+
+function bootstrapEnvironmentLabel(
+  name: string,
+  t: ReturnType<typeof useMessages>,
+): string {
+  const key = bootstrapEnvironmentLabelKeys[
+    name as keyof typeof bootstrapEnvironmentLabelKeys
+  ];
+  if (key) return t(key);
+  return name
+    .replace(/^GIZCLAW_/, "")
+    .toLowerCase()
+    .replaceAll("_", " ")
+    .replace(/^./, (character) => character.toUpperCase());
 }
 
 function PodSettingsDialog({

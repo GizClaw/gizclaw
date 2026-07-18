@@ -18,16 +18,18 @@ import (
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/localserver"
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/tray"
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/webui"
+	desktopresources "github.com/GizClaw/gizclaw-go/apps/wails/resources"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 type App struct {
-	bridge   *bridge.PodBridge
-	ctx      context.Context
-	tray     *tray.Manager
-	mu       sync.RWMutex
-	quitting bool
-	messages appmessages.Catalog
+	bridge       *bridge.PodBridge
+	ctx          context.Context
+	tray         *tray.Manager
+	mu           sync.RWMutex
+	quitting     bool
+	shutdownOnce sync.Once
+	messages     appmessages.Catalog
 }
 
 func NewApp() (*App, error) {
@@ -54,19 +56,76 @@ func NewAppWithPathsAndAssets(paths appconfig.Paths, assets fs.FS) (*App, error)
 	if err := paths.Ensure(); err != nil {
 		return nil, err
 	}
+	store := appconfig.Store{Paths: paths}
+	local := localserver.New()
+	health := endpointhealth.New()
+	recovery := &bridge.PodBridge{Paths: paths, Store: store, Health: health, Local: local}
+	if err := stopInterruptedLocalServers(context.Background(), store, recovery); err != nil {
+		return nil, err
+	}
+	if err := store.CleanupIncomplete(); err != nil {
+		return nil, err
+	}
+	catalogFS, err := desktopresources.LocalServer()
+	if err != nil {
+		return nil, fmt.Errorf("desktop app: local server resources: %w", err)
+	}
+	catalog, err := localserver.LoadCatalog(catalogFS)
+	if err != nil {
+		return nil, err
+	}
 	messages := appmessages.System()
 	app := &App{messages: messages, bridge: &bridge.PodBridge{
-		Paths:  paths,
-		Store:  appconfig.Store{Paths: paths},
-		Health: endpointhealth.New(),
-		Local:  localserver.New(),
-		WebUI:  webui.New(assets),
+		Paths:                paths,
+		Store:                store,
+		BootstrapEnvironment: appconfig.BootstrapEnvironmentStore{Path: paths.BootstrapEnvFile},
+		Catalog:              catalog,
+		Health:               health,
+		Local:                local,
+		WebUI:                webui.New(assets),
 	}}
+	app.bridge.Bootstrapper = &localserver.Bootstrapper{Catalog: catalog, Executable: local.ExecutablePath}
+	if err := app.bridge.RecoverLocalServers(context.Background()); err != nil {
+		return nil, fmt.Errorf("desktop app: recover local servers: %w", err)
+	}
 	app.tray = tray.New(
 		tray.Callbacks{OpenWindow: app.openWindow, OpenPod: app.openPod, Quit: app.quit},
 		tray.Labels{OpenWindow: messages.Text("openWindow"), Quit: messages.Text("quit")},
 	)
 	return app, nil
+}
+
+func stopInterruptedLocalServers(ctx context.Context, store appconfig.Store, recovery *bridge.PodBridge) error {
+	entries, err := store.Entries()
+	if err != nil {
+		return fmt.Errorf("desktop app: inspect interrupted local servers: %w", err)
+	}
+	for _, entry := range entries {
+		if entry.Err != nil || entry.Pod.LocalServer == nil {
+			continue
+		}
+		initialization, err := store.Initialization(entry.Pod.ID)
+		if err != nil {
+			return fmt.Errorf("desktop app: inspect interrupted local server %q: %w", entry.Pod.ID, err)
+		}
+		if initialization == nil || initialization.State != "initializing" {
+			continue
+		}
+		status, err := recovery.RecoverLocalServer(ctx, entry.Pod.ID)
+		if err != nil {
+			return fmt.Errorf("desktop app: verify interrupted local server %q before cleanup: %w", entry.Pod.ID, err)
+		}
+		if status.State != "running" {
+			continue
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		_, err = recovery.Local.Stop(ctx, entry.Pod.ID)
+		cancel()
+		if err != nil {
+			return fmt.Errorf("desktop app: stop interrupted local server %q: %w", entry.Pod.ID, err)
+		}
+	}
+	return nil
 }
 
 func (a *App) startup(ctx context.Context) {
@@ -80,13 +139,16 @@ func (a *App) shutdown(context.Context) {
 	if a == nil || a.bridge == nil {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	a.bridge.Local.Shutdown(ctx)
-	a.bridge.WebUI.Shutdown()
-	if a.tray != nil {
-		a.tray.Stop()
-	}
+	a.shutdownOnce.Do(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		a.bridge.ShutdownInitializations(ctx)
+		a.bridge.Local.Shutdown(ctx)
+		a.bridge.WebUI.Shutdown()
+		if a.tray != nil {
+			a.tray.Stop()
+		}
+	})
 }
 
 func (a *App) beforeClose(ctx context.Context) bool {
@@ -120,6 +182,7 @@ func (a *App) quit() {
 	a.mu.Lock()
 	a.quitting = true
 	a.mu.Unlock()
+	a.shutdown(context.Background())
 	if ctx := a.runtimeContext(); ctx != nil {
 		runtime.Quit(ctx)
 	}
@@ -199,6 +262,20 @@ func (a *App) CreatePod(input bridge.PodInput) (bridge.PodSummary, error) {
 		a.syncTray(false)
 	}
 	return pod, err
+}
+
+func (a *App) GetBootstrapEnvironment() (bridge.BootstrapEnvironmentState, error) {
+	if a == nil || a.bridge == nil {
+		return bridge.BootstrapEnvironmentState{}, fmt.Errorf("desktop app: bridge is not configured")
+	}
+	return a.bridge.GetBootstrapEnvironment(context.Background())
+}
+
+func (a *App) UpdateBootstrapEnvironment(update bridge.BootstrapEnvironmentUpdate) (bridge.BootstrapEnvironmentState, error) {
+	if a == nil || a.bridge == nil {
+		return bridge.BootstrapEnvironmentState{}, fmt.Errorf("desktop app: bridge is not configured")
+	}
+	return a.bridge.UpdateBootstrapEnvironment(context.Background(), update)
 }
 
 func (a *App) UpdatePod(input bridge.PodInput) (bridge.PodSummary, error) {

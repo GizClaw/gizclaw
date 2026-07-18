@@ -12,8 +12,9 @@ const (
 )
 
 type Paths struct {
-	ConfigRoot string `json:"config_root"`
-	PodsDir    string `json:"pods_dir"`
+	ConfigRoot       string `json:"config_root"`
+	PodsDir          string `json:"pods_dir"`
+	BootstrapEnvFile string `json:"bootstrap_env_file"`
 }
 
 func DefaultPaths() (Paths, error) {
@@ -28,11 +29,15 @@ func DefaultPaths() (Paths, error) {
 }
 
 func NewPaths(root string) Paths {
-	return Paths{ConfigRoot: root, PodsDir: filepath.Join(root, "pods")}
+	return Paths{
+		ConfigRoot:       root,
+		PodsDir:          filepath.Join(root, "pods"),
+		BootstrapEnvFile: filepath.Join(root, "bootstrap.env"),
+	}
 }
 
 func (p Paths) Ensure() error {
-	if p.ConfigRoot == "" || p.PodsDir == "" {
+	if p.ConfigRoot == "" || p.PodsDir == "" || p.BootstrapEnvFile == "" {
 		return fmt.Errorf("appconfig: incomplete paths")
 	}
 	if err := secureDir(p.PodsDir); err != nil {

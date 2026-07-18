@@ -10,7 +10,37 @@ export type Error = {
 
 export type DesktopBootstrap = {
     locale: 'en' | 'zh-CN';
+    bootstrap_environment: BootstrapEnvironmentState;
     pods: Array<DesktopPod>;
+};
+
+export type BootstrapEnvironmentState = {
+    ready: boolean;
+    missing: Array<string>;
+    /**
+     * Current editable bootstrap.env content.
+     */
+    content: string;
+    /**
+     * Parse error for the current bootstrap.env content. The raw content remains editable.
+     */
+    error?: string;
+    variables: Array<BootstrapEnvironmentVariableState>;
+};
+
+export type BootstrapEnvironmentVariableState = {
+    name: string;
+    required: boolean;
+    configured: boolean;
+    defaulted: boolean;
+    /**
+     * Value stored in bootstrap.env, or empty when the value comes from the process environment or catalog default.
+     */
+    value: string;
+};
+
+export type BootstrapEnvironmentUpdate = {
+    content: string;
 };
 
 export type DesktopPod = {
@@ -20,6 +50,7 @@ export type DesktopPod = {
     mode: 'local' | 'remote' | 'invalid';
     valid: boolean;
     error?: string;
+    initialization?: PodInitialization;
     play_configured: boolean;
     /**
      * Public half of the desktop-local Play identity.
@@ -27,6 +58,11 @@ export type DesktopPod = {
     play_public_key?: string;
     local?: DesktopLocalPod;
     remote?: DesktopRemotePod;
+};
+
+export type PodInitialization = {
+    state: 'initializing' | 'failed';
+    error?: string;
 };
 
 export type DesktopLocalPod = {
@@ -153,6 +189,60 @@ export type GetDesktopBootstrapResponses = {
 
 export type GetDesktopBootstrapResponse = GetDesktopBootstrapResponses[keyof GetDesktopBootstrapResponses];
 
+export type GetDesktopBootstrapEnvironmentData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/desktop/bootstrap-environment';
+};
+
+export type GetDesktopBootstrapEnvironmentErrors = {
+    /**
+     * Operation failed
+     */
+    500: Error;
+};
+
+export type GetDesktopBootstrapEnvironmentError = GetDesktopBootstrapEnvironmentErrors[keyof GetDesktopBootstrapEnvironmentErrors];
+
+export type GetDesktopBootstrapEnvironmentResponses = {
+    /**
+     * Bootstrap environment readiness
+     */
+    200: BootstrapEnvironmentState;
+};
+
+export type GetDesktopBootstrapEnvironmentResponse = GetDesktopBootstrapEnvironmentResponses[keyof GetDesktopBootstrapEnvironmentResponses];
+
+export type UpdateDesktopBootstrapEnvironmentData = {
+    body: BootstrapEnvironmentUpdate;
+    path?: never;
+    query?: never;
+    url: '/desktop/bootstrap-environment';
+};
+
+export type UpdateDesktopBootstrapEnvironmentErrors = {
+    /**
+     * Operation failed
+     */
+    400: Error;
+    /**
+     * Operation failed
+     */
+    500: Error;
+};
+
+export type UpdateDesktopBootstrapEnvironmentError = UpdateDesktopBootstrapEnvironmentErrors[keyof UpdateDesktopBootstrapEnvironmentErrors];
+
+export type UpdateDesktopBootstrapEnvironmentResponses = {
+    /**
+     * Updated bootstrap environment readiness
+     */
+    200: BootstrapEnvironmentState;
+};
+
+export type UpdateDesktopBootstrapEnvironmentResponse = UpdateDesktopBootstrapEnvironmentResponses[keyof UpdateDesktopBootstrapEnvironmentResponses];
+
 export type ListDesktopPodsData = {
     body?: never;
     path?: never;
@@ -204,7 +294,7 @@ export type CreateDesktopPodError = CreateDesktopPodErrors[keyof CreateDesktopPo
 
 export type CreateDesktopPodResponses = {
     /**
-     * Created Pod
+     * Created Pod; local bootstrap may still be initializing
      */
     201: DesktopPod;
 };

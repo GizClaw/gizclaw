@@ -1,0 +1,11 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: MiniMaxTenant
+metadata:
+  name: minimax-cn
+spec:
+  app_id: "1743491566246301824"
+  group_id: "1743491566246301824"
+  credential_name: minimax-cn-credential
+  base_url: https://api.minimaxi.com
+  description: MiniMax CN tenant

@@ -1,0 +1,17 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Model
+metadata:
+  name: qwen3.7-text-embedding
+spec:
+  kind: embedding
+  source: manual
+  provider:
+    kind: dashscope-tenant
+    name: qwen-dashscope-main
+  name: Qwen 3.7 Text Embedding
+  description: Qwen text embedding model through DashScope
+  capabilities:
+    text_only: true
+  provider_data:
+    upstream_model: qwen3.7-text-embedding

@@ -1,0 +1,8 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: ACLPolicyBinding
+metadata: {name: default-client-voice-volc-shaoergushi}
+spec:
+  subject: {kind: view, id: default-client}
+  resource: {kind: voice, id: "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts"}
+  role: default-client

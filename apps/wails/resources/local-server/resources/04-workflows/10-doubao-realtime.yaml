@@ -1,0 +1,37 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata:
+  name: doubao-realtime-conversation
+i18n:
+  default_locale: en
+  en:
+    name: Realtime Voice Companion
+    description: Have a natural low-latency voice conversation with live search support.
+  zh-CN:
+    name: 实时语音伙伴
+    description: 进行低延迟的自然语音对话，并可使用实时搜索。
+spec:
+  driver: doubao-realtime
+  doubao_realtime:
+    model: doubao-realtime-dialog
+    instructions: 你是一个简短、自然的中文语音聊天助手。遇到天气、新闻、今天、现在等实时问题时，使用内置搜索能力回答。
+    audio:
+      input:
+        format:
+          type: speech_opus
+          rate: 16000
+      output:
+        format:
+          type: ogg_opus
+          rate: 24000
+        voice: zh_female_vv_jupiter_bigtts
+        speed: 0
+        loudness: 0
+    extension:
+      dialog:
+        extra:
+          enable_volc_websearch: true
+          volc_websearch_type: web
+          volc_websearch_result_count: 3
+          volc_websearch_no_result_message: 没有找到相关搜索结果。

@@ -1,0 +1,14 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Credential
+metadata:
+  name: volc-main-credential
+spec:
+  provider: volc
+  body:
+    speech_app_id: ${GIZCLAW_VOLC_SPEECH_APP_ID}
+    speech_api_key: ${GIZCLAW_VOLC_SPEECH_API_KEY}
+    ark_api_key: ${GIZCLAW_VOLC_ARK_API_KEY}
+    search_api_key: ${GIZCLAW_VOLC_SEARCH_API_KEY}
+    openapi_access_key_id: ${GIZCLAW_VOLC_OPENAPI_ACCESS_KEY_ID}
+    openapi_access_key: ${GIZCLAW_VOLC_OPENAPI_ACCESS_KEY}

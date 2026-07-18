@@ -18,9 +18,8 @@ function BrowserSurface() {
       setRuntime(window.__GIZCLAW_DESKTOP_TEST_RUNTIME__);
       return;
     }
-    const token = new URLSearchParams(window.location.hash.slice(1)).get("launch");
-    if (!token) { setError("This launch link is missing or has already been consumed."); return; }
-    history.replaceState(null, "", "/");
+    const token = new URLSearchParams(window.location.search).get("token");
+    if (!token) { setError("This Desktop runtime URL is missing its token."); return; }
     fetch("/__gizclaw/runtime", {
       method: "POST",
       cache: "no-store",
@@ -35,7 +34,7 @@ function BrowserSurface() {
     }).catch((reason) => setError(reason instanceof Error ? reason.message : String(reason)));
   }, []);
   if (error) return <div className="browser-launch-state"><h1>Unable to open {surface === "admin" ? "Admin" : "Play"}</h1><p>{error}</p></div>;
-  if (!runtime) return <div className="browser-launch-state"><span className="browser-spinner" /><h1>Opening {surface === "admin" ? "Admin" : "Play"}</h1><p>Accepting the secure one-time desktop handoff…</p></div>;
+  if (!runtime) return <div className="browser-launch-state"><span className="browser-spinner" /><h1>Opening {surface === "admin" ? "Admin" : "Play"}</h1><p>Loading the local Desktop runtime…</p></div>;
   const close = async () => { window.close(); };
   return surface === "admin" ? <AdminBrowserSurface handoff={runtime} onClose={close} /> : <PlayFullHome onSignOut={close} runtime={runtime} />;
 }

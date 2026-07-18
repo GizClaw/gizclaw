@@ -1,0 +1,9 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: ACLPolicyBinding
+metadata:
+  name: default-client-gameruleset-default-gameplay
+spec:
+  subject: {kind: view, id: default-client}
+  resource: {kind: gameruleset, id: default-gameplay}
+  role: default-client
