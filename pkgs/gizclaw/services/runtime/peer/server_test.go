@@ -617,6 +617,14 @@ func TestPeerHTTPHandlersPutInfoConfigAndRuntime(t *testing.T) {
 	if _, err := server.PutSelfInfo(context.Background(), peerKey, apitypes.DeviceInfo{Emoji: &tooLong}); !errors.Is(err, ErrInvalidInfo) {
 		t.Fatalf("PutSelfInfo(long emoji) error = %v, want ErrInvalidInfo", err)
 	}
+	tooLongName := string(make([]byte, 257))
+	if _, err := server.PutSelfInfo(context.Background(), peerKey, apitypes.DeviceInfo{Name: &tooLongName}); !errors.Is(err, ErrInvalidInfo) {
+		t.Fatalf("PutSelfInfo(long name) error = %v, want ErrInvalidInfo", err)
+	}
+	invalidUTF8Name := string([]byte{0xff})
+	if _, err := server.putInfo(context.Background(), peerKey, apitypes.DeviceInfo{Name: &invalidUTF8Name}); !errors.Is(err, ErrInvalidInfo) {
+		t.Fatalf("putInfo(invalid UTF-8 name) error = %v, want ErrInvalidInfo", err)
+	}
 
 	publicRuntime := server.GetSelfRuntime(context.Background(), peerKey)
 	if !publicRuntime.Online || publicRuntime.LastAddr == nil || *publicRuntime.LastAddr != runtimeAddr {

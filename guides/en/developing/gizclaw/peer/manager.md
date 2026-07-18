@@ -28,6 +28,6 @@ This prefix has server-perspective online connection indexing and cross-connecti
 
 ## Device metadata ownership
 
-`client.info.get` refreshes only `HardwareInfo` (`hardware_revision`, `manufacturer`, and `model`). `client.identifiers.get` refreshes `DeviceIdentifiers` (`sn`, `imeis`, and `labels`). The server-owned profile fields `name` and `emoji` are changed through `server.info.put` and are not overwritten by reverse refresh.
+`client.info.get` refreshes only `HardwareInfo` (`hardware_revision`, `manufacturer`, and `model`). `client.identifiers.get` refreshes `DeviceIdentifiers` (`sn`, `imeis`, and `labels`). The server-owned profile fields `name` and `emoji` are changed through `server.info.put` and are not overwritten by reverse refresh. Names must be valid UTF-8 and at most 256 bytes; emoji values must be valid UTF-8 and at most 64 bytes.
 
 Friends read these text profile fields through `server.friend.info.get`. The method requires an existing caller-scoped friend relation and returns no binary avatar data.

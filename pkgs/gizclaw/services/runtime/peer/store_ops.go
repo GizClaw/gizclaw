@@ -61,6 +61,9 @@ func (s *Server) putInfo(ctx context.Context, publicKey giznet.PublicKey, info a
 	if info.Hardware != nil || info.Identifiers != nil {
 		return apitypes.Peer{}, fmt.Errorf("%w: hardware and identifiers are read-only", ErrInvalidInfo)
 	}
+	if info.Name != nil && (!utf8.ValidString(*info.Name) || len(*info.Name) > 256) {
+		return apitypes.Peer{}, fmt.Errorf("%w: name must be valid UTF-8 and at most 256 bytes", ErrInvalidInfo)
+	}
 	if info.Emoji != nil && (!utf8.ValidString(*info.Emoji) || len(*info.Emoji) > 64) {
 		return apitypes.Peer{}, fmt.Errorf("%w: emoji must be valid UTF-8 and at most 64 bytes", ErrInvalidInfo)
 	}
