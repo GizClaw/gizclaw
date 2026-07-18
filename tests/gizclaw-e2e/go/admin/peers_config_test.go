@@ -5,7 +5,7 @@ package admin_test
 import (
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 )
 
 func TestAdminAPIPeerConfigInfoRuntime(t *testing.T) {
@@ -40,7 +40,7 @@ func TestAdminAPIPeerConfigInfoRuntime(t *testing.T) {
 		t.Fatalf("get peer info = %#v", info.JSON200)
 	}
 
-	nextInfo := apitypes.DeviceInfo{Name: ptr("admin-api-peer-info")}
+	nextInfo := adminhttp.PutPeerInfoJSONRequestBody{Name: ptr("admin-api-peer-info")}
 	putInfo, err := env.api.PutPeerInfoWithResponse(env.ctx, env.peerKey, nextInfo)
 	if err != nil {
 		t.Fatalf("put peer info: %v", err)

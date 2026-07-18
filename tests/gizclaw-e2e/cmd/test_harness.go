@@ -504,6 +504,9 @@ func (h *Harness) RegisterContext(name string, extraArgs ...string) Result {
 		if result := h.InstallFixedAdminContext(refreshAdminContext); result.Err != nil {
 			return Result{Args: []string{"register-context", name}, Err: result.Err, Stderr: result.Stderr}
 		}
+		if result := h.UseContext(name); result.Err != nil {
+			return Result{Args: []string{"register-context", name}, Err: result.Err, Stderr: result.Stderr}
+		}
 		admin, adminCloseWait, err := h.connectClientFromContextWithCloseWait(refreshAdminContext)
 		if err != nil {
 			return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
@@ -534,10 +537,7 @@ func (h *Harness) RegisterContext(name string, extraArgs ...string) Result {
 }
 
 func (h *Harness) deviceInfoFromArgs(_ string, extraArgs ...string) (apitypes.DeviceInfo, error) {
-	device := apitypes.DeviceInfo{
-		Hardware:    &apitypes.HardwareInfo{},
-		Identifiers: &apitypes.DeviceIdentifiers{},
-	}
+	device := apitypes.DeviceInfo{}
 	for i := 0; i < len(extraArgs); i++ {
 		flag := extraArgs[i]
 		if !strings.HasPrefix(flag, "--") {
@@ -552,12 +552,24 @@ func (h *Harness) deviceInfoFromArgs(_ string, extraArgs ...string) (apitypes.De
 		case "--name":
 			device.Name = &value
 		case "--sn":
+			if device.Identifiers == nil {
+				device.Identifiers = &apitypes.DeviceIdentifiers{}
+			}
 			device.Identifiers.Sn = &value
 		case "--manufacturer":
+			if device.Hardware == nil {
+				device.Hardware = &apitypes.HardwareInfo{}
+			}
 			device.Hardware.Manufacturer = &value
 		case "--model":
+			if device.Hardware == nil {
+				device.Hardware = &apitypes.HardwareInfo{}
+			}
 			device.Hardware.Model = &value
 		case "--hardware-revision":
+			if device.Hardware == nil {
+				device.Hardware = &apitypes.HardwareInfo{}
+			}
 			device.Hardware.HardwareRevision = &value
 		default:
 			return apitypes.DeviceInfo{}, fmt.Errorf("unsupported register arg %q", flag)

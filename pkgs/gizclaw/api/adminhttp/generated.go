@@ -352,16 +352,16 @@ func (e DownloadWorkspaceIconParamsFormat) Valid() bool {
 
 // Defines values for UploadWorkspaceIconParamsFormat.
 const (
-	Pixa UploadWorkspaceIconParamsFormat = "pixa"
-	Png  UploadWorkspaceIconParamsFormat = "png"
+	UploadWorkspaceIconParamsFormatPixa UploadWorkspaceIconParamsFormat = "pixa"
+	UploadWorkspaceIconParamsFormatPng  UploadWorkspaceIconParamsFormat = "png"
 )
 
 // Valid indicates whether the value is a known member of the UploadWorkspaceIconParamsFormat enum.
 func (e UploadWorkspaceIconParamsFormat) Valid() bool {
 	switch e {
-	case Pixa:
+	case UploadWorkspaceIconParamsFormatPixa:
 		return true
-	case Png:
+	case UploadWorkspaceIconParamsFormatPng:
 		return true
 	default:
 		return false

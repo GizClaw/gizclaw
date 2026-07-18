@@ -6284,7 +6284,7 @@
       },
       "put": {
         "operationId": "uploadWorkspaceIcon", "summary": "Upload or replace a workspace icon", "tags": ["Workspaces"],
-        "parameters": [{"name": "name", "in": "path", "required": true, "schema": {"type": "string"}}, {"name": "format", "in": "path", "required": true, "schema": {"type": "string", "enum": ["pixa", "png"]}}],
+        "parameters": [{"name": "name", "in": "path", "required": true, "schema": {"type": "string"}}, {"name": "format", "in": "path", "required": true, "schema": {"type": "string", "enum": ["pixa", "png"], "x-enum-varnames": ["UploadWorkspaceIconParamsFormatPixa", "UploadWorkspaceIconParamsFormatPng"]}}],
         "requestBody": {"required": true, "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}},
         "responses": {"200": {"description": "Updated workspace", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/Workspace"}}}}, "400": {"description": "Invalid icon", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}, "404": {"description": "Workspace not found", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}, "413": {"description": "Icon exceeds 2 MiB", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}, "500": {"description": "Internal error", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}}
       },
