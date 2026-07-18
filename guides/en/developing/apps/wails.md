@@ -14,7 +14,7 @@ apps/wails/
 │   ├── endpointhealth/  # /server-info health probes
 │   ├── localserver/     # local Server lifecycle and bounded logs
 │   ├── tray/            # system tray integration
-│   └── webui/           # loopback HTTP and one-time handoff
+│   └── webui/           # loopback HTTP and local runtime tokens
 ├── i18n/locales/        # en and zh-CN copy
 └── frontend/            # Pod desktop home and Admin/Play browser entry points
 ```
@@ -52,10 +52,11 @@ Persistence keys cannot be returned.
 
 ## Browser Runtime
 
-The static products of Admin and Play are started from `admin.html` and `play.html` respectively. each
-Pod/surface only retains one `127.0.0.1:0` listener. Generate new ones every time you open the browser
-Random token, the browser will remove the token from the address bar immediately after receiving the Runtime via POST from the same source.
-Handover results are not cached; keys must not enter URLs, Web Storage, logs, or static files.
+The static products of Admin and Play are started from `admin.html` and `play.html` respectively. Each
+Pod/surface only retains one `127.0.0.1:0` listener and one fixed random token. The token remains in the
+local URL query, and the browser presents it through a same-origin POST whenever it opens or refreshes.
+The token remains valid until its listener closes. Runtime responses are not
+cached; private keys must not enter URLs, Web Storage, logs, or static files.
 
 The Go part follows [Go coding specifications](/en/coding-styles/go), and the frontend follows
 [JavaScript and TypeScript](/en/coding-styles/js).

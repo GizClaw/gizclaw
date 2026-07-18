@@ -15,7 +15,7 @@ apps/wails/
 │   ├── endpointhealth/  # /server-info 健康探测
 │   ├── localserver/     # 本地 Server 生命周期和有界日志
 │   ├── tray/            # 系统托盘适配
-│   └── webui/           # loopback HTTP 与一次性交接
+│   └── webui/           # loopback HTTP 与本地 runtime token
 ├── i18n/locales/        # en、zh-CN 文案
 └── frontend/            # Pod 桌面首页及 Admin/Play 浏览器入口
 ```
@@ -84,9 +84,10 @@ key 和 store inventory，并以 `0600` 原子写入。模板显式使用 info-l
 ## 浏览器 Runtime
 
 Admin 与 Play 的静态产物分别从 `admin.html` 和 `play.html` 启动。每个
-Pod/surface 只保留一个 `127.0.0.1:0` listener。每次打开浏览器都生成新的
-随机 token，浏览器以同源 POST 一次性领取 Runtime 后立即从地址栏移除 token。
-交接结果禁止缓存；密钥不得进入 URL、Web Storage、日志或静态文件。
+Pod/surface 只保留一个 `127.0.0.1:0` listener 和一个固定随机 token。token 保留在
+本地 URL query 中，浏览器以同源 POST 领取 Runtime；重复打开或页面刷新时继续使用
+同一 token，直到对应 listener 关闭。交接结果禁止缓存；
+Runtime 私钥不得进入 URL、Web Storage、日志或静态文件。
 
 Go 部分遵循 [Go 编码规范](/zh/coding-styles/go)，frontend 遵循
 [JavaScript 与 TypeScript](/zh/coding-styles/js)。

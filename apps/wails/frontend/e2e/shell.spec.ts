@@ -206,10 +206,10 @@ test.beforeEach(async ({ page }) => {
         return pods;
       },
       async OpenAdmin() {
-        return "http://127.0.0.1:4101/#launch=admin-token";
+        return "http://127.0.0.1:4101/?token=admin-token";
       },
       async OpenPlay() {
-        return "http://127.0.0.1:4102/#launch=play-token";
+        return "http://127.0.0.1:4102/?token=play-token";
       },
       async RevealPod() {},
       async RefreshPodHealth(id) {
@@ -507,7 +507,7 @@ test("local share stays simple and switches to focused controls", async ({
   await dialog.getByRole("button", { name: /Play/ }).click();
   await expect
     .poll(() => page.evaluate(() => (window as any).__GIZCLAW_WINDOW_ACTIONS__))
-    .toContain("open:http://127.0.0.1:4102/#launch=play-token");
+    .toContain("open:http://127.0.0.1:4102/?token=play-token");
   await expect
     .poll(() => dialog.evaluate((element) => element.clientWidth))
     .toBeLessThanOrEqual(420);
@@ -571,7 +571,7 @@ test("local share stays simple and switches to focused controls", async ({
   await adminButton.click();
   await expect
     .poll(() => page.evaluate(() => (window as any).__GIZCLAW_WINDOW_ACTIONS__))
-    .toContain("open:http://127.0.0.1:4101/#launch=admin-token");
+    .toContain("open:http://127.0.0.1:4101/?token=admin-token");
   await expect(dialog.getByRole("button", { name: /Play/ })).toHaveCount(0);
   await expect(dialog.getByRole("button", { name: /Restart/ })).toHaveCount(0);
   await expect(dialog.getByText("server ready")).toHaveCount(0);

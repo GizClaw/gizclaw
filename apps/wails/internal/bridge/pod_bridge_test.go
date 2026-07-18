@@ -83,7 +83,7 @@ func TestRemotePodPreservesWriteOnlyKeysAndHandsAdminAllServers(t *testing.T) {
 		t.Fatal(err)
 	}
 	parsed, _ := url.Parse(launch)
-	token := strings.TrimPrefix(parsed.Fragment, "launch=")
+	token := parsed.Query().Get("token")
 	body, _ := json.Marshal(map[string]string{"token": token})
 	request, _ := http.NewRequest(http.MethodPost, "http://"+parsed.Host+"/__gizclaw/runtime", bytes.NewReader(body))
 	request.Header.Set("Origin", "http://"+parsed.Host)

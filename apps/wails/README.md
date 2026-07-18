@@ -76,8 +76,10 @@ for local Server support.
   credentials.
 - Each Pod reuses at most one Admin listener and one Play listener, both bound
   to `127.0.0.1:0`.
-- Every browser launch uses a fresh, single-use runtime handoff. Private keys are
-  not placed in URLs, browser storage, static assets, or logs.
+- Every Admin or Play listener uses one random runtime token that remains in the
+  local URL query and can be reused across opens and page refreshes until that
+  listener closes. Runtime private keys remain in Desktop memory and are not placed
+  in the URL, browser storage, static assets, or logs.
 - The frameless shell provides native-runtime hide, minimise, and maximise
   controls. Closing the window hides it while Server and browser listeners keep
   running.

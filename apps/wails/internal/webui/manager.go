@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -51,8 +52,9 @@ type surfaceServer struct {
 	entry    string
 	done     chan struct{}
 
-	mu       sync.Mutex
-	handoffs map[string]Runtime
+	mu      sync.Mutex
+	token   string
+	runtime Runtime
 }
 
 func New(assets fs.FS) *Manager {
@@ -87,22 +89,12 @@ func (m *Manager) LaunchURL(podID, surface string, runtime Runtime) (string, err
 		m.servers[key] = server
 	}
 	m.mu.Unlock()
-	token, err := randomToken()
-	if err != nil {
-		return "", err
-	}
 	server.mu.Lock()
-	server.handoffs[token] = runtime
+	server.runtime = runtime
+	token := server.token
 	server.mu.Unlock()
-	time.AfterFunc(2*time.Minute, func() {
-		server.mu.Lock()
-		delete(server.handoffs, token)
-		server.mu.Unlock()
-	})
-	// Keep the one-time bearer token in the URL fragment. Fragments are not sent
-	// in HTTP requests, referrers, or server logs; the browser entry consumes and
-	// removes it before rendering the application.
-	return server.baseURL + "/#launch=" + token, nil
+	query := url.Values{"token": {token}}
+	return server.baseURL + "/?" + query.Encode(), nil
 }
 
 func RuntimeFromPrivateKey(name, description, endpoint, privateKey string) (Runtime, error) {
@@ -125,7 +117,7 @@ func (m *Manager) ClosePod(podID string) {
 	defer m.mu.Unlock()
 	for key, server := range m.servers {
 		if strings.HasPrefix(key, podID+":") {
-			_ = server.server.Close()
+			_ = server.close()
 			delete(m.servers, key)
 		}
 	}
@@ -135,9 +127,17 @@ func (m *Manager) Shutdown() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for key, server := range m.servers {
-		_ = server.server.Close()
+		_ = server.close()
 		delete(m.servers, key)
 	}
+}
+
+func (s *surfaceServer) close() error {
+	s.mu.Lock()
+	s.token = ""
+	s.runtime = Runtime{}
+	s.mu.Unlock()
+	return s.server.Close()
 }
 
 func (m *Manager) start(key, entry string) (*surfaceServer, error) {
@@ -145,12 +145,17 @@ func (m *Manager) start(key, entry string) (*surfaceServer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("webui: listen: %w", err)
 	}
+	token, err := randomToken()
+	if err != nil {
+		_ = listener.Close()
+		return nil, err
+	}
 	server := &surfaceServer{
 		listener: listener,
 		baseURL:  "http://" + listener.Addr().String(),
 		entry:    entry,
 		done:     make(chan struct{}),
-		handoffs: map[string]Runtime{},
+		token:    token,
 	}
 	server.server = &http.Server{
 		Handler:           server.handler(m.Assets),
@@ -176,7 +181,7 @@ func (s *surfaceServer) handler(assets fs.FS) http.Handler {
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; connect-src 'self' http: https:; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'")
 		if r.URL.Path == "/__gizclaw/runtime" {
-			s.serveHandoff(w, r)
+			s.serveRuntime(w, r)
 			return
 		}
 		if r.URL.Path == "/" {
@@ -198,11 +203,16 @@ func (s *surfaceServer) handler(assets fs.FS) http.Handler {
 	})
 }
 
-func (s *surfaceServer) serveHandoff(w http.ResponseWriter, r *http.Request) {
+func (s *surfaceServer) serveRuntime(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", "POST")
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
+	s.serveHandoff(w, r)
+}
+
+func (s *surfaceServer) serveHandoff(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Origin") != s.baseURL {
 		http.Error(w, "invalid origin", http.StatusForbidden)
 		return
@@ -216,13 +226,17 @@ func (s *surfaceServer) serveHandoff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.mu.Lock()
-	runtime, ok := s.handoffs[request.Token]
-	delete(s.handoffs, request.Token)
+	ok := request.Token == s.token && s.token != ""
+	runtime := s.runtime
 	s.mu.Unlock()
 	if !ok {
-		http.Error(w, "handoff expired or already used", http.StatusGone)
+		http.Error(w, "unknown runtime token", http.StatusUnauthorized)
 		return
 	}
+	writeRuntime(w, runtime)
+}
+
+func writeRuntime(w http.ResponseWriter, runtime Runtime) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	_ = json.NewEncoder(w).Encode(runtime)

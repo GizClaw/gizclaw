@@ -13,7 +13,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
-func TestLaunchURLReusesPortAndConsumesHandoffOnce(t *testing.T) {
+func TestLaunchURLReusesPortAndRetainsRuntimeToken(t *testing.T) {
 	manager := New(fstest.MapFS{"admin.html": {Data: []byte("admin")}, "play.html": {Data: []byte("play")}})
 	defer manager.Shutdown()
 	runtime := testRuntime(t)
@@ -59,12 +59,18 @@ func TestLaunchURLReusesPortAndConsumesHandoffOnce(t *testing.T) {
 		t.Fatal("launch URL contains private key")
 	}
 
-	if firstURL.RawQuery != "" {
-		t.Fatalf("launch token is present in query: %s", firstURL.RawQuery)
+	if firstURL.Fragment != "" {
+		t.Fatalf("launch URL contains a fragment: %s", firstURL.Fragment)
 	}
-	token := strings.TrimPrefix(firstURL.Fragment, "launch=")
+	token := firstURL.Query().Get("token")
 	if token == "" {
-		t.Fatal("launch URL fragment is missing its token")
+		t.Fatal("launch URL query is missing its token")
+	}
+	if token != secondURL.Query().Get("token") {
+		t.Fatal("same listener changed its runtime token")
+	}
+	if token == playURL.Query().Get("token") {
+		t.Fatal("Admin and Play share a runtime token")
 	}
 	body, _ := json.Marshal(map[string]string{"token": token})
 	request, _ := http.NewRequest(http.MethodPost, "http://"+firstURL.Host+"/__gizclaw/runtime", bytes.NewReader(body))
@@ -81,6 +87,9 @@ func TestLaunchURLReusesPortAndConsumesHandoffOnce(t *testing.T) {
 	if response.Header.Get("Cache-Control") != "no-store" {
 		t.Fatalf("Cache-Control = %q", response.Header.Get("Cache-Control"))
 	}
+	if len(response.Cookies()) != 0 {
+		t.Fatal("runtime handoff set an unexpected cookie")
+	}
 
 	request, _ = http.NewRequest(http.MethodPost, "http://"+firstURL.Host+"/__gizclaw/runtime", bytes.NewReader(body))
 	request.Header.Set("Origin", "http://"+firstURL.Host)
@@ -88,9 +97,62 @@ func TestLaunchURLReusesPortAndConsumesHandoffOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusGone {
-		t.Fatalf("second handoff status = %d", response.StatusCode)
+	data, _ = io.ReadAll(response.Body)
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusOK || !bytes.Contains(data, []byte(runtime.PrivateKeyBase64)) {
+		t.Fatalf("reused runtime token = %d %s", response.StatusCode, data)
+	}
+}
+
+func TestRuntimeTokenRejectsUnknownValue(t *testing.T) {
+	manager := New(fstest.MapFS{"admin.html": {Data: []byte("admin")}})
+	defer manager.Shutdown()
+	launch, err := manager.LaunchURL("pod-a", "admin", testRuntime(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, _ := url.Parse(launch)
+
+	body, _ := json.Marshal(map[string]string{"token": "unknown"})
+	request, _ := http.NewRequest(http.MethodPost, "http://"+parsed.Host+"/__gizclaw/runtime", bytes.NewReader(body))
+	request.Header.Set("Origin", "http://"+parsed.Host)
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("unknown token status = %d", response.StatusCode)
+	}
+}
+
+func TestClosePodClearsBrowserRuntime(t *testing.T) {
+	manager := New(fstest.MapFS{"admin.html": {Data: []byte("admin")}})
+	runtime := testRuntime(t)
+	launch, err := manager.LaunchURL("pod-a", "admin", runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, _ := url.Parse(launch)
+	body, _ := json.Marshal(map[string]string{"token": parsed.Query().Get("token")})
+	request, _ := http.NewRequest(http.MethodPost, "http://"+parsed.Host+"/__gizclaw/runtime", bytes.NewReader(body))
+	request.Header.Set("Origin", "http://"+parsed.Host)
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = response.Body.Close()
+
+	manager.mu.Lock()
+	server := manager.servers["pod-a:admin"]
+	manager.mu.Unlock()
+	manager.ClosePod("pod-a")
+	server.mu.Lock()
+	token := server.token
+	closedRuntime := server.runtime
+	server.mu.Unlock()
+	if token != "" || closedRuntime.Context != nil || closedRuntime.PrivateKeyBase64 != "" {
+		t.Fatal("closed listener retained its runtime state")
 	}
 }
 
@@ -102,7 +164,7 @@ func TestHandoffRejectsCrossOrigin(t *testing.T) {
 		t.Fatal(err)
 	}
 	parsed, _ := url.Parse(launch)
-	body, _ := json.Marshal(map[string]string{"token": strings.TrimPrefix(parsed.Fragment, "launch=")})
+	body, _ := json.Marshal(map[string]string{"token": parsed.Query().Get("token")})
 	request, _ := http.NewRequest(http.MethodPost, "http://"+parsed.Host+"/__gizclaw/runtime", bytes.NewReader(body))
 	request.Header.Set("Origin", "http://evil.invalid")
 	response, err := http.DefaultClient.Do(request)
