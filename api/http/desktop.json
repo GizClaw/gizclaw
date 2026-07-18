@@ -397,6 +397,10 @@
             "type": "string",
             "description": "Current editable bootstrap.env content."
           },
+          "error": {
+            "type": "string",
+            "description": "Parse error for the current bootstrap.env content. The raw content remains editable."
+          },
           "variables": {
             "type": "array",
             "items": {

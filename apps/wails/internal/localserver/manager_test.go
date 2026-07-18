@@ -2,10 +2,12 @@ package localserver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -130,7 +132,12 @@ func TestManagerRecoversExistingProcessFromWorkspacePID(t *testing.T) {
 	}
 
 	restartedDesktop := New()
-	recovered, err := restartedDesktop.Recover("local-lab", workspace)
+	recovered, err := restartedDesktop.Recover("local-lab", workspace, func(pid int) error {
+		if pid != started.PID {
+			return fmt.Errorf("PID = %d, want %d", pid, started.PID)
+		}
+		return nil
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +169,7 @@ func TestManagerRemovesStaleWorkspacePID(t *testing.T) {
 	if err := os.WriteFile(pidPath, []byte("not-a-pid\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	status, err := New().Recover("local-lab", workspace)
+	status, err := New().Recover("local-lab", workspace, func(int) error { return nil })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,6 +178,26 @@ func TestManagerRemovesStaleWorkspacePID(t *testing.T) {
 	}
 	if _, err := os.Stat(pidPath); !os.IsNotExist(err) {
 		t.Fatalf("stale PID file error = %v", err)
+	}
+}
+
+func TestManagerRejectsUnverifiedLivePID(t *testing.T) {
+	workspace := t.TempDir()
+	pidPath := filepath.Join(workspace, PIDFile)
+	if err := os.WriteFile(pidPath, fmt.Appendf(nil, "%d\n", os.Getpid()), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	manager := New()
+	if _, err := manager.Recover("local-lab", workspace, func(int) error {
+		return errors.New("server identity mismatch")
+	}); err == nil || !strings.Contains(err.Error(), "identity mismatch") {
+		t.Fatalf("Recover() error = %v", err)
+	}
+	if status := manager.Status("local-lab"); status.State != "failed" || status.PID != 0 {
+		t.Fatalf("Status() = %+v", status)
+	}
+	if _, err := os.Stat(pidPath); !os.IsNotExist(err) {
+		t.Fatalf("rejected PID file error = %v", err)
 	}
 }
 

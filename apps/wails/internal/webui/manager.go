@@ -52,9 +52,8 @@ type surfaceServer struct {
 	entry    string
 	done     chan struct{}
 
-	mu      sync.Mutex
-	token   string
-	runtime Runtime
+	mu       sync.Mutex
+	handoffs map[string]Runtime
 }
 
 func New(assets fs.FS) *Manager {
@@ -67,6 +66,10 @@ func (m *Manager) LaunchURL(podID, surface string, runtime Runtime) (string, err
 	}
 	if runtime.Context == nil || runtime.PrivateKeyBase64 == "" {
 		return "", fmt.Errorf("webui: incomplete runtime handoff")
+	}
+	token, err := randomToken()
+	if err != nil {
+		return "", err
 	}
 	key := podID + ":" + surface
 	m.mu.Lock()
@@ -88,11 +91,10 @@ func (m *Manager) LaunchURL(podID, surface string, runtime Runtime) (string, err
 		}
 		m.servers[key] = server
 	}
-	m.mu.Unlock()
 	server.mu.Lock()
-	server.runtime = runtime
-	token := server.token
+	server.handoffs[token] = runtime
 	server.mu.Unlock()
+	m.mu.Unlock()
 	query := url.Values{"token": {token}}
 	return server.baseURL + "/?" + query.Encode(), nil
 }
@@ -134,8 +136,7 @@ func (m *Manager) Shutdown() {
 
 func (s *surfaceServer) close() error {
 	s.mu.Lock()
-	s.token = ""
-	s.runtime = Runtime{}
+	clear(s.handoffs)
 	s.mu.Unlock()
 	return s.server.Close()
 }
@@ -145,17 +146,12 @@ func (m *Manager) start(key, entry string) (*surfaceServer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("webui: listen: %w", err)
 	}
-	token, err := randomToken()
-	if err != nil {
-		_ = listener.Close()
-		return nil, err
-	}
 	server := &surfaceServer{
 		listener: listener,
 		baseURL:  "http://" + listener.Addr().String(),
 		entry:    entry,
 		done:     make(chan struct{}),
-		token:    token,
+		handoffs: map[string]Runtime{},
 	}
 	server.server = &http.Server{
 		Handler:           server.handler(m.Assets),
@@ -226,8 +222,7 @@ func (s *surfaceServer) serveHandoff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.mu.Lock()
-	ok := request.Token == s.token && s.token != ""
-	runtime := s.runtime
+	runtime, ok := s.handoffs[request.Token]
 	s.mu.Unlock()
 	if !ok {
 		http.Error(w, "unknown runtime token", http.StatusUnauthorized)

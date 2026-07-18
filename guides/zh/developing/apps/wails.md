@@ -42,6 +42,10 @@ default 的值不会回传，前端只会看到对应变量已 configured 或 de
 远程 Pod 的创建和更新也不会读取它们。Desktop 保存值优先于 process environment，
 资源中的 `${NAME:-default}` 最后生效。
 
+如果用户在 Desktop 外手动写坏 `bootstrap.env`，Bootstrap 仍返回 Pod 列表、原始 dotenv
+内容和解析错误。环境编辑器自动进入文本模式以便修复；在内容重新通过解析前，本地
+Pod 创建保持禁用。
+
 本地 `CreatePod` 在保留目录前完成环境 preflight，同步生成 manifest 和投影并写入
 `.initializing` 状态后立即返回。可取消的后台任务随后启动 companion、等待 Admin
 readiness、按顺序 apply 内嵌资源、同步 Volc Voice、apply ACL，并通过 owner API
@@ -57,7 +61,9 @@ restart、Admin 和 Play 操作；delete 会先取消并等待后台任务。
 每个运行中的本地 Server 在自己的 `workspace/server.pid` 保存 PID，文件以 `0600`
 原子写入。正常停止、退出或 Desktop 的 Quit 会清除该文件；Desktop 异常退出时
 Server 与 PID 文件都保留。下次启动会扫描有效的本地 Pod，验证 PID 文件为普通文件
-且进程仍存活，然后恢复进程管理，不会因为已有 Server 占用端口而重新启动或终止它。
+且进程仍存活，并要求该 Pod 的 loopback `/server-info` 公钥与 workspace identity 一致，
+然后才恢复进程管理。验证失败的 PID 不会被 signal，从而避免 PID 被系统复用后误杀
+其他进程；验证通过的 Server 不会因为占用既有端口而被重新启动或终止。
 失效 PID 会在恢复时清除，恢复的非子进程通过存活探测更新生命周期状态。若崩溃发生
 在 bootstrap 尚未完成时，Desktop 会先接管并停止该 Server，再按现有约定清理不完整
 Pod，避免删除 PID 文件后留下无法管理的进程。
@@ -91,10 +97,11 @@ key 和 store inventory，并以 `0600` 原子写入。模板显式使用 info-l
 
 ## 浏览器 Runtime
 
-Admin 与 Play 的静态产物分别从 `admin.html` 和 `play.html` 启动。每个
-Pod/surface 只保留一个 `127.0.0.1:0` listener 和一个固定随机 token。token 保留在
-本地 URL query 中，浏览器以同源 POST 领取 Runtime；重复打开或页面刷新时继续使用
-同一 token，直到对应 listener 关闭。交接结果禁止缓存；
+Admin 与 Play 的静态产物分别从 `admin.html` 和 `play.html` 启动。每个 Pod/surface
+只保留一个 `127.0.0.1:0` listener，每次打开生成独立随机 token，并将该 token 与
+本次选择的 Runtime 绑定。token 保留在本地 URL query 中，浏览器以同源 POST 领取
+Runtime；同一 URL 页面刷新时继续使用自己的 token，直到对应 listener 关闭。交接
+结果禁止缓存；
 Runtime 私钥不得进入 URL、Web Storage、日志或静态文件。
 
 Go 部分遵循 [Go 编码规范](/zh/coding-styles/go)，frontend 遵循

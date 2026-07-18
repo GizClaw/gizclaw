@@ -695,6 +695,96 @@ func TestMissingBootstrapEnvironmentFailsBeforePodReservation(t *testing.T) {
 	}
 }
 
+func TestInvalidBootstrapEnvironmentRemainsEditable(t *testing.T) {
+	paths := appconfig.NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	const content = "TOKEN=first\nTOKEN='unterminated\n"
+	if err := os.WriteFile(paths.BootstrapEnvFile, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	b := &PodBridge{
+		Paths:                paths,
+		Store:                appconfig.Store{Paths: paths},
+		BootstrapEnvironment: appconfig.BootstrapEnvironmentStore{Path: paths.BootstrapEnvFile},
+		Catalog:              &localserver.Catalog{Requirements: []localserver.EnvironmentRequirement{{Name: "TOKEN"}}},
+		Bootstrapper:         &fakeLocalPodBootstrapper{},
+		Health:               endpointhealth.New(),
+		Local:                localserver.New(),
+		WebUI:                webui.New(fstest.MapFS{}),
+	}
+	defer b.WebUI.Shutdown()
+	bootstrap, err := b.Bootstrap(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := bootstrap.BootstrapEnvironment
+	if state.Ready || state.Content != content || !strings.Contains(state.Error, "duplicate name") || state.Missing == nil || state.Variables == nil {
+		t.Fatalf("BootstrapEnvironment = %+v", state)
+	}
+	data, err := json.Marshal(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(data, []byte(`"missing":[]`)) || !bytes.Contains(data, []byte(`"variables":[]`)) {
+		t.Fatalf("BootstrapEnvironment JSON = %s", data)
+	}
+	_, err = b.CreatePod(context.Background(), PodInput{Version: 1, ID: "invalid-env", Name: "Invalid Env", LocalServer: &LocalServerInput{Port: 0}})
+	if err == nil || !strings.Contains(err.Error(), "duplicate name") {
+		t.Fatalf("CreatePod() error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(paths.PodsDir, "invalid-env")); !os.IsNotExist(err) {
+		t.Fatalf("Pod was reserved with invalid bootstrap.env: %v", err)
+	}
+}
+
+func TestRecoverLocalServerRejectsMismatchedServerIdentity(t *testing.T) {
+	paths := appconfig.NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	b := &PodBridge{Paths: paths, Store: appconfig.Store{Paths: paths}, Health: endpointhealth.New(), Local: localserver.New(), WebUI: webui.New(fstest.MapFS{})}
+	defer b.WebUI.Shutdown()
+	created, err := b.CreatePod(context.Background(), PodInput{Version: 1, ID: "recover-mismatch", Name: "Mismatch", LocalServer: &LocalServerInput{Port: 0}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pidPath := filepath.Join(paths.PodsDir, created.ID, "workspace", localserver.PIDFile)
+	if err := os.WriteFile(pidPath, fmt.Appendf(nil, "%d\n", os.Getpid()), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", created.Local.Port))
+	if err != nil {
+		t.Fatal(err)
+	}
+	mismatch, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"endpoint":       fmt.Sprintf("127.0.0.1:%d", created.Local.Port),
+			"protocol":       "gizclaw-webrtc",
+			"public_key":     mismatch.Public.String(),
+			"server_time":    time.Now().Unix(),
+			"signaling_path": "/webrtc",
+		})
+	})}
+	go func() { _ = server.Serve(listener) }()
+	defer server.Close()
+
+	if _, err := b.RecoverLocalServer(context.Background(), created.ID); err == nil || !strings.Contains(err.Error(), "identity does not match") {
+		t.Fatalf("RecoverLocalServer() error = %v", err)
+	}
+	if status := b.Local.Status(created.ID); status.State != "failed" || status.PID != 0 {
+		t.Fatalf("process status = %+v", status)
+	}
+	if _, err := os.Stat(pidPath); !os.IsNotExist(err) {
+		t.Fatalf("mismatched PID file error = %v", err)
+	}
+}
+
 func waitForInitializationState(t *testing.T, store appconfig.Store, id, want string) *appconfig.PodInitialization {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)

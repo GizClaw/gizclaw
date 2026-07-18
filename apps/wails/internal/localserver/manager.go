@@ -27,6 +27,10 @@ type Status struct {
 	Error string   `json:"error,omitempty"`
 }
 
+// ProcessVerifier confirms that a live persisted PID belongs to the expected
+// local Server before Manager is allowed to signal it.
+type ProcessVerifier func(pid int) error
+
 type process struct {
 	process *os.Process
 	pidPath string
@@ -60,13 +64,13 @@ func (m *Manager) Start(podID, workspace string) (Status, error) {
 		m.mu.Unlock()
 		return status, nil
 	}
-	if recovered, err := m.recoverLocked(podID, workspace); err != nil {
+	pidPath := filepath.Join(workspace, PIDFile)
+	if _, found, err := readPID(pidPath); err != nil {
 		m.mu.Unlock()
 		return Status{}, err
-	} else if recovered != nil {
-		status := snapshot(recovered)
+	} else if found {
 		m.mu.Unlock()
-		return status, nil
+		return Status{}, errors.New("local server: persisted PID must be verified before start")
 	}
 	executable, err := m.resolveExecutable()
 	if err != nil {
@@ -88,7 +92,6 @@ func (m *Manager) Start(podID, workspace string) (Status, error) {
 		m.mu.Unlock()
 		return Status{}, fmt.Errorf("local server: start: %w", err)
 	}
-	pidPath := filepath.Join(workspace, PIDFile)
 	if err := writePID(pidPath, cmd.Process.Pid); err != nil {
 		_ = cmd.Process.Kill()
 		_ = cmd.Wait()
@@ -110,7 +113,7 @@ func (m *Manager) Start(podID, workspace string) (Status, error) {
 // Recover attaches the manager to a local Server recorded in its workspace.
 // Attached processes are polled because they are no longer children of the
 // current Desktop process and therefore cannot be waited on with exec.Cmd.
-func (m *Manager) Recover(podID, workspace string) (Status, error) {
+func (m *Manager) Recover(podID, workspace string, verify ProcessVerifier) (Status, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.closing {
@@ -119,7 +122,7 @@ func (m *Manager) Recover(podID, workspace string) (Status, error) {
 	if current := m.processes[podID]; current != nil && (current.state == "running" || current.state == "stopping") {
 		return snapshot(current), nil
 	}
-	p, err := m.recoverLocked(podID, workspace)
+	p, err := m.recoverLocked(podID, workspace, verify)
 	if err != nil {
 		done := make(chan struct{})
 		close(done)
@@ -230,7 +233,7 @@ func (m *Manager) capture(p *process, reader io.Reader) {
 	}
 }
 
-func (m *Manager) recoverLocked(podID, workspace string) (*process, error) {
+func (m *Manager) recoverLocked(podID, workspace string, verify ProcessVerifier) (*process, error) {
 	pidPath := filepath.Join(workspace, PIDFile)
 	pid, found, err := readPID(pidPath)
 	if err != nil {
@@ -248,6 +251,17 @@ func (m *Manager) recoverLocked(podID, workspace string) (*process, error) {
 			return nil, removeErr
 		}
 		return nil, nil
+	}
+	if verify == nil {
+		_ = osProcess.Release()
+		return nil, errors.New("local server: persisted PID verifier is required")
+	}
+	if err := verify(pid); err != nil {
+		_ = osProcess.Release()
+		if removeErr := removePIDIfMatches(pidPath, pid); removeErr != nil {
+			return nil, removeErr
+		}
+		return nil, fmt.Errorf("local server: verify persisted PID %d: %w", pid, err)
 	}
 	p := &process{process: osProcess, pidPath: pidPath, done: make(chan struct{}), state: "running"}
 	m.processes[podID] = p

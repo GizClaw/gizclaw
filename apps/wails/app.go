@@ -58,7 +58,9 @@ func NewAppWithPathsAndAssets(paths appconfig.Paths, assets fs.FS) (*App, error)
 	}
 	store := appconfig.Store{Paths: paths}
 	local := localserver.New()
-	if err := stopInterruptedLocalServers(store, local); err != nil {
+	health := endpointhealth.New()
+	recovery := &bridge.PodBridge{Paths: paths, Store: store, Health: health, Local: local}
+	if err := stopInterruptedLocalServers(store, recovery); err != nil {
 		return nil, err
 	}
 	if err := store.CleanupIncomplete(); err != nil {
@@ -78,12 +80,12 @@ func NewAppWithPathsAndAssets(paths appconfig.Paths, assets fs.FS) (*App, error)
 		Store:                store,
 		BootstrapEnvironment: appconfig.BootstrapEnvironmentStore{Path: paths.BootstrapEnvFile},
 		Catalog:              catalog,
-		Health:               endpointhealth.New(),
+		Health:               health,
 		Local:                local,
 		WebUI:                webui.New(assets),
 	}}
 	app.bridge.Bootstrapper = &localserver.Bootstrapper{Catalog: catalog, Executable: local.ExecutablePath}
-	if err := app.bridge.RecoverLocalServers(); err != nil {
+	if err := app.bridge.RecoverLocalServers(context.Background()); err != nil {
 		return nil, fmt.Errorf("desktop app: recover local servers: %w", err)
 	}
 	app.tray = tray.New(
@@ -93,7 +95,7 @@ func NewAppWithPathsAndAssets(paths appconfig.Paths, assets fs.FS) (*App, error)
 	return app, nil
 }
 
-func stopInterruptedLocalServers(store appconfig.Store, local *localserver.Manager) error {
+func stopInterruptedLocalServers(store appconfig.Store, recovery *bridge.PodBridge) error {
 	entries, err := store.Entries()
 	if err != nil {
 		return fmt.Errorf("desktop app: inspect interrupted local servers: %w", err)
@@ -109,15 +111,15 @@ func stopInterruptedLocalServers(store appconfig.Store, local *localserver.Manag
 		if initialization == nil || initialization.State != "initializing" {
 			continue
 		}
-		status, err := local.Recover(entry.Pod.ID, filepath.Join(store.Paths.PodsDir, entry.Pod.ID, "workspace"))
+		status, err := recovery.RecoverLocalServer(context.Background(), entry.Pod.ID)
 		if err != nil {
-			return fmt.Errorf("desktop app: recover interrupted local server %q: %w", entry.Pod.ID, err)
+			continue
 		}
 		if status.State != "running" {
 			continue
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		_, err = local.Stop(ctx, entry.Pod.ID)
+		_, err = recovery.Local.Stop(ctx, entry.Pod.ID)
 		cancel()
 		if err != nil {
 			return fmt.Errorf("desktop app: stop interrupted local server %q: %w", entry.Pod.ID, err)

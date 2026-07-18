@@ -64,6 +64,7 @@ type BootstrapEnvironmentState struct {
 	Missing   []string                            `json:"missing"`
 	Content   string                              `json:"content"`
 	Variables []BootstrapEnvironmentVariableState `json:"variables"`
+	Error     string                              `json:"error,omitempty"`
 }
 
 type BootstrapEnvironmentVariableState struct {
@@ -159,7 +160,7 @@ func (b *PodBridge) Bootstrap(ctx context.Context) (BootstrapState, error) {
 // RecoverLocalServers attaches process management to local Servers that
 // survived a previous Desktop process. Invalid Pod manifests remain visible
 // through ListPods and do not prevent recovery of other Pods.
-func (b *PodBridge) RecoverLocalServers() error {
+func (b *PodBridge) RecoverLocalServers(ctx context.Context) error {
 	entries, err := b.Store.Entries()
 	if err != nil {
 		return err
@@ -168,9 +169,41 @@ func (b *PodBridge) RecoverLocalServers() error {
 		if entry.Err != nil || entry.Pod.LocalServer == nil {
 			continue
 		}
-		_, _ = b.Local.Recover(entry.Pod.ID, filepath.Join(b.Paths.PodsDir, entry.Pod.ID, "workspace"))
+		_, _ = b.recoverLocalServer(ctx, entry.Pod)
 	}
 	return nil
+}
+
+// RecoverLocalServer verifies and attaches process management to one local
+// Server that survived a previous Desktop process.
+func (b *PodBridge) RecoverLocalServer(ctx context.Context, id string) (localserver.Status, error) {
+	pod, err := b.Store.Load(id)
+	if err != nil {
+		return localserver.Status{}, err
+	}
+	if pod.LocalServer == nil {
+		return localserver.Status{}, fmt.Errorf("desktop bridge: pod %q is remote", id)
+	}
+	return b.recoverLocalServer(ctx, pod)
+}
+
+func (b *PodBridge) recoverLocalServer(ctx context.Context, pod appconfig.Pod) (localserver.Status, error) {
+	workspace := filepath.Join(b.Paths.PodsDir, pod.ID, "workspace")
+	return b.Local.Recover(pod.ID, workspace, func(pid int) error {
+		expectedPublicKey, err := b.Store.LocalServerPublicKey(pod.ID)
+		if err != nil {
+			return err
+		}
+		endpoint := fmt.Sprintf("127.0.0.1:%d", pod.LocalServer.Port)
+		result := b.Health.Probe(ctx, endpoint)
+		if result.State != endpointhealth.Reachable {
+			return fmt.Errorf("PID %d server-info is not reachable: %s", pid, result.Message)
+		}
+		if result.PublicKey != expectedPublicKey {
+			return fmt.Errorf("PID %d server identity does not match Pod %q", pid, pod.ID)
+		}
+		return nil
+	})
 }
 
 func (b *PodBridge) GetBootstrapEnvironment(context.Context) (BootstrapEnvironmentState, error) {
@@ -267,6 +300,9 @@ func (b *PodBridge) CreatePod(_ context.Context, input PodInput) (PodSummary, er
 			return PodSummary{}, err
 		}
 		if !state.Ready {
+			if state.Error != "" {
+				return PodSummary{}, fmt.Errorf("desktop bridge: configure bootstrap environment: %s", state.Error)
+			}
 			return PodSummary{}, fmt.Errorf("desktop bridge: configure bootstrap environment: %s", strings.Join(state.Missing, ", "))
 		}
 		savedEnvironment = saved
@@ -384,7 +420,7 @@ func (b *PodBridge) initializeLocalPod(ctx context.Context, pod appconfig.Pod, d
 
 func (b *PodBridge) bootstrapEnvironmentState() (BootstrapEnvironmentState, map[string]string, error) {
 	if b.Catalog == nil {
-		return BootstrapEnvironmentState{Ready: true}, map[string]string{}, nil
+		return BootstrapEnvironmentState{Ready: true, Missing: []string{}, Variables: []BootstrapEnvironmentVariableState{}}, map[string]string{}, nil
 	}
 	content, err := b.BootstrapEnvironment.Content()
 	if err != nil {
@@ -392,9 +428,19 @@ func (b *PodBridge) bootstrapEnvironmentState() (BootstrapEnvironmentState, map[
 	}
 	saved, err := appconfig.ParseBootstrapEnvironment(content)
 	if err != nil {
-		return BootstrapEnvironmentState{}, nil, err
+		return BootstrapEnvironmentState{
+			Content:   content,
+			Error:     err.Error(),
+			Missing:   []string{},
+			Variables: []BootstrapEnvironmentVariableState{},
+		}, map[string]string{}, nil
 	}
-	state := BootstrapEnvironmentState{Ready: true, Content: content, Variables: make([]BootstrapEnvironmentVariableState, 0, len(b.Catalog.Requirements))}
+	state := BootstrapEnvironmentState{
+		Ready:     true,
+		Missing:   []string{},
+		Content:   content,
+		Variables: make([]BootstrapEnvironmentVariableState, 0, len(b.Catalog.Requirements)),
+	}
 	for _, requirement := range b.Catalog.Requirements {
 		variable := BootstrapEnvironmentVariableState{Name: requirement.Name, Required: requirement.Default == nil, Value: saved[requirement.Name]}
 		if saved[requirement.Name] != "" {
@@ -618,7 +664,7 @@ func (b *PodBridge) RefreshHealth(ctx context.Context, id string) (PodSummary, e
 	return b.summary(pod), nil
 }
 
-func (b *PodBridge) StartLocal(_ context.Context, id string) (PodSummary, error) {
+func (b *PodBridge) StartLocal(ctx context.Context, id string) (PodSummary, error) {
 	if err := b.requireInitializationComplete(id); err != nil {
 		return PodSummary{}, err
 	}
@@ -634,7 +680,7 @@ func (b *PodBridge) StartLocal(_ context.Context, id string) (PodSummary, error)
 	}
 	workspace := filepath.Join(b.Paths.PodsDir, id, "workspace")
 	if b.Local.Status(id).State != "running" {
-		if _, err := b.Local.Recover(id, workspace); err != nil {
+		if _, err := b.recoverLocalServer(ctx, pod); err != nil {
 			return PodSummary{}, err
 		}
 	}

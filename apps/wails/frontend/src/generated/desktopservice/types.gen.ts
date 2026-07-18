@@ -21,6 +21,10 @@ export type BootstrapEnvironmentState = {
      * Current editable bootstrap.env content.
      */
     content: string;
+    /**
+     * Parse error for the current bootstrap.env content. The raw content remains editable.
+     */
+    error?: string;
     variables: Array<BootstrapEnvironmentVariableState>;
 };
 

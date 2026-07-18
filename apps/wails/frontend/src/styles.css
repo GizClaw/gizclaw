@@ -1429,6 +1429,16 @@ button:disabled {
   overflow: auto;
   scrollbar-gutter: stable;
 }
+.bootstrap-environment-error {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: #ffd5da;
+  background: rgba(183, 52, 72, 0.2);
+  box-shadow: inset 0 0 0 1px rgba(255, 117, 136, 0.24);
+  font-size: 10px;
+  line-height: 1.5;
+}
 .bootstrap-environment-field {
   display: grid;
   gap: 7px;

@@ -1493,7 +1493,9 @@ function BootstrapEnvironmentDialog({
     () => initial.variables.map((variable) => variable.name),
     [initial.variables],
   );
-  const [mode, setMode] = useState<"form" | "text">("form");
+  const [mode, setMode] = useState<"form" | "text">(
+    initial.error ? "text" : "form",
+  );
   const [content, setContent] = useState(initial.content);
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(
@@ -1555,6 +1557,11 @@ function BootstrapEnvironmentDialog({
             </button>
           </div>
           <div className="bootstrap-environment-scroll-region">
+            {initial.error ? (
+              <p className="bootstrap-environment-error" role="alert">
+                {initial.error}
+              </p>
+            ) : null}
             {mode === "form" ? (
               <div className="bootstrap-environment-fields">
                 {initial.variables.map((variable, index) => {

@@ -53,9 +53,10 @@ Persistence keys cannot be returned.
 ## Browser Runtime
 
 The static products of Admin and Play are started from `admin.html` and `play.html` respectively. Each
-Pod/surface only retains one `127.0.0.1:0` listener and one fixed random token. The token remains in the
-local URL query, and the browser presents it through a same-origin POST whenever it opens or refreshes.
-The token remains valid until its listener closes. Runtime responses are not
+Pod/surface retains one `127.0.0.1:0` listener and creates a distinct random token for every launch,
+binding that token to the selected Runtime. The token remains in the local URL query, and the browser
+presents it through a same-origin POST whenever it opens or refreshes. Each launch token remains valid
+until its listener closes. Runtime responses are not
 cached; private keys must not enter URLs, Web Storage, logs, or static files.
 
 The Go part follows [Go coding specifications](/en/coding-styles/go), and the frontend follows

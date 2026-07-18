@@ -13,15 +13,16 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
-func TestLaunchURLReusesPortAndRetainsRuntimeToken(t *testing.T) {
+func TestLaunchURLReusesPortAndRetainsPerLaunchRuntimeTokens(t *testing.T) {
 	manager := New(fstest.MapFS{"admin.html": {Data: []byte("admin")}, "play.html": {Data: []byte("play")}})
 	defer manager.Shutdown()
-	runtime := testRuntime(t)
-	first, err := manager.LaunchURL("pod-a", "admin", runtime)
+	firstRuntime := testRuntime(t)
+	secondRuntime := testRuntime(t)
+	first, err := manager.LaunchURL("pod-a", "admin", firstRuntime)
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := manager.LaunchURL("pod-a", "admin", runtime)
+	second, err := manager.LaunchURL("pod-a", "admin", secondRuntime)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +31,7 @@ func TestLaunchURLReusesPortAndRetainsRuntimeToken(t *testing.T) {
 	if firstURL.Host != secondURL.Host {
 		t.Fatalf("ports differ: %s / %s", firstURL.Host, secondURL.Host)
 	}
-	play, err := manager.LaunchURL("pod-a", "play", runtime)
+	play, err := manager.LaunchURL("pod-a", "play", firstRuntime)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +56,7 @@ func TestLaunchURLReusesPortAndRetainsRuntimeToken(t *testing.T) {
 	if blocked.StatusCode != http.StatusNotFound {
 		t.Fatalf("cross-surface HTML status = %d", blocked.StatusCode)
 	}
-	if strings.Contains(first, runtime.PrivateKeyBase64) {
+	if strings.Contains(first, firstRuntime.PrivateKeyBase64) {
 		t.Fatal("launch URL contains private key")
 	}
 
@@ -66,8 +67,9 @@ func TestLaunchURLReusesPortAndRetainsRuntimeToken(t *testing.T) {
 	if token == "" {
 		t.Fatal("launch URL query is missing its token")
 	}
-	if token != secondURL.Query().Get("token") {
-		t.Fatal("same listener changed its runtime token")
+	secondToken := secondURL.Query().Get("token")
+	if token == secondToken {
+		t.Fatal("separate launches share a runtime token")
 	}
 	if token == playURL.Query().Get("token") {
 		t.Fatal("Admin and Play share a runtime token")
@@ -81,7 +83,7 @@ func TestLaunchURLReusesPortAndRetainsRuntimeToken(t *testing.T) {
 	}
 	data, _ := io.ReadAll(response.Body)
 	_ = response.Body.Close()
-	if response.StatusCode != http.StatusOK || !bytes.Contains(data, []byte(runtime.PrivateKeyBase64)) {
+	if response.StatusCode != http.StatusOK || !bytes.Contains(data, []byte(firstRuntime.PrivateKeyBase64)) {
 		t.Fatalf("handoff = %d %s", response.StatusCode, data)
 	}
 	if response.Header.Get("Cache-Control") != "no-store" {
@@ -99,8 +101,21 @@ func TestLaunchURLReusesPortAndRetainsRuntimeToken(t *testing.T) {
 	}
 	data, _ = io.ReadAll(response.Body)
 	_ = response.Body.Close()
-	if response.StatusCode != http.StatusOK || !bytes.Contains(data, []byte(runtime.PrivateKeyBase64)) {
+	if response.StatusCode != http.StatusOK || !bytes.Contains(data, []byte(firstRuntime.PrivateKeyBase64)) {
 		t.Fatalf("reused runtime token = %d %s", response.StatusCode, data)
+	}
+
+	body, _ = json.Marshal(map[string]string{"token": secondToken})
+	request, _ = http.NewRequest(http.MethodPost, "http://"+secondURL.Host+"/__gizclaw/runtime", bytes.NewReader(body))
+	request.Header.Set("Origin", "http://"+secondURL.Host)
+	response, err = http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, _ = io.ReadAll(response.Body)
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusOK || !bytes.Contains(data, []byte(secondRuntime.PrivateKeyBase64)) {
+		t.Fatalf("second runtime token = %d %s", response.StatusCode, data)
 	}
 }
 
@@ -148,10 +163,9 @@ func TestClosePodClearsBrowserRuntime(t *testing.T) {
 	manager.mu.Unlock()
 	manager.ClosePod("pod-a")
 	server.mu.Lock()
-	token := server.token
-	closedRuntime := server.runtime
+	handoffs := len(server.handoffs)
 	server.mu.Unlock()
-	if token != "" || closedRuntime.Context != nil || closedRuntime.PrivateKeyBase64 != "" {
+	if handoffs != 0 {
 		t.Fatal("closed listener retained its runtime state")
 	}
 }

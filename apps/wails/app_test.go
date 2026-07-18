@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -53,6 +56,7 @@ func TestNewAppRecoversLocalServerFromWorkspacePID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	startLocalServerInfo(t, seed.bridge.Store, created.ID, created.Local.Port)
 
 	restarted, err := NewAppWithPaths(paths)
 	if err != nil {
@@ -95,6 +99,7 @@ func TestNewAppStopsServerBeforeCleaningInterruptedPod(t *testing.T) {
 	if _, err := seed.bridge.Local.Start(created.ID, filepath.Join(paths.PodsDir, created.ID, "workspace")); err != nil {
 		t.Fatal(err)
 	}
+	startLocalServerInfo(t, seed.bridge.Store, created.ID, created.Local.Port)
 
 	if _, err := NewAppWithPaths(paths); err != nil {
 		t.Fatal(err)
@@ -109,6 +114,29 @@ func TestNewAppStopsServerBeforeCleaningInterruptedPod(t *testing.T) {
 	if status := seed.bridge.Local.Status(created.ID); status.State == "running" || status.PID != 0 {
 		t.Fatalf("interrupted local server = %+v", status)
 	}
+}
+
+func startLocalServerInfo(t *testing.T, store appconfig.Store, id string, port int) {
+	t.Helper()
+	publicKey, err := store.LocalServerPublicKey(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"endpoint":       fmt.Sprintf("127.0.0.1:%d", port),
+			"protocol":       "gizclaw-webrtc",
+			"public_key":     publicKey,
+			"server_time":    time.Now().Unix(),
+			"signaling_path": "/webrtc",
+		})
+	})}
+	go func() { _ = server.Serve(listener) }()
+	t.Cleanup(func() { _ = server.Close() })
 }
 
 func TestBootstrapKeepsMalformedPodVisible(t *testing.T) {
