@@ -327,13 +327,14 @@ func (t *DoubaoRealtimeDuplex) processLoop(ctx context.Context, input genx.Strea
 	markAssistantStarted := func(streamID string) uint64 {
 		return assistant.markStarted(streamID)
 	}
-	markAssistantDoneForStream := func(streamID string) {
-		assistant.markDoneStream(streamID)
-	}
-	interruptAssistant := func(streamID string) (bool, error) {
+	output.setOutputObserver(func(chunk *genx.MessageChunk) {
+		observeRealtimeAssistantOutput(assistant, doubaoRealtimeDuplexAssistantLabel, chunk)
+	})
+	defer output.setOutputObserver(nil)
+	interruptAssistantState := func(streamID string) bool {
 		interruptedStreamID, interrupted := assistant.interrupt(streamID, false)
 		if !interrupted {
-			return false, nil
+			return false
 		}
 		textEOS := &genx.MessageChunk{
 			Role: genx.RoleModel,
@@ -347,6 +348,12 @@ func (t *DoubaoRealtimeDuplex) processLoop(ctx context.Context, input genx.Strea
 		}
 		_ = output.Push(textEOS)
 		_ = output.Push(audioEOS)
+		return true
+	}
+	interruptAssistant := func(streamID string) (bool, error) {
+		if !interruptAssistantState(streamID) {
+			return false, nil
+		}
 		if err := session.CancelResponse(ctx); err != nil {
 			return true, fmt.Errorf("doubao realtime duplex cancel response: %w", err)
 		}
@@ -402,11 +409,17 @@ func (t *DoubaoRealtimeDuplex) processLoop(ctx context.Context, input genx.Strea
 		textDeltaSeen := make(map[string]bool)
 		assistantTextStarted := make(map[string]bool)
 		assistantTextDone := make(map[string]bool)
+		assistantAudioStarted := make(map[string]bool)
 		assistantAudioDone := make(map[string]bool)
 		assistantCompleted := make(map[string]bool)
 		completeAssistantStream := func(streamID string) {
 			assistantCompleted[streamID] = true
-			markAssistantDoneForStream(streamID)
+			if !assistantTextStarted[streamID] {
+				assistant.markRouteDoneStream(streamID, true)
+			}
+			if !assistantAudioStarted[streamID] {
+				assistant.markRouteDoneStream(streamID, false)
+			}
 		}
 		closeInputSegment := func() error {
 			inputStreamID := streamIDs.endInputSegment()
@@ -593,6 +606,7 @@ func (t *DoubaoRealtimeDuplex) processLoop(ctx context.Context, input genx.Strea
 					finishEventError(err)
 					return
 				}
+				assistantAudioStarted[streamID] = true
 			case doubaospeech.RealtimeDuplexEventResponseOutputAudioDelta:
 				if !assistant.acceptsOutput() || len(event.Audio) == 0 {
 					continue
@@ -605,6 +619,7 @@ func (t *DoubaoRealtimeDuplex) processLoop(ctx context.Context, input genx.Strea
 					finishEventError(err)
 					return
 				}
+				assistantAudioStarted[streamID] = true
 				blobs, err := t.outputAudioBlobs(event.Audio)
 				if err != nil {
 					finishEventError(err)
@@ -701,6 +716,9 @@ func (t *DoubaoRealtimeDuplex) processLoop(ctx context.Context, input genx.Strea
 					return nil, nil
 				}
 				if chunk != nil {
+					if chunk.IsBeginOfStream() && chunk.Ctrl != nil {
+						interruptAssistantState(chunk.Ctrl.StreamID)
+					}
 					return chunk.Clone(), nil
 				}
 			}

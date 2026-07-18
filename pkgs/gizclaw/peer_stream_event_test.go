@@ -151,15 +151,19 @@ func TestPeerAgentOutputDecodesOpusIntoPCMTrack(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Encode() error = %v", err)
 	}
-	tracks := &peerStreamFakeTracks{}
+	tracks := &peerStreamFakeTracks{createdCh: make(chan struct{}, 1)}
 	output := &peerStreamSliceStream{chunks: []*genx.MessageChunk{
 		{
 			Part: &genx.Blob{MIMEType: "audio/opus", Data: packet},
 			Ctrl: &genx.StreamCtrl{StreamID: "answer"},
 		},
 	}, doneErr: genx.ErrDone}
-	err = (peerAgentOutput{Events: newPeerStreamEventBroker(), Tracks: tracks}).ConsumeAgentOutput(context.Background(), output)
-	if err != nil {
+	done := make(chan error, 1)
+	go func() {
+		done <- (peerAgentOutput{Events: newPeerStreamEventBroker(), Tracks: tracks}).ConsumeAgentOutput(context.Background(), output)
+	}()
+	<-tracks.createdCh
+	if err := waitPeerAgentOutputDrain(t, tracks.mixer, done); err != nil {
 		t.Fatalf("ConsumeAgentOutput() error = %v", err)
 	}
 	if tracks.created != 1 || len(tracks.track.chunks) != 1 {
@@ -185,13 +189,17 @@ func TestPeerAgentOutputRejectsMalformedOgg(t *testing.T) {
 }
 
 func TestPeerAgentOutputReusesPCMTrack(t *testing.T) {
-	tracks := &peerStreamFakeTracks{}
+	tracks := &peerStreamFakeTracks{createdCh: make(chan struct{}, 1)}
 	output := &peerStreamSliceStream{chunks: []*genx.MessageChunk{
 		{Part: &genx.Blob{MIMEType: "audio/L16; rate=16000; channels=1", Data: []byte{1, 0}}},
 		{Part: &genx.Blob{MIMEType: "audio/L16; rate=16000; channels=1", Data: []byte{2, 0}}},
 	}, doneErr: genx.ErrDone}
-	err := (peerAgentOutput{Tracks: tracks}).ConsumeAgentOutput(context.Background(), output)
-	if err != nil {
+	done := make(chan error, 1)
+	go func() {
+		done <- (peerAgentOutput{Tracks: tracks}).ConsumeAgentOutput(context.Background(), output)
+	}()
+	<-tracks.createdCh
+	if err := waitPeerAgentOutputDrain(t, tracks.mixer, done); err != nil {
 		t.Fatalf("ConsumeAgentOutput() error = %v", err)
 	}
 	if tracks.created != 1 {
@@ -228,9 +236,10 @@ func (*peerStreamSliceStream) CloseWithError(error) error {
 }
 
 type peerStreamFakeTracks struct {
-	created int
-	track   *peerStreamFakeTrack
-	mixer   *pcm.Mixer
+	created   int
+	createdCh chan struct{}
+	track     *peerStreamFakeTrack
+	mixer     *pcm.Mixer
 }
 
 func (t *peerStreamFakeTracks) CreateAudioTrack(...pcm.TrackOption) (pcm.Track, *pcm.TrackCtrl, error) {
@@ -240,7 +249,38 @@ func (t *peerStreamFakeTracks) CreateAudioTrack(...pcm.TrackOption) (pcm.Track, 
 		t.mixer = pcm.NewMixer(pcm.L16Mono16K)
 	}
 	_, ctrl, err := t.mixer.CreateTrack()
+	if t.createdCh != nil {
+		select {
+		case t.createdCh <- struct{}{}:
+		default:
+		}
+	}
 	return t.track, ctrl, err
+}
+
+func waitPeerAgentOutputDrain(t *testing.T, mixer *pcm.Mixer, done <-chan error) error {
+	t.Helper()
+	buffer := make([]byte, mixer.Output().BytesInDuration(60*time.Millisecond))
+	readDone := make(chan struct{})
+	go func() {
+		defer close(readDone)
+		for {
+			if _, err := mixer.Read(buffer); err != nil {
+				return
+			}
+		}
+	}()
+	select {
+	case err := <-done:
+		_ = mixer.Close()
+		<-readDone
+		return err
+	case <-time.After(time.Second):
+		_ = mixer.Close()
+		<-readDone
+		t.Fatal("audio output did not finish after mixer drain")
+		return nil
+	}
 }
 
 type peerStreamFakeTrack struct {

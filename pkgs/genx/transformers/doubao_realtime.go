@@ -777,6 +777,10 @@ func (t *DoubaoRealtime) sessionLoop(ctx context.Context, input genx.Stream, out
 	defer reader.Close()
 	runtime := newDoubaoRealtimeRuntime(t)
 	defer runtime.close()
+	output.setOutputObserver(func(chunk *genx.MessageChunk) {
+		observeRealtimeAssistantOutput(runtime.assistant, doubaoRealtimeAssistantLabel, chunk)
+	})
+	defer output.setOutputObserver(nil)
 	defer output.Close()
 
 	stopForTerminalInput := func() bool {
@@ -906,12 +910,6 @@ func (t *DoubaoRealtime) processSession(
 	}
 	markAssistantStarted := func(streamID string) uint64 {
 		return assistant.markStarted(streamID)
-	}
-	markAssistantTextDone := func(epoch uint64) {
-		assistant.markTextDone(epoch)
-	}
-	markAssistantAudioDone := func(epoch uint64) {
-		assistant.markAudioDone(epoch)
 	}
 	interruptAssistantState := func(streamID string, force bool) bool {
 		interruption := assistant.interruptRoutes(streamID, force)
@@ -1256,7 +1254,6 @@ func (t *DoubaoRealtime) processSession(
 					if err := pushAssistantOutput(epoch, response, eosChunk); err != nil {
 						return err
 					}
-					markAssistantAudioDone(epoch)
 					if t.mode == DoubaoRealtimeModePushToTalk {
 						pushToTalk.ttsFinished(streamID)
 						response.ttsFinished = true
@@ -1295,7 +1292,6 @@ func (t *DoubaoRealtime) processSession(
 					if err := pushAssistantOutput(epoch, response, doneChunk); err != nil {
 						return err
 					}
-					markAssistantTextDone(epoch)
 					if response != nil {
 						response.chatEnded = true
 						pttResponses.finish(response)

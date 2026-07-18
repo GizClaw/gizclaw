@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/mp3"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
@@ -760,6 +761,70 @@ func TestHistoryAgentRecordsSplitOggOutput(t *testing.T) {
 	}
 	if len(packets) != 4 || !bytes.Equal(packets[2].Data, []byte{1, 2, 3}) || !bytes.Equal(packets[3].Data, []byte{4, 5}) {
 		t.Fatalf("ogg packets = %+v", packets)
+	}
+}
+
+func TestHistoryAgentRecordsMP3OutputAsOggOpus(t *testing.T) {
+	var encoded bytes.Buffer
+	encoder, err := mp3.NewEncoder(&encoded, 24000, 1)
+	if err != nil {
+		t.Fatalf("NewEncoder() error = %v", err)
+	}
+	if _, err := encoder.Write(make([]byte, 24000/10*2)); err != nil {
+		t.Fatalf("encoder.Write() error = %v", err)
+	}
+	if err := encoder.Close(); err != nil {
+		t.Fatalf("encoder.Close() error = %v", err)
+	}
+	history := workspace.NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
+	agent := wrapHistoryAgent(historyTestAgent{output: historyStreamFromChunks(
+		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/mpeg", Data: encoded.Bytes()}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}},
+		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/mpeg"}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant", EndOfStream: true}},
+	)}, history)
+
+	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), "demo", historyStreamFromChunks())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	for {
+		_, err := out.Next()
+		if IsStreamDone(err) {
+			break
+		}
+		if err != nil {
+			t.Fatalf("Next() error = %v", err)
+		}
+	}
+
+	resp, err := agent.ListHistory(context.Background(), apitypes.PeerRunHistoryListRequest{})
+	if err != nil {
+		t.Fatalf("ListHistory() error = %v", err)
+	}
+	if len(resp.Items) != 1 {
+		t.Fatalf("history items = %+v", resp.Items)
+	}
+	entry, err := history.Get(context.Background(), resp.Items[0].Id)
+	if err != nil {
+		t.Fatalf("Get history: %v", err)
+	}
+	if len(entry.Assets) != 1 || entry.Assets[0].MIMEType != "audio/ogg; codecs=opus" {
+		t.Fatalf("history assets = %+v", entry.Assets)
+	}
+	reader, err := history.ReadAsset(context.Background(), entry.Assets[0].Name)
+	if err != nil {
+		t.Fatalf("ReadAsset: %v", err)
+	}
+	defer reader.Close()
+	asset, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("ReadAll: %v", err)
+	}
+	frames, err := historyOpusFramesFromOgg(asset)
+	if err != nil {
+		t.Fatalf("historyOpusFramesFromOgg: %v", err)
+	}
+	if len(frames) == 0 {
+		t.Fatal("stored Ogg/Opus asset contains no audio frames")
 	}
 }
 

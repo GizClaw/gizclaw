@@ -118,3 +118,47 @@ func TestRealtimeAssistantLifecycleIgnoresStaleStreamCompletion(t *testing.T) {
 		t.Fatalf("interrupt() after stale completion = (%q, %v), want (turn-2, true)", streamID, interrupted)
 	}
 }
+
+func TestBufferStreamDefersRealtimeCompletionUntilFinalObservation(t *testing.T) {
+	assistant := newRealtimeAssistantLifecycle()
+	assistant.markStarted("turn-1")
+	output := newBufferStream(2)
+	defer output.Close()
+	output.setOutputObserver(func(chunk *genx.MessageChunk) {
+		observeRealtimeAssistantOutput(assistant, "assistant", chunk)
+	})
+	output.DeferOutputObservation()
+	textEOS := &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: "assistant", EndOfStream: true},
+	}
+	audioEOS := &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: &genx.Blob{MIMEType: "audio/opus"},
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: "assistant", EndOfStream: true},
+	}
+	if err := output.Push(textEOS); err != nil {
+		t.Fatalf("Push(text EOS) error = %v", err)
+	}
+	if err := output.Push(audioEOS); err != nil {
+		t.Fatalf("Push(audio EOS) error = %v", err)
+	}
+	for range 2 {
+		if _, err := output.Next(); err != nil {
+			t.Fatalf("Next() error = %v", err)
+		}
+	}
+	if interruption := assistant.interruptRoutes("turn-2", false); !interruption.interrupted {
+		t.Fatal("buffered response became non-interruptible before final observation")
+	}
+
+	assistant.markStarted("turn-3")
+	textEOS.Ctrl.StreamID = "turn-3"
+	audioEOS.Ctrl.StreamID = "turn-3"
+	output.ObserveOutput(textEOS)
+	output.ObserveOutput(audioEOS)
+	if interruption := assistant.interruptRoutes("turn-4", false); interruption.interrupted {
+		t.Fatal("fully observed response remained interruptible")
+	}
+}

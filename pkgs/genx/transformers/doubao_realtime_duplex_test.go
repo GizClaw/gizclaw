@@ -850,12 +850,15 @@ func TestDoubaoRealtimeDuplexTextDoneAfterAudioDoneAllowsNextTurn(t *testing.T) 
 	output := newBufferStream(16)
 	defer output.Close()
 	drainDone := make(chan struct{})
+	drained := make(chan *genx.MessageChunk, 16)
 	go func() {
 		defer close(drainDone)
 		for {
-			if _, err := output.Next(); err != nil {
+			chunk, err := output.Next()
+			if err != nil {
 				return
 			}
+			drained <- chunk
 		}
 	}()
 	errCh := make(chan error, 1)
@@ -869,8 +872,26 @@ func TestDoubaoRealtimeDuplexTextDoneAfterAudioDoneAllowsNextTurn(t *testing.T) 
 	case <-ctx.Done():
 		t.Fatalf("events did not drain: %v", ctx.Err())
 	}
+	textDone := false
+	audioDone := false
+	for !textDone || !audioDone {
+		select {
+		case chunk := <-drained:
+			if chunk == nil || !chunk.IsEndOfStream() || chunk.Ctrl == nil || chunk.Ctrl.StreamID != "turn-1" {
+				continue
+			}
+			switch chunk.Part.(type) {
+			case genx.Text:
+				textDone = true
+			case *genx.Blob:
+				audioDone = true
+			}
+		case <-ctx.Done():
+			t.Fatalf("final output was not consumed: %v", ctx.Err())
+		}
+	}
 	close(allowNextInput)
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 	if session.cancelCount() != 0 {
 		t.Fatalf("CancelResponse calls = %d, want 0", session.cancelCount())
 	}

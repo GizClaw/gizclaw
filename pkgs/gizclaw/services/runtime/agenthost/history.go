@@ -814,6 +814,7 @@ type historyPendingEntry struct {
 	text      strings.Builder
 	audio     [][]byte
 	oggAudio  bytes.Buffer
+	mp3Audio  bytes.Buffer
 	pcmAudio  bytes.Buffer
 	pcmWriter *codecconv.PCMToOggOpusEncoder
 	pcmFormat pcm.Format
@@ -935,6 +936,8 @@ func (r *historyRecorder) observe(ctx context.Context, chunk *genx.MessageChunk,
 			entry.audio = append(entry.audio, append([]byte(nil), part.Data...))
 		case "audio/ogg", "application/ogg":
 			_, _ = entry.oggAudio.Write(part.Data)
+		case "audio/mpeg", "audio/mp3", "audio/x-mpeg", "audio/x-mp3":
+			_, _ = entry.mp3Audio.Write(part.Data)
 		default:
 			format, ok := historyPCMFormat(mimeType)
 			if !ok {
@@ -1078,7 +1081,8 @@ func (r *historyRecorder) pendingEntry(chunk *genx.MessageChunk, typ string, gea
 }
 
 func deferGearAudioEntry(entry *historyPendingEntry) bool {
-	return entry != nil && entry.typ == historyEntryTypeGear && strings.TrimSpace(entry.text.String()) == "" && (len(entry.audio) > 0 || entry.oggAudio.Len() > 0 || entry.pcmWriter != nil)
+	return entry != nil && entry.typ == historyEntryTypeGear && strings.TrimSpace(entry.text.String()) == "" &&
+		(len(entry.audio) > 0 || entry.oggAudio.Len() > 0 || entry.mp3Audio.Len() > 0 || entry.pcmWriter != nil)
 }
 
 func (r *historyRecorder) flushRoute(ctx context.Context, streamID string) error {
@@ -1101,6 +1105,30 @@ func (r *historyRecorder) flush(ctx context.Context, key string) error {
 			return err
 		}
 		entry.audio = append(entry.audio, frames...)
+	}
+	if entry.mp3Audio.Len() > 0 {
+		decoder := &mp3PCMDecoder{data: append([]byte(nil), entry.mp3Audio.Bytes()...)}
+		chunks, err := decoder.Finalize()
+		if err != nil {
+			return fmt.Errorf("agenthost: decode history MP3: %w", err)
+		}
+		defer decoder.Close()
+		for _, chunk := range chunks {
+			format := chunk.Format()
+			if entry.pcmWriter == nil {
+				writer, err := codecconv.NewPCMToOggOpusEncoder(&entry.pcmAudio, format.SampleRate(), format.Channels(), opus.ApplicationVoIP)
+				if err != nil {
+					return err
+				}
+				entry.pcmWriter = writer
+				entry.pcmFormat = format
+			} else if entry.pcmFormat != format {
+				return fmt.Errorf("agenthost: history MP3 changed PCM format from %s to %s", entry.pcmFormat, format)
+			}
+			if _, err := chunk.WriteTo(entry.pcmWriter); err != nil {
+				return err
+			}
+		}
 	}
 	var pcmAsset []byte
 	if entry.pcmWriter != nil {
@@ -1230,7 +1258,7 @@ func isHistoryAudioMIME(mimeType string) bool {
 
 func isRecordableHistoryAudioMIME(mimeType string) bool {
 	switch baseHistoryMIME(mimeType) {
-	case "audio/opus", "audio/ogg", "application/ogg":
+	case "audio/opus", "audio/ogg", "application/ogg", "audio/mpeg", "audio/mp3", "audio/x-mpeg", "audio/x-mp3":
 		return true
 	default:
 		_, ok := historyPCMFormat(mimeType)

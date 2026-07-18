@@ -106,6 +106,9 @@ func (o MixerOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream)
 		chunk, err := result.chunk, result.err
 		if err != nil {
 			if IsStreamDone(err) {
+				if err := tracks.closeWrite(); err != nil {
+					return err
+				}
 				if o.WaitForAudioDrain {
 					if err := tracks.waitPending(ctx); err != nil {
 						return err
@@ -146,8 +149,9 @@ func removeSupersededAudioEOS(pending []*genx.MessageChunk, interrupt *genx.Mess
 	if interrupt == nil || interrupt.Ctrl == nil || !interrupt.IsEndOfStream() || interrupt.Ctrl.Error == "" {
 		return pending
 	}
-	mimeType, ok := interrupt.MIMEType()
-	if !ok || !isMixerAudioMIME(mimeType) {
+	interruptMIME, hasInterruptMIME := interrupt.MIMEType()
+	routeInterrupt := interrupt.Part == nil
+	if !routeInterrupt && (!hasInterruptMIME || !isMixerAudioMIME(interruptMIME)) {
 		return pending
 	}
 	kept := pending[:0]
@@ -158,7 +162,8 @@ func removeSupersededAudioEOS(pending []*genx.MessageChunk, interrupt *genx.Mess
 		}
 		queuedMIME, queuedMIMEOK := chunk.MIMEType()
 		if chunk.Ctrl != nil && chunk.IsEndOfStream() && chunk.Ctrl.Error == "" &&
-			chunk.Ctrl.StreamID == interrupt.Ctrl.StreamID && queuedMIMEOK && queuedMIME == mimeType {
+			chunk.Ctrl.StreamID == interrupt.Ctrl.StreamID && queuedMIMEOK && isMixerAudioMIME(queuedMIME) &&
+			(routeInterrupt || queuedMIME == interruptMIME) {
 			continue
 		}
 		kept = append(kept, chunk)

@@ -333,6 +333,62 @@ func TestMixerOutputConsumesInterruptWhilePreviousTrackDrains(t *testing.T) {
 	}
 }
 
+func TestMixerOutputConsumesRouteInterruptWhilePreviousTrackDrains(t *testing.T) {
+	creator := newRecordingAudioTrackCreator()
+	var observed []*genx.MessageChunk
+	interrupt := &genx.MessageChunk{
+		Ctrl: &genx.StreamCtrl{StreamID: "answer", EndOfStream: true, Error: "interrupted"},
+	}
+	output := &notifyingSliceStream{sliceStream: sliceStream{chunks: []*genx.MessageChunk{
+		pcmOutputChunk("answer", "audio/pcm", []byte{1, 0}, true, ""),
+		interrupt,
+	}, doneErr: genx.ErrDone}, secondRead: make(chan struct{})}
+	done := make(chan error, 1)
+	go func() {
+		done <- (MixerOutput{
+			Tracks:            creator,
+			WaitForAudioDrain: true,
+			Observe: func(chunk *genx.MessageChunk) error {
+				observed = append(observed, chunk)
+				return nil
+			},
+		}).ConsumeAgentOutput(t.Context(), output)
+	}()
+	var track pcm.Track
+	select {
+	case track = <-creator.created:
+	case <-time.After(time.Second):
+		t.Fatal("audio track was not created")
+	}
+	select {
+	case <-output.secondRead:
+	case <-time.After(time.Second):
+		t.Fatal("consumer stopped reading while the previous track drained")
+	}
+	waitForTrackWriteError(t, track, "interrupted")
+	buffer := make([]byte, creator.mixer.Output().BytesInDuration(60*time.Millisecond))
+	readDone := make(chan struct{})
+	go func() {
+		defer close(readDone)
+		_, _ = creator.mixer.Read(buffer)
+	}()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("ConsumeAgentOutput() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("ConsumeAgentOutput() did not finish after route interruption")
+	}
+	if err := creator.mixer.Close(); err != nil {
+		t.Fatalf("mixer.Close() error = %v", err)
+	}
+	<-readDone
+	if len(observed) != 1 || observed[0] != interrupt {
+		t.Fatalf("observed chunks = %#v, want only route interrupted EOS", observed)
+	}
+}
+
 func TestMixerOutputClosesBlockedReaderAfterObserveError(t *testing.T) {
 	wantErr := errors.New("observe failed")
 	output := newCloseAwareOutputStream(&genx.MessageChunk{Part: genx.Text("hello")})
@@ -542,6 +598,47 @@ func TestMixerOutputOuterCloseModes(t *testing.T) {
 		if err := creator.tracks[0].Write(pcm.L16Mono16K.DataChunk([]byte{2, 0})); err == nil || !strings.Contains(err.Error(), "CloseWrite") {
 			t.Fatalf("write after completion error = %v, want CloseWrite", err)
 		}
+	})
+
+	t.Run("normal completion drains active track", func(t *testing.T) {
+		creator := newRecordingAudioTrackCreator()
+		output := &sliceStream{
+			chunks:  []*genx.MessageChunk{pcmOutputChunk("answer", "audio/pcm", []byte{1, 0}, false, "")},
+			doneErr: genx.ErrDone,
+		}
+		done := make(chan error, 1)
+		go func() {
+			done <- (MixerOutput{Tracks: creator, WaitForAudioDrain: true}).ConsumeAgentOutput(t.Context(), output)
+		}()
+		select {
+		case <-creator.created:
+		case <-time.After(time.Second):
+			t.Fatal("audio track was not created")
+		}
+		select {
+		case err := <-done:
+			t.Fatalf("ConsumeAgentOutput() finished before active track drained: %v", err)
+		case <-time.After(20 * time.Millisecond):
+		}
+		buffer := make([]byte, creator.mixer.Output().BytesInDuration(60*time.Millisecond))
+		readDone := make(chan struct{})
+		go func() {
+			defer close(readDone)
+			_, _ = creator.mixer.Read(buffer)
+			_, _ = creator.mixer.Read(buffer)
+		}()
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Fatalf("ConsumeAgentOutput() error = %v", err)
+			}
+		case <-time.After(time.Second):
+			t.Fatal("ConsumeAgentOutput() did not finish after active track drained")
+		}
+		if err := creator.mixer.Close(); err != nil {
+			t.Fatalf("mixer.Close() error = %v", err)
+		}
+		<-readDone
 	})
 
 	t.Run("outer error closes with error", func(t *testing.T) {
