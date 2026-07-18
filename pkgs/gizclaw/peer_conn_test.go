@@ -256,7 +256,6 @@ func TestPeerConnPacesMixedAudioAtEgress(t *testing.T) {
 	if err := mx.Close(); err != nil {
 		t.Fatalf("mixer.Close() error = %v", err)
 	}
-	ticks <- time.Now()
 	select {
 	case err := <-result:
 		if err != nil {

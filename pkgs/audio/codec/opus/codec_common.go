@@ -107,6 +107,13 @@ func validateFrameSize(sampleRate, frameSize int) error {
 	return fmt.Errorf("opus: invalid frame size %d for sample rate %d", frameSize, sampleRate)
 }
 
+func validateDecodeFrameSize(sampleRate, frameSize int) error {
+	if frameSize == sampleRate*3/25 { // 120 ms maximum Opus packet duration.
+		return nil
+	}
+	return validateFrameSize(sampleRate, frameSize)
+}
+
 func validatePCM(pcm []int16, frameSize, channels int) error {
 	if len(pcm) == 0 {
 		return fmt.Errorf("opus: empty pcm input")

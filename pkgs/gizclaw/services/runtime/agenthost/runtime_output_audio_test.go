@@ -2,11 +2,14 @@ package agenthost
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/mp3"
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
@@ -151,6 +154,80 @@ func TestAudioOutputMP3DecoderFinalizesToPCM(t *testing.T) {
 	}
 	if err := decoder.Close(); err != nil {
 		t.Fatalf("Close() error = %v", err)
+	}
+}
+
+func TestRawOpusDecoderAcceptsMaximumDurationPacket(t *testing.T) {
+	encoder, err := opus.NewEncoder(48000, 1, opus.ApplicationAudio)
+	if err != nil {
+		t.Fatalf("NewEncoder() error = %v", err)
+	}
+	defer encoder.Close()
+	frames := make([][]byte, 6)
+	for i := range frames {
+		frames[i], err = encoder.Encode(make([]int16, 48000*20/1000), 48000*20/1000)
+		if err != nil {
+			t.Fatalf("Encode(20ms frame %d) error = %v", i, err)
+		}
+	}
+	packet := []byte{frames[0][0] | 0x03, byte(len(frames))}
+	for _, frame := range frames {
+		packet = append(packet, frame[1:]...)
+	}
+	decoder, err := newAudioPCMDecoder("audio/opus")
+	if err != nil {
+		t.Fatalf("newAudioPCMDecoder() error = %v", err)
+	}
+	defer decoder.Close()
+	chunks, err := decoder.Decode(packet)
+	if err != nil {
+		t.Fatalf("Decode(120ms) error = %v", err)
+	}
+	if len(chunks) != 1 || chunks[0].Len() != 48000*120/1000*2 {
+		t.Fatalf("Decode(120ms) chunks = %#v", chunks)
+	}
+}
+
+func TestMixerOutputPublishesEOSAfterTrackDrain(t *testing.T) {
+	creator := newRecordingAudioTrackCreator()
+	observed := make(chan struct{})
+	output := &sliceStream{chunks: []*genx.MessageChunk{
+		pcmOutputChunk("answer", "audio/pcm", []byte{1, 0}, true, ""),
+	}, doneErr: genx.ErrDone}
+	done := make(chan error, 1)
+	go func() {
+		done <- (MixerOutput{
+			Tracks:            creator,
+			WaitForAudioDrain: true,
+			Observe: func(*genx.MessageChunk) error {
+				close(observed)
+				return nil
+			},
+		}).ConsumeAgentOutput(context.Background(), output)
+	}()
+	select {
+	case <-observed:
+		t.Fatal("EOS was observed before mixer drain")
+	case <-time.After(20 * time.Millisecond):
+	}
+	readDone := make(chan struct{})
+	go func() {
+		defer close(readDone)
+		buffer := make([]byte, creator.mixer.Output().BytesInDuration(60*time.Millisecond))
+		_, _ = creator.mixer.Read(buffer)
+		_, _ = creator.mixer.Read(buffer)
+	}()
+	select {
+	case <-observed:
+	case <-time.After(time.Second):
+		t.Fatal("EOS was not observed after mixer drain")
+	}
+	if err := creator.mixer.Close(); err != nil {
+		t.Fatalf("mixer.Close() error = %v", err)
+	}
+	<-readDone
+	if err := <-done; err != nil {
+		t.Fatalf("ConsumeAgentOutput() error = %v", err)
 	}
 }
 

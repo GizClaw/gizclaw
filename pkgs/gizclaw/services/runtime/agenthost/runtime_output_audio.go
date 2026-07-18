@@ -2,6 +2,7 @@ package agenthost
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -25,8 +26,9 @@ type audioOutputKey struct {
 }
 
 type audioOutputTracks struct {
-	creator  AudioTrackCreator
-	channels map[audioOutputKey]*audioOutputChannel
+	creator     AudioTrackCreator
+	channels    map[audioOutputKey]*audioOutputChannel
+	pendingDone []<-chan struct{}
 }
 
 type audioOutputChannel struct {
@@ -176,7 +178,24 @@ func (o *audioOutputTracks) closeChannel(key audioOutputKey, errorText string) e
 	if decoderErr != nil {
 		return errors.Join(decoderErr, channel.ctrl.CloseWithError(decoderErr))
 	}
-	return channel.ctrl.CloseWrite()
+	if err := channel.ctrl.CloseWrite(); err != nil {
+		return err
+	}
+	o.pendingDone = append(o.pendingDone, channel.ctrl.Done())
+	return nil
+}
+
+func (o *audioOutputTracks) waitPending(ctx context.Context) error {
+	for len(o.pendingDone) > 0 {
+		done := o.pendingDone[0]
+		o.pendingDone = o.pendingDone[1:]
+		select {
+		case <-done:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	return nil
 }
 
 func (o *audioOutputTracks) closeWrite() error {
@@ -339,7 +358,7 @@ func (d *rawOpusPCMDecoder) Decode(data []byte) ([]pcm.Chunk, error) {
 	if d == nil || d.decoder == nil {
 		return nil, fmt.Errorf("Opus decoder is closed")
 	}
-	maxFrameSize := d.format.SampleRate() * 3 / 50
+	maxFrameSize := d.format.SampleRate() * 3 / 25
 	samples, err := d.decoder.Decode(data, maxFrameSize, false)
 	if err != nil {
 		return nil, err

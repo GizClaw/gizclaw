@@ -78,7 +78,8 @@ type peerAgentOutput struct {
 
 func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream) error {
 	return (agenthost.MixerOutput{
-		Tracks: o.Tracks,
+		Tracks:            o.Tracks,
+		WaitForAudioDrain: true,
 		Observe: func(chunk *genx.MessageChunk) error {
 			for _, event := range peerStreamEventsFromChunk(chunk) {
 				if err := o.Events.Broadcast(event); err != nil {

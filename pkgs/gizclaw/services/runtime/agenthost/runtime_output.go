@@ -14,8 +14,9 @@ type AudioTrackCreator interface {
 }
 
 type MixerOutput struct {
-	Tracks  AudioTrackCreator
-	Observe func(*genx.MessageChunk) error
+	Tracks            AudioTrackCreator
+	Observe           func(*genx.MessageChunk) error
+	WaitForAudioDrain bool
 }
 
 func (o MixerOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream) (retErr error) {
@@ -44,13 +45,18 @@ func (o MixerOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream)
 		if chunk == nil {
 			continue
 		}
+		if err := tracks.consume(chunk); err != nil {
+			return err
+		}
+		if o.WaitForAudioDrain {
+			if err := tracks.waitPending(ctx); err != nil {
+				return err
+			}
+		}
 		if o.Observe != nil {
 			if err := o.Observe(chunk); err != nil {
 				return err
 			}
-		}
-		if err := tracks.consume(chunk); err != nil {
-			return err
 		}
 	}
 }

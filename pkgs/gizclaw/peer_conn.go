@@ -552,20 +552,20 @@ func (h *PeerConn) streamMixedAudio(hasWrittenBefore bool) (wrote bool, err erro
 	defer func() {
 		_ = enc.Close()
 	}()
-	ticks, stopTicker := h.audioPacingTicks()
-	defer stopTicker()
+	waitForPacing, stopPacing := h.audioPacingWaiter()
+	defer stopPacing()
 
 	frameSize := int(peerConnMixerFormat.SamplesInDuration(peerConnOpusFrameDuration))
 	for {
-		if _, ok := <-ticks; !ok {
-			return wrote, nil
-		}
 		chunk, err := peerConnMixerFormat.ReadChunk(mx, peerConnOpusFrameDuration)
 		if err != nil {
 			if h.isClosed() && errors.Is(err, io.ErrClosedPipe) {
 				return wrote, nil
 			}
 			return wrote, err
+		}
+		if !waitForPacing() {
+			return wrote, nil
 		}
 
 		packet, err := enc.Encode(peerConnPCMChunkToInt16(chunk), frameSize)
@@ -582,12 +582,22 @@ func (h *PeerConn) streamMixedAudio(hasWrittenBefore bool) (wrote bool, err erro
 	}
 }
 
-func (h *PeerConn) audioPacingTicks() (<-chan time.Time, func()) {
+func (h *PeerConn) audioPacingWaiter() (func() bool, func()) {
 	if h != nil && h.audioPacing != nil {
-		return h.audioPacing, func() {}
+		return func() bool {
+			_, ok := <-h.audioPacing
+			return ok
+		}, func() {}
 	}
-	ticker := time.NewTicker(peerConnOpusFrameDuration)
-	return ticker.C, ticker.Stop
+	timer := time.NewTimer(peerConnOpusFrameDuration)
+	if !timer.Stop() {
+		<-timer.C
+	}
+	return func() bool {
+		timer.Reset(peerConnOpusFrameDuration)
+		<-timer.C
+		return true
+	}, func() { timer.Stop() }
 }
 
 func (h *PeerConn) isClosed() bool {

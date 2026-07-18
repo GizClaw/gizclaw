@@ -186,7 +186,7 @@ func (d *Decoder) Decode(packet []byte, frameSize int, fec bool) ([]int16, error
 	if d == nil || d.dec == nil {
 		return nil, fmt.Errorf("opus: decoder is nil")
 	}
-	if err := validateFrameSize(d.sampleRate, frameSize); err != nil {
+	if err := validateDecodeFrameSize(d.sampleRate, frameSize); err != nil {
 		return nil, err
 	}
 

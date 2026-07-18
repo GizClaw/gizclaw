@@ -166,6 +166,7 @@ func (mx *Mixer) CreateTrack(opts ...TrackOption) (Track, *TrackCtrl, error) {
 		track: tr,
 		next:  mx.head,
 		gain:  NewAtomicFloat32(1),
+		done:  make(chan struct{}),
 	}
 	mx.head = tc
 	for _, opt := range opts {
@@ -244,6 +245,7 @@ func (mx *Mixer) CloseWithError(err error) error {
 	it := mx.head
 	for it != nil {
 		it.CloseWithError(err)
+		it.markDone()
 		it = it.next
 	}
 
@@ -419,6 +421,7 @@ func (mx *Mixer) readFullLocked(p []byte) (peak float32, read, silence bool, clo
 		if err != nil {
 			// Track has an error, close it and remove from linked list.
 			it.CloseWithError(err)
+			it.markDone()
 			it = it.next
 			if prev == nil {
 				mx.head = it

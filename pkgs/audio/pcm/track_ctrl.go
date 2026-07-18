@@ -1,6 +1,7 @@
 package pcm
 
 import (
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -15,6 +16,8 @@ type TrackCtrl struct {
 	gain            AtomicFloat32
 	readn           atomic.Int64
 	fadeOutDuration atomic.Int32
+	done            chan struct{}
+	doneOnce        sync.Once
 }
 
 // Label returns the label of the track.
@@ -70,6 +73,15 @@ func (tc *TrackCtrl) Close() error {
 // ReadBytes returns the total number of bytes read from this track.
 func (tc *TrackCtrl) ReadBytes() int64 {
 	return tc.readn.Load()
+}
+
+// Done is closed after the mixer has drained and removed the track.
+func (tc *TrackCtrl) Done() <-chan struct{} {
+	return tc.done
+}
+
+func (tc *TrackCtrl) markDone() {
+	tc.doneOnce.Do(func() { close(tc.done) })
 }
 
 // CloseWithError closes the track with an error. If a fade-out duration has

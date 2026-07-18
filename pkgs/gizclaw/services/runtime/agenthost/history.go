@@ -571,6 +571,10 @@ func (o *historyOutput) finishReplay(seq uint64) {
 	defer o.replayMu.Unlock()
 	if o.replaySeq == seq {
 		o.replayCancel = nil
+		o.replayStreamID = ""
+		o.replayRole = ""
+		o.replayName = ""
+		o.replayLabel = ""
 	}
 }
 

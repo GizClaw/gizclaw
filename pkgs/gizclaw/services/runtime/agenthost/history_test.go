@@ -902,7 +902,7 @@ func TestHistoryAgentPlayRoutesToRequestGearOutput(t *testing.T) {
 	}
 }
 
-func TestHistoryAgentPlayInterruptsPreviousBufferedReplay(t *testing.T) {
+func TestHistoryAgentPlayPreservesCompletedBufferedReplay(t *testing.T) {
 	history := workspace.NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
 	audio1, err := historyOggOpusAsset([][]byte{{1}, {2}, {3}, {4}})
 	if err != nil {
@@ -961,7 +961,7 @@ func TestHistoryAgentPlayInterruptsPreviousBufferedReplay(t *testing.T) {
 		t.Fatalf("PlayHistory(second) = %+v, %v", resp, err)
 	}
 	var interruptedText, interruptedAudio, foundSecond bool
-	for range 8 {
+	for range 12 {
 		chunk, err := out.Next()
 		if err != nil {
 			t.Fatalf("Next after replacement: %v", err)
@@ -969,9 +969,6 @@ func TestHistoryAgentPlayInterruptsPreviousBufferedReplay(t *testing.T) {
 		if text, ok := chunk.Part.(genx.Text); ok && string(text) == "second" {
 			foundSecond = true
 			break
-		}
-		if blob, ok := chunk.Part.(*genx.Blob); ok && len(blob.Data) > 0 {
-			t.Fatalf("stale replay audio reached output after replacement: %#v", chunk)
 		}
 		if chunk.Ctrl == nil || !chunk.Ctrl.EndOfStream || chunk.Ctrl.Error != historyReplayInterrupted {
 			continue
@@ -983,7 +980,7 @@ func TestHistoryAgentPlayInterruptsPreviousBufferedReplay(t *testing.T) {
 			interruptedAudio = true
 		}
 	}
-	if !interruptedText || !interruptedAudio || !foundSecond {
+	if interruptedText || interruptedAudio || !foundSecond {
 		t.Fatalf("replacement result textEOS=%t audioEOS=%t second=%t", interruptedText, interruptedAudio, foundSecond)
 	}
 	_ = agentOutput.Close()
