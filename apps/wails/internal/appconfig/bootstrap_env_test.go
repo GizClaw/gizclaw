@@ -99,7 +99,7 @@ func TestCleanupIncompletePods(t *testing.T) {
 		t.Fatal(err)
 	}
 	store := Store{Paths: paths}
-	for _, id := range []string{"complete", "incomplete", "failed"} {
+	for _, id := range []string{"complete", "incomplete", "failed", "not a pod!"} {
 		if err := os.Mkdir(filepath.Join(paths.PodsDir, id), 0o700); err != nil {
 			t.Fatal(err)
 		}
@@ -121,6 +121,9 @@ func TestCleanupIncompletePods(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(paths.PodsDir, "complete")); err != nil {
 		t.Fatalf("complete pod was removed: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(paths.PodsDir, "not a pod!")); err != nil {
+		t.Fatalf("unrelated directory blocked cleanup or was removed: %v", err)
 	}
 	status, err := store.Initialization("failed")
 	if err != nil || status == nil || status.State != "failed" || status.Error != "apply rejected" {

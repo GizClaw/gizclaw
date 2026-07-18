@@ -419,6 +419,26 @@ test("local creation returns immediately and reports initialization in Pod detai
   });
 });
 
+test("local creation refreshes the initializing Pod card without opening details", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.evaluate(() => {
+    (window as any).__GIZCLAW_INITIALIZATION_DELAY__ = 1200;
+  });
+  await page.getByRole("button", { name: "Add Pod" }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: /^Local/ })
+    .click();
+
+  const card = page.locator(".pod-card", { hasText: "Local Server" });
+  await expect(card).toContainText("Initializing data");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(card).not.toContainText("Initializing data", { timeout: 5000 });
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
 test("local creation opens an editable nested bootstrap environment form", async ({
   page,
 }) => {

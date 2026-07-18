@@ -254,6 +254,11 @@ func (s Store) CleanupIncomplete() error {
 			continue
 		}
 		dir := filepath.Join(s.Paths.PodsDir, entry.Name())
+		if _, err := os.Lstat(filepath.Join(dir, PodInitializationMarker)); os.IsNotExist(err) {
+			continue
+		} else if err != nil {
+			return fmt.Errorf("appconfig: inspect initialization marker for %q: %w", entry.Name(), err)
+		}
 		status, err := s.Initialization(entry.Name())
 		if status == nil && err == nil {
 			continue

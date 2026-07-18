@@ -53,6 +53,11 @@ export function AppShell() {
   const [environmentOpen, setEnvironmentOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const initializingPodIDs = pods
+    .filter((pod) => pod.initialization?.state === "initializing")
+    .map((pod) => pod.id)
+    .sort()
+    .join("\n");
 
   useEffect(() => {
     const refresh = () =>
@@ -108,22 +113,36 @@ export function AppShell() {
   }, [api]);
 
   useEffect(() => {
-    if (selected?.initialization?.state !== "initializing") return;
-    const id = selected.id;
-    const refresh = () => {
-      void api
-        .GetPod(id)
-        .then((next) => {
-          setPods((current) =>
-            current.map((pod) => (pod.id === next.id ? next : pod)),
-          );
-          setSelected((current) => (current?.id === next.id ? next : current));
-        })
-        .catch((reason) => setError(errorMessage(reason)));
+    if (initializingPodIDs === "") return;
+    const ids = initializingPodIDs.split("\n");
+    let refreshing = false;
+    let cancelled = false;
+    const refresh = async () => {
+      if (refreshing) return;
+      refreshing = true;
+      try {
+        const nextPods = await Promise.all(ids.map((id) => api.GetPod(id)));
+        if (cancelled) return;
+        const byID = new Map(nextPods.map((pod) => [pod.id, pod]));
+        setPods((current) =>
+          current.map((pod) => byID.get(pod.id) ?? pod),
+        );
+        setSelected((current) =>
+          current == null ? null : byID.get(current.id) ?? current,
+        );
+      } catch (reason) {
+        if (!cancelled) setError(errorMessage(reason));
+      } finally {
+        refreshing = false;
+      }
     };
-    const timer = window.setInterval(refresh, 750);
-    return () => window.clearInterval(timer);
-  }, [api, selected?.id, selected?.initialization?.state]);
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 750);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [api, initializingPodIDs]);
 
   function replacePod(next: PodSummary) {
     setPods((current) =>
