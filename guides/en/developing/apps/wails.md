@@ -30,7 +30,8 @@ first confirms that the PID is alive and retries the Pod's loopback `/server-inf
 up to five seconds. Transient verification failures preserve the PID; a definitive public-key
 mismatch removes it. Desktop never signals an unverified PID. For an interrupted bootstrap, cleanup
 only removes the workspace after the recovered Server has been stopped; otherwise the PID and
-workspace are preserved and cleanup aborts.
+workspace are preserved and cleanup aborts. Startup also reports any recovery failures from normal
+local Pods instead of exposing lifecycle actions that could orphan an unverified process.
 
 ## Pod projection
 

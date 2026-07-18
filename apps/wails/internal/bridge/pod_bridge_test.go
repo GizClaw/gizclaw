@@ -785,6 +785,50 @@ func TestRecoverLocalServerRejectsMismatchedServerIdentity(t *testing.T) {
 	}
 }
 
+func TestRecoverLocalServersReportsEveryUnverifiedLivePID(t *testing.T) {
+	paths := appconfig.NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	b := &PodBridge{
+		Paths:  paths,
+		Store:  appconfig.Store{Paths: paths},
+		Health: endpointhealth.New(),
+		Local:  localserver.New(),
+		WebUI:  webui.New(fstest.MapFS{}),
+	}
+	defer b.WebUI.Shutdown()
+	for _, id := range []string{"recover-first", "recover-second"} {
+		created, err := b.CreatePod(context.Background(), PodInput{Version: 1, ID: id, Name: id, LocalServer: &LocalServerInput{Port: 0}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		pidPath := filepath.Join(paths.PodsDir, created.ID, "workspace", localserver.PIDFile)
+		if err := os.WriteFile(pidPath, fmt.Appendf(nil, "%d\n", os.Getpid()), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	err := b.RecoverLocalServers(ctx)
+	if err == nil {
+		t.Fatal("RecoverLocalServers() error = nil")
+	}
+	for _, id := range []string{"recover-first", "recover-second"} {
+		if !strings.Contains(err.Error(), id) {
+			t.Fatalf("RecoverLocalServers() error = %v, want Pod %q", err, id)
+		}
+		pidPath := filepath.Join(paths.PodsDir, id, "workspace", localserver.PIDFile)
+		if _, statErr := os.Stat(pidPath); statErr != nil {
+			t.Fatalf("Pod %q PID file was not preserved: %v", id, statErr)
+		}
+		if status := b.Local.Status(id); status.State != "failed" || status.PID != 0 {
+			t.Fatalf("Pod %q process status = %+v", id, status)
+		}
+	}
+}
+
 func waitForInitializationState(t *testing.T, store appconfig.Store, id, want string) *appconfig.PodInitialization {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)

@@ -165,13 +165,16 @@ func (b *PodBridge) RecoverLocalServers(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	var recoveryErrors []error
 	for _, entry := range entries {
 		if entry.Err != nil || entry.Pod.LocalServer == nil {
 			continue
 		}
-		_, _ = b.recoverLocalServer(ctx, entry.Pod)
+		if _, err := b.recoverLocalServer(ctx, entry.Pod); err != nil {
+			recoveryErrors = append(recoveryErrors, fmt.Errorf("pod %q: %w", entry.Pod.ID, err))
+		}
 	}
-	return nil
+	return errors.Join(recoveryErrors...)
 }
 
 // RecoverLocalServer verifies and attaches process management to one local
