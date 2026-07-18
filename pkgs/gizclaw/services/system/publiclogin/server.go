@@ -25,6 +25,7 @@ const (
 	loginAssertionTyp = "JWT"
 
 	defaultSessionTTL       = 24 * time.Hour
+	deviceTokenTTL          = 5 * time.Minute
 	maxLoginAssertionTTL    = 5 * time.Minute
 	loginAssertionClockSkew = time.Minute
 
@@ -52,6 +53,10 @@ type LoginAssertionClaims struct {
 
 type PeerHTTP interface {
 	Login(context.Context, peerhttp.LoginRequestObject) (peerhttp.LoginResponseObject, error)
+	CreateSideControlDeviceToken(context.Context, peerhttp.CreateSideControlDeviceTokenRequestObject) (peerhttp.CreateSideControlDeviceTokenResponseObject, error)
+	RevokeSideControlDeviceToken(context.Context, peerhttp.RevokeSideControlDeviceTokenRequestObject) (peerhttp.RevokeSideControlDeviceTokenResponseObject, error)
+	ListSideControlSessions(context.Context, peerhttp.ListSideControlSessionsRequestObject) (peerhttp.ListSideControlSessionsResponseObject, error)
+	RevokeSideControlSession(context.Context, peerhttp.RevokeSideControlSessionRequestObject) (peerhttp.RevokeSideControlSessionResponseObject, error)
 }
 
 type SessionAuthorizer func(context.Context, giznet.PublicKey) error
@@ -108,7 +113,15 @@ func (s *Server) login(ctx context.Context, request peerhttp.LoginRequestObject,
 	if assertion == "" {
 		return peerhttp.Login401JSONResponse(apitypes.NewErrorResponse("MISSING_ASSERTION", "missing bearer assertion")), nil
 	}
-	result, err := s.SessionManager().login(ctx, s.KeyPair, publicKey, assertion, authorizer)
+	var result peerhttp.LoginResult
+	var err error
+	if request.Body == nil || isBodylessLogin(ctx) {
+		result, err = s.SessionManager().login(ctx, s.KeyPair, publicKey, assertion, authorizer)
+	} else if request.Body.GrantType == peerhttp.SideControl && strings.TrimSpace(request.Body.DeviceToken) != "" {
+		result, err = s.SessionManager().loginSideControl(ctx, s.KeyPair, publicKey, assertion, request.Body.DeviceToken)
+	} else {
+		return peerhttp.Login401JSONResponse(apitypes.NewErrorResponse("INVALID_GRANT", "unsupported login grant")), nil
+	}
 	if err != nil {
 		return peerhttp.Login401JSONResponse(apitypes.NewErrorResponse("INVALID_ASSERTION", err.Error())), nil
 	}
@@ -123,8 +136,12 @@ type SessionManager struct {
 }
 
 type session struct {
-	PublicKey string `json:"public_key"`
-	ExpiresAt int64  `json:"expires_at"`
+	Kind            SessionKind `json:"kind,omitempty"`
+	PublicKey       string      `json:"public_key"`
+	TargetPublicKey string      `json:"target_public_key,omitempty"`
+	SessionID       string      `json:"session_id,omitempty"`
+	IssuedAt        int64       `json:"issued_at,omitempty"`
+	ExpiresAt       int64       `json:"expires_at"`
 }
 
 func NewSessionManager(store kv.Store) *SessionManager {
@@ -197,7 +214,9 @@ func (m *SessionManager) login(ctx context.Context, serverKeyPair *giznet.KeyPai
 	}
 	expiresAt := now.Add(defaultSessionTTL)
 	body, err := json.Marshal(session{
+		Kind:      SessionKindPrimary,
 		PublicKey: publicKey.String(),
+		IssuedAt:  now.UnixMilli(),
 		ExpiresAt: expiresAt.UnixMilli(),
 	})
 	if err != nil {
@@ -225,47 +244,81 @@ func (m *SessionManager) login(ctx context.Context, serverKeyPair *giznet.KeyPai
 }
 
 func (m *SessionManager) Authenticate(header string) (giznet.PublicKey, error) {
+	principal, err := m.AuthenticatePrincipal(header)
+	if err != nil {
+		return giznet.PublicKey{}, err
+	}
+	return principal.PublicKey, nil
+}
+
+// AuthenticatePrincipal resolves a bearer token to its typed session principal.
+func (m *SessionManager) AuthenticatePrincipal(header string) (Principal, error) {
 	token := bearerToken(header)
 	if token == "" {
-		return giznet.PublicKey{}, errInvalidSession
+		return Principal{}, errInvalidSession
 	}
 	if m == nil || m.Store == nil {
-		return giznet.PublicKey{}, errInvalidSession
+		return Principal{}, errInvalidSession
 	}
 	now := m.nowOrDefault()
 
 	data, err := m.Store.Get(context.Background(), sessionKey(token))
 	if errors.Is(err, kv.ErrNotFound) {
-		return giznet.PublicKey{}, errInvalidSession
+		return Principal{}, errInvalidSession
 	}
 	if err != nil {
-		return giznet.PublicKey{}, err
+		return Principal{}, err
 	}
 	var sess session
 	if err := json.Unmarshal(data, &sess); err != nil {
-		return giznet.PublicKey{}, errInvalidSession
+		return Principal{}, errInvalidSession
 	}
 	expiresAt := time.UnixMilli(sess.ExpiresAt)
 	if sess.PublicKey == "" || !expiresAt.After(now) {
 		_ = m.Store.Delete(context.Background(), sessionKey(token))
-		return giznet.PublicKey{}, errInvalidSession
+		return Principal{}, errInvalidSession
 	}
 	var publicKey giznet.PublicKey
 	if err := publicKey.UnmarshalText([]byte(sess.PublicKey)); err != nil {
-		return giznet.PublicKey{}, errInvalidSession
+		return Principal{}, errInvalidSession
 	}
-	return publicKey, nil
+	kind := sess.Kind
+	if kind == "" {
+		kind = SessionKindPrimary
+	}
+	principal := Principal{
+		Kind:      kind,
+		PublicKey: publicKey,
+		SessionID: sess.SessionID,
+		IssuedAt:  time.UnixMilli(sess.IssuedAt),
+		ExpiresAt: expiresAt,
+	}
+	if sess.TargetPublicKey != "" {
+		if err := principal.TargetPublicKey.UnmarshalText([]byte(sess.TargetPublicKey)); err != nil {
+			return Principal{}, errInvalidSession
+		}
+	}
+	return principal, nil
 }
 
 func (m *SessionManager) AuthenticateHeaders(authorization, publicKeyHeader string) (giznet.PublicKey, error) {
-	publicKey, err := m.Authenticate(authorization)
+	principal, err := m.AuthenticateHeadersPrincipal(authorization, publicKeyHeader)
 	if err != nil {
 		return giznet.PublicKey{}, err
 	}
-	if publicKeyHeader != "" && publicKeyHeader != publicKey.String() {
-		return giznet.PublicKey{}, ErrPublicKeyMismatch
+	return principal.PublicKey, nil
+}
+
+// AuthenticateHeadersPrincipal authenticates a bearer and verifies its optional public-key header.
+func (m *SessionManager) AuthenticateHeadersPrincipal(authorization, publicKeyHeader string) (Principal, error) {
+	principal, err := m.AuthenticatePrincipal(authorization)
+	if err != nil {
+		return Principal{}, err
 	}
-	return publicKey, nil
+	if publicKeyHeader != "" && publicKeyHeader != principal.PublicKey.String() {
+		return Principal{}, ErrPublicKeyMismatch
+	}
+	return principal, nil
 }
 
 func (m *SessionManager) nowOrDefault() time.Time {

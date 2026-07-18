@@ -21,7 +21,7 @@ ACL is not responsible for whether the transport peer can open the giznet servic
 
 ### publiclogin
 
-Responsible for public HTTP caller using GizClaw identity to complete login and obtain session. It connects the public HTTP identity to the Server session, but does not have browser route, Edge proxy, or business resource permissions.
+Responsible for Public HTTP callers completing identity proof and obtaining typed sessions. A primary session represents the current Peer; a Side Control session uses a single-use device token and binds both the controller identity and target Peer. This package does not own browser routes, Edge proxying, or business resource implementations.
 
 Final resource authorization is still performed by ACL and corresponding domain services. Successful login does not mean having access to all resources.
 

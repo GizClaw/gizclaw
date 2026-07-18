@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -143,6 +144,47 @@ func TestCmdServerPrivateIngressRequiresAuthorizedSession(t *testing.T) {
 		t.Fatalf("authorized GET /server-info status = %d body=%s", rec.Code, rec.Body.String())
 	}
 
+	deviceToken := cmdServerTestCreateDeviceToken(t, srv.Server, session.AccessToken, adminKey.Public)
+	sideLogin := cmdServerTestSideControlLogin(t, srv.Server, serverKey.Public, adminKey, deviceToken.Token)
+	if sideLogin.Code != http.StatusOK {
+		t.Fatalf("embedded server side-control login status = %d body=%s", sideLogin.Code, sideLogin.Body.String())
+	}
+	var sideSession peerhttp.LoginResult
+	if err := json.Unmarshal(sideLogin.Body.Bytes(), &sideSession); err != nil {
+		t.Fatalf("decode side-control login response: %v", err)
+	}
+	req = httptest.NewRequest(http.MethodGet, "/side-control/info", nil)
+	req.Header.Set("Authorization", "Bearer "+sideSession.AccessToken)
+	req.Header.Set(publiclogin.PublicKeyHeader, adminKey.Public.String())
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	assertHTTPError(t, rec, http.StatusForbidden, "PRIVATE_INGRESS_DENIED")
+
+	unusedToken := cmdServerTestCreateDeviceToken(t, srv.Server, session.AccessToken, adminKey.Public)
+	assertion, err := publiclogin.NewLoginAssertion(adminKey, serverKey.Public, time.Minute)
+	if err != nil {
+		t.Fatalf("NewLoginAssertion(side control) error = %v", err)
+	}
+	loginBody, err := json.Marshal(peerhttp.LoginJSONRequestBody{GrantType: peerhttp.SideControl, DeviceToken: unusedToken.Token})
+	if err != nil {
+		t.Fatalf("marshal side-control login: %v", err)
+	}
+	newSideLoginRequest := func() *http.Request {
+		request := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(loginBody))
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set(publiclogin.PublicKeyHeader, adminKey.Public.String())
+		request.Header.Set("Authorization", "Bearer "+assertion)
+		return request
+	}
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, newSideLoginRequest())
+	assertHTTPError(t, rec, http.StatusForbidden, "PRIVATE_INGRESS_DENIED")
+	rec = httptest.NewRecorder()
+	srv.Server.ServeHTTP(rec, newSideLoginRequest())
+	if rec.Code != http.StatusOK {
+		t.Fatalf("rejected direct grant consumed credentials: embedded login status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
 	if _, err := peers.SavePeer(context.Background(), apitypes.Peer{
 		PublicKey:     adminKey.Public.String(),
 		Role:          apitypes.PeerRoleClient,
@@ -178,6 +220,85 @@ func assertHTTPError(t *testing.T, rec *httptest.ResponseRecorder, status int, c
 	}
 }
 
+func TestSideControlRoutesUsePublicHTTPIngressPolicy(t *testing.T) {
+	for _, path := range []string{
+		"/me/side-control/device-tokens",
+		"/me/side-control/sessions/session-id",
+		"/side-control/info",
+		"/side-control/telemetry/aggregate",
+		"/side-control/contacts/contact-id",
+	} {
+		if !isPublicHTTPRoute(path) {
+			t.Fatalf("isPublicHTTPRoute(%q) = false", path)
+		}
+	}
+}
+
+func TestSideControlDirectTCPWhenServeToClientsEnabled(t *testing.T) {
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(server) error = %v", err)
+	}
+	targetKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(target) error = %v", err)
+	}
+	controllerKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(controller) error = %v", err)
+	}
+	srv, err := New(Config{
+		KeyPair:        serverKey,
+		Listen:         "127.0.0.1:0",
+		Endpoint:       "127.0.0.1:0",
+		ServeToClients: true,
+		Stores: map[string]stores.Config{
+			defaultPeersStore: {Kind: stores.KindKeyValue, Backend: "memory"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	defer srv.Close()
+	peers := &peer.Server{Store: kv.Prefixed(srv.Server.PeerStore, kv.Key{"peers"})}
+	if _, err := peers.SavePeer(context.Background(), apitypes.Peer{
+		PublicKey:     targetKey.Public.String(),
+		Role:          apitypes.PeerRoleClient,
+		Status:        apitypes.PeerRegistrationStatusActive,
+		Device:        apitypes.DeviceInfo{},
+		Configuration: apitypes.Configuration{},
+	}); err != nil {
+		t.Fatalf("SavePeer(target) error = %v", err)
+	}
+	if err := srv.Listen(); err != nil {
+		t.Fatalf("Listen() error = %v", err)
+	}
+	httpServer := httptest.NewServer(srv)
+	defer httpServer.Close()
+
+	targetLogin := cmdServerTestLoginURL(t, httpServer.URL, serverKey.Public, targetKey, nil)
+	deviceToken := cmdServerTestCreateDeviceTokenURL(t, httpServer.URL, targetLogin.AccessToken, targetKey.Public)
+	sideLogin := cmdServerTestLoginURL(t, httpServer.URL, serverKey.Public, controllerKey, &peerhttp.LoginJSONRequestBody{
+		GrantType:   peerhttp.SideControl,
+		DeviceToken: deviceToken.Token,
+	})
+
+	req, err := http.NewRequest(http.MethodGet, httpServer.URL+"/side-control/info", nil)
+	if err != nil {
+		t.Fatalf("NewRequest(side info) error = %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+sideLogin.AccessToken)
+	req.Header.Set(publiclogin.PublicKeyHeader, controllerKey.Public.String())
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("GET side-control info error = %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("GET side-control info status = %d, want %d", response.StatusCode, http.StatusOK)
+	}
+}
+
 func cmdServerTestLogin(t *testing.T, srv *CmdServer, serverPublicKey giznet.PublicKey, keyPair *giznet.KeyPair) *httptest.ResponseRecorder {
 	t.Helper()
 	assertion, err := publiclogin.NewLoginAssertion(keyPair, serverPublicKey, time.Minute)
@@ -190,6 +311,102 @@ func cmdServerTestLogin(t *testing.T, srv *CmdServer, serverPublicKey giznet.Pub
 	rec := httptest.NewRecorder()
 	srv.ServeHTTP(rec, req)
 	return rec
+}
+
+func cmdServerTestCreateDeviceToken(t *testing.T, handler http.Handler, accessToken string, publicKey giznet.PublicKey) peerhttp.SideControlDeviceToken {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, "/me/side-control/device-tokens", nil)
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set(publiclogin.PublicKeyHeader, publicKey.String())
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create device token status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var token peerhttp.SideControlDeviceToken
+	if err := json.Unmarshal(rec.Body.Bytes(), &token); err != nil {
+		t.Fatalf("decode device token: %v", err)
+	}
+	return token
+}
+
+func cmdServerTestSideControlLogin(t *testing.T, handler http.Handler, serverPublicKey giznet.PublicKey, keyPair *giznet.KeyPair, deviceToken string) *httptest.ResponseRecorder {
+	t.Helper()
+	assertion, err := publiclogin.NewLoginAssertion(keyPair, serverPublicKey, time.Minute)
+	if err != nil {
+		t.Fatalf("NewLoginAssertion(side control) error = %v", err)
+	}
+	body, err := json.Marshal(peerhttp.LoginJSONRequestBody{GrantType: peerhttp.SideControl, DeviceToken: deviceToken})
+	if err != nil {
+		t.Fatalf("marshal side-control login: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(publiclogin.PublicKeyHeader, keyPair.Public.String())
+	req.Header.Set("Authorization", "Bearer "+assertion)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	return rec
+}
+
+func cmdServerTestLoginURL(t *testing.T, baseURL string, serverPublicKey giznet.PublicKey, keyPair *giznet.KeyPair, body *peerhttp.LoginJSONRequestBody) peerhttp.LoginResult {
+	t.Helper()
+	assertion, err := publiclogin.NewLoginAssertion(keyPair, serverPublicKey, time.Minute)
+	if err != nil {
+		t.Fatalf("NewLoginAssertion error = %v", err)
+	}
+	var requestBody []byte
+	if body != nil {
+		requestBody, err = json.Marshal(body)
+		if err != nil {
+			t.Fatalf("marshal login body: %v", err)
+		}
+	}
+	req, err := http.NewRequest(http.MethodPost, baseURL+"/login", bytes.NewReader(requestBody))
+	if err != nil {
+		t.Fatalf("NewRequest(login) error = %v", err)
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	req.Header.Set(publiclogin.PublicKeyHeader, keyPair.Public.String())
+	req.Header.Set("Authorization", "Bearer "+assertion)
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST login error = %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("POST login status = %d, want %d", response.StatusCode, http.StatusOK)
+	}
+	var result peerhttp.LoginResult
+	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
+		t.Fatalf("decode login response: %v", err)
+	}
+	return result
+}
+
+func cmdServerTestCreateDeviceTokenURL(t *testing.T, baseURL, accessToken string, publicKey giznet.PublicKey) peerhttp.SideControlDeviceToken {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodPost, baseURL+"/me/side-control/device-tokens", nil)
+	if err != nil {
+		t.Fatalf("NewRequest(device token) error = %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set(publiclogin.PublicKeyHeader, publicKey.String())
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST device token error = %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusCreated {
+		t.Fatalf("POST device token status = %d, want %d", response.StatusCode, http.StatusCreated)
+	}
+	var token peerhttp.SideControlDeviceToken
+	if err := json.NewDecoder(response.Body).Decode(&token); err != nil {
+		t.Fatalf("decode device token: %v", err)
+	}
+	return token
 }
 
 func TestNewWithOptionsWiresLegacyMetricsStore(t *testing.T) {

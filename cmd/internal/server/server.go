@@ -69,7 +69,12 @@ func (s *CmdServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !s.ServeToClients && isPublicHTTPRoute(r.URL.Path) {
-		if !isPublicHTTPLoginRoute(r.Method, r.URL.Path) && !s.authorizePrivateHTTPIngress(w, r) {
+		if isPublicHTTPLoginRoute(r.Method, r.URL.Path) {
+			if isSideControlLoginRequest(r) {
+				writePrivateHTTPIngressDenied(w)
+				return
+			}
+		} else if !s.authorizePrivateHTTPIngress(w, r) {
 			return
 		}
 	}
@@ -77,7 +82,7 @@ func (s *CmdServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *CmdServer) authorizePrivateHTTPIngress(w http.ResponseWriter, r *http.Request) bool {
-	publicKey, err := s.Server.AuthenticateHTTPSessionHeaders(r.Header.Get("Authorization"), r.Header.Get(publiclogin.PublicKeyHeader))
+	principal, err := s.Server.AuthenticateHTTPSessionPrincipalHeaders(r.Header.Get("Authorization"), r.Header.Get(publiclogin.PublicKeyHeader))
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
@@ -88,16 +93,34 @@ func (s *CmdServer) authorizePrivateHTTPIngress(w http.ResponseWriter, r *http.R
 		_, _ = w.Write([]byte(`{"error":{"code":"INVALID_SESSION","message":"missing or invalid bearer session"}}`))
 		return false
 	}
-	if err := s.Server.AuthorizePrivateHTTPIngress(r.Context(), publicKey); err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusForbidden)
-		_, _ = w.Write([]byte(`{"error":{"code":"PRIVATE_INGRESS_DENIED","message":"session peer is not authorized for private server ingress"}}`))
+	if principal.Kind != publiclogin.SessionKindPrimary {
+		writePrivateHTTPIngressDenied(w)
+		return false
+	}
+	if err := s.Server.AuthorizePrivateHTTPIngress(r.Context(), principal.PublicKey); err != nil {
+		writePrivateHTTPIngressDenied(w)
 		return false
 	}
 	return true
 }
 
+func writePrivateHTTPIngressDenied(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusForbidden)
+	_, _ = w.Write([]byte(`{"error":{"code":"PRIVATE_INGRESS_DENIED","message":"session peer is not authorized for private server ingress"}}`))
+}
+
+func isSideControlLoginRequest(r *http.Request) bool {
+	if r == nil || r.Method != http.MethodPost || r.URL.Path != "/login" || r.Body == nil || r.Body == http.NoBody {
+		return false
+	}
+	return r.ContentLength != 0
+}
+
 func isPublicHTTPRoute(path string) bool {
+	if strings.HasPrefix(path, "/me/side-control/") || strings.HasPrefix(path, "/side-control/") {
+		return true
+	}
 	switch path {
 	case "/server-info", "/login", gizwebrtc.SignalingPath, "/me", "/me/status", "/me/runtime":
 		return true

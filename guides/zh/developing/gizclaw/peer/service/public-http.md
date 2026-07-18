@@ -12,7 +12,7 @@
 | --- | --- |
 | `servePublic` / `serveEdgePublic` | 在对应 Giznet service 上启动普通或 Edge Public HTTP。 |
 | `publicHTTPHandlerWithOptions` | 组装 login、session、Peer API、OpenAI API 与 signaling routes。 |
-| `edgeLoginPeerHTTP` | 为 Edge HTTP surface 适配 login handler。 |
+| `edgeLoginPeerHTTP` | 为 Edge HTTP surface 适配 login handler；普通登录要求 active Client Peer，显式 Side Control grant 由 device token 授权。 |
 | `allowEdgeClientPeer` | 判断 Peer 是否允许作为 Edge client。 |
 | `allowEdgeSignalingPeer` | 判断 Peer 是否允许通过 Edge 发起 signaling。 |
 | `setPeerHTTPCORSHeaders` | 设置 Peer HTTP surface 的 CORS headers。 |

@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.ts';
 import { client } from './client.gen.ts';
-import type { CreateGiznetWebRtcOfferData, CreateGiznetWebRtcOfferErrors, CreateGiznetWebRtcOfferResponses, GetMeData, GetMeErrors, GetMeResponses, GetMeRuntimeData, GetMeRuntimeErrors, GetMeRuntimeResponses, GetMeStatusData, GetMeStatusErrors, GetMeStatusResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, LoginData, LoginErrors, LoginResponses, PutMeStatusData, PutMeStatusErrors, PutMeStatusResponses } from './types.gen.ts';
+import type { AggregateSideControlTelemetryData, AggregateSideControlTelemetryErrors, AggregateSideControlTelemetryResponses, CreateGiznetWebRtcOfferData, CreateGiznetWebRtcOfferErrors, CreateGiznetWebRtcOfferResponses, CreateSideControlContactData, CreateSideControlContactErrors, CreateSideControlContactResponses, CreateSideControlDeviceTokenData, CreateSideControlDeviceTokenErrors, CreateSideControlDeviceTokenResponses, DeleteSideControlContactData, DeleteSideControlContactErrors, DeleteSideControlContactResponses, GetMeData, GetMeErrors, GetMeResponses, GetMeRuntimeData, GetMeRuntimeErrors, GetMeRuntimeResponses, GetMeStatusData, GetMeStatusErrors, GetMeStatusResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, GetSideControlContactData, GetSideControlContactErrors, GetSideControlContactResponses, GetSideControlInfoData, GetSideControlInfoErrors, GetSideControlInfoResponses, GetSideControlRuntimeData, GetSideControlRuntimeErrors, GetSideControlRuntimeResponses, GetSideControlStatusData, GetSideControlStatusErrors, GetSideControlStatusResponses, GetSideControlTelemetryLatestData, GetSideControlTelemetryLatestErrors, GetSideControlTelemetryLatestResponses, ListSideControlContactsData, ListSideControlContactsErrors, ListSideControlContactsResponses, ListSideControlSessionsData, ListSideControlSessionsErrors, ListSideControlSessionsResponses, LoginData, LoginErrors, LoginResponses, PutMeStatusData, PutMeStatusErrors, PutMeStatusResponses, PutSideControlContactData, PutSideControlContactErrors, PutSideControlContactResponses, QuerySideControlTelemetryData, QuerySideControlTelemetryErrors, QuerySideControlTelemetryResponses, RevokeSideControlDeviceTokenData, RevokeSideControlDeviceTokenErrors, RevokeSideControlDeviceTokenResponses, RevokeSideControlSessionData, RevokeSideControlSessionErrors, RevokeSideControlSessionResponses } from './types.gen.ts';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -21,7 +21,157 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 /**
  * Exchange a device assertion for a bearer session
  */
-export const login = <ThrowOnError extends boolean = false>(options: Options<LoginData, ThrowOnError>): RequestResult<LoginResponses, LoginErrors, ThrowOnError> => (options.client ?? client).post<LoginResponses, LoginErrors, ThrowOnError>({ url: '/login', ...options });
+export const login = <ThrowOnError extends boolean = false>(options: Options<LoginData, ThrowOnError>): RequestResult<LoginResponses, LoginErrors, ThrowOnError> => (options.client ?? client).post<LoginResponses, LoginErrors, ThrowOnError>({
+    url: '/login',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Create a single-use side-control device token
+ */
+export const createSideControlDeviceToken = <ThrowOnError extends boolean = false>(options?: Options<CreateSideControlDeviceTokenData, ThrowOnError>): RequestResult<CreateSideControlDeviceTokenResponses, CreateSideControlDeviceTokenErrors, ThrowOnError> => (options?.client ?? client).post<CreateSideControlDeviceTokenResponses, CreateSideControlDeviceTokenErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/me/side-control/device-tokens',
+    ...options
+});
+
+/**
+ * Revoke an unconsumed side-control device token
+ */
+export const revokeSideControlDeviceToken = <ThrowOnError extends boolean = false>(options: Options<RevokeSideControlDeviceTokenData, ThrowOnError>): RequestResult<RevokeSideControlDeviceTokenResponses, RevokeSideControlDeviceTokenErrors, ThrowOnError> => (options.client ?? client).delete<RevokeSideControlDeviceTokenResponses, RevokeSideControlDeviceTokenErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/me/side-control/device-tokens/{tokenId}',
+    ...options
+});
+
+/**
+ * List active side-control sessions for the caller device
+ */
+export const listSideControlSessions = <ThrowOnError extends boolean = false>(options?: Options<ListSideControlSessionsData, ThrowOnError>): RequestResult<ListSideControlSessionsResponses, ListSideControlSessionsErrors, ThrowOnError> => (options?.client ?? client).get<ListSideControlSessionsResponses, ListSideControlSessionsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/me/side-control/sessions',
+    ...options
+});
+
+/**
+ * Revoke an active side-control session
+ */
+export const revokeSideControlSession = <ThrowOnError extends boolean = false>(options: Options<RevokeSideControlSessionData, ThrowOnError>): RequestResult<RevokeSideControlSessionResponses, RevokeSideControlSessionErrors, ThrowOnError> => (options.client ?? client).delete<RevokeSideControlSessionResponses, RevokeSideControlSessionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/me/side-control/sessions/{sessionId}',
+    ...options
+});
+
+/**
+ * Get target device information
+ */
+export const getSideControlInfo = <ThrowOnError extends boolean = false>(options?: Options<GetSideControlInfoData, ThrowOnError>): RequestResult<GetSideControlInfoResponses, GetSideControlInfoErrors, ThrowOnError> => (options?.client ?? client).get<GetSideControlInfoResponses, GetSideControlInfoErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/side-control/info',
+    ...options
+});
+
+/**
+ * Get target device runtime
+ */
+export const getSideControlRuntime = <ThrowOnError extends boolean = false>(options?: Options<GetSideControlRuntimeData, ThrowOnError>): RequestResult<GetSideControlRuntimeResponses, GetSideControlRuntimeErrors, ThrowOnError> => (options?.client ?? client).get<GetSideControlRuntimeResponses, GetSideControlRuntimeErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/side-control/runtime',
+    ...options
+});
+
+/**
+ * Get target device runtime status
+ */
+export const getSideControlStatus = <ThrowOnError extends boolean = false>(options?: Options<GetSideControlStatusData, ThrowOnError>): RequestResult<GetSideControlStatusResponses, GetSideControlStatusErrors, ThrowOnError> => (options?.client ?? client).get<GetSideControlStatusResponses, GetSideControlStatusErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/side-control/status',
+    ...options
+});
+
+/**
+ * Get latest target telemetry values
+ */
+export const getSideControlTelemetryLatest = <ThrowOnError extends boolean = false>(options?: Options<GetSideControlTelemetryLatestData, ThrowOnError>): RequestResult<GetSideControlTelemetryLatestResponses, GetSideControlTelemetryLatestErrors, ThrowOnError> => (options?.client ?? client).get<GetSideControlTelemetryLatestResponses, GetSideControlTelemetryLatestErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/side-control/telemetry/latest',
+    ...options
+});
+
+/**
+ * Query target telemetry points
+ */
+export const querySideControlTelemetry = <ThrowOnError extends boolean = false>(options: Options<QuerySideControlTelemetryData, ThrowOnError>): RequestResult<QuerySideControlTelemetryResponses, QuerySideControlTelemetryErrors, ThrowOnError> => (options.client ?? client).get<QuerySideControlTelemetryResponses, QuerySideControlTelemetryErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/side-control/telemetry',
+    ...options
+});
+
+/**
+ * Query target telemetry aggregates
+ */
+export const aggregateSideControlTelemetry = <ThrowOnError extends boolean = false>(options: Options<AggregateSideControlTelemetryData, ThrowOnError>): RequestResult<AggregateSideControlTelemetryResponses, AggregateSideControlTelemetryErrors, ThrowOnError> => (options.client ?? client).get<AggregateSideControlTelemetryResponses, AggregateSideControlTelemetryErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/side-control/telemetry/aggregate',
+    ...options
+});
+
+/**
+ * List target-owned contacts
+ */
+export const listSideControlContacts = <ThrowOnError extends boolean = false>(options?: Options<ListSideControlContactsData, ThrowOnError>): RequestResult<ListSideControlContactsResponses, ListSideControlContactsErrors, ThrowOnError> => (options?.client ?? client).get<ListSideControlContactsResponses, ListSideControlContactsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/side-control/contacts',
+    ...options
+});
+
+/**
+ * Create a target-owned contact
+ */
+export const createSideControlContact = <ThrowOnError extends boolean = false>(options: Options<CreateSideControlContactData, ThrowOnError>): RequestResult<CreateSideControlContactResponses, CreateSideControlContactErrors, ThrowOnError> => (options.client ?? client).post<CreateSideControlContactResponses, CreateSideControlContactErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/side-control/contacts',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete a target-owned contact
+ */
+export const deleteSideControlContact = <ThrowOnError extends boolean = false>(options: Options<DeleteSideControlContactData, ThrowOnError>): RequestResult<DeleteSideControlContactResponses, DeleteSideControlContactErrors, ThrowOnError> => (options.client ?? client).delete<DeleteSideControlContactResponses, DeleteSideControlContactErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/side-control/contacts/{contactId}',
+    ...options
+});
+
+/**
+ * Get a target-owned contact
+ */
+export const getSideControlContact = <ThrowOnError extends boolean = false>(options: Options<GetSideControlContactData, ThrowOnError>): RequestResult<GetSideControlContactResponses, GetSideControlContactErrors, ThrowOnError> => (options.client ?? client).get<GetSideControlContactResponses, GetSideControlContactErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/side-control/contacts/{contactId}',
+    ...options
+});
+
+/**
+ * Update a target-owned contact
+ */
+export const putSideControlContact = <ThrowOnError extends boolean = false>(options: Options<PutSideControlContactData, ThrowOnError>): RequestResult<PutSideControlContactResponses, PutSideControlContactErrors, ThrowOnError> => (options.client ?? client).put<PutSideControlContactResponses, PutSideControlContactErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/side-control/contacts/{contactId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get server information

@@ -558,6 +558,8 @@ func (s *Server) init() error {
 			PeerHTTPService: peersServer,
 			Self:            peersServer,
 			Status:          manager.PeerRun,
+			Telemetry:       &peertelemetry.AdminService{Metrics: s.MetricsStore},
+			Contacts:        contactServer,
 			PeerHTTP:        publicLoginServer,
 			WebRTCSignalingHandler: func() http.Handler {
 				return s.WebRTCSignalingHandler
@@ -573,6 +575,8 @@ func (s *Server) init() error {
 	mux.Handle("/me", publicHandler)
 	mux.Handle("/me/status", publicHandler)
 	mux.Handle("/me/runtime", publicHandler)
+	mux.Handle("/me/side-control/", publicHandler)
+	mux.Handle("/side-control/", publicHandler)
 	mux.Handle("/openai/v1/", s.peerOpenAIHTTPHandler(sessions))
 	s.httpHandler = observeHTTPHandler(mux, httpObservationOptions{surface: observability.SurfaceServerPublic})
 	return nil

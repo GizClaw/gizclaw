@@ -4,6 +4,33 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type LoginRequest = {
+    grant_type: 'side_control';
+    device_token: string;
+};
+
+export type SideControlDeviceToken = {
+    id: string;
+    token: string;
+    expires_at: number;
+};
+
+export type SideControlSession = {
+    id: string;
+    controller_public_key: string;
+    issued_at: number;
+    expires_at: number;
+};
+
+export type SideControlSessionList = {
+    items: Array<SideControlSession>;
+};
+
+export type SideControlContactPutRequest = {
+    display_name?: string;
+    phone_number?: string;
+};
+
 export type PeerSelf = {
     public_key: string;
     registration_status: PeerRegistrationStatus;
@@ -82,12 +109,84 @@ export type PeerStatus = {
     };
 };
 
+/**
+ * Bucket aggregate mode for peer telemetry range data.
+ */
+export type PeerTelemetryAggregate = 'avg' | 'min' | 'max' | 'sum' | 'count' | 'last';
+
+export type PeerTelemetryAggregatePoint = {
+    bucket_start_time_ms: number;
+    value: number;
+};
+
+export type PeerTelemetryAggregateResponse = {
+    peer_public_key: string;
+    field: PeerTelemetryField;
+    aggregate: PeerTelemetryAggregate;
+    bucket_ms: number;
+    points: Array<PeerTelemetryAggregatePoint>;
+};
+
+/**
+ * Queryable peer telemetry field name.
+ */
+export type PeerTelemetryField = 'battery.percent' | 'battery.charging' | 'battery.voltage_mv' | 'gnss.latitude' | 'gnss.longitude' | 'gnss.altitude_m' | 'gnss.accuracy_m' | 'network.rssi_dbm' | 'network.signal_level' | 'network.connected' | 'system.uptime_seconds' | 'system.free_memory_bytes' | 'system.temperature_c';
+
+export type PeerTelemetryLatestResponse = {
+    peer_public_key: string;
+    values: Array<PeerTelemetryValue>;
+};
+
+/**
+ * Telemetry point ordering.
+ */
+export type PeerTelemetryOrder = 'asc' | 'desc';
+
+export type PeerTelemetryPoint = {
+    observed_at_unix_ms: number;
+    value: number;
+};
+
+export type PeerTelemetryRangeResponse = {
+    peer_public_key: string;
+    field: PeerTelemetryField;
+    start_time_ms: number;
+    end_time_ms: number;
+    step_ms: number;
+    points: Array<PeerTelemetryPoint>;
+};
+
+export type PeerTelemetryValue = {
+    field: PeerTelemetryField;
+    value: number;
+    observed_at_unix_ms: number;
+};
+
 export type Runtime = {
     online: boolean;
     last_seen_at: string;
     last_addr?: string;
     rx_bytes?: number;
     tx_bytes?: number;
+};
+
+export type ContactCreateRequest = {
+    display_name?: string;
+    phone_number?: string;
+};
+
+export type ContactListResponse = {
+    items: Array<ContactObject>;
+    has_next: boolean;
+    next_cursor?: string;
+};
+
+export type ContactObject = {
+    id?: string;
+    display_name?: string;
+    phone_number?: string;
+    created_at?: string;
+    updated_at?: string;
 };
 
 export type ServerInfo = {
@@ -109,7 +208,7 @@ export type ServerInfo = {
 };
 
 export type LoginData = {
-    body?: never;
+    body?: LoginRequest;
     headers: {
         'X-Public-Key': string;
         Authorization: string;
@@ -136,6 +235,588 @@ export type LoginResponses = {
 };
 
 export type LoginResponse = LoginResponses[keyof LoginResponses];
+
+export type CreateSideControlDeviceTokenData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/me/side-control/device-tokens';
+};
+
+export type CreateSideControlDeviceTokenErrors = {
+    /**
+     * Invalid or missing bearer session
+     */
+    401: ErrorResponse;
+    /**
+     * Session is not authorized for this route
+     */
+    403: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type CreateSideControlDeviceTokenError = CreateSideControlDeviceTokenErrors[keyof CreateSideControlDeviceTokenErrors];
+
+export type CreateSideControlDeviceTokenResponses = {
+    /**
+     * Created device token
+     */
+    201: SideControlDeviceToken;
+};
+
+export type CreateSideControlDeviceTokenResponse = CreateSideControlDeviceTokenResponses[keyof CreateSideControlDeviceTokenResponses];
+
+export type RevokeSideControlDeviceTokenData = {
+    body?: never;
+    path: {
+        tokenId: string;
+    };
+    query?: never;
+    url: '/me/side-control/device-tokens/{tokenId}';
+};
+
+export type RevokeSideControlDeviceTokenErrors = {
+    /**
+     * Invalid or missing bearer session
+     */
+    401: ErrorResponse;
+    /**
+     * Session is not authorized for this route
+     */
+    403: ErrorResponse;
+    /**
+     * Requested object was not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type RevokeSideControlDeviceTokenError = RevokeSideControlDeviceTokenErrors[keyof RevokeSideControlDeviceTokenErrors];
+
+export type RevokeSideControlDeviceTokenResponses = {
+    /**
+     * Device token revoked
+     */
+    204: void;
+};
+
+export type RevokeSideControlDeviceTokenResponse = RevokeSideControlDeviceTokenResponses[keyof RevokeSideControlDeviceTokenResponses];
+
+export type ListSideControlSessionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/me/side-control/sessions';
+};
+
+export type ListSideControlSessionsErrors = {
+    /**
+     * Invalid or missing bearer session
+     */
+    401: ErrorResponse;
+    /**
+     * Session is not authorized for this route
+     */
+    403: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type ListSideControlSessionsError = ListSideControlSessionsErrors[keyof ListSideControlSessionsErrors];
+
+export type ListSideControlSessionsResponses = {
+    /**
+     * Active side-control sessions
+     */
+    200: SideControlSessionList;
+};
+
+export type ListSideControlSessionsResponse = ListSideControlSessionsResponses[keyof ListSideControlSessionsResponses];
+
+export type RevokeSideControlSessionData = {
+    body?: never;
+    path: {
+        sessionId: string;
+    };
+    query?: never;
+    url: '/me/side-control/sessions/{sessionId}';
+};
+
+export type RevokeSideControlSessionErrors = {
+    /**
+     * Invalid or missing bearer session
+     */
+    401: ErrorResponse;
+    /**
+     * Session is not authorized for this route
+     */
+    403: ErrorResponse;
+    /**
+     * Requested object was not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type RevokeSideControlSessionError = RevokeSideControlSessionErrors[keyof RevokeSideControlSessionErrors];
+
+export type RevokeSideControlSessionResponses = {
+    /**
+     * Session revoked
+     */
+    204: void;
+};
+
+export type RevokeSideControlSessionResponse = RevokeSideControlSessionResponses[keyof RevokeSideControlSessionResponses];
+
+export type GetSideControlInfoData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/side-control/info';
+};
+
+export type GetSideControlInfoErrors = {
+    /**
+     * Invalid or missing bearer session
+     */
+    401: ErrorResponse;
+    /**
+     * Session is not authorized for this route
+     */
+    403: ErrorResponse;
+    /**
+     * Requested object was not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type GetSideControlInfoError = GetSideControlInfoErrors[keyof GetSideControlInfoErrors];
+
+export type GetSideControlInfoResponses = {
+    /**
+     * Target device information
+     */
+    200: DeviceInfo;
+};
+
+export type GetSideControlInfoResponse = GetSideControlInfoResponses[keyof GetSideControlInfoResponses];
+
+export type GetSideControlRuntimeData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/side-control/runtime';
+};
+
+export type GetSideControlRuntimeErrors = {
+    /**
+     * Invalid or missing bearer session
+     */
+    401: ErrorResponse;
+    /**
+     * Session is not authorized for this route
+     */
+    403: ErrorResponse;
+    /**
+     * Requested object was not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type GetSideControlRuntimeError = GetSideControlRuntimeErrors[keyof GetSideControlRuntimeErrors];
+
+export type GetSideControlRuntimeResponses = {
+    /**
+     * Target device runtime
+     */
+    200: Runtime;
+};
+
+export type GetSideControlRuntimeResponse = GetSideControlRuntimeResponses[keyof GetSideControlRuntimeResponses];
+
+export type GetSideControlStatusData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/side-control/status';
+};
+
+export type GetSideControlStatusErrors = {
+    /**
+     * Invalid or missing bearer session
+     */
+    401: ErrorResponse;
+    /**
+     * Session is not authorized for this route
+     */
+    403: ErrorResponse;
+    /**
+     * Requested object was not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type GetSideControlStatusError = GetSideControlStatusErrors[keyof GetSideControlStatusErrors];
+
+export type GetSideControlStatusResponses = {
+    /**
+     * Target device status
+     */
+    200: PeerStatus;
+};
+
+export type GetSideControlStatusResponse = GetSideControlStatusResponses[keyof GetSideControlStatusResponses];
+
+export type GetSideControlTelemetryLatestData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Comma-separated telemetry field names. Omitted means all supported fields.
+         */
+        fields?: string;
+    };
+    url: '/side-control/telemetry/latest';
+};
+
+export type GetSideControlTelemetryLatestErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Invalid or missing bearer session
+     */
+    401: ErrorResponse;
+    /**
+     * Session is not authorized for this route
+     */
+    403: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type GetSideControlTelemetryLatestError = GetSideControlTelemetryLatestErrors[keyof GetSideControlTelemetryLatestErrors];
+
+export type GetSideControlTelemetryLatestResponses = {
+    /**
+     * Latest target telemetry
+     */
+    200: PeerTelemetryLatestResponse;
+};
+
+export type GetSideControlTelemetryLatestResponse = GetSideControlTelemetryLatestResponses[keyof GetSideControlTelemetryLatestResponses];
+
+export type QuerySideControlTelemetryData = {
+    body?: never;
+    path?: never;
+    query: {
+        field: PeerTelemetryField;
+        start_time_ms: number;
+        end_time_ms: number;
+        step_ms?: number;
+        limit?: number;
+        order?: PeerTelemetryOrder;
+    };
+    url: '/side-control/telemetry';
+};
+
+export type QuerySideControlTelemetryErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Invalid or missing bearer session
+     */
+    401: ErrorResponse;
+    /**
+     * Session is not authorized for this route
+     */
+    403: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type QuerySideControlTelemetryError = QuerySideControlTelemetryErrors[keyof QuerySideControlTelemetryErrors];
+
+export type QuerySideControlTelemetryResponses = {
+    /**
+     * Target telemetry range
+     */
+    200: PeerTelemetryRangeResponse;
+};
+
+export type QuerySideControlTelemetryResponse = QuerySideControlTelemetryResponses[keyof QuerySideControlTelemetryResponses];
+
+export type AggregateSideControlTelemetryData = {
+    body?: never;
+    path?: never;
+    query: {
+        field: PeerTelemetryField;
+        start_time_ms: number;
+        end_time_ms: number;
+        bucket_ms: number;
+        aggregate: PeerTelemetryAggregate;
+    };
+    url: '/side-control/telemetry/aggregate';
+};
+
+export type AggregateSideControlTelemetryErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Invalid or missing bearer session
+     */
+    401: ErrorResponse;
+    /**
+     * Session is not authorized for this route
+     */
+    403: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type AggregateSideControlTelemetryError = AggregateSideControlTelemetryErrors[keyof AggregateSideControlTelemetryErrors];
+
+export type AggregateSideControlTelemetryResponses = {
+    /**
+     * Target telemetry aggregate
+     */
+    200: PeerTelemetryAggregateResponse;
+};
+
+export type AggregateSideControlTelemetryResponse = AggregateSideControlTelemetryResponses[keyof AggregateSideControlTelemetryResponses];
+
+export type ListSideControlContactsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+        limit?: number;
+    };
+    url: '/side-control/contacts';
+};
+
+export type ListSideControlContactsErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Invalid or missing bearer session
+     */
+    401: ErrorResponse;
+    /**
+     * Session is not authorized for this route
+     */
+    403: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type ListSideControlContactsError = ListSideControlContactsErrors[keyof ListSideControlContactsErrors];
+
+export type ListSideControlContactsResponses = {
+    /**
+     * Target-owned contacts
+     */
+    200: ContactListResponse;
+};
+
+export type ListSideControlContactsResponse = ListSideControlContactsResponses[keyof ListSideControlContactsResponses];
+
+export type CreateSideControlContactData = {
+    body: ContactCreateRequest;
+    path?: never;
+    query?: never;
+    url: '/side-control/contacts';
+};
+
+export type CreateSideControlContactErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Invalid or missing bearer session
+     */
+    401: ErrorResponse;
+    /**
+     * Session is not authorized for this route
+     */
+    403: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type CreateSideControlContactError = CreateSideControlContactErrors[keyof CreateSideControlContactErrors];
+
+export type CreateSideControlContactResponses = {
+    /**
+     * Created contact
+     */
+    201: ContactObject;
+};
+
+export type CreateSideControlContactResponse = CreateSideControlContactResponses[keyof CreateSideControlContactResponses];
+
+export type DeleteSideControlContactData = {
+    body?: never;
+    path: {
+        contactId: string;
+    };
+    query?: never;
+    url: '/side-control/contacts/{contactId}';
+};
+
+export type DeleteSideControlContactErrors = {
+    /**
+     * Invalid or missing bearer session
+     */
+    401: ErrorResponse;
+    /**
+     * Session is not authorized for this route
+     */
+    403: ErrorResponse;
+    /**
+     * Requested object was not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteSideControlContactError = DeleteSideControlContactErrors[keyof DeleteSideControlContactErrors];
+
+export type DeleteSideControlContactResponses = {
+    /**
+     * Deleted contact
+     */
+    200: ContactObject;
+};
+
+export type DeleteSideControlContactResponse = DeleteSideControlContactResponses[keyof DeleteSideControlContactResponses];
+
+export type GetSideControlContactData = {
+    body?: never;
+    path: {
+        contactId: string;
+    };
+    query?: never;
+    url: '/side-control/contacts/{contactId}';
+};
+
+export type GetSideControlContactErrors = {
+    /**
+     * Invalid or missing bearer session
+     */
+    401: ErrorResponse;
+    /**
+     * Session is not authorized for this route
+     */
+    403: ErrorResponse;
+    /**
+     * Requested object was not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type GetSideControlContactError = GetSideControlContactErrors[keyof GetSideControlContactErrors];
+
+export type GetSideControlContactResponses = {
+    /**
+     * Target-owned contact
+     */
+    200: ContactObject;
+};
+
+export type GetSideControlContactResponse = GetSideControlContactResponses[keyof GetSideControlContactResponses];
+
+export type PutSideControlContactData = {
+    body: SideControlContactPutRequest;
+    path: {
+        contactId: string;
+    };
+    query?: never;
+    url: '/side-control/contacts/{contactId}';
+};
+
+export type PutSideControlContactErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Invalid or missing bearer session
+     */
+    401: ErrorResponse;
+    /**
+     * Session is not authorized for this route
+     */
+    403: ErrorResponse;
+    /**
+     * Requested object was not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type PutSideControlContactError = PutSideControlContactErrors[keyof PutSideControlContactErrors];
+
+export type PutSideControlContactResponses = {
+    /**
+     * Updated contact
+     */
+    200: ContactObject;
+};
+
+export type PutSideControlContactResponse = PutSideControlContactResponses[keyof PutSideControlContactResponses];
 
 export type GetServerInfoData = {
     body?: never;

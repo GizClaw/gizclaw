@@ -83,30 +83,14 @@ endpoint: 127.0.0.1:9820
 	}
 }
 
-func TestParseConfigServingPublicAlias(t *testing.T) {
-	cfg, err := parseConfigData([]byte(`
+func TestParseConfigRejectsServingPublic(t *testing.T) {
+	_, err := parseConfigData([]byte(`
 serving-public: true
 listen: 127.0.0.1:9820
 endpoint: 127.0.0.1:9820
 `))
-	if err != nil {
-		t.Fatalf("parseConfigData error = %v", err)
-	}
-	if !cfg.ServeToClients {
-		t.Fatal("ServeToClients = false, want true from serving-public alias")
-	}
-
-	cfg, err = parseConfigData([]byte(`
-serve-to-clients: false
-serving-public: true
-listen: 127.0.0.1:9820
-endpoint: 127.0.0.1:9820
-`))
-	if err != nil {
-		t.Fatalf("parseConfigData override error = %v", err)
-	}
-	if cfg.ServeToClients {
-		t.Fatal("ServeToClients = true, want serve-to-clients to override serving-public alias")
+	if err == nil || !strings.Contains(err.Error(), "serving-public is not supported") {
+		t.Fatalf("parseConfigData error = %v, want unsupported alias error", err)
 	}
 }
 

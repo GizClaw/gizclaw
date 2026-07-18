@@ -1050,7 +1050,6 @@ func (h *Harness) renderServerFixture(fixtureName string, replacements map[strin
 		rendered = strings.ReplaceAll(rendered, "endpoint: ${GIZCLAW_E2E_SERVER_ICE_ENDPOINT}", "endpoint: "+listenAddr)
 		rendered = strings.ReplaceAll(rendered, `endpoint: "${GIZCLAW_E2E_SERVER_ICE_ENDPOINT}"`, fmt.Sprintf(`endpoint: "%s"`, listenAddr))
 		rendered = strings.ReplaceAll(rendered, "serve-to-clients: false", "serve-to-clients: true")
-		rendered = strings.ReplaceAll(rendered, "serving-public: false", "serve-to-clients: true")
 	}
 
 	targetPath := filepath.Join(h.ServerWorkspace, "config.yaml")

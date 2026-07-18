@@ -2,6 +2,7 @@ package gizclaw
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -15,10 +16,14 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func TestPublicFiberAdapterServerInfo(t *testing.T) {
@@ -87,6 +92,9 @@ func TestPeerServicePublicHTTPHandlerAllowsBrowserPreflight(t *testing.T) {
 	}
 	if got := rec.Header().Get("Access-Control-Allow-Methods"); !strings.Contains(got, http.MethodPut) {
 		t.Fatalf("Access-Control-Allow-Methods = %q, want PUT", got)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Methods"); !strings.Contains(got, http.MethodDelete) {
+		t.Fatalf("Access-Control-Allow-Methods = %q, want DELETE", got)
 	}
 	if got := rec.Header().Get("Access-Control-Allow-Headers"); !strings.Contains(got, "X-Public-Key") {
 		t.Fatalf("Access-Control-Allow-Headers = %q, want X-Public-Key", got)
@@ -381,6 +389,141 @@ func TestPeerServiceEdgeLoginRequiresActiveClientBeforeBypass(t *testing.T) {
 	}
 	if got := login(t, unregisteredKey); got != http.StatusUnauthorized {
 		t.Fatalf("unregistered edge login status = %d, want %d", got, http.StatusUnauthorized)
+	}
+}
+
+func TestPeerServiceEdgeSideControlUsesDeviceGrantForUnregisteredController(t *testing.T) {
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(server) error = %v", err)
+	}
+	targetKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(target) error = %v", err)
+	}
+	controllerKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(controller) error = %v", err)
+	}
+	peersServer := &peer.Server{Store: mustBadgerInMemory(t, nil), ServerPublicKey: serverKey.Public}
+	if _, err := peersServer.SavePeer(context.Background(), apitypes.Peer{
+		PublicKey: targetKey.Public.String(),
+		Role:      apitypes.PeerRoleClient,
+		Status:    apitypes.PeerRegistrationStatusActive,
+		Device:    apitypes.DeviceInfo{},
+	}); err != nil {
+		t.Fatalf("SavePeer error = %v", err)
+	}
+	loginServer := publiclogin.NewServer(serverKey, kv.NewMemory(nil))
+	deviceToken, err := loginServer.SessionManager().CreateSideControlDeviceToken(context.Background(), targetKey.Public)
+	if err != nil {
+		t.Fatalf("CreateSideControlDeviceToken error = %v", err)
+	}
+	contacts := &contact.Server{Store: kv.NewMemory(nil)}
+	service := &PeerService{
+		manager:  NewManager(peersServer),
+		sessions: loginServer.SessionManager(),
+		public: &peerHTTP{
+			PeerHTTPService: peersServer,
+			Self:            peersServer,
+			Status:          &peerrun.Server{Store: kv.NewMemory(nil)},
+			Contacts:        contacts,
+			PeerHTTP:        loginServer,
+		},
+	}
+	handler := service.edgeHTTPHandler(service.sessions)
+	assertion, err := publiclogin.NewLoginAssertion(controllerKey, serverKey.Public, time.Minute)
+	if err != nil {
+		t.Fatalf("NewLoginAssertion error = %v", err)
+	}
+	loginBody, err := json.Marshal(peerhttp.LoginRequest{GrantType: peerhttp.SideControl, DeviceToken: deviceToken.Token})
+	if err != nil {
+		t.Fatalf("Marshal login body error = %v", err)
+	}
+	loginRequest := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(string(loginBody)))
+	loginRequest.Header.Set("Content-Type", "application/json")
+	loginRequest.Header.Set(publiclogin.PublicKeyHeader, controllerKey.Public.String())
+	loginRequest.Header.Set("Authorization", "Bearer "+assertion)
+	loginRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(loginRecorder, loginRequest)
+	if loginRecorder.Code != http.StatusOK {
+		t.Fatalf("side login status = %d body=%s", loginRecorder.Code, loginRecorder.Body.String())
+	}
+	var login peerhttp.LoginResult
+	if err := json.Unmarshal(loginRecorder.Body.Bytes(), &login); err != nil {
+		t.Fatalf("decode login response error = %v", err)
+	}
+	if _, err := peersServer.LoadPeer(context.Background(), controllerKey.Public); !errors.Is(err, peer.ErrPeerNotFound) {
+		t.Fatalf("side controller was registered as a peer: err=%v", err)
+	}
+
+	do := func(method, path, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		req := httptest.NewRequest(method, path, strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+login.AccessToken)
+		req.Header.Set(publiclogin.PublicKeyHeader, controllerKey.Public.String())
+		if body != "" {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		return rec
+	}
+	if rec := do(http.MethodGet, "/side-control/info", ""); rec.Code != http.StatusOK {
+		t.Fatalf("info status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if rec := do(http.MethodGet, "/side-control/runtime", ""); rec.Code != http.StatusOK {
+		t.Fatalf("runtime status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if rec := do(http.MethodGet, "/side-control/status", ""); rec.Code != http.StatusOK {
+		t.Fatalf("status status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if rec := do(http.MethodGet, "/me", ""); rec.Code != http.StatusForbidden {
+		t.Fatalf("side session /me status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if rec := do(http.MethodGet, "/openai/v1/models", ""); rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), `"code":"PRIMARY_SESSION_REQUIRED"`) {
+		t.Fatalf("side session /openai status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	createContact := do(http.MethodPost, "/side-control/contacts", `{"display_name":"Alice"}`)
+	if createContact.Code != http.StatusCreated {
+		t.Fatalf("create contact status = %d body=%s", createContact.Code, createContact.Body.String())
+	}
+	var createdContact rpcapi.ContactObject
+	if err := json.Unmarshal(createContact.Body.Bytes(), &createdContact); err != nil || createdContact.Id == nil {
+		t.Fatalf("decode created contact = %+v err=%v", createdContact, err)
+	}
+	contactPath := "/side-control/contacts/" + *createdContact.Id
+	if rec := do(http.MethodGet, contactPath, ""); rec.Code != http.StatusOK {
+		t.Fatalf("get contact status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if rec := do(http.MethodPut, contactPath, `{"display_name":"Bob","phone_number":"10086"}`); rec.Code != http.StatusOK {
+		t.Fatalf("put contact status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	targetContacts, err := contacts.ListContacts(context.Background(), targetKey.Public.String(), rpcapi.ContactListRequest{})
+	if err != nil || len(targetContacts.Items) != 1 || targetContacts.Items[0].DisplayName == nil || *targetContacts.Items[0].DisplayName != "Bob" {
+		t.Fatalf("target contacts = %+v err=%v", targetContacts, err)
+	}
+	controllerContacts, err := contacts.ListContacts(context.Background(), controllerKey.Public.String(), rpcapi.ContactListRequest{})
+	if err != nil || len(controllerContacts.Items) != 0 {
+		t.Fatalf("controller contacts = %+v err=%v", controllerContacts, err)
+	}
+	if rec := do(http.MethodDelete, contactPath, ""); rec.Code != http.StatusOK {
+		t.Fatalf("delete contact status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	targetContacts, err = contacts.ListContacts(context.Background(), targetKey.Public.String(), rpcapi.ContactListRequest{})
+	if err != nil || len(targetContacts.Items) != 0 {
+		t.Fatalf("target contacts after delete = %+v err=%v", targetContacts, err)
+	}
+
+	sessions, err := loginServer.SessionManager().ListSideControlSessions(context.Background(), targetKey.Public)
+	if err != nil || len(sessions) != 1 {
+		t.Fatalf("side sessions = %+v err=%v", sessions, err)
+	}
+	if err := loginServer.SessionManager().RevokeSideControlSession(context.Background(), targetKey.Public, sessions[0].Id); err != nil {
+		t.Fatalf("RevokeSideControlSession error = %v", err)
+	}
+	if rec := do(http.MethodGet, "/side-control/info", ""); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("revoked session status = %d body=%s", rec.Code, rec.Body.String())
 	}
 }
 

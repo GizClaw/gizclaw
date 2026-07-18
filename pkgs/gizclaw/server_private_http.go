@@ -12,10 +12,19 @@ import (
 var ErrPrivateHTTPIngressDenied = errors.New("gizclaw: private http ingress denied")
 
 func (s *Server) AuthenticateHTTPSessionHeaders(authorization, publicKeyHeader string) (giznet.PublicKey, error) {
-	if s == nil || s.sessions == nil {
-		return giznet.PublicKey{}, errors.New("gizclaw: session manager not configured")
+	principal, err := s.AuthenticateHTTPSessionPrincipalHeaders(authorization, publicKeyHeader)
+	if err != nil {
+		return giznet.PublicKey{}, err
 	}
-	return s.sessions.AuthenticateHeaders(authorization, publicKeyHeader)
+	return principal.PublicKey, nil
+}
+
+// AuthenticateHTTPSessionPrincipalHeaders resolves the typed principal for a public HTTP bearer.
+func (s *Server) AuthenticateHTTPSessionPrincipalHeaders(authorization, publicKeyHeader string) (publiclogin.Principal, error) {
+	if s == nil || s.sessions == nil {
+		return publiclogin.Principal{}, errors.New("gizclaw: session manager not configured")
+	}
+	return s.sessions.AuthenticateHeadersPrincipal(authorization, publicKeyHeader)
 }
 
 func (s *Server) AuthorizePrivateHTTPIngress(ctx context.Context, publicKey giznet.PublicKey) error {

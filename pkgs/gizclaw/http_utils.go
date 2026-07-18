@@ -30,32 +30,39 @@ import (
 )
 
 func authenticateFiberSession(ctx *fiber.Ctx, sessions *publiclogin.SessionManager) (giznet.PublicKey, bool) {
-	publicKey, err := sessions.AuthenticateHeaders(ctx.Get("Authorization"), ctx.Get(publiclogin.PublicKeyHeader))
-	if err != nil {
-		if errors.Is(err, publiclogin.ErrPublicKeyMismatch) {
-			ctx.Status(http.StatusUnauthorized)
-			_ = ctx.JSON(map[string]any{
-				"error": map[string]string{
-					"code":    "PUBLIC_KEY_MISMATCH",
-					"message": "x-public-key does not match bearer session",
-				},
-			})
-			return giznet.PublicKey{}, false
-		}
-		ctx.Status(http.StatusUnauthorized)
-		_ = ctx.JSON(map[string]any{
-			"error": map[string]string{
-				"code":    "INVALID_SESSION",
-				"message": "missing or invalid bearer session",
-			},
-		})
+	principal, ok := authenticateFiberPrincipal(ctx, sessions)
+	if !ok {
 		return giznet.PublicKey{}, false
 	}
-	return publicKey, true
+	return principal.PublicKey, true
 }
 
-func authenticateHTTPSession(w http.ResponseWriter, r *http.Request, sessions *publiclogin.SessionManager) (giznet.PublicKey, bool) {
-	publicKey, err := sessions.AuthenticateHeaders(r.Header.Get("Authorization"), r.Header.Get(publiclogin.PublicKeyHeader))
+func authenticateFiberPrincipal(ctx *fiber.Ctx, sessions *publiclogin.SessionManager) (publiclogin.Principal, bool) {
+	if sessions == nil {
+		writeFiberSessionError(ctx, errors.New("session manager not configured"))
+		return publiclogin.Principal{}, false
+	}
+	principal, err := sessions.AuthenticateHeadersPrincipal(ctx.Get("Authorization"), ctx.Get(publiclogin.PublicKeyHeader))
+	if err != nil {
+		writeFiberSessionError(ctx, err)
+		return publiclogin.Principal{}, false
+	}
+	return principal, true
+}
+
+func writeFiberSessionError(ctx *fiber.Ctx, err error) {
+	code := "INVALID_SESSION"
+	message := "missing or invalid bearer session"
+	if errors.Is(err, publiclogin.ErrPublicKeyMismatch) {
+		code = "PUBLIC_KEY_MISMATCH"
+		message = "x-public-key does not match bearer session"
+	}
+	ctx.Status(http.StatusUnauthorized)
+	_ = ctx.JSON(map[string]any{"error": map[string]string{"code": code, "message": message}})
+}
+
+func authenticatePrimaryHTTPSession(w http.ResponseWriter, r *http.Request, sessions *publiclogin.SessionManager) (giznet.PublicKey, bool) {
+	principal, err := sessions.AuthenticateHeadersPrincipal(r.Header.Get("Authorization"), r.Header.Get(publiclogin.PublicKeyHeader))
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
@@ -66,12 +73,18 @@ func authenticateHTTPSession(w http.ResponseWriter, r *http.Request, sessions *p
 		_, _ = io.WriteString(w, `{"error":{"code":"INVALID_SESSION","message":"missing or invalid bearer session"}}`)
 		return giznet.PublicKey{}, false
 	}
-	return publicKey, true
+	if principal.Kind != publiclogin.SessionKindPrimary {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = io.WriteString(w, `{"error":{"code":"PRIMARY_SESSION_REQUIRED","message":"primary session required"}}`)
+		return giznet.PublicKey{}, false
+	}
+	return principal.PublicKey, true
 }
 
 func setPublicHTTPCORSHeaders(header http.Header) {
 	header.Set("Access-Control-Allow-Origin", "*")
-	header.Set("Access-Control-Allow-Methods", "GET,POST,PUT,OPTIONS")
+	header.Set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
 	header.Set("Access-Control-Allow-Headers", "Authorization,Content-Type,X-Public-Key,X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp,X-Request-ID")
 	header.Set("Access-Control-Expose-Headers", "Content-Length,Content-Type,X-Request-ID")
 }

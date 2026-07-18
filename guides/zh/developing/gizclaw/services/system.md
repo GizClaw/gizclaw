@@ -21,7 +21,7 @@ ACL 不负责 transport peer 是否能打开 giznet service；transport-level po
 
 ### publiclogin
 
-负责 public HTTP caller 使用 GizClaw identity 完成登录并取得 session。它连接 public HTTP identity 与 Server session，但不拥有 browser route、Edge proxy 或业务资源权限。
+负责 public HTTP caller 使用 GizClaw identity 完成登录并取得 typed session。Primary session 表示当前 Peer；Side Control session 使用单次 device token 授权，并同时绑定 controller identity 与目标 Peer。该 package 不拥有 browser route、Edge proxy 或业务资源实现。
 
 最终资源授权仍由 ACL 和对应领域服务执行。登录成功不等于拥有所有资源访问权限。
 

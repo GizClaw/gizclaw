@@ -117,12 +117,18 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 	if err := validateLoggingConfigShape(data); err != nil {
 		return ConfigFile{}, err
 	}
+	var topLevel map[string]any
+	if err := yaml.Unmarshal(data, &topLevel); err != nil {
+		return ConfigFile{}, err
+	}
+	if _, exists := topLevel["serving-public"]; exists {
+		return ConfigFile{}, fmt.Errorf("server: serving-public is not supported; use serve-to-clients")
+	}
 	var raw struct {
 		Identity        *IdentityConfig           `yaml:"identity"`
 		Listen          string                    `yaml:"listen"`
 		Endpoint        string                    `yaml:"endpoint"`
 		ServeToClients  *bool                     `yaml:"serve-to-clients"`
-		ServingPublic   *bool                     `yaml:"serving-public"`
 		EdgeNodes       []giznet.PublicKey        `yaml:"edge-nodes"`
 		ICEServers      []gizwebrtc.ICEServer     `yaml:"ice-servers"`
 		AdminPublicKey  *giznet.PublicKey         `yaml:"admin-public-key"`
@@ -157,13 +163,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		identity = *raw.Identity
 		identity.PrivateKey = keyPair.Private
 	}
-	serveToClients := false
-	switch {
-	case raw.ServeToClients != nil:
-		serveToClients = *raw.ServeToClients
-	case raw.ServingPublic != nil:
-		serveToClients = *raw.ServingPublic
-	}
+	serveToClients := raw.ServeToClients != nil && *raw.ServeToClients
 	cfg := ConfigFile{
 		Identity:        identity,
 		Listen:          raw.Listen,

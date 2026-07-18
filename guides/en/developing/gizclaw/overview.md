@@ -96,7 +96,7 @@ The "any connection identity" here is a service-level policy, not a `PeerRole`. 
 ### Boundaries of each surface
 
 - **Peer RPC**: carries common, client and server RPC methods. It is an RPC surface for the device and server to exchange information, runtime, workspace, workflow, social and gameplay data; see [RPC](./rpc/overview) for the method and calling path.
-- **Peer HTTP**: Only carries the HTTP endpoint related to the connection establishment and the current Peer, including `/server-info`, `/login`, `/webrtc/v1/offer`, `/me`, `/me/status` and `/me/runtime`; for the handler organization, see [Peer HTTP · WebRTC](./peer/service/webrtc) and [Peer HTTP · /me](./peer/service/peer-http-me).
+- **Peer HTTP**: Carries connection establishment, current-Peer, and authorized Side Control endpoints, including `/server-info`, `/login`, `/webrtc/v1/offer`, `/me/*`, and `/side-control/*`; see [Peer HTTP · WebRTC](./peer/service/webrtc), [Peer HTTP · /me](./peer/service/peer-http-me), and [Peer HTTP · Side Control](./peer/service/side-control).
 - **Peer OpenAI-compatible HTTP**: Place the OpenAI-compatible handler on an independent service stream and do not mix it with the bootstrap and signaling endpoints of Peer HTTP.
 - **Admin HTTP**: Provides resource management surface for Peer with active `admin` role. It covers ACL, workflow, firmware, credential, model, gameplay, AI tenant, workspace, Peer and social resource; see [Peer Services](./peer/service/overview) for the entry point to each field.
 - **Edge HTTP**: Edge uses the Peer identity of the incoming token to forward browser/device public API requests to the authoritative Server; it is not an Admin surface.

@@ -5,9 +5,11 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -38,8 +40,10 @@ const (
 
 type peerHTTP struct {
 	peer.PeerHTTPService
-	Self   peerHTTPSelfService
-	Status peerHTTPStatusService
+	Self      peerHTTPSelfService
+	Status    peerHTTPStatusService
+	Telemetry peerHTTPTelemetryService
+	Contacts  peerHTTPContactService
 	publiclogin.PeerHTTP
 	WebRTCSignalingHandler func() http.Handler
 }
@@ -52,6 +56,20 @@ type peerHTTPSelfService interface {
 type peerHTTPStatusService interface {
 	GetStatus(context.Context, giznet.PublicKey) (apitypes.PeerStatus, error)
 	PutStatus(context.Context, giznet.PublicKey, apitypes.PeerStatus) (apitypes.PeerStatus, error)
+}
+
+type peerHTTPTelemetryService interface {
+	Latest(context.Context, giznet.PublicKey, []apitypes.PeerTelemetryField) (apitypes.PeerTelemetryLatestResponse, error)
+	QueryRange(context.Context, giznet.PublicKey, apitypes.PeerTelemetryField, time.Time, time.Time, time.Duration, int, apitypes.PeerTelemetryOrder) (apitypes.PeerTelemetryRangeResponse, error)
+	Aggregate(context.Context, giznet.PublicKey, apitypes.PeerTelemetryField, time.Time, time.Time, time.Duration, apitypes.PeerTelemetryAggregate) (apitypes.PeerTelemetryAggregateResponse, error)
+}
+
+type peerHTTPContactService interface {
+	ListContacts(context.Context, string, rpcapi.ContactListRequest) (rpcapi.ContactListResponse, error)
+	GetContact(context.Context, string, rpcapi.ContactGetRequest) (rpcapi.ContactObject, error)
+	CreateContact(context.Context, string, rpcapi.ContactCreateRequest) (rpcapi.ContactObject, error)
+	PutContact(context.Context, string, rpcapi.ContactPutRequest) (rpcapi.ContactObject, error)
+	DeleteContact(context.Context, string, rpcapi.ContactDeleteRequest) (rpcapi.ContactObject, error)
 }
 
 // PeerService serves one peer connection.

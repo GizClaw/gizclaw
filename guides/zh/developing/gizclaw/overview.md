@@ -96,7 +96,7 @@ classDiagram
 ### 各 surface 的边界
 
 - **Peer RPC**：承载 common、client 与 server RPC method。它是设备和 Server 交换信息、runtime、workspace、workflow、social 与 gameplay 数据的 RPC surface；method 与调用路径见 [RPC](./rpc/overview)。
-- **Peer HTTP**：只承载连接建立和当前 Peer 相关的 HTTP endpoint，包括 `/server-info`、`/login`、`/webrtc/v1/offer`、`/me`、`/me/status` 与 `/me/runtime`；handler 组织见 [Peer HTTP · WebRTC](./peer/service/webrtc) 和 [Peer HTTP · /me](./peer/service/peer-http-me)。
+- **Peer HTTP**：承载连接建立、当前 Peer 与授权 Side Control endpoint，包括 `/server-info`、`/login`、`/webrtc/v1/offer`、`/me/*` 与 `/side-control/*`；handler 组织见 [Peer HTTP · WebRTC](./peer/service/webrtc)、[Peer HTTP · /me](./peer/service/peer-http-me) 和 [Peer HTTP · Side Control](./peer/service/side-control)。
 - **Peer OpenAI-compatible HTTP**：将 OpenAI-compatible handler 放在独立 service stream 上，不与 Peer HTTP 的 bootstrap、signaling endpoint 混用。
 - **Admin HTTP**：为具有 active `admin` role 的 Peer 提供资源管理 surface。它覆盖 ACL、workflow、firmware、credential、model、gameplay、AI tenant、workspace、Peer 与 social resource；各领域入口见 [Peer Services](./peer/service/overview)。
 - **Edge HTTP**：Edge 使用 incoming token 的 Peer identity，把 browser/device public API 请求转发到权威 Server；它不是 Admin surface。

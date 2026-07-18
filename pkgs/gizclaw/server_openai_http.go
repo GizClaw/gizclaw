@@ -14,7 +14,7 @@ func (s *Server) peerOpenAIHTTPHandler(sessions *publiclogin.SessionManager) htt
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		publicKey, ok := authenticateHTTPSession(w, r, sessions)
+		publicKey, ok := authenticatePrimaryHTTPSession(w, r, sessions)
 		if !ok {
 			return
 		}

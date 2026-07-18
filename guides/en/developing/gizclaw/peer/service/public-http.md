@@ -12,7 +12,7 @@ This file has HTTP surface composition; the login session belongs to `services/s
 | --- | --- |
 | `servePublic` / `serveEdgePublic` | Start normal or Edge Public HTTP on the corresponding Giznet service. |
 | `publicHTTPHandlerWithOptions` | Assemble login, session, Peer API, OpenAI API and signaling routes. |
-| `edgeLoginPeerHTTP` | Adapt login handler to Edge HTTP surface. |
+| `edgeLoginPeerHTTP` | Adapt login to Edge HTTP; ordinary login requires an active Client Peer while an explicit Side Control grant is authorized by its device token. |
 | `allowEdgeClientPeer` | Determine whether the Peer is allowed to serve as an Edge client. |
 | `allowEdgeSignalingPeer` | Determine whether the Peer is allowed to initiate signaling through the Edge. |
 | `setPeerHTTPCORSHeaders` | Set the CORS headers of the Peer HTTP surface. |

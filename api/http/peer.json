@@ -18,6 +18,10 @@
     {
       "name": "Auth",
       "description": "Peer HTTP authentication"
+    },
+    {
+      "name": "SideControl",
+      "description": "Authorized side-control operations"
     }
   ],
   "paths": {
@@ -46,6 +50,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Login result",
@@ -67,6 +81,271 @@
               }
             }
           }
+        }
+      }
+    },
+    "/me/side-control/device-tokens": {
+      "post": {
+        "operationId": "createSideControlDeviceToken",
+        "summary": "Create a single-use side-control device token",
+        "tags": ["SideControl"],
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "201": {
+            "description": "Created device token",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SideControlDeviceToken"}}}
+          },
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/me/side-control/device-tokens/{tokenId}": {
+      "delete": {
+        "operationId": "revokeSideControlDeviceToken",
+        "summary": "Revoke an unconsumed side-control device token",
+        "tags": ["SideControl"],
+        "security": [{"BearerAuth": []}],
+        "parameters": [{
+          "name": "tokenId",
+          "in": "path",
+          "required": true,
+          "schema": {"type": "string"}
+        }],
+        "responses": {
+          "204": {"description": "Device token revoked"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"$ref": "#/components/responses/NotFound"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/me/side-control/sessions": {
+      "get": {
+        "operationId": "listSideControlSessions",
+        "summary": "List active side-control sessions for the caller device",
+        "tags": ["SideControl"],
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Active side-control sessions",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SideControlSessionList"}}}
+          },
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/me/side-control/sessions/{sessionId}": {
+      "delete": {
+        "operationId": "revokeSideControlSession",
+        "summary": "Revoke an active side-control session",
+        "tags": ["SideControl"],
+        "security": [{"BearerAuth": []}],
+        "parameters": [{
+          "name": "sessionId",
+          "in": "path",
+          "required": true,
+          "schema": {"type": "string"}
+        }],
+        "responses": {
+          "204": {"description": "Session revoked"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"$ref": "#/components/responses/NotFound"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/side-control/info": {
+      "get": {
+        "operationId": "getSideControlInfo",
+        "summary": "Get target device information",
+        "tags": ["SideControl"],
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {"description": "Target device information", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/DeviceInfo"}}}},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"$ref": "#/components/responses/NotFound"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/side-control/runtime": {
+      "get": {
+        "operationId": "getSideControlRuntime",
+        "summary": "Get target device runtime",
+        "tags": ["SideControl"],
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {"description": "Target device runtime", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/Runtime"}}}},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"$ref": "#/components/responses/NotFound"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/side-control/status": {
+      "get": {
+        "operationId": "getSideControlStatus",
+        "summary": "Get target device runtime status",
+        "tags": ["SideControl"],
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {"description": "Target device status", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/PeerStatus"}}}},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"$ref": "#/components/responses/NotFound"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/side-control/telemetry/latest": {
+      "get": {
+        "operationId": "getSideControlTelemetryLatest",
+        "summary": "Get latest target telemetry values",
+        "tags": ["SideControl"],
+        "security": [{"BearerAuth": []}],
+        "parameters": [{
+          "name": "fields",
+          "in": "query",
+          "required": false,
+          "description": "Comma-separated telemetry field names. Omitted means all supported fields.",
+          "schema": {"type": "string"}
+        }],
+        "responses": {
+          "200": {"description": "Latest target telemetry", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryLatestResponse"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/side-control/telemetry": {
+      "get": {
+        "operationId": "querySideControlTelemetry",
+        "summary": "Query target telemetry points",
+        "tags": ["SideControl"],
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {"name": "field", "in": "query", "required": true, "schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryField"}},
+          {"name": "start_time_ms", "in": "query", "required": true, "schema": {"type": "integer", "format": "int64"}},
+          {"name": "end_time_ms", "in": "query", "required": true, "schema": {"type": "integer", "format": "int64"}},
+          {"name": "step_ms", "in": "query", "required": false, "schema": {"type": "integer", "format": "int64"}},
+          {"name": "limit", "in": "query", "required": false, "schema": {"type": "integer", "format": "int32"}},
+          {"name": "order", "in": "query", "required": false, "schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryOrder"}}
+        ],
+        "responses": {
+          "200": {"description": "Target telemetry range", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryRangeResponse"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/side-control/telemetry/aggregate": {
+      "get": {
+        "operationId": "aggregateSideControlTelemetry",
+        "summary": "Query target telemetry aggregates",
+        "tags": ["SideControl"],
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {"name": "field", "in": "query", "required": true, "schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryField"}},
+          {"name": "start_time_ms", "in": "query", "required": true, "schema": {"type": "integer", "format": "int64"}},
+          {"name": "end_time_ms", "in": "query", "required": true, "schema": {"type": "integer", "format": "int64"}},
+          {"name": "bucket_ms", "in": "query", "required": true, "schema": {"type": "integer", "format": "int64"}},
+          {"name": "aggregate", "in": "query", "required": true, "schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryAggregate"}}
+        ],
+        "responses": {
+          "200": {"description": "Target telemetry aggregate", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryAggregateResponse"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/side-control/contacts": {
+      "get": {
+        "operationId": "listSideControlContacts",
+        "summary": "List target-owned contacts",
+        "tags": ["SideControl"],
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {"name": "cursor", "in": "query", "required": false, "schema": {"type": "string"}},
+          {"name": "limit", "in": "query", "required": false, "schema": {"type": "integer", "format": "int32"}}
+        ],
+        "responses": {
+          "200": {"description": "Target-owned contacts", "content": {"application/json": {"schema": {"$ref": "./shared/server.json#/components/schemas/ContactListResponse"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      },
+      "post": {
+        "operationId": "createSideControlContact",
+        "summary": "Create a target-owned contact",
+        "tags": ["SideControl"],
+        "security": [{"BearerAuth": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "./shared/server.json#/components/schemas/ContactCreateRequest"}}}},
+        "responses": {
+          "201": {"description": "Created contact", "content": {"application/json": {"schema": {"$ref": "./shared/server.json#/components/schemas/ContactObject"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/side-control/contacts/{contactId}": {
+      "parameters": [{"name": "contactId", "in": "path", "required": true, "schema": {"type": "string"}}],
+      "get": {
+        "operationId": "getSideControlContact",
+        "summary": "Get a target-owned contact",
+        "tags": ["SideControl"],
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {"description": "Target-owned contact", "content": {"application/json": {"schema": {"$ref": "./shared/server.json#/components/schemas/ContactObject"}}}},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"$ref": "#/components/responses/NotFound"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      },
+      "put": {
+        "operationId": "putSideControlContact",
+        "summary": "Update a target-owned contact",
+        "tags": ["SideControl"],
+        "security": [{"BearerAuth": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SideControlContactPutRequest"}}}},
+        "responses": {
+          "200": {"description": "Updated contact", "content": {"application/json": {"schema": {"$ref": "./shared/server.json#/components/schemas/ContactObject"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"$ref": "#/components/responses/NotFound"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      },
+      "delete": {
+        "operationId": "deleteSideControlContact",
+        "summary": "Delete a target-owned contact",
+        "tags": ["SideControl"],
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {"description": "Deleted contact", "content": {"application/json": {"schema": {"$ref": "./shared/server.json#/components/schemas/ContactObject"}}}},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"$ref": "#/components/responses/NotFound"},
+          "500": {"$ref": "#/components/responses/InternalError"}
         }
       }
     },
@@ -489,6 +768,28 @@
     }
   },
   "components": {
+    "responses": {
+      "BadRequest": {
+        "description": "Invalid request",
+        "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
+      },
+      "Unauthorized": {
+        "description": "Invalid or missing bearer session",
+        "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
+      },
+      "Forbidden": {
+        "description": "Session is not authorized for this route",
+        "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
+      },
+      "NotFound": {
+        "description": "Requested object was not found",
+        "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
+      },
+      "InternalError": {
+        "description": "Internal error",
+        "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
+      }
+    },
     "securitySchemes": {
       "BearerAuth": {
         "type": "http",
@@ -496,6 +797,52 @@
       }
     },
     "schemas": {
+      "LoginRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["grant_type", "device_token"],
+        "properties": {
+          "grant_type": {"type": "string", "enum": ["side_control"]},
+          "device_token": {"type": "string", "minLength": 1}
+        }
+      },
+      "SideControlDeviceToken": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "token", "expires_at"],
+        "properties": {
+          "id": {"type": "string"},
+          "token": {"type": "string"},
+          "expires_at": {"type": "integer", "format": "int64"}
+        }
+      },
+      "SideControlSession": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "controller_public_key", "issued_at", "expires_at"],
+        "properties": {
+          "id": {"type": "string"},
+          "controller_public_key": {"type": "string"},
+          "issued_at": {"type": "integer", "format": "int64"},
+          "expires_at": {"type": "integer", "format": "int64"}
+        }
+      },
+      "SideControlSessionList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items"],
+        "properties": {
+          "items": {"type": "array", "items": {"$ref": "#/components/schemas/SideControlSession"}}
+        }
+      },
+      "SideControlContactPutRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {"type": "string"},
+          "phone_number": {"type": "string"}
+        }
+      },
       "PeerSelf": {
         "type": "object",
         "required": [

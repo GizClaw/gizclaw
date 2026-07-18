@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 
@@ -38,6 +39,7 @@ func (s *PeerService) servePublicService(conn giznet.Conn, service uint64) error
 			base = context.Background()
 		}
 		base = withPeerHTTPContentType(base, ctx.Get(fiber.HeaderContentType))
+		base = publiclogin.WithPrincipal(base, publiclogin.Principal{Kind: publiclogin.SessionKindPrimary, PublicKey: conn.PublicKey()})
 		ctx.SetUserContext(peerhttp.WithCallerPublicKey(base, conn.PublicKey()))
 		return ctx.Next()
 	})
@@ -84,6 +86,8 @@ func (s *PeerService) edgeHTTPHandlerForPeer(sessions *publiclogin.SessionManage
 	mux.Handle("/me", publicHandler)
 	mux.Handle("/me/status", publicHandler)
 	mux.Handle("/me/runtime", publicHandler)
+	mux.Handle("/me/side-control/", publicHandler)
+	mux.Handle("/side-control/", publicHandler)
 	mux.Handle("/openai/v1/", s.edgeOpenAIHTTPHandler(sessions))
 	return observeHTTPHandler(mux, httpObservationOptions{
 		surface:       observability.SurfaceEdgeHTTP,
@@ -106,7 +110,8 @@ func (h edgeLoginPeerHTTP) Login(ctx context.Context, request peerhttp.LoginRequ
 	if err := publicKey.UnmarshalText([]byte(request.Params.XPublicKey)); err != nil || publicKey.IsZero() {
 		return peerhttp.Login401JSONResponse(apitypes.NewErrorResponse("INVALID_PUBLIC_KEY", "invalid X-Public-Key")), nil
 	}
-	if h.allowClientPeer == nil || !h.allowClientPeer(ctx, publicKey) {
+	sideControlGrant := request.Body != nil && request.Body.GrantType == peerhttp.SideControl
+	if !sideControlGrant && (h.allowClientPeer == nil || !h.allowClientPeer(ctx, publicKey)) {
 		return peerhttp.Login401JSONResponse(apitypes.NewErrorResponse("EDGE_CLIENT_REQUIRED", "edge public HTTP only proxies active client peers")), nil
 	}
 	if login, ok := h.PeerHTTP.(loginWithoutAuthorizer); ok {
@@ -136,7 +141,7 @@ func (s *PeerService) edgeOpenAIHTTPHandler(sessions *publiclogin.SessionManager
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		publicKey, ok := authenticateHTTPSession(w, r, sessions)
+		publicKey, ok := authenticatePrimaryHTTPSession(w, r, sessions)
 		if !ok {
 			return
 		}
@@ -158,6 +163,11 @@ func (s *PeerService) publicHTTPHandlerWithOptions(sessions *publiclogin.Session
 			base = context.Background()
 		}
 		setPeerHTTPCORSHeaders(ctx)
+		if ctx.Method() == http.MethodPost && ctx.Path() == "/login" && len(ctx.Body()) == 0 {
+			ctx.Request().Header.SetContentType(fiber.MIMEApplicationJSON)
+			ctx.Request().SetBodyString("{}")
+			base = publiclogin.WithBodylessLogin(base)
+		}
 		if ctx.Method() == http.MethodOptions && isPeerHTTPPath(ctx.Path()) {
 			return ctx.SendStatus(http.StatusNoContent)
 		}
@@ -179,18 +189,29 @@ func (s *PeerService) publicHTTPHandlerWithOptions(sessions *publiclogin.Session
 		if isUnauthenticatedPeerHTTPRoute(ctx.Method(), ctx.Path()) {
 			return ctx.Next()
 		}
-		publicKey, ok := authenticateFiberSession(ctx, sessions)
+		principal, ok := authenticateFiberPrincipal(ctx, sessions)
 		if !ok {
 			return nil
 		}
-		if opts.requireClientPeer && !s.allowEdgeClientPeer(ctx.UserContext(), publicKey) {
+		if isPrimaryOnlyPeerHTTPPath(ctx.Path()) && principal.Kind != publiclogin.SessionKindPrimary {
+			ctx.Status(http.StatusForbidden)
+			_ = ctx.JSON(apitypes.NewErrorResponse("PRIMARY_SESSION_REQUIRED", "primary session required"))
+			return nil
+		}
+		if isSideControlPeerHTTPPath(ctx.Path()) && principal.Kind != publiclogin.SessionKindSideControl {
+			ctx.Status(http.StatusForbidden)
+			_ = ctx.JSON(apitypes.NewErrorResponse("SIDE_CONTROL_SESSION_REQUIRED", "side-control session required"))
+			return nil
+		}
+		if opts.requireClientPeer && principal.Kind == publiclogin.SessionKindPrimary && !s.allowEdgeClientPeer(ctx.UserContext(), principal.PublicKey) {
 			ctx.Status(http.StatusForbidden)
 			_ = ctx.JSON(apitypes.NewErrorResponse("EDGE_CLIENT_REQUIRED", "edge public HTTP only proxies active client peers"))
 			return nil
 		}
-		ctx.SetUserContext(peerhttp.WithCallerPublicKey(base, publicKey))
+		base = publiclogin.WithPrincipal(base, principal)
+		ctx.SetUserContext(peerhttp.WithCallerPublicKey(base, principal.PublicKey))
 		if !opts.requireClientPeer {
-			observability.SetPeer(ctx.UserContext(), publicKey.String(), "")
+			observability.SetPeer(ctx.UserContext(), principal.PublicKey.String(), "")
 		}
 		return ctx.Next()
 	})
@@ -245,18 +266,29 @@ func (s *PeerService) edgeSignalingPublicKey(ctx *fiber.Ctx) (giznet.PublicKey, 
 
 func setPeerHTTPCORSHeaders(ctx *fiber.Ctx) {
 	ctx.Set(fiber.HeaderAccessControlAllowOrigin, "*")
-	ctx.Set(fiber.HeaderAccessControlAllowMethods, "GET,POST,PUT,OPTIONS")
+	ctx.Set(fiber.HeaderAccessControlAllowMethods, "GET,POST,PUT,DELETE,OPTIONS")
 	ctx.Set(fiber.HeaderAccessControlAllowHeaders, "Authorization,Content-Type,X-Public-Key,X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp,X-Request-ID")
 	ctx.Set(fiber.HeaderAccessControlExposeHeaders, "Content-Length,Content-Type,X-Request-ID")
 }
 
 func isPeerHTTPPath(path string) bool {
+	if strings.HasPrefix(path, "/me/side-control/") || strings.HasPrefix(path, "/side-control/") {
+		return true
+	}
 	switch path {
 	case "/login", "/server-info", "/webrtc/v1/offer", "/me", "/me/status", "/me/runtime":
 		return true
 	default:
 		return false
 	}
+}
+
+func isPrimaryOnlyPeerHTTPPath(path string) bool {
+	return path == "/me" || strings.HasPrefix(path, "/me/")
+}
+
+func isSideControlPeerHTTPPath(path string) bool {
+	return strings.HasPrefix(path, "/side-control/")
 }
 
 func isUnauthenticatedPeerHTTPRoute(method, path string) bool {
