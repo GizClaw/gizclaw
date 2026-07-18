@@ -54,6 +54,44 @@ func TestHistoryAgentRecordsOutputText(t *testing.T) {
 	}
 }
 
+func TestHistoryAgentForwardsFinalOutputObservation(t *testing.T) {
+	chunk := &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Name: "assistant",
+		Part: genx.Text("hello"),
+		Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"},
+	}
+	upstream := newRecordingObservationStream(historyStreamFromChunks(chunk))
+	agent := wrapHistoryAgent(historyTestAgent{output: upstream}, workspace.NewHistoryStore(objectstore.Dir(t.TempDir()), "demo"))
+	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), "demo", historyStreamFromChunks())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	select {
+	case <-upstream.deferred:
+	case <-time.After(time.Second):
+		t.Fatal("history wrapper did not defer upstream observation")
+	}
+	got, err := out.Next()
+	if err != nil {
+		t.Fatalf("Next() error = %v", err)
+	}
+	if got.Role != chunk.Role || got.Name != chunk.Name || got.Part != chunk.Part || got.Ctrl == nil || got.Ctrl.StreamID != chunk.Ctrl.StreamID {
+		t.Fatalf("Next() chunk = %#v, want %#v", got, chunk)
+	}
+	select {
+	case observed := <-upstream.observed:
+		if observed != got {
+			t.Fatalf("observed chunk = %#v, want forwarded chunk %#v", observed, got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("history wrapper did not forward final output observation")
+	}
+	if _, err := out.Next(); !IsStreamDone(err) {
+		t.Fatalf("Next() done error = %v", err)
+	}
+}
+
 func TestHistoryAgentFinalizesNodeNamedOutputOnRouteEOS(t *testing.T) {
 	history := workspace.NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
 	agentOutput := newBlockingHistoryStream()
@@ -902,7 +940,7 @@ func TestHistoryAgentPlayRoutesToRequestGearOutput(t *testing.T) {
 	}
 }
 
-func TestHistoryAgentPlayPreservesCompletedBufferedReplay(t *testing.T) {
+func TestHistoryAgentPlayInterruptsBufferedReplayAfterEnqueue(t *testing.T) {
 	history := workspace.NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
 	audio1, err := historyOggOpusAsset([][]byte{{1}, {2}, {3}, {4}})
 	if err != nil {
@@ -980,7 +1018,7 @@ func TestHistoryAgentPlayPreservesCompletedBufferedReplay(t *testing.T) {
 			interruptedAudio = true
 		}
 	}
-	if interruptedText || interruptedAudio || !foundSecond {
+	if interruptedText || !interruptedAudio || !foundSecond {
 		t.Fatalf("replacement result textEOS=%t audioEOS=%t second=%t", interruptedText, interruptedAudio, foundSecond)
 	}
 	_ = agentOutput.Close()
@@ -1083,7 +1121,7 @@ func TestHistoryReplayDiscardKeepsOtherRouteOnSameStream(t *testing.T) {
 	); err != nil {
 		t.Fatalf("Add() error = %v", err)
 	}
-	if err := historyOutput.startReplay("replay", genx.RoleModel, "assistant", "assistant", nil); err != nil {
+	if err := historyOutput.startReplay("replay", nil); err != nil {
 		t.Fatalf("startReplay() error = %v", err)
 	}
 	kept, err := stream.Next()

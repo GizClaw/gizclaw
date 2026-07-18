@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
@@ -65,15 +66,14 @@ type historyAgent struct {
 }
 
 type historyOutput struct {
-	output *genx.StreamBuilder
+	output           *genx.StreamBuilder
+	upstreamObserver OutputObservationStream
 
 	replayMu       sync.Mutex
 	replayCancel   context.CancelFunc
 	replaySeq      uint64
 	replayStreamID string
-	replayRole     genx.Role
-	replayName     string
-	replayLabel    string
+	replayPending  map[historyForwardChunkKey]historyForwardRoute
 
 	forwardMu          sync.Mutex
 	activeForward      map[historyForwardChunkKey]historyForwardRoute
@@ -126,8 +126,39 @@ func (a *historyAgent) Transform(ctx context.Context, pattern string, input genx
 		_ = output.Abort(err)
 		return nil, err
 	}
+	outputState.upstreamObserver = deferOutputObservation(agentOutput)
 	go a.forwardOutput(ctx, outputKey, outputState, agentOutput, output, recorder)
-	return output.Stream(), nil
+	return &historyOutputStream{Stream: output.Stream(), output: outputState}, nil
+}
+
+type historyOutputStream struct {
+	genx.Stream
+	output              *historyOutput
+	observationDeferred atomic.Bool
+}
+
+var _ OutputObservationStream = (*historyOutputStream)(nil)
+
+func (s *historyOutputStream) Next() (*genx.MessageChunk, error) {
+	chunk, err := s.Stream.Next()
+	if chunk != nil && !s.observationDeferred.Load() {
+		s.ObserveOutput(chunk)
+	}
+	return chunk, err
+}
+
+func (s *historyOutputStream) DeferOutputObservation() {
+	s.observationDeferred.Store(true)
+}
+
+func (s *historyOutputStream) ObserveOutput(chunk *genx.MessageChunk) {
+	if s == nil || s.output == nil {
+		return
+	}
+	s.output.observeReplayOutput(chunk)
+	if s.output.upstreamObserver != nil {
+		s.output.upstreamObserver.ObserveOutput(chunk)
+	}
 }
 
 func (a *historyAgent) Status(ctx context.Context) (apitypes.PeerRunWorkspaceState, error) {
@@ -179,8 +210,7 @@ func (a *historyAgent) PlayHistory(ctx context.Context, req apitypes.PeerRunHist
 		message := "history entry has no replayable content"
 		return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryId: req.HistoryId, State: "empty", Message: &message}, nil
 	}
-	role, name, label := historyReplayRoute(entry)
-	if err := outputState.startReplay(streamID, role, name, label, chunks); err != nil {
+	if err := outputState.startReplay(streamID, chunks); err != nil {
 		message := err.Error()
 		return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryId: req.HistoryId, State: "unavailable", Message: &message}, nil
 	}
@@ -493,7 +523,7 @@ func historyForwardInterruptedChunk(route historyForwardRoute, mimeType string) 
 	}
 }
 
-func (o *historyOutput) startReplay(streamID string, role genx.Role, name string, label string, chunks []*genx.MessageChunk) error {
+func (o *historyOutput) startReplay(streamID string, chunks []*genx.MessageChunk) error {
 	if o == nil || o.output == nil {
 		return fmt.Errorf("workspace history replay requires an active output stream")
 	}
@@ -504,16 +534,14 @@ func (o *historyOutput) startReplay(streamID string, role genx.Role, name string
 		o.replayCancel()
 	}
 	if o.replayStreamID != "" {
-		interrupt = historyReplayInterruptedChunks(o.replayRole, o.replayName, o.replayStreamID, o.replayLabel)
+		interrupt = historyReplayPendingInterrupts(o.replayPending)
 	}
 	interrupt = append(interrupt, o.interruptForwardOutput()...)
 	o.replaySeq++
 	seq := o.replaySeq
 	o.replayCancel = cancel
 	o.replayStreamID = streamID
-	o.replayRole = role
-	o.replayName = name
-	o.replayLabel = label
+	o.replayPending = historyReplayPendingRoutes(chunks)
 	o.replayMu.Unlock()
 	if len(interrupt) > 0 {
 		interruptedRoutes := make(map[historyForwardChunkKey]historyForwardRoute, len(interrupt))
@@ -544,7 +572,6 @@ func (o *historyOutput) startReplay(streamID string, role genx.Role, name string
 }
 
 func (o *historyOutput) runReplay(ctx context.Context, seq uint64, chunks []*genx.MessageChunk) {
-	defer o.finishReplay(seq)
 	for _, chunk := range chunks {
 		if chunk == nil {
 			continue
@@ -553,9 +580,11 @@ func (o *historyOutput) runReplay(ctx context.Context, seq uint64, chunks []*gen
 			return
 		}
 		if !o.addReplayChunk(seq, chunk.Clone()) {
+			o.finishReplay(seq)
 			return
 		}
 	}
+	o.finishReplayIfObserved(seq)
 }
 
 func (o *historyOutput) addReplayChunk(seq uint64, chunk *genx.MessageChunk) bool {
@@ -574,12 +603,49 @@ func (o *historyOutput) finishReplay(seq uint64) {
 	o.replayMu.Lock()
 	defer o.replayMu.Unlock()
 	if o.replaySeq == seq {
-		o.replayCancel = nil
-		o.replayStreamID = ""
-		o.replayRole = ""
-		o.replayName = ""
-		o.replayLabel = ""
+		o.clearReplayLocked()
 	}
+}
+
+func (o *historyOutput) finishReplayIfObserved(seq uint64) {
+	if o == nil {
+		return
+	}
+	o.replayMu.Lock()
+	defer o.replayMu.Unlock()
+	if o.replaySeq == seq && len(o.replayPending) == 0 {
+		o.clearReplayLocked()
+	}
+}
+
+func (o *historyOutput) observeReplayOutput(chunk *genx.MessageChunk) {
+	if o == nil || chunk == nil || !chunk.IsEndOfStream() {
+		return
+	}
+	route, routeOK := historyForwardChunkRoute(chunk)
+	mimeType, mimeOK := historyForwardChunkMIME(chunk)
+	if !routeOK || !mimeOK {
+		return
+	}
+	key := historyForwardChunkKey{historyForwardRouteKey: route.key(), mimeType: mimeType}
+	o.replayMu.Lock()
+	defer o.replayMu.Unlock()
+	if route.streamID != o.replayStreamID {
+		return
+	}
+	if pendingRoute, ok := o.replayPending[key]; !ok || pendingRoute != route {
+		return
+	}
+	delete(o.replayPending, key)
+	if len(o.replayPending) == 0 {
+		o.clearReplayLocked()
+	}
+}
+
+func (o *historyOutput) clearReplayLocked() {
+	o.replayCancel = nil
+	o.replayStreamID = ""
+	o.replayPending = nil
 }
 
 func (o *historyOutput) cancelReplay() {
@@ -588,11 +654,7 @@ func (o *historyOutput) cancelReplay() {
 	}
 	o.replayMu.Lock()
 	cancel := o.replayCancel
-	o.replayCancel = nil
-	o.replayStreamID = ""
-	o.replayRole = ""
-	o.replayName = ""
-	o.replayLabel = ""
+	o.clearReplayLocked()
 	o.replaySeq++
 	o.replayMu.Unlock()
 	if cancel != nil {
@@ -655,25 +717,40 @@ func historyUpdatedChunk(lastUpdated time.Time) *genx.MessageChunk {
 	}
 }
 
-func historyReplayInterruptedChunks(role genx.Role, name string, streamID string, label string) []*genx.MessageChunk {
-	if role == "" {
-		role = genx.RoleModel
+func historyReplayPendingRoutes(chunks []*genx.MessageChunk) map[historyForwardChunkKey]historyForwardRoute {
+	pending := make(map[historyForwardChunkKey]historyForwardRoute)
+	for _, chunk := range chunks {
+		if chunk == nil || !chunk.IsEndOfStream() {
+			continue
+		}
+		route, routeOK := historyForwardChunkRoute(chunk)
+		mimeType, mimeOK := historyForwardChunkMIME(chunk)
+		if routeOK && mimeOK {
+			pending[historyForwardChunkKey{historyForwardRouteKey: route.key(), mimeType: mimeType}] = route
+		}
 	}
-	if strings.TrimSpace(label) == "" {
-		label = "assistant"
+	return pending
+}
+
+func historyReplayPendingInterrupts(pending map[historyForwardChunkKey]historyForwardRoute) []*genx.MessageChunk {
+	keys := make([]historyForwardChunkKey, 0, len(pending))
+	for key := range pending {
+		keys = append(keys, key)
 	}
-	if strings.TrimSpace(name) == "" {
-		name = label
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i].streamID != keys[j].streamID {
+			return keys[i].streamID < keys[j].streamID
+		}
+		if keys[i].label != keys[j].label {
+			return keys[i].label < keys[j].label
+		}
+		return keys[i].mimeType < keys[j].mimeType
+	})
+	interrupt := make([]*genx.MessageChunk, 0, len(keys))
+	for _, key := range keys {
+		interrupt = append(interrupt, historyForwardInterruptedChunk(pending[key], key.mimeType))
 	}
-	textEOS := historyTextChunk(role, name, streamID, label, "", true)
-	textEOS.Ctrl.Error = historyReplayInterrupted
-	audioEOS := &genx.MessageChunk{
-		Role: role,
-		Name: name,
-		Part: &genx.Blob{MIMEType: "audio/opus"},
-		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: label, EndOfStream: true, Error: historyReplayInterrupted},
-	}
-	return []*genx.MessageChunk{textEOS, audioEOS}
+	return interrupt
 }
 
 type historyRecorder struct {

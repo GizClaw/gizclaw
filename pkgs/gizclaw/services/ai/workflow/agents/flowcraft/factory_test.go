@@ -464,6 +464,9 @@ func TestAgentTransformRunsMultipleTurns(t *testing.T) {
 		if chunk.Ctrl == nil {
 			continue
 		}
+		if chunk.Ctrl.Error == interruptedError {
+			t.Fatalf("completed turn was interrupted after its output drained: %#v", chunk)
+		}
 		streamID := chunk.Ctrl.StreamID
 		switch {
 		case chunk.Ctrl.Label == genx.HistoryUserAudioLabel:

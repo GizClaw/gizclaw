@@ -13,6 +13,23 @@ type AudioTrackCreator interface {
 	CreateAudioTrack(...pcm.TrackOption) (pcm.Track, *pcm.TrackCtrl, error)
 }
 
+// OutputObservationStream lets an output producer track when chunks have
+// reached their final consumer. MixerOutput defers audio observation until the
+// corresponding mixer track has drained.
+type OutputObservationStream interface {
+	genx.Stream
+	DeferOutputObservation()
+	ObserveOutput(*genx.MessageChunk)
+}
+
+func deferOutputObservation(stream genx.Stream) OutputObservationStream {
+	observer, _ := stream.(OutputObservationStream)
+	if observer != nil {
+		observer.DeferOutputObservation()
+	}
+	return observer
+}
+
 type MixerOutput struct {
 	Tracks            AudioTrackCreator
 	Observe           func(*genx.MessageChunk) error
@@ -23,6 +40,7 @@ func (o MixerOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream)
 	if output == nil {
 		return fmt.Errorf("agenthost: output stream is required")
 	}
+	outputObserver := deferOutputObservation(output)
 	tracks := newAudioOutputTracks(o.Tracks)
 	type outputResult struct {
 		chunk *genx.MessageChunk
@@ -46,19 +64,21 @@ func (o MixerOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream)
 	}()
 	var pendingObserve []*genx.MessageChunk
 	observe := func(chunks []*genx.MessageChunk) error {
-		if o.Observe == nil {
-			return nil
-		}
 		for _, chunk := range chunks {
-			if err := o.Observe(chunk); err != nil {
-				return err
+			if o.Observe != nil {
+				if err := o.Observe(chunk); err != nil {
+					return err
+				}
+			}
+			if outputObserver != nil {
+				outputObserver.ObserveOutput(chunk)
 			}
 		}
 		return nil
 	}
 	defer func() {
 		if retErr != nil {
-			retErr = errors.Join(retErr, tracks.closeWithError(retErr))
+			retErr = errors.Join(retErr, output.CloseWithError(retErr), tracks.closeWithError(retErr))
 			return
 		}
 		retErr = tracks.closeWrite()

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -191,9 +192,10 @@ func TestRawOpusDecoderAcceptsMaximumDurationPacket(t *testing.T) {
 func TestMixerOutputPublishesEOSAfterTrackDrain(t *testing.T) {
 	creator := newRecordingAudioTrackCreator()
 	observed := make(chan struct{})
-	output := &blockingSliceStream{sliceStream: sliceStream{chunks: []*genx.MessageChunk{
+	source := &blockingSliceStream{sliceStream: sliceStream{chunks: []*genx.MessageChunk{
 		pcmOutputChunk("answer", "audio/pcm", []byte{1, 0}, true, ""),
 	}, doneErr: genx.ErrDone}, release: make(chan struct{})}
+	output := newRecordingObservationStream(source)
 	done := make(chan error, 1)
 	go func() {
 		done <- (MixerOutput{
@@ -210,6 +212,11 @@ func TestMixerOutputPublishesEOSAfterTrackDrain(t *testing.T) {
 		t.Fatal("EOS was observed before mixer drain")
 	case <-time.After(20 * time.Millisecond):
 	}
+	select {
+	case <-output.observed:
+		t.Fatal("stream observation was acknowledged before mixer drain")
+	default:
+	}
 	readDone := make(chan struct{})
 	go func() {
 		defer close(readDone)
@@ -222,7 +229,12 @@ func TestMixerOutputPublishesEOSAfterTrackDrain(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("EOS was not observed after mixer drain")
 	}
-	close(output.release)
+	select {
+	case <-output.observed:
+	case <-time.After(time.Second):
+		t.Fatal("stream observation was not acknowledged after mixer drain")
+	}
+	close(source.release)
 	if err := creator.mixer.Close(); err != nil {
 		t.Fatalf("mixer.Close() error = %v", err)
 	}
@@ -230,6 +242,29 @@ func TestMixerOutputPublishesEOSAfterTrackDrain(t *testing.T) {
 	if err := <-done; err != nil {
 		t.Fatalf("ConsumeAgentOutput() error = %v", err)
 	}
+}
+
+type recordingObservationStream struct {
+	genx.Stream
+	deferred chan struct{}
+	observed chan *genx.MessageChunk
+	once     sync.Once
+}
+
+func newRecordingObservationStream(stream genx.Stream) *recordingObservationStream {
+	return &recordingObservationStream{
+		Stream:   stream,
+		deferred: make(chan struct{}),
+		observed: make(chan *genx.MessageChunk, 1),
+	}
+}
+
+func (s *recordingObservationStream) DeferOutputObservation() {
+	s.once.Do(func() { close(s.deferred) })
+}
+
+func (s *recordingObservationStream) ObserveOutput(chunk *genx.MessageChunk) {
+	s.observed <- chunk
 }
 
 type blockingSliceStream struct {
@@ -296,6 +331,71 @@ func TestMixerOutputConsumesInterruptWhilePreviousTrackDrains(t *testing.T) {
 	if len(observed) != 1 || observed[0].Ctrl == nil || observed[0].Ctrl.Error != "interrupted" {
 		t.Fatalf("observed chunks = %#v, want only interrupted EOS", observed)
 	}
+}
+
+func TestMixerOutputClosesBlockedReaderAfterObserveError(t *testing.T) {
+	wantErr := errors.New("observe failed")
+	output := newCloseAwareOutputStream(&genx.MessageChunk{Part: genx.Text("hello")})
+	err := (MixerOutput{Observe: func(*genx.MessageChunk) error {
+		return wantErr
+	}}).ConsumeAgentOutput(t.Context(), output)
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("ConsumeAgentOutput() error = %v, want %v", err, wantErr)
+	}
+	select {
+	case <-output.nextDone:
+	case <-time.After(time.Second):
+		t.Fatal("output.Next() remained blocked after consumer failure")
+	}
+	if !errors.Is(output.closeError(), wantErr) {
+		t.Fatalf("output close error = %v, want %v", output.closeError(), wantErr)
+	}
+}
+
+type closeAwareOutputStream struct {
+	chunks   []*genx.MessageChunk
+	closed   chan struct{}
+	nextDone chan struct{}
+	once     sync.Once
+	mu       sync.Mutex
+	err      error
+}
+
+func newCloseAwareOutputStream(chunks ...*genx.MessageChunk) *closeAwareOutputStream {
+	return &closeAwareOutputStream{
+		chunks:   chunks,
+		closed:   make(chan struct{}),
+		nextDone: make(chan struct{}),
+	}
+}
+
+func (s *closeAwareOutputStream) Next() (*genx.MessageChunk, error) {
+	if len(s.chunks) > 0 {
+		chunk := s.chunks[0]
+		s.chunks = s.chunks[1:]
+		return chunk, nil
+	}
+	<-s.closed
+	close(s.nextDone)
+	return nil, s.closeError()
+}
+
+func (s *closeAwareOutputStream) Close() error {
+	return s.CloseWithError(nil)
+}
+
+func (s *closeAwareOutputStream) CloseWithError(err error) error {
+	s.mu.Lock()
+	s.err = err
+	s.mu.Unlock()
+	s.once.Do(func() { close(s.closed) })
+	return nil
+}
+
+func (s *closeAwareOutputStream) closeError() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.err
 }
 
 func waitForTrackWriteError(t *testing.T, track pcm.Track, contains string) {

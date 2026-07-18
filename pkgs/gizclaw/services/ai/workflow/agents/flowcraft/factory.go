@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	flowmodel "github.com/GizClaw/flowcraft/sdk/model"
@@ -903,12 +904,13 @@ func (a *agent) Transform(ctx context.Context, _ string, input genx.Stream) (gen
 		return nil, fmt.Errorf("flowcraft: agent is nil")
 	}
 	output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 64)
+	observations := newFlowcraftOutputObservations()
 	a.setActiveOutput(output, defaultInputStreamID)
-	go a.run(ctx, input, output)
-	return output.Stream(), nil
+	go a.run(ctx, input, output, observations)
+	return &flowcraftOutputStream{Stream: output.Stream(), observations: observations}, nil
 }
 
-func (a *agent) run(ctx context.Context, input genx.Stream, output *genx.StreamBuilder) {
+func (a *agent) run(ctx context.Context, input genx.Stream, output *genx.StreamBuilder, observations *flowcraftOutputObservations) {
 	defer func() {
 		a.clearActiveOutput(output)
 		if a.claw != nil {
@@ -916,9 +918,9 @@ func (a *agent) run(ctx context.Context, input genx.Stream, output *genx.StreamB
 		}
 	}()
 
-	current := a.startSelfTurnIfNeeded(ctx, output)
+	current := a.startSelfTurnIfNeeded(ctx, output, observations)
 	if a.inputMode == inputModeRealtime {
-		a.runRealtime(ctx, input, output, current)
+		a.runRealtime(ctx, input, output, current, observations)
 		return
 	}
 
@@ -935,10 +937,12 @@ func (a *agent) run(ctx context.Context, input genx.Stream, output *genx.StreamB
 	var completed *flowcraftActiveTurn
 	startTurn := func(turn flowcraftInputTurn) {
 		if completed != nil {
-			_ = a.interruptQueuedOutput(output, completed.streamID, completed.epoch)
+			if !observations.takeDrained(completed.streamID) {
+				_ = a.interruptQueuedOutput(output, completed.streamID, completed.epoch)
+			}
 			completed = nil
 		}
-		current = a.startFlowcraftTurn(ctx, output, turn)
+		current = a.startFlowcraftTurn(ctx, output, turn, observations)
 	}
 	for {
 		if current == nil && inputDone {
@@ -986,7 +990,7 @@ func (a *agent) run(ctx context.Context, input genx.Stream, output *genx.StreamB
 			current.cancel()
 			_ = a.interruptOutput(output, current.streamID, current.epoch)
 			completed = nil
-			current = a.startFlowcraftTurn(ctx, output, turn)
+			current = a.startFlowcraftTurn(ctx, output, turn, observations)
 		case err := <-current.done:
 			if err != nil && !errors.Is(err, context.Canceled) {
 				if isFlowcraftInputDone(err) {
@@ -1022,18 +1026,114 @@ type flowcraftActiveTurn struct {
 	done     <-chan error
 }
 
+type flowcraftOutputStream struct {
+	genx.Stream
+	observations        *flowcraftOutputObservations
+	observationDeferred atomic.Bool
+}
+
+var _ agenthost.OutputObservationStream = (*flowcraftOutputStream)(nil)
+
+func (s *flowcraftOutputStream) Next() (*genx.MessageChunk, error) {
+	chunk, err := s.Stream.Next()
+	if chunk != nil && !s.observationDeferred.Load() {
+		s.ObserveOutput(chunk)
+	}
+	return chunk, err
+}
+
+// DeferOutputObservation asks the final consumer to acknowledge output after
+// any downstream buffering or audio drain completes.
+func (s *flowcraftOutputStream) DeferOutputObservation() {
+	s.observationDeferred.Store(true)
+}
+
+// ObserveOutput records a chunk acknowledged by the final consumer.
+func (s *flowcraftOutputStream) ObserveOutput(chunk *genx.MessageChunk) {
+	if s != nil && s.observations != nil {
+		s.observations.observe(chunk)
+	}
+}
+
+type flowcraftOutputObservations struct {
+	mu      sync.Mutex
+	streams map[string]flowcraftOutputObservation
+}
+
+type flowcraftOutputObservation struct {
+	audio   bool
+	drained bool
+}
+
+func newFlowcraftOutputObservations() *flowcraftOutputObservations {
+	return &flowcraftOutputObservations{streams: make(map[string]flowcraftOutputObservation)}
+}
+
+func (o *flowcraftOutputObservations) begin(streamID string) {
+	if o == nil {
+		return
+	}
+	o.mu.Lock()
+	o.streams[streamID] = flowcraftOutputObservation{}
+	o.mu.Unlock()
+}
+
+func (o *flowcraftOutputObservations) observe(chunk *genx.MessageChunk) {
+	if o == nil || chunk == nil || chunk.Role != genx.RoleModel || chunk.Ctrl == nil ||
+		chunk.Ctrl.Label != assistantLabel {
+		return
+	}
+	streamID := strings.TrimSpace(chunk.Ctrl.StreamID)
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	state := o.streams[streamID]
+	if chunk.IsEndOfStream() && strings.TrimSpace(chunk.Ctrl.Error) != "" {
+		delete(o.streams, streamID)
+		return
+	}
+	if !chunk.IsEndOfStream() {
+		state.drained = false
+		if blob, ok := chunk.Part.(*genx.Blob); ok && len(blob.Data) > 0 {
+			state.audio = true
+		}
+		o.streams[streamID] = state
+		return
+	}
+	switch chunk.Part.(type) {
+	case genx.Text:
+		if !state.audio {
+			state.drained = true
+		}
+	case *genx.Blob:
+		state.drained = true
+	}
+	o.streams[streamID] = state
+}
+
+func (o *flowcraftOutputObservations) takeDrained(streamID string) bool {
+	if o == nil {
+		return false
+	}
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	state := o.streams[streamID]
+	delete(o.streams, streamID)
+	return state.drained
+}
+
 type flowcraftTranscriptTurn struct {
 	streamID     string
 	transcript   string
 	historyAudio []*genx.MessageChunk
 }
 
-func (a *agent) startFlowcraftTurn(ctx context.Context, output *genx.StreamBuilder, turn flowcraftInputTurn) *flowcraftActiveTurn {
+func (a *agent) startFlowcraftTurn(ctx context.Context, output *genx.StreamBuilder, turn flowcraftInputTurn, observations *flowcraftOutputObservations) *flowcraftActiveTurn {
 	streamID := strings.TrimSpace(turn.streamID)
 	if streamID == "" {
 		streamID = genx.NewStreamID()
 	}
 	epoch := a.setActiveOutput(output, streamID)
+	observations.begin(streamID)
 	turnCtx, cancel := context.WithCancel(ctx)
 	done := make(chan error, 1)
 	go func() {
@@ -1047,12 +1147,13 @@ func (a *agent) startFlowcraftTurn(ctx context.Context, output *genx.StreamBuild
 	}
 }
 
-func (a *agent) startFlowcraftTranscriptTurn(ctx context.Context, output *genx.StreamBuilder, streamID, transcript string, emitTranscript bool, historyAudio ...*genx.MessageChunk) *flowcraftActiveTurn {
+func (a *agent) startFlowcraftTranscriptTurn(ctx context.Context, output *genx.StreamBuilder, streamID, transcript string, emitTranscript bool, observations *flowcraftOutputObservations, historyAudio ...*genx.MessageChunk) *flowcraftActiveTurn {
 	streamID = strings.TrimSpace(streamID)
 	if streamID == "" {
 		streamID = genx.NewStreamID()
 	}
 	epoch := a.setActiveOutput(output, streamID)
+	observations.begin(streamID)
 	if len(historyAudio) > 0 {
 		if err := a.addOutput(output, epoch, historyAudio...); err != nil {
 			done := make(chan error, 1)
@@ -1083,12 +1184,13 @@ func (a *agent) startFlowcraftTranscriptTurn(ctx context.Context, output *genx.S
 	}
 }
 
-func (a *agent) startSelfTurnIfNeeded(ctx context.Context, output *genx.StreamBuilder) *flowcraftActiveTurn {
+func (a *agent) startSelfTurnIfNeeded(ctx context.Context, output *genx.StreamBuilder, observations *flowcraftOutputObservations) *flowcraftActiveTurn {
 	if !a.shouldSelfStart(ctx) {
 		return nil
 	}
 	streamID := selfStartStreamID
 	epoch := a.setActiveOutput(output, streamID)
+	observations.begin(streamID)
 	turnCtx, cancel := context.WithCancel(ctx)
 	done := make(chan error, 1)
 	go func() {
@@ -1132,7 +1234,7 @@ func (a *agent) historyEmpty(ctx context.Context) (bool, error) {
 	return resp.Count == 0 && len(resp.Messages) == 0, nil
 }
 
-func (a *agent) runRealtime(ctx context.Context, input genx.Stream, output *genx.StreamBuilder, current *flowcraftActiveTurn) {
+func (a *agent) runRealtime(ctx context.Context, input genx.Stream, output *genx.StreamBuilder, current *flowcraftActiveTurn, observations *flowcraftOutputObservations) {
 	transformer := a.transformers.Transformer()
 	asrInput := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 64)
 	asr, err := transformer.Transform(ctx, "model/"+a.asrModel+"?emit_interim=true", asrInput.Stream())
@@ -1167,10 +1269,12 @@ func (a *agent) runRealtime(ctx context.Context, input genx.Stream, output *genx
 		turn := pending[0]
 		pending = pending[1:]
 		if completed != nil {
-			_ = a.interruptQueuedOutput(output, completed.streamID, completed.epoch)
+			if !observations.takeDrained(completed.streamID) {
+				_ = a.interruptQueuedOutput(output, completed.streamID, completed.epoch)
+			}
 			completed = nil
 		}
-		current = a.startFlowcraftTranscriptTurn(ctx, output, turn.streamID, turn.transcript, true, turn.historyAudio...)
+		current = a.startFlowcraftTranscriptTurn(ctx, output, turn.streamID, turn.transcript, true, observations, turn.historyAudio...)
 	}
 	queueTranscript := func(text string, asrStreamID string) {
 		realtimeTurnIndex++
@@ -1190,7 +1294,9 @@ func (a *agent) runRealtime(ctx context.Context, input genx.Stream, output *genx
 		pending = nil
 		if current == nil {
 			if completed != nil {
-				_ = a.interruptQueuedOutput(output, completed.streamID, completed.epoch)
+				if !observations.takeDrained(completed.streamID) {
+					_ = a.interruptQueuedOutput(output, completed.streamID, completed.epoch)
+				}
 				completed = nil
 			}
 			return
