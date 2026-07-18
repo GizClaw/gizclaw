@@ -6,5 +6,7 @@ metadata:
 spec:
   parameters:
     agent_type: flowcraft
+    generate_model: doubao-lite-chat
+    extract_model: doubao-lite-chat
     input: push-to-talk
   workflow_name: flowcraft-support
