@@ -515,6 +515,7 @@ export type ApplyResult = {
     name: string;
     action: ApplyAction;
     message?: string;
+    resource?: Resource;
     /**
      * Nested apply results for ResourceList resources.
      */
@@ -2317,6 +2318,19 @@ export type RegistrationTokenResourceWritable = {
      * Present only in a successful create/apply response.
      */
     token?: string;
+};
+
+export type ApplyResultWritable = {
+    apiVersion: ResourceApiVersion;
+    kind: ResourceKind;
+    name: string;
+    action: ApplyAction;
+    message?: string;
+    resource?: ResourceWritable;
+    /**
+     * Nested apply results for ResourceList resources.
+     */
+    items?: Array<ApplyResultWritable>;
 };
 
 export type ResourceWritable = ({

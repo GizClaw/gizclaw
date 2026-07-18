@@ -969,7 +969,7 @@ func (m *Manager) Apply(ctx context.Context, resource apitypes.Resource) (apityp
 	case string(apitypes.ResourceKindRuntimeProfile), "RuntimeProfileResource":
 		return m.applyRuntimeProfile(ctx, resource)
 	case string(apitypes.ResourceKindRegistrationToken), "RegistrationTokenResource":
-		return apitypes.ApplyResult{}, applyError(400, "REGISTRATION_TOKEN_APPLY_UNSUPPORTED", "use RegistrationToken create so the one-time token can be returned")
+		return m.applyRegistrationToken(ctx, resource)
 	case string(apitypes.ResourceKindDashScopeTenant), "DashScopeTenantResource":
 		return m.applyDashScopeTenant(ctx, resource)
 	case string(apitypes.ResourceKindMiniMaxTenant), "MiniMaxTenantResource":

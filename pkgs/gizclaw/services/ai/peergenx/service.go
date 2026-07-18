@@ -29,6 +29,10 @@ type ModelLister interface {
 	ListModels(context.Context, adminhttp.ListModelsRequestObject) (adminhttp.ListModelsResponseObject, error)
 }
 
+type ProfileModelChecker interface {
+	ProfileAllowsModel(string) bool
+}
+
 type VoiceGetter interface {
 	GetVoice(context.Context, adminhttp.GetVoiceRequestObject) (adminhttp.GetVoiceResponseObject, error)
 }

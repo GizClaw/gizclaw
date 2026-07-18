@@ -7,6 +7,33 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
+func (m *Manager) applyRegistrationToken(ctx context.Context, resource apitypes.Resource) (apitypes.ApplyResult, error) {
+	item, err := resource.AsRegistrationTokenResource()
+	if err != nil {
+		return apitypes.ApplyResult{}, applyError(400, "INVALID_REGISTRATION_TOKEN_RESOURCE", err.Error())
+	}
+	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	previous, exists, err := m.getRegistrationToken(ctx, item.Metadata.Name)
+	if err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	if exists {
+		if previous.FirmwareName != item.Spec.FirmwareName || previous.RuntimeProfileName != item.Spec.RuntimeProfileName {
+			return apitypes.ApplyResult{}, applyError(409, "REGISTRATION_TOKEN_IMMUTABLE", "RegistrationToken mappings are immutable")
+		}
+		return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindRegistrationToken, item.Metadata.Name), nil
+	}
+	created, err := m.putRegistrationToken(ctx, item)
+	if err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	result := applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindRegistrationToken, item.Metadata.Name)
+	result.Resource = &created
+	return result, nil
+}
+
 func (m *Manager) getRegistrationToken(ctx context.Context, name string) (apitypes.RegistrationToken, bool, error) {
 	if m.services.RuntimeProfiles == nil {
 		return apitypes.RegistrationToken{}, false, missingService("registration tokens")

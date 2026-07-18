@@ -99,6 +99,14 @@ func (s *Server) profileAllows(kind profileResourceKind, name string) bool {
 	return slices.Contains(s.profileNames(kind), name)
 }
 
+// ProfileAllowsModel reports whether the current connection's RuntimeProfile
+// explicitly grants the concrete model. GenX uses this to distinguish an
+// approved profile model from a merely owner-accessible model before reading
+// a server-owned provider credential.
+func (s *Server) ProfileAllowsModel(name string) bool {
+	return s.profileAllows(profileModels, name)
+}
+
 func (s *Server) ownedModels(ctx context.Context) ([]apitypes.Model, error) {
 	if lister, ok := s.Models.(ownedModelLister); ok {
 		return lister.ListModelsByOwner(ctx, s.Caller.String())

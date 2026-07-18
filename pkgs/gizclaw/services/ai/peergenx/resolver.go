@@ -114,6 +114,12 @@ func (s *Service) generatorConfigFromListedModel(ctx context.Context, model apit
 		}
 		return GeneratorConfig{}, false, err
 	}
+	if err := s.authorizeModelCredential(model, credential); err != nil {
+		if errors.Is(err, ErrDenied) {
+			return GeneratorConfig{}, false, nil
+		}
+		return GeneratorConfig{}, false, err
+	}
 	return GeneratorConfig{
 		Pattern:    "model/" + string(model.Id),
 		Model:      model,
@@ -179,7 +185,33 @@ func (s *Service) resolveModel(ctx context.Context, id string) (apitypes.Model, 
 	if err != nil {
 		return apitypes.Model{}, Tenant{}, apitypes.Credential{}, err
 	}
+	if err := s.authorizeModelCredential(model, credential); err != nil {
+		return apitypes.Model{}, Tenant{}, apitypes.Credential{}, err
+	}
 	return model, tenant, credential, nil
+}
+
+func (s *Service) authorizeModelCredential(model apitypes.Model, credential apitypes.Credential) error {
+	if model.OwnerPublicKey == nil {
+		return nil
+	}
+	if s == nil {
+		return fmt.Errorf("%w: owned model %q has no service", ErrDenied, model.Id)
+	}
+	if checker, ok := s.Models.(ProfileModelChecker); ok && checker.ProfileAllowsModel(string(model.Id)) {
+		return nil
+	}
+	if s.Peer == nil {
+		return fmt.Errorf("%w: owned model %q has no authenticated peer", ErrDenied, model.Id)
+	}
+	caller := s.Peer.PublicKey().String()
+	if strings.TrimSpace(*model.OwnerPublicKey) != caller {
+		return fmt.Errorf("%w: model %q belongs to another peer", ErrDenied, model.Id)
+	}
+	if credential.OwnerPublicKey != nil && strings.TrimSpace(*credential.OwnerPublicKey) == caller {
+		return nil
+	}
+	return fmt.Errorf("%w: owned model %q cannot use credential %q", ErrDenied, model.Id, credential.Name)
 }
 
 func (s *Service) resolveVoice(ctx context.Context, id string) (apitypes.Voice, Tenant, apitypes.Credential, error) {

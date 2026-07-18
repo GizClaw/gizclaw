@@ -1388,9 +1388,10 @@ type ApplyResult struct {
 	Items *[]ApplyResult `json:"items,omitempty"`
 
 	// Kind Declarative GizClaw resource kind.
-	Kind    ResourceKind `json:"kind"`
-	Message *string      `json:"message,omitempty"`
-	Name    string       `json:"name"`
+	Kind     ResourceKind `json:"kind"`
+	Message  *string      `json:"message,omitempty"`
+	Name     string       `json:"name"`
+	Resource *Resource    `json:"resource,omitempty"`
 }
 
 // Badge defines model for Badge.

@@ -207,6 +207,10 @@
           "message": {
             "type": "string"
           },
+          "resource": {
+            "$ref": "#/components/schemas/Resource",
+            "description": "Created resource when applying a kind with one-time response data, such as a RegistrationToken."
+          },
           "items": {
             "type": "array",
             "description": "Nested apply results for ResourceList resources.",
