@@ -72,6 +72,13 @@ func (c Config) validate() error {
 	return nil
 }
 
+func (c Config) normalized() Config {
+	c.Extraction.Model = strings.TrimSpace(c.Extraction.Model)
+	c.Embedding.Model = strings.TrimSpace(c.Embedding.Model)
+	c.Rerank.Model = strings.TrimSpace(c.Rerank.Model)
+	return c
+}
+
 func nativeScope(scope scope) recall.Scope {
 	return recall.Scope{RuntimeID: "gizclaw", UserID: string(scope)}
 }

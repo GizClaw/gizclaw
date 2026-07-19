@@ -102,6 +102,40 @@ func TestStoreAsyncWaitAndRestart(t *testing.T) {
 	}
 }
 
+type temporalWithoutScopeEnumerator struct{ recall.TemporalStore }
+
+func TestStoreWaitRehydratesDecodedScopeWithoutEnumerator(t *testing.T) {
+	t.Parallel()
+	backend := newWorkspaceBackend(t)
+	loader := &testFlowcraftLoader{model: testLLM{response: `{"facts":[{"text":"Alice prefers tea.","kind":"preference"}]}`}}
+	config := Config{
+		Loader: loader, Extraction: ExtractionConfig{Model: "extract"},
+		TemporalStore: temporalWithoutScopeEnumerator{TemporalStore: backend.TemporalStore()},
+		EvidenceStore: backend.EvidenceStore(), AsyncQueue: backend.AsyncSemanticQueue(), SideEffectOutbox: backend.SideEffectOutbox(),
+	}
+	store, err := New(context.Background(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	observed, err := store.Observe(context.Background(), Observation{Scope: testScope, Text: "Alice prefers tea."})
+	if err != nil || observed.Operation == nil || observed.Operation.Status != OperationPending {
+		t.Fatalf("Observe() = %+v, %v", observed, err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	reopened, err := New(context.Background(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	result, err := reopened.Wait(context.Background(), observed.Operation.ID)
+	if err != nil || result.Operation == nil || result.Operation.Status != OperationSucceeded || len(result.Facts) != 1 {
+		t.Fatalf("Wait() = %+v, %v", result, err)
+	}
+}
+
 func TestStoreAsyncOperationsAreIsolatedAcrossScopes(t *testing.T) {
 	t.Parallel()
 	loader := &testFlowcraftLoader{model: testLLM{response: `{"facts":[{"text":"remembered","kind":"note"}]}`}}

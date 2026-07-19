@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/flowcraft/memory/retrieval/bbh"
 	physicalstorage "github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/graph"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -1120,8 +1121,9 @@ func TestCloseEmpty(t *testing.T) {
 }
 
 func TestMemoryRegistryFlowcraft(t *testing.T) {
+	dir := t.TempDir()
 	registry, err := NewWithStorageOptions(context.Background(), nil, map[string]Config{
-		"agent": {Kind: KindMemoryStore, Flowcraft: &FlowcraftConfig{Dir: t.TempDir()}},
+		"agent": {Kind: KindMemoryStore, Flowcraft: &FlowcraftConfig{Dir: dir}},
 	}, Options{})
 	if err != nil {
 		t.Fatal(err)
@@ -1134,6 +1136,12 @@ func TestMemoryRegistryFlowcraft(t *testing.T) {
 	result, err := store.Observe(context.Background(), memorystore.Observation{Scope: "test", Text: "Remember the north gate."})
 	if err != nil || len(result.Facts) != 1 {
 		t.Fatalf("Observe() result = %+v, error = %v", result, err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "state.json")); err != nil {
+		t.Fatalf("canonical state is not stored at the configured legacy root: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "metadata", "state.json")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("unexpected relocated metadata state: %v", err)
 	}
 }
 
@@ -1236,9 +1244,21 @@ func TestRegistryRejectsMemoryProvidersOnOtherKinds(t *testing.T) {
 
 func TestExpandMemoryConfigs(t *testing.T) {
 	t.Setenv("GIZCLAW_MEMORY_VALUE", "expanded")
-	flowcraft := FlowcraftConfig{ExtractionMode: "$GIZCLAW_MEMORY_VALUE", SystemPrompt: "$GIZCLAW_MEMORY_VALUE", SchemaName: "$GIZCLAW_MEMORY_VALUE"}
+	flowcraft := FlowcraftConfig{
+		ExtractionMode: "$GIZCLAW_MEMORY_VALUE", SystemPrompt: "$GIZCLAW_MEMORY_VALUE", SchemaName: "$GIZCLAW_MEMORY_VALUE",
+		BBH: bbh.Config{Bleve: bbh.BleveConfig{
+			Analyzer: "$GIZCLAW_MEMORY_VALUE",
+			Gojieba: bbh.GojiebaConfig{
+				Mode: "$GIZCLAW_MEMORY_VALUE", DictPath: "$GIZCLAW_MEMORY_VALUE", HMMPath: "$GIZCLAW_MEMORY_VALUE",
+				UserDictPath: "$GIZCLAW_MEMORY_VALUE", IDFPath: "$GIZCLAW_MEMORY_VALUE", StopWordsPath: "$GIZCLAW_MEMORY_VALUE",
+			},
+		}},
+	}
 	expandFlowcraftConfig(&flowcraft)
-	if flowcraft.ExtractionMode != "expanded" || flowcraft.SystemPrompt != "expanded" || flowcraft.SchemaName != "expanded" {
+	gojieba := flowcraft.BBH.Bleve.Gojieba
+	if flowcraft.ExtractionMode != "expanded" || flowcraft.SystemPrompt != "expanded" || flowcraft.SchemaName != "expanded" ||
+		flowcraft.BBH.Bleve.Analyzer != "expanded" || gojieba.Mode != "expanded" || gojieba.DictPath != "expanded" ||
+		gojieba.HMMPath != "expanded" || gojieba.UserDictPath != "expanded" || gojieba.IDFPath != "expanded" || gojieba.StopWordsPath != "expanded" {
 		t.Fatalf("flowcraft config = %+v", flowcraft)
 	}
 	mem0 := Mem0Config{Flavor: "$GIZCLAW_MEMORY_VALUE"}

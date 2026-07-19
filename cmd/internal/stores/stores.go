@@ -673,7 +673,9 @@ func openFlowcraftMemory(ctx context.Context, config FlowcraftConfig, loader mem
 		return err
 	}
 	if config.Dir != "" {
-		metadataWorkspace, err := sdkworkspace.NewLocalWorkspace(filepath.Join(config.Dir, "metadata"))
+		// Keep canonical recall state at the configured root for compatibility
+		// with stores created before retrieval received its own workspace.
+		metadataWorkspace, err := sdkworkspace.NewLocalWorkspace(config.Dir)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -731,6 +733,13 @@ func expandFlowcraftConfig(config *FlowcraftConfig) {
 	config.ExtractionMode = flowrecall.LLMExtractionMode(os.ExpandEnv(string(config.ExtractionMode)))
 	config.SystemPrompt = os.ExpandEnv(config.SystemPrompt)
 	config.SchemaName = os.ExpandEnv(config.SchemaName)
+	config.BBH.Bleve.Analyzer = os.ExpandEnv(config.BBH.Bleve.Analyzer)
+	config.BBH.Bleve.Gojieba.Mode = os.ExpandEnv(config.BBH.Bleve.Gojieba.Mode)
+	config.BBH.Bleve.Gojieba.DictPath = os.ExpandEnv(config.BBH.Bleve.Gojieba.DictPath)
+	config.BBH.Bleve.Gojieba.HMMPath = os.ExpandEnv(config.BBH.Bleve.Gojieba.HMMPath)
+	config.BBH.Bleve.Gojieba.UserDictPath = os.ExpandEnv(config.BBH.Bleve.Gojieba.UserDictPath)
+	config.BBH.Bleve.Gojieba.IDFPath = os.ExpandEnv(config.BBH.Bleve.Gojieba.IDFPath)
+	config.BBH.Bleve.Gojieba.StopWordsPath = os.ExpandEnv(config.BBH.Bleve.Gojieba.StopWordsPath)
 }
 
 func expandFlowcraftDir(dir string) (string, error) {

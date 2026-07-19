@@ -10,6 +10,7 @@ import (
 // New constructs a Flowcraft-backed memory Store from one in-memory config.
 // It starts no background worker and never closes caller-owned dependencies.
 func New(ctx context.Context, config Config) (*Store, error) {
+	config = config.normalized()
 	if err := config.validate(); err != nil {
 		return nil, err
 	}

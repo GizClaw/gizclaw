@@ -40,7 +40,15 @@ func (s *Store) Wait(ctx context.Context, operationID string) (memorystore.Obser
 	known, ok := s.operations[operationID]
 	s.mu.Unlock()
 	if !ok {
-		return observeResult{}, fmt.Errorf("%w: flowcraft operation %q", errNotFound, operationID)
+		if err := s.rehydrateScopeOperations(ctx, scope); err != nil {
+			return observeResult{}, err
+		}
+		s.mu.Lock()
+		known, ok = s.operations[operationID]
+		s.mu.Unlock()
+		if !ok {
+			return observeResult{}, fmt.Errorf("%w: flowcraft operation %q", errNotFound, operationID)
+		}
 	}
 	if known.Operation == nil || known.Operation.Status != operationPending {
 		return cloneObserveResult(known), nil
@@ -178,14 +186,18 @@ func (s *Store) rehydrateScopeOperations(ctx context.Context, scope recall.Scope
 		operation := operations[id]
 		switch operation.status {
 		case flowcraftOperationStatusFailed:
+			s.mu.Lock()
 			s.failed[locator] = struct{}{}
+			s.mu.Unlock()
 			if err := s.finalizeFailedOperations(ctx, []string{locator}); err != nil {
 				return err
 			}
 			continue
 		case flowcraftOperationStatusPrepared, flowcraftOperationStatusReady:
+			s.mu.Lock()
 			s.operations[locator] = observeResult{Operation: &memorystore.Operation{ID: locator, Status: operationPending}}
 			s.ready[locator] = struct{}{}
+			s.mu.Unlock()
 			continue
 		case flowcraftOperationStatusSucceeded:
 			// A completed extraction may intentionally produce no facts.
@@ -194,7 +206,9 @@ func (s *Store) rehydrateScopeOperations(ctx context.Context, scope recall.Scope
 				continue
 			}
 			if len(operation.facts) == 0 {
+				s.mu.Lock()
 				s.operations[locator] = observeResult{Operation: &memorystore.Operation{ID: locator, Status: operationPending}}
+				s.mu.Unlock()
 				continue
 			}
 		default:
@@ -204,7 +218,9 @@ func (s *Store) rehydrateScopeOperations(ctx context.Context, scope recall.Scope
 		if err != nil {
 			return err
 		}
+		s.mu.Lock()
 		s.operations[locator] = result
+		s.mu.Unlock()
 	}
 	return nil
 }

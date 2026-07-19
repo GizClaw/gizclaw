@@ -52,7 +52,7 @@ func TestNewLoadsConfiguredModels(t *testing.T) {
 	t.Parallel()
 	loader := &testFlowcraftLoader{model: testLLM{response: `{"facts":[]}`}, embedder: testEmbedder{}}
 	store, err := New(context.Background(), Config{
-		Loader: loader, Extraction: ExtractionConfig{Model: "extract"}, Embedding: EmbeddingConfig{Model: "embed"}, Rerank: RerankConfig{Model: "rerank"},
+		Loader: loader, Extraction: ExtractionConfig{Model: " extract "}, Embedding: EmbeddingConfig{Model: " embed "}, Rerank: RerankConfig{Model: " rerank "},
 	})
 	if err != nil {
 		t.Fatal(err)
