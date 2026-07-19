@@ -333,6 +333,19 @@ func (t *DoubaoRealtimeDuplex) sessionLoop(ctx context.Context, input genx.Strea
 			return
 		}
 		pending = next
+		// A provider session may close immediately after the last audio frame,
+		// leaving only the local route EOS pending. Consume that boundary before
+		// opening another provider session; the next session starts only when a
+		// meaningful input chunk is available.
+		for pending == nil || realtimeAudioInputEOS(pending) {
+			pending, err = input.Next()
+			if err != nil {
+				if err != io.EOF && err != genx.ErrDone {
+					output.CloseWithError(err)
+				}
+				return
+			}
+		}
 	}
 }
 
@@ -418,6 +431,10 @@ func (t *DoubaoRealtimeDuplex) processLoop(ctx context.Context, input genx.Strea
 	}
 
 	eventsDone := make(chan struct{})
+	var eventsDoneOnce sync.Once
+	markEventsDone := func() {
+		eventsDoneOnce.Do(func() { close(eventsDone) })
+	}
 	eventsErr := make(chan error, 1)
 	finishEventError := func(err error) {
 		if err == nil {
@@ -518,7 +535,7 @@ func (t *DoubaoRealtimeDuplex) processLoop(ctx context.Context, input genx.Strea
 					finishEventError(err)
 				}
 			}
-			close(eventsDone)
+			markEventsDone()
 		}()
 		for event, err := range session.Recv() {
 			if err != nil {
@@ -817,6 +834,9 @@ func (t *DoubaoRealtimeDuplex) processLoop(ctx context.Context, input genx.Strea
 				}
 			case doubaospeech.RealtimeDuplexEventSessionClosed:
 				slog.Info("doubao: realtime duplex session closed")
+				// Publish the terminal session boundary before unwinding Recv so a
+				// concurrently unblocked input chunk belongs to the next session.
+				markEventsDone()
 				return
 			case doubaospeech.RealtimeDuplexEventError:
 				err := fmt.Errorf("doubao realtime duplex event error")
