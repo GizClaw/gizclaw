@@ -23,11 +23,11 @@ const (
 var errASRInputConsumerClosed = errors.New("chatroom: ASR input consumer closed")
 
 type Factory struct {
-	Transformer genx.Transformer
+	Transformer genx.TransformerMux
 }
 
 type config struct {
-	transformer       genx.Transformer
+	transformer       genx.TransformerMux
 	transcriptEnabled bool
 	asrModel          string
 	inputMode         apitypes.WorkspaceInputMode
@@ -225,7 +225,7 @@ func (s *asrInputView) CloseWithError(err error) error {
 	return closeErr
 }
 
-func (a agent) Transform(ctx context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+func (a agent) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 	if input == nil {
 		return nil, fmt.Errorf("chatroom: input stream is required")
 	}

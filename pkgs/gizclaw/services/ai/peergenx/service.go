@@ -77,7 +77,7 @@ type Transformer struct {
 }
 
 var _ genx.Generator = (*Generator)(nil)
-var _ genx.Transformer = (*Transformer)(nil)
+var _ genx.TransformerMux = (*Transformer)(nil)
 
 func New(service Service) *Service {
 	if service.Builder == nil {
@@ -90,7 +90,7 @@ func (s *Service) Generator() genx.Generator {
 	return &Generator{service: s}
 }
 
-func (s *Service) Transformer() genx.Transformer {
+func (s *Service) Transformer() genx.TransformerMux {
 	return &Transformer{service: s}
 }
 
@@ -136,7 +136,7 @@ func (t *Transformer) Transform(ctx context.Context, pattern string, input genx.
 	if err != nil {
 		return nil, err
 	}
-	return impl.Transform(ctx, pattern, input)
+	return impl.Transform(ctx, input)
 }
 
 func (s *Service) builder() Builder {

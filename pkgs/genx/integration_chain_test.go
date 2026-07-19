@@ -53,7 +53,7 @@ func (gxMockGenerator) Invoke(_ context.Context, _ string, _ genx.ModelContext, 
 
 type gxUpperTransformer struct{}
 
-func (gxUpperTransformer) Transform(_ context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+func (gxUpperTransformer) Transform(_ context.Context, input genx.Stream) (genx.Stream, error) {
 	defer input.Close()
 
 	var mcb genx.ModelContextBuilder

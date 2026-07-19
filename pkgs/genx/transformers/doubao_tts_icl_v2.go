@@ -131,7 +131,7 @@ func WithDoubaoTTSICLV2CtxOptions(ctx context.Context, opts DoubaoTTSICLV2CtxOpt
 // DoubaoTTSICLV2 does not require connection setup, so it returns immediately.
 // The ctx is unused (no initialization needed); the goroutine lifetime
 // is governed by the input Stream.
-func (t *DoubaoTTSICLV2) Transform(ctx context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+func (t *DoubaoTTSICLV2) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 	output := newBufferStream(100)
 
 	go runTTSTransform(ctx, input, output, t.mimeType(), t.synthesize)

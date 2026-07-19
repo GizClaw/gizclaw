@@ -2,6 +2,8 @@
 
 DashScope Adapter 通过 `DashScopeRealtime` 将 DashScope realtime multimodal session 适配为 `genx.Transformer`。
 
+公共构造入口为 `dashscoperealtime.New(dashscoperealtime.Config{Client: client})`。Config 保存已解析的 DashScope client、model、voice、modalities、VAD 和 audio format 等不可变选项；constructor 不建立 WebSocket，每个并发 `Transform` 调用建立自己的 session。
+
 ## 核心结构与主函数
 
 | 符号 | 作用 |

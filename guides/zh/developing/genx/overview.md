@@ -40,11 +40,19 @@ type Generator interface {
 
 ```go
 type Transformer interface {
+    Transform(context.Context, Stream) (Stream, error)
+}
+```
+
+它不改变调用模型：输入和输出都使用 `Stream`。具体 Transformer 不接收 model pattern；按 pattern 选择实现属于 `TransformerMux` 和 composition layer。ASR 可以把 audio stream 转为 text stream，TTS 做相反转换，Realtime 和 speech translation 也遵守同一边界。
+
+```go
+type TransformerMux interface {
     Transform(context.Context, string, Stream) (Stream, error)
 }
 ```
 
-它不改变调用模型：输入和输出都使用 `Stream`。ASR 可以把 audio stream 转为 text stream，TTS 做相反转换，Realtime 和 speech translation 也遵守同一边界。
+同一个已配置 Transformer 可以并发执行多个 `Transform`。每次调用独立拥有 context、输入读取、输出缓冲、StreamID 和 provider session；实现不能用 Transformer 级互斥锁串行化互不相关的调用。
 
 ### ModelContext
 

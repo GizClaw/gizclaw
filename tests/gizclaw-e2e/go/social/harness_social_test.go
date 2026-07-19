@@ -612,7 +612,7 @@ func assertChatWorkspaceHistory(t *testing.T, h socialHarness, writerContext, re
 		t.Fatalf("%s reload workspace state = %#v", readerContext, readerState)
 	}
 	readerInput := newBlockingStream()
-	readerOut, err := reader.Transform(ctx, "chatroom-reader", readerInput)
+	readerOut, err := reader.Transform(ctx, readerInput)
 	if err != nil {
 		t.Fatalf("%s open chatroom reader stream: %v", readerContext, err)
 	}
@@ -642,14 +642,14 @@ func assertChatWorkspaceHistory(t *testing.T, h socialHarness, writerContext, re
 }
 
 func sendChatTextAndWaitForHistory(t *testing.T, ctx context.Context, h socialHarness, writer, reader interface {
-	Transform(context.Context, string, genx.Stream) (genx.Stream, error)
+	Transform(context.Context, genx.Stream) (genx.Stream, error)
 	GetWorkspaceHistory(context.Context, string, rpcapi.WorkspaceHistoryGetRequest) (*rpcapi.WorkspaceHistoryGetResponse, error)
 	ListWorkspaceHistory(context.Context, string, rpcapi.WorkspaceHistoryListRequest) (*rpcapi.WorkspaceHistoryListResponse, error)
 	PlayServerRunWorkspaceHistory(context.Context, string, rpcapi.ServerPlayRunWorkspaceHistoryRequest) (*rpcapi.ServerPlayRunWorkspaceHistoryResponse, error)
 }, replayStream genx.Stream, updatedCh <-chan error, writerContext, readerContext, workspaceName, text string) rpcapi.PeerRunHistoryEntry {
 	t.Helper()
 
-	out, err := writer.Transform(ctx, "chatroom", chatTextStream(text))
+	out, err := writer.Transform(ctx, chatTextStream(text))
 	if err != nil {
 		t.Fatalf("%s transform chat text: %v", writerContext, err)
 	}

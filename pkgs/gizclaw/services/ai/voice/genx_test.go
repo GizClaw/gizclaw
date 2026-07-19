@@ -8,7 +8,7 @@ import (
 )
 
 func TestNewTransformerReturnsGenXTransformer(t *testing.T) {
-	var got genx.Transformer = NewTransformer(peergenx.Service{})
+	var got genx.TransformerMux = NewTransformer(peergenx.Service{})
 	if got == nil {
 		t.Fatal("NewTransformer() = nil")
 	}

@@ -7,7 +7,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
 
-var _ genx.Transformer = (*Host)(nil)
+var _ genx.TransformerMux = (*Host)(nil)
 
 type Host struct {
 	Resolver        Resolver
@@ -44,7 +44,7 @@ func (h *Host) Transform(ctx context.Context, pattern string, input genx.Stream)
 	if err != nil {
 		return nil, err
 	}
-	output, err := agent.Transform(ctx, pattern, input)
+	output, err := agent.Transform(ctx, input)
 	if err != nil {
 		release()
 		return nil, err

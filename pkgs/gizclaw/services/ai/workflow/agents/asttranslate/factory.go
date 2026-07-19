@@ -27,7 +27,7 @@ const Type = "ast-translate"
 const interruptibleAssistantChunkGrace = 160 * time.Millisecond
 
 type Factory struct {
-	Transformer genx.Transformer
+	Transformer genx.TransformerMux
 }
 
 func (f Factory) NewAgent(_ context.Context, spec agenthost.Spec) (agenthost.Agent, error) {
@@ -52,11 +52,11 @@ func (f Factory) NewAgent(_ context.Context, spec agenthost.Spec) (agenthost.Age
 }
 
 type patternTransformer struct {
-	Transformer genx.Transformer
+	Transformer genx.TransformerMux
 	Pattern     string
 }
 
-func (t patternTransformer) Transform(ctx context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+func (t patternTransformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 	if t.Transformer == nil {
 		return nil, fmt.Errorf("asttranslate: transformer is required")
 	}
@@ -68,14 +68,14 @@ type interruptibleTransformer struct {
 	keepActiveAfterTextEOS bool
 }
 
-func (t interruptibleTransformer) Transform(ctx context.Context, pattern string, input genx.Stream) (genx.Stream, error) {
+func (t interruptibleTransformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 	if t.Transformer == nil {
 		return nil, fmt.Errorf("asttranslate: transformer is required")
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	out := newInterruptibleOutput(t.keepActiveAfterTextEOS)
 	observedInput := newObservedInputStream(ctx, input, out.interrupt)
-	inner, err := t.Transformer.Transform(ctx, pattern, observedInput)
+	inner, err := t.Transformer.Transform(ctx, observedInput)
 	if err != nil {
 		cancel()
 		observedInput.CloseWithError(err)
@@ -657,12 +657,12 @@ func astTranslateWorkspaceTTSVoice(typed apitypes.ASTTranslateWorkspaceParameter
 }
 
 type externalVoiceTransformer struct {
-	Transformer genx.Transformer
+	Transformer genx.TransformerMux
 	ASTPattern  string
 	TTSPattern  string
 }
 
-func (t externalVoiceTransformer) Transform(ctx context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+func (t externalVoiceTransformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 	if t.Transformer == nil {
 		return nil, fmt.Errorf("asttranslate: transformer is required")
 	}

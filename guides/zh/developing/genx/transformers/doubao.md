@@ -2,6 +2,16 @@
 
 Doubao Speech Adapter 将豆包语音协议适配为 `genx.Transformer`，覆盖单向识别、语音生成、实时对话、双工实时对话和语音翻译。
 
+Agent-capable adapters 的公共构造入口分别是：
+
+```go
+doubaoast.New(doubaoast.Config{Client: client})
+doubaorealtime.New(doubaorealtime.Config{Client: client})
+doubaorealtimeduplex.New(doubaorealtimeduplex.Config{Client: client})
+```
+
+每个 constructor 返回实现 `genx.Transformer` 的具体 `*Transformer`，不接收 Workspace 或 Workflow。Config 只包含已解析的 provider client 和不可变 session option；每次 `Transform` 使用独立 session/WebSocket。Realtime Duplex 的 Config 在本层不包含 Tool 或 Toolkit。
+
 ## 能力
 
 | Transformer | 输入与输出 |

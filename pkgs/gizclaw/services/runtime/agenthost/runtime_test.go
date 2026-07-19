@@ -363,8 +363,8 @@ func TestServiceWorkspaceStateMergesOpenAgentStatus(t *testing.T) {
 	if _, err := svc.Reload(ctx); err != nil {
 		t.Fatalf("Reload() error = %v", err)
 	}
-	if host.pattern != "workspaces/demo" || agent.pattern != "workspaces/demo" {
-		t.Fatalf("patterns host=%q agent=%q", host.pattern, agent.pattern)
+	if host.pattern != "workspaces/demo" {
+		t.Fatalf("host pattern = %q", host.pattern)
 	}
 	state, err := svc.WorkspaceState(ctx)
 	if err != nil {
@@ -687,7 +687,7 @@ func TestInputStreamPushNextAndNil(t *testing.T) {
 	}
 }
 
-func testService(t *testing.T, publicKey giznet.PublicKey, store *peerrun.Server, host genx.Transformer) *Service {
+func testService(t *testing.T, publicKey giznet.PublicKey, store *peerrun.Server, host genx.TransformerMux) *Service {
 	t.Helper()
 	return &Service{
 		Host:      host,
@@ -771,13 +771,11 @@ func (h *runtimeTestOpenAgentHost) OpenAgent(_ context.Context, pattern string) 
 }
 
 type runtimeTestAgent struct {
-	output  genx.Stream
-	state   apitypes.PeerRunWorkspaceState
-	pattern string
+	output genx.Stream
+	state  apitypes.PeerRunWorkspaceState
 }
 
-func (a *runtimeTestAgent) Transform(_ context.Context, pattern string, input genx.Stream) (genx.Stream, error) {
-	a.pattern = pattern
+func (a *runtimeTestAgent) Transform(_ context.Context, input genx.Stream) (genx.Stream, error) {
 	if input == nil {
 		return nil, errors.New("input required")
 	}
@@ -811,7 +809,7 @@ type multiAttachAgent struct {
 	output    []*genx.StreamBuilder
 }
 
-func (a *multiAttachAgent) Transform(ctx context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+func (a *multiAttachAgent) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 	if input == nil {
 		return nil, errors.New("input required")
 	}

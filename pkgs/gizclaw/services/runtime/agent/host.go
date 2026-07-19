@@ -7,7 +7,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
 
-var _ genx.Transformer = (*Host)(nil)
+var _ genx.TransformerMux = (*Host)(nil)
 
 // Host resolves a workspace pattern and loads the workflow transformer for one
 // agent run. It does not own any per-workspace singleton state.
@@ -57,7 +57,7 @@ func (h *Host) Transform(ctx context.Context, pattern string, input genx.Stream)
 	if transformer == nil {
 		return nil, fmt.Errorf("agent: factory %q returned nil agent", spec.WorkflowType)
 	}
-	output, err := transformer.Transform(ctx, pattern, input)
+	output, err := transformer.Transform(ctx, input)
 	if err != nil {
 		return nil, err
 	}

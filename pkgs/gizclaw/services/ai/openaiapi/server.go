@@ -38,7 +38,7 @@ type Server struct {
 	Models      ModelLister
 	Voices      VoiceLister
 	Generator   genx.Generator
-	Transformer genx.Transformer
+	Transformer genx.TransformerMux
 	Now         func() time.Time
 }
 

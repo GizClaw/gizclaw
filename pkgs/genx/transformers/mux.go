@@ -5,15 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"sync"
-	"sync/atomic"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/buffer"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/agentkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/trie"
 )
 
-var _ genx.Transformer = (*Mux)(nil)
+var _ genx.TransformerMux = (*Mux)(nil)
 
 // DefaultMux is the default transformer multiplexer.
 var DefaultMux = NewMux()
@@ -55,7 +53,7 @@ func (m *Mux) Transform(ctx context.Context, pattern string, input genx.Stream) 
 	if err != nil {
 		return nil, err
 	}
-	return t.Transform(ctx, pattern, input)
+	return t.Transform(ctx, input)
 }
 
 func (m *Mux) get(pattern string) (genx.Transformer, error) {
@@ -70,90 +68,28 @@ func (m *Mux) get(pattern string) (genx.Transformer, error) {
 	return t, nil
 }
 
-// bufferStream wraps a buffer.Buffer as a genx.Stream.
+// bufferStream preserves the package-private compatibility surface while the
+// provider-neutral implementation lives in agentkit.
 type bufferStream struct {
-	buf                 *buffer.Buffer[*genx.MessageChunk]
-	done                chan struct{}
-	closeOnce           sync.Once
-	observationDeferred atomic.Bool
-	observationMu       sync.RWMutex
-	observeOutput       func(*genx.MessageChunk)
+	*agentkit.Output
 }
 
 func newBufferStream(size int) *bufferStream {
-	return &bufferStream{buf: buffer.N[*genx.MessageChunk](size), done: make(chan struct{})}
-}
-
-func (s *bufferStream) Next() (*genx.MessageChunk, error) {
-	chunk, err := s.buf.Next()
-	if err != nil {
-		if err == buffer.ErrIteratorDone {
-			return nil, io.EOF
-		}
-		return nil, err
-	}
-	if chunk != nil && !s.observationDeferred.Load() {
-		s.ObserveOutput(chunk)
-	}
-	return chunk, nil
-}
-
-func (s *bufferStream) DeferOutputObservation() {
-	if s != nil {
-		s.observationDeferred.Store(true)
-	}
-}
-
-func (s *bufferStream) ObserveOutput(chunk *genx.MessageChunk) {
-	if s == nil || chunk == nil {
-		return
-	}
-	s.observationMu.RLock()
-	observe := s.observeOutput
-	s.observationMu.RUnlock()
-	if observe != nil {
-		observe(chunk)
-	}
+	return &bufferStream{Output: agentkit.NewOutput(agentkit.OutputConfig{InitialCapacity: size})}
 }
 
 func (s *bufferStream) setOutputObserver(observe func(*genx.MessageChunk)) {
 	if s == nil {
 		return
 	}
-	s.observationMu.Lock()
-	s.observeOutput = observe
-	s.observationMu.Unlock()
-}
-
-func (s *bufferStream) Close() error {
-	s.closeOnce.Do(func() {
-		close(s.done)
-		s.buf.CloseWrite()
-	})
-	return nil
-}
-
-func (s *bufferStream) CloseWithError(err error) error {
-	s.closeOnce.Do(func() {
-		close(s.done)
-		s.buf.CloseWithError(err)
-	})
-	return nil
-}
-
-func (s *bufferStream) Push(chunk *genx.MessageChunk) error {
-	return s.buf.Add(chunk)
+	s.SetOutputObserver(observe)
 }
 
 func (s *bufferStream) discard(predicate func(*genx.MessageChunk) bool) int {
-	if s == nil || s.buf == nil {
+	if s == nil || s.Output == nil {
 		return 0
 	}
-	return s.buf.RemoveIf(predicate)
-}
-
-func (s *bufferStream) Done() <-chan struct{} {
-	return s.done
+	return s.Discard(predicate)
 }
 
 // streamToReader converts a genx.Stream of Text chunks to an io.Reader.

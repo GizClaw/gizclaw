@@ -15,7 +15,7 @@ func TestWorkflowEchoesTextChunks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewAgent() error = %v", err)
 	}
-	out, err := transformer.Transform(context.Background(), "demo", &sliceStream{chunks: []*genx.MessageChunk{
+	out, err := transformer.Transform(context.Background(), &sliceStream{chunks: []*genx.MessageChunk{
 		{Role: genx.RoleUser, Part: genx.Text("hello")},
 		{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 2}}},
 	}})
@@ -54,7 +54,7 @@ func TestWorkflowCustomPrefixAndClose(t *testing.T) {
 	input := &closeRecordingStream{sliceStream: sliceStream{chunks: []*genx.MessageChunk{
 		{Role: genx.RoleUser, Part: genx.Text("hello")},
 	}}}
-	out, err := transformer.Transform(context.Background(), "demo", input)
+	out, err := transformer.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -78,12 +78,12 @@ func TestWorkflowErrorsAndCloseWithError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewAgent() error = %v", err)
 	}
-	if _, err := transformer.Transform(context.Background(), "demo", nil); err == nil {
+	if _, err := transformer.Transform(context.Background(), nil); err == nil {
 		t.Fatal("Transform(nil) error = nil")
 	}
 
 	input := &closeRecordingStream{}
-	out, err := transformer.Transform(context.Background(), "demo", input)
+	out, err := transformer.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -96,7 +96,7 @@ func TestWorkflowErrorsAndCloseWithError(t *testing.T) {
 	}
 
 	input = &closeRecordingStream{}
-	out, err = transformer.Transform(context.Background(), "demo", input)
+	out, err = transformer.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -114,7 +114,7 @@ func TestWorkflowContextCancellation(t *testing.T) {
 		t.Fatalf("NewAgent() error = %v", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	out, err := transformer.Transform(ctx, "demo", &sliceStream{chunks: []*genx.MessageChunk{{Part: genx.Text("hello")}}})
+	out, err := transformer.Transform(ctx, &sliceStream{chunks: []*genx.MessageChunk{{Part: genx.Text("hello")}}})
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}

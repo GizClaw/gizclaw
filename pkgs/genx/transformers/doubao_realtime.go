@@ -334,7 +334,7 @@ func WithDoubaoRealtimeCtxOptions(ctx context.Context, opts DoubaoRealtimeCtxOpt
 
 // Transform converts audio input to audio output via realtime dialogue.
 // It returns the output stream immediately and reports connection errors on it.
-func (t *DoubaoRealtime) Transform(ctx context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+func (t *DoubaoRealtime) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 	config := t.realtimeConfig()
 	slog.Info(
 		"doubao: realtime session config",

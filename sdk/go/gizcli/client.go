@@ -52,7 +52,7 @@ type Client struct {
 type DialTransportFunc func(key *giznet.KeyPair, serverPK giznet.PublicKey, serverAddr string, securityPolicy giznet.SecurityPolicy) (giznet.Listener, giznet.Conn, error)
 
 // Transform bridges a local genx stream to the connected peer workspace stream.
-func (c *Client) Transform(ctx context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+func (c *Client) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 	if c == nil {
 		return nil, fmt.Errorf("gizclaw: nil client")
 	}

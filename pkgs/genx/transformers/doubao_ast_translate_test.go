@@ -49,7 +49,7 @@ func TestDoubaoASTTranslateStreamsTranslationAndAudio(t *testing.T) {
 		}
 		return fake, nil
 	}
-	out, err := tr.Transform(context.Background(), "", input)
+	out, err := tr.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -125,7 +125,7 @@ func TestDoubaoASTTranslateSplitsProviderSubtitleSegments(t *testing.T) {
 	tr.newSession = func(context.Context, doubaospeech.ASTTranslateConfig) (doubaoASTTranslateSession, error) {
 		return fake, nil
 	}
-	out, err := tr.Transform(context.Background(), "", input)
+	out, err := tr.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -202,7 +202,7 @@ func TestDoubaoASTTranslatePushToTalkKeepsProviderSegmentsInOneTurn(t *testing.T
 	tr.newSession = func(context.Context, doubaospeech.ASTTranslateConfig) (doubaoASTTranslateSession, error) {
 		return fake, nil
 	}
-	out, err := tr.Transform(context.Background(), "", input)
+	out, err := tr.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -412,7 +412,7 @@ func TestDoubaoASTTranslatePTTOutputLimitKeepsTransformerUsable(t *testing.T) {
 		sessions = sessions[1:]
 		return next, nil
 	}
-	out, err := tr.Transform(context.Background(), "", input)
+	out, err := tr.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -584,7 +584,7 @@ func TestDoubaoASTTranslatePTTProviderErrorBeforeEOSDoesNotLeak(t *testing.T) {
 	tr.newSession = func(context.Context, doubaospeech.ASTTranslateConfig) (doubaoASTTranslateSession, error) {
 		return fake, nil
 	}
-	out, err := tr.Transform(context.Background(), "", input)
+	out, err := tr.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -653,7 +653,7 @@ func TestDoubaoASTTranslatePushToTalkS2TCommitsAtEOS(t *testing.T) {
 		}
 		return fake, nil
 	}
-	out, err := tr.Transform(context.Background(), "", input)
+	out, err := tr.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -712,7 +712,7 @@ func TestDoubaoASTTranslateRealtimeStillPublishesBeforeEOS(t *testing.T) {
 	tr.newSession = func(context.Context, doubaospeech.ASTTranslateConfig) (doubaoASTTranslateSession, error) {
 		return fake, nil
 	}
-	out, err := tr.Transform(context.Background(), "", input)
+	out, err := tr.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -763,7 +763,7 @@ func TestDoubaoASTTranslatePushToTalkCancelBeforeEOSDoesNotLeak(t *testing.T) {
 	tr.newSession = func(context.Context, doubaospeech.ASTTranslateConfig) (doubaoASTTranslateSession, error) {
 		return fake, nil
 	}
-	out, err := tr.Transform(ctx, "", input)
+	out, err := tr.Transform(ctx, input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -812,7 +812,7 @@ func TestDoubaoASTTranslateInterruptsActiveSessionOnNewInputStream(t *testing.T)
 		sessions = sessions[1:]
 		return next, nil
 	}
-	out, err := tr.Transform(context.Background(), "", input)
+	out, err := tr.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -894,7 +894,7 @@ func TestDoubaoASTTranslateRealtimeStartsNextSessionAfterPreviousFinished(t *tes
 		sessions = sessions[1:]
 		return next, nil
 	}
-	out, err := tr.Transform(context.Background(), "", input)
+	out, err := tr.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -983,7 +983,7 @@ func TestDoubaoASTTranslateIgnoresLateInterruptedStreamChunks(t *testing.T) {
 		sessions = sessions[1:]
 		return next, nil
 	}
-	out, err := tr.Transform(context.Background(), "", input)
+	out, err := tr.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}

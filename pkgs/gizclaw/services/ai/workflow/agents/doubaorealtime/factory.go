@@ -17,7 +17,7 @@ import (
 const Type = "doubao-realtime"
 
 type Factory struct {
-	Transformer genx.Transformer
+	Transformer genx.TransformerMux
 }
 
 func (f Factory) NewAgent(_ context.Context, spec agenthost.Spec) (agenthost.Agent, error) {
@@ -32,11 +32,11 @@ func (f Factory) NewAgent(_ context.Context, spec agenthost.Spec) (agenthost.Age
 }
 
 type patternTransformer struct {
-	Transformer genx.Transformer
+	Transformer genx.TransformerMux
 	Pattern     string
 }
 
-func (t patternTransformer) Transform(ctx context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+func (t patternTransformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 	if t.Transformer == nil {
 		return nil, fmt.Errorf("doubaorealtime: transformer is required")
 	}

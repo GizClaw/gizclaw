@@ -53,7 +53,7 @@ func (f StreamConsumerFunc) ConsumeAgentOutput(ctx context.Context, stream genx.
 type WorkspaceSelectionValidatorFunc func(context.Context, string) (string, error)
 
 type Service struct {
-	Host                       genx.Transformer
+	Host                       genx.TransformerMux
 	PeerRun                    PeerRunStore
 	RuntimeProfile             func() *apitypes.RuntimeProfile
 	ValidateWorkspaceSelection WorkspaceSelectionValidatorFunc
@@ -187,7 +187,7 @@ func (s *Service) openAgentOutput(ctx context.Context, pattern string, input gen
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		output, err := agent.Transform(ctx, pattern, input)
+		output, err := agent.Transform(ctx, input)
 		if err != nil {
 			if release != nil {
 				release()
@@ -200,7 +200,16 @@ func (s *Service) openAgentOutput(ctx context.Context, pattern string, input gen
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return asAgent(s.Host), nil, output, nil
+	return asAgent(boundTransformer{mux: s.Host, pattern: pattern}), nil, output, nil
+}
+
+type boundTransformer struct {
+	mux     genx.TransformerMux
+	pattern string
+}
+
+func (t boundTransformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+	return t.mux.Transform(ctx, t.pattern, input)
 }
 
 func (s *Service) Status(context.Context) (apitypes.PeerRunStatus, error) {

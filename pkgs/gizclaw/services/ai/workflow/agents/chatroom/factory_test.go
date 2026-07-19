@@ -101,7 +101,7 @@ func TestAgentTransformForwardsTextInputAsTranscript(t *testing.T) {
 		},
 		doneErr: genx.ErrDone,
 	}
-	output, err := agent.Transform(context.Background(), "demo", input)
+	output, err := agent.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -145,7 +145,7 @@ func TestAgentTransformDrainsAudioInputWhenTranscriptDisabled(t *testing.T) {
 		},
 		doneErr: genx.ErrDone,
 	}
-	output, err := agent.Transform(context.Background(), "demo", input)
+	output, err := agent.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -167,7 +167,7 @@ func TestAgentTransformRejectsNilInput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewAgent() error = %v", err)
 	}
-	if _, err := agent.Transform(context.Background(), "demo", nil); err == nil || !strings.Contains(err.Error(), "input stream is required") {
+	if _, err := agent.Transform(context.Background(), nil); err == nil || !strings.Contains(err.Error(), "input stream is required") {
 		t.Fatalf("Transform(nil) error = %v, want input stream error", err)
 	}
 }
@@ -180,7 +180,7 @@ func TestAgentTransformPropagatesInputError(t *testing.T) {
 		t.Fatalf("NewAgent() error = %v", err)
 	}
 	want := errors.New("input failed")
-	output, err := agent.Transform(context.Background(), "demo", &recordingStream{doneErr: want})
+	output, err := agent.Transform(context.Background(), &recordingStream{doneErr: want})
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -220,7 +220,7 @@ func TestWorkspaceTranscriptOverrideModel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewAgent() error = %v", err)
 	}
-	output, err := agent.Transform(context.Background(), "demo", &recordingStream{
+	output, err := agent.Transform(context.Background(), &recordingStream{
 		chunks: []*genx.MessageChunk{
 			{Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{EndOfStream: true}},
 		},
@@ -250,7 +250,7 @@ func TestAgentTransformTranscriptForwardsTextOnlyInput(t *testing.T) {
 		},
 		doneErr: genx.ErrDone,
 	}
-	output, err := agent.Transform(context.Background(), "demo", input)
+	output, err := agent.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -296,7 +296,7 @@ func TestAgentTransformTranscriptClosesMultipleTextStreams(t *testing.T) {
 		},
 		doneErr: genx.ErrDone,
 	}
-	output, err := agent.Transform(context.Background(), "demo", input)
+	output, err := agent.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -334,7 +334,7 @@ func TestAgentTransformReportsASRStartError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewAgent() error = %v", err)
 	}
-	output, err := agent.Transform(context.Background(), "demo", &recordingStream{
+	output, err := agent.Transform(context.Background(), &recordingStream{
 		chunks: []*genx.MessageChunk{
 			{Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}}},
 		},
@@ -356,7 +356,7 @@ func TestAgentTransformReportsAudioInputError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewAgent() error = %v", err)
 	}
-	output, err := agent.Transform(context.Background(), "demo", &recordingStream{
+	output, err := agent.Transform(context.Background(), &recordingStream{
 		chunks: []*genx.MessageChunk{
 			{Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}}},
 		},
@@ -387,7 +387,7 @@ func TestAgentTransformPreservesASRInputConsumerError(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("input.Add() error = %v", err)
 	}
-	output, err := agent.Transform(context.Background(), "demo", input.Stream())
+	output, err := agent.Transform(context.Background(), input.Stream())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -425,7 +425,7 @@ func TestAgentTransformCancellationStopsASRPipeline(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	output, err := agent.Transform(ctx, "demo", input.Stream())
+	output, err := agent.Transform(ctx, input.Stream())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -477,7 +477,7 @@ func TestAgentTransformCancellationAbortsFullASRInputBuffer(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	output, err := agent.Transform(ctx, "demo", input)
+	output, err := agent.Transform(ctx, input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -524,7 +524,7 @@ func TestAgentTransformNormalASRConsumerCloseStopsFeeder(t *testing.T) {
 			Ctrl: &genx.StreamCtrl{StreamID: "turn-a"},
 		})
 	}
-	output, err := agent.Transform(t.Context(), "demo", input)
+	output, err := agent.Transform(t.Context(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -564,7 +564,7 @@ func TestAgentTransformTranscribesAudioInput(t *testing.T) {
 		},
 		doneErr: genx.ErrDone,
 	}
-	output, err := agent.Transform(context.Background(), "demo", input)
+	output, err := agent.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -698,7 +698,7 @@ func TestAgentTransformTranscribesAudioInputAddsHistoryEOSOnInputDone(t *testing
 		},
 		doneErr: genx.ErrDone,
 	}
-	output, err := agent.Transform(context.Background(), "demo", input)
+	output, err := agent.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -754,7 +754,7 @@ func TestAgentTransformRealtimeTranscribesASRSegmentStreams(t *testing.T) {
 	input := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	output, err := agent.Transform(ctx, "demo", input.Stream())
+	output, err := agent.Transform(ctx, input.Stream())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}

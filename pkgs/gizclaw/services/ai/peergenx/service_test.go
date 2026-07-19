@@ -1719,7 +1719,7 @@ func (b fakeBuilder) BuildTransformer(_ context.Context, cfg TransformerConfig) 
 	} else if cfg.Voice != nil {
 		*b.events = append(*b.events, "build:transformer:voice:"+cfg.Voice.Id)
 	}
-	return fakeTransformer{events: b.events}, nil
+	return fakeTransformer{events: b.events, pattern: cfg.Pattern}, nil
 }
 
 type fakeGenerator struct {
@@ -1737,11 +1737,12 @@ func (g fakeGenerator) Invoke(_ context.Context, pattern string, _ genx.ModelCon
 }
 
 type fakeTransformer struct {
-	events *[]string
+	events  *[]string
+	pattern string
 }
 
-func (t fakeTransformer) Transform(_ context.Context, pattern string, input genx.Stream) (genx.Stream, error) {
-	*t.events = append(*t.events, "call:transformer:"+pattern)
+func (t fakeTransformer) Transform(_ context.Context, input genx.Stream) (genx.Stream, error) {
+	*t.events = append(*t.events, "call:transformer:"+t.pattern)
 	return input, nil
 }
 

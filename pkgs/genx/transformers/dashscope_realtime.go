@@ -265,7 +265,7 @@ func (s *DashScopeStream) TriggerResponse() error {
 // Transform converts audio input to audio output via Qwen-Omni realtime.
 // It synchronously waits for the WebSocket connection to be established
 // and session.created event to be received before returning.
-func (t *DashScopeRealtime) Transform(ctx context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+func (t *DashScopeRealtime) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 	// Connect to realtime service
 	session, err := t.client.Realtime.Connect(ctx, &dashscope.RealtimeConfig{
 		Model: t.model,

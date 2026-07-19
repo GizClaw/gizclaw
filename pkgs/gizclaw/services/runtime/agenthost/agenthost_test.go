@@ -486,7 +486,7 @@ func rawWorkflow(t *testing.T, driver string) apitypes.Workflow {
 
 type passthroughTransformer struct{}
 
-func (passthroughTransformer) Transform(_ context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+func (passthroughTransformer) Transform(_ context.Context, input genx.Stream) (genx.Stream, error) {
 	return input, nil
 }
 
@@ -494,13 +494,13 @@ type fixedTransformer struct {
 	text string
 }
 
-func (t fixedTransformer) Transform(context.Context, string, genx.Stream) (genx.Stream, error) {
+func (t fixedTransformer) Transform(context.Context, genx.Stream) (genx.Stream, error) {
 	return &fixedStream{chunks: []*genx.MessageChunk{{Part: genx.Text(t.text)}}}, nil
 }
 
 type nilStreamTransformer struct{}
 
-func (nilStreamTransformer) Transform(context.Context, string, genx.Stream) (genx.Stream, error) {
+func (nilStreamTransformer) Transform(context.Context, genx.Stream) (genx.Stream, error) {
 	return nil, nil
 }
 

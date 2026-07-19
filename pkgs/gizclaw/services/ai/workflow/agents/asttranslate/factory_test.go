@@ -49,7 +49,7 @@ func TestFactoryMergesWorkflowAndWorkspaceParams(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewAgent() error = %v", err)
 	}
-	stream, err := agent.Transform(context.Background(), "ignored", emptyStream{})
+	stream, err := agent.Transform(context.Background(), emptyStream{})
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -170,7 +170,7 @@ func TestExternalVoiceTransformerForwardsASTTextAndTTSAudio(t *testing.T) {
 		ASTPattern:  "model/ast?source_language=zh&target_language=en",
 		TTSPattern:  "voice/voice-a",
 	}
-	out, err := agent.Transform(context.Background(), "ignored", emptyStream{})
+	out, err := agent.Transform(context.Background(), emptyStream{})
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -392,22 +392,22 @@ func TestInterruptibleOutputKeepsExternalTTSPendingAfterTextEOS(t *testing.T) {
 }
 
 func TestInterruptibleTransformerBranches(t *testing.T) {
-	if _, err := (interruptibleTransformer{}).Transform(context.Background(), "", emptyStream{}); err == nil {
+	if _, err := (interruptibleTransformer{}).Transform(context.Background(), emptyStream{}); err == nil {
 		t.Fatalf("Transform() without inner transformer succeeded, want error")
 	}
 
 	expected := errors.New("inner failed")
-	failing := interruptibleTransformer{Transformer: transformFunc(func(context.Context, string, genx.Stream) (genx.Stream, error) {
+	failing := interruptibleTransformer{Transformer: transformFunc(func(context.Context, genx.Stream) (genx.Stream, error) {
 		return nil, expected
 	})}
-	if _, err := failing.Transform(context.Background(), "", emptyStream{}); !errors.Is(err, expected) {
+	if _, err := failing.Transform(context.Background(), emptyStream{}); !errors.Is(err, expected) {
 		t.Fatalf("Transform() error = %v, want %v", err, expected)
 	}
 
-	forwarding := interruptibleTransformer{Transformer: transformFunc(func(_ context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+	forwarding := interruptibleTransformer{Transformer: transformFunc(func(_ context.Context, input genx.Stream) (genx.Stream, error) {
 		return &inputEchoStream{input: input}, nil
 	})}
-	out, err := forwarding.Transform(context.Background(), "", streamFromChunks(genx.NewBeginOfStream("turn-1")))
+	out, err := forwarding.Transform(context.Background(), streamFromChunks(genx.NewBeginOfStream("turn-1")))
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -426,10 +426,10 @@ func TestInterruptibleTransformerBranches(t *testing.T) {
 func TestInterruptibleTransformerObservesInputBeforeInnerReads(t *testing.T) {
 	input := genx.NewRealtimeStream(genx.WithRealtimeStreamDelay(0))
 	innerOutput := genx.NewRealtimeStream(genx.WithRealtimeStreamDelay(0))
-	transformer := interruptibleTransformer{Transformer: transformFunc(func(context.Context, string, genx.Stream) (genx.Stream, error) {
+	transformer := interruptibleTransformer{Transformer: transformFunc(func(context.Context, genx.Stream) (genx.Stream, error) {
 		return innerOutput, nil
 	})}
-	out, err := transformer.Transform(context.Background(), "", input)
+	out, err := transformer.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -571,7 +571,7 @@ func TestFactoryAndPatternErrors(t *testing.T) {
 	if _, err := (Factory{Transformer: recordingTransformer{}}).NewAgent(context.Background(), agenthost.Spec{}); err == nil {
 		t.Fatalf("Factory.NewAgent() without AST spec succeeded, want error")
 	}
-	if _, err := (patternTransformer{}).Transform(context.Background(), "", emptyStream{}); err == nil {
+	if _, err := (patternTransformer{}).Transform(context.Background(), emptyStream{}); err == nil {
 		t.Fatalf("patternTransformer.Transform() without transformer succeeded, want error")
 	}
 
@@ -686,10 +686,10 @@ func (recordingTransformer) Transform(_ context.Context, pattern string, _ genx.
 	return builder.Stream(), nil
 }
 
-type transformFunc func(context.Context, string, genx.Stream) (genx.Stream, error)
+type transformFunc func(context.Context, genx.Stream) (genx.Stream, error)
 
-func (f transformFunc) Transform(ctx context.Context, pattern string, input genx.Stream) (genx.Stream, error) {
-	return f(ctx, pattern, input)
+func (f transformFunc) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+	return f(ctx, input)
 }
 
 type inputEchoStream struct {

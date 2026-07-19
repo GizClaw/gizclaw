@@ -612,7 +612,7 @@ func (a *agent) Recall(ctx context.Context, req apitypes.PeerRunRecallRequest) (
 }
 
 type transformerProvider interface {
-	Transformer() genx.Transformer
+	Transformer() genx.TransformerMux
 }
 
 type clawClient interface {
@@ -900,7 +900,7 @@ func countFileLines(path string) (int64, error) {
 	return lines, nil
 }
 
-func (a *agent) Transform(ctx context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+func (a *agent) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 	if a == nil {
 		return nil, fmt.Errorf("flowcraft: agent is nil")
 	}

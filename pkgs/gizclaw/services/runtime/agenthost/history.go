@@ -102,7 +102,7 @@ type historyForwardChunkKey struct {
 	mimeType string
 }
 
-func (a *historyAgent) Transform(ctx context.Context, pattern string, input genx.Stream) (genx.Stream, error) {
+func (a *historyAgent) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 	if a == nil || a.Agent == nil {
 		return nil, fmt.Errorf("agenthost: history agent is nil")
 	}
@@ -121,7 +121,7 @@ func (a *historyAgent) Transform(ctx context.Context, pattern string, input genx
 	a.outputs[outputKey] = outputState
 	a.outputMu.Unlock()
 	recorder := newHistoryRecorder(a.history, historyGearID(ctx), a.notifyHistoryUpdated)
-	agentOutput, err := a.Agent.Transform(ctx, pattern, input)
+	agentOutput, err := a.Agent.Transform(ctx, input)
 	if err != nil {
 		a.clearOutput(outputKey, outputState)
 		_ = output.Abort(err)

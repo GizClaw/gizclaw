@@ -68,7 +68,7 @@ func runDuplexConversation(t *testing.T, tfr genx.Transformer, packets [][]byte)
 	input := genx.NewRealtimeStream(genx.WithRealtimeStreamDelay(0))
 	defer input.CloseWithError(context.Canceled)
 
-	output, err := tfr.Transform(ctx, "doubao/realtime_duplex/e2e", input)
+	output, err := tfr.Transform(ctx, input)
 	if err != nil {
 		t.Fatalf("Transform() failed: %v", err)
 	}

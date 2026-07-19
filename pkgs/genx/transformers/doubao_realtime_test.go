@@ -488,7 +488,7 @@ func TestDoubaoRealtimePTTLateTerminalEventKeepsOriginalTurnBinding(t *testing.T
 		WithDoubaoRealtimeFormat("pcm"),
 	)
 	input := newBufferStream(16)
-	output, err := tfr.Transform(context.Background(), "", input)
+	output, err := tfr.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -577,7 +577,7 @@ func TestDoubaoRealtimePTTBargeInIgnoresDelayedASRTerminal(t *testing.T) {
 		WithDoubaoRealtimeFormat("pcm"),
 	)
 	input := newBufferStream(16)
-	output, err := tfr.Transform(context.Background(), "", input)
+	output, err := tfr.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -788,7 +788,7 @@ func TestDoubaoRealtimeSessionLoopRetriesAndReusesDialogID(t *testing.T) {
 	tfr.retryInitial = time.Millisecond
 	tfr.retryMax = 2 * time.Millisecond
 	input := newBlockingRealtimeStream()
-	output, err := tfr.Transform(context.Background(), "", input)
+	output, err := tfr.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -816,7 +816,7 @@ func TestDoubaoRealtimeSessionLoopStopsRetryWhenInputEnds(t *testing.T) {
 	tfr := NewDoubaoRealtime(nil, withDoubaoRealtimeOpener(opener))
 	tfr.retryInitial = time.Hour
 	tfr.retryMax = time.Hour
-	output, err := tfr.Transform(context.Background(), "", &gatedRealtimeStream{gate: allowEOF})
+	output, err := tfr.Transform(context.Background(), &gatedRealtimeStream{gate: allowEOF})
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -839,7 +839,7 @@ func TestDoubaoRealtimeSessionLoopReplacesFinishedSession(t *testing.T) {
 	}}
 	tfr := NewDoubaoRealtime(nil, withDoubaoRealtimeOpener(opener))
 	input := newBlockingRealtimeStream()
-	output, err := tfr.Transform(context.Background(), "", input)
+	output, err := tfr.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -875,7 +875,7 @@ func TestDoubaoRealtimeSessionLoopResetsBackoffAfterSuccessfulSession(t *testing
 		return true
 	}
 	input := newBlockingRealtimeStream()
-	output, err := tfr.Transform(context.Background(), "", input)
+	output, err := tfr.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -918,7 +918,7 @@ func TestDoubaoRealtimeTextDrainsFinalResponseAfterInputEOF(t *testing.T) {
 	)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	output, err := tfr.Transform(ctx, "", &sliceRealtimeStream{chunks: []*genx.MessageChunk{{Part: genx.Text("question")}}})
+	output, err := tfr.Transform(ctx, &sliceRealtimeStream{chunks: []*genx.MessageChunk{{Part: genx.Text("question")}}})
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -1030,7 +1030,7 @@ func TestDoubaoRealtimeTextReplacementSessionRestoresOutputAcceptance(t *testing
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	output, err := tfr.Transform(ctx, "", input)
+	output, err := tfr.Transform(ctx, input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -1083,7 +1083,7 @@ func TestDoubaoRealtimePTTDrainsFinalResponseAfterInputEOF(t *testing.T) {
 	}}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	output, err := tfr.Transform(ctx, "", input)
+	output, err := tfr.Transform(ctx, input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -1127,7 +1127,7 @@ func TestDoubaoRealtimeDoesNotReplayAmbiguousTextAfterReconnect(t *testing.T) {
 	if err := input.Push(&genx.MessageChunk{Part: genx.Text("first")}); err != nil {
 		t.Fatalf("Push(first text) error = %v", err)
 	}
-	output, err := tfr.Transform(context.Background(), "", input)
+	output, err := tfr.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -1182,7 +1182,7 @@ func TestDoubaoRealtimeSessionLoopStopsRetryOnContextCancellation(t *testing.T) 
 	tfr.retryInitial = time.Millisecond
 	tfr.retryMax = time.Millisecond
 	ctx, cancel := context.WithCancel(context.Background())
-	output, err := tfr.Transform(ctx, "", newBlockingRealtimeStream())
+	output, err := tfr.Transform(ctx, newBlockingRealtimeStream())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -1219,7 +1219,7 @@ func TestDoubaoRealtimeDoesNotReplayAmbiguousAudioAfterReconnect(t *testing.T) {
 		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
 		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{2, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
 	}}
-	output, err := tfr.Transform(context.Background(), "", input)
+	output, err := tfr.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -1267,7 +1267,7 @@ func TestDoubaoRealtimePTTDiscardsFailedTurnRemainderAfterReconnect(t *testing.T
 		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{3, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-2"}},
 		{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-2", EndOfStream: true}},
 	}}
-	output, err := tfr.Transform(context.Background(), "", input)
+	output, err := tfr.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}

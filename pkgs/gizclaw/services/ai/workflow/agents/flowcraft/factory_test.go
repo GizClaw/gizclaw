@@ -290,7 +290,7 @@ func TestAgentTransformRunsTurnAndClosesOutput(t *testing.T) {
 		defaultVoice: "voice",
 		nodeVoices:   map[string]string{"answer": "voice-answer"},
 	}
-	stream, err := a.Transform(context.Background(), "ignored", &sliceStream{chunks: []*genx.MessageChunk{
+	stream, err := a.Transform(context.Background(), &sliceStream{chunks: []*genx.MessageChunk{
 		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{0xff}}, Ctrl: &genx.StreamCtrl{StreamID: "audio"}},
 		genx.NewBeginOfStream("audio-1"),
 		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "audio-1"}},
@@ -319,7 +319,7 @@ func TestAgentTransformUsesTextInputAsTranscript(t *testing.T) {
 		claw:         claw,
 		asrModel:     "asr",
 	}
-	stream, err := a.Transform(context.Background(), "ignored", &sliceStream{chunks: []*genx.MessageChunk{
+	stream, err := a.Transform(context.Background(), &sliceStream{chunks: []*genx.MessageChunk{
 		{Part: genx.Text("你好，我今天来看看你。"), Ctrl: &genx.StreamCtrl{StreamID: "text-1", Label: transcriptLabel}},
 		{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "text-1", Label: transcriptLabel, EndOfStream: true}},
 	}})
@@ -364,7 +364,7 @@ func TestAgentTransformSelfStartsEmptyConversation(t *testing.T) {
 		starts:       "self",
 	}
 	input := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 2)
-	stream, err := a.Transform(ctx, "ignored", input.Stream())
+	stream, err := a.Transform(ctx, input.Stream())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -397,7 +397,7 @@ func TestAgentTransformDoesNotSelfStartWithExistingHistory(t *testing.T) {
 		starts:       "self",
 	}
 	input := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 2)
-	stream, err := a.Transform(context.Background(), "ignored", input.Stream())
+	stream, err := a.Transform(context.Background(), input.Stream())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -425,7 +425,7 @@ func TestAgentTransformRunsMultipleTurns(t *testing.T) {
 	input := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	stream, err := a.Transform(ctx, "ignored", input.Stream())
+	stream, err := a.Transform(ctx, input.Stream())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -508,7 +508,7 @@ func TestAgentTransformInterruptsCurrentTurnOnNextBOS(t *testing.T) {
 		defaultVoice: "voice",
 		nodeVoices:   map[string]string{"answer": "voice-answer"},
 	}
-	stream, err := a.Transform(context.Background(), "ignored", input.Stream())
+	stream, err := a.Transform(context.Background(), input.Stream())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -580,7 +580,7 @@ func TestAgentRealtimeModeRunsDefiniteASRChunksAsTurns(t *testing.T) {
 	input := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	stream, err := a.Transform(ctx, "ignored", input.Stream())
+	stream, err := a.Transform(ctx, input.Stream())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -652,7 +652,7 @@ func TestAgentRealtimeModeInterruptsOnTranscriptBOS(t *testing.T) {
 	input := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	stream, err := a.Transform(ctx, "ignored", input.Stream())
+	stream, err := a.Transform(ctx, input.Stream())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -735,7 +735,7 @@ func TestAgentRealtimeModePropagatesASRErrorWhileTurnActive(t *testing.T) {
 		inputMode: inputModeRealtime,
 	}
 	input := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
-	stream, err := a.Transform(context.Background(), "ignored", input.Stream())
+	stream, err := a.Transform(context.Background(), input.Stream())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -2405,10 +2405,10 @@ func waitForClawCalls(t *testing.T, claw *interruptClaw, want int) {
 }
 
 type fakeTransformerProvider struct {
-	transformer genx.Transformer
+	transformer genx.TransformerMux
 }
 
-func (p fakeTransformerProvider) Transformer() genx.Transformer {
+func (p fakeTransformerProvider) Transformer() genx.TransformerMux {
 	return p.transformer
 }
 

@@ -6,6 +6,6 @@ import (
 )
 
 // NewTransformer returns a server-owned GenX transformer for voice/<id> and supported model patterns.
-func NewTransformer(service peergenx.Service) genx.Transformer {
+func NewTransformer(service peergenx.Service) genx.TransformerMux {
 	return peergenx.New(service).Transformer()
 }

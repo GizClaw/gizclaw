@@ -320,7 +320,7 @@ func (r staticResolver) Resolve(context.Context, string) (Spec, error) {
 
 type passthroughTransformer struct{}
 
-func (passthroughTransformer) Transform(_ context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+func (passthroughTransformer) Transform(_ context.Context, input genx.Stream) (genx.Stream, error) {
 	return input, nil
 }
 
@@ -328,7 +328,7 @@ type fixedTransformer struct {
 	text string
 }
 
-func (t fixedTransformer) Transform(context.Context, string, genx.Stream) (genx.Stream, error) {
+func (t fixedTransformer) Transform(context.Context, genx.Stream) (genx.Stream, error) {
 	return &sliceStream{chunks: []*genx.MessageChunk{{Role: genx.RoleModel, Part: genx.Text(t.text)}}}, nil
 }
 

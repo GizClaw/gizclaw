@@ -204,7 +204,7 @@ func runSocialHumanReviewAudioStory(t *testing.T, h socialHarness, playback *soc
 	defer cancel()
 	ensureSocialHumanReviewWorkspace(t, ctx, reader, readerContext, workspaceName)
 	readerInput := newBlockingStream()
-	readerOut, err := reader.Transform(ctx, "social-human-review-reader", readerInput)
+	readerOut, err := reader.Transform(ctx, readerInput)
 	if err != nil {
 		t.Fatalf("%s open human-review reader stream: %v", readerContext, err)
 	}

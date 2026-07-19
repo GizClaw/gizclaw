@@ -203,7 +203,7 @@ func WithDoubaoASRSAUCCtxOptions(ctx context.Context, opts DoubaoASRSAUCCtxOptio
 // DoubaoASRSAUC creates sessions on demand, so it returns immediately.
 // The ctx is the parent lifecycle for lazy session creation, provider sends,
 // pacing timers, and result forwarding.
-func (t *DoubaoASRSAUC) Transform(ctx context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+func (t *DoubaoASRSAUC) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 	output := newBufferStream(100)
 
 	go t.transformLoop(ctx, input, output)

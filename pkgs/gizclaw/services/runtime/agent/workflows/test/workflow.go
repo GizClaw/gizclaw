@@ -29,7 +29,7 @@ type transformer struct {
 	prefix string
 }
 
-func (t transformer) Transform(ctx context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+func (t transformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 	if input == nil {
 		return nil, errors.New("test workflow: input stream is required")
 	}

@@ -20,7 +20,7 @@ func newPeerAgentHost(base *agenthost.Host, peerGenX *peergenx.Service, pets pet
 	host.Coordinator = base.Coordinator
 	host.RuntimeRegistry = base.WorkspaceRuntimes()
 
-	var transformer genx.Transformer
+	var transformer genx.TransformerMux
 	if peerGenX != nil {
 		transformer = peerGenX.Transformer()
 	}

@@ -12,11 +12,11 @@ import (
 )
 
 type testTransformer struct {
-	fn func(context.Context, string, genx.Stream) (genx.Stream, error)
+	fn func(context.Context, genx.Stream) (genx.Stream, error)
 }
 
-func (t testTransformer) Transform(ctx context.Context, pattern string, input genx.Stream) (genx.Stream, error) {
-	return t.fn(ctx, pattern, input)
+func (t testTransformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+	return t.fn(ctx, input)
 }
 
 type testStream struct {
@@ -43,7 +43,7 @@ func (s *testStream) CloseWithError(error) error { return nil }
 func TestMuxTransformRoutesToRegisteredTransformer(t *testing.T) {
 	m := NewMux()
 	called := false
-	err := m.Handle("foo/bar", testTransformer{fn: func(_ context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+	err := m.Handle("foo/bar", testTransformer{fn: func(_ context.Context, input genx.Stream) (genx.Stream, error) {
 		called = true
 		return input, nil
 	}})
@@ -70,7 +70,7 @@ func TestMuxTransformRoutesToRegisteredTransformer(t *testing.T) {
 
 func TestMuxHandleRejectsDuplicate(t *testing.T) {
 	m := NewMux()
-	tf := testTransformer{fn: func(_ context.Context, _ string, input genx.Stream) (genx.Stream, error) { return input, nil }}
+	tf := testTransformer{fn: func(_ context.Context, input genx.Stream) (genx.Stream, error) { return input, nil }}
 	if err := m.Handle("dup", tf); err != nil {
 		t.Fatalf("first handle failed: %v", err)
 	}

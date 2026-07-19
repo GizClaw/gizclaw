@@ -186,7 +186,7 @@ func TestWorkflowParamStringCoversPrimitiveAndJSONValues(t *testing.T) {
 
 func transformPattern(t *testing.T, agent agenthost.Agent) string {
 	t.Helper()
-	stream, err := agent.Transform(context.Background(), "ignored", emptyStream{})
+	stream, err := agent.Transform(context.Background(), emptyStream{})
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}

@@ -491,7 +491,7 @@ func TestDoubaoRealtimeDuplexSendsFakeFunctionCallOutputs(t *testing.T) {
 	}
 	opener := &fakeDoubaoRealtimeDuplexOpener{session: session}
 	tfr := NewDoubaoRealtimeDuplex(nil, withDoubaoRealtimeDuplexOpener(opener))
-	stream, err := tfr.Transform(context.Background(), "", emptyRealtimeStream{})
+	stream, err := tfr.Transform(context.Background(), emptyRealtimeStream{})
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -613,7 +613,7 @@ func TestDoubaoRealtimeDuplexMapsDuplexEventsToStreamChunks(t *testing.T) {
 		withDoubaoRealtimeDuplexOpener(&fakeDoubaoRealtimeDuplexOpener{session: session}),
 		WithDoubaoRealtimeDuplexFormat("pcm"),
 	)
-	stream, err := tfr.Transform(context.Background(), "", emptyRealtimeStream{})
+	stream, err := tfr.Transform(context.Background(), emptyRealtimeStream{})
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -944,7 +944,7 @@ func TestDoubaoRealtimeDuplexUsesDoneTextWhenNoDeltaArrived(t *testing.T) {
 		},
 	}
 	tfr := NewDoubaoRealtimeDuplex(nil, withDoubaoRealtimeDuplexOpener(&fakeDoubaoRealtimeDuplexOpener{session: session}))
-	stream, err := tfr.Transform(context.Background(), "", emptyRealtimeStream{})
+	stream, err := tfr.Transform(context.Background(), emptyRealtimeStream{})
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}

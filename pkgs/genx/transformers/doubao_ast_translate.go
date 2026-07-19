@@ -159,7 +159,7 @@ func NewDoubaoASTTranslate(client *doubaospeech.Client, opts ...DoubaoASTTransla
 	return t
 }
 
-func (t *DoubaoASTTranslate) Transform(ctx context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+func (t *DoubaoASTTranslate) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 	if t == nil || t.client == nil {
 		return nil, fmt.Errorf("doubao ast translate: client is required")
 	}

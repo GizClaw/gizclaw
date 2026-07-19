@@ -77,7 +77,7 @@ func TestDoubaoASRSAUCSendsLastNonEmptyAudioFrame(t *testing.T) {
 	}
 
 	input := newBufferStream(4)
-	output, err := transformer.Transform(context.Background(), "asr", input)
+	output, err := transformer.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -124,7 +124,7 @@ func TestDoubaoASRSAUCUsesWAVFormatForWAVInput(t *testing.T) {
 	}
 
 	input := newBufferStream(2)
-	output, err := transformer.Transform(context.Background(), "asr", input)
+	output, err := transformer.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -166,7 +166,7 @@ func TestDoubaoASRSAUCPushToTalkKeepsHistoryStreamIDAcrossEOS(t *testing.T) {
 	}
 
 	input := newBufferStream(3)
-	output, err := transformer.Transform(context.Background(), "asr", input)
+	output, err := transformer.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -225,7 +225,7 @@ func TestDoubaoASRSAUCDecodesOggToPCMWhenConfiguredPCM(t *testing.T) {
 
 	inputAudio := buildASROGGOpusStream(t, sampleRate, 1, buildASRAudioFrame(sampleRate/50, 1))
 	input := newBufferStream(4)
-	output, err := transformer.Transform(context.Background(), "asr", input)
+	output, err := transformer.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -294,7 +294,7 @@ func TestDoubaoASRSAUCDecodesRawOpusToPCMSession(t *testing.T) {
 	}
 
 	input := newBufferStream(4)
-	output, err := transformer.Transform(context.Background(), "asr", input)
+	output, err := transformer.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -344,7 +344,7 @@ func TestDoubaoASRSAUCDecodesMP3ToPCMSession(t *testing.T) {
 	}
 
 	input := newBufferStream(4)
-	output, err := transformer.Transform(context.Background(), "asr", input)
+	output, err := transformer.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -404,7 +404,7 @@ func TestDoubaoASRSAUCEmitsDefiniteUtterancesWithNonMonotonicTimes(t *testing.T)
 	}
 
 	input := newBufferStream(2)
-	output, err := transformer.Transform(context.Background(), "asr", input)
+	output, err := transformer.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -494,7 +494,7 @@ func TestDoubaoASRSAUCEmitInterimControlsNonDefiniteUtterances(t *testing.T) {
 			}
 
 			input := newBufferStream(2)
-			output, err := transformer.Transform(context.Background(), "asr", input)
+			output, err := transformer.Transform(context.Background(), input)
 			if err != nil {
 				t.Fatalf("Transform() error = %v", err)
 			}
@@ -560,7 +560,7 @@ func TestDoubaoASRSAUCEmitInterimSplitsDefiniteUtteranceStreamIDs(t *testing.T) 
 	}
 
 	input := newBufferStream(2)
-	output, err := transformer.Transform(context.Background(), "asr", input)
+	output, err := transformer.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -681,7 +681,7 @@ func TestDoubaoASRSAUCEmitInterimUsesTimestampedOpusBlocksForHistory(t *testing.
 	firstPacket := buildASRRawOpusPacket(t, sampleRate, 1, buildASRAudioFrame(sampleRate/50, 1))
 	secondPacket := buildASRRawOpusPacket(t, sampleRate, 1, buildASRAudioFrame(sampleRate/50, 1))
 	input := newBufferStream(4)
-	output, err := transformer.Transform(context.Background(), "asr", input)
+	output, err := transformer.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -756,7 +756,7 @@ func TestDoubaoASRSAUCEmitInterimDoesNotDuplicateFinalTextResult(t *testing.T) {
 	}
 
 	input := newBufferStream(2)
-	output, err := transformer.Transform(context.Background(), "asr", input)
+	output, err := transformer.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}

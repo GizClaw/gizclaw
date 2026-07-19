@@ -287,7 +287,7 @@ func TestClientTransformBridgesInputToPeerStream(t *testing.T) {
 			return peer, nil
 		},
 	}
-	output, err := client.Transform(context.Background(), "", input.Stream())
+	output, err := client.Transform(context.Background(), input.Stream())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}

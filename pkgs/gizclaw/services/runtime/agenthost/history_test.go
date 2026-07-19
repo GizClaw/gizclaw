@@ -28,7 +28,7 @@ func TestHistoryAgentRecordsOutputText(t *testing.T) {
 		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant", EndOfStream: true}},
 	)}, history)
 
-	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), "demo", historyStreamFromChunks())
+	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), historyStreamFromChunks())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -64,7 +64,7 @@ func TestHistoryAgentForwardsFinalOutputObservation(t *testing.T) {
 	}
 	upstream := newRecordingObservationStream(historyStreamFromChunks(chunk))
 	agent := wrapHistoryAgent(historyTestAgent{output: upstream}, workspace.NewHistoryStore(objectstore.Dir(t.TempDir()), "demo"))
-	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), "demo", historyStreamFromChunks())
+	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), historyStreamFromChunks())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -97,7 +97,7 @@ func TestHistoryAgentFinalizesNodeNamedOutputOnRouteEOS(t *testing.T) {
 	history := workspace.NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
 	agentOutput := newBlockingHistoryStream()
 	agent := wrapHistoryAgent(historyTestAgent{output: agentOutput}, history)
-	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), "demo", historyStreamFromChunks())
+	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), historyStreamFromChunks())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -220,7 +220,7 @@ func TestHistoryAgentSkipsGearHistoryWithoutGearID(t *testing.T) {
 		historyTestAgent: historyTestAgent{output: historyStreamFromChunks()},
 	}, history)
 
-	out, err := agent.Transform(context.Background(), "demo", historyStreamFromChunks(
+	out, err := agent.Transform(context.Background(), historyStreamFromChunks(
 		&genx.MessageChunk{Role: genx.RoleUser, Name: "gear", Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "transcript"}},
 		&genx.MessageChunk{Role: genx.RoleUser, Name: "gear", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "transcript", EndOfStream: true}},
 	))
@@ -251,7 +251,7 @@ func TestHistoryAgentRecordsOutputHistoryPCMAudioAsOggOpus(t *testing.T) {
 		&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "audio", Label: genx.HistoryUserAudioLabel, EndOfStream: true}},
 	)}, history)
 
-	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), "demo", historyStreamFromChunks())
+	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), historyStreamFromChunks())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -296,7 +296,7 @@ func TestHistoryAgentEmitsHistoryUpdatedNotification(t *testing.T) {
 	agentOutput := newBlockingHistoryStream()
 	agent := wrapHistoryAgent(historyTestAgent{output: agentOutput}, history)
 	before := time.Now().Add(-time.Second).UTC()
-	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), "demo", historyStreamFromChunks())
+	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), historyStreamFromChunks())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -315,11 +315,11 @@ func TestHistoryAgentBroadcastsHistoryUpdatedNotification(t *testing.T) {
 	history := workspace.NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
 	base := &historyMultiOutputAgent{}
 	agent := wrapHistoryAgent(base, history)
-	outA, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), "demo", historyStreamFromChunks())
+	outA, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), historyStreamFromChunks())
 	if err != nil {
 		t.Fatalf("Transform gear-a error = %v", err)
 	}
-	outB, err := agent.Transform(withHistoryGearID(context.Background(), "gear-b"), "demo", historyStreamFromChunks())
+	outB, err := agent.Transform(withHistoryGearID(context.Background(), "gear-b"), historyStreamFromChunks())
 	if err != nil {
 		t.Fatalf("Transform gear-b error = %v", err)
 	}
@@ -428,7 +428,7 @@ func TestHistoryAgentRecordsOutputAudioAsOggOpus(t *testing.T) {
 		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant", EndOfStream: true}},
 	)}, history)
 
-	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), "demo", historyStreamFromChunks())
+	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), historyStreamFromChunks())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -483,7 +483,7 @@ func TestHistoryAgentWaitsForTextAfterAudioEOS(t *testing.T) {
 		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant", EndOfStream: true}},
 	)}, history)
 
-	out, err := agent.Transform(context.Background(), "demo", historyStreamFromChunks())
+	out, err := agent.Transform(context.Background(), historyStreamFromChunks())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -512,7 +512,7 @@ func TestHistoryAgentRejectsMultipleAudioMIMEChannels(t *testing.T) {
 		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/ogg; codecs=opus"}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}},
 	)}, history)
 
-	out, err := agent.Transform(context.Background(), "demo", historyStreamFromChunks())
+	out, err := agent.Transform(context.Background(), historyStreamFromChunks())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -536,7 +536,7 @@ func TestHistoryAgentIgnoresNonRecordableMIMECompletion(t *testing.T) {
 		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant", EndOfStream: true}},
 	)}, history)
 
-	out, err := agent.Transform(context.Background(), "demo", historyStreamFromChunks())
+	out, err := agent.Transform(context.Background(), historyStreamFromChunks())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -608,7 +608,7 @@ func TestHistoryAgentMergesOutputHistoryAudioWithTranscript(t *testing.T) {
 		&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "audio", Label: "transcript", EndOfStream: true}},
 	)}, history)
 
-	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), "demo", historyStreamFromChunks())
+	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), historyStreamFromChunks())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -673,7 +673,7 @@ func TestHistoryAgentRecordsOutputHistoryAudioByStreamID(t *testing.T) {
 		&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "audio:rt:2", Label: "transcript", EndOfStream: true}},
 	)}, history)
 
-	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), "demo", historyStreamFromChunks())
+	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), historyStreamFromChunks())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -722,7 +722,7 @@ func TestHistoryAgentRecordsSplitOggOutput(t *testing.T) {
 		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/ogg; codecs=opus"}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant", EndOfStream: true}},
 	)}, history)
 
-	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), "demo", historyStreamFromChunks())
+	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), historyStreamFromChunks())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -782,7 +782,7 @@ func TestHistoryAgentRecordsMP3OutputAsOggOpus(t *testing.T) {
 		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/mpeg"}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant", EndOfStream: true}},
 	)}, history)
 
-	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), "demo", historyStreamFromChunks())
+	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), historyStreamFromChunks())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -848,7 +848,7 @@ func TestHistoryAgentPlayInjectsReplayOutput(t *testing.T) {
 	agentOutput := newBlockingHistoryStream()
 	agent := wrapHistoryAgent(historyTestAgent{output: agentOutput}, history)
 
-	out, err := agent.Transform(context.Background(), "demo", historyStreamFromChunks())
+	out, err := agent.Transform(context.Background(), historyStreamFromChunks())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -916,7 +916,7 @@ func TestHistoryAgentPlayReplaysGearHistory(t *testing.T) {
 	}
 	agentOutput := newBlockingHistoryStream()
 	agent := wrapHistoryAgent(historyTestAgent{output: agentOutput}, history)
-	out, err := agent.Transform(context.Background(), "demo", historyStreamFromChunks())
+	out, err := agent.Transform(context.Background(), historyStreamFromChunks())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -955,11 +955,11 @@ func TestHistoryAgentPlayRoutesToRequestGearOutput(t *testing.T) {
 	}
 	base := &historyMultiOutputAgent{}
 	agent := wrapHistoryAgent(base, history)
-	outA, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), "demo", historyStreamFromChunks())
+	outA, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), historyStreamFromChunks())
 	if err != nil {
 		t.Fatalf("Transform(gear-a) error = %v", err)
 	}
-	outB, err := agent.Transform(withHistoryGearID(context.Background(), "gear-b"), "demo", historyStreamFromChunks())
+	outB, err := agent.Transform(withHistoryGearID(context.Background(), "gear-b"), historyStreamFromChunks())
 	if err != nil {
 		t.Fatalf("Transform(gear-b) error = %v", err)
 	}
@@ -1035,7 +1035,7 @@ func TestHistoryAgentPlayInterruptsBufferedReplayAfterEnqueue(t *testing.T) {
 	}
 	agentOutput := newBlockingHistoryStream()
 	agent := wrapHistoryAgent(historyTestAgent{output: agentOutput}, history)
-	out, err := agent.Transform(context.Background(), "demo", historyStreamFromChunks())
+	out, err := agent.Transform(context.Background(), historyStreamFromChunks())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -1101,7 +1101,7 @@ func TestHistoryAgentPlayInterruptsCurrentAgentOutput(t *testing.T) {
 	}
 	agentOutput := newBlockingHistoryStream()
 	agent := wrapHistoryAgent(historyTestAgent{output: agentOutput}, history)
-	out, err := agent.Transform(context.Background(), "demo", historyStreamFromChunks())
+	out, err := agent.Transform(context.Background(), historyStreamFromChunks())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -1381,7 +1381,7 @@ type historyTestAgent struct {
 	output genx.Stream
 }
 
-func (a historyTestAgent) Transform(context.Context, string, genx.Stream) (genx.Stream, error) {
+func (a historyTestAgent) Transform(context.Context, genx.Stream) (genx.Stream, error) {
 	return a.output, nil
 }
 
@@ -1410,7 +1410,7 @@ type historyMultiOutputAgent struct {
 	outputs []*blockingHistoryStream
 }
 
-func (a *historyMultiOutputAgent) Transform(context.Context, string, genx.Stream) (genx.Stream, error) {
+func (a *historyMultiOutputAgent) Transform(context.Context, genx.Stream) (genx.Stream, error) {
 	output := newBlockingHistoryStream()
 	a.mu.Lock()
 	a.outputs = append(a.outputs, output)
@@ -1451,7 +1451,7 @@ type historyAsyncInputDrainingAgent struct {
 	outputs []*blockingHistoryStream
 }
 
-func (a *historyAsyncInputDrainingAgent) Transform(ctx context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+func (a *historyAsyncInputDrainingAgent) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 	output := newBlockingHistoryStream()
 	a.mu.Lock()
 	a.outputs = append(a.outputs, output)
@@ -1506,7 +1506,7 @@ type historyInputDrainingAgent struct {
 	historyTestAgent
 }
 
-func (a historyInputDrainingAgent) Transform(_ context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+func (a historyInputDrainingAgent) Transform(_ context.Context, input genx.Stream) (genx.Stream, error) {
 	for {
 		_, err := input.Next()
 		if IsStreamDone(err) {
