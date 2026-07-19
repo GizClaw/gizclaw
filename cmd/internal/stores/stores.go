@@ -564,6 +564,11 @@ func (r *Stores) newMemory(ctx context.Context, name string, cfg Config, options
 	}
 	if cfg.Flowcraft != nil {
 		config := *cfg.Flowcraft
+		var err error
+		config.Dir, err = expandFlowcraftDir(config.Dir)
+		if err != nil {
+			return nil, nil, fmt.Errorf("stores: memory %q flowcraft: %w", name, err)
+		}
 		expandFlowcraftConfig(&config)
 		store, err := memorystore.OpenFlowcraftStore(ctx, config, options.FlowcraftModelLoader)
 		if err != nil {
@@ -590,7 +595,6 @@ func (r *Stores) newMemory(ctx context.Context, name string, cfg Config, options
 }
 
 func expandFlowcraftConfig(config *memorystore.FlowcraftConfig) {
-	config.Dir = os.ExpandEnv(config.Dir)
 	config.RuntimeID = os.ExpandEnv(config.RuntimeID)
 	config.AgentID = os.ExpandEnv(config.AgentID)
 	config.UserID = os.ExpandEnv(config.UserID)
@@ -601,6 +605,32 @@ func expandFlowcraftConfig(config *memorystore.FlowcraftConfig) {
 	config.SystemPrompt = os.ExpandEnv(config.SystemPrompt)
 	config.SchemaName = os.ExpandEnv(config.SchemaName)
 	config.Async.WorkerID = os.ExpandEnv(config.Async.WorkerID)
+}
+
+func expandFlowcraftDir(dir string) (string, error) {
+	if strings.TrimSpace(dir) == "" {
+		return dir, nil
+	}
+	missing := make(map[string]struct{})
+	expanded := os.Expand(dir, func(name string) string {
+		value, ok := os.LookupEnv(name)
+		if !ok {
+			missing[name] = struct{}{}
+		}
+		return value
+	})
+	if len(missing) > 0 {
+		names := make([]string, 0, len(missing))
+		for name := range missing {
+			names = append(names, name)
+		}
+		slices.Sort(names)
+		return "", fmt.Errorf("%w: flowcraft dir references unset environment variables: %s", memorystore.ErrInvalidInput, strings.Join(names, ", "))
+	}
+	if strings.TrimSpace(expanded) == "" {
+		return "", fmt.Errorf("%w: configured flowcraft dir expands to an empty path", memorystore.ErrInvalidInput)
+	}
+	return expanded, nil
 }
 
 func expandMem0Config(config *memorystore.Mem0Config) {

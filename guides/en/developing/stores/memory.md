@@ -20,7 +20,7 @@ Asynchronous providers return an operation in `ObserveResult`. Stores implementi
 | Provider | Execution | Persistence and model configuration | Update limits |
 | --- | --- | --- | --- |
 | Flowcraft | In process | `dir` selects the Flowcraft workspace backend; model resource names are resolved through `FlowcraftModelLoader` | Append-only revisions with text, attribute, and revision checks; provider-owned fact fields cannot be patched as metadata |
-| Mem0 | Remote HTTP | Platform uses `Authorization: Token`; self-hosted API keys use `X-API-Key`, and the deployment owns its model configuration | Text updates; unsupported filters, attribute patches, and conditional writes return `ErrUnsupported` |
+| Mem0 | Remote HTTP | Platform uses `Authorization: Token`; self-hosted API keys use `X-API-Key`, and the deployment owns its model configuration | Text updates; update/delete first verify that the target matches at least one configured entity scope; unsupported filters, attribute patches, and conditional writes return `ErrUnsupported` |
 | Volcengine AgentKit/Viking MEM0 | Volc control plane and Mem0 data plane | Requires the project data-plane endpoint; uses an explicit Mem0 API key or resolves one within a required memory project, optionally selecting an API key ID | Same behavior as the Mem0 data plane |
 
 Without an extraction model, Flowcraft deterministically stores an observation as a `note`. Configured extraction, embedding, and rerank models require a model loader passed to `OpenFlowcraftStore` or `stores.NewWithStorageOptions`.
@@ -73,9 +73,10 @@ stores:
 ```
 
 `cmd/internal/stores` expands environment variables and owns the Flowcraft lifecycle. HTTP clients, Volc credential resolvers, and Flowcraft model loaders are injected through `Options`.
+An explicitly configured Flowcraft `dir` must reference only set environment variables and must expand to a non-empty path; otherwise registry construction returns `ErrInvalidInput` instead of opening a volatile in-memory store.
 The default server registry has no model loader and rejects non-empty Flowcraft model fields after environment expansion; an Agent runtime that supplies those fields must use the option-aware registry path.
 
-Mem0 V3 search puts entity IDs only inside `filters`. Native entity, time, category, and memory-ID fields use their documented operators; `FilterNotIn` is encoded as `NOT` around `in`. Other provider-neutral fields address top-level custom metadata and support only equality and inequality. Operators without an exact remote equivalent return `ErrUnsupported`.
+Mem0 V3 search puts entity IDs only inside `filters`. Native entity, time, category, and memory-ID fields use their documented operators; `FilterNotIn` is encoded as `NOT` around `in`. Other provider-neutral fields address custom metadata and support only equality and inequality: Platform nests them under `metadata`, while self-hosted Mem0 uses direct metadata field selectors. Operators without an exact remote equivalent return `ErrUnsupported`.
 
 ## Error semantics
 

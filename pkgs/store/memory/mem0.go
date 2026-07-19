@@ -184,6 +184,9 @@ func (s *Mem0Store) Update(ctx context.Context, request UpdateRequest) (Fact, er
 	if len(request.Attributes.Set) > 0 || len(request.Attributes.Delete) > 0 {
 		return Fact{}, fmt.Errorf("%w: mem0 does not expose attribute patch updates", ErrUnsupported)
 	}
+	if err := s.requireMemoryScope(ctx, request.ID); err != nil {
+		return Fact{}, err
+	}
 	payload := map[string]any{}
 	if request.Text != nil {
 		payload["text"] = *request.Text
@@ -211,11 +214,46 @@ func (s *Mem0Store) Delete(ctx context.Context, request DeleteRequest) error {
 	if request.ExpectedRevision != "" {
 		return fmt.Errorf("%w: mem0 does not expose conditional deletes", ErrUnsupported)
 	}
+	if err := s.requireMemoryScope(ctx, request.ID); err != nil {
+		return err
+	}
 	path := "/v1/memories/" + url.PathEscape(request.ID) + "/"
 	if s.config.Flavor == Mem0SelfHosted {
 		path = "/memories/" + url.PathEscape(request.ID)
 	}
 	return s.client.do(ctx, http.MethodDelete, path, nil, nil)
+}
+
+func (s *Mem0Store) requireMemoryScope(ctx context.Context, memoryID string) error {
+	path := "/v1/memories/" + url.PathEscape(memoryID) + "/"
+	if s.config.Flavor == Mem0SelfHosted {
+		path = "/memories/" + url.PathEscape(memoryID)
+	}
+	var response mem0Envelope
+	if err := s.client.do(ctx, http.MethodGet, path, nil, &response); err != nil {
+		return err
+	}
+	entries := response.entries()
+	if len(entries) == 0 || entries[0].ID != memoryID || !s.memoryMatchesScope(entries[0]) {
+		return fmt.Errorf("%w: mem0 memory %q is outside the configured scope", ErrNotFound, memoryID)
+	}
+	return nil
+}
+
+func (s *Mem0Store) memoryMatchesScope(memory mem0Envelope) bool {
+	configured := s.entityFields()
+	actual := map[string]string{
+		"app_id":   memory.AppID,
+		"user_id":  memory.UserID,
+		"agent_id": memory.AgentID,
+		"run_id":   memory.RunID,
+	}
+	for field, expected := range configured {
+		if strings.TrimSpace(actual[field]) == expected {
+			return true
+		}
+	}
+	return false
 }
 
 // Wait polls an asynchronous Mem0 Platform event.
@@ -269,7 +307,7 @@ func (s *Mem0Store) entityFields() map[string]string {
 func (s *Mem0Store) mem0Filters(input []Filter) (map[string]any, error) {
 	clauses := []any{s.mem0ScopeFilter()}
 	for _, filter := range input {
-		clause, err := mem0FilterClause(filter)
+		clause, err := s.mem0FilterClause(filter)
 		if err != nil {
 			return nil, err
 		}
@@ -304,20 +342,22 @@ func (s *Mem0Store) mem0ScopeFilter() map[string]any {
 	return map[string]any{"OR": clauses}
 }
 
-func mem0FilterClause(filter Filter) (map[string]any, error) {
+func (s *Mem0Store) mem0FilterClause(filter Filter) (map[string]any, error) {
 	field := strings.TrimSpace(filter.Field)
 	if field == mem0ObservationIDMetadata || field == mem0TurnIDsMetadata {
 		return nil, fmt.Errorf("%w: mem0 filter field %q is provider-owned", ErrUnsupported, field)
 	}
 	if !isMem0NativeFilterField(field) {
-		switch filter.Operator {
-		case FilterEqual:
-			return map[string]any{"metadata": map[string]any{field: cloneValue(filter.Value)}}, nil
-		case FilterNotEqual:
-			return map[string]any{"metadata": map[string]any{field: map[string]any{"ne": cloneValue(filter.Value)}}}, nil
-		default:
+		value := cloneValue(filter.Value)
+		if filter.Operator == FilterNotEqual {
+			value = map[string]any{"ne": value}
+		} else if filter.Operator != FilterEqual {
 			return nil, fmt.Errorf("%w: mem0 metadata filter operator %q", ErrUnsupported, filter.Operator)
 		}
+		if s.config.Flavor == Mem0SelfHosted {
+			return map[string]any{field: value}, nil
+		}
+		return map[string]any{"metadata": map[string]any{field: value}}, nil
 	}
 
 	if filter.Operator == FilterNotIn {
@@ -395,6 +435,10 @@ type mem0Envelope struct {
 	Hash       string          `json:"hash"`
 	Memory     string          `json:"memory"`
 	Text       string          `json:"text"`
+	AppID      string          `json:"app_id"`
+	UserID     string          `json:"user_id"`
+	AgentID    string          `json:"agent_id"`
+	RunID      string          `json:"run_id"`
 	Score      float64         `json:"score"`
 	Categories []string        `json:"categories"`
 	Metadata   map[string]any  `json:"metadata"`

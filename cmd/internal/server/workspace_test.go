@@ -372,6 +372,11 @@ func TestResolveWorkspaceStoreConfigsPreservesAbsoluteDirs(t *testing.T) {
 	absoluteDir := filepath.Join(t.TempDir(), "files")
 	environmentDir := filepath.Join(t.TempDir(), "memory")
 	t.Setenv("GIZCLAW_MEMORY_DIR", environmentDir)
+	t.Setenv("GIZCLAW_EMPTY_MEMORY_DIR", "")
+	t.Setenv("GIZCLAW_MISSING_MEMORY_DIR", "temporary")
+	if err := os.Unsetenv("GIZCLAW_MISSING_MEMORY_DIR"); err != nil {
+		t.Fatal(err)
+	}
 
 	gotStorage := resolveWorkspaceStorageConfigs(root, map[string]storage.Config{
 		"fw": {
@@ -397,6 +402,14 @@ func TestResolveWorkspaceStoreConfigsPreservesAbsoluteDirs(t *testing.T) {
 			Kind:      stores.KindMemoryStore,
 			Flowcraft: &memorystore.FlowcraftConfig{Dir: "$GIZCLAW_MEMORY_DIR"},
 		},
+		"missing-environment-memory": {
+			Kind:      stores.KindMemoryStore,
+			Flowcraft: &memorystore.FlowcraftConfig{Dir: "$GIZCLAW_MISSING_MEMORY_DIR"},
+		},
+		"empty-environment-memory": {
+			Kind:      stores.KindMemoryStore,
+			Flowcraft: &memorystore.FlowcraftConfig{Dir: "$GIZCLAW_EMPTY_MEMORY_DIR"},
+		},
 	})
 	if gotStores["kv"].Dir != absoluteDir {
 		t.Fatalf("kv store dir = %q, want %q", gotStores["kv"].Dir, absoluteDir)
@@ -406,6 +419,14 @@ func TestResolveWorkspaceStoreConfigsPreservesAbsoluteDirs(t *testing.T) {
 	}
 	if gotStores["environment-memory"].Flowcraft.Dir != environmentDir {
 		t.Fatalf("environment flowcraft dir = %q, want %q", gotStores["environment-memory"].Flowcraft.Dir, environmentDir)
+	}
+	wantMissing := filepath.Join(root, "${GIZCLAW_MISSING_MEMORY_DIR}")
+	if gotStores["missing-environment-memory"].Flowcraft.Dir != wantMissing {
+		t.Fatalf("missing environment flowcraft dir = %q, want %q", gotStores["missing-environment-memory"].Flowcraft.Dir, wantMissing)
+	}
+	wantEmpty := filepath.Join(root, "${GIZCLAW_EMPTY_MEMORY_DIR}")
+	if gotStores["empty-environment-memory"].Flowcraft.Dir != wantEmpty {
+		t.Fatalf("empty environment flowcraft dir = %q, want %q", gotStores["empty-environment-memory"].Flowcraft.Dir, wantEmpty)
 	}
 }
 

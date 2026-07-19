@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -1132,6 +1133,29 @@ func TestMemoryRegistryFlowcraft(t *testing.T) {
 	result, err := store.Observe(context.Background(), memorystore.Observation{Text: "Remember the north gate."})
 	if err != nil || len(result.Facts) != 1 {
 		t.Fatalf("Observe() result = %+v, error = %v", result, err)
+	}
+}
+
+func TestMemoryRegistryRejectsEmptyFlowcraftDirEnvironment(t *testing.T) {
+	t.Setenv("GIZCLAW_TEST_FLOWCRAFT_DIR", "")
+	_, err := NewWithStorageOptions(context.Background(), nil, map[string]Config{
+		"agent": {Kind: KindMemoryStore, Flowcraft: &memorystore.FlowcraftConfig{Dir: "$GIZCLAW_TEST_FLOWCRAFT_DIR", RuntimeID: "app", UserID: "user"}},
+	}, Options{})
+	if !errors.Is(err, memorystore.ErrInvalidInput) {
+		t.Fatalf("NewWithStorageOptions() error = %v, want ErrInvalidInput", err)
+	}
+}
+
+func TestMemoryRegistryRejectsUnsetFlowcraftDirEnvironment(t *testing.T) {
+	t.Setenv("GIZCLAW_TEST_MISSING_FLOWCRAFT_DIR", "temporary")
+	if err := os.Unsetenv("GIZCLAW_TEST_MISSING_FLOWCRAFT_DIR"); err != nil {
+		t.Fatal(err)
+	}
+	_, err := NewWithStorageOptions(context.Background(), nil, map[string]Config{
+		"agent": {Kind: KindMemoryStore, Flowcraft: &memorystore.FlowcraftConfig{Dir: "$GIZCLAW_TEST_MISSING_FLOWCRAFT_DIR", RuntimeID: "app", UserID: "user"}},
+	}, Options{})
+	if !errors.Is(err, memorystore.ErrInvalidInput) {
+		t.Fatalf("NewWithStorageOptions() error = %v, want ErrInvalidInput", err)
 	}
 }
 

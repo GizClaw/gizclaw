@@ -20,7 +20,7 @@
 | Provider | 执行位置 | 持久化与模型配置 | 更新限制 |
 | --- | --- | --- | --- |
 | Flowcraft | 进程内 | `dir` 使用 Flowcraft workspace backend；模型资源名通过 `FlowcraftModelLoader` 解析 | append-only revision；支持文本、attributes 和 revision 校验，但 provider-owned fact 字段不能作为 metadata patch |
-| Mem0 | 远端 HTTP | Platform 使用 `Authorization: Token`；self-hosted API key 使用 `X-API-Key`，模型由远端服务配置 | 支持文本更新；不支持的 filter、attribute patch 或条件写入返回 `ErrUnsupported` |
+| Mem0 | 远端 HTTP | Platform 使用 `Authorization: Token`；self-hosted API key 使用 `X-API-Key`，模型由远端服务配置 | 支持文本更新；update/delete 会先确认目标至少匹配一个已配置 entity scope；不支持的 filter、attribute patch 或条件写入返回 `ErrUnsupported` |
 | Volcengine AgentKit/Viking MEM0 | Volc control plane + Mem0 data plane | 必须配置项目 data-plane endpoint；可直接配置 Mem0 API key，也可使用 AK/SK 在必填的 memory project 中解析，并可选指定 API key ID | 与 Mem0 data plane 相同 |
 
 Flowcraft 未配置 extraction model 时会把 observation 确定性地保存为 `note`。配置 extraction、embedding 或 rerank model 时，调用方必须向 `OpenFlowcraftStore` 或 `stores.NewWithStorageOptions` 提供 model loader。
@@ -73,9 +73,10 @@ stores:
 ```
 
 `cmd/internal/stores` 负责展开环境变量和管理 Flowcraft lifecycle。HTTP client、Volc credential resolver 和 Flowcraft model loader 都通过 `Options` 注入，测试和 Agent runtime 不需要修改公共 `Store` 契约。
+显式配置的 Flowcraft `dir` 只能引用已设置的环境变量，且展开后路径不能为空；否则 registry 构造返回 `ErrInvalidInput`，不会静默打开易失的进程内存储。
 默认 server registry 不持有 model loader，因此会明确拒绝环境变量展开后非空的 Flowcraft model 字段；需要这些字段的 Agent runtime 必须使用 option-aware registry 路径。
 
-Mem0 V3 search 只在 `filters` 内传递 entity ID。原生 entity、time、category 和 memory-ID 字段使用文档中的 operator；`FilterNotIn` 编码为包裹 `in` 的 `NOT`。其他 provider-neutral 字段表示顶层自定义 metadata，只支持等值和不等值。无法精确映射的 operator 返回 `ErrUnsupported`。
+Mem0 V3 search 只在 `filters` 内传递 entity ID。原生 entity、time、category 和 memory-ID 字段使用文档中的 operator；`FilterNotIn` 编码为包裹 `in` 的 `NOT`。其他 provider-neutral 字段表示自定义 metadata，只支持等值和不等值：Platform 将其放在 `metadata` 下，self-hosted Mem0 使用直接 metadata 字段 selector。无法精确映射的 operator 返回 `ErrUnsupported`。
 
 ## 错误语义
 

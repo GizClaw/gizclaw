@@ -57,6 +57,8 @@ func TestMem0PlatformLifecycle(t *testing.T) {
 				}
 			}
 			_, _ = w.Write([]byte(`{"results":[{"id":"fact-1","hash":"rev-1","memory":"Alice likes tea","score":0.91,"categories":["preference"],"metadata":{"lane":"preferences","score":"user-value"}}]}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/memories/fact-1/":
+			_, _ = w.Write([]byte(`{"id":"fact-1","memory":"Alice likes tea","user_id":"user"}`))
 		case r.Method == http.MethodPut && r.URL.Path == "/v1/memories/fact-1/":
 			_, _ = w.Write([]byte(`{"id":"fact-1","hash":"rev-2","memory":"Alice prefers tea"}`))
 		case r.Method == http.MethodDelete && r.URL.Path == "/v1/memories/fact-1/":
@@ -179,6 +181,8 @@ func TestMem0SelfHostedLifecycle(t *testing.T) {
 				t.Errorf("self-hosted search filters = %#v", filters)
 			}
 			_, _ = w.Write([]byte(`{"results":[{"id":"fact","memory":"stored","score":0.5}]}`))
+		case "GET /memories/fact":
+			_, _ = w.Write([]byte(`{"id":"fact","memory":"stored","user_id":"user"}`))
 		case "PUT /memories/fact":
 			_, _ = w.Write([]byte(`{"id":"fact","memory":"updated"}`))
 		case "DELETE /memories/fact":
@@ -207,6 +211,45 @@ func TestMem0SelfHostedLifecycle(t *testing.T) {
 	}
 	if _, err := store.Wait(context.Background(), "event"); !errors.Is(err, ErrUnsupported) {
 		t.Fatalf("Wait() error = %v", err)
+	}
+}
+
+func TestMem0MutationsRejectMemoriesOutsideConfiguredScope(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		flavor Mem0Flavor
+		get    string
+	}{
+		{name: "platform", flavor: Mem0Platform, get: "/v1/memories/fact/"},
+		{name: "self hosted", flavor: Mem0SelfHosted, get: "/memories/fact"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			mutations := 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				if request.Method == http.MethodGet && request.URL.Path == test.get {
+					_, _ = w.Write([]byte(`{"id":"fact","memory":"private","user_id":"another-user"}`))
+					return
+				}
+				mutations++
+				http.Error(w, "mutation must not be attempted", http.StatusInternalServerError)
+			}))
+			t.Cleanup(server.Close)
+			store, err := NewMem0Store(Mem0Config{Endpoint: server.URL, APIKey: "key", Flavor: test.flavor, UserID: "user"}, server.Client())
+			if err != nil {
+				t.Fatal(err)
+			}
+			text := "overwrite"
+			if _, err := store.Update(context.Background(), UpdateRequest{ID: "fact", Text: &text}); !errors.Is(err, ErrNotFound) {
+				t.Fatalf("Update() error = %v, want ErrNotFound", err)
+			}
+			if err := store.Delete(context.Background(), DeleteRequest{ID: "fact"}); !errors.Is(err, ErrNotFound) {
+				t.Fatalf("Delete() error = %v, want ErrNotFound", err)
+			}
+			if mutations != 0 {
+				t.Fatalf("mutation requests = %d, want 0", mutations)
+			}
+		})
 	}
 }
 
@@ -261,6 +304,34 @@ func TestMem0FiltersUseV3OperatorNames(t *testing.T) {
 		if _, err := store.mem0Filters([]Filter{filter}); !errors.Is(err, ErrUnsupported) {
 			t.Fatalf("mem0Filters(%+v) error = %v", filter, err)
 		}
+	}
+}
+
+func TestMem0SelfHostedFiltersUseDirectMetadataSelectors(t *testing.T) {
+	t.Parallel()
+	store, err := NewMem0Store(Mem0Config{Endpoint: "https://example.test", Flavor: Mem0SelfHosted, UserID: "user"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	filters, err := store.mem0Filters([]Filter{
+		{Field: "lane", Operator: FilterEqual, Value: "clues"},
+		{Field: "source", Operator: FilterNotEqual, Value: "import"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(filters)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(raw)
+	for _, want := range []string{`{"lane":"clues"}`, `{"source":{"ne":"import"}}`} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("filters = %s, missing %s", got, want)
+		}
+	}
+	if strings.Contains(got, `"metadata"`) {
+		t.Fatalf("self-hosted filters contain a platform metadata wrapper: %s", got)
 	}
 }
 
