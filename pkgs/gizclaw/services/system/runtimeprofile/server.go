@@ -90,6 +90,15 @@ func (s *Server) ResolveRegistration(ctx context.Context, rawToken string) (Regi
 	if err != nil {
 		return Registration{}, err
 	}
+	if s.FirmwareExists != nil {
+		exists, err := s.FirmwareExists(ctx, record.FirmwareName)
+		if err != nil {
+			return Registration{}, err
+		}
+		if !exists {
+			return Registration{}, kv.ErrNotFound
+		}
+	}
 	return Registration{TokenName: record.Name, FirmwareName: record.FirmwareName, RuntimeProfile: profile}, nil
 }
 

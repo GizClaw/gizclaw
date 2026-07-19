@@ -271,7 +271,20 @@ func (r *Runtime) GetPet(ctx context.Context, owner, id string) (apitypes.Pet, e
 	if err != nil {
 		return apitypes.Pet{}, err
 	}
-	return scanPet(db.QueryRowContext(ctx, db.Rebind(petSelectSQL()+` WHERE owner_public_key = ? AND id = ?`), owner, strings.TrimSpace(id)))
+	query, args := profileScopedOwnerIDQuery(ctx, petSelectSQL(), owner, id)
+	return scanPet(db.QueryRowContext(ctx, db.Rebind(query), args...))
+}
+
+func profileScopedOwnerIDQuery(ctx context.Context, selectSQL, owner, id string) (string, []any) {
+	query := selectSQL + ` WHERE owner_public_key = ? AND id = ?`
+	args := []any{strings.TrimSpace(owner), strings.TrimSpace(id)}
+	if profile, ok := runtimeProfileFromContext(ctx); ok {
+		if profileName := strings.TrimSpace(profile.Name); profileName != "" {
+			query += ` AND runtime_profile_name = ?`
+			args = append(args, profileName)
+		}
+	}
+	return query, args
 }
 
 // ResolvePetContext resolves the one adopted pet bound to a Workspace and its
@@ -367,7 +380,7 @@ func (r *Runtime) PutPet(ctx context.Context, owner string, req apitypes.PetPutR
 	if err != nil {
 		return apitypes.Pet{}, err
 	}
-	if _, err := db.ExecContext(ctx, db.Rebind(`UPDATE gameplay_pets SET display_name = ?, updated_at = ? WHERE owner_public_key = ? AND id = ?`), pet.DisplayName, formatTime(pet.UpdatedAt), owner, pet.Id); err != nil {
+	if _, err := db.ExecContext(ctx, db.Rebind(`UPDATE gameplay_pets SET display_name = ?, updated_at = ? WHERE owner_public_key = ? AND id = ? AND runtime_profile_name = ?`), pet.DisplayName, formatTime(pet.UpdatedAt), owner, pet.Id, pet.RuntimeProfileName); err != nil {
 		return apitypes.Pet{}, err
 	}
 	return pet, nil
@@ -389,7 +402,7 @@ func (r *Runtime) DeletePet(ctx context.Context, owner, id string) (apitypes.Pet
 	if err != nil {
 		return apitypes.Pet{}, r.restorePetAfterDeleteFailure(cleanupCtx, pet, owner, err)
 	}
-	if _, err := db.ExecContext(ctx, db.Rebind(`DELETE FROM gameplay_pets WHERE owner_public_key = ? AND id = ?`), owner, pet.Id); err != nil {
+	if _, err := db.ExecContext(ctx, db.Rebind(`DELETE FROM gameplay_pets WHERE owner_public_key = ? AND id = ? AND runtime_profile_name = ?`), owner, pet.Id, pet.RuntimeProfileName); err != nil {
 		return apitypes.Pet{}, r.restorePetAfterDeleteFailure(cleanupCtx, pet, owner, err)
 	}
 	return pet, nil
@@ -602,7 +615,8 @@ func (r *Runtime) GetPointsTransaction(ctx context.Context, owner, id string) (a
 	if err != nil {
 		return apitypes.PointsTransaction{}, err
 	}
-	return scanPointsTransaction(db.QueryRowContext(ctx, db.Rebind(pointsTransactionSelectSQL()+` WHERE owner_public_key = ? AND id = ?`), owner, strings.TrimSpace(id)))
+	query, args := profileScopedOwnerIDQuery(ctx, pointsTransactionSelectSQL(), owner, id)
+	return scanPointsTransaction(db.QueryRowContext(ctx, db.Rebind(query), args...))
 }
 
 func (r *Runtime) ListBadges(ctx context.Context, owner string, req apitypes.GameplayListRequest) (apitypes.BadgeListResponse, error) {
@@ -641,7 +655,8 @@ func (r *Runtime) GetGameResult(ctx context.Context, owner, id string) (apitypes
 	if err != nil {
 		return apitypes.GameResult{}, err
 	}
-	return scanGameResult(db.QueryRowContext(ctx, db.Rebind(gameResultSelectSQL()+` WHERE owner_public_key = ? AND id = ?`), owner, strings.TrimSpace(id)))
+	query, args := profileScopedOwnerIDQuery(ctx, gameResultSelectSQL(), owner, id)
+	return scanGameResult(db.QueryRowContext(ctx, db.Rebind(query), args...))
 }
 
 func (r *Runtime) ListRewardGrants(ctx context.Context, owner string, req apitypes.GameplayListRequest) (apitypes.RewardGrantListResponse, error) {
@@ -654,7 +669,8 @@ func (r *Runtime) GetRewardGrant(ctx context.Context, owner, id string) (apitype
 	if err != nil {
 		return apitypes.RewardGrant{}, err
 	}
-	return scanRewardGrant(db.QueryRowContext(ctx, db.Rebind(rewardGrantSelectSQL()+` WHERE owner_public_key = ? AND id = ?`), owner, strings.TrimSpace(id)))
+	query, args := profileScopedOwnerIDQuery(ctx, rewardGrantSelectSQL(), owner, id)
+	return scanRewardGrant(db.QueryRowContext(ctx, db.Rebind(query), args...))
 }
 
 func (r *Runtime) resolveProfileRules(ctx context.Context, name string) (ProfileRules, error) {

@@ -133,6 +133,24 @@ func TestRuntimeProfileScopesGameplayLists(t *testing.T) {
 	if err != nil || len(grants.Items) != 1 || grants.Items[0].RuntimeProfileName != "profile-a" {
 		t.Fatalf("ListRewardGrants(profile-a) = %#v, %v", grants, err)
 	}
+	if _, err := runtime.GetPet(profileCtx, "peer-a", "profile-b-pet"); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("GetPet(cross-profile) error = %v, want not found", err)
+	}
+	if _, err := runtime.PutPet(profileCtx, "peer-a", apitypes.PetPutRequest{Id: "profile-b-pet", DisplayName: "renamed"}); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("PutPet(cross-profile) error = %v, want not found", err)
+	}
+	if _, err := runtime.DeletePet(profileCtx, "peer-a", "profile-b-pet"); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("DeletePet(cross-profile) error = %v, want not found", err)
+	}
+	if _, err := runtime.GetPointsTransaction(profileCtx, "peer-a", "profile-b-transaction"); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("GetPointsTransaction(cross-profile) error = %v, want not found", err)
+	}
+	if _, err := runtime.GetGameResult(profileCtx, "peer-a", "profile-b-result"); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("GetGameResult(cross-profile) error = %v, want not found", err)
+	}
+	if _, err := runtime.GetRewardGrant(profileCtx, "peer-a", "profile-b-grant"); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("GetRewardGrant(cross-profile) error = %v, want not found", err)
+	}
 	allPets, err := runtime.ListPets(ctx, "peer-a", apitypes.GameplayListRequest{})
 	if err != nil || len(allPets.Items) != 2 {
 		t.Fatalf("ListPets(admin owner view) = %#v, %v", allPets, err)

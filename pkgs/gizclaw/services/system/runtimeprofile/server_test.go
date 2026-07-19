@@ -112,6 +112,30 @@ func TestRegistrationTokenCanBeReusedUntilDeleted(t *testing.T) {
 	}
 }
 
+func TestRegistrationTokenCannotResolveAfterFirmwareDeletion(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	store := kv.NewMemory(nil)
+	firmwareExists := true
+	s := &Server{
+		Store:          store,
+		Random:         strings.NewReader(strings.Repeat("z", tokenBytes)),
+		FirmwareExists: func(context.Context, string) (bool, error) { return firmwareExists, nil },
+	}
+	createProfile(t, s, "pet-runtime", nil)
+	response, err := s.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
+		Name: "pet-board", FirmwareName: "h106", RuntimeProfileName: "pet-runtime",
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	created := response.(adminhttp.CreateRegistrationToken200JSONResponse)
+	firmwareExists = false
+	if _, err := s.ResolveRegistration(ctx, created.Token); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("ResolveRegistration() error = %v, want not found", err)
+	}
+}
+
 func TestConcurrentRegistrationTokenCreateKeepsNameAndHashIndexesConsistent(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

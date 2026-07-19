@@ -45,7 +45,11 @@ func (s *Server) PreparePetPixaDownload(ctx context.Context, params rpcapi.PetPi
 	if petID == "" {
 		return rpcapi.PetPixaDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInvalidParams, Message: "pet id is required"}, nil
 	}
-	pet, err := runtime.GetPet(ctx, s.Caller.String(), petID)
+	profileCtx, failure := s.gameplayProfileContext(ctx, "")
+	if failure != nil {
+		return rpcapi.PetPixaDownloadResponse{}, nil, failure.Error, nil
+	}
+	pet, err := runtime.GetPet(profileCtx, s.Caller.String(), petID)
 	if err != nil {
 		return rpcapi.PetPixaDownloadResponse{}, nil, gameplayRPCError(err), nil
 	}
@@ -144,7 +148,11 @@ func (s *Server) handlePetGet(ctx context.Context, req *rpcapi.RPCRequest) *rpca
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	resp, err := runtime.GetPet(ctx, s.Caller.String(), params.Id)
+	profileCtx, failure := s.gameplayProfileContext(ctx, req.Id)
+	if failure != nil {
+		return failure
+	}
+	resp, err := runtime.GetPet(profileCtx, s.Caller.String(), params.Id)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -163,7 +171,11 @@ func (s *Server) handlePetActionsGet(ctx context.Context, req *rpcapi.RPCRequest
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	pet, err := runtime.GetPet(ctx, s.Caller.String(), params.Id)
+	profileCtx, failure := s.gameplayProfileContext(ctx, req.Id)
+	if failure != nil {
+		return failure
+	}
+	pet, err := runtime.GetPet(profileCtx, s.Caller.String(), params.Id)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -310,7 +322,11 @@ func (s *Server) handlePetPut(ctx context.Context, req *rpcapi.RPCRequest) *rpca
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	resp, err := runtime.PutPet(ctx, s.Caller.String(), apiParams)
+	profileCtx, failure := s.gameplayProfileContext(ctx, req.Id)
+	if failure != nil {
+		return failure
+	}
+	resp, err := runtime.PutPet(profileCtx, s.Caller.String(), apiParams)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -326,7 +342,11 @@ func (s *Server) handlePetDelete(ctx context.Context, req *rpcapi.RPCRequest) *r
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	resp, err := runtime.DeletePet(ctx, s.Caller.String(), params.Id)
+	profileCtx, failure := s.gameplayProfileContext(ctx, req.Id)
+	if failure != nil {
+		return failure
+	}
+	resp, err := runtime.DeletePet(profileCtx, s.Caller.String(), params.Id)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -421,7 +441,11 @@ func (s *Server) handlePointsTransactionsGet(ctx context.Context, req *rpcapi.RP
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	resp, err := runtime.GetPointsTransaction(ctx, s.Caller.String(), params.Id)
+	profileCtx, failure := s.gameplayProfileContext(ctx, req.Id)
+	if failure != nil {
+		return failure
+	}
+	resp, err := runtime.GetPointsTransaction(profileCtx, s.Caller.String(), params.Id)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -497,7 +521,11 @@ func (s *Server) handleGameResultGet(ctx context.Context, req *rpcapi.RPCRequest
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	resp, err := runtime.GetGameResult(ctx, s.Caller.String(), params.Id)
+	profileCtx, failure := s.gameplayProfileContext(ctx, req.Id)
+	if failure != nil {
+		return failure
+	}
+	resp, err := runtime.GetGameResult(profileCtx, s.Caller.String(), params.Id)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -537,7 +565,11 @@ func (s *Server) handleRewardGrantGet(ctx context.Context, req *rpcapi.RPCReques
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	resp, err := runtime.GetRewardGrant(ctx, s.Caller.String(), params.Id)
+	profileCtx, failure := s.gameplayProfileContext(ctx, req.Id)
+	if failure != nil {
+		return failure
+	}
+	resp, err := runtime.GetRewardGrant(profileCtx, s.Caller.String(), params.Id)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
