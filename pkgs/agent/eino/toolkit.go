@@ -75,26 +75,21 @@ func (t *nativeTool) run(ctx context.Context, callID, arguments string) (string,
 	if err := consumeToolBudget(ctx, callID); err != nil {
 		return "", err
 	}
-	if t.history != nil {
-		message := schema.AssistantMessage("", []schema.ToolCall{{
-			ID: callID,
-			Function: schema.FunctionCall{
-				Name:      call.Name,
-				Arguments: arguments,
-			},
-		}})
-		if err := t.history.append(ctx, message, false); err != nil {
-			return "", err
-		}
-	}
+	callMessage := schema.AssistantMessage("", []schema.ToolCall{{
+		ID: callID,
+		Function: schema.FunctionCall{
+			Name:      call.Name,
+			Arguments: arguments,
+		},
+	}})
 	results, err := commonagent.InvokeToolCalls(ctx, t.toolkit, []commonagent.ToolCall{call}, commonagent.ToolLoopConfig{
 		MaxCalls: 1,
 		Timeout:  t.timeout,
 	})
 	if err != nil {
-		if t.history != nil {
+		if t.history != nil && context.Cause(ctx) == nil {
 			failure := commonagent.ErrorToolResult(callID, "tool_invocation_failed", err.Error())
-			if historyErr := t.history.append(context.WithoutCancel(ctx), schema.ToolMessage(string(failure.Content), callID, schema.WithToolName(call.Name)), false); historyErr != nil {
+			if historyErr := t.history.appendToolExchange(context.WithoutCancel(ctx), callMessage, schema.ToolMessage(string(failure.Content), callID, schema.WithToolName(call.Name))); historyErr != nil {
 				return "", errors.Join(err, fmt.Errorf("agent/eino: append failed tool result: %w", historyErr))
 			}
 		}
@@ -102,7 +97,7 @@ func (t *nativeTool) run(ctx context.Context, callID, arguments string) (string,
 	}
 	result := results[0]
 	if t.history != nil {
-		if err := t.history.append(ctx, schema.ToolMessage(string(result.Content), callID, schema.WithToolName(call.Name)), false); err != nil {
+		if err := t.history.appendToolExchange(ctx, callMessage, schema.ToolMessage(string(result.Content), callID, schema.WithToolName(call.Name))); err != nil {
 			return "", err
 		}
 	}

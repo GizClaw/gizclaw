@@ -96,6 +96,61 @@ func TestAgentRunsFlowcraftToolsStrictlyInProviderOrder(t *testing.T) {
 	}
 }
 
+func TestFlowcraftToolFailureBalancesHistoryUnlessInterrupted(t *testing.T) {
+	wantErr := errors.New("device unavailable")
+	history := &conversationHistory{}
+	var cancel context.CancelCauseFunc
+	toolkit := commonagent.ToolkitFunc{
+		List: func() []commonagent.Tool { return []commonagent.Tool{{Name: "device"}} },
+		InvokeFunc: func(context.Context, commonagent.ToolCall) (commonagent.ToolResult, error) {
+			if cancel != nil {
+				cancel(errors.New(commonagent.Interrupted))
+				return commonagent.ToolResult{}, context.Canceled
+			}
+			return commonagent.ToolResult{}, wantErr
+		},
+	}
+	registry, _, err := buildToolRegistry(toolkit, 0, history)
+	if err != nil {
+		t.Fatal(err)
+	}
+	execute := func(ctx context.Context, id string) flowmodel.ToolResult {
+		runCtx, abort := context.WithCancelCause(ctx)
+		sequence := newToolSequencer()
+		if err := sequence.record(id); err != nil {
+			t.Fatal(err)
+		}
+		runCtx = withSequencer(runCtx, sequence)
+		runCtx = withTurnState(runCtx, 0, abort)
+		return registry.Execute(runCtx, flowmodel.ToolCall{ID: id, Name: "device", Arguments: `{}`})
+	}
+	result := execute(t.Context(), "call-1")
+	if !result.IsError || !strings.Contains(result.Content, wantErr.Error()) {
+		t.Fatalf("tool result = %+v", result)
+	}
+	messages, err := history.recent(t.Context(), 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(messages) != 2 || len(messages[0].ToolCalls()) != 1 || len(messages[1].ToolResults()) != 1 || messages[1].ToolResults()[0].ToolCallID != "call-1" {
+		t.Fatalf("history = %#v, want balanced call/result pair", messages)
+	}
+
+	interruptedCtx, interrupt := context.WithCancelCause(t.Context())
+	cancel = interrupt
+	result = execute(interruptedCtx, "call-2")
+	if !result.IsError {
+		t.Fatalf("interrupted tool result = %+v", result)
+	}
+	messages, err = history.recent(t.Context(), 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(messages) != 2 {
+		t.Fatalf("interrupted tool exchange persisted: %#v", messages)
+	}
+}
+
 func TestAgentPreservesTextCarriedByEOS(t *testing.T) {
 	seen := make(chan genx.ModelContext, 1)
 	generator := generatorFunc(func(_ context.Context, modelContext genx.ModelContext) (genx.Stream, error) {
@@ -252,7 +307,8 @@ func TestAgentRecallsAndObservesInjectedMemory(t *testing.T) {
 	if got := allPrompts(modelContext); !strings.Contains(got, "likes tea") {
 		t.Fatalf("system memory context = %q, want recalled fact", got)
 	}
-	query, observations := store.snapshot()
+	observations := store.waitForObservations(t, 1)
+	query, _ := store.snapshot()
 	if query.Text != "what do I like?" || query.Limit != 3 {
 		t.Fatalf("memory query = %+v", query)
 	}
@@ -345,8 +401,8 @@ func TestAgentUsesIndependentHistoryWorkspace(t *testing.T) {
 
 func TestPulledHistoryAcceptsPendingMemoryAndReportsFailedOperation(t *testing.T) {
 	store := &recordingMemoryStore{observeResult: memory.ObserveResult{Operation: &memory.Operation{ID: "pending-1", Status: memory.OperationPending}}}
-	var reported []error
-	pulled := newPulledHistory(&conversationHistory{}, store, func(err error) { reported = append(reported, err) })
+	reported := make(chan error, 2)
+	pulled := newPulledHistory(&conversationHistory{}, store, func(err error) { reported <- err })
 	pulled.track("response-1", "hello")
 	pulled.observe(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("answer"), Ctrl: &genx.StreamCtrl{StreamID: "response-1"}})
 	pulled.observe(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "response-1", EndOfStream: true}})
@@ -356,16 +412,25 @@ func TestPulledHistoryAcceptsPendingMemoryAndReportsFailedOperation(t *testing.T
 		t.Fatalf("completed pulled state retained: states=%d users=%d", len(pulled.states), len(pulled.users))
 	}
 	pulled.mu.Unlock()
-	if len(reported) != 0 {
-		t.Fatalf("pending memory operation reported errors: %v", reported)
+	store.waitForObservations(t, 1)
+	select {
+	case err := <-reported:
+		t.Fatalf("pending memory operation reported error: %v", err)
+	default:
 	}
 
 	store.setObserveResult(memory.ObserveResult{Operation: &memory.Operation{ID: "failed-1", Status: memory.OperationFailed, Error: "extractor unavailable"}}, nil)
 	pulled.track("response-2", "again")
 	pulled.observe(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("second"), Ctrl: &genx.StreamCtrl{StreamID: "response-2"}})
 	pulled.observe(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "response-2", EndOfStream: true}})
-	if len(reported) != 1 || !strings.Contains(reported[0].Error(), "failed-1") {
-		t.Fatalf("reported errors = %v", reported)
+	store.waitForObservations(t, 2)
+	select {
+	case err := <-reported:
+		if !strings.Contains(err.Error(), "failed-1") {
+			t.Fatalf("reported error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("failed memory operation was not reported")
 	}
 	pulled.track("response-3", "interrupt")
 	pulled.observe(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("partial"), Ctrl: &genx.StreamCtrl{StreamID: "response-3"}})
@@ -374,6 +439,38 @@ func TestPulledHistoryAcceptsPendingMemoryAndReportsFailedOperation(t *testing.T
 	defer pulled.mu.Unlock()
 	if len(pulled.states) != 0 || len(pulled.users) != 0 {
 		t.Fatalf("interrupted pulled state retained: states=%d users=%d", len(pulled.states), len(pulled.users))
+	}
+}
+
+func TestPulledHistoryBoundsMemoryObservationAfterEOS(t *testing.T) {
+	store := &cancelBlockingMemoryStore{started: make(chan struct{})}
+	reported := make(chan error, 1)
+	pulled := newPulledHistory(&conversationHistory{}, store, func(err error) { reported <- err })
+	pulled.memoryTimeout = 20 * time.Millisecond
+	pulled.track("response-1", "hello")
+	pulled.observe(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("answer"), Ctrl: &genx.StreamCtrl{StreamID: "response-1"}})
+	returned := make(chan struct{})
+	go func() {
+		pulled.observe(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "response-1", EndOfStream: true}})
+		close(returned)
+	}()
+	select {
+	case <-returned:
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("EOS observation blocked on Memory")
+	}
+	select {
+	case <-store.started:
+	case <-time.After(time.Second):
+		t.Fatal("Memory observation did not start")
+	}
+	select {
+	case err := <-reported:
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("reported error = %v, want deadline exceeded", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("bounded Memory observation did not report its timeout")
 	}
 }
 
@@ -563,6 +660,27 @@ type recordingMemoryStore struct {
 	observeErr    error
 }
 
+type cancelBlockingMemoryStore struct {
+	started chan struct{}
+	once    sync.Once
+}
+
+func (s *cancelBlockingMemoryStore) Observe(ctx context.Context, _ memory.Observation) (memory.ObserveResult, error) {
+	s.once.Do(func() { close(s.started) })
+	<-ctx.Done()
+	return memory.ObserveResult{}, ctx.Err()
+}
+
+func (*cancelBlockingMemoryStore) Recall(context.Context, memory.Query) (memory.RecallResult, error) {
+	return memory.RecallResult{}, nil
+}
+
+func (*cancelBlockingMemoryStore) Update(context.Context, memory.UpdateRequest) (memory.Fact, error) {
+	return memory.Fact{}, nil
+}
+
+func (*cancelBlockingMemoryStore) Delete(context.Context, memory.DeleteRequest) error { return nil }
+
 func (s *recordingMemoryStore) Observe(_ context.Context, observation memory.Observation) (memory.ObserveResult, error) {
 	s.mu.Lock()
 	s.observations = append(s.observations, observation)
@@ -595,6 +713,21 @@ func (s *recordingMemoryStore) snapshot() (memory.Query, []memory.Observation) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.query, slices.Clone(s.observations)
+}
+
+func (s *recordingMemoryStore) waitForObservations(t *testing.T, count int) []memory.Observation {
+	t.Helper()
+	deadline := time.Now().Add(time.Second)
+	for {
+		_, observations := s.snapshot()
+		if len(observations) >= count {
+			return observations
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("memory observations = %d, want at least %d", len(observations), count)
+		}
+		time.Sleep(time.Millisecond)
+	}
 }
 
 type recordingLogStore struct {

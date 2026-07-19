@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/GizClaw/doubao-speech-go"
 	commonagent "github.com/GizClaw/gizclaw-go/pkgs/agent"
@@ -115,6 +116,7 @@ func (a *Agent) invoke(ctx context.Context, calls []doubaospeech.RealtimeDuplexF
 
 type responseStream struct {
 	genx.Stream
+	idMu        sync.RWMutex
 	ids         map[string]string
 	providerIDs map[string]string
 	activeID    string
@@ -135,9 +137,12 @@ func (s *responseStream) Next() (*genx.MessageChunk, error) {
 	if s.activeID == "" || (s.terminal && !owned.IsEndOfStream()) {
 		s.activeID = genx.NewStreamID()
 		s.terminal = false
+		s.idMu.Lock()
 		clear(s.ids)
+		s.idMu.Unlock()
 	}
 	providerID := strings.TrimSpace(owned.Ctrl.StreamID)
+	s.idMu.Lock()
 	if s.ids == nil {
 		s.ids = make(map[string]string)
 	}
@@ -150,6 +155,7 @@ func (s *responseStream) Next() (*genx.MessageChunk, error) {
 		s.ids[providerID] = streamID
 		s.providerIDs[streamID] = providerID
 	}
+	s.idMu.Unlock()
 	owned.Ctrl.StreamID = streamID
 	if owned.IsEndOfStream() {
 		s.terminal = true
@@ -174,9 +180,11 @@ func (s *responseStream) ObserveOutput(chunk *genx.MessageChunk) {
 	}
 	owned := chunk.Clone()
 	if owned.Ctrl != nil {
+		s.idMu.RLock()
 		if providerID, found := s.providerIDs[owned.Ctrl.StreamID]; found {
 			owned.Ctrl.StreamID = providerID
 		}
+		s.idMu.RUnlock()
 	}
 	observer.ObserveOutput(owned)
 }

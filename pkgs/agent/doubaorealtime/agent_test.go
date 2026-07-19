@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/GizClaw/doubao-speech-go"
@@ -200,6 +202,52 @@ func TestResponseStreamPreservesOutputObservationWithProviderID(t *testing.T) {
 	}
 }
 
+func TestResponseStreamSynchronizesDeferredObservationIDs(t *testing.T) {
+	const responses = 500
+	chunks := make([]*genx.MessageChunk, 0, responses*2)
+	for index := range responses {
+		providerID := fmt.Sprintf("provider-%d", index)
+		chunks = append(chunks,
+			&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("visible"), Ctrl: &genx.StreamCtrl{StreamID: providerID}},
+			&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: providerID, EndOfStream: true}},
+		)
+	}
+	provider := &concurrentObservationStream{sliceStream: sliceStream{chunks: chunks}}
+	stream := &responseStream{Stream: provider, ids: make(map[string]string), providerIDs: make(map[string]string)}
+	pulled := make(chan *genx.MessageChunk, responses)
+	producerDone := make(chan error, 1)
+	go func() {
+		defer close(pulled)
+		for {
+			chunk, err := stream.Next()
+			if errors.Is(err, io.EOF) {
+				producerDone <- nil
+				return
+			}
+			if err != nil {
+				producerDone <- err
+				return
+			}
+			pulled <- chunk
+		}
+	}()
+	for chunk := range pulled {
+		stream.ObserveOutput(chunk.Clone())
+	}
+	if err := <-producerDone; err != nil {
+		t.Fatal(err)
+	}
+	observed := provider.snapshot()
+	if len(observed) != len(chunks) {
+		t.Fatalf("observed chunks = %d, want %d", len(observed), len(chunks))
+	}
+	for _, chunk := range observed {
+		if chunk.Ctrl == nil || !strings.HasPrefix(chunk.Ctrl.StreamID, "provider-") {
+			t.Fatalf("observed provider chunk = %#v", chunk)
+		}
+	}
+}
+
 func TestTransformUsesConfiguredPattern(t *testing.T) {
 	transformer := &testTransformer{}
 	agent, err := New(Config{Transformer: transformer, Pattern: "model/doubao", Toolkit: commonagent.EmptyToolkit()})
@@ -256,4 +304,24 @@ func (s *recordingObservationStream) DeferOutputObservation() {
 
 func (s *recordingObservationStream) ObserveOutput(chunk *genx.MessageChunk) {
 	s.observed = chunk.Clone()
+}
+
+type concurrentObservationStream struct {
+	sliceStream
+	mu       sync.Mutex
+	observed []*genx.MessageChunk
+}
+
+func (*concurrentObservationStream) DeferOutputObservation() {}
+
+func (s *concurrentObservationStream) ObserveOutput(chunk *genx.MessageChunk) {
+	s.mu.Lock()
+	s.observed = append(s.observed, chunk.Clone())
+	s.mu.Unlock()
+}
+
+func (s *concurrentObservationStream) snapshot() []*genx.MessageChunk {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Clone(s.observed)
 }

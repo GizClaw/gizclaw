@@ -20,9 +20,10 @@ import (
 )
 
 const (
-	historyStream  = "flowcraft-history"
-	historyKind    = "message"
-	historyVersion = 1
+	historyStream            = "flowcraft-history"
+	historyKind              = "message"
+	historyVersion           = 1
+	memoryObservationTimeout = 30 * time.Second
 )
 
 type historyStore struct {
@@ -233,12 +234,13 @@ func (h *historyStore) append(ctx context.Context, messages []flowmodel.Message,
 }
 
 type pulledHistory struct {
-	history *conversationHistory
-	memory  memory.Store
-	mu      sync.Mutex
-	states  map[string]*pulledState
-	users   map[string]string
-	report  func(error)
+	history       *conversationHistory
+	memory        memory.Store
+	memoryTimeout time.Duration
+	mu            sync.Mutex
+	states        map[string]*pulledState
+	users         map[string]string
+	report        func(error)
 }
 
 type pulledState struct {
@@ -246,7 +248,7 @@ type pulledState struct {
 }
 
 func newPulledHistory(history *conversationHistory, memoryStore memory.Store, report func(error)) *pulledHistory {
-	return &pulledHistory{history: history, memory: memoryStore, states: make(map[string]*pulledState), users: make(map[string]string), report: report}
+	return &pulledHistory{history: history, memory: memoryStore, memoryTimeout: memoryObservationTimeout, states: make(map[string]*pulledState), users: make(map[string]string), report: report}
 }
 
 func (p *pulledHistory) track(streamID, user string) {
@@ -301,13 +303,20 @@ func (p *pulledHistory) observeMemory(streamID, user, assistant string) {
 		return
 	}
 	now := time.Now().UTC()
-	result, err := p.memory.Observe(context.Background(), memory.Observation{
+	observation := memory.Observation{
 		ID: streamID, ObservedAt: now,
 		Turns: []memory.Turn{
 			{ID: streamID + ":user", Role: memory.RoleUser, Text: user, ObservedAt: now},
 			{ID: streamID + ":assistant", Role: memory.RoleAssistant, Text: assistant, ObservedAt: now},
 		},
-	})
+	}
+	go p.persistMemory(observation)
+}
+
+func (p *pulledHistory) persistMemory(observation memory.Observation) {
+	ctx, cancel := context.WithTimeout(context.Background(), p.memoryTimeout)
+	defer cancel()
+	result, err := p.memory.Observe(ctx, observation)
 	if err != nil {
 		p.reportError(fmt.Errorf("agent/flowcraft: observe memory: %w", err))
 		return

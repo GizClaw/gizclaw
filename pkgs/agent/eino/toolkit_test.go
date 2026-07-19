@@ -58,7 +58,7 @@ func TestNativeToolBalancesHistoryWhenArgumentsAreInvalid(t *testing.T) {
 	}
 }
 
-func TestNativeToolBalancesHistoryAfterContextCancellation(t *testing.T) {
+func TestNativeToolDropsHistoryAfterContextCancellation(t *testing.T) {
 	history := &conversationHistory{}
 	tool := &nativeTool{
 		declaration: commonagent.Tool{Name: "device_call"},
@@ -76,8 +76,8 @@ func TestNativeToolBalancesHistoryAfterContextCancellation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(messages) != 2 || messages[0].Role != schema.Assistant || messages[1].Role != schema.Tool || messages[1].ToolCallID != "call-1" {
-		t.Fatalf("history after pre-invoke cancellation = %#v", messages)
+	if len(messages) != 0 {
+		t.Fatalf("history after pre-invoke cancellation = %#v, want empty", messages)
 	}
 
 	ctx, cancel = context.WithCancel(t.Context())
@@ -92,7 +92,7 @@ func TestNativeToolBalancesHistoryAfterContextCancellation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(messages) != 4 || messages[2].Role != schema.Assistant || messages[3].Role != schema.Tool || messages[3].ToolCallID != "call-2" {
-		t.Fatalf("history after invoke cancellation = %#v", messages)
+	if len(messages) != 0 {
+		t.Fatalf("history after invoke cancellation = %#v, want empty", messages)
 	}
 }

@@ -19,6 +19,8 @@ import (
 
 const historyKind = "agent.eino.message"
 
+const memoryObservationTimeout = 30 * time.Second
+
 type historyPayload struct {
 	Message     *schema.Message `json:"message"`
 	Interrupted bool            `json:"interrupted,omitempty"`
@@ -67,6 +69,16 @@ func (h *conversationHistory) append(ctx context.Context, message *schema.Messag
 		}
 		last.Extra["gizclaw.interrupted"] = true
 	}
+	h.mu.Unlock()
+	return nil
+}
+
+func (h *conversationHistory) appendToolExchange(ctx context.Context, call, result *schema.Message) error {
+	if h.store != nil {
+		return h.store.appendMessages(ctx, []*schema.Message{call, result}, false)
+	}
+	h.mu.Lock()
+	h.live = append(h.live, cloneMessage(call), cloneMessage(result))
 	h.mu.Unlock()
 	return nil
 }
@@ -131,37 +143,59 @@ func (h *history) recent(ctx context.Context) ([]*schema.Message, error) {
 }
 
 func (h *history) append(ctx context.Context, message *schema.Message, interrupted bool) error {
-	if h == nil || message == nil {
+	return h.appendMessages(ctx, []*schema.Message{message}, interrupted)
+}
+
+func (h *history) appendMessages(ctx context.Context, messages []*schema.Message, interrupted bool) error {
+	if h == nil || len(messages) == 0 {
 		return nil
 	}
-	payload, err := json.Marshal(historyPayload{Message: cloneMessage(message), Interrupted: interrupted})
-	if err != nil {
-		return fmt.Errorf("agent/eino: encode history: %w", err)
+	type encodedMessage struct {
+		message *schema.Message
+		payload []byte
+	}
+	encoded := make([]encodedMessage, 0, len(messages))
+	for _, message := range messages {
+		if message == nil {
+			continue
+		}
+		owned := cloneMessage(message)
+		payload, err := json.Marshal(historyPayload{Message: owned, Interrupted: interrupted})
+		if err != nil {
+			return fmt.Errorf("agent/eino: encode history: %w", err)
+		}
+		encoded = append(encoded, encodedMessage{message: owned, payload: payload})
+	}
+	if len(encoded) == 0 {
+		return nil
 	}
 
 	h.mu.Lock()
-	now := time.Now().UTC()
-	if !now.After(h.lastTime) {
-		now = h.lastTime.Add(time.Nanosecond)
+	records := make([]logstore.Record, 0, len(encoded))
+	for _, item := range encoded {
+		now := time.Now().UTC()
+		if !now.After(h.lastTime) {
+			now = h.lastTime.Add(time.Nanosecond)
+		}
+		h.lastTime = now
+		h.sequence++
+		attributes := map[string]string{"role": string(item.message.Role)}
+		if interrupted {
+			attributes["interrupted"] = "true"
+		}
+		records = append(records, logstore.Record{
+			ID:         fmt.Sprintf("%020d-%06d", now.UnixNano(), h.sequence),
+			Time:       now,
+			Stream:     h.stream,
+			Kind:       historyKind,
+			Message:    item.message.Content,
+			Attributes: attributes,
+			Payload:    item.payload,
+		})
 	}
-	h.lastTime = now
-	h.sequence++
-	id := fmt.Sprintf("%020d-%06d", now.UnixNano(), h.sequence)
 	h.mu.Unlock()
 
-	attributes := map[string]string{"role": string(message.Role)}
-	if interrupted {
-		attributes["interrupted"] = "true"
-	}
-	_, err = h.store.Append(ctx, []logstore.Record{{
-		ID:         id,
-		Time:       now,
-		Stream:     h.stream,
-		Kind:       historyKind,
-		Message:    message.Content,
-		Attributes: attributes,
-		Payload:    payload,
-	}})
+	_, err := h.store.Append(ctx, records)
 	if err != nil {
 		return fmt.Errorf("agent/eino: append history: %w", err)
 	}
@@ -169,8 +203,9 @@ func (h *history) append(ctx context.Context, message *schema.Message, interrupt
 }
 
 type pulledHistory struct {
-	history *conversationHistory
-	memory  memory.Store
+	history       *conversationHistory
+	memory        memory.Store
+	memoryTimeout time.Duration
 
 	mu     sync.Mutex
 	states map[string]*pulledResponse
@@ -183,7 +218,7 @@ type pulledResponse struct {
 }
 
 func newPulledHistory(h *conversationHistory, memoryStore memory.Store, report func(error)) *pulledHistory {
-	return &pulledHistory{history: h, memory: memoryStore, states: make(map[string]*pulledResponse), users: make(map[string]string), report: report}
+	return &pulledHistory{history: h, memory: memoryStore, memoryTimeout: memoryObservationTimeout, states: make(map[string]*pulledResponse), users: make(map[string]string), report: report}
 }
 
 func (p *pulledHistory) track(streamID, user string) {
@@ -238,13 +273,20 @@ func (p *pulledHistory) observeMemory(streamID, user, assistant string) {
 		return
 	}
 	now := time.Now().UTC()
-	result, err := p.memory.Observe(context.Background(), memory.Observation{
+	observation := memory.Observation{
 		ID: streamID, ObservedAt: now,
 		Turns: []memory.Turn{
 			{ID: streamID + ":user", Role: memory.RoleUser, Text: user, ObservedAt: now},
 			{ID: streamID + ":assistant", Role: memory.RoleAssistant, Text: assistant, ObservedAt: now},
 		},
-	})
+	}
+	go p.persistMemory(observation)
+}
+
+func (p *pulledHistory) persistMemory(observation memory.Observation) {
+	ctx, cancel := context.WithTimeout(context.Background(), p.memoryTimeout)
+	defer cancel()
+	result, err := p.memory.Observe(ctx, observation)
 	if err != nil {
 		p.reportError(fmt.Errorf("agent/eino: observe memory: %w", err))
 		return

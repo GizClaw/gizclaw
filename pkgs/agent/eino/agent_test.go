@@ -278,7 +278,8 @@ func TestAgentRecallsAndObservesInjectedMemory(t *testing.T) {
 	}) {
 		t.Fatalf("model messages = %#v, want recalled system memory", messages)
 	}
-	query, observations := store.snapshot()
+	observations := store.waitForObservations(t, 1)
+	query, _ := store.snapshot()
 	if query.Text != "what do I like?" || query.Limit != 3 {
 		t.Fatalf("memory query = %+v", query)
 	}
@@ -308,8 +309,8 @@ func TestAgentHistoryReturnsDefensiveCopies(t *testing.T) {
 
 func TestPulledHistoryAcceptsPendingMemoryAndReportsObserveFailure(t *testing.T) {
 	store := &recordingMemoryStore{observeResult: memory.ObserveResult{Operation: &memory.Operation{ID: "pending-1", Status: memory.OperationPending}}}
-	var reported []error
-	pulled := newPulledHistory(&conversationHistory{}, store, func(err error) { reported = append(reported, err) })
+	reported := make(chan error, 2)
+	pulled := newPulledHistory(&conversationHistory{}, store, func(err error) { reported <- err })
 	pulled.track("response-1", "hello")
 	pulled.observe(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("answer"), Ctrl: &genx.StreamCtrl{StreamID: "response-1"}})
 	pulled.observe(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "response-1", EndOfStream: true}})
@@ -319,16 +320,25 @@ func TestPulledHistoryAcceptsPendingMemoryAndReportsObserveFailure(t *testing.T)
 		t.Fatalf("completed pulled state retained: states=%d users=%d", len(pulled.states), len(pulled.users))
 	}
 	pulled.mu.Unlock()
-	if len(reported) != 0 {
-		t.Fatalf("pending memory operation reported errors: %v", reported)
+	store.waitForObservations(t, 1)
+	select {
+	case err := <-reported:
+		t.Fatalf("pending memory operation reported error: %v", err)
+	default:
 	}
 
 	store.setObserveResult(memory.ObserveResult{}, errors.New("memory unavailable"))
 	pulled.track("response-2", "again")
 	pulled.observe(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("second"), Ctrl: &genx.StreamCtrl{StreamID: "response-2"}})
 	pulled.observe(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "response-2", EndOfStream: true}})
-	if len(reported) != 1 || !strings.Contains(reported[0].Error(), "memory unavailable") {
-		t.Fatalf("reported errors = %v", reported)
+	store.waitForObservations(t, 2)
+	select {
+	case err := <-reported:
+		if !strings.Contains(err.Error(), "memory unavailable") {
+			t.Fatalf("reported error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("memory observation failure was not reported")
 	}
 	pulled.track("response-3", "interrupt")
 	pulled.observe(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("partial"), Ctrl: &genx.StreamCtrl{StreamID: "response-3"}})
@@ -423,6 +433,21 @@ func (s *recordingMemoryStore) snapshot() (memory.Query, []memory.Observation) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.query, slices.Clone(s.observations)
+}
+
+func (s *recordingMemoryStore) waitForObservations(t *testing.T, count int) []memory.Observation {
+	t.Helper()
+	deadline := time.Now().Add(time.Second)
+	for {
+		_, observations := s.snapshot()
+		if len(observations) >= count {
+			return observations
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("memory observations = %d, want at least %d", len(observations), count)
+		}
+		time.Sleep(time.Millisecond)
+	}
 }
 
 type recordingLogStore struct {

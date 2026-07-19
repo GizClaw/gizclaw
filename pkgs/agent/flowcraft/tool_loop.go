@@ -128,26 +128,32 @@ func buildToolRegistry(toolkit commonagent.Toolkit, timeout time.Duration, h *co
 				state.abort(err)
 				return flowmodel.ToolResult{ToolCallID: call.ID, Content: string(commonagent.ErrorToolResult(call.ID, "tool_call_limit", err.Error()).Content), IsError: true}
 			}
-			if err := h.append(ctx, []flowmodel.Message{flowmodel.NewToolCallMessage([]flowmodel.ToolCall{call})}, false); err != nil {
-				if state != nil {
-					state.abort(err)
-				}
-				failure := commonagent.ErrorToolResult(call.ID, "history_failed", err.Error())
-				return flowmodel.ToolResult{ToolCallID: call.ID, Content: string(failure.Content), IsError: true}
-			}
 			results, invokeErr := commonagent.InvokeToolCalls(ctx, toolkit, []commonagent.ToolCall{{
 				ID: call.ID, Name: call.Name, Arguments: json.RawMessage(call.Arguments),
 			}}, commonagent.ToolLoopConfig{MaxCalls: 1, Timeout: timeout})
 			if invokeErr != nil {
+				interrupted := context.Cause(ctx) != nil
 				if state != nil {
 					state.abort(invokeErr)
 				}
 				failure := commonagent.ErrorToolResult(call.ID, "invoke_failed", invokeErr.Error())
-				return flowmodel.ToolResult{ToolCallID: call.ID, Content: string(failure.Content), IsError: true}
+				flowFailure := flowmodel.ToolResult{ToolCallID: call.ID, Content: string(failure.Content), IsError: true}
+				if !interrupted {
+					if err := h.append(context.WithoutCancel(ctx), []flowmodel.Message{
+						flowmodel.NewToolCallMessage([]flowmodel.ToolCall{call}),
+						flowmodel.NewToolResultMessage([]flowmodel.ToolResult{flowFailure}),
+					}, false); err != nil {
+						return flowmodel.ToolResult{ToolCallID: call.ID, Content: string(commonagent.ErrorToolResult(call.ID, "history_failed", err.Error()).Content), IsError: true}
+					}
+				}
+				return flowFailure
 			}
 			result := results[0]
 			flowResult := flowmodel.ToolResult{ToolCallID: result.ID, Content: string(result.Content), IsError: result.IsError}
-			if err := h.append(ctx, []flowmodel.Message{flowmodel.NewToolResultMessage([]flowmodel.ToolResult{flowResult})}, false); err != nil {
+			if err := h.append(ctx, []flowmodel.Message{
+				flowmodel.NewToolCallMessage([]flowmodel.ToolCall{call}),
+				flowmodel.NewToolResultMessage([]flowmodel.ToolResult{flowResult}),
+			}, false); err != nil {
 				if state != nil {
 					state.abort(err)
 				}
