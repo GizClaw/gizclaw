@@ -201,8 +201,9 @@ func flowcraftWorkspaceParameters(t *testing.T, input apitypes.WorkspaceInputMod
 	t.Helper()
 	var params apitypes.WorkspaceParameters
 	if err := params.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{
-		AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
-		Input:     &input,
+		AgentType:     apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+		GenerateModel: ptr("fake-openai-chat-000"),
+		Input:         &input,
 	}); err != nil {
 		t.Fatalf("build Flowcraft workspace parameters: %v", err)
 	}

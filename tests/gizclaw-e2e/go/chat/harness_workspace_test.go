@@ -289,6 +289,10 @@ func TestRetryableLiveWorkspaceError(t *testing.T) {
 		errors.New("peer event error: buffer: read from closed buffer: doubaospeech: [Server processing timeout] node execution timeout (code=55001010)"),
 		errors.New("peer event error: buffer: read from closed buffer: doubaospeech: [Server-side generic error] OperatorWrapper Process failed: big asr recv err. rpc timeout: CallWithTimeout: timeout in business code, timeout_config=3s"),
 		errors.New("peer event error: buffer: read from closed buffer: genx: generate error: flowcraft: read TTS voice \"你好\": flowcraft: send tts stream request: Post \"https://openspeech.bytedance.com/api/v3/tts/unidirectional\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)"),
+		errors.New("self-start: assistant audio asr part 2: transcription response.wav size=12345: 400 Bad Request"),
+		errors.New("interrupt second response: assistant audio asr part 1: status code 400"),
+		errors.New("self-start missing assistant text; recent events: event stream=flowcraft-self-start label=assistant type=eos text=\"\" error="),
+		errors.New("interrupt second stream started before interrupted assistant EOS: stream=audio-e2e-2 label=assistant type=bos"),
 		errors.New("interrupt second transcript mismatch: similarity 0.21 below 0.45"),
 	}
 	for _, err := range retryable {
@@ -301,6 +305,8 @@ func TestRetryableLiveWorkspaceError(t *testing.T) {
 		errors.New("read context config: no such file or directory"),
 		errors.New("client private key: invalid key"),
 		errors.New("interrupt missing second transcript"),
+		errors.New("interrupt first response continued after interruption: stream=audio-e2e-1 text=late"),
+		errors.New("interrupt downlink continued before interrupted assistant EOS"),
 		errors.New("context deadline exceeded"),
 		errors.New("buffer: read from closed buffer: genx: generate error: flowcraft: claw event error: recall ingest: extract: recall two-pass extractor: content llm: bytedance.generate: 15.007s"),
 		errors.New("speech: POST \"http://gizclaw/v1/audio/speech\": 400 Bad Request"),

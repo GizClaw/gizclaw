@@ -121,35 +121,38 @@ func TestAgentRunTurnBridgesASRClawAndTTS(t *testing.T) {
 		label string
 		text  string
 		blob  []byte
+		audio bool
+		bos   bool
 		eos   bool
 	}{
 		{role: genx.RoleUser, label: transcriptLabel, text: "你好"},
 		{role: genx.RoleUser, label: transcriptLabel, text: "", eos: true},
 		{role: genx.RoleModel, name: "answer", label: assistantLabel, text: "好的"},
 		{role: genx.RoleModel, name: "answer", label: assistantLabel, text: "呀"},
-		{role: genx.RoleModel, name: "answer", label: assistantLabel, blob: []byte{0xaa}},
-		{role: genx.RoleModel, name: "answer", label: assistantLabel, blob: nil, eos: true},
+		{role: genx.RoleModel, name: "answer", label: assistantLabel, audio: true, bos: true},
+		{role: genx.RoleModel, name: "answer", label: assistantLabel, blob: []byte{0xaa}, audio: true},
+		{role: genx.RoleModel, name: "answer", label: assistantLabel, audio: true, eos: true},
 		{role: genx.RoleModel, name: assistantLabel, label: assistantLabel, text: "", eos: true},
-		{role: genx.RoleModel, name: assistantLabel, label: assistantLabel, blob: nil, eos: true},
+		{role: genx.RoleModel, name: assistantLabel, label: assistantLabel, audio: true, eos: true},
 	}
 	if len(got) != len(want) {
 		t.Fatalf("chunks len = %d, want %d: %#v", len(got), len(want), got)
 	}
 	for i, want := range want {
 		chunk := got[i]
-		if chunk.Role != want.role || chunk.Ctrl == nil || chunk.Ctrl.Label != want.label || chunk.Ctrl.StreamID != "audio" || chunk.Ctrl.EndOfStream != want.eos {
-			t.Fatalf("chunk[%d] ctrl = %#v role=%s, want role=%s label=%s eos=%t", i, chunk.Ctrl, chunk.Role, want.role, want.label, want.eos)
+		if chunk.Role != want.role || chunk.Ctrl == nil || chunk.Ctrl.Label != want.label || chunk.Ctrl.StreamID != "audio" || chunk.Ctrl.BeginOfStream != want.bos || chunk.Ctrl.EndOfStream != want.eos {
+			t.Fatalf("chunk[%d] ctrl = %#v role=%s, want role=%s label=%s bos=%t eos=%t", i, chunk.Ctrl, chunk.Role, want.role, want.label, want.bos, want.eos)
 		}
 		if want.name != "" && chunk.Name != want.name {
 			t.Fatalf("chunk[%d] name = %q, want %q", i, chunk.Name, want.name)
 		}
-		if want.text != "" || i == 1 || i == 6 {
+		if !want.audio {
 			text, _ := chunk.Part.(genx.Text)
 			if string(text) != want.text {
 				t.Fatalf("chunk[%d] text = %q, want %q", i, text, want.text)
 			}
 		}
-		if want.blob != nil || i == 5 || i == 7 {
+		if want.audio {
 			blob, ok := chunk.Part.(*genx.Blob)
 			if !ok || blob.MIMEType != "audio/opus" || !reflect.DeepEqual(blob.Data, want.blob) {
 				t.Fatalf("chunk[%d] blob = %#v", i, chunk.Part)
@@ -1345,16 +1348,19 @@ func TestSynthesizeConvertsOggOpusToPeerOpusChunks(t *testing.T) {
 		t.Fatalf("Done() error = %v", err)
 	}
 	chunks := drainChunks(t, output.Stream())
-	if len(chunks) != 3 {
-		t.Fatalf("chunks len = %d, want 3", len(chunks))
+	if len(chunks) != 4 {
+		t.Fatalf("chunks len = %d, want 4", len(chunks))
+	}
+	if !chunks[0].IsBeginOfStream() || chunks[0].Ctrl.StreamID != "audio" || chunks[0].Ctrl.Label != assistantLabel {
+		t.Fatalf("audio BOS = %#v", chunks[0])
 	}
 	for i, want := range [][]byte{{0x21}, {0x22}, nil} {
-		blob := chunks[i].Part.(*genx.Blob)
+		blob := chunks[i+1].Part.(*genx.Blob)
 		if blob.MIMEType != "audio/opus" || !reflect.DeepEqual(blob.Data, want) {
-			t.Fatalf("chunk[%d] blob = %#v, want %v", i, blob, want)
+			t.Fatalf("chunk[%d] blob = %#v, want %v", i+1, blob, want)
 		}
 	}
-	if !chunks[2].IsEndOfStream() {
+	if !chunks[3].IsEndOfStream() {
 		t.Fatal("last chunk is not EOS")
 	}
 }
@@ -1373,6 +1379,10 @@ func TestDrainTTSOutputStreamsOggFramesBeforeTTSEOS(t *testing.T) {
 
 	tts.Push(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/ogg", Data: raw}})
 	chunk := nextChunkWithTimeout(t, output.Stream())
+	if chunk.Ctrl == nil || !chunk.Ctrl.BeginOfStream || chunk.Ctrl.StreamID != "audio" || chunk.Ctrl.Label != assistantLabel {
+		t.Fatalf("streamed audio BOS = %#v", chunk)
+	}
+	chunk = nextChunkWithTimeout(t, output.Stream())
 	blob, ok := chunk.Part.(*genx.Blob)
 	if !ok || blob.MIMEType != "audio/opus" || !bytes.Equal(blob.Data, []byte{0x21}) {
 		t.Fatalf("first streamed chunk = %#v", chunk)
@@ -1413,11 +1423,14 @@ func TestSynthesizeTextSegmentCanOmitAudioEOS(t *testing.T) {
 		t.Fatalf("Done() error = %v", err)
 	}
 	chunks := drainChunks(t, output.Stream())
-	if len(chunks) != 1 {
-		t.Fatalf("chunks len = %d, want one audio frame", len(chunks))
+	if len(chunks) != 2 {
+		t.Fatalf("chunks len = %d, want BOS and one audio frame", len(chunks))
 	}
-	if blob, ok := chunks[0].Part.(*genx.Blob); !ok || !bytes.Equal(blob.Data, []byte{0x44}) || chunks[0].IsEndOfStream() {
-		t.Fatalf("audio chunk = %#v", chunks[0])
+	if chunks[0].Ctrl == nil || !chunks[0].Ctrl.BeginOfStream || chunks[0].Ctrl.StreamID != "audio" || chunks[0].Ctrl.Label != assistantLabel {
+		t.Fatalf("audio BOS = %#v", chunks[0])
+	}
+	if blob, ok := chunks[1].Part.(*genx.Blob); !ok || !bytes.Equal(blob.Data, []byte{0x44}) || chunks[1].IsEndOfStream() {
+		t.Fatalf("audio chunk = %#v", chunks[1])
 	}
 
 	output = genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 1)

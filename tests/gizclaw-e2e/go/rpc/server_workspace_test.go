@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
 
@@ -39,8 +40,9 @@ func TestServerWorkspaceRPC(t *testing.T) {
 	createInput := rpcapi.WorkspaceInputModePushToTalk
 	var createParams rpcapi.WorkspaceParameters
 	if err := createParams.FromFlowcraftWorkspaceParameters(rpcapi.FlowcraftWorkspaceParameters{
-		AgentType: rpcapi.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
-		Input:     &createInput,
+		AgentType:     rpcapi.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+		GenerateModel: testStringPtr(sharedModel),
+		Input:         &createInput,
 	}); err != nil {
 		t.Fatalf("FromFlowcraftWorkspaceParameters(create) error = %v", err)
 	}
@@ -59,8 +61,9 @@ func TestServerWorkspaceRPC(t *testing.T) {
 	updateInput := rpcapi.WorkspaceInputModeRealtime
 	var updateParams rpcapi.WorkspaceParameters
 	if err := updateParams.FromFlowcraftWorkspaceParameters(rpcapi.FlowcraftWorkspaceParameters{
-		AgentType: rpcapi.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
-		Input:     &updateInput,
+		AgentType:     rpcapi.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+		GenerateModel: testStringPtr(sharedModel),
+		Input:         &updateInput,
 	}); err != nil {
 		t.Fatalf("FromFlowcraftWorkspaceParameters(update) error = %v", err)
 	}
@@ -122,6 +125,25 @@ func TestServerResourceCreatorOwnsConcreteResources(t *testing.T) {
 	env := newServerResourceHarness(t)
 	admin := serverResourceAdminClient(t, env)
 
+	adminInput := apitypes.WorkspaceInputModePushToTalk
+	var adminParams apitypes.WorkspaceParameters
+	if err := adminParams.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{
+		AgentType:     apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+		GenerateModel: testStringPtr(sharedModel),
+		Input:         &adminInput,
+	}); err != nil {
+		t.Fatalf("build admin workspace parameters: %v", err)
+	}
+	rpcInput := rpcapi.WorkspaceInputModePushToTalk
+	var rpcParams rpcapi.WorkspaceParameters
+	if err := rpcParams.FromFlowcraftWorkspaceParameters(rpcapi.FlowcraftWorkspaceParameters{
+		AgentType:     rpcapi.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+		GenerateModel: testStringPtr(sharedModel),
+		Input:         &rpcInput,
+	}); err != nil {
+		t.Fatalf("build RPC workspace parameters: %v", err)
+	}
+
 	workspaceName := "acl-owner-workspace"
 	unownedWorkspaceName := "acl-unowned-workspace"
 	modelID := "acl-owner-model"
@@ -140,6 +162,7 @@ func TestServerResourceCreatorOwnsConcreteResources(t *testing.T) {
 	created, err := admin.CreateWorkspaceWithResponse(env.ctx, adminhttp.WorkspaceUpsert{
 		Name:         unownedWorkspaceName,
 		WorkflowName: sharedWorkflow,
+		Parameters:   &adminParams,
 	})
 	if err != nil || created.JSON200 == nil {
 		t.Fatalf("create unowned workspace: response=%#v error=%v", created, err)
@@ -151,12 +174,13 @@ func TestServerResourceCreatorOwnsConcreteResources(t *testing.T) {
 	if _, err := env.peer.CreateWorkspace(env.ctx, "acl.owner.workspace.create", rpcapi.WorkspaceCreateRequest{
 		Name:         workspaceName,
 		WorkflowName: sharedWorkflow,
+		Parameters:   &rpcParams,
 	}); err != nil {
 		t.Fatalf("workspace.create owner: %v", err)
 	}
 	if _, err := env.peer.PutWorkspace(env.ctx, "acl.owner.workspace.put", rpcapi.WorkspacePutRequest{
 		Name: workspaceName,
-		Body: rpcapi.WorkspaceUpsert{Name: workspaceName, WorkflowName: sharedWorkflow},
+		Body: rpcapi.WorkspaceUpsert{Name: workspaceName, WorkflowName: sharedWorkflow, Parameters: &rpcParams},
 	}); err != nil {
 		t.Fatalf("workspace.put owner: %v", err)
 	}

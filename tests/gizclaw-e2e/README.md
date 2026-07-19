@@ -52,7 +52,20 @@ stops the stack on success or failure. Required live cases fail rather than
 being reported as skipped when the environment becomes unavailable.
 
 Each ordered phase emits `phase start` and `phase done` lines with status and
-elapsed seconds. Chat live cases also emit one `workspace_case_attempt` and
+elapsed seconds. The complete gate has a 90-minute deadline, and every phase
+has its own deadline (15 minutes by default, 30 minutes for Docker setup and
+the CLI suite, 45 minutes for the live chat matrix, and 5 minutes for Docker
+cleanup). A deadline exits with status 124, terminates the active phase, and
+still runs bounded Docker cleanup. The last cleanup line reports total elapsed
+seconds. Override the finite budgets with positive integer seconds in
+`GIZCLAW_E2E_FULL_DEADLINE_SECONDS`, `GIZCLAW_E2E_PHASE_DEADLINE_SECONDS`,
+`GIZCLAW_E2E_PREFLIGHT_DEADLINE_SECONDS`,
+`GIZCLAW_E2E_DOCKER_SETUP_DEADLINE_SECONDS`,
+`GIZCLAW_E2E_DOCKER_CLEANUP_DEADLINE_SECONDS`,
+`GIZCLAW_E2E_CHAT_DEADLINE_SECONDS`, or
+`GIZCLAW_E2E_CLI_DEADLINE_SECONDS`.
+
+Chat live cases also emit one `workspace_case_attempt` and
 `workspace_case_attempt_done` pair per configuration attempt, including retry
 number, elapsed time, result, and whether the failure was retryable.
 

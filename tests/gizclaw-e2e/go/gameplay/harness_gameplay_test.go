@@ -256,10 +256,11 @@ func waitForGameplayAssistantResponse(parent context.Context, stream genx.Stream
 			return fmt.Errorf("read pet audio response for %s: %w; text_done=%t audio_done=%t audio_packets=%d chunks=%s", inputStreamID, err, textDone, audioDone, audioPackets, strings.Join(trace, " | "))
 		}
 		trace = appendGameplayTrace(trace, gameplayChunkSummary(chunk))
-		if !gameplayResponseStreamIDMatches(gameplayChunkStreamID(chunk), inputStreamID) {
+		label := gameplayChunkLabel(chunk)
+		streamID := gameplayChunkStreamID(chunk)
+		if !gameplayResponseStreamIDMatches(streamID, inputStreamID) {
 			continue
 		}
-		label := gameplayChunkLabel(chunk)
 		if chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.Error) != "" {
 			return fmt.Errorf("pet audio response for %s returned error %q", inputStreamID, chunk.Ctrl.Error)
 		}
@@ -568,11 +569,11 @@ func TestWaitForGameplayAssistantResponseIgnoresPreviousAttempt(t *testing.T) {
 	stream := &gameplayResponseTestStream{chunks: []*genx.MessageChunk{
 		{Ctrl: &genx.StreamCtrl{StreamID: previous, Error: "stale retryable error"}},
 		{Role: genx.RoleModel, Part: genx.Text("stale"), Ctrl: &genx.StreamCtrl{StreamID: previous, Label: "assistant", EndOfStream: true}},
-		{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{0x01}}, Ctrl: &genx.StreamCtrl{StreamID: previous, Label: "assistant"}},
+		{Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{0x01}}, Ctrl: &genx.StreamCtrl{StreamID: "stale-provider-audio"}},
 		{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: previous, Label: "assistant", EndOfStream: true}},
 		{Role: genx.RoleModel, Part: genx.Text("current"), Ctrl: &genx.StreamCtrl{StreamID: response, Label: "assistant", EndOfStream: true}},
-		{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{0x02}}, Ctrl: &genx.StreamCtrl{StreamID: response, Label: "assistant"}},
-		{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: response, Label: "assistant", EndOfStream: true}},
+		{Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{0x02}}, Ctrl: &genx.StreamCtrl{StreamID: response, Label: "assistant"}},
+		{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: response, Label: "assistant", EndOfStream: true}},
 	}}
 	if err := waitForGameplayAssistantResponse(t.Context(), stream, current); err != nil {
 		t.Fatalf("waitForGameplayAssistantResponse() error = %v", err)

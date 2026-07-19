@@ -581,7 +581,12 @@ func (d *personaDriver) transcribeAssistantAudioFrames(ctx context.Context, inde
 	if _, err := codecconv.OggToPCM(&pcm, bytes.NewReader(oggAudio), opus.SampleRate16K); err != nil {
 		return "", fmt.Errorf("decode assistant audio for asr: %w", err)
 	}
-	audio, err := pcm16WAV(16000, 1, pcm.Bytes())
+	pcmBytes := pcm.Bytes()
+	if !assistantASRPCMHasSignal(pcmBytes) {
+		fmt.Printf("workspace_progress event=assistant_audio_asr_silence workspace=%s round=%d name=%s samples=%d\n", d.cfg.Workspace, index, name, len(pcmBytes)/2)
+		return "", nil
+	}
+	audio, err := pcm16WAV(16000, 1, pcmBytes)
 	if err != nil {
 		return "", fmt.Errorf("encode assistant audio: %w", err)
 	}
@@ -630,7 +635,18 @@ const (
 	assistantASRFramesPerChunk    = 600
 	assistantASRMinRetryFrames    = 120
 	assistantASRMinTailFrames     = 100
+	assistantASRMinPeakPCM16      = 32
 )
+
+func assistantASRPCMHasSignal(pcm []byte) bool {
+	for i := 0; i+1 < len(pcm); i += 2 {
+		sample := int16(uint16(pcm[i]) | uint16(pcm[i+1])<<8)
+		if sample > assistantASRMinPeakPCM16 || sample < -assistantASRMinPeakPCM16 {
+			return true
+		}
+	}
+	return false
+}
 
 type frameChunkRange struct {
 	start int
