@@ -3808,6 +3808,177 @@ class DoubaoRealtimeWorkflowSpec extends $pb.GeneratedMessage {
   $pb.PbList<DoubaoRealtimeFunctionTool> get tools => $_getList(4);
 }
 
+class DashScopeRealtimeWorkflowSpec extends $pb.GeneratedMessage {
+  factory DashScopeRealtimeWorkflowSpec({
+    $core.String? model,
+    $core.String? providerModel,
+    $fixnum.Int64? maxToolCalls,
+  }) {
+    final result = create();
+    if (model != null) result.model = model;
+    if (providerModel != null) result.providerModel = providerModel;
+    if (maxToolCalls != null) result.maxToolCalls = maxToolCalls;
+    return result;
+  }
+
+  DashScopeRealtimeWorkflowSpec._();
+
+  factory DashScopeRealtimeWorkflowSpec.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DashScopeRealtimeWorkflowSpec.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DashScopeRealtimeWorkflowSpec',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'model')
+    ..aOS(2, _omitFieldNames ? '' : 'providerModel')
+    ..aInt64(3, _omitFieldNames ? '' : 'maxToolCalls')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DashScopeRealtimeWorkflowSpec clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DashScopeRealtimeWorkflowSpec copyWith(
+          void Function(DashScopeRealtimeWorkflowSpec) updates) =>
+      super.copyWith(
+              (message) => updates(message as DashScopeRealtimeWorkflowSpec))
+          as DashScopeRealtimeWorkflowSpec;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DashScopeRealtimeWorkflowSpec create() =>
+      DashScopeRealtimeWorkflowSpec._();
+  @$core.override
+  DashScopeRealtimeWorkflowSpec createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DashScopeRealtimeWorkflowSpec getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DashScopeRealtimeWorkflowSpec>(create);
+  static DashScopeRealtimeWorkflowSpec? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get model => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set model($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasModel() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearModel() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get providerModel => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set providerModel($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasProviderModel() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearProviderModel() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get maxToolCalls => $_getI64(2);
+  @$pb.TagNumber(3)
+  set maxToolCalls($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasMaxToolCalls() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearMaxToolCalls() => $_clearField(3);
+}
+
+class EinoWorkflowSpec extends $pb.GeneratedMessage {
+  factory EinoWorkflowSpec({
+    $core.String? model,
+    $core.String? systemPrompt,
+    $fixnum.Int64? maxSteps,
+    $fixnum.Int64? maxToolCalls,
+  }) {
+    final result = create();
+    if (model != null) result.model = model;
+    if (systemPrompt != null) result.systemPrompt = systemPrompt;
+    if (maxSteps != null) result.maxSteps = maxSteps;
+    if (maxToolCalls != null) result.maxToolCalls = maxToolCalls;
+    return result;
+  }
+
+  EinoWorkflowSpec._();
+
+  factory EinoWorkflowSpec.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory EinoWorkflowSpec.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'EinoWorkflowSpec',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'model')
+    ..aOS(2, _omitFieldNames ? '' : 'systemPrompt')
+    ..aInt64(3, _omitFieldNames ? '' : 'maxSteps')
+    ..aInt64(4, _omitFieldNames ? '' : 'maxToolCalls')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  EinoWorkflowSpec clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  EinoWorkflowSpec copyWith(void Function(EinoWorkflowSpec) updates) =>
+      super.copyWith((message) => updates(message as EinoWorkflowSpec))
+          as EinoWorkflowSpec;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static EinoWorkflowSpec create() => EinoWorkflowSpec._();
+  @$core.override
+  EinoWorkflowSpec createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static EinoWorkflowSpec getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<EinoWorkflowSpec>(create);
+  static EinoWorkflowSpec? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get model => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set model($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasModel() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearModel() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get systemPrompt => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set systemPrompt($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSystemPrompt() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSystemPrompt() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get maxSteps => $_getI64(2);
+  @$pb.TagNumber(3)
+  set maxSteps($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasMaxSteps() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearMaxSteps() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get maxToolCalls => $_getI64(3);
+  @$pb.TagNumber(4)
+  set maxToolCalls($fixnum.Int64 value) => $_setInt64(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasMaxToolCalls() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearMaxToolCalls() => $_clearField(4);
+}
+
 class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
   factory DoubaoRealtimeWorkspaceParameters({
     $2.DoubaoRealtimeWorkspaceParametersAgentType? agentType,
@@ -8301,6 +8472,8 @@ class WorkflowSpec extends $pb.GeneratedMessage {
     FlowcraftWorkflowSpec? flowcraft,
     ToolkitPolicy? toolkit,
     PetWorkflowSpec? pet,
+    DashScopeRealtimeWorkflowSpec? dashscopeRealtime,
+    EinoWorkflowSpec? eino,
   }) {
     final result = create();
     if (astTranslate != null) result.astTranslate = astTranslate;
@@ -8310,6 +8483,8 @@ class WorkflowSpec extends $pb.GeneratedMessage {
     if (flowcraft != null) result.flowcraft = flowcraft;
     if (toolkit != null) result.toolkit = toolkit;
     if (pet != null) result.pet = pet;
+    if (dashscopeRealtime != null) result.dashscopeRealtime = dashscopeRealtime;
+    if (eino != null) result.eino = eino;
     return result;
   }
 
@@ -8341,6 +8516,11 @@ class WorkflowSpec extends $pb.GeneratedMessage {
         subBuilder: ToolkitPolicy.create)
     ..aOM<PetWorkflowSpec>(7, _omitFieldNames ? '' : 'pet',
         subBuilder: PetWorkflowSpec.create)
+    ..aOM<DashScopeRealtimeWorkflowSpec>(
+        8, _omitFieldNames ? '' : 'dashscopeRealtime',
+        subBuilder: DashScopeRealtimeWorkflowSpec.create)
+    ..aOM<EinoWorkflowSpec>(9, _omitFieldNames ? '' : 'eino',
+        subBuilder: EinoWorkflowSpec.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -8436,6 +8616,29 @@ class WorkflowSpec extends $pb.GeneratedMessage {
   void clearPet() => $_clearField(7);
   @$pb.TagNumber(7)
   PetWorkflowSpec ensurePet() => $_ensure(6);
+
+  @$pb.TagNumber(8)
+  DashScopeRealtimeWorkflowSpec get dashscopeRealtime => $_getN(7);
+  @$pb.TagNumber(8)
+  set dashscopeRealtime(DashScopeRealtimeWorkflowSpec value) =>
+      $_setField(8, value);
+  @$pb.TagNumber(8)
+  $core.bool hasDashscopeRealtime() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearDashscopeRealtime() => $_clearField(8);
+  @$pb.TagNumber(8)
+  DashScopeRealtimeWorkflowSpec ensureDashscopeRealtime() => $_ensure(7);
+
+  @$pb.TagNumber(9)
+  EinoWorkflowSpec get eino => $_getN(8);
+  @$pb.TagNumber(9)
+  set eino(EinoWorkflowSpec value) => $_setField(9, value);
+  @$pb.TagNumber(9)
+  $core.bool hasEino() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearEino() => $_clearField(9);
+  @$pb.TagNumber(9)
+  EinoWorkflowSpec ensureEino() => $_ensure(8);
 }
 
 class ToolExecutor extends $pb.GeneratedMessage {

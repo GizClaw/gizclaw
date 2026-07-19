@@ -23,10 +23,11 @@ var _ commonagent.Agent = (*Agent)(nil)
 
 // Agent owns one Flowcraft graph runtime, its Tool loop, and conversation state.
 type Agent struct {
-	config  Config
-	agent   flowagent.Agent
-	engine  engine.Engine
-	history *conversationHistory
+	config         Config
+	agent          flowagent.Agent
+	engine         engine.Engine
+	history        *conversationHistory
+	externalPulled *pulledHistory
 }
 
 // New constructs a GizClaw-owned Flowcraft graph Agent.
@@ -57,7 +58,11 @@ func New(config Config) (*Agent, error) {
 	if err := config.Graph.Validate(); err != nil {
 		return nil, fmt.Errorf("agent/flowcraft: invalid graph: %w", err)
 	}
-	persistentHistory, err := newHistoryStore(config.History, config.ID, config.Conversation)
+	historyWorkspace := strings.TrimSpace(config.HistoryWorkspace)
+	if historyWorkspace == "" {
+		historyWorkspace = config.ID
+	}
+	persistentHistory, err := newHistoryStore(config.History, historyWorkspace, config.Conversation)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +75,11 @@ func New(config Config) (*Agent, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Agent{config: config, agent: sdkAgent, engine: graphEngine, history: history}, nil
+	result := &Agent{config: config, agent: sdkAgent, engine: graphEngine, history: history}
+	if config.ExternalOutputObservation {
+		result.externalPulled = newPulledHistory(history, config.Memory, config.OnBackgroundError)
+	}
+	return result, nil
 }
 
 // Transform consumes GenX user turns and streams pull-visible graph output.
@@ -85,11 +94,16 @@ func (a *Agent) Transform(ctx context.Context, _ string, input genx.Stream) (gen
 		ctx = context.Background()
 	}
 	runtimeCtx, cancel := context.WithCancelCause(ctx)
-	pulled := newPulledHistory(a.history, a.config.Memory, a.config.OnBackgroundError)
+	var pulled *pulledHistory
+	if !a.config.ExternalOutputObservation {
+		pulled = newPulledHistory(a.history, a.config.Memory, a.config.OnBackgroundError)
+	}
 	outputConfig := a.config.Output
 	configuredObserver := outputConfig.Observe
 	outputConfig.Observe = func(chunk *genx.MessageChunk) {
-		pulled.observe(chunk)
+		if pulled != nil {
+			pulled.observe(chunk)
+		}
 		if configuredObserver != nil {
 			configuredObserver(chunk)
 		}
@@ -100,6 +114,30 @@ func (a *Agent) Transform(ctx context.Context, _ string, input genx.Stream) (gen
 	go readInput(runtimeCtx, input, events)
 	go a.coordinate(runtimeCtx, cancel, input, output, pulled, events, runs)
 	return &stream{Output: output, cancel: cancel, input: input}, nil
+}
+
+// BeginOutput associates an outer, device-visible stream with its user turn.
+// It is active only when ExternalOutputObservation is configured.
+func (a *Agent) BeginOutput(streamID, user string) {
+	if a != nil && a.externalPulled != nil {
+		a.externalPulled.track(streamID, user)
+	}
+}
+
+// ObserveOutput records a chunk after it crosses the outermost pull boundary.
+// It is active only when ExternalOutputObservation is configured.
+func (a *Agent) ObserveOutput(chunk *genx.MessageChunk) {
+	if a != nil && a.externalPulled != nil {
+		a.externalPulled.observe(chunk)
+	}
+}
+
+// InterruptOutput commits only the externally observed portion of a stream as
+// interrupted before a replacement turn reads conversation history.
+func (a *Agent) InterruptOutput(streamID string) {
+	if a != nil && a.externalPulled != nil {
+		a.externalPulled.commitInterrupted(streamID)
+	}
 }
 
 // History returns the recent owned conversation transcript for product APIs
@@ -196,7 +234,7 @@ func (a *Agent) coordinate(ctx context.Context, cancel context.CancelCauseFunc, 
 		}
 		if pending != nil {
 			_ = pending.Interrupt()
-			if pending.Interrupted() {
+			if pending.Interrupted() && pulled != nil {
 				pulled.commitInterrupted(pending.StreamID())
 			}
 			pending = nil
@@ -246,7 +284,9 @@ func (a *Agent) coordinate(ctx context.Context, cancel context.CancelCauseFunc, 
 			}
 			nextID++
 			pending = response
-			pulled.track(response.StreamID(), *event.text)
+			if pulled != nil {
+				pulled.track(response.StreamID(), *event.text)
+			}
 			runCtx, runCancel := context.WithCancelCause(response.Context())
 			active = &activeRun{id: nextID, cancel: runCancel, response: response}
 			go a.run(runCtx, runCancel, nextID, *event.text, response, runs)

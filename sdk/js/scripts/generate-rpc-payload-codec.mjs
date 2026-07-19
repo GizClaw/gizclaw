@@ -1128,6 +1128,7 @@ function enumJSONValue(name) {
   return ({
     "AST_TRANSLATE": "ast-translate",
     "DASH_SCOPE_TENANT": "dashscope-tenant",
+    "DASHSCOPE_REALTIME": "dashscope-realtime",
     "DASHSCOPE_TENANT": "dashscope-tenant",
     "DOUBAO_REALTIME": "doubao-realtime",
     "EDGE_NODE": "edge-node",

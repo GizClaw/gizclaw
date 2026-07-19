@@ -36,7 +36,10 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if err != nil {
 		return nil, err
 	}
-	return agenthost.NewTransformerAgent(runtime), nil
+	return &agent{
+		Agent: runtime, workspace: strings.TrimSpace(spec.Workspace.Name),
+		memory: f.Memory,
+	}, nil
 }
 
 func (f Factory) config(ctx context.Context, spec agenthost.Spec) (einoagent.Config, error) {

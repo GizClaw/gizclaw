@@ -1928,6 +1928,90 @@ final $typed_data.Uint8List doubaoRealtimeWorkflowSpecDescriptor = $convert.base
     'VGdW5jdGlvblRvb2xSBXRvb2xzQggKBl9hdWRpb0IMCgpfZXh0ZW5zaW9uQg8KDV9pbnN0cnVj'
     'dGlvbnM=');
 
+@$core.Deprecated('Use dashScopeRealtimeWorkflowSpecDescriptor instead')
+const DashScopeRealtimeWorkflowSpec$json = {
+  '1': 'DashScopeRealtimeWorkflowSpec',
+  '2': [
+    {'1': 'model', '3': 1, '4': 1, '5': 9, '10': 'model'},
+    {
+      '1': 'provider_model',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'providerModel',
+      '17': true
+    },
+    {
+      '1': 'max_tool_calls',
+      '3': 3,
+      '4': 1,
+      '5': 3,
+      '9': 1,
+      '10': 'maxToolCalls',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_provider_model'},
+    {'1': '_max_tool_calls'},
+  ],
+};
+
+/// Descriptor for `DashScopeRealtimeWorkflowSpec`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List dashScopeRealtimeWorkflowSpecDescriptor = $convert.base64Decode(
+    'Ch1EYXNoU2NvcGVSZWFsdGltZVdvcmtmbG93U3BlYxIUCgVtb2RlbBgBIAEoCVIFbW9kZWwSKg'
+    'oOcHJvdmlkZXJfbW9kZWwYAiABKAlIAFINcHJvdmlkZXJNb2RlbIgBARIpCg5tYXhfdG9vbF9j'
+    'YWxscxgDIAEoA0gBUgxtYXhUb29sQ2FsbHOIAQFCEQoPX3Byb3ZpZGVyX21vZGVsQhEKD19tYX'
+    'hfdG9vbF9jYWxscw==');
+
+@$core.Deprecated('Use einoWorkflowSpecDescriptor instead')
+const EinoWorkflowSpec$json = {
+  '1': 'EinoWorkflowSpec',
+  '2': [
+    {'1': 'model', '3': 1, '4': 1, '5': 9, '10': 'model'},
+    {
+      '1': 'system_prompt',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'systemPrompt',
+      '17': true
+    },
+    {
+      '1': 'max_steps',
+      '3': 3,
+      '4': 1,
+      '5': 3,
+      '9': 1,
+      '10': 'maxSteps',
+      '17': true
+    },
+    {
+      '1': 'max_tool_calls',
+      '3': 4,
+      '4': 1,
+      '5': 3,
+      '9': 2,
+      '10': 'maxToolCalls',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_system_prompt'},
+    {'1': '_max_steps'},
+    {'1': '_max_tool_calls'},
+  ],
+};
+
+/// Descriptor for `EinoWorkflowSpec`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List einoWorkflowSpecDescriptor = $convert.base64Decode(
+    'ChBFaW5vV29ya2Zsb3dTcGVjEhQKBW1vZGVsGAEgASgJUgVtb2RlbBIoCg1zeXN0ZW1fcHJvbX'
+    'B0GAIgASgJSABSDHN5c3RlbVByb21wdIgBARIgCgltYXhfc3RlcHMYAyABKANIAVIIbWF4U3Rl'
+    'cHOIAQESKQoObWF4X3Rvb2xfY2FsbHMYBCABKANIAlIMbWF4VG9vbENhbGxziAEBQhAKDl9zeX'
+    'N0ZW1fcHJvbXB0QgwKCl9tYXhfc3RlcHNCEQoPX21heF90b29sX2NhbGxz');
+
 @$core.Deprecated('Use doubaoRealtimeWorkspaceParametersDescriptor instead')
 const DoubaoRealtimeWorkspaceParameters$json = {
   '1': 'DoubaoRealtimeWorkspaceParameters',
@@ -4067,6 +4151,26 @@ const WorkflowSpec$json = {
       '10': 'pet',
       '17': true
     },
+    {
+      '1': 'dashscope_realtime',
+      '3': 8,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.DashScopeRealtimeWorkflowSpec',
+      '9': 6,
+      '10': 'dashscopeRealtime',
+      '17': true
+    },
+    {
+      '1': 'eino',
+      '3': 9,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.EinoWorkflowSpec',
+      '9': 7,
+      '10': 'eino',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_ast_translate'},
@@ -4075,6 +4179,8 @@ const WorkflowSpec$json = {
     {'1': '_flowcraft'},
     {'1': '_toolkit'},
     {'1': '_pet'},
+    {'1': '_dashscope_realtime'},
+    {'1': '_eino'},
   ],
 };
 
@@ -4089,8 +4195,12 @@ final $typed_data.Uint8List workflowSpecDescriptor = $convert.base64Decode(
     'CzIlLmdpemNsYXcucnBjLnYxLkZsb3djcmFmdFdvcmtmbG93U3BlY0gDUglmbG93Y3JhZnSIAQ'
     'ESPAoHdG9vbGtpdBgGIAEoCzIdLmdpemNsYXcucnBjLnYxLlRvb2xraXRQb2xpY3lIBFIHdG9v'
     'bGtpdIgBARI2CgNwZXQYByABKAsyHy5naXpjbGF3LnJwYy52MS5QZXRXb3JrZmxvd1NwZWNIBV'
-    'IDcGV0iAEBQhAKDl9hc3RfdHJhbnNsYXRlQgsKCV9jaGF0cm9vbUISChBfZG91YmFvX3JlYWx0'
-    'aW1lQgwKCl9mbG93Y3JhZnRCCgoIX3Rvb2xraXRCBgoEX3BldA==');
+    'IDcGV0iAEBEmEKEmRhc2hzY29wZV9yZWFsdGltZRgIIAEoCzItLmdpemNsYXcucnBjLnYxLkRh'
+    'c2hTY29wZVJlYWx0aW1lV29ya2Zsb3dTcGVjSAZSEWRhc2hzY29wZVJlYWx0aW1liAEBEjkKBG'
+    'Vpbm8YCSABKAsyIC5naXpjbGF3LnJwYy52MS5FaW5vV29ya2Zsb3dTcGVjSAdSBGVpbm+IAQFC'
+    'EAoOX2FzdF90cmFuc2xhdGVCCwoJX2NoYXRyb29tQhIKEF9kb3ViYW9fcmVhbHRpbWVCDAoKX2'
+    'Zsb3djcmFmdEIKCghfdG9vbGtpdEIGCgRfcGV0QhUKE19kYXNoc2NvcGVfcmVhbHRpbWVCBwoF'
+    'X2Vpbm8=');
 
 @$core.Deprecated('Use toolExecutorDescriptor instead')
 const ToolExecutor$json = {

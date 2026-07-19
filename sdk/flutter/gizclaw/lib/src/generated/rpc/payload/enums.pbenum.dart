@@ -935,6 +935,11 @@ class WorkflowDriver extends $pb.ProtobufEnum {
       WorkflowDriver._(4, _omitEnumNames ? '' : 'WORKFLOW_DRIVER_CHATROOM');
   static const WorkflowDriver WORKFLOW_DRIVER_PET =
       WorkflowDriver._(5, _omitEnumNames ? '' : 'WORKFLOW_DRIVER_PET');
+  static const WorkflowDriver WORKFLOW_DRIVER_DASHSCOPE_REALTIME =
+      WorkflowDriver._(
+          6, _omitEnumNames ? '' : 'WORKFLOW_DRIVER_DASHSCOPE_REALTIME');
+  static const WorkflowDriver WORKFLOW_DRIVER_EINO =
+      WorkflowDriver._(7, _omitEnumNames ? '' : 'WORKFLOW_DRIVER_EINO');
 
   static const $core.List<WorkflowDriver> values = <WorkflowDriver>[
     WORKFLOW_DRIVER_UNSPECIFIED,
@@ -943,10 +948,12 @@ class WorkflowDriver extends $pb.ProtobufEnum {
     WORKFLOW_DRIVER_AST_TRANSLATE,
     WORKFLOW_DRIVER_CHATROOM,
     WORKFLOW_DRIVER_PET,
+    WORKFLOW_DRIVER_DASHSCOPE_REALTIME,
+    WORKFLOW_DRIVER_EINO,
   ];
 
   static final $core.List<WorkflowDriver?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 5);
+      $pb.ProtobufEnum.$_initByValueList(values, 7);
   static WorkflowDriver? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

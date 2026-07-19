@@ -175,6 +175,25 @@ func TestAgentRecallsAndObservesInjectedMemory(t *testing.T) {
 	}
 }
 
+func TestAgentHistoryReturnsDefensiveCopies(t *testing.T) {
+	runtime := &Agent{history: &conversationHistory{}}
+	if err := runtime.history.append(t.Context(), schema.UserMessage("hello"), false); err != nil {
+		t.Fatal(err)
+	}
+	first, err := runtime.History(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	first[0].Content = "changed"
+	second, err := runtime.History(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(second) != 1 || second[0].Content != "hello" {
+		t.Fatalf("History() = %#v", second)
+	}
+}
+
 func TestPulledHistoryAcceptsPendingMemoryAndReportsObserveFailure(t *testing.T) {
 	store := &recordingMemoryStore{observeResult: memory.ObserveResult{Operation: &memory.Operation{ID: "pending-1", Status: memory.OperationPending}}}
 	var reported []error

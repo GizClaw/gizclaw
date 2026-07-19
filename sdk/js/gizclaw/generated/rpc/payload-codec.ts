@@ -53,7 +53,7 @@ export type ToolSource = "" | "admin" | "builtin" | "device" | "unspecified" | n
 export type VoiceProviderKind = "" | "dashscope-tenant" | "gemini-tenant" | "minimax-tenant" | "openai-tenant" | "unspecified" | "volc-tenant" | number;
 export type VoiceSource = "" | "manual" | "sync" | "unspecified" | number;
 export type VolcTenantModelProviderDataApiMode = "" | "asr" | "realtime" | "tts" | "unspecified" | number;
-export type WorkflowDriver = "" | "ast-translate" | "chatroom" | "dashscope_realtime" | "doubao-realtime" | "eino" | "flowcraft" | "pet" | "unspecified" | number;
+export type WorkflowDriver = "" | "ast-translate" | "chatroom" | "dashscope-realtime" | "doubao-realtime" | "eino" | "flowcraft" | "pet" | "unspecified" | number;
 export type WorkflowLocale = "" | "en" | "unspecified" | "zh-CN" | number;
 export type WorkspaceHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
 export type WorkspaceInputMode = "" | "push-to-talk" | "realtime" | "unspecified" | number;
@@ -8685,7 +8685,7 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
     "byName": {
       "ast-translate": 3,
       "chatroom": 4,
-      "dashscope_realtime": 6,
+      "dashscope-realtime": 6,
       "doubao-realtime": 2,
       "eino": 7,
       "flowcraft": 1,
@@ -8699,7 +8699,7 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "3": "ast-translate",
       "4": "chatroom",
       "5": "pet",
-      "6": "dashscope_realtime",
+      "6": "dashscope-realtime",
       "7": "eino"
     }
   },

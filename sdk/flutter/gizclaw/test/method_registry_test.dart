@@ -33,5 +33,9 @@ void main() {
 
   test('exports generated enum payload types from public barrel', () {
     expect(ASTTranslateMode.ASTTRANSLATE_MODE_S2S.value, 2);
+    expect(WorkflowDriver.WORKFLOW_DRIVER_DASHSCOPE_REALTIME.value, 6);
+    expect(WorkflowDriver.WORKFLOW_DRIVER_EINO.value, 7);
+    expect(DashScopeRealtimeWorkflowSpec(model: 'qwen').model, 'qwen');
+    expect(EinoWorkflowSpec(model: 'chat').model, 'chat');
   });
 }

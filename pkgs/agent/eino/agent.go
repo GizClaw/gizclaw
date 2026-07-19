@@ -114,6 +114,15 @@ func (a *Agent) Transform(ctx context.Context, _ string, input genx.Stream) (gen
 	return &stream{Output: output, cancel: cancel, input: input}, nil
 }
 
+// History returns defensive copies of the recent ordered conversation for
+// product-owned status and history APIs.
+func (a *Agent) History(ctx context.Context) ([]*schema.Message, error) {
+	if a == nil || a.history == nil {
+		return nil, fmt.Errorf("agent/eino: agent is nil")
+	}
+	return a.history.recent(ctx)
+}
+
 type inputEvent struct {
 	beginID string
 	turn    *inputTurn

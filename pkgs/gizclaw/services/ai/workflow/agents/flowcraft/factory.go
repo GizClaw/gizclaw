@@ -189,18 +189,19 @@ func (f Factory) NewConfiguredAgent(ctx context.Context, options ConfiguredAgent
 		mode = inputModePushToTalk
 	}
 	return &agent{
-		transformers: f.GenX,
-		runtime:      ownedRuntime{agent: core},
-		history:      core,
-		historyID:    strings.TrimSpace(options.WorkspaceName),
-		memory:       f.Memory,
-		asrModel:     voice.ASRModel,
-		defaultVoice: voice.DefaultVoice,
-		nodeVoices:   voice.NodeVoices,
-		starts:       starts,
-		startPolicy:  initiativePolicy,
-		inputMode:    mode,
-		localDir:     options.LocalDir,
+		transformers:   f.GenX,
+		runtime:        ownedRuntime{agent: core},
+		history:        core,
+		outputObserver: core,
+		historyID:      strings.TrimSpace(options.WorkspaceName),
+		memory:         f.Memory,
+		asrModel:       voice.ASRModel,
+		defaultVoice:   voice.DefaultVoice,
+		nodeVoices:     voice.NodeVoices,
+		starts:         starts,
+		startPolicy:    initiativePolicy,
+		inputMode:      mode,
+		localDir:       options.LocalDir,
 	}, nil
 }
 
@@ -349,19 +350,20 @@ func flowcraftDefaultAgentInitiativePolicy(starts string) string {
 }
 
 type agent struct {
-	transformers  transformerProvider
-	runtime       runtimeClient
-	history       historyReader
-	historyID     string
-	asrModel      string
-	defaultVoice  string
-	nodeVoices    map[string]string
-	starts        string
-	startPolicy   string
-	inputMode     inputMode
-	localDir      string
-	inputProvider InputProvider
-	memory        memory.Store
+	transformers   transformerProvider
+	runtime        runtimeClient
+	history        historyReader
+	outputObserver outputObserver
+	historyID      string
+	asrModel       string
+	defaultVoice   string
+	nodeVoices     map[string]string
+	starts         string
+	startPolicy    string
+	inputMode      inputMode
+	localDir       string
+	inputProvider  InputProvider
+	memory         memory.Store
 
 	outputMu       sync.Mutex
 	activeOutput   *genx.StreamBuilder
@@ -564,6 +566,12 @@ type runtimeClient interface {
 
 type historyReader interface {
 	History(context.Context, int) ([]flowmodel.Message, error)
+}
+
+type outputObserver interface {
+	BeginOutput(streamID, user string)
+	ObserveOutput(*genx.MessageChunk)
+	InterruptOutput(streamID string)
 }
 
 type runtimeResponse interface {
@@ -823,7 +831,7 @@ func (a *agent) Transform(ctx context.Context, _ string, input genx.Stream) (gen
 		return nil, fmt.Errorf("flowcraft: agent is nil")
 	}
 	output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 64)
-	observations := newFlowcraftOutputObservations()
+	observations := newFlowcraftOutputObservations(a.outputObserver)
 	a.setActiveOutput(output, defaultInputStreamID, observations)
 	go a.run(ctx, input, output, observations)
 	return &flowcraftOutputStream{Stream: output.Stream(), observations: observations}, nil
@@ -973,8 +981,9 @@ func (s *flowcraftOutputStream) ObserveOutput(chunk *genx.MessageChunk) {
 }
 
 type flowcraftOutputObservations struct {
-	mu      sync.Mutex
-	streams map[string]flowcraftOutputObservation
+	mu       sync.Mutex
+	streams  map[string]flowcraftOutputObservation
+	observer outputObserver
 }
 
 type flowcraftOutputObservation struct {
@@ -983,8 +992,12 @@ type flowcraftOutputObservation struct {
 	drained  bool
 }
 
-func newFlowcraftOutputObservations() *flowcraftOutputObservations {
-	return &flowcraftOutputObservations{streams: make(map[string]flowcraftOutputObservation)}
+func newFlowcraftOutputObservations(observers ...outputObserver) *flowcraftOutputObservations {
+	result := &flowcraftOutputObservations{streams: make(map[string]flowcraftOutputObservation)}
+	if len(observers) > 0 {
+		result.observer = observers[0]
+	}
+	return result
 }
 
 func (o *flowcraftOutputObservations) begin(streamID string) {
@@ -1020,10 +1033,11 @@ func (o *flowcraftOutputObservations) observe(chunk *genx.MessageChunk) {
 	}
 	streamID := strings.TrimSpace(chunk.Ctrl.StreamID)
 	o.mu.Lock()
-	defer o.mu.Unlock()
 	state := o.streams[streamID]
 	if chunk.IsEndOfStream() && strings.TrimSpace(chunk.Ctrl.Error) != "" {
 		delete(o.streams, streamID)
+		o.mu.Unlock()
+		o.observeHistory(chunk)
 		return
 	}
 	if !chunk.IsEndOfStream() {
@@ -1032,6 +1046,8 @@ func (o *flowcraftOutputObservations) observe(chunk *genx.MessageChunk) {
 			state.audio = true
 		}
 		o.streams[streamID] = state
+		o.mu.Unlock()
+		o.observeHistory(chunk)
 		return
 	}
 	switch chunk.Part.(type) {
@@ -1043,6 +1059,14 @@ func (o *flowcraftOutputObservations) observe(chunk *genx.MessageChunk) {
 		state.drained = true
 	}
 	o.streams[streamID] = state
+	o.mu.Unlock()
+	o.observeHistory(chunk)
+}
+
+func (o *flowcraftOutputObservations) observeHistory(chunk *genx.MessageChunk) {
+	if o != nil && o.observer != nil {
+		o.observer.ObserveOutput(chunk)
+	}
 }
 
 func (o *flowcraftOutputObservations) take(streamID string) flowcraftOutputObservation {
@@ -1547,6 +1571,9 @@ func (a *agent) runTranscriptTurn(ctx context.Context, transcript, streamID stri
 func (a *agent) runFlowcraftTextTurn(ctx context.Context, text, streamID string, output *genx.StreamBuilder, epoch uint64) error {
 	text = strings.TrimSpace(text)
 	a.setActiveStreamID(streamID)
+	if a.outputObserver != nil {
+		a.outputObserver.BeginOutput(streamID, text)
+	}
 
 	var inputs map[string]any
 	if a.inputProvider != nil {
@@ -1771,6 +1798,9 @@ func (a *agent) interruptOutput(output *genx.StreamBuilder, streamID string, epo
 	}
 	a.outputEpoch++
 	a.outputMu.Unlock()
+	if a.outputObserver != nil {
+		a.outputObserver.InterruptOutput(streamID)
+	}
 	a.discardAssistantOutput(output, streamID)
 	return addInterruptedOutputEOS(output, streamID)
 }
@@ -1790,6 +1820,9 @@ func (a *agent) interruptQueuedOutput(output *genx.StreamBuilder, streamID strin
 	a.discardAssistantOutput(output, streamID)
 	a.outputEpoch++
 	a.outputMu.Unlock()
+	if a.outputObserver != nil {
+		a.outputObserver.InterruptOutput(streamID)
+	}
 	return addInterruptedOutputEOS(output, streamID)
 }
 
@@ -2716,10 +2749,11 @@ func buildOwnedRuntimeConfig(
 		workspaceName = agentID
 	}
 	return ownedflowcraft.Config{
-		ID: agentID, Conversation: workspaceName, Graph: graphDefinition, Resolver: resolver,
+		ID: agentID, Conversation: workspaceName, HistoryWorkspace: workspaceName,
+		Graph: graphDefinition, Resolver: resolver,
 		Workspace: workspace, Toolkit: toolkit, History: history, Memory: memoryStore, PublishNodes: publishNodes,
 		MaxIterations: maxIterations, Parallel: parallel, MaxToolCalls: 32, ToolTimeout: 30 * time.Second,
-		InputProvider: options.InputProvider,
+		InputProvider: options.InputProvider, ExternalOutputObservation: true,
 	}, nil
 }
 

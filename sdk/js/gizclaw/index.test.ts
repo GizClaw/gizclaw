@@ -367,6 +367,19 @@ test("RPC payload codec preserves optional JSON schema field absence", () => {
   assert.equal(Object.prototype.hasOwnProperty.call(parameters ?? {}, "anyOf"), false);
 });
 
+test("RPC payload codec preserves the DashScope realtime workflow driver", () => {
+  const workflow = {
+    name: "dashscope",
+    spec: {
+      driver: "dashscope-realtime",
+      dashscope_realtime: { model: "qwen3.5-omni-flash-realtime" },
+    },
+  };
+  const payload = encodeRPCResponsePayload("server.workflow.get", workflow);
+
+  assert.deepEqual(decodeRPCResponsePayload("server.workflow.get", payload), workflow);
+});
+
 test("RPC payload codec preserves the selected workflow i18n catalog", () => {
   const workflow = {
     i18n: { name: "Assistant", description: "Helpful workflow" },

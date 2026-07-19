@@ -216,6 +216,88 @@ func TestAgentRecallsAndObservesInjectedMemory(t *testing.T) {
 	}
 }
 
+func TestAgentDefersHistoryUntilExternalOutputIsObserved(t *testing.T) {
+	generator := generatorFunc(func(_ context.Context, modelContext genx.ModelContext) (genx.Stream, error) {
+		builder := genx.NewGrowableStreamBuilder(modelContext, 1)
+		if err := builder.Add(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("hidden answer")}); err != nil {
+			return nil, err
+		}
+		if err := builder.Done(genx.Usage{}); err != nil {
+			return nil, err
+		}
+		return builder.Stream(), nil
+	})
+	resolver, err := NewGenXResolver(map[string]GenXModel{"chat": {Generator: generator, Pattern: "test/chat"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	memoryStore := &recordingMemoryStore{}
+	runtime, err := New(Config{
+		ID: "claw", Conversation: "conversation", HistoryWorkspace: "workspace",
+		Graph: textGraph(), Resolver: resolver, Toolkit: commonagent.EmptyToolkit(), Memory: memoryStore,
+		ExternalOutputObservation: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.history.store != nil {
+		t.Fatal("nil History store unexpectedly created persistent history")
+	}
+	input := buffer.N[*genx.MessageChunk](3)
+	addTextTurn(t, input, "user-1", "question")
+	_ = input.CloseWrite()
+	output, err := runtime.Transform(t.Context(), "", input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := visibleText(readAll(t, output)); got != "hidden answer" {
+		t.Fatalf("inner visible text = %q", got)
+	}
+	history, err := runtime.History(t.Context(), 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(history) != 1 || history[0].Role != flowmodel.RoleUser {
+		t.Fatalf("history before external pull = %#v, want only user", history)
+	}
+
+	runtime.BeginOutput("device-stream", "question")
+	runtime.ObserveOutput(&genx.MessageChunk{
+		Role: genx.RoleModel, Part: genx.Text("visible partial"),
+		Ctrl: &genx.StreamCtrl{StreamID: "device-stream", Label: assistantLabel},
+	})
+	runtime.InterruptOutput("device-stream")
+	history, err = runtime.History(t.Context(), 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasInterruptedAssistant(history, "visible partial") || slicesContainsMessage(history, "hidden answer") {
+		t.Fatalf("history after external interruption = %#v", history)
+	}
+	_, observations := memoryStore.snapshot()
+	if len(observations) != 0 {
+		t.Fatalf("interrupted external output observed in Memory: %+v", observations)
+	}
+}
+
+func TestAgentUsesIndependentHistoryWorkspace(t *testing.T) {
+	store := &recordingLogStore{}
+	resolver, err := NewGenXResolver(map[string]GenXModel{"chat": {Generator: &scriptedGenerator{}, Pattern: "test/chat"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime, err := New(Config{
+		ID: "claw", Conversation: "conversation", HistoryWorkspace: "workspace",
+		Graph: textGraph(), Resolver: resolver, Toolkit: commonagent.EmptyToolkit(), History: store,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.history.store == nil || runtime.history.store.workspace != "workspace" {
+		t.Fatalf("history workspace = %#v, want workspace", runtime.history.store)
+	}
+}
+
 func TestPulledHistoryAcceptsPendingMemoryAndReportsFailedOperation(t *testing.T) {
 	store := &recordingMemoryStore{observeResult: memory.ObserveResult{Operation: &memory.Operation{ID: "pending-1", Status: memory.OperationPending}}}
 	var reported []error
@@ -508,6 +590,12 @@ func slicesContainsText(chunks []*genx.MessageChunk, want string) bool {
 		}
 	}
 	return false
+}
+
+func slicesContainsMessage(messages []flowmodel.Message, want string) bool {
+	return slices.ContainsFunc(messages, func(message flowmodel.Message) bool {
+		return message.Content() == want
+	})
 }
 
 func hasInterruptedEOS(chunks []*genx.MessageChunk, streamID string) bool {

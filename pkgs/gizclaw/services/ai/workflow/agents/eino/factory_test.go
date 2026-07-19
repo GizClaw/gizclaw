@@ -47,8 +47,28 @@ func TestFactoryBuildsTypedConfig(t *testing.T) {
 	if config.History == nil || config.History.Store != history || config.History.Stream != "agent.eino.demo" || config.History.RecentLimit != 100 {
 		t.Fatalf("history config = %#v", config.History)
 	}
-	if agent, err := factory.NewAgent(t.Context(), spec); err != nil || agent == nil {
+	agent, err := factory.NewAgent(t.Context(), spec)
+	if err != nil || agent == nil {
 		t.Fatalf("NewAgent() = %T, %v", agent, err)
+	}
+	status, err := agent.Status(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.HistoryAvailable == nil || !*status.HistoryAvailable || status.MemoryStatsAvailable == nil || !*status.MemoryStatsAvailable || status.RecallAvailable == nil || !*status.RecallAvailable {
+		t.Fatalf("status = %+v", status)
+	}
+	historyResponse, err := agent.ListHistory(t.Context(), apitypes.PeerRunHistoryListRequest{})
+	if err != nil || !historyResponse.Available {
+		t.Fatalf("ListHistory() = %+v, %v", historyResponse, err)
+	}
+	memoryResponse, err := agent.MemoryStats(t.Context(), apitypes.PeerRunMemoryStatsRequest{})
+	if err != nil || !memoryResponse.Available || !memoryResponse.Enabled {
+		t.Fatalf("MemoryStats() = %+v, %v", memoryResponse, err)
+	}
+	recallResponse, err := agent.Recall(t.Context(), apitypes.PeerRunRecallRequest{Query: "tea"})
+	if err != nil || !recallResponse.Available {
+		t.Fatalf("Recall() = %+v, %v", recallResponse, err)
 	}
 }
 

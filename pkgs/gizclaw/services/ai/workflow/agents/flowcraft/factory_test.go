@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -1064,9 +1065,18 @@ func TestFactoryNewAgentInjectsWorkspaceScopedHistoryStore(t *testing.T) {
 	}
 	backend.mu.Lock()
 	queries := backend.queryCalls
+	var query logstore.Query
+	if queries > 0 {
+		query = backend.queries[len(backend.queries)-1]
+	}
 	backend.mu.Unlock()
 	if queries == 0 {
 		t.Fatal("owned history did not query the injected LogStore")
+	}
+	if !slices.ContainsFunc(query.Matchers, func(matcher logstore.AttributeMatcher) bool {
+		return matcher.Name == "workspace_name" && matcher.Value == "workspace"
+	}) {
+		t.Fatalf("history query matchers = %#v, want workspace_name=workspace", query.Matchers)
 	}
 	if _, err := os.Stat(filepath.Join(localDir, "history", "conversation", "messages.jsonl")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("workspace history file exists or stat failed: %v", err)
@@ -1569,8 +1579,28 @@ func TestFinishCompletedOutputDoesNotInterruptEmptyTurn(t *testing.T) {
 	}
 }
 
+func TestOutputObservationsForwardOnlyDevicePulledAssistantChunks(t *testing.T) {
+	observer := &recordingOutputObserver{}
+	observations := newFlowcraftOutputObservations(observer)
+	observations.begin("stream")
+	text := textChunk(genx.RoleModel, assistantLabel, "stream", assistantLabel, "visible", false)
+	interrupted := textChunk(genx.RoleModel, assistantLabel, "stream", assistantLabel, "", true)
+	interrupted.Ctrl.Error = interruptedError
+
+	observations.produce(text)
+	if len(observer.chunks) != 0 {
+		t.Fatalf("produced chunks observed before pull: %#v", observer.chunks)
+	}
+	observations.observe(text)
+	observations.observe(interrupted)
+	if len(observer.chunks) != 2 || observer.chunks[0] != text || observer.chunks[1] != interrupted {
+		t.Fatalf("observed chunks = %#v", observer.chunks)
+	}
+}
+
 func TestFinishCompletedOutputInterruptsUnobservedQueuedAssistant(t *testing.T) {
-	a := &agent{}
+	observer := &recordingOutputObserver{}
+	a := &agent{outputObserver: observer}
 	output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 2)
 	observations := newFlowcraftOutputObservations()
 	epoch := a.setActiveOutput(output, "audio", observations)
@@ -1580,6 +1610,9 @@ func TestFinishCompletedOutputInterruptsUnobservedQueuedAssistant(t *testing.T) 
 	}
 
 	a.finishCompletedOutput(output, &flowcraftActiveTurn{streamID: "audio", epoch: epoch}, observations)
+	if !reflect.DeepEqual(observer.interrupts, []string{"audio"}) {
+		t.Fatalf("history interruptions = %#v", observer.interrupts)
+	}
 
 	if err := output.Done(genx.Usage{}); err != nil {
 		t.Fatalf("Done() error = %v", err)
@@ -2418,6 +2451,7 @@ func (t errorTransformer) Transform(context.Context, string, genx.Stream) (genx.
 type memoryHistoryLogStore struct {
 	mu         sync.Mutex
 	queryCalls int
+	queries    []logstore.Query
 }
 
 func (*memoryHistoryLogStore) Append(_ context.Context, records []logstore.Record) ([]logstore.RecordKey, error) {
@@ -2428,11 +2462,27 @@ func (*memoryHistoryLogStore) Append(_ context.Context, records []logstore.Recor
 	return keys, nil
 }
 
-func (s *memoryHistoryLogStore) Query(context.Context, logstore.Query) (logstore.Page, error) {
+func (s *memoryHistoryLogStore) Query(_ context.Context, query logstore.Query) (logstore.Page, error) {
 	s.mu.Lock()
 	s.queryCalls++
+	s.queries = append(s.queries, query)
 	s.mu.Unlock()
 	return logstore.Page{}, nil
+}
+
+type recordingOutputObserver struct {
+	chunks     []*genx.MessageChunk
+	interrupts []string
+}
+
+func (*recordingOutputObserver) BeginOutput(string, string) {}
+
+func (o *recordingOutputObserver) ObserveOutput(chunk *genx.MessageChunk) {
+	o.chunks = append(o.chunks, chunk)
+}
+
+func (o *recordingOutputObserver) InterruptOutput(streamID string) {
+	o.interrupts = append(o.interrupts, streamID)
 }
 
 func (*memoryHistoryLogStore) Replace(context.Context, logstore.Record) error {
