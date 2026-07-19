@@ -1,0 +1,81 @@
+# Memory Store
+
+[`pkgs/store/memory`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/store/memory) defines the long-term memory boundary shared by Agent runtimes. It accepts raw observations and delegates fact extraction and persistence to a provider. Reads return provider-neutral facts and relevance scores. `genx.ModelContext` is composed before model invocation and is not the storage model of this package.
+
+## Core boundary
+
+`Store` exposes four operations:
+
+- `Observe` submits raw text or ordered turns with role, speaker, timestamps, and attributes for fact extraction.
+- `Recall` queries facts with natural language and typed filters.
+- `Update` changes fact text and, when supported, patches attributes and checks a revision.
+- `Delete` removes or retires a fact and, when supported, checks a revision.
+
+Asynchronous providers return an operation in `ObserveResult`. Stores implementing `OperationWaiter` use the caller's `context.Context` to wait for completion. Constructors do not start background goroutines.
+
+`AppID`, `UserID`, `AgentID`, and `RunID` are business memory scopes. They do not replace process, credential, or remote-service tenant isolation.
+
+## Providers
+
+| Provider | Execution | Persistence and model configuration | Update limits |
+| --- | --- | --- | --- |
+| Flowcraft | In process | `dir` selects the Flowcraft workspace backend; model resource names are resolved through `FlowcraftModelLoader` | Append-only revisions with text, attribute, and revision checks |
+| Mem0 | Remote HTTP | Platform needs an endpoint/API key; a self-hosted deployment owns its model configuration | Text updates; unsupported attribute patches and conditional writes return `ErrUnsupported` |
+| Volcengine AgentKit/Viking MEM0 | Volc control plane and Mem0 data plane | Uses an explicit Mem0 API key or resolves one from an API key ID or memory project ID | Same behavior as the Mem0 data plane |
+
+Without an extraction model, Flowcraft deterministically stores an observation as a `note`. Configured extraction, embedding, and rerank models require a model loader passed to `OpenFlowcraftStore` or `stores.NewWithStorageOptions`.
+
+The Volc provider does not duplicate the fact CRUD protocol. It resolves the data-plane API key through signed `DescribeMemoryProjectDetail` and `DescribeAPIKeyDetail` calls, then reuses the Mem0 client.
+
+## Server configuration
+
+A logical memory store selects exactly one provider:
+
+```yaml
+stores:
+  agent-memory:
+    kind: memory
+    flowcraft:
+      dir: ${GIZCLAW_MEMORY_DIR}
+      runtime_id: detective-game
+      user_id: player-42
+```
+
+Mem0 Platform:
+
+```yaml
+stores:
+  agent-memory:
+    kind: memory
+    mem0:
+      endpoint: https://api.mem0.ai
+      api_key: ${MEM0_API_KEY}
+      flavor: platform
+      app_id: detective-game
+      user_id: player-42
+      agent_id: narrator
+```
+
+Volcengine AgentKit/Viking MEM0:
+
+```yaml
+stores:
+  agent-memory:
+    kind: memory
+    volc_memory:
+      mem0:
+        endpoint: ${VOLC_MEM0_ENDPOINT}
+        user_id: player-42
+      memory_project_id: ${VOLC_MEMORY_PROJECT_ID}
+      region: cn-beijing
+      access_key_id: ${VOLC_ACCESS_KEY_ID}
+      access_key_secret: ${VOLC_ACCESS_KEY_SECRET}
+```
+
+`cmd/internal/stores` expands environment variables and owns the Flowcraft lifecycle. HTTP clients, Volc credential resolvers, and Flowcraft model loaders are injected through `Options`.
+
+## Error semantics
+
+The stable sentinel errors are `ErrInvalidInput`, `ErrNotFound`, `ErrUnsupported`, `ErrConflict`, and `ErrUnavailable`. Providers preserve `errors.Is` behavior and must not expose API keys, AK/SK credentials, or credential-bearing response bodies in facts, logs, or errors.
+
+When a provider cannot preserve a filter, attribute patch, or conditional write, it returns `ErrUnsupported` instead of silently discarding the condition.

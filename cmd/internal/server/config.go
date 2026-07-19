@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -114,7 +115,7 @@ func LoadConfig(path string) (ConfigFile, error) {
 }
 
 func parseConfigData(data []byte) (ConfigFile, error) {
-	if err := validateLoggingConfigShape(data); err != nil {
+	if err := validateConfigShape(data); err != nil {
 		return ConfigFile{}, err
 	}
 	var topLevel map[string]any
@@ -346,7 +347,7 @@ func (cfg Config) validate() error {
 	return nil
 }
 
-func validateLoggingConfigShape(data []byte) error {
+func validateConfigShape(data []byte) error {
 	var document map[string]any
 	if err := yaml.Unmarshal(data, &document); err != nil {
 		return err
@@ -396,7 +397,16 @@ func validateLoggingConfigShape(data []byte) error {
 	}
 	for name, value := range storeMappings {
 		mapping, ok := value.(map[string]any)
-		if !ok || fmt.Sprint(mapping["kind"]) != stores.KindLog {
+		if !ok {
+			continue
+		}
+		if fmt.Sprint(mapping["kind"]) == stores.KindMemoryStore {
+			if err := validateMemoryStoreConfigShape(name, mapping); err != nil {
+				return err
+			}
+			continue
+		}
+		if fmt.Sprint(mapping["kind"]) != stores.KindLog {
 			continue
 		}
 		for field := range mapping {
@@ -431,6 +441,68 @@ func validateLoggingConfigShape(data []byte) error {
 			default:
 				return fmt.Errorf("server: stores.%s.clickhouse has unknown field %q", name, field)
 			}
+		}
+	}
+	return nil
+}
+
+func validateMemoryStoreConfigShape(name string, mapping map[string]any) error {
+	for field := range mapping {
+		switch field {
+		case "kind", "flowcraft", "mem0", "volc_memory":
+		default:
+			return fmt.Errorf("server: stores.%s field %q is invalid for kind memory", name, field)
+		}
+	}
+	if value, exists := mapping["flowcraft"]; exists {
+		path := "server: stores." + name + ".flowcraft"
+		if err := validateConfigMappingFields(path, value, []string{
+			"dir", "runtime_id", "agent_id", "user_id", "extraction_model", "embedding_model", "rerank_model",
+			"extraction_mode", "system_prompt", "schema_name", "temperature", "stage_timeout", "async",
+		}); err != nil {
+			return err
+		}
+		flowcraft := value.(map[string]any)
+		if async, exists := flowcraft["async"]; exists {
+			if err := validateConfigMappingFields(path+".async", async, []string{"enabled", "worker_id"}); err != nil {
+				return err
+			}
+		}
+	}
+	if value, exists := mapping["mem0"]; exists {
+		if err := validateConfigMappingFields("server: stores."+name+".mem0", value, []string{
+			"endpoint", "api_key", "flavor", "app_id", "user_id", "agent_id", "run_id", "poll_interval",
+		}); err != nil {
+			return err
+		}
+	}
+	if value, exists := mapping["volc_memory"]; exists {
+		path := "server: stores." + name + ".volc_memory"
+		if err := validateConfigMappingFields(path, value, []string{
+			"mem0", "api_key_id", "memory_project_id", "control_endpoint", "region", "access_key_id", "access_key_secret",
+		}); err != nil {
+			return err
+		}
+		volc := value.(map[string]any)
+		if mem0, exists := volc["mem0"]; exists {
+			if err := validateConfigMappingFields(path+".mem0", mem0, []string{
+				"endpoint", "api_key", "flavor", "app_id", "user_id", "agent_id", "run_id", "poll_interval",
+			}); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func validateConfigMappingFields(path string, value any, allowed []string) error {
+	mapping, ok := value.(map[string]any)
+	if !ok {
+		return fmt.Errorf("%s must be a mapping", path)
+	}
+	for field := range mapping {
+		if !slices.Contains(allowed, field) {
+			return fmt.Errorf("%s has unknown field %q", path, field)
 		}
 	}
 	return nil

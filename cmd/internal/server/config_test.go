@@ -608,6 +608,11 @@ func TestParseConfigRejectsUnknownLoggingFields(t *testing.T) {
 		"system_log:\n  sinks:\n    - kind: stderr\n      path: file.log\n",
 		"stores:\n  logs:\n    kind: log\n    clickhouse:\n      dsn: x\n      unknown: y\n",
 		"stores:\n  logs:\n    kind: log\n    volc:\n      endpoint: x\n      unknown: y\n",
+		"stores:\n  agent-memory:\n    kind: memory\n    storage: x\n    flowcraft: {}\n",
+		"stores:\n  agent-memory:\n    kind: memory\n    mem0:\n      endpoint: https://example.test\n      unknown: y\n",
+		"stores:\n  agent-memory:\n    kind: memory\n    volc_memory:\n      api_key_id: x\n      unknown: y\n",
+		"stores:\n  agent-memory:\n    kind: memory\n    flowcraft:\n      async:\n        unknown: y\n",
+		"stores:\n  agent-memory:\n    kind: memory\n    volc_memory:\n      mem0:\n        unknown: y\n",
 	} {
 		if _, err := parseConfigData([]byte(data)); err == nil {
 			t.Fatalf("parseConfigData(%q) error = nil", data)
@@ -636,6 +641,39 @@ stores:
 		store.ClickHouse.Database != "default" ||
 		store.ClickHouse.Table != "gizclaw_flowcraft_history" {
 		t.Fatalf("clickhouse config = %+v", store.ClickHouse)
+	}
+}
+
+func TestParseConfigReadsMemoryStores(t *testing.T) {
+	cfg, err := parseConfigData([]byte(`
+stores:
+  local-memory:
+    kind: memory
+    flowcraft:
+      dir: memory
+      runtime_id: app
+      user_id: user
+      stage_timeout: 2s
+      async:
+        enabled: true
+        worker_id: worker
+  remote-memory:
+    kind: memory
+    mem0:
+      endpoint: https://example.test
+      flavor: self_hosted
+      poll_interval: 250ms
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	local := cfg.Stores["local-memory"].Flowcraft
+	if local == nil || local.StageTimeout != 2*time.Second || !local.Async.Enabled || local.Async.WorkerID != "worker" {
+		t.Fatalf("flowcraft config = %+v", local)
+	}
+	remote := cfg.Stores["remote-memory"].Mem0
+	if remote == nil || remote.PollInterval != 250*time.Millisecond {
+		t.Fatalf("mem0 config = %+v", remote)
 	}
 }
 
