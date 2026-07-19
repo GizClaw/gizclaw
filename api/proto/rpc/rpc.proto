@@ -61,9 +61,6 @@ message RpcRequest {
 }
 
 enum RpcMethod {
-  reserved 35 to 37;
-  reserved "RPC_METHOD_SERVER_WORKFLOW_CREATE", "RPC_METHOD_SERVER_WORKFLOW_PUT", "RPC_METHOD_SERVER_WORKFLOW_DELETE";
-
   RPC_METHOD_UNSPECIFIED = 0;
   RPC_METHOD_ALL_PING = 1 [(rpc_method) = { name: "all.ping" request: "PingRequest" response: "PingResponse" }];
   RPC_METHOD_ALL_SPEED_TEST_RUN = 2 [(rpc_method) = { name: "all.speed_test.run" request: "SpeedTestRequest" response: "SpeedTestResponse" }];
@@ -99,6 +96,9 @@ enum RpcMethod {
   RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_GET = 32 [(rpc_method) = { name: "server.workspace.history.audio.get" request: "WorkspaceHistoryAudioGetRequest" response: "WorkspaceHistoryAudioGetResponse" }];
   RPC_METHOD_SERVER_WORKFLOW_LIST = 33 [(rpc_method) = { name: "server.workflow.list" request: "WorkflowListRequest" response: "WorkflowListResponse" }];
   RPC_METHOD_SERVER_WORKFLOW_GET = 34 [(rpc_method) = { name: "server.workflow.get" request: "WorkflowGetRequest" response: "WorkflowGetResponse" }];
+  RPC_METHOD_SERVER_WORKFLOW_CREATE = 35 [(rpc_method) = { name: "server.workflow.create" request: "WorkflowCreateRequest" response: "WorkflowCreateResponse" }];
+  RPC_METHOD_SERVER_WORKFLOW_PUT = 36 [(rpc_method) = { name: "server.workflow.put" request: "WorkflowPutRequest" response: "WorkflowPutResponse" }];
+  RPC_METHOD_SERVER_WORKFLOW_DELETE = 37 [(rpc_method) = { name: "server.workflow.delete" request: "WorkflowDeleteRequest" response: "WorkflowDeleteResponse" }];
   RPC_METHOD_SERVER_MODEL_LIST = 38 [(rpc_method) = { name: "server.model.list" request: "ModelListRequest" response: "ModelListResponse" }];
   RPC_METHOD_SERVER_MODEL_GET = 39 [(rpc_method) = { name: "server.model.get" request: "ModelGetRequest" response: "ModelGetResponse" }];
   RPC_METHOD_SERVER_MODEL_CREATE = 40 [(rpc_method) = { name: "server.model.create" request: "ModelCreateRequest" response: "ModelCreateResponse" }];
@@ -142,7 +142,7 @@ enum RpcMethod {
   RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD = 79 [(rpc_method) = { name: "server.badge_def.pixa.download" request: "BadgeDefPixaDownloadRequest" response: "BadgeDefPixaDownloadResponse" }];
   RPC_METHOD_SERVER_PET_LIST = 80 [(rpc_method) = { name: "server.pet.list" request: "ServerPetListRequest" response: "ServerPetListResponse" }];
   RPC_METHOD_SERVER_PET_GET = 81 [(rpc_method) = { name: "server.pet.get" request: "ServerPetGetRequest" response: "ServerPetGetResponse" }];
-  RPC_METHOD_SERVER_PET_ADOPT = 82 [(rpc_method) = { name: "server.pet.adopt" request: "ServerPetAdoptRequest" response: "ServerPetAdoptResponse" }];
+  RPC_METHOD_RUNTIME_ADOPT = 82 [(rpc_method) = { name: "runtime.adopt" request: "RuntimeAdoptRequest" response: "RuntimeAdoptResponse" }];
   RPC_METHOD_SERVER_PET_PUT = 83 [(rpc_method) = { name: "server.pet.put" request: "ServerPetPutRequest" response: "ServerPetPutResponse" }];
   RPC_METHOD_SERVER_PET_DELETE = 84 [(rpc_method) = { name: "server.pet.delete" request: "ServerPetDeleteRequest" response: "ServerPetDeleteResponse" }];
   RPC_METHOD_SERVER_PET_DRIVE = 85 [(rpc_method) = { name: "server.pet.drive" request: "ServerPetDriveRequest" response: "ServerPetDriveResponse" }];
@@ -166,7 +166,8 @@ enum RpcMethod {
   RPC_METHOD_SERVER_ROUTE_RESOLVE = 103 [(rpc_method) = { name: "server.route.resolve" request: "ServerRouteResolveRequest" response: "ServerRouteResolveResponse" }];
   RPC_METHOD_SERVER_PET_ACTIONS_GET = 104 [(rpc_method) = { name: "server.pet.actions.get" request: "ServerPetActionsGetRequest" response: "ServerPetActionsGetResponse" }];
   RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD = 105 [(rpc_method) = { name: "server.pet.pixa.download" request: "ServerPetPixaDownloadRequest" response: "ServerPetPixaDownloadResponse" }];
-  RPC_METHOD_SERVER_WORKFLOW_ICON_DOWNLOAD = 106 [(rpc_method) = { name: "server.workflow.icon.download" request: "WorkflowIconDownloadRequest" response: "WorkflowIconDownloadResponse" }];
+  reserved 106;
+  reserved "RPC_METHOD_SERVER_WORKFLOW_ICON_DOWNLOAD";
   RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD = 107 [(rpc_method) = { name: "server.workspace.icon.download" request: "WorkspaceIconDownloadRequest" response: "WorkspaceIconDownloadResponse" }];
   RPC_METHOD_SERVER_FRIEND_INFO_GET = 108 [(rpc_method) = { name: "server.friend.info.get" request: "FriendInfoGetRequest" response: "FriendInfoGetResponse" }];
   RPC_METHOD_SERVER_REGISTER = 109 [(rpc_method) = { name: "server.register" request: "ServerRegisterRequest" response: "ServerRegisterResponse" }];

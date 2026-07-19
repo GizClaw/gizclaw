@@ -2206,6 +2206,7 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
         parameters,
         workspace_name: workspaceName,
         workflow_name: workspaceDetails?.workflow_name ?? "",
+        workflow_source: workspaceDetails?.workflow_source,
       } }));
       setWorkspace(updated);
       setWorkspaceParametersText(formatWorkspaceParameters(updated.parameters));
@@ -4201,10 +4202,10 @@ function WorkflowsPanel(): JSX.Element {
   const loadPage = useCallback((cursor: string) => listWorkflowsPage(cursor), []);
   return (
     <PagedSimpleTable
-      columns={["Name", "Display name", "Driver", "Description"]}
+      columns={["Alias", "Driver"]}
       empty="No workflows"
       loadPage={loadPage}
-      row={(item) => [item.name, item.i18n?.name ?? "", String(item.spec.driver), item.i18n?.description ?? ""]}
+      row={(item) => [item.name, String(item.spec.driver)]}
       title="Workflows"
     />
   );
@@ -4649,7 +4650,7 @@ function listVoicesPage(cursor: string): Promise<PageResponse<Voice>> {
 }
 
 function listWorkflowsPage(cursor: string): Promise<PageResponse<PeerWorkflow>> {
-  return expectData(listPeerWorkflows({ query: pageQuery(cursor) }));
+  return expectData(listPeerWorkflows({ query: { ...pageQuery(cursor), source: "runtime" } }));
 }
 
 function listWorkspacesPage(cursor: string): Promise<PageResponse<Workspace>> {

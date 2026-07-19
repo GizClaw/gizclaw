@@ -20,6 +20,24 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for WorkspaceUpsertWorkflowSource.
+const (
+	Owned   WorkspaceUpsertWorkflowSource = "owned"
+	Runtime WorkspaceUpsertWorkflowSource = "runtime"
+)
+
+// Valid indicates whether the value is a known member of the WorkspaceUpsertWorkflowSource enum.
+func (e WorkspaceUpsertWorkflowSource) Valid() bool {
+	switch e {
+	case Owned:
+		return true
+	case Runtime:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DeleteFirmwareArtifactParamsChannel.
 const (
 	DeleteFirmwareArtifactParamsChannelBeta    DeleteFirmwareArtifactParamsChannel = "beta"
@@ -242,60 +260,6 @@ func (e UploadGameDefIconParamsFormat) Valid() bool {
 	}
 }
 
-// Defines values for DeleteWorkflowIconParamsFormat.
-const (
-	DeleteWorkflowIconParamsFormatPixa DeleteWorkflowIconParamsFormat = "pixa"
-	DeleteWorkflowIconParamsFormatPng  DeleteWorkflowIconParamsFormat = "png"
-)
-
-// Valid indicates whether the value is a known member of the DeleteWorkflowIconParamsFormat enum.
-func (e DeleteWorkflowIconParamsFormat) Valid() bool {
-	switch e {
-	case DeleteWorkflowIconParamsFormatPixa:
-		return true
-	case DeleteWorkflowIconParamsFormatPng:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for DownloadWorkflowIconParamsFormat.
-const (
-	DownloadWorkflowIconParamsFormatPixa DownloadWorkflowIconParamsFormat = "pixa"
-	DownloadWorkflowIconParamsFormatPng  DownloadWorkflowIconParamsFormat = "png"
-)
-
-// Valid indicates whether the value is a known member of the DownloadWorkflowIconParamsFormat enum.
-func (e DownloadWorkflowIconParamsFormat) Valid() bool {
-	switch e {
-	case DownloadWorkflowIconParamsFormatPixa:
-		return true
-	case DownloadWorkflowIconParamsFormatPng:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for UploadWorkflowIconParamsFormat.
-const (
-	UploadWorkflowIconParamsFormatPixa UploadWorkflowIconParamsFormat = "pixa"
-	UploadWorkflowIconParamsFormatPng  UploadWorkflowIconParamsFormat = "png"
-)
-
-// Valid indicates whether the value is a known member of the UploadWorkflowIconParamsFormat enum.
-func (e UploadWorkflowIconParamsFormat) Valid() bool {
-	switch e {
-	case UploadWorkflowIconParamsFormatPixa:
-		return true
-	case UploadWorkflowIconParamsFormatPng:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for ListWorkspaceHistoryParamsOrder.
 const (
 	Asc  ListWorkspaceHistoryParamsOrder = "asc"
@@ -334,16 +298,16 @@ func (e DeleteWorkspaceIconParamsFormat) Valid() bool {
 
 // Defines values for DownloadWorkspaceIconParamsFormat.
 const (
-	DownloadWorkspaceIconParamsFormatPixa DownloadWorkspaceIconParamsFormat = "pixa"
-	DownloadWorkspaceIconParamsFormatPng  DownloadWorkspaceIconParamsFormat = "png"
+	Pixa DownloadWorkspaceIconParamsFormat = "pixa"
+	Png  DownloadWorkspaceIconParamsFormat = "png"
 )
 
 // Valid indicates whether the value is a known member of the DownloadWorkspaceIconParamsFormat enum.
 func (e DownloadWorkspaceIconParamsFormat) Valid() bool {
 	switch e {
-	case DownloadWorkspaceIconParamsFormatPixa:
+	case Pixa:
 		return true
-	case DownloadWorkspaceIconParamsFormatPng:
+	case Png:
 		return true
 	default:
 		return false
@@ -751,9 +715,13 @@ type WorkspaceUpsert struct {
 	Parameters *externalRef0.WorkspaceParameters `json:"parameters,omitempty"`
 
 	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
-	Toolkit      *externalRef0.ToolkitPolicy `json:"toolkit,omitempty"`
-	WorkflowName string                      `json:"workflow_name"`
+	Toolkit        *externalRef0.ToolkitPolicy    `json:"toolkit,omitempty"`
+	WorkflowName   string                         `json:"workflow_name"`
+	WorkflowSource *WorkspaceUpsertWorkflowSource `json:"workflow_source,omitempty"`
 }
+
+// WorkspaceUpsertWorkflowSource defines model for WorkspaceUpsert.WorkflowSource.
+type WorkspaceUpsertWorkflowSource string
 
 // ModelProviderKind Provider resource kind usable by model runtime.
 type ModelProviderKind = externalRef0.ModelProviderKind
@@ -1153,15 +1121,6 @@ type ListWorkflowsParams struct {
 	// Limit Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
 	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
 }
-
-// DeleteWorkflowIconParamsFormat defines parameters for DeleteWorkflowIcon.
-type DeleteWorkflowIconParamsFormat string
-
-// DownloadWorkflowIconParamsFormat defines parameters for DownloadWorkflowIcon.
-type DownloadWorkflowIconParamsFormat string
-
-// UploadWorkflowIconParamsFormat defines parameters for UploadWorkflowIcon.
-type UploadWorkflowIconParamsFormat string
 
 // ListWorkspacesParams defines parameters for ListWorkspaces.
 type ListWorkspacesParams struct {
@@ -1928,15 +1887,6 @@ type ClientInterface interface {
 	PutWorkflowWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PutWorkflow(ctx context.Context, name string, body PutWorkflowJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// DeleteWorkflowIcon request
-	DeleteWorkflowIcon(ctx context.Context, name string, format DeleteWorkflowIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// DownloadWorkflowIcon request
-	DownloadWorkflowIcon(ctx context.Context, name string, format DownloadWorkflowIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// UploadWorkflowIconWithBody request with any body
-	UploadWorkflowIconWithBody(ctx context.Context, name string, format UploadWorkflowIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListWorkspaces request
 	ListWorkspaces(ctx context.Context, params *ListWorkspacesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -4246,42 +4196,6 @@ func (c *Client) PutWorkflowWithBody(ctx context.Context, name string, contentTy
 
 func (c *Client) PutWorkflow(ctx context.Context, name string, body PutWorkflowJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPutWorkflowRequest(c.Server, name, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) DeleteWorkflowIcon(ctx context.Context, name string, format DeleteWorkflowIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteWorkflowIconRequest(c.Server, name, format)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) DownloadWorkflowIcon(ctx context.Context, name string, format DownloadWorkflowIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDownloadWorkflowIconRequest(c.Server, name, format)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) UploadWorkflowIconWithBody(ctx context.Context, name string, format UploadWorkflowIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUploadWorkflowIconRequestWithBody(c.Server, name, format, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -11444,131 +11358,6 @@ func NewPutWorkflowRequestWithBody(server string, name string, contentType strin
 	return req, nil
 }
 
-// NewDeleteWorkflowIconRequest generates requests for DeleteWorkflowIcon
-func NewDeleteWorkflowIconRequest(server string, name string, format DeleteWorkflowIconParamsFormat) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "format", format, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/workflows/%s/icon/%s", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewDownloadWorkflowIconRequest generates requests for DownloadWorkflowIcon
-func NewDownloadWorkflowIconRequest(server string, name string, format DownloadWorkflowIconParamsFormat) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "format", format, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/workflows/%s/icon/%s", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewUploadWorkflowIconRequestWithBody generates requests for UploadWorkflowIcon with any type of body
-func NewUploadWorkflowIconRequestWithBody(server string, name string, format UploadWorkflowIconParamsFormat, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "format", format, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/workflows/%s/icon/%s", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("PUT", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
 // NewListWorkspacesRequest generates requests for ListWorkspaces
 func NewListWorkspacesRequest(server string, params *ListWorkspacesParams) (*http.Request, error) {
 	var err error
@@ -12654,15 +12443,6 @@ type ClientWithResponsesInterface interface {
 	PutWorkflowWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutWorkflowResponse, error)
 
 	PutWorkflowWithResponse(ctx context.Context, name string, body PutWorkflowJSONRequestBody, reqEditors ...RequestEditorFn) (*PutWorkflowResponse, error)
-
-	// DeleteWorkflowIconWithResponse request
-	DeleteWorkflowIconWithResponse(ctx context.Context, name string, format DeleteWorkflowIconParamsFormat, reqEditors ...RequestEditorFn) (*DeleteWorkflowIconResponse, error)
-
-	// DownloadWorkflowIconWithResponse request
-	DownloadWorkflowIconWithResponse(ctx context.Context, name string, format DownloadWorkflowIconParamsFormat, reqEditors ...RequestEditorFn) (*DownloadWorkflowIconResponse, error)
-
-	// UploadWorkflowIconWithBodyWithResponse request with any body
-	UploadWorkflowIconWithBodyWithResponse(ctx context.Context, name string, format UploadWorkflowIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadWorkflowIconResponse, error)
 
 	// ListWorkspacesWithResponse request
 	ListWorkspacesWithResponse(ctx context.Context, params *ListWorkspacesParams, reqEditors ...RequestEditorFn) (*ListWorkspacesResponse, error)
@@ -16293,79 +16073,6 @@ func (r PutWorkflowResponse) StatusCode() int {
 	return 0
 }
 
-type DeleteWorkflowIconResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.Workflow
-	JSON404      *externalRef0.ErrorResponse
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r DeleteWorkflowIconResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r DeleteWorkflowIconResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type DownloadWorkflowIconResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON404      *externalRef0.ErrorResponse
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r DownloadWorkflowIconResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r DownloadWorkflowIconResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type UploadWorkflowIconResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.Workflow
-	JSON400      *externalRef0.ErrorResponse
-	JSON404      *externalRef0.ErrorResponse
-	JSON413      *externalRef0.ErrorResponse
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r UploadWorkflowIconResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r UploadWorkflowIconResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 type ListWorkspacesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -18300,33 +18007,6 @@ func (c *ClientWithResponses) PutWorkflowWithResponse(ctx context.Context, name 
 		return nil, err
 	}
 	return ParsePutWorkflowResponse(rsp)
-}
-
-// DeleteWorkflowIconWithResponse request returning *DeleteWorkflowIconResponse
-func (c *ClientWithResponses) DeleteWorkflowIconWithResponse(ctx context.Context, name string, format DeleteWorkflowIconParamsFormat, reqEditors ...RequestEditorFn) (*DeleteWorkflowIconResponse, error) {
-	rsp, err := c.DeleteWorkflowIcon(ctx, name, format, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseDeleteWorkflowIconResponse(rsp)
-}
-
-// DownloadWorkflowIconWithResponse request returning *DownloadWorkflowIconResponse
-func (c *ClientWithResponses) DownloadWorkflowIconWithResponse(ctx context.Context, name string, format DownloadWorkflowIconParamsFormat, reqEditors ...RequestEditorFn) (*DownloadWorkflowIconResponse, error) {
-	rsp, err := c.DownloadWorkflowIcon(ctx, name, format, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseDownloadWorkflowIconResponse(rsp)
-}
-
-// UploadWorkflowIconWithBodyWithResponse request with arbitrary body returning *UploadWorkflowIconResponse
-func (c *ClientWithResponses) UploadWorkflowIconWithBodyWithResponse(ctx context.Context, name string, format UploadWorkflowIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadWorkflowIconResponse, error) {
-	rsp, err := c.UploadWorkflowIconWithBody(ctx, name, format, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUploadWorkflowIconResponse(rsp)
 }
 
 // ListWorkspacesWithResponse request returning *ListWorkspacesResponse
@@ -24637,133 +24317,6 @@ func ParsePutWorkflowResponse(rsp *http.Response) (*PutWorkflowResponse, error) 
 	return response, nil
 }
 
-// ParseDeleteWorkflowIconResponse parses an HTTP response from a DeleteWorkflowIconWithResponse call
-func ParseDeleteWorkflowIconResponse(rsp *http.Response) (*DeleteWorkflowIconResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &DeleteWorkflowIconResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.Workflow
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseDownloadWorkflowIconResponse parses an HTTP response from a DownloadWorkflowIconWithResponse call
-func ParseDownloadWorkflowIconResponse(rsp *http.Response) (*DownloadWorkflowIconResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &DownloadWorkflowIconResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseUploadWorkflowIconResponse parses an HTTP response from a UploadWorkflowIconWithResponse call
-func ParseUploadWorkflowIconResponse(rsp *http.Response) (*UploadWorkflowIconResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &UploadWorkflowIconResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.Workflow
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON413 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParseListWorkspacesResponse parses an HTTP response from a ListWorkspacesWithResponse call
 func ParseListWorkspacesResponse(rsp *http.Response) (*ListWorkspacesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -25678,15 +25231,6 @@ type ServerInterface interface {
 	// Create or update a workflow
 	// (PUT /workflows/{name})
 	PutWorkflow(c *fiber.Ctx, name string) error
-	// Delete a workflow icon
-	// (DELETE /workflows/{name}/icon/{format})
-	DeleteWorkflowIcon(c *fiber.Ctx, name string, format DeleteWorkflowIconParamsFormat) error
-	// Download a workflow icon
-	// (GET /workflows/{name}/icon/{format})
-	DownloadWorkflowIcon(c *fiber.Ctx, name string, format DownloadWorkflowIconParamsFormat) error
-	// Upload or replace a workflow icon
-	// (PUT /workflows/{name}/icon/{format})
-	UploadWorkflowIcon(c *fiber.Ctx, name string, format UploadWorkflowIconParamsFormat) error
 	// List all workspaces
 	// (GET /workspaces)
 	ListWorkspaces(c *fiber.Ctx, params ListWorkspacesParams) error
@@ -28931,78 +28475,6 @@ func (siw *ServerInterfaceWrapper) PutWorkflow(c *fiber.Ctx) error {
 	return siw.Handler.PutWorkflow(c, name)
 }
 
-// DeleteWorkflowIcon operation middleware
-func (siw *ServerInterfaceWrapper) DeleteWorkflowIcon(c *fiber.Ctx) error {
-
-	var err error
-
-	// ------------- Path parameter "name" -------------
-	var name string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
-	}
-
-	// ------------- Path parameter "format" -------------
-	var format DeleteWorkflowIconParamsFormat
-
-	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter format: %w", err).Error())
-	}
-
-	return siw.Handler.DeleteWorkflowIcon(c, name, format)
-}
-
-// DownloadWorkflowIcon operation middleware
-func (siw *ServerInterfaceWrapper) DownloadWorkflowIcon(c *fiber.Ctx) error {
-
-	var err error
-
-	// ------------- Path parameter "name" -------------
-	var name string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
-	}
-
-	// ------------- Path parameter "format" -------------
-	var format DownloadWorkflowIconParamsFormat
-
-	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter format: %w", err).Error())
-	}
-
-	return siw.Handler.DownloadWorkflowIcon(c, name, format)
-}
-
-// UploadWorkflowIcon operation middleware
-func (siw *ServerInterfaceWrapper) UploadWorkflowIcon(c *fiber.Ctx) error {
-
-	var err error
-
-	// ------------- Path parameter "name" -------------
-	var name string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
-	}
-
-	// ------------- Path parameter "format" -------------
-	var format UploadWorkflowIconParamsFormat
-
-	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter format: %w", err).Error())
-	}
-
-	return siw.Handler.UploadWorkflowIcon(c, name, format)
-}
-
 // ListWorkspaces operation middleware
 func (siw *ServerInterfaceWrapper) ListWorkspaces(c *fiber.Ctx) error {
 
@@ -29570,12 +29042,6 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Get(options.BaseURL+"/workflows/:name", wrapper.GetWorkflow)
 
 	router.Put(options.BaseURL+"/workflows/:name", wrapper.PutWorkflow)
-
-	router.Delete(options.BaseURL+"/workflows/:name/icon/:format", wrapper.DeleteWorkflowIcon)
-
-	router.Get(options.BaseURL+"/workflows/:name/icon/:format", wrapper.DownloadWorkflowIcon)
-
-	router.Put(options.BaseURL+"/workflows/:name/icon/:format", wrapper.UploadWorkflowIcon)
 
 	router.Get(options.BaseURL+"/workspaces", wrapper.ListWorkspaces)
 
@@ -35337,162 +34803,6 @@ func (response PutWorkflow500JSONResponse) VisitPutWorkflowResponse(ctx *fiber.C
 	return ctx.JSON(&response)
 }
 
-type DeleteWorkflowIconRequestObject struct {
-	Name   string                         `json:"name"`
-	Format DeleteWorkflowIconParamsFormat `json:"format"`
-}
-
-type DeleteWorkflowIconResponseObject interface {
-	VisitDeleteWorkflowIconResponse(ctx *fiber.Ctx) error
-}
-
-type DeleteWorkflowIcon200JSONResponse externalRef0.Workflow
-
-func (response DeleteWorkflowIcon200JSONResponse) VisitDeleteWorkflowIconResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type DeleteWorkflowIcon404JSONResponse externalRef0.ErrorResponse
-
-func (response DeleteWorkflowIcon404JSONResponse) VisitDeleteWorkflowIconResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type DeleteWorkflowIcon500JSONResponse externalRef0.ErrorResponse
-
-func (response DeleteWorkflowIcon500JSONResponse) VisitDeleteWorkflowIconResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type DownloadWorkflowIconRequestObject struct {
-	Name   string                           `json:"name"`
-	Format DownloadWorkflowIconParamsFormat `json:"format"`
-}
-
-type DownloadWorkflowIconResponseObject interface {
-	VisitDownloadWorkflowIconResponse(ctx *fiber.Ctx) error
-}
-
-type DownloadWorkflowIcon200ApplicationoctetStreamResponse struct {
-	Body          io.Reader
-	ContentLength int64
-}
-
-func (response DownloadWorkflowIcon200ApplicationoctetStreamResponse) VisitDownloadWorkflowIconResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/octet-stream")
-	if response.ContentLength != 0 {
-		ctx.Response().Header.Set("Content-Length", fmt.Sprint(response.ContentLength))
-	}
-	ctx.Status(200)
-
-	if closer, ok := response.Body.(io.ReadCloser); ok {
-		defer closer.Close()
-	}
-	_, err := io.Copy(ctx.Response().BodyWriter(), response.Body)
-	return err
-}
-
-type DownloadWorkflowIcon200ImagepngResponse struct {
-	Body          io.Reader
-	ContentLength int64
-}
-
-func (response DownloadWorkflowIcon200ImagepngResponse) VisitDownloadWorkflowIconResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "image/png")
-	if response.ContentLength != 0 {
-		ctx.Response().Header.Set("Content-Length", fmt.Sprint(response.ContentLength))
-	}
-	ctx.Status(200)
-
-	if closer, ok := response.Body.(io.ReadCloser); ok {
-		defer closer.Close()
-	}
-	_, err := io.Copy(ctx.Response().BodyWriter(), response.Body)
-	return err
-}
-
-type DownloadWorkflowIcon404JSONResponse externalRef0.ErrorResponse
-
-func (response DownloadWorkflowIcon404JSONResponse) VisitDownloadWorkflowIconResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type DownloadWorkflowIcon500JSONResponse externalRef0.ErrorResponse
-
-func (response DownloadWorkflowIcon500JSONResponse) VisitDownloadWorkflowIconResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type UploadWorkflowIconRequestObject struct {
-	Name   string                         `json:"name"`
-	Format UploadWorkflowIconParamsFormat `json:"format"`
-	Body   io.Reader
-}
-
-type UploadWorkflowIconResponseObject interface {
-	VisitUploadWorkflowIconResponse(ctx *fiber.Ctx) error
-}
-
-type UploadWorkflowIcon200JSONResponse externalRef0.Workflow
-
-func (response UploadWorkflowIcon200JSONResponse) VisitUploadWorkflowIconResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type UploadWorkflowIcon400JSONResponse externalRef0.ErrorResponse
-
-func (response UploadWorkflowIcon400JSONResponse) VisitUploadWorkflowIconResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type UploadWorkflowIcon404JSONResponse externalRef0.ErrorResponse
-
-func (response UploadWorkflowIcon404JSONResponse) VisitUploadWorkflowIconResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type UploadWorkflowIcon413JSONResponse externalRef0.ErrorResponse
-
-func (response UploadWorkflowIcon413JSONResponse) VisitUploadWorkflowIconResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(413)
-
-	return ctx.JSON(&response)
-}
-
-type UploadWorkflowIcon500JSONResponse externalRef0.ErrorResponse
-
-func (response UploadWorkflowIcon500JSONResponse) VisitUploadWorkflowIconResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
 type ListWorkspacesRequestObject struct {
 	Params ListWorkspacesParams
 }
@@ -36425,15 +35735,6 @@ type StrictServerInterface interface {
 	// Create or update a workflow
 	// (PUT /workflows/{name})
 	PutWorkflow(ctx context.Context, request PutWorkflowRequestObject) (PutWorkflowResponseObject, error)
-	// Delete a workflow icon
-	// (DELETE /workflows/{name}/icon/{format})
-	DeleteWorkflowIcon(ctx context.Context, request DeleteWorkflowIconRequestObject) (DeleteWorkflowIconResponseObject, error)
-	// Download a workflow icon
-	// (GET /workflows/{name}/icon/{format})
-	DownloadWorkflowIcon(ctx context.Context, request DownloadWorkflowIconRequestObject) (DownloadWorkflowIconResponseObject, error)
-	// Upload or replace a workflow icon
-	// (PUT /workflows/{name}/icon/{format})
-	UploadWorkflowIcon(ctx context.Context, request UploadWorkflowIconRequestObject) (UploadWorkflowIconResponseObject, error)
 	// List all workspaces
 	// (GET /workspaces)
 	ListWorkspaces(ctx context.Context, request ListWorkspacesRequestObject) (ListWorkspacesResponseObject, error)
@@ -40772,96 +40073,6 @@ func (sh *strictHandler) PutWorkflow(ctx *fiber.Ctx, name string) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(PutWorkflowResponseObject); ok {
 		if err := validResponse.VisitPutWorkflowResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// DeleteWorkflowIcon operation middleware
-func (sh *strictHandler) DeleteWorkflowIcon(ctx *fiber.Ctx, name string, format DeleteWorkflowIconParamsFormat) error {
-	var request DeleteWorkflowIconRequestObject
-
-	request.Name = name
-	request.Format = format
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.DeleteWorkflowIcon(ctx.UserContext(), request.(DeleteWorkflowIconRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "DeleteWorkflowIcon")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(DeleteWorkflowIconResponseObject); ok {
-		if err := validResponse.VisitDeleteWorkflowIconResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// DownloadWorkflowIcon operation middleware
-func (sh *strictHandler) DownloadWorkflowIcon(ctx *fiber.Ctx, name string, format DownloadWorkflowIconParamsFormat) error {
-	var request DownloadWorkflowIconRequestObject
-
-	request.Name = name
-	request.Format = format
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.DownloadWorkflowIcon(ctx.UserContext(), request.(DownloadWorkflowIconRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "DownloadWorkflowIcon")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(DownloadWorkflowIconResponseObject); ok {
-		if err := validResponse.VisitDownloadWorkflowIconResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// UploadWorkflowIcon operation middleware
-func (sh *strictHandler) UploadWorkflowIcon(ctx *fiber.Ctx, name string, format UploadWorkflowIconParamsFormat) error {
-	var request UploadWorkflowIconRequestObject
-
-	request.Name = name
-	request.Format = format
-
-	body := ctx.Context().RequestBodyStream()
-	if body == nil {
-		body = bytes.NewReader(ctx.Request().Body())
-	}
-	request.Body = body
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.UploadWorkflowIcon(ctx.UserContext(), request.(UploadWorkflowIconRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "UploadWorkflowIcon")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(UploadWorkflowIconResponseObject); ok {
-		if err := validResponse.VisitUploadWorkflowIconResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

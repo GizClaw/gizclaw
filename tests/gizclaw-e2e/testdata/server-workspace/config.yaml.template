@@ -99,10 +99,6 @@ stores:
     kind: objectstore
     storage: local-files
     prefix: workspaces
-  workflow-assets:
-    kind: objectstore
-    storage: local-files
-    prefix: workflows
   gameplay-db:
     kind: sql
     storage: gameplay-db

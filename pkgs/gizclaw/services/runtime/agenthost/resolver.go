@@ -45,9 +45,18 @@ func (r ServiceResolver) Resolve(ctx context.Context, pattern string) (Spec, err
 	if err != nil {
 		return Spec{}, err
 	}
-	workflow, err := r.getWorkflow(ctx, string(ws.WorkflowName))
+	workflowName, err := resolveWorkspaceWorkflowName(ctx, ws)
 	if err != nil {
 		return Spec{}, err
+	}
+	workflow, err := r.getWorkflow(ctx, workflowName)
+	if err != nil {
+		return Spec{}, err
+	}
+	if ws.WorkflowSource != nil && *ws.WorkflowSource == apitypes.WorkspaceWorkflowSourceOwned {
+		if ws.OwnerPublicKey == nil || workflow.OwnerPublicKey == nil || *ws.OwnerPublicKey != *workflow.OwnerPublicKey {
+			return Spec{}, fmt.Errorf("agenthost: owned workflow %q is not owned by workspace owner", ws.WorkflowName)
+		}
 	}
 	agentType, err := resolveAgentType(ws, workflow)
 	if err != nil {
@@ -71,6 +80,31 @@ func (r ServiceResolver) Resolve(ctx context.Context, pattern string) (Spec, err
 		Runtime:   runtime,
 		Toolkit:   tools,
 	}, nil
+}
+
+func resolveWorkspaceWorkflowName(ctx context.Context, ws apitypes.Workspace) (string, error) {
+	if ws.WorkflowSource == nil {
+		if ws.System == nil || !*ws.System {
+			return "", fmt.Errorf("agenthost: direct workflow reference requires a system workspace")
+		}
+		return string(ws.WorkflowName), nil
+	}
+	switch *ws.WorkflowSource {
+	case apitypes.WorkspaceWorkflowSourceRuntime:
+		access, ok := resourceAccessFromContext(ctx)
+		if !ok {
+			return "", fmt.Errorf("agenthost: resource access context is required for runtime workflow %q", ws.WorkflowName)
+		}
+		name := strings.TrimSpace(access.profileWorkflowBindings[string(ws.WorkflowName)])
+		if name == "" {
+			return "", fmt.Errorf("agenthost: runtime workflow alias %q not found", ws.WorkflowName)
+		}
+		return name, nil
+	case apitypes.WorkspaceWorkflowSourceOwned:
+		return string(ws.WorkflowName), nil
+	default:
+		return "", fmt.Errorf("agenthost: unsupported workflow source %q", *ws.WorkflowSource)
+	}
 }
 
 func (r ServiceResolver) resolveToolkit(ctx context.Context, ws apitypes.Workspace, workflow apitypes.Workflow) (*ToolkitContext, error) {

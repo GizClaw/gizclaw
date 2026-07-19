@@ -274,7 +274,7 @@ func (s *Server) handlePetAdopt(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	if failure != nil {
 		return failure
 	}
-	params, ok := decodeOptionalParams(req, rpcapi.RPCPayload.AsServerPetAdoptRequest)
+	params, ok := decodeOptionalParams(req, rpcapi.RPCPayload.AsRuntimeAdoptRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -290,7 +290,7 @@ func (s *Server) handlePetAdopt(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerPetAdoptResponse)
+	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromRuntimeAdoptResponse)
 }
 
 func (s *Server) handlePetPut(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {

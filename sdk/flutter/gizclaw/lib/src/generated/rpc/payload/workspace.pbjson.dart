@@ -1236,12 +1236,23 @@ const Workspace$json = {
       '10': 'ownerPublicKey',
       '17': true
     },
+    {
+      '1': 'workflow_source',
+      '3': 11,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.ResourceSource',
+      '9': 4,
+      '10': 'workflowSource',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_parameters'},
     {'1': '_toolkit'},
     {'1': '_icon'},
     {'1': '_owner_public_key'},
+    {'1': '_workflow_source'},
   ],
 };
 
@@ -1254,8 +1265,10 @@ final $typed_data.Uint8List workspaceDescriptor = $convert.base64Decode(
     'GAYgASgJUgx3b3JrZmxvd05hbWUSPAoHdG9vbGtpdBgHIAEoCzIdLmdpemNsYXcucnBjLnYxLl'
     'Rvb2xraXRQb2xpY3lIAVIHdG9vbGtpdIgBARIWCgZzeXN0ZW0YCCABKAhSBnN5c3RlbRItCgRp'
     'Y29uGAkgASgLMhQuZ2l6Y2xhdy5ycGMudjEuSWNvbkgCUgRpY29uiAEBEi0KEG93bmVyX3B1Ym'
-    'xpY19rZXkYCiABKAlIA1IOb3duZXJQdWJsaWNLZXmIAQFCDQoLX3BhcmFtZXRlcnNCCgoIX3Rv'
-    'b2xraXRCBwoFX2ljb25CEwoRX293bmVyX3B1YmxpY19rZXk=');
+    'xpY19rZXkYCiABKAlIA1IOb3duZXJQdWJsaWNLZXmIAQESTAoPd29ya2Zsb3dfc291cmNlGAsg'
+    'ASgOMh4uZ2l6Y2xhdy5ycGMudjEuUmVzb3VyY2VTb3VyY2VIBFIOd29ya2Zsb3dTb3VyY2WIAQ'
+    'FCDQoLX3BhcmFtZXRlcnNCCgoIX3Rvb2xraXRCBwoFX2ljb25CEwoRX293bmVyX3B1YmxpY19r'
+    'ZXlCEgoQX3dvcmtmbG93X3NvdXJjZQ==');
 
 @$core.Deprecated('Use workspaceUpsertDescriptor instead')
 const WorkspaceUpsert$json = {
@@ -1283,10 +1296,21 @@ const WorkspaceUpsert$json = {
       '10': 'toolkit',
       '17': true
     },
+    {
+      '1': 'workflow_source',
+      '3': 11,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.ResourceSource',
+      '9': 2,
+      '10': 'workflowSource',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_parameters'},
     {'1': '_toolkit'},
+    {'1': '_workflow_source'},
   ],
 };
 
@@ -1295,8 +1319,10 @@ final $typed_data.Uint8List workspaceUpsertDescriptor = $convert.base64Decode(
     'Cg9Xb3Jrc3BhY2VVcHNlcnQSEgoEbmFtZRgDIAEoCVIEbmFtZRJICgpwYXJhbWV0ZXJzGAQgAS'
     'gLMiMuZ2l6Y2xhdy5ycGMudjEuV29ya3NwYWNlUGFyYW1ldGVyc0gAUgpwYXJhbWV0ZXJziAEB'
     'EiMKDXdvcmtmbG93X25hbWUYBiABKAlSDHdvcmtmbG93TmFtZRI8Cgd0b29sa2l0GAcgASgLMh'
-    '0uZ2l6Y2xhdy5ycGMudjEuVG9vbGtpdFBvbGljeUgBUgd0b29sa2l0iAEBQg0KC19wYXJhbWV0'
-    'ZXJzQgoKCF90b29sa2l0');
+    '0uZ2l6Y2xhdy5ycGMudjEuVG9vbGtpdFBvbGljeUgBUgd0b29sa2l0iAEBEkwKD3dvcmtmbG93'
+    'X3NvdXJjZRgLIAEoDjIeLmdpemNsYXcucnBjLnYxLlJlc291cmNlU291cmNlSAJSDndvcmtmbG'
+    '93U291cmNliAEBQg0KC19wYXJhbWV0ZXJzQgoKCF90b29sa2l0QhIKEF93b3JrZmxvd19zb3Vy'
+    'Y2U=');
 
 @$core.Deprecated('Use workspaceIconDownloadRequestDescriptor instead')
 const WorkspaceIconDownloadRequest$json = {

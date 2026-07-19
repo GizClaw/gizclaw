@@ -81,7 +81,6 @@ type Server struct {
 	GameDefStore                 kv.Store
 	GameplayAssets               objectstore.ObjectStore
 	WorkspaceAssets              objectstore.ObjectStore
-	WorkflowAssets               objectstore.ObjectStore
 	GameplayDB                   *sqlx.DB
 	MetricsStore                 metrics.Store
 	ServerLogQuery               ServerLogQueryService
@@ -304,7 +303,7 @@ func (s *Server) startCleanup() {
 
 // EffectivePeerStore returns the peer KV layout used by the server runtime.
 // Legacy single-KV configurations keep peer records under the peers prefix;
-// peer, workspace, and workflow icon stores do not change that layout.
+// peer and workspace icon stores do not change that layout.
 func (s *Server) EffectivePeerStore() kv.Store {
 	if s == nil || s.PeerStore == nil {
 		return nil
@@ -416,7 +415,7 @@ func (s *Server) init() error {
 	}
 
 	modelServer := &model.Server{Store: modelStore}
-	workflowServer := &workflow.Server{Store: workflowStore, Assets: s.WorkflowAssets}
+	workflowServer := &workflow.Server{Store: workflowStore}
 	workspaceServer := &workspace.Server{Store: workspaceStore, WorkflowStore: workflowStore, Models: modelServer, Assets: s.WorkspaceAssets}
 	if s.AgentHostStore != nil {
 		workspaceServer.RuntimeStore = workspace.NewObjectRuntimeStore(s.AgentHostStore)
@@ -543,7 +542,6 @@ func (s *Server) init() error {
 			WorkspaceAdminService:       workspaceServer,
 			WorkspaceIconAdminService:   workspaceServer,
 			WorkflowAdminService:        workflowServer,
-			WorkflowIconAdminService:    workflowServer,
 			Contacts:                    contactServer,
 			Friends:                     friendServer,
 			FriendGroups:                friendGroupServer,

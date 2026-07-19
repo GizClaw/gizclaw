@@ -130,6 +130,7 @@ export type VolcSyncVoicesResult = {
 export type WorkspaceUpsert = {
     name: string;
     workflow_name: string;
+    workflow_source?: 'runtime' | 'owned';
     parameters?: WorkspaceParameters;
     toolkit?: ToolkitPolicy;
     icon?: Icon;
@@ -647,8 +648,6 @@ export type WorkflowResource = {
      */
     metadata: ResourceMetadata;
     spec: WorkflowSpec;
-    i18n?: WorkflowI18n;
-    icon?: Icon;
 };
 
 export type WorkspaceResource = {
@@ -1866,25 +1865,11 @@ export type Workflow = {
      */
     name: string;
     spec: WorkflowSpec;
-    i18n?: WorkflowI18n;
-    icon?: Icon;
+    /**
+     * Immutable Public Key of the Client that created this Workflow. Admin-created Workflows omit it.
+     */
+    readonly owner_public_key?: string;
 };
-
-/**
- * Workflow-owned closed locale catalogs. default_locale must name a present catalog property.
- */
-export type WorkflowI18n = {
-    default_locale: WorkflowLocale;
-    en?: WorkflowI18nCatalog;
-    'zh-CN'?: WorkflowI18nCatalog;
-};
-
-export type WorkflowI18nCatalog = {
-    name?: string;
-    description?: string;
-};
-
-export type WorkflowLocale = 'en' | 'zh-CN';
 
 export type WorkflowDriver = 'flowcraft' | 'doubao-realtime' | 'ast-translate' | 'chatroom' | 'pet';
 
@@ -2100,6 +2085,10 @@ export type Workspace = {
      * Immutable Public Key of the Client that created this Workspace. System and Admin-created Workspaces may omit it.
      */
     readonly owner_public_key?: string;
+    /**
+     * Identifier namespace for a Client-created Workspace Workflow reference. Internal system Workspaces omit it.
+     */
+    workflow_source?: 'runtime' | 'owned';
     workflow_name: string;
     /**
      * Whether the Workspace lifecycle is owned by another domain service. System Workspaces cannot be deleted through generic Workspace operations.
@@ -2306,6 +2295,12 @@ export type WorkspaceListWritable = {
     items: Array<WorkspaceWritable>;
 };
 
+export type WorkflowListWritable = {
+    has_next: boolean;
+    next_cursor?: string | null;
+    items: Array<WorkflowWritable>;
+};
+
 export type RegistrationTokenResourceWritable = {
     apiVersion: ResourceApiVersion;
     kind: 'RegistrationToken';
@@ -2419,8 +2414,20 @@ export type FriendGroupInviteTokenClearResponseWritable = {
     [key: string]: never;
 };
 
+export type WorkflowWritable = {
+    /**
+     * Stable workflow ID used by storage, paths, RuntimeProfiles, and workspace references.
+     */
+    name: string;
+    spec: WorkflowSpec;
+};
+
 export type WorkspaceWritable = {
     name: string;
+    /**
+     * Identifier namespace for a Client-created Workspace Workflow reference. Internal system Workspaces omit it.
+     */
+    workflow_source?: 'runtime' | 'owned';
     workflow_name: string;
     parameters?: WorkspaceParameters;
     toolkit?: ToolkitPolicy;
@@ -3558,7 +3565,7 @@ export type ListWorkflowsResponses = {
 export type ListWorkflowsResponse = ListWorkflowsResponses[keyof ListWorkflowsResponses];
 
 export type CreateWorkflowData = {
-    body: Workflow;
+    body: WorkflowWritable;
     path?: never;
     query?: never;
     url: '/workflows';
@@ -5376,7 +5383,7 @@ export type GetWorkflowResponses = {
 export type GetWorkflowResponse = GetWorkflowResponses[keyof GetWorkflowResponses];
 
 export type PutWorkflowData = {
-    body: Workflow;
+    body: WorkflowWritable;
     path: {
         /**
          * Workflow name
@@ -5408,110 +5415,6 @@ export type PutWorkflowResponses = {
 };
 
 export type PutWorkflowResponse = PutWorkflowResponses[keyof PutWorkflowResponses];
-
-export type DeleteWorkflowIconData = {
-    body?: never;
-    path: {
-        name: string;
-        format: 'pixa' | 'png';
-    };
-    query?: never;
-    url: '/workflows/{name}/icon/{format}';
-};
-
-export type DeleteWorkflowIconErrors = {
-    /**
-     * Workflow not found
-     */
-    404: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type DeleteWorkflowIconError = DeleteWorkflowIconErrors[keyof DeleteWorkflowIconErrors];
-
-export type DeleteWorkflowIconResponses = {
-    /**
-     * Updated workflow
-     */
-    200: Workflow;
-};
-
-export type DeleteWorkflowIconResponse = DeleteWorkflowIconResponses[keyof DeleteWorkflowIconResponses];
-
-export type DownloadWorkflowIconData = {
-    body?: never;
-    path: {
-        name: string;
-        format: 'pixa' | 'png';
-    };
-    query?: never;
-    url: '/workflows/{name}/icon/{format}';
-};
-
-export type DownloadWorkflowIconErrors = {
-    /**
-     * Workflow or icon not found
-     */
-    404: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type DownloadWorkflowIconError = DownloadWorkflowIconErrors[keyof DownloadWorkflowIconErrors];
-
-export type DownloadWorkflowIconResponses = {
-    /**
-     * Workflow icon bytes
-     */
-    200: Blob | File;
-};
-
-export type DownloadWorkflowIconResponse = DownloadWorkflowIconResponses[keyof DownloadWorkflowIconResponses];
-
-export type UploadWorkflowIconData = {
-    body: Blob | File;
-    path: {
-        name: string;
-        format: 'pixa' | 'png';
-    };
-    query?: never;
-    url: '/workflows/{name}/icon/{format}';
-};
-
-export type UploadWorkflowIconErrors = {
-    /**
-     * Invalid icon
-     */
-    400: ErrorResponse;
-    /**
-     * Workflow not found
-     */
-    404: ErrorResponse;
-    /**
-     * Icon exceeds 2 MiB
-     */
-    413: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type UploadWorkflowIconError = UploadWorkflowIconErrors[keyof UploadWorkflowIconErrors];
-
-export type UploadWorkflowIconResponses = {
-    /**
-     * Updated workflow
-     */
-    200: Workflow;
-};
-
-export type UploadWorkflowIconResponse = UploadWorkflowIconResponses[keyof UploadWorkflowIconResponses];
 
 export type ListWorkspacesData = {
     body?: never;

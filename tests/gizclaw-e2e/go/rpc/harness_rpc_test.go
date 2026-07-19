@@ -263,6 +263,11 @@ func createRPCFriendByInviteToken(t *testing.T, env *socialRPCHarness, from, to 
 
 func testStringPtr(value string) *string { return &value }
 
+func runtimeSourcePtr() *rpcapi.ResourceSource {
+	value := rpcapi.ResourceSourceRuntime
+	return &value
+}
+
 func hasString(items []string, value string) bool {
 	for _, item := range items {
 		if item == value {
@@ -289,23 +294,11 @@ func testRPCCredentialBodyString(body rpcapi.CredentialBody, key string) string 
 }
 
 func adminWorkflow(name, description string) apitypes.Workflow {
-	displayName := name
-	zhName := name
-	zhDescription := description
-	if name == sharedWorkflow {
-		displayName = "Support Assistant"
-		zhName = "支持助手"
-		zhDescription = "针对常见问题和支持请求获得简洁指引。"
-	}
+	_ = description
 	spec := apitypes.FlowcraftWorkflowSpec{
 		"entry_agent": "",
 	}
 	return apitypes.Workflow{
-		I18n: &apitypes.WorkflowI18n{
-			DefaultLocale: apitypes.WorkflowLocaleEn,
-			En:            &apitypes.WorkflowI18nCatalog{Name: &displayName, Description: &description},
-			ZhCN:          &apitypes.WorkflowI18nCatalog{Name: &zhName, Description: &zhDescription},
-		},
 		Name: name,
 		Spec: apitypes.WorkflowSpec{
 			Driver:    apitypes.WorkflowDriverFlowcraft,
@@ -366,7 +359,7 @@ func assertWorkflowPagination(t *testing.T, ctx context.Context, peer *gizcli.Cl
 	got := map[string]bool{}
 	var cursor *string
 	for page := 0; page < 300; page++ {
-		list, err := peer.ListWorkflows(ctx, "workflow.list.page", rpcapi.WorkflowListRequest{Limit: &limit, Cursor: cursor})
+		list, err := peer.ListWorkflows(ctx, "workflow.list.page", rpcapi.WorkflowListRequest{Source: rpcapi.ResourceSourceRuntime, Limit: &limit, Cursor: cursor})
 		if err != nil {
 			t.Fatalf("workflow.list page %d: %v", page, err)
 		}
@@ -504,7 +497,7 @@ func assertCredentialPagination(t *testing.T, ctx context.Context, peer *gizcli.
 func assertDeniedListsAreEmpty(t *testing.T, ctx context.Context, denied *gizcli.Client) {
 	t.Helper()
 
-	workflows, err := denied.ListWorkflows(ctx, "workflow.list.denied", rpcapi.WorkflowListRequest{})
+	workflows, err := denied.ListWorkflows(ctx, "workflow.list.denied", rpcapi.WorkflowListRequest{Source: rpcapi.ResourceSourceRuntime})
 	if err != nil {
 		t.Fatalf("denied workflow.list: %v", err)
 	}

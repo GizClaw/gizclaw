@@ -9,19 +9,9 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
 
-type WorkflowIconDownloadResult struct {
-	Metadata rpcapi.WorkflowIconDownloadResponse
-	Bytes    int64
-}
-
 type WorkspaceIconDownloadResult struct {
 	Metadata rpcapi.WorkspaceIconDownloadResponse
 	Bytes    int64
-}
-
-func (c *rpcClient) DownloadWorkflowIcon(ctx context.Context, conn net.Conn, id string, request rpcapi.WorkflowIconDownloadRequest, out io.Writer) (WorkflowIconDownloadResult, error) {
-	metadata, n, err := downloadIcon(ctx, conn, id, rpcapi.RPCMethodServerWorkflowIconDownload, request, (*rpcapi.RPCPayload).FromWorkflowIconDownloadRequest, rpcapi.RPCPayload.AsWorkflowIconDownloadResponse, out)
-	return WorkflowIconDownloadResult{Metadata: metadata, Bytes: n}, err
 }
 
 func (c *rpcClient) DownloadWorkspaceIcon(ctx context.Context, conn net.Conn, id string, request rpcapi.WorkspaceIconDownloadRequest, out io.Writer) (WorkspaceIconDownloadResult, error) {

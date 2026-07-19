@@ -70,11 +70,7 @@ func TestServiceResolverResolvesWorkspaceAndWorkflow(t *testing.T) {
 	}
 	resolver := ServiceResolver{
 		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
-			"demo": {
-				Name:         "demo",
-				Parameters:   &params,
-				WorkflowName: "workflow-1",
-			},
+			"demo": systemWorkspace("demo", "workflow-1", &params),
 		}, runtime: workspace.Runtime{ObjectPrefix: "workspaces/demo", LocalDir: "/tmp/demo"}},
 		Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{
 			"workflow-1": workflow,
@@ -99,7 +95,7 @@ func TestServiceResolverResolvesWorkspaceAndWorkflow(t *testing.T) {
 func TestServiceResolverUsesWorkflowDriverAsAgentType(t *testing.T) {
 	resolver := ServiceResolver{
 		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
-			"demo": {Name: "demo", WorkflowName: "workflow-1"},
+			"demo": systemWorkspace("demo", "workflow-1", nil),
 		}},
 		Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{
 			"workflow-1": mustWorkflow(t, "workflow-1"),
@@ -125,7 +121,7 @@ func TestServiceResolverRejectsWorkspaceAgentTypeWorkflowDriverMismatch(t *testi
 	}
 	resolver := ServiceResolver{
 		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
-			"demo": {Name: "demo", WorkflowName: "workflow-1", Parameters: &params},
+			"demo": systemWorkspace("demo", "workflow-1", &params),
 		}},
 		Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{
 			"workflow-1": mustWorkflow(t, "workflow-1"),
@@ -137,13 +133,11 @@ func TestServiceResolverRejectsWorkspaceAgentTypeWorkflowDriverMismatch(t *testi
 }
 
 func TestServiceResolverRequiresSubjectForToolkit(t *testing.T) {
+	workspace := systemWorkspace("demo", "workflow-1", nil)
+	workspace.Toolkit = &apitypes.ToolkitPolicy{}
 	resolver := ServiceResolver{
 		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
-			"demo": {
-				Name:         "demo",
-				WorkflowName: "workflow-1",
-				Toolkit:      &apitypes.ToolkitPolicy{},
-			},
+			"demo": workspace,
 		}},
 		Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{
 			"workflow-1": mustWorkflow(t, "workflow-1"),
@@ -190,7 +184,7 @@ func TestServiceResolverErrors(t *testing.T) {
 		t.Fatalf("missing workspace error = %v", err)
 	}
 	resolver.Workspaces = fakeWorkspaceService{items: map[string]apitypes.Workspace{
-		"demo": {Name: "demo", WorkflowName: "missing"},
+		"demo": systemWorkspace("demo", "missing", nil),
 	}}
 	if _, err := resolver.Resolve(context.Background(), "demo"); err == nil || !strings.Contains(err.Error(), "workflow") {
 		t.Fatalf("missing workflow error = %v", err)
@@ -203,10 +197,35 @@ func TestServiceResolverErrors(t *testing.T) {
 		"bad-agent-type": mustWorkflow(t, "bad-agent-type"),
 	}}
 	resolver.Workspaces = fakeWorkspaceService{items: map[string]apitypes.Workspace{
-		"demo": {Name: "demo", Parameters: &params, WorkflowName: "bad-agent-type"},
+		"demo": systemWorkspace("demo", "bad-agent-type", &params),
 	}}
 	if _, err := resolver.Resolve(context.Background(), "demo"); err == nil || !strings.Contains(err.Error(), "agent_type") {
 		t.Fatalf("bad agent_type error = %v", err)
+	}
+}
+
+func TestServiceResolverRejectsDirectWorkflowForNonSystemWorkspace(t *testing.T) {
+	resolver := ServiceResolver{
+		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
+			"demo": {Name: "demo", WorkflowName: "workflow-1"},
+		}},
+		Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{
+			"workflow-1": mustWorkflow(t, "workflow-1"),
+		}},
+	}
+
+	if _, err := resolver.Resolve(context.Background(), "demo"); err == nil || !strings.Contains(err.Error(), "requires a system workspace") {
+		t.Fatalf("Resolve() error = %v, want system workspace error", err)
+	}
+}
+
+func systemWorkspace(name, workflowName string, parameters *apitypes.WorkspaceParameters) apitypes.Workspace {
+	system := true
+	return apitypes.Workspace{
+		Name:         name,
+		Parameters:   parameters,
+		System:       &system,
+		WorkflowName: workflowName,
 	}
 }
 

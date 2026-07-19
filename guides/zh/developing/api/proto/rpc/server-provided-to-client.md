@@ -11,7 +11,7 @@
 | `server.run.*` | Agent、Workspace、history、memory、recall、say、reload 与 stop |
 | `server.firmware.*` | Firmware list/get 与 files download |
 | `server.workspace.*` | Workspace CRUD、history 与 history audio |
-| `server.workflow.*` | Workflow list/get 只读查询 |
+| `server.workflow.*` | 按 source 查询 Workflow，以及 owned Workflow CRUD |
 | `server.model.*` | Model CRUD |
 | `server.voice.*` | Voice list/get |
 | `server.credential.*` | Credential CRUD |
@@ -20,6 +20,7 @@
 | `server.friend_group.*` | Group、member、message 与 invite-token operations |
 | `server.register` | 使用 RegistrationToken 选择当前 connection 的 Firmware 与 RuntimeProfile |
 | `server.pet.*` | Pet resource CRUD 与 drive |
+| `runtime.adopt` | 从当前 connection 的 RuntimeProfile 领养 Pet |
 | `server.pet.actions.get` | 按 Pet 获取可用 actions，不返回完整 PetDef |
 | `server.pet.pixa.download` | 按 Pet 下载 PIXA metadata 与素材，不暴露 PetDef API |
 | `server.badge.*` | Badge resource query |
@@ -30,11 +31,11 @@
 
 `server.peer.lookup`、`server.peer.assign` 和 `server.route.resolve` 不属于本页；它们只提供给 Edge-node。
 
-## Workflow localization
+## Workflow source
 
-`server.workflow.list` 与 `server.workflow.get` 接受 `WorkflowLocale lang`。初始 enum 只包含 `en` 与 `zh-CN`；未指定、请求语言不存在或无法识别时，Server 使用 Workflow 的 `i18n.default_locale`。RPC response 中的 `Workflow.i18n` 只包含最终选中的一个 `WorkflowI18nCatalog`，不返回完整语言表，也不返回实际命中的 locale。
+`server.workflow.list` 与 `server.workflow.get` 必须指定 `source=runtime` 或 `source=owned`。Runtime 结果以当前 RuntimeProfile alias 作为 RPC `id`，Server 在内部解析到真实 Workflow，并且只允许读取；引用目标不存在时 list 跳过该项，get 返回 not found。Owned 结果以全局唯一的真实 Workflow name 作为 `id`，create、put、delete 只允许操作当前 Peer 自己拥有的 Workflow。
 
-catalog 按语言整体选择，不跨语言逐字段拼接。选中 catalog 缺少 `name` 时，客户端使用稳定的 `Workflow.name`；缺少 `description` 时使用空字符串。Admin API 仍返回完整 `WorkflowI18n`，并由 Server 与 Workflow 一起持久化。
+Workspace create 与 put 同样携带 Workflow `source`，因此 runtime alias 与 owned name 不会混淆。Workflow 不包含 icon、显示名称或 i18n；客户端用稳定的 RuntimeProfile alias 自行映射本地展示内容。
 
 ## 调用关系
 

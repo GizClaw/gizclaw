@@ -41,9 +41,9 @@ spec:
             dinodive-master: 100
 ```
 
-Each map under `resources` binds a profile-local alias to a concrete resource name. The values form the allow list. Normal RPC methods still use concrete names and never accept these aliases. Gameplay configuration uses aliases only inside the RuntimeProfile, so `pet_def: tragon` resolves to `petdef-tragon`.
+Each map under `resources` binds a profile-local alias to a concrete resource name. The values form the allow list. Gameplay configuration uses aliases only inside the RuntimeProfile, so `pet_def: tragon` resolves to `petdef-tragon`. Workflow is the only public resource RPC that exposes this alias namespace: `server.workflow.list/get` with `source=runtime` use the alias as the RPC `id`. Other resource RPCs continue to use concrete names.
 
-Multiple aliases may reference the same concrete resource and are deduplicated while loading. A missing or deleted concrete resource is skipped; it does not prevent the RuntimeProfile from being stored, loaded, or deleted. RuntimeProfile does not carry icons, display names, or i18n. Firmware maps aliases such as `chat` to its own icon and name.
+Multiple aliases may reference the same concrete resource. Concrete-name resource lists deduplicate those values, while the runtime Workflow list preserves every alias because each alias is a distinct client-facing ID. A missing or deleted concrete resource is skipped; it does not prevent the RuntimeProfile from being stored, loaded, or deleted. RuntimeProfile does not carry icons, display names, or i18n. Firmware maps aliases such as `chat` to its own icon and name.
 
 ## RegistrationToken
 
@@ -64,7 +64,7 @@ Successful and rejected registrations are written to the system log with the Pee
 | Friend, FriendGroup, or Pet system Workspace | Allowed by domain relationship | Handled by domain rules |
 | Other resource | Hidden and unavailable | Not allowed |
 
-An unregistered device may still call public RPC methods; it simply has no RuntimeProfile resources. Workspace, Model, Credential, and Tool resources created through public CRUD record the current Peer as owner. The public Workflow surface remains list/get only.
+An unregistered device may still call public RPC methods; it simply has no RuntimeProfile resources. Workspace, Workflow, Model, Credential, and Tool resources created through public CRUD record the current Peer as owner. Runtime Workflows are read-only; owned Workflows support public CRUD.
 
 Model and Voice invocation resolves the configured ProviderTenant and its backing Credential internally. Access to a RuntimeProfile-qualified Model or Voice authorizes use of its server-side Credential, but does not expose that Credential through credential list/get or grant mutation. An owner-created Model outside the RuntimeProfile may use only a Credential owned by the same Peer; it cannot select an unrelated server-owned Credential through a ProviderTenant.
 

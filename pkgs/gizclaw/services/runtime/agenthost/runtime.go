@@ -105,14 +105,22 @@ func (s *Service) Reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 		return s.setErrorStatus(selection.WorkspaceName, err), err
 	}
 	var profileToolIDs []string
+	profileWorkflowBindings := map[string]string{}
 	if s.RuntimeProfile != nil {
-		if profile := s.RuntimeProfile(); profile != nil && profile.Spec.Resources.Tools != nil {
-			for _, toolID := range *profile.Spec.Resources.Tools {
-				profileToolIDs = append(profileToolIDs, toolID)
+		if profile := s.RuntimeProfile(); profile != nil {
+			if profile.Spec.Resources.Tools != nil {
+				for _, toolID := range *profile.Spec.Resources.Tools {
+					profileToolIDs = append(profileToolIDs, toolID)
+				}
+			}
+			if profile.Spec.Resources.Workflows != nil {
+				for alias, name := range *profile.Spec.Resources.Workflows {
+					profileWorkflowBindings[alias] = name
+				}
 			}
 		}
 	}
-	baseCtx := WithResourceAccess(withHistoryGearID(context.WithoutCancel(ctx), s.PublicKey.String()), s.PublicKey.String(), profileToolIDs)
+	baseCtx := WithResourceAccess(withHistoryGearID(context.WithoutCancel(ctx), s.PublicKey.String()), s.PublicKey.String(), profileToolIDs, profileWorkflowBindings)
 	runCtx, cancel := context.WithCancel(baseCtx)
 	pattern := workspacePattern(selection.WorkspaceName)
 	agent, release, output, err := s.openAgentOutput(runCtx, pattern, input)

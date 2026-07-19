@@ -116,7 +116,6 @@ func TestStoreLocalPodMaterializesPrivateProjection(t *testing.T) {
 	}
 	for name, prefix := range map[string]string{
 		"workspace-assets": "workspaces",
-		"workflow-assets":  "workflows",
 	} {
 		store, ok := workspace.Stores[name]
 		if !ok || store.Kind != "objectstore" || store.Storage != "local-files" || store.Prefix != prefix {

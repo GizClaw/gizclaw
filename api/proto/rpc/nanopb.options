@@ -2,8 +2,6 @@ gizclaw.rpc.v1.RpcResponse.body no_unions:true
 gizclaw.rpc.v1.RpcStreamFrame.body no_unions:true
 gizclaw.rpc.v1.Icon.pixa max_size:512
 gizclaw.rpc.v1.Icon.png max_size:512
-gizclaw.rpc.v1.WorkflowIconDownloadRequest.name max_size:256
-gizclaw.rpc.v1.WorkflowIconDownloadResponse.name max_size:256
 gizclaw.rpc.v1.WorkspaceIconDownloadRequest.name max_size:256
 gizclaw.rpc.v1.WorkspaceIconDownloadResponse.name max_size:256
 gizclaw.rpc.v1.DeviceInfo.emoji max_size:65
@@ -19,3 +17,4 @@ gizclaw.rpc.v1.ServerRegisterResponse.runtime_profile_name max_size:256
 gizclaw.rpc.v1.Credential.owner_public_key max_size:65
 gizclaw.rpc.v1.Model.owner_public_key max_size:65
 gizclaw.rpc.v1.Workspace.owner_public_key max_size:65
+gizclaw.rpc.v1.Workflow.owner_public_key max_size:65

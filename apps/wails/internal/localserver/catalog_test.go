@@ -22,8 +22,8 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 	if len(catalog.Resources) != 44 {
 		t.Fatalf("resources = %d, want 44", len(catalog.Resources))
 	}
-	if len(catalog.WorkflowIcons) != 10 || len(catalog.PetDefPIXAs) != 9 || len(catalog.VoiceSyncs) != 1 {
-		t.Fatalf("assets = workflows:%d pets:%d voice-sync:%d", len(catalog.WorkflowIcons), len(catalog.PetDefPIXAs), len(catalog.VoiceSyncs))
+	if len(catalog.PetDefPIXAs) != 9 || len(catalog.VoiceSyncs) != 1 {
+		t.Fatalf("assets = pets:%d voice-sync:%d", len(catalog.PetDefPIXAs), len(catalog.VoiceSyncs))
 	}
 	if len(catalog.Requirements) != 11 {
 		t.Fatalf("environment requirements = %d, want 11", len(catalog.Requirements))

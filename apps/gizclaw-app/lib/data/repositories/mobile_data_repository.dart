@@ -168,7 +168,6 @@ class MobileDataRepository {
     required bool Function() isCurrent,
     required String locale,
     required String serverId,
-    required WorkflowLocale workflowLocale,
   }) async {
     final warnings = <MobileDataRefreshWarning>[];
     try {
@@ -178,7 +177,6 @@ class MobileDataRepository {
         isCurrent: isCurrent,
         locale: locale,
         serverId: serverId,
-        workflowLocale: workflowLocale,
       );
     } catch (error) {
       warnings.add(MobileDataRefreshWarning(scope: 'Workflows', error: error));
@@ -305,11 +303,8 @@ class MobileDataRepository {
     required bool Function() isCurrent,
     required String locale,
     required String serverId,
-    required WorkflowLocale workflowLocale,
   }) async {
-    final workflows = await _allWorkflows(client, workflowLocale);
-    if (!isCurrent()) return false;
-    final workflowIcons = await _workflowIcons(client, workflows, isCurrent);
+    final workflows = await _allWorkflows(client);
     if (!isCurrent()) return false;
     final refreshedAt = DateTime.now().toUtc();
     final workflowNames = workflows.map((item) => item.name).toSet();
@@ -327,14 +322,13 @@ class MobileDataRepository {
           batch.insertAllOnConflictUpdate(
             database.workflowEntries,
             workflows.map((workflow) {
-              final catalog = _workflowCatalog(workflow);
               return WorkflowEntriesCompanion.insert(
                 serverId: serverId,
                 name: workflow.name,
                 locale: Value(locale),
-                description: catalog?.description.trim() ?? '',
+                description: '',
                 driver: workflow.spec.driver.name,
-                iconPng: Value(workflowIcons[workflow.name]),
+                iconPng: const Value(null),
                 rawProtobuf: Uint8List.fromList(workflow.writeToBuffer()),
                 refreshedAt: refreshedAt,
               );
@@ -459,17 +453,14 @@ void _requireCurrent(bool Function() isCurrent) {
   if (!isCurrent()) throw const _StaleRefresh();
 }
 
-Future<List<Workflow>> _allWorkflows(
-  GizClawClient client,
-  WorkflowLocale lang,
-) async {
+Future<List<Workflow>> _allWorkflows(GizClawClient client) async {
   final items = <Workflow>[];
   String? cursor;
   do {
     final response = await client.listWorkflows(
+      source: ResourceSource.RESOURCE_SOURCE_RUNTIME,
       cursor: cursor,
       limit: 100,
-      lang: lang,
     );
     items.addAll(response.items);
     cursor = response.hasNext ? response.nextCursor : null;
@@ -543,48 +534,12 @@ String _friendGroupKey(FriendGroupObject group) {
 }
 
 WorkflowCard _workflowCardFromRow(WorkflowEntry row, String locale) {
-  final workflow = Workflow.fromBuffer(row.rawProtobuf);
-  final catalog = row.locale == locale ? _workflowCatalog(workflow) : null;
-  final localizedName = catalog?.name.trim();
   return WorkflowCard.fromServer(
     name: row.name,
-    displayName: localizedName == null || localizedName.isEmpty
-        ? row.name
-        : localizedName,
-    description: catalog?.description.trim() ?? '',
+    description: '',
     driver: row.driver,
-    iconPng: row.iconPng,
   );
 }
-
-Future<Map<String, Uint8List>> _workflowIcons(
-  GizClawClient client,
-  List<Workflow> workflows,
-  bool Function() isCurrent,
-) async {
-  final icons = <String, Uint8List>{};
-  for (final workflow in workflows) {
-    _requireCurrent(isCurrent);
-    if (!workflow.hasIcon() || !workflow.icon.hasPng()) continue;
-    try {
-      final result = await client.downloadWorkflowIcon(
-        workflow.name,
-        IconFormat.ICON_FORMAT_PNG,
-      );
-      _requireCurrent(isCurrent);
-      if (result.bytes.isNotEmpty) icons[workflow.name] = result.bytes;
-    } on _StaleRefresh {
-      rethrow;
-    } catch (_) {
-      // Icon loading is best effort. The card keeps its owner-provided text and
-      // falls back to the driver placeholder when download or decode fails.
-    }
-  }
-  return icons;
-}
-
-WorkflowI18nCatalog? _workflowCatalog(Workflow workflow) =>
-    workflow.hasI18n() ? workflow.i18n : null;
 
 WorkspaceCard _workspaceCardFromRow(WorkspaceEntry row) {
   final workspace = Workspace.fromBuffer(row.rawProtobuf);

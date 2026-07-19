@@ -29,8 +29,9 @@ Desktop App 不复制 `pkgs/gizclaw` 的服务端业务。`api/http/desktop.json
 `resources/local-server` 是新建本地 Server 的版本化只读 bootstrap 数据源。资源
 内容来自 deploy，随 Desktop binary 使用 `go:embed` 编译，不在运行时访问 deploy、
 Flowcraft、测试 fixture、网络 catalog 或 AI 服务。Catalog 包含 Credential、Tenant、
-Model、Workflow、PetDef、Firmware、RuntimeProfile 及其 Workflow PNG/PIXA、PetDef
-PIXA 映射；不包含 Workspace，Workspace 仍由客户端创建。
+Model、Workflow、PetDef、Firmware、RuntimeProfile 与 PetDef PIXA 映射；不包含
+Workspace，Workspace 仍由客户端创建。Workflow 的名称和图标由客户端按 RuntimeProfile
+alias 本地映射，不作为 bootstrap asset。
 
 Desktop 配置根目录中的 `bootstrap.env` 以 `0600` 保存未来本地 Pod 创建所需的
 dotenv 值。为了支持表单和原始文本两种编辑方式，bridge 会把文件的完整 `content`
@@ -48,8 +49,8 @@ Pod 创建保持禁用。
 
 本地 `CreatePod` 在保留目录前完成环境 preflight，同步生成 manifest 和投影并写入
 `.initializing` 状态后立即返回。可取消的后台任务随后启动 companion、等待 Admin
-readiness、按顺序 apply 内嵌资源、同步 Volc Voice，并通过 owner API 上传 Workflow 与
-PetDef assets。最后创建映射到内嵌 Firmware 与 RuntimeProfile 的 RegistrationToken，
+readiness、按顺序 apply 内嵌资源、同步 Volc Voice，并通过 owner API 上传 PetDef assets。
+最后创建映射到内嵌 Firmware 与 RuntimeProfile 的 RegistrationToken，
 将 raw token 以 `0600` 仅写入 Pod 的私有 workspace。Bridge 在初始化期间拒绝 update、start、stop、
 restart、Admin 和 Play 操作；delete 会先取消并等待后台任务。
 

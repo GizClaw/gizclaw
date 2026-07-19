@@ -41,9 +41,9 @@ spec:
             dinodive-master: 100
 ```
 
-`resources` 中每个 map 都是 profile-local alias 到真实资源名的映射。映射的 value 组成 allow list；普通 RPC 仍使用真实资源名，不接受 alias。Gameplay 配置只在当前 RuntimeProfile 内使用 alias，例如 `pet_def: tragon` 对应 `petdef-tragon`。
+`resources` 中每个 map 都是 profile-local alias 到真实资源名的映射，映射的 value 组成 allow list。Gameplay 配置只在当前 RuntimeProfile 内使用 alias，例如 `pet_def: tragon` 对应 `petdef-tragon`。Workflow 是唯一把 alias namespace 暴露给公开资源 RPC 的类型：`server.workflow.list/get` 使用 `source=runtime` 时，RPC `id` 就是 alias；其他资源 RPC 仍使用真实资源名。
 
-同一个真实资源可以绑定多个 alias，加载时会去重。被引用的真实资源已经删除或不存在时，加载方忽略该项，不阻止 RuntimeProfile 保存、加载或删除。RuntimeProfile 不包含 icon、显示名称或 i18n；客户端固件按 alias 自己映射，例如 `chat -> icon` 和 `chat -> name`。
+同一个真实资源可以绑定多个 alias。使用真实资源名的资源列表会对 value 去重；runtime Workflow 列表会保留每个 alias，因为 alias 是不同的客户端 ID。被引用的真实资源已经删除或不存在时，加载方忽略该项，不阻止 RuntimeProfile 保存、加载或删除。RuntimeProfile 不包含 icon、显示名称或 i18n；客户端固件按 alias 自己映射，例如 `chat -> icon` 和 `chat -> name`。
 
 ## RegistrationToken
 
@@ -64,7 +64,7 @@ spec:
 | Friend、FriendGroup 或 Pet 的 system Workspace | 按领域关系允许 | 按领域规则处理 |
 | 其他资源 | 不可见、不可用 | 不允许 |
 
-未注册设备仍可以调用公开 RPC；它只是没有 RuntimeProfile 资源。设备通过公开 CRUD 创建的 Workspace、Model、Credential 和 Tool 自动记录当前 Peer 为 owner。Workflow 的公开 surface 只提供 list/get。
+未注册设备仍可以调用公开 RPC；它只是没有 RuntimeProfile 资源。设备通过公开 CRUD 创建的 Workspace、Workflow、Model、Credential 和 Tool 自动记录当前 Peer 为 owner。Runtime Workflow 只读，owned Workflow 支持公开 CRUD。
 
 调用 Model 或 Voice 时，服务端在内部解析其配置的 ProviderTenant 和底层 Credential。RuntimeProfile 允许的 Model 或 Voice 可以使用对应的服务端 Credential，但不会让 Credential 出现在 credential list/get 中，也不会授予修改权限。RuntimeProfile 之外由 owner 创建的 Model 只能使用同一个 Peer 拥有的 Credential，不能通过 ProviderTenant 选择无关的服务端 Credential。
 

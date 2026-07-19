@@ -44,6 +44,18 @@ type ModelService interface {
 	GetModel(context.Context, adminhttp.GetModelRequestObject) (adminhttp.GetModelResponseObject, error)
 }
 
+type runtimeWorkflowBindingsContextKey struct{}
+
+// WithRuntimeWorkflowBindings attaches the authenticated connection's current
+// RuntimeProfile Workflow alias snapshot to Workspace validation.
+func WithRuntimeWorkflowBindings(ctx context.Context, bindings map[string]string) context.Context {
+	cloned := make(map[string]string, len(bindings))
+	for alias, name := range bindings {
+		cloned[alias] = name
+	}
+	return context.WithValue(ctx, runtimeWorkflowBindingsContextKey{}, cloned)
+}
+
 type WorkspaceAdminService interface {
 	ListWorkspaces(context.Context, adminhttp.ListWorkspacesRequestObject) (adminhttp.ListWorkspacesResponseObject, error)
 	CreateWorkspace(context.Context, adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error)
@@ -199,14 +211,15 @@ func (s *Server) CreateSystemWorkspace(ctx context.Context, body adminhttp.Works
 func (s *Server) createWorkspaceRecord(ctx context.Context, store kv.Store, normalized adminhttp.WorkspaceUpsert, system bool) (apitypes.Workspace, error) {
 	now := time.Now().UTC()
 	workspace := apitypes.Workspace{
-		CreatedAt:    now,
-		LastActiveAt: now,
-		Name:         normalized.Name,
-		Parameters:   cloneParameters(normalized.Parameters),
-		System:       boolPointer(system),
-		Toolkit:      cloneToolkitPolicy(normalized.Toolkit),
-		UpdatedAt:    now,
-		WorkflowName: normalized.WorkflowName,
+		CreatedAt:      now,
+		LastActiveAt:   now,
+		Name:           normalized.Name,
+		Parameters:     cloneParameters(normalized.Parameters),
+		System:         boolPointer(system),
+		Toolkit:        cloneToolkitPolicy(normalized.Toolkit),
+		UpdatedAt:      now,
+		WorkflowName:   normalized.WorkflowName,
+		WorkflowSource: workspaceSource(normalized.WorkflowSource),
 	}
 	if owner, ok := ownership.FromContext(ctx); ok && !system {
 		workspace.OwnerPublicKey = &owner
@@ -369,15 +382,16 @@ func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspac
 	}
 	now := time.Now().UTC()
 	workspace := apitypes.Workspace{
-		CreatedAt:    now,
-		LastActiveAt: now,
-		Name:         normalized.Name,
-		Parameters:   cloneParameters(normalized.Parameters),
-		System:       boolPointer(false),
-		Toolkit:      cloneToolkitPolicy(normalized.Toolkit),
-		UpdatedAt:    now,
-		WorkflowName: normalized.WorkflowName,
-		Icon:         previous.Icon,
+		CreatedAt:      now,
+		LastActiveAt:   now,
+		Name:           normalized.Name,
+		Parameters:     cloneParameters(normalized.Parameters),
+		System:         boolPointer(false),
+		Toolkit:        cloneToolkitPolicy(normalized.Toolkit),
+		UpdatedAt:      now,
+		WorkflowName:   normalized.WorkflowName,
+		WorkflowSource: workspaceSource(normalized.WorkflowSource),
+		Icon:           previous.Icon,
 	}
 	if err == nil {
 		workspace.CreatedAt = previous.CreatedAt
@@ -488,24 +502,29 @@ func normalizeWorkspaceUpsert(in adminhttp.WorkspaceUpsert, expectedName string)
 		return adminhttp.WorkspaceUpsert{}, err
 	}
 	return adminhttp.WorkspaceUpsert{
-		Name:         string(name),
-		Parameters:   cloneParameters(in.Parameters),
-		Toolkit:      policy,
-		WorkflowName: string(workflowName),
+		Name:           string(name),
+		Parameters:     cloneParameters(in.Parameters),
+		Toolkit:        policy,
+		WorkflowName:   string(workflowName),
+		WorkflowSource: cloneAdminWorkspaceSource(in.WorkflowSource),
 	}, nil
 }
 
 func (s *Server) validateReferences(ctx context.Context, store kv.Store, workspace adminhttp.WorkspaceUpsert) error {
-	data, err := store.Get(ctx, workflowReferenceKey(string(workspace.WorkflowName)))
+	workflowName, err := resolveWorkflowReference(ctx, store, workspace)
+	if err != nil {
+		return err
+	}
+	data, err := store.Get(ctx, workflowReferenceKey(workflowName))
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return invalidWorkspaceReference("workflow %q not found", workspace.WorkflowName)
+			return invalidWorkspaceReference("workflow %q not found", workflowName)
 		}
 		return err
 	}
 	var workflow apitypes.Workflow
 	if err := json.Unmarshal(data, &workflow); err != nil {
-		return fmt.Errorf("decode workflow %q: %w", workspace.WorkflowName, err)
+		return fmt.Errorf("decode workflow %q: %w", workflowName, err)
 	}
 	if workflow.Spec.Driver != apitypes.WorkflowDriverFlowcraft {
 		return nil
@@ -520,6 +539,60 @@ func (s *Server) validateReferences(ctx context.Context, store kv.Store, workspa
 		}
 	}
 	return nil
+}
+
+func resolveWorkflowReference(ctx context.Context, store kv.Store, workspace adminhttp.WorkspaceUpsert) (string, error) {
+	name := string(workspace.WorkflowName)
+	if workspace.WorkflowSource == nil {
+		return name, nil
+	}
+	switch *workspace.WorkflowSource {
+	case adminhttp.Runtime:
+		bindings, _ := ctx.Value(runtimeWorkflowBindingsContextKey{}).(map[string]string)
+		resolved := strings.TrimSpace(bindings[name])
+		if resolved == "" {
+			return "", invalidWorkspaceReference("runtime workflow alias %q not found", name)
+		}
+		return resolved, nil
+	case adminhttp.Owned:
+		owner, ok := ownership.FromContext(ctx)
+		if !ok {
+			return "", invalidWorkspaceReference("owned workflow source requires an authenticated owner")
+		}
+		data, err := store.Get(ctx, workflowReferenceKey(name))
+		if errors.Is(err, kv.ErrNotFound) {
+			return "", invalidWorkspaceReference("owned workflow %q not found", name)
+		}
+		if err != nil {
+			return "", err
+		}
+		var workflow apitypes.Workflow
+		if err := json.Unmarshal(data, &workflow); err != nil {
+			return "", fmt.Errorf("decode workflow %q: %w", name, err)
+		}
+		if workflow.OwnerPublicKey == nil || *workflow.OwnerPublicKey != owner {
+			return "", invalidWorkspaceReference("owned workflow %q not found", name)
+		}
+		return name, nil
+	default:
+		return "", invalidWorkspaceReference("unsupported workflow_source %q", *workspace.WorkflowSource)
+	}
+}
+
+func workspaceSource(source *adminhttp.WorkspaceUpsertWorkflowSource) *apitypes.WorkspaceWorkflowSource {
+	if source == nil {
+		return nil
+	}
+	value := apitypes.WorkspaceWorkflowSource(*source)
+	return &value
+}
+
+func cloneAdminWorkspaceSource(source *adminhttp.WorkspaceUpsertWorkflowSource) *adminhttp.WorkspaceUpsertWorkflowSource {
+	if source == nil {
+		return nil
+	}
+	value := *source
+	return &value
 }
 
 // FlowcraftModelReference is one effective Model selected for a FlowCraft role.

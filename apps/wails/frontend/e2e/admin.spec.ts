@@ -44,10 +44,6 @@ test.beforeEach(async ({ page }) => {
       "/volc-tenants": pageResponse([{ credential_name: "volc-credential", name: "volc-tenant", updated_at: "2026-07-01T00:00:00Z" }]),
       "/workflows": pageResponse([{
         name: "openai-chat",
-        i18n: {
-          default_locale: "en",
-          en: { name: "OpenAI Chat", description: "Chat with an OpenAI model." },
-        },
         spec: { driver: "flowcraft" },
       }]),
       "/workspaces": pageResponse([{ name: "main-workspace", workflow_name: "openai-chat", updated_at: "2026-07-01T00:00:00Z" }]),
@@ -78,8 +74,8 @@ test("admin view renders full resource manager pages", async ({ page }) => {
 
   await page.getByRole("button", { name: "Workflows" }).click();
   await expect(page.getByRole("heading", { name: "Workflows" })).toBeVisible();
-  await expect(page.getByText("OpenAI Chat")).toBeVisible();
-  await expect(page.getByText("openai-chat")).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Display name" })).toHaveCount(0);
+  await expect(page.getByText("openai-chat").first()).toBeVisible();
 
   await page.getByRole("button", { name: "Firmwares" }).click();
   await expect(page.getByRole("heading", { name: "Firmwares" })).toBeVisible();

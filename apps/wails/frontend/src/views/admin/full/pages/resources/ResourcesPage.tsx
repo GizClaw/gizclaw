@@ -305,7 +305,7 @@ export function ResourcesPage(): JSX.Element {
 
   const selectedSummary = useMemo(() => resourceSummary(kind), [kind]);
   const supportsPixa = kind === "PetDef" || kind === "BadgeDef";
-  const iconOwner = kind === "Workflow" ? "workflow" : kind === "Workspace" ? "workspace" : kind === "GameDef" ? "game-def" : null;
+  const iconOwner = kind === "Workspace" ? "workspace" : kind === "GameDef" ? "game-def" : null;
 
   const persistedPetDefPixaMetadata = async (): Promise<PetDefPixaMetadata | null> => {
     if (kind !== "PetDef") {

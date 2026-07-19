@@ -3,9 +3,6 @@
 package admin_test
 
 import (
-	"bytes"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
@@ -41,10 +38,6 @@ func TestAdminAPIWorkflowsListGetPaginationAndMutation(t *testing.T) {
 	name := mutationName("workflow")
 	_, _ = env.api.DeleteWorkflowWithResponse(env.ctx, name)
 	created, err := env.api.CreateWorkflowWithResponse(env.ctx, apitypes.Workflow{
-		I18n: &apitypes.WorkflowI18n{
-			DefaultLocale: apitypes.WorkflowLocaleEn,
-			En:            &apitypes.WorkflowI18nCatalog{Description: ptr("admin API mutation workflow")},
-		},
 		Name: name,
 		Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverFlowcraft, Flowcraft: &apitypes.FlowcraftWorkflowSpec{}},
 	})
@@ -62,7 +55,7 @@ func TestAdminAPIWorkflowsListGetPaginationAndMutation(t *testing.T) {
 	requireStatusOK(t, deleted, deleted.Body)
 }
 
-func TestAdminAPIWorkflowCatalogLocalizationAndIcons(t *testing.T) {
+func TestAdminAPIWorkflowHasExecutionDefinitionOnly(t *testing.T) {
 	env := newAdminAPIHarness(t)
 	const name = "flowcraft-support"
 	workflow, err := env.api.GetWorkflowWithResponse(env.ctx, name)
@@ -70,27 +63,7 @@ func TestAdminAPIWorkflowCatalogLocalizationAndIcons(t *testing.T) {
 		t.Fatalf("get workflow: %v", err)
 	}
 	requireStatusOK(t, workflow, workflow.Body)
-	if workflow.JSON200 == nil || workflow.JSON200.I18n == nil || workflow.JSON200.I18n.En == nil || workflow.JSON200.I18n.ZhCN == nil {
-		t.Fatalf("workflow catalog = %#v", workflow.JSON200)
-	}
-	if workflow.JSON200.I18n.En.Name == nil || *workflow.JSON200.I18n.En.Name != "Support Assistant" || workflow.JSON200.I18n.ZhCN.Name == nil || *workflow.JSON200.I18n.ZhCN.Name != "支持助手" {
-		t.Fatalf("workflow localized names = %#v", workflow.JSON200.I18n)
-	}
-	if workflow.JSON200.Icon == nil || workflow.JSON200.Icon.Png == nil || workflow.JSON200.Icon.Pixa == nil {
-		t.Fatalf("workflow icon slots = %#v", workflow.JSON200.Icon)
-	}
-	for _, format := range []string{"png", "pixa"} {
-		response, err := env.api.DownloadWorkflowIconWithResponse(env.ctx, name, adminhttp.DownloadWorkflowIconParamsFormat(format))
-		if err != nil {
-			t.Fatalf("download %s icon: %v", format, err)
-		}
-		requireStatusOK(t, response, response.Body)
-		want, err := os.ReadFile(filepath.Join("..", "..", "testdata", "assets", "workflows", name, "icon."+format))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !bytes.Equal(response.Body, want) {
-			t.Fatalf("downloaded %s icon differs from committed fixture", format)
-		}
+	if workflow.JSON200 == nil || workflow.JSON200.Name != name || workflow.JSON200.Spec.Driver != apitypes.WorkflowDriverFlowcraft {
+		t.Fatalf("workflow = %#v", workflow.JSON200)
 	}
 }

@@ -97,7 +97,6 @@ const (
 	defaultGameDefsStore                 = "game-defs"
 	defaultGameplayAssetsStore           = "gameplay-assets"
 	defaultWorkspaceAssetsStore          = "workspace-assets"
-	defaultWorkflowAssetsStore           = "workflow-assets"
 	defaultGameplayDBStore               = "gameplay-db"
 	defaultMetricsStore                  = "metrics"
 	defaultFlowcraftHistoryStore         = "flowcraft-history"

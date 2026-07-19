@@ -20,6 +20,6 @@ Get 和 use 对 RuntimeProfile 资源不检查 owner。更新和删除只允许 
 
 ## 创建和 owner
 
-Peer 通过公开 CRUD 创建 Workspace、Model、Credential 或 Tool 时，领域 service 从 context 写入 `owner_public_key`，并把资源加入 owner KV index。资源记录与 owner index 使用原子 batch 写入。Owner 字段不可通过后续 put 转移。
+Peer 通过公开 CRUD 创建 Workspace、Workflow、Model、Credential 或 Tool 时，领域 service 从 context 写入 `owner_public_key`，并把资源加入 owner KV index。资源记录与 owner index 使用原子 batch 写入。Owner 字段不可通过后续 put 转移。
 
-Workflow 的公开 RPC 只支持 list/get。Admin surface 仍可以统一管理全部资源。RuntimeProfile alias 只用于 profile 内部的 allow list 和 Gameplay 引用，普通 RPC 参数始终使用真实资源名。
+Workflow list/get 必须显式选择 `source=runtime` 或 `source=owned`。Runtime Workflow 的 RPC ID 是 RuntimeProfile alias，并且只读；owned Workflow 的 ID 是全局唯一真实名称，owner 可以通过公开 RPC create/put/delete。Workspace create/put 携带相同的 source，使 Workflow 引用在正确 namespace 中解析。Admin surface 仍可以统一管理全部资源。

@@ -19,14 +19,22 @@
           "updated_at"
         ],
         "properties": {
-    "name": {
-      "type": "string"
-    },
-    "owner_public_key": {
-      "type": "string",
-      "readOnly": true,
-      "description": "Immutable Public Key of the Client that created this Workspace. System and Admin-created Workspaces may omit it."
-    },
+          "name": {
+            "type": "string"
+          },
+          "owner_public_key": {
+            "type": "string",
+            "readOnly": true,
+            "description": "Immutable Public Key of the Client that created this Workspace. System and Admin-created Workspaces may omit it."
+          },
+          "workflow_source": {
+            "type": "string",
+            "enum": [
+              "runtime",
+              "owned"
+            ],
+            "description": "Identifier namespace for a Client-created Workspace Workflow reference. Internal system Workspaces omit it."
+          },
           "workflow_name": {
             "type": "string"
           },

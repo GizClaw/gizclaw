@@ -89,8 +89,6 @@ func (s *rpcServer) dispatchStream(ctx context.Context, stream *rpcStream, req *
 		return true, s.handlePetPixaDownload(ctx, stream, req)
 	case rpcapi.RPCMethodServerBadgeDefPixaDownload:
 		return true, s.handleBadgeDefPixaDownload(ctx, stream, req)
-	case rpcapi.RPCMethodServerWorkflowIconDownload:
-		return true, s.handleWorkflowIconDownload(ctx, stream, req)
 	case rpcapi.RPCMethodServerWorkspaceIconDownload:
 		return true, s.handleWorkspaceIconDownload(ctx, stream, req)
 	case rpcapi.RPCMethodServerWorkspaceHistoryAudioGet:

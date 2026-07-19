@@ -2260,6 +2260,7 @@ type Workspace struct {
 	System         bool                   `protobuf:"varint,8,opt,name=system,proto3" json:"system,omitempty"`
 	Icon           *Icon                  `protobuf:"bytes,9,opt,name=icon,proto3,oneof" json:"icon,omitempty"`
 	OwnerPublicKey *string                `protobuf:"bytes,10,opt,name=owner_public_key,json=ownerPublicKey,proto3,oneof" json:"owner_public_key,omitempty"`
+	WorkflowSource *ResourceSource        `protobuf:"varint,11,opt,name=workflow_source,json=workflowSource,proto3,enum=gizclaw.rpc.v1.ResourceSource,oneof" json:"workflow_source,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -2364,16 +2365,24 @@ func (x *Workspace) GetOwnerPublicKey() string {
 	return ""
 }
 
+func (x *Workspace) GetWorkflowSource() ResourceSource {
+	if x != nil && x.WorkflowSource != nil {
+		return *x.WorkflowSource
+	}
+	return ResourceSource_RESOURCE_SOURCE_UNSPECIFIED
+}
+
 // Field numbers match Workspace so existing create and put clients remain wire
 // compatible while output-only lifecycle fields stay out of write payloads.
 type WorkspaceUpsert struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	Parameters    *WorkspaceParameters   `protobuf:"bytes,4,opt,name=parameters,proto3,oneof" json:"parameters,omitempty"`
-	WorkflowName  string                 `protobuf:"bytes,6,opt,name=workflow_name,json=workflowName,proto3" json:"workflow_name,omitempty"`
-	Toolkit       *ToolkitPolicy         `protobuf:"bytes,7,opt,name=toolkit,proto3,oneof" json:"toolkit,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Name           string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Parameters     *WorkspaceParameters   `protobuf:"bytes,4,opt,name=parameters,proto3,oneof" json:"parameters,omitempty"`
+	WorkflowName   string                 `protobuf:"bytes,6,opt,name=workflow_name,json=workflowName,proto3" json:"workflow_name,omitempty"`
+	Toolkit        *ToolkitPolicy         `protobuf:"bytes,7,opt,name=toolkit,proto3,oneof" json:"toolkit,omitempty"`
+	WorkflowSource *ResourceSource        `protobuf:"varint,11,opt,name=workflow_source,json=workflowSource,proto3,enum=gizclaw.rpc.v1.ResourceSource,oneof" json:"workflow_source,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *WorkspaceUpsert) Reset() {
@@ -2432,6 +2441,13 @@ func (x *WorkspaceUpsert) GetToolkit() *ToolkitPolicy {
 		return x.Toolkit
 	}
 	return nil
+}
+
+func (x *WorkspaceUpsert) GetWorkflowSource() ResourceSource {
+	if x != nil && x.WorkflowSource != nil {
+		return *x.WorkflowSource
+	}
+	return ResourceSource_RESOURCE_SOURCE_UNSPECIFIED
 }
 
 type WorkspaceIconDownloadRequest struct {
@@ -3684,7 +3700,7 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\x05value\x18\x01 \x01(\v2%.gizclaw.rpc.v1.PeerRunWorkspaceStateR\x05value\"\x16\n" +
 	"\x14ServerStopRunRequest\"L\n" +
 	"\x15ServerStopRunResponse\x123\n" +
-	"\x05value\x18\x01 \x01(\v2\x1d.gizclaw.rpc.v1.PeerRunStatusR\x05value\"\xdf\x03\n" +
+	"\x05value\x18\x01 \x01(\v2\x1d.gizclaw.rpc.v1.PeerRunStatusR\x05value\"\xc1\x04\n" +
 	"\tWorkspace\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x01 \x01(\tR\tcreatedAt\x12$\n" +
@@ -3700,22 +3716,26 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\x06system\x18\b \x01(\bR\x06system\x12-\n" +
 	"\x04icon\x18\t \x01(\v2\x14.gizclaw.rpc.v1.IconH\x02R\x04icon\x88\x01\x01\x12-\n" +
 	"\x10owner_public_key\x18\n" +
-	" \x01(\tH\x03R\x0eownerPublicKey\x88\x01\x01B\r\n" +
+	" \x01(\tH\x03R\x0eownerPublicKey\x88\x01\x01\x12L\n" +
+	"\x0fworkflow_source\x18\v \x01(\x0e2\x1e.gizclaw.rpc.v1.ResourceSourceH\x04R\x0eworkflowSource\x88\x01\x01B\r\n" +
 	"\v_parametersB\n" +
 	"\n" +
 	"\b_toolkitB\a\n" +
 	"\x05_iconB\x13\n" +
-	"\x11_owner_public_key\"\xed\x01\n" +
+	"\x11_owner_public_keyB\x12\n" +
+	"\x10_workflow_source\"\xcf\x02\n" +
 	"\x0fWorkspaceUpsert\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12H\n" +
 	"\n" +
 	"parameters\x18\x04 \x01(\v2#.gizclaw.rpc.v1.WorkspaceParametersH\x00R\n" +
 	"parameters\x88\x01\x01\x12#\n" +
 	"\rworkflow_name\x18\x06 \x01(\tR\fworkflowName\x12<\n" +
-	"\atoolkit\x18\a \x01(\v2\x1d.gizclaw.rpc.v1.ToolkitPolicyH\x01R\atoolkit\x88\x01\x01B\r\n" +
+	"\atoolkit\x18\a \x01(\v2\x1d.gizclaw.rpc.v1.ToolkitPolicyH\x01R\atoolkit\x88\x01\x01\x12L\n" +
+	"\x0fworkflow_source\x18\v \x01(\x0e2\x1e.gizclaw.rpc.v1.ResourceSourceH\x02R\x0eworkflowSource\x88\x01\x01B\r\n" +
 	"\v_parametersB\n" +
 	"\n" +
-	"\b_toolkit\"f\n" +
+	"\b_toolkitB\x12\n" +
+	"\x10_workflow_source\"f\n" +
 	"\x1cWorkspaceIconDownloadRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x122\n" +
 	"\x06format\x18\x02 \x01(\x0e2\x1a.gizclaw.rpc.v1.IconFormatR\x06format\"\x86\x01\n" +
@@ -3873,13 +3893,14 @@ var file_payload_workspace_proto_goTypes = []any{
 	(*Runtime)(nil),                                  // 67: gizclaw.rpc.v1.Runtime
 	(*ToolkitPolicy)(nil),                            // 68: gizclaw.rpc.v1.ToolkitPolicy
 	(*Icon)(nil),                                     // 69: gizclaw.rpc.v1.Icon
-	(IconFormat)(0),                                  // 70: gizclaw.rpc.v1.IconFormat
-	(WorkspaceHistoryListRequestOrder)(0),            // 71: gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder
-	(*FlowcraftWorkspaceParameters)(nil),             // 72: gizclaw.rpc.v1.FlowcraftWorkspaceParameters
-	(*DoubaoRealtimeWorkspaceParameters)(nil),        // 73: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters
-	(*ASTTranslateWorkspaceParameters)(nil),          // 74: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters
-	(*ChatRoomWorkspaceParameters)(nil),              // 75: gizclaw.rpc.v1.ChatRoomWorkspaceParameters
-	(*PetWorkspaceParameters)(nil),                   // 76: gizclaw.rpc.v1.PetWorkspaceParameters
+	(ResourceSource)(0),                              // 70: gizclaw.rpc.v1.ResourceSource
+	(IconFormat)(0),                                  // 71: gizclaw.rpc.v1.IconFormat
+	(WorkspaceHistoryListRequestOrder)(0),            // 72: gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder
+	(*FlowcraftWorkspaceParameters)(nil),             // 73: gizclaw.rpc.v1.FlowcraftWorkspaceParameters
+	(*DoubaoRealtimeWorkspaceParameters)(nil),        // 74: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters
+	(*ASTTranslateWorkspaceParameters)(nil),          // 75: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters
+	(*ChatRoomWorkspaceParameters)(nil),              // 76: gizclaw.rpc.v1.ChatRoomWorkspaceParameters
+	(*PetWorkspaceParameters)(nil),                   // 77: gizclaw.rpc.v1.PetWorkspaceParameters
 }
 var file_payload_workspace_proto_depIdxs = []int32{
 	0,  // 0: gizclaw.rpc.v1.PeerRunAgent.active:type_name -> gizclaw.rpc.v1.AgentSelection
@@ -3915,30 +3936,32 @@ var file_payload_workspace_proto_depIdxs = []int32{
 	60, // 30: gizclaw.rpc.v1.Workspace.parameters:type_name -> gizclaw.rpc.v1.WorkspaceParameters
 	68, // 31: gizclaw.rpc.v1.Workspace.toolkit:type_name -> gizclaw.rpc.v1.ToolkitPolicy
 	69, // 32: gizclaw.rpc.v1.Workspace.icon:type_name -> gizclaw.rpc.v1.Icon
-	60, // 33: gizclaw.rpc.v1.WorkspaceUpsert.parameters:type_name -> gizclaw.rpc.v1.WorkspaceParameters
-	68, // 34: gizclaw.rpc.v1.WorkspaceUpsert.toolkit:type_name -> gizclaw.rpc.v1.ToolkitPolicy
-	70, // 35: gizclaw.rpc.v1.WorkspaceIconDownloadRequest.format:type_name -> gizclaw.rpc.v1.IconFormat
-	70, // 36: gizclaw.rpc.v1.WorkspaceIconDownloadResponse.format:type_name -> gizclaw.rpc.v1.IconFormat
-	43, // 37: gizclaw.rpc.v1.WorkspaceCreateRequest.value:type_name -> gizclaw.rpc.v1.WorkspaceUpsert
-	42, // 38: gizclaw.rpc.v1.WorkspaceCreateResponse.value:type_name -> gizclaw.rpc.v1.Workspace
-	42, // 39: gizclaw.rpc.v1.WorkspaceDeleteResponse.value:type_name -> gizclaw.rpc.v1.Workspace
-	42, // 40: gizclaw.rpc.v1.WorkspaceGetResponse.value:type_name -> gizclaw.rpc.v1.Workspace
-	2,  // 41: gizclaw.rpc.v1.WorkspaceHistoryGetResponse.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryEntry
-	71, // 42: gizclaw.rpc.v1.WorkspaceHistoryListRequest.order:type_name -> gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder
-	4,  // 43: gizclaw.rpc.v1.WorkspaceHistoryListResponse.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryListResponse
-	42, // 44: gizclaw.rpc.v1.WorkspaceListResponse.items:type_name -> gizclaw.rpc.v1.Workspace
-	72, // 45: gizclaw.rpc.v1.WorkspaceParameters.flowcraft_workspace_parameters:type_name -> gizclaw.rpc.v1.FlowcraftWorkspaceParameters
-	73, // 46: gizclaw.rpc.v1.WorkspaceParameters.doubao_realtime_workspace_parameters:type_name -> gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters
-	74, // 47: gizclaw.rpc.v1.WorkspaceParameters.asttranslate_workspace_parameters:type_name -> gizclaw.rpc.v1.ASTTranslateWorkspaceParameters
-	75, // 48: gizclaw.rpc.v1.WorkspaceParameters.chat_room_workspace_parameters:type_name -> gizclaw.rpc.v1.ChatRoomWorkspaceParameters
-	76, // 49: gizclaw.rpc.v1.WorkspaceParameters.pet_workspace_parameters:type_name -> gizclaw.rpc.v1.PetWorkspaceParameters
-	43, // 50: gizclaw.rpc.v1.WorkspacePutRequest.body:type_name -> gizclaw.rpc.v1.WorkspaceUpsert
-	42, // 51: gizclaw.rpc.v1.WorkspacePutResponse.value:type_name -> gizclaw.rpc.v1.Workspace
-	52, // [52:52] is the sub-list for method output_type
-	52, // [52:52] is the sub-list for method input_type
-	52, // [52:52] is the sub-list for extension type_name
-	52, // [52:52] is the sub-list for extension extendee
-	0,  // [0:52] is the sub-list for field type_name
+	70, // 33: gizclaw.rpc.v1.Workspace.workflow_source:type_name -> gizclaw.rpc.v1.ResourceSource
+	60, // 34: gizclaw.rpc.v1.WorkspaceUpsert.parameters:type_name -> gizclaw.rpc.v1.WorkspaceParameters
+	68, // 35: gizclaw.rpc.v1.WorkspaceUpsert.toolkit:type_name -> gizclaw.rpc.v1.ToolkitPolicy
+	70, // 36: gizclaw.rpc.v1.WorkspaceUpsert.workflow_source:type_name -> gizclaw.rpc.v1.ResourceSource
+	71, // 37: gizclaw.rpc.v1.WorkspaceIconDownloadRequest.format:type_name -> gizclaw.rpc.v1.IconFormat
+	71, // 38: gizclaw.rpc.v1.WorkspaceIconDownloadResponse.format:type_name -> gizclaw.rpc.v1.IconFormat
+	43, // 39: gizclaw.rpc.v1.WorkspaceCreateRequest.value:type_name -> gizclaw.rpc.v1.WorkspaceUpsert
+	42, // 40: gizclaw.rpc.v1.WorkspaceCreateResponse.value:type_name -> gizclaw.rpc.v1.Workspace
+	42, // 41: gizclaw.rpc.v1.WorkspaceDeleteResponse.value:type_name -> gizclaw.rpc.v1.Workspace
+	42, // 42: gizclaw.rpc.v1.WorkspaceGetResponse.value:type_name -> gizclaw.rpc.v1.Workspace
+	2,  // 43: gizclaw.rpc.v1.WorkspaceHistoryGetResponse.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryEntry
+	72, // 44: gizclaw.rpc.v1.WorkspaceHistoryListRequest.order:type_name -> gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder
+	4,  // 45: gizclaw.rpc.v1.WorkspaceHistoryListResponse.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryListResponse
+	42, // 46: gizclaw.rpc.v1.WorkspaceListResponse.items:type_name -> gizclaw.rpc.v1.Workspace
+	73, // 47: gizclaw.rpc.v1.WorkspaceParameters.flowcraft_workspace_parameters:type_name -> gizclaw.rpc.v1.FlowcraftWorkspaceParameters
+	74, // 48: gizclaw.rpc.v1.WorkspaceParameters.doubao_realtime_workspace_parameters:type_name -> gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters
+	75, // 49: gizclaw.rpc.v1.WorkspaceParameters.asttranslate_workspace_parameters:type_name -> gizclaw.rpc.v1.ASTTranslateWorkspaceParameters
+	76, // 50: gizclaw.rpc.v1.WorkspaceParameters.chat_room_workspace_parameters:type_name -> gizclaw.rpc.v1.ChatRoomWorkspaceParameters
+	77, // 51: gizclaw.rpc.v1.WorkspaceParameters.pet_workspace_parameters:type_name -> gizclaw.rpc.v1.PetWorkspaceParameters
+	43, // 52: gizclaw.rpc.v1.WorkspacePutRequest.body:type_name -> gizclaw.rpc.v1.WorkspaceUpsert
+	42, // 53: gizclaw.rpc.v1.WorkspacePutResponse.value:type_name -> gizclaw.rpc.v1.Workspace
+	54, // [54:54] is the sub-list for method output_type
+	54, // [54:54] is the sub-list for method input_type
+	54, // [54:54] is the sub-list for extension type_name
+	54, // [54:54] is the sub-list for extension extendee
+	0,  // [0:54] is the sub-list for field type_name
 }
 
 func init() { file_payload_workspace_proto_init() }

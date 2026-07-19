@@ -285,7 +285,7 @@ func TestAdminResourceHelp(t *testing.T) {
 		{[]string{"admin", "minimax-tenants", "--help"}, []string{"list", "get", "sync-voices"}, []string{"create", "put", "delete"}},
 		{[]string{"admin", "volc-tenants", "--help"}, []string{"list", "get", "sync-voices"}, []string{"create", "put", "delete"}},
 		{[]string{"admin", "voices", "--help"}, []string{"list", "get"}, []string{"create", "put", "delete"}},
-		{[]string{"admin", "workflows", "--help"}, []string{"list", "get", "upload-icon", "download-icon", "delete-icon"}, []string{"create", "put", "delete"}},
+		{[]string{"admin", "workflows", "--help"}, []string{"list", "get"}, []string{"create", "put", "delete", "upload-icon", "download-icon", "delete-icon"}},
 		{[]string{"admin", "workspaces", "--help"}, []string{"list", "get"}, []string{"create", "put", "delete"}},
 	} {
 		root := New()

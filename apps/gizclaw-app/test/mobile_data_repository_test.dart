@@ -1,9 +1,6 @@
-import 'dart:typed_data';
-
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gizclaw/gizclaw.dart';
-import 'package:gizclaw/src/generated/rpc/payload/icon.pb.dart' as rpc;
 import 'package:gizclaw_app/data/database/app_database.dart';
 import 'package:gizclaw_app/data/repositories/mobile_data_repository.dart';
 import 'package:gizclaw_app/prototype/prototype_models.dart';
@@ -17,7 +14,6 @@ void main() {
       workflows: [
         Workflow(
           name: 'build-helper',
-          i18n: WorkflowI18nCatalog(name: '构建助手', description: '构建有用的东西。'),
           spec: WorkflowSpec(driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT),
         ),
       ],
@@ -60,7 +56,6 @@ void main() {
       isCurrent: () => true,
       locale: 'zh-CN',
       serverId: 'server-a',
-      workflowLocale: WorkflowLocale.WORKFLOW_LOCALE_ZH_CN,
     );
 
     final workflows = await repository
@@ -68,10 +63,10 @@ void main() {
         .first;
     final workspaces = await repository.watchWorkspaces('server-a').first;
     expect(workflows.single.name, 'build-helper');
-    expect(workflows.single.title, '构建助手');
-    expect(workflows.single.subtitle, '构建有用的东西。');
+    expect(workflows.single.title, 'build-helper');
+    expect(workflows.single.subtitle, isEmpty);
     expect(workflows.single.driverLabel, 'Flowcraft');
-    expect(client.lastWorkflowLang, WorkflowLocale.WORKFLOW_LOCALE_ZH_CN);
+    expect(client.lastWorkflowSource, ResourceSource.RESOURCE_SOURCE_RUNTIME);
     final mobileWorkspace = workspaces.firstWhere(
       (workspace) => workspace.name == 'mobile-plan',
     );
@@ -124,7 +119,6 @@ void main() {
       isCurrent: () => true,
       locale: 'en',
       serverId: 'server-a',
-      workflowLocale: WorkflowLocale.WORKFLOW_LOCALE_EN,
     );
 
     final card =
@@ -132,57 +126,10 @@ void main() {
             .single;
     expect(card.title, 'stable-name');
     expect(card.subtitle, isEmpty);
-    expect(client.lastWorkflowLang, WorkflowLocale.WORKFLOW_LOCALE_EN);
+    expect(client.lastWorkflowSource, ResourceSource.RESOURCE_SOURCE_RUNTIME);
   });
 
-  test('caches owner PNG icons and tolerates icon download failure', () async {
-    final database = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(database.close);
-    final repository = MobileDataRepository(database);
-    final client = _FakeClient(
-      workflows: [
-        Workflow(
-          name: 'with-icon',
-          icon: rpc.Icon(png: 'with-icon/icon.png'),
-          spec: WorkflowSpec(driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT),
-        ),
-        Workflow(
-          name: 'broken-icon',
-          icon: rpc.Icon(png: 'broken-icon/icon.png'),
-          spec: WorkflowSpec(driver: WorkflowDriver.WORKFLOW_DRIVER_CHATROOM),
-        ),
-      ],
-      workspaces: const [],
-      workflowIcons: {
-        'with-icon': Uint8List.fromList([1, 2, 3, 4]),
-      },
-    );
-
-    await repository.refresh(
-      client: client,
-      endpoint: 'local',
-      isCurrent: () => true,
-      locale: 'en',
-      serverId: 'server-a',
-      workflowLocale: WorkflowLocale.WORKFLOW_LOCALE_EN,
-    );
-
-    final cards = await repository
-        .watchWorkflows('server-a', locale: 'en')
-        .first;
-    expect(cards.firstWhere((item) => item.name == 'with-icon').iconPng, [
-      1,
-      2,
-      3,
-      4,
-    ]);
-    expect(
-      cards.firstWhere((item) => item.name == 'broken-icon').iconPng,
-      isNull,
-    );
-  });
-
-  test('ignores a cached catalog from another locale', () async {
+  test('uses stable aliases independently of the app locale', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(database.close);
     final repository = MobileDataRepository(database);
@@ -190,7 +137,6 @@ void main() {
       workflows: [
         Workflow(
           name: 'stable-name',
-          i18n: WorkflowI18nCatalog(name: '本地化名称', description: '说明'),
           spec: WorkflowSpec(driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT),
         ),
       ],
@@ -202,7 +148,6 @@ void main() {
       isCurrent: () => true,
       locale: 'zh-CN',
       serverId: 'server-a',
-      workflowLocale: WorkflowLocale.WORKFLOW_LOCALE_ZH_CN,
     );
 
     final card =
@@ -232,7 +177,6 @@ void main() {
       isCurrent: () => false,
       locale: 'en',
       serverId: 'server-a',
-      workflowLocale: WorkflowLocale.WORKFLOW_LOCALE_EN,
     );
 
     expect(
@@ -262,7 +206,6 @@ void main() {
       isCurrent: () => true,
       locale: 'en',
       serverId: 'server-a',
-      workflowLocale: WorkflowLocale.WORKFLOW_LOCALE_EN,
     );
 
     client.workflows.clear();
@@ -273,7 +216,6 @@ void main() {
       isCurrent: () => true,
       locale: 'en',
       serverId: 'server-a',
-      workflowLocale: WorkflowLocale.WORKFLOW_LOCALE_EN,
     );
 
     expect(
@@ -304,7 +246,6 @@ void main() {
       isCurrent: () => true,
       locale: 'en',
       serverId: 'server-a',
-      workflowLocale: WorkflowLocale.WORKFLOW_LOCALE_EN,
     );
 
     client.failWorkflows = true;
@@ -319,7 +260,6 @@ void main() {
       isCurrent: () => true,
       locale: 'en',
       serverId: 'server-a',
-      workflowLocale: WorkflowLocale.WORKFLOW_LOCALE_EN,
     );
 
     expect(warnings.map((warning) => warning.scope), contains('Workflows'));
@@ -358,7 +298,6 @@ void main() {
       isCurrent: () => true,
       locale: 'en',
       serverId: 'server-a',
-      workflowLocale: WorkflowLocale.WORKFLOW_LOCALE_EN,
     );
 
     expect(warnings.map((warning) => warning.scope), contains('Workspaces'));
@@ -534,7 +473,6 @@ void main() {
         isCurrent: () => true,
         locale: 'en',
         serverId: 'server-a',
-        workflowLocale: WorkflowLocale.WORKFLOW_LOCALE_EN,
       );
 
       client.workflows
@@ -559,7 +497,6 @@ void main() {
         isCurrent: () => true,
         locale: 'en',
         serverId: 'server-a',
-        workflowLocale: WorkflowLocale.WORKFLOW_LOCALE_EN,
       );
 
       expect(warnings, hasLength(2));
@@ -588,28 +525,26 @@ class _FakeClient extends GizClawClient {
     required this.workspaces,
     this.friends = const [],
     this.friendGroups = const [],
-    this.workflowIcons = const {},
   }) : super(_NeverDataChannelFactory());
 
   final List<FriendGroupObject> friendGroups;
   final List<FriendObject> friends;
   final List<Workflow> workflows;
-  final Map<String, Uint8List> workflowIcons;
   final List<Workspace> workspaces;
   bool failFriends = false;
   bool failFriendGroups = false;
   bool failWorkflows = false;
   bool failWorkspaces = false;
-  WorkflowLocale? lastWorkflowLang;
+  ResourceSource? lastWorkflowSource;
 
   @override
   Future<WorkflowListResponse> listWorkflows({
+    required ResourceSource source,
     String? cursor,
     int? limit,
-    WorkflowLocale? lang,
   }) async {
     if (failWorkflows) throw StateError('workflow catalog unavailable');
-    lastWorkflowLang = lang;
+    lastWorkflowSource = source;
     return WorkflowListResponse(items: workflows);
   }
 
@@ -621,19 +556,6 @@ class _FakeClient extends GizClawClient {
   }) async {
     if (failWorkspaces) throw StateError('workspace catalog unavailable');
     return WorkspaceListResponse(items: workspaces);
-  }
-
-  @override
-  Future<IconDownloadResult<WorkflowIconDownloadResponse>> downloadWorkflowIcon(
-    String name,
-    IconFormat format,
-  ) async {
-    final bytes = workflowIcons[name];
-    if (bytes == null) throw StateError('workflow icon unavailable');
-    return IconDownloadResult(
-      metadata: WorkflowIconDownloadResponse(name: name, format: format),
-      bytes: bytes,
-    );
   }
 
   @override

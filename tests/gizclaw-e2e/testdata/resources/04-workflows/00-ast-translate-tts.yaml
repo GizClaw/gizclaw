@@ -3,14 +3,6 @@ apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
   name: volc-ast-translate-tts
-i18n:
-  default_locale: en
-  en:
-    name: Text-to-Speech Translator
-    description: Translate spoken input and read the translated text with a selected voice.
-  zh-CN:
-    name: 语音播报翻译
-    description: 翻译语音输入，并使用指定声音朗读翻译结果。
 spec:
   driver: ast-translate
   ast_translate:

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"sort"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
@@ -70,6 +71,9 @@ func IsMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerWorkspaceHistoryAudioGet,
 		rpcapi.RPCMethodServerWorkflowList,
 		rpcapi.RPCMethodServerWorkflowGet,
+		rpcapi.RPCMethodServerWorkflowCreate,
+		rpcapi.RPCMethodServerWorkflowPut,
+		rpcapi.RPCMethodServerWorkflowDelete,
 		rpcapi.RPCMethodServerModelList,
 		rpcapi.RPCMethodServerModelGet,
 		rpcapi.RPCMethodServerModelCreate,
@@ -115,7 +119,7 @@ func IsMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerPetGet,
 		rpcapi.RPCMethodServerPetActionsGet,
 		rpcapi.RPCMethodServerPetPixaDownload,
-		rpcapi.RPCMethodServerPetAdopt,
+		rpcapi.RPCMethodRuntimeAdopt,
 		rpcapi.RPCMethodServerPetPut,
 		rpcapi.RPCMethodServerPetDelete,
 		rpcapi.RPCMethodServerPetDrive,
@@ -170,6 +174,12 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 		return s.handleWorkflowList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerWorkflowGet:
 		return s.handleWorkflowGet(ctx, req), true, nil
+	case rpcapi.RPCMethodServerWorkflowCreate:
+		return s.handleWorkflowCreate(ctx, req), true, nil
+	case rpcapi.RPCMethodServerWorkflowPut:
+		return s.handleWorkflowPut(ctx, req), true, nil
+	case rpcapi.RPCMethodServerWorkflowDelete:
+		return s.handleWorkflowDelete(ctx, req), true, nil
 	case rpcapi.RPCMethodServerModelList:
 		return s.handleModelList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerModelGet:
@@ -260,7 +270,7 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 		return s.handlePetActionsGet(ctx, req), true, nil
 	case rpcapi.RPCMethodServerPetPixaDownload:
 		return s.handlePetPixaDownload(ctx, req), true, nil
-	case rpcapi.RPCMethodServerPetAdopt:
+	case rpcapi.RPCMethodRuntimeAdopt:
 		return s.handlePetAdopt(ctx, req), true, nil
 	case rpcapi.RPCMethodServerPetPut:
 		return s.handlePetPut(ctx, req), true, nil
@@ -427,17 +437,19 @@ func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCReque
 	}
 	observability.Annotate(ctx, observability.AnnotationWorkspaceName, params.Name)
 	observability.Annotate(ctx, observability.AnnotationWorkflowName, params.WorkflowName)
-	if !s.profileAllows(profileWorkflows, params.WorkflowName) {
-		return statusError(req.Id, http.StatusForbidden, "workflow is not available in the active RuntimeProfile"), true, nil
+	workflowName, failure := s.resolveWorkspaceWorkflow(ctx, req.Id, params.WorkflowSource, params.WorkflowName)
+	if failure != nil {
+		return failure, true, nil
 	}
 	body, err := convertType[adminhttp.CreateWorkspaceJSONRequestBody](params)
 	if err != nil {
 		return nil, true, err
 	}
-	if resp := s.authorizeWorkspaceModels(ctx, req.Id, body.WorkflowName, body.Parameters); resp != nil {
+	if resp := s.authorizeWorkspaceModels(ctx, req.Id, workflowName, body.Parameters); resp != nil {
 		return resp, true, nil
 	}
-	adminResp, err := s.Workspaces.CreateWorkspace(s.ownerContext(ctx), adminhttp.CreateWorkspaceRequestObject{Body: &body})
+	workspaceCtx := workspace.WithRuntimeWorkflowBindings(s.ownerContext(ctx), s.profileBindings(profileWorkflows))
+	adminResp, err := s.Workspaces.CreateWorkspace(workspaceCtx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
@@ -466,21 +478,51 @@ func (s *Server) handleWorkspacePut(ctx context.Context, req *rpcapi.RPCRequest)
 	if response := s.requireOwner(req.Id, current.OwnerPublicKey); response != nil {
 		return response, true, nil
 	}
-	if !s.profileAllows(profileWorkflows, params.Body.WorkflowName) {
-		return statusError(req.Id, http.StatusForbidden, "workflow is not available in the active RuntimeProfile"), true, nil
+	workflowName, failure := s.resolveWorkspaceWorkflow(ctx, req.Id, params.Body.WorkflowSource, params.Body.WorkflowName)
+	if failure != nil {
+		return failure, true, nil
 	}
 	body, err := convertType[adminhttp.PutWorkspaceJSONRequestBody](params.Body)
 	if err != nil {
 		return nil, true, err
 	}
-	if resp := s.authorizeWorkspaceModels(ctx, req.Id, body.WorkflowName, body.Parameters); resp != nil {
+	if resp := s.authorizeWorkspaceModels(ctx, req.Id, workflowName, body.Parameters); resp != nil {
 		return resp, true, nil
 	}
-	adminResp, err := s.Workspaces.PutWorkspace(s.ownerContext(ctx), adminhttp.PutWorkspaceRequestObject{Name: params.Name, Body: &body})
+	workspaceCtx := workspace.WithRuntimeWorkflowBindings(s.ownerContext(ctx), s.profileBindings(profileWorkflows))
+	adminResp, err := s.Workspaces.PutWorkspace(workspaceCtx, adminhttp.PutWorkspaceRequestObject{Name: params.Name, Body: &body})
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
 	return workspaceAdminRPCResponse(ctx, req.Id, adminResp.VisitPutWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspacePutResponse), true, nil
+}
+
+func (s *Server) resolveWorkspaceWorkflow(ctx context.Context, requestID string, source *rpcapi.ResourceSource, name string) (string, *rpcapi.RPCResponse) {
+	if source == nil || !source.Valid() {
+		return "", invalidParams(requestID)
+	}
+	if s.Workflows == nil {
+		return "", internalError(requestID, "workflow service not configured")
+	}
+	if *source == rpcapi.ResourceSourceRuntime {
+		resolved, ok := s.runtimeWorkflowName(name)
+		if !ok {
+			return "", statusError(requestID, http.StatusNotFound, "workflow not found")
+		}
+		return resolved, nil
+	}
+	response, err := s.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: name})
+	if err != nil {
+		return "", internalError(requestID, err.Error())
+	}
+	item, rpcResponse, err := adminResult[apitypes.Workflow](response.VisitGetWorkflowResponse)
+	if err != nil {
+		return "", internalError(requestID, err.Error())
+	}
+	if rpcResponse != nil || !s.owns(item.OwnerPublicKey) {
+		return "", statusError(requestID, http.StatusNotFound, "workflow not found")
+	}
+	return name, nil
 }
 
 func (s *Server) authorizeWorkspaceModels(ctx context.Context, requestID, workflowName string, parameters *apitypes.WorkspaceParameters) *rpcapi.RPCResponse {
@@ -698,33 +740,58 @@ func (s *Server) handleWorkflowList(ctx context.Context, req *rpcapi.RPCRequest)
 		return internalError(req.Id, "workflow service not configured")
 	}
 	params, ok := decodeOptionalParams(req, rpcapi.RPCPayload.AsWorkflowListRequest)
-	if !ok {
+	if !ok || !params.Source.Valid() {
 		return invalidParams(req.Id)
 	}
-	items := make([]rpcapi.Workflow, 0, len(s.profileNames(profileWorkflows)))
-	for _, name := range s.profileNames(profileWorkflows) {
-		resp, err := s.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: name})
+	items, err := s.listWorkflowsForSource(ctx, params.Source)
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	page, hasNext, nextCursor := pageWorkflows(items, params.Cursor, params.Limit)
+	return resultResponse(req.Id, rpcapi.WorkflowListResponse{Items: page, HasNext: hasNext, NextCursor: nextCursor}, (*rpcapi.RPCPayload).FromWorkflowListResponse)
+}
+
+func (s *Server) listWorkflowsForSource(ctx context.Context, source rpcapi.ResourceSource) ([]rpcapi.Workflow, error) {
+	if source == rpcapi.ResourceSourceOwned {
+		owned, err := s.ownedWorkflows(ctx)
 		if err != nil {
-			return internalError(req.Id, err.Error())
+			return nil, err
+		}
+		sort.Slice(owned, func(i, j int) bool { return owned[i].Name < owned[j].Name })
+		items := make([]rpcapi.Workflow, 0, len(owned))
+		for _, item := range owned {
+			projected, err := workflowRPCProjection(item, item.Name, true)
+			if err != nil {
+				return nil, err
+			}
+			items = append(items, projected)
+		}
+		return items, nil
+	}
+	bindings := s.profileBindings(profileWorkflows)
+	items := make([]rpcapi.Workflow, 0, len(bindings))
+	for _, alias := range sortedWorkflowAliases(bindings) {
+		resp, err := s.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: bindings[alias]})
+		if err != nil {
+			return nil, err
 		}
 		item, rpcResp, err := adminResult[apitypes.Workflow](resp.VisitGetWorkflowResponse)
 		if err != nil {
-			return internalError(req.Id, err.Error())
+			return nil, err
 		}
 		if isNotFoundResponse(rpcResp) {
 			continue
 		}
 		if rpcResp != nil {
-			return withRequestID(req.Id, rpcResp)
+			return nil, fmt.Errorf("get runtime Workflow %q: %s", alias, rpcResp.Error.Message)
 		}
-		projected, err := workflowRPCProjection(item, params.Lang)
+		projected, err := workflowRPCProjection(item, alias, false)
 		if err != nil {
-			return internalError(req.Id, err.Error())
+			return nil, err
 		}
 		items = append(items, projected)
 	}
-	page, hasNext, nextCursor := pageWorkflows(items, params.Cursor, params.Limit)
-	return resultResponse(req.Id, rpcapi.WorkflowListResponse{Items: page, HasNext: hasNext, NextCursor: nextCursor}, (*rpcapi.RPCPayload).FromWorkflowListResponse)
+	return items, nil
 }
 
 func (s *Server) handleWorkflowGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -732,13 +799,18 @@ func (s *Server) handleWorkflowGet(ctx context.Context, req *rpcapi.RPCRequest) 
 		return internalError(req.Id, "workflow service not configured")
 	}
 	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsWorkflowGetRequest)
-	if !ok {
+	if !ok || !params.Source.Valid() {
 		return invalidParams(req.Id)
 	}
-	if !s.profileAllows(profileWorkflows, params.Name) {
-		return statusError(req.Id, http.StatusNotFound, "workflow not found")
+	storageName := params.Name
+	if params.Source == rpcapi.ResourceSourceRuntime {
+		var exists bool
+		storageName, exists = s.runtimeWorkflowName(params.Name)
+		if !exists {
+			return statusError(req.Id, http.StatusNotFound, "workflow not found")
+		}
 	}
-	adminResp, err := s.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: params.Name})
+	adminResp, err := s.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: storageName})
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
@@ -749,56 +821,153 @@ func (s *Server) handleWorkflowGet(ctx context.Context, req *rpcapi.RPCRequest) 
 	if rpcResp != nil {
 		return withRequestID(req.Id, rpcResp)
 	}
-	projected, err := workflowRPCProjection(result, params.Lang)
+	if params.Source == rpcapi.ResourceSourceOwned && !s.owns(result.OwnerPublicKey) {
+		return statusError(req.Id, http.StatusNotFound, "workflow not found")
+	}
+	projected, err := workflowRPCProjection(result, params.Name, params.Source == rpcapi.ResourceSourceOwned)
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
 	return resultResponse(req.Id, projected, (*rpcapi.RPCPayload).FromWorkflowGetResponse)
 }
 
-func workflowRPCProjection(item apitypes.Workflow, lang rpcapi.WorkflowLocale) (rpcapi.Workflow, error) {
+func (s *Server) handleWorkflowCreate(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
+	if s.Workflows == nil {
+		return internalError(req.Id, "workflow service not configured")
+	}
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsWorkflowCreateRequest)
+	if !ok || !params.Source.Valid() {
+		return invalidParams(req.Id)
+	}
+	if params.Source != rpcapi.ResourceSourceOwned {
+		return statusError(req.Id, http.StatusForbidden, "runtime workflows are read-only")
+	}
+	body, err := convertType[apitypes.Workflow](params.Body)
+	if err != nil {
+		return invalidParams(req.Id)
+	}
+	response, err := s.Workflows.CreateWorkflow(s.ownerContext(ctx), adminhttp.CreateWorkflowRequestObject{Body: &body})
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	item, rpcResp, err := adminResult[apitypes.Workflow](response.VisitCreateWorkflowResponse)
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	if rpcResp != nil {
+		return withRequestID(req.Id, rpcResp)
+	}
+	projected, err := workflowRPCProjection(item, item.Name, true)
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	return resultResponse(req.Id, projected, (*rpcapi.RPCPayload).FromWorkflowCreateResponse)
+}
+
+func (s *Server) handleWorkflowPut(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
+	if s.Workflows == nil {
+		return internalError(req.Id, "workflow service not configured")
+	}
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsWorkflowPutRequest)
+	if !ok || !params.Source.Valid() {
+		return invalidParams(req.Id)
+	}
+	if params.Source != rpcapi.ResourceSourceOwned {
+		return statusError(req.Id, http.StatusForbidden, "runtime workflows are read-only")
+	}
+	currentResp, err := s.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: params.Name})
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	current, rpcResp, err := adminResult[apitypes.Workflow](currentResp.VisitGetWorkflowResponse)
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	if rpcResp != nil {
+		return withRequestID(req.Id, rpcResp)
+	}
+	if response := s.requireOwner(req.Id, current.OwnerPublicKey); response != nil {
+		return response
+	}
+	body, err := convertType[apitypes.Workflow](params.Body)
+	if err != nil {
+		return invalidParams(req.Id)
+	}
+	response, err := s.Workflows.PutWorkflow(s.ownerContext(ctx), adminhttp.PutWorkflowRequestObject{Name: params.Name, Body: &body})
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	item, rpcResp, err := adminResult[apitypes.Workflow](response.VisitPutWorkflowResponse)
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	if rpcResp != nil {
+		return withRequestID(req.Id, rpcResp)
+	}
+	projected, err := workflowRPCProjection(item, item.Name, true)
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	return resultResponse(req.Id, projected, (*rpcapi.RPCPayload).FromWorkflowPutResponse)
+}
+
+func (s *Server) handleWorkflowDelete(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
+	if s.Workflows == nil {
+		return internalError(req.Id, "workflow service not configured")
+	}
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsWorkflowDeleteRequest)
+	if !ok || !params.Source.Valid() {
+		return invalidParams(req.Id)
+	}
+	if params.Source != rpcapi.ResourceSourceOwned {
+		return statusError(req.Id, http.StatusForbidden, "runtime workflows are read-only")
+	}
+	currentResp, err := s.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: params.Name})
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	current, rpcResp, err := adminResult[apitypes.Workflow](currentResp.VisitGetWorkflowResponse)
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	if rpcResp != nil {
+		return withRequestID(req.Id, rpcResp)
+	}
+	if response := s.requireOwner(req.Id, current.OwnerPublicKey); response != nil {
+		return response
+	}
+	response, err := s.Workflows.DeleteWorkflow(ctx, adminhttp.DeleteWorkflowRequestObject{Name: params.Name})
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	item, rpcResp, err := adminResult[apitypes.Workflow](response.VisitDeleteWorkflowResponse)
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	if rpcResp != nil {
+		return withRequestID(req.Id, rpcResp)
+	}
+	projected, err := workflowRPCProjection(item, item.Name, true)
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	return resultResponse(req.Id, projected, (*rpcapi.RPCPayload).FromWorkflowDeleteResponse)
+}
+
+func workflowRPCProjection(item apitypes.Workflow, id string, includeOwner bool) (rpcapi.Workflow, error) {
 	spec, err := convertType[rpcapi.WorkflowSpec](item.Spec)
 	if err != nil {
 		return rpcapi.Workflow{}, err
 	}
-	icon, err := convertType[*rpcapi.Icon](item.Icon)
-	if err != nil {
-		return rpcapi.Workflow{}, err
+	var owner *string
+	if includeOwner {
+		owner = item.OwnerPublicKey
 	}
 	return rpcapi.Workflow{
-		Icon: icon,
-		Name: item.Name,
-		Spec: spec,
-		I18n: selectedWorkflowCatalog(item.I18n, lang),
+		Name:           id,
+		OwnerPublicKey: owner,
+		Spec:           spec,
 	}, nil
-}
-
-func selectedWorkflowCatalog(i18n *apitypes.WorkflowI18n, lang rpcapi.WorkflowLocale) *rpcapi.WorkflowI18nCatalog {
-	if i18n == nil {
-		return nil
-	}
-	var catalog *apitypes.WorkflowI18nCatalog
-	switch lang {
-	case rpcapi.WorkflowLocaleEn:
-		catalog = i18n.En
-	case rpcapi.WorkflowLocaleZhCN:
-		catalog = i18n.ZhCN
-	}
-	if catalog == nil {
-		switch i18n.DefaultLocale {
-		case apitypes.WorkflowLocaleEn:
-			catalog = i18n.En
-		case apitypes.WorkflowLocaleZhCN:
-			catalog = i18n.ZhCN
-		}
-	}
-	if catalog == nil {
-		return nil
-	}
-	return &rpcapi.WorkflowI18nCatalog{
-		Name:        catalog.Name,
-		Description: catalog.Description,
-	}
 }
 
 func (s *Server) handleModelList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {

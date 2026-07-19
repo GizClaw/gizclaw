@@ -40,7 +40,6 @@ type adminService struct {
 	workspace.WorkspaceAdminService
 	workspace.WorkspaceIconAdminService
 	workflow.WorkflowAdminService
-	workflow.WorkflowIconAdminService
 	gameplay.CatalogAdminService
 	gameplay.GameDefIconAdminService
 	runtimeprofile.AdminService

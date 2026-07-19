@@ -289,11 +289,11 @@ message ServerGameResultListResponse {
   GameResultListResponse value = 1;
 }
 
-message ServerPetAdoptRequest {
+message RuntimeAdoptRequest {
   PetAdoptRequest value = 1;
 }
 
-message ServerPetAdoptResponse {
+message RuntimeAdoptResponse {
   PetAdoptResponse value = 1;
 }
 

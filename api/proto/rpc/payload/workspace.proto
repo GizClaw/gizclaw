@@ -238,6 +238,7 @@ message Workspace {
   bool system = 8;
   optional Icon icon = 9;
   optional string owner_public_key = 10;
+  optional ResourceSource workflow_source = 11;
 }
 
 // Field numbers match Workspace so existing create and put clients remain wire
@@ -247,6 +248,7 @@ message WorkspaceUpsert {
   optional WorkspaceParameters parameters = 4;
   string workflow_name = 6;
   optional ToolkitPolicy toolkit = 7;
+  optional ResourceSource workflow_source = 11;
 }
 
 message WorkspaceIconDownloadRequest {

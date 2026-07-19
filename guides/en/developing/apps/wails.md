@@ -27,7 +27,7 @@ Schema source of desktop bridge DTO; generated through `gen:sdk` of `sdk/js` aft
 
 `resources/local-server` is the versioned, read-only bootstrap source embedded in the Desktop
 binary. It contains Credentials, Tenants, Models, Workflows, PetDefs, a Firmware, a RuntimeProfile,
-and the Workflow and PetDef assets required by a new local Server. It contains no Workspace because
+and the PetDef assets required by a new local Server. It contains no Workspace because
 Workspaces remain client-created resources.
 
 After applying the catalog, synchronizing dynamic Volc Voices, and uploading owner-managed assets,

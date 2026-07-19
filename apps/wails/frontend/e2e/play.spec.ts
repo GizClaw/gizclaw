@@ -77,7 +77,6 @@ test.beforeEach(async ({ page }) => {
       warnings: [],
       workflows: [
         {
-          i18n: { description: "General-purpose chat workflow", name: "Flowcraft Chat Assistant" },
           name: "flowcraft-chat",
           spec: { driver: "flowcraft" },
         },
@@ -300,10 +299,10 @@ test("play view renders the full desktop play surface", async ({ page }) => {
 
   await page.getByRole("button", { name: /Workflows/ }).click();
   await expect(page.getByRole("heading", { name: "Workflows" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Alias" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Display name" })).toHaveCount(0);
   const workflowRow = page.getByRole("row").filter({ hasText: "flowcraft-chat" });
-  await expect(workflowRow).toContainText("Flowcraft Chat Assistant");
   await expect(workflowRow).toContainText("flowcraft");
-  await expect(workflowRow).toContainText("General-purpose chat workflow");
 });
 
 test("play workspace drawer sends direct RPC-backed actions", async ({ page }) => {

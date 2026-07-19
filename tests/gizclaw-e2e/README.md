@@ -350,13 +350,9 @@ downloadable firmware payload is the tar fixture at
 `testdata/assets/firmware/devkit-firmware-main.tar`.
 
 The non-synthetic Workflow files numbered `00` through `14`, `20` through `23`,
-and `30` form the shared localized catalog. Each keeps `metadata.name` as its
-stable resource ID and declares complete `en` and `zh-CN` display text. Matching
-PNG and PIXA files live under
-`testdata/assets/workflows/<metadata.name>/`. Both reset entrypoints apply all
-Workflow YAML first and then call `admin workflows upload-icon` for each format;
-fixture YAML never contains owner object names, and setup code never writes the
-ObjectStore directly. Re-running reset overwrites the same owner-generated slots.
+and `30` form the shared execution catalog. Workflow resources contain only a
+stable `metadata.name` and execution `spec`; icon and localized display text are
+owned by the client mapping for each RuntimeProfile alias.
 
 Provider-independent resource rows use schema-valid committed metadata, but the
 full e2e resource catalog also includes real provider rows. Required provider

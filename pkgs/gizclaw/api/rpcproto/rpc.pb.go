@@ -130,6 +130,9 @@ const (
 	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_GET      RpcMethod = 32
 	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_LIST                    RpcMethod = 33
 	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_GET                     RpcMethod = 34
+	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_CREATE                  RpcMethod = 35
+	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_PUT                     RpcMethod = 36
+	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_DELETE                  RpcMethod = 37
 	RpcMethod_RPC_METHOD_SERVER_MODEL_LIST                       RpcMethod = 38
 	RpcMethod_RPC_METHOD_SERVER_MODEL_GET                        RpcMethod = 39
 	RpcMethod_RPC_METHOD_SERVER_MODEL_CREATE                     RpcMethod = 40
@@ -172,7 +175,7 @@ const (
 	RpcMethod_RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD          RpcMethod = 79
 	RpcMethod_RPC_METHOD_SERVER_PET_LIST                         RpcMethod = 80
 	RpcMethod_RPC_METHOD_SERVER_PET_GET                          RpcMethod = 81
-	RpcMethod_RPC_METHOD_SERVER_PET_ADOPT                        RpcMethod = 82
+	RpcMethod_RPC_METHOD_RUNTIME_ADOPT                           RpcMethod = 82
 	RpcMethod_RPC_METHOD_SERVER_PET_PUT                          RpcMethod = 83
 	RpcMethod_RPC_METHOD_SERVER_PET_DELETE                       RpcMethod = 84
 	RpcMethod_RPC_METHOD_SERVER_PET_DRIVE                        RpcMethod = 85
@@ -196,7 +199,6 @@ const (
 	RpcMethod_RPC_METHOD_SERVER_ROUTE_RESOLVE                    RpcMethod = 103
 	RpcMethod_RPC_METHOD_SERVER_PET_ACTIONS_GET                  RpcMethod = 104
 	RpcMethod_RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD                RpcMethod = 105
-	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_ICON_DOWNLOAD           RpcMethod = 106
 	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD          RpcMethod = 107
 	RpcMethod_RPC_METHOD_SERVER_FRIEND_INFO_GET                  RpcMethod = 108
 	RpcMethod_RPC_METHOD_SERVER_REGISTER                         RpcMethod = 109
@@ -240,6 +242,9 @@ var (
 		32:  "RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_GET",
 		33:  "RPC_METHOD_SERVER_WORKFLOW_LIST",
 		34:  "RPC_METHOD_SERVER_WORKFLOW_GET",
+		35:  "RPC_METHOD_SERVER_WORKFLOW_CREATE",
+		36:  "RPC_METHOD_SERVER_WORKFLOW_PUT",
+		37:  "RPC_METHOD_SERVER_WORKFLOW_DELETE",
 		38:  "RPC_METHOD_SERVER_MODEL_LIST",
 		39:  "RPC_METHOD_SERVER_MODEL_GET",
 		40:  "RPC_METHOD_SERVER_MODEL_CREATE",
@@ -282,7 +287,7 @@ var (
 		79:  "RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD",
 		80:  "RPC_METHOD_SERVER_PET_LIST",
 		81:  "RPC_METHOD_SERVER_PET_GET",
-		82:  "RPC_METHOD_SERVER_PET_ADOPT",
+		82:  "RPC_METHOD_RUNTIME_ADOPT",
 		83:  "RPC_METHOD_SERVER_PET_PUT",
 		84:  "RPC_METHOD_SERVER_PET_DELETE",
 		85:  "RPC_METHOD_SERVER_PET_DRIVE",
@@ -306,7 +311,6 @@ var (
 		103: "RPC_METHOD_SERVER_ROUTE_RESOLVE",
 		104: "RPC_METHOD_SERVER_PET_ACTIONS_GET",
 		105: "RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD",
-		106: "RPC_METHOD_SERVER_WORKFLOW_ICON_DOWNLOAD",
 		107: "RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD",
 		108: "RPC_METHOD_SERVER_FRIEND_INFO_GET",
 		109: "RPC_METHOD_SERVER_REGISTER",
@@ -347,6 +351,9 @@ var (
 		"RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_GET":      32,
 		"RPC_METHOD_SERVER_WORKFLOW_LIST":                    33,
 		"RPC_METHOD_SERVER_WORKFLOW_GET":                     34,
+		"RPC_METHOD_SERVER_WORKFLOW_CREATE":                  35,
+		"RPC_METHOD_SERVER_WORKFLOW_PUT":                     36,
+		"RPC_METHOD_SERVER_WORKFLOW_DELETE":                  37,
 		"RPC_METHOD_SERVER_MODEL_LIST":                       38,
 		"RPC_METHOD_SERVER_MODEL_GET":                        39,
 		"RPC_METHOD_SERVER_MODEL_CREATE":                     40,
@@ -389,7 +396,7 @@ var (
 		"RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD":          79,
 		"RPC_METHOD_SERVER_PET_LIST":                         80,
 		"RPC_METHOD_SERVER_PET_GET":                          81,
-		"RPC_METHOD_SERVER_PET_ADOPT":                        82,
+		"RPC_METHOD_RUNTIME_ADOPT":                           82,
 		"RPC_METHOD_SERVER_PET_PUT":                          83,
 		"RPC_METHOD_SERVER_PET_DELETE":                       84,
 		"RPC_METHOD_SERVER_PET_DRIVE":                        85,
@@ -413,7 +420,6 @@ var (
 		"RPC_METHOD_SERVER_ROUTE_RESOLVE":                    103,
 		"RPC_METHOD_SERVER_PET_ACTIONS_GET":                  104,
 		"RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD":                105,
-		"RPC_METHOD_SERVER_WORKFLOW_ICON_DOWNLOAD":           106,
 		"RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD":          107,
 		"RPC_METHOD_SERVER_FRIEND_INFO_GET":                  108,
 		"RPC_METHOD_SERVER_REGISTER":                         109,
@@ -909,7 +915,7 @@ const file_rpc_proto_rawDesc = "" +
 	"\x1aRPC_ERROR_CODE_BAD_REQUEST\x10\x90\x03\x12\x1d\n" +
 	"\x18RPC_ERROR_CODE_FORBIDDEN\x10\x93\x03\x12\x1d\n" +
 	"\x18RPC_ERROR_CODE_NOT_FOUND\x10\x94\x03\x12\x1c\n" +
-	"\x17RPC_ERROR_CODE_CONFLICT\x10\x99\x03*\xc6c\n" +
+	"\x17RPC_ERROR_CODE_CONFLICT\x10\x99\x03*\xc1d\n" +
 	"\tRpcMethod\x12\x1a\n" +
 	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12B\n" +
 	"\x13RPC_METHOD_ALL_PING\x10\x01\x1a)\xc2\xf3\x18%\n" +
@@ -980,7 +986,13 @@ const file_rpc_proto_rawDesc = "" +
 	"\x1fRPC_METHOD_SERVER_WORKFLOW_LIST\x10!\x1aE\xc2\xf3\x18A\n" +
 	"\x14server.workflow.list\x12\x13WorkflowListRequest\x1a\x14WorkflowListResponse\x12f\n" +
 	"\x1eRPC_METHOD_SERVER_WORKFLOW_GET\x10\"\x1aB\xc2\xf3\x18>\n" +
-	"\x13server.workflow.get\x12\x12WorkflowGetRequest\x1a\x13WorkflowGetResponse\x12^\n" +
+	"\x13server.workflow.get\x12\x12WorkflowGetRequest\x1a\x13WorkflowGetResponse\x12r\n" +
+	"!RPC_METHOD_SERVER_WORKFLOW_CREATE\x10#\x1aK\xc2\xf3\x18G\n" +
+	"\x16server.workflow.create\x12\x15WorkflowCreateRequest\x1a\x16WorkflowCreateResponse\x12f\n" +
+	"\x1eRPC_METHOD_SERVER_WORKFLOW_PUT\x10$\x1aB\xc2\xf3\x18>\n" +
+	"\x13server.workflow.put\x12\x12WorkflowPutRequest\x1a\x13WorkflowPutResponse\x12r\n" +
+	"!RPC_METHOD_SERVER_WORKFLOW_DELETE\x10%\x1aK\xc2\xf3\x18G\n" +
+	"\x16server.workflow.delete\x12\x15WorkflowDeleteRequest\x1a\x16WorkflowDeleteResponse\x12^\n" +
 	"\x1cRPC_METHOD_SERVER_MODEL_LIST\x10&\x1a<\xc2\xf3\x188\n" +
 	"\x11server.model.list\x12\x10ModelListRequest\x1a\x11ModelListResponse\x12Z\n" +
 	"\x1bRPC_METHOD_SERVER_MODEL_GET\x10'\x1a9\xc2\xf3\x185\n" +
@@ -1064,9 +1076,9 @@ const file_rpc_proto_rawDesc = "" +
 	"\x1aRPC_METHOD_SERVER_PET_LIST\x10P\x1aB\xc2\xf3\x18>\n" +
 	"\x0fserver.pet.list\x12\x14ServerPetListRequest\x1a\x15ServerPetListResponse\x12^\n" +
 	"\x19RPC_METHOD_SERVER_PET_GET\x10Q\x1a?\xc2\xf3\x18;\n" +
-	"\x0eserver.pet.get\x12\x13ServerPetGetRequest\x1a\x14ServerPetGetResponse\x12f\n" +
-	"\x1bRPC_METHOD_SERVER_PET_ADOPT\x10R\x1aE\xc2\xf3\x18A\n" +
-	"\x10server.pet.adopt\x12\x15ServerPetAdoptRequest\x1a\x16ServerPetAdoptResponse\x12^\n" +
+	"\x0eserver.pet.get\x12\x13ServerPetGetRequest\x1a\x14ServerPetGetResponse\x12\\\n" +
+	"\x18RPC_METHOD_RUNTIME_ADOPT\x10R\x1a>\xc2\xf3\x18:\n" +
+	"\rruntime.adopt\x12\x13RuntimeAdoptRequest\x1a\x14RuntimeAdoptResponse\x12^\n" +
 	"\x19RPC_METHOD_SERVER_PET_PUT\x10S\x1a?\xc2\xf3\x18;\n" +
 	"\x0eserver.pet.put\x12\x13ServerPetPutRequest\x1a\x14ServerPetPutResponse\x12j\n" +
 	"\x1cRPC_METHOD_SERVER_PET_DELETE\x10T\x1aH\xc2\xf3\x18D\n" +
@@ -1112,15 +1124,13 @@ const file_rpc_proto_rawDesc = "" +
 	"!RPC_METHOD_SERVER_PET_ACTIONS_GET\x10h\x1aU\xc2\xf3\x18Q\n" +
 	"\x16server.pet.actions.get\x12\x1aServerPetActionsGetRequest\x1a\x1bServerPetActionsGetResponse\x12\x84\x01\n" +
 	"#RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD\x10i\x1a[\xc2\xf3\x18W\n" +
-	"\x18server.pet.pixa.download\x12\x1cServerPetPixaDownloadRequest\x1a\x1dServerPetPixaDownloadResponse\x12\x8c\x01\n" +
-	"(RPC_METHOD_SERVER_WORKFLOW_ICON_DOWNLOAD\x10j\x1a^\xc2\xf3\x18Z\n" +
-	"\x1dserver.workflow.icon.download\x12\x1bWorkflowIconDownloadRequest\x1a\x1cWorkflowIconDownloadResponse\x12\x90\x01\n" +
+	"\x18server.pet.pixa.download\x12\x1cServerPetPixaDownloadRequest\x1a\x1dServerPetPixaDownloadResponse\x12\x90\x01\n" +
 	")RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD\x10k\x1aa\xc2\xf3\x18]\n" +
 	"\x1eserver.workspace.icon.download\x12\x1cWorkspaceIconDownloadRequest\x1a\x1dWorkspaceIconDownloadResponse\x12p\n" +
 	"!RPC_METHOD_SERVER_FRIEND_INFO_GET\x10l\x1aI\xc2\xf3\x18E\n" +
 	"\x16server.friend.info.get\x12\x14FriendInfoGetRequest\x1a\x15FriendInfoGetResponse\x12d\n" +
 	"\x1aRPC_METHOD_SERVER_REGISTER\x10m\x1aD\xc2\xf3\x18@\n" +
-	"\x0fserver.register\x12\x15ServerRegisterRequest\x1a\x16ServerRegisterResponse\"\x04\b#\x10%\"\x04\bM\x10M*!RPC_METHOD_SERVER_WORKFLOW_CREATE*\x1eRPC_METHOD_SERVER_WORKFLOW_PUT*!RPC_METHOD_SERVER_WORKFLOW_DELETE:d\n" +
+	"\x0fserver.register\x12\x15ServerRegisterRequest\x1a\x16ServerRegisterResponse\"\x04\bM\x10M\"\x04\bj\x10j*(RPC_METHOD_SERVER_WORKFLOW_ICON_DOWNLOAD:d\n" +
 	"\n" +
 	"rpc_method\x12!.google.protobuf.EnumValueOptions\x18\xb8\x8e\x03 \x01(\v2 .gizclaw.rpc.v1.RpcMethodOptionsR\trpcMethodB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 

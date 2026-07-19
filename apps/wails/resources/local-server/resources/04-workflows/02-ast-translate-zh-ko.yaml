@@ -2,10 +2,6 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata: {name: ast-translate-zh-ko}
-i18n:
-  default_locale: en
-  en: {name: Chinese/Korean Interpreter, description: Translate spoken Chinese and Korean in real time.}
-  zh-CN: {name: 中韩语音翻译, description: 实时翻译中文和韩语语音。}
 spec:
   driver: ast-translate
   ast_translate: {translation_model: volc-ast-translate, mode: s2s, voice: {speaker_id: zh_female_vv_uranus_bigtts}, resource_id: volc.service_type.10053, denoise: false}

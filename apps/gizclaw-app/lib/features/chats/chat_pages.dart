@@ -739,25 +739,12 @@ class _WorkflowIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fallback = GizIconTile(
+    return GizIconTile(
       icon: workflow.icon,
       backgroundColor: workflow.bannerColor,
       foregroundColor: GizColors.surface,
       size: size,
       iconSize: size * 0.44,
-    );
-    final bytes = workflow.iconPng;
-    if (bytes == null || bytes.isEmpty) return fallback;
-    return GizSquircle(
-      key: ValueKey('workflow-icon-${workflow.name}'),
-      borderRadius: GizCorners.icon(size),
-      child: Image.memory(
-        bytes,
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => fallback,
-      ),
     );
   }
 }

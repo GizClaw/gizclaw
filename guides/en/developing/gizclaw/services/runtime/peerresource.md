@@ -14,12 +14,12 @@ flowchart LR
     Effective --> RPC["list / get / use"]
 ```
 
-RuntimeProfile map values are concrete resource names. Lists add profile resources in alias order, deduplicate them, and then add owned resources. Workspace lists also add Friend, FriendGroup, and Pet domain Workspaces. A mapped resource returning 404 is skipped instead of failing the list.
+RuntimeProfile map values are concrete resource names. Effective lists add profile resources in alias order, deduplicate them, and then add owned resources. Workspace lists also add Friend, FriendGroup, and Pet domain Workspaces. A mapped resource returning 404 is skipped instead of failing the list.
 
 Get and use do not check ownership for RuntimeProfile resources. Update and delete require ownership or the relevant system-Workspace domain rule. An unregistered connection has no profile snapshot but may call the same RPC and access owned or domain-visible resources.
 
 ## Creation and ownership
 
-When a Peer creates Workspace, Model, Credential, or Tool through public CRUD, the domain service takes `owner_public_key` from context and writes an owner KV index. Resource and owner-index records use an atomic batch. A later put cannot transfer ownership.
+When a Peer creates Workspace, Workflow, Model, Credential, or Tool through public CRUD, the domain service takes `owner_public_key` from context and writes an owner KV index. Resource and owner-index records use an atomic batch. A later put cannot transfer ownership.
 
-The public Workflow surface is list/get only. Admin can still manage every resource. RuntimeProfile aliases exist only inside the profile allow list and Gameplay references; normal RPC parameters always use concrete resource names.
+Workflow list/get explicitly select `source=runtime` or `source=owned`. Runtime Workflow IDs are RuntimeProfile aliases and are read-only. Owned Workflow IDs are concrete, globally unique names and support public create/put/delete by their owner. Workspace create/put carries the same source so its Workflow reference resolves in the correct namespace. Admin can still manage every resource.

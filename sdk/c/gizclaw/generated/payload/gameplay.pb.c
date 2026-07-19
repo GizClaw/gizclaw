@@ -144,10 +144,10 @@ PB_BIND(gizclaw_rpc_v1_ServerGameResultListRequest, gizclaw_rpc_v1_ServerGameRes
 PB_BIND(gizclaw_rpc_v1_ServerGameResultListResponse, gizclaw_rpc_v1_ServerGameResultListResponse, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ServerPetAdoptRequest, gizclaw_rpc_v1_ServerPetAdoptRequest, AUTO)
+PB_BIND(gizclaw_rpc_v1_RuntimeAdoptRequest, gizclaw_rpc_v1_RuntimeAdoptRequest, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ServerPetAdoptResponse, gizclaw_rpc_v1_ServerPetAdoptResponse, 2)
+PB_BIND(gizclaw_rpc_v1_RuntimeAdoptResponse, gizclaw_rpc_v1_RuntimeAdoptResponse, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_ServerPetDeleteRequest, gizclaw_rpc_v1_ServerPetDeleteRequest, AUTO)

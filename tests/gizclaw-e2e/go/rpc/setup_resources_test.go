@@ -52,8 +52,8 @@ func TestSharedSetupRPCResourcesPagination(t *testing.T) {
 	env := newSharedSetupRPCHarness(t)
 
 	workflowNames := collectWorkflowNames(t, env.ctx, env.peer, 25)
-	requireName(t, workflowNames, "flowcraft-support")
-	requireName(t, workflowNames, sharedChatroomWorkflow)
+	requireName(t, workflowNames, "shared")
+	requireName(t, workflowNames, "chatroom")
 
 	workspaceNames := collectWorkspaceNames(t, env.ctx, env.peer, 25)
 	requirePrefixCount(t, workspaceNames, "social-", 2)
@@ -172,7 +172,7 @@ func collectWorkflowNames(t *testing.T, ctx context.Context, peer *gizcli.Client
 	names := map[string]bool{}
 	var cursor *string
 	for page := 0; page < 100; page++ {
-		list, err := peer.ListWorkflows(ctx, "shared.workflow.list", rpcapi.WorkflowListRequest{Cursor: cursor, Limit: &limit})
+		list, err := peer.ListWorkflows(ctx, "shared.workflow.list", rpcapi.WorkflowListRequest{Source: rpcapi.ResourceSourceRuntime, Cursor: cursor, Limit: &limit})
 		if err != nil {
 			t.Fatalf("workflow.list page %d: %v", page, err)
 		}

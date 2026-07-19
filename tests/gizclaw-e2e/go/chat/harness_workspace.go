@@ -358,7 +358,8 @@ func ensureWorkspace(ctx context.Context, client runControlClient, cfg config) (
 	workspaceDisplayName := cfg.Workspace
 
 	workflow, err := client.GetWorkflow(ctx, "workspacetest.workflow.get", rpcapi.WorkflowGetRequest{
-		Name: cfg.Workflow.Name,
+		Name:   cfg.Workflow.Name,
+		Source: rpcapi.ResourceSourceRuntime,
 	})
 	if err != nil {
 		if isRPCNotFound(err) {
@@ -521,7 +522,11 @@ func workspaceDocument(cfg config) (rpcapi.WorkspaceCreateRequest, error) {
 	return rpcapi.WorkspaceCreateRequest{
 		Name:         cfg.Workspace,
 		WorkflowName: cfg.Workflow.Name,
-		Parameters:   &parameters,
+		WorkflowSource: func() *rpcapi.ResourceSource {
+			value := rpcapi.ResourceSourceRuntime
+			return &value
+		}(),
+		Parameters: &parameters,
 	}, nil
 }
 

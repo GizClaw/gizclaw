@@ -26,11 +26,10 @@
           "spec": {
             "$ref": "./workflow_spec.json#/components/schemas/WorkflowSpec"
           },
-          "i18n": {
-            "$ref": "./workflow_i18n.json#/components/schemas/WorkflowI18n"
-          },
-          "icon": {
-            "$ref": "./icon.json#/components/schemas/Icon"
+          "owner_public_key": {
+            "type": "string",
+            "readOnly": true,
+            "description": "Immutable Public Key of the Client that created this Workflow. Admin-created Workflows omit it."
           }
         }
       }

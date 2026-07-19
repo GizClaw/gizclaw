@@ -434,55 +434,6 @@ func UploadPetDefPixa(ctx context.Context, c *gizcli.Client, name string, body i
 	return apitypes.PetDef{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
 }
 
-func UploadWorkflowIcon(ctx context.Context, c *gizcli.Client, name, format string, body io.Reader) (apitypes.Workflow, error) {
-	api, err := c.ServerAdminClient()
-	if err != nil {
-		return apitypes.Workflow{}, err
-	}
-	contentType := "application/octet-stream"
-	if format == "png" {
-		contentType = "image/png"
-	}
-	resp, err := api.UploadWorkflowIconWithBodyWithResponse(ctx, name, adminhttp.UploadWorkflowIconParamsFormat(format), contentType, body)
-	if err != nil {
-		return apitypes.Workflow{}, err
-	}
-	if resp.JSON200 != nil {
-		return *resp.JSON200, nil
-	}
-	return apitypes.Workflow{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON404, resp.JSON413, resp.JSON500)
-}
-
-func DownloadWorkflowIcon(ctx context.Context, c *gizcli.Client, name, format string) ([]byte, error) {
-	api, err := c.ServerAdminClient()
-	if err != nil {
-		return nil, err
-	}
-	resp, err := api.DownloadWorkflowIconWithResponse(ctx, name, adminhttp.DownloadWorkflowIconParamsFormat(format))
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode() == 200 {
-		return resp.Body, nil
-	}
-	return nil, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
-}
-
-func DeleteWorkflowIcon(ctx context.Context, c *gizcli.Client, name, format string) (apitypes.Workflow, error) {
-	api, err := c.ServerAdminClient()
-	if err != nil {
-		return apitypes.Workflow{}, err
-	}
-	resp, err := api.DeleteWorkflowIconWithResponse(ctx, name, adminhttp.DeleteWorkflowIconParamsFormat(format))
-	if err != nil {
-		return apitypes.Workflow{}, err
-	}
-	if resp.JSON200 != nil {
-		return *resp.JSON200, nil
-	}
-	return apitypes.Workflow{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
-}
-
 func DownloadFirmwareArtifact(ctx context.Context, c *gizcli.Client, name, channel string) ([]byte, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {

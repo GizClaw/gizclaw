@@ -67,7 +67,7 @@ The need to generate Go or JavaScript symbols does not constitute a reason for S
 | Model | `model*.json` | Model kind, capabilities, provider, source, spec, and provider data |
 | Voice | `voice*.json` | Voice provider, source, spec, and provider data |
 | Tool | `tool*.json`, `toolkit_policy.json` | Tool executor, trigger, source, spec, policy, and JSON schema values |
-| Workflow and Workspace | `workflow*.json`, `workspace*.json` | Workflow identity, i18n, locale, driver, variants, and Workspace values |
+| Workflow and Workspace | `workflow*.json`, `workspace*.json` | Workflow identity, owner, driver, variants, and Workspace source-qualified values |
 | Provider tenant | `*_tenant*.json` | Provider-specific tenant, spec, enum, and shared values |
 
 The glob entries group existing files by ownership; they are not literal file names to create. Before changing a schema, select an owner file that actually exists under `api/http/shared/`. Add a file only when no existing owner applies and the schema meets the Shared rules.

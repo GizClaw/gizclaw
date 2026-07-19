@@ -362,11 +362,6 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 				return nil, fmt.Errorf("server: workspace assets store: %w", err)
 			}
 		}
-		if storeExists(cfg, defaultWorkflowAssetsStore) {
-			if gizServer.WorkflowAssets, err = ss.ObjectStore(defaultWorkflowAssetsStore); err != nil {
-				return nil, fmt.Errorf("server: workflow assets store: %w", err)
-			}
-		}
 		if storeExists(cfg, defaultGameplayDBStore) {
 			if gizServer.GameplayDB, err = ss.SQL(defaultGameplayDBStore); err != nil {
 				return nil, fmt.Errorf("server: gameplay db store: %w", err)

@@ -709,7 +709,7 @@ test("bootstrap environment supports direct dotenv text editing", async ({
   ).toHaveValue("text-editor-secret");
 });
 
-test("Remote creation asks only for an access point and adds Servers later", async ({
+test("Remote creation asks for registration context and adds Servers later", async ({
   page,
 }) => {
   await page.goto("/");
@@ -720,6 +720,7 @@ test("Remote creation asks only for an access point and adds Servers later", asy
     .click();
   await expect(page.getByLabel("Server ID")).toHaveCount(0);
   await page.getByLabel("Access Point").fill("ap.example.com:9820");
+  await page.getByLabel("Registration Token").fill("remote-registration-token");
   await page.getByRole("button", { name: "Create Pod" }).click();
   const detail = page.getByRole("dialog");
   await expect(

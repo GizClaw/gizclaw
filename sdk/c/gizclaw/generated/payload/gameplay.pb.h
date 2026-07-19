@@ -286,10 +286,10 @@ typedef struct _gizclaw_rpc_v1_ServerGameResultListResponse {
     gizclaw_rpc_v1_GameResultListResponse value;
 } gizclaw_rpc_v1_ServerGameResultListResponse;
 
-typedef struct _gizclaw_rpc_v1_ServerPetAdoptRequest {
+typedef struct _gizclaw_rpc_v1_RuntimeAdoptRequest {
     bool has_value;
     gizclaw_rpc_v1_PetAdoptRequest value;
-} gizclaw_rpc_v1_ServerPetAdoptRequest;
+} gizclaw_rpc_v1_RuntimeAdoptRequest;
 
 typedef struct _gizclaw_rpc_v1_ServerPetDeleteRequest {
     bool has_value;
@@ -456,10 +456,10 @@ typedef struct _gizclaw_rpc_v1_PetDriveResponse {
     pb_callback_t transactions;
 } gizclaw_rpc_v1_PetDriveResponse;
 
-typedef struct _gizclaw_rpc_v1_ServerPetAdoptResponse {
+typedef struct _gizclaw_rpc_v1_RuntimeAdoptResponse {
     bool has_value;
     gizclaw_rpc_v1_PetAdoptResponse value;
-} gizclaw_rpc_v1_ServerPetAdoptResponse;
+} gizclaw_rpc_v1_RuntimeAdoptResponse;
 
 typedef struct _gizclaw_rpc_v1_ServerPetDeleteResponse {
     bool has_value;
@@ -538,8 +538,8 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerGameResultGetResponse_init_default {false, gizclaw_rpc_v1_GameResult_init_default}
 #define gizclaw_rpc_v1_ServerGameResultListRequest_init_default {false, gizclaw_rpc_v1_GameplayListRequest_init_default}
 #define gizclaw_rpc_v1_ServerGameResultListResponse_init_default {false, gizclaw_rpc_v1_GameResultListResponse_init_default}
-#define gizclaw_rpc_v1_ServerPetAdoptRequest_init_default {false, gizclaw_rpc_v1_PetAdoptRequest_init_default}
-#define gizclaw_rpc_v1_ServerPetAdoptResponse_init_default {false, gizclaw_rpc_v1_PetAdoptResponse_init_default}
+#define gizclaw_rpc_v1_RuntimeAdoptRequest_init_default {false, gizclaw_rpc_v1_PetAdoptRequest_init_default}
+#define gizclaw_rpc_v1_RuntimeAdoptResponse_init_default {false, gizclaw_rpc_v1_PetAdoptResponse_init_default}
 #define gizclaw_rpc_v1_ServerPetDeleteRequest_init_default {false, gizclaw_rpc_v1_PetDeleteRequest_init_default}
 #define gizclaw_rpc_v1_ServerPetDeleteResponse_init_default {false, gizclaw_rpc_v1_Pet_init_default}
 #define gizclaw_rpc_v1_ServerPetDriveRequest_init_default {false, gizclaw_rpc_v1_PetDriveRequest_init_default}
@@ -614,8 +614,8 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerGameResultGetResponse_init_zero {false, gizclaw_rpc_v1_GameResult_init_zero}
 #define gizclaw_rpc_v1_ServerGameResultListRequest_init_zero {false, gizclaw_rpc_v1_GameplayListRequest_init_zero}
 #define gizclaw_rpc_v1_ServerGameResultListResponse_init_zero {false, gizclaw_rpc_v1_GameResultListResponse_init_zero}
-#define gizclaw_rpc_v1_ServerPetAdoptRequest_init_zero {false, gizclaw_rpc_v1_PetAdoptRequest_init_zero}
-#define gizclaw_rpc_v1_ServerPetAdoptResponse_init_zero {false, gizclaw_rpc_v1_PetAdoptResponse_init_zero}
+#define gizclaw_rpc_v1_RuntimeAdoptRequest_init_zero {false, gizclaw_rpc_v1_PetAdoptRequest_init_zero}
+#define gizclaw_rpc_v1_RuntimeAdoptResponse_init_zero {false, gizclaw_rpc_v1_PetAdoptResponse_init_zero}
 #define gizclaw_rpc_v1_ServerPetDeleteRequest_init_zero {false, gizclaw_rpc_v1_PetDeleteRequest_init_zero}
 #define gizclaw_rpc_v1_ServerPetDeleteResponse_init_zero {false, gizclaw_rpc_v1_Pet_init_zero}
 #define gizclaw_rpc_v1_ServerPetDriveRequest_init_zero {false, gizclaw_rpc_v1_PetDriveRequest_init_zero}
@@ -774,7 +774,7 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerGameResultGetResponse_value_tag 1
 #define gizclaw_rpc_v1_ServerGameResultListRequest_value_tag 1
 #define gizclaw_rpc_v1_ServerGameResultListResponse_value_tag 1
-#define gizclaw_rpc_v1_ServerPetAdoptRequest_value_tag 1
+#define gizclaw_rpc_v1_RuntimeAdoptRequest_value_tag 1
 #define gizclaw_rpc_v1_ServerPetDeleteRequest_value_tag 1
 #define gizclaw_rpc_v1_ServerPetDriveRequest_value_tag 1
 #define gizclaw_rpc_v1_ServerPetGetRequest_value_tag 1
@@ -825,7 +825,7 @@ extern "C" {
 #define gizclaw_rpc_v1_PetDriveResponse_points_tag 4
 #define gizclaw_rpc_v1_PetDriveResponse_reward_grants_tag 5
 #define gizclaw_rpc_v1_PetDriveResponse_transactions_tag 6
-#define gizclaw_rpc_v1_ServerPetAdoptResponse_value_tag 1
+#define gizclaw_rpc_v1_RuntimeAdoptResponse_value_tag 1
 #define gizclaw_rpc_v1_ServerPetDeleteResponse_value_tag 1
 #define gizclaw_rpc_v1_ServerPetDriveResponse_value_tag 1
 #define gizclaw_rpc_v1_ServerPetGetResponse_value_tag 1
@@ -1212,17 +1212,17 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
 #define gizclaw_rpc_v1_ServerGameResultListResponse_DEFAULT NULL
 #define gizclaw_rpc_v1_ServerGameResultListResponse_value_MSGTYPE gizclaw_rpc_v1_GameResultListResponse
 
-#define gizclaw_rpc_v1_ServerPetAdoptRequest_FIELDLIST(X, a) \
+#define gizclaw_rpc_v1_RuntimeAdoptRequest_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
-#define gizclaw_rpc_v1_ServerPetAdoptRequest_CALLBACK NULL
-#define gizclaw_rpc_v1_ServerPetAdoptRequest_DEFAULT NULL
-#define gizclaw_rpc_v1_ServerPetAdoptRequest_value_MSGTYPE gizclaw_rpc_v1_PetAdoptRequest
+#define gizclaw_rpc_v1_RuntimeAdoptRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_RuntimeAdoptRequest_DEFAULT NULL
+#define gizclaw_rpc_v1_RuntimeAdoptRequest_value_MSGTYPE gizclaw_rpc_v1_PetAdoptRequest
 
-#define gizclaw_rpc_v1_ServerPetAdoptResponse_FIELDLIST(X, a) \
+#define gizclaw_rpc_v1_RuntimeAdoptResponse_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
-#define gizclaw_rpc_v1_ServerPetAdoptResponse_CALLBACK NULL
-#define gizclaw_rpc_v1_ServerPetAdoptResponse_DEFAULT NULL
-#define gizclaw_rpc_v1_ServerPetAdoptResponse_value_MSGTYPE gizclaw_rpc_v1_PetAdoptResponse
+#define gizclaw_rpc_v1_RuntimeAdoptResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_RuntimeAdoptResponse_DEFAULT NULL
+#define gizclaw_rpc_v1_RuntimeAdoptResponse_value_MSGTYPE gizclaw_rpc_v1_PetAdoptResponse
 
 #define gizclaw_rpc_v1_ServerPetDeleteRequest_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
@@ -1437,8 +1437,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerGameResultGetRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerGameResultGetResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerGameResultListRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerGameResultListResponse_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPetAdoptRequest_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPetAdoptResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_RuntimeAdoptRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_RuntimeAdoptResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPetDeleteRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPetDeleteResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPetDriveRequest_msg;
@@ -1515,8 +1515,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_PetProgression_ValueEntry_msg;
 #define gizclaw_rpc_v1_ServerGameResultGetResponse_fields &gizclaw_rpc_v1_ServerGameResultGetResponse_msg
 #define gizclaw_rpc_v1_ServerGameResultListRequest_fields &gizclaw_rpc_v1_ServerGameResultListRequest_msg
 #define gizclaw_rpc_v1_ServerGameResultListResponse_fields &gizclaw_rpc_v1_ServerGameResultListResponse_msg
-#define gizclaw_rpc_v1_ServerPetAdoptRequest_fields &gizclaw_rpc_v1_ServerPetAdoptRequest_msg
-#define gizclaw_rpc_v1_ServerPetAdoptResponse_fields &gizclaw_rpc_v1_ServerPetAdoptResponse_msg
+#define gizclaw_rpc_v1_RuntimeAdoptRequest_fields &gizclaw_rpc_v1_RuntimeAdoptRequest_msg
+#define gizclaw_rpc_v1_RuntimeAdoptResponse_fields &gizclaw_rpc_v1_RuntimeAdoptResponse_msg
 #define gizclaw_rpc_v1_ServerPetDeleteRequest_fields &gizclaw_rpc_v1_ServerPetDeleteRequest_msg
 #define gizclaw_rpc_v1_ServerPetDeleteResponse_fields &gizclaw_rpc_v1_ServerPetDeleteResponse_msg
 #define gizclaw_rpc_v1_ServerPetDriveRequest_fields &gizclaw_rpc_v1_ServerPetDriveRequest_msg
@@ -1592,8 +1592,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_PetProgression_ValueEntry_msg;
 /* gizclaw_rpc_v1_ServerGameResultGetResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerGameResultListRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerGameResultListResponse_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ServerPetAdoptRequest_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ServerPetAdoptResponse_size depends on runtime parameters */
+/* gizclaw_rpc_v1_RuntimeAdoptRequest_size depends on runtime parameters */
+/* gizclaw_rpc_v1_RuntimeAdoptResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerPetDeleteRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerPetDeleteResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerPetDriveRequest_size depends on runtime parameters */

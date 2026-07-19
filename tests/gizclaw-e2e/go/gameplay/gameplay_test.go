@@ -14,7 +14,7 @@ import (
 func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 	env := newIsolatedGameplayHarness(t)
 
-	adopted, err := env.peer.AdoptPet(env.ctx, "gameplay.pet.adopt", rpcapi.ServerPetAdoptRequest{
+	adopted, err := env.peer.AdoptPet(env.ctx, "gameplay.pet.adopt", rpcapi.RuntimeAdoptRequest{
 		DisplayName: testStringPtr("E2E Pet"),
 	})
 	if err != nil {
@@ -125,7 +125,7 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 func TestGameplayPetWorkspaceAudioHistory(t *testing.T) {
 	env := newSetupGameplayHarness(t, "client-gameplay-chat")
 
-	adopted, err := env.peer.AdoptPet(env.ctx, "gameplay.chat.pet.adopt", rpcapi.ServerPetAdoptRequest{
+	adopted, err := env.peer.AdoptPet(env.ctx, "gameplay.chat.pet.adopt", rpcapi.RuntimeAdoptRequest{
 		DisplayName: testStringPtr("Chat Pet"),
 	})
 	if err != nil {

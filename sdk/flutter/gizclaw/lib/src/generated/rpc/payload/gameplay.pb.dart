@@ -3521,8 +3521,8 @@ class ServerGameResultListResponse extends $pb.GeneratedMessage {
   GameResultListResponse ensureValue() => $_ensure(0);
 }
 
-class ServerPetAdoptRequest extends $pb.GeneratedMessage {
-  factory ServerPetAdoptRequest({
+class RuntimeAdoptRequest extends $pb.GeneratedMessage {
+  factory RuntimeAdoptRequest({
     PetAdoptRequest? value,
   }) {
     final result = create();
@@ -3530,17 +3530,17 @@ class ServerPetAdoptRequest extends $pb.GeneratedMessage {
     return result;
   }
 
-  ServerPetAdoptRequest._();
+  RuntimeAdoptRequest._();
 
-  factory ServerPetAdoptRequest.fromBuffer($core.List<$core.int> data,
+  factory RuntimeAdoptRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory ServerPetAdoptRequest.fromJson($core.String json,
+  factory RuntimeAdoptRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ServerPetAdoptRequest',
+      _omitMessageNames ? '' : 'RuntimeAdoptRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOM<PetAdoptRequest>(1, _omitFieldNames ? '' : 'value',
@@ -3548,24 +3548,23 @@ class ServerPetAdoptRequest extends $pb.GeneratedMessage {
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ServerPetAdoptRequest clone() => deepCopy();
+  RuntimeAdoptRequest clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ServerPetAdoptRequest copyWith(
-          void Function(ServerPetAdoptRequest) updates) =>
-      super.copyWith((message) => updates(message as ServerPetAdoptRequest))
-          as ServerPetAdoptRequest;
+  RuntimeAdoptRequest copyWith(void Function(RuntimeAdoptRequest) updates) =>
+      super.copyWith((message) => updates(message as RuntimeAdoptRequest))
+          as RuntimeAdoptRequest;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static ServerPetAdoptRequest create() => ServerPetAdoptRequest._();
+  static RuntimeAdoptRequest create() => RuntimeAdoptRequest._();
   @$core.override
-  ServerPetAdoptRequest createEmptyInstance() => create();
+  RuntimeAdoptRequest createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static ServerPetAdoptRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ServerPetAdoptRequest>(create);
-  static ServerPetAdoptRequest? _defaultInstance;
+  static RuntimeAdoptRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RuntimeAdoptRequest>(create);
+  static RuntimeAdoptRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
   PetAdoptRequest get value => $_getN(0);
@@ -3579,8 +3578,8 @@ class ServerPetAdoptRequest extends $pb.GeneratedMessage {
   PetAdoptRequest ensureValue() => $_ensure(0);
 }
 
-class ServerPetAdoptResponse extends $pb.GeneratedMessage {
-  factory ServerPetAdoptResponse({
+class RuntimeAdoptResponse extends $pb.GeneratedMessage {
+  factory RuntimeAdoptResponse({
     PetAdoptResponse? value,
   }) {
     final result = create();
@@ -3588,17 +3587,17 @@ class ServerPetAdoptResponse extends $pb.GeneratedMessage {
     return result;
   }
 
-  ServerPetAdoptResponse._();
+  RuntimeAdoptResponse._();
 
-  factory ServerPetAdoptResponse.fromBuffer($core.List<$core.int> data,
+  factory RuntimeAdoptResponse.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory ServerPetAdoptResponse.fromJson($core.String json,
+  factory RuntimeAdoptResponse.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ServerPetAdoptResponse',
+      _omitMessageNames ? '' : 'RuntimeAdoptResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOM<PetAdoptResponse>(1, _omitFieldNames ? '' : 'value',
@@ -3606,24 +3605,23 @@ class ServerPetAdoptResponse extends $pb.GeneratedMessage {
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ServerPetAdoptResponse clone() => deepCopy();
+  RuntimeAdoptResponse clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ServerPetAdoptResponse copyWith(
-          void Function(ServerPetAdoptResponse) updates) =>
-      super.copyWith((message) => updates(message as ServerPetAdoptResponse))
-          as ServerPetAdoptResponse;
+  RuntimeAdoptResponse copyWith(void Function(RuntimeAdoptResponse) updates) =>
+      super.copyWith((message) => updates(message as RuntimeAdoptResponse))
+          as RuntimeAdoptResponse;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static ServerPetAdoptResponse create() => ServerPetAdoptResponse._();
+  static RuntimeAdoptResponse create() => RuntimeAdoptResponse._();
   @$core.override
-  ServerPetAdoptResponse createEmptyInstance() => create();
+  RuntimeAdoptResponse createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static ServerPetAdoptResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ServerPetAdoptResponse>(create);
-  static ServerPetAdoptResponse? _defaultInstance;
+  static RuntimeAdoptResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RuntimeAdoptResponse>(create);
+  static RuntimeAdoptResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
   PetAdoptResponse get value => $_getN(0);

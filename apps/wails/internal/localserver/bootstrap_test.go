@@ -11,7 +11,7 @@ import (
 	"testing/fstest"
 )
 
-func TestBootstrapperAppliesResourcesSyncsVoicesUploadsAssetsAndCreatesRegistrationToken(t *testing.T) {
+func TestBootstrapperAppliesResourcesSyncsVoicesUploadsPetAssetsAndCreatesRegistrationToken(t *testing.T) {
 	podDir := t.TempDir()
 	contextDir := filepath.Join(podDir, "admin_context", "local")
 	if err := os.MkdirAll(contextDir, 0o700); err != nil {
@@ -25,8 +25,6 @@ func TestBootstrapperAppliesResourcesSyncsVoicesUploadsAssetsAndCreatesRegistrat
 		FS: fstest.MapFS{
 			"resources/00-credentials/a.yaml": {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: Credential\nmetadata:\n  name: a\n")},
 			"resources/00-credentials/b.yaml": {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: Credential\nmetadata:\n  name: b\n")},
-			"assets/workflows/a.png":          {Data: []byte("png")},
-			"assets/workflows/a.pixa":         {Data: []byte("pixa")},
 			"assets/pets/a.pixa":              {Data: []byte("pet")},
 		},
 		Resources: []ResourceEntry{
@@ -37,9 +35,8 @@ func TestBootstrapperAppliesResourcesSyncsVoicesUploadsAssetsAndCreatesRegistrat
 			{Name: "BOOTSTRAP_SAVED"},
 			{Name: "BOOTSTRAP_DEFAULT", Default: &defaultValue},
 		},
-		VoiceSyncs:    []VoiceSync{{Provider: "volc", Tenant: "volc-main"}},
-		WorkflowIcons: []WorkflowIcon{{Workflow: "workflow-a", PNG: "assets/workflows/a.png", PIXA: "assets/workflows/a.pixa"}},
-		PetDefPIXAs:   []PetDefPIXA{{PetDef: "pet-a", PIXA: "assets/pets/a.pixa"}},
+		VoiceSyncs:  []VoiceSync{{Provider: "volc", Tenant: "volc-main"}},
+		PetDefPIXAs: []PetDefPIXA{{PetDef: "pet-a", PIXA: "assets/pets/a.pixa"}},
 	}
 	t.Setenv("BOOTSTRAP_SAVED", "process")
 	var commands []string
@@ -106,17 +103,17 @@ func TestBootstrapperAppliesResourcesSyncsVoicesUploadsAssetsAndCreatesRegistrat
 	if err := bootstrapper.Apply(context.Background(), podDir, map[string]string{"BOOTSTRAP_SAVED": "desktop"}); err != nil {
 		t.Fatal(err)
 	}
-	if len(commands) != 6 {
+	if len(commands) != 4 {
 		t.Fatalf("commands = %d: %v", len(commands), commands)
 	}
 	if !strings.Contains(commands[0], "admin apply") || !strings.Contains(commands[1], "volc-tenants sync-voices volc-main") {
 		t.Fatalf("resource/sync order = %v", commands[:2])
 	}
-	if !strings.Contains(commands[2], "upload-icon workflow-a --format png") || !strings.Contains(commands[3], "upload-icon workflow-a --format pixa") || !strings.Contains(commands[4], "upload-pixa pet-a") {
-		t.Fatalf("asset commands = %v", commands[2:5])
+	if !strings.Contains(commands[2], "upload-pixa pet-a") {
+		t.Fatalf("asset command = %v", commands[2])
 	}
-	if !strings.Contains(commands[5], "registration-tokens create --context local") {
-		t.Fatalf("RegistrationToken command = %q", commands[5])
+	if !strings.Contains(commands[3], "registration-tokens create --context local") {
+		t.Fatalf("RegistrationToken command = %q", commands[3])
 	}
 	tokenPath := filepath.Join(podDir, "workspace", RegistrationTokenFile)
 	token, err := os.ReadFile(tokenPath)

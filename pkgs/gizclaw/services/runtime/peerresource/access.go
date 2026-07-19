@@ -28,6 +28,10 @@ type ownedWorkspaceLister interface {
 	ListWorkspacesByOwner(context.Context, string) ([]apitypes.Workspace, error)
 }
 
+type ownedWorkflowLister interface {
+	ListWorkflowsByOwner(context.Context, string) ([]apitypes.Workflow, error)
+}
+
 const (
 	profileWorkflows profileResourceKind = "workflows"
 	profileModels    profileResourceKind = "models"
@@ -46,12 +50,35 @@ func (s *Server) ownerContext(ctx context.Context) context.Context {
 }
 
 func (s *Server) profileNames(kind profileResourceKind) []string {
-	if s == nil || s.RuntimeProfile == nil {
+	bindings := s.profileBindings(kind)
+	if len(bindings) == 0 {
 		return nil
+	}
+	aliases := make([]string, 0, len(bindings))
+	for alias := range bindings {
+		aliases = append(aliases, alias)
+	}
+	sort.Strings(aliases)
+	out := make([]string, 0, len(aliases))
+	seen := make(map[string]struct{}, len(aliases))
+	for _, alias := range aliases {
+		value := bindings[alias]
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		out = append(out, value)
+	}
+	return out
+}
+
+func (s *Server) profileBindings(kind profileResourceKind) map[string]string {
+	if s == nil || s.RuntimeProfile == nil {
+		return map[string]string{}
 	}
 	profile := s.RuntimeProfile()
 	if profile == nil {
-		return nil
+		return map[string]string{}
 	}
 	resources := profile.Spec.Resources
 	var values *map[string]string
@@ -72,27 +99,65 @@ func (s *Server) profileNames(kind profileResourceKind) []string {
 		values = resources.BadgeDefs
 	}
 	if values == nil {
-		return nil
+		return map[string]string{}
 	}
-	aliases := make([]string, 0, len(*values))
-	for alias := range *values {
+	out := make(map[string]string, len(*values))
+	for alias, rawValue := range *values {
+		alias = strings.TrimSpace(alias)
+		value := strings.TrimSpace(rawValue)
+		if alias == "" || value == "" {
+			continue
+		}
+		out[alias] = value
+	}
+	return out
+}
+
+func (s *Server) runtimeWorkflowName(alias string) (string, bool) {
+	value := strings.TrimSpace(s.profileBindings(profileWorkflows)[strings.TrimSpace(alias)])
+	return value, value != ""
+}
+
+func (s *Server) ownedWorkflows(ctx context.Context) ([]apitypes.Workflow, error) {
+	if lister, ok := s.Workflows.(ownedWorkflowLister); ok {
+		return lister.ListWorkflowsByOwner(ctx, s.Caller.String())
+	}
+	items := make([]apitypes.Workflow, 0)
+	limit := int32(200)
+	var cursor *string
+	for {
+		response, err := s.Workflows.ListWorkflows(ctx, adminhttp.ListWorkflowsRequestObject{
+			Params: adminhttp.ListWorkflowsParams{Cursor: cursor, Limit: &limit},
+		})
+		if err != nil {
+			return nil, err
+		}
+		page, rpcResponse, err := adminResult[adminhttp.WorkflowList](response.VisitListWorkflowsResponse)
+		if err != nil {
+			return nil, err
+		}
+		if rpcResponse != nil {
+			return nil, fmt.Errorf("list Workflows: %s", rpcResponse.Error.Message)
+		}
+		for _, item := range page.Items {
+			if s.owns(item.OwnerPublicKey) {
+				items = append(items, item)
+			}
+		}
+		if !page.HasNext || page.NextCursor == nil || *page.NextCursor == "" {
+			return items, nil
+		}
+		cursor = page.NextCursor
+	}
+}
+
+func sortedWorkflowAliases(bindings map[string]string) []string {
+	aliases := make([]string, 0, len(bindings))
+	for alias := range bindings {
 		aliases = append(aliases, alias)
 	}
 	sort.Strings(aliases)
-	out := make([]string, 0, len(aliases))
-	seen := make(map[string]struct{}, len(aliases))
-	for _, alias := range aliases {
-		value := strings.TrimSpace((*values)[alias])
-		if value == "" {
-			continue
-		}
-		if _, ok := seen[value]; ok {
-			continue
-		}
-		seen[value] = struct{}{}
-		out = append(out, value)
-	}
-	return out
+	return aliases
 }
 
 func (s *Server) profileAllows(kind profileResourceKind, name string) bool {

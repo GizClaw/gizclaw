@@ -2660,27 +2660,27 @@ func (x *ServerGameResultListResponse) GetValue() *GameResultListResponse {
 	return nil
 }
 
-type ServerPetAdoptRequest struct {
+type RuntimeAdoptRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Value         *PetAdoptRequest       `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ServerPetAdoptRequest) Reset() {
-	*x = ServerPetAdoptRequest{}
+func (x *RuntimeAdoptRequest) Reset() {
+	*x = RuntimeAdoptRequest{}
 	mi := &file_payload_gameplay_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ServerPetAdoptRequest) String() string {
+func (x *RuntimeAdoptRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ServerPetAdoptRequest) ProtoMessage() {}
+func (*RuntimeAdoptRequest) ProtoMessage() {}
 
-func (x *ServerPetAdoptRequest) ProtoReflect() protoreflect.Message {
+func (x *RuntimeAdoptRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_payload_gameplay_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -2692,39 +2692,39 @@ func (x *ServerPetAdoptRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ServerPetAdoptRequest.ProtoReflect.Descriptor instead.
-func (*ServerPetAdoptRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use RuntimeAdoptRequest.ProtoReflect.Descriptor instead.
+func (*RuntimeAdoptRequest) Descriptor() ([]byte, []int) {
 	return file_payload_gameplay_proto_rawDescGZIP(), []int{41}
 }
 
-func (x *ServerPetAdoptRequest) GetValue() *PetAdoptRequest {
+func (x *RuntimeAdoptRequest) GetValue() *PetAdoptRequest {
 	if x != nil {
 		return x.Value
 	}
 	return nil
 }
 
-type ServerPetAdoptResponse struct {
+type RuntimeAdoptResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Value         *PetAdoptResponse      `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ServerPetAdoptResponse) Reset() {
-	*x = ServerPetAdoptResponse{}
+func (x *RuntimeAdoptResponse) Reset() {
+	*x = RuntimeAdoptResponse{}
 	mi := &file_payload_gameplay_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ServerPetAdoptResponse) String() string {
+func (x *RuntimeAdoptResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ServerPetAdoptResponse) ProtoMessage() {}
+func (*RuntimeAdoptResponse) ProtoMessage() {}
 
-func (x *ServerPetAdoptResponse) ProtoReflect() protoreflect.Message {
+func (x *RuntimeAdoptResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_payload_gameplay_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -2736,12 +2736,12 @@ func (x *ServerPetAdoptResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ServerPetAdoptResponse.ProtoReflect.Descriptor instead.
-func (*ServerPetAdoptResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use RuntimeAdoptResponse.ProtoReflect.Descriptor instead.
+func (*RuntimeAdoptResponse) Descriptor() ([]byte, []int) {
 	return file_payload_gameplay_proto_rawDescGZIP(), []int{42}
 }
 
-func (x *ServerPetAdoptResponse) GetValue() *PetAdoptResponse {
+func (x *RuntimeAdoptResponse) GetValue() *PetAdoptResponse {
 	if x != nil {
 		return x.Value
 	}
@@ -4177,10 +4177,10 @@ const file_payload_gameplay_proto_rawDesc = "" +
 	"\x1bServerGameResultListRequest\x129\n" +
 	"\x05value\x18\x01 \x01(\v2#.gizclaw.rpc.v1.GameplayListRequestR\x05value\"\\\n" +
 	"\x1cServerGameResultListResponse\x12<\n" +
-	"\x05value\x18\x01 \x01(\v2&.gizclaw.rpc.v1.GameResultListResponseR\x05value\"N\n" +
-	"\x15ServerPetAdoptRequest\x125\n" +
-	"\x05value\x18\x01 \x01(\v2\x1f.gizclaw.rpc.v1.PetAdoptRequestR\x05value\"P\n" +
-	"\x16ServerPetAdoptResponse\x126\n" +
+	"\x05value\x18\x01 \x01(\v2&.gizclaw.rpc.v1.GameResultListResponseR\x05value\"L\n" +
+	"\x13RuntimeAdoptRequest\x125\n" +
+	"\x05value\x18\x01 \x01(\v2\x1f.gizclaw.rpc.v1.PetAdoptRequestR\x05value\"N\n" +
+	"\x14RuntimeAdoptResponse\x126\n" +
 	"\x05value\x18\x01 \x01(\v2 .gizclaw.rpc.v1.PetAdoptResponseR\x05value\"P\n" +
 	"\x16ServerPetDeleteRequest\x126\n" +
 	"\x05value\x18\x01 \x01(\v2 .gizclaw.rpc.v1.PetDeleteRequestR\x05value\"D\n" +
@@ -4297,8 +4297,8 @@ var file_payload_gameplay_proto_goTypes = []any{
 	(*ServerGameResultGetResponse)(nil),         // 38: gizclaw.rpc.v1.ServerGameResultGetResponse
 	(*ServerGameResultListRequest)(nil),         // 39: gizclaw.rpc.v1.ServerGameResultListRequest
 	(*ServerGameResultListResponse)(nil),        // 40: gizclaw.rpc.v1.ServerGameResultListResponse
-	(*ServerPetAdoptRequest)(nil),               // 41: gizclaw.rpc.v1.ServerPetAdoptRequest
-	(*ServerPetAdoptResponse)(nil),              // 42: gizclaw.rpc.v1.ServerPetAdoptResponse
+	(*RuntimeAdoptRequest)(nil),                 // 41: gizclaw.rpc.v1.RuntimeAdoptRequest
+	(*RuntimeAdoptResponse)(nil),                // 42: gizclaw.rpc.v1.RuntimeAdoptResponse
 	(*ServerPetDeleteRequest)(nil),              // 43: gizclaw.rpc.v1.ServerPetDeleteRequest
 	(*ServerPetDeleteResponse)(nil),             // 44: gizclaw.rpc.v1.ServerPetDeleteResponse
 	(*ServerPetDriveRequest)(nil),               // 45: gizclaw.rpc.v1.ServerPetDriveRequest
@@ -4372,8 +4372,8 @@ var file_payload_gameplay_proto_depIdxs = []int32{
 	4,  // 34: gizclaw.rpc.v1.ServerGameResultGetResponse.value:type_name -> gizclaw.rpc.v1.GameResult
 	8,  // 35: gizclaw.rpc.v1.ServerGameResultListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
 	5,  // 36: gizclaw.rpc.v1.ServerGameResultListResponse.value:type_name -> gizclaw.rpc.v1.GameResultListResponse
-	11, // 37: gizclaw.rpc.v1.ServerPetAdoptRequest.value:type_name -> gizclaw.rpc.v1.PetAdoptRequest
-	12, // 38: gizclaw.rpc.v1.ServerPetAdoptResponse.value:type_name -> gizclaw.rpc.v1.PetAdoptResponse
+	11, // 37: gizclaw.rpc.v1.RuntimeAdoptRequest.value:type_name -> gizclaw.rpc.v1.PetAdoptRequest
+	12, // 38: gizclaw.rpc.v1.RuntimeAdoptResponse.value:type_name -> gizclaw.rpc.v1.PetAdoptResponse
 	21, // 39: gizclaw.rpc.v1.ServerPetDeleteRequest.value:type_name -> gizclaw.rpc.v1.PetDeleteRequest
 	10, // 40: gizclaw.rpc.v1.ServerPetDeleteResponse.value:type_name -> gizclaw.rpc.v1.Pet
 	23, // 41: gizclaw.rpc.v1.ServerPetDriveRequest.value:type_name -> gizclaw.rpc.v1.PetDriveRequest

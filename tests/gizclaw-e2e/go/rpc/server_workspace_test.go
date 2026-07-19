@@ -24,20 +24,22 @@ func TestServerWorkspaceRPC(t *testing.T) {
 	t.Cleanup(func() { _, _ = admin.DeleteWorkflowWithResponse(env.ctx, mutationWorkflow) })
 	createInput := rpcapi.WorkspaceInputModePushToTalk
 	workspace, err := env.peer.CreateWorkspace(env.ctx, "workspace.create", rpcapi.WorkspaceCreateRequest{
-		Name:         mutationWorkspace,
-		WorkflowName: mutationWorkflow,
-		Parameters:   rpcFlowcraftWorkspaceParameters(t, createInput),
+		Name:           mutationWorkspace,
+		WorkflowName:   "mutation",
+		WorkflowSource: runtimeSourcePtr(),
+		Parameters:     rpcFlowcraftWorkspaceParameters(t, createInput),
 	})
 	if err != nil {
 		t.Fatalf("workspace.create: %v", err)
 	}
-	if workspace.Name != mutationWorkspace || workspace.WorkflowName != mutationWorkflow {
+	if workspace.Name != mutationWorkspace || workspace.WorkflowName != "mutation" || workspace.WorkflowSource == nil || *workspace.WorkflowSource != rpcapi.ResourceSourceRuntime {
 		t.Fatalf("workspace.create = %#v", workspace)
 	}
 	if _, err := env.peer.CreateWorkspace(env.ctx, "workspace.create.page", rpcapi.WorkspaceCreateRequest{
-		Name:         pageWorkspace,
-		WorkflowName: mutationWorkflow,
-		Parameters:   rpcFlowcraftWorkspaceParameters(t, createInput),
+		Name:           pageWorkspace,
+		WorkflowName:   "mutation",
+		WorkflowSource: runtimeSourcePtr(),
+		Parameters:     rpcFlowcraftWorkspaceParameters(t, createInput),
 	}); err != nil {
 		t.Fatalf("workspace.create page item: %v", err)
 	}
@@ -54,15 +56,16 @@ func TestServerWorkspaceRPC(t *testing.T) {
 	workspace, err = env.peer.PutWorkspace(env.ctx, "workspace.put", rpcapi.WorkspacePutRequest{
 		Name: mutationWorkspace,
 		Body: rpcapi.WorkspaceUpsert{
-			Name:         mutationWorkspace,
-			WorkflowName: mutationWorkflow,
-			Parameters:   rpcFlowcraftWorkspaceParameters(t, updateInput),
+			Name:           mutationWorkspace,
+			WorkflowName:   "mutation",
+			WorkflowSource: runtimeSourcePtr(),
+			Parameters:     rpcFlowcraftWorkspaceParameters(t, updateInput),
 		},
 	})
 	if err != nil {
 		t.Fatalf("workspace.put: %v", err)
 	}
-	if workspace.Name != mutationWorkspace || workspace.WorkflowName != mutationWorkflow {
+	if workspace.Name != mutationWorkspace || workspace.WorkflowName != "mutation" || workspace.WorkflowSource == nil || *workspace.WorkflowSource != rpcapi.ResourceSourceRuntime {
 		t.Fatalf("workspace.put = %#v", workspace)
 	}
 	workspace, err = env.peer.GetWorkspace(env.ctx, "workspace.get.updated", rpcapi.WorkspaceGetRequest{Name: mutationWorkspace})
@@ -93,7 +96,7 @@ func TestServerResourceUnavailableWithoutProfileOrOwnership(t *testing.T) {
 
 	denied := env.h.ConnectClientFromContext("peer-denied")
 	defer denied.Close()
-	if _, err := denied.GetWorkflow(env.ctx, "workflow.get.denied", rpcapi.WorkflowGetRequest{Name: sharedWorkflow}); err == nil {
+	if _, err := denied.GetWorkflow(env.ctx, "workflow.get.denied", rpcapi.WorkflowGetRequest{Name: "shared", Source: rpcapi.ResourceSourceRuntime}); err == nil {
 		t.Fatalf("denied peer workflow.get error = %v", err)
 	}
 	if _, err := denied.GetWorkspace(env.ctx, "workspace.get.denied", rpcapi.WorkspaceGetRequest{Name: sharedWorkspace}); err == nil {
@@ -150,18 +153,20 @@ func TestServerResourceCreatorOwnsConcreteResources(t *testing.T) {
 	}
 
 	if _, err := env.peer.CreateWorkspace(env.ctx, "owner.workspace.create", rpcapi.WorkspaceCreateRequest{
-		Name:         workspaceName,
-		WorkflowName: sharedWorkflow,
-		Parameters:   rpcFlowcraftWorkspaceParameters(t, rpcapi.WorkspaceInputModePushToTalk),
+		Name:           workspaceName,
+		WorkflowName:   "shared",
+		WorkflowSource: runtimeSourcePtr(),
+		Parameters:     rpcFlowcraftWorkspaceParameters(t, rpcapi.WorkspaceInputModePushToTalk),
 	}); err != nil {
 		t.Fatalf("workspace.create owner: %v", err)
 	}
 	if _, err := env.peer.PutWorkspace(env.ctx, "owner.workspace.put", rpcapi.WorkspacePutRequest{
 		Name: workspaceName,
 		Body: rpcapi.WorkspaceUpsert{
-			Name:         workspaceName,
-			WorkflowName: sharedWorkflow,
-			Parameters:   rpcFlowcraftWorkspaceParameters(t, rpcapi.WorkspaceInputModePushToTalk),
+			Name:           workspaceName,
+			WorkflowName:   "shared",
+			WorkflowSource: runtimeSourcePtr(),
+			Parameters:     rpcFlowcraftWorkspaceParameters(t, rpcapi.WorkspaceInputModePushToTalk),
 		},
 	}); err != nil {
 		t.Fatalf("workspace.put owner: %v", err)

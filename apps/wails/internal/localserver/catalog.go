@@ -3,12 +3,9 @@ package localserver
 import (
 	"bufio"
 	"bytes"
-	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"image/color"
-	"image/png"
 	"io/fs"
 	"path"
 	"regexp"
@@ -36,12 +33,6 @@ type ResourceEntry struct {
 	Name string
 }
 
-type WorkflowIcon struct {
-	Workflow string
-	PNG      string
-	PIXA     string
-}
-
 type PetDefPIXA struct {
 	PetDef string
 	PIXA   string
@@ -56,11 +47,10 @@ type VoiceSync struct {
 type Catalog struct {
 	FS fs.FS
 
-	Resources     []ResourceEntry
-	Requirements  []EnvironmentRequirement
-	WorkflowIcons []WorkflowIcon
-	PetDefPIXAs   []PetDefPIXA
-	VoiceSyncs    []VoiceSync
+	Resources    []ResourceEntry
+	Requirements []EnvironmentRequirement
+	PetDefPIXAs  []PetDefPIXA
+	VoiceSyncs   []VoiceSync
 }
 
 // LoadCatalog validates the embedded catalog structure and returns its ordered
@@ -105,7 +95,7 @@ func LoadCatalog(source fs.FS) (*Catalog, error) {
 		if header.Kind == "Workspace" {
 			return fmt.Errorf("local server catalog: %s must not bundle client-created Workspace data", name)
 		}
-		if header.Kind == "Workflow" || header.Kind == "PetDef" {
+		if header.Kind == "PetDef" {
 			if err := validateCatalogI18n(name, header.Kind, header.I18n, header.Spec); err != nil {
 				return err
 			}
@@ -147,10 +137,6 @@ func LoadCatalog(source fs.FS) (*Catalog, error) {
 	}
 	sort.Slice(catalog.Requirements, func(i, j int) bool { return catalog.Requirements[i].Name < catalog.Requirements[j].Name })
 
-	workflowRows, err := readManifest(source, "workflow-icons.txt", 3)
-	if err != nil {
-		return nil, err
-	}
 	declaredAssets := map[string]string{}
 	declareAsset := func(name, owner string) error {
 		if previous := declaredAssets[name]; previous != "" {
@@ -159,41 +145,6 @@ func LoadCatalog(source fs.FS) (*Catalog, error) {
 		declaredAssets[name] = owner
 		return nil
 	}
-	seenWorkflowPNG := map[[sha256.Size]byte]string{}
-	seenWorkflowPIXA := map[[sha256.Size]byte]string{}
-	for _, row := range workflowRows {
-		item := WorkflowIcon{Workflow: row[0], PNG: row[1], PIXA: row[2]}
-		if !identities["Workflow"][item.Workflow] {
-			return nil, fmt.Errorf("local server catalog: workflow icon references missing Workflow/%s", item.Workflow)
-		}
-		if err := declareAsset(item.PNG, "Workflow/"+item.Workflow+" PNG"); err != nil {
-			return nil, err
-		}
-		if err := declareAsset(item.PIXA, "Workflow/"+item.Workflow+" PIXA"); err != nil {
-			return nil, err
-		}
-		pngDigest, err := validateWorkflowPNGAsset(source, item.PNG)
-		if err != nil {
-			return nil, err
-		}
-		if previous := seenWorkflowPNG[pngDigest]; previous != "" {
-			return nil, fmt.Errorf("local server catalog: Workflow/%s and Workflow/%s reuse the same PNG", previous, item.Workflow)
-		}
-		seenWorkflowPNG[pngDigest] = item.Workflow
-		pixaDigest, err := validatePIXAAsset(source, item.PIXA, 32, 32)
-		if err != nil {
-			return nil, err
-		}
-		if previous := seenWorkflowPIXA[pixaDigest]; previous != "" {
-			return nil, fmt.Errorf("local server catalog: Workflow/%s and Workflow/%s reuse the same PIXA", previous, item.Workflow)
-		}
-		seenWorkflowPIXA[pixaDigest] = item.Workflow
-		catalog.WorkflowIcons = append(catalog.WorkflowIcons, item)
-	}
-	if err := requireExactManifest("Workflow", identities["Workflow"], workflowNames(catalog.WorkflowIcons)); err != nil {
-		return nil, err
-	}
-
 	petRows, err := readManifest(source, "petdef-pixa.txt", 2)
 	if err != nil {
 		return nil, err
@@ -206,7 +157,7 @@ func LoadCatalog(source fs.FS) (*Catalog, error) {
 		if err := declareAsset(item.PIXA, "PetDef/"+item.PetDef+" PIXA"); err != nil {
 			return nil, err
 		}
-		if _, err := validatePIXAAsset(source, item.PIXA, 0, 0); err != nil {
+		if err := validatePIXAAsset(source, item.PIXA, 0, 0); err != nil {
 			return nil, err
 		}
 		catalog.PetDefPIXAs = append(catalog.PetDefPIXAs, item)
@@ -366,48 +317,26 @@ func readManifest(source fs.FS, name string, fieldCount int) ([][]string, error)
 	return rows, nil
 }
 
-func validateWorkflowPNGAsset(source fs.FS, name string) ([sha256.Size]byte, error) {
+func validatePIXAAsset(source fs.FS, name string, expectedWidth, expectedHeight uint16) error {
 	data, err := readAsset(source, name)
 	if err != nil {
-		return [sha256.Size]byte{}, err
-	}
-	image, err := png.Decode(bytes.NewReader(data))
-	if err != nil {
-		return [sha256.Size]byte{}, fmt.Errorf("local server catalog: decode %s: %w", name, err)
-	}
-	bounds := image.Bounds()
-	if bounds.Dx() != 128 || bounds.Dy() != 128 {
-		return [sha256.Size]byte{}, fmt.Errorf("local server catalog: %s has PNG dimensions %dx%d, want 128x128", name, bounds.Dx(), bounds.Dy())
-	}
-	for _, point := range [][2]int{{bounds.Min.X, bounds.Min.Y}, {bounds.Max.X - 1, bounds.Min.Y}, {bounds.Min.X, bounds.Max.Y - 1}, {bounds.Max.X - 1, bounds.Max.Y - 1}} {
-		pixel := color.NRGBAModel.Convert(image.At(point[0], point[1])).(color.NRGBA)
-		if pixel.A != 0 {
-			return [sha256.Size]byte{}, fmt.Errorf("local server catalog: %s must have transparent PNG corners", name)
-		}
-	}
-	return sha256.Sum256(data), nil
-}
-
-func validatePIXAAsset(source fs.FS, name string, expectedWidth, expectedHeight uint16) ([sha256.Size]byte, error) {
-	data, err := readAsset(source, name)
-	if err != nil {
-		return [sha256.Size]byte{}, err
+		return err
 	}
 	if len(data) < 40 || string(data[:4]) != "PIXA" {
-		return [sha256.Size]byte{}, fmt.Errorf("local server catalog: %s is not a PIXA asset", name)
+		return fmt.Errorf("local server catalog: %s is not a PIXA asset", name)
 	}
 	if binary.LittleEndian.Uint16(data[4:6]) != 1 || binary.LittleEndian.Uint16(data[6:8]) < 40 {
-		return [sha256.Size]byte{}, fmt.Errorf("local server catalog: %s has an unsupported PIXA header", name)
+		return fmt.Errorf("local server catalog: %s has an unsupported PIXA header", name)
 	}
 	width := binary.LittleEndian.Uint16(data[8:10])
 	height := binary.LittleEndian.Uint16(data[10:12])
 	if width == 0 || height == 0 {
-		return [sha256.Size]byte{}, fmt.Errorf("local server catalog: %s has an empty PIXA canvas", name)
+		return fmt.Errorf("local server catalog: %s has an empty PIXA canvas", name)
 	}
 	if expectedWidth != 0 && (width != expectedWidth || height != expectedHeight) {
-		return [sha256.Size]byte{}, fmt.Errorf("local server catalog: %s has PIXA dimensions %dx%d, want %dx%d", name, width, height, expectedWidth, expectedHeight)
+		return fmt.Errorf("local server catalog: %s has PIXA dimensions %dx%d, want %dx%d", name, width, height, expectedWidth, expectedHeight)
 	}
-	return sha256.Sum256(data), nil
+	return nil
 }
 
 func readAsset(source fs.FS, name string) ([]byte, error) {
@@ -442,14 +371,6 @@ func requireExactManifest(kind string, resources map[string]bool, manifest []str
 		}
 	}
 	return nil
-}
-
-func workflowNames(items []WorkflowIcon) []string {
-	names := make([]string, 0, len(items))
-	for _, item := range items {
-		names = append(names, item.Workflow)
-	}
-	return names
 }
 
 func petDefNames(items []PetDefPIXA) []string {

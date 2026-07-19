@@ -151,7 +151,7 @@ func newPetAdoptCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.AdoptPet(ctx, "server.pet.adopt", rpcapi.ServerPetAdoptRequest{
+				return c.AdoptPet(ctx, "runtime.adopt", rpcapi.RuntimeAdoptRequest{
 					DisplayName: optionalString(displayName),
 				})
 			})

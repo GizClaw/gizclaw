@@ -665,7 +665,6 @@ class MobileDataController extends ChangeNotifier {
                 identical(connection.client, client),
             locale: appLocaleTag(effectiveLocale),
             serverId: serverId,
-            workflowLocale: workflowLocaleForAppLocale(effectiveLocale),
           );
           if (localeGeneration != _localeGeneration ||
               connection.profile.endpoint != endpoint ||
@@ -947,6 +946,7 @@ class MobileDataController extends ChangeNotifier {
         WorkspaceUpsert(
           name: workspaceName,
           workflowName: normalizedWorkflow,
+          workflowSource: ResourceSource.RESOURCE_SOURCE_RUNTIME,
           parameters: newWorkspaceParametersForDriver(
             driver,
             generateModel: normalizedGenerateModel,
@@ -984,7 +984,7 @@ class MobileDataController extends ChangeNotifier {
     final response = await runRpc(
       (client) => client.getWorkflow(
         workflowName,
-        lang: workflowLocaleForAppLocale(_effectiveLocale),
+        source: ResourceSource.RESOURCE_SOURCE_RUNTIME,
       ),
     );
     final workflow = response.value;

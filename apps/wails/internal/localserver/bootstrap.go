@@ -34,7 +34,7 @@ type Bootstrapper struct {
 }
 
 // Apply creates every declarative resource, synchronizes dynamic voice
-// resources, and uploads owner-managed assets to one newly started local Server.
+// resources, and uploads PetDef assets to one newly started local Server.
 func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironment map[string]string) error {
 	if b == nil || b.Catalog == nil || b.Executable == nil {
 		return fmt.Errorf("local server bootstrap: bootstrapper is not configured")
@@ -116,21 +116,6 @@ func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironmen
 		args := []string{"admin", item.Provider + "-tenants", "sync-voices", item.Tenant, "--context", "local"}
 		if err := runBootstrapOperation(ctx, run, executable, args, environment); err != nil {
 			return fmt.Errorf("local server bootstrap: sync %s voices for %s: %w", item.Provider, item.Tenant, err)
-		}
-	}
-	for _, icon := range b.Catalog.WorkflowIcons {
-		for _, asset := range []struct {
-			format string
-			path   string
-		}{{format: "png", path: icon.PNG}, {format: "pixa", path: icon.PIXA}} {
-			file, err := b.extract(tempDir, asset.path)
-			if err != nil {
-				return err
-			}
-			args := []string{"admin", "workflows", "upload-icon", icon.Workflow, "--format", asset.format, "--context", "local", "-f", file}
-			if err := runBootstrapOperation(ctx, run, executable, args, environment); err != nil {
-				return fmt.Errorf("local server bootstrap: upload Workflow/%s %s icon: %w", icon.Workflow, asset.format, err)
-			}
 		}
 	}
 	for _, asset := range b.Catalog.PetDefPIXAs {

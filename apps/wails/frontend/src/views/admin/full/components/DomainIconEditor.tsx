@@ -6,17 +6,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { expectData, toMessage } from "@/dashboard";
 import {
   deleteGameDefIcon,
-  deleteWorkflowIcon,
   deleteWorkspaceIcon,
   downloadGameDefIcon,
-  downloadWorkflowIcon,
   downloadWorkspaceIcon,
   uploadGameDefIcon,
-  uploadWorkflowIcon,
   uploadWorkspaceIcon,
 } from "@gizclaw/gizclaw/admin";
 
-type IconOwner = "game-def" | "workflow" | "workspace";
+type IconOwner = "game-def" | "workspace";
 type IconFormat = "pixa" | "png";
 
 type Props = {
@@ -51,7 +48,6 @@ export function DomainIconEditor({ icon, id, onChanged, owner }: Props): JSX.Ele
   const upload = (format: IconFormat, file: File): Promise<void> => run(`upload-${format}`, async () => {
     const path = owner === "game-def" ? { id, format } : { name: id, format };
     if (owner === "game-def") await expectData(uploadGameDefIcon({ body: file, path: path as { id: string; format: IconFormat } }));
-    else if (owner === "workflow") await expectData(uploadWorkflowIcon({ body: file, path: path as { name: string; format: IconFormat } }));
     else await expectData(uploadWorkspaceIcon({ body: file, path: path as { name: string; format: IconFormat } }));
     if (format === "png") setPreview(file);
   });
@@ -59,9 +55,7 @@ export function DomainIconEditor({ icon, id, onChanged, owner }: Props): JSX.Ele
   const download = (format: IconFormat): Promise<void> => run(`download-${format}`, async () => {
     const blob = owner === "game-def"
         ? await expectData(downloadGameDefIcon({ path: { id, format } }))
-        : owner === "workflow"
-          ? await expectData(downloadWorkflowIcon({ path: { name: id, format } }))
-          : await expectData(downloadWorkspaceIcon({ path: { name: id, format } }));
+        : await expectData(downloadWorkspaceIcon({ path: { name: id, format } }));
     if (format === "png") {
       setPreview(blob);
       return;
@@ -76,7 +70,6 @@ export function DomainIconEditor({ icon, id, onChanged, owner }: Props): JSX.Ele
 
   const remove = (format: IconFormat): Promise<void> => run(`delete-${format}`, async () => {
     if (owner === "game-def") await expectData(deleteGameDefIcon({ path: { id, format } }));
-    else if (owner === "workflow") await expectData(deleteWorkflowIcon({ path: { name: id, format } }));
     else await expectData(deleteWorkspaceIcon({ path: { name: id, format } }));
     if (format === "png") setPreviewURL("");
   });

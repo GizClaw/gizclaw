@@ -1430,9 +1430,9 @@ final $typed_data.Uint8List serverGameResultListResponseDescriptor =
         'ChxTZXJ2ZXJHYW1lUmVzdWx0TGlzdFJlc3BvbnNlEjwKBXZhbHVlGAEgASgLMiYuZ2l6Y2xhdy'
         '5ycGMudjEuR2FtZVJlc3VsdExpc3RSZXNwb25zZVIFdmFsdWU=');
 
-@$core.Deprecated('Use serverPetAdoptRequestDescriptor instead')
-const ServerPetAdoptRequest$json = {
-  '1': 'ServerPetAdoptRequest',
+@$core.Deprecated('Use runtimeAdoptRequestDescriptor instead')
+const RuntimeAdoptRequest$json = {
+  '1': 'RuntimeAdoptRequest',
   '2': [
     {
       '1': 'value',
@@ -1445,14 +1445,14 @@ const ServerPetAdoptRequest$json = {
   ],
 };
 
-/// Descriptor for `ServerPetAdoptRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List serverPetAdoptRequestDescriptor = $convert.base64Decode(
-    'ChVTZXJ2ZXJQZXRBZG9wdFJlcXVlc3QSNQoFdmFsdWUYASABKAsyHy5naXpjbGF3LnJwYy52MS'
-    '5QZXRBZG9wdFJlcXVlc3RSBXZhbHVl');
+/// Descriptor for `RuntimeAdoptRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List runtimeAdoptRequestDescriptor = $convert.base64Decode(
+    'ChNSdW50aW1lQWRvcHRSZXF1ZXN0EjUKBXZhbHVlGAEgASgLMh8uZ2l6Y2xhdy5ycGMudjEuUG'
+    'V0QWRvcHRSZXF1ZXN0UgV2YWx1ZQ==');
 
-@$core.Deprecated('Use serverPetAdoptResponseDescriptor instead')
-const ServerPetAdoptResponse$json = {
-  '1': 'ServerPetAdoptResponse',
+@$core.Deprecated('Use runtimeAdoptResponseDescriptor instead')
+const RuntimeAdoptResponse$json = {
+  '1': 'RuntimeAdoptResponse',
   '2': [
     {
       '1': 'value',
@@ -1465,11 +1465,10 @@ const ServerPetAdoptResponse$json = {
   ],
 };
 
-/// Descriptor for `ServerPetAdoptResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List serverPetAdoptResponseDescriptor =
-    $convert.base64Decode(
-        'ChZTZXJ2ZXJQZXRBZG9wdFJlc3BvbnNlEjYKBXZhbHVlGAEgASgLMiAuZ2l6Y2xhdy5ycGMudj'
-        'EuUGV0QWRvcHRSZXNwb25zZVIFdmFsdWU=');
+/// Descriptor for `RuntimeAdoptResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List runtimeAdoptResponseDescriptor = $convert.base64Decode(
+    'ChRSdW50aW1lQWRvcHRSZXNwb25zZRI2CgV2YWx1ZRgBIAEoCzIgLmdpemNsYXcucnBjLnYxLl'
+    'BldEFkb3B0UmVzcG9uc2VSBXZhbHVl');
 
 @$core.Deprecated('Use serverPetDeleteRequestDescriptor instead')
 const ServerPetDeleteRequest$json = {

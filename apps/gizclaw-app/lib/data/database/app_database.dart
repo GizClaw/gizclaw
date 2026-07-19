@@ -18,6 +18,8 @@ class WorkflowEntries extends Table {
   TextColumn get locale => text().nullable()();
   TextColumn get description => text()();
   TextColumn get driver => text()();
+  // Kept as a nullable cache column for existing databases. Runtime Workflow
+  // icons are no longer fetched; clients render their alias-owned icon mapping.
   BlobColumn get iconPng => blob().nullable()();
   BlobColumn get rawProtobuf => blob()();
   DateTimeColumn get refreshedAt => dateTime()();
