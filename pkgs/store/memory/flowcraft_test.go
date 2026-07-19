@@ -69,6 +69,12 @@ func TestFlowcraftStoreLifecycleAndPersistence(t *testing.T) {
 	} else if len(got.Matches) != 0 {
 		t.Fatalf("Recall() after Delete = %+v, want no matches", got)
 	}
+	if _, err := reopened.Update(ctx, UpdateRequest{ID: fact.ID, Text: &updatedText}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("Update() after Delete error = %v, want ErrNotFound", err)
+	}
+	if err := reopened.Delete(ctx, DeleteRequest{ID: fact.ID}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("second Delete() error = %v, want ErrNotFound", err)
+	}
 }
 
 func TestFlowcraftDeterministicObserveIncludesTextAndTurns(t *testing.T) {
@@ -204,6 +210,14 @@ func TestFlowcraftStoreAsyncWait(t *testing.T) {
 	}
 	if len(completed.Facts[0].Sources) != 1 || completed.Facts[0].Sources[0].ObservationID != "observation" {
 		t.Fatalf("Wait() sources = %+v", completed.Facts[0].Sources)
+	}
+	updatedText := "Alice strongly prefers tea."
+	updated, err := store.Update(context.Background(), UpdateRequest{ID: completed.Facts[0].ID, Text: &updatedText})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updated.Sources) != 1 || updated.Sources[0].ObservationID != "observation" {
+		t.Fatalf("Update() sources = %+v", updated.Sources)
 	}
 }
 

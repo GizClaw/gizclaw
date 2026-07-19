@@ -157,6 +157,9 @@ func validateObservation(observation Observation) error {
 		if strings.TrimSpace(turn.Text) == "" {
 			return fmt.Errorf("%w: turn %d has empty text", ErrInvalidInput, i)
 		}
+		if len(turn.Attributes) > 0 {
+			return fmt.Errorf("%w: turn %d attributes are not supported", ErrUnsupported, i)
+		}
 	}
 	return nil
 }

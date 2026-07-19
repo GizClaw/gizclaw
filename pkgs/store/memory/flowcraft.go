@@ -219,7 +219,7 @@ func (s *FlowcraftStore) currentFact(ctx context.Context, id string) (recall.Tem
 	}
 	var current *recall.TemporalFact
 	for i := range lineage {
-		if lineage[i].Fact.CorrectedBy == "" {
+		if lineage[i].Fact.CorrectedBy == "" && !lineage[i].Fact.Closed {
 			if current != nil {
 				return recall.TemporalFact{}, fmt.Errorf("%w: fact %q has multiple current revisions", ErrConflict, id)
 			}
@@ -420,7 +420,7 @@ func (s *FlowcraftStore) observationIDForFact(ctx context.Context, fact recall.T
 	if fact.Origin.RequestID != "" {
 		return s.observationIDFromMarker(ctx, "operation", fact.Origin.RequestID)
 	}
-	factIDs := []string{fact.ID}
+	facts := []recall.TemporalFact{fact}
 	if len(fact.Supersedes) > 0 {
 		lineage, err := s.memory.Lineage(ctx, s.scope, fact.ID)
 		if err != nil {
@@ -428,12 +428,16 @@ func (s *FlowcraftStore) observationIDForFact(ctx context.Context, fact recall.T
 		}
 		for _, node := range lineage {
 			if node.Fact.ID != fact.ID {
-				factIDs = append(factIDs, node.Fact.ID)
+				facts = append(facts, node.Fact)
 			}
 		}
 	}
-	for _, factID := range factIDs {
-		observationID, err := s.observationIDFromMarker(ctx, "fact", factID)
+	for _, candidate := range facts {
+		kind, key := "fact", candidate.ID
+		if candidate.Origin.RequestID != "" {
+			kind, key = "operation", candidate.Origin.RequestID
+		}
+		observationID, err := s.observationIDFromMarker(ctx, kind, key)
 		if err != nil {
 			return "", err
 		}
