@@ -22,19 +22,23 @@ type Config struct {
 	// HistoryWorkspace scopes persisted history independently from the runtime
 	// agent ID. When empty, ID is used.
 	HistoryWorkspace string
-	Graph            flowgraph.GraphDefinition
-	Resolver         llm.LLMResolver
-	Workspace        flowworkspace.Workspace
-	Toolkit          commonagent.Toolkit
-	History          logstore.MutableStore
-	Memory           memory.Store
-	MemoryLimit      int
-	PublishNodes     map[string]bool
-	MaxIterations    int
-	Parallel         runner.ParallelConfig
-	MaxToolCalls     int
-	ToolTimeout      time.Duration
-	Output           commonagent.OutputConfig
+	// LegacyHistoryWorkspace and LegacyConversation identify a read-only v1
+	// history scope used during upgrades. New records always use the fields above.
+	LegacyHistoryWorkspace string
+	LegacyConversation     string
+	Graph                  flowgraph.GraphDefinition
+	Resolver               llm.LLMResolver
+	Workspace              flowworkspace.Workspace
+	Toolkit                commonagent.Toolkit
+	History                logstore.MutableStore
+	Memory                 memory.Store
+	MemoryLimit            int
+	PublishNodes           map[string]bool
+	MaxIterations          int
+	Parallel               runner.ParallelConfig
+	MaxToolCalls           int
+	ToolTimeout            time.Duration
+	Output                 commonagent.OutputConfig
 	// ExternalOutputObservation defers pull-visible history and Memory updates
 	// to BeginOutput and ObserveOutput. Embedded adapters use this when they
 	// buffer or transform the core Agent output before returning it to a device.

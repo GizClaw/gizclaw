@@ -3,6 +3,7 @@ package eino
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -62,7 +63,10 @@ func (t *nativeTool) Info(context.Context) (*schema.ToolInfo, error) {
 }
 
 func (t *nativeTool) InvokableRun(ctx context.Context, arguments string, _ ...tool.Option) (string, error) {
-	callID := compose.GetToolCallID(ctx)
+	return t.run(ctx, compose.GetToolCallID(ctx), arguments)
+}
+
+func (t *nativeTool) run(ctx context.Context, callID, arguments string) (string, error) {
 	call := commonagent.ToolCall{
 		ID:        callID,
 		Name:      t.declaration.Name,
@@ -88,6 +92,12 @@ func (t *nativeTool) InvokableRun(ctx context.Context, arguments string, _ ...to
 		Timeout:  t.timeout,
 	})
 	if err != nil {
+		if t.history != nil {
+			failure := commonagent.ErrorToolResult(callID, "tool_invocation_failed", err.Error())
+			if historyErr := t.history.append(context.WithoutCancel(ctx), schema.ToolMessage(string(failure.Content), callID, schema.WithToolName(call.Name)), false); historyErr != nil {
+				return "", errors.Join(err, fmt.Errorf("agent/eino: append failed tool result: %w", historyErr))
+			}
+		}
 		return "", err
 	}
 	result := results[0]

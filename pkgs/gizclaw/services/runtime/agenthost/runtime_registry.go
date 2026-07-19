@@ -5,8 +5,8 @@ import (
 	"sync"
 )
 
-// RuntimeRegistry keeps one live agent/lease per workspace and hands out
-// reference-counted attachments for per-gear Transform calls.
+// RuntimeRegistry keeps one live agent/lease per resolved workspace runtime
+// scope and hands out reference-counted attachments for per-gear Transform calls.
 type RuntimeRegistry struct {
 	mu       sync.Mutex
 	runtimes map[string]*workspaceRuntime

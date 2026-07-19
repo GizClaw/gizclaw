@@ -137,8 +137,20 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		options.EmbeddingModel = stringValue(workspaceParams.EmbeddingModel)
 	}
 	configured := f
-	configured.Memory = memory.Scoped(f.Memory, spec.RuntimeScope())
+	configured.Memory = nil
+	if flowcraftMemoryEnabled(cfg.Spec.Flowcraft) {
+		configured.Memory = memory.Scoped(f.Memory, spec.RuntimeScope())
+	}
 	return configured.NewConfiguredAgent(ctx, options)
+}
+
+func flowcraftMemoryEnabled(cfg map[string]any) bool {
+	memoryConfig, ok := cfg["memory"].(map[string]any)
+	if !ok {
+		return true
+	}
+	enabled, configured := memoryConfig["enabled"].(bool)
+	return !configured || enabled
 }
 
 // NewConfiguredAgent creates an owned Flowcraft Agent from a Go-owned configuration.
@@ -2847,8 +2859,13 @@ func buildOwnedRuntimeConfig(
 	if historyWorkspace == "" {
 		historyWorkspace = workspaceName
 	}
+	legacyConversation := strings.TrimSpace(options.Conversation)
+	if legacyConversation == "" {
+		legacyConversation = "peer"
+	}
 	return ownedflowcraft.Config{
 		ID: agentID, Conversation: historyWorkspace, HistoryWorkspace: historyWorkspace,
+		LegacyHistoryWorkspace: workspaceName, LegacyConversation: legacyConversation,
 		Graph: graphDefinition, Resolver: resolver,
 		Workspace: workspace, Toolkit: toolkit, History: history, Memory: memoryStore, PublishNodes: publishNodes,
 		MaxIterations: maxIterations, Parallel: parallel, MaxToolCalls: 32, ToolTimeout: 30 * time.Second,
@@ -2857,24 +2874,50 @@ func buildOwnedRuntimeConfig(
 }
 
 func ownedPublisherNodes(agentValues map[string]any) map[string]bool {
-	publisher, ok := agentValues["publisher"].(map[string]any)
-	if !ok {
-		return nil
-	}
-	nodes, ok := publisher["nodes"].(map[string]any)
-	if !ok {
-		return nil
-	}
 	result := make(map[string]bool)
-	for nodeID, raw := range nodes {
-		config, ok := raw.(map[string]any)
-		if !ok {
-			continue
+	configured := false
+	if graph, ok := agentValues["graph"].(map[string]any); ok {
+		if nodes, ok := graph["nodes"].([]any); ok {
+			for _, raw := range nodes {
+				node, ok := raw.(map[string]any)
+				if !ok {
+					continue
+				}
+				publish, ok := node["publish"].(bool)
+				if !ok {
+					continue
+				}
+				configured = true
+				if publish {
+					if nodeID := mapString(node, "id"); nodeID != "" {
+						result[nodeID] = true
+					}
+				}
+			}
 		}
-		publish, ok := config["publish"].(bool)
-		if ok && publish {
-			result[nodeID] = true
+	}
+	if publisher, ok := agentValues["publisher"].(map[string]any); ok {
+		if nodes, ok := publisher["nodes"].(map[string]any); ok {
+			for nodeID, raw := range nodes {
+				config, ok := raw.(map[string]any)
+				if !ok {
+					continue
+				}
+				publish, ok := config["publish"].(bool)
+				if !ok {
+					continue
+				}
+				configured = true
+				if publish {
+					result[nodeID] = true
+				} else {
+					delete(result, nodeID)
+				}
+			}
 		}
+	}
+	if !configured {
+		return nil
 	}
 	return result
 }

@@ -379,7 +379,7 @@ func TestPulledHistoryAcceptsPendingMemoryAndReportsFailedOperation(t *testing.T
 
 func TestHistoryStoreReopensSchemaV1InAppendOrder(t *testing.T) {
 	store := &recordingLogStore{}
-	first, err := newHistoryStore(store, "workspace", "conversation")
+	first, err := newHistoryStore(store, "workspace", "conversation", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -389,7 +389,7 @@ func TestHistoryStoreReopensSchemaV1InAppendOrder(t *testing.T) {
 	}, false); err != nil {
 		t.Fatal(err)
 	}
-	reopened, err := newHistoryStore(store, "workspace", "conversation")
+	reopened, err := newHistoryStore(store, "workspace", "conversation", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -399,6 +399,46 @@ func TestHistoryStoreReopensSchemaV1InAppendOrder(t *testing.T) {
 	}
 	if len(messages) != 2 || messages[0].Content() != "first" || messages[1].Content() != "second" {
 		t.Fatalf("reopened history = %#v", messages)
+	}
+}
+
+func TestHistoryStoreReadsLegacyScopeAndWritesCurrentScope(t *testing.T) {
+	store := &recordingLogStore{}
+	legacy, err := newHistoryStore(store, "workspace", "peer", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := legacy.append(t.Context(), []flowmodel.Message{
+		flowmodel.NewTextMessage(flowmodel.RoleUser, "legacy user"),
+		flowmodel.NewTextMessage(flowmodel.RoleAssistant, "legacy assistant"),
+	}, false); err != nil {
+		t.Fatal(err)
+	}
+	scoped, err := newHistoryStore(store, "runtime-scope", "runtime-scope", "workspace", "peer")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := scoped.append(t.Context(), []flowmodel.Message{
+		flowmodel.NewTextMessage(flowmodel.RoleUser, "scoped user"),
+	}, false); err != nil {
+		t.Fatal(err)
+	}
+	messages, err := scoped.recent(t.Context(), 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := make([]string, len(messages))
+	for i := range messages {
+		got[i] = messages[i].Content()
+	}
+	if want := []string{"legacy user", "legacy assistant", "scoped user"}; !slices.Equal(got, want) {
+		t.Fatalf("recent() = %v, want %v", got, want)
+	}
+	store.mu.Lock()
+	last := store.records[len(store.records)-1]
+	store.mu.Unlock()
+	if last.Attributes["workspace_name"] != "runtime-scope" || last.Attributes["conversation_id"] != "runtime-scope" {
+		t.Fatalf("scoped record attributes = %#v", last.Attributes)
 	}
 }
 
@@ -577,6 +617,20 @@ func (s *recordingLogStore) Query(_ context.Context, query logstore.Query) (logs
 	s.mu.Lock()
 	records := slices.Clone(s.records)
 	s.mu.Unlock()
+	records = slices.DeleteFunc(records, func(record logstore.Record) bool {
+		if len(query.Streams) > 0 && !slices.Contains(query.Streams, record.Stream) {
+			return true
+		}
+		if len(query.Kinds) > 0 && !slices.Contains(query.Kinds, record.Kind) {
+			return true
+		}
+		for _, matcher := range query.Matchers {
+			if matcher.Op == logstore.MatchEqual && record.Attributes[matcher.Name] != matcher.Value {
+				return true
+			}
+		}
+		return false
+	})
 	slices.SortFunc(records, func(left, right logstore.Record) int { return left.Time.Compare(right.Time) })
 	if query.Order == logstore.OrderDesc {
 		slices.Reverse(records)

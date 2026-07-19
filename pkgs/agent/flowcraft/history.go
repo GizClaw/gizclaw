@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"slices"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -29,10 +29,16 @@ type historyStore struct {
 	store        logstore.MutableStore
 	workspace    string
 	conversation string
+	legacy       *historyLocation
 
 	mu       sync.Mutex
 	lastTime time.Time
 	sequence uint64
+}
+
+type historyLocation struct {
+	workspace    string
+	conversation string
 }
 
 type conversationHistory struct {
@@ -85,7 +91,7 @@ func cloneMessages(messages []flowmodel.Message) ([]flowmodel.Message, error) {
 	return owned, nil
 }
 
-func newHistoryStore(store logstore.MutableStore, workspace, conversation string) (*historyStore, error) {
+func newHistoryStore(store logstore.MutableStore, workspace, conversation, legacyWorkspace, legacyConversation string) (*historyStore, error) {
 	if store == nil {
 		return nil, nil
 	}
@@ -94,7 +100,13 @@ func newHistoryStore(store logstore.MutableStore, workspace, conversation string
 	if workspace == "" || conversation == "" {
 		return nil, fmt.Errorf("agent/flowcraft: history workspace and conversation are required")
 	}
-	return &historyStore{store: store, workspace: workspace, conversation: conversation}, nil
+	result := &historyStore{store: store, workspace: workspace, conversation: conversation}
+	legacyWorkspace = strings.TrimSpace(legacyWorkspace)
+	legacyConversation = strings.TrimSpace(legacyConversation)
+	if legacyWorkspace != "" && legacyConversation != "" && (legacyWorkspace != workspace || legacyConversation != conversation) {
+		result.legacy = &historyLocation{workspace: legacyWorkspace, conversation: legacyConversation}
+	}
+	return result, nil
 }
 
 func (h *historyStore) recent(ctx context.Context, limit int) ([]flowmodel.Message, error) {
@@ -104,23 +116,37 @@ func (h *historyStore) recent(ctx context.Context, limit int) ([]flowmodel.Messa
 	if limit <= 0 || limit > logstore.MaxLimit {
 		limit = logstore.MaxLimit
 	}
-	page, err := h.store.Query(ctx, logstore.Query{
-		Streams: []string{historyStream},
-		Kinds:   []string{historyKind},
-		Matchers: []logstore.AttributeMatcher{
-			{Name: "workspace_name", Op: logstore.MatchEqual, Value: h.workspace},
-			{Name: "conversation_id", Op: logstore.MatchEqual, Value: h.conversation},
-		},
-		Start: time.Unix(0, 0).UTC(),
-		End:   time.Date(2262, time.January, 1, 0, 0, 0, 0, time.UTC),
-		Limit: limit,
-		Order: logstore.OrderDesc,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("agent/flowcraft: query history: %w", err)
+	locations := make([]historyLocation, 0, 2)
+	if h.legacy != nil {
+		locations = append(locations, *h.legacy)
 	}
-	messages := make([]flowmodel.Message, 0, len(page.Records))
-	for _, record := range page.Records {
+	locations = append(locations, historyLocation{workspace: h.workspace, conversation: h.conversation})
+	records := make([]logstore.Record, 0, len(locations)*limit)
+	seen := make(map[string]struct{}, len(locations)*limit)
+	for _, location := range locations {
+		page, err := h.query(ctx, location, limit)
+		if err != nil {
+			return nil, err
+		}
+		for _, record := range page.Records {
+			if _, ok := seen[record.ID]; ok {
+				continue
+			}
+			seen[record.ID] = struct{}{}
+			records = append(records, record)
+		}
+	}
+	sort.Slice(records, func(i, j int) bool {
+		if records[i].Time.Equal(records[j].Time) {
+			return records[i].ID < records[j].ID
+		}
+		return records[i].Time.Before(records[j].Time)
+	})
+	if len(records) > limit {
+		records = records[len(records)-limit:]
+	}
+	messages := make([]flowmodel.Message, 0, len(records))
+	for _, record := range records {
 		if record.Attributes["schema_version"] != "1" {
 			return nil, fmt.Errorf("agent/flowcraft: unsupported history schema %q", record.Attributes["schema_version"])
 		}
@@ -136,8 +162,26 @@ func (h *historyStore) recent(ctx context.Context, limit int) ([]flowmodel.Messa
 		}
 		messages = append(messages, payload.Message)
 	}
-	slices.Reverse(messages)
 	return messages, nil
+}
+
+func (h *historyStore) query(ctx context.Context, location historyLocation, limit int) (logstore.Page, error) {
+	page, err := h.store.Query(ctx, logstore.Query{
+		Streams: []string{historyStream},
+		Kinds:   []string{historyKind},
+		Matchers: []logstore.AttributeMatcher{
+			{Name: "workspace_name", Op: logstore.MatchEqual, Value: location.workspace},
+			{Name: "conversation_id", Op: logstore.MatchEqual, Value: location.conversation},
+		},
+		Start: time.Unix(0, 0).UTC(),
+		End:   time.Date(2262, time.January, 1, 0, 0, 0, 0, time.UTC),
+		Limit: limit,
+		Order: logstore.OrderDesc,
+	})
+	if err != nil {
+		return logstore.Page{}, fmt.Errorf("agent/flowcraft: query history: %w", err)
+	}
+	return page, nil
 }
 
 func (h *historyStore) append(ctx context.Context, messages []flowmodel.Message, interrupted bool) error {

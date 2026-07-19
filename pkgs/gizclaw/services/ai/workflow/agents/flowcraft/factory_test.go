@@ -1048,7 +1048,7 @@ func TestFactoryNewAgentWritesClawConfig(t *testing.T) {
 			"default_voice": "voice",
 		},
 	})
-	transformer, err := (Factory{GenX: service}).NewAgent(ctx, agenthost.Spec{
+	transformer, err := (Factory{GenX: service, Memory: &fakeMemoryStore{}}).NewAgent(ctx, agenthost.Spec{
 		Workspace: apitypes.Workspace{Name: "ws", Parameters: &workspaceParams},
 		Workflow:  workflow,
 		Runtime:   workspace.Runtime{LocalDir: t.TempDir()},
@@ -1070,6 +1070,44 @@ func TestFactoryNewAgentWritesClawConfig(t *testing.T) {
 	}
 	if gotAgent.inputMode != inputModePushToTalk {
 		t.Fatalf("agent inputMode = %q, want %q", gotAgent.inputMode, inputModePushToTalk)
+	}
+	if gotAgent.memory != nil {
+		t.Fatalf("agent memory = %T, want nil for memory.enabled=false", gotAgent.memory)
+	}
+}
+
+func TestFlowcraftMemoryEnabledHonorsExplicitOptOut(t *testing.T) {
+	if flowcraftMemoryEnabled(map[string]any{"memory": map[string]any{"enabled": false}}) {
+		t.Fatal("flowcraftMemoryEnabled() = true for explicit opt-out")
+	}
+	for _, cfg := range []map[string]any{
+		{},
+		{"memory": map[string]any{}},
+		{"memory": map[string]any{"enabled": true}},
+	} {
+		if !flowcraftMemoryEnabled(cfg) {
+			t.Fatalf("flowcraftMemoryEnabled(%#v) = false", cfg)
+		}
+	}
+}
+
+func TestOwnedPublisherNodesReadsGraphNodeFlags(t *testing.T) {
+	got := ownedPublisherNodes(map[string]any{
+		"graph": map[string]any{"nodes": []any{
+			map[string]any{"id": "planner", "type": "llm", "publish": false},
+			map[string]any{"id": "answer", "type": "llm", "publish": true},
+		}},
+		"publisher": map[string]any{"nodes": map[string]any{
+			"legacy": map[string]any{"publish": true},
+		}},
+	})
+	if want := map[string]bool{"answer": true, "legacy": true}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("ownedPublisherNodes() = %#v, want %#v", got, want)
+	}
+	if got := ownedPublisherNodes(map[string]any{"graph": map[string]any{"nodes": []any{
+		map[string]any{"id": "hidden", "publish": false},
+	}}}); got == nil || len(got) != 0 {
+		t.Fatalf("ownedPublisherNodes(hidden-only) = %#v, want non-nil empty map", got)
 	}
 }
 

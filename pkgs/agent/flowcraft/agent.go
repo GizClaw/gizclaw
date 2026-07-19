@@ -62,7 +62,13 @@ func New(config Config) (*Agent, error) {
 	if historyWorkspace == "" {
 		historyWorkspace = config.ID
 	}
-	persistentHistory, err := newHistoryStore(config.History, historyWorkspace, config.Conversation)
+	persistentHistory, err := newHistoryStore(
+		config.History,
+		historyWorkspace,
+		config.Conversation,
+		config.LegacyHistoryWorkspace,
+		config.LegacyConversation,
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -749,7 +749,6 @@ func (t *DoubaoRealtimeDuplex) processLoop(ctx context.Context, input genx.Strea
 				if len(event.FunctionCalls) == 0 {
 					continue
 				}
-				streamID = assistantStreamID(providerResponseID)
 				toolResponses[providerResponseID] = true
 				if runtime.FunctionCallHandler == nil {
 					finishEventError(fmt.Errorf("doubao realtime duplex function-call handler is required"))

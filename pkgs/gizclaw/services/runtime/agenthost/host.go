@@ -90,7 +90,7 @@ func (h *Host) openWorkspaceAgent(ctx context.Context, workspaceName string, spe
 	if coordinator == nil {
 		return nil, nil, fmt.Errorf("agenthost: coordinator is required")
 	}
-	lease, err := coordinator.Acquire(ctx, workspaceName)
+	lease, err := coordinator.Acquire(ctx, runtimeKey(workspaceName, spec))
 	if err != nil {
 		return nil, nil, err
 	}
