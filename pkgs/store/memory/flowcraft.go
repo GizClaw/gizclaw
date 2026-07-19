@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"strings"
@@ -48,6 +49,9 @@ func (s *FlowcraftStore) Observe(ctx context.Context, observation Observation) (
 	if err := validateFlowcraftAttributeKeys(observation.Context); err != nil {
 		return ObserveResult{}, err
 	}
+	if s.config.ExtractionModel != "" && len(observation.Context) > 0 {
+		return ObserveResult{}, fmt.Errorf("%w: flowcraft model extraction does not support observation context", ErrUnsupported)
+	}
 	request := recall.SaveRequest{ObservedAt: observation.ObservedAt}
 	if s.config.ExtractionModel == "" {
 		parts := make([]string, 0, len(observation.Turns)+1)
@@ -79,6 +83,9 @@ func (s *FlowcraftStore) Observe(ctx context.Context, observation Observation) (
 	result, err := s.memory.Save(ctx, s.scope, request)
 	if err != nil {
 		return ObserveResult{}, mapFlowcraftError("observe", err)
+	}
+	if err := s.persistObservationProvenance(ctx, observation.ID, result); err != nil {
+		return ObserveResult{}, err
 	}
 	if result.SemanticPending {
 		out := ObserveResult{Operation: &Operation{ID: result.AsyncRequestID, Status: OperationPending}}
@@ -257,17 +264,21 @@ func flowcraftTurns(observation Observation) []recall.TurnContext {
 	return turns
 }
 
-const flowcraftRootIDAttribute = "gizclaw.root_id"
+const (
+	flowcraftRootIDAttribute           = "gizclaw.root_id"
+	flowcraftProvenanceMarkerAttribute = "gizclaw.provenance_marker"
+)
 
 var flowcraftReservedAttributes = map[string]struct{}{
-	flowcraftRootIDAttribute:          {},
-	flowcraftOperationStatusAttribute: {},
-	"observation_id":                  {},
-	"kind":                            {},
-	"subject":                         {},
-	"predicate":                       {},
-	"object":                          {},
-	"entities":                        {},
+	flowcraftRootIDAttribute:           {},
+	flowcraftOperationStatusAttribute:  {},
+	flowcraftProvenanceMarkerAttribute: {},
+	"observation_id":                   {},
+	"kind":                             {},
+	"subject":                          {},
+	"predicate":                        {},
+	"object":                           {},
+	"entities":                         {},
 }
 
 func validateFlowcraftAttributeKeys(attributes map[string]any) error {
@@ -349,11 +360,104 @@ func (s *FlowcraftStore) factFromFlowcraft(ctx context.Context, input recall.Tem
 	}
 	observationID, _ := attributes["observation_id"].(string)
 	delete(attributes, "observation_id")
+	if observationID == "" && s.config.ExtractionModel != "" {
+		resolvedObservationID, err := s.observationIDForFact(ctx, input)
+		if err != nil {
+			return Fact{}, err
+		}
+		observationID = resolvedObservationID
+	}
 	var sources []SourceRef
 	if observationID != "" || len(turnIDs) > 0 {
 		sources = []SourceRef{{ObservationID: observationID, TurnIDs: turnIDs}}
 	}
 	return Fact{ID: rootID, Revision: input.ID, Text: input.Content, Attributes: attributes, Sources: sources, CreatedAt: createdAt, UpdatedAt: input.ObservedAt}, nil
+}
+
+func (s *FlowcraftStore) persistObservationProvenance(ctx context.Context, observationID string, result recall.SaveResult) error {
+	if observationID == "" || s.config.ExtractionModel == "" {
+		return nil
+	}
+	markers := make([]recall.TemporalFact, 0, len(result.FactIDs)+1)
+	if result.SemanticPending {
+		markers = append(markers, flowcraftProvenanceMarker(s.scope, "operation", result.AsyncRequestID, observationID, result.AsyncRequestID))
+	} else {
+		for _, factID := range result.FactIDs {
+			markers = append(markers, flowcraftProvenanceMarker(s.scope, "fact", factID, observationID, ""))
+		}
+	}
+	if err := s.temporal.Append(ctx, markers); err != nil {
+		return mapFlowcraftError("persist observation provenance", err)
+	}
+	return nil
+}
+
+func flowcraftProvenanceMarker(scope recall.Scope, kind, key, observationID, requestID string) recall.TemporalFact {
+	return recall.TemporalFact{
+		ID:         flowcraftProvenanceMarkerID(kind, key),
+		Scope:      scope,
+		Kind:       recall.FactEpisode,
+		ObservedAt: time.Now(),
+		Origin:     recall.FactOrigin{RequestID: requestID, Kind: recall.OriginKindEpisode},
+		Metadata: map[string]any{
+			flowcraftProvenanceMarkerAttribute: true,
+			"observation_id":                   observationID,
+		},
+	}
+}
+
+func flowcraftProvenanceMarkerID(kind, key string) string {
+	sum := sha256.Sum256([]byte(kind + "\x00" + key))
+	return fmt.Sprintf("gizclaw-provenance-%x", sum)
+}
+
+func isFlowcraftProvenanceMarker(fact recall.TemporalFact) bool {
+	marker, _ := fact.Metadata[flowcraftProvenanceMarkerAttribute].(bool)
+	return marker && fact.Kind == recall.FactEpisode
+}
+
+func (s *FlowcraftStore) observationIDForFact(ctx context.Context, fact recall.TemporalFact) (string, error) {
+	if fact.Origin.RequestID != "" {
+		return s.observationIDFromMarker(ctx, "operation", fact.Origin.RequestID)
+	}
+	factIDs := []string{fact.ID}
+	if len(fact.Supersedes) > 0 {
+		lineage, err := s.memory.Lineage(ctx, s.scope, fact.ID)
+		if err != nil {
+			return "", mapFlowcraftError("load observation provenance lineage", err)
+		}
+		for _, node := range lineage {
+			if node.Fact.ID != fact.ID {
+				factIDs = append(factIDs, node.Fact.ID)
+			}
+		}
+	}
+	for _, factID := range factIDs {
+		observationID, err := s.observationIDFromMarker(ctx, "fact", factID)
+		if err != nil {
+			return "", err
+		}
+		if observationID != "" {
+			return observationID, nil
+		}
+	}
+	return "", nil
+}
+
+func (s *FlowcraftStore) observationIDFromMarker(ctx context.Context, kind, key string) (string, error) {
+	marker, err := s.temporal.Get(ctx, s.scope, flowcraftProvenanceMarkerID(kind, key))
+	if err != nil {
+		mapped := mapFlowcraftError("load observation provenance", err)
+		if errors.Is(mapped, ErrNotFound) {
+			return "", nil
+		}
+		return "", mapped
+	}
+	if !isFlowcraftProvenanceMarker(marker) {
+		return "", fmt.Errorf("%w: invalid flowcraft observation provenance", ErrUnavailable)
+	}
+	observationID, _ := marker.Metadata["observation_id"].(string)
+	return observationID, nil
 }
 
 func mapFlowcraftError(operation string, err error) error {

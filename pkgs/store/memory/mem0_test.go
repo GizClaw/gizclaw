@@ -157,6 +157,11 @@ func TestMem0SelfHostedLifecycle(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch request.Method + " " + request.URL.Path {
 		case "POST /memories":
+			var body map[string]any
+			_ = json.NewDecoder(request.Body).Decode(&body)
+			if _, exists := body["app_id"]; exists {
+				t.Errorf("self-hosted request contains app_id: %#v", body)
+			}
 			_, _ = w.Write([]byte(`{"results":[{"id":"fact","memory":"stored"}]}`))
 		case "POST /search":
 			_, _ = w.Write([]byte(`{"results":[{"id":"fact","memory":"stored","score":0.5}]}`))
@@ -188,6 +193,19 @@ func TestMem0SelfHostedLifecycle(t *testing.T) {
 	}
 	if _, err := store.Wait(context.Background(), "event"); !errors.Is(err, ErrUnsupported) {
 		t.Fatalf("Wait() error = %v", err)
+	}
+}
+
+func TestMem0SelfHostedRejectsAppOnlyScope(t *testing.T) {
+	t.Parallel()
+	for _, config := range []Mem0Config{
+		{Endpoint: "https://example.invalid", Flavor: Mem0SelfHosted, AppID: "platform-only"},
+		{Endpoint: "https://example.invalid", Flavor: Mem0SelfHosted, AppID: "platform-only", UserID: "user"},
+	} {
+		_, err := NewMem0Store(config, nil)
+		if !errors.Is(err, ErrInvalidInput) {
+			t.Fatalf("NewMem0Store(%+v) error = %v, want ErrInvalidInput", config, err)
+		}
 	}
 }
 

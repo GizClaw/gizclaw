@@ -145,6 +145,9 @@ func NewWithStorage(physical *storage.Storage, configs map[string]Config) (*Stor
 // NewWithStorageOptions creates logical stores with explicit remote and model
 // dependencies. The caller owns the physical storage lifecycle.
 func NewWithStorageOptions(ctx context.Context, physical *storage.Storage, configs map[string]Config, options Options) (*Stores, error) {
+	if err := validateMemoryProviderOwnership(configs); err != nil {
+		return nil, err
+	}
 	if physical == nil && needsPhysicalStorage(configs) {
 		return nil, fmt.Errorf("stores: storage registry is nil")
 	}
@@ -243,6 +246,19 @@ func NewWithStorageOptions(ctx context.Context, physical *storage.Storage, confi
 
 	ok = true
 	return s, nil
+}
+
+func hasMemoryProviderConfig(cfg Config) bool {
+	return cfg.Flowcraft != nil || cfg.Mem0 != nil || cfg.VolcMemory != nil
+}
+
+func validateMemoryProviderOwnership(configs map[string]Config) error {
+	for name, cfg := range configs {
+		if cfg.Kind != KindMemoryStore && hasMemoryProviderConfig(cfg) {
+			return fmt.Errorf("stores: %q kind %q contains memory provider fields", name, cfg.Kind)
+		}
+	}
+	return nil
 }
 
 func validateObjectStorePrefixes(configs map[string]Config) error {

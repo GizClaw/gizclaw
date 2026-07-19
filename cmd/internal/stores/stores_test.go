@@ -1194,6 +1194,21 @@ func TestMemoryRegistryRejectsMultipleProviders(t *testing.T) {
 	}
 }
 
+func TestRegistryRejectsMemoryProvidersOnOtherKinds(t *testing.T) {
+	t.Parallel()
+	for _, provider := range []Config{
+		{Flowcraft: &memorystore.FlowcraftConfig{}},
+		{Mem0: &memorystore.Mem0Config{}},
+		{VolcMemory: &memorystore.VolcConfig{}},
+	} {
+		provider.Kind = KindKeyValue
+		_, err := NewWithStorageOptions(context.Background(), nil, map[string]Config{"invalid": provider}, Options{})
+		if err == nil || !strings.Contains(err.Error(), "contains memory provider fields") {
+			t.Fatalf("NewWithStorageOptions(%+v) error = %v", provider, err)
+		}
+	}
+}
+
 func TestExpandMemoryConfigs(t *testing.T) {
 	t.Setenv("GIZCLAW_MEMORY_VALUE", "expanded")
 	flowcraft := memorystore.FlowcraftConfig{ExtractionMode: "$GIZCLAW_MEMORY_VALUE", SystemPrompt: "$GIZCLAW_MEMORY_VALUE", SchemaName: "$GIZCLAW_MEMORY_VALUE", Async: memorystore.FlowcraftAsyncConfig{WorkerID: "$GIZCLAW_MEMORY_VALUE"}}

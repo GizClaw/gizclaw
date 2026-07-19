@@ -94,10 +94,66 @@ func TestFlowcraftObserveRejectsProviderOwnedAttributes(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = store.Close() })
-	for _, key := range []string{flowcraftRootIDAttribute, flowcraftOperationStatusAttribute, "observation_id", "kind", "subject", "predicate", "object", "entities"} {
+	for _, key := range []string{flowcraftRootIDAttribute, flowcraftOperationStatusAttribute, flowcraftProvenanceMarkerAttribute, "observation_id", "kind", "subject", "predicate", "object", "entities"} {
 		if _, err := store.Observe(context.Background(), Observation{Text: "remember", Context: map[string]any{key: "value"}}); !errors.Is(err, ErrUnsupported) {
 			t.Fatalf("Observe() attribute %q error = %v", key, err)
 		}
+	}
+}
+
+func TestFlowcraftModelObserveRejectsUnsupportedContext(t *testing.T) {
+	t.Parallel()
+	store, err := OpenFlowcraftStore(context.Background(), FlowcraftConfig{
+		RuntimeID: "app", UserID: "user", ExtractionModel: "extract",
+	}, &testFlowcraftLoader{model: testLLM{response: `{"facts":[]}`}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	if _, err := store.Observe(context.Background(), Observation{Text: "remember", Context: map[string]any{"lane": "clues"}}); !errors.Is(err, ErrUnsupported) {
+		t.Fatalf("Observe() error = %v, want ErrUnsupported", err)
+	}
+}
+
+func TestFlowcraftModelObservePreservesObservationSource(t *testing.T) {
+	t.Parallel()
+	model := testLLM{response: `{"facts":[{"text":"Alice prefers tea.","kind":"preference","subject":"Alice","predicate":"prefers","object":"tea","entities":["Alice","tea"],"evidence_refs":[{"id":"turn","text":"I prefer tea."}]}]}`}
+	config := FlowcraftConfig{Dir: t.TempDir(), RuntimeID: "app", UserID: "user", ExtractionModel: "extract"}
+	loader := &testFlowcraftLoader{model: model}
+	store, err := OpenFlowcraftStore(context.Background(), config, loader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	result, err := store.Observe(context.Background(), Observation{ID: "observation", Turns: []Turn{{ID: "turn", Role: RoleUser, Text: "I prefer tea."}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Facts) != 1 || len(result.Facts[0].Sources) != 1 || result.Facts[0].Sources[0].ObservationID != "observation" {
+		t.Fatalf("Observe() = %+v", result)
+	}
+	updatedText := "Alice strongly prefers tea."
+	updated, err := store.Update(context.Background(), UpdateRequest{ID: result.Facts[0].ID, Text: &updatedText})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updated.Sources) != 1 || updated.Sources[0].ObservationID != "observation" {
+		t.Fatalf("Update() sources = %+v", updated.Sources)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := OpenFlowcraftStore(context.Background(), config, loader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	persisted, err := reopened.factByID(context.Background(), result.Facts[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(persisted.Sources) != 1 || persisted.Sources[0].ObservationID != "observation" {
+		t.Fatalf("reopened sources = %+v", persisted.Sources)
 	}
 }
 
@@ -145,6 +201,9 @@ func TestFlowcraftStoreAsyncWait(t *testing.T) {
 	}
 	if completed.Operation == nil || completed.Operation.Status != OperationSucceeded || len(completed.Facts) != 1 || completed.Facts[0].Text != "Alice prefers tea." {
 		t.Fatalf("Wait() = %+v", completed)
+	}
+	if len(completed.Facts[0].Sources) != 1 || completed.Facts[0].Sources[0].ObservationID != "observation" {
+		t.Fatalf("Wait() sources = %+v", completed.Facts[0].Sources)
 	}
 }
 
@@ -199,11 +258,11 @@ func TestFlowcraftStoreAsyncWaitAfterRestart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	first, err := store.Observe(context.Background(), Observation{ObservedAt: time.Now(), Turns: []Turn{{ID: "turn", Role: RoleUser, Text: "I prefer tea."}}})
+	first, err := store.Observe(context.Background(), Observation{ID: "first-observation", ObservedAt: time.Now(), Turns: []Turn{{ID: "turn", Role: RoleUser, Text: "I prefer tea."}}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	observed, err := store.Observe(context.Background(), Observation{ObservedAt: time.Now().Add(-time.Hour), Turns: []Turn{{ID: "turn", Role: RoleUser, Text: "I prefer tea."}}})
+	observed, err := store.Observe(context.Background(), Observation{ID: "zero-observation", ObservedAt: time.Now().Add(-time.Hour), Turns: []Turn{{ID: "turn", Role: RoleUser, Text: "I prefer tea."}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -241,6 +300,9 @@ func TestFlowcraftStoreAsyncWaitAfterRestart(t *testing.T) {
 	firstCompleted, err = terminal.Wait(context.Background(), first.Operation.ID)
 	if err != nil || firstCompleted.Operation == nil || firstCompleted.Operation.Status != OperationSucceeded || len(firstCompleted.Facts) != 1 {
 		t.Fatalf("terminal fact Wait() = %+v, %v", firstCompleted, err)
+	}
+	if len(firstCompleted.Facts[0].Sources) != 1 || firstCompleted.Facts[0].Sources[0].ObservationID != "first-observation" {
+		t.Fatalf("terminal fact sources = %+v", firstCompleted.Facts[0].Sources)
 	}
 }
 

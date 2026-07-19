@@ -117,6 +117,9 @@ func (s *FlowcraftStore) rehydrateOperations(ctx context.Context) error {
 	order := make([]string, 0)
 	operations := make(map[string]*nativeOperation)
 	for _, nativeFact := range nativeFacts {
+		if isFlowcraftProvenanceMarker(nativeFact) {
+			continue
+		}
 		id := nativeFact.Origin.RequestID
 		if id == "" {
 			continue

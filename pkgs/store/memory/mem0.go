@@ -53,6 +53,12 @@ func NewMem0Store(config Mem0Config, client HTTPClient) (*Mem0Store, error) {
 	if config.Flavor == Mem0Platform && !hasMem0EntityScope(config) {
 		return nil, fmt.Errorf("%w: mem0 platform requires at least one app_id, user_id, agent_id, or run_id", ErrInvalidInput)
 	}
+	if config.Flavor == Mem0SelfHosted && !hasMem0SelfHostedScope(config) {
+		return nil, fmt.Errorf("%w: self-hosted mem0 requires at least one user_id, agent_id, or run_id", ErrInvalidInput)
+	}
+	if config.Flavor == Mem0SelfHosted && strings.TrimSpace(config.AppID) != "" {
+		return nil, fmt.Errorf("%w: self-hosted mem0 does not support app_id", ErrInvalidInput)
+	}
 	if config.Flavor == Mem0Platform && strings.TrimSpace(config.APIKey) == "" {
 		return nil, fmt.Errorf("%w: mem0 platform api_key is required", ErrInvalidInput)
 	}
@@ -71,6 +77,12 @@ func NewMem0Store(config Mem0Config, client HTTPClient) (*Mem0Store, error) {
 		return nil, err
 	}
 	return &Mem0Store{config: config, client: transport}, nil
+}
+
+func hasMem0SelfHostedScope(config Mem0Config) bool {
+	return strings.TrimSpace(config.UserID) != "" ||
+		strings.TrimSpace(config.AgentID) != "" ||
+		strings.TrimSpace(config.RunID) != ""
 }
 
 func hasMem0EntityScope(config Mem0Config) bool {
@@ -247,7 +259,11 @@ func (s *Mem0Store) Wait(ctx context.Context, operationID string) (ObserveResult
 
 func (s *Mem0Store) entityFields() map[string]string {
 	fields := make(map[string]string)
-	for key, value := range map[string]string{"app_id": s.config.AppID, "user_id": s.config.UserID, "agent_id": s.config.AgentID, "run_id": s.config.RunID} {
+	entities := map[string]string{"user_id": s.config.UserID, "agent_id": s.config.AgentID, "run_id": s.config.RunID}
+	if s.config.Flavor == Mem0Platform {
+		entities["app_id"] = s.config.AppID
+	}
+	for key, value := range entities {
 		if value != "" {
 			fields[key] = value
 		}
