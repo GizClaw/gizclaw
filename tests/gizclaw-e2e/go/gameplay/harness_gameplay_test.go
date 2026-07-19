@@ -249,6 +249,7 @@ func waitForGameplayAssistantResponse(parent context.Context, stream genx.Stream
 	textDone := false
 	audioDone := false
 	audioPackets := 0
+	audioStreamID := ""
 	var trace []string
 	for !textDone || !audioDone || audioPackets == 0 {
 		chunk, err := nextGameplayStreamChunk(ctx, stream)
@@ -256,10 +257,13 @@ func waitForGameplayAssistantResponse(parent context.Context, stream genx.Stream
 			return fmt.Errorf("read pet audio response for %s: %w; text_done=%t audio_done=%t audio_packets=%d chunks=%s", inputStreamID, err, textDone, audioDone, audioPackets, strings.Join(trace, " | "))
 		}
 		trace = appendGameplayTrace(trace, gameplayChunkSummary(chunk))
-		if !gameplayResponseStreamIDMatches(gameplayChunkStreamID(chunk), inputStreamID) {
-			continue
-		}
 		label := gameplayChunkLabel(chunk)
+		streamID := gameplayChunkStreamID(chunk)
+		if !gameplayResponseStreamIDMatches(streamID, inputStreamID) {
+			if !gameplayBindResponseAudioStream(chunk, streamID, &audioStreamID) {
+				continue
+			}
+		}
 		if chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.Error) != "" {
 			return fmt.Errorf("pet audio response for %s returned error %q", inputStreamID, chunk.Ctrl.Error)
 		}
@@ -288,6 +292,21 @@ func waitForGameplayAssistantResponse(parent context.Context, stream genx.Stream
 		return fmt.Errorf("pet audio response for %s has no assistant text", inputStreamID)
 	}
 	return nil
+}
+
+func gameplayBindResponseAudioStream(chunk *genx.MessageChunk, streamID string, bound *string) bool {
+	if chunk == nil || bound == nil {
+		return false
+	}
+	streamID = strings.TrimSpace(streamID)
+	if *bound != "" {
+		return streamID == *bound
+	}
+	if streamID == "" || gameplayChunkLabel(chunk) != "" || chunk.Role != "" || !gameplayChunkIsOpusPacket(chunk) {
+		return false
+	}
+	*bound = streamID
+	return true
 }
 
 func isRetryableGameplayResponseError(err error) bool {
@@ -599,5 +618,28 @@ func TestGameplayResponseStreamIDMatchesCurrentAttempt(t *testing.T) {
 				t.Fatalf("gameplayResponseStreamIDMatches(%q, %q) = %t, want %t", test.actual, test.input, got, test.want)
 			}
 		})
+	}
+}
+
+func TestGameplayBindResponseAudioStream(t *testing.T) {
+	bound := ""
+	packet := &genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{0x01}},
+		Ctrl: &genx.StreamCtrl{StreamID: "audio"},
+	}
+	if !gameplayBindResponseAudioStream(packet, "audio", &bound) || bound != "audio" {
+		t.Fatalf("bind provider audio stream = %t, bound %q", gameplayBindResponseAudioStream(packet, "audio", &bound), bound)
+	}
+	if !gameplayBindResponseAudioStream(packet, "audio", &bound) {
+		t.Fatal("bound provider audio stream was not accepted")
+	}
+	stale := &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{0x02}},
+		Ctrl: &genx.StreamCtrl{StreamID: "previous", Label: "assistant"},
+	}
+	unbound := ""
+	if gameplayBindResponseAudioStream(stale, "previous", &unbound) {
+		t.Fatal("labeled stale response unexpectedly bound as provider audio")
 	}
 }

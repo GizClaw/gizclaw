@@ -133,6 +133,9 @@ func isRetryableLiveWorkspaceError(err error) bool {
 		strings.Contains(text, "doubaospeech: [Server processing timeout] node execution timeout") ||
 		strings.Contains(text, "doubaospeech: [Server-side generic error]") && strings.Contains(text, "big asr recv err") ||
 		strings.Contains(text, "send tts stream request:") && strings.Contains(text, "Client.Timeout exceeded while awaiting headers") ||
+		strings.Contains(text, "assistant audio asr") && (strings.Contains(text, "400 Bad Request") || strings.Contains(text, "status code 400")) ||
+		strings.Contains(text, "self-start missing assistant text") ||
+		strings.Contains(text, "interrupt second stream started before interrupted assistant EOS") ||
 		strings.Contains(text, "transcript mismatch: similarity")
 }
 

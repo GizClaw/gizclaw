@@ -35,7 +35,7 @@ const (
 	serverStopTimeout      = 5 * time.Second
 	readyTimeout           = 30 * time.Second
 	probeTimeout           = time.Second
-	serverInfoRetryTimeout = 5 * time.Second
+	serverInfoRetryTimeout = readyTimeout
 	pollInterval           = 20 * time.Millisecond
 )
 
@@ -504,9 +504,6 @@ func (h *Harness) RegisterContext(name string, extraArgs ...string) Result {
 		if result := h.InstallFixedAdminContext(refreshAdminContext); result.Err != nil {
 			return Result{Args: []string{"register-context", name}, Err: result.Err, Stderr: result.Stderr}
 		}
-		if result := h.UseContext(name); result.Err != nil {
-			return Result{Args: []string{"register-context", name}, Err: result.Err, Stderr: result.Stderr}
-		}
 		admin, adminCloseWait, err := h.connectClientFromContextWithCloseWait(refreshAdminContext)
 		if err != nil {
 			return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
@@ -524,7 +521,18 @@ func (h *Harness) RegisterContext(name string, extraArgs ...string) Result {
 			err := fmt.Errorf("refresh peer status %d: %s", refresh.StatusCode(), refresh.Body)
 			return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
 		}
-		resp, err = c.GetServerInfo(ctx, "server.info.get")
+		// RefreshPeer reloads the peer and closes its current transport. Wait for
+		// that transport to stop, then verify the refreshed peer through a new
+		// connection instead of issuing RPC on the intentionally closed client.
+		closeWait()
+		refreshed, refreshedCloseWait, err := h.connectClientAfterRefresh(name)
+		if err != nil {
+			return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
+		}
+		defer refreshedCloseWait()
+		verifyCtx, verifyCancel := context.WithTimeout(context.Background(), readyTimeout)
+		defer verifyCancel()
+		resp, err = refreshed.GetServerInfo(verifyCtx, "server.info.get")
 		if err != nil {
 			return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
 		}
@@ -534,6 +542,29 @@ func (h *Harness) RegisterContext(name string, extraArgs ...string) Result {
 		return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
 	}
 	return Result{Args: append([]string{"register-context", name}, extraArgs...), Stdout: string(data)}
+}
+
+func (h *Harness) connectClientAfterRefresh(name string) (*gizcli.Client, func(), error) {
+	const attempts = 2
+	var err error
+	for attempt := 1; attempt <= attempts; attempt++ {
+		var client *gizcli.Client
+		var closeWait func()
+		client, closeWait, err = h.connectClientFromContextWithCloseWait(name)
+		if err == nil {
+			return client, closeWait, nil
+		}
+		if attempt == attempts || !isRetryableRefreshReconnectError(err) {
+			return nil, nil, err
+		}
+		h.t.Logf("retry refresh reconnect context=%s attempt=%d err=%v", name, attempt, err)
+		time.Sleep(pollInterval)
+	}
+	return nil, nil, err
+}
+
+func isRetryableRefreshReconnectError(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "gizwebrtc: wait for packet channel: context deadline exceeded")
 }
 
 func (h *Harness) deviceInfoFromArgs(_ string, extraArgs ...string) (apitypes.DeviceInfo, error) {

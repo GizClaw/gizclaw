@@ -3,6 +3,7 @@
 package clitest
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +16,22 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/goccy/go-yaml"
 )
+
+func TestRetryableRefreshReconnectError(t *testing.T) {
+	retryable := errors.New("gizclaw: dial: gizwebrtc: wait for packet channel: context deadline exceeded")
+	if !isRetryableRefreshReconnectError(retryable) {
+		t.Fatalf("isRetryableRefreshReconnectError(%q) = false", retryable)
+	}
+	for _, err := range []error{
+		nil,
+		errors.New("gizclaw: dial: context deadline exceeded"),
+		errors.New("gizclaw: dial: gizwebrtc: authentication failed"),
+	} {
+		if isRetryableRefreshReconnectError(err) {
+			t.Fatalf("isRetryableRefreshReconnectError(%v) = true", err)
+		}
+	}
+}
 
 func TestFetchE2EServerInfoIncludesICEServers(t *testing.T) {
 	serverKey, err := giznet.GenerateKeyPair()
