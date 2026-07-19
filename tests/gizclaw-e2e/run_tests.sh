@@ -9,7 +9,9 @@ default_skip_regexp='^(TestHumanReview|TestServerSocialRPCHumanReview)$'
 go_test_timeout="45m"
 full_deadline_seconds="${GIZCLAW_E2E_FULL_DEADLINE_SECONDS:-5400}"
 gate_started=$SECONDS
-docker_started=0
+docker_env_path="$(mktemp "${TMPDIR:-/tmp}/gizclaw-e2e-run.XXXXXX")"
+rm -f "$docker_env_path"
+export GIZCLAW_E2E_DOCKER_ENV="$docker_env_path"
 full_watchdog_pid=""
 active_command_pid=""
 chat_pkg="./tests/gizclaw-e2e/go/chat"
@@ -38,9 +40,10 @@ cleanup() {
     terminate_process_tree "$active_command_pid" TERM
     active_command_pid=""
   fi
-  if [[ "$docker_started" == "1" ]]; then
+  if [[ -f "$docker_env_path" ]]; then
     run_timed "docker:cleanup" bash "$setup_dir/docker-compose-down.sh" || true
   fi
+  rm -f "$docker_env_path"
   if [[ -n "$full_watchdog_pid" ]]; then
     kill "$full_watchdog_pid" >/dev/null 2>&1 || true
     wait "$full_watchdog_pid" >/dev/null 2>&1 || true
@@ -101,7 +104,7 @@ phase_deadline_seconds() {
 		preflight:*) echo "${GIZCLAW_E2E_PREFLIGHT_DEADLINE_SECONDS:-900}" ;;
 		docker:setup) echo "${GIZCLAW_E2E_DOCKER_SETUP_DEADLINE_SECONDS:-1800}" ;;
 		docker:cleanup) echo "${GIZCLAW_E2E_DOCKER_CLEANUP_DEADLINE_SECONDS:-300}" ;;
-		go:chat) echo "${GIZCLAW_E2E_CHAT_DEADLINE_SECONDS:-2700}" ;;
+		go:chat | chat:*) echo "${GIZCLAW_E2E_CHAT_DEADLINE_SECONDS:-2700}" ;;
 		cli) echo "${GIZCLAW_E2E_CLI_DEADLINE_SECONDS:-1800}" ;;
 		*) echo "${GIZCLAW_E2E_PHASE_DEADLINE_SECONDS:-900}" ;;
 	esac
@@ -258,11 +261,10 @@ echo "==> build host e2e CLI"
 mkdir -p "$script_dir/testdata/bin"
 (cd "$repo_root" && go build -o "$script_dir/testdata/bin/gizclaw" ./cmd/gizclaw)
 
-docker_started=1
 run_timed "docker:setup" start_docker_stack
 set -a
 # shellcheck disable=SC1090
-source "$script_dir/testdata/docker/current.env"
+source "$docker_env_path"
 set +a
 
 run_timed "javascript" run_js_rpc_tests

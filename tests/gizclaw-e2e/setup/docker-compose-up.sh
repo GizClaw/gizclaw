@@ -229,7 +229,7 @@ GIZCLAW_E2E_DOCKER_EDGE_PORT=$GIZCLAW_E2E_DOCKER_EDGE_PORT
 GIZCLAW_E2E_DOCKER_TURN_PORT=$GIZCLAW_E2E_DOCKER_TURN_PORT
 GIZCLAW_E2E_DOCKER_COMPOSE_FILE=$compose_file
 EOF
-  cp "$state_dir/docker.env" "$state_root/current.env"
+  cp "$state_dir/docker.env" "${GIZCLAW_E2E_DOCKER_ENV:-$state_root/current.env}"
 }
 
 materialize_runtime_config() {
