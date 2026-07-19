@@ -18,6 +18,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	memorystore "github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
 func TestPrepareWorkspaceConfigLoadsWorkspaceConfig(t *testing.T) {
@@ -386,9 +387,16 @@ func TestResolveWorkspaceStoreConfigsPreservesAbsoluteDirs(t *testing.T) {
 			Backend: "badger",
 			Dir:     absoluteDir,
 		},
+		"memory": {
+			Kind:      stores.KindMemoryStore,
+			Flowcraft: &memorystore.FlowcraftConfig{Dir: "memory"},
+		},
 	})
 	if gotStores["kv"].Dir != absoluteDir {
 		t.Fatalf("kv store dir = %q, want %q", gotStores["kv"].Dir, absoluteDir)
+	}
+	if gotStores["memory"].Flowcraft.Dir != filepath.Join(root, "memory") {
+		t.Fatalf("flowcraft dir = %q", gotStores["memory"].Flowcraft.Dir)
 	}
 }
 

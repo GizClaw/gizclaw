@@ -107,7 +107,7 @@ func TestFlowcraftStoreAsyncWait(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if completed.Operation == nil || completed.Operation.Status != OperationSucceeded {
+	if completed.Operation == nil || completed.Operation.Status != OperationSucceeded || len(completed.Facts) != 1 || completed.Facts[0].Text != "Alice prefers tea." {
 		t.Fatalf("Wait() = %+v", completed)
 	}
 }
@@ -144,6 +144,22 @@ func TestFlowcraftAsyncFailureRemainsPending(t *testing.T) {
 	store.mu.Unlock()
 	if pending.Operation == nil || pending.Operation.Status != OperationPending {
 		t.Fatalf("operation = %+v", pending)
+	}
+}
+
+func TestFlowcraftWaitGateHonorsCancellation(t *testing.T) {
+	t.Parallel()
+	store, err := OpenFlowcraftStore(context.Background(), FlowcraftConfig{RuntimeID: "app", UserID: "user"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	<-store.waitGate
+	defer func() { store.waitGate <- struct{}{} }()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := store.Wait(ctx, "operation"); !errors.Is(err, context.Canceled) {
+		t.Fatalf("Wait() error = %v", err)
 	}
 }
 

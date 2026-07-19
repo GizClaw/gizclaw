@@ -20,12 +20,12 @@
 | Provider | 执行位置 | 持久化与模型配置 | 更新限制 |
 | --- | --- | --- | --- |
 | Flowcraft | 进程内 | `dir` 使用 Flowcraft workspace backend；模型资源名通过 `FlowcraftModelLoader` 解析 | append-only revision；支持文本、attributes 和 revision 校验 |
-| Mem0 | 远端 HTTP | Platform 只需 endpoint/API key；self-hosted 由远端服务配置模型 | 支持文本更新；远端 API 不提供 attribute patch 或条件写入时返回 `ErrUnsupported` |
-| Volcengine AgentKit/Viking MEM0 | Volc control plane + Mem0 data plane | 可直接配置 Mem0 API key，也可使用 AK/SK 和 API key ID 或 memory project ID 解析 | 与 Mem0 data plane 相同 |
+| Mem0 | 远端 HTTP | Platform 使用 `Authorization: Token`；self-hosted API key 使用 `X-API-Key`，模型由远端服务配置 | 支持文本更新；不支持的 filter、attribute patch 或条件写入返回 `ErrUnsupported` |
+| Volcengine AgentKit/Viking MEM0 | Volc control plane + Mem0 data plane | 必须配置项目 data-plane endpoint；可直接配置 Mem0 API key，也可使用 AK/SK 和 API key ID 或 memory project ID 解析 | 与 Mem0 data plane 相同 |
 
 Flowcraft 未配置 extraction model 时会把 observation 确定性地保存为 `note`。配置 extraction、embedding 或 rerank model 时，调用方必须向 `OpenFlowcraftStore` 或 `stores.NewWithStorageOptions` 提供 model loader。
 
-Volc provider 不复制一套 fact CRUD 协议。它通过签名的 `DescribeMemoryProjectDetail` 和 `DescribeAPIKeyDetail` control-plane 调用解析 API key，然后复用 Mem0 client 执行 observation、recall、update、delete 和 event polling。
+Volc provider 不复制一套 fact CRUD 协议。它通过签名的 `DescribeMemoryProjectDetail` 和 `DescribeAPIKeyDetail` control-plane 调用解析 API key，然后复用 Mem0 client 执行 observation、recall、update、delete 和 event polling。`volc_memory.mem0.endpoint` 是必填项，避免 Volc credential 回退并发送到 Mem0 Platform 公共 endpoint。
 
 ## Server 配置
 
@@ -73,6 +73,9 @@ stores:
 ```
 
 `cmd/internal/stores` 负责展开环境变量和管理 Flowcraft lifecycle。HTTP client、Volc credential resolver 和 Flowcraft model loader 都通过 `Options` 注入，测试和 Agent runtime 不需要修改公共 `Store` 契约。
+默认 server registry 不持有 model loader，因此会明确拒绝 Flowcraft model 字段；需要这些字段的 Agent runtime 必须使用 option-aware registry 路径。
+
+Mem0 V3 的等值 filter 使用字段直接值。Adapter 只发送 Mem0 文档明确支持的比较 operator；无法精确映射的通用 operator 返回 `ErrUnsupported`。
 
 ## 错误语义
 

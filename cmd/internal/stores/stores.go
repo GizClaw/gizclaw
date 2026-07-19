@@ -97,11 +97,17 @@ type Stores struct {
 // New creates a Stores instance from the legacy one-layer config. New callers
 // should use NewWithStorage with a separate physical storage registry.
 func New(configs map[string]Config) (*Stores, error) {
+	return NewWithOptions(context.Background(), configs, Options{})
+}
+
+// NewWithOptions creates a Stores instance from the legacy one-layer config
+// with explicit remote and model dependencies.
+func NewWithOptions(ctx context.Context, configs map[string]Config, options Options) (*Stores, error) {
 	physical, err := storage.New(legacyStorageConfigs(configs))
 	if err != nil {
 		return nil, err
 	}
-	s, err := NewWithStorage(physical, legacyStoreConfigs(configs))
+	s, err := NewWithStorageOptions(ctx, physical, legacyStoreConfigs(configs), options)
 	if err != nil {
 		_ = physical.Close()
 		return nil, err
@@ -113,7 +119,13 @@ func New(configs map[string]Config) (*Stores, error) {
 // NewWithOwnedStorage creates logical stores and transfers ownership of the
 // provided physical storage registry to the returned Stores.
 func NewWithOwnedStorage(physical *storage.Storage, configs map[string]Config) (*Stores, error) {
-	s, err := NewWithStorage(physical, configs)
+	return NewWithOwnedStorageOptions(context.Background(), physical, configs, Options{})
+}
+
+// NewWithOwnedStorageOptions creates logical stores with explicit remote and
+// model dependencies and transfers physical registry ownership.
+func NewWithOwnedStorageOptions(ctx context.Context, physical *storage.Storage, configs map[string]Config, options Options) (*Stores, error) {
+	s, err := NewWithStorageOptions(ctx, physical, configs, options)
 	if err != nil {
 		if physical == nil {
 			return nil, err

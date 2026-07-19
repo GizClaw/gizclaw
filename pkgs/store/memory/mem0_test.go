@@ -44,6 +44,13 @@ func TestMem0PlatformLifecycle(t *testing.T) {
 			}
 			_, _ = w.Write([]byte(`{"status":"completed","results":[{"id":"fact-1","memory":"Alice likes tea","metadata":{"lane":"preferences","gizclaw.observation_id":"observation","gizclaw.turn_ids":["turn"]}}]}`))
 		case r.Method == http.MethodPost && r.URL.Path == "/v3/memories/search/":
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			filters, _ := body["filters"].(map[string]any)
+			and, _ := filters["AND"].([]any)
+			if len(and) != 2 {
+				t.Errorf("search filters = %#v", filters)
+			}
 			_, _ = w.Write([]byte(`{"results":[{"id":"fact-1","memory":"Alice likes tea","score":0.91,"metadata":{"lane":"preferences","hash":"rev-1","score":"user-value"}}]}`))
 		case r.Method == http.MethodPut && r.URL.Path == "/v1/memories/fact-1":
 			_, _ = w.Write([]byte(`{"id":"fact-1","memory":"Alice prefers tea","metadata":{"hash":"rev-2"}}`))
@@ -126,6 +133,9 @@ func TestMem0TransportRedactsAPIKey(t *testing.T) {
 func TestMem0SelfHostedLifecycle(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		if request.Header.Get("X-API-Key") != "self-hosted-secret" || request.Header.Get("Authorization") != "" {
+			t.Errorf("auth headers = X-API-Key %q, Authorization %q", request.Header.Get("X-API-Key"), request.Header.Get("Authorization"))
+		}
 		w.Header().Set("Content-Type", "application/json")
 		switch request.Method + " " + request.URL.Path {
 		case "POST /memories":
@@ -141,7 +151,7 @@ func TestMem0SelfHostedLifecycle(t *testing.T) {
 		}
 	}))
 	t.Cleanup(server.Close)
-	store, err := NewMem0Store(Mem0Config{Endpoint: server.URL, Flavor: Mem0SelfHosted, UserID: "user"}, server.Client())
+	store, err := NewMem0Store(Mem0Config{Endpoint: server.URL, APIKey: "self-hosted-secret", Flavor: Mem0SelfHosted, UserID: "user"}, server.Client())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,6 +170,43 @@ func TestMem0SelfHostedLifecycle(t *testing.T) {
 	}
 	if _, err := store.Wait(context.Background(), "event"); !errors.Is(err, ErrUnsupported) {
 		t.Fatalf("Wait() error = %v", err)
+	}
+}
+
+func TestMem0FiltersUseV3OperatorNames(t *testing.T) {
+	t.Parallel()
+	store, err := NewMem0Store(Mem0Config{Endpoint: "https://example.test", UserID: "user"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	filters, err := store.mem0Filters([]Filter{
+		{Field: "lane", Operator: FilterEqual, Value: "clues"},
+		{Field: "score", Operator: FilterGreaterEqual, Value: 0.5},
+		{Field: "kind", Operator: FilterIn, Value: []string{"note", "preference"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(filters)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(raw)
+	for _, want := range []string{`"lane":"clues"`, `"gte":0.5`, `"in":["note","preference"]`} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("filters = %s, missing %s", got, want)
+		}
+	}
+	if strings.Contains(got, `"$`) {
+		t.Fatalf("filters contain undocumented operators: %s", got)
+	}
+	for _, filter := range []Filter{
+		{Field: "kind", Operator: FilterNotIn, Value: []string{"episode"}},
+		{Field: "lane", Operator: FilterExists, Value: true},
+	} {
+		if _, err := store.mem0Filters([]Filter{filter}); !errors.Is(err, ErrUnsupported) {
+			t.Fatalf("mem0Filters(%+v) error = %v", filter, err)
+		}
 	}
 }
 

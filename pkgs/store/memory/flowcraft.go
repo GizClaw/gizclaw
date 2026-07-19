@@ -15,20 +15,24 @@ import (
 
 // FlowcraftStore adapts embedded Flowcraft recall memory to Store.
 type FlowcraftStore struct {
-	config  FlowcraftConfig
-	scope   recall.Scope
-	memory  recall.Memory
-	backend *flowworkspace.Backend
+	config   FlowcraftConfig
+	scope    recall.Scope
+	memory   recall.Memory
+	temporal recall.TemporalStore
+	backend  *flowworkspace.Backend
 
 	mu         sync.Mutex
+	waitGate   chan struct{}
 	operations map[string]ObserveResult
 	pending    []string
 	closeOnce  sync.Once
 	closeErr   error
 }
 
-func newFlowcraftStore(config FlowcraftConfig, memory recall.Memory, backend *flowworkspace.Backend) *FlowcraftStore {
-	return &FlowcraftStore{config: config, scope: config.scope(), memory: memory, backend: backend, operations: make(map[string]ObserveResult)}
+func newFlowcraftStore(config FlowcraftConfig, memory recall.Memory, temporal recall.TemporalStore, backend *flowworkspace.Backend) *FlowcraftStore {
+	waitGate := make(chan struct{}, 1)
+	waitGate <- struct{}{}
+	return &FlowcraftStore{config: config, scope: config.scope(), memory: memory, temporal: temporal, backend: backend, waitGate: waitGate, operations: make(map[string]ObserveResult)}
 }
 
 // Observe extracts and persists facts from raw text or turns.

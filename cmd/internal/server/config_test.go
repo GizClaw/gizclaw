@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/flowcraft/sdk/embedding"
+	"github.com/GizClaw/flowcraft/sdk/llm"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/logging"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
@@ -17,6 +19,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	memorystore "github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
 func testPublicKey(fill byte) giznet.PublicKey {
@@ -674,6 +677,47 @@ stores:
 	remote := cfg.Stores["remote-memory"].Mem0
 	if remote == nil || remote.PollInterval != 250*time.Millisecond {
 		t.Fatalf("mem0 config = %+v", remote)
+	}
+}
+
+type serverFlowcraftModelLoader struct{}
+
+func (serverFlowcraftModelLoader) LoadLLM(context.Context, string) (llm.LLM, error) {
+	return serverFlowcraftLLM{}, nil
+}
+
+func (serverFlowcraftModelLoader) LoadEmbedder(context.Context, string) (embedding.Embedder, error) {
+	return nil, nil
+}
+
+type serverFlowcraftLLM struct{}
+
+func (serverFlowcraftLLM) Generate(context.Context, []llm.Message, ...llm.GenerateOption) (llm.Message, llm.TokenUsage, error) {
+	return llm.NewTextMessage(llm.RoleAssistant, `{"facts":[]}`), llm.TokenUsage{}, nil
+}
+
+func (serverFlowcraftLLM) GenerateStream(context.Context, []llm.Message, ...llm.GenerateOption) (llm.StreamMessage, error) {
+	return nil, nil
+}
+
+func TestNewStoreRegistryThreadsFlowcraftModelLoader(t *testing.T) {
+	cfg := Config{Stores: map[string]stores.Config{
+		"agent-memory": {
+			Kind: stores.KindMemoryStore,
+			Flowcraft: &memorystore.FlowcraftConfig{
+				RuntimeID: "app", UserID: "user", ExtractionModel: "extract",
+			},
+		},
+	}}
+	if _, err := newStoreRegistry(cfg); err == nil || !strings.Contains(err.Error(), "require an injected model loader") {
+		t.Fatalf("newStoreRegistry() error = %v", err)
+	}
+	registry, err := newStoreRegistryWithOptions(cfg, stores.Options{FlowcraftModelLoader: serverFlowcraftModelLoader{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := registry.Close(); err != nil {
+		t.Fatal(err)
 	}
 }
 

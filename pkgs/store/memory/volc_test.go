@@ -68,7 +68,7 @@ func TestVolcCredentialClientResolvesProjectAPIKey(t *testing.T) {
 			if body["MemoryProjectId"] != "project" {
 				t.Errorf("project body = %v", body)
 			}
-			_, _ = w.Write([]byte(`{"ResponseMetadata":{},"Result":{"APIKeyInfos":{"APIKeyId":"key-id"}}}`))
+			_, _ = w.Write([]byte(`{"ResponseMetadata":{},"Result":{"APIKeyInfos":[{"APIKeyId":""},{"APIKeyId":"key-id"}]}}`))
 		case "DescribeAPIKeyDetail":
 			_, _ = w.Write([]byte(`{"ResponseMetadata":{},"Result":{"APIKeyValue":"resolved-key"}}`))
 		default:
@@ -91,6 +91,13 @@ func TestVolcCredentialClientResolvesProjectAPIKey(t *testing.T) {
 
 func TestVolcValidationAndErrorMapping(t *testing.T) {
 	t.Parallel()
+	resolver := &fakeVolcResolver{}
+	if _, err := OpenVolcStore(context.Background(), VolcConfig{APIKeyID: "key-id"}, resolver, nil); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("missing data-plane endpoint error = %v", err)
+	}
+	if resolver.calls.Load() != 0 {
+		t.Fatalf("resolver calls = %d, want 0", resolver.calls.Load())
+	}
 	if _, err := newVolcCredentialClient(VolcConfig{}); !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("credentials error = %v", err)
 	}

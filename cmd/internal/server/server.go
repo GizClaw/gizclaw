@@ -138,6 +138,7 @@ func isPublicHTTPLoginRoute(method, path string) bool {
 type newServerOptions struct {
 	ICETCPListener net.Listener
 	Stores         *stores.Stores
+	StoreOptions   stores.Options
 }
 
 func New(cfg Config) (srv *CmdServer, err error) {
@@ -152,7 +153,7 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 	ss := newOpts.Stores
 	ownsStores := false
 	if ss == nil {
-		ss, err = newStoreRegistry(cfg)
+		ss, err = newStoreRegistryWithOptions(cfg, newOpts.StoreOptions)
 		if err != nil {
 			return nil, fmt.Errorf("server: stores: %w", err)
 		}
@@ -468,14 +469,29 @@ func (p adminPublicKeySecurityPolicy) AllowService(publicKey giznet.PublicKey, s
 }
 
 func newStoreRegistry(cfg Config) (*stores.Stores, error) {
+	return newStoreRegistryWithOptions(cfg, stores.Options{})
+}
+
+func newStoreRegistryWithOptions(cfg Config, options stores.Options) (*stores.Stores, error) {
+	if options.FlowcraftModelLoader == nil {
+		for name, storeConfig := range cfg.Stores {
+			if storeConfig.Flowcraft == nil {
+				continue
+			}
+			flowcraft := storeConfig.Flowcraft
+			if flowcraft.ExtractionModel != "" || flowcraft.EmbeddingModel != "" || flowcraft.RerankModel != "" {
+				return nil, fmt.Errorf("memory store %q flowcraft model fields require an injected model loader", name)
+			}
+		}
+	}
 	if len(cfg.Storage) == 0 {
-		return stores.New(cfg.Stores)
+		return stores.NewWithOptions(context.Background(), cfg.Stores, options)
 	}
 	physical, err := storage.New(cfg.Storage)
 	if err != nil {
 		return nil, err
 	}
-	ss, err := stores.NewWithOwnedStorage(physical, cfg.Stores)
+	ss, err := stores.NewWithOwnedStorageOptions(context.Background(), physical, cfg.Stores, options)
 	if err != nil {
 		return nil, err
 	}

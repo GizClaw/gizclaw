@@ -152,6 +152,11 @@ func resolveWorkspaceStoreConfigs(root string, cfgs map[string]stores.Config) ma
 		if cfg.Dir != "" && !filepath.IsAbs(cfg.Dir) {
 			cfg.Dir = filepath.Join(root, cfg.Dir)
 		}
+		if cfg.Flowcraft != nil {
+			flowcraft := *cfg.Flowcraft
+			flowcraft.Dir = resolveWorkspaceDir(root, flowcraft.Dir)
+			cfg.Flowcraft = &flowcraft
+		}
 		resolved[name] = cfg
 	}
 	return resolved

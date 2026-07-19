@@ -20,12 +20,12 @@ Asynchronous providers return an operation in `ObserveResult`. Stores implementi
 | Provider | Execution | Persistence and model configuration | Update limits |
 | --- | --- | --- | --- |
 | Flowcraft | In process | `dir` selects the Flowcraft workspace backend; model resource names are resolved through `FlowcraftModelLoader` | Append-only revisions with text, attribute, and revision checks |
-| Mem0 | Remote HTTP | Platform needs an endpoint/API key; a self-hosted deployment owns its model configuration | Text updates; unsupported attribute patches and conditional writes return `ErrUnsupported` |
-| Volcengine AgentKit/Viking MEM0 | Volc control plane and Mem0 data plane | Uses an explicit Mem0 API key or resolves one from an API key ID or memory project ID | Same behavior as the Mem0 data plane |
+| Mem0 | Remote HTTP | Platform uses `Authorization: Token`; self-hosted API keys use `X-API-Key`, and the deployment owns its model configuration | Text updates; unsupported filters, attribute patches, and conditional writes return `ErrUnsupported` |
+| Volcengine AgentKit/Viking MEM0 | Volc control plane and Mem0 data plane | Requires the project data-plane endpoint; uses an explicit Mem0 API key or resolves one from an API key ID or memory project ID | Same behavior as the Mem0 data plane |
 
 Without an extraction model, Flowcraft deterministically stores an observation as a `note`. Configured extraction, embedding, and rerank models require a model loader passed to `OpenFlowcraftStore` or `stores.NewWithStorageOptions`.
 
-The Volc provider does not duplicate the fact CRUD protocol. It resolves the data-plane API key through signed `DescribeMemoryProjectDetail` and `DescribeAPIKeyDetail` calls, then reuses the Mem0 client.
+The Volc provider does not duplicate the fact CRUD protocol. It resolves the data-plane API key through signed `DescribeMemoryProjectDetail` and `DescribeAPIKeyDetail` calls, then reuses the Mem0 client. `volc_memory.mem0.endpoint` is mandatory so a Volc credential can never fall back to Mem0 Platform's public endpoint.
 
 ## Server configuration
 
@@ -73,6 +73,9 @@ stores:
 ```
 
 `cmd/internal/stores` expands environment variables and owns the Flowcraft lifecycle. HTTP clients, Volc credential resolvers, and Flowcraft model loaders are injected through `Options`.
+The default server registry has no model loader and rejects Flowcraft model fields explicitly; an Agent runtime that supplies those fields must use the option-aware registry path.
+
+Mem0 V3 equality filters use direct field values. The adapter sends only comparison operators documented by Mem0; neutral operators without an exact remote equivalent return `ErrUnsupported`.
 
 ## Error semantics
 

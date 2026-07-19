@@ -22,10 +22,11 @@ type HTTPClient interface {
 type mem0Client struct {
 	endpoint string
 	apiKey   string
+	flavor   Mem0Flavor
 	client   HTTPClient
 }
 
-func newMem0Client(endpoint, apiKey string, client HTTPClient) (*mem0Client, error) {
+func newMem0Client(endpoint, apiKey string, flavor Mem0Flavor, client HTTPClient) (*mem0Client, error) {
 	endpoint = strings.TrimRight(strings.TrimSpace(endpoint), "/")
 	parsed, err := url.Parse(endpoint)
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
@@ -40,7 +41,7 @@ func newMem0Client(endpoint, apiKey string, client HTTPClient) (*mem0Client, err
 	if client == nil {
 		client = http.DefaultClient
 	}
-	return &mem0Client{endpoint: endpoint, apiKey: apiKey, client: client}, nil
+	return &mem0Client{endpoint: endpoint, apiKey: apiKey, flavor: flavor, client: client}, nil
 }
 
 func (c *mem0Client) do(ctx context.Context, method, path string, requestBody any, responseBody any) error {
@@ -61,7 +62,11 @@ func (c *mem0Client) do(ctx context.Context, method, path string, requestBody an
 		request.Header.Set("Content-Type", "application/json")
 	}
 	if c.apiKey != "" {
-		request.Header.Set("Authorization", "Token "+c.apiKey)
+		if c.flavor == Mem0SelfHosted {
+			request.Header.Set("X-API-Key", c.apiKey)
+		} else {
+			request.Header.Set("Authorization", "Token "+c.apiKey)
+		}
 	}
 	response, err := c.client.Do(request)
 	if err != nil {

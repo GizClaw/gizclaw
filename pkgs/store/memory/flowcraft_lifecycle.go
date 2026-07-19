@@ -12,6 +12,13 @@ import (
 // Wait drains caller-owned Flowcraft async work until the requested operation
 // reaches a terminal state or the context ends.
 func (s *FlowcraftStore) Wait(ctx context.Context, operationID string) (ObserveResult, error) {
+	select {
+	case <-ctx.Done():
+		return ObserveResult{}, ctx.Err()
+	case <-s.waitGate:
+	}
+	defer func() { s.waitGate <- struct{}{} }()
+
 	s.mu.Lock()
 	known, ok := s.operations[operationID]
 	s.mu.Unlock()
@@ -44,7 +51,7 @@ func (s *FlowcraftStore) Wait(ctx context.Context, operationID string) (ObserveR
 			}
 			continue
 		}
-		if err := s.finishPending(result.Completed); err != nil {
+		if err := s.finishPending(ctx, result.Completed); err != nil {
 			return ObserveResult{}, err
 		}
 		if err := s.drainSideEffects(ctx); err != nil {
@@ -70,17 +77,47 @@ func waitFlowcraftRetry(ctx context.Context) error {
 	}
 }
 
-func (s *FlowcraftStore) finishPending(completed int) error {
+func (s *FlowcraftStore) finishPending(ctx context.Context, completed int) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if completed > len(s.pending) {
+		s.mu.Unlock()
 		return fmt.Errorf("%w: flowcraft completed unknown async operations", ErrUnavailable)
 	}
-	for index := range completed {
-		id := s.pending[index]
-		s.operations[id] = ObserveResult{Operation: &Operation{ID: id, Status: OperationSucceeded}}
+	completedIDs := append([]string(nil), s.pending[:completed]...)
+	s.mu.Unlock()
+
+	results := make(map[string]ObserveResult, len(completedIDs))
+	for _, id := range completedIDs {
+		nativeFacts, err := s.temporal.FindByOriginRequestID(ctx, s.scope, id)
+		if err != nil {
+			return mapFlowcraftError("load async facts", err)
+		}
+		facts := make([]Fact, 0, len(nativeFacts))
+		for _, nativeFact := range nativeFacts {
+			if nativeFact.Kind == recall.FactEpisode {
+				continue
+			}
+			fact, err := s.factFromFlowcraft(ctx, nativeFact)
+			if err != nil {
+				return err
+			}
+			facts = append(facts, fact)
+		}
+		results[id] = ObserveResult{Facts: facts, Operation: &Operation{ID: id, Status: OperationSucceeded}}
 	}
-	s.pending = append([]string(nil), s.pending[completed:]...)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.pending) < len(completedIDs) {
+		return fmt.Errorf("%w: flowcraft async operation order changed", ErrUnavailable)
+	}
+	for index, id := range completedIDs {
+		if s.pending[index] != id {
+			return fmt.Errorf("%w: flowcraft async operation order changed", ErrUnavailable)
+		}
+		s.operations[id] = results[id]
+	}
+	s.pending = append([]string(nil), s.pending[len(completedIDs):]...)
 	return nil
 }
 

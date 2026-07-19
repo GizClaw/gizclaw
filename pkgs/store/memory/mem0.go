@@ -60,7 +60,7 @@ func NewMem0Store(config Mem0Config, client HTTPClient) (*Mem0Store, error) {
 	if config.PollInterval < 0 {
 		return nil, fmt.Errorf("%w: mem0 poll_interval must not be negative", ErrInvalidInput)
 	}
-	transport, err := newMem0Client(config.Endpoint, config.APIKey, client)
+	transport, err := newMem0Client(config.Endpoint, config.APIKey, config.Flavor, client)
 	if err != nil {
 		return nil, err
 	}
@@ -235,8 +235,12 @@ func (s *Mem0Store) mem0Filters(input []Filter) (map[string]any, error) {
 	for key, value := range s.entityFields() {
 		clauses = append(clauses, map[string]any{key: value})
 	}
-	operators := map[FilterOperator]string{FilterEqual: "$eq", FilterNotEqual: "$ne", FilterIn: "$in", FilterNotIn: "$nin", FilterExists: "$exists", FilterGreaterThan: "$gt", FilterGreaterEqual: "$gte", FilterLessThan: "$lt", FilterLessEqual: "$lte"}
+	operators := map[FilterOperator]string{FilterNotEqual: "ne", FilterIn: "in", FilterGreaterThan: "gt", FilterGreaterEqual: "gte", FilterLessThan: "lt", FilterLessEqual: "lte"}
 	for _, filter := range input {
+		if filter.Operator == FilterEqual {
+			clauses = append(clauses, map[string]any{filter.Field: cloneValue(filter.Value)})
+			continue
+		}
 		op, ok := operators[filter.Operator]
 		if !ok {
 			return nil, fmt.Errorf("%w: mem0 filter operator %q", ErrUnsupported, filter.Operator)

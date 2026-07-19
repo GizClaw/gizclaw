@@ -40,6 +40,9 @@ type VolcStore struct {
 // OpenVolcStore resolves control-plane credentials when needed and constructs
 // the Mem0 data-plane adapter.
 func OpenVolcStore(ctx context.Context, config VolcConfig, resolver VolcCredentialResolver, client HTTPClient) (*VolcStore, error) {
+	if strings.TrimSpace(config.Mem0.Endpoint) == "" {
+		return nil, fmt.Errorf("%w: volc memory mem0 endpoint is required", ErrInvalidInput)
+	}
 	if config.Mem0.Flavor == "" {
 		config.Mem0.Flavor = Mem0Platform
 	}
@@ -132,7 +135,7 @@ func (c *volcCredentialClient) ResolveMem0APIKey(ctx context.Context, config Vol
 		var response struct {
 			ResponseMetadata volcResponseMetadata `json:"ResponseMetadata"`
 			Result           struct {
-				APIKeyInfos struct {
+				APIKeyInfos []struct {
 					APIKeyID string `json:"APIKeyId"`
 				} `json:"APIKeyInfos"`
 			} `json:"Result"`
@@ -143,7 +146,12 @@ func (c *volcCredentialClient) ResolveMem0APIKey(ctx context.Context, config Vol
 		if err := response.ResponseMetadata.err(); err != nil {
 			return "", err
 		}
-		apiKeyID = response.Result.APIKeyInfos.APIKeyID
+		for _, info := range response.Result.APIKeyInfos {
+			if strings.TrimSpace(info.APIKeyID) != "" {
+				apiKeyID = info.APIKeyID
+				break
+			}
+		}
 		if apiKeyID == "" {
 			return "", fmt.Errorf("%w: volc memory project has no API key", ErrNotFound)
 		}
