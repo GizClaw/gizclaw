@@ -129,7 +129,7 @@ class GizClawClient {
       'server.workflow.create',
       payload.WorkflowCreateRequest(
         source: enums.ResourceSource.RESOURCE_SOURCE_OWNED,
-        value: value,
+        body: value,
       ),
     );
   }
@@ -143,7 +143,7 @@ class GizClawClient {
       payload.WorkflowPutRequest(
         name: name,
         source: enums.ResourceSource.RESOURCE_SOURCE_OWNED,
-        value: value,
+        body: value,
       ),
     );
   }

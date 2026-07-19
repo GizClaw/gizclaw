@@ -5729,7 +5729,7 @@ func (x *WorkflowUpsert) GetSpec() *WorkflowSpec {
 type WorkflowCreateRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Source        ResourceSource         `protobuf:"varint,1,opt,name=source,proto3,enum=gizclaw.rpc.v1.ResourceSource" json:"source,omitempty"`
-	Value         *WorkflowUpsert        `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Body          *WorkflowUpsert        `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5771,9 +5771,9 @@ func (x *WorkflowCreateRequest) GetSource() ResourceSource {
 	return ResourceSource_RESOURCE_SOURCE_UNSPECIFIED
 }
 
-func (x *WorkflowCreateRequest) GetValue() *WorkflowUpsert {
+func (x *WorkflowCreateRequest) GetBody() *WorkflowUpsert {
 	if x != nil {
-		return x.Value
+		return x.Body
 	}
 	return nil
 }
@@ -6137,7 +6137,7 @@ func (x *WorkflowListResponse) GetNextCursor() string {
 type WorkflowPutRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Value         *WorkflowUpsert        `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Body          *WorkflowUpsert        `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
 	Source        ResourceSource         `protobuf:"varint,3,opt,name=source,proto3,enum=gizclaw.rpc.v1.ResourceSource" json:"source,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -6180,9 +6180,9 @@ func (x *WorkflowPutRequest) GetName() string {
 	return ""
 }
 
-func (x *WorkflowPutRequest) GetValue() *WorkflowUpsert {
+func (x *WorkflowPutRequest) GetBody() *WorkflowUpsert {
 	if x != nil {
-		return x.Value
+		return x.Body
 	}
 	return nil
 }
@@ -8040,10 +8040,10 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\x11_owner_public_keyJ\x04\b\x03\x10\x04J\x04\b\x04\x10\x05\"V\n" +
 	"\x0eWorkflowUpsert\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x120\n" +
-	"\x04spec\x18\x02 \x01(\v2\x1c.gizclaw.rpc.v1.WorkflowSpecR\x04spec\"\x85\x01\n" +
+	"\x04spec\x18\x02 \x01(\v2\x1c.gizclaw.rpc.v1.WorkflowSpecR\x04spec\"\x83\x01\n" +
 	"\x15WorkflowCreateRequest\x126\n" +
-	"\x06source\x18\x01 \x01(\x0e2\x1e.gizclaw.rpc.v1.ResourceSourceR\x06source\x124\n" +
-	"\x05value\x18\x02 \x01(\v2\x1e.gizclaw.rpc.v1.WorkflowUpsertR\x05value\"H\n" +
+	"\x06source\x18\x01 \x01(\x0e2\x1e.gizclaw.rpc.v1.ResourceSourceR\x06source\x122\n" +
+	"\x04body\x18\x02 \x01(\v2\x1e.gizclaw.rpc.v1.WorkflowUpsertR\x04body\"H\n" +
 	"\x16WorkflowCreateResponse\x12.\n" +
 	"\x05value\x18\x01 \x01(\v2\x18.gizclaw.rpc.v1.WorkflowR\x05value\"c\n" +
 	"\x15WorkflowDeleteRequest\x12\x12\n" +
@@ -8067,10 +8067,10 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\x05items\x18\x02 \x03(\v2\x18.gizclaw.rpc.v1.WorkflowR\x05items\x12$\n" +
 	"\vnext_cursor\x18\x03 \x01(\tH\x00R\n" +
 	"nextCursor\x88\x01\x01B\x0e\n" +
-	"\f_next_cursor\"\x96\x01\n" +
+	"\f_next_cursor\"\x94\x01\n" +
 	"\x12WorkflowPutRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x124\n" +
-	"\x05value\x18\x02 \x01(\v2\x1e.gizclaw.rpc.v1.WorkflowUpsertR\x05value\x126\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x122\n" +
+	"\x04body\x18\x02 \x01(\v2\x1e.gizclaw.rpc.v1.WorkflowUpsertR\x04body\x126\n" +
 	"\x06source\x18\x03 \x01(\x0e2\x1e.gizclaw.rpc.v1.ResourceSourceR\x06source\"E\n" +
 	"\x13WorkflowPutResponse\x12.\n" +
 	"\x05value\x18\x01 \x01(\v2\x18.gizclaw.rpc.v1.WorkflowR\x05value\",\n" +
@@ -8454,7 +8454,7 @@ var file_payload_ai_proto_depIdxs = []int32{
 	99,  // 105: gizclaw.rpc.v1.Workflow.spec:type_name -> gizclaw.rpc.v1.WorkflowSpec
 	99,  // 106: gizclaw.rpc.v1.WorkflowUpsert.spec:type_name -> gizclaw.rpc.v1.WorkflowSpec
 	140, // 107: gizclaw.rpc.v1.WorkflowCreateRequest.source:type_name -> gizclaw.rpc.v1.ResourceSource
-	86,  // 108: gizclaw.rpc.v1.WorkflowCreateRequest.value:type_name -> gizclaw.rpc.v1.WorkflowUpsert
+	86,  // 108: gizclaw.rpc.v1.WorkflowCreateRequest.body:type_name -> gizclaw.rpc.v1.WorkflowUpsert
 	85,  // 109: gizclaw.rpc.v1.WorkflowCreateResponse.value:type_name -> gizclaw.rpc.v1.Workflow
 	140, // 110: gizclaw.rpc.v1.WorkflowDeleteRequest.source:type_name -> gizclaw.rpc.v1.ResourceSource
 	85,  // 111: gizclaw.rpc.v1.WorkflowDeleteResponse.value:type_name -> gizclaw.rpc.v1.Workflow
@@ -8462,7 +8462,7 @@ var file_payload_ai_proto_depIdxs = []int32{
 	85,  // 113: gizclaw.rpc.v1.WorkflowGetResponse.value:type_name -> gizclaw.rpc.v1.Workflow
 	140, // 114: gizclaw.rpc.v1.WorkflowListRequest.source:type_name -> gizclaw.rpc.v1.ResourceSource
 	85,  // 115: gizclaw.rpc.v1.WorkflowListResponse.items:type_name -> gizclaw.rpc.v1.Workflow
-	86,  // 116: gizclaw.rpc.v1.WorkflowPutRequest.value:type_name -> gizclaw.rpc.v1.WorkflowUpsert
+	86,  // 116: gizclaw.rpc.v1.WorkflowPutRequest.body:type_name -> gizclaw.rpc.v1.WorkflowUpsert
 	140, // 117: gizclaw.rpc.v1.WorkflowPutRequest.source:type_name -> gizclaw.rpc.v1.ResourceSource
 	85,  // 118: gizclaw.rpc.v1.WorkflowPutResponse.value:type_name -> gizclaw.rpc.v1.Workflow
 	97,  // 119: gizclaw.rpc.v1.ToolkitPolicy.tool_ids:type_name -> gizclaw.rpc.v1.ToolkitPolicyToolIds

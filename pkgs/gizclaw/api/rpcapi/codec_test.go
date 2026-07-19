@@ -557,6 +557,27 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 		t.Fatalf("workflow get source = %q", workflowGetDecoded.Source)
 	}
 
+	var workflowCreate RPCPayload
+	workflowCreateRequest := WorkflowCreateRequest{
+		Source: ResourceSourceOwned,
+		Body: WorkflowUpsert{
+			Name: "owned-workflow",
+			Spec: WorkflowSpec{Driver: WorkflowDriverFlowcraft, Flowcraft: &FlowcraftWorkflowSpec{}},
+		},
+	}
+	if err := workflowCreate.FromWorkflowCreateRequest(workflowCreateRequest); err != nil {
+		t.Fatalf("FromWorkflowCreateRequest() error = %v", err)
+	}
+	workflowCreateDecoded, err := workflowCreate.AsWorkflowCreateRequest()
+	if err != nil {
+		t.Fatalf("AsWorkflowCreateRequest() error = %v", err)
+	}
+	if workflowCreateDecoded.Source != workflowCreateRequest.Source ||
+		workflowCreateDecoded.Body.Name != workflowCreateRequest.Body.Name ||
+		workflowCreateDecoded.Body.Spec.Driver != workflowCreateRequest.Body.Spec.Driver {
+		t.Fatalf("WorkflowCreateRequest round trip = %#v, want %#v", workflowCreateDecoded, workflowCreateRequest)
+	}
+
 	var workflowResponse RPCPayload
 	if err := workflowResponse.FromWorkflowGetResponse(Workflow{
 		Name: "flowcraft-toolkit",

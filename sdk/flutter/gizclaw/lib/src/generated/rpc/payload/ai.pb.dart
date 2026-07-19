@@ -7768,11 +7768,11 @@ class WorkflowUpsert extends $pb.GeneratedMessage {
 class WorkflowCreateRequest extends $pb.GeneratedMessage {
   factory WorkflowCreateRequest({
     $1.ResourceSource? source,
-    WorkflowUpsert? value,
+    WorkflowUpsert? body,
   }) {
     final result = create();
     if (source != null) result.source = source;
-    if (value != null) result.value = value;
+    if (body != null) result.body = body;
     return result;
   }
 
@@ -7791,7 +7791,7 @@ class WorkflowCreateRequest extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aE<$1.ResourceSource>(1, _omitFieldNames ? '' : 'source',
         enumValues: $1.ResourceSource.values)
-    ..aOM<WorkflowUpsert>(2, _omitFieldNames ? '' : 'value',
+    ..aOM<WorkflowUpsert>(2, _omitFieldNames ? '' : 'body',
         subBuilder: WorkflowUpsert.create)
     ..hasRequiredFields = false;
 
@@ -7825,15 +7825,15 @@ class WorkflowCreateRequest extends $pb.GeneratedMessage {
   void clearSource() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  WorkflowUpsert get value => $_getN(1);
+  WorkflowUpsert get body => $_getN(1);
   @$pb.TagNumber(2)
-  set value(WorkflowUpsert value) => $_setField(2, value);
+  set body(WorkflowUpsert value) => $_setField(2, value);
   @$pb.TagNumber(2)
-  $core.bool hasValue() => $_has(1);
+  $core.bool hasBody() => $_has(1);
   @$pb.TagNumber(2)
-  void clearValue() => $_clearField(2);
+  void clearBody() => $_clearField(2);
   @$pb.TagNumber(2)
-  WorkflowUpsert ensureValue() => $_ensure(1);
+  WorkflowUpsert ensureBody() => $_ensure(1);
 }
 
 class WorkflowCreateResponse extends $pb.GeneratedMessage {
@@ -8299,12 +8299,12 @@ class WorkflowListResponse extends $pb.GeneratedMessage {
 class WorkflowPutRequest extends $pb.GeneratedMessage {
   factory WorkflowPutRequest({
     $core.String? name,
-    WorkflowUpsert? value,
+    WorkflowUpsert? body,
     $1.ResourceSource? source,
   }) {
     final result = create();
     if (name != null) result.name = name;
-    if (value != null) result.value = value;
+    if (body != null) result.body = body;
     if (source != null) result.source = source;
     return result;
   }
@@ -8323,7 +8323,7 @@ class WorkflowPutRequest extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'name')
-    ..aOM<WorkflowUpsert>(2, _omitFieldNames ? '' : 'value',
+    ..aOM<WorkflowUpsert>(2, _omitFieldNames ? '' : 'body',
         subBuilder: WorkflowUpsert.create)
     ..aE<$1.ResourceSource>(3, _omitFieldNames ? '' : 'source',
         enumValues: $1.ResourceSource.values)
@@ -8358,15 +8358,15 @@ class WorkflowPutRequest extends $pb.GeneratedMessage {
   void clearName() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  WorkflowUpsert get value => $_getN(1);
+  WorkflowUpsert get body => $_getN(1);
   @$pb.TagNumber(2)
-  set value(WorkflowUpsert value) => $_setField(2, value);
+  set body(WorkflowUpsert value) => $_setField(2, value);
   @$pb.TagNumber(2)
-  $core.bool hasValue() => $_has(1);
+  $core.bool hasBody() => $_has(1);
   @$pb.TagNumber(2)
-  void clearValue() => $_clearField(2);
+  void clearBody() => $_clearField(2);
   @$pb.TagNumber(2)
-  WorkflowUpsert ensureValue() => $_ensure(1);
+  WorkflowUpsert ensureBody() => $_ensure(1);
 
   @$pb.TagNumber(3)
   $1.ResourceSource get source => $_getN(2);

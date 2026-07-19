@@ -504,11 +504,22 @@ func (h *Harness) RegisterContext(name string, extraArgs ...string) Result {
 		if result := h.InstallFixedAdminContext(refreshAdminContext); result.Err != nil {
 			return Result{Args: []string{"register-context", name}, Err: result.Err, Stderr: result.Stderr}
 		}
-		admin, adminCloseWait, err := h.connectClientFromContextWithCloseWait(refreshAdminContext)
-		if err != nil {
-			return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
+		// Directory aliases are external shared identities, not contexts stored in
+		// this harness's XDG_CONFIG_HOME, so the CLI cannot select them by alias.
+		if _, aliased := h.contextAliases[name]; !aliased {
+			if result := h.UseContext(name); result.Err != nil {
+				return Result{Args: []string{"register-context", name}, Err: result.Err, Stderr: result.Stderr}
+			}
 		}
-		defer adminCloseWait()
+		admin := c
+		if h.ContextPublicKey(name) != h.ContextPublicKey(refreshAdminContext) {
+			var adminCloseWait func()
+			admin, adminCloseWait, err = h.connectClientFromContextWithCloseWait(refreshAdminContext)
+			if err != nil {
+				return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
+			}
+			defer adminCloseWait()
+		}
 		adminAPI, err := admin.ServerAdminClient()
 		if err != nil {
 			return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}

@@ -765,8 +765,8 @@ typedef struct _gizclaw_rpc_v1_WorkflowUpsert {
 
 typedef struct _gizclaw_rpc_v1_WorkflowCreateRequest {
     gizclaw_rpc_v1_ResourceSource source;
-    bool has_value;
-    gizclaw_rpc_v1_WorkflowUpsert value;
+    bool has_body;
+    gizclaw_rpc_v1_WorkflowUpsert body;
 } gizclaw_rpc_v1_WorkflowCreateRequest;
 
 typedef struct _gizclaw_rpc_v1_WorkflowCreateResponse {
@@ -786,8 +786,8 @@ typedef struct _gizclaw_rpc_v1_WorkflowGetResponse {
 
 typedef struct _gizclaw_rpc_v1_WorkflowPutRequest {
     pb_callback_t name;
-    bool has_value;
-    gizclaw_rpc_v1_WorkflowUpsert value;
+    bool has_body;
+    gizclaw_rpc_v1_WorkflowUpsert body;
     gizclaw_rpc_v1_ResourceSource source;
 } gizclaw_rpc_v1_WorkflowPutRequest;
 
@@ -1473,12 +1473,12 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkflowUpsert_name_tag   1
 #define gizclaw_rpc_v1_WorkflowUpsert_spec_tag   2
 #define gizclaw_rpc_v1_WorkflowCreateRequest_source_tag 1
-#define gizclaw_rpc_v1_WorkflowCreateRequest_value_tag 2
+#define gizclaw_rpc_v1_WorkflowCreateRequest_body_tag 2
 #define gizclaw_rpc_v1_WorkflowCreateResponse_value_tag 1
 #define gizclaw_rpc_v1_WorkflowDeleteResponse_value_tag 1
 #define gizclaw_rpc_v1_WorkflowGetResponse_value_tag 1
 #define gizclaw_rpc_v1_WorkflowPutRequest_name_tag 1
-#define gizclaw_rpc_v1_WorkflowPutRequest_value_tag 2
+#define gizclaw_rpc_v1_WorkflowPutRequest_body_tag 2
 #define gizclaw_rpc_v1_WorkflowPutRequest_source_tag 3
 #define gizclaw_rpc_v1_WorkflowPutResponse_value_tag 1
 #define gizclaw_rpc_v1_ToolExecutor_kind_tag     1
@@ -2273,10 +2273,10 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  spec,              2)
 
 #define gizclaw_rpc_v1_WorkflowCreateRequest_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, UENUM,    source,            1) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  value,             2)
+X(a, STATIC,   OPTIONAL, MESSAGE,  body,              2)
 #define gizclaw_rpc_v1_WorkflowCreateRequest_CALLBACK NULL
 #define gizclaw_rpc_v1_WorkflowCreateRequest_DEFAULT NULL
-#define gizclaw_rpc_v1_WorkflowCreateRequest_value_MSGTYPE gizclaw_rpc_v1_WorkflowUpsert
+#define gizclaw_rpc_v1_WorkflowCreateRequest_body_MSGTYPE gizclaw_rpc_v1_WorkflowUpsert
 
 #define gizclaw_rpc_v1_WorkflowCreateResponse_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
@@ -2325,11 +2325,11 @@ X(a, CALLBACK, OPTIONAL, STRING,   next_cursor,       3)
 
 #define gizclaw_rpc_v1_WorkflowPutRequest_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   name,              1) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  value,             2) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  body,              2) \
 X(a, STATIC,   SINGULAR, UENUM,    source,            3)
 #define gizclaw_rpc_v1_WorkflowPutRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_WorkflowPutRequest_DEFAULT NULL
-#define gizclaw_rpc_v1_WorkflowPutRequest_value_MSGTYPE gizclaw_rpc_v1_WorkflowUpsert
+#define gizclaw_rpc_v1_WorkflowPutRequest_body_MSGTYPE gizclaw_rpc_v1_WorkflowUpsert
 
 #define gizclaw_rpc_v1_WorkflowPutResponse_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)

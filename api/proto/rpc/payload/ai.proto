@@ -579,7 +579,7 @@ message WorkflowUpsert {
 
 message WorkflowCreateRequest {
   ResourceSource source = 1;
-  WorkflowUpsert value = 2;
+  WorkflowUpsert body = 2;
 }
 
 message WorkflowCreateResponse {
@@ -620,7 +620,7 @@ message WorkflowListResponse {
 
 message WorkflowPutRequest {
   string name = 1;
-  WorkflowUpsert value = 2;
+  WorkflowUpsert body = 2;
   ResourceSource source = 3;
 }
 

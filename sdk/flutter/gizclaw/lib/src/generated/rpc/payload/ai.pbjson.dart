@@ -3807,12 +3807,12 @@ const WorkflowCreateRequest$json = {
       '10': 'source'
     },
     {
-      '1': 'value',
+      '1': 'body',
       '3': 2,
       '4': 1,
       '5': 11,
       '6': '.gizclaw.rpc.v1.WorkflowUpsert',
-      '10': 'value'
+      '10': 'body'
     },
   ],
 };
@@ -3820,8 +3820,8 @@ const WorkflowCreateRequest$json = {
 /// Descriptor for `WorkflowCreateRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List workflowCreateRequestDescriptor = $convert.base64Decode(
     'ChVXb3JrZmxvd0NyZWF0ZVJlcXVlc3QSNgoGc291cmNlGAEgASgOMh4uZ2l6Y2xhdy5ycGMudj'
-    'EuUmVzb3VyY2VTb3VyY2VSBnNvdXJjZRI0CgV2YWx1ZRgCIAEoCzIeLmdpemNsYXcucnBjLnYx'
-    'LldvcmtmbG93VXBzZXJ0UgV2YWx1ZQ==');
+    'EuUmVzb3VyY2VTb3VyY2VSBnNvdXJjZRIyCgRib2R5GAIgASgLMh4uZ2l6Y2xhdy5ycGMudjEu'
+    'V29ya2Zsb3dVcHNlcnRSBGJvZHk=');
 
 @$core.Deprecated('Use workflowCreateResponseDescriptor instead')
 const WorkflowCreateResponse$json = {
@@ -4000,12 +4000,12 @@ const WorkflowPutRequest$json = {
   '2': [
     {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
     {
-      '1': 'value',
+      '1': 'body',
       '3': 2,
       '4': 1,
       '5': 11,
       '6': '.gizclaw.rpc.v1.WorkflowUpsert',
-      '10': 'value'
+      '10': 'body'
     },
     {
       '1': 'source',
@@ -4020,9 +4020,9 @@ const WorkflowPutRequest$json = {
 
 /// Descriptor for `WorkflowPutRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List workflowPutRequestDescriptor = $convert.base64Decode(
-    'ChJXb3JrZmxvd1B1dFJlcXVlc3QSEgoEbmFtZRgBIAEoCVIEbmFtZRI0CgV2YWx1ZRgCIAEoCz'
-    'IeLmdpemNsYXcucnBjLnYxLldvcmtmbG93VXBzZXJ0UgV2YWx1ZRI2CgZzb3VyY2UYAyABKA4y'
-    'Hi5naXpjbGF3LnJwYy52MS5SZXNvdXJjZVNvdXJjZVIGc291cmNl');
+    'ChJXb3JrZmxvd1B1dFJlcXVlc3QSEgoEbmFtZRgBIAEoCVIEbmFtZRIyCgRib2R5GAIgASgLMh'
+    '4uZ2l6Y2xhdy5ycGMudjEuV29ya2Zsb3dVcHNlcnRSBGJvZHkSNgoGc291cmNlGAMgASgOMh4u'
+    'Z2l6Y2xhdy5ycGMudjEuUmVzb3VyY2VTb3VyY2VSBnNvdXJjZQ==');
 
 @$core.Deprecated('Use workflowPutResponseDescriptor instead')
 const WorkflowPutResponse$json = {

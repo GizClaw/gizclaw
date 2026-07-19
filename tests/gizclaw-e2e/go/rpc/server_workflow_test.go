@@ -10,6 +10,8 @@ import (
 
 func TestServerWorkflowRuntimeAliases(t *testing.T) {
 	env := newServerResourceHarness(t)
+	admin := serverResourceAdminClient(t, env)
+	_, _ = admin.DeleteWorkflowWithResponse(env.ctx, mutationWorkflow)
 
 	limit := 1
 	var cursor *string
@@ -56,7 +58,15 @@ func TestServerWorkflowRuntimeAliases(t *testing.T) {
 	}); err == nil {
 		t.Fatal("runtime Workflow get accepted a concrete resource name")
 	}
-	assertWorkflowPagination(t, env.ctx, env.peer, "shared", "chatroom", "mutation")
+	if _, err := env.peer.GetWorkflow(env.ctx, "workflow.get.runtime.missing", rpcapi.WorkflowGetRequest{
+		Name:   "mutation",
+		Source: rpcapi.ResourceSourceRuntime,
+	}); err == nil {
+		t.Fatal("runtime Workflow get resolved an alias whose target is missing")
+	}
+	// The mutation target is intentionally absent until the Workspace mutation
+	// test creates it. RuntimeProfile references that resolve to 404 are ignored.
+	assertWorkflowPagination(t, env.ctx, env.peer, "shared", "chatroom")
 }
 
 func TestServerWorkflowOwnedCRUD(t *testing.T) {

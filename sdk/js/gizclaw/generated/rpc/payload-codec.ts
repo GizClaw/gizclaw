@@ -1304,7 +1304,7 @@ export type Workflow = {
 };
 export type WorkflowCreateRequest = {
   "source": ResourceSource;
-  "value": WorkflowUpsert;
+  "body": WorkflowUpsert;
 };
 export type WorkflowCreateResponse = Workflow;
 export type WorkflowDeleteRequest = {
@@ -1329,7 +1329,7 @@ export type WorkflowListResponse = {
 };
 export type WorkflowPutRequest = {
   "name": string;
-  "value": WorkflowUpsert;
+  "body": WorkflowUpsert;
   "source": ResourceSource;
 };
 export type WorkflowPutResponse = Workflow;
@@ -7529,7 +7529,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "ResourceSource"
       },
       {
-        "name": "value",
+        "name": "body",
         "number": 2,
         "type": "WorkflowUpsert"
       }
@@ -7640,7 +7640,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "value",
+        "name": "body",
         "number": 2,
         "type": "WorkflowUpsert"
       },

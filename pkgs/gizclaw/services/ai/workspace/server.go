@@ -494,7 +494,12 @@ func normalizeWorkspaceUpsert(in adminhttp.WorkspaceUpsert, expectedName string)
 		}
 	}
 	workflowName := string(in.WorkflowName)
-	if err := customid.ValidateField("workflow_name", workflowName); err != nil {
+	if in.WorkflowSource != nil && *in.WorkflowSource == adminhttp.Runtime {
+		workflowName = strings.TrimSpace(workflowName)
+		if workflowName == "" {
+			return adminhttp.WorkspaceUpsert{}, errors.New("workflow_name: runtime alias is required")
+		}
+	} else if err := customid.ValidateField("workflow_name", workflowName); err != nil {
 		return adminhttp.WorkspaceUpsert{}, err
 	}
 	policy, err := toolkit.NormalizePolicy(in.Toolkit)
