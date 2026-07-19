@@ -5,11 +5,12 @@ package chat
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 // PrepareCgoPushToTalkWorkspace recreates and reloads a voice workspace using
 // the same setup path as the Go chat e2e cases, then returns its workspace name.
-func PrepareCgoPushToTalkWorkspace(ctx context.Context, configPath, contextConfigPath, registrationToken string) (string, error) {
+func PrepareCgoPushToTalkWorkspace(ctx context.Context, configPath, contextConfigPath, runtimeWorkflowAlias, registrationToken string) (string, error) {
 	cfg, err := loadConfig(configPath, contextConfigPath)
 	if err != nil {
 		return "", err
@@ -18,6 +19,11 @@ func PrepareCgoPushToTalkWorkspace(ctx context.Context, configPath, contextConfi
 	if err != nil {
 		return "", err
 	}
+	runtimeWorkflowAlias = strings.TrimSpace(runtimeWorkflowAlias)
+	if runtimeWorkflowAlias == "" {
+		return "", fmt.Errorf("runtime workflow alias is required")
+	}
+	cfg.Workflow.Name = runtimeWorkflowAlias
 	client, serveDone, err := dialClient(cfg)
 	if err != nil {
 		return "", err

@@ -33,7 +33,7 @@ func TestCSDKChatRoundtrip(t *testing.T) {
 	configPath := filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "workspaces", "doubao-realtime.json")
 	contextConfigPath := filepath.Join(identityDir, "config.yaml")
 	registrationToken := createCSDKChatRegistrationToken(t, h, "roundtrip")
-	workspaceName, err := gochat.PrepareCgoPushToTalkWorkspace(ctx, configPath, contextConfigPath, registrationToken)
+	workspaceName, err := gochat.PrepareCgoPushToTalkWorkspace(ctx, configPath, contextConfigPath, "realtime", registrationToken)
 	if err != nil {
 		t.Fatalf("prepare cgo chat workspace: %v", err)
 	}
