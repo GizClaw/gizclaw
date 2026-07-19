@@ -1,8 +1,0 @@
----
-apiVersion: gizclaw.admin/v1alpha1
-kind: ACLPolicyBinding
-metadata: {name: default-client-model-volc-ast-translate}
-spec:
-  subject: {kind: view, id: default-client}
-  resource: {kind: model, id: volc-ast-translate}
-  role: default-client

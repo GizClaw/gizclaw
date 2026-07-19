@@ -7,50 +7,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
-func (m *Manager) applyGameRuleset(ctx context.Context, resource apitypes.Resource) (apitypes.ApplyResult, error) {
-	item, err := resource.AsGameRulesetResource()
-	if err != nil {
-		return apitypes.ApplyResult{}, applyError(400, "INVALID_GAME_RULESET_RESOURCE", err.Error())
-	}
-	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
-		return apitypes.ApplyResult{}, err
-	}
-	existing, exists, err := m.getGameRuleset(ctx, string(pathParam(item.Metadata.Name)))
-	if err != nil {
-		return apitypes.ApplyResult{}, err
-	}
-	if err := m.validateOwnedResourceOwner(apitypes.ACLResourceKindGameruleset, item.Metadata.Name, item.Metadata, exists); err != nil {
-		return apitypes.ApplyResult{}, err
-	}
-	if exists {
-		same, err := semanticEqual(existing.Spec, item.Spec)
-		if err != nil {
-			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
-		}
-		if same {
-			ownerChanged, err := m.ensureOwnedResourceOwnerFromMetadata(ctx, apitypes.ACLResourceKindGameruleset, item.Metadata.Name, item.Metadata)
-			if err != nil {
-				return apitypes.ApplyResult{}, err
-			}
-			if ownerChanged {
-				return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindGameRuleset, item.Metadata.Name), nil
-			}
-			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindGameRuleset, item.Metadata.Name), nil
-		}
-	}
-	ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindGameruleset, item.Metadata.Name, item.Metadata)
-	if err != nil {
-		return apitypes.ApplyResult{}, err
-	}
-	if err := m.putGameRuleset(ctx, string(pathParam(item.Metadata.Name)), gameRulesetUpsert(item)); err != nil {
-		return apitypes.ApplyResult{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
-	}
-	if exists {
-		return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindGameRuleset, item.Metadata.Name), nil
-	}
-	return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindGameRuleset, item.Metadata.Name), nil
-}
-
 func (m *Manager) applyPetDef(ctx context.Context, resource apitypes.Resource) (apitypes.ApplyResult, error) {
 	item, err := resource.AsPetDefResource()
 	if err != nil {
@@ -146,51 +102,6 @@ func (m *Manager) applyGameDef(ctx context.Context, resource apitypes.Resource) 
 		return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindGameDef, item.Metadata.Name), nil
 	}
 	return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindGameDef, item.Metadata.Name), nil
-}
-
-func (m *Manager) getGameRuleset(ctx context.Context, name string) (apitypes.GameRuleset, bool, error) {
-	if m.services.GameplayCatalog == nil {
-		return apitypes.GameRuleset{}, false, missingService("gameplay catalog")
-	}
-	response, err := m.services.GameplayCatalog.GetGameRuleset(ctx, adminhttp.GetGameRulesetRequestObject{Name: name})
-	if err != nil {
-		return apitypes.GameRuleset{}, false, err
-	}
-	switch response := response.(type) {
-	case adminhttp.GetGameRuleset200JSONResponse:
-		return apitypes.GameRuleset(response), true, nil
-	case adminhttp.GetGameRuleset404JSONResponse:
-		return apitypes.GameRuleset{}, false, nil
-	case adminhttp.GetGameRuleset500JSONResponse:
-		return apitypes.GameRuleset{}, false, responseError(500, "GET_GAME_RULESET_FAILED", "failed to get game ruleset", response)
-	default:
-		return apitypes.GameRuleset{}, false, unexpectedResponse("GetGameRuleset", response)
-	}
-}
-
-func (m *Manager) putGameRuleset(ctx context.Context, name string, body adminhttp.GameRulesetUpsert) error {
-	if m.services.GameplayCatalog == nil {
-		return missingService("gameplay catalog")
-	}
-	response, err := m.services.GameplayCatalog.PutGameRuleset(ctx, adminhttp.PutGameRulesetRequestObject{Name: name, Body: &body})
-	return putGameplayResponse("PutGameRuleset", response, err)
-}
-
-func (m *Manager) deleteGameRuleset(ctx context.Context, name string) (apitypes.GameRuleset, bool, error) {
-	response, err := m.services.GameplayCatalog.DeleteGameRuleset(ctx, adminhttp.DeleteGameRulesetRequestObject{Name: name})
-	if err != nil {
-		return apitypes.GameRuleset{}, false, err
-	}
-	switch response := response.(type) {
-	case adminhttp.DeleteGameRuleset200JSONResponse:
-		return apitypes.GameRuleset(response), true, nil
-	case adminhttp.DeleteGameRuleset404JSONResponse:
-		return apitypes.GameRuleset{}, false, nil
-	case adminhttp.DeleteGameRuleset500JSONResponse:
-		return apitypes.GameRuleset{}, false, responseError(500, "DELETE_GAME_RULESET_FAILED", "failed to delete game ruleset", response)
-	default:
-		return apitypes.GameRuleset{}, false, unexpectedResponse("DeleteGameRuleset", response)
-	}
 }
 
 func (m *Manager) getPetDef(ctx context.Context, id string) (apitypes.PetDef, bool, error) {
@@ -333,29 +244,22 @@ func putGameplayResponse(operation string, response any, err error) error {
 		return err
 	}
 	switch response := response.(type) {
-	case adminhttp.PutGameRuleset200JSONResponse,
-		adminhttp.PutPetDef200JSONResponse,
+	case adminhttp.PutPetDef200JSONResponse,
 		adminhttp.PutBadgeDef200JSONResponse,
 		adminhttp.PutGameDef200JSONResponse:
 		return nil
-	case adminhttp.PutGameRuleset400JSONResponse:
-		return responseError(400, "PUT_GAME_RULESET_FAILED", "failed to put game ruleset", response)
 	case adminhttp.PutPetDef400JSONResponse:
 		return responseError(400, "PUT_PET_DEF_FAILED", "failed to put pet def", response)
 	case adminhttp.PutBadgeDef400JSONResponse:
 		return responseError(400, "PUT_BADGE_DEF_FAILED", "failed to put badge def", response)
 	case adminhttp.PutGameDef400JSONResponse:
 		return responseError(400, "PUT_GAME_DEF_FAILED", "failed to put game def", response)
-	case adminhttp.PutGameRuleset409JSONResponse:
-		return responseError(409, "PUT_GAME_RULESET_FAILED", "failed to put game ruleset", response)
 	case adminhttp.PutPetDef409JSONResponse:
 		return responseError(409, "PUT_PET_DEF_FAILED", "failed to put pet def", response)
 	case adminhttp.PutBadgeDef409JSONResponse:
 		return responseError(409, "PUT_BADGE_DEF_FAILED", "failed to put badge def", response)
 	case adminhttp.PutGameDef409JSONResponse:
 		return responseError(409, "PUT_GAME_DEF_FAILED", "failed to put game def", response)
-	case adminhttp.PutGameRuleset500JSONResponse:
-		return responseError(500, "PUT_GAME_RULESET_FAILED", "failed to put game ruleset", response)
 	case adminhttp.PutPetDef500JSONResponse:
 		return responseError(500, "PUT_PET_DEF_FAILED", "failed to put pet def", response)
 	case adminhttp.PutBadgeDef500JSONResponse:
@@ -365,10 +269,6 @@ func putGameplayResponse(operation string, response any, err error) error {
 	default:
 		return unexpectedResponse(operation, response)
 	}
-}
-
-func gameRulesetUpsert(resource apitypes.GameRulesetResource) adminhttp.GameRulesetUpsert {
-	return adminhttp.GameRulesetUpsert{Name: resource.Metadata.Name, Spec: resource.Spec}
 }
 
 func petDefUpsert(resource apitypes.PetDefResource) adminhttp.PetDefUpsert {
@@ -381,15 +281,6 @@ func badgeDefUpsert(resource apitypes.BadgeDefResource) adminhttp.BadgeDefUpsert
 
 func gameDefUpsert(resource apitypes.GameDefResource) adminhttp.GameDefUpsert {
 	return adminhttp.GameDefUpsert{Id: resource.Metadata.Name, Spec: resource.Spec}
-}
-
-func resourceFromGameRuleset(item apitypes.GameRuleset) (apitypes.Resource, error) {
-	return marshalResource(apitypes.GameRulesetResource{
-		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
-		Kind:       apitypes.GameRulesetResourceKind(apitypes.ResourceKindGameRuleset),
-		Metadata:   apitypes.ResourceMetadata{Name: item.Name},
-		Spec:       item.Spec,
-	})
 }
 
 func resourceFromPetDef(item apitypes.PetDef) (apitypes.Resource, error) {

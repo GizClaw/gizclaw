@@ -1,5 +1,4 @@
 import 'package:flutter/widgets.dart';
-import 'package:gizclaw/gizclaw.dart';
 
 const appEnglishLocale = Locale('en');
 const appSimplifiedChineseLocale = Locale('zh', 'CN');
@@ -32,8 +31,3 @@ Locale resolveSystemLocale(List<Locale> platformLocales) {
 
 String appLocaleTag(Locale locale) =>
     locale.languageCode == 'zh' ? 'zh-CN' : 'en';
-
-WorkflowLocale workflowLocaleForAppLocale(Locale locale) =>
-    locale.languageCode == 'zh'
-    ? WorkflowLocale.WORKFLOW_LOCALE_ZH_CN
-    : WorkflowLocale.WORKFLOW_LOCALE_EN;

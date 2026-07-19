@@ -3,14 +3,6 @@ apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
   name: flowcraft-tool-chat
-i18n:
-  default_locale: en
-  en:
-    name: Smart Tool Companion
-    description: Chat naturally while routing requests to music, stories, and device controls.
-  zh-CN:
-    name: 智能工具伙伴
-    description: 在自然对话中调用音乐、故事和设备控制能力。
 spec:
   driver: flowcraft
   flowcraft:

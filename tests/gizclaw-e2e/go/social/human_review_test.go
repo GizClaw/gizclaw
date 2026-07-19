@@ -31,7 +31,7 @@ const (
 	socialHumanReviewOutputUnderflowRetries = 3
 	socialHumanReviewSampleRate             = 48000
 	socialHumanReviewFrameSize              = socialHumanReviewSampleRate / 50
-	socialHumanReviewACLView                = "gear1"
+	socialHumanReviewRuntimeProfile         = "social-human-review"
 	socialHumanReviewTTSModel               = "volc-bigtts"
 	socialHumanReviewVoiceResource          = "volc-tenant:volc-main:zh_female_vv_mars_bigtts"
 )
@@ -95,12 +95,10 @@ func newSocialHumanReviewHarness(t *testing.T) *sharedSocialClients {
 	for _, peer := range []string{"peer-c"} {
 		h.CreateContext(peer).MustSucceed(t)
 		h.RegisterContext(peer, "--sn", "client-social-human-review-"+peer+"-sn").MustSucceed(t)
-		putSocialHumanReviewPeerConfig(t, api, h.ContextPublicKey(peer))
 	}
-	for _, peer := range []string{"peer-a", "peer-b"} {
-		putSocialHumanReviewPeerConfig(t, api, h.ContextPublicKey(peer))
-	}
-	return newSharedSocialClients(t, h)
+	shared := newSharedSocialClients(t, h)
+	registerSocialHumanReviewProfile(t, api, shared, "peer-a", "peer-b", "peer-c")
+	return shared
 }
 
 func requireSocialHumanReviewProviderEnv(t *testing.T) {
@@ -141,18 +139,55 @@ func setEnvFallback(t *testing.T, key string, fallbacks ...string) {
 	}
 }
 
-func putSocialHumanReviewPeerConfig(t *testing.T, api *adminhttp.ClientWithResponses, publicKey string) {
+func registerSocialHumanReviewProfile(t *testing.T, api *adminhttp.ClientWithResponses, clients *sharedSocialClients, peers ...string) {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	view := socialHumanReviewACLView
-	resp, err := api.PutPeerConfigWithResponse(ctx, publicKey, apitypes.Configuration{View: &view})
-	if err != nil {
-		t.Fatalf("put social human-review peer config %s: %v", publicKey, err)
+	workflows := map[string]string{
+		"direct": "chatroom-direct",
+		"group":  "chatroom",
 	}
-	if resp.JSON200 == nil {
-		t.Fatalf("put social human-review peer config %s status %d: %s", publicKey, resp.StatusCode(), strings.TrimSpace(string(resp.Body)))
+	models := map[string]string{
+		"asr": "volc-asr",
+		"tts": socialHumanReviewTTSModel,
+	}
+	voices := map[string]string{"tts": socialHumanReviewVoiceResource}
+	profileResp, err := api.PutRuntimeProfileWithResponse(ctx, socialHumanReviewRuntimeProfile, adminhttp.RuntimeProfileUpsert{
+		Name: socialHumanReviewRuntimeProfile,
+		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{
+			Workflows: &workflows,
+			Models:    &models,
+			Voices:    &voices,
+		}},
+	})
+	if err != nil {
+		t.Fatalf("put social human-review RuntimeProfile: %v", err)
+	}
+	if profileResp.JSON200 == nil {
+		t.Fatalf("put social human-review RuntimeProfile status %d: %s", profileResp.StatusCode(), strings.TrimSpace(string(profileResp.Body)))
+	}
+	tokenName := "e2e-social-human-review"
+	_, _ = api.DeleteRegistrationTokenWithResponse(ctx, tokenName)
+	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
+		Name:               tokenName,
+		FirmwareName:       "devkit-firmware-main",
+		RuntimeProfileName: socialHumanReviewRuntimeProfile,
+	})
+	if err != nil {
+		t.Fatalf("create social human-review RegistrationToken: %v", err)
+	}
+	if tokenResp.JSON200 == nil || tokenResp.JSON200.Token == "" {
+		t.Fatalf("create social human-review RegistrationToken status %d: %s", tokenResp.StatusCode(), strings.TrimSpace(string(tokenResp.Body)))
+	}
+	for _, peerName := range peers {
+		registered, err := clients.Client(peerName).Register(ctx, "server.register.social-human-review", tokenResp.JSON200.Token)
+		if err != nil {
+			t.Fatalf("register %s for social human review: %v", peerName, err)
+		}
+		if registered.RuntimeProfileName != socialHumanReviewRuntimeProfile {
+			t.Fatalf("register %s for social human review = %#v", peerName, registered)
+		}
 	}
 }
 

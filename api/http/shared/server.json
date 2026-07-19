@@ -416,10 +416,13 @@
             "type": "integer",
             "minimum": 1
           },
-          "lang": {
-            "$ref": "#/components/schemas/WorkflowLocale"
+          "source": {
+            "$ref": "#/components/schemas/ResourceSource"
           }
-        }
+        },
+        "required": [
+          "source"
+        ]
       },
       "WorkflowListResponse": {
         "type": "object",
@@ -451,16 +454,97 @@
             "type": "string",
             "minLength": 1
           },
-          "lang": {
-            "$ref": "#/components/schemas/WorkflowLocale"
+          "source": {
+            "$ref": "#/components/schemas/ResourceSource"
           }
         },
         "required": [
-          "name"
+          "name",
+          "source"
         ]
       },
       "WorkflowGetResponse": {
         "$ref": "#/components/schemas/Workflow"
+      },
+      "WorkflowCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source",
+          "body"
+        ],
+        "properties": {
+          "source": {
+            "$ref": "#/components/schemas/ResourceSource"
+          },
+          "body": {
+            "$ref": "#/components/schemas/WorkflowUpsert"
+          }
+        }
+      },
+      "WorkflowCreateResponse": {
+        "$ref": "#/components/schemas/Workflow"
+      },
+      "WorkflowPutRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "source",
+          "body"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source": {
+            "$ref": "#/components/schemas/ResourceSource"
+          },
+          "body": {
+            "$ref": "#/components/schemas/WorkflowUpsert"
+          }
+        }
+      },
+      "WorkflowPutResponse": {
+        "$ref": "#/components/schemas/Workflow"
+      },
+      "WorkflowDeleteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "source"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source": {
+            "$ref": "#/components/schemas/ResourceSource"
+          }
+        }
+      },
+      "WorkflowDeleteResponse": {
+        "$ref": "#/components/schemas/Workflow"
+      },
+      "WorkflowUpsert": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "spec"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "spec": {
+            "$ref": "../shared/workflow_spec.json#/components/schemas/WorkflowSpec"
+          }
+        }
       },
       "Workflow": {
         "type": "object",
@@ -477,16 +561,16 @@
           "spec": {
             "$ref": "../shared/workflow_spec.json#/components/schemas/WorkflowSpec"
           },
-          "i18n": {
-            "$ref": "../shared/workflow_i18n.json#/components/schemas/WorkflowI18nCatalog"
+          "owner_public_key": {
+            "type": "string"
           }
         }
       },
-      "WorkflowLocale": {
+      "ResourceSource": {
         "type": "string",
         "enum": [
-          "en",
-          "zh-CN"
+          "runtime",
+          "owned"
         ]
       },
       "ModelListRequest": {
@@ -1571,18 +1655,6 @@
           }
         }
       },
-      "ServerGameRulesetGetRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "name": {
-            "type": "string"
-          }
-        }
-      },
-      "ServerGameRulesetGetResponse": {
-        "$ref": "../shared/gameplay.json#/components/schemas/GameRuleset"
-      },
       "BadgeDefPixaDownloadRequest": {
         "type": "object",
         "required": [
@@ -1629,10 +1701,10 @@
       "ServerPetGetResponse": {
         "$ref": "../shared/gameplay.json#/components/schemas/Pet"
       },
-      "ServerPetAdoptRequest": {
+      "RuntimeAdoptRequest": {
         "$ref": "../shared/gameplay.json#/components/schemas/PetAdoptRequest"
       },
-      "ServerPetAdoptResponse": {
+      "RuntimeAdoptResponse": {
         "$ref": "../shared/gameplay.json#/components/schemas/PetAdoptResponse"
       },
       "ServerPetPutRequest": {
@@ -1655,12 +1727,7 @@
       },
       "ServerPointsGetRequest": {
         "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "ruleset_name": {
-            "type": "string"
-          }
-        }
+        "additionalProperties": false
       },
       "ServerPointsGetResponse": {
         "$ref": "../shared/gameplay.json#/components/schemas/PointsAccount"

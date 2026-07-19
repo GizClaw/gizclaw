@@ -30,6 +30,21 @@ final $typed_data.Uint8List iconFormatDescriptor = $convert.base64Decode(
     'CgpJY29uRm9ybWF0EhsKF0lDT05fRk9STUFUX1VOU1BFQ0lGSUVEEAASFAoQSUNPTl9GT1JNQV'
     'RfUElYQRABEhMKD0lDT05fRk9STUFUX1BORxAC');
 
+@$core.Deprecated('Use resourceSourceDescriptor instead')
+const ResourceSource$json = {
+  '1': 'ResourceSource',
+  '2': [
+    {'1': 'RESOURCE_SOURCE_UNSPECIFIED', '2': 0},
+    {'1': 'RESOURCE_SOURCE_RUNTIME', '2': 1},
+    {'1': 'RESOURCE_SOURCE_OWNED', '2': 2},
+  ],
+};
+
+/// Descriptor for `ResourceSource`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List resourceSourceDescriptor = $convert.base64Decode(
+    'Cg5SZXNvdXJjZVNvdXJjZRIfChtSRVNPVVJDRV9TT1VSQ0VfVU5TUEVDSUZJRUQQABIbChdSRV'
+    'NPVVJDRV9TT1VSQ0VfUlVOVElNRRABEhkKFVJFU09VUkNFX1NPVVJDRV9PV05FRBAC');
+
 @$core.Deprecated('Use aSTTranslateModeDescriptor instead')
 const ASTTranslateMode$json = {
   '1': 'ASTTranslateMode',

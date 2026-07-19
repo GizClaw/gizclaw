@@ -1,8 +1,0 @@
----
-apiVersion: gizclaw.admin/v1alpha1
-kind: ACLPolicyBinding
-metadata: {name: default-client-model-minimax-cn-m3}
-spec:
-  subject: {kind: view, id: default-client}
-  resource: {kind: model, id: minimax-cn-m3}
-  role: default-client

@@ -28,10 +28,6 @@ storage:
     kind: objectstore
     fs:
       dir: data/agenthost
-  acl-db:
-    kind: sql
-    sqlite:
-      dir: data/acl.sqlite
   history-db:
     kind: sql
     sqlite:
@@ -53,6 +49,10 @@ stores:
     kind: keyvalue
     storage: memory
     prefix: firmwares
+  runtime-profiles:
+    kind: keyvalue
+    storage: memory
+    prefix: runtime-profiles
   firmware-assets:
     kind: objectstore
     storage: local-files
@@ -76,16 +76,9 @@ stores:
     kind: keyvalue
     storage: memory
     prefix: workflows
-  acl:
-    kind: sql
-    storage: acl-db
   history:
     kind: sql
     storage: history-db
-  game-rulesets:
-    kind: keyvalue
-    storage: memory
-    prefix: game-rulesets
   pet-defs:
     kind: keyvalue
     storage: memory
@@ -106,10 +99,6 @@ stores:
     kind: objectstore
     storage: local-files
     prefix: workspaces
-  workflow-assets:
-    kind: objectstore
-    storage: local-files
-    prefix: workflows
   gameplay-db:
     kind: sql
     storage: gameplay-db
@@ -166,8 +155,6 @@ workspaces:
   store: workspaces
 workflows:
   store: workflows
-acl:
-  store: acl
 history:
   store: history
 friend_groups:

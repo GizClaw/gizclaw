@@ -45,7 +45,7 @@ func TestWorkspaceIconLifecycleAndProjection(t *testing.T) {
 	}
 
 	downloadResponse, err := srv.DownloadWorkspaceIcon(ctx, adminhttp.DownloadWorkspaceIconRequestObject{
-		Name: "workspace-icon", Format: adminhttp.DownloadWorkspaceIconParamsFormatPng,
+		Name: "workspace-icon", Format: adminhttp.Png,
 	})
 	if err != nil {
 		t.Fatal(err)

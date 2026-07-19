@@ -11,7 +11,7 @@ Go generated output: `pkgs/gizclaw/api/adminhttp`
 | --- | --- |
 | Resource | `apply/show` and unified Resource envelope |
 | Peer | Peer query, approval, blocking, refresh, configuration and runtime |
-| ACL | Role, View and Policy Binding Management |
+| Runtime access | RuntimeProfile and RegistrationToken management |
 | AI | Credential, Model, Voice, Provider Tenant, Workflow, Workspace |
 | Gameplay | Game Rule, Pet, Badge, Points, Result and Reward |
 | Social | Contact, Friend and Friend Group Management |

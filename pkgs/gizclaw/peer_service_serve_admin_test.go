@@ -28,6 +28,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/jmoiron/sqlx"
+	_ "modernc.org/sqlite"
 )
 
 func TestAdminServiceApplyResourceRequiresBody(t *testing.T) {
@@ -62,7 +63,7 @@ func TestAdminServiceDeletePeerPetUsesGameplayLifecycle(t *testing.T) {
 	}
 	now := time.Date(2026, 7, 16, 12, 0, 0, 0, time.UTC).Format(time.RFC3339Nano)
 	if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pets (
-		owner_public_key, id, ruleset_name, petdef_id, display_name, workspace_name,
+		owner_public_key, id, runtime_profile_name, petdef_id, display_name, workspace_name,
 		workflow_name, life_json, ability_json, exp, level, last_active_at, created_at, updated_at
 	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		"peer-a", "pet-a", "default", "petdef-a", "Pet A", "pet-pet-a",

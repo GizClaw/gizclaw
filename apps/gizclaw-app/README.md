@@ -102,14 +102,14 @@ operator procedure.
 
 ## Integration Notes
 
-Mobile presentation will likely need workflow display fields beyond the current
-execution contract. Keep those fields in metadata/display-oriented schemas, not
-inside workflow driver execution parameters.
+Mobile presentation is keyed by the RuntimeProfile Workflow alias. Keep the
+localized name, icon, banner, and other presentation metadata in the App's
+local alias catalog rather than the Server Workflow execution contract.
 
 Expected future contract work:
 
-- Add display metadata for workflow cards, such as icon, banner image, category,
-  featured rank, and short subtitle.
+- Expand the local alias catalog for workflow cards with fields such as banner
+  image, category, featured rank, and short subtitle.
 - Add a workflow filter to workspace listing so a workflow detail screen can
   load only its workspaces without client-side filtering.
 - Decide whether mobile chat uses Peer OpenAI-compatible chat completions,

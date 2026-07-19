@@ -6,30 +6,6 @@ func asIconPayload[T any](payload RPCPayload, name string) (T, error) {
 	return body, err
 }
 
-func (t RPCPayload) AsWorkflowIconDownloadRequest() (WorkflowIconDownloadRequest, error) {
-	return asIconPayload[WorkflowIconDownloadRequest](t, "WorkflowIconDownloadRequest")
-}
-
-func (t *RPCPayload) FromWorkflowIconDownloadRequest(v WorkflowIconDownloadRequest) error {
-	return t.encode("WorkflowIconDownloadRequest", v)
-}
-
-func (t *RPCPayload) MergeWorkflowIconDownloadRequest(v WorkflowIconDownloadRequest) error {
-	return t.merge("WorkflowIconDownloadRequest", v)
-}
-
-func (t RPCPayload) AsWorkflowIconDownloadResponse() (WorkflowIconDownloadResponse, error) {
-	return asIconPayload[WorkflowIconDownloadResponse](t, "WorkflowIconDownloadResponse")
-}
-
-func (t *RPCPayload) FromWorkflowIconDownloadResponse(v WorkflowIconDownloadResponse) error {
-	return t.encode("WorkflowIconDownloadResponse", v)
-}
-
-func (t *RPCPayload) MergeWorkflowIconDownloadResponse(v WorkflowIconDownloadResponse) error {
-	return t.merge("WorkflowIconDownloadResponse", v)
-}
-
 func (t RPCPayload) AsWorkspaceIconDownloadRequest() (WorkspaceIconDownloadRequest, error) {
 	return asIconPayload[WorkspaceIconDownloadRequest](t, "WorkspaceIconDownloadRequest")
 }

@@ -14,6 +14,11 @@ These tests execute `testdata/bin/gizclaw` through `os/exec`. They should not us
 - `migrate`: workspace migration command behavior.
 - `connect`: device/client-facing connect commands.
 - `admin`: admin CLI resource and peer-management commands.
-- `play`: Play UI launcher command behavior.
+- `edge`: edge-node ingress help, validation, and bounded lifecycle behavior.
 
 Each command group owns one `USER_STORIES.md` file and focused `_test.go` files.
+The executable root inventory test must match this list. Cobra's generated
+`completion` and `help` helpers are excluded because they are framework
+surfaces rather than GizClaw command groups. A documented group that is absent
+from the real binary is an error; tests do not invent product commands to fill
+stale documentation.

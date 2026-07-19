@@ -6,11 +6,6 @@
 !assets/
 !assets/firmware/
 !assets/firmware/*.tar
-!assets/workflows/
-!assets/workflows/generate.go
-!assets/workflows/*/
-!assets/workflows/*/icon.png
-!assets/workflows/*/icon.pixa
 !workflow_catalog_test.go
 !workspaces/
 !workspaces/*.json

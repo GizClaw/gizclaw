@@ -20,5 +20,11 @@ GizClawServer parseGizClawServerQr(String payload) {
     throw const FormatException('The QR code is missing a server name');
   }
   final endpoint = normalizeGizClawEndpoint(uri.pathSegments.single);
-  return GizClawServer(name: name, accessPoint: endpoint);
+  final registrationToken =
+      uri.queryParameters['registration_token']?.trim() ?? '';
+  return GizClawServer(
+    name: name,
+    accessPoint: endpoint,
+    registrationToken: registrationToken,
+  );
 }

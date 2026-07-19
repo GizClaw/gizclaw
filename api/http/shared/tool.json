@@ -23,6 +23,11 @@
           "id": {
             "type": "string"
           },
+          "owner_public_key": {
+            "type": "string",
+            "readOnly": true,
+            "description": "Immutable Public Key of the Client that created this Tool. Admin-created Tools omit it."
+          },
           "name": {
             "type": "string"
           },

@@ -380,36 +380,37 @@ test("RPC payload codec preserves the DashScope realtime workflow driver", () =>
   assert.deepEqual(decodeRPCResponsePayload("server.workflow.get", payload), workflow);
 });
 
-test("RPC payload codec preserves the selected workflow i18n catalog", () => {
+test("RPC payload codec preserves workflow ownership metadata", () => {
   const workflow = {
-    i18n: { name: "Assistant", description: "Helpful workflow" },
     name: "assistant",
+    owner_public_key: "peer-a",
     spec: { driver: "flowcraft" },
   };
   const payload = encodeRPCResponsePayload("server.workflow.get", workflow);
   const decoded = decodeRPCResponsePayload("server.workflow.get", payload) as typeof workflow;
 
-  assert.deepEqual(decoded.i18n, workflow.i18n);
+  assert.equal(decoded.owner_public_key, workflow.owner_public_key);
 });
 
-test("RPC payload codec preserves the workflow locale enum", () => {
+test("RPC payload codec preserves the workflow source enum", () => {
   const payload = encodeRPCRequestPayload("server.workflow.get", {
     name: "assistant",
-    lang: "zh-CN",
+	  source: "runtime",
   });
   assert.deepEqual(decodeRPCRequestPayload("server.workflow.get", payload), {
     name: "assistant",
-    lang: "zh-CN",
+	  source: "runtime",
   });
 });
 
-test("RPC payload codec allows the workflow locale to be omitted", () => {
+test("RPC payload codec emits unspecified when workflow source is omitted", () => {
   const payload = encodeRPCRequestPayload("server.workflow.get", {
     name: "assistant",
   });
 
   assert.deepEqual(decodeRPCRequestPayload("server.workflow.get", payload), {
     name: "assistant",
+	  source: "",
   });
 });
 

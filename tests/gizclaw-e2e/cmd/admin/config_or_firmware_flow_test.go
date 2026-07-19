@@ -11,23 +11,51 @@ import (
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
 )
 
-func TestAdminConfigFlowUserStory(t *testing.T) {
-	h := clitest.NewHarness(t, "503-admin-config-flow")
+func TestAdminRuntimeProfileRegistrationTokenFlow(t *testing.T) {
+	h := clitest.NewHarness(t, "503-admin-runtime-profile-flow")
 	h.StartServerFromFixture("server_config.yaml")
-
 	h.CreateAdminContext("admin-a").MustSucceed(t)
 	h.RegisterContext("admin-a", "--sn", "admin-sn").MustSucceed(t)
-	h.CreateContext("device-a").MustSucceed(t)
-	h.RegisterContext("device-a", "--sn", "device-sn").MustSucceed(t)
-	devicePubKey := h.ContextPublicKey("device-a")
 
-	configPath := filepath.Join(h.SandboxDir, "peer-config.json")
-	if err := os.WriteFile(configPath, []byte(`{"view":"under-12"}`), 0o644); err != nil {
-		t.Fatalf("write peer config: %v", err)
+	firmwarePath := filepath.Join(h.SandboxDir, "firmware.json")
+	writeAdminFixture(t, firmwarePath, `{
+  "name":"devkit",
+  "slots":{"stable":{},"beta":{},"develop":{},"pending":{}}
+}`)
+	h.RunCLI("admin", "firmwares", "put", "devkit", "-f", firmwarePath, "--context", "admin-a").MustSucceed(t)
+
+	profilePath := filepath.Join(h.SandboxDir, "runtime-profile.json")
+	writeAdminFixture(t, profilePath, `{
+  "name":"device-default",
+  "spec":{"resources":{"models":{"primary":"model-default"},"pet_defs":{"tragon":"petdef-tragon"}}}
+}`)
+	profile := h.RunCLI("admin", "runtime-profiles", "create", "-f", profilePath, "--context", "admin-a")
+	profile.MustSucceed(t)
+	assertContains(t, profile.Stdout, `"models":{"primary":"model-default"}`, `"pet_defs":{"tragon":"petdef-tragon"}`)
+
+	tokenPath := filepath.Join(h.SandboxDir, "registration-token.json")
+	writeAdminFixture(t, tokenPath, `{
+  "name":"device-default",
+  "firmware_name":"devkit",
+  "runtime_profile_name":"device-default"
+}`)
+	created := h.RunCLI("admin", "registration-tokens", "create", "-f", tokenPath, "--context", "admin-a")
+	created.MustSucceed(t)
+	assertContains(t, created.Stdout, `"token":"`, `"firmware_name":"devkit"`, `"runtime_profile_name":"device-default"`)
+
+	got := h.RunCLI("admin", "registration-tokens", "get", "device-default", "--context", "admin-a")
+	got.MustSucceed(t)
+	if strings.Contains(got.Stdout, `"token"`) {
+		t.Fatalf("registration token metadata leaked raw token:\n%s", got.Stdout)
 	}
-	putConfig := h.RunCLI("admin", "peers", "put-config", devicePubKey, "--file", configPath, "--context", "admin-a")
-	putConfig.MustSucceed(t)
-	if !strings.Contains(putConfig.Stdout, `"view":"under-12"`) {
-		t.Fatalf("expected put-config output to include view:\n%s", putConfig.Stdout)
+
+	h.RunCLI("admin", "registration-tokens", "delete", "device-default", "--context", "admin-a").MustSucceed(t)
+	h.RunCLI("admin", "runtime-profiles", "delete", "device-default", "--context", "admin-a").MustSucceed(t)
+}
+
+func writeAdminFixture(t *testing.T, path, body string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatalf("write %s: %v", path, err)
 	}
 }

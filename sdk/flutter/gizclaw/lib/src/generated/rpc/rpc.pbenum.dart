@@ -133,6 +133,12 @@ class RpcMethod extends $pb.ProtobufEnum {
       RpcMethod._(33, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKFLOW_LIST');
   static const RpcMethod RPC_METHOD_SERVER_WORKFLOW_GET =
       RpcMethod._(34, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKFLOW_GET');
+  static const RpcMethod RPC_METHOD_SERVER_WORKFLOW_CREATE = RpcMethod._(
+      35, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKFLOW_CREATE');
+  static const RpcMethod RPC_METHOD_SERVER_WORKFLOW_PUT =
+      RpcMethod._(36, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKFLOW_PUT');
+  static const RpcMethod RPC_METHOD_SERVER_WORKFLOW_DELETE = RpcMethod._(
+      37, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKFLOW_DELETE');
   static const RpcMethod RPC_METHOD_SERVER_MODEL_LIST =
       RpcMethod._(38, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_MODEL_LIST');
   static const RpcMethod RPC_METHOD_SERVER_MODEL_GET =
@@ -235,16 +241,14 @@ class RpcMethod extends $pb.ProtobufEnum {
   static const RpcMethod RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND =
       RpcMethod._(76,
           _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND');
-  static const RpcMethod RPC_METHOD_SERVER_GAME_RULESET_GET = RpcMethod._(
-      77, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_GAME_RULESET_GET');
   static const RpcMethod RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD = RpcMethod
       ._(79, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD');
   static const RpcMethod RPC_METHOD_SERVER_PET_LIST =
       RpcMethod._(80, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PET_LIST');
   static const RpcMethod RPC_METHOD_SERVER_PET_GET =
       RpcMethod._(81, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PET_GET');
-  static const RpcMethod RPC_METHOD_SERVER_PET_ADOPT =
-      RpcMethod._(82, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PET_ADOPT');
+  static const RpcMethod RPC_METHOD_RUNTIME_ADOPT =
+      RpcMethod._(82, _omitEnumNames ? '' : 'RPC_METHOD_RUNTIME_ADOPT');
   static const RpcMethod RPC_METHOD_SERVER_PET_PUT =
       RpcMethod._(83, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PET_PUT');
   static const RpcMethod RPC_METHOD_SERVER_PET_DELETE =
@@ -292,13 +296,13 @@ class RpcMethod extends $pb.ProtobufEnum {
       104, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PET_ACTIONS_GET');
   static const RpcMethod RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD = RpcMethod._(
       105, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD');
-  static const RpcMethod RPC_METHOD_SERVER_WORKFLOW_ICON_DOWNLOAD = RpcMethod._(
-      106, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKFLOW_ICON_DOWNLOAD');
   static const RpcMethod RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD =
       RpcMethod._(107,
           _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD');
   static const RpcMethod RPC_METHOD_SERVER_FRIEND_INFO_GET = RpcMethod._(
       108, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_INFO_GET');
+  static const RpcMethod RPC_METHOD_SERVER_REGISTER =
+      RpcMethod._(109, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_REGISTER');
 
   static const $core.List<RpcMethod> values = <RpcMethod>[
     RPC_METHOD_UNSPECIFIED,
@@ -336,6 +340,9 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_GET,
     RPC_METHOD_SERVER_WORKFLOW_LIST,
     RPC_METHOD_SERVER_WORKFLOW_GET,
+    RPC_METHOD_SERVER_WORKFLOW_CREATE,
+    RPC_METHOD_SERVER_WORKFLOW_PUT,
+    RPC_METHOD_SERVER_WORKFLOW_DELETE,
     RPC_METHOD_SERVER_MODEL_LIST,
     RPC_METHOD_SERVER_MODEL_GET,
     RPC_METHOD_SERVER_MODEL_CREATE,
@@ -375,11 +382,10 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST,
     RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET,
     RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND,
-    RPC_METHOD_SERVER_GAME_RULESET_GET,
     RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD,
     RPC_METHOD_SERVER_PET_LIST,
     RPC_METHOD_SERVER_PET_GET,
-    RPC_METHOD_SERVER_PET_ADOPT,
+    RPC_METHOD_RUNTIME_ADOPT,
     RPC_METHOD_SERVER_PET_PUT,
     RPC_METHOD_SERVER_PET_DELETE,
     RPC_METHOD_SERVER_PET_DRIVE,
@@ -403,13 +409,13 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_ROUTE_RESOLVE,
     RPC_METHOD_SERVER_PET_ACTIONS_GET,
     RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD,
-    RPC_METHOD_SERVER_WORKFLOW_ICON_DOWNLOAD,
     RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD,
     RPC_METHOD_SERVER_FRIEND_INFO_GET,
+    RPC_METHOD_SERVER_REGISTER,
   ];
 
   static final $core.List<RpcMethod?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 108);
+      $pb.ProtobufEnum.$_initByValueList(values, 109);
   static RpcMethod? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

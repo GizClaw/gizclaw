@@ -15,11 +15,11 @@ Chatroom, AST Translate, ASR, TTS, and ordinary media pipelines transform stream
 | `pkgs/agent/dashscoperealtime` | Typed Qwen3.5 Omni Realtime function-call session. |
 | `pkgs/gizclaw/services/runtime/agenthost` | Resolves Workspaces, authorizes Toolkits, constructs and reuses Agents, and adapts optional product APIs. |
 
-`pkgs/agent` does not depend on GizClaw Resources, ACL, Workspace, Peer, RPC, or generated APIs. The product layer resolves models, stores, authorization, and device-bound executors before passing those dependencies through an implementation-specific typed Config. There is no cross-provider union Config.
+`pkgs/agent` does not depend on GizClaw Resources, ownership/access profiles, Workspace, Peer, RPC, or generated APIs. The product layer resolves models, stores, resource access, and device-bound executors before passing those dependencies through an implementation-specific typed Config. There is no cross-provider union Config.
 
 ## Toolkit and ToolCalls
 
-The Agent-facing Toolkit owns an immutable Tool declaration snapshot and the matching `Invoke` boundary. GizClaw includes a Tool only after enabled state, Workflow/Workspace policy, ACL `use`, executor availability, and device binding checks, and an invocation name must be present in that snapshot. Invocation rechecks ACL and live availability, but it never executes a Tool that appeared only after Agent construction and was not declared to the model.
+The Agent-facing Toolkit owns an immutable Tool declaration snapshot and the matching `Invoke` boundary. GizClaw includes a Tool only after owner/RuntimeProfile selection, Workflow allow-list, enabled state, executor availability, and device binding checks, and an invocation name must be present in that snapshot. Invocation rebuilds access from the current resource-access context and rechecks live availability, but it never executes a Tool that appeared only after Agent construction and was not declared to the model.
 
 A Tool-capable turn runs in this order:
 

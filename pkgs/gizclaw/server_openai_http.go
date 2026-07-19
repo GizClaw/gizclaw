@@ -14,15 +14,17 @@ func (s *Server) peerOpenAIHTTPHandler(sessions *publiclogin.SessionManager) htt
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		publicKey, ok := authenticatePrimaryHTTPSession(w, r, sessions)
+		authenticated, ok := authenticatePrimaryHTTPSessionState(w, r, sessions)
 		if !ok {
 			return
 		}
+		publicKey := authenticated.PublicKey
 		observability.SetPeer(r.Context(), publicKey.String(), "")
 		if s == nil || s.peerService == nil {
 			http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
 			return
 		}
-		http.StripPrefix("/openai", s.peerService.openAIHTTPHandlerForPeer(publicKey, nil)).ServeHTTP(w, r)
+		resources := s.peerService.peerResourcesForHTTPSession(publicKey, authenticated.Registration)
+		http.StripPrefix("/openai", s.peerService.openAIHTTPHandlerForPeer(publicKey, nil, resources)).ServeHTTP(w, r)
 	})
 }

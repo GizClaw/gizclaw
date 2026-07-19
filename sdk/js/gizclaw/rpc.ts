@@ -22,8 +22,6 @@ export type FirmwareGetResponse = Firmware;
 export type FirmwareListResponse = Omit<RPCPayload.FirmwareListResponse, "items"> & {
   "items": Firmware[];
 };
-export type GameRuleset = WithRequired<RPCPayload.GameRuleset, "spec">;
-export type ServerGameRulesetGetResponse = GameRuleset;
 export type PeerRunRecallHit = Omit<RPCPayload.PeerRunRecallHit, "metadata"> & {
   "metadata"?: Record<string, unknown>;
 };
@@ -43,9 +41,6 @@ export type RPCMethodMap = Override<GeneratedRPCMethodMap, {
   }>;
   "server.firmware.list": Override<GeneratedRPCMethodMap["server.firmware.list"], {
     response: FirmwareListResponse;
-  }>;
-  "server.game_ruleset.get": Override<GeneratedRPCMethodMap["server.game_ruleset.get"], {
-    response: ServerGameRulesetGetResponse;
   }>;
   "server.run.workspace.recall": Override<GeneratedRPCMethodMap["server.run.workspace.recall"], {
     request: ServerRunWorkspaceRecallRequest;

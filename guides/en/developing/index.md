@@ -98,8 +98,8 @@ gizclaw/
 | `api/` | HTTP, RPC, Telemetry source contract and generation rules | Server implementation, business storage | [API Overview](api/overview) |
 | `pkgs/giznet` | Connection, service, WebRTC, HTTP-over-stream transport | GizClaw resource and business authorization | [Giznet](giznet) |
 | `pkgs/gizclaw` | Server, Peer lifecycle, RPC/HTTP composition, domain services | General transport, provider-neutral codec | [GizClaw](gizclaw/overview) |
-| `pkgs/gizedge` | Edge ingress, upstream connection and forwarding | Authoritative resource, final ACL | [Gizedge](gizedge) |
-| `pkgs/agent` | Model reasoning turns, Toolkit continuation, response buffering, and interruption | GizClaw Resources, ACL, Workspace, Peer, or RPC | [Agent Runtime](agent/overview) |
+| `pkgs/gizedge` | Edge ingress, upstream connection and forwarding | Authoritative resource, final resource access | [Gizedge](gizedge) |
+| `pkgs/agent` | Model reasoning turns, Toolkit continuation, response buffering, and interruption | GizClaw Resources, resource access, Workspace, Peer, or RPC | [Agent Runtime](agent/overview) |
 | `pkgs/genx` | Message, Stream, Generator, Transformer, Tool and adapters | Agent instance, workspace, product model resource | [GenX](genx/overview) |
 | `pkgs/store` | KV, object, metrics, graph, vector and identity primitives | Domain resource schema and business rules | [Stores](stores/overview) |
 | `pkgs/audio` | Codec, PCM, resampling, device I/O and voiceprint | WebRTC connection, Agent lifecycle | [Audio](audio/overview) |

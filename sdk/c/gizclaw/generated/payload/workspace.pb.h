@@ -361,6 +361,10 @@ typedef struct _gizclaw_rpc_v1_Workspace {
     bool system;
     bool has_icon;
     gizclaw_rpc_v1_Icon icon;
+    bool has_owner_public_key;
+    char owner_public_key[65];
+    bool has_workflow_source;
+    gizclaw_rpc_v1_ResourceSource workflow_source;
 } gizclaw_rpc_v1_Workspace;
 
 /* Field numbers match Workspace so existing create and put clients remain wire
@@ -372,6 +376,8 @@ typedef struct _gizclaw_rpc_v1_WorkspaceUpsert {
     pb_callback_t workflow_name;
     bool has_toolkit;
     gizclaw_rpc_v1_ToolkitPolicy toolkit;
+    bool has_workflow_source;
+    gizclaw_rpc_v1_ResourceSource workflow_source;
 } gizclaw_rpc_v1_WorkspaceUpsert;
 
 typedef struct _gizclaw_rpc_v1_WorkspaceCreateRequest {
@@ -453,8 +459,8 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerSetRunWorkspaceResponse_init_default {false, gizclaw_rpc_v1_PeerRunWorkspaceState_init_default}
 #define gizclaw_rpc_v1_ServerStopRunRequest_init_default {0}
 #define gizclaw_rpc_v1_ServerStopRunResponse_init_default {false, gizclaw_rpc_v1_PeerRunStatus_init_default}
-#define gizclaw_rpc_v1_Workspace_init_default    {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_WorkspaceParameters_init_default, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolkitPolicy_init_default, 0, false, gizclaw_rpc_v1_Icon_init_default}
-#define gizclaw_rpc_v1_WorkspaceUpsert_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_WorkspaceParameters_init_default, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolkitPolicy_init_default}
+#define gizclaw_rpc_v1_Workspace_init_default    {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_WorkspaceParameters_init_default, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolkitPolicy_init_default, 0, false, gizclaw_rpc_v1_Icon_init_default, false, "", false, _gizclaw_rpc_v1_ResourceSource_MIN}
+#define gizclaw_rpc_v1_WorkspaceUpsert_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_WorkspaceParameters_init_default, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolkitPolicy_init_default, false, _gizclaw_rpc_v1_ResourceSource_MIN}
 #define gizclaw_rpc_v1_WorkspaceIconDownloadRequest_init_default {"", _gizclaw_rpc_v1_IconFormat_MIN}
 #define gizclaw_rpc_v1_WorkspaceIconDownloadResponse_init_default {"", _gizclaw_rpc_v1_IconFormat_MIN, 0}
 #define gizclaw_rpc_v1_WorkspaceCreateRequest_init_default {false, gizclaw_rpc_v1_WorkspaceUpsert_init_default}
@@ -516,8 +522,8 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerSetRunWorkspaceResponse_init_zero {false, gizclaw_rpc_v1_PeerRunWorkspaceState_init_zero}
 #define gizclaw_rpc_v1_ServerStopRunRequest_init_zero {0}
 #define gizclaw_rpc_v1_ServerStopRunResponse_init_zero {false, gizclaw_rpc_v1_PeerRunStatus_init_zero}
-#define gizclaw_rpc_v1_Workspace_init_zero       {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_WorkspaceParameters_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolkitPolicy_init_zero, 0, false, gizclaw_rpc_v1_Icon_init_zero}
-#define gizclaw_rpc_v1_WorkspaceUpsert_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_WorkspaceParameters_init_zero, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolkitPolicy_init_zero}
+#define gizclaw_rpc_v1_Workspace_init_zero       {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_WorkspaceParameters_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolkitPolicy_init_zero, 0, false, gizclaw_rpc_v1_Icon_init_zero, false, "", false, _gizclaw_rpc_v1_ResourceSource_MIN}
+#define gizclaw_rpc_v1_WorkspaceUpsert_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_WorkspaceParameters_init_zero, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolkitPolicy_init_zero, false, _gizclaw_rpc_v1_ResourceSource_MIN}
 #define gizclaw_rpc_v1_WorkspaceIconDownloadRequest_init_zero {"", _gizclaw_rpc_v1_IconFormat_MIN}
 #define gizclaw_rpc_v1_WorkspaceIconDownloadResponse_init_zero {"", _gizclaw_rpc_v1_IconFormat_MIN, 0}
 #define gizclaw_rpc_v1_WorkspaceCreateRequest_init_zero {false, gizclaw_rpc_v1_WorkspaceUpsert_init_zero}
@@ -669,10 +675,13 @@ extern "C" {
 #define gizclaw_rpc_v1_Workspace_toolkit_tag     7
 #define gizclaw_rpc_v1_Workspace_system_tag      8
 #define gizclaw_rpc_v1_Workspace_icon_tag        9
+#define gizclaw_rpc_v1_Workspace_owner_public_key_tag 10
+#define gizclaw_rpc_v1_Workspace_workflow_source_tag 11
 #define gizclaw_rpc_v1_WorkspaceUpsert_name_tag  3
 #define gizclaw_rpc_v1_WorkspaceUpsert_parameters_tag 4
 #define gizclaw_rpc_v1_WorkspaceUpsert_workflow_name_tag 6
 #define gizclaw_rpc_v1_WorkspaceUpsert_toolkit_tag 7
+#define gizclaw_rpc_v1_WorkspaceUpsert_workflow_source_tag 11
 #define gizclaw_rpc_v1_WorkspaceCreateRequest_value_tag 1
 #define gizclaw_rpc_v1_WorkspaceCreateResponse_value_tag 1
 #define gizclaw_rpc_v1_WorkspaceDeleteResponse_value_tag 1
@@ -982,7 +991,9 @@ X(a, CALLBACK, SINGULAR, STRING,   updated_at,        5) \
 X(a, CALLBACK, SINGULAR, STRING,   workflow_name,     6) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  toolkit,           7) \
 X(a, STATIC,   SINGULAR, BOOL,     system,            8) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  icon,              9)
+X(a, STATIC,   OPTIONAL, MESSAGE,  icon,              9) \
+X(a, STATIC,   OPTIONAL, STRING,   owner_public_key,  10) \
+X(a, STATIC,   OPTIONAL, UENUM,    workflow_source,  11)
 #define gizclaw_rpc_v1_Workspace_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Workspace_DEFAULT NULL
 #define gizclaw_rpc_v1_Workspace_parameters_MSGTYPE gizclaw_rpc_v1_WorkspaceParameters
@@ -993,7 +1004,8 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  icon,              9)
 X(a, CALLBACK, SINGULAR, STRING,   name,              3) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  parameters,        4) \
 X(a, CALLBACK, SINGULAR, STRING,   workflow_name,     6) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  toolkit,           7)
+X(a, STATIC,   OPTIONAL, MESSAGE,  toolkit,           7) \
+X(a, STATIC,   OPTIONAL, UENUM,    workflow_source,  11)
 #define gizclaw_rpc_v1_WorkspaceUpsert_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_WorkspaceUpsert_DEFAULT NULL
 #define gizclaw_rpc_v1_WorkspaceUpsert_parameters_MSGTYPE gizclaw_rpc_v1_WorkspaceParameters

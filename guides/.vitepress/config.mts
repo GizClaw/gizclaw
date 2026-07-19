@@ -67,7 +67,6 @@ const zhDevelopingSidebar = [
             items: [
               { text: "总览", link: "/zh/developing/gizclaw/peer/overview" },
               { text: "Management", link: "/zh/developing/gizclaw/peer/manager" },
-              { text: "Authorization", link: "/zh/developing/gizclaw/peer/authorizer" },
               { text: "Connection", link: "/zh/developing/gizclaw/peer/conn" },
               {
                 text: "Services",
@@ -79,7 +78,6 @@ const zhDevelopingSidebar = [
                   { text: "HTTP Service Entrypoints", link: "/zh/developing/gizclaw/peer/service/public-http" },
                   { text: "Peer HTTP · /me", link: "/zh/developing/gizclaw/peer/service/peer-http-me" },
                   { text: "Admin HTTP · Resources", link: "/zh/developing/gizclaw/peer/service/admin-resources" },
-                  { text: "Admin HTTP · ACL", link: "/zh/developing/gizclaw/peer/service/admin-acl" },
                   { text: "Admin HTTP · Gameplay", link: "/zh/developing/gizclaw/peer/service/admin-gameplay" },
                   { text: "Admin HTTP · Logs", link: "/zh/developing/gizclaw/peer/service/admin-logs" },
                   { text: "Admin HTTP · Social", link: "/zh/developing/gizclaw/peer/service/admin-social" },
@@ -147,6 +145,7 @@ const zhDevelopingSidebar = [
               },
               { text: "Social", link: "/zh/developing/gizclaw/services/social" },
               { text: "System", link: "/zh/developing/gizclaw/services/system" },
+              { text: "RuntimeProfile", link: "/zh/developing/gizclaw/services/runtime-profile" },
             ],
           },
           { text: "generated", link: "/zh/developing/gizclaw/api" },

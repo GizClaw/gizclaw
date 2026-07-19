@@ -48,9 +48,25 @@ class MobileDataRepository {
     String serverId, {
     required String locale,
   }) {
+    return watchWorkflowCatalog(serverId, locale: locale).map(
+      (items) => items
+          .where(
+            (item) => item.source == ResourceSource.RESOURCE_SOURCE_RUNTIME,
+          )
+          .toList(growable: false),
+    );
+  }
+
+  Stream<List<WorkflowCard>> watchWorkflowCatalog(
+    String serverId, {
+    required String locale,
+  }) {
     final query = database.select(database.workflowEntries)
       ..where((row) => row.serverId.equals(serverId))
-      ..orderBy([(row) => OrderingTerm.asc(row.name)]);
+      ..orderBy([
+        (row) => OrderingTerm.asc(row.source),
+        (row) => OrderingTerm.asc(row.name),
+      ]);
     return query.watch().map(
       (rows) => rows
           .map((row) => _workflowCardFromRow(row, locale))
@@ -116,9 +132,18 @@ class MobileDataRepository {
     );
   }
 
-  Future<bool> hasWorkflow(String serverId, String name) async {
+  Future<bool> hasWorkflow(
+    String serverId,
+    String name, {
+    required ResourceSource source,
+  }) async {
     final query = database.select(database.workflowEntries)
-      ..where((row) => row.serverId.equals(serverId) & row.name.equals(name))
+      ..where(
+        (row) =>
+            row.serverId.equals(serverId) &
+            row.source.equals(source.value) &
+            row.name.equals(name),
+      )
       ..limit(1);
     return await query.getSingleOrNull() != null;
   }
@@ -127,9 +152,15 @@ class MobileDataRepository {
     String serverId,
     String name, {
     required String locale,
+    required ResourceSource source,
   }) async {
     final query = database.select(database.workflowEntries)
-      ..where((row) => row.serverId.equals(serverId) & row.name.equals(name))
+      ..where(
+        (row) =>
+            row.serverId.equals(serverId) &
+            row.source.equals(source.value) &
+            row.name.equals(name),
+      )
       ..limit(1);
     final row = await query.getSingleOrNull();
     return row == null ? null : _workflowCardFromRow(row, locale);
@@ -168,7 +199,6 @@ class MobileDataRepository {
     required bool Function() isCurrent,
     required String locale,
     required String serverId,
-    required WorkflowLocale workflowLocale,
   }) async {
     final warnings = <MobileDataRefreshWarning>[];
     try {
@@ -178,7 +208,6 @@ class MobileDataRepository {
         isCurrent: isCurrent,
         locale: locale,
         serverId: serverId,
-        workflowLocale: workflowLocale,
       );
     } catch (error) {
       warnings.add(MobileDataRefreshWarning(scope: 'Workflows', error: error));
@@ -305,14 +334,10 @@ class MobileDataRepository {
     required bool Function() isCurrent,
     required String locale,
     required String serverId,
-    required WorkflowLocale workflowLocale,
   }) async {
-    final workflows = await _allWorkflows(client, workflowLocale);
-    if (!isCurrent()) return false;
-    final workflowIcons = await _workflowIcons(client, workflows, isCurrent);
+    final workflows = await _allWorkflows(client);
     if (!isCurrent()) return false;
     final refreshedAt = DateTime.now().toUtc();
-    final workflowNames = workflows.map((item) => item.name).toSet();
 
     try {
       await database.transaction(() async {
@@ -323,31 +348,29 @@ class MobileDataRepository {
           serverId: serverId,
         );
         _requireCurrent(isCurrent);
+        await (database.delete(
+          database.workflowEntries,
+        )..where((row) => row.serverId.equals(serverId))).go();
+        _requireCurrent(isCurrent);
         await database.batch((batch) {
           batch.insertAllOnConflictUpdate(
             database.workflowEntries,
-            workflows.map((workflow) {
-              final catalog = _workflowCatalog(workflow);
+            workflows.map((item) {
+              final workflow = item.workflow;
               return WorkflowEntriesCompanion.insert(
                 serverId: serverId,
+                source: item.source.value,
                 name: workflow.name,
                 locale: Value(locale),
-                description: catalog?.description.trim() ?? '',
+                description: '',
                 driver: workflow.spec.driver.name,
-                iconPng: Value(workflowIcons[workflow.name]),
+                iconPng: const Value(null),
                 rawProtobuf: Uint8List.fromList(workflow.writeToBuffer()),
                 refreshedAt: refreshedAt,
               );
             }).toList(),
           );
         });
-        _requireCurrent(isCurrent);
-        await (database.delete(database.workflowEntries)..where(
-              (row) =>
-                  row.serverId.equals(serverId) &
-                  row.name.isNotIn(workflowNames),
-            ))
-            .go();
         _requireCurrent(isCurrent);
         await database
             .into(database.syncStates)
@@ -459,22 +482,35 @@ void _requireCurrent(bool Function() isCurrent) {
   if (!isCurrent()) throw const _StaleRefresh();
 }
 
-Future<List<Workflow>> _allWorkflows(
-  GizClawClient client,
-  WorkflowLocale lang,
-) async {
-  final items = <Workflow>[];
-  String? cursor;
-  do {
-    final response = await client.listWorkflows(
-      cursor: cursor,
-      limit: 100,
-      lang: lang,
-    );
-    items.addAll(response.items);
-    cursor = response.hasNext ? response.nextCursor : null;
-  } while (cursor != null && cursor.isNotEmpty);
+Future<List<_SourcedWorkflow>> _allWorkflows(GizClawClient client) async {
+  final items = <_SourcedWorkflow>[];
+  for (final source in const [
+    ResourceSource.RESOURCE_SOURCE_RUNTIME,
+    ResourceSource.RESOURCE_SOURCE_OWNED,
+  ]) {
+    String? cursor;
+    do {
+      final response = await client.listWorkflows(
+        source: source,
+        cursor: cursor,
+        limit: 100,
+      );
+      items.addAll(
+        response.items.map(
+          (workflow) => _SourcedWorkflow(source: source, workflow: workflow),
+        ),
+      );
+      cursor = response.hasNext ? response.nextCursor : null;
+    } while (cursor != null && cursor.isNotEmpty);
+  }
   return items;
+}
+
+class _SourcedWorkflow {
+  const _SourcedWorkflow({required this.source, required this.workflow});
+
+  final ResourceSource source;
+  final Workflow workflow;
 }
 
 Future<List<Workspace>> _allWorkspaces(GizClawClient client) async {
@@ -543,48 +579,15 @@ String _friendGroupKey(FriendGroupObject group) {
 }
 
 WorkflowCard _workflowCardFromRow(WorkflowEntry row, String locale) {
-  final workflow = Workflow.fromBuffer(row.rawProtobuf);
-  final catalog = row.locale == locale ? _workflowCatalog(workflow) : null;
-  final localizedName = catalog?.name.trim();
   return WorkflowCard.fromServer(
     name: row.name,
-    displayName: localizedName == null || localizedName.isEmpty
-        ? row.name
-        : localizedName,
-    description: catalog?.description.trim() ?? '',
+    description: '',
     driver: row.driver,
-    iconPng: row.iconPng,
+    source:
+        ResourceSource.valueOf(row.source) ??
+        ResourceSource.RESOURCE_SOURCE_UNSPECIFIED,
   );
 }
-
-Future<Map<String, Uint8List>> _workflowIcons(
-  GizClawClient client,
-  List<Workflow> workflows,
-  bool Function() isCurrent,
-) async {
-  final icons = <String, Uint8List>{};
-  for (final workflow in workflows) {
-    _requireCurrent(isCurrent);
-    if (!workflow.hasIcon() || !workflow.icon.hasPng()) continue;
-    try {
-      final result = await client.downloadWorkflowIcon(
-        workflow.name,
-        IconFormat.ICON_FORMAT_PNG,
-      );
-      _requireCurrent(isCurrent);
-      if (result.bytes.isNotEmpty) icons[workflow.name] = result.bytes;
-    } on _StaleRefresh {
-      rethrow;
-    } catch (_) {
-      // Icon loading is best effort. The card keeps its owner-provided text and
-      // falls back to the driver placeholder when download or decode fails.
-    }
-  }
-  return icons;
-}
-
-WorkflowI18nCatalog? _workflowCatalog(Workflow workflow) =>
-    workflow.hasI18n() ? workflow.i18n : null;
 
 WorkspaceCard _workspaceCardFromRow(WorkspaceEntry row) {
   final workspace = Workspace.fromBuffer(row.rawProtobuf);
@@ -592,6 +595,9 @@ WorkspaceCard _workspaceCardFromRow(WorkspaceEntry row) {
     chatroomKind: _chatroomKind(workspace),
     name: row.name,
     workflowName: row.workflowName,
+    workflowSource: workspace.hasWorkflowSource()
+        ? workspace.workflowSource
+        : ResourceSource.RESOURCE_SOURCE_OWNED,
     lastActive: _relativeTime(
       row.lastActiveAt ?? row.updatedAt ?? row.createdAt,
     ),

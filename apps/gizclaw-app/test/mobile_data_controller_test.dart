@@ -525,7 +525,7 @@ void main() {
     expect(repository.refreshServerIds, ['new-server']);
   });
 
-  test('refreshes the selected locale after a same-server reconnect', () async {
+  test('refreshes runtime workflows after a same-server reconnect', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     final oldClient = _RunWorkspaceClient();
     final newClient = _RunWorkspaceClient();
@@ -554,7 +554,6 @@ void main() {
     await controller.recoverTransport();
 
     expect(repository.refreshServerIds, ['server-a']);
-    expect(repository.workflowLocales, [WorkflowLocale.WORKFLOW_LOCALE_ZH_CN]);
   });
 
   test('creates typed defaults for a Doubao workspace', () {
@@ -1004,7 +1003,6 @@ class _QueuedRefreshRepository extends MobileDataRepository {
     required bool Function() isCurrent,
     required String locale,
     required String serverId,
-    required WorkflowLocale workflowLocale,
   }) {
     endpoints.add(endpoint);
     if (endpoints.length == 1) return firstRefresh.future;
@@ -1017,10 +1015,9 @@ class _ReconnectRepository extends MobileDataRepository {
 
   final workflowWatchServerIds = <String>[];
   final refreshServerIds = <String>[];
-  final workflowLocales = <WorkflowLocale>[];
 
   @override
-  Stream<List<WorkflowCard>> watchWorkflows(
+  Stream<List<WorkflowCard>> watchWorkflowCatalog(
     String serverId, {
     required String locale,
   }) {
@@ -1035,10 +1032,8 @@ class _ReconnectRepository extends MobileDataRepository {
     required bool Function() isCurrent,
     required String locale,
     required String serverId,
-    required WorkflowLocale workflowLocale,
   }) async {
     refreshServerIds.add(serverId);
-    workflowLocales.add(workflowLocale);
     return const [];
   }
 }
@@ -1351,11 +1346,13 @@ class _WorkspaceActivationClient extends _RunWorkspaceClient {
     'workspace-old': Workspace(
       name: 'workspace-old',
       workflowName: 'flow-a',
+      workflowSource: ResourceSource.RESOURCE_SOURCE_RUNTIME,
       parameters: newWorkspaceParametersForDriver(WorkflowDriverKind.flowcraft),
     ),
     'workspace-new': Workspace(
       name: 'workspace-new',
       workflowName: 'flow-a',
+      workflowSource: ResourceSource.RESOURCE_SOURCE_RUNTIME,
       parameters: WorkspaceParameters(),
     ),
   };

@@ -7,7 +7,7 @@
 | Documentation | Features included |
 | --- | --- |
 | `peer_conn.go` | `PeerConn` Main life cycle; accept Giznet service and packet; start normal RPC and Edge RPC; initialize audio mixer, Agent Host, Peer GenX and resource view; process event stream, direct packet, telemetry packet and mixed audio output; close connection-scoped resources uniformly. |
-| `peer_conn_openai.go` | Provide OpenAI-compatible HTTP service on the current Peer connection; assemble Peer resource view and ACL authorizer; access compatible portals such as OpenAI API and voice list. |
+| `peer_conn_openai.go` | Provide OpenAI-compatible HTTP service on the current Peer connection; assemble the RuntimeProfile and owner resource view; expose OpenAI API and voice-list compatibility entry points. |
 
 Universal WebRTC, packet transport and service stream belong to `pkgs/giznet`; universal audio codec belongs to `pkgs/audio`; persistent runtime state belongs to `services/runtime`.
 

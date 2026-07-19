@@ -26,9 +26,9 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/resourcemanager"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -57,6 +57,7 @@ type Server struct {
 	CredentialStore              kv.Store
 	FirmwareStore                kv.Store
 	FirmwareAssets               objectstore.ObjectStore
+	RuntimeProfileStore          kv.Store
 	AgentHostStore               objectstore.ObjectStore
 	MiniMaxCredentialStore       kv.Store
 	MiniMaxTenantStore           kv.Store
@@ -76,13 +77,11 @@ type Server struct {
 	FriendGroupBelongStore       kv.Store
 	FriendGroupMessageStore      kv.Store
 	FriendGroupMessageAssets     objectstore.ObjectStore
-	GameRulesetStore             kv.Store
 	PetDefStore                  kv.Store
 	BadgeDefStore                kv.Store
 	GameDefStore                 kv.Store
 	GameplayAssets               objectstore.ObjectStore
 	WorkspaceAssets              objectstore.ObjectStore
-	WorkflowAssets               objectstore.ObjectStore
 	GameplayDB                   *sqlx.DB
 	MetricsStore                 metrics.Store
 	ServerLogQuery               ServerLogQueryService
@@ -95,10 +94,8 @@ type Server struct {
 	BuildCommit                  string
 	PublicEndpoint               string
 	PublicICETCP                 bool
-	DefaultPeerView              string
 	PublicLoginAuthorizer        publiclogin.SessionAuthorizer
 	ICEServers                   []gizwebrtc.ICEServer
-	ACLDB                        *sqlx.DB
 	WebRTCSignalingHandler       http.Handler
 	EdgeNodes                    []giznet.PublicKey
 	PetWorkflow                  petagent.Config
@@ -308,7 +305,7 @@ func (s *Server) startCleanup() {
 
 // EffectivePeerStore returns the peer KV layout used by the server runtime.
 // Legacy single-KV configurations keep peer records under the peers prefix;
-// peer, workspace, and workflow icon stores do not change that layout.
+// peer and workspace icon stores do not change that layout.
 func (s *Server) EffectivePeerStore() kv.Store {
 	if s == nil || s.PeerStore == nil {
 		return nil
@@ -342,7 +339,7 @@ func (s *Server) usesLegacySharedStore() bool {
 		s.FriendGroupBelongStore == nil &&
 		s.FriendGroupMessageStore == nil &&
 		s.FriendGroupMessageAssets == nil &&
-		s.GameRulesetStore == nil &&
+		s.RuntimeProfileStore == nil &&
 		s.PetDefStore == nil &&
 		s.BadgeDefStore == nil &&
 		s.GameDefStore == nil &&
@@ -368,6 +365,7 @@ func (s *Server) init() error {
 	peerStore := s.EffectivePeerStore()
 	credentialStore := moduleStore(s.CredentialStore, s.PeerStore, "credentials")
 	firmwareStore := moduleStore(s.FirmwareStore, s.PeerStore, "firmwares")
+	runtimeProfileStore := moduleStore(s.RuntimeProfileStore, s.PeerStore, "runtime-profiles")
 	miniMaxCredentialStore := moduleStore(s.MiniMaxCredentialStore, credentialStore, "")
 	miniMaxTenantStore := moduleStore(s.MiniMaxTenantStore, s.PeerStore, "minimax-tenants")
 	volcTenantStore := moduleStore(s.VolcTenantStore, miniMaxTenantStore, "volc-tenants")
@@ -386,7 +384,6 @@ func (s *Server) init() error {
 	friendGroupMemberStore := moduleStore(s.FriendGroupMemberStore, s.PeerStore, "friend-group-members")
 	friendGroupBelongStore := moduleStore(s.FriendGroupBelongStore, s.PeerStore, "friend-group-belongs")
 	friendGroupMessageStore := moduleStore(s.FriendGroupMessageStore, s.PeerStore, "friend-group-messages")
-	gameRulesetStore := moduleStore(s.GameRulesetStore, s.PeerStore, "game-rulesets")
 	petDefStore := moduleStore(s.PetDefStore, s.PeerStore, "pet-defs")
 	badgeDefStore := moduleStore(s.BadgeDefStore, s.PeerStore, "badge-defs")
 	gameDefStore := moduleStore(s.GameDefStore, s.PeerStore, "game-defs")
@@ -403,7 +400,6 @@ func (s *Server) init() error {
 		SignalingPath:   gizwebrtc.SignalingPath,
 		ICETCP:          s.PublicICETCP,
 		ICEServers:      s.ICEServers,
-		DefaultPeerView: s.DefaultPeerView,
 	}
 	manager := NewManager(peersServer)
 	manager.PetWorkflow = s.PetWorkflow
@@ -422,19 +418,26 @@ func (s *Server) init() error {
 	}
 
 	modelServer := &model.Server{Store: modelStore}
-	workflowServer := &workflow.Server{Store: workflowStore, Assets: s.WorkflowAssets}
+	workflowServer := &workflow.Server{Store: workflowStore}
 	workspaceServer := &workspace.Server{Store: workspaceStore, WorkflowStore: workflowStore, Models: modelServer, Assets: s.WorkspaceAssets}
 	if s.AgentHostStore != nil {
 		workspaceServer.RuntimeStore = workspace.NewObjectRuntimeStore(s.AgentHostStore)
 	}
 	credentialServer := &credential.Server{Store: credentialStore}
 	firmwareServer := &firmware.Server{Store: firmwareStore, Assets: s.FirmwareAssets}
+	runtimeProfileServer := &runtimeprofile.Server{
+		Store: runtimeProfileStore,
+		FirmwareExists: func(ctx context.Context, name string) (bool, error) {
+			_, err := firmware.Get(ctx, firmwareStore, name)
+			if errors.Is(err, kv.ErrNotFound) {
+				return false, nil
+			}
+			return err == nil, err
+		},
+	}
+	publicLoginServer.RegistrationResolver = runtimeProfileServer.ResolveRegistration
 	voiceServer := &voice.Server{Store: voiceStore}
 	toolServer := &toolkit.Server{Store: toolStore}
-	var aclServer *acl.Server
-	if s.ACLDB != nil {
-		aclServer = &acl.Server{DB: s.ACLDB}
-	}
 	contactServer := &contact.Server{
 		Store: contactStore,
 	}
@@ -442,7 +445,6 @@ func (s *Server) init() error {
 		InviteTokens: friendInviteTokenStore,
 		Friends:      friendStore,
 		Workspaces:   workspaceServer,
-		ACL:          aclServer,
 		Profiles:     peersServer,
 	}
 	friendGroupServer := &friendgroup.Server{
@@ -452,7 +454,6 @@ func (s *Server) init() error {
 		Belongs:              friendGroupBelongStore,
 		Messages:             friendGroupMessageStore,
 		MessageAssets:        s.FriendGroupMessageAssets,
-		ACL:                  aclServer,
 		Workspaces:           workspaceServer,
 		MessageDefaultTTL:    s.FriendGroupMessageDefaultTTL,
 		MessageMaxTTL:        s.FriendGroupMessageMaxTTL,
@@ -466,25 +467,22 @@ func (s *Server) init() error {
 		CredentialStore: miniMaxCredentialStore,
 	}
 	gameplayCatalog := &gameplay.Catalog{
-		GameRulesets: gameRulesetStore,
-		PetDefs:      petDefStore,
-		BadgeDefs:    badgeDefStore,
-		GameDefs:     gameDefStore,
-		Assets:       s.GameplayAssets,
+		PetDefs:   petDefStore,
+		BadgeDefs: badgeDefStore,
+		GameDefs:  gameDefStore,
+		Assets:    s.GameplayAssets,
 	}
 	gameplayRuntime := &gameplay.Runtime{
 		DB:         s.GameplayDB,
 		Catalog:    gameplayCatalog,
 		Workflows:  workflowServer,
 		Workspaces: workspaceServer,
-		ACL:        aclServer,
 	}
 	if s.GameplayDB != nil {
 		if err := gameplayRuntime.Migration(context.Background()); err != nil {
 			return err
 		}
 	}
-	manager.ACL = aclServer
 	deviceToolExecutor := &toolkit.DeviceRPCExecutor{Client: manager}
 	toolExecutors := toolkit.NewExecutorRegistry()
 	if err := toolExecutors.RegisterDevice(deviceToolExecutor, deviceToolExecutor); err != nil {
@@ -495,7 +493,7 @@ func (s *Server) init() error {
 	}
 	manager.Tools = toolServer
 	manager.ToolExecutors = toolExecutors
-	manager.ToolBuilder = &toolkit.Builder{Tools: toolServer, Authorizer: aclServer, Availability: toolExecutors}
+	manager.ToolBuilder = &toolkit.Builder{Tools: toolServer, Availability: toolExecutors}
 	manager.AgentHost = agenthost.New(agenthost.ServiceResolver{
 		Workspaces:    workspaceServer,
 		Workflows:     workflowServer,
@@ -505,6 +503,7 @@ func (s *Server) init() error {
 	manager.Workspaces = workspaceServer
 	manager.Workflows = workflowServer
 	manager.Firmwares = firmwareServer
+	manager.RuntimeProfiles = runtimeProfileServer
 	manager.Models = modelServer
 	manager.Credentials = credentialServer
 	manager.Voices = voiceServer
@@ -515,7 +514,6 @@ func (s *Server) init() error {
 	manager.Gameplay = gameplayRuntime
 	manager.Metrics = s.MetricsStore
 	resourceManager := resourcemanager.New(resourcemanager.Services{
-		ACL:             aclServer,
 		Credentials:     credentialServer,
 		Firmwares:       firmwareServer,
 		Peers:           peersServer,
@@ -529,6 +527,7 @@ func (s *Server) init() error {
 		FriendGroups:    friendGroupServer,
 		GameplayCatalog: gameplayCatalog,
 		Tools:           toolServer,
+		RuntimeProfiles: runtimeProfileServer,
 	})
 
 	s.manager = manager
@@ -538,6 +537,7 @@ func (s *Server) init() error {
 		admin: &adminService{
 			CredentialAdminService:      credentialServer,
 			FirmwareAdminService:        firmwareServer,
+			AdminService:                runtimeProfileServer,
 			PeerAdminService:            peersServer,
 			ModelAdminService:           modelServer,
 			VoiceAdminService:           voiceServer,
@@ -545,14 +545,12 @@ func (s *Server) init() error {
 			WorkspaceAdminService:       workspaceServer,
 			WorkspaceIconAdminService:   workspaceServer,
 			WorkflowAdminService:        workflowServer,
-			WorkflowIconAdminService:    workflowServer,
 			Contacts:                    contactServer,
 			Friends:                     friendServer,
 			FriendGroups:                friendGroupServer,
 			CatalogAdminService:         gameplayCatalog,
 			GameDefIconAdminService:     gameplayCatalog,
 			Gameplay:                    gameplayRuntime,
-			ACL:                         aclServer,
 			ResourceManager:             resourceManager,
 			ServerLogs:                  s.ServerLogQuery,
 			PeerTelemetry:               &peertelemetry.AdminService{Metrics: s.MetricsStore},

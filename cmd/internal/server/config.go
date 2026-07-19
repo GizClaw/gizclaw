@@ -17,20 +17,19 @@ import (
 )
 
 type Config struct {
-	KeyPair         *giznet.KeyPair
-	Listen          string
-	Endpoint        string
-	ServeToClients  bool
-	EdgeNodes       []giznet.PublicKey
-	ICEServers      []gizwebrtc.ICEServer
-	AdminPublicKey  giznet.PublicKey
-	DefaultPeerView string
-	Storage         map[string]storage.Config
-	Stores          map[string]stores.Config
-	SystemLog       logging.Config
-	Friends         FriendsConfig
-	FriendGroups    FriendGroupsConfig
-	SystemTasks     SystemTasksConfig
+	KeyPair        *giznet.KeyPair
+	Listen         string
+	Endpoint       string
+	ServeToClients bool
+	EdgeNodes      []giznet.PublicKey
+	ICEServers     []gizwebrtc.ICEServer
+	AdminPublicKey giznet.PublicKey
+	Storage        map[string]storage.Config
+	Stores         map[string]stores.Config
+	SystemLog      logging.Config
+	Friends        FriendsConfig
+	FriendGroups   FriendGroupsConfig
+	SystemTasks    SystemTasksConfig
 }
 
 type FriendsConfig struct{}
@@ -58,20 +57,19 @@ type IdentityConfig struct {
 }
 
 type ConfigFile struct {
-	Identity        IdentityConfig            `yaml:"identity"`
-	Listen          string                    `yaml:"listen"`
-	Endpoint        string                    `yaml:"endpoint"`
-	ServeToClients  bool                      `yaml:"serve-to-clients"`
-	EdgeNodes       []giznet.PublicKey        `yaml:"edge-nodes"`
-	ICEServers      []gizwebrtc.ICEServer     `yaml:"ice-servers"`
-	AdminPublicKey  giznet.PublicKey          `yaml:"admin-public-key"`
-	DefaultPeerView string                    `yaml:"default-peer-view"`
-	Storage         map[string]storage.Config `yaml:"storage"`
-	Stores          map[string]stores.Config  `yaml:"stores"`
-	SystemLog       logging.Config            `yaml:"system_log"`
-	Friends         FriendsConfig             `yaml:"friends"`
-	FriendGroups    FriendGroupsConfig        `yaml:"friend_groups"`
-	SystemTasks     SystemTasksConfig         `yaml:"system_tasks"`
+	Identity       IdentityConfig            `yaml:"identity"`
+	Listen         string                    `yaml:"listen"`
+	Endpoint       string                    `yaml:"endpoint"`
+	ServeToClients bool                      `yaml:"serve-to-clients"`
+	EdgeNodes      []giznet.PublicKey        `yaml:"edge-nodes"`
+	ICEServers     []gizwebrtc.ICEServer     `yaml:"ice-servers"`
+	AdminPublicKey giznet.PublicKey          `yaml:"admin-public-key"`
+	Storage        map[string]storage.Config `yaml:"storage"`
+	Stores         map[string]stores.Config  `yaml:"stores"`
+	SystemLog      logging.Config            `yaml:"system_log"`
+	Friends        FriendsConfig             `yaml:"friends"`
+	FriendGroups   FriendGroupsConfig        `yaml:"friend_groups"`
+	SystemTasks    SystemTasksConfig         `yaml:"system_tasks"`
 }
 
 const (
@@ -79,12 +77,12 @@ const (
 	defaultCredentialsStore              = "credentials"
 	defaultFirmwaresStore                = "firmwares"
 	defaultFirmwareAssetsStore           = "firmware-assets"
+	defaultRuntimeProfilesStore          = "runtime-profiles"
 	defaultAgentHostStore                = "agenthost"
 	defaultMiniMaxTenantsStore           = "minimax-tenants"
 	defaultVoicesStore                   = "voices"
 	defaultWorkspacesStore               = "workspaces"
 	defaultWorkflowsStore                = "workflows"
-	defaultACLStore                      = "acl"
 	defaultContactsStore                 = "contacts"
 	defaultFriendInviteTokensStore       = "friend-invite-tokens"
 	defaultFriendsStore                  = "friends"
@@ -94,13 +92,11 @@ const (
 	defaultFriendGroupBelongsStore       = "friend-group-belongs"
 	defaultFriendGroupMessagesStore      = "friend-group-messages"
 	defaultFriendGroupMessageAssetsStore = "friend-group-message-assets"
-	defaultGameRulesetsStore             = "game-rulesets"
 	defaultPetDefsStore                  = "pet-defs"
 	defaultBadgeDefsStore                = "badge-defs"
 	defaultGameDefsStore                 = "game-defs"
 	defaultGameplayAssetsStore           = "gameplay-assets"
 	defaultWorkspaceAssetsStore          = "workspace-assets"
-	defaultWorkflowAssetsStore           = "workflow-assets"
 	defaultGameplayDBStore               = "gameplay-db"
 	defaultMetricsStore                  = "metrics"
 	defaultFlowcraftHistoryStore         = "flowcraft-history"
@@ -127,20 +123,19 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		return ConfigFile{}, fmt.Errorf("server: serving-public is not supported; use serve-to-clients")
 	}
 	var raw struct {
-		Identity        *IdentityConfig           `yaml:"identity"`
-		Listen          string                    `yaml:"listen"`
-		Endpoint        string                    `yaml:"endpoint"`
-		ServeToClients  *bool                     `yaml:"serve-to-clients"`
-		EdgeNodes       []giznet.PublicKey        `yaml:"edge-nodes"`
-		ICEServers      []gizwebrtc.ICEServer     `yaml:"ice-servers"`
-		AdminPublicKey  *giznet.PublicKey         `yaml:"admin-public-key"`
-		DefaultPeerView string                    `yaml:"default-peer-view"`
-		Storage         map[string]storage.Config `yaml:"storage"`
-		Stores          map[string]stores.Config  `yaml:"stores"`
-		SystemLog       logging.Config            `yaml:"system_log"`
-		Friends         FriendsConfig             `yaml:"friends"`
-		FriendGroups    FriendGroupsConfig        `yaml:"friend_groups"`
-		SystemTasks     SystemTasksConfig         `yaml:"system_tasks"`
+		Identity       *IdentityConfig           `yaml:"identity"`
+		Listen         string                    `yaml:"listen"`
+		Endpoint       string                    `yaml:"endpoint"`
+		ServeToClients *bool                     `yaml:"serve-to-clients"`
+		EdgeNodes      []giznet.PublicKey        `yaml:"edge-nodes"`
+		ICEServers     []gizwebrtc.ICEServer     `yaml:"ice-servers"`
+		AdminPublicKey *giznet.PublicKey         `yaml:"admin-public-key"`
+		Storage        map[string]storage.Config `yaml:"storage"`
+		Stores         map[string]stores.Config  `yaml:"stores"`
+		SystemLog      logging.Config            `yaml:"system_log"`
+		Friends        FriendsConfig             `yaml:"friends"`
+		FriendGroups   FriendGroupsConfig        `yaml:"friend_groups"`
+		SystemTasks    SystemTasksConfig         `yaml:"system_tasks"`
 	}
 	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return ConfigFile{}, err
@@ -167,20 +162,19 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 	}
 	serveToClients := raw.ServeToClients != nil && *raw.ServeToClients
 	cfg := ConfigFile{
-		Identity:        identity,
-		Listen:          raw.Listen,
-		Endpoint:        raw.Endpoint,
-		ServeToClients:  serveToClients,
-		EdgeNodes:       raw.EdgeNodes,
-		ICEServers:      raw.ICEServers,
-		AdminPublicKey:  adminPublicKey,
-		DefaultPeerView: raw.DefaultPeerView,
-		Storage:         raw.Storage,
-		Stores:          raw.Stores,
-		SystemLog:       logCfg,
-		Friends:         raw.Friends,
-		FriendGroups:    raw.FriendGroups,
-		SystemTasks:     raw.SystemTasks,
+		Identity:       identity,
+		Listen:         raw.Listen,
+		Endpoint:       raw.Endpoint,
+		ServeToClients: serveToClients,
+		EdgeNodes:      raw.EdgeNodes,
+		ICEServers:     raw.ICEServers,
+		AdminPublicKey: adminPublicKey,
+		Storage:        raw.Storage,
+		Stores:         raw.Stores,
+		SystemLog:      logCfg,
+		Friends:        raw.Friends,
+		FriendGroups:   raw.FriendGroups,
+		SystemTasks:    raw.SystemTasks,
 	}
 	return cfg, nil
 }
@@ -218,9 +212,6 @@ func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	}
 	if cfg.AdminPublicKey.IsZero() {
 		cfg.AdminPublicKey = fileCfg.AdminPublicKey
-	}
-	if cfg.DefaultPeerView == "" {
-		cfg.DefaultPeerView = fileCfg.DefaultPeerView
 	}
 	if len(cfg.ICEServers) == 0 {
 		cfg.ICEServers = fileCfg.ICEServers
@@ -287,7 +278,6 @@ func mergePetFlowcraftWorkflowTaskConfig(runtime PetFlowcraftWorkflowTaskConfig,
 
 func prepareConfig(cfg Config) (Config, error) {
 	defaults := DefaultConfig()
-	cfg.DefaultPeerView = strings.TrimSpace(cfg.DefaultPeerView)
 	if cfg.Listen == "" {
 		cfg.Listen = defaults.Listen
 	}

@@ -357,15 +357,6 @@ func (c *Client) DownloadBadgeDefPixa(ctx context.Context, id string, request rp
 	return c.rpcClient().DownloadBadgeDefPixa(ctx, stream, id, request, out)
 }
 
-func (c *Client) DownloadWorkflowIcon(ctx context.Context, id string, request rpcapi.WorkflowIconDownloadRequest, out io.Writer) (WorkflowIconDownloadResult, error) {
-	stream, err := c.rpcConn()
-	if err != nil {
-		return WorkflowIconDownloadResult{}, err
-	}
-	defer func() { _ = stream.Close() }()
-	return c.rpcClient().DownloadWorkflowIcon(ctx, stream, id, request, out)
-}
-
 func (c *Client) DownloadWorkspaceIcon(ctx context.Context, id string, request rpcapi.WorkspaceIconDownloadRequest, out io.Writer) (WorkspaceIconDownloadResult, error) {
 	stream, err := c.rpcConn()
 	if err != nil {

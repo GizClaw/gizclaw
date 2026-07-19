@@ -3,8 +3,6 @@ package peerscmd
 import (
 	"bytes"
 	"context"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
@@ -12,30 +10,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
-
-func TestPutConfigUsesFilePayload(t *testing.T) {
-	original := openPeerConfigClient
-	fake := &fakePeerConfigClient{}
-	openPeerConfigClient = func(string) (peerConfigClient, error) {
-		return fake, nil
-	}
-	defer func() { openPeerConfigClient = original }()
-
-	file := filepath.Join(t.TempDir(), "config.json")
-	data := []byte(`{"view":"under-12"}`)
-	if err := os.WriteFile(file, data, 0o644); err != nil {
-		t.Fatalf("write config: %v", err)
-	}
-
-	cmd := NewCmd()
-	cmd.SetArgs([]string{"put-config", "device-pk", "--file", file})
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("Execute error: %v", err)
-	}
-	if fake.putCfg.View == nil || *fake.putCfg.View != "under-12" {
-		t.Fatalf("put config = %+v", fake.putCfg)
-	}
-}
 
 func TestPeerCommandsReturnContextErrors(t *testing.T) {
 	cases := [][]string{
@@ -46,7 +20,6 @@ func TestPeerCommandsReturnContextErrors(t *testing.T) {
 		{"approve", "device-pk", "client"},
 		{"block", "device-pk"},
 		{"info", "device-pk"},
-		{"config", "device-pk"},
 		{"runtime", "device-pk"},
 		{"delete", "device-pk"},
 		{"refresh", "device-pk"},
@@ -74,7 +47,6 @@ func TestPeerCommandsUseClientOperations(t *testing.T) {
 		{"approve", "device-pk", "client"},
 		{"block", "device-pk"},
 		{"info", "device-pk"},
-		{"config", "device-pk"},
 		{"runtime", "device-pk"},
 		{"delete", "device-pk"},
 		{"refresh", "device-pk"},
@@ -105,8 +77,6 @@ func stubPeerCommandClients(t *testing.T) func() {
 	originalApprove := approvePeer
 	originalBlock := blockPeer
 	originalInfo := getPeerInfo
-	originalConfig := getPeerConfig
-	originalPutConfig := putPeerConfig
 	originalRuntime := getPeerRuntime
 	originalDelete := deletePeer
 	originalRefresh := refreshPeer
@@ -137,12 +107,6 @@ func stubPeerCommandClients(t *testing.T) func() {
 	getPeerInfo = func(context.Context, *gizcli.Client, string) (apitypes.DeviceInfo, error) {
 		return apitypes.DeviceInfo{}, nil
 	}
-	getPeerConfig = func(context.Context, *gizcli.Client, string) (apitypes.Configuration, error) {
-		return apitypes.Configuration{}, nil
-	}
-	putPeerConfig = func(_ context.Context, _ *gizcli.Client, _ string, cfg apitypes.Configuration) (apitypes.Configuration, error) {
-		return cfg, nil
-	}
 	getPeerRuntime = func(context.Context, *gizcli.Client, string) (apitypes.Runtime, error) {
 		online := true
 		return apitypes.Runtime{Online: online}, nil
@@ -163,26 +127,8 @@ func stubPeerCommandClients(t *testing.T) func() {
 		approvePeer = originalApprove
 		blockPeer = originalBlock
 		getPeerInfo = originalInfo
-		getPeerConfig = originalConfig
-		putPeerConfig = originalPutConfig
 		getPeerRuntime = originalRuntime
 		deletePeer = originalDelete
 		refreshPeer = originalRefresh
 	}
 }
-
-type fakePeerConfigClient struct {
-	getCfg apitypes.Configuration
-	putCfg apitypes.Configuration
-}
-
-func (f *fakePeerConfigClient) GetPeerConfig(context.Context, string) (apitypes.Configuration, error) {
-	return f.getCfg, nil
-}
-
-func (f *fakePeerConfigClient) PutPeerConfig(_ context.Context, _ string, cfg apitypes.Configuration) (apitypes.Configuration, error) {
-	f.putCfg = cfg
-	return cfg, nil
-}
-
-func (f *fakePeerConfigClient) Close() error { return nil }

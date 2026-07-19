@@ -26,10 +26,3 @@ func TestValidatePeer(t *testing.T) {
 		t.Fatal("validatePeer should fail on invalid status")
 	}
 }
-
-func TestValidateConfiguration(t *testing.T) {
-	view := "under-12"
-	if err := validateConfiguration(apitypes.Configuration{View: &view}); err != nil {
-		t.Fatalf("validateConfiguration err = %v", err)
-	}
-}

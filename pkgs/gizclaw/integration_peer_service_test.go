@@ -50,15 +50,8 @@ func TestIntegrationPeerServiceLifecycle(t *testing.T) {
 	if publicKey, err := findPubKeyByIMEI(context.Background(), admin, "12345678", "0000001"); err != nil || publicKey != devicePublicKey {
 		t.Fatalf("ResolvePeerByIMEI = %q, %v", publicKey, err)
 	}
-	view := "under-12"
-	if _, err := putPeerConfig(context.Background(), admin, devicePublicKey, apitypes.Configuration{View: &view}); err != nil {
-		t.Fatalf("PutPeerConfig error: %v", err)
-	}
 	if _, err := getPeerInfo(context.Background(), admin, devicePublicKey); err != nil {
 		t.Fatalf("GetPeerInfo error: %v", err)
-	}
-	if _, err := getPeerConfig(context.Background(), admin, devicePublicKey); err != nil {
-		t.Fatalf("GetPeerConfig error: %v", err)
 	}
 	if _, err := getPeerRuntime(context.Background(), admin, devicePublicKey); err != nil {
 		t.Fatalf("GetPeerRuntime error: %v", err)

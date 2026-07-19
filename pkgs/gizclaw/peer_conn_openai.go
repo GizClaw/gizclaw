@@ -14,6 +14,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/openaiapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 )
@@ -31,7 +32,7 @@ func (h *PeerConn) openAIHTTPHandler() http.Handler {
 	h.initPeerGenX()
 
 	if h != nil && h.Conn != nil && h.Service != nil {
-		return observeHTTPHandler(h.Service.openAIHTTPHandlerForPeer(h.Conn.PublicKey(), h.serverGenX), httpObservationOptions{
+		return observeHTTPHandler(h.Service.openAIHTTPHandlerForPeer(h.Conn.PublicKey(), h.serverGenX, h.peerResources()), httpObservationOptions{
 			surface:       observability.SurfacePeerOpenAI,
 			peerPublicKey: h.Conn.PublicKey().String(),
 		})
@@ -39,22 +40,21 @@ func (h *PeerConn) openAIHTTPHandler() http.Handler {
 	return observeHTTPHandler(newOpenAIHTTPHandler(&openaiapi.Server{}), httpObservationOptions{surface: observability.SurfacePeerOpenAI})
 }
 
-func (s *PeerService) openAIHTTPHandlerForPeer(publicKey giznet.PublicKey, genxSvc *peergenx.Service) http.Handler {
+func (s *PeerService) openAIHTTPHandlerForPeer(publicKey giznet.PublicKey, genxSvc *peergenx.Service, resources *peerresource.Server) http.Handler {
 	var svc openaiapi.Server
 	svc.Caller = publicKey
 	if s != nil && s.manager != nil {
-		authorizer := s.peerAuthorizer(publicKey)
-		resources := s.peerResources(publicKey)
-		svc.Authorizer = authorizer
+		if resources == nil {
+			resources = s.peerResources(publicKey)
+		}
 		svc.Models = resources
 		svc.Voices = resources
-		if genxSvc == nil && s.manager.ACL != nil && s.manager.Models != nil && s.manager.Voices != nil && s.manager.Credentials != nil && s.manager.ProviderTenants != nil {
+		if genxSvc == nil && s.manager.Models != nil && s.manager.Voices != nil && s.manager.Credentials != nil && s.manager.ProviderTenants != nil {
 			genxSvc = peergenx.New(peergenx.Service{
 				Peer:            peerPublicKey(publicKey),
-				Authorizer:      authorizer,
 				Models:          resources,
 				Voices:          resources,
-				Credentials:     resources,
+				Credentials:     s.manager.Credentials,
 				ProviderTenants: s.manager.ProviderTenants,
 			})
 		}
@@ -67,13 +67,34 @@ func (s *PeerService) openAIHTTPHandlerForPeer(publicKey giznet.PublicKey, genxS
 }
 
 func (s *PeerService) peerResources(publicKey giznet.PublicKey) *peerresource.Server {
+	return s.peerResourcesWithRegistration(publicKey, nil, true)
+}
+
+func (s *PeerService) peerResourcesForHTTPSession(publicKey giznet.PublicKey, registration *runtimeprofile.Registration) *peerresource.Server {
+	return s.peerResourcesWithRegistration(publicKey, registration, false)
+}
+
+func (s *PeerService) peerResourcesWithRegistration(publicKey giznet.PublicKey, sessionRegistration *runtimeprofile.Registration, inheritActiveConnection bool) *peerresource.Server {
 	if s == nil || s.manager == nil {
 		return nil
 	}
 	manager := s.manager
+	var snapshot *runtimeprofile.Registration
+	if sessionRegistration != nil {
+		value := *sessionRegistration
+		snapshot = &value
+	}
+	registration := func() (runtimeprofile.Registration, bool) {
+		if snapshot != nil {
+			return *snapshot, true
+		}
+		if inheritActiveConnection {
+			return manager.PeerRegistration(publicKey)
+		}
+		return runtimeprofile.Registration{}, false
+	}
 	return &peerresource.Server{
 		Caller:       publicKey,
-		ACL:          s.peerAuthorizer(publicKey),
 		Firmwares:    manager.Firmwares,
 		Workspaces:   manager.Workspaces,
 		Workflows:    manager.Workflows,
@@ -85,18 +106,21 @@ func (s *PeerService) peerResources(publicKey giznet.PublicKey) *peerresource.Se
 		FriendGroups: manager.FriendGroups,
 		Gameplay:     manager.Gameplay,
 		Tools:        manager.Tools,
-		ResourceACL:  manager.ACL,
-	}
-}
-
-func (s *PeerService) peerAuthorizer(publicKey giznet.PublicKey) aclAuthorizer {
-	if s == nil || s.manager == nil || s.manager.ACL == nil {
-		return nil
-	}
-	return peerAuthorizer{
-		ACL:       s.manager.ACL,
-		Peers:     s.manager.Peers,
-		PublicKey: publicKey,
+		RuntimeProfile: func() *apitypes.RuntimeProfile {
+			registration, ok := registration()
+			if !ok {
+				return nil
+			}
+			profile := registration.RuntimeProfile
+			return &profile
+		},
+		FirmwareName: func() string {
+			registration, ok := registration()
+			if !ok {
+				return ""
+			}
+			return registration.FirmwareName
+		},
 	}
 }
 

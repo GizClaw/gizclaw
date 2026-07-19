@@ -73,20 +73,21 @@ type ToolTrigger struct {
 }
 
 type Tool struct {
-	Id           string                  `json:"id"`
-	Name         *string                 `json:"name,omitempty"`
-	Description  *string                 `json:"description,omitempty"`
-	Source       ToolSource              `json:"source"`
-	Enabled      *bool                   `json:"enabled,omitempty"`
-	OwnerPeer    *string                 `json:"owner_peer,omitempty"`
-	Version      *string                 `json:"version,omitempty"`
-	InputSchema  jsonschema.Schema       `json:"input_schema"`
-	OutputSchema *jsonschema.Schema      `json:"output_schema,omitempty"`
-	Triggers     *[]ToolTrigger          `json:"triggers,omitempty"`
-	Executor     ToolExecutor            `json:"executor"`
-	Metadata     *map[string]interface{} `json:"metadata,omitempty"`
-	CreatedAt    time.Time               `json:"created_at"`
-	UpdatedAt    time.Time               `json:"updated_at"`
+	Id             string                  `json:"id"`
+	Name           *string                 `json:"name,omitempty"`
+	Description    *string                 `json:"description,omitempty"`
+	Source         ToolSource              `json:"source"`
+	Enabled        *bool                   `json:"enabled,omitempty"`
+	OwnerPeer      *string                 `json:"owner_peer,omitempty"`
+	OwnerPublicKey *string                 `json:"owner_public_key,omitempty"`
+	Version        *string                 `json:"version,omitempty"`
+	InputSchema    jsonschema.Schema       `json:"input_schema"`
+	OutputSchema   *jsonschema.Schema      `json:"output_schema,omitempty"`
+	Triggers       *[]ToolTrigger          `json:"triggers,omitempty"`
+	Executor       ToolExecutor            `json:"executor"`
+	Metadata       *map[string]interface{} `json:"metadata,omitempty"`
+	CreatedAt      time.Time               `json:"created_at"`
+	UpdatedAt      time.Time               `json:"updated_at"`
 }
 
 type ToolListRequest struct {

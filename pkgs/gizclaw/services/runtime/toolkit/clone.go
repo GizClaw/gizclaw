@@ -7,6 +7,7 @@ func cloneTool(in Tool) Tool {
 	out.Name = cloneStringPtr(in.Name)
 	out.Description = cloneStringPtr(in.Description)
 	out.OwnerPeer = cloneStringPtr(in.OwnerPeer)
+	out.OwnerPublicKey = cloneStringPtr(in.OwnerPublicKey)
 	out.Version = cloneStringPtr(in.Version)
 	out.InputSchema = *in.InputSchema.CloneSchemas()
 	if in.OutputSchema != nil {

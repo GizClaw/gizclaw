@@ -29,8 +29,9 @@ Desktop App 不复制 `pkgs/gizclaw` 的服务端业务。`api/http/desktop.json
 `resources/local-server` 是新建本地 Server 的版本化只读 bootstrap 数据源。资源
 内容来自 deploy，随 Desktop binary 使用 `go:embed` 编译，不在运行时访问 deploy、
 Flowcraft、测试 fixture、网络 catalog 或 AI 服务。Catalog 包含 Credential、Tenant、
-Model、Workflow、PetDef、GameRuleset、ACL 及其 Workflow PNG/PIXA、PetDef PIXA
-映射；不包含 Workspace，Workspace 仍由客户端创建。
+Model、Workflow、PetDef、Firmware、RuntimeProfile 与 PetDef PIXA 映射；不包含
+Workspace，Workspace 仍由客户端创建。Workflow 的名称和图标由客户端按 RuntimeProfile
+alias 本地映射，不作为 bootstrap asset。
 
 Desktop 配置根目录中的 `bootstrap.env` 以 `0600` 保存未来本地 Pod 创建所需的
 dotenv 值。为了支持表单和原始文本两种编辑方式，bridge 会把文件的完整 `content`
@@ -48,8 +49,9 @@ Pod 创建保持禁用。
 
 本地 `CreatePod` 在保留目录前完成环境 preflight，同步生成 manifest 和投影并写入
 `.initializing` 状态后立即返回。可取消的后台任务随后启动 companion、等待 Admin
-readiness、按顺序 apply 内嵌资源、同步 Volc Voice、apply ACL，并通过 owner API
-上传 Workflow 与 PetDef assets。Bridge 在初始化期间拒绝 update、start、stop、
+readiness、按顺序 apply 内嵌资源、同步 Volc Voice，并通过 owner API 上传 PetDef assets。
+最后创建映射到内嵌 Firmware 与 RuntimeProfile 的 RegistrationToken，
+将 raw token 以 `0600` 仅写入 Pod 的私有 workspace。Bridge 在初始化期间拒绝 update、start、stop、
 restart、Admin 和 Play 操作；delete 会先取消并等待后台任务。
 
 `.initializing` 是 `0600` 的持久化 JSON 状态：`initializing` 会出现在 Pod 列表和
@@ -57,6 +59,11 @@ restart、Admin 和 Play 操作；delete 会先取消并等待后台任务。
 目录或删除。启动 Desktop 时只清理被退出或崩溃中断的 `initializing` 目录，保留
 `failed` Pod。状态清除后的 Pod 不会在普通 start、restart 或 Desktop upgrade 时
 重新 apply。
+
+本地 Play 打开时，Bridge 通过每次 launch 独立保护的 Browser Runtime handoff 传递 raw RegistrationToken；
+Play 在同一条持久 WebRTC 连接上先调用 `server.register`，再加载 RuntimeProfile 资源。
+RegistrationToken 不进入 URL、`pod.json`、Web Storage 或日志。远程 Pod 不由 Desktop
+生成 RegistrationToken。
 
 每个运行中的本地 Server 在自己的 `workspace/server.pid` 保存 PID，文件以 `0600`
 原子写入。正常停止、退出或 Desktop 的 Quit 会清除该文件；Desktop 异常退出时

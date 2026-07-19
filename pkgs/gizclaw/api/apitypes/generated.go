@@ -13,135 +13,6 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
-// Defines values for ACLPermission.
-const (
-	ACLPermissionAdmin  ACLPermission = "admin"
-	ACLPermissionCreate ACLPermission = "create"
-	ACLPermissionRead   ACLPermission = "read"
-	ACLPermissionUse    ACLPermission = "use"
-)
-
-// Valid indicates whether the value is a known member of the ACLPermission enum.
-func (e ACLPermission) Valid() bool {
-	switch e {
-	case ACLPermissionAdmin:
-		return true
-	case ACLPermissionCreate:
-		return true
-	case ACLPermissionRead:
-		return true
-	case ACLPermissionUse:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ACLPolicyBindingResourceKind.
-const (
-	ACLPolicyBindingResourceKindACLPolicyBinding ACLPolicyBindingResourceKind = "ACLPolicyBinding"
-)
-
-// Valid indicates whether the value is a known member of the ACLPolicyBindingResourceKind enum.
-func (e ACLPolicyBindingResourceKind) Valid() bool {
-	switch e {
-	case ACLPolicyBindingResourceKindACLPolicyBinding:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ACLResourceKind.
-const (
-	ACLResourceKindCredential  ACLResourceKind = "credential"
-	ACLResourceKindFirmware    ACLResourceKind = "firmware"
-	ACLResourceKindGameruleset ACLResourceKind = "gameruleset"
-	ACLResourceKindModel       ACLResourceKind = "model"
-	ACLResourceKindTool        ACLResourceKind = "tool"
-	ACLResourceKindView        ACLResourceKind = "view"
-	ACLResourceKindVoice       ACLResourceKind = "voice"
-	ACLResourceKindWorkflow    ACLResourceKind = "workflow"
-	ACLResourceKindWorkspace   ACLResourceKind = "workspace"
-)
-
-// Valid indicates whether the value is a known member of the ACLResourceKind enum.
-func (e ACLResourceKind) Valid() bool {
-	switch e {
-	case ACLResourceKindCredential:
-		return true
-	case ACLResourceKindFirmware:
-		return true
-	case ACLResourceKindGameruleset:
-		return true
-	case ACLResourceKindModel:
-		return true
-	case ACLResourceKindTool:
-		return true
-	case ACLResourceKindView:
-		return true
-	case ACLResourceKindVoice:
-		return true
-	case ACLResourceKindWorkflow:
-		return true
-	case ACLResourceKindWorkspace:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ACLRoleResourceKind.
-const (
-	ACLRoleResourceKindACLRole ACLRoleResourceKind = "ACLRole"
-)
-
-// Valid indicates whether the value is a known member of the ACLRoleResourceKind enum.
-func (e ACLRoleResourceKind) Valid() bool {
-	switch e {
-	case ACLRoleResourceKindACLRole:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ACLSubjectKind.
-const (
-	ACLSubjectKindAllPeers ACLSubjectKind = "all_peers"
-	ACLSubjectKindPk       ACLSubjectKind = "pk"
-	ACLSubjectKindView     ACLSubjectKind = "view"
-)
-
-// Valid indicates whether the value is a known member of the ACLSubjectKind enum.
-func (e ACLSubjectKind) Valid() bool {
-	switch e {
-	case ACLSubjectKindAllPeers:
-		return true
-	case ACLSubjectKindPk:
-		return true
-	case ACLSubjectKindView:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ACLViewResourceKind.
-const (
-	ACLViewResourceKindACLView ACLViewResourceKind = "ACLView"
-)
-
-// Valid indicates whether the value is a known member of the ACLViewResourceKind enum.
-func (e ACLViewResourceKind) Valid() bool {
-	switch e {
-	case ACLViewResourceKindACLView:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for ASTTranslateMode.
 const (
 	ASTTranslateModeS2s ASTTranslateMode = "s2s"
@@ -418,30 +289,6 @@ func (e FirmwareResourceKind) Valid() bool {
 	}
 }
 
-// Defines values for FirmwareSelectionChannel.
-const (
-	FirmwareSelectionChannelBeta    FirmwareSelectionChannel = "beta"
-	FirmwareSelectionChannelDevelop FirmwareSelectionChannel = "develop"
-	FirmwareSelectionChannelPending FirmwareSelectionChannel = "pending"
-	FirmwareSelectionChannelStable  FirmwareSelectionChannel = "stable"
-)
-
-// Valid indicates whether the value is a known member of the FirmwareSelectionChannel enum.
-func (e FirmwareSelectionChannel) Valid() bool {
-	switch e {
-	case FirmwareSelectionChannelBeta:
-		return true
-	case FirmwareSelectionChannelDevelop:
-		return true
-	case FirmwareSelectionChannelPending:
-		return true
-	case FirmwareSelectionChannelStable:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for FlowcraftConversationParametersAgentInitiativePolicy.
 const (
 	FlowcraftConversationParametersAgentInitiativePolicyOnReload      FlowcraftConversationParametersAgentInitiativePolicy = "on_reload"
@@ -583,21 +430,6 @@ const (
 func (e GameDefResourceKind) Valid() bool {
 	switch e {
 	case GameDefResourceKindGameDef:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for GameRulesetResourceKind.
-const (
-	GameRulesetResourceKindGameRuleset GameRulesetResourceKind = "GameRuleset"
-)
-
-// Valid indicates whether the value is a known member of the GameRulesetResourceKind enum.
-func (e GameRulesetResourceKind) Valid() bool {
-	switch e {
-	case GameRulesetResourceKindGameRuleset:
 		return true
 	default:
 		return false
@@ -766,21 +598,6 @@ const (
 func (e OpenAITenantResourceKind) Valid() bool {
 	switch e {
 	case OpenAITenantResourceKindOpenAITenant:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for PeerConfigResourceKind.
-const (
-	PeerConfigResourceKindPeerConfig PeerConfigResourceKind = "PeerConfig"
-)
-
-// Valid indicates whether the value is a known member of the PeerConfigResourceKind enum.
-func (e PeerConfigResourceKind) Valid() bool {
-	switch e {
-	case PeerConfigResourceKindPeerConfig:
 		return true
 	default:
 		return false
@@ -1096,6 +913,21 @@ func (e PetWorkspaceParametersAgentType) Valid() bool {
 	}
 }
 
+// Defines values for RegistrationTokenResourceKind.
+const (
+	RegistrationTokenResourceKindRegistrationToken RegistrationTokenResourceKind = "RegistrationToken"
+)
+
+// Valid indicates whether the value is a known member of the RegistrationTokenResourceKind enum.
+func (e RegistrationTokenResourceKind) Valid() bool {
+	switch e {
+	case RegistrationTokenResourceKindRegistrationToken:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ResourceAPIVersion.
 const (
 	ResourceAPIVersionGizclawAdminv1alpha1 ResourceAPIVersion = "gizclaw.admin/v1alpha1"
@@ -1113,9 +945,6 @@ func (e ResourceAPIVersion) Valid() bool {
 
 // Defines values for ResourceKind.
 const (
-	ResourceKindACLPolicyBinding       ResourceKind = "ACLPolicyBinding"
-	ResourceKindACLRole                ResourceKind = "ACLRole"
-	ResourceKindACLView                ResourceKind = "ACLView"
 	ResourceKindBadgeDef               ResourceKind = "BadgeDef"
 	ResourceKindContact                ResourceKind = "Contact"
 	ResourceKindCredential             ResourceKind = "Credential"
@@ -1126,14 +955,14 @@ const (
 	ResourceKindFriendGroupInviteToken ResourceKind = "FriendGroupInviteToken"
 	ResourceKindFriendGroupMember      ResourceKind = "FriendGroupMember"
 	ResourceKindGameDef                ResourceKind = "GameDef"
-	ResourceKindGameRuleset            ResourceKind = "GameRuleset"
 	ResourceKindGeminiTenant           ResourceKind = "GeminiTenant"
 	ResourceKindMiniMaxTenant          ResourceKind = "MiniMaxTenant"
 	ResourceKindModel                  ResourceKind = "Model"
 	ResourceKindOpenAITenant           ResourceKind = "OpenAITenant"
-	ResourceKindPeerConfig             ResourceKind = "PeerConfig"
 	ResourceKindPetDef                 ResourceKind = "PetDef"
+	ResourceKindRegistrationToken      ResourceKind = "RegistrationToken"
 	ResourceKindResourceList           ResourceKind = "ResourceList"
+	ResourceKindRuntimeProfile         ResourceKind = "RuntimeProfile"
 	ResourceKindTool                   ResourceKind = "Tool"
 	ResourceKindVoice                  ResourceKind = "Voice"
 	ResourceKindVolcTenant             ResourceKind = "VolcTenant"
@@ -1144,12 +973,6 @@ const (
 // Valid indicates whether the value is a known member of the ResourceKind enum.
 func (e ResourceKind) Valid() bool {
 	switch e {
-	case ResourceKindACLPolicyBinding:
-		return true
-	case ResourceKindACLRole:
-		return true
-	case ResourceKindACLView:
-		return true
 	case ResourceKindBadgeDef:
 		return true
 	case ResourceKindContact:
@@ -1170,8 +993,6 @@ func (e ResourceKind) Valid() bool {
 		return true
 	case ResourceKindGameDef:
 		return true
-	case ResourceKindGameRuleset:
-		return true
 	case ResourceKindGeminiTenant:
 		return true
 	case ResourceKindMiniMaxTenant:
@@ -1180,11 +1001,13 @@ func (e ResourceKind) Valid() bool {
 		return true
 	case ResourceKindOpenAITenant:
 		return true
-	case ResourceKindPeerConfig:
-		return true
 	case ResourceKindPetDef:
 		return true
+	case ResourceKindRegistrationToken:
+		return true
 	case ResourceKindResourceList:
+		return true
+	case ResourceKindRuntimeProfile:
 		return true
 	case ResourceKindTool:
 		return true
@@ -1210,6 +1033,21 @@ const (
 func (e ResourceListResourceKind) Valid() bool {
 	switch e {
 	case ResourceListResourceKindResourceList:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RuntimeProfileResourceKind.
+const (
+	RuntimeProfileResourceKindRuntimeProfile RuntimeProfileResourceKind = "RuntimeProfile"
+)
+
+// Valid indicates whether the value is a known member of the RuntimeProfileResourceKind enum.
+func (e RuntimeProfileResourceKind) Valid() bool {
+	switch e {
+	case RuntimeProfileResourceKindRuntimeProfile:
 		return true
 	default:
 		return false
@@ -1399,24 +1237,6 @@ func (e WorkflowDriver) Valid() bool {
 	}
 }
 
-// Defines values for WorkflowLocale.
-const (
-	WorkflowLocaleEn   WorkflowLocale = "en"
-	WorkflowLocaleZhCN WorkflowLocale = "zh-CN"
-)
-
-// Valid indicates whether the value is a known member of the WorkflowLocale enum.
-func (e WorkflowLocale) Valid() bool {
-	switch e {
-	case WorkflowLocaleEn:
-		return true
-	case WorkflowLocaleZhCN:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for WorkflowResourceKind.
 const (
 	WorkflowResourceKindWorkflow WorkflowResourceKind = "Workflow"
@@ -1426,6 +1246,24 @@ const (
 func (e WorkflowResourceKind) Valid() bool {
 	switch e {
 	case WorkflowResourceKindWorkflow:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkspaceWorkflowSource.
+const (
+	WorkspaceWorkflowSourceOwned   WorkspaceWorkflowSource = "owned"
+	WorkspaceWorkflowSourceRuntime WorkspaceWorkflowSource = "runtime"
+)
+
+// Valid indicates whether the value is a known member of the WorkspaceWorkflowSource enum.
+func (e WorkspaceWorkflowSource) Valid() bool {
+	switch e {
+	case WorkspaceWorkflowSourceOwned:
+		return true
+	case WorkspaceWorkflowSourceRuntime:
 		return true
 	default:
 		return false
@@ -1463,124 +1301,6 @@ func (e WorkspaceResourceKind) Valid() bool {
 	default:
 		return false
 	}
-}
-
-// ACLPermission ACL permission enum.
-type ACLPermission string
-
-// ACLPermissionList defines model for ACLPermissionList.
-type ACLPermissionList = []ACLPermission
-
-// ACLPolicy ACL policy describing one subject-resource-role relation and optional validity window.
-type ACLPolicy struct {
-	ExpiresAt *time.Time `json:"expires_at,omitempty"`
-	NotBefore *time.Time `json:"not_before,omitempty"`
-
-	// Resource ACL resource identity. Stored canonically as kind:id.
-	Resource ACLResource `json:"resource"`
-	Role     string      `json:"role"`
-
-	// Subject ACL subject identity. Stored canonically as kind:id.
-	Subject ACLSubject `json:"subject"`
-}
-
-// ACLPolicyBinding defines model for ACLPolicyBinding.
-type ACLPolicyBinding struct {
-	CreatedAt    time.Time `json:"created_at"`
-	DisplayOrder float64   `json:"display_order"`
-	Id           string    `json:"id"`
-
-	// Policy ACL policy describing one subject-resource-role relation and optional validity window.
-	Policy    ACLPolicy `json:"policy"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
-
-// ACLPolicyBindingResource defines model for ACLPolicyBindingResource.
-type ACLPolicyBindingResource struct {
-	// ApiVersion API version for declarative GizClaw resources.
-	ApiVersion ResourceAPIVersion           `json:"apiVersion"`
-	Kind       ACLPolicyBindingResourceKind `json:"kind"`
-	Metadata   ResourceMetadata             `json:"metadata"`
-
-	// Spec ACL policy describing one subject-resource-role relation and optional validity window.
-	Spec ACLPolicy `json:"spec"`
-}
-
-// ACLPolicyBindingResourceKind defines model for ACLPolicyBindingResource.Kind.
-type ACLPolicyBindingResourceKind string
-
-// ACLResource ACL resource identity. Stored canonically as kind:id.
-type ACLResource struct {
-	// Id Resource identifier for the selected kind.
-	Id string `json:"id"`
-
-	// Kind ACL resource identity kind.
-	Kind ACLResourceKind `json:"kind"`
-}
-
-// ACLResourceKind ACL resource identity kind.
-type ACLResourceKind string
-
-// ACLRole defines model for ACLRole.
-type ACLRole struct {
-	CreatedAt   time.Time         `json:"created_at"`
-	Name        string            `json:"name"`
-	Permissions ACLPermissionList `json:"permissions"`
-	UpdatedAt   time.Time         `json:"updated_at"`
-}
-
-// ACLRoleResource defines model for ACLRoleResource.
-type ACLRoleResource struct {
-	// ApiVersion API version for declarative GizClaw resources.
-	ApiVersion ResourceAPIVersion  `json:"apiVersion"`
-	Kind       ACLRoleResourceKind `json:"kind"`
-	Metadata   ResourceMetadata    `json:"metadata"`
-	Spec       ACLRoleSpec         `json:"spec"`
-}
-
-// ACLRoleResourceKind defines model for ACLRoleResource.Kind.
-type ACLRoleResourceKind string
-
-// ACLRoleSpec defines model for ACLRoleSpec.
-type ACLRoleSpec struct {
-	Permissions ACLPermissionList `json:"permissions"`
-}
-
-// ACLSubject ACL subject identity. Stored canonically as kind:id.
-type ACLSubject struct {
-	// Id Subject identifier for the selected kind.
-	Id string `json:"id"`
-
-	// Kind ACL subject identity kind.
-	Kind ACLSubjectKind `json:"kind"`
-}
-
-// ACLSubjectKind ACL subject identity kind.
-type ACLSubjectKind string
-
-// ACLView defines model for ACLView.
-type ACLView struct {
-	CreatedAt   time.Time `json:"created_at"`
-	Description *string   `json:"description,omitempty"`
-	Name        string    `json:"name"`
-	UpdatedAt   time.Time `json:"updated_at"`
-}
-
-// ACLViewResource defines model for ACLViewResource.
-type ACLViewResource struct {
-	// ApiVersion API version for declarative GizClaw resources.
-	ApiVersion ResourceAPIVersion  `json:"apiVersion"`
-	Kind       ACLViewResourceKind `json:"kind"`
-	Metadata   ResourceMetadata    `json:"metadata"`
-	Spec       ACLViewSpec         `json:"spec"`
-}
-
-// ACLViewResourceKind defines model for ACLViewResource.Kind.
-type ACLViewResourceKind string
-
-// ACLViewSpec defines model for ACLViewSpec.
-type ACLViewSpec struct {
-	Description *string `json:"description,omitempty"`
 }
 
 // ASTTranslateExternalVoiceParameters defines model for ASTTranslateExternalVoiceParameters.
@@ -1674,9 +1394,10 @@ type ApplyResult struct {
 	Items *[]ApplyResult `json:"items,omitempty"`
 
 	// Kind Declarative GizClaw resource kind.
-	Kind    ResourceKind `json:"kind"`
-	Message *string      `json:"message,omitempty"`
-	Name    string       `json:"name"`
+	Kind     ResourceKind `json:"kind"`
+	Message  *string      `json:"message,omitempty"`
+	Name     string       `json:"name"`
+	Resource *Resource    `json:"resource,omitempty"`
 }
 
 // Badge defines model for Badge.
@@ -1779,14 +1500,6 @@ type ChatRoomWorkspaceTranscriptParameters struct {
 	Enabled *bool `json:"enabled,omitempty"`
 }
 
-// Configuration defines model for Configuration.
-type Configuration struct {
-	Firmware *FirmwareSelection `json:"firmware,omitempty"`
-
-	// View Current content view name selected for this peer.
-	View *string `json:"view,omitempty"`
-}
-
 // ContactResource defines model for ContactResource.
 type ContactResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
@@ -1820,8 +1533,11 @@ type Credential struct {
 	CreatedAt   time.Time      `json:"created_at"`
 	Description *string        `json:"description,omitempty"`
 	Name        string         `json:"name"`
-	Provider    string         `json:"provider"`
-	UpdatedAt   time.Time      `json:"updated_at"`
+
+	// OwnerPublicKey Immutable Public Key of the Client that created this Credential. Admin-created Credentials omit it.
+	OwnerPublicKey *string   `json:"owner_public_key,omitempty"`
+	Provider       string    `json:"provider"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 // CredentialBody Provider-specific credential payload. The shape is selected by Credential.provider.
@@ -2210,18 +1926,6 @@ type FirmwareResource struct {
 // FirmwareResourceKind defines model for FirmwareResource.Kind.
 type FirmwareResourceKind string
 
-// FirmwareSelection defines model for FirmwareSelection.
-type FirmwareSelection struct {
-	// Channel Firmware channel selected for the peer.
-	Channel FirmwareSelectionChannel `json:"channel"`
-
-	// Id Firmware release-line id selected for the peer.
-	Id string `json:"id"`
-}
-
-// FirmwareSelectionChannel Firmware channel selected for the peer.
-type FirmwareSelectionChannel string
-
 // FirmwareSlot defines model for FirmwareSlot.
 type FirmwareSlot struct {
 	Artifact    *FirmwareArtifact `json:"artifact,omitempty"`
@@ -2414,20 +2118,20 @@ type GameDefSpec struct {
 
 // GameResult defines model for GameResult.
 type GameResult struct {
-	CreatedAt      time.Time         `json:"created_at"`
-	Difficulty     *string           `json:"difficulty,omitempty"`
-	DurationMs     *int64            `json:"duration_ms,omitempty"`
-	GameDefId      string            `json:"game_def_id"`
-	Id             string            `json:"id"`
-	IdempotencyKey *string           `json:"idempotency_key,omitempty"`
-	MaxScore       *int64            `json:"max_score,omitempty"`
-	OccurredAt     time.Time         `json:"occurred_at"`
-	Outcome        *string           `json:"outcome,omitempty"`
-	OwnerPublicKey string            `json:"owner_public_key"`
-	Payload        *GameplayMetadata `json:"payload,omitempty"`
-	PetId          string            `json:"pet_id"`
-	RulesetName    string            `json:"ruleset_name"`
-	Score          *int64            `json:"score,omitempty"`
+	CreatedAt          time.Time         `json:"created_at"`
+	Difficulty         *string           `json:"difficulty,omitempty"`
+	DurationMs         *int64            `json:"duration_ms,omitempty"`
+	GameDefId          string            `json:"game_def_id"`
+	Id                 string            `json:"id"`
+	IdempotencyKey     *string           `json:"idempotency_key,omitempty"`
+	MaxScore           *int64            `json:"max_score,omitempty"`
+	OccurredAt         time.Time         `json:"occurred_at"`
+	Outcome            *string           `json:"outcome,omitempty"`
+	OwnerPublicKey     string            `json:"owner_public_key"`
+	Payload            *GameplayMetadata `json:"payload,omitempty"`
+	PetId              string            `json:"pet_id"`
+	RuntimeProfileName string            `json:"runtime_profile_name"`
+	Score              *int64            `json:"score,omitempty"`
 }
 
 // GameResultListResponse defines model for GameResultListResponse.
@@ -2442,59 +2146,6 @@ type GameRewardSpec struct {
 	BadgeExpDelta *map[string]int64 `json:"badge_exp_delta,omitempty"`
 	PetExpDelta   *int64            `json:"pet_exp_delta,omitempty"`
 	PointsDelta   *int64            `json:"points_delta,omitempty"`
-}
-
-// GameRuleset defines model for GameRuleset.
-type GameRuleset struct {
-	CreatedAt time.Time       `json:"created_at"`
-	Name      string          `json:"name"`
-	Spec      GameRulesetSpec `json:"spec"`
-	UpdatedAt time.Time       `json:"updated_at"`
-}
-
-// GameRulesetDriveSpec defines model for GameRulesetDriveSpec.
-type GameRulesetDriveSpec struct {
-	DefaultReward *GameRewardSpec            `json:"default_reward,omitempty"`
-	GameRewards   *map[string]GameRewardSpec `json:"game_rewards,omitempty"`
-}
-
-// GameRulesetPetPoolEntry defines model for GameRulesetPetPoolEntry.
-type GameRulesetPetPoolEntry struct {
-	AdoptionCost *int64  `json:"adoption_cost,omitempty"`
-	PetdefId     string  `json:"petdef_id"`
-	Rarity       *string `json:"rarity,omitempty"`
-	Weight       int64   `json:"weight"`
-	WorkflowName *string `json:"workflow_name,omitempty"`
-}
-
-// GameRulesetPointsSpec defines model for GameRulesetPointsSpec.
-type GameRulesetPointsSpec struct {
-	InitialBalance *int64 `json:"initial_balance,omitempty"`
-}
-
-// GameRulesetResource defines model for GameRulesetResource.
-type GameRulesetResource struct {
-	// ApiVersion API version for declarative GizClaw resources.
-	ApiVersion ResourceAPIVersion      `json:"apiVersion"`
-	Kind       GameRulesetResourceKind `json:"kind"`
-	Metadata   ResourceMetadata        `json:"metadata"`
-	Spec       GameRulesetSpec         `json:"spec"`
-}
-
-// GameRulesetResourceKind defines model for GameRulesetResource.Kind.
-type GameRulesetResourceKind string
-
-// GameRulesetSpec defines model for GameRulesetSpec.
-type GameRulesetSpec struct {
-	BadgeDefIds         *[]string                 `json:"badge_def_ids,omitempty"`
-	DefaultWorkflowName *string                   `json:"default_workflow_name,omitempty"`
-	Description         *string                   `json:"description,omitempty"`
-	Drive               *GameRulesetDriveSpec     `json:"drive,omitempty"`
-	Enabled             bool                      `json:"enabled"`
-	GameDefIds          *[]string                 `json:"game_def_ids,omitempty"`
-	Metadata            *GameplayMetadata         `json:"metadata,omitempty"`
-	PetPool             []GameRulesetPetPoolEntry `json:"pet_pool"`
-	Points              *GameRulesetPointsSpec    `json:"points,omitempty"`
 }
 
 // GameplayGetRequest defines model for GameplayGetRequest.
@@ -2639,9 +2290,12 @@ type Model struct {
 	Id           string             `json:"id"`
 
 	// Kind Runtime role of a model.
-	Kind     ModelKind     `json:"kind"`
-	Name     *string       `json:"name,omitempty"`
-	Provider ModelProvider `json:"provider"`
+	Kind ModelKind `json:"kind"`
+	Name *string   `json:"name,omitempty"`
+
+	// OwnerPublicKey Immutable Public Key of the Client that created this Model. Admin-created Models omit it.
+	OwnerPublicKey *string       `json:"owner_public_key,omitempty"`
+	Provider       ModelProvider `json:"provider"`
 
 	// ProviderData Provider-specific model runtime configuration. The shape is selected by Model.provider.kind.
 	ProviderData *ModelProviderData `json:"provider_data,omitempty"`
@@ -2803,7 +2457,6 @@ type OpenAITenantVoiceProviderData struct {
 type Peer struct {
 	ApprovedAt     *time.Time             `json:"approved_at,omitempty"`
 	AutoRegistered *bool                  `json:"auto_registered,omitempty"`
-	Configuration  Configuration          `json:"configuration"`
 	CreatedAt      time.Time              `json:"created_at"`
 	Device         DeviceInfo             `json:"device"`
 	PublicKey      string                 `json:"public_key"`
@@ -2821,18 +2474,6 @@ type PeerAssignment struct {
 	UpdatedAt       time.Time `json:"updated_at"`
 	Version         int64     `json:"version"`
 }
-
-// PeerConfigResource defines model for PeerConfigResource.
-type PeerConfigResource struct {
-	// ApiVersion API version for declarative GizClaw resources.
-	ApiVersion ResourceAPIVersion     `json:"apiVersion"`
-	Kind       PeerConfigResourceKind `json:"kind"`
-	Metadata   ResourceMetadata       `json:"metadata"`
-	Spec       Configuration          `json:"spec"`
-}
-
-// PeerConfigResourceKind defines model for PeerConfigResource.Kind.
-type PeerConfigResourceKind string
 
 // PeerIMEI defines model for PeerIMEI.
 type PeerIMEI struct {
@@ -3076,24 +2717,22 @@ type PeerTelemetryValue struct {
 
 // Pet defines model for Pet.
 type Pet struct {
-	CreatedAt      time.Time      `json:"created_at"`
-	DisplayName    string         `json:"display_name"`
-	Id             string         `json:"id"`
-	LastActiveAt   time.Time      `json:"last_active_at"`
-	Life           PetLife        `json:"life"`
-	OwnerPublicKey string         `json:"owner_public_key"`
-	PetdefId       string         `json:"petdef_id"`
-	Progression    PetProgression `json:"progression"`
-	RulesetName    string         `json:"ruleset_name"`
-	UpdatedAt      time.Time      `json:"updated_at"`
-	WorkflowName   *string        `json:"workflow_name,omitempty"`
-	WorkspaceName  string         `json:"workspace_name"`
+	CreatedAt          time.Time      `json:"created_at"`
+	DisplayName        string         `json:"display_name"`
+	Id                 string         `json:"id"`
+	LastActiveAt       time.Time      `json:"last_active_at"`
+	Life               PetLife        `json:"life"`
+	OwnerPublicKey     string         `json:"owner_public_key"`
+	PetdefId           string         `json:"petdef_id"`
+	Progression        PetProgression `json:"progression"`
+	RuntimeProfileName string         `json:"runtime_profile_name"`
+	UpdatedAt          time.Time      `json:"updated_at"`
+	WorkspaceName      string         `json:"workspace_name"`
 }
 
 // PetAdoptRequest defines model for PetAdoptRequest.
 type PetAdoptRequest struct {
 	DisplayName *string `json:"display_name,omitempty"`
-	RulesetName *string `json:"ruleset_name,omitempty"`
 }
 
 // PetAdoptResponse defines model for PetAdoptResponse.
@@ -3239,12 +2878,11 @@ type PetDefResourceKind string
 
 // PetDefSpec defines model for PetDefSpec.
 type PetDefSpec struct {
-	Attr         PetDefAttrSpec      `json:"attr"`
-	Character    PetDefCharacterSpec `json:"character"`
-	Drive        PetDefDriveSpec     `json:"drive"`
-	Visual       PetDefVisualSpec    `json:"visual"`
-	Voice        PetDefVoiceSpec     `json:"voice"`
-	WorkflowName *string             `json:"workflow_name,omitempty"`
+	Attr      PetDefAttrSpec      `json:"attr"`
+	Character PetDefCharacterSpec `json:"character"`
+	Drive     PetDefDriveSpec     `json:"drive"`
+	Visual    PetDefVisualSpec    `json:"visual"`
+	Voice     PetDefVoiceSpec     `json:"voice"`
 }
 
 // PetDefVisualRefSpec defines model for PetDefVisualRefSpec.
@@ -3364,27 +3002,27 @@ type PetWorkspaceParametersAgentType string
 
 // PointsAccount defines model for PointsAccount.
 type PointsAccount struct {
-	Balance        int64     `json:"balance"`
-	CreatedAt      time.Time `json:"created_at"`
-	OwnerPublicKey string    `json:"owner_public_key"`
-	RulesetName    string    `json:"ruleset_name"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	Balance            int64     `json:"balance"`
+	CreatedAt          time.Time `json:"created_at"`
+	OwnerPublicKey     string    `json:"owner_public_key"`
+	RuntimeProfileName string    `json:"runtime_profile_name"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 // PointsTransaction defines model for PointsTransaction.
 type PointsTransaction struct {
-	BalanceAfter   int64     `json:"balance_after"`
-	CreatedAt      time.Time `json:"created_at"`
-	Delta          int64     `json:"delta"`
-	GameResultId   *string   `json:"game_result_id,omitempty"`
-	Id             string    `json:"id"`
-	OwnerPublicKey string    `json:"owner_public_key"`
-	PetId          *string   `json:"pet_id,omitempty"`
-	Reason         string    `json:"reason"`
-	RewardGrantId  *string   `json:"reward_grant_id,omitempty"`
-	RulesetName    string    `json:"ruleset_name"`
-	SourceId       string    `json:"source_id"`
-	SourceType     string    `json:"source_type"`
+	BalanceAfter       int64     `json:"balance_after"`
+	CreatedAt          time.Time `json:"created_at"`
+	Delta              int64     `json:"delta"`
+	GameResultId       *string   `json:"game_result_id,omitempty"`
+	Id                 string    `json:"id"`
+	OwnerPublicKey     string    `json:"owner_public_key"`
+	PetId              *string   `json:"pet_id,omitempty"`
+	Reason             string    `json:"reason"`
+	RewardGrantId      *string   `json:"reward_grant_id,omitempty"`
+	RuntimeProfileName string    `json:"runtime_profile_name"`
+	SourceId           string    `json:"source_id"`
+	SourceType         string    `json:"source_type"`
 }
 
 // PointsTransactionListResponse defines model for PointsTransactionListResponse.
@@ -3405,6 +3043,43 @@ type Registration struct {
 	Status         PeerRegistrationStatus `json:"status"`
 	UpdatedAt      time.Time              `json:"updated_at"`
 }
+
+// RegistrationToken defines model for RegistrationToken.
+type RegistrationToken struct {
+	CreatedAt          time.Time `json:"created_at"`
+	FirmwareName       string    `json:"firmware_name"`
+	Name               string    `json:"name"`
+	RuntimeProfileName string    `json:"runtime_profile_name"`
+}
+
+// RegistrationTokenCreateResult defines model for RegistrationTokenCreateResult.
+type RegistrationTokenCreateResult struct {
+	CreatedAt          time.Time `json:"created_at"`
+	FirmwareName       string    `json:"firmware_name"`
+	Name               string    `json:"name"`
+	RuntimeProfileName string    `json:"runtime_profile_name"`
+
+	// Token Raw registration token returned exactly once.
+	Token string `json:"token"`
+}
+
+// RegistrationTokenResource defines model for RegistrationTokenResource.
+type RegistrationTokenResource struct {
+	// ApiVersion API version for declarative GizClaw resources.
+	ApiVersion ResourceAPIVersion            `json:"apiVersion"`
+	Kind       RegistrationTokenResourceKind `json:"kind"`
+	Metadata   ResourceMetadata              `json:"metadata"`
+	Spec       struct {
+		FirmwareName       string `json:"firmware_name"`
+		RuntimeProfileName string `json:"runtime_profile_name"`
+	} `json:"spec"`
+
+	// Token Present only in a successful create/apply response.
+	Token *string `json:"token,omitempty"`
+}
+
+// RegistrationTokenResourceKind defines model for RegistrationTokenResource.Kind.
+type RegistrationTokenResourceKind string
 
 // Resource defines model for Resource.
 type Resource struct {
@@ -3442,27 +3117,27 @@ type ResourceMetadata struct {
 	Annotations *map[string]string `json:"annotations,omitempty"`
 	Labels      *map[string]string `json:"labels,omitempty"`
 
-	// Name Resource name. Kind-specific rules apply. User-defined custom IDs use 8-48 lowercase ASCII characters, start with [a-z], end with [a-z0-9], and contain only [a-z0-9._-]. For PeerConfig this is the peer public key.
+	// Name Resource name. Kind-specific rules apply. User-defined custom IDs use 8-48 lowercase ASCII characters, start with [a-z], end with [a-z0-9], and contain only [a-z0-9._-].
 	Name string `json:"name"`
 
-	// OwnerPublicKey Primary owner peer public key hint for ACL-backed managed resources. ResourceManager persists ownership as an ACL binding and may synthesize this value from ACL on read.
+	// OwnerPublicKey Immutable owner Public Key for Client-created resources. Admin-owned resources omit this field.
 	OwnerPublicKey *string `json:"owner_public_key,omitempty"`
 }
 
 // RewardGrant defines model for RewardGrant.
 type RewardGrant struct {
-	BadgeExpDelta  map[string]int64 `json:"badge_exp_delta"`
-	CreatedAt      time.Time        `json:"created_at"`
-	GameResultId   *string          `json:"game_result_id,omitempty"`
-	Id             string           `json:"id"`
-	OwnerPublicKey string           `json:"owner_public_key"`
-	PetExpDelta    int64            `json:"pet_exp_delta"`
-	PetId          *string          `json:"pet_id,omitempty"`
-	PointsDelta    int64            `json:"points_delta"`
-	Reason         *string          `json:"reason,omitempty"`
-	RulesetName    string           `json:"ruleset_name"`
-	SourceId       string           `json:"source_id"`
-	SourceType     string           `json:"source_type"`
+	BadgeExpDelta      map[string]int64 `json:"badge_exp_delta"`
+	CreatedAt          time.Time        `json:"created_at"`
+	GameResultId       *string          `json:"game_result_id,omitempty"`
+	Id                 string           `json:"id"`
+	OwnerPublicKey     string           `json:"owner_public_key"`
+	PetExpDelta        int64            `json:"pet_exp_delta"`
+	PetId              *string          `json:"pet_id,omitempty"`
+	PointsDelta        int64            `json:"points_delta"`
+	Reason             *string          `json:"reason,omitempty"`
+	RuntimeProfileName string           `json:"runtime_profile_name"`
+	SourceId           string           `json:"source_id"`
+	SourceType         string           `json:"source_type"`
 }
 
 // RewardGrantListResponse defines model for RewardGrantListResponse.
@@ -3479,6 +3154,76 @@ type Runtime struct {
 	Online     bool      `json:"online"`
 	RxBytes    *uint64   `json:"rx_bytes,omitempty"`
 	TxBytes    *uint64   `json:"tx_bytes,omitempty"`
+}
+
+// RuntimeProfile defines model for RuntimeProfile.
+type RuntimeProfile struct {
+	CreatedAt time.Time          `json:"created_at"`
+	Name      string             `json:"name"`
+	Spec      RuntimeProfileSpec `json:"spec"`
+	UpdatedAt time.Time          `json:"updated_at"`
+}
+
+// RuntimeProfileDriveSpec defines model for RuntimeProfileDriveSpec.
+type RuntimeProfileDriveSpec struct {
+	DefaultReward *RuntimeProfileRewardSpec            `json:"default_reward,omitempty"`
+	GameRewards   *map[string]RuntimeProfileRewardSpec `json:"game_rewards,omitempty"`
+}
+
+// RuntimeProfileGameplaySpec defines model for RuntimeProfileGameplaySpec.
+type RuntimeProfileGameplaySpec struct {
+	Drive   *RuntimeProfileDriveSpec      `json:"drive,omitempty"`
+	PetPool *[]RuntimeProfilePetPoolEntry `json:"pet_pool,omitempty"`
+	Points  *RuntimeProfilePointsSpec     `json:"points,omitempty"`
+}
+
+// RuntimeProfilePetPoolEntry defines model for RuntimeProfilePetPoolEntry.
+type RuntimeProfilePetPoolEntry struct {
+	AdoptionCost *int64  `json:"adoption_cost,omitempty"`
+	PetDef       string  `json:"pet_def"`
+	Rarity       *string `json:"rarity,omitempty"`
+	Weight       int64   `json:"weight"`
+}
+
+// RuntimeProfilePointsSpec defines model for RuntimeProfilePointsSpec.
+type RuntimeProfilePointsSpec struct {
+	InitialBalance *int64 `json:"initial_balance,omitempty"`
+}
+
+// RuntimeProfileResource defines model for RuntimeProfileResource.
+type RuntimeProfileResource struct {
+	// ApiVersion API version for declarative GizClaw resources.
+	ApiVersion ResourceAPIVersion         `json:"apiVersion"`
+	Kind       RuntimeProfileResourceKind `json:"kind"`
+	Metadata   ResourceMetadata           `json:"metadata"`
+	Spec       RuntimeProfileSpec         `json:"spec"`
+}
+
+// RuntimeProfileResourceKind defines model for RuntimeProfileResource.Kind.
+type RuntimeProfileResourceKind string
+
+// RuntimeProfileResources defines model for RuntimeProfileResources.
+type RuntimeProfileResources struct {
+	BadgeDefs *map[string]string `json:"badge_defs,omitempty"`
+	GameDefs  *map[string]string `json:"game_defs,omitempty"`
+	Models    *map[string]string `json:"models,omitempty"`
+	PetDefs   *map[string]string `json:"pet_defs,omitempty"`
+	Tools     *map[string]string `json:"tools,omitempty"`
+	Voices    *map[string]string `json:"voices,omitempty"`
+	Workflows *map[string]string `json:"workflows,omitempty"`
+}
+
+// RuntimeProfileRewardSpec defines model for RuntimeProfileRewardSpec.
+type RuntimeProfileRewardSpec struct {
+	BadgeExpDelta *map[string]int64 `json:"badge_exp_delta,omitempty"`
+	PetExpDelta   *int64            `json:"pet_exp_delta,omitempty"`
+	PointsDelta   *int64            `json:"points_delta,omitempty"`
+}
+
+// RuntimeProfileSpec defines model for RuntimeProfileSpec.
+type RuntimeProfileSpec struct {
+	Gameplay  *RuntimeProfileGameplaySpec `json:"gameplay,omitempty"`
+	Resources RuntimeProfileResources     `json:"resources"`
 }
 
 // ServerInfo defines model for ServerInfo.
@@ -3552,10 +3297,13 @@ type Tool struct {
 	// OutputSchema JSON Schema draft-07 or 2020-12 object. Provider adapters decide which keywords they can preserve.
 	OutputSchema *ToolJSONSchema `json:"output_schema,omitempty"`
 	OwnerPeer    *string         `json:"owner_peer,omitempty"`
-	Source       ToolSource      `json:"source"`
-	Triggers     *[]ToolTrigger  `json:"triggers,omitempty"`
-	UpdatedAt    time.Time       `json:"updated_at"`
-	Version      *string         `json:"version,omitempty"`
+
+	// OwnerPublicKey Immutable Public Key of the Client that created this Tool. Admin-created Tools omit it.
+	OwnerPublicKey *string        `json:"owner_public_key,omitempty"`
+	Source         ToolSource     `json:"source"`
+	Triggers       *[]ToolTrigger `json:"triggers,omitempty"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+	Version        *string        `json:"version,omitempty"`
 }
 
 // ToolExecutor defines model for ToolExecutor.
@@ -3765,43 +3513,22 @@ type VolcTenantVoiceProviderData struct {
 
 // Workflow defines model for Workflow.
 type Workflow struct {
-	// I18n Workflow-owned closed locale catalogs. default_locale must name a present catalog property.
-	I18n *WorkflowI18n `json:"i18n,omitempty"`
-	Icon *Icon         `json:"icon,omitempty"`
+	// Name Stable workflow ID used by storage, paths, RuntimeProfiles, and workspace references.
+	Name string `json:"name"`
 
-	// Name Stable workflow ID used by storage, paths, ACLs, and workspace references.
-	Name string       `json:"name"`
-	Spec WorkflowSpec `json:"spec"`
+	// OwnerPublicKey Immutable Public Key of the Client that created this Workflow. Admin-created Workflows omit it.
+	OwnerPublicKey *string      `json:"owner_public_key,omitempty"`
+	Spec           WorkflowSpec `json:"spec"`
 }
 
 // WorkflowDriver defines model for WorkflowDriver.
 type WorkflowDriver string
 
-// WorkflowI18n Workflow-owned closed locale catalogs. default_locale must name a present catalog property.
-type WorkflowI18n struct {
-	DefaultLocale WorkflowLocale       `json:"default_locale"`
-	En            *WorkflowI18nCatalog `json:"en,omitempty"`
-	ZhCN          *WorkflowI18nCatalog `json:"zh-CN,omitempty"`
-}
-
-// WorkflowI18nCatalog defines model for WorkflowI18nCatalog.
-type WorkflowI18nCatalog struct {
-	Description *string `json:"description,omitempty"`
-	Name        *string `json:"name,omitempty"`
-}
-
-// WorkflowLocale defines model for WorkflowLocale.
-type WorkflowLocale string
-
 // WorkflowResource defines model for WorkflowResource.
 type WorkflowResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
-	ApiVersion ResourceAPIVersion `json:"apiVersion"`
-
-	// I18n Workflow-owned closed locale catalogs. default_locale must name a present catalog property.
-	I18n *WorkflowI18n        `json:"i18n,omitempty"`
-	Icon *Icon                `json:"icon,omitempty"`
-	Kind WorkflowResourceKind `json:"kind"`
+	ApiVersion ResourceAPIVersion   `json:"apiVersion"`
+	Kind       WorkflowResourceKind `json:"kind"`
 
 	// Metadata metadata.name is the workflow custom ID.
 	Metadata ResourceMetadata `json:"metadata"`
@@ -3835,6 +3562,9 @@ type Workspace struct {
 	LastActiveAt time.Time `json:"last_active_at"`
 	Name         string    `json:"name"`
 
+	// OwnerPublicKey Immutable Public Key of the Client that created this Workspace. System and Admin-created Workspaces may omit it.
+	OwnerPublicKey *string `json:"owner_public_key,omitempty"`
+
 	// Parameters Agent-specific workspace parameters. The shape is selected by agent_type.
 	Parameters *WorkspaceParameters `json:"parameters,omitempty"`
 
@@ -3845,7 +3575,13 @@ type Workspace struct {
 	Toolkit      *ToolkitPolicy `json:"toolkit,omitempty"`
 	UpdatedAt    time.Time      `json:"updated_at"`
 	WorkflowName string         `json:"workflow_name"`
+
+	// WorkflowSource Identifier namespace for a Client-created Workspace Workflow reference. Internal system Workspaces omit it.
+	WorkflowSource *WorkspaceWorkflowSource `json:"workflow_source,omitempty"`
 }
+
+// WorkspaceWorkflowSource Identifier namespace for a Client-created Workspace Workflow reference. Internal system Workspaces omit it.
+type WorkspaceWorkflowSource string
 
 // WorkspaceInputMode defines model for WorkspaceInputMode.
 type WorkspaceInputMode string
@@ -4261,90 +3997,6 @@ func (t ModelProviderData) MarshalJSON() ([]byte, error) {
 
 func (t *ModelProviderData) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsACLPolicyBindingResource returns the union data inside the Resource as a ACLPolicyBindingResource
-func (t Resource) AsACLPolicyBindingResource() (ACLPolicyBindingResource, error) {
-	var body ACLPolicyBindingResource
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromACLPolicyBindingResource overwrites any union data inside the Resource as the provided ACLPolicyBindingResource
-func (t *Resource) FromACLPolicyBindingResource(v ACLPolicyBindingResource) error {
-	v.Kind = "ACLPolicyBindingResource"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeACLPolicyBindingResource performs a merge with any union data inside the Resource, using the provided ACLPolicyBindingResource
-func (t *Resource) MergeACLPolicyBindingResource(v ACLPolicyBindingResource) error {
-	v.Kind = "ACLPolicyBindingResource"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsACLRoleResource returns the union data inside the Resource as a ACLRoleResource
-func (t Resource) AsACLRoleResource() (ACLRoleResource, error) {
-	var body ACLRoleResource
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromACLRoleResource overwrites any union data inside the Resource as the provided ACLRoleResource
-func (t *Resource) FromACLRoleResource(v ACLRoleResource) error {
-	v.Kind = "ACLRoleResource"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeACLRoleResource performs a merge with any union data inside the Resource, using the provided ACLRoleResource
-func (t *Resource) MergeACLRoleResource(v ACLRoleResource) error {
-	v.Kind = "ACLRoleResource"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsACLViewResource returns the union data inside the Resource as a ACLViewResource
-func (t Resource) AsACLViewResource() (ACLViewResource, error) {
-	var body ACLViewResource
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromACLViewResource overwrites any union data inside the Resource as the provided ACLViewResource
-func (t *Resource) FromACLViewResource(v ACLViewResource) error {
-	v.Kind = "ACLViewResource"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeACLViewResource performs a merge with any union data inside the Resource, using the provided ACLViewResource
-func (t *Resource) MergeACLViewResource(v ACLViewResource) error {
-	v.Kind = "ACLViewResource"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
 	return err
 }
 
@@ -4824,62 +4476,6 @@ func (t *Resource) MergeWorkspaceResource(v WorkspaceResource) error {
 	return err
 }
 
-// AsPeerConfigResource returns the union data inside the Resource as a PeerConfigResource
-func (t Resource) AsPeerConfigResource() (PeerConfigResource, error) {
-	var body PeerConfigResource
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromPeerConfigResource overwrites any union data inside the Resource as the provided PeerConfigResource
-func (t *Resource) FromPeerConfigResource(v PeerConfigResource) error {
-	v.Kind = "PeerConfigResource"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergePeerConfigResource performs a merge with any union data inside the Resource, using the provided PeerConfigResource
-func (t *Resource) MergePeerConfigResource(v PeerConfigResource) error {
-	v.Kind = "PeerConfigResource"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsGameRulesetResource returns the union data inside the Resource as a GameRulesetResource
-func (t Resource) AsGameRulesetResource() (GameRulesetResource, error) {
-	var body GameRulesetResource
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromGameRulesetResource overwrites any union data inside the Resource as the provided GameRulesetResource
-func (t *Resource) FromGameRulesetResource(v GameRulesetResource) error {
-	v.Kind = "GameRulesetResource"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeGameRulesetResource performs a merge with any union data inside the Resource, using the provided GameRulesetResource
-func (t *Resource) MergeGameRulesetResource(v GameRulesetResource) error {
-	v.Kind = "GameRulesetResource"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
 // AsPetDefResource returns the union data inside the Resource as a PetDefResource
 func (t Resource) AsPetDefResource() (PetDefResource, error) {
 	var body PetDefResource
@@ -4964,6 +4560,62 @@ func (t *Resource) MergeGameDefResource(v GameDefResource) error {
 	return err
 }
 
+// AsRuntimeProfileResource returns the union data inside the Resource as a RuntimeProfileResource
+func (t Resource) AsRuntimeProfileResource() (RuntimeProfileResource, error) {
+	var body RuntimeProfileResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRuntimeProfileResource overwrites any union data inside the Resource as the provided RuntimeProfileResource
+func (t *Resource) FromRuntimeProfileResource(v RuntimeProfileResource) error {
+	v.Kind = "RuntimeProfileResource"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRuntimeProfileResource performs a merge with any union data inside the Resource, using the provided RuntimeProfileResource
+func (t *Resource) MergeRuntimeProfileResource(v RuntimeProfileResource) error {
+	v.Kind = "RuntimeProfileResource"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsRegistrationTokenResource returns the union data inside the Resource as a RegistrationTokenResource
+func (t Resource) AsRegistrationTokenResource() (RegistrationTokenResource, error) {
+	var body RegistrationTokenResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRegistrationTokenResource overwrites any union data inside the Resource as the provided RegistrationTokenResource
+func (t *Resource) FromRegistrationTokenResource(v RegistrationTokenResource) error {
+	v.Kind = "RegistrationTokenResource"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRegistrationTokenResource performs a merge with any union data inside the Resource, using the provided RegistrationTokenResource
+func (t *Resource) MergeRegistrationTokenResource(v RegistrationTokenResource) error {
+	v.Kind = "RegistrationTokenResource"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsResourceListResource returns the union data inside the Resource as a ResourceListResource
 func (t Resource) AsResourceListResource() (ResourceListResource, error) {
 	var body ResourceListResource
@@ -5006,12 +4658,6 @@ func (t Resource) ValueByDiscriminator() (interface{}, error) {
 		return nil, err
 	}
 	switch discriminator {
-	case "ACLPolicyBindingResource":
-		return t.AsACLPolicyBindingResource()
-	case "ACLRoleResource":
-		return t.AsACLRoleResource()
-	case "ACLViewResource":
-		return t.AsACLViewResource()
 	case "BadgeDefResource":
 		return t.AsBadgeDefResource()
 	case "ContactResource":
@@ -5032,8 +4678,6 @@ func (t Resource) ValueByDiscriminator() (interface{}, error) {
 		return t.AsFriendResource()
 	case "GameDefResource":
 		return t.AsGameDefResource()
-	case "GameRulesetResource":
-		return t.AsGameRulesetResource()
 	case "GeminiTenantResource":
 		return t.AsGeminiTenantResource()
 	case "MiniMaxTenantResource":
@@ -5042,12 +4686,14 @@ func (t Resource) ValueByDiscriminator() (interface{}, error) {
 		return t.AsModelResource()
 	case "OpenAITenantResource":
 		return t.AsOpenAITenantResource()
-	case "PeerConfigResource":
-		return t.AsPeerConfigResource()
 	case "PetDefResource":
 		return t.AsPetDefResource()
+	case "RegistrationTokenResource":
+		return t.AsRegistrationTokenResource()
 	case "ResourceListResource":
 		return t.AsResourceListResource()
+	case "RuntimeProfileResource":
+		return t.AsRuntimeProfileResource()
 	case "ToolResource":
 		return t.AsToolResource()
 	case "VoiceResource":

@@ -10,7 +10,7 @@ Gameplay resources and state belong to `services/gameplay`.
 
 | Function group | Function |
 | --- | --- |
-| `ListPeerPets` / `GetPeerPet` / `DeletePeerPet` | Query or delete a Peer pet. Deletion delegates all Workspace and ACL cleanup to Gameplay. |
+| `ListPeerPets` / `GetPeerPet` / `DeletePeerPet` | Query or delete a Peer pet. Deletion delegates system-Workspace cleanup to Gameplay. |
 | `ListPeerBadges` / `GetPeerBadge` | Query Peer badge. |
 | `GetPeerPoints` | Query Peer points account. |
 | `ListPeerPointsTransactions` / `GetPeerPointsTransaction` | Query points transactions. |

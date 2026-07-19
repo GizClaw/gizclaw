@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -101,6 +102,11 @@ func runConfig(configPath, contextConfigPath string, selectedCase workspaceCase)
 		_ = client.Close()
 		<-serveDone
 	}()
+	if token := strings.TrimSpace(os.Getenv("GIZCLAW_E2E_CHAT_REGISTRATION_TOKEN")); token != "" {
+		if _, err := client.Register(ctx, "workspacetest.register", token); err != nil {
+			return fmt.Errorf("register chat client: %w", err)
+		}
+	}
 
 	if cfg.shouldEnsureWorkspace() {
 		ensured, err := ensureWorkspaceForRun(ctx, client, cfg)
@@ -352,7 +358,8 @@ func ensureWorkspace(ctx context.Context, client runControlClient, cfg config) (
 	workspaceDisplayName := cfg.Workspace
 
 	workflow, err := client.GetWorkflow(ctx, "workspacetest.workflow.get", rpcapi.WorkflowGetRequest{
-		Name: cfg.Workflow.Name,
+		Name:   cfg.Workflow.Name,
+		Source: rpcapi.ResourceSourceRuntime,
 	})
 	if err != nil {
 		if isRPCNotFound(err) {
@@ -515,7 +522,11 @@ func workspaceDocument(cfg config) (rpcapi.WorkspaceCreateRequest, error) {
 	return rpcapi.WorkspaceCreateRequest{
 		Name:         cfg.Workspace,
 		WorkflowName: cfg.Workflow.Name,
-		Parameters:   &parameters,
+		WorkflowSource: func() *rpcapi.ResourceSource {
+			value := rpcapi.ResourceSourceRuntime
+			return &value
+		}(),
+		Parameters: &parameters,
 	}, nil
 }
 

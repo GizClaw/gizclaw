@@ -69,7 +69,13 @@ class _ChatTypeMenu extends StatelessWidget {
       itemBuilder: (context, index) {
         final driver = drivers[index];
         final count = data.workspaces.where((workspace) {
-          return data.workflow(workspace.workflowName).driver == driver;
+          return data
+                  .workflow(
+                    workspace.workflowName,
+                    source: workspace.workflowSource,
+                  )
+                  .driver ==
+              driver;
         }).length;
         return GizListRow(
               leading: _ChatTypeIcon(driver: driver),
@@ -107,7 +113,13 @@ class DriverWorkspacesPage extends StatelessWidget {
     final data = MobileDataScope.watch(context);
     final workspaces = data.workspaces
         .where((workspace) {
-          return data.workflow(workspace.workflowName).driver == driver;
+          return data
+                  .workflow(
+                    workspace.workflowName,
+                    source: workspace.workflowSource,
+                  )
+                  .driver ==
+              driver;
         })
         .toList(growable: false);
     final workflows = data.workflows
@@ -716,7 +728,7 @@ class _WorkspaceListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final workflow = MobileDataScope.watch(
       context,
-    ).workflow(workspace.workflowName);
+    ).workflow(workspace.workflowName, source: workspace.workflowSource);
     return GizListRow(
       leading: _WorkflowIcon(workflow: workflow),
       title: workspace.title,
@@ -739,25 +751,12 @@ class _WorkflowIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fallback = GizIconTile(
+    return GizIconTile(
       icon: workflow.icon,
       backgroundColor: workflow.bannerColor,
       foregroundColor: GizColors.surface,
       size: size,
       iconSize: size * 0.44,
-    );
-    final bytes = workflow.iconPng;
-    if (bytes == null || bytes.isEmpty) return fallback;
-    return GizSquircle(
-      key: ValueKey('workflow-icon-${workflow.name}'),
-      borderRadius: GizCorners.icon(size),
-      child: Image.memory(
-        bytes,
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => fallback,
-      ),
     );
   }
 }
@@ -931,7 +930,10 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
   Widget build(BuildContext context) {
     final data = MobileDataScope.watch(context);
     final workspace = data.workspace(widget.workspaceName);
-    final workflow = data.workflow(workspace.workflowName);
+    final workflow = data.workflow(
+      workspace.workflowName,
+      source: workspace.workflowSource,
+    );
     final chatroomMetadata = data.chatroomWorkspace(widget.workspaceName);
     final chat = _chat;
     final isActiveWorkspace = data.activeWorkspaceName == widget.workspaceName;

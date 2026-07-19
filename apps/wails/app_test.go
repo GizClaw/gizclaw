@@ -43,7 +43,7 @@ func TestNewAppRecoversLocalServerFromWorkspacePID(t *testing.T) {
 		t.Fatal(err)
 	}
 	seed.bridge.Bootstrapper = nil
-	created, err := seed.CreatePod(bridge.PodInput{Version: 1, Name: "Recovered", LocalServer: &bridge.LocalServerInput{}})
+	created, err := seed.CreatePod(bridge.PodInput{Version: 1, Name: "Recovered", LocalServer: testLocalServerInput(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +88,7 @@ func TestNewAppStopsServerBeforeCleaningInterruptedPod(t *testing.T) {
 		t.Fatal(err)
 	}
 	seed.bridge.Bootstrapper = nil
-	created, err := seed.CreatePod(bridge.PodInput{Version: 1, Name: "Interrupted", LocalServer: &bridge.LocalServerInput{}})
+	created, err := seed.CreatePod(bridge.PodInput{Version: 1, Name: "Interrupted", LocalServer: testLocalServerInput(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +131,7 @@ func TestInterruptedCleanupPreservesLiveServerUntilIdentityIsVerified(t *testing
 		t.Fatal(err)
 	}
 	seed.bridge.Bootstrapper = nil
-	created, err := seed.CreatePod(bridge.PodInput{Version: 1, Name: "Warming Up", LocalServer: &bridge.LocalServerInput{}})
+	created, err := seed.CreatePod(bridge.PodInput{Version: 1, Name: "Warming Up", LocalServer: testLocalServerInput(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,6 +179,15 @@ func TestInterruptedCleanupPreservesLiveServerUntilIdentityIsVerified(t *testing
 func startLocalServerInfo(t *testing.T, store appconfig.Store, id string, port int) {
 	t.Helper()
 	startWarmingLocalServerInfo(t, store, id, port, 0)
+}
+
+func testLocalServerInput(t *testing.T) *bridge.LocalServerInput {
+	t.Helper()
+	port, err := appconfig.FindAvailablePort(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &bridge.LocalServerInput{Port: port}
 }
 
 func startWarmingLocalServerInfo(t *testing.T, store appconfig.Store, id string, port, failedAttempts int) *atomic.Int32 {

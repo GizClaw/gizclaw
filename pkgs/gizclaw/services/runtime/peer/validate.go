@@ -19,10 +19,6 @@ func validatePeer(peer apitypes.Peer) error {
 	if !peer.Status.Valid() {
 		return fmt.Errorf("peer: invalid status %q", peer.Status)
 	}
-	return validateConfiguration(peer.Configuration)
-}
-
-func validateConfiguration(apitypes.Configuration) error {
 	return nil
 }
 

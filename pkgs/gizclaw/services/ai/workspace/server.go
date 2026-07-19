@@ -14,13 +14,15 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 var (
-	workspacesRoot = kv.Key{"by-name"}
-	workflowsRoot  = kv.Key{"by-name"}
+	workspacesRoot        = kv.Key{"by-name"}
+	workflowsRoot         = kv.Key{"by-name"}
+	workspacesByOwnerRoot = kv.Key{"by-owner"}
 )
 
 const (
@@ -40,6 +42,18 @@ type Server struct {
 
 type ModelService interface {
 	GetModel(context.Context, adminhttp.GetModelRequestObject) (adminhttp.GetModelResponseObject, error)
+}
+
+type runtimeWorkflowBindingsContextKey struct{}
+
+// WithRuntimeWorkflowBindings attaches the authenticated connection's current
+// RuntimeProfile Workflow alias snapshot to Workspace validation.
+func WithRuntimeWorkflowBindings(ctx context.Context, bindings map[string]string) context.Context {
+	cloned := make(map[string]string, len(bindings))
+	for alias, name := range bindings {
+		cloned[alias] = name
+	}
+	return context.WithValue(ctx, runtimeWorkflowBindingsContextKey{}, cloned)
 }
 
 type WorkspaceAdminService interface {
@@ -91,6 +105,40 @@ func (s *Server) ListWorkspaces(ctx context.Context, request adminhttp.ListWorks
 		Items:      items,
 		NextCursor: nextCursor,
 	}), nil
+}
+
+// ListWorkspacesByOwner reads the immutable owner index used by Peer RPC.
+// System Workspaces are intentionally absent and are added through their
+// Friend, FriendGroup, and Pet domain relationships.
+func (s *Server) ListWorkspacesByOwner(ctx context.Context, owner string) ([]apitypes.Workspace, error) {
+	store, err := s.store()
+	if err != nil {
+		return nil, err
+	}
+	owner = strings.TrimSpace(owner)
+	if owner == "" {
+		return []apitypes.Workspace{}, nil
+	}
+	prefix := workspaceByOwnerPrefix(owner)
+	items := make([]apitypes.Workspace, 0)
+	for entry, err := range store.List(ctx, prefix) {
+		if err != nil {
+			return nil, fmt.Errorf("workspace: list owner %s: %w", owner, err)
+		}
+		if len(entry.Key) == 0 {
+			continue
+		}
+		name := unescapeStoreSegment(entry.Key[len(entry.Key)-1])
+		item, err := getWorkspace(ctx, store, name)
+		if errors.Is(err, kv.ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, nil
 }
 
 func (s *Server) CreateWorkspace(ctx context.Context, request adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
@@ -163,14 +211,18 @@ func (s *Server) CreateSystemWorkspace(ctx context.Context, body adminhttp.Works
 func (s *Server) createWorkspaceRecord(ctx context.Context, store kv.Store, normalized adminhttp.WorkspaceUpsert, system bool) (apitypes.Workspace, error) {
 	now := time.Now().UTC()
 	workspace := apitypes.Workspace{
-		CreatedAt:    now,
-		LastActiveAt: now,
-		Name:         normalized.Name,
-		Parameters:   cloneParameters(normalized.Parameters),
-		System:       boolPointer(system),
-		Toolkit:      cloneToolkitPolicy(normalized.Toolkit),
-		UpdatedAt:    now,
-		WorkflowName: normalized.WorkflowName,
+		CreatedAt:      now,
+		LastActiveAt:   now,
+		Name:           normalized.Name,
+		Parameters:     cloneParameters(normalized.Parameters),
+		System:         boolPointer(system),
+		Toolkit:        cloneToolkitPolicy(normalized.Toolkit),
+		UpdatedAt:      now,
+		WorkflowName:   normalized.WorkflowName,
+		WorkflowSource: workspaceSource(normalized.WorkflowSource),
+	}
+	if owner, ok := ownership.FromContext(ctx); ok && !system {
+		workspace.OwnerPublicKey = &owner
 	}
 	if s.RuntimeStore != nil {
 		if _, err := s.RuntimeStore.PrepareWorkspace(ctx, workspace.Name); err != nil {
@@ -260,7 +312,11 @@ func (s *Server) deleteWorkspaceRecord(ctx context.Context, store kv.Store, work
 			return err
 		}
 	}
-	return store.BatchDelete(ctx, []kv.Key{workspaceKey(string(workspace.Name))})
+	keys := []kv.Key{workspaceKey(string(workspace.Name))}
+	if workspace.OwnerPublicKey != nil {
+		keys = append(keys, workspaceByOwnerKey(*workspace.OwnerPublicKey, workspace.Name))
+	}
+	return store.BatchDelete(ctx, keys)
 }
 
 func (s *Server) GetWorkspace(ctx context.Context, request adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
@@ -326,20 +382,27 @@ func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspac
 	}
 	now := time.Now().UTC()
 	workspace := apitypes.Workspace{
-		CreatedAt:    now,
-		LastActiveAt: now,
-		Name:         normalized.Name,
-		Parameters:   cloneParameters(normalized.Parameters),
-		System:       boolPointer(false),
-		Toolkit:      cloneToolkitPolicy(normalized.Toolkit),
-		UpdatedAt:    now,
-		WorkflowName: normalized.WorkflowName,
-		Icon:         previous.Icon,
+		CreatedAt:      now,
+		LastActiveAt:   now,
+		Name:           normalized.Name,
+		Parameters:     cloneParameters(normalized.Parameters),
+		System:         boolPointer(false),
+		Toolkit:        cloneToolkitPolicy(normalized.Toolkit),
+		UpdatedAt:      now,
+		WorkflowName:   normalized.WorkflowName,
+		WorkflowSource: workspaceSource(normalized.WorkflowSource),
+		Icon:           previous.Icon,
 	}
 	if err == nil {
 		workspace.CreatedAt = previous.CreatedAt
 		workspace.LastActiveAt = previous.LastActiveAt
 		workspace.System = previous.System
+		workspace.OwnerPublicKey = cloneString(previous.OwnerPublicKey)
+	}
+	if err != nil {
+		if owner, ok := ownership.FromContext(ctx); ok {
+			workspace.OwnerPublicKey = &owner
+		}
 	}
 	if s.RuntimeStore != nil {
 		if _, err := s.RuntimeStore.PrepareWorkspace(ctx, workspace.Name); err != nil {
@@ -357,7 +420,11 @@ func writeWorkspace(ctx context.Context, store kv.Store, workspace apitypes.Work
 	if err != nil {
 		return fmt.Errorf("workspace: encode %s: %w", workspace.Name, err)
 	}
-	if err := store.Set(ctx, workspaceKey(string(workspace.Name)), data); err != nil {
+	entries := []kv.Entry{{Key: workspaceKey(string(workspace.Name)), Value: data}}
+	if workspace.OwnerPublicKey != nil {
+		entries = append(entries, kv.Entry{Key: workspaceByOwnerKey(*workspace.OwnerPublicKey, workspace.Name), Value: []byte{}})
+	}
+	if err := store.BatchSet(ctx, entries); err != nil {
 		return fmt.Errorf("workspace: write %s: %w", workspace.Name, err)
 	}
 	return nil
@@ -427,7 +494,12 @@ func normalizeWorkspaceUpsert(in adminhttp.WorkspaceUpsert, expectedName string)
 		}
 	}
 	workflowName := string(in.WorkflowName)
-	if err := customid.ValidateField("workflow_name", workflowName); err != nil {
+	if in.WorkflowSource != nil && *in.WorkflowSource == adminhttp.Runtime {
+		workflowName = strings.TrimSpace(workflowName)
+		if workflowName == "" {
+			return adminhttp.WorkspaceUpsert{}, errors.New("workflow_name: runtime alias is required")
+		}
+	} else if err := customid.ValidateField("workflow_name", workflowName); err != nil {
 		return adminhttp.WorkspaceUpsert{}, err
 	}
 	policy, err := toolkit.NormalizePolicy(in.Toolkit)
@@ -435,24 +507,29 @@ func normalizeWorkspaceUpsert(in adminhttp.WorkspaceUpsert, expectedName string)
 		return adminhttp.WorkspaceUpsert{}, err
 	}
 	return adminhttp.WorkspaceUpsert{
-		Name:         string(name),
-		Parameters:   cloneParameters(in.Parameters),
-		Toolkit:      policy,
-		WorkflowName: string(workflowName),
+		Name:           string(name),
+		Parameters:     cloneParameters(in.Parameters),
+		Toolkit:        policy,
+		WorkflowName:   string(workflowName),
+		WorkflowSource: cloneAdminWorkspaceSource(in.WorkflowSource),
 	}, nil
 }
 
 func (s *Server) validateReferences(ctx context.Context, store kv.Store, workspace adminhttp.WorkspaceUpsert) error {
-	data, err := store.Get(ctx, workflowReferenceKey(string(workspace.WorkflowName)))
+	workflowName, err := resolveWorkflowReference(ctx, store, workspace)
+	if err != nil {
+		return err
+	}
+	data, err := store.Get(ctx, workflowReferenceKey(workflowName))
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return invalidWorkspaceReference("workflow %q not found", workspace.WorkflowName)
+			return invalidWorkspaceReference("workflow %q not found", workflowName)
 		}
 		return err
 	}
 	var workflow apitypes.Workflow
 	if err := json.Unmarshal(data, &workflow); err != nil {
-		return fmt.Errorf("decode workflow %q: %w", workspace.WorkflowName, err)
+		return fmt.Errorf("decode workflow %q: %w", workflowName, err)
 	}
 	if workflow.Spec.Driver != apitypes.WorkflowDriverFlowcraft {
 		return nil
@@ -467,6 +544,60 @@ func (s *Server) validateReferences(ctx context.Context, store kv.Store, workspa
 		}
 	}
 	return nil
+}
+
+func resolveWorkflowReference(ctx context.Context, store kv.Store, workspace adminhttp.WorkspaceUpsert) (string, error) {
+	name := string(workspace.WorkflowName)
+	if workspace.WorkflowSource == nil {
+		return name, nil
+	}
+	switch *workspace.WorkflowSource {
+	case adminhttp.Runtime:
+		bindings, _ := ctx.Value(runtimeWorkflowBindingsContextKey{}).(map[string]string)
+		resolved := strings.TrimSpace(bindings[name])
+		if resolved == "" {
+			return "", invalidWorkspaceReference("runtime workflow alias %q not found", name)
+		}
+		return resolved, nil
+	case adminhttp.Owned:
+		owner, ok := ownership.FromContext(ctx)
+		if !ok {
+			return "", invalidWorkspaceReference("owned workflow source requires an authenticated owner")
+		}
+		data, err := store.Get(ctx, workflowReferenceKey(name))
+		if errors.Is(err, kv.ErrNotFound) {
+			return "", invalidWorkspaceReference("owned workflow %q not found", name)
+		}
+		if err != nil {
+			return "", err
+		}
+		var workflow apitypes.Workflow
+		if err := json.Unmarshal(data, &workflow); err != nil {
+			return "", fmt.Errorf("decode workflow %q: %w", name, err)
+		}
+		if workflow.OwnerPublicKey == nil || *workflow.OwnerPublicKey != owner {
+			return "", invalidWorkspaceReference("owned workflow %q not found", name)
+		}
+		return name, nil
+	default:
+		return "", invalidWorkspaceReference("unsupported workflow_source %q", *workspace.WorkflowSource)
+	}
+}
+
+func workspaceSource(source *adminhttp.WorkspaceUpsertWorkflowSource) *apitypes.WorkspaceWorkflowSource {
+	if source == nil {
+		return nil
+	}
+	value := apitypes.WorkspaceWorkflowSource(*source)
+	return &value
+}
+
+func cloneAdminWorkspaceSource(source *adminhttp.WorkspaceUpsertWorkflowSource) *adminhttp.WorkspaceUpsertWorkflowSource {
+	if source == nil {
+		return nil
+	}
+	value := *source
+	return &value
 }
 
 // FlowcraftModelReference is one effective Model selected for a FlowCraft role.
@@ -576,6 +707,22 @@ func workspaceKey(name string) kv.Key {
 	return append(append(kv.Key{}, workspacesRoot...), escapeStoreSegment(name))
 }
 
+func workspaceByOwnerKey(owner, name string) kv.Key {
+	return append(workspaceByOwnerPrefix(owner), escapeStoreSegment(name))
+}
+
+func workspaceByOwnerPrefix(owner string) kv.Key {
+	return append(append(kv.Key{}, workspacesByOwnerRoot...), escapeStoreSegment(owner))
+}
+
+func cloneString(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	return &copy
+}
+
 func workflowReferenceKey(name string) kv.Key {
 	return append(append(kv.Key{}, workflowsRoot...), escapeStoreSegment(name))
 }
@@ -583,6 +730,11 @@ func workflowReferenceKey(name string) kv.Key {
 func escapeStoreSegment(value string) string {
 	value = strings.ReplaceAll(value, "%", "%25")
 	return strings.ReplaceAll(value, ":", "%3A")
+}
+
+func unescapeStoreSegment(value string) string {
+	value = strings.ReplaceAll(value, "%3A", ":")
+	return strings.ReplaceAll(value, "%25", "%")
 }
 
 func normalizeListParams(cursor *string, limit *int32) (string, int) {

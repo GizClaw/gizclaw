@@ -56,6 +56,10 @@ export type DesktopPod = {
      * Public half of the desktop-local Play identity.
      */
     play_public_key?: string;
+    /**
+     * RegistrationToken intentionally handed off through the add-server QR payload.
+     */
+    registration_token?: string;
     local?: DesktopLocalPod;
     remote?: DesktopRemotePod;
 };
@@ -142,6 +146,10 @@ export type PodInputWritable = unknown & {
     remote_servers?: Array<RemoteServerInputWritable>;
     remote_access_point?: string;
     client_private_key?: string;
+    /**
+     * Pre-provisioned RegistrationToken submitted by remote Play on each connection.
+     */
+    registration_token?: string;
 };
 
 export type LocalServerInputWritable = {

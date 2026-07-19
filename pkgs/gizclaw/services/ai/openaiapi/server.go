@@ -22,13 +22,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/openaihttp"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
-
-type Authorizer interface {
-	Authorize(context.Context, acl.AuthorizeRequest) error
-}
 
 type ModelLister interface {
 	ListModels(context.Context, adminhttp.ListModelsRequestObject) (adminhttp.ListModelsResponseObject, error)
@@ -40,7 +35,6 @@ type VoiceLister interface {
 
 type Server struct {
 	Caller      giznet.PublicKey
-	Authorizer  Authorizer
 	Models      ModelLister
 	Voices      VoiceLister
 	Generator   genx.Generator
@@ -69,11 +63,7 @@ func (s *Server) ListModels(ctx context.Context, _ openaihttp.ListModelsRequestO
 			return nil, err
 		}
 		for _, item := range list.Items {
-			if allowed, err := s.modelReadAllowed(ctx, item.Id); err != nil {
-				return nil, err
-			} else if allowed {
-				out = append(out, openAIModel(item))
-			}
+			out = append(out, openAIModel(item))
 		}
 		if !list.HasNext || list.NextCursor == nil || *list.NextCursor == "" {
 			break
@@ -277,25 +267,6 @@ func modelListFromResponse(resp adminhttp.ListModelsResponseObject) (adminhttp.M
 	default:
 		return adminhttp.ModelList{}, fmt.Errorf("openaiapi: list models response %T", resp)
 	}
-}
-
-func (s *Server) modelReadAllowed(ctx context.Context, id string) (bool, error) {
-	if s == nil || s.Authorizer == nil {
-		return false, errors.New("openaiapi: authorizer is not configured")
-	}
-	subject := acl.PublicKeySubject(strings.TrimSpace(s.Caller.String()))
-	if strings.TrimSpace(subject.Id) == "" {
-		return false, errors.New("openaiapi: caller public key is required")
-	}
-	err := s.Authorizer.Authorize(ctx, acl.AuthorizeRequest{
-		Subject:    subject,
-		Resource:   acl.ModelResource(id),
-		Permission: apitypes.ACLPermissionRead,
-	})
-	if errors.Is(err, acl.ErrDenied) {
-		return false, nil
-	}
-	return err == nil, err
 }
 
 func openAIModel(model apitypes.Model) openaihttp.Model {

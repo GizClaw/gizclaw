@@ -16,6 +16,12 @@ typedef enum _gizclaw_rpc_v1_IconFormat {
     gizclaw_rpc_v1_IconFormat_ICON_FORMAT_PNG = 2
 } gizclaw_rpc_v1_IconFormat;
 
+typedef enum _gizclaw_rpc_v1_ResourceSource {
+    gizclaw_rpc_v1_ResourceSource_RESOURCE_SOURCE_UNSPECIFIED = 0,
+    gizclaw_rpc_v1_ResourceSource_RESOURCE_SOURCE_RUNTIME = 1,
+    gizclaw_rpc_v1_ResourceSource_RESOURCE_SOURCE_OWNED = 2
+} gizclaw_rpc_v1_ResourceSource;
+
 typedef enum _gizclaw_rpc_v1_ASTTranslateMode {
     gizclaw_rpc_v1_ASTTranslateMode_ASTTRANSLATE_MODE_UNSPECIFIED = 0,
     gizclaw_rpc_v1_ASTTranslateMode_ASTTRANSLATE_MODE_S2T = 1,
@@ -243,6 +249,10 @@ extern "C" {
 #define _gizclaw_rpc_v1_IconFormat_MIN gizclaw_rpc_v1_IconFormat_ICON_FORMAT_UNSPECIFIED
 #define _gizclaw_rpc_v1_IconFormat_MAX gizclaw_rpc_v1_IconFormat_ICON_FORMAT_PNG
 #define _gizclaw_rpc_v1_IconFormat_ARRAYSIZE ((gizclaw_rpc_v1_IconFormat)(gizclaw_rpc_v1_IconFormat_ICON_FORMAT_PNG+1))
+
+#define _gizclaw_rpc_v1_ResourceSource_MIN gizclaw_rpc_v1_ResourceSource_RESOURCE_SOURCE_UNSPECIFIED
+#define _gizclaw_rpc_v1_ResourceSource_MAX gizclaw_rpc_v1_ResourceSource_RESOURCE_SOURCE_OWNED
+#define _gizclaw_rpc_v1_ResourceSource_ARRAYSIZE ((gizclaw_rpc_v1_ResourceSource)(gizclaw_rpc_v1_ResourceSource_RESOURCE_SOURCE_OWNED+1))
 
 #define _gizclaw_rpc_v1_ASTTranslateMode_MIN gizclaw_rpc_v1_ASTTranslateMode_ASTTRANSLATE_MODE_UNSPECIFIED
 #define _gizclaw_rpc_v1_ASTTranslateMode_MAX gizclaw_rpc_v1_ASTTranslateMode_ASTTRANSLATE_MODE_S2S

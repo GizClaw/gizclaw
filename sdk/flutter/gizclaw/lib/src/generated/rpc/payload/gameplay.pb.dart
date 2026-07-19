@@ -391,7 +391,7 @@ class GameResult extends $pb.GeneratedMessage {
     $core.String? ownerPublicKey,
     GameplayMetadata? payload,
     $core.String? petId,
-    $core.String? rulesetName,
+    $core.String? runtimeProfileName,
     $fixnum.Int64? score,
   }) {
     final result = create();
@@ -407,7 +407,8 @@ class GameResult extends $pb.GeneratedMessage {
     if (ownerPublicKey != null) result.ownerPublicKey = ownerPublicKey;
     if (payload != null) result.payload = payload;
     if (petId != null) result.petId = petId;
-    if (rulesetName != null) result.rulesetName = rulesetName;
+    if (runtimeProfileName != null)
+      result.runtimeProfileName = runtimeProfileName;
     if (score != null) result.score = score;
     return result;
   }
@@ -438,7 +439,7 @@ class GameResult extends $pb.GeneratedMessage {
     ..aOM<GameplayMetadata>(11, _omitFieldNames ? '' : 'payload',
         subBuilder: GameplayMetadata.create)
     ..aOS(12, _omitFieldNames ? '' : 'petId')
-    ..aOS(13, _omitFieldNames ? '' : 'rulesetName')
+    ..aOS(13, _omitFieldNames ? '' : 'runtimeProfileName')
     ..aInt64(14, _omitFieldNames ? '' : 'score')
     ..hasRequiredFields = false;
 
@@ -571,13 +572,13 @@ class GameResult extends $pb.GeneratedMessage {
   void clearPetId() => $_clearField(12);
 
   @$pb.TagNumber(13)
-  $core.String get rulesetName => $_getSZ(12);
+  $core.String get runtimeProfileName => $_getSZ(12);
   @$pb.TagNumber(13)
-  set rulesetName($core.String value) => $_setString(12, value);
+  set runtimeProfileName($core.String value) => $_setString(12, value);
   @$pb.TagNumber(13)
-  $core.bool hasRulesetName() => $_has(12);
+  $core.bool hasRuntimeProfileName() => $_has(12);
   @$pb.TagNumber(13)
-  void clearRulesetName() => $_clearField(13);
+  void clearRuntimeProfileName() => $_clearField(13);
 
   @$pb.TagNumber(14)
   $fixnum.Int64 get score => $_getI64(13);
@@ -737,469 +738,6 @@ class GameRewardSpec extends $pb.GeneratedMessage {
   $core.bool hasPointsDelta() => $_has(2);
   @$pb.TagNumber(5)
   void clearPointsDelta() => $_clearField(5);
-}
-
-class GameRuleset extends $pb.GeneratedMessage {
-  factory GameRuleset({
-    $core.String? createdAt,
-    $core.String? name,
-    GameRulesetSpec? spec,
-    $core.String? updatedAt,
-  }) {
-    final result = create();
-    if (createdAt != null) result.createdAt = createdAt;
-    if (name != null) result.name = name;
-    if (spec != null) result.spec = spec;
-    if (updatedAt != null) result.updatedAt = updatedAt;
-    return result;
-  }
-
-  GameRuleset._();
-
-  factory GameRuleset.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory GameRuleset.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'GameRuleset',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'createdAt')
-    ..aOS(2, _omitFieldNames ? '' : 'name')
-    ..aOM<GameRulesetSpec>(3, _omitFieldNames ? '' : 'spec',
-        subBuilder: GameRulesetSpec.create)
-    ..aOS(4, _omitFieldNames ? '' : 'updatedAt')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  GameRuleset clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  GameRuleset copyWith(void Function(GameRuleset) updates) =>
-      super.copyWith((message) => updates(message as GameRuleset))
-          as GameRuleset;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static GameRuleset create() => GameRuleset._();
-  @$core.override
-  GameRuleset createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static GameRuleset getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<GameRuleset>(create);
-  static GameRuleset? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get createdAt => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set createdAt($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasCreatedAt() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearCreatedAt() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.String get name => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set name($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasName() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearName() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  GameRulesetSpec get spec => $_getN(2);
-  @$pb.TagNumber(3)
-  set spec(GameRulesetSpec value) => $_setField(3, value);
-  @$pb.TagNumber(3)
-  $core.bool hasSpec() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearSpec() => $_clearField(3);
-  @$pb.TagNumber(3)
-  GameRulesetSpec ensureSpec() => $_ensure(2);
-
-  @$pb.TagNumber(4)
-  $core.String get updatedAt => $_getSZ(3);
-  @$pb.TagNumber(4)
-  set updatedAt($core.String value) => $_setString(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasUpdatedAt() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearUpdatedAt() => $_clearField(4);
-}
-
-class GameRulesetDriveSpec extends $pb.GeneratedMessage {
-  factory GameRulesetDriveSpec({
-    GameRewardSpec? defaultReward,
-    $core.Iterable<$core.MapEntry<$core.String, GameRewardSpec>>? gameRewards,
-  }) {
-    final result = create();
-    if (defaultReward != null) result.defaultReward = defaultReward;
-    if (gameRewards != null) result.gameRewards.addEntries(gameRewards);
-    return result;
-  }
-
-  GameRulesetDriveSpec._();
-
-  factory GameRulesetDriveSpec.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory GameRulesetDriveSpec.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'GameRulesetDriveSpec',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOM<GameRewardSpec>(3, _omitFieldNames ? '' : 'defaultReward',
-        subBuilder: GameRewardSpec.create)
-    ..m<$core.String, GameRewardSpec>(4, _omitFieldNames ? '' : 'gameRewards',
-        entryClassName: 'GameRulesetDriveSpec.GameRewardsEntry',
-        keyFieldType: $pb.PbFieldType.OS,
-        valueFieldType: $pb.PbFieldType.OM,
-        valueCreator: GameRewardSpec.create,
-        valueDefaultOrMaker: GameRewardSpec.getDefault,
-        packageName: const $pb.PackageName('gizclaw.rpc.v1'))
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  GameRulesetDriveSpec clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  GameRulesetDriveSpec copyWith(void Function(GameRulesetDriveSpec) updates) =>
-      super.copyWith((message) => updates(message as GameRulesetDriveSpec))
-          as GameRulesetDriveSpec;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static GameRulesetDriveSpec create() => GameRulesetDriveSpec._();
-  @$core.override
-  GameRulesetDriveSpec createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static GameRulesetDriveSpec getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<GameRulesetDriveSpec>(create);
-  static GameRulesetDriveSpec? _defaultInstance;
-
-  @$pb.TagNumber(3)
-  GameRewardSpec get defaultReward => $_getN(0);
-  @$pb.TagNumber(3)
-  set defaultReward(GameRewardSpec value) => $_setField(3, value);
-  @$pb.TagNumber(3)
-  $core.bool hasDefaultReward() => $_has(0);
-  @$pb.TagNumber(3)
-  void clearDefaultReward() => $_clearField(3);
-  @$pb.TagNumber(3)
-  GameRewardSpec ensureDefaultReward() => $_ensure(0);
-
-  @$pb.TagNumber(4)
-  $pb.PbMap<$core.String, GameRewardSpec> get gameRewards => $_getMap(1);
-}
-
-class GameRulesetPetPoolEntry extends $pb.GeneratedMessage {
-  factory GameRulesetPetPoolEntry({
-    $fixnum.Int64? adoptionCost,
-    $core.String? petdefId,
-    $core.String? rarity,
-    $fixnum.Int64? weight,
-    $core.String? workflowName,
-  }) {
-    final result = create();
-    if (adoptionCost != null) result.adoptionCost = adoptionCost;
-    if (petdefId != null) result.petdefId = petdefId;
-    if (rarity != null) result.rarity = rarity;
-    if (weight != null) result.weight = weight;
-    if (workflowName != null) result.workflowName = workflowName;
-    return result;
-  }
-
-  GameRulesetPetPoolEntry._();
-
-  factory GameRulesetPetPoolEntry.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory GameRulesetPetPoolEntry.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'GameRulesetPetPoolEntry',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aInt64(1, _omitFieldNames ? '' : 'adoptionCost')
-    ..aOS(2, _omitFieldNames ? '' : 'petdefId')
-    ..aOS(3, _omitFieldNames ? '' : 'rarity')
-    ..aInt64(4, _omitFieldNames ? '' : 'weight')
-    ..aOS(5, _omitFieldNames ? '' : 'workflowName')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  GameRulesetPetPoolEntry clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  GameRulesetPetPoolEntry copyWith(
-          void Function(GameRulesetPetPoolEntry) updates) =>
-      super.copyWith((message) => updates(message as GameRulesetPetPoolEntry))
-          as GameRulesetPetPoolEntry;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static GameRulesetPetPoolEntry create() => GameRulesetPetPoolEntry._();
-  @$core.override
-  GameRulesetPetPoolEntry createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static GameRulesetPetPoolEntry getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<GameRulesetPetPoolEntry>(create);
-  static GameRulesetPetPoolEntry? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $fixnum.Int64 get adoptionCost => $_getI64(0);
-  @$pb.TagNumber(1)
-  set adoptionCost($fixnum.Int64 value) => $_setInt64(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasAdoptionCost() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearAdoptionCost() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.String get petdefId => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set petdefId($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasPetdefId() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearPetdefId() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $core.String get rarity => $_getSZ(2);
-  @$pb.TagNumber(3)
-  set rarity($core.String value) => $_setString(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasRarity() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearRarity() => $_clearField(3);
-
-  @$pb.TagNumber(4)
-  $fixnum.Int64 get weight => $_getI64(3);
-  @$pb.TagNumber(4)
-  set weight($fixnum.Int64 value) => $_setInt64(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasWeight() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearWeight() => $_clearField(4);
-
-  @$pb.TagNumber(5)
-  $core.String get workflowName => $_getSZ(4);
-  @$pb.TagNumber(5)
-  set workflowName($core.String value) => $_setString(4, value);
-  @$pb.TagNumber(5)
-  $core.bool hasWorkflowName() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearWorkflowName() => $_clearField(5);
-}
-
-class GameRulesetPointsSpec extends $pb.GeneratedMessage {
-  factory GameRulesetPointsSpec({
-    $fixnum.Int64? initialBalance,
-  }) {
-    final result = create();
-    if (initialBalance != null) result.initialBalance = initialBalance;
-    return result;
-  }
-
-  GameRulesetPointsSpec._();
-
-  factory GameRulesetPointsSpec.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory GameRulesetPointsSpec.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'GameRulesetPointsSpec',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aInt64(1, _omitFieldNames ? '' : 'initialBalance')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  GameRulesetPointsSpec clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  GameRulesetPointsSpec copyWith(
-          void Function(GameRulesetPointsSpec) updates) =>
-      super.copyWith((message) => updates(message as GameRulesetPointsSpec))
-          as GameRulesetPointsSpec;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static GameRulesetPointsSpec create() => GameRulesetPointsSpec._();
-  @$core.override
-  GameRulesetPointsSpec createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static GameRulesetPointsSpec getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<GameRulesetPointsSpec>(create);
-  static GameRulesetPointsSpec? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $fixnum.Int64 get initialBalance => $_getI64(0);
-  @$pb.TagNumber(1)
-  set initialBalance($fixnum.Int64 value) => $_setInt64(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasInitialBalance() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearInitialBalance() => $_clearField(1);
-}
-
-class GameRulesetSpec extends $pb.GeneratedMessage {
-  factory GameRulesetSpec({
-    $core.Iterable<$core.String>? badgeDefIds,
-    $core.String? defaultWorkflowName,
-    $core.String? description,
-    GameRulesetDriveSpec? drive,
-    $core.bool? enabled,
-    $core.Iterable<$core.String>? gameDefIds,
-    GameplayMetadata? metadata,
-    $core.Iterable<GameRulesetPetPoolEntry>? petPool,
-    GameRulesetPointsSpec? points,
-  }) {
-    final result = create();
-    if (badgeDefIds != null) result.badgeDefIds.addAll(badgeDefIds);
-    if (defaultWorkflowName != null)
-      result.defaultWorkflowName = defaultWorkflowName;
-    if (description != null) result.description = description;
-    if (drive != null) result.drive = drive;
-    if (enabled != null) result.enabled = enabled;
-    if (gameDefIds != null) result.gameDefIds.addAll(gameDefIds);
-    if (metadata != null) result.metadata = metadata;
-    if (petPool != null) result.petPool.addAll(petPool);
-    if (points != null) result.points = points;
-    return result;
-  }
-
-  GameRulesetSpec._();
-
-  factory GameRulesetSpec.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory GameRulesetSpec.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'GameRulesetSpec',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..pPS(1, _omitFieldNames ? '' : 'badgeDefIds')
-    ..aOS(2, _omitFieldNames ? '' : 'defaultWorkflowName')
-    ..aOS(3, _omitFieldNames ? '' : 'description')
-    ..aOM<GameRulesetDriveSpec>(4, _omitFieldNames ? '' : 'drive',
-        subBuilder: GameRulesetDriveSpec.create)
-    ..aOB(5, _omitFieldNames ? '' : 'enabled')
-    ..pPS(6, _omitFieldNames ? '' : 'gameDefIds')
-    ..aOM<GameplayMetadata>(7, _omitFieldNames ? '' : 'metadata',
-        subBuilder: GameplayMetadata.create)
-    ..pPM<GameRulesetPetPoolEntry>(8, _omitFieldNames ? '' : 'petPool',
-        subBuilder: GameRulesetPetPoolEntry.create)
-    ..aOM<GameRulesetPointsSpec>(9, _omitFieldNames ? '' : 'points',
-        subBuilder: GameRulesetPointsSpec.create)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  GameRulesetSpec clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  GameRulesetSpec copyWith(void Function(GameRulesetSpec) updates) =>
-      super.copyWith((message) => updates(message as GameRulesetSpec))
-          as GameRulesetSpec;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static GameRulesetSpec create() => GameRulesetSpec._();
-  @$core.override
-  GameRulesetSpec createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static GameRulesetSpec getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<GameRulesetSpec>(create);
-  static GameRulesetSpec? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $pb.PbList<$core.String> get badgeDefIds => $_getList(0);
-
-  @$pb.TagNumber(2)
-  $core.String get defaultWorkflowName => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set defaultWorkflowName($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasDefaultWorkflowName() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearDefaultWorkflowName() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $core.String get description => $_getSZ(2);
-  @$pb.TagNumber(3)
-  set description($core.String value) => $_setString(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasDescription() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearDescription() => $_clearField(3);
-
-  @$pb.TagNumber(4)
-  GameRulesetDriveSpec get drive => $_getN(3);
-  @$pb.TagNumber(4)
-  set drive(GameRulesetDriveSpec value) => $_setField(4, value);
-  @$pb.TagNumber(4)
-  $core.bool hasDrive() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearDrive() => $_clearField(4);
-  @$pb.TagNumber(4)
-  GameRulesetDriveSpec ensureDrive() => $_ensure(3);
-
-  @$pb.TagNumber(5)
-  $core.bool get enabled => $_getBF(4);
-  @$pb.TagNumber(5)
-  set enabled($core.bool value) => $_setBool(4, value);
-  @$pb.TagNumber(5)
-  $core.bool hasEnabled() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearEnabled() => $_clearField(5);
-
-  @$pb.TagNumber(6)
-  $pb.PbList<$core.String> get gameDefIds => $_getList(5);
-
-  @$pb.TagNumber(7)
-  GameplayMetadata get metadata => $_getN(6);
-  @$pb.TagNumber(7)
-  set metadata(GameplayMetadata value) => $_setField(7, value);
-  @$pb.TagNumber(7)
-  $core.bool hasMetadata() => $_has(6);
-  @$pb.TagNumber(7)
-  void clearMetadata() => $_clearField(7);
-  @$pb.TagNumber(7)
-  GameplayMetadata ensureMetadata() => $_ensure(6);
-
-  @$pb.TagNumber(8)
-  $pb.PbList<GameRulesetPetPoolEntry> get petPool => $_getList(7);
-
-  @$pb.TagNumber(9)
-  GameRulesetPointsSpec get points => $_getN(8);
-  @$pb.TagNumber(9)
-  set points(GameRulesetPointsSpec value) => $_setField(9, value);
-  @$pb.TagNumber(9)
-  $core.bool hasPoints() => $_has(8);
-  @$pb.TagNumber(9)
-  void clearPoints() => $_clearField(9);
-  @$pb.TagNumber(9)
-  GameRulesetPointsSpec ensurePoints() => $_ensure(8);
 }
 
 class GameplayGetRequest extends $pb.GeneratedMessage {
@@ -1388,9 +926,8 @@ class Pet extends $pb.GeneratedMessage {
     PetLife? life,
     $core.String? ownerPublicKey,
     $core.String? petdefId,
-    $core.String? rulesetName,
+    $core.String? runtimeProfileName,
     $core.String? updatedAt,
-    $core.String? workflowName,
     $core.String? workspaceName,
     PetProgression? progression,
   }) {
@@ -1402,9 +939,9 @@ class Pet extends $pb.GeneratedMessage {
     if (life != null) result.life = life;
     if (ownerPublicKey != null) result.ownerPublicKey = ownerPublicKey;
     if (petdefId != null) result.petdefId = petdefId;
-    if (rulesetName != null) result.rulesetName = rulesetName;
+    if (runtimeProfileName != null)
+      result.runtimeProfileName = runtimeProfileName;
     if (updatedAt != null) result.updatedAt = updatedAt;
-    if (workflowName != null) result.workflowName = workflowName;
     if (workspaceName != null) result.workspaceName = workspaceName;
     if (progression != null) result.progression = progression;
     return result;
@@ -1430,9 +967,8 @@ class Pet extends $pb.GeneratedMessage {
     ..aOM<PetLife>(8, _omitFieldNames ? '' : 'life', subBuilder: PetLife.create)
     ..aOS(9, _omitFieldNames ? '' : 'ownerPublicKey')
     ..aOS(10, _omitFieldNames ? '' : 'petdefId')
-    ..aOS(11, _omitFieldNames ? '' : 'rulesetName')
+    ..aOS(11, _omitFieldNames ? '' : 'runtimeProfileName')
     ..aOS(12, _omitFieldNames ? '' : 'updatedAt')
-    ..aOS(13, _omitFieldNames ? '' : 'workflowName')
     ..aOS(14, _omitFieldNames ? '' : 'workspaceName')
     ..aOM<PetProgression>(15, _omitFieldNames ? '' : 'progression',
         subBuilder: PetProgression.create)
@@ -1522,13 +1058,13 @@ class Pet extends $pb.GeneratedMessage {
   void clearPetdefId() => $_clearField(10);
 
   @$pb.TagNumber(11)
-  $core.String get rulesetName => $_getSZ(7);
+  $core.String get runtimeProfileName => $_getSZ(7);
   @$pb.TagNumber(11)
-  set rulesetName($core.String value) => $_setString(7, value);
+  set runtimeProfileName($core.String value) => $_setString(7, value);
   @$pb.TagNumber(11)
-  $core.bool hasRulesetName() => $_has(7);
+  $core.bool hasRuntimeProfileName() => $_has(7);
   @$pb.TagNumber(11)
-  void clearRulesetName() => $_clearField(11);
+  void clearRuntimeProfileName() => $_clearField(11);
 
   @$pb.TagNumber(12)
   $core.String get updatedAt => $_getSZ(8);
@@ -1539,44 +1075,33 @@ class Pet extends $pb.GeneratedMessage {
   @$pb.TagNumber(12)
   void clearUpdatedAt() => $_clearField(12);
 
-  @$pb.TagNumber(13)
-  $core.String get workflowName => $_getSZ(9);
-  @$pb.TagNumber(13)
-  set workflowName($core.String value) => $_setString(9, value);
-  @$pb.TagNumber(13)
-  $core.bool hasWorkflowName() => $_has(9);
-  @$pb.TagNumber(13)
-  void clearWorkflowName() => $_clearField(13);
-
   @$pb.TagNumber(14)
-  $core.String get workspaceName => $_getSZ(10);
+  $core.String get workspaceName => $_getSZ(9);
   @$pb.TagNumber(14)
-  set workspaceName($core.String value) => $_setString(10, value);
+  set workspaceName($core.String value) => $_setString(9, value);
   @$pb.TagNumber(14)
-  $core.bool hasWorkspaceName() => $_has(10);
+  $core.bool hasWorkspaceName() => $_has(9);
   @$pb.TagNumber(14)
   void clearWorkspaceName() => $_clearField(14);
 
   @$pb.TagNumber(15)
-  PetProgression get progression => $_getN(11);
+  PetProgression get progression => $_getN(10);
   @$pb.TagNumber(15)
   set progression(PetProgression value) => $_setField(15, value);
   @$pb.TagNumber(15)
-  $core.bool hasProgression() => $_has(11);
+  $core.bool hasProgression() => $_has(10);
   @$pb.TagNumber(15)
   void clearProgression() => $_clearField(15);
   @$pb.TagNumber(15)
-  PetProgression ensureProgression() => $_ensure(11);
+  PetProgression ensureProgression() => $_ensure(10);
 }
 
 class PetAdoptRequest extends $pb.GeneratedMessage {
   factory PetAdoptRequest({
     $core.String? displayName,
-    $core.String? rulesetName,
   }) {
     final result = create();
     if (displayName != null) result.displayName = displayName;
-    if (rulesetName != null) result.rulesetName = rulesetName;
     return result;
   }
 
@@ -1594,7 +1119,6 @@ class PetAdoptRequest extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'displayName')
-    ..aOS(2, _omitFieldNames ? '' : 'rulesetName')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1624,15 +1148,6 @@ class PetAdoptRequest extends $pb.GeneratedMessage {
   $core.bool hasDisplayName() => $_has(0);
   @$pb.TagNumber(1)
   void clearDisplayName() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.String get rulesetName => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set rulesetName($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasRulesetName() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearRulesetName() => $_clearField(2);
 }
 
 class PetAdoptResponse extends $pb.GeneratedMessage {
@@ -2916,14 +2431,15 @@ class PointsAccount extends $pb.GeneratedMessage {
     $fixnum.Int64? balance,
     $core.String? createdAt,
     $core.String? ownerPublicKey,
-    $core.String? rulesetName,
+    $core.String? runtimeProfileName,
     $core.String? updatedAt,
   }) {
     final result = create();
     if (balance != null) result.balance = balance;
     if (createdAt != null) result.createdAt = createdAt;
     if (ownerPublicKey != null) result.ownerPublicKey = ownerPublicKey;
-    if (rulesetName != null) result.rulesetName = rulesetName;
+    if (runtimeProfileName != null)
+      result.runtimeProfileName = runtimeProfileName;
     if (updatedAt != null) result.updatedAt = updatedAt;
     return result;
   }
@@ -2944,7 +2460,7 @@ class PointsAccount extends $pb.GeneratedMessage {
     ..aInt64(1, _omitFieldNames ? '' : 'balance')
     ..aOS(2, _omitFieldNames ? '' : 'createdAt')
     ..aOS(3, _omitFieldNames ? '' : 'ownerPublicKey')
-    ..aOS(4, _omitFieldNames ? '' : 'rulesetName')
+    ..aOS(4, _omitFieldNames ? '' : 'runtimeProfileName')
     ..aOS(5, _omitFieldNames ? '' : 'updatedAt')
     ..hasRequiredFields = false;
 
@@ -2995,13 +2511,13 @@ class PointsAccount extends $pb.GeneratedMessage {
   void clearOwnerPublicKey() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $core.String get rulesetName => $_getSZ(3);
+  $core.String get runtimeProfileName => $_getSZ(3);
   @$pb.TagNumber(4)
-  set rulesetName($core.String value) => $_setString(3, value);
+  set runtimeProfileName($core.String value) => $_setString(3, value);
   @$pb.TagNumber(4)
-  $core.bool hasRulesetName() => $_has(3);
+  $core.bool hasRuntimeProfileName() => $_has(3);
   @$pb.TagNumber(4)
-  void clearRulesetName() => $_clearField(4);
+  void clearRuntimeProfileName() => $_clearField(4);
 
   @$pb.TagNumber(5)
   $core.String get updatedAt => $_getSZ(4);
@@ -3024,7 +2540,7 @@ class PointsTransaction extends $pb.GeneratedMessage {
     $core.String? petId,
     $core.String? reason,
     $core.String? rewardGrantId,
-    $core.String? rulesetName,
+    $core.String? runtimeProfileName,
     $core.String? sourceId,
     $core.String? sourceType,
   }) {
@@ -3038,7 +2554,8 @@ class PointsTransaction extends $pb.GeneratedMessage {
     if (petId != null) result.petId = petId;
     if (reason != null) result.reason = reason;
     if (rewardGrantId != null) result.rewardGrantId = rewardGrantId;
-    if (rulesetName != null) result.rulesetName = rulesetName;
+    if (runtimeProfileName != null)
+      result.runtimeProfileName = runtimeProfileName;
     if (sourceId != null) result.sourceId = sourceId;
     if (sourceType != null) result.sourceType = sourceType;
     return result;
@@ -3066,7 +2583,7 @@ class PointsTransaction extends $pb.GeneratedMessage {
     ..aOS(7, _omitFieldNames ? '' : 'petId')
     ..aOS(8, _omitFieldNames ? '' : 'reason')
     ..aOS(9, _omitFieldNames ? '' : 'rewardGrantId')
-    ..aOS(10, _omitFieldNames ? '' : 'rulesetName')
+    ..aOS(10, _omitFieldNames ? '' : 'runtimeProfileName')
     ..aOS(11, _omitFieldNames ? '' : 'sourceId')
     ..aOS(12, _omitFieldNames ? '' : 'sourceType')
     ..hasRequiredFields = false;
@@ -3172,13 +2689,13 @@ class PointsTransaction extends $pb.GeneratedMessage {
   void clearRewardGrantId() => $_clearField(9);
 
   @$pb.TagNumber(10)
-  $core.String get rulesetName => $_getSZ(9);
+  $core.String get runtimeProfileName => $_getSZ(9);
   @$pb.TagNumber(10)
-  set rulesetName($core.String value) => $_setString(9, value);
+  set runtimeProfileName($core.String value) => $_setString(9, value);
   @$pb.TagNumber(10)
-  $core.bool hasRulesetName() => $_has(9);
+  $core.bool hasRuntimeProfileName() => $_has(9);
   @$pb.TagNumber(10)
-  void clearRulesetName() => $_clearField(10);
+  void clearRuntimeProfileName() => $_clearField(10);
 
   @$pb.TagNumber(11)
   $core.String get sourceId => $_getSZ(10);
@@ -3286,7 +2803,7 @@ class RewardGrant extends $pb.GeneratedMessage {
     $core.String? petId,
     $fixnum.Int64? pointsDelta,
     $core.String? reason,
-    $core.String? rulesetName,
+    $core.String? runtimeProfileName,
     $core.String? sourceId,
     $core.String? sourceType,
   }) {
@@ -3300,7 +2817,8 @@ class RewardGrant extends $pb.GeneratedMessage {
     if (petId != null) result.petId = petId;
     if (pointsDelta != null) result.pointsDelta = pointsDelta;
     if (reason != null) result.reason = reason;
-    if (rulesetName != null) result.rulesetName = rulesetName;
+    if (runtimeProfileName != null)
+      result.runtimeProfileName = runtimeProfileName;
     if (sourceId != null) result.sourceId = sourceId;
     if (sourceType != null) result.sourceType = sourceType;
     return result;
@@ -3332,7 +2850,7 @@ class RewardGrant extends $pb.GeneratedMessage {
     ..aOS(9, _omitFieldNames ? '' : 'petId')
     ..aInt64(10, _omitFieldNames ? '' : 'pointsDelta')
     ..aOS(11, _omitFieldNames ? '' : 'reason')
-    ..aOS(12, _omitFieldNames ? '' : 'rulesetName')
+    ..aOS(12, _omitFieldNames ? '' : 'runtimeProfileName')
     ..aOS(13, _omitFieldNames ? '' : 'sourceId')
     ..aOS(14, _omitFieldNames ? '' : 'sourceType')
     ..hasRequiredFields = false;
@@ -3432,13 +2950,13 @@ class RewardGrant extends $pb.GeneratedMessage {
   void clearReason() => $_clearField(11);
 
   @$pb.TagNumber(12)
-  $core.String get rulesetName => $_getSZ(9);
+  $core.String get runtimeProfileName => $_getSZ(9);
   @$pb.TagNumber(12)
-  set rulesetName($core.String value) => $_setString(9, value);
+  set runtimeProfileName($core.String value) => $_setString(9, value);
   @$pb.TagNumber(12)
-  $core.bool hasRulesetName() => $_has(9);
+  $core.bool hasRuntimeProfileName() => $_has(9);
   @$pb.TagNumber(12)
-  void clearRulesetName() => $_clearField(12);
+  void clearRuntimeProfileName() => $_clearField(12);
 
   @$pb.TagNumber(13)
   $core.String get sourceId => $_getSZ(10);
@@ -4003,125 +3521,8 @@ class ServerGameResultListResponse extends $pb.GeneratedMessage {
   GameResultListResponse ensureValue() => $_ensure(0);
 }
 
-class ServerGameRulesetGetRequest extends $pb.GeneratedMessage {
-  factory ServerGameRulesetGetRequest({
-    $core.String? name,
-  }) {
-    final result = create();
-    if (name != null) result.name = name;
-    return result;
-  }
-
-  ServerGameRulesetGetRequest._();
-
-  factory ServerGameRulesetGetRequest.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ServerGameRulesetGetRequest.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ServerGameRulesetGetRequest',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'name')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ServerGameRulesetGetRequest clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ServerGameRulesetGetRequest copyWith(
-          void Function(ServerGameRulesetGetRequest) updates) =>
-      super.copyWith(
-              (message) => updates(message as ServerGameRulesetGetRequest))
-          as ServerGameRulesetGetRequest;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ServerGameRulesetGetRequest create() =>
-      ServerGameRulesetGetRequest._();
-  @$core.override
-  ServerGameRulesetGetRequest createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ServerGameRulesetGetRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ServerGameRulesetGetRequest>(create);
-  static ServerGameRulesetGetRequest? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get name => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set name($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasName() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearName() => $_clearField(1);
-}
-
-class ServerGameRulesetGetResponse extends $pb.GeneratedMessage {
-  factory ServerGameRulesetGetResponse({
-    GameRuleset? value,
-  }) {
-    final result = create();
-    if (value != null) result.value = value;
-    return result;
-  }
-
-  ServerGameRulesetGetResponse._();
-
-  factory ServerGameRulesetGetResponse.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ServerGameRulesetGetResponse.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ServerGameRulesetGetResponse',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOM<GameRuleset>(1, _omitFieldNames ? '' : 'value',
-        subBuilder: GameRuleset.create)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ServerGameRulesetGetResponse clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ServerGameRulesetGetResponse copyWith(
-          void Function(ServerGameRulesetGetResponse) updates) =>
-      super.copyWith(
-              (message) => updates(message as ServerGameRulesetGetResponse))
-          as ServerGameRulesetGetResponse;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ServerGameRulesetGetResponse create() =>
-      ServerGameRulesetGetResponse._();
-  @$core.override
-  ServerGameRulesetGetResponse createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ServerGameRulesetGetResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ServerGameRulesetGetResponse>(create);
-  static ServerGameRulesetGetResponse? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  GameRuleset get value => $_getN(0);
-  @$pb.TagNumber(1)
-  set value(GameRuleset value) => $_setField(1, value);
-  @$pb.TagNumber(1)
-  $core.bool hasValue() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearValue() => $_clearField(1);
-  @$pb.TagNumber(1)
-  GameRuleset ensureValue() => $_ensure(0);
-}
-
-class ServerPetAdoptRequest extends $pb.GeneratedMessage {
-  factory ServerPetAdoptRequest({
+class RuntimeAdoptRequest extends $pb.GeneratedMessage {
+  factory RuntimeAdoptRequest({
     PetAdoptRequest? value,
   }) {
     final result = create();
@@ -4129,17 +3530,17 @@ class ServerPetAdoptRequest extends $pb.GeneratedMessage {
     return result;
   }
 
-  ServerPetAdoptRequest._();
+  RuntimeAdoptRequest._();
 
-  factory ServerPetAdoptRequest.fromBuffer($core.List<$core.int> data,
+  factory RuntimeAdoptRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory ServerPetAdoptRequest.fromJson($core.String json,
+  factory RuntimeAdoptRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ServerPetAdoptRequest',
+      _omitMessageNames ? '' : 'RuntimeAdoptRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOM<PetAdoptRequest>(1, _omitFieldNames ? '' : 'value',
@@ -4147,24 +3548,23 @@ class ServerPetAdoptRequest extends $pb.GeneratedMessage {
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ServerPetAdoptRequest clone() => deepCopy();
+  RuntimeAdoptRequest clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ServerPetAdoptRequest copyWith(
-          void Function(ServerPetAdoptRequest) updates) =>
-      super.copyWith((message) => updates(message as ServerPetAdoptRequest))
-          as ServerPetAdoptRequest;
+  RuntimeAdoptRequest copyWith(void Function(RuntimeAdoptRequest) updates) =>
+      super.copyWith((message) => updates(message as RuntimeAdoptRequest))
+          as RuntimeAdoptRequest;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static ServerPetAdoptRequest create() => ServerPetAdoptRequest._();
+  static RuntimeAdoptRequest create() => RuntimeAdoptRequest._();
   @$core.override
-  ServerPetAdoptRequest createEmptyInstance() => create();
+  RuntimeAdoptRequest createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static ServerPetAdoptRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ServerPetAdoptRequest>(create);
-  static ServerPetAdoptRequest? _defaultInstance;
+  static RuntimeAdoptRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RuntimeAdoptRequest>(create);
+  static RuntimeAdoptRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
   PetAdoptRequest get value => $_getN(0);
@@ -4178,8 +3578,8 @@ class ServerPetAdoptRequest extends $pb.GeneratedMessage {
   PetAdoptRequest ensureValue() => $_ensure(0);
 }
 
-class ServerPetAdoptResponse extends $pb.GeneratedMessage {
-  factory ServerPetAdoptResponse({
+class RuntimeAdoptResponse extends $pb.GeneratedMessage {
+  factory RuntimeAdoptResponse({
     PetAdoptResponse? value,
   }) {
     final result = create();
@@ -4187,17 +3587,17 @@ class ServerPetAdoptResponse extends $pb.GeneratedMessage {
     return result;
   }
 
-  ServerPetAdoptResponse._();
+  RuntimeAdoptResponse._();
 
-  factory ServerPetAdoptResponse.fromBuffer($core.List<$core.int> data,
+  factory RuntimeAdoptResponse.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory ServerPetAdoptResponse.fromJson($core.String json,
+  factory RuntimeAdoptResponse.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ServerPetAdoptResponse',
+      _omitMessageNames ? '' : 'RuntimeAdoptResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOM<PetAdoptResponse>(1, _omitFieldNames ? '' : 'value',
@@ -4205,24 +3605,23 @@ class ServerPetAdoptResponse extends $pb.GeneratedMessage {
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ServerPetAdoptResponse clone() => deepCopy();
+  RuntimeAdoptResponse clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ServerPetAdoptResponse copyWith(
-          void Function(ServerPetAdoptResponse) updates) =>
-      super.copyWith((message) => updates(message as ServerPetAdoptResponse))
-          as ServerPetAdoptResponse;
+  RuntimeAdoptResponse copyWith(void Function(RuntimeAdoptResponse) updates) =>
+      super.copyWith((message) => updates(message as RuntimeAdoptResponse))
+          as RuntimeAdoptResponse;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static ServerPetAdoptResponse create() => ServerPetAdoptResponse._();
+  static RuntimeAdoptResponse create() => RuntimeAdoptResponse._();
   @$core.override
-  ServerPetAdoptResponse createEmptyInstance() => create();
+  RuntimeAdoptResponse createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static ServerPetAdoptResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ServerPetAdoptResponse>(create);
-  static ServerPetAdoptResponse? _defaultInstance;
+  static RuntimeAdoptResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RuntimeAdoptResponse>(create);
+  static RuntimeAdoptResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
   PetAdoptResponse get value => $_getN(0);
@@ -5048,13 +4447,7 @@ class ServerPetPutResponse extends $pb.GeneratedMessage {
 }
 
 class ServerPointsGetRequest extends $pb.GeneratedMessage {
-  factory ServerPointsGetRequest({
-    $core.String? rulesetName,
-  }) {
-    final result = create();
-    if (rulesetName != null) result.rulesetName = rulesetName;
-    return result;
-  }
+  factory ServerPointsGetRequest() => create();
 
   ServerPointsGetRequest._();
 
@@ -5069,7 +4462,6 @@ class ServerPointsGetRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ServerPointsGetRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'rulesetName')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -5091,15 +4483,6 @@ class ServerPointsGetRequest extends $pb.GeneratedMessage {
   static ServerPointsGetRequest getDefault() => _defaultInstance ??=
       $pb.GeneratedMessage.$_defaultFor<ServerPointsGetRequest>(create);
   static ServerPointsGetRequest? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get rulesetName => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set rulesetName($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasRulesetName() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearRulesetName() => $_clearField(1);
 }
 
 class ServerPointsGetResponse extends $pb.GeneratedMessage {

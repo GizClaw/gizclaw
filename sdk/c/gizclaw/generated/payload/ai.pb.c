@@ -39,7 +39,7 @@ PB_BIND(gizclaw_rpc_v1_ChatRoomWorkspaceParameters, gizclaw_rpc_v1_ChatRoomWorks
 PB_BIND(gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters, gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_Credential, gizclaw_rpc_v1_Credential, AUTO)
+PB_BIND(gizclaw_rpc_v1_Credential, gizclaw_rpc_v1_Credential, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_CredentialBody, gizclaw_rpc_v1_CredentialBody, AUTO)
@@ -276,10 +276,19 @@ PB_BIND(gizclaw_rpc_v1_VolcTenantVoiceProviderData, gizclaw_rpc_v1_VolcTenantVoi
 PB_BIND(gizclaw_rpc_v1_Workflow, gizclaw_rpc_v1_Workflow, 2)
 
 
-PB_BIND(gizclaw_rpc_v1_WorkflowIconDownloadRequest, gizclaw_rpc_v1_WorkflowIconDownloadRequest, 2)
+PB_BIND(gizclaw_rpc_v1_WorkflowUpsert, gizclaw_rpc_v1_WorkflowUpsert, 2)
 
 
-PB_BIND(gizclaw_rpc_v1_WorkflowIconDownloadResponse, gizclaw_rpc_v1_WorkflowIconDownloadResponse, 2)
+PB_BIND(gizclaw_rpc_v1_WorkflowCreateRequest, gizclaw_rpc_v1_WorkflowCreateRequest, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_WorkflowCreateResponse, gizclaw_rpc_v1_WorkflowCreateResponse, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_WorkflowDeleteRequest, gizclaw_rpc_v1_WorkflowDeleteRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_WorkflowDeleteResponse, gizclaw_rpc_v1_WorkflowDeleteResponse, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_WorkflowGetRequest, gizclaw_rpc_v1_WorkflowGetRequest, AUTO)
@@ -294,7 +303,10 @@ PB_BIND(gizclaw_rpc_v1_WorkflowListRequest, gizclaw_rpc_v1_WorkflowListRequest, 
 PB_BIND(gizclaw_rpc_v1_WorkflowListResponse, gizclaw_rpc_v1_WorkflowListResponse, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_WorkflowI18nCatalog, gizclaw_rpc_v1_WorkflowI18nCatalog, AUTO)
+PB_BIND(gizclaw_rpc_v1_WorkflowPutRequest, gizclaw_rpc_v1_WorkflowPutRequest, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_WorkflowPutResponse, gizclaw_rpc_v1_WorkflowPutResponse, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_ToolkitPolicyToolIds, gizclaw_rpc_v1_ToolkitPolicyToolIds, AUTO)
@@ -352,8 +364,6 @@ PB_BIND(gizclaw_rpc_v1_ToolInvokeRequest, gizclaw_rpc_v1_ToolInvokeRequest, AUTO
 
 
 PB_BIND(gizclaw_rpc_v1_ToolInvokeResponse, gizclaw_rpc_v1_ToolInvokeResponse, AUTO)
-
-
 
 
 

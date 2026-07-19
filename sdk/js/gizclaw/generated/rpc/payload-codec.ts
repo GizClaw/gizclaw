@@ -48,13 +48,13 @@ export type PeerRunHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified"
 export type PeerRunStatusState = "" | "error" | "running" | "starting" | "stopped" | "stopping" | "unspecified" | number;
 export type PetConversationParametersInitiative = "" | "agent" | "peer" | "unspecified" | number;
 export type PetWorkspaceParametersAgentType = "" | "pet" | "unspecified" | number;
+export type ResourceSource = "" | "owned" | "runtime" | "unspecified" | number;
 export type ToolExecutorKind = "" | "builtin" | "device_rpc" | "unspecified" | number;
 export type ToolSource = "" | "admin" | "builtin" | "device" | "unspecified" | number;
 export type VoiceProviderKind = "" | "dashscope-tenant" | "gemini-tenant" | "minimax-tenant" | "openai-tenant" | "unspecified" | "volc-tenant" | number;
 export type VoiceSource = "" | "manual" | "sync" | "unspecified" | number;
 export type VolcTenantModelProviderDataApiMode = "" | "asr" | "realtime" | "tts" | "unspecified" | number;
 export type WorkflowDriver = "" | "ast-translate" | "chatroom" | "dashscope-realtime" | "doubao-realtime" | "eino" | "flowcraft" | "pet" | "unspecified" | number;
-export type WorkflowLocale = "" | "en" | "unspecified" | "zh-CN" | number;
 export type WorkspaceHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
 export type WorkspaceInputMode = "" | "push-to-talk" | "realtime" | "unspecified" | number;
 export type ASTTranslateExternalVoiceParameters = {
@@ -192,6 +192,7 @@ export type Credential = {
   "name": string;
   "provider": string;
   "updated_at": string;
+  "owner_public_key"?: string;
 };
 export type CredentialBody = OpenAICredentialBody | GeminiCredentialBody | DashScopeCredentialBody | MiniMaxCredentialBody | VolcCredentialBody;
 export type CredentialCreateRequest = Credential;
@@ -634,7 +635,7 @@ export type GameResult = {
   "owner_public_key": string;
   "payload"?: GameplayMetadata;
   "pet_id": string;
-  "ruleset_name": string;
+  "runtime_profile_name": string;
   "score"?: number;
 };
 export type GameResultListResponse = {
@@ -646,37 +647,6 @@ export type GameRewardSpec = {
   "badge_exp_delta": Record<string, number>;
   "pet_exp_delta"?: number;
   "points_delta"?: number;
-};
-export type GameRuleset = {
-  "created_at": string;
-  "name": string;
-  "spec": GameRulesetSpec;
-  "updated_at": string;
-};
-export type GameRulesetDriveSpec = {
-  "default_reward"?: GameRewardSpec;
-  "game_rewards": Record<string, GameRewardSpec>;
-};
-export type GameRulesetPetPoolEntry = {
-  "adoption_cost"?: number;
-  "petdef_id": string;
-  "rarity"?: string;
-  "weight": number;
-  "workflow_name"?: string;
-};
-export type GameRulesetPointsSpec = {
-  "initial_balance"?: number;
-};
-export type GameRulesetSpec = {
-  "badge_def_ids": string[];
-  "default_workflow_name"?: string;
-  "description"?: string;
-  "drive"?: GameRulesetDriveSpec;
-  "enabled": boolean;
-  "game_def_ids": string[];
-  "metadata"?: GameplayMetadata;
-  "pet_pool": GameRulesetPetPoolEntry[];
-  "points"?: GameRulesetPointsSpec;
 };
 export type GameplayGetRequest = {
   "id": string;
@@ -736,6 +706,7 @@ export type Model = {
   "source": ModelSource;
   "synced_at"?: string;
   "updated_at": string;
+  "owner_public_key"?: string;
 };
 export type ModelCapabilities = {
   "json_output"?: boolean;
@@ -931,9 +902,8 @@ export type Pet = {
   "life": PetLife;
   "owner_public_key": string;
   "petdef_id": string;
-  "ruleset_name": string;
+  "runtime_profile_name": string;
   "updated_at": string;
-  "workflow_name"?: string;
   "workspace_name": string;
   "progression": PetProgression;
 };
@@ -966,7 +936,6 @@ export type PetActionsI18nCatalog = {
 };
 export type PetAdoptRequest = {
   "display_name"?: string;
-  "ruleset_name"?: string;
 };
 export type PetAdoptResponse = {
   "pet": Pet;
@@ -1051,7 +1020,7 @@ export type PointsAccount = {
   "balance": number;
   "created_at": string;
   "owner_public_key": string;
-  "ruleset_name": string;
+  "runtime_profile_name": string;
   "updated_at": string;
 };
 export type PointsTransaction = {
@@ -1064,7 +1033,7 @@ export type PointsTransaction = {
   "pet_id"?: string;
   "reason": string;
   "reward_grant_id"?: string;
-  "ruleset_name": string;
+  "runtime_profile_name": string;
   "source_id": string;
   "source_type": string;
 };
@@ -1083,7 +1052,7 @@ export type RewardGrant = {
   "pet_id"?: string;
   "points_delta": number;
   "reason"?: string;
-  "ruleset_name": string;
+  "runtime_profile_name": string;
   "source_id": string;
   "source_type": string;
 };
@@ -1099,6 +1068,8 @@ export type Runtime = {
   "rx_bytes"?: number;
   "tx_bytes"?: number;
 };
+export type RuntimeAdoptRequest = PetAdoptRequest;
+export type RuntimeAdoptResponse = PetAdoptResponse;
 export type ServerBadgeGetRequest = GameplayGetRequest;
 export type ServerBadgeGetResponse = Badge;
 export type ServerBadgeListRequest = GameplayListRequest;
@@ -1107,10 +1078,6 @@ export type ServerGameResultGetRequest = GameplayGetRequest;
 export type ServerGameResultGetResponse = GameResult;
 export type ServerGameResultListRequest = GameplayListRequest;
 export type ServerGameResultListResponse = GameResultListResponse;
-export type ServerGameRulesetGetRequest = {
-  "name"?: string;
-};
-export type ServerGameRulesetGetResponse = GameRuleset;
 export type ServerGetInfoRequest = Record<string, never>;
 export type ServerGetInfoResponse = DeviceInfo;
 export type ServerGetRunAgentRequest = Record<string, never>;
@@ -1142,8 +1109,6 @@ export type ServerPeerLookupResponse = {
 };
 export type ServerPetActionsGetRequest = PetGetRequest;
 export type ServerPetActionsGetResponse = PetActions;
-export type ServerPetAdoptRequest = PetAdoptRequest;
-export type ServerPetAdoptResponse = PetAdoptResponse;
 export type ServerPetDeleteRequest = PetDeleteRequest;
 export type ServerPetDeleteResponse = Pet;
 export type ServerPetDriveRequest = PetDriveRequest;
@@ -1158,9 +1123,7 @@ export type ServerPetPutRequest = PetPutRequest;
 export type ServerPetPutResponse = Pet;
 export type ServerPlayRunWorkspaceHistoryRequest = PeerRunHistoryPlayRequest;
 export type ServerPlayRunWorkspaceHistoryResponse = PeerRunHistoryPlayResponse;
-export type ServerPointsGetRequest = {
-  "ruleset_name"?: string;
-};
+export type ServerPointsGetRequest = Record<string, never>;
 export type ServerPointsGetResponse = PointsAccount;
 export type ServerPointsTransactionGetRequest = GameplayGetRequest;
 export type ServerPointsTransactionGetResponse = PointsTransaction;
@@ -1168,6 +1131,13 @@ export type ServerPointsTransactionListRequest = GameplayListRequest;
 export type ServerPointsTransactionListResponse = PointsTransactionListResponse;
 export type ServerPutInfoRequest = DeviceProfile;
 export type ServerPutInfoResponse = DeviceInfo;
+export type ServerRegisterRequest = {
+  "token": string;
+};
+export type ServerRegisterResponse = {
+  "firmware_name": string;
+  "runtime_profile_name": string;
+};
 export type ServerReloadRunRequest = Record<string, never>;
 export type ServerReloadRunResponse = PeerRunStatus;
 export type ServerReloadRunWorkspaceRequest = Record<string, never>;
@@ -1222,6 +1192,7 @@ export type Tool = {
   "metadata"?: Record<string, unknown>;
   "created_at": string;
   "updated_at": string;
+  "owner_public_key"?: string;
 };
 export type ToolCreateRequest = Tool;
 export type ToolCreateResponse = Tool;
@@ -1340,37 +1311,39 @@ export type VolcTenantVoiceProviderData = {
 export type Workflow = {
   "name": string;
   "spec": WorkflowSpec;
-  "i18n"?: WorkflowI18nCatalog;
-  "icon"?: Icon;
+  "owner_public_key"?: string;
 };
+export type WorkflowCreateRequest = {
+  "source": ResourceSource;
+  "body": WorkflowUpsert;
+};
+export type WorkflowCreateResponse = Workflow;
+export type WorkflowDeleteRequest = {
+  "name": string;
+  "source": ResourceSource;
+};
+export type WorkflowDeleteResponse = Workflow;
 export type WorkflowGetRequest = {
   "name": string;
-  "lang"?: WorkflowLocale;
+  "source": ResourceSource;
 };
 export type WorkflowGetResponse = Workflow;
-export type WorkflowI18nCatalog = {
-  "name"?: string;
-  "description"?: string;
-};
-export type WorkflowIconDownloadRequest = {
-  "name": string;
-  "format": IconFormat;
-};
-export type WorkflowIconDownloadResponse = {
-  "name": string;
-  "format": IconFormat;
-  "size_bytes": number;
-};
 export type WorkflowListRequest = {
   "cursor"?: string;
   "limit"?: number;
-  "lang"?: WorkflowLocale;
+  "source": ResourceSource;
 };
 export type WorkflowListResponse = {
   "has_next": boolean;
   "items": Workflow[];
   "next_cursor"?: string;
 };
+export type WorkflowPutRequest = {
+  "name": string;
+  "body": WorkflowUpsert;
+  "source": ResourceSource;
+};
+export type WorkflowPutResponse = Workflow;
 export type WorkflowSpec = {
   "ast_translate"?: ASTTranslateWorkflowSpec;
   "chatroom"?: ChatRoomWorkflowSpec;
@@ -1382,6 +1355,10 @@ export type WorkflowSpec = {
   "dashscope_realtime"?: DashScopeRealtimeWorkflowSpec;
   "eino"?: EinoWorkflowSpec;
 };
+export type WorkflowUpsert = {
+  "name": string;
+  "spec": WorkflowSpec;
+};
 export type Workspace = {
   "created_at": string;
   "last_active_at": string;
@@ -1392,6 +1369,8 @@ export type Workspace = {
   "toolkit"?: ToolkitPolicy;
   "system": boolean;
   "icon"?: Icon;
+  "owner_public_key"?: string;
+  "workflow_source"?: ResourceSource;
 };
 export type WorkspaceCreateRequest = WorkspaceUpsert;
 export type WorkspaceCreateResponse = Workspace;
@@ -1455,6 +1434,7 @@ export type WorkspaceUpsert = {
   "parameters"?: WorkspaceParameters;
   "workflow_name": string;
   "toolkit"?: ToolkitPolicy;
+  "workflow_source"?: ResourceSource;
 };
 
 const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
@@ -1463,6 +1443,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.identifiers.get": "ClientGetIdentifiersRequest",
   "client.info.get": "ClientGetInfoRequest",
   "client.tool.invoke": "ToolInvokeRequest",
+  "runtime.adopt": "RuntimeAdoptRequest",
   "server.badge_def.pixa.download": "BadgeDefPixaDownloadRequest",
   "server.badge.get": "ServerBadgeGetRequest",
   "server.badge.list": "ServerBadgeListRequest",
@@ -1504,7 +1485,6 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.friend.list": "FriendListRequest",
   "server.game_result.get": "ServerGameResultGetRequest",
   "server.game_result.list": "ServerGameResultListRequest",
-  "server.game_ruleset.get": "ServerGameRulesetGetRequest",
   "server.info.get": "ServerGetInfoRequest",
   "server.info.put": "ServerPutInfoRequest",
   "server.model.create": "ModelCreateRequest",
@@ -1515,7 +1495,6 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.peer.assign": "ServerPeerAssignRequest",
   "server.peer.lookup": "ServerPeerLookupRequest",
   "server.pet.actions.get": "ServerPetActionsGetRequest",
-  "server.pet.adopt": "ServerPetAdoptRequest",
   "server.pet.delete": "ServerPetDeleteRequest",
   "server.pet.drive": "ServerPetDriveRequest",
   "server.pet.get": "ServerPetGetRequest",
@@ -1525,6 +1504,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.points.get": "ServerPointsGetRequest",
   "server.points.transactions.get": "ServerPointsTransactionGetRequest",
   "server.points.transactions.list": "ServerPointsTransactionListRequest",
+  "server.register": "ServerRegisterRequest",
   "server.reward_grant.get": "ServerRewardGrantGetRequest",
   "server.reward_grant.list": "ServerRewardGrantListRequest",
   "server.route.resolve": "ServerRouteResolveRequest",
@@ -1550,9 +1530,11 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.tool.put": "ToolPutRequest",
   "server.voice.get": "VoiceGetRequest",
   "server.voice.list": "VoiceListRequest",
+  "server.workflow.create": "WorkflowCreateRequest",
+  "server.workflow.delete": "WorkflowDeleteRequest",
   "server.workflow.get": "WorkflowGetRequest",
-  "server.workflow.icon.download": "WorkflowIconDownloadRequest",
   "server.workflow.list": "WorkflowListRequest",
+  "server.workflow.put": "WorkflowPutRequest",
   "server.workspace.create": "WorkspaceCreateRequest",
   "server.workspace.delete": "WorkspaceDeleteRequest",
   "server.workspace.get": "WorkspaceGetRequest",
@@ -1569,6 +1551,7 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.identifiers.get": "ClientGetIdentifiersResponse",
   "client.info.get": "ClientGetInfoResponse",
   "client.tool.invoke": "ToolInvokeResponse",
+  "runtime.adopt": "RuntimeAdoptResponse",
   "server.badge_def.pixa.download": "BadgeDefPixaDownloadResponse",
   "server.badge.get": "ServerBadgeGetResponse",
   "server.badge.list": "ServerBadgeListResponse",
@@ -1610,7 +1593,6 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.friend.list": "FriendListResponse",
   "server.game_result.get": "ServerGameResultGetResponse",
   "server.game_result.list": "ServerGameResultListResponse",
-  "server.game_ruleset.get": "ServerGameRulesetGetResponse",
   "server.info.get": "ServerGetInfoResponse",
   "server.info.put": "ServerPutInfoResponse",
   "server.model.create": "ModelCreateResponse",
@@ -1621,7 +1603,6 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.peer.assign": "ServerPeerAssignResponse",
   "server.peer.lookup": "ServerPeerLookupResponse",
   "server.pet.actions.get": "ServerPetActionsGetResponse",
-  "server.pet.adopt": "ServerPetAdoptResponse",
   "server.pet.delete": "ServerPetDeleteResponse",
   "server.pet.drive": "ServerPetDriveResponse",
   "server.pet.get": "ServerPetGetResponse",
@@ -1631,6 +1612,7 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.points.get": "ServerPointsGetResponse",
   "server.points.transactions.get": "ServerPointsTransactionGetResponse",
   "server.points.transactions.list": "ServerPointsTransactionListResponse",
+  "server.register": "ServerRegisterResponse",
   "server.reward_grant.get": "ServerRewardGrantGetResponse",
   "server.reward_grant.list": "ServerRewardGrantListResponse",
   "server.route.resolve": "ServerRouteResolveResponse",
@@ -1656,9 +1638,11 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.tool.put": "ToolPutResponse",
   "server.voice.get": "VoiceGetResponse",
   "server.voice.list": "VoiceListResponse",
+  "server.workflow.create": "WorkflowCreateResponse",
+  "server.workflow.delete": "WorkflowDeleteResponse",
   "server.workflow.get": "WorkflowGetResponse",
-  "server.workflow.icon.download": "WorkflowIconDownloadResponse",
   "server.workflow.list": "WorkflowListResponse",
+  "server.workflow.put": "WorkflowPutResponse",
   "server.workspace.create": "WorkspaceCreateResponse",
   "server.workspace.delete": "WorkspaceDeleteResponse",
   "server.workspace.get": "WorkspaceGetResponse",
@@ -2291,6 +2275,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "updated_at",
         "number": 6,
+        "type": "string"
+      },
+      {
+        "name": "owner_public_key",
+        "number": 7,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -4318,7 +4308,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "ruleset_name",
+        "name": "runtime_profile_name",
         "number": 13,
         "type": "string"
       },
@@ -4370,145 +4360,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 5,
         "optional": true,
         "type": "int64"
-      }
-    ]
-  },
-  "GameRuleset": {
-    "fields": [
-      {
-        "name": "created_at",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "name",
-        "number": 2,
-        "type": "string"
-      },
-      {
-        "name": "spec",
-        "number": 3,
-        "type": "GameRulesetSpec"
-      },
-      {
-        "name": "updated_at",
-        "number": 4,
-        "type": "string"
-      }
-    ]
-  },
-  "GameRulesetDriveSpec": {
-    "fields": [
-      {
-        "name": "default_reward",
-        "number": 3,
-        "optional": true,
-        "type": "GameRewardSpec"
-      },
-      {
-        "mapValue": "GameRewardSpec",
-        "name": "game_rewards",
-        "number": 4,
-        "type": "map"
-      }
-    ]
-  },
-  "GameRulesetPetPoolEntry": {
-    "fields": [
-      {
-        "name": "adoption_cost",
-        "number": 1,
-        "optional": true,
-        "type": "int64"
-      },
-      {
-        "name": "petdef_id",
-        "number": 2,
-        "type": "string"
-      },
-      {
-        "name": "rarity",
-        "number": 3,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "weight",
-        "number": 4,
-        "type": "int64"
-      },
-      {
-        "name": "workflow_name",
-        "number": 5,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "GameRulesetPointsSpec": {
-    "fields": [
-      {
-        "name": "initial_balance",
-        "number": 1,
-        "optional": true,
-        "type": "int64"
-      }
-    ]
-  },
-  "GameRulesetSpec": {
-    "fields": [
-      {
-        "name": "badge_def_ids",
-        "number": 1,
-        "repeated": true,
-        "type": "string"
-      },
-      {
-        "name": "default_workflow_name",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "description",
-        "number": 3,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "drive",
-        "number": 4,
-        "optional": true,
-        "type": "GameRulesetDriveSpec"
-      },
-      {
-        "name": "enabled",
-        "number": 5,
-        "type": "bool"
-      },
-      {
-        "name": "game_def_ids",
-        "number": 6,
-        "repeated": true,
-        "type": "string"
-      },
-      {
-        "name": "metadata",
-        "number": 7,
-        "optional": true,
-        "type": "GameplayMetadata"
-      },
-      {
-        "name": "pet_pool",
-        "number": 8,
-        "repeated": true,
-        "type": "GameRulesetPetPoolEntry"
-      },
-      {
-        "name": "points",
-        "number": 9,
-        "optional": true,
-        "type": "GameRulesetPointsSpec"
       }
     ]
   },
@@ -4730,6 +4581,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "updated_at",
         "number": 11,
+        "type": "string"
+      },
+      {
+        "name": "owner_public_key",
+        "number": 12,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -5660,19 +5517,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "ruleset_name",
+        "name": "runtime_profile_name",
         "number": 11,
         "type": "string"
       },
       {
         "name": "updated_at",
         "number": 12,
-        "type": "string"
-      },
-      {
-        "name": "workflow_name",
-        "number": 13,
-        "optional": true,
         "type": "string"
       },
       {
@@ -5810,12 +5661,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "display_name",
         "number": 1,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "ruleset_name",
-        "number": 2,
         "optional": true,
         "type": "string"
       }
@@ -6169,7 +6014,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "ruleset_name",
+        "name": "runtime_profile_name",
         "number": 4,
         "type": "string"
       },
@@ -6231,7 +6076,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "ruleset_name",
+        "name": "runtime_profile_name",
         "number": 10,
         "type": "string"
       },
@@ -6320,7 +6165,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "ruleset_name",
+        "name": "runtime_profile_name",
         "number": 12,
         "type": "string"
       },
@@ -6386,6 +6231,24 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 5,
         "optional": true,
         "type": "uint64"
+      }
+    ]
+  },
+  "RuntimeAdoptRequest": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "PetAdoptRequest"
+      }
+    ]
+  },
+  "RuntimeAdoptResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "PetAdoptResponse"
       }
     ]
   },
@@ -6458,25 +6321,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "GameResultListResponse"
-      }
-    ]
-  },
-  "ServerGameRulesetGetRequest": {
-    "fields": [
-      {
-        "name": "name",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "ServerGameRulesetGetResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "GameRuleset"
       }
     ]
   },
@@ -6648,24 +6492,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
-  "ServerPetAdoptRequest": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "PetAdoptRequest"
-      }
-    ]
-  },
-  "ServerPetAdoptResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "PetAdoptResponse"
-      }
-    ]
-  },
   "ServerPetDeleteRequest": {
     "fields": [
       {
@@ -6793,14 +6619,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
     ]
   },
   "ServerPointsGetRequest": {
-    "fields": [
-      {
-        "name": "ruleset_name",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      }
-    ]
+    "fields": []
   },
   "ServerPointsGetResponse": {
     "fields": [
@@ -6862,6 +6681,29 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "DeviceInfo"
+      }
+    ]
+  },
+  "ServerRegisterRequest": {
+    "fields": [
+      {
+        "name": "token",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "ServerRegisterResponse": {
+    "fields": [
+      {
+        "name": "firmware_name",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "runtime_profile_name",
+        "number": 2,
+        "type": "string"
       }
     ]
   },
@@ -7151,6 +6993,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "updated_at",
         "number": 14,
+        "type": "string"
+      },
+      {
+        "name": "owner_public_key",
+        "number": 15,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -7727,16 +7575,56 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "WorkflowSpec"
       },
       {
-        "name": "i18n",
-        "number": 3,
+        "name": "owner_public_key",
+        "number": 5,
         "optional": true,
-        "type": "WorkflowI18nCatalog"
+        "type": "string"
+      }
+    ]
+  },
+  "WorkflowCreateRequest": {
+    "fields": [
+      {
+        "name": "source",
+        "number": 1,
+        "type": "ResourceSource"
       },
       {
-        "name": "icon",
-        "number": 4,
-        "optional": true,
-        "type": "Icon"
+        "name": "body",
+        "number": 2,
+        "type": "WorkflowUpsert"
+      }
+    ]
+  },
+  "WorkflowCreateResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "Workflow"
+      }
+    ]
+  },
+  "WorkflowDeleteRequest": {
+    "fields": [
+      {
+        "name": "name",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "source",
+        "number": 2,
+        "type": "ResourceSource"
+      }
+    ]
+  },
+  "WorkflowDeleteResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "Workflow"
       }
     ]
   },
@@ -7748,10 +7636,9 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "lang",
-        "number": 2,
-        "optional": true,
-        "type": "WorkflowLocale"
+        "name": "source",
+        "number": 3,
+        "type": "ResourceSource"
       }
     ]
   },
@@ -7761,55 +7648,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "Workflow"
-      }
-    ]
-  },
-  "WorkflowI18nCatalog": {
-    "fields": [
-      {
-        "name": "name",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "description",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "WorkflowIconDownloadRequest": {
-    "fields": [
-      {
-        "name": "name",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "format",
-        "number": 2,
-        "type": "IconFormat"
-      }
-    ]
-  },
-  "WorkflowIconDownloadResponse": {
-    "fields": [
-      {
-        "name": "name",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "format",
-        "number": 2,
-        "type": "IconFormat"
-      },
-      {
-        "name": "size_bytes",
-        "number": 3,
-        "type": "int64"
       }
     ]
   },
@@ -7828,10 +7666,9 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "int64"
       },
       {
-        "name": "lang",
-        "number": 3,
-        "optional": true,
-        "type": "WorkflowLocale"
+        "name": "source",
+        "number": 4,
+        "type": "ResourceSource"
       }
     ]
   },
@@ -7853,6 +7690,34 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 3,
         "optional": true,
         "type": "string"
+      }
+    ]
+  },
+  "WorkflowPutRequest": {
+    "fields": [
+      {
+        "name": "name",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "body",
+        "number": 2,
+        "type": "WorkflowUpsert"
+      },
+      {
+        "name": "source",
+        "number": 3,
+        "type": "ResourceSource"
+      }
+    ]
+  },
+  "WorkflowPutResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "Workflow"
       }
     ]
   },
@@ -7913,6 +7778,20 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "WorkflowUpsert": {
+    "fields": [
+      {
+        "name": "name",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "spec",
+        "number": 2,
+        "type": "WorkflowSpec"
+      }
+    ]
+  },
   "Workspace": {
     "fields": [
       {
@@ -7962,6 +7841,18 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 9,
         "optional": true,
         "type": "Icon"
+      },
+      {
+        "name": "owner_public_key",
+        "number": 10,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "workflow_source",
+        "number": 11,
+        "optional": true,
+        "type": "ResourceSource"
       }
     ]
   },
@@ -8272,6 +8163,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 7,
         "optional": true,
         "type": "ToolkitPolicy"
+      },
+      {
+        "name": "workflow_source",
+        "number": 11,
+        "optional": true,
+        "type": "ResourceSource"
       }
     ]
   }
@@ -8611,6 +8508,18 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "1": "pet"
     }
   },
+  "ResourceSource": {
+    "byName": {
+      "owned": 2,
+      "runtime": 1,
+      "unspecified": 0
+    },
+    "byNumber": {
+      "0": "",
+      "1": "runtime",
+      "2": "owned"
+    }
+  },
   "ToolExecutorKind": {
     "byName": {
       "builtin": 1,
@@ -8701,18 +8610,6 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "5": "pet",
       "6": "dashscope-realtime",
       "7": "eino"
-    }
-  },
-  "WorkflowLocale": {
-    "byName": {
-      "en": 1,
-      "unspecified": 0,
-      "zh-CN": 2
-    },
-    "byNumber": {
-      "0": "",
-      "1": "en",
-      "2": "zh-CN"
     }
   },
   "WorkspaceHistoryListRequestOrder": {

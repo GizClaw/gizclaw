@@ -22,15 +22,6 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 
 	createDoc := mustDocument(t, `{
 		"name": "demo-assistant",
-		"i18n": {
-			"default_locale": "en",
-			"en": {
-				"description": "flowcraft workflow"
-			},
-			"zh-CN": {
-				"name": "演示助手"
-			}
-		},
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {
@@ -65,9 +56,6 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 	if len(listed.Items) != 1 || listed.HasNext {
 		t.Fatalf("ListWorkflows() = %#v", listed)
 	}
-	if listed.Items[0].I18n == nil || listed.Items[0].I18n.En == nil || listed.Items[0].I18n.ZhCN == nil {
-		t.Fatalf("ListWorkflows() i18n = %#v", listed.Items[0].I18n)
-	}
 
 	getResp, err := srv.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: "demo-assistant"})
 	if err != nil {
@@ -81,18 +69,9 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 	if gotSingle.Name != "demo-assistant" {
 		t.Fatalf("GetWorkflow() name = %q", gotSingle.Name)
 	}
-	if gotSingle.I18n == nil || gotSingle.I18n.ZhCN == nil || gotSingle.I18n.ZhCN.Name == nil {
-		t.Fatalf("GetWorkflow() i18n = %#v", gotSingle.I18n)
-	}
 
 	updateDoc := mustDocument(t, `{
 		"name": "demo-assistant",
-		"i18n": {
-			"default_locale": "en",
-			"en": {
-				"description": "updated description"
-			}
-		},
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {
@@ -114,9 +93,8 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 		t.Fatalf("PutWorkflow() response = %#v", putResp)
 	}
 	putSingle := mustSingle(t, apitypes.Workflow(putDoc))
-	catalog := putSingle.I18n.En
-	if catalog == nil || catalog.Description == nil || *catalog.Description != "updated description" {
-		t.Fatalf("PutWorkflow() i18n = %#v", putSingle.I18n)
+	if putSingle.Spec.Flowcraft == nil || (*putSingle.Spec.Flowcraft)["runtime"] == nil {
+		t.Fatalf("PutWorkflow() spec = %#v", putSingle.Spec)
 	}
 
 	deleteResp, err := srv.DeleteWorkflow(ctx, adminhttp.DeleteWorkflowRequestObject{Name: "demo-assistant"})
@@ -133,48 +111,6 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 	}
 	if _, ok := getAfterDelete.(adminhttp.GetWorkflow404JSONResponse); !ok {
 		t.Fatalf("GetWorkflow() after delete response = %#v", getAfterDelete)
-	}
-}
-
-func TestServerRejectsInvalidWorkflowI18n(t *testing.T) {
-	t.Parallel()
-
-	stringPtr := func(value string) *string { return &value }
-	validCatalog := apitypes.WorkflowI18nCatalog{Description: stringPtr("description")}
-	cases := map[string]*apitypes.WorkflowI18n{
-		"missing default locale": {
-			En: &validCatalog,
-		},
-		"missing default catalog": {
-			DefaultLocale: apitypes.WorkflowLocaleEn,
-			ZhCN:          &validCatalog,
-		},
-		"unsupported default locale": {
-			DefaultLocale: apitypes.WorkflowLocale("fr"),
-			En:            &validCatalog,
-		},
-	}
-
-	for name, i18n := range cases {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			doc := apitypes.Workflow{
-				I18n: i18n,
-				Name: "invalid-i18n",
-				Spec: apitypes.WorkflowSpec{
-					Driver:    apitypes.WorkflowDriverFlowcraft,
-					Flowcraft: &apitypes.FlowcraftWorkflowSpec{},
-				},
-			}
-			srv := newTestServer(t)
-			resp, err := srv.CreateWorkflow(context.Background(), adminhttp.CreateWorkflowRequestObject{Body: &doc})
-			if err != nil {
-				t.Fatalf("CreateWorkflow() error = %v", err)
-			}
-			if _, ok := resp.(adminhttp.CreateWorkflow400JSONResponse); !ok {
-				t.Fatalf("CreateWorkflow() response = %#v", resp)
-			}
-		})
 	}
 }
 

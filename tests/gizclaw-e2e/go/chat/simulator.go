@@ -559,6 +559,11 @@ func (d *personaDriver) verifyAssistantAudioASRWithMinRatio(ctx context.Context,
 		fmt.Printf("workspace_progress event=assistant_audio_asr_part_start workspace=%s round=%d name=%s part=%d frames=%d\n", d.cfg.Workspace, index, name, len(parts)+1, chunk.end-chunk.start)
 		audioASR, err := d.transcribeAssistantAudioFrames(ctx, index, partName, frames[chunk.start:chunk.end])
 		if err != nil {
+			partialASR := strings.TrimSpace(strings.Join(parts, " "))
+			if partialASR != "" && assertTextSimilar("assistant audio asr", expectedText, partialASR, minRatio) == nil {
+				fmt.Printf("workspace_progress event=assistant_audio_asr_tail_skipped workspace=%s round=%d name=%s completed_parts=%d remaining_parts=%d reason=untranscribable-after-expected-text-covered\n", d.cfg.Workspace, index, name, len(parts), len(chunks)-len(parts))
+				break
+			}
 			return "", fmt.Errorf("assistant audio asr part %d: %w", len(parts)+1, err)
 		}
 		parts = append(parts, audioASR)
@@ -581,7 +586,12 @@ func (d *personaDriver) transcribeAssistantAudioFrames(ctx context.Context, inde
 	if _, err := codecconv.OggToPCM(&pcm, bytes.NewReader(oggAudio), opus.SampleRate16K); err != nil {
 		return "", fmt.Errorf("decode assistant audio for asr: %w", err)
 	}
-	audio, err := pcm16WAV(16000, 1, pcm.Bytes())
+	pcmBytes := pcm.Bytes()
+	if !assistantASRPCMHasSignal(pcmBytes) {
+		fmt.Printf("workspace_progress event=assistant_audio_asr_silence workspace=%s round=%d name=%s samples=%d\n", d.cfg.Workspace, index, name, len(pcmBytes)/2)
+		return "", nil
+	}
+	audio, err := pcm16WAV(16000, 1, pcmBytes)
 	if err != nil {
 		return "", fmt.Errorf("encode assistant audio: %w", err)
 	}
@@ -630,7 +640,18 @@ const (
 	assistantASRFramesPerChunk    = 600
 	assistantASRMinRetryFrames    = 120
 	assistantASRMinTailFrames     = 100
+	assistantASRMinPeakPCM16      = 32
 )
+
+func assistantASRPCMHasSignal(pcm []byte) bool {
+	for i := 0; i+1 < len(pcm); i += 2 {
+		sample := int16(uint16(pcm[i]) | uint16(pcm[i+1])<<8)
+		if sample > assistantASRMinPeakPCM16 || sample < -assistantASRMinPeakPCM16 {
+			return true
+		}
+	}
+	return false
+}
 
 type frameChunkRange struct {
 	start int

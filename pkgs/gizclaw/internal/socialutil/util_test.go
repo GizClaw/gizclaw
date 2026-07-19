@@ -127,13 +127,6 @@ func TestScalarHelpersAndRoles(t *testing.T) {
 	if got := GroupInviteTokenKey("group/a"); len(got) != 2 || got[1] != "group%2Fa" {
 		t.Fatalf("GroupInviteTokenKey = %#v, want escaped group key", got)
 	}
-	role, permissions := WorkspaceACLRole()
-	if role != WorkspaceMemberRoleName || len(permissions) != 2 || permissions[0] != apitypes.ACLPermissionRead || permissions[1] != apitypes.ACLPermissionUse {
-		t.Fatalf("WorkspaceACLRole = %q %#v", role, permissions)
-	}
-	if got := WorkspaceACLBindingID("workspace/a", "peer b"); got != "social-chatroom-workspace:workspace%2Fa:peer+b" {
-		t.Fatalf("WorkspaceACLBindingID = %q, want escaped id", got)
-	}
 }
 
 func TestGroupRolesAndMessageExpiry(t *testing.T) {

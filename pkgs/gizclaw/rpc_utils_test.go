@@ -16,7 +16,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
@@ -113,8 +112,11 @@ func TestRPCServerLogsDomainFailureOnce(t *testing.T) {
 	server := &rpcServer{
 		callerPublicKey: giznet.PublicKey{1},
 		serverResources: &peerresource.Server{
-			Caller:     giznet.PublicKey{1},
-			ACL:        allowResourceAuthorizer{},
+			Caller: giznet.PublicKey{1},
+			RuntimeProfile: func() *apitypes.RuntimeProfile {
+				workflows := map[string]string{"chat": "workflow-a"}
+				return &apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Workflows: &workflows}}}
+			},
 			Workspaces: invalidWorkspaceAdminService{},
 			Workflows: fixedWorkflowAdminService{value: apitypes.Workflow{
 				Name: "workflow-a",
@@ -126,12 +128,13 @@ func TestRPCServerLogsDomainFailureOnce(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
+	source := rpcapi.ResourceSourceRuntime
 	resp, err := callRPC(ctx, clientSide, &rpcapi.RPCRequest{
 		V:      rpcapi.RPCVersionV1,
 		Id:     "request-1",
 		Method: rpcapi.RPCMethodServerWorkspaceCreate,
 		Params: mustRPCParams(rpcapi.WorkspaceCreateRequest{
-			Name: "workspace-a", WorkflowName: "workflow-a",
+			Name: "workspace-a", WorkflowName: "chat", WorkflowSource: &source,
 		}, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest),
 	})
 	if err != nil {
@@ -157,7 +160,7 @@ func TestRPCServerLogsDomainFailureOnce(t *testing.T) {
 	for key, want := range map[string]any{
 		"transport": "rpc", "surface": "peer-rpc", "operation": "server.workspace.create",
 		"result": "client_error", "rpc_code": int64(400), "request_id": "request-1",
-		"error_code": "INVALID_WORKSPACE", "workspace_name": "workspace-a", "workflow_name": "workflow-a",
+		"error_code": "INVALID_WORKSPACE", "workspace_name": "workspace-a", "workflow_name": "chat",
 	} {
 		if got := attrs[key]; got != want {
 			t.Errorf("%s = %#v, want %#v", key, got, want)
@@ -409,10 +412,6 @@ func TestRPCServerLogsStreamingErrorResponse(t *testing.T) {
 		t.Fatalf("response text leaked into attrs: %#v", attrs)
 	}
 }
-
-type allowResourceAuthorizer struct{}
-
-func (allowResourceAuthorizer) Authorize(context.Context, acl.AuthorizeRequest) error { return nil }
 
 type invalidWorkspaceAdminService struct{}
 

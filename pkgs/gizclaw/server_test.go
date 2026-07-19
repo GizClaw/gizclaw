@@ -12,13 +12,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -106,7 +106,6 @@ func TestServerInitKeepsLegacyPeerPrefixWithObjectStores(t *testing.T) {
 		configure func(*Server, objectstore.ObjectStore)
 	}{
 		{name: "workspace", configure: func(server *Server, store objectstore.ObjectStore) { server.WorkspaceAssets = store }},
-		{name: "workflow", configure: func(server *Server, store objectstore.ObjectStore) { server.WorkflowAssets = store }},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -174,33 +173,6 @@ func TestServerInitPreservesExistingObjectStorePeerLayout(t *testing.T) {
 				t.Fatalf("prefixed peer key error = %v, want ErrNotFound", err)
 			}
 		})
-	}
-}
-
-func TestServerInitWiresDefaultPeerView(t *testing.T) {
-	keyPair, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair() error = %v", err)
-	}
-	server := &Server{
-		LocalStatic:     *keyPair,
-		PeerStore:       mustBadgerInMemory(t, nil),
-		DefaultPeerView: "default-client",
-	}
-	if err := server.init(); err != nil {
-		t.Fatalf("init() error = %v", err)
-	}
-
-	peerKeyPair, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair(peer) error = %v", err)
-	}
-	created, err := server.manager.Peers.EnsureConnectedPeer(context.Background(), peerKeyPair.Public)
-	if err != nil {
-		t.Fatalf("EnsureConnectedPeer() error = %v", err)
-	}
-	if created.Configuration.View == nil || *created.Configuration.View != "default-client" {
-		t.Fatalf("created view = %v, want default-client", created.Configuration.View)
 	}
 }
 
@@ -527,6 +499,47 @@ func TestServerServeHTTPLoginRegisterAndPeerAPI(t *testing.T) {
 	if err := server.init(); err != nil {
 		t.Fatalf("init error = %v", err)
 	}
+	modelResponse, err := server.manager.Models.CreateModel(context.Background(), adminhttp.CreateModelRequestObject{Body: &adminhttp.ModelUpsert{
+		Id:     "profile-model",
+		Kind:   apitypes.ModelKindLlm,
+		Source: apitypes.ModelSourceManual,
+		Provider: apitypes.ModelProvider{
+			Kind: "openai-tenant",
+			Name: "global",
+		},
+	}})
+	if err != nil {
+		t.Fatalf("CreateModel error = %v", err)
+	}
+	if _, ok := modelResponse.(adminhttp.CreateModel200JSONResponse); !ok {
+		t.Fatalf("CreateModel response = %#v", modelResponse)
+	}
+	models := map[string]string{"primary": "profile-model"}
+	profileResponse, err := server.manager.RuntimeProfiles.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
+		Name: "public-http-profile",
+		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{
+			Models: &models,
+		}},
+	}})
+	if err != nil {
+		t.Fatalf("CreateRuntimeProfile error = %v", err)
+	}
+	if _, ok := profileResponse.(adminhttp.CreateRuntimeProfile200JSONResponse); !ok {
+		t.Fatalf("CreateRuntimeProfile response = %#v", profileResponse)
+	}
+	server.manager.RuntimeProfiles.FirmwareExists = func(context.Context, string) (bool, error) { return true, nil }
+	tokenResponse, err := server.manager.RuntimeProfiles.CreateRegistrationToken(context.Background(), adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
+		Name:               "public-http-token",
+		FirmwareName:       "test-firmware",
+		RuntimeProfileName: "public-http-profile",
+	}})
+	if err != nil {
+		t.Fatalf("CreateRegistrationToken error = %v", err)
+	}
+	createdToken, ok := tokenResponse.(adminhttp.CreateRegistrationToken200JSONResponse)
+	if !ok || createdToken.Token == "" {
+		t.Fatalf("CreateRegistrationToken response = %#v", tokenResponse)
+	}
 	if _, err := server.manager.EnsurePeer(context.Background(), deviceKey.Public); err != nil {
 		t.Fatalf("EnsurePeer error = %v", err)
 	}
@@ -551,7 +564,7 @@ func TestServerServeHTTPLoginRegisterAndPeerAPI(t *testing.T) {
 	}
 	_ = oldInfoResp.Body.Close()
 
-	session := publicHTTPTestLogin(t, ts.URL, serverKey.Public, deviceKey)
+	session := publicHTTPTestLogin(t, ts.URL, serverKey.Public, deviceKey, createdToken.Token)
 
 	openAIPreflightReq, err := http.NewRequestWithContext(context.Background(), http.MethodOptions, ts.URL+"/openai/v1/models", nil)
 	if err != nil {
@@ -559,7 +572,7 @@ func TestServerServeHTTPLoginRegisterAndPeerAPI(t *testing.T) {
 	}
 	openAIPreflightReq.Header.Set("Origin", "wails://wails.localhost")
 	openAIPreflightReq.Header.Set("Access-Control-Request-Method", http.MethodGet)
-	openAIPreflightReq.Header.Set("Access-Control-Request-Headers", "authorization,x-public-key")
+	openAIPreflightReq.Header.Set("Access-Control-Request-Headers", "authorization,x-public-key,x-registration-token")
 	openAIPreflightResp, err := http.DefaultClient.Do(openAIPreflightReq)
 	if err != nil {
 		t.Fatalf("OPTIONS /openai/v1/models error = %v", err)
@@ -569,7 +582,7 @@ func TestServerServeHTTPLoginRegisterAndPeerAPI(t *testing.T) {
 		body, _ := io.ReadAll(openAIPreflightResp.Body)
 		t.Fatalf("OPTIONS /openai/v1/models status = %d body=%s", openAIPreflightResp.StatusCode, string(body))
 	}
-	if got := openAIPreflightResp.Header.Get("Access-Control-Allow-Headers"); !strings.Contains(got, "Authorization") || !strings.Contains(got, publiclogin.PublicKeyHeader) {
+	if got := openAIPreflightResp.Header.Get("Access-Control-Allow-Headers"); !strings.Contains(got, "Authorization") || !strings.Contains(got, publiclogin.PublicKeyHeader) || !strings.Contains(got, publiclogin.RegistrationTokenHeader) {
 		t.Fatalf("Access-Control-Allow-Headers = %q, want session headers", got)
 	}
 
@@ -704,13 +717,22 @@ func TestServerServeHTTPLoginRegisterAndPeerAPI(t *testing.T) {
 		t.Fatalf("GET /openai/v1/models error = %v", err)
 	}
 	defer openAIResp.Body.Close()
-	if openAIResp.StatusCode == http.StatusNotFound || openAIResp.StatusCode == http.StatusUnauthorized {
+	if openAIResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(openAIResp.Body)
 		t.Fatalf("GET /openai/v1/models status = %d body=%s", openAIResp.StatusCode, string(body))
 	}
+	var modelList struct {
+		Data []apitypes.Model `json:"data"`
+	}
+	if err := json.NewDecoder(openAIResp.Body).Decode(&modelList); err != nil {
+		t.Fatalf("decode GET /openai/v1/models response: %v", err)
+	}
+	if len(modelList.Data) != 1 || modelList.Data[0].Id != "profile-model" {
+		t.Fatalf("GET /openai/v1/models data = %#v", modelList.Data)
+	}
 }
 
-func publicHTTPTestLogin(t *testing.T, baseURL string, serverPublicKey giznet.PublicKey, deviceKey *giznet.KeyPair) peerhttp.LoginResult {
+func publicHTTPTestLogin(t *testing.T, baseURL string, serverPublicKey giznet.PublicKey, deviceKey *giznet.KeyPair, registrationTokens ...string) peerhttp.LoginResult {
 	t.Helper()
 	assertion, err := publiclogin.NewLoginAssertion(deviceKey, serverPublicKey, time.Minute)
 	if err != nil {
@@ -722,6 +744,9 @@ func publicHTTPTestLogin(t *testing.T, baseURL string, serverPublicKey giznet.Pu
 	}
 	req.Header.Set(publiclogin.PublicKeyHeader, deviceKey.Public.String())
 	req.Header.Set("Authorization", "Bearer "+assertion)
+	if len(registrationTokens) > 0 && strings.TrimSpace(registrationTokens[0]) != "" {
+		req.Header.Set(publiclogin.RegistrationTokenHeader, registrationTokens[0])
+	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("POST login error = %v", err)
@@ -735,71 +760,6 @@ func publicHTTPTestLogin(t *testing.T, baseURL string, serverPublicKey giznet.Pu
 		t.Fatalf("decode login response: %v", err)
 	}
 	return result
-}
-
-func TestServerSecurityPolicyAllowServiceUsesPeerPolicy(t *testing.T) {
-	var nilServer *Server
-	if (*ServerSecurityPolicy)(nilServer).AllowService(giznet.PublicKey{}, ServicePeerRPC) {
-		t.Fatal("nil server should deny all services")
-	}
-
-	peerKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair peer error = %v", err)
-	}
-	adminKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair admin error = %v", err)
-	}
-	peersServer := &peer.Server{Store: mustBadgerInMemory(t, nil)}
-	if _, err := peersServer.SavePeer(context.Background(), apitypes.Peer{
-		PublicKey:     peerKey.Public.String(),
-		Role:          apitypes.PeerRoleClient,
-		Status:        apitypes.PeerRegistrationStatusActive,
-		Device:        apitypes.DeviceInfo{},
-		Configuration: apitypes.Configuration{},
-	}); err != nil {
-		t.Fatalf("SavePeer peer error = %v", err)
-	}
-	if _, err := peersServer.SavePeer(context.Background(), apitypes.Peer{
-		PublicKey:     adminKey.Public.String(),
-		Role:          apitypes.PeerRoleAdmin,
-		Status:        apitypes.PeerRegistrationStatusActive,
-		Device:        apitypes.DeviceInfo{},
-		Configuration: apitypes.Configuration{},
-	}); err != nil {
-		t.Fatalf("SavePeer admin error = %v", err)
-	}
-	server := &Server{manager: NewManager(peersServer)}
-	policy := (*ServerSecurityPolicy)(server)
-	if !policy.AllowService(peerKey.Public, ServicePeerRPC) {
-		t.Fatal("peer should allow rpc")
-	}
-	if !policy.AllowService(peerKey.Public, ServicePeerHTTP) {
-		t.Fatal("peer should allow server public")
-	}
-	if policy.AllowService(peerKey.Public, ServiceAdminHTTP) {
-		t.Fatal("non-admin peer should not allow admin")
-	}
-	if !policy.AllowService(adminKey.Public, ServiceAdminHTTP) {
-		t.Fatal("active admin peer should allow admin")
-	}
-	configuredKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair configured error = %v", err)
-	}
-	server.SecurityPolicy = testGiznetSecurityPolicy{
-		allowService: func(publicKey giznet.PublicKey, service uint64) bool {
-			return service == ServiceAdminHTTP && publicKey == configuredKey.Public
-		},
-	}
-	if !policy.AllowService(configuredKey.Public, ServiceAdminHTTP) {
-		t.Fatal("configured security policy should allow admin")
-	}
-	server.SecurityPolicy = nil
-	if policy.AllowService(configuredKey.Public, ServiceAdminHTTP) {
-		t.Fatal("missing configured security policy should not allow admin")
-	}
 }
 
 func TestServerPeerEventHandlerDoesNotClearActivePeer(t *testing.T) {

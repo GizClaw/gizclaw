@@ -9,7 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -141,7 +143,6 @@ func TestServerLoginHandler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewLoginAssertion error = %v", err)
 	}
-
 	server := NewServer(serverKey, kv.NewMemory(nil))
 	manager := server.SessionManager()
 	if manager == nil || manager.Store != server.Store {
@@ -170,6 +171,55 @@ func TestServerLoginHandler(t *testing.T) {
 	}
 }
 
+func TestServerLoginStoresRegistrationSnapshot(t *testing.T) {
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(server) error = %v", err)
+	}
+	deviceKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(device) error = %v", err)
+	}
+	assertion, err := NewLoginAssertion(deviceKey, serverKey.Public, time.Minute)
+	if err != nil {
+		t.Fatalf("NewLoginAssertion error = %v", err)
+	}
+
+	server := NewServer(serverKey, kv.NewMemory(nil))
+	server.RegistrationResolver = func(_ context.Context, token string) (runtimeprofile.Registration, error) {
+		if token != "registration-secret" {
+			return runtimeprofile.Registration{}, fmt.Errorf("invalid token")
+		}
+		return runtimeprofile.Registration{
+			TokenName:      "app-token",
+			FirmwareName:   "app-firmware",
+			RuntimeProfile: apitypes.RuntimeProfile{Name: "app-profile"},
+		}, nil
+	}
+	token := "registration-secret"
+	resp, err := server.Login(context.Background(), peerhttp.LoginRequestObject{
+		Params: peerhttp.LoginParams{
+			XPublicKey:         deviceKey.Public.String(),
+			Authorization:      "Bearer " + assertion,
+			XRegistrationToken: &token,
+		},
+	})
+	if err != nil {
+		t.Fatalf("Login error = %v", err)
+	}
+	ok, isOK := resp.(peerhttp.Login200JSONResponse)
+	if !isOK {
+		t.Fatalf("Login response type = %T", resp)
+	}
+	authenticated, err := server.SessionManager().AuthenticateSession("Bearer " + ok.AccessToken)
+	if err != nil {
+		t.Fatalf("AuthenticateSession error = %v", err)
+	}
+	if authenticated.Registration == nil || authenticated.Registration.RuntimeProfile.Name != "app-profile" {
+		t.Fatalf("registration = %#v", authenticated.Registration)
+	}
+}
+
 func TestServerLoginHandlerRejectsInvalidRequests(t *testing.T) {
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {
@@ -187,6 +237,7 @@ func TestServerLoginHandlerRejectsInvalidRequests(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewLoginAssertion error = %v", err)
 	}
+	registrationToken := "invalid-registration-token"
 
 	tests := []struct {
 		name    string
@@ -225,6 +276,16 @@ func TestServerLoginHandlerRejectsInvalidRequests(t *testing.T) {
 				Authorization: "Bearer " + assertion,
 			},
 			wantErr: "INVALID_ASSERTION",
+		},
+		{
+			name:   "registration unsupported",
+			server: NewServer(serverKey, kv.NewMemory(nil)),
+			params: peerhttp.LoginParams{
+				XPublicKey:         deviceKey.Public.String(),
+				Authorization:      "Bearer " + assertion,
+				XRegistrationToken: &registrationToken,
+			},
+			wantErr: "UNSUPPORTED_REGISTRATION",
 		},
 	}
 

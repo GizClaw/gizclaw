@@ -1294,8 +1294,13 @@ class _OnboardingServerController extends MobileDataController {
   Future<void> addServer({
     required String name,
     required String accessPoint,
+    String registrationToken = '',
   }) async {
-    _selectedServer = GizClawServer(name: name, accessPoint: accessPoint);
+    _selectedServer = GizClawServer(
+      name: name,
+      accessPoint: accessPoint,
+      registrationToken: registrationToken,
+    );
     notifyListeners();
   }
 }
@@ -1308,6 +1313,7 @@ class _ImmediateAddServerController extends _ServerListTestController {
   Future<void> addServer({
     required String name,
     required String accessPoint,
+    String registrationToken = '',
   }) async {
     addedName = name;
     addedAccessPoint = accessPoint;

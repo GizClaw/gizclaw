@@ -151,9 +151,8 @@ func newRunStatusCmd() *cobra.Command {
 }
 
 func newSayCmd() *cobra.Command {
-	var ctxName string
+	var opts connectRPCOptions
 	var voiceID string
-	var timeout time.Duration = 30 * time.Second
 
 	cmd := &cobra.Command{
 		Use:   "say --voice <voice-id> <text>",
@@ -171,27 +170,16 @@ func newSayCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, err := connectFromContext(ctxName)
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-
-			ctx, cancel := context.WithTimeout(context.Background(), timeout)
-			defer cancel()
-			resp, err := c.ServerRunSay(ctx, "server.run.say", rpcapi.ServerRunSayRequest{
-				Text:    strings.Join(args, " "),
-				VoiceId: stringPtr(strings.TrimSpace(voiceID)),
+			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
+				return c.ServerRunSay(ctx, "server.run.say", rpcapi.ServerRunSayRequest{
+					Text:    strings.Join(args, " "),
+					VoiceId: stringPtr(strings.TrimSpace(voiceID)),
+				})
 			})
-			if err != nil {
-				return err
-			}
-			return json.NewEncoder(cmd.OutOrStdout()).Encode(resp)
 		},
 	}
-	cmd.Flags().StringVar(&ctxName, "context", "", "context name (default: current)")
+	opts.addFlags(cmd)
 	cmd.Flags().StringVar(&voiceID, "voice", "", "voice id")
-	cmd.Flags().DurationVar(&timeout, "timeout", timeout, "say timeout")
 	return cmd
 }
 
@@ -239,13 +227,15 @@ func newTestSpeedCmd() *cobra.Command {
 }
 
 type connectRPCOptions struct {
-	contextName string
-	timeout     time.Duration
+	contextName       string
+	registrationToken string
+	timeout           time.Duration
 }
 
 func (o *connectRPCOptions) addFlags(cmd *cobra.Command) {
 	o.timeout = 30 * time.Second
 	cmd.Flags().StringVar(&o.contextName, "context", "", "context name (default: current)")
+	cmd.Flags().StringVar(&o.registrationToken, "registration-token", "", "register this connection with a pre-provisioned token")
 	cmd.Flags().DurationVar(&o.timeout, "timeout", o.timeout, "RPC timeout")
 }
 
@@ -258,11 +248,23 @@ func runConnectJSON(cmd *cobra.Command, opts connectRPCOptions, run func(context
 
 	ctx, cancel := context.WithTimeout(context.Background(), opts.timeout)
 	defer cancel()
+	if err := registerConnectClient(ctx, c, opts); err != nil {
+		return err
+	}
 	result, err := run(ctx, c)
 	if err != nil {
 		return err
 	}
 	return json.NewEncoder(cmd.OutOrStdout()).Encode(result)
+}
+
+func registerConnectClient(ctx context.Context, client *gizcli.Client, opts connectRPCOptions) error {
+	token := strings.TrimSpace(opts.registrationToken)
+	if token == "" {
+		return nil
+	}
+	_, err := client.Register(ctx, "server.register", token)
+	return err
 }
 
 func optionalString(value string) *string {
@@ -394,6 +396,9 @@ func newFirmwareDownloadCmd() *cobra.Command {
 			defer c.Close()
 			ctx, cancel := context.WithTimeout(context.Background(), opts.timeout)
 			defer cancel()
+			if err := registerConnectClient(ctx, c, opts); err != nil {
+				return err
+			}
 			channel, err := firmwareChannelFlag(channelValue)
 			if err != nil {
 				return err

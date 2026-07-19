@@ -5,7 +5,24 @@ import (
 	"net"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 )
+
+func (c *rpcClient) Register(ctx context.Context, conn net.Conn, id, token string) (*rpcpb.ServerRegisterResponse, error) {
+	request := rpcapi.ServerRegisterRequest{Token: token}
+	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromServerRegisterRequest)
+	if err != nil {
+		return nil, err
+	}
+	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodServerRegister, params), rpcapi.RPCPayload.AsServerRegisterResponse)
+	if err != nil {
+		return nil, wrapRPCResultError("server register", err)
+	}
+	return &rpcpb.ServerRegisterResponse{
+		FirmwareName:       result.FirmwareName,
+		RuntimeProfileName: result.RuntimeProfileName,
+	}, nil
+}
 
 func callResourceRPC[Req any, Resp any](
 	ctx context.Context,
@@ -62,6 +79,18 @@ func (c *rpcClient) ListWorkflows(ctx context.Context, conn net.Conn, id string,
 
 func (c *rpcClient) GetWorkflow(ctx context.Context, conn net.Conn, id string, request rpcapi.WorkflowGetRequest) (*rpcapi.WorkflowGetResponse, error) {
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerWorkflowGet, request, (*rpcapi.RPCPayload).FromWorkflowGetRequest, rpcapi.RPCPayload.AsWorkflowGetResponse, "workflow get")
+}
+
+func (c *rpcClient) CreateWorkflow(ctx context.Context, conn net.Conn, id string, request rpcapi.WorkflowCreateRequest) (*rpcapi.WorkflowCreateResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerWorkflowCreate, request, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, rpcapi.RPCPayload.AsWorkflowCreateResponse, "workflow create")
+}
+
+func (c *rpcClient) PutWorkflow(ctx context.Context, conn net.Conn, id string, request rpcapi.WorkflowPutRequest) (*rpcapi.WorkflowPutResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerWorkflowPut, request, (*rpcapi.RPCPayload).FromWorkflowPutRequest, rpcapi.RPCPayload.AsWorkflowPutResponse, "workflow put")
+}
+
+func (c *rpcClient) DeleteWorkflow(ctx context.Context, conn net.Conn, id string, request rpcapi.WorkflowDeleteRequest) (*rpcapi.WorkflowDeleteResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerWorkflowDelete, request, (*rpcapi.RPCPayload).FromWorkflowDeleteRequest, rpcapi.RPCPayload.AsWorkflowDeleteResponse, "workflow delete")
 }
 
 func (c *rpcClient) ListModels(ctx context.Context, conn net.Conn, id string, request rpcapi.ModelListRequest) (*rpcapi.ModelListResponse, error) {
@@ -204,10 +233,6 @@ func (c *rpcClient) DeleteFriendGroupMember(ctx context.Context, conn net.Conn, 
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendGroupMembersDelete, request, (*rpcapi.RPCPayload).FromFriendGroupMemberDeleteRequest, rpcapi.RPCPayload.AsFriendGroupMemberDeleteResponse, "friend group member delete")
 }
 
-func (c *rpcClient) GetGameRuleset(ctx context.Context, conn net.Conn, id string, request rpcapi.ServerGameRulesetGetRequest) (*rpcapi.ServerGameRulesetGetResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerGameRulesetGet, request, (*rpcapi.RPCPayload).FromServerGameRulesetGetRequest, rpcapi.RPCPayload.AsServerGameRulesetGetResponse, "game ruleset get")
-}
-
 func (c *rpcClient) ListPets(ctx context.Context, conn net.Conn, id string, request rpcapi.ServerPetListRequest) (*rpcapi.ServerPetListResponse, error) {
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerPetList, request, (*rpcapi.RPCPayload).FromServerPetListRequest, rpcapi.RPCPayload.AsServerPetListResponse, "pet list")
 }
@@ -220,8 +245,8 @@ func (c *rpcClient) GetPetActions(ctx context.Context, conn net.Conn, id string,
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerPetActionsGet, request, (*rpcapi.RPCPayload).FromServerPetActionsGetRequest, rpcapi.RPCPayload.AsServerPetActionsGetResponse, "pet actions get")
 }
 
-func (c *rpcClient) AdoptPet(ctx context.Context, conn net.Conn, id string, request rpcapi.ServerPetAdoptRequest) (*rpcapi.ServerPetAdoptResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerPetAdopt, request, (*rpcapi.RPCPayload).FromServerPetAdoptRequest, rpcapi.RPCPayload.AsServerPetAdoptResponse, "pet adopt")
+func (c *rpcClient) AdoptPet(ctx context.Context, conn net.Conn, id string, request rpcapi.RuntimeAdoptRequest) (*rpcapi.RuntimeAdoptResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodRuntimeAdopt, request, (*rpcapi.RPCPayload).FromRuntimeAdoptRequest, rpcapi.RPCPayload.AsRuntimeAdoptResponse, "runtime adopt")
 }
 
 func (c *rpcClient) PutPet(ctx context.Context, conn net.Conn, id string, request rpcapi.ServerPetPutRequest) (*rpcapi.ServerPetPutResponse, error) {

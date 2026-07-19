@@ -11,7 +11,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -170,144 +169,6 @@ func TestInviteTokenExpiryAndClear(t *testing.T) {
 	}
 }
 
-func TestAddAndDeleteMaintainChatWorkspace(t *testing.T) {
-	ctx := context.Background()
-	s := newTestServer()
-	workspaces := &recordingWorkspaceService{}
-	aclSvc := &recordingACL{}
-	s.Workspaces = workspaces
-	s.ACL = aclSvc
-
-	token, err := s.CreateFriendInviteToken(ctx, "peer-b", rpcapi.FriendInviteTokenCreateRequest{})
-	if err != nil {
-		t.Fatalf("CreateFriendInviteToken: %v", err)
-	}
-	friend, err := s.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{InviteToken: token.InviteToken})
-	if err != nil {
-		t.Fatalf("AddFriend: %v", err)
-	}
-	workspaceName := socialutil.StringValue(friend.WorkspaceName)
-	if workspaceName == "" {
-		t.Fatal("friend workspace_name is empty")
-	}
-	if len(workspaces.created) != 1 || workspaces.created[0].Name != workspaceName || workspaces.created[0].WorkflowName != socialutil.ChatRoomWorkflowName {
-		t.Fatalf("created workspaces = %#v, want %q chatroom", workspaces.created, workspaceName)
-	}
-	if err := aclSvc.authorizeWorkspace(workspaceName, "peer-a"); err != nil {
-		t.Fatalf("peer-a workspace authorize: %v", err)
-	}
-	if err := aclSvc.authorizeWorkspace(workspaceName, "peer-b"); err != nil {
-		t.Fatalf("peer-b workspace authorize: %v", err)
-	}
-
-	if _, err := s.DeleteFriend(ctx, "peer-a", rpcapi.FriendDeleteRequest{Id: socialutil.StringValue(friend.Id)}); err != nil {
-		t.Fatalf("DeleteFriend: %v", err)
-	}
-	if len(workspaces.deleted) != 1 || workspaces.deleted[0] != workspaceName {
-		t.Fatalf("deleted workspaces = %#v, want %q", workspaces.deleted, workspaceName)
-	}
-	if err := aclSvc.authorizeWorkspace(workspaceName, "peer-a"); !errors.Is(err, acl.ErrDenied) {
-		t.Fatalf("peer-a workspace authorize after delete = %v, want denied", err)
-	}
-	if err := aclSvc.authorizeWorkspace(workspaceName, "peer-b"); !errors.Is(err, acl.ErrDenied) {
-		t.Fatalf("peer-b workspace authorize after delete = %v, want denied", err)
-	}
-	peerBFriends, err := s.ListFriends(ctx, "peer-b", rpcapi.FriendListRequest{})
-	if err != nil {
-		t.Fatalf("ListFriends peer-b: %v", err)
-	}
-	if len(peerBFriends.Items) != 0 {
-		t.Fatalf("peer-b friends after delete = %#v, want none", peerBFriends.Items)
-	}
-}
-
-func TestAdminCreateFriendMaintainsRowsAndChatWorkspace(t *testing.T) {
-	ctx := context.Background()
-	s := newTestServer()
-	workspaces := &recordingWorkspaceService{}
-	aclSvc := &recordingACL{}
-	s.Workspaces = workspaces
-	s.ACL = aclSvc
-
-	friend, err := s.AdminCreateFriend(ctx, "peer-a", "peer-b")
-	if err != nil {
-		t.Fatalf("AdminCreateFriend: %v", err)
-	}
-	relationID := socialutil.RelationID("peer-a", "peer-b")
-	if socialutil.StringValue(friend.Id) != "peer-b" || socialutil.StringValue(friend.PeerPublicKey) != "peer-b" {
-		t.Fatalf("AdminCreateFriend item = %#v", friend)
-	}
-	workspaceName := socialutil.StringValue(friend.WorkspaceName)
-	if workspaceName == "" {
-		t.Fatal("AdminCreateFriend workspace_name is empty")
-	}
-	if len(workspaces.created) != 1 || workspaces.created[0].Name != workspaceName {
-		t.Fatalf("created workspaces = %#v, want %q", workspaces.created, workspaceName)
-	}
-	if err := aclSvc.authorizeWorkspace(workspaceName, "peer-a"); err != nil {
-		t.Fatalf("peer-a workspace authorize: %v", err)
-	}
-	if err := aclSvc.authorizeWorkspace(workspaceName, "peer-b"); err != nil {
-		t.Fatalf("peer-b workspace authorize: %v", err)
-	}
-
-	otherRow, err := s.GetFriendRelation(ctx, "peer-b", relationID)
-	if err != nil {
-		t.Fatalf("GetFriendRelation peer-b: %v", err)
-	}
-	if socialutil.StringValue(otherRow.Id) != "peer-a" || socialutil.StringValue(otherRow.PeerPublicKey) != "peer-a" || socialutil.StringValue(otherRow.WorkspaceName) != workspaceName {
-		t.Fatalf("peer-b row = %#v", otherRow)
-	}
-	duplicate, err := s.AdminCreateFriend(ctx, "peer-a", "peer-b")
-	if err != nil {
-		t.Fatalf("AdminCreateFriend duplicate: %v", err)
-	}
-	if socialutil.StringValue(duplicate.Id) != "peer-b" || len(workspaces.created) != 1 {
-		t.Fatalf("duplicate = %#v created=%#v, want existing row without new workspace", duplicate, workspaces.created)
-	}
-	adminPage, err := s.AdminListFriends(ctx, nil, socialutil.IntPtr(1))
-	if err != nil {
-		t.Fatalf("AdminListFriends first page: %v", err)
-	}
-	if len(adminPage.Items) != 1 || !adminPage.HasNext || adminPage.NextCursor == nil {
-		t.Fatalf("AdminListFriends first page = %#v, want one row with next cursor", adminPage)
-	}
-	if adminPage.Items[0].OwnerPublicKey == "" || adminPage.Items[0].PeerPublicKey == "" || adminPage.Items[0].Id != adminPage.Items[0].PeerPublicKey {
-		t.Fatalf("AdminListFriends item = %#v", adminPage.Items[0])
-	}
-	nextPage, err := s.AdminListFriends(ctx, adminPage.NextCursor, socialutil.IntPtr(10))
-	if err != nil {
-		t.Fatalf("AdminListFriends next page: %v", err)
-	}
-	if len(nextPage.Items) != 1 || nextPage.HasNext {
-		t.Fatalf("AdminListFriends next page = %#v, want final single row", nextPage)
-	}
-	adminRow, err := s.AdminGetFriend(ctx, "peer-a", relationID)
-	if err != nil {
-		t.Fatalf("AdminGetFriend: %v", err)
-	}
-	if adminRow.OwnerPublicKey != "peer-a" || adminRow.Id != "peer-b" || adminRow.PeerPublicKey != "peer-b" || adminRow.WorkspaceName != workspaceName {
-		t.Fatalf("AdminGetFriend row = %#v", adminRow)
-	}
-	if _, err := s.AdminCreateFriend(ctx, "peer-a", "peer-a"); err == nil {
-		t.Fatal("AdminCreateFriend self error = nil")
-	}
-
-	deleted, err := s.AdminDeleteFriend(ctx, "peer-a", relationID)
-	if err != nil {
-		t.Fatalf("AdminDeleteFriend: %v", err)
-	}
-	if deleted.OwnerPublicKey != "peer-a" || deleted.Id != "peer-b" || deleted.PeerPublicKey != "peer-b" {
-		t.Fatalf("AdminDeleteFriend row = %#v", deleted)
-	}
-	if _, err := s.GetFriendRelation(ctx, "peer-a", relationID); !errors.Is(err, kv.ErrNotFound) {
-		t.Fatalf("peer-a row after delete error = %v, want not found", err)
-	}
-	if _, err := s.GetFriendRelation(ctx, "peer-b", relationID); !errors.Is(err, kv.ErrNotFound) {
-		t.Fatalf("peer-b row after delete error = %v, want not found", err)
-	}
-}
-
 func TestAdminFriendResourceWrappersAndCursorHelpers(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer()
@@ -337,30 +198,6 @@ func TestAdminFriendResourceWrappersAndCursorHelpers(t *testing.T) {
 	}
 	if after := adminFriendCursorAfter("/missing-owner"); after != nil {
 		t.Fatalf("adminFriendCursorAfter malformed = %#v, want nil", after)
-	}
-}
-
-func TestAddFriendRollsBackWorkspaceWhenFriendRowsFail(t *testing.T) {
-	ctx := context.Background()
-	s := newTestServer()
-	workspaces := &recordingWorkspaceService{}
-	aclSvc := &recordingACL{}
-	s.Workspaces = workspaces
-	s.ACL = aclSvc
-	token, err := s.CreateFriendInviteToken(ctx, "peer-b", rpcapi.FriendInviteTokenCreateRequest{})
-	if err != nil {
-		t.Fatalf("CreateFriendInviteToken: %v", err)
-	}
-	s.Friends = failingBatchSetStore{Store: kv.NewMemory(nil)}
-	if _, err := s.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{InviteToken: token.InviteToken}); err == nil {
-		t.Fatal("AddFriend with failing friend store error = nil")
-	}
-	workspaceName := socialutil.DirectWorkspaceName(socialutil.RelationID("peer-a", "peer-b"))
-	if len(workspaces.deleted) != 1 || workspaces.deleted[0] != workspaceName {
-		t.Fatalf("deleted workspaces after rollback = %#v, want %q", workspaces.deleted, workspaceName)
-	}
-	if err := aclSvc.authorizeWorkspace(workspaceName, "peer-a"); !errors.Is(err, acl.ErrDenied) {
-		t.Fatalf("peer-a workspace authorize after rollback = %v, want denied", err)
 	}
 }
 
@@ -499,49 +336,4 @@ func (s *recordingWorkspaceService) CreateWorkspace(_ context.Context, req admin
 func (s *recordingWorkspaceService) DeleteWorkspace(_ context.Context, req adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {
 	s.deleted = append(s.deleted, req.Name)
 	return adminhttp.DeleteWorkspace200JSONResponse(apitypes.Workspace{Name: req.Name}), nil
-}
-
-type recordingACL struct {
-	roles    map[string]apitypes.ACLPermissionList
-	bindings map[string]apitypes.ACLPolicy
-}
-
-func (a *recordingACL) PutRole(_ context.Context, name string, permissions apitypes.ACLPermissionList) (apitypes.ACLRole, error) {
-	if a.roles == nil {
-		a.roles = make(map[string]apitypes.ACLPermissionList)
-	}
-	a.roles[name] = permissions
-	return apitypes.ACLRole{Name: name, Permissions: permissions}, nil
-}
-
-func (a *recordingACL) PutPolicyBinding(_ context.Context, id string, _ float64, policy apitypes.ACLPolicy) (apitypes.ACLPolicyBinding, error) {
-	if a.bindings == nil {
-		a.bindings = make(map[string]apitypes.ACLPolicy)
-	}
-	a.bindings[id] = policy
-	return apitypes.ACLPolicyBinding{Id: id, Policy: policy}, nil
-}
-
-func (a *recordingACL) DeletePolicyBinding(_ context.Context, id string) (apitypes.ACLPolicyBinding, error) {
-	if a.bindings == nil {
-		return apitypes.ACLPolicyBinding{}, acl.ErrPolicyBindingNotFound
-	}
-	policy, ok := a.bindings[id]
-	if !ok {
-		return apitypes.ACLPolicyBinding{}, acl.ErrPolicyBindingNotFound
-	}
-	delete(a.bindings, id)
-	return apitypes.ACLPolicyBinding{Id: id, Policy: policy}, nil
-}
-
-func (a *recordingACL) authorizeWorkspace(workspaceName string, peerID string) error {
-	id := socialutil.WorkspaceACLBindingID(workspaceName, peerID)
-	policy, ok := a.bindings[id]
-	if !ok {
-		return acl.ErrDenied
-	}
-	if policy.Resource.Kind != apitypes.ACLResourceKindWorkspace || policy.Resource.Id != workspaceName || policy.Subject.Kind != apitypes.ACLSubjectKindPk || policy.Subject.Id != peerID {
-		return errors.New("unexpected workspace ACL policy")
-	}
-	return nil
 }

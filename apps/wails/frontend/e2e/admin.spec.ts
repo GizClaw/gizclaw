@@ -24,21 +24,6 @@ test.beforeEach(async ({ page }) => {
       });
     const friend = { id: "peer-a:peer-b", owner_public_key: "peer-a", peer_public_key: "peer-b", workspace_name: "friend-workspace" };
     const data = {
-      "/acl/policy-bindings": pageResponse([
-        {
-          display_order: 10,
-          id: "binding-admin",
-          policy: {
-            permissions: ["read"],
-            resource: { id: "default-view", kind: "view" },
-            role: "admin-role",
-            subject: { id: "peer-public-key-1", kind: "peer" },
-          },
-          updated_at: "2026-07-01T00:00:00Z",
-        },
-      ]),
-      "/acl/roles": pageResponse([{ name: "admin-role", permissions: ["read"], updated_at: "2026-07-01T00:00:00Z" }]),
-      "/acl/views": pageResponse([{ name: "default-view", resources: [], updated_at: "2026-07-01T00:00:00Z" }]),
       "/credentials": pageResponse([{ body: { api_key: "set" }, name: "fake-openai-credential-000", provider: "openai", updated_at: "2026-07-01T00:00:00Z" }]),
       "/dashscope-tenants": pageResponse([{ credential_name: "dashscope-credential", name: "dashscope-tenant", updated_at: "2026-07-01T00:00:00Z" }]),
       "/firmwares": pageResponse([{ name: "devkit-firmware-main", slots: { beta: {}, develop: {}, pending: {}, stable: {} }, updated_at: "2026-07-01T00:00:00Z" }]),
@@ -59,10 +44,6 @@ test.beforeEach(async ({ page }) => {
       "/volc-tenants": pageResponse([{ credential_name: "volc-credential", name: "volc-tenant", updated_at: "2026-07-01T00:00:00Z" }]),
       "/workflows": pageResponse([{
         name: "openai-chat",
-        i18n: {
-          default_locale: "en",
-          en: { name: "OpenAI Chat", description: "Chat with an OpenAI model." },
-        },
         spec: { driver: "flowcraft" },
       }]),
       "/workspaces": pageResponse([{ name: "main-workspace", workflow_name: "openai-chat", updated_at: "2026-07-01T00:00:00Z" }]),
@@ -93,8 +74,8 @@ test("admin view renders full resource manager pages", async ({ page }) => {
 
   await page.getByRole("button", { name: "Workflows" }).click();
   await expect(page.getByRole("heading", { name: "Workflows" })).toBeVisible();
-  await expect(page.getByText("OpenAI Chat")).toBeVisible();
-  await expect(page.getByText("openai-chat")).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Display name" })).toHaveCount(0);
+  await expect(page.getByText("openai-chat").first()).toBeVisible();
 
   await page.getByRole("button", { name: "Firmwares" }).click();
   await expect(page.getByRole("heading", { name: "Firmwares" })).toBeVisible();
@@ -156,17 +137,20 @@ test("admin view covers provider, AI, social, and settings sections", async ({ p
   await expect(page.getByRole("heading", { name: "Resources" })).toBeVisible();
   const resourceJSON = page.getByRole("textbox").last();
   await page.getByRole("combobox").click();
-  await page.getByRole("option", { name: "GameRuleset" }).click();
-  await expect(resourceJSON).toHaveValue(/"kind": "GameRuleset"/);
+  await page.getByRole("option", { name: "RuntimeProfile" }).click();
+  await expect(resourceJSON).toHaveValue(/"kind": "RuntimeProfile"/);
   await expect(resourceJSON).toHaveValue(/"pet_pool"/);
+  await expect(resourceJSON).toHaveValue(/"tragon": "petdef-tragon"/);
+  await page.getByRole("combobox").click();
+  await page.getByRole("option", { name: "RegistrationToken" }).click();
+  await expect(resourceJSON).toHaveValue(/"kind": "RegistrationToken"/);
+  await expect(resourceJSON).toHaveValue(/"firmware_name": "firmware-default"/);
+  await expect(resourceJSON).toHaveValue(/"runtime_profile_name": "runtime-profile-default"/);
   await page.getByRole("combobox").click();
   await page.getByRole("option", { name: "PetDef" }).click();
   await expect(resourceJSON).toHaveValue(/"kind": "PetDef"/);
   await expect(resourceJSON).toHaveValue(/"default_locale"/);
 
-  await page.getByRole("button", { name: "Access Control" }).click();
-  await expect(page.getByRole("heading", { name: "Access Control" })).toBeVisible();
-  await expect(page.getByText("binding-admin")).toBeVisible();
 });
 
 test("admin social friend detail loads workspace history and downloads audio", async ({ page }) => {

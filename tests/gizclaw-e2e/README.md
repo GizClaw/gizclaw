@@ -52,7 +52,20 @@ stops the stack on success or failure. Required live cases fail rather than
 being reported as skipped when the environment becomes unavailable.
 
 Each ordered phase emits `phase start` and `phase done` lines with status and
-elapsed seconds. Chat live cases also emit one `workspace_case_attempt` and
+elapsed seconds. The complete gate has a 90-minute deadline, and every phase
+has its own deadline (15 minutes by default, 30 minutes for Docker setup and
+the CLI suite, 45 minutes for the live chat matrix, and 5 minutes for Docker
+cleanup). A deadline exits with status 124, terminates the active phase, and
+still runs bounded Docker cleanup. The last cleanup line reports total elapsed
+seconds. Override the finite budgets with positive integer seconds in
+`GIZCLAW_E2E_FULL_DEADLINE_SECONDS`, `GIZCLAW_E2E_PHASE_DEADLINE_SECONDS`,
+`GIZCLAW_E2E_PREFLIGHT_DEADLINE_SECONDS`,
+`GIZCLAW_E2E_DOCKER_SETUP_DEADLINE_SECONDS`,
+`GIZCLAW_E2E_DOCKER_CLEANUP_DEADLINE_SECONDS`,
+`GIZCLAW_E2E_CHAT_DEADLINE_SECONDS`, or
+`GIZCLAW_E2E_CLI_DEADLINE_SECONDS`.
+
+Chat live cases also emit one `workspace_case_attempt` and
 `workspace_case_attempt_done` pair per configuration attempt, including retry
 number, elapsed time, result, and whether the failure was retryable.
 
@@ -180,13 +193,11 @@ gizclaw_bin="tests/gizclaw-e2e/testdata/bin/gizclaw"
 "$gizclaw_bin" context info
 ```
 
-`context create` generates a new client identity. If that identity should use
-the default shared client view, pass its `identity_public` from
-`gizclaw context info` to the Docker-backed setup server:
-
-```sh
-bash tests/gizclaw-e2e/setup/apply_client_view.sh <identity_public>
-```
+`context create` generates a new client identity. To expose seeded resources to
+that device, create a RegistrationToken for the intended firmware and
+RuntimeProfile through the admin CLI, then pass the raw token once with
+`--registration-token` on a resource command. The server snapshots that profile
+onto the connection; reconnecting requires registration again.
 
 Then regular CLI commands can use the context:
 
@@ -282,8 +293,8 @@ tests/gizclaw-e2e/testdata/bin/
 ## Resource Set
 
 Docker setup creates a small real deployment: provider tenants, model rows,
-voice rows, workflows, workspaces, firmware entries, ACL policy bindings, and
-social graph rows. Client, CLI, and UI tests should use this shared business
+voice rows, workflows, workspaces, firmware entries, RuntimeProfiles, and social
+graph rows. Client, CLI, and UI tests should use this shared business
 resource set instead of adding private per-test or UI-specific resource groups.
 Tests may still create and delete `mutation-*` resources for mutation coverage.
 
@@ -294,13 +305,13 @@ resources/
   00-credentials/
   01-tenants/
   03-models/
+  03-tools/
   04-workflows/
   05-workspaces/
   06-firmwares/
   07-gameplay/
   08-voices/
   09-social/
-  90-acl/
   assets/
 ```
 
@@ -339,13 +350,9 @@ downloadable firmware payload is the tar fixture at
 `testdata/assets/firmware/devkit-firmware-main.tar`.
 
 The non-synthetic Workflow files numbered `00` through `14`, `20` through `23`,
-and `30` form the shared localized catalog. Each keeps `metadata.name` as its
-stable resource ID and declares complete `en` and `zh-CN` display text. Matching
-PNG and PIXA files live under
-`testdata/assets/workflows/<metadata.name>/`. Both reset entrypoints apply all
-Workflow YAML first and then call `admin workflows upload-icon` for each format;
-fixture YAML never contains owner object names, and setup code never writes the
-ObjectStore directly. Re-running reset overwrites the same owner-generated slots.
+and `30` form the shared execution catalog. Workflow resources contain only a
+stable `metadata.name` and execution `spec`; icon and localized display text are
+owned by the client mapping for each RuntimeProfile alias.
 
 Provider-independent resource rows use schema-valid committed metadata, but the
 full e2e resource catalog also includes real provider rows. Required provider
@@ -395,7 +402,7 @@ prefix, and individual methods should be split by `Test...` functions.
 ordinary `_test.go` files.
 
 `go/social` contains friend and friend-group behavior. These tests are
-client-driven and should cover relation changes, workspace ACL visibility,
+client-driven and should cover relation changes, domain-workspace visibility,
 message rounds, `workspace.history.updated`, history list/get cursor behavior,
 and history replay.
 

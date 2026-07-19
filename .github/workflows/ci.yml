@@ -65,6 +65,37 @@ jobs:
       - name: Run C bridge checkptr tests
         run: go test -gcflags=all=-d=checkptr=2 ./sdk/c/gizclaw/cgobackend -count=1
 
+      - name: Compile C SDK smoke test
+        run: >-
+          cc -std=c11 -Wall -Wextra -Werror
+          -I sdk/c/gizclaw/include
+          -I sdk/c/gizclaw/generated
+          -I third_party/nanopb/upstream
+          sdk/c/gizclaw/tests/gzc_client_smoke_test.c
+          sdk/c/gizclaw/src/*.c
+          sdk/c/gizclaw/generated/*.pb.c
+          sdk/c/gizclaw/generated/google/protobuf/*.pb.c
+          sdk/c/gizclaw/generated/payload/*.pb.c
+          third_party/nanopb/upstream/pb_common.c
+          third_party/nanopb/upstream/pb_decode.c
+          third_party/nanopb/upstream/pb_encode.c
+          -o /tmp/gzc_client_smoke_test
+
+      - name: Run C SDK smoke test
+        run: /tmp/gzc_client_smoke_test
+
+      - name: Compile C++ SDK headers
+        run: >-
+          c++ -std=c++17 -Wall -Wextra -Werror
+          -I sdk/c/gizclaw/include
+          -I sdk/c/gizclaw/generated
+          -I third_party/nanopb/upstream
+          sdk/c/gizclaw/tests/gzc_cpp_headers_smoke_test.cpp
+          -o /tmp/gzc_cpp_headers_smoke_test
+
+      - name: Run C++ SDK headers smoke test
+        run: /tmp/gzc_cpp_headers_smoke_test
+
       - name: Run tests
         env:
           GOFLAGS: -mod=readonly
@@ -121,7 +152,6 @@ jobs:
           ./cmd/internal/storage
           ./cmd/internal/stores
           ./cmd/internal/server
-          ./pkgs/gizclaw/services/system/acl
           ./pkgs/gizclaw/services/gameplay
 
   nested-go-modules:

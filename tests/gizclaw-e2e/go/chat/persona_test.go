@@ -690,6 +690,10 @@ func TestPersonaDriverRunRoundVerifiesAssistantAudio(t *testing.T) {
 	events := make(chan timedPeerEvent, 5)
 	label := "assistant"
 	opusPackets := make(chan timedPeerPacket, 1)
+	assistantFrames, err := opusPacketsFromPCM16LE(testSignalPCM16Mono16K(20*time.Millisecond), 16000, 1)
+	if err != nil || len(assistantFrames) != 1 {
+		t.Fatalf("assistant opus frames = %d, error = %v", len(assistantFrames), err)
+	}
 	var publish sync.Once
 	stream := newFakePeerStream()
 	stream.push = func(chunk *genx.MessageChunk) error {
@@ -707,7 +711,7 @@ func TestPersonaDriverRunRoundVerifiesAssistantAudio(t *testing.T) {
 				Label:    &label,
 				StreamId: &responseStreamID,
 			})
-			opusPackets <- newTimedPeerPacket([]byte{0x44})
+			opusPackets <- newTimedPeerPacket(assistantFrames[0])
 		})
 		return nil
 	}
@@ -913,12 +917,57 @@ func TestAssistantASRFrameChunksMergesShortTail(t *testing.T) {
 	}
 }
 
+func TestAssistantASRPCMHasSignal(t *testing.T) {
+	tests := []struct {
+		name string
+		pcm  []byte
+		want bool
+	}{
+		{name: "empty", pcm: nil, want: false},
+		{name: "codec silence", pcm: []byte{0x01, 0x00, 0xff, 0xff}, want: false},
+		{name: "positive signal", pcm: []byte{0x21, 0x00}, want: true},
+		{name: "negative signal", pcm: []byte{0xdf, 0xff}, want: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := assistantASRPCMHasSignal(tt.pcm); got != tt.want {
+				t.Fatalf("assistantASRPCMHasSignal(%v) = %t, want %t", tt.pcm, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTranscribeAssistantAudioFramesSkipsSilence(t *testing.T) {
+	if !opus.IsRuntimeSupported() {
+		t.Skip("requires native opus runtime")
+	}
+	frames, err := opusPacketsFromPCM16LE(silencePCM16Mono16K(2*time.Second), 16000, 1)
+	if err != nil {
+		t.Fatalf("opusPacketsFromPCM16LE: %v", err)
+	}
+	transcriptionCalls := 0
+	driver := &personaDriver{
+		cfg: config{Workspace: "silence-tail"},
+		transcribeAudioFile: func(context.Context, string) (string, error) {
+			transcriptionCalls++
+			return "unexpected", nil
+		},
+	}
+	got, err := driver.transcribeAssistantAudioFrames(context.Background(), 1, "assistant-tail", frames)
+	if err != nil {
+		t.Fatalf("transcribeAssistantAudioFrames() error = %v", err)
+	}
+	if got != "" || transcriptionCalls != 0 {
+		t.Fatalf("silent transcription = %q, calls = %d", got, transcriptionCalls)
+	}
+}
+
 func TestVerifyAssistantAudioASRSplitsFailedLargeChunk(t *testing.T) {
 	if !opus.IsRuntimeSupported() {
 		t.Skip("requires native opus runtime")
 	}
 	frames, err := opusPacketsFromPCM16LE(
-		silencePCM16Mono16K(time.Duration(assistantASRMinRetryFrames*2)*20*time.Millisecond),
+		testSignalPCM16Mono16K(time.Duration(assistantASRMinRetryFrames*2)*20*time.Millisecond),
 		16000,
 		1,
 	)
@@ -957,6 +1006,62 @@ func TestVerifyAssistantAudioASRSplitsFailedLargeChunk(t *testing.T) {
 	}
 	if !sawBase || !sawLeft || !sawRight {
 		t.Fatalf("saw base/left/right = %t/%t/%t", sawBase, sawLeft, sawRight)
+	}
+}
+
+func testSignalPCM16Mono16K(duration time.Duration) []byte {
+	pcm := silencePCM16Mono16K(duration)
+	for i := 0; i+1 < len(pcm); i += 2 {
+		pcm[i] = 0xe8
+		pcm[i+1] = 0x03
+		if i%4 != 0 {
+			pcm[i] = 0x18
+			pcm[i+1] = 0xfc
+		}
+	}
+	return pcm
+}
+
+func TestVerifyAssistantAudioASRIgnoresFailedTailAfterExpectedTextIsCovered(t *testing.T) {
+	if !opus.IsRuntimeSupported() {
+		t.Skip("requires native opus runtime")
+	}
+	frames, err := opusPacketsFromPCM16LE(
+		silencePCM16Mono16K(time.Duration(assistantASRFramesPerChunk+100)*20*time.Millisecond),
+		16000,
+		1,
+	)
+	if err != nil {
+		t.Fatalf("opusPacketsFromPCM16LE: %v", err)
+	}
+	if len(frames) != assistantASRFramesPerChunk+100 {
+		t.Fatalf("frames = %d, want %d", len(frames), assistantASRFramesPerChunk+100)
+	}
+	var calls int
+	driver := &personaDriver{
+		cfg: config{OutputDir: t.TempDir()},
+		transcribeAudioFile: func(_ context.Context, path string) (string, error) {
+			calls++
+			switch filepath.Base(path) {
+			case "round-01-assistant-part-01.wav":
+				return "你好测试", nil
+			case "round-01-assistant-part-02.wav":
+				return "", errors.New("no recognizable speech")
+			default:
+				t.Fatalf("unexpected transcription path %s", path)
+				return "", nil
+			}
+		},
+	}
+	got, err := driver.verifyAssistantAudioASR(context.Background(), 1, "assistant", "你好测试", frames)
+	if err != nil {
+		t.Fatalf("verifyAssistantAudioASR() error = %v", err)
+	}
+	if got != "你好测试" {
+		t.Fatalf("verifyAssistantAudioASR() = %q", got)
+	}
+	if calls != 2 {
+		t.Fatalf("transcription calls = %d, want 2", calls)
 	}
 }
 

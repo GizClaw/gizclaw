@@ -27,7 +27,6 @@ const (
 	DefaultCleanupInterval  = 5 * time.Minute
 	DefaultMaxAudioBytes    = 2 * 1024 * 1024
 	DefaultAudioContentType = "audio/opus"
-	WorkspaceMemberRoleName = "social-chatroom-member"
 	ChatRoomWorkflowName    = "chatroom"
 )
 
@@ -225,17 +224,6 @@ func GroupRole(member rpcapi.FriendGroupMemberObject) rpcapi.FriendGroupMemberRo
 		return ""
 	}
 	return *member.Role
-}
-
-func WorkspaceACLRole() (string, apitypes.ACLPermissionList) {
-	return WorkspaceMemberRoleName, apitypes.ACLPermissionList{
-		apitypes.ACLPermissionRead,
-		apitypes.ACLPermissionUse,
-	}
-}
-
-func WorkspaceACLBindingID(workspaceName, peerID string) string {
-	return "social-chatroom-workspace:" + EscapeStoreSegment(strings.TrimSpace(workspaceName)) + ":" + EscapeStoreSegment(strings.TrimSpace(peerID))
 }
 
 func shortHash(value string) string {

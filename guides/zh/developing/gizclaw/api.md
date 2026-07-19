@@ -32,7 +32,7 @@ pkgs/gizclaw/api/
 
 ### adminhttp
 
-保存 Admin HTTP OpenAPI 生成的 request/response 类型、client、server interface 和 route contract。它描述管理 surface 的 HTTP 协议，不拥有 ACL、AI、Gameplay、Peer 或其他资源的业务实现。
+保存 Admin HTTP OpenAPI 生成的 request/response 类型、client、server interface 和 route contract。它描述管理 surface 的 HTTP 协议，不拥有 RuntimeProfile、AI、Gameplay、Peer 或其他资源的业务实现。
 
 ### apitypes
 

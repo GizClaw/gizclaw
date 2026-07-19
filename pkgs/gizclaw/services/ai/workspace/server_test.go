@@ -373,6 +373,23 @@ func TestServerRejectsInvalidWorkspaceReferences(t *testing.T) {
 	}
 }
 
+func TestNormalizeWorkspaceUpsertAcceptsShortRuntimeAlias(t *testing.T) {
+	t.Parallel()
+
+	source := adminhttp.Runtime
+	got, err := normalizeWorkspaceUpsert(adminhttp.WorkspaceUpsert{
+		Name:           "runtime-workspace",
+		WorkflowName:   " chat ",
+		WorkflowSource: &source,
+	}, "")
+	if err != nil {
+		t.Fatalf("normalizeWorkspaceUpsert() error = %v", err)
+	}
+	if got.WorkflowName != "chat" {
+		t.Fatalf("normalizeWorkspaceUpsert() workflow_name = %q, want chat", got.WorkflowName)
+	}
+}
+
 func TestServerRejectsInvalidToolkitPolicy(t *testing.T) {
 	t.Parallel()
 

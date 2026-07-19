@@ -3,14 +3,6 @@ apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
   name: flowcraft-werewolf-game
-i18n:
-  default_locale: en
-  en:
-    name: Werewolf Party
-    description: Play a narrated social deduction game with distinct character roles.
-  zh-CN:
-    name: 狼人杀派对
-    description: 与不同角色一起体验有旁白引导的社交推理游戏。
 spec:
   driver: flowcraft
   flowcraft:

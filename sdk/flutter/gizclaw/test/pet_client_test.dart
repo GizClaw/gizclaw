@@ -47,14 +47,14 @@ void main() {
     final adoptFuture = client.adoptPet(displayName: 'Miso');
     final adoptRequest = await _request(factory, 2);
     final adoptPayload =
-        decodeRpcRequestPayload('server.pet.adopt', adoptRequest.payload)
-            as ServerPetAdoptRequest;
+        decodeRpcRequestPayload('runtime.adopt', adoptRequest.payload)
+            as RuntimeAdoptRequest;
     expect(adoptPayload.value.displayName, 'Miso');
     _respond(
       factory.channels[2],
       adoptRequest.id,
-      'server.pet.adopt',
-      ServerPetAdoptResponse(
+      'runtime.adopt',
+      RuntimeAdoptResponse(
         value: PetAdoptResponse(pet: Pet(id: 'pet-b')),
       ),
     );

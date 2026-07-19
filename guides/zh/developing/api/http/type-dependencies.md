@@ -59,7 +59,7 @@ Schema 只有满足以下至少一个条件才能进入 `shared/`：
 | Error | `error_payload.json`、`error_response.json` | `ErrorPayload`、`ErrorResponse` |
 | Device identity | `device_info.json`、`hardware_info.json`、`peer_imei.json`、`peer_label.json` | Device、hardware 与稳定 identity values |
 | Runtime、Peer 与 Server state | `runtime.json`、`peer*.json`、`registration.json`、`server*.json` | Runtime、registration、Peer lifecycle、stream、telemetry 与 Server values |
-| ACL | `acl_*.json` | Permission、Policy、Resource、Subject、Role、View 与 binding values |
+| Runtime access | `runtime_profile*.json`、`registration_token.json` | Profile allow list、Gameplay 配置与设备注册 token metadata |
 | Configuration | `configuration.json`、`agent_selection.json`、`refresh_*.json` | 共同配置、Agent selection 与 refresh contracts |
 | Gameplay | `gameplay.json` | Gameplay metadata 与共同规则 values |
 | Firmware | `firmware*.json` | Firmware、slot、artifact、spec 与 selection values |
@@ -67,7 +67,7 @@ Schema 只有满足以下至少一个条件才能进入 `shared/`：
 | Model | `model*.json` | Model kind、capabilities、provider、source、spec 与 provider data |
 | Voice | `voice*.json` | Voice provider、source、spec 与 provider data |
 | Tool | `tool*.json`、`toolkit_policy.json` | Tool executor、trigger、source、spec、policy 与 JSON schema values |
-| Workflow 与 Workspace | `workflow*.json`、`workspace*.json` | Workflow identity、i18n、locale、driver、variants 与 Workspace values |
+| Workflow 与 Workspace | `workflow*.json`、`workspace*.json` | Workflow identity、owner、driver、variants 与带 source 的 Workspace values |
 | Provider tenant | `*_tenant*.json` | 各 provider 的 tenant、spec、enum 与共享 values |
 
 表中的 glob 是现有文件的所有权分组，不是可以直接创建的文件名。修改 schema 时必须先选择 `api/http/shared/` 中实际存在的 owner 文件；只有没有现有 owner 且满足 Shared 规则时才能新增文件。

@@ -1,58 +1,13 @@
 # services/gameplay
 
-`pkgs/gizclaw/services/gameplay` Owns GizClaw Gameplay's catalog, player status, reward actions and digital assets. Currently the Gameplay service remains a package because these resources participate in the same set of rules and transaction boundaries.
-
-[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/gameplay)
-
-## Domain content
-
-```text
-services/gameplay/
-├── Catalog       # GameRuleset, PetDef, BadgeDef, and GameDef
-├── Runtime       # Pet, points, badge, and game-result state
-├── Reward        # Reward grants and points/badge changes
-├── Assets        # pixa assets such as PetDef and BadgeDef
-└── Storage       # KV, object store, and gameplay SQL state
-```
-
-This is a domain responsibility map, not a Go file or type list.
+`pkgs/gizclaw/services/gameplay` owns the Gameplay catalog, player state, rewards, and digital assets. Gameplay configuration now belongs to a connection's RuntimeProfile; there is no separate GameRuleset resource.
 
 ## Ownership
 
-Gameplay owns:
+Gameplay owns PetDef, BadgeDef, GameDef, Pet, points accounts, transactions, reward grants, badge progression, and game results. RuntimeProfile `pet_defs`, `game_defs`, and `badge_defs` maps provide profile-local aliases used by `gameplay.pet_pool` and reward configuration.
 
-- A collection of Gameplay rules defined by GameRuleset.
-- catalog definition for Pet, badge and game.
-- Care actions such as Pet adoption, update, delete and drive.
-- Points account, transaction, reward grant and badge progression.
-- Game result writing and querying.
-- Gameplay definition associated pixa digital assets.
+Pet adoption resolves rules from the current connection's RuntimeProfile snapshot and records the RuntimeProfile name on the Pet and related state. The Pet system Workspace uses the built-in `pet-care` Workflow; `pet-care` does not need to appear in the RuntimeProfile `workflows` map.
 
-Gameplay can use workspace as an associated boundary for pet workspace or Agent memory, but the workspace resource itself is still owned by `services/ai/workspace`. Gameplay also uses ACL to complete access judgment, but does not redefine role or policy binding.
+A definition missing behind an alias is skipped. A profile with no valid PetDef cannot adopt a Pet, and a GameDef not allowed by the current profile cannot submit a game result. Deleting a definition or RuntimeProfile does not cascade into existing Gameplay history.
 
-An adopted Pet owns a system Workspace. Pet adoption and rollback use the internal system-Workspace lifecycle. Pet deletion must report ACL or Workspace cleanup failures, removes the Pet row only after required cleanup succeeds, and retains gameplay history, points, badges, results, transactions, and reward grants.
-
-## Dependencies and boundaries
-
-```mermaid
-flowchart LR
-    Surface["Admin / Peer Gameplay surface"] --> Gameplay["services/gameplay"]
-    Gameplay --> Workspace["services/ai/workspace"]
-    Gameplay --> ACL["services/system/acl"]
-    Gameplay --> Store["KV / SQL / Object store"]
-```
-
-Should be placed at `services/gameplay`:
-
-- Gameplay catalog and player/pet state.
-- Domain rules for points, reward, badge, game result and care action.
-- Gameplay-owned pixa assets and consistency checks.
-
-Shouldn't be placed here:
-
-- Universal digital content storage or pixa codec.
-- Implementation of Workspace, Agent Runtime or social graph.
-- Admin/Peer transport and route registration.
-- Generic accounting, SQL or object-store helper that is not related to Gameplay.
-
-When Gameplay continues to grow, you should decide whether to split sub-packages based on resource ownership and transaction boundaries, and not just mechanical splitting based on the number of API endpoints.
+Gameplay uses Workspace ownership and the Pet domain relationship. It does not create extra roles or policy bindings. Pet deletion removes its system Workspace before the Pet row and preserves points, badge, result, transaction, and reward-grant history.

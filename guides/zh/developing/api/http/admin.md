@@ -11,7 +11,7 @@ Go 生成输出：`pkgs/gizclaw/api/adminhttp`
 | --- | --- |
 | Resource | `apply/show` 及统一 Resource envelope |
 | Peer | Peer 查询、批准、阻止、刷新、配置与 runtime |
-| ACL | Role、View 与 Policy Binding 管理 |
+| Runtime access | RuntimeProfile 与 RegistrationToken 管理 |
 | AI | Credential、Model、Voice、Provider Tenant、Workflow、Workspace |
 | Gameplay | Game Rule、Pet、Badge、Points、Result 与 Reward |
 | Social | Contact、Friend 与 Friend Group 管理 |

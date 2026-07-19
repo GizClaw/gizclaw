@@ -38,10 +38,10 @@ storage:
     kind: objectstore
     fs:
       dir: .
-  acl-db:
+  gameplay-db:
     kind: sql
     sqlite:
-      dir: data/acl.sqlite
+      dir: data/gameplay.sqlite
 stores:
   peers:
     kind: keyvalue
@@ -71,9 +71,9 @@ stores:
     kind: keyvalue
     storage: memory
     prefix: workflows
-  acl:
+  gameplay-db:
     kind: sql
-    storage: acl-db
+    storage: gameplay-db
 `, serverKP.Private.String(), testKeyPair(t, 0xab).Public.String())), 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
 	}
@@ -104,8 +104,8 @@ stores:
 	if got := cfg.Storage["local-files"].FS.Dir; got != workspace {
 		t.Fatalf("local-files dir = %q", got)
 	}
-	if got := cfg.Storage["acl-db"].SQLite.Dir; got != filepath.Join(workspace, "data", "acl.sqlite") {
-		t.Fatalf("acl db dir = %q", got)
+	if got := cfg.Storage["gameplay-db"].SQLite.Dir; got != filepath.Join(workspace, "data", "gameplay.sqlite") {
+		t.Fatalf("gameplay db dir = %q", got)
 	}
 }
 
@@ -307,10 +307,10 @@ storage:
     kind: objectstore
     fs:
       dir: .
-  acl-db:
+  fixture-db:
     kind: sql
     sqlite:
-      dir: data/acl.sqlite
+      dir: data/fixture.sqlite
 stores:
   fw-meta:
     kind: keyvalue
@@ -320,9 +320,9 @@ stores:
     kind: objectstore
     storage: fw-files
     prefix: firmware
-  acl:
+  fixture-sql:
     kind: sql
-    storage: acl-db
+    storage: fixture-db
 `), 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
 	}
@@ -572,10 +572,6 @@ storage:
     kind: objectstore
     fs:
       dir: .
-  acl-db:
-    kind: sql
-    sqlite:
-      dir: data/acl.sqlite
 stores:
   peers:
     kind: keyvalue
@@ -605,9 +601,6 @@ stores:
     kind: keyvalue
     storage: main-kv
     prefix: workflows
-  acl:
-    kind: sql
-    storage: acl-db
 `), 0o644); err != nil {
 		t.Fatalf("WriteFile config error = %v", err)
 	}

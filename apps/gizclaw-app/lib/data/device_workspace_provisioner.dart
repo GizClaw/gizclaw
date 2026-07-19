@@ -1,6 +1,7 @@
 import 'package:gizclaw/gizclaw.dart';
 
-const mobileAstWorkflowName = 'volc-ast-translate';
+const mobileAstWorkflowName = 'ast-translate-zh-en-auto';
+const mobileAstTranslationModelName = 'volc-ast-translate';
 const mobileAstLanguagePair = 'auto';
 
 typedef WorkspaceGetter = Future<Workspace> Function(String name);
@@ -62,6 +63,7 @@ class DeviceWorkspaceProvisioner {
 
     final input = _preservedInputMode(current);
     final updated = current.deepCopy()
+      ..workflowSource = ResourceSource.RESOURCE_SOURCE_RUNTIME
       ..parameters = mobileAstParameters(input: input);
     _validate(await _putWorkspace(name, updated), name);
     return true;
@@ -86,6 +88,7 @@ Workspace mobileAstWorkspace(String name) {
   return Workspace(
     name: name,
     workflowName: mobileAstWorkflowName,
+    workflowSource: ResourceSource.RESOURCE_SOURCE_RUNTIME,
     parameters: mobileAstParameters(),
   );
 }
@@ -102,13 +105,15 @@ WorkspaceParameters mobileAstParameters({
       input: input,
       langPair: mobileAstLanguagePair,
       mode: ASTTranslateMode.ASTTRANSLATE_MODE_S2S,
-      translationModel: mobileAstWorkflowName,
+      translationModel: mobileAstTranslationModelName,
     ),
   );
 }
 
 bool _hasMobileAstConfiguration(Workspace workspace) {
-  if (!workspace.hasParameters() ||
+  if (!workspace.hasWorkflowSource() ||
+      workspace.workflowSource != ResourceSource.RESOURCE_SOURCE_RUNTIME ||
+      !workspace.hasParameters() ||
       !workspace.parameters.hasAsttranslateWorkspaceParameters()) {
     return false;
   }
@@ -120,7 +125,7 @@ bool _hasMobileAstConfiguration(Workspace workspace) {
       _isSupportedInputMode(ast.input) &&
       ast.langPair == mobileAstLanguagePair &&
       ast.mode == ASTTranslateMode.ASTTRANSLATE_MODE_S2S &&
-      ast.translationModel == mobileAstWorkflowName;
+      ast.translationModel == mobileAstTranslationModelName;
 }
 
 WorkspaceInputMode _preservedInputMode(Workspace workspace) {
@@ -141,6 +146,10 @@ void _validate(Workspace workspace, String expectedName) {
     throw StateError('Server returned an unexpected workspace name');
   }
   _validateWorkflow(workspace.workflowName, expectedName);
+  if (workspace.hasWorkflowSource() &&
+      workspace.workflowSource != ResourceSource.RESOURCE_SOURCE_RUNTIME) {
+    throw StateError('Workspace $expectedName does not use a Runtime workflow');
+  }
 }
 
 void _validateWorkflow(String workflowName, String expectedName) {

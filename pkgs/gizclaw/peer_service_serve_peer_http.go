@@ -141,17 +141,19 @@ func (s *PeerService) edgeOpenAIHTTPHandler(sessions *publiclogin.SessionManager
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		publicKey, ok := authenticatePrimaryHTTPSession(w, r, sessions)
+		authenticated, ok := authenticatePrimaryHTTPSessionState(w, r, sessions)
 		if !ok {
 			return
 		}
+		publicKey := authenticated.PublicKey
 		if !s.allowEdgeClientPeer(r.Context(), publicKey) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusForbidden)
 			_ = json.NewEncoder(w).Encode(apitypes.NewErrorResponse("EDGE_CLIENT_REQUIRED", "edge public HTTP only proxies active client peers"))
 			return
 		}
-		http.StripPrefix("/openai", s.openAIHTTPHandlerForPeer(publicKey, nil)).ServeHTTP(w, r)
+		resources := s.peerResourcesForHTTPSession(publicKey, authenticated.Registration)
+		http.StripPrefix("/openai", s.openAIHTTPHandlerForPeer(publicKey, nil, resources)).ServeHTTP(w, r)
 	})
 }
 
@@ -267,7 +269,7 @@ func (s *PeerService) edgeSignalingPublicKey(ctx *fiber.Ctx) (giznet.PublicKey, 
 func setPeerHTTPCORSHeaders(ctx *fiber.Ctx) {
 	ctx.Set(fiber.HeaderAccessControlAllowOrigin, "*")
 	ctx.Set(fiber.HeaderAccessControlAllowMethods, "GET,POST,PUT,DELETE,OPTIONS")
-	ctx.Set(fiber.HeaderAccessControlAllowHeaders, "Authorization,Content-Type,X-Public-Key,X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp,X-Request-ID")
+	ctx.Set(fiber.HeaderAccessControlAllowHeaders, "Authorization,Content-Type,X-Public-Key,"+publiclogin.RegistrationTokenHeader+",X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp,X-Request-ID")
 	ctx.Set(fiber.HeaderAccessControlExposeHeaders, "Content-Length,Content-Type,X-Request-ID")
 }
 

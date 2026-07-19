@@ -59,6 +59,9 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_GET = 32,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKFLOW_LIST = 33,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKFLOW_GET = 34,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKFLOW_CREATE = 35,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKFLOW_PUT = 36,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKFLOW_DELETE = 37,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_MODEL_LIST = 38,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_MODEL_GET = 39,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_MODEL_CREATE = 40,
@@ -98,11 +101,10 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST = 74,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET = 75,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND = 76,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_GAME_RULESET_GET = 77,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD = 79,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_LIST = 80,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_GET = 81,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_ADOPT = 82,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_RUNTIME_ADOPT = 82,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_PUT = 83,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_DELETE = 84,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_DRIVE = 85,
@@ -126,9 +128,9 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_ROUTE_RESOLVE = 103,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_ACTIONS_GET = 104,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD = 105,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKFLOW_ICON_DOWNLOAD = 106,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD = 107,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_INFO_GET = 108
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_INFO_GET = 108,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_REGISTER = 109
 } gizclaw_rpc_v1_RpcMethod;
 
 /* Struct definitions */
@@ -183,8 +185,8 @@ extern "C" {
 #define _gizclaw_rpc_v1_RpcErrorCode_ARRAYSIZE ((gizclaw_rpc_v1_RpcErrorCode)(gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_CONFLICT+1))
 
 #define _gizclaw_rpc_v1_RpcMethod_MIN gizclaw_rpc_v1_RpcMethod_RPC_METHOD_UNSPECIFIED
-#define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_INFO_GET
-#define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_INFO_GET+1))
+#define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_REGISTER
+#define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_REGISTER+1))
 
 
 

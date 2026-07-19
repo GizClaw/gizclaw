@@ -38,7 +38,7 @@ flowchart LR
 不应该放在这里：
 
 - WebRTC connection、device signaling 或 telemetry transport。
-- Peer identity、registration approval 或 ACL resource ownership。
+- Peer identity、RegistrationToken 或通用 resource ownership。
 - Board-specific flash、bootloader 或 firmware implementation。
 - CLI storage backend 和 filesystem root 的创建。
 

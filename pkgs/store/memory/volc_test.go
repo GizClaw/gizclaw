@@ -68,7 +68,7 @@ func TestVolcCredentialClientResolvesProjectAPIKey(t *testing.T) {
 			if body["MemoryProjectId"] != "project" {
 				t.Errorf("project body = %v", body)
 			}
-			_, _ = w.Write([]byte(`{"ResponseMetadata":{},"Result":{"APIKeyInfos":[{"APIKeyId":""},{"APIKeyId":"key-id"}]}}`))
+			_, _ = w.Write([]byte(`{"ResponseMetadata":{},"Result":{"APIKeyInfos":[{"APIKeyId":"creating-key","Status":"Creating"},{"APIKeyId":"key-id","Status":"Ready"}]}}`))
 		case "DescribeAPIKeyDetail":
 			var body map[string]string
 			_ = json.NewDecoder(request.Body).Decode(&body)
@@ -91,6 +91,51 @@ func TestVolcCredentialClientResolvesProjectAPIKey(t *testing.T) {
 	}
 	if key != "resolved-key" {
 		t.Fatalf("resolved key = %q", key)
+	}
+}
+
+func TestVolcCredentialClientUsesRegionalControlHost(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name       string
+		region     string
+		wantRegion string
+		wantHost   string
+	}{
+		{name: "default", wantRegion: "cn-beijing", wantHost: "mem0.cn-beijing.volcengineapi.com"},
+		{name: "shanghai", region: "cn-shanghai", wantRegion: "cn-shanghai", wantHost: "mem0.cn-shanghai.volcengineapi.com"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			client, err := newVolcCredentialClient(VolcConfig{Region: test.region, AccessKeyID: "ak", AccessKeySecret: "sk"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := client.client.ServiceInfo.Host; got != test.wantHost {
+				t.Fatalf("control host = %q, want %q", got, test.wantHost)
+			}
+			if got := client.client.ServiceInfo.Credentials.Region; got != test.wantRegion {
+				t.Fatalf("credential region = %q, want %q", got, test.wantRegion)
+			}
+		})
+	}
+}
+
+func TestVolcCredentialClientRejectsProjectWithoutReadyAPIKey(t *testing.T) {
+	t.Parallel()
+	control := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		if action := request.URL.Query().Get("Action"); action != "DescribeMemoryProjectDetail" {
+			t.Errorf("unexpected action = %q", action)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ResponseMetadata":{},"Result":{"APIKeyInfos":[{"APIKeyId":"creating-key","Status":"Creating"},{"APIKeyId":"released-key","Status":"Released"}]}}`))
+	}))
+	t.Cleanup(control.Close)
+	client, err := newVolcCredentialClient(VolcConfig{ControlEndpoint: control.URL, AccessKeyID: "ak", AccessKeySecret: "sk"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.ResolveMem0APIKey(context.Background(), VolcConfig{MemoryProjectID: "project"}); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("ResolveMem0APIKey() error = %v, want ErrUnavailable", err)
 	}
 }
 
@@ -146,6 +191,12 @@ func TestVolcValidationAndErrorMapping(t *testing.T) {
 	}
 	if _, err := newVolcCredentialClient(VolcConfig{ControlEndpoint: "ftp://example.test", AccessKeyID: "ak", AccessKeySecret: "sk"}); !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("scheme error = %v", err)
+	}
+	if _, err := newVolcCredentialClient(VolcConfig{ControlEndpoint: "example.test/path", AccessKeyID: "ak", AccessKeySecret: "sk"}); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("host-only endpoint error = %v", err)
+	}
+	if _, err := newVolcCredentialClient(VolcConfig{Region: "cn-beijing/path", AccessKeyID: "ak", AccessKeySecret: "sk"}); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("region error = %v", err)
 	}
 	if _, err := OpenVolcStore(context.Background(), VolcConfig{Mem0: Mem0Config{Endpoint: "https://example.test", UserID: "user"}}, fakeVolcResolverError{}, nil); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("resolver error = %v", err)

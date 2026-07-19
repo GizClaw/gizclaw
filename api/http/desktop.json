@@ -448,6 +448,10 @@
             "type": "string",
             "description": "Public half of the desktop-local Play identity."
           },
+          "registration_token": {
+            "type": "string",
+            "description": "RegistrationToken intentionally handed off through the add-server QR payload."
+          },
           "local": { "$ref": "#/components/schemas/DesktopLocalPod" },
           "remote": { "$ref": "#/components/schemas/DesktopRemotePod" }
         }
@@ -556,7 +560,12 @@
             "items": { "$ref": "#/components/schemas/RemoteServerInput" }
           },
           "remote_access_point": { "type": "string" },
-          "client_private_key": { "type": "string", "writeOnly": true }
+          "client_private_key": { "type": "string", "writeOnly": true },
+          "registration_token": {
+            "type": "string",
+            "writeOnly": true,
+            "description": "Pre-provisioned RegistrationToken submitted by remote Play on each connection."
+          }
         },
         "oneOf": [
           {

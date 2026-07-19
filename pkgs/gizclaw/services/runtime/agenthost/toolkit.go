@@ -120,8 +120,9 @@ func agentToolErrorCode(err error) string {
 
 func (c *ToolkitContext) requestForContext(ctx context.Context) toolkit.BuildRequest {
 	req := c.BuildRequest
-	if subject, ok := aclSubjectFromContext(ctx); ok {
-		req.Subject = subject
+	if access, ok := resourceAccessFromContext(ctx); ok {
+		req.OwnerPublicKey = access.ownerPublicKey
+		req.ProfileToolIDs = append([]string(nil), access.profileToolIDs...)
 	}
 	return req
 }

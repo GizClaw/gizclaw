@@ -48,6 +48,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "X-Registration-Token",
+            "in": "header",
+            "required": false,
+            "description": "Pre-provisioned RegistrationToken used to attach a RuntimeProfile snapshot to the new HTTP session.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {

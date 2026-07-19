@@ -11,7 +11,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -19,12 +18,6 @@ import (
 type WorkspaceService interface {
 	CreateSystemWorkspace(context.Context, adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error)
 	DeleteSystemWorkspace(context.Context, string) (apitypes.Workspace, error)
-}
-
-type ACL interface {
-	PutRole(context.Context, string, apitypes.ACLPermissionList) (apitypes.ACLRole, error)
-	PutPolicyBinding(context.Context, string, float64, apitypes.ACLPolicy) (apitypes.ACLPolicyBinding, error)
-	DeletePolicyBinding(context.Context, string) (apitypes.ACLPolicyBinding, error)
 }
 
 type ProfileService interface {
@@ -35,7 +28,6 @@ type Server struct {
 	InviteTokens kv.Store
 	Friends      kv.Store
 	Workspaces   WorkspaceService
-	ACL          ACL
 	Profiles     ProfileService
 
 	Now   func() time.Time
@@ -423,14 +415,7 @@ func (s *Server) ensureDirectChatWorkspace(ctx context.Context, from, to string)
 		}
 		created = wasCreated
 	}
-	if err := s.grantWorkspace(ctx, workspaceName, from, to); err != nil {
-		if created {
-			_ = s.deleteWorkspace(ctx, workspaceName)
-		}
-		return "", nil, err
-	}
 	rollback := func() {
-		_ = s.revokeWorkspace(ctx, workspaceName, from, to)
 		if created {
 			_ = s.deleteWorkspace(ctx, workspaceName)
 		}
@@ -444,50 +429,7 @@ func (s *Server) deleteDirectChatWorkspace(ctx context.Context, owner string, it
 	if workspaceName == "" {
 		workspaceName = socialutil.DirectWorkspaceName(socialutil.RelationID(owner, other))
 	}
-	if err := s.revokeWorkspace(ctx, workspaceName, owner, other); err != nil {
-		return err
-	}
 	return s.deleteWorkspace(ctx, workspaceName)
-}
-
-func (s *Server) grantWorkspace(ctx context.Context, workspaceName string, peers ...string) error {
-	if s == nil || s.ACL == nil {
-		return nil
-	}
-	roleName, permissions := socialutil.WorkspaceACLRole()
-	if _, err := s.ACL.PutRole(ctx, roleName, permissions); err != nil {
-		return err
-	}
-	for _, peerID := range peers {
-		peerID = strings.TrimSpace(peerID)
-		if peerID == "" {
-			continue
-		}
-		if _, err := s.ACL.PutPolicyBinding(ctx, socialutil.WorkspaceACLBindingID(workspaceName, peerID), 0, apitypes.ACLPolicy{
-			Subject:  acl.PublicKeySubject(peerID),
-			Resource: acl.WorkspaceResource(workspaceName),
-			Role:     roleName,
-		}); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *Server) revokeWorkspace(ctx context.Context, workspaceName string, peers ...string) error {
-	if s == nil || s.ACL == nil {
-		return nil
-	}
-	for _, peerID := range peers {
-		peerID = strings.TrimSpace(peerID)
-		if peerID == "" {
-			continue
-		}
-		if _, err := s.ACL.DeletePolicyBinding(ctx, socialutil.WorkspaceACLBindingID(workspaceName, peerID)); err != nil && !errors.Is(err, acl.ErrPolicyBindingNotFound) {
-			return err
-		}
-	}
-	return nil
 }
 
 func (s *Server) deleteWorkspace(ctx context.Context, workspaceName string) error {

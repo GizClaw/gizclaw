@@ -8,54 +8,6 @@
   "paths": {},
   "components": {
     "schemas": {
-      "ACLPermission": {
-        "$ref": "./shared/acl_permission.json#/components/schemas/ACLPermission"
-      },
-      "ACLPermissionList": {
-        "$ref": "./shared/acl_permission.json#/components/schemas/ACLPermissionList"
-      },
-      "ACLPolicy": {
-        "$ref": "./shared/acl_policy.json#/components/schemas/ACLPolicy"
-      },
-      "ACLPolicyBinding": {
-        "$ref": "./shared/acl_policy_binding.json#/components/schemas/ACLPolicyBinding"
-      },
-      "ACLPolicyBindingResource": {
-        "$ref": "./resources/acl_policy_binding.json#/components/schemas/ACLPolicyBindingResource"
-      },
-      "ACLResource": {
-        "$ref": "./shared/acl_resource.json#/components/schemas/ACLResource"
-      },
-      "ACLResourceKind": {
-        "$ref": "./shared/acl_resource.json#/components/schemas/ACLResourceKind"
-      },
-      "ACLRole": {
-        "$ref": "./shared/acl_role.json#/components/schemas/ACLRole"
-      },
-      "ACLRoleResource": {
-        "$ref": "./resources/acl_role.json#/components/schemas/ACLRoleResource"
-      },
-      "ACLRoleSpec": {
-        "$ref": "./shared/acl_role_spec.json#/components/schemas/ACLRoleSpec"
-      },
-      "ACLView": {
-        "$ref": "./shared/acl_view.json#/components/schemas/ACLView"
-      },
-      "ACLViewSpec": {
-        "$ref": "./shared/acl_view.json#/components/schemas/ACLViewSpec"
-      },
-      "ACLViewResource": {
-        "$ref": "./resources/acl_view.json#/components/schemas/ACLViewResource"
-      },
-      "ACLSubject": {
-        "$ref": "./shared/acl_subject.json#/components/schemas/ACLSubject"
-      },
-      "ACLSubjectKind": {
-        "$ref": "./shared/acl_subject.json#/components/schemas/ACLSubjectKind"
-      },
-      "Configuration": {
-        "$ref": "./shared/configuration.json#/components/schemas/Configuration"
-      },
       "DeviceInfo": {
         "$ref": "./shared/device_info.json#/components/schemas/DeviceInfo"
       },
@@ -290,6 +242,12 @@
       "ResourceList": {
         "$ref": "./resources/resource_list.json#/components/schemas/ResourceListResource"
       },
+      "RuntimeProfileResource": {
+        "$ref": "./resources/runtime_profile.json#/components/schemas/RuntimeProfileResource"
+      },
+      "RegistrationTokenResource": {
+        "$ref": "./resources/registration_token.json#/components/schemas/RegistrationTokenResource"
+      },
       "CredentialResource": {
         "$ref": "./resources/credential.json#/components/schemas/CredentialResource"
       },
@@ -331,9 +289,6 @@
       },
       "WorkspaceResource": {
         "$ref": "./resources/workspace.json#/components/schemas/WorkspaceResource"
-      },
-      "PeerConfigResource": {
-        "$ref": "./resources/peer_config.json#/components/schemas/PeerConfigResource"
       },
       "CredentialSpec": {
         "$ref": "./shared/credential_spec.json#/components/schemas/CredentialSpec"
@@ -391,15 +346,6 @@
       },
       "Workflow": {
         "$ref": "./shared/workflow.json#/components/schemas/Workflow"
-      },
-      "WorkflowI18n": {
-        "$ref": "./shared/workflow_i18n.json#/components/schemas/WorkflowI18n"
-      },
-      "WorkflowI18nCatalog": {
-        "$ref": "./shared/workflow_i18n.json#/components/schemas/WorkflowI18nCatalog"
-      },
-      "WorkflowLocale": {
-        "$ref": "./shared/workflow_locale.json#/components/schemas/WorkflowLocale"
       },
       "WorkflowSpec": {
         "$ref": "./shared/workflow_spec.json#/components/schemas/WorkflowSpec"
@@ -506,23 +452,38 @@
       "GameplayMetadata": {
         "$ref": "./shared/gameplay.json#/components/schemas/GameplayMetadata"
       },
-      "GameRulesetPointsSpec": {
-        "$ref": "./shared/gameplay.json#/components/schemas/GameRulesetPointsSpec"
+      "RuntimeProfile": {
+        "$ref": "./shared/runtime_profile.json#/components/schemas/RuntimeProfile"
       },
-      "GameRulesetPetPoolEntry": {
-        "$ref": "./shared/gameplay.json#/components/schemas/GameRulesetPetPoolEntry"
+      "RuntimeProfileSpec": {
+        "$ref": "./shared/runtime_profile_spec.json#/components/schemas/RuntimeProfileSpec"
+      },
+      "RuntimeProfileResources": {
+        "$ref": "./shared/runtime_profile_spec.json#/components/schemas/RuntimeProfileResources"
+      },
+      "RuntimeProfileGameplaySpec": {
+        "$ref": "./shared/runtime_profile_spec.json#/components/schemas/RuntimeProfileGameplaySpec"
+      },
+      "RuntimeProfilePointsSpec": {
+        "$ref": "./shared/runtime_profile_spec.json#/components/schemas/RuntimeProfilePointsSpec"
+      },
+      "RuntimeProfilePetPoolEntry": {
+        "$ref": "./shared/runtime_profile_spec.json#/components/schemas/RuntimeProfilePetPoolEntry"
+      },
+      "RuntimeProfileRewardSpec": {
+        "$ref": "./shared/runtime_profile_spec.json#/components/schemas/RuntimeProfileRewardSpec"
+      },
+      "RuntimeProfileDriveSpec": {
+        "$ref": "./shared/runtime_profile_spec.json#/components/schemas/RuntimeProfileDriveSpec"
+      },
+      "RegistrationToken": {
+        "$ref": "./shared/registration_token.json#/components/schemas/RegistrationToken"
+      },
+      "RegistrationTokenCreateResult": {
+        "$ref": "./shared/registration_token.json#/components/schemas/RegistrationTokenCreateResult"
       },
       "GameRewardSpec": {
         "$ref": "./shared/gameplay.json#/components/schemas/GameRewardSpec"
-      },
-      "GameRulesetDriveSpec": {
-        "$ref": "./shared/gameplay.json#/components/schemas/GameRulesetDriveSpec"
-      },
-      "GameRulesetSpec": {
-        "$ref": "./shared/gameplay.json#/components/schemas/GameRulesetSpec"
-      },
-      "GameRuleset": {
-        "$ref": "./shared/gameplay.json#/components/schemas/GameRuleset"
       },
       "PetDefSpec": {
         "$ref": "./shared/gameplay.json#/components/schemas/PetDefSpec"
@@ -604,9 +565,6 @@
       },
       "GameplayGetRequest": {
         "$ref": "./shared/gameplay.json#/components/schemas/GameplayGetRequest"
-      },
-      "GameRulesetResource": {
-        "$ref": "./resources/game_ruleset.json#/components/schemas/GameRulesetResource"
       },
       "PetDefResource": {
         "$ref": "./resources/pet_def.json#/components/schemas/PetDefResource"

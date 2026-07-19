@@ -1,8 +1,0 @@
----
-apiVersion: gizclaw.admin/v1alpha1
-kind: ACLPolicyBinding
-metadata: {name: default-client-workflow-flowcraft-murder-mystery}
-spec:
-  subject: {kind: view, id: default-client}
-  resource: {kind: workflow, id: flowcraft-murder-mystery}
-  role: default-client

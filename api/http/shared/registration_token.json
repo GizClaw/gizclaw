@@ -1,0 +1,44 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "RegistrationToken API Types",
+    "description": "RegistrationToken persisted metadata and one-time create result.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "RegistrationToken": {
+        "type": "object",
+        "required": ["name", "firmware_name", "runtime_profile_name", "created_at"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "firmware_name": { "type": "string" },
+          "runtime_profile_name": { "type": "string" },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RegistrationTokenCreateResult": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RegistrationToken"
+          },
+          {
+            "type": "object",
+            "required": ["token"],
+            "properties": {
+              "token": {
+                "type": "string",
+                "description": "Raw registration token returned exactly once."
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

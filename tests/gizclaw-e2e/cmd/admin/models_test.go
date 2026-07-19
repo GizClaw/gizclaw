@@ -55,13 +55,13 @@ func TestAdminAIProviderCatalogUserStory(t *testing.T) {
 	rpcModelGet.MustSucceed(t)
 	assertOutputContains(t, rpcModelGet.Stdout, `"upstream_model":"fake-gpt-000"`)
 
-	viewsList := h.RunCLI("admin", "acl", "views", "list", "--context", "admin-a")
-	viewsList.MustSucceed(t)
-	assertOutputContains(t, viewsList.Stdout, `"name":"under-12"`)
+	profilesList := h.RunCLI("admin", "runtime-profiles", "list", "--context", "admin-a")
+	profilesList.MustSucceed(t)
+	assertOutputContains(t, profilesList.Stdout, `"name":"default-gameplay"`)
 
-	viewGet := h.RunCLI("admin", "acl", "views", "get", "under-12", "--context", "admin-a")
-	viewGet.MustSucceed(t)
-	assertOutputContains(t, viewGet.Stdout, `"description":"Child-safe content view"`)
+	profileGet := h.RunCLI("admin", "runtime-profiles", "get", "default-gameplay", "--context", "admin-a")
+	profileGet.MustSucceed(t)
+	assertOutputContains(t, profileGet.Stdout, `"pet_defs":{"starter":"petdef-starter"}`)
 }
 
 func assertOutputContains(t *testing.T, output string, values ...string) {

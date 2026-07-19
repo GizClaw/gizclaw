@@ -6,18 +6,10 @@
 #include <pb.h>
 #include "google/protobuf/struct.pb.h"
 #include "payload/enums.pb.h"
-#include "payload/icon.pb.h"
 
 #if PB_PROTO_HEADER_VERSION != 40
 #error Regenerate this file with the current version of nanopb generator.
 #endif
-
-/* Enum definitions */
-typedef enum _gizclaw_rpc_v1_WorkflowLocale {
-    gizclaw_rpc_v1_WorkflowLocale_WORKFLOW_LOCALE_UNSPECIFIED = 0,
-    gizclaw_rpc_v1_WorkflowLocale_WORKFLOW_LOCALE_EN = 1,
-    gizclaw_rpc_v1_WorkflowLocale_WORKFLOW_LOCALE_ZH_CN = 2
-} gizclaw_rpc_v1_WorkflowLocale;
 
 /* Struct definitions */
 typedef struct _gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters {
@@ -570,6 +562,8 @@ typedef struct _gizclaw_rpc_v1_Credential {
     pb_callback_t name;
     pb_callback_t provider;
     pb_callback_t updated_at;
+    bool has_owner_public_key;
+    char owner_public_key[65];
 } gizclaw_rpc_v1_Credential;
 
 typedef struct _gizclaw_rpc_v1_CredentialCreateRequest {
@@ -649,6 +643,8 @@ typedef struct _gizclaw_rpc_v1_Model {
     gizclaw_rpc_v1_ModelSource source;
     pb_callback_t synced_at;
     pb_callback_t updated_at;
+    bool has_owner_public_key;
+    char owner_public_key[65];
 } gizclaw_rpc_v1_Model;
 
 typedef struct _gizclaw_rpc_v1_ModelCreateRequest {
@@ -721,29 +717,21 @@ typedef struct _gizclaw_rpc_v1_VoiceGetResponse {
     gizclaw_rpc_v1_Voice value;
 } gizclaw_rpc_v1_VoiceGetResponse;
 
-typedef struct _gizclaw_rpc_v1_WorkflowIconDownloadRequest {
-    char name[256];
-    gizclaw_rpc_v1_IconFormat format;
-} gizclaw_rpc_v1_WorkflowIconDownloadRequest;
-
-typedef struct _gizclaw_rpc_v1_WorkflowIconDownloadResponse {
-    char name[256];
-    gizclaw_rpc_v1_IconFormat format;
-    int64_t size_bytes;
-} gizclaw_rpc_v1_WorkflowIconDownloadResponse;
+typedef struct _gizclaw_rpc_v1_WorkflowDeleteRequest {
+    pb_callback_t name;
+    gizclaw_rpc_v1_ResourceSource source;
+} gizclaw_rpc_v1_WorkflowDeleteRequest;
 
 typedef struct _gizclaw_rpc_v1_WorkflowGetRequest {
     pb_callback_t name;
-    bool has_lang;
-    gizclaw_rpc_v1_WorkflowLocale lang;
+    gizclaw_rpc_v1_ResourceSource source;
 } gizclaw_rpc_v1_WorkflowGetRequest;
 
 typedef struct _gizclaw_rpc_v1_WorkflowListRequest {
     pb_callback_t cursor;
     bool has_limit;
     int64_t limit;
-    bool has_lang;
-    gizclaw_rpc_v1_WorkflowLocale lang;
+    gizclaw_rpc_v1_ResourceSource source;
 } gizclaw_rpc_v1_WorkflowListRequest;
 
 typedef struct _gizclaw_rpc_v1_WorkflowListResponse {
@@ -751,11 +739,6 @@ typedef struct _gizclaw_rpc_v1_WorkflowListResponse {
     pb_callback_t items;
     pb_callback_t next_cursor;
 } gizclaw_rpc_v1_WorkflowListResponse;
-
-typedef struct _gizclaw_rpc_v1_WorkflowI18nCatalog {
-    pb_callback_t name;
-    pb_callback_t description;
-} gizclaw_rpc_v1_WorkflowI18nCatalog;
 
 typedef struct _gizclaw_rpc_v1_ToolkitPolicyToolIds {
     pb_callback_t value;
@@ -790,16 +773,48 @@ typedef struct _gizclaw_rpc_v1_Workflow {
     pb_callback_t name;
     bool has_spec;
     gizclaw_rpc_v1_WorkflowSpec spec;
-    bool has_i18n;
-    gizclaw_rpc_v1_WorkflowI18nCatalog i18n;
-    bool has_icon;
-    gizclaw_rpc_v1_Icon icon;
+    bool has_owner_public_key;
+    char owner_public_key[65];
 } gizclaw_rpc_v1_Workflow;
+
+typedef struct _gizclaw_rpc_v1_WorkflowUpsert {
+    pb_callback_t name;
+    bool has_spec;
+    gizclaw_rpc_v1_WorkflowSpec spec;
+} gizclaw_rpc_v1_WorkflowUpsert;
+
+typedef struct _gizclaw_rpc_v1_WorkflowCreateRequest {
+    gizclaw_rpc_v1_ResourceSource source;
+    bool has_body;
+    gizclaw_rpc_v1_WorkflowUpsert body;
+} gizclaw_rpc_v1_WorkflowCreateRequest;
+
+typedef struct _gizclaw_rpc_v1_WorkflowCreateResponse {
+    bool has_value;
+    gizclaw_rpc_v1_Workflow value;
+} gizclaw_rpc_v1_WorkflowCreateResponse;
+
+typedef struct _gizclaw_rpc_v1_WorkflowDeleteResponse {
+    bool has_value;
+    gizclaw_rpc_v1_Workflow value;
+} gizclaw_rpc_v1_WorkflowDeleteResponse;
 
 typedef struct _gizclaw_rpc_v1_WorkflowGetResponse {
     bool has_value;
     gizclaw_rpc_v1_Workflow value;
 } gizclaw_rpc_v1_WorkflowGetResponse;
+
+typedef struct _gizclaw_rpc_v1_WorkflowPutRequest {
+    pb_callback_t name;
+    bool has_body;
+    gizclaw_rpc_v1_WorkflowUpsert body;
+    gizclaw_rpc_v1_ResourceSource source;
+} gizclaw_rpc_v1_WorkflowPutRequest;
+
+typedef struct _gizclaw_rpc_v1_WorkflowPutResponse {
+    bool has_value;
+    gizclaw_rpc_v1_Workflow value;
+} gizclaw_rpc_v1_WorkflowPutResponse;
 
 typedef struct _gizclaw_rpc_v1_ToolExecutor {
     gizclaw_rpc_v1_ToolExecutorKind kind;
@@ -846,6 +861,7 @@ typedef struct _gizclaw_rpc_v1_Tool {
     google_protobuf_Struct metadata;
     pb_callback_t created_at;
     pb_callback_t updated_at;
+    pb_callback_t owner_public_key;
 } gizclaw_rpc_v1_Tool;
 
 typedef struct _gizclaw_rpc_v1_ToolListRequest {
@@ -916,161 +932,6 @@ typedef struct _gizclaw_rpc_v1_ToolInvokeResponse {
 extern "C" {
 #endif
 
-/* Helper constants for enums */
-#define _gizclaw_rpc_v1_WorkflowLocale_MIN gizclaw_rpc_v1_WorkflowLocale_WORKFLOW_LOCALE_UNSPECIFIED
-#define _gizclaw_rpc_v1_WorkflowLocale_MAX gizclaw_rpc_v1_WorkflowLocale_WORKFLOW_LOCALE_ZH_CN
-#define _gizclaw_rpc_v1_WorkflowLocale_ARRAYSIZE ((gizclaw_rpc_v1_WorkflowLocale)(gizclaw_rpc_v1_WorkflowLocale_WORKFLOW_LOCALE_ZH_CN+1))
-
-
-
-
-#define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_mode_ENUMTYPE gizclaw_rpc_v1_ASTTranslateMode
-
-#define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_agent_type_ENUMTYPE gizclaw_rpc_v1_ASTTranslateWorkspaceParametersAgentType
-#define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_input_ENUMTYPE gizclaw_rpc_v1_WorkspaceInputMode
-#define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_mode_ENUMTYPE gizclaw_rpc_v1_ASTTranslateMode
-
-
-
-
-
-#define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_agent_type_ENUMTYPE gizclaw_rpc_v1_ChatRoomWorkspaceParametersAgentType
-#define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_input_ENUMTYPE gizclaw_rpc_v1_WorkspaceInputMode
-#define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_mode_ENUMTYPE gizclaw_rpc_v1_ChatRoomMode
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#define gizclaw_rpc_v1_DashScopeTenantModelProviderData_api_mode_ENUMTYPE gizclaw_rpc_v1_DashScopeTenantModelProviderDataApiMode
-
-
-
-
-
-
-
-
-
-#define gizclaw_rpc_v1_DoubaoRealtimeAudioFormat_type_ENUMTYPE gizclaw_rpc_v1_DoubaoRealtimeAudioFormatType
-
-
-
-
-#define gizclaw_rpc_v1_DoubaoRealtimeDialogExtra_volc_websearch_type_ENUMTYPE gizclaw_rpc_v1_DoubaoRealtimeDialogExtraVolcWebsearchType
-
-
-#define gizclaw_rpc_v1_DoubaoRealtimeFunctionTool_type_ENUMTYPE gizclaw_rpc_v1_DoubaoRealtimeFunctionToolType
-
-
-
-
-
-
-
-
-#define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_agent_type_ENUMTYPE gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParametersAgentType
-#define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_input_ENUMTYPE gizclaw_rpc_v1_WorkspaceInputMode
-
-#define gizclaw_rpc_v1_FlowcraftConversationParameters_agent_initiative_policy_ENUMTYPE gizclaw_rpc_v1_FlowcraftConversationParametersAgentInitiativePolicy
-#define gizclaw_rpc_v1_FlowcraftConversationParameters_initiative_ENUMTYPE gizclaw_rpc_v1_FlowcraftConversationParametersInitiative
-
-
-#define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_agent_type_ENUMTYPE gizclaw_rpc_v1_FlowcraftWorkspaceParametersAgentType
-#define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_input_ENUMTYPE gizclaw_rpc_v1_WorkspaceInputMode
-
-#define gizclaw_rpc_v1_PetConversationParameters_initiative_ENUMTYPE gizclaw_rpc_v1_PetConversationParametersInitiative
-
-
-
-
-#define gizclaw_rpc_v1_PetWorkspaceParameters_agent_type_ENUMTYPE gizclaw_rpc_v1_PetWorkspaceParametersAgentType
-#define gizclaw_rpc_v1_PetWorkspaceParameters_input_ENUMTYPE gizclaw_rpc_v1_WorkspaceInputMode
-
-
-
-
-
-
-#define gizclaw_rpc_v1_Model_kind_ENUMTYPE gizclaw_rpc_v1_ModelKind
-#define gizclaw_rpc_v1_Model_source_ENUMTYPE gizclaw_rpc_v1_ModelSource
-
-
-
-
-
-
-
-
-
-
-#define gizclaw_rpc_v1_ModelProvider_kind_ENUMTYPE gizclaw_rpc_v1_ModelProviderKind
-
-
-
-
-
-
-
-
-#define gizclaw_rpc_v1_Voice_source_ENUMTYPE gizclaw_rpc_v1_VoiceSource
-
-
-
-
-
-#define gizclaw_rpc_v1_VoiceProvider_kind_ENUMTYPE gizclaw_rpc_v1_VoiceProviderKind
-
-
-
-#define gizclaw_rpc_v1_VolcTenantModelProviderData_api_mode_ENUMTYPE gizclaw_rpc_v1_VolcTenantModelProviderDataApiMode
-
-
-
-#define gizclaw_rpc_v1_WorkflowIconDownloadRequest_format_ENUMTYPE gizclaw_rpc_v1_IconFormat
-
-#define gizclaw_rpc_v1_WorkflowIconDownloadResponse_format_ENUMTYPE gizclaw_rpc_v1_IconFormat
-
-#define gizclaw_rpc_v1_WorkflowGetRequest_lang_ENUMTYPE gizclaw_rpc_v1_WorkflowLocale
-
-
-#define gizclaw_rpc_v1_WorkflowListRequest_lang_ENUMTYPE gizclaw_rpc_v1_WorkflowLocale
-
-
-
-
-
-#define gizclaw_rpc_v1_WorkflowSpec_driver_ENUMTYPE gizclaw_rpc_v1_WorkflowDriver
-
-#define gizclaw_rpc_v1_ToolExecutor_kind_ENUMTYPE gizclaw_rpc_v1_ToolExecutorKind
-
-
-
-#define gizclaw_rpc_v1_Tool_source_ENUMTYPE gizclaw_rpc_v1_ToolSource
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /* Initializer values for message structs */
 #define gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ASTTranslateInternalSpeakerParameters_init_default {false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}}
@@ -1083,7 +944,7 @@ extern "C" {
 #define gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_init_default {_gizclaw_rpc_v1_ChatRoomWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters_init_default, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, _gizclaw_rpc_v1_ChatRoomMode_MIN, false, gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_init_default}
 #define gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_init_default {{{NULL}, NULL}, false, 0}
-#define gizclaw_rpc_v1_Credential_init_default   {false, gizclaw_rpc_v1_CredentialBody_init_default, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Credential_init_default   {false, gizclaw_rpc_v1_CredentialBody_init_default, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, ""}
 #define gizclaw_rpc_v1_CredentialBody_init_default {0, {gizclaw_rpc_v1_OpenAICredentialBody_init_default}}
 #define gizclaw_rpc_v1_CredentialCreateRequest_init_default {false, gizclaw_rpc_v1_Credential_init_default}
 #define gizclaw_rpc_v1_CredentialCreateResponse_init_default {false, gizclaw_rpc_v1_Credential_init_default}
@@ -1133,7 +994,7 @@ extern "C" {
 #define gizclaw_rpc_v1_GeminiTenantVoiceProviderData_init_default {false, google_protobuf_Struct_init_default, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_MiniMaxCredentialBody_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_MiniMaxTenantVoiceProviderData_init_default {{{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_default, false, 0, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_Model_init_default        {false, gizclaw_rpc_v1_ModelCapabilities_init_default, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ModelKind_MIN, {{NULL}, NULL}, false, gizclaw_rpc_v1_ModelProvider_init_default, false, gizclaw_rpc_v1_ModelProviderData_init_default, _gizclaw_rpc_v1_ModelSource_MIN, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Model_init_default        {false, gizclaw_rpc_v1_ModelCapabilities_init_default, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ModelKind_MIN, {{NULL}, NULL}, false, gizclaw_rpc_v1_ModelProvider_init_default, false, gizclaw_rpc_v1_ModelProviderData_init_default, _gizclaw_rpc_v1_ModelSource_MIN, {{NULL}, NULL}, {{NULL}, NULL}, false, ""}
 #define gizclaw_rpc_v1_ModelCapabilities_init_default {false, 0, false, 0, false, 0, false, 0, false, gizclaw_rpc_v1_ModelThinkingCapability_init_default, false, 0}
 #define gizclaw_rpc_v1_ModelCreateRequest_init_default {false, gizclaw_rpc_v1_Model_init_default}
 #define gizclaw_rpc_v1_ModelCreateResponse_init_default {false, gizclaw_rpc_v1_Model_init_default}
@@ -1161,21 +1022,25 @@ extern "C" {
 #define gizclaw_rpc_v1_VolcCredentialBody_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_VolcTenantModelProviderData_init_default {false, _gizclaw_rpc_v1_VolcTenantModelProviderDataApiMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_VolcTenantVoiceProviderData_init_default {false, google_protobuf_Struct_init_default, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_Workflow_init_default     {{{NULL}, NULL}, false, gizclaw_rpc_v1_WorkflowSpec_init_default, false, gizclaw_rpc_v1_WorkflowI18nCatalog_init_default, false, gizclaw_rpc_v1_Icon_init_default}
-#define gizclaw_rpc_v1_WorkflowIconDownloadRequest_init_default {"", _gizclaw_rpc_v1_IconFormat_MIN}
-#define gizclaw_rpc_v1_WorkflowIconDownloadResponse_init_default {"", _gizclaw_rpc_v1_IconFormat_MIN, 0}
-#define gizclaw_rpc_v1_WorkflowGetRequest_init_default {{{NULL}, NULL}, false, _gizclaw_rpc_v1_WorkflowLocale_MIN}
+#define gizclaw_rpc_v1_Workflow_init_default     {{{NULL}, NULL}, false, gizclaw_rpc_v1_WorkflowSpec_init_default, false, ""}
+#define gizclaw_rpc_v1_WorkflowUpsert_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_WorkflowSpec_init_default}
+#define gizclaw_rpc_v1_WorkflowCreateRequest_init_default {_gizclaw_rpc_v1_ResourceSource_MIN, false, gizclaw_rpc_v1_WorkflowUpsert_init_default}
+#define gizclaw_rpc_v1_WorkflowCreateResponse_init_default {false, gizclaw_rpc_v1_Workflow_init_default}
+#define gizclaw_rpc_v1_WorkflowDeleteRequest_init_default {{{NULL}, NULL}, _gizclaw_rpc_v1_ResourceSource_MIN}
+#define gizclaw_rpc_v1_WorkflowDeleteResponse_init_default {false, gizclaw_rpc_v1_Workflow_init_default}
+#define gizclaw_rpc_v1_WorkflowGetRequest_init_default {{{NULL}, NULL}, _gizclaw_rpc_v1_ResourceSource_MIN}
 #define gizclaw_rpc_v1_WorkflowGetResponse_init_default {false, gizclaw_rpc_v1_Workflow_init_default}
-#define gizclaw_rpc_v1_WorkflowListRequest_init_default {{{NULL}, NULL}, false, 0, false, _gizclaw_rpc_v1_WorkflowLocale_MIN}
+#define gizclaw_rpc_v1_WorkflowListRequest_init_default {{{NULL}, NULL}, false, 0, _gizclaw_rpc_v1_ResourceSource_MIN}
 #define gizclaw_rpc_v1_WorkflowListResponse_init_default {0, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_WorkflowI18nCatalog_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_WorkflowPutRequest_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_WorkflowUpsert_init_default, _gizclaw_rpc_v1_ResourceSource_MIN}
+#define gizclaw_rpc_v1_WorkflowPutResponse_init_default {false, gizclaw_rpc_v1_Workflow_init_default}
 #define gizclaw_rpc_v1_ToolkitPolicyToolIds_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolkitPolicy_init_default {false, gizclaw_rpc_v1_ToolkitPolicyToolIds_init_default}
 #define gizclaw_rpc_v1_WorkflowSpec_init_default {false, gizclaw_rpc_v1_ASTTranslateWorkflowSpec_init_default, false, gizclaw_rpc_v1_ChatRoomWorkflowSpec_init_default, false, gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_init_default, _gizclaw_rpc_v1_WorkflowDriver_MIN, false, gizclaw_rpc_v1_FlowcraftWorkflowSpec_init_default, false, gizclaw_rpc_v1_ToolkitPolicy_init_default, false, gizclaw_rpc_v1_PetWorkflowSpec_init_default, false, gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_init_default, false, gizclaw_rpc_v1_EinoWorkflowSpec_init_default}
 #define gizclaw_rpc_v1_ToolExecutor_init_default {_gizclaw_rpc_v1_ToolExecutorKind_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_default}
 #define gizclaw_rpc_v1_ToolTriggerExample_init_default {{{NULL}, NULL}, false, google_protobuf_Struct_init_default, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolTrigger_init_default  {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_default}
-#define gizclaw_rpc_v1_Tool_init_default         {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ToolSource_MIN, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_default, false, google_protobuf_Struct_init_default, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolExecutor_init_default, false, google_protobuf_Struct_init_default, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Tool_init_default         {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ToolSource_MIN, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_default, false, google_protobuf_Struct_init_default, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolExecutor_init_default, false, google_protobuf_Struct_init_default, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolListRequest_init_default {{{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_ToolListResponse_init_default {{{NULL}, NULL}, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolGetRequest_init_default {{{NULL}, NULL}}
@@ -1199,7 +1064,7 @@ extern "C" {
 #define gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_init_zero {_gizclaw_rpc_v1_ChatRoomWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters_init_zero, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, _gizclaw_rpc_v1_ChatRoomMode_MIN, false, gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_init_zero}
 #define gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_init_zero {{{NULL}, NULL}, false, 0}
-#define gizclaw_rpc_v1_Credential_init_zero      {false, gizclaw_rpc_v1_CredentialBody_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Credential_init_zero      {false, gizclaw_rpc_v1_CredentialBody_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, ""}
 #define gizclaw_rpc_v1_CredentialBody_init_zero  {0, {gizclaw_rpc_v1_OpenAICredentialBody_init_zero}}
 #define gizclaw_rpc_v1_CredentialCreateRequest_init_zero {false, gizclaw_rpc_v1_Credential_init_zero}
 #define gizclaw_rpc_v1_CredentialCreateResponse_init_zero {false, gizclaw_rpc_v1_Credential_init_zero}
@@ -1249,7 +1114,7 @@ extern "C" {
 #define gizclaw_rpc_v1_GeminiTenantVoiceProviderData_init_zero {false, google_protobuf_Struct_init_zero, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_MiniMaxCredentialBody_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_MiniMaxTenantVoiceProviderData_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_zero, false, 0, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_Model_init_zero           {false, gizclaw_rpc_v1_ModelCapabilities_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ModelKind_MIN, {{NULL}, NULL}, false, gizclaw_rpc_v1_ModelProvider_init_zero, false, gizclaw_rpc_v1_ModelProviderData_init_zero, _gizclaw_rpc_v1_ModelSource_MIN, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Model_init_zero           {false, gizclaw_rpc_v1_ModelCapabilities_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ModelKind_MIN, {{NULL}, NULL}, false, gizclaw_rpc_v1_ModelProvider_init_zero, false, gizclaw_rpc_v1_ModelProviderData_init_zero, _gizclaw_rpc_v1_ModelSource_MIN, {{NULL}, NULL}, {{NULL}, NULL}, false, ""}
 #define gizclaw_rpc_v1_ModelCapabilities_init_zero {false, 0, false, 0, false, 0, false, 0, false, gizclaw_rpc_v1_ModelThinkingCapability_init_zero, false, 0}
 #define gizclaw_rpc_v1_ModelCreateRequest_init_zero {false, gizclaw_rpc_v1_Model_init_zero}
 #define gizclaw_rpc_v1_ModelCreateResponse_init_zero {false, gizclaw_rpc_v1_Model_init_zero}
@@ -1277,21 +1142,25 @@ extern "C" {
 #define gizclaw_rpc_v1_VolcCredentialBody_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_VolcTenantModelProviderData_init_zero {false, _gizclaw_rpc_v1_VolcTenantModelProviderDataApiMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_VolcTenantVoiceProviderData_init_zero {false, google_protobuf_Struct_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_Workflow_init_zero        {{{NULL}, NULL}, false, gizclaw_rpc_v1_WorkflowSpec_init_zero, false, gizclaw_rpc_v1_WorkflowI18nCatalog_init_zero, false, gizclaw_rpc_v1_Icon_init_zero}
-#define gizclaw_rpc_v1_WorkflowIconDownloadRequest_init_zero {"", _gizclaw_rpc_v1_IconFormat_MIN}
-#define gizclaw_rpc_v1_WorkflowIconDownloadResponse_init_zero {"", _gizclaw_rpc_v1_IconFormat_MIN, 0}
-#define gizclaw_rpc_v1_WorkflowGetRequest_init_zero {{{NULL}, NULL}, false, _gizclaw_rpc_v1_WorkflowLocale_MIN}
+#define gizclaw_rpc_v1_Workflow_init_zero        {{{NULL}, NULL}, false, gizclaw_rpc_v1_WorkflowSpec_init_zero, false, ""}
+#define gizclaw_rpc_v1_WorkflowUpsert_init_zero  {{{NULL}, NULL}, false, gizclaw_rpc_v1_WorkflowSpec_init_zero}
+#define gizclaw_rpc_v1_WorkflowCreateRequest_init_zero {_gizclaw_rpc_v1_ResourceSource_MIN, false, gizclaw_rpc_v1_WorkflowUpsert_init_zero}
+#define gizclaw_rpc_v1_WorkflowCreateResponse_init_zero {false, gizclaw_rpc_v1_Workflow_init_zero}
+#define gizclaw_rpc_v1_WorkflowDeleteRequest_init_zero {{{NULL}, NULL}, _gizclaw_rpc_v1_ResourceSource_MIN}
+#define gizclaw_rpc_v1_WorkflowDeleteResponse_init_zero {false, gizclaw_rpc_v1_Workflow_init_zero}
+#define gizclaw_rpc_v1_WorkflowGetRequest_init_zero {{{NULL}, NULL}, _gizclaw_rpc_v1_ResourceSource_MIN}
 #define gizclaw_rpc_v1_WorkflowGetResponse_init_zero {false, gizclaw_rpc_v1_Workflow_init_zero}
-#define gizclaw_rpc_v1_WorkflowListRequest_init_zero {{{NULL}, NULL}, false, 0, false, _gizclaw_rpc_v1_WorkflowLocale_MIN}
+#define gizclaw_rpc_v1_WorkflowListRequest_init_zero {{{NULL}, NULL}, false, 0, _gizclaw_rpc_v1_ResourceSource_MIN}
 #define gizclaw_rpc_v1_WorkflowListResponse_init_zero {0, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_WorkflowI18nCatalog_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_WorkflowPutRequest_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_WorkflowUpsert_init_zero, _gizclaw_rpc_v1_ResourceSource_MIN}
+#define gizclaw_rpc_v1_WorkflowPutResponse_init_zero {false, gizclaw_rpc_v1_Workflow_init_zero}
 #define gizclaw_rpc_v1_ToolkitPolicyToolIds_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolkitPolicy_init_zero   {false, gizclaw_rpc_v1_ToolkitPolicyToolIds_init_zero}
 #define gizclaw_rpc_v1_WorkflowSpec_init_zero    {false, gizclaw_rpc_v1_ASTTranslateWorkflowSpec_init_zero, false, gizclaw_rpc_v1_ChatRoomWorkflowSpec_init_zero, false, gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_init_zero, _gizclaw_rpc_v1_WorkflowDriver_MIN, false, gizclaw_rpc_v1_FlowcraftWorkflowSpec_init_zero, false, gizclaw_rpc_v1_ToolkitPolicy_init_zero, false, gizclaw_rpc_v1_PetWorkflowSpec_init_zero, false, gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_init_zero, false, gizclaw_rpc_v1_EinoWorkflowSpec_init_zero}
 #define gizclaw_rpc_v1_ToolExecutor_init_zero    {_gizclaw_rpc_v1_ToolExecutorKind_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_zero}
 #define gizclaw_rpc_v1_ToolTriggerExample_init_zero {{{NULL}, NULL}, false, google_protobuf_Struct_init_zero, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolTrigger_init_zero     {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_zero}
-#define gizclaw_rpc_v1_Tool_init_zero            {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ToolSource_MIN, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_zero, false, google_protobuf_Struct_init_zero, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolExecutor_init_zero, false, google_protobuf_Struct_init_zero, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Tool_init_zero            {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ToolSource_MIN, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_zero, false, google_protobuf_Struct_init_zero, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolExecutor_init_zero, false, google_protobuf_Struct_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolListRequest_init_zero {{{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_ToolListResponse_init_zero {{{NULL}, NULL}, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolGetRequest_init_zero  {{{NULL}, NULL}}
@@ -1547,6 +1416,7 @@ extern "C" {
 #define gizclaw_rpc_v1_Credential_name_tag       4
 #define gizclaw_rpc_v1_Credential_provider_tag   5
 #define gizclaw_rpc_v1_Credential_updated_at_tag 6
+#define gizclaw_rpc_v1_Credential_owner_public_key_tag 7
 #define gizclaw_rpc_v1_CredentialCreateRequest_value_tag 1
 #define gizclaw_rpc_v1_CredentialCreateResponse_value_tag 1
 #define gizclaw_rpc_v1_CredentialDeleteResponse_value_tag 1
@@ -1581,6 +1451,7 @@ extern "C" {
 #define gizclaw_rpc_v1_Model_source_tag          9
 #define gizclaw_rpc_v1_Model_synced_at_tag       10
 #define gizclaw_rpc_v1_Model_updated_at_tag      11
+#define gizclaw_rpc_v1_Model_owner_public_key_tag 12
 #define gizclaw_rpc_v1_ModelCreateRequest_value_tag 1
 #define gizclaw_rpc_v1_ModelCreateResponse_value_tag 1
 #define gizclaw_rpc_v1_ModelDeleteResponse_value_tag 1
@@ -1608,21 +1479,16 @@ extern "C" {
 #define gizclaw_rpc_v1_Voice_synced_at_tag       8
 #define gizclaw_rpc_v1_Voice_updated_at_tag      9
 #define gizclaw_rpc_v1_VoiceGetResponse_value_tag 1
-#define gizclaw_rpc_v1_WorkflowIconDownloadRequest_name_tag 1
-#define gizclaw_rpc_v1_WorkflowIconDownloadRequest_format_tag 2
-#define gizclaw_rpc_v1_WorkflowIconDownloadResponse_name_tag 1
-#define gizclaw_rpc_v1_WorkflowIconDownloadResponse_format_tag 2
-#define gizclaw_rpc_v1_WorkflowIconDownloadResponse_size_bytes_tag 3
+#define gizclaw_rpc_v1_WorkflowDeleteRequest_name_tag 1
+#define gizclaw_rpc_v1_WorkflowDeleteRequest_source_tag 2
 #define gizclaw_rpc_v1_WorkflowGetRequest_name_tag 1
-#define gizclaw_rpc_v1_WorkflowGetRequest_lang_tag 2
+#define gizclaw_rpc_v1_WorkflowGetRequest_source_tag 3
 #define gizclaw_rpc_v1_WorkflowListRequest_cursor_tag 1
 #define gizclaw_rpc_v1_WorkflowListRequest_limit_tag 2
-#define gizclaw_rpc_v1_WorkflowListRequest_lang_tag 3
+#define gizclaw_rpc_v1_WorkflowListRequest_source_tag 4
 #define gizclaw_rpc_v1_WorkflowListResponse_has_next_tag 1
 #define gizclaw_rpc_v1_WorkflowListResponse_items_tag 2
 #define gizclaw_rpc_v1_WorkflowListResponse_next_cursor_tag 3
-#define gizclaw_rpc_v1_WorkflowI18nCatalog_name_tag 1
-#define gizclaw_rpc_v1_WorkflowI18nCatalog_description_tag 2
 #define gizclaw_rpc_v1_ToolkitPolicyToolIds_value_tag 1
 #define gizclaw_rpc_v1_ToolkitPolicy_tool_ids_tag 1
 #define gizclaw_rpc_v1_WorkflowSpec_ast_translate_tag 1
@@ -1636,9 +1502,18 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkflowSpec_eino_tag     9
 #define gizclaw_rpc_v1_Workflow_name_tag         1
 #define gizclaw_rpc_v1_Workflow_spec_tag         2
-#define gizclaw_rpc_v1_Workflow_i18n_tag         3
-#define gizclaw_rpc_v1_Workflow_icon_tag         4
+#define gizclaw_rpc_v1_Workflow_owner_public_key_tag 5
+#define gizclaw_rpc_v1_WorkflowUpsert_name_tag   1
+#define gizclaw_rpc_v1_WorkflowUpsert_spec_tag   2
+#define gizclaw_rpc_v1_WorkflowCreateRequest_source_tag 1
+#define gizclaw_rpc_v1_WorkflowCreateRequest_body_tag 2
+#define gizclaw_rpc_v1_WorkflowCreateResponse_value_tag 1
+#define gizclaw_rpc_v1_WorkflowDeleteResponse_value_tag 1
 #define gizclaw_rpc_v1_WorkflowGetResponse_value_tag 1
+#define gizclaw_rpc_v1_WorkflowPutRequest_name_tag 1
+#define gizclaw_rpc_v1_WorkflowPutRequest_body_tag 2
+#define gizclaw_rpc_v1_WorkflowPutRequest_source_tag 3
+#define gizclaw_rpc_v1_WorkflowPutResponse_value_tag 1
 #define gizclaw_rpc_v1_ToolExecutor_kind_tag     1
 #define gizclaw_rpc_v1_ToolExecutor_name_tag     2
 #define gizclaw_rpc_v1_ToolExecutor_method_tag   3
@@ -1666,6 +1541,7 @@ extern "C" {
 #define gizclaw_rpc_v1_Tool_metadata_tag         12
 #define gizclaw_rpc_v1_Tool_created_at_tag       13
 #define gizclaw_rpc_v1_Tool_updated_at_tag       14
+#define gizclaw_rpc_v1_Tool_owner_public_key_tag 15
 #define gizclaw_rpc_v1_ToolListRequest_cursor_tag 1
 #define gizclaw_rpc_v1_ToolListRequest_limit_tag 2
 #define gizclaw_rpc_v1_ToolListResponse_items_tag 1
@@ -1788,7 +1664,8 @@ X(a, CALLBACK, SINGULAR, STRING,   created_at,        2) \
 X(a, CALLBACK, OPTIONAL, STRING,   description,       3) \
 X(a, CALLBACK, SINGULAR, STRING,   name,              4) \
 X(a, CALLBACK, SINGULAR, STRING,   provider,          5) \
-X(a, CALLBACK, SINGULAR, STRING,   updated_at,        6)
+X(a, CALLBACK, SINGULAR, STRING,   updated_at,        6) \
+X(a, STATIC,   OPTIONAL, STRING,   owner_public_key,   7)
 #define gizclaw_rpc_v1_Credential_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Credential_DEFAULT NULL
 #define gizclaw_rpc_v1_Credential_body_MSGTYPE gizclaw_rpc_v1_CredentialBody
@@ -2194,7 +2071,8 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  provider,          7) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  provider_data,     8) \
 X(a, STATIC,   SINGULAR, UENUM,    source,            9) \
 X(a, CALLBACK, OPTIONAL, STRING,   synced_at,        10) \
-X(a, CALLBACK, SINGULAR, STRING,   updated_at,       11)
+X(a, CALLBACK, SINGULAR, STRING,   updated_at,       11) \
+X(a, STATIC,   OPTIONAL, STRING,   owner_public_key,  12)
 #define gizclaw_rpc_v1_Model_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Model_DEFAULT NULL
 #define gizclaw_rpc_v1_Model_capabilities_MSGTYPE gizclaw_rpc_v1_ModelCapabilities
@@ -2429,30 +2307,46 @@ X(a, CALLBACK, OPTIONAL, STRING,   voice_id,          5)
 #define gizclaw_rpc_v1_Workflow_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   name,              1) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  spec,              2) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  i18n,              3) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  icon,              4)
+X(a, STATIC,   OPTIONAL, STRING,   owner_public_key,   5)
 #define gizclaw_rpc_v1_Workflow_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Workflow_DEFAULT NULL
 #define gizclaw_rpc_v1_Workflow_spec_MSGTYPE gizclaw_rpc_v1_WorkflowSpec
-#define gizclaw_rpc_v1_Workflow_i18n_MSGTYPE gizclaw_rpc_v1_WorkflowI18nCatalog
-#define gizclaw_rpc_v1_Workflow_icon_MSGTYPE gizclaw_rpc_v1_Icon
 
-#define gizclaw_rpc_v1_WorkflowIconDownloadRequest_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, STRING,   name,              1) \
-X(a, STATIC,   SINGULAR, UENUM,    format,            2)
-#define gizclaw_rpc_v1_WorkflowIconDownloadRequest_CALLBACK NULL
-#define gizclaw_rpc_v1_WorkflowIconDownloadRequest_DEFAULT NULL
+#define gizclaw_rpc_v1_WorkflowUpsert_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   name,              1) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  spec,              2)
+#define gizclaw_rpc_v1_WorkflowUpsert_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_WorkflowUpsert_DEFAULT NULL
+#define gizclaw_rpc_v1_WorkflowUpsert_spec_MSGTYPE gizclaw_rpc_v1_WorkflowSpec
 
-#define gizclaw_rpc_v1_WorkflowIconDownloadResponse_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, STRING,   name,              1) \
-X(a, STATIC,   SINGULAR, UENUM,    format,            2) \
-X(a, STATIC,   SINGULAR, INT64,    size_bytes,        3)
-#define gizclaw_rpc_v1_WorkflowIconDownloadResponse_CALLBACK NULL
-#define gizclaw_rpc_v1_WorkflowIconDownloadResponse_DEFAULT NULL
+#define gizclaw_rpc_v1_WorkflowCreateRequest_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UENUM,    source,            1) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  body,              2)
+#define gizclaw_rpc_v1_WorkflowCreateRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_WorkflowCreateRequest_DEFAULT NULL
+#define gizclaw_rpc_v1_WorkflowCreateRequest_body_MSGTYPE gizclaw_rpc_v1_WorkflowUpsert
+
+#define gizclaw_rpc_v1_WorkflowCreateResponse_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
+#define gizclaw_rpc_v1_WorkflowCreateResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_WorkflowCreateResponse_DEFAULT NULL
+#define gizclaw_rpc_v1_WorkflowCreateResponse_value_MSGTYPE gizclaw_rpc_v1_Workflow
+
+#define gizclaw_rpc_v1_WorkflowDeleteRequest_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   name,              1) \
+X(a, STATIC,   SINGULAR, UENUM,    source,            2)
+#define gizclaw_rpc_v1_WorkflowDeleteRequest_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_WorkflowDeleteRequest_DEFAULT NULL
+
+#define gizclaw_rpc_v1_WorkflowDeleteResponse_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
+#define gizclaw_rpc_v1_WorkflowDeleteResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_WorkflowDeleteResponse_DEFAULT NULL
+#define gizclaw_rpc_v1_WorkflowDeleteResponse_value_MSGTYPE gizclaw_rpc_v1_Workflow
 
 #define gizclaw_rpc_v1_WorkflowGetRequest_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   name,              1) \
-X(a, STATIC,   OPTIONAL, UENUM,    lang,              2)
+X(a, STATIC,   SINGULAR, UENUM,    source,            3)
 #define gizclaw_rpc_v1_WorkflowGetRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_WorkflowGetRequest_DEFAULT NULL
 
@@ -2465,7 +2359,7 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
 #define gizclaw_rpc_v1_WorkflowListRequest_FIELDLIST(X, a) \
 X(a, CALLBACK, OPTIONAL, STRING,   cursor,            1) \
 X(a, STATIC,   OPTIONAL, INT64,    limit,             2) \
-X(a, STATIC,   OPTIONAL, UENUM,    lang,              3)
+X(a, STATIC,   SINGULAR, UENUM,    source,            4)
 #define gizclaw_rpc_v1_WorkflowListRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_WorkflowListRequest_DEFAULT NULL
 
@@ -2477,11 +2371,19 @@ X(a, CALLBACK, OPTIONAL, STRING,   next_cursor,       3)
 #define gizclaw_rpc_v1_WorkflowListResponse_DEFAULT NULL
 #define gizclaw_rpc_v1_WorkflowListResponse_items_MSGTYPE gizclaw_rpc_v1_Workflow
 
-#define gizclaw_rpc_v1_WorkflowI18nCatalog_FIELDLIST(X, a) \
-X(a, CALLBACK, OPTIONAL, STRING,   name,              1) \
-X(a, CALLBACK, OPTIONAL, STRING,   description,       2)
-#define gizclaw_rpc_v1_WorkflowI18nCatalog_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_WorkflowI18nCatalog_DEFAULT NULL
+#define gizclaw_rpc_v1_WorkflowPutRequest_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   name,              1) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  body,              2) \
+X(a, STATIC,   SINGULAR, UENUM,    source,            3)
+#define gizclaw_rpc_v1_WorkflowPutRequest_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_WorkflowPutRequest_DEFAULT NULL
+#define gizclaw_rpc_v1_WorkflowPutRequest_body_MSGTYPE gizclaw_rpc_v1_WorkflowUpsert
+
+#define gizclaw_rpc_v1_WorkflowPutResponse_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
+#define gizclaw_rpc_v1_WorkflowPutResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_WorkflowPutResponse_DEFAULT NULL
+#define gizclaw_rpc_v1_WorkflowPutResponse_value_MSGTYPE gizclaw_rpc_v1_Workflow
 
 #define gizclaw_rpc_v1_ToolkitPolicyToolIds_FIELDLIST(X, a) \
 X(a, CALLBACK, REPEATED, STRING,   value,             1)
@@ -2558,7 +2460,8 @@ X(a, CALLBACK, REPEATED, MESSAGE,  triggers,         10) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  executor,         11) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  metadata,         12) \
 X(a, CALLBACK, SINGULAR, STRING,   created_at,       13) \
-X(a, CALLBACK, SINGULAR, STRING,   updated_at,       14)
+X(a, CALLBACK, SINGULAR, STRING,   updated_at,       14) \
+X(a, CALLBACK, OPTIONAL, STRING,   owner_public_key,  15)
 #define gizclaw_rpc_v1_Tool_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Tool_DEFAULT NULL
 #define gizclaw_rpc_v1_Tool_input_schema_MSGTYPE google_protobuf_Struct
@@ -2732,13 +2635,17 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_VolcCredentialBody_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_VolcTenantModelProviderData_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_VolcTenantVoiceProviderData_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_Workflow_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowIconDownloadRequest_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowIconDownloadResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowUpsert_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowCreateRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowCreateResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowDeleteRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowDeleteResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowGetRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowGetResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowListRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowListResponse_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowI18nCatalog_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowPutRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowPutResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ToolkitPolicyToolIds_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ToolkitPolicy_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowSpec_msg;
@@ -2850,13 +2757,17 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 #define gizclaw_rpc_v1_VolcTenantModelProviderData_fields &gizclaw_rpc_v1_VolcTenantModelProviderData_msg
 #define gizclaw_rpc_v1_VolcTenantVoiceProviderData_fields &gizclaw_rpc_v1_VolcTenantVoiceProviderData_msg
 #define gizclaw_rpc_v1_Workflow_fields &gizclaw_rpc_v1_Workflow_msg
-#define gizclaw_rpc_v1_WorkflowIconDownloadRequest_fields &gizclaw_rpc_v1_WorkflowIconDownloadRequest_msg
-#define gizclaw_rpc_v1_WorkflowIconDownloadResponse_fields &gizclaw_rpc_v1_WorkflowIconDownloadResponse_msg
+#define gizclaw_rpc_v1_WorkflowUpsert_fields &gizclaw_rpc_v1_WorkflowUpsert_msg
+#define gizclaw_rpc_v1_WorkflowCreateRequest_fields &gizclaw_rpc_v1_WorkflowCreateRequest_msg
+#define gizclaw_rpc_v1_WorkflowCreateResponse_fields &gizclaw_rpc_v1_WorkflowCreateResponse_msg
+#define gizclaw_rpc_v1_WorkflowDeleteRequest_fields &gizclaw_rpc_v1_WorkflowDeleteRequest_msg
+#define gizclaw_rpc_v1_WorkflowDeleteResponse_fields &gizclaw_rpc_v1_WorkflowDeleteResponse_msg
 #define gizclaw_rpc_v1_WorkflowGetRequest_fields &gizclaw_rpc_v1_WorkflowGetRequest_msg
 #define gizclaw_rpc_v1_WorkflowGetResponse_fields &gizclaw_rpc_v1_WorkflowGetResponse_msg
 #define gizclaw_rpc_v1_WorkflowListRequest_fields &gizclaw_rpc_v1_WorkflowListRequest_msg
 #define gizclaw_rpc_v1_WorkflowListResponse_fields &gizclaw_rpc_v1_WorkflowListResponse_msg
-#define gizclaw_rpc_v1_WorkflowI18nCatalog_fields &gizclaw_rpc_v1_WorkflowI18nCatalog_msg
+#define gizclaw_rpc_v1_WorkflowPutRequest_fields &gizclaw_rpc_v1_WorkflowPutRequest_msg
+#define gizclaw_rpc_v1_WorkflowPutResponse_fields &gizclaw_rpc_v1_WorkflowPutResponse_msg
 #define gizclaw_rpc_v1_ToolkitPolicyToolIds_fields &gizclaw_rpc_v1_ToolkitPolicyToolIds_msg
 #define gizclaw_rpc_v1_ToolkitPolicy_fields &gizclaw_rpc_v1_ToolkitPolicy_msg
 #define gizclaw_rpc_v1_WorkflowSpec_fields &gizclaw_rpc_v1_WorkflowSpec_msg
@@ -2962,11 +2873,17 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 /* gizclaw_rpc_v1_VolcTenantModelProviderData_size depends on runtime parameters */
 /* gizclaw_rpc_v1_VolcTenantVoiceProviderData_size depends on runtime parameters */
 /* gizclaw_rpc_v1_Workflow_size depends on runtime parameters */
+/* gizclaw_rpc_v1_WorkflowUpsert_size depends on runtime parameters */
+/* gizclaw_rpc_v1_WorkflowCreateRequest_size depends on runtime parameters */
+/* gizclaw_rpc_v1_WorkflowCreateResponse_size depends on runtime parameters */
+/* gizclaw_rpc_v1_WorkflowDeleteRequest_size depends on runtime parameters */
+/* gizclaw_rpc_v1_WorkflowDeleteResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_WorkflowGetRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_WorkflowGetResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_WorkflowListRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_WorkflowListResponse_size depends on runtime parameters */
-/* gizclaw_rpc_v1_WorkflowI18nCatalog_size depends on runtime parameters */
+/* gizclaw_rpc_v1_WorkflowPutRequest_size depends on runtime parameters */
+/* gizclaw_rpc_v1_WorkflowPutResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ToolkitPolicyToolIds_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ToolkitPolicy_size depends on runtime parameters */
 /* gizclaw_rpc_v1_WorkflowSpec_size depends on runtime parameters */
@@ -2986,14 +2903,12 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 /* gizclaw_rpc_v1_ToolDeleteResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ToolInvokeRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ToolInvokeResponse_size depends on runtime parameters */
-#define GIZCLAW_RPC_V1_PAYLOAD_AI_PB_H_MAX_SIZE  gizclaw_rpc_v1_WorkflowIconDownloadResponse_size
+#define GIZCLAW_RPC_V1_PAYLOAD_AI_PB_H_MAX_SIZE  gizclaw_rpc_v1_DoubaoRealtimeAudioInput_size
 #define gizclaw_rpc_v1_DoubaoRealtimeAudioFormat_size 13
 #define gizclaw_rpc_v1_DoubaoRealtimeAudioInput_size 15
 #define gizclaw_rpc_v1_FlowcraftConversationParameters_size 4
 #define gizclaw_rpc_v1_PetConversationParameters_size 2
 #define gizclaw_rpc_v1_PetWorkflowSpec_size      0
-#define gizclaw_rpc_v1_WorkflowIconDownloadRequest_size 260
-#define gizclaw_rpc_v1_WorkflowIconDownloadResponse_size 271
 #if defined(google_protobuf_Struct_size)
 #define gizclaw_rpc_v1_FlowcraftWorkflowSpec_size (6 + google_protobuf_Struct_size)
 #endif

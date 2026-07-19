@@ -2,7 +2,6 @@ package workspace
 
 import (
 	"context"
-	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -10,16 +9,14 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
-func TestServerWorkspaceHistoryServiceAuthorizesReadPaths(t *testing.T) {
+func TestServerWorkspaceHistoryServiceReadPaths(t *testing.T) {
 	t.Parallel()
 
 	srv := newTestServer(t)
 	srv.RuntimeStore = NewObjectRuntimeStore(objectstore.Dir(t.TempDir()))
-	auth := &historyServiceAuthorizer{}
 	ctx := context.Background()
 	seedWorkspace(t, srv, "demo0001")
 
@@ -32,8 +29,7 @@ func TestServerWorkspaceHistoryServiceAuthorizesReadPaths(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AppendWorkspaceHistory() error = %v", err)
 	}
-	subject := acl.PublicKeySubject("gear-a")
-	list, err := srv.ListWorkspaceHistory(ctx, auth, subject, "demo0001", apitypes.PeerRunHistoryListRequest{})
+	list, err := srv.ListWorkspaceHistory(ctx, "demo0001", apitypes.PeerRunHistoryListRequest{})
 	if err != nil {
 		t.Fatalf("ListWorkspaceHistory() error = %v", err)
 	}
@@ -41,7 +37,7 @@ func TestServerWorkspaceHistoryServiceAuthorizesReadPaths(t *testing.T) {
 		t.Fatalf("ListWorkspaceHistory() = %+v", list)
 	}
 
-	got, err := srv.GetWorkspaceHistory(ctx, auth, subject, "demo0001", entry.ID)
+	got, err := srv.GetWorkspaceHistory(ctx, "demo0001", entry.ID)
 	if err != nil {
 		t.Fatalf("GetWorkspaceHistory() error = %v", err)
 	}
@@ -49,7 +45,7 @@ func TestServerWorkspaceHistoryServiceAuthorizesReadPaths(t *testing.T) {
 		t.Fatalf("GetWorkspaceHistory() = %+v", got)
 	}
 
-	r, err := srv.ReadWorkspaceHistoryAsset(ctx, auth, subject, "demo0001", entry.Assets[0].Name)
+	r, err := srv.ReadWorkspaceHistoryAsset(ctx, "demo0001", entry.Assets[0].Name)
 	if err != nil {
 		t.Fatalf("ReadWorkspaceHistoryAsset() error = %v", err)
 	}
@@ -62,14 +58,6 @@ func TestServerWorkspaceHistoryServiceAuthorizesReadPaths(t *testing.T) {
 	}
 	if string(data) != "opus" {
 		t.Fatalf("asset data = %q", data)
-	}
-	if len(auth.requests) != 3 {
-		t.Fatalf("authorize requests = %+v", auth.requests)
-	}
-	for _, req := range auth.requests {
-		if req.Subject != subject || req.Resource != acl.WorkspaceResource("demo0001") || req.Permission != apitypes.ACLPermissionRead {
-			t.Fatalf("authorize request = %+v", req)
-		}
 	}
 }
 
@@ -126,88 +114,6 @@ func TestServerAppendWorkspaceHistoryBumpsLastActiveAt(t *testing.T) {
 	}
 }
 
-func TestServerWorkspaceHistoryServiceDeniesReadPaths(t *testing.T) {
-	t.Parallel()
-
-	srv := newTestServer(t)
-	srv.RuntimeStore = NewObjectRuntimeStore(objectstore.Dir(t.TempDir()))
-	auth := &historyServiceAuthorizer{err: acl.ErrDenied}
-	ctx := context.Background()
-	seedWorkspace(t, srv, "demo0001")
-
-	entry, err := srv.AppendWorkspaceHistory(ctx, "demo0001", AppendHistoryRequest{
-		Type:  "agent",
-		Name:  "assistant",
-		Text:  "hello",
-		Asset: &AppendHistoryAsset{MIMEType: "audio/opus", Data: []byte("opus")},
-	})
-	if err != nil {
-		t.Fatalf("AppendWorkspaceHistory() error = %v", err)
-	}
-	subject := acl.PublicKeySubject("gear-a")
-	if _, err := srv.ListWorkspaceHistory(ctx, auth, subject, "demo0001", apitypes.PeerRunHistoryListRequest{}); !errors.Is(err, acl.ErrDenied) {
-		t.Fatalf("ListWorkspaceHistory() error = %v", err)
-	}
-	if _, err := srv.GetWorkspaceHistory(ctx, auth, subject, "demo0001", entry.ID); !errors.Is(err, acl.ErrDenied) {
-		t.Fatalf("GetWorkspaceHistory() error = %v", err)
-	}
-	if _, err := srv.ReadWorkspaceHistoryAsset(ctx, auth, subject, "demo0001", entry.Assets[0].Name); !errors.Is(err, acl.ErrDenied) {
-		t.Fatalf("ReadWorkspaceHistoryAsset() error = %v", err)
-	}
-}
-
-func TestServerWorkspaceHistoryServiceRequiresAuthorizer(t *testing.T) {
-	t.Parallel()
-
-	srv := newTestServer(t)
-	srv.RuntimeStore = NewObjectRuntimeStore(objectstore.Dir(t.TempDir()))
-	ctx := context.Background()
-	seedWorkspace(t, srv, "demo0001")
-	entry, err := srv.AppendWorkspaceHistory(ctx, "demo0001", AppendHistoryRequest{
-		Type:  "agent",
-		Name:  "assistant",
-		Text:  "hello",
-		Asset: &AppendHistoryAsset{MIMEType: "audio/opus", Data: []byte("opus")},
-	})
-	if err != nil {
-		t.Fatalf("AppendWorkspaceHistory() error = %v", err)
-	}
-	subject := acl.PublicKeySubject("gear-a")
-	tests := []struct {
-		name string
-		read func() error
-	}{
-		{
-			name: "list",
-			read: func() error {
-				_, err := srv.ListWorkspaceHistory(ctx, nil, subject, "demo0001", apitypes.PeerRunHistoryListRequest{})
-				return err
-			},
-		},
-		{
-			name: "get",
-			read: func() error {
-				_, err := srv.GetWorkspaceHistory(ctx, nil, subject, "demo0001", entry.ID)
-				return err
-			},
-		},
-		{
-			name: "asset",
-			read: func() error {
-				_, err := srv.ReadWorkspaceHistoryAsset(ctx, nil, subject, "demo0001", entry.Assets[0].Name)
-				return err
-			},
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if err := test.read(); err == nil || !strings.Contains(err.Error(), "authorizer is required") {
-				t.Fatalf("read error = %v", err)
-			}
-		})
-	}
-}
-
 func TestServerWorkspaceHistoryServiceErrors(t *testing.T) {
 	t.Parallel()
 
@@ -238,14 +144,4 @@ func seedWorkspace(t *testing.T, srv *Server, name string) {
 	if _, ok := resp.(adminhttp.CreateWorkspace200JSONResponse); !ok {
 		t.Fatalf("CreateWorkspace() response = %#v", resp)
 	}
-}
-
-type historyServiceAuthorizer struct {
-	err      error
-	requests []acl.AuthorizeRequest
-}
-
-func (a *historyServiceAuthorizer) Authorize(_ context.Context, req acl.AuthorizeRequest) error {
-	a.requests = append(a.requests, req)
-	return a.err
 }

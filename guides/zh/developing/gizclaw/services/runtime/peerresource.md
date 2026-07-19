@@ -2,60 +2,24 @@
 
 [Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource)
 
-`peerresource` 是 Peer RPC 的跨领域资源聚合层。它把 AI、firmware、gameplay、social、workspace history 和 Tool 等领域 service 组合成 Peer 可以调用的统一 surface，并在进入领域 service 前执行 identity 与 ACL 约束。
+`peerresource` 是 Peer RPC 的跨领域资源聚合层。它把 AI、Firmware、Gameplay、Social、Workspace history 和 Tool 组合成统一 RPC surface，并按当前 connection 的 RuntimeProfile、调用方 ownership 和领域关系计算可见资源。
 
-## 资源方向
+## 有效资源集合
 
 ```mermaid
 flowchart LR
-    Peer["Authenticated Peer"] --> Server["peerresource.Server"]
-    Server --> AI["AI resources"]
-    Server --> Firmware["Firmware"]
-    Server --> Gameplay["Gameplay"]
-    Server --> Social["Social"]
-    Server --> Workspace["Workspace"]
-    Server --> Tools["Toolkit"]
-    Server --> ACL["Resource ACL"]
+    Registration["connection RuntimeProfile snapshot"] --> Effective["effective resources"]
+    Owner["owner KV indexes"] --> Effective
+    Domain["Friend / FriendGroup / Pet Workspaces"] --> Effective
+    Effective --> RPC["list / get / use"]
 ```
 
-## 核心结构与主函数
+RuntimeProfile map 的 value 是真实资源名。聚合列表按 alias 排序加入 profile 资源、去重，再加入 owner 资源；Workspace 还会加入 Friend、FriendGroup 和 Pet 领域资源。引用目标返回 404 时跳过，不让整个列表失败。
 
-| 结构或函数 | 作用 |
-| --- | --- |
-| `Server` | 实现 Peer resource RPC handlers，并持有各领域 service。 |
-| `IsMethod` | 判断 RPC method 是否属于本聚合 surface。 |
-| `Authorizer` | 对当前 Peer subject 执行资源授权和 discovery。 |
-| `ResourceACLService` | 为 Peer 创建的 Workspace 和 Tool 建立、查询与清理 resource owner role/binding。 |
-| `WorkspaceHistoryService` | 为 Peer RPC 提供 workspace history 能力。 |
+Get 和 use 对 RuntimeProfile 资源不检查 owner。更新和删除只允许 owner，或交给对应 system Workspace 领域规则。未注册 connection 没有 profile snapshot，但仍可调用相同 RPC，并访问自己拥有或领域关系允许的资源。
 
-`peerresource` 可以转换 API/RPC DTO，但不能复制领域资源的持久化规则。新增资源必须由对应领域 service 拥有，并在此处只增加协调、授权和 wire conversion。
+## 创建和 owner
 
-## Peer 创建的 Workspace
+Peer 通过公开 CRUD 创建 Workspace、Workflow、Model、Credential 或 Tool 时，领域 service 从 context 写入 `owner_public_key`，并把资源加入 owner KV index。资源记录与 owner index 使用原子 batch 写入。Owner 字段不可通过后续 put 转移。
 
-Peer 通过 `server.workspace.create` 创建 Workspace 时，`peerresource` 不只转发 Workspace service：它还必须为调用方建立该 Workspace 的 owner binding。
-
-```mermaid
-sequenceDiagram
-    participant Peer
-    participant Resources as peerresource.Server
-    participant Workspace as workspace.Server
-    participant ACL as ResourceACLService
-
-    Peer->>Resources: server.workspace.create
-    Resources->>Workspace: CreateWorkspace
-    Workspace-->>Resources: Workspace created
-    Resources->>ACL: ensure resource-owner role
-    Resources->>ACL: bind Peer public key to Workspace
-    alt owner binding succeeds
-        Resources-->>Peer: Workspace
-    else owner binding fails
-        Resources->>Workspace: DeleteWorkspace (rollback)
-        Resources-->>Peer: internal error
-    end
-```
-
-Owner binding 使用当前 Peer public key 作为 subject、Workspace name 作为 resource，并授予统一的 `resource-owner` role。该 role 包含 `read`、`use` 和 `admin` 权限；Workspace 与 Tool 共用同一套 owner role 定义和 ACL service。
-
-删除 Workspace 时先暂时移除对应 owner binding，再调用 Workspace service；service failure 或非成功响应都会恢复 binding。system Workspace 返回 RPC code 409；adapter 记录 `SYSTEM_WORKSPACE_DELETE_FORBIDDEN` observability error code，并保留 Workspace 与 owner binding。
-
-因此，Workspace 的资源记录和 owner binding 对 Peer RPC 表现为一个整体：创建不能留下没有 owner 权限的 Workspace，被拒绝或失败的删除也不能只移除其中一侧。
+Workflow list/get 必须显式选择 `source=runtime` 或 `source=owned`。Runtime Workflow 的 RPC ID 是 RuntimeProfile alias，并且只读；owned Workflow 的 ID 是全局唯一真实名称，owner 可以通过公开 RPC create/put/delete。Workspace create/put 携带相同的 source，使 Workflow 引用在正确 namespace 中解析。Admin surface 仍可以统一管理全部资源。

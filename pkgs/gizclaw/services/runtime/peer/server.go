@@ -47,7 +47,6 @@ type Server struct {
 	SignalingPath   string
 	ICETCP          bool
 	ICEServers      []gizwebrtc.ICEServer
-	DefaultPeerView string
 	PeerManager     PeerManager
 	IconLocks       iconasset.Locker
 
@@ -60,8 +59,6 @@ type PeerAdminService interface {
 	FindPubKeyBySN(context.Context, adminhttp.FindPubKeyBySNRequestObject) (adminhttp.FindPubKeyBySNResponseObject, error)
 	DeletePeer(context.Context, adminhttp.DeletePeerRequestObject) (adminhttp.DeletePeerResponseObject, error)
 	GetPeer(context.Context, adminhttp.GetPeerRequestObject) (adminhttp.GetPeerResponseObject, error)
-	GetPeerConfig(context.Context, adminhttp.GetPeerConfigRequestObject) (adminhttp.GetPeerConfigResponseObject, error)
-	PutPeerConfig(context.Context, adminhttp.PutPeerConfigRequestObject) (adminhttp.PutPeerConfigResponseObject, error)
 	GetPeerInfo(context.Context, adminhttp.GetPeerInfoRequestObject) (adminhttp.GetPeerInfoResponseObject, error)
 	PutPeerInfo(context.Context, adminhttp.PutPeerInfoRequestObject) (adminhttp.PutPeerInfoResponseObject, error)
 	GetPeerRuntime(context.Context, adminhttp.GetPeerRuntimeRequestObject) (adminhttp.GetPeerRuntimeResponseObject, error)
@@ -141,38 +138,6 @@ func (s *Server) GetPeer(ctx context.Context, request adminhttp.GetPeerRequestOb
 		return adminhttp.GetPeer404JSONResponse(apitypes.NewErrorResponse("PEER_NOT_FOUND", err.Error())), nil
 	}
 	return adminhttp.GetPeer200JSONResponse(toAdminRegistration(peer)), nil
-}
-
-// GetPeerConfig implements `adminhttp.StrictServerInterface.GetPeerConfig`.
-func (s *Server) GetPeerConfig(ctx context.Context, request adminhttp.GetPeerConfigRequestObject) (adminhttp.GetPeerConfigResponseObject, error) {
-	publicKey, err := parsePublicKeyParam(string(request.PublicKey))
-	if err != nil {
-		return nil, fmt.Errorf("invalid params: %w", err)
-	}
-	peer, err := s.get(ctx, publicKey)
-	if err != nil {
-		return adminhttp.GetPeerConfig404JSONResponse(apitypes.NewErrorResponse("PEER_NOT_FOUND", err.Error())), nil
-	}
-	return adminhttp.GetPeerConfig200JSONResponse(peer.Configuration), nil
-}
-
-// PutPeerConfig implements `adminhttp.StrictServerInterface.PutPeerConfig`.
-func (s *Server) PutPeerConfig(ctx context.Context, request adminhttp.PutPeerConfigRequestObject) (adminhttp.PutPeerConfigResponseObject, error) {
-	if request.Body == nil {
-		return adminhttp.PutPeerConfig400JSONResponse(apitypes.NewErrorResponse("INVALID_PARAMS", "request body required")), nil
-	}
-	publicKey, err := parsePublicKeyParam(string(request.PublicKey))
-	if err != nil {
-		return adminhttp.PutPeerConfig400JSONResponse(apitypes.NewErrorResponse("INVALID_PARAMS", err.Error())), nil
-	}
-	peer, err := s.putConfig(ctx, publicKey, *request.Body)
-	if err != nil {
-		if errors.Is(err, ErrPeerNotFound) {
-			return adminhttp.PutPeerConfig404JSONResponse(apitypes.NewErrorResponse("PEER_NOT_FOUND", err.Error())), nil
-		}
-		return adminhttp.PutPeerConfig400JSONResponse(apitypes.NewErrorResponse("INVALID_PARAMS", err.Error())), nil
-	}
-	return adminhttp.PutPeerConfig200JSONResponse(peer.Configuration), nil
 }
 
 // GetPeerInfo implements `adminhttp.StrictServerInterface.GetPeerInfo`.
