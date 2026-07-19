@@ -179,8 +179,7 @@ type pulledHistory struct {
 }
 
 type pulledResponse struct {
-	content   strings.Builder
-	committed bool
+	content strings.Builder
 }
 
 func newPulledHistory(h *conversationHistory, memoryStore memory.Store, report func(error)) *pulledHistory {
@@ -207,18 +206,23 @@ func (p *pulledHistory) observe(chunk *genx.MessageChunk) {
 	p.mu.Lock()
 	state := p.states[streamID]
 	if state == nil {
+		if _, tracked := p.users[streamID]; !tracked {
+			p.mu.Unlock()
+			return
+		}
 		state = &pulledResponse{}
 		p.states[streamID] = state
 	}
-	if text, ok := chunk.Part.(genx.Text); ok && !chunk.IsEndOfStream() {
+	if text, ok := chunk.Part.(genx.Text); ok {
 		state.content.WriteString(string(text))
 	}
-	shouldCommit := chunk.IsEndOfStream() && !state.committed
+	shouldCommit := chunk.IsEndOfStream()
 	interrupted := chunk.Ctrl.Error == commonagent.Interrupted
 	content := state.content.String()
 	user := p.users[streamID]
 	if shouldCommit {
-		state.committed = true
+		delete(p.states, streamID)
+		delete(p.users, streamID)
 	}
 	p.mu.Unlock()
 	if shouldCommit {
@@ -257,15 +261,16 @@ func (p *pulledHistory) commitInterrupted(streamID string) {
 	p.mu.Lock()
 	state := p.states[streamID]
 	if state == nil {
+		if _, tracked := p.users[streamID]; !tracked {
+			p.mu.Unlock()
+			return
+		}
 		state = &pulledResponse{}
 		p.states[streamID] = state
 	}
-	if state.committed {
-		p.mu.Unlock()
-		return
-	}
-	state.committed = true
 	content := state.content.String()
+	delete(p.states, streamID)
+	delete(p.users, streamID)
 	p.mu.Unlock()
 	p.append(content, true)
 }

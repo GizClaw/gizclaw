@@ -549,7 +549,7 @@ func TestDefaultBuilderBuildsVolcRealtimeAgentTransformer(t *testing.T) {
 			Kind: apitypes.ModelKindRealtime,
 			ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{
 				ResourceId:    stringPtr("volc.speech.dialog"),
-				UpstreamModel: stringPtr("legacy-model"),
+				UpstreamModel: stringPtr("1.2.6.0"),
 			}),
 		},
 		Tenant: Tenant{
@@ -584,6 +584,30 @@ func TestDefaultBuilderBuildsVolcRealtimeAgentTransformer(t *testing.T) {
 	}
 	if got := transformerNestedStringField(t, tf, "DoubaoRealtimeDuplex", "sessionID"); got != "dialog-id" {
 		t.Fatalf("agent realtime sessionID = %q, want dialog-id", got)
+	}
+}
+
+func TestDefaultBuilderRejectsUnsupportedVolcRealtimeAgentModel(t *testing.T) {
+	_, err := (DefaultBuilder{}).BuildTransformer(context.Background(), TransformerConfig{
+		Agent: true,
+		Model: &apitypes.Model{
+			Id:   "dialog",
+			Kind: apitypes.ModelKindRealtime,
+			ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{
+				UpstreamModel: stringPtr("O"),
+			}),
+		},
+		Tenant: Tenant{
+			Kind: string(apitypes.ModelProviderKindVolcTenant),
+			Volc: &apitypes.VolcTenant{Name: "main", CredentialName: "volc-token"},
+		},
+		Credential: apitypes.Credential{
+			Name: "volc-token",
+			Body: testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "speech_api_key": "runtime-key"}),
+		},
+	})
+	if err == nil || !errors.Is(err, ErrUnsupported) || !strings.Contains(err.Error(), "does not support function calls") {
+		t.Fatalf("BuildTransformer() error = %v, want unsupported function-call model", err)
 	}
 }
 

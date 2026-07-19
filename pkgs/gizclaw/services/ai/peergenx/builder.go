@@ -119,12 +119,19 @@ func (b DefaultBuilder) buildVolcRealtimeAgent(cfg TransformerConfig) (genx.Tran
 	}
 	data := mergeParams(nil, cfg.Params)
 	resourceID := firstString(mapString(data, "resource_id"), providerData.ResourceId, doubaospeech.ResourceRealtime)
+	modelName := firstString(mapString(data, "upstream_model", "model"), providerData.UpstreamModel)
+	if modelName == "" {
+		return nil, fmt.Errorf("%w: model %q missing upstream_model for doubao realtime Agent", ErrInvalid, cfg.Model.Id)
+	}
+	if modelName != doubaospeech.RealtimeDuplexModelDefault {
+		return nil, fmt.Errorf("%w: doubao realtime Agent model %q does not support function calls; want %q", ErrUnsupported, modelName, doubaospeech.RealtimeDuplexModelDefault)
+	}
 	client := doubaospeech.NewClient(appID,
 		doubaospeech.WithResourceID(resourceID),
 		doubaospeech.WithAPIKey(apiKey),
 	)
 	opts := []transformers.DoubaoRealtimeDuplexOption{
-		transformers.WithDoubaoRealtimeDuplexModel(doubaospeech.RealtimeDuplexModelDefault),
+		transformers.WithDoubaoRealtimeDuplexModel(modelName),
 	}
 	if value := mapString(data, "instructions", "system_role"); value != "" {
 		opts = append(opts, transformers.WithDoubaoRealtimeDuplexInstructions(value))

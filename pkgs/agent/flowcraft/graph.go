@@ -94,11 +94,6 @@ func (h *runHost) Publish(_ context.Context, envelope event.Envelope) error {
 	if err != nil {
 		return err
 	}
-	if delta.Type == engine.StreamDeltaToolCall {
-		if err := h.sequence.record(delta.ID); err != nil {
-			return err
-		}
-	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if delta.Speculative && delta.ForkID != "" && delta.BranchID != "" {
@@ -110,12 +105,22 @@ func (h *runHost) Publish(_ context.Context, envelope event.Envelope) error {
 	case engine.StreamDeltaParallelBranchAccept:
 		key := delta.ForkID + "\x00" + delta.BranchID
 		for _, buffered := range h.buffers[key] {
+			if buffered.delta.Type == engine.StreamDeltaToolCall {
+				if err := h.sequence.record(buffered.delta.ID); err != nil {
+					return err
+				}
+			}
 			h.publishLocked(buffered.nodeID, buffered.delta)
 		}
 		delete(h.buffers, key)
 	case engine.StreamDeltaParallelBranchCancel:
 		delete(h.buffers, delta.ForkID+"\x00"+delta.BranchID)
 	default:
+		if delta.Type == engine.StreamDeltaToolCall {
+			if err := h.sequence.record(delta.ID); err != nil {
+				return err
+			}
+		}
 		h.publishLocked(envelope.NodeID(), delta)
 	}
 	return nil

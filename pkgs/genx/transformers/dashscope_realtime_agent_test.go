@@ -87,6 +87,34 @@ func TestDashScopeRealtimeProviderEndClosesBlockedInput(t *testing.T) {
 	}
 }
 
+func TestDashScopeRealtimeAudioEOSIsNotCommittedAgainAtEOF(t *testing.T) {
+	eofRead := make(chan struct{})
+	responseCreated := make(chan struct{})
+	eventsFinished := make(chan struct{})
+	session := &fakeDashScopeRealtimeSession{
+		events:           []*dashscope.RealtimeEvent{{Type: dashscope.EventTypeResponseDone, ResponseID: "response-1"}},
+		waitBeforeEvents: eofRead,
+		finished:         eventsFinished,
+		canceled:         make(chan struct{}),
+		created:          responseCreated,
+	}
+	input := &dashScopeEOSInput{responseCreated: responseCreated, eofRead: eofRead}
+	output := newBufferStream(4)
+	done := make(chan struct{})
+	go func() {
+		(&DashScopeRealtime{}).processLoop(t.Context(), input, output, session, DashScopeRealtimeCtxOptions{})
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("processLoop did not finish after the committed response completed")
+	}
+	if got := session.createCount(); got != 1 {
+		t.Fatalf("CreateResponse calls = %d, want 1", got)
+	}
+}
+
 func TestDashScopeRealtimeTranscriptEOSPreservesLabel(t *testing.T) {
 	eventsFinished := make(chan struct{})
 	session := &fakeDashScopeRealtimeSession{
@@ -387,17 +415,20 @@ func TestDashScopeRealtimeInterruptDropsSuccessfulLateToolOutput(t *testing.T) {
 }
 
 type fakeDashScopeRealtimeSession struct {
-	events     []*dashscope.RealtimeEvent
-	pauseAfter int
-	paused     chan struct{}
-	release    <-chan struct{}
-	finished   chan struct{}
-	canceled   chan struct{}
+	events           []*dashscope.RealtimeEvent
+	waitBeforeEvents <-chan struct{}
+	pauseAfter       int
+	paused           chan struct{}
+	release          <-chan struct{}
+	finished         chan struct{}
+	canceled         chan struct{}
+	created          chan struct{}
 
 	mu         sync.Mutex
 	submitted  []string
 	creates    int
 	cancelOnce sync.Once
+	createOnce sync.Once
 }
 
 func (s *fakeDashScopeRealtimeSession) UpdateSession(*dashscope.SessionConfig) error { return nil }
@@ -407,6 +438,9 @@ func (s *fakeDashScopeRealtimeSession) CreateResponse(*dashscope.ResponseCreateO
 	s.mu.Lock()
 	s.creates++
 	s.mu.Unlock()
+	if s.created != nil {
+		s.createOnce.Do(func() { close(s.created) })
+	}
 	return nil
 }
 func (s *fakeDashScopeRealtimeSession) SubmitFunctionCallOutput(callID, _ string) error {
@@ -424,6 +458,9 @@ func (s *fakeDashScopeRealtimeSession) CancelResponse() error {
 func (s *fakeDashScopeRealtimeSession) Events() iter.Seq2[*dashscope.RealtimeEvent, error] {
 	return func(yield func(*dashscope.RealtimeEvent, error) bool) {
 		defer close(s.finished)
+		if s.waitBeforeEvents != nil {
+			<-s.waitBeforeEvents
+		}
 		for i, event := range s.events {
 			if !yield(event, nil) {
 				return
@@ -452,6 +489,28 @@ type dashScopeConcurrentInput struct {
 	eventsFinished <-chan struct{}
 	once           sync.Once
 }
+
+type dashScopeEOSInput struct {
+	responseCreated <-chan struct{}
+	eofRead         chan struct{}
+	index           int
+}
+
+func (s *dashScopeEOSInput) Next() (*genx.MessageChunk, error) {
+	if s.index == 0 {
+		s.index++
+		return &genx.MessageChunk{
+			Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{0, 0}},
+			Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true, EndOfStream: true},
+		}, nil
+	}
+	<-s.responseCreated
+	close(s.eofRead)
+	return nil, io.EOF
+}
+
+func (*dashScopeEOSInput) Close() error               { return nil }
+func (*dashScopeEOSInput) CloseWithError(error) error { return nil }
 
 func (s *dashScopeConcurrentInput) Next() (*genx.MessageChunk, error) {
 	s.once.Do(func() { close(s.firstRead) })

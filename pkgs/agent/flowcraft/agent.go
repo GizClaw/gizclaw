@@ -190,7 +190,7 @@ func readInput(ctx context.Context, input genx.Stream, events chan<- inputEvent)
 				return
 			}
 		}
-		if text, ok := chunk.Part.(genx.Text); ok && !chunk.IsEndOfStream() {
+		if text, ok := chunk.Part.(genx.Text); ok {
 			if !begun {
 				begun = true
 				if !send(inputEvent{begin: true}) {

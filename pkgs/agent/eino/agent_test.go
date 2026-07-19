@@ -313,6 +313,12 @@ func TestPulledHistoryAcceptsPendingMemoryAndReportsObserveFailure(t *testing.T)
 	pulled.track("response-1", "hello")
 	pulled.observe(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("answer"), Ctrl: &genx.StreamCtrl{StreamID: "response-1"}})
 	pulled.observe(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "response-1", EndOfStream: true}})
+	pulled.mu.Lock()
+	if len(pulled.states) != 0 || len(pulled.users) != 0 {
+		pulled.mu.Unlock()
+		t.Fatalf("completed pulled state retained: states=%d users=%d", len(pulled.states), len(pulled.users))
+	}
+	pulled.mu.Unlock()
 	if len(reported) != 0 {
 		t.Fatalf("pending memory operation reported errors: %v", reported)
 	}
@@ -323,6 +329,14 @@ func TestPulledHistoryAcceptsPendingMemoryAndReportsObserveFailure(t *testing.T)
 	pulled.observe(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "response-2", EndOfStream: true}})
 	if len(reported) != 1 || !strings.Contains(reported[0].Error(), "memory unavailable") {
 		t.Fatalf("reported errors = %v", reported)
+	}
+	pulled.track("response-3", "interrupt")
+	pulled.observe(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("partial"), Ctrl: &genx.StreamCtrl{StreamID: "response-3"}})
+	pulled.commitInterrupted("response-3")
+	pulled.mu.Lock()
+	defer pulled.mu.Unlock()
+	if len(pulled.states) != 0 || len(pulled.users) != 0 {
+		t.Fatalf("interrupted pulled state retained: states=%d users=%d", len(pulled.states), len(pulled.users))
 	}
 }
 

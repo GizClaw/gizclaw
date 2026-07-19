@@ -485,6 +485,42 @@ func (t *DashScopeRealtime) processLoop(ctx context.Context, input genx.Stream, 
 		}
 		streamIDMu.Unlock()
 	}
+	var turnMu sync.Mutex
+	turnCommitted := false
+	turnDone := make(chan struct{})
+	turnFinished := false
+	resetTurn := func() {
+		turnMu.Lock()
+		turnCommitted = false
+		turnDone = make(chan struct{})
+		turnFinished = false
+		turnMu.Unlock()
+	}
+	beginTurnCommit := func() (<-chan struct{}, bool) {
+		turnMu.Lock()
+		defer turnMu.Unlock()
+		if turnCommitted {
+			return turnDone, false
+		}
+		turnCommitted = true
+		turnDone = make(chan struct{})
+		turnFinished = false
+		return turnDone, true
+	}
+	currentTurn := func() (<-chan struct{}, bool) {
+		turnMu.Lock()
+		defer turnMu.Unlock()
+		return turnDone, turnCommitted
+	}
+	completeTurn := func() {
+		turnMu.Lock()
+		defer turnMu.Unlock()
+		if !turnCommitted || turnFinished {
+			return
+		}
+		close(turnDone)
+		turnFinished = true
+	}
 
 	// Start goroutine to receive events
 	eventsDone := make(chan struct{})
@@ -789,6 +825,7 @@ func (t *DashScopeRealtime) processLoop(ctx context.Context, input genx.Stream, 
 					}
 					finishProviderResponse(event.ResponseID, true)
 					transcriptionStreamID = ""
+					completeTurn()
 					continue
 				}
 				if runtime.FunctionCallHandler == nil {
@@ -884,6 +921,16 @@ func (t *DashScopeRealtime) processLoop(ctx context.Context, input genx.Stream, 
 				output.CloseWithError(err)
 			}
 
+			turnCompletion, committed := currentTurn()
+			if committed {
+				select {
+				case <-turnCompletion:
+				case <-eventsDone:
+				case <-ctx.Done():
+				}
+				return
+			}
+
 			// Flush remaining audio buffer
 			for len(audioBuffer) > 0 {
 				sendSize := min(chunkSize, len(audioBuffer))
@@ -909,6 +956,8 @@ func (t *DashScopeRealtime) processLoop(ctx context.Context, input genx.Stream, 
 
 			// Commit audio and request response (manual mode)
 			time.Sleep(200 * time.Millisecond)
+			allowProviderResponse()
+			turnCompletion, _ = beginTurnCommit()
 			if err := session.CommitInput(); err != nil {
 				output.CloseWithError(err)
 				return
@@ -917,8 +966,11 @@ func (t *DashScopeRealtime) processLoop(ctx context.Context, input genx.Stream, 
 				output.CloseWithError(err)
 				return
 			}
-			// Wait for remaining events
-			<-eventsDone
+			select {
+			case <-turnCompletion:
+			case <-eventsDone:
+			case <-ctx.Done():
+			}
 			return
 		}
 
@@ -935,6 +987,7 @@ func (t *DashScopeRealtime) processLoop(ctx context.Context, input genx.Stream, 
 		// This interrupts the AI to let the user speak
 		// If no response is active, server returns an error event which we log and ignore
 		if chunk.Ctrl != nil && chunk.Ctrl.BeginOfStream {
+			resetTurn()
 			toolCallsUsed.Store(0)
 			interruptAssistant()
 			finishProviderResponse("", true)
@@ -968,6 +1021,9 @@ func (t *DashScopeRealtime) processLoop(ctx context.Context, input genx.Stream, 
 				// Trigger response
 				time.Sleep(100 * time.Millisecond)
 				allowProviderResponse()
+				if _, started := beginTurnCommit(); !started {
+					continue
+				}
 				if err := session.CommitInput(); err != nil {
 					output.CloseWithError(err)
 					return

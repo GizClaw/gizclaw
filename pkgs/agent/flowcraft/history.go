@@ -198,8 +198,7 @@ type pulledHistory struct {
 }
 
 type pulledState struct {
-	content   strings.Builder
-	committed bool
+	content strings.Builder
 }
 
 func newPulledHistory(history *conversationHistory, memoryStore memory.Store, report func(error)) *pulledHistory {
@@ -219,27 +218,36 @@ func (p *pulledHistory) observe(chunk *genx.MessageChunk) {
 	if p == nil || chunk == nil || chunk.Role != genx.RoleModel || chunk.Ctrl == nil {
 		return
 	}
-	p.mu.Lock()
-	state := p.states[chunk.Ctrl.StreamID]
-	if state == nil {
-		state = &pulledState{}
-		p.states[chunk.Ctrl.StreamID] = state
+	streamID := chunk.Ctrl.StreamID
+	if streamID == "" {
+		return
 	}
-	if text, ok := chunk.Part.(genx.Text); ok && !chunk.IsEndOfStream() {
+	p.mu.Lock()
+	state := p.states[streamID]
+	if state == nil {
+		if _, tracked := p.users[streamID]; !tracked {
+			p.mu.Unlock()
+			return
+		}
+		state = &pulledState{}
+		p.states[streamID] = state
+	}
+	if text, ok := chunk.Part.(genx.Text); ok {
 		state.content.WriteString(string(text))
 	}
-	commit := chunk.IsEndOfStream() && !state.committed
+	commit := chunk.IsEndOfStream()
 	content := state.content.String()
-	user := p.users[chunk.Ctrl.StreamID]
+	user := p.users[streamID]
 	interrupted := chunk.Ctrl.Error == commonagent.Interrupted
 	if commit {
-		state.committed = true
+		delete(p.states, streamID)
+		delete(p.users, streamID)
 	}
 	p.mu.Unlock()
 	if commit {
 		p.append(content, interrupted)
 		if !interrupted {
-			p.observeMemory(chunk.Ctrl.StreamID, user, content)
+			p.observeMemory(streamID, user, content)
 		}
 	}
 }
@@ -272,15 +280,16 @@ func (p *pulledHistory) commitInterrupted(streamID string) {
 	p.mu.Lock()
 	state := p.states[streamID]
 	if state == nil {
+		if _, tracked := p.users[streamID]; !tracked {
+			p.mu.Unlock()
+			return
+		}
 		state = &pulledState{}
 		p.states[streamID] = state
 	}
-	if state.committed {
-		p.mu.Unlock()
-		return
-	}
-	state.committed = true
 	content := state.content.String()
+	delete(p.states, streamID)
+	delete(p.users, streamID)
 	p.mu.Unlock()
 	p.append(content, true)
 }

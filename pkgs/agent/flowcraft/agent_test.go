@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/flowcraft/sdk/engine"
+	"github.com/GizClaw/flowcraft/sdk/event"
 	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
 	flowmodel "github.com/GizClaw/flowcraft/sdk/model"
 	commonagent "github.com/GizClaw/gizclaw-go/pkgs/agent"
@@ -91,6 +93,49 @@ func TestAgentRunsFlowcraftToolsStrictlyInProviderOrder(t *testing.T) {
 		if chunk.ToolCall != nil || chunk.Role == genx.RoleTool {
 			t.Fatalf("internal tool traffic leaked: %#v", chunk)
 		}
+	}
+}
+
+func TestAgentPreservesTextCarriedByEOS(t *testing.T) {
+	seen := make(chan genx.ModelContext, 1)
+	generator := generatorFunc(func(_ context.Context, modelContext genx.ModelContext) (genx.Stream, error) {
+		seen <- modelContext
+		builder := genx.NewGrowableStreamBuilder(modelContext, 1)
+		if err := builder.Add(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("answer")}); err != nil {
+			return nil, err
+		}
+		if err := builder.Done(genx.Usage{}); err != nil {
+			return nil, err
+		}
+		return builder.Stream(), nil
+	})
+	resolver, err := NewGenXResolver(map[string]GenXModel{"chat": {Generator: generator, Pattern: "test/chat"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime, err := New(Config{ID: "eos-agent", Graph: textGraph(), Resolver: resolver, Toolkit: commonagent.EmptyToolkit()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := buffer.N[*genx.MessageChunk](2)
+	for _, chunk := range []*genx.MessageChunk{
+		genx.NewBeginOfStream("text-1"),
+		{Role: genx.RoleUser, Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "text-1", EndOfStream: true}},
+	} {
+		if err := input.Add(chunk); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_ = input.CloseWrite()
+	output, err := runtime.Transform(t.Context(), "", input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := visibleText(readAll(t, output)); got != "answer" {
+		t.Fatalf("visible text = %q, want answer", got)
+	}
+	if got := lastText(<-seen, genx.RoleUser); got != "hello" {
+		t.Fatalf("model user input = %q, want EOS text", got)
 	}
 }
 
@@ -305,6 +350,12 @@ func TestPulledHistoryAcceptsPendingMemoryAndReportsFailedOperation(t *testing.T
 	pulled.track("response-1", "hello")
 	pulled.observe(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("answer"), Ctrl: &genx.StreamCtrl{StreamID: "response-1"}})
 	pulled.observe(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "response-1", EndOfStream: true}})
+	pulled.mu.Lock()
+	if len(pulled.states) != 0 || len(pulled.users) != 0 {
+		pulled.mu.Unlock()
+		t.Fatalf("completed pulled state retained: states=%d users=%d", len(pulled.states), len(pulled.users))
+	}
+	pulled.mu.Unlock()
 	if len(reported) != 0 {
 		t.Fatalf("pending memory operation reported errors: %v", reported)
 	}
@@ -315,6 +366,14 @@ func TestPulledHistoryAcceptsPendingMemoryAndReportsFailedOperation(t *testing.T
 	pulled.observe(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "response-2", EndOfStream: true}})
 	if len(reported) != 1 || !strings.Contains(reported[0].Error(), "failed-1") {
 		t.Fatalf("reported errors = %v", reported)
+	}
+	pulled.track("response-3", "interrupt")
+	pulled.observe(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("partial"), Ctrl: &genx.StreamCtrl{StreamID: "response-3"}})
+	pulled.commitInterrupted("response-3")
+	pulled.mu.Lock()
+	defer pulled.mu.Unlock()
+	if len(pulled.states) != 0 || len(pulled.users) != 0 {
+		t.Fatalf("interrupted pulled state retained: states=%d users=%d", len(pulled.states), len(pulled.users))
 	}
 }
 
@@ -351,6 +410,38 @@ func TestToolSequencerRejectsDuplicateCallIdentity(t *testing.T) {
 	if err := sequence.record("call-1"); !errors.Is(err, commonagent.ErrInvalidToolCall) {
 		t.Fatalf("record(duplicate) error = %v, want ErrInvalidToolCall", err)
 	}
+}
+
+func TestRunHostDoesNotSequenceCanceledSpeculativeToolCall(t *testing.T) {
+	host := &runHost{sequence: newToolSequencer(), buffers: make(map[string][]bufferedDelta)}
+	publish := func(delta engine.StreamDeltaPayload) {
+		t.Helper()
+		envelope, err := event.NewEnvelope(t.Context(), engine.SubjectStreamDelta("run", "node"), delta)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := host.Publish(t.Context(), envelope); err != nil {
+			t.Fatal(err)
+		}
+	}
+	publish(engine.StreamDeltaPayload{Type: engine.StreamDeltaToolCall, ID: "canceled", Name: "tool", Speculative: true, ForkID: "fork", BranchID: "branch"})
+	publish(engine.StreamDeltaPayload{Type: engine.StreamDeltaParallelBranchCancel, ForkID: "fork", BranchID: "branch"})
+	publish(engine.StreamDeltaPayload{Type: engine.StreamDeltaToolCall, ID: "accepted", Name: "tool"})
+	publish(engine.StreamDeltaPayload{Type: engine.StreamDeltaToolCall, ID: "speculative-accepted", Name: "tool", Speculative: true, ForkID: "fork-2", BranchID: "branch-2"})
+	publish(engine.StreamDeltaPayload{Type: engine.StreamDeltaParallelBranchAccept, ForkID: "fork-2", BranchID: "branch-2"})
+
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	release, err := host.sequence.acquire(ctx, "accepted")
+	if err != nil {
+		t.Fatalf("acquire accepted call: %v", err)
+	}
+	release()
+	release, err = host.sequence.acquire(ctx, "speculative-accepted")
+	if err != nil {
+		t.Fatalf("acquire accepted speculative call: %v", err)
+	}
+	release()
 }
 
 func toolLoopGraph() flowgraph.GraphDefinition {
