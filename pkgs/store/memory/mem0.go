@@ -276,7 +276,7 @@ func (s *Mem0Store) mem0Filters(input []Filter) (map[string]any, error) {
 	for key, value := range s.entityFields() {
 		clauses = append(clauses, map[string]any{key: value})
 	}
-	operators := map[FilterOperator]string{FilterNotEqual: "ne", FilterIn: "in", FilterGreaterThan: "gt", FilterGreaterEqual: "gte", FilterLessThan: "lt", FilterLessEqual: "lte"}
+	operators := map[FilterOperator]string{FilterNotEqual: "ne", FilterIn: "in", FilterNotIn: "nin", FilterGreaterThan: "gt", FilterGreaterEqual: "gte", FilterLessThan: "lt", FilterLessEqual: "lte"}
 	for _, filter := range input {
 		if filter.Operator == FilterEqual {
 			clauses = append(clauses, map[string]any{filter.Field: cloneValue(filter.Value)})

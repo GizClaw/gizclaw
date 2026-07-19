@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -487,7 +488,7 @@ func newStoreRegistryWithOptionsContext(ctx context.Context, cfg Config, options
 				continue
 			}
 			flowcraft := storeConfig.Flowcraft
-			if flowcraft.ExtractionModel != "" || flowcraft.EmbeddingModel != "" || flowcraft.RerankModel != "" {
+			if os.ExpandEnv(flowcraft.ExtractionModel) != "" || os.ExpandEnv(flowcraft.EmbeddingModel) != "" || os.ExpandEnv(flowcraft.RerankModel) != "" {
 				return nil, fmt.Errorf("memory store %q flowcraft model fields require an injected model loader", name)
 			}
 		}

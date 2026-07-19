@@ -732,6 +732,25 @@ func TestNewStoreRegistryThreadsFlowcraftModelLoader(t *testing.T) {
 	}
 }
 
+func TestNewStoreRegistryExpandsFlowcraftModelsBeforeLoaderCheck(t *testing.T) {
+	t.Setenv("GIZCLAW_TEST_OPTIONAL_MEMORY_MODEL", "")
+	cfg := Config{Stores: map[string]stores.Config{
+		"agent-memory": {
+			Kind: stores.KindMemoryStore,
+			Flowcraft: &memorystore.FlowcraftConfig{
+				RuntimeID: "app", UserID: "user", ExtractionModel: "$GIZCLAW_TEST_OPTIONAL_MEMORY_MODEL",
+			},
+		},
+	}}
+	registry, err := newStoreRegistry(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := registry.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestNewStoreRegistryThreadsCallerContext(t *testing.T) {
 	canceled, cancel := context.WithCancel(context.Background())
 	cancel()

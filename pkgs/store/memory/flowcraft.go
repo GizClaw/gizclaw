@@ -165,6 +165,7 @@ func (s *FlowcraftStore) Update(ctx context.Context, request UpdateRequest) (Fac
 	next.ID = ""
 	next.CorrectedBy = ""
 	next.ValidTo = nil
+	next.Origin = recall.FactOrigin{}
 	next.Supersedes = []string{current.ID}
 	next.ObservedAt = time.Now()
 	if next.Metadata == nil {

@@ -203,9 +203,8 @@ func TestFlowcraftStoreAsyncWait(t *testing.T) {
 	t.Parallel()
 	model := testLLM{response: `{"facts":[{"text":"Alice prefers tea.","kind":"preference","subject":"Alice","predicate":"prefers","object":"tea","entities":["Alice","tea"],"evidence_refs":[{"id":"turn","text":"I prefer tea."}]}]}`}
 	loader := &testFlowcraftLoader{model: model}
-	store, err := OpenFlowcraftStore(context.Background(), FlowcraftConfig{
-		Dir: t.TempDir(), RuntimeID: "app", UserID: "user", ExtractionModel: "extract", Async: FlowcraftAsyncConfig{Enabled: true, WorkerID: "test"},
-	}, loader)
+	config := FlowcraftConfig{Dir: t.TempDir(), RuntimeID: "app", UserID: "user", ExtractionModel: "extract", Async: FlowcraftAsyncConfig{Enabled: true, WorkerID: "test"}}
+	store, err := OpenFlowcraftStore(context.Background(), config, loader)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -234,6 +233,28 @@ func TestFlowcraftStoreAsyncWait(t *testing.T) {
 	}
 	if len(updated.Sources) != 1 || updated.Sources[0].ObservationID != "observation" {
 		t.Fatalf("Update() sources = %+v", updated.Sources)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := OpenFlowcraftStore(context.Background(), config, loader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	rehydrated, err := reopened.Wait(context.Background(), observed.Operation.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rehydrated.Facts) != 1 || rehydrated.Facts[0].Text != "Alice prefers tea." || rehydrated.Facts[0].Revision != completed.Facts[0].Revision {
+		t.Fatalf("reopened Wait() = %+v", rehydrated)
+	}
+	persisted, err := reopened.factByID(context.Background(), completed.Facts[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if persisted.Text != updatedText || len(persisted.Sources) != 1 || persisted.Sources[0].ObservationID != "observation" {
+		t.Fatalf("reopened updated fact = %+v", persisted)
 	}
 }
 

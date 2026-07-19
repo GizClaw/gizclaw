@@ -219,6 +219,7 @@ func TestMem0FiltersUseV3OperatorNames(t *testing.T) {
 		{Field: "lane", Operator: FilterEqual, Value: "clues"},
 		{Field: "score", Operator: FilterGreaterEqual, Value: 0.5},
 		{Field: "kind", Operator: FilterIn, Value: []string{"note", "preference"}},
+		{Field: "kind", Operator: FilterNotIn, Value: []string{"episode"}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -228,7 +229,7 @@ func TestMem0FiltersUseV3OperatorNames(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := string(raw)
-	for _, want := range []string{`"lane":"clues"`, `"gte":0.5`, `"in":["note","preference"]`} {
+	for _, want := range []string{`"lane":"clues"`, `"gte":0.5`, `"in":["note","preference"]`, `"nin":["episode"]`} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("filters = %s, missing %s", got, want)
 		}
@@ -236,10 +237,7 @@ func TestMem0FiltersUseV3OperatorNames(t *testing.T) {
 	if strings.Contains(got, `"$`) {
 		t.Fatalf("filters contain undocumented operators: %s", got)
 	}
-	for _, filter := range []Filter{
-		{Field: "kind", Operator: FilterNotIn, Value: []string{"episode"}},
-		{Field: "lane", Operator: FilterExists, Value: true},
-	} {
+	for _, filter := range []Filter{{Field: "lane", Operator: FilterExists, Value: true}} {
 		if _, err := store.mem0Filters([]Filter{filter}); !errors.Is(err, ErrUnsupported) {
 			t.Fatalf("mem0Filters(%+v) error = %v", filter, err)
 		}
