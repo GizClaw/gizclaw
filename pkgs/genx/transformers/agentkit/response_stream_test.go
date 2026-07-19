@@ -2,6 +2,7 @@ package agentkit
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"testing"
 
@@ -86,7 +87,7 @@ func TestResponseStreamRotatesWhenProviderReusesCompletedRoute(t *testing.T) {
 	}
 }
 
-func TestResponseStreamRotatesOnBOSAfterCompletedRoute(t *testing.T) {
+func TestResponseStreamKeepsLateMIMEBOSWithCompletedTextRoute(t *testing.T) {
 	source := NewOutput(OutputConfig{})
 	for _, chunk := range []*genx.MessageChunk{
 		{Role: genx.RoleModel, Part: genx.Text("first"), Ctrl: &genx.StreamCtrl{StreamID: "reused"}},
@@ -100,8 +101,8 @@ func TestResponseStreamRotatesOnBOSAfterCompletedRoute(t *testing.T) {
 	first, _ := stream.Next()
 	_, _ = stream.Next()
 	bos, _ := stream.Next()
-	if bos.Ctrl.StreamID == first.Ctrl.StreamID {
-		t.Fatalf("replacement BOS reused response ID %q", bos.Ctrl.StreamID)
+	if bos.Ctrl.StreamID != first.Ctrl.StreamID {
+		t.Fatalf("late MIME BOS ID = %q, want shared %q", bos.Ctrl.StreamID, first.Ctrl.StreamID)
 	}
 }
 
@@ -126,5 +127,48 @@ func TestResponseStreamForwardsPullVisibleObservation(t *testing.T) {
 	stream.ObserveOutput(chunk)
 	if observed == nil || observed.Ctrl == nil || observed.Ctrl.StreamID != "provider-response" {
 		t.Fatalf("forwarded observation = %#v", observed)
+	}
+	if len(stream.pendingObservations) != 0 {
+		t.Fatalf("pending observations after acknowledgement = %d", len(stream.pendingObservations))
+	}
+}
+
+func TestResponseStreamBoundsCompletedResponseMappings(t *testing.T) {
+	source := NewOutput(OutputConfig{})
+	for index := range maxRetainedCompletedResponses + 20 {
+		streamID := fmt.Sprintf("response-%d", index)
+		_ = source.Push(&genx.MessageChunk{
+			Role: genx.RoleModel,
+			Part: genx.Text(""),
+			Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true},
+		})
+	}
+	_ = source.Close()
+	stream, _ := NewResponseStream(source)
+	for {
+		if _, err := stream.Next(); errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			t.Fatalf("Next() error = %v", err)
+		}
+	}
+	if len(stream.responses) > maxRetainedCompletedResponses {
+		t.Fatalf("retained completed responses = %d, max = %d", len(stream.responses), maxRetainedCompletedResponses)
+	}
+}
+
+func TestResponseStreamReleasesControlTerminalMapping(t *testing.T) {
+	source := NewOutput(OutputConfig{})
+	_ = source.Push(&genx.MessageChunk{
+		Role: genx.RoleModel,
+		Ctrl: &genx.StreamCtrl{StreamID: "terminal", EndOfStream: true},
+	})
+	_ = source.Close()
+	stream, _ := NewResponseStream(source)
+	if _, err := stream.Next(); err != nil {
+		t.Fatalf("Next() error = %v", err)
+	}
+	if len(stream.responses) != 0 {
+		t.Fatalf("response mappings after terminal EOS = %d", len(stream.responses))
 	}
 }
