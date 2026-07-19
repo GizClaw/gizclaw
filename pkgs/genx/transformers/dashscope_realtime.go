@@ -554,11 +554,11 @@ func (t *DashScopeRealtime) processLoop(ctx context.Context, input genx.Stream, 
 	interruptAssistant := func() {
 		suppressProviderResponse()
 		clearPendingCalls()
+		cancelPendingTool(errors.New("interrupted"))
 		interruption := assistant.interruptRoutes(getResponseStreamID(), false)
 		if !interruption.interrupted {
 			return
 		}
-		cancelPendingTool(errors.New("interrupted"))
 		output.discard(func(chunk *genx.MessageChunk) bool {
 			return chunk != nil && chunk.Role == genx.RoleModel && chunk.Ctrl != nil && chunk.Ctrl.StreamID == interruption.streamID
 		})
@@ -605,24 +605,35 @@ func (t *DashScopeRealtime) processLoop(ctx context.Context, input genx.Stream, 
 			audioRouteOpen = false
 			return true
 		}
-		startProviderResponse := func(providerID string) (string, bool, error) {
+		startProviderResponse := func(providerID string) (string, bool) {
 			streamID, accepted, fresh := beginProviderResponse(providerID)
 			if !accepted || !fresh {
-				return streamID, accepted, nil
+				return streamID, accepted
 			}
 			textRouteOpen = false
-			audioRouteOpen = true
+			audioRouteOpen = false
 			assistant.setAccept(true)
 			assistant.nextEpoch()
+			return streamID, true
+		}
+		startTextOutput := func(streamID string) {
+			if textRouteOpen {
+				return
+			}
+			textRouteOpen = true
 			assistant.markStarted(streamID)
-			if err := output.Push(&genx.MessageChunk{
+		}
+		startAudioOutput := func(streamID string) error {
+			if audioRouteOpen {
+				return nil
+			}
+			audioRouteOpen = true
+			assistant.markStarted(streamID)
+			return output.Push(&genx.MessageChunk{
 				Role: genx.RoleModel,
 				Part: &genx.Blob{MIMEType: t.getOutputAudioMIMEType()},
 				Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: dashScopeRealtimeAssistantLabel, BeginOfStream: true},
-			}); err != nil {
-				return "", false, err
-			}
-			return streamID, true, nil
+			})
 		}
 		for event, err := range session.Events() {
 			if err != nil {
@@ -651,10 +662,7 @@ func (t *DashScopeRealtime) processLoop(ctx context.Context, input genx.Stream, 
 				allowProviderResponse()
 
 			case dashscope.EventTypeResponseCreated:
-				_, accepted, err := startProviderResponse(event.ResponseID)
-				if err != nil {
-					return
-				}
+				_, accepted := startProviderResponse(event.ResponseID)
 				if !accepted {
 					continue
 				}
@@ -690,16 +698,13 @@ func (t *DashScopeRealtime) processLoop(ctx context.Context, input genx.Stream, 
 				if !assistant.acceptsOutput() {
 					continue
 				}
-				streamID, accepted, err := startProviderResponse(event.ResponseID)
-				if err != nil {
-					return
-				}
+				streamID, accepted := startProviderResponse(event.ResponseID)
 				if !accepted {
 					continue
 				}
 				// Model text response
 				if event.Delta != "" {
-					textRouteOpen = true
+					startTextOutput(streamID)
 					outChunk := &genx.MessageChunk{
 						Role: genx.RoleModel,
 						Part: genx.Text(event.Delta),
@@ -718,16 +723,13 @@ func (t *DashScopeRealtime) processLoop(ctx context.Context, input genx.Stream, 
 				if !assistant.acceptsOutput() {
 					continue
 				}
-				streamID, accepted, err := startProviderResponse(event.ResponseID)
-				if err != nil {
-					return
-				}
+				streamID, accepted := startProviderResponse(event.ResponseID)
 				if !accepted {
 					continue
 				}
 				// TTS transcript (what the model is saying)
 				if event.Delta != "" {
-					textRouteOpen = true
+					startTextOutput(streamID)
 					outChunk := &genx.MessageChunk{
 						Role: genx.RoleModel,
 						Part: genx.Text(event.Delta),
@@ -745,16 +747,15 @@ func (t *DashScopeRealtime) processLoop(ctx context.Context, input genx.Stream, 
 				if !assistant.acceptsOutput() {
 					continue
 				}
-				streamID, accepted, err := startProviderResponse(event.ResponseID)
-				if err != nil {
-					return
-				}
+				streamID, accepted := startProviderResponse(event.ResponseID)
 				if !accepted {
 					continue
 				}
 				// Audio response
 				if len(event.Audio) > 0 {
-					audioRouteOpen = true
+					if err := startAudioOutput(streamID); err != nil {
+						return
+					}
 					outChunk := &genx.MessageChunk{
 						Role: genx.RoleModel,
 						Part: &genx.Blob{
@@ -775,16 +776,13 @@ func (t *DashScopeRealtime) processLoop(ctx context.Context, input genx.Stream, 
 				if !assistant.acceptsOutput() {
 					continue
 				}
-				streamID, accepted, err := startProviderResponse(event.ResponseID)
-				if err != nil {
-					return
-				}
+				streamID, accepted := startProviderResponse(event.ResponseID)
 				if !accepted {
 					continue
 				}
 				// DashScope's choices format response
 				if event.Delta != "" {
-					textRouteOpen = true
+					startTextOutput(streamID)
 					outChunk := &genx.MessageChunk{
 						Role: genx.RoleModel,
 						Part: genx.Text(event.Delta),
@@ -814,9 +812,7 @@ func (t *DashScopeRealtime) processLoop(ctx context.Context, input genx.Stream, 
 					finishProviderResponse(event.ResponseID, false)
 					continue
 				}
-				if _, accepted, err := startProviderResponse(event.ResponseID); err != nil {
-					return
-				} else if !accepted {
+				if _, accepted := startProviderResponse(event.ResponseID); !accepted {
 					continue
 				}
 				if len(calls) == 0 {

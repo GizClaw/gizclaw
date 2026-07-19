@@ -55,6 +55,9 @@ func TestScopedFlowcraftStoreWaitKeepsAsyncStatusInScope(t *testing.T) {
 	if observed.Operation == nil || observed.Operation.Status != OperationPending {
 		t.Fatalf("Observe() = %+v", observed)
 	}
+	if _, err := Scoped(base, "workspace-b").(OperationWaiter).Wait(t.Context(), observed.Operation.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("second scope Wait() error = %v, want ErrNotFound", err)
+	}
 	waiter, ok := first.(OperationWaiter)
 	if !ok {
 		t.Fatal("scoped Flowcraft store does not implement OperationWaiter")

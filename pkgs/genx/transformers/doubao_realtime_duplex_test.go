@@ -874,6 +874,87 @@ func TestDoubaoRealtimeDuplexSessionClosedWhileWaitingForInputDoesNotDropNextChu
 	}
 }
 
+func TestDoubaoRealtimeDuplexSessionClosedQueuesTranscriptEOSBeforeHandoff(t *testing.T) {
+	audioSent := make(chan struct{})
+	eventsDrained := make(chan struct{})
+	allowNextInput := make(chan struct{})
+	releaseCleanup := make(chan struct{})
+	session := &fakeDoubaoRealtimeDuplexSession{
+		beforeRecv: audioSent,
+		events: []*doubaospeech.RealtimeDuplexEvent{
+			{Type: doubaospeech.RealtimeDuplexEventTranscriptionStarted},
+			{Type: doubaospeech.RealtimeDuplexEventTranscriptionDelta, Delta: "partial"},
+			{Type: doubaospeech.RealtimeDuplexEventSessionClosed},
+		},
+		eventsDrained:    eventsDrained,
+		blockAfterEvents: releaseCleanup,
+		audioSent:        audioSent,
+	}
+	input := &gatedRealtimeStream{
+		first: []*genx.MessageChunk{
+			{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+			{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+		},
+		gate: allowNextInput,
+		rest: []*genx.MessageChunk{
+			{Ctrl: &genx.StreamCtrl{StreamID: "turn-2", BeginOfStream: true}},
+		},
+	}
+	output := newBufferStream(4)
+	tfr := NewDoubaoRealtimeDuplex(nil,
+		WithDoubaoRealtimeDuplexInputFormat("pcm"),
+		WithDoubaoRealtimeDuplexInputTranscode(false),
+	)
+	reader := newRealtimeInputReader(input)
+	defer reader.Close()
+	type loopResult struct {
+		chunk *genx.MessageChunk
+		err   error
+	}
+	result := make(chan loopResult, 1)
+	go func() {
+		chunk, err := tfr.processLoop(t.Context(), reader, output, session)
+		result <- loopResult{chunk: chunk, err: err}
+	}()
+
+	select {
+	case <-eventsDrained:
+	case <-time.After(time.Second):
+		t.Fatal("provider session did not reach its terminal boundary")
+	}
+	close(allowNextInput)
+	select {
+	case got := <-result:
+		t.Fatalf("input handed off before transcript cleanup: %+v", got)
+	case <-time.After(20 * time.Millisecond):
+	}
+	close(releaseCleanup)
+
+	var got loopResult
+	select {
+	case got = <-result:
+	case <-time.After(time.Second):
+		t.Fatal("processLoop() did not hand off input after transcript cleanup")
+	}
+	if got.err != nil || got.chunk == nil || got.chunk.Ctrl == nil || got.chunk.Ctrl.StreamID != "turn-2" {
+		t.Fatalf("processLoop() = (%#v, %v), want turn-2 handoff", got.chunk, got.err)
+	}
+	transcript, err := output.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	transcriptEOS, err := output.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if text, ok := transcript.Part.(genx.Text); !ok || text != "partial" {
+		t.Fatalf("transcript = %#v", transcript)
+	}
+	if transcriptEOS.Role != genx.RoleUser || !transcriptEOS.IsEndOfStream() || transcriptEOS.Ctrl.StreamID != transcript.Ctrl.StreamID {
+		t.Fatalf("transcript EOS = %#v, transcript = %#v", transcriptEOS, transcript)
+	}
+}
+
 func TestDoubaoRealtimeDuplexInputReaderPrioritizesDoneOverBufferedInput(t *testing.T) {
 	chunk := &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "turn-2", BeginOfStream: true}}
 	reader := newRealtimeInputReader(&sliceRealtimeStream{
@@ -1176,6 +1257,9 @@ func (s *fakeDoubaoRealtimeDuplexSession) Recv() iter.Seq2[*doubaospeech.Realtim
 					s.eventsDrainedOnce.Do(func() {
 						close(s.eventsDrained)
 					})
+				}
+				if s.blockAfterEvents != nil {
+					<-s.blockAfterEvents
 				}
 				return
 			}

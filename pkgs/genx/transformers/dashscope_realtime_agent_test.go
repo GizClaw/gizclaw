@@ -171,12 +171,12 @@ func TestDashScopeRealtimeStartsResponseWithoutCreatedEvent(t *testing.T) {
 		}
 		chunks = append(chunks, chunk)
 	}
-	if len(chunks) != 4 {
-		t.Fatalf("chunks = %#v, want BOS, text, and two route EOS chunks", chunks)
+	if len(chunks) != 2 {
+		t.Fatalf("chunks = %#v, want text and text EOS chunks", chunks)
 	}
 	streamID := chunks[0].Ctrl.StreamID
-	if streamID == "" || !chunks[0].IsBeginOfStream() {
-		t.Fatalf("response BOS = %#v", chunks[0])
+	if streamID == "" || chunks[0].IsBeginOfStream() {
+		t.Fatalf("response text = %#v", chunks[0])
 	}
 	for _, chunk := range chunks {
 		if chunk.Ctrl == nil || chunk.Ctrl.StreamID != streamID {
@@ -240,6 +240,9 @@ func TestDashScopeRealtimeExecutesFunctionCallsInOutputIndexOrder(t *testing.T) 
 	if session.createCount() != 1 {
 		t.Fatalf("CreateResponse calls = %d, want 1", session.createCount())
 	}
+	if chunk, err := output.Next(); chunk != nil || !errors.Is(err, io.EOF) {
+		t.Fatalf("tool-only round exposed output chunk=%#v error=%v", chunk, err)
+	}
 }
 
 func TestDashScopeRealtimeKeepsOneExternalStreamAcrossToolRounds(t *testing.T) {
@@ -286,8 +289,8 @@ func TestDashScopeRealtimeKeepsOneExternalStreamAcrossToolRounds(t *testing.T) {
 		}
 		chunks = append(chunks, chunk)
 	}
-	if len(chunks) != 5 {
-		t.Fatalf("chunks = %#v, want one BOS, two deltas, and two final EOS", chunks)
+	if len(chunks) != 3 {
+		t.Fatalf("chunks = %#v, want two deltas and one final text EOS", chunks)
 	}
 	streamID := chunks[0].Ctrl.StreamID
 	if streamID == "" {
@@ -309,7 +312,7 @@ func TestDashScopeRealtimeKeepsOneExternalStreamAcrossToolRounds(t *testing.T) {
 			t.Fatalf("premature EOS before post-Tool output: %#v", chunk)
 		}
 	}
-	if begins != 1 || !seenAfter {
+	if begins != 0 || !seenAfter {
 		t.Fatalf("BOS count = %d, saw post-Tool output = %t, chunks=%#v", begins, seenAfter, chunks)
 	}
 }

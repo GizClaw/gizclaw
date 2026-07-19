@@ -174,6 +174,32 @@ func TestResponseStreamKeepsMultipleTerminalRoutesOnOneID(t *testing.T) {
 	}
 }
 
+func TestResponseStreamPreservesOutputObservationWithProviderID(t *testing.T) {
+	provider := &recordingObservationStream{sliceStream: sliceStream{chunks: []*genx.MessageChunk{{
+		Role: genx.RoleModel, Part: genx.Text("visible"), Ctrl: &genx.StreamCtrl{StreamID: "provider-1"},
+	}}}}
+	stream := &responseStream{Stream: provider, ids: make(map[string]string), providerIDs: make(map[string]string)}
+	stream.DeferOutputObservation()
+	chunk, err := stream.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if chunk.Ctrl.StreamID == "provider-1" {
+		t.Fatalf("public StreamID = %q, want rewritten ID", chunk.Ctrl.StreamID)
+	}
+	observed := chunk.Clone()
+	stream.ObserveOutput(observed)
+	if !provider.deferred {
+		t.Fatal("DeferOutputObservation() was not forwarded")
+	}
+	if provider.observed == nil || provider.observed.Ctrl == nil || provider.observed.Ctrl.StreamID != "provider-1" {
+		t.Fatalf("observed chunk = %+v, want provider StreamID", provider.observed)
+	}
+	if observed.Ctrl.StreamID != chunk.Ctrl.StreamID {
+		t.Fatalf("ObserveOutput() mutated caller chunk: got %q, want %q", observed.Ctrl.StreamID, chunk.Ctrl.StreamID)
+	}
+}
+
 func TestTransformUsesConfiguredPattern(t *testing.T) {
 	transformer := &testTransformer{}
 	agent, err := New(Config{Transformer: transformer, Pattern: "model/doubao", Toolkit: commonagent.EmptyToolkit()})
@@ -217,3 +243,17 @@ func (s *sliceStream) Next() (*genx.MessageChunk, error) {
 
 func (s *sliceStream) Close() error               { return nil }
 func (s *sliceStream) CloseWithError(error) error { return nil }
+
+type recordingObservationStream struct {
+	sliceStream
+	deferred bool
+	observed *genx.MessageChunk
+}
+
+func (s *recordingObservationStream) DeferOutputObservation() {
+	s.deferred = true
+}
+
+func (s *recordingObservationStream) ObserveOutput(chunk *genx.MessageChunk) {
+	s.observed = chunk.Clone()
+}

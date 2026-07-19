@@ -27,9 +27,9 @@ func (s *FlowcraftStore) Wait(ctx context.Context, operationID string) (ObserveR
 	select {
 	case <-ctx.Done():
 		return ObserveResult{}, ctx.Err()
-	case <-s.state.waitGate:
+	case <-s.shared.waitGate:
 	}
-	defer func() { s.state.waitGate <- struct{}{} }()
+	defer func() { s.shared.waitGate <- struct{}{} }()
 
 	s.state.mu.Lock()
 	known, ok := s.state.operations[operationID]
@@ -135,6 +135,9 @@ func (s *FlowcraftStore) rehydrateOperations(ctx context.Context) error {
 	order := make([]string, 0)
 	operations := make(map[string]*nativeOperation)
 	for _, nativeFact := range nativeFacts {
+		if nativeFact.Scope.RuntimeID != s.scope.RuntimeID || nativeFact.Scope.AgentID != s.scope.AgentID || nativeFact.Scope.UserID != s.scope.UserID {
+			continue
+		}
 		if isFlowcraftProvenanceMarker(nativeFact) {
 			continue
 		}
@@ -486,13 +489,13 @@ func (s *FlowcraftStore) drainSideEffects(ctx context.Context) error {
 
 // Close releases the embedded Flowcraft memory and durable backend.
 func (s *FlowcraftStore) Close() error {
-	s.state.closeOnce.Do(func() {
-		s.state.closeErr = s.memory.Close()
+	s.shared.closeOnce.Do(func() {
+		s.shared.closeErr = s.memory.Close()
 		if s.backend != nil {
-			s.state.closeErr = errors.Join(s.state.closeErr, s.backend.Close())
+			s.shared.closeErr = errors.Join(s.shared.closeErr, s.backend.Close())
 		}
 	})
-	return s.state.closeErr
+	return s.shared.closeErr
 }
 
 func cloneObserveResult(input ObserveResult) ObserveResult {

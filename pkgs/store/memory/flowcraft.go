@@ -23,17 +23,29 @@ type FlowcraftStore struct {
 	queue    *flowcraftAsyncQueue
 	backend  *flowworkspace.Backend
 
-	state *flowcraftStoreState
+	state  *flowcraftStoreState
+	shared *flowcraftStoreShared
 }
 
 type flowcraftStoreState struct {
 	mu         sync.Mutex
-	waitGate   chan struct{}
 	operations map[string]ObserveResult
 	ready      map[string]struct{}
 	failed     map[string]struct{}
-	closeOnce  sync.Once
-	closeErr   error
+}
+
+type flowcraftStoreShared struct {
+	waitGate  chan struct{}
+	closeOnce sync.Once
+	closeErr  error
+}
+
+func newFlowcraftStoreState() *flowcraftStoreState {
+	return &flowcraftStoreState{
+		operations: make(map[string]ObserveResult),
+		ready:      make(map[string]struct{}),
+		failed:     make(map[string]struct{}),
+	}
 }
 
 func newFlowcraftStore(config FlowcraftConfig, memory recall.Memory, temporal recall.TemporalStore, queue *flowcraftAsyncQueue, backend *flowworkspace.Backend) *FlowcraftStore {
@@ -41,9 +53,8 @@ func newFlowcraftStore(config FlowcraftConfig, memory recall.Memory, temporal re
 	waitGate <- struct{}{}
 	return &FlowcraftStore{
 		config: config, scope: config.scope(), memory: memory, temporal: temporal, queue: queue, backend: backend,
-		state: &flowcraftStoreState{
-			waitGate: waitGate, operations: make(map[string]ObserveResult), ready: make(map[string]struct{}), failed: make(map[string]struct{}),
-		},
+		state:  newFlowcraftStoreState(),
+		shared: &flowcraftStoreShared{waitGate: waitGate},
 	}
 }
 
@@ -54,6 +65,7 @@ func (s *FlowcraftStore) scoped(scope string) Store {
 	clone := *s
 	clone.config.AgentID = scopedID("flowcraft", s.config.RuntimeID, s.config.AgentID, s.config.UserID, scope)
 	clone.scope = clone.config.scope()
+	clone.state = newFlowcraftStoreState()
 	return &clone
 }
 

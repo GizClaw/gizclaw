@@ -14,6 +14,12 @@ import (
 
 var _ commonagent.Agent = (*Agent)(nil)
 
+type outputObservationStream interface {
+	genx.Stream
+	DeferOutputObservation()
+	ObserveOutput(*genx.MessageChunk)
+}
+
 // Agent owns Doubao dialogue turns and the automatic Toolkit continuation.
 type Agent struct {
 	config Config
@@ -74,7 +80,11 @@ func (a *Agent) Transform(ctx context.Context, _ string, input genx.Stream) (gen
 	if err != nil {
 		return nil, err
 	}
-	return &responseStream{Stream: output, ids: make(map[string]string)}, nil
+	return &responseStream{
+		Stream:      output,
+		ids:         make(map[string]string),
+		providerIDs: make(map[string]string),
+	}, nil
 }
 
 func (a *Agent) invoke(ctx context.Context, calls []doubaospeech.RealtimeDuplexFunctionCall) ([]doubaospeech.RealtimeDuplexFunctionCallOutput, error) {
@@ -105,10 +115,13 @@ func (a *Agent) invoke(ctx context.Context, calls []doubaospeech.RealtimeDuplexF
 
 type responseStream struct {
 	genx.Stream
-	ids      map[string]string
-	activeID string
-	terminal bool
+	ids         map[string]string
+	providerIDs map[string]string
+	activeID    string
+	terminal    bool
 }
+
+var _ outputObservationStream = (*responseStream)(nil)
 
 func (s *responseStream) Next() (*genx.MessageChunk, error) {
 	chunk, err := s.Stream.Next()
@@ -125,14 +138,45 @@ func (s *responseStream) Next() (*genx.MessageChunk, error) {
 		clear(s.ids)
 	}
 	providerID := strings.TrimSpace(owned.Ctrl.StreamID)
+	if s.ids == nil {
+		s.ids = make(map[string]string)
+	}
+	if s.providerIDs == nil {
+		s.providerIDs = make(map[string]string)
+	}
 	streamID := s.ids[providerID]
 	if streamID == "" {
 		streamID = s.activeID
 		s.ids[providerID] = streamID
+		s.providerIDs[streamID] = providerID
 	}
 	owned.Ctrl.StreamID = streamID
 	if owned.IsEndOfStream() {
 		s.terminal = true
 	}
 	return owned, err
+}
+
+// DeferOutputObservation preserves the provider stream's final-consumer
+// acknowledgement contract through the public StreamID wrapper.
+func (s *responseStream) DeferOutputObservation() {
+	if observer, ok := s.Stream.(outputObservationStream); ok {
+		observer.DeferOutputObservation()
+	}
+}
+
+// ObserveOutput translates the public StreamID back to the provider StreamID
+// before forwarding a final-consumer acknowledgement.
+func (s *responseStream) ObserveOutput(chunk *genx.MessageChunk) {
+	observer, ok := s.Stream.(outputObservationStream)
+	if !ok || chunk == nil {
+		return
+	}
+	owned := chunk.Clone()
+	if owned.Ctrl != nil {
+		if providerID, found := s.providerIDs[owned.Ctrl.StreamID]; found {
+			owned.Ctrl.StreamID = providerID
+		}
+	}
+	observer.ObserveOutput(owned)
 }
