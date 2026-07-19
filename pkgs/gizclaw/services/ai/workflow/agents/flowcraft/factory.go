@@ -2119,6 +2119,18 @@ func (s *ttsSession) Wait() error {
 
 func (a *agent) drainTTSOutput(ctx context.Context, streamID, nodeID, voice string, tts genx.Stream, output *genx.StreamBuilder, epoch uint64, emitEOS bool) error {
 	oggDecoder := newOggOpusFrameDecoder()
+	audioStarted := false
+	emitFrame := func(frame []byte) error {
+		chunks := make([]*genx.MessageChunk, 0, 2)
+		if !audioStarted {
+			bos := audioChunk(nodeID, streamID, nil, false)
+			bos.Ctrl.BeginOfStream = true
+			chunks = append(chunks, bos)
+			audioStarted = true
+		}
+		chunks = append(chunks, audioChunk(nodeID, streamID, frame, false))
+		return a.addOutput(output, epoch, chunks...)
+	}
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -2136,7 +2148,7 @@ func (a *agent) drainTTSOutput(ctx context.Context, streamID, nodeID, voice stri
 		}
 		switch baseMIME(blob.MIMEType) {
 		case "audio/opus":
-			if err := a.addOutput(output, epoch, audioChunk(nodeID, streamID, blob.Data, false)); err != nil {
+			if err := emitFrame(blob.Data); err != nil {
 				return err
 			}
 		case "audio/ogg", "application/ogg":
@@ -2145,7 +2157,7 @@ func (a *agent) drainTTSOutput(ctx context.Context, streamID, nodeID, voice stri
 				return fmt.Errorf("flowcraft: decode TTS ogg opus: %w", err)
 			}
 			for _, frame := range frames {
-				if err := a.addOutput(output, epoch, audioChunk(nodeID, streamID, frame, false)); err != nil {
+				if err := emitFrame(frame); err != nil {
 					return err
 				}
 			}

@@ -40,14 +40,11 @@ cleanup() {
     terminate_process_tree "$active_command_pid" TERM
     active_command_pid=""
   fi
+  stop_full_watchdog
   if [[ -f "$docker_env_path" ]]; then
     run_timed "docker:cleanup" bash "$setup_dir/docker-compose-down.sh" || true
   fi
   rm -f "$docker_env_path"
-  if [[ -n "$full_watchdog_pid" ]]; then
-    kill "$full_watchdog_pid" >/dev/null 2>&1 || true
-    wait "$full_watchdog_pid" >/dev/null 2>&1 || true
-  fi
   echo "==> e2e cleanup done total_elapsed_seconds=$((SECONDS - gate_started))"
 }
 trap cleanup EXIT
@@ -120,6 +117,15 @@ start_full_watchdog() {
 	full_watchdog_pid="$!"
 }
 
+stop_full_watchdog() {
+	if [[ -z "$full_watchdog_pid" ]]; then
+		return
+	fi
+	kill "$full_watchdog_pid" >/dev/null 2>&1 || true
+	wait "$full_watchdog_pid" >/dev/null 2>&1 || true
+	full_watchdog_pid=""
+}
+
 validate_deadlines() {
 	require_positive_seconds GIZCLAW_E2E_FULL_DEADLINE_SECONDS "$full_deadline_seconds"
 	local phase deadline
@@ -181,6 +187,11 @@ prepare_node_dependencies() {
 
 prepare_nanopb() {
 	(cd "$repo_root" && git submodule update --init --recursive -- third_party/nanopb/upstream)
+}
+
+build_host_cli() {
+	mkdir -p "$script_dir/testdata/bin"
+	(cd "$repo_root" && go build -o "$script_dir/testdata/bin/gizclaw" ./cmd/gizclaw)
 }
 
 start_docker_stack() {
@@ -257,9 +268,7 @@ start_full_watchdog
 run_timed "preflight:npm-ci" prepare_node_dependencies
 run_timed "preflight:nanopb" prepare_nanopb
 
-echo "==> build host e2e CLI"
-mkdir -p "$script_dir/testdata/bin"
-(cd "$repo_root" && go build -o "$script_dir/testdata/bin/gizclaw" ./cmd/gizclaw)
+run_timed "preflight:host-cli" build_host_cli
 
 run_timed "docker:setup" start_docker_stack
 set -a
