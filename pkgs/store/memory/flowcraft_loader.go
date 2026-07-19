@@ -136,6 +136,9 @@ func OpenFlowcraftStore(ctx context.Context, config FlowcraftConfig, loader Flow
 	}
 	opened = true
 	store := newFlowcraftStore(config, memory, temporal, queue, backend)
+	if queue != nil {
+		queue.setStatusWriter(store.persistOperationStatus)
+	}
 	if err := store.rehydrateOperations(ctx); err != nil {
 		_ = store.Close()
 		return nil, err

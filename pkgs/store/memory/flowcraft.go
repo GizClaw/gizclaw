@@ -71,8 +71,10 @@ func (s *FlowcraftStore) Observe(ctx context.Context, observation Observation) (
 			fact.Metadata["observation_id"] = observation.ID
 		}
 		for _, turn := range observation.Turns {
-			fact.SourceMessageIDs = append(fact.SourceMessageIDs, turn.ID)
-			fact.EvidenceRefs = append(fact.EvidenceRefs, recall.EvidenceRef{ID: turn.ID, MessageID: turn.ID, Role: string(turn.Role), Text: turn.Text, Timestamp: turn.ObservedAt})
+			if turn.ID != "" {
+				fact.SourceMessageIDs = append(fact.SourceMessageIDs, turn.ID)
+				fact.EvidenceRefs = append(fact.EvidenceRefs, recall.EvidenceRef{ID: turn.ID, MessageID: turn.ID, Role: string(turn.Role), Text: turn.Text, Timestamp: turn.ObservedAt})
+			}
 		}
 	} else {
 		request.Turns = flowcraftTurns(observation)

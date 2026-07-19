@@ -6,7 +6,7 @@
 
 `Store` exposes four operations:
 
-- `Observe` submits raw text or ordered turns with role, speaker, timestamps, and attributes for fact extraction.
+- `Observe` submits raw text or ordered turns with role, speaker, and timestamps for fact extraction. Non-empty turn attributes are currently unsupported.
 - `Recall` queries facts with natural language and typed filters.
 - `Update` changes fact text and, when supported, patches attributes and checks a revision.
 - `Delete` removes or retires a fact and, when supported, checks a revision.
@@ -82,3 +82,4 @@ Mem0 V3 equality filters use direct field values. The adapter sends only compari
 The stable sentinel errors are `ErrInvalidInput`, `ErrNotFound`, `ErrUnsupported`, `ErrConflict`, and `ErrUnavailable`. Providers preserve `errors.Is` behavior and must not expose API keys, AK/SK credentials, or credential-bearing response bodies in facts, logs, or errors.
 
 When a provider cannot preserve a filter, attribute patch, or conditional write, it returns `ErrUnsupported` instead of silently discarding the condition.
+The same rule applies to per-turn attributes until a provider-neutral extraction-context mapping is defined.

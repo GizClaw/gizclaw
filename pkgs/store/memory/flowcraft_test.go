@@ -93,6 +93,22 @@ func TestFlowcraftDeterministicObserveIncludesTextAndTurns(t *testing.T) {
 	}
 }
 
+func TestFlowcraftDeterministicObserveSkipsEmptyTurnIDs(t *testing.T) {
+	t.Parallel()
+	store, err := OpenFlowcraftStore(context.Background(), FlowcraftConfig{RuntimeID: "app", UserID: "user"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	result, err := store.Observe(context.Background(), Observation{Turns: []Turn{{Role: RoleUser, Text: "remember"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Facts) != 1 || len(result.Facts[0].Sources) != 0 {
+		t.Fatalf("Observe() = %+v", result)
+	}
+}
+
 func TestFlowcraftObserveRejectsProviderOwnedAttributes(t *testing.T) {
 	t.Parallel()
 	store, err := OpenFlowcraftStore(context.Background(), FlowcraftConfig{RuntimeID: "app", UserID: "user"}, nil)
@@ -317,6 +333,46 @@ func TestFlowcraftStoreAsyncWaitAfterRestart(t *testing.T) {
 	}
 	if len(firstCompleted.Facts[0].Sources) != 1 || firstCompleted.Facts[0].Sources[0].ObservationID != "first-observation" {
 		t.Fatalf("terminal fact sources = %+v", firstCompleted.Facts[0].Sources)
+	}
+}
+
+func TestFlowcraftZeroFactCompletionSurvivesPreMarkerCrashWindow(t *testing.T) {
+	t.Parallel()
+	config := FlowcraftConfig{Dir: t.TempDir(), RuntimeID: "app", UserID: "user", ExtractionModel: "extract", Async: FlowcraftAsyncConfig{Enabled: true}}
+	loader := &testFlowcraftLoader{model: testLLM{response: `{"facts":[]}`}}
+	store, err := OpenFlowcraftStore(context.Background(), config, loader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	observed, err := store.Observe(context.Background(), Observation{ID: "observation", Text: "nothing durable"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	processor, ok := recall.NewAsyncSemanticProcessor(store.memory)
+	if !ok {
+		t.Fatal("async processor is unavailable")
+	}
+	processed, err := processor.ProcessAsyncSemantic(context.Background(), recall.AsyncSemanticProcessOptions{Scope: store.scope, Limit: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if processed.Completed != 1 {
+		t.Fatalf("ProcessAsyncSemantic() = %+v", processed)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := OpenFlowcraftStore(context.Background(), config, loader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	result, err := reopened.Wait(context.Background(), observed.Operation.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Operation == nil || result.Operation.Status != OperationSucceeded || len(result.Facts) != 0 {
+		t.Fatalf("Wait() = %+v", result)
 	}
 }
 

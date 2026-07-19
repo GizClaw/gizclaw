@@ -204,6 +204,9 @@ func (s *FlowcraftStore) completeReadyOperations(ctx context.Context, completedI
 	if err := s.drainSideEffects(ctx); err != nil {
 		return err
 	}
+	if s.queue == nil {
+		return fmt.Errorf("%w: flowcraft async queue is unavailable", ErrUnavailable)
+	}
 	results := make(map[string]ObserveResult, len(completedIDs))
 	for _, id := range completedIDs {
 		nativeFacts, err := s.temporal.FindByOriginRequestID(ctx, s.scope, id)
@@ -213,6 +216,9 @@ func (s *FlowcraftStore) completeReadyOperations(ctx context.Context, completedI
 		result, err := s.operationResultFromFacts(ctx, id, nativeFacts)
 		if err != nil {
 			return err
+		}
+		if err := s.queue.Cancel(ctx, id); err != nil {
+			return mapFlowcraftError("finalize async operation", err)
 		}
 		if err := s.persistOperationStatus(ctx, id, flowcraftOperationStatusSucceeded); err != nil {
 			return err
@@ -346,8 +352,39 @@ func (s *FlowcraftStore) operationMarkedFailed(operationID string) bool {
 
 type flowcraftAsyncQueue struct {
 	recall.AsyncSemanticQueue
-	mu      sync.Mutex
-	claimed []string
+	mu           sync.Mutex
+	claimed      []string
+	statusWriter func(context.Context, string, string) error
+}
+
+func (q *flowcraftAsyncQueue) Complete(ctx context.Context, requestID, leaseToken string, result recall.AsyncSemanticResult) error {
+	if err := q.writeStatus(ctx, requestID, flowcraftOperationStatusReady); err != nil {
+		return err
+	}
+	return q.AsyncSemanticQueue.Complete(ctx, requestID, leaseToken, result)
+}
+
+func (q *flowcraftAsyncQueue) Fail(ctx context.Context, requestID, leaseToken string, failure recall.AsyncSemanticFailure) error {
+	if err := q.writeStatus(ctx, requestID, flowcraftOperationStatusFailed); err != nil {
+		return err
+	}
+	return q.AsyncSemanticQueue.Fail(ctx, requestID, leaseToken, failure)
+}
+
+func (q *flowcraftAsyncQueue) setStatusWriter(writer func(context.Context, string, string) error) {
+	q.mu.Lock()
+	q.statusWriter = writer
+	q.mu.Unlock()
+}
+
+func (q *flowcraftAsyncQueue) writeStatus(ctx context.Context, requestID, status string) error {
+	q.mu.Lock()
+	writer := q.statusWriter
+	q.mu.Unlock()
+	if writer == nil {
+		return nil
+	}
+	return writer(ctx, requestID, status)
 }
 
 func newFlowcraftAsyncQueue(queue recall.AsyncSemanticQueue) *flowcraftAsyncQueue {
