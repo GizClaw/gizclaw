@@ -523,7 +523,11 @@ func TestLocalPodCreationReturnsWhileBootstrapRunsInBackground(t *testing.T) {
 		WebUI:                webui.New(fstest.MapFS{}),
 	}
 	defer b.WebUI.Shutdown()
-	created, err := b.CreatePod(context.Background(), PodInput{Version: 1, ID: "bootstrapped", Name: "Bootstrapped", LocalServer: &LocalServerInput{Port: 0}})
+	port, err := appconfig.FindAvailablePort(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := b.CreatePod(context.Background(), PodInput{Version: 1, ID: "bootstrapped", Name: "Bootstrapped", LocalServer: &LocalServerInput{Port: port}})
 	if err != nil {
 		t.Fatal(err)
 	}
