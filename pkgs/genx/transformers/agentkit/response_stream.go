@@ -169,7 +169,7 @@ func (s *ResponseStream) responseID(upstream string, chunk *genx.MessageChunk) s
 	state := s.responses[key]
 	mimeType, hasMIME := chunk.MIMEType()
 	if state != nil && !chunk.IsEndOfStream() &&
-		(state.terminal || hasMIME && responseRoutesComplete(state)) {
+		(state.terminal || hasMIME && !chunk.IsBeginOfStream() && responseRoutesComplete(state)) {
 		state = nil
 	}
 	if state == nil {

@@ -92,7 +92,7 @@ func TestResponseStreamKeepsLateMIMEBOSWithCompletedTextRoute(t *testing.T) {
 	for _, chunk := range []*genx.MessageChunk{
 		{Role: genx.RoleModel, Part: genx.Text("first"), Ctrl: &genx.StreamCtrl{StreamID: "reused"}},
 		{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "reused", EndOfStream: true}},
-		{Role: genx.RoleModel, Ctrl: &genx.StreamCtrl{StreamID: "reused", BeginOfStream: true}},
+		{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "reused", BeginOfStream: true}},
 	} {
 		_ = source.Push(chunk)
 	}
