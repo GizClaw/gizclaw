@@ -291,6 +291,16 @@ func (p *pulledHistory) persistMemory(observation memory.Observation) {
 		p.reportError(fmt.Errorf("agent/eino: observe memory: %w", err))
 		return
 	}
+	if result.Operation != nil && result.Operation.Status == memory.OperationPending {
+		if waiter, ok := p.memory.(memory.OperationWaiter); ok {
+			operationID := result.Operation.ID
+			result, err = waiter.Wait(ctx, operationID)
+			if err != nil {
+				p.reportError(fmt.Errorf("agent/eino: wait for memory operation %q: %w", operationID, err))
+				return
+			}
+		}
+	}
 	if result.Operation != nil && result.Operation.Status == memory.OperationFailed {
 		p.reportError(fmt.Errorf("agent/eino: memory operation %q failed: %s", result.Operation.ID, result.Operation.Error))
 	}

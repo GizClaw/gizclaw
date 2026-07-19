@@ -667,6 +667,7 @@ func (t *DashScopeRealtime) processLoop(ctx context.Context, input genx.Stream, 
 				slog.Info("dashscope: speech started - canceling response")
 				toolCallsUsed.Store(0)
 				interruptAssistant()
+				finishProviderResponse("", true)
 				if err := session.CancelResponse(); err != nil {
 					slog.Error("dashscope: cancel response error", "error", err)
 				}

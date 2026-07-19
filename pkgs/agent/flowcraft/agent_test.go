@@ -465,6 +465,24 @@ func TestPulledHistoryCommitsOnlyOnTextEOS(t *testing.T) {
 	}
 }
 
+func TestPulledHistoryWaitsForPendingMemoryOperation(t *testing.T) {
+	store := &waitingMemoryStore{
+		recordingMemoryStore: &recordingMemoryStore{observeResult: memory.ObserveResult{Operation: &memory.Operation{ID: "pending-1", Status: memory.OperationPending}}},
+		waitResult:           memory.ObserveResult{Operation: &memory.Operation{ID: "pending-1", Status: memory.OperationSucceeded}},
+		waited:               make(chan string, 1),
+	}
+	pulled := newPulledHistory(&conversationHistory{}, store, nil)
+	pulled.persistMemory(memory.Observation{ID: "response-1"})
+	select {
+	case operationID := <-store.waited:
+		if operationID != "pending-1" {
+			t.Fatalf("Wait() operation ID = %q", operationID)
+		}
+	default:
+		t.Fatal("pending memory operation was not awaited")
+	}
+}
+
 func TestPulledHistoryBoundsMemoryObservationAfterEOS(t *testing.T) {
 	store := &cancelBlockingMemoryStore{started: make(chan struct{})}
 	reported := make(chan error, 1)
@@ -681,6 +699,18 @@ type recordingMemoryStore struct {
 	observations  []memory.Observation
 	observeResult memory.ObserveResult
 	observeErr    error
+}
+
+type waitingMemoryStore struct {
+	*recordingMemoryStore
+	waitResult memory.ObserveResult
+	waitErr    error
+	waited     chan string
+}
+
+func (s *waitingMemoryStore) Wait(_ context.Context, operationID string) (memory.ObserveResult, error) {
+	s.waited <- operationID
+	return s.waitResult, s.waitErr
 }
 
 type cancelBlockingMemoryStore struct {

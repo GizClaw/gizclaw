@@ -379,6 +379,55 @@ func TestDashScopeRealtimeInterruptDiscardsBufferedOutputAndEmitsEOS(t *testing.
 	}
 }
 
+func TestDashScopeRealtimeServerVADStartsFreshResponseAfterInterrupt(t *testing.T) {
+	eventsFinished := make(chan struct{})
+	session := &fakeDashScopeRealtimeSession{
+		events: []*dashscope.RealtimeEvent{
+			{Type: dashscope.EventTypeResponseCreated, ResponseID: "old-response"},
+			{Type: dashscope.EventTypeResponseTextDelta, ResponseID: "old-response", Delta: "stale"},
+			{Type: dashscope.EventTypeInputSpeechStarted},
+			{Type: dashscope.EventTypeInputSpeechStopped},
+			{Type: dashscope.EventTypeResponseCreated, ResponseID: "new-response"},
+			{Type: dashscope.EventTypeResponseTextDelta, ResponseID: "new-response", Delta: "fresh"},
+			{Type: dashscope.EventTypeResponseDone, ResponseID: "new-response"},
+		},
+		finished: eventsFinished,
+		canceled: make(chan struct{}),
+	}
+	input := &dashScopeConcurrentInput{firstRead: make(chan struct{}), eventsFinished: eventsFinished}
+	output := newBufferStream(8)
+	(&DashScopeRealtime{}).processLoop(t.Context(), input, output, session, DashScopeRealtimeCtxOptions{})
+
+	var chunks []*genx.MessageChunk
+	for {
+		chunk, err := output.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		chunks = append(chunks, chunk)
+	}
+	if len(chunks) != 4 {
+		t.Fatalf("chunks = %#v, want two interrupted route EOS chunks, fresh text, and fresh EOS", chunks)
+	}
+	for _, chunk := range chunks[:2] {
+		if chunk.Ctrl == nil || chunk.Ctrl.Error != "interrupted" || !chunk.IsEndOfStream() || chunk.Ctrl.StreamID != chunks[0].Ctrl.StreamID {
+			t.Fatalf("interrupted chunk = %#v", chunk)
+		}
+	}
+	if text, ok := chunks[2].Part.(genx.Text); !ok || text != "fresh" {
+		t.Fatalf("fresh response chunk = %#v", chunks[2])
+	}
+	if chunks[2].Ctrl.StreamID == chunks[0].Ctrl.StreamID {
+		t.Fatalf("fresh response reused interrupted StreamID %q", chunks[2].Ctrl.StreamID)
+	}
+	if chunks[3].Ctrl == nil || chunks[3].Ctrl.StreamID != chunks[2].Ctrl.StreamID || !chunks[3].IsEndOfStream() || chunks[3].Ctrl.Error != "" {
+		t.Fatalf("fresh response EOS = %#v", chunks[3])
+	}
+}
+
 func TestDashScopeRealtimeInterruptDropsSuccessfulLateToolOutput(t *testing.T) {
 	handlerStarted := make(chan struct{})
 	eventsFinished := make(chan struct{})
