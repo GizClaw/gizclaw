@@ -70,6 +70,11 @@ func TestVolcCredentialClientResolvesProjectAPIKey(t *testing.T) {
 			}
 			_, _ = w.Write([]byte(`{"ResponseMetadata":{},"Result":{"APIKeyInfos":[{"APIKeyId":""},{"APIKeyId":"key-id"}]}}`))
 		case "DescribeAPIKeyDetail":
+			var body map[string]string
+			_ = json.NewDecoder(request.Body).Decode(&body)
+			if body["MemoryProjectId"] != "project" || body["APIKeyId"] != "key-id" {
+				t.Errorf("API key body = %v", body)
+			}
 			_, _ = w.Write([]byte(`{"ResponseMetadata":{},"Result":{"APIKeyValue":"resolved-key"}}`))
 		default:
 			http.Error(w, "unknown action", http.StatusBadRequest)
@@ -89,6 +94,34 @@ func TestVolcCredentialClientResolvesProjectAPIKey(t *testing.T) {
 	}
 }
 
+func TestVolcCredentialClientResolvesExplicitAPIKeyWithinProject(t *testing.T) {
+	t.Parallel()
+	control := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		if action := request.URL.Query().Get("Action"); action != "DescribeAPIKeyDetail" {
+			t.Errorf("Action = %q", action)
+		}
+		var body map[string]string
+		_ = json.NewDecoder(request.Body).Decode(&body)
+		if body["MemoryProjectId"] != "project" || body["APIKeyId"] != "key-id" {
+			t.Errorf("API key body = %v", body)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ResponseMetadata":{},"Result":{"APIKeyValue":"resolved-key"}}`))
+	}))
+	t.Cleanup(control.Close)
+	client, err := newVolcCredentialClient(VolcConfig{ControlEndpoint: control.URL, AccessKeyID: "ak", AccessKeySecret: "sk"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := client.ResolveMem0APIKey(context.Background(), VolcConfig{MemoryProjectID: "project", APIKeyID: "key-id"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if key != "resolved-key" {
+		t.Fatalf("resolved key = %q", key)
+	}
+}
+
 func TestVolcValidationAndErrorMapping(t *testing.T) {
 	t.Parallel()
 	resolver := &fakeVolcResolver{}
@@ -100,6 +133,13 @@ func TestVolcValidationAndErrorMapping(t *testing.T) {
 	}
 	if _, err := newVolcCredentialClient(VolcConfig{}); !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("credentials error = %v", err)
+	}
+	credentialClient, err := newVolcCredentialClient(VolcConfig{AccessKeyID: "ak", AccessKeySecret: "sk"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := credentialClient.ResolveMem0APIKey(context.Background(), VolcConfig{APIKeyID: "key-id"}); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("missing memory project error = %v", err)
 	}
 	if _, err := newVolcCredentialClient(VolcConfig{ControlEndpoint: "https://user:pass@example.test", AccessKeyID: "ak", AccessKeySecret: "sk"}); !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("endpoint error = %v", err)

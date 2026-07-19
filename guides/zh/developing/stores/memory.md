@@ -25,7 +25,7 @@
 
 Flowcraft 未配置 extraction model 时会把 observation 确定性地保存为 `note`。配置 extraction、embedding 或 rerank model 时，调用方必须向 `OpenFlowcraftStore` 或 `stores.NewWithStorageOptions` 提供 model loader。
 
-Volc provider 不复制一套 fact CRUD 协议。它通过签名的 `DescribeMemoryProjectDetail` 和 `DescribeAPIKeyDetail` control-plane 调用解析 API key，然后复用 Mem0 client 执行 observation、recall、update、delete 和 event polling。`volc_memory.mem0.endpoint` 是必填项，避免 Volc credential 回退并发送到 Mem0 Platform 公共 endpoint。
+Volc provider 不复制一套 fact CRUD 协议。它通过签名的 `DescribeMemoryProjectDetail` 和 `DescribeAPIKeyDetail` control-plane 调用解析 API key，然后复用 Mem0 client 执行 observation、recall、update、delete 和 event polling。`volc_memory.mem0.endpoint` 是必填项，避免 Volc credential 回退并发送到 Mem0 Platform 公共 endpoint。control-plane 解析必须提供 `memory_project_id`；可选的 `api_key_id` 用于在该项目内指定 key。
 
 ## Server 配置
 

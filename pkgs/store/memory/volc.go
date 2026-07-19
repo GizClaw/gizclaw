@@ -122,12 +122,13 @@ func newVolcCredentialClient(config VolcConfig) (*volcCredentialClient, error) {
 }
 
 func (c *volcCredentialClient) ResolveMem0APIKey(ctx context.Context, config VolcConfig) (string, error) {
-	apiKeyID := config.APIKeyID
+	projectID := strings.TrimSpace(config.MemoryProjectID)
+	if projectID == "" {
+		return "", fmt.Errorf("%w: volc memory_project_id is required", ErrInvalidInput)
+	}
+	apiKeyID := strings.TrimSpace(config.APIKeyID)
 	if apiKeyID == "" {
-		if config.MemoryProjectID == "" {
-			return "", fmt.Errorf("%w: volc api_key_id or memory_project_id is required", ErrInvalidInput)
-		}
-		body, _ := json.Marshal(map[string]string{"MemoryProjectId": config.MemoryProjectID})
+		body, _ := json.Marshal(map[string]string{"MemoryProjectId": projectID})
 		raw, status, err := c.client.CtxJson(ctx, "DescribeMemoryProjectDetail", nil, string(body))
 		if err != nil {
 			return "", mapVolcControlError("describe memory project", status, err)
@@ -156,7 +157,7 @@ func (c *volcCredentialClient) ResolveMem0APIKey(ctx context.Context, config Vol
 			return "", fmt.Errorf("%w: volc memory project has no API key", ErrNotFound)
 		}
 	}
-	body, _ := json.Marshal(map[string]string{"APIKeyId": apiKeyID})
+	body, _ := json.Marshal(map[string]string{"MemoryProjectId": projectID, "APIKeyId": apiKeyID})
 	raw, status, err := c.client.CtxJson(ctx, "DescribeAPIKeyDetail", nil, string(body))
 	if err != nil {
 		return "", mapVolcControlError("describe API key", status, err)
