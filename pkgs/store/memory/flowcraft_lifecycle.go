@@ -56,7 +56,6 @@ func (s *FlowcraftStore) Wait(ctx context.Context, operationID string) (ObserveR
 		if current.Operation != nil && current.Operation.Status != OperationPending {
 			return current, nil
 		}
-		known = current
 	}
 }
 
