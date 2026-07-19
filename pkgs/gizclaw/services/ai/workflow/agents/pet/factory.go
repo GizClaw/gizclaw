@@ -104,6 +104,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		InputMode:             inputMode,
 		LocalDir:              filepath.Join(localDir, "flowcraft"),
 		WorkspaceName:         workspaceName,
+		RuntimeScope:          spec.RuntimeScope(),
 		InputProvider: func(turnCtx context.Context) (map[string]any, error) {
 			pet, petDef, err := f.Pets.ResolvePetContext(turnCtx, workspaceName)
 			if err != nil {
@@ -113,7 +114,9 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		},
 		// Toolkit is intentionally omitted. Proactive Pet tools are owned by #224.
 	}
-	return (flowcraft.Factory{GenX: f.GenX, History: f.History, Memory: f.Memory}).NewConfiguredAgent(ctx, configured)
+	return (flowcraft.Factory{
+		GenX: f.GenX, History: f.History, Memory: memory.Scoped(f.Memory, spec.RuntimeScope()),
+	}).NewConfiguredAgent(ctx, configured)
 }
 
 func resolveModels(server Config) (Config, error) {

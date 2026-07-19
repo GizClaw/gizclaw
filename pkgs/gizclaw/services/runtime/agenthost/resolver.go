@@ -73,12 +73,17 @@ func (r ServiceResolver) Resolve(ctx context.Context, pattern string) (Spec, err
 	if err != nil {
 		return Spec{}, err
 	}
+	ownerPublicKey := ""
+	if access, ok := resourceAccessFromContext(ctx); ok {
+		ownerPublicKey = access.ownerPublicKey
+	}
 	return Spec{
-		Workspace: ws,
-		Workflow:  workflow,
-		AgentType: agentType,
-		Runtime:   runtime,
-		Toolkit:   tools,
+		Workspace:      ws,
+		Workflow:       workflow,
+		AgentType:      agentType,
+		OwnerPublicKey: ownerPublicKey,
+		Runtime:        runtime,
+		Toolkit:        tools,
 	}, nil
 }
 

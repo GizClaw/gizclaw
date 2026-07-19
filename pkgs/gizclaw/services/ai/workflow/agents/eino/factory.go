@@ -28,7 +28,9 @@ type Factory struct {
 }
 
 func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.Agent, error) {
-	config, err := f.config(ctx, spec)
+	configured := f
+	configured.Memory = memory.Scoped(f.Memory, spec.RuntimeScope())
+	config, err := configured.config(ctx, spec)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +40,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	}
 	return &agent{
 		Agent: runtime, workspace: strings.TrimSpace(spec.Workspace.Name),
-		memory: f.Memory,
+		memory: configured.Memory,
 	}, nil
 }
 
@@ -79,10 +81,11 @@ func (f Factory) config(ctx context.Context, spec agenthost.Spec) (einoagent.Con
 		config.MaxToolCalls = *workflow.MaxToolCalls
 	}
 	if f.History != nil {
-		stream := "agent.eino." + strings.TrimSpace(spec.Workspace.Name)
-		if stream == "agent.eino." {
+		workspaceName := strings.TrimSpace(spec.Workspace.Name)
+		if workspaceName == "" {
 			return einoagent.Config{}, fmt.Errorf("eino: workspace name is required when history is configured")
 		}
+		stream := "agent.eino." + spec.RuntimeScope()
 		config.History = &einoagent.HistoryConfig{Store: f.History, Stream: stream, RecentLimit: 100}
 	}
 	return config, nil

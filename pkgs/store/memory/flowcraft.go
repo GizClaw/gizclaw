@@ -23,6 +23,10 @@ type FlowcraftStore struct {
 	queue    *flowcraftAsyncQueue
 	backend  *flowworkspace.Backend
 
+	state *flowcraftStoreState
+}
+
+type flowcraftStoreState struct {
 	mu         sync.Mutex
 	waitGate   chan struct{}
 	operations map[string]ObserveResult
@@ -37,8 +41,20 @@ func newFlowcraftStore(config FlowcraftConfig, memory recall.Memory, temporal re
 	waitGate <- struct{}{}
 	return &FlowcraftStore{
 		config: config, scope: config.scope(), memory: memory, temporal: temporal, queue: queue, backend: backend,
-		waitGate: waitGate, operations: make(map[string]ObserveResult), ready: make(map[string]struct{}), failed: make(map[string]struct{}),
+		state: &flowcraftStoreState{
+			waitGate: waitGate, operations: make(map[string]ObserveResult), ready: make(map[string]struct{}), failed: make(map[string]struct{}),
+		},
 	}
+}
+
+func (s *FlowcraftStore) scoped(scope string) Store {
+	if s == nil {
+		return nil
+	}
+	clone := *s
+	clone.config.AgentID = scopedID("flowcraft", s.config.RuntimeID, s.config.AgentID, s.config.UserID, scope)
+	clone.scope = clone.config.scope()
+	return &clone
 }
 
 // Observe extracts and persists facts from raw text or turns.
@@ -91,9 +107,9 @@ func (s *FlowcraftStore) Observe(ctx context.Context, observation Observation) (
 	}
 	if result.SemanticPending {
 		out := ObserveResult{Operation: &Operation{ID: result.AsyncRequestID, Status: OperationPending}}
-		s.mu.Lock()
-		s.operations[result.AsyncRequestID] = cloneObserveResult(out)
-		s.mu.Unlock()
+		s.state.mu.Lock()
+		s.state.operations[result.AsyncRequestID] = cloneObserveResult(out)
+		s.state.mu.Unlock()
 		return out, nil
 	}
 	if err := s.drainSideEffects(ctx); err != nil {

@@ -583,9 +583,10 @@ func TestDoubaoRealtimeDuplexDoesNotEndTextRouteBeforePostToolOutput(t *testing.
 		{Type: doubaospeech.RealtimeDuplexEventResponseOutputTextDelta, ResponseID: "response-1", Delta: "before"},
 		{Type: doubaospeech.RealtimeDuplexEventResponseOutputTextDone, ResponseID: "response-1"},
 		{Type: doubaospeech.RealtimeDuplexEventResponseFunctionCallArgumentsDone, ResponseID: "response-1", FunctionCalls: []doubaospeech.RealtimeDuplexFunctionCall{{CallID: "call-1", Name: "tool", Arguments: `{}`}}},
-		{Type: doubaospeech.RealtimeDuplexEventResponseOutputTextDelta, ResponseID: "response-1", Delta: "after"},
-		{Type: doubaospeech.RealtimeDuplexEventResponseOutputTextDone, ResponseID: "response-1"},
 		{Type: doubaospeech.RealtimeDuplexEventResponseDone, ResponseID: "response-1"},
+		{Type: doubaospeech.RealtimeDuplexEventResponseOutputTextDelta, ResponseID: "response-2", Delta: "after"},
+		{Type: doubaospeech.RealtimeDuplexEventResponseOutputTextDone, ResponseID: "response-2"},
+		{Type: doubaospeech.RealtimeDuplexEventResponseDone, ResponseID: "response-2"},
 	}}
 	output := newBufferStream(2)
 	ctx := WithDoubaoRealtimeDuplexCtxOptions(t.Context(), DoubaoRealtimeDuplexCtxOptions{
@@ -599,6 +600,7 @@ func TestDoubaoRealtimeDuplexDoesNotEndTextRouteBeforePostToolOutput(t *testing.
 	_ = output.Close()
 	seenAfter := false
 	eosCount := 0
+	streamID := ""
 	for {
 		chunk, err := output.Next()
 		if errors.Is(err, io.EOF) {
@@ -609,6 +611,13 @@ func TestDoubaoRealtimeDuplexDoesNotEndTextRouteBeforePostToolOutput(t *testing.
 		}
 		if text, ok := chunk.Part.(genx.Text); ok && text == "after" {
 			seenAfter = true
+		}
+		if chunk.Role == genx.RoleModel && chunk.Ctrl != nil {
+			if streamID == "" {
+				streamID = chunk.Ctrl.StreamID
+			} else if chunk.Ctrl.StreamID != streamID {
+				t.Fatalf("post-Tool output split across stream IDs %q and %q", streamID, chunk.Ctrl.StreamID)
+			}
 		}
 		if chunk.IsEndOfStream() {
 			eosCount++

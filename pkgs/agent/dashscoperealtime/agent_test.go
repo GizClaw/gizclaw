@@ -15,6 +15,13 @@ import (
 )
 
 func TestNewAcceptsOnlyQwen35FunctionCallModels(t *testing.T) {
+	inherited, err := New(Config{Transformer: testTransformer{}, Pattern: "model/demo", Toolkit: commonagent.EmptyToolkit()})
+	if err != nil {
+		t.Fatalf("New(inherited model) error = %v", err)
+	}
+	if inherited.config.Model != "" {
+		t.Fatalf("inherited model = %q, want transformer-resolved model", inherited.config.Model)
+	}
 	for _, model := range []string{
 		dashscope.ModelQwen35OmniPlusRealtime,
 		dashscope.ModelQwen35OmniPlusRealtime20260315,

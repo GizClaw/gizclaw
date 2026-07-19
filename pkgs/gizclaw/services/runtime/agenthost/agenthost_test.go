@@ -250,6 +250,9 @@ func TestServiceResolverUsesResourceAccessFromContext(t *testing.T) {
 	if spec.Toolkit.BuildRequest.OwnerPublicKey != "peer-a" || !slices.Equal(spec.Toolkit.BuildRequest.ProfileToolIDs, []string{"system.music.play"}) {
 		t.Fatalf("Toolkit build request = %#v", spec.Toolkit.BuildRequest)
 	}
+	if spec.OwnerPublicKey != "peer-a" {
+		t.Fatalf("Spec owner = %q", spec.OwnerPublicKey)
+	}
 }
 
 func TestToolkitContextInvokeUsesCurrentContextSubject(t *testing.T) {

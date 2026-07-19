@@ -1,6 +1,7 @@
 package agenthost
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"strings"
 
@@ -12,11 +13,24 @@ const workspaceAgentTypeParameter = "agent_type"
 
 // Spec is the fully resolved configuration used to construct one agent.
 type Spec struct {
-	Workspace apitypes.Workspace
-	Workflow  apitypes.Workflow
-	AgentType string
-	Runtime   workspace.Runtime
-	Toolkit   *ToolkitContext
+	Workspace      apitypes.Workspace
+	Workflow       apitypes.Workflow
+	AgentType      string
+	OwnerPublicKey string
+	Runtime        workspace.Runtime
+	Toolkit        *ToolkitContext
+}
+
+// RuntimeScope identifies the peer-owned workflow configuration behind one
+// workspace runtime. It is safe to use as an opaque provider namespace.
+func (s Spec) RuntimeScope() string {
+	identity := fmt.Sprintf("%d:%s|%d:%s|%d:%s|%d:%s",
+		len(s.OwnerPublicKey), s.OwnerPublicKey,
+		len(s.Workspace.Name), s.Workspace.Name,
+		len(s.Workflow.Name), s.Workflow.Name,
+		len(s.AgentType), s.AgentType,
+	)
+	return fmt.Sprintf("gizclaw-runtime-%x", sha256.Sum256([]byte(identity)))
 }
 
 func resolveAgentType(workspace apitypes.Workspace, workflow apitypes.Workflow) (string, error) {

@@ -639,6 +639,28 @@ func TestDefaultBuilderBuildsDashScopeRealtimeAgentTransformer(t *testing.T) {
 	}
 }
 
+func TestDefaultBuilderRejectsUnsupportedDashScopeRealtimeAgentModel(t *testing.T) {
+	upstream := "qwen3-omni-flash-realtime"
+	_, err := (DefaultBuilder{}).BuildTransformer(context.Background(), TransformerConfig{
+		Agent: true,
+		Model: &apitypes.Model{
+			Id:   "dashscope-dialog",
+			Kind: apitypes.ModelKindRealtime,
+			ProviderData: mustDashScopeModelProviderData(t, apitypes.DashScopeTenantModelProviderData{
+				UpstreamModel: &upstream,
+			}),
+		},
+		Tenant: Tenant{
+			Kind:      string(apitypes.ModelProviderKindDashscopeTenant),
+			DashScope: &apitypes.DashScopeTenant{Name: "main", CredentialName: "dashscope-key"},
+		},
+		Credential: apitypes.Credential{Name: "dashscope-key", Body: testDashScopeCredentialBody("runtime-key")},
+	})
+	if !errors.Is(err, ErrUnsupported) {
+		t.Fatalf("BuildTransformer() error = %v, want ErrUnsupported", err)
+	}
+}
+
 func TestDefaultBuilderBuildsVolcRealtimeTransformerUsesSpeechAPIKey(t *testing.T) {
 	tf, err := (DefaultBuilder{}).BuildTransformer(context.Background(), TransformerConfig{
 		Model: &apitypes.Model{

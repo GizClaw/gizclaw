@@ -14,6 +14,7 @@ import (
 	"github.com/openai/openai-go/option"
 	"google.golang.org/genai"
 
+	dashscopeagent "github.com/GizClaw/gizclaw-go/pkgs/agent/dashscoperealtime"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -205,6 +206,9 @@ func (b DefaultBuilder) buildDashScopeRealtimeAgent(cfg TransformerConfig) (genx
 	}
 	data := mergeParams(nil, cfg.Params)
 	modelName := firstString(mapString(data, "upstream_model", "model"), providerData.UpstreamModel, string(cfg.Model.Id))
+	if !dashscopeagent.SupportsFunctionCalls(modelName) {
+		return nil, fmt.Errorf("%w: dashscope realtime Agent model %q does not support function calls", ErrUnsupported, modelName)
+	}
 	opts := []transformers.DashScopeRealtimeOption{transformers.WithDashScopeRealtimeModel(modelName)}
 	if value := mapString(data, "instructions", "system_prompt"); value != "" {
 		opts = append(opts, transformers.WithDashScopeRealtimeInstructions(value))

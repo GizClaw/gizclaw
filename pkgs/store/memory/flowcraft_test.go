@@ -567,8 +567,8 @@ func TestFlowcraftWaitGateHonorsCancellation(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = store.Close() })
-	<-store.waitGate
-	defer func() { store.waitGate <- struct{}{} }()
+	<-store.state.waitGate
+	defer func() { store.state.waitGate <- struct{}{} }()
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	if _, err := store.Wait(ctx, "operation"); !errors.Is(err, context.Canceled) {

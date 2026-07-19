@@ -37,6 +37,18 @@ type Mem0Store struct {
 	client *mem0Client
 }
 
+func (s *Mem0Store) scoped(scope string) Store {
+	if s == nil {
+		return nil
+	}
+	clone := *s
+	clone.config.UserID = scopedID("mem0", s.config.AppID, s.config.UserID, s.config.AgentID, s.config.RunID, scope)
+	clone.config.AppID = ""
+	clone.config.AgentID = ""
+	clone.config.RunID = ""
+	return &clone
+}
+
 const (
 	mem0ObservationIDMetadata = "gizclaw.observation_id"
 	mem0TurnIDsMetadata       = "gizclaw.turn_ids"

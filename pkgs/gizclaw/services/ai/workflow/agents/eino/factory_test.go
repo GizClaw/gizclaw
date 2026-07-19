@@ -44,7 +44,7 @@ func TestFactoryBuildsTypedConfig(t *testing.T) {
 	if config.ToolTimeout != defaultToolTimeout {
 		t.Fatalf("tool timeout = %v, want %v", config.ToolTimeout, defaultToolTimeout)
 	}
-	if config.History == nil || config.History.Store != history || config.History.Stream != "agent.eino.demo" || config.History.RecentLimit != 100 {
+	if config.History == nil || config.History.Store != history || config.History.Stream != "agent.eino."+spec.RuntimeScope() || config.History.RecentLimit != 100 {
 		t.Fatalf("history config = %#v", config.History)
 	}
 	agent, err := factory.NewAgent(t.Context(), spec)
@@ -69,6 +69,9 @@ func TestFactoryBuildsTypedConfig(t *testing.T) {
 	recallResponse, err := agent.Recall(t.Context(), apitypes.PeerRunRecallRequest{Query: "tea"})
 	if err != nil || !recallResponse.Available {
 		t.Fatalf("Recall() = %+v, %v", recallResponse, err)
+	}
+	if len(memoryStore.query.Filters) != 1 || memoryStore.query.Filters[0].Value != spec.RuntimeScope() {
+		t.Fatalf("scoped recall filters = %+v", memoryStore.query.Filters)
 	}
 }
 
@@ -119,12 +122,13 @@ func (*noopLogStore) Replace(context.Context, logstore.Record) error   { return 
 func (*noopLogStore) Delete(context.Context, logstore.RecordKey) error { return nil }
 func (*noopLogStore) Close() error                                     { return nil }
 
-type noopMemoryStore struct{}
+type noopMemoryStore struct{ query memory.Query }
 
 func (*noopMemoryStore) Observe(context.Context, memory.Observation) (memory.ObserveResult, error) {
 	return memory.ObserveResult{}, nil
 }
-func (*noopMemoryStore) Recall(context.Context, memory.Query) (memory.RecallResult, error) {
+func (s *noopMemoryStore) Recall(_ context.Context, query memory.Query) (memory.RecallResult, error) {
+	s.query = query
 	return memory.RecallResult{}, nil
 }
 func (*noopMemoryStore) Update(context.Context, memory.UpdateRequest) (memory.Fact, error) {

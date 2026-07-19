@@ -30,7 +30,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if pattern == "" {
 		return nil, fmt.Errorf("dashscoperealtime: model is required")
 	}
-	providerModel := dashscopeagent.DefaultModel
+	providerModel := ""
 	if workflow.ProviderModel != nil && strings.TrimSpace(*workflow.ProviderModel) != "" {
 		providerModel = strings.TrimSpace(*workflow.ProviderModel)
 	}

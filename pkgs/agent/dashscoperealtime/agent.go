@@ -30,10 +30,7 @@ func New(config Config) (*Agent, error) {
 		return nil, fmt.Errorf("agent/dashscoperealtime: pattern is required")
 	}
 	config.Model = strings.TrimSpace(config.Model)
-	if config.Model == "" {
-		config.Model = DefaultModel
-	}
-	if !supportsFunctionCalls(config.Model) {
+	if config.Model != "" && !SupportsFunctionCalls(config.Model) {
 		return nil, fmt.Errorf("agent/dashscoperealtime: model %q is not a supported Qwen3.5 realtime function-call model", config.Model)
 	}
 	if config.Toolkit == nil {
@@ -96,7 +93,9 @@ func (a *Agent) invoke(ctx context.Context, calls []transformers.DashScopeRealti
 	return outputs, nil
 }
 
-func supportsFunctionCalls(model string) bool {
+// SupportsFunctionCalls reports whether model can drive the automatic Toolkit
+// continuation contract owned by Agent.
+func SupportsFunctionCalls(model string) bool {
 	switch strings.TrimSpace(model) {
 	case dashscope.ModelQwen35OmniPlusRealtime,
 		dashscope.ModelQwen35OmniPlusRealtime20260315,

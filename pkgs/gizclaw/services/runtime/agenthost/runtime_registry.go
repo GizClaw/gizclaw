@@ -46,10 +46,7 @@ func (r *RuntimeRegistry) Acquire(ctx context.Context, host *Host, workspaceName
 }
 
 func runtimeKey(workspaceName string, spec Spec) string {
-	if spec.Toolkit == nil {
-		return workspaceName
-	}
-	return workspaceName + "#toolkit-owner=" + spec.Toolkit.BuildRequest.OwnerPublicKey
+	return workspaceName + "#runtime-scope=" + spec.RuntimeScope()
 }
 
 func (r *RuntimeRegistry) releaseFunc(key string, current *workspaceRuntime) func() {

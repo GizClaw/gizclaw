@@ -447,7 +447,18 @@ func (t *DoubaoRealtimeDuplex) processLoop(ctx context.Context, input genx.Strea
 		assistantAudioStarted := make(map[string]bool)
 		assistantAudioDone := make(map[string]bool)
 		assistantCompleted := make(map[string]bool)
+		toolResponses := make(map[string]bool)
+		activeAssistantStreamID := ""
 		toolCapable := runtime.FunctionCallHandler != nil
+		assistantStreamID := func(providerResponseID string) string {
+			if !toolCapable {
+				return providerResponseID
+			}
+			if activeAssistantStreamID == "" {
+				activeAssistantStreamID = providerResponseID
+			}
+			return activeAssistantStreamID
+		}
 		completeAssistantStream := func(streamID string) {
 			assistantCompleted[streamID] = true
 			if !assistantTextStarted[streamID] {
@@ -521,7 +532,8 @@ func (t *DoubaoRealtimeDuplex) processLoop(ctx context.Context, input genx.Strea
 			}
 
 			slog.Debug("doubao: received duplex event", "type", event.Type, "text", event.Text, "transcript", event.Transcript, "audioLen", len(event.Audio), "functionCalls", len(event.FunctionCalls))
-			streamID := firstNonEmptyString(event.ResponseID, event.QuestionID, streamIDs.response())
+			providerResponseID := firstNonEmptyString(event.ResponseID, event.QuestionID, streamIDs.response())
+			streamID := providerResponseID
 			switch event.Type {
 			case doubaospeech.RealtimeDuplexEventTranscriptionStarted:
 				toolCallsUsed.Store(0)
@@ -604,6 +616,7 @@ func (t *DoubaoRealtimeDuplex) processLoop(ctx context.Context, input genx.Strea
 					}
 				}
 			case doubaospeech.RealtimeDuplexEventResponseOutputTextDelta:
+				streamID = assistantStreamID(providerResponseID)
 				if !assistant.acceptsOutput() {
 					continue
 				}
@@ -626,6 +639,7 @@ func (t *DoubaoRealtimeDuplex) processLoop(ctx context.Context, input genx.Strea
 				textDeltaSeen[streamID] = true
 				assistantTextStarted[streamID] = true
 			case doubaospeech.RealtimeDuplexEventResponseOutputTextDone:
+				streamID = assistantStreamID(providerResponseID)
 				if !assistant.acceptsOutput() {
 					continue
 				}
@@ -663,6 +677,7 @@ func (t *DoubaoRealtimeDuplex) processLoop(ctx context.Context, input genx.Strea
 				// A ToolCall may continue the same Agent response after this
 				// provider route ends.
 			case doubaospeech.RealtimeDuplexEventResponseOutputAudioStarted:
+				streamID = assistantStreamID(providerResponseID)
 				if !assistant.acceptsOutput() {
 					continue
 				}
@@ -676,6 +691,7 @@ func (t *DoubaoRealtimeDuplex) processLoop(ctx context.Context, input genx.Strea
 				}
 				assistantAudioStarted[streamID] = true
 			case doubaospeech.RealtimeDuplexEventResponseOutputAudioDelta:
+				streamID = assistantStreamID(providerResponseID)
 				if !assistant.acceptsOutput() || len(event.Audio) == 0 {
 					continue
 				}
@@ -704,6 +720,7 @@ func (t *DoubaoRealtimeDuplex) processLoop(ctx context.Context, input genx.Strea
 					}
 				}
 			case doubaospeech.RealtimeDuplexEventResponseOutputAudioDone:
+				streamID = assistantStreamID(providerResponseID)
 				if !assistant.acceptsOutput() {
 					continue
 				}
@@ -732,6 +749,8 @@ func (t *DoubaoRealtimeDuplex) processLoop(ctx context.Context, input genx.Strea
 				if len(event.FunctionCalls) == 0 {
 					continue
 				}
+				streamID = assistantStreamID(providerResponseID)
+				toolResponses[providerResponseID] = true
 				if runtime.FunctionCallHandler == nil {
 					finishEventError(fmt.Errorf("doubao realtime duplex function-call handler is required"))
 					return
@@ -778,14 +797,22 @@ func (t *DoubaoRealtimeDuplex) processLoop(ctx context.Context, input genx.Strea
 					return
 				}
 			case doubaospeech.RealtimeDuplexEventResponseCanceled:
+				streamID = assistantStreamID(providerResponseID)
 				completeAssistantStream(streamID)
+				activeAssistantStreamID = ""
 				assistant.setAccept(false)
 			case doubaospeech.RealtimeDuplexEventResponseDone:
 				if toolCapable {
+					if toolResponses[providerResponseID] {
+						delete(toolResponses, providerResponseID)
+						continue
+					}
+					streamID = assistantStreamID(providerResponseID)
 					if err := finishAssistantStream(streamID); err != nil {
 						finishEventError(err)
 						return
 					}
+					activeAssistantStreamID = ""
 				} else {
 					completeAssistantStream(streamID)
 				}

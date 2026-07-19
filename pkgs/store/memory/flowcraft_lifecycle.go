@@ -19,21 +19,31 @@ const (
 	flowcraftOperationStatusFailed    = "failed"
 )
 
+type flowcraftStatusStoreContextKey struct{}
+
 // Wait drains caller-owned Flowcraft async work until the requested operation
 // reaches a terminal state or the context ends.
 func (s *FlowcraftStore) Wait(ctx context.Context, operationID string) (ObserveResult, error) {
 	select {
 	case <-ctx.Done():
 		return ObserveResult{}, ctx.Err()
-	case <-s.waitGate:
+	case <-s.state.waitGate:
 	}
-	defer func() { s.waitGate <- struct{}{} }()
+	defer func() { s.state.waitGate <- struct{}{} }()
 
-	s.mu.Lock()
-	known, ok := s.operations[operationID]
-	s.mu.Unlock()
+	s.state.mu.Lock()
+	known, ok := s.state.operations[operationID]
+	s.state.mu.Unlock()
 	if !ok {
-		return ObserveResult{}, fmt.Errorf("%w: flowcraft operation %q", ErrNotFound, operationID)
+		if err := s.rehydrateOperations(ctx); err != nil {
+			return ObserveResult{}, err
+		}
+		s.state.mu.Lock()
+		known, ok = s.state.operations[operationID]
+		s.state.mu.Unlock()
+		if !ok {
+			return ObserveResult{}, fmt.Errorf("%w: flowcraft operation %q", ErrNotFound, operationID)
+		}
 	}
 	if known.Operation == nil || known.Operation.Status != OperationPending {
 		return cloneObserveResult(known), nil
@@ -59,7 +69,8 @@ func (s *FlowcraftStore) Wait(ctx context.Context, operationID string) (ObserveR
 	}
 	for {
 		s.queue.resetClaims()
-		result, err := processor.ProcessAsyncSemantic(ctx, recall.AsyncSemanticProcessOptions{
+		processCtx := context.WithValue(ctx, flowcraftStatusStoreContextKey{}, s)
+		result, err := processor.ProcessAsyncSemantic(processCtx, recall.AsyncSemanticProcessOptions{
 			Scope: s.scope, WorkerID: s.config.Async.WorkerID, Limit: 1,
 		})
 		claimedIDs := s.queue.takeClaims()
@@ -153,14 +164,14 @@ func (s *FlowcraftStore) rehydrateOperations(ctx context.Context) error {
 		operation := operations[id]
 		switch operation.status {
 		case flowcraftOperationStatusFailed:
-			s.failed[id] = struct{}{}
+			s.state.failed[id] = struct{}{}
 			if err := s.finalizeFailedOperations(ctx, []string{id}); err != nil {
 				return err
 			}
 			continue
 		case flowcraftOperationStatusPrepared, flowcraftOperationStatusReady:
-			s.operations[id] = ObserveResult{Operation: &Operation{ID: id, Status: OperationPending}}
-			s.ready[id] = struct{}{}
+			s.state.operations[id] = ObserveResult{Operation: &Operation{ID: id, Status: OperationPending}}
+			s.state.ready[id] = struct{}{}
 			continue
 		case flowcraftOperationStatusSucceeded:
 			// A completed extraction may intentionally produce no facts.
@@ -169,7 +180,7 @@ func (s *FlowcraftStore) rehydrateOperations(ctx context.Context) error {
 				continue
 			}
 			if len(operation.facts) == 0 {
-				s.operations[id] = ObserveResult{Operation: &Operation{ID: id, Status: OperationPending}}
+				s.state.operations[id] = ObserveResult{Operation: &Operation{ID: id, Status: OperationPending}}
 				continue
 			}
 		default:
@@ -179,7 +190,7 @@ func (s *FlowcraftStore) rehydrateOperations(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		s.operations[id] = result
+		s.state.operations[id] = result
 	}
 	return nil
 }
@@ -200,9 +211,9 @@ func (s *FlowcraftStore) markOperationsReady(ctx context.Context, completedIDs [
 		if err := s.persistOperationStatus(ctx, id, flowcraftOperationStatusReady); err != nil {
 			return err
 		}
-		s.mu.Lock()
-		s.ready[id] = struct{}{}
-		s.mu.Unlock()
+		s.state.mu.Lock()
+		s.state.ready[id] = struct{}{}
+		s.state.mu.Unlock()
 	}
 	return nil
 }
@@ -236,11 +247,11 @@ func (s *FlowcraftStore) completeReadyOperations(ctx context.Context, completedI
 		results[id] = result
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.state.mu.Lock()
+	defer s.state.mu.Unlock()
 	for _, id := range completedIDs {
-		s.operations[id] = results[id]
-		delete(s.ready, id)
+		s.state.operations[id] = results[id]
+		delete(s.state.ready, id)
 	}
 	return nil
 }
@@ -250,9 +261,9 @@ func (s *FlowcraftStore) failOperations(ctx context.Context, failedIDs []string)
 		if err := s.persistOperationStatus(ctx, id, flowcraftOperationStatusFailed); err != nil {
 			return err
 		}
-		s.mu.Lock()
-		s.failed[id] = struct{}{}
-		s.mu.Unlock()
+		s.state.mu.Lock()
+		s.state.failed[id] = struct{}{}
+		s.state.mu.Unlock()
 	}
 	return s.finalizeFailedOperations(ctx, failedIDs)
 }
@@ -267,11 +278,11 @@ func (s *FlowcraftStore) finalizeFailedOperations(ctx context.Context, failedIDs
 		}
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.state.mu.Lock()
+	defer s.state.mu.Unlock()
 	for _, id := range failedIDs {
-		s.operations[id] = ObserveResult{Operation: &Operation{ID: id, Status: OperationFailed, Error: "flowcraft async extraction failed"}}
-		delete(s.failed, id)
+		s.state.operations[id] = ObserveResult{Operation: &Operation{ID: id, Status: OperationFailed, Error: "flowcraft async extraction failed"}}
+		delete(s.state.failed, id)
 	}
 	return nil
 }
@@ -317,16 +328,19 @@ func (s *FlowcraftStore) persistOperationStatus(ctx context.Context, operationID
 }
 
 func (s *FlowcraftStore) recordOperationStatus(ctx context.Context, operationID, status string) error {
+	if scoped, ok := ctx.Value(flowcraftStatusStoreContextKey{}).(*FlowcraftStore); ok && scoped != nil {
+		s = scoped
+	}
 	if err := s.persistOperationStatus(ctx, operationID, status); err != nil {
 		return err
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.state.mu.Lock()
+	defer s.state.mu.Unlock()
 	switch status {
 	case flowcraftOperationStatusPrepared, flowcraftOperationStatusReady:
-		s.ready[operationID] = struct{}{}
+		s.state.ready[operationID] = struct{}{}
 	case flowcraftOperationStatusFailed:
-		s.failed[operationID] = struct{}{}
+		s.state.failed[operationID] = struct{}{}
 	}
 	return nil
 }
@@ -358,22 +372,22 @@ func flowcraftOperationStatusRank(status string) int {
 }
 
 func (s *FlowcraftStore) operationResult(operationID string) ObserveResult {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return cloneObserveResult(s.operations[operationID])
+	s.state.mu.Lock()
+	defer s.state.mu.Unlock()
+	return cloneObserveResult(s.state.operations[operationID])
 }
 
 func (s *FlowcraftStore) operationReady(operationID string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	_, ok := s.ready[operationID]
+	s.state.mu.Lock()
+	defer s.state.mu.Unlock()
+	_, ok := s.state.ready[operationID]
 	return ok
 }
 
 func (s *FlowcraftStore) operationMarkedFailed(operationID string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	_, ok := s.failed[operationID]
+	s.state.mu.Lock()
+	defer s.state.mu.Unlock()
+	_, ok := s.state.failed[operationID]
 	return ok
 }
 
@@ -472,13 +486,13 @@ func (s *FlowcraftStore) drainSideEffects(ctx context.Context) error {
 
 // Close releases the embedded Flowcraft memory and durable backend.
 func (s *FlowcraftStore) Close() error {
-	s.closeOnce.Do(func() {
-		s.closeErr = s.memory.Close()
+	s.state.closeOnce.Do(func() {
+		s.state.closeErr = s.memory.Close()
 		if s.backend != nil {
-			s.closeErr = errors.Join(s.closeErr, s.backend.Close())
+			s.state.closeErr = errors.Join(s.state.closeErr, s.backend.Close())
 		}
 	})
-	return s.closeErr
+	return s.state.closeErr
 }
 
 func cloneObserveResult(input ObserveResult) ObserveResult {

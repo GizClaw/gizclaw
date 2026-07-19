@@ -88,6 +88,7 @@ type ConfiguredAgentOptions struct {
 	InputMode             string
 	LocalDir              string
 	WorkspaceName         string
+	RuntimeScope          string
 	InputProvider         InputProvider
 	Toolkit               *agenthost.ToolkitContext
 }
@@ -127,6 +128,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		InputMode:             mode,
 		LocalDir:              spec.Runtime.LocalDir,
 		WorkspaceName:         spec.Workspace.Name,
+		RuntimeScope:          spec.RuntimeScope(),
 		Toolkit:               spec.Toolkit,
 	}
 	if workspaceParams != nil {
@@ -134,7 +136,9 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		options.ExtractModel = stringValue(workspaceParams.ExtractModel)
 		options.EmbeddingModel = stringValue(workspaceParams.EmbeddingModel)
 	}
-	return f.NewConfiguredAgent(ctx, options)
+	configured := f
+	configured.Memory = memory.Scoped(f.Memory, spec.RuntimeScope())
+	return configured.NewConfiguredAgent(ctx, options)
 }
 
 // NewConfiguredAgent creates an owned Flowcraft Agent from a Go-owned configuration.
@@ -2839,8 +2843,12 @@ func buildOwnedRuntimeConfig(
 	if workspaceName == "" {
 		workspaceName = agentID
 	}
+	historyWorkspace := strings.TrimSpace(options.RuntimeScope)
+	if historyWorkspace == "" {
+		historyWorkspace = workspaceName
+	}
 	return ownedflowcraft.Config{
-		ID: agentID, Conversation: workspaceName, HistoryWorkspace: workspaceName,
+		ID: agentID, Conversation: historyWorkspace, HistoryWorkspace: historyWorkspace,
 		Graph: graphDefinition, Resolver: resolver,
 		Workspace: workspace, Toolkit: toolkit, History: history, Memory: memoryStore, PublishNodes: publishNodes,
 		MaxIterations: maxIterations, Parallel: parallel, MaxToolCalls: 32, ToolTimeout: 30 * time.Second,

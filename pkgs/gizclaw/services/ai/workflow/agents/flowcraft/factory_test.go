@@ -1098,11 +1098,12 @@ func TestFactoryNewAgentInjectsWorkspaceScopedHistoryStore(t *testing.T) {
 	})
 	backend := &memoryHistoryLogStore{}
 	localDir := t.TempDir()
-	transformer, err := (Factory{GenX: service, History: backend}).NewAgent(ctx, agenthost.Spec{
+	spec := agenthost.Spec{
 		Workspace: apitypes.Workspace{Name: "workspace", Parameters: &workspaceParams},
 		Workflow:  workflow,
 		Runtime:   workspace.Runtime{LocalDir: localDir},
-	})
+	}
+	transformer, err := (Factory{GenX: service, History: backend}).NewAgent(ctx, spec)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1129,9 +1130,9 @@ func TestFactoryNewAgentInjectsWorkspaceScopedHistoryStore(t *testing.T) {
 		t.Fatal("owned history did not query the injected LogStore")
 	}
 	if !slices.ContainsFunc(query.Matchers, func(matcher logstore.AttributeMatcher) bool {
-		return matcher.Name == "workspace_name" && matcher.Value == "workspace"
+		return matcher.Name == "workspace_name" && matcher.Value == spec.RuntimeScope()
 	}) {
-		t.Fatalf("history query matchers = %#v, want workspace_name=workspace", query.Matchers)
+		t.Fatalf("history query matchers = %#v, want workspace_name=%s", query.Matchers, spec.RuntimeScope())
 	}
 	if _, err := os.Stat(filepath.Join(localDir, "history", "conversation", "messages.jsonl")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("workspace history file exists or stat failed: %v", err)
