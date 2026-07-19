@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
@@ -198,6 +199,28 @@ func TestInvocationStartsClosedForCancelledParent(t *testing.T) {
 	}
 	if _, err := invocation.Output().Next(); !errors.Is(err, io.EOF) {
 		t.Fatalf("Next() error = %v, want EOF", err)
+	}
+}
+
+func TestInvocationOutputCloseCancelsInvocation(t *testing.T) {
+	invocation := NewInvocation(context.Background(), OutputConfig{})
+	response, err := invocation.StartResponse("text/plain")
+	if err != nil {
+		t.Fatalf("StartResponse() error = %v", err)
+	}
+	if err := invocation.Output().Close(); err != nil {
+		t.Fatalf("Output().Close() error = %v", err)
+	}
+	select {
+	case <-invocation.Context().Done():
+	case <-time.After(time.Second):
+		t.Fatal("invocation context remained active after output close")
+	}
+	if err := invocation.Emit(response, &genx.MessageChunk{Part: genx.Text("late")}); !errors.Is(err, ErrInactiveResponse) {
+		t.Fatalf("Emit() error = %v, want ErrInactiveResponse", err)
+	}
+	if _, err := invocation.StartResponse("text/plain"); !errors.Is(err, io.ErrClosedPipe) {
+		t.Fatalf("StartResponse() error = %v, want closed pipe", err)
 	}
 }
 

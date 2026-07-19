@@ -49,9 +49,21 @@ func NewInvocation(parent context.Context, outputConfig OutputConfig) *Invocatio
 		case <-parent.Done():
 			_ = invocation.Cancel(parent.Err())
 		case <-invocation.output.Done():
+			invocation.stopFromOutput()
 		}
 	}()
 	return invocation
+}
+
+func (i *Invocation) stopFromOutput() {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	if i.closed {
+		return
+	}
+	i.closed = true
+	i.active = nil
+	i.cancel()
 }
 
 // Context returns the invocation-local cancellation context.

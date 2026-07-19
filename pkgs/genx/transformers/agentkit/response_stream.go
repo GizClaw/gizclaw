@@ -92,7 +92,7 @@ func (s *ResponseStream) Close() error {
 		return nil
 	}
 	err := s.source.Close()
-	s.clearState()
+	s.clearResponseState()
 	return err
 }
 
@@ -169,7 +169,7 @@ func (s *ResponseStream) responseID(upstream string, chunk *genx.MessageChunk) s
 	state := s.responses[key]
 	mimeType, hasMIME := chunk.MIMEType()
 	if state != nil && !chunk.IsEndOfStream() &&
-		(state.terminal || hasMIME && state.routes[mimeType] && responseRoutesComplete(state)) {
+		(state.terminal || hasMIME && responseRoutesComplete(state)) {
 		state = nil
 	}
 	if state == nil {
@@ -233,5 +233,11 @@ func (s *ResponseStream) clearState() {
 	s.mu.Lock()
 	clear(s.responses)
 	clear(s.pendingObservations)
+	s.mu.Unlock()
+}
+
+func (s *ResponseStream) clearResponseState() {
+	s.mu.Lock()
+	clear(s.responses)
 	s.mu.Unlock()
 }

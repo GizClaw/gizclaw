@@ -124,12 +124,40 @@ func TestResponseStreamForwardsPullVisibleObservation(t *testing.T) {
 	if observed != nil {
 		t.Fatalf("source observed chunk before final acknowledgement: %#v", observed)
 	}
+	if err := stream.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
 	stream.ObserveOutput(chunk.Clone())
 	if observed == nil || observed.Ctrl == nil || observed.Ctrl.StreamID != "provider-response" {
 		t.Fatalf("forwarded observation = %#v", observed)
 	}
 	if len(stream.pendingObservations) != 0 {
 		t.Fatalf("pending observations after acknowledgement = %d", len(stream.pendingObservations))
+	}
+}
+
+func TestResponseStreamRotatesCompletedResponseForDifferentMIME(t *testing.T) {
+	source := NewOutput(OutputConfig{})
+	for _, chunk := range []*genx.MessageChunk{
+		{
+			Role: genx.RoleModel,
+			Part: genx.Text(""),
+			Ctrl: &genx.StreamCtrl{StreamID: "reused", EndOfStream: true},
+		},
+		{
+			Role: genx.RoleModel,
+			Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1}},
+			Ctrl: &genx.StreamCtrl{StreamID: "reused"},
+		},
+	} {
+		_ = source.Push(chunk)
+	}
+	_ = source.Close()
+	stream, _ := NewResponseStream(source)
+	textEOS, _ := stream.Next()
+	audio, _ := stream.Next()
+	if audio.Ctrl.StreamID == textEOS.Ctrl.StreamID {
+		t.Fatalf("completed text and new audio reused StreamID %q", audio.Ctrl.StreamID)
 	}
 }
 
