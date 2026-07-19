@@ -67,6 +67,28 @@ void main() {
     expect(putCalls, 0);
   });
 
+  test('repairs a legacy workspace without a runtime source', () async {
+    Workspace? updated;
+    final legacy = mobileAstWorkspace(expectedName)..clearWorkflowSource();
+    final provisioner = DeviceWorkspaceProvisioner(
+      getWorkspace: (_) async => throw StateError('unexpected get'),
+      createWorkspace: (_) async => throw StateError('unexpected create'),
+      putWorkspace: (_, workspace) async {
+        updated = workspace;
+        return workspace;
+      },
+    );
+
+    expect(
+      await provisioner.ensureMobileAstWorkspace(
+        publicKey,
+        existingWorkspace: legacy,
+      ),
+      isTrue,
+    );
+    expect(updated?.workflowSource, ResourceSource.RESOURCE_SOURCE_RUNTIME);
+  });
+
   test('creates an embedded push-to-talk AST workspace when absent', () async {
     Workspace? created;
     final provisioner = DeviceWorkspaceProvisioner(

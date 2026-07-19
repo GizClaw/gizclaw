@@ -379,10 +379,15 @@ func (s *Server) domainWorkspaceNames(ctx context.Context) ([]string, error) {
 			cursor = page.NextCursor
 		}
 	}
-	if s.Gameplay != nil && s.Gameplay.DB != nil {
+	if s.Gameplay != nil && s.Gameplay.DB != nil && s.RuntimeProfile != nil {
+		profile := s.RuntimeProfile()
+		if profile == nil {
+			return orderedUnique(names, nil), nil
+		}
+		profileCtx := gameplay.WithRuntimeProfile(ctx, *profile)
 		var cursor *string
 		for {
-			page, err := s.Gameplay.ListPets(ctx, owner, apitypes.GameplayListRequest{Cursor: cursor, Limit: &limit})
+			page, err := s.Gameplay.ListPets(profileCtx, owner, apitypes.GameplayListRequest{Cursor: cursor, Limit: &limit})
 			if err != nil {
 				return nil, err
 			}

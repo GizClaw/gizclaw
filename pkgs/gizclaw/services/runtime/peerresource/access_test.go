@@ -4,11 +4,15 @@ import (
 	"context"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/jmoiron/sqlx"
+	_ "modernc.org/sqlite"
 )
 
 func TestOrderedUniqueKeepsProfileBeforeOwner(t *testing.T) {
@@ -127,5 +131,43 @@ func TestDomainWorkspaceNamesSkipsGameplayWithoutDatabase(t *testing.T) {
 	}
 	if len(names) != 0 {
 		t.Fatalf("domainWorkspaceNames() = %#v, want empty", names)
+	}
+}
+
+func TestDomainWorkspaceNamesScopesPetsToRuntimeProfile(t *testing.T) {
+	ctx := context.Background()
+	db, err := sqlx.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("open database: %v", err)
+	}
+	db.SetMaxOpenConns(1)
+	t.Cleanup(func() { _ = db.Close() })
+	runtime := &gameplay.Runtime{DB: db}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatalf("Migration() error = %v", err)
+	}
+	caller := giznet.PublicKey{1}
+	now := time.Date(2026, 7, 19, 7, 45, 0, 0, time.UTC).Format(time.RFC3339Nano)
+	for _, profileName := range []string{"profile-a", "profile-b"} {
+		_, err := db.ExecContext(ctx, `INSERT INTO gameplay_pets (owner_public_key, id, runtime_profile_name, petdef_id, display_name, workspace_name, workflow_name, life_json, ability_json, exp, level, last_active_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			caller.String(), profileName+"-pet", profileName, "petdef-basic", profileName, profileName+"-workspace", "pet-care", `{}`, `{}`, 0, 1, now, now, now)
+		if err != nil {
+			t.Fatalf("insert pet for %s: %v", profileName, err)
+		}
+	}
+	profile := apitypes.RuntimeProfile{Name: "profile-a"}
+	server := &Server{
+		Caller:   caller,
+		Gameplay: runtime,
+		RuntimeProfile: func() *apitypes.RuntimeProfile {
+			return &profile
+		},
+	}
+	names, err := server.domainWorkspaceNames(ctx)
+	if err != nil {
+		t.Fatalf("domainWorkspaceNames() error = %v", err)
+	}
+	if !reflect.DeepEqual(names, []string{"profile-a-workspace"}) {
+		t.Fatalf("domainWorkspaceNames() = %#v", names)
 	}
 }

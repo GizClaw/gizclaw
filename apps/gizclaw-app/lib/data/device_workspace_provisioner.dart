@@ -111,7 +111,9 @@ WorkspaceParameters mobileAstParameters({
 }
 
 bool _hasMobileAstConfiguration(Workspace workspace) {
-  if (!workspace.hasParameters() ||
+  if (!workspace.hasWorkflowSource() ||
+      workspace.workflowSource != ResourceSource.RESOURCE_SOURCE_RUNTIME ||
+      !workspace.hasParameters() ||
       !workspace.parameters.hasAsttranslateWorkspaceParameters()) {
     return false;
   }
