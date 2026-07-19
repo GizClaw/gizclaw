@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
+	"sort"
 	"sync"
 	"time"
 
@@ -108,11 +109,7 @@ func (s *Service) Reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	profileWorkflowBindings := map[string]string{}
 	if s.RuntimeProfile != nil {
 		if profile := s.RuntimeProfile(); profile != nil {
-			if profile.Spec.Resources.Tools != nil {
-				for _, toolID := range *profile.Spec.Resources.Tools {
-					profileToolIDs = append(profileToolIDs, toolID)
-				}
-			}
+			profileToolIDs = runtimeProfileToolIDs(profile.Spec.Resources.Tools)
 			if profile.Spec.Resources.Workflows != nil {
 				for alias, name := range *profile.Spec.Resources.Workflows {
 					profileWorkflowBindings[alias] = name
@@ -162,6 +159,22 @@ func (s *Service) Reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	status := s.setStatus(apitypes.PeerRunStatusStateRunning, selection.WorkspaceName, nil, &now)
 	go s.consume(runCtx, next)
 	return status, nil
+}
+
+func runtimeProfileToolIDs(tools *map[string]string) []string {
+	if tools == nil {
+		return nil
+	}
+	aliases := make([]string, 0, len(*tools))
+	for alias := range *tools {
+		aliases = append(aliases, alias)
+	}
+	sort.Strings(aliases)
+	ids := make([]string, 0, len(aliases))
+	for _, alias := range aliases {
+		ids = append(ids, (*tools)[alias])
+	}
+	return ids
 }
 
 type agentOpener interface {

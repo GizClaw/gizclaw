@@ -137,6 +137,18 @@ func TestRuntimeProfileScopesGameplayLists(t *testing.T) {
 	if err != nil || len(allPets.Items) != 2 {
 		t.Fatalf("ListPets(admin owner view) = %#v, %v", allPets, err)
 	}
+	allowed, err := runtime.OwnerHasPetWorkspace(profileCtx, "peer-a", "profile-a-workspace")
+	if err != nil || !allowed {
+		t.Fatalf("OwnerHasPetWorkspace(profile-a) = %v, %v", allowed, err)
+	}
+	allowed, err = runtime.OwnerHasPetWorkspace(profileCtx, "peer-a", "profile-b-workspace")
+	if err != nil || allowed {
+		t.Fatalf("OwnerHasPetWorkspace(cross-profile) = %v, %v", allowed, err)
+	}
+	allowed, err = runtime.OwnerHasPetWorkspace(ctx, "peer-a", "profile-a-workspace")
+	if err != nil || allowed {
+		t.Fatalf("OwnerHasPetWorkspace(without profile) = %v, %v", allowed, err)
+	}
 }
 
 func TestResolvePetContextRequiresExactlyOneWorkspaceBinding(t *testing.T) {

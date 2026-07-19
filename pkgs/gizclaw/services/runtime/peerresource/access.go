@@ -11,6 +11,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 )
 
@@ -452,8 +453,13 @@ func (s *Server) canAccessWorkspace(ctx context.Context, item apitypes.Workspace
 			cursor = list.NextCursor
 		}
 	}
-	if s.Gameplay != nil {
-		allowed, err := s.Gameplay.OwnerHasPetWorkspace(ctx, owner, workspaceName)
+	if s.Gameplay != nil && s.RuntimeProfile != nil {
+		profile := s.RuntimeProfile()
+		if profile == nil {
+			return false, nil
+		}
+		profileCtx := gameplay.WithRuntimeProfile(ctx, *profile)
+		allowed, err := s.Gameplay.OwnerHasPetWorkspace(profileCtx, owner, workspaceName)
 		if err != nil {
 			return false, err
 		}

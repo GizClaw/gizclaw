@@ -92,7 +92,7 @@ void main() {
     expect(ast.enableSourceLanguageDetect, isTrue);
     expect(ast.langPair, mobileAstLanguagePair);
     expect(ast.mode, ASTTranslateMode.ASTTRANSLATE_MODE_S2S);
-    expect(ast.translationModel, mobileAstWorkflowName);
+    expect(ast.translationModel, mobileAstTranslationModelName);
   });
 
   test(

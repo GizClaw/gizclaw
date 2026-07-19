@@ -89,6 +89,18 @@ func TestServiceReloadAppliesPendingAndStop(t *testing.T) {
 	}
 }
 
+func TestRuntimeProfileToolIDsUsesAliasOrder(t *testing.T) {
+	tools := map[string]string{
+		"weather": "tool-weather",
+		"clock":   "tool-clock",
+		"alarm":   "tool-alarm",
+	}
+	want := []string{"tool-alarm", "tool-clock", "tool-weather"}
+	if got := runtimeProfileToolIDs(&tools); !slices.Equal(got, want) {
+		t.Fatalf("runtimeProfileToolIDs() = %#v, want %#v", got, want)
+	}
+}
+
 func TestServiceReloadMissingWorkspaceKeepsPending(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)

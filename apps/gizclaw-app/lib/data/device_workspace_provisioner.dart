@@ -1,6 +1,7 @@
 import 'package:gizclaw/gizclaw.dart';
 
-const mobileAstWorkflowName = 'volc-ast-translate';
+const mobileAstWorkflowName = 'ast-translate-zh-en-auto';
+const mobileAstTranslationModelName = 'volc-ast-translate';
 const mobileAstLanguagePair = 'auto';
 
 typedef WorkspaceGetter = Future<Workspace> Function(String name);
@@ -104,7 +105,7 @@ WorkspaceParameters mobileAstParameters({
       input: input,
       langPair: mobileAstLanguagePair,
       mode: ASTTranslateMode.ASTTRANSLATE_MODE_S2S,
-      translationModel: mobileAstWorkflowName,
+      translationModel: mobileAstTranslationModelName,
     ),
   );
 }
@@ -122,7 +123,7 @@ bool _hasMobileAstConfiguration(Workspace workspace) {
       _isSupportedInputMode(ast.input) &&
       ast.langPair == mobileAstLanguagePair &&
       ast.mode == ASTTranslateMode.ASTTRANSLATE_MODE_S2S &&
-      ast.translationModel == mobileAstWorkflowName;
+      ast.translationModel == mobileAstTranslationModelName;
 }
 
 WorkspaceInputMode _preservedInputMode(Workspace workspace) {

@@ -332,14 +332,20 @@ func (r *Runtime) OwnerHasPetDef(ctx context.Context, owner, petDefID string) (b
 }
 
 // OwnerHasPetWorkspace reports whether the Workspace belongs to one of the
-// caller's adopted pets. Pet Workspaces are system-managed, so this domain
-// relationship supplies access independently of the Workspace owner field.
+// caller's adopted pets under the active RuntimeProfile. Pet Workspaces are
+// system-managed, so this domain relationship supplies access independently of
+// the Workspace owner field without crossing RuntimeProfile boundaries.
 func (r *Runtime) OwnerHasPetWorkspace(ctx context.Context, owner, workspaceName string) (bool, error) {
 	if r == nil || r.DB == nil {
 		return false, nil
 	}
+	profile, ok := runtimeProfileFromContext(ctx)
+	profileName := strings.TrimSpace(profile.Name)
+	if !ok || profileName == "" {
+		return false, nil
+	}
 	var exists int
-	err := r.DB.QueryRowContext(ctx, r.DB.Rebind(`SELECT 1 FROM gameplay_pets WHERE owner_public_key = ? AND workspace_name = ? LIMIT 1`), strings.TrimSpace(owner), strings.TrimSpace(workspaceName)).Scan(&exists)
+	err := r.DB.QueryRowContext(ctx, r.DB.Rebind(`SELECT 1 FROM gameplay_pets WHERE owner_public_key = ? AND runtime_profile_name = ? AND workspace_name = ? LIMIT 1`), strings.TrimSpace(owner), profileName, strings.TrimSpace(workspaceName)).Scan(&exists)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
 	}
