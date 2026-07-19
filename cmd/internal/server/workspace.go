@@ -154,7 +154,9 @@ func resolveWorkspaceStoreConfigs(root string, cfgs map[string]stores.Config) ma
 		}
 		if cfg.Flowcraft != nil {
 			flowcraft := *cfg.Flowcraft
-			flowcraft.Dir = resolveWorkspaceDir(root, expandEnvPreservingUnset(flowcraft.Dir))
+			if expanded, ok := expandEnvIfAllNonEmpty(flowcraft.Dir); ok {
+				flowcraft.Dir = resolveWorkspaceDir(root, expanded)
+			}
 			cfg.Flowcraft = &flowcraft
 		}
 		resolved[name] = cfg
@@ -162,13 +164,16 @@ func resolveWorkspaceStoreConfigs(root string, cfgs map[string]stores.Config) ma
 	return resolved
 }
 
-func expandEnvPreservingUnset(value string) string {
-	return os.Expand(value, func(name string) string {
-		if expanded, ok := os.LookupEnv(name); ok && expanded != "" {
-			return expanded
+func expandEnvIfAllNonEmpty(value string) (string, bool) {
+	valid := true
+	expanded := os.Expand(value, func(name string) string {
+		result, ok := os.LookupEnv(name)
+		if !ok || result == "" {
+			valid = false
 		}
-		return "${" + name + "}"
+		return result
 	})
+	return expanded, valid
 }
 
 func Serve(workspace string) error {

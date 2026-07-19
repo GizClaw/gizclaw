@@ -397,6 +397,56 @@ func TestFlowcraftZeroFactCompletionSurvivesPreMarkerCrashWindow(t *testing.T) {
 	}
 }
 
+type failingFlowcraftCompleteQueue struct {
+	recall.AsyncSemanticQueue
+}
+
+func (failingFlowcraftCompleteQueue) Complete(context.Context, string, string, recall.AsyncSemanticResult) error {
+	return errors.New("queue completion unavailable")
+}
+
+func TestFlowcraftPreparedCompletionSurvivesQueueAckFailure(t *testing.T) {
+	t.Parallel()
+	config := FlowcraftConfig{Dir: t.TempDir(), RuntimeID: "app", UserID: "user", ExtractionModel: "extract", Async: FlowcraftAsyncConfig{Enabled: true}}
+	loader := &testFlowcraftLoader{model: testLLM{response: `{"facts":[{"text":"Alice prefers tea.","kind":"preference","subject":"Alice","predicate":"prefers","object":"tea","entities":["Alice","tea"]}]}`}}
+	store, err := OpenFlowcraftStore(context.Background(), config, loader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	observed, err := store.Observe(context.Background(), Observation{ID: "observation", Text: "I prefer tea."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.queue.AsyncSemanticQueue = failingFlowcraftCompleteQueue{AsyncSemanticQueue: store.queue.AsyncSemanticQueue}
+	processor, ok := recall.NewAsyncSemanticProcessor(store.memory)
+	if !ok {
+		t.Fatal("async processor is unavailable")
+	}
+	processed, err := processor.ProcessAsyncSemantic(context.Background(), recall.AsyncSemanticProcessOptions{Scope: store.scope, Limit: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if processed.Failed != 1 || processed.Completed != 0 {
+		t.Fatalf("ProcessAsyncSemantic() = %+v", processed)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	reopened, err := OpenFlowcraftStore(context.Background(), config, loader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	result, err := reopened.Wait(context.Background(), observed.Operation.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Operation == nil || result.Operation.Status != OperationSucceeded || len(result.Facts) != 1 || result.Facts[0].Text != "Alice prefers tea." {
+		t.Fatalf("Wait() = %+v", result)
+	}
+}
+
 func TestFlowcraftRehydratePrefersTerminalMarker(t *testing.T) {
 	t.Parallel()
 	config := FlowcraftConfig{Dir: t.TempDir(), RuntimeID: "app", UserID: "user", ExtractionModel: "extract", Async: FlowcraftAsyncConfig{Enabled: true}}
@@ -411,6 +461,7 @@ func TestFlowcraftRehydratePrefersTerminalMarker(t *testing.T) {
 		observedAt time.Time
 	}{
 		{value: flowcraftOperationStatusSucceeded, observedAt: time.Now()},
+		{value: flowcraftOperationStatusPrepared, observedAt: time.Now().Add(30 * time.Minute)},
 		{value: flowcraftOperationStatusReady, observedAt: time.Now().Add(time.Hour)},
 	}
 	for _, status := range statuses {

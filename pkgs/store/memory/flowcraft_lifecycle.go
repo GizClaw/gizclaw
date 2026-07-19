@@ -13,6 +13,7 @@ import (
 
 const (
 	flowcraftOperationStatusAttribute = "gizclaw.operation_status"
+	flowcraftOperationStatusPrepared  = "prepared"
 	flowcraftOperationStatusReady     = "ready"
 	flowcraftOperationStatusSucceeded = "succeeded"
 	flowcraftOperationStatusFailed    = "failed"
@@ -78,11 +79,17 @@ func (s *FlowcraftStore) Wait(ctx context.Context, operationID string) (ObserveR
 			continue
 		}
 		if result.Failed > 0 {
-			if result.Failed != 1 || result.Completed != 0 {
+			if result.Failed != 1 || result.Completed != 0 || len(claimedIDs) != 1 {
 				return ObserveResult{}, fmt.Errorf("%w: flowcraft returned an invalid async failure result", ErrUnavailable)
 			}
-			if err := s.failOperations(ctx, claimedIDs); err != nil {
-				return ObserveResult{}, err
+			if s.operationReady(claimedIDs[0]) {
+				if err := s.completeReadyOperations(ctx, claimedIDs); err != nil {
+					return ObserveResult{}, err
+				}
+			} else {
+				if err := s.failOperations(ctx, claimedIDs); err != nil {
+					return ObserveResult{}, err
+				}
 			}
 		}
 		if result.Completed > 0 && result.Completed != 1 {
@@ -151,7 +158,7 @@ func (s *FlowcraftStore) rehydrateOperations(ctx context.Context) error {
 				return err
 			}
 			continue
-		case flowcraftOperationStatusReady:
+		case flowcraftOperationStatusPrepared, flowcraftOperationStatusReady:
 			s.operations[id] = ObserveResult{Operation: &Operation{ID: id, Status: OperationPending}}
 			s.ready[id] = struct{}{}
 			continue
@@ -201,6 +208,9 @@ func (s *FlowcraftStore) markOperationsReady(ctx context.Context, completedIDs [
 }
 
 func (s *FlowcraftStore) completeReadyOperations(ctx context.Context, completedIDs []string) error {
+	if len(completedIDs) == 0 {
+		return nil
+	}
 	if err := s.drainSideEffects(ctx); err != nil {
 		return err
 	}
@@ -306,6 +316,21 @@ func (s *FlowcraftStore) persistOperationStatus(ctx context.Context, operationID
 	return nil
 }
 
+func (s *FlowcraftStore) recordOperationStatus(ctx context.Context, operationID, status string) error {
+	if err := s.persistOperationStatus(ctx, operationID, status); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	switch status {
+	case flowcraftOperationStatusPrepared, flowcraftOperationStatusReady:
+		s.ready[operationID] = struct{}{}
+	case flowcraftOperationStatusFailed:
+		s.failed[operationID] = struct{}{}
+	}
+	return nil
+}
+
 func flowcraftOperationMarker(fact recall.TemporalFact) (string, bool) {
 	status, ok := fact.Metadata[flowcraftOperationStatusAttribute].(string)
 	if !ok || fact.Kind != recall.FactEpisode || fact.ID != flowcraftOperationMarkerID(fact.Origin.RequestID, status) {
@@ -321,10 +346,12 @@ func flowcraftOperationMarkerID(operationID, status string) string {
 
 func flowcraftOperationStatusRank(status string) int {
 	switch status {
-	case flowcraftOperationStatusReady:
+	case flowcraftOperationStatusPrepared:
 		return 1
-	case flowcraftOperationStatusSucceeded, flowcraftOperationStatusFailed:
+	case flowcraftOperationStatusReady:
 		return 2
+	case flowcraftOperationStatusSucceeded, flowcraftOperationStatusFailed:
+		return 3
 	default:
 		return 0
 	}
@@ -358,10 +385,13 @@ type flowcraftAsyncQueue struct {
 }
 
 func (q *flowcraftAsyncQueue) Complete(ctx context.Context, requestID, leaseToken string, result recall.AsyncSemanticResult) error {
-	if err := q.writeStatus(ctx, requestID, flowcraftOperationStatusReady); err != nil {
+	if err := q.writeStatus(ctx, requestID, flowcraftOperationStatusPrepared); err != nil {
 		return err
 	}
-	return q.AsyncSemanticQueue.Complete(ctx, requestID, leaseToken, result)
+	if err := q.AsyncSemanticQueue.Complete(ctx, requestID, leaseToken, result); err != nil {
+		return err
+	}
+	return q.writeStatus(ctx, requestID, flowcraftOperationStatusReady)
 }
 
 func (q *flowcraftAsyncQueue) Fail(ctx context.Context, requestID, leaseToken string, failure recall.AsyncSemanticFailure) error {

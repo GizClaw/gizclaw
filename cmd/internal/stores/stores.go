@@ -612,10 +612,13 @@ func expandFlowcraftDir(dir string) (string, error) {
 		return dir, nil
 	}
 	missing := make(map[string]struct{})
+	empty := make(map[string]struct{})
 	expanded := os.Expand(dir, func(name string) string {
 		value, ok := os.LookupEnv(name)
 		if !ok {
 			missing[name] = struct{}{}
+		} else if value == "" {
+			empty[name] = struct{}{}
 		}
 		return value
 	})
@@ -626,6 +629,14 @@ func expandFlowcraftDir(dir string) (string, error) {
 		}
 		slices.Sort(names)
 		return "", fmt.Errorf("%w: flowcraft dir references unset environment variables: %s", memorystore.ErrInvalidInput, strings.Join(names, ", "))
+	}
+	if len(empty) > 0 {
+		names := make([]string, 0, len(empty))
+		for name := range empty {
+			names = append(names, name)
+		}
+		slices.Sort(names)
+		return "", fmt.Errorf("%w: flowcraft dir references empty environment variables: %s", memorystore.ErrInvalidInput, strings.Join(names, ", "))
 	}
 	if strings.TrimSpace(expanded) == "" {
 		return "", fmt.Errorf("%w: configured flowcraft dir expands to an empty path", memorystore.ErrInvalidInput)
