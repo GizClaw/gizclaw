@@ -9,6 +9,7 @@ pkgs/store/
 ├── graph/        # Entity / Relation graph abstraction
 ├── kv/           # Ordered hierarchical key-value store
 ├── logstore/     # Searchable immutable/mutable records and log drivers
+├── memory/       # Observation extraction, fact recall, and provider adapters
 ├── metrics/      # Time-series sample write and query
 ├── objectstore/  # Prefix-addressable binary object storage
 ├── vecid/        # Vector locality-sensitive identity registry
@@ -20,6 +21,7 @@ pkgs/store/
 | [graph](./graph) | Entity, Relation and adjacency query | Agent memory, recall |
 | [kv](./kv) | Ordered hierarchical key, CRUD and range traversal | GizClaw services, Agent memory, other stores |
 | [logstore](./logstore) | Structured record append/mutation, backend-neutral query and pagination | Process logs and conversation/event producers |
+| [memory](./memory) | Raw observations, fact recall/update/delete, and asynchronous operations | Agent runtimes and memory evaluation harnesses |
 | [metrics](./metrics) | Sample writing, instant/range query and aggregation | Peer telemetry, Server metrics |
 | [objectstore](./objectstore) | Binary object, prefix list/delete and expiration | Firmware, workspace, gameplay assets, HNSW |
 | [vecid](./vecid) | Vector hashing, bucket and identity clustering | Voiceprint detection |
@@ -34,6 +36,9 @@ flowchart TB
     Domains --> Objects["objectstore"]
     Domains --> Vectors["vecstore"]
     Domains --> Graph["graph"]
+    Domains --> Memory["memory"]
+    Memory --> Flowcraft["Flowcraft embedded"]
+    Memory --> Remote["Mem0 / Volc remote"]
     Graph --> KV
     Vectors --> Objects
     VecID["vecid"] --> Voiceprint["audio/voiceprint"]

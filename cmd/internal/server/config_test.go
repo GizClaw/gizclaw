@@ -2,12 +2,15 @@ package server
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/GizClaw/flowcraft/sdk/embedding"
+	"github.com/GizClaw/flowcraft/sdk/llm"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/logging"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
@@ -17,6 +20,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	memorystore "github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
 func testPublicKey(fill byte) giznet.PublicKey {
@@ -608,6 +612,11 @@ func TestParseConfigRejectsUnknownLoggingFields(t *testing.T) {
 		"system_log:\n  sinks:\n    - kind: stderr\n      path: file.log\n",
 		"stores:\n  logs:\n    kind: log\n    clickhouse:\n      dsn: x\n      unknown: y\n",
 		"stores:\n  logs:\n    kind: log\n    volc:\n      endpoint: x\n      unknown: y\n",
+		"stores:\n  agent-memory:\n    kind: memory\n    storage: x\n    flowcraft: {}\n",
+		"stores:\n  agent-memory:\n    kind: memory\n    mem0:\n      endpoint: https://example.test\n      unknown: y\n",
+		"stores:\n  agent-memory:\n    kind: memory\n    volc_memory:\n      api_key_id: x\n      unknown: y\n",
+		"stores:\n  agent-memory:\n    kind: memory\n    flowcraft:\n      async:\n        unknown: y\n",
+		"stores:\n  agent-memory:\n    kind: memory\n    volc_memory:\n      mem0:\n        unknown: y\n",
 	} {
 		if _, err := parseConfigData([]byte(data)); err == nil {
 			t.Fatalf("parseConfigData(%q) error = nil", data)
@@ -636,6 +645,126 @@ stores:
 		store.ClickHouse.Database != "default" ||
 		store.ClickHouse.Table != "gizclaw_flowcraft_history" {
 		t.Fatalf("clickhouse config = %+v", store.ClickHouse)
+	}
+}
+
+func TestParseConfigReadsMemoryStores(t *testing.T) {
+	cfg, err := parseConfigData([]byte(`
+stores:
+  local-memory:
+    kind: memory
+    flowcraft:
+      dir: memory
+      runtime_id: app
+      user_id: user
+      stage_timeout: 2s
+      async:
+        enabled: true
+        worker_id: worker
+  remote-memory:
+    kind: memory
+    mem0:
+      endpoint: https://example.test
+      flavor: self_hosted
+      poll_interval: 250ms
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	local := cfg.Stores["local-memory"].Flowcraft
+	if local == nil || local.StageTimeout != 2*time.Second || !local.Async.Enabled || local.Async.WorkerID != "worker" {
+		t.Fatalf("flowcraft config = %+v", local)
+	}
+	remote := cfg.Stores["remote-memory"].Mem0
+	if remote == nil || remote.PollInterval != 250*time.Millisecond {
+		t.Fatalf("mem0 config = %+v", remote)
+	}
+}
+
+type serverFlowcraftModelLoader struct{}
+
+func (serverFlowcraftModelLoader) LoadLLM(context.Context, string) (llm.LLM, error) {
+	return serverFlowcraftLLM{}, nil
+}
+
+func (serverFlowcraftModelLoader) LoadEmbedder(context.Context, string) (embedding.Embedder, error) {
+	return nil, nil
+}
+
+type serverContextFlowcraftModelLoader struct{}
+
+func (serverContextFlowcraftModelLoader) LoadLLM(ctx context.Context, _ string) (llm.LLM, error) {
+	return nil, ctx.Err()
+}
+
+func (serverContextFlowcraftModelLoader) LoadEmbedder(ctx context.Context, _ string) (embedding.Embedder, error) {
+	return nil, ctx.Err()
+}
+
+type serverFlowcraftLLM struct{}
+
+func (serverFlowcraftLLM) Generate(context.Context, []llm.Message, ...llm.GenerateOption) (llm.Message, llm.TokenUsage, error) {
+	return llm.NewTextMessage(llm.RoleAssistant, `{"facts":[]}`), llm.TokenUsage{}, nil
+}
+
+func (serverFlowcraftLLM) GenerateStream(context.Context, []llm.Message, ...llm.GenerateOption) (llm.StreamMessage, error) {
+	return nil, nil
+}
+
+func TestNewStoreRegistryThreadsFlowcraftModelLoader(t *testing.T) {
+	cfg := Config{Stores: map[string]stores.Config{
+		"agent-memory": {
+			Kind: stores.KindMemoryStore,
+			Flowcraft: &memorystore.FlowcraftConfig{
+				RuntimeID: "app", UserID: "user", ExtractionModel: "extract",
+			},
+		},
+	}}
+	if _, err := newStoreRegistry(cfg); err == nil || !strings.Contains(err.Error(), "require an injected model loader") {
+		t.Fatalf("newStoreRegistry() error = %v", err)
+	}
+	registry, err := newStoreRegistryWithOptions(cfg, stores.Options{FlowcraftModelLoader: serverFlowcraftModelLoader{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := registry.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestNewStoreRegistryExpandsFlowcraftModelsBeforeLoaderCheck(t *testing.T) {
+	t.Setenv("GIZCLAW_TEST_OPTIONAL_MEMORY_MODEL", "")
+	cfg := Config{Stores: map[string]stores.Config{
+		"agent-memory": {
+			Kind: stores.KindMemoryStore,
+			Flowcraft: &memorystore.FlowcraftConfig{
+				RuntimeID: "app", UserID: "user", ExtractionModel: "$GIZCLAW_TEST_OPTIONAL_MEMORY_MODEL",
+			},
+		},
+	}}
+	registry, err := newStoreRegistry(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := registry.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestNewStoreRegistryThreadsCallerContext(t *testing.T) {
+	canceled, cancel := context.WithCancel(context.Background())
+	cancel()
+	cfg := Config{Stores: map[string]stores.Config{
+		"agent-memory": {
+			Kind: stores.KindMemoryStore,
+			Flowcraft: &memorystore.FlowcraftConfig{
+				RuntimeID: "app", UserID: "user", ExtractionModel: "extract",
+			},
+		},
+	}}
+	_, err := newStoreRegistryWithOptionsContext(canceled, cfg, stores.Options{FlowcraftModelLoader: serverContextFlowcraftModelLoader{}})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("newStoreRegistryWithOptionsContext() error = %v, want context.Canceled", err)
 	}
 }
 

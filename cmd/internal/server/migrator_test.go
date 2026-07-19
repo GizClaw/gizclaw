@@ -15,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	memorystore "github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
 func TestNewMigratorRunsACLMigration(t *testing.T) {
@@ -31,6 +32,24 @@ func TestNewMigratorRunsACLMigration(t *testing.T) {
 	}
 	if _, err := migrator.ACL.DB.ExecContext(context.Background(), `INSERT INTO acl_views (name, created_at, updated_at) VALUES ('default', 'now', 'now')`); err != nil {
 		t.Fatalf("insert acl view after migration: %v", err)
+	}
+}
+
+func TestNewMigratorSkipsUnrelatedMemoryStores(t *testing.T) {
+	cfg := validLayeredConfig(t.TempDir())
+	cfg.Stores["agent-memory"] = stores.Config{
+		Kind: stores.KindMemoryStore,
+		Flowcraft: &memorystore.FlowcraftConfig{
+			RuntimeID: "app", UserID: "user", ExtractionModel: "requires-loader",
+		},
+	}
+	migrator, err := NewMigrator(cfg)
+	if err != nil {
+		t.Fatalf("NewMigrator() error = %v", err)
+	}
+	t.Cleanup(func() { _ = migrator.Close() })
+	if err := migrator.Migrate(context.Background()); err != nil {
+		t.Fatalf("Migrate() error = %v", err)
 	}
 }
 

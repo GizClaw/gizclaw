@@ -152,9 +152,28 @@ func resolveWorkspaceStoreConfigs(root string, cfgs map[string]stores.Config) ma
 		if cfg.Dir != "" && !filepath.IsAbs(cfg.Dir) {
 			cfg.Dir = filepath.Join(root, cfg.Dir)
 		}
+		if cfg.Flowcraft != nil {
+			flowcraft := *cfg.Flowcraft
+			if expanded, ok := expandEnvIfAllNonEmpty(flowcraft.Dir); ok {
+				flowcraft.Dir = resolveWorkspaceDir(root, expanded)
+			}
+			cfg.Flowcraft = &flowcraft
+		}
 		resolved[name] = cfg
 	}
 	return resolved
+}
+
+func expandEnvIfAllNonEmpty(value string) (string, bool) {
+	valid := true
+	expanded := os.Expand(value, func(name string) string {
+		result, ok := os.LookupEnv(name)
+		if !ok || result == "" {
+			valid = false
+		}
+		return result
+	})
+	return expanded, valid
 }
 
 func Serve(workspace string) error {
@@ -173,7 +192,7 @@ func ServeContext(ctx context.Context, workspace string, opts ServeOptions) (err
 	if err != nil {
 		return err
 	}
-	storeRegistry, err := newStoreRegistry(cfg)
+	storeRegistry, err := newStoreRegistryContext(ctx, cfg)
 	if err != nil {
 		return fmt.Errorf("server: stores: %w", err)
 	}

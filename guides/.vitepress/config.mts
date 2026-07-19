@@ -161,6 +161,7 @@ const zhDevelopingSidebar = [
           { text: "总览", link: "/zh/developing/stores/overview" },
           { text: "graph", link: "/zh/developing/stores/graph" },
           { text: "kv", link: "/zh/developing/stores/kv" },
+          { text: "memory", link: "/zh/developing/stores/memory" },
           { text: "metrics", link: "/zh/developing/stores/metrics" },
           { text: "objectstore", link: "/zh/developing/stores/objectstore" },
           { text: "vecid", link: "/zh/developing/stores/vecid" },

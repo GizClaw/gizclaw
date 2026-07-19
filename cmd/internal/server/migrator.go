@@ -30,7 +30,18 @@ func (m *CmdMigrator) Close() error {
 }
 
 func NewMigrator(cfg Config) (migrator *CmdMigrator, err error) {
-	ss, err := newStoreRegistry(cfg)
+	return newMigratorContext(context.Background(), cfg)
+}
+
+func newMigratorContext(ctx context.Context, cfg Config) (migrator *CmdMigrator, err error) {
+	migrationCfg := cfg
+	migrationCfg.Stores = make(map[string]stores.Config, 3)
+	for _, name := range []string{defaultACLStore, defaultPeersStore, defaultCredentialsStore} {
+		if storeConfig, ok := cfg.Stores[name]; ok {
+			migrationCfg.Stores[name] = storeConfig
+		}
+	}
+	ss, err := newStoreRegistryContext(ctx, migrationCfg)
 	if err != nil {
 		return nil, fmt.Errorf("server: stores: %w", err)
 	}
@@ -41,7 +52,7 @@ func NewMigrator(cfg Config) (migrator *CmdMigrator, err error) {
 		}
 	}()
 
-	return newMigratorWithStores(cfg, ss, true)
+	return newMigratorWithStores(migrationCfg, ss, true)
 }
 
 func newMigratorWithStores(cfg Config, ss *stores.Stores, owns bool) (*CmdMigrator, error) {
@@ -85,7 +96,7 @@ func MigrateWorkspace(ctx context.Context, workspace string) error {
 	if err != nil {
 		return err
 	}
-	migrator, err := NewMigrator(cfg)
+	migrator, err := newMigratorContext(ctx, cfg)
 	if err != nil {
 		return err
 	}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -138,6 +139,7 @@ func isPublicHTTPLoginRoute(method, path string) bool {
 type newServerOptions struct {
 	ICETCPListener net.Listener
 	Stores         *stores.Stores
+	StoreOptions   stores.Options
 }
 
 func New(cfg Config) (srv *CmdServer, err error) {
@@ -152,7 +154,7 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 	ss := newOpts.Stores
 	ownsStores := false
 	if ss == nil {
-		ss, err = newStoreRegistry(cfg)
+		ss, err = newStoreRegistryWithOptions(cfg, newOpts.StoreOptions)
 		if err != nil {
 			return nil, fmt.Errorf("server: stores: %w", err)
 		}
@@ -468,14 +470,37 @@ func (p adminPublicKeySecurityPolicy) AllowService(publicKey giznet.PublicKey, s
 }
 
 func newStoreRegistry(cfg Config) (*stores.Stores, error) {
+	return newStoreRegistryContext(context.Background(), cfg)
+}
+
+func newStoreRegistryContext(ctx context.Context, cfg Config) (*stores.Stores, error) {
+	return newStoreRegistryWithOptionsContext(ctx, cfg, stores.Options{})
+}
+
+func newStoreRegistryWithOptions(cfg Config, options stores.Options) (*stores.Stores, error) {
+	return newStoreRegistryWithOptionsContext(context.Background(), cfg, options)
+}
+
+func newStoreRegistryWithOptionsContext(ctx context.Context, cfg Config, options stores.Options) (*stores.Stores, error) {
+	if options.FlowcraftModelLoader == nil {
+		for name, storeConfig := range cfg.Stores {
+			if storeConfig.Flowcraft == nil {
+				continue
+			}
+			flowcraft := storeConfig.Flowcraft
+			if os.ExpandEnv(flowcraft.ExtractionModel) != "" || os.ExpandEnv(flowcraft.EmbeddingModel) != "" || os.ExpandEnv(flowcraft.RerankModel) != "" {
+				return nil, fmt.Errorf("memory store %q flowcraft model fields require an injected model loader", name)
+			}
+		}
+	}
 	if len(cfg.Storage) == 0 {
-		return stores.New(cfg.Stores)
+		return stores.NewWithOptions(ctx, cfg.Stores, options)
 	}
 	physical, err := storage.New(cfg.Storage)
 	if err != nil {
 		return nil, err
 	}
-	ss, err := stores.NewWithOwnedStorage(physical, cfg.Stores)
+	ss, err := stores.NewWithOwnedStorageOptions(ctx, physical, cfg.Stores, options)
 	if err != nil {
 		return nil, err
 	}

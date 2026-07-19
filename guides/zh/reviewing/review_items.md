@@ -33,7 +33,7 @@
 | `pkgs/gizclaw/customid/**` | [Custom ID](/zh/developing/gizclaw/customid) | ID 编码、解析与兼容性 |
 | `pkgs/genx/**` | [GenX 总览](/zh/developing/genx/overview) 及对应 Generators、Transformers、Segmentors、Profilers、Labelers 或 Model Loader 页面 | Stream/EOS、interface、Mux、provider adapter 与公共 pipeline 边界 |
 | `pkgs/audio/**` | [Audio 总览](/zh/developing/audio/overview) 及对应 codec、PCM、resampler 或 voiceprint 页面 | Frame/codec contract、sample format、buffer 与实时处理 |
-| `pkgs/store/**` | [Store 总览](/zh/developing/stores/overview) 及对应 store 页面 | Interface contract、具体 backend 约束、持久化与并发语义 |
+| `pkgs/store/**` | [Store 总览](/zh/developing/stores/overview) 及对应 store 页面（包括 [Memory Store](/zh/developing/stores/memory)） | Interface contract、具体 backend 约束、持久化与并发语义 |
 | `sdk/js/**` | 对应 [HTTP API](/zh/developing/api/http/overview) 或 [Proto API](/zh/developing/api/proto/overview)，以及 [JavaScript 与 TypeScript](/zh/coding-styles/js) | SDK surface、生成 client、runtime 差异和错误处理 |
 | `sdk/flutter/**` | 对应 API/Proto 文档，以及 [Dart 与 Flutter](/zh/coding-styles/dart-flutter) | Dart SDK contract、WebRTC transport、Stream 与生成 message |
 | `sdk/c/**` | 对应 [Peer RPC](/zh/developing/api/proto/rpc/overview)，以及 [C 与 cgo](/zh/coding-styles/c) | C API/ABI、nanopb 生成代码、ownership 与 cgo bridge |
