@@ -30,7 +30,11 @@ func (m *CmdMigrator) Close() error {
 }
 
 func NewMigrator(cfg Config) (migrator *CmdMigrator, err error) {
-	ss, err := newStoreRegistry(cfg)
+	return newMigratorContext(context.Background(), cfg)
+}
+
+func newMigratorContext(ctx context.Context, cfg Config) (migrator *CmdMigrator, err error) {
+	ss, err := newStoreRegistryContext(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("server: stores: %w", err)
 	}
@@ -85,7 +89,7 @@ func MigrateWorkspace(ctx context.Context, workspace string) error {
 	if err != nil {
 		return err
 	}
-	migrator, err := NewMigrator(cfg)
+	migrator, err := newMigratorContext(ctx, cfg)
 	if err != nil {
 		return err
 	}

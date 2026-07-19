@@ -178,7 +178,7 @@ func ServeContext(ctx context.Context, workspace string, opts ServeOptions) (err
 	if err != nil {
 		return err
 	}
-	storeRegistry, err := newStoreRegistry(cfg)
+	storeRegistry, err := newStoreRegistryContext(ctx, cfg)
 	if err != nil {
 		return fmt.Errorf("server: stores: %w", err)
 	}

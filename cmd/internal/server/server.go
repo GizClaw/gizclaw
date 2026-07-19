@@ -469,10 +469,18 @@ func (p adminPublicKeySecurityPolicy) AllowService(publicKey giznet.PublicKey, s
 }
 
 func newStoreRegistry(cfg Config) (*stores.Stores, error) {
-	return newStoreRegistryWithOptions(cfg, stores.Options{})
+	return newStoreRegistryContext(context.Background(), cfg)
+}
+
+func newStoreRegistryContext(ctx context.Context, cfg Config) (*stores.Stores, error) {
+	return newStoreRegistryWithOptionsContext(ctx, cfg, stores.Options{})
 }
 
 func newStoreRegistryWithOptions(cfg Config, options stores.Options) (*stores.Stores, error) {
+	return newStoreRegistryWithOptionsContext(context.Background(), cfg, options)
+}
+
+func newStoreRegistryWithOptionsContext(ctx context.Context, cfg Config, options stores.Options) (*stores.Stores, error) {
 	if options.FlowcraftModelLoader == nil {
 		for name, storeConfig := range cfg.Stores {
 			if storeConfig.Flowcraft == nil {
@@ -485,13 +493,13 @@ func newStoreRegistryWithOptions(cfg Config, options stores.Options) (*stores.St
 		}
 	}
 	if len(cfg.Storage) == 0 {
-		return stores.NewWithOptions(context.Background(), cfg.Stores, options)
+		return stores.NewWithOptions(ctx, cfg.Stores, options)
 	}
 	physical, err := storage.New(cfg.Storage)
 	if err != nil {
 		return nil, err
 	}
-	ss, err := stores.NewWithOwnedStorageOptions(context.Background(), physical, cfg.Stores, options)
+	ss, err := stores.NewWithOwnedStorageOptions(ctx, physical, cfg.Stores, options)
 	if err != nil {
 		return nil, err
 	}

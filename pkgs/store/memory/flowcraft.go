@@ -25,6 +25,8 @@ type FlowcraftStore struct {
 	mu         sync.Mutex
 	waitGate   chan struct{}
 	operations map[string]ObserveResult
+	ready      map[string]struct{}
+	failed     map[string]struct{}
 	closeOnce  sync.Once
 	closeErr   error
 }
@@ -32,7 +34,10 @@ type FlowcraftStore struct {
 func newFlowcraftStore(config FlowcraftConfig, memory recall.Memory, temporal recall.TemporalStore, queue *flowcraftAsyncQueue, backend *flowworkspace.Backend) *FlowcraftStore {
 	waitGate := make(chan struct{}, 1)
 	waitGate <- struct{}{}
-	return &FlowcraftStore{config: config, scope: config.scope(), memory: memory, temporal: temporal, queue: queue, backend: backend, waitGate: waitGate, operations: make(map[string]ObserveResult)}
+	return &FlowcraftStore{
+		config: config, scope: config.scope(), memory: memory, temporal: temporal, queue: queue, backend: backend,
+		waitGate: waitGate, operations: make(map[string]ObserveResult), ready: make(map[string]struct{}), failed: make(map[string]struct{}),
+	}
 }
 
 // Observe extracts and persists facts from raw text or turns.
@@ -255,13 +260,14 @@ func flowcraftTurns(observation Observation) []recall.TurnContext {
 const flowcraftRootIDAttribute = "gizclaw.root_id"
 
 var flowcraftReservedAttributes = map[string]struct{}{
-	flowcraftRootIDAttribute: {},
-	"observation_id":         {},
-	"kind":                   {},
-	"subject":                {},
-	"predicate":              {},
-	"object":                 {},
-	"entities":               {},
+	flowcraftRootIDAttribute:          {},
+	flowcraftOperationStatusAttribute: {},
+	"observation_id":                  {},
+	"kind":                            {},
+	"subject":                         {},
+	"predicate":                       {},
+	"object":                          {},
+	"entities":                        {},
 }
 
 func validateFlowcraftAttributeKeys(attributes map[string]any) error {

@@ -85,6 +85,9 @@ func (s *Mem0Store) Observe(ctx context.Context, observation Observation) (Obser
 	if err := validateObservation(observation); err != nil {
 		return ObserveResult{}, err
 	}
+	if err := validateMem0Metadata(observation.Context); err != nil {
+		return ObserveResult{}, err
+	}
 	metadata := cloneMap(observation.Context)
 	if metadata == nil {
 		metadata = make(map[string]any)
@@ -121,6 +124,15 @@ func (s *Mem0Store) Observe(ctx context.Context, observation Observation) (Obser
 		return ObserveResult{Operation: &Operation{ID: response.EventID, Status: OperationPending}}, nil
 	}
 	return ObserveResult{Facts: response.facts()}, nil
+}
+
+func validateMem0Metadata(metadata map[string]any) error {
+	for _, key := range []string{mem0ObservationIDMetadata, mem0TurnIDsMetadata} {
+		if _, exists := metadata[key]; exists {
+			return fmt.Errorf("%w: mem0 metadata %q is provider-owned", ErrUnsupported, key)
+		}
+	}
+	return nil
 }
 
 // Recall performs semantic search with provider-native structured filters.

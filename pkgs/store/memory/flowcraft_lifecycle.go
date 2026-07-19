@@ -2,12 +2,20 @@ package memory
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/GizClaw/flowcraft/memory/recall"
+)
+
+const (
+	flowcraftOperationStatusAttribute = "gizclaw.operation_status"
+	flowcraftOperationStatusReady     = "ready"
+	flowcraftOperationStatusSucceeded = "succeeded"
+	flowcraftOperationStatusFailed    = "failed"
 )
 
 // Wait drains caller-owned Flowcraft async work until the requested operation
@@ -28,6 +36,18 @@ func (s *FlowcraftStore) Wait(ctx context.Context, operationID string) (ObserveR
 	}
 	if known.Operation == nil || known.Operation.Status != OperationPending {
 		return cloneObserveResult(known), nil
+	}
+	if s.operationMarkedFailed(operationID) {
+		if err := s.finalizeFailedOperations(ctx, []string{operationID}); err != nil {
+			return ObserveResult{}, err
+		}
+		return s.operationResult(operationID), nil
+	}
+	if s.operationReady(operationID) {
+		if err := s.completeReadyOperations(ctx, []string{operationID}); err != nil {
+			return ObserveResult{}, err
+		}
+		return s.operationResult(operationID), nil
 	}
 	processor, ok := recall.NewAsyncSemanticProcessor(s.memory)
 	if !ok {
@@ -68,15 +88,16 @@ func (s *FlowcraftStore) Wait(ctx context.Context, operationID string) (ObserveR
 		if result.Completed > 0 && result.Completed != 1 {
 			return ObserveResult{}, fmt.Errorf("%w: flowcraft returned an invalid async completion result", ErrUnavailable)
 		}
-		if err := s.finishOperations(ctx, claimedIDs[:result.Completed]); err != nil {
-			return ObserveResult{}, err
+		if result.Completed > 0 {
+			completedIDs := claimedIDs[:result.Completed]
+			if err := s.markOperationsReady(ctx, completedIDs); err != nil {
+				return ObserveResult{}, err
+			}
+			if err := s.completeReadyOperations(ctx, completedIDs); err != nil {
+				return ObserveResult{}, err
+			}
 		}
-		if err := s.drainSideEffects(ctx); err != nil {
-			return ObserveResult{}, err
-		}
-		s.mu.Lock()
-		current := cloneObserveResult(s.operations[operationID])
-		s.mu.Unlock()
+		current := s.operationResult(operationID)
 		if current.Operation != nil && current.Operation.Status != OperationPending {
 			return current, nil
 		}
@@ -91,6 +112,7 @@ func (s *FlowcraftStore) rehydrateOperations(ctx context.Context) error {
 	type nativeOperation struct {
 		hasEpisode bool
 		facts      []recall.TemporalFact
+		status     string
 	}
 	order := make([]string, 0)
 	operations := make(map[string]*nativeOperation)
@@ -105,6 +127,12 @@ func (s *FlowcraftStore) rehydrateOperations(ctx context.Context) error {
 			operations[id] = operation
 			order = append(order, id)
 		}
+		if status, ok := flowcraftOperationMarker(nativeFact); ok {
+			if flowcraftOperationStatusRank(status) >= flowcraftOperationStatusRank(operation.status) {
+				operation.status = status
+			}
+			continue
+		}
 		if nativeFact.Kind == recall.FactEpisode {
 			operation.hasEpisode = true
 			continue
@@ -113,22 +141,35 @@ func (s *FlowcraftStore) rehydrateOperations(ctx context.Context) error {
 	}
 	for _, id := range order {
 		operation := operations[id]
-		if !operation.hasEpisode {
-			continue
-		}
-		if len(operation.facts) == 0 {
-			s.operations[id] = ObserveResult{Operation: &Operation{ID: id, Status: OperationPending}}
-			continue
-		}
-		facts := make([]Fact, 0, len(operation.facts))
-		for _, nativeFact := range operation.facts {
-			fact, err := s.factFromFlowcraft(ctx, nativeFact)
-			if err != nil {
+		switch operation.status {
+		case flowcraftOperationStatusFailed:
+			s.failed[id] = struct{}{}
+			if err := s.finalizeFailedOperations(ctx, []string{id}); err != nil {
 				return err
 			}
-			facts = append(facts, fact)
+			continue
+		case flowcraftOperationStatusReady:
+			s.operations[id] = ObserveResult{Operation: &Operation{ID: id, Status: OperationPending}}
+			s.ready[id] = struct{}{}
+			continue
+		case flowcraftOperationStatusSucceeded:
+			// A completed extraction may intentionally produce no facts.
+		case "":
+			if !operation.hasEpisode {
+				continue
+			}
+			if len(operation.facts) == 0 {
+				s.operations[id] = ObserveResult{Operation: &Operation{ID: id, Status: OperationPending}}
+				continue
+			}
+		default:
+			return fmt.Errorf("%w: unknown flowcraft operation status %q", ErrUnavailable, operation.status)
 		}
-		s.operations[id] = ObserveResult{Facts: facts, Operation: &Operation{ID: id, Status: OperationSucceeded}}
+		result, err := s.operationResultFromFacts(ctx, id, operation.facts)
+		if err != nil {
+			return err
+		}
+		s.operations[id] = result
 	}
 	return nil
 }
@@ -144,36 +185,60 @@ func waitFlowcraftRetry(ctx context.Context) error {
 	}
 }
 
-func (s *FlowcraftStore) finishOperations(ctx context.Context, completedIDs []string) error {
+func (s *FlowcraftStore) markOperationsReady(ctx context.Context, completedIDs []string) error {
+	for _, id := range completedIDs {
+		if err := s.persistOperationStatus(ctx, id, flowcraftOperationStatusReady); err != nil {
+			return err
+		}
+		s.mu.Lock()
+		s.ready[id] = struct{}{}
+		s.mu.Unlock()
+	}
+	return nil
+}
+
+func (s *FlowcraftStore) completeReadyOperations(ctx context.Context, completedIDs []string) error {
+	if err := s.drainSideEffects(ctx); err != nil {
+		return err
+	}
 	results := make(map[string]ObserveResult, len(completedIDs))
 	for _, id := range completedIDs {
 		nativeFacts, err := s.temporal.FindByOriginRequestID(ctx, s.scope, id)
 		if err != nil {
 			return mapFlowcraftError("load async facts", err)
 		}
-		facts := make([]Fact, 0, len(nativeFacts))
-		for _, nativeFact := range nativeFacts {
-			if nativeFact.Kind == recall.FactEpisode {
-				continue
-			}
-			fact, err := s.factFromFlowcraft(ctx, nativeFact)
-			if err != nil {
-				return err
-			}
-			facts = append(facts, fact)
+		result, err := s.operationResultFromFacts(ctx, id, nativeFacts)
+		if err != nil {
+			return err
 		}
-		results[id] = ObserveResult{Facts: facts, Operation: &Operation{ID: id, Status: OperationSucceeded}}
+		if err := s.persistOperationStatus(ctx, id, flowcraftOperationStatusSucceeded); err != nil {
+			return err
+		}
+		results[id] = result
 	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, id := range completedIDs {
 		s.operations[id] = results[id]
+		delete(s.ready, id)
 	}
 	return nil
 }
 
 func (s *FlowcraftStore) failOperations(ctx context.Context, failedIDs []string) error {
+	for _, id := range failedIDs {
+		if err := s.persistOperationStatus(ctx, id, flowcraftOperationStatusFailed); err != nil {
+			return err
+		}
+		s.mu.Lock()
+		s.failed[id] = struct{}{}
+		s.mu.Unlock()
+	}
+	return s.finalizeFailedOperations(ctx, failedIDs)
+}
+
+func (s *FlowcraftStore) finalizeFailedOperations(ctx context.Context, failedIDs []string) error {
 	if s.queue == nil {
 		return fmt.Errorf("%w: flowcraft async queue is unavailable", ErrUnavailable)
 	}
@@ -187,8 +252,93 @@ func (s *FlowcraftStore) failOperations(ctx context.Context, failedIDs []string)
 	defer s.mu.Unlock()
 	for _, id := range failedIDs {
 		s.operations[id] = ObserveResult{Operation: &Operation{ID: id, Status: OperationFailed, Error: "flowcraft async extraction failed"}}
+		delete(s.failed, id)
 	}
 	return nil
+}
+
+func (s *FlowcraftStore) operationResultFromFacts(ctx context.Context, id string, nativeFacts []recall.TemporalFact) (ObserveResult, error) {
+	facts := make([]Fact, 0, len(nativeFacts))
+	for _, nativeFact := range nativeFacts {
+		if nativeFact.Kind == recall.FactEpisode {
+			continue
+		}
+		fact, err := s.factFromFlowcraft(ctx, nativeFact)
+		if err != nil {
+			return ObserveResult{}, err
+		}
+		facts = append(facts, fact)
+	}
+	return ObserveResult{Facts: facts, Operation: &Operation{ID: id, Status: OperationSucceeded}}, nil
+}
+
+func (s *FlowcraftStore) persistOperationStatus(ctx context.Context, operationID, status string) error {
+	nativeFacts, err := s.temporal.FindByOriginRequestID(ctx, s.scope, operationID)
+	if err != nil {
+		return mapFlowcraftError("load async operation status", err)
+	}
+	for _, nativeFact := range nativeFacts {
+		if existing, ok := flowcraftOperationMarker(nativeFact); ok && existing == status {
+			return nil
+		}
+	}
+	marker := recall.TemporalFact{
+		ID:         flowcraftOperationMarkerID(operationID, status),
+		Scope:      s.scope,
+		Kind:       recall.FactEpisode,
+		Content:    "flowcraft async operation " + status,
+		ObservedAt: time.Now(),
+		Origin:     recall.FactOrigin{RequestID: operationID, Kind: recall.OriginKindEpisode},
+		Metadata:   map[string]any{flowcraftOperationStatusAttribute: status},
+	}
+	if err := s.temporal.Append(ctx, []recall.TemporalFact{marker}); err != nil {
+		return mapFlowcraftError("persist async operation status", err)
+	}
+	return nil
+}
+
+func flowcraftOperationMarker(fact recall.TemporalFact) (string, bool) {
+	status, ok := fact.Metadata[flowcraftOperationStatusAttribute].(string)
+	if !ok || fact.Kind != recall.FactEpisode || fact.ID != flowcraftOperationMarkerID(fact.Origin.RequestID, status) {
+		return "", false
+	}
+	return status, true
+}
+
+func flowcraftOperationMarkerID(operationID, status string) string {
+	sum := sha256.Sum256([]byte(operationID + "\x00" + status))
+	return fmt.Sprintf("gizclaw-operation-%x", sum)
+}
+
+func flowcraftOperationStatusRank(status string) int {
+	switch status {
+	case flowcraftOperationStatusReady:
+		return 1
+	case flowcraftOperationStatusSucceeded, flowcraftOperationStatusFailed:
+		return 2
+	default:
+		return 0
+	}
+}
+
+func (s *FlowcraftStore) operationResult(operationID string) ObserveResult {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return cloneObserveResult(s.operations[operationID])
+}
+
+func (s *FlowcraftStore) operationReady(operationID string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_, ok := s.ready[operationID]
+	return ok
+}
+
+func (s *FlowcraftStore) operationMarkedFailed(operationID string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_, ok := s.failed[operationID]
+	return ok
 }
 
 type flowcraftAsyncQueue struct {

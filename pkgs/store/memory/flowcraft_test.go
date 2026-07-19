@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -93,7 +94,7 @@ func TestFlowcraftObserveRejectsProviderOwnedAttributes(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = store.Close() })
-	for _, key := range []string{flowcraftRootIDAttribute, "observation_id", "kind", "subject", "predicate", "object", "entities"} {
+	for _, key := range []string{flowcraftRootIDAttribute, flowcraftOperationStatusAttribute, "observation_id", "kind", "subject", "predicate", "object", "entities"} {
 		if _, err := store.Observe(context.Background(), Observation{Text: "remember", Context: map[string]any{key: "value"}}); !errors.Is(err, ErrUnsupported) {
 			t.Fatalf("Observe() attribute %q error = %v", key, err)
 		}
@@ -147,6 +148,48 @@ func TestFlowcraftStoreAsyncWait(t *testing.T) {
 	}
 }
 
+type failClaimOnceSideEffectOutbox struct {
+	recall.SideEffectOutbox
+	mu     sync.Mutex
+	failed bool
+}
+
+func (o *failClaimOnceSideEffectOutbox) Claim(ctx context.Context, options recall.SideEffectClaimOptions) ([]recall.SideEffectJob, error) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	if !o.failed {
+		o.failed = true
+		return nil, errors.New("temporary outbox failure")
+	}
+	return o.SideEffectOutbox.Claim(ctx, options)
+}
+
+func TestFlowcraftAsyncWaitRetriesSideEffectsBeforeSuccess(t *testing.T) {
+	t.Parallel()
+	outbox := &failClaimOnceSideEffectOutbox{SideEffectOutbox: recall.NewInMemorySideEffectOutbox()}
+	store, err := OpenFlowcraftStore(context.Background(), FlowcraftConfig{
+		RuntimeID: "app", UserID: "user", ExtractionModel: "extract", Async: FlowcraftAsyncConfig{Enabled: true},
+	}, &testFlowcraftLoader{model: testLLM{response: `{"facts":[{"text":"Alice prefers tea.","kind":"preference","subject":"Alice","predicate":"prefers","object":"tea","entities":["Alice","tea"],"evidence_refs":[{"id":"observation","text":"I prefer tea."}]}]}`}}, WithFlowcraftRecallOptions(recall.WithSideEffectOutbox(outbox)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	observed, err := store.Observe(context.Background(), Observation{ID: "observation", Text: "I prefer tea."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Wait(context.Background(), observed.Operation.ID); err == nil {
+		t.Fatal("first Wait() should report the temporary side-effect failure")
+	}
+	completed, err := store.Wait(context.Background(), observed.Operation.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if completed.Operation == nil || completed.Operation.Status != OperationSucceeded || len(completed.Facts) != 1 {
+		t.Fatalf("second Wait() = %+v", completed)
+	}
+}
+
 func TestFlowcraftStoreAsyncWaitAfterRestart(t *testing.T) {
 	t.Parallel()
 	model := testLLM{response: `{"facts":[{"text":"Alice prefers tea.","kind":"preference","subject":"Alice","predicate":"prefers","object":"tea","entities":["Alice","tea"],"evidence_refs":[{"id":"turn","text":"I prefer tea."}]}]}`}
@@ -183,6 +226,64 @@ func TestFlowcraftStoreAsyncWaitAfterRestart(t *testing.T) {
 	if err != nil || firstCompleted.Operation == nil || firstCompleted.Operation.Status != OperationSucceeded || len(firstCompleted.Facts) != 1 {
 		t.Fatalf("first Wait() = %+v, %v", firstCompleted, err)
 	}
+	if err := reopened.Close(); err != nil {
+		t.Fatal(err)
+	}
+	terminal, err := OpenFlowcraftStore(context.Background(), config, loader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = terminal.Close() })
+	completed, err = terminal.Wait(context.Background(), observed.Operation.ID)
+	if err != nil || completed.Operation == nil || completed.Operation.Status != OperationSucceeded || len(completed.Facts) != 0 {
+		t.Fatalf("terminal zero-fact Wait() = %+v, %v", completed, err)
+	}
+	firstCompleted, err = terminal.Wait(context.Background(), first.Operation.ID)
+	if err != nil || firstCompleted.Operation == nil || firstCompleted.Operation.Status != OperationSucceeded || len(firstCompleted.Facts) != 1 {
+		t.Fatalf("terminal fact Wait() = %+v, %v", firstCompleted, err)
+	}
+}
+
+func TestFlowcraftRehydratePrefersTerminalMarker(t *testing.T) {
+	t.Parallel()
+	config := FlowcraftConfig{Dir: t.TempDir(), RuntimeID: "app", UserID: "user", ExtractionModel: "extract", Async: FlowcraftAsyncConfig{Enabled: true}}
+	loader := &testFlowcraftLoader{model: testLLM{response: `{"facts":[]}`}}
+	store, err := OpenFlowcraftStore(context.Background(), config, loader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	operationID := "completed-operation"
+	statuses := []struct {
+		value      string
+		observedAt time.Time
+	}{
+		{value: flowcraftOperationStatusSucceeded, observedAt: time.Now()},
+		{value: flowcraftOperationStatusReady, observedAt: time.Now().Add(time.Hour)},
+	}
+	for _, status := range statuses {
+		if err := store.temporal.Append(context.Background(), []recall.TemporalFact{{
+			ID:         flowcraftOperationMarkerID(operationID, status.value),
+			Scope:      store.scope,
+			Kind:       recall.FactEpisode,
+			ObservedAt: status.observedAt,
+			Origin:     recall.FactOrigin{RequestID: operationID, Kind: recall.OriginKindEpisode},
+			Metadata:   map[string]any{flowcraftOperationStatusAttribute: status.value},
+		}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := OpenFlowcraftStore(context.Background(), config, loader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	result, err := reopened.Wait(context.Background(), operationID)
+	if err != nil || result.Operation == nil || result.Operation.Status != OperationSucceeded || len(result.Facts) != 0 {
+		t.Fatalf("Wait() = %+v, %v", result, err)
+	}
 }
 
 type failingTestLLM struct{}
@@ -196,9 +297,11 @@ func (failingTestLLM) GenerateStream(context.Context, []llm.Message, ...llm.Gene
 
 func TestFlowcraftAsyncFailureIsTerminal(t *testing.T) {
 	t.Parallel()
-	store, err := OpenFlowcraftStore(context.Background(), FlowcraftConfig{
+	config := FlowcraftConfig{
 		Dir: t.TempDir(), RuntimeID: "app", UserID: "user", ExtractionModel: "extract", Async: FlowcraftAsyncConfig{Enabled: true},
-	}, &testFlowcraftLoader{model: failingTestLLM{}})
+	}
+	loader := &testFlowcraftLoader{model: failingTestLLM{}}
+	store, err := OpenFlowcraftStore(context.Background(), config, loader)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,6 +320,18 @@ func TestFlowcraftAsyncFailureIsTerminal(t *testing.T) {
 	again, err := store.Wait(context.Background(), observed.Operation.ID)
 	if err != nil || again.Operation == nil || again.Operation.Status != OperationFailed {
 		t.Fatalf("second Wait() = %+v, %v", again, err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := OpenFlowcraftStore(context.Background(), config, loader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	again, err = reopened.Wait(context.Background(), observed.Operation.ID)
+	if err != nil || again.Operation == nil || again.Operation.Status != OperationFailed {
+		t.Fatalf("restarted Wait() = %+v, %v", again, err)
 	}
 }
 

@@ -121,6 +121,20 @@ func TestMem0RejectsUnsupportedConditionalAndAttributeUpdates(t *testing.T) {
 	}
 }
 
+func TestMem0ObserveRejectsProviderOwnedMetadata(t *testing.T) {
+	t.Parallel()
+	store, err := NewMem0Store(Mem0Config{Endpoint: "https://example.invalid", APIKey: "key", Flavor: Mem0Platform, UserID: "user"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{mem0ObservationIDMetadata, mem0TurnIDsMetadata} {
+		_, err := store.Observe(context.Background(), Observation{Text: "remember", Context: map[string]any{key: "forged"}})
+		if !errors.Is(err, ErrUnsupported) {
+			t.Fatalf("Observe() metadata %q error = %v", key, err)
+		}
+	}
+}
+
 func TestMem0TransportRedactsAPIKey(t *testing.T) {
 	t.Parallel()
 	client := roundTripClient(func(*http.Request) (*http.Response, error) { return nil, errors.New("request secret-value failed") })

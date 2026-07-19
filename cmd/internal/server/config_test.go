@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -690,6 +691,16 @@ func (serverFlowcraftModelLoader) LoadEmbedder(context.Context, string) (embeddi
 	return nil, nil
 }
 
+type serverContextFlowcraftModelLoader struct{}
+
+func (serverContextFlowcraftModelLoader) LoadLLM(ctx context.Context, _ string) (llm.LLM, error) {
+	return nil, ctx.Err()
+}
+
+func (serverContextFlowcraftModelLoader) LoadEmbedder(ctx context.Context, _ string) (embedding.Embedder, error) {
+	return nil, ctx.Err()
+}
+
 type serverFlowcraftLLM struct{}
 
 func (serverFlowcraftLLM) Generate(context.Context, []llm.Message, ...llm.GenerateOption) (llm.Message, llm.TokenUsage, error) {
@@ -718,6 +729,23 @@ func TestNewStoreRegistryThreadsFlowcraftModelLoader(t *testing.T) {
 	}
 	if err := registry.Close(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestNewStoreRegistryThreadsCallerContext(t *testing.T) {
+	canceled, cancel := context.WithCancel(context.Background())
+	cancel()
+	cfg := Config{Stores: map[string]stores.Config{
+		"agent-memory": {
+			Kind: stores.KindMemoryStore,
+			Flowcraft: &memorystore.FlowcraftConfig{
+				RuntimeID: "app", UserID: "user", ExtractionModel: "extract",
+			},
+		},
+	}}
+	_, err := newStoreRegistryWithOptionsContext(canceled, cfg, stores.Options{FlowcraftModelLoader: serverContextFlowcraftModelLoader{}})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("newStoreRegistryWithOptionsContext() error = %v, want context.Canceled", err)
 	}
 }
 
