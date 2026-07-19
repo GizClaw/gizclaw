@@ -34,8 +34,8 @@ func NewMigrator(cfg Config) (migrator *CmdMigrator, err error) {
 
 func newMigratorContext(ctx context.Context, cfg Config) (migrator *CmdMigrator, err error) {
 	migrationCfg := cfg
-	migrationCfg.Stores = make(map[string]stores.Config, 3)
-	for _, name := range []string{defaultACLStore, defaultPeersStore, defaultCredentialsStore} {
+	migrationCfg.Stores = make(map[string]stores.Config, 2)
+	for _, name := range []string{defaultPeersStore, defaultCredentialsStore} {
 		if storeConfig, ok := cfg.Stores[name]; ok {
 			migrationCfg.Stores[name] = storeConfig
 		}
