@@ -4,11 +4,11 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -25,6 +25,8 @@ const (
 	SessionKindPrimary SessionKind = "primary"
 	// SessionKindSideControl represents a controller authorized for one target.
 	SessionKindSideControl SessionKind = "side_control"
+
+	sideControlIDSize = 16
 )
 
 var (
@@ -162,7 +164,7 @@ func (m *SessionManager) CreateSideControlDeviceToken(ctx context.Context, targe
 	if m == nil || m.Store == nil || target.IsZero() {
 		return peerhttp.SideControlDeviceToken{}, errInvalidSession
 	}
-	id, err := randomToken(rand.Reader, 16)
+	id, err := randomToken(rand.Reader, sideControlIDSize)
 	if err != nil {
 		return peerhttp.SideControlDeviceToken{}, err
 	}
@@ -188,7 +190,7 @@ func (m *SessionManager) CreateSideControlDeviceToken(ctx context.Context, targe
 
 // RevokeSideControlDeviceToken revokes an unconsumed token owned by target.
 func (m *SessionManager) RevokeSideControlDeviceToken(ctx context.Context, target giznet.PublicKey, id string) error {
-	if m == nil || m.Store == nil || target.IsZero() || strings.TrimSpace(id) == "" {
+	if m == nil || m.Store == nil || target.IsZero() || !validSideControlID(id) {
 		return errDeviceTokenNotFound
 	}
 	m.mu.Lock()
@@ -257,7 +259,7 @@ func (m *SessionManager) loginSideControl(ctx context.Context, serverKeyPair *gi
 	if err != nil {
 		return peerhttp.LoginResult{}, err
 	}
-	sessionID, err := randomToken(rand.Reader, 16)
+	sessionID, err := randomToken(rand.Reader, sideControlIDSize)
 	if err != nil {
 		return peerhttp.LoginResult{}, err
 	}
@@ -326,7 +328,7 @@ func (m *SessionManager) ListSideControlSessions(ctx context.Context, target giz
 
 // RevokeSideControlSession revokes a target-owned side-control bearer session.
 func (m *SessionManager) RevokeSideControlSession(ctx context.Context, target giznet.PublicKey, id string) error {
-	if m == nil || m.Store == nil || target.IsZero() || strings.TrimSpace(id) == "" {
+	if m == nil || m.Store == nil || target.IsZero() || !validSideControlID(id) {
 		return errSideControlSessionNotFound
 	}
 	m.mu.Lock()
@@ -349,6 +351,11 @@ func (m *SessionManager) RevokeSideControlSession(ctx context.Context, target gi
 func deviceTokenHash(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(sum[:])
+}
+
+func validSideControlID(id string) bool {
+	decoded, err := base64.RawURLEncoding.Strict().DecodeString(id)
+	return err == nil && len(decoded) == sideControlIDSize
 }
 
 func deviceTokenHashKey(hash string) kv.Key {

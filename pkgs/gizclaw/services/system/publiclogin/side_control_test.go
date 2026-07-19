@@ -97,6 +97,18 @@ func TestSideControlDeviceTokenCanBeRevokedBeforeUse(t *testing.T) {
 	}
 }
 
+func TestSideControlManagementRejectsMalformedIDs(t *testing.T) {
+	manager := NewSessionManager(kv.NewMemory(nil))
+	target := generateTestKeyPair(t).Public
+
+	if err := manager.RevokeSideControlDeviceToken(context.Background(), target, "a:b"); !errors.Is(err, errDeviceTokenNotFound) {
+		t.Fatalf("malformed device token ID error = %v", err)
+	}
+	if err := manager.RevokeSideControlSession(context.Background(), target, "a:b"); !errors.Is(err, errSideControlSessionNotFound) {
+		t.Fatalf("malformed session ID error = %v", err)
+	}
+}
+
 func TestSideControlDeviceTokenExpires(t *testing.T) {
 	manager := NewSessionManager(kv.NewMemory(nil))
 	now := time.Now().UTC()

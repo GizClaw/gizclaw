@@ -80,3 +80,18 @@ func TestLoginClientPreservesBodylessAndTypedBodyHelpers(t *testing.T) {
 		t.Fatalf("response helper body = %v content-type = %q, want bodyless", requests[2].Body, requests[2].Header.Get("Content-Type"))
 	}
 }
+
+func TestParseLoginResponseHandlesBadRequest(t *testing.T) {
+	response := &http.Response{
+		StatusCode: http.StatusBadRequest,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"error":{"code":"INVALID_REQUEST","message":"malformed login request"}}`)),
+	}
+	parsed, err := ParseLoginResponse(response)
+	if err != nil {
+		t.Fatalf("ParseLoginResponse error = %v", err)
+	}
+	if parsed.JSON400 == nil || parsed.JSON400.Error.Code != "INVALID_REQUEST" {
+		t.Fatalf("ParseLoginResponse JSON400 = %+v", parsed.JSON400)
+	}
+}

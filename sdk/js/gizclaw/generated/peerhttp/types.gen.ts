@@ -220,6 +220,10 @@ export type LoginData = {
 
 export type LoginErrors = {
     /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
      * Invalid assertion
      */
     401: ErrorResponse;

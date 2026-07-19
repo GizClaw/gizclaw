@@ -1749,6 +1749,7 @@ type LoginResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *LoginResult
+	JSON400      *BadRequest
 	JSON401      *externalRef0.ErrorResponse
 }
 
@@ -2567,6 +2568,13 @@ func ParseLoginResponse(rsp *http.Response) (*LoginResponse, error) {
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest externalRef0.ErrorResponse
@@ -4380,6 +4388,15 @@ type Login200JSONResponse LoginResult
 func (response Login200JSONResponse) VisitLoginResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type Login400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response Login400JSONResponse) VisitLoginResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
 
 	return ctx.JSON(&response)
 }

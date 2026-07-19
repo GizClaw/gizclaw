@@ -71,6 +71,9 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "401": {
             "description": "Invalid assertion",
             "content": {
@@ -111,7 +114,12 @@
           "name": "tokenId",
           "in": "path",
           "required": true,
-          "schema": {"type": "string"}
+          "schema": {
+            "type": "string",
+            "minLength": 22,
+            "maxLength": 22,
+            "pattern": "^[A-Za-z0-9_-]{22}$"
+          }
         }],
         "responses": {
           "204": {"description": "Device token revoked"},
@@ -149,7 +157,12 @@
           "name": "sessionId",
           "in": "path",
           "required": true,
-          "schema": {"type": "string"}
+          "schema": {
+            "type": "string",
+            "minLength": 22,
+            "maxLength": 22,
+            "pattern": "^[A-Za-z0-9_-]{22}$"
+          }
         }],
         "responses": {
           "204": {"description": "Session revoked"},
