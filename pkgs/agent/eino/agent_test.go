@@ -139,6 +139,118 @@ func TestAgentReplacementInputInterruptsBufferedResponseAndKeepsPulledHistory(t 
 	}
 }
 
+func TestAgentIgnoresAudioOnlyInputTurn(t *testing.T) {
+	chatModel := &scriptedModel{respond: func(_ context.Context, _ []*schema.Message) []*schema.Message {
+		t.Fatal("audio-only input invoked the model")
+		return nil
+	}}
+	runtime, err := New(t.Context(), Config{Model: chatModel, Toolkit: commonagent.EmptyToolkit()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := buffer.N[*genx.MessageChunk](3)
+	for _, chunk := range []*genx.MessageChunk{
+		genx.NewBeginOfStream("audio-1"),
+		&genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "audio-1"}},
+		&genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "audio-1", EndOfStream: true}},
+	} {
+		if err := input.Add(chunk); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_ = input.CloseWrite()
+	output, err := runtime.Transform(t.Context(), "", input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if chunks := readAll(t, output); len(chunks) != 0 {
+		t.Fatalf("audio-only output = %#v, want empty", chunks)
+	}
+	history, err := runtime.History(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(history) != 0 || len(chatModel.inputs()) != 0 {
+		t.Fatalf("audio-only history=%#v model inputs=%#v", history, chatModel.inputs())
+	}
+}
+
+func TestAgentPreservesTextCarriedByEOS(t *testing.T) {
+	chatModel := &scriptedModel{respond: func(_ context.Context, _ []*schema.Message) []*schema.Message {
+		return []*schema.Message{schema.AssistantMessage("answer", nil)}
+	}}
+	runtime, err := New(t.Context(), Config{Model: chatModel, Toolkit: commonagent.EmptyToolkit()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := buffer.N[*genx.MessageChunk](2)
+	for _, chunk := range []*genx.MessageChunk{
+		genx.NewBeginOfStream("text-1"),
+		&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "text-1", EndOfStream: true}},
+	} {
+		if err := input.Add(chunk); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_ = input.CloseWrite()
+	output, err := runtime.Transform(t.Context(), "", input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := visibleText(readAll(t, output)); got != "answer" {
+		t.Fatalf("visible text = %q, want answer", got)
+	}
+	inputs := chatModel.inputs()
+	if len(inputs) != 1 || len(inputs[0]) == 0 || inputs[0][len(inputs[0])-1].Content != "hello" {
+		t.Fatalf("model inputs = %#v, want EOS text", inputs)
+	}
+}
+
+func TestAgentDefersHistoryUntilExternalOutputIsObserved(t *testing.T) {
+	chatModel := &scriptedModel{respond: func(_ context.Context, _ []*schema.Message) []*schema.Message {
+		return []*schema.Message{schema.AssistantMessage("answer", nil)}
+	}}
+	runtime, err := New(t.Context(), Config{
+		Model: chatModel, Toolkit: commonagent.EmptyToolkit(), ExternalOutputObservation: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := buffer.N[*genx.MessageChunk](3)
+	addTextTurn(t, input, "user-1", "question")
+	_ = input.CloseWrite()
+	output, err := runtime.Transform(t.Context(), "", input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	observer, ok := output.(interface {
+		DeferOutputObservation()
+		ObserveOutput(*genx.MessageChunk)
+	})
+	if !ok {
+		t.Fatalf("output %T does not support external observation", output)
+	}
+	observer.DeferOutputObservation()
+	chunks := readAll(t, output)
+	history, err := runtime.History(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(history) != 1 || history[0].Role != schema.User || history[0].Content != "question" {
+		t.Fatalf("history before final observation = %#v", history)
+	}
+	for _, chunk := range chunks {
+		observer.ObserveOutput(chunk)
+	}
+	history, err = runtime.History(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(history) != 2 || history[1].Role != schema.Assistant || history[1].Content != "answer" {
+		t.Fatalf("history after final observation = %#v", history)
+	}
+}
+
 func TestAgentRecallsAndObservesInjectedMemory(t *testing.T) {
 	store := &recordingMemoryStore{recall: memory.RecallResult{Matches: []memory.Match{{Fact: memory.Fact{ID: "fact-1", Text: "likes tea"}, Score: 0.9}}}}
 	seen := make(chan []*schema.Message, 1)

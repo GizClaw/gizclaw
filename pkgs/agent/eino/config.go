@@ -32,6 +32,10 @@ type Config struct {
 	MaxToolCalls int
 	ToolTimeout  time.Duration
 	Output       commonagent.OutputConfig
+	// ExternalOutputObservation defers pull-visible history and Memory updates
+	// to the returned stream's ObserveOutput method. Embedded adapters use this
+	// when they buffer core Agent output before returning it to a device.
+	ExternalOutputObservation bool
 	// OnBackgroundError observes failures that happen after assistant content
 	// has crossed the pull-visible boundary, such as final history persistence
 	// or Memory observation. Such failures do not retract delivered output.

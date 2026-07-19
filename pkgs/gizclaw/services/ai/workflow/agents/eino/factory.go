@@ -65,7 +65,10 @@ func (f Factory) config(ctx context.Context, spec agenthost.Spec) (einoagent.Con
 			return einoagent.Config{}, fmt.Errorf("eino: build toolkit: %w", err)
 		}
 	}
-	config := einoagent.Config{Model: chatModel, Toolkit: toolkit, Memory: f.Memory, ToolTimeout: defaultToolTimeout}
+	config := einoagent.Config{
+		Model: chatModel, Toolkit: toolkit, Memory: f.Memory, ToolTimeout: defaultToolTimeout,
+		ExternalOutputObservation: true,
+	}
 	if workflow.SystemPrompt != nil {
 		config.SystemPrompt = *workflow.SystemPrompt
 	}

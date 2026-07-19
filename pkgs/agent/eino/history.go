@@ -188,6 +188,9 @@ func newPulledHistory(h *conversationHistory, memoryStore memory.Store, report f
 }
 
 func (p *pulledHistory) track(streamID, user string) {
+	if p == nil {
+		return
+	}
 	p.mu.Lock()
 	p.users[streamID] = user
 	p.mu.Unlock()

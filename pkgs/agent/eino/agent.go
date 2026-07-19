@@ -27,9 +27,10 @@ type reactAgent interface {
 // Agent owns Eino graph execution, automatic Tool continuation, history, and
 // the GenX pull-stream lifecycle.
 type Agent struct {
-	config  Config
-	runtime reactAgent
-	history *conversationHistory
+	config         Config
+	runtime        reactAgent
+	history        *conversationHistory
+	externalPulled *pulledHistory
 }
 
 // New constructs an Eino ReAct Agent from resolved runtime dependencies.
@@ -81,7 +82,11 @@ func New(ctx context.Context, config Config) (*Agent, error) {
 	if err != nil {
 		return nil, fmt.Errorf("agent/eino: build ReAct graph: %w", err)
 	}
-	return &Agent{config: config, runtime: runtime, history: history}, nil
+	result := &Agent{config: config, runtime: runtime, history: history}
+	if config.ExternalOutputObservation {
+		result.externalPulled = newPulledHistory(history, config.Memory, config.OnBackgroundError)
+	}
+	return result, nil
 }
 
 // Transform consumes GenX user turns and streams pull-visible assistant output.
@@ -96,11 +101,16 @@ func (a *Agent) Transform(ctx context.Context, _ string, input genx.Stream) (gen
 		ctx = context.Background()
 	}
 	runtimeCtx, cancel := context.WithCancelCause(ctx)
-	pulled := newPulledHistory(a.history, a.config.Memory, a.config.OnBackgroundError)
+	pulled := a.externalPulled
+	if pulled == nil {
+		pulled = newPulledHistory(a.history, a.config.Memory, a.config.OnBackgroundError)
+	}
 	outputConfig := a.config.Output
 	configuredObserver := outputConfig.Observe
 	outputConfig.Observe = func(chunk *genx.MessageChunk) {
-		pulled.observe(chunk)
+		if !a.config.ExternalOutputObservation {
+			pulled.observe(chunk)
+		}
 		if configuredObserver != nil {
 			configuredObserver(chunk)
 		}
@@ -111,7 +121,7 @@ func (a *Agent) Transform(ctx context.Context, _ string, input genx.Stream) (gen
 
 	go a.readInput(runtimeCtx, input, events)
 	go a.coordinate(runtimeCtx, cancel, input, output, pulled, events, runs)
-	return &stream{Output: output, cancel: cancel, input: input}, nil
+	return &stream{Output: output, cancel: cancel, input: input, externalPulled: a.externalPulled}, nil
 }
 
 // History returns defensive copies of the recent ordered conversation for
@@ -181,7 +191,7 @@ func (a *Agent) readInput(ctx context.Context, input genx.Stream, events chan<- 
 				return
 			}
 		}
-		if text, ok := chunk.Part.(genx.Text); ok && !chunk.IsEndOfStream() {
+		if text, ok := chunk.Part.(genx.Text); ok {
 			if !begun || (chunkID != "" && chunkID != streamID) {
 				if !begin(chunkID) {
 					return
@@ -190,8 +200,10 @@ func (a *Agent) readInput(ctx context.Context, input genx.Stream, events chan<- 
 			content.WriteString(string(text))
 		}
 		if chunk.IsEndOfStream() && begun {
-			if !send(inputEvent{turn: &inputTurn{id: streamID, content: content.String()}}) {
-				return
+			if strings.TrimSpace(content.String()) != "" {
+				if !send(inputEvent{turn: &inputTurn{id: streamID, content: content.String()}}) {
+					return
+				}
 			}
 			begun = false
 			streamID = ""
@@ -376,8 +388,20 @@ func (a *Agent) run(ctx context.Context, id uint64, response *commonagent.Respon
 
 type stream struct {
 	*commonagent.Output
-	cancel context.CancelCauseFunc
-	input  genx.Stream
+	cancel         context.CancelCauseFunc
+	input          genx.Stream
+	externalPulled *pulledHistory
+}
+
+// DeferOutputObservation marks this stream as supporting final-consumer
+// acknowledgement. Observation is already deferred by construction.
+func (*stream) DeferOutputObservation() {}
+
+// ObserveOutput records a chunk after the outermost consumer acknowledges it.
+func (s *stream) ObserveOutput(chunk *genx.MessageChunk) {
+	if s != nil && s.externalPulled != nil {
+		s.externalPulled.observe(chunk)
+	}
 }
 
 func (s *stream) Close() error {

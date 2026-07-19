@@ -45,27 +45,26 @@ func (a *agent) ListHistory(ctx context.Context, req apitypes.PeerRunHistoryList
 	if err != nil {
 		return apitypes.PeerRunHistoryListResponse{}, err
 	}
-	indices := make([]int, len(messages))
-	for index := range messages {
-		indices[index] = index
-	}
-	if req.Order != nil && *req.Order == apitypes.PeerRunHistoryListRequestOrderDesc {
-		slices.Reverse(indices)
-	}
-	if offset > len(indices) {
-		offset = len(indices)
+	if offset > len(messages) {
+		offset = len(messages)
 	}
 	limit := 50
 	if req.Limit != nil && *req.Limit > 0 {
 		limit = min(*req.Limit, 200)
 	}
-	end := min(offset+limit, len(indices))
-	items := make([]apitypes.PeerRunHistoryEntry, 0, end-offset)
+	count := min(limit, len(messages)-offset)
+	end := offset + count
+	items := make([]apitypes.PeerRunHistoryEntry, 0, count)
 	createdAt := time.Now().UTC()
-	for _, index := range indices[offset:end] {
+	descending := req.Order != nil && *req.Order == apitypes.PeerRunHistoryListRequestOrderDesc
+	for position := offset; position < end; position++ {
+		index := position
+		if descending {
+			index = len(messages) - 1 - position
+		}
 		items = append(items, historyEntry(a.workspace, index, createdAt, messages[index]))
 	}
-	response := apitypes.PeerRunHistoryListResponse{Available: true, Items: items, HasNext: end < len(indices)}
+	response := apitypes.PeerRunHistoryListResponse{Available: true, Items: items, HasNext: end < len(messages)}
 	if response.HasNext {
 		next := strconv.Itoa(end)
 		response.NextCursor = &next
