@@ -924,8 +924,15 @@ function PodShareFace({
 }) {
   const t = useMessages();
   const payload = useMemo(
-    () => serverDeepLink(endpoint, pod.name, pod.mode, publicKey),
-    [endpoint, pod.mode, pod.name, publicKey],
+    () =>
+      serverDeepLink(
+        endpoint,
+        pod.name,
+        pod.mode,
+        publicKey,
+        pod.registration_token ?? "",
+      ),
+    [endpoint, pod.mode, pod.name, pod.registration_token, publicKey],
   );
   return (
     <div className="share-face-layout">
@@ -1860,6 +1867,7 @@ function serverDeepLink(
   name: string,
   mode: PodSummary["mode"],
   publicKey: string,
+  registrationToken: string,
 ) {
   const path = encodeURIComponent(endpoint)
     .replaceAll("%3A", ":")
@@ -1867,6 +1875,8 @@ function serverDeepLink(
     .replaceAll("%5D", "]");
   const query = new URLSearchParams({ name, mode });
   if (publicKey) query.set("public_key", publicKey);
+  if (registrationToken)
+    query.set("registration_token", registrationToken);
   return `gizclaw://ap/${path}?${query}`;
 }
 

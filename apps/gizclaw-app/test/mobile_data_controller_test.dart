@@ -1017,7 +1017,7 @@ class _ReconnectRepository extends MobileDataRepository {
   final refreshServerIds = <String>[];
 
   @override
-  Stream<List<WorkflowCard>> watchWorkflows(
+  Stream<List<WorkflowCard>> watchWorkflowCatalog(
     String serverId, {
     required String locale,
   }) {
@@ -1346,11 +1346,13 @@ class _WorkspaceActivationClient extends _RunWorkspaceClient {
     'workspace-old': Workspace(
       name: 'workspace-old',
       workflowName: 'flow-a',
+      workflowSource: ResourceSource.RESOURCE_SOURCE_RUNTIME,
       parameters: newWorkspaceParametersForDriver(WorkflowDriverKind.flowcraft),
     ),
     'workspace-new': Workspace(
       name: 'workspace-new',
       workflowName: 'flow-a',
+      workflowSource: ResourceSource.RESOURCE_SOURCE_RUNTIME,
       parameters: WorkspaceParameters(),
     ),
   };

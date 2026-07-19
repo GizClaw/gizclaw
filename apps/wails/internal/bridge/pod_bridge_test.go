@@ -52,7 +52,7 @@ func TestRemotePodPreservesWriteOnlyKeysAndHandsAdminAllServers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !created.Valid || created.Remote == nil || len(created.Remote.Servers) != 2 || !created.PlayConfigured {
+	if !created.Valid || created.Remote == nil || len(created.Remote.Servers) != 2 || !created.PlayConfigured || created.RegistrationToken != registrationToken {
 		t.Fatalf("CreatePod() = %+v", created)
 	}
 
@@ -69,7 +69,7 @@ func TestRemotePodPreservesWriteOnlyKeysAndHandsAdminAllServers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if updated.Name != "Renamed Lab" || !updated.Remote.Servers[0].AdminConfigured || !updated.PlayConfigured {
+	if updated.Name != "Renamed Lab" || !updated.Remote.Servers[0].AdminConfigured || !updated.PlayConfigured || updated.RegistrationToken != registrationToken {
 		t.Fatalf("UpdatePod() = %+v", updated)
 	}
 	persisted, err := bridge.Store.Load("remote-lab")
@@ -151,6 +151,9 @@ func TestLocalPlayRuntimeHandsOffRegistrationTokenWithoutPuttingItInURL(t *testi
 		t.Fatal(err)
 	}
 	bridge := &PodBridge{Paths: paths, Store: store, Health: endpointhealth.New(), Local: localserver.New(), WebUI: web}
+	if summary := bridge.summary(pod); summary.RegistrationToken != "local-registration-secret" {
+		t.Fatalf("local share RegistrationToken = %q", summary.RegistrationToken)
+	}
 	launch, err := bridge.PlayURL(context.Background(), pod.ID)
 	if err != nil {
 		t.Fatal(err)

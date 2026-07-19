@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:gizclaw/gizclaw.dart';
 
 import '../giz_ui/giz_ui.dart';
 
@@ -32,6 +33,7 @@ class WorkflowCard {
     required this.bannerColor,
     required this.icon,
     required this.driver,
+    this.source = ResourceSource.RESOURCE_SOURCE_RUNTIME,
     this.imagePath,
   });
 
@@ -43,6 +45,7 @@ class WorkflowCard {
   final Color bannerColor;
   final IconData icon;
   final WorkflowDriverKind driver;
+  final ResourceSource source;
   final String? imagePath;
 
   factory WorkflowCard.fromServer({
@@ -50,6 +53,7 @@ class WorkflowCard {
     String? displayName,
     required String description,
     required String driver,
+    ResourceSource source = ResourceSource.RESOURCE_SOURCE_RUNTIME,
   }) {
     final title = displayName?.trim().isNotEmpty == true
         ? displayName!.trim()
@@ -65,6 +69,7 @@ class WorkflowCard {
         bannerColor: GizColors.blue,
         icon: GizIcons.rectangle_3_offgrid,
         driver: WorkflowDriverKind.flowcraft,
+        source: source,
       );
     }
     if (normalized.contains('doubao')) {
@@ -77,6 +82,7 @@ class WorkflowCard {
         bannerColor: GizColors.coral,
         icon: GizIcons.waveform_path,
         driver: WorkflowDriverKind.doubaoRealtime,
+        source: source,
       );
     }
     if (normalized.contains('ast')) {
@@ -89,6 +95,7 @@ class WorkflowCard {
         bannerColor: GizColors.lavender,
         icon: GizIcons.chevron_left_slash_chevron_right,
         driver: WorkflowDriverKind.astTranslate,
+        source: source,
       );
     }
     if (normalized.contains('chatroom')) {
@@ -101,6 +108,7 @@ class WorkflowCard {
         bannerColor: GizColors.accent,
         icon: GizIcons.waveform,
         driver: WorkflowDriverKind.chatroom,
+        source: source,
       );
     }
     return WorkflowCard(
@@ -112,13 +120,18 @@ class WorkflowCard {
       bannerColor: GizColors.secondaryInk,
       icon: GizIcons.question_circle,
       driver: WorkflowDriverKind.unsupported,
+      source: source,
     );
   }
 
-  factory WorkflowCard.unknown(String name) => WorkflowCard.fromServer(
+  factory WorkflowCard.unknown(
+    String name, {
+    ResourceSource source = ResourceSource.RESOURCE_SOURCE_RUNTIME,
+  }) => WorkflowCard.fromServer(
     name: name,
     description: 'Workflow data is not available yet.',
     driver: '',
+    source: source,
   );
 }
 
@@ -127,12 +140,14 @@ class WorkspaceCard {
     required this.name,
     required this.workflowName,
     required this.lastActive,
+    this.workflowSource = ResourceSource.RESOURCE_SOURCE_RUNTIME,
     this.chatroomKind,
   });
 
   final ChatroomWorkspaceKind? chatroomKind;
   final String name;
   final String workflowName;
+  final ResourceSource workflowSource;
   final String lastActive;
 
   String get title => name;

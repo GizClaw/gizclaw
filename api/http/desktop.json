@@ -448,6 +448,10 @@
             "type": "string",
             "description": "Public half of the desktop-local Play identity."
           },
+          "registration_token": {
+            "type": "string",
+            "description": "RegistrationToken intentionally handed off through the add-server QR payload."
+          },
           "local": { "$ref": "#/components/schemas/DesktopLocalPod" },
           "remote": { "$ref": "#/components/schemas/DesktopRemotePod" }
         }

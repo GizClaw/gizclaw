@@ -82,17 +82,18 @@ type BootstrapEnvironmentUpdate struct {
 }
 
 type PodSummary struct {
-	ID             string                 `json:"id"`
-	Name           string                 `json:"name"`
-	Description    string                 `json:"description,omitempty"`
-	Mode           string                 `json:"mode"`
-	Valid          bool                   `json:"valid"`
-	Error          string                 `json:"error,omitempty"`
-	Initialization *InitializationSummary `json:"initialization,omitempty"`
-	PlayConfigured bool                   `json:"play_configured"`
-	PlayPublicKey  string                 `json:"play_public_key,omitempty"`
-	Local          *LocalSummary          `json:"local,omitempty"`
-	Remote         *RemoteSummary         `json:"remote,omitempty"`
+	ID                string                 `json:"id"`
+	Name              string                 `json:"name"`
+	Description       string                 `json:"description,omitempty"`
+	Mode              string                 `json:"mode"`
+	Valid             bool                   `json:"valid"`
+	Error             string                 `json:"error,omitempty"`
+	Initialization    *InitializationSummary `json:"initialization,omitempty"`
+	PlayConfigured    bool                   `json:"play_configured"`
+	PlayPublicKey     string                 `json:"play_public_key,omitempty"`
+	RegistrationToken string                 `json:"registration_token,omitempty"`
+	Local             *LocalSummary          `json:"local,omitempty"`
+	Remote            *RemoteSummary         `json:"remote,omitempty"`
 }
 
 type InitializationSummary struct {
@@ -898,7 +899,7 @@ func (b *PodBridge) summary(pod appconfig.Pod) PodSummary {
 	if pod.LocalServer == nil {
 		playConfigured = playConfigured && strings.TrimSpace(pod.RegistrationToken) != ""
 	}
-	summary := PodSummary{ID: pod.ID, Name: pod.Name, Description: pod.Description, PlayConfigured: playConfigured, PlayPublicKey: publicKeyForPrivate(pod.ClientPrivateKey), Valid: true}
+	summary := PodSummary{ID: pod.ID, Name: pod.Name, Description: pod.Description, PlayConfigured: playConfigured, PlayPublicKey: publicKeyForPrivate(pod.ClientPrivateKey), RegistrationToken: b.shareRegistrationToken(pod), Valid: true}
 	if initialization, err := b.Store.Initialization(pod.ID); err != nil {
 		summary.Initialization = &InitializationSummary{State: "failed", Error: err.Error()}
 	} else if initialization != nil {
@@ -918,6 +919,17 @@ func (b *PodBridge) summary(pod appconfig.Pod) PodSummary {
 	}
 	summary.Remote = remote
 	return summary
+}
+
+func (b *PodBridge) shareRegistrationToken(pod appconfig.Pod) string {
+	if pod.LocalServer == nil {
+		return strings.TrimSpace(pod.RegistrationToken)
+	}
+	data, err := os.ReadFile(filepath.Join(b.Paths.PodsDir, pod.ID, "workspace", localserver.RegistrationTokenFile))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
 }
 
 func ensurePodIdentities(pod *appconfig.Pod) (bool, error) {

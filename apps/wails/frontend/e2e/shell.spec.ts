@@ -46,6 +46,7 @@ test.beforeEach(async ({ page }) => {
         valid: true,
         play_configured: true,
         play_public_key: "local-play-public-key",
+        registration_token: "local-registration-token",
         local: {
           port: 9820,
           lan_addresses: [
@@ -86,6 +87,7 @@ test.beforeEach(async ({ page }) => {
         valid: true,
         play_configured: true,
         play_public_key: "remote-play-public-key",
+        registration_token: "remote-registration-token",
         remote: {
           access_point: health("ap.dev.gizclaw.com:9820"),
           servers: [
@@ -308,6 +310,9 @@ test("Pod home opens a share face and scalable remote management", async ({
   expect(remotePayload.searchParams.get("public_key")).toBe(
     "server-public-key-ap.dev.gizclaw.com:9820",
   );
+  expect(remotePayload.searchParams.get("registration_token")).toBe(
+    "remote-registration-token",
+  );
   await page.getByRole("button", { name: "Manage Servers" }).click();
   const remoteDialog = page.getByRole("dialog");
   await expect(
@@ -516,6 +521,9 @@ test("local share stays simple and switches to focused controls", async ({
   expect(payload.searchParams.get("mode")).toBe("local");
   expect(payload.searchParams.get("public_key")).toBe(
     "local-server-public-key",
+  );
+  expect(payload.searchParams.get("registration_token")).toBe(
+    "local-registration-token",
   );
   await expect(dialog).not.toContainText("100.100.100.100:9820");
   await expect(dialog).not.toContainText("fd1f:411f");

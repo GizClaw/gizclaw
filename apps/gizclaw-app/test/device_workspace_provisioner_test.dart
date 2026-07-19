@@ -81,6 +81,7 @@ void main() {
     expect(await provisioner.ensureMobileAstWorkspace(publicKey), isTrue);
     expect(created?.name, expectedName);
     expect(created?.workflowName, mobileAstWorkflowName);
+    expect(created?.workflowSource, ResourceSource.RESOURCE_SOURCE_RUNTIME);
     final ast = created!.parameters.asttranslateWorkspaceParameters;
     expect(
       ast.agentType,

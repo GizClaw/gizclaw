@@ -292,6 +292,15 @@ class $WorkflowEntriesTable extends WorkflowEntries
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _sourceMeta = const VerificationMeta('source');
+  @override
+  late final GeneratedColumn<int> source = GeneratedColumn<int>(
+    'source',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
   static const VerificationMeta _nameMeta = const VerificationMeta('name');
   @override
   late final GeneratedColumn<String> name = GeneratedColumn<String>(
@@ -367,6 +376,7 @@ class $WorkflowEntriesTable extends WorkflowEntries
   @override
   List<GeneratedColumn> get $columns => [
     serverId,
+    source,
     name,
     locale,
     description,
@@ -394,6 +404,14 @@ class $WorkflowEntriesTable extends WorkflowEntries
       );
     } else if (isInserting) {
       context.missing(_serverIdMeta);
+    }
+    if (data.containsKey('source')) {
+      context.handle(
+        _sourceMeta,
+        source.isAcceptableOrUnknown(data['source']!, _sourceMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceMeta);
     }
     if (data.containsKey('name')) {
       context.handle(
@@ -460,7 +478,7 @@ class $WorkflowEntriesTable extends WorkflowEntries
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => {serverId, name};
+  Set<GeneratedColumn> get $primaryKey => {serverId, source, name};
   @override
   WorkflowEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
@@ -468,6 +486,10 @@ class $WorkflowEntriesTable extends WorkflowEntries
       serverId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}server_id'],
+      )!,
+      source: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}source'],
       )!,
       name: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -508,6 +530,7 @@ class $WorkflowEntriesTable extends WorkflowEntries
 
 class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
   final String serverId;
+  final int source;
   final String name;
   final String? locale;
   final String description;
@@ -517,6 +540,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
   final DateTime refreshedAt;
   const WorkflowEntry({
     required this.serverId,
+    required this.source,
     required this.name,
     this.locale,
     required this.description,
@@ -529,6 +553,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['server_id'] = Variable<String>(serverId);
+    map['source'] = Variable<int>(source);
     map['name'] = Variable<String>(name);
     if (!nullToAbsent || locale != null) {
       map['locale'] = Variable<String>(locale);
@@ -546,6 +571,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
   WorkflowEntriesCompanion toCompanion(bool nullToAbsent) {
     return WorkflowEntriesCompanion(
       serverId: Value(serverId),
+      source: Value(source),
       name: Value(name),
       locale: locale == null && nullToAbsent
           ? const Value.absent()
@@ -567,6 +593,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return WorkflowEntry(
       serverId: serializer.fromJson<String>(json['serverId']),
+      source: serializer.fromJson<int>(json['source']),
       name: serializer.fromJson<String>(json['name']),
       locale: serializer.fromJson<String?>(json['locale']),
       description: serializer.fromJson<String>(json['description']),
@@ -581,6 +608,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'serverId': serializer.toJson<String>(serverId),
+      'source': serializer.toJson<int>(source),
       'name': serializer.toJson<String>(name),
       'locale': serializer.toJson<String?>(locale),
       'description': serializer.toJson<String>(description),
@@ -593,6 +621,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
 
   WorkflowEntry copyWith({
     String? serverId,
+    int? source,
     String? name,
     Value<String?> locale = const Value.absent(),
     String? description,
@@ -602,6 +631,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
     DateTime? refreshedAt,
   }) => WorkflowEntry(
     serverId: serverId ?? this.serverId,
+    source: source ?? this.source,
     name: name ?? this.name,
     locale: locale.present ? locale.value : this.locale,
     description: description ?? this.description,
@@ -613,6 +643,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
   WorkflowEntry copyWithCompanion(WorkflowEntriesCompanion data) {
     return WorkflowEntry(
       serverId: data.serverId.present ? data.serverId.value : this.serverId,
+      source: data.source.present ? data.source.value : this.source,
       name: data.name.present ? data.name.value : this.name,
       locale: data.locale.present ? data.locale.value : this.locale,
       description: data.description.present
@@ -633,6 +664,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
   String toString() {
     return (StringBuffer('WorkflowEntry(')
           ..write('serverId: $serverId, ')
+          ..write('source: $source, ')
           ..write('name: $name, ')
           ..write('locale: $locale, ')
           ..write('description: $description, ')
@@ -647,6 +679,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
   @override
   int get hashCode => Object.hash(
     serverId,
+    source,
     name,
     locale,
     description,
@@ -660,6 +693,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
       identical(this, other) ||
       (other is WorkflowEntry &&
           other.serverId == this.serverId &&
+          other.source == this.source &&
           other.name == this.name &&
           other.locale == this.locale &&
           other.description == this.description &&
@@ -671,6 +705,7 @@ class WorkflowEntry extends DataClass implements Insertable<WorkflowEntry> {
 
 class WorkflowEntriesCompanion extends UpdateCompanion<WorkflowEntry> {
   final Value<String> serverId;
+  final Value<int> source;
   final Value<String> name;
   final Value<String?> locale;
   final Value<String> description;
@@ -681,6 +716,7 @@ class WorkflowEntriesCompanion extends UpdateCompanion<WorkflowEntry> {
   final Value<int> rowid;
   const WorkflowEntriesCompanion({
     this.serverId = const Value.absent(),
+    this.source = const Value.absent(),
     this.name = const Value.absent(),
     this.locale = const Value.absent(),
     this.description = const Value.absent(),
@@ -692,6 +728,7 @@ class WorkflowEntriesCompanion extends UpdateCompanion<WorkflowEntry> {
   });
   WorkflowEntriesCompanion.insert({
     required String serverId,
+    required int source,
     required String name,
     this.locale = const Value.absent(),
     required String description,
@@ -701,6 +738,7 @@ class WorkflowEntriesCompanion extends UpdateCompanion<WorkflowEntry> {
     required DateTime refreshedAt,
     this.rowid = const Value.absent(),
   }) : serverId = Value(serverId),
+       source = Value(source),
        name = Value(name),
        description = Value(description),
        driver = Value(driver),
@@ -708,6 +746,7 @@ class WorkflowEntriesCompanion extends UpdateCompanion<WorkflowEntry> {
        refreshedAt = Value(refreshedAt);
   static Insertable<WorkflowEntry> custom({
     Expression<String>? serverId,
+    Expression<int>? source,
     Expression<String>? name,
     Expression<String>? locale,
     Expression<String>? description,
@@ -719,6 +758,7 @@ class WorkflowEntriesCompanion extends UpdateCompanion<WorkflowEntry> {
   }) {
     return RawValuesInsertable({
       if (serverId != null) 'server_id': serverId,
+      if (source != null) 'source': source,
       if (name != null) 'name': name,
       if (locale != null) 'locale': locale,
       if (description != null) 'description': description,
@@ -732,6 +772,7 @@ class WorkflowEntriesCompanion extends UpdateCompanion<WorkflowEntry> {
 
   WorkflowEntriesCompanion copyWith({
     Value<String>? serverId,
+    Value<int>? source,
     Value<String>? name,
     Value<String?>? locale,
     Value<String>? description,
@@ -743,6 +784,7 @@ class WorkflowEntriesCompanion extends UpdateCompanion<WorkflowEntry> {
   }) {
     return WorkflowEntriesCompanion(
       serverId: serverId ?? this.serverId,
+      source: source ?? this.source,
       name: name ?? this.name,
       locale: locale ?? this.locale,
       description: description ?? this.description,
@@ -759,6 +801,9 @@ class WorkflowEntriesCompanion extends UpdateCompanion<WorkflowEntry> {
     final map = <String, Expression>{};
     if (serverId.present) {
       map['server_id'] = Variable<String>(serverId.value);
+    }
+    if (source.present) {
+      map['source'] = Variable<int>(source.value);
     }
     if (name.present) {
       map['name'] = Variable<String>(name.value);
@@ -791,6 +836,7 @@ class WorkflowEntriesCompanion extends UpdateCompanion<WorkflowEntry> {
   String toString() {
     return (StringBuffer('WorkflowEntriesCompanion(')
           ..write('serverId: $serverId, ')
+          ..write('source: $source, ')
           ..write('name: $name, ')
           ..write('locale: $locale, ')
           ..write('description: $description, ')
@@ -3324,6 +3370,7 @@ typedef $$ServersTableProcessedTableManager =
 typedef $$WorkflowEntriesTableCreateCompanionBuilder =
     WorkflowEntriesCompanion Function({
       required String serverId,
+      required int source,
       required String name,
       Value<String?> locale,
       required String description,
@@ -3336,6 +3383,7 @@ typedef $$WorkflowEntriesTableCreateCompanionBuilder =
 typedef $$WorkflowEntriesTableUpdateCompanionBuilder =
     WorkflowEntriesCompanion Function({
       Value<String> serverId,
+      Value<int> source,
       Value<String> name,
       Value<String?> locale,
       Value<String> description,
@@ -3357,6 +3405,11 @@ class $$WorkflowEntriesTableFilterComposer
   });
   ColumnFilters<String> get serverId => $composableBuilder(
     column: $table.serverId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get source => $composableBuilder(
+    column: $table.source,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3410,6 +3463,11 @@ class $$WorkflowEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get name => $composableBuilder(
     column: $table.name,
     builder: (column) => ColumnOrderings(column),
@@ -3457,6 +3515,9 @@ class $$WorkflowEntriesTableAnnotationComposer
   });
   GeneratedColumn<String> get serverId =>
       $composableBuilder(column: $table.serverId, builder: (column) => column);
+
+  GeneratedColumn<int> get source =>
+      $composableBuilder(column: $table.source, builder: (column) => column);
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
@@ -3520,6 +3581,7 @@ class $$WorkflowEntriesTableTableManager
           updateCompanionCallback:
               ({
                 Value<String> serverId = const Value.absent(),
+                Value<int> source = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<String?> locale = const Value.absent(),
                 Value<String> description = const Value.absent(),
@@ -3530,6 +3592,7 @@ class $$WorkflowEntriesTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => WorkflowEntriesCompanion(
                 serverId: serverId,
+                source: source,
                 name: name,
                 locale: locale,
                 description: description,
@@ -3542,6 +3605,7 @@ class $$WorkflowEntriesTableTableManager
           createCompanionCallback:
               ({
                 required String serverId,
+                required int source,
                 required String name,
                 Value<String?> locale = const Value.absent(),
                 required String description,
@@ -3552,6 +3616,7 @@ class $$WorkflowEntriesTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => WorkflowEntriesCompanion.insert(
                 serverId: serverId,
+                source: source,
                 name: name,
                 locale: locale,
                 description: description,

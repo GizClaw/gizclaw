@@ -66,7 +66,10 @@ void main() {
     expect(workflows.single.title, 'build-helper');
     expect(workflows.single.subtitle, isEmpty);
     expect(workflows.single.driverLabel, 'Flowcraft');
-    expect(client.lastWorkflowSource, ResourceSource.RESOURCE_SOURCE_RUNTIME);
+    expect(client.workflowSources, [
+      ResourceSource.RESOURCE_SOURCE_RUNTIME,
+      ResourceSource.RESOURCE_SOURCE_OWNED,
+    ]);
     final mobileWorkspace = workspaces.firstWhere(
       (workspace) => workspace.name == 'mobile-plan',
     );
@@ -79,8 +82,22 @@ void main() {
       ChatroomWorkspaceKind.group,
     );
     expect(await repository.serverIdForEndpoint('127.0.0.1:23820'), 'server-a');
-    expect(await repository.hasWorkflow('server-a', 'build-helper'), isTrue);
-    expect(await repository.hasWorkflow('server-a', 'missing'), isFalse);
+    expect(
+      await repository.hasWorkflow(
+        'server-a',
+        'build-helper',
+        source: ResourceSource.RESOURCE_SOURCE_RUNTIME,
+      ),
+      isTrue,
+    );
+    expect(
+      await repository.hasWorkflow(
+        'server-a',
+        'missing',
+        source: ResourceSource.RESOURCE_SOURCE_RUNTIME,
+      ),
+      isFalse,
+    );
     expect(
       (await repository.workspaceDocument(
         'server-a',
@@ -126,8 +143,72 @@ void main() {
             .single;
     expect(card.title, 'stable-name');
     expect(card.subtitle, isEmpty);
-    expect(client.lastWorkflowSource, ResourceSource.RESOURCE_SOURCE_RUNTIME);
+    expect(client.workflowSources, [
+      ResourceSource.RESOURCE_SOURCE_RUNTIME,
+      ResourceSource.RESOURCE_SOURCE_OWNED,
+    ]);
   });
+
+  test(
+    'caches runtime aliases and owned workflow names independently',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+      final repository = MobileDataRepository(database);
+      final client = _FakeClient(
+        workflows: [
+          Workflow(
+            name: 'shared-id',
+            spec: WorkflowSpec(
+              driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT,
+            ),
+          ),
+        ],
+        ownedWorkflows: [
+          Workflow(
+            name: 'shared-id',
+            spec: WorkflowSpec(driver: WorkflowDriver.WORKFLOW_DRIVER_CHATROOM),
+          ),
+        ],
+        workspaces: [
+          Workspace(
+            name: 'owned-room',
+            workflowName: 'shared-id',
+            workflowSource: ResourceSource.RESOURCE_SOURCE_OWNED,
+          ),
+        ],
+      );
+
+      await repository.refresh(
+        client: client,
+        endpoint: 'local',
+        isCurrent: () => true,
+        locale: 'en',
+        serverId: 'server-a',
+      );
+
+      final runtime =
+          (await repository.watchWorkflows('server-a', locale: 'en').first)
+              .single;
+      final catalog = await repository
+          .watchWorkflowCatalog('server-a', locale: 'en')
+          .first;
+      final owned = await repository.workflowCard(
+        'server-a',
+        'shared-id',
+        locale: 'en',
+        source: ResourceSource.RESOURCE_SOURCE_OWNED,
+      );
+      final workspace =
+          (await repository.watchWorkspaces('server-a').first).single;
+
+      expect(runtime.source, ResourceSource.RESOURCE_SOURCE_RUNTIME);
+      expect(runtime.driver, WorkflowDriverKind.flowcraft);
+      expect(catalog, hasLength(2));
+      expect(owned?.driver, WorkflowDriverKind.chatroom);
+      expect(workspace.workflowSource, ResourceSource.RESOURCE_SOURCE_OWNED);
+    },
+  );
 
   test('uses stable aliases independently of the app locale', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
@@ -523,19 +604,21 @@ class _FakeClient extends GizClawClient {
   _FakeClient({
     required this.workflows,
     required this.workspaces,
+    this.ownedWorkflows = const [],
     this.friends = const [],
     this.friendGroups = const [],
   }) : super(_NeverDataChannelFactory());
 
   final List<FriendGroupObject> friendGroups;
   final List<FriendObject> friends;
+  final List<Workflow> ownedWorkflows;
   final List<Workflow> workflows;
   final List<Workspace> workspaces;
   bool failFriends = false;
   bool failFriendGroups = false;
   bool failWorkflows = false;
   bool failWorkspaces = false;
-  ResourceSource? lastWorkflowSource;
+  final List<ResourceSource> workflowSources = [];
 
   @override
   Future<WorkflowListResponse> listWorkflows({
@@ -544,8 +627,12 @@ class _FakeClient extends GizClawClient {
     int? limit,
   }) async {
     if (failWorkflows) throw StateError('workflow catalog unavailable');
-    lastWorkflowSource = source;
-    return WorkflowListResponse(items: workflows);
+    workflowSources.add(source);
+    return WorkflowListResponse(
+      items: source == ResourceSource.RESOURCE_SOURCE_OWNED
+          ? ownedWorkflows
+          : workflows,
+    );
   }
 
   @override

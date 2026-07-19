@@ -56,6 +56,10 @@ export type DesktopPod = {
      * Public half of the desktop-local Play identity.
      */
     play_public_key?: string;
+    /**
+     * RegistrationToken intentionally handed off through the add-server QR payload.
+     */
+    registration_token?: string;
     local?: DesktopLocalPod;
     remote?: DesktopRemotePod;
 };

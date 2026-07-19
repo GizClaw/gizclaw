@@ -62,6 +62,7 @@ class DeviceWorkspaceProvisioner {
 
     final input = _preservedInputMode(current);
     final updated = current.deepCopy()
+      ..workflowSource = ResourceSource.RESOURCE_SOURCE_RUNTIME
       ..parameters = mobileAstParameters(input: input);
     _validate(await _putWorkspace(name, updated), name);
     return true;
@@ -86,6 +87,7 @@ Workspace mobileAstWorkspace(String name) {
   return Workspace(
     name: name,
     workflowName: mobileAstWorkflowName,
+    workflowSource: ResourceSource.RESOURCE_SOURCE_RUNTIME,
     parameters: mobileAstParameters(),
   );
 }
@@ -141,6 +143,10 @@ void _validate(Workspace workspace, String expectedName) {
     throw StateError('Server returned an unexpected workspace name');
   }
   _validateWorkflow(workspace.workflowName, expectedName);
+  if (workspace.hasWorkflowSource() &&
+      workspace.workflowSource != ResourceSource.RESOURCE_SOURCE_RUNTIME) {
+    throw StateError('Workspace $expectedName does not use a Runtime workflow');
+  }
 }
 
 void _validateWorkflow(String workflowName, String expectedName) {

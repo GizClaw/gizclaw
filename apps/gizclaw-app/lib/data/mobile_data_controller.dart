@@ -117,6 +117,7 @@ class MobileDataController extends ChangeNotifier {
 
   factory MobileDataController.demo({AppDatabase? database}) {
     final controller = _DemoMobileDataController(database: database);
+    controller._workflowCatalog = allWorkflows;
     controller.workflows = allWorkflows;
     controller.workspaces = workflowWorkspaces;
     controller.chatroomWorkspaces = chatroomWorkspaceMetadata;
@@ -139,6 +140,7 @@ class MobileDataController extends ChangeNotifier {
   StreamSubscription<List<ChatroomWorkspaceMetadata>>?
   _friendGroupChatSubscription;
   List<WorkflowCard> workflows = const [];
+  List<WorkflowCard> _workflowCatalog = const [];
   List<WorkspaceCard> workspaces = const [];
   List<ChatroomWorkspaceMetadata> chatroomWorkspaces = const [];
   List<ChatroomWorkspaceMetadata> _friendChats = const [];
@@ -524,6 +526,7 @@ class MobileDataController extends ChangeNotifier {
     activeServerId = null;
     peerName = '';
     peerEmoji = '';
+    _workflowCatalog = const [];
     workflows = const [];
     workspaces = const [];
     chatroomWorkspaces = const [];
@@ -541,7 +544,11 @@ class MobileDataController extends ChangeNotifier {
   }) async {
     final clientPublicKey = connection.clientPublicKey;
     if (clientPublicKey == null ||
-        !await repository.hasWorkflow(serverId, mobileAstWorkflowName)) {
+        !await repository.hasWorkflow(
+          serverId,
+          mobileAstWorkflowName,
+          source: ResourceSource.RESOURCE_SOURCE_RUNTIME,
+        )) {
       return;
     }
     try {
@@ -581,9 +588,14 @@ class MobileDataController extends ChangeNotifier {
     await _friendGroupChatSubscription?.cancel();
     if (generation != _serverWatchGeneration) return;
     _workflowSubscription = repository
-        .watchWorkflows(serverId, locale: appLocaleTag(_effectiveLocale))
+        .watchWorkflowCatalog(serverId, locale: appLocaleTag(_effectiveLocale))
         .listen((value) {
-          workflows = value;
+          _workflowCatalog = value;
+          workflows = value
+              .where(
+                (item) => item.source == ResourceSource.RESOURCE_SOURCE_RUNTIME,
+              )
+              .toList(growable: false);
           notifyListeners();
         });
     _workspaceSubscription = repository.watchWorkspaces(serverId).listen((
@@ -1021,11 +1033,17 @@ class MobileDataController extends ChangeNotifier {
         endpoint == connection.profile.endpoint;
   }
 
-  WorkflowCard workflow(String name) {
-    return workflows.firstWhere(
-      (item) => item.name == name,
-      orElse: () => WorkflowCard.unknown(name),
-    );
+  WorkflowCard workflow(
+    String name, {
+    ResourceSource source = ResourceSource.RESOURCE_SOURCE_RUNTIME,
+  }) {
+    for (final item in _workflowCatalog) {
+      if (item.name == name && item.source == source) return item;
+    }
+    for (final item in workflows) {
+      if (item.name == name && item.source == source) return item;
+    }
+    return WorkflowCard.unknown(name, source: source);
   }
 
   WorkspaceCard workspace(String name) {
@@ -1080,7 +1098,10 @@ class MobileDataController extends ChangeNotifier {
     return MobileWorkspaceDestination(
       surface: MobileWorkspaceSurface.raid,
       workspaceName: workspaceName,
-      driver: workflow(workspace.workflowName).driver,
+      driver: workflow(
+        workspace.workflowName,
+        source: workspace.workflowSource,
+      ).driver,
     );
   }
 
@@ -1285,7 +1306,10 @@ class MobileDataController extends ChangeNotifier {
   }
 
   Future<WorkflowDriverKind> _driverForWorkspace(Workspace workspace) async {
-    final cached = workflow(workspace.workflowName).driver;
+    final source = workspace.hasWorkflowSource()
+        ? workspace.workflowSource
+        : ResourceSource.RESOURCE_SOURCE_OWNED;
+    final cached = workflow(workspace.workflowName, source: source).driver;
     if (cached != WorkflowDriverKind.unsupported) return cached;
     final serverId = activeServerId;
     if (serverId == null) return cached;
@@ -1293,6 +1317,7 @@ class MobileDataController extends ChangeNotifier {
           serverId,
           workspace.workflowName,
           locale: appLocaleTag(_effectiveLocale),
+          source: source,
         ))?.driver ??
         cached;
   }
