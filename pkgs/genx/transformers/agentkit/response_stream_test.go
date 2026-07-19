@@ -124,12 +124,33 @@ func TestResponseStreamForwardsPullVisibleObservation(t *testing.T) {
 	if observed != nil {
 		t.Fatalf("source observed chunk before final acknowledgement: %#v", observed)
 	}
-	stream.ObserveOutput(chunk)
+	stream.ObserveOutput(chunk.Clone())
 	if observed == nil || observed.Ctrl == nil || observed.Ctrl.StreamID != "provider-response" {
 		t.Fatalf("forwarded observation = %#v", observed)
 	}
 	if len(stream.pendingObservations) != 0 {
 		t.Fatalf("pending observations after acknowledgement = %d", len(stream.pendingObservations))
+	}
+}
+
+func TestResponseStreamKeepsSameMIMEWithinActiveMultimodalResponse(t *testing.T) {
+	source := NewOutput(OutputConfig{})
+	for _, chunk := range []*genx.MessageChunk{
+		{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "response", BeginOfStream: true}},
+		{Role: genx.RoleModel, Part: genx.Text("model text"), Ctrl: &genx.StreamCtrl{StreamID: "response"}},
+		{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "response", EndOfStream: true}},
+		{Role: genx.RoleModel, Part: genx.Text("tts transcript"), Ctrl: &genx.StreamCtrl{StreamID: "response"}},
+	} {
+		_ = source.Push(chunk)
+	}
+	_ = source.Close()
+	stream, _ := NewResponseStream(source)
+	first, _ := stream.Next()
+	_, _ = stream.Next()
+	_, _ = stream.Next()
+	transcript, _ := stream.Next()
+	if transcript.Ctrl.StreamID != first.Ctrl.StreamID {
+		t.Fatalf("transcript StreamID = %q, want shared %q", transcript.Ctrl.StreamID, first.Ctrl.StreamID)
 	}
 }
 

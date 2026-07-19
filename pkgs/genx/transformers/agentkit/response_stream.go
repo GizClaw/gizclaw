@@ -18,7 +18,7 @@ type ResponseStream struct {
 
 	mu                  sync.Mutex
 	responses           map[string]*responseRouteState
-	pendingObservations map[*genx.MessageChunk]string
+	pendingObservations map[string]*pendingObservation
 	observationDeferred bool
 	sequence            uint64
 }
@@ -30,6 +30,11 @@ type responseRouteState struct {
 	routes   map[string]bool
 	terminal bool
 	lastUsed uint64
+}
+
+type pendingObservation struct {
+	upstreamID string
+	count      uint64
 }
 
 type outputObservationStream interface {
@@ -45,7 +50,7 @@ func NewResponseStream(source genx.Stream) (*ResponseStream, error) {
 	return &ResponseStream{
 		source:              source,
 		responses:           make(map[string]*responseRouteState),
-		pendingObservations: make(map[*genx.MessageChunk]string),
+		pendingObservations: make(map[string]*pendingObservation),
 	}, nil
 }
 
@@ -70,7 +75,12 @@ func (s *ResponseStream) Next() (*genx.MessageChunk, error) {
 	result := &copyChunk
 	s.mu.Lock()
 	if s.observationDeferred {
-		s.pendingObservations[result] = upstreamID
+		pending := s.pendingObservations[copyCtrl.StreamID]
+		if pending == nil {
+			pending = &pendingObservation{upstreamID: upstreamID}
+			s.pendingObservations[copyCtrl.StreamID] = pending
+		}
+		pending.count++
 	}
 	s.mu.Unlock()
 	return result, nil
@@ -126,13 +136,20 @@ func (s *ResponseStream) ObserveOutput(chunk *genx.MessageChunk) {
 	observed := chunk
 	if chunk.Ctrl != nil {
 		s.mu.Lock()
-		upstream, mapped := s.pendingObservations[chunk]
-		delete(s.pendingObservations, chunk)
+		localID := strings.TrimSpace(chunk.Ctrl.StreamID)
+		pending := s.pendingObservations[localID]
+		if pending != nil {
+			if pending.count > 1 {
+				pending.count--
+			} else {
+				delete(s.pendingObservations, localID)
+			}
+		}
 		s.mu.Unlock()
-		if mapped {
+		if pending != nil {
 			copyChunk := *chunk
 			copyCtrl := *chunk.Ctrl
-			copyCtrl.StreamID = upstream
+			copyCtrl.StreamID = pending.upstreamID
 			copyChunk.Ctrl = &copyCtrl
 			observed = &copyChunk
 		}
@@ -151,7 +168,8 @@ func (s *ResponseStream) responseID(upstream string, chunk *genx.MessageChunk) s
 	s.sequence++
 	state := s.responses[key]
 	mimeType, hasMIME := chunk.MIMEType()
-	if state != nil && !chunk.IsEndOfStream() && (state.terminal || hasMIME && state.routes[mimeType]) {
+	if state != nil && !chunk.IsEndOfStream() &&
+		(state.terminal || hasMIME && state.routes[mimeType] && responseRoutesComplete(state)) {
 		state = nil
 	}
 	if state == nil {
