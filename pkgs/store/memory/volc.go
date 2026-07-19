@@ -76,27 +76,19 @@ type volcCredentialClient struct {
 }
 
 func newVolcCredentialClient(config VolcConfig) (*volcCredentialClient, error) {
-	if config.AccessKeyID == "" || config.AccessKeySecret == "" {
+	if strings.TrimSpace(config.AccessKeyID) == "" || strings.TrimSpace(config.AccessKeySecret) == "" {
 		return nil, fmt.Errorf("%w: volc access_key_id and access_key_secret are required", ErrInvalidInput)
 	}
-	host := config.ControlEndpoint
-	if host == "" {
-		host = "open.volcengineapi.com"
-	}
-	scheme := "https"
-	if strings.Contains(host, "://") {
-		parsed, err := url.Parse(host)
-		if err != nil || parsed.Scheme == "" || parsed.Host == "" || parsed.Path != "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
-			return nil, fmt.Errorf("%w: volc control_endpoint must contain only scheme and host", ErrInvalidInput)
-		}
-		if parsed.Scheme != "http" && parsed.Scheme != "https" {
-			return nil, fmt.Errorf("%w: volc control_endpoint scheme must be http or https", ErrInvalidInput)
-		}
-		scheme, host = parsed.Scheme, parsed.Host
-	}
-	region := config.Region
+	region := strings.TrimSpace(config.Region)
 	if region == "" {
 		region = "cn-beijing"
+	}
+	if !isVolcRegion(region) {
+		return nil, fmt.Errorf("%w: volc region is invalid", ErrInvalidInput)
+	}
+	scheme, host, err := volcControlAddress(config.ControlEndpoint, region)
+	if err != nil {
+		return nil, err
 	}
 	serviceInfo := &base.ServiceInfo{
 		Timeout: 30 * time.Second,
@@ -104,7 +96,7 @@ func newVolcCredentialClient(config VolcConfig) (*volcCredentialClient, error) {
 		Host:    host,
 		Header:  http.Header{"Accept": []string{"application/json"}},
 		Credentials: base.Credentials{
-			AccessKeyID: config.AccessKeyID, SecretAccessKey: config.AccessKeySecret,
+			AccessKeyID: strings.TrimSpace(config.AccessKeyID), SecretAccessKey: strings.TrimSpace(config.AccessKeySecret),
 			Service: "mem0", Region: region,
 		},
 	}
@@ -119,6 +111,36 @@ func newVolcCredentialClient(config VolcConfig) (*volcCredentialClient, error) {
 	// explicit config remains authoritative.
 	client.SetCredential(serviceInfo.Credentials)
 	return &volcCredentialClient{client: client}, nil
+}
+
+func volcControlAddress(endpoint, region string) (string, string, error) {
+	endpoint = strings.TrimSpace(endpoint)
+	if endpoint == "" {
+		return "https", "mem0." + region + ".volcengineapi.com", nil
+	}
+	if !strings.Contains(endpoint, "://") {
+		endpoint = "https://" + endpoint
+	}
+	parsed, err := url.Parse(endpoint)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" || parsed.Path != "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return "", "", fmt.Errorf("%w: volc control_endpoint must contain only scheme and host", ErrInvalidInput)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return "", "", fmt.Errorf("%w: volc control_endpoint scheme must be http or https", ErrInvalidInput)
+	}
+	return parsed.Scheme, parsed.Host, nil
+}
+
+func isVolcRegion(region string) bool {
+	if region == "" || region[0] == '-' || region[len(region)-1] == '-' {
+		return false
+	}
+	for _, char := range region {
+		if (char < 'a' || char > 'z') && (char < '0' || char > '9') && char != '-' {
+			return false
+		}
+	}
+	return true
 }
 
 func (c *volcCredentialClient) ResolveMem0APIKey(ctx context.Context, config VolcConfig) (string, error) {
@@ -138,6 +160,7 @@ func (c *volcCredentialClient) ResolveMem0APIKey(ctx context.Context, config Vol
 			Result           struct {
 				APIKeyInfos []struct {
 					APIKeyID string `json:"APIKeyId"`
+					Status   string `json:"Status"`
 				} `json:"APIKeyInfos"`
 			} `json:"Result"`
 		}
@@ -147,13 +170,22 @@ func (c *volcCredentialClient) ResolveMem0APIKey(ctx context.Context, config Vol
 		if err := response.ResponseMetadata.err(); err != nil {
 			return "", err
 		}
+		hasAPIKey := false
 		for _, info := range response.Result.APIKeyInfos {
-			if strings.TrimSpace(info.APIKeyID) != "" {
-				apiKeyID = info.APIKeyID
+			id := strings.TrimSpace(info.APIKeyID)
+			if id == "" {
+				continue
+			}
+			hasAPIKey = true
+			if strings.EqualFold(strings.TrimSpace(info.Status), "ready") {
+				apiKeyID = id
 				break
 			}
 		}
 		if apiKeyID == "" {
+			if hasAPIKey {
+				return "", fmt.Errorf("%w: volc memory project has no ready API key", ErrUnavailable)
+			}
 			return "", fmt.Errorf("%w: volc memory project has no API key", ErrNotFound)
 		}
 	}

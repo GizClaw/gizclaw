@@ -25,7 +25,7 @@ Asynchronous providers return an operation in `ObserveResult`. Stores implementi
 
 Without an extraction model, Flowcraft deterministically stores an observation as a `note`. Configured extraction, embedding, and rerank models require a model loader passed to `OpenFlowcraftStore` or `stores.NewWithStorageOptions`.
 
-The Volc provider does not duplicate the fact CRUD protocol. It resolves the data-plane API key through signed `DescribeMemoryProjectDetail` and `DescribeAPIKeyDetail` calls, then reuses the Mem0 client. `volc_memory.mem0.endpoint` is mandatory so a Volc credential can never fall back to Mem0 Platform's public endpoint. `memory_project_id` is required for control-plane resolution; an optional `api_key_id` selects a key within that project.
+The Volc provider does not duplicate the fact CRUD protocol. It resolves the data-plane API key through signed `DescribeMemoryProjectDetail` and `DescribeAPIKeyDetail` calls, then reuses the Mem0 client. `volc_memory.mem0.endpoint` is mandatory so a Volc credential can never fall back to Mem0 Platform's public endpoint. The control plane defaults to `https://mem0.<region>.volcengineapi.com`; `control_endpoint` overrides it. `memory_project_id` is required for control-plane resolution; an optional `api_key_id` selects a key within that project. Without an explicit key ID, the resolver selects only a key whose status is `Ready`.
 
 ## Server configuration
 
