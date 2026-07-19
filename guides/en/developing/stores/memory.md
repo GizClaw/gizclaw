@@ -13,7 +13,7 @@
 
 Asynchronous providers return an operation in `ObserveResult`. Stores implementing `OperationWaiter` use the caller's `context.Context` to wait for completion. Constructors do not start background goroutines. Durable Flowcraft stores recover operation IDs from canonical episode facts after restart; extraction failures return a terminal failed operation.
 
-`AppID`, `UserID`, `AgentID`, and `RunID` are business memory scopes. They do not replace process, credential, or remote-service tenant isolation. Mem0 Platform configurations require an API key and must set at least one of these scopes.
+`AppID`, `UserID`, `AgentID`, and `RunID` are business memory scopes. They do not replace process, credential, or remote-service tenant isolation. Mem0 Platform configurations require an API key and must set at least one of these scopes. Mem0 stores each configured entity as a separate memory layer; recall across multiple configured entities uses `OR`, not a hierarchical intersection.
 
 ## Providers
 
@@ -75,7 +75,7 @@ stores:
 `cmd/internal/stores` expands environment variables and owns the Flowcraft lifecycle. HTTP clients, Volc credential resolvers, and Flowcraft model loaders are injected through `Options`.
 The default server registry has no model loader and rejects non-empty Flowcraft model fields after environment expansion; an Agent runtime that supplies those fields must use the option-aware registry path.
 
-Mem0 V3 equality filters use direct field values. The adapter sends only comparison operators documented by Mem0; neutral operators without an exact remote equivalent return `ErrUnsupported`.
+Mem0 V3 search puts entity IDs only inside `filters`. Native entity, time, category, and memory-ID fields use their documented operators; `FilterNotIn` is encoded as `NOT` around `in`. Other provider-neutral fields address top-level custom metadata and support only equality and inequality. Operators without an exact remote equivalent return `ErrUnsupported`.
 
 ## Error semantics
 

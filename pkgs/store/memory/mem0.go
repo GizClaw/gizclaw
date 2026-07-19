@@ -157,11 +157,6 @@ func (s *Mem0Store) Recall(ctx context.Context, query Query) (RecallResult, erro
 		return RecallResult{}, err
 	}
 	payload := map[string]any{"query": query.Text, "top_k": query.Limit, "filters": filters}
-	if s.config.Flavor == Mem0SelfHosted {
-		for key, value := range s.entityFields() {
-			payload[key] = value
-		}
-	}
 	path := "/search"
 	if s.config.Flavor == Mem0Platform {
 		path = "/v3/memories/search/"
@@ -264,7 +259,7 @@ func (s *Mem0Store) entityFields() map[string]string {
 		entities["app_id"] = s.config.AppID
 	}
 	for key, value := range entities {
-		if value != "" {
+		if value = strings.TrimSpace(value); value != "" {
 			fields[key] = value
 		}
 	}
@@ -272,33 +267,107 @@ func (s *Mem0Store) entityFields() map[string]string {
 }
 
 func (s *Mem0Store) mem0Filters(input []Filter) (map[string]any, error) {
-	clauses := make([]map[string]any, 0, len(input)+4)
-	for key, value := range s.entityFields() {
-		clauses = append(clauses, map[string]any{key: value})
-	}
-	operators := map[FilterOperator]string{FilterNotEqual: "ne", FilterIn: "in", FilterNotIn: "nin", FilterGreaterThan: "gt", FilterGreaterEqual: "gte", FilterLessThan: "lt", FilterLessEqual: "lte"}
+	clauses := []any{s.mem0ScopeFilter()}
 	for _, filter := range input {
-		if filter.Operator == FilterEqual {
-			clauses = append(clauses, map[string]any{filter.Field: cloneValue(filter.Value)})
-			continue
+		clause, err := mem0FilterClause(filter)
+		if err != nil {
+			return nil, err
 		}
-		op, ok := operators[filter.Operator]
-		if !ok {
-			return nil, fmt.Errorf("%w: mem0 filter operator %q", ErrUnsupported, filter.Operator)
-		}
-		clauses = append(clauses, map[string]any{filter.Field: map[string]any{op: cloneValue(filter.Value)}})
-	}
-	if len(clauses) == 0 {
-		return map[string]any{}, nil
+		clauses = append(clauses, clause)
 	}
 	if len(clauses) == 1 {
-		return clauses[0], nil
+		return clauses[0].(map[string]any), nil
 	}
-	items := make([]any, len(clauses))
-	for i := range clauses {
-		items[i] = clauses[i]
+	return map[string]any{"AND": clauses}, nil
+}
+
+func (s *Mem0Store) mem0ScopeFilter() map[string]any {
+	fields := []struct {
+		name  string
+		value string
+	}{
+		{name: "app_id", value: s.config.AppID},
+		{name: "user_id", value: s.config.UserID},
+		{name: "agent_id", value: s.config.AgentID},
+		{name: "run_id", value: s.config.RunID},
 	}
-	return map[string]any{"AND": items}, nil
+	clauses := make([]any, 0, len(fields))
+	for _, field := range fields {
+		value := strings.TrimSpace(field.value)
+		if value != "" && (field.name != "app_id" || s.config.Flavor == Mem0Platform) {
+			clauses = append(clauses, map[string]any{field.name: value})
+		}
+	}
+	if len(clauses) == 1 {
+		return clauses[0].(map[string]any)
+	}
+	return map[string]any{"OR": clauses}
+}
+
+func mem0FilterClause(filter Filter) (map[string]any, error) {
+	field := strings.TrimSpace(filter.Field)
+	if field == mem0ObservationIDMetadata || field == mem0TurnIDsMetadata {
+		return nil, fmt.Errorf("%w: mem0 filter field %q is provider-owned", ErrUnsupported, field)
+	}
+	if !isMem0NativeFilterField(field) {
+		switch filter.Operator {
+		case FilterEqual:
+			return map[string]any{"metadata": map[string]any{field: cloneValue(filter.Value)}}, nil
+		case FilterNotEqual:
+			return map[string]any{"metadata": map[string]any{field: map[string]any{"ne": cloneValue(filter.Value)}}}, nil
+		default:
+			return nil, fmt.Errorf("%w: mem0 metadata filter operator %q", ErrUnsupported, filter.Operator)
+		}
+	}
+
+	if filter.Operator == FilterNotIn {
+		if !mem0FieldSupports(field, FilterIn) {
+			return nil, fmt.Errorf("%w: mem0 field %q does not support filter operator %q", ErrUnsupported, field, filter.Operator)
+		}
+		return map[string]any{"NOT": map[string]any{field: mem0InValue(field, filter.Value)}}, nil
+	}
+	if !mem0FieldSupports(field, filter.Operator) {
+		return nil, fmt.Errorf("%w: mem0 field %q does not support filter operator %q", ErrUnsupported, field, filter.Operator)
+	}
+	if filter.Operator == FilterEqual {
+		return map[string]any{field: cloneValue(filter.Value)}, nil
+	}
+	if filter.Operator == FilterIn {
+		return map[string]any{field: mem0InValue(field, filter.Value)}, nil
+	}
+	operators := map[FilterOperator]string{FilterNotEqual: "ne", FilterGreaterThan: "gt", FilterGreaterEqual: "gte", FilterLessThan: "lt", FilterLessEqual: "lte"}
+	return map[string]any{field: map[string]any{operators[filter.Operator]: cloneValue(filter.Value)}}, nil
+}
+
+func mem0InValue(field string, value any) any {
+	if field == "memory_ids" {
+		return cloneValue(value)
+	}
+	return map[string]any{"in": cloneValue(value)}
+}
+
+func isMem0NativeFilterField(field string) bool {
+	switch field {
+	case "user_id", "agent_id", "app_id", "run_id", "created_at", "updated_at", "timestamp", "categories", "metadata", "keywords", "memory_ids":
+		return true
+	default:
+		return false
+	}
+}
+
+func mem0FieldSupports(field string, operator FilterOperator) bool {
+	switch field {
+	case "user_id", "agent_id", "app_id", "run_id":
+		return operator == FilterEqual || operator == FilterNotEqual || operator == FilterIn
+	case "created_at", "updated_at", "timestamp":
+		return operator == FilterEqual || operator == FilterNotEqual || operator == FilterGreaterThan || operator == FilterGreaterEqual || operator == FilterLessThan || operator == FilterLessEqual
+	case "categories":
+		return operator == FilterEqual || operator == FilterNotEqual || operator == FilterIn
+	case "memory_ids":
+		return operator == FilterIn
+	default:
+		return false
+	}
 }
 
 type mem0Message struct {

@@ -13,7 +13,7 @@
 
 异步 provider 在 `ObserveResult.Operation` 返回状态。实现 `OperationWaiter` 的 store 由调用方使用已有 `context.Context` 等待完成，不在 constructor 中启动后台 goroutine。持久化 Flowcraft store 会在重启后从 canonical episode fact 恢复 operation ID；提取失败返回 terminal failed operation。
 
-`AppID`、`UserID`、`AgentID` 和 `RunID` 是业务记忆 scope。它们不替代进程、credential 或远端服务自身的多租户隔离。Mem0 Platform 配置必须提供 API key，并至少设置其中一个 scope。
+`AppID`、`UserID`、`AgentID` 和 `RunID` 是业务记忆 scope。它们不替代进程、credential 或远端服务自身的多租户隔离。Mem0 Platform 配置必须提供 API key，并至少设置其中一个 scope。Mem0 会把每个已配置 entity 作为独立的 memory layer；多 entity recall 使用 `OR`，不是层级交集。
 
 ## Provider
 
@@ -75,7 +75,7 @@ stores:
 `cmd/internal/stores` 负责展开环境变量和管理 Flowcraft lifecycle。HTTP client、Volc credential resolver 和 Flowcraft model loader 都通过 `Options` 注入，测试和 Agent runtime 不需要修改公共 `Store` 契约。
 默认 server registry 不持有 model loader，因此会明确拒绝环境变量展开后非空的 Flowcraft model 字段；需要这些字段的 Agent runtime 必须使用 option-aware registry 路径。
 
-Mem0 V3 的等值 filter 使用字段直接值。Adapter 只发送 Mem0 文档明确支持的比较 operator；无法精确映射的通用 operator 返回 `ErrUnsupported`。
+Mem0 V3 search 只在 `filters` 内传递 entity ID。原生 entity、time、category 和 memory-ID 字段使用文档中的 operator；`FilterNotIn` 编码为包裹 `in` 的 `NOT`。其他 provider-neutral 字段表示顶层自定义 metadata，只支持等值和不等值。无法精确映射的 operator 返回 `ErrUnsupported`。
 
 ## 错误语义
 

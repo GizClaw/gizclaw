@@ -50,6 +50,11 @@ func TestMem0PlatformLifecycle(t *testing.T) {
 			and, _ := filters["AND"].([]any)
 			if len(and) != 2 {
 				t.Errorf("search filters = %#v", filters)
+			} else {
+				metadata, _ := and[1].(map[string]any)["metadata"].(map[string]any)
+				if metadata["lane"] != "preferences" {
+					t.Errorf("search metadata filter = %#v", filters)
+				}
 			}
 			_, _ = w.Write([]byte(`{"results":[{"id":"fact-1","hash":"rev-1","memory":"Alice likes tea","score":0.91,"categories":["preference"],"metadata":{"lane":"preferences","score":"user-value"}}]}`))
 		case r.Method == http.MethodPut && r.URL.Path == "/v1/memories/fact-1/":
@@ -164,6 +169,15 @@ func TestMem0SelfHostedLifecycle(t *testing.T) {
 			}
 			_, _ = w.Write([]byte(`{"results":[{"id":"fact","memory":"stored"}]}`))
 		case "POST /search":
+			var body map[string]any
+			_ = json.NewDecoder(request.Body).Decode(&body)
+			if _, exists := body["user_id"]; exists {
+				t.Errorf("self-hosted search contains top-level user_id: %#v", body)
+			}
+			filters, _ := body["filters"].(map[string]any)
+			if filters["user_id"] != "user" {
+				t.Errorf("self-hosted search filters = %#v", filters)
+			}
 			_, _ = w.Write([]byte(`{"results":[{"id":"fact","memory":"stored","score":0.5}]}`))
 		case "PUT /memories/fact":
 			_, _ = w.Write([]byte(`{"id":"fact","memory":"updated"}`))
@@ -217,9 +231,10 @@ func TestMem0FiltersUseV3OperatorNames(t *testing.T) {
 	}
 	filters, err := store.mem0Filters([]Filter{
 		{Field: "lane", Operator: FilterEqual, Value: "clues"},
-		{Field: "score", Operator: FilterGreaterEqual, Value: 0.5},
-		{Field: "kind", Operator: FilterIn, Value: []string{"note", "preference"}},
-		{Field: "kind", Operator: FilterNotIn, Value: []string{"episode"}},
+		{Field: "source", Operator: FilterNotEqual, Value: "import"},
+		{Field: "created_at", Operator: FilterGreaterEqual, Value: "2026-01-01"},
+		{Field: "categories", Operator: FilterIn, Value: []string{"note", "preference"}},
+		{Field: "categories", Operator: FilterNotIn, Value: []string{"episode"}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -229,7 +244,7 @@ func TestMem0FiltersUseV3OperatorNames(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := string(raw)
-	for _, want := range []string{`"lane":"clues"`, `"gte":0.5`, `"in":["note","preference"]`, `"nin":["episode"]`} {
+	for _, want := range []string{`"metadata":{"lane":"clues"}`, `"metadata":{"source":{"ne":"import"}}`, `"gte":"2026-01-01"`, `"in":["note","preference"]`, `"NOT":{"categories":{"in":["episode"]}}`} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("filters = %s, missing %s", got, want)
 		}
@@ -237,9 +252,37 @@ func TestMem0FiltersUseV3OperatorNames(t *testing.T) {
 	if strings.Contains(got, `"$`) {
 		t.Fatalf("filters contain undocumented operators: %s", got)
 	}
-	for _, filter := range []Filter{{Field: "lane", Operator: FilterExists, Value: true}} {
+	for _, filter := range []Filter{
+		{Field: "lane", Operator: FilterExists, Value: true},
+		{Field: "score", Operator: FilterGreaterEqual, Value: 0.5},
+		{Field: "keywords", Operator: FilterEqual, Value: "invoice"},
+		{Field: mem0ObservationIDMetadata, Operator: FilterEqual, Value: "observation"},
+	} {
 		if _, err := store.mem0Filters([]Filter{filter}); !errors.Is(err, ErrUnsupported) {
 			t.Fatalf("mem0Filters(%+v) error = %v", filter, err)
+		}
+	}
+}
+
+func TestMem0FiltersORConfiguredEntityScopes(t *testing.T) {
+	t.Parallel()
+	store, err := NewMem0Store(Mem0Config{Endpoint: "https://example.test", APIKey: "key", AppID: "app", UserID: "user", AgentID: "agent", RunID: "run"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	filters, err := store.mem0Filters(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	or, _ := filters["OR"].([]any)
+	if len(or) != 4 {
+		t.Fatalf("filters = %#v", filters)
+	}
+	want := []string{"app_id", "user_id", "agent_id", "run_id"}
+	for i, field := range want {
+		clause, _ := or[i].(map[string]any)
+		if clause[field] == nil {
+			t.Fatalf("filters[%d] = %#v, want %s", i, clause, field)
 		}
 	}
 }
