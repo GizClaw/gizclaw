@@ -167,14 +167,18 @@ func (s *FlowcraftStore) rehydrateOperations(ctx context.Context) error {
 		operation := operations[id]
 		switch operation.status {
 		case flowcraftOperationStatusFailed:
+			s.state.mu.Lock()
 			s.state.failed[id] = struct{}{}
+			s.state.mu.Unlock()
 			if err := s.finalizeFailedOperations(ctx, []string{id}); err != nil {
 				return err
 			}
 			continue
 		case flowcraftOperationStatusPrepared, flowcraftOperationStatusReady:
+			s.state.mu.Lock()
 			s.state.operations[id] = ObserveResult{Operation: &Operation{ID: id, Status: OperationPending}}
 			s.state.ready[id] = struct{}{}
+			s.state.mu.Unlock()
 			continue
 		case flowcraftOperationStatusSucceeded:
 			// A completed extraction may intentionally produce no facts.
@@ -183,7 +187,9 @@ func (s *FlowcraftStore) rehydrateOperations(ctx context.Context) error {
 				continue
 			}
 			if len(operation.facts) == 0 {
+				s.state.mu.Lock()
 				s.state.operations[id] = ObserveResult{Operation: &Operation{ID: id, Status: OperationPending}}
+				s.state.mu.Unlock()
 				continue
 			}
 		default:
@@ -193,7 +199,9 @@ func (s *FlowcraftStore) rehydrateOperations(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		s.state.mu.Lock()
 		s.state.operations[id] = result
+		s.state.mu.Unlock()
 	}
 	return nil
 }

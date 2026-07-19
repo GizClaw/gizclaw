@@ -45,7 +45,7 @@ func (b DefaultBuilder) BuildGenerator(ctx context.Context, cfg GeneratorConfig)
 	}
 }
 
-func (b DefaultBuilder) BuildTransformer(_ context.Context, cfg TransformerConfig) (genx.Transformer, error) {
+func (b DefaultBuilder) BuildTransformer(ctx context.Context, cfg TransformerConfig) (genx.Transformer, error) {
 	if cfg.Voice != nil {
 		switch cfg.Tenant.Kind {
 		case string(apitypes.VoiceProviderKindVolcTenant):
@@ -74,7 +74,7 @@ func (b DefaultBuilder) BuildTransformer(_ context.Context, cfg TransformerConfi
 				return b.buildVolcRealtime(cfg)
 			case string(apitypes.ModelProviderKindDashscopeTenant):
 				if cfg.Agent {
-					return b.buildDashScopeRealtimeAgent(cfg)
+					return b.buildDashScopeRealtimeAgent(ctx, cfg)
 				}
 				return nil, fmt.Errorf("%w: dashscope realtime is only available through an Agent runtime", ErrUnsupported)
 			default:
@@ -177,7 +177,7 @@ func (b DefaultBuilder) buildVolcRealtimeAgent(cfg TransformerConfig) (genx.Tran
 	return transformers.NewDoubaoRealtimeDuplexRealtime(client, opts...), nil
 }
 
-func (b DefaultBuilder) buildDashScopeRealtimeAgent(cfg TransformerConfig) (genx.Transformer, error) {
+func (b DefaultBuilder) buildDashScopeRealtimeAgent(ctx context.Context, cfg TransformerConfig) (genx.Transformer, error) {
 	if cfg.Tenant.DashScope == nil || cfg.Model == nil {
 		return nil, fmt.Errorf("%w: dashscope tenant and model are required", ErrInvalid)
 	}
@@ -205,7 +205,8 @@ func (b DefaultBuilder) buildDashScopeRealtimeAgent(cfg TransformerConfig) (genx
 		clientOpts = append(clientOpts, dashscope.WithHTTPClient(b.HTTPClient))
 	}
 	data := mergeParams(nil, cfg.Params)
-	modelName := firstString(mapString(data, "upstream_model", "model"), providerData.UpstreamModel, string(cfg.Model.Id))
+	runtime, _ := transformers.DashScopeRealtimeCtxOptionsFromContext(ctx)
+	modelName := firstString(runtime.Model, mapString(data, "upstream_model", "model"), providerData.UpstreamModel, string(cfg.Model.Id))
 	if !dashscopeagent.SupportsFunctionCalls(modelName) {
 		return nil, fmt.Errorf("%w: dashscope realtime Agent model %q does not support function calls", ErrUnsupported, modelName)
 	}

@@ -281,7 +281,8 @@ func (p *pulledHistory) observe(chunk *genx.MessageChunk) {
 	if text, ok := chunk.Part.(genx.Text); ok {
 		state.content.WriteString(string(text))
 	}
-	commit := chunk.IsEndOfStream()
+	_, textRoute := chunk.Part.(genx.Text)
+	commit := chunk.IsEndOfStream() && textRoute
 	content := state.content.String()
 	user := p.users[streamID]
 	interrupted := chunk.Ctrl.Error == commonagent.Interrupted

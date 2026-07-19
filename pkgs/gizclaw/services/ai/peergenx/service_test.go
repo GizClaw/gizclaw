@@ -639,6 +639,29 @@ func TestDefaultBuilderBuildsDashScopeRealtimeAgentTransformer(t *testing.T) {
 	}
 }
 
+func TestDefaultBuilderUsesDashScopeRealtimeAgentRuntimeModel(t *testing.T) {
+	want := "qwen3.5-omni-flash-realtime"
+	ctx := transformers.WithDashScopeRealtimeCtxOptions(t.Context(), transformers.DashScopeRealtimeCtxOptions{Model: want})
+	tf, err := (DefaultBuilder{}).BuildTransformer(ctx, TransformerConfig{
+		Agent: true,
+		Model: &apitypes.Model{
+			Id:   "tenant-model-resource",
+			Kind: apitypes.ModelKindRealtime,
+		},
+		Tenant: Tenant{
+			Kind:      string(apitypes.ModelProviderKindDashscopeTenant),
+			DashScope: &apitypes.DashScopeTenant{Name: "main", CredentialName: "dashscope-key"},
+		},
+		Credential: apitypes.Credential{Name: "dashscope-key", Body: testDashScopeCredentialBody("runtime-key")},
+	})
+	if err != nil {
+		t.Fatalf("BuildTransformer() error = %v", err)
+	}
+	if got := transformerStringField(t, tf, "model"); got != want {
+		t.Fatalf("dashscope realtime model = %q, want runtime model %q", got, want)
+	}
+}
+
 func TestDefaultBuilderRejectsUnsupportedDashScopeRealtimeAgentModel(t *testing.T) {
 	upstream := "qwen3-omni-flash-realtime"
 	_, err := (DefaultBuilder{}).BuildTransformer(context.Background(), TransformerConfig{

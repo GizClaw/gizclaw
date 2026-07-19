@@ -1662,6 +1662,8 @@ func TestOutputObservationsForwardOnlyDevicePulledAssistantChunks(t *testing.T) 
 		t.Fatalf("produced chunks observed before pull: %#v", observer.chunks)
 	}
 	observations.observe(text)
+	audioEOS := audioChunk(assistantLabel, "stream", nil, true)
+	observations.observe(audioEOS)
 	observations.observe(interrupted)
 	if len(observer.chunks) != 2 || observer.chunks[0] != text || observer.chunks[1] != interrupted {
 		t.Fatalf("observed chunks = %#v", observer.chunks)

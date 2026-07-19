@@ -1089,9 +1089,15 @@ func (o *flowcraftOutputObservations) observe(chunk *genx.MessageChunk) {
 }
 
 func (o *flowcraftOutputObservations) observeHistory(chunk *genx.MessageChunk) {
-	if o != nil && o.observer != nil {
-		o.observer.ObserveOutput(chunk)
+	if o == nil || o.observer == nil {
+		return
 	}
+	if chunk.IsEndOfStream() {
+		if _, ok := chunk.Part.(genx.Text); !ok {
+			return
+		}
+	}
+	o.observer.ObserveOutput(chunk)
 }
 
 func (o *flowcraftOutputObservations) take(streamID string) flowcraftOutputObservation {

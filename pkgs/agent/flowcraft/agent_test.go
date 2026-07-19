@@ -442,6 +442,29 @@ func TestPulledHistoryAcceptsPendingMemoryAndReportsFailedOperation(t *testing.T
 	}
 }
 
+func TestPulledHistoryCommitsOnlyOnTextEOS(t *testing.T) {
+	history := &conversationHistory{}
+	store := &recordingMemoryStore{}
+	pulled := newPulledHistory(history, store, nil)
+	pulled.track("response-1", "hello")
+	pulled.observe(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("before"), Ctrl: &genx.StreamCtrl{StreamID: "response-1"}})
+	pulled.observe(&genx.MessageChunk{Role: genx.RoleModel, Part: &genx.Blob{}, Ctrl: &genx.StreamCtrl{StreamID: "response-1", EndOfStream: true}})
+	pulled.observe(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("after"), Ctrl: &genx.StreamCtrl{StreamID: "response-1"}})
+	pulled.observe(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "response-1", EndOfStream: true}})
+
+	messages, err := history.recent(t.Context(), 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(messages) != 1 || messages[0].Role != flowmodel.RoleAssistant || messages[0].Content() != "beforeafter" {
+		t.Fatalf("history = %#v, want complete assistant text", messages)
+	}
+	observations := store.waitForObservations(t, 1)
+	if len(observations) != 1 || len(observations[0].Turns) != 2 || observations[0].Turns[1].Text != "beforeafter" {
+		t.Fatalf("memory observations = %+v, want complete assistant text", observations)
+	}
+}
+
 func TestPulledHistoryBoundsMemoryObservationAfterEOS(t *testing.T) {
 	store := &cancelBlockingMemoryStore{started: make(chan struct{})}
 	reported := make(chan error, 1)

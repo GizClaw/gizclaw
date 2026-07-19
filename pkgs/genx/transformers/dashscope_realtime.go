@@ -216,6 +216,19 @@ func WithDashScopeRealtimeCtxOptions(ctx context.Context, opts DashScopeRealtime
 	return context.WithValue(ctx, dashScopeRealtimeCtxKey{}, opts)
 }
 
+// DashScopeRealtimeCtxOptionsFromContext returns a copy of per-Agent runtime options.
+func DashScopeRealtimeCtxOptionsFromContext(ctx context.Context) (DashScopeRealtimeCtxOptions, bool) {
+	if ctx == nil {
+		return DashScopeRealtimeCtxOptions{}, false
+	}
+	opts, ok := ctx.Value(dashScopeRealtimeCtxKey{}).(DashScopeRealtimeCtxOptions)
+	if !ok {
+		return DashScopeRealtimeCtxOptions{}, false
+	}
+	opts.Tools = append([]dashscope.FunctionTool(nil), opts.Tools...)
+	return opts, true
+}
+
 type dashScopeRealtimeSession interface {
 	UpdateSession(*dashscope.SessionConfig) error
 	AppendAudio([]byte) error
@@ -310,7 +323,7 @@ func (s *DashScopeStream) TriggerResponse() error {
 // It synchronously waits for the WebSocket connection to be established
 // and session.created event to be received before returning.
 func (t *DashScopeRealtime) Transform(ctx context.Context, _ string, input genx.Stream) (genx.Stream, error) {
-	runtime, _ := ctx.Value(dashScopeRealtimeCtxKey{}).(DashScopeRealtimeCtxOptions)
+	runtime, _ := DashScopeRealtimeCtxOptionsFromContext(ctx)
 	model := t.model
 	if value := strings.TrimSpace(runtime.Model); value != "" {
 		model = value
