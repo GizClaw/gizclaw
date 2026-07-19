@@ -85,3 +85,46 @@ func TestResponseStreamRotatesWhenProviderReusesCompletedRoute(t *testing.T) {
 		t.Fatalf("reused provider response kept StreamID %q", second.Ctrl.StreamID)
 	}
 }
+
+func TestResponseStreamRotatesOnBOSAfterCompletedRoute(t *testing.T) {
+	source := NewOutput(OutputConfig{})
+	for _, chunk := range []*genx.MessageChunk{
+		{Role: genx.RoleModel, Part: genx.Text("first"), Ctrl: &genx.StreamCtrl{StreamID: "reused"}},
+		{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "reused", EndOfStream: true}},
+		{Role: genx.RoleModel, Ctrl: &genx.StreamCtrl{StreamID: "reused", BeginOfStream: true}},
+	} {
+		_ = source.Push(chunk)
+	}
+	_ = source.Close()
+	stream, _ := NewResponseStream(source)
+	first, _ := stream.Next()
+	_, _ = stream.Next()
+	bos, _ := stream.Next()
+	if bos.Ctrl.StreamID == first.Ctrl.StreamID {
+		t.Fatalf("replacement BOS reused response ID %q", bos.Ctrl.StreamID)
+	}
+}
+
+func TestResponseStreamForwardsPullVisibleObservation(t *testing.T) {
+	var observed *genx.MessageChunk
+	source := NewOutput(OutputConfig{Observe: func(chunk *genx.MessageChunk) { observed = chunk }})
+	_ = source.Push(&genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: genx.Text("answer"),
+		Ctrl: &genx.StreamCtrl{StreamID: "provider-response"},
+	})
+	_ = source.Close()
+	stream, _ := NewResponseStream(source)
+	stream.DeferOutputObservation()
+	chunk, err := stream.Next()
+	if err != nil {
+		t.Fatalf("Next() error = %v", err)
+	}
+	if observed != nil {
+		t.Fatalf("source observed chunk before final acknowledgement: %#v", observed)
+	}
+	stream.ObserveOutput(chunk)
+	if observed == nil || observed.Ctrl == nil || observed.Ctrl.StreamID != "provider-response" {
+		t.Fatalf("forwarded observation = %#v", observed)
+	}
+}

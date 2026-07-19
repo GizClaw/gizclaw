@@ -21,6 +21,13 @@ func TestNew(t *testing.T) {
 	if transformer == nil {
 		t.Fatal("New() returned nil")
 	}
+	if transformer.config.ResourceID != doubaospeech.ResourceASTTranslate ||
+		transformer.config.Mode != doubaospeech.ASTTranslateModeS2T ||
+		transformer.config.InputMode != InputModeRealtime ||
+		transformer.config.SourceLanguage != defaultLanguage ||
+		transformer.config.TargetLanguage != defaultLanguage {
+		t.Fatalf("minimal Config defaults = %#v", transformer.config)
+	}
 }
 
 func TestNewCopiesConfigAndBuildsConfiguredDelegate(t *testing.T) {

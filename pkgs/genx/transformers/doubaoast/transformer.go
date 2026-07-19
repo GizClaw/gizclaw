@@ -18,6 +18,8 @@ const (
 	InputModeRealtime InputMode = "realtime"
 	// InputModePushToTalk treats each input stream boundary as one utterance.
 	InputModePushToTalk InputMode = "push-to-talk"
+
+	defaultLanguage = "zhen"
 )
 
 // Config contains immutable Doubao AST dependencies and session options.
@@ -49,6 +51,21 @@ var _ genx.Transformer = (*Transformer)(nil)
 func New(config Config) (*Transformer, error) {
 	if config.Client == nil {
 		return nil, fmt.Errorf("doubao ast: client is required")
+	}
+	if config.ResourceID == "" {
+		config.ResourceID = doubaospeech.ResourceASTTranslate
+	}
+	if config.Mode == "" {
+		config.Mode = doubaospeech.ASTTranslateModeS2T
+	}
+	if config.InputMode == "" {
+		config.InputMode = InputModeRealtime
+	}
+	if config.SourceLanguage == "" {
+		config.SourceLanguage = defaultLanguage
+	}
+	if config.TargetLanguage == "" {
+		config.TargetLanguage = defaultLanguage
 	}
 	config.Denoise = cloneBool(config.Denoise)
 	config.RealtimePacing = cloneBool(config.RealtimePacing)

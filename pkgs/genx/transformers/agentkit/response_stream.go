@@ -14,8 +14,9 @@ import (
 type ResponseStream struct {
 	source genx.Stream
 
-	mu        sync.Mutex
-	responses map[string]*responseRouteState
+	mu                 sync.Mutex
+	responses          map[string]*responseRouteState
+	upstreamByResponse map[string]string
 }
 
 var _ genx.Stream = (*ResponseStream)(nil)
@@ -26,12 +27,21 @@ type responseRouteState struct {
 	terminal bool
 }
 
+type outputObservationStream interface {
+	DeferOutputObservation()
+	ObserveOutput(*genx.MessageChunk)
+}
+
 // NewResponseStream wraps a provider output stream with response-ID isolation.
 func NewResponseStream(source genx.Stream) (*ResponseStream, error) {
 	if source == nil {
 		return nil, fmt.Errorf("agentkit: response source is required")
 	}
-	return &ResponseStream{source: source, responses: make(map[string]*responseRouteState)}, nil
+	return &ResponseStream{
+		source:             source,
+		responses:          make(map[string]*responseRouteState),
+		upstreamByResponse: make(map[string]string),
+	}, nil
 }
 
 // Next returns the next chunk, replacing model response IDs with invocation-
@@ -70,6 +80,44 @@ func (s *ResponseStream) CloseWithError(err error) error {
 	return s.source.CloseWithError(err)
 }
 
+// DeferOutputObservation forwards pull-visible observation control to the
+// wrapped producer when it supports that optional contract.
+func (s *ResponseStream) DeferOutputObservation() {
+	if s == nil {
+		return
+	}
+	if observer, ok := s.source.(outputObservationStream); ok {
+		observer.DeferOutputObservation()
+	}
+}
+
+// ObserveOutput acknowledges a chunk at the final pull boundary. The wrapped
+// producer receives its original provider StreamID rather than the response-
+// local ID exposed by this stream.
+func (s *ResponseStream) ObserveOutput(chunk *genx.MessageChunk) {
+	if s == nil || chunk == nil {
+		return
+	}
+	observer, ok := s.source.(outputObservationStream)
+	if !ok {
+		return
+	}
+	observed := chunk
+	if chunk.Ctrl != nil {
+		s.mu.Lock()
+		upstream, mapped := s.upstreamByResponse[chunk.Ctrl.StreamID]
+		s.mu.Unlock()
+		if mapped {
+			copyChunk := *chunk
+			copyCtrl := *chunk.Ctrl
+			copyCtrl.StreamID = upstream
+			copyChunk.Ctrl = &copyCtrl
+			observed = &copyChunk
+		}
+	}
+	observer.ObserveOutput(observed)
+}
+
 func (s *ResponseStream) responseID(upstream string, chunk *genx.MessageChunk) string {
 	upstream = strings.TrimSpace(upstream)
 	key := upstream
@@ -80,12 +128,13 @@ func (s *ResponseStream) responseID(upstream string, chunk *genx.MessageChunk) s
 	defer s.mu.Unlock()
 	state := s.responses[key]
 	mimeType, hasMIME := chunk.MIMEType()
-	if state != nil && !chunk.IsEndOfStream() && (state.terminal || hasMIME && state.routes[mimeType]) {
+	if state != nil && !chunk.IsEndOfStream() && (state.terminal || hasMIME && state.routes[mimeType] || chunk.IsBeginOfStream() && hasCompletedRoute(state.routes)) {
 		state = nil
 	}
 	if state == nil {
 		state = &responseRouteState{streamID: genx.NewStreamID(), routes: make(map[string]bool)}
 		s.responses[key] = state
+		s.upstreamByResponse[state.streamID] = upstream
 	}
 	if hasMIME {
 		state.routes[mimeType] = chunk.IsEndOfStream()
@@ -93,4 +142,13 @@ func (s *ResponseStream) responseID(upstream string, chunk *genx.MessageChunk) s
 		state.terminal = true
 	}
 	return state.streamID
+}
+
+func hasCompletedRoute(routes map[string]bool) bool {
+	for _, done := range routes {
+		if done {
+			return true
+		}
+	}
+	return false
 }
