@@ -262,7 +262,7 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 }
 
 func (r *Runtime) ListPets(ctx context.Context, owner string, req apitypes.GameplayListRequest) (apitypes.PetListResponse, error) {
-	items, hasNext, next, err := listOwnerRows(ctx, r, owner, "gameplay_pets", req, scanPet)
+	items, hasNext, next, err := listOwnerRows(ctx, r, owner, "gameplay_pets", true, req, scanPet)
 	return apitypes.PetListResponse{Items: items, HasNext: hasNext, NextCursor: next}, err
 }
 
@@ -587,7 +587,7 @@ func (r *Runtime) GetPoints(ctx context.Context, owner, runtimeProfileName strin
 }
 
 func (r *Runtime) ListPointsTransactions(ctx context.Context, owner string, req apitypes.GameplayListRequest) (apitypes.PointsTransactionListResponse, error) {
-	items, hasNext, next, err := listOwnerRows(ctx, r, owner, "gameplay_points_transactions", req, scanPointsTransaction)
+	items, hasNext, next, err := listOwnerRows(ctx, r, owner, "gameplay_points_transactions", true, req, scanPointsTransaction)
 	return apitypes.PointsTransactionListResponse{Items: items, HasNext: hasNext, NextCursor: next}, err
 }
 
@@ -600,7 +600,7 @@ func (r *Runtime) GetPointsTransaction(ctx context.Context, owner, id string) (a
 }
 
 func (r *Runtime) ListBadges(ctx context.Context, owner string, req apitypes.GameplayListRequest) (apitypes.BadgeListResponse, error) {
-	items, hasNext, next, err := listOwnerRows(ctx, r, owner, "gameplay_badges", req, scanBadge)
+	items, hasNext, next, err := listOwnerRows(ctx, r, owner, "gameplay_badges", false, req, scanBadge)
 	return apitypes.BadgeListResponse{Items: items, HasNext: hasNext, NextCursor: next}, err
 }
 
@@ -626,7 +626,7 @@ func (r *Runtime) OwnerHasBadgeDef(ctx context.Context, owner, badgeDefID string
 }
 
 func (r *Runtime) ListGameResults(ctx context.Context, owner string, req apitypes.GameplayListRequest) (apitypes.GameResultListResponse, error) {
-	items, hasNext, next, err := listOwnerRows(ctx, r, owner, "gameplay_game_results", req, scanGameResult)
+	items, hasNext, next, err := listOwnerRows(ctx, r, owner, "gameplay_game_results", true, req, scanGameResult)
 	return apitypes.GameResultListResponse{Items: items, HasNext: hasNext, NextCursor: next}, err
 }
 
@@ -639,7 +639,7 @@ func (r *Runtime) GetGameResult(ctx context.Context, owner, id string) (apitypes
 }
 
 func (r *Runtime) ListRewardGrants(ctx context.Context, owner string, req apitypes.GameplayListRequest) (apitypes.RewardGrantListResponse, error) {
-	items, hasNext, next, err := listOwnerRows(ctx, r, owner, "gameplay_reward_grants", req, scanRewardGrant)
+	items, hasNext, next, err := listOwnerRows(ctx, r, owner, "gameplay_reward_grants", true, req, scanRewardGrant)
 	return apitypes.RewardGrantListResponse{Items: items, HasNext: hasNext, NextCursor: next}, err
 }
 

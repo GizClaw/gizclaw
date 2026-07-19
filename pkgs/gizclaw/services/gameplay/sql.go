@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -250,7 +251,7 @@ func insertRewardGrant(ctx context.Context, tx *sqlx.Tx, item apitypes.RewardGra
 	return err
 }
 
-func listOwnerRows[T any](ctx context.Context, r *Runtime, owner, table string, req apitypes.GameplayListRequest, scan func(rowScanner) (T, error)) ([]T, bool, *string, error) {
+func listOwnerRows[T any](ctx context.Context, r *Runtime, owner, table string, profileScoped bool, req apitypes.GameplayListRequest, scan func(rowScanner) (T, error)) ([]T, bool, *string, error) {
 	if err := requireOwner(owner); err != nil {
 		return nil, false, nil, err
 	}
@@ -260,6 +261,14 @@ func listOwnerRows[T any](ctx context.Context, r *Runtime, owner, table string, 
 	cursor, limit := normalizeRuntimeListParams(req.Cursor, req.Limit)
 	query := fmt.Sprintf(`SELECT * FROM %s WHERE owner_public_key = ?`, table)
 	args := []any{owner}
+	if profile, registered := runtimeProfileFromContext(ctx); registered && profileScoped {
+		profileName := strings.TrimSpace(profile.Name)
+		if profileName == "" {
+			return nil, false, nil, errors.New("gameplay: RuntimeProfile is required")
+		}
+		query += ` AND runtime_profile_name = ?`
+		args = append(args, profileName)
+	}
 	if cursor != "" {
 		query += ` AND id > ?`
 		args = append(args, cursor)

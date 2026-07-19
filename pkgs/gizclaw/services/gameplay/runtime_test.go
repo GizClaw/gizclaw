@@ -46,6 +46,99 @@ func TestRuntimeAdoptDoesNotDeleteExistingSystemWorkspaceOnIDCollision(t *testin
 	}
 }
 
+func TestRuntimeProfileScopesGameplayLists(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 19, 6, 0, 0, 0, time.UTC)
+	db := testDB(t)
+	runtime := &Runtime{DB: db}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatalf("Migration() error = %v", err)
+	}
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		t.Fatalf("BeginTxx() error = %v", err)
+	}
+	defer tx.Rollback()
+	for _, profileName := range []string{"profile-a", "profile-b"} {
+		petID := profileName + "-pet"
+		if err := insertPet(ctx, tx, apitypes.Pet{
+			OwnerPublicKey:     "peer-a",
+			Id:                 petID,
+			RuntimeProfileName: profileName,
+			PetdefId:           "petdef-basic",
+			DisplayName:        petID,
+			WorkspaceName:      profileName + "-workspace",
+			Life:               apitypes.PetLife{"hunger": 100},
+			Progression:        apitypes.PetProgression{"xp": 0},
+			LastActiveAt:       now,
+			CreatedAt:          now,
+			UpdatedAt:          now,
+		}); err != nil {
+			t.Fatalf("insertPet(%s) error = %v", profileName, err)
+		}
+		if err := insertPointsTransaction(ctx, tx, apitypes.PointsTransaction{
+			OwnerPublicKey:     "peer-a",
+			Id:                 profileName + "-transaction",
+			RuntimeProfileName: profileName,
+			PetId:              &petID,
+			Reason:             "test",
+			SourceType:         "test",
+			SourceId:           profileName,
+			CreatedAt:          now,
+		}); err != nil {
+			t.Fatalf("insertPointsTransaction(%s) error = %v", profileName, err)
+		}
+		if err := insertGameResult(ctx, tx, apitypes.GameResult{
+			OwnerPublicKey:     "peer-a",
+			Id:                 profileName + "-result",
+			RuntimeProfileName: profileName,
+			PetId:              petID,
+			GameDefId:          "game-basic",
+			OccurredAt:         now,
+			CreatedAt:          now,
+		}); err != nil {
+			t.Fatalf("insertGameResult(%s) error = %v", profileName, err)
+		}
+		if err := insertRewardGrant(ctx, tx, apitypes.RewardGrant{
+			OwnerPublicKey:     "peer-a",
+			Id:                 profileName + "-grant",
+			RuntimeProfileName: profileName,
+			PetId:              &petID,
+			BadgeExpDelta:      map[string]int64{},
+			SourceType:         "test",
+			SourceId:           profileName,
+			CreatedAt:          now,
+		}); err != nil {
+			t.Fatalf("insertRewardGrant(%s) error = %v", profileName, err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("Commit() error = %v", err)
+	}
+
+	profileCtx := WithRuntimeProfile(ctx, apitypes.RuntimeProfile{Name: "profile-a"})
+	pets, err := runtime.ListPets(profileCtx, "peer-a", apitypes.GameplayListRequest{})
+	if err != nil || len(pets.Items) != 1 || pets.Items[0].RuntimeProfileName != "profile-a" {
+		t.Fatalf("ListPets(profile-a) = %#v, %v", pets, err)
+	}
+	transactions, err := runtime.ListPointsTransactions(profileCtx, "peer-a", apitypes.GameplayListRequest{})
+	if err != nil || len(transactions.Items) != 1 || transactions.Items[0].RuntimeProfileName != "profile-a" {
+		t.Fatalf("ListPointsTransactions(profile-a) = %#v, %v", transactions, err)
+	}
+	results, err := runtime.ListGameResults(profileCtx, "peer-a", apitypes.GameplayListRequest{})
+	if err != nil || len(results.Items) != 1 || results.Items[0].RuntimeProfileName != "profile-a" {
+		t.Fatalf("ListGameResults(profile-a) = %#v, %v", results, err)
+	}
+	grants, err := runtime.ListRewardGrants(profileCtx, "peer-a", apitypes.GameplayListRequest{})
+	if err != nil || len(grants.Items) != 1 || grants.Items[0].RuntimeProfileName != "profile-a" {
+		t.Fatalf("ListRewardGrants(profile-a) = %#v, %v", grants, err)
+	}
+	allPets, err := runtime.ListPets(ctx, "peer-a", apitypes.GameplayListRequest{})
+	if err != nil || len(allPets.Items) != 2 {
+		t.Fatalf("ListPets(admin owner view) = %#v, %v", allPets, err)
+	}
+}
+
 func TestResolvePetContextRequiresExactlyOneWorkspaceBinding(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 7, 15, 9, 0, 0, 0, time.UTC)

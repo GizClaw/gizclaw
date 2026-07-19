@@ -116,7 +116,11 @@ func (s *Server) handlePetList(ctx context.Context, req *rpcapi.RPCRequest) *rpc
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	resp, err := runtime.ListPets(ctx, s.Caller.String(), apiParams)
+	profileCtx, failure := s.gameplayProfileContext(ctx, req.Id)
+	if failure != nil {
+		return failure
+	}
+	resp, err := runtime.ListPets(profileCtx, s.Caller.String(), apiParams)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -397,7 +401,11 @@ func (s *Server) handlePointsTransactionsList(ctx context.Context, req *rpcapi.R
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	resp, err := runtime.ListPointsTransactions(ctx, s.Caller.String(), apiParams)
+	profileCtx, failure := s.gameplayProfileContext(ctx, req.Id)
+	if failure != nil {
+		return failure
+	}
+	resp, err := runtime.ListPointsTransactions(profileCtx, s.Caller.String(), apiParams)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -469,7 +477,11 @@ func (s *Server) handleGameResultList(ctx context.Context, req *rpcapi.RPCReques
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	resp, err := runtime.ListGameResults(ctx, s.Caller.String(), apiParams)
+	profileCtx, failure := s.gameplayProfileContext(ctx, req.Id)
+	if failure != nil {
+		return failure
+	}
+	resp, err := runtime.ListGameResults(profileCtx, s.Caller.String(), apiParams)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -505,7 +517,11 @@ func (s *Server) handleRewardGrantList(ctx context.Context, req *rpcapi.RPCReque
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	resp, err := runtime.ListRewardGrants(ctx, s.Caller.String(), apiParams)
+	profileCtx, failure := s.gameplayProfileContext(ctx, req.Id)
+	if failure != nil {
+		return failure
+	}
+	resp, err := runtime.ListRewardGrants(profileCtx, s.Caller.String(), apiParams)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
