@@ -1,4 +1,4 @@
-package memory
+package flowcraft
 
 import (
 	"context"
@@ -10,50 +10,49 @@ import (
 	"time"
 
 	"github.com/GizClaw/flowcraft/memory/recall"
-	flowworkspace "github.com/GizClaw/flowcraft/memory/recall/store/workspace"
 	"github.com/GizClaw/flowcraft/sdk/errdefs"
+	memorystore "github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
-// FlowcraftStore adapts embedded Flowcraft recall memory to Store.
-type FlowcraftStore struct {
-	config   FlowcraftConfig
-	scope    recall.Scope
+// Store adapts embedded Flowcraft recall memory to Store.
+type Store struct {
+	config   Config
 	memory   recall.Memory
 	temporal recall.TemporalStore
 	queue    *flowcraftAsyncQueue
-	backend  *flowworkspace.Backend
 
 	mu         sync.Mutex
 	waitGate   chan struct{}
-	operations map[string]ObserveResult
+	operations map[string]observeResult
 	ready      map[string]struct{}
 	failed     map[string]struct{}
 	closeOnce  sync.Once
 	closeErr   error
 }
 
-func newFlowcraftStore(config FlowcraftConfig, memory recall.Memory, temporal recall.TemporalStore, queue *flowcraftAsyncQueue, backend *flowworkspace.Backend) *FlowcraftStore {
+func newStore(config Config, memory recall.Memory, temporal recall.TemporalStore, queue *flowcraftAsyncQueue) *Store {
 	waitGate := make(chan struct{}, 1)
 	waitGate <- struct{}{}
-	return &FlowcraftStore{
-		config: config, scope: config.scope(), memory: memory, temporal: temporal, queue: queue, backend: backend,
-		waitGate: waitGate, operations: make(map[string]ObserveResult), ready: make(map[string]struct{}), failed: make(map[string]struct{}),
+	return &Store{
+		config: config, memory: memory, temporal: temporal, queue: queue,
+		waitGate: waitGate, operations: make(map[string]observeResult), ready: make(map[string]struct{}), failed: make(map[string]struct{}),
 	}
 }
 
 // Observe extracts and persists facts from raw text or turns.
-func (s *FlowcraftStore) Observe(ctx context.Context, observation Observation) (ObserveResult, error) {
+func (s *Store) Observe(ctx context.Context, observation memorystore.Observation) (memorystore.ObserveResult, error) {
 	if err := validateObservation(observation); err != nil {
-		return ObserveResult{}, err
+		return observeResult{}, err
 	}
 	if err := validateFlowcraftAttributeKeys(observation.Context); err != nil {
-		return ObserveResult{}, err
+		return observeResult{}, err
 	}
-	if s.config.ExtractionModel != "" && len(observation.Context) > 0 {
-		return ObserveResult{}, fmt.Errorf("%w: flowcraft model extraction does not support observation context", ErrUnsupported)
+	scope := nativeScope(observation.Scope)
+	if s.config.Extraction.Model != "" && len(observation.Context) > 0 {
+		return observeResult{}, fmt.Errorf("%w: flowcraft model extraction does not support observation context", errUnsupported)
 	}
 	request := recall.SaveRequest{ObservedAt: observation.ObservedAt}
-	if s.config.ExtractionModel == "" {
+	if s.config.Extraction.Model == "" {
 		parts := make([]string, 0, len(observation.Turns)+1)
 		if text := strings.TrimSpace(observation.Text); text != "" {
 			parts = append(parts, text)
@@ -79,42 +78,43 @@ func (s *FlowcraftStore) Observe(ctx context.Context, observation Observation) (
 	} else {
 		request.Turns = flowcraftTurns(observation)
 	}
-	if s.config.Async.Enabled {
+	if s.queue != nil {
 		request.Mode = recall.WriteModeAsyncSemantic
 	}
-	result, err := s.memory.Save(ctx, s.scope, request)
+	result, err := s.memory.Save(ctx, scope, request)
 	if err != nil {
-		return ObserveResult{}, mapFlowcraftError("observe", err)
+		return observeResult{}, mapFlowcraftError("observe", err)
 	}
-	if err := s.persistObservationProvenance(ctx, observation.ID, result); err != nil {
-		return ObserveResult{}, err
+	if err := s.persistObservationProvenance(ctx, scope, observation.ID, result); err != nil {
+		return observeResult{}, err
 	}
 	if result.SemanticPending {
-		out := ObserveResult{Operation: &Operation{ID: result.AsyncRequestID, Status: OperationPending}}
+		operationID := encodeLocator(scope, result.AsyncRequestID)
+		out := observeResult{Operation: &memorystore.Operation{ID: operationID, Status: operationPending}}
 		s.mu.Lock()
-		s.operations[result.AsyncRequestID] = cloneObserveResult(out)
+		s.operations[operationID] = cloneObserveResult(out)
 		s.mu.Unlock()
 		return out, nil
 	}
-	if err := s.drainSideEffects(ctx); err != nil {
-		return ObserveResult{}, err
+	if err := s.drainSideEffects(ctx, scope); err != nil {
+		return observeResult{}, err
 	}
-	facts, err := s.loadFacts(ctx, result.FactIDs)
+	facts, err := s.loadFacts(ctx, scope, result.FactIDs)
 	if err != nil {
-		return ObserveResult{}, err
+		return observeResult{}, err
 	}
-	return ObserveResult{Facts: facts}, nil
+	return observeResult{Facts: facts}, nil
 }
 
 // Recall returns facts relevant to the query.
-func (s *FlowcraftStore) Recall(ctx context.Context, query Query) (RecallResult, error) {
+func (s *Store) Recall(ctx context.Context, query memorystore.Query) (memorystore.RecallResult, error) {
 	if err := validateQuery(query); err != nil {
-		return RecallResult{}, err
+		return recallResult{}, err
 	}
 	flowQuery := recall.Query{Text: query.Text, Limit: query.Limit}
 	for _, filter := range query.Filters {
-		if filter.Operator != FilterEqual {
-			return RecallResult{}, fmt.Errorf("%w: flowcraft filter operator %q", ErrUnsupported, filter.Operator)
+		if filter.Operator != filterEqual {
+			return recallResult{}, fmt.Errorf("%w: flowcraft filter operator %q", errUnsupported, filter.Operator)
 		}
 		switch filter.Field {
 		case "subject":
@@ -128,38 +128,46 @@ func (s *FlowcraftStore) Recall(ctx context.Context, query Query) (RecallResult,
 		case "kind":
 			flowQuery.Kinds = append(flowQuery.Kinds, recall.FactKind(fmt.Sprint(filter.Value)))
 		default:
-			return RecallResult{}, fmt.Errorf("%w: flowcraft filter field %q", ErrUnsupported, filter.Field)
+			return recallResult{}, fmt.Errorf("%w: flowcraft filter field %q", errUnsupported, filter.Field)
 		}
 	}
-	hits, err := s.memory.Recall(ctx, s.scope, flowQuery)
+	scope := nativeScope(query.Scope)
+	hits, err := s.memory.Recall(ctx, scope, flowQuery)
 	if err != nil {
-		return RecallResult{}, mapFlowcraftError("recall", err)
+		return recallResult{}, mapFlowcraftError("recall", err)
 	}
-	out := RecallResult{Matches: make([]Match, len(hits))}
+	out := recallResult{Matches: make([]match, len(hits))}
 	for i, hit := range hits {
-		fact, err := s.factFromFlowcraft(ctx, hit.Fact)
+		fact, err := s.factFromFlowcraft(ctx, scope, hit.Fact)
 		if err != nil {
-			return RecallResult{}, err
+			return recallResult{}, err
 		}
-		out.Matches[i] = Match{Fact: fact, Score: hit.Score}
+		out.Matches[i] = match{Fact: fact, Score: hit.Score}
 	}
 	return out, nil
 }
 
 // Update appends a Flowcraft revision that supersedes the current fact.
-func (s *FlowcraftStore) Update(ctx context.Context, request UpdateRequest) (Fact, error) {
+func (s *Store) Update(ctx context.Context, request memorystore.UpdateRequest) (memorystore.Fact, error) {
 	if err := validateUpdate(request); err != nil {
-		return Fact{}, err
+		return fact{}, err
 	}
 	if err := validateFlowcraftAttributePatch(request.Attributes); err != nil {
-		return Fact{}, err
+		return fact{}, err
 	}
-	current, err := s.currentFact(ctx, request.ID)
+	scope, nativeID, err := decodeLocator(request.ID)
 	if err != nil {
-		return Fact{}, err
+		return fact{}, err
 	}
-	if request.ExpectedRevision != "" && request.ExpectedRevision != current.ID {
-		return Fact{}, fmt.Errorf("%w: fact %q revision changed", ErrConflict, request.ID)
+	current, err := s.currentFact(ctx, scope, nativeID)
+	if err != nil {
+		return fact{}, err
+	}
+	if request.ExpectedRevision != "" {
+		revisionScope, revisionID, decodeErr := decodeLocator(request.ExpectedRevision)
+		if decodeErr != nil || !sameScope(revisionScope, scope) || revisionID != current.ID {
+			return fact{}, fmt.Errorf("%w: fact revision changed", errConflict)
+		}
 	}
 	next := current.Clone()
 	next.ID = ""
@@ -171,7 +179,7 @@ func (s *FlowcraftStore) Update(ctx context.Context, request UpdateRequest) (Fac
 	if next.Metadata == nil {
 		next.Metadata = make(map[string]any)
 	}
-	next.Metadata[flowcraftRootIDAttribute] = request.ID
+	next.Metadata[flowcraftRootIDAttribute] = nativeID
 	if request.Text != nil {
 		next.Content = *request.Text
 	}
@@ -181,50 +189,57 @@ func (s *FlowcraftStore) Update(ctx context.Context, request UpdateRequest) (Fac
 	for _, key := range request.Attributes.Delete {
 		delete(next.Metadata, key)
 	}
-	result, err := s.memory.Save(ctx, s.scope, recall.SaveRequest{Facts: []recall.TemporalFact{next}, ObservedAt: next.ObservedAt})
+	result, err := s.memory.Save(ctx, scope, recall.SaveRequest{Facts: []recall.TemporalFact{next}, ObservedAt: next.ObservedAt})
 	if err != nil {
-		return Fact{}, mapFlowcraftError("update", err)
+		return fact{}, mapFlowcraftError("update", err)
 	}
-	if err := s.drainSideEffects(ctx); err != nil {
-		return Fact{}, err
+	if err := s.drainSideEffects(ctx, scope); err != nil {
+		return fact{}, err
 	}
 	if len(result.FactIDs) != 1 {
-		return Fact{}, fmt.Errorf("%w: flowcraft update returned %d facts", ErrUnavailable, len(result.FactIDs))
+		return fact{}, fmt.Errorf("%w: flowcraft update returned %d facts", errUnavailable, len(result.FactIDs))
 	}
-	return s.factByID(ctx, result.FactIDs[0])
+	return s.factByID(ctx, scope, result.FactIDs[0])
 }
 
 // Delete soft-retires a Flowcraft fact while preserving its audit history.
-func (s *FlowcraftStore) Delete(ctx context.Context, request DeleteRequest) error {
+func (s *Store) Delete(ctx context.Context, request memorystore.DeleteRequest) error {
 	if err := validateDelete(request); err != nil {
 		return err
 	}
-	current, err := s.currentFact(ctx, request.ID)
+	scope, nativeID, err := decodeLocator(request.ID)
 	if err != nil {
 		return err
 	}
-	if request.ExpectedRevision != "" && request.ExpectedRevision != current.ID {
-		return fmt.Errorf("%w: fact %q revision changed", ErrConflict, request.ID)
+	current, err := s.currentFact(ctx, scope, nativeID)
+	if err != nil {
+		return err
 	}
-	if err := s.memory.Forget(ctx, s.scope, current.ID, recall.ForgetSoft); err != nil {
+	if request.ExpectedRevision != "" {
+		revisionScope, revisionID, decodeErr := decodeLocator(request.ExpectedRevision)
+		if decodeErr != nil || !sameScope(revisionScope, scope) || revisionID != current.ID {
+			return fmt.Errorf("%w: fact revision changed", errConflict)
+		}
+	}
+	if err := s.memory.Forget(ctx, scope, current.ID, recall.ForgetSoft); err != nil {
 		return mapFlowcraftError("delete", err)
 	}
 	return nil
 }
 
-func (s *FlowcraftStore) currentFact(ctx context.Context, id string) (recall.TemporalFact, error) {
-	lineage, err := s.memory.Lineage(ctx, s.scope, id)
+func (s *Store) currentFact(ctx context.Context, scope recall.Scope, id string) (recall.TemporalFact, error) {
+	lineage, err := s.memory.Lineage(ctx, scope, id)
 	if err != nil {
 		return recall.TemporalFact{}, mapFlowcraftError("lineage", err)
 	}
 	if len(lineage) == 0 {
-		return recall.TemporalFact{}, fmt.Errorf("%w: fact %q", ErrNotFound, id)
+		return recall.TemporalFact{}, fmt.Errorf("%w: fact %q", errNotFound, id)
 	}
 	var current *recall.TemporalFact
 	for i := range lineage {
 		if lineage[i].Fact.CorrectedBy == "" && !lineage[i].Fact.Closed {
 			if current != nil {
-				return recall.TemporalFact{}, fmt.Errorf("%w: fact %q has multiple current revisions", ErrConflict, id)
+				return recall.TemporalFact{}, fmt.Errorf("%w: fact %q has multiple current revisions", errConflict, id)
 			}
 			fact := lineage[i].Fact
 			current = &fact
@@ -233,21 +248,21 @@ func (s *FlowcraftStore) currentFact(ctx context.Context, id string) (recall.Tem
 	if current != nil {
 		return *current, nil
 	}
-	return recall.TemporalFact{}, fmt.Errorf("%w: fact %q has no current revision", ErrNotFound, id)
+	return recall.TemporalFact{}, fmt.Errorf("%w: fact %q has no current revision", errNotFound, id)
 }
 
-func (s *FlowcraftStore) factByID(ctx context.Context, id string) (Fact, error) {
-	fact, err := s.currentFact(ctx, id)
+func (s *Store) factByID(ctx context.Context, scope recall.Scope, id string) (fact, error) {
+	nativeFact, err := s.currentFact(ctx, scope, id)
 	if err != nil {
-		return Fact{}, err
+		return fact{}, err
 	}
-	return s.factFromFlowcraft(ctx, fact)
+	return s.factFromFlowcraft(ctx, scope, nativeFact)
 }
 
-func (s *FlowcraftStore) loadFacts(ctx context.Context, ids []string) ([]Fact, error) {
-	output := make([]Fact, 0, len(ids))
+func (s *Store) loadFacts(ctx context.Context, scope recall.Scope, ids []string) ([]fact, error) {
+	output := make([]fact, 0, len(ids))
 	for _, id := range ids {
-		fact, err := s.factByID(ctx, id)
+		fact, err := s.factByID(ctx, scope, id)
 		if err != nil {
 			return nil, err
 		}
@@ -256,10 +271,10 @@ func (s *FlowcraftStore) loadFacts(ctx context.Context, ids []string) ([]Fact, e
 	return output, nil
 }
 
-func flowcraftTurns(observation Observation) []recall.TurnContext {
+func flowcraftTurns(observation observation) []recall.TurnContext {
 	turns := make([]recall.TurnContext, 0, len(observation.Turns)+1)
 	if strings.TrimSpace(observation.Text) != "" {
-		turns = append(turns, recall.TurnContext{ID: observation.ID, EvidenceID: observation.ID, SessionID: observation.ID, Role: string(RoleUser), Time: observation.ObservedAt, Text: observation.Text})
+		turns = append(turns, recall.TurnContext{ID: observation.ID, EvidenceID: observation.ID, SessionID: observation.ID, Role: string(roleUser), Time: observation.ObservedAt, Text: observation.Text})
 	}
 	for _, turn := range observation.Turns {
 		turns = append(turns, recall.TurnContext{ID: turn.ID, EvidenceID: turn.ID, SessionID: observation.ID, Role: string(turn.Role), Speaker: turn.Speaker, Time: turn.ObservedAt, Text: turn.Text})
@@ -287,25 +302,25 @@ var flowcraftReservedAttributes = map[string]struct{}{
 func validateFlowcraftAttributeKeys(attributes map[string]any) error {
 	for key := range attributes {
 		if _, reserved := flowcraftReservedAttributes[key]; reserved {
-			return fmt.Errorf("%w: flowcraft attribute %q is provider-owned", ErrUnsupported, key)
+			return fmt.Errorf("%w: flowcraft attribute %q is provider-owned", errUnsupported, key)
 		}
 	}
 	return nil
 }
 
-func validateFlowcraftAttributePatch(patch AttributePatch) error {
+func validateFlowcraftAttributePatch(patch attributePatch) error {
 	if err := validateFlowcraftAttributeKeys(patch.Set); err != nil {
 		return err
 	}
 	for _, key := range patch.Delete {
 		if _, reserved := flowcraftReservedAttributes[key]; reserved {
-			return fmt.Errorf("%w: flowcraft attribute %q is provider-owned", ErrUnsupported, key)
+			return fmt.Errorf("%w: flowcraft attribute %q is provider-owned", errUnsupported, key)
 		}
 	}
 	return nil
 }
 
-func (s *FlowcraftStore) factFromFlowcraft(ctx context.Context, input recall.TemporalFact) (Fact, error) {
+func (s *Store) factFromFlowcraft(ctx context.Context, scope recall.Scope, input recall.TemporalFact) (fact, error) {
 	turnIDs := append([]string(nil), input.SourceMessageIDs...)
 	if len(turnIDs) == 0 {
 		for _, evidence := range input.EvidenceRefs {
@@ -343,9 +358,9 @@ func (s *FlowcraftStore) factFromFlowcraft(ctx context.Context, input recall.Tem
 		createdAt = *input.ValidFrom
 	}
 	if len(input.Supersedes) > 0 {
-		lineage, err := s.memory.Lineage(ctx, s.scope, input.ID)
+		lineage, err := s.memory.Lineage(ctx, scope, input.ID)
 		if err != nil {
-			return Fact{}, mapFlowcraftError("resolve root revision", err)
+			return fact{}, mapFlowcraftError("resolve root revision", err)
 		}
 		for _, node := range lineage {
 			if (rootID != "" && node.Fact.ID == rootID) || (rootID == "" && len(node.Fact.Supersedes) == 0) {
@@ -363,30 +378,30 @@ func (s *FlowcraftStore) factFromFlowcraft(ctx context.Context, input recall.Tem
 	}
 	observationID, _ := attributes["observation_id"].(string)
 	delete(attributes, "observation_id")
-	if observationID == "" && s.config.ExtractionModel != "" {
-		resolvedObservationID, err := s.observationIDForFact(ctx, input)
+	if observationID == "" && s.config.Extraction.Model != "" {
+		resolvedObservationID, err := s.observationIDForFact(ctx, scope, input)
 		if err != nil {
-			return Fact{}, err
+			return fact{}, err
 		}
 		observationID = resolvedObservationID
 	}
-	var sources []SourceRef
+	var sources []sourceRef
 	if observationID != "" || len(turnIDs) > 0 {
-		sources = []SourceRef{{ObservationID: observationID, TurnIDs: turnIDs}}
+		sources = []sourceRef{{ObservationID: observationID, TurnIDs: turnIDs}}
 	}
-	return Fact{ID: rootID, Revision: input.ID, Text: input.Content, Attributes: attributes, Sources: sources, CreatedAt: createdAt, UpdatedAt: input.ObservedAt}, nil
+	return fact{ID: encodeLocator(scope, rootID), Revision: encodeLocator(scope, input.ID), Text: input.Content, Attributes: attributes, Sources: sources, CreatedAt: createdAt, UpdatedAt: input.ObservedAt}, nil
 }
 
-func (s *FlowcraftStore) persistObservationProvenance(ctx context.Context, observationID string, result recall.SaveResult) error {
-	if observationID == "" || s.config.ExtractionModel == "" {
+func (s *Store) persistObservationProvenance(ctx context.Context, scope recall.Scope, observationID string, result recall.SaveResult) error {
+	if observationID == "" || s.config.Extraction.Model == "" {
 		return nil
 	}
 	markers := make([]recall.TemporalFact, 0, len(result.FactIDs)+1)
 	if result.SemanticPending {
-		markers = append(markers, flowcraftProvenanceMarker(s.scope, "operation", result.AsyncRequestID, observationID, result.AsyncRequestID))
+		markers = append(markers, flowcraftProvenanceMarker(scope, "operation", result.AsyncRequestID, observationID, result.AsyncRequestID))
 	} else {
 		for _, factID := range result.FactIDs {
-			markers = append(markers, flowcraftProvenanceMarker(s.scope, "fact", factID, observationID, ""))
+			markers = append(markers, flowcraftProvenanceMarker(scope, "fact", factID, observationID, ""))
 		}
 	}
 	if err := s.temporal.Append(ctx, markers); err != nil {
@@ -419,13 +434,13 @@ func isFlowcraftProvenanceMarker(fact recall.TemporalFact) bool {
 	return marker && fact.Kind == recall.FactEpisode
 }
 
-func (s *FlowcraftStore) observationIDForFact(ctx context.Context, fact recall.TemporalFact) (string, error) {
+func (s *Store) observationIDForFact(ctx context.Context, scope recall.Scope, fact recall.TemporalFact) (string, error) {
 	if fact.Origin.RequestID != "" {
-		return s.observationIDFromMarker(ctx, "operation", fact.Origin.RequestID)
+		return s.observationIDFromMarker(ctx, scope, "operation", fact.Origin.RequestID)
 	}
 	facts := []recall.TemporalFact{fact}
 	if len(fact.Supersedes) > 0 {
-		lineage, err := s.memory.Lineage(ctx, s.scope, fact.ID)
+		lineage, err := s.memory.Lineage(ctx, scope, fact.ID)
 		if err != nil {
 			return "", mapFlowcraftError("load observation provenance lineage", err)
 		}
@@ -440,7 +455,7 @@ func (s *FlowcraftStore) observationIDForFact(ctx context.Context, fact recall.T
 		if candidate.Origin.RequestID != "" {
 			kind, key = "operation", candidate.Origin.RequestID
 		}
-		observationID, err := s.observationIDFromMarker(ctx, kind, key)
+		observationID, err := s.observationIDFromMarker(ctx, scope, kind, key)
 		if err != nil {
 			return "", err
 		}
@@ -451,17 +466,17 @@ func (s *FlowcraftStore) observationIDForFact(ctx context.Context, fact recall.T
 	return "", nil
 }
 
-func (s *FlowcraftStore) observationIDFromMarker(ctx context.Context, kind, key string) (string, error) {
-	marker, err := s.temporal.Get(ctx, s.scope, flowcraftProvenanceMarkerID(kind, key))
+func (s *Store) observationIDFromMarker(ctx context.Context, scope recall.Scope, kind, key string) (string, error) {
+	marker, err := s.temporal.Get(ctx, scope, flowcraftProvenanceMarkerID(kind, key))
 	if err != nil {
 		mapped := mapFlowcraftError("load observation provenance", err)
-		if errors.Is(mapped, ErrNotFound) {
+		if errors.Is(mapped, errNotFound) {
 			return "", nil
 		}
 		return "", mapped
 	}
 	if !isFlowcraftProvenanceMarker(marker) {
-		return "", fmt.Errorf("%w: invalid flowcraft observation provenance", ErrUnavailable)
+		return "", fmt.Errorf("%w: invalid flowcraft observation provenance", errUnavailable)
 	}
 	observationID, _ := marker.Metadata["observation_id"].(string)
 	return observationID, nil
@@ -476,17 +491,17 @@ func mapFlowcraftError(operation string, err error) error {
 	}
 	switch {
 	case errdefs.IsValidation(err):
-		return fmt.Errorf("%w: flowcraft %s: %v", ErrInvalidInput, operation, err)
+		return fmt.Errorf("%w: flowcraft %s: %v", errInvalidInput, operation, err)
 	case errdefs.IsNotFound(err):
-		return fmt.Errorf("%w: flowcraft %s", ErrNotFound, operation)
+		return fmt.Errorf("%w: flowcraft %s", errNotFound, operation)
 	case errdefs.IsConflict(err):
-		return fmt.Errorf("%w: flowcraft %s", ErrConflict, operation)
+		return fmt.Errorf("%w: flowcraft %s", errConflict, operation)
 	case errdefs.IsNotAvailable(err):
-		return fmt.Errorf("%w: flowcraft %s", ErrUnavailable, operation)
+		return fmt.Errorf("%w: flowcraft %s", errUnavailable, operation)
 	default:
 		return fmt.Errorf("flowcraft %s: %w", operation, err)
 	}
 }
 
-var _ Store = (*FlowcraftStore)(nil)
-var _ OperationWaiter = (*FlowcraftStore)(nil)
+var _ storeContract = (*Store)(nil)
+var _ operationWaiterContract = (*Store)(nil)

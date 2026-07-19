@@ -18,7 +18,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	memorystore "github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
 func TestPrepareWorkspaceConfigLoadsWorkspaceConfig(t *testing.T) {
@@ -396,19 +395,19 @@ func TestResolveWorkspaceStoreConfigsPreservesAbsoluteDirs(t *testing.T) {
 		},
 		"memory": {
 			Kind:      stores.KindMemoryStore,
-			Flowcraft: &memorystore.FlowcraftConfig{Dir: "memory"},
+			Flowcraft: &stores.FlowcraftConfig{Dir: "memory"},
 		},
 		"environment-memory": {
 			Kind:      stores.KindMemoryStore,
-			Flowcraft: &memorystore.FlowcraftConfig{Dir: "$GIZCLAW_MEMORY_DIR"},
+			Flowcraft: &stores.FlowcraftConfig{Dir: "$GIZCLAW_MEMORY_DIR"},
 		},
 		"missing-environment-memory": {
 			Kind:      stores.KindMemoryStore,
-			Flowcraft: &memorystore.FlowcraftConfig{Dir: "$GIZCLAW_MISSING_MEMORY_DIR", RuntimeID: "app", UserID: "user"},
+			Flowcraft: &stores.FlowcraftConfig{Dir: "$GIZCLAW_MISSING_MEMORY_DIR"},
 		},
 		"empty-environment-memory": {
 			Kind:      stores.KindMemoryStore,
-			Flowcraft: &memorystore.FlowcraftConfig{Dir: "$GIZCLAW_EMPTY_MEMORY_DIR", RuntimeID: "app", UserID: "user"},
+			Flowcraft: &stores.FlowcraftConfig{Dir: "$GIZCLAW_EMPTY_MEMORY_DIR"},
 		},
 	})
 	if gotStores["kv"].Dir != absoluteDir {

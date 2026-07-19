@@ -1,10 +1,11 @@
-package memory
+package flowcraft
 
 import (
 	"context"
 	"errors"
 	"testing"
 
+	"github.com/GizClaw/flowcraft/memory/recall"
 	"github.com/GizClaw/flowcraft/sdk/embedding"
 	"github.com/GizClaw/flowcraft/sdk/llm"
 )
@@ -47,12 +48,12 @@ func (testEmbedder) EmbedBatch(_ context.Context, input []string) ([][]float32, 
 	return output, nil
 }
 
-func TestOpenFlowcraftStoreLoadsConfiguredModels(t *testing.T) {
+func TestNewLoadsConfiguredModels(t *testing.T) {
 	t.Parallel()
 	loader := &testFlowcraftLoader{model: testLLM{response: `{"facts":[]}`}, embedder: testEmbedder{}}
-	store, err := OpenFlowcraftStore(context.Background(), FlowcraftConfig{
-		RuntimeID: "app", UserID: "user", ExtractionModel: "extract", EmbeddingModel: "embed", RerankModel: "rerank",
-	}, loader)
+	store, err := New(context.Background(), Config{
+		Loader: loader, Extraction: ExtractionConfig{Model: " extract "}, Embedding: EmbeddingConfig{Model: " embed "}, Rerank: RerankConfig{Model: " rerank "},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,30 +66,30 @@ func TestOpenFlowcraftStoreLoadsConfiguredModels(t *testing.T) {
 	}
 }
 
-func TestOpenFlowcraftStoreRejectsMissingLoader(t *testing.T) {
+func TestNewRejectsMissingLoader(t *testing.T) {
 	t.Parallel()
-	_, err := OpenFlowcraftStore(context.Background(), FlowcraftConfig{RuntimeID: "app", UserID: "user", ExtractionModel: "extract"}, nil)
+	_, err := New(context.Background(), Config{Extraction: ExtractionConfig{Model: "extract"}})
 	if !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("error = %v, want ErrInvalidInput", err)
 	}
 }
 
-func TestOpenFlowcraftStoreRejectsNilLoadedModels(t *testing.T) {
+func TestNewRejectsNilLoadedModels(t *testing.T) {
 	t.Parallel()
-	for _, config := range []FlowcraftConfig{
-		{RuntimeID: "app", UserID: "user", ExtractionModel: "extract"},
-		{RuntimeID: "app", UserID: "user", EmbeddingModel: "embed"},
-		{RuntimeID: "app", UserID: "user", RerankModel: "rerank"},
+	for _, config := range []Config{
+		{Loader: &testFlowcraftLoader{}, Extraction: ExtractionConfig{Model: "extract"}},
+		{Loader: &testFlowcraftLoader{}, Embedding: EmbeddingConfig{Model: "embed"}},
+		{Loader: &testFlowcraftLoader{}, Rerank: RerankConfig{Model: "rerank"}},
 	} {
-		if _, err := OpenFlowcraftStore(context.Background(), config, &testFlowcraftLoader{}); !errors.Is(err, ErrUnavailable) {
+		if _, err := New(context.Background(), config); !errors.Is(err, ErrUnavailable) {
 			t.Fatalf("config %+v error = %v", config, err)
 		}
 	}
 }
 
-func TestOpenFlowcraftStoreAcceptsAdditionalRecallOptions(t *testing.T) {
+func TestNewAcceptsInMemoryDefaults(t *testing.T) {
 	t.Parallel()
-	store, err := OpenFlowcraftStore(context.Background(), FlowcraftConfig{RuntimeID: "app", UserID: "user"}, nil, WithFlowcraftRecallOptions(nil))
+	store, err := New(context.Background(), Config{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,14 +98,12 @@ func TestOpenFlowcraftStoreAcceptsAdditionalRecallOptions(t *testing.T) {
 	}
 }
 
-func TestFlowcraftConfigValidation(t *testing.T) {
+func TestConfigValidation(t *testing.T) {
 	t.Parallel()
-	for name, config := range map[string]FlowcraftConfig{
-		"runtime":         {UserID: "user"},
-		"user":            {RuntimeID: "app"},
-		"mode":            {RuntimeID: "app", UserID: "user", ExtractionMode: "unknown"},
-		"timeout":         {RuntimeID: "app", UserID: "user", StageTimeout: -1},
-		"async extractor": {RuntimeID: "app", UserID: "user", Async: FlowcraftAsyncConfig{Enabled: true}},
+	for name, config := range map[string]Config{
+		"mode":            {Extraction: ExtractionConfig{Mode: "unknown"}},
+		"timeout":         {Extraction: ExtractionConfig{StageTimeout: -1}},
+		"async extractor": {AsyncQueue: recall.NewInMemoryAsyncSemanticQueue()},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()

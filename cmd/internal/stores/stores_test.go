@@ -14,11 +14,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/flowcraft/memory/retrieval/bbh"
 	physicalstorage "github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/graph"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	memorystore "github.com/GizClaw/gizclaw-go/pkgs/store/memory"
+	memoryvolc "github.com/GizClaw/gizclaw-go/pkgs/store/memory/volc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/goccy/go-yaml"
 	"github.com/jmoiron/sqlx"
@@ -26,9 +28,9 @@ import (
 
 type fakeDriver struct{}
 
-type memoryVolcResolverFunc func(context.Context, memorystore.VolcConfig) (string, error)
+type memoryVolcResolverFunc func(context.Context, memoryvolc.Config) (string, error)
 
-func (f memoryVolcResolverFunc) ResolveMem0APIKey(ctx context.Context, config memorystore.VolcConfig) (string, error) {
+func (f memoryVolcResolverFunc) ResolveMem0APIKey(ctx context.Context, config memoryvolc.Config) (string, error) {
 	return f(ctx, config)
 }
 
@@ -1119,8 +1121,9 @@ func TestCloseEmpty(t *testing.T) {
 }
 
 func TestMemoryRegistryFlowcraft(t *testing.T) {
+	dir := t.TempDir()
 	registry, err := NewWithStorageOptions(context.Background(), nil, map[string]Config{
-		"agent": {Kind: KindMemoryStore, Flowcraft: &memorystore.FlowcraftConfig{Dir: t.TempDir(), RuntimeID: "app", UserID: "user"}},
+		"agent": {Kind: KindMemoryStore, Flowcraft: &FlowcraftConfig{Dir: dir}},
 	}, Options{})
 	if err != nil {
 		t.Fatal(err)
@@ -1130,16 +1133,22 @@ func TestMemoryRegistryFlowcraft(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := store.Observe(context.Background(), memorystore.Observation{Text: "Remember the north gate."})
+	result, err := store.Observe(context.Background(), memorystore.Observation{Scope: "test", Text: "Remember the north gate."})
 	if err != nil || len(result.Facts) != 1 {
 		t.Fatalf("Observe() result = %+v, error = %v", result, err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "state.json")); err != nil {
+		t.Fatalf("canonical state is not stored at the configured legacy root: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "metadata", "state.json")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("unexpected relocated metadata state: %v", err)
 	}
 }
 
 func TestMemoryRegistryRejectsEmptyFlowcraftDirEnvironment(t *testing.T) {
 	t.Setenv("GIZCLAW_TEST_FLOWCRAFT_DIR", "")
 	_, err := NewWithStorageOptions(context.Background(), nil, map[string]Config{
-		"agent": {Kind: KindMemoryStore, Flowcraft: &memorystore.FlowcraftConfig{Dir: "$GIZCLAW_TEST_FLOWCRAFT_DIR", RuntimeID: "app", UserID: "user"}},
+		"agent": {Kind: KindMemoryStore, Flowcraft: &FlowcraftConfig{Dir: "$GIZCLAW_TEST_FLOWCRAFT_DIR"}},
 	}, Options{})
 	if !errors.Is(err, memorystore.ErrInvalidInput) {
 		t.Fatalf("NewWithStorageOptions() error = %v, want ErrInvalidInput", err)
@@ -1152,7 +1161,7 @@ func TestMemoryRegistryRejectsUnsetFlowcraftDirEnvironment(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err := NewWithStorageOptions(context.Background(), nil, map[string]Config{
-		"agent": {Kind: KindMemoryStore, Flowcraft: &memorystore.FlowcraftConfig{Dir: "$GIZCLAW_TEST_MISSING_FLOWCRAFT_DIR", RuntimeID: "app", UserID: "user"}},
+		"agent": {Kind: KindMemoryStore, Flowcraft: &FlowcraftConfig{Dir: "$GIZCLAW_TEST_MISSING_FLOWCRAFT_DIR"}},
 	}, Options{})
 	if !errors.Is(err, memorystore.ErrInvalidInput) {
 		t.Fatalf("NewWithStorageOptions() error = %v, want ErrInvalidInput", err)
@@ -1169,7 +1178,7 @@ func TestMemoryRegistryMem0ExpandsEnvironment(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 	registry, err := NewWithStorageOptions(context.Background(), nil, map[string]Config{
-		"agent": {Kind: KindMemoryStore, Mem0: &memorystore.Mem0Config{Endpoint: server.URL, APIKey: "$GIZCLAW_TEST_MEM0_KEY", UserID: "user"}},
+		"agent": {Kind: KindMemoryStore, Mem0: &Mem0Config{Endpoint: server.URL, APIKey: "$GIZCLAW_TEST_MEM0_KEY"}},
 	}, Options{HTTPClient: server.Client()})
 	if err != nil {
 		t.Fatal(err)
@@ -1179,7 +1188,7 @@ func TestMemoryRegistryMem0ExpandsEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Recall(context.Background(), memorystore.Query{Text: "x", Limit: 1}); err != nil {
+	if _, err := store.Recall(context.Background(), memorystore.Query{Scope: "test", Text: "x", Limit: 1}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -1192,9 +1201,9 @@ func TestMemoryRegistryVolcUsesResolver(t *testing.T) {
 		_, _ = w.Write([]byte(`{"results":[]}`))
 	}))
 	t.Cleanup(server.Close)
-	resolver := memoryVolcResolverFunc(func(context.Context, memorystore.VolcConfig) (string, error) { return "resolved-key", nil })
+	resolver := memoryVolcResolverFunc(func(context.Context, memoryvolc.Config) (string, error) { return "resolved-key", nil })
 	registry, err := NewWithStorageOptions(context.Background(), nil, map[string]Config{
-		"agent": {Kind: KindMemoryStore, VolcMemory: &memorystore.VolcConfig{Mem0: memorystore.Mem0Config{Endpoint: server.URL, UserID: "user"}, APIKeyID: "key-id"}},
+		"agent": {Kind: KindMemoryStore, VolcMemory: &VolcMemoryConfig{Mem0: Mem0Config{Endpoint: server.URL}, APIKeyID: "key-id"}},
 	}, Options{VolcResolver: resolver, HTTPClient: server.Client()})
 	if err != nil {
 		t.Fatal(err)
@@ -1204,14 +1213,14 @@ func TestMemoryRegistryVolcUsesResolver(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Recall(context.Background(), memorystore.Query{Text: "x", Limit: 1}); err != nil {
+	if _, err := store.Recall(context.Background(), memorystore.Query{Scope: "test", Text: "x", Limit: 1}); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestMemoryRegistryRejectsMultipleProviders(t *testing.T) {
 	_, err := NewWithStorageOptions(context.Background(), nil, map[string]Config{
-		"agent": {Kind: KindMemoryStore, Flowcraft: &memorystore.FlowcraftConfig{}, Mem0: &memorystore.Mem0Config{}},
+		"agent": {Kind: KindMemoryStore, Flowcraft: &FlowcraftConfig{}, Mem0: &Mem0Config{}},
 	}, Options{})
 	if err == nil || !strings.Contains(err.Error(), "exactly one") {
 		t.Fatalf("NewWithStorageOptions() error = %v", err)
@@ -1221,9 +1230,9 @@ func TestMemoryRegistryRejectsMultipleProviders(t *testing.T) {
 func TestRegistryRejectsMemoryProvidersOnOtherKinds(t *testing.T) {
 	t.Parallel()
 	for _, provider := range []Config{
-		{Flowcraft: &memorystore.FlowcraftConfig{}},
-		{Mem0: &memorystore.Mem0Config{}},
-		{VolcMemory: &memorystore.VolcConfig{}},
+		{Flowcraft: &FlowcraftConfig{}},
+		{Mem0: &Mem0Config{}},
+		{VolcMemory: &VolcMemoryConfig{}},
 	} {
 		provider.Kind = KindKeyValue
 		_, err := NewWithStorageOptions(context.Background(), nil, map[string]Config{"invalid": provider}, Options{})
@@ -1235,12 +1244,24 @@ func TestRegistryRejectsMemoryProvidersOnOtherKinds(t *testing.T) {
 
 func TestExpandMemoryConfigs(t *testing.T) {
 	t.Setenv("GIZCLAW_MEMORY_VALUE", "expanded")
-	flowcraft := memorystore.FlowcraftConfig{ExtractionMode: "$GIZCLAW_MEMORY_VALUE", SystemPrompt: "$GIZCLAW_MEMORY_VALUE", SchemaName: "$GIZCLAW_MEMORY_VALUE", Async: memorystore.FlowcraftAsyncConfig{WorkerID: "$GIZCLAW_MEMORY_VALUE"}}
+	flowcraft := FlowcraftConfig{
+		ExtractionMode: "$GIZCLAW_MEMORY_VALUE", SystemPrompt: "$GIZCLAW_MEMORY_VALUE", SchemaName: "$GIZCLAW_MEMORY_VALUE",
+		BBH: bbh.Config{Bleve: bbh.BleveConfig{
+			Analyzer: "$GIZCLAW_MEMORY_VALUE",
+			Gojieba: bbh.GojiebaConfig{
+				Mode: "$GIZCLAW_MEMORY_VALUE", DictPath: "$GIZCLAW_MEMORY_VALUE", HMMPath: "$GIZCLAW_MEMORY_VALUE",
+				UserDictPath: "$GIZCLAW_MEMORY_VALUE", IDFPath: "$GIZCLAW_MEMORY_VALUE", StopWordsPath: "$GIZCLAW_MEMORY_VALUE",
+			},
+		}},
+	}
 	expandFlowcraftConfig(&flowcraft)
-	if flowcraft.ExtractionMode != "expanded" || flowcraft.SystemPrompt != "expanded" || flowcraft.SchemaName != "expanded" || flowcraft.Async.WorkerID != "expanded" {
+	gojieba := flowcraft.BBH.Bleve.Gojieba
+	if flowcraft.ExtractionMode != "expanded" || flowcraft.SystemPrompt != "expanded" || flowcraft.SchemaName != "expanded" ||
+		flowcraft.BBH.Bleve.Analyzer != "expanded" || gojieba.Mode != "expanded" || gojieba.DictPath != "expanded" ||
+		gojieba.HMMPath != "expanded" || gojieba.UserDictPath != "expanded" || gojieba.IDFPath != "expanded" || gojieba.StopWordsPath != "expanded" {
 		t.Fatalf("flowcraft config = %+v", flowcraft)
 	}
-	mem0 := memorystore.Mem0Config{Flavor: memorystore.Mem0Flavor("$GIZCLAW_MEMORY_VALUE")}
+	mem0 := Mem0Config{Flavor: "$GIZCLAW_MEMORY_VALUE"}
 	expandMem0Config(&mem0)
 	if mem0.Flavor != "expanded" {
 		t.Fatalf("mem0 flavor = %q", mem0.Flavor)

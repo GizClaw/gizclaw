@@ -10,10 +10,10 @@ func TestRequestValidation(t *testing.T) {
 	if err := validateObservation(Observation{}); !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("validateObservation() error = %v, want ErrInvalidInput", err)
 	}
-	if err := validateObservation(Observation{Turns: []Turn{{Role: RoleUser, Text: "remember", Attributes: map[string]any{"channel": "voice"}}}}); !errors.Is(err, ErrUnsupported) {
+	if err := validateObservation(Observation{Scope: "scope", Turns: []Turn{{Role: RoleUser, Text: "remember", Attributes: map[string]any{"channel": "voice"}}}}); !errors.Is(err, ErrUnsupported) {
 		t.Fatalf("validateObservation() turn attributes error = %v, want ErrUnsupported", err)
 	}
-	if err := validateQuery(Query{Text: "where", Limit: 0}); !errors.Is(err, ErrInvalidInput) {
+	if err := validateQuery(Query{Scope: "scope", Text: "where", Limit: 0}); !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("validateQuery() error = %v, want ErrInvalidInput", err)
 	}
 	if err := validateFilter(Filter{Field: "kind", Operator: FilterIn, Value: []string{}}); !errors.Is(err, ErrInvalidInput) {

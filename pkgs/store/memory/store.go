@@ -1,5 +1,4 @@
-// Package memory defines a provider-neutral long-term memory store and its
-// embedded and remote provider implementations.
+// Package memory defines the provider-neutral long-term memory contract.
 package memory
 
 import (

@@ -27,10 +27,15 @@ type Turn struct {
 	Attributes map[string]any
 }
 
+// Scope is an opaque product-owned memory namespace. Provider adapters map it
+// to their native routing fields without exposing those fields to callers.
+type Scope string
+
 // Observation is raw material submitted for fact extraction. Text, Turns, or
 // both may be set. Context is extraction input and is not required to be copied
 // into resulting fact attributes.
 type Observation struct {
+	Scope      Scope
 	ID         string
 	Text       string
 	Turns      []Turn
@@ -82,6 +87,7 @@ type Filter struct {
 // Query selects facts relevant to Text. Limit must be positive. Matches are
 // returned in descending relevance order.
 type Query struct {
+	Scope   Scope
 	Text    string
 	Limit   int
 	Filters []Filter
@@ -146,7 +152,11 @@ type DeleteRequest struct {
 	ExpectedRevision string
 }
 
-func validateObservation(observation Observation) error {
+// ValidateObservation validates provider-neutral observation fields.
+func ValidateObservation(observation Observation) error {
+	if strings.TrimSpace(string(observation.Scope)) == "" {
+		return fmt.Errorf("%w: observation scope is required", ErrInvalidInput)
+	}
 	if strings.TrimSpace(observation.Text) == "" && len(observation.Turns) == 0 {
 		return fmt.Errorf("%w: observation requires text or turns", ErrInvalidInput)
 	}
@@ -164,7 +174,11 @@ func validateObservation(observation Observation) error {
 	return nil
 }
 
-func validateQuery(query Query) error {
+// ValidateQuery validates provider-neutral recall fields.
+func ValidateQuery(query Query) error {
+	if strings.TrimSpace(string(query.Scope)) == "" {
+		return fmt.Errorf("%w: query scope is required", ErrInvalidInput)
+	}
 	if strings.TrimSpace(query.Text) == "" {
 		return fmt.Errorf("%w: query text is required", ErrInvalidInput)
 	}
@@ -203,7 +217,8 @@ func validateFilter(filter Filter) error {
 	return nil
 }
 
-func validateUpdate(request UpdateRequest) error {
+// ValidateUpdate validates a provider-neutral fact update.
+func ValidateUpdate(request UpdateRequest) error {
 	if strings.TrimSpace(request.ID) == "" {
 		return fmt.Errorf("%w: update fact id is required", ErrInvalidInput)
 	}
@@ -232,12 +247,20 @@ func validateUpdate(request UpdateRequest) error {
 	return nil
 }
 
-func validateDelete(request DeleteRequest) error {
+// ValidateDelete validates a provider-neutral fact delete.
+func ValidateDelete(request DeleteRequest) error {
 	if strings.TrimSpace(request.ID) == "" {
 		return fmt.Errorf("%w: delete fact id is required", ErrInvalidInput)
 	}
 	return nil
 }
+
+// Unexported wrappers keep the validation implementation centralized while
+// package-local tests exercise the same public contract provider adapters use.
+func validateObservation(observation Observation) error { return ValidateObservation(observation) }
+func validateQuery(query Query) error                   { return ValidateQuery(query) }
+func validateUpdate(request UpdateRequest) error        { return ValidateUpdate(request) }
+func validateDelete(request DeleteRequest) error        { return ValidateDelete(request) }
 
 func validRole(role Role) bool {
 	switch role {
