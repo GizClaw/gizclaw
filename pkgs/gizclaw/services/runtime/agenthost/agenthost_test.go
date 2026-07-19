@@ -361,6 +361,51 @@ func TestToolkitContextBuildAgentToolkitInvokesAndClones(t *testing.T) {
 	}
 }
 
+func TestAgentToolkitDoesNotInvokeReplacementWithDeclaredName(t *testing.T) {
+	ctx := t.Context()
+	toolName := "echo"
+	store := &toolkit.Server{Store: kv.NewMemory(nil)}
+	original := toolkit.Tool{
+		ID: "system.toolkit.original", Name: &toolName, Source: toolkit.ToolSourceBuiltin, Enabled: true,
+		InputSchema: jsonschema.Schema{Type: "object"},
+		Executor:    toolkit.ToolExecutor{Kind: toolkit.ToolExecutorKindBuiltin, Name: &toolName},
+	}
+	if _, err := store.PutTool(ctx, original); err != nil {
+		t.Fatal(err)
+	}
+	toolContext := &ToolkitContext{
+		Builder: &toolkit.Builder{Tools: store}, Executors: toolkit.NewExecutorRegistry(),
+		BuildRequest: toolkit.BuildRequest{ProfileToolIDs: []string{original.ID}},
+	}
+	called := false
+	if err := toolContext.Executors.Register(toolName, toolkit.ExecutorFunc(func(context.Context, toolkit.Call) (toolkit.Result, error) {
+		called = true
+		return toolkit.Result{Data: json.RawMessage(`{"wrong":true}`)}, nil
+	})); err != nil {
+		t.Fatal(err)
+	}
+	agentTools, err := toolContext.BuildAgentToolkit(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.DeleteTool(ctx, original.ID); err != nil {
+		t.Fatal(err)
+	}
+	replacement := original
+	replacement.ID = "system.toolkit.replacement"
+	if _, err := store.PutTool(ctx, replacement); err != nil {
+		t.Fatal(err)
+	}
+	toolContext.BuildRequest.ProfileToolIDs = []string{replacement.ID}
+	result, err := agentTools.Invoke(ctx, commonagent.ToolCall{ID: "call-1", Name: toolName, Arguments: json.RawMessage(`{}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError || !strings.Contains(string(result.Content), "tool_not_found") || called {
+		t.Fatalf("Invoke() = %+v, called=%v; want declared Tool ID rejection", result, called)
+	}
+}
+
 func TestAgentToolkitMapsBusinessFailureToStructuredResult(t *testing.T) {
 	resolved := agentToolkit{context: &ToolkitContext{}, tools: []commonagent.Tool{{Name: "missing"}}}
 	result, err := resolved.Invoke(t.Context(), commonagent.ToolCall{ID: "call-1", Name: "missing", Arguments: json.RawMessage(`{}`)})

@@ -61,6 +61,33 @@ func TestBuilderInvokeUsesAllowedToolsACLAndExecutor(t *testing.T) {
 	}
 }
 
+func TestBuilderInvokeRejectsDifferentToolForDeclaredID(t *testing.T) {
+	ctx := t.Context()
+	store := &Server{Store: kv.NewMemory(nil)}
+	replacement := testBuiltinTool("system.music.replacement")
+	replacement.Name = stringPtr("play_music")
+	if _, err := store.PutTool(ctx, replacement); err != nil {
+		t.Fatal(err)
+	}
+	called := false
+	executors := NewExecutorRegistry()
+	if err := executors.Register("music.play", ExecutorFunc(func(context.Context, Call) (Result, error) {
+		called = true
+		return Result{}, nil
+	})); err != nil {
+		t.Fatal(err)
+	}
+	_, err := (&Builder{Tools: store}).Invoke(ctx, executors, InvokeRequest{
+		Build:          BuildRequest{ProfileToolIDs: []string{replacement.ID}},
+		DeclaredToolID: "system.music.original",
+		Name:           "play_music",
+		Args:           json.RawMessage(`{}`),
+	})
+	if !errors.Is(err, ErrToolNotFound) || called {
+		t.Fatalf("Invoke() = %v, called=%v; want Tool ID mismatch rejection", err, called)
+	}
+}
+
 func TestBuilderInvokeRejectsAdvertisedNameAndIDCollision(t *testing.T) {
 	ctx := context.Background()
 	store := &Server{Store: kv.NewMemory(nil)}

@@ -8,10 +8,11 @@ import (
 )
 
 type InvokeRequest struct {
-	Build  BuildRequest
-	CallID string
-	Name   string
-	Args   json.RawMessage
+	Build          BuildRequest
+	CallID         string
+	DeclaredToolID string
+	Name           string
+	Args           json.RawMessage
 }
 
 func (b *Builder) Invoke(ctx context.Context, executors *ExecutorRegistry, req InvokeRequest) (Result, error) {
@@ -29,6 +30,9 @@ func (b *Builder) Invoke(ctx context.Context, executors *ExecutorRegistry, req I
 	}
 	if !ok {
 		return Result{}, fmt.Errorf("%w: %s", ErrToolNotFound, name)
+	}
+	if toolID := strings.TrimSpace(req.DeclaredToolID); toolID != "" && tool.ID != toolID {
+		return Result{}, fmt.Errorf("%w: declared tool %q no longer resolves from name %q", ErrToolNotFound, toolID, name)
 	}
 	args := normalizeToolArgs(req.Args)
 	if err := validateToolArgs(tool, args); err != nil {

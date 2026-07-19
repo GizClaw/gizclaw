@@ -30,14 +30,19 @@ func (c *ToolkitContext) BuildToolkit(ctx context.Context) (toolkit.ToolKit, err
 }
 
 func (c *ToolkitContext) Invoke(ctx context.Context, callID, name string, args json.RawMessage) (toolkit.Result, error) {
+	return c.invoke(ctx, callID, "", name, args)
+}
+
+func (c *ToolkitContext) invoke(ctx context.Context, callID, toolID, name string, args json.RawMessage) (toolkit.Result, error) {
 	if c == nil || c.Builder == nil || c.Executors == nil {
 		return toolkit.Result{}, toolkit.ErrNotConfigured
 	}
 	return c.Builder.Invoke(ctx, c.Executors, toolkit.InvokeRequest{
-		Build:  c.requestForContext(ctx),
-		CallID: callID,
-		Name:   name,
-		Args:   args,
+		Build:          c.requestForContext(ctx),
+		CallID:         callID,
+		DeclaredToolID: toolID,
+		Name:           name,
+		Args:           args,
 	})
 }
 
@@ -85,11 +90,11 @@ func (t agentToolkit) Tools() []commonagent.Tool {
 }
 
 func (t agentToolkit) Invoke(ctx context.Context, call commonagent.ToolCall) (commonagent.ToolResult, error) {
-	declared := slices.ContainsFunc(t.tools, func(tool commonagent.Tool) bool { return tool.Name == call.Name })
-	if !declared {
+	declaredIndex := slices.IndexFunc(t.tools, func(tool commonagent.Tool) bool { return tool.Name == call.Name })
+	if declaredIndex < 0 {
 		return commonagent.ErrorToolResult(call.ID, "tool_not_found", fmt.Sprintf("tool %q was not declared by this Toolkit", call.Name)), nil
 	}
-	result, err := t.context.Invoke(ctx, call.ID, call.Name, slices.Clone(call.Arguments))
+	result, err := t.context.invoke(ctx, call.ID, t.tools[declaredIndex].ID, call.Name, slices.Clone(call.Arguments))
 	if err != nil {
 		if cause := ctx.Err(); cause != nil {
 			return commonagent.ToolResult{}, cause
