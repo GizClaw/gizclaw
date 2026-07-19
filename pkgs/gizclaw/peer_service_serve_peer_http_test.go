@@ -69,7 +69,7 @@ func TestPeerServicePublicHTTPHandlerAllowsBrowserPreflight(t *testing.T) {
 	req := httptest.NewRequest(http.MethodOptions, "/webrtc/v1/offer", nil)
 	req.Header.Set("Origin", "wails://wails.localhost")
 	req.Header.Set("Access-Control-Request-Method", http.MethodPost)
-	req.Header.Set("Access-Control-Request-Headers", "content-type,x-giznet-nonce,x-giznet-public-key,x-giznet-timestamp")
+	req.Header.Set("Access-Control-Request-Headers", "content-type,x-registration-token,x-giznet-nonce,x-giznet-public-key,x-giznet-timestamp")
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
@@ -81,6 +81,8 @@ func TestPeerServicePublicHTTPHandlerAllowsBrowserPreflight(t *testing.T) {
 	}
 	if got := rec.Header().Get("Access-Control-Allow-Headers"); got == "" {
 		t.Fatal("Access-Control-Allow-Headers is empty")
+	} else if !strings.Contains(got, publiclogin.RegistrationTokenHeader) {
+		t.Fatalf("Access-Control-Allow-Headers = %q, want %s", got, publiclogin.RegistrationTokenHeader)
 	}
 
 	req = httptest.NewRequest(http.MethodOptions, "/me/status", nil)
