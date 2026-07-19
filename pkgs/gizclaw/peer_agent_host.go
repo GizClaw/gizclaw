@@ -24,13 +24,15 @@ func newPeerAgentHost(base *agenthost.Host, peerGenX *peergenx.Service, pets pet
 	host.RuntimeRegistry = base.WorkspaceRuntimes()
 
 	var transformer genx.Transformer
+	var agentTransformer genx.Transformer
 	if peerGenX != nil {
 		transformer = peerGenX.Transformer()
+		agentTransformer = peerGenX.AgentTransformer()
 	}
 	_ = host.RegisterTransformer(asttranslate.Type, asttranslate.Factory{Transformer: transformer})
 	_ = host.RegisterTransformer(chatroom.Type, chatroom.Factory{Transformer: transformer})
-	_ = host.Register(doubaorealtime.Type, doubaorealtime.Factory{Transformer: transformer})
-	_ = host.Register(dashscoperealtime.Type, dashscoperealtime.Factory{Transformer: transformer})
+	_ = host.Register(doubaorealtime.Type, doubaorealtime.Factory{Transformer: agentTransformer})
+	_ = host.Register(dashscoperealtime.Type, dashscoperealtime.Factory{Transformer: agentTransformer})
 	_ = host.Register(eino.Type, eino.Factory{GenX: peerGenX, History: history, Memory: memoryStore})
 	_ = host.Register(flowcraft.Type, flowcraft.Factory{GenX: peerGenX, History: history, Memory: memoryStore})
 	_ = host.Register(petagent.Type, petagent.Factory{GenX: peerGenX, Pets: pets, Config: petConfig, History: history, Memory: memoryStore})

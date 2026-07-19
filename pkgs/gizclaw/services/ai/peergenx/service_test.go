@@ -190,6 +190,26 @@ func TestTransformerModelRealtimeUsesVolcTenant(t *testing.T) {
 	}
 }
 
+func TestAgentTransformerMarksRealtimeBuild(t *testing.T) {
+	ctx := context.Background()
+	events := []string{}
+	var built TransformerConfig
+	svc := New(Service{
+		Peer:            newTestPeer(),
+		Models:          fakeModels{events: &events, modelKind: apitypes.ModelKindRealtime, providerKind: "volc-tenant"},
+		Credentials:     fakeCredentials{events: &events},
+		ProviderTenants: fakeTenants{events: &events},
+		Builder:         fakeBuilder{events: &events, transformerConfig: &built},
+	})
+
+	if _, err := svc.AgentTransformer().Transform(ctx, "model/realtime", fakeStream{}); err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	if !built.Agent {
+		t.Fatal("BuildTransformer() Agent = false, want true")
+	}
+}
+
 func TestTransformerVoiceSupportsMiniMaxTenant(t *testing.T) {
 	ctx := context.Background()
 	events := []string{}
@@ -518,6 +538,80 @@ func TestDefaultBuilderBuildsVolcRealtimeTransformer(t *testing.T) {
 	}
 	if got := transformerNestedStringField(t, tf, "client", "config", "apiKey"); got != "runtime-key" {
 		t.Fatalf("realtime api key = %q, want runtime-key", got)
+	}
+}
+
+func TestDefaultBuilderBuildsVolcRealtimeAgentTransformer(t *testing.T) {
+	tf, err := (DefaultBuilder{}).BuildTransformer(context.Background(), TransformerConfig{
+		Agent: true,
+		Model: &apitypes.Model{
+			Id:   "dialog",
+			Kind: apitypes.ModelKindRealtime,
+			ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{
+				ResourceId:    stringPtr("volc.speech.dialog"),
+				UpstreamModel: stringPtr("legacy-model"),
+			}),
+		},
+		Tenant: Tenant{
+			Kind: string(apitypes.ModelProviderKindVolcTenant),
+			Volc: &apitypes.VolcTenant{Name: "main", CredentialName: "volc-token"},
+		},
+		Credential: apitypes.Credential{
+			Name: "volc-token",
+			Body: testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "speech_api_key": "runtime-key"}),
+		},
+		Params: map[string]any{
+			"instructions":       "Use tools.",
+			"dialog_id":          "dialog-id",
+			"output_voice":       "speaker-id",
+			"output_format":      "ogg_opus",
+			"output_sample_rate": 24000,
+			"input_format":       "speech_opus",
+			"input_sample_rate":  16000,
+		},
+	})
+	if err != nil {
+		t.Fatalf("BuildTransformer() error = %v", err)
+	}
+	if _, ok := tf.(*transformers.DoubaoRealtimeDuplexRealtime); !ok {
+		t.Fatalf("transformer = %T, want *transformers.DoubaoRealtimeDuplexRealtime", tf)
+	}
+	if got := transformerNestedStringField(t, tf, "DoubaoRealtimeDuplex", "model"); got != "1.2.6.0" {
+		t.Fatalf("agent realtime model = %q, want function-call model", got)
+	}
+	if got := transformerNestedStringField(t, tf, "DoubaoRealtimeDuplex", "instructions"); got != "Use tools." {
+		t.Fatalf("agent realtime instructions = %q, want Use tools.", got)
+	}
+	if got := transformerNestedStringField(t, tf, "DoubaoRealtimeDuplex", "sessionID"); got != "dialog-id" {
+		t.Fatalf("agent realtime sessionID = %q, want dialog-id", got)
+	}
+}
+
+func TestDefaultBuilderBuildsDashScopeRealtimeAgentTransformer(t *testing.T) {
+	upstream := "qwen3.5-omni-flash-realtime"
+	tf, err := (DefaultBuilder{}).BuildTransformer(context.Background(), TransformerConfig{
+		Agent: true,
+		Model: &apitypes.Model{
+			Id:   "dashscope-dialog",
+			Kind: apitypes.ModelKindRealtime,
+			ProviderData: mustDashScopeModelProviderData(t, apitypes.DashScopeTenantModelProviderData{
+				UpstreamModel: &upstream,
+			}),
+		},
+		Tenant: Tenant{
+			Kind:      string(apitypes.ModelProviderKindDashscopeTenant),
+			DashScope: &apitypes.DashScopeTenant{Name: "main", CredentialName: "dashscope-key"},
+		},
+		Credential: apitypes.Credential{Name: "dashscope-key", Body: testDashScopeCredentialBody("runtime-key")},
+	})
+	if err != nil {
+		t.Fatalf("BuildTransformer() error = %v", err)
+	}
+	if _, ok := tf.(*transformers.DashScopeRealtime); !ok {
+		t.Fatalf("transformer = %T, want *transformers.DashScopeRealtime", tf)
+	}
+	if got := transformerStringField(t, tf, "model"); got != upstream {
+		t.Fatalf("dashscope realtime model = %q, want %q", got, upstream)
 	}
 }
 
@@ -1537,6 +1631,15 @@ func mustVolcModelProviderData(t *testing.T, data apitypes.VolcTenantModelProvid
 	return &out
 }
 
+func mustDashScopeModelProviderData(t *testing.T, data apitypes.DashScopeTenantModelProviderData) *apitypes.ModelProviderData {
+	t.Helper()
+	out := apitypes.ModelProviderData{}
+	if err := out.FromDashScopeTenantModelProviderData(data); err != nil {
+		t.Fatalf("FromDashScopeTenantModelProviderData() error = %v", err)
+	}
+	return &out
+}
+
 func mustGeminiModelProviderData(t *testing.T, data apitypes.GeminiTenantModelProviderData) *apitypes.ModelProviderData {
 	t.Helper()
 	out := apitypes.ModelProviderData{}
@@ -1705,7 +1808,8 @@ func (f responseTenants) GetVolcTenant(context.Context, adminhttp.GetVolcTenantR
 }
 
 type fakeBuilder struct {
-	events *[]string
+	events            *[]string
+	transformerConfig *TransformerConfig
 }
 
 func (b fakeBuilder) BuildGenerator(_ context.Context, cfg GeneratorConfig) (genx.Generator, error) {
@@ -1714,6 +1818,9 @@ func (b fakeBuilder) BuildGenerator(_ context.Context, cfg GeneratorConfig) (gen
 }
 
 func (b fakeBuilder) BuildTransformer(_ context.Context, cfg TransformerConfig) (genx.Transformer, error) {
+	if b.transformerConfig != nil {
+		*b.transformerConfig = cfg
+	}
 	if cfg.Model != nil {
 		*b.events = append(*b.events, "build:transformer:model:"+cfg.Model.Id)
 	} else if cfg.Voice != nil {

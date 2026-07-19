@@ -74,6 +74,7 @@ type Generator struct {
 
 type Transformer struct {
 	service *Service
+	agent   bool
 }
 
 var _ genx.Generator = (*Generator)(nil)
@@ -92,6 +93,13 @@ func (s *Service) Generator() genx.Generator {
 
 func (s *Service) Transformer() genx.Transformer {
 	return &Transformer{service: s}
+}
+
+// AgentTransformer resolves realtime models to their tool-capable provider
+// implementations while preserving the ordinary Transformer behavior for
+// non-Agent workflows.
+func (s *Service) AgentTransformer() genx.Transformer {
+	return &Transformer{service: s, agent: true}
 }
 
 func (g *Generator) GenerateStream(ctx context.Context, pattern string, mctx genx.ModelContext) (genx.Stream, error) {
@@ -132,6 +140,7 @@ func (t *Transformer) Transform(ctx context.Context, pattern string, input genx.
 	if err != nil {
 		return nil, err
 	}
+	cfg.Agent = t.agent
 	impl, err := t.service.builder().BuildTransformer(ctx, cfg)
 	if err != nil {
 		return nil, err

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	dashscope "github.com/GizClaw/dashscope-realtime-go"
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
 	"github.com/GizClaw/minimax-go"
 	"github.com/openai/openai-go"
@@ -66,7 +67,15 @@ func (b DefaultBuilder) BuildTransformer(_ context.Context, cfg TransformerConfi
 		case apitypes.ModelKindRealtime:
 			switch cfg.Tenant.Kind {
 			case string(apitypes.VoiceProviderKindVolcTenant):
+				if cfg.Agent {
+					return b.buildVolcRealtimeAgent(cfg)
+				}
 				return b.buildVolcRealtime(cfg)
+			case string(apitypes.ModelProviderKindDashscopeTenant):
+				if cfg.Agent {
+					return b.buildDashScopeRealtimeAgent(cfg)
+				}
+				return nil, fmt.Errorf("%w: dashscope realtime is only available through an Agent runtime", ErrUnsupported)
 			default:
 				return nil, fmt.Errorf("%w: realtime transformer provider %q", ErrUnsupported, cfg.Tenant.Kind)
 			}
@@ -82,6 +91,143 @@ func (b DefaultBuilder) BuildTransformer(_ context.Context, cfg TransformerConfi
 		}
 	}
 	return nil, fmt.Errorf("%w: transformer config has no model or voice", ErrInvalid)
+}
+
+func (b DefaultBuilder) buildVolcRealtimeAgent(cfg TransformerConfig) (genx.Transformer, error) {
+	if cfg.Tenant.Volc == nil || cfg.Model == nil {
+		return nil, fmt.Errorf("%w: volc tenant and model are required", ErrInvalid)
+	}
+	var providerData apitypes.VolcTenantModelProviderData
+	if cfg.Model.ProviderData != nil {
+		var err error
+		providerData, err = cfg.Model.ProviderData.AsVolcTenantModelProviderData()
+		if err != nil {
+			return nil, fmt.Errorf("%w: decode volc realtime model provider_data: %w", ErrInvalid, err)
+		}
+	}
+	body, err := cfg.Credential.Body.AsVolcCredentialBody()
+	if err != nil {
+		return nil, err
+	}
+	apiKey := firstString(body.SpeechApiKey)
+	if apiKey == "" {
+		return nil, fmt.Errorf("%w: credential %q missing speech_api_key for doubao realtime", ErrInvalid, cfg.Credential.Name)
+	}
+	appID := firstString(body.SpeechAppId)
+	if appID == "" {
+		return nil, fmt.Errorf("%w: credential %q missing speech_app_id for doubao realtime", ErrInvalid, cfg.Credential.Name)
+	}
+	data := mergeParams(nil, cfg.Params)
+	resourceID := firstString(mapString(data, "resource_id"), providerData.ResourceId, doubaospeech.ResourceRealtime)
+	client := doubaospeech.NewClient(appID,
+		doubaospeech.WithResourceID(resourceID),
+		doubaospeech.WithAPIKey(apiKey),
+	)
+	opts := []transformers.DoubaoRealtimeDuplexOption{
+		transformers.WithDoubaoRealtimeDuplexModel(doubaospeech.RealtimeDuplexModelDefault),
+	}
+	if value := mapString(data, "instructions", "system_role"); value != "" {
+		opts = append(opts, transformers.WithDoubaoRealtimeDuplexInstructions(value))
+	}
+	if value := mapString(data, "dialog_id", "session_id"); value != "" {
+		opts = append(opts, transformers.WithDoubaoRealtimeDuplexSessionID(value))
+	}
+	if value := mapString(data, "output_voice", "voice", "speaker"); value != "" {
+		opts = append(opts, transformers.WithDoubaoRealtimeDuplexSpeaker(value))
+	}
+	if value := mapString(data, "output_format", "format"); value != "" {
+		opts = append(opts, transformers.WithDoubaoRealtimeDuplexFormat(value))
+	}
+	if value, ok := mapInt(data, "output_sample_rate", "sample_rate"); ok {
+		opts = append(opts, transformers.WithDoubaoRealtimeDuplexSampleRate(value))
+	}
+	if value, ok := mapInt(data, "output_speed", "speech_rate", "speed"); ok {
+		opts = append(opts, transformers.WithDoubaoRealtimeDuplexOutputSpeed(value))
+	}
+	if value, ok := mapInt(data, "output_loudness", "loudness_rate", "loudness"); ok {
+		opts = append(opts, transformers.WithDoubaoRealtimeDuplexOutputLoudness(value))
+	}
+	if value := mapString(data, "input_format"); value != "" {
+		opts = append(opts, transformers.WithDoubaoRealtimeDuplexInputFormat(value))
+	}
+	if value, ok := mapInt(data, "input_sample_rate"); ok {
+		opts = append(opts, transformers.WithDoubaoRealtimeDuplexInputSampleRate(value))
+	}
+	if value, ok := mapInt(data, "input_channels"); ok {
+		opts = append(opts, transformers.WithDoubaoRealtimeDuplexInputChannels(value))
+	}
+	if value, ok := mapBool(data, "input_transcode"); ok {
+		opts = append(opts, transformers.WithDoubaoRealtimeDuplexInputTranscode(value))
+	}
+	extension, err := doubaoRealtimeDuplexExtension(data)
+	if err != nil {
+		return nil, err
+	}
+	if extension != nil {
+		opts = append(opts, transformers.WithDoubaoRealtimeDuplexExtension(extension))
+	}
+	return transformers.NewDoubaoRealtimeDuplexRealtime(client, opts...), nil
+}
+
+func (b DefaultBuilder) buildDashScopeRealtimeAgent(cfg TransformerConfig) (genx.Transformer, error) {
+	if cfg.Tenant.DashScope == nil || cfg.Model == nil {
+		return nil, fmt.Errorf("%w: dashscope tenant and model are required", ErrInvalid)
+	}
+	var providerData apitypes.DashScopeTenantModelProviderData
+	if cfg.Model.ProviderData != nil {
+		var err error
+		providerData, err = cfg.Model.ProviderData.AsDashScopeTenantModelProviderData()
+		if err != nil {
+			return nil, fmt.Errorf("%w: decode dashscope realtime model provider_data: %w", ErrInvalid, err)
+		}
+	}
+	body, err := cfg.Credential.Body.AsDashScopeCredentialBody()
+	if err != nil {
+		return nil, err
+	}
+	apiKey := firstString(body.ApiKey, body.Token)
+	if apiKey == "" {
+		return nil, fmt.Errorf("%w: credential %q missing api_key for dashscope realtime", ErrInvalid, cfg.Credential.Name)
+	}
+	clientOpts := []dashscope.Option{}
+	if baseURL := firstString(cfg.Tenant.DashScope.BaseUrl, body.BaseUrl); baseURL != "" {
+		clientOpts = append(clientOpts, dashscope.WithBaseURL(baseURL))
+	}
+	if b.HTTPClient != nil {
+		clientOpts = append(clientOpts, dashscope.WithHTTPClient(b.HTTPClient))
+	}
+	data := mergeParams(nil, cfg.Params)
+	modelName := firstString(mapString(data, "upstream_model", "model"), providerData.UpstreamModel, string(cfg.Model.Id))
+	opts := []transformers.DashScopeRealtimeOption{transformers.WithDashScopeRealtimeModel(modelName)}
+	if value := mapString(data, "instructions", "system_prompt"); value != "" {
+		opts = append(opts, transformers.WithDashScopeRealtimeInstructions(value))
+	}
+	if value := mapString(data, "output_voice", "voice"); value != "" {
+		opts = append(opts, transformers.WithDashScopeRealtimeVoice(value))
+	}
+	if value := mapString(data, "input_format"); value != "" {
+		opts = append(opts, transformers.WithDashScopeRealtimeInputAudioFormat(value))
+	}
+	if value := mapString(data, "output_format"); value != "" {
+		opts = append(opts, transformers.WithDashScopeRealtimeOutputAudioFormat(value))
+	}
+	return transformers.NewDashScopeRealtime(dashscope.NewClient(apiKey, clientOpts...), opts...), nil
+}
+
+func doubaoRealtimeDuplexExtension(data map[string]any) (*doubaospeech.RealtimeDuplexExtension, error) {
+	extension, err := doubaoRealtimeExtension(data)
+	if err != nil || extension == nil {
+		return nil, err
+	}
+	raw, err := json.Marshal(extension)
+	if err != nil {
+		return nil, fmt.Errorf("%w: encode doubao realtime duplex extension: %w", ErrInvalid, err)
+	}
+	var duplex doubaospeech.RealtimeDuplexExtension
+	if err := json.Unmarshal(raw, &duplex); err != nil {
+		return nil, fmt.Errorf("%w: decode doubao realtime duplex extension: %w", ErrInvalid, err)
+	}
+	return &duplex, nil
 }
 
 func (b DefaultBuilder) buildOpenAIGenerator(cfg GeneratorConfig) (genx.Generator, error) {

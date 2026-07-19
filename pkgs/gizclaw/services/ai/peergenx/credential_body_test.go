@@ -52,6 +52,14 @@ func testGeminiCredentialBody(apiKey string) apitypes.CredentialBody {
 	return body
 }
 
+func testDashScopeCredentialBody(apiKey string) apitypes.CredentialBody {
+	var body apitypes.CredentialBody
+	if err := body.FromDashScopeCredentialBody(apitypes.DashScopeCredentialBody{ApiKey: testStringPtr(apiKey)}); err != nil {
+		panic(err)
+	}
+	return body
+}
+
 func testVolcCredentialBodyFromStrings(values map[string]string) apitypes.CredentialBody {
 	typed := apitypes.VolcCredentialBody{}
 	for key, value := range values {

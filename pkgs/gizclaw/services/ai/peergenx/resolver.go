@@ -35,6 +35,7 @@ type TransformerConfig struct {
 	Tenant     Tenant
 	Credential apitypes.Credential
 	Params     map[string]any
+	Agent      bool
 }
 
 func (s *Service) ListAccessibleGeneratorConfigs(ctx context.Context) ([]GeneratorConfig, error) {
