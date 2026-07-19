@@ -134,6 +134,59 @@ func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironmen
 	return nil
 }
 
+// RecoverRegistrationToken replaces the local Desktop token when an existing
+// Pod predates token handoff or its private handoff file has been lost. The raw
+// token cannot be recovered from server storage, so replacement is required.
+func (b *Bootstrapper) RecoverRegistrationToken(ctx context.Context, podDir string, savedEnvironment map[string]string) error {
+	if b == nil || b.Catalog == nil || b.Executable == nil {
+		return fmt.Errorf("local server bootstrap: bootstrapper is not configured")
+	}
+	executable, err := b.Executable()
+	if err != nil {
+		return err
+	}
+	resolved, missing := b.Catalog.ResolveEnvironment(savedEnvironment, os.LookupEnv)
+	if len(missing) != 0 {
+		return fmt.Errorf("local server bootstrap: missing environment: %s", strings.Join(missing, ", "))
+	}
+	tempDir, err := os.MkdirTemp(podDir, ".registration-token-")
+	if err != nil {
+		return fmt.Errorf("local server bootstrap: create private token workspace: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
+	if err := os.Chmod(tempDir, 0o700); err != nil {
+		return fmt.Errorf("local server bootstrap: secure private token workspace: %w", err)
+	}
+	configHome := filepath.Join(tempDir, "config")
+	contextDir := filepath.Join(configHome, "gizclaw", "local")
+	if err := os.MkdirAll(contextDir, 0o700); err != nil {
+		return fmt.Errorf("local server bootstrap: create Admin context: %w", err)
+	}
+	contextData, err := os.ReadFile(filepath.Join(podDir, "admin_context", "local", "config.yaml"))
+	if err != nil {
+		return fmt.Errorf("local server bootstrap: read generated Admin context: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(contextDir, "config.yaml"), contextData, 0o600); err != nil {
+		return fmt.Errorf("local server bootstrap: materialize Admin context: %w", err)
+	}
+
+	environment := mergedCommandEnvironment(resolved)
+	environment = setCommandEnvironment(environment, "XDG_CONFIG_HOME", configHome)
+	environment = setCommandEnvironment(environment, "AppData", configHome)
+	run := b.Run
+	if run == nil {
+		run = runBootstrapCommand
+	}
+	// A missing token resource is the expected legacy case. Ignore deletion
+	// errors here; creation below still reports connection, authorization, or
+	// conflict failures without pretending recovery succeeded.
+	_ = runBootstrapOperation(ctx, run, executable, []string{"admin", "registration-tokens", "delete", desktopResourceName, "--context", "local"}, environment)
+	if err := b.createRegistrationToken(ctx, tempDir, podDir, executable, environment); err != nil {
+		return fmt.Errorf("local server bootstrap: recover Play registration token: %w", err)
+	}
+	return nil
+}
+
 func (b *Bootstrapper) createRegistrationToken(ctx context.Context, tempDir, podDir, executable string, environment []string) error {
 	request := struct {
 		Name               string `json:"name"`

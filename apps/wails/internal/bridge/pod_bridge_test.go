@@ -176,6 +176,51 @@ func TestLocalPlayRuntimeHandsOffRegistrationTokenWithoutPuttingItInURL(t *testi
 	}
 }
 
+func TestLocalPlayRuntimeRecoversMissingRegistrationToken(t *testing.T) {
+	paths := appconfig.NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	web := webui.New(fstest.MapFS{"play.html": {Data: []byte("play")}})
+	defer web.Shutdown()
+	store := appconfig.Store{Paths: paths}
+	pod := appconfig.Pod{
+		Version:               1,
+		ID:                    "legacy-local-play",
+		Name:                  "Legacy Local Play",
+		IdentitiesInitialized: true,
+		LocalServer:           &appconfig.LocalServer{Port: 19821, AdminPrivateKey: bridgeTestKey(t, 0x76)},
+		ClientPrivateKey:      bridgeTestKey(t, 0x77),
+	}
+	if err := store.Save(pod); err != nil {
+		t.Fatal(err)
+	}
+	bootstrapper := &fakeLocalPodBootstrapper{recoveryToken: "recovered-registration-secret"}
+	bridge := &PodBridge{
+		Paths:                paths,
+		Store:                store,
+		BootstrapEnvironment: appconfig.BootstrapEnvironmentStore{Path: paths.BootstrapEnvFile},
+		Bootstrapper:         bootstrapper,
+		Health:               endpointhealth.New(),
+		Local:                localserver.New(),
+		WebUI:                web,
+	}
+	if _, err := bridge.PlayURL(context.Background(), pod.ID); err != nil {
+		t.Fatal(err)
+	}
+	if !bootstrapper.recoveryCalled.Load() {
+		t.Fatal("PlayURL did not recover the missing RegistrationToken")
+	}
+	tokenPath := filepath.Join(paths.PodsDir, pod.ID, "workspace", localserver.RegistrationTokenFile)
+	token, err := os.ReadFile(tokenPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(token) != "recovered-registration-secret" {
+		t.Fatalf("recovered RegistrationToken = %q", token)
+	}
+}
+
 func TestLocalPodCreationAssignsDistinctStablePorts(t *testing.T) {
 	paths := appconfig.NewPaths(t.TempDir())
 	if err := paths.Ensure(); err != nil {
@@ -543,12 +588,27 @@ func TestListPodsMigratesMissingDesktopIdentities(t *testing.T) {
 }
 
 type fakeLocalPodBootstrapper struct {
-	called  atomic.Bool
-	calls   atomic.Int32
-	err     error
-	started chan struct{}
-	release chan struct{}
-	once    sync.Once
+	called         atomic.Bool
+	calls          atomic.Int32
+	err            error
+	recoveryCalled atomic.Bool
+	recoveryErr    error
+	recoveryToken  string
+	started        chan struct{}
+	release        chan struct{}
+	once           sync.Once
+}
+
+func (f *fakeLocalPodBootstrapper) RecoverRegistrationToken(_ context.Context, podDir string, _ map[string]string) error {
+	f.recoveryCalled.Store(true)
+	if f.recoveryErr != nil {
+		return f.recoveryErr
+	}
+	workspaceDir := filepath.Join(podDir, "workspace")
+	if err := os.MkdirAll(workspaceDir, 0o700); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(workspaceDir, localserver.RegistrationTokenFile), []byte(f.recoveryToken), 0o600)
 }
 
 func (f *fakeLocalPodBootstrapper) Apply(ctx context.Context, _ string, _ map[string]string) error {

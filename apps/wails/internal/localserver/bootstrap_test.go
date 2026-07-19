@@ -132,6 +132,43 @@ func TestBootstrapperAppliesResourcesSyncsVoicesUploadsPetAssetsAndCreatesRegist
 	}
 }
 
+func TestBootstrapperRecoversRegistrationTokenWithoutReapplyingCatalog(t *testing.T) {
+	podDir := t.TempDir()
+	contextDir := filepath.Join(podDir, "admin_context", "local")
+	if err := os.MkdirAll(contextDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(contextDir, "config.yaml"), []byte("context"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var commands []string
+	bootstrapper := &Bootstrapper{
+		Catalog:    &Catalog{},
+		Executable: func() (string, error) { return "/fake/gizclaw", nil },
+		Run: func(_ context.Context, _ string, args, _ []string) error {
+			commands = append(commands, strings.Join(args, " "))
+			return errors.New("existing token may not exist")
+		},
+		RunOutput: func(_ context.Context, _ string, args, _ []string) ([]byte, error) {
+			commands = append(commands, strings.Join(args, " "))
+			return []byte(`{"token":"replacement-secret"}`), nil
+		},
+	}
+	if err := bootstrapper.RecoverRegistrationToken(context.Background(), podDir, nil); err != nil {
+		t.Fatal(err)
+	}
+	if len(commands) != 2 || !strings.Contains(commands[0], "registration-tokens delete desktop-local") || !strings.Contains(commands[1], "registration-tokens create") {
+		t.Fatalf("recovery commands = %v", commands)
+	}
+	token, err := os.ReadFile(filepath.Join(podDir, "workspace", RegistrationTokenFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(token) != "replacement-secret" {
+		t.Fatalf("replacement token = %q", token)
+	}
+}
+
 func TestSetCommandEnvironmentReplacesWindowsNameCaseInsensitively(t *testing.T) {
 	environment := setCommandEnvironmentForOS([]string{"APPDATA=old", "OTHER=value"}, "AppData", "new", "windows")
 	if got := strings.Join(environment, "\n"); got != "AppData=new\nOTHER=value" {

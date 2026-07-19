@@ -14,13 +14,16 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/model"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -535,8 +538,40 @@ func TestPeerServiceEdgeOpenAIRequiresActiveClientPeer(t *testing.T) {
 		ServerPublicKey: serverKey.Public,
 	}
 	loginServer := publiclogin.NewServer(serverKey, mustBadgerInMemory(t, nil))
+	models := &model.Server{Store: kv.NewMemory(nil)}
+	createdModel, err := models.CreateModel(context.Background(), adminhttp.CreateModelRequestObject{Body: &adminhttp.ModelUpsert{
+		Id:     "profile-model",
+		Kind:   apitypes.ModelKindLlm,
+		Source: apitypes.ModelSourceManual,
+		Provider: apitypes.ModelProvider{
+			Kind: "openai-tenant",
+			Name: "global",
+		},
+	}})
+	if err != nil {
+		t.Fatalf("CreateModel error = %v", err)
+	}
+	if _, ok := createdModel.(adminhttp.CreateModel200JSONResponse); !ok {
+		t.Fatalf("CreateModel response = %#v", createdModel)
+	}
+	profileModels := map[string]string{"primary": "profile-model"}
+	loginServer.RegistrationResolver = func(_ context.Context, rawToken string) (runtimeprofile.Registration, error) {
+		if rawToken != "edge-runtime-token" {
+			return runtimeprofile.Registration{}, errors.New("invalid token")
+		}
+		return runtimeprofile.Registration{
+			TokenName:    "edge-runtime",
+			FirmwareName: "edge-firmware",
+			RuntimeProfile: apitypes.RuntimeProfile{
+				Name: "edge-runtime",
+				Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Models: &profileModels}},
+			},
+		}, nil
+	}
+	manager := NewManager(peersServer)
+	manager.Models = models
 	service := &PeerService{
-		manager:  NewManager(peersServer),
+		manager:  manager,
 		sessions: loginServer.SessionManager(),
 		public: &peerHTTP{
 			PeerHTTPService: peersServer,
@@ -546,12 +581,14 @@ func TestPeerServiceEdgeOpenAIRequiresActiveClientPeer(t *testing.T) {
 	handler := service.edgeHTTPHandler(service.sessions)
 
 	tests := []struct {
-		name       string
-		role       apitypes.PeerRole
-		status     apitypes.PeerRegistrationStatus
-		wantStatus int
+		name              string
+		role              apitypes.PeerRole
+		status            apitypes.PeerRegistrationStatus
+		registrationToken string
+		wantStatus        int
+		wantRuntimeModel  bool
 	}{
-		{name: "client reaches openai handler", role: apitypes.PeerRoleClient, status: apitypes.PeerRegistrationStatusActive, wantStatus: http.StatusBadRequest},
+		{name: "client session keeps runtime profile", role: apitypes.PeerRoleClient, status: apitypes.PeerRegistrationStatusActive, registrationToken: "edge-runtime-token", wantStatus: http.StatusOK, wantRuntimeModel: true},
 		{name: "admin forbidden", role: apitypes.PeerRoleAdmin, status: apitypes.PeerRegistrationStatusActive, wantStatus: http.StatusForbidden},
 		{name: "server forbidden", role: apitypes.PeerRoleServer, status: apitypes.PeerRegistrationStatusActive, wantStatus: http.StatusForbidden},
 		{name: "edge forbidden", role: apitypes.PeerRoleEdgeNode, status: apitypes.PeerRegistrationStatusActive, wantStatus: http.StatusForbidden},
@@ -571,7 +608,7 @@ func TestPeerServiceEdgeOpenAIRequiresActiveClientPeer(t *testing.T) {
 				t.Fatalf("SavePeer error = %v", err)
 			}
 
-			accessToken := issuePeerHTTPSession(t, loginServer, keyPair, serverKey.Public)
+			accessToken := issuePeerHTTPSession(t, loginServer, keyPair, serverKey.Public, tc.registrationToken)
 			req := httptest.NewRequest(http.MethodGet, "/openai/v1/models", nil)
 			req.Header.Set(publiclogin.PublicKeyHeader, keyPair.Public.String())
 			req.Header.Set("Authorization", "Bearer "+accessToken)
@@ -581,23 +618,37 @@ func TestPeerServiceEdgeOpenAIRequiresActiveClientPeer(t *testing.T) {
 			if rec.Code != tc.wantStatus {
 				t.Fatalf("status = %d body=%s, want %d", rec.Code, rec.Body.String(), tc.wantStatus)
 			}
+			if tc.wantRuntimeModel {
+				var result struct {
+					Data []apitypes.Model `json:"data"`
+				}
+				if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+					t.Fatalf("decode models response: %v", err)
+				}
+				if len(result.Data) != 1 || result.Data[0].Id != "profile-model" {
+					t.Fatalf("runtime models = %#v", result.Data)
+				}
+			}
 		})
 	}
 }
 
-func issuePeerHTTPSession(t testing.TB, loginServer *publiclogin.Server, keyPair *giznet.KeyPair, serverPublicKey giznet.PublicKey) string {
+func issuePeerHTTPSession(t testing.TB, loginServer *publiclogin.Server, keyPair *giznet.KeyPair, serverPublicKey giznet.PublicKey, registrationTokens ...string) string {
 	t.Helper()
 
 	assertion, err := publiclogin.NewLoginAssertion(keyPair, serverPublicKey, time.Minute)
 	if err != nil {
 		t.Fatalf("NewLoginAssertion error = %v", err)
 	}
-	resp, err := loginServer.Login(context.Background(), peerhttp.LoginRequestObject{
-		Params: peerhttp.LoginParams{
-			XPublicKey:    keyPair.Public.String(),
-			Authorization: "Bearer " + assertion,
-		},
-	})
+	params := peerhttp.LoginParams{
+		XPublicKey:    keyPair.Public.String(),
+		Authorization: "Bearer " + assertion,
+	}
+	if len(registrationTokens) != 0 && strings.TrimSpace(registrationTokens[0]) != "" {
+		token := strings.TrimSpace(registrationTokens[0])
+		params.XRegistrationToken = &token
+	}
+	resp, err := loginServer.Login(context.Background(), peerhttp.LoginRequestObject{Params: params})
 	if err != nil {
 		t.Fatalf("Login error = %v", err)
 	}

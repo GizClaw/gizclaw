@@ -33,6 +33,7 @@ type PodBridge struct {
 	WebUI                *webui.Manager
 
 	mutationMu   sync.Mutex
+	tokenMu      sync.Mutex
 	creating     sync.Map
 	initializing sync.Map
 	refreshMu    sync.Mutex
@@ -41,6 +42,7 @@ type PodBridge struct {
 
 type LocalPodBootstrapper interface {
 	Apply(context.Context, string, map[string]string) error
+	RecoverRegistrationToken(context.Context, string, map[string]string) error
 }
 
 type podRefresh struct {
@@ -834,7 +836,7 @@ func (b *PodBridge) AdminURL(_ context.Context, podID, serverID string) (string,
 	return b.WebUI.LaunchURL(podID, "admin", runtime)
 }
 
-func (b *PodBridge) PlayURL(_ context.Context, podID string) (string, error) {
+func (b *PodBridge) PlayURL(ctx context.Context, podID string) (string, error) {
 	if err := b.requireInitializationComplete(podID); err != nil {
 		return "", err
 	}
@@ -854,7 +856,27 @@ func (b *PodBridge) PlayURL(_ context.Context, podID string) (string, error) {
 		return "", err
 	}
 	if pod.LocalServer != nil {
-		token, err := os.ReadFile(filepath.Join(b.Paths.PodsDir, podID, "workspace", localserver.RegistrationTokenFile))
+		podDir := filepath.Join(b.Paths.PodsDir, podID)
+		tokenPath := filepath.Join(podDir, "workspace", localserver.RegistrationTokenFile)
+		b.tokenMu.Lock()
+		token, err := func() ([]byte, error) {
+			defer b.tokenMu.Unlock()
+			token, err := os.ReadFile(tokenPath)
+			if !errors.Is(err, os.ErrNotExist) {
+				return token, err
+			}
+			if b.Bootstrapper == nil {
+				return nil, fmt.Errorf("recover local Play registration token: bootstrapper is not configured")
+			}
+			savedEnvironment, loadErr := b.BootstrapEnvironment.Load()
+			if loadErr != nil {
+				return nil, fmt.Errorf("load bootstrap environment for local Play registration token: %w", loadErr)
+			}
+			if recoverErr := b.Bootstrapper.RecoverRegistrationToken(ctx, podDir, savedEnvironment); recoverErr != nil {
+				return nil, fmt.Errorf("recover local Play registration token: %w", recoverErr)
+			}
+			return os.ReadFile(tokenPath)
+		}()
 		if err != nil {
 			return "", fmt.Errorf("desktop bridge: read local Play registration token: %w", err)
 		}
