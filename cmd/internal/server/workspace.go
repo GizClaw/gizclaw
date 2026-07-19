@@ -212,6 +212,9 @@ func ServeContext(ctx context.Context, workspace string, opts ServeOptions) (err
 	}
 	if err := migrator.Migrate(ctx); err != nil {
 		_ = migrator.Close()
+		if ctxErr := ctx.Err(); ctxErr != nil && errors.Is(err, ctxErr) {
+			return nil
+		}
 		return err
 	}
 	if err := migrator.Close(); err != nil {
