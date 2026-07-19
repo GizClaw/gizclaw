@@ -53,6 +53,9 @@ func NewMem0Store(config Mem0Config, client HTTPClient) (*Mem0Store, error) {
 	if config.Flavor == Mem0Platform && !hasMem0EntityScope(config) {
 		return nil, fmt.Errorf("%w: mem0 platform requires at least one app_id, user_id, agent_id, or run_id", ErrInvalidInput)
 	}
+	if config.Flavor == Mem0Platform && strings.TrimSpace(config.APIKey) == "" {
+		return nil, fmt.Errorf("%w: mem0 platform api_key is required", ErrInvalidInput)
+	}
 	if config.Endpoint == "" {
 		if config.Flavor == Mem0Platform {
 			config.Endpoint = "https://api.mem0.ai"
@@ -167,7 +170,7 @@ func (s *Mem0Store) Update(ctx context.Context, request UpdateRequest) (Fact, er
 		payload["text"] = *request.Text
 	}
 	var response mem0Envelope
-	path := "/v1/memories/" + url.PathEscape(request.ID)
+	path := "/v1/memories/" + url.PathEscape(request.ID) + "/"
 	if s.config.Flavor == Mem0SelfHosted {
 		path = "/memories/" + url.PathEscape(request.ID)
 	}
@@ -189,7 +192,7 @@ func (s *Mem0Store) Delete(ctx context.Context, request DeleteRequest) error {
 	if request.ExpectedRevision != "" {
 		return fmt.Errorf("%w: mem0 does not expose conditional deletes", ErrUnsupported)
 	}
-	path := "/v1/memories/" + url.PathEscape(request.ID)
+	path := "/v1/memories/" + url.PathEscape(request.ID) + "/"
 	if s.config.Flavor == Mem0SelfHosted {
 		path = "/memories/" + url.PathEscape(request.ID)
 	}
@@ -288,19 +291,20 @@ func mem0Messages(observation Observation) []mem0Message {
 }
 
 type mem0Envelope struct {
-	EventID   string          `json:"event_id"`
-	Status    string          `json:"status"`
-	Error     string          `json:"error"`
-	ID        string          `json:"id"`
-	Hash      string          `json:"hash"`
-	Memory    string          `json:"memory"`
-	Text      string          `json:"text"`
-	Score     float64         `json:"score"`
-	Metadata  map[string]any  `json:"metadata"`
-	CreatedAt time.Time       `json:"created_at"`
-	UpdatedAt time.Time       `json:"updated_at"`
-	Results   json.RawMessage `json:"results"`
-	Data      json.RawMessage `json:"data"`
+	EventID    string          `json:"event_id"`
+	Status     string          `json:"status"`
+	Error      string          `json:"error"`
+	ID         string          `json:"id"`
+	Hash       string          `json:"hash"`
+	Memory     string          `json:"memory"`
+	Text       string          `json:"text"`
+	Score      float64         `json:"score"`
+	Categories []string        `json:"categories"`
+	Metadata   map[string]any  `json:"metadata"`
+	CreatedAt  time.Time       `json:"created_at"`
+	UpdatedAt  time.Time       `json:"updated_at"`
+	Results    json.RawMessage `json:"results"`
+	Data       json.RawMessage `json:"data"`
 }
 
 func (e mem0Envelope) facts() []Fact {
@@ -364,6 +368,9 @@ func (e mem0Envelope) fact() Fact {
 	attributes := cloneMap(e.Metadata)
 	if attributes == nil {
 		attributes = make(map[string]any)
+	}
+	if len(e.Categories) > 0 {
+		attributes["categories"] = append([]string(nil), e.Categories...)
 	}
 	revision := e.Hash
 	if revision == "" {

@@ -51,10 +51,10 @@ func TestMem0PlatformLifecycle(t *testing.T) {
 			if len(and) != 2 {
 				t.Errorf("search filters = %#v", filters)
 			}
-			_, _ = w.Write([]byte(`{"results":[{"id":"fact-1","hash":"rev-1","memory":"Alice likes tea","score":0.91,"metadata":{"lane":"preferences","score":"user-value"}}]}`))
-		case r.Method == http.MethodPut && r.URL.Path == "/v1/memories/fact-1":
+			_, _ = w.Write([]byte(`{"results":[{"id":"fact-1","hash":"rev-1","memory":"Alice likes tea","score":0.91,"categories":["preference"],"metadata":{"lane":"preferences","score":"user-value"}}]}`))
+		case r.Method == http.MethodPut && r.URL.Path == "/v1/memories/fact-1/":
 			_, _ = w.Write([]byte(`{"id":"fact-1","hash":"rev-2","memory":"Alice prefers tea"}`))
-		case r.Method == http.MethodDelete && r.URL.Path == "/v1/memories/fact-1":
+		case r.Method == http.MethodDelete && r.URL.Path == "/v1/memories/fact-1/":
 			w.WriteHeader(http.StatusNoContent)
 		default:
 			http.Error(w, "unexpected route", http.StatusNotFound)
@@ -89,6 +89,10 @@ func TestMem0PlatformLifecycle(t *testing.T) {
 	if result.Matches[0].Fact.Attributes["score"] != "user-value" {
 		t.Fatalf("Recall() attributes = %+v", result.Matches[0].Fact.Attributes)
 	}
+	categories, _ := result.Matches[0].Fact.Attributes["categories"].([]string)
+	if len(categories) != 1 || categories[0] != "preference" {
+		t.Fatalf("Recall() categories = %#v", result.Matches[0].Fact.Attributes["categories"])
+	}
 	text := "Alice prefers tea"
 	updated, err := store.Update(context.Background(), UpdateRequest{ID: "fact-1", Text: &text})
 	if err != nil {
@@ -104,7 +108,7 @@ func TestMem0PlatformLifecycle(t *testing.T) {
 
 func TestMem0RejectsUnsupportedConditionalAndAttributeUpdates(t *testing.T) {
 	t.Parallel()
-	store, err := NewMem0Store(Mem0Config{Endpoint: "https://example.invalid", Flavor: Mem0Platform, UserID: "user"}, nil)
+	store, err := NewMem0Store(Mem0Config{Endpoint: "https://example.invalid", APIKey: "key", Flavor: Mem0Platform, UserID: "user"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +179,7 @@ func TestMem0SelfHostedLifecycle(t *testing.T) {
 
 func TestMem0FiltersUseV3OperatorNames(t *testing.T) {
 	t.Parallel()
-	store, err := NewMem0Store(Mem0Config{Endpoint: "https://example.test", UserID: "user"}, nil)
+	store, err := NewMem0Store(Mem0Config{Endpoint: "https://example.test", APIKey: "key", UserID: "user"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -214,11 +218,12 @@ func TestMem0ConstructorValidation(t *testing.T) {
 	t.Parallel()
 	for name, config := range map[string]Mem0Config{
 		"scope":                {Endpoint: "https://example.test", Flavor: Mem0Platform},
+		"api key":              {Endpoint: "https://example.test", Flavor: Mem0Platform, UserID: "user"},
 		"flavor":               {Endpoint: "https://example.test", Flavor: "unknown"},
-		"endpoint":             {Endpoint: "relative", Flavor: Mem0Platform, UserID: "user"},
-		"userinfo":             {Endpoint: "https://user:pass@example.test", Flavor: Mem0Platform, UserID: "user"},
-		"scheme":               {Endpoint: "ftp://example.test", Flavor: Mem0Platform, UserID: "user"},
-		"poll":                 {Endpoint: "https://example.test", Flavor: Mem0Platform, UserID: "user", PollInterval: -1},
+		"endpoint":             {Endpoint: "relative", APIKey: "key", Flavor: Mem0Platform, UserID: "user"},
+		"userinfo":             {Endpoint: "https://user:pass@example.test", APIKey: "key", Flavor: Mem0Platform, UserID: "user"},
+		"scheme":               {Endpoint: "ftp://example.test", APIKey: "key", Flavor: Mem0Platform, UserID: "user"},
+		"poll":                 {Endpoint: "https://example.test", APIKey: "key", Flavor: Mem0Platform, UserID: "user", PollInterval: -1},
 		"self hosted endpoint": {Flavor: Mem0SelfHosted},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -240,7 +245,7 @@ func TestMem0HTTPStatusErrors(t *testing.T) {
 			client := roundTripClient(func(*http.Request) (*http.Response, error) {
 				return &http.Response{StatusCode: status, Body: http.NoBody, Header: make(http.Header)}, nil
 			})
-			store, err := NewMem0Store(Mem0Config{Endpoint: "https://example.test", UserID: "user"}, client)
+			store, err := NewMem0Store(Mem0Config{Endpoint: "https://example.test", APIKey: "key", UserID: "user"}, client)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -256,7 +261,7 @@ func TestMem0WaitHonorsCancellation(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(`{"status":"pending"}`)) }))
 	t.Cleanup(server.Close)
-	store, err := NewMem0Store(Mem0Config{Endpoint: server.URL, UserID: "user", PollInterval: time.Hour}, server.Client())
+	store, err := NewMem0Store(Mem0Config{Endpoint: server.URL, APIKey: "key", UserID: "user", PollInterval: time.Hour}, server.Client())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -273,7 +278,7 @@ func TestMem0WaitFailureAndInvalidID(t *testing.T) {
 		_, _ = w.Write([]byte(`{"status":"failed","error":"do not expose this"}`))
 	}))
 	t.Cleanup(server.Close)
-	store, err := NewMem0Store(Mem0Config{Endpoint: server.URL, UserID: "user"}, server.Client())
+	store, err := NewMem0Store(Mem0Config{Endpoint: server.URL, APIKey: "key", UserID: "user"}, server.Client())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -295,7 +300,7 @@ func TestMem0ResponseValidation(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			server := httptest.NewServer(handler)
 			t.Cleanup(server.Close)
-			store, err := NewMem0Store(Mem0Config{Endpoint: server.URL, UserID: "user"}, server.Client())
+			store, err := NewMem0Store(Mem0Config{Endpoint: server.URL, APIKey: "key", UserID: "user"}, server.Client())
 			if err != nil {
 				t.Fatal(err)
 			}

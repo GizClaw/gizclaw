@@ -11,15 +11,15 @@
 - `Update` changes fact text and, when supported, patches attributes and checks a revision.
 - `Delete` removes or retires a fact and, when supported, checks a revision.
 
-Asynchronous providers return an operation in `ObserveResult`. Stores implementing `OperationWaiter` use the caller's `context.Context` to wait for completion. Constructors do not start background goroutines.
+Asynchronous providers return an operation in `ObserveResult`. Stores implementing `OperationWaiter` use the caller's `context.Context` to wait for completion. Constructors do not start background goroutines. Durable Flowcraft stores recover operation IDs from canonical episode facts after restart; extraction failures return a terminal failed operation.
 
-`AppID`, `UserID`, `AgentID`, and `RunID` are business memory scopes. They do not replace process, credential, or remote-service tenant isolation. Mem0 Platform configurations must set at least one of these scopes.
+`AppID`, `UserID`, `AgentID`, and `RunID` are business memory scopes. They do not replace process, credential, or remote-service tenant isolation. Mem0 Platform configurations require an API key and must set at least one of these scopes.
 
 ## Providers
 
 | Provider | Execution | Persistence and model configuration | Update limits |
 | --- | --- | --- | --- |
-| Flowcraft | In process | `dir` selects the Flowcraft workspace backend; model resource names are resolved through `FlowcraftModelLoader` | Append-only revisions with text, attribute, and revision checks |
+| Flowcraft | In process | `dir` selects the Flowcraft workspace backend; model resource names are resolved through `FlowcraftModelLoader` | Append-only revisions with text, attribute, and revision checks; provider-owned fact fields cannot be patched as metadata |
 | Mem0 | Remote HTTP | Platform uses `Authorization: Token`; self-hosted API keys use `X-API-Key`, and the deployment owns its model configuration | Text updates; unsupported filters, attribute patches, and conditional writes return `ErrUnsupported` |
 | Volcengine AgentKit/Viking MEM0 | Volc control plane and Mem0 data plane | Requires the project data-plane endpoint; uses an explicit Mem0 API key or resolves one from an API key ID or memory project ID | Same behavior as the Mem0 data plane |
 

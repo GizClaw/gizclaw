@@ -19,25 +19,28 @@ type FlowcraftStore struct {
 	scope    recall.Scope
 	memory   recall.Memory
 	temporal recall.TemporalStore
+	queue    *flowcraftAsyncQueue
 	backend  *flowworkspace.Backend
 
 	mu         sync.Mutex
 	waitGate   chan struct{}
 	operations map[string]ObserveResult
-	pending    []string
 	closeOnce  sync.Once
 	closeErr   error
 }
 
-func newFlowcraftStore(config FlowcraftConfig, memory recall.Memory, temporal recall.TemporalStore, backend *flowworkspace.Backend) *FlowcraftStore {
+func newFlowcraftStore(config FlowcraftConfig, memory recall.Memory, temporal recall.TemporalStore, queue *flowcraftAsyncQueue, backend *flowworkspace.Backend) *FlowcraftStore {
 	waitGate := make(chan struct{}, 1)
 	waitGate <- struct{}{}
-	return &FlowcraftStore{config: config, scope: config.scope(), memory: memory, temporal: temporal, backend: backend, waitGate: waitGate, operations: make(map[string]ObserveResult)}
+	return &FlowcraftStore{config: config, scope: config.scope(), memory: memory, temporal: temporal, queue: queue, backend: backend, waitGate: waitGate, operations: make(map[string]ObserveResult)}
 }
 
 // Observe extracts and persists facts from raw text or turns.
 func (s *FlowcraftStore) Observe(ctx context.Context, observation Observation) (ObserveResult, error) {
 	if err := validateObservation(observation); err != nil {
+		return ObserveResult{}, err
+	}
+	if err := validateFlowcraftAttributeKeys(observation.Context); err != nil {
 		return ObserveResult{}, err
 	}
 	request := recall.SaveRequest{ObservedAt: observation.ObservedAt}
@@ -76,7 +79,6 @@ func (s *FlowcraftStore) Observe(ctx context.Context, observation Observation) (
 		out := ObserveResult{Operation: &Operation{ID: result.AsyncRequestID, Status: OperationPending}}
 		s.mu.Lock()
 		s.operations[result.AsyncRequestID] = cloneObserveResult(out)
-		s.pending = append(s.pending, result.AsyncRequestID)
 		s.mu.Unlock()
 		return out, nil
 	}
@@ -133,6 +135,9 @@ func (s *FlowcraftStore) Recall(ctx context.Context, query Query) (RecallResult,
 // Update appends a Flowcraft revision that supersedes the current fact.
 func (s *FlowcraftStore) Update(ctx context.Context, request UpdateRequest) (Fact, error) {
 	if err := validateUpdate(request); err != nil {
+		return Fact{}, err
+	}
+	if err := validateFlowcraftAttributePatch(request.Attributes); err != nil {
 		return Fact{}, err
 	}
 	current, err := s.currentFact(ctx, request.ID)
@@ -249,6 +254,37 @@ func flowcraftTurns(observation Observation) []recall.TurnContext {
 
 const flowcraftRootIDAttribute = "gizclaw.root_id"
 
+var flowcraftReservedAttributes = map[string]struct{}{
+	flowcraftRootIDAttribute: {},
+	"observation_id":         {},
+	"kind":                   {},
+	"subject":                {},
+	"predicate":              {},
+	"object":                 {},
+	"entities":               {},
+}
+
+func validateFlowcraftAttributeKeys(attributes map[string]any) error {
+	for key := range attributes {
+		if _, reserved := flowcraftReservedAttributes[key]; reserved {
+			return fmt.Errorf("%w: flowcraft attribute %q is provider-owned", ErrUnsupported, key)
+		}
+	}
+	return nil
+}
+
+func validateFlowcraftAttributePatch(patch AttributePatch) error {
+	if err := validateFlowcraftAttributeKeys(patch.Set); err != nil {
+		return err
+	}
+	for _, key := range patch.Delete {
+		if _, reserved := flowcraftReservedAttributes[key]; reserved {
+			return fmt.Errorf("%w: flowcraft attribute %q is provider-owned", ErrUnsupported, key)
+		}
+	}
+	return nil
+}
+
 func (s *FlowcraftStore) factFromFlowcraft(ctx context.Context, input recall.TemporalFact) (Fact, error) {
 	turnIDs := append([]string(nil), input.SourceMessageIDs...)
 	if len(turnIDs) == 0 {
@@ -277,7 +313,10 @@ func (s *FlowcraftStore) factFromFlowcraft(ctx context.Context, input recall.Tem
 	if len(input.Entities) > 0 {
 		attributes["entities"] = append([]string(nil), input.Entities...)
 	}
-	rootID, _ := attributes[flowcraftRootIDAttribute].(string)
+	rootID := ""
+	if len(input.Supersedes) > 0 {
+		rootID, _ = attributes[flowcraftRootIDAttribute].(string)
+	}
 	delete(attributes, flowcraftRootIDAttribute)
 	createdAt := input.ObservedAt
 	if input.ValidFrom != nil {

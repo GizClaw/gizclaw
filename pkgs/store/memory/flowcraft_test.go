@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/flowcraft/memory/recall"
 	"github.com/GizClaw/flowcraft/sdk/errdefs"
 	"github.com/GizClaw/flowcraft/sdk/llm"
 )
@@ -85,6 +86,40 @@ func TestFlowcraftDeterministicObserveIncludesTextAndTurns(t *testing.T) {
 	}
 }
 
+func TestFlowcraftObserveRejectsProviderOwnedAttributes(t *testing.T) {
+	t.Parallel()
+	store, err := OpenFlowcraftStore(context.Background(), FlowcraftConfig{RuntimeID: "app", UserID: "user"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	for _, key := range []string{flowcraftRootIDAttribute, "observation_id", "kind", "subject", "predicate", "object", "entities"} {
+		if _, err := store.Observe(context.Background(), Observation{Text: "remember", Context: map[string]any{key: "value"}}); !errors.Is(err, ErrUnsupported) {
+			t.Fatalf("Observe() attribute %q error = %v", key, err)
+		}
+	}
+}
+
+func TestFlowcraftFactIgnoresRootIDOnInitialFact(t *testing.T) {
+	t.Parallel()
+	store, err := OpenFlowcraftStore(context.Background(), FlowcraftConfig{RuntimeID: "app", UserID: "user"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	result, err := store.memory.Save(context.Background(), store.scope, recall.SaveRequest{Facts: []recall.TemporalFact{{Kind: recall.FactNote, Content: "remember", Metadata: map[string]any{flowcraftRootIDAttribute: "spoofed"}}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	facts, err := store.loadFacts(context.Background(), result.FactIDs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(facts) != 1 || facts[0].ID == "spoofed" || facts[0].ID != facts[0].Revision {
+		t.Fatalf("facts = %+v", facts)
+	}
+}
+
 func TestFlowcraftStoreAsyncWait(t *testing.T) {
 	t.Parallel()
 	model := testLLM{response: `{"facts":[{"text":"Alice prefers tea.","kind":"preference","subject":"Alice","predicate":"prefers","object":"tea","entities":["Alice","tea"],"evidence_refs":[{"id":"turn","text":"I prefer tea."}]}]}`}
@@ -112,6 +147,44 @@ func TestFlowcraftStoreAsyncWait(t *testing.T) {
 	}
 }
 
+func TestFlowcraftStoreAsyncWaitAfterRestart(t *testing.T) {
+	t.Parallel()
+	model := testLLM{response: `{"facts":[{"text":"Alice prefers tea.","kind":"preference","subject":"Alice","predicate":"prefers","object":"tea","entities":["Alice","tea"],"evidence_refs":[{"id":"turn","text":"I prefer tea."}]}]}`}
+	loader := &testFlowcraftLoader{model: model}
+	config := FlowcraftConfig{Dir: t.TempDir(), RuntimeID: "app", UserID: "user", ExtractionModel: "extract", Async: FlowcraftAsyncConfig{Enabled: true}}
+	store, err := OpenFlowcraftStore(context.Background(), config, loader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := store.Observe(context.Background(), Observation{ObservedAt: time.Now(), Turns: []Turn{{ID: "turn", Role: RoleUser, Text: "I prefer tea."}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	observed, err := store.Observe(context.Background(), Observation{ObservedAt: time.Now().Add(-time.Hour), Turns: []Turn{{ID: "turn", Role: RoleUser, Text: "I prefer tea."}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := OpenFlowcraftStore(context.Background(), config, loader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	completed, err := reopened.Wait(context.Background(), observed.Operation.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if completed.Operation == nil || completed.Operation.Status != OperationSucceeded || len(completed.Facts) != 0 {
+		t.Fatalf("Wait() facts = %+v, operation = %+v", completed.Facts, completed.Operation)
+	}
+	firstCompleted, err := reopened.Wait(context.Background(), first.Operation.ID)
+	if err != nil || firstCompleted.Operation == nil || firstCompleted.Operation.Status != OperationSucceeded || len(firstCompleted.Facts) != 1 {
+		t.Fatalf("first Wait() = %+v, %v", firstCompleted, err)
+	}
+}
+
 type failingTestLLM struct{}
 
 func (failingTestLLM) Generate(context.Context, []llm.Message, ...llm.GenerateOption) (llm.Message, llm.TokenUsage, error) {
@@ -121,7 +194,7 @@ func (failingTestLLM) GenerateStream(context.Context, []llm.Message, ...llm.Gene
 	return nil, errors.New("provider unavailable")
 }
 
-func TestFlowcraftAsyncFailureRemainsPending(t *testing.T) {
+func TestFlowcraftAsyncFailureIsTerminal(t *testing.T) {
 	t.Parallel()
 	store, err := OpenFlowcraftStore(context.Background(), FlowcraftConfig{
 		Dir: t.TempDir(), RuntimeID: "app", UserID: "user", ExtractionModel: "extract", Async: FlowcraftAsyncConfig{Enabled: true},
@@ -134,16 +207,37 @@ func TestFlowcraftAsyncFailureRemainsPending(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	defer cancel()
-	if _, err := store.Wait(ctx, observed.Operation.ID); !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("Wait() error = %v, want DeadlineExceeded", err)
+	result, err := store.Wait(context.Background(), observed.Operation.ID)
+	if err != nil {
+		t.Fatal(err)
 	}
-	store.mu.Lock()
-	pending := store.operations[observed.Operation.ID]
-	store.mu.Unlock()
-	if pending.Operation == nil || pending.Operation.Status != OperationPending {
-		t.Fatalf("operation = %+v", pending)
+	if result.Operation == nil || result.Operation.Status != OperationFailed || result.Operation.Error == "" {
+		t.Fatalf("Wait() = %+v", result)
+	}
+	again, err := store.Wait(context.Background(), observed.Operation.ID)
+	if err != nil || again.Operation == nil || again.Operation.Status != OperationFailed {
+		t.Fatalf("second Wait() = %+v, %v", again, err)
+	}
+}
+
+func TestFlowcraftUpdateRejectsProviderOwnedAttributePatches(t *testing.T) {
+	t.Parallel()
+	store, err := OpenFlowcraftStore(context.Background(), FlowcraftConfig{RuntimeID: "app", UserID: "user"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	observed, err := store.Observe(context.Background(), Observation{Text: "remember"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, request := range []UpdateRequest{
+		{ID: observed.Facts[0].ID, Attributes: AttributePatch{Set: map[string]any{"kind": "preference"}}},
+		{ID: observed.Facts[0].ID, Attributes: AttributePatch{Delete: []string{"entities"}}},
+	} {
+		if _, err := store.Update(context.Background(), request); !errors.Is(err, ErrUnsupported) {
+			t.Fatalf("Update(%+v) error = %v", request.Attributes, err)
+		}
 	}
 }
 

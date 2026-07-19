@@ -46,6 +46,7 @@ func OpenFlowcraftStore(ctx context.Context, config FlowcraftConfig, loader Flow
 	recallOptions := append([]recall.Option(nil), resolved.recallOptions...)
 	var backend *flowworkspace.Backend
 	var temporal recall.TemporalStore
+	var queue *flowcraftAsyncQueue
 	opened := false
 	defer func() {
 		if !opened && backend != nil {
@@ -59,17 +60,19 @@ func OpenFlowcraftStore(ctx context.Context, config FlowcraftConfig, loader Flow
 			return nil, mapFlowcraftError("open workspace", err)
 		}
 		temporal = backend.TemporalStore()
+		queue = newFlowcraftAsyncQueue(backend.AsyncSemanticQueue())
 		recallOptions = append(recallOptions,
 			recall.WithTemporalStore(temporal),
 			recall.WithEvidenceStore(backend.EvidenceStore()),
 			recall.WithSideEffectOutbox(backend.SideEffectOutbox()),
-			recall.WithAsyncSemanticQueue(backend.AsyncSemanticQueue()),
+			recall.WithAsyncSemanticQueue(queue),
 		)
 	} else {
 		temporal = recall.NewInMemoryTemporalStore()
 		recallOptions = append(recallOptions, recall.WithTemporalStore(temporal))
 		if config.Async.Enabled {
-			recallOptions = append(recallOptions, recall.WithAsyncSemanticQueue(recall.NewInMemoryAsyncSemanticQueue()))
+			queue = newFlowcraftAsyncQueue(recall.NewInMemoryAsyncSemanticQueue())
+			recallOptions = append(recallOptions, recall.WithAsyncSemanticQueue(queue))
 		}
 	}
 	if config.ExtractionModel != "" {
@@ -132,5 +135,10 @@ func OpenFlowcraftStore(ctx context.Context, config FlowcraftConfig, loader Flow
 		return nil, mapFlowcraftError("construct memory", err)
 	}
 	opened = true
-	return newFlowcraftStore(config, memory, temporal, backend), nil
+	store := newFlowcraftStore(config, memory, temporal, queue, backend)
+	if err := store.rehydrateOperations(ctx); err != nil {
+		_ = store.Close()
+		return nil, err
+	}
+	return store, nil
 }

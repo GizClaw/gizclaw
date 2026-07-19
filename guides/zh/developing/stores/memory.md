@@ -11,15 +11,15 @@
 - `Update`：修改事实文本；支持 provider 时可同时 patch attributes 和校验 revision。
 - `Delete`：删除或退休事实；支持 provider 时可校验 revision。
 
-异步 provider 在 `ObserveResult.Operation` 返回状态。实现 `OperationWaiter` 的 store 由调用方使用已有 `context.Context` 等待完成，不在 constructor 中启动后台 goroutine。
+异步 provider 在 `ObserveResult.Operation` 返回状态。实现 `OperationWaiter` 的 store 由调用方使用已有 `context.Context` 等待完成，不在 constructor 中启动后台 goroutine。持久化 Flowcraft store 会在重启后从 canonical episode fact 恢复 operation ID；提取失败返回 terminal failed operation。
 
-`AppID`、`UserID`、`AgentID` 和 `RunID` 是业务记忆 scope。它们不替代进程、credential 或远端服务自身的多租户隔离。Mem0 Platform 配置必须至少设置其中一个 scope。
+`AppID`、`UserID`、`AgentID` 和 `RunID` 是业务记忆 scope。它们不替代进程、credential 或远端服务自身的多租户隔离。Mem0 Platform 配置必须提供 API key，并至少设置其中一个 scope。
 
 ## Provider
 
 | Provider | 执行位置 | 持久化与模型配置 | 更新限制 |
 | --- | --- | --- | --- |
-| Flowcraft | 进程内 | `dir` 使用 Flowcraft workspace backend；模型资源名通过 `FlowcraftModelLoader` 解析 | append-only revision；支持文本、attributes 和 revision 校验 |
+| Flowcraft | 进程内 | `dir` 使用 Flowcraft workspace backend；模型资源名通过 `FlowcraftModelLoader` 解析 | append-only revision；支持文本、attributes 和 revision 校验，但 provider-owned fact 字段不能作为 metadata patch |
 | Mem0 | 远端 HTTP | Platform 使用 `Authorization: Token`；self-hosted API key 使用 `X-API-Key`，模型由远端服务配置 | 支持文本更新；不支持的 filter、attribute patch 或条件写入返回 `ErrUnsupported` |
 | Volcengine AgentKit/Viking MEM0 | Volc control plane + Mem0 data plane | 必须配置项目 data-plane endpoint；可直接配置 Mem0 API key，也可使用 AK/SK 和 API key ID 或 memory project ID 解析 | 与 Mem0 data plane 相同 |
 
