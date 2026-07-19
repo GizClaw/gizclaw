@@ -365,18 +365,27 @@ type agent struct {
 	inputProvider  InputProvider
 	memory         memory.Store
 
-	outputMu       sync.Mutex
-	activeOutput   *genx.StreamBuilder
-	activeStreamID string
-	observations   *flowcraftOutputObservations
-	outputEpoch    uint64
+	outputMu    sync.Mutex
+	outputs     map[*genx.StreamBuilder]*flowcraftOutputState
+	attachments map[string]*flowcraftOutputState
 
 	selfStartMu sync.Mutex
 	selfStarted bool
 }
 
 func (a *agent) Status(context.Context) (apitypes.PeerRunWorkspaceState, error) {
-	return apitypes.PeerRunWorkspaceState{RuntimeState: "running"}, nil
+	var runtimeHistoryAvailable bool
+	if a != nil {
+		_, runtimeHistoryAvailable = a.runtime.(historyReader)
+	}
+	historyAvailable := a != nil && (a.history != nil || runtimeHistoryAvailable)
+	memoryAvailable := a != nil && a.memory != nil
+	return apitypes.PeerRunWorkspaceState{
+		RuntimeState:         apitypes.PeerRunStatusStateRunning,
+		HistoryAvailable:     &historyAvailable,
+		MemoryStatsAvailable: &memoryAvailable,
+		RecallAvailable:      &memoryAvailable,
+	}, nil
 }
 
 func (a *agent) ListHistory(ctx context.Context, req apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error) {
@@ -464,7 +473,7 @@ func (a *agent) PlayHistory(ctx context.Context, req apitypes.PeerRunHistoryPlay
 			Message:   &message,
 		}, nil
 	}
-	output, streamID, epoch, ok := a.beginReplayOutput()
+	output, streamID, epoch, ok := a.beginReplayOutput(ctx)
 	if !ok {
 		message := "flowcraft history replay requires an active peer output stream"
 		return apitypes.PeerRunHistoryPlayResponse{
@@ -832,7 +841,7 @@ func (a *agent) Transform(ctx context.Context, _ string, input genx.Stream) (gen
 	}
 	output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 64)
 	observations := newFlowcraftOutputObservations(a.outputObserver)
-	a.setActiveOutput(output, defaultInputStreamID, observations)
+	a.registerOutput(ctx, output, observations)
 	go a.run(ctx, input, output, observations)
 	return &flowcraftOutputStream{Stream: output.Stream(), observations: observations}, nil
 }
@@ -1570,7 +1579,7 @@ func (a *agent) runTranscriptTurn(ctx context.Context, transcript, streamID stri
 
 func (a *agent) runFlowcraftTextTurn(ctx context.Context, text, streamID string, output *genx.StreamBuilder, epoch uint64) error {
 	text = strings.TrimSpace(text)
-	a.setActiveStreamID(streamID)
+	a.setActiveStreamID(output, streamID)
 	if a.outputObserver != nil {
 		a.outputObserver.BeginOutput(streamID, text)
 	}
@@ -1695,73 +1704,135 @@ func readStreamResults(stream genx.Stream, results chan<- streamResult) {
 	}
 }
 
-func (a *agent) setActiveOutput(output *genx.StreamBuilder, streamID string, observations ...*flowcraftOutputObservations) uint64 {
-	a.outputMu.Lock()
-	defer a.outputMu.Unlock()
-	a.outputEpoch++
-	a.activeOutput = output
-	a.activeStreamID = streamID
-	a.observations = nil
-	if len(observations) > 0 {
-		a.observations = observations[0]
-	}
-	return a.outputEpoch
+const defaultFlowcraftOutputKey = "__default__"
+
+type flowcraftOutputState struct {
+	mu             sync.Mutex
+	attachmentID   string
+	output         *genx.StreamBuilder
+	activeStreamID string
+	observations   *flowcraftOutputObservations
+	epoch          uint64
 }
 
-func (a *agent) setActiveStreamID(streamID string) {
+func flowcraftOutputKey(ctx context.Context) string {
+	if id := strings.TrimSpace(agenthost.AttachmentID(ctx)); id != "" {
+		return id
+	}
+	return defaultFlowcraftOutputKey
+}
+
+func (a *agent) registerOutput(ctx context.Context, output *genx.StreamBuilder, observations *flowcraftOutputObservations) *flowcraftOutputState {
+	state := &flowcraftOutputState{
+		attachmentID:   flowcraftOutputKey(ctx),
+		output:         output,
+		activeStreamID: defaultInputStreamID,
+		observations:   observations,
+	}
+	a.outputMu.Lock()
+	if a.outputs == nil {
+		a.outputs = make(map[*genx.StreamBuilder]*flowcraftOutputState)
+	}
+	if a.attachments == nil {
+		a.attachments = make(map[string]*flowcraftOutputState)
+	}
+	a.outputs[output] = state
+	a.attachments[state.attachmentID] = state
+	a.outputMu.Unlock()
+	return state
+}
+
+func (a *agent) outputState(output *genx.StreamBuilder) *flowcraftOutputState {
+	if a == nil || output == nil {
+		return nil
+	}
+	a.outputMu.Lock()
+	state := a.outputs[output]
+	a.outputMu.Unlock()
+	return state
+}
+
+func (a *agent) ensureOutputState(output *genx.StreamBuilder) *flowcraftOutputState {
+	if state := a.outputState(output); state != nil {
+		return state
+	}
+	return a.registerOutput(context.Background(), output, nil)
+}
+
+func (a *agent) setActiveOutput(output *genx.StreamBuilder, streamID string, observations ...*flowcraftOutputObservations) uint64 {
+	state := a.ensureOutputState(output)
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	state.epoch++
+	state.activeStreamID = streamID
+	state.observations = nil
+	if len(observations) > 0 {
+		state.observations = observations[0]
+	}
+	return state.epoch
+}
+
+func (a *agent) setActiveStreamID(output *genx.StreamBuilder, streamID string) {
 	if strings.TrimSpace(streamID) == "" {
 		return
 	}
-	a.outputMu.Lock()
-	defer a.outputMu.Unlock()
-	a.activeStreamID = streamID
+	state := a.outputState(output)
+	if state == nil {
+		return
+	}
+	state.mu.Lock()
+	state.activeStreamID = streamID
+	state.mu.Unlock()
 }
 
 func (a *agent) clearActiveOutput(output *genx.StreamBuilder) {
 	a.outputMu.Lock()
-	defer a.outputMu.Unlock()
-	if a.activeOutput == output {
-		a.activeOutput = nil
-		a.activeStreamID = ""
-		a.observations = nil
+	state := a.outputs[output]
+	delete(a.outputs, output)
+	if state != nil && a.attachments[state.attachmentID] == state {
+		delete(a.attachments, state.attachmentID)
 	}
+	a.outputMu.Unlock()
 }
 
-func (a *agent) beginReplayOutput() (*genx.StreamBuilder, string, uint64, bool) {
+func (a *agent) beginReplayOutput(ctx context.Context) (*genx.StreamBuilder, string, uint64, bool) {
 	a.outputMu.Lock()
-	defer a.outputMu.Unlock()
-	if a.activeOutput == nil {
+	state := a.attachments[flowcraftOutputKey(ctx)]
+	a.outputMu.Unlock()
+	if state == nil || state.output == nil {
 		return nil, "", 0, false
 	}
-	a.outputEpoch++
-	streamID := strings.TrimSpace(a.activeStreamID)
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	state.epoch++
+	streamID := strings.TrimSpace(state.activeStreamID)
 	if streamID == "" {
 		streamID = defaultInputStreamID
 	}
-	return a.activeOutput, streamID, a.outputEpoch, true
+	return state.output, streamID, state.epoch, true
 }
 
-func (a *agent) currentOutputEpoch() uint64 {
-	a.outputMu.Lock()
-	defer a.outputMu.Unlock()
-	return a.outputEpoch
-}
-
-func (a *agent) isCurrentOutputEpoch(epoch uint64) bool {
-	a.outputMu.Lock()
-	defer a.outputMu.Unlock()
-	return a.outputEpoch == epoch
+func (a *agent) currentOutputEpoch(output *genx.StreamBuilder) uint64 {
+	state := a.outputState(output)
+	if state == nil {
+		state = a.registerOutput(context.Background(), output, nil)
+	}
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	return state.epoch
 }
 
 func (a *agent) addOutput(output *genx.StreamBuilder, epoch uint64, chunks ...*genx.MessageChunk) error {
-	a.outputMu.Lock()
-	if a.outputEpoch != epoch {
-		a.outputMu.Unlock()
+	state := a.outputState(output)
+	if state == nil {
 		return nil
 	}
-	observations := a.observations
-	a.outputMu.Unlock()
-	observations.produce(chunks...)
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	if state.epoch != epoch {
+		return nil
+	}
+	state.observations.produce(chunks...)
 	return output.Add(chunks...)
 }
 
@@ -1791,13 +1862,17 @@ func (a *agent) interruptOutput(output *genx.StreamBuilder, streamID string, epo
 	if strings.TrimSpace(streamID) == "" {
 		streamID = defaultInputStreamID
 	}
-	a.outputMu.Lock()
-	if a.outputEpoch != epoch {
-		a.outputMu.Unlock()
+	state := a.outputState(output)
+	if state == nil {
 		return false
 	}
-	a.outputEpoch++
-	a.outputMu.Unlock()
+	state.mu.Lock()
+	if state.epoch != epoch {
+		state.mu.Unlock()
+		return false
+	}
+	state.epoch++
+	state.mu.Unlock()
 	if a.outputObserver != nil {
 		a.outputObserver.InterruptOutput(streamID)
 	}
@@ -1812,14 +1887,18 @@ func (a *agent) interruptQueuedOutput(output *genx.StreamBuilder, streamID strin
 	if strings.TrimSpace(streamID) == "" {
 		streamID = defaultInputStreamID
 	}
-	a.outputMu.Lock()
-	if a.outputEpoch != epoch {
-		a.outputMu.Unlock()
+	state := a.outputState(output)
+	if state == nil {
+		return false
+	}
+	state.mu.Lock()
+	if state.epoch != epoch {
+		state.mu.Unlock()
 		return false
 	}
 	a.discardAssistantOutput(output, streamID)
-	a.outputEpoch++
-	a.outputMu.Unlock()
+	state.epoch++
+	state.mu.Unlock()
 	if a.outputObserver != nil {
 		a.outputObserver.InterruptOutput(streamID)
 	}

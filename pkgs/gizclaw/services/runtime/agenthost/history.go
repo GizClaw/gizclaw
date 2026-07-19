@@ -38,6 +38,14 @@ const (
 type historyGearIDContextKey struct{}
 
 func withHistoryGearID(ctx context.Context, gearID string) context.Context {
+	return WithAttachmentID(ctx, gearID)
+}
+
+// WithAttachmentID binds a workspace runtime call to one gear attachment.
+func WithAttachmentID(ctx context.Context, gearID string) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	gearID = strings.TrimSpace(gearID)
 	if gearID == "" {
 		return ctx
@@ -48,6 +56,13 @@ func withHistoryGearID(ctx context.Context, gearID string) context.Context {
 func historyGearID(ctx context.Context) string {
 	value, _ := ctx.Value(historyGearIDContextKey{}).(string)
 	return strings.TrimSpace(value)
+}
+
+// AttachmentID returns the stable gear identity for the current workspace
+// runtime attachment. Product adapters use it to keep per-gear output state
+// when RuntimeRegistry shares one Agent across multiple attachments.
+func AttachmentID(ctx context.Context) string {
+	return historyGearID(ctx)
 }
 
 func wrapHistoryAgent(agent Agent, history *workspace.HistoryStore) Agent {
