@@ -1,0 +1,32 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "RuntimeProfile API Types",
+    "description": "RuntimeProfile persisted API representation.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "RuntimeProfile": {
+        "type": "object",
+        "required": ["name", "spec", "created_at", "updated_at"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "spec": {
+            "$ref": "./runtime_profile_spec.json#/components/schemas/RuntimeProfileSpec"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  }
+}

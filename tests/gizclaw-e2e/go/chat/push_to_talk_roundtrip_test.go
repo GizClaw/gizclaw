@@ -3,6 +3,7 @@
 package chat
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -11,6 +12,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
 )
 
 func TestPushToTalkRoundtrip(t *testing.T) {
@@ -80,6 +85,7 @@ func runLiveWorkspaceCase(t *testing.T, selected workspaceCase, paths []string) 
 		}
 		t.Skipf("e2e setup server is not available: %v", err)
 	}
+	t.Setenv("GIZCLAW_E2E_CHAT_REGISTRATION_TOKEN", createChatRegistrationToken(t, selected))
 	for _, path := range paths {
 		path := path
 		t.Run(strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)), func(t *testing.T) {
@@ -96,6 +102,90 @@ func runLiveWorkspaceCase(t *testing.T, selected workspaceCase, paths []string) 
 			t.Fatalf("%s %s: %v", selected, path, err)
 		})
 	}
+}
+
+func createChatRegistrationToken(t *testing.T, selected workspaceCase) string {
+	t.Helper()
+	h := clitest.NewSetupHarness(t, "go-chat-"+string(selected))
+	identitiesHome := strings.TrimSpace(os.Getenv("GIZCLAW_E2E_IDENTITIES_HOME"))
+	if identitiesHome == "" {
+		identitiesHome = filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "identities")
+	}
+	adminContext := strings.TrimSpace(os.Getenv("GIZCLAW_E2E_ADMIN_IDENTITY"))
+	if adminContext == "" {
+		adminContext = "admin"
+	}
+	h.SetContextDirAlias("admin-a", filepath.Join(identitiesHome, adminContext))
+	admin := h.ConnectClientFromContextEventually("admin-a", 30*time.Second)
+	defer admin.Close()
+	api, err := admin.ServerAdminClient()
+	if err != nil {
+		t.Fatalf("create chat admin client: %v", err)
+	}
+
+	workflows := map[string]string{
+		"volc-ast-translate":                "volc-ast-translate",
+		"volc-ast-translate-tts":            "volc-ast-translate-tts",
+		"volc-ast-translate-zh-en":          "volc-ast-translate-zh-en",
+		"volc-ast-translate-zh-jp":          "volc-ast-translate-zh-jp",
+		"doubao-realtime-conversation":      "doubao-realtime-conversation",
+		"flowcraft-voice-assistant":         "flowcraft-voice-assistant",
+		"flowcraft-chat-assistant":          "flowcraft-chat-assistant",
+		"flowcraft-tool-chat":               "flowcraft-tool-chat",
+		"flowcraft-journey-guide":           "flowcraft-journey-guide",
+		"flowcraft-route-matcher":           "flowcraft-route-matcher",
+		"flowcraft-multi-role-storyteller":  "flowcraft-multi-role-storyteller",
+		"flowcraft-murder-mystery":          "flowcraft-murder-mystery",
+		"flowcraft-poetry-adventure-li-bai": "flowcraft-poetry-adventure-li-bai",
+		"flowcraft-werewolf-game":           "flowcraft-werewolf-game",
+	}
+	models := map[string]string{
+		"llm":         "doubao-lite-chat",
+		"tts":         "volc-bigtts",
+		"asr":         "volc-bigasr-sauc",
+		"realtime":    "doubao-realtime-dialog",
+		"translation": "volc-ast-translate",
+	}
+	voices := map[string]string{
+		"assistant":   "volc-tenant:volc-main:zh_female_vv_mars_bigtts",
+		"storyteller": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+		"monster":     "volc-tenant:volc-main:ICL_zh_female_bingjiao3_tob",
+		"wukong":      "volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts",
+		"tangseng":    "volc-tenant:volc-main:zh_male_tangseng_mars_bigtts",
+		"bajie":       "volc-tenant:volc-main:zh_male_zhubajie_mars_bigtts",
+	}
+	const profileName = "e2e-chat"
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	profileResp, err := api.PutRuntimeProfileWithResponse(ctx, profileName, adminhttp.RuntimeProfileUpsert{
+		Name: profileName,
+		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{
+			Workflows: &workflows,
+			Models:    &models,
+			Voices:    &voices,
+		}},
+	})
+	if err != nil {
+		t.Fatalf("put chat RuntimeProfile: %v", err)
+	}
+	if profileResp.JSON200 == nil {
+		t.Fatalf("put chat RuntimeProfile status %d: %s", profileResp.StatusCode(), strings.TrimSpace(string(profileResp.Body)))
+	}
+
+	tokenName := "e2e-chat-" + string(selected)
+	_, _ = api.DeleteRegistrationTokenWithResponse(ctx, tokenName)
+	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
+		Name:               tokenName,
+		FirmwareName:       "devkit-firmware-main",
+		RuntimeProfileName: profileName,
+	})
+	if err != nil {
+		t.Fatalf("create chat RegistrationToken: %v", err)
+	}
+	if tokenResp.JSON200 == nil || tokenResp.JSON200.Token == "" {
+		t.Fatalf("create chat RegistrationToken status %d: %s", tokenResp.StatusCode(), strings.TrimSpace(string(tokenResp.Body)))
+	}
+	return tokenResp.JSON200.Token
 }
 
 func runConfigWithLiveRetry(path, contextConfigPath string, selected workspaceCase) error {

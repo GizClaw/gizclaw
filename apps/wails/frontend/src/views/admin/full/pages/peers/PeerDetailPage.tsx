@@ -15,15 +15,12 @@ import {
   approvePeer,
   blockPeer,
   deletePeer,
-  getResource,
   putPeerInfo,
   refreshPeer,
   type DeviceInfo,
   type PeerRole,
-  type Resource,
 } from "@gizclaw/gizclaw/admin";
 
-import { ResourceCliPanel } from "../../components/ResourceCliPanel";
 import { DetailBlock } from "@/dashboard";
 import { ErrorBanner, NoticeBanner } from "@/dashboard";
 import { EmptyState } from "@/dashboard";
@@ -52,7 +49,6 @@ export function PeerDetailPage(): JSX.Element {
   const [approveRole, setApproveRole] = useState<PeerRole>("client");
   const [deviceName, setDeviceName] = useState("");
   const [deviceEmoji, setDeviceEmoji] = useState("");
-  const [peerConfigResource, setPeerConfigResource] = useState<Resource | null>(null);
 
   const registration = detail.data?.registration ?? null;
   const isBlocked = registration?.status === "blocked";
@@ -66,23 +62,6 @@ export function PeerDetailPage(): JSX.Element {
     setDeviceName(detail.data?.info?.name ?? "");
     setDeviceEmoji(detail.data?.info?.emoji ?? "");
   }, [detail.data?.info?.emoji, detail.data?.info?.name, detail.data?.registration?.role]);
-
-  const loadPeerConfigResource = useCallback(async () => {
-    if (publicKey === "") {
-      setPeerConfigResource(null);
-      return;
-    }
-    try {
-      const resource = await expectData(getResource({ path: { kind: "PeerConfig", name: publicKey } }));
-      setPeerConfigResource(resource);
-    } catch {
-      setPeerConfigResource(null);
-    }
-  }, [publicKey]);
-
-  useEffect(() => {
-    void loadPeerConfigResource();
-  }, [loadPeerConfigResource]);
 
   const runPeerAction = useCallback(async (name: string, action: () => Promise<void>, successMessage: string) => {
     setPeerActionBusy(name);
@@ -306,14 +285,6 @@ export function PeerDetailPage(): JSX.Element {
                 />
                 <DetailBlock
                   items={[
-                    ["View", detail.data?.config?.view],
-                    ["Resource kind", "PeerConfig"],
-                    ["Resource name", registration.public_key],
-                  ]}
-                  title="Configuration"
-                />
-                <DetailBlock
-                  items={[
                     ["Online", detail.data?.runtime?.online ? "Yes" : "No"],
                     ["Last Seen", formatDate(detail.data?.runtime?.last_seen_at)],
                     ["Last Address", detail.data?.runtime?.last_addr],
@@ -327,7 +298,7 @@ export function PeerDetailPage(): JSX.Element {
               <Card className="min-w-0">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">Raw Detail</CardTitle>
-                  <CardDescription>Combined registration, info, config, and runtime payloads.</CardDescription>
+				  <CardDescription>Combined registration, info, and runtime payloads.</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
                   <pre className="max-h-[32rem] min-w-0 overflow-x-auto rounded-lg border bg-muted/50 p-4 text-xs leading-6 text-foreground">
@@ -445,12 +416,15 @@ export function PeerDetailPage(): JSX.Element {
             </TabsContent>
 
             <TabsContent className="space-y-4" value="cli">
-              <ResourceCliPanel
-                commands={peerCliCommands(registration.public_key, registration.role)}
-                resource={peerConfigResource}
-                resourceDescription="JSON returned by the resource API and accepted by admin apply. PeerConfig manages desired peer configuration."
-                resourceTitle="PeerConfig Resource Spec"
-              />
+			  <Card>
+				<CardHeader>
+				  <CardTitle>CLI Commands</CardTitle>
+				  <CardDescription>Administrative peer lifecycle and runtime inspection commands.</CardDescription>
+				</CardHeader>
+				<CardContent>
+				  <pre className="overflow-auto rounded-md bg-muted p-4 text-xs leading-5">{peerCliCommands(registration.public_key, registration.role)}</pre>
+				</CardContent>
+			  </Card>
             </TabsContent>
           </Tabs>
         </div>
@@ -486,8 +460,7 @@ function peerCliCommands(publicKey: string, role: PeerRole): string {
     ``,
     `# Read peer snapshots`,
     `gizclaw admin peers --context <admin-cli-context> info ${key}`,
-    `gizclaw admin peers --context <admin-cli-context> config ${key}`,
-    `gizclaw admin peers --context <admin-cli-context> runtime ${key}`,
+	`gizclaw admin peers --context <admin-cli-context> runtime ${key}`,
     ``,
     `# Refresh state from the device-side API`,
     `gizclaw admin peers --context <admin-cli-context> refresh ${key}`,
@@ -495,13 +468,6 @@ function peerCliCommands(publicKey: string, role: PeerRole): string {
     `# Approve or block this peer`,
     `gizclaw admin peers --context <admin-cli-context> approve ${key} ${nextRole}`,
     `gizclaw admin peers --context <admin-cli-context> block ${key}`,
-    ``,
-    `# Update desired configuration`,
-    `gizclaw admin peers --context <admin-cli-context> put-config ${key} --file config.json`,
-    ``,
-    `# Show/apply the declarative PeerConfig resource`,
-    `gizclaw admin --context <admin-cli-context> show PeerConfig ${key}`,
-    `gizclaw admin --context <admin-cli-context> apply -f peer-config.json`,
     ``,
     `# Reset this peer registration`,
     `gizclaw admin peers --context <admin-cli-context> delete ${key}`,

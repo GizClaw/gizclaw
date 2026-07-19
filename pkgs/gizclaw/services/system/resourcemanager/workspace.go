@@ -30,9 +30,6 @@ func (m *Manager) applyWorkspace(ctx context.Context, resource apitypes.Resource
 	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	if err := m.validateOwnedResourceOwner(apitypes.ACLResourceKindWorkspace, item.Metadata.Name, item.Metadata, exists); err != nil {
-		return apitypes.ApplyResult{}, err
-	}
 	if exists {
 		same, err := semanticEqual(
 			struct {
@@ -46,22 +43,11 @@ func (m *Manager) applyWorkspace(ctx context.Context, resource apitypes.Resource
 			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
 		}
 		if same {
-			ownerChanged, err := m.ensureOwnedResourceOwnerFromMetadata(ctx, apitypes.ACLResourceKindWorkspace, item.Metadata.Name, item.Metadata)
-			if err != nil {
-				return apitypes.ApplyResult{}, err
-			}
-			if ownerChanged {
-				return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindWorkspace, item.Metadata.Name), nil
-			}
 			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindWorkspace, item.Metadata.Name), nil
 		}
 	}
-	ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindWorkspace, item.Metadata.Name, item.Metadata)
-	if err != nil {
-		return apitypes.ApplyResult{}, err
-	}
 	if err := m.putWorkspace(ctx, name, workspaceUpsert(item)); err != nil {
-		return apitypes.ApplyResult{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
+		return apitypes.ApplyResult{}, err
 	}
 	if exists {
 		return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindWorkspace, item.Metadata.Name), nil

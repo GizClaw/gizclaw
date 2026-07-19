@@ -125,7 +125,7 @@ Should be placed at `pkgs/gizedge`:
 Should not be placed in `pkgs/gizedge`:
 
 - Peer, workspace, firmware, gameplay, social or Agent domain services.
-- Authoritative resource storage and final ACL judgment.
+- Authoritative resource storage and final resource-access decisions.
 - Transport-independent connection contract or generic WebRTC implementation.
 - HTTP/RPC handler for GizClaw Server.
 - Server storage backend, migration and workspace runtime assembly.

@@ -1,9 +1,9 @@
-import { Check, Copy, ImageIcon, Plus, RefreshCw } from "lucide-react";
+import { Check, Copy, Plus, RefreshCw } from "lucide-react";
 import { DashboardActionButton } from "@/dashboard";
 import { DashboardPager } from "@/dashboard";
 import { DashboardTable } from "@/dashboard";
 import type { KeyboardEvent, MouseEvent } from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
@@ -12,8 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { expectData } from "@/dashboard";
-import { localizedAdminWorkflowText } from "@/lib/gizclaw/workflow_i18n";
-import { downloadWorkflowIcon, listWorkflows, type Workflow } from "@gizclaw/gizclaw/admin";
+import { listWorkflows, type Workflow } from "@gizclaw/gizclaw/admin";
 
 import { ErrorBanner } from "@/dashboard";
 import { EmptyState } from "@/dashboard";
@@ -97,7 +96,7 @@ export function WorkflowsListPage(): JSX.Element {
         <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
           <div className="space-y-1">
             <CardTitle>Workflow catalog</CardTitle>
-            <CardDescription>Workflows grouped by driver and localized catalog.</CardDescription>
+            <CardDescription>Workflows grouped by driver and stable resource name.</CardDescription>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -136,7 +135,6 @@ export function WorkflowsListPage(): JSX.Element {
                     >
                       <TableCell className="min-w-0">
                         <div className="flex min-w-0 items-center gap-3">
-                          <WorkflowCatalogIcon workflow={workflow} />
                           <div className="min-w-0">
                             <button
                               className="block min-w-0 truncate rounded-sm text-left font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -188,48 +186,11 @@ function isInteractiveTarget(target: EventTarget): boolean {
 }
 
 function workflowDescription(workflow: Workflow): string {
-  return localizedAdminWorkflowText(workflow, navigator.languages).description ?? "";
+  return "";
 }
 
 function workflowDisplayName(workflow: Workflow): string {
-  return localizedAdminWorkflowText(workflow, navigator.languages).name ?? workflow.name;
-}
-
-function WorkflowCatalogIcon({ workflow }: { workflow: Workflow }): JSX.Element {
-  const [source, setSource] = useState("");
-
-  useEffect(() => {
-    let active = true;
-    let objectURL = "";
-    setSource("");
-    if (workflow.icon?.png == null) return () => undefined;
-    void expectData(downloadWorkflowIcon({ path: { name: workflow.name, format: "png" } }))
-      .then((blob) => {
-        if (!active) return;
-        objectURL = URL.createObjectURL(blob);
-        setSource(objectURL);
-      })
-      .catch(() => {
-        if (active) setSource("");
-      });
-    return () => {
-      active = false;
-      if (objectURL !== "") URL.revokeObjectURL(objectURL);
-    };
-  }, [workflow.icon?.png, workflow.name]);
-
-  return source === "" ? (
-    <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-      <ImageIcon className="size-5" />
-    </div>
-  ) : (
-    <img
-      alt=""
-      className="size-10 shrink-0 rounded-lg border object-contain"
-      onError={() => setSource("")}
-      src={source}
-    />
-  );
+  return workflow.name;
 }
 
 function workflowSpecLabel(workflow: Workflow): string {

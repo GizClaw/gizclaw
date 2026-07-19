@@ -45,7 +45,6 @@ import {
   getPeerFriendGroup,
   getPeerFriendGroupInviteToken,
   getPeerFriendInviteToken,
-  getPeerGameRuleset,
   getPeerBadgeDefPixa,
   getPeerPetActions,
   getPeerPoints,
@@ -95,7 +94,6 @@ import {
   type FriendObject,
   type Firmware,
   type GameResultObject,
-  type GameRulesetObject,
   type Model,
   type PeerRunHistoryEntry,
   type PeerRunMemoryStatsResponse,
@@ -389,7 +387,6 @@ function GameplayPanel(): JSX.Element {
   const transactions = usePagedList<PointsTransactionObject>(loadTransactionsPage);
   const results = usePagedList<GameResultObject>(loadResultsPage);
   const grants = usePagedList<RewardGrantObject>(loadGrantsPage);
-  const [ruleset, setRuleset] = useState<GameRulesetObject | null>(null);
   const [points, setPoints] = useState<PointsAccountObject | null>(null);
   const [selectedPetID, setSelectedPetID] = useState("");
   const [adoptName, setAdoptName] = useState("");
@@ -406,11 +403,7 @@ function GameplayPanel(): JSX.Element {
   const [error, setError] = useState("");
 
   const refreshSummary = useCallback(async (): Promise<void> => {
-    const [rulesetResult, pointsResult] = await Promise.all([
-      expectData(getPeerGameRuleset()),
-      expectData(getPeerPoints()),
-    ]);
-    setRuleset(rulesetResult as GameRulesetObject);
+    const pointsResult = await expectData(getPeerPoints());
     setPoints(pointsResult as PointsAccountObject);
   }, []);
 
@@ -526,12 +519,10 @@ function GameplayPanel(): JSX.Element {
       <div className="grid gap-4 lg:grid-cols-3">
         <Card>
           <CardHeader>
-            <CardTitle>Ruleset</CardTitle>
+            <CardTitle>Runtime Profile</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <WorkspaceInfoItem label="Name" value={ruleset?.name ?? "-"} />
-            <WorkspaceInfoItem label="Enabled" value={ruleset == null ? "-" : String(ruleset.spec.enabled)} />
-            <WorkspaceInfoItem label="Pet Pool" value={String(ruleset?.spec.pet_pool?.length ?? 0)} />
+            <WorkspaceInfoItem label="Name" value={points?.runtime_profile_name ?? "-"} />
           </CardContent>
         </Card>
         <Card>
@@ -539,7 +530,7 @@ function GameplayPanel(): JSX.Element {
             <CardTitle>Points</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <WorkspaceInfoItem label="Ruleset" value={points?.ruleset_name ?? "-"} />
+            <WorkspaceInfoItem label="Runtime Profile" value={points?.runtime_profile_name ?? "-"} />
             <WorkspaceInfoItem label="Balance" value={points == null ? "-" : String(points.balance)} />
             <WorkspaceInfoItem label="Updated" value={formatDate(points?.updated_at)} />
           </CardContent>
@@ -2215,6 +2206,7 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
         parameters,
         workspace_name: workspaceName,
         workflow_name: workspaceDetails?.workflow_name ?? "",
+        workflow_source: workspaceDetails?.workflow_source,
       } }));
       setWorkspace(updated);
       setWorkspaceParametersText(formatWorkspaceParameters(updated.parameters));
@@ -4210,10 +4202,10 @@ function WorkflowsPanel(): JSX.Element {
   const loadPage = useCallback((cursor: string) => listWorkflowsPage(cursor), []);
   return (
     <PagedSimpleTable
-      columns={["Name", "Display name", "Driver", "Description"]}
+      columns={["Alias", "Driver"]}
       empty="No workflows"
       loadPage={loadPage}
-      row={(item) => [item.name, item.i18n?.name ?? "", String(item.spec.driver), item.i18n?.description ?? ""]}
+      row={(item) => [item.name, String(item.spec.driver)]}
       title="Workflows"
     />
   );
@@ -4391,7 +4383,7 @@ function OverviewPanel({ modelCount }: { modelCount: number }): JSX.Element {
               <div className="text-xs text-muted-foreground">Models</div>
               <div className="text-2xl font-semibold">{modelCount}</div>
             </div>
-            <div className="text-muted-foreground">ACL-controlled resources are listed in the resource sections.</div>
+            <div className="text-muted-foreground">RuntimeProfile and owner resources are listed in the resource sections.</div>
           </div>
         </CardContent>
       </Card>
@@ -4658,7 +4650,7 @@ function listVoicesPage(cursor: string): Promise<PageResponse<Voice>> {
 }
 
 function listWorkflowsPage(cursor: string): Promise<PageResponse<PeerWorkflow>> {
-  return expectData(listPeerWorkflows({ query: pageQuery(cursor) }));
+  return expectData(listPeerWorkflows({ query: { ...pageQuery(cursor), source: "runtime" } }));
 }
 
 function listWorkspacesPage(cursor: string): Promise<PageResponse<Workspace>> {

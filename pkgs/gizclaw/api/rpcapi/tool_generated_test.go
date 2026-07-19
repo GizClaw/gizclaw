@@ -16,13 +16,15 @@ func TestToolPayloadRoundTripAndMethodRegistry(t *testing.T) {
 	}
 	name := "play_music"
 	peer := "peer-a"
+	owner := "owner-a"
 	enabled := true
 	tool := Tool{
-		Id:        "peer.peer-a.music.play",
-		Name:      &name,
-		Source:    ToolSourceDevice,
-		Enabled:   &enabled,
-		OwnerPeer: &peer,
+		Id:             "peer.peer-a.music.play",
+		Name:           &name,
+		Source:         ToolSourceDevice,
+		Enabled:        &enabled,
+		OwnerPeer:      &peer,
+		OwnerPublicKey: &owner,
 		InputSchema: jsonschema.Schema{
 			Type:       "object",
 			Required:   []string{"query"},
@@ -38,7 +40,7 @@ func TestToolPayloadRoundTripAndMethodRegistry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsToolCreateRequest() error = %v", err)
 	}
-	if got.Id != tool.Id || got.InputSchema.Type != "object" || got.InputSchema.Properties["query"].Type != "string" {
+	if got.Id != tool.Id || got.OwnerPublicKey == nil || *got.OwnerPublicKey != owner || got.InputSchema.Type != "object" || got.InputSchema.Properties["query"].Type != "string" {
 		t.Fatalf("Tool round trip = %#v", got)
 	}
 

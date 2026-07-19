@@ -153,18 +153,24 @@ spec:
             heal:
               display_name: 治疗
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: GameRuleset
+    kind: RuntimeProfile
     metadata:
       name: h106-tragon
     spec:
-      enabled: true
-      description: H106 Tragon mobile app preview ruleset.
-      default_workflow_name: pet-care
-      points:
-        initial_balance: 100
-      pet_pool:
-      - petdef_id: petdef-tragon
-        weight: 100
-        rarity: rare
-        adoption_cost: 10
-        workflow_name: pet-care
+      resources:
+        models:
+          pet-chat: pet-flowcraft-workflow-chat
+          pet-extract: pet-flowcraft-workflow-extract
+          pet-asr: pet-flowcraft-workflow-asr
+        voices:
+          tragon: volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts
+        pet_defs:
+          tragon: petdef-tragon
+      gameplay:
+        points:
+          initial_balance: 100
+        pet_pool:
+        - pet_def: tragon
+          weight: 100
+          rarity: rare
+          adoption_cost: 10

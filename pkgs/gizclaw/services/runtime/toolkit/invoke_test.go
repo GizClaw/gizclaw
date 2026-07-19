@@ -7,8 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/google/jsonschema-go/jsonschema"
 )
@@ -25,12 +23,7 @@ func TestBuilderInvokeUsesAllowedToolsACLAndExecutor(t *testing.T) {
 		t.Fatalf("PutTool(mode) error = %v", err)
 	}
 
-	auth := &recordingAuthorizer{
-		allowed: map[string]bool{
-			"system.music.play": true,
-		},
-	}
-	builder := &Builder{Tools: store, Authorizer: auth}
+	builder := &Builder{Tools: store}
 	executors := NewExecutorRegistry()
 	if err := executors.Register("music.play", ExecutorFunc(func(_ context.Context, call Call) (Result, error) {
 		if call.ID != "call-1" {
@@ -52,7 +45,8 @@ func TestBuilderInvokeUsesAllowedToolsACLAndExecutor(t *testing.T) {
 
 	result, err := builder.Invoke(ctx, executors, InvokeRequest{
 		Build: BuildRequest{
-			Subject:        acl.PublicKeySubject("owner-peer"),
+			OwnerPublicKey: "owner-peer",
+			ProfileToolIDs: []string{"system.music.play"},
 			AllowedToolIDs: []string{"system.music.play"},
 		},
 		CallID: "call-1",
@@ -64,9 +58,6 @@ func TestBuilderInvokeUsesAllowedToolsACLAndExecutor(t *testing.T) {
 	}
 	if string(result.Data) != `{"queued":true}` {
 		t.Fatalf("Invoke() result = %s", result.Data)
-	}
-	if !auth.saw("system.music.play", apitypes.ACLPermissionUse) {
-		t.Fatalf("authorizer did not check allowed tool: %#v", auth.requests)
 	}
 }
 
@@ -101,7 +92,10 @@ func TestBuilderInvokeRejectsAdvertisedNameAndIDCollision(t *testing.T) {
 		t.Fatalf("Register(mode.switch) error = %v", err)
 	}
 
-	_, err := (&Builder{Tools: store}).Invoke(ctx, executors, InvokeRequest{Name: "bar", Args: json.RawMessage(`{}`)})
+	_, err := (&Builder{Tools: store}).Invoke(ctx, executors, InvokeRequest{
+		Build: BuildRequest{ProfileToolIDs: []string{"system.music.play", "bar"}},
+		Name:  "bar", Args: json.RawMessage(`{}`),
+	})
 	if !errors.Is(err, ErrDuplicateToolName) || !strings.Contains(err.Error(), `"bar"`) || !strings.Contains(err.Error(), `"system.music.play"`) {
 		t.Fatalf("Invoke() error = %v, want duplicate name with both IDs", err)
 	}
@@ -123,7 +117,7 @@ func TestBuilderInvokeNormalizesEmptyArgs(t *testing.T) {
 		t.Fatalf("Register() error = %v", err)
 	}
 
-	if _, err := (&Builder{Tools: store}).Invoke(ctx, executors, InvokeRequest{Name: "system.music.play"}); err != nil {
+	if _, err := (&Builder{Tools: store}).Invoke(ctx, executors, InvokeRequest{Build: BuildRequest{ProfileToolIDs: []string{"system.music.play"}}, Name: "system.music.play"}); err != nil {
 		t.Fatalf("Invoke() error = %v", err)
 	}
 }
@@ -138,7 +132,7 @@ func TestBuilderInvokeRejectsToolOutsideWorkspaceAllowlist(t *testing.T) {
 	}
 
 	_, err := (&Builder{Tools: store}).Invoke(ctx, NewExecutorRegistry(), InvokeRequest{
-		Build: BuildRequest{AllowedToolIDs: []string{"system.mode.switch"}},
+		Build: BuildRequest{ProfileToolIDs: []string{"system.music.play"}, AllowedToolIDs: []string{"system.mode.switch"}},
 		Name:  "play_music",
 	})
 	if !errors.Is(err, ErrToolNotFound) {
@@ -154,7 +148,7 @@ func TestBuilderInvokeReturnsExecutorErrors(t *testing.T) {
 	}
 
 	_, err := (&Builder{Tools: store}).Invoke(ctx, NewExecutorRegistry(), InvokeRequest{
-		Name: "system.music.play",
+		Build: BuildRequest{ProfileToolIDs: []string{"system.music.play"}}, Name: "system.music.play",
 	})
 	if !errors.Is(err, ErrExecutorNotFound) {
 		t.Fatalf("Invoke(missing executor) error = %v, want %v", err, ErrExecutorNotFound)
@@ -187,7 +181,7 @@ func TestBuilderInvokeRequiresJSONObjectButLeavesSchemaCompatibilityToAdapters(t
 		{name: "non-object", args: json.RawMessage(`[]`)},
 	}
 	for _, args := range []json.RawMessage{json.RawMessage(`{"limit":1}`), json.RawMessage(`{"query":1}`)} {
-		if _, err := builder.Invoke(ctx, executors, InvokeRequest{Name: "system.music.play", Args: args}); err != nil {
+		if _, err := builder.Invoke(ctx, executors, InvokeRequest{Build: BuildRequest{ProfileToolIDs: []string{"system.music.play"}}, Name: "system.music.play", Args: args}); err != nil {
 			t.Fatalf("Invoke(provider-specific schema args) error = %v", err)
 		}
 	}
@@ -197,7 +191,7 @@ func TestBuilderInvokeRequiresJSONObjectButLeavesSchemaCompatibilityToAdapters(t
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := builder.Invoke(ctx, executors, InvokeRequest{
-				Name: "system.music.play",
+				Build: BuildRequest{ProfileToolIDs: []string{"system.music.play"}}, Name: "system.music.play",
 				Args: tt.args,
 			})
 			if !errors.Is(err, ErrInvalidTool) {
@@ -226,7 +220,7 @@ func TestBuilderInvokeAcceptsNullableUnionArgs(t *testing.T) {
 	}
 
 	if _, err := (&Builder{Tools: store}).Invoke(ctx, executors, InvokeRequest{
-		Name: "system.music.play",
+		Build: BuildRequest{ProfileToolIDs: []string{"system.music.play"}}, Name: "system.music.play",
 		Args: json.RawMessage(`{"query":null}`),
 	}); err != nil {
 		t.Fatalf("Invoke(nullable) error = %v", err)

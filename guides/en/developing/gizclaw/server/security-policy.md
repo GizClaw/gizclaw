@@ -4,7 +4,7 @@
 
 Implement the transport security policy of Giznet Server: determine whether the public key allows the establishment of a Peer connection, and whether the Peer is allowed to open the specified Giznet service.
 
-It is responsible for connection/service admission; the product resource level ACL belongs to `services/system/acl`.
+It owns connection and service admission; RuntimeProfile, ownership, and domain relationships decide product-resource access.
 
 ## Core structure and main function
 

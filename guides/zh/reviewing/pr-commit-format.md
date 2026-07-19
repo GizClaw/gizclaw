@@ -28,7 +28,7 @@ This PR changes {prefix} to {subject}.
 
 ```text
 apps/mobile: add app-wide localization support
-api: add workflow-owned i18n contract
+api: add source-qualified workflow RPC
 guides/reviewing: document PR and commit format
 repo: close deterministic validation gaps
 ```
@@ -37,7 +37,7 @@ repo: close deterministic validation gaps
 
 ```text
 This PR changes apps/mobile to add app-wide localization support.
-This PR changes api to add workflow-owned i18n contract.
+This PR changes api to add source-qualified workflow RPC.
 This PR changes guides/reviewing to document PR and commit format.
 This PR changes repo to close deterministic validation gaps.
 ```

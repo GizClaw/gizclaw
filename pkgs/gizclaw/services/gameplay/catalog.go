@@ -26,28 +26,21 @@ const (
 )
 
 var (
-	gameRulesetsRoot = kv.Key{"by-name"}
-	petDefsRoot      = kv.Key{"by-id"}
-	badgeDefsRoot    = kv.Key{"by-id"}
-	gameDefsRoot     = kv.Key{"by-id"}
+	petDefsRoot   = kv.Key{"by-id"}
+	badgeDefsRoot = kv.Key{"by-id"}
+	gameDefsRoot  = kv.Key{"by-id"}
 )
 
 type Catalog struct {
-	GameRulesets kv.Store
-	PetDefs      kv.Store
-	BadgeDefs    kv.Store
-	GameDefs     kv.Store
-	Assets       objectstore.ObjectStore
-	Now          func() time.Time
-	IconLocks    iconasset.Locker
+	PetDefs   kv.Store
+	BadgeDefs kv.Store
+	GameDefs  kv.Store
+	Assets    objectstore.ObjectStore
+	Now       func() time.Time
+	IconLocks iconasset.Locker
 }
 
 type CatalogAdminService interface {
-	ListGameRulesets(context.Context, adminhttp.ListGameRulesetsRequestObject) (adminhttp.ListGameRulesetsResponseObject, error)
-	CreateGameRuleset(context.Context, adminhttp.CreateGameRulesetRequestObject) (adminhttp.CreateGameRulesetResponseObject, error)
-	DeleteGameRuleset(context.Context, adminhttp.DeleteGameRulesetRequestObject) (adminhttp.DeleteGameRulesetResponseObject, error)
-	GetGameRuleset(context.Context, adminhttp.GetGameRulesetRequestObject) (adminhttp.GetGameRulesetResponseObject, error)
-	PutGameRuleset(context.Context, adminhttp.PutGameRulesetRequestObject) (adminhttp.PutGameRulesetResponseObject, error)
 	ListPetDefs(context.Context, adminhttp.ListPetDefsRequestObject) (adminhttp.ListPetDefsResponseObject, error)
 	CreatePetDef(context.Context, adminhttp.CreatePetDefRequestObject) (adminhttp.CreatePetDefResponseObject, error)
 	DeletePetDef(context.Context, adminhttp.DeletePetDefRequestObject) (adminhttp.DeletePetDefResponseObject, error)
@@ -79,113 +72,13 @@ type GameDefIconAdminService interface {
 
 var _ GameDefIconAdminService = (*Catalog)(nil)
 
-func (c *Catalog) ListGameRulesets(ctx context.Context, request adminhttp.ListGameRulesetsRequestObject) (adminhttp.ListGameRulesetsResponseObject, error) {
-	store, err := c.store(c.GameRulesets, "game rulesets")
-	if err != nil {
-		return adminhttp.ListGameRulesets500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	cursor, limit := normalizeListParams(request.Params.Cursor, request.Params.Limit)
-	items, hasNext, nextCursor, err := listJSON[apitypes.GameRuleset](ctx, store, gameRulesetsRoot, cursor, limit)
-	if err != nil {
-		return adminhttp.ListGameRulesets500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	return adminhttp.ListGameRulesets200JSONResponse(adminhttp.GameRulesetList{Items: items, HasNext: hasNext, NextCursor: nextCursor}), nil
-}
-
-func (c *Catalog) CreateGameRuleset(ctx context.Context, request adminhttp.CreateGameRulesetRequestObject) (adminhttp.CreateGameRulesetResponseObject, error) {
-	if request.Body == nil {
-		return adminhttp.CreateGameRuleset400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_RULESET", "request body required")), nil
-	}
-	store, err := c.store(c.GameRulesets, "game rulesets")
-	if err != nil {
-		return adminhttp.CreateGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	name := strings.TrimSpace(request.Body.Name)
-	item, err := c.buildGameRuleset(name, request.Body.Spec, time.Time{})
-	if err != nil {
-		return adminhttp.CreateGameRuleset400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_RULESET", err.Error())), nil
-	}
-	if _, err := store.Get(ctx, rulesetKey(item.Name)); err == nil {
-		return adminhttp.CreateGameRuleset409JSONResponse(apitypes.NewErrorResponse("GAME_RULESET_ALREADY_EXISTS", fmt.Sprintf("game ruleset %q already exists", item.Name))), nil
-	} else if !errors.Is(err, kv.ErrNotFound) {
-		return adminhttp.CreateGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	if err := writeJSON(ctx, store, rulesetKey(item.Name), item); err != nil {
-		return adminhttp.CreateGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	return adminhttp.CreateGameRuleset200JSONResponse(item), nil
-}
-
-func (c *Catalog) DeleteGameRuleset(ctx context.Context, request adminhttp.DeleteGameRulesetRequestObject) (adminhttp.DeleteGameRulesetResponseObject, error) {
-	store, err := c.store(c.GameRulesets, "game rulesets")
-	if err != nil {
-		return adminhttp.DeleteGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	name, err := pathID(request.Name)
-	if err != nil {
-		return nil, err
-	}
-	item, err := readJSON[apitypes.GameRuleset](ctx, store, rulesetKey(name))
-	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
-			return adminhttp.DeleteGameRuleset404JSONResponse(apitypes.NewErrorResponse("GAME_RULESET_NOT_FOUND", fmt.Sprintf("game ruleset %q not found", name))), nil
-		}
-		return adminhttp.DeleteGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	if err := store.Delete(ctx, rulesetKey(name)); err != nil {
-		return adminhttp.DeleteGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	return adminhttp.DeleteGameRuleset200JSONResponse(item), nil
-}
-
-func (c *Catalog) GetGameRuleset(ctx context.Context, request adminhttp.GetGameRulesetRequestObject) (adminhttp.GetGameRulesetResponseObject, error) {
-	item, err := c.GetGameRulesetByName(ctx, request.Name)
-	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
-			return adminhttp.GetGameRuleset404JSONResponse(apitypes.NewErrorResponse("GAME_RULESET_NOT_FOUND", err.Error())), nil
-		}
-		return adminhttp.GetGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	return adminhttp.GetGameRuleset200JSONResponse(item), nil
-}
-
-func (c *Catalog) PutGameRuleset(ctx context.Context, request adminhttp.PutGameRulesetRequestObject) (adminhttp.PutGameRulesetResponseObject, error) {
-	if request.Body == nil {
-		return adminhttp.PutGameRuleset400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_RULESET", "request body required")), nil
-	}
-	store, err := c.store(c.GameRulesets, "game rulesets")
-	if err != nil {
-		return adminhttp.PutGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	name, err := pathID(request.Name)
-	if err != nil {
-		return nil, err
-	}
-	previous, err := readJSON[apitypes.GameRuleset](ctx, store, rulesetKey(name))
-	if err != nil && !errors.Is(err, kv.ErrNotFound) {
-		return adminhttp.PutGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	createdAt := time.Time{}
-	if err == nil {
-		createdAt = previous.CreatedAt
-	}
-	item, err := c.buildGameRuleset(name, request.Body.Spec, createdAt)
-	if err != nil {
-		return adminhttp.PutGameRuleset400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_RULESET", err.Error())), nil
-	}
-	if err := writeJSON(ctx, store, rulesetKey(item.Name), item); err != nil {
-		return adminhttp.PutGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	return adminhttp.PutGameRuleset200JSONResponse(item), nil
-}
-
 func (c *Catalog) ListPetDefs(ctx context.Context, request adminhttp.ListPetDefsRequestObject) (adminhttp.ListPetDefsResponseObject, error) {
 	store, err := c.store(c.PetDefs, "pet defs")
 	if err != nil {
 		return adminhttp.ListPetDefs500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	cursor, limit := normalizeListParams(request.Params.Cursor, request.Params.Limit)
-	items, hasNext, nextCursor, err := c.listPetDefJSON(ctx, store, cursor, limit)
+	items, hasNext, nextCursor, err := listJSON[apitypes.PetDef](ctx, store, petDefsRoot, cursor, limit)
 	if err != nil {
 		return adminhttp.ListPetDefs500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -264,7 +157,7 @@ func (c *Catalog) PutPetDef(ctx context.Context, request adminhttp.PutPetDefRequ
 	if err != nil {
 		return nil, err
 	}
-	previous, err := c.readPetDefJSON(ctx, store, petDefKey(id))
+	previous, err := readJSON[apitypes.PetDef](ctx, store, petDefKey(id))
 	if err != nil && !errors.Is(err, kv.ErrNotFound) {
 		return adminhttp.PutPetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -611,22 +504,6 @@ func (c *Catalog) PutGameDef(ctx context.Context, request adminhttp.PutGameDefRe
 	return adminhttp.PutGameDef200JSONResponse(item), nil
 }
 
-func (c *Catalog) GetGameRulesetByName(ctx context.Context, name string) (apitypes.GameRuleset, error) {
-	store, err := c.store(c.GameRulesets, "game rulesets")
-	if err != nil {
-		return apitypes.GameRuleset{}, err
-	}
-	id, err := pathID(name)
-	if err != nil {
-		return apitypes.GameRuleset{}, err
-	}
-	item, err := readJSON[apitypes.GameRuleset](ctx, store, rulesetKey(id))
-	if errors.Is(err, kv.ErrNotFound) {
-		return apitypes.GameRuleset{}, fmt.Errorf("game ruleset %q not found: %w", id, kv.ErrNotFound)
-	}
-	return item, err
-}
-
 func (c *Catalog) GetPetDefByID(ctx context.Context, id string) (apitypes.PetDef, error) {
 	store, err := c.store(c.PetDefs, "pet defs")
 	if err != nil {
@@ -636,7 +513,7 @@ func (c *Catalog) GetPetDefByID(ctx context.Context, id string) (apitypes.PetDef
 	if err != nil {
 		return apitypes.PetDef{}, err
 	}
-	item, err := c.readPetDefJSON(ctx, store, petDefKey(id))
+	item, err := readJSON[apitypes.PetDef](ctx, store, petDefKey(id))
 	if errors.Is(err, kv.ErrNotFound) {
 		return apitypes.PetDef{}, fmt.Errorf("pet def %q not found: %w", id, kv.ErrNotFound)
 	}
@@ -675,47 +552,12 @@ func (c *Catalog) GetGameDefByID(ctx context.Context, id string) (apitypes.GameD
 	return item, err
 }
 
-func (c *Catalog) buildGameRuleset(name string, spec apitypes.GameRulesetSpec, createdAt time.Time) (apitypes.GameRuleset, error) {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return apitypes.GameRuleset{}, errors.New("name is required")
-	}
-	if len(spec.PetPool) == 0 {
-		return apitypes.GameRuleset{}, errors.New("pet_pool is required")
-	}
-	for i, entry := range spec.PetPool {
-		if strings.TrimSpace(entry.PetdefId) == "" {
-			return apitypes.GameRuleset{}, fmt.Errorf("pet_pool[%d].petdef_id is required", i)
-		}
-		if entry.Weight <= 0 {
-			return apitypes.GameRuleset{}, fmt.Errorf("pet_pool[%d].weight must be positive", i)
-		}
-	}
-	now := c.now()
-	if createdAt.IsZero() {
-		createdAt = now
-	}
-	return apitypes.GameRuleset{Name: name, Spec: spec, CreatedAt: createdAt, UpdatedAt: now}, nil
-}
-
 func (c *Catalog) buildPetDef(id string, spec apitypes.PetDefSpec, i18n apitypes.PetDefI18nSpec, pixaPath *string, createdAt time.Time) (apitypes.PetDef, error) {
 	return c.buildPetDefWithValidator(id, spec, i18n, pixaPath, createdAt, validatePetDef)
 }
 
-func (c *Catalog) buildPetDefForUpdate(id string, spec apitypes.PetDefSpec, i18n apitypes.PetDefI18nSpec, previous apitypes.PetDef, hasPrevious bool, pixaPath *string, createdAt time.Time) (apitypes.PetDef, error) {
-	validate := func(spec apitypes.PetDefSpec, i18n apitypes.PetDefI18nSpec) error {
-		err := validatePetDef(spec, i18n)
-		if err == nil {
-			return nil
-		}
-		if hasPrevious && isLegacyMigratedPetDef(previous) && isLegacyMigratedPetDefSpec(id, spec) {
-			if legacyErr := validateMigratedLegacyPetDef(spec, i18n); legacyErr == nil {
-				return nil
-			}
-		}
-		return err
-	}
-	return c.buildPetDefWithValidator(id, spec, i18n, pixaPath, createdAt, validate)
+func (c *Catalog) buildPetDefForUpdate(id string, spec apitypes.PetDefSpec, i18n apitypes.PetDefI18nSpec, _ apitypes.PetDef, _ bool, pixaPath *string, createdAt time.Time) (apitypes.PetDef, error) {
+	return c.buildPetDef(id, spec, i18n, pixaPath, createdAt)
 }
 
 func (c *Catalog) buildPetDefWithValidator(id string, spec apitypes.PetDefSpec, i18n apitypes.PetDefI18nSpec, pixaPath *string, createdAt time.Time, validate func(apitypes.PetDefSpec, apitypes.PetDefI18nSpec) error) (apitypes.PetDef, error) {
@@ -1045,11 +887,9 @@ func (c *Catalog) openAsset(name string) (io.ReadCloser, int64, error) {
 	}
 	return reader, size, nil
 }
-
-func rulesetKey(name string) kv.Key { return append(append(kv.Key(nil), gameRulesetsRoot...), name) }
-func petDefKey(id string) kv.Key    { return append(append(kv.Key(nil), petDefsRoot...), id) }
-func badgeDefKey(id string) kv.Key  { return append(append(kv.Key(nil), badgeDefsRoot...), id) }
-func gameDefKey(id string) kv.Key   { return append(append(kv.Key(nil), gameDefsRoot...), id) }
+func petDefKey(id string) kv.Key   { return append(append(kv.Key(nil), petDefsRoot...), id) }
+func badgeDefKey(id string) kv.Key { return append(append(kv.Key(nil), badgeDefsRoot...), id) }
+func gameDefKey(id string) kv.Key  { return append(append(kv.Key(nil), gameDefsRoot...), id) }
 
 func writeJSON(ctx context.Context, store kv.Store, key kv.Key, value any) error {
 	data, err := json.Marshal(value)
@@ -1069,325 +909,6 @@ func readJSON[T any](ctx context.Context, store kv.Store, key kv.Key) (T, error)
 		return out, err
 	}
 	return out, nil
-}
-
-type legacyPetDefJSON struct {
-	Id   string `json:"id"`
-	Spec struct {
-		DisplayName    string            `json:"display_name"`
-		Description    string            `json:"description"`
-		WorkflowName   *string           `json:"workflow_name,omitempty"`
-		InitialLife    map[string]int64  `json:"initial_life"`
-		InitialAbility map[string]int64  `json:"initial_ability"`
-		Character      map[string]string `json:"character,omitempty"`
-		Voice          map[string]string `json:"voice,omitempty"`
-	} `json:"spec"`
-	PixaPath  *string   `json:"pixa_path,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
-
-type preP22PetDefJSON struct {
-	Id   string `json:"id"`
-	Spec struct {
-		apitypes.PetDefSpec
-		DefaultLocale string                  `json:"default_locale"`
-		I18n          apitypes.PetDefI18nSpec `json:"i18n"`
-	} `json:"spec"`
-	PixaPath  *string   `json:"pixa_path,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
-
-type legacyGameRulesetAction struct {
-	Cost   int64
-	Reward apitypes.GameRewardSpec
-	Effect apitypes.PetDefActionEffectSpec
-}
-
-type legacyGameRulesetJSON struct {
-	Spec struct {
-		Drive *struct {
-			ActionCosts   map[string]int64            `json:"action_costs"`
-			ActionRewards map[string]legacyRewardSpec `json:"action_rewards"`
-		} `json:"drive"`
-	} `json:"spec"`
-}
-
-type legacyRewardSpec struct {
-	BadgeExpDelta map[string]int64 `json:"badge_exp_delta"`
-	LifeDelta     map[string]int64 `json:"life_delta"`
-	PetExpDelta   *int64           `json:"pet_exp_delta"`
-	PointsDelta   *int64           `json:"points_delta"`
-}
-
-func (c *Catalog) readPetDefJSON(ctx context.Context, store kv.Store, key kv.Key) (apitypes.PetDef, error) {
-	data, err := store.Get(ctx, key)
-	if err != nil {
-		return apitypes.PetDef{}, err
-	}
-	var item apitypes.PetDef
-	if err := json.Unmarshal(data, &item); err != nil {
-		return apitypes.PetDef{}, err
-	}
-	if err := validatePetDef(item.Spec, item.I18n); err == nil {
-		return item, nil
-	}
-	if isLegacyMigratedPetDef(item) {
-		if err := validateMigratedLegacyPetDef(item.Spec, item.I18n); err == nil {
-			return item, nil
-		}
-	}
-	return c.migrateLegacyPetDefJSON(data)
-}
-
-func (c *Catalog) listPetDefJSON(ctx context.Context, store kv.Store, cursor string, limit int) ([]apitypes.PetDef, bool, *string, error) {
-	entries, err := kv.ListAfter(ctx, store, petDefsRoot, cursorAfterKey(petDefsRoot, cursor), limit+1)
-	if err != nil {
-		return nil, false, nil, err
-	}
-	pageEntries, hasNext, nextCursor := paginateEntries(entries, limit)
-	items := make([]apitypes.PetDef, 0, len(pageEntries))
-	for _, entry := range pageEntries {
-		item, err := c.migratePetDefData(entry.Value)
-		if err != nil {
-			return nil, false, nil, err
-		}
-		items = append(items, item)
-	}
-	return items, hasNext, nextCursor, nil
-}
-
-func (c *Catalog) migratePetDefData(data []byte) (apitypes.PetDef, error) {
-	var item apitypes.PetDef
-	if err := json.Unmarshal(data, &item); err != nil {
-		return apitypes.PetDef{}, err
-	}
-	if err := validatePetDef(item.Spec, item.I18n); err == nil {
-		return item, nil
-	}
-	if isLegacyMigratedPetDef(item) {
-		if err := validateMigratedLegacyPetDef(item.Spec, item.I18n); err == nil {
-			return item, nil
-		}
-	}
-	return c.migrateLegacyPetDefJSON(data)
-}
-
-func (c *Catalog) migrateLegacyPetDefJSON(data []byte) (apitypes.PetDef, error) {
-	if item, ok := migratePreP22PetDefJSON(data); ok {
-		return item, nil
-	}
-	var legacy legacyPetDefJSON
-	if err := json.Unmarshal(data, &legacy); err != nil {
-		return apitypes.PetDef{}, err
-	}
-	if legacy.Id == "" || legacy.Spec.DisplayName == "" {
-		var item apitypes.PetDef
-		if err := json.Unmarshal(data, &item); err != nil {
-			return apitypes.PetDef{}, err
-		}
-		return apitypes.PetDef{}, validatePetDef(item.Spec, item.I18n)
-	}
-	if len(legacy.Spec.InitialLife) == 0 {
-		legacy.Spec.InitialLife = map[string]int64{"hunger": 100}
-	}
-	description := legacy.Spec.Description
-	if strings.TrimSpace(description) == "" {
-		description = legacy.Spec.DisplayName
-	}
-	pixaMetadata := c.legacyPetDefPixaMetadata(legacy.PixaPath)
-	spec := apitypes.PetDefSpec{
-		WorkflowName: legacy.Spec.WorkflowName,
-		Attr: apitypes.PetDefAttrSpec{
-			Life:        apitypes.PetAttrGroupSpec{},
-			Progression: apitypes.PetAttrGroupSpec{"xp": {Initial: 0}},
-		},
-		Character: apitypes.PetDefCharacterSpec{Prompt: legacy.Spec.Character["prompt"]},
-		Voice: apitypes.PetDefVoiceSpec{
-			VoiceId: legacy.Spec.Voice["voice_id"],
-			Prompt:  legacy.Spec.Voice["prompt"],
-		},
-		Drive: apitypes.PetDefDriveSpec{Actions: []apitypes.PetDefActionSpec{}},
-		Visual: apitypes.PetDefVisualSpec{
-			Refs: apitypes.PetDefVisualRefsSpec{},
-			Pixa: apitypes.PetDefPixaSpec{
-				AssetRef: "asset://pets/" + legacy.Id + "/pet.pixa",
-				Metadata: pixaMetadata,
-			},
-		},
-	}
-	i18n := apitypes.PetDefI18nSpec{
-		DefaultLocale: "en",
-		AdditionalProperties: map[string]apitypes.PetDefI18nCatalog{
-			"en": {
-				DisplayName: &legacy.Spec.DisplayName,
-				Description: &description,
-			},
-		},
-	}
-	for id, initial := range legacy.Spec.InitialLife {
-		spec.Attr.Life[id] = apitypes.PetAttrValueSpec{Initial: initial}
-	}
-	if legacy.Spec.InitialAbility != nil {
-		if xp, ok := legacy.Spec.InitialAbility["xp"]; ok {
-			spec.Attr.Progression["xp"] = apitypes.PetAttrValueSpec{Initial: xp}
-		}
-	}
-	if strings.TrimSpace(spec.Character.Prompt) == "" {
-		spec.Character.Prompt = legacy.Spec.DisplayName
-	}
-	if strings.TrimSpace(spec.Voice.VoiceId) == "" {
-		spec.Voice.VoiceId = "default"
-	}
-	if strings.TrimSpace(spec.Voice.Prompt) == "" {
-		spec.Voice.Prompt = legacy.Spec.DisplayName
-	}
-	if err := validateMigratedLegacyPetDef(spec, i18n); err != nil {
-		return apitypes.PetDef{}, err
-	}
-	return apitypes.PetDef{
-		Id:        legacy.Id,
-		Spec:      spec,
-		I18n:      i18n,
-		PixaPath:  legacy.PixaPath,
-		CreatedAt: legacy.CreatedAt,
-		UpdatedAt: legacy.UpdatedAt,
-	}, nil
-}
-
-func migratePreP22PetDefJSON(data []byte) (apitypes.PetDef, bool) {
-	var legacy preP22PetDefJSON
-	if err := json.Unmarshal(data, &legacy); err != nil {
-		return apitypes.PetDef{}, false
-	}
-	if strings.TrimSpace(legacy.Id) == "" || strings.TrimSpace(legacy.Spec.DefaultLocale) == "" {
-		return apitypes.PetDef{}, false
-	}
-	i18n := legacy.Spec.I18n
-	i18n.DefaultLocale = legacy.Spec.DefaultLocale
-	item := apitypes.PetDef{
-		Id:        legacy.Id,
-		Spec:      legacy.Spec.PetDefSpec,
-		I18n:      i18n,
-		PixaPath:  legacy.PixaPath,
-		CreatedAt: legacy.CreatedAt,
-		UpdatedAt: legacy.UpdatedAt,
-	}
-	if err := validatePetDef(item.Spec, item.I18n); err == nil {
-		return item, true
-	}
-	if isLegacyMigratedPetDef(item) {
-		if err := validateMigratedLegacyPetDef(item.Spec, item.I18n); err == nil {
-			return item, true
-		}
-	}
-	return apitypes.PetDef{}, false
-}
-
-func (c *Catalog) legacyPetDefPixaMetadata(pixaPath *string) apitypes.PetDefPixaMetadata {
-	metadata := apitypes.PetDefPixaMetadata{
-		Version: "1",
-		Canvas:  apitypes.PetDefPixaCanvasMetadata{Width: 60, Height: 60},
-		Clips: []apitypes.PetDefPixaClipMetadata{
-			{Id: "idle", PixaClipName: "idle"},
-		},
-	}
-	if pixaPath == nil {
-		return metadata
-	}
-	reader, _, err := c.openAsset(*pixaPath)
-	if err != nil {
-		return metadata
-	}
-	defer reader.Close()
-	data, err := io.ReadAll(reader)
-	if err != nil {
-		return metadata
-	}
-	asset, err := parsePixa(data)
-	if err != nil {
-		return metadata
-	}
-	metadata.Canvas = apitypes.PetDefPixaCanvasMetadata{
-		Width:  int64(asset.width),
-		Height: int64(asset.height),
-	}
-	return metadata
-}
-
-func validateMigratedLegacyPetDef(spec apitypes.PetDefSpec, i18n apitypes.PetDefI18nSpec) error {
-	if err := validatePetAttrGroup("attr.life", spec.Attr.Life); err != nil {
-		return err
-	}
-	if err := validatePetAttrGroup("attr.progression", spec.Attr.Progression); err != nil {
-		return err
-	}
-	if _, ok := spec.Attr.Progression["xp"]; !ok {
-		return errors.New("attr.progression.xp is required")
-	}
-	if strings.TrimSpace(spec.Character.Prompt) == "" {
-		return errors.New("character.prompt is required")
-	}
-	if strings.TrimSpace(spec.Voice.VoiceId) == "" {
-		return errors.New("voice.voice_id is required")
-	}
-	if strings.TrimSpace(spec.Voice.Prompt) == "" {
-		return errors.New("voice.prompt is required")
-	}
-	if err := validatePetDefVisual(spec.Visual); err != nil {
-		return err
-	}
-	return validatePetDefI18n(spec, i18n)
-}
-
-func (c *Catalog) legacyGameRulesetAction(ctx context.Context, rulesetName, actionID string) (legacyGameRulesetAction, bool, error) {
-	store, err := c.store(c.GameRulesets, "game rulesets")
-	if err != nil {
-		return legacyGameRulesetAction{}, false, err
-	}
-	name, err := pathID(rulesetName)
-	if err != nil {
-		return legacyGameRulesetAction{}, false, err
-	}
-	data, err := store.Get(ctx, rulesetKey(name))
-	if err != nil {
-		return legacyGameRulesetAction{}, false, err
-	}
-	var legacy legacyGameRulesetJSON
-	if err := json.Unmarshal(data, &legacy); err != nil {
-		return legacyGameRulesetAction{}, false, err
-	}
-	actionID = strings.TrimSpace(actionID)
-	if legacy.Spec.Drive == nil || actionID == "" {
-		return legacyGameRulesetAction{}, false, nil
-	}
-	out := legacyGameRulesetAction{}
-	found := false
-	if cost, ok := legacy.Spec.Drive.ActionCosts[actionID]; ok {
-		out.Cost = cost
-		found = true
-	}
-	if reward, ok := legacy.Spec.Drive.ActionRewards[actionID]; ok {
-		out.Reward = legacyReward(reward)
-		if len(reward.LifeDelta) > 0 {
-			life := apitypes.PetLife(reward.LifeDelta)
-			out.Effect.AttrDelta = &apitypes.PetAttrDelta{Life: &life}
-		}
-		found = true
-	}
-	return out, found, nil
-}
-
-func legacyReward(in legacyRewardSpec) apitypes.GameRewardSpec {
-	out := apitypes.GameRewardSpec{
-		PetExpDelta: in.PetExpDelta,
-		PointsDelta: in.PointsDelta,
-	}
-	if len(in.BadgeExpDelta) > 0 {
-		out.BadgeExpDelta = &in.BadgeExpDelta
-	}
-	return out
 }
 
 func listJSON[T any](ctx context.Context, store kv.Store, prefix kv.Key, cursor string, limit int) ([]T, bool, *string, error) {

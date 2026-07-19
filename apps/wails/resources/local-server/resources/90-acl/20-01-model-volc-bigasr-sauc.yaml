@@ -1,8 +1,0 @@
----
-apiVersion: gizclaw.admin/v1alpha1
-kind: ACLPolicyBinding
-metadata: {name: default-client-model-volc-bigasr-sauc}
-spec:
-  subject: {kind: view, id: default-client}
-  resource: {kind: model, id: volc-bigasr-sauc}
-  role: default-client

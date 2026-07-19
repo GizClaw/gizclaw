@@ -21,7 +21,7 @@
 修改 Shared schema 时：
 
 - 从 `api/http/shared/` 中实际存在的 owner 文件开始，不使用按领域臆造的聚合文件名；
-- 跨 surface error、identity、runtime、ACL、configuration、firmware、credential、model、voice、tool、workflow、workspace 与 provider tenant values 按所有权映射定位；
+- 跨 surface error、identity、runtime profile、registration、firmware、credential、model、voice、tool、workflow、workspace 与 provider tenant values 按所有权映射定位；
 - Public-only DTO 留在 `peer.json`，Admin endpoint 专属 DTO 留在 `admin.json`，OpenAI-compatible DTO 留在 `openai-compat/v1/service.json`；
 - Resource envelope、metadata、Apply contract 与 Resource union 留在 `resources/resource.json`，Resource 专属数据留在对应 `resources/<kind>.json`。
 
@@ -45,13 +45,13 @@
 Resource 的数据首先按语义分为两类：
 
 - 核心数据描述 Resource 是什么以及它与什么关联，包括稳定 identity、kind、分类、引用、ownership、运行配置和持久化语义。这些字段参与业务判断、查询、关联和执行，不能放进 `display`。
-- 展示字段只描述如何把该 Resource 展示给用户。具体结构由 owner contract 决定；例如 Workflow 使用顶层 `i18n`，Workflow、Workspace 与 GameDef 使用顶层 typed `icon`。删除或替换展示字段不得改变 Resource 的关联关系或运行行为。
+- 展示字段只描述如何把该 Resource 展示给用户。具体结构由 owner contract 决定；Workflow 不保存展示字段，其他 Resource 只保留自身 contract 明确定义的 typed display、i18n 或 icon。删除或替换展示字段不得改变 Resource 的关联关系或运行行为。
 
 需要展示 metadata 的 Resource 只增加自身确实需要的 typed 字段。即使两个 Resource 当前需要相同的字段，也不能因此建立公共 `ResourceDisplay`、`ResourceDisplayData` 或通用 catalog schema。跨多个实际 owner 复用的独立 value object（例如 `Icon`）可以位于 `shared/`，但不会因此自动出现在所有 Resource 上。
 
-如果某个 Resource 只需要本地化 catalog，不需要额外的展示 metadata，可以直接拥有语义更准确的 `i18n` 字段。Workflow 和 PetDef 分别使用自己的 `WorkflowI18n` 与 `PetDefI18n`：`i18n.default_locale` 指定默认语言，`i18n.en`、`i18n.zh-CN` 等 locale key 直接保存对应 catalog，不增加 `catalogs` 或 `display` 中间层。Workspace 是用户创建的运行实例，不拥有 catalog 型 i18n。
+如果某个 Resource 只需要本地化 catalog，不需要额外的展示 metadata，可以直接拥有语义更准确的 `i18n` 字段。PetDef 使用自己的 `PetDefI18n`：`i18n.default_locale` 指定默认语言，`i18n.en`、`i18n.zh-CN` 等 locale key 直接保存对应 catalog，不增加 `catalogs` 或 `display` 中间层。Workflow 与 Workspace 不拥有 catalog 型 i18n。
 
-`WorkflowI18n` 虽位于 `shared/`，仍是 Workflow-owned contract。Admin API 与持久化层使用完整的 `Workflow{name,spec,i18n}`；声明式 `WorkflowResource` 保留通用 `ResourceMetadata`，resource manager 在 `metadata.name` 与 `Workflow.name` 之间映射，并原样传递 `spec` 与 `i18n`。这不表示 Workspace 或其他 Resource 可以复用它，也不应抽取公共 `ResourceI18n`。
+Workflow 只包含稳定 identity、执行 spec 和 ownership metadata。RuntimeProfile alias 是 runtime Workflow 面向客户端的展示 key；固件或 App 自行把 alias 映射为本地化名称和 icon，Server 不保存也不暴露 Workflow 展示 metadata。
 
 Display 的共同命名是一项结构约定，不代表公共领域模型。不同 Resource 可以独立增加符合自身产品语义的展示字段；修改一个 Resource 的 Display 不应迫使无关 Resource 同步修改或重新生成 API。
 

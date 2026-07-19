@@ -56,7 +56,7 @@ services/runtime/
 flowchart TB
     Root["pkgs/gizclaw<br/>Peer connection 与 surface"] --> Runtime["services/runtime"]
     Runtime --> AI["services/ai<br/>持久化 Agent 资源"]
-    Runtime --> System["services/system<br/>ACL"]
+    Runtime --> System["services/system<br/>RuntimeProfile + ownership"]
     Runtime --> Store["pkgs/store"]
     Root --> Giznet["pkgs/giznet<br/>transport"]
 ```

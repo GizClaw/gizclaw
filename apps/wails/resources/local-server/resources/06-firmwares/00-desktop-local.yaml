@@ -1,0 +1,12 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Firmware
+metadata:
+  name: desktop-local
+spec:
+  description: GizClaw Desktop local Server client
+  slots:
+    stable: {}
+    beta: {}
+    develop: {}
+    pending: {}

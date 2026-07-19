@@ -2,7 +2,6 @@ package agenthost
 
 import (
 	"context"
-	"net/url"
 	"sync"
 )
 
@@ -50,8 +49,7 @@ func runtimeKey(workspaceName string, spec Spec) string {
 	if spec.Toolkit == nil {
 		return workspaceName
 	}
-	subject := spec.Toolkit.BuildRequest.Subject
-	return workspaceName + "#toolkit-subject=" + url.QueryEscape(string(subject.Kind)) + ":" + url.QueryEscape(subject.Id)
+	return workspaceName + "#toolkit-owner=" + spec.Toolkit.BuildRequest.OwnerPublicKey
 }
 
 func (r *RuntimeRegistry) releaseFunc(key string, current *workspaceRuntime) func() {

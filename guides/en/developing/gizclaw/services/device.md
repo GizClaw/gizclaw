@@ -38,7 +38,7 @@ Should be placed at `services/device/firmware`:
 Shouldn't be placed here:
 
 - WebRTC connection, device signaling or telemetry transport.
-- Peer identity, registration approval, or ACL resource ownership.
+- Peer identity, RegistrationToken, or generic resource ownership.
 - Board-specific flash, bootloader or firmware implementation.
 - Creation of CLI storage backend and filesystem root.
 

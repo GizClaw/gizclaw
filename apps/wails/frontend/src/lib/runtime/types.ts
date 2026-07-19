@@ -18,6 +18,7 @@ export interface RuntimeContext {
     local_public_key: string;
   };
   private_key_base64?: string;
+  registration_token?: string;
   admin_server_id?: string;
   admin_servers?: Array<{
     id: string;

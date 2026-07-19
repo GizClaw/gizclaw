@@ -59,7 +59,7 @@ The need to generate Go or JavaScript symbols does not constitute a reason for S
 | Error | `error_payload.json`, `error_response.json` | `ErrorPayload`, `ErrorResponse` |
 | Device identity | `device_info.json`, `hardware_info.json`, `peer_imei.json`, `peer_label.json` | Device, hardware, and stable identity values |
 | Runtime, Peer, and Server state | `runtime.json`, `peer*.json`, `registration.json`, `server*.json` | Runtime, registration, Peer lifecycle, stream, telemetry, and Server values |
-| ACL | `acl_*.json` | Permission, Policy, Resource, Subject, Role, View, and binding values |
+| Runtime access | `runtime_profile*.json`, `registration_token.json` | Profile allow lists, Gameplay configuration, and device registration token metadata |
 | Configuration | `configuration.json`, `agent_selection.json`, `refresh_*.json` | Shared configuration, Agent selection, and refresh contracts |
 | Gameplay | `gameplay.json` | Gameplay metadata and shared rule values |
 | Firmware | `firmware*.json` | Firmware, slot, artifact, spec, and selection values |
@@ -67,7 +67,7 @@ The need to generate Go or JavaScript symbols does not constitute a reason for S
 | Model | `model*.json` | Model kind, capabilities, provider, source, spec, and provider data |
 | Voice | `voice*.json` | Voice provider, source, spec, and provider data |
 | Tool | `tool*.json`, `toolkit_policy.json` | Tool executor, trigger, source, spec, policy, and JSON schema values |
-| Workflow and Workspace | `workflow*.json`, `workspace*.json` | Workflow identity, i18n, locale, driver, variants, and Workspace values |
+| Workflow and Workspace | `workflow*.json`, `workspace*.json` | Workflow identity, owner, driver, variants, and Workspace source-qualified values |
 | Provider tenant | `*_tenant*.json` | Provider-specific tenant, spec, enum, and shared values |
 
 The glob entries group existing files by ownership; they are not literal file names to create. Before changing a schema, select an owner file that actually exists under `api/http/shared/`. Add a file only when no existing owner applies and the schema meets the Shared rules.

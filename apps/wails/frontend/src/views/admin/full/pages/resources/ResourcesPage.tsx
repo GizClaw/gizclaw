@@ -33,11 +33,9 @@ import { expectData, toMessage } from "@/dashboard";
 
 const resourceKinds: ResourceKind[] = [
   "Credential",
-  "ACLPolicyBinding",
-  "ACLRole",
-  "ACLView",
   "Firmware",
-  "GameRuleset",
+  "RuntimeProfile",
+  "RegistrationToken",
   "PetDef",
   "BadgeDef",
   "GameDef",
@@ -51,7 +49,6 @@ const resourceKinds: ResourceKind[] = [
   "Tool",
   "Workflow",
   "Workspace",
-  "PeerConfig",
   "ResourceList",
 ];
 
@@ -308,7 +305,7 @@ export function ResourcesPage(): JSX.Element {
 
   const selectedSummary = useMemo(() => resourceSummary(kind), [kind]);
   const supportsPixa = kind === "PetDef" || kind === "BadgeDef";
-  const iconOwner = kind === "Workflow" ? "workflow" : kind === "Workspace" ? "workspace" : kind === "GameDef" ? "game-def" : null;
+  const iconOwner = kind === "Workspace" ? "workspace" : kind === "GameDef" ? "game-def" : null;
 
   const persistedPetDefPixaMetadata = async (): Promise<PetDefPixaMetadata | null> => {
     if (kind !== "PetDef") {
@@ -379,7 +376,7 @@ export function ResourcesPage(): JSX.Element {
                 </SelectContent>
               </Select>
             </FormField>
-            <FormField description="For PeerConfig this is the peer public key." label="Name">
+			<FormField description="Resource identifier within the selected kind." label="Name">
               <div className="flex gap-2">
                 <Input onChange={(event) => handleNameChange(event.target.value)} placeholder="resource-name" value={name} />
                 <Button disabled={!canAddressResource || loading} onClick={() => void load()} type="button" variant="outline">
@@ -571,9 +568,6 @@ function resourceNamePlaceholder(kind: ResourceKind): string {
   if (kind === "ResourceList") {
     return "bundle";
   }
-  if (kind === "PeerConfig") {
-    return "<peer-public-key>";
-  }
   return kind.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
 }
 
@@ -581,8 +575,6 @@ function resourceSpecTemplate(kind: ResourceKind): unknown {
   switch (kind) {
     case "ResourceList":
       return { items: [] };
-    case "PeerConfig":
-      return {};
     case "Tool":
       return {
         source: "admin",
@@ -590,16 +582,23 @@ function resourceSpecTemplate(kind: ResourceKind): unknown {
         input_schema: { type: "object", properties: {} },
         executor: { kind: "builtin", name: "tool.example" },
       };
-    case "GameRuleset":
+    case "RuntimeProfile":
       return {
-        enabled: true,
-        points: { initial_balance: 100 },
-        pet_pool: [{ petdef_id: "petdef-basic", weight: 100, adoption_cost: 10 }],
-        badge_def_ids: ["badge-basic"],
-        game_def_ids: ["game-basic"],
-        drive: {
-          game_rewards: { "game-basic": { points_delta: 10, pet_exp_delta: 20, badge_exp_delta: { "badge-basic": 100 } } },
+        resources: {
+          workflows: { chat: "general-chat" },
+          models: { primary: "model-default" },
+          voices: { assistant: "voice-default" },
+          tools: { weather: "weather-v2" },
+          pet_defs: { tragon: "petdef-tragon" },
+          game_defs: { dinodive: "game-dinodive" },
+          badge_defs: { "dinodive-master": "badge-dinodive-master" },
         },
+        gameplay: { points: { initial_balance: 100 }, pet_pool: [{ pet_def: "tragon", weight: 100, adoption_cost: 10 }] },
+      };
+    case "RegistrationToken":
+      return {
+        firmware_name: "firmware-default",
+        runtime_profile_name: "runtime-profile-default",
       };
     case "PetDef":
       return {
@@ -664,14 +663,14 @@ function resourceSummary(kind: ResourceKind): string {
   switch (kind) {
     case "ResourceList":
       return "Apply multiple resources in one request. The server rejects get/delete for ResourceList.";
-    case "PeerConfig":
-      return "Desired peer configuration keyed by peer public key.";
     case "Tool":
       return "Admin-managed executable capability with typed input schema and builtin or device RPC execution.";
-    case "GameRuleset":
-      return "Admin-managed gameplay ruleset for pet pools, point costs, drive rewards, and game rewards.";
+    case "RuntimeProfile":
+      return "Ordered server-managed resource access plus gameplay configuration for registered devices.";
+    case "RegistrationToken":
+      return "Reusable registration credential mapped to one Firmware and one RuntimeProfile. The raw token is returned only when created.";
     case "PetDef":
-      return "Admin-managed pet definition used by ruleset adoption pools.";
+      return "Admin-managed pet definition used by RuntimeProfile adoption pools.";
     case "BadgeDef":
       return "Admin-managed badge definition that peer badge progress references.";
     case "GameDef":

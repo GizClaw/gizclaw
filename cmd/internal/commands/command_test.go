@@ -225,7 +225,7 @@ func TestSayHelp(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, want := range []string{"say --voice <voice-id> <text>", "--context", "--voice", "--timeout"} {
+	for _, want := range []string{"say --voice <voice-id> <text>", "--context", "--registration-token", "--voice", "--timeout"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("say help missing %q: %s", want, out)
 		}
@@ -285,7 +285,7 @@ func TestAdminResourceHelp(t *testing.T) {
 		{[]string{"admin", "minimax-tenants", "--help"}, []string{"list", "get", "sync-voices"}, []string{"create", "put", "delete"}},
 		{[]string{"admin", "volc-tenants", "--help"}, []string{"list", "get", "sync-voices"}, []string{"create", "put", "delete"}},
 		{[]string{"admin", "voices", "--help"}, []string{"list", "get"}, []string{"create", "put", "delete"}},
-		{[]string{"admin", "workflows", "--help"}, []string{"list", "get", "upload-icon", "download-icon", "delete-icon"}, []string{"create", "put", "delete"}},
+		{[]string{"admin", "workflows", "--help"}, []string{"list", "get"}, []string{"create", "put", "delete", "upload-icon", "download-icon", "delete-icon"}},
 		{[]string{"admin", "workspaces", "--help"}, []string{"list", "get"}, []string{"create", "put", "delete"}},
 	} {
 		root := New()
@@ -347,8 +347,6 @@ func TestAdminPeersHelp(t *testing.T) {
 		"resolve-sn",
 		"resolve-imei",
 		"info",
-		"config",
-		"put-config",
 		"runtime",
 	} {
 		if !strings.Contains(out, want) {

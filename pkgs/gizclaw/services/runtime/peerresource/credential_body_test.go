@@ -26,6 +26,7 @@ func testRPCCredentialBodyString(body rpcapi.CredentialBody, key string) string 
 }
 
 func TestAPICredentialToRPCUsesProviderForBodyUnion(t *testing.T) {
+	owner := "peer-owner"
 	var body apitypes.CredentialBody
 	if err := body.FromVolcCredentialBody(apitypes.VolcCredentialBody{
 		ArkApiKey:          testStringPtr("volc-ark"),
@@ -39,9 +40,10 @@ func TestAPICredentialToRPCUsesProviderForBodyUnion(t *testing.T) {
 	}
 
 	got, err := apiCredentialToRPC(apitypes.Credential{
-		Name:     "volc-credential",
-		Provider: "volc",
-		Body:     body,
+		Name:           "volc-credential",
+		OwnerPublicKey: &owner,
+		Provider:       "volc",
+		Body:           body,
 	})
 	if err != nil {
 		t.Fatalf("apiCredentialToRPC() error = %v", err)
@@ -60,6 +62,9 @@ func TestAPICredentialToRPCUsesProviderForBodyUnion(t *testing.T) {
 	}
 	if _, err := got.Body.AsOpenAICredentialBody(); err == nil {
 		t.Fatal("apiCredentialToRPC() encoded volc credential as OpenAI body")
+	}
+	if got.OwnerPublicKey == nil || *got.OwnerPublicKey != owner {
+		t.Fatalf("OwnerPublicKey = %#v, want %q", got.OwnerPublicKey, owner)
 	}
 
 	roundTrip, err := rpcCredentialBodyToAPI(got.Body)

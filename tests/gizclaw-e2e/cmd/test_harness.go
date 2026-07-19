@@ -504,11 +504,22 @@ func (h *Harness) RegisterContext(name string, extraArgs ...string) Result {
 		if result := h.InstallFixedAdminContext(refreshAdminContext); result.Err != nil {
 			return Result{Args: []string{"register-context", name}, Err: result.Err, Stderr: result.Stderr}
 		}
-		admin, adminCloseWait, err := h.connectClientFromContextWithCloseWait(refreshAdminContext)
-		if err != nil {
-			return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
+		// Directory aliases are external shared identities, not contexts stored in
+		// this harness's XDG_CONFIG_HOME, so the CLI cannot select them by alias.
+		if _, aliased := h.contextAliases[name]; !aliased {
+			if result := h.UseContext(name); result.Err != nil {
+				return Result{Args: []string{"register-context", name}, Err: result.Err, Stderr: result.Stderr}
+			}
 		}
-		defer adminCloseWait()
+		admin := c
+		if h.ContextPublicKey(name) != h.ContextPublicKey(refreshAdminContext) {
+			var adminCloseWait func()
+			admin, adminCloseWait, err = h.connectClientFromContextWithCloseWait(refreshAdminContext)
+			if err != nil {
+				return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
+			}
+			defer adminCloseWait()
+		}
 		adminAPI, err := admin.ServerAdminClient()
 		if err != nil {
 			return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
@@ -705,6 +716,28 @@ func (h *Harness) ConnectClientFromContext(name string) *gizcli.Client {
 		h.t.Fatalf("connect client from context %q: %v", name, err)
 	}
 	return client
+}
+
+func (h *Harness) ConnectClientFromContextEventually(name string, timeout time.Duration) *gizcli.Client {
+	h.t.Helper()
+
+	deadline := time.Now().Add(timeout)
+	var lastErr error
+	for attempt := 1; ; attempt++ {
+		client, err := h.connectClientFromContext(name)
+		if err == nil {
+			if attempt > 1 {
+				h.t.Logf("connect context %s succeeded on attempt %d", name, attempt)
+			}
+			return client
+		}
+		lastErr = err
+		if time.Now().After(deadline) {
+			h.t.Fatalf("connect client from context %q within %s: %v", name, timeout, lastErr)
+		}
+		h.t.Logf("connect context %s attempt %d failed: %v", name, attempt, err)
+		time.Sleep(250 * time.Millisecond)
+	}
 }
 
 func (h *Harness) SetContextAlias(alias, configHome, contextName string) {

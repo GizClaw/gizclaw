@@ -2,7 +2,6 @@ package agenthost
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"strings"
@@ -14,9 +13,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-	"github.com/google/jsonschema-go/jsonschema"
 )
 
 func TestRegistryRegisterAndGet(t *testing.T) {
@@ -74,11 +70,7 @@ func TestServiceResolverResolvesWorkspaceAndWorkflow(t *testing.T) {
 	}
 	resolver := ServiceResolver{
 		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
-			"demo": {
-				Name:         "demo",
-				Parameters:   &params,
-				WorkflowName: "workflow-1",
-			},
+			"demo": systemWorkspace("demo", "workflow-1", &params),
 		}, runtime: workspace.Runtime{ObjectPrefix: "workspaces/demo", LocalDir: "/tmp/demo"}},
 		Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{
 			"workflow-1": workflow,
@@ -103,7 +95,7 @@ func TestServiceResolverResolvesWorkspaceAndWorkflow(t *testing.T) {
 func TestServiceResolverUsesWorkflowDriverAsAgentType(t *testing.T) {
 	resolver := ServiceResolver{
 		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
-			"demo": {Name: "demo", WorkflowName: "workflow-1"},
+			"demo": systemWorkspace("demo", "workflow-1", nil),
 		}},
 		Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{
 			"workflow-1": mustWorkflow(t, "workflow-1"),
@@ -129,7 +121,7 @@ func TestServiceResolverRejectsWorkspaceAgentTypeWorkflowDriverMismatch(t *testi
 	}
 	resolver := ServiceResolver{
 		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
-			"demo": {Name: "demo", WorkflowName: "workflow-1", Parameters: &params},
+			"demo": systemWorkspace("demo", "workflow-1", &params),
 		}},
 		Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{
 			"workflow-1": mustWorkflow(t, "workflow-1"),
@@ -140,170 +132,12 @@ func TestServiceResolverRejectsWorkspaceAgentTypeWorkflowDriverMismatch(t *testi
 	}
 }
 
-func TestServiceResolverResolvesToolkitPolicy(t *testing.T) {
-	workflowToolIDs := []string{"system.mode.switch", "system.music.play"}
-	workspaceToolIDs := []string{"system.music.play"}
-	resolver := ServiceResolver{
-		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
-			"demo": {
-				Name:         "demo",
-				WorkflowName: "workflow-1",
-				Toolkit:      &apitypes.ToolkitPolicy{ToolIds: &workspaceToolIDs},
-			},
-		}},
-		Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{
-			"workflow-1": {
-				Name: "workflow-1",
-				Spec: apitypes.WorkflowSpec{
-					Driver:  apitypes.WorkflowDriverFlowcraft,
-					Toolkit: &apitypes.ToolkitPolicy{ToolIds: &workflowToolIDs},
-				},
-			},
-		}},
-		ToolBuilder:   &toolkit.Builder{},
-		ToolExecutors: toolkit.NewExecutorRegistry(),
-	}
-
-	spec, err := resolver.Resolve(WithACLSubject(context.Background(), acl.PublicKeySubject("peer-a")), "demo")
-	if err != nil {
-		t.Fatalf("Resolve() error = %v", err)
-	}
-	if spec.Toolkit == nil {
-		t.Fatal("Toolkit = nil")
-	}
-	build := spec.Toolkit.BuildRequest
-	if build.Subject != acl.PublicKeySubject("peer-a") {
-		t.Fatalf("Toolkit subject = %#v", build.Subject)
-	}
-	if !build.RestrictToolIDs || len(build.AllowedToolIDs) != 1 || build.AllowedToolIDs[0] != "system.music.play" {
-		t.Fatalf("Toolkit build request = %#v, want only system.music.play", build)
-	}
-}
-
-func TestServiceResolverWorkspaceToolkitCanExposeNoTools(t *testing.T) {
-	emptyToolIDs := []string{}
-	resolver := ServiceResolver{
-		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
-			"demo": {
-				Name:         "demo",
-				WorkflowName: "workflow-1",
-				Toolkit:      &apitypes.ToolkitPolicy{ToolIds: &emptyToolIDs},
-			},
-		}},
-		Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{
-			"workflow-1": mustWorkflow(t, "workflow-1"),
-		}},
-		ToolBuilder:   &toolkit.Builder{},
-		ToolExecutors: toolkit.NewExecutorRegistry(),
-	}
-
-	spec, err := resolver.Resolve(WithACLSubject(context.Background(), acl.PublicKeySubject("peer-a")), "demo")
-	if err != nil {
-		t.Fatalf("Resolve() error = %v", err)
-	}
-	if spec.Toolkit == nil || !spec.Toolkit.BuildRequest.RestrictToolIDs || len(spec.Toolkit.BuildRequest.AllowedToolIDs) != 0 {
-		t.Fatalf("Toolkit build request = %#v, want explicit empty allowlist", spec.Toolkit)
-	}
-}
-
-func TestServiceResolverUsesToolkitAuthorizerFromContext(t *testing.T) {
-	workflowToolIDs := []string{"system.music.play"}
-	rawAuthorizer := &testToolkitAuthorizer{}
-	overrideAuthorizer := &testToolkitAuthorizer{}
-	resolver := ServiceResolver{
-		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
-			"demo": {
-				Name:         "demo",
-				WorkflowName: "workflow-1",
-			},
-		}},
-		Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{
-			"workflow-1": {
-				Name: "workflow-1",
-				Spec: apitypes.WorkflowSpec{
-					Driver:  apitypes.WorkflowDriverFlowcraft,
-					Toolkit: &apitypes.ToolkitPolicy{ToolIds: &workflowToolIDs},
-				},
-			},
-		}},
-		ToolBuilder:   &toolkit.Builder{Authorizer: rawAuthorizer},
-		ToolExecutors: toolkit.NewExecutorRegistry(),
-	}
-
-	ctx := WithACLSubject(context.Background(), acl.PublicKeySubject("peer-a"))
-	spec, err := resolver.Resolve(WithToolkitAuthorizer(ctx, overrideAuthorizer), "demo")
-	if err != nil {
-		t.Fatalf("Resolve() error = %v", err)
-	}
-	if spec.Toolkit == nil {
-		t.Fatal("Toolkit = nil")
-	}
-	if spec.Toolkit.Builder.Authorizer != overrideAuthorizer {
-		t.Fatalf("Toolkit authorizer = %#v, want context override", spec.Toolkit.Builder.Authorizer)
-	}
-	if resolver.ToolBuilder.Authorizer != rawAuthorizer {
-		t.Fatalf("resolver builder authorizer mutated to %#v", resolver.ToolBuilder.Authorizer)
-	}
-}
-
-func TestToolkitContextInvokeUsesCurrentContextSubject(t *testing.T) {
-	ctx := context.Background()
-	toolName := "echo"
-	store := &toolkit.Server{Store: kv.NewMemory(nil)}
-	if _, err := store.PutTool(ctx, toolkit.Tool{
-		ID:          "system.toolkit.echo",
-		Name:        &toolName,
-		Source:      toolkit.ToolSourceBuiltin,
-		Enabled:     true,
-		InputSchema: jsonschema.Schema{Type: "object"},
-		Executor: toolkit.ToolExecutor{
-			Kind: toolkit.ToolExecutorKindBuiltin,
-			Name: &toolName,
-		},
-	}); err != nil {
-		t.Fatalf("PutTool() error = %v", err)
-	}
-
-	authorizer := &recordingToolkitAuthorizer{}
-	executors := toolkit.NewExecutorRegistry()
-	var callSubject string
-	if err := executors.Register(toolName, toolkit.ExecutorFunc(func(_ context.Context, call toolkit.Call) (toolkit.Result, error) {
-		callSubject = call.SubjectID
-		return toolkit.Result{Data: json.RawMessage(`{"ok":true}`)}, nil
-	})); err != nil {
-		t.Fatalf("Register() error = %v", err)
-	}
-	tools := &ToolkitContext{
-		Builder: &toolkit.Builder{
-			Tools:      store,
-			Authorizer: authorizer,
-		},
-		Executors: executors,
-		BuildRequest: toolkit.BuildRequest{
-			Subject:        acl.PublicKeySubject("peer-a"),
-			AllowedToolIDs: []string{"system.toolkit.echo"},
-		},
-	}
-
-	if _, err := tools.Invoke(WithACLSubject(ctx, acl.PublicKeySubject("peer-b")), "call-1", toolName, json.RawMessage(`{}`)); err != nil {
-		t.Fatalf("Invoke() error = %v", err)
-	}
-	if len(authorizer.subjects) != 1 || authorizer.subjects[0] != "peer-b" {
-		t.Fatalf("authorized subjects = %#v, want peer-b", authorizer.subjects)
-	}
-	if callSubject != "peer-b" {
-		t.Fatalf("call subject = %q, want peer-b", callSubject)
-	}
-}
-
 func TestServiceResolverRequiresSubjectForToolkit(t *testing.T) {
+	workspace := systemWorkspace("demo", "workflow-1", nil)
+	workspace.Toolkit = &apitypes.ToolkitPolicy{}
 	resolver := ServiceResolver{
 		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
-			"demo": {
-				Name:         "demo",
-				WorkflowName: "workflow-1",
-				Toolkit:      &apitypes.ToolkitPolicy{},
-			},
+			"demo": workspace,
 		}},
 		Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{
 			"workflow-1": mustWorkflow(t, "workflow-1"),
@@ -312,8 +146,8 @@ func TestServiceResolverRequiresSubjectForToolkit(t *testing.T) {
 		ToolExecutors: toolkit.NewExecutorRegistry(),
 	}
 
-	if _, err := resolver.Resolve(context.Background(), "demo"); err == nil || !strings.Contains(err.Error(), "authenticated subject") {
-		t.Fatalf("Resolve() error = %v, want authenticated subject error", err)
+	if _, err := resolver.Resolve(context.Background(), "demo"); err == nil || !strings.Contains(err.Error(), "resource access context") {
+		t.Fatalf("Resolve() error = %v, want resource access context error", err)
 	}
 }
 
@@ -350,7 +184,7 @@ func TestServiceResolverErrors(t *testing.T) {
 		t.Fatalf("missing workspace error = %v", err)
 	}
 	resolver.Workspaces = fakeWorkspaceService{items: map[string]apitypes.Workspace{
-		"demo": {Name: "demo", WorkflowName: "missing"},
+		"demo": systemWorkspace("demo", "missing", nil),
 	}}
 	if _, err := resolver.Resolve(context.Background(), "demo"); err == nil || !strings.Contains(err.Error(), "workflow") {
 		t.Fatalf("missing workflow error = %v", err)
@@ -363,10 +197,35 @@ func TestServiceResolverErrors(t *testing.T) {
 		"bad-agent-type": mustWorkflow(t, "bad-agent-type"),
 	}}
 	resolver.Workspaces = fakeWorkspaceService{items: map[string]apitypes.Workspace{
-		"demo": {Name: "demo", Parameters: &params, WorkflowName: "bad-agent-type"},
+		"demo": systemWorkspace("demo", "bad-agent-type", &params),
 	}}
 	if _, err := resolver.Resolve(context.Background(), "demo"); err == nil || !strings.Contains(err.Error(), "agent_type") {
 		t.Fatalf("bad agent_type error = %v", err)
+	}
+}
+
+func TestServiceResolverRejectsDirectWorkflowForNonSystemWorkspace(t *testing.T) {
+	resolver := ServiceResolver{
+		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
+			"demo": {Name: "demo", WorkflowName: "workflow-1"},
+		}},
+		Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{
+			"workflow-1": mustWorkflow(t, "workflow-1"),
+		}},
+	}
+
+	if _, err := resolver.Resolve(context.Background(), "demo"); err == nil || !strings.Contains(err.Error(), "requires a system workspace") {
+		t.Fatalf("Resolve() error = %v, want system workspace error", err)
+	}
+}
+
+func systemWorkspace(name, workflowName string, parameters *apitypes.WorkspaceParameters) apitypes.Workspace {
+	system := true
+	return apitypes.Workspace{
+		Name:         name,
+		Parameters:   parameters,
+		System:       &system,
+		WorkflowName: workflowName,
 	}
 }
 
@@ -450,41 +309,6 @@ func TestHostTransformReusesAgentForConcurrentSameWorkspace(t *testing.T) {
 	defer second.Close()
 	if createCount != 1 {
 		t.Fatalf("factory calls = %d, want 1", createCount)
-	}
-}
-
-func TestHostTransformDoesNotReuseToolkitRuntimeAcrossSubjects(t *testing.T) {
-	host := New(subjectToolkitResolver{})
-	var subjects []string
-	if err := host.Register("echo", FactoryFunc(func(_ context.Context, spec Spec) (genx.Transformer, error) {
-		subjects = append(subjects, spec.Toolkit.BuildRequest.Subject.Id)
-		return fixedTransformer{text: "ok"}, nil
-	})); err != nil {
-		t.Fatalf("Register() error = %v", err)
-	}
-	first, err := host.Transform(WithACLSubject(context.Background(), acl.PublicKeySubject("peer-a")), "demo", emptyStream{})
-	if err != nil {
-		t.Fatalf("Transform(peer-a) error = %v", err)
-	}
-
-	if _, err := host.Transform(WithACLSubject(context.Background(), acl.PublicKeySubject("peer-b")), "demo", emptyStream{}); !errors.Is(err, ErrWorkspaceBusy) {
-		t.Fatalf("Transform(peer-b while peer-a active) error = %v, want %v", err, ErrWorkspaceBusy)
-	}
-	if len(subjects) != 1 || subjects[0] != "peer-a" {
-		t.Fatalf("factory subjects while busy = %#v, want only peer-a", subjects)
-	}
-	if err := first.Close(); err != nil {
-		t.Fatalf("Close(peer-a) error = %v", err)
-	}
-
-	second, err := host.Transform(WithACLSubject(context.Background(), acl.PublicKeySubject("peer-b")), "demo", emptyStream{})
-	if err != nil {
-		t.Fatalf("Transform(peer-b after release) error = %v", err)
-	}
-	defer second.Close()
-
-	if len(subjects) != 2 || subjects[0] != "peer-a" || subjects[1] != "peer-b" {
-		t.Fatalf("factory subjects = %#v, want distinct peer subjects after release", subjects)
 	}
 }
 
@@ -630,35 +454,6 @@ type fakeWorkflowService struct {
 }
 
 type subjectToolkitResolver struct{}
-
-func (subjectToolkitResolver) Resolve(ctx context.Context, _ string) (Spec, error) {
-	subject, ok := aclSubjectFromContext(ctx)
-	if !ok {
-		return Spec{}, errors.New("missing subject")
-	}
-	return Spec{
-		Workspace: apitypes.Workspace{Name: "demo"},
-		AgentType: "echo",
-		Toolkit: &ToolkitContext{
-			BuildRequest: toolkit.BuildRequest{Subject: subject},
-		},
-	}, nil
-}
-
-type testToolkitAuthorizer struct{}
-
-func (*testToolkitAuthorizer) Authorize(context.Context, acl.AuthorizeRequest) error {
-	return nil
-}
-
-type recordingToolkitAuthorizer struct {
-	subjects []string
-}
-
-func (a *recordingToolkitAuthorizer) Authorize(_ context.Context, req acl.AuthorizeRequest) error {
-	a.subjects = append(a.subjects, req.Subject.Id)
-	return nil
-}
 
 func (s fakeWorkflowService) GetWorkflow(_ context.Context, request adminhttp.GetWorkflowRequestObject) (adminhttp.GetWorkflowResponseObject, error) {
 	item, ok := s.items[string(request.Name)]

@@ -6,11 +6,9 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/credential"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 )
 
 type Migrator struct {
-	ACL         *acl.Server
 	Credentials *credential.Server
 	Peers       *peer.Server
 }
@@ -18,11 +16,6 @@ type Migrator struct {
 func (m *Migrator) Migrate(ctx context.Context) error {
 	if m == nil {
 		return errors.New("gizclaw: nil migrator")
-	}
-	if m.ACL != nil {
-		if err := m.ACL.Migration(ctx); err != nil {
-			return err
-		}
 	}
 	if m.Peers != nil {
 		if err := m.Peers.Migration(ctx); err != nil {

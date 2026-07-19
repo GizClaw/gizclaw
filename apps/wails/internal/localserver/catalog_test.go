@@ -19,11 +19,11 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(catalog.Resources) != 74 {
-		t.Fatalf("resources = %d, want 74", len(catalog.Resources))
+	if len(catalog.Resources) != 44 {
+		t.Fatalf("resources = %d, want 44", len(catalog.Resources))
 	}
-	if len(catalog.WorkflowIcons) != 10 || len(catalog.PetDefPIXAs) != 9 || len(catalog.VoiceSyncs) != 1 {
-		t.Fatalf("assets = workflows:%d pets:%d voice-sync:%d", len(catalog.WorkflowIcons), len(catalog.PetDefPIXAs), len(catalog.VoiceSyncs))
+	if len(catalog.PetDefPIXAs) != 9 || len(catalog.VoiceSyncs) != 1 {
+		t.Fatalf("assets = pets:%d voice-sync:%d", len(catalog.PetDefPIXAs), len(catalog.VoiceSyncs))
 	}
 	if len(catalog.Requirements) != 11 {
 		t.Fatalf("environment requirements = %d, want 11", len(catalog.Requirements))
@@ -37,54 +37,34 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 			t.Fatalf("bundled client-created resource: %+v", resource)
 		}
 	}
-	for _, resource := range catalog.Resources {
-		if resource.Kind != "Model" {
-			continue
-		}
-		binding := "ACLPolicyBinding/default-client-model-" + resource.Name
-		if !identities[binding] {
-			t.Fatalf("model %s is missing default-client use ACL %s", resource.Name, binding)
-		}
-	}
 	for _, identity := range []string{
-		"ACLPolicyBinding/default-client-model-minimax-cn-m3",
-		"ACLPolicyBinding/default-client-credential-minimax-cn-openai-credential",
-		"ACLPolicyBinding/default-client-voice-volc-sunwukong",
-		"ACLPolicyBinding/default-client-gameruleset-default-gameplay",
+		"Firmware/desktop-local",
+		"RuntimeProfile/desktop-local",
 	} {
 		if !identities[identity] {
-			t.Fatalf("missing Pet runtime dependency closure %s", identity)
+			t.Fatalf("missing local Play registration dependency %s", identity)
 		}
 	}
 	for kind, want := range map[string]int{
 		"Credential": 7, "VolcTenant": 2, "MiniMaxTenant": 1,
 		"OpenAITenant": 2, "DashScopeTenant": 1, "Model": 10,
-		"Workflow": 10, "PetDef": 9, "GameRuleset": 1,
-		"ACLRole": 3, "ACLView": 1, "ACLPolicyBinding": 27,
+		"Workflow": 10, "PetDef": 9, "Firmware": 1, "RuntimeProfile": 1,
 	} {
 		if kinds[kind] != want {
 			t.Fatalf("%s resources = %d, want %d", kind, kinds[kind], want)
 		}
 	}
-	credentialRole, err := fs.ReadFile(catalog.FS, "resources/90-acl/02-credential-user-role.yaml")
+	for _, removed := range []string{"ACLRole", "ACLView", "ACLPolicyBinding", "GameRuleset"} {
+		if kinds[removed] != 0 {
+			t.Fatalf("legacy %s resources = %d, want 0", removed, kinds[removed])
+		}
+	}
+	profile, err := fs.ReadFile(catalog.FS, "resources/07-gameplay/20-default-gameplay.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(credentialRole), "    - use") || strings.Contains(string(credentialRole), "    - read") {
-		t.Fatalf("credential-user role must grant use without read:\n%s", credentialRole)
-	}
-	for _, name := range []string{
-		"30-00-credential-volc-main-credential.yaml",
-		"30-01-credential-deepseek-main-credential.yaml",
-		"30-02-credential-minimax-cn-openai-credential.yaml",
-	} {
-		binding, err := fs.ReadFile(catalog.FS, "resources/90-acl/"+name)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !strings.Contains(string(binding), "role: credential-user") {
-			t.Fatalf("credential binding %s is peer-readable:\n%s", name, binding)
-		}
+	if strings.Contains(string(profile), "pet-care") {
+		t.Fatalf("built-in pet-care Workflow must not be exposed by RuntimeProfile:\n%s", profile)
 	}
 	for _, requirement := range catalog.Requirements {
 		if requirement.Name == "input" {

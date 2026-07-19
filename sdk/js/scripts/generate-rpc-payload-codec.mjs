@@ -1020,9 +1020,6 @@ function messageTypeExpression(name, parsed) {
   if (desc == null) {
     return "Record<string, unknown>";
   }
-  if (name === "WorkflowI18n") {
-    return `{\n  "default_locale": string;\n  [locale: string]: string | WorkflowI18nCatalog;\n}`;
-  }
   const single = singleValueTypeField(desc);
   if (single != null) {
     return tsFieldType(single, parsed);

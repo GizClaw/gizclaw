@@ -2987,6 +2987,8 @@ class Workspace extends $pb.GeneratedMessage {
     $2.ToolkitPolicy? toolkit,
     $core.bool? system,
     $3.Icon? icon,
+    $core.String? ownerPublicKey,
+    $4.ResourceSource? workflowSource,
   }) {
     final result = create();
     if (createdAt != null) result.createdAt = createdAt;
@@ -2998,6 +3000,8 @@ class Workspace extends $pb.GeneratedMessage {
     if (toolkit != null) result.toolkit = toolkit;
     if (system != null) result.system = system;
     if (icon != null) result.icon = icon;
+    if (ownerPublicKey != null) result.ownerPublicKey = ownerPublicKey;
+    if (workflowSource != null) result.workflowSource = workflowSource;
     return result;
   }
 
@@ -3025,6 +3029,9 @@ class Workspace extends $pb.GeneratedMessage {
         subBuilder: $2.ToolkitPolicy.create)
     ..aOB(8, _omitFieldNames ? '' : 'system')
     ..aOM<$3.Icon>(9, _omitFieldNames ? '' : 'icon', subBuilder: $3.Icon.create)
+    ..aOS(10, _omitFieldNames ? '' : 'ownerPublicKey')
+    ..aE<$4.ResourceSource>(11, _omitFieldNames ? '' : 'workflowSource',
+        enumValues: $4.ResourceSource.values)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3131,6 +3138,24 @@ class Workspace extends $pb.GeneratedMessage {
   void clearIcon() => $_clearField(9);
   @$pb.TagNumber(9)
   $3.Icon ensureIcon() => $_ensure(8);
+
+  @$pb.TagNumber(10)
+  $core.String get ownerPublicKey => $_getSZ(9);
+  @$pb.TagNumber(10)
+  set ownerPublicKey($core.String value) => $_setString(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasOwnerPublicKey() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearOwnerPublicKey() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $4.ResourceSource get workflowSource => $_getN(10);
+  @$pb.TagNumber(11)
+  set workflowSource($4.ResourceSource value) => $_setField(11, value);
+  @$pb.TagNumber(11)
+  $core.bool hasWorkflowSource() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearWorkflowSource() => $_clearField(11);
 }
 
 /// Field numbers match Workspace so existing create and put clients remain wire
@@ -3141,12 +3166,14 @@ class WorkspaceUpsert extends $pb.GeneratedMessage {
     WorkspaceParameters? parameters,
     $core.String? workflowName,
     $2.ToolkitPolicy? toolkit,
+    $4.ResourceSource? workflowSource,
   }) {
     final result = create();
     if (name != null) result.name = name;
     if (parameters != null) result.parameters = parameters;
     if (workflowName != null) result.workflowName = workflowName;
     if (toolkit != null) result.toolkit = toolkit;
+    if (workflowSource != null) result.workflowSource = workflowSource;
     return result;
   }
 
@@ -3169,6 +3196,8 @@ class WorkspaceUpsert extends $pb.GeneratedMessage {
     ..aOS(6, _omitFieldNames ? '' : 'workflowName')
     ..aOM<$2.ToolkitPolicy>(7, _omitFieldNames ? '' : 'toolkit',
         subBuilder: $2.ToolkitPolicy.create)
+    ..aE<$4.ResourceSource>(11, _omitFieldNames ? '' : 'workflowSource',
+        enumValues: $4.ResourceSource.values)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3229,6 +3258,15 @@ class WorkspaceUpsert extends $pb.GeneratedMessage {
   void clearToolkit() => $_clearField(7);
   @$pb.TagNumber(7)
   $2.ToolkitPolicy ensureToolkit() => $_ensure(3);
+
+  @$pb.TagNumber(11)
+  $4.ResourceSource get workflowSource => $_getN(4);
+  @$pb.TagNumber(11)
+  set workflowSource($4.ResourceSource value) => $_setField(11, value);
+  @$pb.TagNumber(11)
+  $core.bool hasWorkflowSource() => $_has(4);
+  @$pb.TagNumber(11)
+  void clearWorkflowSource() => $_clearField(11);
 }
 
 class WorkspaceIconDownloadRequest extends $pb.GeneratedMessage {

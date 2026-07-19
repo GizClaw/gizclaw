@@ -17,7 +17,7 @@ func TestMaterializeLocalServerWorkspaceUsesEmbeddedTemplateAndPreservesIdentity
 		t.Fatalf("first materialization: %v", err)
 	}
 	first := readRenderedWorkspace(t, path)
-	if first.Identity.PrivateKey.IsZero() || first.Listen != "0.0.0.0:19820" || first.DefaultPeerView != "default-client" {
+	if first.Identity.PrivateKey.IsZero() || first.Listen != "0.0.0.0:19820" {
 		t.Fatalf("first workspace = %+v", first)
 	}
 	if first.SystemTasks.PetFlowcraftWorkflow.GenerateModel != "minimax-cn-m3" ||
@@ -45,7 +45,7 @@ func TestMaterializeLocalServerWorkspaceUsesEmbeddedTemplateAndPreservesIdentity
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, forbidden := range []string{"query_store:", "kind: log", "volc:"} {
+	for _, forbidden := range []string{"default-peer-view:", "query_store:", "kind: log", "volc:"} {
 		if strings.Contains(string(data), forbidden) {
 			t.Fatalf("rendered workspace contains %q", forbidden)
 		}
@@ -56,9 +56,8 @@ func readRenderedWorkspace(t *testing.T, path string) struct {
 	Identity struct {
 		PrivateKey giznet.Key `yaml:"private-key"`
 	} `yaml:"identity"`
-	Listen          string `yaml:"listen"`
-	DefaultPeerView string `yaml:"default-peer-view"`
-	SystemTasks     struct {
+	Listen      string `yaml:"listen"`
+	SystemTasks struct {
 		PetFlowcraftWorkflow struct {
 			GenerateModel string `yaml:"generate_model"`
 			ExtractModel  string `yaml:"extract_model"`
@@ -75,9 +74,8 @@ func readRenderedWorkspace(t *testing.T, path string) struct {
 		Identity struct {
 			PrivateKey giznet.Key `yaml:"private-key"`
 		} `yaml:"identity"`
-		Listen          string `yaml:"listen"`
-		DefaultPeerView string `yaml:"default-peer-view"`
-		SystemTasks     struct {
+		Listen      string `yaml:"listen"`
+		SystemTasks struct {
 			PetFlowcraftWorkflow struct {
 				GenerateModel string `yaml:"generate_model"`
 				ExtractModel  string `yaml:"extract_model"`

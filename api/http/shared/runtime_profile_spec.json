@@ -1,0 +1,146 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "RuntimeProfile Spec Schema",
+    "description": "RuntimeProfile product-resource scope and gameplay policy.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "RuntimeProfileResources": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "workflows": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          },
+          "models": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          },
+          "voices": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          },
+          "tools": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          },
+          "pet_defs": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          },
+          "game_defs": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          },
+          "badge_defs": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          }
+        }
+      },
+      "RuntimeProfilePointsSpec": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "initial_balance": {
+            "type": "integer",
+            "format": "int64",
+            "default": 0
+          }
+        }
+      },
+      "RuntimeProfilePetPoolEntry": {
+        "type": "object",
+        "required": ["pet_def", "weight"],
+        "additionalProperties": false,
+        "properties": {
+          "pet_def": { "type": "string" },
+          "weight": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "rarity": { "type": "string" },
+          "adoption_cost": {
+            "type": "integer",
+            "format": "int64",
+            "default": 0
+          }
+        }
+      },
+      "RuntimeProfileRewardSpec": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "points_delta": {
+            "type": "integer",
+            "format": "int64",
+            "default": 0
+          },
+          "pet_exp_delta": {
+            "type": "integer",
+            "format": "int64",
+            "default": 0
+          },
+          "badge_exp_delta": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        }
+      },
+      "RuntimeProfileDriveSpec": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "default_reward": {
+            "$ref": "#/components/schemas/RuntimeProfileRewardSpec"
+          },
+          "game_rewards": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RuntimeProfileRewardSpec"
+            }
+          }
+        }
+      },
+      "RuntimeProfileGameplaySpec": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "points": {
+            "$ref": "#/components/schemas/RuntimeProfilePointsSpec"
+          },
+          "pet_pool": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuntimeProfilePetPoolEntry"
+            }
+          },
+          "drive": {
+            "$ref": "#/components/schemas/RuntimeProfileDriveSpec"
+          }
+        }
+      },
+      "RuntimeProfileSpec": {
+        "type": "object",
+        "required": ["resources"],
+        "additionalProperties": false,
+        "properties": {
+          "resources": {
+            "$ref": "#/components/schemas/RuntimeProfileResources"
+          },
+          "gameplay": {
+            "$ref": "#/components/schemas/RuntimeProfileGameplaySpec"
+          }
+        }
+      }
+    }
+  }
+}

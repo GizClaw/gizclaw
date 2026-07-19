@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -31,16 +30,11 @@ func (s *Server) EnsureConnectedPeer(ctx context.Context, publicKey giznet.Publi
 	}
 
 	autoRegistered := true
-	configuration := apitypes.Configuration{}
-	if view := strings.TrimSpace(s.DefaultPeerView); view != "" {
-		configuration.View = &view
-	}
 	created, err := s.create(ctx, apitypes.Peer{
 		PublicKey:      publicKey.String(),
 		Role:           apitypes.PeerRoleClient,
 		Status:         apitypes.PeerRegistrationStatusActive,
 		Device:         apitypes.DeviceInfo{},
-		Configuration:  configuration,
 		AutoRegistered: &autoRegistered,
 	})
 	if errors.Is(err, ErrPeerAlreadyExists) {
@@ -99,9 +93,8 @@ func (s *Server) BootstrapEdgeNodes(ctx context.Context, publicKeys []giznet.Pub
 					return err
 				}
 				peer = apitypes.Peer{
-					PublicKey:     publicKey.String(),
-					Device:        apitypes.DeviceInfo{},
-					Configuration: apitypes.Configuration{},
+					PublicKey: publicKey.String(),
+					Device:    apitypes.DeviceInfo{},
 				}
 			}
 			peer.Role = apitypes.PeerRoleEdgeNode
@@ -120,20 +113,6 @@ func (s *Server) BootstrapEdgeNodes(ctx context.Context, publicKeys []giznet.Pub
 // SavePeer stores a full peer record and returns the persisted value.
 func (s *Server) SavePeer(ctx context.Context, peer apitypes.Peer) (apitypes.Peer, error) {
 	return s.put(ctx, peer)
-}
-
-func (s *Server) putConfig(ctx context.Context, publicKey giznet.PublicKey, cfg apitypes.Configuration) (apitypes.Peer, error) {
-	if err := validateConfiguration(cfg); err != nil {
-		return apitypes.Peer{}, err
-	}
-	unlock := s.IconLocks.LockRecord(publicKey.String())
-	defer unlock()
-	peer, err := s.get(ctx, publicKey)
-	if err != nil {
-		return apitypes.Peer{}, err
-	}
-	peer.Configuration = cfg
-	return s.putRecord(ctx, peer)
 }
 
 func (s *Server) approve(ctx context.Context, publicKey giznet.PublicKey, role apitypes.PeerRole) (apitypes.Peer, error) {

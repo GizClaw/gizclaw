@@ -39,7 +39,7 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 	})
 
 	t.Run("workflow", func(t *testing.T) {
-		runWorkflowI18nWrapperTest(t, client)
+		runWorkflowGetWrapperTest(t, client)
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkflowList, rpcapi.WorkflowListResponse{}, (*rpcapi.RPCPayload).FromWorkflowListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkflowListResponse, error) {
 			return client.ListWorkflows(ctx, conn, "workflow-list", rpcapi.WorkflowListRequest{})
 		})
@@ -183,7 +183,7 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 	})
 }
 
-func runWorkflowI18nWrapperTest(t *testing.T, client *rpcClient) {
+func runWorkflowGetWrapperTest(t *testing.T, client *rpcClient) {
 	t.Helper()
 	serverSide, clientSide := net.Pipe()
 	defer serverSide.Close()
@@ -203,15 +203,15 @@ func runWorkflowI18nWrapperTest(t *testing.T, client *rpcClient) {
 		))
 	}()
 
-	got, err := client.GetWorkflow(context.Background(), clientSide, "workflow-i18n", rpcapi.WorkflowGetRequest{Name: "localized-flow"})
+	got, err := client.GetWorkflow(context.Background(), clientSide, "workflow-get", rpcapi.WorkflowGetRequest{Name: "localized-flow", Source: rpcapi.ResourceSourceRuntime})
 	if err != nil {
-		t.Fatalf("workflow i18n call error = %v", err)
+		t.Fatalf("workflow get call error = %v", err)
 	}
-	if got.I18n == nil || got.I18n.Description == nil || *got.I18n.Description != "Localized workflow" {
-		t.Fatalf("workflow i18n = %#v", got.I18n)
+	if got.Name != "localized-flow" {
+		t.Fatalf("workflow get = %#v", got)
 	}
 	if err := <-serverErrCh; err != nil {
-		t.Fatalf("workflow i18n server error = %v", err)
+		t.Fatalf("workflow get server error = %v", err)
 	}
 }
 
@@ -440,9 +440,7 @@ func resourceWorkspace(name string) rpcapi.Workspace {
 
 func resourceWorkflowDoc(name string) rpcapi.Workflow {
 	spec := rpcapi.FlowcraftWorkflowSpec{"entry_agent": ""}
-	description := "Localized workflow"
 	return rpcapi.Workflow{
-		I18n: &rpcapi.WorkflowI18nCatalog{Description: &description},
 		Name: name,
 		Spec: rpcapi.WorkflowSpec{
 			Driver:    rpcapi.WorkflowDriverFlowcraft,

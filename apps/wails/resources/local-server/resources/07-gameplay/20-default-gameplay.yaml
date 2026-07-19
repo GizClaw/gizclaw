@@ -1,61 +1,58 @@
 ---
 apiVersion: gizclaw.admin/v1alpha1
-kind: GameRuleset
+kind: RuntimeProfile
 metadata:
-  name: default-gameplay
+  name: desktop-local
 spec:
-  enabled: true
-  description: Default pet gameplay ruleset for the native Codex pet collection.
-  default_workflow_name: pet-care
-  points:
-    initial_balance: 100
-  drive:
-    default_reward: {points_delta: 5, pet_exp_delta: 3}
-    game_rewards:
-      journey-complete: {points_delta: 20, pet_exp_delta: 25}
-  pet_pool:
-    - petdef_id: petdef-bsod
-      weight: 100
-      rarity: common
-      adoption_cost: 10
-      workflow_name: pet-care
-    - petdef_id: petdef-codex
-      weight: 100
-      rarity: common
-      adoption_cost: 10
-      workflow_name: pet-care
-    - petdef_id: petdef-dewey
-      weight: 100
-      rarity: common
-      adoption_cost: 10
-      workflow_name: pet-care
-    - petdef_id: petdef-fireball
-      weight: 100
-      rarity: common
-      adoption_cost: 10
-      workflow_name: pet-care
-    - petdef_id: petdef-hoots
-      weight: 100
-      rarity: common
-      adoption_cost: 10
-      workflow_name: pet-care
-    - petdef_id: petdef-null-signal
-      weight: 100
-      rarity: common
-      adoption_cost: 10
-      workflow_name: pet-care
-    - petdef_id: petdef-rocky
-      weight: 100
-      rarity: common
-      adoption_cost: 10
-      workflow_name: pet-care
-    - petdef_id: petdef-seedy
-      weight: 100
-      rarity: common
-      adoption_cost: 10
-      workflow_name: pet-care
-    - petdef_id: petdef-stacky
-      weight: 100
-      rarity: common
-      adoption_cost: 10
-      workflow_name: pet-care
+  resources:
+    workflows:
+      ast-translate-zh-en-auto: ast-translate-zh-en-auto
+      ast-translate-zh-ja: ast-translate-zh-ja
+      ast-translate-zh-ko: ast-translate-zh-ko
+      ast-translate-zh-es: ast-translate-zh-es
+      doubao-realtime: doubao-realtime-conversation
+      chat: flowcraft-chat-assistant
+      journey: flowcraft-journey-guide
+      murder-mystery: flowcraft-murder-mystery
+      chatroom: chatroom
+    models:
+      tts: volc-bigtts
+      asr: volc-bigasr-sauc
+      realtime: doubao-realtime-dialog
+      translate: volc-ast-translate
+      deepseek-flash: deepseek-v4-flash
+      deepseek-pro: deepseek-v4-pro
+      minimax: minimax-cn-m3
+      doubao-lite: doubao-seed-2-0-lite
+      vision-embedding: doubao-embedding-vision
+      text-embedding: qwen3.7-text-embedding
+    voices:
+      assistant: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+      pet: volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts
+    pet_defs:
+      bsod: petdef-bsod
+      codex: petdef-codex
+      dewey: petdef-dewey
+      fireball: petdef-fireball
+      hoots: petdef-hoots
+      null-signal: petdef-null-signal
+      rocky: petdef-rocky
+      seedy: petdef-seedy
+      stacky: petdef-stacky
+  gameplay:
+    points:
+      initial_balance: 100
+    drive:
+      default_reward:
+        points_delta: 5
+        pet_exp_delta: 3
+    pet_pool:
+      - {pet_def: bsod, weight: 100, rarity: common, adoption_cost: 10}
+      - {pet_def: codex, weight: 100, rarity: common, adoption_cost: 10}
+      - {pet_def: dewey, weight: 100, rarity: common, adoption_cost: 10}
+      - {pet_def: fireball, weight: 100, rarity: common, adoption_cost: 10}
+      - {pet_def: hoots, weight: 100, rarity: common, adoption_cost: 10}
+      - {pet_def: null-signal, weight: 100, rarity: common, adoption_cost: 10}
+      - {pet_def: rocky, weight: 100, rarity: common, adoption_cost: 10}
+      - {pet_def: seedy, weight: 100, rarity: common, adoption_cost: 10}
+      - {pet_def: stacky, weight: 100, rarity: common, adoption_cost: 10}

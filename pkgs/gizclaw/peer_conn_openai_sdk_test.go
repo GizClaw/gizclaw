@@ -19,7 +19,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/openaiapi"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 )
@@ -64,12 +63,6 @@ func TestPeerConnOpenAIServiceWithOpenAISDK(t *testing.T) {
 					},
 				},
 			}}), nil
-		}),
-		Authorizer: peerConnAuthorizerFunc(func(_ context.Context, req acl.AuthorizeRequest) error {
-			if req.Subject.Id != clientKey.Public.String() {
-				t.Fatalf("authorize subject = %q, want client public key", req.Subject.Id)
-			}
-			return nil
 		}),
 		Generator: openAISDKGeneratorFunc(func(_ context.Context, pattern string, mctx genx.ModelContext) (genx.Stream, error) {
 			if pattern != "model/chat" {
@@ -241,7 +234,6 @@ func TestPeerConnOpenAIServiceStreamsChatThroughProxy(t *testing.T) {
 				},
 			}}}), nil
 		}),
-		Authorizer: peerConnAuthorizerFunc(func(context.Context, acl.AuthorizeRequest) error { return nil }),
 		Generator: openAISDKGeneratorFunc(func(_ context.Context, pattern string, mctx genx.ModelContext) (genx.Stream, error) {
 			if pattern != "model/chat" {
 				t.Fatalf("generator pattern = %q, want model/chat", pattern)

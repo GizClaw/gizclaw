@@ -1022,6 +1022,49 @@ func testSignalPCM16Mono16K(duration time.Duration) []byte {
 	return pcm
 }
 
+func TestVerifyAssistantAudioASRIgnoresFailedTailAfterExpectedTextIsCovered(t *testing.T) {
+	if !opus.IsRuntimeSupported() {
+		t.Skip("requires native opus runtime")
+	}
+	frames, err := opusPacketsFromPCM16LE(
+		silencePCM16Mono16K(time.Duration(assistantASRFramesPerChunk+100)*20*time.Millisecond),
+		16000,
+		1,
+	)
+	if err != nil {
+		t.Fatalf("opusPacketsFromPCM16LE: %v", err)
+	}
+	if len(frames) != assistantASRFramesPerChunk+100 {
+		t.Fatalf("frames = %d, want %d", len(frames), assistantASRFramesPerChunk+100)
+	}
+	var calls int
+	driver := &personaDriver{
+		cfg: config{OutputDir: t.TempDir()},
+		transcribeAudioFile: func(_ context.Context, path string) (string, error) {
+			calls++
+			switch filepath.Base(path) {
+			case "round-01-assistant-part-01.wav":
+				return "你好测试", nil
+			case "round-01-assistant-part-02.wav":
+				return "", errors.New("no recognizable speech")
+			default:
+				t.Fatalf("unexpected transcription path %s", path)
+				return "", nil
+			}
+		},
+	}
+	got, err := driver.verifyAssistantAudioASR(context.Background(), 1, "assistant", "你好测试", frames)
+	if err != nil {
+		t.Fatalf("verifyAssistantAudioASR() error = %v", err)
+	}
+	if got != "你好测试" {
+		t.Fatalf("verifyAssistantAudioASR() = %q", got)
+	}
+	if calls != 2 {
+		t.Fatalf("transcription calls = %d, want 2", calls)
+	}
+}
+
 func TestChatTransportReadEventsAndSendAudioTurn(t *testing.T) {
 	stream := newFakePeerStream()
 	packets := make(chan timedPeerPacket, 4)

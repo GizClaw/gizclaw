@@ -20,10 +20,6 @@ func TestIntegrationAdminServiceWorkflowLifecycle(t *testing.T) {
 
 	createDoc := mustWorkflow(t, `{
 		"name": "demo-assistant",
-		"i18n": {
-			"default_locale": "en",
-			"en": {"description": "flowcraft workflow"}
-		},
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {}
@@ -55,10 +51,6 @@ func TestIntegrationAdminServiceWorkflowLifecycle(t *testing.T) {
 
 	updateDoc := mustWorkflow(t, `{
 		"name": "demo-assistant",
-		"i18n": {
-			"default_locale": "en",
-			"en": {"description": "updated description"}
-		},
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {
@@ -72,9 +64,8 @@ func TestIntegrationAdminServiceWorkflowLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PutWorkflow error: %v", err)
 	}
-	catalog := updated.I18n.En
-	if catalog.Description == nil || *catalog.Description != "updated description" {
-		t.Fatalf("PutWorkflow i18n = %#v", updated.I18n)
+	if updated.Spec.Flowcraft == nil || (*updated.Spec.Flowcraft)["runtime"] == nil {
+		t.Fatalf("PutWorkflow spec = %#v", updated.Spec)
 	}
 
 	if _, err := deleteWorkflow(context.Background(), admin, "demo-assistant"); err != nil {

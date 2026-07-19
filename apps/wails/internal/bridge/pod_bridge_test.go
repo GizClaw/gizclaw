@@ -36,6 +36,7 @@ func TestRemotePodPreservesWriteOnlyKeysAndHandsAdminAllServers(t *testing.T) {
 	defer web.Shutdown()
 	bridge := &PodBridge{Paths: paths, Store: appconfig.Store{Paths: paths}, Health: endpointhealth.New(), Local: localserver.New(), WebUI: web}
 	adminA, adminB, client := bridgeTestKey(t, 0x71), bridgeTestKey(t, 0x72), bridgeTestKey(t, 0x73)
+	registrationToken := "remote-registration-secret"
 	created, err := bridge.CreatePod(context.Background(), PodInput{
 		Version: 1,
 		ID:      "remote-lab",
@@ -46,11 +47,12 @@ func TestRemotePodPreservesWriteOnlyKeysAndHandsAdminAllServers(t *testing.T) {
 		},
 		RemoteAccessPoint: "127.0.0.1:19820",
 		ClientPrivateKey:  &client,
+		RegistrationToken: &registrationToken,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !created.Valid || created.Remote == nil || len(created.Remote.Servers) != 2 || !created.PlayConfigured {
+	if !created.Valid || created.Remote == nil || len(created.Remote.Servers) != 2 || !created.PlayConfigured || created.RegistrationToken != registrationToken {
 		t.Fatalf("CreatePod() = %+v", created)
 	}
 
@@ -67,14 +69,14 @@ func TestRemotePodPreservesWriteOnlyKeysAndHandsAdminAllServers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if updated.Name != "Renamed Lab" || !updated.Remote.Servers[0].AdminConfigured || !updated.PlayConfigured {
+	if updated.Name != "Renamed Lab" || !updated.Remote.Servers[0].AdminConfigured || !updated.PlayConfigured || updated.RegistrationToken != registrationToken {
 		t.Fatalf("UpdatePod() = %+v", updated)
 	}
 	persisted, err := bridge.Store.Load("remote-lab")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if persisted.RemoteServers[0].AdminPrivateKey != adminA || persisted.RemoteServers[1].AdminPrivateKey != adminB || persisted.ClientPrivateKey != client {
+	if persisted.RemoteServers[0].AdminPrivateKey != adminA || persisted.RemoteServers[1].AdminPrivateKey != adminB || persisted.ClientPrivateKey != client || persisted.RegistrationToken != registrationToken {
 		t.Fatal("omitted write-only keys were not preserved")
 	}
 
@@ -98,6 +100,127 @@ func TestRemotePodPreservesWriteOnlyKeysAndHandsAdminAllServers(t *testing.T) {
 	}
 	if runtime.AdminServerID != "server-b" || len(runtime.AdminServers) != 2 || runtime.AdminServers[1].Context.Endpoint != "127.0.0.1:19002" {
 		t.Fatalf("Admin runtime = %+v", runtime)
+	}
+
+	playLaunch, err := bridge.PlayURL(context.Background(), "remote-lab")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(playLaunch, registrationToken) {
+		t.Fatal("Play URL contains the RegistrationToken")
+	}
+	playParsed, _ := url.Parse(playLaunch)
+	playBody, _ := json.Marshal(map[string]string{"token": playParsed.Query().Get("token")})
+	playRequest, _ := http.NewRequest(http.MethodPost, "http://"+playParsed.Host+"/__gizclaw/runtime", bytes.NewReader(playBody))
+	playRequest.Header.Set("Origin", "http://"+playParsed.Host)
+	playResponse, err := http.DefaultClient.Do(playRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer playResponse.Body.Close()
+	var playRuntime webui.Runtime
+	if err := json.NewDecoder(playResponse.Body).Decode(&playRuntime); err != nil {
+		t.Fatal(err)
+	}
+	if playRuntime.RegistrationToken != registrationToken {
+		t.Fatalf("remote Play RegistrationToken = %q", playRuntime.RegistrationToken)
+	}
+}
+
+func TestLocalPlayRuntimeHandsOffRegistrationTokenWithoutPuttingItInURL(t *testing.T) {
+	paths := appconfig.NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	web := webui.New(fstest.MapFS{"play.html": {Data: []byte("play")}})
+	defer web.Shutdown()
+	store := appconfig.Store{Paths: paths}
+	pod := appconfig.Pod{
+		Version:               1,
+		ID:                    "local-play",
+		Name:                  "Local Play",
+		IdentitiesInitialized: true,
+		LocalServer:           &appconfig.LocalServer{Port: 19820, AdminPrivateKey: bridgeTestKey(t, 0x74)},
+		ClientPrivateKey:      bridgeTestKey(t, 0x75),
+	}
+	if err := store.Save(pod); err != nil {
+		t.Fatal(err)
+	}
+	tokenPath := filepath.Join(paths.PodsDir, pod.ID, "workspace", localserver.RegistrationTokenFile)
+	if err := os.WriteFile(tokenPath, []byte("local-registration-secret"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	bridge := &PodBridge{Paths: paths, Store: store, Health: endpointhealth.New(), Local: localserver.New(), WebUI: web}
+	if summary := bridge.summary(pod); summary.RegistrationToken != "local-registration-secret" {
+		t.Fatalf("local share RegistrationToken = %q", summary.RegistrationToken)
+	}
+	launch, err := bridge.PlayURL(context.Background(), pod.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(launch, "local-registration-secret") {
+		t.Fatal("Play URL contains the RegistrationToken")
+	}
+	parsed, _ := url.Parse(launch)
+	body, _ := json.Marshal(map[string]string{"token": parsed.Query().Get("token")})
+	request, _ := http.NewRequest(http.MethodPost, "http://"+parsed.Host+"/__gizclaw/runtime", bytes.NewReader(body))
+	request.Header.Set("Origin", "http://"+parsed.Host)
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	var runtime webui.Runtime
+	if err := json.NewDecoder(response.Body).Decode(&runtime); err != nil {
+		t.Fatal(err)
+	}
+	if runtime.RegistrationToken != "local-registration-secret" {
+		t.Fatalf("Play RegistrationToken = %q", runtime.RegistrationToken)
+	}
+}
+
+func TestLocalPlayRuntimeRecoversMissingRegistrationToken(t *testing.T) {
+	paths := appconfig.NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	web := webui.New(fstest.MapFS{"play.html": {Data: []byte("play")}})
+	defer web.Shutdown()
+	store := appconfig.Store{Paths: paths}
+	pod := appconfig.Pod{
+		Version:               1,
+		ID:                    "legacy-local-play",
+		Name:                  "Legacy Local Play",
+		IdentitiesInitialized: true,
+		LocalServer:           &appconfig.LocalServer{Port: 19821, AdminPrivateKey: bridgeTestKey(t, 0x76)},
+		ClientPrivateKey:      bridgeTestKey(t, 0x77),
+	}
+	if err := store.Save(pod); err != nil {
+		t.Fatal(err)
+	}
+	bootstrapper := &fakeLocalPodBootstrapper{recoveryToken: "recovered-registration-secret"}
+	bridge := &PodBridge{
+		Paths:                paths,
+		Store:                store,
+		BootstrapEnvironment: appconfig.BootstrapEnvironmentStore{Path: paths.BootstrapEnvFile},
+		Bootstrapper:         bootstrapper,
+		Health:               endpointhealth.New(),
+		Local:                localserver.New(),
+		WebUI:                web,
+	}
+	if _, err := bridge.PlayURL(context.Background(), pod.ID); err != nil {
+		t.Fatal(err)
+	}
+	if !bootstrapper.recoveryCalled.Load() {
+		t.Fatal("PlayURL did not recover the missing RegistrationToken")
+	}
+	tokenPath := filepath.Join(paths.PodsDir, pod.ID, "workspace", localserver.RegistrationTokenFile)
+	token, err := os.ReadFile(tokenPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(token) != "recovered-registration-secret" {
+		t.Fatalf("recovered RegistrationToken = %q", token)
 	}
 }
 
@@ -401,8 +524,8 @@ func TestPodCreationGeneratesInternalIDsAndAllowsEmptyRemoteInventory(t *testing
 	if !local.PlayConfigured || local.PlayPublicKey == "" || local.Local == nil || !local.Local.AdminConfigured || local.Local.AdminPublicKey == "" || local.Local.ServerPublicKey == "" {
 		t.Fatalf("generated local identities = %+v", local)
 	}
-	if !remote.PlayConfigured || remote.PlayPublicKey == "" {
-		t.Fatalf("generated remote Play identity = %+v", remote)
+	if remote.PlayConfigured || remote.PlayPublicKey == "" {
+		t.Fatalf("remote Play should wait for a RegistrationToken: %+v", remote)
 	}
 	if remote.Remote == nil || len(remote.Remote.Servers) != 0 {
 		t.Fatalf("remote summary = %+v", remote.Remote)
@@ -468,12 +591,27 @@ func TestListPodsMigratesMissingDesktopIdentities(t *testing.T) {
 }
 
 type fakeLocalPodBootstrapper struct {
-	called  atomic.Bool
-	calls   atomic.Int32
-	err     error
-	started chan struct{}
-	release chan struct{}
-	once    sync.Once
+	called         atomic.Bool
+	calls          atomic.Int32
+	err            error
+	recoveryCalled atomic.Bool
+	recoveryErr    error
+	recoveryToken  string
+	started        chan struct{}
+	release        chan struct{}
+	once           sync.Once
+}
+
+func (f *fakeLocalPodBootstrapper) RecoverRegistrationToken(_ context.Context, podDir string, _ map[string]string) error {
+	f.recoveryCalled.Store(true)
+	if f.recoveryErr != nil {
+		return f.recoveryErr
+	}
+	workspaceDir := filepath.Join(podDir, "workspace")
+	if err := os.MkdirAll(workspaceDir, 0o700); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(workspaceDir, localserver.RegistrationTokenFile), []byte(f.recoveryToken), 0o600)
 }
 
 func (f *fakeLocalPodBootstrapper) Apply(ctx context.Context, _ string, _ map[string]string) error {
@@ -510,6 +648,10 @@ func TestLocalPodCreationReturnsWhileBootstrapRunsInBackground(t *testing.T) {
 	}
 	local := localserver.New()
 	local.Executable = executable
+	port, err := appconfig.FindAvailablePort(0)
+	if err != nil {
+		t.Fatal(err)
+	}
 	bootstrapper := &fakeLocalPodBootstrapper{started: make(chan struct{}), release: make(chan struct{})}
 	b := &PodBridge{
 		Paths:                paths,
@@ -523,10 +665,6 @@ func TestLocalPodCreationReturnsWhileBootstrapRunsInBackground(t *testing.T) {
 		WebUI:                webui.New(fstest.MapFS{}),
 	}
 	defer b.WebUI.Shutdown()
-	port, err := appconfig.FindAvailablePort(0)
-	if err != nil {
-		t.Fatal(err)
-	}
 	created, err := b.CreatePod(context.Background(), PodInput{Version: 1, ID: "bootstrapped", Name: "Bootstrapped", LocalServer: &LocalServerInput{Port: port}})
 	if err != nil {
 		t.Fatal(err)

@@ -33,6 +33,7 @@ type PodBridge struct {
 	WebUI                *webui.Manager
 
 	mutationMu   sync.Mutex
+	tokenMu      sync.Mutex
 	creating     sync.Map
 	initializing sync.Map
 	refreshMu    sync.Mutex
@@ -41,6 +42,7 @@ type PodBridge struct {
 
 type LocalPodBootstrapper interface {
 	Apply(context.Context, string, map[string]string) error
+	RecoverRegistrationToken(context.Context, string, map[string]string) error
 }
 
 type podRefresh struct {
@@ -80,17 +82,18 @@ type BootstrapEnvironmentUpdate struct {
 }
 
 type PodSummary struct {
-	ID             string                 `json:"id"`
-	Name           string                 `json:"name"`
-	Description    string                 `json:"description,omitempty"`
-	Mode           string                 `json:"mode"`
-	Valid          bool                   `json:"valid"`
-	Error          string                 `json:"error,omitempty"`
-	Initialization *InitializationSummary `json:"initialization,omitempty"`
-	PlayConfigured bool                   `json:"play_configured"`
-	PlayPublicKey  string                 `json:"play_public_key,omitempty"`
-	Local          *LocalSummary          `json:"local,omitempty"`
-	Remote         *RemoteSummary         `json:"remote,omitempty"`
+	ID                string                 `json:"id"`
+	Name              string                 `json:"name"`
+	Description       string                 `json:"description,omitempty"`
+	Mode              string                 `json:"mode"`
+	Valid             bool                   `json:"valid"`
+	Error             string                 `json:"error,omitempty"`
+	Initialization    *InitializationSummary `json:"initialization,omitempty"`
+	PlayConfigured    bool                   `json:"play_configured"`
+	PlayPublicKey     string                 `json:"play_public_key,omitempty"`
+	RegistrationToken string                 `json:"registration_token,omitempty"`
+	Local             *LocalSummary          `json:"local,omitempty"`
+	Remote            *RemoteSummary         `json:"remote,omitempty"`
 }
 
 type InitializationSummary struct {
@@ -131,6 +134,7 @@ type PodInput struct {
 	RemoteServers     []RemoteServerInput `json:"remote_servers,omitempty"`
 	RemoteAccessPoint string              `json:"remote_access_point,omitempty"`
 	ClientPrivateKey  *string             `json:"client_private_key,omitempty"`
+	RegistrationToken *string             `json:"registration_token,omitempty"`
 }
 
 type LocalServerInput struct {
@@ -833,7 +837,7 @@ func (b *PodBridge) AdminURL(_ context.Context, podID, serverID string) (string,
 	return b.WebUI.LaunchURL(podID, "admin", runtime)
 }
 
-func (b *PodBridge) PlayURL(_ context.Context, podID string) (string, error) {
+func (b *PodBridge) PlayURL(ctx context.Context, podID string) (string, error) {
 	if err := b.requireInitializationComplete(podID); err != nil {
 		return "", err
 	}
@@ -852,11 +856,50 @@ func (b *PodBridge) PlayURL(_ context.Context, podID string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if pod.LocalServer != nil {
+		podDir := filepath.Join(b.Paths.PodsDir, podID)
+		tokenPath := filepath.Join(podDir, "workspace", localserver.RegistrationTokenFile)
+		b.tokenMu.Lock()
+		token, err := func() ([]byte, error) {
+			defer b.tokenMu.Unlock()
+			token, err := os.ReadFile(tokenPath)
+			if !errors.Is(err, os.ErrNotExist) {
+				return token, err
+			}
+			if b.Bootstrapper == nil {
+				return nil, fmt.Errorf("recover local Play registration token: bootstrapper is not configured")
+			}
+			savedEnvironment, loadErr := b.BootstrapEnvironment.Load()
+			if loadErr != nil {
+				return nil, fmt.Errorf("load bootstrap environment for local Play registration token: %w", loadErr)
+			}
+			if recoverErr := b.Bootstrapper.RecoverRegistrationToken(ctx, podDir, savedEnvironment); recoverErr != nil {
+				return nil, fmt.Errorf("recover local Play registration token: %w", recoverErr)
+			}
+			return os.ReadFile(tokenPath)
+		}()
+		if err != nil {
+			return "", fmt.Errorf("desktop bridge: read local Play registration token: %w", err)
+		}
+		runtime.RegistrationToken = strings.TrimSpace(string(token))
+		if runtime.RegistrationToken == "" {
+			return "", fmt.Errorf("desktop bridge: local Play registration token is empty")
+		}
+	} else {
+		runtime.RegistrationToken = strings.TrimSpace(pod.RegistrationToken)
+		if runtime.RegistrationToken == "" {
+			return "", fmt.Errorf("desktop bridge: remote Play RegistrationToken is not configured")
+		}
+	}
 	return b.WebUI.LaunchURL(podID, "play", runtime)
 }
 
 func (b *PodBridge) summary(pod appconfig.Pod) PodSummary {
-	summary := PodSummary{ID: pod.ID, Name: pod.Name, Description: pod.Description, PlayConfigured: pod.ClientPrivateKey != "", PlayPublicKey: publicKeyForPrivate(pod.ClientPrivateKey), Valid: true}
+	playConfigured := pod.ClientPrivateKey != ""
+	if pod.LocalServer == nil {
+		playConfigured = playConfigured && strings.TrimSpace(pod.RegistrationToken) != ""
+	}
+	summary := PodSummary{ID: pod.ID, Name: pod.Name, Description: pod.Description, PlayConfigured: playConfigured, PlayPublicKey: publicKeyForPrivate(pod.ClientPrivateKey), RegistrationToken: b.shareRegistrationToken(pod), Valid: true}
 	if initialization, err := b.Store.Initialization(pod.ID); err != nil {
 		summary.Initialization = &InitializationSummary{State: "failed", Error: err.Error()}
 	} else if initialization != nil {
@@ -876,6 +919,17 @@ func (b *PodBridge) summary(pod appconfig.Pod) PodSummary {
 	}
 	summary.Remote = remote
 	return summary
+}
+
+func (b *PodBridge) shareRegistrationToken(pod appconfig.Pod) string {
+	if pod.LocalServer == nil {
+		return strings.TrimSpace(pod.RegistrationToken)
+	}
+	data, err := os.ReadFile(filepath.Join(b.Paths.PodsDir, pod.ID, "workspace", localserver.RegistrationTokenFile))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
 }
 
 func ensurePodIdentities(pod *appconfig.Pod) (bool, error) {
@@ -988,10 +1042,13 @@ func (b *PodBridge) inputToPod(input PodInput, existing *appconfig.Pod) (appconf
 		pod.RemoteServers = append(pod.RemoteServers, appconfig.RemoteServer{ID: serverID, Name: name, Endpoint: strings.TrimSpace(server.Endpoint), AdminPrivateKey: secretValue(server.AdminPrivateKey, oldKey)})
 	}
 	oldClient := ""
+	oldRegistrationToken := ""
 	if existing != nil {
 		oldClient = existing.ClientPrivateKey
+		oldRegistrationToken = existing.RegistrationToken
 	}
 	pod.ClientPrivateKey = secretValue(input.ClientPrivateKey, oldClient)
+	pod.RegistrationToken = secretValue(input.RegistrationToken, oldRegistrationToken)
 	return pod, nil
 }
 

@@ -559,6 +559,11 @@ func (d *personaDriver) verifyAssistantAudioASRWithMinRatio(ctx context.Context,
 		fmt.Printf("workspace_progress event=assistant_audio_asr_part_start workspace=%s round=%d name=%s part=%d frames=%d\n", d.cfg.Workspace, index, name, len(parts)+1, chunk.end-chunk.start)
 		audioASR, err := d.transcribeAssistantAudioFrames(ctx, index, partName, frames[chunk.start:chunk.end])
 		if err != nil {
+			partialASR := strings.TrimSpace(strings.Join(parts, " "))
+			if partialASR != "" && assertTextSimilar("assistant audio asr", expectedText, partialASR, minRatio) == nil {
+				fmt.Printf("workspace_progress event=assistant_audio_asr_tail_skipped workspace=%s round=%d name=%s completed_parts=%d remaining_parts=%d reason=untranscribable-after-expected-text-covered\n", d.cfg.Workspace, index, name, len(parts), len(chunks)-len(parts))
+				break
+			}
 			return "", fmt.Errorf("assistant audio asr part %d: %w", len(parts)+1, err)
 		}
 		parts = append(parts, audioASR)

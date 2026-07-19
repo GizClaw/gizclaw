@@ -95,12 +95,13 @@ func apiCredentialToRPC(in apitypes.Credential) (rpcapi.Credential, error) {
 		return rpcapi.Credential{}, err
 	}
 	return rpcapi.Credential{
-		Body:        body,
-		CreatedAt:   in.CreatedAt,
-		Description: in.Description,
-		Name:        in.Name,
-		Provider:    in.Provider,
-		UpdatedAt:   in.UpdatedAt,
+		Body:           body,
+		CreatedAt:      in.CreatedAt,
+		Description:    in.Description,
+		Name:           in.Name,
+		OwnerPublicKey: in.OwnerPublicKey,
+		Provider:       in.Provider,
+		UpdatedAt:      in.UpdatedAt,
 	}, nil
 }
 

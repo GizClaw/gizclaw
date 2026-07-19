@@ -7,6 +7,44 @@ import 'package:test/test.dart';
 import 'fake_transport.dart';
 
 void main() {
+  test('registers the current server connection', () async {
+    final factory = FakeDataChannelFactory();
+    final client = GizClawClient(factory);
+
+    final future = client.register('registration-secret');
+    await Future<void>.delayed(Duration.zero);
+
+    final channel = factory.channels.single;
+    final requestFrames = decodeFrames(channel.sent.single);
+    final request = rpc.RpcRequest.fromBuffer(requestFrames.first.payload);
+    expect(request.method, rpc.RpcMethod.RPC_METHOD_SERVER_REGISTER);
+    final params =
+        decodeRpcRequestPayload('server.register', request.payload)
+            as ServerRegisterRequest;
+    expect(params.token, 'registration-secret');
+
+    channel.addMessage(
+      concatBytes([
+        ...encodeEnvelopeFrames(
+          rpc.RpcResponse(
+            id: request.id,
+            payload: encodeRpcResponsePayload(
+              'server.register',
+              ServerRegisterResponse(
+                firmwareName: 'firmware-a',
+                runtimeProfileName: 'profile-a',
+              ),
+            ),
+          ).writeToBuffer(),
+        ),
+        encodeFrame(rpcFrameTypeEos),
+      ]),
+    );
+
+    final response = await future;
+    expect(response.runtimeProfileName, 'profile-a');
+  });
+
   test('uploads the local device info to the server', () async {
     final factory = FakeDataChannelFactory();
     final client = GizClawClient(factory);

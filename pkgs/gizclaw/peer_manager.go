@@ -29,7 +29,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
@@ -41,7 +41,8 @@ var (
 )
 
 type activePeer struct {
-	conn giznet.Conn
+	conn         giznet.Conn
+	registration *runtimeprofile.Registration
 }
 
 type telemetryStatusLock struct {
@@ -50,11 +51,11 @@ type telemetryStatusLock struct {
 }
 
 type Manager struct {
-	Peers      *peer.Server
-	PeerRoutes *peerroute.Server
-	PeerRun    *peerrun.Server
-	AgentHost  *agenthost.Host
-	ACL        *acl.Server
+	Peers           *peer.Server
+	PeerRoutes      *peerroute.Server
+	PeerRun         *peerrun.Server
+	AgentHost       *agenthost.Host
+	RuntimeProfiles *runtimeprofile.Server
 
 	Workspaces       workspace.WorkspaceAdminService
 	Workflows        workflow.WorkflowAdminService
@@ -170,11 +171,43 @@ func (m *Manager) SetPeerUp(publicKey giznet.PublicKey, conn giznet.Conn) giznet
 		m.peers[publicKey] = state
 	}
 	oldConn := state.conn
+	if oldConn != conn {
+		state.registration = nil
+	}
 	state.conn = conn
 	if oldConn == conn {
 		return nil
 	}
 	return oldConn
+}
+
+func (m *Manager) SetPeerRegistration(publicKey giznet.PublicKey, conn giznet.Conn, registration runtimeprofile.Registration) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.peers == nil {
+		m.peers = make(map[giznet.PublicKey]*activePeer)
+	}
+	state, ok := m.peers[publicKey]
+	if !ok {
+		state = &activePeer{conn: conn}
+		m.peers[publicKey] = state
+	}
+	if state.conn != conn {
+		return false
+	}
+	copy := registration
+	state.registration = &copy
+	return true
+}
+
+func (m *Manager) PeerRegistration(publicKey giznet.PublicKey) (runtimeprofile.Registration, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	state, ok := m.peers[publicKey]
+	if !ok || state.conn == nil || state.registration == nil {
+		return runtimeprofile.Registration{}, false
+	}
+	return *state.registration, true
 }
 
 func (m *Manager) SetPeerDown(publicKey giznet.PublicKey, conn giznet.Conn) {

@@ -5,6 +5,6 @@
   over the WebRTC Admin API transport boundary.
 - As an admin user, I can scan resource sections such as peers, workflows,
   workspaces, credentials, voices, firmware, social resources, provider
-  tenants, and ACL resources.
+  tenants, RuntimeProfiles, and RegistrationTokens.
 - As a maintainer, the desktop Admin view is tested with Playwright in the
   desktop e2e tree instead of the old CLI-served UI path.

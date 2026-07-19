@@ -36,6 +36,28 @@ class IconFormat extends $pb.ProtobufEnum {
   const IconFormat._(super.value, super.name);
 }
 
+class ResourceSource extends $pb.ProtobufEnum {
+  static const ResourceSource RESOURCE_SOURCE_UNSPECIFIED =
+      ResourceSource._(0, _omitEnumNames ? '' : 'RESOURCE_SOURCE_UNSPECIFIED');
+  static const ResourceSource RESOURCE_SOURCE_RUNTIME =
+      ResourceSource._(1, _omitEnumNames ? '' : 'RESOURCE_SOURCE_RUNTIME');
+  static const ResourceSource RESOURCE_SOURCE_OWNED =
+      ResourceSource._(2, _omitEnumNames ? '' : 'RESOURCE_SOURCE_OWNED');
+
+  static const $core.List<ResourceSource> values = <ResourceSource>[
+    RESOURCE_SOURCE_UNSPECIFIED,
+    RESOURCE_SOURCE_RUNTIME,
+    RESOURCE_SOURCE_OWNED,
+  ];
+
+  static final $core.List<ResourceSource?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 2);
+  static ResourceSource? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const ResourceSource._(super.value, super.name);
+}
+
 class ASTTranslateMode extends $pb.ProtobufEnum {
   static const ASTTranslateMode ASTTRANSLATE_MODE_UNSPECIFIED =
       ASTTranslateMode._(

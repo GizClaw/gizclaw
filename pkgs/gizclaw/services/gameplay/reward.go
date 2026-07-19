@@ -4,22 +4,22 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
-func defaultReward(ruleset apitypes.GameRuleset) apitypes.GameRewardSpec {
-	if ruleset.Spec.Drive == nil || ruleset.Spec.Drive.DefaultReward == nil {
-		return apitypes.GameRewardSpec{}
+func defaultReward(profileRules ProfileRules) apitypes.RuntimeProfileRewardSpec {
+	if profileRules.Spec.Drive == nil || profileRules.Spec.Drive.DefaultReward == nil {
+		return apitypes.RuntimeProfileRewardSpec{}
 	}
-	return *ruleset.Spec.Drive.DefaultReward
+	return *profileRules.Spec.Drive.DefaultReward
 }
 
-func gameReward(ruleset apitypes.GameRuleset, gameDefID string) apitypes.GameRewardSpec {
-	if gameDefID == "" || ruleset.Spec.Drive == nil || ruleset.Spec.Drive.GameRewards == nil {
-		return apitypes.GameRewardSpec{}
+func gameReward(profileRules ProfileRules, gameDefID string) apitypes.RuntimeProfileRewardSpec {
+	if gameDefID == "" || profileRules.Spec.Drive == nil || profileRules.Spec.Drive.GameRewards == nil {
+		return apitypes.RuntimeProfileRewardSpec{}
 	}
-	return (*ruleset.Spec.Drive.GameRewards)[gameDefID]
+	return (*profileRules.Spec.Drive.GameRewards)[gameDefID]
 }
 
-func mergeRewards(left, right apitypes.GameRewardSpec) apitypes.GameRewardSpec {
-	out := apitypes.GameRewardSpec{
+func mergeRewards(left, right apitypes.RuntimeProfileRewardSpec) apitypes.RuntimeProfileRewardSpec {
+	out := apitypes.RuntimeProfileRewardSpec{
 		PointsDelta:   int64Ptr(int64Value(left.PointsDelta) + int64Value(right.PointsDelta)),
 		PetExpDelta:   int64Ptr(int64Value(left.PetExpDelta) + int64Value(right.PetExpDelta)),
 		BadgeExpDelta: mergeIntMap(left.BadgeExpDelta, right.BadgeExpDelta),
@@ -36,7 +36,7 @@ func mergeRewards(left, right apitypes.GameRewardSpec) apitypes.GameRewardSpec {
 	return out
 }
 
-func rewardEmpty(reward apitypes.GameRewardSpec) bool {
+func rewardEmpty(reward apitypes.RuntimeProfileRewardSpec) bool {
 	return int64Value(reward.PointsDelta) == 0 &&
 		int64Value(reward.PetExpDelta) == 0 &&
 		len(mapValue(reward.BadgeExpDelta)) == 0
@@ -62,11 +62,11 @@ func petDefAction(petDef apitypes.PetDef, action string) (apitypes.PetDefActionS
 	return apitypes.PetDefActionSpec{}, false
 }
 
-func actionEffectReward(action apitypes.PetDefActionSpec) apitypes.GameRewardSpec {
+func actionEffectReward(action apitypes.PetDefActionSpec) apitypes.RuntimeProfileRewardSpec {
 	if action.Effect == nil || int64Value(action.Effect.PetExpDelta) == 0 {
-		return apitypes.GameRewardSpec{}
+		return apitypes.RuntimeProfileRewardSpec{}
 	}
-	return apitypes.GameRewardSpec{PetExpDelta: action.Effect.PetExpDelta}
+	return apitypes.RuntimeProfileRewardSpec{PetExpDelta: action.Effect.PetExpDelta}
 }
 
 func applyActionEffect(pet *apitypes.Pet, action apitypes.PetDefActionSpec) {

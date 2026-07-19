@@ -732,36 +732,6 @@ func getPeerInfo(ctx context.Context, c *gizcli.Client, publicKey string) (apity
 	return apitypes.DeviceInfo{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404)
 }
 
-func getPeerConfig(ctx context.Context, c *gizcli.Client, publicKey string) (apitypes.Configuration, error) {
-	api, err := c.ServerAdminClient()
-	if err != nil {
-		return apitypes.Configuration{}, err
-	}
-	resp, err := api.GetPeerConfigWithResponse(ctx, publicKey)
-	if err != nil {
-		return apitypes.Configuration{}, err
-	}
-	if resp.JSON200 != nil {
-		return *resp.JSON200, nil
-	}
-	return apitypes.Configuration{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404)
-}
-
-func putPeerConfig(ctx context.Context, c *gizcli.Client, publicKey string, cfg apitypes.Configuration) (apitypes.Configuration, error) {
-	api, err := c.ServerAdminClient()
-	if err != nil {
-		return apitypes.Configuration{}, err
-	}
-	resp, err := api.PutPeerConfigWithResponse(ctx, publicKey, cfg)
-	if err != nil {
-		return apitypes.Configuration{}, err
-	}
-	if resp.JSON200 != nil {
-		return *resp.JSON200, nil
-	}
-	return apitypes.Configuration{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON404)
-}
-
 func getPeerRuntime(ctx context.Context, c *gizcli.Client, publicKey string) (apitypes.Runtime, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {

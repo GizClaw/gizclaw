@@ -21,7 +21,7 @@ Things that don't fit here: Single Resource-specific Specs, small value objects 
 When changing a Shared schema:
 
 - Start from an owner file that actually exists under `api/http/shared/`; do not invent aggregate domain file names.
-- Locate cross-surface error, identity, runtime, ACL, configuration, firmware, credential, model, voice, tool, workflow, workspace, and provider tenant values through the ownership map.
+- Locate cross-surface error, identity, RuntimeProfile, registration, firmware, credential, model, voice, tool, workflow, workspace, and provider tenant values through the ownership map.
 - Keep Public-only DTOs in `peer.json`, Admin endpoint-specific DTOs in `admin.json`, and OpenAI-compatible DTOs in `openai-compat/v1/service.json`.
 - Keep Resource envelopes, metadata, Apply contracts, and the Resource union in `resources/resource.json`; Resource-specific data remains in the corresponding `resources/<kind>.json`.
 
@@ -47,9 +47,9 @@ Resource data is first divided into two categories according to semantics:- Core
 
 Resources that require general display metadata have their own optional `display` fields, and define their own strongly typed Display schema in the corresponding `resources/<kind>.json`. Even if two Resources currently require the same fields, this does not create a common `ResourceDisplay`, `ResourceDisplayData` or common catalog schema.
 
-If a Resource only needs a localized catalog and does not require additional display metadata, it can directly have the `i18n` field with more accurate semantics. Workflow and PetDef use their own `WorkflowI18n` and `PetDefI18n` respectively: `i18n.default_locale` specifies the default language, and `i18n.en`, `i18n.zh-CN` and other locale keys directly save the corresponding catalog without adding `catalogs` or `display` intermediate layers. Workspace is a running instance created by the user and does not have catalog type i18n.
+If a Resource only needs a localized catalog and does not require additional display metadata, it can directly have an `i18n` field with more accurate semantics. PetDef owns `PetDefI18n`: `i18n.default_locale` specifies the default language, and locale keys such as `i18n.en` and `i18n.zh-CN` directly store the corresponding catalog without adding `catalogs` or `display` intermediate layers. Workflow and Workspace do not carry catalog-style i18n.
 
-`WorkflowI18n` Although located at `shared/`, it is still a Workflow-owned contract. The Admin API and persistence layer use the complete `Workflow{name,spec,i18n}`; the declarative `WorkflowResource` retains the generic `ResourceMetadata`, the resource manager maps between `metadata.name` and `Workflow.name`, and passes `spec` and `i18n` as they are. This does not mean that Workspace or other Resources can reuse it, nor should public `ResourceI18n` be extracted.
+Workflow contains only its stable identity, execution spec, and ownership metadata. The RuntimeProfile alias is the client-facing presentation key for a runtime Workflow; firmware or an App maps that alias to its own localized name and icon. The Server does not persist or expose Workflow display metadata.
 
 The shared naming of Display is a structural convention and does not represent a public domain model. Different Resources can independently add display fields that conform to their own product semantics; modifying the Display of a Resource should not force unrelated Resources to simultaneously modify or regenerate APIs.
 

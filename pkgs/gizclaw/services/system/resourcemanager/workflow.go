@@ -29,40 +29,17 @@ func (m *Manager) applyWorkflow(ctx context.Context, resource apitypes.Resource)
 	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	if err := m.validateOwnedResourceOwner(apitypes.ACLResourceKindWorkflow, item.Metadata.Name, item.Metadata, exists); err != nil {
-		return apitypes.ApplyResult{}, err
-	}
 	if exists {
-		same, err := semanticEqual(
-			struct {
-				Spec apitypes.WorkflowSpec  `json:"spec"`
-				I18n *apitypes.WorkflowI18n `json:"i18n,omitempty"`
-			}{Spec: existing.Spec, I18n: existing.I18n},
-			struct {
-				Spec apitypes.WorkflowSpec  `json:"spec"`
-				I18n *apitypes.WorkflowI18n `json:"i18n,omitempty"`
-			}{Spec: item.Spec, I18n: item.I18n},
-		)
+		same, err := semanticEqual(existing.Spec, item.Spec)
 		if err != nil {
 			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
 		}
 		if same {
-			ownerChanged, err := m.ensureOwnedResourceOwnerFromMetadata(ctx, apitypes.ACLResourceKindWorkflow, item.Metadata.Name, item.Metadata)
-			if err != nil {
-				return apitypes.ApplyResult{}, err
-			}
-			if ownerChanged {
-				return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindWorkflow, item.Metadata.Name), nil
-			}
 			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindWorkflow, item.Metadata.Name), nil
 		}
 	}
-	ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindWorkflow, item.Metadata.Name, item.Metadata)
-	if err != nil {
-		return apitypes.ApplyResult{}, err
-	}
 	if err := m.putWorkflow(ctx, name, workflowFromResource(item)); err != nil {
-		return apitypes.ApplyResult{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
+		return apitypes.ApplyResult{}, err
 	}
 	if exists {
 		return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindWorkflow, item.Metadata.Name), nil
@@ -135,15 +112,12 @@ func resourceFromWorkflow(_ string, item apitypes.Workflow) (apitypes.Resource, 
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.WorkflowResourceKind(apitypes.ResourceKindWorkflow),
 		Metadata:   apitypes.ResourceMetadata{Name: item.Name},
-		I18n:       item.I18n,
-		Icon:       item.Icon,
 		Spec:       item.Spec,
 	})
 }
 
 func workflowFromResource(item apitypes.WorkflowResource) apitypes.Workflow {
 	return apitypes.Workflow{
-		I18n: item.I18n,
 		Name: item.Metadata.Name,
 		Spec: item.Spec,
 	}

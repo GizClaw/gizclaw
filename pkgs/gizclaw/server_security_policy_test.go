@@ -2,7 +2,6 @@ package gizclaw
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -13,156 +12,6 @@ import (
 
 func testServerSecurityPolicy(peers *peer.Server) *ServerSecurityPolicy {
 	return (*ServerSecurityPolicy)(&Server{manager: NewManager(peers)})
-}
-
-func TestServerSecurityPolicyAllowsPublicServiceForActivePeer(t *testing.T) {
-	keyPair, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair error = %v", err)
-	}
-
-	service := &peer.Server{Store: mustBadgerInMemory(t, nil)}
-	if _, err := service.SavePeer(context.Background(), apitypes.Peer{
-		PublicKey:     keyPair.Public.String(),
-		Role:          apitypes.PeerRoleClient,
-		Status:        apitypes.PeerRegistrationStatusActive,
-		Device:        apitypes.DeviceInfo{},
-		Configuration: apitypes.Configuration{},
-	}); err != nil {
-		t.Fatalf("SavePeer error = %v", err)
-	}
-
-	policy := testServerSecurityPolicy(service)
-	if policy.AllowService(keyPair.Public, ServiceAdminHTTP) {
-		t.Fatal("active peer should not allow admin service without admin role")
-	}
-	if !policy.AllowService(keyPair.Public, ServicePeerHTTP) {
-		t.Fatal("active peer should allow server public service")
-	}
-	if policy.AllowService(keyPair.Public, 0xffff) {
-		t.Fatal("active peer should not allow unknown service")
-	}
-}
-
-func TestServerSecurityPolicyAllowsAdminServiceForActiveAdminPeer(t *testing.T) {
-	keyPair, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair error = %v", err)
-	}
-
-	service := &peer.Server{Store: mustBadgerInMemory(t, nil)}
-	if _, err := service.SavePeer(context.Background(), apitypes.Peer{
-		PublicKey:     keyPair.Public.String(),
-		Role:          apitypes.PeerRoleAdmin,
-		Status:        apitypes.PeerRegistrationStatusActive,
-		Device:        apitypes.DeviceInfo{},
-		Configuration: apitypes.Configuration{},
-	}); err != nil {
-		t.Fatalf("SavePeer error = %v", err)
-	}
-
-	policy := testServerSecurityPolicy(service)
-	if !policy.AllowService(keyPair.Public, ServiceAdminHTTP) {
-		t.Fatal("active admin peer should allow admin service")
-	}
-}
-
-func TestServerSecurityPolicyAllowsEdgeServicesOnlyForActiveEdgeNode(t *testing.T) {
-	ctx := context.Background()
-	edgeKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair(edge) error = %v", err)
-	}
-	clientKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair(client) error = %v", err)
-	}
-	blockedKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair(blocked) error = %v", err)
-	}
-
-	service := &peer.Server{Store: mustBadgerInMemory(t, nil)}
-	for _, item := range []struct {
-		key    giznet.PublicKey
-		role   apitypes.PeerRole
-		status apitypes.PeerRegistrationStatus
-	}{
-		{key: edgeKey.Public, role: apitypes.PeerRoleEdgeNode, status: apitypes.PeerRegistrationStatusActive},
-		{key: clientKey.Public, role: apitypes.PeerRoleClient, status: apitypes.PeerRegistrationStatusActive},
-		{key: blockedKey.Public, role: apitypes.PeerRoleEdgeNode, status: apitypes.PeerRegistrationStatusBlocked},
-	} {
-		if _, err := service.SavePeer(ctx, apitypes.Peer{
-			PublicKey:     item.key.String(),
-			Role:          item.role,
-			Status:        item.status,
-			Device:        apitypes.DeviceInfo{},
-			Configuration: apitypes.Configuration{},
-		}); err != nil {
-			t.Fatalf("SavePeer(%s) error = %v", item.key, err)
-		}
-	}
-
-	policy := testServerSecurityPolicy(service)
-	if !policy.AllowService(edgeKey.Public, ServiceEdgeHTTP) {
-		t.Fatal("active edge-node should allow edge HTTP")
-	}
-	if !policy.AllowService(edgeKey.Public, ServiceEdgeRPC) {
-		t.Fatal("active edge-node should allow edge RPC")
-	}
-	if policy.AllowService(edgeKey.Public, ServiceAdminHTTP) {
-		t.Fatal("edge-node should not allow admin HTTP")
-	}
-	if policy.AllowService(clientKey.Public, ServiceEdgeHTTP) {
-		t.Fatal("active client should not allow edge HTTP")
-	}
-	if policy.AllowService(clientKey.Public, ServiceEdgeRPC) {
-		t.Fatal("active client should not allow edge RPC")
-	}
-	if policy.AllowService(blockedKey.Public, ServiceEdgeHTTP) {
-		t.Fatal("blocked edge-node should not allow edge HTTP")
-	}
-	if policy.AllowService(blockedKey.Public, ServiceEdgeRPC) {
-		t.Fatal("blocked edge-node should not allow edge RPC")
-	}
-}
-
-func TestServerAllowsActiveEdgeNodeForPrivateHTTPIngress(t *testing.T) {
-	ctx := context.Background()
-	edgeKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair(edge) error = %v", err)
-	}
-	clientKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair(client) error = %v", err)
-	}
-	service := &peer.Server{Store: mustBadgerInMemory(t, nil)}
-	for _, item := range []struct {
-		key  giznet.PublicKey
-		role apitypes.PeerRole
-	}{
-		{key: edgeKey.Public, role: apitypes.PeerRoleEdgeNode},
-		{key: clientKey.Public, role: apitypes.PeerRoleClient},
-	} {
-		if _, err := service.SavePeer(ctx, apitypes.Peer{
-			PublicKey:     item.key.String(),
-			Role:          item.role,
-			Status:        apitypes.PeerRegistrationStatusActive,
-			Device:        apitypes.DeviceInfo{},
-			Configuration: apitypes.Configuration{},
-		}); err != nil {
-			t.Fatalf("SavePeer(%s) error = %v", item.key, err)
-		}
-	}
-
-	srv := &Server{manager: NewManager(service)}
-	if err := srv.AuthorizePrivateHTTPIngress(ctx, edgeKey.Public); err != nil {
-		t.Fatalf("AuthorizePrivateHTTPIngress(edge-node) error = %v", err)
-	}
-	if err := srv.AuthorizePrivateHTTPIngress(ctx, clientKey.Public); !errors.Is(err, ErrPrivateHTTPIngressDenied) {
-		t.Fatalf("AuthorizePrivateHTTPIngress(client) error = %v, want denied", err)
-	}
 }
 
 func TestServerSecurityPolicyRequiresAdminRoleForAdminService(t *testing.T) {
@@ -210,32 +59,5 @@ func TestServerSecurityPolicyDeniesAdminServiceForUnknownPeer(t *testing.T) {
 	policy := testServerSecurityPolicy(&peer.Server{Store: mustBadgerInMemory(t, nil)})
 	if policy.AllowService(keyPair.Public, ServiceAdminHTTP) {
 		t.Fatal("unknown peer should not allow admin service")
-	}
-}
-
-func TestServerSecurityPolicyDeniesProtectedServicesForBlockedPeer(t *testing.T) {
-	keyPair, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair error = %v", err)
-	}
-
-	service := &peer.Server{Store: mustBadgerInMemory(t, nil)}
-	ctx := context.Background()
-	if _, err := service.SavePeer(ctx, apitypes.Peer{
-		PublicKey:     keyPair.Public.String(),
-		Role:          apitypes.PeerRoleUnspecified,
-		Status:        apitypes.PeerRegistrationStatusBlocked,
-		Device:        apitypes.DeviceInfo{},
-		Configuration: apitypes.Configuration{},
-	}); err != nil {
-		t.Fatalf("SavePeer error = %v", err)
-	}
-
-	policy := testServerSecurityPolicy(service)
-	if policy.AllowService(keyPair.Public, ServiceAdminHTTP) {
-		t.Fatal("blocked peer should not allow admin service")
-	}
-	if policy.AllowService(keyPair.Public, 0xffff) {
-		t.Fatal("blocked peer should not allow unknown service")
 	}
 }

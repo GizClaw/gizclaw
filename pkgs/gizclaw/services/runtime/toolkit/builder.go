@@ -6,28 +6,21 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 )
-
-type Authorizer interface {
-	Authorize(context.Context, acl.AuthorizeRequest) error
-}
 
 type AvailabilityChecker interface {
 	ToolAvailable(context.Context, Tool) (bool, error)
 }
 
 type BuildRequest struct {
-	Subject         apitypes.ACLSubject
+	OwnerPublicKey  string
+	ProfileToolIDs  []string
 	AllowedToolIDs  []string
 	RestrictToolIDs bool
 }
 
 type Builder struct {
 	Tools        *Server
-	Authorizer   Authorizer
 	Availability AvailabilityChecker
 }
 
@@ -35,9 +28,31 @@ func (b *Builder) Build(ctx context.Context, req BuildRequest) (ToolKit, error) 
 	if b == nil || b.Tools == nil {
 		return ToolKit{}, ErrNotConfigured
 	}
-	tools, err := b.Tools.ListTools(ctx)
+	owner := strings.TrimSpace(req.OwnerPublicKey)
+	ownedTools, err := b.Tools.ListToolsByOwner(ctx, owner)
 	if err != nil {
 		return ToolKit{}, err
+	}
+	byID := make(map[string]Tool, len(ownedTools))
+	ownedIDs := make([]string, 0, len(ownedTools))
+	for _, tool := range ownedTools {
+		byID[tool.ID] = tool
+		ownedIDs = append(ownedIDs, tool.ID)
+	}
+	toolIDs := orderedToolIDs(req.ProfileToolIDs, ownedIDs)
+	tools := make([]Tool, 0, len(toolIDs))
+	for _, id := range toolIDs {
+		tool, ok := byID[id]
+		if !ok {
+			tool, err = b.Tools.GetTool(ctx, id)
+			if errors.Is(err, ErrToolNotFound) {
+				continue
+			}
+			if err != nil {
+				return ToolKit{}, err
+			}
+		}
+		tools = append(tools, tool)
 	}
 	allowedPolicy := toolIDSet(req.AllowedToolIDs, req.RestrictToolIDs || len(req.AllowedToolIDs) > 0)
 	out := make([]Tool, 0, len(tools))
@@ -48,12 +63,6 @@ func (b *Builder) Build(ctx context.Context, req BuildRequest) (ToolKit, error) 
 		}
 		if allowedPolicy != nil && !allowedPolicy[tool.ID] {
 			continue
-		}
-		if err := b.authorizeUse(ctx, req.Subject, tool); err != nil {
-			if errors.Is(err, acl.ErrDenied) {
-				continue
-			}
-			return ToolKit{}, err
 		}
 		available, err := b.available(ctx, tool)
 		if err != nil {
@@ -72,18 +81,23 @@ func (b *Builder) Build(ctx context.Context, req BuildRequest) (ToolKit, error) 
 	return ToolKit{Tools: cloneTools(out)}, nil
 }
 
-func (b *Builder) authorizeUse(ctx context.Context, subject apitypes.ACLSubject, tool Tool) error {
-	if b.Authorizer == nil {
-		return nil
+func orderedToolIDs(profile, owned []string) []string {
+	seen := make(map[string]struct{}, len(profile)+len(owned))
+	out := make([]string, 0, len(profile)+len(owned))
+	for _, values := range [][]string{profile, owned} {
+		for _, id := range values {
+			id = strings.TrimSpace(id)
+			if id == "" {
+				continue
+			}
+			if _, ok := seen[id]; ok {
+				continue
+			}
+			seen[id] = struct{}{}
+			out = append(out, id)
+		}
 	}
-	if subject.Kind == "" {
-		return fmt.Errorf("toolkit: subject is required when authorizer is configured")
-	}
-	return b.Authorizer.Authorize(ctx, acl.AuthorizeRequest{
-		Subject:    subject,
-		Resource:   ToolResource(tool.ID),
-		Permission: apitypes.ACLPermissionUse,
-	})
+	return out
 }
 
 func (b *Builder) available(ctx context.Context, tool Tool) (bool, error) {

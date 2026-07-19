@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { createWebRTCServiceFetch, GIZCLAW_SERVICE_PEER_OPENAI } from "@gizclaw/gizclaw";
-import { createPeerRPCClient } from "@gizclaw/gizclaw/rpc";
+import { createPeerRPCClient, RPC_METHODS } from "@gizclaw/gizclaw/rpc";
 import { connectPlayPeerConnection } from "../../lib/gizclaw/play";
 import { clearPlayOpenAIClient, configurePlayOpenAIClient } from "../../lib/gizclaw/openai";
 import type { RuntimeContext } from "../../lib/runtime/types";
@@ -31,7 +31,7 @@ export function PlayFullHome({ onSignOut, runtime }: { onSignOut(): Promise<void
       };
     }
     connectPlayPeerConnection(runtime)
-      .then((next) => {
+      .then(async (next) => {
         if (cancelled) {
           next.close();
           return;
@@ -39,6 +39,13 @@ export function PlayFullHome({ onSignOut, runtime }: { onSignOut(): Promise<void
         pc = next;
         const rpc = createPeerRPCClient(next);
         rpcClients.push(rpc);
+        if (runtime.registration_token != null && runtime.registration_token !== "") {
+          await rpc.call(RPC_METHODS["server.register"], { token: runtime.registration_token });
+        }
+        if (cancelled) {
+          next.close();
+          return;
+        }
         configurePlayRPCClient(rpc);
         openAIFetch = createWebRTCServiceFetch(next, {
           requestTimeoutMs: 120_000,
@@ -49,6 +56,8 @@ export function PlayFullHome({ onSignOut, runtime }: { onSignOut(): Promise<void
       })
       .catch((err: unknown) => {
         if (!cancelled) {
+          pc?.close();
+          pc = undefined;
           setError(err instanceof Error ? err.message : String(err));
         }
       });

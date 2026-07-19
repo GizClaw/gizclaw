@@ -4,11 +4,12 @@ import 'package:gizclaw_app/identity/server_qr_payload.dart';
 void main() {
   test('parses a GizClaw server URI', () {
     final server = parseGizClawServerQr(
-      'gizclaw://ap/office.local:9820?name=Office%20Server',
+      'gizclaw://ap/office.local:9820?name=Office%20Server&registration_token=secret-token',
     );
 
     expect(server.name, 'Office Server');
     expect(server.accessPoint, 'office.local:9820');
+    expect(server.registrationToken, 'secret-token');
   });
 
   test('requires a server name', () {

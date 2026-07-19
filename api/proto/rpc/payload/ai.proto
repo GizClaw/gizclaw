@@ -6,7 +6,6 @@ package gizclaw.rpc.v1;
 
 import "google/protobuf/struct.proto";
 import "payload/enums.proto";
-import "payload/icon.proto";
 
 option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpb";
 
@@ -95,6 +94,7 @@ message Credential {
   string name = 4;
   string provider = 5;
   string updated_at = 6;
+  optional string owner_public_key = 7;
 }
 
 message CredentialBody {
@@ -383,6 +383,7 @@ message Model {
   ModelSource source = 9;
   optional string synced_at = 10;
   string updated_at = 11;
+  optional string owner_public_key = 12;
 }
 
 message ModelCapabilities {
@@ -564,33 +565,40 @@ message VolcTenantVoiceProviderData {
   optional string voice_id = 5;
 }
 
-enum WorkflowLocale {
-  WORKFLOW_LOCALE_UNSPECIFIED = 0;
-  WORKFLOW_LOCALE_EN = 1;
-  WORKFLOW_LOCALE_ZH_CN = 2;
-}
-
 message Workflow {
   string name = 1;
   WorkflowSpec spec = 2;
-  optional WorkflowI18nCatalog i18n = 3;
-  optional Icon icon = 4;
+  reserved 3, 4;
+  optional string owner_public_key = 5;
 }
 
-message WorkflowIconDownloadRequest {
+message WorkflowUpsert {
   string name = 1;
-  IconFormat format = 2;
+  WorkflowSpec spec = 2;
 }
 
-message WorkflowIconDownloadResponse {
+message WorkflowCreateRequest {
+  ResourceSource source = 1;
+  WorkflowUpsert body = 2;
+}
+
+message WorkflowCreateResponse {
+  Workflow value = 1;
+}
+
+message WorkflowDeleteRequest {
   string name = 1;
-  IconFormat format = 2;
-  int64 size_bytes = 3;
+  ResourceSource source = 2;
+}
+
+message WorkflowDeleteResponse {
+  Workflow value = 1;
 }
 
 message WorkflowGetRequest {
   string name = 1;
-  optional WorkflowLocale lang = 2;
+  reserved 2;
+  ResourceSource source = 3;
 }
 
 message WorkflowGetResponse {
@@ -600,7 +608,8 @@ message WorkflowGetResponse {
 message WorkflowListRequest {
   optional string cursor = 1;
   optional int64 limit = 2;
-  optional WorkflowLocale lang = 3;
+  reserved 3;
+  ResourceSource source = 4;
 }
 
 message WorkflowListResponse {
@@ -609,9 +618,14 @@ message WorkflowListResponse {
   optional string next_cursor = 3;
 }
 
-message WorkflowI18nCatalog {
-  optional string name = 1;
-  optional string description = 2;
+message WorkflowPutRequest {
+  string name = 1;
+  WorkflowUpsert body = 2;
+  ResourceSource source = 3;
+}
+
+message WorkflowPutResponse {
+  Workflow value = 1;
 }
 
 message ToolkitPolicyToolIds {
@@ -669,6 +683,7 @@ message Tool {
   optional google.protobuf.Struct metadata = 12;
   string created_at = 13;
   string updated_at = 14;
+  optional string owner_public_key = 15;
 }
 
 message ToolListRequest {

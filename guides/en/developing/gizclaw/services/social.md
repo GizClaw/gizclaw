@@ -19,13 +19,13 @@ Owns peer's contact resources and contact lifecycle. Contact is the address book
 
 ### friend
 
-Has the ability to create, accept, and reject friend requests, as well as read and delete friend relationships. It can use ACL to determine permissions, but the friend state itself belongs to the social realm.
+Owns friend-request creation, acceptance, rejection, and friend-relationship reads and deletion. A Friend relationship directly grants both peers access to its system Workspace without creating a generic access role.
 
 Each direct-friend chat lifecycle owns a system Workspace and uses the internal Workspace create/delete capability for creation, rollback, and relationship deletion.
 
 ### friendgroup
 
-Has friend group, member, message, invite and message assets. Group membership and ACL role are relationships at different levels; one cannot be used to implicitly replace the other.
+Owns friend groups, members, messages, invites, and message assets. Group membership directly grants access to the group system Workspace.
 
 Each Friend Group lifecycle owns a system Workspace and uses the internal Workspace create/delete capability for creation, rollback, and group deletion.
 
@@ -34,7 +34,7 @@ Each Friend Group lifecycle owns a system Workspace and uses the internal Worksp
 ```mermaid
 flowchart LR
     Surface["Admin / Peer Social surface"] --> Social["services/social"]
-    Social --> ACL["services/system/acl"]
+    Social --> Workspace["services/ai/workspace"]
     Social --> KV["KV stores"]
     Social --> Assets["Message object store"]
 ```
@@ -47,7 +47,7 @@ Should be placed at `services/social`:
 Shouldn't be placed here:
 
 -Giznet peer connection or signaling contact.
-- ACL role, policy binding and general authorization engine.
+- RuntimeProfile, owner indexes, or generic registration logic.
 - Chat Agent, workspace runtime, or generic messaging transport.
 - Admin/Peer route registration.
 

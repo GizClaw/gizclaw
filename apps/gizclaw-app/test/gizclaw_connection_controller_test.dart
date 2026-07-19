@@ -6,6 +6,28 @@ import 'package:gizclaw/gizclaw.dart';
 import 'package:gizclaw_app/connection/gizclaw_connection_controller.dart';
 
 void main() {
+  test('registers before publishing client info', () async {
+    final events = <String>[];
+    final controller = _controller(
+      registrationToken: 'registration-secret',
+      registerServer: (_, token) async => events.add('register:$token'),
+      publishClientInfo: (_, _) async => events.add('publish'),
+      acquire: () => Future.error(StateError('No audio input device')),
+      connect:
+          ({
+            required localAudioStream,
+            required peerRpcHandlers,
+            required prepareOffer,
+            required sendOffer,
+          }) async => _FakePeerConnection(),
+    );
+    addTearDown(controller.close);
+
+    await controller.connect();
+
+    expect(events, ['register:registration-secret', 'publish']);
+  });
+
   test(
     'offers a disabled track and gates both the track and RTP sender',
     () async {
@@ -442,19 +464,24 @@ GizClawConnectionController _controller({
   required AcquireMicrophoneStream acquire,
   required ConnectGizClawWebRtc connect,
   ConfigureMicrophoneSending? configureMicrophoneSending,
+  String registrationToken = '',
+  RegisterGizClawServer? registerServer,
+  PublishGizClawClientInfo? publishClientInfo,
 }) {
   const key = '11111111111111111111111111111111';
   return GizClawConnectionController(
-    const GizClawConnectionProfile(
+    GizClawConnectionProfile(
       endpoint: 'gizclaw.test:9820',
       clientPrivateKey: key,
+      registrationToken: registrationToken,
     ),
     acquireMicrophoneStream: acquire,
     configureMicrophoneSending:
         configureMicrophoneSending ?? (_, _) async => (_) async {},
     connectWebRtc: connect,
     fetchServerInfo: (_) async => const GiznetServerInfo(publicKey: key),
-    publishClientInfo: (_, _) async {},
+    publishClientInfo: publishClientInfo ?? (_, _) async {},
+    registerServer: registerServer,
   );
 }
 

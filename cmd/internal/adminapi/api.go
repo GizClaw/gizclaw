@@ -155,36 +155,6 @@ func GetPeerInfo(ctx context.Context, c *gizcli.Client, publicKey string) (apity
 	return apitypes.DeviceInfo{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404)
 }
 
-func GetPeerConfig(ctx context.Context, c *gizcli.Client, publicKey string) (apitypes.Configuration, error) {
-	api, err := c.ServerAdminClient()
-	if err != nil {
-		return apitypes.Configuration{}, err
-	}
-	resp, err := api.GetPeerConfigWithResponse(ctx, publicKey)
-	if err != nil {
-		return apitypes.Configuration{}, err
-	}
-	if resp.JSON200 != nil {
-		return *resp.JSON200, nil
-	}
-	return apitypes.Configuration{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404)
-}
-
-func PutPeerConfig(ctx context.Context, c *gizcli.Client, publicKey string, cfg apitypes.Configuration) (apitypes.Configuration, error) {
-	api, err := c.ServerAdminClient()
-	if err != nil {
-		return apitypes.Configuration{}, err
-	}
-	resp, err := api.PutPeerConfigWithResponse(ctx, publicKey, cfg)
-	if err != nil {
-		return apitypes.Configuration{}, err
-	}
-	if resp.JSON200 != nil {
-		return *resp.JSON200, nil
-	}
-	return apitypes.Configuration{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON404)
-}
-
 func GetPeerRuntime(ctx context.Context, c *gizcli.Client, publicKey string) (apitypes.Runtime, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
@@ -462,55 +432,6 @@ func UploadPetDefPixa(ctx context.Context, c *gizcli.Client, name string, body i
 		return *resp.JSON200, nil
 	}
 	return apitypes.PetDef{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
-}
-
-func UploadWorkflowIcon(ctx context.Context, c *gizcli.Client, name, format string, body io.Reader) (apitypes.Workflow, error) {
-	api, err := c.ServerAdminClient()
-	if err != nil {
-		return apitypes.Workflow{}, err
-	}
-	contentType := "application/octet-stream"
-	if format == "png" {
-		contentType = "image/png"
-	}
-	resp, err := api.UploadWorkflowIconWithBodyWithResponse(ctx, name, adminhttp.UploadWorkflowIconParamsFormat(format), contentType, body)
-	if err != nil {
-		return apitypes.Workflow{}, err
-	}
-	if resp.JSON200 != nil {
-		return *resp.JSON200, nil
-	}
-	return apitypes.Workflow{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON404, resp.JSON413, resp.JSON500)
-}
-
-func DownloadWorkflowIcon(ctx context.Context, c *gizcli.Client, name, format string) ([]byte, error) {
-	api, err := c.ServerAdminClient()
-	if err != nil {
-		return nil, err
-	}
-	resp, err := api.DownloadWorkflowIconWithResponse(ctx, name, adminhttp.DownloadWorkflowIconParamsFormat(format))
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode() == 200 {
-		return resp.Body, nil
-	}
-	return nil, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
-}
-
-func DeleteWorkflowIcon(ctx context.Context, c *gizcli.Client, name, format string) (apitypes.Workflow, error) {
-	api, err := c.ServerAdminClient()
-	if err != nil {
-		return apitypes.Workflow{}, err
-	}
-	resp, err := api.DeleteWorkflowIconWithResponse(ctx, name, adminhttp.DeleteWorkflowIconParamsFormat(format))
-	if err != nil {
-		return apitypes.Workflow{}, err
-	}
-	if resp.JSON200 != nil {
-		return *resp.JSON200, nil
-	}
-	return apitypes.Workflow{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
 }
 
 func DownloadFirmwareArtifact(ctx context.Context, c *gizcli.Client, name, channel string) ([]byte, error) {
@@ -943,45 +864,6 @@ func GetModel(ctx context.Context, c *gizcli.Client, id string) (apitypes.Model,
 	return apitypes.Model{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
 }
 
-func ListACLViews(ctx context.Context, c *gizcli.Client) ([]apitypes.ACLView, error) {
-	api, err := c.ServerAdminClient()
-	if err != nil {
-		return nil, err
-	}
-	return collectAllPages(func(cursor *string, limit *int32) (pagedItems[apitypes.ACLView], error) {
-		resp, err := api.ListACLViewsWithResponse(ctx, &adminhttp.ListACLViewsParams{
-			Cursor: cursor,
-			Limit:  limit,
-		})
-		if err != nil {
-			return pagedItems[apitypes.ACLView]{}, err
-		}
-		if resp.JSON200 == nil {
-			return pagedItems[apitypes.ACLView]{}, responseError(resp.StatusCode(), resp.Body, resp.JSON500)
-		}
-		return pagedItems[apitypes.ACLView]{
-			HasNext:    resp.JSON200.HasNext,
-			Items:      resp.JSON200.Items,
-			NextCursor: resp.JSON200.NextCursor,
-		}, nil
-	})
-}
-
-func GetACLView(ctx context.Context, c *gizcli.Client, name string) (apitypes.ACLView, error) {
-	api, err := c.ServerAdminClient()
-	if err != nil {
-		return apitypes.ACLView{}, err
-	}
-	resp, err := api.GetACLViewWithResponse(ctx, name)
-	if err != nil {
-		return apitypes.ACLView{}, err
-	}
-	if resp.JSON200 != nil {
-		return *resp.JSON200, nil
-	}
-	return apitypes.ACLView{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
-}
-
 func ListVoices(ctx context.Context, c *gizcli.Client, source, providerKind, providerName string) ([]apitypes.Voice, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
@@ -1250,6 +1132,153 @@ func DeleteWorkspace(ctx context.Context, c *gizcli.Client, name string) (apityp
 		return *resp.JSON200, nil
 	}
 	return apitypes.Workspace{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
+}
+
+func ListRuntimeProfiles(ctx context.Context, c *gizcli.Client) ([]apitypes.RuntimeProfile, error) {
+	api, err := c.ServerAdminClient()
+	if err != nil {
+		return nil, err
+	}
+	return collectAllPages(func(cursor *string, limit *int32) (pagedItems[apitypes.RuntimeProfile], error) {
+		resp, err := api.ListRuntimeProfilesWithResponse(ctx, &adminhttp.ListRuntimeProfilesParams{Cursor: cursor, Limit: limit})
+		if err != nil {
+			return pagedItems[apitypes.RuntimeProfile]{}, err
+		}
+		if resp.JSON200 == nil {
+			return pagedItems[apitypes.RuntimeProfile]{}, responseError(resp.StatusCode(), resp.Body, resp.JSON500)
+		}
+		return pagedItems[apitypes.RuntimeProfile]{
+			HasNext:    resp.JSON200.HasNext,
+			Items:      resp.JSON200.Items,
+			NextCursor: resp.JSON200.NextCursor,
+		}, nil
+	})
+}
+
+func CreateRuntimeProfile(ctx context.Context, c *gizcli.Client, req adminhttp.RuntimeProfileUpsert) (apitypes.RuntimeProfile, error) {
+	api, err := c.ServerAdminClient()
+	if err != nil {
+		return apitypes.RuntimeProfile{}, err
+	}
+	resp, err := api.CreateRuntimeProfileWithResponse(ctx, req)
+	if err != nil {
+		return apitypes.RuntimeProfile{}, err
+	}
+	if resp.JSON200 != nil {
+		return *resp.JSON200, nil
+	}
+	return apitypes.RuntimeProfile{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON409, resp.JSON500)
+}
+
+func GetRuntimeProfile(ctx context.Context, c *gizcli.Client, name string) (apitypes.RuntimeProfile, error) {
+	api, err := c.ServerAdminClient()
+	if err != nil {
+		return apitypes.RuntimeProfile{}, err
+	}
+	resp, err := api.GetRuntimeProfileWithResponse(ctx, name)
+	if err != nil {
+		return apitypes.RuntimeProfile{}, err
+	}
+	if resp.JSON200 != nil {
+		return *resp.JSON200, nil
+	}
+	return apitypes.RuntimeProfile{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
+}
+
+func PutRuntimeProfile(ctx context.Context, c *gizcli.Client, name string, req adminhttp.RuntimeProfileUpsert) (apitypes.RuntimeProfile, error) {
+	api, err := c.ServerAdminClient()
+	if err != nil {
+		return apitypes.RuntimeProfile{}, err
+	}
+	resp, err := api.PutRuntimeProfileWithResponse(ctx, name, req)
+	if err != nil {
+		return apitypes.RuntimeProfile{}, err
+	}
+	if resp.JSON200 != nil {
+		return *resp.JSON200, nil
+	}
+	return apitypes.RuntimeProfile{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON500)
+}
+
+func DeleteRuntimeProfile(ctx context.Context, c *gizcli.Client, name string) (apitypes.RuntimeProfile, error) {
+	api, err := c.ServerAdminClient()
+	if err != nil {
+		return apitypes.RuntimeProfile{}, err
+	}
+	resp, err := api.DeleteRuntimeProfileWithResponse(ctx, name)
+	if err != nil {
+		return apitypes.RuntimeProfile{}, err
+	}
+	if resp.JSON200 != nil {
+		return *resp.JSON200, nil
+	}
+	return apitypes.RuntimeProfile{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
+}
+
+func ListRegistrationTokens(ctx context.Context, c *gizcli.Client) ([]apitypes.RegistrationToken, error) {
+	api, err := c.ServerAdminClient()
+	if err != nil {
+		return nil, err
+	}
+	return collectAllPages(func(cursor *string, limit *int32) (pagedItems[apitypes.RegistrationToken], error) {
+		resp, err := api.ListRegistrationTokensWithResponse(ctx, &adminhttp.ListRegistrationTokensParams{Cursor: cursor, Limit: limit})
+		if err != nil {
+			return pagedItems[apitypes.RegistrationToken]{}, err
+		}
+		if resp.JSON200 == nil {
+			return pagedItems[apitypes.RegistrationToken]{}, responseError(resp.StatusCode(), resp.Body, resp.JSON500)
+		}
+		return pagedItems[apitypes.RegistrationToken]{
+			HasNext:    resp.JSON200.HasNext,
+			Items:      resp.JSON200.Items,
+			NextCursor: resp.JSON200.NextCursor,
+		}, nil
+	})
+}
+
+func CreateRegistrationToken(ctx context.Context, c *gizcli.Client, req adminhttp.RegistrationTokenUpsert) (apitypes.RegistrationTokenCreateResult, error) {
+	api, err := c.ServerAdminClient()
+	if err != nil {
+		return apitypes.RegistrationTokenCreateResult{}, err
+	}
+	resp, err := api.CreateRegistrationTokenWithResponse(ctx, req)
+	if err != nil {
+		return apitypes.RegistrationTokenCreateResult{}, err
+	}
+	if resp.JSON200 != nil {
+		return *resp.JSON200, nil
+	}
+	return apitypes.RegistrationTokenCreateResult{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON409, resp.JSON500)
+}
+
+func GetRegistrationToken(ctx context.Context, c *gizcli.Client, name string) (apitypes.RegistrationToken, error) {
+	api, err := c.ServerAdminClient()
+	if err != nil {
+		return apitypes.RegistrationToken{}, err
+	}
+	resp, err := api.GetRegistrationTokenWithResponse(ctx, name)
+	if err != nil {
+		return apitypes.RegistrationToken{}, err
+	}
+	if resp.JSON200 != nil {
+		return *resp.JSON200, nil
+	}
+	return apitypes.RegistrationToken{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
+}
+
+func DeleteRegistrationToken(ctx context.Context, c *gizcli.Client, name string) (apitypes.RegistrationToken, error) {
+	api, err := c.ServerAdminClient()
+	if err != nil {
+		return apitypes.RegistrationToken{}, err
+	}
+	resp, err := api.DeleteRegistrationTokenWithResponse(ctx, name)
+	if err != nil {
+		return apitypes.RegistrationToken{}, err
+	}
+	if resp.JSON200 != nil {
+		return *resp.JSON200, nil
+	}
+	return apitypes.RegistrationToken{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
 }
 
 func responseError(status int, body []byte, errs ...interface{}) error {

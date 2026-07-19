@@ -14,7 +14,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -90,6 +89,18 @@ func TestServiceReloadAppliesPendingAndStop(t *testing.T) {
 	}
 }
 
+func TestRuntimeProfileToolIDsUsesAliasOrder(t *testing.T) {
+	tools := map[string]string{
+		"weather": "tool-weather",
+		"clock":   "tool-clock",
+		"alarm":   "tool-alarm",
+	}
+	want := []string{"tool-alarm", "tool-clock", "tool-weather"}
+	if got := runtimeProfileToolIDs(&tools); !slices.Equal(got, want) {
+		t.Fatalf("runtimeProfileToolIDs() = %#v, want %#v", got, want)
+	}
+}
+
 func TestServiceReloadMissingWorkspaceKeepsPending(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
@@ -118,24 +129,32 @@ func TestServiceReloadMissingWorkspaceKeepsPending(t *testing.T) {
 	}
 }
 
-func TestServiceReloadDeniedResourceAccessKeepsPending(t *testing.T) {
+func TestServiceReloadRevalidatesPersistedWorkspaceSelection(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
 	store := &peerrun.Server{Store: kv.NewMemory(nil)}
-	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
+	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "removed-profile-workspace"}); err != nil {
 		t.Fatalf("SetRunAgent() error = %v", err)
 	}
-	svc := testService(t, publicKey, store, &fakeHost{})
-	svc.Authorizer = fakeAuthorizer{err: acl.ErrDenied}
-	if _, err := svc.Reload(ctx); !errors.Is(err, acl.ErrDenied) {
-		t.Fatalf("Reload() error = %v, want %v", err, acl.ErrDenied)
+	wantErr := errors.New("workspace is no longer accessible")
+	host := &fakeHost{output: newBlockingStream()}
+	svc := testService(t, publicKey, store, host)
+	svc.ValidateWorkspaceSelection = func(context.Context, string) (string, error) {
+		return "", wantErr
+	}
+
+	if _, err := svc.Reload(ctx); !errors.Is(err, wantErr) {
+		t.Fatalf("Reload() error = %v, want %v", err, wantErr)
+	}
+	if host.pattern != "" {
+		t.Fatalf("host pattern = %q, want no runtime open", host.pattern)
 	}
 	agent, err := store.GetRunAgent(ctx, publicKey)
 	if err != nil {
 		t.Fatalf("GetRunAgent() error = %v", err)
 	}
-	if agent.Active != nil || agent.Pending == nil || agent.Pending.WorkspaceName != "demo" {
-		t.Fatalf("run agent after denied reload = %+v", agent)
+	if agent.Active != nil || agent.Pending == nil || agent.Pending.WorkspaceName != "removed-profile-workspace" {
+		t.Fatalf("run agent after rejected reload = %+v", agent)
 	}
 }
 
@@ -228,60 +247,28 @@ func TestServiceWorkspaceFeatureResponsesWithoutActiveWorkspace(t *testing.T) {
 	}
 }
 
-func TestServiceWorkspaceFeaturesRecheckACL(t *testing.T) {
-	ctx := context.Background()
-	publicKey := testPublicKey(t)
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
-	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
-		t.Fatalf("SetRunAgent() error = %v", err)
-	}
-	output := newBlockingStream()
-	agent := &runtimeTestAgent{output: output}
-	input := NewInputStream(1)
-	denied := errors.New("acl: denied")
+func TestServiceWorkspaceFeaturesRevalidateActiveWorkspace(t *testing.T) {
+	wantErr := errors.New("workspace access revoked")
 	svc := &Service{
-		Host:      &runtimeTestOpenAgentHost{agent: agent},
-		PeerRun:   store,
-		PublicKey: publicKey,
-		Source: StreamSourceFunc(func(context.Context) (genx.Stream, error) {
-			return input, nil
-		}),
-		Consumer: StreamConsumerFunc(func(ctx context.Context, stream genx.Stream) error {
-			for {
-				_, err := stream.Next()
-				if IsStreamDone(err) || errors.Is(err, io.ErrClosedPipe) {
-					return nil
-				}
-				if err != nil {
-					return err
-				}
-				if err := ctx.Err(); err != nil {
-					return err
-				}
+		ValidateWorkspaceSelection: func(_ context.Context, name string) (string, error) {
+			if name != "friend-workspace" {
+				t.Fatalf("ValidateWorkspaceSelection name = %q, want friend-workspace", name)
 			}
-		}),
-		Now: fixedClock(time.Unix(100, 0)),
+			return "", wantErr
+		},
+		runtime: &runtime{
+			agent:     asAgent(fixedTransformer{text: "unused"}),
+			workspace: "friend-workspace",
+		},
 	}
-	if _, err := svc.Reload(ctx); err != nil {
-		t.Fatalf("Reload() error = %v", err)
-	}
-	svc.Authorizer = fakeAuthorizer{err: denied}
-	history, err := svc.ListWorkspaceHistory(ctx, apitypes.PeerRunHistoryListRequest{})
+
+	history, err := svc.ListWorkspaceHistory(context.Background(), apitypes.PeerRunHistoryListRequest{})
 	if err != nil {
 		t.Fatalf("ListWorkspaceHistory() error = %v", err)
 	}
-	if history.Available || history.Message == nil || !strings.Contains(*history.Message, denied.Error()) {
+	if history.Available || history.Message == nil || !strings.Contains(*history.Message, wantErr.Error()) {
 		t.Fatalf("ListWorkspaceHistory() = %+v", history)
 	}
-	play, err := svc.PlayWorkspaceHistory(ctx, apitypes.PeerRunHistoryPlayRequest{HistoryId: "h1"})
-	if err != nil {
-		t.Fatalf("PlayWorkspaceHistory() error = %v", err)
-	}
-	if play.Accepted || play.State != "unavailable" || play.Message == nil || !strings.Contains(*play.Message, denied.Error()) {
-		t.Fatalf("PlayWorkspaceHistory() = %+v", play)
-	}
-	_ = output.Close()
-	_ = input.Close()
 }
 
 func TestTransformerAgentDefaults(t *testing.T) {
@@ -764,14 +751,6 @@ func (s fakePeerRunStore) ResolveRunAgent(context.Context, giznet.PublicKey) (ap
 
 func (s fakePeerRunStore) ActivateRunAgent(context.Context, giznet.PublicKey, apitypes.AgentSelection) (apitypes.PeerRunAgent, error) {
 	return apitypes.PeerRunAgent{}, s.err
-}
-
-type fakeAuthorizer struct {
-	err error
-}
-
-func (a fakeAuthorizer) Authorize(context.Context, acl.AuthorizeRequest) error {
-	return a.err
 }
 
 type runtimeTestOpenAgentHost struct {

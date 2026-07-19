@@ -92,6 +92,41 @@ void main() {
     expect(servers.single.accessPoint, 'office.local:9820');
   });
 
+  test('stores per-server registration tokens in secure storage', () async {
+    final secureValues = _MemoryValueStore();
+    final preferences = _MemoryValueStore();
+    final store = AppIdentityStore(
+      secureValues: secureValues,
+      preferences: preferences,
+      fallbackProfile: const GizClawConnectionProfile(
+        endpoint: '',
+        clientPrivateKey: '',
+      ),
+    );
+
+    await store.saveCustomServers(const [
+      GizClawServer(
+        name: 'Office',
+        accessPoint: 'office.local:9820',
+        registrationToken: 'registration-secret',
+      ),
+    ]);
+    await store.saveEndpoint('office.local:9820');
+
+    final profile = await store.loadProfile();
+    final servers = await store.loadServers();
+    expect(profile.registrationToken, 'registration-secret');
+    expect(servers.single.registrationToken, 'registration-secret');
+    expect(
+      secureValues.values[AppIdentityStore.registrationTokensStorageKey],
+      contains('registration-secret'),
+    );
+    expect(
+      preferences.values[AppIdentityStore.customServersStorageKey],
+      isNot(contains('registration-secret')),
+    );
+  });
+
   test('includes a legacy selected endpoint in the server list', () async {
     final preferences = _MemoryValueStore()
       ..values[AppIdentityStore.endpointStorageKey] = 'legacy.local:9820';

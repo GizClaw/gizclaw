@@ -219,6 +219,24 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'WorkflowGetRequest',
     responseType: 'WorkflowGetResponse',
   ),
+  'server.workflow.create': RpcMethodDescriptor(
+    id: 35,
+    name: 'server.workflow.create',
+    requestType: 'WorkflowCreateRequest',
+    responseType: 'WorkflowCreateResponse',
+  ),
+  'server.workflow.put': RpcMethodDescriptor(
+    id: 36,
+    name: 'server.workflow.put',
+    requestType: 'WorkflowPutRequest',
+    responseType: 'WorkflowPutResponse',
+  ),
+  'server.workflow.delete': RpcMethodDescriptor(
+    id: 37,
+    name: 'server.workflow.delete',
+    requestType: 'WorkflowDeleteRequest',
+    responseType: 'WorkflowDeleteResponse',
+  ),
   'server.model.list': RpcMethodDescriptor(
     id: 38,
     name: 'server.model.list',
@@ -453,12 +471,6 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'FriendGroupMessageSendRequest',
     responseType: 'FriendGroupMessageSendResponse',
   ),
-  'server.game_ruleset.get': RpcMethodDescriptor(
-    id: 77,
-    name: 'server.game_ruleset.get',
-    requestType: 'ServerGameRulesetGetRequest',
-    responseType: 'ServerGameRulesetGetResponse',
-  ),
   'server.badge_def.pixa.download': RpcMethodDescriptor(
     id: 79,
     name: 'server.badge_def.pixa.download',
@@ -477,11 +489,11 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'ServerPetGetRequest',
     responseType: 'ServerPetGetResponse',
   ),
-  'server.pet.adopt': RpcMethodDescriptor(
+  'runtime.adopt': RpcMethodDescriptor(
     id: 82,
-    name: 'server.pet.adopt',
-    requestType: 'ServerPetAdoptRequest',
-    responseType: 'ServerPetAdoptResponse',
+    name: 'runtime.adopt',
+    requestType: 'RuntimeAdoptRequest',
+    responseType: 'RuntimeAdoptResponse',
   ),
   'server.pet.put': RpcMethodDescriptor(
     id: 83,
@@ -621,12 +633,6 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'ServerPetPixaDownloadRequest',
     responseType: 'ServerPetPixaDownloadResponse',
   ),
-  'server.workflow.icon.download': RpcMethodDescriptor(
-    id: 106,
-    name: 'server.workflow.icon.download',
-    requestType: 'WorkflowIconDownloadRequest',
-    responseType: 'WorkflowIconDownloadResponse',
-  ),
   'server.workspace.icon.download': RpcMethodDescriptor(
     id: 107,
     name: 'server.workspace.icon.download',
@@ -638,6 +644,12 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     name: 'server.friend.info.get',
     requestType: 'FriendInfoGetRequest',
     responseType: 'FriendInfoGetResponse',
+  ),
+  'server.register': RpcMethodDescriptor(
+    id: 109,
+    name: 'server.register',
+    requestType: 'ServerRegisterRequest',
+    responseType: 'ServerRegisterResponse',
   ),
 };
 
@@ -676,6 +688,9 @@ const rpcMethodNamesById = <int, String>{
   32: 'server.workspace.history.audio.get',
   33: 'server.workflow.list',
   34: 'server.workflow.get',
+  35: 'server.workflow.create',
+  36: 'server.workflow.put',
+  37: 'server.workflow.delete',
   38: 'server.model.list',
   39: 'server.model.get',
   40: 'server.model.create',
@@ -715,11 +730,10 @@ const rpcMethodNamesById = <int, String>{
   74: 'server.friend_group.messages.list',
   75: 'server.friend_group.messages.get',
   76: 'server.friend_group.messages.send',
-  77: 'server.game_ruleset.get',
   79: 'server.badge_def.pixa.download',
   80: 'server.pet.list',
   81: 'server.pet.get',
-  82: 'server.pet.adopt',
+  82: 'runtime.adopt',
   83: 'server.pet.put',
   84: 'server.pet.delete',
   85: 'server.pet.drive',
@@ -743,9 +757,9 @@ const rpcMethodNamesById = <int, String>{
   103: 'server.route.resolve',
   104: 'server.pet.actions.get',
   105: 'server.pet.pixa.download',
-  106: 'server.workflow.icon.download',
   107: 'server.workspace.icon.download',
   108: 'server.friend.info.get',
+  109: 'server.register',
 };
 
 RpcMethodDescriptor rpcMethodByName(String name) {

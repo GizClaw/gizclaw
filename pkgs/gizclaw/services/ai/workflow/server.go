@@ -12,13 +12,15 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
-var workflowsRoot = kv.Key{"by-name"}
+var (
+	workflowsRoot        = kv.Key{"by-name"}
+	workflowsByOwnerRoot = kv.Key{"by-owner"}
+)
 
 const (
 	defaultListLimit = 50
@@ -26,9 +28,7 @@ const (
 )
 
 type Server struct {
-	Store     kv.Store
-	Assets    objectstore.ObjectStore
-	IconLocks iconasset.Locker
+	Store kv.Store
 }
 
 type WorkflowAdminService interface {
@@ -40,14 +40,6 @@ type WorkflowAdminService interface {
 }
 
 var _ WorkflowAdminService = (*Server)(nil)
-
-type WorkflowIconAdminService interface {
-	DownloadWorkflowIcon(context.Context, adminhttp.DownloadWorkflowIconRequestObject) (adminhttp.DownloadWorkflowIconResponseObject, error)
-	UploadWorkflowIcon(context.Context, adminhttp.UploadWorkflowIconRequestObject) (adminhttp.UploadWorkflowIconResponseObject, error)
-	DeleteWorkflowIcon(context.Context, adminhttp.DeleteWorkflowIconRequestObject) (adminhttp.DeleteWorkflowIconResponseObject, error)
-}
-
-var _ WorkflowIconAdminService = (*Server)(nil)
 
 type workflowEnvelope struct {
 	Name string           `json:"name"`
@@ -86,9 +78,6 @@ func (s *Server) CreateWorkflow(ctx context.Context, request adminhttp.CreateWor
 	if request.Body == nil {
 		return adminhttp.CreateWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", "request body required")), nil
 	}
-	if request.Body.Icon != nil {
-		return adminhttp.CreateWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", "icon object names are managed by the icon API")), nil
-	}
 	doc, raw, err := validateWorkflow(*request.Body, "")
 	if err != nil {
 		return adminhttp.CreateWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", err.Error())), nil
@@ -99,7 +88,19 @@ func (s *Server) CreateWorkflow(ctx context.Context, request adminhttp.CreateWor
 	} else if !errors.Is(err, kv.ErrNotFound) {
 		return adminhttp.CreateWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := s.Store.Set(ctx, key, raw); err != nil {
+	doc.OwnerPublicKey = nil
+	if owner, ok := ownership.FromContext(ctx); ok {
+		doc.OwnerPublicKey = &owner
+	}
+	raw, err = json.Marshal(doc)
+	if err != nil {
+		return adminhttp.CreateWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	entries := []kv.Entry{{Key: key, Value: raw}}
+	if doc.OwnerPublicKey != nil {
+		entries = append(entries, kv.Entry{Key: workflowByOwnerKey(*doc.OwnerPublicKey, doc.Name), Value: []byte{}})
+	}
+	if err := s.Store.BatchSet(ctx, entries); err != nil {
 		return adminhttp.CreateWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.CreateWorkflow200JSONResponse(doc), nil
@@ -113,8 +114,6 @@ func (s *Server) DeleteWorkflow(ctx context.Context, request adminhttp.DeleteWor
 	if err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
-	unlock := s.IconLocks.LockOwner(name)
-	defer unlock()
 	key := workflowKey(name)
 	data, err := s.Store.Get(ctx, key)
 	if err != nil {
@@ -127,20 +126,48 @@ func (s *Server) DeleteWorkflow(ctx context.Context, request adminhttp.DeleteWor
 	if err != nil {
 		return adminhttp.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if doc.Icon != nil && s.Assets == nil {
-		return adminhttp.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "workflow asset store not configured")), nil
+	keys := []kv.Key{key}
+	if doc.OwnerPublicKey != nil {
+		keys = append(keys, workflowByOwnerKey(*doc.OwnerPublicKey, doc.Name))
 	}
-	if s.Assets != nil {
-		for _, format := range []iconasset.Format{iconasset.FormatPixa, iconasset.FormatPNG} {
-			if err := s.Assets.Delete(iconasset.ObjectName(name, format)); err != nil {
-				return adminhttp.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed to delete workflow icon")), nil
-			}
-		}
-	}
-	if err := s.Store.Delete(ctx, key); err != nil {
+	if err := s.Store.BatchDelete(ctx, keys); err != nil {
 		return adminhttp.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.DeleteWorkflow200JSONResponse(doc), nil
+}
+
+// ListWorkflowsByOwner reads the owner index used by the public RPC owned source.
+func (s *Server) ListWorkflowsByOwner(ctx context.Context, owner string) ([]apitypes.Workflow, error) {
+	if s == nil || s.Store == nil {
+		return nil, errors.New("workflow store not configured")
+	}
+	owner = strings.TrimSpace(owner)
+	if owner == "" {
+		return []apitypes.Workflow{}, nil
+	}
+	items := make([]apitypes.Workflow, 0)
+	for entry, err := range s.Store.List(ctx, workflowByOwnerPrefix(owner)) {
+		if err != nil {
+			return nil, fmt.Errorf("workflows: list owner %s: %w", owner, err)
+		}
+		if len(entry.Key) == 0 {
+			continue
+		}
+		name := unescapeStoreSegment(entry.Key[len(entry.Key)-1])
+		data, err := s.Store.Get(ctx, workflowKey(name))
+		if errors.Is(err, kv.ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		item, err := decodeWorkflow(data)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, nil
 }
 
 func (s *Server) GetWorkflow(ctx context.Context, request adminhttp.GetWorkflowRequestObject) (adminhttp.GetWorkflowResponseObject, error) {
@@ -176,8 +203,6 @@ func (s *Server) PutWorkflow(ctx context.Context, request adminhttp.PutWorkflowR
 	if err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
-	unlock := s.IconLocks.LockRecord(name)
-	defer unlock()
 	previousData, getErr := s.Store.Get(ctx, workflowKey(name))
 	var previous apitypes.Workflow
 	if getErr == nil {
@@ -188,16 +213,26 @@ func (s *Server) PutWorkflow(ctx context.Context, request adminhttp.PutWorkflowR
 	} else if !errors.Is(getErr, kv.ErrNotFound) {
 		return adminhttp.PutWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", getErr.Error())), nil
 	}
-	if err := iconasset.ValidateProjection(previous.Icon, request.Body.Icon); err != nil {
-		return adminhttp.PutWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", err.Error())), nil
-	}
 	body := *request.Body
-	body.Icon = previous.Icon
 	doc, raw, err := validateWorkflow(body, name)
 	if err != nil {
 		return adminhttp.PutWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", err.Error())), nil
 	}
-	if err := s.Store.Set(ctx, workflowKey(doc.Name), raw); err != nil {
+	doc.OwnerPublicKey = nil
+	if getErr == nil {
+		doc.OwnerPublicKey = previous.OwnerPublicKey
+	} else if owner, ok := ownership.FromContext(ctx); ok {
+		doc.OwnerPublicKey = &owner
+	}
+	raw, err = json.Marshal(doc)
+	if err != nil {
+		return adminhttp.PutWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	entries := []kv.Entry{{Key: workflowKey(doc.Name), Value: raw}}
+	if doc.OwnerPublicKey != nil {
+		entries = append(entries, kv.Entry{Key: workflowByOwnerKey(*doc.OwnerPublicKey, doc.Name), Value: []byte{}})
+	}
+	if err := s.Store.BatchSet(ctx, entries); err != nil {
 		return adminhttp.PutWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.PutWorkflow200JSONResponse(doc), nil
@@ -233,9 +268,6 @@ func validateWorkflow(item apitypes.Workflow, expectedName string) (apitypes.Wor
 		return apitypes.Workflow{}, nil, fmt.Errorf("unsupported spec.driver %q", item.Spec.Driver)
 	}
 	if err := validateDriverSpec(item.Spec); err != nil {
-		return apitypes.Workflow{}, nil, err
-	}
-	if err := validateWorkflowI18n(item.I18n); err != nil {
 		return apitypes.Workflow{}, nil, err
 	}
 	policy, err := toolkit.NormalizePolicy(item.Spec.Toolkit)
@@ -284,28 +316,21 @@ func decodeWorkflow(data []byte) (apitypes.Workflow, error) {
 	return validated, nil
 }
 
-func validateWorkflowI18n(i18n *apitypes.WorkflowI18n) error {
-	if i18n == nil {
-		return nil
-	}
-	if !i18n.DefaultLocale.Valid() {
-		return fmt.Errorf("unsupported i18n.default_locale %q", i18n.DefaultLocale)
-	}
-	switch i18n.DefaultLocale {
-	case apitypes.WorkflowLocaleEn:
-		if i18n.En == nil {
-			return errors.New("i18n.en is required")
-		}
-	case apitypes.WorkflowLocaleZhCN:
-		if i18n.ZhCN == nil {
-			return errors.New("i18n.zh-CN is required")
-		}
-	}
-	return nil
-}
-
 func workflowKey(name string) kv.Key {
 	return append(append(kv.Key{}, workflowsRoot...), escapeStoreSegment(name))
+}
+
+func workflowByOwnerPrefix(owner string) kv.Key {
+	return append(append(kv.Key{}, workflowsByOwnerRoot...), escapeStoreSegment(owner))
+}
+
+func workflowByOwnerKey(owner, name string) kv.Key {
+	return append(workflowByOwnerPrefix(owner), escapeStoreSegment(name))
+}
+
+func unescapeStoreSegment(value string) string {
+	value = strings.ReplaceAll(value, "%3A", ":")
+	return strings.ReplaceAll(value, "%25", "%")
 }
 
 func escapeStoreSegment(value string) string {

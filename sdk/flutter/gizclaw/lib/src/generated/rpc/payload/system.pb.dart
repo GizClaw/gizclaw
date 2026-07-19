@@ -946,6 +946,129 @@ class PingResponse extends $pb.GeneratedMessage {
   void clearServerTime() => $_clearField(1);
 }
 
+class ServerRegisterRequest extends $pb.GeneratedMessage {
+  factory ServerRegisterRequest({
+    $core.String? token,
+  }) {
+    final result = create();
+    if (token != null) result.token = token;
+    return result;
+  }
+
+  ServerRegisterRequest._();
+
+  factory ServerRegisterRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ServerRegisterRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ServerRegisterRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'token')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerRegisterRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerRegisterRequest copyWith(
+          void Function(ServerRegisterRequest) updates) =>
+      super.copyWith((message) => updates(message as ServerRegisterRequest))
+          as ServerRegisterRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ServerRegisterRequest create() => ServerRegisterRequest._();
+  @$core.override
+  ServerRegisterRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ServerRegisterRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ServerRegisterRequest>(create);
+  static ServerRegisterRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get token => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set token($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasToken() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearToken() => $_clearField(1);
+}
+
+class ServerRegisterResponse extends $pb.GeneratedMessage {
+  factory ServerRegisterResponse({
+    $core.String? firmwareName,
+    $core.String? runtimeProfileName,
+  }) {
+    final result = create();
+    if (firmwareName != null) result.firmwareName = firmwareName;
+    if (runtimeProfileName != null)
+      result.runtimeProfileName = runtimeProfileName;
+    return result;
+  }
+
+  ServerRegisterResponse._();
+
+  factory ServerRegisterResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ServerRegisterResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ServerRegisterResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'firmwareName')
+    ..aOS(2, _omitFieldNames ? '' : 'runtimeProfileName')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerRegisterResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerRegisterResponse copyWith(
+          void Function(ServerRegisterResponse) updates) =>
+      super.copyWith((message) => updates(message as ServerRegisterResponse))
+          as ServerRegisterResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ServerRegisterResponse create() => ServerRegisterResponse._();
+  @$core.override
+  ServerRegisterResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ServerRegisterResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ServerRegisterResponse>(create);
+  static ServerRegisterResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get firmwareName => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set firmwareName($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasFirmwareName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearFirmwareName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get runtimeProfileName => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set runtimeProfileName($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasRuntimeProfileName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearRuntimeProfileName() => $_clearField(2);
+}
+
 class Runtime extends $pb.GeneratedMessage {
   factory Runtime({
     $core.String? lastAddr,

@@ -46,7 +46,7 @@ func newAdminAPIHarness(t *testing.T) *adminAPIHarness {
 	peerSN := "client-admin-api-peer-" + peerKey
 	h.RegisterContext("admin-api-peer", "--sn", peerSN).MustSucceed(t)
 
-	admin := h.ConnectClientFromContext(adminAPIAdminContext)
+	admin := h.ConnectClientFromContextEventually(adminAPIAdminContext, 30*time.Second)
 	api, err := admin.ServerAdminClient()
 	if err != nil {
 		t.Fatalf("create admin API client: %v", err)
@@ -77,7 +77,7 @@ func (h *adminAPIHarness) reconnectAdminAPI(t *testing.T) {
 	if h.admin != nil {
 		_ = h.admin.Close()
 	}
-	admin := h.h.ConnectClientFromContext(h.adminContext)
+	admin := h.h.ConnectClientFromContextEventually(h.adminContext, 30*time.Second)
 	api, err := admin.ServerAdminClient()
 	if err != nil {
 		_ = admin.Close()

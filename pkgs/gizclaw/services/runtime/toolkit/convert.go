@@ -9,15 +9,16 @@ import (
 
 func FromAPI(tool apitypes.Tool) (Tool, error) {
 	converted := Tool{
-		ID:           tool.Id,
-		Name:         tool.Name,
-		Description:  tool.Description,
-		Source:       ToolSource(tool.Source),
-		Enabled:      tool.Enabled,
-		OwnerPeer:    tool.OwnerPeer,
-		Version:      tool.Version,
-		InputSchema:  tool.InputSchema,
-		OutputSchema: tool.OutputSchema,
+		ID:             tool.Id,
+		Name:           tool.Name,
+		Description:    tool.Description,
+		Source:         ToolSource(tool.Source),
+		Enabled:        tool.Enabled,
+		OwnerPeer:      tool.OwnerPeer,
+		OwnerPublicKey: tool.OwnerPublicKey,
+		Version:        tool.Version,
+		InputSchema:    tool.InputSchema,
+		OutputSchema:   tool.OutputSchema,
 		Executor: ToolExecutor{
 			Kind:   ToolExecutorKind(tool.Executor.Kind),
 			Name:   tool.Executor.Name,
@@ -48,15 +49,16 @@ func ToAPI(tool Tool) (apitypes.Tool, error) {
 		return apitypes.Tool{}, err
 	}
 	out := apitypes.Tool{
-		Id:           tool.ID,
-		Name:         tool.Name,
-		Description:  tool.Description,
-		Source:       apitypes.ToolSource(tool.Source),
-		Enabled:      tool.Enabled,
-		OwnerPeer:    tool.OwnerPeer,
-		Version:      tool.Version,
-		InputSchema:  tool.InputSchema,
-		OutputSchema: tool.OutputSchema,
+		Id:             tool.ID,
+		Name:           tool.Name,
+		Description:    tool.Description,
+		Source:         apitypes.ToolSource(tool.Source),
+		Enabled:        tool.Enabled,
+		OwnerPeer:      tool.OwnerPeer,
+		OwnerPublicKey: tool.OwnerPublicKey,
+		Version:        tool.Version,
+		InputSchema:    tool.InputSchema,
+		OutputSchema:   tool.OutputSchema,
 		Executor: apitypes.ToolExecutor{
 			Kind:   apitypes.ToolExecutorKind(tool.Executor.Kind),
 			Name:   tool.Executor.Name,
@@ -130,15 +132,16 @@ func FromRPC(tool rpcapi.Tool) (Tool, error) {
 		enabled = *tool.Enabled
 	}
 	converted := Tool{
-		ID:           tool.Id,
-		Name:         tool.Name,
-		Description:  tool.Description,
-		Source:       ToolSource(tool.Source),
-		Enabled:      enabled,
-		OwnerPeer:    tool.OwnerPeer,
-		Version:      tool.Version,
-		InputSchema:  tool.InputSchema,
-		OutputSchema: tool.OutputSchema,
+		ID:             tool.Id,
+		Name:           tool.Name,
+		Description:    tool.Description,
+		Source:         ToolSource(tool.Source),
+		Enabled:        enabled,
+		OwnerPeer:      tool.OwnerPeer,
+		OwnerPublicKey: tool.OwnerPublicKey,
+		Version:        tool.Version,
+		InputSchema:    tool.InputSchema,
+		OutputSchema:   tool.OutputSchema,
 		Executor: ToolExecutor{
 			Kind:   ToolExecutorKind(tool.Executor.Kind),
 			Name:   tool.Executor.Name,
@@ -170,15 +173,16 @@ func ToRPC(tool Tool) (rpcapi.Tool, error) {
 	}
 	enabled := tool.Enabled
 	out := rpcapi.Tool{
-		Id:           tool.ID,
-		Name:         tool.Name,
-		Description:  tool.Description,
-		Source:       rpcapi.ToolSource(tool.Source),
-		Enabled:      &enabled,
-		OwnerPeer:    tool.OwnerPeer,
-		Version:      tool.Version,
-		InputSchema:  tool.InputSchema,
-		OutputSchema: tool.OutputSchema,
+		Id:             tool.ID,
+		Name:           tool.Name,
+		Description:    tool.Description,
+		Source:         rpcapi.ToolSource(tool.Source),
+		Enabled:        &enabled,
+		OwnerPeer:      tool.OwnerPeer,
+		OwnerPublicKey: tool.OwnerPublicKey,
+		Version:        tool.Version,
+		InputSchema:    tool.InputSchema,
+		OutputSchema:   tool.OutputSchema,
 		Executor: rpcapi.ToolExecutor{
 			Kind:   rpcapi.ToolExecutorKind(tool.Executor.Kind),
 			Name:   tool.Executor.Name,

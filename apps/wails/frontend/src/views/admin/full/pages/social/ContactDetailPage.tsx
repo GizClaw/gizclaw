@@ -166,7 +166,7 @@ export function ContactDetailPage(): JSX.Element {
                 ["Display name", contact.display_name],
                 ["Phone number", contact.phone_number],
                 ["Resource", "Contact"],
-                ["ACL", "Not managed by ACL"],
+				["Access", "Owner-scoped contact"],
               ]}
               title="Summary"
             />

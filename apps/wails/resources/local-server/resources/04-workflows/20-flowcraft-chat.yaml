@@ -3,14 +3,6 @@ apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
   name: flowcraft-chat-assistant
-i18n:
-  default_locale: en
-  en:
-    name: Child Conversation Companion
-    description: Enjoy short, warm, and imaginative spoken conversations for children.
-  zh-CN:
-    name: 儿童对话伙伴
-    description: 为儿童提供简短、温暖且富有想象力的语音对话。
 spec:
   driver: flowcraft
   flowcraft:

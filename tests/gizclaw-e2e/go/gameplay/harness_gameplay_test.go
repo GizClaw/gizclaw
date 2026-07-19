@@ -16,7 +16,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
@@ -40,12 +39,12 @@ func newIsolatedGameplayHarness(t *testing.T) *isolatedGameplayHarness {
 	h.RequireClientContextEndpoint("peer-a")
 	h.RegisterContext("peer-a", "--sn", "client-gameplay-peer-a-sn").MustSucceed(t)
 	applyGameplayCatalog(t, h)
-	applyGameplayACL(t, h, "peer-a")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	t.Cleanup(cancel)
 	peer := h.ConnectClientFromContext("peer-a")
 	t.Cleanup(func() { peer.Close() })
+	registerGameplayProfile(t, h, peer, "isolated")
 	return &isolatedGameplayHarness{ctx: ctx, h: h, peer: peer}
 }
 
@@ -61,7 +60,7 @@ func applyGameplayCatalog(t *testing.T, h *clitest.Harness) {
 	}
 }
 
-func applyGameplayACL(t *testing.T, h *clitest.Harness, contextName string) {
+func registerGameplayProfile(t *testing.T, h *clitest.Harness, peer *gizcli.Client, tokenSuffix string) {
 	t.Helper()
 
 	admin := h.ConnectClientFromContext("admin-a")
@@ -72,46 +71,25 @@ func applyGameplayACL(t *testing.T, h *clitest.Harness, contextName string) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	roleResp, err := api.PutACLRoleWithResponse(ctx, "default-client", adminhttp.ACLRoleUpsert{
-		Name: "default-client",
-		Permissions: apitypes.ACLPermissionList{
-			apitypes.ACLPermissionRead,
-			apitypes.ACLPermissionUse,
-		},
+	tokenName := "e2e-gameplay-" + tokenSuffix
+	_, _ = api.DeleteRegistrationTokenWithResponse(ctx, tokenName)
+	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
+		Name:               tokenName,
+		FirmwareName:       "devkit-firmware-main",
+		RuntimeProfileName: "default-gameplay",
 	})
 	if err != nil {
-		t.Fatalf("put gameplay ACL role: %v", err)
+		t.Fatalf("create gameplay RegistrationToken: %v", err)
 	}
-	if roleResp.JSON200 == nil {
-		t.Fatalf("put gameplay ACL role status %d: %s", roleResp.StatusCode(), strings.TrimSpace(string(roleResp.Body)))
+	if tokenResp.JSON200 == nil || tokenResp.JSON200.Token == "" {
+		t.Fatalf("create gameplay RegistrationToken status %d: %s", tokenResp.StatusCode(), strings.TrimSpace(string(tokenResp.Body)))
 	}
-	view := "default-client"
-	configResp, err := api.PutPeerConfigWithResponse(ctx, h.ContextPublicKey(contextName), apitypes.Configuration{View: &view})
+	registered, err := peer.Register(ctx, "server.register.gameplay", tokenResp.JSON200.Token)
 	if err != nil {
-		t.Fatalf("put gameplay peer config: %v", err)
+		t.Fatalf("register gameplay connection: %v", err)
 	}
-	if configResp.JSON200 == nil {
-		t.Fatalf("put gameplay peer config status %d: %s", configResp.StatusCode(), strings.TrimSpace(string(configResp.Body)))
-	}
-	createGameplayViewBinding(t, ctx, api, "gameplay-default-ruleset-"+h.ContextPublicKey(contextName), apitypes.ACLResourceKindGameruleset, "default-gameplay")
-}
-
-func createGameplayViewBinding(t *testing.T, ctx context.Context, api *adminhttp.ClientWithResponses, id string, kind apitypes.ACLResourceKind, resourceID string) {
-	t.Helper()
-
-	bindingResp, err := api.CreateACLPolicyBindingWithResponse(ctx, adminhttp.ACLPolicyBindingUpsert{
-		Id: &id,
-		Policy: apitypes.ACLPolicy{
-			Subject:  apitypes.ACLSubject{Kind: apitypes.ACLSubjectKindView, Id: "default-client"},
-			Resource: apitypes.ACLResource{Kind: kind, Id: resourceID},
-			Role:     "default-client",
-		},
-	})
-	if err != nil {
-		t.Fatalf("create gameplay ACL binding %s: %v", id, err)
-	}
-	if bindingResp.JSON200 == nil && bindingResp.JSON409 == nil {
-		t.Fatalf("create gameplay ACL binding %s status %d: %s", id, bindingResp.StatusCode(), strings.TrimSpace(string(bindingResp.Body)))
+	if registered.FirmwareName != "devkit-firmware-main" || registered.RuntimeProfileName != "default-gameplay" {
+		t.Fatalf("register gameplay connection = %#v", registered)
 	}
 }
 
@@ -128,12 +106,15 @@ func newSetupGameplayHarness(t *testing.T, clientName string) *setupGameplayHarn
 	identitiesHome := getenvDefault("GIZCLAW_E2E_IDENTITIES_HOME", filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "identities"))
 	contextName := getenvDefault("GIZCLAW_E2E_PEER_IDENTITY", "peer")
 	h.SetContextDirAlias("gear1", filepath.Join(identitiesHome, contextName))
+	adminContextName := getenvDefault("GIZCLAW_E2E_ADMIN_IDENTITY", "admin")
+	h.SetContextDirAlias("admin-a", filepath.Join(identitiesHome, adminContextName))
 	h.RequireClientContextEndpoint("gear1")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	t.Cleanup(cancel)
 	peer := h.ConnectClientFromContext("gear1")
 	t.Cleanup(func() { peer.Close() })
+	registerGameplayProfile(t, h, peer, clientName)
 	return &setupGameplayHarness{ctx: ctx, h: h, peer: peer}
 }
 

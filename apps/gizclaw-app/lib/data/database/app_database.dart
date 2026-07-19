@@ -14,16 +14,19 @@ class Servers extends Table {
 
 class WorkflowEntries extends Table {
   TextColumn get serverId => text()();
+  IntColumn get source => integer()();
   TextColumn get name => text()();
   TextColumn get locale => text().nullable()();
   TextColumn get description => text()();
   TextColumn get driver => text()();
+  // Kept as a nullable cache column for existing databases. Runtime Workflow
+  // icons are no longer fetched; clients render their alias-owned icon mapping.
   BlobColumn get iconPng => blob().nullable()();
   BlobColumn get rawProtobuf => blob()();
   DateTimeColumn get refreshedAt => dateTime()();
 
   @override
-  Set<Column<Object>> get primaryKey => {serverId, name};
+  Set<Column<Object>> get primaryKey => {serverId, source, name};
 }
 
 class WorkspaceEntries extends Table {
@@ -106,7 +109,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -124,6 +127,13 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 5) {
         await migrator.addColumn(workflowEntries, workflowEntries.iconPng);
+      }
+      if (from < 6) {
+        // This table is a disposable server projection. Recreate it so the
+        // source becomes part of the key and runtime aliases can safely match
+        // owned concrete Workflow names.
+        await customStatement('DROP TABLE workflow_entries');
+        await migrator.createTable(workflowEntries);
       }
     },
   );

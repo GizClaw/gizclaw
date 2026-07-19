@@ -396,6 +396,39 @@ const PingResponse$json = {
 final $typed_data.Uint8List pingResponseDescriptor = $convert.base64Decode(
     'CgxQaW5nUmVzcG9uc2USHwoLc2VydmVyX3RpbWUYASABKANSCnNlcnZlclRpbWU=');
 
+@$core.Deprecated('Use serverRegisterRequestDescriptor instead')
+const ServerRegisterRequest$json = {
+  '1': 'ServerRegisterRequest',
+  '2': [
+    {'1': 'token', '3': 1, '4': 1, '5': 9, '10': 'token'},
+  ],
+};
+
+/// Descriptor for `ServerRegisterRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List serverRegisterRequestDescriptor =
+    $convert.base64Decode(
+        'ChVTZXJ2ZXJSZWdpc3RlclJlcXVlc3QSFAoFdG9rZW4YASABKAlSBXRva2Vu');
+
+@$core.Deprecated('Use serverRegisterResponseDescriptor instead')
+const ServerRegisterResponse$json = {
+  '1': 'ServerRegisterResponse',
+  '2': [
+    {'1': 'firmware_name', '3': 1, '4': 1, '5': 9, '10': 'firmwareName'},
+    {
+      '1': 'runtime_profile_name',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileName'
+    },
+  ],
+};
+
+/// Descriptor for `ServerRegisterResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List serverRegisterResponseDescriptor = $convert.base64Decode(
+    'ChZTZXJ2ZXJSZWdpc3RlclJlc3BvbnNlEiMKDWZpcm13YXJlX25hbWUYASABKAlSDGZpcm13YX'
+    'JlTmFtZRIwChRydW50aW1lX3Byb2ZpbGVfbmFtZRgCIAEoCVIScnVudGltZVByb2ZpbGVOYW1l');
+
 @$core.Deprecated('Use runtimeDescriptor instead')
 const Runtime$json = {
   '1': 'Runtime',

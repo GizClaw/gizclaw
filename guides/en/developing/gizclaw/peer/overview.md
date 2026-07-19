@@ -7,7 +7,7 @@ Peer Runtime is responsible for connecting the established `giznet.Conn` to the 
 | Module | Responsibilities | Implementation files |
 | --- | --- | --- |
 | [Management](./manager) | Online Peer, connection replacement, runtime query and device information refresh. | `peer_manager.go` |
-| [Authorization](./authorizer) | Connect the current Peer identity to the ACL view and policy. | `peer_authorizer.go` |
+| Registration | Resolve a RegistrationToken into connection-scoped Firmware and RuntimeProfile snapshots. | `rpc_server.go`, `peer_conn.go` |
 | [Connection](./conn) | The service, packet, Agent, telemetry and media life cycle of a single connection. | `peer_conn.go`, `peer_conn_openai.go` |
 | [Services](./service/overview) | Provides Admin, Public HTTP, WebRTC and other Giznet services on connection. | `peer_service.go`, `peer_service_*.go` |
 | [Agent Host](./agent-host) | Assemble the Agent Host for the current Peer. | `peer_agent_host.go` |
@@ -29,8 +29,8 @@ flowchart TB
     Conn --> Telemetry["Telemetry processing"]
     Conn --> Media["Audio / media packets"]
 
-    Service --> Auth["Authorization"]
-    Auth --> ACL["services/system/acl"]
+    Service --> Registration["Registration"]
+    Registration --> Profile["services/system/runtimeprofile"]
     Host --> Runtime["services/runtime/agenthost"]
     Realtime --> Host
     Events <--> Host

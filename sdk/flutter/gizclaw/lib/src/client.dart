@@ -26,6 +26,9 @@ payload.WorkspaceUpsert workspaceUpsertFromWorkspace(
   if (workspace.hasToolkit()) {
     upsert.toolkit = workspace.toolkit.deepCopy();
   }
+  if (workspace.hasWorkflowSource()) {
+    upsert.workflowSource = workspace.workflowSource;
+  }
   return upsert;
 }
 
@@ -68,6 +71,13 @@ class GizClawClient {
   final ServiceHttpClient peerOpenAi;
   final PeerRpcClient rpc;
 
+  Future<payload.ServerRegisterResponse> register(String token) {
+    return rpc.call<payload.ServerRegisterResponse>(
+      'server.register',
+      payload.ServerRegisterRequest(token: token),
+    );
+  }
+
   Future<payload.ServerGetInfoResponse> getServerInfo() {
     return rpc.call<payload.ServerGetInfoResponse>(
       'server.info.get',
@@ -85,19 +95,16 @@ class GizClawClient {
   }
 
   Future<payload.WorkflowListResponse> listWorkflows({
+    required enums.ResourceSource source,
     String? cursor,
     int? limit,
-    payload.WorkflowLocale? lang,
   }) {
-    final request = payload.WorkflowListRequest();
+    final request = payload.WorkflowListRequest(source: source);
     if (cursor != null) {
       request.cursor = cursor;
     }
     if (limit != null) {
       request.limit = Int64(limit);
-    }
-    if (lang != null) {
-      request.lang = lang;
     }
     return rpc.call<payload.WorkflowListResponse>(
       'server.workflow.list',
@@ -107,11 +114,47 @@ class GizClawClient {
 
   Future<payload.WorkflowGetResponse> getWorkflow(
     String name, {
-    required payload.WorkflowLocale lang,
+    required enums.ResourceSource source,
   }) {
     return rpc.call<payload.WorkflowGetResponse>(
       'server.workflow.get',
-      payload.WorkflowGetRequest(name: name, lang: lang),
+      payload.WorkflowGetRequest(name: name, source: source),
+    );
+  }
+
+  Future<payload.WorkflowCreateResponse> createWorkflow(
+    payload.WorkflowUpsert value,
+  ) {
+    return rpc.call<payload.WorkflowCreateResponse>(
+      'server.workflow.create',
+      payload.WorkflowCreateRequest(
+        source: enums.ResourceSource.RESOURCE_SOURCE_OWNED,
+        body: value,
+      ),
+    );
+  }
+
+  Future<payload.WorkflowPutResponse> putWorkflow(
+    String name,
+    payload.WorkflowUpsert value,
+  ) {
+    return rpc.call<payload.WorkflowPutResponse>(
+      'server.workflow.put',
+      payload.WorkflowPutRequest(
+        name: name,
+        source: enums.ResourceSource.RESOURCE_SOURCE_OWNED,
+        body: value,
+      ),
+    );
+  }
+
+  Future<payload.WorkflowDeleteResponse> deleteWorkflow(String name) {
+    return rpc.call<payload.WorkflowDeleteResponse>(
+      'server.workflow.delete',
+      payload.WorkflowDeleteRequest(
+        name: name,
+        source: enums.ResourceSource.RESOURCE_SOURCE_OWNED,
+      ),
     );
   }
 
@@ -315,20 +358,14 @@ class GizClawClient {
     );
   }
 
-  Future<payload.ServerPetAdoptResponse> adoptPet({
-    String? displayName,
-    String? rulesetName,
-  }) {
+  Future<payload.RuntimeAdoptResponse> adoptPet({String? displayName}) {
     final value = payload.PetAdoptRequest();
     if (displayName != null && displayName.isNotEmpty) {
       value.displayName = displayName;
     }
-    if (rulesetName != null && rulesetName.isNotEmpty) {
-      value.rulesetName = rulesetName;
-    }
-    return rpc.call<payload.ServerPetAdoptResponse>(
-      'server.pet.adopt',
-      payload.ServerPetAdoptRequest(value: value),
+    return rpc.call<payload.RuntimeAdoptResponse>(
+      'runtime.adopt',
+      payload.RuntimeAdoptRequest(value: value),
     );
   }
 
@@ -382,19 +419,6 @@ class GizClawClient {
       metadata: metadata,
       bytes: bytes,
       asset: validatePixa(bytes, mode: PixaValidationMode.badgedef),
-    );
-  }
-
-  Future<IconDownloadResult<payload.WorkflowIconDownloadResponse>>
-  downloadWorkflowIcon(String name, enums.IconFormat format) async {
-    final response = await rpc.callBinary(
-      'server.workflow.icon.download',
-      payload.WorkflowIconDownloadRequest(name: name, format: format),
-      maxBodyBytes: _maxIconDownloadBytes,
-    );
-    return IconDownloadResult(
-      metadata: response.response as payload.WorkflowIconDownloadResponse,
-      bytes: Uint8List.fromList(response.body),
     );
   }
 

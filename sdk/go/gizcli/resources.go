@@ -5,7 +5,15 @@ import (
 	"net"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 )
+
+// Register applies a pre-distributed RegistrationToken to the current connection.
+func (c *Client) Register(ctx context.Context, id, token string) (*rpcpb.ServerRegisterResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcpb.ServerRegisterResponse, error) {
+		return client.Register(ctx, conn, id, token)
+	})
+}
 
 func (c *Client) ListWorkspaces(ctx context.Context, id string, request rpcapi.WorkspaceListRequest) (*rpcapi.WorkspaceListResponse, error) {
 	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.WorkspaceListResponse, error) {
@@ -58,6 +66,24 @@ func (c *Client) ListWorkflows(ctx context.Context, id string, request rpcapi.Wo
 func (c *Client) GetWorkflow(ctx context.Context, id string, request rpcapi.WorkflowGetRequest) (*rpcapi.WorkflowGetResponse, error) {
 	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.WorkflowGetResponse, error) {
 		return client.GetWorkflow(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) CreateWorkflow(ctx context.Context, id string, request rpcapi.WorkflowCreateRequest) (*rpcapi.WorkflowCreateResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.WorkflowCreateResponse, error) {
+		return client.CreateWorkflow(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) PutWorkflow(ctx context.Context, id string, request rpcapi.WorkflowPutRequest) (*rpcapi.WorkflowPutResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.WorkflowPutResponse, error) {
+		return client.PutWorkflow(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) DeleteWorkflow(ctx context.Context, id string, request rpcapi.WorkflowDeleteRequest) (*rpcapi.WorkflowDeleteResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.WorkflowDeleteResponse, error) {
+		return client.DeleteWorkflow(ctx, conn, id, request)
 	})
 }
 
@@ -289,12 +315,6 @@ func (c *Client) SendFriendGroupMessage(ctx context.Context, id string, request 
 	})
 }
 
-func (c *Client) GetGameRuleset(ctx context.Context, id string, request rpcapi.ServerGameRulesetGetRequest) (*rpcapi.ServerGameRulesetGetResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerGameRulesetGetResponse, error) {
-		return client.GetGameRuleset(ctx, conn, id, request)
-	})
-}
-
 func (c *Client) ListPets(ctx context.Context, id string, request rpcapi.ServerPetListRequest) (*rpcapi.ServerPetListResponse, error) {
 	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerPetListResponse, error) {
 		return client.ListPets(ctx, conn, id, request)
@@ -313,8 +333,8 @@ func (c *Client) GetPetActions(ctx context.Context, id string, request rpcapi.Se
 	})
 }
 
-func (c *Client) AdoptPet(ctx context.Context, id string, request rpcapi.ServerPetAdoptRequest) (*rpcapi.ServerPetAdoptResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerPetAdoptResponse, error) {
+func (c *Client) AdoptPet(ctx context.Context, id string, request rpcapi.RuntimeAdoptRequest) (*rpcapi.RuntimeAdoptResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.RuntimeAdoptResponse, error) {
 		return client.AdoptPet(ctx, conn, id, request)
 	})
 }

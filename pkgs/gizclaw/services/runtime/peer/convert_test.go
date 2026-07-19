@@ -20,7 +20,6 @@ func TestConvertHelpers(t *testing.T) {
 		AutoRegistered: &autoRegistered,
 		CreatedAt:      now,
 		UpdatedAt:      now,
-		Configuration:  apitypes.Configuration{},
 		Device: apitypes.DeviceInfo{
 			Name: &deviceName,
 		},
