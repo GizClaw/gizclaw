@@ -1368,11 +1368,13 @@ func (e VolcTenantResourceKind) Valid() bool {
 
 // Defines values for WorkflowDriver.
 const (
-	WorkflowDriverAstTranslate   WorkflowDriver = "ast-translate"
-	WorkflowDriverChatroom       WorkflowDriver = "chatroom"
-	WorkflowDriverDoubaoRealtime WorkflowDriver = "doubao-realtime"
-	WorkflowDriverFlowcraft      WorkflowDriver = "flowcraft"
-	WorkflowDriverPet            WorkflowDriver = "pet"
+	WorkflowDriverAstTranslate      WorkflowDriver = "ast-translate"
+	WorkflowDriverChatroom          WorkflowDriver = "chatroom"
+	WorkflowDriverDashscopeRealtime WorkflowDriver = "dashscope-realtime"
+	WorkflowDriverDoubaoRealtime    WorkflowDriver = "doubao-realtime"
+	WorkflowDriverEino              WorkflowDriver = "eino"
+	WorkflowDriverFlowcraft         WorkflowDriver = "flowcraft"
+	WorkflowDriverPet               WorkflowDriver = "pet"
 )
 
 // Valid indicates whether the value is a known member of the WorkflowDriver enum.
@@ -1382,7 +1384,11 @@ func (e WorkflowDriver) Valid() bool {
 		return true
 	case WorkflowDriverChatroom:
 		return true
+	case WorkflowDriverDashscopeRealtime:
+		return true
 	case WorkflowDriverDoubaoRealtime:
+		return true
+	case WorkflowDriverEino:
 		return true
 	case WorkflowDriverFlowcraft:
 		return true
@@ -1850,6 +1856,13 @@ type DashScopeCredentialBody struct {
 	Token   *string `json:"token,omitempty"`
 }
 
+// DashScopeRealtimeWorkflowSpec defines model for DashScopeRealtimeWorkflowSpec.
+type DashScopeRealtimeWorkflowSpec struct {
+	MaxToolCalls  *int    `json:"max_tool_calls,omitempty"`
+	Model         string  `json:"model"`
+	ProviderModel *string `json:"provider_model,omitempty"`
+}
+
 // DashScopeTenant defines model for DashScopeTenant.
 type DashScopeTenant struct {
 	BaseUrl        *string   `json:"base_url,omitempty"`
@@ -2079,6 +2092,14 @@ type DoubaoRealtimeWorkspaceParameters struct {
 
 // DoubaoRealtimeWorkspaceParametersAgentType defines model for DoubaoRealtimeWorkspaceParameters.AgentType.
 type DoubaoRealtimeWorkspaceParametersAgentType string
+
+// EinoWorkflowSpec defines model for EinoWorkflowSpec.
+type EinoWorkflowSpec struct {
+	MaxSteps     *int    `json:"max_steps,omitempty"`
+	MaxToolCalls *int    `json:"max_tool_calls,omitempty"`
+	Model        string  `json:"model"`
+	SystemPrompt *string `json:"system_prompt,omitempty"`
+}
 
 // ErrorPayload defines model for ErrorPayload.
 type ErrorPayload struct {
@@ -3792,12 +3813,14 @@ type WorkflowResourceKind string
 
 // WorkflowSpec defines model for WorkflowSpec.
 type WorkflowSpec struct {
-	AstTranslate   *ASTTranslateWorkflowSpec   `json:"ast_translate,omitempty"`
-	Chatroom       *ChatRoomWorkflowSpec       `json:"chatroom,omitempty"`
-	DoubaoRealtime *DoubaoRealtimeWorkflowSpec `json:"doubao_realtime,omitempty"`
-	Driver         WorkflowDriver              `json:"driver"`
-	Flowcraft      *FlowcraftWorkflowSpec      `json:"flowcraft,omitempty"`
-	Pet            *PetWorkflowSpec            `json:"pet,omitempty"`
+	AstTranslate      *ASTTranslateWorkflowSpec      `json:"ast_translate,omitempty"`
+	Chatroom          *ChatRoomWorkflowSpec          `json:"chatroom,omitempty"`
+	DashscopeRealtime *DashScopeRealtimeWorkflowSpec `json:"dashscope_realtime,omitempty"`
+	DoubaoRealtime    *DoubaoRealtimeWorkflowSpec    `json:"doubao_realtime,omitempty"`
+	Driver            WorkflowDriver                 `json:"driver"`
+	Eino              *EinoWorkflowSpec              `json:"eino,omitempty"`
+	Flowcraft         *FlowcraftWorkflowSpec         `json:"flowcraft,omitempty"`
+	Pet               *PetWorkflowSpec               `json:"pet,omitempty"`
 
 	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`

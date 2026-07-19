@@ -25,6 +25,20 @@ func (f FactoryFunc) NewAgent(ctx context.Context, spec Spec) (Agent, error) {
 	return asAgent(transformer), nil
 }
 
+// TransformerFactory constructs an ordinary stream Transformer. It is kept
+// separate from Factory so non-reasoning workflows are not registered as AI
+// Agents merely because they share the outer workspace stream host.
+type TransformerFactory interface {
+	NewTransformer(context.Context, Spec) (genx.Transformer, error)
+}
+
+// TransformerFactoryFunc adapts a function to TransformerFactory.
+type TransformerFactoryFunc func(context.Context, Spec) (genx.Transformer, error)
+
+func (f TransformerFactoryFunc) NewTransformer(ctx context.Context, spec Spec) (genx.Transformer, error) {
+	return f(ctx, spec)
+}
+
 // Registry stores agent factories keyed by agent type.
 type Registry struct {
 	mu        sync.RWMutex
@@ -68,4 +82,46 @@ func (r *Registry) Get(agentType string) (Factory, bool) {
 
 func normalizeAgentType(agentType string) string {
 	return strings.TrimSpace(agentType)
+}
+
+// TransformerRegistry stores ordinary Transformer factories separately from
+// the AI Agent registry.
+type TransformerRegistry struct {
+	mu        sync.RWMutex
+	factories map[string]TransformerFactory
+}
+
+func NewTransformerRegistry() *TransformerRegistry {
+	return &TransformerRegistry{factories: make(map[string]TransformerFactory)}
+}
+
+func (r *TransformerRegistry) Register(transformerType string, factory TransformerFactory) error {
+	transformerType = normalizeAgentType(transformerType)
+	if transformerType == "" {
+		return fmt.Errorf("agenthost: transformer type is required")
+	}
+	if factory == nil {
+		return fmt.Errorf("agenthost: transformer factory is required for %q", transformerType)
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.factories == nil {
+		r.factories = make(map[string]TransformerFactory)
+	}
+	if _, exists := r.factories[transformerType]; exists {
+		return fmt.Errorf("agenthost: transformer factory already registered for %q", transformerType)
+	}
+	r.factories[transformerType] = factory
+	return nil
+}
+
+func (r *TransformerRegistry) Get(transformerType string) (TransformerFactory, bool) {
+	if r == nil {
+		return nil, false
+	}
+	transformerType = normalizeAgentType(transformerType)
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	factory, ok := r.factories[transformerType]
+	return factory, ok
 }

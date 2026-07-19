@@ -413,6 +413,12 @@
       "DoubaoRealtimeWorkflowSpec": {
         "$ref": "./shared/workflows/doubao_realtime.json#/components/schemas/DoubaoRealtimeWorkflowSpec"
       },
+      "DashScopeRealtimeWorkflowSpec": {
+        "$ref": "./shared/workflows/dashscope_realtime.json#/components/schemas/DashScopeRealtimeWorkflowSpec"
+      },
+      "EinoWorkflowSpec": {
+        "$ref": "./shared/workflows/eino.json#/components/schemas/EinoWorkflowSpec"
+      },
       "ASTTranslateWorkflowSpec": {
         "$ref": "./shared/workflows/ast_translate.json#/components/schemas/ASTTranslateWorkflowSpec"
       },

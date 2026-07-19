@@ -13,6 +13,8 @@
         "enum": [
           "flowcraft",
           "doubao-realtime",
+          "dashscope-realtime",
+          "eino",
           "ast-translate",
           "chatroom",
           "pet"
@@ -35,6 +37,12 @@
           },
           "doubao_realtime": {
             "$ref": "./workflows/doubao_realtime.json#/components/schemas/DoubaoRealtimeWorkflowSpec"
+          },
+          "dashscope_realtime": {
+            "$ref": "./workflows/dashscope_realtime.json#/components/schemas/DashScopeRealtimeWorkflowSpec"
+          },
+          "eino": {
+            "$ref": "./workflows/eino.json#/components/schemas/EinoWorkflowSpec"
           },
           "ast_translate": {
             "$ref": "./workflows/ast_translate.json#/components/schemas/ASTTranslateWorkflowSpec"

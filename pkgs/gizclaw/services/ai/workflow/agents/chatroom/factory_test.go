@@ -19,15 +19,15 @@ import (
 
 func TestFactoryCreatesChatRoomAgent(t *testing.T) {
 	params := validWorkspaceParameters(t)
-	agent, err := (Factory{}).NewAgent(context.Background(), agenthost.Spec{
+	agent, err := (Factory{}).NewTransformer(context.Background(), agenthost.Spec{
 		Workspace: apitypes.Workspace{Name: "demo", Parameters: &params},
 		Workflow:  validWorkflow(),
 	})
 	if err != nil {
-		t.Fatalf("NewAgent() error = %v", err)
+		t.Fatalf("NewTransformer() error = %v", err)
 	}
 	if agent == nil {
-		t.Fatal("NewAgent() = nil")
+		t.Fatal("NewTransformer() = nil")
 	}
 }
 
@@ -79,20 +79,20 @@ func TestFactoryRejectsInvalidSpec(t *testing.T) {
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			_, err := (Factory{}).NewAgent(context.Background(), tc.spec)
+			_, err := (Factory{}).NewTransformer(context.Background(), tc.spec)
 			if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
-				t.Fatalf("NewAgent() error = %v, want %q", err, tc.wantErr)
+				t.Fatalf("NewTransformer() error = %v, want %q", err, tc.wantErr)
 			}
 		})
 	}
 }
 
 func TestAgentTransformForwardsTextInputAsTranscript(t *testing.T) {
-	agent, err := (Factory{}).NewAgent(context.Background(), agenthost.Spec{
+	agent, err := (Factory{}).NewTransformer(context.Background(), agenthost.Spec{
 		Workflow: validWorkflow(),
 	})
 	if err != nil {
-		t.Fatalf("NewAgent() error = %v", err)
+		t.Fatalf("NewTransformer() error = %v", err)
 	}
 	input := &recordingStream{
 		chunks: []*genx.MessageChunk{
@@ -132,11 +132,11 @@ func TestAgentTransformForwardsTextInputAsTranscript(t *testing.T) {
 }
 
 func TestAgentTransformDrainsAudioInputWhenTranscriptDisabled(t *testing.T) {
-	agent, err := (Factory{}).NewAgent(context.Background(), agenthost.Spec{
+	agent, err := (Factory{}).NewTransformer(context.Background(), agenthost.Spec{
 		Workflow: validWorkflow(),
 	})
 	if err != nil {
-		t.Fatalf("NewAgent() error = %v", err)
+		t.Fatalf("NewTransformer() error = %v", err)
 	}
 	input := &recordingStream{
 		chunks: []*genx.MessageChunk{
@@ -161,11 +161,11 @@ func TestAgentTransformDrainsAudioInputWhenTranscriptDisabled(t *testing.T) {
 }
 
 func TestAgentTransformRejectsNilInput(t *testing.T) {
-	agent, err := (Factory{}).NewAgent(context.Background(), agenthost.Spec{
+	agent, err := (Factory{}).NewTransformer(context.Background(), agenthost.Spec{
 		Workflow: validWorkflow(),
 	})
 	if err != nil {
-		t.Fatalf("NewAgent() error = %v", err)
+		t.Fatalf("NewTransformer() error = %v", err)
 	}
 	if _, err := agent.Transform(context.Background(), "demo", nil); err == nil || !strings.Contains(err.Error(), "input stream is required") {
 		t.Fatalf("Transform(nil) error = %v, want input stream error", err)
@@ -173,11 +173,11 @@ func TestAgentTransformRejectsNilInput(t *testing.T) {
 }
 
 func TestAgentTransformPropagatesInputError(t *testing.T) {
-	agent, err := (Factory{}).NewAgent(context.Background(), agenthost.Spec{
+	agent, err := (Factory{}).NewTransformer(context.Background(), agenthost.Spec{
 		Workflow: validWorkflow(),
 	})
 	if err != nil {
-		t.Fatalf("NewAgent() error = %v", err)
+		t.Fatalf("NewTransformer() error = %v", err)
 	}
 	want := errors.New("input failed")
 	output, err := agent.Transform(context.Background(), "demo", &recordingStream{doneErr: want})
@@ -191,15 +191,15 @@ func TestAgentTransformPropagatesInputError(t *testing.T) {
 
 func TestWorkspaceTranscriptOverrideDisablesWorkflowTranscript(t *testing.T) {
 	params := rawWorkspaceParameters(t, `{"agent_type":"chatroom","transcript":{"enabled":false}}`)
-	agent, err := (Factory{}).NewAgent(context.Background(), agenthost.Spec{
+	agent, err := (Factory{}).NewTransformer(context.Background(), agenthost.Spec{
 		Workflow:  validWorkflowWithTranscript("asr", true),
 		Workspace: apitypes.Workspace{Parameters: params},
 	})
 	if err != nil {
-		t.Fatalf("NewAgent() error = %v", err)
+		t.Fatalf("NewTransformer() error = %v", err)
 	}
 	if agent == nil {
-		t.Fatal("NewAgent() = nil")
+		t.Fatal("NewTransformer() = nil")
 	}
 }
 
@@ -213,12 +213,12 @@ func TestWorkspaceTranscriptOverrideModel(t *testing.T) {
 		t.Fatalf("FromChatRoomWorkspaceParameters() error = %v", err)
 	}
 	transformer := &scriptedASRTransformer{text: "hello"}
-	agent, err := (Factory{Transformer: transformer}).NewAgent(context.Background(), agenthost.Spec{
+	agent, err := (Factory{Transformer: transformer}).NewTransformer(context.Background(), agenthost.Spec{
 		Workflow:  validWorkflowWithTranscript("workflow-asr", true),
 		Workspace: apitypes.Workspace{Parameters: &params},
 	})
 	if err != nil {
-		t.Fatalf("NewAgent() error = %v", err)
+		t.Fatalf("NewTransformer() error = %v", err)
 	}
 	output, err := agent.Transform(context.Background(), "demo", &recordingStream{
 		chunks: []*genx.MessageChunk{
@@ -237,11 +237,11 @@ func TestWorkspaceTranscriptOverrideModel(t *testing.T) {
 
 func TestAgentTransformTranscriptForwardsTextOnlyInput(t *testing.T) {
 	transformer := &scriptedASRTransformer{text: "unused"}
-	agent, err := (Factory{Transformer: transformer}).NewAgent(context.Background(), agenthost.Spec{
+	agent, err := (Factory{Transformer: transformer}).NewTransformer(context.Background(), agenthost.Spec{
 		Workflow: validWorkflowWithTranscript("asr", true),
 	})
 	if err != nil {
-		t.Fatalf("NewAgent() error = %v", err)
+		t.Fatalf("NewTransformer() error = %v", err)
 	}
 	input := &recordingStream{
 		chunks: []*genx.MessageChunk{
@@ -282,11 +282,11 @@ func TestAgentTransformTranscriptForwardsTextOnlyInput(t *testing.T) {
 
 func TestAgentTransformTranscriptClosesMultipleTextStreams(t *testing.T) {
 	transformer := &scriptedASRTransformer{text: "unused"}
-	agent, err := (Factory{Transformer: transformer}).NewAgent(context.Background(), agenthost.Spec{
+	agent, err := (Factory{Transformer: transformer}).NewTransformer(context.Background(), agenthost.Spec{
 		Workflow: validWorkflowWithTranscript("asr", true),
 	})
 	if err != nil {
-		t.Fatalf("NewAgent() error = %v", err)
+		t.Fatalf("NewTransformer() error = %v", err)
 	}
 	input := &recordingStream{
 		chunks: []*genx.MessageChunk{
@@ -328,11 +328,11 @@ func TestAgentTransformTranscriptClosesMultipleTextStreams(t *testing.T) {
 
 func TestAgentTransformReportsASRStartError(t *testing.T) {
 	want := errors.New("asr unavailable")
-	agent, err := (Factory{Transformer: errorTransformer{err: want}}).NewAgent(context.Background(), agenthost.Spec{
+	agent, err := (Factory{Transformer: errorTransformer{err: want}}).NewTransformer(context.Background(), agenthost.Spec{
 		Workflow: validWorkflowWithTranscript("asr", true),
 	})
 	if err != nil {
-		t.Fatalf("NewAgent() error = %v", err)
+		t.Fatalf("NewTransformer() error = %v", err)
 	}
 	output, err := agent.Transform(context.Background(), "demo", &recordingStream{
 		chunks: []*genx.MessageChunk{
@@ -350,11 +350,11 @@ func TestAgentTransformReportsASRStartError(t *testing.T) {
 
 func TestAgentTransformReportsAudioInputError(t *testing.T) {
 	want := errors.New("input failed")
-	agent, err := (Factory{Transformer: &scriptedASRTransformer{text: "unused"}}).NewAgent(context.Background(), agenthost.Spec{
+	agent, err := (Factory{Transformer: &scriptedASRTransformer{text: "unused"}}).NewTransformer(context.Background(), agenthost.Spec{
 		Workflow: validWorkflowWithTranscript("asr", true),
 	})
 	if err != nil {
-		t.Fatalf("NewAgent() error = %v", err)
+		t.Fatalf("NewTransformer() error = %v", err)
 	}
 	output, err := agent.Transform(context.Background(), "demo", &recordingStream{
 		chunks: []*genx.MessageChunk{
@@ -373,11 +373,11 @@ func TestAgentTransformReportsAudioInputError(t *testing.T) {
 func TestAgentTransformPreservesASRInputConsumerError(t *testing.T) {
 	want := errors.New("asr input consumer failed")
 	transformer := &consumerErrorASRTransformer{err: want, done: make(chan struct{})}
-	agent, err := (Factory{Transformer: transformer}).NewAgent(context.Background(), agenthost.Spec{
+	agent, err := (Factory{Transformer: transformer}).NewTransformer(context.Background(), agenthost.Spec{
 		Workflow: validWorkflowWithTranscript("asr", true),
 	})
 	if err != nil {
-		t.Fatalf("NewAgent() error = %v", err)
+		t.Fatalf("NewTransformer() error = %v", err)
 	}
 	input := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 2)
 	if err := input.Add(&genx.MessageChunk{
@@ -409,11 +409,11 @@ func TestAgentTransformCancellationStopsASRPipeline(t *testing.T) {
 		inputErr: make(chan error, 1),
 		done:     make(chan struct{}),
 	}
-	agent, err := (Factory{Transformer: transformer}).NewAgent(context.Background(), agenthost.Spec{
+	agent, err := (Factory{Transformer: transformer}).NewTransformer(context.Background(), agenthost.Spec{
 		Workflow: validWorkflowWithTranscript("asr", true),
 	})
 	if err != nil {
-		t.Fatalf("NewAgent() error = %v", err)
+		t.Fatalf("NewTransformer() error = %v", err)
 	}
 	input := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 2)
 	if err := input.Add(&genx.MessageChunk{
@@ -461,11 +461,11 @@ func TestAgentTransformCancellationStopsASRPipeline(t *testing.T) {
 
 func TestAgentTransformCancellationAbortsFullASRInputBuffer(t *testing.T) {
 	transformer := &stalledASRTransformer{started: make(chan struct{})}
-	agent, err := (Factory{Transformer: transformer}).NewAgent(context.Background(), agenthost.Spec{
+	agent, err := (Factory{Transformer: transformer}).NewTransformer(context.Background(), agenthost.Spec{
 		Workflow: validWorkflowWithTranscript("asr", true),
 	})
 	if err != nil {
-		t.Fatalf("NewAgent() error = %v", err)
+		t.Fatalf("NewTransformer() error = %v", err)
 	}
 	input := &recordingStream{doneErr: genx.ErrDone}
 	for range 65 {
@@ -510,11 +510,11 @@ func TestAgentTransformCancellationAbortsFullASRInputBuffer(t *testing.T) {
 
 func TestAgentTransformNormalASRConsumerCloseStopsFeeder(t *testing.T) {
 	transformer := &earlyClosingASRTransformer{}
-	agent, err := (Factory{Transformer: transformer}).NewAgent(context.Background(), agenthost.Spec{
+	agent, err := (Factory{Transformer: transformer}).NewTransformer(context.Background(), agenthost.Spec{
 		Workflow: validWorkflowWithTranscript("asr", true),
 	})
 	if err != nil {
-		t.Fatalf("NewAgent() error = %v", err)
+		t.Fatalf("NewTransformer() error = %v", err)
 	}
 	input := &recordingStream{doneErr: genx.ErrDone}
 	for range 65 {
@@ -551,11 +551,11 @@ func TestAgentTransformNormalASRConsumerCloseStopsFeeder(t *testing.T) {
 
 func TestAgentTransformTranscribesAudioInput(t *testing.T) {
 	transformer := &scriptedASRTransformer{text: "hello"}
-	agent, err := (Factory{Transformer: transformer}).NewAgent(context.Background(), agenthost.Spec{
+	agent, err := (Factory{Transformer: transformer}).NewTransformer(context.Background(), agenthost.Spec{
 		Workflow: validWorkflowWithTranscript("asr", true),
 	})
 	if err != nil {
-		t.Fatalf("NewAgent() error = %v", err)
+		t.Fatalf("NewTransformer() error = %v", err)
 	}
 	input := &recordingStream{
 		chunks: []*genx.MessageChunk{
@@ -686,11 +686,11 @@ func TestASRInputTransportAbortUnblocksPendingDone(t *testing.T) {
 
 func TestAgentTransformTranscribesAudioInputAddsHistoryEOSOnInputDone(t *testing.T) {
 	transformer := &scriptedASRTransformer{text: "hello"}
-	agent, err := (Factory{Transformer: transformer}).NewAgent(context.Background(), agenthost.Spec{
+	agent, err := (Factory{Transformer: transformer}).NewTransformer(context.Background(), agenthost.Spec{
 		Workflow: validWorkflowWithTranscript("asr", true),
 	})
 	if err != nil {
-		t.Fatalf("NewAgent() error = %v", err)
+		t.Fatalf("NewTransformer() error = %v", err)
 	}
 	input := &recordingStream{
 		chunks: []*genx.MessageChunk{
@@ -743,12 +743,12 @@ func TestAgentTransformRealtimeTranscribesASRSegmentStreams(t *testing.T) {
 		{Role: genx.RoleUser, Name: transcriptLabel, Part: genx.Text("second"), Ctrl: &genx.StreamCtrl{StreamID: "audio-1:asr:2", Label: transcriptLabel}},
 		{Role: genx.RoleUser, Name: transcriptLabel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "audio-1:asr:2", Label: transcriptLabel, EndOfStream: true}},
 	}}
-	agent, err := (Factory{Transformer: transformer}).NewAgent(context.Background(), agenthost.Spec{
+	agent, err := (Factory{Transformer: transformer}).NewTransformer(context.Background(), agenthost.Spec{
 		Workflow:  validWorkflowWithTranscript("asr", true),
 		Workspace: apitypes.Workspace{Parameters: &params},
 	})
 	if err != nil {
-		t.Fatalf("NewAgent() error = %v", err)
+		t.Fatalf("NewTransformer() error = %v", err)
 	}
 
 	input := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)

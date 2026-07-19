@@ -1492,12 +1492,14 @@ func (VolcTenantModelProviderDataApiMode) EnumDescriptor() ([]byte, []int) {
 type WorkflowDriver int32
 
 const (
-	WorkflowDriver_WORKFLOW_DRIVER_UNSPECIFIED     WorkflowDriver = 0
-	WorkflowDriver_WORKFLOW_DRIVER_FLOWCRAFT       WorkflowDriver = 1
-	WorkflowDriver_WORKFLOW_DRIVER_DOUBAO_REALTIME WorkflowDriver = 2
-	WorkflowDriver_WORKFLOW_DRIVER_AST_TRANSLATE   WorkflowDriver = 3
-	WorkflowDriver_WORKFLOW_DRIVER_CHATROOM        WorkflowDriver = 4
-	WorkflowDriver_WORKFLOW_DRIVER_PET             WorkflowDriver = 5
+	WorkflowDriver_WORKFLOW_DRIVER_UNSPECIFIED        WorkflowDriver = 0
+	WorkflowDriver_WORKFLOW_DRIVER_FLOWCRAFT          WorkflowDriver = 1
+	WorkflowDriver_WORKFLOW_DRIVER_DOUBAO_REALTIME    WorkflowDriver = 2
+	WorkflowDriver_WORKFLOW_DRIVER_AST_TRANSLATE      WorkflowDriver = 3
+	WorkflowDriver_WORKFLOW_DRIVER_CHATROOM           WorkflowDriver = 4
+	WorkflowDriver_WORKFLOW_DRIVER_PET                WorkflowDriver = 5
+	WorkflowDriver_WORKFLOW_DRIVER_DASHSCOPE_REALTIME WorkflowDriver = 6
+	WorkflowDriver_WORKFLOW_DRIVER_EINO               WorkflowDriver = 7
 )
 
 // Enum value maps for WorkflowDriver.
@@ -1509,14 +1511,18 @@ var (
 		3: "WORKFLOW_DRIVER_AST_TRANSLATE",
 		4: "WORKFLOW_DRIVER_CHATROOM",
 		5: "WORKFLOW_DRIVER_PET",
+		6: "WORKFLOW_DRIVER_DASHSCOPE_REALTIME",
+		7: "WORKFLOW_DRIVER_EINO",
 	}
 	WorkflowDriver_value = map[string]int32{
-		"WORKFLOW_DRIVER_UNSPECIFIED":     0,
-		"WORKFLOW_DRIVER_FLOWCRAFT":       1,
-		"WORKFLOW_DRIVER_DOUBAO_REALTIME": 2,
-		"WORKFLOW_DRIVER_AST_TRANSLATE":   3,
-		"WORKFLOW_DRIVER_CHATROOM":        4,
-		"WORKFLOW_DRIVER_PET":             5,
+		"WORKFLOW_DRIVER_UNSPECIFIED":        0,
+		"WORKFLOW_DRIVER_FLOWCRAFT":          1,
+		"WORKFLOW_DRIVER_DOUBAO_REALTIME":    2,
+		"WORKFLOW_DRIVER_AST_TRANSLATE":      3,
+		"WORKFLOW_DRIVER_CHATROOM":           4,
+		"WORKFLOW_DRIVER_PET":                5,
+		"WORKFLOW_DRIVER_DASHSCOPE_REALTIME": 6,
+		"WORKFLOW_DRIVER_EINO":               7,
 	}
 )
 
@@ -1882,14 +1888,16 @@ const file_payload_enums_proto_rawDesc = "" +
 	"4VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_UNSPECIFIED\x10\x00\x120\n" +
 	",VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_ASR\x10\x01\x120\n" +
 	",VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_TTS\x10\x02\x125\n" +
-	"1VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_REALTIME\x10\x03*\xcf\x01\n" +
+	"1VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_REALTIME\x10\x03*\x91\x02\n" +
 	"\x0eWorkflowDriver\x12\x1f\n" +
 	"\x1bWORKFLOW_DRIVER_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19WORKFLOW_DRIVER_FLOWCRAFT\x10\x01\x12#\n" +
 	"\x1fWORKFLOW_DRIVER_DOUBAO_REALTIME\x10\x02\x12!\n" +
 	"\x1dWORKFLOW_DRIVER_AST_TRANSLATE\x10\x03\x12\x1c\n" +
 	"\x18WORKFLOW_DRIVER_CHATROOM\x10\x04\x12\x17\n" +
-	"\x13WORKFLOW_DRIVER_PET\x10\x05*\xb5\x01\n" +
+	"\x13WORKFLOW_DRIVER_PET\x10\x05\x12&\n" +
+	"\"WORKFLOW_DRIVER_DASHSCOPE_REALTIME\x10\x06\x12\x18\n" +
+	"\x14WORKFLOW_DRIVER_EINO\x10\a*\xb5\x01\n" +
 	" WorkspaceHistoryListRequestOrder\x124\n" +
 	"0WORKSPACE_HISTORY_LIST_REQUEST_ORDER_UNSPECIFIED\x10\x00\x12,\n" +
 	"(WORKSPACE_HISTORY_LIST_REQUEST_ORDER_ASC\x10\x01\x12-\n" +

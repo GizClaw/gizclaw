@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	commonagent "github.com/GizClaw/gizclaw-go/pkgs/agent"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -38,6 +39,28 @@ func TestRegistryRegisterAndGet(t *testing.T) {
 	}
 	if err := registry.Register("bad", nil); err == nil || !strings.Contains(err.Error(), "factory is required") {
 		t.Fatalf("nil factory Register() error = %v", err)
+	}
+}
+
+func TestTransformerRegistryRegisterAndGet(t *testing.T) {
+	registry := NewTransformerRegistry()
+	factory := TransformerFactoryFunc(func(context.Context, Spec) (genx.Transformer, error) {
+		return passthroughTransformer{}, nil
+	})
+	if err := registry.Register("chatroom", factory); err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+	if _, ok := registry.Get("chatroom"); !ok {
+		t.Fatal("Get() did not return registered transformer")
+	}
+	if err := registry.Register("chatroom", factory); err == nil || !strings.Contains(err.Error(), "already registered") {
+		t.Fatalf("duplicate Register() error = %v", err)
+	}
+	if err := registry.Register("", factory); err == nil || !strings.Contains(err.Error(), "transformer type is required") {
+		t.Fatalf("empty Register() error = %v", err)
+	}
+	if err := registry.Register("bad", nil); err == nil || !strings.Contains(err.Error(), "transformer factory is required") {
+		t.Fatalf("nil Register() error = %v", err)
 	}
 }
 
@@ -293,6 +316,74 @@ func TestToolkitContextInvokeUsesCurrentContextSubject(t *testing.T) {
 	}
 	if callSubject != "peer-b" {
 		t.Fatalf("call subject = %q, want peer-b", callSubject)
+	}
+}
+
+func TestToolkitContextBuildAgentToolkitInvokesAndClones(t *testing.T) {
+	ctx := context.Background()
+	toolName := "echo"
+	description := "Echo input"
+	store := &toolkit.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.PutTool(ctx, toolkit.Tool{
+		ID:          "system.toolkit.echo",
+		Name:        &toolName,
+		Description: &description,
+		Source:      toolkit.ToolSourceBuiltin,
+		Enabled:     true,
+		InputSchema: jsonschema.Schema{Type: "object"},
+		Executor: toolkit.ToolExecutor{
+			Kind: toolkit.ToolExecutorKindBuiltin,
+			Name: &toolName,
+		},
+	}); err != nil {
+		t.Fatalf("PutTool() error = %v", err)
+	}
+	executors := toolkit.NewExecutorRegistry()
+	if err := executors.Register(toolName, toolkit.ExecutorFunc(func(_ context.Context, call toolkit.Call) (toolkit.Result, error) {
+		return toolkit.Result{Data: append(json.RawMessage(nil), call.Args...)}, nil
+	})); err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+	resolved, err := (&ToolkitContext{
+		Builder:   &toolkit.Builder{Tools: store},
+		Executors: executors,
+	}).BuildAgentToolkit(ctx)
+	if err != nil {
+		t.Fatalf("BuildAgentToolkit() error = %v", err)
+	}
+	tools := resolved.Tools()
+	if len(tools) != 1 || tools[0].ID != "system.toolkit.echo" || tools[0].Name != toolName || tools[0].Description != description {
+		t.Fatalf("Tools() = %#v", tools)
+	}
+	tools[0].InputSchema.Type = "string"
+	if got := resolved.Tools()[0].InputSchema.Type; got != "object" {
+		t.Fatalf("Tools() schema = %q after caller mutation", got)
+	}
+	result, err := resolved.Invoke(ctx, commonagent.ToolCall{
+		ID:        "call-1",
+		Name:      toolName,
+		Arguments: json.RawMessage(`{"value":"hello"}`),
+	})
+	if err != nil {
+		t.Fatalf("Invoke() error = %v", err)
+	}
+	if result.ID != "call-1" || string(result.Content) != `{"value":"hello"}` || result.IsError {
+		t.Fatalf("Invoke() result = %+v", result)
+	}
+	undeclared, err := resolved.Invoke(ctx, commonagent.ToolCall{ID: "call-2", Name: "new-after-build", Arguments: json.RawMessage(`{}`)})
+	if err != nil || !undeclared.IsError || !strings.Contains(string(undeclared.Content), "tool_not_found") {
+		t.Fatalf("Invoke(undeclared) = %+v, %v", undeclared, err)
+	}
+}
+
+func TestAgentToolkitMapsBusinessFailureToStructuredResult(t *testing.T) {
+	resolved := agentToolkit{context: &ToolkitContext{}, tools: []commonagent.Tool{{Name: "missing"}}}
+	result, err := resolved.Invoke(t.Context(), commonagent.ToolCall{ID: "call-1", Name: "missing", Arguments: json.RawMessage(`{}`)})
+	if err != nil {
+		t.Fatalf("Invoke() error = %v", err)
+	}
+	if !result.IsError || result.ID != "call-1" || !json.Valid(result.Content) || !strings.Contains(string(result.Content), "tool_error") {
+		t.Fatalf("Invoke() result = %+v", result)
 	}
 }
 

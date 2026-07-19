@@ -285,6 +285,19 @@ message DoubaoRealtimeWorkflowSpec {
   repeated DoubaoRealtimeFunctionTool tools = 5;
 }
 
+message DashScopeRealtimeWorkflowSpec {
+  string model = 1;
+  optional string provider_model = 2;
+  optional int64 max_tool_calls = 3;
+}
+
+message EinoWorkflowSpec {
+  string model = 1;
+  optional string system_prompt = 2;
+  optional int64 max_steps = 3;
+  optional int64 max_tool_calls = 4;
+}
+
 message DoubaoRealtimeWorkspaceParameters {
   DoubaoRealtimeWorkspaceParametersAgentType agent_type = 1;
   optional DoubaoRealtimeAudio audio = 2;
@@ -630,6 +643,8 @@ message WorkflowSpec {
   optional FlowcraftWorkflowSpec flowcraft = 5;
   optional ToolkitPolicy toolkit = 6;
   optional PetWorkflowSpec pet = 7;
+  optional DashScopeRealtimeWorkflowSpec dashscope_realtime = 8;
+  optional EinoWorkflowSpec eino = 9;
 }
 
 message ToolExecutor {

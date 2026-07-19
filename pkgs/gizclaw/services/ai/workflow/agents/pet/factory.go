@@ -11,6 +11,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/flowcraft"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
 const Type = "pet"
@@ -35,6 +36,7 @@ type Factory struct {
 	Pets    ContextProvider
 	Config  Config
 	History logstore.MutableStore
+	Memory  memory.Store
 }
 
 func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.Agent, error) {
@@ -111,7 +113,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		},
 		// Toolkit is intentionally omitted. Proactive Pet tools are owned by #224.
 	}
-	return (flowcraft.Factory{GenX: f.GenX, History: f.History}).NewConfiguredAgent(ctx, configured)
+	return (flowcraft.Factory{GenX: f.GenX, History: f.History, Memory: f.Memory}).NewConfiguredAgent(ctx, configured)
 }
 
 func resolveModels(server Config) (Config, error) {

@@ -141,6 +141,12 @@ PB_BIND(gizclaw_rpc_v1_DoubaoRealtimeTTSExtra, gizclaw_rpc_v1_DoubaoRealtimeTTSE
 PB_BIND(gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec, gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec, 2)
 
 
+PB_BIND(gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec, gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_EinoWorkflowSpec, gizclaw_rpc_v1_EinoWorkflowSpec, AUTO)
+
+
 PB_BIND(gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters, gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters, 2)
 
 

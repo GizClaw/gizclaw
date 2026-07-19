@@ -278,6 +278,55 @@ func TestServerAcceptsChatRoomWorkflowSpec(t *testing.T) {
 	}
 }
 
+func TestServerAcceptsAgentWorkflowSpecs(t *testing.T) {
+	t.Parallel()
+	cases := map[string]struct {
+		document apitypes.Workflow
+		driver   apitypes.WorkflowDriver
+	}{
+		"dashscope realtime": {
+			document: mustDocument(t, `{"name":"dashscope-agent","spec":{"driver":"dashscope-realtime","dashscope_realtime":{"model":"dashscope","provider_model":"qwen3.5-omni-flash-realtime","max_tool_calls":4}}}`),
+			driver:   apitypes.WorkflowDriverDashscopeRealtime,
+		},
+		"eino": {
+			document: mustDocument(t, `{"name":"eino-agent","spec":{"driver":"eino","eino":{"model":"chat","system_prompt":"be concise","max_steps":8,"max_tool_calls":4}}}`),
+			driver:   apitypes.WorkflowDriverEino,
+		},
+	}
+	for name, test := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			resp, err := newTestServer(t).CreateWorkflow(t.Context(), adminhttp.CreateWorkflowRequestObject{Body: &test.document})
+			if err != nil {
+				t.Fatalf("CreateWorkflow() error = %v", err)
+			}
+			created, ok := resp.(adminhttp.CreateWorkflow200JSONResponse)
+			if !ok || apitypes.Workflow(created).Spec.Driver != test.driver {
+				t.Fatalf("CreateWorkflow() response = %#v", resp)
+			}
+		})
+	}
+}
+
+func TestValidateDriverSpecRejectsInvalidAgentConfig(t *testing.T) {
+	negative := -1
+	zero := 0
+	cases := []apitypes.WorkflowSpec{
+		{Driver: apitypes.WorkflowDriverDashscopeRealtime},
+		{Driver: apitypes.WorkflowDriverDashscopeRealtime, DashscopeRealtime: &apitypes.DashScopeRealtimeWorkflowSpec{}},
+		{Driver: apitypes.WorkflowDriverDashscopeRealtime, DashscopeRealtime: &apitypes.DashScopeRealtimeWorkflowSpec{Model: "chat", MaxToolCalls: &negative}},
+		{Driver: apitypes.WorkflowDriverEino},
+		{Driver: apitypes.WorkflowDriverEino, Eino: &apitypes.EinoWorkflowSpec{}},
+		{Driver: apitypes.WorkflowDriverEino, Eino: &apitypes.EinoWorkflowSpec{Model: "chat", MaxSteps: &zero}},
+		{Driver: apitypes.WorkflowDriverEino, Eino: &apitypes.EinoWorkflowSpec{Model: "chat", MaxToolCalls: &negative}},
+	}
+	for index, spec := range cases {
+		if err := validateDriverSpec(spec); err == nil {
+			t.Fatalf("case %d unexpectedly passed: %#v", index, spec)
+		}
+	}
+}
+
 func TestServerRejectsInvalidChatRoomWorkflowSpec(t *testing.T) {
 	t.Parallel()
 

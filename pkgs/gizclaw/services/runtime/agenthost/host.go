@@ -12,6 +12,7 @@ var _ genx.Transformer = (*Host)(nil)
 type Host struct {
 	Resolver        Resolver
 	Registry        *Registry
+	Transformers    *TransformerRegistry
 	Coordinator     Coordinator
 	RuntimeRegistry *RuntimeRegistry
 }
@@ -20,9 +21,18 @@ func New(resolver Resolver) *Host {
 	return &Host{
 		Resolver:        resolver,
 		Registry:        NewRegistry(),
+		Transformers:    NewTransformerRegistry(),
 		Coordinator:     NewMemoryCoordinator(),
 		RuntimeRegistry: NewRuntimeRegistry(),
 	}
+}
+
+func (h *Host) RegisterTransformer(transformerType string, factory TransformerFactory) error {
+	registry := h.transformerRegistry()
+	if registry == nil {
+		return fmt.Errorf("agenthost: transformer registry is required")
+	}
+	return registry.Register(transformerType, factory)
 }
 
 func (h *Host) Register(agentType string, factory Factory) error {
@@ -88,12 +98,7 @@ func (h *Host) openWorkspaceAgent(ctx context.Context, workspaceName string, spe
 	release := func() {
 		_ = lease.Release(context.Background())
 	}
-	factory, ok := h.registry().Get(spec.AgentType)
-	if !ok {
-		release()
-		return nil, nil, fmt.Errorf("agenthost: agent factory not found for %q", spec.AgentType)
-	}
-	agent, err := factory.NewAgent(ctx, spec)
+	agent, err := h.constructRuntime(ctx, spec)
 	if err != nil {
 		release()
 		return nil, nil, err
@@ -106,6 +111,23 @@ func (h *Host) openWorkspaceAgent(ctx context.Context, workspaceName string, spe
 	return agent, release, nil
 }
 
+func (h *Host) constructRuntime(ctx context.Context, spec Spec) (Agent, error) {
+	if factory, ok := h.registry().Get(spec.AgentType); ok {
+		return factory.NewAgent(ctx, spec)
+	}
+	if factory, ok := h.transformerRegistry().Get(spec.AgentType); ok {
+		transformer, err := factory.NewTransformer(ctx, spec)
+		if err != nil {
+			return nil, err
+		}
+		if transformer == nil {
+			return nil, fmt.Errorf("agenthost: transformer factory %q returned nil transformer", spec.AgentType)
+		}
+		return NewTransformerAgent(transformer), nil
+	}
+	return nil, fmt.Errorf("agenthost: runtime factory not found for %q", spec.AgentType)
+}
+
 func (h *Host) registry() *Registry {
 	if h == nil {
 		return nil
@@ -114,6 +136,16 @@ func (h *Host) registry() *Registry {
 		h.Registry = NewRegistry()
 	}
 	return h.Registry
+}
+
+func (h *Host) transformerRegistry() *TransformerRegistry {
+	if h == nil {
+		return nil
+	}
+	if h.Transformers == nil {
+		h.Transformers = NewTransformerRegistry()
+	}
+	return h.Transformers
 }
 
 func (h *Host) coordinator() Coordinator {

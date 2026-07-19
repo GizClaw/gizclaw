@@ -33,7 +33,7 @@ func TestFactoryMergesWorkflowAndWorkspaceParams(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("FromASTTranslateWorkspaceParameters() error = %v", err)
 	}
-	agent, err := (Factory{Transformer: recordingTransformer{}}).NewAgent(context.Background(), agenthost.Spec{
+	agent, err := (Factory{Transformer: recordingTransformer{}}).NewTransformer(context.Background(), agenthost.Spec{
 		Workspace: apitypes.Workspace{Name: "demo", Parameters: &workspaceParams},
 		Workflow: apitypes.Workflow{
 			Name: "ast",
@@ -47,7 +47,7 @@ func TestFactoryMergesWorkflowAndWorkspaceParams(t *testing.T) {
 		},
 	})
 	if err != nil {
-		t.Fatalf("NewAgent() error = %v", err)
+		t.Fatalf("NewTransformer() error = %v", err)
 	}
 	stream, err := agent.Transform(context.Background(), "ignored", emptyStream{})
 	if err != nil {
@@ -565,11 +565,11 @@ func TestASTTranslateOggOpusFrameDecoder(t *testing.T) {
 }
 
 func TestFactoryAndPatternErrors(t *testing.T) {
-	if _, err := (Factory{}).NewAgent(context.Background(), agenthost.Spec{}); err == nil {
-		t.Fatalf("Factory.NewAgent() without transformer succeeded, want error")
+	if _, err := (Factory{}).NewTransformer(context.Background(), agenthost.Spec{}); err == nil {
+		t.Fatalf("Factory.NewTransformer() without transformer succeeded, want error")
 	}
-	if _, err := (Factory{Transformer: recordingTransformer{}}).NewAgent(context.Background(), agenthost.Spec{}); err == nil {
-		t.Fatalf("Factory.NewAgent() without AST spec succeeded, want error")
+	if _, err := (Factory{Transformer: recordingTransformer{}}).NewTransformer(context.Background(), agenthost.Spec{}); err == nil {
+		t.Fatalf("Factory.NewTransformer() without AST spec succeeded, want error")
 	}
 	if _, err := (patternTransformer{}).Transform(context.Background(), "", emptyStream{}); err == nil {
 		t.Fatalf("patternTransformer.Transform() without transformer succeeded, want error")

@@ -82,6 +82,7 @@ gizclaw/
 │   ├── giznet/       # Transport、WebRTC 与 service streams
 │   ├── gizclaw/      # Product server、Peer、RPC 与 domain services
 │   ├── gizedge/      # Edge ingress 与 upstream forwarding
+│   ├── agent/        # AI Agent turns、Toolkit 与 stream lifecycle
 │   ├── genx/         # 通用多模态 AI contracts 与 adapters
 │   ├── store/        # Storage 与 index primitives
 │   └── audio/        # Codec、PCM 与 signal processing
@@ -98,13 +99,12 @@ gizclaw/
 | `pkgs/giznet` | Connection、service、WebRTC、HTTP-over-stream transport | GizClaw resource 与业务授权 | [Giznet](giznet) |
 | `pkgs/gizclaw` | Server、Peer lifecycle、RPC/HTTP composition、领域 services | 通用 transport、provider-neutral codec | [GizClaw](gizclaw/overview) |
 | `pkgs/gizedge` | Edge ingress、upstream connection 与 forwarding | Authoritative resource、最终 ACL | [Gizedge](gizedge) |
+| `pkgs/agent` | 模型推理 turn、Toolkit continuation、response buffer 与 interruption | GizClaw Resource、ACL、Workspace、Peer 或 RPC | [Agent Runtime](agent/overview) |
 | `pkgs/genx` | Message、Stream、Generator、Transformer、Tool 与 adapters | Agent instance、workspace、产品 model resource | [GenX](genx/overview) |
 | `pkgs/store` | KV、object、metrics、graph、vector 与 identity primitives | 领域 resource schema 与业务规则 | [Stores](stores/overview) |
 | `pkgs/audio` | Codec、PCM、resampling、device I/O 与 voiceprint | WebRTC connection、Agent lifecycle | [Audio](audio/overview) |
 | `cmd` | 配置读取、dependency wiring、进程生命周期与 CLI UX | 可复用领域逻辑 | 对应 package 指引 |
 | `sdk` | 面向各语言的生成 contract 与客户端封装 | 独立定义另一套 wire contract | [API 生成](api/generation) |
-
-`pkgs/agent` 当前没有进入主要产品运行链，因此暂不作为开发指引入口；其能力真正被 Runtime 消费后，再按实际边界补充文档。
 
 ## 模块依赖方向
 
@@ -118,6 +118,9 @@ flowchart TB
     Apps --> Edge["pkgs/gizedge"]
     GizClaw --> Giznet["pkgs/giznet"]
     Edge --> Giznet
+    GizClaw --> Agent["pkgs/agent"]
+    Agent --> GenX["pkgs/genx"]
+    Agent --> Store["pkgs/store"]
     GizClaw --> GenX["pkgs/genx"]
     GizClaw --> Store["pkgs/store"]
     GizClaw --> Audio["pkgs/audio"]

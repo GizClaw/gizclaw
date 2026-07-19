@@ -8,7 +8,10 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
+	commonagent "github.com/GizClaw/gizclaw-go/pkgs/agent"
+	doubaoagent "github.com/GizClaw/gizclaw-go/pkgs/agent/doubaorealtime"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
@@ -16,11 +19,13 @@ import (
 
 const Type = "doubao-realtime"
 
+const defaultToolTimeout = 30 * time.Second
+
 type Factory struct {
 	Transformer genx.Transformer
 }
 
-func (f Factory) NewAgent(_ context.Context, spec agenthost.Spec) (agenthost.Agent, error) {
+func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.Agent, error) {
 	if f.Transformer == nil {
 		return nil, fmt.Errorf("doubaorealtime: transformer is required")
 	}
@@ -28,19 +33,25 @@ func (f Factory) NewAgent(_ context.Context, spec agenthost.Spec) (agenthost.Age
 	if err != nil {
 		return nil, err
 	}
-	return agenthost.NewTransformerAgent(patternTransformer{Transformer: f.Transformer, Pattern: pattern}), nil
-}
-
-type patternTransformer struct {
-	Transformer genx.Transformer
-	Pattern     string
-}
-
-func (t patternTransformer) Transform(ctx context.Context, _ string, input genx.Stream) (genx.Stream, error) {
-	if t.Transformer == nil {
-		return nil, fmt.Errorf("doubaorealtime: transformer is required")
+	tools := commonagent.EmptyToolkit()
+	if spec.Toolkit != nil {
+		resolved, err := spec.Toolkit.BuildAgentToolkit(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("doubaorealtime: build toolkit: %w", err)
+		}
+		tools = resolved
 	}
-	return t.Transformer.Transform(ctx, t.Pattern, input)
+	runtime, err := doubaoagent.New(doubaoagent.Config{
+		Transformer: f.Transformer,
+		Pattern:     pattern,
+		Model:       doubaoagent.Model,
+		Toolkit:     tools,
+		ToolTimeout: defaultToolTimeout,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return agenthost.NewTransformerAgent(runtime), nil
 }
 
 func resolveRealtimeModelPattern(spec agenthost.Spec) (string, error) {

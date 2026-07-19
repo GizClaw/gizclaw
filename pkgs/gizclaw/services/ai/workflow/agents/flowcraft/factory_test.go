@@ -18,7 +18,8 @@ import (
 	"testing"
 	"time"
 
-	flowclaw "github.com/GizClaw/flowcraft/sdkx/claw"
+	flowmodel "github.com/GizClaw/flowcraft/sdk/model"
+	commonagent "github.com/GizClaw/gizclaw-go/pkgs/agent"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
@@ -30,6 +31,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/google/jsonschema-go/jsonschema"
 )
 
@@ -47,7 +50,7 @@ func TestAgentProvidesTransientInputsForEveryClawTurn(t *testing.T) {
 	claw := &inputRecordingClaw{}
 	call := 0
 	a := &agent{
-		claw: claw,
+		runtime: claw,
 		inputProvider: func(context.Context) (map[string]any, error) {
 			call++
 			return map[string]any{"tmp_pet_attribute_prompt": fmt.Sprintf("turn-%d", call)}, nil
@@ -55,8 +58,8 @@ func TestAgentProvidesTransientInputsForEveryClawTurn(t *testing.T) {
 	}
 	output := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
 	for _, text := range []string{"one", "two"} {
-		if err := a.runClawTextTurn(context.Background(), text, "audio", output, a.currentOutputEpoch()); err != nil {
-			t.Fatalf("runClawTextTurn(%q) error = %v", text, err)
+		if err := a.runFlowcraftTextTurn(context.Background(), text, "audio", output, a.currentOutputEpoch()); err != nil {
+			t.Fatalf("runFlowcraftTextTurn(%q) error = %v", text, err)
 		}
 	}
 	requests := claw.Requests()
@@ -71,15 +74,15 @@ func TestAgentProvidesTransientInputsForEveryClawTurn(t *testing.T) {
 func TestAgentInputProviderFailureStopsBeforeClawRoundTrip(t *testing.T) {
 	claw := &inputRecordingClaw{}
 	a := &agent{
-		claw: claw,
+		runtime: claw,
 		inputProvider: func(context.Context) (map[string]any, error) {
 			return nil, errors.New("pet lookup failed")
 		},
 	}
 	output := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
-	err := a.runClawTextTurn(context.Background(), "hello", "audio", output, a.currentOutputEpoch())
+	err := a.runFlowcraftTextTurn(context.Background(), "hello", "audio", output, a.currentOutputEpoch())
 	if err == nil || !strings.Contains(err.Error(), "pet lookup failed") {
-		t.Fatalf("runClawTextTurn() error = %v", err)
+		t.Fatalf("runFlowcraftTextTurn() error = %v", err)
 	}
 	if requests := claw.Requests(); len(requests) != 0 {
 		t.Fatalf("RoundTrip requests = %#v, want none", requests)
@@ -90,9 +93,9 @@ func TestAgentRunTurnBridgesASRClawAndTTS(t *testing.T) {
 	transformer := &recordingVoiceTransformer{}
 	a := &agent{
 		transformers: fakeTransformerProvider{transformer: transformer},
-		claw: fakeClaw{events: []flowclaw.Event{
-			{Type: flowclaw.EventToken, NodeID: "answer", Content: "好的"},
-			{Type: flowclaw.EventToken, NodeID: "answer", Content: "呀"},
+		runtime: fakeClaw{events: []runtimeEvent{
+			{Type: runtimeEventToken, NodeID: "answer", Content: "好的"},
+			{Type: runtimeEventToken, NodeID: "answer", Content: "呀"},
 		}},
 		asrModel:     "asr",
 		defaultVoice: "voice",
@@ -162,9 +165,9 @@ func TestAgentRunTurnForksAssistantTextToTTSInput(t *testing.T) {
 	transformer := &recordingVoiceTransformer{}
 	a := &agent{
 		transformers: fakeTransformerProvider{transformer: transformer},
-		claw: fakeClaw{events: []flowclaw.Event{
-			{Type: flowclaw.EventToken, NodeID: "answer", Content: "好的"},
-			{Type: flowclaw.EventToken, NodeID: "answer", Content: "呀"},
+		runtime: fakeClaw{events: []runtimeEvent{
+			{Type: runtimeEventToken, NodeID: "answer", Content: "好的"},
+			{Type: runtimeEventToken, NodeID: "answer", Content: "呀"},
 		}},
 		asrModel:     "asr",
 		defaultVoice: "voice",
@@ -210,9 +213,9 @@ func TestAgentRunTurnFlushesTTSWhenNodeChanges(t *testing.T) {
 	transformer := &recordingVoiceTransformer{}
 	a := &agent{
 		transformers: fakeTransformerProvider{transformer: transformer},
-		claw: fakeClaw{events: []flowclaw.Event{
-			{Type: flowclaw.EventToken, NodeID: "checkpoint", Content: "第一段"},
-			{Type: flowclaw.EventToken, NodeID: "audit", Content: "第二段"},
+		runtime: fakeClaw{events: []runtimeEvent{
+			{Type: runtimeEventToken, NodeID: "checkpoint", Content: "第一段"},
+			{Type: runtimeEventToken, NodeID: "audit", Content: "第二段"},
 		}},
 		asrModel:     "asr",
 		defaultVoice: "voice",
@@ -222,8 +225,8 @@ func TestAgentRunTurnFlushesTTSWhenNodeChanges(t *testing.T) {
 		},
 	}
 	output := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 16)
-	if err := a.runClawTextTurn(context.Background(), "开始", "audio", output, a.currentOutputEpoch()); err != nil {
-		t.Fatalf("runClawTextTurn() error = %v", err)
+	if err := a.runFlowcraftTextTurn(context.Background(), "开始", "audio", output, a.currentOutputEpoch()); err != nil {
+		t.Fatalf("runFlowcraftTextTurn() error = %v", err)
 	}
 	if err := output.Done(genx.Usage{}); err != nil {
 		t.Fatalf("Done() error = %v", err)
@@ -254,9 +257,9 @@ func TestAgentRunTurnSkipsTTSForUnconfiguredNodeVoice(t *testing.T) {
 	transformer := &recordingVoiceTransformer{}
 	a := &agent{
 		transformers: fakeTransformerProvider{transformer: transformer},
-		claw: fakeClaw{events: []flowclaw.Event{
-			{Type: flowclaw.EventToken, NodeID: "answer", Content: "好的。"},
-			{Type: flowclaw.EventToken, NodeID: "tool_call", Content: `<function name="weather_forecast"><parameter name="city">上海</parameter></function>`},
+		runtime: fakeClaw{events: []runtimeEvent{
+			{Type: runtimeEventToken, NodeID: "answer", Content: "好的。"},
+			{Type: runtimeEventToken, NodeID: "tool_call", Content: `<function name="weather_forecast"><parameter name="city">上海</parameter></function>`},
 		}},
 		asrModel:     "asr",
 		defaultVoice: "voice",
@@ -281,8 +284,8 @@ func TestAgentRunTurnSkipsTTSForUnconfiguredNodeVoice(t *testing.T) {
 func TestAgentTransformRunsTurnAndClosesOutput(t *testing.T) {
 	a := &agent{
 		transformers: fakeTransformerProvider{transformer: fakeVoiceTransformer{}},
-		claw: fakeClaw{events: []flowclaw.Event{
-			{Type: flowclaw.EventToken, NodeID: "answer", Content: "收到"},
+		runtime: fakeClaw{events: []runtimeEvent{
+			{Type: runtimeEventToken, NodeID: "answer", Content: "收到"},
 		}},
 		asrModel:     "asr",
 		defaultVoice: "voice",
@@ -309,12 +312,12 @@ func TestAgentTransformRunsTurnAndClosesOutput(t *testing.T) {
 }
 
 func TestAgentTransformUsesTextInputAsTranscript(t *testing.T) {
-	claw := &recordingClaw{events: []flowclaw.Event{
-		{Type: flowclaw.EventToken, NodeID: "answer", Content: "我记得你来看我了"},
+	claw := &recordingClaw{events: []runtimeEvent{
+		{Type: runtimeEventToken, NodeID: "answer", Content: "我记得你来看我了"},
 	}}
 	a := &agent{
 		transformers: fakeTransformerProvider{transformer: fakeVoiceTransformer{}},
-		claw:         claw,
+		runtime:      claw,
 		asrModel:     "asr",
 	}
 	stream, err := a.Transform(context.Background(), "ignored", &sliceStream{chunks: []*genx.MessageChunk{
@@ -344,10 +347,9 @@ func TestAgentTransformUsesTextInputAsTranscript(t *testing.T) {
 }
 
 func TestAgentTransformSelfStartsEmptyConversation(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	claw := &recordingClaw{
-		events: []flowclaw.Event{{Type: flowclaw.EventToken, NodeID: "opening", Content: "欢迎开始"}},
+		events: []runtimeEvent{{Type: runtimeEventToken, NodeID: "opening", Content: "欢迎开始"}},
 		handler: func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path != "/debug/history" {
 				http.NotFound(w, r)
@@ -358,7 +360,7 @@ func TestAgentTransformSelfStartsEmptyConversation(t *testing.T) {
 	}
 	a := &agent{
 		transformers: fakeTransformerProvider{transformer: fakeVoiceTransformer{}},
-		claw:         claw,
+		runtime:      claw,
 		starts:       "self",
 	}
 	input := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 2)
@@ -380,7 +382,7 @@ func TestAgentTransformSelfStartsEmptyConversation(t *testing.T) {
 
 func TestAgentTransformDoesNotSelfStartWithExistingHistory(t *testing.T) {
 	claw := &recordingClaw{
-		events: []flowclaw.Event{{Type: flowclaw.EventToken, NodeID: "opening", Content: "不该出现"}},
+		events: []runtimeEvent{{Type: runtimeEventToken, NodeID: "opening", Content: "不该出现"}},
 		handler: func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path != "/debug/history" {
 				http.NotFound(w, r)
@@ -391,7 +393,7 @@ func TestAgentTransformDoesNotSelfStartWithExistingHistory(t *testing.T) {
 	}
 	a := &agent{
 		transformers: fakeTransformerProvider{transformer: fakeVoiceTransformer{}},
-		claw:         claw,
+		runtime:      claw,
 		starts:       "self",
 	}
 	input := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 2)
@@ -413,16 +415,15 @@ func TestAgentTransformDoesNotSelfStartWithExistingHistory(t *testing.T) {
 func TestAgentTransformRunsMultipleTurns(t *testing.T) {
 	a := &agent{
 		transformers: fakeTransformerProvider{transformer: fakeVoiceTransformer{}},
-		claw: fakeClaw{events: []flowclaw.Event{
-			{Type: flowclaw.EventToken, NodeID: "answer", Content: "收到"},
+		runtime: fakeClaw{events: []runtimeEvent{
+			{Type: runtimeEventToken, NodeID: "answer", Content: "收到"},
 		}},
 		asrModel:     "asr",
 		defaultVoice: "voice",
 		nodeVoices:   map[string]string{"answer": "voice-answer"},
 	}
 	input := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	stream, err := a.Transform(ctx, "ignored", input.Stream())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
@@ -501,7 +502,7 @@ func TestAgentTransformInterruptsCurrentTurnOnNextBOS(t *testing.T) {
 	input := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 16)
 	a := &agent{
 		transformers: fakeTransformerProvider{transformer: fakeVoiceTransformer{}},
-		claw:         &interruptClaw{},
+		runtime:      &interruptClaw{},
 		asrModel:     "asr",
 		defaultVoice: "voice",
 		nodeVoices:   map[string]string{"answer": "voice-answer"},
@@ -568,7 +569,7 @@ func TestAgentTransformInterruptsCurrentTurnOnNextBOS(t *testing.T) {
 func TestAgentRealtimeModeRunsDefiniteASRChunksAsTurns(t *testing.T) {
 	a := &agent{
 		transformers: fakeTransformerProvider{transformer: &realtimeASRTransformer{texts: []string{"第一段", "第二段"}}},
-		claw: fakeEchoClaw{
+		runtime: fakeEchoClaw{
 			nodeID: "answer",
 			prefix: "回复:",
 		},
@@ -576,8 +577,7 @@ func TestAgentRealtimeModeRunsDefiniteASRChunksAsTurns(t *testing.T) {
 		inputMode: inputModeRealtime,
 	}
 	input := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	stream, err := a.Transform(ctx, "ignored", input.Stream())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
@@ -643,7 +643,7 @@ func TestAgentRealtimeModeInterruptsOnTranscriptBOS(t *testing.T) {
 			{Part: genx.Text("第二段"), Ctrl: &genx.StreamCtrl{StreamID: "audio-1", Label: "transcript"}},
 			{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "audio-1", Label: "transcript", EndOfStream: true}},
 		}}},
-		claw:      claw,
+		runtime:   claw,
 		asrModel:  "asr",
 		inputMode: inputModeRealtime,
 	}
@@ -728,7 +728,7 @@ func TestAgentRealtimeModePropagatesASRErrorWhileTurnActive(t *testing.T) {
 			},
 			err: wantErr,
 		}},
-		claw:      &interruptClaw{},
+		runtime:   &interruptClaw{},
 		asrModel:  "asr",
 		inputMode: inputModeRealtime,
 	}
@@ -759,8 +759,8 @@ func TestAgentRealtimeModePropagatesASRErrorWhileTurnActive(t *testing.T) {
 	}
 }
 
-func TestAgentListHistoryUsesClawDebugHistory(t *testing.T) {
-	a := &agent{claw: fakeDebugClaw{handler: func(w http.ResponseWriter, r *http.Request) {
+func TestAgentListHistoryUsesOwnedRuntimeHistory(t *testing.T) {
+	a := &agent{historyID: "ctx", runtime: fakeDebugClaw{handler: func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet || r.URL.Path != "/debug/history" {
 			t.Fatalf("debug request = %s %s, want GET /debug/history", r.Method, r.URL.Path)
 		}
@@ -819,52 +819,20 @@ func TestHistoryCursorAndIDHelpers(t *testing.T) {
 	}
 }
 
-func TestAgentMemoryStatsUsesClawDebugMemoryAndWorkspaceFiles(t *testing.T) {
-	dir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, "memory", "metadata"), 0o755); err != nil {
-		t.Fatalf("MkdirAll() error = %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "memory", "metadata", "facts.jsonl"), []byte("{\"id\":\"1\"}\n{\"id\":\"2\"}\n"), 0o644); err != nil {
-		t.Fatalf("WriteFile facts error = %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "memory", "index.bin"), []byte{1, 2, 3}, 0o644); err != nil {
-		t.Fatalf("WriteFile index error = %v", err)
-	}
-	if err := os.MkdirAll(filepath.Join(dir, "state"), 0o755); err != nil {
-		t.Fatalf("MkdirAll state error = %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "state", "runtime.json"), []byte(`{"active":true}`), 0o644); err != nil {
-		t.Fatalf("WriteFile state error = %v", err)
-	}
-	a := &agent{localDir: dir, claw: fakeDebugClaw{handler: func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet || r.URL.Path != "/debug/memory" {
-			t.Fatalf("debug request = %s %s, want GET /debug/memory", r.Method, r.URL.Path)
-		}
-		writeTestJSON(t, w, map[string]any{
-			"enabled": true,
-			"root":    "memory",
-			"scope":   map[string]any{"runtime_id": "ctx"},
-			"write":   map[string]any{"save_conversation": true},
-			"recall":  map[string]any{"enabled": true, "top_k": 5},
-			"retrieval": map[string]any{
-				"backend": "bbh",
-			},
-			"layout": map[string]any{"kind": "default"},
-		})
-	}}}
+func TestAgentMemoryStatsReportsInjectedStore(t *testing.T) {
+	a := &agent{memory: &fakeMemoryStore{}}
 	resp, err := a.MemoryStats(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("MemoryStats() error = %v", err)
 	}
-	wantStorageBytes := int64(len("{\"id\":\"1\"}\n{\"id\":\"2\"}\n") + 3 + len(`{"active":true}`))
-	if !resp.Available || !resp.Enabled || resp.ItemCount != 2 || resp.StorageBytes != wantStorageBytes {
+	if !resp.Available || !resp.Enabled {
 		t.Fatalf("memory stats = %+v", resp)
 	}
-	if resp.Backend == nil || *resp.Backend != "bbh" {
-		t.Fatalf("memory backend = %v, want bbh", resp.Backend)
+	if resp.Backend == nil || *resp.Backend != "memory.Store" {
+		t.Fatalf("memory backend = %v, want memory.Store", resp.Backend)
 	}
-	if resp.Metadata == nil || (*resp.Metadata)["memory_storage_bytes"] != int64(len("{\"id\":\"1\"}\n{\"id\":\"2\"}\n")+3) {
-		t.Fatalf("metadata = %+v, want memory_storage_bytes", resp.Metadata)
+	if resp.Metadata == nil {
+		t.Fatal("memory metadata is nil")
 	}
 }
 
@@ -873,7 +841,7 @@ func TestAgentMemoryStatsReportsUnavailableMessage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("MemoryStats() error = %v", err)
 	}
-	if resp.Available || resp.Message == nil || !strings.Contains(*resp.Message, "debug API") {
+	if resp.Available || resp.Message == nil || !strings.Contains(*resp.Message, "not configured") {
 		t.Fatalf("MemoryStats() = %+v, want unavailable message", resp)
 	}
 	if resp.Metadata != nil {
@@ -881,36 +849,15 @@ func TestAgentMemoryStatsReportsUnavailableMessage(t *testing.T) {
 	}
 }
 
-func TestAgentRecallUsesClawDebugRecall(t *testing.T) {
-	a := &agent{claw: fakeDebugClaw{handler: func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/debug/recall" {
-			t.Fatalf("debug request = %s %s, want POST /debug/recall", r.Method, r.URL.Path)
-		}
-		var payload map[string]any
-		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-			t.Fatalf("decode debug recall payload: %v", err)
-		}
-		if payload["text"] != "咖啡" || payload["top_k"] != float64(3) {
-			t.Fatalf("debug recall payload = %#v", payload)
-		}
-		writeTestJSON(t, w, map[string]any{
-			"enabled": true,
-			"count":   1,
-			"hits": []map[string]any{{
-				"id":        "fact-1",
-				"kind":      "note",
-				"content":   "喜欢咖啡",
-				"subject":   "user",
-				"predicate": "likes",
-				"object":    "coffee",
-				"entities":  []string{"coffee"},
-				"score":     0.8,
-				"sources":   []string{"turn-1"},
-			}},
-		})
-	}}}
+func TestAgentRecallUsesInjectedMemoryStore(t *testing.T) {
+	store := &fakeMemoryStore{recall: memory.RecallResult{Matches: []memory.Match{{
+		Fact:  memory.Fact{ID: "fact-1", Text: "喜欢咖啡", Attributes: map[string]any{"kind": "note"}, Sources: []memory.SourceRef{{ObservationID: "turn-1"}}},
+		Score: 0.8,
+	}}}}
+	a := &agent{memory: store}
 	limit := 3
-	resp, err := a.Recall(context.Background(), apitypes.PeerRunRecallRequest{Query: "咖啡", Limit: &limit})
+	filters := map[string]any{"kind": "note"}
+	resp, err := a.Recall(context.Background(), apitypes.PeerRunRecallRequest{Query: "咖啡", Limit: &limit, Filters: &filters})
 	if err != nil {
 		t.Fatalf("Recall() error = %v", err)
 	}
@@ -918,8 +865,11 @@ func TestAgentRecallUsesClawDebugRecall(t *testing.T) {
 		t.Fatalf("recall response = %+v", resp)
 	}
 	hit := resp.Hits[0]
-	if hit.Id != "fact-1" || hit.Snippet != "喜欢咖啡" || hit.Score != 0.8 || hit.SourceType == nil || *hit.SourceType != "note" || hit.SourceId == nil || *hit.SourceId != "turn-1" {
+	if hit.Id != "fact-1" || hit.Snippet != "喜欢咖啡" || hit.Score != 0.8 || hit.SourceType == nil || *hit.SourceType != "memory" || hit.SourceId == nil || *hit.SourceId != "turn-1" {
 		t.Fatalf("recall hit = %+v", hit)
+	}
+	if store.query.Text != "咖啡" || store.query.Limit != 3 || len(store.query.Filters) != 1 || store.query.Filters[0].Field != "kind" {
+		t.Fatalf("memory query = %+v", store.query)
 	}
 }
 
@@ -928,7 +878,8 @@ func TestAgentPlayHistoryEmitsAssistantTextAndAudio(t *testing.T) {
 	a := &agent{
 		transformers: fakeTransformerProvider{transformer: fakeVoiceTransformer{}},
 		defaultVoice: "voice-answer",
-		claw: fakeDebugClaw{handler: func(w http.ResponseWriter, r *http.Request) {
+		historyID:    "ctx",
+		runtime: fakeDebugClaw{handler: func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != http.MethodGet || r.URL.Path != "/debug/history" {
 				t.Fatalf("debug request = %s %s, want GET /debug/history", r.Method, r.URL.Path)
 			}
@@ -975,7 +926,8 @@ func TestAgentPlayHistoryInterruptsStaleOutputEpoch(t *testing.T) {
 	a := &agent{
 		transformers: fakeTransformerProvider{transformer: fakeVoiceTransformer{}},
 		defaultVoice: "voice-answer",
-		claw: fakeDebugClaw{handler: func(w http.ResponseWriter, r *http.Request) {
+		historyID:    "ctx",
+		runtime: fakeDebugClaw{handler: func(w http.ResponseWriter, r *http.Request) {
 			writeTestJSON(t, w, map[string]any{
 				"enabled":    true,
 				"context_id": "ctx",
@@ -1048,8 +1000,8 @@ func TestFactoryNewAgentWritesClawConfig(t *testing.T) {
 		t.Fatalf("NewAgent() error = %v", err)
 	}
 	t.Cleanup(func() {
-		if a, ok := transformer.(*agent); ok && a.claw != nil {
-			_ = a.claw.CloseContext(context.Background())
+		if a, ok := transformer.(*agent); ok && a.runtime != nil {
+			_ = a.runtime.CloseContext(context.Background())
 		}
 	})
 	if transformer == nil {
@@ -1102,19 +1054,19 @@ func TestFactoryNewAgentInjectsWorkspaceScopedHistoryStore(t *testing.T) {
 	if !ok {
 		t.Fatalf("NewAgent() = %T", transformer)
 	}
-	t.Cleanup(func() { _ = agent.claw.CloseContext(context.Background()) })
-	var response debugHistoryResponse
-	if err := agent.callDebug(ctx, http.MethodGet, "/debug/history?context_id=conversation", nil, &response); err != nil {
+	t.Cleanup(func() { _ = agent.runtime.CloseContext(context.Background()) })
+	messages, err := agent.readHistory(ctx)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if !response.Enabled || response.ContextID != "conversation" || response.Count != 0 {
-		t.Fatalf("history response = %+v", response)
+	if len(messages) != 0 || agent.historyID != "workspace" {
+		t.Fatalf("history = %#v, id = %q", messages, agent.historyID)
 	}
 	backend.mu.Lock()
 	queries := backend.queryCalls
 	backend.mu.Unlock()
 	if queries == 0 {
-		t.Fatal("debug history did not query the injected LogStore adapter")
+		t.Fatal("owned history did not query the injected LogStore")
 	}
 	if _, err := os.Stat(filepath.Join(localDir, "history", "conversation", "messages.jsonl")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("workspace history file exists or stat failed: %v", err)
@@ -1153,8 +1105,8 @@ func TestFactoryNewAgentReadsWorkspaceInputMode(t *testing.T) {
 		t.Fatalf("NewAgent() error = %v", err)
 	}
 	t.Cleanup(func() {
-		if a, ok := transformer.(*agent); ok && a.claw != nil {
-			_ = a.claw.CloseContext(context.Background())
+		if a, ok := transformer.(*agent); ok && a.runtime != nil {
+			_ = a.runtime.CloseContext(context.Background())
 		}
 	})
 	gotAgent, ok := transformer.(*agent)
@@ -1178,7 +1130,7 @@ func TestFactoryNewAgentRejectsNonFlowcraftWorkspaceParameters(t *testing.T) {
 		ProviderTenants: fakeTenants{events: &events},
 	})
 	var workspaceParams apitypes.WorkspaceParameters
-	if err := workspaceParams.FromASTTranslateWorkspaceParameters(apitypes.ASTTranslateWorkspaceParameters{TranslationModel: ptrString("translate")}); err != nil {
+	if err := workspaceParams.FromASTTranslateWorkspaceParameters(apitypes.ASTTranslateWorkspaceParameters{TranslationModel: new("translate")}); err != nil {
 		t.Fatalf("FromASTTranslateWorkspaceParameters() error = %v", err)
 	}
 	workflow := testFlowcraftWorkflow(apitypes.FlowcraftWorkflowSpec{
@@ -1312,8 +1264,8 @@ func TestParseWorkflowConfigTrimsNodeVoices(t *testing.T) {
 	}
 }
 
-func TestRealClawCloseContextHandlesNil(t *testing.T) {
-	if err := (realClaw{}).CloseContext(context.Background()); err != nil {
+func TestOwnedClawCloseContextHandlesNil(t *testing.T) {
+	if err := (ownedRuntime{}).CloseContext(context.Background()); err != nil {
 		t.Fatalf("CloseContext(nil) error = %v", err)
 	}
 }
@@ -1697,26 +1649,20 @@ func TestRealtimeStreamIDHelpers(t *testing.T) {
 	}
 }
 
-func TestRealClawNilDebugAndClose(t *testing.T) {
-	if err := (realClaw{}).CloseContext(context.Background()); err != nil {
+func TestOwnedRuntimeNilHistoryAndClose(t *testing.T) {
+	if err := (ownedRuntime{}).CloseContext(context.Background()); err != nil {
 		t.Fatalf("CloseContext(nil) error = %v", err)
 	}
-	req := httptest.NewRequest(http.MethodGet, "/debug/history", nil)
-	rec := httptest.NewRecorder()
-	(realClaw{}).ServeDebugHTTP(rec, req)
-	if rec.Code != http.StatusServiceUnavailable {
-		t.Fatalf("ServeDebugHTTP(nil) status = %d, want %d", rec.Code, http.StatusServiceUnavailable)
-	}
-	if !strings.Contains(rec.Body.String(), "nil claw runtime") {
-		t.Fatalf("ServeDebugHTTP(nil) body = %q", rec.Body.String())
+	if _, err := (ownedRuntime{}).History(t.Context(), 1); err == nil || !strings.Contains(err.Error(), "nil owned runtime") {
+		t.Fatalf("History(nil) error = %v", err)
 	}
 }
 
 func TestRunTurnReturnsClawEventError(t *testing.T) {
 	a := &agent{
 		transformers: fakeTransformerProvider{transformer: fakeVoiceTransformer{}},
-		claw: fakeClaw{events: []flowclaw.Event{
-			{Type: flowclaw.EventError, Err: "boom", IsError: true},
+		runtime: fakeClaw{events: []runtimeEvent{
+			{Type: runtimeEventError, Err: "boom", IsError: true},
 		}},
 		asrModel:     "asr",
 		defaultVoice: "voice",
@@ -1734,16 +1680,16 @@ func TestRunTurnCompletesPartialLengthLimitedClawResponse(t *testing.T) {
 	transformer := &recordingVoiceTransformer{}
 	a := &agent{
 		transformers: fakeTransformerProvider{transformer: transformer},
-		claw: fakeClaw{events: []flowclaw.Event{
-			{Type: flowclaw.EventToken, NodeID: "answer", Content: "月门亮起来了"},
-			{Type: flowclaw.EventError, Err: `llm round "answer": stream error: bytedance: response incomplete: length`, IsError: true},
+		runtime: fakeClaw{events: []runtimeEvent{
+			{Type: runtimeEventToken, NodeID: "answer", Content: "月门亮起来了"},
+			{Type: runtimeEventError, Err: `llm round "answer": stream error: bytedance: response incomplete: length`, IsError: true},
 		}},
 		defaultVoice: "voice",
 		nodeVoices:   map[string]string{"answer": "voice-answer"},
 	}
 	output := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
-	if err := a.runClawTextTurn(context.Background(), "开始", "audio", output, a.currentOutputEpoch()); err != nil {
-		t.Fatalf("runClawTextTurn() error = %v", err)
+	if err := a.runFlowcraftTextTurn(context.Background(), "开始", "audio", output, a.currentOutputEpoch()); err != nil {
+		t.Fatalf("runFlowcraftTextTurn() error = %v", err)
 	}
 	if err := output.Done(genx.Usage{}); err != nil {
 		t.Fatalf("Done() error = %v", err)
@@ -1770,7 +1716,7 @@ func TestRunTurnCompletesPartialLengthLimitedClawResponse(t *testing.T) {
 func TestRunTranscriptTurnEmitsTranscriptAndAssistant(t *testing.T) {
 	a := &agent{
 		transformers: fakeTransformerProvider{transformer: fakeVoiceTransformer{}},
-		claw: fakeEchoClaw{
+		runtime: fakeEchoClaw{
 			nodeID: "answer",
 			prefix: "回复:",
 		},
@@ -2060,16 +2006,6 @@ func TestNormalizeInputModeAndRealtimeTurnStreamID(t *testing.T) {
 	}
 }
 
-func TestWriteClawConfigErrors(t *testing.T) {
-	rootFile := filepath.Join(t.TempDir(), "config-root")
-	if err := os.WriteFile(rootFile, []byte("file"), 0o644); err != nil {
-		t.Fatalf("WriteFile root: %v", err)
-	}
-	if err := writeClawConfig(filepath.Join(rootFile, "child"), map[string]any{}); err == nil || !strings.Contains(err.Error(), "create workspace dir") {
-		t.Fatalf("writeClawConfig(file parent) error = %v", err)
-	}
-}
-
 func TestLockedString(t *testing.T) {
 	value := &lockedString{value: "a"}
 	if got := value.Get(); got != "a" {
@@ -2123,120 +2059,7 @@ func TestSliceStreamCloseWithError(t *testing.T) {
 	}
 }
 
-func TestBuildClawConfigInjectsPeerResolvedOpenAIModel(t *testing.T) {
-	ctx := context.Background()
-	events := []string{}
-	service := peergenx.New(peergenx.Service{
-		Peer:            testPeer{},
-		Authorizer:      recordingAuthorizer{events: &events},
-		Models:          fakeModels{events: &events},
-		Credentials:     fakeCredentials{events: &events},
-		ProviderTenants: fakeTenants{events: &events},
-	})
-	generateModel := "chat"
-	var workspaceParams apitypes.WorkspaceParameters
-	if err := workspaceParams.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{GenerateModel: &generateModel}); err != nil {
-		t.Fatalf("FromFlowcraftWorkspaceParameters() error = %v", err)
-	}
-	cfg := workflowConfig{}
-	cfg.Spec.Flowcraft = map[string]any{
-		"history": map[string]any{"enabled": false},
-		"agent":   map[string]any{"system_prompt": "short"},
-	}
-	got, err := buildClawConfig(ctx, service, agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "ws", Parameters: &workspaceParams},
-	}, cfg)
-	if err != nil {
-		t.Fatalf("buildClawConfig() error = %v", err)
-	}
-
-	wantPrefix := []string{
-		"list:models",
-		"auth:model:chat:read",
-		"auth:model:chat:use",
-		"get:tenant:openai:main",
-		"auth:credential:openai-key:use",
-		"get:credential:openai-key",
-	}
-	if len(events) < len(wantPrefix) || !reflect.DeepEqual(events[:len(wantPrefix)], wantPrefix) {
-		t.Fatalf("events prefix = %#v, want %#v; all events = %#v", events[:min(len(events), len(wantPrefix))], wantPrefix, events)
-	}
-	settings := got["settings"].(map[string]any)
-	if settings["generate_model"] != "chat" {
-		t.Fatalf("settings.generate_model = %v", settings["generate_model"])
-	}
-	models := got["models"].(map[string]any)
-	if models["chat"] != "generate_model" {
-		t.Fatalf("models.chat = %v", models["chat"])
-	}
-	llm := models["llm"].(map[string]any)
-	model := llm["chat"].(map[string]any)
-	if model["provider"] != "openai" || model["model"] != "gpt-test" || model["api_key"] != "test-key" || model["base_url"] != "https://llm.example/v1" {
-		t.Fatalf("llm chat config = %#v", model)
-	}
-	modelConfig := model["config"].(map[string]any)
-	thinking := modelConfig["thinking"].(map[string]any)
-	if thinking["type"] != "disabled" {
-		t.Fatalf("llm chat thinking config = %#v", modelConfig)
-	}
-	agent := got["agent"].(map[string]any)
-	if agent["system_prompt"] != "short" || agent["model"] != "generate_model" {
-		t.Fatalf("agent config = %#v", agent)
-	}
-}
-
-func TestBuildClawConfigInjectsToolkitTools(t *testing.T) {
-	ctx := context.Background()
-	events := []string{}
-	service := peergenx.New(peergenx.Service{
-		Peer:            testPeer{},
-		Authorizer:      recordingAuthorizer{events: &events},
-		Models:          fakeModels{events: &events},
-		Credentials:     fakeCredentials{events: &events},
-		ProviderTenants: fakeTenants{events: &events},
-	})
-	generateModel := "chat"
-	var workspaceParams apitypes.WorkspaceParameters
-	if err := workspaceParams.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{GenerateModel: &generateModel}); err != nil {
-		t.Fatalf("FromFlowcraftWorkspaceParameters() error = %v", err)
-	}
-	tools := toolkitTestContext(t, "peer-a", []string{"system.music.play"})
-	cfg := workflowConfig{}
-	cfg.Spec.Flowcraft = map[string]any{
-		"agent": map[string]any{
-			"tools": []any{
-				"legacy_tool",
-				map[string]any{"name": "play_music", "description": "old description"},
-			},
-		},
-	}
-
-	got, err := buildClawConfig(ctx, service, agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "ws", Parameters: &workspaceParams},
-		Toolkit:   tools,
-	}, cfg)
-	if err != nil {
-		t.Fatalf("buildClawConfig() error = %v", err)
-	}
-	agent := got["agent"].(map[string]any)
-	toolItems := agent["tools"].([]any)
-	if len(toolItems) != 2 {
-		t.Fatalf("agent.tools = %#v, want legacy + toolkit tool", toolItems)
-	}
-	if toolItems[0].(string) != "legacy_tool" {
-		t.Fatalf("agent.tools[0] = %#v, want legacy_tool", toolItems[0])
-	}
-	toolCfg := toolItems[1].(map[string]any)
-	if toolCfg["name"] != "play_music" || toolCfg["description"] != "Play music" {
-		t.Fatalf("tool config = %#v", toolCfg)
-	}
-	schema := toolCfg["input_schema"].(map[string]any)
-	if schema["type"] != "object" {
-		t.Fatalf("input_schema = %#v", schema)
-	}
-}
-
-func TestToolkitToolHandlerInvokesToolkit(t *testing.T) {
+func TestAgentToolkitInvokesToolkit(t *testing.T) {
 	ctx := context.Background()
 	tools := toolkitTestContext(t, "peer-a", []string{"system.music.play"})
 	if err := tools.Executors.Register("music.play", toolkit.ExecutorFunc(func(_ context.Context, call toolkit.Call) (toolkit.Result, error) {
@@ -2254,108 +2077,16 @@ func TestToolkitToolHandlerInvokesToolkit(t *testing.T) {
 		t.Fatalf("Register() error = %v", err)
 	}
 
-	got, err := toolkitToolHandler(tools)(ctx, "play_music", json.RawMessage(`{"query":"song"}`))
+	agentToolkit, err := tools.BuildAgentToolkit(ctx)
 	if err != nil {
-		t.Fatalf("handler() error = %v", err)
+		t.Fatal(err)
 	}
-	if got != `{"queued":true}` {
-		t.Fatalf("handler() = %q, want queued JSON", got)
-	}
-}
-
-func TestBuildClawConfigMapsVolcTenantLLMToBytedance(t *testing.T) {
-	ctx := context.Background()
-	events := []string{}
-	service := peergenx.New(peergenx.Service{
-		Peer:            testPeer{},
-		Authorizer:      recordingAuthorizer{events: &events},
-		Models:          fakeModels{events: &events, providerKind: apitypes.ModelProviderKindVolcTenant},
-		Credentials:     fakeCredentials{events: &events},
-		ProviderTenants: fakeTenants{events: &events},
-	})
-	generateModel := "chat"
-	var workspaceParams apitypes.WorkspaceParameters
-	if err := workspaceParams.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{GenerateModel: &generateModel}); err != nil {
-		t.Fatalf("FromFlowcraftWorkspaceParameters() error = %v", err)
-	}
-	got, err := buildClawConfig(ctx, service, agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "ws", Parameters: &workspaceParams},
-	}, workflowConfig{})
+	result, err := agentToolkit.Invoke(ctx, commonagent.ToolCall{ID: "call-1", Name: "play_music", Arguments: json.RawMessage(`{"query":"song"}`)})
 	if err != nil {
-		t.Fatalf("buildClawConfig() error = %v", err)
+		t.Fatalf("Invoke() error = %v", err)
 	}
-	model := got["models"].(map[string]any)["llm"].(map[string]any)["chat"].(map[string]any)
-	if model["provider"] != "bytedance" || model["model"] != "doubao-lite" || model["api_key"] != "test-key" || model["region"] != "cn-beijing" {
-		t.Fatalf("llm chat config = %#v", model)
-	}
-	modelConfig := model["config"].(map[string]any)
-	thinking := modelConfig["thinking"].(map[string]any)
-	if thinking["type"] != "disabled" {
-		t.Fatalf("llm chat thinking config = %#v", modelConfig)
-	}
-}
-
-func TestBuildClawConfigInjectsOptionalModelRoles(t *testing.T) {
-	ctx := context.Background()
-	events := []string{}
-	service := peergenx.New(peergenx.Service{
-		Peer:            testPeer{},
-		Authorizer:      recordingAuthorizer{events: &events},
-		Models:          fakeModels{events: &events},
-		Credentials:     fakeCredentials{events: &events},
-		ProviderTenants: fakeTenants{events: &events},
-	})
-	generateModel := "chat"
-	extractModel := "extract"
-	var workspaceParams apitypes.WorkspaceParameters
-	if err := workspaceParams.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{
-		GenerateModel: &generateModel,
-		ExtractModel:  &extractModel,
-	}); err != nil {
-		t.Fatalf("FromFlowcraftWorkspaceParameters() error = %v", err)
-	}
-	got, err := buildClawConfig(ctx, service, agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "ws", Parameters: &workspaceParams},
-	}, workflowConfig{})
-	if err != nil {
-		t.Fatalf("buildClawConfig() error = %v", err)
-	}
-	settings := got["settings"].(map[string]any)
-	if settings["generate_model"] != "chat" || settings["extract_model"] != "extract" {
-		t.Fatalf("settings = %#v", settings)
-	}
-	models := got["models"].(map[string]any)
-	if models["chat"] != "generate_model" || models["extractor"] != "extract_model" {
-		t.Fatalf("models aliases = %#v", models)
-	}
-	llm := models["llm"].(map[string]any)
-	if _, ok := llm["chat"]; !ok {
-		t.Fatalf("missing chat llm config: %#v", llm)
-	}
-	if _, ok := llm["extract"]; !ok {
-		t.Fatalf("missing extract llm config: %#v", llm)
-	}
-}
-
-func TestBuildClawConfigRejectsUnsupportedProvider(t *testing.T) {
-	events := []string{}
-	service := peergenx.New(peergenx.Service{
-		Peer:            testPeer{},
-		Authorizer:      recordingAuthorizer{events: &events},
-		Models:          fakeModels{events: &events, providerKind: apitypes.ModelProviderKindGeminiTenant},
-		Credentials:     fakeCredentials{events: &events},
-		ProviderTenants: fakeTenants{events: &events},
-	})
-	generateModel := "chat"
-	var workspaceParams apitypes.WorkspaceParameters
-	if err := workspaceParams.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{GenerateModel: &generateModel}); err != nil {
-		t.Fatalf("FromFlowcraftWorkspaceParameters() error = %v", err)
-	}
-	_, err := buildClawConfig(context.Background(), service, agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "ws", Parameters: &workspaceParams},
-	}, workflowConfig{})
-	if err == nil || !strings.Contains(err.Error(), "not supported") {
-		t.Fatalf("buildClawConfig() error = %v", err)
+	if string(result.Content) != `{"queued":true}` || result.ID != "call-1" {
+		t.Fatalf("Invoke() = %#v, want queued JSON", result)
 	}
 }
 
@@ -2669,17 +2400,45 @@ func (t errorTransformer) Transform(context.Context, string, genx.Stream) (genx.
 	return nil, t.err
 }
 
+type memoryHistoryLogStore struct {
+	mu         sync.Mutex
+	queryCalls int
+}
+
+func (*memoryHistoryLogStore) Append(_ context.Context, records []logstore.Record) ([]logstore.RecordKey, error) {
+	keys := make([]logstore.RecordKey, len(records))
+	for index, record := range records {
+		keys[index] = record.Key()
+	}
+	return keys, nil
+}
+
+func (s *memoryHistoryLogStore) Query(context.Context, logstore.Query) (logstore.Page, error) {
+	s.mu.Lock()
+	s.queryCalls++
+	s.mu.Unlock()
+	return logstore.Page{}, nil
+}
+
+func (*memoryHistoryLogStore) Replace(context.Context, logstore.Record) error {
+	return logstore.ErrNotFound
+}
+func (*memoryHistoryLogStore) Delete(context.Context, logstore.RecordKey) error {
+	return logstore.ErrNotFound
+}
+func (*memoryHistoryLogStore) Close() error { return nil }
+
 type fakeClaw struct {
-	events []flowclaw.Event
+	events []runtimeEvent
 	text   string
 }
 
 type inputRecordingClaw struct {
 	mu       sync.Mutex
-	requests []flowclaw.Request
+	requests []runtimeRequest
 }
 
-func (c *inputRecordingClaw) RoundTrip(req flowclaw.Request) (clawResponse, error) {
+func (c *inputRecordingClaw) RoundTrip(req runtimeRequest) (runtimeResponse, error) {
 	c.mu.Lock()
 	c.requests = append(c.requests, req)
 	c.mu.Unlock()
@@ -2688,15 +2447,15 @@ func (c *inputRecordingClaw) RoundTrip(req flowclaw.Request) (clawResponse, erro
 
 func (*inputRecordingClaw) CloseContext(context.Context) error { return nil }
 
-func (c *inputRecordingClaw) Requests() []flowclaw.Request {
+func (c *inputRecordingClaw) Requests() []runtimeRequest {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return append([]flowclaw.Request(nil), c.requests...)
+	return append([]runtimeRequest(nil), c.requests...)
 }
 
-func (c fakeClaw) RoundTrip(req flowclaw.Request) (clawResponse, error) {
+func (c fakeClaw) RoundTrip(req runtimeRequest) (runtimeResponse, error) {
 	c.text = req.Text
-	return &fakeClawResponse{events: append([]flowclaw.Event(nil), c.events...)}, nil
+	return &fakeClawResponse{events: append([]runtimeEvent(nil), c.events...)}, nil
 }
 
 func (fakeClaw) CloseContext(context.Context) error { return nil }
@@ -2706,13 +2465,13 @@ type fakeEchoClaw struct {
 	prefix string
 }
 
-func (c fakeEchoClaw) RoundTrip(req flowclaw.Request) (clawResponse, error) {
+func (c fakeEchoClaw) RoundTrip(req runtimeRequest) (runtimeResponse, error) {
 	nodeID := c.nodeID
 	if nodeID == "" {
 		nodeID = "answer"
 	}
-	return &fakeClawResponse{events: []flowclaw.Event{
-		{Type: flowclaw.EventToken, NodeID: nodeID, Content: c.prefix + req.Text},
+	return &fakeClawResponse{events: []runtimeEvent{
+		{Type: runtimeEventToken, NodeID: nodeID, Content: c.prefix + req.Text},
 	}}, nil
 }
 
@@ -2723,7 +2482,7 @@ type interruptClaw struct {
 	calls int
 }
 
-func (c *interruptClaw) RoundTrip(req flowclaw.Request) (clawResponse, error) {
+func (c *interruptClaw) RoundTrip(req runtimeRequest) (runtimeResponse, error) {
 	c.mu.Lock()
 	c.calls++
 	call := c.calls
@@ -2731,11 +2490,11 @@ func (c *interruptClaw) RoundTrip(req flowclaw.Request) (clawResponse, error) {
 	if call == 1 {
 		return &blockingClawResponse{
 			ctx:   req.Context,
-			event: flowclaw.Event{Type: flowclaw.EventToken, NodeID: "answer", Content: "旧回复"},
+			event: runtimeEvent{Type: runtimeEventToken, NodeID: "answer", Content: "旧回复"},
 		}, nil
 	}
-	return &fakeClawResponse{events: []flowclaw.Event{
-		{Type: flowclaw.EventToken, NodeID: "answer", Content: "新回复"},
+	return &fakeClawResponse{events: []runtimeEvent{
+		{Type: runtimeEventToken, NodeID: "answer", Content: "新回复"},
 	}}, nil
 }
 
@@ -2751,11 +2510,11 @@ type blockingClawResponse struct {
 	ctx  context.Context
 	once sync.Once
 
-	event flowclaw.Event
+	event runtimeEvent
 	sent  bool
 }
 
-func (r *blockingClawResponse) Next() (flowclaw.Event, error) {
+func (r *blockingClawResponse) Next() (runtimeEvent, error) {
 	if !r.sent {
 		r.sent = true
 		return r.event, nil
@@ -2764,7 +2523,7 @@ func (r *blockingClawResponse) Next() (flowclaw.Event, error) {
 		select {}
 	}
 	<-r.ctx.Done()
-	return flowclaw.Event{}, r.ctx.Err()
+	return runtimeEvent{}, r.ctx.Err()
 }
 
 type fakeDebugClaw struct {
@@ -2772,7 +2531,12 @@ type fakeDebugClaw struct {
 	handler http.HandlerFunc
 }
 
-func (c fakeDebugClaw) ServeDebugHTTP(w http.ResponseWriter, r *http.Request) {
+type debugHistoryResponse struct {
+	Enabled  bool                `json:"enabled"`
+	Messages []flowmodel.Message `json:"messages,omitempty"`
+}
+
+func (c fakeDebugClaw) serveHistory(w http.ResponseWriter, r *http.Request) {
 	if c.handler == nil {
 		http.NotFound(w, r)
 		return
@@ -2780,29 +2544,54 @@ func (c fakeDebugClaw) ServeDebugHTTP(w http.ResponseWriter, r *http.Request) {
 	c.handler(w, r)
 }
 
+func (c fakeDebugClaw) History(ctx context.Context, _ int) ([]flowmodel.Message, error) {
+	return historyFromTestHandler(ctx, c.serveHistory)
+}
+
 type recordingClaw struct {
 	mu      sync.Mutex
-	events  []flowclaw.Event
+	events  []runtimeEvent
 	texts   []string
 	handler http.HandlerFunc
 }
 
-func (c *recordingClaw) RoundTrip(req flowclaw.Request) (clawResponse, error) {
+func (c *recordingClaw) RoundTrip(req runtimeRequest) (runtimeResponse, error) {
 	c.mu.Lock()
 	c.texts = append(c.texts, req.Text)
-	events := append([]flowclaw.Event(nil), c.events...)
+	events := append([]runtimeEvent(nil), c.events...)
 	c.mu.Unlock()
 	return &fakeClawResponse{events: events}, nil
 }
 
 func (*recordingClaw) CloseContext(context.Context) error { return nil }
 
-func (c *recordingClaw) ServeDebugHTTP(w http.ResponseWriter, r *http.Request) {
+func (c *recordingClaw) serveHistory(w http.ResponseWriter, r *http.Request) {
 	if c.handler == nil {
 		http.NotFound(w, r)
 		return
 	}
 	c.handler(w, r)
+}
+
+func (c *recordingClaw) History(ctx context.Context, _ int) ([]flowmodel.Message, error) {
+	return historyFromTestHandler(ctx, c.serveHistory)
+}
+
+func historyFromTestHandler(ctx context.Context, handler http.HandlerFunc) ([]flowmodel.Message, error) {
+	req := httptest.NewRequest(http.MethodGet, "/debug/history", nil).WithContext(ctx)
+	rec := httptest.NewRecorder()
+	handler(rec, req)
+	if rec.Code < http.StatusOK || rec.Code >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("test history status: %s", rec.Result().Status)
+	}
+	var response debugHistoryResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		return nil, err
+	}
+	if !response.Enabled {
+		return nil, errors.New("flowcraft history is disabled")
+	}
+	return response.Messages, nil
 }
 
 func (c *recordingClaw) Texts() []string {
@@ -2812,48 +2601,16 @@ func (c *recordingClaw) Texts() []string {
 }
 
 type fakeClawResponse struct {
-	events []flowclaw.Event
+	events []runtimeEvent
 }
 
-func (r *fakeClawResponse) Next() (flowclaw.Event, error) {
+func (r *fakeClawResponse) Next() (runtimeEvent, error) {
 	if len(r.events) == 0 {
-		return flowclaw.Event{}, io.EOF
+		return runtimeEvent{}, io.EOF
 	}
 	ev := r.events[0]
 	r.events = r.events[1:]
 	return ev, nil
-}
-
-func TestBuildClawConfigRequiresGenerateModel(t *testing.T) {
-	_, err := buildClawConfig(context.Background(), peergenx.New(peergenx.Service{}), agenthost.Spec{}, workflowConfig{})
-	if err == nil || !strings.Contains(err.Error(), "generate_model") {
-		t.Fatalf("buildClawConfig() error = %v, want generate_model", err)
-	}
-}
-
-func TestBuildClawConfigFailsClosedOnDeniedModel(t *testing.T) {
-	events := []string{}
-	service := peergenx.New(peergenx.Service{
-		Peer:            testPeer{},
-		Authorizer:      denyAuthorizer{},
-		Models:          fakeModels{events: &events},
-		Credentials:     fakeCredentials{events: &events},
-		ProviderTenants: fakeTenants{events: &events},
-	})
-	generateModel := "chat"
-	var workspaceParams apitypes.WorkspaceParameters
-	if err := workspaceParams.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{GenerateModel: &generateModel}); err != nil {
-		t.Fatalf("FromFlowcraftWorkspaceParameters() error = %v", err)
-	}
-	_, err := buildClawConfig(context.Background(), service, agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "ws", Parameters: &workspaceParams},
-	}, workflowConfig{})
-	if err == nil || !strings.Contains(err.Error(), "not accessible as a generator") {
-		t.Fatalf("buildClawConfig() error = %v, want inaccessible model", err)
-	}
-	if !reflect.DeepEqual(events, []string{"list:models"}) {
-		t.Fatalf("model events after ACL denial = %#v, want list only", events)
-	}
 }
 
 func TestMergeTranscriptHandlesFullAndDeltaResults(t *testing.T) {
@@ -2914,30 +2671,12 @@ func TestVoiceForNodeUsesConfiguredMapBeforeDefault(t *testing.T) {
 }
 
 func TestConfigHelperBranches(t *testing.T) {
-	if got := openAIThinkingConfigValue("enable_thinking", "off"); got != false {
-		t.Fatalf("enable_thinking off = %#v, want false", got)
-	}
-	if got := openAIThinkingConfigValue("thinking.type", "disabled"); got != "disabled" {
-		t.Fatalf("thinking.type disabled = %#v", got)
-	}
-	for _, value := range []string{"disabled", "disable", "off", "false", "0", "none", "no"} {
-		if !isDisabledThinkingLevel(value) {
-			t.Fatalf("isDisabledThinkingLevel(%q) = false, want true", value)
-		}
-	}
-	if isDisabledThinkingLevel("auto") {
-		t.Fatal("isDisabledThinkingLevel(auto) = true, want false")
-	}
 	if got := mapString(map[string]any{"empty": " ", "name": "  value  "}, "empty", "name"); got != "value" {
 		t.Fatalf("mapString() = %q, want value", got)
 	}
-	if got := firstString(nil, ptrString(" "), ptrString("x")); got != "x" {
+	if got := firstString(nil, new(" "), new("x")); got != "x" {
 		t.Fatalf("firstString() = %q, want x", got)
 	}
-}
-
-func ptrString(value string) *string {
-	return &value
 }
 
 func writeTestJSON(t *testing.T, w http.ResponseWriter, value any) {
@@ -3070,17 +2809,17 @@ func (f fakeModels) model(id string) apitypes.Model {
 	switch providerKind {
 	case apitypes.ModelProviderKindVolcTenant:
 		if err := providerData.FromVolcTenantModelProviderData(apitypes.VolcTenantModelProviderData{
-			UpstreamModel:        ptrString("doubao-lite"),
-			ThinkingParam:        ptrString("thinking.type"),
-			DefaultThinkingLevel: ptrString("disabled"),
+			UpstreamModel:        new("doubao-lite"),
+			ThinkingParam:        new("thinking.type"),
+			DefaultThinkingLevel: new("disabled"),
 		}); err != nil {
 			panic(err)
 		}
 	default:
 		if err := providerData.FromOpenAITenantModelProviderData(apitypes.OpenAITenantModelProviderData{
-			UpstreamModel:        ptrString("gpt-test"),
-			ThinkingParam:        ptrString("thinking.type"),
-			DefaultThinkingLevel: ptrString("disabled"),
+			UpstreamModel:        new("gpt-test"),
+			ThinkingParam:        new("thinking.type"),
+			DefaultThinkingLevel: new("disabled"),
 		}); err != nil {
 			panic(err)
 		}
@@ -3135,6 +2874,26 @@ func (f fakeCredentials) GetCredential(_ context.Context, request adminhttp.GetC
 type fakeTenants struct {
 	events *[]string
 }
+
+type fakeMemoryStore struct {
+	recall memory.RecallResult
+	query  memory.Query
+}
+
+func (*fakeMemoryStore) Observe(context.Context, memory.Observation) (memory.ObserveResult, error) {
+	return memory.ObserveResult{}, nil
+}
+
+func (s *fakeMemoryStore) Recall(_ context.Context, query memory.Query) (memory.RecallResult, error) {
+	s.query = query
+	return s.recall, nil
+}
+
+func (*fakeMemoryStore) Update(context.Context, memory.UpdateRequest) (memory.Fact, error) {
+	return memory.Fact{}, nil
+}
+
+func (*fakeMemoryStore) Delete(context.Context, memory.DeleteRequest) error { return nil }
 
 func (f fakeTenants) GetOpenAITenant(_ context.Context, request adminhttp.GetOpenAITenantRequestObject) (adminhttp.GetOpenAITenantResponseObject, error) {
 	*f.events = append(*f.events, "get:tenant:openai:"+request.Name)

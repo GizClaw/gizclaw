@@ -3,6 +3,7 @@ package agenthost
 import (
 	"context"
 
+	commonagent "github.com/GizClaw/gizclaw-go/pkgs/agent"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
@@ -11,7 +12,7 @@ const unsupportedMessage = "workspace runtime feature is not supported by this a
 
 // Agent is the active workspace runtime surface.
 type Agent interface {
-	genx.Transformer
+	commonagent.Agent
 	Status(context.Context) (apitypes.PeerRunWorkspaceState, error)
 	ListHistory(context.Context, apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error)
 	PlayHistory(context.Context, apitypes.PeerRunHistoryPlayRequest) (apitypes.PeerRunHistoryPlayResponse, error)

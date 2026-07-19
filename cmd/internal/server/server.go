@@ -225,6 +225,12 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 			return nil, fmt.Errorf("server: flowcraft history store %q: %w", defaultFlowcraftHistoryStore, err)
 		}
 	}
+	if storeExists(cfg, defaultAgentMemoryStore) {
+		gizServer.AgentMemory, err = ss.Memory(defaultAgentMemoryStore)
+		if err != nil {
+			return nil, fmt.Errorf("server: agent memory store %q: %w", defaultAgentMemoryStore, err)
+		}
+	}
 	cmdSrv.Server = gizServer
 	if cfg.FriendGroups.MessageDefaultTTL != "" {
 		ttl, err := parseConfigDuration(cfg.FriendGroups.MessageDefaultTTL)

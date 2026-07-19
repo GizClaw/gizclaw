@@ -33,7 +33,7 @@ type config struct {
 	inputMode         apitypes.WorkspaceInputMode
 }
 
-func (f Factory) NewAgent(_ context.Context, spec agenthost.Spec) (agenthost.Agent, error) {
+func (f Factory) NewTransformer(_ context.Context, spec agenthost.Spec) (genx.Transformer, error) {
 	if spec.Workflow.Spec.Chatroom == nil {
 		return nil, fmt.Errorf("chatroom: workflow spec.chatroom is required")
 	}
@@ -69,7 +69,7 @@ func (f Factory) NewAgent(_ context.Context, spec agenthost.Spec) (agenthost.Age
 			return nil, fmt.Errorf("chatroom: transformer is required when transcript is enabled")
 		}
 	}
-	return agenthost.NewTransformerAgent(agent{cfg: cfg}), nil
+	return agent{cfg: cfg}, nil
 }
 
 type agent struct {

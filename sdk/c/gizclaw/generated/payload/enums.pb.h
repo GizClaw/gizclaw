@@ -205,7 +205,9 @@ typedef enum _gizclaw_rpc_v1_WorkflowDriver {
     gizclaw_rpc_v1_WorkflowDriver_WORKFLOW_DRIVER_DOUBAO_REALTIME = 2,
     gizclaw_rpc_v1_WorkflowDriver_WORKFLOW_DRIVER_AST_TRANSLATE = 3,
     gizclaw_rpc_v1_WorkflowDriver_WORKFLOW_DRIVER_CHATROOM = 4,
-    gizclaw_rpc_v1_WorkflowDriver_WORKFLOW_DRIVER_PET = 5
+    gizclaw_rpc_v1_WorkflowDriver_WORKFLOW_DRIVER_PET = 5,
+    gizclaw_rpc_v1_WorkflowDriver_WORKFLOW_DRIVER_DASHSCOPE_REALTIME = 6,
+    gizclaw_rpc_v1_WorkflowDriver_WORKFLOW_DRIVER_EINO = 7
 } gizclaw_rpc_v1_WorkflowDriver;
 
 typedef enum _gizclaw_rpc_v1_WorkspaceHistoryListRequestOrder {
@@ -355,8 +357,8 @@ extern "C" {
 #define _gizclaw_rpc_v1_VolcTenantModelProviderDataApiMode_ARRAYSIZE ((gizclaw_rpc_v1_VolcTenantModelProviderDataApiMode)(gizclaw_rpc_v1_VolcTenantModelProviderDataApiMode_VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_REALTIME+1))
 
 #define _gizclaw_rpc_v1_WorkflowDriver_MIN gizclaw_rpc_v1_WorkflowDriver_WORKFLOW_DRIVER_UNSPECIFIED
-#define _gizclaw_rpc_v1_WorkflowDriver_MAX gizclaw_rpc_v1_WorkflowDriver_WORKFLOW_DRIVER_PET
-#define _gizclaw_rpc_v1_WorkflowDriver_ARRAYSIZE ((gizclaw_rpc_v1_WorkflowDriver)(gizclaw_rpc_v1_WorkflowDriver_WORKFLOW_DRIVER_PET+1))
+#define _gizclaw_rpc_v1_WorkflowDriver_MAX gizclaw_rpc_v1_WorkflowDriver_WORKFLOW_DRIVER_EINO
+#define _gizclaw_rpc_v1_WorkflowDriver_ARRAYSIZE ((gizclaw_rpc_v1_WorkflowDriver)(gizclaw_rpc_v1_WorkflowDriver_WORKFLOW_DRIVER_EINO+1))
 
 #define _gizclaw_rpc_v1_WorkspaceHistoryListRequestOrder_MIN gizclaw_rpc_v1_WorkspaceHistoryListRequestOrder_WORKSPACE_HISTORY_LIST_REQUEST_ORDER_UNSPECIFIED
 #define _gizclaw_rpc_v1_WorkspaceHistoryListRequestOrder_MAX gizclaw_rpc_v1_WorkspaceHistoryListRequestOrder_WORKSPACE_HISTORY_LIST_REQUEST_ORDER_DESC

@@ -1,0 +1,19 @@
+{
+  "openapi": "3.0.3",
+  "info": {"title": "DashScope Realtime Workflow Type", "version": "1.0.0"},
+  "paths": {},
+  "components": {
+    "schemas": {
+      "DashScopeRealtimeWorkflowSpec": {
+        "type": "object",
+        "required": ["model"],
+        "additionalProperties": false,
+        "properties": {
+          "model": {"type": "string"},
+          "provider_model": {"type": "string"},
+          "max_tool_calls": {"type": "integer", "minimum": 0}
+        }
+      }
+    }
+  }
+}

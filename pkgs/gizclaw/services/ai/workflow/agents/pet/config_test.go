@@ -2,22 +2,17 @@ package pet
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/GizClaw/flowcraft/memory/recall"
-	"github.com/GizClaw/flowcraft/memory/recall/recalltest"
-	recallworkspace "github.com/GizClaw/flowcraft/memory/recall/store/workspace"
-	sdkworkspace "github.com/GizClaw/flowcraft/sdk/workspace"
-	flowclaw "github.com/GizClaw/flowcraft/sdkx/claw"
+	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
-	"gopkg.in/yaml.v3"
 )
 
 func TestTurnInputsComposeWorkspacePromptsAndDefinedAttributes(t *testing.T) {
@@ -114,77 +109,18 @@ func TestFixedFlowcraftConfigOwnsPetGraphAndAsyncMemoryLayout(t *testing.T) {
 	}
 }
 
-func TestPetAsyncMemoryUsesWorkspaceQueueContract(t *testing.T) {
-	recalltest.RunAsyncSemanticQueueSuite(t, func(t testing.TB) recall.AsyncSemanticQueue {
-		backend, err := recallworkspace.Open(t.TempDir())
-		if err != nil {
-			t.Fatalf("workspace queue Open() error = %v", err)
-		}
-		t.Cleanup(func() { _ = backend.Close() })
-		return backend.AsyncSemanticQueue()
-	})
-}
-
-func TestPetAsyncMemoryQueueSurvivesWorkspaceReopen(t *testing.T) {
-	ctx := context.Background()
-	dir := t.TempDir()
-	scope := recall.Scope{RuntimeID: "gizclaw-pet", UserID: "pet-123", AgentID: "pet-123"}
-	backend, err := recallworkspace.Open(dir)
-	if err != nil {
-		t.Fatalf("workspace queue Open() error = %v", err)
-	}
-	if _, err := backend.AsyncSemanticQueue().Enqueue(ctx, recall.AsyncSemanticJob{RequestID: "relationship-1", Scope: scope}); err != nil {
-		t.Fatalf("Enqueue() error = %v", err)
-	}
-	if err := backend.Close(); err != nil {
-		t.Fatalf("Close() error = %v", err)
-	}
-	reopened, err := recallworkspace.Open(dir)
-	if err != nil {
-		t.Fatalf("workspace queue reopen error = %v", err)
-	}
-	t.Cleanup(func() { _ = reopened.Close() })
-	jobs, err := reopened.AsyncSemanticQueue().Claim(ctx, recall.AsyncSemanticClaimOptions{
-		WorkerID: "pet-test",
-		Now:      time.Now(),
-		Max:      1,
-		Scope:    &scope,
-	})
-	if err != nil {
-		t.Fatalf("Claim() after reopen error = %v", err)
-	}
-	if len(jobs) != 1 || jobs[0].RequestID != "relationship-1" {
-		t.Fatalf("Claim() after reopen = %#v", jobs)
-	}
-}
-
-func TestFixedFlowcraftConfigLoadsInClaw(t *testing.T) {
+func TestFixedFlowcraftConfigContainsValidOwnedGraph(t *testing.T) {
 	cfg := fixedFlowcraftConfig("pet-123", "chat-model", "extract-model", false)
-	cfg["models"] = map[string]any{
-		"chat":      "generate_model",
-		"extractor": "extract_model",
-		"llm": map[string]any{
-			"chat-model":    map[string]any{"provider": "mock", "model": "mock-generate"},
-			"extract-model": map[string]any{"provider": "mock", "model": "mock-extract"},
-		},
-	}
-	raw, err := yaml.Marshal(cfg)
+	raw, err := json.Marshal(cfg["agent"].(map[string]any)["graph"])
 	if err != nil {
-		t.Fatalf("yaml.Marshal() error = %v", err)
+		t.Fatal(err)
 	}
-	ws, err := sdkworkspace.NewLocalWorkspace(t.TempDir())
-	if err != nil {
-		t.Fatalf("NewLocalWorkspace() error = %v", err)
+	var graph flowgraph.GraphDefinition
+	if err := json.Unmarshal(raw, &graph); err != nil {
+		t.Fatal(err)
 	}
-	if err := ws.Write(context.Background(), "config.yaml", raw); err != nil {
-		t.Fatalf("workspace.Write() error = %v", err)
-	}
-	claw, err := flowclaw.New(ws)
-	if err != nil {
-		t.Fatalf("claw.New() rejected fixed Pet config: %v", err)
-	}
-	if err := claw.CloseContext(context.Background()); err != nil {
-		t.Fatalf("CloseContext() error = %v", err)
+	if err := graph.Validate(); err != nil {
+		t.Fatalf("owned graph validation error = %v", err)
 	}
 }
 

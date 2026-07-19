@@ -104,6 +104,7 @@ const (
 	defaultGameplayDBStore               = "gameplay-db"
 	defaultMetricsStore                  = "metrics"
 	defaultFlowcraftHistoryStore         = "flowcraft-history"
+	defaultAgentMemoryStore              = "agent-memory"
 )
 
 func LoadConfig(path string) (ConfigFile, error) {

@@ -2,25 +2,31 @@ package transformers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"log/slog"
+	"sort"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/GizClaw/dashscope-realtime-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
 
-// DashScopeRealtime is a realtime transformer using DashScope Qwen-Omni-Realtime.
+// DashScopeRealtime is a realtime transformer using DashScope Qwen Realtime.
 //
-// Model: qwen-omni-turbo-realtime-latest (default) or qwen3-omni-flash-realtime
+// The Tool-capable Agent runtime uses the Qwen3.5 Omni Plus/Flash Realtime
+// model family whose typed function-call contract this implementation supports.
 //
 // This is a bidirectional transformer:
 // Input: genx.Stream with audio Blob chunks (PCM16 16kHz)
 // Output: genx.Stream with audio Blob chunks (PCM16 24kHz)
 //
-// Internally uses Qwen-Omni model for speech-to-speech.
+// Internally uses the configured Qwen model for speech-to-speech.
 type DashScopeRealtime struct {
 	client       *dashscope.Client
 	model        string
@@ -39,13 +45,35 @@ type DashScopeRealtime struct {
 	outputAudioFormat             string // pcm16, mp3, wav
 }
 
+// DashScopeRealtimeFunctionCall is one completed typed provider call.
+type DashScopeRealtimeFunctionCall struct {
+	CallID      string
+	Name        string
+	Arguments   string
+	OutputIndex int
+}
+
+// DashScopeRealtimeFunctionCallOutput is one typed result submitted to DashScope.
+type DashScopeRealtimeFunctionCallOutput struct {
+	CallID string
+	Output string
+}
+
+// DashScopeRealtimeFunctionCallHandler resolves calls in provider output-index order.
+type DashScopeRealtimeFunctionCallHandler func(context.Context, []DashScopeRealtimeFunctionCall) ([]DashScopeRealtimeFunctionCallOutput, error)
+
 var _ genx.Transformer = (*DashScopeRealtime)(nil)
+
+const (
+	dashScopeRealtimeAssistantLabel  = "assistant"
+	dashScopeRealtimeTranscriptLabel = "transcript"
+)
 
 // DashScopeRealtimeOption is a functional option for DashScopeRealtime.
 type DashScopeRealtimeOption func(*DashScopeRealtime)
 
 // WithDashScopeRealtimeModel sets the model.
-// Options: qwen-omni-turbo-realtime-latest, qwen3-omni-flash-realtime
+// The Tool-capable Agent runtime passes a Qwen3.5 Omni Plus/Flash Realtime ID.
 func WithDashScopeRealtimeModel(model string) DashScopeRealtimeOption {
 	return func(t *DashScopeRealtime) {
 		t.model = model
@@ -174,13 +202,29 @@ func (t *DashScopeRealtime) getOutputAudioMIMEType() string {
 // DashScopeRealtimeCtxKey is the context key for runtime options.
 type dashScopeRealtimeCtxKey struct{}
 
-// DashScopeRealtimeCtxOptions are runtime options passed via context.
-// TODO: Add fields as needed for runtime configuration.
-type DashScopeRealtimeCtxOptions struct{}
+// DashScopeRealtimeCtxOptions are per-Agent runtime options passed via context.
+type DashScopeRealtimeCtxOptions struct {
+	Model               string
+	Tools               []dashscope.FunctionTool
+	FunctionCallHandler DashScopeRealtimeFunctionCallHandler
+	MaxToolCalls        int
+}
 
 // WithDashScopeRealtimeCtxOptions attaches runtime options to context.
 func WithDashScopeRealtimeCtxOptions(ctx context.Context, opts DashScopeRealtimeCtxOptions) context.Context {
+	opts.Tools = append([]dashscope.FunctionTool(nil), opts.Tools...)
 	return context.WithValue(ctx, dashScopeRealtimeCtxKey{}, opts)
+}
+
+type dashScopeRealtimeSession interface {
+	UpdateSession(*dashscope.SessionConfig) error
+	AppendAudio([]byte) error
+	CommitInput() error
+	CreateResponse(*dashscope.ResponseCreateOptions) error
+	SubmitFunctionCallOutput(string, string) error
+	CancelResponse() error
+	Events() iter.Seq2[*dashscope.RealtimeEvent, error]
+	Close() error
 }
 
 // DashScopeStream is a Stream returned by DashScopeRealtime.Transform().
@@ -266,9 +310,14 @@ func (s *DashScopeStream) TriggerResponse() error {
 // It synchronously waits for the WebSocket connection to be established
 // and session.created event to be received before returning.
 func (t *DashScopeRealtime) Transform(ctx context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+	runtime, _ := ctx.Value(dashScopeRealtimeCtxKey{}).(DashScopeRealtimeCtxOptions)
+	model := t.model
+	if value := strings.TrimSpace(runtime.Model); value != "" {
+		model = value
+	}
 	// Connect to realtime service
 	session, err := t.client.Realtime.Connect(ctx, &dashscope.RealtimeConfig{
-		Model: t.model,
+		Model: model,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("dashscope connect: %w", err)
@@ -303,6 +352,7 @@ func (t *DashScopeRealtime) Transform(ctx context.Context, _ string, input genx.
 		MaxOutputTokens:               t.maxOutputTokens,
 		InputAudioFormat:              t.inputAudioFormat,
 		OutputAudioFormat:             t.outputAudioFormat,
+		Tools:                         append([]dashscope.FunctionTool(nil), runtime.Tools...),
 	}
 
 	// Configure turn detection (VAD)
@@ -328,21 +378,31 @@ func (t *DashScopeRealtime) Transform(ctx context.Context, _ string, input genx.
 	}
 
 	// Start background processing
-	go t.processLoop(input, output, session)
+	go t.processLoop(ctx, input, output, session, runtime)
 
 	return stream, nil
 }
 
-func (t *DashScopeRealtime) processLoop(input genx.Stream, output *bufferStream, session *dashscope.RealtimeSession) {
+func (t *DashScopeRealtime) processLoop(ctx context.Context, input genx.Stream, output *bufferStream, session dashScopeRealtimeSession, runtime DashScopeRealtimeCtxOptions) {
 	defer output.Close()
 	defer session.Close()
+	inputReader := newRealtimeInputReader(input)
+	defer inputReader.Close()
 
 	// StreamID tracking for correlating input/output
 	// We use a queue because input and output are processed asynchronously.
 	// Input StreamIDs are queued as they arrive, and popped when a response starts.
 	var streamIDMu sync.Mutex
-	var streamIDQueue []string  // Queue of input StreamIDs
-	var responseStreamID string // StreamID for current response
+	var streamIDQueue []string
+	var responseStreamID string
+	var providerResponseID string
+	responseAllowed := true
+	ignoredResponseIDs := make(map[string]struct{})
+	assistant := newRealtimeAssistantLifecycle()
+	output.setOutputObserver(func(chunk *genx.MessageChunk) {
+		observeRealtimeAssistantOutput(assistant, dashScopeRealtimeAssistantLabel, chunk)
+	})
+	defer output.setOutputObserver(nil)
 
 	// Push a new input StreamID to the queue
 	pushStreamID := func(id string) {
@@ -354,14 +414,17 @@ func (t *DashScopeRealtime) processLoop(input genx.Stream, output *bufferStream,
 		}
 	}
 
-	// Pop StreamID from queue for response (called when response.created)
-	popStreamIDForResponse := func() {
+	// Pop the input route used by transcription. Assistant responses always use
+	// their own fresh StreamID and never reuse a device input ID.
+	popStreamIDForResponse := func() string {
 		streamIDMu.Lock()
 		defer streamIDMu.Unlock()
 		if len(streamIDQueue) > 0 {
-			responseStreamID = streamIDQueue[0]
+			inputID := streamIDQueue[0]
 			streamIDQueue = streamIDQueue[1:]
+			return inputID
 		}
+		return ""
 	}
 
 	// Get the current response StreamID
@@ -370,55 +433,203 @@ func (t *DashScopeRealtime) processLoop(input genx.Stream, output *bufferStream,
 		defer streamIDMu.Unlock()
 		return responseStreamID
 	}
+	allowProviderResponse := func() {
+		streamIDMu.Lock()
+		responseAllowed = true
+		streamIDMu.Unlock()
+	}
+	suppressProviderResponse := func() {
+		streamIDMu.Lock()
+		responseAllowed = false
+		if providerResponseID != "" {
+			ignoredResponseIDs[providerResponseID] = struct{}{}
+			providerResponseID = ""
+		}
+		streamIDMu.Unlock()
+	}
+	beginProviderResponse := func(id string) (string, bool, bool) {
+		streamIDMu.Lock()
+		defer streamIDMu.Unlock()
+		if !responseAllowed {
+			if id != "" {
+				ignoredResponseIDs[id] = struct{}{}
+			}
+			return "", false, false
+		}
+		providerResponseID = id
+		fresh := responseStreamID == ""
+		if responseStreamID == "" {
+			responseStreamID = genx.NewStreamID()
+		}
+		return responseStreamID, true, fresh
+	}
+	ignoreProviderEvent := func(event *dashscope.RealtimeEvent) bool {
+		if event == nil || event.ResponseID == "" {
+			return false
+		}
+		streamIDMu.Lock()
+		defer streamIDMu.Unlock()
+		_, ignored := ignoredResponseIDs[event.ResponseID]
+		if ignored && event.Type == dashscope.EventTypeResponseDone {
+			delete(ignoredResponseIDs, event.ResponseID)
+		}
+		return ignored
+	}
+	finishProviderResponse := func(id string, clearStream bool) {
+		streamIDMu.Lock()
+		if id == "" || providerResponseID == id {
+			providerResponseID = ""
+		}
+		if clearStream {
+			responseStreamID = ""
+		}
+		streamIDMu.Unlock()
+	}
 
 	// Start goroutine to receive events
 	eventsDone := make(chan struct{})
+	var toolMu sync.Mutex
+	var cancelTool context.CancelCauseFunc
+	var toolCallsUsed atomic.Int64
+	var pendingMu sync.Mutex
+	var pendingCalls []DashScopeRealtimeFunctionCall
+	clearPendingCalls := func() {
+		pendingMu.Lock()
+		pendingCalls = nil
+		pendingMu.Unlock()
+	}
+	takePendingCalls := func() []DashScopeRealtimeFunctionCall {
+		pendingMu.Lock()
+		calls := pendingCalls
+		pendingCalls = nil
+		pendingMu.Unlock()
+		return calls
+	}
+	cancelPendingTool := func(cause error) {
+		toolMu.Lock()
+		cancel := cancelTool
+		cancelTool = nil
+		toolMu.Unlock()
+		if cancel != nil {
+			cancel(cause)
+		}
+	}
+	defer cancelPendingTool(context.Canceled)
+	interruptAssistant := func() {
+		suppressProviderResponse()
+		clearPendingCalls()
+		interruption := assistant.interruptRoutes(getResponseStreamID(), false)
+		if !interruption.interrupted {
+			return
+		}
+		cancelPendingTool(errors.New("interrupted"))
+		output.discard(func(chunk *genx.MessageChunk) bool {
+			return chunk != nil && chunk.Role == genx.RoleModel && chunk.Ctrl != nil && chunk.Ctrl.StreamID == interruption.streamID
+		})
+		if interruption.textOpen {
+			_ = output.Push(&genx.MessageChunk{
+				Role: genx.RoleModel,
+				Part: genx.Text(""),
+				Ctrl: &genx.StreamCtrl{StreamID: interruption.streamID, Label: dashScopeRealtimeAssistantLabel, EndOfStream: true, Error: "interrupted"},
+			})
+		}
+		if interruption.audioOpen {
+			_ = output.Push(&genx.MessageChunk{
+				Role: genx.RoleModel,
+				Part: &genx.Blob{MIMEType: t.getOutputAudioMIMEType()},
+				Ctrl: &genx.StreamCtrl{StreamID: interruption.streamID, Label: dashScopeRealtimeAssistantLabel, EndOfStream: true, Error: "interrupted"},
+			})
+		}
+	}
 	go func() {
 		defer close(eventsDone)
+		var transcriptionStreamID string
+		var textRouteOpen bool
+		var audioRouteOpen bool
+		finishExternalResponse := func(streamID string) bool {
+			if textRouteOpen {
+				if err := output.Push(&genx.MessageChunk{
+					Role: genx.RoleModel,
+					Part: genx.Text(""),
+					Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: dashScopeRealtimeAssistantLabel, EndOfStream: true},
+				}); err != nil {
+					return false
+				}
+			}
+			if audioRouteOpen {
+				if err := output.Push(&genx.MessageChunk{
+					Role: genx.RoleModel,
+					Part: &genx.Blob{MIMEType: t.getOutputAudioMIMEType()},
+					Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: dashScopeRealtimeAssistantLabel, EndOfStream: true},
+				}); err != nil {
+					return false
+				}
+			}
+			textRouteOpen = false
+			audioRouteOpen = false
+			return true
+		}
 		for event, err := range session.Events() {
 			if err != nil {
 				output.CloseWithError(err)
 				return
+			}
+			if ignoreProviderEvent(event) {
+				continue
 			}
 
 			// Pop StreamID for response on:
 			// 1. response.created - start of a new response cycle
 			// 2. input_audio_transcription.completed - ASR marks end of user turn
 			// This handles servers that may not send response.created
-			if event.Type == dashscope.EventTypeResponseCreated ||
-				event.Type == dashscope.EventTypeInputAudioTranscriptionCompleted {
-				popStreamIDForResponse()
-			}
-
-			// Get StreamID for this response
-			streamID := getResponseStreamID()
-
 			switch event.Type {
 			case dashscope.EventTypeInputSpeechStarted:
 				// User started speaking - cancel current response
 				slog.Info("dashscope: speech started - canceling response")
+				toolCallsUsed.Store(0)
+				interruptAssistant()
 				if err := session.CancelResponse(); err != nil {
 					slog.Error("dashscope: cancel response error", "error", err)
 				}
 
+			case dashscope.EventTypeInputSpeechStopped:
+				allowProviderResponse()
+
 			case dashscope.EventTypeResponseCreated:
+				streamID, accepted, fresh := beginProviderResponse(event.ResponseID)
+				if !accepted {
+					continue
+				}
+				if !fresh {
+					continue
+				}
+				textRouteOpen = false
+				audioRouteOpen = true
+				assistant.setAccept(true)
+				assistant.nextEpoch()
+				assistant.markStarted(streamID)
 				// Send BOS to signal start of new audio stream
 				bosChunk := &genx.MessageChunk{
 					Role: genx.RoleModel,
 					Part: &genx.Blob{MIMEType: t.getOutputAudioMIMEType()},
-					Ctrl: &genx.StreamCtrl{StreamID: streamID, BeginOfStream: true},
+					Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: dashScopeRealtimeAssistantLabel, BeginOfStream: true},
 				}
 				if err := output.Push(bosChunk); err != nil {
 					return
 				}
 
 			case dashscope.EventTypeInputAudioTranscriptionCompleted:
+				allowProviderResponse()
+				if transcriptionStreamID == "" {
+					transcriptionStreamID = popStreamIDForResponse()
+				}
+				streamID := transcriptionStreamID
 				// ASR result for user input - emit text then EOS
 				if event.Transcript != "" {
 					outChunk := &genx.MessageChunk{
 						Role: genx.RoleUser,
 						Part: genx.Text(event.Transcript),
-						Ctrl: &genx.StreamCtrl{StreamID: streamID},
+						Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: dashScopeRealtimeTranscriptLabel},
 					}
 					if err := output.Push(outChunk); err != nil {
 						return
@@ -435,12 +646,17 @@ func (t *DashScopeRealtime) processLoop(input genx.Stream, output *bufferStream,
 				}
 
 			case dashscope.EventTypeResponseTextDelta:
+				if !assistant.acceptsOutput() {
+					continue
+				}
+				streamID := getResponseStreamID()
 				// Model text response
 				if event.Delta != "" {
+					textRouteOpen = true
 					outChunk := &genx.MessageChunk{
 						Role: genx.RoleModel,
 						Part: genx.Text(event.Delta),
-						Ctrl: &genx.StreamCtrl{StreamID: streamID},
+						Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: dashScopeRealtimeAssistantLabel},
 					}
 					if err := output.Push(outChunk); err != nil {
 						return
@@ -448,23 +664,21 @@ func (t *DashScopeRealtime) processLoop(input genx.Stream, output *bufferStream,
 				}
 
 			case dashscope.EventTypeResponseTextDone:
-				// Model text response done - emit EOS
-				eosChunk := &genx.MessageChunk{
-					Role: genx.RoleModel,
-					Part: genx.Text(""),
-					Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true},
-				}
-				if err := output.Push(eosChunk); err != nil {
-					return
-				}
+				// Route EOS is delayed until the outer Agent response finishes.
+				// A provider response.done with ToolCalls ends only one model round.
 
 			case dashscope.EventTypeResponseTranscriptDelta:
+				if !assistant.acceptsOutput() {
+					continue
+				}
+				streamID := getResponseStreamID()
 				// TTS transcript (what the model is saying)
 				if event.Delta != "" {
+					textRouteOpen = true
 					outChunk := &genx.MessageChunk{
 						Role: genx.RoleModel,
 						Part: genx.Text(event.Delta),
-						Ctrl: &genx.StreamCtrl{StreamID: streamID},
+						Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: dashScopeRealtimeAssistantLabel},
 					}
 					if err := output.Push(outChunk); err != nil {
 						return
@@ -472,26 +686,23 @@ func (t *DashScopeRealtime) processLoop(input genx.Stream, output *bufferStream,
 				}
 
 			case dashscope.EventTypeResponseTranscriptDone:
-				// TTS transcript done - emit text EOS
-				eosChunk := &genx.MessageChunk{
-					Role: genx.RoleModel,
-					Part: genx.Text(""),
-					Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true},
-				}
-				if err := output.Push(eosChunk); err != nil {
-					return
-				}
+				// Delayed until the outer Agent response finishes.
 
 			case dashscope.EventTypeResponseAudioDelta:
+				if !assistant.acceptsOutput() {
+					continue
+				}
+				streamID := getResponseStreamID()
 				// Audio response
 				if len(event.Audio) > 0 {
+					audioRouteOpen = true
 					outChunk := &genx.MessageChunk{
 						Role: genx.RoleModel,
 						Part: &genx.Blob{
 							MIMEType: t.getOutputAudioMIMEType(),
 							Data:     event.Audio,
 						},
-						Ctrl: &genx.StreamCtrl{StreamID: streamID},
+						Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: dashScopeRealtimeAssistantLabel},
 					}
 					if err := output.Push(outChunk); err != nil {
 						return
@@ -499,28 +710,106 @@ func (t *DashScopeRealtime) processLoop(input genx.Stream, output *bufferStream,
 				}
 
 			case dashscope.EventTypeResponseAudioDone:
-				// Audio response done - emit EOS
-				eosChunk := &genx.MessageChunk{
-					Role: genx.RoleModel,
-					Part: &genx.Blob{MIMEType: t.getOutputAudioMIMEType()},
-					Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true},
-				}
-				if err := output.Push(eosChunk); err != nil {
-					return
-				}
+				// Delayed until the outer Agent response finishes.
 
 			case dashscope.EventTypeChoicesResponse:
+				if !assistant.acceptsOutput() {
+					continue
+				}
+				streamID := getResponseStreamID()
 				// DashScope's choices format response
 				if event.Delta != "" {
+					textRouteOpen = true
 					outChunk := &genx.MessageChunk{
 						Role: genx.RoleModel,
 						Part: genx.Text(event.Delta),
-						Ctrl: &genx.StreamCtrl{StreamID: streamID},
+						Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: dashScopeRealtimeAssistantLabel},
 					}
 					if err := output.Push(outChunk); err != nil {
 						return
 					}
 				}
+
+			case dashscope.EventTypeResponseFunctionCallArgumentsDone:
+				if !assistant.acceptsOutput() {
+					continue
+				}
+				pendingMu.Lock()
+				pendingCalls = append(pendingCalls, DashScopeRealtimeFunctionCall{
+					CallID:      event.CallID,
+					Name:        event.Name,
+					Arguments:   event.Arguments,
+					OutputIndex: event.OutputIndex,
+				})
+				pendingMu.Unlock()
+
+			case dashscope.EventTypeResponseDone:
+				calls := takePendingCalls()
+				if !assistant.acceptsOutput() {
+					finishProviderResponse(event.ResponseID, false)
+					continue
+				}
+				if len(calls) == 0 {
+					if !finishExternalResponse(getResponseStreamID()) {
+						return
+					}
+					finishProviderResponse(event.ResponseID, true)
+					transcriptionStreamID = ""
+					continue
+				}
+				if runtime.FunctionCallHandler == nil {
+					output.CloseWithError(fmt.Errorf("dashscope realtime function-call handler is required"))
+					return
+				}
+				if runtime.MaxToolCalls > 0 && toolCallsUsed.Add(int64(len(calls))) > int64(runtime.MaxToolCalls) {
+					err := fmt.Errorf("dashscope realtime tool call limit exceeded: maximum %d", runtime.MaxToolCalls)
+					output.CloseWithError(err)
+					return
+				}
+				sort.SliceStable(calls, func(i, j int) bool { return calls[i].OutputIndex < calls[j].OutputIndex })
+				toolCtx, cancel := context.WithCancelCause(ctx)
+				toolMu.Lock()
+				cancelTool = cancel
+				toolMu.Unlock()
+				outputs, callErr := runtime.FunctionCallHandler(toolCtx, append([]DashScopeRealtimeFunctionCall(nil), calls...))
+				toolMu.Lock()
+				cancelTool = nil
+				toolMu.Unlock()
+				interrupted := context.Cause(toolCtx) != nil && ctx.Err() == nil
+				if callErr != nil {
+					cancel(callErr)
+					if interrupted {
+						continue
+					}
+					output.CloseWithError(callErr)
+					return
+				}
+				if len(outputs) != len(calls) {
+					err := fmt.Errorf("dashscope realtime function-call handler returned %d outputs for %d calls", len(outputs), len(calls))
+					cancel(err)
+					output.CloseWithError(err)
+					return
+				}
+				for i, result := range outputs {
+					if result.CallID != calls[i].CallID {
+						err := fmt.Errorf("dashscope realtime function result ID %q does not match call ID %q", result.CallID, calls[i].CallID)
+						cancel(err)
+						output.CloseWithError(err)
+						return
+					}
+					if err := session.SubmitFunctionCallOutput(result.CallID, result.Output); err != nil {
+						cancel(err)
+						output.CloseWithError(err)
+						return
+					}
+				}
+				finishProviderResponse(event.ResponseID, false)
+				if err := session.CreateResponse(nil); err != nil {
+					cancel(err)
+					output.CloseWithError(err)
+					return
+				}
+				cancel(nil)
 
 			case dashscope.EventTypeError:
 				// Business error event - log but don't close session
@@ -549,7 +838,10 @@ func (t *DashScopeRealtime) processLoop(input genx.Stream, output *bufferStream,
 		default:
 		}
 
-		chunk, err := input.Next()
+		chunk, err, done := inputReader.NextOrDone(eventsDone)
+		if done {
+			return
+		}
 		if err != nil {
 			if err != io.EOF {
 				output.CloseWithError(err)
@@ -557,10 +849,7 @@ func (t *DashScopeRealtime) processLoop(input genx.Stream, output *bufferStream,
 
 			// Flush remaining audio buffer
 			for len(audioBuffer) > 0 {
-				sendSize := chunkSize
-				if sendSize > len(audioBuffer) {
-					sendSize = len(audioBuffer)
-				}
+				sendSize := min(chunkSize, len(audioBuffer))
 				if err := session.AppendAudio(audioBuffer[:sendSize]); err != nil {
 					output.CloseWithError(err)
 					return
@@ -573,10 +862,7 @@ func (t *DashScopeRealtime) processLoop(input genx.Stream, output *bufferStream,
 			// 2 seconds of silence at 16kHz PCM16 = 64000 bytes
 			trailingSilence := make([]byte, 64000)
 			for i := 0; i < len(trailingSilence); i += chunkSize {
-				end := i + chunkSize
-				if end > len(trailingSilence) {
-					end = len(trailingSilence)
-				}
+				end := min(i+chunkSize, len(trailingSilence))
 				if err := session.AppendAudio(trailingSilence[i:end]); err != nil {
 					output.CloseWithError(err)
 					return
@@ -612,6 +898,9 @@ func (t *DashScopeRealtime) processLoop(input genx.Stream, output *bufferStream,
 		// This interrupts the AI to let the user speak
 		// If no response is active, server returns an error event which we log and ignore
 		if chunk.Ctrl != nil && chunk.Ctrl.BeginOfStream {
+			toolCallsUsed.Store(0)
+			interruptAssistant()
+			finishProviderResponse("", true)
 			_ = session.CancelResponse()
 		}
 
@@ -641,6 +930,7 @@ func (t *DashScopeRealtime) processLoop(input genx.Stream, output *bufferStream,
 				}
 				// Trigger response
 				time.Sleep(100 * time.Millisecond)
+				allowProviderResponse()
 				if err := session.CommitInput(); err != nil {
 					output.CloseWithError(err)
 					return

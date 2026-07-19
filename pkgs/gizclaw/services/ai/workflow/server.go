@@ -267,6 +267,31 @@ func validateDriverSpec(spec apitypes.WorkflowSpec) error {
 			return errors.New("spec.pet does not accept Flowcraft graph or memory configuration")
 		}
 		return nil
+	case apitypes.WorkflowDriverDashscopeRealtime:
+		if spec.DashscopeRealtime == nil {
+			return errors.New("spec.dashscope_realtime is required")
+		}
+		if strings.TrimSpace(spec.DashscopeRealtime.Model) == "" {
+			return errors.New("spec.dashscope_realtime.model is required")
+		}
+		if spec.DashscopeRealtime.MaxToolCalls != nil && *spec.DashscopeRealtime.MaxToolCalls < 0 {
+			return errors.New("spec.dashscope_realtime.max_tool_calls cannot be negative")
+		}
+		return nil
+	case apitypes.WorkflowDriverEino:
+		if spec.Eino == nil {
+			return errors.New("spec.eino is required")
+		}
+		if strings.TrimSpace(spec.Eino.Model) == "" {
+			return errors.New("spec.eino.model is required")
+		}
+		if spec.Eino.MaxSteps != nil && *spec.Eino.MaxSteps <= 0 {
+			return errors.New("spec.eino.max_steps must be positive")
+		}
+		if spec.Eino.MaxToolCalls != nil && *spec.Eino.MaxToolCalls < 0 {
+			return errors.New("spec.eino.max_tool_calls cannot be negative")
+		}
+		return nil
 	default:
 		return nil
 	}

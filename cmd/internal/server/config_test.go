@@ -1106,6 +1106,28 @@ func TestNewRejectsNonMutableFlowcraftHistoryStore(t *testing.T) {
 	}
 }
 
+func TestNewWiresOptionalAgentMemoryStore(t *testing.T) {
+	srv, err := New(Config{
+		Listen: "127.0.0.1:0", Endpoint: "127.0.0.1:0",
+		Stores: map[string]stores.Config{
+			defaultPeersStore: {Kind: stores.KindKeyValue, Backend: "memory"},
+			defaultAgentMemoryStore: {
+				Kind: stores.KindMemoryStore,
+				Flowcraft: &memorystore.FlowcraftConfig{
+					Dir: t.TempDir(), RuntimeID: "gizclaw", UserID: "test-user",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	t.Cleanup(func() { _ = srv.Close() })
+	if srv.Server.AgentMemory == nil {
+		t.Fatal("AgentMemory is nil")
+	}
+}
+
 func validLayeredConfig(dir string) Config {
 	return Config{
 		Listen:   "127.0.0.1:1234",

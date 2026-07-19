@@ -32,6 +32,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 )
 
@@ -68,6 +69,7 @@ type Manager struct {
 	Gameplay         *gameplay.Runtime
 	PetWorkflow      petagent.Config
 	FlowcraftHistory logstore.MutableStore
+	AgentMemory      memory.Store
 	Tools            *toolkit.Server
 	ToolBuilder      *toolkit.Builder
 	ToolExecutors    *toolkit.ExecutorRegistry

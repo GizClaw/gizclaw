@@ -1,0 +1,20 @@
+{
+  "openapi": "3.0.3",
+  "info": {"title": "Eino Workflow Type", "version": "1.0.0"},
+  "paths": {},
+  "components": {
+    "schemas": {
+      "EinoWorkflowSpec": {
+        "type": "object",
+        "required": ["model"],
+        "additionalProperties": false,
+        "properties": {
+          "model": {"type": "string"},
+          "system_prompt": {"type": "string"},
+          "max_steps": {"type": "integer", "minimum": 1},
+          "max_tool_calls": {"type": "integer", "minimum": 0}
+        }
+      }
+    }
+  }
+}

@@ -1989,13 +1989,15 @@ export type WorkflowI18nCatalog = {
 
 export type WorkflowLocale = 'en' | 'zh-CN';
 
-export type WorkflowDriver = 'flowcraft' | 'doubao-realtime' | 'ast-translate' | 'chatroom' | 'pet';
+export type WorkflowDriver = 'flowcraft' | 'doubao-realtime' | 'dashscope-realtime' | 'eino' | 'ast-translate' | 'chatroom' | 'pet';
 
 export type WorkflowSpec = {
     driver: WorkflowDriver;
     toolkit?: ToolkitPolicy;
     flowcraft?: FlowcraftWorkflowSpec;
     doubao_realtime?: DoubaoRealtimeWorkflowSpec;
+    dashscope_realtime?: DashScopeRealtimeWorkflowSpec;
+    eino?: EinoWorkflowSpec;
     ast_translate?: AstTranslateWorkflowSpec;
     chatroom?: ChatRoomWorkflowSpec;
     pet?: PetWorkflowSpec;
@@ -2062,6 +2064,12 @@ export type ChatRoomWorkflowTranscriptSpec = {
      * GizClaw ASR model resource used to transcribe gear audio.
      */
     asr_model?: string;
+};
+
+export type DashScopeRealtimeWorkflowSpec = {
+    model: string;
+    provider_model?: string;
+    max_tool_calls?: number;
 };
 
 export type DoubaoRealtimeAigcMetadata = {
@@ -2187,6 +2195,13 @@ export type DoubaoRealtimeWorkflowSpec = {
     audio?: DoubaoRealtimeAudio;
     tools?: Array<DoubaoRealtimeFunctionTool>;
     extension?: DoubaoRealtimeExtension;
+};
+
+export type EinoWorkflowSpec = {
+    model: string;
+    system_prompt?: string;
+    max_steps?: number;
+    max_tool_calls?: number;
 };
 
 export type FlowcraftWorkflowSpec = {

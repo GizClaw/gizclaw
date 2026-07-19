@@ -23,6 +23,7 @@
 | `api/proto/telemetry/**` | [Telemetry](/zh/developing/api/proto/telemetry) | Telemetry contract、编码、生成代码与消费端 |
 | `pkgs/giznet/**` | [pkgs/giznet](/zh/developing/giznet) | WebRTC、PeerConn、transport 与 connection lifecycle |
 | `pkgs/gizedge/**` | [pkgs/gizedge](/zh/developing/gizedge) | Device/Edge/Server signaling、反向代理与 RPC routing |
+| `pkgs/agent/**` | [Agent Runtime](/zh/developing/agent/overview)、[GenX 总览](/zh/developing/genx/overview)，涉及长期记忆时再读 [Memory Store](/zh/developing/stores/memory) | Agent/Transformer 分类、Toolkit declaration/invocation 一致性、Tool continuation、StreamID/EOS、buffer、interruption、pull-visible history 与 provider-specific late result |
 | `pkgs/gizclaw/**` | [pkgs/gizclaw 总览](/zh/developing/gizclaw/overview) | Service layout、角色可见性、根 package 组装边界 |
 | `pkgs/gizclaw/peer_*.go` | [Peer 总览](/zh/developing/gizclaw/peer/overview) 及对应的 Management、Authorization、Connection 或 Services 页面 | Peer identity、在线连接、授权和 service surface |
 | `pkgs/gizclaw/server*.go` | [Server 总览](/zh/developing/gizclaw/server/overview) 及对应模块页面 | Server 组装、HTTP surface、security policy 与 lifecycle |

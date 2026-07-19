@@ -53,7 +53,7 @@ export type ToolSource = "" | "admin" | "builtin" | "device" | "unspecified" | n
 export type VoiceProviderKind = "" | "dashscope-tenant" | "gemini-tenant" | "minimax-tenant" | "openai-tenant" | "unspecified" | "volc-tenant" | number;
 export type VoiceSource = "" | "manual" | "sync" | "unspecified" | number;
 export type VolcTenantModelProviderDataApiMode = "" | "asr" | "realtime" | "tts" | "unspecified" | number;
-export type WorkflowDriver = "" | "ast-translate" | "chatroom" | "doubao-realtime" | "flowcraft" | "pet" | "unspecified" | number;
+export type WorkflowDriver = "" | "ast-translate" | "chatroom" | "dashscope_realtime" | "doubao-realtime" | "eino" | "flowcraft" | "pet" | "unspecified" | number;
 export type WorkflowLocale = "" | "en" | "unspecified" | "zh-CN" | number;
 export type WorkspaceHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
 export type WorkspaceInputMode = "" | "push-to-talk" | "realtime" | "unspecified" | number;
@@ -223,6 +223,11 @@ export type DashScopeCredentialBody = {
   "base_url"?: string;
   "token"?: string;
 };
+export type DashScopeRealtimeWorkflowSpec = {
+  "model": string;
+  "provider_model"?: string;
+  "max_tool_calls"?: number;
+};
 export type DashScopeTenantModelProviderData = {
   "api_mode"?: DashScopeTenantModelProviderDataApiMode;
   "upstream_model"?: string;
@@ -356,6 +361,12 @@ export type DoubaoRealtimeWorkspaceParameters = {
   "instructions"?: string;
   "model"?: string;
   "tools": DoubaoRealtimeFunctionTool[];
+};
+export type EinoWorkflowSpec = {
+  "model": string;
+  "system_prompt"?: string;
+  "max_steps"?: number;
+  "max_tool_calls"?: number;
 };
 export type Firmware = {
   "created_at": string;
@@ -1368,6 +1379,8 @@ export type WorkflowSpec = {
   "flowcraft"?: FlowcraftWorkflowSpec;
   "toolkit"?: ToolkitPolicy;
   "pet"?: PetWorkflowSpec;
+  "dashscope_realtime"?: DashScopeRealtimeWorkflowSpec;
+  "eino"?: EinoWorkflowSpec;
 };
 export type Workspace = {
   "created_at": string;
@@ -2452,6 +2465,27 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "DashScopeRealtimeWorkflowSpec": {
+    "fields": [
+      {
+        "name": "model",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "provider_model",
+        "number": 2,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "max_tool_calls",
+        "number": 3,
+        "optional": true,
+        "type": "int64"
+      }
+    ]
+  },
   "DashScopeTenantModelProviderData": {
     "fields": [
       {
@@ -3064,6 +3098,33 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 8,
         "repeated": true,
         "type": "DoubaoRealtimeFunctionTool"
+      }
+    ]
+  },
+  "EinoWorkflowSpec": {
+    "fields": [
+      {
+        "name": "model",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "system_prompt",
+        "number": 2,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "max_steps",
+        "number": 3,
+        "optional": true,
+        "type": "int64"
+      },
+      {
+        "name": "max_tool_calls",
+        "number": 4,
+        "optional": true,
+        "type": "int64"
       }
     ]
   },
@@ -7837,6 +7898,18 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 7,
         "optional": true,
         "type": "PetWorkflowSpec"
+      },
+      {
+        "name": "dashscope_realtime",
+        "number": 8,
+        "optional": true,
+        "type": "DashScopeRealtimeWorkflowSpec"
+      },
+      {
+        "name": "eino",
+        "number": 9,
+        "optional": true,
+        "type": "EinoWorkflowSpec"
       }
     ]
   },
@@ -8612,7 +8685,9 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
     "byName": {
       "ast-translate": 3,
       "chatroom": 4,
+      "dashscope_realtime": 6,
       "doubao-realtime": 2,
+      "eino": 7,
       "flowcraft": 1,
       "pet": 5,
       "unspecified": 0
@@ -8623,7 +8698,9 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "2": "doubao-realtime",
       "3": "ast-translate",
       "4": "chatroom",
-      "5": "pet"
+      "5": "pet",
+      "6": "dashscope_realtime",
+      "7": "eino"
     }
   },
   "WorkflowLocale": {

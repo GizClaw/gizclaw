@@ -604,6 +604,50 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 		t.Fatalf("pet workflow = %#v", gotPetWorkflow)
 	}
 
+	dashProviderModel := "qwen3.5-omni-flash-realtime"
+	dashMaxCalls := 5
+	var dashWorkflowPayload RPCPayload
+	if err := dashWorkflowPayload.FromWorkflowGetResponse(Workflow{
+		Name: "dashscope-agent",
+		Spec: WorkflowSpec{Driver: WorkflowDriverDashscopeRealtime, DashscopeRealtime: &DashScopeRealtimeWorkflowSpec{
+			Model: "dashscope", ProviderModel: &dashProviderModel, MaxToolCalls: &dashMaxCalls,
+		}},
+	}); err != nil {
+		t.Fatalf("FromWorkflowGetResponse(dashscope realtime) error = %v", err)
+	}
+	gotDashWorkflow, err := dashWorkflowPayload.AsWorkflowGetResponse()
+	if err != nil {
+		t.Fatalf("AsWorkflowGetResponse(dashscope realtime) error = %v", err)
+	}
+	if gotDashWorkflow.Spec.Driver != WorkflowDriverDashscopeRealtime || gotDashWorkflow.Spec.DashscopeRealtime == nil ||
+		gotDashWorkflow.Spec.DashscopeRealtime.ProviderModel == nil || *gotDashWorkflow.Spec.DashscopeRealtime.ProviderModel != dashProviderModel ||
+		gotDashWorkflow.Spec.DashscopeRealtime.MaxToolCalls == nil || *gotDashWorkflow.Spec.DashscopeRealtime.MaxToolCalls != dashMaxCalls {
+		t.Fatalf("dashscope realtime workflow = %#v", gotDashWorkflow)
+	}
+
+	einoPrompt := "Use tools when needed."
+	einoMaxSteps := 9
+	einoMaxCalls := 4
+	var einoWorkflowPayload RPCPayload
+	if err := einoWorkflowPayload.FromWorkflowGetResponse(Workflow{
+		Name: "eino-agent",
+		Spec: WorkflowSpec{Driver: WorkflowDriverEino, Eino: &EinoWorkflowSpec{
+			Model: "chat", SystemPrompt: &einoPrompt, MaxSteps: &einoMaxSteps, MaxToolCalls: &einoMaxCalls,
+		}},
+	}); err != nil {
+		t.Fatalf("FromWorkflowGetResponse(eino) error = %v", err)
+	}
+	gotEinoWorkflow, err := einoWorkflowPayload.AsWorkflowGetResponse()
+	if err != nil {
+		t.Fatalf("AsWorkflowGetResponse(eino) error = %v", err)
+	}
+	if gotEinoWorkflow.Spec.Driver != WorkflowDriverEino || gotEinoWorkflow.Spec.Eino == nil ||
+		gotEinoWorkflow.Spec.Eino.SystemPrompt == nil || *gotEinoWorkflow.Spec.Eino.SystemPrompt != einoPrompt ||
+		gotEinoWorkflow.Spec.Eino.MaxSteps == nil || *gotEinoWorkflow.Spec.Eino.MaxSteps != einoMaxSteps ||
+		gotEinoWorkflow.Spec.Eino.MaxToolCalls == nil || *gotEinoWorkflow.Spec.Eino.MaxToolCalls != einoMaxCalls {
+		t.Fatalf("eino workflow = %#v", gotEinoWorkflow)
+	}
+
 	var statPayload RPCPayload
 	if err := statPayload.encode("PetLife", PetLife{"hunger": 1, "clean": 2}); err != nil {
 		t.Fatalf("encode PetLife error = %v", err)

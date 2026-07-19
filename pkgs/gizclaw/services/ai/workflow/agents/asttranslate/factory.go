@@ -30,7 +30,7 @@ type Factory struct {
 	Transformer genx.Transformer
 }
 
-func (f Factory) NewAgent(_ context.Context, spec agenthost.Spec) (agenthost.Agent, error) {
+func (f Factory) NewTransformer(_ context.Context, spec agenthost.Spec) (genx.Transformer, error) {
 	if f.Transformer == nil {
 		return nil, fmt.Errorf("asttranslate: transformer is required")
 	}
@@ -39,16 +39,16 @@ func (f Factory) NewAgent(_ context.Context, spec agenthost.Spec) (agenthost.Age
 		return nil, err
 	}
 	if resolved.ttsVoice == "" {
-		return agenthost.NewTransformerAgent(interruptibleTransformer{Transformer: patternTransformer{Transformer: f.Transformer, Pattern: resolved.astPattern}}), nil
+		return interruptibleTransformer{Transformer: patternTransformer{Transformer: f.Transformer, Pattern: resolved.astPattern}}, nil
 	}
-	return agenthost.NewTransformerAgent(interruptibleTransformer{
+	return interruptibleTransformer{
 		Transformer: externalVoiceTransformer{
 			Transformer: f.Transformer,
 			ASTPattern:  resolved.astPattern,
 			TTSPattern:  voicePattern(resolved.ttsVoice),
 		},
 		keepActiveAfterTextEOS: true,
-	}), nil
+	}, nil
 }
 
 type patternTransformer struct {

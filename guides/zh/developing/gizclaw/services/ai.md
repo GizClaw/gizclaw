@@ -49,13 +49,13 @@ services/ai/
 
 Workflow 描述如何运行 Agent，但不拥有 Agent instance 的在线状态和 stream lifecycle。
 
-#### Flowcraft history
+#### Agent history 与 memory composition
 
-Server 可以解析保留的 named log store `flowcraft-history`，并把它注入普通与 pet Flowcraft agent。该 store 必须实现 `logstore.MutableStore`；配置 Volc TLS 这类 immutable driver 会导致启动失败。未配置该 named store 时，Flowcraft 保持现有 workspace JSONL history。已有 JSONL 文件不会自动迁移；配置后的 store 发生错误时会直接返回错误，不会回退到文件。
+Server 可以解析 named log store `flowcraft-history`，并把它作为 `logstore.MutableStore` 注入 Flowcraft、Eino 和 pet runtime。Flowcraft owned Agent 继续读写 `Stream=flowcraft-history`、`Kind=message`、schema version 1；每个 record 保存一条 ordered Flowcraft message，包括 ToolCall、ToolResult 和 interruption metadata。未配置时，conversation continuity 只保留在 live Agent instance 中，不会回退到外部 Claw 或 workspace JSONL runtime。
 
-Adapter 为每条消息保存一条 `Stream=flowcraft-history`、`Kind=message` record。Indexed attributes 包含 `workspace_name`、`conversation_id` 和 `schema_version`；完整 Flowcraft message（包括 tool call、tool result 与 data-reference metadata）保存在 JSON payload 中。读取直接使用 LogStore query cursor。Save 会替换已有 message record、删除多余 record、追加新 record，不创建 snapshot、tombstone、operation log 或额外分页索引。
+可选 named store `agent-memory` 实现 provider-neutral `memory.Store`，由 Server 注入 Flowcraft、Eino 和 pet runtime。History 保存按 turn 排序的交付记录；Memory 保存可 recall 的长期事实，两者不能互相替代。Flowcraft product factory 直接构造 repository-owned `flowcraft.Config`，不写 Cloud/Claw config，也不使用外部 Claw Memory lifecycle。
 
-这里仅处理 Flowcraft runtime history。Workspace `HistoryStore` 仍是独立 resource boundary，audio object 继续使用 object storage。
+Workspace `HistoryStore` 仍是独立 resource boundary，audio object 继续使用 object storage。Agent stream、Toolkit 和 pull-visible history contract 见 [Agent Runtime](/zh/developing/agent/overview)。
 
 ### [workspace](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/workspace)
 

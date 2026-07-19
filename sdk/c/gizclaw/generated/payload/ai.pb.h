@@ -320,6 +320,22 @@ typedef struct _gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec {
     pb_callback_t tools;
 } gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec;
 
+typedef struct _gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec {
+    pb_callback_t model;
+    pb_callback_t provider_model;
+    bool has_max_tool_calls;
+    int64_t max_tool_calls;
+} gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec;
+
+typedef struct _gizclaw_rpc_v1_EinoWorkflowSpec {
+    pb_callback_t model;
+    pb_callback_t system_prompt;
+    bool has_max_steps;
+    int64_t max_steps;
+    bool has_max_tool_calls;
+    int64_t max_tool_calls;
+} gizclaw_rpc_v1_EinoWorkflowSpec;
+
 typedef struct _gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters {
     gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParametersAgentType agent_type;
     bool has_audio;
@@ -764,6 +780,10 @@ typedef struct _gizclaw_rpc_v1_WorkflowSpec {
     gizclaw_rpc_v1_ToolkitPolicy toolkit;
     bool has_pet;
     gizclaw_rpc_v1_PetWorkflowSpec pet;
+    bool has_dashscope_realtime;
+    gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec dashscope_realtime;
+    bool has_eino;
+    gizclaw_rpc_v1_EinoWorkflowSpec eino;
 } gizclaw_rpc_v1_WorkflowSpec;
 
 typedef struct _gizclaw_rpc_v1_Workflow {
@@ -957,6 +977,8 @@ extern "C" {
 
 
 
+
+
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_agent_type_ENUMTYPE gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParametersAgentType
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_input_ENUMTYPE gizclaw_rpc_v1_WorkspaceInputMode
 
@@ -1095,6 +1117,8 @@ extern "C" {
 #define gizclaw_rpc_v1_DoubaoRealtimeTTSExtension_init_default {false, gizclaw_rpc_v1_DoubaoRealtimeTTSExtra_init_default}
 #define gizclaw_rpc_v1_DoubaoRealtimeTTSExtra_init_default {false, gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_init_default, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_init_default {false, gizclaw_rpc_v1_DoubaoRealtimeAudio_init_default, false, gizclaw_rpc_v1_DoubaoRealtimeExtension_init_default, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_init_default {{{NULL}, NULL}, {{NULL}, NULL}, false, 0}
+#define gizclaw_rpc_v1_EinoWorkflowSpec_init_default {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0}
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_init_default {_gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_DoubaoRealtimeAudio_init_default, false, 0, false, gizclaw_rpc_v1_DoubaoRealtimeExtension_init_default, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FlowcraftConversationParameters_init_default {false, _gizclaw_rpc_v1_FlowcraftConversationParametersAgentInitiativePolicy_MIN, false, _gizclaw_rpc_v1_FlowcraftConversationParametersInitiative_MIN}
 #define gizclaw_rpc_v1_FlowcraftWorkflowSpec_init_default {false, google_protobuf_Struct_init_default}
@@ -1147,7 +1171,7 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkflowI18nCatalog_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolkitPolicyToolIds_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolkitPolicy_init_default {false, gizclaw_rpc_v1_ToolkitPolicyToolIds_init_default}
-#define gizclaw_rpc_v1_WorkflowSpec_init_default {false, gizclaw_rpc_v1_ASTTranslateWorkflowSpec_init_default, false, gizclaw_rpc_v1_ChatRoomWorkflowSpec_init_default, false, gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_init_default, _gizclaw_rpc_v1_WorkflowDriver_MIN, false, gizclaw_rpc_v1_FlowcraftWorkflowSpec_init_default, false, gizclaw_rpc_v1_ToolkitPolicy_init_default, false, gizclaw_rpc_v1_PetWorkflowSpec_init_default}
+#define gizclaw_rpc_v1_WorkflowSpec_init_default {false, gizclaw_rpc_v1_ASTTranslateWorkflowSpec_init_default, false, gizclaw_rpc_v1_ChatRoomWorkflowSpec_init_default, false, gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_init_default, _gizclaw_rpc_v1_WorkflowDriver_MIN, false, gizclaw_rpc_v1_FlowcraftWorkflowSpec_init_default, false, gizclaw_rpc_v1_ToolkitPolicy_init_default, false, gizclaw_rpc_v1_PetWorkflowSpec_init_default, false, gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_init_default, false, gizclaw_rpc_v1_EinoWorkflowSpec_init_default}
 #define gizclaw_rpc_v1_ToolExecutor_init_default {_gizclaw_rpc_v1_ToolExecutorKind_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_default}
 #define gizclaw_rpc_v1_ToolTriggerExample_init_default {{{NULL}, NULL}, false, google_protobuf_Struct_init_default, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolTrigger_init_default  {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_default}
@@ -1209,6 +1233,8 @@ extern "C" {
 #define gizclaw_rpc_v1_DoubaoRealtimeTTSExtension_init_zero {false, gizclaw_rpc_v1_DoubaoRealtimeTTSExtra_init_zero}
 #define gizclaw_rpc_v1_DoubaoRealtimeTTSExtra_init_zero {false, gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_init_zero, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_init_zero {false, gizclaw_rpc_v1_DoubaoRealtimeAudio_init_zero, false, gizclaw_rpc_v1_DoubaoRealtimeExtension_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, false, 0}
+#define gizclaw_rpc_v1_EinoWorkflowSpec_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0}
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_init_zero {_gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_DoubaoRealtimeAudio_init_zero, false, 0, false, gizclaw_rpc_v1_DoubaoRealtimeExtension_init_zero, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FlowcraftConversationParameters_init_zero {false, _gizclaw_rpc_v1_FlowcraftConversationParametersAgentInitiativePolicy_MIN, false, _gizclaw_rpc_v1_FlowcraftConversationParametersInitiative_MIN}
 #define gizclaw_rpc_v1_FlowcraftWorkflowSpec_init_zero {false, google_protobuf_Struct_init_zero}
@@ -1261,7 +1287,7 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkflowI18nCatalog_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolkitPolicyToolIds_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolkitPolicy_init_zero   {false, gizclaw_rpc_v1_ToolkitPolicyToolIds_init_zero}
-#define gizclaw_rpc_v1_WorkflowSpec_init_zero    {false, gizclaw_rpc_v1_ASTTranslateWorkflowSpec_init_zero, false, gizclaw_rpc_v1_ChatRoomWorkflowSpec_init_zero, false, gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_init_zero, _gizclaw_rpc_v1_WorkflowDriver_MIN, false, gizclaw_rpc_v1_FlowcraftWorkflowSpec_init_zero, false, gizclaw_rpc_v1_ToolkitPolicy_init_zero, false, gizclaw_rpc_v1_PetWorkflowSpec_init_zero}
+#define gizclaw_rpc_v1_WorkflowSpec_init_zero    {false, gizclaw_rpc_v1_ASTTranslateWorkflowSpec_init_zero, false, gizclaw_rpc_v1_ChatRoomWorkflowSpec_init_zero, false, gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_init_zero, _gizclaw_rpc_v1_WorkflowDriver_MIN, false, gizclaw_rpc_v1_FlowcraftWorkflowSpec_init_zero, false, gizclaw_rpc_v1_ToolkitPolicy_init_zero, false, gizclaw_rpc_v1_PetWorkflowSpec_init_zero, false, gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_init_zero, false, gizclaw_rpc_v1_EinoWorkflowSpec_init_zero}
 #define gizclaw_rpc_v1_ToolExecutor_init_zero    {_gizclaw_rpc_v1_ToolExecutorKind_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_zero}
 #define gizclaw_rpc_v1_ToolTriggerExample_init_zero {{{NULL}, NULL}, false, google_protobuf_Struct_init_zero, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolTrigger_init_zero     {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_zero}
@@ -1408,6 +1434,13 @@ extern "C" {
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_instructions_tag 3
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_model_tag 4
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_tools_tag 5
+#define gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_model_tag 1
+#define gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_provider_model_tag 2
+#define gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_max_tool_calls_tag 3
+#define gizclaw_rpc_v1_EinoWorkflowSpec_model_tag 1
+#define gizclaw_rpc_v1_EinoWorkflowSpec_system_prompt_tag 2
+#define gizclaw_rpc_v1_EinoWorkflowSpec_max_steps_tag 3
+#define gizclaw_rpc_v1_EinoWorkflowSpec_max_tool_calls_tag 4
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_agent_type_tag 1
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_audio_tag 2
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_e2e_tag 3
@@ -1599,6 +1632,8 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkflowSpec_flowcraft_tag 5
 #define gizclaw_rpc_v1_WorkflowSpec_toolkit_tag  6
 #define gizclaw_rpc_v1_WorkflowSpec_pet_tag      7
+#define gizclaw_rpc_v1_WorkflowSpec_dashscope_realtime_tag 8
+#define gizclaw_rpc_v1_WorkflowSpec_eino_tag     9
 #define gizclaw_rpc_v1_Workflow_name_tag         1
 #define gizclaw_rpc_v1_Workflow_spec_tag         2
 #define gizclaw_rpc_v1_Workflow_i18n_tag         3
@@ -2021,6 +2056,21 @@ X(a, CALLBACK, REPEATED, MESSAGE,  tools,             5)
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_audio_MSGTYPE gizclaw_rpc_v1_DoubaoRealtimeAudio
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_extension_MSGTYPE gizclaw_rpc_v1_DoubaoRealtimeExtension
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_tools_MSGTYPE gizclaw_rpc_v1_DoubaoRealtimeFunctionTool
+
+#define gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   model,             1) \
+X(a, CALLBACK, OPTIONAL, STRING,   provider_model,    2) \
+X(a, STATIC,   OPTIONAL, INT64,    max_tool_calls,    3)
+#define gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_DEFAULT NULL
+
+#define gizclaw_rpc_v1_EinoWorkflowSpec_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   model,             1) \
+X(a, CALLBACK, OPTIONAL, STRING,   system_prompt,     2) \
+X(a, STATIC,   OPTIONAL, INT64,    max_steps,         3) \
+X(a, STATIC,   OPTIONAL, INT64,    max_tool_calls,    4)
+#define gizclaw_rpc_v1_EinoWorkflowSpec_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_EinoWorkflowSpec_DEFAULT NULL
 
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, UENUM,    agent_type,        1) \
@@ -2451,7 +2501,9 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  doubao_realtime,   3) \
 X(a, STATIC,   SINGULAR, UENUM,    driver,            4) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  flowcraft,         5) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  toolkit,           6) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  pet,               7)
+X(a, STATIC,   OPTIONAL, MESSAGE,  pet,               7) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  dashscope_realtime,   8) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  eino,              9)
 #define gizclaw_rpc_v1_WorkflowSpec_CALLBACK NULL
 #define gizclaw_rpc_v1_WorkflowSpec_DEFAULT NULL
 #define gizclaw_rpc_v1_WorkflowSpec_ast_translate_MSGTYPE gizclaw_rpc_v1_ASTTranslateWorkflowSpec
@@ -2460,6 +2512,8 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  pet,               7)
 #define gizclaw_rpc_v1_WorkflowSpec_flowcraft_MSGTYPE gizclaw_rpc_v1_FlowcraftWorkflowSpec
 #define gizclaw_rpc_v1_WorkflowSpec_toolkit_MSGTYPE gizclaw_rpc_v1_ToolkitPolicy
 #define gizclaw_rpc_v1_WorkflowSpec_pet_MSGTYPE gizclaw_rpc_v1_PetWorkflowSpec
+#define gizclaw_rpc_v1_WorkflowSpec_dashscope_realtime_MSGTYPE gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec
+#define gizclaw_rpc_v1_WorkflowSpec_eino_MSGTYPE gizclaw_rpc_v1_EinoWorkflowSpec
 
 #define gizclaw_rpc_v1_ToolExecutor_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, UENUM,    kind,              1) \
@@ -2633,6 +2687,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_DoubaoRealtimeJSONSchema_PropertiesEntr
 extern const pb_msgdesc_t gizclaw_rpc_v1_DoubaoRealtimeTTSExtension_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_DoubaoRealtimeTTSExtra_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_EinoWorkflowSpec_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_FlowcraftConversationParameters_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_FlowcraftWorkflowSpec_msg;
@@ -2749,6 +2805,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 #define gizclaw_rpc_v1_DoubaoRealtimeTTSExtension_fields &gizclaw_rpc_v1_DoubaoRealtimeTTSExtension_msg
 #define gizclaw_rpc_v1_DoubaoRealtimeTTSExtra_fields &gizclaw_rpc_v1_DoubaoRealtimeTTSExtra_msg
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_fields &gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_msg
+#define gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_fields &gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_msg
+#define gizclaw_rpc_v1_EinoWorkflowSpec_fields &gizclaw_rpc_v1_EinoWorkflowSpec_msg
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_fields &gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_msg
 #define gizclaw_rpc_v1_FlowcraftConversationParameters_fields &gizclaw_rpc_v1_FlowcraftConversationParameters_msg
 #define gizclaw_rpc_v1_FlowcraftWorkflowSpec_fields &gizclaw_rpc_v1_FlowcraftWorkflowSpec_msg
@@ -2863,6 +2921,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 /* gizclaw_rpc_v1_DoubaoRealtimeTTSExtension_size depends on runtime parameters */
 /* gizclaw_rpc_v1_DoubaoRealtimeTTSExtra_size depends on runtime parameters */
 /* gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_size depends on runtime parameters */
+/* gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_size depends on runtime parameters */
+/* gizclaw_rpc_v1_EinoWorkflowSpec_size depends on runtime parameters */
 /* gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size depends on runtime parameters */
 /* gizclaw_rpc_v1_FlowcraftWorkspaceParameters_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PetPersonaParameters_size depends on runtime parameters */

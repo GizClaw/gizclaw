@@ -1396,18 +1396,19 @@ func enumValueJSONString(desc protoreflect.EnumDescriptor, value protoreflect.En
 }
 
 var enumJSONValueOverrides = map[string]string{
-	"AST_TRANSLATE":     "ast-translate",
-	"DASHSCOPE_TENANT":  "dashscope-tenant",
-	"DASH_SCOPE_TENANT": "dashscope-tenant",
-	"DOUBAO_REALTIME":   "doubao-realtime",
-	"EDGE_NODE":         "edge-node",
-	"GEMINI_TENANT":     "gemini-tenant",
-	"MINI_MAX":          "minimax",
-	"MINIMAX_TENANT":    "minimax-tenant",
-	"OPENAI_TENANT":     "openai-tenant",
-	"PUSH_TO_TALK":      "push-to-talk",
-	"VOLC_TENANT":       "volc-tenant",
-	"ZH_CN":             "zh-CN",
+	"AST_TRANSLATE":      "ast-translate",
+	"DASHSCOPE_TENANT":   "dashscope-tenant",
+	"DASHSCOPE_REALTIME": "dashscope-realtime",
+	"DASH_SCOPE_TENANT":  "dashscope-tenant",
+	"DOUBAO_REALTIME":    "doubao-realtime",
+	"EDGE_NODE":          "edge-node",
+	"GEMINI_TENANT":      "gemini-tenant",
+	"MINI_MAX":           "minimax",
+	"MINIMAX_TENANT":     "minimax-tenant",
+	"OPENAI_TENANT":      "openai-tenant",
+	"PUSH_TO_TALK":       "push-to-talk",
+	"VOLC_TENANT":        "volc-tenant",
+	"ZH_CN":              "zh-CN",
 }
 
 func protoValueIsZero(fd protoreflect.FieldDescriptor, value protoreflect.Value) bool {

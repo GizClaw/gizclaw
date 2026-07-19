@@ -33,6 +33,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/jmoiron/sqlx"
@@ -86,6 +87,7 @@ type Server struct {
 	MetricsStore                 metrics.Store
 	ServerLogQuery               ServerLogQueryService
 	FlowcraftHistory             logstore.MutableStore
+	AgentMemory                  memory.Store
 	FriendGroupMessageDefaultTTL time.Duration
 	FriendGroupMessageMaxTTL     time.Duration
 	FriendGroupMessageCleanup    time.Duration
@@ -406,6 +408,7 @@ func (s *Server) init() error {
 	manager := NewManager(peersServer)
 	manager.PetWorkflow = s.PetWorkflow
 	manager.FlowcraftHistory = s.FlowcraftHistory
+	manager.AgentMemory = s.AgentMemory
 	manager.PeerRoutes = &peerroute.Server{
 		Store:           peerRouteStore,
 		Peers:           peersServer,

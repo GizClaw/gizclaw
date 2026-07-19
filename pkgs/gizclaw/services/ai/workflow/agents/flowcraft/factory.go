@@ -8,29 +8,31 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
-	"net/http/httptest"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
+	"github.com/GizClaw/flowcraft/sdk/graph/runner"
 	flowmodel "github.com/GizClaw/flowcraft/sdk/model"
 	sdkworkspace "github.com/GizClaw/flowcraft/sdk/workspace"
-	flowclaw "github.com/GizClaw/flowcraft/sdkx/claw"
-	"gopkg.in/yaml.v3"
 
+	commonagent "github.com/GizClaw/gizclaw-go/pkgs/agent"
+	ownedflowcraft "github.com/GizClaw/gizclaw-go/pkgs/agent/flowcraft"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
 const Type = "flowcraft"
@@ -50,7 +52,7 @@ const (
 	inputModeRealtime   inputMode = "realtime"
 )
 
-var clawModelRoles = []struct {
+var flowcraftModelRoles = []struct {
 	settingKey string
 	modelsKey  string
 	required   bool
@@ -63,14 +65,15 @@ var clawModelRoles = []struct {
 type Factory struct {
 	GenX    *peergenx.Service
 	History logstore.MutableStore
+	Memory  memory.Store
 }
 
 // InputProvider returns transient Flowcraft Board inputs immediately before a
-// turn starts. Keys prefixed with tmp_ are intentionally not persisted by Claw.
+// turn starts. Keys prefixed with tmp_ are intentionally not persisted.
 type InputProvider func(context.Context) (map[string]any, error)
 
 // ConfiguredAgentOptions supplies a Go-owned Flowcraft configuration to the
-// shared adapter. It is used by specialized drivers that run on Claw without
+// shared adapter. It is used by specialized drivers that run the owned Agent without
 // exposing arbitrary Flowcraft graph configuration in their public schemas.
 type ConfiguredAgentOptions struct {
 	Flowcraft             map[string]any
@@ -134,7 +137,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	return f.NewConfiguredAgent(ctx, options)
 }
 
-// NewConfiguredAgent creates a Claw-backed agent from a Go-owned configuration.
+// NewConfiguredAgent creates an owned Flowcraft Agent from a Go-owned configuration.
 func (f Factory) NewConfiguredAgent(ctx context.Context, options ConfiguredAgentOptions) (agenthost.Agent, error) {
 	if f.GenX == nil {
 		return nil, fmt.Errorf("flowcraft: peergenx service is required")
@@ -151,42 +154,28 @@ func (f Factory) NewConfiguredAgent(ctx context.Context, options ConfiguredAgent
 	if err := voice.validate(); err != nil {
 		return nil, err
 	}
-	clawConfig, err := buildConfiguredClawConfig(ctx, f.GenX, options)
+	ws, err := sdkworkspace.NewLocalWorkspace(options.LocalDir)
+	if err != nil {
+		return nil, err
+	}
+	toolkit := commonagent.EmptyToolkit()
+	if options.Toolkit != nil {
+		toolkit, err = options.Toolkit.BuildAgentToolkit(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("flowcraft: build agent toolkit: %w", err)
+		}
+	}
+	coreConfig, err := buildOwnedRuntimeConfig(ctx, f.GenX, options, ws, toolkit, f.History, f.Memory)
+	if err != nil {
+		return nil, err
+	}
+	core, err := ownedflowcraft.New(coreConfig)
 	if err != nil {
 		return nil, err
 	}
 	if err := validateVoiceAdapterResources(ctx, f.GenX, voice); err != nil {
 		return nil, err
 	}
-	if err := writeClawConfig(options.LocalDir, clawConfig); err != nil {
-		return nil, err
-	}
-	ws, err := sdkworkspace.NewLocalWorkspace(options.LocalDir)
-	if err != nil {
-		return nil, err
-	}
-	var clawOptions []flowclaw.Option
-	if f.History != nil {
-		historyStore, err := NewHistoryStore(f.History, options.WorkspaceName)
-		if err != nil {
-			return nil, err
-		}
-		clawOptions = append(clawOptions, flowclaw.WithHistoryStore(historyStore))
-	}
-	claw, err := flowclaw.New(ws, clawOptions...)
-	if err != nil {
-		return nil, err
-	}
-	agentReady := false
-	defer func() {
-		if !agentReady {
-			_ = claw.CloseContext(context.Background())
-		}
-	}()
-	if err := registerToolkitHandlers(ctx, claw, options.Toolkit); err != nil {
-		return nil, err
-	}
-	agentReady = true
 	starts := strings.TrimSpace(options.Conversation)
 	if starts == "" {
 		starts = "peer"
@@ -200,16 +189,18 @@ func (f Factory) NewConfiguredAgent(ctx context.Context, options ConfiguredAgent
 		mode = inputModePushToTalk
 	}
 	return &agent{
-		transformers:  f.GenX,
-		claw:          realClaw{Claw: claw},
-		asrModel:      voice.ASRModel,
-		defaultVoice:  voice.DefaultVoice,
-		nodeVoices:    voice.NodeVoices,
-		starts:        starts,
-		startPolicy:   initiativePolicy,
-		inputMode:     mode,
-		localDir:      options.LocalDir,
-		inputProvider: options.InputProvider,
+		transformers: f.GenX,
+		runtime:      ownedRuntime{agent: core},
+		history:      core,
+		historyID:    strings.TrimSpace(options.WorkspaceName),
+		memory:       f.Memory,
+		asrModel:     voice.ASRModel,
+		defaultVoice: voice.DefaultVoice,
+		nodeVoices:   voice.NodeVoices,
+		starts:       starts,
+		startPolicy:  initiativePolicy,
+		inputMode:    mode,
+		localDir:     options.LocalDir,
 	}, nil
 }
 
@@ -359,7 +350,9 @@ func flowcraftDefaultAgentInitiativePolicy(starts string) string {
 
 type agent struct {
 	transformers  transformerProvider
-	claw          clawClient
+	runtime       runtimeClient
+	history       historyReader
+	historyID     string
 	asrModel      string
 	defaultVoice  string
 	nodeVoices    map[string]string
@@ -368,6 +361,7 @@ type agent struct {
 	inputMode     inputMode
 	localDir      string
 	inputProvider InputProvider
+	memory        memory.Store
 
 	outputMu       sync.Mutex
 	activeOutput   *genx.StreamBuilder
@@ -384,18 +378,9 @@ func (a *agent) Status(context.Context) (apitypes.PeerRunWorkspaceState, error) 
 }
 
 func (a *agent) ListHistory(ctx context.Context, req apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error) {
-	var debugResp debugHistoryResponse
-	if err := a.callDebug(ctx, http.MethodGet, "/debug/history", nil, &debugResp); err != nil {
+	messages, err := a.readHistory(ctx)
+	if err != nil {
 		message := err.Error()
-		return apitypes.PeerRunHistoryListResponse{
-			Available: false,
-			Items:     []apitypes.PeerRunHistoryEntry{},
-			HasNext:   false,
-			Message:   &message,
-		}, nil
-	}
-	if !debugResp.Enabled {
-		message := "flowcraft history is disabled"
 		return apitypes.PeerRunHistoryListResponse{
 			Available: false,
 			Items:     []apitypes.PeerRunHistoryEntry{},
@@ -417,10 +402,10 @@ func (a *agent) ListHistory(ctx context.Context, req apitypes.PeerRunHistoryList
 	if limit > 200 {
 		limit = 200
 	}
-	if offset > len(debugResp.Messages) {
-		offset = len(debugResp.Messages)
+	if offset > len(messages) {
+		offset = len(messages)
 	}
-	remaining := len(debugResp.Messages) - offset
+	remaining := len(messages) - offset
 	if limit > remaining {
 		limit = remaining
 	}
@@ -428,18 +413,18 @@ func (a *agent) ListHistory(ctx context.Context, req apitypes.PeerRunHistoryList
 	items := make([]apitypes.PeerRunHistoryEntry, 0)
 	now := time.Now().UTC()
 	for i := offset; i < end; i++ {
-		items = append(items, historyEntryFromMessage(debugResp.ContextID, i, now, debugResp.Messages[i]))
+		items = append(items, historyEntryFromMessage(a.historyID, i, now, messages[i]))
 	}
 	resp := apitypes.PeerRunHistoryListResponse{
 		Available: true,
 		Items:     items,
-		HasNext:   end < len(debugResp.Messages),
+		HasNext:   end < len(messages),
 	}
 	if resp.HasNext {
 		next := strconv.Itoa(end)
 		resp.NextCursor = &next
 	}
-	if len(debugResp.Messages) == 0 {
+	if len(messages) == 0 {
 		message := "flowcraft history is empty"
 		resp.Message = &message
 	}
@@ -447,8 +432,8 @@ func (a *agent) ListHistory(ctx context.Context, req apitypes.PeerRunHistoryList
 }
 
 func (a *agent) PlayHistory(ctx context.Context, req apitypes.PeerRunHistoryPlayRequest) (apitypes.PeerRunHistoryPlayResponse, error) {
-	var debugResp debugHistoryResponse
-	if err := a.callDebug(ctx, http.MethodGet, "/debug/history", nil, &debugResp); err != nil {
+	messages, err := a.readHistory(ctx)
+	if err != nil {
 		message := err.Error()
 		return apitypes.PeerRunHistoryPlayResponse{
 			Accepted:  false,
@@ -457,7 +442,7 @@ func (a *agent) PlayHistory(ctx context.Context, req apitypes.PeerRunHistoryPlay
 			Message:   &message,
 		}, nil
 	}
-	msg, ok := historyMessageByID(debugResp.ContextID, req.HistoryId, debugResp.Messages)
+	msg, ok := historyMessageByID(a.historyID, req.HistoryId, messages)
 	if !ok {
 		message := "history entry not found"
 		return apitypes.PeerRunHistoryPlayResponse{
@@ -517,181 +502,157 @@ func (a *agent) PlayHistory(ctx context.Context, req apitypes.PeerRunHistoryPlay
 }
 
 func (a *agent) MemoryStats(ctx context.Context, _ apitypes.PeerRunMemoryStatsRequest) (apitypes.PeerRunMemoryStatsResponse, error) {
-	var debugResp debugMemoryResponse
-	if err := a.callDebug(ctx, http.MethodGet, "/debug/memory", nil, &debugResp); err != nil {
-		message := err.Error()
+	if a == nil || a.memory == nil {
+		message := "flowcraft memory store is not configured"
 		return apitypes.PeerRunMemoryStatsResponse{
 			Available: false,
 			Enabled:   false,
 			Message:   &message,
 		}, nil
 	}
-	memoryRootPath := a.resolveWorkspacePath(debugResp.Root)
-	memoryStats, err := inspectDirectoryStats(memoryRootPath)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return apitypes.PeerRunMemoryStatsResponse{}, fmt.Errorf("flowcraft: inspect memory root: %w", err)
+	_ = ctx
+	metadata := map[string]any{
+		"capabilities": []string{"observe", "recall", "update", "delete"},
 	}
-	workspaceStats, err := inspectDirectoryStats(a.localDir)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return apitypes.PeerRunMemoryStatsResponse{}, fmt.Errorf("flowcraft: inspect workspace root: %w", err)
-	}
-	metadata := map[string]interface{}{
-		"root":                 debugResp.Root,
-		"root_path":            memoryRootPath,
-		"workspace_path":       a.localDir,
-		"scope":                debugResp.Scope,
-		"write":                debugResp.Write,
-		"recall":               debugResp.Recall,
-		"retrieval":            debugResp.Retrieval,
-		"layout":               debugResp.Layout,
-		"file_count":           workspaceStats.FileCount,
-		"memory_file_count":    memoryStats.FileCount,
-		"memory_storage_bytes": memoryStats.StorageBytes,
-	}
-	embeddingEnabled := false
-	embeddingStatus := "disabled"
-	indexStatus := "disabled"
-	if debugResp.Enabled {
-		indexStatus = "ready"
-	}
+	backend := "memory.Store"
+	indexStatus := "available"
 	resp := apitypes.PeerRunMemoryStatsResponse{
-		Available:        true,
-		Enabled:          debugResp.Enabled,
-		ItemCount:        memoryStats.JSONLLineCount,
-		StorageBytes:     workspaceStats.StorageBytes,
-		EmbeddingEnabled: &embeddingEnabled,
-		EmbeddingStatus:  &embeddingStatus,
-		IndexStatus:      &indexStatus,
-		Metadata:         &metadata,
-	}
-	if backend := debugResp.RetrievalBackend(); backend != "" {
-		resp.Backend = &backend
-	}
-	if !workspaceStats.LastUpdatedAt.IsZero() {
-		updatedAt := workspaceStats.LastUpdatedAt
-		resp.LastUpdatedAt = &updatedAt
+		Available:   true,
+		Enabled:     true,
+		Backend:     &backend,
+		IndexStatus: &indexStatus,
+		Metadata:    &metadata,
 	}
 	return resp, nil
 }
 
 func (a *agent) Recall(ctx context.Context, req apitypes.PeerRunRecallRequest) (apitypes.PeerRunRecallResponse, error) {
-	payload := map[string]interface{}{"text": req.Query}
-	if req.Limit != nil {
-		payload["top_k"] = *req.Limit
+	if a == nil || a.memory == nil {
+		message := "flowcraft memory store is not configured"
+		return apitypes.PeerRunRecallResponse{Available: false, Hits: []apitypes.PeerRunRecallHit{}, Message: &message}, nil
 	}
+	limit := 10
+	if req.Limit != nil {
+		limit = *req.Limit
+	}
+	filters := make([]memory.Filter, 0)
 	if req.Filters != nil {
 		for key, value := range *req.Filters {
-			payload[key] = value
+			filters = append(filters, memory.Filter{Field: key, Operator: memory.FilterEqual, Value: value})
 		}
 	}
-	var debugResp debugRecallResponse
-	if err := a.callDebug(ctx, http.MethodPost, "/debug/recall", payload, &debugResp); err != nil {
-		message := err.Error()
-		return apitypes.PeerRunRecallResponse{
-			Available: false,
-			Hits:      []apitypes.PeerRunRecallHit{},
-			Message:   &message,
-		}, nil
+	slices.SortFunc(filters, func(left, right memory.Filter) int { return strings.Compare(left.Field, right.Field) })
+	result, err := a.memory.Recall(ctx, memory.Query{Text: req.Query, Limit: limit, Filters: filters})
+	if err != nil {
+		return apitypes.PeerRunRecallResponse{}, fmt.Errorf("flowcraft: recall memory: %w", err)
 	}
-	if !debugResp.Enabled {
-		message := "flowcraft memory recall is disabled"
-		return apitypes.PeerRunRecallResponse{
-			Available: false,
-			Hits:      []apitypes.PeerRunRecallHit{},
-			Message:   &message,
-		}, nil
+	hits := make([]apitypes.PeerRunRecallHit, 0, len(result.Matches))
+	for index, match := range result.Matches {
+		hits = append(hits, recallHitFromMemory(index, match))
 	}
-	hits := make([]apitypes.PeerRunRecallHit, 0, len(debugResp.Hits))
-	for i, hit := range debugResp.Hits {
-		hits = append(hits, recallHitFromDebug(i, hit))
-	}
-	return apitypes.PeerRunRecallResponse{
-		Available: true,
-		Hits:      hits,
-	}, nil
+	return apitypes.PeerRunRecallResponse{Available: true, Hits: hits}, nil
 }
 
 type transformerProvider interface {
 	Transformer() genx.Transformer
 }
 
-type clawClient interface {
-	RoundTrip(flowclaw.Request) (clawResponse, error)
+type runtimeClient interface {
+	RoundTrip(runtimeRequest) (runtimeResponse, error)
 	CloseContext(context.Context) error
 }
 
-type debugHTTPClaw interface {
-	ServeDebugHTTP(http.ResponseWriter, *http.Request)
+type historyReader interface {
+	History(context.Context, int) ([]flowmodel.Message, error)
 }
 
-type clawResponse interface {
-	Next() (flowclaw.Event, error)
+type runtimeResponse interface {
+	Next() (runtimeEvent, error)
 }
 
-type realClaw struct {
-	Claw *flowclaw.Claw
+type runtimeRequest struct {
+	Context context.Context
+	Text    string
+	Inputs  map[string]any
 }
 
-func (c realClaw) RoundTrip(req flowclaw.Request) (clawResponse, error) {
-	return c.Claw.RoundTrip(req)
+type runtimeEvent struct {
+	Type    string
+	NodeID  string
+	Content string
+	Err     string
+	IsError bool
 }
 
-func (c realClaw) CloseContext(ctx context.Context) error {
-	if c.Claw == nil {
-		return nil
+const (
+	runtimeEventToken = "token"
+	runtimeEventError = "error"
+)
+
+type ownedRuntime struct {
+	agent *ownedflowcraft.Agent
+}
+
+func (c ownedRuntime) RoundTrip(req runtimeRequest) (runtimeResponse, error) {
+	if c.agent == nil {
+		return nil, fmt.Errorf("flowcraft: nil owned runtime")
 	}
-	return c.Claw.CloseContext(ctx)
-}
-
-func (c realClaw) ServeDebugHTTP(w http.ResponseWriter, r *http.Request) {
-	if c.Claw == nil {
-		http.Error(w, "flowcraft: nil claw runtime", http.StatusServiceUnavailable)
-		return
+	ctx := req.Context
+	if ctx == nil {
+		ctx = context.Background()
 	}
-	c.Claw.ServeDebugHTTP(w, r)
-}
-
-func (a *agent) callDebug(ctx context.Context, method, path string, body any, out any) error {
-	debugger, ok := a.claw.(debugHTTPClaw)
-	if !ok || debugger == nil {
-		return fmt.Errorf("flowcraft debug API is not available")
-	}
-	var reader io.Reader
-	if body != nil {
-		raw, err := json.Marshal(body)
-		if err != nil {
-			return fmt.Errorf("flowcraft: encode debug request: %w", err)
-		}
-		reader = bytes.NewReader(raw)
-	}
-	req, err := http.NewRequestWithContext(ctx, method, path, reader)
+	input := &sliceStream{chunks: []*genx.MessageChunk{
+		genx.NewBeginOfStream(genx.NewStreamID()),
+		{Role: genx.RoleUser, Part: genx.Text(req.Text)},
+		{Role: genx.RoleUser, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{EndOfStream: true}},
+	}}
+	output, err := c.agent.Transform(ctx, "", input)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
+	return &ownedRuntimeResponse{stream: output}, nil
+}
+
+func (ownedRuntime) CloseContext(context.Context) error { return nil }
+
+func (c ownedRuntime) History(ctx context.Context, limit int) ([]flowmodel.Message, error) {
+	if c.agent == nil {
+		return nil, fmt.Errorf("flowcraft: nil owned runtime")
 	}
-	rec := httptest.NewRecorder()
-	debugger.ServeDebugHTTP(rec, req)
-	res := rec.Result()
-	defer func() { _ = res.Body.Close() }()
-	if res.StatusCode < http.StatusOK || res.StatusCode >= http.StatusMultipleChoices {
-		var problem struct {
-			Error string `json:"error"`
+	return c.agent.History(ctx, limit)
+}
+
+type ownedRuntimeResponse struct{ stream genx.Stream }
+
+func (r *ownedRuntimeResponse) Next() (runtimeEvent, error) {
+	for {
+		chunk, err := r.stream.Next()
+		if commonagent.IsStreamEnd(err) {
+			return runtimeEvent{}, io.EOF
 		}
-		_ = json.NewDecoder(res.Body).Decode(&problem)
-		if problem.Error == "" {
-			problem.Error = res.Status
+		if err != nil {
+			return runtimeEvent{}, err
 		}
-		return fmt.Errorf("flowcraft debug %s %s: %s", method, path, problem.Error)
+		if chunk == nil || chunk.Role != genx.RoleModel || chunk.IsEndOfStream() {
+			continue
+		}
+		text, ok := chunk.Part.(genx.Text)
+		if !ok || text == "" {
+			continue
+		}
+		return runtimeEvent{Type: runtimeEventToken, NodeID: chunk.Name, Content: string(text)}, nil
 	}
-	if out == nil {
-		return nil
+}
+
+func (a *agent) readHistory(ctx context.Context) ([]flowmodel.Message, error) {
+	reader := a.history
+	if reader == nil {
+		reader, _ = a.runtime.(historyReader)
 	}
-	if err := json.NewDecoder(res.Body).Decode(out); err != nil {
-		return fmt.Errorf("flowcraft: decode debug response: %w", err)
+	if reader == nil {
+		return nil, fmt.Errorf("flowcraft history is not configured")
 	}
-	return nil
+	return reader.History(ctx, logstore.MaxLimit)
 }
 
 func (a *agent) resolveWorkspacePath(root string) string {
@@ -703,48 +664,6 @@ func (a *agent) resolveWorkspacePath(root string) string {
 		return filepath.Clean(root)
 	}
 	return filepath.Join(a.localDir, filepath.Clean(root))
-}
-
-type debugHistoryResponse struct {
-	Enabled   bool                `json:"enabled"`
-	ContextID string              `json:"context_id"`
-	Count     int                 `json:"count"`
-	Messages  []flowmodel.Message `json:"messages,omitempty"`
-}
-
-type debugMemoryResponse struct {
-	Enabled   bool                   `json:"enabled"`
-	Root      string                 `json:"root"`
-	Scope     map[string]interface{} `json:"scope"`
-	Write     map[string]interface{} `json:"write"`
-	Recall    map[string]interface{} `json:"recall"`
-	Retrieval map[string]interface{} `json:"retrieval"`
-	Layout    map[string]interface{} `json:"layout"`
-}
-
-func (r debugMemoryResponse) RetrievalBackend() string {
-	if raw, ok := r.Retrieval["backend"].(string); ok {
-		return strings.TrimSpace(raw)
-	}
-	return ""
-}
-
-type debugRecallResponse struct {
-	Enabled bool             `json:"enabled"`
-	Count   int              `json:"count"`
-	Hits    []debugRecallHit `json:"hits"`
-}
-
-type debugRecallHit struct {
-	ID        string   `json:"id,omitempty"`
-	Kind      string   `json:"kind,omitempty"`
-	Content   string   `json:"content"`
-	Subject   string   `json:"subject,omitempty"`
-	Predicate string   `json:"predicate,omitempty"`
-	Object    string   `json:"object,omitempty"`
-	Entities  []string `json:"entities,omitempty"`
-	Score     float64  `json:"score,omitempty"`
-	Sources   []string `json:"sources,omitempty"`
 }
 
 func parseHistoryCursor(cursor *string) (int, error) {
@@ -800,39 +719,32 @@ func contextIDOrDefault(contextID string) string {
 	return contextID
 }
 
-func recallHitFromDebug(index int, hit debugRecallHit) apitypes.PeerRunRecallHit {
-	id := strings.TrimSpace(hit.ID)
+func recallHitFromMemory(index int, match memory.Match) apitypes.PeerRunRecallHit {
+	id := strings.TrimSpace(match.Fact.ID)
 	if id == "" {
 		id = fmt.Sprintf("hit-%06d", index)
 	}
-	snippet := strings.TrimSpace(hit.Content)
-	if snippet == "" {
-		snippet = strings.TrimSpace(strings.Join([]string{hit.Subject, hit.Predicate, hit.Object}, " "))
+	metadata := make(map[string]any, len(match.Fact.Attributes)+1)
+	maps.Copy(metadata, match.Fact.Attributes)
+	if match.Fact.Revision != "" {
+		metadata["revision"] = match.Fact.Revision
 	}
-	sourceType := strings.TrimSpace(hit.Kind)
-	var sourceTypePtr *string
-	if sourceType != "" {
-		sourceTypePtr = &sourceType
+	var sourceID *string
+	if len(match.Fact.Sources) > 0 {
+		value := strings.TrimSpace(match.Fact.Sources[0].ObservationID)
+		if value != "" {
+			sourceID = &value
+		}
 	}
-	var sourceIDPtr *string
-	if len(hit.Sources) > 0 && strings.TrimSpace(hit.Sources[0]) != "" {
-		sourceID := strings.TrimSpace(hit.Sources[0])
-		sourceIDPtr = &sourceID
-	}
-	metadata := map[string]interface{}{
-		"subject":   hit.Subject,
-		"predicate": hit.Predicate,
-		"object":    hit.Object,
-		"entities":  hit.Entities,
-		"sources":   hit.Sources,
+	sourceType := "memory"
+	var createdAt *time.Time
+	if !match.Fact.CreatedAt.IsZero() {
+		value := match.Fact.CreatedAt
+		createdAt = &value
 	}
 	return apitypes.PeerRunRecallHit{
-		Id:         id,
-		Score:      hit.Score,
-		Snippet:    snippet,
-		SourceType: sourceTypePtr,
-		SourceId:   sourceIDPtr,
-		Metadata:   &metadata,
+		Id: id, Score: match.Score, Snippet: match.Fact.Text, SourceId: sourceID,
+		SourceType: &sourceType, CreatedAt: createdAt, Metadata: &metadata,
 	}
 }
 
@@ -914,8 +826,8 @@ func (a *agent) Transform(ctx context.Context, _ string, input genx.Stream) (gen
 func (a *agent) run(ctx context.Context, input genx.Stream, output *genx.StreamBuilder, observations *flowcraftOutputObservations) {
 	defer func() {
 		a.clearActiveOutput(output)
-		if a.claw != nil {
-			_ = a.claw.CloseContext(context.Background())
+		if a.runtime != nil {
+			_ = a.runtime.CloseContext(context.Background())
 		}
 	}()
 
@@ -1211,7 +1123,7 @@ func (a *agent) startSelfTurnIfNeeded(ctx context.Context, output *genx.StreamBu
 	turnCtx, cancel := context.WithCancel(ctx)
 	done := make(chan error, 1)
 	go func() {
-		done <- a.runClawTextTurn(turnCtx, "", streamID, output, epoch)
+		done <- a.runFlowcraftTextTurn(turnCtx, "", streamID, output, epoch)
 	}()
 	return &flowcraftActiveTurn{
 		streamID: streamID,
@@ -1244,11 +1156,11 @@ func (a *agent) shouldSelfStart(ctx context.Context) bool {
 }
 
 func (a *agent) historyEmpty(ctx context.Context) (bool, error) {
-	var resp debugHistoryResponse
-	if err := a.callDebug(ctx, http.MethodGet, "/debug/history", nil, &resp); err != nil {
+	messages, err := a.readHistory(ctx)
+	if err != nil {
 		return false, err
 	}
-	return resp.Count == 0 && len(resp.Messages) == 0, nil
+	return len(messages) == 0, nil
 }
 
 func (a *agent) runRealtime(ctx context.Context, input genx.Stream, output *genx.StreamBuilder, current *flowcraftActiveTurn, observations *flowcraftOutputObservations) {
@@ -1623,10 +1535,10 @@ func (a *agent) runTranscriptTurn(ctx context.Context, transcript, streamID stri
 			return err
 		}
 	}
-	return a.runClawTextTurn(ctx, transcript, streamID, output, epoch)
+	return a.runFlowcraftTextTurn(ctx, transcript, streamID, output, epoch)
 }
 
-func (a *agent) runClawTextTurn(ctx context.Context, text, streamID string, output *genx.StreamBuilder, epoch uint64) error {
+func (a *agent) runFlowcraftTextTurn(ctx context.Context, text, streamID string, output *genx.StreamBuilder, epoch uint64) error {
 	text = strings.TrimSpace(text)
 	a.setActiveStreamID(streamID)
 
@@ -1638,9 +1550,9 @@ func (a *agent) runClawTextTurn(ctx context.Context, text, streamID string, outp
 			return fmt.Errorf("flowcraft: provide turn inputs: %w", err)
 		}
 	}
-	resp, err := a.claw.RoundTrip(flowclaw.Request{Context: ctx, Text: text, Inputs: inputs})
+	resp, err := a.runtime.RoundTrip(runtimeRequest{Context: ctx, Text: text, Inputs: inputs})
 	if err != nil {
-		return fmt.Errorf("flowcraft: claw round trip: %w", err)
+		return fmt.Errorf("flowcraft: owned runtime round trip: %w", err)
 	}
 	var currentNodeID string
 	var tts *ttsSession
@@ -1685,18 +1597,19 @@ func (a *agent) runClawTextTurn(ctx context.Context, text, streamID string, outp
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			return fmt.Errorf("flowcraft: read claw event: %w", err)
+			return fmt.Errorf("flowcraft: read owned runtime event: %w", err)
 		}
-		if ev.Type == flowclaw.EventError || ev.IsError {
-			if ev.Err == "" {
-				ev.Err = ev.Content
+		if ev.Type == runtimeEventError || ev.IsError {
+			message := ev.Err
+			if message == "" {
+				message = ev.Content
 			}
-			if sawToken && isClawPartialResponseLimitError(ev.Err) {
+			if sawToken && isPartialResponseLimitError(message) {
 				break
 			}
-			return fmt.Errorf("flowcraft: claw event error: %s", ev.Err)
+			return fmt.Errorf("flowcraft: owned runtime event error: %s", message)
 		}
-		if ev.Type != flowclaw.EventToken || ev.Content == "" {
+		if ev.Type != "" && ev.Type != runtimeEventToken || ev.Content == "" {
 			continue
 		}
 		sawToken = true
@@ -1729,7 +1642,7 @@ func (a *agent) runClawTextTurn(ctx context.Context, text, streamID string, outp
 	return nil
 }
 
-func isClawPartialResponseLimitError(message string) bool {
+func isPartialResponseLimitError(message string) bool {
 	message = strings.ToLower(strings.TrimSpace(message))
 	return strings.Contains(message, "response incomplete") && strings.Contains(message, "length")
 }
@@ -2709,219 +2622,135 @@ func (s *sliceStream) CloseWithError(err error) error {
 	return nil
 }
 
-func writeClawConfig(root string, cfg map[string]any) error {
-	if err := os.MkdirAll(root, 0o755); err != nil {
-		return fmt.Errorf("flowcraft: create workspace dir: %w", err)
+func buildOwnedRuntimeConfig(
+	ctx context.Context,
+	genxService *peergenx.Service,
+	options ConfiguredAgentOptions,
+	workspace sdkworkspace.Workspace,
+	toolkit commonagent.Toolkit,
+	history logstore.MutableStore,
+	memoryStore memory.Store,
+) (ownedflowcraft.Config, error) {
+	raw := deepCopyMap(options.Flowcraft)
+	if raw == nil {
+		raw = make(map[string]any)
 	}
-	data, err := yaml.Marshal(cfg)
+	ensureDefaultAgent(raw)
+	accessible, err := accessibleGeneratorModels(ctx, genxService)
 	if err != nil {
-		return fmt.Errorf("flowcraft: encode claw config: %w", err)
+		return ownedflowcraft.Config{}, err
 	}
-	if err := os.WriteFile(filepath.Join(root, "config.yaml"), data, 0o600); err != nil {
-		return fmt.Errorf("flowcraft: write claw config: %w", err)
-	}
-	return nil
-}
-
-func buildConfiguredClawConfig(ctx context.Context, genxService *peergenx.Service, options ConfiguredAgentOptions) (map[string]any, error) {
-	out := deepCopyMap(options.Flowcraft)
-	if out == nil {
-		out = map[string]any{}
-	}
-	settings := ensureMap(out, "settings")
-	models := ensureMap(out, "models")
-	llm := ensureMap(models, "llm")
-	var accessibleModels map[string]peergenx.GeneratorConfig
-	for _, role := range clawModelRoles {
-		modelID, ok, err := configuredModelIDForRole(options, out, role.settingKey, role.required)
+	models := make(map[string]ownedflowcraft.GenXModel)
+	for _, role := range flowcraftModelRoles {
+		modelID, ok, err := configuredModelIDForRole(options, raw, role.settingKey, role.required)
 		if err != nil {
-			return nil, err
+			return ownedflowcraft.Config{}, err
 		}
 		if !ok {
 			continue
 		}
-		if accessibleModels == nil {
-			accessibleModels, err = accessibleGeneratorModels(ctx, genxService)
-			if err != nil {
-				return nil, err
-			}
+		if _, ok := accessible[modelID]; !ok {
+			return ownedflowcraft.Config{}, fmt.Errorf("flowcraft: model %q is not accessible as a generator", modelID)
 		}
-		generatorCfg, ok := accessibleModels[modelID]
-		if !ok {
-			return nil, fmt.Errorf("flowcraft: model %q is not accessible as a generator", modelID)
-		}
-		modelCfg, err := clawModelConfig(generatorCfg)
+		model := ownedflowcraft.GenXModel{Generator: genxService.Generator(), Pattern: "model/" + modelID}
+		models[role.settingKey] = model
+		models[role.modelsKey] = model
+		models[modelID] = model
+	}
+	resolver, err := ownedflowcraft.NewGenXResolver(models)
+	if err != nil {
+		return ownedflowcraft.Config{}, err
+	}
+
+	agentValues := ensureMap(raw, "agent")
+	agentID := mapString(agentValues, "id")
+	if agentID == "" {
+		agentID = "claw"
+	}
+	modelRef := mapString(agentValues, "model")
+	if modelRef == "" {
+		modelRef = "generate_model"
+	}
+	systemPrompt := mapString(agentValues, "system_prompt")
+	graphDefinition := flowgraph.GraphDefinition{}
+	if graphValue, ok := agentValues["graph"]; ok && graphValue != nil {
+		data, err := json.Marshal(graphValue)
 		if err != nil {
-			return nil, err
+			return ownedflowcraft.Config{}, fmt.Errorf("flowcraft: encode agent graph: %w", err)
 		}
-		settings[role.settingKey] = modelID
-		models[role.modelsKey] = role.settingKey
-		llm[modelID] = modelCfg
+		if err := json.Unmarshal(data, &graphDefinition); err != nil {
+			return ownedflowcraft.Config{}, fmt.Errorf("flowcraft: decode agent graph: %w", err)
+		}
+	} else {
+		graphDefinition = flowgraph.GraphDefinition{
+			Name: agentID, Entry: "answer",
+			Nodes: []flowgraph.NodeDefinition{{
+				ID: "answer", Type: "llm", Config: map[string]any{"model": modelRef, "system_prompt": systemPrompt},
+			}},
+			Edges: []flowgraph.EdgeDefinition{{From: "answer", To: flowgraph.END}},
+		}
 	}
-	ensureDefaultAgent(out)
-	if err := addToolkitToolsToClawConfig(ctx, out, options.Toolkit); err != nil {
-		return nil, err
+	maxIterations := intValue(agentValues["max_iterations"])
+	if maxIterations == 0 {
+		maxIterations = 8
 	}
-	return out, nil
+	parallel := runner.ParallelConfig{}
+	if value, ok := agentValues["parallel"]; ok && value != nil {
+		data, err := json.Marshal(value)
+		if err != nil {
+			return ownedflowcraft.Config{}, fmt.Errorf("flowcraft: encode parallel config: %w", err)
+		}
+		if err := json.Unmarshal(data, &parallel); err != nil {
+			return ownedflowcraft.Config{}, fmt.Errorf("flowcraft: decode parallel config: %w", err)
+		}
+	}
+	publishNodes := ownedPublisherNodes(agentValues)
+	workspaceName := strings.TrimSpace(options.WorkspaceName)
+	if workspaceName == "" {
+		workspaceName = agentID
+	}
+	return ownedflowcraft.Config{
+		ID: agentID, Conversation: workspaceName, Graph: graphDefinition, Resolver: resolver,
+		Workspace: workspace, Toolkit: toolkit, History: history, Memory: memoryStore, PublishNodes: publishNodes,
+		MaxIterations: maxIterations, Parallel: parallel, MaxToolCalls: 32, ToolTimeout: 30 * time.Second,
+		InputProvider: options.InputProvider,
+	}, nil
 }
 
-func buildClawConfig(ctx context.Context, genxService *peergenx.Service, spec agenthost.Spec, cfg workflowConfig) (map[string]any, error) {
-	parameters, err := flowcraftWorkspaceParameters(spec.Workspace.Parameters)
-	if err != nil {
-		return nil, err
-	}
-	options := ConfiguredAgentOptions{Flowcraft: cfg.Spec.Flowcraft, Toolkit: spec.Toolkit}
-	if parameters != nil {
-		options.GenerateModel = stringValue(parameters.GenerateModel)
-		options.ExtractModel = stringValue(parameters.ExtractModel)
-		options.EmbeddingModel = stringValue(parameters.EmbeddingModel)
-	}
-	return buildConfiguredClawConfig(ctx, genxService, options)
-}
-
-func addToolkitToolsToClawConfig(ctx context.Context, cfg map[string]any, tools *agenthost.ToolkitContext) error {
-	resolved, err := flowcraftToolkitTools(ctx, tools)
-	if err != nil {
-		return fmt.Errorf("flowcraft: build toolkit: %w", err)
-	}
-	if len(resolved) == 0 {
+func ownedPublisherNodes(agentValues map[string]any) map[string]bool {
+	publisher, ok := agentValues["publisher"].(map[string]any)
+	if !ok {
 		return nil
 	}
-	return mergeToolkitToolConfigs(cfg, resolved)
-}
-
-func registerToolkitHandlers(ctx context.Context, claw *flowclaw.Claw, tools *agenthost.ToolkitContext) error {
-	resolved, err := flowcraftToolkitTools(ctx, tools)
-	if err != nil {
-		return fmt.Errorf("flowcraft: build toolkit handlers: %w", err)
+	nodes, ok := publisher["nodes"].(map[string]any)
+	if !ok {
+		return nil
 	}
-	for _, tool := range resolved {
-		name := flowcraftToolkitToolName(tool)
-		if name == "" {
-			return fmt.Errorf("flowcraft: toolkit tool %q has no callable name", tool.ID)
-		}
-		claw.Handle(name, toolkitToolHandler(tools))
-	}
-	return nil
-}
-
-func flowcraftToolkitTools(ctx context.Context, tools *agenthost.ToolkitContext) ([]toolkit.Tool, error) {
-	if tools == nil {
-		return nil, nil
-	}
-	kit, err := tools.BuildToolkit(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return kit.Tools, nil
-}
-
-func mergeToolkitToolConfigs(cfg map[string]any, tools []toolkit.Tool) error {
-	agent := ensureMap(cfg, "agent")
-	items, index, err := flowcraftToolConfigList(agent["tools"])
-	if err != nil {
-		return err
-	}
-	for _, tool := range tools {
-		item, err := flowcraftToolkitToolConfig(tool)
-		if err != nil {
-			return err
-		}
-		name := item["name"].(string)
-		if pos, ok := index[name]; ok {
-			items[pos] = item
+	result := make(map[string]bool)
+	for nodeID, raw := range nodes {
+		config, ok := raw.(map[string]any)
+		if !ok {
 			continue
 		}
-		index[name] = len(items)
-		items = append(items, item)
-	}
-	agent["tools"] = items
-	return nil
-}
-
-func flowcraftToolConfigList(raw any) ([]any, map[string]int, error) {
-	index := map[string]int{}
-	if raw == nil {
-		return nil, index, nil
-	}
-	items, ok := raw.([]any)
-	if !ok {
-		return nil, nil, fmt.Errorf("flowcraft: agent.tools must be an array")
-	}
-	out := append([]any(nil), items...)
-	for i, item := range out {
-		name := flowcraftToolConfigName(item)
-		if name != "" {
-			index[name] = i
+		publish, ok := config["publish"].(bool)
+		if ok && publish {
+			result[nodeID] = true
 		}
 	}
-	return out, index, nil
+	return result
 }
 
-func flowcraftToolConfigName(item any) string {
-	switch value := item.(type) {
-	case string:
-		return strings.TrimSpace(value)
-	case map[string]any:
-		name, _ := value["name"].(string)
-		return strings.TrimSpace(name)
+func intValue(value any) int {
+	switch value := value.(type) {
+	case int:
+		return value
+	case float64:
+		return int(value)
+	case json.Number:
+		parsed, _ := strconv.Atoi(value.String())
+		return parsed
 	default:
-		return ""
-	}
-}
-
-func flowcraftToolkitToolConfig(tool toolkit.Tool) (map[string]any, error) {
-	name := flowcraftToolkitToolName(tool)
-	if name == "" {
-		return nil, fmt.Errorf("flowcraft: toolkit tool %q has no callable name", tool.ID)
-	}
-	schema, err := flowcraftToolkitInputSchema(tool)
-	if err != nil {
-		return nil, err
-	}
-	out := map[string]any{
-		"name":         name,
-		"input_schema": schema,
-	}
-	if description := firstString(tool.Description); description != "" {
-		out["description"] = description
-	}
-	return out, nil
-}
-
-func flowcraftToolkitToolName(tool toolkit.Tool) string {
-	if name := firstString(tool.Name); name != "" {
-		return name
-	}
-	return strings.TrimSpace(tool.ID)
-}
-
-func flowcraftToolkitInputSchema(tool toolkit.Tool) (map[string]any, error) {
-	data, err := json.Marshal(tool.InputSchema)
-	if err != nil {
-		return nil, fmt.Errorf("flowcraft: encode toolkit tool %q schema: %w", tool.ID, err)
-	}
-	var out map[string]any
-	if err := json.Unmarshal(data, &out); err != nil {
-		return nil, fmt.Errorf("flowcraft: decode toolkit tool %q schema: %w", tool.ID, err)
-	}
-	if out == nil {
-		out = map[string]any{"type": "object", "properties": map[string]any{}}
-	}
-	return out, nil
-}
-
-func toolkitToolHandler(tools *agenthost.ToolkitContext) flowclaw.ToolHandler {
-	return func(ctx context.Context, name string, args json.RawMessage) (string, error) {
-		result, err := tools.Invoke(ctx, "", name, args)
-		if err != nil {
-			return "", err
-		}
-		data := bytes.TrimSpace(result.Data)
-		if len(data) == 0 {
-			return "{}", nil
-		}
-		return string(data), nil
+		return 0
 	}
 }
 
@@ -3005,155 +2834,6 @@ func normalizeInputMode(value any) inputMode {
 		return inputModeRealtime
 	default:
 		return ""
-	}
-}
-
-func clawModelConfig(cfg peergenx.GeneratorConfig) (map[string]any, error) {
-	switch cfg.Tenant.Kind {
-	case string(apitypes.ModelProviderKindOpenaiTenant):
-		return resolveOpenAIClawModelConfig(cfg)
-	case string(apitypes.ModelProviderKindVolcTenant):
-		return resolveVolcClawModelConfig(cfg)
-	default:
-		return nil, fmt.Errorf("flowcraft: model %q provider %q is not supported by claw config generation", cfg.Model.Id, cfg.Tenant.Kind)
-	}
-}
-
-func resolveOpenAIClawModelConfig(cfg peergenx.GeneratorConfig) (map[string]any, error) {
-	if cfg.Tenant.OpenAI == nil {
-		return nil, fmt.Errorf("flowcraft: openai tenant is required")
-	}
-	var providerData apitypes.OpenAITenantModelProviderData
-	if cfg.Model.ProviderData != nil {
-		var err error
-		providerData, err = cfg.Model.ProviderData.AsOpenAITenantModelProviderData()
-		if err != nil {
-			return nil, fmt.Errorf("flowcraft: decode openai provider_data: %w", err)
-		}
-	}
-	upstream := firstString(providerData.UpstreamModel, string(cfg.Model.Id))
-	body, err := cfg.Credential.Body.AsOpenAICredentialBody()
-	if err != nil {
-		return nil, err
-	}
-	apiKey := firstString(body.ApiKey, body.Token)
-	if apiKey == "" {
-		return nil, fmt.Errorf("flowcraft: credential %q missing api_key", cfg.Credential.Name)
-	}
-	out := map[string]any{
-		"provider": "openai",
-		"model":    upstream,
-		"api_key":  apiKey,
-	}
-	if extra := openAIThinkingConfig(providerData); len(extra) > 0 {
-		out["config"] = extra
-	}
-	if baseURL := firstString(cfg.Tenant.OpenAI.BaseUrl, body.BaseUrl); baseURL != "" {
-		out["base_url"] = baseURL
-	}
-	return out, nil
-}
-
-func resolveVolcClawModelConfig(cfg peergenx.GeneratorConfig) (map[string]any, error) {
-	if cfg.Tenant.Volc == nil {
-		return nil, fmt.Errorf("flowcraft: volc tenant is required")
-	}
-	var providerData apitypes.VolcTenantModelProviderData
-	if cfg.Model.ProviderData != nil {
-		var err error
-		providerData, err = cfg.Model.ProviderData.AsVolcTenantModelProviderData()
-		if err != nil {
-			return nil, fmt.Errorf("flowcraft: decode volc provider_data: %w", err)
-		}
-	}
-	model := firstString(providerData.UpstreamModel, string(cfg.Model.Id))
-	if model == "" {
-		return nil, fmt.Errorf("flowcraft: model %q missing upstream model", cfg.Model.Id)
-	}
-	body, err := cfg.Credential.Body.AsVolcCredentialBody()
-	if err != nil {
-		return nil, err
-	}
-	apiKey := firstString(body.ArkApiKey)
-	if apiKey == "" {
-		return nil, fmt.Errorf("flowcraft: credential %q missing ark_api_key", cfg.Credential.Name)
-	}
-	out := map[string]any{
-		"provider": "bytedance",
-		"model":    model,
-		"api_key":  apiKey,
-	}
-	if extra := volcThinkingConfig(providerData); len(extra) > 0 {
-		out["config"] = extra
-	}
-	if baseURL := firstString(cfg.Tenant.Volc.Endpoint); baseURL != "" {
-		out["base_url"] = baseURL
-	}
-	if region := firstString(cfg.Tenant.Volc.Region); region != "" {
-		out["region"] = region
-	}
-	return out, nil
-}
-
-func openAIThinkingConfig(data apitypes.OpenAITenantModelProviderData) map[string]any {
-	param := firstString(data.ThinkingParam, data.ThinkingLevelParam)
-	level := firstString(data.DefaultThinkingLevel)
-	if param == "" || level == "" {
-		return nil
-	}
-	out := map[string]any{}
-	setNestedConfigValue(out, param, openAIThinkingConfigValue(param, level))
-	return out
-}
-
-func volcThinkingConfig(data apitypes.VolcTenantModelProviderData) map[string]any {
-	param := firstString(data.ThinkingParam, data.ThinkingLevelParam)
-	level := firstString(data.DefaultThinkingLevel)
-	if param == "" || level == "" {
-		return nil
-	}
-	out := map[string]any{}
-	setNestedConfigValue(out, param, openAIThinkingConfigValue(param, level))
-	return out
-}
-
-func openAIThinkingConfigValue(param, level string) any {
-	if strings.EqualFold(strings.TrimSpace(param), "enable_thinking") {
-		return !isDisabledThinkingLevel(level)
-	}
-	return level
-}
-
-func isDisabledThinkingLevel(level string) bool {
-	switch strings.ToLower(strings.TrimSpace(level)) {
-	case "disabled", "disable", "off", "false", "0", "none", "no":
-		return true
-	default:
-		return false
-	}
-}
-
-func setNestedConfigValue(out map[string]any, path string, value any) {
-	parts := strings.Split(path, ".")
-	if len(parts) == 0 {
-		return
-	}
-	current := out
-	for _, raw := range parts[:len(parts)-1] {
-		part := strings.TrimSpace(raw)
-		if part == "" {
-			return
-		}
-		next, _ := current[part].(map[string]any)
-		if next == nil {
-			next = map[string]any{}
-			current[part] = next
-		}
-		current = next
-	}
-	last := strings.TrimSpace(parts[len(parts)-1])
-	if last != "" {
-		current[last] = value
 	}
 }
 

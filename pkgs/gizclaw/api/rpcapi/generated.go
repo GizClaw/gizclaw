@@ -934,11 +934,13 @@ func (e VolcTenantModelProviderDataApiMode) Valid() bool {
 
 // Defines values for WorkflowDriver.
 const (
-	WorkflowDriverAstTranslate   WorkflowDriver = "ast-translate"
-	WorkflowDriverChatroom       WorkflowDriver = "chatroom"
-	WorkflowDriverDoubaoRealtime WorkflowDriver = "doubao-realtime"
-	WorkflowDriverFlowcraft      WorkflowDriver = "flowcraft"
-	WorkflowDriverPet            WorkflowDriver = "pet"
+	WorkflowDriverAstTranslate      WorkflowDriver = "ast-translate"
+	WorkflowDriverChatroom          WorkflowDriver = "chatroom"
+	WorkflowDriverDashscopeRealtime WorkflowDriver = "dashscope-realtime"
+	WorkflowDriverDoubaoRealtime    WorkflowDriver = "doubao-realtime"
+	WorkflowDriverEino              WorkflowDriver = "eino"
+	WorkflowDriverFlowcraft         WorkflowDriver = "flowcraft"
+	WorkflowDriverPet               WorkflowDriver = "pet"
 )
 
 // Valid indicates whether the value is a known member of the WorkflowDriver enum.
@@ -948,7 +950,11 @@ func (e WorkflowDriver) Valid() bool {
 		return true
 	case WorkflowDriverChatroom:
 		return true
+	case WorkflowDriverDashscopeRealtime:
+		return true
 	case WorkflowDriverDoubaoRealtime:
+		return true
+	case WorkflowDriverEino:
 		return true
 	case WorkflowDriverFlowcraft:
 		return true
@@ -1509,6 +1515,21 @@ type DoubaoRealtimeWorkflowSpec struct {
 	// Model GizClaw Model resource name. The upstream Doubao model version is configured on Model provider_data.upstream_model.
 	Model string                        `json:"model"`
 	Tools *[]DoubaoRealtimeFunctionTool `json:"tools,omitempty"`
+}
+
+// DashScopeRealtimeWorkflowSpec defines model for DashScopeRealtimeWorkflowSpec.
+type DashScopeRealtimeWorkflowSpec struct {
+	MaxToolCalls  *int    `json:"max_tool_calls,omitempty"`
+	Model         string  `json:"model"`
+	ProviderModel *string `json:"provider_model,omitempty"`
+}
+
+// EinoWorkflowSpec defines model for EinoWorkflowSpec.
+type EinoWorkflowSpec struct {
+	MaxSteps     *int    `json:"max_steps,omitempty"`
+	MaxToolCalls *int    `json:"max_tool_calls,omitempty"`
+	Model        string  `json:"model"`
+	SystemPrompt *string `json:"system_prompt,omitempty"`
 }
 
 // DoubaoRealtimeWorkspaceParameters defines model for DoubaoRealtimeWorkspaceParameters.
@@ -3200,13 +3221,15 @@ type ToolkitPolicy struct {
 
 // WorkflowSpec defines model for WorkflowSpec.
 type WorkflowSpec struct {
-	AstTranslate   *ASTTranslateWorkflowSpec   `json:"ast_translate,omitempty"`
-	Chatroom       *ChatRoomWorkflowSpec       `json:"chatroom,omitempty"`
-	DoubaoRealtime *DoubaoRealtimeWorkflowSpec `json:"doubao_realtime,omitempty"`
-	Driver         WorkflowDriver              `json:"driver"`
-	Flowcraft      *FlowcraftWorkflowSpec      `json:"flowcraft,omitempty"`
-	Pet            *PetWorkflowSpec            `json:"pet,omitempty"`
-	Toolkit        *ToolkitPolicy              `json:"toolkit,omitempty"`
+	AstTranslate      *ASTTranslateWorkflowSpec      `json:"ast_translate,omitempty"`
+	Chatroom          *ChatRoomWorkflowSpec          `json:"chatroom,omitempty"`
+	DashscopeRealtime *DashScopeRealtimeWorkflowSpec `json:"dashscope_realtime,omitempty"`
+	DoubaoRealtime    *DoubaoRealtimeWorkflowSpec    `json:"doubao_realtime,omitempty"`
+	Driver            WorkflowDriver                 `json:"driver"`
+	Eino              *EinoWorkflowSpec              `json:"eino,omitempty"`
+	Flowcraft         *FlowcraftWorkflowSpec         `json:"flowcraft,omitempty"`
+	Pet               *PetWorkflowSpec               `json:"pet,omitempty"`
+	Toolkit           *ToolkitPolicy                 `json:"toolkit,omitempty"`
 }
 
 // Workspace defines model for Workspace.
